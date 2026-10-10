@@ -15,6 +15,7 @@ import {
   computeRelativePath,
   withDirectoryTimeout,
 } from "@/lib/storage/sftp-walk-utils";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 type SftpSyncNode = Prisma.StorageNodeGetPayload<{
   select: {
@@ -37,7 +38,7 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
         operatingSystem: true;
         password: true;
         hostKeySha256: true;
-        sshKey: { select: { privateKey: true } };
+        sshKey: { select: typeof SSH_KEY_CREDENTIAL_SELECT };
       };
     };
   };
@@ -395,7 +396,7 @@ export async function getSftpSyncNode(
           operatingSystem: true,
           password: true,
           hostKeySha256: true,
-          sshKey: { select: { privateKey: true } },
+          sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
         },
       },
     },

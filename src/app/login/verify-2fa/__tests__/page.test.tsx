@@ -31,7 +31,7 @@ describe("Verify2faPage i18n", () => {
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "使用恢复码" })).toBeInTheDocument();
 		// login.verify2faBackToLogin — new key, zh
-		expect(screen.getByText("← 返回登录")).toBeInTheDocument();
+		expect(screen.getByText("返回登录")).toBeInTheDocument();
 	});
 
 	it("keeps the back-to-login link target as /login", async () => {
@@ -41,7 +41,7 @@ describe("Verify2faPage i18n", () => {
 			</I18nProvider>,
 		);
 
-		const backLink = screen.getByRole("link", { name: "← 返回登录" });
+		const backLink = screen.getByRole("link", { name: "返回登录" });
 		expect(backLink).toHaveAttribute("href", "/login");
 	});
 });

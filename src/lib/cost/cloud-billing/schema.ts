@@ -137,5 +137,3 @@ export const syncCloudBillingSchema = z.object({
 	month: costMonthSchema.optional(),
 });
 
-export type CreateCloudBillingAccountInput = z.infer<typeof createCloudBillingAccountSchema>;
-export type UpdateCloudBillingAccountInput = z.infer<typeof updateCloudBillingAccountSchema>;

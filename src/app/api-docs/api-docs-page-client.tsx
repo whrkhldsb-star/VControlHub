@@ -7,6 +7,9 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { Badge, InlineLoading, Notice } from "@/components/ui-primitives";
 import { api } from "@/lib/http/api-client";
 
+import { ButtonLink } from "@/components/action-button";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 type OpenApiOperation = {
 	tags?: string[];
 	summary?: string;
@@ -103,34 +106,31 @@ export default function ApiDocsPage() {
 	);
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<div className="space-y-6">
 				<PageHeader
 					eyebrow={t("apiDocsPage.eyebrow")}
 					title={t("apiDocsPage.title")}
 					description={spec?.info?.description ?? t("apiDocsPage.description")}
 				>
-					<a
+					<ButtonLink
 						href="/api/docs/openapi.json"
-						target="_blank"
-						rel="noreferrer"
-						data-secondary
-						className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-elevated)]"
+						external
+						variant="secondary"
 					>
 						{t("apiDocsPage.openApiJsonLink")}
-					</a>
+					</ButtonLink>
 				</PageHeader>
 
 				<Toolbar className="w-full">
 					<label className="block min-w-0 flex-1">
 						<span className="sr-only">{t("apiDocsPage.searchAria")}</span>
 						<input
-							data-input
 							type="search"
 							value={query}
 							onChange={(event) => setQuery(event.target.value)}
 							placeholder={t("apiDocsPage.searchPlaceholder")}
-							className="h-10 w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+							className={cn(UI_INPUT, "h-10 w-full text-sm")}
 						/>
 					</label>
 					<div className="px-2 text-sm text-[var(--text-muted)]">
@@ -153,7 +153,7 @@ export default function ApiDocsPage() {
 						<div className="border-b border-[var(--border)] px-4 py-3 sm:px-5">
 							<div className="flex flex-wrap items-center justify-between gap-2">
 								<div>
-									<h2 className="text-base font-semibold text-[var(--text-primary)]">{tag}</h2>
+									<h2 className="ui-title-section">{tag}</h2>
 									{tagDescriptions.get(tag) ? (
 										<p className="mt-1 text-xs text-[var(--text-muted)]">{tagDescriptions.get(tag)}</p>
 									) : null}
@@ -182,7 +182,7 @@ export default function ApiDocsPage() {
 														/api{entry.path}
 													</code>
 												</div>
-												<h3 className="mt-3 text-sm font-medium text-[var(--text-primary)]">
+												<h3 className="ui-title-group mt-3">
 													{entry.operation.summary ?? t("apiDocsPage.tag.untagged")}
 												</h3>
 												{entry.operation.description ? (

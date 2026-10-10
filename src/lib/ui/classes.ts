@@ -12,8 +12,11 @@
  * white/black opacity.
  */
 
-/** Field label (matches <FormField>). */
-export const UI_LABEL = "text-[13px] font-medium text-[var(--text-primary)]";
+/**
+ * Field label. Like UI_INPUT it is a components-layer rule (`.ui-label` in
+ * globals.css), so <FormField> and hand-written labels share one look.
+ */
+export const UI_LABEL = "ui-label";
 
 /**
  * Text field / select / textarea chrome. The look is the `.ui-control` rule in
@@ -33,4 +36,3 @@ export const UI_TONE = {
 	neutral: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]",
 } as const;
 
-export type UiTone = keyof typeof UI_TONE;

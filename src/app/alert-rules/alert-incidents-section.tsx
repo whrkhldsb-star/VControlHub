@@ -18,6 +18,31 @@ type Props = {
 	ackIncident: (incidentId: string) => Promise<void>;
 };
 
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
+/**
+ * Incidents store an English title and message for outbound channels; the
+ * page rebuilds both from the incident's structured fields in the viewer's
+ * language and keeps the stored text for metrics it cannot name.
+ */
+export function incidentTitle(incident: AlertIncident, t: Translate): string {
+	const metricKey = `alertRulesPage.createForm.metric.${incident.metric}`;
+	const metric = t(metricKey);
+	return metric === metricKey ? incident.title : t("alertRulesPage.incidents.itemTitle", { server: incident.serverName, metric });
+}
+
+export function incidentDetail(incident: AlertIncident, t: Translate): string {
+	if (incident.metric === "server_offline") return t("alertRulesPage.incidents.detailOffline", { rule: incident.ruleName ?? "" });
+	const metricKey = `alertRulesPage.createForm.metric.${incident.metric}`;
+	if (t(metricKey) === metricKey) return incident.message;
+	return t("alertRulesPage.incidents.detail", {
+		rule: incident.ruleName ?? "",
+		operator: incident.operator,
+		threshold: incident.threshold,
+		value: Number.isInteger(incident.value) ? incident.value : incident.value.toFixed(1),
+	});
+}
+
 export function AlertIncidentsSection({
 	incidents,
 	incidentsLoading,
@@ -66,14 +91,14 @@ export function AlertIncidentsSection({
 								<StatusBadge tone={incident.status === "ACKNOWLEDGED" ? "warning" : "danger"}>
 									{t("alertRulesPage.incidents.level", { level: incident.level })}
 								</StatusBadge>
-								<span className="text-sm font-medium text-[var(--text-primary)]">{incident.title}</span>
+								<span className="text-sm font-medium text-[var(--text-primary)]">{incidentTitle(incident, t)}</span>
 								<span className="text-xs text-[var(--text-muted)]">
 									{incident.status === "ACKNOWLEDGED"
 										? t("alertRulesPage.incidents.acked")
 										: t("alertRulesPage.incidents.open")}
 								</span>
 							</div>
-							<p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{incident.message}</p>
+							<p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{incidentDetail(incident, t)}</p>
 						</div>
 						{incident.status === "OPEN" ? (
 							<ActionButton

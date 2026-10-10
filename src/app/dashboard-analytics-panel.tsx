@@ -105,7 +105,7 @@ export function DashboardAnalyticsPanel() {
     <section data-surface-panel data-card className="mt-6 space-y-4 p-4 sm:p-5" aria-labelledby="dashboard-analytics-title">
       <div className="flex flex-col gap-2 border-b border-[var(--border-subtle)] pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 id="dashboard-analytics-title" className="text-[15px] font-semibold text-[var(--text-primary)]">{t("dashboard.data-trends")}</h2>
+          <h2 id="dashboard-analytics-title" className="ui-title-section">{t("dashboard.data-trends")}</h2>
           <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{t("dashboard.analytics.description")}</p>
         </div>
         {loading ? <span className="text-xs font-medium text-[var(--accent)]">{t("dashboard.analytics.loading")}</span> : null}
@@ -119,7 +119,7 @@ export function DashboardAnalyticsPanel() {
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
           <div data-inset className="p-4">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.server-trend")}</h3>
+              <h3 className="ui-title-group">{t("dashboard.analytics.server-trend")}</h3>
               {latestServerMetric ? <span className="text-xs text-[var(--text-muted)]">{t("dashboard.analytics.recent")} {formatShortTime(latestServerMetric.time, locale)}</span> : null}
             </div>
             {data.servers?.length ? (
@@ -127,9 +127,14 @@ export function DashboardAnalyticsPanel() {
                 <MetricLine label="CPU" value={clampPercent(latestServerMetric?.cpu ?? 0)} color="emerald" />
                 <MetricLine label={t("monitoring.memory")} value={clampPercent(latestServerMetric?.memory ?? 0)} color="blue" />
                 <MetricLine label={t("monitoring.disk")} value={clampPercent(latestServerMetric?.disk ?? 0)} color="amber" />
+                {/* CPU is the metric that moves within a day; disk barely changes, so
+                    bars of max(cpu, memory, disk) were a flat row. Absolute 0–100 % scale. */}
                 <SparkBars
-                  points={data.servers.map((point) => ({ label: formatShortTime(point.time, locale), value: Math.max(point.cpu, point.memory, point.disk) }))}
+                  points={data.servers.map((point) => ({ label: formatShortTime(point.time, locale), value: clampPercent(point.cpu) }))}
                   color="cyan"
+                  scaleMax={100}
+                  unit="%"
+                  caption={t("dashboard.analytics.cpu-bars")}
                 />
               </div>
             ) : (
@@ -138,7 +143,7 @@ export function DashboardAnalyticsPanel() {
           </div>
 
           <div data-inset className="p-4">
-            <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.download-trend")}</h3>
+            <h3 className="ui-title-group">{t("dashboard.analytics.download-trend")}</h3>
             {data.downloads?.length ? (
               <div className="mt-4" data-testid="download-analytics-chart">
                 <div className="grid grid-cols-4 gap-2 text-xs">
@@ -155,7 +160,7 @@ export function DashboardAnalyticsPanel() {
           </div>
 
           <div data-inset className="p-4">
-            <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.audit-activity")}</h3>
+            <h3 className="ui-title-group">{t("dashboard.analytics.audit-activity")}</h3>
             {data.audit?.length ? (
               <SparkBars points={data.audit.map((point) => ({ label: formatShortDate(point.date), value: point.total }))} color="violet" />
             ) : (
@@ -164,7 +169,7 @@ export function DashboardAnalyticsPanel() {
           </div>
 
           <div data-inset className="p-4">
-            <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.image-bed")}</h3>
+            <h3 className="ui-title-group">{t("dashboard.analytics.image-bed")}</h3>
             {data.imageBed?.length ? (
               <div className="mt-4">
                 <SparkBars points={data.imageBed.map((point) => ({ label: formatShortDate(point.date), value: point.count }))} color="pink" />
@@ -232,9 +237,16 @@ function AxisLabels({ labels }: { labels: string[] }) {
   );
 }
 
-function SparkBars({ points, color }: { points: Array<{ label: string; value: number }>; color: "cyan" | "violet" | "pink" }) {
+function SparkBars({ points, color, scaleMax, unit = "", caption }: {
+  points: Array<{ label: string; value: number }>;
+  color: "cyan" | "violet" | "pink";
+  /** Fixed top of the scale (e.g. 100 for percentages); defaults to the largest value. */
+  scaleMax?: number;
+  unit?: string;
+  caption?: string;
+}) {
   const { t } = useI18n();
-  const max = Math.max(1, ...points.map((point) => point.value));
+  const max = scaleMax ?? Math.max(1, ...points.map((point) => point.value));
   const colors = {
     cyan: "bg-[var(--chart-1)]",
     violet: "bg-[var(--chart-5)]",
@@ -248,11 +260,12 @@ function SparkBars({ points, color }: { points: Array<{ label: string; value: nu
             key={`${point.label}-${index}`}
             className={`min-w-0 flex-1 rounded-t-sm opacity-85 transition-opacity hover:opacity-100 ${colors[color]}`}
             style={{ height: `${Math.max(4, (point.value / max) * 100)}%` }}
-            title={`${point.label}: ${point.value}`}
+            title={`${point.label}: ${point.value}${unit}`}
           />
         ))}
       </div>
       <AxisLabels labels={points.map((point) => point.label)} />
+      {caption ? <p className="mt-1 text-[11px] text-[var(--text-muted)]">{caption}</p> : null}
     </div>
   );
 }

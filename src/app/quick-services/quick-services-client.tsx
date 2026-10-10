@@ -254,7 +254,7 @@ export function QuickServicesClient({
 					<div className="flex items-start justify-between gap-3">
 						<div>
 							<p className="text-xs text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
-							<h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{runningItems.length > 0 ? t("qsPage.runningOnlineCount", { count: runningItems.length }) : t("qsPage.noRunningServicesYet")}</h2>
+							<h2 className="ui-title-section mt-1">{runningItems.length > 0 ? t("qsPage.runningOnlineCount", { count: runningItems.length }) : t("qsPage.noRunningServicesYet")}</h2>
 							</div>
 							<ActionButton
 								size="sm"
@@ -274,7 +274,7 @@ export function QuickServicesClient({
 										<span className="ui-mono text-xs text-[var(--text-muted)]">:{item.port ?? item.defaultPort}</span>
 									</div>
 									<p className="mt-1 truncate text-xs text-[var(--text-muted)]">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
-									{access ? <p className="mt-2 text-xs font-medium text-[var(--accent)]">{access.label}</p> : <p className="mt-2 text-xs font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured", { name: item.name })}</p>}
+									{access ? <p className="mt-2 text-xs font-medium text-[var(--accent)]">{t(`qsPage.access.${access.mode}.label`)}</p> : <p className="mt-2 text-xs font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured", { name: item.name })}</p>}
 								</>
 							);
 							if (!access) {
@@ -285,7 +285,7 @@ export function QuickServicesClient({
 								);
 							}
 							return (
-								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry", { name: item.name, label: access.label })} data-inset className="p-3 transition hover:bg-[var(--surface-hover)]">
+								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry", { name: item.name, label: t(`qsPage.access.${access.mode}.label`) })} data-inset className="p-3 transition hover:bg-[var(--surface-hover)]">
 									{cardBody}
 								</a>
 							);
@@ -295,7 +295,7 @@ export function QuickServicesClient({
 				</div>
 				<div data-tile className="p-4">
 					<p className="text-xs text-[var(--text-muted)]">{t("qsPage.portsLabel")}</p>
-					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.listeningPortsCount", { count: usedPorts.length })}</h3>
+					<h3 className="ui-title-section mt-1">{t("qsPage.listeningPortsCount", { count: usedPorts.length })}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("qsPage.portsHint")}</p>
 					<div className="mt-3 flex flex-wrap gap-1.5">
 						{usedPorts.slice(0, 8).map((port) => <Badge key={port}>{port}</Badge>)}
@@ -303,7 +303,7 @@ export function QuickServicesClient({
 				</div>
 				<div data-tile className="p-4">
 					<p className="text-xs text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
-					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount", { enabled: sources.filter((s) => s.enabled).length, total: sources.length })}</h3>
+					<h3 className="ui-title-section mt-1">{t("qsPage.sourcesEnabledCount", { enabled: sources.filter((s) => s.enabled).length, total: sources.length })}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced", { name: lastSyncedSource.displayName }) : t("qsPage.noSyncRecord")}</p>
 					<ActionButton size="sm" variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => selectTab("sources")} className="!mt-3">
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources", { count: staleSources.length }) : t("qsPage.manageSources")}
@@ -313,7 +313,7 @@ export function QuickServicesClient({
 
 			<Toolbar className="flex-col items-stretch gap-3 sm:flex-row sm:items-end">
 				<div className="min-w-0 flex-1 space-y-1.5">
-					<label htmlFor="quick-service-search" className="block text-xs font-medium text-[var(--text-muted)]">
+					<label htmlFor="quick-service-search" className="ui-label block">
 						{t("qsPage.searchLabel")}
 					</label>
 					<div className="relative">
@@ -334,7 +334,7 @@ export function QuickServicesClient({
 					</div>
 				</div>
 				{tab !== "sources" ? (
-					<label className="space-y-1.5 text-xs font-medium text-[var(--text-muted)]">
+					<label className="ui-label space-y-1.5">
 						<span className="block">{t("qsPage.categoryFilter")}</span>
 						<select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className={`${CONTROL_CLASS} min-w-40`}>
 							<option value="all">{t("qsPage.categoryAll")}</option>
@@ -350,7 +350,7 @@ export function QuickServicesClient({
 				<section className="space-y-3">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qsPage.recommendedHeader")}</h2>
+							<h2 className="ui-title-section">{t("qsPage.recommendedHeader")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qsPage.recommendedSubheader")}</p>
 						</div>
 						<Badge>{t("qsPage.mvpPriority")}</Badge>
@@ -393,7 +393,7 @@ export function QuickServicesClient({
 				if (items.length === 0) return null;
 				return (
 					<div key={cat} className="space-y-3">
-						<h2 className="text-sm font-semibold text-[var(--text-primary)]/70 ">{categoryLabels[cat] ?? cat}</h2>
+						<h2 className="ui-title-section">{categoryLabels[cat] ?? cat}</h2>
 						<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 								{items.map((item) => renderServiceCard(item, tab))}
 						</div>

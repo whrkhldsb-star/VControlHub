@@ -60,7 +60,7 @@ export function DockerContainerList({
 				<section key={group.project} data-card>
 					<div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 						<div>
-							<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">{group.project}</h2>
+							<h2 className="ui-title-section">{group.project}</h2>
 							<p className="text-xs text-[var(--text-muted)]">
 								{t("dockerPage.group.subtitle", { count: group.containers.length })}
 								{" ·"}
@@ -99,7 +99,7 @@ export function DockerContainerList({
 
 			{ungrouped.length > 0 && (
 				<section data-card>
-					<h2 className="mb-3 text-[15px] font-semibold text-[var(--text-primary)]">{t("dockerPage.ungrouped.title")}</h2>
+					<h2 className="ui-title-section mb-3">{t("dockerPage.ungrouped.title")}</h2>
 					<div className="space-y-3">
 						{ungrouped.map((c) => renderContainerCard(c))}
 					</div>

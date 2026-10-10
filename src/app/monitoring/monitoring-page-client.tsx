@@ -223,7 +223,7 @@ export default function MonitoringPage() {
   if (!stats) {
     return (
       <PageShell>
-        <Notice tone="danger" title={<h1 className="text-[15px] font-semibold">{t("monitoringPage.errorTitle")}</h1>}>
+        <Notice tone="danger" title={<h1 className="ui-title-section">{t("monitoringPage.errorTitle")}</h1>}>
           <p>{errorMessage ?? t("monitoringPage.errorUnavailable")}</p>
           <ActionButton
             onClick={fetchStats}

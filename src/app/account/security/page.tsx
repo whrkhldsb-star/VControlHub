@@ -1,4 +1,3 @@
-import Link from "next/link";
 
 import { PageHeader, PageShell } from "@/components/page-shell";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
@@ -8,6 +7,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 
 import { SignOutAllDevices } from "./sign-out-all-devices";
 
+import { ButtonLink } from "@/components/action-button";
 export const dynamic = "force-dynamic";
 
 export default async function AccountSecurityPage() {
@@ -29,12 +29,9 @@ export default async function AccountSecurityPage() {
       <div className="max-w-3xl space-y-4">
         <TwoFactorSettings enabled={user?.twoFactorEnabled ?? false} />
         <SignOutAllDevices />
-        <Link
-          href="/account/password"
-          className="inline-flex rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-bg)] hover:text-[var(--accent)]"
-        >
+        <ButtonLink href="/account/password" variant="secondary">
           {t("auth.change-password", locale)}
-        </Link>
+        </ButtonLink>
       </div>
     </PageShell>
   );

@@ -61,7 +61,7 @@ describe("NotificationListClient", () => {
       />,
     );
 
-    expect(screen.getByRole("link", { name: "查看详情 →" })).toHaveAttribute("href", "/notifications");
+    expect(screen.getByRole("link", { name: "查看详情" })).toHaveAttribute("href", "/notifications");
   });
 
   it("keeps destructive actions reachable by keyboard focus and small screens", () => {
@@ -69,7 +69,8 @@ describe("NotificationListClient", () => {
 
     const deleteButton = screen.getByRole("button", { name: "删除" });
     expect(deleteButton).not.toHaveClass("opacity-0");
-    expect(deleteButton).toHaveClass("focus-visible:ring-2");
+    // A shared ActionButton: visible focus ring from the global :focus-visible rule.
+    expect(deleteButton).toHaveAttribute("data-action-button");
     expect(deleteButton.closest("article")).toHaveClass("focus-within:ring-2");
   });
 });

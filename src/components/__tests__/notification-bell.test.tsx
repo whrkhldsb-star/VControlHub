@@ -12,7 +12,6 @@ const wsState = vi.hoisted(() => ({
   connected: false,
   lastNotification: null,
   unreadCount: 0,
-  lastServerAlert: null,
 }));
 
 vi.mock("@/lib/ws/use-ws-notifications", () => ({
@@ -37,7 +36,6 @@ describe("NotificationBell", () => {
     wsState.connected = false;
     wsState.lastNotification = null;
     wsState.unreadCount = 0;
-    wsState.lastServerAlert = null;
     vi.mocked(csrfFetch).mockResolvedValue({ unreadCount: 1, notifications: [] });
   });
 
@@ -172,6 +170,6 @@ describe("NotificationBell", () => {
     await user.click(screen.getByRole("button", { name: "Notifications" }));
 
     expect(await screen.findByRole("link", { name: /Internal notification link/ })).toHaveAttribute("href", "/servers");
-    expect(screen.getByRole("link", { name: "View all notifications →" })).toHaveAttribute("href", "/notifications");
+    expect(screen.getByRole("link", { name: "View all notifications" })).toHaveAttribute("href", "/notifications");
   });
 });

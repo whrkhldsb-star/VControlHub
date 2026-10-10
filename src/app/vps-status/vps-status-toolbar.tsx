@@ -11,6 +11,7 @@ import { Toolbar, ToggleChip } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 
 import type { VpsStatusFilter, VpsStatusViewMode } from "./use-vps-status-view";
+import { ArrowLeft } from "@/components/icons";
 
 export function VpsStatusToolbar({
 	t,
@@ -90,7 +91,7 @@ export function VpsStatusToolbar({
 						? t("vpsStatusPage.refresh.off")
 						: tt("vpsStatusPage.refresh.every", { label: intervalLabel })}
 				</StatusBadge>
-				<ButtonLink variant="outline"
+				<ButtonLink variant="outline" icon={<ArrowLeft aria-hidden />}
 					href="/health">
 					{t("vpsStatusPage.gotoSystemHealth")}
 				</ButtonLink>

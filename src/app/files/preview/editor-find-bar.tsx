@@ -29,11 +29,11 @@ export interface EditorFindBarProps {
 export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }: EditorFindBarProps) {
 	const { t } = useI18n();
 	return (
-		<div
+		<div data-inset=""
 			role="search"
 			aria-label={t("textPreview.editor.findToggle")}
 			data-testid="editor-find-bar"
-			className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--warning-border)] bg-[var(--surface)]/70 px-3 py-2"
+			className="flex flex-wrap items-center gap-2 border-[var(--warning-border)] px-3 py-2"
 		>
 			<input
 				ref={inputRef}

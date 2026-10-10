@@ -1,12 +1,3 @@
-/**
- * Bidirectional (two-way) file sync helpers — pure policy + result merge.
- *
- * Product meaning of syncType BIDIRECTIONAL:
- * - Run A→B then B→A with rsync --update (skip files newer on receiver)
- * - Never auto-delete orphans on either side (conflict-safe; deletes must be manual)
- * - Not a full enterprise "drive" conflict-resolver; honest two-leg merge over SSH
- */
-export type SyncDirectionMode = "MIRROR" | "BACKUP" | "INCREMENTAL" | "BIDIRECTIONAL";
 
 export function isBidirectionalSyncType(syncType: string | null | undefined): boolean {
   return (syncType ?? "").toUpperCase() === "BIDIRECTIONAL";

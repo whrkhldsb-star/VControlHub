@@ -1,4 +1,4 @@
-export type PreviewState = { loading: true } | { loading: false; content: string | null; error: string | null };
+export type PreviewState = { loading: true } | { loading: false; content: string | null; error: string | null; /** Read-only previews of large files hold only a prefix. */ truncated?: boolean };
 export type PreviewMetaState = {
 	editMode: boolean;
 	showDiffReview: boolean;

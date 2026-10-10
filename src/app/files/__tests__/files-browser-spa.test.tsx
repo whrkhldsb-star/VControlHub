@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FilesBrowserSpa } from "../files-browser-spa";
 import { renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
+import { expectTouchTarget } from "@/test/ui-assertions";
 
 const pushMock = vi.hoisted(() => vi.fn());
 
@@ -575,7 +576,7 @@ describe("FilesBrowserSpa", () => {
     const toggle = screen.getByRole("button", { name: "展开目录树" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(toggle).toHaveAttribute("aria-controls", "files-browser-sidebar");
-    expect(toggle.className).toMatch(/min-h-11/);
+    expectTouchTarget(toggle);
     expect(toggle.className).toMatch(/xl:hidden/);
 
     const sidebar = document.getElementById("files-browser-sidebar");

@@ -67,7 +67,7 @@ function renderUptimeSection(
   const servers = uptimeData?.servers ?? [];
   return (
     <div className="mt-8">
-      <h2 className="text-lg font-medium">{t("statusPage.uptime.title", locale)}</h2>
+      <h2 className="ui-title-section">{t("statusPage.uptime.title", locale)}</h2>
       <p className="mt-1 text-xs text-[var(--text-muted)]">
         {t("statusPage.uptime.desc", locale)}
       </p>
@@ -108,7 +108,7 @@ function renderUptimeSection(
             return (
               <div key={server.id} data-card className="p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-medium">
+                  <h3 className="ui-title-group">
                     {server.name || t("statusPage.uptime.defaultServerName", locale)}
                   </h3>
                   <div className="text-xs text-[var(--text-muted)]">
@@ -138,6 +138,12 @@ function renderUptimeSection(
   );
 }
 
+/** The translated text, or the service's own wording when no entry exists. */
+function translatedOr(key: string, fallback: string, locale: Parameters<typeof t>[1], vars?: Record<string, string | number>) {
+  const text = t(key, locale, vars);
+  return text === key ? fallback : text;
+}
+
 export default async function Page() {
   // Public status page:
   // - anonymous: overall summary only
@@ -148,7 +154,7 @@ export default async function Page() {
   if (!session) {
     const status = await getPublicStatusSummary();
     return (
-      <PageShell maxW="max-w-5xl" navigation={Boolean(session)}>
+      <PageShell width="narrow" navigation={Boolean(session)}>
         <div>
           <PageHeader eyebrow={t("statusPage.eyebrow", locale)} title={t("statusPage.title", locale)} description={t("statusPage.desc", locale)} />
 
@@ -194,7 +200,7 @@ export default async function Page() {
   ]);
 
   return (
-    <PageShell maxW="max-w-5xl" navigation={Boolean(session)}>
+    <PageShell width="narrow" navigation={Boolean(session)}>
       <div>
         <PageHeader eyebrow={t("statusPage.eyebrow", locale)} title={t("statusPage.title", locale)} description={t("statusPage.desc", locale)} />
 
@@ -234,7 +240,7 @@ export default async function Page() {
                           : "bg-[var(--danger)]"
                     }`}
                   />
-                  <b className="text-sm text-[var(--text-primary)]">{c.label}</b>
+                  <b className="text-sm text-[var(--text-primary)]">{translatedOr(`statusPage.check.${c.id}.label`, c.label, locale)}</b>
                 </div>
                 <span
                   className={`text-xs ${
@@ -248,7 +254,7 @@ export default async function Page() {
                   {getHealthLabel(c.status, locale)}
                 </span>
               </div>
-              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{c.message}</p>
+              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{c.messageCode ? translatedOr(`statusPage.check.${c.id}.${c.messageCode}`, c.message, locale, c.params) : c.message}</p>
             </div>
           ))}
         </div>

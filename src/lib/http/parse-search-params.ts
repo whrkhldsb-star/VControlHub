@@ -141,7 +141,6 @@ export const paginationQuerySchema = z.object({
     .default(20),
   limit: z.coerce.number().int().min(1).max(500).optional(),
 });
-export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 
 /**
  * `id` lookup helper — used by DELETE handlers that take the id from the
@@ -150,7 +149,6 @@ export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 export const idQuerySchema = z.object({
   id: z.string().trim().min(1, "Missing id"),
 });
-export type IdQuery = z.infer<typeof idQuerySchema>;
 
 /**
  * Boolean toggle helper — accepts `"1" | "true" | "yes" | "on"` as truthy,

@@ -13,13 +13,12 @@ import {
 
 import {
 	ALLOWED_MIME_PREFIXES,
-	DEFAULT_CHUNK_SIZE,
 	MAX_CHUNK_SIZE,
 	MAX_IMAGE_UPLOAD_BYTES,
-	MAX_TOTAL_SIZE,
 	MIN_CHUNK_SIZE,
 	STORAGE_ALLOWED_MIME_PATTERN,
 } from "./types";
+import { getStorageUploadMaxBytes } from "./limits";
 
 /** Media init stores a target *directory* (filename is joined later). */
 const mediaRelativePathSchema = z
@@ -88,8 +87,10 @@ const mediaTotalSizeSchema = baseTotalSizeSchema.max(
 	`totalSize cannot exceed ${MAX_IMAGE_UPLOAD_BYTES} bytes`,
 );
 
-const storageTotalSizeSchema = baseTotalSizeSchema
-	.max(MAX_TOTAL_SIZE, `totalSize cannot exceed ${MAX_TOTAL_SIZE} bytes`);
+const storageTotalSizeSchema = baseTotalSizeSchema.superRefine((value, ctx) => {
+	const max = getStorageUploadMaxBytes();
+	if (value > max) ctx.addIssue({ code: "custom", message: `totalSize cannot exceed ${max} bytes` });
+});
 
 const chunkSizeSchema = z
 	.number()
@@ -138,5 +139,3 @@ export const appendMediaChunkSchema = z.object({
 		.max(MAX_CHUNK_SIZE, `chunk.size cannot exceed ${MAX_CHUNK_SIZE} bytes`),
 });
 
-/** Default export so the route can `import { initMediaUploadSchema } from "./schema"`. */
-export const DEFAULT_UPLOAD_CHUNK_SIZE = DEFAULT_CHUNK_SIZE;

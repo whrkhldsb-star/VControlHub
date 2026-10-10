@@ -4,9 +4,8 @@ export type QuickServiceAccessMode = "direct-port" | "reverse-proxy";
 
 export type QuickServiceAccessDescriptor = {
 	url: string;
+	/** The UI names the mode and its security caveat in the viewer's language (qsPage.access.<mode>.*). */
 	mode: QuickServiceAccessMode;
-	label: string;
-	description: string;
 };
 
 export function normalizeQuickServicePublicHost(raw?: string | null): string | null {
@@ -51,14 +50,7 @@ export function buildQuickServiceAccessDescriptor(input: {
 	const url = `${scheme}://${hostWithoutPort}:${port}${normalizeQuickServicePath(input.path)}`;
 	const mode: QuickServiceAccessMode = scheme === "https" && port === 443 ? "reverse-proxy" : "direct-port";
 
-	return {
-		url,
-		mode,
-		label: mode === "reverse-proxy" ? "Reverse proxy HTTPS" : "Public direct port",
-		description: mode === "reverse-proxy"
-			? "This entry appears to be served by an HTTPS reverse proxy; please confirm the proxy has app-side authentication or network isolation configured."
-			: "This entry opens the host port directly without going through VControlHub login authentication; please expose it only after firewall, VPN or the app's own authentication is ready.",
-	};
+	return { url, mode };
 }
 
 export function buildQuickServiceAccessUrl(input: {

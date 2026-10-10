@@ -13,6 +13,7 @@ import { ServerTabLayout } from "./server-tab-layout";
 import { ServerInventory } from "./server-inventory";
 import { AutoProbeProvider } from "./auto-probe-context";
 import { ButtonLink } from "@/components/action-button";
+import { Plus } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,6 @@ export default async function ServersPage({ searchParams }: { searchParams?: Pro
 	const canLaunchCommands = sessionHasPermission(session, "command:create");
 	const canExecuteCommands = sessionHasPermission(session, "command:execute");
 	const canApproveCommands = sessionHasPermission(session, "command:approve");
-	const canReadAudit = sessionHasPermission(session, "audit:read");
-	const canReadDeployments = sessionHasPermission(session, "deploy:read");
 	const canUseAi = sessionHasPermission(session, "ai:chat");
 	let inventory, formOptions;
 	try {
@@ -42,21 +41,20 @@ export default async function ServersPage({ searchParams }: { searchParams?: Pro
 	const { stats } = inventory;
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("serversPage.eyebrow")}
 				title={t("serversPage.title")}
 				description={t("serversPage.desc")}
 			>
 				<div className="flex flex-wrap items-center gap-2">
+					{/* A native anchor: the tab layout switches panels on hashchange. */}
+					{canManageServers ? <a href="#servers-create" data-action-button data-variant="primary" data-size="md">
+						<Plus size={16} aria-hidden />
+						{t("serversPage.tabs.addVps")}
+					</a> : null}
 					{canApproveCommands ? <ButtonLink variant="secondary" href="/requests">
 						{t("serversPage.link.request")}
-					</ButtonLink> : null}
-					{canReadAudit ? <ButtonLink variant="secondary" href="/audit">
-						{t("serversPage.link.audit")}
-					</ButtonLink> : null}
-					{canReadDeployments ? <ButtonLink variant="secondary" href="/deployments">
-						{t("serversPage.link.deploy")}
 					</ButtonLink> : null}
 					{canUseAi ? <ButtonLink variant="outline" href={`/ai?q=${encodeURIComponent(t("serversPage.askAiFleetPrefill"))}`}>
 						{t("serversPage.askAi")}

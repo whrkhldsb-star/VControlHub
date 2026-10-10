@@ -13,6 +13,7 @@ import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import type { StorageNodeFieldValues } from "./storage-node-fields";
 import { Badge } from "@/components/ui-primitives";
 
+import { ActionButton } from "@/components/action-button";
 type StorageNodeItem = {
   webdavConfig?: StorageNodeFieldValues["webdavConfig"];
 	id: string;
@@ -110,7 +111,7 @@ function StorageNodeCard({
 		<article data-inset>
 			<div className="flex items-start justify-between gap-3">
 				<div>
-					<h3 className="text-lg font-medium text-[var(--text-primary)]">{node.name}</h3>
+					<h3 className="ui-title-section">{node.name}</h3>
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{node.connectionSummary}</p>
 				</div>
 					<div className="flex items-center gap-2">
@@ -122,14 +123,16 @@ function StorageNodeCard({
 					</Badge>
 					{canManageNodes ? (
 						<>
-							<button
-								type="button"
+							<ActionButton
+								variant={editing ? "outline" : "secondary"}
+								square
+								aria-pressed={editing}
 								onClick={() => setEditing((prev) => !prev)}
 								title={editing ? t("storagePage.list.collapse") : t("storagePage.list.edit")}
-								data-tone="cyan" className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-[var(--color-action-border)]/30 text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
+								aria-label={editing ? t("storagePage.list.collapse") : t("storagePage.list.edit")}
 							>
 								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-							</button>
+							</ActionButton>
 							{!editing && !node.isDefault ? (
 								<StorageNodeDeleteButton storageNodeId={node.id} nodeName={node.name} />
 							) : null}
@@ -149,7 +152,7 @@ function StorageNodeCard({
 			<div data-inset className="mt-4 p-4 text-sm text-[var(--text-secondary)]">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex flex-wrap items-center gap-2">
-						<StatusBadge tone={health.tone} size="sm">{health.label}</StatusBadge> <span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span> {node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs", { latency: node.lastHealthLatencyMs })}</span> : null} </div> {canManageNodes ? ( <button type="button" onClick={handleHealthCheck} disabled={isPending} className="rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--info-bg)] disabled:cursor-not-allowed disabled:opacity-60" > {isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")} </button> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ?"text-[var(--success)]" :"text-[var(--danger)]"}`}>{message.text}</p> : null}
+						<StatusBadge tone={health.tone} size="sm">{health.label}</StatusBadge> <span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span> {node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs", { latency: node.lastHealthLatencyMs })}</span> : null} </div> {canManageNodes ? ( <ActionButton size="sm" variant="secondary" onClick={handleHealthCheck} loading={isPending}> {isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")} </ActionButton> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ?"text-[var(--success)]" :"text-[var(--danger)]"}`}>{message.text}</p> : null}
 			</div>
 			<p className="mt-2 text-xs text-[var(--text-muted)]">{t("storagePage.list.registeredFiles", { count: node.fileCount })}</p>
 

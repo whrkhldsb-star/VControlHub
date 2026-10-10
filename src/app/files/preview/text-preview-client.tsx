@@ -7,6 +7,8 @@ import { TextPreviewError, TextPreviewLoading } from "./text-preview-states";
 import { highlightSearchTerm } from "./text-preview-highlight";
 import { useTextPreviewController } from "./use-text-preview-controller";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { Notice } from "@/components/ui-primitives";
+import { TEXT_PREVIEW_MAX_BYTES } from "@/lib/http/read-text-prefix";
 
 export function TextPreviewClient({
 	href,
@@ -65,6 +67,9 @@ export function TextPreviewClient({
 
 	return (
 		<div className="space-y-3">
+			{ctrl.state.truncated ? (
+				<Notice tone="warning">{t("textPreview.prefixOnly", { size: TEXT_PREVIEW_MAX_BYTES / 1024 / 1024 })}</Notice>
+			) : null}
 			<TextPreviewToolbar
 				t={t}
 				lang={ctrl.lang}

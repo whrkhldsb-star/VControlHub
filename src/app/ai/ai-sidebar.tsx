@@ -7,6 +7,8 @@ import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
 import { Plus } from "@/components/icons";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 interface SidebarProps {
   showSidebar: boolean;
@@ -52,7 +54,7 @@ export function AiSidebar({
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
               <p className="text-xs font-semibold uppercase text-[var(--accent)]">AI</p>
-              <h2 className="text-base font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h2>
+              <h2 className="ui-title-section">{t("aiPage.sidebarTitle")}</h2>
             </div>
             <ActionButton icon={<Plus size={16} aria-hidden />} size="sm" variant="primary"
               onClick={onNewConv}
@@ -73,7 +75,7 @@ export function AiSidebar({
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder={t("aiPage.searchConversations")}
                 aria-label={t("aiPage.searchConversations")}
-                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] py-1.5 pl-8 pr-2.5 text-xs text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)]"
+                className={cn(UI_INPUT, "w-full pl-8 pr-2.5 text-xs")}
               />
             </div>
           </div>

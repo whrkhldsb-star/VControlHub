@@ -27,8 +27,6 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import {
 	assertNoDuplicateServerHost,
 	buildDuplicateServerError,
-	buildServerConnectionTypeLabel,
-	buildServerStatusLabel,
 	formatServerEndpoint,
 	isLocalHostLiteral,
 	serializeDate,
@@ -178,10 +176,4 @@ describe("small helpers", () => {
 		expect(serializeDate("already-a-string")).toBe("already-a-string");
 	});
 
-	it("labels enabled state and connection type", () => {
-		expect(buildServerStatusLabel(true)).toBe("Enabled");
-		expect(buildServerStatusLabel(false)).toBe("Disabled");
-		expect(buildServerConnectionTypeLabel("SSH_KEY")).toBe("SSH key");
-		expect(buildServerConnectionTypeLabel("PASSWORD")).toBe("Password");
-	});
 });

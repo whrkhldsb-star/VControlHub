@@ -81,11 +81,11 @@ function TicketCard({ ticket, nowMs, compact = false }: { ticket: TicketWorkspac
   const { t, locale } = useI18n();
   const slaStatus = getSlaStatus(ticket, nowMs);
   return (
-    <Link href={`/tickets/${ticket.id}`} className={`block transition hover:bg-[var(--surface-hover)] ${compact ? "rounded-xl border border-[var(--border)] p-3" : "px-5 py-4"}`}>
+    <Link href={`/tickets/${ticket.id}`} data-inset={compact ? "" : undefined} className={`block transition hover:bg-[var(--surface-hover)] ${compact ? "p-3" : "px-5 py-4"}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">{ticket.title}</h3>
+            <h3 className="ui-title-group truncate">{ticket.title}</h3>
             <span className={`text-xs font-semibold uppercase ${priorityTone[ticket.priority] ?? "text-[var(--text-muted)]"}`}>
               {label(t, "ticketsPage.priority", ticket.priority)}
             </span>
@@ -192,7 +192,7 @@ export function TicketWorkspace({ initialTickets, canManage, now }: Props) {
           </div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <label className="grid gap-1 text-xs text-[var(--text-secondary)]">
+          <label className="ui-label grid gap-1">
             {t("ticketsPage.filter.search")}
             <input aria-label={t("ticketsPage.filter.search")} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ticketsPage.filter.search")} className={UI_INPUT} />
           </label>
@@ -238,7 +238,7 @@ export function TicketWorkspace({ initialTickets, canManage, now }: Props) {
 
 function FilterSelect({ labelText, value, onChange, allLabel, options }: { labelText: string; value: string; onChange: (value: string) => void; allLabel: string; options: Array<{ value: string; label: string }> }) {
   return (
-    <label className="grid gap-1 text-xs text-[var(--text-secondary)]">
+    <label className="ui-label grid gap-1">
       {labelText}
       <select value={value} onChange={(event) => onChange(event.target.value)} className={UI_INPUT}>
         <option value="">{allLabel}</option>

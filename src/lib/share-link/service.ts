@@ -1,5 +1,9 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
+
+/** Async scrypt: runs on the libuv pool instead of blocking the event loop (~90 ms per call). */
+const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
@@ -51,19 +55,19 @@ export function normalizeSharePath(path: string) {
   return segments.join("/");
 }
 
-export function hashSharePassword(password: string) {
+export async function hashSharePassword(password: string) {
   const salt = randomBytes(16);
-  const hash = scryptSync(password, salt, 64);
+  const hash = await scryptAsync(password, salt, 64);
   return `scrypt:${salt.toString("hex")}:${hash.toString("hex")}`;
 }
 
-export function verifySharePassword(password: string, stored: string) {
+export async function verifySharePassword(password: string, stored: string) {
   const parts = stored.split(":");
   if (parts.length !== 3 || parts[0] !== "scrypt") return false;
   const salt = Buffer.from(parts[1]!, "hex");
   const expected = Buffer.from(parts[2]!, "hex");
   if (salt.length === 0 || expected.length === 0) return false;
-  const computed = scryptSync(password, salt, expected.length);
+  const computed = await scryptAsync(password, salt, expected.length);
   return computed.length === expected.length && timingSafeEqual(computed, expected);
 }
 
@@ -163,7 +167,7 @@ export async function createShareLink(input: {
       name: input.name ?? normalizedPath.split("/").filter(Boolean).pop() ?? normalizedPath,
       expiresAt,
       maxDownloads: input.maxDownloads ?? null,
-      passwordHash: input.password ? hashSharePassword(input.password) : null,
+      passwordHash: input.password ? await hashSharePassword(input.password) : null,
       permissionLevel: input.permissionLevel ?? "download",
       createdBy: input.session.userId,
       ...teamData,
@@ -235,7 +239,7 @@ export async function authorizeShareDownload(
   const share = await loadActiveShare(token);
   if (share.permissionLevel === "preview") throw new ForbiddenError(t("backend.shareLink.previewOnly"));
   if (share.passwordHash) {
-    if (!password || !verifySharePassword(password, share.passwordHash)) {
+    if (!password || !(await verifySharePassword(password, share.passwordHash))) {
       await recordShareAccess({ shareLinkId: share.id, action: "password_attempt", ip: context?.ip, userAgent: context?.userAgent });
       throw new ValidationError(password ? t("backend.shareLink.passwordIncorrect") : t("backend.shareLink.passwordRequired"));
     }
@@ -318,7 +322,7 @@ export async function resolveShareToken(
       await recordShareAccess({ shareLinkId: share.id, action: "password_attempt", ip: context?.ip, userAgent: context?.userAgent });
       throw new ValidationError(t("backend.shareLink.passwordRequired"));
     }
-    if (!verifySharePassword(password, share.passwordHash)) {
+    if (!(await verifySharePassword(password, share.passwordHash))) {
       await recordShareAccess({ shareLinkId: share.id, action: "password_attempt", ip: context?.ip, userAgent: context?.userAgent });
       throw new ValidationError(t("backend.shareLink.passwordIncorrect"));
     }
@@ -396,7 +400,7 @@ export async function peekShareToken(
         storageNode: { id: share.storageNodeId, name: "•", driver: share.storageNode?.driver ?? "LOCAL" },
       };
     }
-    if (!share.passwordHash || !verifySharePassword(context.password, share.passwordHash)) {
+    if (!share.passwordHash || !(await verifySharePassword(context.password, share.passwordHash))) {
       await recordShareAccess({
         shareLinkId: share.id,
         action: "password_attempt",

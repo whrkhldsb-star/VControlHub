@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import Link from "next/link";
-import { Star, Tag, X, RefreshCw } from "@/components/icons";
-import { ModalShell } from "@/components/modal-shell";
+import { Star, Tag } from "@/components/icons";
+import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/page-shell";
 import { ActionButton } from "@/components/action-button";
-import { InlineLoading, Notice } from "@/components/ui-primitives";
+import { CheckboxField, FormField, IconButton, InlineLoading, Notice, SegmentedTabs } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -37,6 +38,7 @@ export function FilePreferenceButton({ fileEntryId }: { fileEntryId: string }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [favorite, setFavorite] = useState(false);
+  const formId = useId();
   const [tags, setTags] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -62,51 +64,39 @@ export function FilePreferenceButton({ fileEntryId }: { fileEntryId: string }) {
   }, [open, fileEntryId, reload]);
   return (
     <>
-      <button
-        type="button"
-        title={t("filePreferences.edit")}
-        aria-label={t("filePreferences.edit")}
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] hover:bg-[var(--surface-hover)]"
+      <IconButton
+        label={t("filePreferences.edit")}
+        tone={favorite ? "accent" : "neutral"}
+        className="h-8 w-8"
         onClick={() => {
           setLoaded(false);
           setOpen(true);
         }}
       >
-        <Star size={15} fill={favorite ? "currentColor" : "none"} />
-      </button>
-      <ModalShell
+        <Star size={15} fill={favorite ? "currentColor" : "none"} aria-hidden />
+      </IconButton>
+      <Dialog
         open={open}
         onClose={() => setOpen(false)}
         busy={busy}
-        label={t("filePreferences.edit")}
+        title={t("filePreferences.edit")}
+        footer={<>
+          <ActionButton variant="secondary" disabled={busy} onClick={() => setOpen(false)}>
+            {t("common.cancel")}
+          </ActionButton>
+          <ActionButton type="submit" form={formId} loading={busy} disabled={!loaded}>
+            {t(busy ? "common.executing" : "common.save")}
+          </ActionButton>
+        </>}
       >
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-semibold">{t("filePreferences.edit")}</h2>
-          <button
-            type="button"
-            aria-label={t("common.close")}
-            disabled={busy}
-            onClick={() => setOpen(false)}
-            className="p-2"
-          >
-            <X size={18} />
-          </button>
-        </div>
         {error ? (
-          <Notice tone="danger">
+          <Notice tone="danger" className="mb-4" action={{ label: t("storageUpload.retry"), onClick: () => setReload((value) => value + 1) }}>
             {error}
-            <button
-              type="button"
-              aria-label={t("storageUpload.retry")}
-              onClick={() => setReload((value) => value + 1)}
-              className="p-2"
-            >
-              <RefreshCw size={16} />
-            </button>
           </Notice>
         ) : null}
         <form
-          className="mt-4 grid gap-4"
+          id={formId}
+          className="grid gap-4"
           onSubmit={async (event) => {
             event.preventDefault();
             if (busy || !loaded) return;
@@ -137,18 +127,15 @@ export function FilePreferenceButton({ fileEntryId }: { fileEntryId: string }) {
             }
           }}
         >
-          <label className="flex items-center gap-2 text-sm">
+          <CheckboxField
+            label={t("filePreferences.favorite")}
+            checked={favorite}
+            disabled={busy || !loaded}
+            onChange={(event) => setFavorite(event.currentTarget.checked)}
+          />
+          <FormField label={t("filePreferences.tags")} htmlFor={`${formId}-tags`}>
             <input
-              type="checkbox"
-              checked={favorite}
-              disabled={busy || !loaded}
-              onChange={(event) => setFavorite(event.currentTarget.checked)}
-            />
-            {t("filePreferences.favorite")}
-          </label>
-          <label className="grid gap-2 text-sm">
-            <span>{t("filePreferences.tags")}</span>
-            <input
+              id={`${formId}-tags`}
               className={UI_INPUT}
               value={tags}
               disabled={busy || !loaded}
@@ -156,12 +143,9 @@ export function FilePreferenceButton({ fileEntryId }: { fileEntryId: string }) {
               placeholder={t("filePreferences.tagsPlaceholder")}
               onChange={(event) => setTags(event.currentTarget.value)}
             />
-          </label>
-          <ActionButton type="submit" disabled={busy || !loaded}>
-            {t(busy ? "common.executing" : "common.save")}
-          </ActionButton>
+          </FormField>
         </form>
-      </ModalShell>
+      </Dialog>
     </>
   );
 }
@@ -217,49 +201,38 @@ export function FileCollections() {
   }, [open, mode, filter, cursor, reload]);
   return (
     <>
-      <ActionButton variant="outline" onClick={() => setOpen(true)}>
-        <Star size={16} />
+      <ActionButton variant="outline" icon={<Star aria-hidden />} onClick={() => setOpen(true)}>
         {t("filePreferences.collections")}
       </ActionButton>
-      <ModalShell
+      <Dialog
         size="xl"
         open={open}
         onClose={() => setOpen(false)}
-        label={t("filePreferences.collections")}
+        title={t("filePreferences.collections")}
+        footer={cursor || page.nextCursor ? <>
+          {cursor ? (
+            <ActionButton variant="secondary" disabled={busy} onClick={() => setCursor(undefined)}>
+              {t("filePreferences.firstPage")}
+            </ActionButton>
+          ) : null}
+          {page.nextCursor ? (
+            <ActionButton variant="secondary" disabled={busy} onClick={() => setCursor(page.nextCursor ?? undefined)}>
+              {t("filePreferences.nextPage")}
+            </ActionButton>
+          ) : null}
+        </> : undefined}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t("filePreferences.collections")}</h2>
-          <button
-            type="button"
-            className="p-2"
-            aria-label={t("common.close")}
-            onClick={() => setOpen(false)}
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div
-          role="tablist"
-          aria-label={t("filePreferences.collections")}
-          className="my-4 flex border-b border-[var(--border)]"
-        >
-          {(["favorites", "recent", "tags"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={mode === value}
-              className={`px-3 py-2 text-sm ${mode === value ? "border-b-2 border-[var(--color-action)]" : "text-[var(--text-muted)]"}`}
-              onClick={() => {
-                setMode(value);
-                setCursor(undefined);
-                setPage({ items: [], nextCursor: null });
-              }}
-            >
-              {t(`filePreferences.${value}`)}
-            </button>
-          ))}
-        </div>
+        <SegmentedTabs
+          ariaLabel={t("filePreferences.collections")}
+          className="mb-4"
+          value={mode}
+          onChange={(value) => {
+            setMode(value as typeof mode);
+            setCursor(undefined);
+            setPage({ items: [], nextCursor: null });
+          }}
+          items={(["favorites", "recent", "tags"] as const).map((value) => ({ id: value, label: t(`filePreferences.${value}`) }))}
+        />
         {mode === "tags" ? (
           <form
             className="mb-3 flex gap-2"
@@ -276,36 +249,22 @@ export function FileCollections() {
               maxLength={32}
               onChange={(event) => setTag(event.currentTarget.value)}
             />
-            <button
-              type="submit"
-              aria-label={t("filesBrowserSpa.searchLabel")}
-              className="p-2"
-            >
-              <Tag size={18} />
-            </button>
+            <ActionButton type="submit" variant="secondary" square aria-label={t("filesBrowserSpa.searchLabel")}>
+              <Tag aria-hidden />
+            </ActionButton>
           </form>
         ) : null}
         {error ? (
-          <Notice tone="danger">
+          <Notice tone="danger" className="mb-3" action={{ label: t("storageUpload.retry"), onClick: refresh }}>
             {error}
-            <button
-              type="button"
-              onClick={refresh}
-              aria-label={t("storageUpload.retry")}
-              className="p-2"
-            >
-              <RefreshCw size={16} />
-            </button>
           </Notice>
         ) : null}
         {busy ? (
           <InlineLoading label={t("filesBrowserSpa.loading")} className="py-4" />
         ) : !page.items.length ? (
-          <p className="py-6 text-sm text-[var(--text-muted)]">
-            {t("filePreferences.empty")}
-          </p>
+          <EmptyState text={t("filePreferences.empty")} />
         ) : (
-          <ul className="divide-y divide-[var(--border)]">
+          <ul className="divide-y divide-[var(--border-subtle)]">
             {page.items.map((item) => (
               <li
                 key={item.fileEntryId}
@@ -339,7 +298,7 @@ export function FileCollections() {
                     {item.fileEntry.storageNode.name} /{" "}
                     {item.fileEntry.relativePath}
                   </p>
-                  <p className="break-words text-xs text-[var(--color-action-text)]">
+                  <p className="break-words text-xs text-[var(--accent)]">
                     {item.tags.join(" · ")}
                   </p>
                 </Link>
@@ -348,27 +307,7 @@ export function FileCollections() {
             ))}
           </ul>
         )}
-        <div className="mt-3 flex gap-2">
-          {cursor ? (
-            <ActionButton
-              variant="outline"
-              disabled={busy}
-              onClick={() => setCursor(undefined)}
-            >
-              {t("filePreferences.firstPage")}
-            </ActionButton>
-          ) : null}
-          {page.nextCursor ? (
-            <ActionButton
-              variant="outline"
-              disabled={busy}
-              onClick={() => setCursor(page.nextCursor ?? undefined)}
-            >
-              {t("filePreferences.nextPage")}
-            </ActionButton>
-          ) : null}
-        </div>
-      </ModalShell>
+      </Dialog>
     </>
   );
 }

@@ -14,9 +14,9 @@ type TreeProps = {
 export function DeploymentExportTree({ tree, activePath, onSelect }: TreeProps) {
   const { t } = useI18n();
   return (
-    <div
+    <div data-inset=""
       data-testid="deploy-export-tree"
-      className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-3 font-mono text-xs text-[var(--text-secondary)]"
+      className="p-3 font-mono text-xs text-[var(--text-secondary)]"
     >
       <p className="mb-2 text-xs font-semibold uppercase text-[var(--text-secondary)]/70">
         {t("deploymentsPage.export.fileTree")}
@@ -82,10 +82,11 @@ function TreeRow({
         type="button"
         onClick={() => onSelect(node.fullPath)}
         data-testid={`deploy-export-file-${node.fullPath}`}
-        className={`flex w-full items-center gap-1 rounded-lg px-1 py-0.5 text-left transition ${
+        aria-current={isActive ? "true" : undefined}
+        className={`flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left transition ${
           isActive
-            ? "bg-[var(--color-action-bg)]/20 text-[var(--text-primary)]"
-            : "hover:bg-[var(--surface-elevated)] text-[var(--text-secondary)]"
+            ? "bg-[var(--accent-soft)] text-[var(--text-primary)]"
+            : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
         }`}
         style={{ paddingLeft: depth * 12 }}
       >

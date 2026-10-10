@@ -105,7 +105,7 @@ export function CostPageClient({
 		<div className="flex flex-col gap-6">
 			<section data-card className="p-5">
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-					<h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("costPage.summary.title")}</h2>
+					<h2 className="ui-title-section">{t("costPage.summary.title")}</h2>
 					<div className="flex flex-wrap gap-2">
 						<label className={`${labelClass} flex min-w-0 flex-col gap-1.5`}>
 							{t("costPage.actions.filterMonth")}
@@ -171,7 +171,7 @@ export function CostPageClient({
 
 			{trend.length > 1 ? (
 				<section data-card className="p-5">
-					<h2 className="mb-3 text-base font-semibold text-[var(--text-primary)]">{t("costPage.snapshot.title")}</h2>
+					<h2 className="ui-title-section mb-3">{t("costPage.snapshot.title")}</h2>
 					{trend.every((p) => p.total === 0) ? (
 						<div className="text-sm text-[var(--text-muted)]">{t("costPage.snapshot.noTrendData")}</div>
 					) : (

@@ -12,7 +12,6 @@
  * Source of truth is the `ai_ops_logs` Prisma table. Every scan / manual
  * trigger / recommendation follow-up writes one row with a status.
  */
-import { Prisma } from "@prisma/client";
 
 export const AI_OPS_MODE_VALUES = ["recommendation", "autonomous"] as const;
 export type AiOpsMode = (typeof AI_OPS_MODE_VALUES)[number];
@@ -108,8 +107,6 @@ export const AI_OPS_SAFE_AUTONOMOUS_ACTIONS = [
 	"alert.evaluate",
 	"cache.purge:stale",
 ] as const;
-export type AiOpsSafeAutonomousAction =
-	(typeof AI_OPS_SAFE_AUTONOMOUS_ACTIONS)[number];
 
 /** Default scan schedule (24h format, local time). 02:00 is the chosen quiet hour. */
 export const AI_OPS_DEFAULT_SCHEDULE_HOUR = 2;
@@ -117,4 +114,3 @@ export const AI_OPS_DEFAULT_SCHEDULE_HOUR = 2;
 /** Keep the newest N AI ops logs when pruning (scan worker + cache.purge:stale). */
 export const AI_OPS_LOG_RETENTION_KEEP = 200;
 
-export type AiOpsLogJson = Prisma.JsonValue;

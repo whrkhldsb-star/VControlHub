@@ -13,13 +13,16 @@
  *   - `HighRiskConfirmModal` — `<dialog>` second-confirm before
  *     persisting any `high` risk change.
  */
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { FieldType, SectionDef } from "./field-schema";
 import { FieldRiskBadge } from "./settings-field-risk";
 import { ActionButton } from "@/components/action-button";
 
+import { IconChevronDown } from "@/components/nav-icons";
+import { Dialog } from "@/components/ui/dialog";
+import { AlertTriangle } from "@/components/icons";
 // TR-014 M01b
 export type PendingChange = {
   key: string;
@@ -104,21 +107,15 @@ export function SaveButtonWithDiff({
     <div className="pt-2 space-y-2" data-component="save-button-with-diff">
       <div className="flex flex-wrap items-center gap-2">
         {count > 0 && (
-          <button
-            type="button"
+          <ActionButton
+            size="xs"
+            variant={highCount > 0 ? "danger" : mediumCount > 0 ? "warning" : "secondary"}
             onClick={onToggleExpand}
             aria-expanded={expanded}
             aria-label={t("settingsClient.expandAria", { count, expanded: expanded ? t("settingsClient.collapsed") : t("settingsClient.expanded") })}
             data-pending-count={count}
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
-              highCount > 0
-                ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] hover:bg-[var(--danger-bg)]"
-                : mediumCount > 0
-                  ? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]"
-                  : "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)] hover:bg-[var(--color-action-bg)]/15"
-            }`}
+            iconRight={<IconChevronDown aria-hidden className={expanded ? "rotate-180" : undefined} />}
           >
-            <span aria-hidden>{expanded ? "▾" : "▸"}</span>
             <span>
               {count > 0
                 ? (() => {
@@ -130,7 +127,7 @@ export function SaveButtonWithDiff({
                   })()
                 : ""}
             </span>
-          </button>
+          </ActionButton>
         )}
         <ActionButton variant={highCount > 0 ? "danger" : "primary"}
           onClick={onClick}
@@ -140,11 +137,11 @@ export function SaveButtonWithDiff({
         </ActionButton>
       </div>
       {expanded && count > 0 && (
-        <div
+        <div data-inset=""
           data-component="diff-table"
           role="region"
           aria-label={t("settingsPage.unsavedChangesAria")}
-          className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]"
+          className="overflow-hidden"
         >
           <table className="w-full text-xs">
             <thead className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs uppercase text-[var(--text-muted)] light:bg-[var(--surface)]/70">
@@ -184,9 +181,8 @@ export function SaveButtonWithDiff({
 }
 
 /**
- * Pre-save confirmation modal — shown only when at least one queued
- * change has riskLevel === "high". Uses native <dialog> for ESC + auto
- * backdrop; falls back to manual `open` in jsdom (no showModal).
+ * Pre-save confirmation dialog — shown only when at least one queued change
+ * has riskLevel === "high".
  */
 export function HighRiskConfirmModal({
   changes,
@@ -198,88 +194,63 @@ export function HighRiskConfirmModal({
   onConfirm: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
-  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    // jsdom test env doesn't implement HTMLDialogElement.showModal
-    if (typeof dialog.showModal === "function") {
-      if (!dialog.open) dialog.showModal();
-    } else if (!dialog.open) {
-      dialog.open = true;
-    }
-    const handleClose = () => onCancel();
-    dialog.addEventListener("close", handleClose);
-    return () => dialog.removeEventListener("close", handleClose);
-  }, [onCancel]);
   return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby="high-risk-confirm-title"
-      data-component="high-risk-confirm-modal"
-      data-testid="high-risk-confirm-modal"
-      className="rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-[var(--surface)]/70 light:backdrop:bg-[var(--surface)]"
-    >
-      <div className="w-[min(560px,90vw)] p-5">
-        <h2
-          id="high-risk-confirm-title"
-          className="text-base font-semibold text-[var(--danger)]"
+    <Dialog
+      open
+      size="lg"
+      role="alertdialog"
+      onClose={onCancel}
+      busy={busy}
+      icon={<AlertTriangle className="text-[var(--danger)]" />}
+      title={t("settingsClient.confirmHighRiskTitle")}
+      description={t("settingsClient.confirmHighRiskDescription", { count: changes.length })}
+      panelProps={{ "data-component": "high-risk-confirm-modal", "data-testid": "high-risk-confirm-modal" }}
+      footer={<>
+        <ActionButton variant="secondary" onClick={onCancel} disabled={busy} data-action="cancel">
+          {t("settingsClient.confirmCancel")}
+        </ActionButton>
+        <ActionButton
+          variant="danger-solid"
+          loading={busy}
+          data-action="confirm"
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onConfirm();
+            } finally {
+              setBusy(false);
+            }
+          }}
         >
-          {t("settingsClient.confirmHighRiskTitle")}
-        </h2>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("settingsClient.confirmHighRiskDescription", { count: changes.length })}
-        </p>
-        <ul className="mt-3 max-h-64 space-y-2 overflow-auto pr-1">
-          {changes.map((change) => (
-            <li
-              key={change.key}
-              className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-xs"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-xs text-[var(--text-primary)]">{t(change.labelKey)}</span>
-                <FieldRiskBadge level={change.riskLevel} />
+          {busy ? t("settingsClient.saving") : t("settingsClient.confirmSaveAction")}
+        </ActionButton>
+      </>}
+    >
+      <ul className="space-y-2">
+        {changes.map((change) => (
+          <li key={change.key} data-inset="" className="border-[var(--danger-border)] p-3 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-xs text-[var(--text-primary)]">{t(change.labelKey)}</span>
+              <FieldRiskBadge level={change.riskLevel} />
+            </div>
+            <div className="mt-1.5 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
+              <div>
+                <span className="text-[var(--text-muted)]">{t("settingsClient.confirmOriginal")}</span>
+                <span className="text-[var(--text-secondary)] line-through">
+                  {renderDiffValue(change.oldValue, t, 40, change.fieldType)}
+                </span>
               </div>
-              <div className="mt-1.5 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
-                <div>
-                  <span className="text-[var(--text-muted)]">{t("settingsClient.confirmOriginal")}</span>
-                  <span className="text-[var(--text-secondary)] line-through">
-                    {renderDiffValue(change.oldValue, t, 40, change.fieldType)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[var(--text-muted)]">{t("settingsClient.confirmNew")}</span>
-                  <span className="text-[var(--danger)]">
-                    {renderDiffValue(change.newValue, t, 40, change.fieldType)}
-                  </span>
-                </div>
+              <div>
+                <span className="text-[var(--text-muted)]">{t("settingsClient.confirmNew")}</span>
+                <span className="text-[var(--danger)]">
+                  {renderDiffValue(change.newValue, t, 40, change.fieldType)}
+                </span>
               </div>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-4 flex justify-end gap-2">
-          <ActionButton size="sm" variant="secondary"
-            onClick={onCancel}
-            disabled={busy}
-            data-action="cancel">
-            {t("settingsClient.confirmCancel")}
-          </ActionButton>
-          <ActionButton size="sm" variant="danger-solid"
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await onConfirm();
-              } finally {
-                setBusy(false);
-              }
-            }}
-            disabled={busy}
-            data-action="confirm">
-            {busy ? t("settingsClient.saving") : t("settingsClient.confirmSaveAction")}
-          </ActionButton>
-        </div>
-      </div>
-    </dialog>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Dialog>
   );
 }

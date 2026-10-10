@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -9,6 +9,7 @@ import {
   type AppSource,
   type CatalogItem,
   type DockerEnvironmentStatus,
+  localizeCatalogItem,
 } from "./quick-services-shared";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
@@ -109,9 +110,13 @@ export function useQuickServiceCatalog(t: TFn, canManageHubHost = true) {
     void fetchCatalog();
   }, hasInstallingService ? 3000 : null);
 
+  // Local templates ship English text; show them in the viewer's language.
+  const localizedCatalog = useMemo(() => catalog.map((item) => localizeCatalogItem(item, t)), [catalog, t]);
+  const localizedRemoteCatalog = useMemo(() => remoteCatalog.map((item) => localizeCatalogItem(item, t)), [remoteCatalog, t]);
+
   return {
-    catalog,
-    remoteCatalog,
+    catalog: localizedCatalog,
+    remoteCatalog: localizedRemoteCatalog,
     sources,
     usedPorts,
     dockerStatus,

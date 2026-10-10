@@ -23,7 +23,6 @@ describe("quick service access URLs", () => {
 		expect(buildQuickServiceAccessDescriptor({ defaultPort: 5244, port: 5244, configuredHost: "82.158.91.159" })).toMatchObject({
 			url: "http://82.158.91.159:5244/",
 			mode: "direct-port",
-			label: "Public direct port",
 		});
 	});
 
@@ -31,7 +30,6 @@ describe("quick service access URLs", () => {
 		expect(buildQuickServiceAccessDescriptor({ defaultPort: 443, port: 443, configuredHost: "https://apps.example.com", path: "/vault" })).toMatchObject({
 			url: "https://apps.example.com:443/vault",
 			mode: "reverse-proxy",
-			label: "Reverse proxy HTTPS",
 		});
 	});
 });

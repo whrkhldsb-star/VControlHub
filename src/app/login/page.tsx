@@ -93,10 +93,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 					</section>
 
 					{/* Right: Login Form */}
-					<section className="rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] p-6 shadow-[var(--shadow-lg)] backdrop-blur-xl sm:p-8 light:border-[var(--border)] light:bg-white light:shadow-[0_24px_60px_rgba(99,102,241,0.14)]">
+					<section data-card="" className="p-6 sm:p-8 light:bg-white">
 						<div className="mb-7">
 							<p className="text-xs font-bold uppercase text-[var(--accent)]">{t("login.branding.signInTag", locale)}</p>
-							<h2 className="mt-2.5 text-2xl font-semibold text-[var(--text-primary)]">{t("login.branding.welcome", locale)}</h2>
+							<h2 className="ui-title-page mt-2.5">{t("login.branding.welcome", locale)}</h2>
 							<p className="mt-2 text-sm text-[var(--text-secondary)]">{t("login.branding.subtitle", locale)}</p>
 						</div>
 						<LoginForm nextPath={nextPath} error={error} locale={locale} />
@@ -109,7 +109,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
 function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
 	return (
-		<div className="rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-3.5 shadow-sm backdrop-blur transition hover:border-[var(--accent-border)] hover:bg-[color-mix(in_srgb,var(--accent-bg)_25%,var(--surface))] light:bg-white/95 light:shadow-[0_4px_14px_rgba(99,102,241,0.08)]">
+		<div data-tile="" className="p-3.5 transition hover:border-[var(--accent-border)] light:bg-white/95">
 			<div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--accent)]">
 				{icon}
 			</div>

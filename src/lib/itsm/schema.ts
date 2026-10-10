@@ -106,38 +106,3 @@ export const updateItsmConnectionSchema = z
 	.strict()
 	.refine((v) => Object.keys(v).length > 0, { message: "At least one field must be provided" });
 
-export const itsmInboundBodySchema = z
-	.object({
-		eventType: z.string().trim().min(1).max(64).optional(),
-		externalId: z.string().trim().max(256).optional(),
-		ticket: z
-			.object({
-				title: z.string().trim().min(1).max(256).optional(),
-				description: z.string().trim().max(10_000).optional(),
-				status: z.string().trim().max(32).optional(),
-				priority: z.string().trim().max(32).optional(),
-				category: z.string().trim().max(64).optional(),
-				id: z.string().trim().max(64).optional(),
-			})
-			.optional(),
-		comment: z
-			.object({
-				body: z.string().trim().min(1).max(10_000),
-			})
-			.optional(),
-		// Pass-through raw fields for provider adapters
-		text: z.string().optional(),
-		message: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
-	})
-	.passthrough();
-
-export const itsmTestSchema = z
-	.object({
-		message: z.string().trim().max(500).optional(),
-	})
-	.strict()
-	.optional()
-	.default({});
-
-export type CreateItsmConnectionInput = z.infer<typeof createItsmConnectionSchema>;
-export type UpdateItsmConnectionInput = z.infer<typeof updateItsmConnectionSchema>;

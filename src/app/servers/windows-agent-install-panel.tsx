@@ -8,6 +8,8 @@ import {
   getWindowsAgentInstallCommandAction,
 } from "./actions";
 
+import { ActionButton } from "@/components/action-button";
+import { Copy } from "@/components/icons";
 /**
  * Windows nodes cannot be pushed an agent over SSH. This panel shows the agent
  * connection state and lets an operator fetch the one-time PowerShell install
@@ -63,21 +65,22 @@ export function WindowsAgentInstallPanel({
           <p role="status" className="text-xs text-[var(--success)]">{state.success}</p>
           <p className="text-xs font-medium text-[var(--text-primary)]">{t("serversPage.windows.installCommandTitle")}</p>
           <p className="text-xs leading-5 text-[var(--text-muted)]">{t("serversPage.windows.installCommandHint")}</p>
-          <code data-agent-install-command className="block max-h-32 overflow-y-auto break-all rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 font-mono text-xs text-[var(--text-primary)]">
+          <code data-inset="" data-agent-install-command className="block max-h-32 overflow-y-auto break-all px-3 py-2 font-mono text-xs text-[var(--text-primary)]">
             {state.installCommand}
           </code>
-          <button
-            type="button"
+          <ActionButton
+            size="sm"
+            variant="secondary"
+            icon={<Copy aria-hidden />}
             onClick={() => {
               void navigator.clipboard?.writeText(state.installCommand ?? "").then(() => {
                 setCopied(true);
                 window.setTimeout(() => setCopied(false), 2000);
               });
             }}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
           >
             {copied ? t("serversPage.windows.installCommandCopied") : t("serversPage.windows.copyCommand")}
-          </button>
+          </ActionButton>
         </div>
       ) : canManageServers ? (
         <form action={formAction} className="flex flex-wrap items-center gap-2">

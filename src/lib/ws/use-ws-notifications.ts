@@ -18,16 +18,12 @@ export type WsMessage =
 	| { type: "connected"; userId: string }
 	| { type: "notification"; data: WsNotification }
 	| { type: "unread_count"; count: number }
-	| { type: "download_progress"; data: { taskId: string; progress: number; status: string } }
-	| { type: "server_alert"; data: { serverId: string; serverName: string; message: string } }
 	| { type: "pong"; ts: number };
 
 type UseWsNotificationsReturn = {
 	connected: boolean;
 	lastNotification: WsNotification | null;
 	unreadCount: number;
-	lastDownloadProgress: { taskId: string; progress: number; status: string } | null;
-	lastServerAlert: { serverId: string; serverName: string; message: string } | null;
 };
 
 /**
@@ -45,8 +41,6 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 	const [connected, setConnected] = useState(false);
 	const [lastNotification, setLastNotification] = useState<WsNotification | null>(null);
 	const [unreadCount, setUnreadCount] = useState(0);
-	const [lastDownloadProgress, setLastDownloadProgress] = useState<{ taskId: string; progress: number; status: string } | null>(null);
-	const [lastServerAlert, setLastServerAlert] = useState<{ serverId: string; serverName: string; message: string } | null>(null);
 
 	const cleanup = useCallback(() => {
 		if (heartbeatRef.current) {
@@ -94,12 +88,6 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 						case "unread_count":
 							setUnreadCount(msg.count);
 							break;
-						case "download_progress":
-							setLastDownloadProgress(msg.data);
-							break;
-						case "server_alert":
-							setLastServerAlert(msg.data);
-							break;
 					}
 				} catch { /* ignore */ }
 			};
@@ -142,5 +130,5 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 		return cleanup;
 	}, [connect, cleanup]);
 
-	return { connected, lastNotification, unreadCount, lastDownloadProgress, lastServerAlert };
+	return { connected, lastNotification, unreadCount };
 }

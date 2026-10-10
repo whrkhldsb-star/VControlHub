@@ -29,9 +29,9 @@ type FileUploadDropzoneProps = ComponentProps<
 
 function FileUploadDropzoneStub() {
 	return (
-		<div
+		<div data-inset=""
 			aria-hidden
-			className="mt-2 h-48 w-full animate-pulse rounded-2xl border border-[var(--color-action-border)]/15 bg-[var(--surface-subtle)]"
+			className="mt-2 h-48 w-full animate-pulse border-[var(--color-action-border)]/15"
 		/>
 	);
 }

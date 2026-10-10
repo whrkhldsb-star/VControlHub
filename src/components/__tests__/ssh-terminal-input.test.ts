@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { createSshTerminalInputSender } from "../ssh-terminal-input";
+import { createSshTerminalInputSender, INPUT_WINDOW_BYTES, INPUT_WINDOW_CHUNKS } from "../ssh-terminal-input";
 import { decodeBase64Bytes } from "../ssh-terminal-codec";
 
 afterEach(() => { vi.useRealTimers(); });
@@ -9,6 +9,10 @@ function setup() {
 	const overflow = vi.fn();
 	const sender = createSshTerminalInputSender(socket, overflow);
 	return { socket, overflow, sender };
+}
+
+function decodeSent(socket: { send: ReturnType<typeof vi.fn> }, index: number) {
+	return JSON.parse(socket.send.mock.calls[index]![0] as string) as { data: string; id?: number };
 }
 
 it("delivers a large Unicode paste and following keys in order with bounded frames", () => {
@@ -22,11 +26,9 @@ it("delivers a large Unicode paste and following keys in order with bounded fram
 	for (let index = 0; index < socket.send.mock.calls.length; index++) {
 		const raw = socket.send.mock.calls[index]![0] as string;
 		expect(new TextEncoder().encode(raw).length).toBeLessThan(64 * 1024);
-		const message = JSON.parse(raw);
+		const message = decodeSent(socket, index);
 		chunks.push(decodeBase64Bytes(message.data));
-		const count = socket.send.mock.calls.length;
-		sender.acknowledge(message.id + 1);
-		expect(socket.send).toHaveBeenCalledTimes(count);
+		// Acknowledge each chunk as it is read; the window refills behind it.
 		sender.acknowledge(message.id);
 	}
 	const total = chunks.reduce((size, chunk) => size + chunk.length, 0);
@@ -37,16 +39,35 @@ it("delivers a large Unicode paste and following keys in order with bounded fram
 	sender.dispose();
 });
 
-it("waits for acknowledgements instead of flooding a slow SSH writer", () => {
+it("sends keystrokes immediately while earlier chunks await their acks", () => {
 	const { socket, sender } = setup();
 	sender.connected(true);
-	sender.enqueue("x".repeat(100_000));
-	expect(socket.send).toHaveBeenCalledTimes(1);
-	sender.enqueue("\r");
-	expect(socket.send).toHaveBeenCalledTimes(1);
+	for (const key of ["l", "s", " ", "-", "l", "\r"]) sender.enqueue(key);
+	expect(socket.send).toHaveBeenCalledTimes(6);
+	expect(socket.send.mock.calls.map((_call, index) => decodeSent(socket, index).id)).toEqual([1, 2, 3, 4, 5, 6]);
 	sender.dispose();
-	sender.acknowledge(1);
-	expect(socket.send).toHaveBeenCalledTimes(1);
+});
+
+it("caps in-flight input and resumes as cumulative acks arrive", () => {
+	const { socket, sender } = setup();
+	sender.connected(true);
+	sender.enqueue("x".repeat(200_000));
+	const inFlightBytes = () => socket.send.mock.calls.reduce((size, _call, index) => size + decodeBase64Bytes(decodeSent(socket, index).data).length, 0);
+	expect(inFlightBytes()).toBeLessThanOrEqual(INPUT_WINDOW_BYTES);
+	expect(socket.send.mock.calls.length).toBeLessThanOrEqual(INPUT_WINDOW_CHUNKS);
+	const sentBeforeAck = socket.send.mock.calls.length;
+	sender.enqueue("\r");
+	expect(socket.send).toHaveBeenCalledTimes(sentBeforeAck);
+	// A stale or unknown ack releases nothing.
+	sender.acknowledge(0);
+	expect(socket.send).toHaveBeenCalledTimes(sentBeforeAck);
+	// One cumulative ack for the whole window lets the next window go out.
+	sender.acknowledge(decodeSent(socket, sentBeforeAck - 1).id);
+	expect(socket.send.mock.calls.length).toBeGreaterThan(sentBeforeAck);
+	sender.dispose();
+	const afterDispose = socket.send.mock.calls.length;
+	sender.acknowledge(afterDispose);
+	expect(socket.send).toHaveBeenCalledTimes(afterDispose);
 });
 
 it("rejects an oversized paste atomically and keeps the shell usable", () => {
@@ -84,26 +105,25 @@ it("preserves split UTF-8 output bytes for xterm to decode as one stream", () =>
 	expect(rendered).toBe("中文🙂");
 });
 
-it("recovers the send pipeline when an input-ack is lost", async () => {
+it("recovers the send window when input-acks are lost", async () => {
 	vi.useFakeTimers();
 	const { socket, sender } = setup();
 	sender.connected(true);
-	sender.enqueue("ls\r");
-	expect(socket.send).toHaveBeenCalledTimes(1);
-	// No acknowledge() arrives — the ack is lost in transit.
+	sender.enqueue("y".repeat(INPUT_WINDOW_BYTES));
+	const windowSends = socket.send.mock.calls.length;
+	// No acknowledge() arrives — the acks are lost in transit.
 	sender.enqueue("pwd\r");
 	await vi.advanceTimersByTimeAsync(125);
-	expect(socket.send).toHaveBeenCalledTimes(1); // still wedged...
+	expect(socket.send).toHaveBeenCalledTimes(windowSends); // window full...
 	await vi.advanceTimersByTimeAsync(5_000);
-	// ...until the ack deadline releases the pipeline and the queued key goes out.
-	expect(socket.send).toHaveBeenCalledTimes(2);
-	const message = JSON.parse(socket.send.mock.calls[1]![0] as string);
+	// ...until the ack deadline releases it and the queued key goes out.
+	expect(socket.send).toHaveBeenCalledTimes(windowSends + 1);
+	const message = decodeSent(socket, windowSends);
 	expect(new TextDecoder().decode(decodeBase64Bytes(message.data))).toBe("pwd\r");
-	// A late ack for the first chunk is ignored, but the fresh chunk still acks.
+	// Late acks for the released chunks are ignored; the fresh chunk still acks.
 	sender.acknowledge(1);
-	sender.acknowledge(2);
+	sender.acknowledge(message.id);
 	sender.enqueue("echo ok\r");
-	await vi.advanceTimersByTimeAsync(125);
-	expect(socket.send).toHaveBeenCalledTimes(3);
+	expect(socket.send).toHaveBeenCalledTimes(windowSends + 2);
 	sender.dispose();
 });

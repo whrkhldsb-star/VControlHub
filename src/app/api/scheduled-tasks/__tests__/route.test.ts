@@ -7,7 +7,6 @@ const { mocks } = vi.hoisted(() => ({
     listScheduledTasks: vi.fn(),
     updateScheduledTask: vi.fn(),
     deleteScheduledTask: vi.fn(),
-    describeCron: vi.fn(),
     retryScheduledTask: vi.fn(),
     toggleScheduledTask: vi.fn(),
     auditUserAction: vi.fn(),
@@ -22,7 +21,6 @@ vi.mock("@/lib/scheduled-task/service", () => ({
   listScheduledTasks: mocks.listScheduledTasks,
   updateScheduledTask: mocks.updateScheduledTask,
   deleteScheduledTask: mocks.deleteScheduledTask,
-  describeCron: mocks.describeCron,
   retryScheduledTask: mocks.retryScheduledTask,
   toggleScheduledTask: mocks.toggleScheduledTask,
 }));
@@ -38,7 +36,6 @@ describe("/api/scheduled-tasks audit coverage", () => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session });
     mocks.listScheduledTasks.mockResolvedValue([]);
-    mocks.describeCron.mockReturnValue("每天 2:00");
     mocks.createScheduledTask.mockResolvedValue({
       id: "task1",
       name: "Clean logs",
@@ -105,13 +102,13 @@ describe("/api/scheduled-tasks audit coverage", () => {
       },
     ]);
 
-    const res = await route.GET(new Request("http://local/api/scheduled-tasks"));
+    const res = await route.GET(new Request("http://local/api/scheduled-tasks", { headers: { cookie: "vps-locale=zh" } }));
     const json = await res.json();
 
     expect(res.status).toBe(200);
     expect(json.tasks[0]).toMatchObject({
       id: "task1",
-      cronDescription: "每天 2:00",
+      cronDescription: "每天 2:00 执行",
       lastResult: "执行失败：disk full",
     });
   });

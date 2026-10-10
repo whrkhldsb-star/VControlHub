@@ -6,7 +6,6 @@
  */
 
 export const zh: Record<string, string> = {
-	"mediaPage.desc": "一个入口完成媒体浏览、筛选、扫描和图片外链发布；旧“图床”只作为已发布外链的管理与审计中心。",
 	"mediaPage.eyebrow": "媒体工作区",
 	"mediaPage.group.unassigned": "未分配存储",
 	"mediaPage.stat.audio": "音频",
@@ -40,10 +39,6 @@ export const zh: Record<string, string> = {
 	"mediaPage.filter.titleToggleOffFav": "再次点击取消收藏筛选",
 	"mediaPage.filter.titleOnlyFav": "只看收藏",
 	"mediaPage.aria.mediaType": "媒体类型",
-	"mediaPage.flow.title": "推荐流程",
-	"mediaPage.flow.step1": "先用类型卡片进入图片、视频或音频工作区。",
-	"mediaPage.flow.step2": "搜索、标签和收藏筛选会在切换时保留。",
-	"mediaPage.flow.step3": "图片外链只从图片工作区发布，历史复制到外链中心处理。",
 	"mediaPage.search.label": "搜索媒体",
 	"mediaPage.search.placeholder": "文件名、路径、标签…",
 	"mediaPage.search.submit": "搜索",
@@ -79,7 +74,6 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"mediaPage.desc": "Browse, filter, scan media, and publish image links from one place. The old Image Bed is now only the published link management and audit center.",
 	"mediaPage.eyebrow": "Media Workspace",
 	"mediaPage.group.unassigned": "Unassigned storage",
 	"mediaPage.stat.audio": "Audio",
@@ -113,10 +107,6 @@ export const en: Record<string, string> = {
 	"mediaPage.filter.titleToggleOffFav": "Click again to clear favorites filter",
 	"mediaPage.filter.titleOnlyFav": "Show only favorites",
 	"mediaPage.aria.mediaType": "Media type",
-	"mediaPage.flow.title": "Recommended flow",
-	"mediaPage.flow.step1": "Use type cards to enter the image, video, or audio workspace.",
-	"mediaPage.flow.step2": "Search, tags, and favorites filters persist across switches.",
-	"mediaPage.flow.step3": "Image links publish only from the image workspace; history is copied in the Link Hub.",
 	"mediaPage.search.label": "Search media",
 	"mediaPage.search.placeholder": "Filename, path, tag…",
 	"mediaPage.search.submit": "Search",

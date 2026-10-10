@@ -10,7 +10,7 @@ import {
 import { hashPassword } from "../src/lib/auth/password";
 import { tenantStorageBasePath } from "../src/lib/storage/path-utils";
 import {
-  DEFAULT_WORKSPACE_POLICY_GROUPS,
+  defaultWorkspacePolicyGroups,
   defaultWorkspacePolicyGroupId,
 } from "../src/lib/auth/role-template-service";
 
@@ -314,7 +314,7 @@ async function seedDefaultWorkspacePolicyGroups(teamId: string | null) {
   if (!teamId) return;
   const team = await prisma.team.findUnique({ where: { id: teamId }, select: { ownerId: true } });
   await prisma.roleTemplate.createMany({
-    data: DEFAULT_WORKSPACE_POLICY_GROUPS.map((group) => ({
+    data: defaultWorkspacePolicyGroups().map((group) => ({
       id: defaultWorkspacePolicyGroupId(teamId, group.key),
       name: group.name,
       description: group.description,

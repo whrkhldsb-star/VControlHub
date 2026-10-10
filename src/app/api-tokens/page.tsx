@@ -5,7 +5,7 @@ import { apiTokenScopeAllowedForSession } from "@/lib/api-token/authorization";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { ApiTokenManagerClient } from "./api-token-manager-client";
 import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
-import { Callout } from "@/components/ui-primitives";
+import { Notice } from "@/components/ui-primitives";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +42,7 @@ export default async function Page() {
 				description={t("apiTokensPage.desc", locale)}
 			/>
 			<div className="mb-5">
-				<Callout tone="neutral" title={t("apiTokensPage.hint", locale)} />
+				<Notice tone="info">{t("apiTokensPage.hint", locale)}</Notice>
 			</div>
 			<ApiTokenManagerClient initialTokens={tokens} allowedScopes={allowedScopes} currentWorkspaceName={workspace?.name ?? null} />
 		</PageShell>

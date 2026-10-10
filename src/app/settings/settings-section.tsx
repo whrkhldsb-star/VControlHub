@@ -116,7 +116,7 @@ export function CollapsibleSection({
                 ▶
               </span>
               <div className="min-w-0 flex-1">
-                <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-[var(--text-primary)] sm:text-lg">
+                <h2 className="ui-title-section flex flex-wrap items-center gap-2">
                   <span aria-hidden>{icon}</span>
                   <span>{title}</span>
                   {badge && (

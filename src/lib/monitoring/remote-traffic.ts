@@ -35,6 +35,7 @@ import {
 	type TrafficCounterSample,
 } from "@/lib/monitoring/traffic";
 import { t } from "@/lib/i18n/service-translations";
+import type { StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 
 export type RemoteServerInput = {
 	id: string;
@@ -44,7 +45,7 @@ export type RemoteServerInput = {
 	username: string;
 	sshKeyId: string | null;
 	password: string | null;
-	sshKey?: { privateKey: string | null } | null;
+	sshKey?: StoredSshKey | null;
 };
 
 export type RemoteInterfaceTraffic = {

@@ -17,6 +17,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import type { StorageDeleteActionState } from "@/app/storage/actions-helpers";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 export async function findAffectedShareIds(input: {
   storageNodeId: string;
@@ -93,7 +94,7 @@ export async function executeDeleteFile(
                 connectionType: true,
                 password: true,
                 hostKeySha256: true,
-                sshKey: { select: { privateKey: true } },
+                sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
               },
             },
           },

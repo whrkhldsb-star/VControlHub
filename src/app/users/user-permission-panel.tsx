@@ -4,13 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { EmptyState } from "@/components/page-shell";
-import { Notice, InlineLoading } from "@/components/ui-primitives";
+import { Chip, InlineLoading, Notice } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import { Plus } from "@/components/icons";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 type RoleInfo = { key: string; name: string; description?: string | null };
 type PermissionInfo = { key: string; name: string; description?: string | null };
@@ -317,30 +319,32 @@ return data as PermissionsPayload;
   };
 
   return (
-    <ModalShell
-      size="full" placement="top"
+    <Dialog
+      size="full"
+      placement="top"
       open
       onClose={onClose}
-      label={t("usersPerm.title")}
       closeOnBackdrop={false}
+      busy={saving}
+      eyebrow={t("usersPerm.title")}
+      title={payload?.user.displayName ?? username}
+      description={t("usersPerm.desc")}
+      closeLabel={t("usersPerm.action.close")}
+      footer={<>
+        <ActionButton variant="secondary" onClick={onClose}>{t("usersPerm.action.cancel")}</ActionButton>
+        {payload && (!resourceOnly || !payload.user.resourceAccessBypassed) ? (
+          <ActionButton onClick={save} loading={saving}>{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</ActionButton>
+        ) : null}
+      </>}
     >
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase text-[var(--color-action-text)]/70">{t("usersPerm.title")}</p>
-            <h3 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{payload?.user.displayName ?? username}</h3>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">{t("usersPerm.desc")}</p>
-          </div>
-          <ActionButton size="sm" variant="secondary" onClick={onClose}>{t("usersPerm.action.close")}</ActionButton>
-        </div>
-
-        {message && <Notice tone={message.type === "success" ? "success" : "danger"} className="mb-4">{message.text}</Notice>}
+        {message && <Notice tone={message.type === "success" ? "success" : "danger"} compact className="mb-4">{message.text}</Notice>}
         {loading || !payload ? <InlineLoading label={t("usersPerm.loading")} /> : (
           <div className="space-y-6">
             {!resourceOnly && <section data-inset className="p-4">
-              <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.template.title")}</h4>
+              <h4 className="ui-title-group">{t("usersPerm.template.title")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.template.desc")}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <select aria-label={t("usersPerm.template.select")} value={selectedTemplateId} onChange={(event) => { setSelectedTemplateId(event.target.value); setConfirmingTemplateDelete(false); }} className="min-h-10 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]">
+                <select aria-label={t("usersPerm.template.select")} value={selectedTemplateId} onChange={(event) => { setSelectedTemplateId(event.target.value); setConfirmingTemplateDelete(false); }} className={cn(UI_INPUT, "w-auto min-h-10 text-sm")}>
                   <option value="">{t("usersPerm.template.select")}</option>
                   {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
@@ -369,7 +373,7 @@ return data as PermissionsPayload;
                     onChange={(e) => setTemplateNameDraft(e.target.value)}
                     placeholder={t("usersPerm.template.namePrompt")}
                     aria-label={t("usersPerm.template.namePrompt")}
-                    className="min-w-[10rem] flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--text-primary)]"
+                    className={cn(UI_INPUT, "min-w-[10rem] flex-1 text-sm")}
                   />
                   <ActionButton variant="secondary"
                     onClick={saveTemplate}
@@ -380,16 +384,16 @@ return data as PermissionsPayload;
               </div>
             </section>}
             {!resourceOnly && <section data-inset className="p-4">
-              <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.roles")}</h4>
+              <h4 className="ui-title-group">{t("usersPerm.section.roles")}</h4>
               <div className="mt-3 flex flex-wrap gap-2">
                 {payload.roles.map((role) => (
-                  <button key={role.key} type="button" onClick={() => setRoleKeys((current) => toggle(current, role.key))} data-tone={roleKeys.includes(role.key) ? "cyan" : undefined} className={`rounded-full border px-3 py-1.5 text-xs ${roleKeys.includes(role.key) ? "border-[var(--accent-border)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-elevated)]"}`}>{t(`usersPage.role.${role.key}`)}</button>
+                  <Chip key={role.key} selected={roleKeys.includes(role.key)} onClick={() => setRoleKeys((current) => toggle(current, role.key))}>{t(`usersPage.role.${role.key}`)}</Chip>
                 ))}
               </div>
             </section>}
 
             {!resourceOnly && <section data-inset className="p-4">
-              <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.perms")}</h4>
+              <h4 className="ui-title-group">{t("usersPerm.section.perms")}</h4>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <p className="mb-2 text-xs text-[var(--text-muted)]">
                   {t("usersPerm.perms.directHint")}
@@ -398,7 +402,7 @@ return data as PermissionsPayload;
                   const direct = permissionKeys.includes(permission.key);
                   const effective = payload.user.effectivePermissions.includes(permission.key);
                   return (
-                  <label key={permission.key} className="flex items-center gap-2 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+                  <label key={permission.key} data-tile="" data-selected={direct ? "" : undefined} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)]">
                     <input type="checkbox" checked={direct} onChange={() => setPermissionKeys((current) => toggle(current, permission.key))} />
                     <span>{permission.name || permission.key}</span>
                     <span className="text-xs text-[var(--text-muted)]">{permission.key}{effective && !direct ? ` · ${t("usersPerm.perms.viaRole")}` : ""}</span>
@@ -411,7 +415,7 @@ return data as PermissionsPayload;
             {payload.user.resourceAccessBypassed && <Notice tone="info">{t("usersPerm.adminResourceAccess")}</Notice>}
 
             {!payload.user.resourceAccessBypassed && <section data-inset className="p-4">
-              <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.servers")}</h4>
+              <h4 className="ui-title-group">{t("usersPerm.section.servers")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.servers.hint")}</p>
               <div className="mt-3 space-y-3">
                 {(payload.servers ?? []).length === 0 ? <EmptyState>{t("usersPerm.servers.empty")}</EmptyState> :
@@ -424,7 +428,7 @@ return data as PermissionsPayload;
                     return <div key={server.id} data-card className="p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-medium text-[var(--text-primary)]">{server.name} <span className="text-xs text-[var(--text-muted)]">{server.operatingSystem}</span></span>
-                        <button type="button" className="rounded-lg border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)]" onClick={() => setServerGrants((current) => grant
+                        <ActionButton size="sm" variant="secondary" onClick={() => setServerGrants((current) => grant
                           ? current.filter((item) => item.serverId !== server.id)
                           : [...current, {
                             serverId: server.id,
@@ -434,7 +438,7 @@ return data as PermissionsPayload;
                             canFileRead: payload.user.effectivePermissions.includes("server:ssh"),
                             canFileWrite: payload.user.effectivePermissions.includes("server:ssh"),
                             canFileDelete: payload.user.effectivePermissions.includes("server:ssh"),
-                          }])}>{grant ? t("usersPerm.servers.inherit") : t("usersPerm.servers.override")}</button>
+                          }])}>{grant ? t("usersPerm.servers.inherit") : t("usersPerm.servers.override")}</ActionButton>
                       </div>
                       {grant ? <div className="mt-3 grid gap-2 sm:grid-cols-3">
                         {capabilities.map(([field, label]) => <label key={field} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
@@ -450,7 +454,7 @@ return data as PermissionsPayload;
             {!payload.user.resourceAccessBypassed && <section data-inset className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.grants")}</h4>
+                  <h4 className="ui-title-group">{t("usersPerm.section.grants")}</h4>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.grants.hint")}</p>
                 </div>
                 <ActionButton icon={<Plus size={16} aria-hidden />} size="sm" variant="success" onClick={addGrant}>{t("usersPerm.action.addGrant")}</ActionButton>
@@ -462,16 +466,16 @@ return data as PermissionsPayload;
                     <div key={`${grant.storageNodeId}-${index}`} data-card className="p-4">
                       <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
                         <label className="sr-only" htmlFor={`grantNode-${index}`}>{t("usersPerm.grants.node")}</label>
-                        <select id={`grantNode-${index}`} value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
+                        <select id={`grantNode-${index}`} value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className={cn(UI_INPUT, "text-sm")}>
                           {payload.storageNodes.map((item) => <option key={item.id} value={item.id}>{item.name} · {getStorageDriverLabel(t, item.driver)}</option>)}
                         </select>
                         <label className="sr-only" htmlFor={`grantPath-${index}`}>{t("usersPerm.grants.path")}</label>
-                        <input id={`grantPath-${index}`} value={grant.pathPrefix} onChange={(e) => updateGrant(index, { pathPrefix: e.target.value })} placeholder={t("usersPerm.grants.pathPlaceholder")} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+                        <input id={`grantPath-${index}`} value={grant.pathPrefix} onChange={(e) => updateGrant(index, { pathPrefix: e.target.value })} placeholder={t("usersPerm.grants.pathPlaceholder")} className={cn(UI_INPUT, "text-sm")} />
                         <label className="sr-only" htmlFor={`grantQuota-${index}`}>{t("usersPerm.grants.quota")}</label>
-                        <input id={`grantQuota-${index}`} value={grant.quotaBytes ?? ""} onChange={(e) => updateGrant(index, { quotaBytes: e.target.value })} placeholder={t("usersPerm.grants.quotaPlaceholder")} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+                        <input id={`grantQuota-${index}`} value={grant.quotaBytes ?? ""} onChange={(e) => updateGrant(index, { quotaBytes: e.target.value })} placeholder={t("usersPerm.grants.quotaPlaceholder")} className={cn(UI_INPUT, "text-sm")} />
                         <label className="sr-only" htmlFor={`grantMaxFile-${index}`}>{t("usersPerm.grants.maxFile")}</label>
-                        <input id={`grantMaxFile-${index}`} value={grant.maxFileBytes ?? ""} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder={t("usersPerm.grants.maxFilePlaceholder")} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
-                        <button type="button" onClick={() => setGrants((current) => current.filter((_, i) => i !== index))} className="rounded-xl border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)]">{t("usersPerm.action.delete")}</button>
+                        <input id={`grantMaxFile-${index}`} value={grant.maxFileBytes ?? ""} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder={t("usersPerm.grants.maxFilePlaceholder")} className={cn(UI_INPUT, "text-sm")} />
+                        <ActionButton size="sm" variant="danger" onClick={() => setGrants((current) => current.filter((_, i) => i !== index))}>{t("usersPerm.action.delete")}</ActionButton>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[var(--text-secondary)]">
                         <label><input type="checkbox" checked={grant.canRead} onChange={(e) => updateGrant(index, { canRead: e.target.checked })} /> {t("usersPerm.grants.read")}</label>
@@ -486,12 +490,8 @@ return data as PermissionsPayload;
               </div>
             </section>}
 
-            <div className="flex justify-end gap-3">
-              <ActionButton variant="secondary" onClick={onClose}>{t("usersPerm.action.cancel")}</ActionButton>
-              {(!resourceOnly || !payload.user.resourceAccessBypassed) && <ActionButton variant="outline" onClick={save} disabled={saving}>{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</ActionButton>}
-            </div>
           </div>
         )}
-    </ModalShell>
+    </Dialog>
   );
 }

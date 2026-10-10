@@ -68,11 +68,6 @@ export function assertDirectCredentialsConfigured(server: SshServerRow): void {
   }
 }
 
-/** True when the only usable transport for this server is the agent relay. */
-export function isAgentOnlyServer(server: SshServerRow): boolean {
-  return server.managementMode === "AGENT" && !server.sshKey?.privateKey && !server.password;
-}
-
 /**
  * Load one server by id, require it to exist and be enabled, and build the
  * decrypted SSH connection params. Throws typed BusinessErrors so API routes

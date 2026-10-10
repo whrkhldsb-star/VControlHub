@@ -95,11 +95,11 @@ export default async function BackupsPage() {
 						{summary.failureSummary.map((item) => (
 							<div key={item.category} data-inset className="p-3">
 								<div className="flex items-center justify-between gap-3">
-									<p className="text-xs font-semibold text-[var(--danger)]">{item.label}</p>
+									<p className="text-xs font-semibold text-[var(--danger)]">{t(`backupsPage.failure.${item.category}.label`)}</p>
 									<StatusBadge tone="danger">{t("backupsPage.failures.itemCount", { count: item.count })}</StatusBadge>
 								</div>
 								{item.latestRecordPath && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("backupsPage.failures.latestRecord", { path: item.latestRecordPath })}</p>}
-								<p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{t("backupsPage.failures.remediation", { remediation: item.remediation })}</p>
+								<p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{t("backupsPage.failures.remediation", { remediation: t(`backupsPage.failure.${item.category}.remediation`) })}</p>
 								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">{item.latestMessage}</p>}
 							</div>
 						))}
@@ -175,7 +175,7 @@ export default async function BackupsPage() {
 						<ListRow key={b.id}>
 							<div className="flex items-center justify-between gap-3">
 								<div>
-									<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("backupsPage.records.typeStatus", { type: getBackupTypeLabel(t, b.type), status: getDomainStatusLabel(t, b.status) })}</h3>
+									<h3 className="ui-title-group">{t("backupsPage.records.typeStatus", { type: getBackupTypeLabel(t, b.type), status: getDomainStatusLabel(t, b.status) })}</h3>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.pathTime", { path: b.filePath, time: formatDateTime(b.createdAt, locale) })}</p>
 								</div>
 								<Badge>{b.creator?.displayName || b.creator?.username || t("backupsPage.records.creatorSystem")}</Badge>

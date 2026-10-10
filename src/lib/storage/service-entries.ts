@@ -27,6 +27,7 @@ import {
 } from "./schema";
 import { buildDirectAccessStrategy } from "./service-direct-access";
 import { createWebDavClient } from "./webdav-client";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -310,7 +311,7 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
             operatingSystem: true;
             password: true;
             hostKeySha256: true;
-            sshKey: { select: { privateKey: true } };
+            sshKey: { select: typeof SSH_KEY_CREDENTIAL_SELECT };
           };
         };
       };
@@ -431,7 +432,7 @@ export async function restoreFileEntry(
               operatingSystem: true,
               password: true,
               hostKeySha256: true,
-              sshKey: { select: { privateKey: true } },
+              sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
             },
           },
         },

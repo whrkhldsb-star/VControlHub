@@ -89,6 +89,7 @@ vi.mock("@/lib/ai/hosted-service", () => ({
   ]) }));
 
 import RequestsPage from "../page";
+import { listCommandRequests } from "@/lib/command/service";
 
 describe("RequestsPage", () => {
   it("renders separate assistant authorization and user command approval flows", async () => {
@@ -108,10 +109,28 @@ describe("RequestsPage", () => {
     expect(screen.getByText("助手授权")).toBeInTheDocument();
     expect(screen.getByText("用户审批")).toBeInTheDocument();
     expect(screen.getByText("hk-prod-1")).toBeInTheDocument();
-    expect(screen.getAllByText("执行 / worker 记录")).toHaveLength(2);
+    expect(screen.getAllByText("执行记录")).toHaveLength(2);
     expect(screen.getByText("命令审批已通过，任务正在进入执行器队列。")).toBeInTheDocument();
     expect(screen.getByText(/后台执行器 worker-old/)).toBeInTheDocument();
     expect(screen.getAllByTestId("review-command-form")).toHaveLength(2);
     expect(screen.getAllByTestId("cancel-command-button")).toHaveLength(2);
+  });
+
+  it("keeps finished requests out of the queue, in a folded history", async () => {
+    const [pending] = await (listCommandRequests as unknown as () => Promise<Array<Record<string, unknown>>>)();
+    vi.mocked(listCommandRequests).mockResolvedValueOnce([
+      pending,
+      { ...pending, id: "cmd_done", title: "Rotate logs", status: "COMPLETED" },
+    ] as never);
+
+    const { container } = render(await RequestsPage());
+
+    const history = container.querySelector("details");
+    expect(history).not.toBeNull();
+    expect(history).not.toHaveAttribute("open");
+    expect(history).toHaveTextContent("已处理记录（1）");
+    expect(history).toHaveTextContent("Rotate logs");
+    expect(history).not.toHaveTextContent("Restart nginx");
+    expect(screen.getAllByTestId("review-command-form")).toHaveLength(1);
   });
 });

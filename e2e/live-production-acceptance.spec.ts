@@ -1604,7 +1604,7 @@ test.describe("live production acceptance", () => {
           page.getByText(/^(?:加载中[.…]*|Loading[.…]*)$/i),
         ).toBeHidden({ timeout: 30_000 });
         await expect(
-          page.getByRole("heading", { name: /服务器监控|Host Monitoring/i }),
+          page.getByRole("heading", { name: /Hub 主机监控|Hub Host/i }),
         ).toBeVisible();
       }
       expect(

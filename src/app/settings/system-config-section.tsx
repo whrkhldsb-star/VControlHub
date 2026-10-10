@@ -218,13 +218,13 @@ export function SystemConfigSection({
       {/* Title */}
       <div>
         <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.eyebrow")}</span>
-        <h3 className="text-lg font-semibold mt-0.5 text-[var(--text-primary)]">{t("systemConfig.title")}</h3>
+        <h3 className="ui-title-section mt-0.5">{t("systemConfig.title")}</h3>
         <p className="text-sm text-[var(--text-secondary)] mt-1">{t("systemConfig.description")}</p>
       </div>
 
       {/* Export area */}
       <div className="space-y-2">
-        <h4 className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.export.title")}</h4>
+        <h4 className="ui-title-group">{t("systemConfig.export.title")}</h4>
         <p className="text-xs text-[var(--text-secondary)]">{t("systemConfig.export.hint")}</p>
 
         {/* Export scope: team (default) vs platform global (admin) */}
@@ -318,11 +318,11 @@ export function SystemConfigSection({
       <hr className="border-[var(--border)]" />
 
       <div className="space-y-3">
-        <h4 className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.import.title")}</h4>
+        <h4 className="ui-title-group">{t("systemConfig.import.title")}</h4>
 
         {/* File selection */}
         <div className="space-y-1">
-          <label htmlFor="system-config-import-file" className="text-sm text-[var(--text-secondary)]">
+          <label htmlFor="system-config-import-file" className="ui-label">
             {t("systemConfig.import.fileLabel")}
           </label>
           <input

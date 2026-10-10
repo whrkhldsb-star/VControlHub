@@ -7,6 +7,9 @@ import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { toggleDirectGatewayAction, type ServerActionState } from "./actions";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
+import { directGatewayModeLabel } from "./server-labels";
 
 const initialState: ServerActionState = {
   error: undefined,
@@ -16,7 +19,6 @@ const initialState: ServerActionState = {
 
 export type ServerCardDirectGateway = {
   enabled: boolean;
-  statusLabel: string;
   publicUrl: string | null;
   port: number;
 };
@@ -60,7 +62,7 @@ export function ServerCardDirectGatewayForm({
         <div className="space-y-2">
           <div className="space-y-1">
             <label
-              className="block text-xs font-medium text-[var(--text-muted)]"
+              className="ui-label block"
               htmlFor={`direct-gateway-protocol-${serverId}`}
             >
               {t("serverCardActions.directGateway.protocol")}
@@ -72,7 +74,7 @@ export function ServerCardDirectGatewayForm({
               onChange={(e) =>
                 setProtocol(e.target.value === "https" ? "https" : "http")
               }
-              className="w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
+              className={cn(UI_INPUT, "w-full text-xs")}
             >
               <option value="http">
                 {t("serverCardActions.directGateway.protocolHttp")}
@@ -92,7 +94,7 @@ export function ServerCardDirectGatewayForm({
           {protocol === "https" ? (
             <div className="space-y-1">
               <label
-                className="block text-xs font-medium text-[var(--text-muted)]"
+                className="ui-label block"
                 htmlFor={`direct-gateway-domain-${serverId}`}
               >
                 {t("serverCardActions.directGateway.publicDomain")}
@@ -106,7 +108,7 @@ export function ServerCardDirectGatewayForm({
                 placeholder={t(
                   "serverCardActions.directGateway.publicDomainPlaceholder",
                 )}
-                className="w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
+                className={cn(UI_INPUT, "w-full text-xs")}
               />
               <p className="text-xs leading-4 text-[var(--text-muted)]">
                 {t("serverCardActions.directGateway.publicDomainHint")}
@@ -118,10 +120,7 @@ export function ServerCardDirectGatewayForm({
 
       <div className="space-y-1" role="status" aria-live="polite">
         <div className="text-xs font-medium text-[var(--text-secondary)]">
-          {t("serverCardActions.directGateway.statusPrefix").replace(
-            "{status}",
-            directGateway.statusLabel,
-          )}
+          {t("serverCardActions.directGateway.statusPrefix", { status: directGatewayModeLabel(directGateway.enabled, t) })}
         </div>
         {directGateway.publicUrl ? (
           <a

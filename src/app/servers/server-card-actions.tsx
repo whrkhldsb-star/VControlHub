@@ -17,6 +17,7 @@ import { ServerCardDeleteForm } from "./server-card-delete-form";
 import { ServerCardEditForm } from "./server-card-edit-form";
 import { useSshTerminal } from "./ssh-terminal-context";
 import { ActionButton, type ButtonSize } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 import { ServerConnectionAction } from "./server-connection-action";
 
 const initialState: ServerActionState = {
@@ -57,7 +58,6 @@ type ServerCardActionsProps = {
 	onSshConnect?: () => void;
 	directGateway?: {
 		enabled: boolean;
-		statusLabel: string;
 		publicUrl: string | null;
 		port: number;
 	};
@@ -176,10 +176,10 @@ export function ServerCardActions({
 					<form action={toggleAction} className="space-y-2">
 						<input type="hidden" name="serverId" value={serverId} />
 						{!enabled && toggleState.hostKeySha256 ? (
-							<div className="space-y-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
+							<Notice tone="warning" role="group" compact>
 								<p className="font-medium text-[var(--text-primary)]">{t("serverCardActions.toggle.hostKeyTitle")}</p>
 								<p>{t("serverCardActions.toggle.hostKeyDesc")}</p>
-								<code className="block break-all rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 text-[var(--text-primary)]">
+								<code data-inset="" className="block break-all border-[var(--warning-border)] px-3 py-2 text-[var(--text-primary)]">
 									{toggleState.hostKeySha256}
 								</code>
 								<input type="hidden" name="approvedHostKeySha256" value={toggleState.hostKeySha256} />
@@ -187,7 +187,7 @@ export function ServerCardActions({
 									<input type="checkbox" required className="mt-0.5 h-4 w-4 accent-[var(--accent)]" />
 									<span>{t("serverCardActions.toggle.hostKeyConfirm")}</span>
 								</label>
-							</div>
+							</Notice>
 						) : null}
 						<SubmitButton
 						pendingLabel={t("serverCardActions.toggle.pending")}

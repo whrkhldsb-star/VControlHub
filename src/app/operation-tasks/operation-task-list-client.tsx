@@ -15,7 +15,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { JobEventsDialog } from "./job-events-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { getBackupTypeLabel, getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 const TASKS_PER_PAGE = 20;
@@ -71,20 +71,23 @@ type TaskRowProps = {
 };
 
 const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEvents }: TaskRowProps) {
+  // Backup rows carry their type; name it instead of the stored "DATABASE backup".
+  const isBackup = task.source === "backup" && Boolean(task.taskType);
+  const title = isBackup ? getBackupTypeLabel(t, task.taskType!) : task.title;
   return (
     <ListRow className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{sourceLabels[task.source] ?? task.source}</Badge>
           <StatusBadge tone={statusTone[task.status] ?? "neutral"}>{getDomainStatusLabel(t, task.status)}</StatusBadge>
-          {task.taskType && <Badge>{task.taskType}</Badge>}
+          {task.taskType && !isBackup && <Badge>{task.taskType}</Badge>}
           {task.foldedCount && task.foldedCount > 1 && <Badge tone="accent">{t("operationTasksPage.folded", { count: task.foldedCount })}</Badge>}
-          {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: formatDateTime(task.workerHeartbeatAt, locale) }) : t("operationTasksPage.worker.noHeartbeat")} className="!rounded-lg">worker {task.workerId}</StatusBadge>}
+          {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: formatDateTime(task.workerHeartbeatAt, locale) }) : t("operationTasksPage.worker.noHeartbeat")} className="!rounded-lg">{t("operationTasksPage.worker.label", { id: task.workerId })}</StatusBadge>}
         </div>
-        <h3 className="mt-2 truncate text-sm font-semibold text-[var(--text-primary)]">{task.title}</h3>
+        <h3 className="ui-title-group mt-2 truncate">{title}</h3>
         <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDateTime(task.createdAt, locale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
         {task.logPreview && task.logPreview.length > 0 && (
-          <div aria-label={`Recent logs: ${task.title}`} data-inset className="mt-3 px-3 py-2">
+          <div aria-label={t("operationTasksPage.recentLogsAria", { title })} data-inset className="mt-3 px-3 py-2">
             <div className="text-xs font-medium uppercase text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
             <ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
               {task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}
@@ -228,16 +231,16 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       </div>}
     </SurfacePanel>
     </section>
-    <section aria-label={t("operationTasks.summary.failureGroup")} className={`rounded-xl border bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] ${failureSummary.length ? "border-[var(--danger-border)]" : "border-[var(--border)]"}`}>
+    <section data-card="" aria-label={t("operationTasks.summary.failureGroup")} className={`p-4 ${failureSummary.length ? "border-[var(--danger-border)]" : ""}`}>
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("operationTasks.summary.failureGroup")}</h2>
+          <h2 className="ui-title-section">{t("operationTasks.summary.failureGroup")}</h2>
           <p className="mt-1 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.desc")}</p>
         </div>
         <div className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.totalCount", { count: failureSummary.reduce((total, item) => total + item.total, 0) })}</div>
       </div>
       {failureSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        {failureSummary.map((item) => <div key={item.reason} className="rounded-xl border border-[var(--danger-border)] bg-[var(--surface)] px-3 py-3">
+        {failureSummary.map((item) => <div data-inset="" key={item.reason} className="border-[var(--danger-border)] px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><StatusBadge tone="danger">{t("operationTasksPage.failures.itemCount", { count: item.total })}</StatusBadge></div>
           <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join("、"), title: item.latestTitle })}</p>
         </div>)}
@@ -249,7 +252,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       count={visibleTasks.length}
       actions={
         <Toolbar className="!mb-0 flex-col gap-2 border-0 bg-transparent p-0 shadow-none sm:flex-row sm:items-end">
-          <label className="text-xs font-medium text-[var(--text-muted)]">
+          <label className="ui-label">
             <span className="mb-1 block">{t("operationTasksPage.filter.search")}</span>
             <input
               type="search"
@@ -260,27 +263,27 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
               className={`${CONTROL_CLASS} min-w-44 sm:w-52`}
             />
           </label>
-          <label className="text-xs font-medium text-[var(--text-muted)]">
+          <label className="ui-label">
             <span className="mb-1 block">{t("operationTasksPage.filter.status")}</span>
             <select data-input value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${CONTROL_CLASS} !w-auto min-w-32`}>
               {statusFilters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
             </select>
           </label>
-          <label className="text-xs font-medium text-[var(--text-muted)]">
+          <label className="ui-label">
             <span className="mb-1 block">{t("operationTasksPage.filter.taskType")}</span>
             <select data-input value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className={`${CONTROL_CLASS} !w-auto min-w-44`}>
               <option value="all">{t("operationTasksPage.filter.allTypes")}</option>
               {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{taskType}</option>)}
             </select>
           </label>
-          <label className="text-xs font-medium text-[var(--text-muted)]">
+          <label className="ui-label">
             <span className="mb-1 block">{t("operationTasksPage.filter.sort")}</span>
             <select data-input value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className={`${CONTROL_CLASS} !w-auto min-w-36`}>
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
           <ActionButton variant="secondary" onClick={refresh} disabled={refreshing}>{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</ActionButton>
-          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-size="sm" data-variant="primary">{t("operationTasksPage.export.csv")}</a>
+          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-size="sm" data-variant="ghost">{t("operationTasksPage.export.csv")}</a>
         </Toolbar>
       }
       empty={visibleTasks.length === 0 ? <EmptyState text={needleNorm ? t("operationTasksPage.filter.noMatch") : t("operationTasks.tasks.empty")} /> : undefined}

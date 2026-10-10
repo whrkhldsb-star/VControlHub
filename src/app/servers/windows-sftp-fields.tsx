@@ -26,16 +26,16 @@ export function WindowsSftpFields({
     </label>
     <p className="text-xs leading-5 text-[var(--text-muted)]">{t("serversPage.windows.sftpHint")}</p>
     {enabled ? <div className="grid gap-3 sm:grid-cols-2">
-      <label className="space-y-1.5 text-xs text-[var(--text-secondary)]">{t("serversPage.windows.sftpPort")}
+      <label className="ui-label space-y-1.5">{t("serversPage.windows.sftpPort")}
         <input name="windowsSftpPort" type="number" min={1} max={65535} defaultValue={port} required className={UI_INPUT} />
       </label>
-      <label className="space-y-1.5 text-xs text-[var(--text-secondary)]">{t("serversPage.windows.sftpUsername")}
+      <label className="ui-label space-y-1.5">{t("serversPage.windows.sftpUsername")}
         <input name="windowsSftpUsername" type="text" defaultValue={username} required className={UI_INPUT} autoComplete="username" />
       </label>
-      <label className="space-y-1.5 text-xs text-[var(--text-secondary)]">{t("serversPage.windows.sftpPassword")}
+      <label className="ui-label space-y-1.5">{t("serversPage.windows.sftpPassword")}
         <input name="windowsSftpPassword" type="password" required={!editing || !configured} className={UI_INPUT} autoComplete="new-password" />
       </label>
-      <label className="space-y-1.5 text-xs text-[var(--text-secondary)]">{t("serversPage.windows.sftpPath")}
+      <label className="ui-label space-y-1.5">{t("serversPage.windows.sftpPath")}
         <input name="windowsSftpPath" type="text" defaultValue={basePath} required placeholder="/C:/VControlHub/Files" className={UI_INPUT} />
       </label>
     </div> : null}

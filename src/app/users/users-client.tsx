@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { EmptyState, ListPanel, ListRow, Toolbar } from "@/components/page-shell";
+import { EmptyState, ListPanel, ListRow, PageHeader, Toolbar } from "@/components/page-shell";
 import { Pagination } from "@/components/pagination";
 import { SkeletonList } from "@/components/skeleton";
 import { toDateLocale } from "@/lib/i18n/locale-format";
@@ -38,7 +38,13 @@ type UserInfo = {
 /** Fixed page size for the users list (matches the API request below). */
 const USER_PAGE_SIZE = 50;
 
-export function UserManagementClient({ canManage = false, canManageResources = canManage, currentUserId = "" }: { canManage?: boolean; canManageResources?: boolean; currentUserId?: string }) {
+export function UserManagementClient({ header, canManage = false, canManageResources = canManage, currentUserId = "" }: {
+  /** Page header; rendered here so the create command sits in its actions. */
+  header?: { eyebrow?: string; title: string; description?: string };
+  canManage?: boolean;
+  canManageResources?: boolean;
+  currentUserId?: string;
+}) {
   const { t, locale } = useI18n();
 	const { addToast } = useToast();
   const { state: urlState, setField: setUrlField } = useUrlQueryState({ page: "1" });
@@ -169,8 +175,8 @@ export function UserManagementClient({ canManage = false, canManageResources = c
 
   return (
     <div>
-      {canManage ? (
-        <Toolbar className="justify-end">
+      {(() => {
+        const createAction = canManage ? (
           <ActionButton
             variant={showCreateForm ? "secondary" : "primary"}
             icon={showCreateForm ? undefined : <Plus size={16} aria-hidden />}
@@ -178,8 +184,10 @@ export function UserManagementClient({ canManage = false, canManageResources = c
           >
             {showCreateForm ? t("usersPage.action.cancel") : t("usersPage.action.create")}
           </ActionButton>
-        </Toolbar>
-      ) : null}
+        ) : null;
+        if (header) return <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description}>{createAction}</PageHeader>;
+        return createAction ? <Toolbar className="justify-end">{createAction}</Toolbar> : null;
+      })()}
       {showCreateForm && (
         <UsersCreateForm
           t={t}
@@ -268,7 +276,9 @@ export function UserManagementClient({ canManage = false, canManageResources = c
             ))}
 
           {!loading && !loadFailed && (
-            <Pagination page={page} pageSize={USER_PAGE_SIZE} totalItems={total} loading={loading} onPageChange={setPage} />
+            <div className="border-t border-[var(--border-subtle)] px-4 py-2 sm:px-5">
+              <Pagination page={page} pageSize={USER_PAGE_SIZE} totalItems={total} loading={loading} onPageChange={setPage} />
+            </div>
           )}
 		</ListPanel>
       {editingPermissionsUser && (

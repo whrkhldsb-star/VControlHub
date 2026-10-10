@@ -231,7 +231,8 @@ const LEGACY_WS_IDLE_TIMEOUT_MS = config.ssh.wsIdleTimeoutMs;
 const DEFAULT_WS_HEARTBEAT_INTERVAL_MS = config.ssh.wsHeartbeatIntervalMs;
 const DEFAULT_SSH_KEEPALIVE_INTERVAL_MS = config.ssh.keepaliveIntervalMs;
 const DEFAULT_SSH_KEEPALIVE_COUNT_MAX = config.ssh.keepaliveCountMax;
-const wsHeartbeatState = new WeakMap<WebSocket, boolean>();
+/** Last pong (or connect) time per socket; see startWsHeartbeat. */
+const wsLastPongAt = new WeakMap<WebSocket, number>();
 let wsHeartbeatTimer: NodeJS.Timeout | null = null;
 let sshWss: WebSocketServer | null = null;
 
@@ -249,18 +250,29 @@ async function getSshTerminalRuntimeConfigWithFallback() {
 	}
 }
 
+/**
+ * How long a socket may go without answering pings before it is treated as
+ * dead. One missed pong is routine on mobile and CDN-proxied links (a network
+ * switch, a backgrounded tab, a congested uplink); terminating on the first
+ * miss dropped healthy shells mid-command. Tolerate several intervals.
+ */
+export function wsHeartbeatToleranceMs(intervalMs: number): number {
+	return Math.max(4 * intervalMs, 120_000);
+}
+
 function startWsHeartbeat(intervalMs: number) {
 	if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
+	const toleranceMs = wsHeartbeatToleranceMs(intervalMs);
 	wsHeartbeatTimer = setInterval(() => {
 		if (!sshWss) return;
+		const now = Date.now();
 		for (const client of sshWss.clients) {
 			if (client.readyState !== WebSocket.OPEN) continue;
-			if (wsHeartbeatState.get(client) === false) {
+			if (now - (wsLastPongAt.get(client) ?? now) > toleranceMs) {
 				logger.warn("terminating unresponsive SSH WebSocket client");
 				client.terminate();
 				continue;
 			}
-			wsHeartbeatState.set(client, false);
 			client.ping();
 		}
 	}, intervalMs);
@@ -401,12 +413,12 @@ wss.on("connection", async (ws, req) => {
 	}
 	recordWsEvent("ssh", "open");
 	setWsActive("ssh", wss.clients.size);
-	wsHeartbeatState.set(ws, true);
+	wsLastPongAt.set(ws, Date.now());
 	ws.on("pong", () => {
-		wsHeartbeatState.set(ws, true);
+		wsLastPongAt.set(ws, Date.now());
 	});
 	ws.on("close", () => {
-		wsHeartbeatState.delete(ws);
+		wsLastPongAt.delete(ws);
 		recordWsEvent("ssh", "close");
 		setWsActive("ssh", wss.clients.size);
 	});

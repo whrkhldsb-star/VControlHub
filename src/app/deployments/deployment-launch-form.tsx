@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -8,7 +7,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { Disclosure } from "@/components/ui/disclosure";
 
@@ -64,7 +63,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 		return (
 			<Notice tone="warning" title={t("deploymentsPage.launch.noVpsTitle")} className="mt-4">
 				<p className="text-xs">{t("deploymentsPage.launch.noVpsDesc")}</p>
-				<Link href="/servers" className="mt-3 inline-flex rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs font-semibold text-[var(--warning)] transition hover:bg-[var(--warning-bg)]">{t("deploymentsPage.launch.addVps")}</Link>
+				<ButtonLink href="/servers" size="sm" variant="warning" className="mt-3">{t("deploymentsPage.launch.addVps")}</ButtonLink>
 			</Notice>
 		);
 	}
@@ -116,7 +115,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 	return (
 		<form onSubmit={handleSubmit} className="mt-4 grid gap-4">
 			<div className="grid gap-3 md:grid-cols-2">
-				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+				<label className="ui-label grid gap-1.5">
 					{t("deploymentsPage.launch.templateLabel")}
 					<select
 						name="templateId"
@@ -127,7 +126,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 						{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
 					</select>
 				</label>
-				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+				<label className="ui-label grid gap-1.5">
 					{t("deploymentsPage.launch.reasonLabel")}
 					<input name="reason" maxLength={500} placeholder={t("deploymentsPage.launch.reasonPlaceholder")} className={UI_INPUT} />
 				</label>
@@ -138,12 +137,12 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			{variables.length > 0 ? (
 				<div data-inset className="p-4">
 					<div className="mb-3 flex items-center justify-between gap-3">
-						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("deploymentsPage.launch.variablesTitle")}</h3>
+						<h3 className="ui-title-group">{t("deploymentsPage.launch.variablesTitle")}</h3>
 						<span className="text-xs text-[var(--text-muted)]">{t("deploymentsPage.launch.variablesHint")}</span>
 					</div>
 					<div className="grid gap-3 md:grid-cols-2">
 						{variables.map((name) => (
-							<label key={name} className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+							<label key={name} className="ui-label grid gap-1.5">
 								{name}
 								<input name={`variables.${name}`} required placeholder={t("deploymentsPage.launch.variablePlaceholder", { name })} className={UI_INPUT} />
 							</label>
@@ -151,17 +150,17 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 					</div>
 				</div>
 			) : (
-				<p className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-3 text-xs text-[var(--text-muted)]">{t("deploymentsPage.launch.noVariables")}</p>
+				<p data-inset="" className="px-4 py-3 text-xs text-[var(--text-muted)]">{t("deploymentsPage.launch.noVariables")}</p>
 			)}
 
 			<div>
-				<div className="mb-2 flex items-center justify-between gap-3">
-					<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("deploymentsPage.launch.targetVpsTitle")}</h3>
+				<div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+					<h3 className="ui-title-group shrink-0">{t("deploymentsPage.launch.targetVpsTitle")}</h3>
 					<span className="text-xs text-[var(--text-muted)]">{t("deploymentsPage.launch.targetVpsHint")}</span>
 				</div>
 				<div className="grid gap-2 md:grid-cols-2">
 					{servers.map((server) => (
-						<label key={server.id} className={`flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)] ${server.available === false ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
+						<label key={server.id} data-tile="" className={`flex items-start gap-2 px-3 py-2 text-xs text-[var(--text-secondary)] ${server.available === false ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
 							<input type="checkbox" name="serverIds" value={server.id} disabled={server.available === false} className="mt-0.5" />
 							<span>{server.name} · {server.username}@{server.host}{server.unavailableReason ? <span className="mt-1 block text-[var(--danger)]">{server.unavailableReason}</span> : null}</span>
 						</label>

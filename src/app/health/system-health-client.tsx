@@ -18,7 +18,7 @@ import { useHealthData } from "./use-health-data";
 import { Badge, Notice } from "@/components/ui-primitives";
 import { Toolbar, StatCard, StatGrid } from "@/components/page-shell";
 import { ActionButton, ButtonLink } from "@/components/action-button";
-import { RefreshCw } from "@/components/icons";
+import { ChevronRight, RefreshCw } from "@/components/icons";
 
 type Props = { initialSystemHealth?: SystemHealthReport | null };
 
@@ -42,6 +42,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 		locale,
 		mode: "system",
 	});
+	const advice = repairSuggestions(systemHealth, t);
 
 	const tt = (key: string, vars?: Record<string, string | number>) => applyTemplate(t, key, vars);
 	const loading = systemHealth === null && !loadError;
@@ -68,7 +69,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 						<RefreshCw size={16} aria-hidden className={isRefreshing ? "animate-spin" : undefined} />
 						{t("common.refresh")}
 					</ActionButton>
-					<ButtonLink variant="outline"
+					<ButtonLink variant="outline" iconRight={<ChevronRight aria-hidden />}
 						href="/vps-status">
 						{t("healthPage.ui.gotoVpsStatus")}
 					</ButtonLink>
@@ -108,7 +109,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 							<p className="text-xs text-[var(--text-muted)]">
 								{t("healthPage.ui.selfCheck")}
 							</p>
-							<h2 className="mt-1 text-[15px] font-semibold text-[var(--text-primary)]">
+							<h2 className="ui-title-section mt-1">
 								{t("healthPage.ui.repairSuggestions")}
 							</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">
@@ -119,12 +120,15 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 							{t("healthPage.ui.auditLog")}
 						</ButtonLink>
 					</div>
+					{advice.length === 0 ? (
+						<Notice tone="success">{t("healthPage.repair.allHealthy")}</Notice>
+					) : null}
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-						{repairSuggestions(systemHealth.summary, t).map((item) => {
+						{advice.map((item) => {
 							return (
 								<article key={item.id} data-card>
 									<div className="flex items-center justify-between gap-3">
-										<h3 className="text-sm font-semibold text-[var(--text-primary)]">
+										<h3 className="ui-title-group">
 											{item.label}
 										</h3>
 										<Badge tone={healthStatusBadgeTone(item.status)}>

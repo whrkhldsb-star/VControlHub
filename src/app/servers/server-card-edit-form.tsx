@@ -10,6 +10,7 @@ import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { ServerManagementModeFields } from "./server-management-mode-fields";
 import { RdpCredentialFields } from "./rdp-credential-fields";
 import { WindowsSftpFields } from "./windows-sftp-fields";
+import { Notice } from "@/components/ui-primitives";
 type Props = {
   operatingSystem?: string; rdpDomain?: string; rdpIgnoreCertificate?: boolean; rdpCertificateSha256?: string;
   serverId: string;
@@ -107,12 +108,12 @@ export function ServerCardEditForm({
         platform={windows ? "WINDOWS" : "LINUX"}
       />
       {!windows && selectedManagementMode === "AGENT" && hasSshCredential ? (
-        <label className="flex items-start gap-2 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
+        <label data-inset="" className="flex items-start gap-2 border-[var(--warning-border)] p-3 text-xs text-[var(--text-secondary)]">
           <input name="removeSshCredential" type="checkbox" className="mt-0.5 h-4 w-4" />
           <span><span className="block font-medium text-[var(--text-primary)]">{t("serversPage.management.removeCredential")}</span><span className="mt-1 block text-[var(--text-muted)]">{t("serversPage.management.removeCredentialHint")}</span></span>
         </label>
       ) : null}
-      <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-name-${serverId}`}>
+      <label className="ui-label block" htmlFor={`edit-name-${serverId}`}>
         {t("serverCardActions.edit.name")}
       </label>
       <input
@@ -122,7 +123,7 @@ export function ServerCardEditForm({
         defaultValue={serverName}
         className={UI_INPUT}
       />
-      <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-host-${serverId}`}>
+      <label className="ui-label block" htmlFor={`edit-host-${serverId}`}>
         {t("serverCardActions.edit.host")}
       </label>
       <input
@@ -132,7 +133,7 @@ export function ServerCardEditForm({
         defaultValue={host}
         className={UI_INPUT}
       />
-      <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-port-${serverId}`}>
+      <label className="ui-label block" htmlFor={`edit-port-${serverId}`}>
         {t(windows ? "serversPage.windows.port" : "serverCardActions.edit.port")}
       </label>
       <input
@@ -144,7 +145,7 @@ export function ServerCardEditForm({
         defaultValue={port}
         className={UI_INPUT}
       />
-      <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-username-${serverId}`}>
+      <label className="ui-label block" htmlFor={`edit-username-${serverId}`}>
         {t(windows ? "serversPage.windows.username" : "serverCardActions.edit.username")}
       </label>
       <input
@@ -156,13 +157,13 @@ export function ServerCardEditForm({
       />
       {windows ? <><RdpCredentialFields idPrefix={`edit-rdp-${serverId}`} editing certificateSha256={rdpCertificateSha256} domain={rdpDomain} ignoreCertificate={rdpIgnoreCertificate} />
       <WindowsSftpFields editing configured={Boolean(storageNodeId)} port={windowsSftpPort} username={windowsSftpUsername} basePath={storagePath ?? "/C:/VControlHub/Files"} />
-      {observedHostKeySha256 ? <div className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
+      {observedHostKeySha256 ? <Notice tone="warning" role="group" compact>
         <p className="font-medium text-[var(--text-primary)]">{t("serverCardActions.edit.hostKeyTrustTitle")}</p>
         <code className="mt-2 block break-all">{observedHostKeySha256}</code>
         <input type="hidden" name="approvedHostKeySha256" value={observedHostKeySha256} />
         <label className="mt-2 flex items-start gap-2"><input type="checkbox" required checked={hostKeyConfirmed} onChange={(event) => setHostKeyConfirmed(event.currentTarget.checked)} />{t("serverCardActions.edit.hostKeyConfirm")}</label>
-      </div> : null}</> : <>
-      <div className="grid gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
+      </Notice> : null}</> : <>
+      <Notice tone="warning" role="group" compact>
         <span className="block font-medium text-[var(--text-primary)]">
           {t("serverCardActions.edit.hostKeyTrustTitle")}
         </span>
@@ -172,7 +173,7 @@ export function ServerCardEditForm({
         {observedHostKeySha256 ? (
           <>
             <span className="font-medium text-[var(--warning)]">{t("serverCardActions.edit.hostKeyObserved")}</span>
-            <code className="block break-all rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 text-[var(--text-primary)]">
+            <code data-inset="" className="block break-all border-[var(--warning-border)] px-3 py-2 text-[var(--text-primary)]">
               {observedHostKeySha256}
             </code>
             <input type="hidden" name="approvedHostKeySha256" value={observedHostKeySha256} />
@@ -188,10 +189,10 @@ export function ServerCardEditForm({
             </label>
           </>
         ) : null}
-      </div>
+      </Notice>
       {connectionType === "PASSWORD" ? (
         <>
-          <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-password-${serverId}`}>
+          <label className="ui-label block" htmlFor={`edit-password-${serverId}`}>
             {t("serverCardActions.edit.password")}
           </label>
           <input
@@ -205,7 +206,7 @@ export function ServerCardEditForm({
         </>
       ) : null}
       </>}
-      <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-description-${serverId}`}>
+      <label className="ui-label block" htmlFor={`edit-description-${serverId}`}>
         {t("serverCardActions.edit.description")}
       </label>
       <textarea
@@ -215,7 +216,7 @@ export function ServerCardEditForm({
         rows={2}
         className={UI_INPUT}
       />
-      <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-tags-${serverId}`}>
+      <label className="ui-label block" htmlFor={`edit-tags-${serverId}`}>
         {t("serverCardActions.edit.tags")}
       </label>
       <input
@@ -227,7 +228,7 @@ export function ServerCardEditForm({
       />
       {!windows && storageNodeId ? (
         <div data-inset className="space-y-2 p-3">
-          <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-storage-path-${serverId}`}>
+          <label className="ui-label block" htmlFor={`edit-storage-path-${serverId}`}>
             {t("serverCardActions.edit.storagePath")}
           </label>
           <input

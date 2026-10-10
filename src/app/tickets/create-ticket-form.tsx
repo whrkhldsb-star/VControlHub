@@ -53,16 +53,11 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 		<form action={formAction}
       onChange={() => setDirty(true)} data-card className="space-y-4 p-5">
 			<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-				<div>
-					<p className="text-xs font-semibold uppercase text-[var(--accent)]">
-						{t("ticketsPage.form.title")}
-					</p>
-					<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsPage.form.title")}</h2>
-				</div>
+				<h2 className="ui-title-section">{t("ticketsPage.form.title")}</h2>
 			</div>
 			{state?.error && <Notice tone="danger" compact>{state.error}</Notice>}
 			<div className="grid gap-3 md:grid-cols-3">
-				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+				<label className="ui-label grid gap-1.5">
 					{t("ticketsPage.form.label.title")}
 					<input
 						name="subject"
@@ -71,7 +66,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 						className={UI_INPUT}
 					/>
 				</label>
-				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+				<label className="ui-label grid gap-1.5">
 					{t("ticketsPage.form.label.category")}
 					<select
 						name="category"
@@ -84,7 +79,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 						<option value="feedback">{t("ticketsPage.category.feedback")}</option>
 					</select>
 				</label>
-				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+				<label className="ui-label grid gap-1.5">
 					{t("ticketsPage.form.label.priority")}
 					<select
 						name="priority"
@@ -99,7 +94,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 				</label>
 			</div>
 			{servers.length > 0 && (
-				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+				<label className="ui-label grid gap-1.5">
 					{t("ticketsPage.form.label.relatedServer")}
 					<select
 						name="relatedServerId"
@@ -113,7 +108,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 					</select>
 				</label>
 			)}
-			<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+			<label className="ui-label grid gap-1.5">
 				{t("ticketsPage.form.label.description")}
 				<textarea
 					name="description"

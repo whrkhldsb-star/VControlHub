@@ -29,26 +29,6 @@ function parseBackupSizeBytes(value: string | number | bigint | null | undefined
 	return numeric;
 }
 
-const backupFailureCategoryLabels: Record<BackupFailureCategory, string> = {
-	path: "Invalid or out-of-bounds path",
-	permission: "Permission or read-only path",
-	timeout: "Execution timeout",
-	script: "Backup script execution failed",
-	missing: "File or directory not found",
-	storage: "Storage space or write failure",
-	unknown: "Uncategorized failure",
-};
-
-const backupFailureRemediation: Record<BackupFailureCategory, string> = {
-	path: "Check the backup record's portable path; avoid absolute paths, .., backslashes, or cross-directory segments. Void old records and recreate the backup if needed.",
-	permission: "Verify that BACKUP_DIR or /var/backups/<slug> is a writable directory. Mark old read-only path failures as voided or retry with a new system backup root.",
-	timeout: "Check backup size, network/disk IO, and the 30-minute execution window. Split file backups or schedule them during off-peak hours if needed.",
-	script: "Review the corresponding Durable Job logs and deploy/backup.sh output. Fix script dependencies, environment variables, or database connections before retrying.",
-	missing: "Confirm that source directories, restore targets, and historical artifacts referenced by the backup script still exist. Preserve audit trails for missing artifacts and mark them as voided.",
-	storage: "Check disk space, inodes, mount read-only status, and backup directory write permissions. Free up space or switch BACKUP_DIR before retrying.",
-	unknown: "Preserve the error snippet and check the full logs in the task center. If reproducible, categorize by path/permission/script/storage direction.",
-};
-
 function classifyBackupFailure(message: string | null | undefined): BackupFailureCategory {
 	const value = (message || "").toLowerCase();
 	if (/permission|denied|readonly|read-only|只读|权限|eacces|eperm/.test(value)) return "permission";
@@ -70,8 +50,6 @@ function summarizeBackupFailures(records: BackupRecordForSummary[]): BackupFailu
 		if (!existing) {
 			grouped.set(category, {
 				category,
-				label: backupFailureCategoryLabels[category],
-				remediation: backupFailureRemediation[category],
 				count: 1,
 				latestMessage: record.errorMessage || record.note || null,
 				latestRecordPath: record.filePath ?? null,
@@ -92,8 +70,9 @@ function summarizeBackupFailures(records: BackupRecordForSummary[]): BackupFailu
 		.map(({ latestAt: _latestAt, ...item }) => item);
 }
 
+/** "—" while a backup has no recorded size yet (still running or failed early). */
 export function formatBackupSize(value: string | number | bigint | null | undefined) {
-	if (value == null) return "Pending";
+	if (value == null) return "—";
 	const size = parseBackupSizeBytes(value);
 	if (size <= 0) return "0 B";
 	if (size < 1024) return `${size} B`;

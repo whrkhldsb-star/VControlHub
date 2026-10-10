@@ -18,7 +18,7 @@ export function StorageNodeCreateForm({ servers }: { servers: Array<{ id: string
   return (
     <form action={formAction} data-card className="grid gap-4 p-6">
       <div>
-        <h2 className="text-xl font-semibold text-[var(--text-primary)]">{t("storagePage.form.createTitle")}</h2>
+        <h2 className="ui-title-section">{t("storagePage.form.createTitle")}</h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("storagePage.form.createDescription")}</p>
       </div>
       <StorageNodeFields driver={driver} onDriverChange={setDriver} servers={servers} />

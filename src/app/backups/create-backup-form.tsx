@@ -31,7 +31,7 @@ export function CreateBackupForm() {
   return (
     <form ref={formRef} action={formAction} className="mt-4 grid gap-3 md:grid-cols-[180px_1fr_auto] md:items-end">
       <div className="grid gap-1.5">
-        <label htmlFor={backupTypeSelectId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.backupType")}</label>
+        <label htmlFor={backupTypeSelectId} className="ui-label">{t("common.backupType")}</label>
         <select id={backupTypeSelectId} name="type" defaultValue="DATABASE" className={UI_INPUT}>
           <option value="DATABASE">{t("common.databaseBackup")}</option>
           <option value="FILES">{t("common.fileBackup")}</option>
@@ -39,7 +39,7 @@ export function CreateBackupForm() {
         </select>
       </div>
       <div className="grid gap-1.5">
-        <label htmlFor={backupNoteInputId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.backupNote")}</label>
+        <label htmlFor={backupNoteInputId} className="ui-label">{t("common.backupNote")}</label>
         <input id={backupNoteInputId} name="note" maxLength={500} placeholder={t("common.backupNotePlaceholder")} className={UI_INPUT} />
       </div>
       <ActionButton type="submit" variant="primary" disabled={pending}>

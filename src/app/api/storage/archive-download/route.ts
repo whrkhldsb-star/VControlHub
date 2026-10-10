@@ -30,6 +30,7 @@ import { storageFileQuerySchema } from "@/lib/storage/schema";
 import { isDirectoryEntry } from "@/lib/files/tree";
 
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 export const dynamic = "force-dynamic";
 
 const logger = createLogger("api:storage:archive-download");
@@ -100,7 +101,7 @@ async function findDirectoryEntry(
               operatingSystem: true,
               password: true,
               hostKeySha256: true,
-              sshKey: { select: { privateKey: true } },
+              sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
             },
           },
         },

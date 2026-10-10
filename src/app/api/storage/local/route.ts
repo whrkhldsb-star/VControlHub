@@ -32,6 +32,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { handleLocalStorageGet } from "./route-get";
 import { writeStorageFileBuffer, deleteStorageFileBuffer } from "@/lib/storage/file-content";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 type UploadLike = {
   arrayBuffer(): Promise<ArrayBuffer>;
@@ -132,7 +133,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
           operatingSystem: true,
           password: true,
           hostKeySha256: true,
-          sshKey: { select: { privateKey: true } },
+          sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
         },
       },
     },

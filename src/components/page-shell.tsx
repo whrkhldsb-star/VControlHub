@@ -10,14 +10,14 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { LocalizedText } from "./localized-text";
 import { File as FileIcon } from "./icons";
+import { Chip } from "./ui-primitives";
+import { cn } from "@/lib/ui/cn";
 
 /* ── ToggleChip ────────────────────────────────────────────────────── */
 /**
- * Two-state toggle used in toolbar rows (e.g. "仅自己/全部用户",
- * "批量模式 开/关").  Active = accent tint, inactive = neutral surface.
+ * Two-state toggle in a toolbar row ("仅自己/全部用户", "批量模式"): a
+ * control-height <Chip>. Active = accent tint (or warning), inactive = neutral.
  */
-type ToggleTone = "accent" | "warn";
-
 export function ToggleChip({
 	active,
 	onClick,
@@ -28,51 +28,40 @@ export function ToggleChip({
 	active: boolean;
 	onClick: () => void;
 	children: ReactNode;
-	tone?: ToggleTone;
+	tone?: "accent" | "warn";
 	ariaLabel?: string;
 }) {
-	const activeCls =
-		tone === "warn"
-			? "bg-[var(--warning-bg)] text-[var(--warning)] border-[var(--warning-border)]"
-			: "bg-[var(--accent-bg)] text-[var(--accent)] border-[var(--accent-border)]";
-	const inactiveCls =
-		"bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] border-[var(--border)]";
 	return (
-		<button
-			type="button"
-			onClick={onClick}
-			aria-pressed={active}
-			aria-label={ariaLabel}
-			className={`inline-flex min-h-[var(--control-height)] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13.5px] font-medium shadow-[var(--shadow-xs)] transition ${active ? activeCls : inactiveCls}`}
-		>
+		<Chip size="md" selected={active} tone={tone === "warn" ? "warning" : "accent"} onClick={onClick} aria-label={ariaLabel}>
 			{children}
-		</button>
+		</Chip>
 	);
 }
 
 /* ── PageShell ──────────────────────────────────────────────────────── */
 
-/** `max-w-7xl` is the historical default; it now means "full page width". */
-const WIDE = "max-w-[88rem]";
-
+/**
+ * Page frame: one width and one set of gutters for every page, so titles line
+ * up under the breadcrumb everywhere. `width="narrow"` caps the content for
+ * reading-width pages (forms, public status) but keeps it left-aligned in the
+ * same frame instead of centring it.
+ */
 export function PageShell({
 	children,
-	maxW = WIDE,
+	width = "wide",
 	navigation = true,
 }: {
 	children: ReactNode;
-	/** Tailwind max-width class – defaults to the full application width. */
-	maxW?: string;
+	width?: "wide" | "narrow";
 	/** Public pages have no application chrome to sit inside. */
 	navigation?: boolean;
 }) {
-	const width = maxW === "max-w-7xl" ? WIDE : maxW;
 	return (
 		<div data-page-shell data-shell={navigation ? "app" : "public"} className="min-w-0 text-[var(--text-primary)]">
 			<div
-				className={`mx-auto min-w-0 ${width} px-4 sm:px-6 lg:px-8 ${navigation ? "pb-10 pt-5 lg:pb-14 lg:pt-7" : "py-10 sm:py-14"}`}
+				className={`mx-auto min-w-0 max-w-[var(--content-max)] px-4 sm:px-6 lg:px-8 ${navigation ? "pb-10 pt-5 lg:pb-14 lg:pt-7" : "py-10 sm:py-14"}`}
 			>
-				{children}
+				{width === "narrow" ? <div className={cn("min-w-0 max-w-5xl", !navigation && "mx-auto")}>{children}</div> : children}
 			</div>
 		</div>
 	);
@@ -101,7 +90,7 @@ export function PageHeader({ eyebrow, title, description, children, className = 
 							{eyebrow}
 						</p>
 					) : null}
-					<h1 className="break-words text-[22px] font-semibold leading-[1.3] tracking-tight text-[var(--text-primary)] sm:text-2xl">
+					<h1 className="ui-title-page break-words">
 						{title}
 					</h1>
 					{description ? (
@@ -182,7 +171,7 @@ export function Card({
 			{hasHeader ? (
 				<div data-card-header className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
 					<div className="min-w-0 flex-1">
-						{title != null ? <h2 className="text-[15px] font-semibold leading-6 text-[var(--text-primary)]">{title}</h2> : null}
+						{title != null ? <h2 className="ui-title-section">{title}</h2> : null}
 						{description != null ? <p className="mt-0.5 text-[13px] leading-5 text-[var(--text-muted)]">{description}</p> : null}
 					</div>
 					{actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
@@ -338,7 +327,7 @@ export function MetricPanel({
 				<div className="flex flex-wrap items-start justify-between gap-3 px-4 pb-3 pt-3.5 sm:px-5">
 					<div className="min-w-0">
 						{eyebrow ? <p className="text-xs font-medium text-[var(--accent)]">{eyebrow}</p> : null}
-						{title != null ? <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">{title}</h2> : null}
+						{title != null ? <h2 className="ui-title-section">{title}</h2> : null}
 						{description ? <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">{description}</p> : null}
 					</div>
 					{actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -390,7 +379,7 @@ export function Section({
 			{(title || actions) && (
 				<div className="flex flex-wrap items-end justify-between gap-3">
 					<div className="min-w-0">
-						{title ? <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">{title}</h2> : null}
+						{title ? <h2 className="ui-title-section">{title}</h2> : null}
 						{description ? <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">{description}</p> : null}
 					</div>
 					{actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -467,7 +456,7 @@ export function ListPanel({
 						<div className="flex min-w-0 items-center gap-2">
 							{title != null ? (
 								typeof title === "string" || typeof title === "number" ? (
-									<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">{title}</h2>
+									<h2 className="ui-title-section">{title}</h2>
 								) : (
 									<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
 								)
@@ -557,7 +546,7 @@ export function SurfacePanel({
 			{(title || actions) && (
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="min-w-0">
-						{title ? <h2 className="text-[15px] font-semibold leading-6 text-[var(--text-primary)]">{title}</h2> : null}
+						{title ? <h2 className="ui-title-section">{title}</h2> : null}
 						{description ? <p className="mt-0.5 text-[13px] leading-5 text-[var(--text-muted)]">{description}</p> : null}
 					</div>
 					{actions ? <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{actions}</div> : null}
@@ -570,20 +559,74 @@ export function SurfacePanel({
 
 /* ── PermissionDenied ───────────────────────────────────────────────── */
 
+/* ── StatusScreen ───────────────────────────────────────────────────── */
+/**
+ * A whole-area message instead of page content: not found, offline, an error
+ * boundary, missing permission. Every one of them has the same anatomy, so
+ * they share this layout.
+ */
+export function StatusScreen({
+	icon,
+	tone = "neutral",
+	eyebrow,
+	title,
+	titleAs: Title = "h1",
+	titleId,
+	description,
+	details,
+	actions,
+	className,
+}: {
+	icon?: ReactNode;
+	tone?: "neutral" | "danger";
+	eyebrow?: ReactNode;
+	title: ReactNode;
+	titleAs?: "h1" | "h2";
+	titleId?: string;
+	description?: ReactNode;
+	/** Supporting block under the description (error id, notice). */
+	details?: ReactNode;
+	actions?: ReactNode;
+	className?: string;
+}) {
+	return (
+		<div data-status-screen className={cn("flex min-h-[60dvh] items-center justify-center px-4 py-12 text-center", className)}>
+			<div className="w-full max-w-md">
+				{icon ? (
+					<div
+						aria-hidden="true"
+						className={cn(
+							"mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-xl border shadow-[var(--shadow-xs)] [&>svg]:h-[22px] [&>svg]:w-[22px]",
+							tone === "danger"
+								? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
+								: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]",
+						)}
+					>
+						{icon}
+					</div>
+				) : null}
+				{eyebrow ? <p className="ui-eyebrow text-[var(--accent)]">{eyebrow}</p> : null}
+				<Title id={titleId} className={cn("ui-title-page break-words", eyebrow ? "mt-1.5" : null)}>{title}</Title>
+				{description ? <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{description}</div> : null}
+				{details ? <div className="mt-4">{details}</div> : null}
+				{actions ? <div className="mt-6 flex flex-wrap justify-center gap-2">{actions}</div> : null}
+			</div>
+		</div>
+	);
+}
+
 export function PermissionDenied() {
 	return (
 		<PageShell>
-			<div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
-				<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] shadow-[var(--shadow-xs)]" aria-hidden="true">
+			<StatusScreen
+				icon={
 					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
 						<rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
 						<path d="M7 11V7a5 5 0 0 1 10 0v4" />
 					</svg>
-				</div>
-				<p className="text-sm text-[var(--text-muted)]">
-					<LocalizedText textKey="common.noPermission" fallback="Missing permission" />
-				</p>
-			</div>
+				}
+				title={<LocalizedText textKey="common.noPermission" fallback="Missing permission" />}
+			/>
 		</PageShell>
 	);
 }

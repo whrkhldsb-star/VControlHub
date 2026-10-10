@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { UserManagementClient } from "./users-client";
-import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
+import { PageShell, EmptyState } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
@@ -14,17 +14,21 @@ export default async function UsersPage() {
 	const locale = await getServerLocale();
 
 	if (!canRead) {
-		return <PageShell maxW="max-w-7xl"><EmptyState text={t("users.noPermission", locale)} variant="boxed" /></PageShell>;
+		return <PageShell><EmptyState text={t("users.noPermission", locale)} variant="boxed" /></PageShell>;
 	}
 
 	return (
-		<PageShell maxW="max-w-7xl">
-			<PageHeader
-				eyebrow={t("usersPage.eyebrow", locale)}
-				title={t("users.title", locale)}
-				 description={canManage || canManageResources ? t("users.desc.manage", locale) : t("users.desc.readonly", locale)}
+		<PageShell>
+			<UserManagementClient
+				header={{
+					eyebrow: t("usersPage.eyebrow", locale),
+					title: t("users.title", locale),
+					description: canManage || canManageResources ? t("users.desc.manage", locale) : t("users.desc.readonly", locale),
+				}}
+				canManage={canManage}
+				canManageResources={canManage || canManageResources}
+				currentUserId={session.userId}
 			/>
-			<UserManagementClient canManage={canManage} canManageResources={canManage || canManageResources} currentUserId={session.userId} />
 		</PageShell>
 	);
 }

@@ -57,11 +57,6 @@ export type CallWebhookStepConfig = {
   body?: string; // JSON-encoded; executor will pass through
 };
 
-export type StepConfig =
-  | RunCommandStepConfig
-  | SendNotificationStepConfig
-  | CallWebhookStepConfig;
-
 export type PlaybookStepResult = {
   stepId: string;
   status: "running" | "ok" | "failed" | "skipped" | "dry_run";

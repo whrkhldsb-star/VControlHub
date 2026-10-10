@@ -27,6 +27,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { t } from "@/lib/i18n/service-translations";
 import { beginUploadFinalization, recordFinalizationFailure, type FinalizationLease } from "@/lib/upload/finalization-lease";
 import { logError } from "@/lib/logging";
+import { getStorageUploadMaxBytes } from "@/lib/upload/limits";
 
 export type CompleteStorageUploadResult = {
   session: MediaUploadSessionView;
@@ -96,7 +97,7 @@ export async function completeStorageFileUpload(params: {
   if (received.size !== existing.totalChunks || Array.from({ length: existing.totalChunks }, (_, i) => i).some((i) => !received.has(i))) {
     throw new ValidationError(t("backend.storage.chunksMissing"), { code: "chunks_incomplete" });
   }
-  if (!Number.isSafeInteger(byteSize) || byteSize < 0 || byteSize > 200 * 1024 * 1024) throw new ValidationError(t("backend.storage.invalidUploadSize"));
+  if (!Number.isSafeInteger(byteSize) || byteSize < 0 || byteSize > getStorageUploadMaxBytes()) throw new ValidationError(t("backend.storage.invalidUploadSize"));
 
   const normalized = normalizeStorageRelativePath(existing.relativePath);
   if (normalized.ok !== true) {

@@ -28,7 +28,7 @@ export const hubHostDockerScope: DockerScope = {
 	scope: "hub-host",
 	get socketPath() { return dockerEngineSocketPath(); },
 	warning:
-		"The Docker module only operates on the VControlHub host's Docker socket; it is not a cross-VPS container console. Users with docker:manage permission can manage local containers.",
+		"This scope is the Docker socket of the machine running VControlHub; choose a server as the Docker target to manage its containers. Users with docker:manage can administer every container on this host.",
 };
 
 /** Build a remote-VPS scope descriptor */

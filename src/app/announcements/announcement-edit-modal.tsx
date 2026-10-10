@@ -5,7 +5,9 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
+import { CheckboxField, FormField, Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 interface Announcement {
@@ -68,76 +70,40 @@ export function AnnouncementEditModal({
   };
 
   return (
-    <ModalShell
+    <Dialog
       size="lg"
       open
       onClose={requestDiscard}
-      labelledBy="announcement-edit-title"
       closeOnBackdrop={false}
+      busy={saving}
+      title={t("announcementsPage.edit.title")}
+      footer={<>
+        <ActionButton type="button" variant="secondary" onClick={requestDiscard}>
+          {t("common.cancel")}
+        </ActionButton>
+        <ActionButton type="button" onClick={handleSave} loading={saving} disabled={!title.trim() || !content.trim()}>
+          {saving ? t("announcementsPage.edit.saving") : t("announcementsPage.edit.submit")}
+        </ActionButton>
+      </>}
     >
-        <h3 id="announcement-edit-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("announcementsPage.edit.title")}</h3>
-
-        <div className="mt-4 space-y-3">
-          <div>
-            <label className="block text-xs text-[var(--text-muted)]" htmlFor="announcementTitle">{t("announcementsPage.edit.titleLabel")}</label>
-            <input
-              id="announcementTitle"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              data-input
-              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-[var(--text-muted)]" htmlFor="announcementLevel">{t("common.level")}</label>
-            <select
-              id="announcementLevel"
-              value={level}
-              onChange={(e) => setLevel(e.target.value)}
-              data-input
-              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
-            >
-              <option value="info">{t("announcementsPage.level.info")}</option>
-              <option value="warning">{t("announcementsPage.level.warning")}</option>
-              <option value="urgent">{t("announcementsPage.level.urgent")}</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-[var(--text-muted)]" htmlFor="announcementContent">{t("announcementsPage.edit.content")}</label>
-            <textarea
-              id="announcementContent"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={5}
-              data-input
-              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-            <input
-              type="checkbox"
-              checked={pinned}
-              onChange={(e) => setPinned(e.target.checked)}
-              className="rounded-lg border-[var(--border)]"
-            />
-            {t("common.pinned")}
-          </label>
-        </div>
-
-        {error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
-
-        <div className="mt-5 flex justify-end gap-3">
-          <ActionButton type="button" variant="secondary"
-            onClick={requestDiscard}>
-            {t("common.cancel")}
-          </ActionButton>
-          <ActionButton type="button" variant="primary"
-            onClick={handleSave}
-            disabled={saving || !title.trim() || !content.trim()}>
-            {saving ? t("announcementsPage.edit.saving") : t("announcementsPage.edit.submit")}
-          </ActionButton>
-        </div>
+      <div className="space-y-4">
+        {error ? <Notice tone="danger" compact>{error}</Notice> : null}
+        <FormField label={t("announcementsPage.edit.titleLabel")} htmlFor="announcementTitle">
+          <input id="announcementTitle" value={title} onChange={(e) => setTitle(e.target.value)} className={UI_INPUT} />
+        </FormField>
+        <FormField label={t("common.level")} htmlFor="announcementLevel">
+          <select id="announcementLevel" value={level} onChange={(e) => setLevel(e.target.value)} className={UI_INPUT}>
+            <option value="info">{t("announcementsPage.level.info")}</option>
+            <option value="warning">{t("announcementsPage.level.warning")}</option>
+            <option value="urgent">{t("announcementsPage.level.urgent")}</option>
+          </select>
+        </FormField>
+        <FormField label={t("announcementsPage.edit.content")} htmlFor="announcementContent">
+          <textarea id="announcementContent" value={content} onChange={(e) => setContent(e.target.value)} rows={5} className={UI_INPUT} />
+        </FormField>
+        <CheckboxField label={t("common.pinned")} checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
+      </div>
       {discardDialog}
-    </ModalShell>
+    </Dialog>
   );
 }

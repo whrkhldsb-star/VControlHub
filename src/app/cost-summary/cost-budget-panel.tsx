@@ -115,20 +115,20 @@ export function CostBudgetPanel({
       />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+          <h2 className="ui-title-section">
             {t("costPage.budget.title")}
           </h2>
           <p className="mt-1 text-xs text-[var(--text-muted)]">{t("costPage.budget.desc")}</p>
         </div>
         {canManage && (
-          <button
-            type="button"
-            disabled={busy}
+          <ActionButton
+            size="sm"
+            variant="secondary"
+            loading={busy}
             onClick={check}
-            className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs"
           >
             {t("costPage.budget.check")}
-          </button>
+          </ActionButton>
         )}
       </div>
       {canManage && (
@@ -207,7 +207,7 @@ export function CostBudgetPanel({
             <article key={budget.id} className="rounded-2xl border border-[var(--border)] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-medium">{budget.name}</h3>
+                  <h3 className="ui-title-group">{budget.name}</h3>
                   <p className="text-xs text-[var(--text-muted)]">
                     {t(`costPage.category.${budget.category}`)} ·{" "}
                     {t(`costPage.budget.${budget.period}`)}

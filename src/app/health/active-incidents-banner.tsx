@@ -72,7 +72,7 @@ export function ActiveIncidentsBanner() {
 						<div className="min-w-0">
 							<div className="flex items-center gap-2">
 								<span className="text-xs font-medium text-[var(--text-primary)]">{levelLabel(item.level)}</span>
-								<h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</h3>
+								<h3 className="ui-title-group truncate">{item.title}</h3>
 							</div>
 							<p className="mt-1.5 line-clamp-3 text-sm leading-6 text-[var(--text-secondary)]">{item.body}</p>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">

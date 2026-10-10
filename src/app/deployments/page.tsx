@@ -17,6 +17,8 @@ import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { getServerTargetAvailability } from "@/lib/server/availability";
 import { Disclosure } from "@/components/ui/disclosure";
 
+import { ButtonLink } from "@/components/action-button";
+import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
 export const dynamic = "force-dynamic";
 
 /** One mapping for every deployment/rollback status pill on this page. */
@@ -65,7 +67,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
       skip: (page - 1) * RUNS_PAGE_SIZE,
       take: RUNS_PAGE_SIZE + 1,
     }),
-		listDeploymentTemplates(session),
+		listDeploymentTemplates(session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
 		// Strict server scope: this picker carries host/username/credential refs.
 		prisma.server.findMany({
 			where: { enabled: true, ...serverTeamWhere(session, "connect") },
@@ -168,12 +170,12 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
 							<p className="text-xs font-medium text-[var(--text-muted)]">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
-							<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
+							<h2 className="ui-title-section mt-1">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString(dateLocale), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>
 						<StatusBadge tone={deploymentStatusTone(latestRun.status)} size="md">{getDomainStatusLabel(tr, latestRun.status)}</StatusBadge>
 					</div>
-					<code className="mt-4 block max-h-24 overflow-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 font-mono text-xs text-[var(--text-secondary)]">{latestRun.snapshot?.rollbackCommand || tr("deploymentsPage.page.latestDeploy.noRollback")}</code>
+					<code data-inset="" className="mt-4 block max-h-24 overflow-auto p-3 font-mono text-xs text-[var(--text-secondary)]">{latestRun.snapshot?.rollbackCommand || tr("deploymentsPage.page.latestDeploy.noRollback")}</code>
 					<div className="mt-4 flex flex-wrap items-center gap-3">
 						<RollbackDeployButton runId={latestRun.id} templateName={latestRun.template.name} disabled={!latestRun.snapshot?.rollbackCommand} />
 						<ResendDeployButton
@@ -202,7 +204,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						<ListRow key={r.id}>
 							<div className="flex items-center justify-between gap-3">
 								<div>
-									<h3 className="text-sm font-medium text-[var(--text-primary)]">{r.template.name}</h3>
+									<h3 className="ui-title-group">{r.template.name}</h3>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{trTpl("deploymentsPage.page.runsSection.meta", { count: String(r.serverIds.length), date: r.createdAt.toLocaleString(dateLocale), request: r.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending") })}</p>
 								</div>
 								<StatusBadge tone={deploymentStatusTone(r.status)}>{getDomainStatusLabel(tr, r.status)}</StatusBadge>
@@ -238,22 +240,24 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
         {page > 1 || hasNextPage ? (
 					<div className="flex items-center justify-between border-t border-[var(--border)] px-4 py-3 sm:px-5">
             {page > 1 ? (
-              <Link
-                href={`/deployments?page=${page - 1}`}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                href={`/deployments?page=${page - 1}`}>
                 {tr("common.pagination.previous")}
-			</Link>
+			</ButtonLink>
             ) : (
               <span />
             )}
             <span className="text-xs text-[var(--text-muted)]">{page}</span>
             {hasNextPage ? (
-              <Link
+              <ButtonLink
+                size="sm"
+                variant="secondary"
                 href={`/deployments?page=${page + 1}`}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
               >
                 {tr("common.pagination.next")}
-              </Link>
+              </ButtonLink>
             ) : (
               <span />
             )}

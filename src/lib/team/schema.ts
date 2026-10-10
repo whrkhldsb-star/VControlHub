@@ -27,7 +27,6 @@ export const updateTeamSchema = z.object({
 });
 
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
-export type SwitchTeamInput = z.infer<typeof switchTeamSchema>;
 export type TransferTeamOwnerInput = z.infer<typeof transferTeamOwnerSchema>;
 export type AddTeamMemberInput = z.infer<typeof addTeamMemberSchema>;
 export type UpdateTeamInput = z.infer<typeof updateTeamSchema>;

@@ -50,7 +50,7 @@ export function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 
 	return (
 		<form onSubmit={handleSubmit} data-card className="space-y-4 p-5">
-			<h3 className="text-lg font-semibold text-[var(--text-primary)]">
+			<h3 className="ui-title-section">
 				{t("templatesPage.create.title")}
 			</h3>
 			{error && (

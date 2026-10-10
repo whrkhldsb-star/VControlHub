@@ -38,6 +38,7 @@ import {
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { defaultDataRoot } from "@/lib/runtime/platform-paths";
 import { t } from "@/lib/i18n/service-translations";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 export const DEFAULT_FILE_VERSION_DIR =
   config.fileVersion.dir ||
@@ -144,7 +145,7 @@ async function resolveAccessibleFileEntry(input: {
               operatingSystem: true,
               password: true,
               hostKeySha256: true,
-              sshKey: { select: { privateKey: true } },
+              sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
             },
           },
         },
@@ -299,7 +300,7 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
               operatingSystem: true,
               password: true,
               hostKeySha256: true,
-              sshKey: { select: { privateKey: true } },
+              sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
             },
           },
         },

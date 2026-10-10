@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { UI_INPUT } from "@/lib/ui/classes";
+import { SegmentedControl } from "@/components/ui-primitives";
+import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 
 export function ConnectionTypeFields({
   sshKeys,
@@ -22,41 +23,31 @@ export function ConnectionTypeFields({
   return (
     <section data-tile className="space-y-4 p-4">
       {" "}
-      <fieldset className="space-y-1.5">
-        {" "}
-        <legend className="text-xs font-medium text-[var(--text-primary)]/70 ">
-          {t("serversPage.create.connectionType")}
-        </legend>{" "}
-        <div className="flex gap-2">
-          {" "}
-          {(["SSH_KEY", "PASSWORD"] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              aria-pressed={connectionType === type}
-              onClick={() => setConnectionType(type)}
-              className={`min-h-10 flex-1 rounded-lg border px-3.5 py-2 text-sm transition ${connectionType === type ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--text-primary)] font-medium" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
-            >
-              {" "}
-              {type === "SSH_KEY"
-                ? t("serversPage.create.sshKey")
-                : t("serversPage.create.password")}{" "}
-            </button>
-          ))}{" "}
-        </div>{" "}
+      <div className="space-y-1.5">
+        <span className={UI_LABEL}>{t("serversPage.create.connectionType")}</span>
+        <SegmentedControl
+          block
+          ariaLabel={t("serversPage.create.connectionType")}
+          value={connectionType}
+          onChange={setConnectionType}
+          options={[
+            { value: "SSH_KEY", label: t("serversPage.create.sshKey") },
+            { value: "PASSWORD", label: t("serversPage.create.password") },
+          ]}
+        />
         <input
           type="hidden"
           name="connectionType"
           value={connectionType}
-        />{" "}
-      </fieldset>{" "}
+        />
+      </div>
       {connectionType === "SSH_KEY" ? (
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">
           {" "}
           <div className="space-y-1.5">
             {" "}
             <label
-              className="text-xs font-medium text-[var(--text-primary)]/70 "
+              className="ui-label"
               htmlFor="sshKeyId"
             >
               {t("serversPage.create.sshKey")}
@@ -80,7 +71,7 @@ export function ConnectionTypeFields({
           <div className="space-y-1.5">
             {" "}
             <label
-              className="text-xs font-medium text-[var(--text-primary)]/70 "
+              className="ui-label"
               htmlFor="serverUsername"
             >
               {t("serversPage.create.username")}
@@ -102,7 +93,7 @@ export function ConnectionTypeFields({
           <div className="space-y-1.5">
             {" "}
             <label
-              className="text-xs font-medium text-[var(--text-primary)]/70 "
+              className="ui-label"
               htmlFor="serverUsername"
             >
               {t("serversPage.create.username")}
@@ -120,7 +111,7 @@ export function ConnectionTypeFields({
           <div className="space-y-1.5">
             {" "}
             <label
-              className="text-xs font-medium text-[var(--text-primary)]/70 "
+              className="ui-label"
               htmlFor="serverPassword"
             >
               {t("serversPage.create.password")}

@@ -65,7 +65,7 @@ export type { FileProp } from "./file-entry-utils";
 export type { FolderProp } from "./file-list-model";
 import { recordFileOpen } from "./file-preferences-client";
 import { submitFileOperation } from "./file-operation-controls";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
 import { ActionButton } from "@/components/action-button";
 import { useToast } from "@/components/toast-provider";
 
@@ -400,10 +400,31 @@ export function FileListClient({
           />
         )}
       </div>
-      <ModalShell open={dropMove !== null} busy={isPending} onClose={() => setDropMove(null)} label={t("fileOperations.move")}>
-        <p className="break-all text-sm">{t("fileOperations.confirmDrop", { count: dropMove?.ids.length ?? 0, path: dropMove?.path ?? "" })}</p>
-        <div className="mt-4 flex gap-3"><ActionButton disabled={isPending} onClick={() => { if (!dropMove) return; const target = dropMove; startTransition(async () => { try { await submitFileOperation({ action: "move", fileEntryIds: target.ids, targetDir: target.path, policy: "skip" }, target.requestId); setDropMove(null); clearSelection(); } catch (error) { showToast("error", error instanceof Error ? error.message : t("filePreferences.failed")); } }); }}>{t("common.confirm")}</ActionButton><ActionButton variant="outline" disabled={isPending} onClick={() => setDropMove(null)}>{t("common.cancel")}</ActionButton></div>
-      </ModalShell>
+      <Dialog
+        size="sm"
+        open={dropMove !== null}
+        busy={isPending}
+        onClose={() => setDropMove(null)}
+        title={t("fileOperations.move")}
+        footer={<>
+          <ActionButton variant="secondary" disabled={isPending} onClick={() => setDropMove(null)}>{t("common.cancel")}</ActionButton>
+          <ActionButton loading={isPending} onClick={() => {
+            if (!dropMove) return;
+            const target = dropMove;
+            startTransition(async () => {
+              try {
+                await submitFileOperation({ action: "move", fileEntryIds: target.ids, targetDir: target.path, policy: "skip" }, target.requestId);
+                setDropMove(null);
+                clearSelection();
+              } catch (error) {
+                showToast("error", error instanceof Error ? error.message : t("filePreferences.failed"));
+              }
+            });
+          }}>{t("common.confirm")}</ActionButton>
+        </>}
+      >
+        <p className="break-all text-sm text-[var(--text-secondary)]">{t("fileOperations.confirmDrop", { count: dropMove?.ids.length ?? 0, path: dropMove?.path ?? "" })}</p>
+      </Dialog>
 
       {detailEntry ? (
         <FileDetailPanelLazy

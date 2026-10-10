@@ -100,13 +100,13 @@ export function VpsNodeCard({
 	const diskDetail = formatDisk(server.diskUsedLabel, server.diskTotalLabel);
 
 	return (
-		<article
-			className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-[var(--surface)] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] transition duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
+		<article data-card=""
+			className={`group relative flex flex-col overflow-hidden transition duration-200 hover:-translate-y-0.5 ${
 				server.status === "critical"
 					? "border-[var(--danger-border)]"
 					: server.status === "warning"
 						? "border-[var(--warning-border)]"
-						: "border-[var(--border)] hover:border-[var(--border-strong,var(--border))]"
+						: "hover:border-[var(--border-strong,var(--border))]"
 			}`}
 		>
 			<div
@@ -133,7 +133,7 @@ export function VpsNodeCard({
 							/>
 							<span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${sc.dot}`} />
 						</span>
-						<h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">
+						<h3 className="ui-title-group truncate">
 							{server.serverName}
 						</h3>
 					</div>

@@ -28,6 +28,7 @@ import {
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { t } from "@/lib/i18n/service-translations";
 import { createWebDavClient } from "@/lib/storage/webdav-client";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 export type StorageFileNode = {
   id: string;
@@ -74,11 +75,7 @@ export const storageFileNodeSelect = {
       operatingSystem: true,
       password: true,
       hostKeySha256: true,
-      sshKey: {
-        select: {
-          privateKey: true,
-        },
-      },
+      sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
     },
   },
 } as const;

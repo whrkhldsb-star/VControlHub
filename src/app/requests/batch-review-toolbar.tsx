@@ -159,7 +159,8 @@ export function BatchReviewToolbar({
 			{someSelected && (
 				<form
 					action={formAction}
-					className="sticky bottom-3 z-20 flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:gap-3"
+					data-action-bar=""
+					className="sticky bottom-3 z-20 flex-col items-stretch sm:flex-row sm:items-center"
 					aria-label={t("requestsPage.batch.toolbarAria")}
 				>
 					{Array.from(selected).map((id) => (

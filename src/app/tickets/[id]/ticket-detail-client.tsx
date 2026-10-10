@@ -12,6 +12,7 @@ import { FormField, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { ArrowLeft } from "@/components/icons";
 
 export interface TicketUser { id: string; username: string; displayName: string | null; }
 export interface TicketComment { id: string; body: string; createdAt: string; author: TicketUser; }
@@ -194,13 +195,14 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
   return (
     <div className="space-y-5">
       <Link href="/tickets" className="inline-flex items-center gap-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]">
+        <ArrowLeft size={14} aria-hidden />
         {t("ticketsDetail.backToList")}
       </Link>
 
       <div data-card className="p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-[var(--text-primary)]">{ticket.title}</h1>
+            <h1 className="ui-title-page">{ticket.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge tone={STATUS_TONE[ticket.status] ?? "neutral"} size="md">
                 {statusLabel(t, ticket.status)}
@@ -249,7 +251,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
 
       {/* Related objects + link controls */}
       <div data-card className="p-5">
-        <h3 className="mb-1 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.relatedTitle")}</h3>
+        <h3 className="ui-title-group mb-1">{t("ticketsDetail.relatedTitle")}</h3>
         <p className="mb-3 text-xs text-[var(--text-muted)]">{t("ticketsDetail.timelineDesc")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div data-inset className="p-3 text-xs">
@@ -340,7 +342,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
 
       {/* Timeline */}
       <div data-card className="p-5">
-        <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.timelineTitle")}</h3>
+        <h3 className="ui-title-group mb-3">{t("ticketsDetail.timelineTitle")}</h3>
         {timelineLoading ? (
           <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.timelineLoading")}</p>
         ) : !timeline || timeline.events.length === 0 ? (
@@ -369,7 +371,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
 
       {canManage && (TRANSITIONS[ticket.status]?.length ?? 0) > 0 && (
         <div data-card className="p-5">
-          <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.transitionsTitle")}</h3>
+          <h3 className="ui-title-group mb-3">{t("ticketsDetail.transitionsTitle")}</h3>
           <div className="flex flex-wrap gap-2">
             {TRANSITIONS[ticket.status]!.map((s) => (
               <ActionButton key={s} variant="secondary" onClick={() => void updateStatus(s)} disabled={saving}>
@@ -383,7 +385,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       {error && <Notice tone="danger" onDismiss={() => setError("")} dismissLabel={t("common.close")}>{error}</Notice>}
 
       <div data-card className="p-5">
-        <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.commentsTitle", { count: ticket.comments.length })}</h3>
+        <h3 className="ui-title-group mb-4">{t("ticketsDetail.commentsTitle", { count: ticket.comments.length })}</h3>
         {ticket.comments.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.commentsEmpty")}</p>
         ) : (

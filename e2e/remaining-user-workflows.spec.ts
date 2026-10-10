@@ -412,6 +412,8 @@ test("team workspace create and delete lifecycle", async ({ page }) => {
 	test.setTimeout(60_000);
 	await login(page);
 	await page.goto("/settings");
+	// Workspaces live on their own settings tab, as a user reaches them.
+	await page.getByRole("tab", { name: /团队与权限|Teams & permissions/i }).click();
 	const section = page.locator("#team-workspaces");
 	await expect(section).toBeVisible();
 	const marker = `QA Team ${Date.now()}`;
@@ -433,13 +435,21 @@ test("team workspace create and delete lifecycle", async ({ page }) => {
 		// The workspace switcher now lives inside the user-menu popover. The
 		// create-team response rotates the session cookie, so open the menu and
 		// read the switcher after the sidebar layout has refreshed.
-		await page.getByRole("button", { name: /账户菜单|Account menu/i }).first().click();
+		// Switching workspace remounts the page, which can close a menu opened
+		// mid-refresh, so reopen until the switcher shows the new team.
 		const workspaceSwitcher = page.getByRole("combobox", { name: /团队空间|Team workspace/i }).first();
-		// The switcher is a native <select>; assert by value (the team id we
-		// just created was made current), not by option text — Chromium CI
-		// intermittently fails to expose option:checked inside popovers.
-		await expect(workspaceSwitcher).toBeVisible();
-		await expect(workspaceSwitcher).toHaveValue(createdTeamId!);
+		await expect(async () => {
+			if (!(await workspaceSwitcher.isVisible())) {
+				await page.getByRole("button", { name: /账户菜单|Account menu/i }).first().click();
+			}
+			// The switcher is a native <select>; assert by value (the team id we
+			// just created was made current), not by option text — Chromium CI
+			// intermittently fails to expose option:checked inside popovers.
+			await expect(workspaceSwitcher).toHaveValue(createdTeamId!, { timeout: 2_000 });
+		}).toPass({ timeout: 20_000 });
+		// Close the menu so its popover cannot cover the workspace card.
+		await page.keyboard.press("Escape");
+		await expect(workspaceSwitcher).toBeHidden();
 
 		const deletedResponse = page.waitForResponse((response) =>
 			new URL(response.url()).pathname === `/api/teams/${createdTeamId}` && response.request().method() === "DELETE",

@@ -4,9 +4,9 @@ import { SurfacePanel } from "@/components/page-shell";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
-import { ModalShell } from "@/components/modal-shell";
-import { statusToneClass } from "@/components/status-badge";
+import { Dialog } from "@/components/ui/dialog";
 
+import { Chip } from "@/components/ui-primitives";
 export const ROLE_KEYS = ["admin","operator","storage_manager","viewer"] as const;
 export type RoleKey = (typeof ROLE_KEYS)[number];
 /** Subset of StatusBadge's StatusTone that the users page uses. */
@@ -63,7 +63,7 @@ export function UsersCreateForm({
     <SurfacePanel className="mb-6" title={t("usersPage.action.create")}>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm text-[var(--text-muted)]" htmlFor="createUserUsername">
+          <label className="ui-label mb-1 block" htmlFor="createUserUsername">
             {t("usersPage.form.username")}
           </label>
           <input
@@ -76,7 +76,7 @@ export function UsersCreateForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-[var(--text-muted)]" htmlFor="createUserDisplayName">
+          <label className="ui-label mb-1 block" htmlFor="createUserDisplayName">
             {t("usersPage.form.displayName")}
           </label>
           <input
@@ -89,7 +89,7 @@ export function UsersCreateForm({
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="mb-1 block text-sm text-[var(--text-muted)]" htmlFor="createUserPassword">
+          <label className="ui-label mb-1 block" htmlFor="createUserPassword">
             {t("usersPage.form.password")}
           </label>
           <input
@@ -104,23 +104,16 @@ export function UsersCreateForm({
         </div>
       </div>
       <div>
-        <label className="mb-2 block text-sm text-[var(--text-secondary)]">{t("usersPage.form.roles")}</label>
+        <label className="ui-label mb-2 block">{t("usersPage.form.roles")}</label>
         <div className="flex flex-wrap gap-2">
           {ROLE_KEYS.map((key) => (
-            <button
+            <Chip
               key={key}
-              type="button"
+              selected={createForm.roleKeys.includes(key)}
               onClick={() => onToggleRole(key)}
-              aria-pressed={createForm.roleKeys.includes(key)}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-xs transition",
-                createForm.roleKeys.includes(key)
-                  ? statusToneClass(roleBadgeTone(key))
-                  : "border-[var(--border)]/10 bg-[var(--surface-subtle)] text-[var(--text-muted)]",
-              )}
             >
               {t(`usersPage.role.${key}`)}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>
@@ -152,39 +145,32 @@ export function UsersResetPasswordDialog({
   onConfirm: () => void;
 }) {
   return (
-    <ModalShell
-      size="md"
+    <Dialog
       open
       onClose={onCancel}
-      labelledBy="reset-password-title"
-      as="section"
+      busy={resetting}
+      title={t("usersPage.resetPassword.title", { name: username })}
+      description={t("usersPage.resetPassword.desc")}
+      footer={<>
+        <ActionButton variant="secondary" onClick={onCancel} disabled={resetting}>
+          {t("usersPage.action.cancel")}
+        </ActionButton>
+        <ActionButton variant="warning" onClick={onConfirm} loading={resetting} disabled={!password}>
+          {resetting ? t("usersPage.action.resetting") : t("usersPage.action.confirmReset")}
+        </ActionButton>
+      </>}
     >
-        <h2 id="reset-password-title" className="text-lg font-semibold text-[var(--text-primary)]">
-          {t("usersPage.resetPassword.title", { name: username })}
-        </h2>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("usersPage.resetPassword.desc")}</p>
-        <input
-          type="password"
-          autoComplete="new-password"
-          aria-label={t("usersPage.form.passwordPlaceholder")}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          data-input className={cn(UI_INPUT, "mt-4")}
-          placeholder={t("usersPage.form.passwordPlaceholder")}
-          autoFocus
-        />
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <ActionButton variant="secondary"
-            onClick={onCancel}>
-            {t("usersPage.action.cancel")}
-          </ActionButton>
-          <ActionButton
-            variant="warning"
-            onClick={onConfirm}
-            disabled={resetting || !password}>
-            {resetting ? t("usersPage.action.resetting") : t("usersPage.action.confirmReset")}
-          </ActionButton>
-        </div>
-    </ModalShell>
+      <input
+        type="password"
+        autoComplete="new-password"
+        aria-label={t("usersPage.form.passwordPlaceholder")}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && password && !resetting) onConfirm(); }}
+        className={UI_INPUT}
+        placeholder={t("usersPage.form.passwordPlaceholder")}
+        autoFocus
+      />
+    </Dialog>
   );
 }

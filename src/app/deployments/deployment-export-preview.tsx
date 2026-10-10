@@ -3,6 +3,9 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
 
+import { Download } from "@/components/icons";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 type PreviewProps = {
   fileNames: string[];
   activePath: string | null;
@@ -25,7 +28,7 @@ export function DeploymentFilePreview({
   const { t } = useI18n();
   if (fileNames.length === 0 || !activePath) {
     return (
-      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-3 text-xs text-[var(--text-muted)]">
+      <div data-inset="" className="p-3 text-xs text-[var(--text-muted)]">
         {t("deploymentsPage.export.emptyExport")}
       </div>
     );
@@ -36,7 +39,7 @@ export function DeploymentFilePreview({
       <div className="flex flex-wrap items-center gap-2">
         <label
           htmlFor="deploy-export-file-select"
-          className="text-xs font-semibold uppercase text-[var(--text-secondary)]/70"
+          className="ui-label"
         >
           {t("deploymentsPage.export.rollbackFile")}
         </label>
@@ -45,7 +48,7 @@ export function DeploymentFilePreview({
           data-testid="deploy-export-file-select"
           value={activePath}
           onChange={(event) => onSelect(event.target.value)}
-          className="flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-1 text-xs text-[var(--text-primary)]"
+          className={cn(UI_INPUT, "flex-1 text-xs")}
         >
           {fileNames.map((name) => (
             <option key={name} value={name}>
@@ -58,18 +61,19 @@ export function DeploymentFilePreview({
           onClick={() => onCopy(content, activePath)}>
           {justCopied ? t("deploymentsPage.export.copied") : t("deploymentsPage.export.copyRollback")}
         </ActionButton>
-        <button
-          type="button"
+        <ActionButton
+          size="xs"
+          variant="secondary"
+          icon={<Download aria-hidden />}
           data-testid="deploy-export-download-active"
           onClick={() => onDownload(activePath, content)}
-          className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/40"
         >
           {t("deploymentsPage.export.downloadFile")}
-        </button>
+        </ActionButton>
       </div>
-      <pre
+      <pre data-inset=""
         data-testid="deploy-export-preview"
-        className="max-h-72 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 text-xs text-[var(--text-secondary)]"
+        className="max-h-72 overflow-auto p-3 text-xs text-[var(--text-secondary)]"
       >
         <code>{content}</code>
       </pre>

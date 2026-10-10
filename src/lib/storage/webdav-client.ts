@@ -260,4 +260,3 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     async delete(path: string): Promise<void> { await mutate("DELETE", path); },
   };
 }
-export type WebDavClient = ReturnType<typeof createWebDavClient>;

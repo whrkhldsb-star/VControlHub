@@ -211,7 +211,7 @@ export function SshTerminalManager({
 				{/* Title bar + tab bar + controls */}
 				<div className="flex items-center justify-between border-b border-[var(--border-subtle)] light:border-[var(--border)] px-4 py-2.5">
 					<div className="flex items-center gap-2">
-						<h3 id="ssh-terminal-manager-title" className="text-sm font-semibold text-[var(--text-primary)]">
+						<h3 id="ssh-terminal-manager-title" className="ui-title-group">
 							{t("sshTerminalManager.title")}
 						</h3>
 						<span className="rounded-full bg-[var(--surface-subtle)] light:bg-[var(--surface-hover)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">

@@ -1,11 +1,11 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
-import Link from "next/link";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { AlertTriangle, Bell, Check, X } from "./icons";
 import { IconButton } from "./ui-primitives";
 
+import { ButtonLink } from "@/components/action-button";
 type ToastType = "success" | "error" | "info" | "warning";
 
 type ToastAction = { label: string; href: string };
@@ -113,13 +113,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </span>
               <span className="min-w-0 flex-1 break-words leading-5 text-[var(--text-primary)]">{toast.message}</span>
               {toast.action ? (
-                <Link
+                <ButtonLink
+                  size="xs"
+                  variant="secondary"
                   href={toast.action.href}
                   onClick={() => removeToast(toast.id)}
-                  className="shrink-0 rounded-md bg-[var(--surface-elevated)] px-2 py-1 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+                  className="shrink-0"
                 >
                   {toast.action.label}
-                </Link>
+                </ButtonLink>
               ) : null}
               <IconButton
                 onClick={() => removeToast(toast.id)}

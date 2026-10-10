@@ -62,7 +62,7 @@ export function AiChatHeader({
         </svg>
       </button>
       <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)] md:basis-64">
-        <h1 className="line-clamp-2 break-words text-base font-semibold text-[var(--text-primary)]" title={activeConv.title}>{activeConv.title}</h1>
+        <h1 className="ui-title-section line-clamp-2 break-words" title={activeConv.title}>{activeConv.title}</h1>
         <div ref={menuRef} className="relative mt-0.5">
           <button
             type="button"

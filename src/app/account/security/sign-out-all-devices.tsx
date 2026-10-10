@@ -44,7 +44,7 @@ export function SignOutAllDevices() {
 		<div data-inset className="p-4">
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div>
-					<h3 className="text-sm font-semibold text-[var(--text-primary)]">
+					<h3 className="ui-title-group">
 						{t("accountSecurity.signOutAllTitle")}
 					</h3>
 					<p className="mt-1 text-sm text-[var(--text-secondary)]">

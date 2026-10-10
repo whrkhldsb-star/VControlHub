@@ -8,12 +8,17 @@ import { expect } from "vitest";
  *   - every <ActionButton>/<ButtonLink> except size="xs" is at least
  *     --touch-target (44px) tall on coarse pointers (`--control-height*`);
  *   - form controls use `--control-height` through the `ui-control` class;
+ *   - chips ([data-chip]) and segmented options size from `--control-height-sm`;
  *   - bottom-sheet dialogs carry `data-motion="sheet"` on the panel.
  */
 export function isTouchTarget(element: Element): boolean {
 	if (element.hasAttribute("data-action-button")) return element.getAttribute("data-size") !== "xs";
+	if (element.hasAttribute("data-chip")) return true;
 	const className = element.getAttribute("class") ?? "";
-	return /(^|\s)ui-control(\s|$)/.test(className) || /(^|\s)!?min-h-(11|12|14)(\s|$)/.test(className) || /(^|\s)!?h-(11|12|14)(\s|$)/.test(className);
+	return /(^|\s)ui-control(\s|$)/.test(className)
+		|| /(^|\s)min-h-\[var\(--control-height(-sm)?\)\](\s|$)/.test(className)
+		|| /(^|\s)!?min-h-(11|12|14)(\s|$)/.test(className)
+		|| /(^|\s)!?h-(11|12|14)(\s|$)/.test(className);
 }
 
 export function expectTouchTarget(element: Element) {

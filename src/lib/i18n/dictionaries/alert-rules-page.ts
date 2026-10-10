@@ -6,6 +6,9 @@
  */
 
 export const zh: Record<string, string> = {
+	"alertRulesPage.incidents.itemTitle": "{server} · {metric}",
+	"alertRulesPage.incidents.detail": "{rule}：当前 {value}，触发条件 {operator} {threshold}",
+	"alertRulesPage.incidents.detailOffline": "{rule}：节点离线",
 	"alertRulesPage.action.delete": "删除",
 	"alertRulesPage.action.deleting": "删除中…",
 	"alertRulesPage.action.enable": "启用",
@@ -124,7 +127,7 @@ export const zh: Record<string, string> = {
 	"alertRulesPage.operator.lt": "小于",
 	"alertRulesPage.operator.lte": "小于等于",
 	"alertRulesPage.testResult": "测试发送结果：{ruleName}",
-	"alertRulesPage.title": "智能告警",
+	"alertRulesPage.title": "告警规则",
 	"alertRulesPage.toast.testPartial": "测试发送完成，部分渠道失败",
 	"alertRulesPage.toast.testSucceeded": "测试发送完成",
 	"alertRulesPage.toast.triggered": "告警检测已触发",
@@ -135,6 +138,9 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"alertRulesPage.incidents.itemTitle": "{server} · {metric}",
+	"alertRulesPage.incidents.detail": "{rule}: now {value}, fires when {operator} {threshold}",
+	"alertRulesPage.incidents.detailOffline": "{rule}: node offline",
 	"alertRulesPage.action.delete": "Delete",
 	"alertRulesPage.action.deleting": "Deleting…",
 	"alertRulesPage.action.enable": "Enable",

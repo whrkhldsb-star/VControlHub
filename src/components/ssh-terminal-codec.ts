@@ -1,13 +1,5 @@
 /** Base64 helpers for SSH terminal payload encoding. */
 
-export function decodeBase64(b64: string): string {
-	try {
-		return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
-	} catch {
-		return atob(b64);
-	}
-}
-
 /** Pass bytes to xterm's streaming UTF-8 decoder; a packet may split a character. */
 export function decodeBase64Bytes(b64: string): Uint8Array {
 	return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));

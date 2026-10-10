@@ -43,8 +43,7 @@ type JobTaskRow = Job & {
 // at 256 KB each by the command output limit, and a page of 200 requests used
 // to drag ~200 MB out of Postgres for a three-line preview. The bounded tails
 // are fetched separately by `fetchTargetOutputTails`.
-type CommandTaskRow = Prisma.CommandRequestGetPayload<{ include: { requester: { select: { username: true; displayName: true } }; targets: { select: { id: true; status: true; finishedAt: true; startedAt: true }; take: 2; orderBy: { finishedAt: "desc" } }; executionLogs: { select: { summary: true; createdAt: true }; take: 2; orderBy: { createdAt: "desc" } } } }>;
-type ScheduledTaskRow = Prisma.ScheduledTaskGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
+type CommandTaskRow = Prisma.CommandRequestGetPayload<{ include: { requester: { select: { username: true; displayName: true } }; targets: { select: { id: true; status: true; finishedAt: true; startedAt: true }; take: 2; orderBy: { finishedAt: "desc" } }; executionLogs: { select: { summary: true; createdAt: true }; take: 2; orderBy: { createdAt: "desc" } }; scheduledTaskRuns: { select: { scheduledTask: { select: { name: true } } }; take: 1 } } }>;
 type DownloadTaskRow = Prisma.DownloadTaskGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type SyncJobTaskRow = Prisma.SyncJobGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type BackupTaskRow = Prisma.BackupRecordGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
@@ -61,6 +60,24 @@ export function mapOperationStatus(status: string): OperationTaskStatus {
   if (["CANCELLED", "DISABLED"].includes(status)) return "cancelled";
   if (["PAUSED"].includes(status)) return "paused";
   return "pending";
+}
+
+/**
+ * A command a schedule dispatched is that schedule's execution: list it under
+ * the schedule's name rather than as an anonymous command, and never list the
+ * schedule definition itself (an enabled schedule is not a running task).
+ */
+function commandTaskOrigin(item: CommandTaskRow) {
+  const schedule = item.scheduledTaskRuns?.[0]?.scheduledTask;
+  return schedule
+    ? { id: `scheduled:${item.id}`, source: "scheduled" as const, title: schedule.name, href: "/scheduled-tasks" }
+    : { id: `command:${item.id}`, source: "command" as const, title: item.title, href: "/requests" };
+}
+
+/** A sync job that has never run has no outcome yet; IDLE alone is not "completed". */
+function syncJobOperationStatus(item: Pick<SyncJobTaskRow, "status" | "lastSyncAt">): OperationTaskStatus {
+  if (item.status === "IDLE" && !item.lastSyncAt) return "pending";
+  return mapOperationStatus(item.status);
 }
 
 function resolveDeploymentOperationStatus(item: DeploymentTaskRow): OperationTaskStatus {
@@ -218,7 +235,7 @@ function normalizeFailureReason(task: OperationTask, t: (key: string, vars?: Rec
   if (/connect|network|econn|dns|socket|网络|连接/.test(text)) return t("backend.operationTask.failure.networkOrConnection");
   if (/smtp|email|mail|webhook|telegram|通知/.test(text)) return t("backend.operationTask.failure.notification");
   if (/backup|restore|备份|恢复/.test(text)) return t("backend.operationTask.failure.backupOrRestore");
-  return task.taskType ? t("backend.operationTask.failure.taskTypeFailed", { taskType: task.taskType }) : t("backend.operationTask.failure.sourceFailed", { source: task.source });
+  return task.taskType ? t("backend.operationTask.failure.taskTypeFailed", { taskType: task.taskType }) : t("backend.operationTask.failure.sourceFailed", { source: t(`backend.operationTask.source.${task.source}`) });
 }
 
 function summarizeOperationTaskFailures(tasks: OperationTask[], t: (key: string, vars?: Record<string, string | number>) => string): OperationTaskFailureSummary[] {
@@ -271,10 +288,9 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
     if (canReadTeamTasks) return teamScope;
     return { AND: [teamScope, { [ownerField]: session.userId }] };
   };
-  const [jobs, commands, scheduled, downloads, syncJobs, backups, deployments] = await Promise.all([
+  const [jobs, commands, downloads, syncJobs, backups, deployments] = await Promise.all([
     prisma.job.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } }),
-    prisma.commandRequest.findMany({ where: scopedWhere("requesterId"), take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: { id: true, status: true, finishedAt: true, startedAt: true } }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } } } }),
-    prisma.scheduledTask.findMany({ where: scopedWhere("createdById"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
+    prisma.commandRequest.findMany({ where: scopedWhere("requesterId"), take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: { id: true, status: true, finishedAt: true, startedAt: true } }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } }, scheduledTaskRuns: { take: 1, select: { scheduledTask: { select: { name: true } } } } } }),
     prisma.downloadTask.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
     prisma.syncJob.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
     prisma.backupRecord.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
@@ -287,11 +303,10 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
 
   const tasks: OperationTask[] = [
     ...jobs.map((item: JobTaskRow) => ({ id: `job:${item.id}`, source: "job" as const, sourceId: item.id, title: item.title, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress ?? item.errorMessage, logPreview: compactLogPreview([item.progress, item.errorMessage]), workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null, taskType: item.type, eventCount: item._count?.events ?? 0 })),
-    ...commands.map((item: CommandTaskRow) => ({ id: `command:${item.id}`, source: "command" as const, sourceId: item.id, title: item.title, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.requester), progress: formatWorkerProgress(item), logPreview: compactLogPreview([(item.executionLogs ?? []).map((log) => log.summary).join("\n"), (item.targets ?? []).map((target) => { const tail = targetOutputTails.get(target.id); return [tail?.stdout, tail?.stderr].filter(Boolean).join("\n"); }).join("\n"), formatWorkerProgress(item)]), workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null, href: "/requests" })),
-    ...scheduled.map((item: ScheduledTaskRow) => ({ id: `scheduled:${item.id}`, source: "scheduled" as const, sourceId: item.id, title: item.name, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.lastResult, logPreview: compactLogPreview([item.lastResult]), href: "/scheduled-tasks" })),
+    ...commands.map((item: CommandTaskRow) => ({ ...commandTaskOrigin(item), sourceId: item.id, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.requester), progress: formatWorkerProgress(item), logPreview: compactLogPreview([(item.executionLogs ?? []).map((log) => log.summary).join("\n"), (item.targets ?? []).map((target) => { const tail = targetOutputTails.get(target.id); return [tail?.stdout, tail?.stderr].filter(Boolean).join("\n"); }).join("\n"), formatWorkerProgress(item)]), workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null })),
     ...downloads.map((item: DownloadTaskRow) => ({ id: `download:${item.id}`, source: "download" as const, sourceId: item.id, title: item.fileName || item.url, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress, logPreview: compactLogPreview([item.progress, item.targetPath]), href: "/downloads" })),
-    ...syncJobs.map((item: SyncJobTaskRow) => ({ id: `sync:${item.id}`, source: "sync" as const, sourceId: item.id, title: item.name, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.lastSyncResult, logPreview: compactLogPreview([item.lastSyncResult]), href: "/files" })),
-    ...backups.map((item: BackupTaskRow) => ({ id: `backup:${item.id}`, source: "backup" as const, sourceId: item.id, title: `${item.type} backup`, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.filePath, logPreview: compactLogPreview([item.filePath]), href: "/backups" })),
+    ...syncJobs.map((item: SyncJobTaskRow) => ({ id: `sync:${item.id}`, source: "sync" as const, sourceId: item.id, title: item.name, status: syncJobOperationStatus(item), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.lastSyncResult, logPreview: compactLogPreview([item.lastSyncResult]), href: "/files" })),
+    ...backups.map((item: BackupTaskRow) => ({ id: `backup:${item.id}`, source: "backup" as const, sourceId: item.id, title: `${item.type} backup`, taskType: item.type, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.filePath, logPreview: compactLogPreview([item.filePath]), href: "/backups" })),
     ...deployments.map((item: DeploymentTaskRow) => ({ id: `deployment:${item.id}`, source: "deployment" as const, sourceId: item.id, title: item.template.name, status: resolveDeploymentOperationStatus(item), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.commandRequest ? formatWorkerProgress(item.commandRequest) : null, logPreview: compactLogPreview([item.commandRequest ? formatWorkerProgress(item.commandRequest) : null]), workerId: item.commandRequest?.workerId ?? null, workerHeartbeatAt: item.commandRequest?.workerHeartbeatAt ? toIso(item.commandRequest.workerHeartbeatAt) : null, href: "/deployments" })),
   ];
 

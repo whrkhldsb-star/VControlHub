@@ -30,7 +30,7 @@ vi.mock("@/lib/ssh/client", () => ({
   listRemoteDirectory: listRemoteDirectoryMock,
 }));
 
-vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({
   decryptServerPassword: vi.fn((value: string) => (value === "enc:v1:SECRET" ? "SECRET" : value)),
   decryptSshPrivateKey: vi.fn((value: string) => (value === "enc:v1:PRIVATE KEY" ? "PRIVATE KEY" : value)),
 }));

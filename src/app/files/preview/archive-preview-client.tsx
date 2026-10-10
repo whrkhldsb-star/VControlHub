@@ -113,7 +113,7 @@ export function ArchivePreviewClient({
 			) : null}
 
 			{entries && entries.length > 0 ? (
-				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] overflow-hidden">
+				<div data-inset="" className="overflow-hidden">
 					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-[var(--surface-subtle)] px-4 py-2.5 text-xs uppercase text-[var(--text-secondary)] font-medium">
 						<div />
 						<div>{t("archivePreview.table.name")}</div>

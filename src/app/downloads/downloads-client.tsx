@@ -6,22 +6,20 @@ import { EmptyState, ListPanel, SurfacePanel, Toolbar } from "@/components/page-
 import { Download, Plus } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
-import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
 import { DownloadTaskRow } from "./downloads-task-row";
 import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type DownloadTask, type GlobalStat, type ServerOption } from "./downloads-shared";
-import { ActionButton } from "@/components/action-button";
-import { InlineLoading, Notice } from "@/components/ui-primitives";
+import { ActionButton, ButtonLink } from "@/components/action-button";
+import { Chip, InlineLoading, Notice } from "@/components/ui-primitives";
 export type { ServerOption } from "./downloads-shared";
 const UNCATEGORIZED_FILTER = "__uncategorized";
 
 export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
 	const { t, locale } = useI18n();
 	const { addToast } = useToast();
-	const { lastDownloadProgress } = useWsNotifications();
 
 	const [tasks, setTasks] = useState<DownloadTask[]>([]);
 	const [globalStat, setGlobalStat] = useState<GlobalStat>(null);
@@ -183,30 +181,6 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				void fetchTasksRef.current();
 			}
 	}, 5000);
-
-	useEffect(() => {
-		if (!lastDownloadProgress) return;
-		const progressText =
-			typeof lastDownloadProgress.progress === "number"
-				? `${Math.round(lastDownloadProgress.progress)}%`
-				: String(lastDownloadProgress.progress ?? "");
-		setTasks((prev) =>
-			prev.map((task) =>
-				task.id === lastDownloadProgress.taskId
-					? {
-							...task,
-							progress: progressText || task.progress,
-							status: lastDownloadProgress.status || task.status,
-						}
-					: task,
-			),
-		);
-		// Terminal status: refresh once for full fields (speed/size/error)
-		if (["COMPLETED", "FAILED", "CANCELLED"].includes(lastDownloadProgress.status)) {
-			void fetchTasksRef.current?.();
-		}
-	}, [lastDownloadProgress]);
-
 
 	const invalidBatchUrls = form.batchMode
 		? form.batchText.split("\n").map((l) => l.trim()).filter(Boolean)
@@ -404,11 +378,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					<div className="ml-auto flex flex-wrap items-center gap-2">
 						<span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.globalLimit")}</span>
 						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
-							<button type="button" key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-							>
+							<Chip key={kb} onClick={() => handleGlobalSpeedLimit(kb)}>
 								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
-							</button>
+							</Chip>
 						)) : <span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.needPermission")}</span>}
 					</div>
 				</div>
@@ -426,23 +398,15 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			<Toolbar className="mb-5 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap items-center gap-2">
 					{["ALL", "PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"].map((f) => (
-						<button key={f} type="button" onClick={() => setFilter(f)}
-							className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-								filter === f ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-							}`}
-						>
+						<Chip key={f} selected={filter === f} onClick={() => setFilter(f)}>
 							{f === "ALL" ? t("downloadsPage.filter.all") : getStatusLabel(t)[f]}
-						</button>
+						</Chip>
 					))}
 					<div className="h-4 w-px bg-[var(--border)]" />
 					{categories.map((c) => (
-						<button key={c.value} type="button" onClick={() => setCategoryFilter(categoryFilter === c.value ? null : c.value)}
-							className={`rounded-full border px-2.5 py-1 text-xs transition ${
-								categoryFilter === c.value ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-							}`}
-						>
+						<Chip key={c.value} selected={categoryFilter === c.value} onClick={() => setCategoryFilter(categoryFilter === c.value ? null : c.value)}>
 							{c.label}
-						</button>
+						</Chip>
 					))}
 				</div>
 				{canManage && servers.length > 0 ? (
@@ -454,7 +418,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
 					</ActionButton>
 				) : canManage ? (
-					<Notice tone="warning" compact>{t("downloadsPage.form.noTarget")}</Notice>
+					<Notice tone="warning" compact>
+						<span className="flex flex-wrap items-center gap-2">
+							{t("downloadsPage.form.noTarget")}
+							<ButtonLink href="/servers" size="xs" variant="secondary">{t("downloadsPage.form.noTargetAction")}</ButtonLink>
+						</span>
+					</Notice>
 				) : null}
 			</Toolbar>
 

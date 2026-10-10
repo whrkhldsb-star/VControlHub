@@ -55,6 +55,3 @@ export const costQuerySchema = z.object({
 	limit: z.coerce.number().int().min(1).max(500).optional(),
 });
 
-export type CreateCostEntryInput = z.infer<typeof createCostEntrySchema>;
-export type UpdateCostEntryInput = z.infer<typeof updateCostEntrySchema>;
-export type CostQueryInput = z.infer<typeof costQuerySchema>;

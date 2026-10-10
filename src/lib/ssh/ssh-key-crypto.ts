@@ -10,7 +10,20 @@
  * enabling a zero-downtime migration.
  */
 
+import { createHash, createPrivateKey } from "node:crypto";
+import { parsePrivateKey } from "sshpk";
+
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
+
+/**
+ * Prisma projection for every SSH key that will open a connection. Keys
+ * imported before 2026-10-08 may still carry a passphrase; selecting only
+ * `privateKey` silently broke commands, monitoring, backups and SFTP storage
+ * for them while the terminal kept working.
+ */
+export const SSH_KEY_CREDENTIAL_SELECT = { privateKey: true, passphrase: true } as const;
+
+export type StoredSshKey = { privateKey?: string | null; passphrase?: string | null };
 
 const SERVER_PASSWORD_PREFIX = "enc:v1:";
 
@@ -77,16 +90,46 @@ export function decryptSshKeyPassphrase(stored: string | null | undefined): stri
 	return stored;
 }
 
+const UNLOCKED_KEY_CACHE_LIMIT = 64;
+const unlockedKeys = new Map<string, string>();
+
+function unlockPrivateKey(privateKey: string, passphrase: string): string {
+	let content = privateKey.trim();
+	if (content.startsWith("-----BEGIN ") && !content.startsWith("-----BEGIN OPENSSH ")) {
+		// Encrypted PKCS#8 and legacy PEM ciphers are OpenSSL formats.
+		content = createPrivateKey({ key: content, passphrase }).export({ format: "pem", type: "pkcs8" }).toString();
+	}
+	return parsePrivateKey(content, "auto", { passphrase }).toString("openssh");
+}
+
 /**
- * Type-safe wrapper: decrypt the privateKey field of an SSH key object
- * if present and encrypted.
+ * Decrypt a stored key into material every SSH client can use without a
+ * prompt: the ssh2 library, and the OpenSSH CLI that runs commands with
+ * `BatchMode=yes`. Passphrase-protected legacy keys are unlocked once per
+ * process (the OpenSSH bcrypt KDF costs ~100 ms of blocking CPU) and cached by
+ * ciphertext, so a re-imported key never reuses a stale entry. When the format
+ * cannot be unlocked here, the passphrase is returned for ssh2 to try.
  */
-export function decryptSshKeyField<T extends { privateKey?: string | null }>(
-	key: T | null | undefined,
-): (T & { privateKey: string | null }) | null {
-	if (!key) return null;
-	return {
-		...key,
-		privateKey: key.privateKey ? decryptSshPrivateKey(key.privateKey) : null,
-	};
+export function decryptStoredSshKey(key: StoredSshKey | null | undefined): { privateKey: string; passphrase?: string } | null {
+	if (!key?.privateKey) return null;
+	const privateKey = decryptSshPrivateKey(key.privateKey);
+	const passphrase = decryptSshKeyPassphrase(key.passphrase);
+	if (!passphrase) return { privateKey };
+
+	const cacheKey = createHash("sha256").update(key.privateKey).update("\0").update(key.passphrase ?? "").digest("hex");
+	const cached = unlockedKeys.get(cacheKey);
+	if (cached) return { privateKey: cached };
+	try {
+		const unlocked = unlockPrivateKey(privateKey, passphrase);
+		if (unlockedKeys.size >= UNLOCKED_KEY_CACHE_LIMIT) unlockedKeys.delete(unlockedKeys.keys().next().value!);
+		unlockedKeys.set(cacheKey, unlocked);
+		return { privateKey: unlocked };
+	} catch {
+		return { privateKey, passphrase };
+	}
+}
+
+/** Test-only: forget unlocked keys. */
+export function clearUnlockedSshKeyCacheForTests() {
+	unlockedKeys.clear();
 }

@@ -440,7 +440,7 @@ export function AiMessageList({
                         {typeof approval.params.templateName === "string" && <span>{t("aiPage.automationTemplate")}: {approval.params.templateName}</span>}
                       </div>
                       {typeof approval.params.plan === "string" && <p className="whitespace-pre-wrap break-words leading-5">{approval.params.plan}</p>}
-                      {typeof approval.params.command === "string" && <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-[var(--border)] bg-[var(--surface-subtle)] p-2 font-mono text-xs text-[var(--text-primary)]">{approval.params.command}</pre>}
+                      {typeof approval.params.command === "string" && <pre data-inset="" className="max-h-40 overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-xs text-[var(--text-primary)]">{approval.params.command}</pre>}
                       {(typeof approval.params.verificationCommand === "string" || typeof approval.params.rollbackCommand === "string") && <div className="space-y-1 font-mono text-xs">{typeof approval.params.verificationCommand === "string" && <p>{t("aiPage.automationVerify")}: {approval.params.verificationCommand}</p>}{typeof approval.params.rollbackCommand === "string" && <p>{t("aiPage.automationRollback")}: {approval.params.rollbackCommand}</p>}</div>}
                     </div>
                   )}

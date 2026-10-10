@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
-import { CheckboxField, FormField, Notice } from "@/components/ui-primitives";
+import { CheckboxField, Chip, FormField, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -14,10 +14,6 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 const selectClass = UI_INPUT;
-const chipActive =
-	"border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]";
-const chipIdle =
-	"border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]";
 
 export function CreateRuleForm({
 	servers,
@@ -136,7 +132,7 @@ export function CreateRuleForm({
 	return (
 		<form onSubmit={handleSubmit}
       onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
-			<h3 className="text-lg font-semibold text-[var(--text-primary)]">
+			<h3 className="ui-title-section">
 				{t("alertRulesPage.createForm.title")}
 			</h3>
 			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
@@ -224,7 +220,7 @@ export function CreateRuleForm({
 					/>
 				</FormField>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70">
+					<label className="ui-label">
 						{t("alertRulesPage.createForm.targetNodes")}
 					</label>
 					<div data-tile className="flex flex-wrap gap-1.5 p-2">
@@ -234,28 +230,20 @@ export function CreateRuleForm({
 							</span>
 						) : (
 							<>
-								<button
-									type="button"
+								<Chip
+									selected={selectedServerIds.length === 0}
 									onClick={() => setSelectedServerIds([])}
-									className={cn(
-										"rounded-lg border px-2.5 py-1 text-xs transition",
-										selectedServerIds.length === 0 ? chipActive : chipIdle,
-									)}
 								>
 									{t("alertRulesPage.createForm.allNodes")}
-								</button>
+								</Chip>
 								{servers.map((server) => (
-									<button
+									<Chip
 										key={server.id}
-										type="button"
+										selected={selectedServerIds.includes(server.id)}
 										onClick={() => toggleServer(server.id)}
-										className={cn(
-											"rounded-lg border px-2.5 py-1 text-xs transition",
-											selectedServerIds.includes(server.id) ? chipActive : chipIdle,
-										)}
 									>
 										{server.name}
-									</button>
+									</Chip>
 								))}
 							</>
 						)}
@@ -264,7 +252,7 @@ export function CreateRuleForm({
 			</div>
 
 			<div data-tile className="space-y-1.5 p-3">
-				<label className="text-xs font-medium text-[var(--text-primary)]/70">
+				<label className="ui-label">
 					{t("alertRulesPage.createForm.playbooks")}
 				</label>
 				<p className="text-xs text-[var(--text-muted)]">
@@ -277,28 +265,24 @@ export function CreateRuleForm({
 						</span>
 					) : (
 						playbooks.map((playbook) => (
-							<button
+							<Chip
 								key={playbook.id}
-								type="button"
+								selected={selectedPlaybookIds.includes(playbook.id)}
 								onClick={() => togglePlaybook(playbook.id)}
 								disabled={!playbook.enabled}
-								className={cn(
-									"rounded-lg border px-2.5 py-1 text-xs transition disabled:cursor-not-allowed disabled:opacity-50",
-									selectedPlaybookIds.includes(playbook.id) ? chipActive : chipIdle,
-								)}
 							>
 								{playbook.name}
 								{!playbook.enabled
 									? ` · ${t("alertRulesPage.createForm.playbookDisabled")}`
 									: ""}
-							</button>
+							</Chip>
 						))
 					)}
 				</div>
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-[var(--text-primary)]/70">
+				<label className="ui-label">
 					{t("alertRulesPage.createForm.channels")}
 				</label>
 				<div className="flex flex-wrap gap-2">
@@ -313,7 +297,7 @@ export function CreateRuleForm({
 							checked={channels.includes(key)}
 							onChange={() => toggleChannel(key)}
 							label={t(i18nKey)}
-							className={cn("rounded-lg border px-3 py-2", channels.includes(key) ? chipActive : chipIdle)}
+							variant="tile"
 						/>
 					))}
 				</div>

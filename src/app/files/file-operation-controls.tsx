@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Copy, X, RefreshCw } from "@/components/icons";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
+import { Disclosure } from "@/components/ui/disclosure";
+import { EmptyState } from "@/components/page-shell";
 import { ActionButton } from "@/components/action-button";
-import { Notice } from "@/components/ui-primitives";
+import { FormField, IconButton, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FolderDestinationPicker } from "./folder-destination-picker";
@@ -45,32 +48,29 @@ export function CopyFileButton({
   const [error, setError] = useState("");
   const attempt = useRef<{ key: string; id: string } | null>(null);
   const pending = useRef(false);
+  const formId = useId();
   return (
     <>
-      <ActionButton variant="outline" onClick={() => setOpen(true)}>
-        <Copy size={16} />
+      <ActionButton variant="outline" icon={<Copy aria-hidden />} onClick={() => setOpen(true)}>
         {t("fileOperations.copy")}
       </ActionButton>
-      <ModalShell
+      <Dialog
         open={open}
         onClose={() => setOpen(false)}
         busy={busy}
-        label={t("fileOperations.copy")}
+        title={t("fileOperations.copy")}
+        footer={<>
+          <ActionButton variant="secondary" disabled={busy} onClick={() => setOpen(false)}>
+            {t("common.cancel")}
+          </ActionButton>
+          <ActionButton type="submit" form={formId} loading={busy}>
+            {t(busy ? "common.executing" : "common.confirm")}
+          </ActionButton>
+        </>}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t("fileOperations.copy")}</h2>
-          <button
-            type="button"
-            className="p-2"
-            aria-label={t("common.close")}
-            disabled={busy}
-            onClick={() => setOpen(false)}
-          >
-            <X size={18} />
-          </button>
-        </div>
         <form
-          className="mt-4 grid gap-4"
+          id={formId}
+          className="grid gap-4"
           onSubmit={async (event) => {
             event.preventDefault();
             if (pending.current) return;
@@ -100,16 +100,16 @@ export function CopyFileButton({
             }
           }}
         >
-          <label className="grid gap-2 text-sm">
-            <span>{t("filesPage.actions.targetPath")}</span>
+          <FormField label={t("filesPage.actions.targetPath")} htmlFor={`${formId}-target`}>
             <input
-              className={UI_INPUT}
+              id={`${formId}-target`}
+              className={cn(UI_INPUT, "font-mono")}
               value={targetDir}
               disabled={busy}
               required
               onChange={(event) => setTargetDir(event.currentTarget.value)}
             />
-          </label>
+          </FormField>
           {nodeId ? (
             <FolderDestinationPicker
               nodeId={nodeId}
@@ -117,9 +117,9 @@ export function CopyFileButton({
               onSelect={setTargetDir}
             />
           ) : null}
-          <label className="grid gap-2 text-sm">
-            <span>{t("fileOperations.conflict")}</span>
+          <FormField label={t("fileOperations.conflict")} htmlFor={`${formId}-policy`}>
             <select
+              id={`${formId}-policy`}
               className={UI_INPUT}
               value={policy}
               disabled={busy}
@@ -133,18 +133,15 @@ export function CopyFileButton({
                 </option>
               ))}
             </select>
-          </label>
+          </FormField>
           {policy === "overwrite" ? (
             <Notice tone="warning">
               {t("fileOperations.overwriteNotice")}
             </Notice>
           ) : null}
           {error ? <Notice tone="danger">{error}</Notice> : null}
-          <ActionButton type="submit" disabled={busy}>
-            {t(busy ? "common.executing" : "common.confirm")}
-          </ActionButton>
         </form>
-      </ModalShell>
+      </Dialog>
     </>
   );
 }
@@ -230,58 +227,35 @@ export function FileOperationTasks() {
       <ActionButton variant="outline" onClick={() => setOpen(true)}>
         {t("fileOperations.tasks")}
       </ActionButton>
-      <ModalShell
+      <Dialog
         size="xl"
         open={open}
         onClose={() => setOpen(false)}
-        label={t("fileOperations.tasks")}
+        title={t("fileOperations.tasks")}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t("fileOperations.tasks")}</h2>
-          <button
-            type="button"
-            className="p-2"
-            aria-label={t("common.close")}
-            onClick={() => setOpen(false)}
-          >
-            <X size={18} />
-          </button>
-        </div>
         {error ? (
-          <Notice tone="danger">
+          <Notice tone="danger" action={{ label: t("storageUpload.retry"), onClick: () => setReload((value) => value + 1) }}>
             {error}
-            <button
-              type="button"
-              aria-label={t("storageUpload.retry")}
-              className="p-2"
-              onClick={() => setReload((value) => value + 1)}
-            >
-              <RefreshCw size={16} />
-            </button>
           </Notice>
         ) : null}
         {!jobs.length ? (
-          <p className="py-6 text-sm text-[var(--text-muted)]">
-            {t("fileOperations.empty")}
-          </p>
+          <EmptyState text={t("fileOperations.empty")} />
         ) : (
-          <ul className="mt-4 divide-y divide-[var(--border)]">
+          <ul className="divide-y divide-[var(--border-subtle)]">
             {jobs.map((job) => (
               <li key={job.id} className="py-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
-                  <p>
+                  <p className="min-w-0 break-words">
                     {job.action
                       ? `${t(`fileOperations.${job.action}`)}${job.count !== null ? ` ${job.count}` : ""}`
                       : job.title}{" "}
                     · {t(`fileOperations.status.${job.status}`)} {job.progress}
                   </p>
                   {["RUNNING", "PENDING"].includes(job.status) ? (
-                    <button
-                      type="button"
-                      aria-label={t("common.cancel")}
+                    <IconButton
+                      label={t("common.cancel")}
                       title={t("fileOperations.cancelNotice")}
                       disabled={busy === job.id || job.cancelRequested}
-                      className="p-2"
                       onClick={async () => {
                         setBusy(job.id);
                         try {
@@ -300,13 +274,16 @@ export function FileOperationTasks() {
                         }
                       }}
                     >
-                      <X size={16} />
-                    </button>
+                      <X size={16} aria-hidden />
+                    </IconButton>
                   ) : null}
                 </div>
                 {job.retry ? (
                   <ActionButton
+                    size="sm"
                     variant="outline"
+                    icon={<RefreshCw aria-hidden />}
+                    className="mt-2"
                     disabled={busy === job.id}
                     onClick={async () => {
                       setBusy(job.id);
@@ -327,7 +304,6 @@ export function FileOperationTasks() {
                       }
                     }}
                   >
-                    <RefreshCw size={14} />
                     {t("fileOperations.retryFailed")}
                   </ActionButton>
                 ) : null}
@@ -343,11 +319,8 @@ export function FileOperationTasks() {
                   </p>
                 ) : null}
                 {job.result?.items?.length ? (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-xs">
-                      {t("fileOperations.results")}
-                    </summary>
-                    <ul className="mt-2 max-h-52 overflow-y-auto">
+                  <Disclosure variant="inset" title={t("fileOperations.results")} className="mt-2">
+                    <ul className="max-h-52 overflow-y-auto">
                       {job.result.items.map((item) => (
                         <li key={item.id} className="break-all py-1 text-xs">
                           {item.path ?? item.name ?? item.id} ·{" "}
@@ -356,13 +329,13 @@ export function FileOperationTasks() {
                         </li>
                       ))}
                     </ul>
-                  </details>
+                  </Disclosure>
                 ) : null}
               </li>
             ))}
           </ul>
         )}
-      </ModalShell>
+      </Dialog>
     </>
   );
 }

@@ -15,7 +15,7 @@ export function RouteLoading({ children }: { children?: ReactNode }) {
 
 export function SkeletonCard({ className }: { className?: string }) {
 	return (
-		<div className={`animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-5 space-y-3 ${className ?? ""}`}>
+		<div data-card="" className={`animate-pulse p-5 space-y-3 ${className ?? ""}`}>
 			<div className="h-4 w-1/3 rounded-lg bg-[var(--surface-hover)]/20" />
 			<div className="h-8 w-2/3 rounded-lg bg-[var(--surface-hover)]/20" />
 			<div className="h-3 w-1/2 rounded-lg bg-[var(--surface-hover)]/10" />

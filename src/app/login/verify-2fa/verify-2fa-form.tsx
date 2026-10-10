@@ -2,11 +2,13 @@
 
 import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from "react";
 import { useRouter } from "next/navigation";
-import { StateBox } from "@/components/ui-primitives";
+import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ApiError } from "@/lib/http/api-client-error";
 import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 type Verify2faFormProps = {
 	nextPath: string;
@@ -101,23 +103,16 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 
 	return (
 		<form onSubmit={handleResubmit} className="space-y-4">
-			<div className="flex justify-center gap-2" role="group" aria-label={t("login.verify2faMethodLabel")}>
-				<button
-					type="button"
-					aria-pressed={mode === "totp"}
-					onClick={() => { setMode("totp"); setErrorMsg(undefined); }}
-					className={`rounded-lg px-3 py-1.5 text-xs font-medium ${mode === "totp" ? "bg-[var(--accent-bg)] text-[var(--accent)]" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"}`}
-				>
-					{t("login.verify2faUseAuthenticator")}
-				</button>
-				<button
-					type="button"
-					aria-pressed={mode === "recovery"}
-					onClick={() => { setMode("recovery"); setErrorMsg(undefined); }}
-					className={`rounded-lg px-3 py-1.5 text-xs font-medium ${mode === "recovery" ? "bg-[var(--accent-bg)] text-[var(--accent)]" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"}`}
-				>
-					{t("login.verify2faUseRecovery")}
-				</button>
+			<div className="flex justify-center">
+				<SegmentedControl
+					ariaLabel={t("login.verify2faMethodLabel")}
+					value={mode}
+					onChange={(next) => { setMode(next); setErrorMsg(undefined); }}
+					options={[
+						{ value: "totp", label: t("login.verify2faUseAuthenticator") },
+						{ value: "recovery", label: t("login.verify2faUseRecovery") },
+					]}
+				/>
 			</div>
 
 			{mode === "totp" ? (
@@ -137,13 +132,13 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 						onPaste={i === 0 ? handlePaste : undefined}
 						disabled={submitting}
 						autoFocus={i === 0}
-						className="h-14 w-12 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] text-center text-xl font-semibold text-[var(--text-primary)] shadow-sm outline-none transition-[box-shadow,border-color] duration-150 focus:border-[var(--color-action-border)] focus:bg-[var(--input-bg)] focus:ring-[var(--color-action-ring)] disabled:opacity-50"
+						className={cn(UI_INPUT, "h-14 w-12 text-center text-xl font-semibold")}
 					/>
 				))}
 			</div>
 			) : (
 				<div className="space-y-2">
-					<label htmlFor="two-factor-recovery-code" className="block text-sm font-medium text-[var(--text-secondary)]">
+					<label htmlFor="two-factor-recovery-code" className="ui-label block">
 						{t("login.verify2faRecoveryLabel")}
 					</label>
 					<input
@@ -154,16 +149,14 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 						onChange={(event) => setRecoveryCode(event.target.value.toUpperCase())}
 						placeholder="ABCD-EFGH-JKLM"
 						disabled={submitting}
-						className="h-12 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-center font-mono text-sm font-semibold text-[var(--text-primary)] outline-none transition-[box-shadow,border-color] focus:border-[var(--color-action-border)] focus:bg-[var(--input-bg)] focus:ring-[var(--color-action-ring)] disabled:opacity-50"
+						className={cn(UI_INPUT, "h-12 w-full text-center font-mono text-sm font-semibold")}
 					/>
 					<p className="text-xs text-[var(--text-muted)]">{t("login.verify2faRecoveryDescription")}</p>
 				</div>
 			)}
 
 			{errorMsg ? (
-				<StateBox tone="danger" role="alert" className="py-2.5 text-center">
-					{errorMsg}
-				</StateBox>
+				<Notice tone="danger">{errorMsg}</Notice>
 			) : null}
 
 			<button

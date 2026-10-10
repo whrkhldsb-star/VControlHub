@@ -197,12 +197,12 @@ export function SelectField({
     onChange(normalizedValue);
   }, [disabled, field.key, normalizedValue, onChange, value]);
   return (
-    <div
+    <div data-inset=""
       data-form-field
-      className={`space-y-1.5 rounded-xl border p-3.5 transition ${
+      className={`space-y-1.5 p-3.5 transition ${
         disabled
-          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70"
-          : "border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_55%,var(--surface))] focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)]"
+          ? "opacity-70"
+          : "focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -273,12 +273,12 @@ export function InputField({
       .filter(Boolean)
       .join(" ") || undefined;
   return (
-    <div
+    <div data-inset=""
       data-form-field
-      className={`space-y-1.5 rounded-xl border p-3.5 transition ${
+      className={`space-y-1.5 p-3.5 transition ${
         disabled
-          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70"
-          : "border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_55%,var(--surface))] focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)]"
+          ? "opacity-70"
+          : "focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -336,12 +336,12 @@ export function TextAreaField({
   const helperId = useId();
   const warningId = useId();
   return (
-    <div
+    <div data-inset=""
       data-form-field
-      className={`space-y-1.5 rounded-xl border p-3.5 transition ${
+      className={`space-y-1.5 p-3.5 transition ${
         disabled
-          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70"
-          : "border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_55%,var(--surface))] focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)]"
+          ? "opacity-70"
+          : "focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">

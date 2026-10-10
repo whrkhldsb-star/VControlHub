@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { readTextPrefix } from "./read-text-prefix";
+
 type TextResourceState = {
   content: string | null;
+  /** True when only the first `maxBytes` were read. */
+  truncated: boolean;
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
@@ -14,6 +18,8 @@ type Options = {
   fetcher?: typeof fetch;
   errorMessage?: (status: number) => string;
   getErrorMessage?: (error: unknown) => string;
+  /** Read at most this many bytes (the rest of the download is cancelled). */
+  maxBytes?: number;
 };
 
 const defaultStatusError = (status: number) => `Request failed (${status})`;
@@ -25,8 +31,10 @@ export function useAbortableTextResource({
   fetcher = fetch,
   errorMessage = defaultStatusError,
   getErrorMessage = defaultResourceError,
+  maxBytes,
 }: Options): TextResourceState {
   const [content, setContent] = useState<string | null>(null);
+  const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -52,9 +60,12 @@ export function useAbortableTextResource({
       const currentFetcher = fetcherRef.current;
       const response = await currentFetcher(href, { signal: controller.signal });
       if (!response.ok) throw new Error(errorMessageRef.current(response.status));
-      const next = await response.text();
+      const next = maxBytes === undefined
+        ? { text: await response.text(), truncated: false }
+        : await readTextPrefix(response, maxBytes);
       if (requestId !== requestRef.current) return;
-      setContent(next);
+      setContent(next.text);
+      setTruncated(next.truncated);
     } catch (cause) {
       if (cause instanceof Error && cause.name === "AbortError") return;
       if (requestId !== requestRef.current) return;
@@ -63,7 +74,7 @@ export function useAbortableTextResource({
     } finally {
       if (requestId === requestRef.current) setLoading(false);
     }
-  }, [href]);
+  }, [href, maxBytes]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void reload(); }, 0);
@@ -73,5 +84,5 @@ export function useAbortableTextResource({
     };
   }, [reload]);
 
-  return { content, loading, error, reload };
+  return { content, truncated, loading, error, reload };
 }

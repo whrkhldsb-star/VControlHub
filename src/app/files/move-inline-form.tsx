@@ -100,7 +100,7 @@ export function MoveInlineForm({
       className="flex flex-wrap items-center gap-2"
     >
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
-      <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
+      <label className="ui-label grid gap-1">
         <span className="sr-only">{t("filesPage.actions.targetPath")}</span>
         <input
           ref={inputRef}

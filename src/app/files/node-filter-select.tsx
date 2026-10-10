@@ -63,7 +63,7 @@ export function NodeFilterSelect({
         ) : null}
       </div>
       <div className="space-y-1">
-        <label htmlFor={searchInputId} className="block text-xs font-medium text-[var(--text-secondary)]">
+        <label htmlFor={searchInputId} className="ui-label block">
           {t("filesBrowserSpa.searchStorageNode")}
         </label>
         <input
@@ -76,7 +76,7 @@ export function NodeFilterSelect({
         />
       </div>
       <div className="space-y-1">
-        <label htmlFor={selectInputId} className="block text-xs font-medium text-[var(--text-secondary)]">
+        <label htmlFor={selectInputId} className="ui-label block">
           {t("filesBrowserSpa.selectStorageNode")}
         </label>
         <select

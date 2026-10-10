@@ -564,8 +564,12 @@ export async function handleWebDavMove(
   const overwrite =
     (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
   if (existingDest && !overwrite) {
-    throw new ConflictError(
+    // RFC 4918 §9.8.5 / §9.9.4: 412, not 409 — clients read 409 as
+    // "an ancestor collection is missing".
+    throw new BusinessError(
       t("backend.webdav.destinationExistsAndOverwriteIsF"),
+      undefined,
+      412,
     );
   }
 
@@ -753,8 +757,12 @@ async function performWebDavCopy(input: {
   const overwrite =
     (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
   if (existingDest && !overwrite) {
-    throw new ConflictError(
+    // RFC 4918 §9.8.5 / §9.9.4: 412, not 409 — clients read 409 as
+    // "an ancestor collection is missing".
+    throw new BusinessError(
       t("backend.webdav.destinationExistsAndOverwriteIsF"),
+      undefined,
+      412,
     );
   }
 

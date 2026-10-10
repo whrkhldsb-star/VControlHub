@@ -15,6 +15,8 @@ import { useToast } from "@/components/toast-provider";
 
 import { inputClass } from "./cost-page-shared";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 const PROVIDERS: CloudBillingProvider[] = ["aws", "aliyun", "tencent", "generic_csv"];
 
@@ -155,7 +157,7 @@ export function CostCloudBillingPanel({
 			/>
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div>
-					<h2 className="text-lg font-semibold text-[var(--text-primary)]">
+					<h2 className="ui-title-section">
 						{t("costPage.billing.title")}
 					</h2>
 					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("costPage.billing.desc")}</p>
@@ -209,7 +211,7 @@ export function CostCloudBillingPanel({
 						</>
 					) : null}
 					<input
-						className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+						className={cn(UI_INPUT, "w-full text-sm")}
 						value={form.billingCsvUrl}
 						onChange={(e) => setForm({ ...form, billingCsvUrl: e.target.value })}
 						placeholder={t("costPage.billing.billingCsvUrl")}
@@ -241,7 +243,7 @@ export function CostCloudBillingPanel({
 						<article key={account.id} className="rounded-lg border border-[var(--border)] p-4">
 							<div className="flex items-start justify-between gap-3">
 								<div>
-									<h3 className="font-medium text-[var(--text-primary)]">{account.name}</h3>
+									<h3 className="ui-title-group">{account.name}</h3>
 									<p className="text-xs text-[var(--text-muted)]">
 										{t(`costPage.billing.provider.${account.provider}`)} · {account.currency}
 										{account.enabled ? "" : ` · ${t("costPage.billing.disabled")}`}

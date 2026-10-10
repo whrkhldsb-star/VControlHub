@@ -138,12 +138,12 @@ describe("BackupsPage", () => {
     expect(screen.getByRole("heading", { name: "备份失败原因聚合" })).toBeInTheDocument();
     expect(screen.getByText(/按最近 200 条失败备份记录中的错误文本归类/)).toBeInTheDocument();
     expect(screen.getByText("失败记录：1")).toBeInTheDocument();
-    expect(screen.getByText("Permission or read-only path")).toBeInTheDocument();
+    expect(screen.getByText("权限不足或路径只读")).toBeInTheDocument();
     expect(screen.getByText("最新记录：backups/failed.sql.gz")).toBeInTheDocument();
-    expect(screen.getByText(/Verify that BACKUP_DIR or \/var\/backups\/<slug> is a writable directory/)).toBeInTheDocument();
+    expect(screen.getByText(/确认备份目录可写/)).toBeInTheDocument();
     expect(screen.getByText("readonly path")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "定时备份" })).toBeInTheDocument();
-    expect(screen.getByText(/选择备份类型与 Cron 表达式后/)).toBeInTheDocument();
+    expect(screen.getByText(/选择备份类型和 Cron 时间后保存为备份计划/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建备份计划" })).toBeInTheDocument();
 
     // Displayed commands come from the platform runner specs: bash deploy/
@@ -172,6 +172,6 @@ describe("BackupsPage", () => {
     await act(async () => { render(await BackupsPage()); });
 
     expect(screen.getByText(/异地备份配置加载失败/).closest('[role="alert"]')).toBeInTheDocument();
-    expect(screen.queryByText("尚未执行 dry-run")).not.toBeInTheDocument();
+    expect(screen.queryByText("尚未测试连通性")).not.toBeInTheDocument();
   });
 });

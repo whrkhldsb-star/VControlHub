@@ -112,7 +112,7 @@ export function CreateFolderForm({
     <form action={formAction} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="currentPath" value={currentPath} />
       {storageNodes.length > 1 ? (
-        <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
+        <label className="ui-label grid gap-1">
           <span>{t("common.targetNode")}</span>
           <select
             name="storageNodeId"
@@ -130,7 +130,7 @@ export function CreateFolderForm({
       ) : (
         <input type="hidden" name="storageNodeId" value={selectedNodeId} />
       )}
-      <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
+      <label className="ui-label grid gap-1">
         <span>{t("common.folderName")}</span>
         <input
           ref={inputRef}

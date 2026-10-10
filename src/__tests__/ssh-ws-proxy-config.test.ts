@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-import { loadSshWsRuntimeEnv, parseSshWsRequestPath, resolveSshWsListenConfig } from "../ssh-ws-proxy";
+import { loadSshWsRuntimeEnv, parseSshWsRequestPath, resolveSshWsListenConfig, wsHeartbeatToleranceMs } from "../ssh-ws-proxy";
 
 describe("parseSshWsRequestPath", () => {
 	it("extracts the pathname of ordinary requests", () => {
@@ -144,5 +144,12 @@ describe("resolveSshWsListenConfig", () => {
 		expect(source).toContain("session = await withAuthorizationDeadline(verifySessionToken(token))");
 		expect(source).not.toContain("function signPayload(");
 		expect(source).not.toContain("function decodeBase64Url(");
+	});
+});
+
+describe("wsHeartbeatToleranceMs", () => {
+	it("tolerates several missed pongs before treating a terminal socket as dead", () => {
+		expect(wsHeartbeatToleranceMs(25_000)).toBe(120_000);
+		expect(wsHeartbeatToleranceMs(60_000)).toBe(240_000);
 	});
 });
