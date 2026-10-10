@@ -19,9 +19,9 @@ import { BreadcrumbsClient } from "./breadcrumbs-client";
 import { FilesBrowserSidebar } from "./files-browser-sidebar";
 import { ActionButton } from "@/components/action-button";
 import { Notice, Spinner } from "@/components/ui-primitives";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
 import { Pagination } from "@/components/pagination";
-import { ChevronRight, Plus, RefreshCw, X } from "@/components/icons";
+import { ChevronRight, Plus, RefreshCw } from "@/components/icons";
 import { IconButton } from "@/components/ui-primitives";
 import { StatCard, StatGrid, Toolbar } from "@/components/page-shell";
 import { KnownErrorNotice } from "@/components/known-error-notice";
@@ -244,16 +244,17 @@ export function FilesBrowserSpa({
         }
       }}>
       {/* Mobile-only sidebar toggle (hidden on xl+) */}
-      <button
-        type="button"
+      <ActionButton
+        variant="secondary"
+        block
         onClick={() => setMobileSidebarOpen((value) => !value)}
         aria-expanded={mobileSidebarOpen}
         aria-controls="files-browser-sidebar"
-        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] active:bg-[var(--surface-elevated)] xl:hidden"
+        className="justify-between xl:hidden"
       >
         <span>{mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}</span>
         <ChevronRight size={18} aria-hidden className={mobileSidebarOpen ? "-rotate-90" : "rotate-90"} />
-      </button>
+      </ActionButton>
       {/* Sidebar: Directory tree */}
       <FilesBrowserSidebar
         t={t}
@@ -271,7 +272,7 @@ export function FilesBrowserSpa({
         <div className="min-w-0">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <h2 className="break-words text-base font-semibold text-[var(--text-primary)]">
+              <h2 className="ui-title-section break-words">
                 {currentPathDisplay.title}
                 {loading ? (
                   <span className="ml-2 inline-flex items-center gap-2 align-middle text-sm text-[var(--text-muted)]">
@@ -412,21 +413,13 @@ export function FilesBrowserSpa({
 
         {/* Keep the expensive upload widget out of the browsing flow until requested. */}
         {data.permissions.canEditLocalFiles ? (
-          <ModalShell
+          <Dialog
             size="2xl"
             open={uploadOpen}
             onClose={() => setUploadOpen(false)}
-            labelledBy="files-upload-dialog-title"
+            title={t("filesBrowserSpa.uploadToPath", { path: currentPathDisplay.uploadPathLabel })}
+            description={t("filesBrowserSpa.uploadDescription")}
           >
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h2 id="files-upload-dialog-title" className="text-lg font-semibold text-[var(--text-primary)]">
-                  {t("filesBrowserSpa.uploadToPath", { path: currentPathDisplay.uploadPathLabel })}
-                </h2>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">{t("filesBrowserSpa.uploadDescription")}</p>
-              </div>
-              <IconButton onClick={() => setUploadOpen(false)} label={t("common.close")}><X size={18} aria-hidden /></IconButton>
-            </div>
             <FileUploadDropzoneLazy
               nodes={data.nodes}
               initialNodeId={preferredUploadNode}
@@ -447,7 +440,7 @@ export function FilesBrowserSpa({
                 );
               }}
             />
-          </ModalShell>
+          </Dialog>
         ) : null}
       </section>
     </section>

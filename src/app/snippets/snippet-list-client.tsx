@@ -42,9 +42,9 @@ type SnippetCardProps = {
 const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, onEdit, onDelete }: SnippetCardProps) {
   return (
     <div data-card className="group p-4 transition hover:bg-[var(--surface-elevated)]">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <b className="text-sm text-[var(--text-primary)]">{s.title}</b>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+          <h3 className="ui-title-group break-words">{s.title}</h3>
           <Badge>{s.language}</Badge>
           {s.isPrivate && <span className="text-xs text-[var(--warning)]">{t("snippetsPage.private")}</span>}
           {s.tags.length > 0 && (
@@ -68,7 +68,7 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
         </div>
       </div>
       {s.description && <p className="mt-1 text-xs text-[var(--text-muted)]">{s.description}</p>}
-      <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{s.content ?? s.contentPreview ?? ""}</pre>
+      <pre data-inset="" className="mt-3 max-h-48 overflow-auto p-3 font-mono text-xs text-[var(--text-secondary)]">{s.content ?? s.contentPreview ?? ""}</pre>
     </div>
   );
 }, (prev, next) => prev.snippet === next.snippet && prev.t === next.t && prev.copied === next.copied && prev.onCopy === next.onCopy && prev.onEdit === next.onEdit && prev.onDelete === next.onDelete);
@@ -173,7 +173,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         <div className="min-w-0 flex-1">
           <label
             htmlFor="snippets-search"
-            className="mb-1 block text-xs font-medium text-[var(--text-secondary)]"
+            className="ui-label mb-1 block"
           >
             {t("snippetsPage.search")}
           </label>

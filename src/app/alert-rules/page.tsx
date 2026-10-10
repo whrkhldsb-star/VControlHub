@@ -42,7 +42,7 @@ export default async function AlertRulesPage() {
 	const playbookOptions = playbooks.map((p) => ({ id: p.id, name: p.name, enabled: p.enabled }));
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("alertRulesPage.eyebrow", locale)}
 				title={t("alertRulesPage.title", locale)}

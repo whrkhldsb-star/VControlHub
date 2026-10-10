@@ -1,12 +1,3 @@
-/**
- * Bidirectional (two-way) file sync helpers — pure policy + result merge.
- *
- * Product meaning of syncType BIDIRECTIONAL:
- * - Run A→B then B→A with rsync --update (skip files newer on receiver)
- * - Never auto-delete orphans on either side (conflict-safe; deletes must be manual)
- * - Not a full enterprise "drive" conflict-resolver; honest two-leg merge over SSH
- */
-export type SyncDirectionMode = "MIRROR" | "BACKUP" | "INCREMENTAL" | "BIDIRECTIONAL";
 
 export function isBidirectionalSyncType(syncType: string | null | undefined): boolean {
   return (syncType ?? "").toUpperCase() === "BIDIRECTIONAL";
@@ -22,12 +13,35 @@ export function effectiveDeleteOrphans(
   return deleteOrphans;
 }
 
-/** Normalize path for endpoint equality (trim, collapse //, drop trailing slash except root). */
+/** Lexical normalization shared by the browser and server endpoint policy. */
 export function normalizeSyncEndpointPath(raw: string): string {
-  const trimmed = raw.trim().replace(/\\/g, "/");
-  const collapsed = trimmed.replace(/\/{2,}/g, "/");
-  if (collapsed.length <= 1) return collapsed || "/";
-  return collapsed.replace(/\/+$/, "") || "/";
+  const path = raw.trim().replace(/\\/g, "/") || "/";
+  const absolute = path.startsWith("/");
+  const segments: string[] = [];
+  for (const segment of path.split("/")) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      if (segments.length && segments.at(-1) !== "..") segments.pop();
+      else if (!absolute) segments.push(segment);
+    } else segments.push(segment);
+  }
+  return (absolute ? "/" : "") + segments.join("/") || ".";
+}
+
+/** Copying into a descendant recurses; mirroring into an ancestor can delete the source. */
+export function syncEndpointsOverlap(input: {
+  sourceServerId: string;
+  targetServerId: string;
+  sourcePath: string;
+  targetPath: string;
+}): boolean {
+  if (input.sourceServerId !== input.targetServerId) return false;
+  const source = normalizeSyncEndpointPath(input.sourcePath);
+  const target = normalizeSyncEndpointPath(input.targetPath);
+  const contains = (parent: string, child: string) => parent === "."
+    ? !child.startsWith("/") && child !== ".." && !child.startsWith("../")
+    : child.startsWith(parent === "/" ? "/" : `${parent}/`);
+  return source === target || contains(source, target) || contains(target, source);
 }
 
 export type OneWaySyncStats = {

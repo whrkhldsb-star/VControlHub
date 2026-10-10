@@ -91,7 +91,7 @@ vi.mock("@/lib/logging", () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({
   decryptServerPassword: (v: string) => v,
   decryptSshPrivateKey: (v: string) => v,
   decryptSshKeyPassphrase: (v: string) => v,

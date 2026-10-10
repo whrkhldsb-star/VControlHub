@@ -82,14 +82,6 @@ function shouldBracketIpv6Host(host: string) {
   return host.includes(":") && !host.startsWith("[") && !host.endsWith("]");
 }
 
-export function getDirectGatewayStatusLabel(input: {
-  fileProxyPort?: number | null;
-  publicUrl?: string | null;
-}) {
-  return input.fileProxyPort && input.fileProxyPort > 0 && input.publicUrl
-    ? "Target direct connection"
-    : "Website relay";
-}
 
 /**
  * TR-002 R3: derive the effective transport protocol for the Direct Gateway

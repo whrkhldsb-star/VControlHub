@@ -20,8 +20,11 @@ import {
   type MediaItem,
 } from "./media-item-helpers";
 import { MediaCover } from "./media-item-cover";
-import { Badge, Notice } from "@/components/ui-primitives";
+import { Badge, Chip, Notice } from "@/components/ui-primitives";
 
+import { ActionButton } from "@/components/action-button";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 export type { MediaItem } from "./media-item-helpers";
 
 export function MediaItemCard({
@@ -133,7 +136,7 @@ export function MediaItemCard({
   const { previewHref, downloadHref, sourceHref } = buildMediaLinks(item, t);
 
   return (
-    <div className="group overflow-hidden rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface-elevated)] p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-action-border)]/25 hover:bg-[var(--surface-hover)] light:shadow-sm light:hover:border-[var(--color-action-border)] light:hover:shadow-md">
+    <div data-card="" className="group overflow-hidden p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-action-border)]/25 light:hover:border-[var(--color-action-border)] light:hover:shadow-md">
       <MediaCover item={item} sourceHref={previewHref} t={t} />
       <div className="mt-3 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -189,42 +192,46 @@ export function MediaItemCard({
         {previewHref ? (
           <a
             href={previewHref}
-            data-tone="cyan"
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-action-border)]/25 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--color-action-bg)]/20"
+            data-action-button=""
+            data-variant="outline"
+            data-size="xs"
           >
-            <Eye size={13} /> {t("mediaItemCard.previewButton")}
+            <Eye aria-hidden /> {t("mediaItemCard.previewButton")}
           </a>
         ) : null}
         {downloadHref ? (
           <a
             href={downloadHref}
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)]/10 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
+            data-action-button=""
+            data-variant="secondary"
+            data-size="xs"
           >
-            <Download size={13} /> {t("mediaItemCard.downloadButton")}
+            <Download aria-hidden /> {t("mediaItemCard.downloadButton")}
           </a>
         ) : null}
         {sourceHref ? (
           <a
             href={sourceHref}
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)]/10 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
+            data-action-button=""
+            data-variant="secondary"
+            data-size="xs"
           >
-            <FolderOpen size={13} /> {t("mediaItemCard.sourceFileButton")}
+            <FolderOpen aria-hidden /> {t("mediaItemCard.sourceFileButton")}
           </a>
         ) : null}
         {canManage && item.mediaType ==="image" && item.storageNode ? (
-          <button
-            type="button"
+          <ActionButton
+            size="xs"
+            variant="success"
+            icon={<LinkIcon aria-hidden />}
             onClick={() => void publishAsImageBed()}
-            disabled={publishing}
-            data-tone="emerald"
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--success-border)] px-2.5 py-1.5 text-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)] disabled:opacity-50"
+            loading={publishing}
             title={t("mediaItemCard.publishTooltip")}
           >
-            <LinkIcon size={13} />
             {publishing
               ? t("mediaItemCard.publishing")
               : t("mediaItemCard.publishToImageBed")}
-          </button>
+          </ActionButton>
         ) : null}
       </div>
       {imageBedUrl ? (
@@ -285,18 +292,18 @@ export function MediaItemCard({
                 if (newTag.trim()) void addTag();
                 else setShowTagInput(false);
               }}
-              className="w-20 rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+              className={cn(UI_INPUT, "min-h-[var(--control-height-sm)] w-24 rounded-full px-2.5 py-0.5 text-xs")}
               placeholder={t("mediaItemCard.newTagPlaceholder")}
             />
           ) : (
-            <button
-              type="button"
+            <Chip
+              dashed
+              icon={<Tag aria-hidden />}
               onClick={() => setShowTagInput(true)}
-              aria-label={t("mediaItemCard.addTag")}
-              className="inline-flex items-center gap-0.5 rounded-lg border border-dashed border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-muted)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition hover:border-[var(--color-action-border)]/30 hover:text-[var(--color-action-text)]"
+              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
             >
-              <Tag size={10} /> {t("mediaItemCard.addTag")}
-            </button>
+              {t("mediaItemCard.addTag")}
+            </Chip>
           )}
         </div>
       )}
@@ -306,8 +313,7 @@ export function MediaItemCard({
             <Link
               key={tag}
               href={`/media?tag=${encodeURIComponent(tag)}`}
-              data-tone="cyan"
-              className="rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-xs text-[var(--accent)] hover:underline"
+              data-chip=""
             >
               #{tag}
             </Link>

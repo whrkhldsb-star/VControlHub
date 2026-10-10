@@ -8,8 +8,8 @@
 export const zh: Record<string, string> = {
 	"monitoring.disk": "磁盘",
 	"monitoring.memory": "内存",
-	"monitoringPage.title": "服务器监控",
-	"monitoringPage.desc": "实时系统资源监控",
+	"monitoringPage.title": "Hub 主机监控",
+	"monitoringPage.desc": "运行 VControlHub 的这台主机的实时资源占用；纳管 VPS 的状态请看「节点状态」。",
 	"monitoringPage.loading": "加载中…",
 	"monitoringPage.errorTitle": "无法获取监控数据",
 	"monitoringPage.errorUnavailable": "监控接口暂时没有返回可用数据，请稍后重试。",
@@ -56,8 +56,8 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"monitoring.disk": "Disk",
 	"monitoring.memory": "Memory",
-	"monitoringPage.title": "Server Monitoring",
-	"monitoringPage.desc": "Real-time system resource monitoring",
+	"monitoringPage.title": "Hub Host",
+	"monitoringPage.desc": "Live resource usage of the machine running VControlHub. Managed servers are on Node Status.",
 	"monitoringPage.loading": "Loading…",
 	"monitoringPage.errorTitle": "Unable to fetch monitoring data",
 	"monitoringPage.errorUnavailable": "The monitoring endpoint returned no usable data. Please try again shortly.",

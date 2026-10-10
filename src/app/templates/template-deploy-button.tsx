@@ -45,7 +45,7 @@ export function DeployButton({
 					<div key={v} className="flex items-center gap-2">
 						<label
 							htmlFor={variableInputId}
-							className="w-24 shrink-0 font-mono text-xs text-[var(--warning)]"
+							className="ui-label w-24 shrink-0 font-mono text-[var(--warning)]"
 						>
 							{variableLabel}
 						</label>
@@ -63,11 +63,9 @@ export function DeployButton({
 				{enabledServers.map((s) => (
 					<label
 						key={s.id}
-						className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition ${
-							selectedIds.has(s.id)
-								? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]"
-								: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"
-						}`}
+						data-tile=""
+						data-selected={selectedIds.has(s.id) ? "" : undefined}
+						className="flex cursor-pointer items-center gap-1.5 px-2 py-1 text-xs text-[var(--text-secondary)] transition"
 					>
 						<input
 							type="checkbox"

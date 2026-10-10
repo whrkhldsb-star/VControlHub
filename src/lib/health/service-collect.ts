@@ -53,11 +53,6 @@ function networkRatesKbps(
   };
 }
 
-/** Test helper — clear the delta cache between unit tests. */
-export function resetHealthNetworkRateCacheForTests() {
-  lastNetSampleByServer.clear();
-}
-
 export async function collectAllHealth(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
   options: { persistTraffic?: boolean } = {},

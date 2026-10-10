@@ -97,7 +97,6 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		title: request.title,
 		command: request.command,
 		status: request.status,
-		approvalStateLabel: request.approvalStateLabel,
 		isAssistantInitiated: request.isAssistantInitiated,
 		requester: request.requester,
 		targetCount: request.targets.length,
@@ -111,7 +110,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 	});
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<DashboardLocalizedHeader username={session.username} />
 			<DashboardSetupChecklist items={setupItems} />
 			<DashboardStatsSection

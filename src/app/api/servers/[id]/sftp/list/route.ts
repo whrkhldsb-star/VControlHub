@@ -10,6 +10,7 @@ import { listDirectory } from "@/lib/ssh/sftp-service";
 import { listDirSchema } from "@/lib/ssh/sftp-schema";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { loadEnabledServerForSftp } from "@/lib/ssh/server-target";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,14 @@ export async function POST(
       const { id } = await params;
       const teamAccess = await assertServerTeamAccess(session, id, "fileRead");
       if (!teamAccess.ok) return teamAccess.response;
-      await assertSftpPathAccess({ session, serverId: id, paths: [body.path] });
-      const entries = await listDirectory(id, body.path);
-      return NextResponse.json({ path: body.path, entries });
+      let directory = body.path;
+      if (directory === undefined) {
+        const { rootPath } = await loadEnabledServerForSftp(id);
+        directory = rootPath;
+      }
+      await assertSftpPathAccess({ session, serverId: id, paths: [directory] });
+      const entries = await listDirectory(id, directory);
+      return NextResponse.json({ path: directory, entries });
     },
   );
 }

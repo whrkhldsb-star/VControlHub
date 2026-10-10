@@ -19,6 +19,7 @@ import {
 import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
 import { sampleRemoteServersTraffic } from "@/lib/monitoring/remote-traffic";
 import { t } from "@/lib/i18n/translations";
+import { SSH_KEY_CREDENTIAL_SELECT, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 
 /**
  * TR-037 R5+: the route used to inline `req.nextUrl.searchParams.get(...)`
@@ -209,7 +210,7 @@ export async function GET(req: NextRequest) {
               username: true,
               password: true,
               sshKeyId: true,
-              sshKey: { select: { privateKey: true } },
+              sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
             },
             orderBy: { name: "asc" },
             take: 200,
@@ -236,7 +237,7 @@ export async function GET(req: NextRequest) {
               username: string;
               password: string | null;
               sshKeyId: string | null;
-              sshKey?: { privateKey: string | null } | null;
+              sshKey?: StoredSshKey | null;
             }>,
           )
         : null;

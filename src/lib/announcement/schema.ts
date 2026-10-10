@@ -5,12 +5,9 @@ import { idQuerySchema } from "@/lib/http/parse-search-params";
 /* ── 公告级别 (共享给 schema + service) ──────────────────────────────── */
 
 export const ANNOUNCEMENT_LEVELS = ["info", "warning", "urgent"] as const;
-export type AnnouncementLevel = (typeof ANNOUNCEMENT_LEVELS)[number];
 
 /* ── GET /api/announcements ──────────────────────────────────────────── */
 /* (list 端点当前无 query 参数,留作占位以备将来扩展) */
-
-export const listAnnouncementsQuerySchema = z.object({}).optional();
 
 /* ── POST /api/announcements ─────────────────────────────────────────── */
 
@@ -41,7 +38,6 @@ export const createAnnouncementSchema = z
     },
     { message: "expiresAt must be after startsAt", path: ["expiresAt"] },
   );
-export type CreateAnnouncementInput = z.infer<typeof createAnnouncementSchema>;
 
 /* ── PATCH /api/announcements ────────────────────────────────────────── */
 
@@ -70,9 +66,7 @@ export const updateAnnouncementSchema = z
       data.expiresAt !== undefined,
     { message: "At least one update field must be provided", path: [] },
   );
-export type UpdateAnnouncementInput = z.infer<typeof updateAnnouncementSchema>;
 
 /* ── DELETE /api/announcements ───────────────────────────────────────── */
 
 export const deleteAnnouncementQuerySchema = idQuerySchema;
-export type DeleteAnnouncementQuery = z.infer<typeof deleteAnnouncementQuerySchema>;

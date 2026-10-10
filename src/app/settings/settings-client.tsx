@@ -408,7 +408,7 @@ export function SettingsClient({
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+              <h2 className="ui-title-section">
                 {t("settingsClient.categoryTitle")}
               </h2>
               <p className="mt-0.5 text-xs text-[var(--text-muted)]">
@@ -431,10 +431,11 @@ export function SettingsClient({
               <a
                 key={item.id}
                 href={`#${item.id}`}
+                data-tile=""
                 onClick={() =>
                   setOpenSections((prev) => ({ ...prev, [item.id]: true }))
                 }
-                className="group flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-bg)]"
+                className="group flex items-center gap-2 px-3 py-2 text-xs transition"
               >
                 <span className="text-base" aria-hidden>
                   {item.icon}

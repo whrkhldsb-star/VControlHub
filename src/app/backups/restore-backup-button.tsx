@@ -8,7 +8,10 @@ import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
+import { FormField, SegmentedControl } from "@/components/ui-primitives";
+import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 import { getBackupTypeLabel } from "@/lib/i18n/domain-labels";
 
 type Props = {
@@ -109,63 +112,59 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       )}
       {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
       {confirmOpen && (
-        <ModalShell
-          size="md" placement="sheet"
+        <Dialog
           open
+          placement="sheet"
           onClose={() => setConfirmOpen(false)}
-          labelledBy="restore-backup-title"
-          describedBy="restore-backup-description"
           closeOnBackdrop={false}
+          busy={pending}
+          title={t("backupsPage.restore.confirmTitle")}
+          description={<>
+            {t("backupsPage.restore.warningPrefix")} <span className="font-semibold text-[var(--text-primary)]">{getBackupTypeLabel(t, backupType)}</span> {t("backupsPage.restore.warningSuffix")} <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> {t("backupsPage.restore.warningContinue")}
+          </>}
+          footer={<>
+            <ActionButton variant="secondary"
+              disabled={pending}
+              onClick={() => {
+                setConfirmOpen(false);
+                setConfirmText("");
+                setError(null);
+              }}>
+              {t("common.cancel")}
+            </ActionButton>
+            <ActionButton variant="danger-solid"
+              loading={pending}
+              disabled={confirmText !== CONFIRM_TEXT}
+              onClick={handleRestore}>
+              {pending ? t("backupsPage.restore.pending") : t("backupsPage.restore.confirm")}
+            </ActionButton>
+          </>}
         >
-            <h3 id="restore-backup-title" className="text-base font-semibold text-[var(--text-primary)]">{t("backupsPage.restore.confirmTitle")}</h3>
-            <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-              {t("backupsPage.restore.warningPrefix")} <span className="font-semibold text-[var(--text-primary)]">{getBackupTypeLabel(t, backupType)}</span> {t("backupsPage.restore.warningSuffix")} <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> {t("backupsPage.restore.warningContinue")}
-            </p>
+          <div className="space-y-4">
             {backupType === "FULL" ? (
-            <div className="mt-4 grid gap-2">
-              <span className="text-sm text-[var(--text-secondary)]">{t("backupsPage.restore.component.label")}</span>
-              <div className="flex gap-2">
-                {(["all", "database", "files"] as const).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setComponent(c)}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${component === c ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
-                  >
-                    {t(`backupsPage.restore.component.${c}`)}
-                  </button>
-                ))}
+              <div className="grid gap-1.5">
+                <span className={UI_LABEL}>{t("backupsPage.restore.component.label")}</span>
+                <SegmentedControl
+                  ariaLabel={t("backupsPage.restore.component.label")}
+                  value={component}
+                  onChange={setComponent}
+                  options={(["all", "database", "files"] as const).map((c) => ({ value: c, label: t(`backupsPage.restore.component.${c}`), tone: "danger" as const }))}
+                />
               </div>
-            </div>
             ) : null}
-            <label className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
-              {t("backupsPage.restore.inputLabel", { confirmText: CONFIRM_TEXT })}
+            <FormField label={t("backupsPage.restore.inputLabel", { confirmText: CONFIRM_TEXT })} htmlFor="restore-backup-confirm" error={error ?? undefined}>
               <input
+                id="restore-backup-confirm"
                 value={confirmText}
                 onChange={(event) => setConfirmText(event.target.value)}
                 autoFocus
-                className="min-h-11 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--danger-border)]"
+                autoComplete="off"
+                className={cn(UI_INPUT, "font-mono")}
                 placeholder={CONFIRM_TEXT}
               />
-            </label>
-            {error && <p role="alert" className="mt-3 text-xs text-[var(--danger)]">{error}</p>}
-            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <ActionButton variant="secondary"
-                disabled={pending}
-                onClick={() => {
-                  setConfirmOpen(false);
-                  setConfirmText("");
-                  setError(null);
-                }}>
-                {t("common.cancel")}
-              </ActionButton>
-              <ActionButton variant="danger"
-                disabled={pending || confirmText !== CONFIRM_TEXT}
-                onClick={handleRestore}>
-                {pending ? t("backupsPage.restore.pending") : t("backupsPage.restore.confirm")}
-              </ActionButton>
-            </div>
-        </ModalShell>
+            </FormField>
+          </div>
+        </Dialog>
       )}
     </div>
   );

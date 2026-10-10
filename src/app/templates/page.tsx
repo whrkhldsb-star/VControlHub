@@ -6,6 +6,7 @@ import { listServerProfiles } from "@/lib/server/service";
 import { TemplateListClient } from "./template-list-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function CommandTemplatesPage() {
 	const locale = await getServerLocale();
 
 	const [templates, servers] = await Promise.all([
-		listTemplates(200, session),
+		listTemplates(200, session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
 		listServerProfiles(session),
 	]);
 
@@ -31,7 +32,7 @@ export default async function CommandTemplatesPage() {
 	const serverOptions = servers.map((s) => ({ id: s.id, name: s.name, enabled: s.enabled }));
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("templatesPage.eyebrow", locale)}
 				title={t("templatesPage.title", locale)}

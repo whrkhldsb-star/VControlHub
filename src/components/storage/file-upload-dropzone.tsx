@@ -173,7 +173,7 @@ export function FileUploadDropzone({
     <section className={embedded ? "" : "border-t border-[var(--border)] py-6"}>
       {!embedded ? (
         <div>
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <h2 className="ui-title-section">{title}</h2>
           <p className="text-sm text-[var(--text-secondary)]">{description}</p>
         </div>
       ) : null}
@@ -181,7 +181,7 @@ export function FileUploadDropzone({
         className={`mt-4 grid gap-4 ${allowNodeSelection ? "md:grid-cols-2" : ""}`}
       >
         {allowNodeSelection ? (
-          <label className="grid min-w-0 gap-2 text-sm">
+          <label className="ui-label grid min-w-0 gap-2">
             <span>{t("fileUploadDropzone.uploadToNode")}</span>
             <select
               aria-label={t("fileUploadDropzone.uploadToNode")}
@@ -200,7 +200,7 @@ export function FileUploadDropzone({
             </select>
           </label>
         ) : null}
-        <label className="grid min-w-0 gap-2 text-sm">
+        <label className="ui-label grid min-w-0 gap-2">
           <span>{pathLabel}</span>
           <input
             aria-label={pathLabel}
@@ -260,9 +260,11 @@ export function FileUploadDropzone({
             });
           }
         }}
-        className={`mt-4 flex min-h-36 w-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-5 text-center disabled:opacity-50 ${dragActive ? "border-[var(--color-action)] bg-[var(--color-action-bg)]" : "border-[var(--border)] bg-[var(--surface-subtle)]"}`}
+        data-dropzone=""
+        data-drag-over={dragActive ? "" : undefined}
+        className="mt-4"
       >
-        <Upload size={24} />
+        <Upload aria-hidden />
         <span className="text-sm font-medium">{submitLabel}</span>
         {!uploadEnabled ? (
           <span className="text-xs">

@@ -5,7 +5,9 @@ import {
   formatBidirectionalResult,
   isBidirectionalSyncType,
   mergeSyncStats,
+  normalizeSyncEndpointPath,
   rsyncFlagsForJob,
+  syncEndpointsOverlap,
 } from "../bidirectional";
 
 describe("bidirectional sync policy", () => {
@@ -62,5 +64,31 @@ describe("bidirectional sync policy", () => {
         durationMs: 2500,
       }),
     ).toMatch(/Bidirectional OK/);
+  });
+});
+
+describe("sync endpoint paths", () => {
+  it("normalizes separators, dot segments and trailing slashes", () => {
+    expect(normalizeSyncEndpointPath(" /data//./share/ ")).toBe("/data/share");
+    expect(normalizeSyncEndpointPath("/data/a/../b")).toBe("/data/b");
+    expect(normalizeSyncEndpointPath("/../..")).toBe("/");
+    expect(normalizeSyncEndpointPath("C:\\data\\x")).toBe("C:/data/x");
+    expect(normalizeSyncEndpointPath("")).toBe("/");
+  });
+
+  const sameNode = (sourcePath: string, targetPath: string) =>
+    syncEndpointsOverlap({ sourceServerId: "s", targetServerId: "s", sourcePath, targetPath });
+
+  it("rejects identical, nested and equivalent directories on one node", () => {
+    expect(sameNode("/data", "/data/")).toBe(true);
+    expect(sameNode("/data", "/data/archive")).toBe(true);
+    expect(sameNode("/data/archive", "/data")).toBe(true);
+    expect(sameNode("/data/./x/..", "/data")).toBe(true);
+    expect(sameNode("/", "/srv")).toBe(true);
+  });
+
+  it("allows sibling names and different nodes", () => {
+    expect(sameNode("/data", "/database")).toBe(false);
+    expect(syncEndpointsOverlap({ sourceServerId: "a", targetServerId: "b", sourcePath: "/data", targetPath: "/data" })).toBe(false);
   });
 });

@@ -42,7 +42,7 @@ export function AlertRuleCard({
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 				<div className="min-w-0 flex-1">
 					<div className="flex flex-wrap items-center gap-2">
-						<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">{rule.name}</h2>
+						<h2 className="ui-title-section">{rule.name}</h2>
 						<StatusBadge tone={rule.enabled ? "success" : "neutral"}>
 							{t(rule.enabled ? "alertRulesPage.state.enabled" : "alertRulesPage.state.paused")}
 						</StatusBadge>

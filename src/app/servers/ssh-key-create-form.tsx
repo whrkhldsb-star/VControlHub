@@ -15,7 +15,7 @@ export function SshKeyCreateForm() {
   const [hasFile, setHasFile] = useState(false);
   return (
     <form action={formAction} data-card className="grid gap-4" onReset={() => setHasFile(false)}>
-      <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("serversPage.sshKeyCreate.title")}</h2>
+      <h2 className="ui-title-section">{t("serversPage.sshKeyCreate.title")}</h2>
       {state.error && <Notice tone="danger">{state.error}</Notice>}
       {state.success && <Notice tone="success">{state.success}</Notice>}
       <div className="space-y-1.5">
@@ -24,11 +24,11 @@ export function SshKeyCreateForm() {
       </div>
       <div className="space-y-1.5">
         <label htmlFor="publicKey">{t("serversPage.sshKeyCreate.publicKeyLabel")}</label>
-        <textarea id="publicKey" name="publicKey" rows={2} placeholder={t("serversPage.sshKeyCreate.publicKeyPlaceholder")} className={cn(UI_INPUT, "resize-y font-mono")} />
+        <textarea id="publicKey" name="publicKey" rows={2} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={t("serversPage.sshKeyCreate.publicKeyPlaceholder")} className={cn(UI_INPUT, "resize-y font-mono")} />
       </div>
       <div className="space-y-1.5">
         <label htmlFor="privateKey">{t("serversPage.sshKeyCreate.privateKeyLabel")}</label>
-        <textarea id="privateKey" name="privateKey" rows={4} required={!hasFile} placeholder={t("serversPage.sshKeyCreate.privateKeyPlaceholder")} className={cn(UI_INPUT, "resize-y font-mono")} />
+        <textarea id="privateKey" name="privateKey" rows={4} required={!hasFile} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={t("serversPage.sshKeyCreate.privateKeyPlaceholder")} className={cn(UI_INPUT, "resize-y font-mono")} />
       </div>
       <div className="space-y-1.5">
         <label htmlFor="sshKeyFile">{t("serversPage.sshKeyCreate.fileUploadLabel")}</label>

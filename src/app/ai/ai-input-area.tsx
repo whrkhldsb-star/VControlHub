@@ -82,10 +82,10 @@ export function AiInputArea({
     <div className="relative border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] px-4 py-3 backdrop-blur">
       {/* Slash-command palette */}
       {slashOpen && !streaming && (
-        <div
+        <div data-popover=""
           role="listbox"
           aria-label={t("aiPage.slashPaletteLabel")}
-          className="absolute bottom-full left-4 z-20 mb-2 w-full max-w-md overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] py-1 shadow-[var(--shadow-lg)]"
+          className="absolute bottom-full left-4 z-20 mb-2 w-full max-w-md overflow-hidden py-1"
         >
           {SLASH_COMMANDS.map((command) => (
             <button
@@ -116,18 +116,19 @@ export function AiInputArea({
       )}
       <div className="flex gap-2 items-end">
         {/* File upload button */}
-        <button
-          type="button"
+        <ActionButton
+          size="lg"
+          variant="secondary"
+          square
           onClick={() => fileInputRef.current?.click()}
           disabled={streaming}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:opacity-30"
           aria-label={t("aiPage.uploadFileTitle", { types: allowedTypes })}
           title={t("aiPage.uploadFileTitle", { types: allowedTypes })}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 5.636a9 9 0 11-12.728 0M12 3v12" />
           </svg>
-        </button>
+        </ActionButton>
         <input
           ref={fileInputRef}
           type="file"

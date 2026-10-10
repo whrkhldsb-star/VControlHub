@@ -37,7 +37,7 @@ export function FilesSearchClient({
   );
 
   return (
-    <PageShell maxW="max-w-5xl">
+    <PageShell width="narrow">
       <PageHeader
         eyebrow={t("filesPage.eyebrow")}
         title={t("filesPage.subPage.search")}
@@ -49,7 +49,7 @@ export function FilesSearchClient({
         description={t("filesPage.subPage.searchPanelDesc")}
       >
         <div className="mb-4 grid gap-2 sm:max-w-sm">
-          <label htmlFor="files-search-node" className="text-xs font-medium text-[var(--text-secondary)]">
+          <label htmlFor="files-search-node" className="ui-label">
             {t("filesPage.subPage.searchNodeFilter")}
           </label>
           <select

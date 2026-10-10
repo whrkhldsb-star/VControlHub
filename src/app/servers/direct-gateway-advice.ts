@@ -6,7 +6,6 @@ export type DirectGatewayInput = {
 
   directGateway: {
     enabled: boolean;
-    statusLabel: string;
     publicUrl: string | null;
     port: number;
 

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { Dispatch, SetStateAction } from "react";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Card } from "@/components/page-shell";
 import type { ImageItem, PendingDelete } from "./image-bed-types";
@@ -197,20 +197,28 @@ export function PublishFromStorageModal({
   publishing?: boolean;
 }) {
   return (
-    <ModalShell
-      size="md"
+    <Dialog
       open
       onClose={onClose}
       busy={publishing}
-      labelledBy="imageBedPublishTitle"
+      title={t("imageBedPage.publishFromStorage.title")}
+      footer={<>
+        <ActionButton variant="secondary" onClick={onClose} disabled={publishing}>
+          {t("imageBedPage.publishFromStorage.cancel")}
+        </ActionButton>
+        <ActionButton
+          type="button"
+          onClick={handlePublishFromStorage}
+          loading={publishing}
+          disabled={!publishForm.storageNodeId || !publishForm.relativePath}>
+          {t("imageBedPage.publishFromStorage.submit")}
+        </ActionButton>
+      </>}
     >
-        <h3 id="imageBedPublishTitle" className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
-          {t("imageBedPage.publishFromStorage.title")}
-        </h3>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
             <label
-              className="mb-1 block text-xs text-[var(--text-secondary)]"
+              className="ui-label mb-1 block"
               htmlFor="imageBedPublishNode"
             >
               {t("imageBedPage.publishFromStorage.node")}
@@ -238,7 +246,7 @@ export function PublishFromStorageModal({
           </div>
           <div>
             <label
-              className="mb-1 block text-xs text-[var(--text-secondary)]"
+              className="ui-label mb-1 block"
               htmlFor="imageBedPublishPath"
             >
               {t("imageBedPage.publishFromStorage.path")}
@@ -256,7 +264,7 @@ export function PublishFromStorageModal({
           </div>
           <div>
             <label
-              className="mb-1 block text-xs text-[var(--text-secondary)]"
+              className="ui-label mb-1 block"
               htmlFor="imageBedPublishFilename"
             >
               {t("imageBedPage.publishFromStorage.filename")}
@@ -276,7 +284,7 @@ export function PublishFromStorageModal({
           </div>
           <div>
             <label
-              className="mb-1 block text-xs text-[var(--text-secondary)]"
+              className="ui-label mb-1 block"
               htmlFor="imageBedPublishAlbum"
             >
               {t("imageBedPage.publishFromStorage.album")}
@@ -295,21 +303,7 @@ export function PublishFromStorageModal({
             />
           </div>
         </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <ActionButton variant="ghost"
-            onClick={onClose}
-            disabled={publishing}>
-            {t("imageBedPage.publishFromStorage.cancel")}
-          </ActionButton>
-          <ActionButton
-            type="button"
-            onClick={handlePublishFromStorage}
-            disabled={publishing || !publishForm.storageNodeId || !publishForm.relativePath}
-            aria-busy={publishing}>
-            {t("imageBedPage.publishFromStorage.submit")}
-          </ActionButton>
-        </div>
-    </ModalShell>
+    </Dialog>
   );
 }
 

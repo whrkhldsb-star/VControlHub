@@ -39,7 +39,7 @@ export function StepConfigEditor({
 		return (
 			<div className="space-y-2">
 				<div className="space-y-1.5">
-					<label htmlFor={`${fieldId}-command`} className="text-xs text-[var(--text-secondary)]">
+					<label htmlFor={`${fieldId}-command`} className="ui-label">
 						{t("playbooksPage.step.commandLabel")}
 					</label>
 					<textarea
@@ -120,7 +120,7 @@ export function StepConfigEditor({
 	if (step.type === "send_notification") {
 		return (
 			<div className="space-y-1.5">
-				<label htmlFor={`${fieldId}-recipient`} className="text-xs text-[var(--text-secondary)]">
+				<label htmlFor={`${fieldId}-recipient`} className="ui-label">
 					recipientUserId
 				</label>
 				<input
@@ -130,7 +130,7 @@ export function StepConfigEditor({
 					onChange={(e) => onConfigChange({ recipientUserId: e.target.value })}
 					className={fieldInputClass}
 				/>
-				<label htmlFor={`${fieldId}-subject`} className="text-xs text-[var(--text-secondary)]">
+				<label htmlFor={`${fieldId}-subject`} className="ui-label">
 					subject
 				</label>
 				<input
@@ -140,7 +140,7 @@ export function StepConfigEditor({
 					onChange={(e) => onConfigChange({ subject: e.target.value })}
 					className={fieldInputClass}
 				/>
-				<label htmlFor={`${fieldId}-body`} className="text-xs text-[var(--text-secondary)]">
+				<label htmlFor={`${fieldId}-body`} className="ui-label">
 					body
 				</label>
 				<textarea
@@ -155,7 +155,7 @@ export function StepConfigEditor({
 	}
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={`${fieldId}-url`} className="text-xs text-[var(--text-secondary)]">
+			<label htmlFor={`${fieldId}-url`} className="ui-label">
 				url
 			</label>
 			<input
@@ -166,7 +166,7 @@ export function StepConfigEditor({
 				placeholder="https://example.com/hook"
 				className={fieldInputClass}
 			/>
-			<label htmlFor={`${fieldId}-method`} className="text-xs text-[var(--text-secondary)]">
+			<label htmlFor={`${fieldId}-method`} className="ui-label">
 				method
 			</label>
 			<select
@@ -181,7 +181,7 @@ export function StepConfigEditor({
 					</option>
 				))}
 			</select>
-			<label htmlFor={`${fieldId}-webhook-body`} className="text-xs text-[var(--text-secondary)]">
+			<label htmlFor={`${fieldId}-webhook-body`} className="ui-label">
 				body (JSON, optional)
 			</label>
 			<textarea

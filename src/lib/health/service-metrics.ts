@@ -10,23 +10,6 @@ async function teamIdByServerIds(serverIds: string[]): Promise<Map<string, strin
   return new Map(rows.map((r) => [r.id, r.teamId ?? null]));
 }
 
-export async function snapshotMetrics(serverId: string, cpu: number, mem: number, diskMax: number, isOnline: boolean) {
-  const server = await prisma.server.findUnique({
-    where: { id: serverId },
-    select: { teamId: true },
-  });
-  return prisma.metricSnapshot.create({
-    data: {
-      serverId,
-      teamId: server?.teamId ?? null,
-      cpuUsage: cpu,
-      memUsage: mem,
-      diskUsage: diskMax,
-      isOnline,
-    },
-  });
-}
-
 /**
  * Persist one fleet sample in a single batch.
  *

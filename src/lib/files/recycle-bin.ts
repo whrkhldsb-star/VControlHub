@@ -1,7 +1,6 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { z } from "zod";
-import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { isWorkspaceTeamManager, storageNodeTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
@@ -18,7 +17,7 @@ export const recycleBinQuerySchema = z.object({
  * node+prefix rules that both the count and the page query must apply.
  */
 async function getReadableScope(
-  session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+  session: TeamSession,
 ): Promise<
   | null
   | {
@@ -26,11 +25,11 @@ async function getReadableScope(
       grantRules: Array<{ storageNodeId: string; pathPrefix: string }>;
     }
 > {
-  if (sessionHasPermission(session, "storage:manage-node")) {
+  if (isWorkspaceTeamManager(session) || sessionHasPermission(session, "storage:manage-node")) {
     return null;
   }
 
-  const nodeScope = teamWhere(session);
+  const nodeScope = storageNodeTeamWhere(session);
   const nodes = await prisma.storageNode.findMany({
     where: nodeScope,
     select: { id: true },
@@ -58,17 +57,13 @@ async function getReadableScope(
   // Nodes where the user holds at least one read grant: on those nodes only
   // the granted prefixes are visible. Nodes without any grant contribute
   // nothing (no legacy fallback for the recycle bin — it exposes metadata).
-  const grantRules = readable.map((grant) => ({
-    storageNodeId: grant.storageNodeId,
-    pathPrefix: normalizePathPrefix(grant.pathPrefix),
-  }));
+  const grantRules = readable.flatMap((grant) => {
+    const prefix = normalizeStorageTargetDirectory(grant.pathPrefix);
+    // An invalid grant must not turn into the empty (whole-node) prefix.
+    return prefix.ok ? [{ storageNodeId: grant.storageNodeId, pathPrefix: prefix.path }] : [];
+  });
 
   return { nodesWithoutGrants: [], grantRules };
-}
-
-function normalizePathPrefix(value: string): string {
-  const result = normalizeStorageTargetDirectory(value);
-  return result.ok ? result.path : "";
 }
 
 /** Prisma `where` fragment matching entries visible under at least one grant rule. */
@@ -97,14 +92,14 @@ function scopeWhere(
 }
 
 export async function getRecycleBinPage(
-  session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+  session: TeamSession,
   query: z.infer<typeof recycleBinQuerySchema>,
 ) {
   const scope = await getReadableScope(session);
   const where =
     scope === null
-      ? { isDeleted: true, storageNode: teamWhere(session) }
-      : { isDeleted: true, storageNode: teamWhere(session), ...scopeWhere(scope) };
+      ? { isDeleted: true, storageNode: storageNodeTeamWhere(session) }
+      : { isDeleted: true, storageNode: storageNodeTeamWhere(session), ...scopeWhere(scope) };
 
   // Count and page share a snapshot so deleting the last row cannot strand a page.
   return prisma.$transaction(

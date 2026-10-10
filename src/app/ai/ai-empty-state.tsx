@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
 import { Plus } from "@/components/icons";
 
+import { Chip } from "@/components/ui-primitives";
 type Props = {
   hasProviders: boolean;
   onOpenProviders: () => void;
@@ -64,7 +65,7 @@ export function AiEmptyState({
         </div>
         {!hasProviders ? (
           <>
-            <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
+            <h1 className="ui-title-page">
               {t("aiPage.emptyNoProvider")}
             </h1>
             <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
@@ -79,19 +80,17 @@ export function AiEmptyState({
           </>
         ) : (
           <>
-            <h1 className="mb-4 text-2xl font-semibold text-[var(--text-primary)]">{t("aiPage.emptySelectConv")}</h1>
+            <h1 className="ui-title-page mb-4">{t("aiPage.emptySelectConv")}</h1>
             <p className="mb-4 text-xs leading-5 text-[var(--text-muted)]">{t("aiPage.capabilityHint")}</p>
             {onExample && (
               <div className="mb-4 flex flex-wrap justify-center gap-2">
                 {EXAMPLES.map((example) => (
-                  <button
+                  <Chip
                     key={example.id}
-                    type="button"
                     onClick={() => onExample(example.prompt)}
-                    className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-bg)] hover:text-[var(--accent)]"
                   >
                     {exampleLabel(example.id)}
-                  </button>
+                  </Chip>
                 ))}
               </div>
             )}

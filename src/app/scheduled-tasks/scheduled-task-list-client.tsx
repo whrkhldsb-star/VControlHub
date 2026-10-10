@@ -9,7 +9,7 @@ import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
-import { Notice } from "@/components/ui-primitives";
+import { Chip, Notice } from "@/components/ui-primitives";
 import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
@@ -17,9 +17,11 @@ import { formatDateTime } from "@/lib/datetime/format";
 import { APP_TIME_ZONE, zonedDateTimeToIso } from "@/lib/datetime/time-zone";
 import { IconCalendarClock } from "@/components/nav-icons";
 import { Plus } from "@/components/icons";
+import { cn } from "@/lib/ui/cn";
+import { describeCron, isFiveFieldCron } from "@/lib/scheduled-task/describe-cron";
 
 type Task = {
-	id: string; name: string; cronExpression: string; cronDescription: string;
+	id: string; name: string; cronExpression: string;
 	scheduleType?: "CRON" | "ONCE"; runAt?: string | null;
 	command: string; reason: string | null; status: string; serverIds: string[];
 	plan?: string | null; verificationCommand?: string | null; rollbackCommand?: string | null;
@@ -62,7 +64,7 @@ function formatTime(iso: string | null, locale?: Locale): string {
 function matchesTask(task: Task, query: string) {
 	const needle = query.trim().toLowerCase();
 	if (!needle) return true;
-	return [task.name, task.cronExpression, task.cronDescription, task.command, task.reason, task.lastResult, task.status]
+	return [task.name, task.cronExpression, task.command, task.reason, task.lastResult, task.status]
 		.filter(Boolean)
 		.some((value) => String(value).toLowerCase().includes(needle));
 }
@@ -71,19 +73,10 @@ const fieldLabelClass = UI_LABEL;
 const fieldInputClass = UI_INPUT;
 const monoFieldInputClass = `${UI_INPUT} font-mono`;
 
+/** Form preview: the plain reading when there is one, otherwise what to fix or expect. */
 function describeCronPreview(expr: string, t: (key: string, vars?: Record<string, string | number>) => string) {
-	const parts = expr.trim().split(/\s+/);
-	if (parts.length !== 5) return t("scheduledTasks.cron.invalid");
-	const [min, hour, day, month, dow] = parts;
-	if (min!.startsWith("*/") && hour === "*" && day === "*" && month === "*" && dow === "*") return `${t("scheduledTasks.cron.intervalPrefix")}${min!.slice(2)}${t("scheduledTasks.cron.intervalMiddle")}`;
-	if (min === "0" && hour === "*" && day === "*" && month === "*" && dow === "*") return t("scheduledTasks.cron.hourly");
-	if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return `${t("scheduledTasks.cron.dailyPrefix")} ${hour!}:${min!.padStart(2, "0")} ${t("scheduledTasks.cron.dailySuffix")}`.trim();
-	if (day === "*" && month === "*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
-		const weekdayKey = `scheduledTasks.weekday.${dow}`;
-		const wd = t(weekdayKey);
-		return `${t("scheduledTasks.cron.weeklyPrefix")}${wd} ${hour!}:${min!.padStart(2, "0")} ${t("scheduledTasks.cron.weeklySuffix")}`.trim();
-	}
-	return t("scheduledTasks.cron.custom");
+	if (!isFiveFieldCron(expr)) return t("scheduledTasks.cron.invalid");
+	return describeCron(expr, t) ?? t("scheduledTasks.cron.custom");
 }
 
 export function ScheduledTaskListClient({ tasks: initialTasks, servers, templates = [], canCreate, canManage, canApprove = false }: Props) {
@@ -163,14 +156,13 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 			{actionError && <Notice tone="danger">{actionError}</Notice>}
 			<Toolbar className="flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div className="space-y-1">
-					<label htmlFor="scheduled-task-log-search" className="text-xs font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.search.label")}</label>
+					<label htmlFor="scheduled-task-log-search" className="ui-label">{t("scheduledTasksPage.search.label")}</label>
 					<input
 						id="scheduled-task-log-search"
 						type="search"
 						value={searchQuery}
 						onChange={(e) => setFilter("q", e.target.value)}
-						placeholder={t("scheduledTasks.searchPlaceholder")}
-						data-input className="w-full min-w-[18rem] rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]"
+						placeholder={t("scheduledTasks.searchPlaceholder")} className={cn(UI_INPUT, "w-full min-w-[18rem] text-sm")}
 					/>
 				</div>
 				{canCreate && !showCreate && (
@@ -206,12 +198,12 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2.5">
-										<h2 className="text-lg font-semibold text-[var(--text-primary)]">{task.name}</h2>
+										<h2 className="ui-title-section">{task.name}</h2>
 										<StatusBadge tone={statusTone[task.status] ?? "neutral"} size="sm">
 											{statusLabelFor(task.status, t)}
 										</StatusBadge>
 									</div>
-									<p className="mt-1 text-xs text-[var(--text-muted)]">{task.scheduleType === "ONCE" ? t("scheduledTasks.schedule.once") : <>Cron: <code className="font-mono text-[var(--accent)]">{task.cronExpression}</code> — {task.cronDescription}</>}</p>
+									<p className="mt-1 text-xs text-[var(--text-muted)]">{task.scheduleType === "ONCE" ? t("scheduledTasks.schedule.once") : <>Cron: <code className="font-mono text-[var(--accent)]">{task.cronExpression}</code>{describeCron(task.cronExpression, t) ? <> — {describeCron(task.cronExpression, t)}</> : null}</>}</p>
 									<div className="mt-1 flex flex-wrap gap-2 text-xs text-[var(--text-muted)]">
 										<span>{task.source === "AI" ? t("scheduledTasks.source.ai") : t("scheduledTasks.source.manual")}</span>
 										<span>{task.approvalRequired ? t("scheduledTasks.approval.everyRun") : t("scheduledTasks.approval.once")}</span>
@@ -351,7 +343,7 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 
 	return (
 		<form onSubmit={handleSubmit} data-card className="space-y-4 p-5">
-			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.createTitle")}</h3>
+			<h3 className="ui-title-section">{t("scheduledTasksPage.createTitle")}</h3>
 			{error && <Notice tone="danger">{error}</Notice>}
 
 			<div data-inset className="grid grid-cols-2 gap-1 p-1">
@@ -369,15 +361,9 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 				<p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
-						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
-							className={`min-h-11 rounded-lg border px-2.5 py-1 text-xs transition ${
-								cronExpression === p.expr
-									? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-									: "border-[var(--border)]/[0.10] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-elevated)]"
-							}`}
-						>
+						<Chip key={p.expr} selected={cronExpression === p.expr} onClick={() => setCron(p.expr)}>
 							{p.label}
-						</button>
+						</Chip>
 					))}
 				</div>
 			</div> : <div className="space-y-1.5"><label htmlFor="scheduled-task-run-at" className={fieldLabelClass}>{t("scheduledTasks.runAtLabel")}</label><input id="scheduled-task-run-at" type="datetime-local" value={runAt} onChange={(e) => setRunAt(e.target.value)} required className={fieldInputClass} /><p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p></div>}
@@ -393,7 +379,7 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 				<textarea id="scheduled-task-command" value={selectedTemplate ? renderedCommand : command} onChange={(e) => { if (!selectedTemplate) setCommand(e.target.value); }} readOnly={Boolean(selectedTemplate)} required rows={3} placeholder="df -h" className={`${monoFieldInputClass} resize-y`} />
 			</div>
 			<div className="grid gap-3 md:grid-cols-3"><div className="space-y-1.5"><label htmlFor="scheduled-task-plan" className={fieldLabelClass}>{t("scheduledTasks.plan")}</label><textarea id="scheduled-task-plan" value={plan} onChange={(e) => setPlan(e.target.value)} rows={2} className={`${fieldInputClass} resize-y`} /></div><div className="space-y-1.5"><label htmlFor="scheduled-task-verify" className={fieldLabelClass}>{t("scheduledTasks.verify")}</label><input id="scheduled-task-verify" value={verificationCommand} onChange={(e) => setVerificationCommand(e.target.value)} className={monoFieldInputClass} /></div><div className="space-y-1.5"><label htmlFor="scheduled-task-rollback" className={fieldLabelClass}>{t("scheduledTasks.rollback")}</label><input id="scheduled-task-rollback" value={renderedRollback} onChange={(e) => setRollbackCommand(e.target.value)} readOnly={Boolean(selectedTemplate?.rollbackCommand)} className={monoFieldInputClass} /></div></div>
-			<div className="flex flex-wrap items-center gap-2"><input id="scheduled-task-approval" type="checkbox" checked={approvalRequired} disabled={!canApprove} onChange={(e) => setApprovalRequired(e.target.checked)} className="accent-[var(--color-action)]" /><label htmlFor="scheduled-task-approval" className="text-xs text-[var(--text-secondary)]">{t("scheduledTasks.approval.everyRun")}</label>{!canApprove && <span className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.approval.permissionHint")}</span>}</div>
+			<div className="flex flex-wrap items-center gap-2"><input id="scheduled-task-approval" type="checkbox" checked={approvalRequired} disabled={!canApprove} onChange={(e) => setApprovalRequired(e.target.checked)} className="accent-[var(--color-action)]" /><label htmlFor="scheduled-task-approval" className="ui-label">{t("scheduledTasks.approval.everyRun")}</label>{!canApprove && <span className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.approval.permissionHint")}</span>}</div>
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-reason" className={fieldLabelClass}>{t("scheduledTasksPage.reason")}</label>
@@ -405,9 +391,7 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 					<div className="flex flex-wrap items-center justify-between gap-2"><div id="scheduled-task-target-nodes-label" className={fieldLabelClass}>{t("scheduledTasksPage.servers")}</div><button type="button" onClick={() => setSelectedServerIds(selectedServerIds.size === enabledServers.length ? new Set() : new Set(enabledServers.map((server) => server.id)))} className="text-xs font-medium text-[var(--accent)] hover:underline">{selectedServerIds.size === enabledServers.length ? t("scheduledTasks.clearSelection") : t("scheduledTasks.selectAll")}</button></div>
 					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
 						{enabledServers.map((s) => (
-							<label key={s.id} className={`min-h-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
-								selectedServerIds.has(s.id) ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-							}`}>
+							<label key={s.id} data-tile="" data-selected={selectedServerIds.has(s.id) ? "" : undefined} className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] transition">
 								<input type="checkbox" checked={selectedServerIds.has(s.id)} onChange={() => toggleServer(s.id)} className="accent-[var(--color-action)]" />
 								<span>{s.name}</span>
 							</label>

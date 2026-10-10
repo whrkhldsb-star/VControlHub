@@ -67,8 +67,6 @@ function countActiveConnections() {
 export type WsMessage =
 	| { type: "notification"; data: { id: string; title: string; message: string; actionUrl?: string | null; createdAt: string } }
 	| { type: "unread_count"; count: number }
-	| { type: "download_progress"; data: { taskId: string; progress: number; status: string } }
-	| { type: "server_alert"; data: { serverId: string; serverName: string; message: string } }
 	| { type: "pong"; ts: number };
 
 export function broadcastToUser(userId: string, message: WsMessage) {
@@ -328,10 +326,3 @@ export function pushUnreadCount(userId: string, count: number) {
 	publishToUser(userId, { type: "unread_count", count });
 }
 
-export function pushDownloadProgress(userId: string, data: { taskId: string; progress: number; status: string }) {
-	publishToUser(userId, { type: "download_progress", data });
-}
-
-export function pushServerAlert(userId: string, data: { serverId: string; serverName: string; message: string }) {
-	publishToUser(userId, { type: "server_alert", data });
-}

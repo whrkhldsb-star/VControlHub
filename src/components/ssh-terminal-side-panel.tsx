@@ -3,6 +3,7 @@
 import { X } from "@/components/icons";
 
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
 import { QuickKeyBuilder } from "@/components/ssh-quick-key-builder";
@@ -64,7 +65,7 @@ export function SshTerminalSidePanel({
 	return (
 		<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-56">
 			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
-				<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]/60">
+				<h4 className="ui-title-caption mb-2">
 					{t("sshTerminalModal.favoritesTitle")}
 				</h4>
 				<div className="mb-2 flex gap-1.5">
@@ -75,7 +76,16 @@ export function SshTerminalSidePanel({
 						id={`ssh-fav-${serverId}`}
 						value={newFavorite}
 						onChange={(e) => setNewFavorite(e.target.value)}
-						onKeyDown={(e) => e.key ==="Enter" && addFavorite()}
+						onKeyDown={(e) => {
+							if (isImeComposition(e)) return;
+							if (e.key === "Enter") {
+								e.preventDefault();
+								addFavorite();
+							}
+						}}
+						autoCapitalize="none"
+						autoCorrect="off"
+						spellCheck={false}
 						placeholder={t("sshTerminalModal.favoritesPlaceholder")}
 						className={cn(
 							UI_INPUT,"min-h-11 min-w-0 flex-1 py-1 font-mono text-[13px] placeholder:text-[var(--text-muted)]/20",
@@ -115,7 +125,7 @@ export function SshTerminalSidePanel({
 				)}
 			</section>
 			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
-				<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]/60">
+				<h4 className="ui-title-caption mb-2">
 					{t("sshTerminalModal.quickKeysTitle")}
 				</h4>
 				<div className="grid grid-cols-4 gap-1">
@@ -144,7 +154,7 @@ export function SshTerminalSidePanel({
 				<QuickKeyBuilder t={t} onAdd={onAddQuickKey} />
 			</section>
 			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
-				<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]/60">
+				<h4 className="ui-title-caption mb-2">
 					{t("sshTerminalModal.historyTitle")}
 				</h4>
 				{commandHistory.length === 0 ? (
@@ -166,7 +176,7 @@ export function SshTerminalSidePanel({
 				)}
 			</section>
 			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
-				<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]/60">
+				<h4 className="ui-title-caption mb-2">
 					{t("sshTerminalModal.quickCommandsTitle")}
 				</h4>
 				<div className="space-y-1">

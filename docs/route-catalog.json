@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-03T04:54:38.275Z",
+  "generatedAt": "2026-10-09T18:08:53.997Z",
   "summary": {
-    "sidebarMain": 31,
-    "sidebarSystem": 5,
+    "sidebarMain": 26,
+    "sidebarSystem": 10,
     "sidebarMobile": 4,
     "pages": 55,
     "apiRoutes": 188,
@@ -15,24 +15,24 @@
         "fallbackLabel": "Dashboard"
       },
       {
-        "href": "/servers",
-        "fallbackLabel": "VPS Management"
+        "href": "/notifications",
+        "fallbackLabel": "Notifications"
       },
       {
-        "href": "/health",
-        "fallbackLabel": "System Health"
+        "href": "/servers",
+        "fallbackLabel": "Servers"
       },
       {
         "href": "/vps-status",
-        "fallbackLabel": "VPS Status"
-      },
-      {
-        "href": "/monitoring",
-        "fallbackLabel": "Host Monitoring"
+        "fallbackLabel": "Node Status"
       },
       {
         "href": "/traffic",
         "fallbackLabel": "Traffic"
+      },
+      {
+        "href": "/alert-rules",
+        "fallbackLabel": "Alert Rules"
       },
       {
         "href": "/cost-summary",
@@ -59,28 +59,28 @@
         "fallbackLabel": "Image Links"
       },
       {
-        "href": "/operation-tasks",
-        "fallbackLabel": "Tasks"
+        "href": "/quick-services",
+        "fallbackLabel": "Quick Apps"
       },
       {
-        "href": "/backups",
-        "fallbackLabel": "Backups"
-      },
-      {
-        "href": "/templates",
-        "fallbackLabel": "Command Templates"
+        "href": "/docker",
+        "fallbackLabel": "Docker"
       },
       {
         "href": "/deployments",
         "fallbackLabel": "Deployments"
       },
       {
-        "href": "/quick-services",
-        "fallbackLabel": "Quick Services"
+        "href": "/operation-tasks",
+        "fallbackLabel": "Tasks"
       },
       {
-        "href": "/docker",
-        "fallbackLabel": "Docker"
+        "href": "/requests",
+        "fallbackLabel": "Approvals"
+      },
+      {
+        "href": "/templates",
+        "fallbackLabel": "Command Templates"
       },
       {
         "href": "/snippets",
@@ -95,50 +95,50 @@
         "fallbackLabel": "Playbook Automation"
       },
       {
-        "href": "/alert-rules",
-        "fallbackLabel": "Alert Rules"
-      },
-      {
         "href": "/ai",
         "fallbackLabel": "AI Assistant"
-      },
-      {
-        "href": "/knowledge",
-        "fallbackLabel": "Knowledge"
       },
       {
         "href": "/ai-ops",
         "fallbackLabel": "AI Ops"
       },
       {
-        "href": "/announcements",
-        "fallbackLabel": "Announcements"
+        "href": "/knowledge",
+        "fallbackLabel": "Knowledge"
       },
       {
         "href": "/tickets",
         "fallbackLabel": "Tickets"
       },
       {
-        "href": "/itsm",
-        "fallbackLabel": "ITSM"
-      },
-      {
-        "href": "/requests",
-        "fallbackLabel": "Approvals"
-      },
-      {
-        "href": "/notifications",
-        "fallbackLabel": "Notifications"
-      },
-      {
-        "href": "/settings",
-        "fallbackLabel": "Settings"
+        "href": "/announcements",
+        "fallbackLabel": "Announcements"
       }
     ],
     "system": [
       {
+        "href": "/settings",
+        "fallbackLabel": "Settings"
+      },
+      {
         "href": "/users",
         "fallbackLabel": "Users"
+      },
+      {
+        "href": "/health",
+        "fallbackLabel": "Platform Health"
+      },
+      {
+        "href": "/monitoring",
+        "fallbackLabel": "Hub Host"
+      },
+      {
+        "href": "/backups",
+        "fallbackLabel": "Backups"
+      },
+      {
+        "href": "/audit",
+        "fallbackLabel": "Audit Log"
       },
       {
         "href": "/api-tokens",
@@ -149,12 +149,12 @@
         "fallbackLabel": "API Docs"
       },
       {
-        "href": "/status",
-        "fallbackLabel": "Public Status"
+        "href": "/itsm",
+        "fallbackLabel": "ITSM"
       },
       {
-        "href": "/audit",
-        "fallbackLabel": "Audit Log"
+        "href": "/status",
+        "fallbackLabel": "Public Status"
       }
     ],
     "mobileHrefs": [
@@ -274,8 +274,8 @@
     {
       "path": "/backups",
       "file": "src/app/backups/page.tsx",
-      "inSidebarMain": true,
-      "inSidebarSystem": false,
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
       "declaredPermissions": [
         "backup:create",
         "backup:read",
@@ -427,8 +427,8 @@
     {
       "path": "/health",
       "file": "src/app/health/page.tsx",
-      "inSidebarMain": true,
-      "inSidebarSystem": false,
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
       "declaredPermissions": [
         "health:read"
       ],
@@ -455,8 +455,8 @@
     {
       "path": "/itsm",
       "file": "src/app/itsm/page.tsx",
-      "inSidebarMain": true,
-      "inSidebarSystem": false,
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
       "declaredPermissions": [
         "ticket:manage",
         "ticket:read"
@@ -525,8 +525,8 @@
     {
       "path": "/monitoring",
       "file": "src/app/monitoring/page.tsx",
-      "inSidebarMain": true,
-      "inSidebarSystem": false,
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
       "declaredPermissions": [
         "health:read"
       ],
@@ -653,11 +653,9 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "ai:chat",
-        "audit:read",
         "command:approve",
         "command:create",
         "command:execute",
-        "deploy:read",
         "server:read",
         "server:ssh",
         "server:write"
@@ -669,8 +667,8 @@
     {
       "path": "/settings",
       "file": "src/app/settings/page.tsx",
-      "inSidebarMain": true,
-      "inSidebarSystem": false,
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
       "declaredPermissions": [
         "team:create",
         "team:manage",

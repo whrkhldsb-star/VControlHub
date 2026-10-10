@@ -6,22 +6,20 @@ import { EmptyState, ListPanel, SurfacePanel, Toolbar } from "@/components/page-
 import { Download, Plus } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
-import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
 import { DownloadTaskRow } from "./downloads-task-row";
 import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type DownloadTask, type GlobalStat, type ServerOption } from "./downloads-shared";
-import { ActionButton } from "@/components/action-button";
-import { InlineLoading, Notice } from "@/components/ui-primitives";
+import { ActionButton, ButtonLink } from "@/components/action-button";
+import { Chip, InlineLoading, Notice } from "@/components/ui-primitives";
 export type { ServerOption } from "./downloads-shared";
 const UNCATEGORIZED_FILTER = "__uncategorized";
 
 export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
 	const { t, locale } = useI18n();
 	const { addToast } = useToast();
-	const { lastDownloadProgress } = useWsNotifications();
 
 	const [tasks, setTasks] = useState<DownloadTask[]>([]);
 	const [globalStat, setGlobalStat] = useState<GlobalStat>(null);
@@ -66,69 +64,101 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const nextCursorRef = useRef<string | null>(null);
 	const loadedFilterKeyRef = useRef("");
 	const currentFilterKeyRef = useRef("");
-	const hasLoadedAdditionalPagesRef = useRef(false);
-	const refreshSequenceRef = useRef(0);
+	const loadedPageCountRef = useRef(1);
+	const requestInFlightRef = useRef<"refresh" | "more" | null>(null);
+	const pendingRefreshRef = useRef(false);
+	const pendingPageFilterRef = useRef<string | null>(null);
+	const listControllerRef = useRef<AbortController | null>(null);
+	const mountedRef = useRef(true);
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+			listControllerRef.current?.abort();
+		};
+	}, []);
 	const filterKey = `${filter}:${categoryFilter ?? "all"}`;
 	useEffect(() => {
+		if (currentFilterKeyRef.current !== filterKey) {
+			pendingPageFilterRef.current = null;
+			listControllerRef.current?.abort();
+		}
 		currentFilterKeyRef.current = filterKey;
 	}, [filterKey]);
 
-	const fetchTasks = useCallback(async (loadMore = false) => {
-		if (loadMore && !nextCursorRef.current) return;
+	const fetchTasks = useCallback(async (loadMore = false): Promise<void> => {
+		// Serialize paging and polling so a slow page cannot overwrite a refresh.
+		if (requestInFlightRef.current) {
+			if (!loadMore) pendingRefreshRef.current = true;
+			else if (requestInFlightRef.current === "refresh" && loadedFilterKeyRef.current === filterKey) {
+				pendingPageFilterRef.current = filterKey;
+			}
+			return;
+		}
+		if (loadMore && (!nextCursorRef.current || loadedFilterKeyRef.current !== filterKey)) return;
+		requestInFlightRef.current = loadMore ? "more" : "refresh";
+		if (!loadMore) pendingRefreshRef.current = false;
+		const controller = new AbortController();
+		listControllerRef.current = controller;
 		const requestFilterKey = filterKey;
-		const refreshSequence = loadMore ? null : ++refreshSequenceRef.current;
+		const isCurrent = () => mountedRef.current && requestFilterKey === currentFilterKeyRef.current;
 		if (!loadMore && loadedFilterKeyRef.current !== filterKey) {
-			hasLoadedAdditionalPagesRef.current = false;
+			loadedPageCountRef.current = 1;
 			nextCursorRef.current = null;
 			setNextCursor(null);
+			setLoading(true);
 		}
 		setLoadFailed(false);
 		if (loadMore) setLoadingMore(true);
 		try {
-			const params = new URLSearchParams();
-			if (filter !== "ALL") params.set("status", filter);
-			if (categoryFilter !== null) {
-				params.set("category", categoryFilter || "__uncategorized");
+			const incoming = new Map<string, DownloadTask>();
+			let cursor = loadMore ? nextCursorRef.current : null;
+			const pagesToFetch = loadMore ? 1 : loadedPageCountRef.current;
+			let pagesFetched = 0;
+			let latestGlobalStat: GlobalStat = null;
+			for (let page = 0; page < pagesToFetch; page++) {
+				const params = new URLSearchParams();
+				if (filter !== "ALL") params.set("status", filter);
+				if (categoryFilter !== null) params.set("category", categoryFilter || UNCATEGORIZED_FILTER);
+				if (cursor) params.set("cursor", cursor);
+				const query = params.toString();
+				const data = await csrfFetch<{ tasks: DownloadTask[]; nextCursor: string | null; globalStat: GlobalStat }>(
+					`/api/downloads${query ? `?${query}` : ""}`, { signal: controller.signal },
+				);
+				if (!isCurrent()) return;
+				for (const task of data.tasks) incoming.set(task.id, task);
+				cursor = data.nextCursor ?? null;
+				latestGlobalStat = data.globalStat ?? null;
+				pagesFetched++;
+				if (!cursor) break;
 			}
-			if (loadMore && nextCursorRef.current) {
-				params.set("cursor", nextCursorRef.current);
-			}
-			const query = params.toString();
-			const data = await csrfFetch(`/api/downloads${query ? `?${query}` : ""}`);
-			if (
-				requestFilterKey !== currentFilterKeyRef.current ||
-				(refreshSequence !== null && refreshSequence !== refreshSequenceRef.current)
-			) {
-				return;
-			}
-			const incoming = (data.tasks ?? data) as DownloadTask[];
 			setTasks((current) => {
-				if (loadMore) {
-					const seen = new Set(current.map((task) => task.id));
-					return [...current, ...incoming.filter((task) => !seen.has(task.id))];
-				}
-				if (
-					loadedFilterKeyRef.current !== filterKey ||
-					!hasLoadedAdditionalPagesRef.current
-				) {
-					return incoming;
-				}
-				const freshIds = new Set(incoming.map((task) => task.id));
-				return [...incoming, ...current.filter((task) => !freshIds.has(task.id))];
+				if (!loadMore) return [...incoming.values()];
+				const merged = new Map(current.map((task) => [task.id, task]));
+				for (const [id, task] of incoming) merged.set(id, task);
+				return [...merged.values()];
 			});
 			loadedFilterKeyRef.current = filterKey;
-			if (loadMore) hasLoadedAdditionalPagesRef.current = true;
-			if (loadMore || !hasLoadedAdditionalPagesRef.current) {
-				nextCursorRef.current = data.nextCursor ?? null;
-				setNextCursor(nextCursorRef.current);
-			}
-			setGlobalStat(data.globalStat ?? null);
+			loadedPageCountRef.current = loadMore ? loadedPageCountRef.current + pagesFetched : pagesFetched;
+			nextCursorRef.current = cursor;
+			if (!cursor) pendingPageFilterRef.current = null;
+			setNextCursor(cursor);
+			setGlobalStat(latestGlobalStat);
 		} catch (error) {
-			setLoadFailed(true);
-			addToast("error", getErrorMessage(error, t("downloadsPage.error.loadList")));
+			if (isCurrent() && !controller.signal.aborted) {
+				setLoadFailed(true);
+				addToast("error", getErrorMessage(error, t("downloadsPage.error.loadList")));
+			}
 		} finally {
-			setLoading(false);
-			setLoadingMore(false);
+			requestInFlightRef.current = null;
+			if (isCurrent()) {
+				setLoading(false);
+				setLoadingMore(false);
+			}
+			if (mountedRef.current && pendingPageFilterRef.current === currentFilterKeyRef.current) {
+				pendingPageFilterRef.current = null;
+				void fetchTasksRef.current(true);
+			} else if (mountedRef.current && pendingRefreshRef.current) void fetchTasksRef.current();
 		}
 	}, [t, addToast, categoryFilter, filter, filterKey]);
 
@@ -151,30 +181,6 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				void fetchTasksRef.current();
 			}
 	}, 5000);
-
-	useEffect(() => {
-		if (!lastDownloadProgress) return;
-		const progressText =
-			typeof lastDownloadProgress.progress === "number"
-				? `${Math.round(lastDownloadProgress.progress)}%`
-				: String(lastDownloadProgress.progress ?? "");
-		setTasks((prev) =>
-			prev.map((task) =>
-				task.id === lastDownloadProgress.taskId
-					? {
-							...task,
-							progress: progressText || task.progress,
-							status: lastDownloadProgress.status || task.status,
-						}
-					: task,
-			),
-		);
-		// Terminal status: refresh once for full fields (speed/size/error)
-		if (["COMPLETED", "FAILED", "CANCELLED"].includes(lastDownloadProgress.status)) {
-			void fetchTasksRef.current?.();
-		}
-	}, [lastDownloadProgress]);
-
 
 	const invalidBatchUrls = form.batchMode
 		? form.batchText.split("\n").map((l) => l.trim()).filter(Boolean)
@@ -251,6 +257,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				setTasks((current) => current.filter((task) => task.id !== taskId));
 				setPendingPurgeTaskId(null);
 				addToast("success", t("downloadsPage.success.deleted") );
+				void fetchTasks();
 			} else if (action === "retry") {
 				const task = tasks.find((t) => t.id === taskId);
 				if (!task) {
@@ -343,7 +350,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 	const filteredTasks = tasks
 		.filter((t) => filter === "ALL" || t.status === filter)
-		.filter((t) => !categoryFilter || (t.category ?? "") === categoryFilter);
+		.filter((t) => categoryFilter === null || (t.category ?? "") === categoryFilter);
 
 	const runningCount = tasks.filter((t) => t.status === "RUNNING").length;
 	const pendingCount = tasks.filter((t) => t.status === "PENDING").length;
@@ -371,11 +378,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					<div className="ml-auto flex flex-wrap items-center gap-2">
 						<span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.globalLimit")}</span>
 						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
-							<button type="button" key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-							>
+							<Chip key={kb} onClick={() => handleGlobalSpeedLimit(kb)}>
 								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
-							</button>
+							</Chip>
 						)) : <span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.needPermission")}</span>}
 					</div>
 				</div>
@@ -393,23 +398,15 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			<Toolbar className="mb-5 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap items-center gap-2">
 					{["ALL", "PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"].map((f) => (
-						<button key={f} type="button" onClick={() => setFilter(f)}
-							className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-								filter === f ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-							}`}
-						>
+						<Chip key={f} selected={filter === f} onClick={() => setFilter(f)}>
 							{f === "ALL" ? t("downloadsPage.filter.all") : getStatusLabel(t)[f]}
-						</button>
+						</Chip>
 					))}
 					<div className="h-4 w-px bg-[var(--border)]" />
 					{categories.map((c) => (
-						<button key={c.value} type="button" onClick={() => setCategoryFilter(categoryFilter === c.value ? null : c.value)}
-							className={`rounded-full border px-2.5 py-1 text-xs transition ${
-								categoryFilter === c.value ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-							}`}
-						>
+						<Chip key={c.value} selected={categoryFilter === c.value} onClick={() => setCategoryFilter(categoryFilter === c.value ? null : c.value)}>
 							{c.label}
-						</button>
+						</Chip>
 					))}
 				</div>
 				{canManage && servers.length > 0 ? (
@@ -421,7 +418,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
 					</ActionButton>
 				) : canManage ? (
-					<Notice tone="warning" compact>{t("downloadsPage.form.noTarget")}</Notice>
+					<Notice tone="warning" compact>
+						<span className="flex flex-wrap items-center gap-2">
+							{t("downloadsPage.form.noTarget")}
+							<ButtonLink href="/servers" size="xs" variant="secondary">{t("downloadsPage.form.noTargetAction")}</ButtonLink>
+						</span>
+					</Notice>
 				) : null}
 			</Toolbar>
 

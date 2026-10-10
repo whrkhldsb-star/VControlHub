@@ -62,7 +62,7 @@ describe("MobileNav", () => {
 	it("derives mobile tabs by stable hrefs instead of fragile main-nav indexes", () => {
 		const labels = getMobileNavTabs().map((tab) => tab.fallbackLabel);
 
-		expect(labels).toEqual(["Dashboard", "VPS Management", "Tasks", "Files"]);
+		expect(labels).toEqual(["Dashboard", "Servers", "Tasks", "Files"]);
 	});
 
 	it("opens the full navigation drawer from the More tab instead of a missing more page", async () => {

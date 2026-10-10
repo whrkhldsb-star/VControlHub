@@ -44,7 +44,7 @@ export function AiSettingsPanel({
         <div>
           <label
             htmlFor="ai-setting-temperature"
-            className="text-xs text-[var(--text-muted)] uppercase "
+            className="ui-label"
           >
             Temperature{" "}
             <span className="text-[var(--color-action-text)]/70">
@@ -74,7 +74,7 @@ export function AiSettingsPanel({
         <div>
           <label
             htmlFor="ai-setting-max-tokens"
-            className="text-xs text-[var(--text-muted)] uppercase "
+            className="ui-label"
           >
             Max Tokens
           </label>
@@ -87,7 +87,7 @@ export function AiSettingsPanel({
                 maxTokens: parseInt(e.target.value),
               }))
             }
-            className="w-full mt-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)]"
+            className={cn(UI_INPUT, "w-full mt-1 text-xs")}
           >
             {[512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 128000].map(
               (v) => (
@@ -103,7 +103,7 @@ export function AiSettingsPanel({
         <div>
           <label
             htmlFor="ai-setting-top-p"
-            className="text-xs text-[var(--text-muted)] uppercase "
+            className="ui-label"
           >
             Top P{" "}
             <span className="text-[var(--color-action-text)]/70">
@@ -133,7 +133,7 @@ export function AiSettingsPanel({
         <div>
           <label
             htmlFor="ai-setting-freq-pen"
-            className="text-xs text-[var(--text-muted)] uppercase "
+            className="ui-label"
           >
             {t("aiPage.frequencyPenalty")}{" "}
             <span className="text-[var(--color-action-text)]/70">
@@ -163,7 +163,7 @@ export function AiSettingsPanel({
         <div>
           <label
             htmlFor="ai-setting-pres-pen"
-            className="text-xs text-[var(--text-muted)] uppercase "
+            className="ui-label"
           >
             {t("aiPage.presencePenalty")}{" "}
             <span className="text-[var(--color-action-text)]/70">
@@ -239,7 +239,7 @@ export function AiSettingsPanel({
 
         {settingsForm.hostingEnabled && (
           <fieldset className="col-span-2 flex min-w-0 flex-col gap-1.5 md:col-span-2">
-            <legend className="text-xs font-medium text-[var(--text-secondary)]">
+            <legend className="ui-label">
               {t("aiPage.automationMode")}
             </legend>
             <div data-inset className="grid min-h-10 grid-cols-2 p-1">
@@ -278,7 +278,7 @@ export function AiSettingsPanel({
       {/* System prompt */}
       <div className="mt-3">
         <label
-          className="text-xs text-[var(--text-muted)] uppercase "
+          className="ui-label"
           htmlFor="ai-setting-system-prompt"
         >
           {t("aiPage.systemPromptLabel")}

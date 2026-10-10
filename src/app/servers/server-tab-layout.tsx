@@ -5,6 +5,7 @@ import { ClipboardList, Plus, Server } from "@/components/icons";
 import { IconCode, IconKey } from "@/components/nav-items";
 import { SegmentedTabs } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { replaceBrowserUrl } from "@/lib/browser-history";
 
 type PanelKey = "nodes" | "command" | "create" | "sshkeys" | "batch";
 
@@ -52,7 +53,7 @@ export function ServerTabLayout({
         value={active.key}
         onChange={(key) => {
           setSelected(key as PanelKey);
-          window.history.replaceState(window.history.state, "", `#servers-${key}`);
+          replaceBrowserUrl(`#servers-${key}`);
         }}
         items={available.map((action) => ({
           id: action.key, tabId: `${id}-${action.key}-tab`, panelId: `${id}-${action.key}-panel`,

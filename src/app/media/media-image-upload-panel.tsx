@@ -16,6 +16,8 @@ import { getErrorMessage } from "./media-item-helpers";
 import { ActionButton } from "@/components/action-button";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import { Badge } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 type StorageNodeOption = {
 	id: string;
@@ -241,7 +243,7 @@ export function MediaImageUploadPanel() {
 		<section data-inset className="p-4">
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div>
-					<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("mediaUploadPanel.heading")}</h3>
+					<h3 className="ui-title-group">{t("mediaUploadPanel.heading")}</h3>
 					<p className="mt-0.5 text-xs text-[var(--text-muted)]">{t("mediaUploadPanel.subheading")}</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 text-xs">
@@ -257,7 +259,7 @@ export function MediaImageUploadPanel() {
 			<div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
 				<div className="text-xs text-[var(--text-secondary)]">
 					<label htmlFor="media-image-storage-node" className="block">{t("mediaUploadPanel.storageNodeLabel")}</label>
-					<select id="media-image-storage-node" value={storageNodeId} onChange={(e) => setStorageNodeId(e.target.value)} onFocus={() => { if (!nodesLoaded && !loadingNodes) void loadNodes(); }} className="mt-1 w-full rounded-lg border border-[var(--success-border)] dark:border-[var(--success-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--success-border)] light:border-[var(--success-border)]">
+					<select id="media-image-storage-node" value={storageNodeId} onChange={(e) => setStorageNodeId(e.target.value)} onFocus={() => { if (!nodesLoaded && !loadingNodes) void loadNodes(); }} className={cn(UI_INPUT, "mt-1 w-full text-sm")}>
 						<option value="">{t("mediaUploadPanel.defaultStorage")}</option>
 						{nodes.map((node) => (
 							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${getStorageDriverLabel(t, node.driver)}` : ""}{node.serverName ? ` · ${node.serverName}` : ""}</option>
@@ -266,7 +268,7 @@ export function MediaImageUploadPanel() {
 				</div>
 				<div className="text-xs text-[var(--text-secondary)]">
 					<label htmlFor="media-image-target-path" className="block">{t("mediaUploadPanel.targetPathLabel")}</label>
-					<input id="media-image-target-path" value={targetPath} onChange={(e) => setTargetPath(e.target.value)} placeholder={t("mediaUploadPanel.targetPathPlaceholder")} className="mt-1 w-full rounded-lg border border-[var(--success-border)] dark:border-[var(--success-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--success-border)] light:border-[var(--success-border)]" />
+					<input id="media-image-target-path" value={targetPath} onChange={(e) => setTargetPath(e.target.value)} placeholder={t("mediaUploadPanel.targetPathPlaceholder")} className={cn(UI_INPUT, "mt-1 w-full text-sm")} />
 				</div>
 			</div>
 
@@ -275,7 +277,7 @@ export function MediaImageUploadPanel() {
 			<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && void uploadFiles(e.target.files)} />
 
 			{progress ? (
-				<div role="status" aria-label={t("mediaUploadPanel.progressAria")} className="mt-3 rounded-xl border border-[var(--success-border)] dark:border-[var(--success-border)] bg-[var(--surface-subtle)] p-3 text-xs text-[var(--text-secondary)]">
+				<div data-inset="" role="status" aria-label={t("mediaUploadPanel.progressAria")} className="mt-3 border-[var(--success-border)] dark:border-[var(--success-border)] p-3 text-xs text-[var(--text-secondary)]">
 					<div className="flex justify-between gap-3">
 						<span>{uploading
 							? t("mediaUploadPanel.progressCurrent", { current: progress.current, total: progress.total })

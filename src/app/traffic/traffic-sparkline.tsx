@@ -61,8 +61,8 @@ export function TrafficSparkline({
 
 	if (samples.length < 2) {
 		return (
-			<div
-				className="flex items-center justify-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--input-bg)] text-xs text-[var(--text-muted)]"
+			<div data-inset=""
+				className="flex items-center justify-center border-dashed text-xs text-[var(--text-muted)]"
 				style={{ height }}
 				data-traffic-sparkline-empty
 			>
@@ -99,7 +99,7 @@ export function TrafficSparkline({
 	};
 
 	return (
-		<div className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-3" data-traffic-sparkline>
+		<div data-inset="" className="p-3" data-traffic-sparkline>
 			<div className="mb-2 flex items-center justify-between text-xs">
 				<div className="flex items-center gap-3">
 					<span className="inline-flex items-center gap-1.5 text-[var(--color-action-text)]">

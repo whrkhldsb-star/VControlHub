@@ -415,20 +415,3 @@ async function runCloudBillingSync(
 	};
 }
 
-export async function listCloudBillingSyncRuns(
-	accountId: string,
-	limit = 20,
-	session?: SessionScope,
-): Promise<CloudBillingSyncRunRecord[]> {
-	const account = await prisma.cloudBillingAccount.findFirst({
-		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
-		select: { id: true },
-	});
-	if (!account) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
-	const rows = await prisma.cloudBillingSyncRun.findMany({
-		where: { accountId },
-		orderBy: { startedAt: "desc" },
-		take: Math.min(Math.max(limit, 1), 100),
-	});
-	return rows.map(toRunRecord);
-}

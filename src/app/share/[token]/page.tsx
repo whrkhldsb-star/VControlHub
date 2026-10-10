@@ -99,7 +99,7 @@ export default async function SharePage({
           <p className="text-xs font-semibold uppercase text-[var(--accent)]">
             {t("sharePage.brand", locale)}
           </p>
-          <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
+          <h1 className="ui-title-page mt-2">
             {errorMessage ? t("sharePage.errorTitle", locale) : share?.entryType === "DIRECTORY" ? t("sharePage.directoryTitle", locale) : t("sharePage.fileTitle", locale)}
           </h1>
         </div>
@@ -190,16 +190,19 @@ export default async function SharePage({
               <div data-card className="p-4">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("sharePage.downloadable", locale)}</h2>
+                    <h2 className="ui-title-section">{t("sharePage.downloadable", locale)}</h2>
                     <span className="text-xs text-[var(--text-muted)]">{t("sharePage.maxIndexed", locale)}</span>
                   </div>
                   {!share.locked && !isPreviewOnly && share.storageNode.driver !== "WEBDAV" && (
                     <a
                       href={`/api/share/${encodeURIComponent(token)}?archive=1`}
                       download
-                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)]/10"
+                      data-action-button=""
+                      data-variant="outline"
+                      data-size="sm"
+                      className="shrink-0"
                     >
-                      <Download aria-hidden="true" className="h-3.5 w-3.5" />
+                      <Download aria-hidden="true" />
                       {t("sharePage.downloadDirectory", locale)}
                     </a>
                   )}

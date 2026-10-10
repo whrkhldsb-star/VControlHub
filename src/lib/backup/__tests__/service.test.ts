@@ -511,16 +511,12 @@ describe("backup service", () => {
     expect(summary.failureSummary).toEqual([
       {
         category: "permission",
-        label: "Permission or read-only path",
-        remediation: "Verify that BACKUP_DIR or /var/backups/<slug> is a writable directory. Mark old read-only path failures as voided or retry with a new system backup root.",
         count: 2,
         latestMessage: "EACCES: permission denied",
         latestRecordPath: "backups/files-old.tar.gz",
       },
       {
         category: "missing",
-        label: "File or directory not found",
-        remediation: "Confirm that source directories, restore targets, and historical artifacts referenced by the backup script still exist. Preserve audit trails for missing artifacts and mark them as voided.",
         count: 1,
         latestMessage: "No such file or directory",
         latestRecordPath: "backups/missing.sql.gz",
@@ -530,7 +526,7 @@ describe("backup service", () => {
   });
 
   it("formats backup sizes without rounding small artifacts down to 0 MB", () => {
-    expect(formatBackupSize(null)).toBe("Pending");
+    expect(formatBackupSize(null)).toBe("—");
 		expect(formatBackupSize(0)).toBe("0 B");
     expect(formatBackupSize("512")).toBe("512 B");
     expect(formatBackupSize(1536)).toBe("1.5 KB");

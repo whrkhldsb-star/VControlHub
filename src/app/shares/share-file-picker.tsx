@@ -14,6 +14,8 @@ import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import { ActionButton } from "@/components/action-button";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { KnownErrorNotice } from "@/components/known-error-notice";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 interface StorageNode {
 	id: string;
 	name: string;
@@ -253,7 +255,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
 					<p className="text-xs font-semibold uppercase text-[var(--color-action-text)]">{copyText.eyebrow}</p>
-					<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{copyText.title}</h2>
+					<h2 className="ui-title-section mt-1">{copyText.title}</h2>
 					<p className="mt-1 max-w-2xl text-sm text-[var(--text-muted)]">
 						{copyText.description}
 					</p>
@@ -271,7 +273,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							setSelected({});
 							setResults([]);
 						}}
-						className="min-w-0 max-w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+						className={cn(UI_INPUT, "min-w-0 max-w-full text-sm")}
 					>
 						{nodes.map((node) => (
 							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${getStorageDriverLabel(t, node.driver)}` : ""}</option>
@@ -360,14 +362,14 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				<aside className="min-w-0 border-t border-[var(--border)] pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<h3 className="text-sm font-semibold text-[var(--text-primary)]">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
+							<h3 className="ui-title-group">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{copyText.selectedHint}</p>
 						</div>
 						<ActionButton variant="ghost" disabled={creating} onClick={() => setSelected({})} className="shrink-0 whitespace-nowrap">{copyText.clear}</ActionButton>
 					</div>
 					<div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
 						{selectedItems.length ? selectedItems.map((item) => (
-							<div key={item.key} className="rounded-lg border border-[var(--border)]/[0.07] bg-[var(--surface)] px-3 py-2 text-xs">
+							<div data-inset="" key={item.key} className="px-3 py-2 text-xs">
 								<div className="truncate font-medium text-[var(--text-primary)]">{item.name}</div>
 								<div className="mt-0.5 truncate text-[var(--text-muted)]">{item.entryType === "DIRECTORY" ? copyText.folder : copyText.file} · {item.path}</div>
 							</div>

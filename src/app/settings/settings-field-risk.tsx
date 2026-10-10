@@ -1,6 +1,7 @@
 "use client"; /** * Field-level risk chrome — chip + rollback button used by every input * variant in the settings page (R31 split from settings-client.tsx). * * `FieldRiskBadge` — small ⚠ badge shown next to the field label * when riskLevel is "medium" or "high". * `FieldRollbackButton`— per-field ↺ button that resets the field to * its `defaultValue`. Hidden for password fields * unless explicitly `rollbackable: true`. * * Both helpers are re-exported from `settings-client.tsx` so existing * test imports (`@/app/settings/settings-client`) keep working. */
 import type { FieldDef } from "./field-schema";
 import { useI18n } from "@/lib/i18n/use-locale"; /** * Risk-level badge (medium / high only). Renders nothing for "low" or * undefined — most fields shouldn't distract the user. * * The visible-text label is sr-only because testing-library * `getByLabelText` defaults to exact=true, and sibling text would make * it fail; the chip color + ⚠ icon carry the visual signal. */
+import { ActionButton } from "@/components/action-button";
 export function FieldRiskBadge({
   level,
 }: {
@@ -51,8 +52,10 @@ export function FieldRollbackButton({
   if (!supportsRollback) return null;
   const isAtDefault = value === field.defaultValue || value === "";
   return (
-    <button
-      type="button"
+    <ActionButton
+      size="xs"
+      variant="ghost"
+      square
       onClick={() => onChange(field.defaultValue ?? "")}
       disabled={disabled || isAtDefault}
       title={
@@ -67,11 +70,9 @@ export function FieldRollbackButton({
         "{label}",
         t(field.labelKey),
       )}
-      className="inline-flex items-center gap-0.5 rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--color-action-border)]/30 hover:bg-[var(--color-action-bg)]/[0.10] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40 light:bg-[var(--surface-subtle)] light:hover:border-[var(--color-action-border)]/40 light:hover:text-[var(--accent)]"
     >
-      {" "}
-      <span aria-hidden>↺</span>{" "}
-      <span className="sr-only">{t("settingsClient.fieldDefaultSr")}</span>{" "}
-    </button>
+      <span aria-hidden>↺</span>
+      <span className="sr-only">{t("settingsClient.fieldDefaultSr")}</span>
+    </ActionButton>
   );
 }

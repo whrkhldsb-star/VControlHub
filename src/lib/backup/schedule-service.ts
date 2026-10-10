@@ -7,14 +7,14 @@
  * job (which the existing backup-job-worker picks up and runs locally via
  * `runExistingBackupRecord`), then records the run result.
  *
- * Reuses `computeNextRun` + `describeCron` from the scheduled-task service
+ * Reuses `computeNextRun` from the scheduled-task service
  * so cron semantics stay identical across both schedule kinds.
  */
 import { prisma } from "@/lib/db";
 import { teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
-import { computeNextRun, describeCron } from "@/lib/scheduled-task/service";
+import { computeNextRun } from "@/lib/scheduled-task/service";
 import { CronExpressionParser } from "cron-parser";
 import { isBackupType, type BackupType } from "./service-types";
 import { createBackupRecord, voidBackupRecord } from "./service-crud";
@@ -269,4 +269,4 @@ export async function dispatchDueSchedule(schedule: {
 
 /* ── Description helper (re-export for UI) ───────────────── */
 
-export { describeCron, computeNextRun };
+export { computeNextRun };

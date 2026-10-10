@@ -32,7 +32,7 @@ vi.mock("@/lib/db", () => ({
   prisma: prismaMock,
 }));
 
-vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({
   decryptServerPassword: (value: string) => `decrypted-password:${value}`,
   decryptSshPrivateKey: (value: string) => `decrypted:${value}`,
 }));

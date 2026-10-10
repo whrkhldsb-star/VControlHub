@@ -3,6 +3,7 @@
 type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import type { DirEntry, UploadProgress } from "./ssh-file-manager-parts";
 import { formatSshFileDate, formatSshFileSize } from "./ssh-file-manager-parts";
 import { ActionButton } from "@/components/action-button";
@@ -115,7 +116,12 @@ export function SshFileList({
           data-ssh-file-kind={entry.isDirectory ? "directory" : entry.isSymlink ? "symlink" : "file"}
           className={`group flex min-w-0 cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)] ${selectedEntry === entry.name ?"bg-[var(--surface-elevated)]" :""}`}
           onClick={() => setSelectedEntry(entry.name)}
-          onDoubleClick={() => { if (entry.isDirectory) onNavigateInto(entry.name); else onDownload(entry); }}
+          onDoubleClick={(e) => {
+            // Editing text or activating a row action must not also open the entry.
+            if ((e.target as Element).closest("button, input")) return;
+            if (entry.isDirectory) onNavigateInto(entry.name);
+            else onDownload(entry);
+          }}
           onKeyDown={(e) => {
             // Only act when the row itself has focus — inline editor inputs and
             // row action buttons handle their own keys.
@@ -168,9 +174,25 @@ type RenameInlineEditorProps = Pick<ListProps,"onRename" |"setRenameTarget" |"se
 function RenameInlineEditor({ onRename, renameValue, setRenameTarget, setRenameValue, t }: RenameInlineEditorProps) {
   return (
     <div className="flex flex-1 items-center gap-1">
-      <input value={renameValue} aria-label={t("sshFileManager.rename")} onChange={(e) => setRenameValue(e.target.value)} onKeyDown={(e) => { if (e.key ==="Enter") onRename(); if (e.key ==="Escape") { setRenameTarget(null); setRenameValue(""); } }} className="min-h-7 min-w-0 flex-1 rounded border border-[var(--color-action-border)]/30 bg-[var(--surface-hover)] px-2 text-xs text-[var(--text-primary)] outline-none" autoFocus onClick={(e) => e.stopPropagation()} />
-      <button type="button" onClick={(e) => { e.stopPropagation(); onRename(); }} aria-label={t("common.confirm")} className="text-[var(--color-action-text)] hover:text-[var(--color-action-text)]"><Check size={14} aria-hidden /></button>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }} aria-label={t("common.cancel")} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} aria-hidden /></button>
+      <input value={renameValue} aria-label={t("sshFileManager.rename")} onChange={(e) => setRenameValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (isImeComposition(e)) return;
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.stopPropagation();
+            onRename();
+          }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            setRenameTarget(null);
+            setRenameValue("");
+          }
+        }}
+        autoCapitalize="none" autoCorrect="off" spellCheck={false}
+        className="min-h-7 min-w-0 flex-1 rounded border border-[var(--color-action-border)]/30 bg-[var(--surface-hover)] px-2 text-xs text-[var(--text-primary)] outline-none" autoFocus onClick={(e) => e.stopPropagation()} />
+      <ActionButton size="sm" square variant="outline" onClick={(e) => { e.stopPropagation(); onRename(); }} aria-label={t("common.confirm")} className="shrink-0"><Check size={14} aria-hidden /></ActionButton>
+      <ActionButton size="sm" square variant="secondary" onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }} aria-label={t("common.cancel")} className="shrink-0"><X size={16} aria-hidden /></ActionButton>
     </div>
   );
 }

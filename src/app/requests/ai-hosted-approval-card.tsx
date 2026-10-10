@@ -96,7 +96,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold text-[var(--text-primary)]">{action.actionName}</h3>
+            <h3 className="ui-title-section">{action.actionName}</h3>
             <Badge tone="accent">{t("aiHostedApproval.badge")}</Badge>
             <Badge tone="warning">{riskLabel(t, action.riskLevel)}</Badge>
           </div>
@@ -111,7 +111,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
               <div className="mt-1 text-[var(--text-secondary)]">{action.server ? `${action.server.name} · ${action.server.host}` : t("aiHostedApproval.notSpecified")}</div>
             </div>
           </div>
-          <pre className="mt-3 max-h-32 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-xs text-[var(--text-secondary)]">{formatParams(action.params)}</pre>
+          <pre data-inset="" className="mt-3 max-h-32 overflow-auto p-3 text-xs text-[var(--text-secondary)]">{formatParams(action.params)}</pre>
           {!disabled ? (
             <FormField label={t("aiHostedApproval.rejectReasonLabel")} htmlFor={reasonId} className="mt-3">
               <input

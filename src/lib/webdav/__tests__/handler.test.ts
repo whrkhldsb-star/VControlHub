@@ -643,7 +643,7 @@ describe("webdav handlers", () => {
             headers: { destination: "/api/webdav/n1/b.bin", overwrite: "F" },
           }),
         ),
-      ).rejects.toThrow("backend.webdav.destinationExistsAndOverwriteIsF");
+      ).rejects.toMatchObject({ message: "backend.webdav.destinationExistsAndOverwriteIsF", status: 412 });
       expect(mocks.copyStorageFile).not.toHaveBeenCalled();
     });
   });

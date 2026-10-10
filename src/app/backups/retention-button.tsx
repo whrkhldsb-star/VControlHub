@@ -8,6 +8,8 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 type Props = {
   /** 当前已超过 30 天的记录数。0 时按钮 disabled。 */
@@ -60,7 +62,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
   return (
     <form onSubmit={handleSubmit} className="grid gap-2">
       <div className="flex flex-wrap items-end gap-2">
-        <label className="grid gap-1 text-xs text-[var(--text-muted)]">
+        <label className="ui-label grid gap-1">
           <span>{t("backupsPage.retention.daysLabel")}</span>
           <input
             type="number"
@@ -68,11 +70,11 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
             max={3650}
             value={olderThanDays}
             onChange={(event) => setOlderThanDays(Math.max(1, Math.min(3650, Number(event.target.value) || MIN_OLDER_THAN_DAYS)))}
-            className="w-24 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-1 text-sm text-[var(--text-primary)]/70"
+            className={cn(UI_INPUT, "w-24 text-sm")}
             disabled={pending}
           />
         </label>
-        <label className="grid gap-1 text-xs text-[var(--text-muted)]">
+        <label className="ui-label grid gap-1">
           <span>{t("backupsPage.retention.keepLatestLabel")}</span>
           <input
             type="number"
@@ -80,7 +82,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
             max={1000}
             value={keepLatestPerType}
             onChange={(event) => setKeepLatestPerType(Math.max(0, Math.min(1000, Number(event.target.value) || 0)))}
-            className="w-24 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-1 text-sm text-[var(--text-primary)]/70"
+            className={cn(UI_INPUT, "w-24 text-sm")}
             disabled={pending}
           />
         </label>

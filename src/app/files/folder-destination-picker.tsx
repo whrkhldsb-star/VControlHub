@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, Folder, X } from "@/components/icons";
+import { ChevronRight, Folder } from "@/components/icons";
 import { ActionButton } from "@/components/action-button";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
 import { Pagination } from "@/components/pagination";
 import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -19,19 +19,17 @@ export function FolderDestinationPicker({ nodeId, disabled, onSelect }: {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   return <>
-    <ActionButton type="button" variant="secondary" disabled={disabled} onClick={() => setOpen(true)}>
-      <Folder size={16} aria-hidden />{t("filesPage.move.chooseFolder")}
+    <ActionButton type="button" variant="secondary" disabled={disabled} icon={<Folder aria-hidden />} onClick={() => setOpen(true)}>
+      {t("filesPage.move.chooseFolder")}
     </ActionButton>
-    <ModalShell size="lg" open={open} onClose={() => setOpen(false)} label={t("filesPage.move.chooseFolder")}>
-      {open ? <FolderDestinationBrowser key={nodeId} nodeId={nodeId} onClose={() => setOpen(false)} onSelect={(path) => {
-        onSelect(path);
-        setOpen(false);
-      }} /> : null}
-    </ModalShell>
+    {open ? <FolderDestinationDialog key={nodeId} nodeId={nodeId} onClose={() => setOpen(false)} onSelect={(path) => {
+      onSelect(path);
+      setOpen(false);
+    }} /> : null}
   </>;
 }
 
-function FolderDestinationBrowser({ nodeId, onClose, onSelect }: {
+function FolderDestinationDialog({ nodeId, onClose, onSelect }: {
   nodeId: string;
   onClose: () => void;
   onSelect: (path: string) => void;
@@ -67,11 +65,19 @@ function FolderDestinationBrowser({ nodeId, onClose, onSelect }: {
     setPage(nextPage);
   }, []);
 
-  return <div className="space-y-3">
-    <div className="flex items-center justify-between gap-3">
-      <h3 className="text-base font-semibold">{t("filesPage.move.chooseFolder")}</h3>
-      <IconButton label={t("common.close")} onClick={onClose}><X size={18} aria-hidden /></IconButton>
-    </div>
+  return <Dialog
+    size="lg"
+    open
+    onClose={onClose}
+    title={t("filesPage.move.chooseFolder")}
+    footer={<>
+      <ActionButton variant="secondary" onClick={onClose}>{t("common.cancel")}</ActionButton>
+      <ActionButton disabled={loading || !!error || !data} onClick={() => onSelect(path || ".")}>
+        {t("filesPage.move.useFolder")}
+      </ActionButton>
+    </>}
+  >
+    <div className="space-y-3">
     <div className="flex min-w-0 items-center gap-2">
       <IconButton label={t("fileListClient.upLevel")} disabled={!path || loading}
         onClick={() => navigate(path.split("/").slice(0, -1).join("/"))}><ChevronRight size={18} className="-rotate-90" aria-hidden /></IconButton>
@@ -81,21 +87,16 @@ function FolderDestinationBrowser({ nodeId, onClose, onSelect }: {
       setError(""); setLoading(true); setRetry((value) => value + 1);
     } }}>{error}</Notice> : null}
     {data?.syncWarning ? <Notice tone="warning">{data.syncWarning}</Notice> : null}
-    <div aria-busy={loading} className="min-h-40 max-h-72 overflow-y-auto border-y border-[var(--border)]">
+    <div data-inset aria-busy={loading} className="max-h-72 min-h-40 overflow-y-auto">
       {loading ? <InlineLoading label={t("common.loading")} className="p-3" /> : !error && data?.folders.length === 0 ?
         <p className="p-3 text-sm text-[var(--text-muted)]">{t("filesPage.move.noFoldersOnPage")}</p> : null}
       {!loading && !error ? data?.folders.map((folder) => <button key={folder.path} type="button"
-        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm hover:bg-[var(--surface-hover)]"
+        className="flex min-h-11 w-full items-center gap-2 border-b border-[var(--border-subtle)] px-3 text-left text-sm last:border-b-0 hover:bg-[var(--surface-hover)]"
         onClick={() => navigate(folder.relativePath ?? folder.path)}>
         <Folder size={18} className="shrink-0" aria-hidden /><span className="min-w-0 break-all">{folder.displayName ?? folder.name}</span>
       </button>) : null}
     </div>
     {data?.pagination ? <Pagination {...data.pagination} loading={loading} onPageChange={(next) => navigate(path, next)} /> : null}
-    <div className="flex flex-wrap justify-end gap-2">
-      <ActionButton variant="secondary" onClick={onClose}>{t("common.cancel")}</ActionButton>
-      <ActionButton disabled={loading || !!error || !data} onClick={() => onSelect(path || ".")}>
-        {t("filesPage.move.useFolder")}
-      </ActionButton>
     </div>
-  </div>;
+  </Dialog>;
 }

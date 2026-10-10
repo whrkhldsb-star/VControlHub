@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/page-shell";
 import { InlineLoading } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { loadServerOperationTargets } from "./inventory-actions";
 
 type Result = Awaited<ReturnType<typeof loadServerOperationTargets>>;
@@ -41,11 +42,12 @@ export function ServerTargetPicker({ kind, selected, onChange, onEnabledCount }:
   const allPageSelected = selectable.length > 0 && selectable.every((row) => ids.has(row.id));
   const search = () => setRequest({ query: draft.trim(), page: 1, attempt: request.attempt + 1 });
   return <section aria-label={t("serversPage.command.targetNodes")} aria-busy={pending} className="space-y-3 min-w-0">
-    <label htmlFor={id} className="block text-sm font-medium">{t("serversPage.inventory.search")}</label>
+    <label htmlFor={id} className="ui-label block">{t("serversPage.inventory.search")}</label>
     <div className="flex gap-2">
       <input id={id} type="search" maxLength={200} className={UI_INPUT} value={draft}
         onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); search(); }
+          if (isImeComposition(event)) return;
+          if (event.key === "Enter") { event.preventDefault(); search(); }
         }} />
       <ActionButton variant="secondary" onClick={search}>{t("serversPage.targets.search")}</ActionButton>
     </div>

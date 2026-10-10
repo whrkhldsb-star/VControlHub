@@ -25,6 +25,7 @@ import type {
 import { INITIAL_EDITOR_FIND, INITIAL_PREVIEW_META } from "./text-preview-types";
 import { countMatches, TAB_INDENT } from "./text-preview-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { readTextPrefix, TEXT_PREVIEW_MAX_BYTES } from "@/lib/http/read-text-prefix";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -141,6 +142,7 @@ export function useTextPreviewController(options: {
     const load = async () => {
       try {
         let content: string;
+        let truncated = false;
         let nextDraftVersion: { updatedAt?: string | null; lastModifiedMs?: number | null } = {};
         if (canEdit && fileEntryId) {
           if (driver === "SFTP" && nodeId && relativePath) {
@@ -186,10 +188,12 @@ export function useTextPreviewController(options: {
               t("textPreview.error.loadFailedStatus", { status: res.status }),
             );
           }
-          content = await res.text();
+          const prefix = await readTextPrefix(res, TEXT_PREVIEW_MAX_BYTES);
+          content = prefix.text;
+          truncated = prefix.truncated;
         }
         if (!cancelled) {
-          setState({ loading: false, content, error: null });
+          setState({ loading: false, content, error: null, truncated });
           setDraft(content);
           setDraftVersion(nextDraftVersion);
         }

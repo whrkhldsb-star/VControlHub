@@ -48,7 +48,7 @@ describe("localized dashboard sections", () => {
     expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === "Current user: alice")).toBeInTheDocument();
     expect(screen.getByText("VPS Status Overview")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Manage VPS & keys →" })[0]).toHaveAttribute("href", "/servers");
+    expect(screen.getAllByRole("link", { name: "Servers" })[0]).toHaveAttribute("href", "/servers");
     expect(screen.getByText("Operations Queue")).toBeInTheDocument();
     expect(screen.getByText("1 running / 7 completed / 2 failed")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Downloads/ })).toHaveAttribute("href", "/downloads");
@@ -65,7 +65,6 @@ describe("localized dashboard sections", () => {
             title: "Restart service",
             command: "systemctl restart demo",
             status: "PENDING_APPROVAL",
-            approvalStateLabel: "Pending",
             isAssistantInitiated: true,
             requester: { username: "alice", displayName: null },
             targetCount: 2,
@@ -100,7 +99,7 @@ describe("localized dashboard sections", () => {
     expect(screen.getByText("Targets 2 servers")).toBeInTheDocument();
     expect(screen.getByText("systemctl restart demo")).toBeInTheDocument();
 
-    const auditLink = screen.getByRole("link", { name: "View all →" });
+    const auditLink = screen.getByRole("link", { name: "View all" });
     expect(auditLink).toHaveAttribute("href", "/audit");
     const auditTime = within(screen.getByText("LOGIN").closest("div") as HTMLElement).getByText("2026/05/31 08:00:00");
     expect(auditTime).toHaveAttribute("dateTime", "2026-05-31T00:00:00.000Z");

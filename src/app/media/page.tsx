@@ -1,5 +1,4 @@
 import { requireSession } from "@/lib/auth/require-session";
-import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
   listMediaItems,
@@ -118,7 +117,7 @@ export default async function Page({
               <p className="text-xs font-semibold uppercase text-[var(--accent)]">
                 {t("mediaPage.workspace.label", locale)}
               </p>
-              <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">
+              <h2 className="ui-title-section mt-1">
                 {modeTitleText}
               </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -127,13 +126,13 @@ export default async function Page({
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               {mediaType ==="image" ? (
-                <Link
+                <ButtonLink
                   href="/image-bed"
-                  data-tone="emerald"
-                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--success-border)] px-3 py-1.5 font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
+                  size="sm"
+                  variant="success"
                 >
                   {t("mediaPage.linkHub.label", locale)}
-                </Link>
+                </ButtonLink>
               ) : null}
               <span
                 data-tone="cyan"
@@ -254,7 +253,7 @@ export default async function Page({
 
           <label
             htmlFor="media-search"
-            className="text-xs font-medium text-[var(--text-muted)]"
+            className="ui-label"
           >
 
             {t("mediaPage.search.label", locale)}
@@ -338,7 +337,7 @@ export default async function Page({
         <section data-card className="mb-5 p-5">
           <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
+              <h2 className="ui-title-section">
                 {t("mediaPage.upload.title", locale)}
               </h2>
               <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">
@@ -365,7 +364,7 @@ export default async function Page({
           <div className="mb-3 flex items-center gap-2">
 
             <span className="text-lg">🖥️</span>
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+            <h2 className="ui-title-section">
               {serverName}
             </h2>
             <Badge>

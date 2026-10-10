@@ -28,7 +28,7 @@ export function ImageBedStatsPanel({
   return (
     <div data-tile className="mt-3 p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+        <h3 className="ui-title-group">
           {t("imageBedPage.stats.title")}
         </h3>
         <button

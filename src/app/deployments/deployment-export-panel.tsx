@@ -134,7 +134,7 @@ export function DeploymentExportPanel() {
           <p className="text-xs font-semibold uppercase text-[var(--text-secondary)]/70">
             {t("deploymentsPage.export.eyebrow")}
           </p>
-          <h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+          <h2 className="ui-title-section mt-1">
             {t("deploymentsPage.export.title")}
           </h2>
           <p className="mt-1 text-xs text-[var(--text-muted)]">{t("deploymentsPage.export.desc")}</p>
@@ -145,7 +145,7 @@ export function DeploymentExportPanel() {
         onSubmit={handleSubmit}
         className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
       >
-        <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+        <label className="ui-label grid gap-1.5">
           {t("deploymentsPage.export.targetDomain")}
           <input
             value={domain}
@@ -154,7 +154,7 @@ export function DeploymentExportPanel() {
             className={UI_INPUT}
           />
         </label>
-        <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+        <label className="ui-label grid gap-1.5">
           {t("deploymentsPage.export.appName")}
           <input
             value={appName}
@@ -182,7 +182,7 @@ export function DeploymentExportPanel() {
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+              <h3 className="ui-title-group">
                 {result.name ?? "portable deployment"}
               </h3>
               <p className="mt-1 text-xs text-[var(--text-muted)]">

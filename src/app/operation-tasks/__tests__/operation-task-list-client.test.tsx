@@ -48,8 +48,8 @@ describe("OperationTaskListClient", () => {
     expect(failure).toHaveTextContent("执行超时");
     expect(failure).toHaveTextContent("最新：重启服务");
     expect(screen.getByLabelText("排序偏好")).toHaveValue("recent");
-    expect(screen.getByLabelText("Recent logs: 重启服务")).toHaveTextContent("systemctl restart app");
-    expect(screen.getByLabelText("Recent logs: 重启服务")).toHaveTextContent("service restarted");
+    expect(screen.getByLabelText("重启服务 的最近日志")).toHaveTextContent("systemctl restart app");
+    expect(screen.getByLabelText("重启服务 的最近日志")).toHaveTextContent("service restarted");
   });
 
   it("surfaces refresh failures and keeps the existing task list visible", async () => {
@@ -59,13 +59,13 @@ describe("OperationTaskListClient", () => {
     render(<OperationTaskListClient initialTasks={initialTasks} initialSourceSummary={initialSourceSummary} initialFailureSummary={initialFailureSummary} />);
 
     expect(screen.getByText("重启服务")).toBeInTheDocument();
-    expect(screen.getByText("worker worker-1")).toBeInTheDocument();
+    expect(screen.getByText("执行器 worker-1")).toBeInTheDocument();
     expect(screen.getByText(/后台执行器 worker-1/)).toBeInTheDocument();
-    await actor.click(screen.getByRole("button", { name: "应用筛选" }));
+    await actor.click(screen.getByRole("button", { name: "刷新" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("任务中心刷新失败");
     expect(screen.getByText("重启服务")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("button", { name: "应用筛选" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
   });
 
   it("refreshes with status and task type filters", async () => {
@@ -97,7 +97,7 @@ describe("OperationTaskListClient", () => {
     await actor.selectOptions(screen.getByLabelText("状态筛选"), "failed");
     await actor.selectOptions(screen.getByLabelText("任务类型"), "alert.evaluate");
     await actor.selectOptions(screen.getByLabelText("排序偏好"), "attention");
-    await actor.click(screen.getByRole("button", { name: "应用筛选" }));
+    await actor.click(screen.getByRole("button", { name: "刷新" }));
 
     expect(csrfFetch).toHaveBeenCalledWith(
       "/api/operation-tasks?status=failed&taskType=alert.evaluate&sort=attention",
@@ -186,7 +186,7 @@ describe("OperationTaskListClient", () => {
     expect(screen.getByText("后台")).toBeInTheDocument();
     expect(screen.getAllByText("alert.evaluate").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("已折叠 18 次周期完成记录")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "查看来源 →" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "查看来源" })).not.toBeInTheDocument();
   });
 
   it("renders long task histories in bounded pages instead of mounting every row", async () => {

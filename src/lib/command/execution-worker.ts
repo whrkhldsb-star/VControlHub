@@ -167,12 +167,3 @@ export function stopCommandExecutionWorkerForTests() {
   commandExecutionWorker.stopForTests();
 }
 
-// Internal helper used by tests to peek at the live worker state without
-// leaking the global symbol across module boundaries.
-export function getCommandExecutionWorkerStateForTests() {
-  return commandExecutionWorker.getState();
-}
-
-// Internal helper used by tests / recovery scripts to verify there is no
-// other in-flight worker polling the same job type on this process.
-export const COMMAND_EXECUTION_INTERNAL_WORKER_ID = COMMAND_EXECUTION_WORKER_ID;

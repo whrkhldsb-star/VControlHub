@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  getServerConnectionSummary,
   normalizeServerInput,
 } from "@/lib/server/config";
 
@@ -80,15 +79,4 @@ describe("server config helpers", () => {
     ).not.toThrow();
   });
 
-  it("describes ssh-key connection details for review screens", () => {
-    expect(
-      getServerConnectionSummary({
-        host: "10.0.0.8",
-        port: 22,
-        username: "ubuntu",
-        connectionType: "SSH_KEY",
-        sshKeyName: "prod-root-key",
-      }),
-    ).toContain("ubuntu@10.0.0.8:22, using SSH key prod-root-key");
-  });
 });

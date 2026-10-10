@@ -20,7 +20,7 @@ export function StorageNodeEditForm({ node, servers }: { node: StorageNodeEditVa
   return (
     <form action={formAction} data-card className="grid gap-4 p-5">
       <input type="hidden" name="storageNodeId" value={node.id} />
-      <h3 className="text-lg font-medium text-[var(--text-primary)]">{t("storagePage.form.editTitle")}</h3>
+      <h3 className="ui-title-section">{t("storagePage.form.editTitle")}</h3>
       <StorageNodeFields driver={driver} onDriverChange={setDriver} servers={servers} values={node} includeExplicitUncheckedDefault lockDefault={node.isDefault} />
       {state.error ? <Notice tone="danger">{state.error}</Notice> : null}
       {state.success ? <Notice tone="success">{state.success}</Notice> : null}

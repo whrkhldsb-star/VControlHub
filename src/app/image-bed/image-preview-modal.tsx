@@ -19,9 +19,8 @@ import Image from "next/image";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { ImageItem } from "./image-bed-types";
 import { ActionButton } from "@/components/action-button";
-import { ModalShell } from "@/components/modal-shell";
-import { IconButton } from "@/components/ui-primitives";
-import { Copy, LinkIcon, Trash2, X } from "@/components/icons";
+import { Dialog } from "@/components/ui/dialog";
+import { Copy, LinkIcon, Trash2 } from "@/components/icons";
 
 export interface ImagePreviewModalProps {
 	image: ImageItem | null;
@@ -49,22 +48,32 @@ export function ImagePreviewModal({
 	if (!image) return null;
 
 	return (
-		<ModalShell
-			size="full" backdrop="strong" className="flex h-[min(44rem,calc(100dvh-2rem))] min-w-0 flex-col gap-4"
+		<Dialog
+			size="full"
+			backdrop="strong"
 			open
 			onClose={onClose}
-			labelledBy="image-preview-title"
+			title={<span className="break-all">{image.filename}</span>}
+			description={`${formatSize(image.sizeBytes)} · ${image.mimeType}`}
+			bodyClassName="flex"
+			footer={<>
+				<ActionButton type="button" variant="secondary" icon={<LinkIcon aria-hidden />} onClick={() => onCopyLink(image.publicUrl)}>
+					{t("imageBed.preview.copyLink")}
+				</ActionButton>
+				<ActionButton type="button" variant="secondary" icon={<Copy aria-hidden />} onClick={() => onCopyMarkdown(image)}>
+					Markdown
+				</ActionButton>
+				<ActionButton type="button" variant="secondary" icon={<Copy aria-hidden />} onClick={() => onCopyHTML(image)}>
+					HTML
+				</ActionButton>
+				{canDelete && (
+					<ActionButton type="button" variant="danger" icon={<Trash2 aria-hidden />} onClick={() => onRequestDelete(image)}>
+						{t("common.delete")}
+					</ActionButton>
+				)}
+			</>}
 		>
-			<div className="flex min-w-0 shrink-0 items-start gap-3">
-				<div className="min-w-0 flex-1">
-					<h2 id="image-preview-title" className="break-all text-sm font-semibold text-[var(--text-primary)]">{image.filename}</h2>
-					<div className="mt-1 text-xs text-[var(--text-secondary)]">
-						{formatSize(image.sizeBytes)} · {image.mimeType}
-					</div>
-				</div>
-				<IconButton label={t("common.close")} onClick={onClose}><X size={18} aria-hidden /></IconButton>
-			</div>
-			<div className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-[var(--input-bg)] p-2">
+			<div data-inset className="flex h-[min(34rem,calc(100dvh-14rem))] min-h-48 min-w-0 flex-1 items-center justify-center overflow-hidden p-2">
 				<Image
 					src={image.publicUrl}
 					alt={image.filename}
@@ -75,26 +84,6 @@ export function ImagePreviewModal({
 					className="block h-auto max-h-full w-auto max-w-full object-contain"
 				/>
 			</div>
-			<div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
-				<ActionButton size="sm" type="button" variant="secondary"
-					onClick={() => onCopyLink(image.publicUrl)}>
-					<LinkIcon size={16} aria-hidden />{t("imageBed.preview.copyLink")}
-				</ActionButton>
-				<ActionButton size="sm" type="button" variant="secondary"
-					onClick={() => onCopyMarkdown(image)}>
-					<Copy size={16} aria-hidden />Markdown
-				</ActionButton>
-				<ActionButton size="sm" type="button" variant="secondary"
-					onClick={() => onCopyHTML(image)}>
-					<Copy size={16} aria-hidden />HTML
-				</ActionButton>
-				{canDelete && (
-					<ActionButton size="sm" type="button" variant="danger"
-						onClick={() => onRequestDelete(image)}>
-						<Trash2 size={16} aria-hidden />{t("common.delete")}
-					</ActionButton>
-				)}
-			</div>
-		</ModalShell>
+		</Dialog>
 	);
 }

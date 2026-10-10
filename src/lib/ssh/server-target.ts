@@ -3,13 +3,13 @@
  *
  * Three modules previously each inlined this lookup and threw three
  * different error types for the same condition (BusinessError /
- * ValidationError / raw Error → 500). Every SSH-targeted operation now
- * resolves through here: typed errors, canonical copy, one decryption path
- * (buildSshParamsFromServer), one prisma projection.
+ * ValidationError / raw Error → 500). Linux operations share one connection
+ * builder; SFTP also supports Windows' separately configured OpenSSH endpoint.
  */
 import { prisma } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { buildSshParamsFromServer, type SshConnectionParams } from "./client";
 
@@ -68,11 +68,6 @@ export function assertDirectCredentialsConfigured(server: SshServerRow): void {
   }
 }
 
-/** True when the only usable transport for this server is the agent relay. */
-export function isAgentOnlyServer(server: SshServerRow): boolean {
-  return server.managementMode === "AGENT" && !server.sshKey?.privateKey && !server.password;
-}
-
 /**
  * Load one server by id, require it to exist and be enabled, and build the
  * decrypted SSH connection params. Throws typed BusinessErrors so API routes
@@ -80,6 +75,10 @@ export function isAgentOnlyServer(server: SshServerRow): boolean {
  */
 export async function loadEnabledServerForSsh(serverId: string): Promise<SshServerTarget> {
   const { server } = await loadEnabledServerRef(serverId);
+  return buildServerSshTarget(server);
+}
+
+async function buildServerSshTarget(server: SshServerRow): Promise<SshServerTarget> {
   const ssh = await buildSshParamsFromServer(
     {
       operatingSystem: server.operatingSystem,
@@ -96,6 +95,28 @@ export async function loadEnabledServerForSsh(serverId: string): Promise<SshServ
     server.sshKey,
   );
   return { server, ssh };
+}
+
+/** Windows file access uses OpenSSH credentials, never the RDP endpoint. */
+export async function loadEnabledServerForSftp(serverId: string): Promise<SshServerTarget & { rootPath: string }> {
+  const { server } = await loadEnabledServerRef(serverId);
+  if (server.operatingSystem !== "WINDOWS") {
+    assertDirectCredentialsConfigured(server);
+    return {
+      ...await buildServerSshTarget(server),
+      rootPath: server.username === "root" ? "/root" : `/home/${server.username}`,
+    };
+  }
+
+  const node = await prisma.storageNode.findUnique({
+    where: { serverId },
+    select: { driver: true, basePath: true, host: true, port: true, username: true, hostKeySha256: true },
+  });
+  if (!node || node.driver !== "SFTP") {
+    throw new BusinessError(t("backend.server.windowsStorageRequiresSftp"));
+  }
+  const ssh = resolveStorageSshCredentials({ ...node, server });
+  return { server, ssh, rootPath: node.basePath };
 }
 
 /**

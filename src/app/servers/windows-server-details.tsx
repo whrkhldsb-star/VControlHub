@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { ServerConnectionAction } from "./server-connection-action";
 import { Badge, Notice } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -42,7 +41,7 @@ export function WindowsServerDetails({
 	return (
 		<div id={detailsId} role="region" aria-label={`${server.name} ${t("serverOverviewDetails.vpsDetails")}`} className="space-y-3">
 			<section data-inset className="p-3">
-				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.connectionStatus")}</h3>
+				<h3 className="ui-title-group mb-3">{t("serverOverviewDetails.section.connectionStatus")}</h3>
 				<dl className="grid gap-3 text-sm sm:grid-cols-2">
 					<DetailField label={t("serversPage.windows.os")} value="Windows" />
 					<DetailField label={t("serverOverviewDetails.address")} value={`${server.host}:${server.port}`} />
@@ -59,11 +58,11 @@ export function WindowsServerDetails({
 			</section>
 
 			<section data-inset className="p-3">
-				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.operationsResources")}</h3>
+				<h3 className="ui-title-group mb-3">{t("serverOverviewDetails.section.operationsResources")}</h3>
 				<p className="text-xs leading-5 text-[var(--text-muted)]">{t(agentMode ? "serversPage.windows.agentCapabilities" : "serversPage.windows.capabilities")}</p>
-				{server.storageNode ? <Link href={`/files?nodeId=${encodeURIComponent(server.storageNode.id)}`} className="mt-3 inline-flex rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]">
+				{server.storageNode ? <ButtonLink size="sm" variant="secondary" href={`/files?nodeId=${encodeURIComponent(server.storageNode.id)}`} className="mt-3">
 					{t("serversPage.windows.openCloudStorage")} · {server.storageNode.basePath}
-				</Link> : null}
+				</ButtonLink> : null}
 				{agentMode ? (
 					<WindowsAgentInstallPanel
 						serverId={server.id}

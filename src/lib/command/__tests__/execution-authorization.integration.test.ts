@@ -12,7 +12,7 @@ vi.mock("@/lib/command/service-ssh", () => ({
 vi.mock("@/lib/server/agent-service", () => ({ executeCommandWithAgent: vi.fn() }));
 vi.mock("@/lib/audit/service", () => ({ auditSystemAction: vi.fn() }));
 vi.mock("@/lib/notification/service", () => ({ notifyCommandResult: async () => undefined }));
-vi.mock("@/lib/ssh/ssh-key-crypto", () => ({ decryptServerPassword: (v: string) => v, decryptSshPrivateKey: (v: string) => v }));
+vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({ decryptServerPassword: (v: string) => v, decryptSshPrivateKey: (v: string) => v }));
 
 import { prisma } from "@/lib/db";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";

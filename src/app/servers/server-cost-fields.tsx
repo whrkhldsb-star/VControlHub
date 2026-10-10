@@ -29,7 +29,7 @@ export function ServerCostFields() {
         </label>
         <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[var(--text-primary)]/70" htmlFor="serverCostMonthlyAmount">
+            <label className="ui-label" htmlFor="serverCostMonthlyAmount">
               {t("serversPage.create.costMonthlyAmount")}
             </label>
             <input
@@ -42,7 +42,7 @@ export function ServerCostFields() {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[var(--text-primary)]/70" htmlFor="serverCostCurrency">
+            <label className="ui-label" htmlFor="serverCostCurrency">
               {t("serversPage.create.costCurrency")}
             </label>
             <select
@@ -60,7 +60,7 @@ export function ServerCostFields() {
           </div>
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-[var(--text-primary)]/70" htmlFor="serverCostProvider">
+          <label className="ui-label" htmlFor="serverCostProvider">
             {t("serversPage.create.costProvider")}
           </label>
           <input

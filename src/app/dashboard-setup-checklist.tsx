@@ -59,7 +59,7 @@ export function DashboardSetupChecklist({ items }: Props) {
 					<p className="text-xs font-medium text-[var(--accent)]">
 						{t("dashboard.setup.eyebrow")}
 					</p>
-					<h2 className="mt-0.5 text-[15px] font-semibold text-[var(--text-primary)]">
+					<h2 className="ui-title-section mt-0.5">
 						{t("dashboard.setup.title")}
 					</h2>
 					<p className="mt-0.5 text-[13px] text-[var(--text-muted)]">

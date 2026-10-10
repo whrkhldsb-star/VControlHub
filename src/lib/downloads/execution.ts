@@ -37,6 +37,7 @@ import { relayTempDir } from "@/lib/runtime/platform-paths";
 import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
 import { randomUUID, createHash } from "node:crypto";
 import { hashTransferFile, parseTransferManifest, type TransferManifest } from "./transfer-manifest";
+import { resolveDownloadRedirects } from "@/lib/downloads/redirect-chain";
 
 
 
@@ -63,6 +64,14 @@ export type DownloadServer = {
 };
 
 /* ── Aria2 relay download ──────────────────────────────── */
+
+/** A relay source (or one of its redirects) failed the public-address checks. */
+class DownloadSourceRejectedError extends Error {
+ constructor(reason: string) {
+  super(reason);
+  this.name = "DownloadSourceRejectedError";
+ }
+}
 
 export async function executeAria2RelayDownload(
  taskId: string,
@@ -103,15 +112,23 @@ export async function executeAria2RelayDownload(
    // Fresh claim — we own this task; start the download.
    await fs.mkdir(tempDir, { recursive: true });
 
+   // aria2 runs on the control plane and resolves/redirects on its own, so it
+   // must never follow a redirect: the chain is resolved here, every hop
+   // validated against the public-address rules (see redirect-chain.ts).
+   const resolvedUrls: string[] = [];
+   for (const url of urls) {
+    const resolved = await resolveDownloadRedirects(url);
+    if (!resolved.ok) throw new DownloadSourceRejectedError(resolved.reason);
+    resolvedUrls.push(resolved.url);
+   }
    const options: Record<string, string> = {
     dir: tempDir,
     "seed-time": "0",
-    // Bound redirect following so enqueue-time DNS allowlist cannot be bypassed via long redirect chains.
-    "max-redirect": "3",
+    "max-redirect": "0",
    };
    if (maxSpeedKb) options["max-download-limit"] = `${maxSpeedKb}K`;
 
-   gid = await addUri(urls, options);
+   gid = await addUri(resolvedUrls, options);
    ownedGid = gid;
 
    await prisma.downloadTask.updateMany({
@@ -259,8 +276,9 @@ export async function executeAria2RelayDownload(
    try { await removeDownload(ownedGid, true); } catch { /* best-effort */ }
   }
   try {
-   await prisma.downloadTask.updateMany({ where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } }, data: { status: "FAILED", errorMessage: getPublicAria2Error(error) } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", getPublicAria2Error(error), teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+   const publicError = error instanceof DownloadSourceRejectedError ? error.message : getPublicAria2Error(error);
+   await prisma.downloadTask.updateMany({ where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } }, data: { status: "FAILED", errorMessage: publicError } });
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", publicError, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } catch (err) { logError("[DownloadAPI] Failed to update task status after relay failure:", err); }
   await cleanupTemp(tempDir);
  }

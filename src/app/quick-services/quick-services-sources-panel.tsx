@@ -24,7 +24,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import type { AppSource } from "./quick-services-shared";
 import { IconLink } from "@/components/nav-icons";
-import { Badge } from "@/components/ui-primitives";
+import { Badge, Chip } from "@/components/ui-primitives";
 
 type SourcesPanelActions = {
 	doSync: (sourceId?: string) => void;
@@ -120,14 +120,16 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							<button
 								key={preset.key}
 								type="button"
+								data-tile=""
+								aria-pressed={active}
 								onClick={() => applySourcePreset(preset.key as SourcePresetKey)}
-								className={`rounded-xl border p-3 text-left transition ${active ?"border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]" :"border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)]"}`}
+								className="p-3 text-left text-[var(--text-secondary)] transition"
 							>
 								<div className="flex items-center justify-between gap-2">
-									<span className="text-xs font-semibold uppercase text-[var(--text-muted)]">{preset.badge}</span>
-									<span className={`rounded-full border px-2 py-0.5 text-xs ${active ?"border-[var(--color-action-border)]/30 text-[var(--text-primary)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>{preset.type}</span>
+									<span className="ui-eyebrow">{preset.badge}</span>
+									<Badge tone={active ? "accent" : "neutral"}>{preset.type}</Badge>
 								</div>
-								<h4 className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{preset.label}</h4>
+								<h4 className="ui-title-group mt-2">{preset.label}</h4>
 								<p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{preset.description}</p>
 							</button>
 						);
@@ -165,14 +167,13 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex gap-2">
 						{(["linuxserver","github","json"] as const).map((type) => (
-							<button
+							<Chip
 								key={type}
-								type="button"
+								selected={newSourceType === type}
 								onClick={() => setNewSourceType(type)}
-								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ?"border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" :"border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
 							>
 								{sourceTypeLabel(t, type)}
-							</button>
+							</Chip>
 						))}
 					</div>
 					<ActionButton size="sm" type="button" onClick={doAddSource}>
@@ -197,7 +198,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<div className="flex items-center gap-3">
 							<span className="text-lg">{src.type ==="linuxserver" ?"🐧" : src.type ==="github" ?"🐙" :"📡"}</span>
 							<div>
-								<h3 className="text-sm font-semibold text-[var(--text-primary)]">{src.displayName}</h3>
+								<h3 className="ui-title-group">{src.displayName}</h3>
 								<p className="text-xs text-[var(--text-muted)] mt-0.5">{src.url}</p>
 							</div>
 						</div>
@@ -226,13 +227,13 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							disabled={actions.syncing !== null}>
 							{actions.syncing === src.id ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncNow")}
 						</ActionButton>
-						<button
-							type="button"
+						<ActionButton
+							size="sm"
+							variant={src.enabled ? "warning" : "success"}
 							onClick={() => actions.doToggleSource(src.id, !src.enabled)}
-							className={`rounded-lg border px-3 py-1.5 text-xs transition ${src.enabled ?"border-[var(--warning-border)] text-[var(--warning)] hover:bg-[var(--warning)]/[0.10]" :"border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)]/[0.10]"}`}
 						>
 							{src.enabled ? t("quickServicesPage.sources.disable") : t("quickServicesPage.sources.enable")}
-						</button>
+						</ActionButton>
 						<ActionButton size="sm" variant="danger"
 							onClick={() => onRequestDeleteSource(src)} className="!ml-auto"
 						>

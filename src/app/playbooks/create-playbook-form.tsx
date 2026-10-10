@@ -134,7 +134,7 @@ export function CreatePlaybookForm({
 	return (
 		<form onSubmit={handleSubmit}
       onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
-			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("playbooksPage.createForm.title")}</h3>
+			<h3 className="ui-title-section">{t("playbooksPage.createForm.title")}</h3>
 			{error && (
 				<Notice tone="danger">{error}</Notice>
 			)}
@@ -190,11 +190,9 @@ export function CreatePlaybookForm({
 					{(["cron", "metric"] as const).map((opt) => (
 						<label
 							key={opt}
-							className={`min-h-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
-								triggerType === opt
-									? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]"
-									: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-							}`}
+							data-tile=""
+							data-selected={triggerType === opt ? "" : undefined}
+							className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] transition"
 						>
 							<input
 								type="radio"

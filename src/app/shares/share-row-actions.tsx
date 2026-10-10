@@ -60,17 +60,17 @@ export function ShareRowActions({
 				{busy ? t("sharesPage.rowActions.submitting") : confirming ? t("sharesPage.rowActions.confirm") : t("sharesPage.rowActions.revoke")}
 			</ActionButton>
 			{confirming ? (
-				<button
-					type="button"
+				<ActionButton
+					size="sm"
+					variant="secondary"
 					onClick={() => {
 						setConfirming(false);
 						setError(null);
 					}}
 					disabled={busy}
-					className="min-h-11 min-w-11 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{t("sharesPage.rowActions.cancel")}
-				</button>
+				</ActionButton>
 			) : null}
 			{confirming ? <span id={`revoke-share-${id}-warning`} className="sr-only">{t("sharesPage.rowActions.confirmAria")}</span> : null}
 			{error ? <span role="alert" className="text-xs text-[var(--danger)]">{error}</span> : null}

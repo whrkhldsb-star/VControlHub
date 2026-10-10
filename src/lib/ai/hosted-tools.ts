@@ -401,14 +401,3 @@ export function getOpenAIToolsFormat(mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED"
 
 // ── Anthropic Tool Use 格式 ────────────────────────────────
 
-export function getAnthropicToolsFormat(mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED"): Array<{
-  name: string;
-  description: string;
-  input_schema: Record<string, unknown>;
-}> {
-  return toolsForMode(mode).map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    input_schema: tool.parameters,
-  }));
-}

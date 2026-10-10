@@ -309,7 +309,7 @@ function diskInfo() {
 		const total = stats.blocks * stats.bsize;
 		const used = total - stats.bfree * stats.bsize;
 		const percentage = total > 0 ? ((used / total) * 100).toFixed(0) : "0";
-		return `${formatBytes(used)}/${formatBytes(total)} (${percentage}% used)`;
+		return `${formatBytes(used)}/${formatBytes(total)} (${percentage}%)`;
 	} catch { return "N/A"; }
 }
 

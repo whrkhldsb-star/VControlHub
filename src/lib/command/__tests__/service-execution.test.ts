@@ -45,7 +45,7 @@ vi.mock("../ssh-executor", () => ({
 }));
 vi.mock("@/lib/audit/service", () => ({ auditSystemAction: mocks.auditSystemAction }));
 vi.mock("@/lib/notification/service", () => ({ notifyCommandResult: mocks.notifyCommandResult }));
-vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({
   decryptSshPrivateKey: mocks.decryptSshPrivateKey,
   decryptServerPassword: mocks.decryptServerPassword,
 }));

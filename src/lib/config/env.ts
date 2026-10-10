@@ -181,12 +181,35 @@ export const config = {
 		get imageUploadDir(): string | undefined { return readOptionalString("IMAGE_UPLOAD_DIR"); },
 		/** Local storage root for hub-side paths (VPS backup cache, etc.). */
 		get root(): string | undefined { return readOptionalString("VCH_STORAGE_ROOT"); },
+		/**
+		 * Largest file a chunked storage upload may carry (default 2 GiB).
+		 * Chunks stream to disk and are assembled by streaming, so this bounds
+		 * disk use, not memory; uploads also need free space on the upload temp
+		 * directory (see assertUploadDiskHeadroom).
+		 */
+		get uploadMaxBytes(): number {
+			return Math.min(Math.max(readInt("STORAGE_UPLOAD_MAX_BYTES", 2 * 1024 ** 3), 1024 ** 2), 1024 ** 4);
+		},
 	},
 
 	/** Media (image-bed thumbnails, transcodes). */
 	media: {
 		get uploadTmpDir(): string | undefined { return readOptionalString("MEDIA_UPLOAD_TMP_DIR"); },
 		get thumbCacheDir(): string | undefined { return readOptionalString("MEDIA_THUMB_CACHE_DIR"); },
+	},
+
+	/** History-table retention (src/lib/data-retention/log-retention.ts). */
+	retention: {
+		/**
+		 * LOG_RETENTION_DAYS overrides every history table's default retention
+		 * (30–180 days by table); 0 disables pruning. Unset = per-table defaults.
+		 */
+		get logRetentionDays(): number | null {
+			const raw = readOptionalString("LOG_RETENTION_DAYS");
+			if (raw === undefined) return null;
+			const days = Number(raw);
+			return Number.isSafeInteger(days) && days >= 0 ? days : null;
+		},
 	},
 
 	/** Audit log lifecycle. audit_logs is the fastest-growing table in the
@@ -331,4 +354,3 @@ export const config = {
 	},
 };
 
-export type AppConfig = typeof config;

@@ -110,6 +110,9 @@ function NavLink({
 	);
 }
 
+/** The daily core stays open until someone collapses it; other groups open on demand. */
+const DEFAULT_OPEN_GROUPS = new Set(["overview", "servers", "files"]);
+
 export function AppSidebar({
 	username,
 	quickServices = [],
@@ -165,7 +168,7 @@ export function AppSidebar({
 	if (!username) return null;
 
 	const activeGroupId = visibleGroups.find((group) => group.items.some((item) => isActiveHref(pathname, item.href)))?.id;
-	const isGroupOpen = (group: AppNavGroup) => storedGroups[group.id] ?? (group.id === activeGroupId || group.id === "overview");
+	const isGroupOpen = (group: AppNavGroup) => storedGroups[group.id] ?? (group.id === activeGroupId || DEFAULT_OPEN_GROUPS.has(group.id));
 
 	const renderNav = (mode: "desktop" | "mobile") => {
 		const compact = mode === "desktop" && collapsed;

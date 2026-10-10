@@ -24,9 +24,10 @@ import { ServerCardActions } from "./server-card-actions";
 import { VpsBackupSection } from "./vps-backup-section";
 import { getDirectGatewayRepairAdvice } from "./direct-gateway-advice";
 import { DirectGatewayAdviceList, DirectGatewayHealthyDetail, InfoRow, OsDialectSection } from "./server-overview-detail-sections";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, Notice } from "@/components/ui-primitives";
+import { serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "./server-labels";
 
 export type ServerOverviewDetailsServer = {
 	operatingSystem?: string;
@@ -45,9 +46,6 @@ export type ServerOverviewDetailsServer = {
 	managementMode: "DIRECT" | "AGENT";
 	hasSshCredential?: boolean;
 	agent?: { online: boolean; lastSeenAt: string | null; metricsAt: string | null; version: string | null; capabilities: string[]; lastError: string | null };
-	connectionSummary: string;
-	connectionTypeLabel: string;
-	statusLabel: string;
 	pendingCommandCount: number;
 	targetCount: number;
 	latestCommands: Array<{
@@ -61,7 +59,6 @@ export type ServerOverviewDetailsServer = {
 	storageNode?: { id: string; name: string; basePath: string; host?: string | null; port?: number | null; username?: string | null } | null;
 	directGateway?: {
 		enabled: boolean;
-		statusLabel: string;
 		publicUrl: string | null;
 		port: number;
 		// TR-002 R3: 节点监听地址 + 解析的传输协议，UI 用作 risk banner 输入
@@ -153,7 +150,7 @@ export function ServerOverviewDetails({
 			detail: directGatewayHealthy ? (
 				<DirectGatewayHealthyDetail
 					t={t}
-					statusLabel={server.directGateway?.statusLabel ?? t("serverOverviewDetails.websiteRelay")}
+					statusLabel={directLabel}
 					publicUrl={server.directGateway?.publicUrl ?? null}
 				/>
 			) : (
@@ -184,12 +181,12 @@ export function ServerOverviewDetails({
 			className="space-y-3"
 		>
 			<section data-inset className="p-3">
-				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.connectionStatus")}</h3>
+				<h3 className="ui-title-group mb-3">{t("serverOverviewDetails.section.connectionStatus")}</h3>
 				<div className="grid gap-2 text-sm">
-					<InfoRow label={t("serverOverviewDetails.connectionType")} value={server.connectionTypeLabel} />
+					<InfoRow label={t("serverOverviewDetails.connectionType")} value={serverConnectionLabel(server, t)} />
 					<InfoRow label={t("serverOverviewDetails.username")} value={server.username} />
 					<InfoRow label={t("serverOverviewDetails.address")} value={`${server.host}:${server.port}`} />
-					<InfoRow label={t("serverOverviewDetails.nodeStatus")} value={server.statusLabel} />
+					<InfoRow label={t("serverOverviewDetails.nodeStatus")} value={serverEnabledLabel(server.enabled, t)} />
 					<InfoRow
 						label={t("serverOverviewDetails.sshKey")}
 						value={server.sshKey ? server.sshKey.name : t("serverOverviewDetails.notConfigured")}
@@ -218,7 +215,7 @@ export function ServerOverviewDetails({
 			</section>
 
 			<section data-inset className="p-3">
-				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.operationsResources")}</h3>
+				<h3 className="ui-title-group mb-3">{t("serverOverviewDetails.section.operationsResources")}</h3>
 				<div className="space-y-2 text-sm">
 					<InfoRow
 						label={t("serverOverviewDetails.relatedStorage")}
@@ -230,7 +227,7 @@ export function ServerOverviewDetails({
 					/>
 					<InfoRow label={t("serverOverviewDetails.directMode")} value={directLabel} />
 					<InfoRow label={t("serverOverviewDetails.totalCommandTargets")} value={String(server.targetCount)} />
-					<InfoRow label={t("serverOverviewDetails.connectionSummary")} value={server.connectionSummary} />
+					<InfoRow label={t("serverOverviewDetails.connectionSummary")} value={serverConnectionSummary(server, t)} />
 					<InfoRow
 						label={t("serversPage.management.title")}
 						value={server.managementMode === "AGENT"
@@ -288,17 +285,19 @@ export function ServerOverviewDetails({
 			<section data-inset className="p-3">
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 					<div>
-						<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.diagnosticsNext")}</h3>
+						<h3 className="ui-title-group">{t("serverOverviewDetails.diagnosticsNext")}</h3>
 						<p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
 							{t("serverOverviewDetails.diagnosticsDescription")}
 						</p>
 					</div>
-					<Link
+					<ButtonLink
+						size="sm"
+						variant="outline"
 						href={`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`}
-						className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[var(--color-action-border)]/25 bg-[var(--color-action-bg)]/10 px-3 py-1.5 text-xs text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/15 light:border-[var(--color-action-border)]/20"
+						className="shrink-0"
 					>
 						{t("serverOverviewDetails.viewMonitorJson")}
-					</Link>
+					</ButtonLink>
 				</div>
 				<div data-inset className="mt-3 p-3">
 					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -354,7 +353,7 @@ export function ServerOverviewDetails({
 			</section>
 
 			<section data-inset className="p-3">
-				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.latestCommands")}</h3>
+				<h3 className="ui-title-group mb-3">{t("serverOverviewDetails.latestCommands")}</h3>
 				{server.latestCommands.length === 0 ? (
 					<p className="text-xs text-[var(--text-muted)]">{t("serverOverviewDetails.noCommandRecords")}</p>
 				) : (

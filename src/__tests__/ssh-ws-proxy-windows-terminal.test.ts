@@ -19,7 +19,7 @@ vi.mock("@/lib/db", () => ({
     storageNode: { findUnique: mocks.storageNodeFindUnique },
   },
 }));
-vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({
   decryptServerPassword: mocks.decryptServerPassword,
   decryptSshPrivateKey: vi.fn(),
   decryptSshKeyPassphrase: vi.fn(),

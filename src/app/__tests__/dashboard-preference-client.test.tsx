@@ -244,13 +244,13 @@ describe("DashboardPreferenceClient", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "dashboard.customize-edit" }));
 
-    // Enter edit: previously-hidden analytics is seeded as hidden (aria-pressed).
+    // Enter edit: previously-hidden analytics is seeded as hidden (chip not pressed).
     const analyticsToggle = screen.getByTestId("toggle-widget-analytics");
-    expect(analyticsToggle).toHaveAttribute("aria-pressed", "true");
+    expect(analyticsToggle).toHaveAttribute("aria-pressed", "false");
 
     // Un-hide analytics and complete edit — PUT must restore it in the visible list.
     fireEvent.click(analyticsToggle);
-    expect(analyticsToggle).toHaveAttribute("aria-pressed", "false");
+    expect(analyticsToggle).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByTestId("customize-done"));
 
     await waitFor(() => {

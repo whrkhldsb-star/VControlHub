@@ -3,12 +3,14 @@ import { NextResponse } from "next/server";
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from "@/lib/command-template/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { withApiRoute } from "@/lib/http/api-guard";
+import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { createCommandTemplateSchema, updateCommandTemplateSchema } from "@/lib/command/schema";
 
 import { ValidationError } from "@/lib/errors";
+import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
+import { t as translate } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
 
 function auditTemplateDetail(template: { id: string; name?: string | null; isBuiltin?: boolean | null; tags?: string[] | null; variables?: string[] | null }) {
@@ -32,7 +34,8 @@ function templateActor(session: { userId?: string | null; roles?: string[] } | n
 
 export async function GET(request: Request) {
 	return withApiRoute(request, { permission: "command:read", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
-		const templates = await listTemplates(200, session);
+		const locale = requestLocale(request);
+		const templates = (await listTemplates(200, session)).map((row) => localizeBuiltinTemplate(row, (key) => translate(key, locale)));
 		const serialized = templates.map((t) => ({
 			id: t.id, name: t.name, description: t.description,
 			command: t.command, rollbackCommand: t.rollbackCommand, variables: t.variables, tags: t.tags,

@@ -9,7 +9,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * Returns: { session: MediaUploadSessionView }
  * Permission: storage:write (session-based, owner-scoped via service).
  *
- * Rate limit: GENERAL_WRITE_LIMIT (30 req/min) — chunks are higher
+ * Rate limit: UPLOAD_CHUNK_LIMIT (240 req/min) — chunks are higher
  * frequency than init/complete, but we still want throttling.
  *
  * NOTE: withApiRoute's bodySchema option only handles JSON. We stream the
@@ -18,7 +18,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { UPLOAD_CHUNK_LIMIT } from "@/lib/http/rate-limit-presets";
 import { appendMediaChunkSchema } from "@/lib/upload/schema";
 import {
   appendMediaUploadChunk,
@@ -42,7 +42,7 @@ export async function PUT(
     request,
     {
       permission: "storage:write",
-      rateLimit: GENERAL_WRITE_LIMIT,
+      rateLimit: UPLOAD_CHUNK_LIMIT,
       querySchema: appendMediaChunkSchema,
       errorStatus: 500,
       errorMessage: apiCopy("apiCopy.failed.to.upload.chunk.fe945af5"),

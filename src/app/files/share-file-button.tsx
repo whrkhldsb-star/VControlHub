@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { LinkIcon } from "@/components/icons";
+import { Copy, LinkIcon } from "@/components/icons";
 import type { StorageEntry } from "./file-entry-utils";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS } from "@/lib/share-link/policy";
 
+import { ActionButton } from "@/components/action-button";
 type ShareFileButtonProps = {
   entry: StorageEntry;
   compact?: boolean;
@@ -112,7 +113,7 @@ export function ShareFileButton({
         ) : null}
       </button>
       {shareUrl || error ? (
-        <div className="absolute right-0 top-10 z-30 w-72 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-3 text-left text-xs shadow-xl">
+        <div data-popover="" className="absolute right-0 top-10 z-30 w-72 p-3 text-left text-xs">
           <button
             type="button"
             aria-label={t("common.close")}
@@ -136,13 +137,14 @@ export function ShareFileButton({
               <code className="block break-all rounded-lg bg-[var(--surface-elevated)] p-2 text-[var(--text-secondary)]">
                 {shareUrl}
               </code>
-              <button
-                type="button"
+              <ActionButton
+                size="xs"
+                variant="success"
+                icon={<Copy aria-hidden />}
                 onClick={() => copy(shareUrl)}
-                className="rounded-lg border border-[var(--success-border)] px-2 py-1 text-[var(--success)]"
               >
                 {copied ? t("sharesPage.button.copied") : t("sharesPage.button.copy")}
-              </button>
+              </ActionButton>
             </div>
           ) : null}
         </div>

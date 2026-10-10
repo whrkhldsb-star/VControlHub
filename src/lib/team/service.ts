@@ -17,11 +17,9 @@ import { t } from "@/lib/i18n/service-translations";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { tenantStorageBasePath } from "@/lib/storage/path-utils";
 import {
-  DEFAULT_WORKSPACE_POLICY_GROUPS,
+  defaultWorkspacePolicyGroups,
   defaultWorkspacePolicyGroupId,
 } from "@/lib/auth/role-template-service";
-
-export type TeamRole = "owner" | "admin" | "member";
 
 /**
  * Reserved slug prefix that marks a workspace as deleted.
@@ -195,7 +193,7 @@ export async function createTeam(
           data: { teamId: created.id, userId: session.userId, role: "owner" },
         });
         await tx.roleTemplate.createMany({
-          data: DEFAULT_WORKSPACE_POLICY_GROUPS.map((group) => ({
+          data: defaultWorkspacePolicyGroups().map((group) => ({
             id: defaultWorkspacePolicyGroupId(created.id, group.key),
             name: group.name,
             description: group.description,

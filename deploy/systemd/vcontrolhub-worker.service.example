@@ -34,6 +34,9 @@ RestrictSUIDSGID=true
 LockPersonality=true
 RemoveIPC=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+# Cloud instance metadata (169.254.169.254) and other link-local services are never a
+# legitimate destination; deny them so an SSRF cannot read instance credentials.
+IPAddressDeny=169.254.0.0/16
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources @mount @cpu-emulation @debug @obsolete
 SystemCallErrorNumber=EPERM

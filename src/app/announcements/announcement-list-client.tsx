@@ -54,7 +54,7 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
             <StatusBadge tone={levelTones[a.level] ?? "info"}>{levelLabel(t, a.level)}</StatusBadge>
             {a.pinned && <Badge tone="accent">{t("common.pinned")}</Badge>}
           </div>
-          <h2 className="mt-2 text-[15px] font-semibold text-[var(--text-primary)]">{a.title}</h2>
+          <h2 className="ui-title-section mt-2">{a.title}</h2>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as"zh" |"en")}</span>
@@ -143,7 +143,7 @@ export function AnnouncementList({
         <div className="flex-1">
           <label
             htmlFor="announcements-search"
-            className="mb-1 block text-xs font-medium text-[var(--text-secondary)]"
+            className="ui-label mb-1 block"
           >
             {t("announcementsPage.search.label")}
           </label>

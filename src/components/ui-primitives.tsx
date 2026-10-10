@@ -1,11 +1,12 @@
 import Link from "next/link";
 
 import { cn } from "@/lib/ui/cn";
-import { UI_INPUT } from "@/lib/ui/classes";
+import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { browserT } from "@/lib/i18n/browser-translations";
 import { Children, cloneElement, isValidElement, Fragment } from "react";
 import type {
 	ButtonHTMLAttributes,
+	Ref,
 	HTMLAttributes,
 	InputHTMLAttributes,
 	ReactNode,
@@ -232,65 +233,6 @@ export function Switch({
 	);
 }
 
-export type StateBoxTone = "danger" | "warning" | "success" | "accent" | "neutral";
-
-export function StateBox({
-	tone = "neutral",
-	children,
-	className,
-	...rest
-}: {
-	tone?: StateBoxTone;
-	children: ReactNode;
-} & HTMLAttributes<HTMLDivElement>) {
-	return (
-		<div data-state-box={tone} className={`text-sm ${className ?? ""}`} {...rest}>
-			{children}
-		</div>
-	);
-}
-
-/** Soft info / tip banner used under page headers. */
-export function Callout({
-	tone = "accent",
-	title,
-	children,
-	className,
-	action,
-}: {
-	tone?: "accent" | "warning" | "success" | "danger" | "neutral";
-	title?: ReactNode;
-	children?: ReactNode;
-	className?: string;
-	action?: ReactNode;
-}) {
-	const toneCls = {
-		accent: "border-[var(--accent-border)] bg-[var(--accent-soft)]",
-		warning: "border-[var(--warning-border)] bg-[var(--warning-bg)]",
-		success: "border-[var(--success-border)] bg-[var(--success-bg)]",
-		danger: "border-[var(--danger-border)] bg-[var(--danger-bg)]",
-		neutral: "border-[var(--border)] bg-[var(--surface-subtle)]",
-	}[tone];
-	return (
-		<div
-			data-callout
-			className={`rounded-xl border px-4 py-3 ${toneCls} ${className ?? ""}`}
-		>
-			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<div className="min-w-0">
-					{title ? (
-						<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
-					) : null}
-					{children ? (
-						<div className="mt-0.5 text-[13px] leading-5 text-[var(--text-secondary)]">{children}</div>
-					) : null}
-				</div>
-				{action ? <div className="shrink-0">{action}</div> : null}
-			</div>
-		</div>
-	);
-}
-
 export type SegmentedTabItem = {
 	id: string;
 	label: ReactNode;
@@ -311,7 +253,7 @@ export function tabItemClass(active: boolean, variant: "underline" | "pills" = "
 	return cn(
 		"group relative flex min-w-0 shrink-0 items-center gap-2 whitespace-nowrap text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
 		variant === "pills"
-			? cn("min-h-8 rounded-md px-3", active
+			? cn("min-h-[var(--control-height-sm)] rounded-md px-3", active
 				? "bg-[var(--surface)] text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
 				: "text-[var(--text-muted)] hover:text-[var(--text-primary)]")
 			: cn("min-h-10 px-3 pb-2.5 pt-2", active
@@ -425,6 +367,84 @@ export function SegmentedTabs({
 								{item.badge}
 							</span>
 						) : null}
+					</button>
+				);
+			})}
+		</div>
+	);
+}
+
+export type SegmentedOption<T extends string> = {
+	value: T;
+	label: ReactNode;
+	icon?: ReactNode;
+	disabled?: boolean;
+	title?: string;
+	/** Accessible name when the visible label is shortened or hidden. */
+	ariaLabel?: string;
+	/** Colour of the selected state when choosing it deserves attention. */
+	tone?: "warning" | "danger";
+};
+
+/**
+ * One choice out of a few (TOTP / recovery code, filename / content), as a
+ * group of toggle buttons with the same look as `SegmentedTabs variant="pills"`.
+ * Use SegmentedTabs when the choice switches a panel; use this for a value.
+ */
+export function SegmentedControl<T extends string>({
+	options,
+	value,
+	onChange,
+	ariaLabel,
+	size = "md",
+	block = false,
+	compactLabels = false,
+	className,
+}: {
+	options: Array<SegmentedOption<T>>;
+	value: T;
+	onChange: (value: T) => void;
+	ariaLabel: string;
+	size?: "sm" | "md";
+	/** Stretch to the container width with equal segments. */
+	block?: boolean;
+	/** Show only the icons on phones (options need an icon and ariaLabel). */
+	compactLabels?: boolean;
+	className?: string;
+}) {
+	return (
+		<div
+			role="group"
+			aria-label={ariaLabel}
+			data-segmented-control
+			className={cn(
+				"min-w-0 gap-0.5 overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-0.5",
+				block ? "flex w-full" : "inline-flex max-w-full",
+				className,
+			)}
+		>
+			{options.map((option) => {
+				const active = option.value === value;
+				return (
+					<button
+						key={option.value}
+						type="button"
+						aria-pressed={active}
+						aria-label={option.ariaLabel}
+						disabled={option.disabled}
+						title={option.title}
+						onClick={() => onChange(option.value)}
+						className={cn(
+							tabItemClass(active, "pills"),
+							size === "sm" && "min-h-[var(--control-height-xs)] px-2.5 text-xs",
+							block && "flex-1 justify-center",
+							active && option.tone === "warning" && "text-[var(--warning)]",
+							active && option.tone === "danger" && "text-[var(--danger)]",
+							"[&>svg]:h-4 [&>svg]:w-4",
+						)}
+					>
+						{option.icon}
+						<span className={cn("truncate", compactLabels && option.icon ? "max-sm:sr-only" : undefined)}>{option.label}</span>
 					</button>
 				);
 			})}
@@ -546,10 +566,7 @@ export function FormField({
 			className={`min-w-0 space-y-1.5 ${className ?? ""}`}
 		>
 			<div className="flex items-center justify-between gap-2">
-				<label
-					htmlFor={htmlFor}
-					className="text-[13px] font-medium text-[var(--text-primary)]"
-				>
+				<label htmlFor={htmlFor} className={UI_LABEL}>
 					{label}
 				</label>
 				{actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}
@@ -603,15 +620,65 @@ export function FormGrid({ children, columns = 2, className }: { children: React
 	return <div data-form-grid className={cn("grid gap-4", columnsClass, className)}>{children}</div>;
 }
 
-export function CheckboxField({ label, hint, className, ...inputProps }: { label: ReactNode; hint?: ReactNode; className?: string } & Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
+export function CheckboxField({ label, hint, className, variant = "plain", ...inputProps }: { label: ReactNode; hint?: ReactNode; className?: string; /** "tile" draws a selectable tile that highlights while checked. */ variant?: "plain" | "tile" } & Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
 	const accessibleLabel = inputProps["aria-label"] ?? (typeof label === "string" ? label : undefined);
-	return <label className={cn("flex items-start gap-3 text-sm text-[var(--text-secondary)]", className)}>
+	const tile = variant === "tile";
+	return <label
+		data-tile={tile ? "" : undefined}
+		data-selected={tile && inputProps.checked ? "" : undefined}
+		className={cn("flex items-start gap-3 text-sm text-[var(--text-secondary)]", tile && "cursor-pointer px-3 py-2 transition", className)}
+	>
 		<input type="checkbox" aria-label={accessibleLabel} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]" {...inputProps} />
 		<span className="min-w-0"><span className="block font-medium text-[var(--text-primary)]">{label}</span>{hint ? <span className="mt-0.5 block text-xs leading-5 text-[var(--text-muted)]">{hint}</span> : null}</span>
 	</label>;
 }
 
-export function IconButton({ label, tone = "neutral", children, className, ...rest }: { label: string; tone?: "neutral" | "danger" | "accent"; children: ReactNode } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label">) {
+export function IconButton({ label, tone = "neutral", children, className, ...rest }: { label: string; tone?: "neutral" | "danger" | "accent"; children: ReactNode; ref?: Ref<HTMLButtonElement> } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label">) {
 	const toneClass = tone === "danger" ? "text-[var(--danger)] hover:bg-[var(--danger-bg)]" : tone === "accent" ? "text-[var(--accent)] hover:bg-[var(--accent-bg)]" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]";
 	return <button type="button" aria-label={label} title={label} className={cn("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50", toneClass, className)} {...rest}>{children}</button>;
+}
+
+export type ChipTone = "accent" | "warning" | "danger" | "success";
+
+/**
+ * Chip — a filter pill, a multi-select toggle or a suggestion. Pass
+ * `selected` to make it a toggle (aria-pressed); leave it out for a plain
+ * chip. The look is the [data-chip] rule in globals.css.
+ *
+ *   <Chip selected={tag === active} onClick={() => setActive(tag)}>{tag}</Chip>
+ */
+export function Chip({
+	selected,
+	tone = "accent",
+	size = "sm",
+	dashed = false,
+	icon,
+	children,
+	className,
+	type = "button",
+	...rest
+}: {
+	selected?: boolean;
+	tone?: ChipTone;
+	size?: "sm" | "md";
+	/** Dashed outline for "add" chips. */
+	dashed?: boolean;
+	icon?: ReactNode;
+	children?: ReactNode;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-pressed">) {
+	return (
+		<button
+			type={type}
+			data-chip=""
+			data-size={size === "sm" ? undefined : size}
+			data-chip-tone={tone === "accent" ? undefined : tone}
+			data-dashed={dashed ? "" : undefined}
+			aria-pressed={selected}
+			className={cn(className)}
+			{...rest}
+		>
+			{icon}
+			{children}
+		</button>
+	);
 }

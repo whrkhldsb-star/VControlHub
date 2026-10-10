@@ -12,6 +12,7 @@ import { ActionButton } from "@/components/action-button";
 import { Badge, type BadgeTone } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { describeCron, isFiveFieldCron } from "@/lib/scheduled-task/describe-cron";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -43,17 +44,8 @@ function getTypeLabel(t: (k: string, vars?: Record<string, string | number>) => 
 }
 
 function describeCronPreview(expr: string, t: (k: string, vars?: Record<string, string | number>) => string) {
-	const parts = expr.trim().split(/\s+/);
-	if (parts.length !== 5) return t("backupsPage.schedule.cronError.5parts");
-	const [min, hour, day, month, dow] = parts;
-	if (min ==="0" && hour ==="*" && day ==="*" && month ==="*" && dow ==="*") return t("backupsPage.schedule.cronPreview.everyHour");
-	if (day ==="*" && month ==="*" && dow ==="*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return t("backupsPage.schedule.cronPreview.everyDay", { hour: hour!, min: min!.padStart(2,"0") });
-	if (day ==="*" && month ==="*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
-		const dowName = t(`backupsPage.schedule.cronPreview.dowName.${dow}`);
-		const safeName = dowName.startsWith("backupsPage.") ? t("backupsPage.schedule.cronPreview.dowFallback", { dow: dow! }) : dowName;
-		return t("backupsPage.schedule.cronPreview.everyDow", { dowName: safeName, hour: hour!, min: min!.padStart(2,"0") });
-	}
-	return t("backupsPage.schedule.cronPreview.custom");
+	if (!isFiveFieldCron(expr)) return t("backupsPage.schedule.cronError.5parts");
+	return describeCron(expr, t) ?? t("backupsPage.schedule.cronPreview.custom");
 }
 
 function statusBadgeTone(status: string): BadgeTone {
@@ -178,11 +170,11 @@ export function ScheduleBackupForm() {
 			<form onSubmit={createSchedule} data-tone="cyan" data-inset className="space-y-4 p-4">
 				<div className="grid gap-3 md:grid-cols-[180px_1fr]">
 					<div className="space-y-1.5">
-						<label htmlFor="schedule-backup-name" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.records.title")}</label>
+						<label htmlFor="schedule-backup-name" className="ui-label block">{t("backupsPage.records.title")}</label>
 						<input id="schedule-backup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("backupsPage.schedule.nameTemplate", { type: getTypeLabel(t, type) })} className={UI_INPUT} />
 					</div>
 					<div className="space-y-1.5">
-						<label htmlFor="schedule-backup-type" className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.backupType")}</label>
+						<label htmlFor="schedule-backup-type" className="ui-label block">{t("common.backupType")}</label>
 						<select id="schedule-backup-type" value={type} onChange={(e) => setType(e.target.value as BackupType)} className={UI_INPUT}>
 							<option value="DATABASE">{t("common.databaseBackup")}</option>
 							<option value="FILES">{t("common.fileBackup")}</option>
@@ -192,17 +184,17 @@ export function ScheduleBackupForm() {
 				</div>
 				<div className="grid gap-3 md:grid-cols-[1fr_180px]">
 					<div className="space-y-1.5">
-						<label htmlFor="schedule-backup-cron" className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.cronExpression")}</label>
+						<label htmlFor="schedule-backup-cron" className="ui-label block">{t("common.cronExpression")}</label>
 						<input id="schedule-backup-cron" value={cronExpression} onChange={(e) => setCronExpression(e.target.value)} required placeholder="0 3 * * *" className={cn(UI_INPUT, "font-mono")} />
 					</div>
 					<div className="space-y-1.5">
-						<label htmlFor="schedule-backup-retention" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.schedule.retentionLabel")}</label>
+						<label htmlFor="schedule-backup-retention" className="ui-label block">{t("backupsPage.schedule.retentionLabel")}</label>
 						<input id="schedule-backup-retention" type="number" min={1} max={3650} value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)} placeholder={t("backupsPage.schedule.retentionPlaceholder")} className={UI_INPUT} />
 					</div>
 				</div>
 				<p data-tone="cyan" data-inset className="px-3 py-2 text-xs text-[var(--text-secondary)]">{t("common.preview")}{cronPreview}<span className="ml-1 text-[var(--text-muted)]">{t("backupsPage.schedule.timezone", { timezone: APP_TIME_ZONE })}</span></p>
 				<div className="space-y-1.5">
-					<label htmlFor="schedule-backup-note" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.schedule.noteLabel")}</label>
+					<label htmlFor="schedule-backup-note" className="ui-label block">{t("backupsPage.schedule.noteLabel")}</label>
 					<input id="schedule-backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("backupsPage.schedule.notePlaceholder")} className={UI_INPUT} />
 				</div>
 				{retentionDays && (
@@ -216,7 +208,7 @@ export function ScheduleBackupForm() {
 
 			{/* Schedule list */}
 			<div className="space-y-2">
-				<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.scheduleList.title")}</h3>
+				<h3 className="ui-title-group">{t("backupsPage.scheduleList.title")}</h3>
 				{loadingList ? (
 					<p className="text-xs text-[var(--text-muted)]">…</p>
 				) : listError ? (
@@ -268,22 +260,22 @@ export function ScheduleBackupForm() {
 										{s.note && <p className="mt-1 text-xs text-[var(--text-muted)]">{s.note}</p>}
 									</div>
 									<div className="flex shrink-0 gap-2">
-										<button
-											type="button"
+										<ActionButton
+											size="xs"
+											variant="secondary"
 											disabled={rowActionId !== null}
 											onClick={() => void toggleSchedule(s.id)}
-											className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] transition hover:border-[var(--border)]/[0.16] hover:text-[var(--text-primary)] disabled:opacity-60"
 										>
 											{t("backupsPage.schedule.toggle")}
-										</button>
-										<button
-											type="button"
+										</ActionButton>
+										<ActionButton
+											size="xs"
+											variant="danger"
 											disabled={rowActionId !== null}
 											onClick={() => setPendingDeleteId(s.id)}
-											className="rounded-lg border border-[var(--danger-border)] px-2 py-1 text-xs text-[var(--danger)] transition hover:border-[var(--danger-border)] disabled:opacity-60"
 										>
 											{t("backupsPage.schedule.delete")}
-										</button>
+										</ActionButton>
 									</div>
 								</div>
 							</div>

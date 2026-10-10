@@ -126,7 +126,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
         <section className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning)]/[0.10] p-5 shadow-[0_20px_80px_rgba(251,191,36,0.08)]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-[var(--warning)]">{t("apiTokensPage.plaintext.heading")}</h2>
+              <h2 className="ui-title-section text-[var(--warning)]">{t("apiTokensPage.plaintext.heading")}</h2>
               <p className="mt-1 text-sm text-[var(--warning)]/75">{t("apiTokensPage.plaintext.copyHint")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -138,14 +138,14 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
               </ActionButton>
             </div>
           </div>
-          <code className="mt-4 block overflow-x-auto rounded-xl border border-[var(--warning-border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--warning)] dark:text-[var(--warning)]">{createdPlaintext}</code>
+          <code data-inset="" className="mt-4 block overflow-x-auto border-[var(--warning-border)] p-3 font-mono text-xs text-[var(--warning)] dark:text-[var(--warning)]">{createdPlaintext}</code>
         </section>
       )}
 
       {error && <Notice tone="danger" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
 
       <section data-card className="p-5">
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.create.heading")}</h2>
+        <h2 className="ui-title-section">{t("apiTokensPage.create.heading")}</h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">{t("apiTokensPage.create.note")}</p>
 		<p className="mt-2 text-sm text-[var(--text-secondary)]">{currentWorkspaceName
 			? t("apiTokensPage.workspace.active", { name: currentWorkspaceName })
@@ -179,7 +179,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.list.heading")}</h2>
+          <h2 className="ui-title-section">{t("apiTokensPage.list.heading")}</h2>
           <p className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.list.note")}</p>
         </div>
         {tokens.length === 0 ? (
@@ -193,7 +193,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-semibold text-[var(--text-primary)]">{token.name}</h3>
+                        <h3 className="ui-title-section">{token.name}</h3>
                         <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
 						<span className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.workspace.bound", { name: token.team?.name ?? "—" })}</span>
                       </div>

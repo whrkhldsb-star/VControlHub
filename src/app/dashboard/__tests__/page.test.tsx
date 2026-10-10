@@ -149,12 +149,13 @@ describe("Dashboard", () => {
     expect(screen.getByText("VPS 状态总览")).toBeInTheDocument();
     expect(screen.getAllByText("启用节点").length).toBeGreaterThan(0);
     expect(screen.queryByText("在线 VPS")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /管理 VPS 与密钥/ })[0]).toHaveAttribute("href", "/servers");
+    expect(screen.getAllByRole("link", { name: /VPS 管理/ })[0]).toHaveAttribute("href", "/servers");
     expect(screen.getByText("VPS 节点")).toBeInTheDocument();
     expect(screen.getByText("核心资源")).toBeInTheDocument();
     expect(screen.getByText("运维队列")).toBeInTheDocument();
-    expect(screen.queryByText("未读通知")).not.toBeInTheDocument();
-    expect(screen.queryByText("活跃定时任务")).not.toBeInTheDocument();
+    // Unread notifications and active schedules are separate tiles, not one "a / b" cell.
+    expect(screen.getByText("未读通知")).toBeInTheDocument();
+    expect(screen.getByText("启用的定时任务")).toBeInTheDocument();
     expect(screen.getByText("文件管理")).toBeInTheDocument();
     expect(screen.getByText("远程下载")).toBeInTheDocument();
     expect(screen.getByText("审批中心")).toBeInTheDocument();

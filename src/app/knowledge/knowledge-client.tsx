@@ -254,12 +254,10 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                   <li key={b.id} className="flex items-stretch gap-2">
                     <button
                       type="button"
+                      data-tile=""
+                      aria-pressed={selectedId === b.id}
                       onClick={() => setSelectedId(b.id)}
-                      className={`min-w-0 flex-1 rounded-xl border px-3 py-2 text-left text-xs transition ${
-                        selectedId === b.id
-                          ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-                          : "border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-[var(--text-secondary)]"
-                      }`}
+                      className="min-w-0 flex-1 px-3 py-2 text-left text-xs text-[var(--text-secondary)]"
                     >
                       <div className="font-semibold">{b.name}</div>
                       <div className="mt-0.5 text-xs opacity-80">

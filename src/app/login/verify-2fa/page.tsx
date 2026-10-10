@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import { Verify2faForm } from "./verify-2fa-form";
+import { ArrowLeft } from "@/components/icons";
 
 type Verify2faPageProps = {
 	searchParams?: Promise<{ next?: string; error?: string }>;
@@ -40,7 +41,7 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--border-strong)] to-transparent" />
 
 			<div className="relative w-full max-w-md px-6">
-				<div className="rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-6 shadow-[var(--shadow-lg)] backdrop-blur-xl sm:p-8">
+				<div data-card="" className="p-6 sm:p-8">
 					<div className="mb-7">
 						<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)]">
 							<svg className="h-6 w-6 text-[var(--accent)]" fill="none" width="24" height="24" viewBox="0 0 24 24" stroke="currentColor">
@@ -48,7 +49,7 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 							</svg>
 						</div>
 						<p className="text-xs font-semibold uppercase text-[var(--accent)]">2FA</p>
-						<h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{t("auth.two-factor", locale)}</h1>
+						<h1 className="ui-title-page mt-2">{t("auth.two-factor", locale)}</h1>
 						<p className="mt-2 text-sm text-[var(--text-secondary)]">{t("login.verify2faDescription", locale)}</p>
 					</div>
 
@@ -57,8 +58,9 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 					<div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
 						<a
 							href="/login"
-							className="text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+							className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
 						>
+							<ArrowLeft size={14} aria-hidden />
 							{t("login.verify2faBackToLogin", locale)}
 						</a>
 					</div>

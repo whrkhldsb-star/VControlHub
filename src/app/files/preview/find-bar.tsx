@@ -34,7 +34,7 @@ export function FindBar({
 			<div className="flex min-w-0 w-full flex-col gap-1 sm:w-36">
 				<label
 					htmlFor="text-preview-search"
-					className="text-xs font-medium text-[var(--text-secondary)]"
+					className="ui-label"
 				>
 					{t("textPreview.find.searchLabel")}
 				</label>
@@ -51,7 +51,7 @@ export function FindBar({
 				<div className="flex min-w-0 flex-1 flex-col gap-1 sm:w-24 sm:flex-none">
 					<label
 						htmlFor="text-preview-jump-line"
-						className="text-xs font-medium text-[var(--text-secondary)]"
+						className="ui-label"
 					>
 						{t("textPreview.find.jumpLabel")}
 					</label>

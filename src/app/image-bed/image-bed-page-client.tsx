@@ -108,7 +108,7 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 				<div className="min-w-0 border-b border-[var(--border)] py-4">
 					<div className="flex items-center justify-between gap-2">
 						<div>
-							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.manage.title")}</h2>
+							<h2 className="ui-title-section">{t("imageBedPage.manage.title")}</h2>
 						</div>
 						<ActionButton size="sm" variant="outline" onClick={fetchStats}><LayoutDashboard size={16} aria-hidden />{t("imageBedPage.manage.stats")}</ActionButton>
 					</div>
@@ -136,7 +136,8 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 					role="region"
 					aria-label={t("imageBedPage.batch.region")}
 					data-testid="image-bed-batch-bar"
-					className="sticky bottom-16 z-30 -mx-4 mt-3 flex flex-wrap items-center gap-2 border-y border-[var(--border)] bg-[var(--modal-bg)] p-3 backdrop-blur-sm md:static md:bottom-auto md:z-auto md:mx-0 md:gap-3 md:rounded-xl md:border md:bg-[var(--surface)] md:p-3 md:backdrop-blur-0"
+					data-action-bar=""
+					className="sticky bottom-16 z-30 mt-3 md:bottom-3"
 					>
 					<span className="text-xs text-[var(--text-muted)]">{t("imageBedPage.batch.selected", { count: selectedIds.size })}</span>
 					<ActionButton type="button" variant="secondary" onClick={selectAll}>
@@ -178,20 +179,18 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 				</div>
 				<button
 					type="button"
+					data-dropzone=""
+					data-drag-over={dragOver ? "" : undefined}
 					disabled={uploading}
 					onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
 					onDragLeave={() => setDragOver(false)}
 					onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files); }}
 					onClick={() => fileInputRef.current?.click()}
-					className={`
-						mt-4 w-full border border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-						${dragOver ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)]/5 light:bg-[var(--color-action-bg)]" : "border-[var(--border)] hover:border-[var(--border)] bg-[var(--surface-subtle)] light:hover:border-[var(--border)]"}
-						${uploading ? "opacity-50 pointer-events-none" : ""}
-					`}
+					className="mt-4"
 				>
-					<ImageIcon size={24} className="mx-auto mb-2 text-[var(--text-muted)]" aria-hidden />
-					<span className="block text-sm text-[var(--text-secondary)] font-medium">{uploading ? t("imageBedPage.legacy.uploading") : t("imageBedPage.legacy.dropHint")}</span>
-					<span className="block text-xs text-[var(--text-muted)] mt-1">{t("imageBedPage.legacy.fileTypes")}</span>
+					<ImageIcon aria-hidden />
+					<span className="block text-sm font-medium">{uploading ? t("imageBedPage.legacy.uploading") : t("imageBedPage.legacy.dropHint")}</span>
+					<span className="block text-xs text-[var(--text-muted)]">{t("imageBedPage.legacy.fileTypes")}</span>
 				</button>
 				<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if (e.target.files) void handleUpload(e.target.files); e.target.value = ""; }} />
 			</section>
@@ -202,7 +201,7 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 
 			{/* Search Filter */}
 			<div className="mt-4 flex flex-wrap items-end gap-2 sm:gap-3">
-				<label className="grid w-full gap-1.5 text-xs font-medium text-[var(--text-secondary)] sm:w-auto">
+				<label className="ui-label grid w-full gap-1.5 sm:w-auto">
 					{t("imageBedPage.search.label")}
 					<input
 						type="search"

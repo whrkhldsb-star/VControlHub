@@ -20,7 +20,7 @@ export default async function RemoteDesktopPage({ params }: { params: Promise<{ 
   });
   if (!server) notFound();
   const locale = await getServerLocale();
-  return <PageShell maxW="max-w-7xl">
+  return <PageShell>
     <PageHeader eyebrow="Windows · RDP" title={t("rdp.title", locale)} description={server.name}>
       <ButtonLink variant="secondary" href="/servers">{t("rdp.back", locale)}</ButtonLink>
     </PageHeader>

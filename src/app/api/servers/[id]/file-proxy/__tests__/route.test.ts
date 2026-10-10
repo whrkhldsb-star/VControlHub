@@ -89,7 +89,7 @@ vi.mock("@/lib/db", () => ({
     },
   },
 }));
-vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({
   decryptServerPassword: vi.fn((value: string) => value),
   decryptSshPrivateKey: vi.fn((value: string) => value),
 }));

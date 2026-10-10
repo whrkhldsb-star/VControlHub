@@ -5,7 +5,7 @@
 import { z } from "zod";
 
 export const listDirSchema = z.object({
-  path: z.string().min(1).max(4096),
+  path: z.string().min(1).max(4096).optional(),
 });
 
 export const mkdirSchema = z.object({
@@ -25,6 +25,3 @@ export const deleteQuerySchema = z.object({
   path: z.string().min(1).max(4096),
 });
 
-export type ListDirInput = z.infer<typeof listDirSchema>;
-export type MkdirInput = z.infer<typeof mkdirSchema>;
-export type RenameInput = z.infer<typeof renameSchema>;

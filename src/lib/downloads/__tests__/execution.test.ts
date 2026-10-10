@@ -24,6 +24,9 @@ const aria2 = {
   tellStatus: vi.fn(async () => ({ status: "complete", completedLength: "0", totalLength: "0", downloadSpeed: "0" })),
   getPublicAria2Error: vi.fn(() => "aria2 error"),
 };
+vi.mock("@/lib/downloads/redirect-chain", () => ({
+	resolveDownloadRedirects: vi.fn(async (url: string) => ({ ok: true, url })),
+}));
 vi.mock("@/lib/aria2/service", () => aria2);
 
 const ssh = {

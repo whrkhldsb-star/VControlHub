@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PageShell, PageHeader } from "@/components/page-shell";
-import { InlineLoading, Notice, Switch } from "@/components/ui-primitives";
+import { Chip, InlineLoading, Notice, Switch } from "@/components/ui-primitives";
 import { Bell, Home, LayoutDashboard, Radio, RefreshCw, User } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
@@ -70,7 +70,7 @@ function Section({
 		<section id={summaryId} className="scroll-mt-28 border-b border-[var(--border)] pb-6">
 			<div className="space-y-4 py-3">
 				<div className="flex flex-col gap-1 border-b border-[var(--border-subtle)] pb-3">
-					<h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
+					<h2 className="ui-title-section flex flex-wrap items-center gap-2">
 						{summary?.icon && <span aria-hidden>{summary.icon}</span>}
 						<span>{title}</span>
 					</h2>
@@ -325,18 +325,13 @@ export function PreferencesSettingsContent({
 				<Section summaryId="preferences-default-page">
 					<div className="grid grid-cols-2 md:grid-cols-3 gap-2">
 						{allowedDefaultPageOptions.map((value) => (
-							<button
-								type="button"
+							<Chip
 								key={value}
+								selected={prefs.defaultPage === value}
 								onClick={() => save({ ...prefs, defaultPage: value })}
-								className={`px-3 py-2 text-xs rounded-lg border transition ${
-									prefs.defaultPage === value
-											? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-											: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-								}`}
 							>
 								{pageLabel(t, value)}
-							</button>
+							</Chip>
 						))}
 					</div>
 				</Section>
@@ -362,18 +357,13 @@ export function PreferencesSettingsContent({
 				<Section summaryId="preferences-auto-refresh">
 					<div className="flex flex-wrap gap-2">
 						{REFRESH_INTERVAL_OPTIONS.map((opt) => (
-							<button
-								type="button"
+							<Chip
 								key={opt.value}
+								selected={prefs.autoRefreshInterval === opt.value}
 								onClick={() => save({ ...prefs, autoRefreshInterval: opt.value })}
-								className={`px-3 py-1.5 text-xs rounded-lg border transition ${
-									prefs.autoRefreshInterval === opt.value
-										? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-										: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-								}`}
 							>
 								{intervalLabel(t, opt.value)}
-							</button>
+							</Chip>
 						))}
 					</div>
 					<p className="text-xs leading-5 text-[var(--text-muted)]">{t("preferencesPage.hint.autoRefresh")}</p>
@@ -387,22 +377,17 @@ export function PreferencesSettingsContent({
 					/>
 					<div className="flex flex-wrap gap-2">
 						{AUTO_PROBE_INTERVAL_OPTIONS.map((opt) => (
-							<button
-								type="button"
+							<Chip
 								key={opt.value}
+								selected={prefs.autoProbeIntervalSec === opt.value}
 								onClick={() => {
 									if (!prefs.autoProbeEnabled) return;
 									save({ ...prefs, autoProbeIntervalSec: opt.value });
 								}}
 								disabled={!prefs.autoProbeEnabled}
-								className={`px-3 py-1.5 text-xs rounded-lg border transition ${
-									prefs.autoProbeIntervalSec === opt.value
-										? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-										: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-								} disabled:opacity-50 disabled:cursor-not-allowed`}
 							>
 								{intervalLabel(t, opt.value)}
-							</button>
+							</Chip>
 						))}
 					</div>
 					<p className="text-xs leading-5 text-[var(--text-muted)]">

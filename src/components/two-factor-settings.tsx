@@ -137,7 +137,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	return (
 		<div id="2fa" data-inset className="p-5">
 			<div className="flex items-center justify-between mb-4">
-				<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("auth.2fa-section-title")}</h3>
+				<h3 className="ui-title-group">{t("auth.2fa-section-title")}</h3>
 				<StatusBadge tone={isEnabled ? "success" : "neutral"} size="sm">
 					{isEnabled ? t("auth.2fa-enabled") : t("auth.2fa-disabled")}
 				</StatusBadge>
@@ -196,7 +196,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<p className="text-xs text-[var(--text-secondary)]">
 						{t("auth.2fa-enter-code-instruction")}
 					</p>
-					<label htmlFor="two-factor-setup-code" className="block text-xs font-medium text-[var(--text-secondary)]">
+					<label htmlFor="two-factor-setup-code" className="ui-label block">
 						{t("auth.2fa-code-label")}
 					</label>
 					<div className="flex gap-2">
@@ -226,7 +226,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			{step === "disable" && (
 				<div className="space-y-4">
 					<p className="text-xs text-[var(--text-secondary)]">{t("auth.2fa-disable-instruction")}</p>
-					<label htmlFor="two-factor-disable-code" className="block text-xs font-medium text-[var(--text-secondary)]">
+					<label htmlFor="two-factor-disable-code" className="ui-label block">
 						{t("auth.2fa-code-or-recovery-label")}
 					</label>
 					<div className="flex gap-2">
@@ -239,14 +239,14 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							placeholder={t("auth.2fa-code-or-recovery-placeholder")}
 							className={cn(UI_INPUT, "flex-1")}
 						/>
-						<button
-							type="button"
+						<ActionButton
+							variant="danger-solid"
 							onClick={handleDisable}
-							disabled={loading || !secondFactorOk}
-							className="px-4 py-2 text-xs font-medium bg-[var(--danger-bg)] text-[var(--danger)] rounded-lg hover:bg-[var(--danger-bg)] transition disabled:opacity-50"
+							loading={loading}
+							disabled={!secondFactorOk}
 						>
 							{loading ? t("auth.2fa-verifying") : t("auth.2fa-confirm-disable")}
-						</button>
+						</ActionButton>
 					</div>
 					<button
 						type="button"
@@ -261,7 +261,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			{step === "regenerate" && (
 				<div className="space-y-4">
 					<p className="text-xs text-[var(--text-secondary)]">{t("auth.2fa-regenerate-recovery-description")}</p>
-					<label htmlFor="two-factor-regenerate-code" className="block text-xs font-medium text-[var(--text-secondary)]">
+					<label htmlFor="two-factor-regenerate-code" className="ui-label block">
 						{t("auth.2fa-code-or-recovery-label")}
 					</label>
 					<div className="flex gap-2">
@@ -295,7 +295,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					</div>
 					<div className="grid gap-2 sm:grid-cols-2">
 						{recoveryCodes.map((recoveryCode) => (
-							<code key={recoveryCode} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-center text-sm font-semibold text-[var(--text-primary)] select-all">
+							<code data-inset="" key={recoveryCode} className="px-3 py-2 text-center text-sm font-semibold text-[var(--text-primary)] select-all">
 								{recoveryCode}
 							</code>
 						))}

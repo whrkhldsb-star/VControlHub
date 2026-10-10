@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { expectTouchTarget } from "@/test/ui-assertions";
 
 import { ScheduledTaskListClient } from "../scheduled-task-list-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -102,7 +103,7 @@ describe("ScheduledTaskListClient", () => {
       .mockResolvedValueOnce({ tasks: [task] });
 
     render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate canManage />);
-    await actor.click(screen.getByRole("button", { name: "重试" }));
+    await actor.click(screen.getByRole("button", { name: "立即运行" }));
 
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/scheduled-tasks", expect.objectContaining({
       method: "PATCH",
@@ -182,7 +183,7 @@ describe("ScheduledTaskListClient", () => {
       const restore = mockHeightsBySelector({ "min-h-11": 44 });
       try {
         render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate canManage />);
-        const actionButtons = ["重试", "暂停", "删除"];
+        const actionButtons = ["立即运行", "暂停", "删除"];
         for (const label of actionButtons) {
           const btn = screen.getByRole("button", { name: label });
           expect(btn.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
@@ -213,9 +214,9 @@ describe("ScheduledTaskListClient", () => {
         expect(screen.getByRole("button", { name: "创建任务" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
         expect(screen.getByRole("button", { name: "取消" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 
+        // Cron presets are shared chips, sized from --control-height-sm (44px on touch).
         for (const label of ["每小时", "每天 3:00", "每5分钟"]) {
-          const btn = screen.getByRole("button", { name: label });
-          expect(btn.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+          expectTouchTarget(screen.getByRole("button", { name: label }));
         }
       } finally {
         restore();

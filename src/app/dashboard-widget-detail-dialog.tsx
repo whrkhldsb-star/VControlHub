@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
@@ -9,7 +9,6 @@ import {
 	DASHBOARD_WIDGET_LABELS,
 	type DashboardWidgetId,
 } from "@/lib/preferences/user-preferences";
-import { ActionButton } from "@/components/action-button";
 
 /**
  * TR-020: Widget detail dialog.
@@ -66,40 +65,28 @@ export function DashboardWidgetDetailDialog({
 	if (!DASHBOARD_WIDGET_IDS.includes(openId)) return null;
 
 	return (
-		<ModalShell
-			size="2xl" className="relative"
+		<Dialog
+			size="2xl"
 			open={openId !== null}
 			onClose={onClose}
-			labelledBy="dashboard-widget-detail-title"
+			title={t(DASHBOARD_WIDGET_LABELS[openId])}
+			closeLabel={t("dashboard.widget-detail-close")}
+			closeButtonRef={closeRef}
 			initialFocusRef={closeRef}
 			panelProps={{ "data-testid": "dashboard-widget-detail-dialog" }}
 		>
-				<div className="mb-4 flex items-center justify-between">
-					<h2
-						id="dashboard-widget-detail-title"
-						className="text-lg font-semibold text-[var(--text-primary)]"
-					>
-						{t(DASHBOARD_WIDGET_LABELS[openId])}
-					</h2>
-					<ActionButton size="sm" variant="secondary"
-						ref={closeRef}
-						onClick={onClose}
-						aria-label={t("dashboard.widget-detail-close")}>
-						{t("dashboard.widget-detail-close")}
-					</ActionButton>
-				</div>
-				<div className="dashboard-widget-detail-body text-sm text-[var(--text-primary)]">
-					{widgetEl ? (
-						// Render a clone of the live widget so the user sees
-						// the same content as on the dashboard. We strip the
-						// `display:none` style injected by the parent grid to
-						// make sure hidden widgets can still be inspected.
-						<WidgetClone host={widgetEl} />
-						) : (
-						<p className="text-[var(--text-secondary)]">{t("common.noContent")}</p>
-						)}
-				</div>
-		</ModalShell>
+			<div className="dashboard-widget-detail-body text-sm text-[var(--text-primary)]">
+				{widgetEl ? (
+					// Render a clone of the live widget so the user sees
+					// the same content as on the dashboard. We strip the
+					// `display:none` style injected by the parent grid to
+					// make sure hidden widgets can still be inspected.
+					<WidgetClone host={widgetEl} />
+				) : (
+					<p className="text-[var(--text-secondary)]">{t("common.noContent")}</p>
+				)}
+			</div>
+		</Dialog>
 	);
 }
 

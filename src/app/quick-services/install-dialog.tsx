@@ -1,8 +1,10 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
-import { Notice, Spinner } from "@/components/ui-primitives";
-import { ModalShell } from "@/components/modal-shell";
+import { FormField, Notice, Spinner } from "@/components/ui-primitives";
+import { Dialog } from "@/components/ui/dialog";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 /**
  * `InstallDialog` — port-picker modal shown when the user clicks
  * "一键安装" on a Quick Service card. Lets the user override the
@@ -149,90 +151,82 @@ export function InstallDialog({
 	};
 
 	return (
-		<ModalShell
-			size="md"
+		<Dialog
 			open
 			onClose={onClose}
-			label={t("qsPage.installTitle", { name: open.name })}
+			title={t("qsPage.installTitle", { name: open.name })}
+			description={t("qsPage.installSubtitle")}
+			footer={<>
+				<ActionButton type="button" variant="secondary" onClick={onClose}>
+					{t("qsPage.cancel")}
+				</ActionButton>
+				<ActionButton type="button" onClick={handleAdvance} disabled={advanceDisabled}>
+					{t("qsPage.confirmInstall")}
+				</ActionButton>
+			</>}
 		>
-				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">{t("qsPage.installTitle", { name: open.name })}</h3>
-				<p className="text-xs text-[var(--text-muted)] mb-4">{t("qsPage.installSubtitle")}</p>
-				<Notice tone="info" compact className="mb-4">
+			<div className="space-y-4">
+				<Notice tone="info" compact>
 					<span className="font-semibold text-[var(--text-primary)]">{t("qsPage.targetNode")}</span>{t("common.colon")}{targetLabel}
 				</Notice>
 
-				<div className="space-y-3">
-					<label className="block">
-						<span className="text-xs text-[var(--text-muted)] mb-1 block">{t("qsPage.portNumberLabel")}</span>
-						<div className="relative">
-							<input
-								type="number"
-								min={1}
-								max={65535}
-								value={customPort}
-								onChange={(e) => handlePortInput(e.target.value)}
-								className={`w-full rounded-lg border bg-[var(--surface-elevated)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition ${
-									portCheck
-										? portCheck.available
-											? "border-[var(--success-border)] focus:border-[var(--success-border)]"
-											: "border-[var(--danger-border)] focus:border-[var(--danger-border)]"
-										: "border-[var(--border)] focus:border-[var(--color-action-border)]/40"
-								}`}
-								placeholder="1-65535"
-							/>
-							{portCheck?.checking && (
-								<div className="absolute right-3 top-1/2 -translate-y-1/2">
-									<Spinner size="sm" label={t("common.loading")} />
-								</div>
-							)}
-							{portCheck && !portCheck.checking && (
-								<div
-									className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium ${
-										portCheck.available ? "text-[var(--success)]" : "text-[var(--danger)]"
-									}`}
-								>
-									{portCheck.available ? t("qsPage.portAvailable") : t("qsPage.portInUse")}
-								</div>
-							)}
-						</div>
-					</label>
-
-					{portCheck && !portCheck.available && portCheck.usedBy && (
-						<Notice tone="danger" compact>{t("qsPage.portInUseDetail", { usedBy: portCheck.usedBy })}</Notice>
-					)}
-
-					<div data-tone="cyan" data-inset className="p-3 text-xs text-[var(--text-secondary)]">
-						<div className="font-semibold">{t("qsPage.configPreviewTitle")}</div>
-						<div className="mt-2 grid gap-1.5 text-[var(--text-primary)]">
-							<span>{t("qsPage.imageLabel", { image: open.image ?? t("qsPage.imagePending") })}</span>
-							<span>
-								{t("qsPage.containerPortLabel", { container: containerPort ?? t("qsPage.containerPortDash"), host: customPort || String(open.defaultPort) })}
-							</span>
-							<span>{t("qsPage.envVarsLabel", { count: envCount })}</span>
-							<span>{t("qsPage.volumesLabel", { count: volumeCount })}</span>
-						</div>
-					</div>
-
-					<div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-						<span>{t("qsPage.recommendedPort", { port: open.defaultPort })}</span>
-						<button
-							type="button"
-							onClick={handleAutoAllocate}
-							className="text-[var(--color-action-text)]/70 hover:text-[var(--color-action-text)] underline underline-offset-2"
-						>
+				<FormField
+					label={t("qsPage.portNumberLabel")}
+					htmlFor="quick-service-install-port"
+					hint={t("qsPage.recommendedPort", { port: open.defaultPort })}
+					actions={
+						<ActionButton size="xs" variant="ghost" onClick={handleAutoAllocate}>
 							{t("qsPage.autoAssign")}
-						</button>
+						</ActionButton>
+					}
+				>
+					<div className="relative">
+						<input
+							id="quick-service-install-port"
+							type="number"
+							min={1}
+							max={65535}
+							value={customPort}
+							onChange={(e) => handlePortInput(e.target.value)}
+							data-input
+							data-error={portCheck && !portCheck.checking && !portCheck.available ? "true" : undefined}
+							className={cn(UI_INPUT, "pr-20 font-mono")}
+							placeholder="1-65535"
+						/>
+						{portCheck?.checking && (
+							<div className="absolute right-3 top-1/2 -translate-y-1/2">
+								<Spinner size="sm" label={t("common.loading")} />
+							</div>
+						)}
+						{portCheck && !portCheck.checking && (
+							<div
+								className={cn(
+									"absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium",
+									portCheck.available ? "text-[var(--success)]" : "text-[var(--danger)]",
+								)}
+							>
+								{portCheck.available ? t("qsPage.portAvailable") : t("qsPage.portInUse")}
+							</div>
+						)}
+					</div>
+				</FormField>
+
+				{portCheck && !portCheck.available && portCheck.usedBy && (
+					<Notice tone="danger" compact>{t("qsPage.portInUseDetail", { usedBy: portCheck.usedBy })}</Notice>
+				)}
+
+				<div data-inset className="p-3 text-xs text-[var(--text-secondary)]">
+					<div className="ui-title-caption">{t("qsPage.configPreviewTitle")}</div>
+					<div className="mt-2 grid gap-1.5 text-[var(--text-primary)]">
+						<span>{t("qsPage.imageLabel", { image: open.image ?? t("qsPage.imagePending") })}</span>
+						<span>
+							{t("qsPage.containerPortLabel", { container: containerPort ?? t("qsPage.containerPortDash"), host: customPort || String(open.defaultPort) })}
+						</span>
+						<span>{t("qsPage.envVarsLabel", { count: envCount })}</span>
+						<span>{t("qsPage.volumesLabel", { count: volumeCount })}</span>
 					</div>
 				</div>
-
-				<div className="flex items-center justify-end gap-3 mt-6">
-					<ActionButton size="sm" type="button" variant="secondary" onClick={onClose}>
-						{t("qsPage.cancel")}
-					</ActionButton>
-					<ActionButton size="sm" type="button" onClick={handleAdvance} disabled={advanceDisabled}>
-						{t("qsPage.confirmInstall")}
-					</ActionButton>
-				</div>
-		</ModalShell>
+			</div>
+		</Dialog>
 	);
 }

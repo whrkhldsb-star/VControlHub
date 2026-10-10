@@ -123,7 +123,7 @@ export default async function MediaPlayerPage({
         : t("mediaPage.stat.video", locale);
 
   return (
-    <PageShell maxW="max-w-7xl">
+    <PageShell>
       <div className="flex flex-col">
         <PageHeader eyebrow={t("mediaPage.player.eyebrow", locale)} title={item.name}>
           <ButtonLink variant="secondary" href={returnHref}>
@@ -139,7 +139,7 @@ export default async function MediaPlayerPage({
 
         <section className="grid flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-3">
-            <div className="flex min-h-[55vh] items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--surface)]/70 p-4">
+            <div data-card="" className="flex min-h-[55vh] items-center justify-center p-4">
               {isImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img loading="lazy"
@@ -167,7 +167,8 @@ export default async function MediaPlayerPage({
               {previousItem ? (
                 <Link
                   href={`/media/${encodeURIComponent(previousItem.id)}?from=${navigationFrom}`}
-                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                  data-tile=""
+                  className="px-4 py-3 text-sm text-[var(--text-secondary)] transition"
                 >
                   <span className="block text-xs text-[var(--text-muted)]">{t("mediaPage.player.previousLabel", locale)}</span>
                   <span className="mt-1 block truncate font-medium">
@@ -182,7 +183,8 @@ export default async function MediaPlayerPage({
               {nextItem ? (
                 <Link
                   href={`/media/${encodeURIComponent(nextItem.id)}?from=${navigationFrom}`}
-                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3 text-right text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                  data-tile=""
+                  className="px-4 py-3 text-right text-sm text-[var(--text-secondary)] transition"
                 >
                   <span className="block text-xs text-[var(--text-muted)]">{t("mediaPage.player.nextLabel", locale)}</span>
                   <span className="mt-1 block truncate font-medium">

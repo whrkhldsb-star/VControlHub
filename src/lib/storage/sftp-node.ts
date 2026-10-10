@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { t } from "@/lib/i18n/service-translations";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 const SFTP_NODE_SELECT = {
 	id: true,
@@ -26,7 +27,7 @@ const SFTP_NODE_SELECT = {
 			operatingSystem: true,
 			password: true,
 			hostKeySha256: true,
-			sshKey: { select: { privateKey: true } },
+			sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
 		},
 	},
 } as const;

@@ -3,6 +3,7 @@
 import type { RefObject } from "react";
 import { getCsrfTokenFromCookie } from "@/lib/auth/csrf-client";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
 import { Folder, FolderOpen, X } from "@/components/icons";
@@ -115,9 +116,18 @@ export function SshFileManagerHeader({
 
       {showMkdir && (
         <div className="mt-2 flex gap-1.5">
-          <input value={mkdirName} aria-label={t("sshFileManager.folderName")} onChange={(e) => setMkdirName(e.target.value)} onKeyDown={(e) => e.key ==="Enter" && onMkdir()} placeholder={t("sshFileManager.folderName")} className={cn(UI_INPUT,"min-h-9 min-w-0 flex-1 py-1 text-xs")} autoFocus />
+          <input value={mkdirName} aria-label={t("sshFileManager.folderName")} onChange={(e) => setMkdirName(e.target.value)}
+            onKeyDown={(e) => {
+              if (isImeComposition(e)) return;
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onMkdir();
+              }
+            }}
+            autoCapitalize="none" autoCorrect="off" spellCheck={false}
+            placeholder={t("sshFileManager.folderName")} className={cn(UI_INPUT,"min-h-9 min-w-0 flex-1 py-1 text-xs")} autoFocus />
           <ActionButton type="button" variant="outline" onClick={onMkdir} aria-label={t("common.confirm")} data-tone="cyan" size="sm" square className="shrink-0">✓</ActionButton>
-          <button type="button" onClick={() => { setShowMkdir(false); setMkdirName(""); }} aria-label={t("common.cancel")} className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--border)] px-2 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)]"><X size={16} aria-hidden /></button>
+          <ActionButton size="sm" square variant="secondary" onClick={() => { setShowMkdir(false); setMkdirName(""); }} aria-label={t("common.cancel")} className="shrink-0"><X size={16} aria-hidden /></ActionButton>
         </div>
       )}
     </div>

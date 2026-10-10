@@ -1428,6 +1428,7 @@ model DeploymentRun {
   @@index([templateId])
   @@index([commandRequestId])
   @@map("deployment_runs")
+  capturedSnapshot DeploymentSnapshot? @relation("deploymentSnapshotCapturedFrom")
 }
 
 model DeploymentSnapshot {
@@ -1444,6 +1445,10 @@ model DeploymentSnapshot {
 
   sourceRun    DeploymentRun?          @relation("deploymentSnapshotSource")
   rollbackRuns DeploymentRollbackRun[]
+  /// The run this snapshot was captured from (deployment_snapshots_sourceRunId_fkey).
+  /// The FK has always existed in the database; modelling it keeps a generated
+  /// migration from dropping it.
+  capturedFromRun DeploymentRun? @relation("deploymentSnapshotCapturedFrom", fields: [sourceRunId], references: [id], onDelete: SetNull)
 
   @@index([templateId, createdAt])
   @@index([createdAt])

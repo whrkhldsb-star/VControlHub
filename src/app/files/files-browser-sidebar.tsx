@@ -33,7 +33,7 @@ export function FilesBrowserSidebar({
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-[var(--text-primary)]">
+          <h2 className="ui-title-section">
             {t("filesBrowserSpa.directoryTree")}
           </h2>
         </div>
@@ -41,7 +41,7 @@ export function FilesBrowserSidebar({
 
       {data.nodes.length > 1 ? (
         <div className="mt-4 flex flex-col gap-1.5">
-          <label className="text-xs text-[var(--text-secondary)]">
+          <label className="ui-label">
             {t("filesBrowserSpa.filterByNode")}
           </label>
           <NodeFilterSelect

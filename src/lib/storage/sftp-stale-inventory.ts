@@ -28,6 +28,7 @@ import {
   computeRelativePath,
   withDirectoryTimeout,
 } from "@/lib/storage/sftp-walk-utils";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 const logger = createLogger("sftp-stale-inventory");
 const DB_ENTRY_PAGE_SIZE = 2_000;
@@ -56,7 +57,7 @@ const SFTP_STALE_INVENTORY_NODE_SELECT = {
       operatingSystem: true,
       password: true,
       hostKeySha256: true,
-      sshKey: { select: { privateKey: true } },
+      sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
     },
   },
 } as const;
@@ -82,7 +83,7 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
         operatingSystem: true;
         password: true;
         hostKeySha256: true;
-        sshKey: { select: { privateKey: true } };
+        sshKey: { select: typeof SSH_KEY_CREDENTIAL_SELECT };
       };
     };
   };

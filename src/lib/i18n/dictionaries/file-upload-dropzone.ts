@@ -65,8 +65,6 @@ export const zh: Record<string, string> = {
   "fileUploadDropzone.selectStorageNode": "请选择存储节点",
   "fileUploadDropzone.selectFolderAriaLabel": "选择整个文件夹",
   "fileUploadDropzone.selectFolder": "选择文件夹",
-  "fileUploadDropzone.folderHelpText":
-    "主按钮可多选文件；文件夹模式会保留浏览器提供的子目录结构。",
   "fileUploadDropzone.pathPlaceholder": "docs 或 media/videos",
   "fileUploadDropzone.errorNoNode": "请先选择存储节点。",
   "fileUploadDropzone.errorUnsupportedNode":
@@ -78,19 +76,12 @@ export const zh: Record<string, string> = {
   "fileUploadDropzone.pathError.dotSegments": "路径不能包含 . 或 ..",
   "fileUploadDropzone.pathError.segmentTooLong": "路径段过长",
   "fileUploadDropzone.pathError.pathTooLong": "路径过长",
-  "fileUploadDropzone.queue.pending": "等待上传",
-  "fileUploadDropzone.queue.uploading": "上传中…",
-  "fileUploadDropzone.queue.completed": "完成：{path}",
-  "fileUploadDropzone.queue.failed": "失败：{message}",
   "fileUploadDropzone.summary.singleSuccess": "上传完成：{path}（{size} B）",
   "fileUploadDropzone.summary.allSuccess": "上传完成 {success}/{total} 个文件",
   "fileUploadDropzone.summary.partialSuccess":
     "上传完成 {success}/{total} 个文件，{failure} 个失败",
   "fileUploadDropzone.summary.failed":
     "上传失败：{failure}/{total} 个文件未上传",
-  "fileUploadDropzone.dropzone.uploadingHint": "上传中，请稍候...",
-  "fileUploadDropzone.dropzone.readyHint":
-    "可拖拽或选择多个文件上传，文件夹请切换下方模式。",
   "fileUploadDropzone.status.pending": "等待",
   "fileUploadDropzone.status.uploading": "上传中",
   "fileUploadDropzone.status.success": "完成",
@@ -124,10 +115,7 @@ export const zh: Record<string, string> = {
     "没有文件编辑权限，无法新建文件夹",
   "filesBrowserSpa.cannotCreateFolderNoNode":
     "当前没有可用的存储节点，无法新建文件夹",
-  "filesBrowserSpa.hierarchyDescription":
-    "按层级展开所有已登记目录，便于快速跳转。",
   "filesBrowserSpa.allNodes": "全部节点",
-  "filesBrowserSpa.currentDirectoryOps": "当前目录操作",
   "filesBrowserSpa.searchLabel": "搜索",
 
   "fileListClient.emptyFolder": "当前目录暂无内容。",
@@ -144,6 +132,7 @@ export const zh: Record<string, string> = {
   "fileListClient.source": "来源",
   "fileListClient.modified": "修改时间",
   "fileListClient.listView": "列表视图",
+  "fileListClient.viewMode": "视图方式",
   "fileListClient.iconView": "图标视图",
   "fileListClient.detailView": "详情视图",
   "fileListClient.actions": "操作",
@@ -168,6 +157,8 @@ export const zh: Record<string, string> = {
   "filesBrowserSpa.searchResults":
     '搜索 "{query}" - 在{scope}找到 {count} 个结果',
   "filesBrowserSpa.searchModeFilename": "文件名",
+  "filesBrowserSpa.searchModeLabel": "搜索方式",
+  "filesBrowserSpa.searchScopeLabel": "搜索范围",
   "filesBrowserSpa.searchModeContent": "内容",
   "filesBrowserSpa.contentSearchPlaceholder": "输入关键词搜索文件内容…",
   "filesBrowserSpa.contentSearching": "搜索中…",
@@ -239,8 +230,6 @@ export const en: Record<string, string> = {
   "fileUploadDropzone.selectStorageNode": "Select a storage node",
   "fileUploadDropzone.selectFolderAriaLabel": "Select an entire folder",
   "fileUploadDropzone.selectFolder": "Select folder",
-  "fileUploadDropzone.folderHelpText":
-    "The main button accepts multiple files; folder mode preserves the relative subdirectory structure provided by the browser.",
   "fileUploadDropzone.pathPlaceholder": "docs or media/videos",
   "fileUploadDropzone.errorNoNode": "Select a storage node first.",
   "fileUploadDropzone.errorUnsupportedNode":
@@ -254,19 +243,12 @@ export const en: Record<string, string> = {
   "fileUploadDropzone.pathError.dotSegments": "Path cannot contain . or ..",
   "fileUploadDropzone.pathError.segmentTooLong": "Path segment is too long",
   "fileUploadDropzone.pathError.pathTooLong": "Path is too long",
-  "fileUploadDropzone.queue.pending": "Waiting to upload",
-  "fileUploadDropzone.queue.uploading": "Uploading…",
-  "fileUploadDropzone.queue.completed": "Completed: {path}",
-  "fileUploadDropzone.queue.failed": "Failed: {message}",
   "fileUploadDropzone.summary.singleSuccess": "Uploaded: {path} ({size} B)",
   "fileUploadDropzone.summary.allSuccess": "Uploaded {success}/{total} files",
   "fileUploadDropzone.summary.partialSuccess":
     "Uploaded {success}/{total} files, {failure} failed",
   "fileUploadDropzone.summary.failed":
     "Upload failed: {failure}/{total} files were not uploaded",
-  "fileUploadDropzone.dropzone.uploadingHint": "Uploading, please wait...",
-  "fileUploadDropzone.dropzone.readyHint":
-    "Drag files here or select multiple files; use folder mode below for folders.",
   "fileUploadDropzone.status.pending": "Waiting",
   "fileUploadDropzone.status.uploading": "Uploading",
   "fileUploadDropzone.status.success": "Done",
@@ -302,10 +284,7 @@ export const en: Record<string, string> = {
     "No file edit permission, cannot create folder",
   "filesBrowserSpa.cannotCreateFolderNoNode":
     "No storage node available, cannot create folder",
-  "filesBrowserSpa.hierarchyDescription":
-    "Expand all registered directories hierarchically for quick navigation.",
   "filesBrowserSpa.allNodes": "All nodes",
-  "filesBrowserSpa.currentDirectoryOps": "Current directory operations",
   "filesBrowserSpa.searchLabel": "Search",
 
   "fileListClient.emptyFolder": "Current folder is empty.",
@@ -322,6 +301,7 @@ export const en: Record<string, string> = {
   "fileListClient.source": "Source",
   "fileListClient.modified": "Modified",
   "fileListClient.listView": "List view",
+  "fileListClient.viewMode": "View",
   "fileListClient.iconView": "Icon view",
   "fileListClient.detailView": "Detail view",
   "fileListClient.actions": "Actions",
@@ -346,6 +326,8 @@ export const en: Record<string, string> = {
   "filesBrowserSpa.searchResults":
     'Searched "{query}" - found {count} results in {scope}',
   "filesBrowserSpa.searchModeFilename": "Filename",
+  "filesBrowserSpa.searchModeLabel": "Search by",
+  "filesBrowserSpa.searchScopeLabel": "Search scope",
   "filesBrowserSpa.searchModeContent": "Content",
   "filesBrowserSpa.contentSearchPlaceholder": "Search file contents…",
   "filesBrowserSpa.contentSearching": "Searching…",

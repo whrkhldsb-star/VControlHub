@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/components/toast-provider";
-import { Notice } from "@/components/ui-primitives";
+import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { api } from "@/lib/http/api-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { UI_INPUT } from "@/lib/ui/classes";
+import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { ServerTargetPicker, type ServerTarget } from "./server-target-picker";
 
 export type CommandTargetOption = {
@@ -107,39 +107,28 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 		<>
 		<form onSubmit={submit} className="space-y-5" aria-label={t("serversPage.command.title")}>
 			<div>
-				<h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("serversPage.command.title")}</h2>
+				<h2 className="ui-title-section">{t("serversPage.command.title")}</h2>
 				<p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">{t("serversPage.command.desc")}</p>
 			</div>
-			<fieldset className="space-y-2">
-				<legend className="text-sm font-medium text-[var(--text-secondary)]">{t("serversPage.command.modeLabel")}</legend>
-				<div data-inset className="inline-flex max-w-full p-1">
-					<button
-						type="button"
-						onClick={() => setApprovalRequired(true)}
-						aria-pressed={approvalRequired}
-						className={`rounded-md px-3 py-2 text-sm font-medium transition ${approvalRequired ? "bg-[var(--accent-bg)] text-[var(--accent)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
-					>
-						{t("serversPage.command.modeApproval")}
-					</button>
-					{allowDirectExecution ? (
-						<button
-							type="button"
-							onClick={() => setApprovalRequired(false)}
-							aria-pressed={!approvalRequired}
-							className={`rounded-md px-3 py-2 text-sm font-medium transition ${!approvalRequired ? "bg-[var(--warning-bg)] text-[var(--warning)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
-						>
-							{t("serversPage.command.modeDirect")}
-						</button>
-					) : null}
-				</div>
-			</fieldset>
+			<div className="space-y-2">
+				<span className={UI_LABEL}>{t("serversPage.command.modeLabel")}</span>
+				<SegmentedControl
+					ariaLabel={t("serversPage.command.modeLabel")}
+					value={approvalRequired ? "approval" : "direct"}
+					onChange={(value) => setApprovalRequired(value === "approval")}
+					options={[
+						{ value: "approval", label: t("serversPage.command.modeApproval") },
+						...(allowDirectExecution ? [{ value: "direct" as const, label: t("serversPage.command.modeDirect"), tone: "warning" as const }] : []),
+					]}
+				/>
+			</div>
 			<Notice tone={approvalRequired ? "info" : "warning"}>
 				{t(approvalRequired ? "serversPage.command.approvalNotice" : "serversPage.command.executionNotice")}
 			</Notice>
 			{error ? <Notice tone="danger">{error}</Notice> : null}
 
 			<div className="grid gap-4 lg:grid-cols-2">
-				<label className="grid gap-1.5 text-sm text-[var(--text-secondary)]">
+				<label className="ui-label grid gap-1.5">
 					<span>{t("serversPage.command.titleLabel")}</span>
 					<input
 						value={title}
@@ -150,7 +139,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 						className={UI_INPUT}
 					/>
 				</label>
-				<label className="grid gap-1.5 text-sm text-[var(--text-secondary)]">
+				<label className="ui-label grid gap-1.5">
 					<span>{t("serversPage.command.reasonLabel")}</span>
 					<input
 						value={reason}
@@ -162,7 +151,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 				</label>
 			</div>
 
-			<label className="grid gap-1.5 text-sm text-[var(--text-secondary)]">
+			<label className="ui-label grid gap-1.5">
 				<span>{t("serversPage.command.bodyLabel")}</span>
 				<textarea
 					value={command}
@@ -179,7 +168,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 			{remoteTargets ? <ServerTargetPicker kind="command" selected={remoteSelection.filter((row) => selectedIds.has(row.id))}
 				onChange={(rows) => { setRemoteSelection(rows); setSelectedIds(new Set(rows.map((row) => row.id))); }} /> : <fieldset className="space-y-3">
 				<div className="flex flex-wrap items-center justify-between gap-3">
-					<legend className="text-sm font-medium text-[var(--text-secondary)]">{t("serversPage.command.targetNodes")}</legend>
+					<legend className="ui-label">{t("serversPage.command.targetNodes")}</legend>
 					<ActionButton size="sm"
 						variant="secondary"
 						onClick={() => setSelectedIds(allSelected ? new Set() : new Set(availableServers.map((server) => server.id)))}>
@@ -188,7 +177,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 				</div>
 				<div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
 					{servers.map((server) => (
-						<label key={server.id} className={`flex min-w-0 items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 ${server.available === false ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-[var(--surface-elevated)]"}`}>
+						<label key={server.id} data-tile="" data-selected={selectedIds.has(server.id) ? "" : undefined} className={`flex min-w-0 items-start gap-3 p-3 transition ${server.available === false ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
 							<input
 								type="checkbox"
 								disabled={server.available === false}
@@ -225,7 +214,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 					<p>{t("serversPage.command.directConfirmDesc", { count: selectedIds.size })}</p>
 					<div><span className="font-medium text-[var(--text-primary)]">{t("serversPage.command.targetNodes")}</span><p className="mt-1">{selectedNames.join(", ")}</p></div>
 					<div><span className="font-medium text-[var(--text-primary)]">{t("serversPage.command.reasonLabel")}</span><p className="mt-1">{reason.trim() || t("serversPage.command.noReason")}</p></div>
-					<code className="block max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-primary)]">{command.trim()}</code>
+					<code data-inset="" className="block max-h-48 overflow-auto whitespace-pre-wrap break-all p-3 font-mono text-xs text-[var(--text-primary)]">{command.trim()}</code>
 				</div>
 			)}
 			cancelLabel={t("common.cancel")}

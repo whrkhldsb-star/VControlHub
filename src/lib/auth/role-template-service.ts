@@ -57,8 +57,6 @@ export const roleTemplateInputSchema = z.object({
   serverAccess: z.array(roleTemplateServerGrantSchema).max(5000).default([]),
 });
 
-export type RoleTemplateInput = z.infer<typeof roleTemplateInputSchema>;
-
 function serialize(row: {
   id: string;
   name: string;
@@ -173,18 +171,26 @@ async function validateInput(input: unknown, teamId: string, expectedKind?: Role
 }
 
 const COMMON_TEMPLATES = [
-  { id: "builtin:viewer", name: "只读观察员", description: "查看服务器、云盘和审计信息", roleKeys: ["viewer"] },
-  { id: "builtin:operator", name: "日常运维", description: "服务器连接、执行任务和文件维护", roleKeys: ["operator"] },
-  { id: "builtin:storage_manager", name: "云盘管理员", description: "管理云盘节点、文件与分享", roleKeys: ["storage_manager"] },
+  { id: "builtin:viewer", roleKeys: ["viewer"] },
+  { id: "builtin:operator", roleKeys: ["operator"] },
+  { id: "builtin:storage_manager", roleKeys: ["storage_manager"] },
 ] as const;
 
-export const DEFAULT_WORKSPACE_POLICY_GROUPS = COMMON_TEMPLATES.map((template) => ({
-  key: template.id.slice("builtin:".length),
-  name: template.name,
-  description: template.description,
-  roleKeys: [] as string[],
-  permissions: getPermissionsFromRoles([template.roleKeys[0] as RoleKey]).filter((permission) => GROUP_PERMISSIONS.has(permission)),
-}));
+/** Preset names follow the language of the request that lists or creates them. */
+function presetText(id: (typeof COMMON_TEMPLATES)[number]["id"]) {
+  const key = id.slice("builtin:".length);
+  return { name: t(`backend.roleTemplate.preset.${key}.name`), description: t(`backend.roleTemplate.preset.${key}.description`) };
+}
+
+/** Policy groups seeded into a new workspace, named in its creator's language. */
+export function defaultWorkspacePolicyGroups() {
+  return COMMON_TEMPLATES.map((template) => ({
+    key: template.id.slice("builtin:".length),
+    ...presetText(template.id),
+    roleKeys: [] as string[],
+    permissions: getPermissionsFromRoles([template.roleKeys[0] as RoleKey]).filter((permission) => GROUP_PERMISSIONS.has(permission)),
+  }));
+}
 
 export function defaultWorkspacePolicyGroupId(teamId: string, key: string) {
   return `policy:${teamId}:${key}`;
@@ -201,7 +207,7 @@ export async function listRoleTemplates(teamId: string | null, kind: RoleTemplat
   });
   return [
     ...(kind === "ACCOUNT_TEMPLATE" ? COMMON_TEMPLATES.map((preset) => ({
-      ...preset, description: preset.description, roleKeys: [...preset.roleKeys],
+      ...preset, ...presetText(preset.id), roleKeys: [...preset.roleKeys],
       permissions: [] as string[], storageAccess: [], serverAccess: [],
       kind: "ACCOUNT_TEMPLATE" as const,
       isBuiltin: true, teamId: null, createdBy: null,

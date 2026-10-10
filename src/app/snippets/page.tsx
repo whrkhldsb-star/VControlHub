@@ -16,7 +16,7 @@ export default async function Page() {
 	}));
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("snippetsPage.eyebrow", locale)}
 				title={t("snippetsPage.pageTitle", locale)}

@@ -5,8 +5,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
-import { Notice } from "@/components/ui-primitives";
-import { UI_INPUT } from "@/lib/ui/classes";
+import { Notice, SegmentedControl } from "@/components/ui-primitives";
+import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 
 export type ContentSearchHit = {
@@ -136,68 +136,36 @@ export function UnifiedFileSearch({
 			{/* Mode + scope selector row */}
 			<div className="flex flex-wrap items-center gap-2">
 				{/* Mode toggle: filename vs content */}
-				<div data-inset className="flex gap-1 p-1">
-					<button
-						type="button"
-						onClick={() => changeMode("filename")}
-						aria-pressed={mode === "filename"}
-						className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-							mode === "filename"
-								? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-								: "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-						}`}
-					>
-						{t("filesBrowserSpa.searchModeFilename")}
-					</button>
-					<button
-						type="button"
-						onClick={() => changeMode("content")}
-						aria-pressed={mode === "content"}
-						className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-							mode === "content"
-								? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-								: "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-						}`}
-					>
-						{t("filesBrowserSpa.searchModeContent")}
-					</button>
-				</div>
+				<SegmentedControl
+					size="sm"
+					ariaLabel={t("filesBrowserSpa.searchModeLabel")}
+					value={mode}
+					onChange={changeMode}
+					options={[
+						{ value: "filename", label: t("filesBrowserSpa.searchModeFilename") },
+						{ value: "content", label: t("filesBrowserSpa.searchModeContent") },
+					]}
+				/>
 
 				{/* Scope toggle: only visible in filename mode */}
 				{mode === "filename" && (
-					<div data-inset className="flex gap-1 p-1">
-						<button
-							type="button"
-							onClick={() => setScope("current")}
-							aria-pressed={scope === "current"}
-							className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-								scope === "current"
-									? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-									: "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-							}`}
-						>
-							{t("filesPage.searchScope.current")}
-						</button>
-						<button
-							type="button"
-							onClick={() => setScope("all")}
-							aria-pressed={scope === "all"}
-							className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-								scope === "all"
-									? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-									: "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-							}`}
-						>
-							{t("filesPage.searchScope.all")}
-						</button>
-					</div>
+					<SegmentedControl
+						size="sm"
+						ariaLabel={t("filesBrowserSpa.searchScopeLabel")}
+						value={scope}
+						onChange={setScope}
+						options={[
+							{ value: "current", label: t("filesPage.searchScope.current") },
+							{ value: "all", label: t("filesPage.searchScope.all") },
+						]}
+					/>
 				)}
 			</div>
 
 			{/* Search input + button */}
 			<form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
 				<div className="flex flex-1 flex-col gap-1">
-					<label htmlFor="files-search-query" className="text-xs font-medium text-[var(--text-secondary)]">
+					<label htmlFor="files-search-query" className={UI_LABEL}>
 						{mode === "filename"
 							? t("filesBrowserSpa.searchFileName")
 							: t("filesBrowserSpa.searchModeContent")}

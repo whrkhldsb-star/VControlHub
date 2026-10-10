@@ -197,18 +197,6 @@ export const hostedActionDecisionSchema = z
 
 // === Inferred types (re-exported so route files can `import { type X }`) ===
 
-export type CreateProviderInputWire = z.infer<typeof createProviderSchema>;
 export type UpdateProviderInputWire = z.infer<typeof updateProviderSchema>;
-export type CreateConversationInputWire = z.infer<
-  typeof createConversationSchema
->;
-export type UpdateConversationInputWire = z.infer<
-  typeof updateConversationSchema
->;
-export type AiModelsQuery = z.infer<typeof aiModelsQuerySchema>;
-export type ProbeModelsBody = z.infer<typeof probeModelsSchema>;
 export type ChatRequestBody = z.infer<typeof chatRequestSchema>;
-export type HostedActionDecisionBody = z.infer<
-  typeof hostedActionDecisionSchema
->;
 export type AiProviderType = z.infer<typeof aiProviderTypeSchema>;

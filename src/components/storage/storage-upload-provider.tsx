@@ -19,7 +19,8 @@ import {
 } from "@/components/icons";
 import { StorageUploadQueue } from "./storage-upload-queue";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
+import { IconButton } from "@/components/ui-primitives";
 
 const Context = createContext<StorageUploadQueue | null>(null);
 const OpenQueueContext = createContext<(() => void) | null>(null);
@@ -211,36 +212,20 @@ export function StorageUploadProvider({
       <OpenQueueContext.Provider value={() => setOpen(true)}>
         {children}
       </OpenQueueContext.Provider>
-      <ModalShell
+      <Dialog
         size="xl"
         open={open}
         onClose={() => setOpen(false)}
-        label={t("storageUpload.title")}
+        title={t("storageUpload.title")}
+        closeLabel={t("storageUpload.close")}
+        headerActions={
+          <IconButton label={t("storageUpload.clear")} onClick={() => queue.clearFinished()} className="h-8 w-8">
+            <Trash2 size={16} aria-hidden />
+          </IconButton>
+        }
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="font-semibold">{t("storageUpload.title")}</h2>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              title={t("storageUpload.clear")}
-              aria-label={t("storageUpload.clear")}
-              onClick={() => queue.clearFinished()}
-              className="p-2"
-            >
-              <Trash2 size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label={t("storageUpload.close")}
-              onClick={() => setOpen(false)}
-              className="p-2"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </div>
         <UploadQueueItems queue={queue} />
-      </ModalShell>
+      </Dialog>
     </Context.Provider>
   );
 }

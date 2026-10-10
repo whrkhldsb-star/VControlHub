@@ -3,7 +3,6 @@
  */
 
 export const zh = {
-	"vpsBackupApi.errorForbidden": "权限不足",
 	"vpsBackupApi.errorCreateFailed": "创建备份计划失败",
 	"vpsBackupApi.errorUpdateFailed": "更新备份计划失败",
 	"vpsBackupApi.errorDeleteFailed": "删除备份计划失败",
@@ -23,7 +22,6 @@ export const zh = {
 };
 
 export const en = {
-	"vpsBackupApi.errorForbidden": "Insufficient permissions",
 	"vpsBackupApi.errorCreateFailed": "Failed to create backup schedule",
 	"vpsBackupApi.errorUpdateFailed": "Failed to update backup schedule",
 	"vpsBackupApi.errorDeleteFailed": "Failed to delete backup schedule",

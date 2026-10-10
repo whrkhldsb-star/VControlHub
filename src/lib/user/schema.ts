@@ -13,12 +13,10 @@ export const createUserSchema = z.object({
   displayName: z.string().trim().max(80, "Display name must be at most 80 characters").optional(),
   roleKeys: z.array(z.string()).max(20).optional(),
 });
-export type CreateUserInput = z.infer<typeof createUserSchema>;
 
 /* ── PATCH /api/users ────────────────────────────────────────────────── */
 
 export const USER_PATCH_ACTIONS = ["disable", "enable", "reset_password"] as const;
-export type UserPatchAction = (typeof USER_PATCH_ACTIONS)[number];
 
 export const updateUserSchema = z
   .object({
@@ -43,4 +41,3 @@ export const updateUserSchema = z
     (data) => data.action !== "reset_password" || Boolean(data.newPassword),
     { message: "reset_password must provide newPassword", path: ["newPassword"] },
   );
-export type UpdateUserInput = z.infer<typeof updateUserSchema>;

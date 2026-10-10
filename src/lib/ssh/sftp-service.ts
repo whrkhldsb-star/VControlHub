@@ -22,10 +22,7 @@ import {
 } from "@/lib/ssh/client";
 import type { Stats } from "ssh2";
 import { Readable, PassThrough } from "node:stream";
-import {
-  assertDirectCredentialsConfigured,
-  loadEnabledServerForSsh,
-} from "@/lib/ssh/server-target";
+import { loadEnabledServerForSftp } from "@/lib/ssh/server-target";
 import { createLogger } from "@/lib/logging";
 import {
   AppError,
@@ -96,16 +93,6 @@ export type SftpDirEntry = {
   group: number;
 };
 
-export type SftpStat = {
-  mode: number;
-  size: number;
-  isDirectory: boolean;
-  isFile: boolean;
-  isSymlink: boolean;
-  modifyTime: number;
-  accessTime: number;
-};
-
 type ResolvedConnection = {
   host: string;
   port: number;
@@ -167,16 +154,13 @@ export function sanitizeFileName(raw: string): string {
 // ── Connection resolution ──────────────────────────────────────────
 
 async function resolveServerConnection(serverId: string): Promise<ResolvedConnection> {
-  // Unified SSH-target loader: typed not-found/disabled errors, credential
-  // presence checks, and one decryption path shared with every other module.
-  const { server, ssh } = await loadEnabledServerForSsh(serverId);
-  assertDirectCredentialsConfigured(server);
+  const { ssh } = await loadEnabledServerForSftp(serverId);
   return {
-    host: server.host,
-    port: server.port,
-    username: server.username,
-    connectionType: server.connectionType,
-    hostKeySha256: server.hostKeySha256,
+    host: ssh.host,
+    port: ssh.port ?? 22,
+    username: ssh.username,
+    connectionType: ssh.privateKey ? "SSH_KEY" : "PASSWORD",
+    hostKeySha256: ssh.hostKeySha256,
     ...(ssh.privateKey ? { privateKey: ssh.privateKey } : {}),
     ...(ssh.passphrase ? { passphrase: ssh.passphrase } : {}),
     ...(ssh.password ? { password: ssh.password } : {}),
@@ -304,24 +288,6 @@ export async function listDirectory(
       return a.name.localeCompare(b.name);
   });
   return result;
-}
-
-export async function statEntry(
-  serverId: string,
-  remotePath: string,
-): Promise<SftpStat> {
-  const path = sanitizeRemotePath(remotePath);
-  const conn = await resolveServerConnection(serverId);
-  const stats = await statRemoteEntry({ ...toConnectionParams(conn), remotePath: path });
-  return {
-    mode: stats.mode,
-    size: stats.size,
-    isDirectory: stats.type === "directory",
-    isFile: stats.type === "file",
-    isSymlink: stats.type === "other",
-    modifyTime: Math.floor(stats.modifyTime / 1000),
-    accessTime: Math.floor(stats.accessTime / 1000),
-  };
 }
 
 /**

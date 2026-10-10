@@ -12,6 +12,7 @@ const { mocks } = vi.hoisted(() => ({
     uploadFile: vi.fn(),
     assertSftpPathAccess: vi.fn(),
     auditUserAction: vi.fn(),
+    loadEnabledServerForSftp: vi.fn(async () => ({ rootPath: "/home/deploy" })),
     serverFindUnique: vi.fn(
       async (): Promise<{ id: string; teamId: string | null }> => ({ id: "srv1", teamId: null }),
     ),
@@ -49,6 +50,10 @@ vi.mock("@/lib/ssh/sftp-service", () => ({
   uploadFile: mocks.uploadFile,
   sanitizeRemotePath: (p: string) => p,
   sanitizeFileName: (n: string) => n,
+}));
+
+vi.mock("@/lib/ssh/server-target", () => ({
+  loadEnabledServerForSftp: mocks.loadEnabledServerForSftp,
 }));
 
 vi.mock("@/lib/logging", () => ({
@@ -98,9 +103,19 @@ describe("/api/servers/[id]/sftp/list", () => {
     expect(json.entries[1].name).toBe("bar.txt");
   });
 
-  it("returns 400 for missing path", async () => {
+  it("lists the account's start directory when no path is given", async () => {
+    mocks.listDirectory.mockResolvedValue([]);
     const res = await listRoute.POST(jsonRequest("POST", {}), { params: params() });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ path: "/home/deploy" });
+    expect(mocks.assertSftpPathAccess).toHaveBeenCalledWith(expect.objectContaining({ paths: ["/home/deploy"] }));
+    expect(mocks.listDirectory).toHaveBeenCalledWith("srv1", "/home/deploy");
+  });
+
+  it("returns 400 for an empty path", async () => {
+    const res = await listRoute.POST(jsonRequest("POST", { path: "" }), { params: params() });
     expect(res.status).toBe(400);
+    expect(mocks.listDirectory).not.toHaveBeenCalled();
   });
 
   it("returns 500 when sftp service throws", async () => {

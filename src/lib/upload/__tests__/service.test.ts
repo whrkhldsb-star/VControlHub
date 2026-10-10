@@ -203,6 +203,11 @@ function makePrismaMock() {
 }
 
 vi.mock("@/lib/db", () => ({ prisma: makePrismaMock() }));
+const freeBytes = vi.hoisted(() => ({ value: null as number | null }));
+vi.mock("../limits", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../limits")>()),
+	freeBytesOn: vi.fn(async () => freeBytes.value),
+}));
 
 import {
 	UPLOAD_TMP_DIR,
@@ -252,6 +257,21 @@ describe("initMediaUploadSession", () => {
 		expect(view.receivedChunks).toEqual([]);
 		expect(view.missingChunks.length).toBe(view.totalChunks);
 		expect(view.checksum).toBeNull();
+	});
+
+	it("refuses an upload the temp volume cannot hold", async () => {
+		freeBytes.value = 600 * 1024 * 1024;
+		try {
+			await expect(
+				initMediaUploadSession({ userId: TEST_USER, filename: "big.iso", mimeType: "application/octet-stream", totalSize: 100 * 1024 * 1024 }),
+			).rejects.toMatchObject({ code: "insufficient_storage" });
+			// Small uploads still fit under the same free space.
+			await expect(
+				initMediaUploadSession({ userId: TEST_USER, filename: "small.txt", mimeType: "text/plain", totalSize: 1024 }),
+			).resolves.toMatchObject({ status: "PENDING" });
+		} finally {
+			freeBytes.value = null;
+		}
 	});
 
 	it("rejects oversized totalSize", async () => {

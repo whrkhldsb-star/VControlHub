@@ -432,13 +432,6 @@ export function parseListeningPorts(output: string): Set<number> {
 	return ports;
 }
 
-export async function assertPortAvailable(port: number, label = "Port") {
-	assertTcpPort(port, label);
-	if (!(await isPortAvailable(port))) {
-		throw new ConflictError(apiCopy("apiCopy.is.already.in.use.please.use.a.different.port.and.retry.4305736a", { v0: String(label), v1: String(port) }));
-	}
-}
-
 /**
  * Local hub only: probe and reserve host + template extra ports until docker binds.
  * Callers for remote targets must skip this and probe the VPS instead.
