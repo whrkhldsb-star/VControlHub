@@ -175,10 +175,10 @@ python3 scripts/webdav-http-smoke.py http://127.0.0.1:3000
 | API 路由文件        | 188                                              |
 | 数据模型            | 79                                               |
 | UI 组件           | 66                                               |
-| 代码行数            | ~310,352（src 扫描）                                 |
-| 测试              | 768 文件                                           |
+| 代码行数            | ~310,878（src 扫描）                                 |
+| 测试              | 770 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 278 useI18n() 调用点，88 字典文件                        |
+| i18n            | 278 useI18n() 调用点，89 字典文件                        |
 <!-- README_METRICS_END -->
 
 通过 `npm run readme:metrics:write` 更新。
