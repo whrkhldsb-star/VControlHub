@@ -28,8 +28,8 @@ export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeam
 };
 
 /**
- * True when the actor may see/manage all tenants (global team admin).
- * Used by user-directory scoping and other cross-user surfaces.
+ * True for a platform administrator: it may see and manage every customer.
+ * Used by user-directory scoping and other cross-customer surfaces.
  */
 export function isGlobalTeamManager(session: TeamSession): boolean {
 	return session.roles?.includes("admin") === true;
@@ -64,6 +64,16 @@ export function teamWhere(session: TeamSession): Record<string, unknown> {
  */
 export function teamScopeWhere(session?: TeamSession | null): Record<string, unknown> {
 	return session ? teamWhere(session) : {};
+}
+
+/**
+ * Rows that still belong to the live service: those of a live customer plus
+ * null-team legacy rows. A deleted customer (`Team.deletedAt` set) keeps its
+ * rows for ownership history, so health checks and status summaries must not
+ * count or probe them. Spread into a `where` on any model with a `team` relation.
+ */
+export function liveCustomerRowsWhere(): Record<string, unknown> {
+	return { OR: [{ teamId: null }, { team: { deletedAt: null } }] };
 }
 
 /**
@@ -136,25 +146,23 @@ export const imageTeamWhere = strictCustomerScope("images");
 
 /** A storage node is a file-data security root: it carries the SFTP/WebDAV
  * backing credentials and every byte the hub can read or write on it. A null
- * teamId is quarantined legacy data — under the loose {@link teamWhere} any
- * tenant's storage_manager (or their API token via WebDAV) could open, upload
- * to, or share an unassigned node by id. Quarantine it to global managers,
- * mirroring {@link serverTeamWhere} and the share-link service's node filter. */
+ * teamId is quarantined legacy data that only a platform administrator viewing
+ * all customers may open, upload to or share. Mirrors {@link serverTeamWhere}
+ * and the share-link service's node filter. */
 export const storageNodeTeamWhere = strictCustomerScope("storage_nodes");
 
 /** A share link publishes a storage path on a node (and its access logs expose
- * downloader IPs/UAs). A null teamId is quarantined legacy data — under the
- * loose {@link teamWhere} every tenant's managers could list, read access
- * analytics for, and revoke another tenant's unassigned links. Mirrors
+ * downloader IPs/UAs). A null teamId is quarantined legacy data: no customer
+ * may list, read access analytics for, or revoke an unassigned link. Mirrors
  * {@link serverTeamWhere}. */
 export const shareLinkTeamWhere = strictCustomerScope("share_links");
 
 /**
  * Prisma `where` for listing users in the directory UI/API.
  *
- * - `team:manage` → full directory
- * - current team set → self + members of that team
- * - no team context → self only (prevents global user enumeration)
+ * - platform administrator → full directory
+ * - customer account → self + the accounts of its customer
+ * - account without a customer → self only (prevents global user enumeration)
  */
 export function userDirectoryWhere(session: TeamSession): Record<string, unknown> {
 	if (isGlobalTeamManager(session)) {
@@ -197,7 +205,8 @@ export async function assertUserInActorScope(
 
 /**
  * When creating a record, use this to set the teamId on the new record.
- * An active workspace is required for every user-created tenant record.
+ * Every user-created tenant record needs a selected customer: an administrator
+ * in "all customers" mode must pick one first.
  */
 export function teamCreateData(
 	session: Pick<SessionPayload, "currentTeamId">,

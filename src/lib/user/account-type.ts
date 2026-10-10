@@ -6,7 +6,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
-import { setCustomerMembership } from "@/lib/team/service";
+import { applyCustomerMembership, assertPlatformAdmin, resolveCustomerMembershipTarget } from "@/lib/team/service";
 import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "./admin-invariant";
 
 export type AccountTypeInput =
@@ -34,15 +34,30 @@ async function makePlatformAdmin(userId: string) {
   ]);
 }
 
+/**
+ * Make the account a customer account of `teamId`. Every check runs before
+ * the first write, and the role removal and the membership land in one
+ * transaction: a failure never leaves an account without roles and without
+ * a customer.
+ */
+async function makeCustomerAccount(userId: string, teamId: string, identityTemplateId: string | null | undefined) {
+  const target = await resolveCustomerMembershipTarget(teamId, identityTemplateId);
+  // Demoting an administrator must leave at least one active administrator.
+  await withAdminInvariantLock(async () => {
+    await assertAdminAccessMayBeRemoved(userId);
+    await prisma.$transaction(async (tx) => {
+      await tx.userRole.deleteMany({ where: { userId } });
+      await applyCustomerMembership(tx, { userId, ...target });
+    });
+  });
+}
+
+/** The caller audits the change (`user.permission_update` carries the account input). */
 export async function setAccountType(userId: string, input: AccountTypeInput, session: SessionPayload) {
+  assertPlatformAdmin(session);
   if (input.type === "admin") {
     await makePlatformAdmin(userId);
     return;
   }
-  // Demoting an administrator must leave at least one active administrator.
-  await withAdminInvariantLock(async () => {
-    await assertAdminAccessMayBeRemoved(userId);
-    await prisma.userRole.deleteMany({ where: { userId } });
-  });
-  await setCustomerMembership({ userId, teamId: input.teamId, identityTemplateId: input.identityTemplateId }, session);
+  await makeCustomerAccount(userId, input.teamId, input.identityTemplateId);
 }

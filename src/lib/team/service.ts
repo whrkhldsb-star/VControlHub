@@ -10,6 +10,8 @@
  * Deletion sets `deletedAt` and keeps every row: the customer's data stays
  * scoped and unreachable, and restoring clears the field.
  */
+import type { Prisma } from "@prisma/client";
+
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -20,7 +22,7 @@ import { tenantStorageBasePath } from "@/lib/storage/path-utils";
 import { DEFAULT_IDENTITY_TEMPLATE_ID } from "@/lib/auth/identity-templates";
 import type { CreateTeamInput, UpdateTeamInput } from "./schema";
 
-function assertPlatformAdmin(session: SessionPayload) {
+export function assertPlatformAdmin(session: SessionPayload) {
   if (!isGlobalTeamManager(session)) throw new ForbiddenError(t("backend.customer.platformOnly"));
 }
 
@@ -152,6 +154,38 @@ export async function restoreTeam(teamId: string, session: SessionPayload) {
   await auditUserAction(session.userId, "team.restore", { teamId, slug: team.slug }, undefined, teamId);
 }
 
+/** The live customer and existing identity template a membership may point at. */
+export async function resolveCustomerMembershipTarget(teamId: string, identityTemplateId?: string | null) {
+  await findLiveCustomer(teamId);
+  const templateId = identityTemplateId || DEFAULT_IDENTITY_TEMPLATE_ID;
+  const template = await prisma.identityTemplate.findUnique({ where: { id: templateId }, select: { id: true } });
+  if (!template) throw new NotFoundError(t("backend.customer.templateNotFound"));
+  return { teamId, identityTemplateId: templateId };
+}
+
+/**
+ * Membership write inside the caller's transaction: moving an account out of
+ * another customer drops the per-server and per-storage rows, which belonged
+ * to the old customer's resources, and the account's login preference follows.
+ */
+export async function applyCustomerMembership(
+  tx: Prisma.TransactionClient,
+  input: { teamId: string; userId: string; identityTemplateId: string },
+) {
+  const previous = await tx.teamMember.findUnique({ where: { userId: input.userId }, select: { teamId: true } });
+  if (previous && previous.teamId !== input.teamId) {
+    await tx.teamMember.delete({ where: { userId: input.userId } });
+    await tx.userServerAccess.deleteMany({ where: { userId: input.userId } });
+    await tx.userStorageAccess.deleteMany({ where: { userId: input.userId } });
+  }
+  await tx.teamMember.upsert({
+    where: { userId: input.userId },
+    create: { teamId: input.teamId, userId: input.userId, identityTemplateId: input.identityTemplateId },
+    update: { identityTemplateId: input.identityTemplateId },
+  });
+  await tx.user.update({ where: { id: input.userId }, data: { currentTeamId: input.teamId } });
+}
+
 /**
  * Put a customer account into a customer with an identity template. An
  * account has at most one customer, so this also moves it between customers.
@@ -161,35 +195,18 @@ export async function setCustomerMembership(
   session: SessionPayload,
 ) {
   assertPlatformAdmin(session);
-  await findLiveCustomer(input.teamId);
+  const target = await resolveCustomerMembershipTarget(input.teamId, input.identityTemplateId);
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
-    select: { id: true, username: true, roles: { select: { role: { select: { key: true } } } } },
+    select: { id: true, roles: { select: { role: { select: { key: true } } } } },
   });
   if (!user) throw new NotFoundError(t("backend.team.userNotFound"));
   if (user.roles.some((entry) => entry.role.key === "admin")) {
     throw new ValidationError(t("backend.customer.adminHasNoCustomer"));
   }
-  const identityTemplateId = input.identityTemplateId || DEFAULT_IDENTITY_TEMPLATE_ID;
-  const template = await prisma.identityTemplate.findUnique({ where: { id: identityTemplateId }, select: { id: true } });
-  if (!template) throw new NotFoundError(t("backend.customer.templateNotFound"));
-  await prisma.$transaction(async (tx) => {
-    const previous = await tx.teamMember.findUnique({ where: { userId: user.id }, select: { teamId: true } });
-    if (previous && previous.teamId !== input.teamId) {
-      // Per-server narrowing belongs to the old customer's servers.
-      await tx.teamMember.delete({ where: { userId: user.id } });
-      await tx.userServerAccess.deleteMany({ where: { userId: user.id } });
-      await tx.userStorageAccess.deleteMany({ where: { userId: user.id } });
-    }
-    await tx.teamMember.upsert({
-      where: { userId: user.id },
-      create: { teamId: input.teamId, userId: user.id, identityTemplateId },
-      update: { identityTemplateId },
-    });
-    await tx.user.update({ where: { id: user.id }, data: { currentTeamId: input.teamId } });
-  });
-  await auditUserAction(session.userId, "team.member.set", { teamId: input.teamId, userId: user.id, identityTemplateId }, undefined, input.teamId);
-  return { teamId: input.teamId, userId: user.id, identityTemplateId };
+  await prisma.$transaction((tx) => applyCustomerMembership(tx, { userId: user.id, ...target }));
+  await auditUserAction(session.userId, "team.member.set", { ...target, userId: user.id }, undefined, target.teamId);
+  return { userId: user.id, ...target };
 }
 
 export async function removeTeamMember(teamId: string, userId: string, session: SessionPayload) {

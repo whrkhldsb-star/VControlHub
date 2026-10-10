@@ -22,6 +22,7 @@
  *   - Every failure is logged; the function never throws.
  */
 
+import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 
@@ -67,12 +68,16 @@ export async function probeAllStaleStorageNodes(): Promise<{
 	const candidates = await prisma.storageNode.findMany({
 		select: { id: true },
 		where: {
-			// Tombstoned workspaces retain data but no longer have live storage.
-			team: { isNot: { slug: { startsWith: "\\_\\_deleted\\_\\_" } } },
-			OR: [
-				{ lastHealthCheckAt: null },
-				{ lastHealthCheckAt: { lt: cutoff } },
-				{ healthStatus: "UNKNOWN" },
+			AND: [
+				// Deleted customers retain data but no longer have live storage.
+				liveCustomerRowsWhere(),
+				{
+					OR: [
+						{ lastHealthCheckAt: null },
+						{ lastHealthCheckAt: { lt: cutoff } },
+						{ healthStatus: "UNKNOWN" },
+					],
+				},
 			],
 		},
 		take: PROBE_BATCH_LIMIT,

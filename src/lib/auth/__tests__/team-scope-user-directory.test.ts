@@ -4,7 +4,6 @@ import type { RoleKey } from "@/lib/auth/rbac";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     sessionHasPermission: vi.fn(),
-    resolveEffectivePermissions: vi.fn(),
     prisma: {
 		user: {
 			findUnique: vi.fn(),
@@ -22,9 +21,6 @@ vi.mock("@/lib/auth/authorization", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: mocks.prisma,
-}));
-vi.mock("@/lib/auth/effective-permissions", () => ({
-	resolveEffectivePermissions: mocks.resolveEffectivePermissions,
 }));
 
 const {

@@ -18,6 +18,8 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Fixed
 
+- Status summaries and the lazy storage health probe excluded retired storage by the old `__deleted__` slug prefix, so storage of a customer deleted after the migration (`Team.deletedAt`) kept raising health warnings and being probed. Both now use the shared `liveCustomerRowsWhere()` filter.
+- Changing an account to a customer account removed its roles before validating the customer and template, and outside the membership transaction; a failure left an account with neither. The checks now run first and both writes share one transaction.
 - Built-in identity templates are created by the seed when missing (databases built with `prisma db push` never ran the migration that inserted them), so creating a customer account no longer fails there.
 - Schema/migration naming drift: 33 constraint and index names left over from early table renames are aligned by an idempotent migration (`20261011110000_constraint_names`); `prisma migrate diff` is now empty.
 - Installer: Caddy comes from the distribution where available and falls back to the upstream repository on Ubuntu 22.04 / Debian 11, which do not package it.

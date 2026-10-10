@@ -21,6 +21,19 @@ type Member = {
 	user: { id: string; username: string; displayName: string | null; status: string };
 };
 type UnassignedAccount = { id: string; username: string; displayName: string | null };
+type DirectoryUser = UnassignedAccount & { accountType: string; customer: unknown };
+type DirectoryPage = { users: DirectoryUser[]; totalPages: number };
+
+/** The directory pages at 100 accounts; walk every page so no account is missing from the picker. */
+async function loadDirectory(): Promise<DirectoryUser[]> {
+	const users: DirectoryUser[] = [];
+	for (let page = 1, totalPages = 1; page <= totalPages && page <= 50; page++) {
+		const data = await csrfFetch<DirectoryPage>(`/api/users?page=${page}&pageSize=100`);
+		users.push(...data.users);
+		totalPages = data.totalPages ?? 1;
+	}
+	return users;
+}
 
 export function CustomerMembersDialog({ customer, onClose, onChanged }: { customer: Customer; onClose: () => void; onChanged: () => void }) {
 	const { t } = useI18n();
@@ -35,14 +48,14 @@ export function CustomerMembersDialog({ customer, onClose, onChanged }: { custom
 
 	const load = useCallback(async () => {
 		try {
-			const [memberData, templateData, userData] = await Promise.all([
+			const [memberData, templateData, directory] = await Promise.all([
 				csrfFetch<{ members: Member[] }>(base),
 				csrfFetch<{ templates: TemplateOption[] }>("/api/identity-templates"),
-				csrfFetch<{ users: Array<UnassignedAccount & { accountType: string; customer: unknown }> }>("/api/users?pageSize=100"),
+				loadDirectory(),
 			]);
 			setMembers(memberData.members);
 			setTemplates(templateData.templates);
-			const free = userData.users.filter((user) => user.accountType === "customer" && !user.customer);
+			const free = directory.filter((user) => user.accountType === "customer" && !user.customer);
 			setUnassigned(free);
 			setAddUserId((current) => current || free[0]?.id || "");
 		} catch (error) {
