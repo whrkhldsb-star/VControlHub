@@ -103,7 +103,7 @@ describe("ScheduledTaskListClient", () => {
       .mockResolvedValueOnce({ tasks: [task] });
 
     render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate canManage />);
-    await actor.click(screen.getByRole("button", { name: "重试" }));
+    await actor.click(screen.getByRole("button", { name: "立即运行" }));
 
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/scheduled-tasks", expect.objectContaining({
       method: "PATCH",
@@ -183,7 +183,7 @@ describe("ScheduledTaskListClient", () => {
       const restore = mockHeightsBySelector({ "min-h-11": 44 });
       try {
         render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate canManage />);
-        const actionButtons = ["重试", "暂停", "删除"];
+        const actionButtons = ["立即运行", "暂停", "删除"];
         for (const label of actionButtons) {
           const btn = screen.getByRole("button", { name: label });
           expect(btn.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);

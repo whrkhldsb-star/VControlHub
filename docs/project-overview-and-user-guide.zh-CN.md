@@ -19,7 +19,7 @@
 8. [远程下载、媒体库与图片外链](#media-downloads)
 9. [命令模板、应用部署与 Docker](#deployment)
 10. [快捷服务与应用目录](#quick-services)
-11. [审批、定时任务、Playbook 与统一任务中心](#automation)
+11. [审批、定时任务、Playbook 与任务中心](#automation)
 12. [监控、健康检查、流量与告警](#observability)
 13. [平台备份、VPS 备份、恢复与迁移](#backup)
 14. [AI 助手、知识库与 AI 运维](#ai)
@@ -64,7 +64,7 @@ VControlHub 是面向个人和小团队的自托管服务器管理与运维平�
 | 内容与传输 | 下载任务、媒体库、图片外链 | 下载到 VPS、音视频播放、图片整理与发布 |
 | 应用运行 | 命令模板、部署记录、Docker、快捷服务 | 模板化部署、容器和 Compose 管理、应用安装及更新 |
 | 自动化 | 审批、定时任务、Playbook、任务中心 | 人工审批、周期执行、多步骤编排和过程追踪 |
-| 观测 | 系统健康、VPS 状态、主机监控、流量、告警 | 查看实时及历史资源、容量趋势、异常与通知 |
+| 观测 | 平台健康、节点状态、主机监控、流量、告警 | 查看实时及历史资源、容量趋势、异常与通知 |
 | 数据保护 | 平台备份、VPS 备份、异地备份、恢复演练、迁移 | 创建备份、校验产物、恢复、保留清理和跨环境转移 |
 | AI | 多提供商对话、托管工具、知识库、AI 运维 | 问答、环境查询、受控执行、知识检索和定期诊断 |
 | 协作 | 工单、ITSM、公告、通知、片段库 | 需求流转、外部消息集成、知识复用与通知触达 |
@@ -134,8 +134,8 @@ VControlHub 是面向个人和小团队的自托管服务器管理与运维平�
 | <a id="feature-f26"></a>`F-26` 手工命令与审批 | 多人远程变更缺乏事前检查和责任记录 | 单台或批量提交命令，单项或批量审核，逐目标查看日志，并在允许状态下请求取消 | [第 11 章](#automation) | [审批操作](../src/app/requests/actions.ts)、[命令业务](../src/lib/command/service.ts) |
 | <a id="feature-f27"></a>`F-27` 定时任务 | 周期维护或预约操作容易遗忘 | 保存 Cron／一次性计划、目标及审批要求，暂停恢复并查看每次生成的执行记录 | [第 11 章](#automation) | [计划服务](../src/lib/scheduled-task/service.ts) |
 | <a id="feature-f28"></a>`F-28` Playbook | 命令、通知和 Webhook 需要有顺序地执行 | 配置多步骤及触发条件，先做 Dry-run，再手工、按计划、指标或告警触发并追踪每步结果 | [第 11 章](#automation) | [步骤模型](../src/lib/playbook/schema.ts)、[步骤执行](../src/lib/playbook/worker.ts) |
-| <a id="feature-f29"></a>`F-29` 统一任务中心 | 后台工作分散在多个模块，排障时缺少总览 | 汇总等待、执行和失败任务，展示事件及失败原因，并跳回具体业务处理 | [第 11 章](#automation) | [任务页面](../src/app/operation-tasks/page.tsx)、[聚合业务](../src/lib/operation-task/) |
-| <a id="feature-f30"></a>`F-30` 平台健康与 VPS 状态 | 控制台自身故障和被管主机故障容易混淆 | 分别显示服务依赖、主机资源、连接与采样状态，让用户定位实际异常对象 | [第 12 章](#observability) | [平台健康](../src/app/health/page.tsx)、[VPS 状态](../src/app/vps-status/page.tsx) |
+| <a id="feature-f29"></a>`F-29` 任务中心 | 后台工作分散在多个模块，排障时缺少总览 | 汇总等待、执行和失败任务，展示事件及失败原因，并跳回具体业务处理 | [第 11 章](#automation) | [任务页面](../src/app/operation-tasks/page.tsx)、[聚合业务](../src/lib/operation-task/) |
+| <a id="feature-f30"></a>`F-30` 平台健康与 节点状态 | 控制台自身故障和被管主机故障容易混淆 | 分别显示服务依赖、主机资源、连接与采样状态，让用户定位实际异常对象 | [第 12 章](#observability) | [平台健康](../src/app/health/page.tsx)、[节点状态](../src/app/vps-status/page.tsx) |
 | <a id="feature-f31"></a>`F-31` 资源、流量、容量与可用率 | 单个当前数值无法解释长期变化 | 查看实时及历史资源、网卡流量、容量趋势和可用率，明确缺失样本与预测依据 | [第 12 章](#observability) | [监控](../src/lib/monitoring/)、[容量与健康](../src/lib/health/)、[可用率](../src/lib/uptime/) |
 | <a id="feature-f32"></a>`F-32` 告警与事件 | 异常无人发现，或重复通知太多 | 设置阈值与持续时间，通过冷却、静默、值班、确认及升级组织通知，并联动受控 Playbook | [第 12 章](#observability) | [告警规则](../src/app/api/alert-rules/route.ts)、[事件处理](../src/lib/alert/incidents.ts) |
 | <a id="feature-f33"></a>`F-33` 平台备份与迁移 | 控制台损坏或换机时缺少重建材料 | 按数据库、文件或完整范围备份，校验、保留、恢复和导出迁移包，保护密钥及配置 | [第 13 章](#backup) | [备份恢复](../src/lib/backup/service-runtime.ts)、[迁移入口](../src/app/api/backups/migration/route.ts) |
@@ -216,7 +216,7 @@ VControlHub 是面向个人和小团队的自托管服务器管理与运维平�
 5. 打开浏览器终端执行一次只读检查，确认账号和 shell 可用。
 6. 为服务器配置云盘根目录，或添加本地／外部 WebDAV 存储节点。
 7. 在文件页上传一个测试文件，验证浏览、下载、预览与权限。
-8. 查看 VPS 状态、系统健康，配置告警规则和实际通知渠道。
+8. 查看 节点状态、平台健康，配置告警规则和实际通知渠道。
 9. 建立备份计划，查看一次成功记录并执行产物校验或独立恢复验证。
 10. 根据需要启用快捷服务、Playbook、AI、异地备份与外部集成。
 
@@ -261,7 +261,7 @@ VControlHub 是面向个人和小团队的自托管服务器管理与运维平�
 
 ### 3.1 导航、搜索与响应式使用
 
-- 桌面侧栏按概览、文件与传输、运维、AI 与协作、配置等组组织入口。
+- 桌面侧栏按用途分组：总览（仪表盘、通知）、服务器（VPS 管理、节点状态、流量、告警规则、成本）、文件与传输、应用（快捷服务、Docker、应用部署）、自动化（任务中心、审批中心、命令模板、代码片段、定时任务、Playbook）、AI 与工单，以及系统管理（设置、用户、平台健康、Hub 主机监控、平台备份、审计、API、ITSM、公开状态页）。总览、服务器和文件三组默认展开，其余分组按需展开并记住每个人的选择。
 - 移动端提供仪表盘、服务器、任务、文件、设置的主要快捷入口，以及其他页面的导航抽屉。
 - 全局搜索可以检索页面与快捷操作，也可以查询有权限看到的服务器、Playbook 和快捷服务。
 - 搜索支持键盘上下选择、确认跳转和 Esc 关闭；结果受当前身份及工作区范围限制。
@@ -276,10 +276,10 @@ VControlHub 是面向个人和小团队的自托管服务器管理与运维平�
 仪表盘提供：
 
 - VPS 总数、启用与停用情况、在线概况、SSH 密钥绑定及直连网关概况。
-- 存储节点、文件条目、下载任务、待审批命令等核心计数。
-- 最近审批活动、最近审计记录，以及通知和定时任务相关信息。
+- 存储节点、文件条目等核心计数；运维队列分别显示待审批命令、下载任务、未读通知和启用的定时任务，每项链接到对应页面。
+- 最近审批活动与最近审计记录。
 - 跳转服务器、文件、远程下载、审批中心、通知中心和定时任务的快捷入口。
-- VPS 资源 24 小时趋势、下载任务 7 天趋势、审计活动 30 天趋势及图片上传趋势。
+- VPS 资源 24 小时趋势（当前 CPU、内存、磁盘占用，以及各节点每小时平均 CPU 的柱状图，刻度固定为 0–100%）、下载任务 7 天趋势、审计活动 30 天趋势及图片上传趋势。
 - 仪表盘组件显示／隐藏、拖动调整顺序、恢复默认布局。
 
 布局编辑能否使用还受平台“允许拖拽重排”设置控制。图表没有数据时会显示空状态；新增节点需要等待采样或实际产生业务记录后才有趋势。
@@ -651,7 +651,7 @@ LOCAL 和满足远端工具条件的 SFTP 目录可下载动态生成的 `tar.gz
 
 ### 7.1 分享链接管理
 
-入口：`/shares`，以及文件条目的分享操作。
+入口：`/shares`，以及文件条目的分享操作。页面依次为已有分享列表、选择文件创建分享、外发访问报表。
 
 支持两种常见创建方式：
 
@@ -864,7 +864,7 @@ Docker 环境不可用时，安装入口会提示依赖未就绪。应用的数�
 
 <a id="automation"></a>
 
-## 11. 审批、定时任务、Playbook 与统一任务中心
+## 11. 审批、定时任务、Playbook 与任务中心
 
 ### 11.1 手工与批量命令
 
@@ -885,7 +885,7 @@ Docker 环境不可用时，安装入口会提示依赖未就绪。应用的数�
 
 AI 页面中的用户确认与命令审批可能是同一操作链的不同阶段；看到“已确认”应继续查看命令或任务是否完成。审批能力不能越过工作区和资源范围，权限也会在后续执行阶段重新校验。
 
-审批卡片展示发起者、时间、状态、最新审批、目标节点以及 Worker／执行日志，并可与工单关联，便于将“提出问题”和“实际处理命令”连成时间线。
+审批卡片展示发起者、时间、状态、最新审批、目标节点以及执行日志，并可与工单关联，便于将“提出问题”和“实际处理命令”连成时间线。命令审批队列只列出仍需处理或正在执行的请求（待审批、已批准、执行中、取消中），计数也只统计这些；已完成、失败、拒绝和取消的请求收在默认折叠的“已处理记录”中。
 
 审批中心还支持选择多条待处理命令，统一批准或拒绝并填写共同意见。批量审核逐请求检查和反馈，一条已被其他人处理或无权审批的记录失败，不会把其余记录的结果一并隐藏。
 
@@ -893,7 +893,7 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 入口：`/scheduled-tasks`。
 
-支持周期 Cron 与一次性执行两种计划模型，可保存名称、命令、目标节点、原因，以及方案、验证命令、回滚命令等信息。页面提供创建、修改允许字段、暂停／恢复、删除、重试、搜索与运行记录查看。
+支持周期 Cron 与一次性执行两种计划模型，可保存名称、命令、目标节点、原因，以及方案、验证命令、回滚命令等信息。页面提供创建、修改允许字段、暂停／恢复、删除、立即运行一次、搜索与运行记录查看。启用中的计划显示为“已启用”，Cron 表达式旁附中文或英文的通俗说明（每 N 分钟、每 N 小时、每天、每周）；无法用一句话说明的表达式只显示原文。
 
 - Cron 为五字段表达式，周期计划按项目应用时区 `Asia/Shanghai` 计算。
 - 一次性计划使用明确的执行时间，完成后不应继续当作循环计划调度。
@@ -920,11 +920,11 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 用户可查看运行历史、触发来源、步骤结果、起止时间和失败原因，编辑或停用有权限管理的 Playbook。Dry-run 用于检查配置及执行计划，不证明目标服务运行时一定成功。
 
-### 11.5 统一任务中心
+### 11.5 任务中心
 
 入口：`/operation-tasks`。
 
-聚合命令、定时运行、下载、同步扫描、备份、部署与通用后台 Job。用户可按状态、任务类型和关键词筛选，调整排序，优先查看失败、运行或等待任务。
+聚合命令、定时运行、下载、同步扫描、备份、部署与通用后台 Job。定时任务在这里显示的是每一次实际运行（以计划名称为标题、状态取自本次运行），计划本身的启停在定时任务页管理；从未运行过的同步任务显示为等待中。用户可按状态、任务类型和关键词筛选，调整排序，优先查看失败、运行或等待任务。
 
 页面提供任务来源汇总、失败原因分类、重复失败模式、最近任务及源模块跳转。具体任务可打开事件流，查看入队、认领、心跳、进度、重试、恢复、成功和失败等记录。
 
@@ -940,27 +940,27 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 | 入口 | 主要对象 | 解决的问题 |
 | --- | --- | --- |
-| `/health` 系统健康 | VControlHub 平台及相关资源 | 控制台依赖、运行目录、服务和配置是否正常 |
-| `/vps-status` VPS 状态 | 当前可见的被管理节点 | 哪台服务器在线，CPU／内存／磁盘是否异常 |
+| `/health` 平台健康 | VControlHub 平台及相关资源 | 控制台依赖、运行目录、服务和配置是否正常 |
+| `/vps-status` 节点状态 | 当前可见的被管理节点 | 哪台服务器在线，CPU／内存／磁盘是否异常 |
 | `/monitoring` 主机监控 | Hub 所在主机 | 控制台机器本身的进程和资源占用 |
 | `/traffic` 流量中心 | 本机网卡及可采集的远端节点 | 实时速度、累计流量、历史趋势 |
 | `/status` 服务状态 | 匿名安全摘要及登录后的授权详情 | 对外展示总体状态，内部查看历史可用率 |
 
-### 12.2 平台系统健康
+### 12.2 平台健康
 
 检查数据库连接、VPS／存储资产读取、运行目录、Web／Worker／SSH WebSocket／反向代理服务、关键环境配置、通知配置和本地 Git 同步状态等项目。
 
-检查按正常、警告、严重等状态汇总，展示具体原因及建议动作，并可刷新、重试或跳转审计。服务检查依赖部署形态；原生 Windows、Docker 与 Linux systemd 的可读检查项不同。
+检查按正常、警告、严重等状态汇总。修复建议与具体检查项对应（数据库、核心服务、运行目录、资源纳管、通知渠道、Git 同步），只有相关检查项异常时才出现，严重项排在前面；全部正常时显示“无需处理”。页面可刷新、重试或跳转审计。服务检查依赖部署形态；原生 Windows、Docker 与 Linux systemd 的可读检查项不同。
 
 “整体警告”可能只是某个存储节点认证失败或配置未完善，并不自动意味着整个 Web 服务不可访问；应查看分项结果。
 
 ### 12.3 VPS 资源与容量预测
 
-VPS 状态支持卡片／表格，按全部、在线、异常筛选。可查看 CPU、内存、磁盘、负载、网络入出、运行时长、采样时间及可用的月度流量统计。
+节点状态支持卡片／表格，按全部、在线、异常筛选。可查看 CPU、内存、磁盘、负载、网络入出、运行时长、采样时间及可用的月度流量统计。
 
 指标由 SSH 或 Agent 等可用通道采集，后台保存历史快照。资源汇总包括跨节点平均使用率、网络汇总和占用较高的节点。详情可查看历史趋势。
 
-容量预测使用历史样本对 CPU、内存、磁盘百分比做线性趋势估计，展示当前值、每日变化、预测值及预计到达 85%／95% 的天数。当前最少需要 6 个样本且覆盖至少 6 小时；离线样本不会被当成 0% 资源负载参与拟合。
+容量预测位于节点列表之后，使用历史样本对 CPU、内存、磁盘百分比做线性趋势估计，展示当前值、每日变化、预测值及预计到达 85%／95% 的天数；预测值达到或超过 100% 时显示为“≥100%”。当前最少需要 6 个样本且覆盖至少 6 小时；离线样本不会被当成 0% 资源负载参与拟合。
 
 预测是趋势参考，突发负载、清理文件、扩容和工作模式变化都会改变结果；“样本不足”不等于健康或异常。
 
@@ -1329,7 +1329,7 @@ VPS 状态支持卡片／表格，按全部、在线、异常筛选。可查看 
 
 ### 17.5 工作区与成员
 
-入口：设置页团队空间区域及全站团队切换器。
+入口：设置页“团队与权限”标签（所有登录用户可见，能做哪些修改取决于工作区身份）及全站团队切换器。工作区权限组按业务域分组列出权限，并显示权限的中文名称和原始权限键。
 
 支持创建、查看、修改、切换工作区，添加和移除已有账号成员，调整成员身份、访问角色及权限组，转移所有权，并由获准身份删除工作区。
 
@@ -1824,7 +1824,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 2. 添加服务器，检测连接并独立核对主机指纹。
 3. 保存后打开 SSH，检查当前用户、主机与工作目录。
 4. 配置存储根路径并检查文件权限，进入云盘上传、下载一个测试文件。
-5. 打开 VPS 状态，确认采样时间和资源数据更新。
+5. 打开 节点状态，确认采样时间和资源数据更新。
 6. 按需要启用 Agent，观察心跳；需要直连文件时再配置文件网关。
 7. 填写月费、告警规则、通知渠道及备份计划。
 8. 在任务中心和审计中核对操作结果。
@@ -2028,7 +2028,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/files/search`](../src/app/files/search/page.tsx) | 文件搜索 | [文件名和支持范围内的内容搜索](#files) |
 | [`/files/sync`](../src/app/files/sync/page.tsx) | 文件同步 | [双向／镜像任务、调度和报告](#sharing-sync) |
 | [`/files/webdav`](../src/app/files/webdav/page.tsx) | WebDAV 接入 | [节点挂载地址和 Token 认证说明](#sharing-sync) |
-| [`/health`](../src/app/health/page.tsx) | 系统健康 | [平台自检、修复建议与相关健康视图](#observability) |
+| [`/health`](../src/app/health/page.tsx) | 平台健康 | [平台自检、修复建议与相关健康视图](#observability) |
 | [`/image-bed`](../src/app/image-bed/page.tsx) | 图片外链中心 | [外链复制、公开状态、相册和批量管理](#media-downloads) |
 | [`/itsm`](../src/app/itsm/page.tsx) | ITSM／IM 集成 | [连接、双向事件、签名及出站测试](#collaboration) |
 | [`/knowledge`](../src/app/knowledge/page.tsx) | 知识库 | [知识库、文档入库、切块与检索试跑](#ai) |
@@ -2039,7 +2039,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/monitoring`](../src/app/monitoring/page.tsx) | 主机监控 | [Hub 资源、进程、网络与 SSE](#observability) |
 | [`/notifications`](../src/app/notifications/page.tsx) | 通知中心 | [未读、已读、删除与详情跳转](#collaboration) |
 | [`/offline`](../src/app/offline/page.tsx) | 离线页 | [网络不可用时的公开提示](#workspace) |
-| [`/operation-tasks`](../src/app/operation-tasks/page.tsx) | 统一任务中心 | [各类业务任务、失败聚合与事件流](#automation) |
+| [`/operation-tasks`](../src/app/operation-tasks/page.tsx) | 任务中心 | [各类业务任务、失败聚合与事件流](#automation) |
 | [`/playbooks`](../src/app/playbooks/page.tsx) | Playbook | [步骤编排、触发、Dry-run 和运行历史](#automation) |
 | [`/preferences`](../src/app/preferences/page.tsx) | 旧偏好入口 | [跳转设置中的个人偏好区域](#workspace) |
 | [`/quick-services`](../src/app/quick-services/page.tsx) | 快捷服务 | [应用模板、安装实例、更新、应用源](#quick-services) |
@@ -2058,7 +2058,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/tickets/[id]`](../src/app/tickets/[id]/page.tsx) | 工单详情 | [状态、处理人、评论、关联命令和时间线](#collaboration) |
 | [`/traffic`](../src/app/traffic/page.tsx) | 流量中心 | [网卡速度、累计流量、历史和远端来源](#observability) |
 | [`/users`](../src/app/users/page.tsx) | 用户管理 | [账号、角色、权限、资源授权与岗位模板](#permissions) |
-| [`/vps-status`](../src/app/vps-status/page.tsx) | VPS 状态 | [节点资源、在线状态、采样与趋势](#observability) |
+| [`/vps-status`](../src/app/vps-status/page.tsx) | 节点状态 | [节点资源、在线状态、采样与趋势](#observability) |
 
 ### 24.2 全部 54 项权限与默认账号角色
 
@@ -2306,7 +2306,7 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 | [`/api/backups/offsite/dry-run`](../src/app/api/backups/offsite/dry-run/route.ts) | POST | 以探测对象验证异地存储访问 | [平台备份、VPS 备份、恢复与迁移](#backup) |
 | [`/api/backups/retention`](../src/app/api/backups/retention/route.ts) | GET / POST | 查看保留状态并发起保留清理 | [平台备份、VPS 备份、恢复与迁移](#backup) |
 | [`/api/command-templates`](../src/app/api/command-templates/route.ts) | GET / POST / PATCH / DELETE | 命令模板列表、新增、修改及删除 | [命令模板、应用部署与 Docker](#deployment) |
-| [`/api/commands`](../src/app/api/commands/route.ts) | GET / POST / PATCH | 查询命令、单台／多台提交及请求取消 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
+| [`/api/commands`](../src/app/api/commands/route.ts) | GET / POST / PATCH | 查询命令、单台／多台提交及请求取消 | [审批、定时任务、Playbook 与任务中心](#automation) |
 | [`/api/commands/[id]/tickets`](../src/app/api/commands/[id]/tickets/route.ts) | GET | 从命令查看关联工单 | [工单、ITSM、通知、公告与代码片段](#collaboration) |
 | [`/api/cost/billing-accounts`](../src/app/api/cost/billing-accounts/route.ts) | GET / POST | 账单来源账户列表及创建 | [成本、账单与预算](#cost) |
 | [`/api/cost/billing-accounts/[id]`](../src/app/api/cost/billing-accounts/[id]/route.ts) | GET / PATCH / DELETE | 账单账户详情、更新、启停及删除 | [成本、账单与预算](#cost) |
@@ -2359,8 +2359,8 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 | [`/api/itsm/connections/[id]/test`](../src/app/api/itsm/connections/[id]/test/route.ts) | POST | 测试外部连接出站投递 | [工单、ITSM、通知、公告与代码片段](#collaboration) |
 | [`/api/itsm/events`](../src/app/api/itsm/events/route.ts) | GET | 查询入站／出站事件及处理状态 | [工单、ITSM、通知、公告与代码片段](#collaboration) |
 | [`/api/itsm/inbound/[connectionId]`](../src/app/api/itsm/inbound/[connectionId]/route.ts) | POST | 验签、去重并处理连接所属工作区的入站事件 | [工单、ITSM、通知、公告与代码片段](#collaboration) |
-| [`/api/jobs/[id]/events`](../src/app/api/jobs/[id]/events/route.ts) | GET | 获取有权查看的持久化任务事件 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
-| [`/api/jobs/backlog`](../src/app/api/jobs/backlog/route.ts) | GET | 查看允许范围内的队列积压概况 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
+| [`/api/jobs/[id]/events`](../src/app/api/jobs/[id]/events/route.ts) | GET | 获取有权查看的持久化任务事件 | [审批、定时任务、Playbook 与任务中心](#automation) |
+| [`/api/jobs/backlog`](../src/app/api/jobs/backlog/route.ts) | GET | 查看允许范围内的队列积压概况 | [审批、定时任务、Playbook 与任务中心](#automation) |
 | [`/api/knowledge`](../src/app/api/knowledge/route.ts) | GET / POST / DELETE | 知识库列表、创建、文本入库、检索和删除库／文档 | [AI 助手、知识库与 AI 运维](#ai) |
 | [`/api/knowledge/[id]`](../src/app/api/knowledge/[id]/route.ts) | GET | 指定知识库的文档及详情 | [AI 助手、知识库与 AI 运维](#ai) |
 | [`/api/login`](../src/app/api/login/route.ts) | POST | 验证登录信息、建立会话或要求二次验证 | [账号、角色、团队与资源授权](#permissions) |
@@ -2373,19 +2373,19 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 | [`/api/monitoring/stream`](../src/app/api/monitoring/stream/route.ts) | GET | Hub 主机实时 SSE 监控 | [监控、健康检查、流量与告警](#observability) |
 | [`/api/monitoring/web-vitals`](../src/app/api/monitoring/web-vitals/route.ts) | POST | 接收允许的前端性能指标 | [监控、健康检查、流量与告警](#observability) |
 | [`/api/notifications`](../src/app/api/notifications/route.ts) | GET / PATCH / DELETE | 个人通知列表、单条／全部已读及删除 | [工单、ITSM、通知、公告与代码片段](#collaboration) |
-| [`/api/operation-tasks`](../src/app/api/operation-tasks/route.ts) | GET | 统一任务汇总、筛选及失败归类 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
-| [`/api/playbooks`](../src/app/api/playbooks/route.ts) | GET / POST | Playbook 列表及创建 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
-| [`/api/playbooks/[id]`](../src/app/api/playbooks/[id]/route.ts) | GET / PATCH / DELETE | 编排详情、修改、启停及删除 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
-| [`/api/playbooks/[id]/dry-run`](../src/app/api/playbooks/[id]/dry-run/route.ts) | POST | 检查并展示不实际执行的编排计划 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
-| [`/api/playbooks/[id]/run`](../src/app/api/playbooks/[id]/run/route.ts) | POST | 提交一次实际 Playbook 运行 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
-| [`/api/playbooks/[id]/runs`](../src/app/api/playbooks/[id]/runs/route.ts) | GET | 查看编排运行历史及结果 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
+| [`/api/operation-tasks`](../src/app/api/operation-tasks/route.ts) | GET | 统一任务汇总、筛选及失败归类 | [审批、定时任务、Playbook 与任务中心](#automation) |
+| [`/api/playbooks`](../src/app/api/playbooks/route.ts) | GET / POST | Playbook 列表及创建 | [审批、定时任务、Playbook 与任务中心](#automation) |
+| [`/api/playbooks/[id]`](../src/app/api/playbooks/[id]/route.ts) | GET / PATCH / DELETE | 编排详情、修改、启停及删除 | [审批、定时任务、Playbook 与任务中心](#automation) |
+| [`/api/playbooks/[id]/dry-run`](../src/app/api/playbooks/[id]/dry-run/route.ts) | POST | 检查并展示不实际执行的编排计划 | [审批、定时任务、Playbook 与任务中心](#automation) |
+| [`/api/playbooks/[id]/run`](../src/app/api/playbooks/[id]/run/route.ts) | POST | 提交一次实际 Playbook 运行 | [审批、定时任务、Playbook 与任务中心](#automation) |
+| [`/api/playbooks/[id]/runs`](../src/app/api/playbooks/[id]/runs/route.ts) | GET | 查看编排运行历史及结果 | [审批、定时任务、Playbook 与任务中心](#automation) |
 | [`/api/preferences`](../src/app/api/preferences/route.ts) | GET / PUT | 读取及保存当前用户偏好 | [全站交互与个人工作台](#workspace) |
 | [`/api/quick-services`](../src/app/api/quick-services/route.ts) | GET / POST | 应用目录／实例列表、安装及配置预览相关流程 | [快捷服务与应用目录](#quick-services) |
 | [`/api/quick-services/[slug]`](../src/app/api/quick-services/[slug]/route.ts) | PATCH / DELETE | 启动、停止、同步状态、更新及卸载实例 | [快捷服务与应用目录](#quick-services) |
 | [`/api/quick-services/check-port`](../src/app/api/quick-services/check-port/route.ts) | GET | 检查端口、推荐端口或列出目标已用端口 | [快捷服务与应用目录](#quick-services) |
 | [`/api/role-templates`](../src/app/api/role-templates/route.ts) | GET / POST | 岗位／权限组模板查询及创建 | [账号、角色、团队与资源授权](#permissions) |
 | [`/api/role-templates/[id]`](../src/app/api/role-templates/[id]/route.ts) | PATCH / DELETE | 编辑或删除允许管理的权限模板 | [账号、角色、团队与资源授权](#permissions) |
-| [`/api/scheduled-tasks`](../src/app/api/scheduled-tasks/route.ts) | GET / POST / PATCH / DELETE | 计划任务列表、创建、编辑、启停、重试及删除 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
+| [`/api/scheduled-tasks`](../src/app/api/scheduled-tasks/route.ts) | GET / POST / PATCH / DELETE | 计划任务列表、创建、编辑、启停、重试及删除 | [审批、定时任务、Playbook 与任务中心](#automation) |
 | [`/api/search`](../src/app/api/search/route.ts) | GET | 页面搜索之外的授权资源搜索 | [全站交互与个人工作台](#workspace) |
 | [`/api/servers/[id]/detect-os`](../src/app/api/servers/[id]/detect-os/route.ts) | POST | 探测目标系统、包管理器及服务管理器 | [服务器纳管与节点管理](#servers) |
 | [`/api/servers/[id]/file-proxy`](../src/app/api/servers/[id]/file-proxy/route.ts) | GET / POST / DELETE | 受控临时文件代理的状态、启动与停止 | [服务器纳管与节点管理](#servers) |
@@ -2457,8 +2457,8 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 | [`changePasswordAction`](../src/app/account/password/actions.ts) | 修改本人密码并执行策略校验 | [账号、角色、团队与资源授权](#permissions) |
 | [`createBackupAction`](../src/app/backups/actions.ts) | 从表单提交平台备份 | [平台备份、VPS 备份、恢复与迁移](#backup) |
 | [`moveFileAction`](../src/app/files/move-file-action.ts) | 移动文件，并反馈需要核对的不确定结果 | [存储节点与文件管理](#files) |
-| [`reviewCommandAction`](../src/app/requests/actions.ts) | 审批单条命令并填写意见 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
-| [`batchReviewCommandAction`](../src/app/requests/actions.ts) | 批量批准／拒绝，返回逐条结果 | [审批、定时任务、Playbook 与统一任务中心](#automation) |
+| [`reviewCommandAction`](../src/app/requests/actions.ts) | 审批单条命令并填写意见 | [审批、定时任务、Playbook 与任务中心](#automation) |
+| [`batchReviewCommandAction`](../src/app/requests/actions.ts) | 批量批准／拒绝，返回逐条结果 | [审批、定时任务、Playbook 与任务中心](#automation) |
 | [`createServerAction`](../src/app/servers/actions.ts) | 创建节点、连接验证及初始化相关资源 | [服务器纳管与节点管理](#servers) |
 | [`updateServerAction`](../src/app/servers/actions.ts) | 修改节点、凭据、存储绑定及允许的修复选项 | [服务器纳管与节点管理](#servers) |
 | [`createSshKeyAction`](../src/app/servers/actions.ts) | 新增可复用 SSH 密钥 | [服务器纳管与节点管理](#servers) |

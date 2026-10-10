@@ -17,7 +17,9 @@ const defaultServer = {
   description: "primary node",
   tags: ["prod"],
   enabled: true,
-  connectionSummary: "root@203.0.113.10:22，使用 SSH 密钥 prod-root-key 连接",
+  connectionType: "SSH_KEY",
+  managementMode: "DIRECT",
+  hasSshCredential: true,
   sshKey: { id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc" },
   storageNode: {
     id: "node_1",
@@ -38,8 +40,6 @@ const defaultServer = {
       createdAt: new Date(),
     },
   ],
-  connectionTypeLabel: "SSH 密钥",
-  statusLabel: "已启用",
 };
 
 vi.mock("next/headers", () => ({
@@ -343,13 +343,11 @@ describe("ServersPage", () => {
         host: "127.0.0.1",
         description: null,
         tags: [],
-        connectionSummary: "root@127.0.0.1:22，使用密码连接",
         sshKey: null,
         storageNode: null,
         targetCount: 0,
         pendingCommandCount: 0,
         latestCommands: [],
-        connectionTypeLabel: "密码",
       },
     ]);
 

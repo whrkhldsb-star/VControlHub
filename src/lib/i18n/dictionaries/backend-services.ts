@@ -10,6 +10,12 @@
  */
 
 export const zh: Record<string, string> = {
+	"backend.roleTemplate.preset.viewer.name": "只读观察员",
+	"backend.roleTemplate.preset.viewer.description": "查看服务器、云盘和审计信息",
+	"backend.roleTemplate.preset.operator.name": "日常运维",
+	"backend.roleTemplate.preset.operator.description": "服务器连接、执行任务和文件维护",
+	"backend.roleTemplate.preset.storage_manager.name": "云盘管理员",
+	"backend.roleTemplate.preset.storage_manager.description": "管理云盘节点、文件与分享",
   "backend.quickService.requesterMissing": "Docker 任务缺少可核验的发起人",
   "backend.quickService.requesterDisabled": "Docker 任务发起人已被禁用或失效",
   "backend.quickService.permissionRevoked": "发起人已失去当前工作空间的 Docker 管理权限",
@@ -90,7 +96,14 @@ export const zh: Record<string, string> = {
 	"backend.operationTask.failure.notification": "通知发送失败",
 	"backend.operationTask.failure.backupOrRestore": "备份或恢复失败",
 	"backend.operationTask.failure.taskTypeFailed": "{taskType} 失败",
-	"backend.operationTask.failure.sourceFailed": "{source} 失败",
+	"backend.operationTask.failure.sourceFailed": "{source}失败",
+	"backend.operationTask.source.job": "后台作业",
+	"backend.operationTask.source.command": "命令",
+	"backend.operationTask.source.scheduled": "定时任务",
+	"backend.operationTask.source.download": "下载",
+	"backend.operationTask.source.sync": "同步",
+	"backend.operationTask.source.backup": "备份",
+	"backend.operationTask.source.deployment": "部署",
 
 	// server/service-profiles.ts, server/service-direct-gateway.ts
 	"backend.server.nodeNotFound": "VPS 节点不存在或已删除",
@@ -641,6 +654,12 @@ export const zh: Record<string, string> = {
 
 
 export const en: Record<string, string> = {
+	"backend.roleTemplate.preset.viewer.name": "Read-only viewer",
+	"backend.roleTemplate.preset.viewer.description": "View servers, cloud storage and the audit log",
+	"backend.roleTemplate.preset.operator.name": "Day-to-day operations",
+	"backend.roleTemplate.preset.operator.description": "Connect to servers, run tasks and maintain files",
+	"backend.roleTemplate.preset.storage_manager.name": "Storage manager",
+	"backend.roleTemplate.preset.storage_manager.description": "Manage storage nodes, files and shares",
   "backend.quickService.requesterMissing": "Docker task has no accountable requester",
   "backend.quickService.requesterDisabled": "Docker task requester is disabled or no longer valid",
   "backend.quickService.permissionRevoked": "Requester no longer has Docker access in this workspace",
@@ -722,6 +741,13 @@ export const en: Record<string, string> = {
 	"backend.operationTask.failure.backupOrRestore": "Backup or restore failed",
 	"backend.operationTask.failure.taskTypeFailed": "{taskType} failed",
 	"backend.operationTask.failure.sourceFailed": "{source} failed",
+	"backend.operationTask.source.job": "Background job",
+	"backend.operationTask.source.command": "Command",
+	"backend.operationTask.source.scheduled": "Scheduled task",
+	"backend.operationTask.source.download": "Download",
+	"backend.operationTask.source.sync": "Sync",
+	"backend.operationTask.source.backup": "Backup",
+	"backend.operationTask.source.deployment": "Deployment",
 
 	// server/service-profiles.ts, server/service-direct-gateway.ts
 	"backend.server.nodeNotFound": "VPS node not found or has been deleted",

@@ -18,9 +18,10 @@ import { APP_TIME_ZONE, zonedDateTimeToIso } from "@/lib/datetime/time-zone";
 import { IconCalendarClock } from "@/components/nav-icons";
 import { Plus } from "@/components/icons";
 import { cn } from "@/lib/ui/cn";
+import { describeCron, isFiveFieldCron } from "@/lib/scheduled-task/describe-cron";
 
 type Task = {
-	id: string; name: string; cronExpression: string; cronDescription: string;
+	id: string; name: string; cronExpression: string;
 	scheduleType?: "CRON" | "ONCE"; runAt?: string | null;
 	command: string; reason: string | null; status: string; serverIds: string[];
 	plan?: string | null; verificationCommand?: string | null; rollbackCommand?: string | null;
@@ -63,7 +64,7 @@ function formatTime(iso: string | null, locale?: Locale): string {
 function matchesTask(task: Task, query: string) {
 	const needle = query.trim().toLowerCase();
 	if (!needle) return true;
-	return [task.name, task.cronExpression, task.cronDescription, task.command, task.reason, task.lastResult, task.status]
+	return [task.name, task.cronExpression, task.command, task.reason, task.lastResult, task.status]
 		.filter(Boolean)
 		.some((value) => String(value).toLowerCase().includes(needle));
 }
@@ -72,19 +73,10 @@ const fieldLabelClass = UI_LABEL;
 const fieldInputClass = UI_INPUT;
 const monoFieldInputClass = `${UI_INPUT} font-mono`;
 
+/** Form preview: the plain reading when there is one, otherwise what to fix or expect. */
 function describeCronPreview(expr: string, t: (key: string, vars?: Record<string, string | number>) => string) {
-	const parts = expr.trim().split(/\s+/);
-	if (parts.length !== 5) return t("scheduledTasks.cron.invalid");
-	const [min, hour, day, month, dow] = parts;
-	if (min!.startsWith("*/") && hour === "*" && day === "*" && month === "*" && dow === "*") return `${t("scheduledTasks.cron.intervalPrefix")}${min!.slice(2)}${t("scheduledTasks.cron.intervalMiddle")}`;
-	if (min === "0" && hour === "*" && day === "*" && month === "*" && dow === "*") return t("scheduledTasks.cron.hourly");
-	if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return `${t("scheduledTasks.cron.dailyPrefix")} ${hour!}:${min!.padStart(2, "0")} ${t("scheduledTasks.cron.dailySuffix")}`.trim();
-	if (day === "*" && month === "*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
-		const weekdayKey = `scheduledTasks.weekday.${dow}`;
-		const wd = t(weekdayKey);
-		return `${t("scheduledTasks.cron.weeklyPrefix")}${wd} ${hour!}:${min!.padStart(2, "0")} ${t("scheduledTasks.cron.weeklySuffix")}`.trim();
-	}
-	return t("scheduledTasks.cron.custom");
+	if (!isFiveFieldCron(expr)) return t("scheduledTasks.cron.invalid");
+	return describeCron(expr, t) ?? t("scheduledTasks.cron.custom");
 }
 
 export function ScheduledTaskListClient({ tasks: initialTasks, servers, templates = [], canCreate, canManage, canApprove = false }: Props) {
@@ -211,7 +203,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 											{statusLabelFor(task.status, t)}
 										</StatusBadge>
 									</div>
-									<p className="mt-1 text-xs text-[var(--text-muted)]">{task.scheduleType === "ONCE" ? t("scheduledTasks.schedule.once") : <>Cron: <code className="font-mono text-[var(--accent)]">{task.cronExpression}</code> — {task.cronDescription}</>}</p>
+									<p className="mt-1 text-xs text-[var(--text-muted)]">{task.scheduleType === "ONCE" ? t("scheduledTasks.schedule.once") : <>Cron: <code className="font-mono text-[var(--accent)]">{task.cronExpression}</code>{describeCron(task.cronExpression, t) ? <> — {describeCron(task.cronExpression, t)}</> : null}</>}</p>
 									<div className="mt-1 flex flex-wrap gap-2 text-xs text-[var(--text-muted)]">
 										<span>{task.source === "AI" ? t("scheduledTasks.source.ai") : t("scheduledTasks.source.manual")}</span>
 										<span>{task.approvalRequired ? t("scheduledTasks.approval.everyRun") : t("scheduledTasks.approval.once")}</span>

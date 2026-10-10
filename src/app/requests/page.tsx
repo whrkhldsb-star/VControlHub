@@ -14,8 +14,11 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { PaginatedList } from "@/components/paginated-list";
+import { Disclosure } from "@/components/ui/disclosure";
 
 export const dynamic = "force-dynamic";
+
+const ACTIVE_REQUEST_STATUSES = new Set(["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"]);
 
 export default async function RequestsPage() {
 	const session = await requireSession("/requests");
@@ -50,75 +53,13 @@ export default async function RequestsPage() {
 		return bTime - aTime;
 	});
 
-	const pendingCommands = requests.filter((r) => r.status === "PENDING_APPROVAL").length;
-	const assistantCommands = requests.filter((r) => r.isAssistantInitiated).length;
-	const userCommands = requests.filter((r) => !r.isAssistantInitiated).length;
-	const completed = requests.filter((r) => r.status === "COMPLETED").length;
-
-	return (
-		<PageShell>
-			<PageHeader
-			eyebrow={t("requestsPage.eyebrow", locale)}
-			title={t("requestsPage.title", locale)}
-			description={t("requestsPage.desc", locale)}
-		>
-				<div className="max-w-sm text-left">
-					<div className="text-xs font-medium text-[var(--text-secondary)]">{t("requestsPage.workflowNote.title", locale)}</div>
-					<div className="mt-1 text-xs text-[var(--text-muted)]">{t("requestsPage.workflowNote.desc", locale)}</div>
-				</div>
-			</PageHeader>
-
-			<StatGrid cols={5}>
-				<StatCard label={t("requestsPage.stat.aiPending", locale)} value={String(aiActions.length)} accent={aiActions.length > 0} accentColor="cyan" />
-				<StatCard label={t("requestsPage.stat.cmdPending", locale)} value={String(pendingCommands)} accent={pendingCommands > 0} accentColor="amber" />
-				<StatCard label={t("requestsPage.stat.assistant", locale)} value={String(assistantCommands)} accent={assistantCommands > 0} accentColor="cyan" />
-				<StatCard label={t("requestsPage.stat.user", locale)} value={String(userCommands)} />
-				<StatCard label={t("requestsPage.stat.completed", locale)} value={String(completed)} />
-			</StatGrid>
-
-			<div className="space-y-6">
-				<section aria-labelledby="ai-approval-heading">
-					<h2 id="ai-approval-heading" className="sr-only">{t("requestsPage.ai.title", locale)}</h2>
-					<ListPanel
-						title={t("requestsPage.ai.title", locale)}
-						description={t("requestsPage.ai.desc", locale)}
-						count={aiActions.length}
-						actions={<StatusBadge tone="accent">{t("requestsPage.ai.scopeBadge", locale)}</StatusBadge>}
-						empty={aiActions.length === 0 ? <EmptyState text={t("requestsPage.ai.empty", locale)} /> : undefined}
-						bodyClassName={aiActions.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
-					>
-						{aiActions.map((action) => (
-							<div key={action.id} className="mb-3 last:mb-0">
-								<AiHostedApprovalCard action={action} />
-							</div>
-						))}
-					</ListPanel>
-				</section>
-
-				<section aria-labelledby="command-approval-heading">
-					<h2 id="command-approval-heading" className="sr-only">{t("requestsPage.cmd.title", locale)}</h2>
-					<ListPanel
-						title={t("requestsPage.cmd.title", locale)}
-						description={t("requestsPage.cmd.desc", locale)}
-						count={sortedRequests.length}
-						actions={<StatusBadge tone="warning">{t("requestsPage.cmd.scopeBadge", locale)}</StatusBadge>}
-						empty={sortedRequests.length === 0 ? <EmptyState text={t("requestsPage.cmd.empty", locale)} /> : undefined}
-						bodyClassName={sortedRequests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
-						>
-						{sortedRequests.length > 0 ? (
-						<BatchReviewToolbar
-							pendingIds={
-								canApprove
-									? sortedRequests
-											.filter((r) => r.status === "PENDING_APPROVAL")
-											.map((r) => r.id)
-									: []
-							}
-						>
-							<PaginatedList pageSize={20}>
-							{sortedRequests.map((request) => {
-								const isActionable = request.status === "PENDING_APPROVAL" || request.status === "APPROVED" || request.status === "RUNNING" || request.status === "CANCELLING";
-								return (
+	// The queue holds what still needs a decision or is in flight; finished
+	// requests move to a folded history so they do not bury the next approval.
+	const activeRequests = sortedRequests.filter((r) => ACTIVE_REQUEST_STATUSES.has(r.status));
+	const handledRequests = sortedRequests.filter((r) => !ACTIVE_REQUEST_STATUSES.has(r.status));
+	const renderRequest = (request: (typeof sortedRequests)[number]) => {
+		const isActionable = ACTIVE_REQUEST_STATUSES.has(request.status);
+		return (
 								<article id={`command-${request.id}`} key={request.id} data-id={request.id} data-card className={`p-5 transition-colors duration-150 hover:bg-[var(--surface-elevated)] ${isActionable ? "" : "bg-[var(--surface-subtle)]"}`}>
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
@@ -189,11 +130,82 @@ export default async function RequestsPage() {
 									<CancelCommandButton commandRequestId={request.id} commandTitle={request.title} />
 								)}
 								</article>
-								);
-								})}
-							</PaginatedList>
-								</BatchReviewToolbar>
-								) : null}
+		);
+	};
+
+	const pendingCommands = requests.filter((r) => r.status === "PENDING_APPROVAL").length;
+	const assistantCommands = requests.filter((r) => r.isAssistantInitiated).length;
+	const userCommands = requests.filter((r) => !r.isAssistantInitiated).length;
+	const completed = requests.filter((r) => r.status === "COMPLETED").length;
+
+	return (
+		<PageShell>
+			<PageHeader
+			eyebrow={t("requestsPage.eyebrow", locale)}
+			title={t("requestsPage.title", locale)}
+			description={t("requestsPage.desc", locale)}
+		>
+				<div className="max-w-sm text-left">
+					<div className="text-xs font-medium text-[var(--text-secondary)]">{t("requestsPage.workflowNote.title", locale)}</div>
+					<div className="mt-1 text-xs text-[var(--text-muted)]">{t("requestsPage.workflowNote.desc", locale)}</div>
+				</div>
+			</PageHeader>
+
+			<StatGrid cols={5}>
+				<StatCard label={t("requestsPage.stat.aiPending", locale)} value={String(aiActions.length)} accent={aiActions.length > 0} accentColor="cyan" />
+				<StatCard label={t("requestsPage.stat.cmdPending", locale)} value={String(pendingCommands)} accent={pendingCommands > 0} accentColor="amber" />
+				<StatCard label={t("requestsPage.stat.assistant", locale)} value={String(assistantCommands)} accent={assistantCommands > 0} accentColor="cyan" />
+				<StatCard label={t("requestsPage.stat.user", locale)} value={String(userCommands)} />
+				<StatCard label={t("requestsPage.stat.completed", locale)} value={String(completed)} />
+			</StatGrid>
+
+			<div className="space-y-6">
+				<section aria-labelledby="ai-approval-heading">
+					<h2 id="ai-approval-heading" className="sr-only">{t("requestsPage.ai.title", locale)}</h2>
+					<ListPanel
+						title={t("requestsPage.ai.title", locale)}
+						description={t("requestsPage.ai.desc", locale)}
+						count={aiActions.length}
+						actions={<StatusBadge tone="accent">{t("requestsPage.ai.scopeBadge", locale)}</StatusBadge>}
+						empty={aiActions.length === 0 ? <EmptyState text={t("requestsPage.ai.empty", locale)} /> : undefined}
+						bodyClassName={aiActions.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
+					>
+						{aiActions.map((action) => (
+							<div key={action.id} className="mb-3 last:mb-0">
+								<AiHostedApprovalCard action={action} />
+							</div>
+						))}
+					</ListPanel>
+				</section>
+
+				<section aria-labelledby="command-approval-heading">
+					<h2 id="command-approval-heading" className="sr-only">{t("requestsPage.cmd.title", locale)}</h2>
+					<ListPanel
+						title={t("requestsPage.cmd.title", locale)}
+						description={t("requestsPage.cmd.desc", locale)}
+						count={activeRequests.length}
+						actions={<StatusBadge tone="warning">{t("requestsPage.cmd.scopeBadge", locale)}</StatusBadge>}
+						empty={sortedRequests.length === 0 ? <EmptyState text={t("requestsPage.cmd.empty", locale)} /> : undefined}
+						bodyClassName={sortedRequests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
+						>
+						{activeRequests.length > 0 ? (
+						<BatchReviewToolbar
+							pendingIds={
+								canApprove
+									? activeRequests
+											.filter((r) => r.status === "PENDING_APPROVAL")
+											.map((r) => r.id)
+									: []
+							}
+						>
+							<PaginatedList pageSize={20}>{activeRequests.map(renderRequest)}</PaginatedList>
+						</BatchReviewToolbar>
+						) : sortedRequests.length > 0 ? <EmptyState text={t("requestsPage.cmd.noActive", locale)} /> : null}
+						{handledRequests.length > 0 ? (
+							<Disclosure variant="inset" title={t("requestsPage.cmd.history", locale, { count: handledRequests.length })}>
+								<PaginatedList pageSize={20}>{handledRequests.map(renderRequest)}</PaginatedList>
+							</Disclosure>
+						) : null}
 					</ListPanel>
 				</section>
 			</div>

@@ -18,6 +18,7 @@ function buildStorageStatus(input: StorageHealthAggregate): SystemHealthCheck {
       label: "Cloud drive service",
       status: "warning",
       message: "Awaiting configuration",
+      messageCode: "awaiting",
     };
   }
 
@@ -34,6 +35,8 @@ function buildStorageStatus(input: StorageHealthAggregate): SystemHealthCheck {
     label: "Cloud drive service",
     status,
     message: `${parts.join(", ")}; SFTP/Direct Gateway host, port, or path will not be shown on the public status page.`,
+    messageCode: "summary",
+    params: { total: input.total, healthy: input.healthy, unhealthy: input.unhealthy, unknown: input.unknown },
   };
 }
 
@@ -41,10 +44,10 @@ export async function getPublicStatus() {
 	const checks: SystemHealthCheck[] = [];
 	try {
 		await prisma.$queryRaw`SELECT 1`;
-		checks.push({ id: "database", label: "Database", status: "healthy", message: "Available" });
+		checks.push({ id: "database", label: "Database", status: "healthy", message: "Available", messageCode: "available" });
 	} catch {
 		// Database unreachable — report critical status but keep the rest of the checks running.
-				checks.push({ id: "database", label: "Database", status: "critical", message: "Unavailable" });
+				checks.push({ id: "database", label: "Database", status: "critical", message: "Unavailable", messageCode: "unavailable" });
 	}
 	const [serverCount, storageNodes] = await Promise.all([
 		prisma.server.count({ where: { enabled: true } }).catch(() => 0),
@@ -61,6 +64,8 @@ export async function getPublicStatus() {
 		label: "VPS management",
 		status: serverCount > 0 ? "healthy" : "warning",
 		message: serverCount > 0 ? `${serverCount} VPS instances enabled; no real-time SSH/network probing` : "Awaiting configuration",
+		messageCode: serverCount > 0 ? "enabled" : "awaiting",
+		params: { count: serverCount },
 	});
 	const storageAggregate = storageNodes.reduce<StorageHealthAggregate>(
 		(acc, node) => {
@@ -88,7 +93,8 @@ export async function getPublicStatus() {
 	// no-op when no candidates are due, so we pay nothing for the check.
 	scheduleStorageNodeHealthProbe();
 	checks.push(buildStorageStatus(storageAggregate));
-	return { generatedAt: new Date().toISOString(), service: getAppSlug(), summary: summarizeSystemHealth(checks), checks: checks.map(({ id, label, status, message }) => ({ id, label, status, message })) };
+	return { generatedAt: new Date().toISOString(), service: getAppSlug(), summary: summarizeSystemHealth(checks), // label/message stay English for API clients; messageCode + params let pages translate.
+		checks: checks.map(({ id, label, status, message, messageCode, params }) => ({ id, label, status, message, messageCode, params })) };
 }
 
 /**

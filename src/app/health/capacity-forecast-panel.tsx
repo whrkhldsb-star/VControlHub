@@ -91,6 +91,11 @@ function riskLabel(risk: CapacityRisk, t: (k: string, vars?: Record<string, stri
   return t(`healthPage.capacity.risk.${risk}`);
 }
 
+/** Usage cannot exceed 100 %: a trend that extrapolates past it means "full". */
+export function formatProjectedPercent(value: number): string {
+  return value >= 100 ? "≥100%" : `${value.toFixed(1)}%`;
+}
+
 export function CapacityForecastPanel() {
   const { t } = useI18n();
   const [data, setData] = useState<CapacityPayload | null>(null);
@@ -293,7 +298,7 @@ export function CapacityForecastPanel() {
                             : `${metric.slopePerDay > 0 ? "+" : ""}${metric.slopePerDay.toFixed(2)}%/d`}
                         </td>
                         <td className="px-3 py-2 font-mono tabular-nums text-[var(--text-primary)]">
-                          {metric.projected === null ? "—" : `${metric.projected.toFixed(1)}%`}
+                          {metric.projected === null ? "—" : formatProjectedPercent(metric.projected)}
                         </td>
                         <td className="px-3 py-2 text-[var(--text-secondary)]">
                           {formatDays(metric.daysUntil85, t)}

@@ -80,13 +80,50 @@ describe("operation task service", () => {
     expect(tasks[2]).toMatchObject({ source: "command", status: "pending", workerId: null, workerHeartbeatAt: null });
   });
 
+  it("lists a schedule's runs under its name instead of the schedule definition", async () => {
+    mockPrisma.commandRequest.findMany.mockResolvedValue([
+      {
+        id: "cmd-run",
+        title: "Scheduled task: Nightly backup",
+        status: "RUNNING",
+        createdAt: new Date("2026-01-04T00:00:00Z"),
+        updatedAt: new Date("2026-01-04T00:00:00Z"),
+        workerId: "worker-1",
+        workerHeartbeatAt: null,
+        requester: { username: "ops", displayName: null },
+        targets: [],
+        executionLogs: [],
+        scheduledTaskRuns: [{ scheduledTask: { name: "Nightly backup" } }],
+      },
+    ]);
+
+    const tasks = await listTasks({ limit: 10 });
+    const run = tasks.find((task) => task.sourceId === "cmd-run");
+
+    expect(run).toMatchObject({ id: "scheduled:cmd-run", source: "scheduled", title: "Nightly backup", status: "running", href: "/scheduled-tasks" });
+    expect(tasks.some((task) => task.source === "command" && task.sourceId === "cmd-run")).toBe(false);
+  });
+
+  it("does not report a sync job that never ran as completed", async () => {
+    mockPrisma.syncJob.findMany.mockResolvedValue([
+      { id: "sync-new", name: "Mirror photos", status: "IDLE", lastSyncAt: null, lastSyncResult: null, createdAt: new Date("2026-01-05T00:00:00Z"), updatedAt: new Date("2026-01-05T00:00:00Z"), creator: null },
+      { id: "sync-done", name: "Mirror docs", status: "IDLE", lastSyncAt: new Date("2026-01-05T01:00:00Z"), lastSyncResult: "ok", createdAt: new Date("2026-01-05T00:00:00Z"), updatedAt: new Date("2026-01-05T01:00:00Z"), creator: null },
+    ]);
+
+    const tasks = await listTasks({ limit: 10 });
+
+    expect(tasks.find((task) => task.sourceId === "sync-new")?.status).toBe("pending");
+    expect(tasks.find((task) => task.sourceId === "sync-done")?.status).toBe("completed");
+  });
+
   it("uses the runtime setting as the default and maximum list limit", async () => {
     vi.mocked(getOperationTaskListLimit).mockResolvedValue(42);
 
     await listTasks();
 
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 42 }));
-    expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 42 }));
+    // Schedule definitions are not tasks; their runs arrive as commands.
+    expect(mockPrisma.scheduledTask.findMany).not.toHaveBeenCalled();
 
     await listTasks({ limit: 500 });
     expect(mockPrisma.commandRequest.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 42 }));
@@ -101,7 +138,6 @@ describe("operation task service", () => {
     const teamScope = { teamId: "team-1" };
     expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { requesterId: "user-1" }] } }));
-    expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdById: "user-1" }] } }));
     expect(mockPrisma.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
     expect(mockPrisma.syncJob.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
     expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));

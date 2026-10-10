@@ -12,6 +12,7 @@ import { ActionButton } from "@/components/action-button";
 import { Badge, type BadgeTone } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { describeCron, isFiveFieldCron } from "@/lib/scheduled-task/describe-cron";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -43,17 +44,8 @@ function getTypeLabel(t: (k: string, vars?: Record<string, string | number>) => 
 }
 
 function describeCronPreview(expr: string, t: (k: string, vars?: Record<string, string | number>) => string) {
-	const parts = expr.trim().split(/\s+/);
-	if (parts.length !== 5) return t("backupsPage.schedule.cronError.5parts");
-	const [min, hour, day, month, dow] = parts;
-	if (min ==="0" && hour ==="*" && day ==="*" && month ==="*" && dow ==="*") return t("backupsPage.schedule.cronPreview.everyHour");
-	if (day ==="*" && month ==="*" && dow ==="*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return t("backupsPage.schedule.cronPreview.everyDay", { hour: hour!, min: min!.padStart(2,"0") });
-	if (day ==="*" && month ==="*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
-		const dowName = t(`backupsPage.schedule.cronPreview.dowName.${dow}`);
-		const safeName = dowName.startsWith("backupsPage.") ? t("backupsPage.schedule.cronPreview.dowFallback", { dow: dow! }) : dowName;
-		return t("backupsPage.schedule.cronPreview.everyDow", { dowName: safeName, hour: hour!, min: min!.padStart(2,"0") });
-	}
-	return t("backupsPage.schedule.cronPreview.custom");
+	if (!isFiveFieldCron(expr)) return t("backupsPage.schedule.cronError.5parts");
+	return describeCron(expr, t) ?? t("backupsPage.schedule.cronPreview.custom");
 }
 
 function statusBadgeTone(status: string): BadgeTone {

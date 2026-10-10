@@ -51,7 +51,7 @@ describe("AppTopbar", () => {
 		navigation.pathname = "/alert-rules";
 		renderTopbar();
 
-		expect(document.title).toBe("智能告警 · VControlHub");
+		expect(document.title).toBe("告警规则 · VControlHub");
 	});
 
 	it("exposes a visible search control that opens global search without relying on hidden shortcuts", async () => {

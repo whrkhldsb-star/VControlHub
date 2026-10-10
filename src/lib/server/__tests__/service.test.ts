@@ -809,7 +809,7 @@ describe("server service", () => {
       }),
     );
     expect(checkStorageNodeHealth).toHaveBeenCalledWith("sn_1", null);
-    expect(result.connectionSummary).toContain("SSH key prod-root-key");
+    expect(result.sshKey?.name).toBe("prod-root-key");
   });
 
   it("creates a server profile with password authentication", async () => {
@@ -897,9 +897,7 @@ describe("server service", () => {
         }),
       }),
     );
-    expect(result.connectionSummary).toContain(
-      "admin@10.0.0.1:22, using password connection",
-    );
+    expect(result.connectionType).toBe("PASSWORD");
   });
 
   it("creates a server with global direct gateway enabled during onboarding", async () => {
@@ -2089,7 +2087,7 @@ describe("server service", () => {
     const result = await listServerProfiles();
 
     expect(result).toHaveLength(1);
-    expect(result[0]?.connectionSummary).toContain("prod-root-key");
+    expect(result[0]?.sshKey?.name).toBe("prod-root-key");
   });
 
   it("lists onboarded servers with password summaries", async () => {
@@ -2117,9 +2115,7 @@ describe("server service", () => {
     const result = await listServerProfiles();
 
     expect(result).toHaveLength(1);
-    expect(result[0]?.connectionSummary).toContain(
-      "admin@10.0.0.1:22, using password connection",
-    );
+    expect(result[0]?.connectionType).toBe("PASSWORD");
   });
 
   it("does not include unassigned servers in non-manager server lists", async () => {

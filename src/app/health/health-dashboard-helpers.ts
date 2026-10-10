@@ -1,6 +1,6 @@
 /** Pure helpers / tone maps for the health dashboard. */
 
-import type { SystemHealthStatus, SystemHealthSummary } from "./health-types";
+import type { SystemHealthReport, SystemHealthStatus, SystemHealthSummary } from "./health-types";
 import type { BadgeTone } from "@/components/ui-primitives";
 
 export type { SystemHealthStatus, SystemHealthSummary };
@@ -18,64 +18,43 @@ export type RepairSuggestion = {
 
 export type TFunc = (key: string, vars?: Record<string, string | number>) => string;
 
+type AdviceDefinition = {
+	id: string;
+	/** Translation key of the problem description shown when the advice applies. */
+	issueKey: string;
+	href?: string;
+	covers: (checkId: string) => boolean;
+};
+
+/** Each piece of advice answers specific self-checks, never the global totals. */
+const ADVICE: AdviceDefinition[] = [
+	{ id: "db", issueKey: "descriptionCritical", covers: (id) => id === "database" || id === "env-database-url" },
+	{ id: "services", issueKey: "descriptionCritical", covers: (id) => id.endsWith("-service") },
+	{ id: "runtime", issueKey: "descriptionWarning", covers: (id) => id === "runtime-directories" || id.startsWith("dir-") },
+	{ id: "inventory", issueKey: "description", href: "/servers", covers: (id) => id === "server-inventory" || id === "storage-inventory" },
+	{ id: "notifications", issueKey: "description", href: "/settings#smtp", covers: (id) => id === "notification-settings" },
+	{ id: "git", issueKey: "descriptionWarning", covers: (id) => id === "git-sync" },
+];
+
+/** Advice for the checks that are not healthy, worst first; empty when all pass. */
 export const repairSuggestions = (
-	summary: SystemHealthSummary | null | undefined,
+	report: SystemHealthReport | null | undefined,
 	t: TFunc,
 ): RepairSuggestion[] => {
-	if (!summary) return [];
-	return [
-		{
-			id: "db",
-			label: t("healthPage.repair.db.label"),
-			action: t("healthPage.repair.db.action"),
-			description:
-				summary.critical > 0
-					? t("healthPage.repair.db.descriptionCritical")
-					: t("healthPage.repair.db.description"),
-			status: summary.critical > 0 ? "critical" : "healthy",
-		},
-		{
-			id: "runtime",
-			label: t("healthPage.repair.runtime.label"),
-			action: t("healthPage.repair.runtime.action"),
-			description:
-				summary.warning > 0
-					? t("healthPage.repair.runtime.descriptionWarning")
-					: t("healthPage.repair.runtime.description"),
-			status: summary.warning > 0 ? "warning" : "healthy",
-		},
-		{
-			id: "services",
-			label: t("healthPage.repair.services.label"),
-			action: t("healthPage.repair.services.action"),
-			description:
-				summary.critical > 0
-					? t("healthPage.repair.services.descriptionCritical")
-					: t("healthPage.repair.services.description"),
-			status: summary.critical > 0 ? "critical" : "healthy",
-		},
-		{
-			id: "git",
-			label: t("healthPage.repair.git.label"),
-			action: t("healthPage.repair.git.action"),
-			description:
-				summary.warning > 0
-					? t("healthPage.repair.git.descriptionWarning")
-					: t("healthPage.repair.git.description"),
-			status: summary.warning > 0 ? "warning" : "healthy",
-		},
-		{
-			id: "audit",
-			label: t("healthPage.repair.audit.label"),
-			action: t("healthPage.repair.audit.action"),
-			description:
-				summary.critical > 0
-					? t("healthPage.repair.audit.descriptionCritical")
-					: t("healthPage.repair.audit.description"),
-			href: "/audit?action=command.execute",
-			status: summary.critical > 0 ? "critical" : "warning",
-		},
-	];
+	if (!report) return [];
+	const suggestions = ADVICE.flatMap((advice): RepairSuggestion[] => {
+		const failing = report.checks.filter((check) => check.status !== "healthy" && advice.covers(check.id));
+		if (failing.length === 0) return [];
+		return [{
+			id: advice.id,
+			label: t(`healthPage.repair.${advice.id}.label`),
+			description: t(`healthPage.repair.${advice.id}.${advice.issueKey}`),
+			action: t(`healthPage.repair.${advice.id}.action`),
+			status: failing.some((check) => check.status === "critical") ? "critical" : "warning",
+			href: advice.href,
+		}];
+	});
+	return suggestions.sort((a, b) => Number(b.status === "critical") - Number(a.status === "critical"));
 };
 
 export const statusToneClasses: Record<string, { bg: string; text: string; dot: string }> = {

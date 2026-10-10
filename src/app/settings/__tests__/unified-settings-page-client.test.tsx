@@ -64,6 +64,13 @@ describe("UnifiedSettingsPageClient", () => {
     expect(screen.queryByRole("tab", { name: /高级配置/ })).not.toBeInTheDocument();
   });
 
+  it("gives everyone a team tab and opens it from the workspace bookmark", async () => {
+    window.history.replaceState(null, "", "#team-workspaces");
+    render(<UnifiedSettingsPageClient settings={{}} canManage={false} teamCapabilities={viewerTeamCapabilities} />);
+    expect(await screen.findByRole("tab", { name: /团队与权限/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: /安全与账户/ })).not.toBeInTheDocument();
+  });
+
   it("preserves unsaved platform fields and router history across tab changes", async () => {
     window.history.replaceState({ marker: "router" }, "", "#platform");
     render(<UnifiedSettingsPageClient settings={{ "platform.name": "Original", ...runtimeDefaults }} canManage teamCapabilities={adminTeamCapabilities} />);
@@ -133,12 +140,13 @@ describe("UnifiedSettingsPageClient", () => {
 
     // Tab bar with 4 tabs
     expect(screen.getByRole("tab", { name: /个人偏好/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /团队与权限/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /安全与账户/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /通知与集成/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /高级配置/ })).toBeInTheDocument();
 
     // Personal preferences content is visible by default
-    expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "VPS 管理" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "启用通知" })).toBeInTheDocument();
   });
 
@@ -153,7 +161,7 @@ describe("UnifiedSettingsPageClient", () => {
     );
 
     // ── Tab 1: Personal preferences ──
-    await user.click(await screen.findByRole("button", { name: "服务器管理" }));
+    await user.click(await screen.findByRole("button", { name: "VPS 管理" }));
     expect(await screen.findByRole("status")).toHaveTextContent("设置已保存");
     expect(csrfFetch).toHaveBeenCalledWith("/api/preferences", expect.objectContaining({
       method: "PUT",

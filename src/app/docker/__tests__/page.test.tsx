@@ -65,8 +65,8 @@ describe("DockerPage", () => {
 		render(wrap(<DockerPageClient initialServers={[]} />));
 
 		expect(await screen.findByText("web")).toBeInTheDocument();
-		expect(screen.getByRole("heading", { name: "运行边界：本机 Docker socket" })).toBeInTheDocument();
-		expect(screen.getByText(/不是跨 VPS 容器控制台/)).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "操作范围" })).toBeInTheDocument();
+		expect(screen.getByText(/拥有 Docker 管理权限的用户/)).toBeInTheDocument();
 		expect(screen.getByText(/\/var\/run\/docker\.sock/)).toBeInTheDocument();
 	});
 
@@ -120,8 +120,10 @@ describe("DockerPage", () => {
 
 		expect(await screen.findByText("bridge")).toBeInTheDocument();
 		expect(screen.getByText("cache")).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "Inspect Network bridge" }));
-		expect(await screen.findByText("Network: bridge")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "查看网络 bridge 的详情" }));
+		expect(await screen.findByText("网络: bridge")).toBeInTheDocument();
+		// Docker's own networks cannot be removed, so no delete button is offered.
+		expect(screen.queryByRole("button", { name: "删除 网络 bridge" })).not.toBeInTheDocument();
 
 		await user.selectOptions(screen.getByRole("combobox"), "volumes");
 		await user.type(screen.getByPlaceholderText("名称"), "logs");
@@ -134,9 +136,9 @@ describe("DockerPage", () => {
 			}),
 		));
 
-		await user.click(screen.getByRole("button", { name: "删除 Volume cache" }));
+		await user.click(screen.getByRole("button", { name: "删除 数据卷 cache" }));
 		expect(confirmSpy).not.toHaveBeenCalled();
-		const resourceDialog = await screen.findByRole("dialog", { name: "确认删除 Volume cache?" });
+		const resourceDialog = await screen.findByRole("dialog", { name: "确认删除 数据卷 cache?" });
 		await user.click(within(resourceDialog).getByRole("button", { name: "确认删除" }));
 		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith(
 			"/api/docker/resources",

@@ -146,7 +146,7 @@ describe("QuickServicesClient", () => {
 		await screen.findByText("Production VPS");
 		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
 
-		const dialog = await screen.findByRole("dialog", { name: "安装 AList" });
+		const dialog = await screen.findByRole("dialog", { name: "安装 AList 网盘" });
 		expect(dialog).toHaveTextContent("部署节点：Production VPS");
 		await waitFor(() => {
 			expect(csrfFetch).toHaveBeenCalledWith(
@@ -310,7 +310,7 @@ describe("QuickServicesClient", () => {
 				body: JSON.stringify({ slug: "alist", customPort: 5244, serverId: null }),
 			}));
 		});
-		expect(await screen.findByText(/AList 安装已排队（job:job_qs_4）/)).toBeInTheDocument();
+		expect(await screen.findByText(/AList 网盘 安装已排队（job:job_qs_4）/)).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks");
 	});
 
@@ -373,10 +373,10 @@ describe("QuickServicesClient", () => {
 		render(<QuickServicesClient canManage canManageHubHost />);
 		await userEvent.click(await screen.findByRole("tab", { name: /已安装/ }));
 
-		const accessLink = await screen.findByRole("link", { name: "访问 AList（Public direct port）" });
+		const accessLink = await screen.findByRole("link", { name: "访问 AList 网盘（公网端口直连）" });
 		expect(accessLink).toHaveAttribute("href", "http://82.158.91.159:5244/");
-		expect(accessLink).toHaveAttribute("title", expect.stringContaining("without going through VControlHub login authentication"));
-		expect(await screen.findByText("Public direct port")).toBeInTheDocument();
+		expect(accessLink).toHaveAttribute("title", expect.stringContaining("不经过 VControlHub 登录验证"));
+		expect(await screen.findByText("公网端口直连")).toBeInTheDocument();
 	});
 
 	it("renders the uninstall confirm dialog as a mobile bottom sheet with 44px touch targets (TR-022 R10)", async () => {

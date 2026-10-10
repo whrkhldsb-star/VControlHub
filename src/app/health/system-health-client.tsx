@@ -42,6 +42,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 		locale,
 		mode: "system",
 	});
+	const advice = repairSuggestions(systemHealth, t);
 
 	const tt = (key: string, vars?: Record<string, string | number>) => applyTemplate(t, key, vars);
 	const loading = systemHealth === null && !loadError;
@@ -119,8 +120,11 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 							{t("healthPage.ui.auditLog")}
 						</ButtonLink>
 					</div>
+					{advice.length === 0 ? (
+						<Notice tone="success">{t("healthPage.repair.allHealthy")}</Notice>
+					) : null}
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-						{repairSuggestions(systemHealth.summary, t).map((item) => {
+						{advice.map((item) => {
 							return (
 								<article key={item.id} data-card>
 									<div className="flex items-center justify-between gap-3">

@@ -4,11 +4,12 @@
  * Sync a small set of filter/sort keys into the URL query string so that
  * browser back/forward and shared links restore list state (FE-6).
  *
- * Uses history.replaceState to avoid stacking a history entry on every
- * keystroke; does not re-render Next.js server components.
+ * Replaces the URL to avoid stacking a history entry on every keystroke;
+ * does not re-render Next.js server components.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { replaceBrowserUrl } from "@/lib/browser-history";
 
 export type UrlQueryDefaults = Record<string, string>;
 
@@ -41,7 +42,7 @@ function writeToLocation(state: Record<string, string>, defaults: UrlQueryDefaul
   const next = `${url.pathname}${url.search}${url.hash}`;
   const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (next !== current) {
-    window.history.replaceState(window.history.state, "", next);
+    replaceBrowserUrl(next);
   }
 }
 

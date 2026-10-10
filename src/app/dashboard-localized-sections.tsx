@@ -58,10 +58,10 @@ export function DashboardLocalizedHeader({ username }: { username: string }) {
   return (
     <PageHeader eyebrow={t("nav.dashboard")} title={title} description={`${currentUser}: ${username}`}>
           <ButtonLink variant="primary" href="/servers" iconRight={<IconChevronRight aria-hidden />}>
-            {t("dashboard.manage-vps-keys") === "dashboard.manage-vps-keys" ? "Manage VPS" : t("dashboard.manage-vps-keys")}
+            {t("nav.servers")}
           </ButtonLink>
           <ButtonLink variant="secondary" href="/operation-tasks">
-            {t("nav.operation-tasks") === "nav.operation-tasks" ? "Tasks" : t("nav.operation-tasks")}
+            {t("nav.operation-tasks")}
           </ButtonLink>
     </PageHeader>
   );
@@ -101,7 +101,6 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
   const coreTitle = t("dashboard.core-resources");
   const queueTitle = t("dashboard.ops-queue");
   const vpsNodes = t("dashboard.vps-nodes");
-  const enabledNodes = t("dashboard.enabled-nodes");
   const storageNodes = t("dashboard.storage-nodes");
   const fileEntries = t("dashboard.file-entries");
   const pending = t("dashboard.pending-approvals");
@@ -109,9 +108,6 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
   const running = t("dashboard.running");
   const completed = t("dashboard.completed");
   const failed = t("dashboard.failed");
-  const notificationScheduled = t("dashboard.notifications-scheduled");
-  const unread = t("dashboard.unread");
-  const active = t("dashboard.active");
 
   const downloadValue = queue.downloads.running > 0 ? `${queue.downloads.running} ${running}` : String(queue.downloads.running + queue.downloads.completed + queue.downloads.failed);
   const downloadDetail = queue.downloads.running > 0 ? `${queue.downloads.running} ${running} / ${queue.downloads.completed} ${completed} / ${queue.downloads.failed} ${failed}` : undefined;
@@ -120,26 +116,21 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
     <section className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <MetricPanel
         title={coreTitle}
-        columns={4}
+        columns={3}
         metrics={[
-          { label: vpsNodes, value: String(storage.serverTotal), href: "/servers" },
-          { label: enabledNodes, value: String(storage.serverEnabled), href: "/servers" },
+          { label: vpsNodes, value: String(storage.serverTotal), detail: t("dashboard.enabled-count", { count: storage.serverEnabled }), href: "/servers" },
           { label: storageNodes, value: String(storage.totalNodes), href: "/files" },
           { label: fileEntries, value: String(storage.totalEntries), href: "/files" },
         ]}
       />
       <MetricPanel
         title={queueTitle}
-        columns={3}
+        columns={4}
         metrics={[
           { label: pending, value: String(queue.pendingApprovals), tone: queue.pendingApprovals > 0 ? "amber" : undefined, href: "/requests" },
           { label: downloads, value: downloadValue, tone: queue.downloads.running > 0 ? "cyan" : undefined, detail: downloadDetail, href: "/downloads" },
-          {
-            label: notificationScheduled,
-            value: `${queue.unreadNotifications} ${unread} / ${queue.activeScheduledTasks} ${active}`,
-            tone: queue.unreadNotifications > 0 ? "amber" : undefined,
-            href: "/notifications",
-          },
+          { label: t("dashboard.unread-notifications"), value: String(queue.unreadNotifications), tone: queue.unreadNotifications > 0 ? "amber" : undefined, href: "/notifications" },
+          { label: t("dashboard.active-schedules"), value: String(queue.activeScheduledTasks), href: "/scheduled-tasks" },
         ]}
       />
     </section>
@@ -194,7 +185,6 @@ type DashboardCommandRequest = {
   title: string;
   command: string;
   status: string;
-  approvalStateLabel: string;
   isAssistantInitiated: boolean;
   requester: { username: string; displayName: string | null };
   targetCount: number;
@@ -231,7 +221,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <Badge color={request.status === "PENDING_APPROVAL" ? "amber" : request.status === "APPROVED" || request.status === "COMPLETED" ? "emerald" : request.status === "FAILED" || request.status === "REJECTED" ? "rose" : "slate"}>
-                  {request.approvalStateLabel === request.status ? getDomainStatusLabel(t, request.status) : request.approvalStateLabel}
+                  {getDomainStatusLabel(t, request.status)}
                 </Badge>
                 <Badge color="slate">{targetPrefix} {request.targetCount} {targetSuffix}</Badge>
               </div>

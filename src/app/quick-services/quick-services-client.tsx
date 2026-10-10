@@ -274,7 +274,7 @@ export function QuickServicesClient({
 										<span className="ui-mono text-xs text-[var(--text-muted)]">:{item.port ?? item.defaultPort}</span>
 									</div>
 									<p className="mt-1 truncate text-xs text-[var(--text-muted)]">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
-									{access ? <p className="mt-2 text-xs font-medium text-[var(--accent)]">{access.label}</p> : <p className="mt-2 text-xs font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured", { name: item.name })}</p>}
+									{access ? <p className="mt-2 text-xs font-medium text-[var(--accent)]">{t(`qsPage.access.${access.mode}.label`)}</p> : <p className="mt-2 text-xs font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured", { name: item.name })}</p>}
 								</>
 							);
 							if (!access) {
@@ -285,7 +285,7 @@ export function QuickServicesClient({
 								);
 							}
 							return (
-								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry", { name: item.name, label: access.label })} data-inset className="p-3 transition hover:bg-[var(--surface-hover)]">
+								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry", { name: item.name, label: t(`qsPage.access.${access.mode}.label`) })} data-inset className="p-3 transition hover:bg-[var(--surface-hover)]">
 									{cardBody}
 								</a>
 							);

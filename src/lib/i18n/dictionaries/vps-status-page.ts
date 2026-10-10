@@ -2,8 +2,8 @@
  * i18n dictionary: `vpsStatusPage.*` keys for the Komari/Nezha-style VPS probe page.
  */
 export const zh: Record<string, string> = {
-	"vpsStatusPage.title": "VPS 状态",
-	"vpsStatusPage.description": "以探针主控风格展示各节点资源占用。指标经 SSH 密钥/密码采集，刷新间隔与系统设置一致。",
+	"vpsStatusPage.title": "节点状态",
+	"vpsStatusPage.description": "纳管节点的在线状态、资源占用与容量预测。指标通过 SSH 或节点 Agent 采集，刷新间隔与系统设置一致。",
 	"vpsStatusPage.eyebrow": "探针看板",
 	"vpsStatusPage.serverCount": "纳管节点 {count} 台",
 	"vpsStatusPage.noPermission": "缺少健康监控权限",
@@ -15,7 +15,7 @@ export const zh: Record<string, string> = {
 	"vpsStatusPage.empty": "当前筛选下没有节点",
 	"vpsStatusPage.loading.title": "正在采集远程节点指标",
 	"vpsStatusPage.loading.description": "首次刷新需要通过 SSH 读取资源信息，请稍候。",
-	"vpsStatusPage.gotoSystemHealth": "系统健康",
+	"vpsStatusPage.gotoSystemHealth": "平台健康",
 	"vpsStatusPage.metric.load": "负载",
 	"vpsStatusPage.metric.netIn": "入站",
 	"vpsStatusPage.metric.netOut": "出站",
@@ -37,8 +37,8 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"vpsStatusPage.title": "VPS Status",
-	"vpsStatusPage.description": "Probe-style fleet view of node resource usage. Metrics are collected over SSH; refresh interval follows system settings.",
+	"vpsStatusPage.title": "Node Status",
+	"vpsStatusPage.description": "Availability, resource usage and capacity forecasts for managed nodes. Metrics come over SSH or the node Agent; the refresh interval follows system settings.",
 	"vpsStatusPage.eyebrow": "Probe board",
 	"vpsStatusPage.serverCount": "{count} managed nodes",
 	"vpsStatusPage.noPermission": "Missing health permission",
@@ -50,7 +50,7 @@ export const en: Record<string, string> = {
 	"vpsStatusPage.empty": "No nodes match this filter",
 	"vpsStatusPage.loading.title": "Collecting remote node metrics",
 	"vpsStatusPage.loading.description": "The first refresh reads resource data over SSH and may take a moment.",
-	"vpsStatusPage.gotoSystemHealth": "System Health",
+	"vpsStatusPage.gotoSystemHealth": "Platform Health",
 	"vpsStatusPage.metric.load": "Load",
 	"vpsStatusPage.metric.netIn": "In",
 	"vpsStatusPage.metric.netOut": "Out",

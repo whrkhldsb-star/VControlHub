@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-10-05T14:58:41.072Z | Permissions: 54 | Roles: 4 | API routes: 188 | Pages: 55 | Drift: 0
+> Generated: 2026-10-09T18:08:42.349Z | Permissions: 54 | Roles: 4 | API routes: 188 | Pages: 55 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -32,7 +32,7 @@ This report cross-references four RBAC sources of truth:
 | `ai:ops:read` | admin | 0 | 0 | 8 |
 | `announcement:manage` | admin | 1 | 1 | 8 |
 | `api-token:manage` | admin, operator | 1 | 0 | 6 |
-| `audit:read` | admin, operator, viewer, storage_manager | 2 | 1 | 10 |
+| `audit:read` | admin, operator, viewer, storage_manager | 1 | 1 | 9 |
 | `backup:create` | admin | 1 | 0 | 21 |
 | `backup:read` | admin | 1 | 0 | 11 |
 | `backup:restore` | admin | 1 | 0 | 5 |
@@ -44,7 +44,7 @@ This report cross-references four RBAC sources of truth:
 | `cost:read` | admin, operator, viewer | 1 | 0 | 15 |
 | `deploy:export` | admin, operator | 1 | 0 | 7 |
 | `deploy:manage` | admin | 0 | 0 | 0 |
-| `deploy:read` | admin, operator, viewer | 2 | 0 | 4 |
+| `deploy:read` | admin, operator, viewer | 1 | 0 | 3 |
 | `deploy:run` | admin, operator | 2 | 0 | 5 |
 | `docker:manage` | admin, operator | 1 | 1 | 25 |
 | `health:read` | admin, operator, viewer, storage_manager | 2 | 1 | 13 |

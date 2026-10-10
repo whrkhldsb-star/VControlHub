@@ -59,23 +59,6 @@ function resolveSchedule(input: Pick<CreateScheduledTaskInput, "scheduleType" | 
 	} as const;
 }
 
-/* ── Basic cron description ───────────────────────────────── */
-
-export function describeCron(expr: string): string {
-	const parts = expr.trim().split(/\s+/);
-	if (parts.length !== 5) return "Custom time expression";
-	const [min, hour, day, month, dow] = parts;
-	if (min === "*" && hour === "*") return "Every minute";
-	if (min!.startsWith("*/") && hour === "*") return `Every ${min!.slice(2)} minutes`;
-	if (hour === "*" && min !== "*") return `Minute ${min!} of every hour`;
-	if (min !== "*" && hour !== "*" && day === "*" && month === "*" && dow === "*") return `Daily at ${hour!}:${min!.padStart(2, "0")}`;
-	if (dow !== "*" && min !== "*" && hour !== "*") {
-		const dayNames: Record<string, string> = { "0": "Sunday", "1": "Monday", "2": "Tuesday", "3": "Wednesday", "4": "Thursday", "5": "Friday", "6": "Saturday" };
-		return `Every ${dayNames[dow!] ?? "day " + dow!} ${hour!}:${min!.padStart(2, "0")}`;
-	}
-	return expr;
-}
-
 /* ── Compute next run time ────────────────────────────────── */
 
 export function computeNextRun(cronExpression: string, from: Date = new Date()): Date {

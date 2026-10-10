@@ -249,11 +249,8 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 		: "";
 
 	return (
-		<section id="team-workspaces" className="min-w-0 space-y-4 border-t border-[var(--border)] py-5">
-			<div>
-				<p className="text-xs font-semibold uppercase text-[var(--color-action-text)]">{t("settingsTeam.eyebrow")}</p>
-				<h2 className="ui-title-section mt-1">{t("settingsTeam.title")}</h2>
-			</div>
+		<section id="team-workspaces" className="min-w-0 scroll-mt-24 space-y-4">
+			<h2 className="ui-title-section">{t("settingsTeam.title")}</h2>
 
 			{error && <Notice tone="danger">{error}</Notice>}
 			{message && <Notice tone="success">{message}</Notice>}
@@ -308,7 +305,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 									<li key={member.user.id} className="flex items-center justify-between gap-2">
 										<span className="min-w-0 break-words">{member.user.displayName || member.user.username}</span>
 										<span className="flex items-center gap-2">
-											<span className="text-[var(--text-muted)]">{member.role} · {t(`settingsTeam.accessRole.${member.accessRole ?? "inherit"}`)}</span>
+											<span className="text-[var(--text-muted)]">{t(`settingsTeam.role.${member.role}`)} · {t(`settingsTeam.accessRole.${member.accessRole ?? "inherit"}`)}</span>
 											{canDeleteTeam(team) && member.role !== "owner" && member.user.status === "ACTIVE" && (
 												<ActionButton size="xs" variant="ghost" disabled={busy} onClick={() => transferOwner(team.id, member.user.id, member.user.displayName || member.user.username)}>{t("settingsTeam.transferOwner")}</ActionButton>
 											)}

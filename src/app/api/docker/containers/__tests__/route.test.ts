@@ -120,7 +120,7 @@ describe("/api/docker/containers audit coverage", () => {
       dockerScope: {
         scope: "hub-host",
         socketPath: dockerEngineSocketPath(),
-        warning: expect.stringContaining("not a cross-VPS container console"),
+        warning: expect.stringContaining("choose a server as the Docker target"),
       },
     });
     expect(loggerMock.error).not.toHaveBeenCalled();

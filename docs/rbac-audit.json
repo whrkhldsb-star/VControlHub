@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-05T14:58:41.072Z",
+  "generatedAt": "2026-10-09T18:08:42.349Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 188,
     "pagesAudited": 55,
-    "callSitesAudited": 635,
+    "callSitesAudited": 633,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -132,7 +132,7 @@
         },
         {
           "path": "src/app/servers/page.tsx",
-          "line": 30
+          "line": 29
         }
       ],
       "pages": [
@@ -459,15 +459,10 @@
         {
           "path": "src/app/audit/page.tsx",
           "line": 54
-        },
-        {
-          "path": "src/app/servers/page.tsx",
-          "line": 28
         }
       ],
       "pages": [
-        "audit",
-        "servers"
+        "audit"
       ],
       "apiRoutes": [
         "/api/dashboard/analytics"
@@ -668,11 +663,11 @@
       "files": [
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 142
+          "line": 145
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 202
+          "line": 205
         },
         {
           "path": "src/app/requests/actions.ts",
@@ -684,15 +679,15 @@
         },
         {
           "path": "src/app/requests/page.tsx",
-          "line": 22
+          "line": 25
         },
         {
           "path": "src/app/scheduled-tasks/page.tsx",
-          "line": 19
+          "line": 20
         },
         {
           "path": "src/app/servers/page.tsx",
-          "line": 27
+          "line": 28
         }
       ],
       "pages": [
@@ -713,27 +708,27 @@
       "files": [
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 48
+          "line": 51
         },
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 48
+          "line": 51
         },
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 59
+          "line": 62
         },
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 59
+          "line": 62
         },
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 68
+          "line": 71
         },
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 68
+          "line": 71
         },
         {
           "path": "src/app/api/commands/route.ts",
@@ -745,39 +740,39 @@
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 131
+          "line": 134
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 131
+          "line": 134
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 176
+          "line": 179
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 176
+          "line": 179
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 237
+          "line": 240
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 237
+          "line": 240
         },
         {
           "path": "src/app/scheduled-tasks/page.tsx",
-          "line": 17
+          "line": 18
         },
         {
           "path": "src/app/servers/page.tsx",
-          "line": 25
+          "line": 26
         },
         {
           "path": "src/app/templates/page.tsx",
-          "line": 14
+          "line": 15
         }
       ],
       "pages": [
@@ -808,11 +803,11 @@
         },
         {
           "path": "src/app/scheduled-tasks/page.tsx",
-          "line": 18
+          "line": 19
         },
         {
           "path": "src/app/servers/page.tsx",
-          "line": 26
+          "line": 27
         }
       ],
       "pages": [
@@ -832,11 +827,11 @@
       "files": [
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 34
+          "line": 36
         },
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 34
+          "line": 36
         },
         {
           "path": "src/app/api/commands/[id]/tickets/route.ts",
@@ -1088,7 +1083,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 50
+          "line": 52
         }
       ],
       "pages": [
@@ -1122,16 +1117,11 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 48
-        },
-        {
-          "path": "src/app/servers/page.tsx",
-          "line": 29
+          "line": 50
         }
       ],
       "pages": [
-        "deployments",
-        "servers"
+        "deployments"
       ],
       "apiRoutes": [],
       "grantedToRoles": [
@@ -1157,11 +1147,11 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 49
+          "line": 51
         },
         {
           "path": "src/app/templates/page.tsx",
-          "line": 15
+          "line": 16
         }
       ],
       "pages": [
@@ -1490,7 +1480,7 @@
         },
         {
           "path": "src/app/media/page.tsx",
-          "line": 72
+          "line": 71
         }
       ],
       "pages": [
@@ -1705,7 +1695,7 @@
       "files": [
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 29
+          "line": 31
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
@@ -1812,11 +1802,11 @@
         },
         {
           "path": "src/app/api/traffic/summary/route.ts",
-          "line": 162
+          "line": 163
         },
         {
           "path": "src/app/api/traffic/summary/route.ts",
-          "line": 162
+          "line": 163
         },
         {
           "path": "src/app/servers/inventory-actions.ts",
@@ -1902,11 +1892,11 @@
         },
         {
           "path": "src/app/api/servers/[id]/reload/route.ts",
-          "line": 125
+          "line": 126
         },
         {
           "path": "src/app/api/servers/[id]/reload/route.ts",
-          "line": 125
+          "line": 126
         },
         {
           "path": "src/app/api/servers/[id]/sftp/delete/route.ts",
@@ -1926,11 +1916,11 @@
         },
         {
           "path": "src/app/api/servers/[id]/sftp/list/route.ts",
-          "line": 23
+          "line": 24
         },
         {
           "path": "src/app/api/servers/[id]/sftp/list/route.ts",
-          "line": 23
+          "line": 24
         },
         {
           "path": "src/app/api/servers/[id]/sftp/mkdir/route.ts",
@@ -1962,7 +1952,7 @@
         },
         {
           "path": "src/app/servers/page.tsx",
-          "line": 24
+          "line": 25
         }
       ],
       "pages": [
@@ -2041,31 +2031,31 @@
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 295
+          "line": 286
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 335
+          "line": 326
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 382
+          "line": 373
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 433
+          "line": 424
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 509
+          "line": 500
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 548
+          "line": 539
         },
         {
           "path": "src/app/servers/page.tsx",
-          "line": 23
+          "line": 24
         }
       ],
       "pages": [
@@ -2239,15 +2229,15 @@
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 22
+          "line": 23
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 29
+          "line": 30
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 118
+          "line": 119
         }
       ],
       "pages": [
@@ -2472,11 +2462,11 @@
         },
         {
           "path": "src/app/api/storage/archive-download/route.ts",
-          "line": 114
+          "line": 115
         },
         {
           "path": "src/app/api/storage/archive-download/route.ts",
-          "line": 114
+          "line": 115
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
@@ -2504,11 +2494,11 @@
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 380
+          "line": 381
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 380
+          "line": 381
         },
         {
           "path": "src/app/api/storage/nodes/route.ts",
@@ -2564,7 +2554,7 @@
         },
         {
           "path": "src/app/api/traffic/summary/route.ts",
-          "line": 180
+          "line": 181
         },
         {
           "path": "src/app/media/[id]/page.tsx",
@@ -2572,7 +2562,7 @@
         },
         {
           "path": "src/app/media/page.tsx",
-          "line": 70
+          "line": 69
         }
       ],
       "pages": [
@@ -2695,11 +2685,11 @@
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 392
+          "line": 393
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 392
+          "line": 393
         },
         {
           "path": "src/app/api/storage/sftp-ops/route.ts",
@@ -2779,11 +2769,11 @@
         },
         {
           "path": "src/app/storage/actions-directories.ts",
-          "line": 35
+          "line": 36
         },
         {
           "path": "src/app/storage/actions-directories.ts",
-          "line": 225
+          "line": 226
         }
       ],
       "pages": [

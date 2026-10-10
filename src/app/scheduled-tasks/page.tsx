@@ -1,12 +1,13 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listScheduledTasks, describeCron } from "@/lib/scheduled-task/service";
+import { listScheduledTasks } from "@/lib/scheduled-task/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { listTemplates } from "@/lib/command-template/service";
 
 import { ScheduledTaskListClient } from "./scheduled-task-list-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -21,14 +22,13 @@ export default async function ScheduledTasksPage() {
 	const [tasks, servers, templates] = await Promise.all([
 		listScheduledTasks(200, session),
 		listServerProfiles(session),
-		listTemplates(200, session),
+		listTemplates(200, session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
 	]);
 
 	const serialized = tasks.map((t) => ({
 		id: t.id,
 		name: t.name,
 		cronExpression: t.cronExpression,
-		cronDescription: t.scheduleType === "ONCE" ? tr("scheduledTasks.schedule.once") : describeCron(t.cronExpression),
 		scheduleType: t.scheduleType,
 		runAt: t.runAt?.toISOString() ?? null,
 		command: t.command,

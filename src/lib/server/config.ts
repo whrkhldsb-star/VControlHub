@@ -87,15 +87,3 @@ export function normalizeServerInput(
   };
 }
 
-export function getServerConnectionSummary(input: {
-  host: string;
-  port: number;
-  username: string;
-  connectionType: "SSH_KEY" | "PASSWORD";
-  sshKeyName?: string | null;
-}) {
-  if (input.connectionType === "PASSWORD") {
-    return `${input.username}@${input.host}:${input.port}, using password connection`;
-  }
-  return `${input.username}@${input.host}:${input.port}, using SSH key ${input.sshKeyName ?? "unknown"}`;
-}

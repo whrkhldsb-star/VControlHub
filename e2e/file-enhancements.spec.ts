@@ -43,7 +43,8 @@ test("upload queue pauses, survives route navigation, resumes and preserves uplo
   await uploadDialog.getByRole("button", { name: /暂停|Pause/i }).click();
   await expect(uploadDialog).toContainText(/已暂停|Paused/i);
   await uploadDialog.getByRole("button", { name: /关闭|Close/i }).click();
-  await page.getByRole("button", { name: /总览与监控|Overview.*Monitoring/i }).click();
+  const dashboardLink = page.locator('a[href="/dashboard"]:visible').first();
+  if (await dashboardLink.count() === 0) await page.getByRole("button", { name: /^(总览|Overview)$/i }).click();
   await page.locator('a[href="/dashboard"]:visible').first().click({ timeout: 10000 });
   await expect(page).toHaveURL(/\/dashboard/);
   await page.getByRole("button", { name: /上传任务|Uploads/i }).click();

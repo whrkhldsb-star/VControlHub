@@ -11,9 +11,8 @@ import {
   buildSshParamsFromServer,
   execRemoteCommand,
 } from "@/lib/ssh/client";
-import { getServerConnectionSummary } from "./config";
 import { config } from "@/lib/config/env";
-import { getDirectGatewayStatusLabel, getResolvedDirectGatewayProtocol } from "./direct-gateway";
+import { getResolvedDirectGatewayProtocol } from "./direct-gateway";
 import { t } from "@/lib/i18n/service-translations";
 
 type ServerCommandTarget = {
@@ -156,16 +155,6 @@ export type ServerProfileRow = Prisma.ServerGetPayload<{
 
 export function serializeDate(value: Date | string) {
   return value instanceof Date ? value.toISOString() : value;
-}
-
-export function buildServerStatusLabel(enabled: boolean) {
-  return enabled ? "Enabled" : "Disabled";
-}
-
-export function buildServerConnectionTypeLabel(
-  connectionType: "SSH_KEY" | "PASSWORD",
-) {
-  return connectionType === "SSH_KEY" ? "SSH key" : "Password";
 }
 
 const SERVER_COST_CURRENCIES = ["CNY", "USD", "EUR", "JPY", "HKD"] as const;
@@ -350,10 +339,6 @@ export function enrichServer(server: ServerWithRelations) {
       ),
       publicUrl: server.publicUrl ?? null,
       port: server.fileProxyPort ?? 0,
-      statusLabel: getDirectGatewayStatusLabel({
-        fileProxyPort: server.fileProxyPort,
-        publicUrl: server.publicUrl,
-      }),
       // TR-002 R3: bind + protocol come from the runtime env (single source
       // of truth shared with the on-node systemd unit) and the publicUrl
       // scheme. They're added to the projection so the UI risk banner has
@@ -363,15 +348,6 @@ export function enrichServer(server: ServerWithRelations) {
         publicUrl: server.publicUrl ?? null,
       }),
     },
-    statusLabel: buildServerStatusLabel(server.enabled),
-    connectionTypeLabel: hasSshCredential ? buildServerConnectionTypeLabel(server.connectionType) : "Agent only",
-    connectionSummary: hasSshCredential ? getServerConnectionSummary({
-      host: server.host,
-      port: server.port,
-      username: server.username,
-      connectionType: server.connectionType,
-      sshKeyName: server.sshKey?.name ?? null,
-    }) : `Agent-only management for ${server.host}; no SSH fallback credential is stored.`,
     targetCount: server.commandTargets?.length ?? 0,
     pendingCommandCount: (server.commandTargets ?? []).filter(
       (target) => target.status === "PENDING_APPROVAL",
