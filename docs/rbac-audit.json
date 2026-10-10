@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-09T18:08:42.349Z",
+  "generatedAt": "2026-10-10T17:51:50.244Z",
   "summary": {
-    "permissionsInList": 54,
+    "permissionsInList": 52,
     "rolesDefined": 4,
-    "apiRoutesAudited": 188,
-    "pagesAudited": 55,
-    "callSitesAudited": 633,
+    "apiRoutesAudited": 189,
+    "pagesAudited": 56,
+    "callSitesAudited": 651,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -1706,18 +1706,6 @@
           "line": 41
         },
         {
-          "path": "src/app/api/role-templates/[id]/route.ts",
-          "line": 13
-        },
-        {
-          "path": "src/app/api/role-templates/[id]/route.ts",
-          "line": 23
-        },
-        {
-          "path": "src/app/api/role-templates/route.ts",
-          "line": 33
-        },
-        {
           "path": "src/app/api/snippets/route.ts",
           "line": 31
         }
@@ -2837,28 +2825,43 @@
       ]
     },
     {
-      "permission": "team:create",
-      "files": [
-        {
-          "path": "src/app/settings/page.tsx",
-          "line": 56
-        }
-      ],
-      "pages": [
-        "settings"
-      ],
-      "apiRoutes": [],
-      "grantedToRoles": [
-        "admin",
-        "operator"
-      ]
-    },
-    {
       "permission": "team:manage",
       "files": [
         {
           "path": "src/app/api/deploy-export/[id]/zip/route.ts",
           "line": 70
+        },
+        {
+          "path": "src/app/api/identity-templates/[id]/route.ts",
+          "line": 15
+        },
+        {
+          "path": "src/app/api/identity-templates/[id]/route.ts",
+          "line": 15
+        },
+        {
+          "path": "src/app/api/identity-templates/[id]/route.ts",
+          "line": 26
+        },
+        {
+          "path": "src/app/api/identity-templates/[id]/route.ts",
+          "line": 26
+        },
+        {
+          "path": "src/app/api/identity-templates/route.ts",
+          "line": 11
+        },
+        {
+          "path": "src/app/api/identity-templates/route.ts",
+          "line": 11
+        },
+        {
+          "path": "src/app/api/identity-templates/route.ts",
+          "line": 19
+        },
+        {
+          "path": "src/app/api/identity-templates/route.ts",
+          "line": 19
         },
         {
           "path": "src/app/api/images/[id]/file/route.ts",
@@ -2885,26 +2888,101 @@
           "line": 47
         },
         {
+          "path": "src/app/api/servers/[id]/transfer/route.ts",
+          "line": 16
+        },
+        {
+          "path": "src/app/api/servers/[id]/transfer/route.ts",
+          "line": 16
+        },
+        {
+          "path": "src/app/api/teams/[id]/members/[userId]/route.ts",
+          "line": 17
+        },
+        {
+          "path": "src/app/api/teams/[id]/members/[userId]/route.ts",
+          "line": 17
+        },
+        {
+          "path": "src/app/api/teams/[id]/members/[userId]/route.ts",
+          "line": 28
+        },
+        {
+          "path": "src/app/api/teams/[id]/members/[userId]/route.ts",
+          "line": 28
+        },
+        {
+          "path": "src/app/api/teams/[id]/members/route.ts",
+          "line": 12
+        },
+        {
+          "path": "src/app/api/teams/[id]/members/route.ts",
+          "line": 12
+        },
+        {
+          "path": "src/app/api/teams/[id]/members/route.ts",
+          "line": 22
+        },
+        {
+          "path": "src/app/api/teams/[id]/members/route.ts",
+          "line": 22
+        },
+        {
+          "path": "src/app/api/teams/[id]/restore/route.ts",
+          "line": 11
+        },
+        {
+          "path": "src/app/api/teams/[id]/restore/route.ts",
+          "line": 11
+        },
+        {
+          "path": "src/app/api/teams/[id]/route.ts",
+          "line": 15
+        },
+        {
+          "path": "src/app/api/teams/[id]/route.ts",
+          "line": 15
+        },
+        {
+          "path": "src/app/api/teams/[id]/route.ts",
+          "line": 26
+        },
+        {
+          "path": "src/app/api/teams/[id]/route.ts",
+          "line": 26
+        },
+        {
+          "path": "src/app/api/teams/route.ts",
+          "line": 21
+        },
+        {
+          "path": "src/app/api/teams/route.ts",
+          "line": 21
+        },
+        {
+          "path": "src/app/api/teams/switch/route.ts",
+          "line": 14
+        },
+        {
+          "path": "src/app/api/teams/switch/route.ts",
+          "line": 14
+        },
+        {
           "path": "src/app/api/tickets/sla/escalate/route.ts",
           "line": 19
         },
         {
+          "path": "src/app/customers/page.tsx",
+          "line": 13
+        },
+        {
           "path": "src/app/image-bed/page.tsx",
           "line": 11
-        },
-        {
-          "path": "src/app/settings/page.tsx",
-          "line": 57
-        },
-        {
-          "path": "src/app/tickets/[id]/page.tsx",
-          "line": 21
         }
       ],
       "pages": [
-        "image-bed",
-        "settings",
-        "tickets/[id]"
+        "customers",
+        "image-bed"
       ],
       "apiRoutes": [
         "/api/deploy-export/[id]/zip",
@@ -2921,65 +2999,19 @@
       ]
     },
     {
-      "permission": "team:member:manage",
-      "files": [
-        {
-          "path": "src/app/api/role-templates/[id]/route.ts",
-          "line": 13
-        },
-        {
-          "path": "src/app/api/role-templates/[id]/route.ts",
-          "line": 23
-        },
-        {
-          "path": "src/app/api/role-templates/route.ts",
-          "line": 23
-        },
-        {
-          "path": "src/app/api/role-templates/route.ts",
-          "line": 33
-        },
-        {
-          "path": "src/app/api/system/export/route.ts",
-          "line": 27
-        },
-        {
-          "path": "src/app/api/users/permissions/route.ts",
-          "line": 119
-        },
-        {
-          "path": "src/app/api/users/permissions/route.ts",
-          "line": 280
-        },
-        {
-          "path": "src/app/api/users/route.ts",
-          "line": 37
-        },
-        {
-          "path": "src/app/users/page.tsx",
-          "line": 11
-        }
-      ],
-      "pages": [
-        "users"
-      ],
-      "apiRoutes": [],
-      "grantedToRoles": [
-        "admin"
-      ]
-    },
-    {
       "permission": "team:read",
       "files": [
         {
           "path": "src/app/api/teams/route.ts",
-          "line": 19
+          "line": 13
+        },
+        {
+          "path": "src/app/api/teams/route.ts",
+          "line": 13
         }
       ],
       "pages": [],
-      "apiRoutes": [
-        "/api/teams"
-      ],
+      "apiRoutes": [],
       "grantedToRoles": [
         "admin",
         "operator",
@@ -3135,7 +3167,7 @@
         },
         {
           "path": "src/app/tickets/[id]/page.tsx",
-          "line": 15
+          "line": 16
         },
         {
           "path": "src/app/tickets/page.tsx",
@@ -3261,6 +3293,10 @@
           "line": 27
         },
         {
+          "path": "src/app/api/system/export/route.ts",
+          "line": 27
+        },
+        {
           "path": "src/app/api/system/import/route.ts",
           "line": 28
         },
@@ -3270,7 +3306,19 @@
         },
         {
           "path": "src/app/api/users/permissions/route.ts",
-          "line": 280
+          "line": 121
+        },
+        {
+          "path": "src/app/api/users/permissions/route.ts",
+          "line": 121
+        },
+        {
+          "path": "src/app/api/users/permissions/route.ts",
+          "line": 196
+        },
+        {
+          "path": "src/app/api/users/permissions/route.ts",
+          "line": 196
         },
         {
           "path": "src/app/api/users/route.ts",
@@ -3282,11 +3330,11 @@
         },
         {
           "path": "src/app/api/users/route.ts",
-          "line": 188
+          "line": 147
         },
         {
           "path": "src/app/api/users/route.ts",
-          "line": 188
+          "line": 147
         },
         {
           "path": "src/app/settings/page.tsx",
@@ -3294,7 +3342,7 @@
         },
         {
           "path": "src/app/users/page.tsx",
-          "line": 13
+          "line": 12
         }
       ],
       "pages": [
@@ -3310,20 +3358,16 @@
       "permission": "user:read",
       "files": [
         {
-          "path": "src/app/api/role-templates/route.ts",
-          "line": 23
-        },
-        {
-          "path": "src/app/api/users/permissions/route.ts",
-          "line": 119
+          "path": "src/app/api/users/route.ts",
+          "line": 33
         },
         {
           "path": "src/app/api/users/route.ts",
-          "line": 37
+          "line": 33
         },
         {
           "path": "src/app/users/page.tsx",
-          "line": 12
+          "line": 11
         }
       ],
       "pages": [
