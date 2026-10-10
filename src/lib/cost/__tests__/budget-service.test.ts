@@ -89,17 +89,11 @@ describe("cost budget service", () => {
 		expect(result.notificationsSent).toBe(1);
 		expect(prismaMock.user.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
+				// Platform administrators plus team-a accounts allowed to manage cost.
 				where: expect.objectContaining({
-					roles: { some: { role: { permissions: { some: { permission: { key: "cost:manage" } } } } } },
 					OR: [
-						{ teamMemberships: { some: { teamId: "team-a" } } },
-						{
-							roles: {
-								some: {
-									role: { permissions: { some: { permission: { key: "team:manage" } } } },
-								},
-							},
-						},
+						{ roles: { some: { role: { key: "admin" } } } },
+						{ teamMembership: { is: { teamId: "team-a", team: { deletedAt: null }, identityTemplate: { permissions: { has: "cost:manage" } } } } },
 					],
 				}),
 			}),
@@ -109,7 +103,7 @@ describe("cost budget service", () => {
 		);
 	});
 
-	it("restricts null-team (shared) budget alerts to global team managers, not every tenant's cost managers", async () => {
+	it("restricts null-team (shared) budget alerts to platform administrators, not every customer's cost managers", async () => {
 		const sharedBudget = { ...budgetRow, id: "budget-shared", teamId: null };
 		prismaMock.costBudget.findMany.mockResolvedValue([sharedBudget]);
 		prismaMock.costEntry.aggregate.mockResolvedValue({ _sum: { amount: decimal("90.00") } });
@@ -119,13 +113,9 @@ describe("cost budget service", () => {
 		await checkBudgetAlerts(new Date("2026-06-15T10:00:00.000Z"));
 
 		const where = prismaMock.user.findMany.mock.calls.at(-1)![0].where;
-		// No OR broadcast to every tenant's cost managers.
+		// No broadcast to any customer's cost managers; administrators only.
 		expect(where.OR).toBeUndefined();
-		// cost:manage requirement preserved AND additionally gated on team:manage.
-		expect(where.roles).toEqual({ some: { role: { permissions: { some: { permission: { key: "cost:manage" } } } } } });
-		expect(where.AND).toEqual([
-			{ roles: { some: { role: { permissions: { some: { permission: { key: "team:manage" } } } } } } },
-		]);
+		expect(where.roles).toEqual({ some: { role: { key: "admin" } } });
 	});
 
   it("aggregates a team budget by the budget team even for a global administrator", async () => {

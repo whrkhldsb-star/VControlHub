@@ -21,10 +21,21 @@ const user = {
   status: "ACTIVE",
   mustChangePassword: false,
   createdAt: "2026-05-25T00:00:00.000Z",
-  roles: [{ key: "viewer", name: "观察者" }],
+  accountType: "customer",
+  customer: { id: "team_a", name: "Acme", deleted: false },
+  identityTemplate: { id: "identity:viewer", name: "客户只读", isBuiltin: true },
 };
 
 describe("UserManagementClient", () => {
+  it("shows each account's customer and identity template", async () => {
+    vi.mocked(csrfFetch).mockResolvedValue({ users: [user] });
+
+    render(<UserManagementClient />);
+
+    expect(await screen.findByText("Acme")).toBeInTheDocument();
+    expect(screen.getByText("客户只读")).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -50,9 +61,13 @@ describe("UserManagementClient", () => {
 
   it("shows an error when disabling a user fails and keeps the user visible", async () => {
     const actor = userEvent.setup();
-    vi.mocked(csrfFetch)
-      .mockResolvedValueOnce({ users: [user] })
-      .mockRejectedValueOnce(new Error("禁用失败"));
+    vi.mocked(csrfFetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/teams") return { teams: [{ id: "team_a", name: "Acme" }] };
+      if (url === "/api/identity-templates") return { templates: [] };
+      if (url.startsWith("/api/users") && init?.method === "PATCH") throw new Error("禁用失败");
+      return { users: [user] };
+    });
 
     render(<UserManagementClient canManage />);
     expect(await screen.findByText("Alice")).toBeInTheDocument();

@@ -7,7 +7,7 @@
 
 export const zh: Record<string, string> = {
 	"sharesPage.report.title": "外发访问审计报表",
-	"sharesPage.report.desc": "汇总当前团队分享链接的查看、下载、密码尝试和来源 IP。",
+	"sharesPage.report.desc": "汇总当前客户分享链接的查看、下载、密码尝试和来源 IP。",
 	"sharesPage.report.range": "报表时间范围",
 	"sharesPage.report.action": "操作类型",
 	"sharesPage.report.days7": "最近 7 天",
@@ -134,7 +134,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"sharesPage.report.title": "Outbound access audit report",
-	"sharesPage.report.desc": "Aggregate views, downloads, password attempts, and source IPs for the current team's share links.",
+	"sharesPage.report.desc": "Aggregate views, downloads, password attempts, and source IPs for the current customer's share links.",
 	"sharesPage.report.range": "Report time range",
 	"sharesPage.report.action": "Action type",
 	"sharesPage.report.days7": "Last 7 days",

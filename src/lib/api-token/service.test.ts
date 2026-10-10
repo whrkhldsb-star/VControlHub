@@ -1,11 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { apiToken: { create: vi.fn(), findMany: vi.fn(), update: vi.fn(), findUnique: vi.fn() }, teamMember: { findUnique: vi.fn() } } }));
+const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { apiToken: { create: vi.fn(), findMany: vi.fn(), update: vi.fn(), findUnique: vi.fn() }, team: { findUnique: vi.fn() }, user: { findUnique: vi.fn() } } }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 const { createApiToken, hashApiToken, listApiTokens, verifyApiToken } = await import("./service");
 describe("api token service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPrisma.teamMember.findUnique.mockResolvedValue({ team: { slug: "ops" } });
+    mockPrisma.team.findUnique.mockResolvedValue({ deletedAt: null });
+    mockPrisma.user.findUnique.mockResolvedValue({ teamMembership: { teamId: "team_1" }, roles: [] });
   });
   it("returns plaintext token once and stores only hash plus prefix/suffix", async () => {
     mockPrisma.apiToken.create.mockImplementation(async ({ data, select }: any) => ({ id: "tok1", name: data.name, tokenPrefix: data.tokenPrefix, tokenSuffix: data.tokenSuffix, scopes: data.scopes, expiresAt: data.expiresAt, lastUsedAt: null, revokedAt: null, createdAt: new Date(), selectKeys: Object.keys(select) }));
@@ -28,11 +29,20 @@ describe("api token service", () => {
     await expect(createApiToken({ userId: "u1", teamId: "team_1", name: "cli", scopes: ["read", "admin:everything"] })).rejects.toThrow(/admin:everything/);
     expect(mockPrisma.apiToken.create).not.toHaveBeenCalled();
   });
-  it("requires a live membership and an explicit workspace", async () => {
+  it("binds a token only to the owner's own live customer", async () => {
     await expect(createApiToken({ userId: "u1", teamId: "", name: "cli" })).rejects.toThrow();
-    mockPrisma.teamMember.findUnique.mockResolvedValueOnce(null);
+    // Another customer than the owner's own.
     await expect(createApiToken({ userId: "u1", teamId: "team_2", name: "cli" })).rejects.toThrow();
+    // A deleted customer.
+    mockPrisma.team.findUnique.mockResolvedValueOnce({ deletedAt: new Date() });
+    await expect(createApiToken({ userId: "u1", teamId: "team_1", name: "cli" })).rejects.toThrow();
     expect(mockPrisma.apiToken.create).not.toHaveBeenCalled();
+  });
+
+  it("lets an administrator bind a token to any live customer", async () => {
+    mockPrisma.user.findUnique.mockResolvedValueOnce({ teamMembership: null, roles: [{ role: { key: "admin" } }] });
+    mockPrisma.apiToken.create.mockResolvedValueOnce({ id: "tok2" });
+    await expect(createApiToken({ userId: "admin", teamId: "team_7", name: "ops" })).resolves.toMatchObject({ apiToken: { id: "tok2" } });
   });
   it("bounds token list hydration newest-first for growing token history", async () => {
     mockPrisma.apiToken.findMany.mockResolvedValue([]);

@@ -1,627 +1,215 @@
-import { escapeLikeLiteral } from "@/lib/db/like-pattern";
-import type { Prisma } from "@prisma/client";
-
+/**
+ * Customers (stored as `Team` rows).
+ *
+ * The platform creates customers and their accounts; customers never create
+ * or join other customers. A customer account belongs to exactly one customer
+ * through its `TeamMember` row, which also carries its identity template.
+ * Platform administrators hold no membership and select a customer, or all
+ * customers, per browser session.
+ *
+ * Deletion sets `deletedAt` and keeps every row: the customer's data stays
+ * scoped and unreachable, and restoring clears the field.
+ */
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import type { SessionPayload } from "@/lib/auth/session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { auditUserAction } from "@/lib/audit/service";
-import type {
-  AddTeamMemberInput,
-  CreateTeamInput,
-  UpdateTeamInput,
-  TransferTeamOwnerInput,
-} from "./schema";
 import { t } from "@/lib/i18n/service-translations";
-import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { tenantStorageBasePath } from "@/lib/storage/path-utils";
-import {
-  defaultWorkspacePolicyGroups,
-  defaultWorkspacePolicyGroupId,
-} from "@/lib/auth/role-template-service";
+import { DEFAULT_IDENTITY_TEMPLATE_ID } from "@/lib/auth/identity-templates";
+import type { CreateTeamInput, UpdateTeamInput } from "./schema";
+
+function assertPlatformAdmin(session: SessionPayload) {
+  if (!isGlobalTeamManager(session)) throw new ForbiddenError(t("backend.customer.platformOnly"));
+}
+
+async function findLiveCustomer(teamId: string) {
+  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true, name: true, deletedAt: true } });
+  if (!team || team.deletedAt) throw new NotFoundError(t("backend.customer.notFound"));
+  return team;
+}
+
+function slugifyName(name: string) {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 56)
+    || `customer-${Date.now().toString(36)}`;
+}
+
+const CUSTOMER_SUMMARY_SELECT = {
+  id: true,
+  slug: true,
+  name: true,
+  description: true,
+  createdAt: true,
+  deletedAt: true,
+  _count: { select: { members: true, servers: true, storageNodes: true } },
+} as const;
 
 /**
- * Reserved slug prefix that marks a workspace as deleted.
- *
- * Almost every tenant-scoped model relates to Team with `onDelete: SetNull`
- * (see prisma/schema.prisma). Hard deletion would erase ownership history and
- * turn its records into quarantined legacy rows. Deletion is a tombstone: the
- * row stays, its members are removed and its slug is prefixed, which keeps the
- * data team-scoped and unreachable — no live session can hold this teamId, and
- * `teamWhere()` never matches it for a non-`team:manage` caller.
+ * Administrators: every customer with resource counts, deleted ones listed
+ * separately. Customer accounts: their own customer only.
  */
-const DELETED_TEAM_SLUG_PREFIX = "__deleted__";
-
-/** True when the workspace has been tombstoned by {@link deleteTeam}. */
-export function isDeletedTeamSlug(slug: string) {
-  return slug.startsWith(DELETED_TEAM_SLUG_PREFIX);
-}
-
-/** A tombstoned workspace is indistinguishable from a missing one to callers. */
-function assertTeamAlive<T extends { slug: string }>(
-  team: T | null,
-): asserts team is T {
-  if (!team || isDeletedTeamSlug(team.slug)) {
-    throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
-  }
-}
-
-/**
- * Pick the oldest surviving workspace membership for a user.
- *
- * This keeps the stored login preference usable after the active membership or
- * workspace disappears. Tombstoned teams remain in the database by design, so
- * they must be filtered explicitly instead of relying on a foreign-key delete.
- */
-async function fallbackMembershipTeamIds(
-  tx: Prisma.TransactionClient,
-  userIds: string[],
-  excludedTeamId: string,
-) {
-  const uniqueUserIds = [...new Set(userIds)];
-  const fallbacks = new Map<string, string>();
-  if (uniqueUserIds.length === 0) return fallbacks;
-  const memberships = await tx.teamMember.findMany({
-    where: { userId: { in: uniqueUserIds }, teamId: { not: excludedTeamId } },
-    orderBy: [{ joinedAt: "asc" }, { teamId: "asc" }],
-    select: { userId: true, teamId: true, team: { select: { slug: true } } },
-  });
-  for (const entry of memberships) {
-    if (!fallbacks.has(entry.userId) && !isDeletedTeamSlug(entry.team.slug)) {
-      fallbacks.set(entry.userId, entry.teamId);
-    }
-  }
-  return fallbacks;
-}
-
-async function fallbackMembershipTeamId(
-  tx: Prisma.TransactionClient,
-  userId: string,
-  excludedTeamId: string,
-) {
-  return (await fallbackMembershipTeamIds(tx, [userId], excludedTeamId)).get(userId) ?? null;
-}
-
-function slugifyTeamName(name: string) {
-  return (
-    name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 64) || `team-${Date.now().toString(36)}`
-  );
-}
-
-async function uniqueTeamSlug(base: string) {
-  let slug = base;
-  for (let i = 2; i < 100; i++) {
-    const existing = await prisma.team.findUnique({
-      where: { slug },
-      select: { id: true },
-    });
-    if (!existing) return slug;
-    slug = `${base.slice(0, 56)}-${i}`;
-  }
-  throw new ValidationError(
-    t("backend.team.unableToGenerateAUniqueTeamIdentifier"),
-  );
-}
-
 export async function listTeamsForSession(session: SessionPayload) {
-  const canManageAll = isGlobalTeamManager(session);
-  const teams = await prisma.team.findMany({
-    where: {
-      // Tombstoned workspaces stay in the table to keep their data scoped, but
-      // they are not real workspaces any more — hide them from everyone.
-      NOT: { slug: { startsWith: escapeLikeLiteral(DELETED_TEAM_SLUG_PREFIX) } },
-      ...(canManageAll
-        ? {}
-        : { members: { some: { userId: session.userId } } }),
-    },
-    orderBy: [{ createdAt: "asc" }],
-    take: 200,
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      description: true,
-      ownerId: true,
-      createdAt: true,
-      members: {
-        orderBy: [{ joinedAt: "asc" }],
-        select: {
-          role: true,
-          accessRole: true,
-          permissionTemplateId: true,
-          permissionTemplate: { select: { id: true, name: true } },
-          joinedAt: true,
-          user: {
-            select: {
-              id: true,
-              username: true,
-              displayName: true,
-              status: true,
-            },
-          },
-        },
-      },
-    },
-  });
-  // The active workspace belongs to this browser session. The user column is
-  // only a preference used to initialize a fresh login.
-  const currentTeamId =
-    session.currentTeamId &&
-    teams.some((team) => team.id === session.currentTeamId)
-      ? session.currentTeamId
-      : null;
-  return { teams, currentTeamId };
+  if (isGlobalTeamManager(session)) {
+    const all = await prisma.team.findMany({ orderBy: [{ createdAt: "asc" }], take: 500, select: CUSTOMER_SUMMARY_SELECT });
+    return {
+      teams: all.filter((team) => !team.deletedAt),
+      deletedTeams: all.filter((team) => team.deletedAt),
+      currentTeamId: session.currentTeamId,
+    };
+  }
+  const teams = session.currentTeamId
+    ? await prisma.team.findMany({
+        where: { id: session.currentTeamId, deletedAt: null },
+        select: { id: true, slug: true, name: true, description: true, createdAt: true },
+      })
+    : [];
+  return { teams, deletedTeams: [], currentTeamId: session.currentTeamId };
 }
 
-export async function createTeam(
-  input: CreateTeamInput,
-  session: SessionPayload,
-) {
-  if (!sessionHasPermission(session, "team:create")) {
-    throw new ForbiddenError(
-      t("backend.team.missingPermissionToCreateTeamWorkspace"),
-    );
-  }
-  const baseSlug = input.slug?.trim() || slugifyTeamName(input.name);
-  if (isDeletedTeamSlug(baseSlug)) {
-    // The prefix is reserved for tombstones; a team wearing it would be hidden
-    // from its own members the moment it was created.
-    throw new ValidationError(t("backend.team.reservedTeamSlug"));
-  }
-  let lastError: unknown;
+/** Members of one customer with their identity templates (administrators only). */
+export async function listCustomerMembers(teamId: string, session: SessionPayload) {
+  assertPlatformAdmin(session);
+  await findLiveCustomer(teamId);
+  return prisma.teamMember.findMany({
+    where: { teamId },
+    orderBy: [{ joinedAt: "asc" }],
+    select: {
+      joinedAt: true,
+      identityTemplate: { select: { id: true, name: true, isBuiltin: true } },
+      user: { select: { id: true, username: true, displayName: true, status: true } },
+    },
+  });
+}
+
+export async function createTeam(input: CreateTeamInput, session: SessionPayload) {
+  assertPlatformAdmin(session);
+  const name = input.name.trim();
+  const baseSlug = input.slug?.trim() || slugifyName(name);
   for (let attempt = 0; attempt < 5; attempt++) {
-    const slug = await uniqueTeamSlug(
-      attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`,
-    );
+    const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;
     try {
       const team = await prisma.$transaction(async (tx) => {
         const created = await tx.team.create({
-          data: {
-            slug,
-            name: input.name.trim(),
-            description: input.description?.trim() || null,
-            ownerId: session.userId,
-          },
+          data: { slug, name, description: input.description?.trim() || null },
         });
-        await tx.teamMember.create({
-          data: { teamId: created.id, userId: session.userId, role: "owner" },
-        });
-        await tx.roleTemplate.createMany({
-          data: defaultWorkspacePolicyGroups().map((group) => ({
-            id: defaultWorkspacePolicyGroupId(created.id, group.key),
-            name: group.name,
-            description: group.description,
-            kind: "POLICY_GROUP",
-            roleKeys: group.roleKeys,
-            permissions: group.permissions,
-            dataScope: { storageAccess: [], serverAccess: [] },
-            isBuiltin: false,
-            createdBy: session.userId,
-            teamId: created.id,
-          })),
-          skipDuplicates: true,
-        });
+        // Every customer starts with its own isolated local storage root.
         await tx.storageNode.create({
           data: {
-            name: "Workspace storage",
+            name: t("backend.customer.defaultStorageName", { name }),
             driver: "LOCAL",
             basePath: tenantStorageBasePath(created.id),
             isDefault: true,
             teamId: created.id,
           },
         });
-        await tx.user.update({
-          where: { id: session.userId },
-          data: { currentTeamId: created.id },
-        });
         return created;
       });
-      // Stamp workspace metadata on audit events for tenant-scoped reviews.
-      await auditUserAction(
-        session.userId,
-        "team.create",
-        { teamId: team.id, slug: team.slug, name: team.name },
-        undefined,
-        team.id,
-      );
+      await auditUserAction(session.userId, "team.create", { teamId: team.id, slug: team.slug, name: team.name }, undefined, team.id);
       return team;
     } catch (error) {
-      lastError = error;
-      if (isUniqueViolation(error)) continue; // slug race - retry with another slug
+      // An explicit slug is the administrator's choice: report the clash.
+      if (isUniqueViolation(error) && !input.slug) continue;
+      if (isUniqueViolation(error)) throw new ValidationError(t("backend.customer.slugTaken"));
       throw error;
     }
   }
-  throw lastError instanceof Error
-    ? lastError
-    : new ValidationError(
-        t("backend.team.unableToGenerateAUniqueTeamIdentifier"),
-      );
+  throw new ValidationError(t("backend.customer.slugTaken"));
 }
 
-async function assertCanManageTeam(session: SessionPayload, teamId: string) {
-  if (isGlobalTeamManager(session)) return;
-  const membership = await prisma.teamMember.findUnique({
-    where: { teamId_userId: { teamId, userId: session.userId } },
-    select: { role: true },
-  });
-  if (
-    !membership ||
-    (membership.role !== "owner" && membership.role !== "admin")
-  ) {
-    throw new ForbiddenError(
-      t("backend.team.missingTeamWorkspaceManagementPermission"),
-    );
-  }
-}
-
-export async function switchCurrentTeam(
-  teamId: string,
-  session: SessionPayload,
-) {
-  const membership = await prisma.teamMember.findUnique({
-    where: { teamId_userId: { teamId, userId: session.userId } },
-    select: { team: { select: { id: true, name: true, slug: true } } },
-  });
-  const team = membership?.team ?? (isGlobalTeamManager(session)
-    ? await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, name: true, slug: true } })
-    : null);
-  if (!team)
-    throw new ForbiddenError(
-      t("backend.team.canOnlySwitchToATeamWorkspaceYou"),
-    );
-  assertTeamAlive(team);
-  await prisma.user.update({
-    where: { id: session.userId },
-    data: { currentTeamId: teamId },
-  });
-  await auditUserAction(
-    session.userId,
-    "team.switch",
-    { teamId, slug: team.slug },
-    undefined,
-    teamId,
-  );
-  return team;
-}
-
-/** Transfer ownership to an active member under the same membership lock as removal. */
-export async function transferTeamOwnership(
-  teamId: string,
-  input: TransferTeamOwnerInput,
-  session: SessionPayload,
-) {
-  const visibleTeam = await prisma.team.findUnique({
-    where: { id: teamId }, select: { id: true, slug: true, ownerId: true },
-  });
-  assertTeamAlive(visibleTeam);
-  if (!isGlobalTeamManager(session) && visibleTeam.ownerId !== session.userId) {
-    throw new ForbiddenError(t("backend.team.onlyOwnerCanTransfer"));
-  }
-  const releaseLock = await acquireAdvisoryLock("team-membership", teamId);
-  try {
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
-      select: { id: true, slug: true, ownerId: true },
-    });
-    assertTeamAlive(team);
-    if (!isGlobalTeamManager(session) && team.ownerId !== session.userId) {
-      throw new ForbiddenError(t("backend.team.onlyOwnerCanTransfer"));
-    }
-    if (team.ownerId === input.userId) {
-      throw new ValidationError(t("backend.team.alreadyOwner"));
-    }
-    const target = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId: input.userId } },
-      select: { user: { select: { id: true, status: true, username: true } } },
-    });
-    if (!target || target.user.status !== "ACTIVE") {
-      throw new NotFoundError(t("backend.team.transferTargetActiveMember"));
-    }
-    await prisma.$transaction(async (tx) => {
-      await tx.teamMember.updateMany({
-        where: { teamId, role: "owner" },
-        data: { role: "admin", accessRole: "inherit", permissionTemplateId: null },
-      });
-      await tx.teamMember.update({
-        where: { teamId_userId: { teamId, userId: input.userId } },
-        data: { role: "owner", accessRole: "inherit", permissionTemplateId: null },
-      });
-      await tx.team.update({ where: { id: teamId }, data: { ownerId: input.userId } });
-      const administratorIds = [team.ownerId, input.userId].filter((id): id is string => Boolean(id));
-      await tx.userServerAccess.deleteMany({
-        where: { userId: { in: administratorIds }, server: { teamId } },
-      });
-      await tx.userStorageAccess.deleteMany({
-        where: { userId: { in: administratorIds }, storageNode: { teamId } },
-      });
-    });
-    await auditUserAction(session.userId, "team.owner.transfer", {
-      teamId, previousOwnerId: team.ownerId, newOwnerId: input.userId,
-    }, undefined, teamId);
-    return { teamId, ownerId: input.userId, username: target.user.username };
-  } finally {
-    await releaseLock();
-  }
-}
-
-export async function addTeamMember(
-  teamId: string,
-  input: AddTeamMemberInput,
-  session: SessionPayload,
-) {
-  await assertCanManageTeam(session, teamId);
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    select: { id: true, slug: true, ownerId: true },
-  });
-  assertTeamAlive(team);
-  const user = await prisma.user.findUnique({
-    where: { username: input.username },
-    select: { id: true, username: true },
-  });
-  if (!user) throw new NotFoundError(t("backend.team.userNotFound"));
-
-  // Never demote the workspace owner via upsert (schema allows only admin|member on this API).
-  if (team.ownerId === user.id) {
-    throw new ForbiddenError(
-      t("backend.team.cannotChangeOwnerRoleViaMemberApi"),
-    );
-  }
-  const existing = await prisma.teamMember.findUnique({
-    where: { teamId_userId: { teamId, userId: user.id } },
-    select: { role: true },
-  });
-  if (existing?.role === "owner") {
-    throw new ForbiddenError(
-      t("backend.team.cannotChangeOwnerRoleViaMemberApi"),
-    );
-  }
-  const administrativeRole = input.role === "admin";
-  if (!administrativeRole && input.permissionTemplateId) {
-    const template = await prisma.roleTemplate.findFirst({
-      where: { id: input.permissionTemplateId, teamId, kind: "POLICY_GROUP", isBuiltin: false },
-      select: { id: true },
-    });
-    if (!template) throw new ValidationError(t("backend.team.groupOutsideWorkspace"));
-  }
-
-  const member = await prisma.$transaction(async (tx) => {
-    const saved = await tx.teamMember.upsert({
-      where: { teamId_userId: { teamId, userId: user.id } },
-      update: administrativeRole
-        ? { role: "admin", accessRole: "inherit", permissionTemplateId: null }
-        : { role: "member", ...(input.accessRole ? { accessRole: input.accessRole } : {}), ...(input.permissionTemplateId !== undefined ? { permissionTemplateId: input.permissionTemplateId } : {}) },
-      create: {
-        teamId,
-        userId: user.id,
-        role: input.role,
-        accessRole: administrativeRole ? "inherit" : input.accessRole ?? "inherit",
-        permissionTemplateId: administrativeRole ? null : input.permissionTemplateId ?? null,
-      },
-      select: {
-        role: true,
-        accessRole: true,
-        permissionTemplateId: true,
-        user: {
-          select: { id: true, username: true, displayName: true, status: true },
-        },
-      },
-    });
-    if (administrativeRole) {
-      // Administrator access is role-based. Remove member-only restrictions so
-      // a later demotion starts from inheritance rather than stale hidden rows.
-      await tx.userServerAccess.deleteMany({
-        where: { userId: user.id, server: { teamId } },
-      });
-      await tx.userStorageAccess.deleteMany({
-        where: { userId: user.id, storageNode: { teamId } },
-      });
-    }
-    return saved;
-  });
-  await auditUserAction(
-    session.userId,
-    "team.member.upsert",
-    {
-      teamId,
-      teamSlug: team.slug,
-      username: user.username,
-      role: input.role,
-      accessRole: administrativeRole ? "inherit" : input.accessRole ?? "inherit",
-      permissionTemplateId: administrativeRole ? null : input.permissionTemplateId ?? null,
-    },
-    undefined,
-    teamId,
-  );
-  return member;
-}
-
-export async function removeTeamMember(
-  teamId: string,
-  userId: string,
-  session: SessionPayload,
-) {
-  await assertCanManageTeam(session, teamId);
-  const releaseLock = await acquireAdvisoryLock("team-membership", teamId);
-  try {
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
-      select: { id: true, slug: true, ownerId: true },
-    });
-    assertTeamAlive(team);
-
-    // Prevent removing the team owner
-    if (team.ownerId === userId) {
-      throw new ForbiddenError(
-        t("backend.team.cannotRemoveTheTeamOwnerPleaseTransferOwnership"),
-      );
-    }
-
-    // Prevent removing the last owner
-    const membership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId } },
-      select: { role: true },
-    });
-    if (!membership)
-      throw new NotFoundError(t("backend.team.thisUserIsNotATeamMember"));
-    if (membership.role === "owner") {
-      const ownerCount = await prisma.teamMember.count({
-        where: { teamId, role: "owner" },
-      });
-      if (ownerCount <= 1) {
-        throw new ForbiddenError(
-          t("backend.team.cannotRemoveTheLastOwnerPleaseTransferOwnership"),
-        );
-      }
-    }
-
-    // Membership deletion revokes every cookie and bound token on the next
-    // request. Move the login preference to another live membership in the
-    // same transaction so the next login is still usable when one exists.
-    await prisma.$transaction(async (tx) => {
-      const fallbackTeamId = await fallbackMembershipTeamId(tx, userId, teamId);
-      await tx.teamMember.delete({
-        where: { teamId_userId: { teamId, userId } },
-      });
-      await tx.user.updateMany({
-        where: { id: userId, currentTeamId: teamId },
-        data: { currentTeamId: fallbackTeamId },
-      });
-    });
-
-    await auditUserAction(
-      session.userId,
-      "team.member.remove",
-      { teamId, teamSlug: team.slug, removedUserId: userId },
-      undefined,
-      teamId,
-    );
-    return { removed: true };
-  } finally {
-    await releaseLock();
-  }
-}
-
-export async function updateTeam(
-  teamId: string,
-  input: UpdateTeamInput,
-  session: SessionPayload,
-) {
-  await assertCanManageTeam(session, teamId);
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    select: { id: true, slug: true },
-  });
-  assertTeamAlive(team);
-
-  const data: { name?: string; description?: string | null } = {};
-  if (input.name !== undefined) data.name = input.name.trim();
-  if (input.description !== undefined)
-    data.description = input.description?.trim() || null;
-
+export async function updateTeam(teamId: string, input: UpdateTeamInput, session: SessionPayload) {
+  assertPlatformAdmin(session);
+  await findLiveCustomer(teamId);
   const updated = await prisma.team.update({
     where: { id: teamId },
-    data,
-    select: { id: true, slug: true, name: true, description: true },
+    data: {
+      ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+      ...(input.description !== undefined ? { description: input.description?.trim() || null } : {}),
+    },
   });
-
-  await auditUserAction(
-    session.userId,
-    "team.update",
-    { teamId, teamSlug: team.slug, fields: Object.keys(data) },
-    undefined,
-    teamId,
-  );
+  await auditUserAction(session.userId, "team.update", { teamId, name: updated.name }, undefined, teamId);
   return updated;
 }
 
+/** Hide the customer and its data; members lose access until it is restored. */
 export async function deleteTeam(teamId: string, session: SessionPayload) {
-  // Only team:manage (global admin) or team owner can delete
-  if (!isGlobalTeamManager(session)) {
-    const membership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId: session.userId } },
-      select: { role: true },
-    });
-    if (!membership || membership.role !== "owner") {
-      throw new ForbiddenError(
-        t("backend.team.onlyAnAdminOrTeamOwnerCanDelete"),
-      );
-    }
+  assertPlatformAdmin(session);
+  const team = await findLiveCustomer(teamId);
+  await prisma.$transaction(async (tx) => {
+    await tx.team.update({ where: { id: teamId }, data: { deletedAt: new Date() } });
+    // Administrators viewing this customer fall back to "all customers".
+    await tx.user.updateMany({ where: { currentTeamId: teamId, teamMembership: { is: null } }, data: { currentTeamId: null } });
+  });
+  await auditUserAction(session.userId, "team.delete", { teamId, slug: team.slug, name: team.name }, undefined, teamId);
+  return { nextCurrentTeamId: session.currentTeamId === teamId ? null : session.currentTeamId };
+}
+
+export async function restoreTeam(teamId: string, session: SessionPayload) {
+  assertPlatformAdmin(session);
+  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true, deletedAt: true } });
+  if (!team?.deletedAt) throw new NotFoundError(t("backend.customer.notFound"));
+  await prisma.team.update({ where: { id: teamId }, data: { deletedAt: null } });
+  await auditUserAction(session.userId, "team.restore", { teamId, slug: team.slug }, undefined, teamId);
+}
+
+/**
+ * Put a customer account into a customer with an identity template. An
+ * account has at most one customer, so this also moves it between customers.
+ */
+export async function setCustomerMembership(
+  input: { teamId: string; userId: string; identityTemplateId?: string | null },
+  session: SessionPayload,
+) {
+  assertPlatformAdmin(session);
+  await findLiveCustomer(input.teamId);
+  const user = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: { id: true, username: true, roles: { select: { role: { select: { key: true } } } } },
+  });
+  if (!user) throw new NotFoundError(t("backend.team.userNotFound"));
+  if (user.roles.some((entry) => entry.role.key === "admin")) {
+    throw new ValidationError(t("backend.customer.adminHasNoCustomer"));
   }
-
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    select: { id: true, slug: true, name: true },
-  });
-  assertTeamAlive(team);
-
-  // Tombstone rather than hard-delete: see DELETED_TEAM_SLUG_PREFIX. The row
-  // keeps owning the workspace's data (servers included — they stay attached to
-  // a workspace nobody can reach instead of becoming platform-wide
-  // "unassigned"), while every path into it is cut.
-  const tombstoneSlug = `${DELETED_TEAM_SLUG_PREFIX}${Date.now().toString(36)}-${team.slug}`.slice(
-    0,
-    120,
-  );
-  const nextCurrentTeamId = await prisma.$transaction(async (tx) => {
-    const affectedUsers = await tx.user.findMany({
-      where: { currentTeamId: teamId },
-      select: { id: true },
-    });
-    const fallbackUserIds = affectedUsers.map((user) => user.id);
-    if (session.currentTeamId === teamId) fallbackUserIds.push(session.userId);
-    const affectedFallbacks = await fallbackMembershipTeamIds(tx, fallbackUserIds, teamId);
-
-    // A browser can select a workspace independently of the stored login
-    // preference, so compute the caller's fallback even when another browser
-    // has already changed the User.currentTeamId column.
-    let callerFallback = session.currentTeamId === teamId
-      ? affectedFallbacks.get(session.userId) ?? null
-      : session.currentTeamId;
-    if (session.currentTeamId === teamId && !callerFallback && isGlobalTeamManager(session)) {
-      callerFallback = (await tx.team.findFirst({
-        where: {
-          id: { not: teamId },
-          NOT: { slug: { startsWith: escapeLikeLiteral(DELETED_TEAM_SLUG_PREFIX) } },
-        },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        select: { id: true },
-      }))?.id ?? null;
+  const identityTemplateId = input.identityTemplateId || DEFAULT_IDENTITY_TEMPLATE_ID;
+  const template = await prisma.identityTemplate.findUnique({ where: { id: identityTemplateId }, select: { id: true } });
+  if (!template) throw new NotFoundError(t("backend.customer.templateNotFound"));
+  await prisma.$transaction(async (tx) => {
+    const previous = await tx.teamMember.findUnique({ where: { userId: user.id }, select: { teamId: true } });
+    if (previous && previous.teamId !== input.teamId) {
+      // Per-server narrowing belongs to the old customer's servers.
+      await tx.teamMember.delete({ where: { userId: user.id } });
+      await tx.userServerAccess.deleteMany({ where: { userId: user.id } });
+      await tx.userStorageAccess.deleteMany({ where: { userId: user.id } });
     }
-
-    for (const user of affectedUsers) {
-      const fallbackTeamId = user.id === session.userId && session.currentTeamId === teamId
-        ? callerFallback
-        : affectedFallbacks.get(user.id) ?? null;
-      await tx.user.updateMany({
-        where: { id: user.id, currentTeamId: teamId },
-        data: { currentTeamId: fallbackTeamId },
-      });
-    }
-    // Drop every membership: this is what makes the workspace unreachable, and
-    // it frees the original slug for reuse.
-    await tx.teamMember.deleteMany({ where: { teamId } });
-    await tx.team.update({
-      where: { id: teamId },
-      data: { slug: tombstoneSlug, ownerId: null },
+    await tx.teamMember.upsert({
+      where: { userId: user.id },
+      create: { teamId: input.teamId, userId: user.id, identityTemplateId },
+      update: { identityTemplateId },
     });
-    return callerFallback ?? null;
+    await tx.user.update({ where: { id: user.id }, data: { currentTeamId: input.teamId } });
   });
+  await auditUserAction(session.userId, "team.member.set", { teamId: input.teamId, userId: user.id, identityTemplateId }, undefined, input.teamId);
+  return { teamId: input.teamId, userId: user.id, identityTemplateId };
+}
 
-  // The tombstoned teamId keeps this row reachable only to `team:manage`
-  // (no live session can hold it) instead of visible to every tenant.
-  await auditUserAction(
-    session.userId,
-    "team.delete",
-    { teamId, teamSlug: team.slug, teamName: team.name },
-    undefined,
-    teamId,
-  );
-  return { deleted: true, currentTeamId: nextCurrentTeamId };
+export async function removeTeamMember(teamId: string, userId: string, session: SessionPayload) {
+  assertPlatformAdmin(session);
+  const membership = await prisma.teamMember.findUnique({ where: { userId }, select: { teamId: true } });
+  if (!membership || membership.teamId !== teamId) throw new NotFoundError(t("backend.team.thisUserIsNotATeamMember"));
+  await prisma.$transaction([
+    prisma.teamMember.delete({ where: { userId } }),
+    prisma.userServerAccess.deleteMany({ where: { userId } }),
+    prisma.userStorageAccess.deleteMany({ where: { userId } }),
+    prisma.user.update({ where: { id: userId }, data: { currentTeamId: null } }),
+  ]);
+  await auditUserAction(session.userId, "team.member.remove", { teamId, userId }, undefined, teamId);
+}
+
+/** Administrators choose a customer to work in, or null for all customers. */
+export async function switchCurrentTeam(teamId: string | null, session: SessionPayload) {
+  assertPlatformAdmin(session);
+  const team = teamId ? await findLiveCustomer(teamId) : null;
+  await prisma.user.update({ where: { id: session.userId }, data: { currentTeamId: team?.id ?? null } });
+  await auditUserAction(session.userId, "team.switch", { teamId: team?.id ?? null, slug: team?.slug ?? null }, undefined, team?.id ?? null);
+  return team;
 }

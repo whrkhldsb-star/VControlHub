@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({ raw: vi.fn(), findMany: vi.fn(), transaction: 
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction } }));
 vi.mock("@/lib/auth/team-scope", () => ({
   isGlobalTeamManager: () => false,
-  isWorkspaceTeamManager: () => false,
+  seesAllCustomers: () => false,
   serverTeamWhere: () => ({ teamId: "team-a" }),
 }));
 vi.mock("../service-internals", () => ({ enrichServer: (row: unknown) => row }));
@@ -40,6 +40,18 @@ describe("inventory operating-system filtering before pagination", () => {
     }
     expect(selection.values.slice(-2)).toEqual([12, 12]);
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [{ teamId: "team-a" }, { id: { in: ["last-matching-server"] } }] } }));
+  });
+  it("locks platform-assigned servers for customer accounts and hides the customer name", async () => {
+    mocks.raw.mockResolvedValueOnce([{ total: 2, matching: 2, enabled: 2, storage: 0 }]).mockResolvedValueOnce([{ id: "p" }, { id: "c" }]);
+    mocks.findMany.mockResolvedValue([
+      { id: "p", origin: "PLATFORM", teamName: "Acme" },
+      { id: "c", origin: "CUSTOMER", teamName: "Acme" },
+    ]);
+    const result = await getServerInventory(session);
+    expect(result.servers).toEqual([
+      expect.objectContaining({ id: "p", profileLocked: true, canTransfer: false, teamName: null }),
+      expect.objectContaining({ id: "c", profileLocked: false, canTransfer: false, teamName: null }),
+    ]);
   });
   it("clamps against OS matching count, not all-server count", async () => {
     mocks.raw.mockResolvedValueOnce([{ total: 100, matching: 13, enabled: 80, storage: 0 }]).mockResolvedValueOnce([]);

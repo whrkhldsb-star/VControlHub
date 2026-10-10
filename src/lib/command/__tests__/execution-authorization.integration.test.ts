@@ -41,13 +41,13 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("queued comm
     created.push(fixture);
     await prisma.team.create({ data: { id: prefix, slug: prefix, name: prefix } });
     await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "not-a-login-hash", status: "ACTIVE", mustChangePassword: false, currentTeamId: prefix,
-      teamMemberships: { create: { teamId: prefix, role: "owner", accessRole: "inherit" } } } });
+      teamMembership: { create: { teamId: prefix, identityTemplateId: "identity:customer_admin" } } } });
     await prisma.server.create({ data: { id: prefix, name: prefix, host: "192.0.2.5", username: "audit", tags: [], teamId: prefix, connectionType: "PASSWORD", password: "audit-only", hostKeySha256: "SHA256:audit-only" } });
     await prisma.commandRequest.create({ data: { id: prefix, title: "Audit harmless command", command: "printf audit", requesterId: prefix, teamId: prefix, initiatedByType: "USER", status: "APPROVED",
       targets: { create: { id: prefix, serverId: prefix, status: "APPROVED" } } } });
     expect(await assertRequesterMayExecuteCommand(prefix, prefix)).toEqual({ ok: true });
     if (revocation === "disabled-user") await prisma.user.update({ where: { id: prefix }, data: { status: "DISABLED" } });
-    if (revocation === "removed-membership") await prisma.teamMember.delete({ where: { teamId_userId: { teamId: prefix, userId: prefix } } });
+    if (revocation === "removed-membership") await prisma.teamMember.delete({ where: { userId: prefix } });
     if (revocation === "disabled-node") await prisma.server.update({ where: { id: prefix }, data: { enabled: false } });
     if (revocation !== "disabled-node") expect((await assertRequesterMayExecuteCommand(prefix, prefix)).ok).toBe(false);
     state.ssh.mockResolvedValue({ stdout: "audit", stderr: "", exitCode: 0 });

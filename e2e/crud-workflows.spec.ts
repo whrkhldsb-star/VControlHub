@@ -132,7 +132,7 @@ test("scheduled task create, search, pause and delete without execution", async 
 async function createPlaybook(page: Page, name: string) {
 	await page.goto("/playbooks");
 	await page.getByRole("button", { name: /新建 Playbook|New Playbook/i }).first().click();
-	await expect(page.getByText(/当前团队暂无可用 VPS|No VPS available in this team/i)).toBeHidden();
+	await expect(page.getByText(/当前客户暂无可用 VPS|No VPS available in this customer/i)).toBeHidden();
 	await page.getByLabel(/Playbook 名称|Playbook Name/i).fill(name);
 	await page.getByLabel(/步骤名称|Step name/i).fill("safe dry run");
 	await page.getByRole("textbox", { name: /命令|Command/i }).fill("echo e2e-safe");

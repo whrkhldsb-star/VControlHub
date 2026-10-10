@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
-import { isGlobalTeamManager, type TeamSession } from "@/lib/auth/team-scope";
+import { type TeamSession, seesAllCustomers } from "@/lib/auth/team-scope";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -101,7 +101,7 @@ export async function seedBuiltinTemplates() {
 /* ── CRUD ─────────────────────────────────────────────────── */
 
 export function commandTemplateScopeWhere(session?: TeamSession | null) {
-	if (!session || isGlobalTeamManager(session)) return {};
+	if (!session || seesAllCustomers(session)) return {};
 	return session.currentTeamId
 		? { OR: [{ isBuiltin: true }, { teamId: session.currentTeamId }] }
 		: { isBuiltin: true };

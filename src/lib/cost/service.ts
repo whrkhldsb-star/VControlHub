@@ -24,7 +24,3 @@ export {
 export { upsertDailySnapshot } from "./service-snapshots";
 export type { SnapshotWriteInput } from "./service-snapshots";
 
-export {
-	toRecord as costEntryToRecord,
-	toSnapshot as costSnapshotToRecord,
-} from "./service-internals";

@@ -49,13 +49,6 @@ export default async function SettingsPage() {
 	// the built-in admin role — `user:manage` can also arrive as a direct grant,
 	// and the API refuses those callers (see lib/system/platform-admin.ts).
 	const isPlatformAdmin = checkPlatformAdmin(session);
-	// Team workspaces authorize per workspace, not via the admin-only `user:manage`
-	// gate that guards the rest of this page.
-	const teamCapabilities = {
-		viewerId: session.userId,
-		canCreate: sessionHasPermission(session, "team:create"),
-		canManageAll: sessionHasPermission(session, "team:manage"),
-	};
 	const defaultPageOptions = getAvailableDefaultPageOptions((permission) =>
 		sessionHasPermission(session, permission),
 	);
@@ -75,7 +68,6 @@ export default async function SettingsPage() {
 				settingUpdateMetadata={settingUpdateMetadata}
 				canManage={canManage}
 				isPlatformAdmin={isPlatformAdmin}
-				teamCapabilities={teamCapabilities}
 				defaultPageOptions={defaultPageOptions}
 			/>
 		</PageShell>

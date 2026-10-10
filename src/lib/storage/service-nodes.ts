@@ -477,12 +477,16 @@ export async function listStorageNodes(session?: TeamSession | null) {
     include: {
       ...STORAGE_NODE_SERVER_INCLUDE,
       _count: { select: { fileEntries: { where: { isDeleted: false } } } },
+      team: { select: { name: true } },
     },
   });
+  // Administrators may list every customer's nodes; name the owner for them.
+  const showCustomer = session ? isGlobalTeamManager(session) : false;
 
-  return nodes.map((node: StorageNodeListRow) => ({
+  return nodes.map((node: StorageNodeListRow & { team: { name: string } | null }) => ({
     id: node.id,
     name: node.name,
+    teamName: showCustomer ? node.team?.name ?? null : null,
     driver: node.driver,
     isDefault: node.isDefault,
     basePath: node.basePath,

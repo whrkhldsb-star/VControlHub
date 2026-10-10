@@ -70,10 +70,10 @@ describe("GET /api/system/export", () => {
 		mocks.getExportSummary.mockReturnValue({ servers: 0 });
 	});
 
-	it("requires workspace ownership or platform management behind a write rate limit", async () => {
+	it("requires platform management behind a write rate limit", async () => {
 		await route.GET(get());
 		expect(mocks.guardCalls[0]).toMatchObject({
-			permissions: ["team:member:manage", "user:manage"],
+			permission: "user:manage",
 			rateLimit: { maxRequests: 30, windowMs: 60_000 },
 		});
 	});

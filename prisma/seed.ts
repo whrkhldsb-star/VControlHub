@@ -9,10 +9,7 @@ import {
 } from "../src/lib/auth/rbac";
 import { hashPassword } from "../src/lib/auth/password";
 import { tenantStorageBasePath } from "../src/lib/storage/path-utils";
-import {
-  defaultWorkspacePolicyGroups,
-  defaultWorkspacePolicyGroupId,
-} from "../src/lib/auth/role-template-service";
+import { syncBuiltinIdentityTemplates } from "../src/lib/auth/identity-template-service";
 
 function seedLog(message: string) {
   if (process.env.SEED_DEBUG === "1") {
@@ -51,10 +48,8 @@ const PERMISSION_LABELS: Record<string, { name: string; description: string }> =
   "share:manage": { name: "管理分享", description: "允许撤销和管理文件分享链接" },
   "share:read": { name: "查看分享", description: "允许查看文件分享记录" },
   "task:read": { name: "查看任务中心", description: "允许查看统一任务中心与操作队列" },
-  "team:create": { name: "创建团队", description: "允许创建团队空间" },
-  "team:read": { name: "查看团队", description: "允许查看当前团队空间与成员" },
-  "team:manage": { name: "管理团队", description: "允许更新团队信息与切换团队设置" },
-  "team:member:manage": { name: "管理团队成员", description: "允许邀请、更新和移除团队成员" },
+  "team:read": { name: "查看客户", description: "允许查看所属客户与同事" },
+  "team:manage": { name: "管理客户", description: "允许创建、删除客户并管理客户账号（仅平台）" },
   "command:approve": { name: "审批命令", description: "允许审批待执行命令" },
   "command:create": { name: "创建命令", description: "允许创建命令执行请求" },
   "command:execute": { name: "执行命令", description: "允许发起和执行命令" },
@@ -77,11 +72,9 @@ const PERMISSION_LABELS: Record<string, { name: string; description: string }> =
   "user:read": { name: "查看用户", description: "允许查看用户与成员信息" },
 };
 
-const ROLE_LABELS: Record<RoleKey, { name: string; description: string }> = {
-  admin: { name: "管理员", description: "平台最高权限，可管理所有资源与审批流" },
-  operator: { name: "运维", description: "负责日常节点管理、命令下发与文件维护" },
-  viewer: { name: "观察者", description: "只读访问审计、节点与云盘信息" },
-  storage_manager: { name: "存储管理员", description: "负责云盘节点、文件与媒体资源管理" },
+/** "admin" is the only account role; customer accounts use identity templates. */
+const ROLE_LABELS: Partial<Record<RoleKey, { name: string; description: string }>> = {
+  admin: { name: "平台管理员", description: "管理全部客户、账号与平台设置" },
 };
 
 async function seedPermissions() {
@@ -108,19 +101,19 @@ async function seedPermissions() {
 
 async function seedRoles() {
   seedLog("seedRoles:start");
-  const roleEntries = Object.entries(DEFAULT_ROLE_PERMISSIONS) as [RoleKey, typeof ALL_PERMISSIONS][];
+  const roleEntries = [["admin", DEFAULT_ROLE_PERMISSIONS.admin]] as [RoleKey, typeof ALL_PERMISSIONS][];
   const roles = await prisma.$transaction(
     roleEntries.map(([roleKey]) =>
       prisma.role.upsert({
         where: { key: roleKey },
         update: {
-          name: ROLE_LABELS[roleKey].name,
-          description: ROLE_LABELS[roleKey].description,
+          name: ROLE_LABELS[roleKey]!.name,
+          description: ROLE_LABELS[roleKey]!.description,
         },
         create: {
           key: roleKey,
-          name: ROLE_LABELS[roleKey].name,
-          description: ROLE_LABELS[roleKey].description,
+          name: ROLE_LABELS[roleKey]!.name,
+          description: ROLE_LABELS[roleKey]!.description,
         },
       }),
     ),
@@ -208,56 +201,27 @@ async function seedAdmin() {
   seedLog("seedAdmin:done");
 }
 
-/** Fresh installations start inside one workspace, not an unscoped data pool. */
-async function seedDefaultWorkspace(): Promise<string | null> {
-  // Sample the whole table (not findMany take:2): soft-deleted teams
-  // (__deleted__ slug) from e2e runs made the take-2 sample all-deleted,
-  // sending the flow into the create branch, which then tripped P2002 on
-  // the existing "default" slug and aborted deploys.
-  const teams = await prisma.team.findMany({
-    select: { id: true, slug: true },
-  });
-  const live = teams.filter((team) => !team.slug.startsWith("__deleted__"));
-  if (live.length > 0) {
-    if (live.length !== 1) return null;
-    const teamId = live[0]!.id;
-    const admin = await prisma.user.findUniqueOrThrow({
-      where: { username: ADMIN_BOOTSTRAP.username },
-      select: { id: true },
-    });
-    await prisma.teamMember.upsert({
-      where: { teamId_userId: { teamId, userId: admin.id } },
-      update: {},
-      create: { teamId, userId: admin.id, role: "admin" },
-    });
-    await prisma.user.updateMany({
-      where: { id: admin.id, currentTeamId: null },
-      data: { currentTeamId: teamId },
-    });
-    return teamId;
-  }
-
+/**
+ * Fresh installations start with one customer for the platform's own
+ * resources, so the administrator has a customer to create resources in.
+ * Administrators need no membership; the seed only preselects it.
+ */
+async function seedDefaultCustomer(): Promise<string | null> {
   const admin = await prisma.user.findUniqueOrThrow({
     where: { username: ADMIN_BOOTSTRAP.username },
     select: { id: true },
   });
-  const team = await prisma.team.create({
-    data: {
-      slug: "default",
-      name: "Default workspace",
-      ownerId: admin.id,
-    },
-  });
-  await prisma.teamMember.upsert({
-    where: { teamId_userId: { teamId: team.id, userId: admin.id } },
-    update: { role: "owner" },
-    create: { teamId: team.id, userId: admin.id, role: "owner" },
-  });
+  const live = await prisma.team.findMany({ where: { deletedAt: null }, select: { id: true }, take: 2 });
+  // With several customers there is no single default to preselect.
+  if (live.length > 1) return null;
+  const teamId = live[0]?.id ?? (await prisma.team.create({
+    data: { slug: "default", name: "平台自用", description: "平台自己的服务器与存储" },
+  })).id;
   await prisma.user.updateMany({
     where: { id: admin.id, currentTeamId: null },
-    data: { currentTeamId: team.id },
+    data: { currentTeamId: teamId },
   });
-  return team.id;
+  return teamId;
 }
 
 async function seedDefaultLocalStorageNode(teamId: string | null) {
@@ -308,26 +272,6 @@ async function seedDefaultLocalStorageNode(teamId: string | null) {
     });
   }
   seedLog("seedDefaultLocalStorageNode:done");
-}
-
-async function seedDefaultWorkspacePolicyGroups(teamId: string | null) {
-  if (!teamId) return;
-  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { ownerId: true } });
-  await prisma.roleTemplate.createMany({
-    data: defaultWorkspacePolicyGroups().map((group) => ({
-      id: defaultWorkspacePolicyGroupId(teamId, group.key),
-      name: group.name,
-      description: group.description,
-      kind: "POLICY_GROUP",
-      roleKeys: group.roleKeys,
-      permissions: group.permissions,
-      dataScope: { storageAccess: [], serverAccess: [] },
-      isBuiltin: false,
-      createdBy: team?.ownerId ?? null,
-      teamId,
-    })),
-    skipDuplicates: true,
-  });
 }
 
 function shouldSeedDemoData() {
@@ -426,8 +370,8 @@ export async function seedDatabase() {
 	await seedPermissions();
   await seedRoles();
   await seedAdmin();
-  const defaultTeamId = await seedDefaultWorkspace();
-  await seedDefaultWorkspacePolicyGroups(defaultTeamId);
+  await syncBuiltinIdentityTemplates();
+  const defaultTeamId = await seedDefaultCustomer();
   await seedDefaultLocalStorageNode(defaultTeamId);
   if (shouldSeedDemoData()) {
     seedLog("seedDemoData:start");

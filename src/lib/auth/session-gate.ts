@@ -18,12 +18,15 @@ export interface SessionGate {
 	permissions: Permission[];
 	/** True if the session represents an authenticated user. */
 	authenticated: boolean;
+	/** Customer the session works in; null for an administrator viewing all customers. */
+	currentTeamId?: string | null;
 }
 
 export const EMPTY_GATE: SessionGate = {
 	roles: [],
 	permissions: [],
 	authenticated: false,
+	currentTeamId: null,
 };
 
 /**
@@ -31,19 +34,20 @@ export const EMPTY_GATE: SessionGate = {
  * helper so server components (e.g. `SidebarLoader`) can construct the value
  * that gets handed to the client provider.
  *
- * Pass `permissions` (the session's effective list, which already includes the
- * user's direct grants) whenever a verified session is at hand: deriving them
- * from roles alone hides sidebar entries the user is in fact allowed to open.
+ * Pass `permissions` (the session's effective list — a customer account's
+ * come from its identity template, not its roles) whenever a verified session
+ * is at hand: deriving them from roles alone hides entries the user may open.
  */
 export function gateFromRoles(
 	roles: RoleKey[],
 	permissions?: readonly Permission[],
+	currentTeamId: string | null = null,
 ): SessionGate {
 	return {
 		roles: [...roles],
 		permissions: permissions ? [...permissions] : getPermissionsFromRoles(roles),
-		// A user whose access comes only from direct grants holds no built-in
-		// role, yet is still signed in.
+		// A customer account holds no built-in role, yet is still signed in.
 		authenticated: roles.length > 0 || (permissions?.length ?? 0) > 0,
+		currentTeamId,
 	};
 }

@@ -4,9 +4,10 @@
  * Central Prisma filters for tenant-owned records. Callers spread `teamWhere`
  * into their outermost `where` clause so a member only reaches the active team.
  *
- * Rules: platform admins may inspect all rows; everyone else sees exactly
- * their active workspace. A null teamId is quarantined legacy data, never an
- * implicit share across unrelated workspaces.
+ * Rules: a customer account sees exactly its customer. A platform admin sees
+ * the customer it has selected, or every customer when none is selected
+ * ("all customers"). A null teamId is quarantined legacy data, never an
+ * implicit share across customers.
  *
  * Usage in a service:
  * ```ts
@@ -24,7 +25,6 @@ import { serverAccessWhere, type ServerAccessCapability } from "@/lib/server/res
 
 export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> & {
 	permissions?: Permission[];
-	currentTeamRole?: string | null;
 };
 
 /**
@@ -35,29 +35,9 @@ export function isGlobalTeamManager(session: TeamSession): boolean {
 	return session.roles?.includes("admin") === true;
 }
 
-/** True for a platform admin or an owner/admin of the active workspace. */
-export function isWorkspaceTeamManager(session: TeamSession): boolean {
-	return isGlobalTeamManager(session) || Boolean(
-		session.currentTeamId && (
-			session.currentTeamRole === "owner"
-			|| session.currentTeamRole === "admin"
-			|| session.permissions?.includes("team:member:manage")
-		),
-	);
-}
-
-/**
- * Check whether a target has the built-in platform admin role before a
- * delegated manager changes its credentials or status.
- */
-export async function userHoldsTeamManage(userId: string): Promise<boolean> {
-	const user = await prisma.user.findUnique({
-		where: { id: userId },
-		select: { roles: { select: { role: { select: { key: true } } } } },
-	});
-	if (!user) return false;
-	const assignedRoleKeys = user.roles.map((entry) => entry.role.key);
-	return assignedRoleKeys.includes("admin");
+/** A platform admin in "all customers" mode: list filters do not narrow. */
+export function seesAllCustomers(session: TeamSession): boolean {
+	return isGlobalTeamManager(session) && !session.currentTeamId;
 }
 
 /**
@@ -65,8 +45,7 @@ export async function userHoldsTeamManage(userId: string): Promise<boolean> {
  * Spread this into the outermost `where` on list queries.
  */
 export function teamWhere(session: TeamSession): Record<string, unknown> {
-	// Admins / team managers see all records
-	if (isGlobalTeamManager(session)) {
+	if (seesAllCustomers(session)) {
 		return {};
 	}
 
@@ -87,67 +66,73 @@ export function teamScopeWhere(session?: TeamSession | null): Record<string, unk
 	return session ? teamWhere(session) : {};
 }
 
+/**
+ * Scope for security-root records (credentials, commands, file data): an
+ * administrator viewing all customers sees every row, otherwise exactly the
+ * selected customer. Without a customer nothing matches — the sentinel id
+ * names the record kind in query logs — and a null-teamId (quarantined legacy)
+ * row never matches.
+ */
+function strictCustomerScope(kind: string) {
+	const sentinel = `__unassigned_${kind}_require_team_manage__`;
+	return (session: TeamSession): Record<string, unknown> => {
+		if (seesAllCustomers(session)) return {};
+		return session.currentTeamId ? { teamId: session.currentTeamId } : { id: sentinel };
+	};
+}
+
 /** Server records are security roots (SSH, SFTP, backups and file proxy).
  * A null teamId is quarantined legacy data, never an implicit shared VPS. */
 export function serverTeamWhere(session: TeamSession, capability: ServerAccessCapability = "read"): Record<string, unknown> {
-	if (isGlobalTeamManager(session)) return {};
+	if (seesAllCustomers(session)) return {};
 	return session.currentTeamId
-		? isWorkspaceTeamManager(session)
+		? isGlobalTeamManager(session)
 			? { teamId: session.currentTeamId }
+			// Per-server rows narrow a customer account to specific servers.
 			: { AND: [{ teamId: session.currentTeamId }, serverAccessWhere(session.userId, capability)] }
 		: { id: "__unassigned_servers_require_team_manage__" };
+}
+
+/** Editing, disabling or deleting a server's profile. Customer accounts may
+ * change only servers their customer added; servers the platform assigned
+ * stay read-only to them whatever their template grants. */
+export function serverProfileTeamWhere(session: TeamSession): Record<string, unknown> {
+	const scope = serverTeamWhere(session, "manage");
+	return isGlobalTeamManager(session) ? scope : { AND: [scope, { origin: "CUSTOMER" }] };
+}
+
+/** Origin of a server the session adds. Administrators and system callers
+ * (no roles) assign platform servers; customer accounts add their own. */
+export function serverOriginData(session: Partial<Pick<TeamSession, "userId" | "roles">>) {
+	const byCustomer = session.roles !== undefined && !session.roles.includes("admin");
+	return { origin: byCustomer ? "CUSTOMER" : "PLATFORM", addedById: session.userId ?? null } as const;
 }
 
 /** Command requests carry the command text and target-server refs — a security
  * root like the servers they run against. A null teamId is quarantined legacy
  * data (only global managers may read/cancel/approve it), never a shared request
  * every tenant can see. Mirrors {@link serverTeamWhere}. */
-export function commandRequestTeamWhere(session: TeamSession): Record<string, unknown> {
-	if (isGlobalTeamManager(session)) return {};
-	return session.currentTeamId
-		? { teamId: session.currentTeamId }
-		: { id: "__unassigned_command_requests_require_team_manage__" };
-}
+export const commandRequestTeamWhere = strictCustomerScope("command_requests");
 
 /** A sync job binds two servers plus paths and can be executed on demand
  * (rsync, optionally with --delete). Reading one hydrates both servers together
  * with their SSH keys. A null teamId is quarantined legacy data, never a job
  * every tenant may read or run. Mirrors {@link serverTeamWhere}. */
-export function syncJobTeamWhere(session: TeamSession): Record<string, unknown> {
-	if (isGlobalTeamManager(session)) return {};
-	return session.currentTeamId
-		? { teamId: session.currentTeamId }
-		: { id: "__unassigned_sync_jobs_require_team_manage__" };
-}
+export const syncJobTeamWhere = strictCustomerScope("sync_jobs");
 
 /** A deployment run carries the rendered command text, its rollback snapshot and
  * the ids of the VPS it targets — and `createDeploymentRollbackRun` turns one back
  * into an executable command request. A null teamId is quarantined legacy data,
  * not a run every tenant may read or roll back. Mirrors {@link serverTeamWhere}. */
-export function deploymentRunTeamWhere(session: TeamSession): Record<string, unknown> {
-	if (isGlobalTeamManager(session)) return {};
-	return session.currentTeamId
-		? { teamId: session.currentTeamId }
-		: { id: "__unassigned_deployments_require_team_manage__" };
-}
+export const deploymentRunTeamWhere = strictCustomerScope("deployments");
 
 /** A playbook contains executable server references. Null-team legacy
  * playbooks stay quarantined to platform administrators. */
-export function playbookTeamWhere(session: TeamSession): Record<string, unknown> {
-	if (isGlobalTeamManager(session)) return {};
-	return session.currentTeamId
-		? { teamId: session.currentTeamId }
-		: { id: "__unassigned_playbooks_require_team_manage__" };
-}
+export const playbookTeamWhere = strictCustomerScope("playbooks");
 
 /** Image uploads are private by default. A null teamId is legacy data owned by
  * its uploader, not a shared image library visible to every tenant manager. */
-export function imageTeamWhere(session: TeamSession): Record<string, unknown> {
-	if (isGlobalTeamManager(session)) return {};
-	return session.currentTeamId
-		? { teamId: session.currentTeamId }
-		: { id: "__unassigned_images_require_team_manage__" };
-}
+export const imageTeamWhere = strictCustomerScope("images");
 
 /** A storage node is a file-data security root: it carries the SFTP/WebDAV
  * backing credentials and every byte the hub can read or write on it. A null
@@ -155,24 +140,14 @@ export function imageTeamWhere(session: TeamSession): Record<string, unknown> {
  * tenant's storage_manager (or their API token via WebDAV) could open, upload
  * to, or share an unassigned node by id. Quarantine it to global managers,
  * mirroring {@link serverTeamWhere} and the share-link service's node filter. */
-export function storageNodeTeamWhere(session: TeamSession): Record<string, unknown> {
-	if (isGlobalTeamManager(session)) return {};
-	return session.currentTeamId
-		? { teamId: session.currentTeamId }
-		: { id: "__unassigned_storage_nodes_require_team_manage__" };
-}
+export const storageNodeTeamWhere = strictCustomerScope("storage_nodes");
 
 /** A share link publishes a storage path on a node (and its access logs expose
  * downloader IPs/UAs). A null teamId is quarantined legacy data — under the
  * loose {@link teamWhere} every tenant's managers could list, read access
  * analytics for, and revoke another tenant's unassigned links. Mirrors
  * {@link serverTeamWhere}. */
-export function shareLinkTeamWhere(session: TeamSession): Record<string, unknown> {
-	if (isGlobalTeamManager(session)) return {};
-	return session.currentTeamId
-		? { teamId: session.currentTeamId }
-		: { id: "__unassigned_share_links_require_team_manage__" };
-}
+export const shareLinkTeamWhere = strictCustomerScope("share_links");
 
 /**
  * Prisma `where` for listing users in the directory UI/API.
@@ -189,7 +164,7 @@ export function userDirectoryWhere(session: TeamSession): Record<string, unknown
 		return {
 			OR: [
 				{ id: session.userId },
-				{ teamMemberships: { some: { teamId: session.currentTeamId } } },
+				{ teamMembership: { is: { teamId: session.currentTeamId } } },
 			],
 		};
 	}
@@ -241,7 +216,7 @@ export function teamCreateData(
 export function teamAccessFilter(
 	session: TeamSession,
 ): Record<string, unknown> | undefined {
-	if (isGlobalTeamManager(session)) {
+	if (seesAllCustomers(session)) {
 		return undefined;
 	}
 	if (session.currentTeamId) {

@@ -13,6 +13,7 @@ import {
 	type ServerActionState,
 } from "./actions";
 import { ServerCardDirectGatewayForm } from "./server-card-actions-direct-gateway";
+import { ServerCardTransferForm } from "./server-card-transfer-form";
 import { ServerCardDeleteForm } from "./server-card-delete-form";
 import { ServerCardEditForm } from "./server-card-edit-form";
 import { useSshTerminal } from "./ssh-terminal-context";
@@ -54,6 +55,11 @@ type ServerCardActionsProps = {
 	windowsSftpPort?: number;
 	windowsSftpUsername?: string;
 	canManageServers?: boolean;
+	/** Platform-assigned server viewed by a customer account: profile is read-only. */
+	profileLocked?: boolean;
+	/** Platform administrators may move the server to another customer. */
+	canTransfer?: boolean;
+	teamId?: string | null;
 	canUseSshTerminal?: boolean;
 	onSshConnect?: () => void;
 	directGateway?: {
@@ -87,6 +93,9 @@ export function ServerCardActions({
 	windowsSftpPort = 22,
 	windowsSftpUsername = "",
 	canManageServers = true,
+	profileLocked = false,
+	canTransfer = false,
+	teamId = null,
 	canUseSshTerminal = false,
 	onSshConnect,
 	directGateway,
@@ -98,6 +107,7 @@ export function ServerCardActions({
 	const [editState, editAction] = useActionState(updateServerAction, initialState);
 	const [showEdit, setShowEdit] = useState(false);
 	const { openTerminal } = useSshTerminal();
+	const canEditProfile = canManageServers && !profileLocked;
 
 	useEffect(() => {
 		if (toggleState.success) router.refresh();
@@ -133,7 +143,11 @@ export function ServerCardActions({
 				<ServerCardDirectGatewayForm serverId={serverId} directGateway={directGateway} operatingSystem={operatingSystem} />
 			) : null}
 
-			{canManageServers ? (
+			{canManageServers && profileLocked ? (
+				<p className="text-xs leading-5 text-[var(--text-muted)]">{t("serverCardActions.platformManaged")}</p>
+			) : null}
+
+			{canEditProfile ? (
 				<ActionButton variant="secondary"
 					onClick={() => setShowEdit((value) => !value)}
 
@@ -145,7 +159,7 @@ export function ServerCardActions({
 				</ActionButton>
 			) : null}
 
-			{canManageServers && showEdit ? (
+			{canEditProfile && showEdit ? (
 				<ServerCardEditForm
 					operatingSystem={operatingSystem} rdpDomain={rdpDomain} rdpIgnoreCertificate={rdpIgnoreCertificate} rdpCertificateSha256={rdpCertificateSha256}
 					serverId={serverId}
@@ -172,7 +186,7 @@ export function ServerCardActions({
 				/>
 			) : null}
 
-				{canManageServers ? (
+				{canEditProfile ? (
 					<form action={toggleAction} className="space-y-2">
 						<input type="hidden" name="serverId" value={serverId} />
 						{!enabled && toggleState.hostKeySha256 ? (
@@ -213,7 +227,11 @@ export function ServerCardActions({
 				</form>
 			) : null}
 
-			{canManageServers ? (
+			{canTransfer ? (
+				<ServerCardTransferForm serverId={serverId} serverName={serverName} currentTeamId={teamId} />
+			) : null}
+
+			{canEditProfile ? (
 				<ServerCardDeleteForm
 					serverId={serverId}
 					serverName={serverName}

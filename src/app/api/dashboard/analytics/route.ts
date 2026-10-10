@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { isGlobalTeamManager, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere, seesAllCustomers } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 
@@ -101,7 +101,7 @@ export async function GET(request: Request) {
     // quarantined legacy server that non-admins must not see, so it must NOT
     // fall under the loose "null is shared" teamWhere used for genuinely
     // team-owned resources below.
-    const metricTeamFilter = isGlobalTeamManager(session)
+    const metricTeamFilter = seesAllCustomers(session)
       ? {}
       : { server: serverTeamWhere(session) };
     const resourceTeamFilter = teamWhere(session);

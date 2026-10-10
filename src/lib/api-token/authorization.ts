@@ -5,8 +5,8 @@ import {
 	type Permission,
 	type RoleKey,
 } from "@/lib/auth/rbac";
-import { resolveEffectivePermissions } from "@/lib/auth/effective-permissions";
-import { scopePermissionsToWorkspace } from "@/lib/auth/tenant-permissions";
+import { getPermissionsFromRoles } from "@/lib/auth/rbac";
+import { resolveSessionPermissions } from "@/lib/auth/identity-templates";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 
@@ -43,18 +43,6 @@ export async function loadApiTokenOwnerSession(
 	userId: string,
 	boundTeamId?: string,
 ): Promise<SessionPayload | null> {
-	// Bearer/WebDAV credentials carry an immutable tenant. A removed membership
-	// immediately invalidates that credential, regardless of the user's login
-	// preference or another browser's selected workspace.
-	const boundMembership = boundTeamId
-		? await prisma.teamMember.findUnique({
-			where: { teamId_userId: { teamId: boundTeamId, userId } },
-			select: { role: true, accessRole: true, team: { select: { slug: true } }, permissionTemplate: { select: { teamId: true, kind: true, roleKeys: true, permissions: true } } },
-		})
-		: null;
-	if (boundTeamId && (!boundMembership || boundMembership.team.slug.startsWith("__deleted__"))) {
-		return null;
-	}
 	const user = await prisma.user.findUnique({
 		where: { id: userId },
 		select: {
@@ -62,15 +50,9 @@ export async function loadApiTokenOwnerSession(
 			username: true,
 			status: true,
 			mustChangePassword: true,
-			currentTeam: {
-				select: {
-					id: true,
-					members: {
-						where: { userId },
-						select: { userId: true, role: true, accessRole: true, permissionTemplate: { select: { teamId: true, kind: true, roleKeys: true, permissions: true } } },
-						take: 1,
-					},
-				},
+			currentTeamId: true,
+			teamMembership: {
+				select: { teamId: true, team: { select: { deletedAt: true } }, identityTemplate: { select: { permissions: true } } },
 			},
 			roles: { select: { role: { select: { key: true } } } },
 		},
@@ -82,29 +64,24 @@ export async function loadApiTokenOwnerSession(
 	const roles = assignedRoleKeys.filter(
 		(key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS,
 	);
-	// Same reason as the cookie-session path: a token owner whose permission
-	// comes from a direct grant must be able to mint and use that scope.
-	const accountPermissions = await resolveEffectivePermissions({
-		userId: user.id,
-		roles,
-		assignedRoleKeys,
-	});
-	const currentTeamId = boundTeamId ?? (
-		user.currentTeam && user.currentTeam.members.length > 0
-			? user.currentTeam.id
-			: null
-	);
-	const member = boundTeamId ? boundMembership : user.currentTeam?.members[0];
-	const permissions = scopePermissionsToWorkspace({
+	const accountPermissions = getPermissionsFromRoles(roles);
+	const isAdmin = roles.includes("admin");
+	const membership = user.teamMembership && !user.teamMembership.team.deletedAt ? user.teamMembership : null;
+	// Bearer/WebDAV credentials carry an immutable customer. Removing the owner
+	// from it, or deleting the customer, invalidates the credential at once.
+	let currentTeamId: string | null;
+	if (isAdmin) {
+		const teamId = boundTeamId ?? user.currentTeamId;
+		const team = teamId ? await prisma.team.findUnique({ where: { id: teamId }, select: { deletedAt: true } }) : null;
+		currentTeamId = team && !team.deletedAt ? teamId : null;
+	} else {
+		currentTeamId = membership && (!boundTeamId || membership.teamId === boundTeamId) ? membership.teamId : null;
+	}
+	if (boundTeamId && currentTeamId !== boundTeamId) return null;
+	const permissions = resolveSessionPermissions({
 		roles,
 		accountPermissions,
-		membership: currentTeamId && member ? {
-			role: member.role,
-			accessRole: member.accessRole,
-			permissionTemplate: member.permissionTemplate?.teamId === currentTeamId && member.permissionTemplate.kind === "POLICY_GROUP"
-				? member.permissionTemplate
-				: null,
-		} : null,
+		identityPermissions: !isAdmin && membership ? membership.identityTemplate.permissions : null,
 	});
 	return {
 		userId: user.id,
@@ -112,10 +89,6 @@ export async function loadApiTokenOwnerSession(
 		roles,
 		permissions,
 		mustChangePassword: false,
-		// Same rule as the cookie-session path in `verifySessionToken`: the tenant
-		// pointer is only honoured while the membership behind it is still live, so
-		// a token cannot keep reaching a workspace its owner was removed from.
 		currentTeamId,
-		currentTeamRole: currentTeamId && member ? member.role : null,
 	};
 }

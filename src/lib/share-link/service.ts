@@ -7,7 +7,7 @@ const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { teamCreateData, shareLinkTeamWhere, isGlobalTeamManager } from "@/lib/auth/team-scope";
+import { teamCreateData, shareLinkTeamWhere, storageNodeTeamWhere } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -199,9 +199,7 @@ export async function createShareLinkFromFileEntry(input: {
     where: {
       id: input.fileEntryId,
       isDeleted: false,
-      storageNode: isGlobalTeamManager(input.session)
-        ? {}
-        : { teamId: input.session.currentTeamId ?? "__unassigned_storage_nodes_require_team_manage__" },
+      storageNode: storageNodeTeamWhere(input.session),
     },
     include: { storageNode: true },
   });

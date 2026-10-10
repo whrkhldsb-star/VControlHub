@@ -35,7 +35,7 @@ import {
 	IconSparkles,
 	IconTerminalSquare,
 	IconTicket,
-	IconUsers,
+	IconBuilding, IconUsers,
 	IconWallet,
 	IconWorkflow,
 } from "./nav-icons";
@@ -141,6 +141,7 @@ export const mainNavItems: AppNavItem[] = mainNavGroups.flatMap((group) => group
 
 export const systemNavItems: AppNavItem[] = [
 	{ href: "/settings", labelKey: "nav.settings", fallbackLabel: "Settings", icon: <IconSettings /> },
+	{ href: "/customers", labelKey: "nav.customers", fallbackLabel: "Customers", icon: <IconBuilding /> },
 	{ href: "/users", labelKey: "nav.users", fallbackLabel: "Users", icon: <IconUsers /> },
 	{ href: "/health", labelKey: "nav.health", fallbackLabel: "Platform Health", icon: <IconHeartPulse /> },
 	{ href: "/monitoring", labelKey: "nav.monitoring", fallbackLabel: "Hub Host", icon: <IconGauge /> },

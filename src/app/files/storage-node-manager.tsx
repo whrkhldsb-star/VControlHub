@@ -18,6 +18,7 @@ type StorageNodeItem = {
 	username?: string | null;
 	serverId?: string | null;
 	connectionSummary: string;
+	teamName?: string | null;
 	directAccess: { mode: string; description: string; href: string | null };
 	fileCount: number;
 	healthStatus?: "UNKNOWN" | "HEALTHY" | "UNHEALTHY" | string | null;

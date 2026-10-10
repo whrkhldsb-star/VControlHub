@@ -229,7 +229,7 @@ async function dispatchStep(input: {
         });
         if (!membership) {
           throw new Error(
-            `notification recipient outside team scope: ${step.config.recipientUserId}`,
+            `notification recipient outside customer scope: ${step.config.recipientUserId}`,
           );
         }
       }

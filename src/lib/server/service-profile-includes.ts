@@ -49,6 +49,7 @@ export const SERVER_PROFILE_INCLUDE = {
     orderBy: { createdAt: "desc" },
     take: 1,
   },
+  team: { select: { name: true } },
 } as const;
 
 /** Full server record as loaded by SERVER_PROFILE_INCLUDE (sshKey, storageNode, …). */

@@ -649,14 +649,14 @@ describe("storage service", () => {
     );
   });
 
-  it("does not filter listStorageNodes for team:manage admins", async () => {
+  it("does not filter listStorageNodes for administrators viewing all customers", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.storageNode.findMany).mockResolvedValueOnce([]);
 
     await listStorageNodes({
       userId: "u_admin",
       roles: ["admin"],
-      currentTeamId: "team_ops",
+      currentTeamId: null,
     });
 
     expect(prisma.storageNode.findMany).toHaveBeenCalledWith(
