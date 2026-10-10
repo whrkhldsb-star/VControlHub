@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { en } from "@/lib/i18n/dictionaries/settings-page-en";
 import { zh } from "@/lib/i18n/dictionaries/settings-page-zh";
-import { groupPermissionsByDomain, permissionLabelKey } from "../permission-labels";
+import { browserT } from "@/lib/i18n/browser-translations";
+import { groupPermissionsByDomain, permissionGroupName, permissionLabelKey } from "../permission-labels";
 import { PERMISSIONS } from "../rbac";
 
 describe("permission labels", () => {
@@ -23,5 +24,13 @@ describe("permission labels", () => {
 			{ domain: "storage", labelKey: "permissionDomain.storage", permissions: ["storage:read"] },
 		]);
 		expect(permissionLabelKey("server:sftp:unrestricted")).toBe("permission.server.sftp.unrestricted");
+	});
+
+	it("shows built-in groups that keep a preset name in the viewer's language", () => {
+		const toEn = (key: string) => browserT(key, "en");
+		expect(permissionGroupName({ name: "日常运维", isBuiltin: true }, toEn)).toBe("Day-to-day operations");
+		expect(permissionGroupName({ name: "Storage manager", isBuiltin: true }, (key) => browserT(key, "zh"))).toBe("云盘管理员");
+		expect(permissionGroupName({ name: "夜班运维", isBuiltin: true }, toEn)).toBe("夜班运维");
+		expect(permissionGroupName({ name: "日常运维", isBuiltin: false }, toEn)).toBe("日常运维");
 	});
 });
