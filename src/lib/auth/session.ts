@@ -238,7 +238,7 @@ export async function createSessionToken(payload: SessionPayload, options: {
   return signHmacToken(envelope, getSessionSecret());
 }
 
-/** Change only this cookie's workspace while preserving its original expiry. */
+/** Change only this cookie's customer while preserving its original expiry. */
 export async function reissueSessionForTeam(token: string, teamId: string | null): Promise<{ token: string; maxAge: number }> {
   await verifySessionToken(token);
   const [encodedPayload] = token.split(".");

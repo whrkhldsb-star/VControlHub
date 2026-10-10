@@ -41,14 +41,14 @@ export const BUILTIN_IDENTITY_TEMPLATES = [
 /** Identity template assigned when none is chosen. */
 export const DEFAULT_IDENTITY_TEMPLATE_ID = "identity:viewer";
 
-export function builtinIdentityTemplate(id: string) {
+function builtinIdentityTemplate(id: string) {
 	return BUILTIN_IDENTITY_TEMPLATES.find((template) => template.id === id) ?? null;
 }
 
-/** Template permissions limited to what a customer account may hold. */
+/** Template permissions limited to what a customer account may hold, in canonical order. */
 export function normalizeIdentityPermissions(raw: readonly string[]): Permission[] {
-	const allowed = new Set<string>(CUSTOMER_PERMISSIONS);
-	return CUSTOMER_PERMISSIONS.filter((permission) => raw.includes(permission) && allowed.has(permission));
+	const wanted = new Set(raw);
+	return CUSTOMER_PERMISSIONS.filter((permission) => wanted.has(permission));
 }
 
 /**

@@ -274,7 +274,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.validate.telegram.chatId.invalidPrefix": "Telegram Chat ID 格式不正确：{invalid}（应为数字或 @channelusername）",
 	"settingsClient.validate.offsite.pathPrefix.noSlash": "路径前缀必须以 / 结尾",
 	"settingsClient.validate.offsite.failureRecipient.invalid": "失败告警收件人不是合法邮箱",
-	// ── Team workspace section ──
+	// ── Customer section ──
 	"settingsTeam.preset.viewer.name": "只读观察员",
 	"settingsTeam.preset.operator.name": "日常运维",
 	"settingsTeam.preset.storage_manager.name": "云盘管理员",

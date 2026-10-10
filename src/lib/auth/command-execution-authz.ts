@@ -31,7 +31,7 @@ export async function assertRequesterMayExecuteCommand(
   }
   const platformAdmin = sessionHasPermission(accountSession, "team:manage");
   if (!platformAdmin && !teamId) {
-    return { ok: false, reason: "command target has no active workspace" };
+    return { ok: false, reason: "command target has no customer" };
   }
   const teamSession = platformAdmin ? accountSession : await loadApiTokenOwnerSession(requesterId, teamId!);
   if (!teamSession) {

@@ -50,9 +50,9 @@ export const zh: Record<string, string> = {
 	"apiTokensPage.status.active": "有效",
 	"apiTokensPage.status.expired": "已过期",
 	"apiTokensPage.status.revoked": "已撤销",
-	"apiTokensPage.workspace.active": "当前客户：{name}。新 Token 只能访问这个客户。",
-	"apiTokensPage.workspace.bound": "客户：{name}",
-	"apiTokensPage.workspace.none": "请先在侧栏选择客户，再创建 Token。",
+	"apiTokensPage.customer.active": "当前客户：{name}。新 Token 只能访问这个客户。",
+	"apiTokensPage.customer.bound": "客户：{name}",
+	"apiTokensPage.customer.none": "请先在侧栏选择客户，再创建 Token。",
 	"apiTokensPage.title": "个人 API Token",
 };
 
@@ -101,8 +101,8 @@ export const en: Record<string, string> = {
 	"apiTokensPage.status.active": "Active",
 	"apiTokensPage.status.expired": "Expired",
 	"apiTokensPage.status.revoked": "Revoked",
-	"apiTokensPage.workspace.active": "Current customer: {name}. New tokens can only reach this customer.",
-	"apiTokensPage.workspace.bound": "Customer: {name}",
-	"apiTokensPage.workspace.none": "Select a customer in the sidebar before creating a token.",
+	"apiTokensPage.customer.active": "Current customer: {name}. New tokens can only reach this customer.",
+	"apiTokensPage.customer.bound": "Customer: {name}",
+	"apiTokensPage.customer.none": "Select a customer in the sidebar before creating a token.",
 	"apiTokensPage.title": "Personal API Token",
 };

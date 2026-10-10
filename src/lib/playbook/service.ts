@@ -260,7 +260,7 @@ export async function createPlaybook(
     },
   });
   const narrowed = narrowPlaybook(row);
-  // Stamp the workspace: an audit row left at `teamId: null` is treated as
+  // Stamp the customer: an audit row left at `teamId: null` is treated as
   // shared/legacy data by `teamWhere` and shown to every tenant, and a playbook
   // name is tenant-authored content.
   await auditUserAction(
@@ -445,8 +445,8 @@ export async function runPlaybook(input: {
   const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", input.playbookId);
   let narrowedPlaybook: PlaybookRecord;
   let run: RawPlaybookRun;
-  // The run belongs to the playbook's workspace, which is not necessarily the
-  // caller's current one (a `team:manage` admin can queue across workspaces).
+  // The run belongs to the playbook's customer, which is not necessarily the
+  // caller's current one (a platform administrator can queue across customers).
   let auditTeamId: string | null = null;
   try {
     const scope = input.session ? playbookTeamWhere(input.session) : {};

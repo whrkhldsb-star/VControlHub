@@ -226,7 +226,7 @@ async function seedDefaultCustomer(): Promise<string | null> {
 
 async function seedDefaultLocalStorageNode(teamId: string | null) {
   // An existing path may hold real legacy files. Preserve it on every re-seed;
-  // only a fresh install receives the isolated workspace namespace.
+  // only a fresh install receives the isolated customer namespace.
   if (!teamId) return;
   const basePath = tenantStorageBasePath(teamId);
   const existingDefaultNode = await prisma.storageNode.findFirst({

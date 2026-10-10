@@ -251,7 +251,7 @@ export const en: Record<string, string> = {
 	"settingsClient.validate.telegram.chatId.invalidPrefix": "Telegram Chat ID format invalid: {invalid} (expected a number or @channelusername)",
 	"settingsClient.validate.offsite.pathPrefix.noSlash": "Path prefix must end with /",
 	"settingsClient.validate.offsite.failureRecipient.invalid": "Failure alert recipient is not a valid email",
-	// ── Team workspace section ──
+	// ── Customer section ──
 	"settingsTeam.preset.viewer.name": "Read-only viewer",
 	"settingsTeam.preset.operator.name": "Day-to-day operations",
 	"settingsTeam.preset.storage_manager.name": "Storage manager",

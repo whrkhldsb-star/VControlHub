@@ -7,7 +7,7 @@ function getAppSlugForPathExpansion() {
   return config.app.appSlug;
 }
 
-/** Default local filesystem namespace for a newly created workspace. */
+/** Default local filesystem namespace for a newly created customer. */
 export function tenantStorageBasePath(teamId: string, storageRoot = process.env.STORAGE_ROOT?.trim() || "storage"): string {
   // Persist local roots with forward slashes on every host. Node accepts this
   // form on Windows, and a stable database value keeps seeds, exports and

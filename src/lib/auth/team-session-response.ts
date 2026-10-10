@@ -6,7 +6,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { isRequestHttps } from "@/lib/http/request-https";
 import { getSessionCookieName, reissueSessionForTeam } from "./session";
 
-/** Rotate this browser's signed cookie after a validated workspace change. */
+/** Rotate this browser's signed cookie after a validated customer change. */
 export async function teamSessionResponse(
   request: Request,
   teamId: string | null,

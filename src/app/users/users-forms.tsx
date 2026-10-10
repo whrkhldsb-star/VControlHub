@@ -9,18 +9,18 @@ import { Dialog } from "@/components/ui/dialog";
 import { Chip } from "@/components/ui-primitives";
 import { identityTemplateName } from "@/lib/auth/identity-templates";
 /** Subset of StatusBadge's StatusTone that the users page uses. */
-export type Tone ="accent" |"success" |"warning" |"danger" |"neutral";
+export type Tone = "accent" | "success" | "warning" | "danger" | "neutral";
 
 export function statusTone(status: string): Tone {
-  if (status ==="ACTIVE") return"success";
-  if (status ==="DISABLED") return"danger";
-  return"warning";
+  if (status === "ACTIVE") return "success";
+  if (status === "DISABLED") return "danger";
+  return "warning";
 }
 
 export function statusLabel(status: string, t: (k: string, vars?: Record<string, string | number>) => string) {
-  if (status ==="ACTIVE") return t("usersPage.status.active");
-  if (status ==="DISABLED") return t("usersPage.status.disabled");
-  if (status ==="PENDING_PASSWORD_RESET") return t("usersPage.status.pending");
+  if (status === "ACTIVE") return t("usersPage.status.active");
+  if (status === "DISABLED") return t("usersPage.status.disabled");
+  if (status === "PENDING_PASSWORD_RESET") return t("usersPage.status.pending");
   return status;
 }
 

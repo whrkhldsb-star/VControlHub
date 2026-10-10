@@ -252,7 +252,7 @@ export async function createStorageNode(
 
   if (session && !isGlobalTeamManager(session) && payload.driver === "LOCAL" &&
       (!session.currentTeamId || !localBasePathBelongsToTenant(payload.basePath, session.currentTeamId))) {
-    throw new ValidationError(t("backend.storage.localPathOutsideWorkspace"));
+    throw new ValidationError(t("backend.storage.localPathOutsideCustomer"));
   }
 
   if (payload.driver === "SFTP" && !payload.serverId && !payload.host) {
@@ -380,7 +380,7 @@ export async function updateStorageNode(
   if (session && !isGlobalTeamManager(session) && nextDriver === "LOCAL" &&
       (driverChanged || (payload.basePath !== undefined && payload.basePath !== current.basePath)) &&
       (!session.currentTeamId || !localBasePathBelongsToTenant(payload.basePath ?? current.basePath, session.currentTeamId))) {
-    throw new ValidationError(t("backend.storage.localPathOutsideWorkspace"));
+    throw new ValidationError(t("backend.storage.localPathOutsideCustomer"));
   }
   const nextAccessMode = nextDriver === "WEBDAV" ? "PROXY" : payload.directAccessMode ?? (driverChanged ? "PROXY" : current.directAccessMode);
   const nextPublicBaseUrl = nextDriver === "WEBDAV" || driverChanged ? null : payload.publicBaseUrl === undefined

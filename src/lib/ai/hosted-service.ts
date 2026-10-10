@@ -424,8 +424,8 @@ async function executeConfirmedAutomationAction(
 export async function approveHostedAction(actionId: string, approver: HostedActionSession) {
   if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError(t("backend.ai.missingPermissionAiActionApprove"));
 
-  // An approver acts inside the selected workspace. Platform managers with no
-  // selected workspace retain the explicit global recovery path for legacy rows.
+  // An approver acts inside the selected customer. Platform administrators with
+  // no selected customer retain the explicit global recovery path for legacy rows.
   const approvalScope = approver.currentTeamId
     ? { teamId: approver.currentTeamId }
     : teamWhere(sessionForTeamScope(approver)!);
@@ -469,7 +469,7 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
     },
   );
 
-  // Atomic compare-and-swap: only transition this workspace's pending action.
+  // Atomic compare-and-swap: only transition this customer's pending action.
   const claimed = await prisma.aiHostedAction.updateMany({
     where: { id: actionId, status: "PENDING_APPROVAL", ...actionScope },
     data: { status: "APPROVED", approverId: approver.userId, approvedAt: new Date() },
@@ -612,7 +612,7 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
   const approvalScope = actor.currentTeamId
     ? { teamId: actor.currentTeamId }
     : teamWhere(sessionForTeamScope(actor)!);
-  // Scope approvers to the selected workspace; requesters may only cancel self.
+  // Scope approvers to the selected customer; requesters may only cancel self.
   const where = canApprove
     ? { id: actionId, status: "PENDING_APPROVAL" as const, ...approvalScope }
     : { id: actionId, status: "PENDING_APPROVAL" as const, requesterId: actor.userId, ...approvalScope };

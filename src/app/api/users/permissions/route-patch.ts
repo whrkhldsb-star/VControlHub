@@ -76,7 +76,7 @@ export async function applyResourceNarrowing(input: {
           })
         ).map((node) => node.id),
       );
-      if (validNodeIds.size !== scopeIds.length) throw new ValidationError(t("backend.user.unknownStorageNodeInWorkspace"));
+      if (validNodeIds.size !== scopeIds.length) throw new ValidationError(t("backend.user.unknownStorageNodeInCustomer"));
       const mapped = storageAccess.map((grant) => ({
         userId: userId,
         storageNodeId: String(grant.storageNodeId ?? ""),
@@ -126,7 +126,7 @@ export async function applyResourceNarrowing(input: {
         take: scopeIds.length || 1,
       });
       if (known.length !== scopeIds.length) {
-        throw new ValidationError(t("backend.user.unknownServerInWorkspace"));
+        throw new ValidationError(t("backend.user.unknownServerInCustomer"));
       }
       await tx.userServerAccess.deleteMany({
         where: { userId: userId, serverId: { in: scopeIds } },
