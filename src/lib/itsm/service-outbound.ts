@@ -223,11 +223,10 @@ export async function safeFanOutTicketEvent(
 				await createNotification({
 					userId: ticket.createdBy,
 					type: "system",
-					title: t("backend.itsm.ticketFanOutFailedTitle"),
-					message: t("backend.itsm.ticketFanOutFailedMessage", {
-						eventType: input.eventType,
-						error: err instanceof Error ? err.message : String(err),
-					}),
+					notice: {
+						code: "itsmFanOutFailed",
+						params: { eventType: input.eventType, error: err instanceof Error ? err.message : String(err) },
+					},
 					actionUrl: `/tickets/${input.ticketId}`,
 					teamId: ticket.teamId,
 				});

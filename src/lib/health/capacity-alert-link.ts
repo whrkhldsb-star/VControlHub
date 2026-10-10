@@ -184,6 +184,7 @@ export async function evaluateCapacityLinkedAlerts(
         // Recovered / not projected / insufficient — resolve any open incident.
         const cleared = await resolveAlertIncident({
           ruleId: rule.id,
+          ruleName: rule.name,
           serverId: server.serverId,
           metric: rule.metric,
           title: `Capacity forecast clear: ${server.serverName} ${key}`,
@@ -201,6 +202,7 @@ export async function evaluateCapacityLinkedAlerts(
       if (!triggered) {
         const cleared = await resolveAlertIncident({
           ruleId: rule.id,
+          ruleName: rule.name,
           serverId: server.serverId,
           metric: rule.metric,
           title: `Capacity forecast clear: ${server.serverName} ${key}`,

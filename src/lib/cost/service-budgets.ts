@@ -89,7 +89,7 @@ export async function checkBudgetAlerts(now = new Date(), session?: TeamSession 
 		const actionUrl = `/cost-summary?budget=${budget.id}&periodStart=${budget.periodStart}`;
 		for (const manager of await listCostBudgetAlertManagers(budget.teamId)) {
 			if (await prisma.notification.findFirst({ where: { userId: manager.id, type: "system", actionUrl } })) { duplicatesSkipped += 1; continue; }
-			await createNotification({ userId: manager.id, type: "system", title: `Cost budget alert: ${budget.name}`, message: `${budget.usageAmount} ${budget.currency} used (${budget.usagePercent}%), threshold ${budget.alertThresholdPercent}% of ${budget.limitAmount} ${budget.currency}.`, actionUrl, teamId: budget.teamId ?? null }); notificationsSent += 1;
+			await createNotification({ userId: manager.id, type: "system", notice: { code: "costBudgetAlert", params: { budget: budget.name, used: budget.usageAmount, currency: budget.currency, percent: budget.usagePercent, threshold: budget.alertThresholdPercent, limit: budget.limitAmount } }, actionUrl, teamId: budget.teamId ?? null }); notificationsSent += 1;
 		}
 	}
 	return { checked: budgets.length, triggered, notificationsSent, duplicatesSkipped, budgets };

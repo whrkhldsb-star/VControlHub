@@ -217,6 +217,7 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 		const results = await Promise.allSettled(admins.map((admin) => createNotification({
 			userId: admin.id,
 			type: "server_alert",
+			notice: { code: "alertTest", params: { rule: rule.name } },
 			title,
 			message,
 			actionUrl: "/alert-rules",

@@ -284,6 +284,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
               : `${rule.name}: ${rule.metric} has returned to normal range (threshold ${rule.operator} ${rule.threshold})`;
           await resolveAlertIncident({
             ruleId: rule.id,
+            ruleName: rule.name,
             serverId: server.serverId,
             metric: rule.metric,
             title: resolvedTitle,

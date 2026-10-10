@@ -4,6 +4,7 @@ import { createLogger } from "@/lib/logging";
 import { NotFoundError } from "@/lib/errors";
 import { timeDelivery } from "@/lib/monitoring/runtime-metrics";
 import { t } from "@/lib/i18n/service-translations";
+import { renderNotificationFallback, type NotificationMessage } from "./message";
 
 const logger = createLogger("notification:service");
 
@@ -27,15 +28,32 @@ export type NotificationType =
 	| "cron_failed"
 	| "playbook_failed";
 
-export type CreateNotificationInput = {
+/**
+ * Either an event `notice` (rendered per viewer locale; explicit title/message
+ * override the stored fallback) or plain title/message text.
+ */
+type NotificationContent =
+	| { notice: NotificationMessage; title?: string; message?: string }
+	| { notice?: undefined; title: string; message: string };
+
+export type CreateNotificationInput = NotificationContent & {
 	userId: string;
 	type: NotificationType;
-	title: string;
-	message: string;
 	actionUrl?: string;
 	/** Optional multi-tenant stamp (null = shared/legacy). */
 	teamId?: string | null;
 };
+
+/** Columns for a notification row: fallback text plus the optional event code. */
+export function notificationContentData(content: NotificationContent) {
+	const fallback = content.notice ? renderNotificationFallback(content.notice) : null;
+	return {
+		title: content.title ?? fallback?.title ?? "",
+		message: content.message ?? fallback?.message ?? "",
+		messageCode: content.notice?.code ?? null,
+		messageParams: content.notice?.params ?? undefined,
+	};
+}
 
 /* ── CRUD ─────────────────────────────────────────────────── */
 
@@ -44,8 +62,7 @@ export async function createNotification(input: CreateNotificationInput) {
 		data: {
 			userId: input.userId,
 			type: input.type,
-			title: input.title,
-			message: input.message,
+			...notificationContentData(input),
 			actionUrl: input.actionUrl ?? null,
 			teamId: input.teamId ?? null,
 		},
@@ -58,6 +75,8 @@ export async function createNotification(input: CreateNotificationInput) {
 				id: record.id,
 				title: record.title,
 				message: record.message,
+				messageCode: record.messageCode,
+				messageParams: record.messageParams,
 				actionUrl: record.actionUrl,
 				createdAt: record.createdAt.toISOString(),
 			});
@@ -176,8 +195,7 @@ export async function notifyCommandPending(
 				createNotification({
 					userId: admin.id,
 					type: "command_pending",
-					title: t("backend.notification.commandPendingTitle"),
-					message: t("backend.notification.commandPendingMessage", { title: commandTitle }),
+					notice: { code: "commandPending", params: { title: commandTitle } },
 					actionUrl: `/requests`,
 					teamId: teamId ?? null,
 				}),
@@ -196,28 +214,20 @@ export async function notifyCommandResult(
 		rejected: "command_rejected" as NotificationType,
 		completed: "command_completed" as NotificationType,
 		failed: "command_failed" as NotificationType,
-		// Reuse failed channel type for storage compatibility; title/message convey cancel.
+		// Reuse failed channel type for storage compatibility; the message code conveys cancel.
 		cancelled: "command_failed" as NotificationType,
 	};
-	const titleMap = {
-		approved: "Command approved",
-		rejected: "Command rejected",
-		completed: "Command execution completed",
-		failed: "Command execution failed",
-		cancelled: "Command cancelled",
-	};
-	const msgMap = {
-		approved: `Command "${commandTitle}" has been approved and will execute shortly.`,
-		rejected: `Command "${commandTitle}" has been rejected.`,
-		completed: `Command "${commandTitle}" executed successfully.`,
-		failed: `Command "${commandTitle}" execution failed.`,
-		cancelled: `Command "${commandTitle}" was cancelled by an operator.`,
-	};
+	const codeMap = {
+		approved: "commandApproved",
+		rejected: "commandRejected",
+		completed: "commandCompleted",
+		failed: "commandFailed",
+		cancelled: "commandCancelled",
+	} as const;
 	return createNotification({
 		userId: requesterId,
 		type: typeMap[status],
-		title: titleMap[status],
-		message: msgMap[status],
+		notice: { code: codeMap[status], params: { title: commandTitle } },
 		actionUrl: "/requests",
 		teamId: teamId ?? null,
 	});
@@ -227,15 +237,19 @@ export async function notifyDownloadResult(
 	userId: string,
 	url: string,
 	status: "completed" | "failed",
-	errorMsg?: string,
+	/** Free text, or a notification-messages key shown in the viewer's language. */
+	error?: string | { key: string },
 	teamId?: string | null,
 ) {
 	const truncatedUrl = url.length > 50 ? url.slice(0, 47) + "..." : url;
 	return createNotification({
 		userId,
 		type: status === "completed" ? "download_completed" : "download_failed",
-		title: status === "completed" ? "Download completed" : "Download failed",
-		message: status === "completed" ? `Download completed: ${truncatedUrl}` : `Download failed: ${truncatedUrl}${errorMsg ? ` — ${errorMsg}` : ""}`,
+		notice: status === "completed"
+			? { code: "downloadCompleted", params: { url: truncatedUrl } }
+			: error
+				? { code: "downloadFailedWithReason", params: { url: truncatedUrl, ...(typeof error === "string" ? { error } : { errorKey: error.key }) } }
+				: { code: "downloadFailed", params: { url: truncatedUrl } },
 		actionUrl: "/downloads",
 		teamId: teamId ?? null,
 	});
@@ -251,8 +265,7 @@ export async function notifyTaskConsecutiveFailed(
 	return createNotification({
 		userId,
 		type: "task_consecutive_failed",
-		title: `Task consecutive failures: ${taskName}`,
-		message: `Task "${taskName}" has failed ${failCount} consecutive times. Last error: ${lastError}.`,
+		notice: { code: "taskConsecutiveFailed", params: { task: taskName, count: failCount, error: lastError } },
 		actionUrl: "/scheduled-tasks",
 		teamId: teamId ?? null,
 	});

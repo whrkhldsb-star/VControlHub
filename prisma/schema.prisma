@@ -1079,15 +1079,19 @@ model Setting {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  type      String
-  title     String
-  message   String
-  isRead    Boolean  @default(false)
-  actionUrl String?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  userId        String
+  type          String
+  title         String
+  message       String
+  /// Event code rendered per viewer locale as `notification.<code>.title|message`;
+  /// null for free text (legacy rows, playbook messages). title/message stay the fallback.
+  messageCode   String?
+  messageParams Json?
+  isRead        Boolean  @default(false)
+  actionUrl     String?
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   teamId String? // TR-030: 多租户资源隔离
   team   Team?   @relation("TeamNotifications", fields: [teamId], references: [id], onDelete: SetNull)
@@ -1417,8 +1421,9 @@ model DeploymentRun {
   rollbackRuns     DeploymentRun[]         @relation("deploymentRollbackRuns")
   rollbackAttempts DeploymentRollbackRun[] @relation("deploymentRollbackSource")
 
-  teamId String? // TR-030: 多租户资源隔离
-  team   Team?   @relation("TeamDeploymentRuns", fields: [teamId], references: [id], onDelete: SetNull)
+  teamId           String? // TR-030: 多租户资源隔离
+  team             Team?               @relation("TeamDeploymentRuns", fields: [teamId], references: [id], onDelete: SetNull)
+  capturedSnapshot DeploymentSnapshot? @relation("deploymentSnapshotCapturedFrom")
 
   @@index([status, createdAt])
   @@index([snapshotId])
@@ -1428,7 +1433,6 @@ model DeploymentRun {
   @@index([templateId])
   @@index([commandRequestId])
   @@map("deployment_runs")
-  capturedSnapshot DeploymentSnapshot? @relation("deploymentSnapshotCapturedFrom")
 }
 
 model DeploymentSnapshot {
@@ -1443,12 +1447,12 @@ model DeploymentSnapshot {
   createdBy       String?
   createdAt       DateTime @default(now())
 
-  sourceRun    DeploymentRun?          @relation("deploymentSnapshotSource")
-  rollbackRuns DeploymentRollbackRun[]
+  sourceRun       DeploymentRun?          @relation("deploymentSnapshotSource")
+  rollbackRuns    DeploymentRollbackRun[]
   /// The run this snapshot was captured from (deployment_snapshots_sourceRunId_fkey).
   /// The FK has always existed in the database; modelling it keeps a generated
   /// migration from dropping it.
-  capturedFromRun DeploymentRun? @relation("deploymentSnapshotCapturedFrom", fields: [sourceRunId], references: [id], onDelete: SetNull)
+  capturedFromRun DeploymentRun?          @relation("deploymentSnapshotCapturedFrom", fields: [sourceRunId], references: [id], onDelete: SetNull)
 
   @@index([templateId, createdAt])
   @@index([createdAt])

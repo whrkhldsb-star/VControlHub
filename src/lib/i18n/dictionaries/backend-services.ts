@@ -142,8 +142,6 @@ export const zh: Record<string, string> = {
 	"backend.aria2.startFailed": "aria2 中继下载服务启动失败。请检查 aria2 进程是否运行，或前往「运维自动化 → 任务中心」查看详细日志。",
 
 	// ticket/sla.ts (background escalation notifications)
-	"backend.ticket.slaEscalationTitle": "工单 SLA 超时升级",
-	"backend.ticket.slaEscalationMessage": "工单「{title}」已超过 SLA 期限，优先级已从 {from} 升级为 {to}",
 
 	// backup / command / playbook / storage / share / server (B5 batch)
 	"backend.backup.recordNotFound": "备份记录不存在",
@@ -347,8 +345,6 @@ export const zh: Record<string, string> = {
 	"backend.traffic.remote.connectionFailed": "连接失败：{message}",
 	"backend.traffic.remote.samplingFailed": "采样失败",
 
-	"backend.notification.commandPendingTitle": "有新的命令待审批",
-	"backend.notification.commandPendingMessage": "命令「{title}」需要你审批。",
 	"backend.user.usernameAlreadyExists": "用户名已存在",
 	"backend.user.cannotDisableSelf": "不能禁用自己的账号",
 	"backend.user.cannotRemoveLastAdmin": "不能禁用最后一名管理员或移除其管理员角色",
@@ -584,8 +580,6 @@ export const zh: Record<string, string> = {
 	"backend.itsm.connectionDoesNotSupportOutboundDelivery": "该连接不支持出站投递",
 	"backend.itsm.connectionDoesNotAcceptInboundEvents": "该连接不接受入站事件",
 	"backend.itsm.ticketNotFoundForThisConnectionTeam": "在此连接的团队范围内未找到工单",
-	"backend.itsm.ticketFanOutFailedTitle": "ITSM 工单同步入队失败",
-	"backend.itsm.ticketFanOutFailedMessage": "工单事件 {eventType} 未能进入 ITSM 出站队列：{error}",
 	"backend.itsm.telegramBottokenIsRequired": "Telegram botToken 不能为空",
 	"backend.itsm.telegramChatidIsRequired": "Telegram chatId 不能为空",
 	"backend.itsm.webhookurlIsRequired": "webhookUrl 不能为空",
@@ -786,8 +780,6 @@ export const en: Record<string, string> = {
 	"backend.aria2.startFailed": "Failed to start the aria2 relay download service. Check that aria2 is running, or open Ops Automation → Task Center for details.",
 
 	// ticket/sla.ts (background escalation notifications)
-	"backend.ticket.slaEscalationTitle": "Ticket SLA escalation",
-	"backend.ticket.slaEscalationMessage": "Ticket \"{title}\" exceeded its SLA. Priority upgraded from {from} to {to}.",
 
 	// backup
 	"backend.backup.recordNotFound": "Backup record not found",
@@ -996,8 +988,6 @@ export const en: Record<string, string> = {
 	"backend.traffic.remote.connectionFailed": "Connection failed: {message}",
 	"backend.traffic.remote.samplingFailed": "Sampling failed",
 
-	"backend.notification.commandPendingTitle": "New command pending approval",
-	"backend.notification.commandPendingMessage": "Command \"{title}\" requires your approval.",
 	"backend.user.usernameAlreadyExists": "Username already exists",
 	"backend.user.cannotDisableSelf": "Cannot disable yourself",
 	"backend.user.cannotRemoveLastAdmin": "The last active administrator cannot be disabled or stripped of the admin role",
@@ -1250,8 +1240,6 @@ export const en: Record<string, string> = {
 	"backend.itsm.connectionDoesNotSupportOutboundDelivery": "Connection does not support outbound delivery",
 	"backend.itsm.connectionDoesNotAcceptInboundEvents": "Connection does not accept inbound events",
 	"backend.itsm.ticketNotFoundForThisConnectionTeam": "Ticket not found for this connection team",
-	"backend.itsm.ticketFanOutFailedTitle": "ITSM ticket sync enqueue failed",
-	"backend.itsm.ticketFanOutFailedMessage": "Ticket event {eventType} could not enter the ITSM outbound queue: {error}",
 	"backend.itsm.telegramBottokenIsRequired": "Telegram botToken is required",
 	"backend.itsm.telegramChatidIsRequired": "Telegram chatId is required",
 	"backend.itsm.webhookurlIsRequired": "webhookUrl is required",
