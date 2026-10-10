@@ -16,6 +16,12 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 - Administrators can move a server to another customer (`POST /api/servers/[id]/transfer`) with its storage node, metric history, quick services and backups. The move is refused while the old customer still has shares, image uploads, schedules, alert rules, playbooks, sync jobs or unfinished commands/downloads on it.
 - Notifications carry their customer: administrators see the customer name, and opening one from another customer switches to it first. Server cards and storage nodes also show the customer to administrators.
 
+### Changed
+
+- Platform-only pages: the platform self-check (`/health`) and the hub host monitor (`/monitoring`) describe the machine every customer shares, so they and their APIs now open only for platform administrators; customer accounts keep `/vps-status` (with capacity forecast) and `/alert-rules`. Navigation, ⌘K search and the `G` shortcuts hide them accordingly.
+- Announcements reach their readers: the page is listed in the sidebar for every signed-in account (publishing stays platform-only, as the guide always said), and the dashboard shows the latest active announcements.
+- The dashboard's first-setup checklist lists only the items the account may complete; a customer read-only account no longer sees rows that lead to "no permission".
+
 ### Fixed
 
 - Status summaries and the lazy storage health probe excluded retired storage by the old `__deleted__` slug prefix, so storage of a customer deleted after the migration (`Team.deletedAt`) kept raising health warnings and being probed. Both now use the shared `liveCustomerRowsWhere()` filter.

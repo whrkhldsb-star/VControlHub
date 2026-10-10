@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T17:17:35.432Z",
+  "generatedAt": "2026-10-10T23:47:29.809Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 11,
@@ -236,12 +236,8 @@
       "file": "src/app/announcements/page.tsx",
       "inSidebarMain": true,
       "inSidebarSystem": false,
-      "declaredPermissions": [
-        "announcement:manage"
-      ],
-      "navigationPermissions": [
-        "announcement:manage"
-      ]
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/api-docs",
@@ -445,12 +441,8 @@
       "file": "src/app/health/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": true,
-      "declaredPermissions": [
-        "health:read"
-      ],
-      "navigationPermissions": [
-        "health:read"
-      ]
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/image-bed",
@@ -543,12 +535,8 @@
       "file": "src/app/monitoring/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": true,
-      "declaredPermissions": [
-        "health:read"
-      ],
-      "navigationPermissions": [
-        "health:read"
-      ]
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/notifications",

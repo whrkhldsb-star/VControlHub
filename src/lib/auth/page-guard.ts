@@ -24,9 +24,26 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { ForbiddenError } from "@/lib/errors";
 
 import { sessionHasPermission } from "./authorization";
+import { PLATFORM_PAGE_PERMISSIONS } from "./platform-pages";
 import type { Permission } from "./rbac";
 import { requireSession } from "./require-session";
 import type { SessionPayload } from "./session";
+import { isGlobalTeamManager } from "./team-scope";
+
+/**
+ * Pages about the platform itself (`PLATFORM_ONLY_PAGES`): only the platform
+ * role may open them, whatever permissions an identity template grants.
+ */
+export async function requirePlatformAdminPage(options?: { redirectTo?: string }): Promise<SessionPayload> {
+	const session = await requireSession(options?.redirectTo);
+	if (!isGlobalTeamManager(session)) {
+		const permission = PLATFORM_PAGE_PERMISSIONS[0]!;
+		throw new ForbiddenError(apiCopy("apiCopy.missing.permission.db2e4ec2", { v0: String(permission) }), {
+			permission,
+		});
+	}
+	return session;
+}
 
 export async function requirePagePermission(
 	permission: Permission,

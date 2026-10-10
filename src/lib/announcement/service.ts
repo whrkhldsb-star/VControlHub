@@ -1,6 +1,13 @@
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import type { Permission, RoleKey } from "@/lib/auth/rbac";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { t } from "@/lib/i18n/service-translations";
+
+/** Publishing is platform-only; reading active announcements needs only a session. */
+export function canManageAnnouncements(session: { roles: RoleKey[]; permissions?: Permission[] }): boolean {
+  return sessionHasPermission(session, "announcement:manage");
+}
 
 export async function createAnnouncement(input: { title: string; body: string; level?: string; pinned?: boolean; published?: boolean; startsAt?: Date; expiresAt?: Date | null; createdBy?: string }) {
   if (!input.title.trim() || !input.body.trim()) throw new ValidationError(t("backend.announcement.announcementTitleAndContentCannotBeEmpty"));

@@ -27,6 +27,13 @@ describe("loadSidebarDeclaredPermissions", () => {
 		expect(result["/dashboard"]).toEqual([]);
 	});
 
+	it("admits platform-only pages through a platform-only permission", () => {
+		const result = loadSidebarDeclaredPermissions(["/monitoring", "/health", "/vps-status"]);
+		expect(result["/monitoring"]).toEqual(["team:manage"]);
+		expect(result["/health"]).toEqual(["team:manage"]);
+		expect(result["/vps-status"]).toEqual(["health:read"]);
+	});
+
 	it("preserves the full sidebar list when given multiple hrefs", () => {
 		const result = loadSidebarDeclaredPermissions(["/dashboard", "/audit", "/users"]);
 		expect(Object.keys(result).sort()).toEqual(["/audit", "/dashboard", "/users"]);

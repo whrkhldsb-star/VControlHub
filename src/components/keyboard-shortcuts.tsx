@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
+import type { Permission } from "@/lib/auth/rbac";
+import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toggleSidebarCollapsed } from "@/lib/ui/shell-preferences";
 import { Dialog } from "./ui/dialog";
@@ -42,11 +45,23 @@ function Keys({ keys }: { keys: string[] }) {
 	);
 }
 
-export function KeyboardShortcuts() {
+export function KeyboardShortcuts({
+	declaredPermissionsByHref = {},
+}: {
+	/** Same page admission map as the sidebar, so `G` never jumps to a page the user cannot open. */
+	declaredPermissionsByHref?: Record<string, readonly Permission[]>;
+} = {}) {
 	const router = useRouter();
 	const { t } = useI18n();
+	const { canAny } = useGateRoute();
 	const [helpOpen, setHelpOpen] = useState(false);
 	const pendingGo = useRef<number | null>(null);
+	const goToShortcuts = useMemo(
+		() => filterByHrefPermissions(GO_TO_SHORTCUTS, declaredPermissionsByHref, canAny),
+		[declaredPermissionsByHref, canAny],
+	);
+	const goToRef = useRef(goToShortcuts);
+	useEffect(() => { goToRef.current = goToShortcuts; }, [goToShortcuts]);
 
 	useEffect(() => {
 		const openHelp = () => setHelpOpen(true);
@@ -63,7 +78,7 @@ export function KeyboardShortcuts() {
 			if (pendingGo.current !== null) {
 				window.clearTimeout(pendingGo.current);
 				pendingGo.current = null;
-				const target = GO_TO_SHORTCUTS.find((entry) => entry.key === key);
+				const target = goToRef.current.find((entry) => entry.key === key);
 				if (target) {
 					event.preventDefault();
 					router.push(target.href);
@@ -131,7 +146,7 @@ export function KeyboardShortcuts() {
 				<section>
 					<h3 className="ui-title-caption mb-2">{t("shell.shortcuts.navigation")}</h3>
 					<ul className="space-y-2">
-						{GO_TO_SHORTCUTS.map((entry) => (
+						{goToShortcuts.map((entry) => (
 							<li key={entry.href} className="flex items-center justify-between gap-3 text-[13px] text-[var(--text-secondary)]">
 								<span className="truncate">{pageLabels[entry.href] ?? entry.href}</span>
 								<Keys keys={["G", entry.key === "," ? "," : entry.key.toUpperCase()]} />

@@ -11,12 +11,15 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { collectMonitoringStatsMock } = vi.hoisted(() => ({
+import { ForbiddenError } from "@/lib/errors";
+
+const { collectMonitoringStatsMock, sessionMock } = vi.hoisted(() => ({
   collectMonitoringStatsMock: vi.fn(),
+  sessionMock: { userId: "test-user", roles: ["admin"] as string[] },
 }));
 
 vi.mock("@/lib/http/api-guard", () => ({
-  withApiRoute: vi.fn((_req, _opts, handler) => handler({ session: { userId: "test-user" } })),
+  withApiRoute: vi.fn((_req, _opts, handler) => handler({ session: sessionMock })),
 }));
 
 vi.mock("@/lib/monitoring/collector", () => ({
@@ -42,6 +45,17 @@ describe("GET /api/monitoring/stream", () => {
     });
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("is platform-only: a customer account is refused before any stream starts", async () => {
+    sessionMock.roles = [];
+    try {
+      const { req } = makeRequest();
+      await expect(GET(req)).rejects.toBeInstanceOf(ForbiddenError);
+      expect(collectMonitoringStatsMock).not.toHaveBeenCalled();
+    } finally {
+      sessionMock.roles = ["admin"];
+    }
+  });
 
   it("returns Content-Type: text/event-stream", async () => {
     const { req, controller } = makeRequest();

@@ -1,6 +1,5 @@
 import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listActiveAnnouncements, listAnnouncements } from "@/lib/announcement/service";
+import { canManageAnnouncements, listActiveAnnouncements, listAnnouncements } from "@/lib/announcement/service";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { CreateAnnouncementForm } from "./create-announcement-form";
 import { AnnouncementList } from "./announcement-list-client";
@@ -10,9 +9,10 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 // minute-old cached list immediately after create/edit/delete.
 export const dynamic = "force-dynamic";
 
+/** Every signed-in account reads active announcements; platform administrators publish them. */
 export default async function AnnouncementsPage() {
 	const session = await requireSession("/announcements");
-	const canManage = sessionHasPermission(session, "announcement:manage");
+	const canManage = canManageAnnouncements(session);
 	const locale = await getServerLocale();
 	const items = canManage ? await listAnnouncements() : await listActiveAnnouncements();
 

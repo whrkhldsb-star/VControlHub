@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionPayload } from "@/lib/auth/session";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors";
 
-const { prismaMock, teamServiceMock, assertAdminAccessMayBeRemovedMock } = vi.hoisted(() => ({
+const { prismaMock, teamServiceMock, assertAdminAccessMayBeRemovedMock, assertPlatformAdminMock } = vi.hoisted(() => ({
 	prismaMock: {
 		role: { findUnique: vi.fn() },
 		teamMember: { deleteMany: vi.fn() },
@@ -14,12 +14,13 @@ const { prismaMock, teamServiceMock, assertAdminAccessMayBeRemovedMock } = vi.ho
 	teamServiceMock: {
 		applyCustomerMembership: vi.fn(),
 		resolveCustomerMembershipTarget: vi.fn(),
-		assertPlatformAdmin: vi.fn(),
 	},
+	assertPlatformAdminMock: vi.fn(),
 	assertAdminAccessMayBeRemovedMock: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/team/service", () => teamServiceMock);
+vi.mock("@/lib/auth/platform-admin-guard", () => ({ assertPlatformAdmin: assertPlatformAdminMock }));
 vi.mock("../admin-invariant", () => ({
 	assertAdminAccessMayBeRemoved: assertAdminAccessMayBeRemovedMock,
 	withAdminInvariantLock: async (operation: () => Promise<unknown>) => operation(),
@@ -40,7 +41,7 @@ describe("setAccountType", () => {
 	});
 
 	it("is platform-only", async () => {
-		teamServiceMock.assertPlatformAdmin.mockImplementationOnce(() => { throw new ForbiddenError("platform only"); });
+		assertPlatformAdminMock.mockImplementationOnce(() => { throw new ForbiddenError("platform only"); });
 		await expect(setAccountType("u1", { type: "admin" }, { ...admin, roles: [] })).rejects.toBeInstanceOf(ForbiddenError);
 		expect(prismaMock.$transaction).not.toHaveBeenCalled();
 	});

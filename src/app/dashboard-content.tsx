@@ -1,9 +1,11 @@
 import { PageShell } from "@/components/page-shell";
+import { listActiveAnnouncements } from "@/lib/announcement/service";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { listCommandRequests } from "@/lib/command/service";
 import { formatDateTime } from "@/lib/datetime/format";
-import { buildSetupChecklist } from "@/lib/dashboard/setup-checklist";
+import { buildSetupChecklist, filterSetupChecklist } from "@/lib/dashboard/setup-checklist";
 import { prisma } from "@/lib/db";
 import { getServerLocale } from "@/lib/i18n/translations";
 import { getUnreadCount } from "@/lib/notification/service";
@@ -13,6 +15,7 @@ import { getStorageOverview } from "@/lib/storage/service";
 
 import { DashboardAnalyticsPanel } from "./dashboard-analytics-panel";
 import {
+	DashboardAnnouncements,
 	DashboardLocalizedHeader,
 	DashboardQuickLinks,
 	DashboardRecentActivity,
@@ -39,6 +42,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		projectBackupScheduleCount,
 		vpsBackupScheduleCount,
 		serversWithMonthlyCost,
+		announcements,
 	] = await Promise.all([
 		listServerProfiles(session),
 		getStorageOverview(session, { includeEntries: false }),
@@ -71,6 +75,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 				},
 			})
 			.catch(() => 0),
+		listActiveAnnouncements().catch(() => []),
 	]);
 
 	const enabledServers = servers.filter((server) => server.enabled);
@@ -101,17 +106,32 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		requester: request.requester,
 		targetCount: request.targets.length,
 	}));
-	const setupItems = buildSetupChecklist({
-		serverCount: servers.length,
-		enabledAlertRuleCount,
-		smtpEnabled: smtpEnabledRaw === "true",
-		backupScheduleCount: projectBackupScheduleCount + vpsBackupScheduleCount,
-		serversWithMonthlyCost,
-	});
+	// Each row links to the page that completes it; an account without that
+	// permission would only reach "no permission", so it never sees the row.
+	const setupItems = filterSetupChecklist(
+		buildSetupChecklist({
+			serverCount: servers.length,
+			enabledAlertRuleCount,
+			smtpEnabled: smtpEnabledRaw === "true",
+			backupScheduleCount: projectBackupScheduleCount + vpsBackupScheduleCount,
+			serversWithMonthlyCost,
+		}),
+		(permission) => sessionHasPermission(session, permission),
+	);
+	const dashboardAnnouncements = announcements.slice(0, 3).map((item) => ({
+		id: item.id,
+		title: item.title,
+		body: item.body,
+		level: item.level,
+		pinned: item.pinned,
+		startsAt: item.startsAt.toISOString(),
+		formattedStartsAt: formatDateTime(item.startsAt, locale),
+	}));
 
 	return (
 		<PageShell>
 			<DashboardLocalizedHeader username={session.username} />
+			<DashboardAnnouncements items={dashboardAnnouncements} total={announcements.length} />
 			<DashboardSetupChecklist items={setupItems} />
 			<DashboardStatsSection
 				storage={{

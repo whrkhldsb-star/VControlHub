@@ -7,11 +7,11 @@ import type { SetupChecklistItem } from "@/lib/dashboard/setup-checklist";
 import { DashboardSetupChecklist } from "../dashboard-setup-checklist";
 
 const items: SetupChecklistItem[] = [
-	{ id: "servers", done: true, href: "/servers" },
-	{ id: "alertRules", done: false, href: "/alert-rules" },
-	{ id: "notificationOutbound", done: false, href: "/settings" },
-	{ id: "backupSchedule", done: false, href: "/backups" },
-	{ id: "costMonthly", done: false, href: "/servers" },
+	{ id: "servers", done: true, href: "/servers", permission: "server:write" },
+	{ id: "alertRules", done: false, href: "/alert-rules", permission: "notification:manage" },
+	{ id: "notificationOutbound", done: false, href: "/settings", permission: "user:manage" },
+	{ id: "backupSchedule", done: false, href: "/backups", permission: "backup:read" },
+	{ id: "costMonthly", done: false, href: "/servers", permission: "server:write" },
 ];
 
 describe("DashboardSetupChecklist", () => {
