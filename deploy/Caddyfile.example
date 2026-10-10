@@ -3,12 +3,8 @@
 	auto_https disable_redirects
 }
 
-http://your-domain.example, https://your-domain.example {
+(vcontrolhub_routes) {
 	encode gzip zstd
-
-	# Cloudflare can connect to the origin over HTTP while the visitor URL is
-	# already HTTPS. Disable Caddy's automatic HTTP->HTTPS redirect to avoid an
-	# external 308 loop when Cloudflare SSL mode is Flexible.
 
 	header {
 		X-Content-Type-Options nosniff
@@ -42,4 +38,16 @@ http://your-domain.example, https://your-domain.example {
 	reverse_proxy /Startup/* 127.0.0.1:8096
 
 	reverse_proxy 127.0.0.1:3000
+}
+
+http://your-domain.example {
+	# Flexible SSL reaches the origin over HTTP even for HTTPS visitors.
+	# Cloudflare forwards the visitor's scheme in X-Forwarded-Proto.
+	@plain not header X-Forwarded-Proto https
+	redir @plain https://your-domain.example{uri} 308
+	import vcontrolhub_routes
+}
+
+https://your-domain.example {
+	import vcontrolhub_routes
 }

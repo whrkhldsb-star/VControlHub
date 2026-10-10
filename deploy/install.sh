@@ -417,9 +417,6 @@ install_packages() {
 			fi
 		fi
 		log " ✗ Caddy missing — installing"
-		apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
-		curl -fsSL 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-		curl -fsSL 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
 		apt-get update
 		apt-get install -y caddy
 		log " ✓ Caddy installed: $(caddy version 2>/dev/null || echo 'done')"
@@ -943,6 +940,11 @@ build_app() {
    fail "Runtime bundle missing after build. Expected dist/server.js, dist/worker.js and dist/ssh-ws-proxy.js."
  fi
  chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
+	# The SSH gateway runs as a separate DynamicUser. Keep credentials private,
+	# but make bundled runtime code traversable even when invoked with umask 077.
+	chmod o+x "${APP_DIR}"
+	chmod -R o+rX "${APP_DIR}/dist" "${APP_DIR}/node_modules" "${APP_DIR}/scripts"
+	chmod o+r "${APP_DIR}/package.json"
 }
 
 create_runtime_env_file() {
