@@ -418,6 +418,15 @@ install_packages() {
 		fi
 		log " ✗ Caddy missing — installing"
 		apt-get update
+		# Debian 12+ and Ubuntu 23.04+ ship caddy; older releases (Ubuntu 22.04,
+		# Debian 11) need the upstream repository. --batch keeps re-runs from
+		# stopping at gpg's overwrite prompt.
+		if ! apt-cache policy caddy 2>/dev/null | grep -q 'Candidate: [0-9]'; then
+			log "   caddy is not in the distribution repositories — adding the upstream repository"
+			curl -fsSL 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --batch --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+			curl -fsSL 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
+			apt-get update
+		fi
 		apt-get install -y caddy
 		log " ✓ Caddy installed: $(caddy version 2>/dev/null || echo 'done')"
 	fi
