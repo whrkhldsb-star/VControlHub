@@ -38,6 +38,7 @@ import {
   normalizePlaybookCronExpression,
 } from "./trigger-utils";
 import { queuePlaybookRunWithClient } from "./run-queue";
+import { toJsonValue } from "@/lib/db/json";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -249,8 +250,8 @@ export async function createPlaybook(
       name: input.name,
       description: input.description ?? null,
       triggerType: input.triggerType,
-      triggerConfig: triggerConfig as unknown as Prisma.InputJsonValue,
-      steps: input.steps as unknown as Prisma.InputJsonValue,
+      triggerConfig: toJsonValue(triggerConfig),
+      steps: toJsonValue(input.steps),
       chainRetry: input.chainRetry,
       enabled: input.enabled,
       nextRunAt,
@@ -313,10 +314,10 @@ export async function updatePlaybook(
     if (rest.description !== undefined) data.description = rest.description;
     if (rest.triggerType !== undefined) data.triggerType = rest.triggerType;
     if (rest.triggerConfig !== undefined) {
-      data.triggerConfig = normalizedTriggerConfig as unknown as Prisma.InputJsonValue;
+      data.triggerConfig = toJsonValue(normalizedTriggerConfig);
     }
     if (rest.steps !== undefined) {
-      data.steps = rest.steps as unknown as Prisma.InputJsonValue;
+      data.steps = toJsonValue(rest.steps);
     }
     if (rest.chainRetry !== undefined) data.chainRetry = rest.chainRetry;
     if (rest.enabled !== undefined) data.enabled = rest.enabled;

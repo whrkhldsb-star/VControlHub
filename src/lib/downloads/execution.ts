@@ -228,7 +228,7 @@ export async function executeAria2RelayDownload(
   if (!done) {
    try { await removeDownload(gid, true); } catch (err) { logError("[DownloadAPI] Failed to remove aria2 download on timeout:", err); }
    await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: apiCopy("apiCopy.download.timed.out.2.hour.limit.1edecc2e") } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download timed out (2 hour limit)", teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", { key: "notification.reason.downloadTimedOut" }, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
   }
@@ -240,7 +240,7 @@ export async function executeAria2RelayDownload(
 
   if (filesToTransfer.length === 0) {
    await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: apiCopy("apiCopy.download.completed.but.file.not.found.191e1079") } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download completed but file not found", teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", { key: "notification.reason.downloadFileMissing" }, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
   }

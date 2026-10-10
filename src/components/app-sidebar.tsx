@@ -248,7 +248,10 @@ export function AppSidebar({
 						? section(
 							"quick",
 							t("nav.quickservice"),
-							quickServices.map((service) => (
+							quickServices.map((service) => {
+								const nameKey = `qsCatalog.${service.slug}.name`;
+								const name = t(nameKey) === nameKey ? service.name : t(nameKey);
+								return (
 								<a
 									key={service.slug}
 									href={service.path}
@@ -258,12 +261,13 @@ export function AppSidebar({
 									className="flex min-h-8 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13.5px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]"
 								>
 									<span className="w-[17px] shrink-0 text-center text-[15px] leading-none" aria-hidden="true">{service.icon}</span>
-									<span className="min-w-0 flex-1 truncate" title={service.name}>
-										{service.name}
+									<span className="min-w-0 flex-1 truncate" title={name}>
+										{name}
 									</span>
 									<IconExternalLink size={12} className="shrink-0 text-[var(--text-muted)]" />
 								</a>
-							)),
+								);
+							}),
 						)
 						: null}
 				</div>

@@ -13,6 +13,7 @@ import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { executePlaybookChain } from "./executor";
 import type { PlaybookStep, PlaybookStepResult } from "./types";
+import { toJsonValue } from "@/lib/db/json";
 
 export const PLAYBOOK_RUN_JOB_TYPE = "playbook.run";
 
@@ -182,7 +183,7 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
       where: { id: runId, status: { in: ["queued", "running"] } },
       data: {
         status,
-        stepResults: chain.results as unknown as Prisma.InputJsonValue,
+        stepResults: toJsonValue(chain.results),
         errorMessage: failed?.error ?? null,
         completedAt: new Date(),
       },

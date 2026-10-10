@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { WORKSPACE_POLICY_PERMISSIONS } from "@/lib/auth/tenant-permissions";
-import { groupPermissionsByDomain, permissionLabelKey } from "@/lib/auth/permission-labels";
+import { groupPermissionsByDomain, permissionGroupName, permissionLabelKey } from "@/lib/auth/permission-labels";
 import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "@/lib/auth/rbac";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -159,7 +159,7 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
       <div className="flex flex-wrap gap-2">
         <select aria-label={t("settingsTeam.groups.select")} value={selectedId} onChange={(event) => chooseGroup(event.target.value)} className={UI_INPUT}>
           <option value="">{t("settingsTeam.groups.new")}</option>
-          {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+          {groups.map((group) => <option key={group.id} value={group.id}>{permissionGroupName(group, t)}</option>)}
         </select>
         <input aria-label={t("settingsTeam.groups.name")} placeholder={t("settingsTeam.groups.name")} value={name} onChange={(event) => setName(event.target.value)} className={UI_INPUT} maxLength={120} />
       </div>
@@ -194,7 +194,7 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
         <span className="text-[var(--text-secondary)]">@{member.user.username}</span>
         <select aria-label={`${member.user.username} ${t("settingsTeam.groups.select")}`} disabled={!canManage || busy} value={member.permissionTemplateId ?? ""} onChange={(event) => void assignGroup(member, event.target.value)} className={UI_INPUT}>
           <option value="">{t("settingsTeam.groups.noGroup")}</option>
-          {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+          {groups.map((group) => <option key={group.id} value={group.id}>{permissionGroupName(group, t)}</option>)}
         </select>
       </div>)}
       {members.filter((member) => member.role === "member").length > 10 && !showAllMembers && <ActionButton size="xs" variant="ghost" onClick={() => setShowAllMembers(true)}>{t("settingsTeam.groups.showAll")}</ActionButton>}

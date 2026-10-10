@@ -35,6 +35,7 @@ import {
   listSftpNodesForStaleInventory,
   type SftpStaleInventoryResult,
 } from "./sftp-stale-inventory";
+import { toJsonValue } from "@/lib/db/json";
 
 const logger = createLogger("sftp-stale-inventory-job-worker");
 
@@ -193,11 +194,11 @@ async function executeStaleInventoryJob(job: {
     }
     const result = await scanNodeWithHeartbeat(job, node, maxDepth, dryRun);
     logSweepNodeErrors(job.id, "single", [result]);
-    await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
+    await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, toJsonValue({
       mode: "single",
       results: [result],
       totals: summarize([result]),
-    } as unknown as Prisma.InputJsonValue);
+    }));
     return;
   }
 
@@ -209,11 +210,11 @@ async function executeStaleInventoryJob(job: {
   }
 
   if (nodes.length === 0) {
-    await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
+    await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, toJsonValue({
       mode: payload.nodeIds !== undefined ? "scoped" : "all",
       results: [],
       totals: { nodes: 0, scanned: 0, stale: 0, errors: 0, durationMs: 0 },
-    } as unknown as Prisma.InputJsonValue);
+    }));
     return;
   }
 
@@ -228,11 +229,11 @@ async function executeStaleInventoryJob(job: {
   }
 
   logSweepNodeErrors(job.id, payload.nodeIds !== undefined ? "scoped" : "all", results);
-  await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
+  await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, toJsonValue({
     mode: payload.nodeIds !== undefined ? "scoped" : "all",
     results,
     totals: summarize(results),
-  } as unknown as Prisma.InputJsonValue);
+  }));
 }
 
 function summarize(results: SftpStaleInventoryResult[]) {

@@ -317,7 +317,8 @@ function publishToUser(userId: string, message: WsMessage) {
 }
 
 export function pushNotification(userId: string, data: {
-	id: string; title: string; message: string; actionUrl?: string | null; createdAt: string;
+	id: string; title: string; message: string; messageCode?: string | null; messageParams?: unknown;
+	actionUrl?: string | null; createdAt: string;
 }) {
 	publishToUser(userId, { type: "notification", data });
 }

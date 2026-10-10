@@ -8,7 +8,6 @@
  */
 import { createHash } from "node:crypto";
 
-import { Prisma } from "@prisma/client";
 
 import { auditSystemAction } from "@/lib/audit/service";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -26,6 +25,7 @@ import {
   metricValueForTrigger,
   parseMetricMatchState,
 } from "./trigger-utils";
+import { toJsonValue } from "@/lib/db/json";
 
 const MAX_TRIGGER_PLAYBOOKS_PER_TICK = 500;
 
@@ -390,7 +390,7 @@ async function dispatchMetricPlaybook(input: {
       if (transitions.length === 0) {
         await tx.playbook.update({
           where: { id: playbook.id },
-          data: { metricMatchState: state as unknown as Prisma.InputJsonValue },
+          data: { metricMatchState: toJsonValue(state) },
         });
         return { dispatched: false, audit: null as AuditDetail | null, teamId: null as string | null };
       }
@@ -413,7 +413,7 @@ async function dispatchMetricPlaybook(input: {
       await tx.playbook.update({
         where: { id: playbook.id },
         data: {
-          metricMatchState: state as unknown as Prisma.InputJsonValue,
+          metricMatchState: toJsonValue(state),
           lastTriggeredAt: input.now,
         },
       });

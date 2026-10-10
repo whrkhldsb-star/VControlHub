@@ -426,7 +426,7 @@ async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl
 		await createNotification({
 			userId,
 			type: "system",
-			title: `Quick service installed successfully: ${tmpl.name}`,
+			notice: { code: "quickServiceInstalled", params: { name: tmpl.name } },
 			message: formatInstallNoticeMessage(tmpl.name, notice),
 			// The access URL is an external http://host:port link; the notification
 			// action guard (getSafeNotificationActionUrl) rejects off-origin URLs, so
@@ -446,8 +446,7 @@ async function notifyQuickServiceInstallFailure(userId: string | undefined, tmpl
 		await createNotification({
 			userId,
 			type: "system",
-			title: `Quick service installation failed: ${tmpl.name}`,
-			message: `${tmpl.name} installation failed: ${message}`,
+			notice: { code: "quickServiceInstallFailed", params: { name: tmpl.name, error: message } },
 			actionUrl: "/quick-services",
 		});
 	} catch {

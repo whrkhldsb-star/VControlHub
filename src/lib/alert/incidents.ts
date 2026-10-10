@@ -18,6 +18,7 @@ import { sendAlertEmail } from "@/lib/notification/email";
 import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 import { t } from "@/lib/i18n/service-translations";
+import type { NotificationMessage } from "@/lib/notification/message";
 import type { AlertIncidentStatus } from "@prisma/client";
 
 const logger = createLogger("alert:incidents");
@@ -99,9 +100,36 @@ export interface AlertDispatchResult {
   failed: { channel: string; error: string }[];
 }
 
+/** In-app copy for an incident event, rendered in each viewer's language. */
+function incidentNotice(
+  event: "fired" | "resolved" | "escalated",
+  incident: { serverName: string; ruleName: string; metric: string; operator?: string; threshold?: number; value?: number },
+  escalation?: { level: number; minutes: number },
+): NotificationMessage {
+  const offline = incident.metric === "server_offline";
+  const base = { server: incident.serverName, rule: incident.ruleName };
+  const metricKey = `alertRulesPage.createForm.metric.${incident.metric}`;
+  if (event === "escalated") return { code: "alertEscalated", params: { ...base, metricKey, ...escalation } };
+  if (event === "resolved") return offline ? { code: "alertBackOnline", params: base } : { code: "alertResolved", params: { ...base, metricKey } };
+  if (offline) return { code: "alertOffline", params: base };
+  const value = incident.value ?? 0;
+  return {
+    code: "alertFired",
+    params: {
+      ...base,
+      metricKey,
+      operatorKey: `alertRulesPage.createForm.operator.${incident.operator}`,
+      threshold: incident.threshold ?? 0,
+      value: Number.isInteger(value) ? value : value.toFixed(1),
+    },
+  };
+}
+
 async function dispatchChannels(input: {
   userIds: string[];
   type: NotificationType;
+  /** Localizable in-app copy; title/message remain the text for other channels. */
+  notice?: NotificationMessage;
   title: string;
   message: string;
   actionUrl: string;
@@ -120,6 +148,7 @@ async function dispatchChannels(input: {
         createNotification({
           userId,
           type: input.type,
+          notice: input.notice,
           title: input.level > 1 ? `[L${input.level}] ${input.title}` : input.title,
           message: input.message,
           actionUrl: input.actionUrl,
@@ -388,6 +417,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
   const dispatch = await dispatchChannels({
     userIds,
     type: "server_alert",
+    notice: incidentNotice("fired", input),
     title: input.title,
     message: input.message,
     actionUrl: `/alert-rules?incident=${incident.id}`,
@@ -428,6 +458,8 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
 
 export async function resolveAlertIncident(input: {
   ruleId: string;
+  /** Rule name for the localized in-app notification. */
+  ruleName?: string;
   serverId: string | null;
   metric: string;
   title: string;
@@ -459,6 +491,7 @@ export async function resolveAlertIncident(input: {
   const dispatch = await dispatchChannels({
     userIds,
     type: "alert_resolved",
+    notice: input.ruleName ? incidentNotice("resolved", { ...existing, ruleName: input.ruleName }) : undefined,
     title: input.title,
     message: input.message,
     actionUrl: `/alert-rules?incident=${existing.id}`,
@@ -713,6 +746,7 @@ export async function escalateOverdueAlertIncidents(options?: {
       const escalationDispatch = await dispatchChannels({
         userIds: merged,
         type: "server_alert",
+        notice: incidentNotice("escalated", { ...incident, ruleName: incident.rule.name }, { level: nextLevel, minutes }),
         title: incident.title,
         message: `${incident.message} — escalated to L${nextLevel} (no acknowledgement within ${minutes}m)`,
         actionUrl: `/alert-rules?incident=${incident.id}`,

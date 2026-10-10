@@ -20,6 +20,8 @@ export default async function NotificationsPage() {
 		type: n.type,
 		title: n.title,
 		message: n.message,
+		messageCode: n.messageCode,
+		messageParams: n.messageParams,
 		isRead: n.isRead,
 		actionUrl: n.actionUrl,
 		createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : String(n.createdAt),

@@ -41,6 +41,7 @@ import { zh as monitoringZh, en as monitoringEn } from "./dictionaries/monitorin
 import { zh as navZh, en as navEn } from "./dictionaries/nav";
 import { zh as notFoundZh, en as notFoundEn } from "./dictionaries/not-found";
 import { zh as notificationsPageZh, en as notificationsPageEn } from "./dictionaries/notifications-page";
+import { zh as notificationMessagesZh, en as notificationMessagesEn } from "./dictionaries/notification-messages";
 import { zh as officePreviewZh, en as officePreviewEn } from "./dictionaries/office-preview";
 import { zh as operationTasksZh, en as operationTasksEn } from "./dictionaries/operation-tasks";
 import { zh as preferencesPageZh, en as preferencesPageEn } from "./dictionaries/preferences-page";
@@ -81,7 +82,7 @@ const zh: Record<string, string> = {
 	...knowledgePageZh, ...imageBedZh, ...imageBedPageZh, ...languageToggleZh, ...loginZh,
 	...markdownPreviewZh, ...mediaItemCardZh, ...mediaPageZh, ...mediaPreviewZh,
 	...mediaScanButtonZh, ...mediaUploadPanelZh, ...monitoringZh, ...navZh, ...notFoundZh,
-	...notificationsPageZh, ...officePreviewZh, ...operationTasksZh, ...preferencesPageZh,
+	...notificationsPageZh, ...notificationMessagesZh, ...officePreviewZh, ...operationTasksZh, ...preferencesPageZh,
 	...playbooksPageZh, ...pwaZh, ...quickServicesZh, ...recycleBinSectionZh,
 	...requestsPageZh, ...scheduledTasksZh, ...searchZh, ...serversZh, ...sharePageZh,
 	...sharesZh, ...snippetsPageZh, ...sshTerminalModalZh, ...statusPageZh,
@@ -101,7 +102,7 @@ const en: Record<string, string> = {
 	...knowledgePageEn, ...imageBedEn, ...imageBedPageEn, ...languageToggleEn, ...loginEn,
 	...markdownPreviewEn, ...mediaItemCardEn, ...mediaPageEn, ...mediaPreviewEn,
 	...mediaScanButtonEn, ...mediaUploadPanelEn, ...monitoringEn, ...navEn, ...notFoundEn,
-	...notificationsPageEn, ...officePreviewEn, ...operationTasksEn, ...preferencesPageEn,
+	...notificationsPageEn, ...notificationMessagesEn, ...officePreviewEn, ...operationTasksEn, ...preferencesPageEn,
 	...playbooksPageEn, ...pwaEn, ...quickServicesEn, ...recycleBinSectionEn,
 	...requestsPageEn, ...scheduledTasksEn, ...searchEn, ...serversEn, ...sharePageEn,
 	...sharesEn, ...snippetsPageEn, ...sshTerminalModalEn, ...statusPageEn,

@@ -10,6 +10,8 @@ export type WsNotification = {
 	id: string;
 	title: string;
 	message: string;
+	messageCode?: string | null;
+	messageParams?: unknown;
 	actionUrl?: string | null;
 	createdAt: string;
 };

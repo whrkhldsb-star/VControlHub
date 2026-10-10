@@ -380,3 +380,14 @@ export function enrichServer(server: ServerWithRelations) {
     teamId: server.teamId ?? null,
   };
 }
+
+/** Session accepted by server profile writes; userId/roles may be absent for system callers. */
+export type ProfileSession = Pick<SessionPayload, "currentTeamId"> & Partial<Pick<SessionPayload, "userId" | "roles">>;
+
+/** Full session for team scoping, or null when the caller is not a user. */
+export function sessionForTeamWhere(
+  session?: ProfileSession | null,
+): Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null {
+  if (!session?.userId || !session.roles) return null;
+  return { userId: session.userId, roles: session.roles, currentTeamId: session.currentTeamId };
+}

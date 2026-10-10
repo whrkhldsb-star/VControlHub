@@ -129,6 +129,36 @@ describe("forecastMetric", () => {
   });
 });
 
+describe("forecastMetric CPU smoothing", () => {
+  const nowMs = Date.parse("2026-07-16T00:00:00.000Z");
+  // 48 hours sampled every 10 minutes, ending at nowMs.
+  const series = (value: (i: number) => number) =>
+    makeSeries(Array.from({ length: 288 }, (_, i) => value(i)), { startMs: nowMs - 287 * 600_000, stepMs: 600_000 });
+  const options = { windowHours: 168, horizonDays: 14, nowMs };
+
+  it("does not treat a single final spike as a full CPU", () => {
+    const samples = series((i) => (i === 287 ? 99 : 30));
+    const result = forecastMetric(samples, "cpu", options);
+    expect(result.latest).toBeLessThan(45);
+    expect(result.risk).toBe("ok");
+  });
+
+  it("projects no breach date from noise without a trend", () => {
+    const samples = series((i) => (i % 2 === 0 ? 20 : 70));
+    const result = forecastMetric(samples, "cpu", options);
+    expect(result.daysUntil85).toBeNull();
+    expect(result.projected).toBe(result.latest);
+  });
+
+  it("still projects a steadily rising CPU", () => {
+    const samples = series((i) => 40 + i * 0.1 + (i % 3) - 1);
+    const result = forecastMetric(samples, "cpu", options);
+    expect(result.slopePerDay).toBeGreaterThan(10);
+    expect(result.daysUntil85).not.toBeNull();
+    expect(["warning", "critical"]).toContain(result.risk);
+  });
+});
+
 describe("buildServerForecast + summarizeFleet", () => {
   const nowMs = Date.parse("2026-07-16T00:00:00.000Z");
 

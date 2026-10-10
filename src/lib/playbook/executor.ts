@@ -5,7 +5,6 @@
  * persisted before waiting so a reclaimed parent job resumes instead of
  * dispatching the command twice.
  */
-import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { createCommandRequest, cancelCommandRequest } from "@/lib/command/service";
@@ -13,6 +12,7 @@ import { recordJobEvent } from "@/lib/job/events";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
 import type { PlaybookRecord, PlaybookStep, PlaybookStepResult } from "./types";
+import { toJsonValue } from "@/lib/db/json";
 
 const TRUNCATE_AT = 280;
 const COMMAND_POLL_MS = 1_000;
@@ -68,7 +68,7 @@ function failedResult(step: PlaybookStep, error: unknown, startedAt: string): Pl
 async function persistProgress(runId: string, results: PlaybookStepResult[]): Promise<void> {
   await prisma.playbookRun.updateMany({
     where: { id: runId, status: "running" },
-    data: { stepResults: results as unknown as Prisma.InputJsonValue },
+    data: { stepResults: toJsonValue(results) },
   });
 }
 

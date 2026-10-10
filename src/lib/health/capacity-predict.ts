@@ -63,6 +63,34 @@ const RISK_RANK: Record<CapacityRisk, number> = {
 
 const MIN_SAMPLES = 6;
 const MIN_SPAN_HOURS = 6;
+/** Below this R² a CPU trend is noise: it must not project a breach date. */
+const CPU_MIN_TREND_R2 = 0.15;
+
+/**
+ * CPU is bursty, unlike memory and disk which change as levels. Its current
+ * level is the mean of the last hour (at least 3 samples) instead of one
+ * possibly-spiking sample, and its trend is fitted on hourly means so dense
+ * bursts of samples do not dominate the line.
+ */
+function cpuLevel(sorted: Array<{ t: number; value: number }>): number {
+  const lastT = sorted[sorted.length - 1]!.t;
+  let recent = sorted.filter((s) => s.t >= lastT - 3_600_000);
+  if (recent.length < 3) recent = sorted.slice(-3);
+  return recent.reduce((sum, s) => sum + s.value, 0) / recent.length;
+}
+
+function hourlyMeans(sorted: Array<{ t: number; value: number }>): Array<{ t: number; value: number }> {
+  const buckets = new Map<number, { sum: number; count: number; t: number }>();
+  for (const s of sorted) {
+    const hour = Math.floor(s.t / 3_600_000);
+    const bucket = buckets.get(hour) ?? { sum: 0, count: 0, t: 0 };
+    bucket.sum += s.value;
+    bucket.t += s.t;
+    bucket.count += 1;
+    buckets.set(hour, bucket);
+  }
+  return [...buckets.values()].map((b) => ({ t: b.t / b.count, value: b.sum / b.count }));
+}
 
 /** Clamp usage into a sane 0–150 band (allow slight overshoot for noisy samples). */
 function clampUsage(value: number): number {
@@ -199,7 +227,8 @@ export function forecastMetric(
   const sampleCount = sorted.length;
   const dataSpanHours =
     sampleCount >= 2 ? Math.max(0, (sorted[sampleCount - 1]!.t - sorted[0]!.t) / 3_600_000) : 0;
-  const latest = sampleCount > 0 ? sorted[sampleCount - 1]!.value : null;
+  const isCpu = metric === "cpu";
+  const latest = sampleCount === 0 ? null : isCpu ? cpuLevel(sorted) : sorted[sampleCount - 1]!.value;
 
   if (sampleCount < MIN_SAMPLES || dataSpanHours < MIN_SPAN_HOURS || latest === null) {
     return {
@@ -220,13 +249,15 @@ export function forecastMetric(
   }
 
   // Normalize x as days relative to now so intercept ≈ current usage
-  const points = sorted.map((s) => ({
+  const points = (isCpu ? hourlyMeans(sorted) : sorted).map((s) => ({
     x: (s.t - nowMs) / 86_400_000,
     y: s.value,
   }));
   const fit = linearRegression(points);
+  // A CPU fit that explains almost nothing is noise, not a trend.
+  const trendUsable = fit !== null && (!isCpu || fit.r2 >= CPU_MIN_TREND_R2);
 
-  if (!fit) {
+  if (!fit || !trendUsable) {
     const risk = classifyMetricRisk({
       latest,
       projected: latest,
@@ -246,7 +277,7 @@ export function forecastMetric(
       dataSpanHours: Math.round(dataSpanHours * 10) / 10,
       latest: Math.round(latest * 10) / 10,
       slopePerDay: 0,
-      r2: null,
+      r2: fit ? Math.round(fit.r2 * 1000) / 1000 : null,
       projected: Math.round(latest * 10) / 10,
       horizonDays,
       daysUntil85: latest >= 85 ? 0 : null,

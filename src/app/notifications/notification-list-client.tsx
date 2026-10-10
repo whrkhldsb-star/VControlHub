@@ -13,12 +13,15 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
+import { localizeNotification } from "@/lib/notification/message";
 
 type NotificationItem = {
 	id: string;
 	type: string;
 	title: string;
 	message: string;
+	messageCode?: string | null;
+	messageParams?: unknown;
 	isRead: boolean;
 	actionUrl: string | null;
 	createdAt: string;
@@ -69,6 +72,7 @@ const NotificationRow = memo(function NotificationRow({
 	onMarkRead: (id: string) => void;
 	onDelete: (id: string) => void;
 }) {
+	const text = localizeNotification(n, t);
 	return (
 		<article
 			data-card
@@ -81,10 +85,10 @@ const NotificationRow = memo(function NotificationRow({
 				<span className="text-lg mt-0.5 shrink-0" aria-hidden="true">{typeIcon[n.type] ?? <Bell size={18} aria-hidden="true" />}</span>
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 min-w-0">
-						<h3 className={cn("ui-title-group truncate", n.isRead && "font-medium text-[var(--text-muted)]")} title={n.title}>{n.title}</h3>
+						<h3 className={cn("ui-title-group truncate", n.isRead && "font-medium text-[var(--text-muted)]")} title={text.title}>{text.title}</h3>
 						{!n.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />}
 					</div>
-					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
+					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{text.message}</p>
 					<div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
 						<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, nowMs, t, locale)}</span>
 						{n.actionUrl && (
@@ -113,6 +117,8 @@ const NotificationRow = memo(function NotificationRow({
 		p.type === n.type &&
 		p.title === n.title &&
 		p.message === n.message &&
+		p.messageCode === n.messageCode &&
+		p.messageParams === n.messageParams &&
 		p.isRead === n.isRead &&
 		p.actionUrl === n.actionUrl &&
 		p.createdAt === n.createdAt &&

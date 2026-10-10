@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import { enqueueJob } from "@/lib/job/service";
 
 import type { PlaybookStep } from "./types";
+import { toJsonValue } from "@/lib/db/json";
 
 export type QueueablePlaybook = {
   id: string;
@@ -34,10 +35,10 @@ export async function queuePlaybookRunWithClient(input: {
     if (existing) return { run: existing, created: false };
   }
 
-  const executionState = {
+  const executionState = toJsonValue({
     schemaVersion: 1,
     stepsSnapshot: input.playbook.steps,
-  } as unknown as Prisma.InputJsonValue;
+  });
   const run = await input.client.playbookRun.create({
     data: {
       playbookId: input.playbook.id,
@@ -45,7 +46,7 @@ export async function queuePlaybookRunWithClient(input: {
       dryRun: input.dryRun,
       triggerContext: (input.triggerContext ?? null) as Prisma.InputJsonValue,
       triggerKey,
-      stepResults: [] as unknown as Prisma.InputJsonValue,
+      stepResults: toJsonValue([]),
       executionState,
       startedAt: null,
       createdById: input.createdById ?? null,

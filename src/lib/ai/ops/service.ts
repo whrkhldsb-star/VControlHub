@@ -45,6 +45,7 @@ import { AI_OPS_SAFE_AUTONOMOUS_ACTIONS } from "./types";
 import { executeAiOpsAction } from "./action-executor";
 import { t } from "@/lib/i18n/service-translations";
 import { parseProviderHealth, type AiOpsProviderHealth } from "./provider-health";
+import { toJsonValue } from "@/lib/db/json";
 
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 200;
@@ -186,8 +187,8 @@ export async function createAiOpsLog(
 			triggerType: input.triggerType,
 			mode: input.mode,
 			status: "running",
-			findings: [] as unknown as Prisma.InputJsonValue,
-			actions: [] as unknown as Prisma.InputJsonValue,
+			findings: toJsonValue([]),
+			actions: toJsonValue([]),
 			notes: input.notes ?? null,
 			providerId: input.providerId ?? null,
 			startedAt: new Date(),
@@ -221,11 +222,11 @@ export async function completeScan(input: CompleteScanInput): Promise<AiOpsLogRe
 		where: { id: input.logId },
 		data: {
 			status: input.status,
-			findings: input.findings as unknown as Prisma.InputJsonValue,
-			actions: input.actions as unknown as Prisma.InputJsonValue,
+			findings: toJsonValue(input.findings),
+			actions: toJsonValue(input.actions),
 			notes: input.notes ?? null,
 			errorMessage: input.errorMessage ?? null,
-			...(input.providerHealth ? { providerHealth: input.providerHealth as unknown as Prisma.InputJsonValue } : {}),
+			...(input.providerHealth ? { providerHealth: toJsonValue(input.providerHealth) } : {}),
 			completedAt,
 			durationMs,
 		},
@@ -290,7 +291,7 @@ export async function approveRecommendation(input: {
 	const claimed = await prisma.aiOpsLog.updateMany({
 		where: { id: log.id, updatedAt: log.updatedAt },
 		data: {
-			actions: updatedActions as unknown as Prisma.InputJsonValue,
+			actions: toJsonValue(updatedActions),
 		},
 	});
 
@@ -376,7 +377,7 @@ export async function executeRecommendation(
 			where: { id: log.id, updatedAt: claimVersion },
 			data: {
 				updatedAt: claimedAt,
-				actions: claimedActions as unknown as Prisma.InputJsonValue,
+				actions: toJsonValue(claimedActions),
 			},
 		});
 		if (claim.count === 1) {
@@ -440,7 +441,7 @@ export async function executeRecommendation(
 			where: { id: log.id, updatedAt: latest.updatedAt },
 			data: {
 				updatedAt: completedAt,
-				actions: mergedActions as unknown as Prisma.InputJsonValue,
+				actions: toJsonValue(mergedActions),
 			},
 		});
 		if (persisted.count === 1) {

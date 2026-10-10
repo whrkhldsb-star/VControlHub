@@ -11,6 +11,7 @@ import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { localizeNotification } from "@/lib/notification/message";
 import { IconBell } from "./nav-icons";
 import { useDismiss } from "./ui/menu";
 
@@ -20,7 +21,8 @@ export function NotificationBell() {
 	const { t } = useI18n();
 	const [isOpen, setIsOpen] = useState(false);
 	const [notifications, setNotifications] = useState<Array<{
-		id: string; type: string; title: string; message: string; isRead: boolean; actionUrl: string | null; createdAt: string;
+		id: string; type: string; title: string; message: string; messageCode?: string | null; messageParams?: unknown;
+		isRead: boolean; actionUrl: string | null; createdAt: string;
 	}>>([]);
 	const [feedback, setFeedback] = useState<{ type: "error" | "info"; message: string } | null>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
@@ -99,6 +101,8 @@ export function NotificationBell() {
 				type: "system",
 				title: lastNotification.title,
 				message: lastNotification.message,
+				messageCode: lastNotification.messageCode,
+				messageParams: lastNotification.messageParams,
 				isRead: false,
 				actionUrl: lastNotification.actionUrl ?? null,
 				createdAt: lastNotification.createdAt,
@@ -234,7 +238,9 @@ export function NotificationBell() {
 						<div className="px-4 py-10 text-center text-xs text-[var(--text-muted)]">{emptyLabel}</div>
 					) : notifications.length > 0 ? (
 						<ul className="divide-y divide-[var(--border-subtle)]" aria-label={recentListLabel}>
-							{notifications.slice(0, 10).map((n) => (
+							{notifications.slice(0, 10).map((n) => {
+								const text = localizeNotification(n, t);
+								return (
 								<li key={n.id}>
 									<Link
 										href={getSafeNotificationActionUrl(n.actionUrl)}
@@ -242,12 +248,13 @@ export function NotificationBell() {
 									>
 										<div className="flex items-center gap-2">
 											{!n.isRead && <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />}
-											<span className={`text-xs font-medium truncate ${n.isRead ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>{n.title}</span>
+											<span className={`text-xs font-medium truncate ${n.isRead ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>{text.title}</span>
 											</div>
-											<p className="mt-1 text-xs text-[var(--text-muted)] truncate">{n.message}</p>
+											<p className="mt-1 text-xs text-[var(--text-muted)] truncate">{text.message}</p>
 									</Link>
 								</li>
-							))}
+								);
+							})}
 						</ul>
 					) : null}
 					<div className="sticky bottom-0 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--modal-bg)_94%,transparent)] backdrop-blur">

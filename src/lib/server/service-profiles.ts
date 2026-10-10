@@ -1,6 +1,4 @@
 import { Prisma } from "@prisma/client";
-import { encrypt } from "@/lib/crypto/service";
-import { rdpProfileSchema } from "@/lib/rdp/protocol";
 import { mkdir } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -11,20 +9,21 @@ import { serviceT } from "@/lib/i18n/service-locale";
 import {
   buildSshParamsFromServer,
   createRemoteDirectory,
-  listRemoteDirectory,
 } from "@/lib/ssh/client";
 import { requireApprovedSshHostKey, SshHostKeyApprovalRequiredError } from "@/lib/ssh/host-key";
 import {
   detectOsDialect,
   serializeDialect,
 } from "@/lib/ssh/os-dialect";
-import { decryptServerPassword, encryptServerPasswordIfPlain } from "@/lib/ssh/ssh-key-crypto";
+import { encryptServerPasswordIfPlain, SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import type { TFn } from "@/lib/i18n/core";
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 import { normalizeServerInput } from "./config";
 import { SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
 import { installServerAgent, uninstallServerAgent } from "./agent-service";
+import { createWindowsServerProfile, updateWindowsServerProfile } from "./service-profiles-windows";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import {
   assertNoDuplicateServerHost,
@@ -32,12 +31,25 @@ import {
   getErrorMessage,
   isLocalHostLiteral,
   safeRevalidatePath,
+  sessionForTeamWhere,
   verifyServerSshConnectivity,
+  type ProfileSession,
   type ServerProfileRow,
   type ServerWithRelations,
 } from "./service-internals";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+export type UpdateServerInput = Partial<CreateServerInput> & {
+  enabled?: boolean;
+  repairStoragePath?: boolean;
+  removeSshCredential?: boolean;
+  windowsSftpEnabled?: boolean;
+  windowsSftpPort?: number;
+  windowsSftpUsername?: string;
+  windowsSftpPassword?: string;
+  windowsSftpPath?: string;
+};
 
 function toStoredDirectGatewayProtocol(value: "http" | "https") {
   return value === "https" ? "HTTPS" as const : "HTTP" as const;
@@ -64,137 +76,41 @@ async function findServerProfileForSession(
   });
 }
 
-function sessionForTeamWhere(
-  session?: (Pick<SessionPayload, "currentTeamId"> & Partial<Pick<SessionPayload, "userId" | "roles">>) | null,
-): Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null {
-  if (!session?.userId || !session.roles) return null;
-  return { userId: session.userId, roles: session.roles, currentTeamId: session.currentTeamId };
+const SSH_KEY_PREFLIGHT_SELECT = {
+  id: true,
+  name: true,
+  fingerprint: true,
+  publicKey: true,
+  ...SSH_KEY_CREDENTIAL_SELECT,
+  createdAt: true,
+} as const;
+
+type PreflightSshKey = {
+  id: string;
+  name: string;
+  fingerprint?: string | null;
+  publicKey?: string | null;
+  privateKey?: string | null;
+  passphrase?: string | null;
+  createdAt?: Date | string;
+};
+
+/** The SSH key a server will connect with, scoped to the caller's team. */
+async function findSshKeyForServer(sshKeyId: string, session: ProfileSession | null | undefined, t: TFn): Promise<PreflightSshKey> {
+  const scope = sessionForTeamWhere(session);
+  const key = scope
+    ? await prisma.sshKey.findFirst({ where: { id: sshKeyId, ...teamWhere(scope) }, select: SSH_KEY_PREFLIGHT_SELECT })
+    : await prisma.sshKey.findUnique({ where: { id: sshKeyId }, select: SSH_KEY_PREFLIGHT_SELECT });
+  if (!key) throw new NotFoundError(t("backend.server.sshKeyNotFound"));
+  return key;
 }
 
-export async function createServerProfile(
-
-  input: CreateServerInput,
-  session?: Pick<SessionPayload, "currentTeamId"> & Partial<Pick<SessionPayload, "userId" | "roles">> | null,
-) {
-  const t = await serviceT();
-  const payload = createServerSchema.parse(input);
-  if (payload.operatingSystem === "WINDOWS") {
-    let sftpHostKey: string | null = null;
-    if (payload.windowsSftpEnabled) {
-      const ssh = {
-        host: payload.host,
-        port: payload.windowsSftpPort,
-        username: payload.windowsSftpUsername!,
-        password: payload.windowsSftpPassword!,
-      };
-      sftpHostKey = await requireApprovedSshHostKey({
-        ssh,
-        approvedHostKeySha256: payload.approvedHostKeySha256 || payload.hostKeySha256,
-      });
-      await listRemoteDirectory({ ...ssh, hostKeySha256: sftpHostKey, remotePath: payload.windowsSftpPath! });
-    }
-    const release = await acquireAdvisoryLock("server-host", payload.host);
-    try {
-      await assertNoDuplicateServerHost(payload, { session: sessionForTeamWhere(session) });
-      const serverData = {
-        name: payload.name, host: payload.host, port: payload.port, username: payload.username,
-        operatingSystem: "WINDOWS", connectionType: "PASSWORD",
-        // AGENT mode on Windows is connected manually afterwards via the
-        // PowerShell install command shown on the node card.
-        managementMode: payload.managementMode,
-        password: payload.windowsSftpEnabled ? encryptServerPasswordIfPlain(payload.windowsSftpPassword!) : null,
-        sshKeyId: null, hostKeySha256: sftpHostKey, rdpPassword: encrypt(payload.rdpPassword),
-        rdpDomain: payload.rdpDomain || null, rdpIgnoreCertificate: payload.rdpIgnoreCertificate,
-        rdpCertificateSha256: payload.rdpCertificateSha256 || null,
-        // Windows VPS nodes carry the same billing fields as Linux ones so the
-        // cost pages can cover the whole fleet.
-        costAutoSync: payload.costAutoSync,
-        costMonthlyAmount: payload.costMonthlyAmount ? new Prisma.Decimal(payload.costMonthlyAmount) : null,
-        costCurrency: payload.costCurrency,
-        costProvider: payload.costProvider || null,
-        description: payload.description, tags: payload.tags, enabled: true,
-        onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null,
-        ...(session ? teamCreateData(session) : {}),
-      } as const;
-      const server = payload.windowsSftpEnabled
-        ? await prisma.$transaction(async (tx) => {
-            const created = await tx.server.create({ data: serverData, include: SERVER_PROFILE_INCLUDE });
-            await tx.storageNode.create({ data: {
-              name: `${payload.name} storage`, driver: "SFTP", basePath: payload.windowsSftpPath!,
-              host: null, port: payload.windowsSftpPort, username: payload.windowsSftpUsername!,
-              hostKeySha256: sftpHostKey, serverId: created.id, directAccessMode: "PROXY",
-              ...(session ? teamCreateData(session) : {}),
-            } });
-            return created;
-          })
-        : await prisma.server.create({ data: serverData, include: SERVER_PROFILE_INCLUDE });
-      const onboardingWarnings = payload.managementMode === "AGENT"
-        ? [t("backend.server.agentInstallPending")]
-        : [];
-      const refreshed = payload.windowsSftpEnabled
-        ? await prisma.server.findUnique({ where: { id: server.id }, include: SERVER_PROFILE_INCLUDE })
-        : server;
-      safeRevalidatePath("/storage");
-      safeRevalidatePath("/files");
-      return { ...enrichServer(refreshed ?? server), onboardingWarnings, draftReason: null };
-    } finally { await release(); }
-  }
-  const normalized = normalizeServerInput(payload);
-  const onboardingWarnings: string[] = [];
-  let draftReason: string | null = null;
-  const teamData = session ? teamCreateData(session) : {};
-
-  let validatedSshKey: {
-    id: string;
-    name: string;
-    fingerprint?: string | null;
-    publicKey?: string | null;
-    privateKey?: string | null;
-    passphrase?: string | null;
-    createdAt?: Date | string;
-  } | null = null;
-
-  if (normalized.connectionType === "SSH_KEY") {
-    if (!normalized.sshKeyId) throw new ValidationError(t("backend.server.sshKeyMethodRequiresKey"));
-    validatedSshKey = sessionForTeamWhere(session)
-      ? await prisma.sshKey.findFirst({
-          where: { id: normalized.sshKeyId, ...teamWhere(sessionForTeamWhere(session)!) },
-      select: {
-        id: true,
-        name: true,
-        fingerprint: true,
-        publicKey: true,
-        privateKey: true, passphrase: true,
-        createdAt: true,
-      },
-        })
-      : await prisma.sshKey.findUnique({
-          where: { id: normalized.sshKeyId },
-      select: {
-        id: true,
-        name: true,
-        fingerprint: true,
-        publicKey: true,
-        privateKey: true, passphrase: true,
-        createdAt: true,
-      },
-        });
-    if (!validatedSshKey) throw new NotFoundError(t("backend.server.sshKeyNotFound"));
-  }
-
-  // Serialize create/update by host so concurrent onboarding cannot double-insert
-  // the same VPS host between findFirst and server.create (no @@unique on host).
-  const isLocalHost = isLocalHostLiteral(normalized.host);
-  let connectivityVerified = false;
-  let configuredPath = "";
-  let createdStorageNodeId = "";
-  // Assigned under host lock before mkdir/onboarding uses them.
-  let server!: ServerProfileRecord;
-  const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
-  try {
-  await assertNoDuplicateServerHost(normalized, { session: sessionForTeamWhere(session) });
-
-  const pendingServerForPreflight: ServerWithRelations = {
+/** Unsaved server used to verify the host key and SSH login before create. */
+function buildPendingServer(
+  normalized: ReturnType<typeof normalizeServerInput>,
+  sshKey: PreflightSshKey | null,
+): ServerWithRelations {
+  return {
     id: "__pending__",
     name: normalized.name,
     host: normalized.host,
@@ -211,7 +127,7 @@ export async function createServerProfile(
       normalized.connectionType === "PASSWORD" && normalized.password
         ? encryptServerPasswordIfPlain(normalized.password)
         : null,
-    sshKey: normalized.connectionType === "SSH_KEY" ? validatedSshKey : null,
+    sshKey: normalized.connectionType === "SSH_KEY" ? sshKey : null,
     costAutoSync: normalized.costAutoSync,
     costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
     costCurrency: normalized.costCurrency,
@@ -223,6 +139,221 @@ export async function createServerProfile(
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+}
+
+/**
+ * Best-effort provisioning after a Linux node is saved: storage directory and
+ * health, direct gateway, OS dialect and agent. Each failure becomes an
+ * onboarding warning instead of failing the create.
+ */
+async function provisionNewServer(ctx: {
+  server: ServerProfileRecord;
+  payload: { enableDirectGateway: boolean; directGatewayProtocol: "http" | "https"; directGatewayDomain?: string };
+  managementMode: string;
+  isLocalHost: boolean;
+  connectivityVerified: boolean;
+  configuredPath: string;
+  storageNodeId: string;
+  session: ProfileSession | null | undefined;
+  t: TFn;
+}): Promise<string[]> {
+  const { server, payload, managementMode, isLocalHost, connectivityVerified, configuredPath, storageNodeId, session, t } = ctx;
+  const warnings: string[] = [];
+  let storageDirectoryReady = false;
+  if (isLocalHost) {
+    try {
+      await mkdir(configuredPath, { recursive: true });
+      storageDirectoryReady = true;
+    } catch (error) {
+      warnings.push(t("backend.server.onboarding.localStorageCreateFailed", {
+        path: configuredPath,
+        error: getErrorMessage(error),
+      }));
+    }
+  } else if (connectivityVerified) {
+    try {
+      await createRemoteDirectory({
+        ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
+        remotePath: configuredPath,
+        recursive: true,
+      });
+      storageDirectoryReady = true;
+    } catch (error) {
+      warnings.push(t("backend.server.onboarding.remoteStorageCreateFailed", {
+        path: configuredPath,
+        error: getErrorMessage(error),
+      }));
+    }
+  }
+
+  if (storageDirectoryReady && storageNodeId) {
+    try {
+      const health = await checkStorageNodeHealth(storageNodeId, sessionForTeamWhere(session));
+      if (health.healthStatus === "UNHEALTHY") {
+        warnings.push(t("backend.server.onboarding.storageHealthFailed", {
+          path: configuredPath,
+          details: health.lastHealthError ? `: ${health.lastHealthError}` : "",
+        }));
+      }
+    } catch (error) {
+      warnings.push(t("backend.server.onboarding.storageHealthRecordFailed", {
+        path: configuredPath,
+        error: getErrorMessage(error),
+      }));
+    }
+  }
+
+  if (payload.enableDirectGateway && !isLocalHost && connectivityVerified) {
+    const directResult = await applyServerDirectGatewayState({
+      serverId: server.id,
+      enabled: true,
+      bestEffort: true,
+      publicProtocol: payload.directGatewayProtocol,
+      publicDomain: payload.directGatewayDomain?.trim() || null,
+      publicListen: true,
+    });
+    if (!directResult.enabled) {
+      warnings.push(t("backend.server.onboarding.gatewayFailed", {
+        details: directResult.errorMessage ? `: ${directResult.errorMessage}` : "",
+      }));
+    }
+  }
+
+  // TR-041: best-effort OS dialect probe during onboarding so reload/AI commands
+  // can use the right service manager without a manual "Detect OS" click first.
+  if (!isLocalHost && connectivityVerified) {
+    try {
+      const dialectSsh = await buildSshParamsFromServer(server, server.sshKey ?? null);
+      const dialect = await detectOsDialect(dialectSsh);
+      await prisma.server.update({
+        where: { id: server.id },
+        data: {
+          osDialect: serializeDialect(dialect),
+          osInfo: dialect.distroName,
+        },
+      });
+    } catch (error) {
+      warnings.push(t("backend.server.onboarding.osDetectFailed", {
+        error: getErrorMessage(error),
+      }));
+    }
+  }
+
+  if (managementMode === "AGENT" && !isLocalHost && connectivityVerified) {
+    try {
+      await installServerAgent(server.id);
+    } catch (error) {
+      warnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) }));
+    }
+  }
+
+  return warnings;
+}
+
+/** Install or remove the agent when the management mode changes; returns warnings. */
+async function syncAgentForModeChange(
+  serverId: string,
+  previousMode: string,
+  server: ServerProfileRecord,
+  t: TFn,
+): Promise<string[]> {
+  const warnings: string[] = [];
+  if (server.managementMode !== previousMode) {
+    if (server.managementMode === "AGENT" && !isLocalHostLiteral(server.host) && server.enabled) {
+      try {
+        await installServerAgent(serverId);
+      } catch (error) {
+        warnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) }));
+      }
+    } else if (previousMode === "AGENT") {
+      const cleanup = await uninstallServerAgent(serverId);
+      if (!cleanup.removed) warnings.push(t("backend.server.agentCleanupPendingLinux"));
+    }
+  }
+  return warnings;
+}
+
+/**
+ * Move the bound storage root (empty storagePath keeps it) and/or recreate its
+ * directory; returns warnings instead of failing the update.
+ */
+async function applyStoragePathChange(
+  server: ServerProfileRecord,
+  input: Pick<UpdateServerInput, "storagePath" | "repairStoragePath">,
+  session: TeamSession | null | undefined,
+  t: TFn,
+): Promise<string[]> {
+  const nextStoragePath = typeof input.storagePath === "string" ? input.storagePath.trim() : "";
+  const repairStoragePath = input.repairStoragePath === true;
+  const storageNode = server.storageNode;
+  const warnings: string[] = [];
+  if (storageNode && (nextStoragePath || repairStoragePath)) {
+    const targetPath = nextStoragePath || storageNode.basePath;
+    if (nextStoragePath && nextStoragePath !== storageNode.basePath) {
+      await prisma.storageNode.update({
+        where: { id: storageNode.id },
+        data: { basePath: targetPath },
+      });
+    }
+    if (storageNode.driver === "SFTP" || (!storageNode.driver && !isLocalHostLiteral(server.host))) {
+      try {
+        await createRemoteDirectory({
+          ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
+          remotePath: targetPath,
+          recursive: true,
+        });
+        await checkStorageNodeHealth(storageNode.id, session).catch(() => null);
+      } catch (error) {
+        warnings.push(t("backend.server.update.remoteStorageFailed", {
+          path: targetPath,
+          error: getErrorMessage(error),
+        }));
+      }
+    } else {
+      try {
+        await mkdir(targetPath, { recursive: true });
+      } catch (error) {
+        warnings.push(t("backend.server.update.localStorageFailed", {
+          path: targetPath,
+          error: getErrorMessage(error),
+        }));
+      }
+    }
+  }
+  return warnings;
+}
+
+export async function createServerProfile(
+  input: CreateServerInput,
+  session?: ProfileSession | null,
+) {
+  const t = await serviceT();
+  const payload = createServerSchema.parse(input);
+  if (payload.operatingSystem === "WINDOWS") return createWindowsServerProfile(payload, session, t);
+  const normalized = normalizeServerInput(payload);
+  const onboardingWarnings: string[] = [];
+  let draftReason: string | null = null;
+  const teamData = session ? teamCreateData(session) : {};
+
+  let validatedSshKey: PreflightSshKey | null = null;
+  if (normalized.connectionType === "SSH_KEY") {
+    if (!normalized.sshKeyId) throw new ValidationError(t("backend.server.sshKeyMethodRequiresKey"));
+    validatedSshKey = await findSshKeyForServer(normalized.sshKeyId, session, t);
+  }
+
+  // Serialize create/update by host so concurrent onboarding cannot double-insert
+  // the same VPS host between findFirst and server.create (no @@unique on host).
+  const isLocalHost = isLocalHostLiteral(normalized.host);
+  let connectivityVerified = false;
+  let configuredPath = "";
+  let createdStorageNodeId = "";
+  // Assigned under host lock before mkdir/onboarding uses them.
+  let server!: ServerProfileRecord;
+  const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
+  try {
+  await assertNoDuplicateServerHost(normalized, { session: sessionForTeamWhere(session) });
+
+  const pendingServerForPreflight = buildPendingServer(normalized, validatedSshKey);
   const pendingSsh = await buildSshParamsFromServer(
     pendingServerForPreflight,
     pendingServerForPreflight.sshKey
@@ -322,93 +453,17 @@ export async function createServerProfile(
     await releaseHostLock();
   }
 
-  let storageDirectoryReady = false;
-  if (isLocalHost) {
-    try {
-      await mkdir(configuredPath, { recursive: true });
-      storageDirectoryReady = true;
-    } catch (error) {
-      onboardingWarnings.push(t("backend.server.onboarding.localStorageCreateFailed", {
-        path: configuredPath,
-        error: getErrorMessage(error),
-      }));
-    }
-  } else if (connectivityVerified) {
-    try {
-      await createRemoteDirectory({
-        ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
-        remotePath: configuredPath,
-        recursive: true,
-      });
-      storageDirectoryReady = true;
-    } catch (error) {
-      onboardingWarnings.push(t("backend.server.onboarding.remoteStorageCreateFailed", {
-        path: configuredPath,
-        error: getErrorMessage(error),
-      }));
-    }
-  }
-
-  if (storageDirectoryReady && createdStorageNodeId) {
-    try {
-      const health = await checkStorageNodeHealth(createdStorageNodeId, sessionForTeamWhere(session));
-      if (health.healthStatus === "UNHEALTHY") {
-        onboardingWarnings.push(t("backend.server.onboarding.storageHealthFailed", {
-          path: configuredPath,
-          details: health.lastHealthError ? `: ${health.lastHealthError}` : "",
-        }));
-      }
-    } catch (error) {
-      onboardingWarnings.push(t("backend.server.onboarding.storageHealthRecordFailed", {
-        path: configuredPath,
-        error: getErrorMessage(error),
-      }));
-    }
-  }
-
-  if (payload.enableDirectGateway && !isLocalHost && connectivityVerified) {
-    const directResult = await applyServerDirectGatewayState({
-      serverId: server.id,
-      enabled: true,
-      bestEffort: true,
-      publicProtocol: payload.directGatewayProtocol,
-      publicDomain: payload.directGatewayDomain?.trim() || null,
-      publicListen: true,
-    });
-    if (!directResult.enabled) {
-      onboardingWarnings.push(t("backend.server.onboarding.gatewayFailed", {
-        details: directResult.errorMessage ? `: ${directResult.errorMessage}` : "",
-      }));
-    }
-  }
-
-  // TR-041: best-effort OS dialect probe during onboarding so reload/AI commands
-  // can use the right service manager without a manual "Detect OS" click first.
-  if (!isLocalHost && connectivityVerified) {
-    try {
-      const dialectSsh = await buildSshParamsFromServer(server, server.sshKey ?? null);
-      const dialect = await detectOsDialect(dialectSsh);
-      await prisma.server.update({
-        where: { id: server.id },
-        data: {
-          osDialect: serializeDialect(dialect),
-          osInfo: dialect.distroName,
-        },
-      });
-    } catch (error) {
-      onboardingWarnings.push(t("backend.server.onboarding.osDetectFailed", {
-        error: getErrorMessage(error),
-      }));
-    }
-  }
-
-  if (normalized.managementMode === "AGENT" && !isLocalHost && connectivityVerified) {
-    try {
-      await installServerAgent(server.id);
-    } catch (error) {
-      onboardingWarnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) }));
-    }
-  }
+  onboardingWarnings.push(...await provisionNewServer({
+    server,
+    payload,
+    managementMode: normalized.managementMode,
+    isLocalHost,
+    connectivityVerified,
+    configuredPath,
+    storageNodeId: createdStorageNodeId,
+    session,
+    t,
+  }));
 
   if (connectivityVerified) {
     await prisma.server.update({
@@ -440,7 +495,7 @@ export async function createServerProfile(
 
 export async function updateServerProfile(
   serverId: string,
-  input: Partial<CreateServerInput> & { enabled?: boolean; repairStoragePath?: boolean; removeSshCredential?: boolean; windowsSftpEnabled?: boolean; windowsSftpPort?: number; windowsSftpUsername?: string; windowsSftpPassword?: string; windowsSftpPath?: string },
+  input: UpdateServerInput,
   session?: TeamSession | null,
 ) {
   const current = await findServerProfileForSession(serverId, session);
@@ -450,122 +505,7 @@ export async function updateServerProfile(
   if (input.operatingSystem && input.operatingSystem !== (current.operatingSystem ?? "LINUX")) {
     throw new ValidationError(t("backend.server.osImmutable"));
   }
-  if (current.operatingSystem === "WINDOWS") {
-    if (input.enableDirectGateway || input.repairStoragePath || input.removeSshCredential || input.sshKeyId || input.password) {
-      throw new ValidationError(t("backend.server.linuxOnly"));
-    }
-    const rdpInput = input as Partial<Extract<CreateServerInput, { operatingSystem: "WINDOWS" }>>;
-    const payload = rdpProfileSchema.parse({
-      ...current, ...input, password: rdpInput.rdpPassword ?? "retained",
-      domain: rdpInput.rdpDomain ?? current.rdpDomain ?? "",
-      ignoreCertificate: rdpInput.rdpIgnoreCertificate ?? current.rdpIgnoreCertificate,
-      certificateSha256: rdpInput.rdpCertificateSha256 ?? current.rdpCertificateSha256 ?? "",
-      description: input.description ?? current.description ?? "",
-    });
-    if (rdpInput.rdpPassword === undefined && !current.rdpPassword) throw new ValidationError();
-    if (input.windowsSftpEnabled && current.storageNode && current.storageNode.driver !== "SFTP") {
-      throw new ValidationError(t("backend.server.windowsStorageRequiresSftp"));
-    }
-    const existingSftp = current.storageNode?.driver === "SFTP" ? current.storageNode : null;
-    const configureSftp = input.windowsSftpEnabled === true;
-    if (existingSftp && payload.host !== current.host && !configureSftp) {
-      throw new ValidationError(t("backend.server.windowsSftpReverify"));
-    }
-    const nextSftp = configureSftp ? {
-      port: input.windowsSftpPort ?? existingSftp?.port ?? 22,
-      username: input.windowsSftpUsername?.trim() || existingSftp?.username || "",
-      password: input.windowsSftpPassword || (current.password ? decryptServerPassword(current.password) : ""),
-      basePath: input.windowsSftpPath?.trim() || existingSftp?.basePath || "",
-    } : null;
-    if (current.fileProxyPort && current.fileProxyPort > 0 && (
-      payload.host !== current.host ||
-      (nextSftp && (nextSftp.port !== (existingSftp?.port ?? 22) ||
-        nextSftp.username !== (existingSftp?.username ?? "") ||
-        nextSftp.basePath !== (existingSftp?.basePath ?? "") ||
-        Boolean(input.windowsSftpPassword)))
-    )) {
-      throw new ValidationError(t("backend.server.windowsDisableGatewayBeforeSftpEdit"));
-    }
-    if (nextSftp) {
-      const valid = createServerSchema.safeParse({
-        operatingSystem: "WINDOWS", name: payload.name, host: payload.host,
-        port: payload.port, username: payload.username,
-        rdpPassword: rdpInput.rdpPassword ?? "retained",
-        windowsSftpEnabled: true,
-        windowsSftpPort: nextSftp.port, windowsSftpUsername: nextSftp.username,
-        windowsSftpPassword: nextSftp.password, windowsSftpPath: nextSftp.basePath,
-      });
-      if (!valid.success) throw new ValidationError(valid.error.issues[0]?.message ?? "Invalid SFTP configuration");
-    }
-    let nextSftpHostKey = current.hostKeySha256;
-    if (nextSftp) {
-      const sameEndpoint = payload.host === current.host && nextSftp.port === (existingSftp?.port ?? 22);
-      const ssh = { host: payload.host, port: nextSftp.port, username: nextSftp.username, password: nextSftp.password };
-      nextSftpHostKey = await requireApprovedSshHostKey({
-        ssh,
-        pinnedHostKeySha256: sameEndpoint ? current.hostKeySha256 : null,
-        approvedHostKeySha256: input.approvedHostKeySha256,
-      });
-      await listRemoteDirectory({ ...ssh, hostKeySha256: nextSftpHostKey, remotePath: nextSftp.basePath });
-    }
-    const nextManagementMode = input.managementMode ?? current.managementMode;
-    const release = await acquireAdvisoryLock("server-host", payload.host);
-    try {
-      await assertNoDuplicateServerHost(payload, { excludeId: serverId, session: sessionForTeamWhere(session) });
-      const updated = await prisma.$transaction(async (tx) => {
-      const saved = await tx.server.update({ where: { id: serverId, teamId: current.teamId }, data: {
-        name: payload.name, host: payload.host, port: payload.port, username: payload.username,
-        description: payload.description, tags: payload.tags,
-        managementMode: nextManagementMode,
-        ...(nextSftp ? { password: encryptServerPasswordIfPlain(nextSftp.password), hostKeySha256: nextSftpHostKey } : {}),
-        rdpPassword: rdpInput.rdpPassword === undefined ? current.rdpPassword : encrypt(payload.password),
-        rdpDomain: payload.domain || null, rdpIgnoreCertificate: payload.ignoreCertificate,
-        rdpCertificateSha256: payload.certificateSha256 || null,
-        // Cost fields are shared with the Linux edit form; empty amount/provider clears.
-        costAutoSync: input.costAutoSync ?? current.costAutoSync,
-        costMonthlyAmount:
-          input.costMonthlyAmount !== undefined
-            ? input.costMonthlyAmount
-              ? new Prisma.Decimal(input.costMonthlyAmount)
-              : null
-            : current.costMonthlyAmount,
-        costCurrency: input.costCurrency ?? current.costCurrency,
-        costProvider: input.costProvider !== undefined ? input.costProvider || null : current.costProvider,
-        enabled: input.enabled ?? current.enabled,
-      }, include: SERVER_PROFILE_INCLUDE });
-      if (nextSftp) {
-        if (existingSftp) {
-          await tx.storageNode.update({ where: { id: existingSftp.id }, data: {
-            basePath: nextSftp.basePath, port: nextSftp.port, username: nextSftp.username,
-            host: null, hostKeySha256: nextSftpHostKey,
-          } });
-        } else {
-          await tx.storageNode.create({ data: {
-            name: `${payload.name} storage`, driver: "SFTP", basePath: nextSftp.basePath,
-            host: null, port: nextSftp.port, username: nextSftp.username,
-            hostKeySha256: nextSftpHostKey, serverId,
-            directAccessMode: "PROXY", ...(session ? teamCreateData(session) : {}),
-          } });
-        }
-      }
-      return saved;
-      });
-      const onboardingWarnings: string[] = [];
-      if (nextManagementMode !== current.managementMode) {
-        if (nextManagementMode === "AGENT") {
-          // Agent is installed manually on Windows via the node card command.
-          onboardingWarnings.push(t("backend.server.agentInstallPending"));
-        } else if (current.managementMode === "AGENT") {
-          const cleanup = await uninstallServerAgent(serverId);
-          if (!cleanup.removed) onboardingWarnings.push(t("backend.server.agentCleanupPending"));
-        }
-      }
-      const refreshed = nextSftp ? await prisma.server.findUnique({ where: { id: serverId }, include: SERVER_PROFILE_INCLUDE }) : updated;
-      safeRevalidatePath("/storage");
-      safeRevalidatePath("/files");
-      return { ...enrichServer(refreshed ?? updated), onboardingWarnings };
-    } finally { await release(); }
-  }
+  if (current.operatingSystem === "WINDOWS") return updateWindowsServerProfile(serverId, current, input, session, t);
 
   const removeSshCredential = input.removeSshCredential === true;
   const requestedManagementMode = input.managementMode ?? current.managementMode;
@@ -599,45 +539,13 @@ export async function updateServerProfile(
     costProvider: input.costProvider ?? current.costProvider,
   });
 
-  let updateSshKey: {
-    id: string;
-    name: string;
-    fingerprint?: string | null;
-    publicKey?: string | null;
-    privateKey?: string | null;
-    passphrase?: string | null;
-    createdAt?: Date | string;
-  } | null = current.sshKey ?? null;
-
+  let updateSshKey: PreflightSshKey | null = current.sshKey ?? null;
   if (
     normalized.connectionType === "SSH_KEY" &&
     normalized.sshKeyId &&
     normalized.sshKeyId !== current.sshKeyId
   ) {
-    updateSshKey = sessionForTeamWhere(session)
-      ? await prisma.sshKey.findFirst({
-          where: { id: normalized.sshKeyId, ...teamWhere(sessionForTeamWhere(session)!) },
-      select: {
-        id: true,
-        name: true,
-        fingerprint: true,
-        publicKey: true,
-        privateKey: true, passphrase: true,
-        createdAt: true,
-      },
-        })
-      : await prisma.sshKey.findUnique({
-          where: { id: normalized.sshKeyId },
-      select: {
-        id: true,
-        name: true,
-        fingerprint: true,
-        publicKey: true,
-        privateKey: true, passphrase: true,
-        createdAt: true,
-      },
-        });
-    if (!updateSshKey) throw new NotFoundError(t("backend.server.sshKeyNotFound"));
+    updateSshKey = await findSshKeyForServer(normalized.sshKeyId, session, t);
   }
 
   if (normalized.managementMode === "DIRECT") {
@@ -730,60 +638,10 @@ export async function updateServerProfile(
     await releaseHostLock();
   }
 
-  // Optional: update bound SFTP storage root + ensure the remote directory exists.
-  // Empty / omitted storagePath leaves the existing basePath alone.
-  const nextStoragePath =
-    typeof input.storagePath === "string" ? input.storagePath.trim() : "";
-  const repairStoragePath = input.repairStoragePath === true;
-  const storageNode = updated.storageNode;
-  const onboardingWarnings: string[] = [];
-
-  if (normalized.managementMode !== current.managementMode) {
-    if (normalized.managementMode === "AGENT" && !isLocalHostLiteral(updated.host) && updated.enabled) {
-      try {
-        await installServerAgent(serverId);
-      } catch (error) {
-        onboardingWarnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) }));
-      }
-    } else if (current.managementMode === "AGENT") {
-      const cleanup = await uninstallServerAgent(serverId);
-      if (!cleanup.removed) onboardingWarnings.push(t("backend.server.agentCleanupPendingLinux"));
-    }
-  }
-
-  if (storageNode && (nextStoragePath || repairStoragePath)) {
-    const targetPath = nextStoragePath || storageNode.basePath;
-    if (nextStoragePath && nextStoragePath !== storageNode.basePath) {
-      await prisma.storageNode.update({
-        where: { id: storageNode.id },
-        data: { basePath: targetPath },
-      });
-    }
-    if (storageNode.driver === "SFTP" || (!storageNode.driver && !isLocalHostLiteral(updated.host))) {
-      try {
-        await createRemoteDirectory({
-          ...(await buildSshParamsFromServer(updated, updated.sshKey ?? null)),
-          remotePath: targetPath,
-          recursive: true,
-        });
-        await checkStorageNodeHealth(storageNode.id, session).catch(() => null);
-      } catch (error) {
-        onboardingWarnings.push(t("backend.server.update.remoteStorageFailed", {
-          path: targetPath,
-          error: getErrorMessage(error),
-        }));
-      }
-    } else {
-      try {
-        await mkdir(targetPath, { recursive: true });
-      } catch (error) {
-        onboardingWarnings.push(t("backend.server.update.localStorageFailed", {
-          path: targetPath,
-          error: getErrorMessage(error),
-        }));
-      }
-    }
-  }
+  const onboardingWarnings = [
+    ...await syncAgentForModeChange(serverId, current.managementMode, updated, t),
+    ...await applyStoragePathChange(updated, input, session, t),
+  ];
 
   const refreshed = await prisma.server.findUnique({
     where: { id: serverId },
