@@ -127,3 +127,4 @@ export const createServerSchema = z.union([
   }),
 ]);
 export type CreateServerInput = z.input<typeof createServerSchema>;
+export type CreateServerPayload = z.output<typeof createServerSchema>;
