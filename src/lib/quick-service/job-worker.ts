@@ -23,6 +23,7 @@ import {
 } from "./service";
 import { HUB_HOST_INSTANCE_KEY, type DockerTarget } from "./docker-cli";
 import { assertQuickServiceExecutionAuthorized } from "./execution-authorization";
+import { toJsonValue } from "@/lib/db/json";
 
 const logger = createLogger("quick-service-job-worker");
 
@@ -196,7 +197,7 @@ export async function enqueueQuickServiceJob(input: {
 		const job = await enqueueJob({
 			type: QUICK_SERVICE_JOB_TYPE,
 			title: input.title,
-			payload: input.payload as unknown as Prisma.InputJsonValue,
+			payload: toJsonValue(input.payload),
 			createdBy: input.createdBy ?? null,
 			teamId: input.teamId ?? null,
 			priority: input.priority ?? 10,

@@ -14,6 +14,7 @@ import { serviceT } from "@/lib/i18n/service-locale";
 import { t } from "@/lib/i18n/service-translations";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
+import { toJsonValue } from "@/lib/db/json";
 
 const logger = createLogger("sftp-sync-job-worker");
 
@@ -143,7 +144,7 @@ async function executeSftpSyncJob(job: {
   await completeJob(
     job.id,
     SFTP_SYNC_WORKER_ID,
-    result as unknown as Prisma.InputJsonValue,
+    toJsonValue(result),
   );
 }
 
