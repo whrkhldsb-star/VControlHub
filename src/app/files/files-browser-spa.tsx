@@ -1,5 +1,6 @@
 "use client";
 
+import { pickPreferredStorageNode } from "@/lib/storage/preferred-node";
 import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 
@@ -120,9 +121,11 @@ export function FilesBrowserSpa({
     data.nodeIdFilter,
   );
   const selectedNode = getNodeById(data.nodes, data.nodeIdFilter);
+  // Without a node filter, start uploads on a node that can take them: the
+  // newest node is often a draft server's storage that has never connected.
   const preferredUploadNode = data.nodeIdFilter && uploadNodes.some((node) => node.id === data.nodeIdFilter)
     ? data.nodeIdFilter
-    : uploadNodes[0]?.id ?? data.nodes[0]?.id;
+    : pickPreferredStorageNode(uploadNodes)?.id ?? pickPreferredStorageNode(data.nodes)?.id;
   const refreshLabel = selectedNode?.driver === "SFTP" ? t("filesBrowserSpa.refreshRemoteFiles") : t("filesBrowserSpa.refreshList");
   const treeLocation = `${data.nodeIdFilter}:${data.currentPath}`;
   const [treeExpansion, setTreeExpansion] = useState(() => ({

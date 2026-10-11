@@ -29,6 +29,10 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Fixed
 
+- Folder names were not validated in the browser: the `pattern` on the new-folder and rename inputs contained `/` and `|` unescaped, which Chrome rejects under its current regular-expression mode, so the attribute was ignored (and a console error logged) on every open of the file manager. The pattern is escaped; the server-side check was never affected.
+- Uploads, new folders and the share picker started on the newest storage node, which is the node just created for a server that has not connected yet (saved as a draft); the request then waited fifteen seconds and failed. They now start on a usable node (the default node, else the first that is not known to be unreachable).
+- The "a node with the same IP/host already exists" refusal was the only onboarding message not translated; it now follows the interface language.
+
 - Reverse-proxy templates: the Caddy and Apache templates did not route `/rdp`, and the Caddy template not `/direct`. `install.sh` and `upgrade.sh` re-render the whole Caddyfile, so installations that had added these routes by hand (as the remote-desktop guide asked) lost Windows remote desktop on every upgrade. Both templates now carry the routes, a test ties them to the paths the WebSocket gateway accepts, and the installer keeps the previous Caddyfile as one of the last five `.bak` copies.
 - Mobile web SSH: a finger drag did nothing in full-screen programs such as Codex and Claude Code. They run on the alternate screen with mouse tracking and keep their own history, while the drag only moved the terminal scrollback. A one-finger drag now acts like the mouse wheel: it moves the scrollback in a plain shell, sends wheel steps to programs that track the mouse, and arrow keys to alternate-screen programs such as `less`.
 - Status summaries and the lazy storage health probe excluded retired storage by the old `__deleted__` slug prefix, so storage of a customer deleted after the migration (`Team.deletedAt`) kept raising health warnings and being probed. Both now use the shared `liveCustomerRowsWhere()` filter.

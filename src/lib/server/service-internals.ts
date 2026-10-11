@@ -203,7 +203,7 @@ export function formatServerEndpoint(
 }
 
 export function buildDuplicateServerError(existing: ExistingServerForDuplicateCheck) {
-  return `A VPS node with the same IP/host already exists: ${existing.name} (${formatServerEndpoint(existing)}). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.`;
+  return t("backend.server.duplicateHost", { name: existing.name, endpoint: formatServerEndpoint(existing) });
 }
 
 export async function assertNoDuplicateServerHost(

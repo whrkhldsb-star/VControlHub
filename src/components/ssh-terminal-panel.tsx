@@ -11,7 +11,7 @@ import {
 	readSshTerminalKeepAlive,
 } from "@/components/ssh-terminal-keep-alive";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildSshWebSocketUrl } from "@/components/ssh-terminal-url";
 import { useI18n } from "@/lib/i18n/use-locale";
