@@ -1,7 +1,7 @@
 // @vitest-environment node
 // Uses only a disposable audit database. All SSH/Agent transports are mocked.
 import { randomUUID } from "node:crypto";
-import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ ssh: vi.fn() }));
 vi.mock("@/lib/command/service-ssh", () => ({
@@ -16,10 +16,14 @@ vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-cr
 
 import { prisma } from "@/lib/db";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
+import { syncBuiltinIdentityTemplates } from "@/lib/auth/identity-template-service";
 import { executeTargets } from "../service-execution";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("queued command execution revocation", () => {
   const created: Array<{ user: string; team: string; server: string; request: string }> = [];
+  // CI prepares this database with `prisma db push` (no migrations, no seed), so the built-in
+  // templates that memberships reference must be created here, as the deploy seed does.
+  beforeAll(async () => { await syncBuiltinIdentityTemplates(); });
   afterEach(async () => {
     for (const fixture of created.splice(0)) {
       await prisma.commandRequest.deleteMany({ where: { id: fixture.request } });
