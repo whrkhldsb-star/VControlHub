@@ -144,10 +144,10 @@ describe("operation task service", () => {
     expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
   });
 
-  it("allows team managers to inspect all tasks in the current team scope", async () => {
+  it("lets administrators viewing all customers inspect every task", async () => {
     await listOperationTaskResult(
       { limit: 10 },
-      { userId: "admin-1", roles: ["admin"], currentTeamId: "team-1" },
+      { userId: "admin-1", roles: ["admin"], currentTeamId: null },
     );
 
     expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));

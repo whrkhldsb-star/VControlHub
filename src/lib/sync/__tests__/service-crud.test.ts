@@ -93,7 +93,7 @@ describe("sync job CRUD scoping", () => {
 			mocks.prisma.server.findMany.mockResolvedValue([{ id: "srv_a" }]);
 
 			await expect(createSyncJob({ ...baseInput, session: operator })).rejects.toThrow(
-				/outside your team scope/,
+				/outside your customer scope/,
 			);
 			expect(mocks.prisma.syncJob.create).not.toHaveBeenCalled();
 		});
@@ -112,12 +112,16 @@ describe("sync job CRUD scoping", () => {
 			expect(where.id).not.toEqual({ in: ["srv_a", "srv_b"] });
 		});
 
-		it("lets a global manager reach any server", async () => {
+		it("limits an administrator to the servers of the selected customer", async () => {
 			await createSyncJob({ ...baseInput, session: admin });
 			expect(mocks.prisma.server.findMany).toHaveBeenCalledWith({
-				where: { id: { in: ["srv_a", "srv_b"] } },
+				where: { id: { in: ["srv_a", "srv_b"] }, teamId: "team_1" },
 				select: { id: true },
 			});
+		});
+
+		it("asks an administrator viewing all customers to pick a customer first", async () => {
+			await expect(createSyncJob({ ...baseInput, session: { ...admin, currentTeamId: null } })).rejects.toThrow();
 		});
 
 		it("stamps the caller's team on the new job", async () => {

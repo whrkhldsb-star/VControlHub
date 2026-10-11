@@ -13,6 +13,7 @@ export type WsNotification = {
 	messageCode?: string | null;
 	messageParams?: unknown;
 	actionUrl?: string | null;
+	teamId?: string | null;
 	createdAt: string;
 };
 

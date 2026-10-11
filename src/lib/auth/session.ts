@@ -8,9 +8,8 @@ import { prisma } from "@/lib/db";
 import { AuthError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import type { Permission, RoleKey } from "./rbac";
-import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
-import { resolveEffectivePermissions } from "./effective-permissions";
-import { scopePermissionsToWorkspace } from "./tenant-permissions";
+import { DEFAULT_ROLE_PERMISSIONS, getPermissionsFromRoles } from "./rbac";
+import { resolveSessionPermissions } from "./identity-templates";
 import { decodeBase64Url, signHmacToken, verifyHmacTokenSignature } from "./hmac-token";
 
 const logger = createLogger("auth:session");
@@ -69,13 +68,15 @@ export type SessionPayload = {
   username: string;
   roles: RoleKey[];
   mustChangePassword: boolean;
+  /**
+   * Active customer. A customer account is always in its own customer; a
+   * platform administrator follows its selection, and null means "all customers".
+   */
   currentTeamId: string | null;
-  /** Fresh membership role for the active workspace; never trusted from the cookie. */
-  currentTeamRole?: string | null;
   /**
    * Effective permissions of the session. Resolved from the database on every
-   * cookie-session verification (base roles ∪ the user's direct grants, see
-   * `effective-permissions.ts`) and from the token's grant list for API-token
+   * cookie-session verification (admin role, or the customer identity template, see
+   * `identity-templates.ts`) and from the token's grant list for API-token
    * sessions. Never serialised into the session cookie: a revoked grant must
    * stop working on the next request, not when the cookie expires.
    */
@@ -237,7 +238,7 @@ export async function createSessionToken(payload: SessionPayload, options: {
   return signHmacToken(envelope, getSessionSecret());
 }
 
-/** Change only this cookie's workspace while preserving its original expiry. */
+/** Change only this cookie's customer while preserving its original expiry. */
 export async function reissueSessionForTeam(token: string, teamId: string | null): Promise<{ token: string; maxAge: number }> {
   await verifySessionToken(token);
   const [encodedPayload] = token.split(".");
@@ -288,12 +289,10 @@ export async function verifySessionToken(token: string) {
      status: true,
      mustChangePassword: true,
      sessionEpoch: true,
-     // The cookie owns its workspace selection; validate its membership fresh
-     // on every request so removal revokes access across all devices.
-     teamMemberships: {
-       where: { teamId: payload.currentTeamId || "__no_active_team__" },
-       select: { teamId: true, role: true, accessRole: true, team: { select: { slug: true } }, permissionTemplate: { select: { teamId: true, kind: true, roleKeys: true, permissions: true } } },
-       take: 1,
+     // Read fresh on every request so a removed account or a changed
+     // identity template takes effect across all devices immediately.
+     teamMembership: {
+       select: { teamId: true, team: { select: { deletedAt: true } }, identityTemplate: { select: { permissions: true } } },
      },
      passwordHash: true,
      roles: { select: { role: { select: { key: true } } } },
@@ -326,47 +325,29 @@ export async function verifySessionToken(token: string) {
  const roles = assignedRoleKeys.filter(
    (key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS,
  );
- // Per-user grants live outside the static role map, so they have to be read
- // here — otherwise every guard silently falls back to role-only permissions.
- const accountPermissions = await resolveEffectivePermissions({
-   userId: user.id,
-   roles,
-   assignedRoleKeys,
- });
+ const accountPermissions = getPermissionsFromRoles(roles);
 
- // The cookie's workspace selection is per browser. Membership remains the
- // source of truth and is checked on every request, including old cookies.
- let currentTeamId =
-   user.teamMemberships?.[0]?.teamId === payload.currentTeamId &&
-   !user.teamMemberships[0].team.slug.startsWith("__deleted__")
-     ? payload.currentTeamId
-     : null;
-
- // Platform administrators may select any live workspace for creating
- // resources, even when they do not hold a membership in that workspace.
- if (!currentTeamId && roles.includes("admin") && payload.currentTeamId) {
-   const selectedTeam = await prisma.team.findUnique({
-     where: { id: payload.currentTeamId },
-     select: { id: true, slug: true },
-   });
-   if (selectedTeam && !selectedTeam.slug.startsWith("__deleted__")) {
-     currentTeamId = selectedTeam.id;
-   }
- }
-
- const membership = currentTeamId && user.teamMemberships?.[0]?.teamId === currentTeamId
-   ? user.teamMemberships[0]
+ const isAdmin = roles.includes("admin");
+ const membership = user.teamMembership && !user.teamMembership.team.deletedAt
+   ? user.teamMembership
    : null;
- const permissions = scopePermissionsToWorkspace({
+ let currentTeamId: string | null = null;
+ if (isAdmin) {
+   // Administrators may select any live customer, or none for "all customers".
+   if (payload.currentTeamId) {
+     const selectedTeam = await prisma.team.findUnique({
+       where: { id: payload.currentTeamId },
+       select: { id: true, deletedAt: true },
+     });
+     if (selectedTeam && !selectedTeam.deletedAt) currentTeamId = selectedTeam.id;
+   }
+ } else {
+   currentTeamId = membership?.teamId ?? null;
+ }
+ const permissions = resolveSessionPermissions({
    roles,
    accountPermissions,
-   membership: membership ? {
-     role: membership.role,
-     accessRole: membership.accessRole,
-     permissionTemplate: membership.permissionTemplate?.teamId === currentTeamId && membership.permissionTemplate.kind === "POLICY_GROUP"
-       ? membership.permissionTemplate
-       : null,
-   } : null,
+   identityPermissions: !isAdmin && membership ? membership.identityTemplate.permissions : null,
  });
 
  const session = {
@@ -376,7 +357,6 @@ export async function verifySessionToken(token: string) {
  permissions,
  mustChangePassword: user.mustChangePassword,
  currentTeamId,
- currentTeamRole: membership?.role ?? null,
  } satisfies SessionPayload;
  verifiedSessionBindings.set(session, captureSessionCredentialBinding(user));
  return session;

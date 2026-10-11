@@ -10,6 +10,7 @@ import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { createNotification } from "@/lib/notification/service";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 import { t } from "@/lib/i18n/service-translations";
+import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -180,37 +181,7 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 
 	if (rule.notifyChannels.includes("in_app")) {
 		const admins = await prisma.user.findMany({
-			where: {
-				roles: {
-					some: {
-						role: {
-							permissions: {
-								some: { permission: { key: "notification:manage" } },
-							},
-						},
-					},
-				},
-				// Prefer same-team operators when the rule is team-stamped so test
-				// notifications do not spam other tenants' managers.
-				...(rule.teamId
-					? {
-							OR: [
-								{ teamMemberships: { some: { teamId: rule.teamId } } },
-								{
-									roles: {
-										some: {
-											role: {
-												permissions: {
-													some: { permission: { key: "team:manage" } },
-												},
-											},
-										},
-									},
-								},
-							],
-						}
-					: {}),
-			},
+			where: { status: { not: "DISABLED" }, ...permissionHoldersWhere("notification:manage", rule.teamId) },
 			select: { id: true },
 			take: 100,
 		});

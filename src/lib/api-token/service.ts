@@ -58,13 +58,19 @@ const API_TOKEN_SAFE_SELECT = {
 export async function createApiToken(input: { userId: string; teamId: string; name: string; scopes?: string[]; expiresAt?: Date | null }) {
   const name = input.name.trim();
   if (!name) throw new ValidationError(t("backend.api-token.tokenNameIsRequired"));
-  if (!input.teamId) throw new ForbiddenError(t("backend.api-token.activeWorkspaceRequired"));
-  const membership = await prisma.teamMember.findUnique({
-    where: { teamId_userId: { teamId: input.teamId, userId: input.userId } },
-    select: { team: { select: { slug: true } } },
-  });
-  if (!membership || membership.team.slug.startsWith("__deleted__")) {
-    throw new ForbiddenError(t("backend.api-token.activeWorkspaceRequired"));
+  if (!input.teamId) throw new ForbiddenError(t("backend.api-token.activeCustomerRequired"));
+  // A token is bound to a live customer its owner may act in: an
+  // administrator's selected customer, or a customer account's own customer.
+  const [team, owner] = await Promise.all([
+    prisma.team.findUnique({ where: { id: input.teamId }, select: { deletedAt: true } }),
+    prisma.user.findUnique({
+      where: { id: input.userId },
+      select: { teamMembership: { select: { teamId: true } }, roles: { select: { role: { select: { key: true } } } } },
+    }),
+  ]);
+  const ownerIsAdmin = owner?.roles.some((entry) => entry.role.key === "admin") === true;
+  if (!team || team.deletedAt || !owner || (!ownerIsAdmin && owner.teamMembership?.teamId !== input.teamId)) {
+    throw new ForbiddenError(t("backend.api-token.activeCustomerRequired"));
   }
   const token = `${TOKEN_PREFIX}${randomBytes(TOKEN_BYTES).toString("base64url")}`;
   const tokenHash = hashApiToken(token);

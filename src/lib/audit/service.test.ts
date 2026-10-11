@@ -89,11 +89,18 @@ describe("listAuditLogs", () => {
     });
   });
 
-  it("does not apply team filter for team:manage admin sessions", async () => {
-    await listAuditLogs({ session: adminUser });
+  it("does not apply a customer filter for administrators viewing all customers", async () => {
+    await listAuditLogs({ session: { ...adminUser, currentTeamId: null } });
 
     const where = mockPrisma.auditLog.findMany.mock.calls[0]?.[0]?.where;
     expect(where).toEqual({});
+  });
+
+  it("scopes administrators to the customer they selected", async () => {
+    await listAuditLogs({ session: adminUser });
+
+    const where = mockPrisma.auditLog.findMany.mock.calls[0]?.[0]?.where;
+    expect(where).toEqual({ teamId: adminUser.currentTeamId });
   });
 });
 

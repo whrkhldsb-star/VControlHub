@@ -20,6 +20,7 @@ import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 import { t } from "@/lib/i18n/service-translations";
 import type { NotificationMessage } from "@/lib/notification/message";
 import type { AlertIncidentStatus } from "@prisma/client";
+import { customerPermissionHoldersWhere, PLATFORM_ADMIN_WHERE } from "@/lib/auth/permission-holders";
 
 const logger = createLogger("alert:incidents");
 
@@ -57,8 +58,8 @@ async function resolveNotifyUserIds(
 ): Promise<string[]> {
   const preferred = (onCallUserIds ?? []).map((id) => id.trim()).filter(Boolean);
   const teamMemberFilter = teamId
-    ? { teamMemberships: { some: { teamId } } }
-    : {};
+    ? { OR: [PLATFORM_ADMIN_WHERE, { teamMembership: { is: { teamId } } }] }
+    : PLATFORM_ADMIN_WHERE;
   if (preferred.length > 0) {
     const users = await prisma.user.findMany({
       where: {
@@ -71,21 +72,18 @@ async function resolveNotifyUserIds(
     });
     if (users.length > 0) return users.map((u) => u.id);
   }
-  // Fallback on-call pool: notification:manage users, scoped to the rule's team when set.
+  // Fallback on-call pool: the customer's notification managers, else the
+  // platform administrators.
+  if (teamId) {
+    const staff = await prisma.user.findMany({
+      where: { status: { not: "DISABLED" }, ...customerPermissionHoldersWhere("notification:manage", teamId) },
+      select: { id: true },
+      take: 100,
+    });
+    if (staff.length > 0) return staff.map((u) => u.id);
+  }
   const admins = await prisma.user.findMany({
-    where: {
-      status: { not: "DISABLED" },
-      ...teamMemberFilter,
-      roles: {
-        some: {
-          role: {
-            permissions: {
-              some: { permission: { key: "notification:manage" } },
-            },
-          },
-        },
-      },
-    },
+    where: { status: { not: "DISABLED" }, ...PLATFORM_ADMIN_WHERE },
     select: { id: true },
     take: 100,
   });

@@ -252,7 +252,7 @@ export async function createStorageNode(
 
   if (session && !isGlobalTeamManager(session) && payload.driver === "LOCAL" &&
       (!session.currentTeamId || !localBasePathBelongsToTenant(payload.basePath, session.currentTeamId))) {
-    throw new ValidationError(t("backend.storage.localPathOutsideWorkspace"));
+    throw new ValidationError(t("backend.storage.localPathOutsideCustomer"));
   }
 
   if (payload.driver === "SFTP" && !payload.serverId && !payload.host) {
@@ -380,7 +380,7 @@ export async function updateStorageNode(
   if (session && !isGlobalTeamManager(session) && nextDriver === "LOCAL" &&
       (driverChanged || (payload.basePath !== undefined && payload.basePath !== current.basePath)) &&
       (!session.currentTeamId || !localBasePathBelongsToTenant(payload.basePath ?? current.basePath, session.currentTeamId))) {
-    throw new ValidationError(t("backend.storage.localPathOutsideWorkspace"));
+    throw new ValidationError(t("backend.storage.localPathOutsideCustomer"));
   }
   const nextAccessMode = nextDriver === "WEBDAV" ? "PROXY" : payload.directAccessMode ?? (driverChanged ? "PROXY" : current.directAccessMode);
   const nextPublicBaseUrl = nextDriver === "WEBDAV" || driverChanged ? null : payload.publicBaseUrl === undefined
@@ -477,12 +477,16 @@ export async function listStorageNodes(session?: TeamSession | null) {
     include: {
       ...STORAGE_NODE_SERVER_INCLUDE,
       _count: { select: { fileEntries: { where: { isDeleted: false } } } },
+      team: { select: { name: true } },
     },
   });
+  // Administrators may list every customer's nodes; name the owner for them.
+  const showCustomer = session ? isGlobalTeamManager(session) : false;
 
-  return nodes.map((node: StorageNodeListRow) => ({
+  return nodes.map((node: StorageNodeListRow & { team: { name: string } | null }) => ({
     id: node.id,
     name: node.name,
+    teamName: showCustomer ? node.team?.name ?? null : null,
     driver: node.driver,
     isDefault: node.isDefault,
     basePath: node.basePath,

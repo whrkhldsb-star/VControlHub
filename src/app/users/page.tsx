@@ -8,8 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
 	const session = await requireSession("/users");
-	const canManageResources = sessionHasPermission(session, "team:member:manage");
-	const canRead = sessionHasPermission(session, "user:read") || canManageResources;
+	const canRead = sessionHasPermission(session, "user:read");
 	const canManage = sessionHasPermission(session, "user:manage");
 	const locale = await getServerLocale();
 
@@ -23,10 +22,9 @@ export default async function UsersPage() {
 				header={{
 					eyebrow: t("usersPage.eyebrow", locale),
 					title: t("users.title", locale),
-					description: canManage || canManageResources ? t("users.desc.manage", locale) : t("users.desc.readonly", locale),
+					description: canManage ? t("users.desc.manage", locale) : t("users.desc.readonly", locale),
 				}}
 				canManage={canManage}
-				canManageResources={canManage || canManageResources}
 				currentUserId={session.userId}
 			/>
 		</PageShell>

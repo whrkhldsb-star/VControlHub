@@ -42,6 +42,7 @@ vi.mock("@/lib/auth/authorization", () => ({
 }));
 vi.mock("@/lib/auth/team-scope", () => ({
   isGlobalTeamManager: () => false,
+  seesAllCustomers: () => false,
   teamWhere: () => ({ teamId: "team_1" }),
 }));
 vi.mock("node:fs/promises", () => ({

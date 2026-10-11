@@ -113,7 +113,7 @@ describe("ticket service", () => {
 
     await expect(
       updateTicketStatus({ id: "tk1", assigneeId: "foreign-user", session: teamSession }),
-    ).rejects.toThrow(/不是当前团队成员|not a member of this team/);
+    ).rejects.toThrow(/不是当前客户的账号|not a member of this customer/);
     expect(mockPrisma.ticket.updateMany).not.toHaveBeenCalled();
   });
 
@@ -317,10 +317,10 @@ describe("ticket service", () => {
     expect(mockPrisma.ticketComment.create).not.toHaveBeenCalled();
   });
 
-  it("admin session does not apply team filter on getTicketById", async () => {
+  it("admin viewing all customers does not apply a customer filter on getTicketById", async () => {
     mockPrisma.ticket.findFirst.mockResolvedValueOnce({ id: "tk1" });
 
-    await getTicketById("tk1", adminSession);
+    await getTicketById("tk1", { ...adminSession, currentTeamId: null });
 
     expect(mockPrisma.ticket.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({

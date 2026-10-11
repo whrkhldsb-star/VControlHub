@@ -32,22 +32,23 @@ export async function GET(request: Request) {
 
       const storageNodes = await listStorageNodes(session);
       const canManageNodes = Boolean(session && sessionHasPermission(session, "storage:manage-node"));
-      const readableNodeIds = canManageNodes || !session
+      // Path grants narrow a customer account: a node with grants is listed
+      // only when one of them allows reading; a node without grants is not narrowed.
+      const narrowing = canManageNodes || !session
         ? null
-        : new Set(
-            (await prisma.userStorageAccess.findMany({
-              where: { userId: session.userId, canRead: true },
-              select: { storageNodeId: true },
-              distinct: ["storageNodeId"],
-              take: 500,
-            })).map((grant) => grant.storageNodeId),
-          );
+        : await prisma.userStorageAccess.findMany({
+            where: { userId: session.userId },
+            select: { storageNodeId: true, canRead: true },
+            take: 5000,
+          });
+      const readableNodeIds = narrowing && new Set(narrowing.filter((grant) => grant.canRead).map((grant) => grant.storageNodeId));
+      const narrowedNodeIds = narrowing && new Set(narrowing.map((grant) => grant.storageNodeId));
       const nodes = storageNodes
         .filter((node) => !driverFilter || node.driver === driverFilter)
         .filter((node) =>
           node.driver !== "SFTP" || Boolean(node.serverId || node.server || node.host),
         )
-        .filter((node) => readableNodeIds === null || readableNodeIds.has(node.id))
+        .filter((node) => !narrowedNodeIds || !narrowedNodeIds.has(node.id) || readableNodeIds!.has(node.id))
         .map((node) => ({
           id: node.id,
           name: node.name,

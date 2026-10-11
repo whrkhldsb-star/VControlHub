@@ -1,6 +1,6 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { z } from "zod";
-import { isWorkspaceTeamManager, storageNodeTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, storageNodeTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
@@ -25,7 +25,7 @@ async function getReadableScope(
       grantRules: Array<{ storageNodeId: string; pathPrefix: string }>;
     }
 > {
-  if (isWorkspaceTeamManager(session) || sessionHasPermission(session, "storage:manage-node")) {
+  if (isGlobalTeamManager(session) || sessionHasPermission(session, "storage:manage-node")) {
     return null;
   }
 
@@ -53,17 +53,20 @@ async function getReadableScope(
     grantCursor = page.length === 500 ? { id: page[page.length - 1]!.id } : undefined;
   } while (grantCursor);
 
+  // A node without any grant is not narrowed: all of it is visible. On a node
+  // with grants only the readable granted prefixes are.
+  const narrowedNodeIds = new Set(grants.map((grant) => grant.storageNodeId));
+  const nodesWithoutGrants = sessionHasPermission(session, "storage:read")
+    ? nodeIds.filter((id) => !narrowedNodeIds.has(id))
+    : [];
   const readable = grants.filter((grant) => grant.canRead);
-  // Nodes where the user holds at least one read grant: on those nodes only
-  // the granted prefixes are visible. Nodes without any grant contribute
-  // nothing (no legacy fallback for the recycle bin — it exposes metadata).
   const grantRules = readable.flatMap((grant) => {
     const prefix = normalizeStorageTargetDirectory(grant.pathPrefix);
     // An invalid grant must not turn into the empty (whole-node) prefix.
     return prefix.ok ? [{ storageNodeId: grant.storageNodeId, pathPrefix: prefix.path }] : [];
   });
 
-  return { nodesWithoutGrants: [], grantRules };
+  return { nodesWithoutGrants, grantRules };
 }
 
 /** Prisma `where` fragment matching entries visible under at least one grant rule. */

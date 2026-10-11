@@ -39,8 +39,8 @@ vi.mock("../language-toggle", () => ({
 	LanguageToggle: () => <button type="button" aria-label="语言" />,
 }));
 
-vi.mock("../team-switcher", () => ({
-	TeamSwitcher: () => null,
+vi.mock("../customer-switcher", () => ({
+	CustomerSwitcher: () => null,
 }));
 
 function renderWithGate(

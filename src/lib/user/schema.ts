@@ -11,7 +11,11 @@ export const createUserSchema = z.object({
     .regex(/^[A-Za-z0-9_.-]+$/, "Username can only contain letters, numbers, underscores, dots, and hyphens"),
   password: z.string().min(6, "Password must be at least 6 characters").max(128, "Password must be at most 128 characters"),
   displayName: z.string().trim().max(80, "Display name must be at most 80 characters").optional(),
-  roleKeys: z.array(z.string()).max(20).optional(),
+  /** A platform administrator, or a customer account with its identity template. */
+  account: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("admin") }),
+    z.object({ type: z.literal("customer"), teamId: z.string().trim().min(1), identityTemplateId: z.string().trim().min(1).nullable().optional() }),
+  ]),
 });
 
 /* ── PATCH /api/users ────────────────────────────────────────────────── */
@@ -22,7 +26,6 @@ export const updateUserSchema = z
   .object({
     userId: z.string().trim().min(1, "Missing user ID"),
     action: z.enum(USER_PATCH_ACTIONS, { message: "Unsupported action" }).optional(),
-    roleKeys: z.array(z.string()).max(20).optional(),
     newPassword: z
       .string()
       .min(6, "New password must be at least 6 characters")
@@ -32,7 +35,6 @@ export const updateUserSchema = z
   .refine(
     (data) =>
       data.action !== undefined ||
-      data.roleKeys !== undefined ||
       data.newPassword !== undefined,
     { message: "At least one update field must be provided", path: [] },
   )

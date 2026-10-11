@@ -127,14 +127,16 @@ describe("assertAdminAccessMayBeRemoved", () => {
   });
 });
 
+const ADMIN = { type: "admin" } as const;
+
 describe("user schemas", () => {
   it("rejects a username with a path or shell metacharacter", async () => {
     const { createUserSchema } = await import("../schema");
 
     for (const username of ["a/b", "a b", "a;b", "../etc", "a$b", ""]) {
-      expect(createUserSchema.safeParse({ username, password: "secret1" }).success).toBe(false);
+      expect(createUserSchema.safeParse({ username, password: "secret1", account: ADMIN }).success).toBe(false);
     }
-    expect(createUserSchema.safeParse({ username: "a.b-c_1", password: "secret1" }).success).toBe(
+    expect(createUserSchema.safeParse({ username: "a.b-c_1", password: "secret1", account: ADMIN }).success).toBe(
       true,
     );
   });
@@ -142,7 +144,7 @@ describe("user schemas", () => {
   it("trims the username before length validation", async () => {
     const { createUserSchema } = await import("../schema");
 
-    const parsed = createUserSchema.safeParse({ username: "  bob  ", password: "secret1" });
+    const parsed = createUserSchema.safeParse({ username: "  bob  ", password: "secret1", account: ADMIN });
 
     expect(parsed.success).toBe(true);
     expect(parsed.success && parsed.data.username).toBe("bob");
@@ -155,7 +157,8 @@ describe("user schemas", () => {
     // entry.
     expect(updateUserSchema.safeParse({ userId: "u1" }).success).toBe(false);
     expect(updateUserSchema.safeParse({ userId: "u1", action: "disable" }).success).toBe(true);
-    expect(updateUserSchema.safeParse({ userId: "u1", roleKeys: [] }).success).toBe(true);
+    // Roles are not part of this endpoint any more.
+    expect(updateUserSchema.safeParse({ userId: "u1", roleKeys: [] }).success).toBe(false);
   });
 
   it("will not accept reset_password without a new password", async () => {
@@ -173,21 +176,21 @@ describe("user schemas", () => {
     expect(updateUserSchema.safeParse({ userId: "u1", action: "delete" }).success).toBe(false);
   });
 
-  it("caps roleKeys so one request cannot assign an unbounded role list", async () => {
-    const { updateUserSchema } = await import("../schema");
+  it("requires an account type, and a customer for customer accounts", async () => {
+    const { createUserSchema } = await import("../schema");
 
-    const tooMany = Array.from({ length: 21 }, (_, i) => `role${i}`);
-
-    expect(updateUserSchema.safeParse({ userId: "u1", roleKeys: tooMany }).success).toBe(false);
+    expect(createUserSchema.safeParse({ username: "bob", password: "secret1" }).success).toBe(false);
+    expect(createUserSchema.safeParse({ username: "bob", password: "secret1", account: { type: "customer" } }).success).toBe(false);
+    expect(createUserSchema.safeParse({ username: "bob", password: "secret1", account: { type: "customer", teamId: "t1" } }).success).toBe(true);
   });
 
   it("enforces the password length bounds on both ends", async () => {
     const { createUserSchema } = await import("../schema");
 
-    expect(createUserSchema.safeParse({ username: "bob", password: "12345" }).success).toBe(false);
-    expect(createUserSchema.safeParse({ username: "bob", password: "123456" }).success).toBe(true);
+    expect(createUserSchema.safeParse({ username: "bob", password: "12345", account: ADMIN }).success).toBe(false);
+    expect(createUserSchema.safeParse({ username: "bob", password: "123456", account: ADMIN }).success).toBe(true);
     expect(
-      createUserSchema.safeParse({ username: "bob", password: "x".repeat(129) }).success,
+      createUserSchema.safeParse({ username: "bob", password: "x".repeat(129), account: ADMIN }).success,
     ).toBe(false);
   });
 });

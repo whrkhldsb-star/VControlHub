@@ -29,7 +29,7 @@ const {
   prismaServerUpdateManyMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
   teamWhereMock: vi.fn(() => ({})),
-  serverTeamWhereMock: vi.fn(() => ({})),
+  serverTeamWhereMock: vi.fn((_session?: unknown, _capability?: string) => ({})),
 }));
 
 vi.mock("next/cache", () => ({
@@ -44,6 +44,7 @@ vi.mock("@/lib/auth/authorization", () => ({
 vi.mock("@/lib/auth/team-scope", () => ({
   teamWhere: teamWhereMock,
   serverTeamWhere: serverTeamWhereMock,
+  serverProfileTeamWhere: (session: unknown) => serverTeamWhereMock(session, "manage"),
   teamCreateData: vi.fn(() => ({})),
   teamAccessFilter: vi.fn(() => undefined),
 }));

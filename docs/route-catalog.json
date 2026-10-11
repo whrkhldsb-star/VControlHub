@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-10-09T18:08:53.997Z",
+  "generatedAt": "2026-10-10T17:17:35.432Z",
   "summary": {
     "sidebarMain": 26,
-    "sidebarSystem": 10,
+    "sidebarSystem": 11,
     "sidebarMobile": 4,
-    "pages": 55,
-    "apiRoutes": 188,
-    "permissionsDefined": 54
+    "pages": 56,
+    "apiRoutes": 189,
+    "permissionsDefined": 52
   },
   "sidebar": {
     "main": [
@@ -119,6 +119,10 @@
       {
         "href": "/settings",
         "fallbackLabel": "Settings"
+      },
+      {
+        "href": "/customers",
+        "fallbackLabel": "Customers"
       },
       {
         "href": "/users",
@@ -299,6 +303,18 @@
       "navigationPermissions": [
         "cost:manage",
         "cost:read"
+      ]
+    },
+    {
+      "path": "/customers",
+      "file": "src/app/customers/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
+      "declaredPermissions": [
+        "team:manage"
+      ],
+      "navigationPermissions": [
+        "team:manage"
       ]
     },
     {
@@ -670,13 +686,9 @@
       "inSidebarMain": false,
       "inSidebarSystem": true,
       "declaredPermissions": [
-        "team:create",
-        "team:manage",
         "user:manage"
       ],
       "navigationPermissions": [
-        "team:create",
-        "team:manage",
         "user:manage"
       ]
     },
@@ -752,11 +764,9 @@
       "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "team:manage",
         "ticket:manage"
       ],
       "navigationPermissions": [
-        "team:manage",
         "ticket:manage"
       ]
     },
@@ -792,12 +802,10 @@
       "inSidebarMain": false,
       "inSidebarSystem": true,
       "declaredPermissions": [
-        "team:member:manage",
         "user:manage",
         "user:read"
       ],
       "navigationPermissions": [
-        "team:member:manage",
         "user:manage",
         "user:read"
       ]
@@ -1799,6 +1807,30 @@
       ]
     },
     {
+      "path": "/api/identity-templates/[id]",
+      "file": "src/app/api/identity-templates/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "team:manage"
+      ]
+    },
+    {
+      "path": "/api/identity-templates",
+      "file": "src/app/api/identity-templates/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "team:manage"
+      ]
+    },
+    {
       "path": "/api/images/[id]/file",
       "file": "src/app/api/images/[id]/file/route.ts",
       "methods": [
@@ -2262,33 +2294,6 @@
       ]
     },
     {
-      "path": "/api/role-templates/[id]",
-      "file": "src/app/api/role-templates/[id]/route.ts",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "guardMode": "withApiRoute",
-      "declaredPermissions": [
-        "role:manage",
-        "team:member:manage"
-      ]
-    },
-    {
-      "path": "/api/role-templates",
-      "file": "src/app/api/role-templates/route.ts",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "guardMode": "withApiRoute",
-      "declaredPermissions": [
-        "role:manage",
-        "team:member:manage",
-        "user:read"
-      ]
-    },
-    {
       "path": "/api/scheduled-tasks",
       "file": "src/app/api/scheduled-tasks/route.ts",
       "methods": [
@@ -2428,6 +2433,17 @@
       "guardMode": "manual",
       "declaredPermissions": [
         "server:ssh"
+      ]
+    },
+    {
+      "path": "/api/servers/[id]/transfer",
+      "file": "src/app/api/servers/[id]/transfer/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "team:manage"
       ]
     },
     {
@@ -2811,7 +2827,6 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "team:member:manage",
         "user:manage"
       ]
     },
@@ -2841,28 +2856,36 @@
       "path": "/api/teams/[id]/members/[userId]",
       "file": "src/app/api/teams/[id]/members/[userId]/route.ts",
       "methods": [
-        "DELETE"
+        "DELETE",
+        "PATCH"
       ],
       "guardMode": "withApiRoute",
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "team:manage"
+      ]
     },
     {
       "path": "/api/teams/[id]/members",
       "file": "src/app/api/teams/[id]/members/route.ts",
       "methods": [
+        "GET",
         "POST"
       ],
       "guardMode": "withApiRoute",
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "team:manage"
+      ]
     },
     {
-      "path": "/api/teams/[id]/owner",
-      "file": "src/app/api/teams/[id]/owner/route.ts",
+      "path": "/api/teams/[id]/restore",
+      "file": "src/app/api/teams/[id]/restore/route.ts",
       "methods": [
         "POST"
       ],
       "guardMode": "withApiRoute",
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "team:manage"
+      ]
     },
     {
       "path": "/api/teams/[id]",
@@ -2872,7 +2895,9 @@
         "PATCH"
       ],
       "guardMode": "withApiRoute",
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "team:manage"
+      ]
     },
     {
       "path": "/api/teams",
@@ -2883,6 +2908,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "team:manage",
         "team:read"
       ]
     },
@@ -2893,7 +2919,9 @@
         "POST"
       ],
       "guardMode": "withApiRoute",
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "team:manage"
+      ]
     },
     {
       "path": "/api/tickets/[id]",
@@ -2982,9 +3010,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "team:member:manage",
-        "user:manage",
-        "user:read"
+        "user:manage"
       ]
     },
     {
@@ -2997,7 +3023,6 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "team:member:manage",
         "user:manage",
         "user:read"
       ]
@@ -3063,10 +3088,8 @@
     "storage:read",
     "storage:write",
     "task:read",
-    "team:create",
     "team:read",
     "team:manage",
-    "team:member:manage",
     "ticket:create",
     "ticket:manage",
     "ticket:read",

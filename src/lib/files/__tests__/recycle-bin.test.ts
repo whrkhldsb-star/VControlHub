@@ -15,7 +15,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/auth/team-scope", () => ({
-  isWorkspaceTeamManager: () => false,
+  isGlobalTeamManager: () => false,
   storageNodeTeamWhere: () => ({ teamId: "team-a" }),
 }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.hasPermission }));

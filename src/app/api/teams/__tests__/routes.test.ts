@@ -1,222 +1,128 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Route-level contract for the workspace endpoints. Every one of them is a thin
- * delegate — all authorization lives in `@/lib/team/service` — so what is worth
- * pinning here is the guard configuration and the delegation, not the business
- * rules (those are covered in `src/lib/team/__tests__/service.test.ts`).
+ * Route-level contract for the customer endpoints. Every route is a thin
+ * delegate — the business rules live in `@/lib/team/service` and are covered
+ * in its own tests — so this pins the guard configuration and the delegation.
  */
 const { serviceMock, guardCalls, teamSessionResponseMock } = vi.hoisted(() => ({
 	serviceMock: {
 		listTeamsForSession: vi.fn(),
+		listCustomerMembers: vi.fn(),
 		createTeam: vi.fn(),
 		updateTeam: vi.fn(),
 		deleteTeam: vi.fn(),
-		addTeamMember: vi.fn(),
+		restoreTeam: vi.fn(),
+		setCustomerMembership: vi.fn(),
 		removeTeamMember: vi.fn(),
 		switchCurrentTeam: vi.fn(),
-		transferTeamOwnership: vi.fn(),
 	},
 	guardCalls: [] as Record<string, unknown>[],
 	teamSessionResponseMock: vi.fn(async (_request: Request, _teamId: string | null, body: unknown) => Response.json(body)),
 }));
 
 vi.mock("@/lib/team/service", () => serviceMock);
-vi.mock("@/lib/auth/team-session-response", () => ({
-	teamSessionResponse: teamSessionResponseMock,
-}));
+vi.mock("@/lib/auth/team-session-response", () => ({ teamSessionResponse: teamSessionResponseMock }));
 vi.mock("@/lib/http/api-guard", () => ({
-	withApiRoute: vi.fn(async (request: Request, options: any, handler: any) => {
+	withApiRoute: vi.fn(async (request: Request, options: Record<string, any>, handler: (ctx: unknown) => Promise<Response>) => {
 		guardCalls.push(options);
 		let body: unknown = undefined;
 		if (options.bodySchema) {
 			const raw = await request.clone().json().catch(() => undefined);
 			const parsed = options.bodySchema.safeParse(raw);
-			if (!parsed.success) {
-				return new Response(JSON.stringify({ error: "输入参数无效" }), { status: 400 });
-			}
+			if (!parsed.success) return new Response(JSON.stringify({ error: "输入参数无效" }), { status: 400 });
 			body = parsed.data;
 		}
-		try {
-			return await handler({ session, body });
-		} catch (error) {
-			const status = (error as { status?: number }).status ?? 500;
-			return new Response(JSON.stringify({ error: (error as Error).message }), { status });
-		}
+		return handler({ session, body });
 	}),
 }));
 
 const session = { userId: "u_admin", username: "admin", roles: ["admin"], mustChangePassword: false, currentTeamId: null };
 
 const { GET, POST: createRoute } = await import("../route");
-const { PATCH, DELETE: deleteTeamRoute } = await import("../[id]/route");
-const { POST: addMemberRoute } = await import("../[id]/members/route");
-const { DELETE: removeMemberRoute } = await import("../[id]/members/[userId]/route");
+const { PATCH, DELETE: deleteRoute } = await import("../[id]/route");
+const { POST: restoreRoute } = await import("../[id]/restore/route");
+const { GET: listMembersRoute, POST: setMemberRoute } = await import("../[id]/members/route");
+const { PATCH: updateMemberRoute, DELETE: removeMemberRoute } = await import("../[id]/members/[userId]/route");
 const { POST: switchRoute } = await import("../switch/route");
-const { POST: transferOwnerRoute } = await import("../[id]/owner/route");
 
-function post(url: string, body: unknown) {
-	return new Request(url, {
-		method: "POST",
-		headers: { "content-type": "application/json" },
-		body: JSON.stringify(body),
-	});
-}
+const json = (method: string, url: string, body: unknown) =>
+	new Request(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+const params = <T extends Record<string, string>>(value: T) => ({ params: Promise.resolve(value) });
 
-describe("teams API routes", () => {
+describe("customer API routes", () => {
 	beforeEach(() => {
-		// `mockReset` rather than `clearAllMocks`: the latter keeps queued
-		// `mockResolvedValueOnce` values, so an unconsumed one leaks into the next
-		// test. Resetting the guard mock would wipe its implementation, so only the
-		// service stubs are reset.
 		for (const stub of Object.values(serviceMock)) stub.mockReset();
 		teamSessionResponseMock.mockClear();
 		guardCalls.length = 0;
 	});
 
-	it("lists workspaces behind team:read", async () => {
-		serviceMock.listTeamsForSession.mockResolvedValueOnce({ teams: [], currentTeamId: null });
-
-		const response = await GET(new Request("https://app.example.test/api/teams"));
-
+	it("lists customers to anyone who may read their customer", async () => {
+		serviceMock.listTeamsForSession.mockResolvedValueOnce({ teams: [], deletedTeams: [], currentTeamId: null });
+		const response = await GET(new Request("https://app.test/api/teams"));
 		expect(response.status).toBe(200);
-		await expect(response.json()).resolves.toEqual({ teams: [], currentTeamId: null });
-		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
+		expect(guardCalls[0]).toMatchObject({ permission: "team:read" });
 		expect(serviceMock.listTeamsForSession).toHaveBeenCalledWith(session);
 	});
 
-	it("creates a workspace behind team:create and rate limiting", async () => {
-		serviceMock.createTeam.mockResolvedValueOnce({ id: "team_1", slug: "ops" });
+	it("keeps every write behind the platform-only team:manage permission", async () => {
+		serviceMock.createTeam.mockResolvedValue({ id: "team_1" });
+		serviceMock.updateTeam.mockResolvedValue({ id: "team_1" });
+		serviceMock.deleteTeam.mockResolvedValue({ nextCurrentTeamId: null });
+		serviceMock.listCustomerMembers.mockResolvedValue([]);
+		serviceMock.setCustomerMembership.mockResolvedValue({});
+		serviceMock.switchCurrentTeam.mockResolvedValue(null);
 
-		const response = await createRoute(post("https://app.example.test/api/teams", { name: "Ops", slug: "ops" }));
+		await createRoute(json("POST", "https://app.test/api/teams", { name: "Acme" }));
+		await PATCH(json("PATCH", "https://app.test/api/teams/team_1", { name: "Acme 2" }), params({ id: "team_1" }));
+		await deleteRoute(new Request("https://app.test/api/teams/team_1", { method: "DELETE" }), params({ id: "team_1" }));
+		await restoreRoute(new Request("https://app.test/api/teams/team_1/restore", { method: "POST" }), params({ id: "team_1" }));
+		await listMembersRoute(new Request("https://app.test/api/teams/team_1/members"), params({ id: "team_1" }));
+		await setMemberRoute(json("POST", "https://app.test/api/teams/team_1/members", { userId: "u_2" }), params({ id: "team_1" }));
+		await updateMemberRoute(json("PATCH", "https://app.test/api/teams/team_1/members/u_2", { identityTemplateId: "identity:operator" }), params({ id: "team_1", userId: "u_2" }));
+		await removeMemberRoute(new Request("https://app.test/api/teams/team_1/members/u_2", { method: "DELETE" }), params({ id: "team_1", userId: "u_2" }));
+		await switchRoute(json("POST", "https://app.test/api/teams/switch", { teamId: null }));
 
-		expect(response.status).toBe(200);
-		await expect(response.json()).resolves.toMatchObject({ success: true, team: { id: "team_1" } });
-		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
-		expect(guardCalls[0]?.rateLimit).toBeDefined();
+		expect(guardCalls).toHaveLength(9);
+		for (const options of guardCalls) expect(options).toMatchObject({ permission: "team:manage" });
 	});
 
-	it("transfers ownership through a browser session and validated target", async () => {
-		serviceMock.transferTeamOwnership.mockResolvedValueOnce({ teamId: "team_1", ownerId: "u_2" });
-		const response = await transferOwnerRoute(post("https://app.example.test/api/teams/team_1/owner", { userId: "u_2" }), { params: Promise.resolve({ id: "team_1" }) });
-		expect(response.status).toBe(200);
-		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
-		expect(serviceMock.transferTeamOwnership).toHaveBeenCalledWith("team_1", { userId: "u_2" }, session);
+	it("passes route ids and bodies through to the service", async () => {
+		serviceMock.setCustomerMembership.mockResolvedValue({});
+		await setMemberRoute(json("POST", "https://app.test/api/teams/team_1/members", { userId: "u_2", identityTemplateId: "identity:files" }), params({ id: "team_1" }));
+		expect(serviceMock.setCustomerMembership).toHaveBeenCalledWith({ teamId: "team_1", userId: "u_2", identityTemplateId: "identity:files" }, session);
+
+		await updateMemberRoute(json("PATCH", "https://app.test/api/teams/team_1/members/u_3", { identityTemplateId: "identity:viewer" }), params({ id: "team_1", userId: "u_3" }));
+		expect(serviceMock.setCustomerMembership).toHaveBeenLastCalledWith({ teamId: "team_1", userId: "u_3", identityTemplateId: "identity:viewer" }, session);
+
+		await removeMemberRoute(new Request("https://app.test/api/teams/team_1/members/u_3", { method: "DELETE" }), params({ id: "team_1", userId: "u_3" }));
+		expect(serviceMock.removeTeamMember).toHaveBeenCalledWith("team_1", "u_3", session);
 	});
 
-	it("rejects a slug that could collide with the tombstone prefix at the boundary", async () => {
-		// The service refuses `__deleted__*` too; the schema regex means such a body
-		// never reaches it. Both layers are deliberate.
-		const response = await createRoute(
-			post("https://app.example.test/api/teams", { name: "Ghost", slug: "__deleted__ghost" }),
-		);
+	it("rotates the cookie after a switch, including to all customers", async () => {
+		serviceMock.switchCurrentTeam.mockResolvedValueOnce({ id: "team_2" });
+		await switchRoute(json("POST", "https://app.test/api/teams/switch", { teamId: "team_2" }));
+		expect(teamSessionResponseMock).toHaveBeenLastCalledWith(expect.any(Request), "team_2", expect.anything());
 
-		expect(response.status).toBe(400);
+		serviceMock.switchCurrentTeam.mockResolvedValueOnce(null);
+		await switchRoute(json("POST", "https://app.test/api/teams/switch", { teamId: null }));
+		expect(teamSessionResponseMock).toHaveBeenLastCalledWith(expect.any(Request), null, expect.anything());
+	});
+
+	it("moves the caller's cookie off a customer it just deleted", async () => {
+		serviceMock.deleteTeam.mockResolvedValueOnce({ nextCurrentTeamId: null });
+		await deleteRoute(new Request("https://app.test/api/teams/team_1", { method: "DELETE" }), params({ id: "team_1" }));
+		expect(teamSessionResponseMock).toHaveBeenCalledWith(expect.any(Request), null, { success: true });
+	});
+
+	it("rejects invalid bodies before reaching the service", async () => {
+		const blankName = await createRoute(json("POST", "https://app.test/api/teams", { name: "  " }));
+		expect(blankName.status).toBe(400);
+		const badSlug = await createRoute(json("POST", "https://app.test/api/teams", { name: "Acme", slug: "_hidden" }));
+		expect(badSlug.status).toBe(400);
+		const noAccount = await setMemberRoute(json("POST", "https://app.test/api/teams/team_1/members", {}), params({ id: "team_1" }));
+		expect(noAccount.status).toBe(400);
 		expect(serviceMock.createTeam).not.toHaveBeenCalled();
-	});
-
-	it("rejects a nameless workspace", async () => {
-		const response = await createRoute(post("https://app.example.test/api/teams", { name: "   " }));
-
-		expect(response.status).toBe(400);
-		expect(serviceMock.createTeam).not.toHaveBeenCalled();
-	});
-
-	it.each([
-		["PATCH", async () => PATCH(post("https://app.example.test/api/teams/team_1", { name: "Ops" }), { params: Promise.resolve({ id: "team_1" }) })],
-		["DELETE", async () => deleteTeamRoute(new Request("https://app.example.test/api/teams/team_1", { method: "DELETE" }), { params: Promise.resolve({ id: "team_1" }) })],
-	])("gates %s on the session alone so a workspace owner keeps access", async (_method, call) => {
-		serviceMock.updateTeam.mockResolvedValueOnce({ id: "team_1" });
-		serviceMock.deleteTeam.mockResolvedValueOnce({ deleted: true, currentTeamId: null });
-
-		await call();
-
-		// A `team:manage` requirement here would lock out the owner of the workspace:
-		// updateTeam/deleteTeam accept global team:manage *or* owner/admin of this team.
-		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
-		expect(guardCalls[0]?.permission).toBeUndefined();
-	});
-
-	it("passes the route id through to updateTeam", async () => {
-		serviceMock.updateTeam.mockResolvedValueOnce({ id: "team_1", name: "Ops" });
-
-		const response = await PATCH(post("https://app.example.test/api/teams/team_1", { name: "Ops" }), {
-			params: Promise.resolve({ id: "team_1" }),
-		});
-
-		expect(response.status).toBe(200);
-		expect(serviceMock.updateTeam).toHaveBeenCalledWith("team_1", { name: "Ops" }, session);
-	});
-
-	it("surfaces the service's own status instead of a blanket 500", async () => {
-		serviceMock.deleteTeam.mockRejectedValueOnce(Object.assign(new Error("缺少团队工作区管理权限"), { status: 403 }));
-
-		const response = await deleteTeamRoute(new Request("https://app.example.test/api/teams/team_1", { method: "DELETE" }), {
-			params: Promise.resolve({ id: "team_1" }),
-		});
-
-		expect(response.status).toBe(403);
-	});
-
-	it("rotates the caller's cookie to the fallback workspace after deletion", async () => {
-		serviceMock.deleteTeam.mockResolvedValueOnce({ deleted: true, currentTeamId: "team_2" });
-		const request = new Request("https://app.example.test/api/teams/team_1", { method: "DELETE" });
-
-		const response = await deleteTeamRoute(request, { params: Promise.resolve({ id: "team_1" }) });
-
-		expect(response.status).toBe(200);
-		expect(teamSessionResponseMock).toHaveBeenCalledWith(request, "team_2", { success: true });
-	});
-
-	it("adds a member after target-workspace authorization and defaults the role", async () => {
-		serviceMock.addTeamMember.mockResolvedValueOnce({ role: "member" });
-
-		const response = await addMemberRoute(post("https://app.example.test/api/teams/team_1/members", { username: "alice" }), {
-			params: Promise.resolve({ id: "team_1" }),
-		});
-
-		expect(response.status).toBe(200);
-		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
-		expect(serviceMock.addTeamMember).toHaveBeenCalledWith("team_1", { username: "alice", role: "member" }, session);
-	});
-
-	it("refuses to grant the owner role through the member API", async () => {
-		const response = await addMemberRoute(
-			post("https://app.example.test/api/teams/team_1/members", { username: "alice", role: "owner" }),
-			{ params: Promise.resolve({ id: "team_1" }) },
-		);
-
-		expect(response.status).toBe(400);
-		expect(serviceMock.addTeamMember).not.toHaveBeenCalled();
-	});
-
-	it("removes a member after target-workspace authorization with both path params", async () => {
-		serviceMock.removeTeamMember.mockResolvedValueOnce({ removed: true });
-
-		const response = await removeMemberRoute(
-			new Request("https://app.example.test/api/teams/team_1/members/u_member", { method: "DELETE" }),
-			{ params: Promise.resolve({ id: "team_1", userId: "u_member" }) },
-		);
-
-		expect(response.status).toBe(200);
-		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
-		expect(serviceMock.removeTeamMember).toHaveBeenCalledWith("team_1", "u_member", session);
-	});
-
-	it("switches workspace on the session alone — membership is the real check", async () => {
-		serviceMock.switchCurrentTeam.mockResolvedValueOnce({ id: "team_2", slug: "dev", name: "Dev" });
-
-		const response = await switchRoute(post("https://app.example.test/api/teams/switch", { teamId: "team_2" }));
-
-		expect(response.status).toBe(200);
-		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
-		expect(serviceMock.switchCurrentTeam).toHaveBeenCalledWith("team_2", session);
-	});
-
-	it("rejects a switch with no target workspace", async () => {
-		const response = await switchRoute(post("https://app.example.test/api/teams/switch", { teamId: "" }));
-
-		expect(response.status).toBe(400);
-		expect(serviceMock.switchCurrentTeam).not.toHaveBeenCalled();
+		expect(serviceMock.setCustomerMembership).not.toHaveBeenCalled();
 	});
 });

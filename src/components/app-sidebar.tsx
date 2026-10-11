@@ -13,6 +13,7 @@ import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useNavGroupState, useNavPins, useSidebarCollapsed } from "@/lib/ui/shell-preferences";
 import { cn } from "@/lib/ui/cn";
 import { UserMenu } from "./user-menu";
+import { CustomerSwitcher } from "./customer-switcher";
 import { BrandTile, IconChevronRight, IconExternalLink, IconStar } from "./nav-icons";
 import { X } from "./icons";
 import { IconButton } from "./ui-primitives";
@@ -231,6 +232,8 @@ export function AppSidebar({
 						</IconButton>
 					) : null}
 				</div>
+
+				{compact ? null : <CustomerSwitcher />}
 
 				<div data-nav-scroll className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-3", compact ? "px-1.5" : "px-2.5")}>
 					{pinnedItems.length > 0

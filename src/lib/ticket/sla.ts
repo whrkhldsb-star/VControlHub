@@ -5,6 +5,7 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { createLogger } from "@/lib/logging";
 import { notificationContentData } from "@/lib/notification/service";
+import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
 
 const logger = createLogger("ticket-sla");
 
@@ -110,10 +111,7 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
           });
 
           const managers = await tx.user.findMany({
-            where: {
-              roles: { some: { role: { permissions: { some: { permission: { key: "ticket:manage" } } } } } },
-              ...(ticket.teamId ? { teamMemberships: { some: { teamId: ticket.teamId } } } : {}),
-            },
+            where: { status: { not: "DISABLED" }, ...permissionHoldersWhere("ticket:manage", ticket.teamId) },
             select: { id: true },
             take: 1000,
           });

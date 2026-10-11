@@ -74,6 +74,14 @@ export type ServerOverviewDetailsServer = {
 	costCurrency?: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
 	costProvider?: string | null;
 	costLastSyncedAt?: string | null;
+	origin?: "PLATFORM" | "CUSTOMER";
+	/** Customer name, shown to administrators. */
+	teamName?: string | null;
+	/** Platform-assigned server viewed by a customer account: no edit, toggle or delete. */
+	profileLocked?: boolean;
+	/** Viewer is a platform administrator who may move the server between customers. */
+	canTransfer?: boolean;
+	teamId?: string | null;
 };
 
 export type ServerOverviewDetailsProps = {
@@ -262,6 +270,9 @@ export function ServerOverviewDetails({
 							port={server.port}
 							enabled={server.enabled}
 							canManageServers={canManageServers}
+							profileLocked={server.profileLocked}
+							canTransfer={server.canTransfer}
+							teamId={server.teamId}
 							canUseSshTerminal={canUseSshTerminal && server.hasSshCredential !== false}
 							username={server.username}
 							connectionType={server.connectionType}

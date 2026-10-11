@@ -179,10 +179,11 @@ authenticated payload separates these checks:
 So `overall: warning` is **expected** while any active storage node stays unhealthy —
 fix the node credentials/path, do not treat the public summary alone as "app down".
 
-Storage belonging to deleted workspaces (`__deleted__` slug prefix) is excluded
-from both status summaries and lazy health probes. Those records are retained
-for ownership history, so missing retired directories must not cause live-service
-warnings. Legacy storage with a null `teamId` still participates in health checks.
+Storage belonging to deleted customers (`Team.deletedAt` set) is excluded from
+both status summaries and lazy health probes (`liveCustomerRowsWhere()` in
+`lib/auth/team-scope`). Those records are retained for ownership history, so
+missing retired directories must not cause live-service warnings. Legacy storage
+with a null `teamId` still participates in health checks.
 
 ## Agent management boundary
 

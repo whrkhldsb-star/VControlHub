@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
-import { isGlobalTeamManager, teamCreateData } from "@/lib/auth/team-scope";
+import { teamCreateData, seesAllCustomers } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -31,7 +31,7 @@ type ConnectionSession = Pick<
 >;
 
 function connectionScope(session?: ConnectionSession): Record<string, unknown> {
-  if (!session || isGlobalTeamManager(session)) return {};
+  if (!session || seesAllCustomers(session)) return {};
   if (session.currentTeamId) return { teamId: session.currentTeamId };
   // Legacy unassigned connections are private to their creator. They are not
   // global integrations that every tenant can inspect or mutate.

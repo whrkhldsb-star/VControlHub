@@ -1,7 +1,7 @@
 // @vitest-environment node
 // Uses only a disposable audit database. All SSH/Agent transports are mocked.
 import { randomUUID } from "node:crypto";
-import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ ssh: vi.fn() }));
 vi.mock("@/lib/command/service-ssh", () => ({
@@ -16,10 +16,14 @@ vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-cr
 
 import { prisma } from "@/lib/db";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
+import { syncBuiltinIdentityTemplates } from "@/lib/auth/identity-template-service";
 import { executeTargets } from "../service-execution";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("queued command execution revocation", () => {
   const created: Array<{ user: string; team: string; server: string; request: string }> = [];
+  // CI prepares this database with `prisma db push` (no migrations, no seed), so the built-in
+  // templates that memberships reference must be created here, as the deploy seed does.
+  beforeAll(async () => { await syncBuiltinIdentityTemplates(); });
   afterEach(async () => {
     for (const fixture of created.splice(0)) {
       await prisma.commandRequest.deleteMany({ where: { id: fixture.request } });
@@ -41,13 +45,13 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("queued comm
     created.push(fixture);
     await prisma.team.create({ data: { id: prefix, slug: prefix, name: prefix } });
     await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "not-a-login-hash", status: "ACTIVE", mustChangePassword: false, currentTeamId: prefix,
-      teamMemberships: { create: { teamId: prefix, role: "owner", accessRole: "inherit" } } } });
+      teamMembership: { create: { teamId: prefix, identityTemplateId: "identity:customer_admin" } } } });
     await prisma.server.create({ data: { id: prefix, name: prefix, host: "192.0.2.5", username: "audit", tags: [], teamId: prefix, connectionType: "PASSWORD", password: "audit-only", hostKeySha256: "SHA256:audit-only" } });
     await prisma.commandRequest.create({ data: { id: prefix, title: "Audit harmless command", command: "printf audit", requesterId: prefix, teamId: prefix, initiatedByType: "USER", status: "APPROVED",
       targets: { create: { id: prefix, serverId: prefix, status: "APPROVED" } } } });
     expect(await assertRequesterMayExecuteCommand(prefix, prefix)).toEqual({ ok: true });
     if (revocation === "disabled-user") await prisma.user.update({ where: { id: prefix }, data: { status: "DISABLED" } });
-    if (revocation === "removed-membership") await prisma.teamMember.delete({ where: { teamId_userId: { teamId: prefix, userId: prefix } } });
+    if (revocation === "removed-membership") await prisma.teamMember.delete({ where: { userId: prefix } });
     if (revocation === "disabled-node") await prisma.server.update({ where: { id: prefix }, data: { enabled: false } });
     if (revocation !== "disabled-node") expect((await assertRequesterMayExecuteCommand(prefix, prefix)).ok).toBe(false);
     state.ssh.mockResolvedValue({ stdout: "audit", stderr: "", exitCode: 0 });

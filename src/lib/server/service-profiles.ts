@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { mkdir } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverOriginData, serverProfileTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -66,7 +66,7 @@ async function findServerProfileForSession(
 ) {
   if (session) {
     return prisma.server.findFirst({
-      where: { id: serverId, ...serverTeamWhere(session, "manage") },
+      where: { id: serverId, ...serverProfileTeamWhere(session) },
       include,
     });
   }
@@ -420,6 +420,7 @@ export async function createServerProfile(
         directGatewayDesiredProtocol: toStoredDirectGatewayProtocol(payload.directGatewayProtocol),
         directGatewayDesiredDomain: payload.directGatewayDomain?.trim() || null,
         ...teamData,
+        ...(session ? serverOriginData(session) : {}),
       },
       include: SERVER_PROFILE_INCLUDE,
     });

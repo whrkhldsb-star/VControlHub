@@ -1,32 +1,31 @@
 import { z } from "zod";
 
 export const createTeamSchema = z.object({
-	name: z.string().trim().min(1, "Team name is required").max(80),
-	slug: z.string().trim().min(1).max(64).regex(/^[a-z0-9][a-z0-9-]*$/, "Team slug can only contain lowercase letters, digits and hyphens").optional(),
+	name: z.string().trim().min(1, "Customer name is required").max(80),
+	slug: z.string().trim().min(1).max(64).regex(/^[a-z0-9][a-z0-9-]*$/, "Slug can only contain lowercase letters, digits and hyphens").optional(),
 	description: z.string().trim().max(300).optional().nullable(),
 });
 
+/** Administrators switch to a customer, or to null for all customers. */
 export const switchTeamSchema = z.object({
-	teamId: z.string().trim().min(1),
+	teamId: z.string().trim().min(1).nullable(),
 });
 
-export const transferTeamOwnerSchema = z.object({
+/** Put an account into the customer (moving it from any other customer). */
+export const setTeamMemberSchema = z.object({
 	userId: z.string().trim().min(1),
+	identityTemplateId: z.string().trim().min(1).nullable().optional(),
 });
 
-export const addTeamMemberSchema = z.object({
-	username: z.string().trim().min(1),
-	role: z.enum(["admin", "member"]).default("member"),
-	accessRole: z.enum(["inherit", "viewer", "operator", "storage_manager"]).optional(),
-	permissionTemplateId: z.string().min(1).nullable().optional(),
+/** Change a member's identity template. */
+export const updateTeamMemberSchema = z.object({
+	identityTemplateId: z.string().trim().min(1),
 });
 
 export const updateTeamSchema = z.object({
-	name: z.string().trim().min(1, "Team name is required").max(80).optional(),
+	name: z.string().trim().min(1, "Customer name is required").max(80).optional(),
 	description: z.string().trim().max(300).optional().nullable(),
 });
 
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
-export type TransferTeamOwnerInput = z.infer<typeof transferTeamOwnerSchema>;
-export type AddTeamMemberInput = z.infer<typeof addTeamMemberSchema>;
 export type UpdateTeamInput = z.infer<typeof updateTeamSchema>;

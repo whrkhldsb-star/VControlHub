@@ -13,18 +13,19 @@ import { useToast } from "@/components/toast-provider";
 import {
   UsersCreateForm,
   UsersResetPasswordDialog,
-  roleBadgeTone,
   statusLabel,
   statusTone,
   type CreateUserFormState,
+  type CustomerOption,
+  type IdentityTemplateOption,
 } from "./users-forms";
+import { identityTemplateName } from "@/lib/auth/identity-templates";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Plus } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui-primitives";
 
-type RoleInfo = { key: string; name: string };
 type UserInfo = {
   id: string;
   username: string;
@@ -32,17 +33,20 @@ type UserInfo = {
   status: string;
   mustChangePassword: boolean;
   createdAt: string;
-  roles: RoleInfo[];
+  accountType: "admin" | "customer";
+  customer: { id: string; name: string; deleted: boolean } | null;
+  identityTemplate: IdentityTemplateOption | null;
 };
+
+const EMPTY_CREATE_FORM: CreateUserFormState = { username: "", displayName: "", password: "", accountType: "customer", teamId: "", identityTemplateId: "identity:viewer" };
 
 /** Fixed page size for the users list (matches the API request below). */
 const USER_PAGE_SIZE = 50;
 
-export function UserManagementClient({ header, canManage = false, canManageResources = canManage, currentUserId = "" }: {
+export function UserManagementClient({ header, canManage = false, currentUserId = "" }: {
   /** Page header; rendered here so the create command sits in its actions. */
   header?: { eyebrow?: string; title: string; description?: string };
   canManage?: boolean;
-  canManageResources?: boolean;
   currentUserId?: string;
 }) {
   const { t, locale } = useI18n();
@@ -54,7 +58,9 @@ export function UserManagementClient({ header, canManage = false, canManageResou
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState<CreateUserFormState>({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
+  const [createForm, setCreateForm] = useState<CreateUserFormState>(EMPTY_CREATE_FORM);
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [templates, setTemplates] = useState<IdentityTemplateOption[]>([]);
   const [creating, setCreating] = useState(false);
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserInfo | null>(null);
 	const [loadFailed, setLoadFailed] = useState(false);
@@ -96,16 +102,33 @@ export function UserManagementClient({ header, canManage = false, canManageResou
 		};
 	}, [fetchUsers]);
 
+  // Options for the create form: live customers and identity templates.
+  useEffect(() => {
+    if (!canManage) return;
+    void Promise.all([
+      csrfFetch<{ teams: CustomerOption[] }>("/api/teams"),
+      csrfFetch<{ templates: IdentityTemplateOption[] }>("/api/identity-templates"),
+    ]).then(([teamData, templateData]) => {
+      setCustomers(teamData.teams);
+      setTemplates(templateData.templates);
+      setCreateForm((form) => form.teamId ? form : { ...form, teamId: teamData.teams[0]?.id ?? "" });
+    }).catch(() => undefined);
+  }, [canManage]);
+
   const handleCreate = async () => {
     setCreating(true);
 		try {
+			const { accountType, teamId, identityTemplateId, ...identity } = createForm;
 			await csrfFetch("/api/users", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(createForm),
+				body: JSON.stringify({
+					...identity,
+					account: accountType === "admin" ? { type: "admin" } : { type: "customer", teamId, identityTemplateId },
+				}),
 			});
 			addToast("success", t("usersPage.success.created", { name: createForm.username }));
-			setCreateForm({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
+			setCreateForm({ ...EMPTY_CREATE_FORM, teamId: customers[0]?.id ?? "" });
 			setShowCreateForm(false);
 			fetchUsers();
 		} catch (err) {
@@ -164,15 +187,6 @@ export function UserManagementClient({ header, canManage = false, canManageResou
     }
   };
 
-  const toggleRole = (roleKey: string) => {
-    setCreateForm((prev) => ({
-      ...prev,
-      roleKeys: prev.roleKeys.includes(roleKey)
-        ? prev.roleKeys.filter((k) => k !== roleKey)
-        : [...prev.roleKeys, roleKey],
-    }));
-  };
-
   return (
     <div>
       {(() => {
@@ -195,7 +209,8 @@ export function UserManagementClient({ header, canManage = false, canManageResou
           setCreateForm={setCreateForm}
           creating={creating}
           onSubmit={handleCreate}
-          onToggleRole={toggleRole}
+          customers={customers}
+          templates={templates}
         />
       )}
 
@@ -230,15 +245,22 @@ export function UserManagementClient({ header, canManage = false, canManageResou
                     <span>{new Date(user.createdAt).toLocaleDateString(toDateLocale(locale))}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {user.roles.map((role) => (
-                      <Badge key={role.key} tone={roleBadgeTone(role.key)}>
-                        {t(`usersPage.role.${role.key}`)}
-                      </Badge>
-                    ))}
+                    {user.accountType === "admin" ? (
+                      <Badge tone="accent">{t("usersPerm.account.type.admin")}</Badge>
+                    ) : user.customer ? (
+                      <>
+                        <Badge tone={user.customer.deleted ? "warning" : "neutral"}>
+                          {user.customer.deleted ? t("usersPage.customerDeleted", { name: user.customer.name }) : user.customer.name}
+                        </Badge>
+                        {user.identityTemplate && <Badge tone="neutral">{identityTemplateName(user.identityTemplate, t)}</Badge>}
+                      </>
+                    ) : (
+                      <Badge tone="warning">{t("usersPage.noCustomer")}</Badge>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 shrink-0">
-                  {canManageResources && user.id !== currentUserId && <ActionButton size="sm"
+                  {canManage && user.id !== currentUserId && <ActionButton size="sm"
                     variant="outline"
                     onClick={() => setEditingPermissionsUser(user)}>{t("usersPage.action.permissions")}</ActionButton>}
                   {canManage ? (
@@ -268,9 +290,9 @@ export function UserManagementClient({ header, canManage = false, canManageResou
                         )
                       )}
                     </>
-                  ) : !canManageResources ? (
+                  ) : (
                     <span className="text-xs text-[var(--text-muted)]">{t("usersPage.action.readonly")}</span>
-                  ) : null}
+                  )}
                 </div>
               </ListRow>
             ))}
@@ -285,7 +307,6 @@ export function UserManagementClient({ header, canManage = false, canManageResou
         <UserPermissionPanel
           userId={editingPermissionsUser.id}
           username={editingPermissionsUser.username}
-          resourceOnly={!canManage}
           onClose={() => setEditingPermissionsUser(null)}
           onSaved={fetchUsers}
         />

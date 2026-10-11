@@ -4,9 +4,9 @@ import { auditUserAction } from "@/lib/audit/service";
 import { hashPassword, verifyPassword } from "./password";
 import { validatePasswordPolicy } from "./password-policy";
 import { changePasswordSchema, loginSchema, type ChangePasswordInput, type LoginInput } from "./schema";
-import { DEFAULT_ROLE_PERMISSIONS, type Permission, type RoleKey } from "./rbac";
+import { DEFAULT_ROLE_PERMISSIONS, getPermissionsFromRoles, type Permission, type RoleKey } from "./rbac";
 import { normalizeUserPreferencesForSession, type UserPreferences } from "@/lib/preferences/user-preferences";
-import { resolveEffectivePermissions } from "./effective-permissions";
+import { resolveSessionPermissions } from "./identity-templates";
 import { captureSessionCredentialBinding, type SessionCredentialBinding } from "./session";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -58,6 +58,7 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  const user = await prisma.user.findUnique({
  where: { username: payload.username },
  include: {
+ teamMembership: { select: { team: { select: { deletedAt: true } }, identityTemplate: { select: { permissions: true } } } },
  roles: {
  include: {
  role: true,
@@ -82,12 +83,12 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
 
  const assignedRoleKeys = user.roles.map((entry) => entry.role.key);
  const roleKeys = deriveRoleKeys(assignedRoleKeys);
- // Direct grants are not part of the static role map; resolve them here so the
- // login redirect and the returned permission list match what the guards see.
- const permissions = await resolveEffectivePermissions({
-   userId: user.id,
+ // Same resolution as the session, so the login redirect matches the guards.
+ const membership = user.teamMembership && !user.teamMembership.team.deletedAt ? user.teamMembership : null;
+ const permissions = resolveSessionPermissions({
    roles: roleKeys,
-   assignedRoleKeys,
+   accountPermissions: getPermissionsFromRoles(roleKeys),
+   identityPermissions: membership ? membership.identityTemplate.permissions : null,
  });
 
  return {

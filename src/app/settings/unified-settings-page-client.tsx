@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, useId, type ReactNode } from "react";
 import { Bell, Settings, User } from "@/components/icons";
-import { IconUsers } from "@/components/nav-icons";
 import { IconKey } from "@/components/nav-items";
 import { PageHeader } from "@/components/page-shell";
 import { SegmentedTabs, SideNav, SplitPane } from "@/components/ui-primitives";
@@ -13,7 +12,6 @@ import { replaceBrowserUrl } from "@/lib/browser-history";
 import { PreferencesSettingsContent, PREFERENCES_CATEGORY_SUMMARIES } from "../preferences/preferences-page-client";
 import { SettingsClient } from "./settings-client";
 import { SystemConfigSection } from "./system-config-section";
-import { TeamWorkspaceSection, type TeamCapabilities } from "./team-workspace-section";
 import { SETTINGS_SCHEMA } from "./field-schema";
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 import { DEFAULT_PAGE_OPTIONS, type DefaultPageOption } from "@/lib/preferences/user-preferences";
@@ -26,17 +24,15 @@ type Props = {
 	canManage: boolean;
 	/** Built-in `admin` role — required by the config import/export surface. */
 	isPlatformAdmin?: boolean;
-	teamCapabilities: TeamCapabilities;
 	defaultPageOptions?: readonly DefaultPageOption[];
 };
 
-type SettingsTab = "personal" | "team" | "security" | "notifications" | "advanced";
-/** Platform tabs render SettingsClient sections; personal and team tabs render their own panels. */
-type PlatformTab = Exclude<SettingsTab, "personal" | "team">;
-const isPlatformTab = (tab: SettingsTab): tab is PlatformTab => tab !== "personal" && tab !== "team";
-/** Tabs every signed-in user may open; the team panel itself gates what each person can change. */
-const SELF_SERVICE_TABS: SettingsTab[] = ["personal", "team"];
-const TEAM_SECTION_ID = "team-workspaces";
+type SettingsTab = "personal" | "security" | "notifications" | "advanced";
+/** Platform tabs render SettingsClient sections; the personal tab renders its own panel. */
+type PlatformTab = Exclude<SettingsTab, "personal">;
+const isPlatformTab = (tab: SettingsTab): tab is PlatformTab => tab !== "personal";
+/** Tabs every signed-in user may open. */
+const SELF_SERVICE_TABS: SettingsTab[] = ["personal"];
 
 const TAB_SECTION_IDS: Record<PlatformTab, string[]> = {
   security: ["platform", "password"],
@@ -60,7 +56,6 @@ const SECTION_TO_TAB: Record<string, SettingsTab> = {
   "preferences-notifications": "personal",
   "preferences-auto-refresh": "personal",
   "preferences-auto-probe": "personal",
-  [TEAM_SECTION_ID]: "team",
   security: "security",
   "system-config": "advanced",
   ...Object.fromEntries(
@@ -77,7 +72,6 @@ const TAB_META: {
   descKey: string;
 }[] = [
   { id: "personal", icon: <User size={18} aria-hidden />, labelKey: "settingsPage.tab.personal", descKey: "settingsPage.tab.personal.desc" },
-  { id: "team", icon: <IconUsers size={18} aria-hidden />, labelKey: "settingsPage.tab.team", descKey: "settingsPage.tab.team.desc" },
   { id: "security", icon: <IconKey />, labelKey: "settingsPage.tab.security", descKey: "settingsPage.tab.security.desc" },
   { id: "notifications", icon: <Bell size={18} aria-hidden />, labelKey: "settingsPage.tab.notifications", descKey: "settingsPage.tab.notifications.desc" },
   { id: "advanced", icon: <Settings size={18} aria-hidden />, labelKey: "settingsPage.tab.advanced", descKey: "settingsPage.tab.advanced.desc" },
@@ -89,7 +83,6 @@ export function UnifiedSettingsPageClient({
 	settingUpdateMetadata = {},
 	canManage,
 	isPlatformAdmin = false,
-	teamCapabilities,
 	defaultPageOptions = DEFAULT_PAGE_OPTIONS,
 }: Props) {
   const { t } = useI18n();
@@ -155,7 +148,7 @@ export function UnifiedSettingsPageClient({
     cancelNavigation();
     setActiveTab(tab);
     const firstSection =
-      tab === "personal" ? "preferences-default-page" : tab === "team" ? TEAM_SECTION_ID : TAB_SECTION_IDS[tab]?.[0] ?? "";
+      tab === "personal" ? "preferences-default-page" : TAB_SECTION_IDS[tab]?.[0] ?? "";
     if (firstSection && typeof window !== "undefined") {
       setActiveSection(firstSection);
       replaceBrowserUrl(`#${firstSection}`);
@@ -178,7 +171,6 @@ export function UnifiedSettingsPageClient({
   const tabCounts = useMemo(() => {
     return {
       personal: PERSONAL_SECTION_IDS.length,
-      team: 1,
       security: TAB_SECTION_IDS.security.length,
       notifications: TAB_SECTION_IDS.notifications.length,
       advanced: TAB_SECTION_IDS.advanced.length + (canManage ? 1 : 0),
@@ -197,9 +189,6 @@ export function UnifiedSettingsPageClient({
           description: t(s.subtitle),
         }),
       );
-    }
-    if (activeTab === "team") {
-      return [{ id: TEAM_SECTION_ID, label: t("settingsTeam.title"), description: t("settingsPage.tab.team.desc") }];
     }
     const ids = [...TAB_SECTION_IDS[activeTab], ...(activeTab === "advanced" ? ["system-config"] : [])];
     return ids.map((id) => {
@@ -274,9 +263,6 @@ export function UnifiedSettingsPageClient({
             />
           </div>
 
-          <div className={activeTab === "team" ? "space-y-5" : "hidden"}>
-            <TeamWorkspaceSection capabilities={teamCapabilities} />
-          </div>
 
         <div className={systemTab ? "space-y-5" : "hidden"}>
           <SettingsClient

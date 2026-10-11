@@ -12,9 +12,12 @@ test("server inventory searches beyond 500 nodes and restores URL pagination", a
   const db = new Client({ connectionString: url.toString() });
   await db.connect();
   try {
-    await db.query(`INSERT INTO servers (id,name,host,port,username,tags,enabled,"connectionType","createdAt","updatedAt")
-      SELECT $1 || lpad(n::text,4,'0'), $1 || n, '192.0.2.1',22,'fixture',ARRAY[$1, CASE WHEN n=1 THEN 'Unique生产%_' ELSE 'ordinary' END],false,'PASSWORD',NOW(),NOW()
-      FROM generate_series(1,513) n`, [prefix]);
+    // Place the fixtures in the customer the signed-in administrator works in:
+    // a selected customer shows only its own servers.
+    await db.query(`INSERT INTO servers (id,name,host,port,username,tags,enabled,"connectionType","teamId","createdAt","updatedAt")
+      SELECT $1 || lpad(n::text,4,'0'), $1 || n, '192.0.2.1',22,'fixture',ARRAY[$1, CASE WHEN n=1 THEN 'Unique生产%_' ELSE 'ordinary' END],false,'PASSWORD',
+        (SELECT "currentTeamId" FROM "User" WHERE username = $2),NOW(),NOW()
+      FROM generate_series(1,513) n`, [prefix, process.env.E2E_DIRECT_USER ?? "vcontrolhub_e2e"]);
     await page.goto(`/servers?query=${prefix}`);
     await page.evaluate(async () => {
       if ("serviceWorker" in navigator) await navigator.serviceWorker.ready;

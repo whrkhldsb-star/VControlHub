@@ -25,7 +25,7 @@ describe("share access aggregate report", () => {
   });
 
   it("aggregates totals and forces share-link team scope on every query", async () => {
-    const report = await getShareAccessReport({ session: { userId: "admin", roles: ["admin"], currentTeamId: "team-1" }, days: 30 });
+    const report = await getShareAccessReport({ session: { userId: "admin", roles: ["admin"], currentTeamId: null }, days: 30 });
     expect(report.totals).toEqual({ total: 3, view: 2, download: 1, passwordAttempt: 0, uniqueIps: 1 });
     expect(report.byShare[0]).toMatchObject({ shareId: "share-1", total: 3, view: 2, download: 1 });
     expect(report.logs[0]?.accessedAt).toBe("2026-07-14T00:00:00.000Z");

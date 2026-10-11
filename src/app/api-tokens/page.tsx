@@ -28,7 +28,7 @@ export default async function Page() {
 		);
 	}
 	const tokens = await listApiTokens(session.userId, 200);
-	const workspace = session.currentTeamId
+	const customer = session.currentTeamId
 		? await prisma.team.findUnique({ where: { id: session.currentTeamId }, select: { name: true } })
 		: null;
 	const allowedScopes = ALLOWED_API_TOKEN_SCOPES.filter((scope) =>
@@ -44,7 +44,7 @@ export default async function Page() {
 			<div className="mb-5">
 				<Notice tone="info">{t("apiTokensPage.hint", locale)}</Notice>
 			</div>
-			<ApiTokenManagerClient initialTokens={tokens} allowedScopes={allowedScopes} currentWorkspaceName={workspace?.name ?? null} />
+			<ApiTokenManagerClient initialTokens={tokens} allowedScopes={allowedScopes} currentCustomerName={customer?.name ?? null} />
 		</PageShell>
 	);
 }

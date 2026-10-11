@@ -176,7 +176,6 @@ export const config = {
 	/** Storage / direct-access gateway. */
 	storage: {
 		get directAccessSecret(): string | undefined { return readOptionalString("STORAGE_DIRECT_ACCESS_SECRET"); },
-		get grantFallback(): boolean { return readBool("VCONTROLHUB_STORAGE_GRANT_FALLBACK", false); },
 		get backupDir(): string | undefined { return readOptionalString("BACKUP_DIR"); },
 		get imageUploadDir(): string | undefined { return readOptionalString("IMAGE_UPLOAD_DIR"); },
 		/** Local storage root for hub-side paths (VPS backup cache, etc.). */

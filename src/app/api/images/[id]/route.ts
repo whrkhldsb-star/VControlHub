@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import type { SessionPayload } from "@/lib/auth/session";
-import { isGlobalTeamManager, teamWhere } from "@/lib/auth/team-scope";
+import { teamWhere, seesAllCustomers } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -44,7 +44,7 @@ function canDeleteImage(input: {
   session: SessionPayload;
 }) {
   const canManageTeamImages =
-    isGlobalTeamManager(input.session) ||
+    seesAllCustomers(input.session) ||
     (input.teamId !== null && input.teamId === input.session.currentTeamId);
   return (
     input.ownerId === input.session.userId ||

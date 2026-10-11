@@ -24,6 +24,8 @@ export default async function NotificationsPage() {
 		messageParams: n.messageParams,
 		isRead: n.isRead,
 		actionUrl: n.actionUrl,
+		teamId: n.teamId,
+		teamName: n.team?.name ?? null,
 		createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : String(n.createdAt),
 	}));
 

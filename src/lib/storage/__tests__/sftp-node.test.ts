@@ -94,13 +94,13 @@ describe("getSftpNodeConnection team scope", () => {
     );
   });
 
-  it("does not team-filter admins with team:manage", async () => {
+  it("does not team-filter administrators viewing all customers", async () => {
     prismaMock.storageNode.findFirst.mockResolvedValueOnce(sftpNode);
 
     await getSftpNodeConnection("node_other_team", {
       userId: "admin",
       roles: ["admin"],
-      currentTeamId: "team_a",
+      currentTeamId: null,
     });
 
     expect(prismaMock.storageNode.findFirst).toHaveBeenCalledWith(

@@ -1,6 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 import { generate as generateTotp } from "otplib";
-import { getRemainingTime } from "@otplib/totp";
 import { setTimeout as delay } from "node:timers/promises";
 import { installDirectSession } from "./helpers/direct-session";
 import { loginWithCredentials } from "./helpers/login";
@@ -11,7 +10,7 @@ const PASS = process.env.E2E_PASS ?? "admin123";
 
 async function freshTotp(secret: string) {
 	// Leave enough of the real server's 30-second window for browser input.
-	const remaining = getRemainingTime();
+	const remaining = 30 - (Math.floor(Date.now() / 1000) % 30);
 	if (remaining < 10) await delay((remaining + 1) * 1000);
 	return generateTotp({ secret });
 }
@@ -408,74 +407,58 @@ test("server detail, OS detection and realtime diagnostics", async ({ page }) =>
 	await expect(dialog).toBeHidden();
 });
 
-test("team workspace create and delete lifecycle", async ({ page }) => {
-	test.setTimeout(60_000);
+test("customer create, select, delete and restore lifecycle", async ({ page }) => {
+	test.setTimeout(90_000);
 	await login(page);
-	await page.goto("/settings");
-	// Workspaces live on their own settings tab, as a user reaches them.
-	await page.getByRole("tab", { name: /团队与权限|Teams & permissions/i }).click();
-	const section = page.locator("#team-workspaces");
-	await expect(section).toBeVisible();
-	const marker = `QA Team ${Date.now()}`;
-	let createdTeamId: string | null = null;
+	await page.goto("/customers");
+	const marker = `QA Customer ${Date.now()}`;
+	let createdId: string | null = null;
+	const csrfHeaders = async () => ({ "x-csrf-token": (await page.context().cookies()).find((cookie) => cookie.name === "csrf_token")?.value ?? "" });
 	try {
-		await section.getByLabel(/团队名称|Team name/i).last().fill(marker);
-		await section.getByLabel(/slug/i).fill(`qa-team-${Date.now()}`);
+		await page.getByRole("button", { name: /新建客户|New customer/i }).first().click();
+		await page.getByLabel(/客户名称|Customer name/i).fill(marker);
 		const createdResponse = page.waitForResponse((response) =>
 			new URL(response.url()).pathname === "/api/teams" && response.request().method() === "POST",
 		);
-		await section.getByRole("button", { name: /创建团队|Create team/i }).click();
+		await page.getByRole("button", { name: /新建客户|New customer/i }).last().click();
 		const created = await createdResponse;
 		const createdBody = await created.text();
-		expect(created.status(), `workspace create failed: ${createdBody}`).toBe(200);
-		createdTeamId = (JSON.parse(createdBody) as { team: { id: string } }).team.id;
+		expect(created.status(), `customer create failed: ${createdBody}`).toBe(200);
+		createdId = (JSON.parse(createdBody) as { team: { id: string } }).team.id;
+		const row = page.locator("li, [data-row], div").filter({ hasText: marker }).filter({ has: page.getByRole("button", { name: /删除客户|Delete customer/i }) }).last();
+		await expect(row).toBeVisible();
 
-		const card = section.locator("article").filter({ hasText: marker });
-		await expect(card).toBeVisible();
-		// The workspace switcher now lives inside the user-menu popover. The
-		// create-team response rotates the session cookie, so open the menu and
-		// read the switcher after the sidebar layout has refreshed.
-		// Switching workspace remounts the page, which can close a menu opened
-		// mid-refresh, so reopen until the switcher shows the new team.
-		const workspaceSwitcher = page.getByRole("combobox", { name: /团队空间|Team workspace/i }).first();
-		await expect(async () => {
-			if (!(await workspaceSwitcher.isVisible())) {
-				await page.getByRole("button", { name: /账户菜单|Account menu/i }).first().click();
-			}
-			// The switcher is a native <select>; assert by value (the team id we
-			// just created was made current), not by option text — Chromium CI
-			// intermittently fails to expose option:checked inside popovers.
-			await expect(workspaceSwitcher).toHaveValue(createdTeamId!, { timeout: 2_000 });
-		}).toPass({ timeout: 20_000 });
-		// Close the menu so its popover cannot cover the workspace card.
-		await page.keyboard.press("Escape");
-		await expect(workspaceSwitcher).toBeHidden();
+		// The sidebar selector lists the new customer; selecting it scopes the session.
+		const selector = page.getByRole("combobox", { name: /^(客户|Customer)$/ }).first();
+		await expect(selector.locator(`option[value="${createdId}"]`)).toHaveCount(1);
+		await selector.selectOption(createdId);
+		await expect.poll(async () => ((await (await page.context().request.get("/api/teams")).json()) as { currentTeamId: string | null }).currentTeamId).toBe(createdId);
 
-		const deletedResponse = page.waitForResponse((response) =>
-			new URL(response.url()).pathname === `/api/teams/${createdTeamId}` && response.request().method() === "DELETE",
-		);
-		await card.getByRole("button", { name: /删除|Delete/i }).click();
-		const dialog = page.getByRole("dialog", { name: /确认删除团队|Confirm delete team/i });
+		await row.getByRole("button", { name: /删除客户|Delete customer/i }).click();
+		const dialog = page.getByRole("dialog");
 		await expect(dialog).toContainText(marker);
-		await dialog.getByRole("button", { name: /^(确认|Confirm)$/i }).click();
-		const deleted = await deletedResponse;
-		expect(deleted.status(), `workspace delete failed: ${await deleted.text()}`).toBe(200);
-		const deletedTeamId = createdTeamId;
-		createdTeamId = null;
-		await expect(card).toBeHidden();
-		const workspaceState = await page.context().request.get("/api/teams");
-		expect(workspaceState.status()).toBe(200);
-		const { currentTeamId } = (await workspaceState.json()) as { currentTeamId: string | null };
-		expect(currentTeamId).toBeTruthy();
-		expect(currentTeamId).not.toBe(deletedTeamId);
+		const confirm = dialog.getByRole("button", { name: /删除客户|Delete customer/i });
+		await expect(confirm).toBeDisabled();
+		await dialog.getByRole("textbox").fill(marker);
+		const deletedResponse = page.waitForResponse((response) =>
+			new URL(response.url()).pathname === `/api/teams/${createdId}` && response.request().method() === "DELETE",
+		);
+		await confirm.click();
+		expect((await deletedResponse).status()).toBe(200);
+		// Deleting the selected customer returns the administrator to all customers.
+		await expect.poll(async () => ((await (await page.context().request.get("/api/teams")).json()) as { currentTeamId: string | null }).currentTeamId).toBeNull();
+
+		await page.getByText(/已删除的客户|Deleted customers/i).click();
+		const restoredResponse = page.waitForResponse((response) =>
+			new URL(response.url()).pathname === `/api/teams/${createdId}/restore`,
+		);
+		await page.locator("li").filter({ hasText: marker }).getByRole("button", { name: /恢复|Restore/i }).click();
+		expect((await restoredResponse).status()).toBe(200);
+		await expect(row).toBeVisible();
 	} finally {
-		if (createdTeamId) {
-			const csrf = (await page.context().cookies()).find((cookie) => cookie.name === "csrf_token")?.value;
-			if (csrf) {
-				await page.context().request.delete(`/api/teams/${encodeURIComponent(createdTeamId)}`, {
-					headers: { "x-csrf-token": csrf },
-				}).catch(() => undefined);
-			}
+		if (createdId) {
+			await page.context().request.delete(`/api/teams/${encodeURIComponent(createdId)}`, { headers: await csrfHeaders() }).catch(() => undefined);
 		}
 	}
 });
+
