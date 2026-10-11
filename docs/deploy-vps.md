@@ -90,8 +90,12 @@ SSH_WS_HOST=127.0.0.1 SSH_WS_PORT=3001 npm run start:ssh-ws
 
 - `/` → Next.js `127.0.0.1:3000`
 - `/ssh` → SSH WebSocket proxy `127.0.0.1:3001`
+- `/rdp` → 同一 SSH WebSocket proxy `127.0.0.1:3001`（Windows 远程桌面）
+- 可选 `/direct` → 本机存储直连网关 `127.0.0.1:31888`
 - 可选 `/files-proxy` → AList
 - 可选 `/emby`、`/web` → Emby
+
+`deploy/install.sh` 与 `deploy/upgrade.sh` 每次都按模板重写整个 `/etc/caddy/Caddyfile`，并在同目录保留最近 5 份 `Caddyfile.bak.<时间>`。手工加的规则应同步到模板，否则升级后需从备份恢复。
 
 ## 8. 验证
 

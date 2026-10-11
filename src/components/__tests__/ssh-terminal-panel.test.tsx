@@ -8,7 +8,7 @@ import { Terminal } from "@xterm/xterm";
 
 type MockTerm = {
 	scrollLines: ReturnType<typeof vi.fn>;
-	buffer: { normal: { viewportY: number; length: number } };
+	buffer: { active: { viewportY: number; length: number } };
 };
 function terminalInstances(): MockTerm[] {
 	return (Terminal as unknown as { instances: MockTerm[] }).instances;
@@ -32,9 +32,9 @@ vi.mock("@xterm/xterm", () => ({
 		cols = 80;
 		rows = 24;
 		buffer = {
-			active: { cursorY: 0, getLine: () => ({ translateToString: () => "" }) },
-			normal: { viewportY: 10, length: 100 },
+			active: { type: "normal", cursorY: 0, viewportY: 10, length: 100, getLine: () => ({ translateToString: () => "" }) },
 		};
+		modes = { mouseTrackingMode: "none" };
 		scrollLines = vi.fn();
 		loadAddon() {}
 		textarea = document.createElement("textarea");
@@ -203,14 +203,14 @@ describe("SshTerminalPanel", () => {
 		const surface = screen.getByTestId("ssh-terminal-surface");
 
 		// Pinned at the top of scrollback: dragging down (older) has nowhere to go.
-		term.buffer.normal.viewportY = 0;
+		term.buffer.active.viewportY = 0;
 		fireTouch(surface, "touchstart", 300);
 		let move = fireTouch(surface, "touchmove", 360);
 		expect(move.defaultPrevented).toBe(false);
 		expect(term.scrollLines).not.toHaveBeenCalled();
 
 		// Pinned at the bottom: dragging up (newer) has nowhere to go either.
-		term.buffer.normal.viewportY = 76; // + rows(24) === length(100)
+		term.buffer.active.viewportY = 76; // + rows(24) === length(100)
 		fireTouch(surface, "touchstart", 300);
 		move = fireTouch(surface, "touchmove", 250);
 		expect(move.defaultPrevented).toBe(false);

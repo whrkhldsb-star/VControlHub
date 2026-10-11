@@ -15,7 +15,7 @@ docker run -d --name vcontrolhub-guacd --restart unless-stopped \
 
 Enable `RDP_ENABLED=true` in both the application and SSH WebSocket service environments. Ensure the allowed WebSocket origins include the public application origin. Apply the Prisma migration with the normal deployment process before enabling Windows node creation.
 
-Route `/rdp` to the existing WebSocket service (normally 127.0.0.1:3001), preserving cookies, Origin and the WebSocket upgrade. For Caddy, add alongside the existing `/ssh` rule:
+Route `/rdp` to the existing WebSocket service (normally 127.0.0.1:3001), preserving cookies, Origin and the WebSocket upgrade. The bundled Caddy and Apache templates (`deploy/Caddyfile.example`, `deploy/apache-next-proxy.example.conf`) already do, so installs and upgrades that render them need nothing more. A hand-written Caddy configuration needs the rule alongside the existing `/ssh` rule:
 
 ```caddyfile
 reverse_proxy /rdp 127.0.0.1:3001
