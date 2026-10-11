@@ -17,6 +17,7 @@ import {
 } from "@/lib/server/service";
 import { loadServerForDirectGateway } from "../service-direct-gateway";
 import { prisma } from "@/lib/db";
+import { t } from "@/lib/i18n/service-translations";
 import { createRemoteDirectory, listRemoteDirectory, writeRemoteFile } from "@/lib/ssh/client";
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 
@@ -270,7 +271,7 @@ describe("server service", () => {
         approvedHostKeySha256: "hk-prod-1 storage",
       }),
     ).rejects.toThrow(
-      "A VPS node with the same IP/host already exists: existing-node (root@45.207.216.45:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.",
+      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@45.207.216.45:22" }),
     );
 
     expect(prisma.server.create).not.toHaveBeenCalled();
@@ -692,7 +693,7 @@ describe("server service", () => {
         connectionType: "PASSWORD",
       }),
     ).rejects.toThrow(
-      "A VPS node with the same IP/host already exists: existing-node (root@45.207.216.45:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.",
+      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@45.207.216.45:22" }),
     );
 
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -2051,7 +2052,7 @@ describe("server service", () => {
         approvedHostKeySha256: "hk-prod-1 storage",
       }),
     ).rejects.toThrow(
-      "A VPS node with the same IP/host already exists: existing-node (root@203.0.113.10:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.",
+      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@203.0.113.10:22" }),
     );
 
     expect(prisma.server.create).not.toHaveBeenCalled();

@@ -90,7 +90,7 @@ export default async function SharesPage() {
 			</ListPanel>
 			{canCreate ? (
 				<div className="mb-5 space-y-4">
-					<ShareFilePicker nodes={nodes.map((n) => ({ id: n.id, name: n.name, driver: n.driver }))} />
+					<ShareFilePicker nodes={nodes.map((n) => ({ id: n.id, name: n.name, driver: n.driver, isDefault: n.isDefault, healthStatus: n.healthStatus }))} />
 					<CreateShareForm nodes={nodes.map((n) => ({ id: n.id, name: `${n.name} · ${getStorageDriverLabel(t, n.driver)}` }))} />
 				</div>
 			) : null}

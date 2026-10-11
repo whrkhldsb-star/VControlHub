@@ -316,6 +316,8 @@ export async function getFilesListing(
         name: node.name,
         driver: node.driver,
         basePath: node.driver === "LOCAL" ? node.basePath : undefined,
+        isDefault: node.isDefault,
+        healthStatus: node.healthStatus,
       })),
     },
   };

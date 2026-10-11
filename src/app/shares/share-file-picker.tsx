@@ -1,5 +1,6 @@
 "use client";
 
+import { pickPreferredStorageNode } from "@/lib/storage/preferred-node";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Copy, File, Folder, RefreshCw, Share2 } from "@/components/icons";
@@ -20,6 +21,8 @@ interface StorageNode {
 	id: string;
 	name: string;
 	driver?: string;
+	isDefault?: boolean;
+	healthStatus?: string | null;
 }
 
 interface FileListFolder {
@@ -90,10 +93,13 @@ function buildFileListParams(nodeId: string, path: string) {
 export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 	const router = useRouter();
 	const { t } = useI18n();
-	const [nodeId, setNodeId] = useState(nodes[0]?.id ?? "");
+	const [nodeId, setNodeId] = useState(pickPreferredStorageNode(nodes)?.id ?? "");
 	const [path, setPath] = useState("");
 	const [page, setPage] = useState(1);
-	const [data, setData] = useState<FileListResponse | null>(() => nodes[0]?.id ? { currentPath: "", nodeIdFilter: nodes[0].id, folders: [], files: [], nodes } : null);
+	const [data, setData] = useState<FileListResponse | null>(() => {
+		const start = pickPreferredStorageNode(nodes);
+		return start ? { currentPath: "", nodeIdFilter: start.id, folders: [], files: [], nodes } : null;
+	});
 	const [selected, setSelected] = useState<Record<string, SelectedEntry>>({});
 	const [loading, setLoading] = useState(false);
 	const [creating, setCreating] = useState(false);
