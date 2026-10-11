@@ -49,8 +49,8 @@ function protectedRanges(text: string, fileName: string): Range[] {
 	return ranges;
 }
 
-function indentationStyles(text: string, fileName: string): { tabs: number; spaces: number } {
-	const ranges = protectedRanges(text, fileName);
+/** Counts tab- and space-indented lines, skipping lines that start inside `ranges`. */
+function indentationStyles(text: string, ranges: Range[] = []): { tabs: number; spaces: number } {
 	let tabs = 0;
 	let spaces = 0;
 	let offset = 0;
@@ -70,7 +70,12 @@ describe("indentation consistency", () => {
 	it("never mixes tabs and spaces for indentation inside one source file", () => {
 		const offenders: string[] = [];
 		for (const file of sourceFiles(ROOT)) {
-			const { tabs, spaces } = indentationStyles(readFileSync(file, "utf8"), file);
+			const text = readFileSync(file, "utf8");
+			// Protected ranges only ever remove lines from the count, so a file whose raw lines
+			// indent one way cannot mix. Only the rest need the (slow) TypeScript parse.
+			const raw = indentationStyles(text);
+			if (raw.tabs === 0 || raw.spaces === 0) continue;
+			const { tabs, spaces } = indentationStyles(text, protectedRanges(text, file));
 			if (tabs > 0 && spaces > 0) offenders.push(`${relative(ROOT, file)} (tabs ${tabs}, spaces ${spaces})`);
 		}
 		expect(offenders, "files mixing tab and space indentation").toEqual([]);
