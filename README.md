@@ -1,6 +1,6 @@
 # VControlHub
 
-面向个人和小团队的自托管 VPS 管理平台。通过一个 Web 界面管理服务器、SSH 终端、文件存储、应用部署、监控和运维任务。
+面向个人运维及多客户服务场景的自托管 VPS 管理平台。通过一个 Web 界面管理服务器、SSH 终端、文件存储、应用部署、监控和运维任务。平台管理员集中管理客户与资源，客户账号按身份模板在各自隔离的范围内操作。
 
 VControlHub 使用 Next.js、React、TypeScript、PostgreSQL 和 Prisma，生产环境由独立的 Web、后台 Worker 与 SSH WebSocket 进程组成。
 
@@ -19,8 +19,10 @@ VControlHub 使用 Next.js、React、TypeScript、PostgreSQL 和 Prisma，生产
 | 监控 | 资源采样、历史趋势、告警规则和通知 |
 | 运维 | 定时任务、Playbook、备份、部署记录、工单与审计 |
 | AI 助手 | 模型配置、知识库检索和受权限控制的运维工具 |
-| 访问控制 | 用户与角色、团队隔离、API Token、可选 TOTP 双因子认证 |
+| 访问控制 | 平台管理员与客户账号、身份模板、逐服务器／目录收窄、API Token、可选 TOTP 双因子认证 |
 | 界面 | 中文与英文、深色与浅色主题、响应式布局 |
+
+旧工作区模型已改为“客户＋身份模板”；升级前应阅读 [客户与账号边界及迁移说明](docs/multi-tenant.md)。平台健康与 Hub 主机监控仅供平台管理员使用，公告阅读对所有登录账号开放。近期变化见 [完整指南](docs/project-overview-and-user-guide.zh-CN.md#recent-changes)。
 
 不同存储驱动的能力并不完全相同，部署前请阅读下方的能力边界。
 

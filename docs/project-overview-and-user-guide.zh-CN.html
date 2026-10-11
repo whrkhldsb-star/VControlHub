@@ -14,12 +14,12 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>本指南按仓库中的实际功能组织，说明功能入口、配置条件、操作流程、权限、运行架构及能力边界。适用于使用者、管理员和项目维护者。
 具体实例能否使用某项功能，取决于部署配置、当前客户、账号授权和目标主机条件；各模块的配置要求见对应章节。
 适用对象：项目使用者、平台管理员、运维人员、项目介绍与交接文档的读者、后续开发维护者。
-这是一份当前实现说明。功能是否能在某个安装实例中使用，还取决于账号权限、团队、目标操作系统、外部服务及部署配置。本地代码版本与 GitHub 分支是否同步，应另行核对。</p>
+本次内容核对：2026-10-11，覆盖客户与身份模板改造及后续权限、公告和界面一致性修正。本文描述仓库实现；本地提交、GitHub 合并与实际部署是不同状态，使用时需核对部署版本。</p>
 </blockquote>
 <p>重点阅读：<a href="#functional-goals">功能设计目标</a> · <a href="#coverage-review">功能范围与实现索引</a> · <a href="#reference">完整功能索引</a> · <a href="#feature-upgrades">指南使用方式</a>。</p>
 <h2 id="project">1. 项目定位、整体能力与功能设计目标</h2>
 <h3 id="section-1-1">1.1 项目是什么</h3>
-<p>VControlHub 是面向个人和小团队的自托管服务器管理与运维平台。用户部署自己的控制台后，可以在同一个 Web 界面中管理多台 Linux／Windows 服务器、远程终端、文件、容器应用、监控、命令审批、自动化任务、备份和团队协作。</p>
+<p>VControlHub 是面向个人运维及多客户服务场景的自托管服务器管理与运维平台。平台方部署一个控制台，集中管理多台 Linux／Windows 服务器、远程终端、文件、容器应用、监控、命令审批、自动化任务和备份；客户账号在各自隔离的资源范围内使用获准功能。</p>
 <p>它把“资产—连接—操作—结果—追踪”串在一起：先登记服务器和存储，再通过终端、部署、任务或 AI 发起操作，最后在任务中心、审批记录、通知和审计日志中查看结果。</p>
 <p>主要使用场景包括：</p>
 <ul>
@@ -97,7 +97,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 <tr>
 <td>管理</td>
-<td>用户、角色、团队、API Token、审计、系统设置</td>
+<td>平台管理员、客户账号、身份模板、API Token、审计、系统设置</td>
 <td>授权、隔离、集成、配置和安全追踪</td>
 </tr>
 <tr>
@@ -114,7 +114,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>依据：<a href="../README.md">README</a>、<a href="route-catalog.json">页面与接口目录</a>、<a href="../prisma/schema.prisma">数据模型</a>、<a href="../src/lib/workers/registry.ts">Worker 注册表</a>。</p>
 <p><a id="functional-goals"></a></p>
 <h3 id="section-1-4">1.4 总体功能设计目标</h3>
-<p>从当前功能和业务流程看，项目的总体目标是：<strong>让个人或小团队通过自己的控制台，持续完成多主机、多存储、多应用的日常运维，并能控制操作权限、查看执行结果、保留处理记录和恢复所需数据。</strong> 以下目标依据现有实现归纳，用于说明产品价值及功能验收方向；各目标已经实现到什么程度，以后续模块说明和能力边界为准。</p>
+<p>从当前功能和业务流程看，项目的总体目标是：<strong>让个人运维者或服务多个客户的平台方通过自己的控制台，持续完成多主机、多存储、多应用的日常运维，并按客户隔离资源、控制操作权限、查看执行结果、保留处理记录和恢复所需数据。</strong> 以下目标依据现有实现归纳，用于说明产品价值及功能验收方向；各目标已经实现到什么程度，以后续模块说明和能力边界为准。</p>
 <ol>
 <li><strong>集中管理分散资源。</strong> 将服务器、认证材料、存储、应用、监控和成本放进统一资源视图，减少查找地址、切换工具和重复登记。用户应能从一台服务器继续找到它的终端、文件、状态、任务和相关记录。</li>
 <li><strong>让常见操作可以在浏览器完成。</strong> 覆盖连接服务器、查看桌面、传输文件、编辑配置、管理容器、安装应用、查看日志及提交命令；清楚显示这些操作各自的前置条件、目标和结果。</li>
@@ -429,9 +429,9 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td><a href="../src/app/cost-summary/page.tsx">成本页面</a>、<a href="../src/lib/cost/cloud-billing/adapters.ts">账单来源</a></td>
 </tr>
 <tr>
-<td><a id="feature-f42"></a><code>F-42</code> 账号、安全与角色</td>
+<td><a id="feature-f42"></a><code>F-42</code> 账号、安全与身份</td>
 <td>共享管理员账号难以分工及撤销访问</td>
-<td>独立账号、改密、MFA、恢复码、全端退出、账号启停、角色和密码重置</td>
+<td>独立账号、账号类型与身份模板、改密、MFA、恢复码、全端退出、账号启停和密码重置</td>
 <td><a href="#permissions">第 17 章</a></td>
 <td><a href="../src/app/account/security/page.tsx">账号安全</a>、<a href="../src/lib/auth/rbac.ts">角色权限</a></td>
 </tr>
@@ -459,7 +459,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <tr>
 <td><a id="feature-f46"></a><code>F-46</code> API Token 与接口说明</td>
 <td>脚本和第三方客户端需要可控访问</td>
-<td>签发有范围、团队、期限的个人凭据，提供接口说明并支持撤销和使用追踪</td>
+<td>签发有范围、客户归属、期限的个人凭据，提供接口说明并支持撤销和使用追踪</td>
 <td><a href="#settings-api">第 18 章</a></td>
 <td><a href="../src/lib/api-token/service.ts">Token 服务</a>、<a href="../src/app/api-docs/page.tsx">接口说明</a></td>
 </tr>
@@ -520,7 +520,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 <tr>
 <td>对外分享或集成</td>
-<td>访客或客户端只凭正确链接／Token 在允许范围使用，密码、有效期、撤销和团队限制实际生效</td>
+<td>访客或客户端只凭正确链接／Token 在允许范围使用，密码、有效期、撤销和客户范围限制实际生效</td>
 </tr>
 </tbody>
 </table></div>
@@ -558,6 +558,55 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tbody>
 </table></div>
 <p>查阅时先按第 1.5 节的功能编号定位章节，再结合操作条件与限制使用；需要定位实现时，查阅第 24 章的页面、接口和业务源码索引。</p>
+<p><a id="recent-changes"></a></p>
+<h3 id="section-1-8">1.8 近期改动与升级后的阅读重点</h3>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>改动</th>
+<th>当前行为与使用提示</th>
+<th>详细说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>客户与身份模板</td>
+<td>平台管理员不属于客户；每个客户账号只属于一个客户。旧工作区成员角色、访问角色、权限组和账号模板由新的客户／身份模板模型替代</td>
+<td><a href="#permissions">第 17 章</a></td>
+</tr>
+<tr>
+<td>服务器来源与转移</td>
+<td>区分平台分配和客户添加；平台管理员转移服务器时一并迁移关联资源，并检查原客户尚在使用的引用</td>
+<td><a href="#permissions">第 17.6 节</a></td>
+</tr>
+<tr>
+<td>授权与界面一致性</td>
+<td>平台专属页面对客户隐藏；首次设置按权限过滤；公告对全部登录账号可见；拒绝访问使用统一页面</td>
+<td><a href="#getting-started">第 2.3 节</a>、<a href="#workspace">第 3 章</a></td>
+</tr>
+<tr>
+<td>删除客户后的状态统计</td>
+<td>已删除客户的存储不再参与正常服务的状态汇总与懒健康探测，避免保留的历史记录产生误报</td>
+<td><a href="multi-tenant.md">客户边界说明</a></td>
+</tr>
+<tr>
+<td>旧版本升级</td>
+<td>迁移转换客户成员关系和身份模板，修正数据库约束命名；安装／升级的 seed 同步内置模板。原有多工作区账号的归属转换需核对</td>
+<td><a href="multi-tenant.md#migration-from-workspaces">客户迁移说明</a>、<a href="#operations">第 21 章</a></td>
+</tr>
+<tr>
+<td>手机 SSH 滚动</td>
+<td>单指拖动按终端模式滚动普通输出，或转为滚轮／按键交给远端交互程序；应用未保留的记录不能凭空恢复</td>
+<td><a href="#remote-access">第 5.1 节</a></td>
+</tr>
+<tr>
+<td>RDP 与文件直连反向代理</td>
+<td>安装器的 Caddy、Apache 模板补齐 <code>/rdp</code> 和 <code>/direct</code> 转发；既有部署需核对实际代理配置是否已更新</td>
+<td><a href="#remote-access">第 5.4 节</a>、<a href="deploy-vps.md">部署说明</a></td>
+</tr>
+</tbody>
+</table></div>
+<p>ITSM、AI 运维、知识库、云账单与预算、媒体库与图片外链、工单 SLA、代码片段、部署模板导出及 PWA 仍在当前功能范围内，按需配置使用；AI 提供商继续按用户配置。功能保留不代表每个外部服务或移动端交互都已完成实机验收。</p>
 <h2 id="getting-started">2. 核心概念与首次使用</h2>
 <h3 id="section-2-1">2.1 先理解这些对象</h3>
 <div class="table-scroll" tabindex="0"><table>
@@ -645,12 +694,13 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <li>打开浏览器终端执行一次只读检查，确认账号和 shell 可用。</li>
 <li>为服务器配置云盘根目录，或添加本地／外部 WebDAV 存储节点。</li>
 <li>在文件页上传一个测试文件，验证浏览、下载、预览与权限。</li>
-<li>查看 节点状态、平台健康，配置告警规则和实际通知渠道。</li>
+<li>查看节点状态并按权限配置告警规则；平台管理员另外检查平台健康、配置实际通知渠道。</li>
 <li>建立备份计划，查看一次成功记录并执行产物校验或独立恢复验证。</li>
 <li>根据需要启用快捷服务、Playbook、AI、异地备份与外部集成。</li>
 </ol>
-<p>仪表盘会提供首次设置清单，提示服务器、告警、外发通知、备份计划和节点月费等尚未配置的项目。清单可以暂时关闭；关闭提示不会替代相应配置。</p>
+<p>仪表盘会提供首次设置清单，提示服务器、告警、外发通知、备份计划和节点月费等尚未配置的项目。清单按当前账号权限过滤，客户只读账号不会看到无法执行的设置项。清单可以暂时关闭；关闭提示不会替代相应配置。</p>
 <h3 id="section-2-3">2.3 权限对界面的影响</h3>
+<p>平台健康与 Hub 主机监控只向平台管理员开放，客户账号按权限使用节点状态和告警页面。公告阅读对所有登录账号开放，发布管理仍由平台管理员负责。页面拒绝访问时使用统一提示；导航、全局搜索和快捷入口应与实际页面权限一致。</p>
 <p>导航、按钮、列表数据和 API 都会受到权限约束。同一个客户中，“客户只读”“客户运维”“仅文件”等身份模板看到的操作按钮不完全一致。若某个功能不存在于当前页面，应先核对账号类型、身份模板、资源授权和功能依赖，而不是直接认为功能未实现。</p>
 <h3 id="section-2-4">2.4 先确定要使用的连接通道</h3>
 <div class="table-scroll" tabindex="0"><table>
@@ -1577,7 +1627,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>受控的运行观测接口还提供 Web Vitals 聚合、通知投递延迟／失败率，以及通知与 SSH WebSocket 连接计数。这是平台维护的观测能力，没有单独列为新的侧栏页面。</p>
 <h3 id="section-12-5">12.5 流量中心与可用率</h3>
 <p>流量中心可自动选择主网卡或手动选择，查看当前收发速度、累计字节、各网卡明细和远端节点来源。图表区分当前页面会话内实时数据、本机持久化 24 小时历史和 7 天汇总。</p>
-<p>服务状态页匿名只给总体状态，不暴露主机名、端口、内部连接串等信息。登录并有权访问时可查看分项及团队节点的 90 天可用率热力图。未采样时间单独表达，不能当成已验证正常运行。</p>
+<p>服务状态页匿名只给总体状态，不暴露主机名、端口、内部连接串等信息。登录并有权访问时可查看分项及客户范围内节点的 90 天可用率热力图。未采样时间单独表达，不能当成已验证正常运行。</p>
 <h3 id="section-12-6">12.6 告警规则</h3>
 <p>入口：<code>/alert-rules</code>。</p>
 <p>可一键生成离线、CPU、内存、磁盘基础规则，也可自定义：</p>
@@ -1698,7 +1748,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>依据：<a href="../src/lib/backup/service.ts">备份服务</a>、<a href="../src/lib/backup/service-runtime.ts">恢复及演练实现</a>、<a href="../src/lib/backup/vps-backup-presets.ts">VPS 备份预设</a>、<a href="../src/lib/backup/recovery-offsite.ts">系统恢复归档异地上传</a>。</p>
 <h2 id="ai">14. AI 助手、知识库与 AI 运维</h2>
 <h3 id="section-14-1">14.1 AI 提供商管理</h3>
-<p>入口：<code>/ai</code> 中的提供商管理，需相应权限。</p>
+<p>入口：<code>/ai</code> 中的提供商管理，需要 <code>ai:manage</code> 权限。提供商配置按创建账号保存和读取；一个账号添加的 API Key、默认提供商及模型配置不会自动成为所有客户账号共用的平台配置。需要使用 AI 的账号应配置自己的提供商，并验证相应模型与工具能力。</p>
 <p>当前提供商类型包括 OpenAI、OpenAI 兼容、Anthropic、Google、自定义。可配置名称、API Key、Base URL、默认模型、可选模型列表、默认提供商和启用状态，读取模型清单、手动填写模型 ID、编辑或删除提供商。</p>
 <p>添加或编辑时可用当前填写的提供商配置探测模型列表，无需先把错误配置保存为正式提供商。探测主要验证该地址和凭据能否取得模型信息，不等于每个模型的对话、多模态和工具能力都已验证。</p>
 <p>这些是平台支持的适配类型，不保证任意兼容地址实现了完全相同的模型发现、流式、多模态或工具调用协议。配置后应使用实际账号和模型验证所需能力。</p>
@@ -1914,7 +1964,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>页面显示截止时间、正常、即将超时、已超时或无有效 SLA。后台检查尚未解决的超时工单，按低→普通→高→紧急链路升级并通知同一客户内的相应人员，记录升级前后优先级和原因。已经解决／关闭的工单不继续作为未解决超时项处理。</p>
 <p>此处 SLA 是项目内跟踪规则，不包含复杂工作日、节假日和多阶段服务合同引擎。</p>
 <h3 id="section-15-3">15.3 ITSM／IM 双向集成</h3>
-<p>入口：<code>/itsm</code>。</p>
+<p>入口：<code>/itsm</code>，需要 <code>ticket:manage</code> 权限；只有 <code>ticket:read</code> 的账号不会看到这个管理入口。ITSM 是 IT 服务管理的缩写，本模块负责站内工单与外部系统／聊天工具之间的事件对接。仅在站内创建和处理工单时，无需配置 ITSM 连接。</p>
 <p>可配置通用 Webhook、Slack、Telegram、钉钉、飞书等提供商适配，选择出站、入站或双向。连接配置包括名称、Webhook、目标标识、凭据、入站默认分类／优先级、是否允许创建工单及启用状态。</p>
 <p>出站将工单创建、状态或评论相关事件按适配发送，后台处理发送及错误；用户可测试出站并查看最近事件、方向、状态和失败原因。</p>
 <p>入站入口验证共享密钥的 HMAC 签名，按平台定义的数据格式创建工单、添加评论或更新状态。事件可按外部 ID 去重，且只能操作连接所属客户的工单；回写不会简单再次向同一链路无限转发。</p>
@@ -1964,7 +2014,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>账号只有两类：</p>
 <ul>
 <li><strong>平台管理员</strong>：持有内置 <code>admin</code> 角色，不属于任何客户，可跨客户管理全部资源、账号、身份模板和平台设置。</li>
-<li><strong>客户账号</strong>：只属于一个客户，权限完全来自该成员身份上的身份模板；账号角色和额外授权对客户账号不起作用。</li>
+<li><strong>客户账号</strong>：只属于一个客户，有查看所属客户与同事的基础权限，其他业务权限来自该成员身份上的身份模板。旧账号角色和直接权限授予不再作为客户权限来源；逐台服务器和存储路径授权仍用于收窄模板允许的范围。</li>
 </ul>
 <p>账号由平台管理员创建。新建表单一步选择“平台管理员”或“客户账号＋所属客户＋身份模板”；之后也可以把账号改成另一类型或移到另一个客户，移动时原客户内的逐台服务器和存储路径限制会被清除。管理员还可以启用／禁用账号、重置密码。系统保护最后一个有效平台管理员，防止常规操作导致无人可管理平台。</p>
 <h3 id="section-17-4">17.4 身份模板</h3>
@@ -2001,7 +2051,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 </tbody>
 </table></div>
-<p>管理员可以新建自定义模板；内置模板的权限在每次安装或升级时与代码同步。平台专属权限（账号管理、客户管理、平台备份恢复、公告、角色管理）不能放进任何模板。修改模板会实时影响使用它的所有账号；仍有账号使用的模板不能删除。具体 52 项权限见文末矩阵。</p>
+<p>管理员可以新建自定义模板；内置模板的权限在每次安装或升级时与代码同步。平台专属权限（账号管理、客户管理、平台备份恢复、公告发布管理、角色管理）不能放进任何模板。修改模板会实时影响使用它的所有账号；仍有账号使用的模板不能删除。具体 52 项权限见文末矩阵。</p>
 <h3 id="section-17-5">17.5 客户</h3>
 <p>入口：平台管理员的 <code>/customers</code> 页及侧栏顶部的客户切换器。</p>
 <p>客户是数据隔离边界：服务器、存储、密钥、任务、工单、成本、通知等业务数据都归属某个客户，客户账号只能看到自己的客户。</p>
@@ -2029,7 +2079,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <h3 id="section-17-9">17.9 审计日志</h3>
 <p>入口：<code>/audit</code>。</p>
 <p>审计记录用户、AI 助手和系统动作，按 INFO、WARNING、CRITICAL 分类，关联时间、操作者、动作、资源及细节。支持搜索、动作／严重程度／来源筛选、排序和分页，查看最近 24 小时、高风险占比、常见动作等统计。</p>
-<p>覆盖登录、改密、MFA、Token、节点、文件、命令审批执行、部署、容器、备份、团队、权限和相关业务操作。导出接口支持 CSV 和 JSON，仍执行身份及范围校验。</p>
+<p>覆盖登录、改密、MFA、Token、节点、文件、命令审批执行、部署、容器、备份、客户、身份模板、权限和相关业务操作。导出接口支持 CSV 和 JSON，仍执行身份及范围校验。</p>
 <p>审计用于操作追踪，不代表完整录制每个 SSH 屏幕或具有外部不可篡改存证能力。数据保留策略可能清理旧记录，需要长期留档时应按管理流程导出。</p>
 <p>依据：<a href="../src/lib/auth/rbac.ts">角色定义</a>、<a href="../src/lib/auth/identity-templates.ts">身份模板</a>、<a href="multi-tenant.md">客户边界</a>、<a href="../src/lib/auth/session.ts">会话实现</a>、<a href="../src/lib/server/resource-access.ts">资源授权</a>、<a href="../src/lib/storage/access-control.ts">存储授权</a>、<a href="../src/lib/audit/service.ts">审计服务</a>。</p>
 <h2 id="settings-api">18. 系统设置、配置导入导出与开放 API</h2>
@@ -2109,7 +2159,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </table></div>
 <p>敏感字段读取时使用掩码等安全返回方式，不能把 <code>***</code> 当作原始密码复制到其他系统。保留原值、清空和更换值应按对应表单约定操作。</p>
 <h3 id="section-18-2">18.2 配置导出与导入</h3>
-<p>支持导出带格式版本的 JSON 配置快照，界面文件名形如 <code>vch-config-&lt;scope&gt;-&lt;时间&gt;.json</code>。范围包括当前团队与需要平台管理员的全平台，模式包括标准脱敏与含敏感配置的完整模式。</p>
+<p>支持导出带格式版本的 JSON 配置快照，界面文件名形如 <code>vch-config-&lt;scope&gt;-&lt;时间&gt;.json</code>。范围包括当前客户（接口参数仍为 <code>scope=team</code>）与需要平台管理员的全平台，模式包括标准脱敏与含敏感配置的完整模式。</p>
 <ul>
 <li>标准导出剥离密码、私钥、API Key 等敏感字段，导入后需补配。</li>
 <li>完整模式含敏感凭据材料，仅平台管理员可用，需要按敏感备份保管。</li>
@@ -2120,7 +2170,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>配置导出不包含任意服务器磁盘文件，文件索引也不等于文件正文。迁移云盘数据仍需匹配实际存储和备份。</p>
 <h3 id="section-18-3">18.3 平台 API Token</h3>
 <p>入口：<code>/api-tokens</code>。</p>
-<p>用户可创建具名个人 Token，选择 scopes、可选过期时间，复制仅展示一次的明文，查看前后缀、创建时间、最近使用、绑定团队和撤销状态，并撤销不需要的 Token。</p>
+<p>用户可创建具名个人 Token，选择 scopes、可选过期时间，复制仅展示一次的明文，查看前后缀、创建时间、最近使用、绑定客户和撤销状态，并撤销不需要的 Token。</p>
 <p>当前允许的 scopes 为：</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -2482,7 +2532,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 <tr>
 <td><code>src/lib/auth/</code></td>
-<td>登录会话、RBAC、CSRF、MFA、团队与权限</td>
+<td>登录会话、RBAC、CSRF、MFA、客户边界与身份模板权限</td>
 </tr>
 <tr>
 <td><code>src/lib/&lt;业务域&gt;/</code></td>
@@ -2532,7 +2582,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </table></div>
 <h3 id="section-19-4">19.4 为什么将长任务放入 Worker</h3>
 <p>HTTP 请求适合提交、查询和返回结果，不适合让浏览器连接承载长时间 SSH、下载、备份和部署。平台先持久化业务对象与 Job，再由 Worker 认领执行。</p>
-<figure class="diagram"><figcaption>命令执行时序：提交、审批、执行与结果</figcaption><div class="diagram-scroll"><svg viewBox="0 0 1160 910" role="img" aria-labelledby="sequence-title" xmlns="http://www.w3.org/2000/svg"><title id="sequence-title">从提交命令、审批到 Worker 执行及结果查询的时序</title><defs><marker id="seq-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#537699"/></marker></defs><line x1="90" y1="72" x2="90" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="12" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="90.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">用户</text><line x1="285" y1="72" x2="285" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="207" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="285.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">Web / API</text><line x1="480" y1="72" x2="480" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="402" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="480.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">PostgreSQL</text><line x1="675" y1="72" x2="675" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="597" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="675.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">审批人</text><line x1="870" y1="72" x2="870" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="792" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="870.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">Worker</text><line x1="1065" y1="72" x2="1065" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="987" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="1065.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">目标服务器</text><line x1="90" y1="123" x2="285" y2="123" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="187.5" y="114" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">1. 提交命令、目标和原因</text><line x1="285" y1="178" x2="480" y2="178" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="382.5" y="169" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">2. 保存命令请求及目标</text><rect x="192" y="200" width="555" height="101" rx="8" fill="#fff6df" stroke="#e7d2a0"/><text x="738" y="218" text-anchor="end" fill="#876316" font-size="12" font-weight="400">需要审批时</text><line x1="675" y1="233" x2="285" y2="233" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="480.0" y="224" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">3. 批准或拒绝</text><line x1="285" y1="288" x2="480" y2="288" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="382.5" y="279" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">4. 保存审批结果</text><line x1="285" y1="343" x2="480" y2="343" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="382.5" y="334" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">5. 为获准请求创建 Job</text><line x1="870" y1="398" x2="480" y2="398" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="675.0" y="389" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">6. 认领任务并取得租约</text><line x1="870" y1="453" x2="480" y2="453" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="675.0" y="444" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">7. 重新检查身份、团队及资源</text><line x1="870" y1="508" x2="1065" y2="508" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="967.5" y="499" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">8. 通过 SSH 或 Agent 执行</text><line x1="870" y1="563" x2="480" y2="563" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="675.0" y="554" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">9. 写心跳、输出和目标状态</text><line x1="1065" y1="618" x2="870" y2="618" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)" stroke-dasharray="5 4"/><text x="967.5" y="609" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">10. 退出状态或错误</text><line x1="870" y1="673" x2="480" y2="673" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="675.0" y="664" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">11. 写任务结果、事件、审计和通知</text><line x1="90" y1="728" x2="285" y2="728" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="187.5" y="719" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">12. 查看审批或任务中心</text><line x1="285" y1="783" x2="480" y2="783" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="382.5" y="774" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">13. 读取持久化结果</text><line x1="285" y1="838" x2="90" y2="838" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)" stroke-dasharray="5 4"/><text x="187.5" y="829" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">14. 展示完成、失败或待处理原因</text></svg></div><details class="diagram-source"><summary>查看 Mermaid 源码</summary><pre><code>sequenceDiagram
+<figure class="diagram"><figcaption>命令执行时序：提交、审批、执行与结果</figcaption><div class="diagram-scroll"><svg viewBox="0 0 1160 910" role="img" aria-labelledby="sequence-title" xmlns="http://www.w3.org/2000/svg"><title id="sequence-title">从提交命令、审批到 Worker 执行及结果查询的时序</title><defs><marker id="seq-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#537699"/></marker></defs><line x1="90" y1="72" x2="90" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="12" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="90.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">用户</text><line x1="285" y1="72" x2="285" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="207" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="285.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">Web / API</text><line x1="480" y1="72" x2="480" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="402" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="480.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">PostgreSQL</text><line x1="675" y1="72" x2="675" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="597" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="675.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">审批人</text><line x1="870" y1="72" x2="870" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="792" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="870.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">Worker</text><line x1="1065" y1="72" x2="1065" y2="880" stroke="#d4dee8" stroke-dasharray="5 5"/><rect x="987" y="16" width="156" height="54" rx="12" fill="#f0f6fc" stroke="#becfdd"/><text x="1065.0" y="49.0" text-anchor="middle" fill="#23354b" font-size="17" font-weight="600">目标服务器</text><line x1="90" y1="123" x2="285" y2="123" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="187.5" y="114" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">1. 提交命令、目标和原因</text><line x1="285" y1="178" x2="480" y2="178" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="382.5" y="169" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">2. 保存命令请求及目标</text><rect x="192" y="200" width="555" height="101" rx="8" fill="#fff6df" stroke="#e7d2a0"/><text x="738" y="218" text-anchor="end" fill="#876316" font-size="12" font-weight="400">需要审批时</text><line x1="675" y1="233" x2="285" y2="233" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="480.0" y="224" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">3. 批准或拒绝</text><line x1="285" y1="288" x2="480" y2="288" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="382.5" y="279" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">4. 保存审批结果</text><line x1="285" y1="343" x2="480" y2="343" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="382.5" y="334" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">5. 为获准请求创建 Job</text><line x1="870" y1="398" x2="480" y2="398" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="675.0" y="389" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">6. 认领任务并取得租约</text><line x1="870" y1="453" x2="480" y2="453" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="675.0" y="444" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">7. 重新检查身份、客户及资源</text><line x1="870" y1="508" x2="1065" y2="508" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="967.5" y="499" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">8. 通过 SSH 或 Agent 执行</text><line x1="870" y1="563" x2="480" y2="563" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="675.0" y="554" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">9. 写心跳、输出和目标状态</text><line x1="1065" y1="618" x2="870" y2="618" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)" stroke-dasharray="5 4"/><text x="967.5" y="609" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">10. 退出状态或错误</text><line x1="870" y1="673" x2="480" y2="673" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="675.0" y="664" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">11. 写任务结果、事件、审计和通知</text><line x1="90" y1="728" x2="285" y2="728" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="187.5" y="719" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">12. 查看审批或任务中心</text><line x1="285" y1="783" x2="480" y2="783" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)"/><text x="382.5" y="774" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">13. 读取持久化结果</text><line x1="285" y1="838" x2="90" y2="838" stroke="#537699" stroke-width="1.6" marker-end="url(#seq-arrow)" stroke-dasharray="5 4"/><text x="187.5" y="829" text-anchor="middle" fill="#23354b" font-size="13" font-weight="400">14. 展示完成、失败或待处理原因</text></svg></div><details class="diagram-source"><summary>查看 Mermaid 源码</summary><pre><code>sequenceDiagram
     participant U as 用户
     participant W as Web/API
     participant D as PostgreSQL
@@ -2547,7 +2597,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
     end
     W-&gt;&gt;D: 为获准请求创建 Job
     K-&gt;&gt;D: 认领任务并取得租约
-    K-&gt;&gt;D: 重新检查身份、团队及资源
+    K-&gt;&gt;D: 重新检查身份、客户及资源
     K-&gt;&gt;S: 通过 SSH 或 Agent 执行
     K-&gt;&gt;D: 写心跳、输出和目标状态
     S--&gt;&gt;K: 退出状态或错误
@@ -3007,7 +3057,7 @@ npm run i18n:key-check
 npm run api-copy:audit
 npm run docs:check
 </code></pre>
-<p>完整本地检查通过 <code>npm run ci:local:full</code>；部署相关检查涵盖 Next／运行时构建、部署资产与 smoke。浏览器测试覆盖 Chromium、Firefox、WebKit，产品工作流包含登录导航、文件、媒体、团队边界、权限撤销及服务器清单等。</p>
+<p>完整本地检查通过 <code>npm run ci:local:full</code>；部署相关检查涵盖 Next／运行时构建、部署资产与 smoke。浏览器测试覆盖 Chromium、Firefox、WebKit，产品工作流包含登录导航、文件、媒体、客户边界、权限撤销及服务器清单等。</p>
 <p>CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用专用隔离账号和临时数据库；不能将为隔离测试编写的初始化／清理流程直接指向生产库。</p>
 <p>测试通过说明相应场景得到验证，不等于第三方云账单、每家 WebDAV 厂商、所有快捷服务和每种 Windows 安装环境都完成了实机认证。</p>
 <p>依据：<a href="../deploy/README.md">部署说明</a>、<a href="../deploy.sh">部署脚本</a>、<a href="windows-development.md">Windows 开发运行</a>、<a href="ci-gates.md">CI 门禁</a>、<a href="../package.json">package scripts</a>。</p>
@@ -3035,12 +3085,12 @@ npm run docs:check
 </ol>
 <h3 id="section-22-3">22.3 给客户账号开放指定目录</h3>
 <ol>
-<li>平台管理员创建账号并配置合适角色。</li>
+<li>平台管理员创建或选择目标客户，并确认需要开放的存储节点属于该客户。</li>
 <li>创建客户账号，选择所属客户和合适的身份模板（例如“仅文件”）。</li>
-<li>授予所需存储操作权限，再授权具体节点与目录前缀。</li>
-<li>按需要限制写入、删除、单文件大小和容量。</li>
+<li>在账号权限中配置存储节点的路径授权，只列出允许访问的目录；身份模板本身也必须包含所需文件操作权限。</li>
+<li>按需要限制写入、删除、单文件大小和容量。没有收窄记录的节点仍按模板开放；若某节点完全不应访问，需要显式设置读、写、删除均不允许的记录。</li>
 <li>如需 SSH 或服务器管理，另外设置相应服务器授权。</li>
-<li>使用该成员身份验证可以访问允许目录，无法访问其他目录。</li>
+<li>使用该客户账号验证允许目录、禁止目录和其他存储节点的实际访问结果，不能只检查授权表单是否保存成功。</li>
 <li>后续移除成员或收紧权限后，重新检查浏览器和 Token 访问结果。</li>
 </ol>
 <h3 id="section-22-4">22.4 对外发送一个临时文件</h3>
@@ -3477,7 +3527,7 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/api-tokens/page.tsx"><code>/api-tokens</code></a></td>
 <td>个人 API Token</td>
-<td><a href="#settings-api">签发、范围、过期、团队与撤销</a></td>
+<td><a href="#settings-api">签发、范围、过期、客户归属与撤销</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/audit/page.tsx"><code>/audit</code></a></td>
@@ -3652,7 +3702,7 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/settings/page.tsx"><code>/settings</code></a></td>
 <td>统一设置</td>
-<td><a href="#settings-api">个人、平台、通知、运行参数、团队和配置迁移</a></td>
+<td><a href="#settings-api">个人、平台、通知、运行参数和配置迁移</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/share/%5Btoken%5D/page.tsx"><code>/share/[token]</code></a></td>
@@ -4133,7 +4183,7 @@ npm run docs:check
 </tr>
 <tr>
 <td><code>team:manage</code></td>
-<td>平台团队管理相关权限</td>
+<td>平台客户管理权限（保留原权限标识）</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">平台专属</td>
 <td style="text-align:center">平台专属</td>
@@ -5760,7 +5810,7 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/api/system/export/route.ts"><code>/api/system/export</code></a></td>
 <td>GET</td>
-<td>导出团队／全平台及标准／完整配置快照</td>
+<td>导出当前客户／全平台及标准／完整配置快照</td>
 <td><a href="#settings-api">系统设置、配置导入导出与开放 API</a></td>
 </tr>
 <tr>
@@ -5850,13 +5900,13 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/api/users/route.ts"><code>/api/users</code></a></td>
 <td>GET / POST / PATCH</td>
-<td>用户列表、创建、启停、角色及密码重置</td>
+<td>用户列表、创建、启停、账号类型／身份模板及密码重置</td>
 <td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/users/permissions/route.ts"><code>/api/users/permissions</code></a></td>
 <td>GET / PATCH</td>
-<td>读取有效权限并修改角色／例外／资源授权</td>
+<td>读取有效权限并修改账号类型、所属客户、身份模板及资源收窄规则</td>
 <td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
@@ -6038,7 +6088,7 @@ npm run docs:check
 <td>第 12 章观测 → 第 13 章备份恢复 → 第 21 章运行维护</td>
 </tr>
 <tr>
-<td>管理团队或集成外部系统</td>
+<td>管理客户账号或集成外部系统</td>
 <td>第 15、17、18 章 → 第 24 章权限及接口索引</td>
 </tr>
 <tr>
