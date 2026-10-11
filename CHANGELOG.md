@@ -26,6 +26,7 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Fixed
 
+- Reverse-proxy templates: the Caddy and Apache templates did not route `/rdp`, and the Caddy template not `/direct`. `install.sh` and `upgrade.sh` re-render the whole Caddyfile, so installations that had added these routes by hand (as the remote-desktop guide asked) lost Windows remote desktop on every upgrade. Both templates now carry the routes, a test ties them to the paths the WebSocket gateway accepts, and the installer keeps the previous Caddyfile as one of the last five `.bak` copies.
 - Mobile web SSH: a finger drag did nothing in full-screen programs such as Codex and Claude Code. They run on the alternate screen with mouse tracking and keep their own history, while the drag only moved the terminal scrollback. A one-finger drag now acts like the mouse wheel: it moves the scrollback in a plain shell, sends wheel steps to programs that track the mouse, and arrow keys to alternate-screen programs such as `less`.
 - Status summaries and the lazy storage health probe excluded retired storage by the old `__deleted__` slug prefix, so storage of a customer deleted after the migration (`Team.deletedAt`) kept raising health warnings and being probed. Both now use the shared `liveCustomerRowsWhere()` filter.
 - Changing an account to a customer account removed its roles before validating the customer and template, and outside the membership transaction; a failure left an account with neither. The checks now run first and both writes share one transaction.

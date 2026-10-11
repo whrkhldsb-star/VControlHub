@@ -1109,7 +1109,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>通过 HTTPS 使用，并确认网关允许剪贴板。单次上限为 262,144 个 JavaScript 字符单位，部分 Unicode 字符会占两个单位；超过上限时提示分段复制，不会截断后静默粘贴。每次传输独立计数。远端发送空文字剪贴板时，本地旧文字也会清空。</p>
 <p>此功能传输纯文本，不承诺图片、富文本或文件剪贴板传输。需要传文件时使用已配置的云盘或 SFTP。网关禁止驱动器／文件传输、打印和任意管道；音频需要单独启用及兼容的网关支持。</p>
 <h3 id="section-5-4">5.4 RDP 证书和连接依赖</h3>
-<p>浏览器通过平台认证的 WebSocket 与 RDP 网关通信，Windows 凭据保留在服务端。管理员需要部署并启用 guacd，设置 <code>RDP_ENABLED=true</code>，配置 WebSocket 反向代理及允许的网页来源。guacd 使用配置的地址和端口，常见本机端口为 4822。<code>RDP_ENABLE_CLIPBOARD</code> 默认为启用，设为 <code>false</code> 可关闭；音频仅在 <code>RDP_AUDIO_ENABLED=true</code> 时启用。目标地址仍需满足平台的 RDP 主机访问限制，不能把平台当作任意内网地址的透传入口。</p>
+<p>浏览器通过平台认证的 WebSocket 与 RDP 网关通信，Windows 凭据保留在服务端。管理员需要部署并启用 guacd，设置 <code>RDP_ENABLED=true</code>，配置 WebSocket 反向代理及允许的网页来源；安装器自带的 Caddy、Apache 模板已把 <code>/rdp</code> 转发到 SSH WebSocket 网关。guacd 使用配置的地址和端口，常见本机端口为 4822。<code>RDP_ENABLE_CLIPBOARD</code> 默认为启用，设为 <code>false</code> 可关闭；音频仅在 <code>RDP_AUDIO_ENABLED=true</code> 时启用。目标地址仍需满足平台的 RDP 主机访问限制，不能把平台当作任意内网地址的透传入口。</p>
 <p>证书策略包括默认验证、明确选择忽略验证，以及固定整张证书的 SHA-256。证书固定需要支持该校验的加固网关；固定指纹与忽略验证不能同时启用。指纹应由管理员在 Windows 本机或独立可信渠道核对，证书更换后要更新。</p>
 <p>依据：<a href="../src/components/ssh-terminal-manager.tsx">SSH 终端管理器</a>、<a href="../src/components/ssh-terminal-input.ts">终端输入队列</a>、<a href="../src/components/remote-desktop.tsx">远程桌面组件</a>、<a href="../src/lib/rdp/features.ts">RDP 功能开关</a>、<a href="rdp-certificate-pinning.md">证书固定说明</a>。</p>
 <h2 id="files">6. 存储节点与文件管理</h2>

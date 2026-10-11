@@ -1104,6 +1104,13 @@ install_caddy() {
  fi
  log "Installing Caddy reverse proxy for ${DOMAIN}"
  mkdir -p "${DESTDIR}/etc/caddy"
+ # Every install/upgrade re-renders the whole file. Keep the previous one (the
+ # last five, same naming as deploy.sh) so hand-made changes can be restored.
+ if [ -f "${DESTDIR}/etc/caddy/Caddyfile" ]; then
+  cp -a "${DESTDIR}/etc/caddy/Caddyfile" "${DESTDIR}/etc/caddy/Caddyfile.bak.$(date +%Y%m%d%H%M%S)"
+  ls -1t "${DESTDIR}/etc/caddy/Caddyfile".bak.* 2>/dev/null | tail -n +6 | xargs -r rm -f || true
+  log "Previous Caddyfile kept as a .bak copy next to it"
+ fi
  install -m 0644 "${APP_DIR}/deploy/Caddyfile.example" "${DESTDIR}/etc/caddy/Caddyfile"
  local escaped_domain escaped_next escaped_ssh_ws
  escaped_domain="$(shell_escape_sed_replacement "${DOMAIN}")"

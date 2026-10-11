@@ -527,7 +527,7 @@ Linux 网关可以按配置安装 HTTP 入口，或配合域名和 HTTPS 反代�
 
 ### 5.4 RDP 证书和连接依赖
 
-浏览器通过平台认证的 WebSocket 与 RDP 网关通信，Windows 凭据保留在服务端。管理员需要部署并启用 guacd，设置 `RDP_ENABLED=true`，配置 WebSocket 反向代理及允许的网页来源。guacd 使用配置的地址和端口，常见本机端口为 4822。`RDP_ENABLE_CLIPBOARD` 默认为启用，设为 `false` 可关闭；音频仅在 `RDP_AUDIO_ENABLED=true` 时启用。目标地址仍需满足平台的 RDP 主机访问限制，不能把平台当作任意内网地址的透传入口。
+浏览器通过平台认证的 WebSocket 与 RDP 网关通信，Windows 凭据保留在服务端。管理员需要部署并启用 guacd，设置 `RDP_ENABLED=true`，配置 WebSocket 反向代理及允许的网页来源；安装器自带的 Caddy、Apache 模板已把 `/rdp` 转发到 SSH WebSocket 网关。guacd 使用配置的地址和端口，常见本机端口为 4822。`RDP_ENABLE_CLIPBOARD` 默认为启用，设为 `false` 可关闭；音频仅在 `RDP_AUDIO_ENABLED=true` 时启用。目标地址仍需满足平台的 RDP 主机访问限制，不能把平台当作任意内网地址的透传入口。
 
 证书策略包括默认验证、明确选择忽略验证，以及固定整张证书的 SHA-256。证书固定需要支持该校验的加固网关；固定指纹与忽略验证不能同时启用。指纹应由管理员在 Windows 本机或独立可信渠道核对，证书更换后要更新。
 
