@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-11T09:33:34.830Z",
+  "generatedAt": "2026-10-11T12:37:16.230Z",
   "summary": {
     "permissionsInList": 52,
     "rolesDefined": 4,
@@ -1690,11 +1690,11 @@
         },
         {
           "path": "src/app/api/servers/[id]/uptime/route.ts",
-          "line": 34
+          "line": 17
         },
         {
           "path": "src/app/api/servers/[id]/uptime/route.ts",
-          "line": 34
+          "line": 17
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/records/route.ts",

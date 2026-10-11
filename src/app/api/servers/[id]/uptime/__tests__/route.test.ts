@@ -112,7 +112,9 @@ describe("GET /api/servers/[id]/uptime", () => {
     expect(mocks.assertServerTeamAccess).toHaveBeenCalledWith(session, "srv-42");
   });
 
-  it("queries a 90-day window floored to UTC midnight, ordered oldest first", async () => {
+  it("queries a 90-day window floored to midnight in the app time zone, ordered oldest first", async () => {
+    // 18:45Z on 31 Aug is already 1 Sep 02:45 in Asia/Shanghai; 89 days back is 4 Jun, whose
+    // Shanghai midnight is 16:00Z on 3 Jun. The old UTC floor would have asked for 3 Jun 00:00Z.
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-31T18:45:12.000Z"));
     try {
@@ -123,7 +125,7 @@ describe("GET /api/servers/[id]/uptime", () => {
     }
 
     expect(mocks.findMany).toHaveBeenCalledWith({
-      where: { serverId: "srv1", date: { gte: new Date("2026-06-03T00:00:00.000Z") } },
+      where: { serverId: "srv1", date: { gte: new Date("2026-06-03T16:00:00.000Z") } },
       orderBy: { date: "asc" },
       take: 90,
     });

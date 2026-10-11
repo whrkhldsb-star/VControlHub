@@ -14,10 +14,14 @@ export type RouteTestSession = {
 	mustChangePassword: boolean;
 };
 
+import { ALL_PERMISSIONS } from "@/lib/auth/rbac";
+
 export const routeSession: { current: RouteTestSession | null } = { current: null };
 
 export function platformSession(overrides: Partial<RouteTestSession> = {}): RouteTestSession {
-	return { userId: "u_admin", username: "admin", roles: ["admin"], permissions: [], currentTeamId: null, mustChangePassword: false, ...overrides };
+	// A real admin session carries every permission resolved from its role, so
+	// routes guarded by ordinary (non platform-only) permissions pass too.
+	return { userId: "u_admin", username: "admin", roles: ["admin"], permissions: [...ALL_PERMISSIONS], currentTeamId: null, mustChangePassword: false, ...overrides };
 }
 
 export function customerSession(permissions: string[], overrides: Partial<RouteTestSession> = {}): RouteTestSession {
