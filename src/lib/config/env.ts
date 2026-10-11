@@ -166,6 +166,12 @@ export const config = {
 		get wsMaxConnections(): number { return readInt("SSH_WS_MAX_CONNECTIONS", 50); },
 		/** Close an interactive terminal after this long with no input AND no output (0 disables). */
 		get wsIdleTimeoutMs(): number { return readInt("SSH_WS_IDLE_TIMEOUT_MS", 30 * 60_000); },
+		/**
+		 * How long a terminal whose browser connection dropped keeps its remote
+		 * shell for a reconnect (0 disables detached sessions). The browser opts
+		 * in per terminal; see ssh-ws-proxy.ts.
+		 */
+		get wsDetachTtlMs(): number { return readInt("SSH_WS_DETACH_TTL_MS", 10 * 60_000); },
 		get wsSecret(): string | undefined { return readOptionalString("SSH_WS_SECRET"); },
 		/** OPEN-1: When true, reject SSH connections to servers without a pinned hostKeySha256. */
 		get enforceHostKeyPin(): boolean { return readBool("SSH_ENFORCE_HOST_KEY_PIN", false); },

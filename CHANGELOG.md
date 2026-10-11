@@ -12,6 +12,7 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Added
 
+- SSH terminal sessions survive a dropped browser connection. With the command panel's "Keep the session after a disconnect" (on by default), the proxy keeps the remote shell for `SSH_WS_DETACH_TTL_MS` (default 10 minutes) after the WebSocket drops, buffers its output, and a reconnect from the same account continues the same shell with the missed output replayed; the terminal keeps its content and says whether it resumed or started fresh. Phones retry on their own when the screen unlocks or the network returns. The proxy caps kept shells (32 overall, 4 per account) and still applies the idle timeout to them.
 - Server origin: servers record whether the platform assigned them or a customer added them (`Server.origin`, `addedById`). Customer accounts can edit, enable/disable and delete only their own servers; platform servers show as read-only with a notice.
 - Administrators can move a server to another customer (`POST /api/servers/[id]/transfer`) with its storage node, metric history, quick services and backups. The move is refused while the old customer still has shares, image uploads, schedules, alert rules, playbooks, sync jobs or unfinished commands/downloads on it.
 - Notifications carry their customer: administrators see the customer name, and opening one from another customer switches to it first. Server cards and storage nodes also show the customer to administrators.
