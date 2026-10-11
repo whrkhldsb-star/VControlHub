@@ -3,6 +3,7 @@
 import { decodeBase64Bytes } from "@/components/ssh-terminal-codec";
 import { createSshTerminalInputSender } from "@/components/ssh-terminal-input";
 import { installSshTerminalIme } from "@/components/ssh-terminal-ime";
+import { installSshTerminalTouchScroll } from "@/components/ssh-terminal-touch-scroll";
 import { parseQuickKeyPresets, quickKeyPresetsToEntries, serializeQuickKeyPresets, type QuickKeyPreset } from "@/components/ssh-quick-keys";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -243,48 +244,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			fitAddonRef.current = fitAddon;
 			searchAddonRef.current = searchAddon;
 
-			// Mobile touch scrolling: xterm's scrollable viewport is an underlay
-			// beneath the screen canvas, so finger drags never reach it natively
-			// and would only scroll the surrounding panel. Translate single-finger
-			// drags into term.scrollLines() and consume the gesture only while the
-			// scrollback can still move in that direction.
-			const surface = termRef.current;
-			const screenEl = surface.querySelector<HTMLElement>(".xterm-screen");
-			let touchLastY = 0;
-			let touchAccumPx = 0;
-			const onTouchStart = (event: TouchEvent) => {
-				if (event.touches.length !== 1) return;
-				touchLastY = event.touches[0]?.clientY ?? 0;
-				touchAccumPx = 0;
-			};
-			const onTouchMove = (event: TouchEvent) => {
-				if (event.touches.length !== 1 || event.defaultPrevented) return;
-				const y = event.touches[0]?.clientY ?? touchLastY;
-				const deltaPx = y - touchLastY;
-				touchLastY = y;
-				if (deltaPx === 0) return;
-				const buffer = term.buffer.normal;
-				const canConsume =
-					(deltaPx > 0 && buffer.viewportY > 0)
-					|| (deltaPx < 0 && buffer.viewportY + term.rows < buffer.length);
-				if (!canConsume) {
-					// At a scrollback edge — let the surrounding panel scroll instead.
-					touchAccumPx = 0;
-					return;
-				}
-				event.preventDefault();
-				const cellHeight = screenEl && term.rows > 0 ? screenEl.clientHeight / term.rows : 16;
-				if (cellHeight <= 0) return;
-				// Finger moving down reveals older lines → negative scrollLines.
-				touchAccumPx += -deltaPx;
-				const lines = Math.trunc(touchAccumPx / cellHeight);
-				if (lines !== 0) {
-					touchAccumPx -= lines * cellHeight;
-					term.scrollLines(lines);
-				}
-			};
-			surface.addEventListener("touchstart", onTouchStart, { passive: true });
-			surface.addEventListener("touchmove", onTouchMove, { passive: false });
+			const removeTouchScroll = installSshTerminalTouchScroll(term, termRef.current);
 
 			const finalWsUrl = buildSshWebSocketUrl({
 				pageProtocol: window.location.protocol,
@@ -374,9 +334,8 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			window.addEventListener("resize", handleResize);
 			return () => {
 				removeIme();
+				removeTouchScroll();
 				window.removeEventListener("resize", handleResize);
-				surface.removeEventListener("touchstart", onTouchStart);
-				surface.removeEventListener("touchmove", onTouchMove);
 			};
 		}
 
