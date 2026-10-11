@@ -6,14 +6,16 @@ import { cn } from "@/lib/ui/cn";
 
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { ActionButton } from "@/components/action-button";
-import { ClipboardList, Folder, Server } from "@/components/icons";
+import { ClipboardList, Folder, Maximize2, Minimize2, Server } from "@/components/icons";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
-const chipBase ="min-h-9 rounded-full border px-3 py-1 text-xs transition";
-const chipIdle ="border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50";
-const chipActive ="border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action-text)]";
+const chipBase = "min-h-9 rounded-full border px-3 py-1 text-xs transition";
+const chipIdle = "border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50";
+const chipActive = "border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action-text)]";
+/** Chip whose icon stands alone (phones, the full-screen strip): a square touch target. */
+const chipIcon = "inline-flex min-h-9 min-w-9 items-center justify-center";
 
 export function SshTerminalToolbar({
 	serverName,
@@ -22,8 +24,10 @@ export function SshTerminalToolbar({
 	t,
 	showSidePanel,
 	showFileManager,
+	fullscreen = false,
 	onToggleSidePanel,
 	onToggleFileManager,
+	onToggleFullscreen,
 	onReconnect,
 	onClose,
 }: {
@@ -33,25 +37,68 @@ export function SshTerminalToolbar({
 	t: TFn;
 	showSidePanel: boolean;
 	showFileManager: boolean;
+	/** Full screen: the whole viewport is the terminal, so the bar shrinks to a strip. */
+	fullscreen?: boolean;
 	onToggleSidePanel: () => void;
 	onToggleFileManager: () => void;
+	/** Absent when the host cannot go full screen (no toggle is shown). */
+	onToggleFullscreen?: () => void;
 	onReconnect: () => void;
 	onClose: () => void;
 }) {
 	const statusTone: StatusTone =
-		status ==="connected"
-			?"success"
-			: status ==="connecting"
-				?"warning"
-				:"danger";
+		status === "connected"
+			? "success"
+			: status === "connecting"
+				? "warning"
+				: "danger";
 	const statusLabel =
-		status ==="connected"
+		status === "connected"
 			? t("sshTerminalModal.statusConnected")
-			: status ==="connecting"
+			: status === "connecting"
 				? t("sshTerminalModal.statusConnecting")
-				: status ==="error"
+				: status === "error"
 					? t("sshTerminalModal.statusError")
 					: t("sshTerminalModal.statusClosed");
+	const reconnectButton = (status === "error" || status === "closed") && (
+		<ActionButton size="sm" variant="outline" onClick={onReconnect} data-tone="cyan">
+			{t("sshTerminalModal.reconnect")}
+		</ActionButton>
+	);
+
+	if (fullscreen) {
+		return (
+			<div className="flex items-center gap-2 border-b border-[var(--border-subtle)] light:border-[var(--border)] px-2 py-1">
+				<StatusBadge tone={statusTone} size="sm" role="status" aria-live="polite">
+					{statusLabel}
+				</StatusBadge>
+				<span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">{serverName}</span>
+				<div className="ml-auto flex shrink-0 items-center gap-1">
+					{reconnectButton}
+					<button
+						type="button"
+						onClick={onToggleSidePanel}
+						aria-expanded={showSidePanel}
+						aria-label={t("sshTerminalModal.panelToggle")}
+						title={t("sshTerminalModal.panelToggle")}
+						className={cn(chipBase, chipIcon, showSidePanel ? chipActive : chipIdle)}
+					>
+						<ClipboardList size={14} aria-hidden="true" />
+					</button>
+					<button
+						type="button"
+						onClick={onToggleFullscreen}
+						aria-label={t("sshTerminalModal.fullscreenExit")}
+						title={t("sshTerminalModal.fullscreenExit")}
+						className={cn(chipBase, chipIcon, chipIdle)}
+						data-testid="ssh-terminal-fullscreen-exit"
+					>
+						<Minimize2 size={14} aria-hidden="true" />
+					</button>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] light:border-[var(--border)] px-4 py-2">
@@ -66,31 +113,43 @@ export function SshTerminalToolbar({
 				<StatusBadge tone={statusTone} size="md" role="status" aria-live="polite">
 					{statusLabel}
 				</StatusBadge>
+				{/* Phones get icon-only chips so the row stays one line and the terminal keeps its height. */}
 				<button
 					type="button"
 					onClick={onToggleSidePanel}
 					aria-expanded={showSidePanel}
-					className={`${chipBase} ${showSidePanel ? chipActive : chipIdle}`}
+					aria-label={t("sshTerminalModal.panelToggle")}
+					title={t("sshTerminalModal.panelToggle")}
+					className={cn(chipBase, chipIcon, "sm:min-w-0", showSidePanel ? chipActive : chipIdle)}
 				>
-					<ClipboardList size={14} className="mr-1 inline-block align-[-2px]" aria-hidden="true" />
-					{t("sshTerminalModal.panelToggle")}
+					<ClipboardList size={14} className="sm:mr-1" aria-hidden="true" />
+					<span className="hidden sm:inline">{t("sshTerminalModal.panelToggle")}</span>
 				</button>
 				<button
 					type="button"
 					onClick={onToggleFileManager}
 					aria-expanded={showFileManager}
-					className={`${chipBase} ${showFileManager ? chipActive : chipIdle}`}
+					aria-label={t("sshFileManager.toggle")}
+					title={t("sshFileManager.toggle")}
+					className={cn(chipBase, chipIcon, "sm:min-w-0", showFileManager ? chipActive : chipIdle)}
 				>
-					<Folder size={14} className="mr-1 inline-block align-[-2px]" aria-hidden="true" />
-					{t("sshFileManager.toggle")}
+					<Folder size={14} className="sm:mr-1" aria-hidden="true" />
+					<span className="hidden sm:inline">{t("sshFileManager.toggle")}</span>
 				</button>
-				{(status ==="error" || status ==="closed") && (
-					<ActionButton size="sm" variant="outline"
-						onClick={onReconnect}
-						data-tone="cyan">
-						{t("sshTerminalModal.reconnect")}
-					</ActionButton>
+				{onToggleFullscreen && (
+					<button
+						type="button"
+						onClick={onToggleFullscreen}
+						aria-label={t("sshTerminalModal.fullscreen")}
+						title={t("sshTerminalModal.fullscreen")}
+						className={cn(chipBase, chipIcon, "sm:min-w-0", chipIdle)}
+						data-testid="ssh-terminal-fullscreen-enter"
+					>
+						<Maximize2 size={14} className="sm:mr-1" aria-hidden="true" />
+						<span className="hidden sm:inline">{t("sshTerminalModal.fullscreen")}</span>
+					</button>
 				)}
+				{reconnectButton}
 				<button
 					type="button"
 					onClick={onClose}
@@ -116,7 +175,7 @@ export function SshTerminalSearchBar({
 	t: TFn;
 	terminalSearch: string;
 	onSearchChange: (value: string) => void;
-	onSearch: (direction:"next" |"previous") => void;
+	onSearch: (direction: "next" | "previous") => void;
 	onClear: () => void;
 }) {
 	return (

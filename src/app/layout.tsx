@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -40,6 +40,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
 	title: getAppMetadataTitle(),
 	description: getAppDescription(),
+};
+
+// On Android the on-screen keyboard shrinks the page instead of covering it,
+// so a full-height surface such as the SSH terminal keeps its prompt in view.
+export const viewport: Viewport = {
+	width: "device-width",
+	initialScale: 1,
+	interactiveWidget: "resizes-content",
 };
 
 export default async function RootLayout({

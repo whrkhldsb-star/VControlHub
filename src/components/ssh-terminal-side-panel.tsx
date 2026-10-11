@@ -8,6 +8,7 @@ import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
 import { QuickKeyBuilder } from "@/components/ssh-quick-key-builder";
 import type { QuickKeyPreset } from "@/components/ssh-quick-keys";
+import { MAX_SSH_TERMINAL_FONT_SIZE, MIN_SSH_TERMINAL_FONT_SIZE } from "@/components/ssh-terminal-font-size";
 
 const QUICK_COMMANDS = ["ls -la","df -h","free -m","top -bn1 | head -20","uptime","whoami","cat /etc/os-release","ps aux --sort=-%mem | head -10",
 ] as const;
@@ -46,6 +47,8 @@ export function SshTerminalSidePanel({
 	customQuickKeys,
 	onAddQuickKey,
 	onResetQuickKeys,
+	fontSize,
+	onFontSizeChange,
 }: {
 	serverId: string;
 	t: TFn;
@@ -61,9 +64,38 @@ export function SshTerminalSidePanel({
 	customQuickKeys?: ReadonlyArray<{ label: string; data: string }> | null;
 	onAddQuickKey: (preset: QuickKeyPreset) => void;
 	onResetQuickKeys: () => void;
+	/** Terminal font size in CSS pixels; the stepper stays within the allowed range. */
+	fontSize: number;
+	onFontSizeChange: (size: number) => void;
 }) {
 	return (
 		<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-56">
+			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
+				<h4 className="ui-title-caption mb-2">
+					{t("sshTerminalModal.fontSizeTitle")}
+				</h4>
+				<div className="flex items-center gap-1.5">
+					<ActionButton variant="outline"
+						onClick={() => onFontSizeChange(fontSize - 1)}
+						disabled={fontSize <= MIN_SSH_TERMINAL_FONT_SIZE}
+						aria-label={t("sshTerminalModal.fontSizeDecrease")}
+						data-tone="cyan" className="min-h-11 min-w-11 shrink-0 !px-2 !py-1 !text-[13px]"
+					>
+						A−
+					</ActionButton>
+					<output className="min-w-0 flex-1 text-center font-mono text-[13px] tabular-nums text-[var(--text-secondary)]" aria-live="polite">
+						{fontSize} px
+					</output>
+					<ActionButton variant="outline"
+						onClick={() => onFontSizeChange(fontSize + 1)}
+						disabled={fontSize >= MAX_SSH_TERMINAL_FONT_SIZE}
+						aria-label={t("sshTerminalModal.fontSizeIncrease")}
+						data-tone="cyan" className="min-h-11 min-w-11 shrink-0 !px-2 !py-1 !text-[13px]"
+					>
+						A+
+					</ActionButton>
+				</div>
+			</section>
 			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
 				<h4 className="ui-title-caption mb-2">
 					{t("sshTerminalModal.favoritesTitle")}

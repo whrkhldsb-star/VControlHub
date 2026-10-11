@@ -12,6 +12,7 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Added
 
+- SSH terminal full screen: the toolbar's "Fullscreen" gives the active terminal the whole viewport (title bar, tab bar and output search hidden, a one-line strip with status, command panel and the way out), asks the browser for its own full screen where that exists, and on phones sizes the terminal to the area above the on-screen keyboard. Escape, the browser's own exit and the strip button all leave it. The command panel gained a terminal font size stepper (10–24 px, remembered by the browser), and the page viewport asks Android to shrink the page for the keyboard instead of covering it.
 - Server origin: servers record whether the platform assigned them or a customer added them (`Server.origin`, `addedById`). Customer accounts can edit, enable/disable and delete only their own servers; platform servers show as read-only with a notice.
 - Administrators can move a server to another customer (`POST /api/servers/[id]/transfer`) with its storage node, metric history, quick services and backups. The move is refused while the old customer still has shares, image uploads, schedules, alert rules, playbooks, sync jobs or unfinished commands/downloads on it.
 - Notifications carry their customer: administrators see the customer name, and opening one from another customer switches to it first. Server cards and storage nodes also show the customer to administrators.
