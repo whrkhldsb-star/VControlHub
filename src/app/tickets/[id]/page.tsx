@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getTicketById } from "@/lib/ticket/service";
-import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
+import { PageShell, PageHeader, PermissionDenied } from "@/components/page-shell";
 import { TicketDetailClient, type Ticket, type TicketUser } from "./ticket-detail-client";
 import { notFound } from "next/navigation";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -38,7 +38,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const isParticipant =
     ticket?.creator?.id === session.userId || ticket?.assignee?.id === session.userId;
   if (!canManage && !isParticipant) {
-    return <PageShell><EmptyState text={t("ticketsDetail.permissionDenied", locale)} /></PageShell>;
+    return <PermissionDenied />;
   }
   if (!ticket) notFound();
 

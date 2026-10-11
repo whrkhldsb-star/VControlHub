@@ -1,8 +1,7 @@
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { listOperationTaskResult } from "@/lib/operation-task/service";
 import { OperationTaskListClient } from "./operation-task-list-client";
-import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
@@ -17,12 +16,9 @@ export default async function OperationTasksPage({
 }: {
 	searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-	const session = await requireSession("/operation-tasks");
+	const session = await requirePagePermission("task:read", { redirectTo: "/operation-tasks" });
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
-	if (!sessionHasPermission(session, "task:read")) {
-		return <PageShell><EmptyState text={tr("operationTasksPage.noPermission")} variant="boxed" /></PageShell>;
-	}
 	const resolved = (await searchParams) ?? {};
 	const statusRaw = firstParam(resolved.status) ?? "all";
 	const taskTypeRaw = firstParam(resolved.type) ?? firstParam(resolved.taskType) ?? "all";

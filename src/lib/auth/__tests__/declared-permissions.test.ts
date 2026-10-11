@@ -37,6 +37,7 @@ describe("loadSidebarDeclaredPermissions", () => {
 	it("preserves the full sidebar list when given multiple hrefs", () => {
 		const result = loadSidebarDeclaredPermissions(["/dashboard", "/audit", "/users"]);
 		expect(Object.keys(result).sort()).toEqual(["/audit", "/dashboard", "/users"]);
-		expect(result["/users"] ?? []).toEqual(expect.arrayContaining(["user:manage", "user:read"]));
+		// Entering the directory needs only user:read; managing is an in-page control.
+		expect(result["/users"]).toEqual(["user:read"]);
 	});
 });

@@ -1,6 +1,6 @@
-import { requireSession } from "@/lib/auth/require-session";
 import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
@@ -41,13 +41,12 @@ const RUNS_PAGE_SIZE = 20;
 
 export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string; success?: string; page?: string }> }) {
 
-	const session = await requireSession("/deployments");
+	const session = await requirePagePermission("deploy:read", { redirectTo: "/deployments" });
 	const locale = await getServerLocale();
 	const dateLocale = toDateLocale(locale);
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const trTpl = (key: string, vars: Record<string, string>) =>
 		Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), tr(key));
-	if (!sessionHasPermission(session, "deploy:read")) return <PageShell><EmptyState text={tr("deploymentsPage.page.noPermission")} variant="boxed" /></PageShell>;
 	const canRun = sessionHasPermission(session, "deploy:run");
 	const canExport = sessionHasPermission(session, "deploy:export");
 	const params = await searchParams;

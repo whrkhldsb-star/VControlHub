@@ -1,6 +1,6 @@
 import { getServerLocale } from "@/lib/i18n/translations";
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { listShareLinks } from "@/lib/share-link/service";
 import { listStorageNodes } from "@/lib/storage/service";
 import { PageShell, EmptyState, PageHeader, ListPanel, ListRow } from "@/components/page-shell";
@@ -19,14 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function SharesPage() {
 	const locale = await getServerLocale();
 	const t: TFn = (key, vars) => translate(key, locale, vars);
-	const session = await requireSession("/shares");
-	if (!sessionHasPermission(session, "share:read")) {
-		return (
-			<PageShell>
-				<EmptyState text={t("shares.noPermission")} variant="boxed" />
-			</PageShell>
-		);
-	}
+	const session = await requirePagePermission("share:read", { redirectTo: "/shares" });
 	const [shares, nodes] = await Promise.all([listShareLinks(undefined, session), listStorageNodes(session)]);
 	const canCreate = sessionHasPermission(session, "share:create");
 	const canManage = sessionHasPermission(session, "share:manage");
