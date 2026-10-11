@@ -166,9 +166,15 @@ describe("/api/quick-services routes", () => {
       mocks.requireApiPermission.mockResolvedValue(operatorSession);
     });
 
-    it("refuses to list hub-host services", async () => {
+    it("lists no hub-host service, only the caller's own install targets", async () => {
       const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.hubHostDenied).toBe(true);
+      expect(body.catalog).toEqual([]);
+      expect(body.installed).toEqual([]);
+      expect(body.instanceKey).toBeNull();
+      expect(Array.isArray(body.servers)).toBe(true);
       expect(mocks.listQuickServices).not.toHaveBeenCalled();
     });
 

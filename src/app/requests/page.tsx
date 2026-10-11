@@ -11,7 +11,7 @@ import { PageShell, PageHeader, StatCard, StatGrid, EmptyState, ListPanel } from
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, type BadgeTone } from "@/components/ui-primitives";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { PaginatedList } from "@/components/paginated-list";
 import { Disclosure } from "@/components/ui/disclosure";
@@ -24,7 +24,6 @@ export default async function RequestsPage() {
 	const session = await requireSession("/requests");
 	const canApprove = sessionHasPermission(session, "command:approve");
 	const locale = await getServerLocale();
-	const dateLocale = toDateLocale(locale);
 	const [requests, aiActions] = await Promise.all([
 		listCommandRequests(session),
 		getPendingActions(session.userId),
@@ -115,7 +114,7 @@ export default async function RequestsPage() {
 												{request.executionLogs.map((log: (typeof request.executionLogs)[number], index: number) => (
 													<InfoItem key={log.id ?? `${request.id}-log-${index}`} className="text-xs text-[var(--text-secondary)]">
 														<div>{log.summary}</div>
-														{log.createdAt && <div className="mt-1 text-xs text-[var(--text-muted)]">{new Date(log.createdAt).toLocaleString(dateLocale)}</div>}
+														{log.createdAt && <div className="mt-1 text-xs text-[var(--text-muted)]">{formatDateTime(log.createdAt, locale)}</div>}
 													</InfoItem>
 												))}
 											</div>

@@ -89,6 +89,13 @@ export const zh: Record<string, string> = {
 	"aiPage.slash.disk": "磁盘占用清理",
 	"aiPage.slash.cmd": "执行命令",
 	"aiPage.slash.playbook": "推荐 Playbook",
+	// Text the slash commands and the empty-state examples put into the composer.
+	"aiPage.slashPrompt.status": "查看所有服务器的当前状态，汇总 CPU / 内存 / 磁盘占用和告警。",
+	"aiPage.slashPrompt.logs": "帮我读取服务器 的最近日志，分析有没有异常。",
+	"aiPage.slashPrompt.traffic": "查询最近的流量数据，指出异常波动和可能的优化空间。",
+	"aiPage.slashPrompt.disk": "列出各服务器磁盘占用最高的目录，并给出清理建议。",
+	"aiPage.slashPrompt.cmd": "我想在服务器 上执行以下命令，请先评估风险再帮我执行：",
+	"aiPage.slashPrompt.playbook": "列出可用的 Playbook，并推荐一个适合日常巡检的。",
 
 	// client — rename modal
 	"aiPage.renameTitle": "修改对话标题",
@@ -345,6 +352,13 @@ export const en: Record<string, string> = {
 	"aiPage.slash.disk": "Disk usage cleanup",
 	"aiPage.slash.cmd": "Run a command",
 	"aiPage.slash.playbook": "Suggest a Playbook",
+	// Text the slash commands and the empty-state examples put into the composer.
+	"aiPage.slashPrompt.status": "Show the current status of every server, with a summary of CPU, memory and disk usage and any alerts.",
+	"aiPage.slashPrompt.logs": "Read the recent logs of server  and tell me whether anything looks wrong.",
+	"aiPage.slashPrompt.traffic": "Look at the recent traffic data and point out unusual swings and possible optimisations.",
+	"aiPage.slashPrompt.disk": "List the directories using the most disk space on each server and suggest what to clean up.",
+	"aiPage.slashPrompt.cmd": "I want to run the following command on server . Assess the risk first, then run it for me:",
+	"aiPage.slashPrompt.playbook": "List the available playbooks and recommend one for a routine inspection.",
 
 	// client — rename modal
 	"aiPage.renameTitle": "Rename conversation",

@@ -32,6 +32,20 @@ import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Install targets for the picker. Multi-tenant: never return other teams'
+ * server id/name/host. Admins (team:manage) still see everything via
+ * serverTeamWhere(); unassigned legacy hosts are manager-only.
+ */
+function listInstallTargets(session: Parameters<typeof serverTeamWhere>[0]) {
+	return prisma.server.findMany({
+		where: { enabled: true, ...serverTeamWhere(session, "manage") },
+		orderBy: { name: "asc" },
+		take: 200,
+		select: { id: true, name: true, host: true },
+	});
+}
+
 /** GET /api/quick-services — list catalog + installed + remote services */
 export async function GET(request: Request) {
 	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
@@ -46,7 +60,23 @@ export async function GET(request: Request) {
 			// infrastructure. Its installed-service list alone discloses the control
 			// plane's topology.
 			const hubAccess = assertHubHostDockerAccess(session);
-			if (!hubAccess.ok) return hubAccess.response;
+			if (!hubAccess.ok) {
+				// A customer operator arrives here on the page's first load, before
+				// any node is picked. Hand back only the nodes they may install on so
+				// the page can move to one of them; nothing about the hub host leaves.
+				return NextResponse.json({
+					catalog: [],
+					remoteCatalog: [],
+					installed: [],
+					usedPorts: [],
+					docker: null,
+					servers: await listInstallTargets(session),
+					selectedServerId: null,
+					instanceKey: null,
+					hubHostDenied: true,
+					publicHost: config.app.publicQuickServiceHost ?? null,
+				});
+			}
 		}
 		const installed = await listQuickServices(instanceKey);
 		const installedMap = new Map(installed.map((s) => [s.slug, s]));
@@ -104,12 +134,7 @@ export async function GET(request: Request) {
 		const [usedPorts, docker, servers] = await Promise.all([
 			serverId ? getRemoteUsedPorts(serverId) : getUsedPorts(),
 			getDockerEnvironmentStatusFor(serverId ? { kind: "remote", serverId } : { kind: "local" }),
-			prisma.server.findMany({
-				where: { enabled: true, ...serverTeamWhere(session, "manage") },
-				orderBy: { name: "asc" },
-				take: 200,
-				select: { id: true, name: true, host: true },
-			}),
+			listInstallTargets(session),
 		]);
 		return NextResponse.json({
 			catalog,

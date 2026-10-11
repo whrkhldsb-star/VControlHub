@@ -18,7 +18,7 @@
  */
 import { type RefObject, useState } from "react";
 import type { ConvItem, ModelCapabilities } from "./ai-types";
-import { SLASH_COMMANDS } from "./ai-types";
+import { SLASH_COMMAND_IDS } from "./ai-types";
 import type { UseFileAttachmentsReturn } from "./hooks/use-file-attachments";
 import { buildAcceptString, formatAllowedTypes } from "./ai-file-helpers";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -72,8 +72,8 @@ export function AiInputArea({
     const translated = t(key);
     return translated === key ? id : translated;
   };
-  const applySlashCommand = (prompt: string) => {
-    setInput(prompt);
+  const applySlashCommand = (id: string) => {
+    setInput(t(`aiPage.slashPrompt.${id}`));
     setSlashOpen(false);
     textareaRef.current?.focus();
   };
@@ -87,19 +87,19 @@ export function AiInputArea({
           aria-label={t("aiPage.slashPaletteLabel")}
           className="absolute bottom-full left-4 z-20 mb-2 w-full max-w-md overflow-hidden py-1"
         >
-          {SLASH_COMMANDS.map((command) => (
+          {SLASH_COMMAND_IDS.map((id) => (
             <button
-              key={command.id}
+              key={id}
               type="button"
               role="option"
               aria-selected={false}
-              onClick={() => applySlashCommand(command.prompt)}
+              onClick={() => applySlashCommand(id)}
               className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
             >
               <span className="rounded border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1 py-0.5 font-mono text-[10px] text-[var(--accent)]">
-                /{command.id}
+                /{id}
               </span>
-              <span className="min-w-0 flex-1 truncate">{slashCommandLabel(command.id)}</span>
+              <span className="min-w-0 flex-1 truncate">{slashCommandLabel(id)}</span>
             </button>
           ))}
         </div>

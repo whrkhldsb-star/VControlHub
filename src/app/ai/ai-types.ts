@@ -164,14 +164,9 @@ export const PROVIDER_PRESETS: Array<{
  * Slash-command starters for the composer. `prompt` is what gets inserted;
  * labels resolve via `aiPage.slash.<id>`.
  */
-export const SLASH_COMMANDS: Array<{ id: string; prompt: string }> = [
-  { id: "status", prompt: "查看所有服务器的当前状态，汇总 CPU / 内存 / 磁盘占用和告警。" },
-  { id: "logs", prompt: "帮我读取服务器 的最近日志，分析有没有异常。" },
-  { id: "traffic", prompt: "查询最近的流量数据，指出异常波动和可能的优化空间。" },
-  { id: "disk", prompt: "列出各服务器磁盘占用最高的目录，并给出清理建议。" },
-  { id: "cmd", prompt: "我想在服务器 上执行以下命令，请先评估风险再帮我执行：" },
-  { id: "playbook", prompt: "列出可用的 Playbook，并推荐一个适合日常巡检的。" },
-];
+/** Slash-command ids; label `aiPage.slash.<id>` and composer text `aiPage.slashPrompt.<id>` live in the dictionary. */
+export const SLASH_COMMAND_IDS = ["status", "logs", "traffic", "disk", "cmd", "playbook"] as const;
+export type SlashCommandId = (typeof SLASH_COMMAND_IDS)[number];
 
 export const DEFAULT_PROV_FORM = {
   name: "",

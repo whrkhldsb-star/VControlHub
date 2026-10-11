@@ -59,7 +59,7 @@ describe("useHealthData", () => {
 			.mockResolvedValueOnce(sampleOverview)
 			.mockResolvedValueOnce(sampleSystemHealth);
 		const { result } = renderHook(() =>
-			useHealthData({ browserLocale: "zh-CN", locale: "zh" }),
+			useHealthData({ locale: "zh" }),
 		);
 		await waitFor(() => {
 			expect(csrfFetchMock).toHaveBeenCalledWith("/api/health");
@@ -78,7 +78,7 @@ describe("useHealthData", () => {
 			.mockResolvedValueOnce(sampleSystemHealth)
 			.mockRejectedValueOnce(new Error("network down"));
 		const { result } = renderHook(() =>
-			useHealthData({ browserLocale: "en-US", locale: "en" }),
+			useHealthData({ locale: "en" }),
 		);
 		await waitFor(() => expect(result.current.overview).toEqual(sampleOverview));
 		await act(async () => {
@@ -94,7 +94,7 @@ describe("useHealthData", () => {
 			.mockResolvedValueOnce(sampleSystemHealth)
 			.mockRejectedValueOnce("string-error");
 		const { result } = renderHook(() =>
-			useHealthData({ browserLocale: "zh-CN", locale: "zh" }),
+			useHealthData({ locale: "zh" }),
 		);
 		await waitFor(() => expect(result.current.overview).toEqual(sampleOverview));
 		await act(async () => {
@@ -109,7 +109,7 @@ describe("useHealthData", () => {
 			.mockResolvedValueOnce(sampleSystemHealth)
 			.mockResolvedValueOnce({ history: [{ cpu: 10, mem: 20, disk: 30, online: true, t: "t" }] });
 		const { result } = renderHook(() =>
-			useHealthData({ browserLocale: "en-US", locale: "en" }),
+			useHealthData({ locale: "en" }),
 		);
 		await waitFor(() => expect(result.current.overview).toEqual(sampleOverview));
 		await act(async () => {
@@ -125,7 +125,7 @@ describe("useHealthData", () => {
 			.mockResolvedValueOnce(sampleSystemHealth)
 			.mockRejectedValueOnce(new Error("boom"));
 		const { result } = renderHook(() =>
-			useHealthData({ browserLocale: "en-US", locale: "en" }),
+			useHealthData({ locale: "en" }),
 		);
 		await waitFor(() => expect(result.current.overview).toEqual(sampleOverview));
 		await act(async () => {
@@ -144,7 +144,7 @@ describe("useHealthData", () => {
 			.mockResolvedValueOnce(sampleOverview)
 			.mockResolvedValueOnce(sampleSystemHealth);
 		renderHook(() =>
-			useHealthData({ browserLocale: "en-US", locale: "en" }),
+			useHealthData({ locale: "en" }),
 		);
 		// Initial fetch (deferred via setTimeout 0).
 		await vi.advanceTimersByTimeAsync(0);
@@ -162,7 +162,7 @@ describe("useHealthData", () => {
 			.mockResolvedValueOnce(sampleOverview)
 			.mockResolvedValueOnce({ generatedAt: 123, summary: null, checks: "nope" });
 		const { result } = renderHook(() =>
-			useHealthData({ browserLocale: "en-US", locale: "en" }),
+			useHealthData({ locale: "en" }),
 		);
 		await waitFor(() => expect(result.current.overview).toEqual(sampleOverview));
 		await act(async () => {
@@ -176,7 +176,6 @@ describe("useHealthData", () => {
 		csrfFetchMock.mockReset();
 		const { result } = renderHook(() =>
 			useHealthData({
-				browserLocale: "en-US",
 				locale: "en",
 				initialSystemHealth: sampleSystemHealth,
 			}),
@@ -187,7 +186,7 @@ describe("useHealthData", () => {
 	it("mode=system only hits /api/system-health", async () => {
 		csrfFetchMock.mockResolvedValueOnce(sampleSystemHealth);
 		renderHook(() =>
-			useHealthData({ browserLocale: "zh-CN", locale: "zh", mode: "system" }),
+			useHealthData({ locale: "zh", mode: "system" }),
 		);
 		await waitFor(() => {
 			expect(csrfFetchMock).toHaveBeenCalledWith("/api/system-health");
@@ -198,7 +197,7 @@ describe("useHealthData", () => {
 	it("mode=vps only hits /api/health", async () => {
 		csrfFetchMock.mockResolvedValueOnce(sampleOverview);
 		renderHook(() =>
-			useHealthData({ browserLocale: "zh-CN", locale: "zh", mode: "vps" }),
+			useHealthData({ locale: "zh", mode: "vps" }),
 		);
 		await waitFor(() => {
 			expect(csrfFetchMock).toHaveBeenCalledWith("/api/health");

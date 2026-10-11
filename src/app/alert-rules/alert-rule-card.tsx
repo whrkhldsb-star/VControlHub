@@ -4,7 +4,7 @@ import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui-primitives";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import {
@@ -97,7 +97,7 @@ export function AlertRuleCard({
 						<p className="mt-2 text-xs text-[var(--text-muted)]">
 							{t("alertRulesPage.lastTriggered").replace(
 								"{date}",
-								new Date(rule.lastTriggeredAt).toLocaleString(toDateLocale(locale)),
+								formatDateTime(rule.lastTriggeredAt, locale),
 							)}
 						</p>
 					) : null}

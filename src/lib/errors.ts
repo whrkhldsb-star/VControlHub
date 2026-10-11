@@ -58,10 +58,26 @@ export class AuthError extends AppError {
 
 /** 403 — authenticated but lacking permission. */
 export class ForbiddenError extends AppError {
+	/**
+	 * Survives the server-to-client boundary of a page render. A production
+	 * build hands the client error boundary a redacted copy of an error
+	 * thrown while rendering (name and message replaced, only `digest`
+	 * kept), so `error.name` cannot tell a permission refusal from a crash
+	 * there; this digest can. Next keeps a digest the error already carries.
+	 */
+	readonly digest = FORBIDDEN_ERROR_DIGEST;
+
 	constructor(message = "Access forbidden", details?: unknown) {
 		super({ code: "FORBIDDEN", message, status: 403, details });
 		this.name = "ForbiddenError";
 	}
+}
+
+/** `error.digest` of a ForbiddenError as the client error boundary sees it. */
+export const FORBIDDEN_ERROR_DIGEST = "FORBIDDEN";
+
+export function isForbiddenErrorLike(error: { name?: string; digest?: string }): boolean {
+	return error.name === "ForbiddenError" || error.digest === FORBIDDEN_ERROR_DIGEST;
 }
 
 /** 404 — resource not found. */

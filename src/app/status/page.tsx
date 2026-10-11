@@ -1,7 +1,7 @@
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { type SystemHealthCheck } from "@/lib/system-health/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { getPublicStatus, getPublicStatusSummary } from "@/lib/status/service";
 import { createLogger } from "@/lib/logging";
 import { getAllUptimeDataInternal } from "@/lib/uptime/internal";
@@ -150,7 +150,6 @@ export default async function Page() {
   // - authenticated: full component checks + uptime
   const session = await getCurrentSession();
   const locale = await getServerLocale();
-  const dateLocale = toDateLocale(locale);
   if (!session) {
     const status = await getPublicStatusSummary();
     return (
@@ -176,7 +175,7 @@ export default async function Page() {
             </div>
             <p className="mt-2 text-xs text-[var(--text-muted)]">
               {t("statusPage.updatedAt", locale)}
-              {new Date(status.generatedAt).toLocaleString(dateLocale)}
+              {formatDateTime(status.generatedAt, locale)}
             </p>
           </div>
 
@@ -222,7 +221,7 @@ export default async function Page() {
           </div>
           <p className="mt-2 text-xs text-[var(--text-muted)]">
             {t("statusPage.updatedAt", locale)}
-            {new Date(status.generatedAt).toLocaleString(dateLocale)}
+            {formatDateTime(status.generatedAt, locale)}
           </p>
         </div>
 

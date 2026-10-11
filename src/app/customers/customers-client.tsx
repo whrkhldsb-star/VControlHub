@@ -12,7 +12,7 @@ import { Badge, FormField, FormGrid, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { notifyCustomersChanged } from "@/lib/team/customers-changed";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDate } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { useToast } from "@/components/toast-provider";
@@ -115,7 +115,6 @@ export function CustomersClient() {
 		}
 	}
 
-	const formatDate = (value: string) => new Date(value).toLocaleDateString(toDateLocale(locale));
 
 	return (
 		<div className="space-y-6">
@@ -167,7 +166,7 @@ export function CustomersClient() {
 								<Badge tone="neutral">{t("customersPage.count.members", { count: customer._count.members })}</Badge>
 								<Badge tone="neutral">{t("customersPage.count.servers", { count: customer._count.servers })}</Badge>
 								<Badge tone="neutral">{t("customersPage.count.storage", { count: customer._count.storageNodes })}</Badge>
-								<span className="text-[var(--text-muted)]">{t("customersPage.createdAt", { date: formatDate(customer.createdAt) })}</span>
+								<span className="text-[var(--text-muted)]">{t("customersPage.createdAt", { date: formatDate(customer.createdAt, locale) })}</span>
 							</div>
 						</div>
 						<div className="flex shrink-0 flex-wrap gap-2">
@@ -186,7 +185,7 @@ export function CustomersClient() {
 								<div className="min-w-0 text-sm">
 									<span className="font-medium text-[var(--text-primary)]">{customer.name}</span>
 									<span className="ml-2 text-xs text-[var(--text-muted)]">
-										{t("customersPage.deletedAt", { date: formatDate(customer.deletedAt!) })} · {t("customersPage.count.servers", { count: customer._count.servers })}
+										{t("customersPage.deletedAt", { date: formatDate(customer.deletedAt!, locale) })} · {t("customersPage.count.servers", { count: customer._count.servers })}
 									</span>
 								</div>
 								<ActionButton size="sm" variant="secondary" onClick={() => restoreCustomer(customer)} disabled={busy}>{t("customersPage.action.restore")}</ActionButton>

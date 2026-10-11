@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { formatTime } from "@/lib/datetime/format";
 import { browserT as t } from "@/lib/i18n/browser-translations";
 import { getRefreshIntervalFromStorage } from "@/lib/preferences/refresh-interval";
 import { REFRESH_PREFERENCES_STORAGE_KEY } from "@/lib/preferences/refresh-interval";
@@ -45,8 +46,6 @@ function readRefreshInterval(storage: Storage): number {
 export interface UseHealthDataOptions {
 	/** Initial system-health report from the server, so we can render synchronously. */
 	initialSystemHealth?: SystemHealthReport | null;
-	/** Browser locale used for `toLocaleTimeString` in `lastRefresh`. */
-	browserLocale: string;
 	/** UI locale ("zh" | "en") — picks translated error messages. */
 	locale: "zh" | "en";
 	/** Which data surfaces to load. Default "all" for backward compatibility. */
@@ -71,7 +70,6 @@ export interface UseHealthDataReturn {
 
 export function useHealthData({
 	initialSystemHealth,
-	browserLocale,
 	locale,
 	mode = "all",
 }: UseHealthDataOptions): UseHealthDataReturn {
@@ -115,7 +113,7 @@ export function useHealthData({
 			if (gen !== healthGenRef.current) return;
 			setOverview(data);
 			setLoadError(null);
-			setLastRefresh(new Date().toLocaleTimeString(browserLocale));
+			setLastRefresh(formatTime(new Date(), locale));
 		} catch (error) {
 			if (gen !== healthGenRef.current) return;
 			setLoadError(getErrorMessage(error, t("healthPage.error.loadStatus", locale)));
@@ -123,7 +121,7 @@ export function useHealthData({
 			vpsInFlightRef.current = Math.max(0, vpsInFlightRef.current - 1);
 			syncRefreshing();
 		}
-	}, [browserLocale, locale, wantVps, syncRefreshing]);
+	}, [locale, wantVps, syncRefreshing]);
 
 	const fetchSystemHealth = useCallback(async () => {
 		if (!wantSystem) return;
@@ -136,7 +134,7 @@ export function useHealthData({
 			if (isSystemHealthReport(report)) {
 				setSystemHealth(report);
 				setLoadError(null);
-				setLastRefresh(new Date().toLocaleTimeString(browserLocale));
+				setLastRefresh(formatTime(new Date(), locale));
 			} else if (!wantVps) {
 				// Invalid / unexpected payload must not leave the system page looking healthy with stale null.
 				setLoadError(t("healthPage.error.loadStatus", locale));
@@ -151,7 +149,7 @@ export function useHealthData({
 			systemInFlightRef.current = Math.max(0, systemInFlightRef.current - 1);
 			syncRefreshing();
 		}
-	}, [browserLocale, locale, wantSystem, wantVps, syncRefreshing]);
+	}, [locale, wantSystem, wantVps, syncRefreshing]);
 
 	const fetchHistory = useCallback(
 		async (serverId: string) => {

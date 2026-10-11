@@ -7,7 +7,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, ListRow, PageHeader, Toolbar } from "@/components/page-shell";
 import { Pagination } from "@/components/pagination";
 import { SkeletonList } from "@/components/skeleton";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDate } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import {
@@ -242,7 +242,7 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
                   <div className="mt-1 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                     <span>@{user.username}</span>
                     <span>·</span>
-                    <span>{new Date(user.createdAt).toLocaleDateString(toDateLocale(locale))}</span>
+                    <span>{formatDate(user.createdAt, locale)}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {user.accountType === "admin" ? (

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 
-import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { ActiveIncidentsBanner } from "./active-incidents-banner";
@@ -29,7 +28,6 @@ type Props = { initialSystemHealth?: SystemHealthReport | null };
  */
 export function SystemHealthClient({ initialSystemHealth }: Props) {
 	const { locale, t } = useI18n();
-	const browserLocale = toDateLocale(locale);
 	const {
 		systemHealth,
 		loadError,
@@ -38,7 +36,6 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 		fetchSystemHealth,
 	} = useHealthData({
 		initialSystemHealth,
-		browserLocale,
 		locale,
 		mode: "system",
 	});

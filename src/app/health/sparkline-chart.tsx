@@ -5,7 +5,7 @@
  * The component is pure (no hooks/state/context): it only transforms
  * `MetricPoint[]` into SVG paths, so it remains safe to lazy-load.
  */
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatShortTime } from "@/lib/datetime/format";
 import { browserT as t } from "@/lib/i18n/browser-translations";
 import type { MetricPoint } from "./health-types";
 
@@ -37,7 +37,6 @@ export function SparklineChart({ data, locale }: SparklineChartProps) {
 		cpu: t("healthPage.ui.cpu", locale),
 		memory: t("healthPage.ui.memory", locale),
 		disk: t("healthPage.ui.disk", locale),
-		localeCode: toDateLocale(locale),
 	};
 	const width = 700;
 	const height = 200;
@@ -74,7 +73,7 @@ export function SparklineChart({ data, locale }: SparklineChartProps) {
 					const x = toX(new Date(point.t).getTime());
 					return (
 						<text key={point.t} x={x} y={height - 4} textAnchor="middle" fill="var(--text-muted)" opacity={0.7} fontSize={9}>
-							{new Date(point.t).toLocaleTimeString(labels.localeCode, { hour: "2-digit", minute: "2-digit" })}
+							{formatShortTime(point.t, locale)}
 						</text>
 					);
 				})}

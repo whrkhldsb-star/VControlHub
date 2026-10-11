@@ -68,7 +68,7 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
         </div>
       </div>
       {s.description && <p className="mt-1 text-xs text-[var(--text-muted)]">{s.description}</p>}
-      <pre data-inset="" className="mt-3 max-h-48 overflow-auto p-3 font-mono text-xs text-[var(--text-secondary)]">{s.content ?? s.contentPreview ?? ""}</pre>
+      <pre data-inset="" tabIndex={0} className="mt-3 max-h-48 overflow-auto p-3 font-mono text-xs text-[var(--text-secondary)]">{s.content ?? s.contentPreview ?? ""}</pre>
     </div>
   );
 }, (prev, next) => prev.snippet === next.snippet && prev.t === next.t && prev.copied === next.copied && prev.onCopy === next.onCopy && prev.onEdit === next.onEdit && prev.onDelete === next.onDelete);

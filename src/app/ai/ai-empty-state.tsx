@@ -12,6 +12,7 @@ import { ActionButton } from "@/components/action-button";
 import { Plus } from "@/components/icons";
 
 import { Chip } from "@/components/ui-primitives";
+import type { SlashCommandId } from "./ai-types";
 type Props = {
   hasProviders: boolean;
   onOpenProviders: () => void;
@@ -22,14 +23,9 @@ type Props = {
 };
 
 /** Example prompts shown once a provider exists — they double as the
- *  capability advertisement (ops tools are this assistant's differentiator). */
-const EXAMPLES: Array<{ id: string; prompt: string }> = [
-  { id: "status", prompt: "查看所有服务器的当前状态，汇总 CPU / 内存 / 磁盘占用和告警。" },
-  { id: "logs", prompt: "帮我读取服务器 的最近日志，分析有没有异常。" },
-  { id: "disk", prompt: "列出各服务器磁盘占用最高的目录，并给出清理建议。" },
-  { id: "traffic", prompt: "查询最近的流量数据，指出异常波动和可能的优化空间。" },
-  { id: "cmd", prompt: "我想在服务器 上执行以下命令，请先评估风险再帮我执行：" },
-];
+ *  capability advertisement (ops tools are this assistant's differentiator).
+ *  Each id reuses the slash command's label and composer text. */
+const EXAMPLE_IDS: readonly SlashCommandId[] = ["status", "logs", "disk", "traffic", "cmd"];
 
 export function AiEmptyState({
   hasProviders,
@@ -84,12 +80,12 @@ export function AiEmptyState({
             <p className="mb-4 text-xs leading-5 text-[var(--text-muted)]">{t("aiPage.capabilityHint")}</p>
             {onExample && (
               <div className="mb-4 flex flex-wrap justify-center gap-2">
-                {EXAMPLES.map((example) => (
+                {EXAMPLE_IDS.map((id) => (
                   <Chip
-                    key={example.id}
-                    onClick={() => onExample(example.prompt)}
+                    key={id}
+                    onClick={() => onExample(t(`aiPage.slashPrompt.${id}`))}
                   >
-                    {exampleLabel(example.id)}
+                    {exampleLabel(id)}
                   </Chip>
                 ))}
               </div>

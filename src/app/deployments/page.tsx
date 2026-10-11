@@ -12,7 +12,7 @@ import { DeploymentExportPanel } from "./deployment-export-panel";
 import { ResendDeployButton } from "./resend-deploy-button";
 import { RollbackDeployButton } from "./rollback-deploy-button";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { getServerTargetAvailability } from "@/lib/server/availability";
 import { Disclosure } from "@/components/ui/disclosure";
@@ -43,7 +43,6 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 
 	const session = await requirePagePermission("deploy:read", { redirectTo: "/deployments" });
 	const locale = await getServerLocale();
-	const dateLocale = toDateLocale(locale);
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const trTpl = (key: string, vars: Record<string, string>) =>
 		Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), tr(key));
@@ -170,7 +169,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						<div>
 							<p className="text-xs font-medium text-[var(--text-muted)]">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
 							<h2 className="ui-title-section mt-1">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
-							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString(dateLocale), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
+							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: formatDateTime(latestRun.createdAt, locale), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>
 						<StatusBadge tone={deploymentStatusTone(latestRun.status)} size="md">{getDomainStatusLabel(tr, latestRun.status)}</StatusBadge>
 					</div>
@@ -204,7 +203,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							<div className="flex items-center justify-between gap-3">
 								<div>
 									<h3 className="ui-title-group">{r.template.name}</h3>
-									<p className="mt-1 text-xs text-[var(--text-muted)]">{trTpl("deploymentsPage.page.runsSection.meta", { count: String(r.serverIds.length), date: r.createdAt.toLocaleString(dateLocale), request: r.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending") })}</p>
+									<p className="mt-1 text-xs text-[var(--text-muted)]">{trTpl("deploymentsPage.page.runsSection.meta", { count: String(r.serverIds.length), date: formatDateTime(r.createdAt, locale), request: r.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending") })}</p>
 								</div>
 								<StatusBadge tone={deploymentStatusTone(r.status)}>{getDomainStatusLabel(tr, r.status)}</StatusBadge>
 							</div>
@@ -213,7 +212,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							{r.snapshot?.rollbackCommand && <code className="ui-mono mt-2 block overflow-auto rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
 								<div className="mt-2 text-xs text-[var(--text-muted)]">
-									{trTpl("deploymentsPage.page.runsSection.rollbackMeta", { status: getDomainStatusLabel(tr, r.rollbackAttempts[0]!.status), request: r.rollbackAttempts[0]!.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending"), date: r.rollbackAttempts[0]!.createdAt.toLocaleString(dateLocale) })}
+									{trTpl("deploymentsPage.page.runsSection.rollbackMeta", { status: getDomainStatusLabel(tr, r.rollbackAttempts[0]!.status), request: r.rollbackAttempts[0]!.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending"), date: formatDateTime(r.rollbackAttempts[0]!.createdAt, locale) })}
 								</div>
 							)}
 							{r.errorMessage && <p className="mt-2 text-xs text-[var(--danger)]">{r.errorMessage}</p>}

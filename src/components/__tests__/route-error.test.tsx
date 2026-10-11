@@ -57,6 +57,17 @@ describe("RouteError", () => {
 		expect(screen.queryByText(/错误标识:/)).not.toBeInTheDocument();
 	});
 
+	it("shows the permission-denied surface for a redacted production error that kept the FORBIDDEN digest", () => {
+		// What a production build hands the boundary for a ForbiddenError thrown
+		// during a server render: generic name and message, digest preserved.
+		const redacted = makeError("An error occurred in the Server Components render.", "FORBIDDEN");
+		renderI18n(<RouteError error={redacted} reset={vi.fn()} />, { locale: "zh" });
+
+		expect(screen.queryByRole("heading", { name: "页面加载出错" })).not.toBeInTheDocument();
+		expect(screen.queryByText(/错误标识:/)).not.toBeInTheDocument();
+		expect(screen.getByText(/权限/)).toBeInTheDocument();
+	});
+
 	it("invokes reset when the retry button is clicked", () => {
 		const reset = vi.fn();
 		renderI18n(

@@ -6,7 +6,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
 import { EmptyState, ToggleChip } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDate } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
 import { AlertTriangle, Bell, Check, ChevronRight, ClipboardList, Download, Server, X } from "@/components/icons";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -57,7 +57,7 @@ function timeAgo(dateStr: string, nowMs: number, t: (k: string, vars?: Record<st
 	if (hours < 24) return t("notificationsPage.time.hoursAgo", { count: hours });
 	const days = Math.floor(hours / 24);
 	if (days < 30) return t("notificationsPage.time.daysAgo", { count: days });
-	return new Date(dateStr).toLocaleDateString(toDateLocale(locale));
+	return formatDate(dateStr, locale);
 }
 
 const NotificationRow = memo(function NotificationRow({

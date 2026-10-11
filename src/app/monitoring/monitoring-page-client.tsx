@@ -10,7 +10,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 
 const statsSchema = z.object({
@@ -42,19 +42,9 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Format an ISO timestamp into a readable local datetime; fall back to raw on parse failure. */
-function formatTimestamp(value: string, locale?: "zh" | "en"): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(locale ? toDateLocale(locale) : undefined, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
+/** Format an ISO timestamp in the application time zone; fall back to raw on parse failure. */
+function formatTimestamp(value: string, locale: "zh" | "en" = "zh"): string {
+  return formatDateTime(value, locale, value);
 }
 
 export default function MonitoringPage() {
