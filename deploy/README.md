@@ -163,7 +163,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 - `ADMIN_INITIAL_PASSWORD`
 - `NEXT_PUBLIC_APP_PUBLIC_LABEL`
 - `HOSTNAME` / `DOMAIN` 相关地址
-- `STORAGE_ROOT`、`DOWNLOAD_ROOT`
+- `STORAGE_ROOT`
 - 如启用内置 SSH WebSocket：`SSH_WS_HOST`、`SSH_WS_PORT`、`SSH_WS_ALLOWED_ORIGINS`
 
 > 不要把 `.env.local`、私钥、真实数据库连接串提交到仓库。
@@ -274,7 +274,7 @@ SMOKE_PUBLIC_URL=https://your.example.com make smoke-http SERVICE_PREFIX=my-cons
 - `uploads/`、`downloads/`：运行期上传/下载落地目录
 - `backups/`、`logs/`：备份和日志
 
-仓库只保留上述目录的 `.gitkeep` 占位文件；`.gitignore` 会忽略目录内真实文件。部署脚本同步源码时也会排除这些目录，避免把当前服务器的数据带到新服务器，或在升级时误删线上数据。新机器应通过 `.env.local` 中的 `STORAGE_ROOT`、`DOWNLOAD_ROOT`、`BACKUP_DIR` 配置自己的实际数据路径。
+仓库只保留上述目录的 `.gitkeep` 占位文件；`.gitignore` 会忽略目录内真实文件。部署脚本同步源码时也会排除这些目录，避免把当前服务器的数据带到新服务器，或在升级时误删线上数据。新机器应通过 `.env.local` 中的 `STORAGE_ROOT`、`BACKUP_DIR` 配置自己的实际数据路径。
 
 ## 数据库备份
 

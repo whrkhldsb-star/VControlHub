@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `sshTerminalModal.*` (35 keys) + `sshTerminalManager.*` (5 keys) + `sshFileManager.*` (21 keys).
+ * i18n dictionary: `sshTerminalModal.*` (41 keys) + `sshTerminalManager.*` (5 keys) + `sshFileManager.*` (21 keys).
  *
  * Used by:
  *   - src/components/ssh-terminal-modal.tsx (client component)
@@ -64,6 +64,14 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.quickKeysAdd": "添加",
 	"sshTerminalModal.quickKeysResetHint": "已启用自定义按键，",
 	"sshTerminalModal.quickKeysReset": "恢复默认",
+
+	// Side panel — connection (中断后保留会话，由代理在服务端保持 shell)
+	"sshTerminalModal.keepAliveTitle": "连接",
+	"sshTerminalModal.keepAliveLabel": "中断后保留会话",
+	"sshTerminalModal.keepAliveHint": "网络中断或手机锁屏后，{minutes} 分钟内重连会接回原来的会话：远端程序继续运行，期间的输出不会丢失。",
+	"sshTerminalModal.sessionResumed": "已接回中断前的会话。",
+	"sshTerminalModal.sessionFresh": "已重新建立会话，之前的进程已结束。",
+	"sshTerminalModal.sessionFreshLine": "—— 新会话 ——",
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "SSH 终端",
@@ -152,6 +160,14 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.quickKeysAdd": "Add",
 	"sshTerminalModal.quickKeysResetHint": "Custom keys in use, ",
 	"sshTerminalModal.quickKeysReset": "reset to defaults",
+
+	// Side panel — connection (keep the shell on the proxy across a dropped socket)
+	"sshTerminalModal.keepAliveTitle": "Connection",
+	"sshTerminalModal.keepAliveLabel": "Keep the session after a disconnect",
+	"sshTerminalModal.keepAliveHint": "After a network drop or a locked phone screen, reconnecting within {minutes} minutes picks the same session up: the remote program keeps running and nothing it printed is lost.",
+	"sshTerminalModal.sessionResumed": "Resumed the session from before the disconnect.",
+	"sshTerminalModal.sessionFresh": "Started a new session; the previous shell has ended.",
+	"sshTerminalModal.sessionFreshLine": "—— new session ——",
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "SSH Terminal",

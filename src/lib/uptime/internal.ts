@@ -2,6 +2,7 @@ import { type ServerUptimeSnapshot } from "@prisma/client";
 
 import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
+import { appTimeZoneDateKey, shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
 
 interface UptimeDay {
   date: string;
@@ -18,7 +19,7 @@ function formatUptimeDay(
   >,
 ): UptimeDay {
   return {
-    date: snapshot.date.toISOString().split("T")[0] ?? "",
+    date: appTimeZoneDateKey(snapshot.date),
     uptimePercent: snapshot.uptimePercent,
     onlineMinutes: snapshot.onlineMinutes,
     offlineMinutes: snapshot.offlineMinutes,
@@ -41,9 +42,7 @@ export type UptimeListOptions = {
  */
 export async function getAllUptimeDataInternal(options: UptimeListOptions = {}) {
   if (!options.session) return { servers: [] };
-  const ninetyDaysAgo = new Date();
-  ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 89);
-  ninetyDaysAgo.setUTCHours(0, 0, 0, 0);
+  const ninetyDaysAgo = shiftAppTimeZoneDay(new Date(), -89);
 
   const teamFilter = teamWhere(options.session);
 

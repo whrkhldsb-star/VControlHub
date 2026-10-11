@@ -12,12 +12,15 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Added
 
+- SSH terminal sessions survive a dropped browser connection. With the command panel's "Keep the session after a disconnect" (on by default), the proxy keeps the remote shell for `SSH_WS_DETACH_TTL_MS` (default 10 minutes) after the WebSocket drops, buffers its output, and a reconnect from the same account continues the same shell with the missed output replayed; the terminal keeps its content and says whether it resumed or started fresh. Phones retry on their own when the screen unlocks or the network returns. The proxy caps kept shells (32 overall, 4 per account) and still applies the idle timeout to them.
 - Server origin: servers record whether the platform assigned them or a customer added them (`Server.origin`, `addedById`). Customer accounts can edit, enable/disable and delete only their own servers; platform servers show as read-only with a notice.
 - Administrators can move a server to another customer (`POST /api/servers/[id]/transfer`) with its storage node, metric history, quick services and backups. The move is refused while the old customer still has shares, image uploads, schedules, alert rules, playbooks, sync jobs or unfinished commands/downloads on it.
 - Notifications carry their customer: administrators see the customer name, and opening one from another customer switches to it first. Server cards and storage nodes also show the customer to administrators.
 
 ### Changed
 
+- One clock for day and month buckets. Uptime rollups and the public status page's 90-day heatmap, the cost budgets' "current period", the daily cost snapshot, the monthly traffic figure on the health page, the offsite backup's daily window hour and once-a-day job keys all used UTC calendar days while schedules and every timestamp on screen follow Asia/Shanghai; they now share the application clock (`lib/datetime/time-zone`). The offsite window hour setting is therefore read in Asia/Shanghai; a deployment that tuned it for UTC should adjust it by eight hours.
+- `DOWNLOAD_ROOT` is gone from the installer, the example env files and the deploy guide: no code read it (remote downloads stage in `ARIA2_RPC_DIR` and land on the target node). Existing `.env.local` entries are ignored harmlessly.
 - Platform-only pages: the platform self-check (`/health`) and the hub host monitor (`/monitoring`) describe the machine every customer shares, so they and their APIs now open only for platform administrators; customer accounts keep `/vps-status` (with capacity forecast) and `/alert-rules`. Navigation, ⌘K search and the `G` shortcuts hide them accordingly.
 - Announcements reach their readers: the page is listed in the sidebar for every signed-in account (publishing stays platform-only, as the guide always said), and the dashboard shows the latest active announcements.
 - The dashboard's first-setup checklist lists only the items the account may complete; a customer read-only account no longer sees rows that lead to "no permission".
@@ -25,6 +28,10 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 - One permission guard for every page: thirteen pages that drew their own "no permission" banner (each with different copy and layout) now go through `requirePagePermission`, so a refused page always shows the shared denial surface and navigation advertises exactly the admission permission. The ITSM page is admitted by `ticket:manage` only; `ticket:read` holders no longer see a page that then refuses them.
 
 ### Fixed
+
+- Folder names were not validated in the browser: the `pattern` on the new-folder and rename inputs contained `/` and `|` unescaped, which Chrome rejects under its current regular-expression mode, so the attribute was ignored (and a console error logged) on every open of the file manager. The pattern is escaped; the server-side check was never affected.
+- Uploads, new folders and the share picker started on the newest storage node, which is the node just created for a server that has not connected yet (saved as a draft); the request then waited fifteen seconds and failed. They now start on a usable node (the default node, else the first that is not known to be unreachable).
+- The "a node with the same IP/host already exists" refusal was the only onboarding message not translated; it now follows the interface language.
 
 - Reverse-proxy templates: the Caddy and Apache templates did not route `/rdp`, and the Caddy template not `/direct`. `install.sh` and `upgrade.sh` re-render the whole Caddyfile, so installations that had added these routes by hand (as the remote-desktop guide asked) lost Windows remote desktop on every upgrade. Both templates now carry the routes, a test ties them to the paths the WebSocket gateway accepts, and the installer keeps the previous Caddyfile as one of the last five `.bak` copies.
 - Mobile web SSH: a finger drag did nothing in full-screen programs such as Codex and Claude Code. They run on the alternate screen with mouse tracking and keep their own history, while the drag only moved the terminal scrollback. A one-finger drag now acts like the mouse wheel: it moves the scrollback in a plain shell, sends wheel steps to programs that track the mouse, and arrow keys to alternate-screen programs such as `less`.

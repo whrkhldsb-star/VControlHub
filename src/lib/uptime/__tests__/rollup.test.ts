@@ -41,7 +41,7 @@ describe("rollupServerUptimeForDay", () => {
         where: {
           serverId_date: {
             serverId: "s1",
-            date: new Date("2026-07-19T00:00:00.000Z"),
+            date: new Date("2026-07-18T16:00:00.000Z"),
           },
         },
         create: expect.objectContaining({

@@ -6,6 +6,7 @@
  * results into a `HealthOverview`. Heavy I/O (parallel SSH) lives here; the
  * alert evaluation logic lives in `./service-alerts`.
  */
+import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 import { prisma } from "@/lib/db";
 import { collectServerMetrics, type ServerMetrics } from "@/lib/server/monitor";
 import { tcpProbe } from "@/lib/server/connectivity";
@@ -202,9 +203,7 @@ export async function collectAllHealth(
 
   // Best-effort monthly traffic from durable samples (if worker has been running).
   try {
-    const monthStart = new Date();
-    monthStart.setUTCDate(1);
-    monthStart.setUTCHours(0, 0, 0, 0);
+    const monthStart = startOfMonthInAppTimeZone();
     const ids = results.map((r) => r.serverId);
     if (ids.length > 0) {
       const snapWhere = {

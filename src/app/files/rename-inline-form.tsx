@@ -126,7 +126,7 @@ export function RenameInlineForm({
           required
           minLength={1}
           maxLength={255}
-          pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
+          pattern={String.raw`^[^\s\/\\:*?"<>\|]+$`}
           placeholder={t("renameInlineForm.inputPlaceholder")}
           className={cn(UI_INPUT, "w-auto min-w-[14rem] text-sm")}
         />

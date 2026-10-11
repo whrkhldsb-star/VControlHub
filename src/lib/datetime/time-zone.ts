@@ -142,3 +142,64 @@ export function zonedDateTimeToDate(value: string, timeZone = APP_TIME_ZONE): Da
 export function zonedDateTimeToIso(value: string, timeZone = APP_TIME_ZONE): string {
   return zonedDateTimeToDate(value, timeZone).toISOString();
 }
+
+export type WallClockDate = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+};
+
+/** The calendar date and time `date` shows on a clock in the application time zone. */
+export function wallClockInAppTimeZone(date = new Date(), timeZone = APP_TIME_ZONE): WallClockDate {
+  const values = Object.fromEntries(
+    getWallClockFormatter(timeZone)
+      .formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)]),
+  ) as Record<string, number>;
+  return {
+    year: values.year ?? 1970,
+    month: values.month ?? 1,
+    day: values.day ?? 1,
+    hour: values.hour ?? 0,
+    minute: values.minute ?? 0,
+    second: values.second ?? 0,
+  };
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/** `YYYY-MM-DD` of `date` in the application time zone: the key a day bucket is filed under. */
+export function appTimeZoneDateKey(date = new Date(), timeZone = APP_TIME_ZONE): string {
+  const wall = wallClockInAppTimeZone(date, timeZone);
+  return `${wall.year}-${pad2(wall.month)}-${pad2(wall.day)}`;
+}
+
+/** The instant the application-time-zone day containing `date` starts. */
+export function startOfDayInAppTimeZone(date = new Date(), timeZone = APP_TIME_ZONE): Date {
+  return zonedDateTimeToDate(`${appTimeZoneDateKey(date, timeZone)}T00:00`, timeZone);
+}
+
+/** The instant the application-time-zone month containing `date` starts. */
+export function startOfMonthInAppTimeZone(date = new Date(), timeZone = APP_TIME_ZONE): Date {
+  const wall = wallClockInAppTimeZone(date, timeZone);
+  return zonedDateTimeToDate(`${wall.year}-${pad2(wall.month)}-01T00:00`, timeZone);
+}
+
+/**
+ * The start of the application-time-zone day `days` calendar days away from
+ * the day containing `date`. Calendar arithmetic, so a daylight-saving change
+ * in between never shifts the result off midnight.
+ */
+export function shiftAppTimeZoneDay(date: Date, days: number, timeZone = APP_TIME_ZONE): Date {
+  const wall = wallClockInAppTimeZone(date, timeZone);
+  const shifted = new Date(Date.UTC(wall.year, wall.month - 1, wall.day + days));
+  const key = `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth() + 1)}-${pad2(shifted.getUTCDate())}`;
+  return zonedDateTimeToDate(`${key}T00:00`, timeZone);
+}
+

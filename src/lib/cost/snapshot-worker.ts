@@ -12,6 +12,7 @@
  *   - setInterval 24h + fire-once-on-startup
  *   - globalThis state mirror for re-entrancy
  */
+import { wallClockInAppTimeZone } from "@/lib/datetime/time-zone";
 import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
@@ -92,21 +93,13 @@ async function enqueueCostSnapshotJob(reason: string) {
 }
 
 /**
- * Build the snapshot payload for "today" (UTC). Aggregates every
- * cost_entry whose effectiveDate === today, in CNY by default.
+ * Build the snapshot payload for "today" on the application clock. Aggregates
+ * every cost_entry whose effectiveDate (a calendar date stored as UTC
+ * midnight) is that day, in CNY by default.
  */
 async function buildTodaySnapshot(today: Date) {
-  const dayStart = new Date(
-    Date.UTC(
-      today.getUTCFullYear(),
-      today.getUTCMonth(),
-      today.getUTCDate(),
-      0,
-      0,
-      0,
-      0,
-    ),
-  );
+  const wall = wallClockInAppTimeZone(today);
+  const dayStart = new Date(Date.UTC(wall.year, wall.month - 1, wall.day));
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
   // DB-side aggregation — never silently drop rows beyond a take:N cap.

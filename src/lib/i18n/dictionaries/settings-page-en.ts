@@ -233,7 +233,7 @@ export const en: Record<string, string> = {
 	"settingsClient.field.offsite.accessKeyId.helper": "Access key obtained from the provider console; do not use the root account key.",
 	"settingsClient.field.offsite.secretAccessKey.helper": "Credential is encrypted at rest (settings.crypto.service); GET returns *** placeholder.",
 	"settingsClient.field.offsite.pathPrefix.helper": "Object key prefix; must end with /.",
-	"settingsClient.field.offsite.dailyWindowHour.helper": "Integer 0\u201323; UTC top-of-hour window; default 03:00.",
+	"settingsClient.field.offsite.dailyWindowHour.helper": "Integer 0\u201323; top-of-hour window on the application clock (Asia/Shanghai); default 03:00.",
 	"settingsClient.field.offsite.retentionDays.helper": "Retention days on the offsite side; expired backups are cleaned up by the lifecycle job.",
 	"settingsClient.field.offsite.failureAlertRecipient.helper": "Offsite push failures send an alert email to this address; blank to disable alerting.",
 	"settingsClient.field.ai.ops.mode.helper": "Before switching to autonomous, confirm the ai:ops:autonomous permission is granted and understand that AI will auto-execute whitelisted actions per AI_OPS_SAFE_AUTONOMOUS_ACTIONS.",

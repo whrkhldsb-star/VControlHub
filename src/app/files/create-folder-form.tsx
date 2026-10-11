@@ -140,7 +140,7 @@ export function CreateFolderForm({
           required
           minLength={1}
           maxLength={255}
-          pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
+          pattern={String.raw`^[^\s\/\\:*?"<>\|]+$`}
           placeholder={t("common.folderNamePlaceholder")}
           className={cn(UI_INPUT, "rounded-2xl")}
         />
