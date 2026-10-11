@@ -1,10 +1,9 @@
 
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { getAuditStats } from "@/lib/audit/service";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { AuditLogClient } from "./audit-client";
-import { Card, PageShell, PageHeader, StatCard, EmptyState, StatGrid } from "@/components/page-shell";
+import { Card, PageShell, PageHeader, StatCard, StatGrid } from "@/components/page-shell";
 import { Badge, Notice } from "@/components/ui-primitives";
 import { createLogger } from "@/lib/logging";
 import { ButtonLink } from "@/components/action-button";
@@ -33,7 +32,6 @@ function getAuditPageCopy(locale: Locale) {
 	return {
 		title: t("audit.page.title", locale),
 		description: t("audit.page.description", locale),
-		noPermission: t("audit.page.noPermission", locale),
 		statsTotal: t("audit.page.stats.total", locale),
 		statsRecent24h: t("audit.page.stats.recent24h", locale),
 		statsHighRisk: t("audit.page.stats.highRisk", locale),
@@ -50,20 +48,17 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 	const locale = await getServerLocale();
 	const copy = getAuditPageCopy(locale);
 
-	const session = await requireSession("/audit");
-	const canRead = sessionHasPermission(session, "audit:read");
+	const session = await requirePagePermission("audit:read", { redirectTo: "/audit" });
 
 	let stats: Awaited<ReturnType<typeof getAuditStats>> | null = null;
 	// Tracked separately from `stats === null`: a failed aggregate query used to make
 	// the whole overview silently disappear, which reads as "nothing to report".
 	let statsFailed = false;
-	if (canRead) {
-		try {
-			stats = await getAuditStats(session);
-		} catch (error) {
-			statsFailed = true;
-			logger.warn("Failed to load audit stats", error);
-		}
+	try {
+		stats = await getAuditStats(session);
+	} catch (error) {
+		statsFailed = true;
+		logger.warn("Failed to load audit stats", error);
 	}
 	const highRiskCount = stats
 		? HIGH_RISK_ACTIONS.reduce((sum, action) => sum + (stats.byAction[action] ?? 0), 0)
@@ -76,10 +71,6 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 		<PageShell>
 			<PageHeader eyebrow={t("auditPage.eyebrow", locale)} title={copy.title} description={copy.description} />
 
-			{!canRead ? (
-				<EmptyState text={copy.noPermission} variant="boxed" />
-			) : (
-				<>
 						{statsFailed && (
 						<Notice tone="warning" className="mb-6">{t("audit.page.statsUnavailable", locale)}</Notice>
 					)}
@@ -128,8 +119,6 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 						</section>
 					)}
 					<AuditLogClient initialActionFilter={params.action ?? ""} />
-				</>
-			)}
 		</PageShell>
 	);
 }

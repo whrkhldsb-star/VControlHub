@@ -17,20 +17,20 @@ let windowsCache: { sampledAt: number; rows: NetworkDeviceStats[] } | null = nul
 let windowsInflight: Promise<NetworkDeviceStats[]> | null = null;
 
 function execFileText(file: string, args: readonly string[]) {
-  return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-    execFile(
-      file,
-      args,
-      { encoding: "utf-8", timeout: 10_000, windowsHide: true },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve({ stdout, stderr });
-      },
-    );
-  });
+	return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+		execFile(
+			file,
+			args,
+			{ encoding: "utf-8", timeout: 10_000, windowsHide: true },
+			(error, stdout, stderr) => {
+				if (error) {
+					reject(error);
+					return;
+				}
+				resolve({ stdout, stderr });
+			},
+		);
+	});
 }
 
 async function collectWindowsNetworkAdapters(): Promise<NetworkDeviceStats[]> {

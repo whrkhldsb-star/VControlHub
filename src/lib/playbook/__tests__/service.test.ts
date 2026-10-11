@@ -390,7 +390,7 @@ describe("playbook service", () => {
   it("rejects missing and disabled playbooks", async () => {
     mocks.playbookFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ ...baseRow, enabled: false });
     await expect(runPlaybook({ playbookId: "missing", dryRun: true })).rejects.toThrow(/不存在|not found/);
-		await expect(runPlaybook({ playbookId: "pb1", dryRun: false })).rejects.toThrow(/disabled|已禁用/);
+    await expect(runPlaybook({ playbookId: "pb1", dryRun: false })).rejects.toThrow(/disabled|已禁用/);
   });
 
   it("atomically persists a queued run and durable parent job", async () => {

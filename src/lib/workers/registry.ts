@@ -50,7 +50,7 @@ export type WorkerId =
   | "download-execution"
   | "health-sampling"
   | "job-maintenance"
-	| "itsm-outbound"
+  | "itsm-outbound"
   | "quick-service"
   | "scheduled-task"
   | "sftp-sync"
@@ -104,7 +104,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "download-execution": { started: false },
       "health-sampling": { started: false },
       "job-maintenance": { started: false },
-			"itsm-outbound": { started: false },
+      "itsm-outbound": { started: false },
       "quick-service": { started: false },
       "scheduled-task": { started: false },
       "sftp-sync": { started: false },
@@ -366,11 +366,11 @@ const JOB_MAINTENANCE: WorkerSpec = {
 };
 
 const ITSM_OUTBOUND: WorkerSpec = {
-	id: "itsm-outbound",
-	label: "ITSM outbound delivery",
-	jobType: "itsm.outbound",
-	start: async () => { await startItsmOutboundWorker(); },
-	stop: () => stopItsmOutboundWorkerForTests(),
+  id: "itsm-outbound",
+  label: "ITSM outbound delivery",
+  jobType: "itsm.outbound",
+  start: async () => { await startItsmOutboundWorker(); },
+  stop: () => stopItsmOutboundWorkerForTests(),
 };
 
 export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
@@ -385,7 +385,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   TRAFFIC_SAMPLING,
   DOWNLOAD_EXECUTION,
   JOB_MAINTENANCE,
-	ITSM_OUTBOUND,
+  ITSM_OUTBOUND,
   QUICK_SERVICE,
   SCHEDULED_TASK,
   SFTP_SYNC,

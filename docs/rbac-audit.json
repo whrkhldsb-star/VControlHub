@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-10T17:51:50.244Z",
+  "generatedAt": "2026-10-11T00:19:32.919Z",
   "summary": {
     "permissionsInList": 52,
     "rolesDefined": 4,
     "apiRoutesAudited": 189,
     "pagesAudited": 56,
-    "callSitesAudited": 651,
+    "callSitesAudited": 635,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -127,16 +127,11 @@
           "line": 78
         },
         {
-          "path": "src/app/knowledge/page.tsx",
-          "line": 12
-        },
-        {
           "path": "src/app/servers/page.tsx",
           "line": 29
         }
       ],
       "pages": [
-        "knowledge",
         "servers"
       ],
       "apiRoutes": [],
@@ -212,7 +207,7 @@
         },
         {
           "path": "src/app/knowledge/page.tsx",
-          "line": 19
+          "line": 9
         }
       ],
       "pages": [
@@ -342,10 +337,6 @@
       "permission": "announcement:manage",
       "files": [
         {
-          "path": "src/app/announcements/page.tsx",
-          "line": 15
-        },
-        {
           "path": "src/app/api/announcements/route.ts",
           "line": 24
         },
@@ -374,9 +365,7 @@
           "line": 91
         }
       ],
-      "pages": [
-        "announcements"
-      ],
+      "pages": [],
       "apiRoutes": [
         "/api/announcements"
       ],
@@ -387,10 +376,6 @@
     {
       "permission": "api-token:manage",
       "files": [
-        {
-          "path": "src/app/api-tokens/page.tsx",
-          "line": 16
-        },
         {
           "path": "src/app/api/api-tokens/route.ts",
           "line": 73
@@ -412,9 +397,7 @@
           "line": 146
         }
       ],
-      "pages": [
-        "api-tokens"
-      ],
+      "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin",
@@ -455,15 +438,9 @@
         {
           "path": "src/app/api/monitoring/observability/route.ts",
           "line": 60
-        },
-        {
-          "path": "src/app/audit/page.tsx",
-          "line": 54
         }
       ],
-      "pages": [
-        "audit"
-      ],
+      "pages": [],
       "apiRoutes": [
         "/api/dashboard/analytics"
       ],
@@ -559,7 +536,7 @@
         },
         {
           "path": "src/app/backups/page.tsx",
-          "line": 36
+          "line": 35
         }
       ],
       "pages": [
@@ -612,15 +589,9 @@
         {
           "path": "src/app/api/backups/route.ts",
           "line": 26
-        },
-        {
-          "path": "src/app/backups/page.tsx",
-          "line": 35
         }
       ],
-      "pages": [
-        "backups"
-      ],
+      "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin"
@@ -647,7 +618,7 @@
         },
         {
           "path": "src/app/backups/page.tsx",
-          "line": 37
+          "line": 36
         }
       ],
       "pages": [
@@ -1083,7 +1054,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 52
+          "line": 51
         }
       ],
       "pages": [
@@ -1114,15 +1085,9 @@
         {
           "path": "src/app/api/deployments/route.ts",
           "line": 34
-        },
-        {
-          "path": "src/app/deployments/page.tsx",
-          "line": 50
         }
       ],
-      "pages": [
-        "deployments"
-      ],
+      "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin",
@@ -1147,7 +1112,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 51
+          "line": 50
         },
         {
           "path": "src/app/templates/page.tsx",
@@ -1304,41 +1269,30 @@
         },
         {
           "path": "src/app/api/monitoring/stats/route.ts",
-          "line": 10
-        },
-        {
-          "path": "src/app/api/monitoring/stats/route.ts",
-          "line": 10
-        },
-        {
-          "path": "src/app/api/monitoring/stream/route.ts",
-          "line": 61
-        },
-        {
-          "path": "src/app/api/monitoring/stream/route.ts",
-          "line": 61
-        },
-        {
-          "path": "src/app/api/system-health/route.ts",
-          "line": 9
-        },
-        {
-          "path": "src/app/api/system-health/route.ts",
-          "line": 9
-        },
-        {
-          "path": "src/app/health/page.tsx",
           "line": 12
         },
         {
-          "path": "src/app/vps-status/page.tsx",
-          "line": 15
+          "path": "src/app/api/monitoring/stats/route.ts",
+          "line": 12
+        },
+        {
+          "path": "src/app/api/monitoring/stream/route.ts",
+          "line": 62
+        },
+        {
+          "path": "src/app/api/monitoring/stream/route.ts",
+          "line": 62
+        },
+        {
+          "path": "src/app/api/system-health/route.ts",
+          "line": 11
+        },
+        {
+          "path": "src/app/api/system-health/route.ts",
+          "line": 11
         }
       ],
-      "pages": [
-        "health",
-        "vps-status"
-      ],
+      "pages": [],
       "apiRoutes": [
         "/api/dashboard/analytics"
       ],
@@ -1480,7 +1434,7 @@
         },
         {
           "path": "src/app/media/page.tsx",
-          "line": 71
+          "line": 68
         }
       ],
       "pages": [
@@ -2070,7 +2024,7 @@
         },
         {
           "path": "src/app/shares/page.tsx",
-          "line": 31
+          "line": 24
         }
       ],
       "pages": [
@@ -2104,7 +2058,7 @@
         },
         {
           "path": "src/app/shares/page.tsx",
-          "line": 32
+          "line": 25
         }
       ],
       "pages": [
@@ -2135,15 +2089,9 @@
         {
           "path": "src/app/api/shares/[id]/access-logs/route.ts",
           "line": 15
-        },
-        {
-          "path": "src/app/shares/page.tsx",
-          "line": 23
         }
       ],
-      "pages": [
-        "shares"
-      ],
+      "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin",
@@ -2543,20 +2491,9 @@
         {
           "path": "src/app/api/traffic/summary/route.ts",
           "line": 181
-        },
-        {
-          "path": "src/app/media/[id]/page.tsx",
-          "line": 85
-        },
-        {
-          "path": "src/app/media/page.tsx",
-          "line": 69
         }
       ],
-      "pages": [
-        "media",
-        "media/[id]"
-      ],
+      "pages": [],
       "apiRoutes": [
         "/api/dashboard/analytics",
         "/api/traffic/summary"
@@ -2807,15 +2744,9 @@
         {
           "path": "src/app/api/operation-tasks/route.ts",
           "line": 87
-        },
-        {
-          "path": "src/app/operation-tasks/page.tsx",
-          "line": 23
         }
       ],
-      "pages": [
-        "operation-tasks"
-      ],
+      "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin",
@@ -2972,16 +2903,11 @@
           "line": 19
         },
         {
-          "path": "src/app/customers/page.tsx",
-          "line": 13
-        },
-        {
           "path": "src/app/image-bed/page.tsx",
           "line": 11
         }
       ],
       "pages": [
-        "customers",
         "image-bed"
       ],
       "apiRoutes": [
@@ -3162,10 +3088,6 @@
           "line": 17
         },
         {
-          "path": "src/app/itsm/page.tsx",
-          "line": 13
-        },
-        {
           "path": "src/app/tickets/[id]/page.tsx",
           "line": 16
         },
@@ -3175,7 +3097,6 @@
         }
       ],
       "pages": [
-        "itsm",
         "tickets",
         "tickets/[id]"
       ],
@@ -3220,15 +3141,9 @@
         {
           "path": "src/app/api/tickets/route.ts",
           "line": 49
-        },
-        {
-          "path": "src/app/itsm/page.tsx",
-          "line": 16
         }
       ],
-      "pages": [
-        "itsm"
-      ],
+      "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin",
@@ -3342,7 +3257,7 @@
         },
         {
           "path": "src/app/users/page.tsx",
-          "line": 12
+          "line": 11
         }
       ],
       "pages": [
@@ -3364,15 +3279,9 @@
         {
           "path": "src/app/api/users/route.ts",
           "line": 33
-        },
-        {
-          "path": "src/app/users/page.tsx",
-          "line": 11
         }
       ],
-      "pages": [
-        "users"
-      ],
+      "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin",

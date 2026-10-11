@@ -277,10 +277,10 @@ export type DockerEnvironmentStatus = {
 
 /** Local async status (route-facing preflight; used by tests + local install preflight). */
 export async function getDockerEnvironmentStatus(): Promise<DockerEnvironmentStatus> {
-	// Locale-aware t: the static service dictionary defaults to zh, which
-	// leaked Chinese copy into EN-locale API responses.
-	const t = await serviceT();
-	const dockerInstallHint = t("backend.quick-service.dockerInstallHintLocal");
+  // Locale-aware t: the static service dictionary defaults to zh, which
+  // leaked Chinese copy into EN-locale API responses.
+  const t = await serviceT();
+  const dockerInstallHint = t("backend.quick-service.dockerInstallHintLocal");
   try {
     const { stdout } = await runFile("docker", ["--version"], {
       timeout: 5_000,
@@ -312,13 +312,13 @@ export async function getDockerEnvironmentStatus(): Promise<DockerEnvironmentSta
 }
 
 export async function getDockerEnvironmentStatusFor(
-	target: DockerTarget,
+  target: DockerTarget,
 ): Promise<DockerEnvironmentStatus> {
-	if (target.kind === "local") {
-		return getDockerEnvironmentStatus();
-	}
-	const t = await serviceT();
-	const dockerInstallHint = t("backend.quick-service.dockerInstallHintRemote");
+  if (target.kind === "local") {
+    return getDockerEnvironmentStatus();
+  }
+  const t = await serviceT();
+  const dockerInstallHint = t("backend.quick-service.dockerInstallHintRemote");
   try {
     const { server } = await loadEnabledServerForSsh(target.serverId);
     const version = (await dockerExec(target, ["--version"], 10_000)).trim();

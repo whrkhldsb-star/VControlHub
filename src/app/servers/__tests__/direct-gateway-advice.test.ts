@@ -13,7 +13,7 @@ import { zh as dict } from "@/lib/i18n/dictionaries/servers";
 import { interpolate } from "@/lib/i18n/translations";
 
 function t(key: string, vars?: Record<string, string | number>): string {
-	return interpolate(dict[key] ?? key, vars);
+  return interpolate(dict[key] ?? key, vars);
 }
 
 const baseInput = {

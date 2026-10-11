@@ -471,20 +471,20 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						/>
 					</div>
 				))}
-        {!loading && nextCursor ? (
+				{!loading && nextCursor ? (
 			<div className="flex justify-center border-t border-[var(--border)] px-4 py-3">
-            <ActionButton
-              type="button"
-              variant="secondary"
-              disabled={loadingMore}
-              onClick={() => void fetchTasks(true)}>
-              {loadingMore
-                ? t("downloadsPage.loadingMore")
-                : t("downloadsPage.loadMore")}
-            </ActionButton>
-          </div>
-        ) : null}
-      </ListPanel>
+						<ActionButton
+							type="button"
+							variant="secondary"
+							disabled={loadingMore}
+							onClick={() => void fetchTasks(true)}>
+							{loadingMore
+								? t("downloadsPage.loadingMore")
+								: t("downloadsPage.loadMore")}
+						</ActionButton>
+					</div>
+				) : null}
+			</ListPanel>
 			<ConfirmDialog
 				open={pendingPurgeTaskId !== null}
 				title={t("common.confirmDelete")}

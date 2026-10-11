@@ -25,11 +25,11 @@ export function sessionHasPermission(
 }
 
 export async function requirePermission(permission: Permission) {
-  const session = await requireSession();
+	const session = await requireSession();
 
-  if (!sessionHasPermission(session, permission)) {
-    throw new ForbiddenError(apiCopy("apiCopy.missing.permission.db2e4ec2", { v0: String(permission) }));
-  }
+	if (!sessionHasPermission(session, permission)) {
+		throw new ForbiddenError(apiCopy("apiCopy.missing.permission.db2e4ec2", { v0: String(permission) }));
+	}
 
-  return session;
+	return session;
 }

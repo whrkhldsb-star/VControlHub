@@ -5,16 +5,16 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { DashboardPreferenceClient } from "../dashboard-preference-client";
 
 vi.mock("@/lib/i18n/use-locale", () => ({
-	useI18n: () => ({
-		t: (key: string) => key,
-		locale: "zh" as const,
-		setLocale: () => {},
-		translations: {},
-	}),
+  useI18n: () => ({
+    t: (key: string) => key,
+    locale: "zh" as const,
+    setLocale: () => {},
+    translations: {},
+  }),
 }));
 
 vi.mock("@/lib/auth/csrf-client", () => ({
-	csrfFetch: vi.fn(),
+  csrfFetch: vi.fn(),
 }));
 
 const csrfFetchMock = vi.mocked(csrfFetch);
@@ -56,13 +56,13 @@ describe("DashboardPreferenceClient", () => {
     expect(document.querySelector("style")?.textContent ?? "").not.toContain("display:none");
   });
 
-	it("surfaces preference load failures while keeping dashboard widgets usable", async () => {
-		csrfFetchMock.mockRejectedValueOnce(new Error("network unavailable"));
-		renderDashboardPreferenceClient();
+  it("surfaces preference load failures while keeping dashboard widgets usable", async () => {
+    csrfFetchMock.mockRejectedValueOnce(new Error("network unavailable"));
+    renderDashboardPreferenceClient();
 
-		expect(await screen.findByRole("alert")).toHaveTextContent("network unavailable");
-		expect(screen.getByText("服务器状态")).toBeVisible();
-	});
+    expect(await screen.findByRole("alert")).toHaveTextContent("network unavailable");
+    expect(screen.getByText("服务器状态")).toBeVisible();
+  });
 
   it("applies local dashboard widget preferences before the server round trip", () => {
     csrfFetchMock.mockImplementation(() => new Promise(() => {}));

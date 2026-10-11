@@ -17,30 +17,30 @@ import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
 type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
 
 async function assertServerIdsInTeam(serverIds: string[], session?: TeamSession | null) {
-  if (!session || serverIds.length === 0) return;
-  // Use permission, not role key string — custom roles may hold team:manage without key "admin".
-  if (sessionHasPermission(session, "team:manage")) return;
-  const allowed = await prisma.server.findMany({
-    where: { id: { in: serverIds }, ...serverTeamWhere(session) },
-    select: { id: true },
-  });
-  if (allowed.length !== serverIds.length) {
-    throw new ValidationError(t("backend.alert.oneOrMoreServeridsAreOutsideTheCurrent"));
-  }
+	if (!session || serverIds.length === 0) return;
+	// Use permission, not role key string — custom roles may hold team:manage without key "admin".
+	if (sessionHasPermission(session, "team:manage")) return;
+	const allowed = await prisma.server.findMany({
+		where: { id: { in: serverIds }, ...serverTeamWhere(session) },
+		select: { id: true },
+	});
+	if (allowed.length !== serverIds.length) {
+		throw new ValidationError(t("backend.alert.oneOrMoreServeridsAreOutsideTheCurrent"));
+	}
 }
 
 async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSession | null) {
-  if (!session || playbookIds.length === 0) return;
-  if (sessionHasPermission(session, "team:manage")) return;
-  const allowed = await prisma.playbook.findMany({
-    // Strict: an alert rule binds a playbook that later fires unattended, so a
-    // `teamId: null` playbook must not be bindable by an arbitrary tenant.
-    where: { id: { in: playbookIds }, ...playbookTeamWhere(session) },
-    select: { id: true },
-  });
-  if (allowed.length !== playbookIds.length) {
-    throw new ValidationError(t("backend.alert.oneOrMorePlaybookidsAreOutsideTheCurrent"));
-  }
+	if (!session || playbookIds.length === 0) return;
+	if (sessionHasPermission(session, "team:manage")) return;
+	const allowed = await prisma.playbook.findMany({
+		// Strict: an alert rule binds a playbook that later fires unattended, so a
+		// `teamId: null` playbook must not be bindable by an arbitrary tenant.
+		where: { id: { in: playbookIds }, ...playbookTeamWhere(session) },
+		select: { id: true },
+	});
+	if (allowed.length !== playbookIds.length) {
+		throw new ValidationError(t("backend.alert.oneOrMorePlaybookidsAreOutsideTheCurrent"));
+	}
 }
 
 
@@ -385,19 +385,19 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 }
 
 async function assertOnCallUserIdsInTeam(userIds: string[], session?: TeamSession | null) {
-  if (!session || userIds.length === 0) return;
-  if (sessionHasPermission(session, "team:manage")) return;
-  const teamId = session.currentTeamId;
-  if (!teamId) {
-    throw new ValidationError(apiCopy("apiCopy.oncalluserids.require.a.team.context.895b2a56"));
-  }
-  const members = await prisma.teamMember.findMany({
-    where: { teamId, userId: { in: userIds } },
-    select: { userId: true },
-  });
-  if (members.length !== new Set(userIds).size) {
-    throw new ValidationError(apiCopy("apiCopy.oncalluserids.must.be.members.of.the.current.team.28c63b6c"));
-  }
+	if (!session || userIds.length === 0) return;
+	if (sessionHasPermission(session, "team:manage")) return;
+	const teamId = session.currentTeamId;
+	if (!teamId) {
+		throw new ValidationError(apiCopy("apiCopy.oncalluserids.require.a.team.context.895b2a56"));
+	}
+	const members = await prisma.teamMember.findMany({
+		where: { teamId, userId: { in: userIds } },
+		select: { userId: true },
+	});
+	if (members.length !== new Set(userIds).size) {
+		throw new ValidationError(apiCopy("apiCopy.oncalluserids.must.be.members.of.the.current.team.28c63b6c"));
+	}
 }
 
 

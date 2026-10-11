@@ -54,16 +54,16 @@ describe("ai provider-http adapter", () => {
   });
 
   describe("aiHttpErrorMessage", () => {
-	it("distinguishes model-list authentication, rate-limit, and upstream failures", () => {
-		expect(aiHttpErrorMessage(401, "Unauthorized", "models")).toBe(
-			"Failed to fetch model list: the provider rejected the API Key",
-		);
-		expect(aiHttpErrorMessage(429, "rate limit", "models")).toBe(
-			"Failed to fetch model list: provider rate limit reached; retry later",
-		);
-		expect(aiHttpErrorMessage(503, "internal", "models")).toBe(
-			"Failed to fetch model list: provider is temporarily unavailable (503)",
-		);
+  it("distinguishes model-list authentication, rate-limit, and upstream failures", () => {
+    expect(aiHttpErrorMessage(401, "Unauthorized", "models")).toBe(
+      "Failed to fetch model list: the provider rejected the API Key",
+    );
+    expect(aiHttpErrorMessage(429, "rate limit", "models")).toBe(
+      "Failed to fetch model list: provider rate limit reached; retry later",
+    );
+    expect(aiHttpErrorMessage(503, "internal", "models")).toBe(
+      "Failed to fetch model list: provider is temporarily unavailable (503)",
+    );
     });
 
     it("formats chat kind with status code and truncated body", () => {
@@ -106,7 +106,7 @@ describe("ai provider-http adapter", () => {
       const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
       expect(url).toBe("https://api.openai.com/v1/models");
       expect(init.method).toBe("GET");
-	  expect(init.redirect).toBe("error");
+    expect(init.redirect).toBe("error");
       expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
       expect(init.signal).toBeInstanceOf(AbortSignal);
       expect(models).toEqual([
@@ -170,20 +170,20 @@ describe("ai provider-http adapter", () => {
       );
       globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-		await expect(
-			fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://api.example.com/v1" }),
-		).rejects.toThrow("Failed to fetch model list: the provider rejected the API Key");
-	});
+    await expect(
+      fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://api.example.com/v1" }),
+    ).rejects.toThrow("Failed to fetch model list: the provider rejected the API Key");
+  });
 
-	it("turns provider timeouts into an actionable model-list error", async () => {
-		globalThis.fetch = vi.fn(async () => {
-			throw new DOMException("timed out", "TimeoutError");
-		}) as unknown as typeof fetch;
+  it("turns provider timeouts into an actionable model-list error", async () => {
+    globalThis.fetch = vi.fn(async () => {
+      throw new DOMException("timed out", "TimeoutError");
+    }) as unknown as typeof fetch;
 
-		await expect(
-			fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://api.example.com/v1" }),
-		).rejects.toThrow("AI provider model list request timed out after 30 seconds");
-	});
+    await expect(
+      fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://api.example.com/v1" }),
+    ).rejects.toThrow("AI provider model list request timed out after 30 seconds");
+  });
 
     it("rejects empty API keys with the same business-side validation error", async () => {
       await expect(
@@ -238,7 +238,7 @@ describe("ai provider-http adapter", () => {
       const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
       expect(url).toBe("https://api.openai.com/v1/chat/completions");
       expect(init.method).toBe("POST");
-	  expect(init.redirect).toBe("error");
+    expect(init.redirect).toBe("error");
       expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
       expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
       expect(init.signal).toBeInstanceOf(AbortSignal);
@@ -248,7 +248,7 @@ describe("ai provider-http adapter", () => {
       expect(await response.text()).toBe("ok-stream");
     });
 
-	it("throws AI request failed (status): <truncated body> on non-2xx", async () => {
+  it("throws AI request failed (status): <truncated body> on non-2xx", async () => {
       const fetchMock = vi.fn(
         async () => new Response("rate limit reached", { status: 429 }),
       );
@@ -261,81 +261,81 @@ describe("ai provider-http adapter", () => {
           headers: { Authorization: "Bearer sk-test" },
         }),
       ).rejects.toThrow("AI request failed (429): rate limit reached");
-	});
+  });
 
-	it("turns provider timeouts into an actionable chat error", async () => {
-		globalThis.fetch = vi.fn(async () => {
-			throw new DOMException("timed out", "TimeoutError");
-		}) as unknown as typeof fetch;
+  it("turns provider timeouts into an actionable chat error", async () => {
+    globalThis.fetch = vi.fn(async () => {
+      throw new DOMException("timed out", "TimeoutError");
+    }) as unknown as typeof fetch;
 
-		await expect(
-			postProviderChat({
-				url: "https://api.example.com/v1/chat/completions",
-				body: { model: "gpt-4o" },
-			}),
-		).rejects.toThrow("AI provider chat request timed out after 90 seconds");
-	});
+    await expect(
+      postProviderChat({
+        url: "https://api.example.com/v1/chat/completions",
+        body: { model: "gpt-4o" },
+      }),
+    ).rejects.toThrow("AI provider chat request timed out after 90 seconds");
+  });
 
-	it("bounds only time-to-first-byte for streaming chat requests", async () => {
-		globalThis.fetch = vi.fn(async () => {
-			throw new DOMException("timed out", "TimeoutError");
-		}) as unknown as typeof fetch;
+  it("bounds only time-to-first-byte for streaming chat requests", async () => {
+    globalThis.fetch = vi.fn(async () => {
+      throw new DOMException("timed out", "TimeoutError");
+    }) as unknown as typeof fetch;
 
-		await expect(
-			postProviderChat({
-				url: "https://api.example.com/v1/chat/completions",
-				body: { model: "gpt-4o", stream: true },
-			}),
-		).rejects.toThrow("AI provider chat request timed out after 45 seconds");
-	});
+    await expect(
+      postProviderChat({
+        url: "https://api.example.com/v1/chat/completions",
+        body: { model: "gpt-4o", stream: true },
+      }),
+    ).rejects.toThrow("AI provider chat request timed out after 45 seconds");
+  });
 
-	it("disarms the first-byte timer once streaming headers arrive so a slow body is not aborted", async () => {
-		vi.useFakeTimers();
-		try {
-			let capturedSignal: AbortSignal | null | undefined;
-			const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
-				capturedSignal = init?.signal ?? undefined;
-				return new Response("stream-body", { status: 200 });
-			});
-			globalThis.fetch = fetchMock as unknown as typeof fetch;
+  it("disarms the first-byte timer once streaming headers arrive so a slow body is not aborted", async () => {
+    vi.useFakeTimers();
+    try {
+      let capturedSignal: AbortSignal | null | undefined;
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        capturedSignal = init?.signal ?? undefined;
+        return new Response("stream-body", { status: 200 });
+      });
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-			await postProviderChat({
-				url: "https://api.example.com/v1/chat/completions",
-				body: { model: "gpt-4o", stream: true },
-			});
+      await postProviderChat({
+        url: "https://api.example.com/v1/chat/completions",
+        body: { model: "gpt-4o", stream: true },
+      });
 
-			// Past the 45s first-byte window (and even past the old 90s total
-			// cap): the signal must stay live so the body can stream on.
-			await vi.advanceTimersByTimeAsync(120_000);
-			expect(capturedSignal).toBeInstanceOf(AbortSignal);
-			expect(capturedSignal!.aborted).toBe(false);
-		} finally {
-			vi.useRealTimers();
-		}
-	});
+      // Past the 45s first-byte window (and even past the old 90s total
+      // cap): the signal must stay live so the body can stream on.
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(capturedSignal).toBeInstanceOf(AbortSignal);
+      expect(capturedSignal!.aborted).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
-	it("still forwards a late caller abort on the non-streaming path after headers arrive", async () => {
-		// AbortSignal.timeout is native and not driven by vitest's fake timers,
-		// so the total cap itself is covered by the TimeoutError tests above;
-		// here we verify the caller's cancellation keeps propagating once the
-		// composite signal has been handed to fetch.
-		const controller = new AbortController();
-		let capturedSignal: AbortSignal | null | undefined;
-		globalThis.fetch = vi.fn(async (_url: string, init?: RequestInit) => {
-			capturedSignal = init?.signal ?? undefined;
-			return new Response("json-body", { status: 200 });
-		}) as unknown as typeof fetch;
+  it("still forwards a late caller abort on the non-streaming path after headers arrive", async () => {
+    // AbortSignal.timeout is native and not driven by vitest's fake timers,
+    // so the total cap itself is covered by the TimeoutError tests above;
+    // here we verify the caller's cancellation keeps propagating once the
+    // composite signal has been handed to fetch.
+    const controller = new AbortController();
+    let capturedSignal: AbortSignal | null | undefined;
+    globalThis.fetch = vi.fn(async (_url: string, init?: RequestInit) => {
+      capturedSignal = init?.signal ?? undefined;
+      return new Response("json-body", { status: 200 });
+    }) as unknown as typeof fetch;
 
-		await postProviderChat({
-			url: "https://api.example.com/v1/chat/completions",
-			body: { model: "gpt-4o" },
-			signal: controller.signal,
-		});
+    await postProviderChat({
+      url: "https://api.example.com/v1/chat/completions",
+      body: { model: "gpt-4o" },
+      signal: controller.signal,
+    });
 
-		expect(capturedSignal!.aborted).toBe(false);
-		controller.abort();
-		expect(capturedSignal!.aborted).toBe(true);
-	});
+    expect(capturedSignal!.aborted).toBe(false);
+    controller.abort();
+    expect(capturedSignal!.aborted).toBe(true);
+  });
 
     it("falls back to Unknown error when error body cannot be read", async () => {
       const fetchMock = vi.fn(async () => ({

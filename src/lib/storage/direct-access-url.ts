@@ -7,17 +7,17 @@ const PRIVATE_DIRECT_ACCESS_HOST_MESSAGE = "Direct access base URL must use a pu
 const PUBLIC_HTTP_URL_MESSAGE = "URL must use a public HTTP(S) address and must not contain credentials, localhost, intranet, loopback, link-local, or metadata addresses";
 
 export function isUnsafePublicHttpHost(hostname: string) {
-	const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "").trim();
-	if (!normalized) return true;
-	if (
-		normalized === "localhost" ||
-		normalized.endsWith(".localhost") ||
-		normalized === "0.0.0.0" ||
-		normalized === "metadata.google.internal"
-	) {
-		return true;
-	}
-	return isBlockedIpAddress(normalized);
+  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "").trim();
+  if (!normalized) return true;
+  if (
+    normalized === "localhost" ||
+    normalized.endsWith(".localhost") ||
+    normalized === "0.0.0.0" ||
+    normalized === "metadata.google.internal"
+  ) {
+    return true;
+  }
+  return isBlockedIpAddress(normalized);
 }
 
 export function normalizePublicHttpUrl(value: string | null | undefined, message = PUBLIC_HTTP_URL_MESSAGE) {
@@ -84,17 +84,17 @@ export function safeNormalizePublicBaseUrl(value: string | null | undefined) {
 
 /** Resolve immediately before a server-side request to prevent DNS rebinding. */
 export async function assertPublicBaseUrlResolvesPublic(value: string) {
-	const normalized = normalizePublicBaseUrl(value);
-	if (!normalized) throw new ValidationError(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
-	const hostname = new URL(normalized).hostname;
-	let addresses: Array<{ address: string; family: number }>;
-	try {
-		addresses = await lookup(hostname, { all: true, verbatim: true });
-	} catch {
-		throw new ValidationError(t("backend.storage.directAccessDnsFailed"));
-	}
-	if (addresses.length === 0 || addresses.some((entry) => isUnsafePublicHttpHost(entry.address))) {
-		throw new ValidationError(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
-	}
-	return normalized;
+  const normalized = normalizePublicBaseUrl(value);
+  if (!normalized) throw new ValidationError(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
+  const hostname = new URL(normalized).hostname;
+  let addresses: Array<{ address: string; family: number }>;
+  try {
+    addresses = await lookup(hostname, { all: true, verbatim: true });
+  } catch {
+    throw new ValidationError(t("backend.storage.directAccessDnsFailed"));
+  }
+  if (addresses.length === 0 || addresses.some((entry) => isUnsafePublicHttpHost(entry.address))) {
+    throw new ValidationError(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
+  }
+  return normalized;
 }

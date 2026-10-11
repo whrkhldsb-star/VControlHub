@@ -44,7 +44,7 @@ export async function getStorageFormOptions() {
       id: server.id,
       name: server.name,
       host: server.host,
-		storageNodeId: server.storageNode?.id ?? null,
+    storageNodeId: server.storageNode?.id ?? null,
     })),
     nodes: nodes.map((node: (typeof nodes)[number]) => ({
       id: node.id,

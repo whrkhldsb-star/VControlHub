@@ -63,7 +63,7 @@ const backupScheduleWorker = createSingletonIntervalWorker({
 });
 
 async function hasActiveTickJob() {
-	const existing = await prisma.job.findFirst({
+  const existing = await prisma.job.findFirst({
     where: {
       type: BACKUP_SCHEDULE_TICK_JOB_TYPE,
       status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
@@ -74,20 +74,20 @@ async function hasActiveTickJob() {
 }
 
 async function enqueueTickJob(reason: string) {
-	const release = await tryAcquireAdvisoryLock("backup-schedule-enqueue", "global");
-	if (!release) return null;
-	try {
-		if (await hasActiveTickJob()) return null;
-		return await enqueueJob({
-			type: BACKUP_SCHEDULE_TICK_JOB_TYPE,
+  const release = await tryAcquireAdvisoryLock("backup-schedule-enqueue", "global");
+  if (!release) return null;
+  try {
+    if (await hasActiveTickJob()) return null;
+    return await enqueueJob({
+      type: BACKUP_SCHEDULE_TICK_JOB_TYPE,
         title: "Backup schedule dispatch tick",
         payload: { reason, requestedAt: new Date().toISOString() },
         priority: -5,
         maxAttempts: 3,
-		});
-	} finally {
-		await release();
-	}
+    });
+  } finally {
+    await release();
+  }
 }
 
 async function dispatchDueScheduleRow(schedule: {

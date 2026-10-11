@@ -414,99 +414,99 @@ export async function peekShareToken(
 }
 
 async function syncLocalShareDirectory(share: { storageNodeId: string; storageNode?: { basePath: string }; path: string }) {
-	const basePath = share.storageNode?.basePath;
-	if (!basePath) return;
-	const normalizedPrefix = share.path.replace(/^\/+|\/+$/g, "");
-	const resolved = resolveStoragePathWithinBase(basePath, normalizedPrefix);
-	if (!resolved.ok) return;
-	const absoluteDir = resolved.path;
+  const basePath = share.storageNode?.basePath;
+  if (!basePath) return;
+  const normalizedPrefix = share.path.replace(/^\/+|\/+$/g, "");
+  const resolved = resolveStoragePathWithinBase(basePath, normalizedPrefix);
+  if (!resolved.ok) return;
+  const absoluteDir = resolved.path;
 
-	let entries: Dirent[];
-	try {
-		entries = await readdir(absoluteDir, { withFileTypes: true });
-	} catch {
-		// Directory unreadable (permission denied, missing, etc.) — nothing to list.
-		return;
-	}
+  let entries: Dirent[];
+  try {
+    entries = await readdir(absoluteDir, { withFileTypes: true });
+  } catch {
+    // Directory unreadable (permission denied, missing, etc.) — nothing to list.
+    return;
+  }
 
-	// Build a deterministic list of records (filter + stat) so we can
-	// resolve the existing rows in a single `findMany` instead of one
-	// `findFirst` per entry. (TR-040 R1.2)
-	const records: Array<{
-		relativePath: string;
-		name: string;
-		entryType: "FILE" | "DIRECTORY";
-		mimeType: string;
-		size: bigint | null;
-	}> = [];
-	for (const entry of entries) {
-		if (!entry.isFile() && !entry.isDirectory()) continue;
-		const relativePath = `${normalizedPrefix}/${entry.name}`.replace(/^\/+/, "");
-		const absolutePath = path.join(absoluteDir, entry.name);
-		const fileStat = await stat(absolutePath).catch(() => null);
-		if (!fileStat) continue;
-		const entryType: "FILE" | "DIRECTORY" = entry.isDirectory() ? "DIRECTORY" : "FILE";
-		records.push({
-			relativePath,
-			name: entry.name,
-			entryType,
-			mimeType: entryType === "DIRECTORY" ? "inode/directory" : (guessMimeType(entry.name) ?? "application/octet-stream"),
-			size: entryType === "FILE" ? BigInt(fileStat.size) : null,
-		});
-	}
-	if (records.length === 0) return;
+  // Build a deterministic list of records (filter + stat) so we can
+  // resolve the existing rows in a single `findMany` instead of one
+  // `findFirst` per entry. (TR-040 R1.2)
+  const records: Array<{
+    relativePath: string;
+    name: string;
+    entryType: "FILE" | "DIRECTORY";
+    mimeType: string;
+    size: bigint | null;
+  }> = [];
+  for (const entry of entries) {
+    if (!entry.isFile() && !entry.isDirectory()) continue;
+    const relativePath = `${normalizedPrefix}/${entry.name}`.replace(/^\/+/, "");
+    const absolutePath = path.join(absoluteDir, entry.name);
+    const fileStat = await stat(absolutePath).catch(() => null);
+    if (!fileStat) continue;
+    const entryType: "FILE" | "DIRECTORY" = entry.isDirectory() ? "DIRECTORY" : "FILE";
+    records.push({
+      relativePath,
+      name: entry.name,
+      entryType,
+      mimeType: entryType === "DIRECTORY" ? "inode/directory" : (guessMimeType(entry.name) ?? "application/octet-stream"),
+      size: entryType === "FILE" ? BigInt(fileStat.size) : null,
+    });
+  }
+  if (records.length === 0) return;
 
-	// Query and mutate in bounded chunks so a large directory cannot exceed
-	// PostgreSQL parameter limits or create an unbounded Promise.all fan-out.
-	const existingByPath = new Map<string, { id: string; relativePath: string; isDeleted: boolean }>();
-	const batchSize = 500;
-	for (let i = 0; i < records.length; i += batchSize) {
-		const batch = records.slice(i, i + batchSize);
-		const existingRows = await prisma.fileEntry.findMany({
-			where: {
-				storageNodeId: share.storageNodeId,
-				relativePath: { in: batch.map((r) => r.relativePath) },
-			},
-			select: { id: true, relativePath: true, isDeleted: true },
-		});
-		for (const row of existingRows) existingByPath.set(row.relativePath, row);
-	}
+  // Query and mutate in bounded chunks so a large directory cannot exceed
+  // PostgreSQL parameter limits or create an unbounded Promise.all fan-out.
+  const existingByPath = new Map<string, { id: string; relativePath: string; isDeleted: boolean }>();
+  const batchSize = 500;
+  for (let i = 0; i < records.length; i += batchSize) {
+    const batch = records.slice(i, i + batchSize);
+    const existingRows = await prisma.fileEntry.findMany({
+      where: {
+        storageNodeId: share.storageNodeId,
+        relativePath: { in: batch.map((r) => r.relativePath) },
+      },
+      select: { id: true, relativePath: true, isDeleted: true },
+    });
+    for (const row of existingRows) existingByPath.set(row.relativePath, row);
+  }
 
-	const toCreate = records.filter((r) => !existingByPath.has(r.relativePath));
-	const toUpdate = records.filter((r) => existingByPath.has(r.relativePath));
+  const toCreate = records.filter((r) => !existingByPath.has(r.relativePath));
+  const toUpdate = records.filter((r) => existingByPath.has(r.relativePath));
 
-	for (let i = 0; i < toCreate.length; i += batchSize) {
-		const batch = toCreate.slice(i, i + batchSize);
-		await prisma.fileEntry.createMany({
-			data: batch.map((r) => ({
-				storageNodeId: share.storageNodeId,
-				relativePath: r.relativePath,
-				name: r.name,
-				entryType: r.entryType,
-				mimeType: r.mimeType,
-				size: r.size ?? undefined,
-			})),
-			skipDuplicates: true,
-		});
-	}
-	for (let i = 0; i < toUpdate.length; i += batchSize) {
-		const batch = toUpdate.slice(i, i + batchSize);
-		await Promise.all(
-			batch.map((r) => {
-				const row = existingByPath.get(r.relativePath)!;
-				return prisma.fileEntry.update({
-					where: { id: row.id },
-					data: {
-						name: r.name,
-						entryType: r.entryType,
-						mimeType: r.mimeType,
-						size: r.size,
-						isDeleted: false,
-					},
-				});
-			}),
-		);
-	}
+  for (let i = 0; i < toCreate.length; i += batchSize) {
+    const batch = toCreate.slice(i, i + batchSize);
+    await prisma.fileEntry.createMany({
+      data: batch.map((r) => ({
+        storageNodeId: share.storageNodeId,
+        relativePath: r.relativePath,
+        name: r.name,
+        entryType: r.entryType,
+        mimeType: r.mimeType,
+        size: r.size ?? undefined,
+      })),
+      skipDuplicates: true,
+    });
+  }
+  for (let i = 0; i < toUpdate.length; i += batchSize) {
+    const batch = toUpdate.slice(i, i + batchSize);
+    await Promise.all(
+      batch.map((r) => {
+        const row = existingByPath.get(r.relativePath)!;
+        return prisma.fileEntry.update({
+          where: { id: row.id },
+          data: {
+            name: r.name,
+            entryType: r.entryType,
+            mimeType: r.mimeType,
+            size: r.size,
+            isDeleted: false,
+          },
+        });
+      }),
+    );
+  }
 }
 
 type DirectoryShareForList = {

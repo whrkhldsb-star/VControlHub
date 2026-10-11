@@ -21,13 +21,13 @@ describe("two-factor recovery codes", () => {
     const generated = createTwoFactorRecoveryCodes(1);
     const entered = generated.codes[0]!.toLowerCase().replaceAll("-", " ");
 
-		expect(normalizeTwoFactorRecoveryCode(entered)).toBe(generated.codes[0]!.replaceAll("-", ""));
-		expect(findMatchingTwoFactorRecoveryCode(entered, generated.hashes)).toBe(generated.hashes[0]);
-		expect(findMatchingTwoFactorRecoveryCode("AAAA-BBBB-CCCC", generated.hashes)).toBeNull();
-		expect(
-			normalizeTwoFactorRecoveryCode(
-				`${generated.codes[0]!.slice(0, 4)}!${generated.codes[0]!.slice(4)}`,
-			),
-		).toBeNull();
-	});
+    expect(normalizeTwoFactorRecoveryCode(entered)).toBe(generated.codes[0]!.replaceAll("-", ""));
+    expect(findMatchingTwoFactorRecoveryCode(entered, generated.hashes)).toBe(generated.hashes[0]);
+    expect(findMatchingTwoFactorRecoveryCode("AAAA-BBBB-CCCC", generated.hashes)).toBeNull();
+    expect(
+      normalizeTwoFactorRecoveryCode(
+        `${generated.codes[0]!.slice(0, 4)}!${generated.codes[0]!.slice(4)}`,
+      ),
+    ).toBeNull();
+  });
 });

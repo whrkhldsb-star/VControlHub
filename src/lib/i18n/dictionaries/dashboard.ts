@@ -103,6 +103,7 @@ export const zh: Record<string, string> = {
 	"dashboard.setup.hint.notificationOutbound": "设置 → SMTP 开启后才能外发",
 	"dashboard.setup.hint.backupSchedule": "项目备份或 VPS 备份计划任选其一",
 	"dashboard.setup.hint.costMonthly": "在节点编辑里填写月费，成本看板才有数据",
+	"dashboard.announcements.title": "平台公告",
 	"dashboardAnalytics.trendChart": "趋势柱状图",
 	"dashboardAnalytics.downloadTrend": "下载趋势柱状图",
 
@@ -206,6 +207,7 @@ export const en: Record<string, string> = {
 	"dashboard.setup.hint.notificationOutbound": "Enable SMTP under Settings",
 	"dashboard.setup.hint.backupSchedule": "Project or VPS backup schedule",
 	"dashboard.setup.hint.costMonthly": "Set monthly cost on a server so the cost page has data",
+	"dashboard.announcements.title": "Platform announcements",
 	"dashboardAnalytics.trendChart": "Trend bar chart",
 	"dashboardAnalytics.downloadTrend": "Download trend bar chart",
 

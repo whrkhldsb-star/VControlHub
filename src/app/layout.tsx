@@ -122,7 +122,7 @@ export default async function RootLayout({
 								<SessionGateProvider value={sessionGate}>
 									<MobileNav declaredPermissionsByHref={declaredPermissionsByHref} />
 									<GlobalSearch declaredPermissionsByHref={declaredPermissionsByHref} />
-									<KeyboardShortcuts />
+									<KeyboardShortcuts declaredPermissionsByHref={declaredPermissionsByHref} />
 								</SessionGateProvider>
 							)}
 							</SshTerminalProvider>

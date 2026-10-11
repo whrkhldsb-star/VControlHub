@@ -95,11 +95,11 @@ const SSH_WS_SECRET = requireSshWsSecret();
 // ── Session verification ────────────────────────────────────────────
 
 type SessionPayload = {
-  userId: string;
-  username: string;
-  roles: RoleKey[];
-  mustChangePassword: boolean;
-  currentTeamId: string | null;
+	userId: string;
+	username: string;
+	roles: RoleKey[];
+	mustChangePassword: boolean;
+	currentTeamId: string | null;
 };
 
 // ── Resolve server SSH connection ───────────────────────────────────
@@ -111,71 +111,71 @@ type SessionPayload = {
  * map alone would silently deny a delegated platform manager a terminal.
  */
 export async function resolveServerConnection(
-  serverId: string,
-  session: SessionPayload,
+	serverId: string,
+	session: SessionPayload,
 ) {
- // Server rows are security roots: a null teamId is quarantined legacy data,
- // NOT an implicit shared VPS. This must match `serverTeamWhere()` /
- // `assertServerTeamAccess()` — the HTTP surface already restricts unassigned
- // servers to `team:manage`, so accepting them here would let any user with
- // `server:ssh` open a root shell on a legacy VPS the web UI hides from them.
- const srv = await prisma.server.findFirst({
-  where: {
-   id: serverId,
-   ...serverTeamWhere(session, "connect"),
-  },
-  select: {
-   id: true,
-   name: true,
-   host: true,
-   port: true,
-   username: true,
-   enabled: true,
-   operatingSystem: true,
-   connectionType: true,
-   password: true,
-   hostKeySha256: true,
-   teamId: true,
-   sshKey: { select: { privateKey: true, passphrase: true } },
-  },
- });
- if (!srv || !srv.enabled) return null;
+	// Server rows are security roots: a null teamId is quarantined legacy data,
+	// NOT an implicit shared VPS. This must match `serverTeamWhere()` /
+	// `assertServerTeamAccess()` — the HTTP surface already restricts unassigned
+	// servers to `team:manage`, so accepting them here would let any user with
+	// `server:ssh` open a root shell on a legacy VPS the web UI hides from them.
+	const srv = await prisma.server.findFirst({
+	where: {
+	 id: serverId,
+	 ...serverTeamWhere(session, "connect"),
+	},
+	select: {
+	 id: true,
+	 name: true,
+	 host: true,
+	 port: true,
+	 username: true,
+	 enabled: true,
+	 operatingSystem: true,
+	 connectionType: true,
+	 password: true,
+	 hostKeySha256: true,
+	 teamId: true,
+	 sshKey: { select: { privateKey: true, passphrase: true } },
+	},
+	});
+	if (!srv || !srv.enabled) return null;
 
- if (srv.operatingSystem === "WINDOWS") {
-  // Windows terminals ride the OpenSSH Server captured by the cloud-storage
-  // binding: the SFTP port/username/host-key live on the bound StorageNode
-  // (server.port is the RDP port), and the SFTP password on the server row.
-  // Without a binding there is no SSH endpoint to open a shell on.
-  const sftpNode = await prisma.storageNode.findUnique({
-   where: { serverId: srv.id },
-   select: { port: true, username: true, hostKeySha256: true },
-  });
-  if (!sftpNode || !srv.password || !sftpNode.username) return null;
-  return {
-   host: srv.host,
-   port: sftpNode.port ?? 22,
-   username: sftpNode.username,
-   connectionType: "PASSWORD",
-   hostKeySha256: sftpNode.hostKeySha256 ?? srv.hostKeySha256,
-   privateKey: undefined,
-   passphrase: undefined,
-   password: decryptServerPassword(srv.password ?? ""),
-  };
- }
+	if (srv.operatingSystem === "WINDOWS") {
+	// Windows terminals ride the OpenSSH Server captured by the cloud-storage
+	// binding: the SFTP port/username/host-key live on the bound StorageNode
+	// (server.port is the RDP port), and the SFTP password on the server row.
+	// Without a binding there is no SSH endpoint to open a shell on.
+	const sftpNode = await prisma.storageNode.findUnique({
+	 where: { serverId: srv.id },
+	 select: { port: true, username: true, hostKeySha256: true },
+	});
+	if (!sftpNode || !srv.password || !sftpNode.username) return null;
+	return {
+	 host: srv.host,
+	 port: sftpNode.port ?? 22,
+	 username: sftpNode.username,
+	 connectionType: "PASSWORD",
+	 hostKeySha256: sftpNode.hostKeySha256 ?? srv.hostKeySha256,
+	 privateKey: undefined,
+	 passphrase: undefined,
+	 password: decryptServerPassword(srv.password ?? ""),
+	};
+	}
 
- if (srv.connectionType === "SSH_KEY" && !srv.sshKey?.privateKey) return null;
- if (srv.connectionType === "PASSWORD" && !srv.password) return null;
+	if (srv.connectionType === "SSH_KEY" && !srv.sshKey?.privateKey) return null;
+	if (srv.connectionType === "PASSWORD" && !srv.password) return null;
 
- return {
-  host: srv.host,
-  port: srv.port,
-  username: srv.username,
-  connectionType: srv.connectionType,
-  hostKeySha256: srv.hostKeySha256,
+	return {
+	host: srv.host,
+	port: srv.port,
+	username: srv.username,
+	connectionType: srv.connectionType,
+	hostKeySha256: srv.hostKeySha256,
 	privateKey: srv.connectionType === "SSH_KEY" ? decryptSshPrivateKey(srv.sshKey!.privateKey ?? "") : undefined,
 	passphrase: srv.connectionType === "SSH_KEY" && srv.sshKey?.passphrase ? decryptSshKeyPassphrase(srv.sshKey.passphrase) : undefined,
 	password: srv.connectionType === "PASSWORD" ? decryptServerPassword(srv.password ?? "") : undefined,
- };
+	};
 }
 
 // ── Terminal SSH config ─────────────────────────────────────────────
@@ -323,12 +323,12 @@ const SSH_MAX_TOTAL_QUEUED_BYTES = 32 * 1024 * 1024;
 let pendingSshInputBytes = 0;
 const activeSshConnectionsByUser = new Map<string, number>();
 async function withAuthorizationDeadline<T>(operation: PromiseLike<T>): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
-  try {
-    return await Promise.race([operation, new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new Error("SSH authorization deadline exceeded")), 5_000);
-    })]);
-  } finally { clearTimeout(timer); }
+	let timer: NodeJS.Timeout | undefined;
+	try {
+		return await Promise.race([operation, new Promise<never>((_resolve, reject) => {
+			timer = setTimeout(() => reject(new Error("SSH authorization deadline exceeded")), 5_000);
+		})]);
+	} finally { clearTimeout(timer); }
 }
 
 const wss = new WebSocketServer({
@@ -351,10 +351,10 @@ const wss = new WebSocketServer({
 	},
 });
 server.on("upgrade", (req, socket, head) => {
- const path = parseSshWsRequestPath(req.url);
- if (path === null) { socket.destroy(); return; }
- if (path === "/ssh") wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
- else if (path !== "/rdp") socket.destroy();
+	const path = parseSshWsRequestPath(req.url);
+	if (path === null) { socket.destroy(); return; }
+	if (path === "/ssh") wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
+	else if (path !== "/rdp") socket.destroy();
 });
 sshWss = wss;
 
@@ -440,66 +440,66 @@ wss.on("connection", async (ws, req) => {
 	const handshake = url.searchParams.get("handshake");
 	const token = resolveSshSessionToken(req);
 
- if (!serverId || !token || !handshake) {
+	if (!serverId || !token || !handshake) {
 	 ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.missingParams") }));
 	 ws.close();
 	 return;
 	 }
 
-  let session: SessionPayload;
-  try {
-    session = await withAuthorizationDeadline(verifySessionToken(token));
-  } catch {
-    ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.authFailed") }));
-    ws.close();
-    return;
-  }
+	let session: SessionPayload;
+	try {
+		session = await withAuthorizationDeadline(verifySessionToken(token));
+	} catch {
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.authFailed") }));
+		ws.close();
+		return;
+	}
 
-  if (!canUseSshTerminal(session)) {
-    ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.permissionDenied") }));
-    ws.close();
-    return;
-  }
+	if (!canUseSshTerminal(session)) {
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.permissionDenied") }));
+		ws.close();
+		return;
+	}
 
-  if (ws.readyState !== WebSocket.OPEN) return;
-  const userConnections = activeSshConnectionsByUser.get(session.userId) ?? 0;
-  if (userConnections >= 8) { ws.close(1013, "User terminal capacity reached"); return; }
-  activeSshConnectionsByUser.set(session.userId, userConnections + 1);
-  ws.once("close", () => {
-    const count = (activeSshConnectionsByUser.get(session.userId) ?? 1) - 1;
-    if (count <= 0) activeSshConnectionsByUser.delete(session.userId);
-    else activeSshConnectionsByUser.set(session.userId, count);
-  });
+	if (ws.readyState !== WebSocket.OPEN) return;
+	const userConnections = activeSshConnectionsByUser.get(session.userId) ?? 0;
+	if (userConnections >= 8) { ws.close(1013, "User terminal capacity reached"); return; }
+	activeSshConnectionsByUser.set(session.userId, userConnections + 1);
+	ws.once("close", () => {
+		const count = (activeSshConnectionsByUser.get(session.userId) ?? 1) - 1;
+		if (count <= 0) activeSshConnectionsByUser.delete(session.userId);
+		else activeSshConnectionsByUser.set(session.userId, count);
+	});
 
-  if (SSH_WS_SECRET) {
-    const origin = (req.headers.origin || "").trim();
-    const handshakePayload = verifySshWsHandshakeToken(handshake, {
-      serverId,
-      origin,
-      sessionId: token,
-      secret: SSH_WS_SECRET,
-    });
-    if (!handshakePayload || handshakePayload.userId !== session.userId) {
-      ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.handshakeTokenInvalid") }));
-      ws.close();
-      return;
-    }
-  }
+	if (SSH_WS_SECRET) {
+		const origin = (req.headers.origin || "").trim();
+		const handshakePayload = verifySshWsHandshakeToken(handshake, {
+			serverId,
+			origin,
+			sessionId: token,
+			secret: SSH_WS_SECRET,
+		});
+		if (!handshakePayload || handshakePayload.userId !== session.userId) {
+			ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.handshakeTokenInvalid") }));
+			ws.close();
+			return;
+		}
+	}
 
-  let connParams;
-  try {
-    connParams = await withAuthorizationDeadline(resolveServerConnection(serverId, session));
-  } catch (error) {
-    logger.error("failed to resolve SSH connection", error, { serverId, userId: session.userId });
-    ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoDecryptFailed") }));
-    ws.close();
-    return;
-  }
-  if (!connParams) {
-    ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoMissing") }));
-    ws.close();
-    return;
-  }
+	let connParams;
+	try {
+		connParams = await withAuthorizationDeadline(resolveServerConnection(serverId, session));
+	} catch (error) {
+		logger.error("failed to resolve SSH connection", error, { serverId, userId: session.userId });
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoDecryptFailed") }));
+		ws.close();
+		return;
+	}
+	if (!connParams) {
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoMissing") }));
+		ws.close();
+		return;
+	}
 
 	const sshClient = new Client();
 	const terminalRuntimeConfig = await getSshTerminalRuntimeConfigWithFallback();
@@ -594,135 +594,135 @@ wss.on("connection", async (ws, req) => {
 		idleTimer.unref?.();
 	};
 
-  sshClient.on("ready", () => {
-    sshClient.shell({ term: "xterm-256color" }, (err, stream) => {
-      if (err) {
-        ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.shellCreationFailed", { message: err.message }) }));
-        ws.close();
-        return;
-      }
-      sshStream = stream;
-      ws.send(JSON.stringify({ type: "connected", inputAck: true }));
-      resetIdle();
+	sshClient.on("ready", () => {
+		sshClient.shell({ term: "xterm-256color" }, (err, stream) => {
+			if (err) {
+				ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.shellCreationFailed", { message: err.message }) }));
+				ws.close();
+				return;
+			}
+			sshStream = stream;
+			ws.send(JSON.stringify({ type: "connected", inputAck: true }));
+			resetIdle();
 
-      stream.on("data", (data: Buffer) => {
-        resetIdle();
-        sendOutput(data);
-      });
+			stream.on("data", (data: Buffer) => {
+				resetIdle();
+				sendOutput(data);
+			});
 
-      stream.on("close", () => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.connectionClosed") }));
-          ws.close();
-        }
-      });
+			stream.on("close", () => {
+				if (ws.readyState === WebSocket.OPEN) {
+					ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.connectionClosed") }));
+					ws.close();
+				}
+			});
 
-      stream.stderr?.on("data", (data: Buffer) => {
-        resetIdle();
-        sendOutput(data);
-      });
-    });
-  });
+			stream.stderr?.on("data", (data: Buffer) => {
+				resetIdle();
+				sendOutput(data);
+			});
+		});
+	});
 
-  sshClient.on("error", (err) => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "error", data: describeTerminalSshError(err) }));
-      ws.close();
-    }
-  });
+	sshClient.on("error", (err) => {
+		if (ws.readyState === WebSocket.OPEN) {
+			ws.send(JSON.stringify({ type: "error", data: describeTerminalSshError(err) }));
+			ws.close();
+		}
+	});
 
-  sshClient.on("close", () => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "closed", data: "SSH connection disconnected" }));
-      ws.close();
-    }
-  });
+	sshClient.on("close", () => {
+		if (ws.readyState === WebSocket.OPEN) {
+			ws.send(JSON.stringify({ type: "closed", data: "SSH connection disconnected" }));
+			ws.close();
+		}
+	});
 
-  ws.on("message", (raw, binary) => {
-    if (stopped) return;
-    try {
-      if (binary || Buffer.byteLength(raw.toString()) > SSH_MAX_MESSAGE_BYTES) throw new Error("Invalid message");
-      const messageBytes = Buffer.byteLength(raw.toString());
-      if (pendingInputMessages >= 64 || pendingInputBytes + messageBytes > 256 * 1024 || pendingSshInputBytes + messageBytes > 8 * 1024 * 1024) throw new Error("Input queue full");
-      const msg = JSON.parse(raw.toString());
-      if (!msg || typeof msg !== "object") throw new Error("Invalid message");
-      if (msg.type === "input") {
-        if (typeof msg.data !== "string" || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(msg.data)) throw new Error("Invalid input");
-        if (msg.id !== undefined && (!Number.isSafeInteger(msg.id) || msg.id < 1)) throw new Error("Invalid input sequence");
-      } else if (msg.type === "resize") {
-        if (!Number.isSafeInteger(msg.rows) || msg.rows < 1 || msg.rows > 500 || !Number.isSafeInteger(msg.cols) || msg.cols < 1 || msg.cols > 1000) throw new Error("Invalid resize");
-      } else throw new Error("Invalid message type");
-      pendingInputBytes += messageBytes;
-      pendingSshInputBytes += messageBytes;
-      pendingInputMessages++;
-      void ensureAuthorized().then(async (allowed) => {
-        if (!allowed || stopped || !sshStream) return;
-        resetIdle();
-        if (msg.type === "input") {
-          if (sshStream.writableLength > 1024 * 1024) { stopTerminal(t("backend.sshTerminal.connectionClosed"), 1013); return; }
-          if (msg.id === undefined) {
-            // Existing clients retain their original wire protocol.
-            sshStream.write(Buffer.from(msg.data, "base64"));
-          } else {
-            await new Promise<void>((resolve, reject) => {
-              sshStream!.write(Buffer.from(msg.data, "base64"), (error?: Error | null) => error ? reject(error) : resolve());
-            });
-            if (!stopped && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input-ack", id: msg.id }));
-          }
-        } else sshStream.setWindow(msg.rows, msg.cols, 0, 0);
-      }).catch(() => stopTerminal(t("backend.sshTerminal.connectionClosed"))).finally(() => {
-        pendingInputBytes -= messageBytes;
-        pendingSshInputBytes -= messageBytes;
-        pendingInputMessages--;
-      });
-    } catch {
-      stopTerminal(t("backend.sshTerminal.connectionClosed"));
-    }
-  });
+	ws.on("message", (raw, binary) => {
+		if (stopped) return;
+		try {
+			if (binary || Buffer.byteLength(raw.toString()) > SSH_MAX_MESSAGE_BYTES) throw new Error("Invalid message");
+			const messageBytes = Buffer.byteLength(raw.toString());
+			if (pendingInputMessages >= 64 || pendingInputBytes + messageBytes > 256 * 1024 || pendingSshInputBytes + messageBytes > 8 * 1024 * 1024) throw new Error("Input queue full");
+			const msg = JSON.parse(raw.toString());
+			if (!msg || typeof msg !== "object") throw new Error("Invalid message");
+			if (msg.type === "input") {
+				if (typeof msg.data !== "string" || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(msg.data)) throw new Error("Invalid input");
+				if (msg.id !== undefined && (!Number.isSafeInteger(msg.id) || msg.id < 1)) throw new Error("Invalid input sequence");
+			} else if (msg.type === "resize") {
+				if (!Number.isSafeInteger(msg.rows) || msg.rows < 1 || msg.rows > 500 || !Number.isSafeInteger(msg.cols) || msg.cols < 1 || msg.cols > 1000) throw new Error("Invalid resize");
+			} else throw new Error("Invalid message type");
+			pendingInputBytes += messageBytes;
+			pendingSshInputBytes += messageBytes;
+			pendingInputMessages++;
+			void ensureAuthorized().then(async (allowed) => {
+				if (!allowed || stopped || !sshStream) return;
+				resetIdle();
+				if (msg.type === "input") {
+					if (sshStream.writableLength > 1024 * 1024) { stopTerminal(t("backend.sshTerminal.connectionClosed"), 1013); return; }
+					if (msg.id === undefined) {
+						// Existing clients retain their original wire protocol.
+						sshStream.write(Buffer.from(msg.data, "base64"));
+					} else {
+						await new Promise<void>((resolve, reject) => {
+							sshStream!.write(Buffer.from(msg.data, "base64"), (error?: Error | null) => error ? reject(error) : resolve());
+						});
+						if (!stopped && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input-ack", id: msg.id }));
+					}
+				} else sshStream.setWindow(msg.rows, msg.cols, 0, 0);
+			}).catch(() => stopTerminal(t("backend.sshTerminal.connectionClosed"))).finally(() => {
+				pendingInputBytes -= messageBytes;
+				pendingSshInputBytes -= messageBytes;
+				pendingInputMessages--;
+			});
+		} catch {
+			stopTerminal(t("backend.sshTerminal.connectionClosed"));
+		}
+	});
 
- ws.on("close", () => {
- stopped = true;
- clearInterval(authorizationTimer);
- clearInterval(drainTimer);
- clearIdle();
- if (sshStream) { try { sshStream.close(); } catch {} }
- try { sshClient.end(); } catch {}
- });
+	ws.on("close", () => {
+	stopped = true;
+	clearInterval(authorizationTimer);
+	clearInterval(drainTimer);
+	clearIdle();
+	if (sshStream) { try { sshStream.close(); } catch {} }
+	try { sshClient.end(); } catch {}
+	});
 
- sshClient.on("end", () => {
- // SSH connection ended gracefully — notify client
- if (ws.readyState === WebSocket.OPEN) {
- ws.send(JSON.stringify({ type: "closed", data: "SSH connection ended gracefully, you may try reconnecting" }));
- }
- });
+	sshClient.on("end", () => {
+	// SSH connection ended gracefully — notify client
+	if (ws.readyState === WebSocket.OPEN) {
+	ws.send(JSON.stringify({ type: "closed", data: "SSH connection ended gracefully, you may try reconnecting" }));
+	}
+	});
 
- // OPEN-1: buildTerminalSshConfig pins enforceHostKeyPin, so an unpinned
- // host key fails the handshake here instead of being silently accepted.
- // The awaits above (session verify, runtime config) can outlive the client
- // (tab closed mid-handshake): connecting then would open an SSH shell that
- // only the idle reaper — or nothing, when the idle timeout is disabled —
- // would ever close. Bail instead.
- if (ws.readyState !== WebSocket.OPEN) return;
- if (!await ensureAuthorized(true)) return;
- authorizationTimer = setInterval(() => { void ensureAuthorized(true); }, SSH_AUTH_REVALIDATION_MS);
- authorizationTimer.unref?.();
- drainTimer = setInterval(() => {
-  if (paused && !stopped && ws.bufferedAmount < 256 * 1024) { paused = false; sshStream?.resume(); }
- }, 125);
- drainTimer.unref?.();
- sshClient.connect(buildTerminalSshConfig(connParams, terminalRuntimeConfig));
+	// OPEN-1: buildTerminalSshConfig pins enforceHostKeyPin, so an unpinned
+	// host key fails the handshake here instead of being silently accepted.
+	// The awaits above (session verify, runtime config) can outlive the client
+	// (tab closed mid-handshake): connecting then would open an SSH shell that
+	// only the idle reaper — or nothing, when the idle timeout is disabled —
+	// would ever close. Bail instead.
+	if (ws.readyState !== WebSocket.OPEN) return;
+	if (!await ensureAuthorized(true)) return;
+	authorizationTimer = setInterval(() => { void ensureAuthorized(true); }, SSH_AUTH_REVALIDATION_MS);
+	authorizationTimer.unref?.();
+	drainTimer = setInterval(() => {
+	if (paused && !stopped && ws.bufferedAmount < 256 * 1024) { paused = false; sshStream?.resume(); }
+	}, 125);
+	drainTimer.unref?.();
+	sshClient.connect(buildTerminalSshConfig(connParams, terminalRuntimeConfig));
 });
 
 const shouldStartServer = process.env.NODE_ENV !== "test";
 
 if (shouldStartServer) {
-  server.listen(PORT, HOST, () => {
-    // Server start is visible via process lifecycle; no console needed
-  });
+	server.listen(PORT, HOST, () => {
+		// Server start is visible via process lifecycle; no console needed
+	});
 }
 
 function shutdown() {
- closeRdp();
+	closeRdp();
 	if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
 	wss.close();
 	server.close();

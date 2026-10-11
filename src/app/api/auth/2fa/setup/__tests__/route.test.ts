@@ -12,7 +12,7 @@ const { mocks } = vi.hoisted(() => ({
 vi.mock("@/lib/auth/api-session", () => ({
 	requireApiSession: mocks.requireApiSession,
 
-  isSessionPayload: (value: unknown) => Boolean(value),
+	isSessionPayload: (value: unknown) => Boolean(value),
 }));
 vi.mock("@/lib/db", () => ({
 	prisma: { user: { findUnique: mocks.userFindUnique } },

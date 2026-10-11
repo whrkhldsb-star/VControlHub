@@ -13,8 +13,6 @@ export const zh: Record<string, string> = {
 	"healthPage.systemDescription": "VControlHub 自身的运行自检、修复建议与活动告警；纳管节点的状态请前往「节点状态」。",
 	"healthPage.ui.gotoVpsStatus": "查看节点状态",
 
-	"healthPage.noPermission": "缺少健康监控权限",
-	"healthPage.noPermissionHint": "需要 health:read 权限后才能查看节点健康详情和历史指标。",
 	"healthPage.eyebrow": "健康中心",
 	"healthPage.error.loadStatus": "加载健康状态失败",
 	"healthPage.error.loadHistory": "加载历史指标失败",
@@ -187,8 +185,6 @@ export const en: Record<string, string> = {
 	"healthPage.systemDescription": "Self-checks, repair tips and active incidents for VControlHub itself. Managed nodes are on Node Status.",
 	"healthPage.ui.gotoVpsStatus": "Open Node Status",
 
-	"healthPage.noPermission": "Missing health monitoring permission",
-	"healthPage.noPermissionHint": "You need the health:read permission to view node health details and historical metrics.",
 	"healthPage.eyebrow": "Health Center",
 	"healthPage.error.loadStatus": "Failed to load health status",
 	"healthPage.error.loadHistory": "Failed to load metric history",

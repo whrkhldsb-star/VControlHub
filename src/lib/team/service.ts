@@ -13,18 +13,15 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma, isUniqueViolation } from "@/lib/db";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import type { SessionPayload } from "@/lib/auth/session";
+import { assertPlatformAdmin } from "@/lib/auth/platform-admin-guard";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { auditUserAction } from "@/lib/audit/service";
 import { t } from "@/lib/i18n/service-translations";
 import { tenantStorageBasePath } from "@/lib/storage/path-utils";
 import { DEFAULT_IDENTITY_TEMPLATE_ID } from "@/lib/auth/identity-templates";
 import type { CreateTeamInput, UpdateTeamInput } from "./schema";
-
-export function assertPlatformAdmin(session: SessionPayload) {
-  if (!isGlobalTeamManager(session)) throw new ForbiddenError(t("backend.customer.platformOnly"));
-}
 
 async function findLiveCustomer(teamId: string) {
   const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true, name: true, deletedAt: true } });

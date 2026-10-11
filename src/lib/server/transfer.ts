@@ -10,11 +10,11 @@
  * dropped.
  */
 import type { SessionPayload } from "@/lib/auth/session";
-import { isGlobalTeamManager } from "@/lib/auth/team-scope";
+import { assertPlatformAdmin } from "@/lib/auth/platform-admin-guard";
 import { auditUserAction } from "@/lib/audit/service";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
-import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { getServerDeletionImpact } from "./service-deletion-impact";
 
@@ -40,7 +40,7 @@ export async function getServerTransferBlockers(serverId: string, storageNodeIds
 }
 
 export async function transferServerToCustomer(serverId: string, targetTeamId: string, session: SessionPayload) {
-  if (!isGlobalTeamManager(session)) throw new ForbiddenError(t("backend.customer.platformOnly"));
+  assertPlatformAdmin(session);
   const releaseLock = await acquireAdvisoryLock("server-delete", serverId);
   try {
     const server = await prisma.server.findUnique({

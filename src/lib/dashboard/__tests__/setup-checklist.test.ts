@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSetupChecklist, countPendingSetupItems } from "../setup-checklist";
+import { buildSetupChecklist, countPendingSetupItems, filterSetupChecklist } from "../setup-checklist";
 
 describe("buildSetupChecklist", () => {
 	it("marks every item pending on a blank install", () => {
@@ -31,6 +31,23 @@ describe("buildSetupChecklist", () => {
 		});
 		expect(items.every((i) => i.done)).toBe(true);
 		expect(countPendingSetupItems(items)).toBe(0);
+	});
+
+	it("shows an account only the items it may complete", () => {
+		const items = buildSetupChecklist({
+			serverCount: 0,
+			enabledAlertRuleCount: 0,
+			smtpEnabled: false,
+			backupScheduleCount: 0,
+			serversWithMonthlyCost: 0,
+		});
+		const operator = new Set(["server:write", "notification:manage"]);
+		expect(filterSetupChecklist(items, (permission) => operator.has(permission)).map((i) => i.id)).toEqual([
+			"servers",
+			"alertRules",
+			"costMonthly",
+		]);
+		expect(filterSetupChecklist(items, () => false)).toEqual([]);
 	});
 
 	it("keeps cost monthly pending until a positive monthly cost is set", () => {

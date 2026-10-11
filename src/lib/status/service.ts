@@ -5,40 +5,40 @@ import { getAppSlug } from "@/lib/branding";
 import { scheduleStorageNodeHealthProbe } from "@/lib/storage/health";
 
 type StorageHealthAggregate = {
-  total: number;
-  healthy: number;
-  unhealthy: number;
-  unknown: number;
-  checked: number;
+	total: number;
+	healthy: number;
+	unhealthy: number;
+	unknown: number;
+	checked: number;
 };
 
 function buildStorageStatus(input: StorageHealthAggregate): SystemHealthCheck {
-  if (input.total <= 0) {
-    return {
-      id: "storage",
-      label: "Cloud drive service",
-      status: "warning",
-      message: "Awaiting configuration",
-      messageCode: "awaiting",
-    };
-  }
+	if (input.total <= 0) {
+		return {
+			id: "storage",
+			label: "Cloud drive service",
+			status: "warning",
+			message: "Awaiting configuration",
+			messageCode: "awaiting",
+		};
+	}
 
-  const status: SystemHealthStatus = input.unhealthy > 0 ? "warning" : input.checked > 0 ? "healthy" : "warning";
-  const parts = [
-    `${input.total} storage nodes configured`,
-    `${input.healthy} recently probed healthy`,
-    `${input.unhealthy} unhealthy`,
-    `${input.unknown} pending probe`,
-  ];
+	const status: SystemHealthStatus = input.unhealthy > 0 ? "warning" : input.checked > 0 ? "healthy" : "warning";
+	const parts = [
+		`${input.total} storage nodes configured`,
+		`${input.healthy} recently probed healthy`,
+		`${input.unhealthy} unhealthy`,
+		`${input.unknown} pending probe`,
+	];
 
-  return {
-    id: "storage",
-    label: "Cloud drive service",
-    status,
-    message: `${parts.join(", ")}; SFTP/Direct Gateway host, port, or path will not be shown on the public status page.`,
-    messageCode: "summary",
-    params: { total: input.total, healthy: input.healthy, unhealthy: input.unhealthy, unknown: input.unknown },
-  };
+	return {
+		id: "storage",
+		label: "Cloud drive service",
+		status,
+		message: `${parts.join(", ")}; SFTP/Direct Gateway host, port, or path will not be shown on the public status page.`,
+		messageCode: "summary",
+		params: { total: input.total, healthy: input.healthy, unhealthy: input.unhealthy, unknown: input.unknown },
+	};
 }
 
 export async function getPublicStatus() {

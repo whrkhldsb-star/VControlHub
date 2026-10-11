@@ -23,12 +23,12 @@ import { currentApiRequestLocale } from "./api-copy";
 import { makeT } from "./make-t";
 
 const fileActionCopy = (files: Record<string, string>, storage: Record<string, string>) => Object.fromEntries([
-  ...Object.entries(files).filter(([key]) => key.startsWith("filesPage.move.")),
-  ...Object.entries(storage).filter(([key]) => key.startsWith("storagePage.action.")),
+	...Object.entries(files).filter(([key]) => key.startsWith("filesPage.move.")),
+	...Object.entries(storage).filter(([key]) => key.startsWith("storagePage.action.")),
 ]);
 
 const zh: Record<string, string> = {
-  ...fileActionCopy(filesZh, storageZh),
+	...fileActionCopy(filesZh, storageZh),
 	...aiChatApiZh, ...apiCommonZh, ...backendServicesZh, ...downloadsApiZh,
 	...downloadsPageZh, ...openApiSpecZh, ...serversDetectOsApiZh,
 	...serversFileProxyApiZh, ...serversReloadApiZh, ...shareTokenApiZh,
@@ -38,7 +38,7 @@ const zh: Record<string, string> = {
 };
 
 const en: Record<string, string> = {
-  ...fileActionCopy(filesEn, storageEn),
+	...fileActionCopy(filesEn, storageEn),
 	...aiChatApiEn, ...apiCommonEn, ...backendServicesEn, ...downloadsApiEn,
 	...downloadsPageEn, ...openApiSpecEn, ...serversDetectOsApiEn,
 	...serversFileProxyApiEn, ...serversReloadApiEn, ...shareTokenApiEn,

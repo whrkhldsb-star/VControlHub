@@ -20,6 +20,7 @@ vi.mock("../vps-status-client", () => ({
   ),
 }));
 
+import { ForbiddenError } from "@/lib/errors";
 import VpsStatusPage from "../page";
 
 describe("VpsStatusPage", () => {
@@ -32,12 +33,11 @@ describe("VpsStatusPage", () => {
     ]);
   });
 
-  it("shows permission notice without health:read", async () => {
+  it("refuses the page without health:read through the shared permission guard", async () => {
     sessionHasPermissionMock.mockReturnValueOnce(false);
-    render(await VpsStatusPage());
+    await expect(VpsStatusPage()).rejects.toBeInstanceOf(ForbiddenError);
     expect(requireSessionMock).toHaveBeenCalledWith("/vps-status");
     expect(listServerProfilesMock).not.toHaveBeenCalled();
-    expect(screen.getByText("缺少健康监控权限")).toBeInTheDocument();
   });
 
   it("renders VPS status client with server count", async () => {

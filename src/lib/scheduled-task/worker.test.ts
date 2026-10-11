@@ -6,16 +6,16 @@ const {
   scheduledTaskUpdateManyMock,
   scheduledTaskUpdateMock,
   jobFindFirstMock,
-	tryAcquireAdvisoryLockMock,
-	releaseAdvisoryLockMock,
+  tryAcquireAdvisoryLockMock,
+  releaseAdvisoryLockMock,
   enqueueJobMock,
   claimNextJobMock,
   completeJobMock,
   failJobMock,
   heartbeatJobMock,
   createCommandRequestMock,
-	reconcileScheduledTaskRunsMock,
-	recordTaskDispatchMock,
+  reconcileScheduledTaskRunsMock,
+  recordTaskDispatchMock,
   recordTaskRunMock,
   assertRequesterMayExecuteCommandMock,
   infoMock,
@@ -26,16 +26,16 @@ const {
   scheduledTaskUpdateManyMock: vi.fn(),
   scheduledTaskUpdateMock: vi.fn(),
   jobFindFirstMock: vi.fn(),
-	tryAcquireAdvisoryLockMock: vi.fn(),
-	releaseAdvisoryLockMock: vi.fn(),
+  tryAcquireAdvisoryLockMock: vi.fn(),
+  releaseAdvisoryLockMock: vi.fn(),
   enqueueJobMock: vi.fn(),
   claimNextJobMock: vi.fn(),
   completeJobMock: vi.fn(),
   failJobMock: vi.fn(),
   heartbeatJobMock: vi.fn(),
   createCommandRequestMock: vi.fn(),
-	reconcileScheduledTaskRunsMock: vi.fn(),
-	recordTaskDispatchMock: vi.fn(),
+  reconcileScheduledTaskRunsMock: vi.fn(),
+  recordTaskDispatchMock: vi.fn(),
   recordTaskRunMock: vi.fn(),
   assertRequesterMayExecuteCommandMock: vi.fn(),
   infoMock: vi.fn(),
@@ -57,7 +57,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
-	tryAcquireAdvisoryLock: tryAcquireAdvisoryLockMock,
+  tryAcquireAdvisoryLock: tryAcquireAdvisoryLockMock,
 }));
 
 vi.mock("@/lib/command/service", () => ({
@@ -69,8 +69,8 @@ vi.mock("@/lib/auth/command-execution-authz", () => ({
 }));
 
 vi.mock("./service", () => ({
-	reconcileScheduledTaskRuns: reconcileScheduledTaskRunsMock,
-	recordTaskDispatch: recordTaskDispatchMock,
+  reconcileScheduledTaskRuns: reconcileScheduledTaskRunsMock,
+  recordTaskDispatch: recordTaskDispatchMock,
   recordTaskRun: recordTaskRunMock,
 }));
 
@@ -104,7 +104,7 @@ function makeTask(overrides: Partial<Record<string, unknown>> = {}) {
     // nextRunAt on its updateMany `where` clause, so every fixture that
     // dispatches must carry it.
     nextRunAt: new Date("2026-01-01T00:00:00Z"),
-	approvalRequired: true,
+  approvalRequired: true,
     ...overrides,
   };
 }
@@ -132,12 +132,12 @@ describe("scheduled-task durable job worker", () => {
     failJobMock.mockResolvedValue({ count: 1 });
     heartbeatJobMock.mockResolvedValue({ count: 1 });
     createCommandRequestMock.mockResolvedValue({ id: "cmd-1" });
-		reconcileScheduledTaskRunsMock.mockResolvedValue({ inspected: 0, reconciled: 0 });
-		recordTaskDispatchMock.mockResolvedValue(undefined);
+    reconcileScheduledTaskRunsMock.mockResolvedValue({ inspected: 0, reconciled: 0 });
+    recordTaskDispatchMock.mockResolvedValue(undefined);
     recordTaskRunMock.mockResolvedValue(undefined);
     assertRequesterMayExecuteCommandMock.mockResolvedValue({ ok: true });
-		tryAcquireAdvisoryLockMock.mockResolvedValue(releaseAdvisoryLockMock);
-		releaseAdvisoryLockMock.mockResolvedValue(undefined);
+    tryAcquireAdvisoryLockMock.mockResolvedValue(releaseAdvisoryLockMock);
+    releaseAdvisoryLockMock.mockResolvedValue(undefined);
     stopScheduledTaskWorkerForTests();
   });
 
@@ -186,15 +186,15 @@ describe("scheduled-task durable job worker", () => {
       submissionMode: "user",
       requesterId: "user-1",
       serverIds: ["srv-1"],
-			teamId: undefined,
-			approvalRequired: true,
-			idempotencyKey: "scheduled-task:task-1:2026-01-01T00:00:00.000Z",
+      teamId: undefined,
+      approvalRequired: true,
+      idempotencyKey: "scheduled-task:task-1:2026-01-01T00:00:00.000Z",
     });
-		expect(recordTaskDispatchMock).toHaveBeenCalledWith("task-1", "cmd-1");
+    expect(recordTaskDispatchMock).toHaveBeenCalledWith("task-1", "cmd-1");
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.stringContaining(":scheduled-task:"),
-		{ dispatched: 1, reconciled: 0 },
+    { dispatched: 1, reconciled: 0 },
     );
   });
 
@@ -262,7 +262,7 @@ describe("scheduled-task durable job worker", () => {
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),
-		{ dispatched: 0, reconciled: 0 },
+    { dispatched: 0, reconciled: 0 },
     );
   });
 
@@ -293,7 +293,7 @@ describe("scheduled-task durable job worker", () => {
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),
-		{ dispatched: 0, reconciled: 0 },
+    { dispatched: 0, reconciled: 0 },
     );
   });
 
@@ -314,14 +314,14 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
 
     expect(recordTaskRunMock).toHaveBeenCalledWith("bad", "Execution failed: boom", "failed");
-		expect(recordTaskDispatchMock).toHaveBeenCalledWith("good", "cmd-good");
+    expect(recordTaskDispatchMock).toHaveBeenCalledWith("good", "cmd-good");
     // New-B (2026-06-15): only the `good` task actually went through
     // createCommandRequest; `bad` failed and was caught by the per-task
     // try/catch, so it doesn't count toward `dispatched`.
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),
-		{ dispatched: 1, reconciled: 0 },
+    { dispatched: 1, reconciled: 0 },
     );
   });
 
@@ -370,7 +370,7 @@ describe("scheduled-task durable job worker", () => {
       }),
     );
     expect(createCommandRequestMock).not.toHaveBeenCalled();
-		expect(recordTaskDispatchMock).not.toHaveBeenCalledWith("raced", expect.any(String));
+    expect(recordTaskDispatchMock).not.toHaveBeenCalledWith("raced", expect.any(String));
     expect(infoMock).toHaveBeenCalledWith(
       expect.stringContaining("already claimed by another worker"),
       expect.objectContaining({ taskId: "raced" }),
@@ -380,7 +380,7 @@ describe("scheduled-task durable job worker", () => {
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),
-		{ dispatched: 0, reconciled: 0 },
+    { dispatched: 0, reconciled: 0 },
     );
   });
 
@@ -422,7 +422,7 @@ describe("scheduled-task durable job worker", () => {
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),
-		{ dispatched: 0, reconciled: 0 },
+    { dispatched: 0, reconciled: 0 },
     );
   });
 
@@ -435,8 +435,8 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-		expect(tryAcquireAdvisoryLockMock).toHaveBeenCalledWith("scheduled-task-enqueue", "global");
-		expect(releaseAdvisoryLockMock).toHaveBeenCalled();
-		expect(enqueueJobMock).not.toHaveBeenCalled();
-	});
+    expect(tryAcquireAdvisoryLockMock).toHaveBeenCalledWith("scheduled-task-enqueue", "global");
+    expect(releaseAdvisoryLockMock).toHaveBeenCalled();
+    expect(enqueueJobMock).not.toHaveBeenCalled();
+  });
 });

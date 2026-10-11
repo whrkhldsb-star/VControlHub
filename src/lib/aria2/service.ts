@@ -5,9 +5,9 @@ import { getAppSlug } from "@/lib/branding";
 import { findExecutable, IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import {
-  getMissingAria2BinaryMessage,
-  isMissingAria2BinaryError,
-  spawnAria2Detached,
+	getMissingAria2BinaryMessage,
+	isMissingAria2BinaryError,
+	spawnAria2Detached,
 } from "@/lib/aria2/command-runner";
 import { postAria2Rpc } from "@/lib/aria2/provider-http";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";

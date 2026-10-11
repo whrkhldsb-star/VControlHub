@@ -40,7 +40,7 @@ vi.mock("@/lib/image-bed/constants", () => ({
   mimeTypeFromExt: (ext: string) => ext === ".png" ? "image/png" : "image/jpeg",
 }));
 vi.mock("@/lib/image/service", () => ({
-	extractMetadata: vi.fn(async () => ({ width: 2, height: 2, format: "png", sizeBytes: 3 })),
+  extractMetadata: vi.fn(async () => ({ width: 2, height: 2, format: "png", sizeBytes: 3 })),
 }));
 
 import { POST } from "../route";
@@ -124,13 +124,13 @@ describe("POST /api/images/publish-from-storage", () => {
     });
   });
 
-	it("rejects SVG storage files before they can be published inline", async () => {
-		const response = await POST(publishRequest({ relativePath: "gallery/attack.svg" }));
+  it("rejects SVG storage files before they can be published inline", async () => {
+    const response = await POST(publishRequest({ relativePath: "gallery/attack.svg" }));
 
-		expect(response.status).toBe(400);
-		expect(assertStorageAccessMock).not.toHaveBeenCalled();
-		expect(imageCreateMock).not.toHaveBeenCalled();
-	});
+    expect(response.status).toBe(400);
+    expect(assertStorageAccessMock).not.toHaveBeenCalled();
+    expect(imageCreateMock).not.toHaveBeenCalled();
+  });
 
   it("removes the written public image file when image record creation fails", async () => {
     imageCreateMock.mockRejectedValueOnce(new Error("database unavailable"));

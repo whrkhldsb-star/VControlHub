@@ -166,42 +166,42 @@ export async function createDeploymentRunFromTemplate(
     variables: Record<string, string>;
     requesterId: string;
     reason?: string;
-		idempotencyKey?: string;
+    idempotencyKey?: string;
   },
   session?: SessionScope | null,
 ) {
-	const rawIdempotencyKey = input.idempotencyKey?.trim() || null;
-	const idempotencyScope = session?.currentTeamId
-		? `team:${session.currentTeamId}`
-		: `user:${session?.userId ?? input.requesterId.trim()}`;
-	const idempotencyKey = rawIdempotencyKey
-		? `${idempotencyScope}:${rawIdempotencyKey}`
-		: null;
-	if (!idempotencyKey) return createDeploymentRunFromTemplateUnlocked(input, session);
-	const release = await acquireAdvisoryLock("deployment", `create:${idempotencyKey}`);
-	try {
-		return await createDeploymentRunFromTemplateUnlocked({ ...input, idempotencyKey }, session);
-	} finally {
-		await release();
-	}
+  const rawIdempotencyKey = input.idempotencyKey?.trim() || null;
+  const idempotencyScope = session?.currentTeamId
+    ? `team:${session.currentTeamId}`
+    : `user:${session?.userId ?? input.requesterId.trim()}`;
+  const idempotencyKey = rawIdempotencyKey
+    ? `${idempotencyScope}:${rawIdempotencyKey}`
+    : null;
+  if (!idempotencyKey) return createDeploymentRunFromTemplateUnlocked(input, session);
+  const release = await acquireAdvisoryLock("deployment", `create:${idempotencyKey}`);
+  try {
+    return await createDeploymentRunFromTemplateUnlocked({ ...input, idempotencyKey }, session);
+  } finally {
+    await release();
+  }
 }
 
 async function createDeploymentRunFromTemplateUnlocked(
-	input: {
-		templateId: string;
-		serverIds: string[];
-		variables: Record<string, string>;
-		requesterId: string;
-		reason?: string;
-		idempotencyKey?: string;
-	},
-	session?: SessionScope | null,
+  input: {
+    templateId: string;
+    serverIds: string[];
+    variables: Record<string, string>;
+    requesterId: string;
+    reason?: string;
+    idempotencyKey?: string;
+  },
+  session?: SessionScope | null,
 ) {
   const normalized = normalizeDeploymentInput(input);
   await assertDeploymentServersInScope(normalized.serverIds, session);
   const template = session
-		? await prisma.commandTemplate.findFirst({ where: { id: normalized.templateId, ...commandTemplateScopeWhere(session) } })
-		: await prisma.commandTemplate.findUnique({ where: { id: normalized.templateId } });
+    ? await prisma.commandTemplate.findFirst({ where: { id: normalized.templateId, ...commandTemplateScopeWhere(session) } })
+    : await prisma.commandTemplate.findUnique({ where: { id: normalized.templateId } });
   if (!template) throw new NotFoundError(t("backend.deployment.deploymentTemplateNotFound"));
   assertTemplateVariables(
     template.command,
@@ -215,61 +215,61 @@ async function createDeploymentRunFromTemplateUnlocked(
     : null;
 
   const teamId = session ? (teamCreateData(session).teamId ?? null) : null;
-	const idempotencyKey = input.idempotencyKey?.trim() || null;
-	if (idempotencyKey) {
-		const existing = await prisma.deploymentRun.findFirst({
-			where: { idempotencyKey, ...teamScopeWhere(session) },
-		});
-		if (existing) {
-			if (existing.commandRequestId) return existing;
-			const command = await createCommandRequest({
-				title: `Deployment: ${template.name}`,
-				command: existing.renderedCommand,
-				reason: normalized.reason || "Recovered deployment request",
-				submissionMode: "assistant",
-				requesterId: normalized.requesterId,
-				serverIds: existing.serverIds,
-				teamId: existing.teamId,
-				idempotencyKey: `deployment:${idempotencyKey}`,
-			});
-			const recovered = await prisma.deploymentRun.updateMany({
-				where: { id: existing.id, ...teamScopeWhere(session) },
-				data: {
-					commandRequestId: command.id,
-					status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING",
-					errorMessage: null,
-				},
-			});
-			if (recovered.count === 0) {
-				throw new NotFoundError(t("backend.deployment.deploymentRunNotFound"));
-			}
-			const recoveredRun = await prisma.deploymentRun.findFirst({
-				where: { id: existing.id, ...teamScopeWhere(session) },
-			});
-			if (!recoveredRun) {
-				throw new NotFoundError(t("backend.deployment.deploymentRunNotFound"));
-			}
-			return recoveredRun;
-		}
-	}
+  const idempotencyKey = input.idempotencyKey?.trim() || null;
+  if (idempotencyKey) {
+    const existing = await prisma.deploymentRun.findFirst({
+      where: { idempotencyKey, ...teamScopeWhere(session) },
+    });
+    if (existing) {
+      if (existing.commandRequestId) return existing;
+      const command = await createCommandRequest({
+        title: `Deployment: ${template.name}`,
+        command: existing.renderedCommand,
+        reason: normalized.reason || "Recovered deployment request",
+        submissionMode: "assistant",
+        requesterId: normalized.requesterId,
+        serverIds: existing.serverIds,
+        teamId: existing.teamId,
+        idempotencyKey: `deployment:${idempotencyKey}`,
+      });
+      const recovered = await prisma.deploymentRun.updateMany({
+        where: { id: existing.id, ...teamScopeWhere(session) },
+        data: {
+          commandRequestId: command.id,
+          status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING",
+          errorMessage: null,
+        },
+      });
+      if (recovered.count === 0) {
+        throw new NotFoundError(t("backend.deployment.deploymentRunNotFound"));
+      }
+      const recoveredRun = await prisma.deploymentRun.findFirst({
+        where: { id: existing.id, ...teamScopeWhere(session) },
+      });
+      if (!recoveredRun) {
+        throw new NotFoundError(t("backend.deployment.deploymentRunNotFound"));
+      }
+      return recoveredRun;
+    }
+  }
 
-	const run = await prisma.$transaction(async (tx) => {
-		const created = await tx.deploymentRun.create({
-			data: {
-			templateId: template.id,
-			idempotencyKey,
+  const run = await prisma.$transaction(async (tx) => {
+    const created = await tx.deploymentRun.create({
+      data: {
+      templateId: template.id,
+      idempotencyKey,
       variables: normalized.variables,
       renderedCommand,
       serverIds: normalized.serverIds,
       createdBy: normalized.requesterId,
       status: "PENDING",
       teamId,
-			},
-		});
+      },
+    });
 
-		const snapshot = await tx.deploymentSnapshot.create({
-		data: {
-			sourceRunId: created.id,
+    const snapshot = await tx.deploymentSnapshot.create({
+    data: {
+      sourceRunId: created.id,
       templateId: template.id,
       templateName: template.name,
       deployCommand: renderedCommand,
@@ -277,10 +277,10 @@ async function createDeploymentRunFromTemplateUnlocked(
       variables: normalized.variables,
       serverIds: normalized.serverIds,
       createdBy: normalized.requesterId,
-		},
-		});
-		return tx.deploymentRun.update({ where: { id: created.id }, data: { snapshotId: snapshot.id } });
-	});
+    },
+    });
+    return tx.deploymentRun.update({ where: { id: created.id }, data: { snapshotId: snapshot.id } });
+  });
 
   try {
     // No session on createCommandRequest: stamp teamId from the DeploymentRun so the
@@ -292,8 +292,8 @@ async function createDeploymentRunFromTemplateUnlocked(
       submissionMode: "assistant",
       requesterId: normalized.requesterId,
       serverIds: normalized.serverIds,
-		teamId,
-		idempotencyKey: `deployment:${idempotencyKey ?? run.id}`,
+    teamId,
+    idempotencyKey: `deployment:${idempotencyKey ?? run.id}`,
     });
     return prisma.deploymentRun.update({
       where: { id: run.id },

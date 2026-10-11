@@ -30,7 +30,7 @@ export async function POST(
       const { id } = await params;
       const teamAccess = await assertServerTeamAccess(session, id, "fileWrite");
       if (!teamAccess.ok) return teamAccess.response;
-			await assertSftpPathAccess({ session: session, serverId: id, paths: [body.oldPath, body.newPath] });
+      await assertSftpPathAccess({ session: session, serverId: id, paths: [body.oldPath, body.newPath] });
       await renameEntry(id, body.oldPath, body.newPath);
       await auditUserAction(session.userId, "sftp.rename", { serverId: id, oldPath: body.oldPath, newPath: body.newPath }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true, oldPath: body.oldPath, newPath: body.newPath });

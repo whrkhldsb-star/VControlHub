@@ -4,23 +4,23 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { config } from "@/lib/config/env";
 
 export function isDatabaseUnavailableError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false;
-  }
+	if (!(error instanceof Error)) {
+		return false;
+	}
 
-  const message = error.message;
-  return /P1001|Can't reach database server|PrismaClientInitializationError|database server|driver adapter|accelerateUrl|engine type\s+["']?client["']?\s+requires|ECONNREFUSED|connect ECONNREFUSED|Connection terminated unexpectedly|connection error/i.test(
-    message,
-  );
+	const message = error.message;
+	return /P1001|Can't reach database server|PrismaClientInitializationError|database server|driver adapter|accelerateUrl|engine type\s+["']?client["']?\s+requires|ECONNREFUSED|connect ECONNREFUSED|Connection terminated unexpectedly|connection error/i.test(
+		message,
+	);
 }
 
 /** Prisma unique-constraint helper shared by storage upsert/create races. */
 export function isUniqueViolation(error: unknown): boolean {
-  const code =
-    typeof error === "object" && error && "code" in error
-      ? String((error as { code?: string }).code)
-      : "";
-  return code === "P2002" || /Unique constraint/i.test(String(error));
+	const code =
+		typeof error === "object" && error && "code" in error
+			? String((error as { code?: string }).code)
+			: "";
+	return code === "P2002" || /Unique constraint/i.test(String(error));
 }
 
 declare global {
@@ -70,8 +70,8 @@ function getPrismaClient() {
 }
 
 export const prisma = new Proxy({} as PrismaClient, {
-  get(_target, property, receiver) {
-    const client = getPrismaClient();
-    return Reflect.get(client, property, receiver);
-  },
+	get(_target, property, receiver) {
+		const client = getPrismaClient();
+		return Reflect.get(client, property, receiver);
+	},
 });

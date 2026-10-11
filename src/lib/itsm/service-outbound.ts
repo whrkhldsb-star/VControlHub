@@ -81,8 +81,8 @@ export async function fanOutTicketEvent(input: {
   priority: string;
   category?: string | null;
   commentBody?: string;
-	teamId?: string | null;
-	deliveryKey?: string;
+  teamId?: string | null;
+  deliveryKey?: string;
 }): Promise<{ sent: number; failed: number }> {
   const connections = await prisma.itsmConnection.findMany({
     where: {
@@ -100,17 +100,17 @@ export async function fanOutTicketEvent(input: {
   });
   let sent = 0;
   let failed = 0;
-	for (const row of connections) {
-		if (!supportsOutbound(row.direction)) continue;
-		const existing = input.deliveryKey
-			? await prisma.itsmEvent.findFirst({
-					where: { connectionId: row.id, externalId: input.deliveryKey },
-				})
-			: null;
-		if (existing?.status === "ok") {
-			sent += 1;
-			continue;
-		}
+  for (const row of connections) {
+    if (!supportsOutbound(row.direction)) continue;
+    const existing = input.deliveryKey
+      ? await prisma.itsmEvent.findFirst({
+          where: { connectionId: row.id, externalId: input.deliveryKey },
+        })
+      : null;
+    if (existing?.status === "ok") {
+      sent += 1;
+      continue;
+    }
     const config = parseConfig(row.config);
     const credentials = decryptCredentials(row.credentialsEnc);
     try {
@@ -118,20 +118,20 @@ export async function fanOutTicketEvent(input: {
     } catch (err) {
       failed += 1;
       const msg = err instanceof Error ? err.message : "not ready";
-			const eventInput = {
-				connectionId: row.id,
-				direction: "outbound",
-				eventType: input.eventType,
-				ticketId: input.ticketId,
-				status: "error",
-				externalId: input.deliveryKey,
-				errorMessage: msg,
-			} as const;
-			if (existing) {
-				await prisma.itsmEvent.update({ where: { id: existing.id }, data: { status: "error", errorMessage: msg } });
-			} else {
-				await recordEvent(eventInput);
-			}
+      const eventInput = {
+        connectionId: row.id,
+        direction: "outbound",
+        eventType: input.eventType,
+        ticketId: input.ticketId,
+        status: "error",
+        externalId: input.deliveryKey,
+        errorMessage: msg,
+      } as const;
+      if (existing) {
+        await prisma.itsmEvent.update({ where: { id: existing.id }, data: { status: "error", errorMessage: msg } });
+      } else {
+        await recordEvent(eventInput);
+      }
       await prisma.itsmConnection.update({ where: { id: row.id }, data: { lastError: msg } });
       continue;
     }
@@ -150,31 +150,31 @@ export async function fanOutTicketEvent(input: {
         commentBody: input.commentBody,
       },
     });
-		const eventData = {
-			connectionId: row.id,
+    const eventData = {
+      connectionId: row.id,
       direction: "outbound",
       eventType: input.eventType,
       ticketId: input.ticketId,
-			status: delivery.ok ? "ok" : "error",
-			externalId: input.deliveryKey,
+      status: delivery.ok ? "ok" : "error",
+      externalId: input.deliveryKey,
       payload: {
         statusCode: delivery.statusCode ?? null,
         responseBody: delivery.responseBody ?? null,
       },
-			errorMessage: delivery.ok ? null : delivery.error ?? "delivery failed",
-		} as const;
-		if (existing) {
-			await prisma.itsmEvent.update({
-				where: { id: existing.id },
-				data: {
-					status: eventData.status,
-					payload: eventData.payload,
-					errorMessage: eventData.errorMessage,
-				},
-			});
-		} else {
-			await recordEvent(eventData);
-		}
+      errorMessage: delivery.ok ? null : delivery.error ?? "delivery failed",
+    } as const;
+    if (existing) {
+      await prisma.itsmEvent.update({
+        where: { id: existing.id },
+        data: {
+          status: eventData.status,
+          payload: eventData.payload,
+          errorMessage: eventData.errorMessage,
+        },
+      });
+    } else {
+      await recordEvent(eventData);
+    }
     await prisma.itsmConnection.update({
       where: { id: row.id },
       data: {
@@ -199,44 +199,44 @@ export async function fanOutTicketEvent(input: {
 export async function safeFanOutTicketEvent(
   input: Parameters<typeof fanOutTicketEvent>[0],
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-	try {
-		await enqueueJob({
-			type: "itsm.outbound",
-			title: `ITSM ${input.eventType}: ${input.title}`.slice(0, 200),
-			payload: { ...input },
-			teamId: input.teamId ?? null,
-			maxAttempts: 5,
-			priority: 1,
-		});
-		return { ok: true };
-	} catch (err) {
-		logger.error("ticket fan-out enqueue failed", err, {
+  try {
+    await enqueueJob({
+      type: "itsm.outbound",
+      title: `ITSM ${input.eventType}: ${input.title}`.slice(0, 200),
+      payload: { ...input },
+      teamId: input.teamId ?? null,
+      maxAttempts: 5,
+      priority: 1,
+    });
+    return { ok: true };
+  } catch (err) {
+    logger.error("ticket fan-out enqueue failed", err, {
       ticketId: input.ticketId,
       eventType: input.eventType,
     });
-		try {
-			const ticket = await prisma.ticket.findUnique({
-				where: { id: input.ticketId },
-				select: { createdBy: true, teamId: true },
-			});
-			if (ticket?.createdBy) {
-				await createNotification({
-					userId: ticket.createdBy,
-					type: "system",
-					notice: {
-						code: "itsmFanOutFailed",
-						params: { eventType: input.eventType, error: err instanceof Error ? err.message : String(err) },
-					},
-					actionUrl: `/tickets/${input.ticketId}`,
-					teamId: ticket.teamId,
-				});
-			}
-		} catch (notificationError) {
-			logger.warn("ticket fan-out failure notification failed", notificationError);
-		}
-		return {
-			ok: false,
-			error: err instanceof Error ? err.message : String(err),
-		};
+    try {
+      const ticket = await prisma.ticket.findUnique({
+        where: { id: input.ticketId },
+        select: { createdBy: true, teamId: true },
+      });
+      if (ticket?.createdBy) {
+        await createNotification({
+          userId: ticket.createdBy,
+          type: "system",
+          notice: {
+            code: "itsmFanOutFailed",
+            params: { eventType: input.eventType, error: err instanceof Error ? err.message : String(err) },
+          },
+          actionUrl: `/tickets/${input.ticketId}`,
+          teamId: ticket.teamId,
+        });
+      }
+    } catch (notificationError) {
+      logger.warn("ticket fan-out failure notification failed", notificationError);
+    }
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }

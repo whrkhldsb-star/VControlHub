@@ -48,8 +48,8 @@ const {
   stopTrafficSamplingWorkerForTestsMock,
   startJobMaintenanceWorkerMock,
   stopJobMaintenanceWorkerForTestsMock,
-	startItsmOutboundWorkerMock,
-	stopItsmOutboundWorkerForTestsMock,
+  startItsmOutboundWorkerMock,
+  stopItsmOutboundWorkerForTestsMock,
 } = vi.hoisted(() => ({
   startAiOpsScanWorkerMock: vi.fn(() => undefined),
   stopAiOpsScanWorkerForTestsMock: vi.fn(),
@@ -89,8 +89,8 @@ const {
   stopTrafficSamplingWorkerForTestsMock: vi.fn(),
   startJobMaintenanceWorkerMock: vi.fn(async () => undefined),
   stopJobMaintenanceWorkerForTestsMock: vi.fn(),
-	startItsmOutboundWorkerMock: vi.fn(async () => undefined),
-	stopItsmOutboundWorkerForTestsMock: vi.fn(),
+  startItsmOutboundWorkerMock: vi.fn(async () => undefined),
+  stopItsmOutboundWorkerForTestsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/ai/ops/scan-worker", () => ({
@@ -174,8 +174,8 @@ vi.mock("@/lib/job/maintenance-worker", () => ({
   stopJobMaintenanceWorkerForTests: stopJobMaintenanceWorkerForTestsMock,
 }));
 vi.mock("@/lib/itsm/outbound-worker", () => ({
-	startItsmOutboundWorker: startItsmOutboundWorkerMock,
-	stopItsmOutboundWorkerForTests: stopItsmOutboundWorkerForTestsMock,
+  startItsmOutboundWorker: startItsmOutboundWorkerMock,
+  stopItsmOutboundWorkerForTests: stopItsmOutboundWorkerForTestsMock,
 }));
 
 import {
@@ -233,8 +233,8 @@ function resetAllMocks() {
     stopTicketSlaWorkerForTestsMock,
     stopTrafficSamplingWorkerForTestsMock,
     stopJobMaintenanceWorkerForTestsMock,
-		startItsmOutboundWorkerMock,
-		stopItsmOutboundWorkerForTestsMock,
+    startItsmOutboundWorkerMock,
+    stopItsmOutboundWorkerForTestsMock,
   ]) {
     m.mockReset();
   }
@@ -252,7 +252,7 @@ const EXPECTED_WORKER_IDS: WorkerId[] = [
   "traffic-sampling",
   "download-execution",
   "job-maintenance",
-	"itsm-outbound",
+  "itsm-outbound",
   "quick-service",
   "scheduled-task",
   "sftp-sync",

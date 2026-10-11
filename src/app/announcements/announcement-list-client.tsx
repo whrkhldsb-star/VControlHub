@@ -14,7 +14,8 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { PaginatedList } from "@/components/paginated-list";
 import { EmptyState } from "@/components/page-shell";
-import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { StatusBadge } from "@/components/status-badge";
+import { announcementLevelLabel, announcementLevelTone } from "@/lib/announcement/level";
 
 interface Announcement {
   id: string;
@@ -26,15 +27,7 @@ interface Announcement {
   expiresAt: string | null;
 }
 
-const levelTones: Record<string, StatusTone> = {
-  info: "info",
-  warning: "warning",
-  urgent: "danger",
-};
-
-function levelLabel(t: (k: string, vars?: Record<string, string | number>) => string, key: string): string {
-  return t(`announcementsPage.level.${key}`) !== `announcementsPage.level.${key}` ? t(`announcementsPage.level.${key}`) : key;
-}
+const levelLabel = announcementLevelLabel;
 
 type AnnouncementCardProps = {
   announcement: Announcement;
@@ -51,7 +44,7 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <StatusBadge tone={levelTones[a.level] ?? "info"}>{levelLabel(t, a.level)}</StatusBadge>
+            <StatusBadge tone={announcementLevelTone(a.level)}>{levelLabel(t, a.level)}</StatusBadge>
             {a.pinned && <Badge tone="accent">{t("common.pinned")}</Badge>}
           </div>
           <h2 className="ui-title-section mt-2">{a.title}</h2>

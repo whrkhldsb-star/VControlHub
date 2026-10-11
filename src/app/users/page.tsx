@@ -1,20 +1,15 @@
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { UserManagementClient } from "./users-client";
-import { PageShell, EmptyState } from "@/components/page-shell";
+import { PageShell } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
-	const session = await requireSession("/users");
-	const canRead = sessionHasPermission(session, "user:read");
+	const session = await requirePagePermission("user:read", { redirectTo: "/users" });
 	const canManage = sessionHasPermission(session, "user:manage");
 	const locale = await getServerLocale();
-
-	if (!canRead) {
-		return <PageShell><EmptyState text={t("users.noPermission", locale)} variant="boxed" /></PageShell>;
-	}
 
 	return (
 		<PageShell>

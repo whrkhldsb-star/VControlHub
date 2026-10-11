@@ -22,11 +22,11 @@ export const rdpEndpointHash = (server: Server) => hashRdpValue(JSON.stringify([
 // a case-sensitive compare here drifted from ssh-ws-proxy's lowercased match:
 // "https://Example.com" was accepted by one and rejected by the other.
 export function rdpOriginAllowed(origin: string) {
-	const normalized = origin.trim().toLowerCase();
-	return Boolean(
-		normalized &&
-			config.ssh.wsAllowedOrigins.some((allowed) => allowed.trim().toLowerCase() === normalized),
-	);
+  const normalized = origin.trim().toLowerCase();
+  return Boolean(
+    normalized &&
+      config.ssh.wsAllowedOrigins.some((allowed) => allowed.trim().toLowerCase() === normalized),
+  );
 }
 export async function getRdpServer(serverId: string, session: TeamSession) {
  const server = await prisma.server.findFirst({ where: { AND: [{ id: serverId }, serverTeamWhere(session, "connect")] } });

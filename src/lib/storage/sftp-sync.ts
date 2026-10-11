@@ -273,13 +273,13 @@ export async function syncSftpDirectoryEntries(input: {
 
   const basePath = normalizeRemotePath(node.basePath);
   const normalizedStartPath = normalizeRemotePath(node.basePath, remotePath);
-	const result: SftpSyncResult = {
+  const result: SftpSyncResult = {
     synced: 0,
     created: 0,
     updated: 0,
     deleted: 0,
     errors: [],
-	};
+  };
   const directoryTimeoutMs =
     input.directoryTimeoutMs !== undefined
       ? Math.max(1, input.directoryTimeoutMs)

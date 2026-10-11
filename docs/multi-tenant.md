@@ -7,6 +7,8 @@ VControlHub serves several customers from one platform. A customer is stored as 
 - **Platform administrator** — holds the built-in `admin` role and belongs to no customer. It works across customers: the sidebar switcher selects one customer or "all customers", and lists follow that choice. Account administration, customers, identity templates, platform backups and announcements are platform-only.
 - **Customer account** — belongs to exactly one customer through its `TeamMember` row (`team_members.userId` is unique). Its permissions are the base customer permissions (`team:read`, `user:read`) plus the permissions of the identity template on that membership. Account roles and direct grants do not apply to customer accounts.
 
+Pages about the platform itself — the platform self-check (`/health`) and the hub host's resources (`/monitoring`) — open only for platform administrators (`PLATFORM_ONLY_PAGES` in `src/lib/auth/platform-pages.ts`); customer accounts watch their own servers on `/vps-status`. Announcements are read by every signed-in account and published by platform administrators.
+
 Platform administrators create every account. Moving an account to another customer, or making it an administrator, drops its per-server and per-storage rows, which belonged to the old customer's resources.
 
 ## Identity templates

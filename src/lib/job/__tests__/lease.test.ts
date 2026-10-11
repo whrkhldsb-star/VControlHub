@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  LEASE_PRESETS_MS,
-  MAX_LEASE_MS,
-  MIN_LEASE_MS,
-  computeLeaseMs,
-  listLeasePresetWorkerIds,
+	LEASE_PRESETS_MS,
+	MAX_LEASE_MS,
+	MIN_LEASE_MS,
+	computeLeaseMs,
+	listLeasePresetWorkerIds,
 } from "../lease";
 
 describe("TR-002 R2: job lease 公式统一", () => {

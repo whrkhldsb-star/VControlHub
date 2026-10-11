@@ -22,7 +22,6 @@ export const zh: Record<string, string> = {
 	"backupsPage.eyebrow": "备份",
 	"backupsPage.title": "备份与迁移",
 	"backupsPage.description": "记录数据库/文件/完整备份，配合 deploy/backup.sh 与 restore-db.sh 支持迁移到其他系统。恢复命令只展示，不会绕过审批直接执行。",
-	"backupsPage.noPermission": "你没有备份管理查看权限。",
 
 	"backupsPage.summary.completed": "完成备份",
 	"backupsPage.summary.totalRecords": "共 {count} 条记录",
@@ -260,7 +259,6 @@ export const en: Record<string, string> = {
 	"backupsPage.eyebrow": "Portable",
 	"backupsPage.title": "Backups & migration",
 	"backupsPage.description": "Records database, file, and full backups, combined with deploy/backup.sh and restore-db.sh to support migration to other systems. Restore commands are shown only and will not bypass approval.",
-	"backupsPage.noPermission": "You do not have backup management view permission.",
 
 	"backupsPage.summary.completed": "Completed backups",
 	"backupsPage.summary.totalRecords": "{count} records total",

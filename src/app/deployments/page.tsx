@@ -1,6 +1,6 @@
-import { requireSession } from "@/lib/auth/require-session";
 import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
@@ -41,13 +41,12 @@ const RUNS_PAGE_SIZE = 20;
 
 export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string; success?: string; page?: string }> }) {
 
-	const session = await requireSession("/deployments");
+	const session = await requirePagePermission("deploy:read", { redirectTo: "/deployments" });
 	const locale = await getServerLocale();
 	const dateLocale = toDateLocale(locale);
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const trTpl = (key: string, vars: Record<string, string>) =>
 		Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), tr(key));
-	if (!sessionHasPermission(session, "deploy:read")) return <PageShell><EmptyState text={tr("deploymentsPage.page.noPermission")} variant="boxed" /></PageShell>;
 	const canRun = sessionHasPermission(session, "deploy:run");
 	const canExport = sessionHasPermission(session, "deploy:export");
 	const params = await searchParams;
@@ -64,9 +63,9 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const formSuccess = params?.success === "1" || params?.success === "true";
 	const [runs, templates, servers] = await Promise.all([
 		listDeploymentRuns(session, {
-      skip: (page - 1) * RUNS_PAGE_SIZE,
-      take: RUNS_PAGE_SIZE + 1,
-    }),
+			skip: (page - 1) * RUNS_PAGE_SIZE,
+			take: RUNS_PAGE_SIZE + 1,
+		}),
 		listDeploymentTemplates(session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
 		// Strict server scope: this picker carries host/username/credential refs.
 		prisma.server.findMany({
@@ -89,8 +88,8 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 		}),
 	]);
 	const hasNextPage = runs.length > RUNS_PAGE_SIZE;
-  const visibleRuns = runs.slice(0, RUNS_PAGE_SIZE);
-  const latestRun = page === 1 ? visibleRuns[0] : undefined;
+	const visibleRuns = runs.slice(0, RUNS_PAGE_SIZE);
+	const latestRun = page === 1 ? visibleRuns[0] : undefined;
 	return (
 		<PageShell>
 			<PageHeader eyebrow={tr("deploymentsPage.page.eyebrow")} title={tr("deploymentsPage.page.title")} description={tr("deploymentsPage.page.description")} />
@@ -199,7 +198,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				title={tr("deploymentsPage.page.runsSection.title")}
 				count={visibleRuns.length}
 				empty={
-          visibleRuns.length === 0 ? <EmptyState text={tr("deploymentsPage.page.runsSection.empty")} /> : undefined}
+					visibleRuns.length === 0 ? <EmptyState text={tr("deploymentsPage.page.runsSection.empty")} /> : undefined}
 			>{visibleRuns.map((r) => (
 						<ListRow key={r.id}>
 							<div className="flex items-center justify-between gap-3">
@@ -237,33 +236,33 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							) : null}
 						</ListRow>
 					))}
-        {page > 1 || hasNextPage ? (
+				{page > 1 || hasNextPage ? (
 					<div className="flex items-center justify-between border-t border-[var(--border)] px-4 py-3 sm:px-5">
-            {page > 1 ? (
-              <ButtonLink
-                size="sm"
-                variant="secondary"
-                href={`/deployments?page=${page - 1}`}>
-                {tr("common.pagination.previous")}
+						{page > 1 ? (
+							<ButtonLink
+								size="sm"
+								variant="secondary"
+								href={`/deployments?page=${page - 1}`}>
+								{tr("common.pagination.previous")}
 			</ButtonLink>
-            ) : (
-              <span />
-            )}
-            <span className="text-xs text-[var(--text-muted)]">{page}</span>
-            {hasNextPage ? (
-              <ButtonLink
-                size="sm"
-                variant="secondary"
-                href={`/deployments?page=${page + 1}`}
-              >
-                {tr("common.pagination.next")}
-              </ButtonLink>
-            ) : (
-              <span />
-            )}
-          </div>
-        ) : null}
-      </ListPanel>
+						) : (
+							<span />
+						)}
+						<span className="text-xs text-[var(--text-muted)]">{page}</span>
+						{hasNextPage ? (
+							<ButtonLink
+								size="sm"
+								variant="secondary"
+								href={`/deployments?page=${page + 1}`}
+							>
+								{tr("common.pagination.next")}
+							</ButtonLink>
+						) : (
+							<span />
+						)}
+					</div>
+				) : null}
+			</ListPanel>
 		</PageShell>
 	);
 }

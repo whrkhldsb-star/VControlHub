@@ -10,8 +10,8 @@ import { ActionButton } from "@/components/action-button";
 const initialState: StorageActionState = {};
 
 export function RestoreButton({
-	fileEntryId,
-	onRefresh,
+  fileEntryId,
+  onRefresh,
 }: {
  fileEntryId: string;
  onRefresh?: () => void;

@@ -28,7 +28,7 @@ export function ShareFileButton({
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
-	const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const savingRef = useRef(false);
   const copiedTimerRef = useRef<number | null>(null);
@@ -64,7 +64,7 @@ export function ShareFileButton({
 
   async function handleShare() {
     if (!canShare || savingRef.current) return;
-		setConfirming(false);
+    setConfirming(false);
     savingRef.current = true;
     setSaving(true);
     setError("");
@@ -149,17 +149,17 @@ export function ShareFileButton({
           ) : null}
         </div>
       ) : null}
-		<ConfirmDialog
-			open={confirming}
-			title={t("sharesPage.button.quickConfirmTitle")}
-			description={t("sharesPage.button.quickConfirmDescription", { hours: QUICK_SHARE_DEFAULT_EXPIRY_HOURS })}
-			cancelLabel={t("sharesPage.button.quickConfirmCancel")}
-			confirmLabel={t("sharesPage.button.quickConfirmAction")}
-			onCancel={() => setConfirming(false)}
-			onConfirm={() => void handleShare()}
-			busy={saving}
-			closeOnBackdrop={!saving}
-		/>
+    <ConfirmDialog
+      open={confirming}
+      title={t("sharesPage.button.quickConfirmTitle")}
+      description={t("sharesPage.button.quickConfirmDescription", { hours: QUICK_SHARE_DEFAULT_EXPIRY_HOURS })}
+      cancelLabel={t("sharesPage.button.quickConfirmCancel")}
+      confirmLabel={t("sharesPage.button.quickConfirmAction")}
+      onCancel={() => setConfirming(false)}
+      onConfirm={() => void handleShare()}
+      busy={saving}
+      closeOnBackdrop={!saving}
+    />
     </div>
   );
 }

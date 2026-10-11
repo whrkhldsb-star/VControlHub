@@ -87,8 +87,8 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, scopes: selectedScopes, expiresAt: expiresAtIso }),
-		});
-		setTokens((current) => [data.apiToken, ...current]);
+    });
+    setTokens((current) => [data.apiToken, ...current]);
       setCreatedPlaintext(data.token);
       setName("");
       setSelectedScopes(["read"]);
@@ -147,9 +147,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
       <section data-card className="p-5">
         <h2 className="ui-title-section">{t("apiTokensPage.create.heading")}</h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">{t("apiTokensPage.create.note")}</p>
-		<p className="mt-2 text-sm text-[var(--text-secondary)]">{currentCustomerName
-			? t("apiTokensPage.customer.active", { name: currentCustomerName })
-			: t("apiTokensPage.customer.none")}</p>
+    <p className="mt-2 text-sm text-[var(--text-secondary)]">{currentCustomerName
+      ? t("apiTokensPage.customer.active", { name: currentCustomerName })
+      : t("apiTokensPage.customer.none")}</p>
         <form onSubmit={createToken} className="mt-5 grid gap-4">
           <FormGrid>
             <FormField label={t("apiTokensPage.create.nameLabel")} htmlFor="api-token-name">
@@ -195,7 +195,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="ui-title-section">{token.name}</h3>
                         <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-						<span className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.customer.bound", { name: token.team?.name ?? "—" })}</span>
+            <span className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.customer.bound", { name: token.team?.name ?? "—" })}</span>
                       </div>
                       <p className="mt-2 font-mono text-xs text-[var(--text-secondary)]">{token.tokenPrefix}…{token.tokenSuffix}</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">

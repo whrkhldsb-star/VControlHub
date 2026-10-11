@@ -105,14 +105,14 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 
 	return (
 		<PageShell>
-        <PageHeader eyebrow={getStorageDriverLabel((key, vars) => t(key, locale, vars), driver)} title={name}>
-          <ButtonLink href="/files" variant="secondary" icon={<ArrowLeft aria-hidden />}>
-            {t("textPreview.preview.backToFiles", locale)}
-          </ButtonLink>
-          {downloadUrl ? <a href={downloadUrl} data-action-button data-variant="outline">
-            {t("textPreview.preview.download", locale)}
-          </a> : null}
-        </PageHeader>
+				<PageHeader eyebrow={getStorageDriverLabel((key, vars) => t(key, locale, vars), driver)} title={name}>
+					<ButtonLink href="/files" variant="secondary" icon={<ArrowLeft aria-hidden />}>
+						{t("textPreview.preview.backToFiles", locale)}
+					</ButtonLink>
+					{downloadUrl ? <a href={downloadUrl} data-action-button data-variant="outline">
+						{t("textPreview.preview.download", locale)}
+					</a> : null}
+				</PageHeader>
 
 				{/* Large file warning */}
 				{invalidHref ? (

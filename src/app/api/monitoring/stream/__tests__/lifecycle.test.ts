@@ -8,7 +8,7 @@ beforeEach(() => {
   vi.resetModules();
   vi.useFakeTimers();
   mocks.collect.mockReset().mockResolvedValue({ timestamp: 1, cpu: 0 });
-  mocks.guard.mockReset().mockImplementation((_request, _options, handler) => handler({ session: { userId: "lifecycle-user" } }));
+  mocks.guard.mockReset().mockImplementation((_request, _options, handler) => handler({ session: { userId: "lifecycle-user", roles: ["admin"] } }));
 });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
@@ -31,7 +31,7 @@ describe("monitoring stream lifecycle", () => {
     let authenticate!: () => void;
     mocks.guard.mockImplementationOnce(async (_request, _options, handler) => {
       await new Promise<void>((resolve) => { authenticate = resolve; });
-      return handler({ session: { userId: "lifecycle-user" } });
+      return handler({ session: { userId: "lifecycle-user", roles: ["admin"] } });
     });
     const abort = new AbortController();
     const pending = GET(new Request("http://local/api/monitoring/stream", { signal: abort.signal }));

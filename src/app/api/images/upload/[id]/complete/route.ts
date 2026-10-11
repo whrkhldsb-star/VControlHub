@@ -62,7 +62,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: sessionId } = await params;
-	const locale = await getServerLocale();
+  const locale = await getServerLocale();
   let storageAccess: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
   return withApiRoute(
     request,
@@ -143,7 +143,7 @@ export async function POST(
       let detectedFormat: string;
       try {
         const meta = await extractMetadata(assembled);
-				if (!meta.format || meta.format === "svg" || meta.width <= 0 || meta.height <= 0) throw new Error("Invalid image dimensions or format");
+        if (!meta.format || meta.format === "svg" || meta.width <= 0 || meta.height <= 0) throw new Error("Invalid image dimensions or format");
         // Decompression-bomb guard (see single-shot route). Reject gigapixel
         // dimensions with a clear message before running the variant encoders.
         if (meta.width * meta.height > MAX_IMAGE_PIXELS) {
@@ -155,8 +155,8 @@ export async function POST(
         detectedMime = canonicalImageMime(meta.format);
         detectedFormat = meta.format;
       } catch (err) {
-				if (err instanceof ValidationError) throw err;
-				throw new ValidationError(t("api.image.invalidImage", locale));
+        if (err instanceof ValidationError) throw err;
+        throw new ValidationError(t("api.image.invalidImage", locale));
       }
 
       // Match the direct upload path: variants must never overwrite the original.

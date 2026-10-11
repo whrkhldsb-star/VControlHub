@@ -114,16 +114,16 @@ export async function GET(request: Request) {
         );
       }
 
-	  const indexedEntry = await prisma.fileEntry.findFirst({
-		where: { storageNodeId: node.id, relativePath: normalizedRelativePath },
-		select: { isDeleted: true },
-	  });
-	  if (indexedEntry?.isDeleted) {
-		return NextResponse.json(
-		  { error: t("api.storage.fileUnavailable", locale) },
-		  { status: 404 },
-		);
-	  }
+    const indexedEntry = await prisma.fileEntry.findFirst({
+    where: { storageNodeId: node.id, relativePath: normalizedRelativePath },
+    select: { isDeleted: true },
+    });
+    if (indexedEntry?.isDeleted) {
+    return NextResponse.json(
+      { error: t("api.storage.fileUnavailable", locale) },
+      { status: 404 },
+    );
+    }
 
       const fileName = path.basename(normalizedRemotePath);
       const contentType = guessContentType(fileName);

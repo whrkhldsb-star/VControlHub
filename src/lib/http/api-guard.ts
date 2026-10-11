@@ -150,31 +150,31 @@ export function requestLocale(request: Request): Locale {
 }
 
 export async function withApiRoute<TBody = unknown, TQuery = unknown>(
-	request: Request,
-	options: AuthedRouteOptions<TBody, TQuery>,
-	handler: (context: AuthedApiRouteContext<TBody, TQuery>) => Promise<Response>,
+  request: Request,
+  options: AuthedRouteOptions<TBody, TQuery>,
+  handler: (context: AuthedApiRouteContext<TBody, TQuery>) => Promise<Response>,
 ): Promise<Response>;
 export async function withApiRoute<TBody = unknown, TQuery = unknown>(
-	request: Request,
-	options: AuthedRouteOptions<TBody, TQuery>,
-	handler: (context: AuthedApiRouteContext<TBody, TQuery>) => Promise<Response>,
+  request: Request,
+  options: AuthedRouteOptions<TBody, TQuery>,
+  handler: (context: AuthedApiRouteContext<TBody, TQuery>) => Promise<Response>,
 ): Promise<Response>;
 export async function withApiRoute<TBody = unknown, TQuery = unknown>(
-	request: Request,
-	options: ApiRouteOptions<TBody, TQuery>,
-	handler: (context: ApiRouteContext<TBody, TQuery>) => Promise<Response>,
+  request: Request,
+  options: ApiRouteOptions<TBody, TQuery>,
+  handler: (context: ApiRouteContext<TBody, TQuery>) => Promise<Response>,
 ): Promise<Response>;
 export async function withApiRoute(
-	request: Request,
-	options: ApiRouteOptions<unknown, unknown>,
-	handler: (context: never) => Promise<Response>,
+  request: Request,
+  options: ApiRouteOptions<unknown, unknown>,
+  handler: (context: never) => Promise<Response>,
 ): Promise<Response> {
-	const locale = requestLocale(request);
-	return withApiCopyLocale(locale, () => runApiRoute(
-		request,
-		{ ...options, errorMessage: options.errorMessage ? localizeApiCopy(options.errorMessage, locale) : options.errorMessage },
-		handler as unknown as (context: ApiRouteContext<unknown, unknown>) => Promise<Response>,
-	));
+  const locale = requestLocale(request);
+  return withApiCopyLocale(locale, () => runApiRoute(
+    request,
+    { ...options, errorMessage: options.errorMessage ? localizeApiCopy(options.errorMessage, locale) : options.errorMessage },
+    handler as unknown as (context: ApiRouteContext<unknown, unknown>) => Promise<Response>,
+  ));
 }
 
 async function runApiRoute<TBody = unknown, TQuery = unknown>(

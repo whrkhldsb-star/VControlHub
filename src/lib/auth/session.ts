@@ -109,19 +109,19 @@ type SessionTokenEnvelope = SessionPayload & {
  * the same root instead of introducing a second secret to configure.
  */
 export function getSessionSigningSecret(): string {
-	return getSessionSecret();
+  return getSessionSecret();
 }
 
 function getSessionSecret() {
-	const secret = config.auth.sessionSecret;
-	if (!secret) {
-		if (config.isProduction) {
-			throw new Error("AUTH_SESSION_SECRET must be set in production. Set it in .env.local");
-		}
-		logger.warn("using default development session secret; set AUTH_SESSION_SECRET for production");
-		return "dev-only-session-secret-change-me";
-	}
-	return secret;
+  const secret = config.auth.sessionSecret;
+  if (!secret) {
+    if (config.isProduction) {
+      throw new Error("AUTH_SESSION_SECRET must be set in production. Set it in .env.local");
+    }
+    logger.warn("using default development session secret; set AUTH_SESSION_SECRET for production");
+    return "dev-only-session-secret-change-me";
+  }
+  return secret;
 }
 
 /**
@@ -384,73 +384,73 @@ type Pending2faPayload = Pending2faSessionPayload & {
 };
 
 export function getPending2faCookieName() {
-	return `${getAppSlug()}_pending_2fa`;
+  return `${getAppSlug()}_pending_2fa`;
 }
 
 export async function createPending2faToken(payload: Pending2faSessionPayload, options: {
   credentialBinding?: SessionCredentialBinding;
 } = {}): Promise<string> {
-	const user = await prisma.user.findUnique({
-		where: { id: payload.userId },
-		select: { passwordHash: true, sessionEpoch: true, status: true },
-	});
-	if (!user || user.status === "DISABLED"
-		|| (options.credentialBinding && !credentialBindingMatches(options.credentialBinding, user))) {
-		throw new AuthError(t("backend.auth.sessionCredentialsChanged"));
-	}
-	const binding = captureSessionCredentialBinding(user);
-	const now = Date.now();
-	const nonce = randomBytes(16).toString("hex");
-	const { issuer, audience } = getSessionIdentity();
-	const envelope: Pending2faPayload & { iss: string; aud: string; iat: number; exp: number } = {
-		...payload,
-		pending2fa: true,
-		nonce,
-		cfp: binding.fingerprint,
-		sep: binding.epoch,
-		iss: issuer,
-		aud: `${audience}-pending-2fa`,
-		iat: now,
-		exp: now + PENDING_2FA_TTL_MS,
-	};
-	return signHmacToken(envelope, getSessionSecret());
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { passwordHash: true, sessionEpoch: true, status: true },
+  });
+  if (!user || user.status === "DISABLED"
+    || (options.credentialBinding && !credentialBindingMatches(options.credentialBinding, user))) {
+    throw new AuthError(t("backend.auth.sessionCredentialsChanged"));
+  }
+  const binding = captureSessionCredentialBinding(user);
+  const now = Date.now();
+  const nonce = randomBytes(16).toString("hex");
+  const { issuer, audience } = getSessionIdentity();
+  const envelope: Pending2faPayload & { iss: string; aud: string; iat: number; exp: number } = {
+    ...payload,
+    pending2fa: true,
+    nonce,
+    cfp: binding.fingerprint,
+    sep: binding.epoch,
+    iss: issuer,
+    aud: `${audience}-pending-2fa`,
+    iat: now,
+    exp: now + PENDING_2FA_TTL_MS,
+  };
+  return signHmacToken(envelope, getSessionSecret());
 }
 
 export async function verifyPending2faToken(token: string): Promise<(Pending2faSessionPayload & {
-	credentialBinding: SessionCredentialBinding;
+  credentialBinding: SessionCredentialBinding;
 }) | null> {
-	try {
-		const [encodedPayload, providedSignature] = token.split(".");
-		if (!encodedPayload || !providedSignature) return null;
+  try {
+    const [encodedPayload, providedSignature] = token.split(".");
+    if (!encodedPayload || !providedSignature) return null;
 
-		if (!verifyHmacTokenSignature(encodedPayload, providedSignature, getSessionSecret())) return null;
+    if (!verifyHmacTokenSignature(encodedPayload, providedSignature, getSessionSecret())) return null;
 
-		const payload = JSON.parse(decodeBase64Url(encodedPayload)) as Pending2faPayload & { iss: string; aud: string; iat: number; exp: number };
+    const payload = JSON.parse(decodeBase64Url(encodedPayload)) as Pending2faPayload & { iss: string; aud: string; iat: number; exp: number };
 
-		const { issuer, audience } = getSessionIdentity();
-		if (payload.iss !== issuer || payload.aud !== `${audience}-pending-2fa`) return null;
-		if (!Number.isFinite(payload.exp) || payload.exp <= Date.now()) return null;
-		if (!payload.pending2fa) return null;
-		// Pre-binding pending cookies expire within five minutes. Fail closed so
-		// a password reset or "sign out everywhere" also retires that login stage.
-		if (typeof payload.cfp !== "string" || !Number.isSafeInteger(payload.sep)) return null;
-		const credentialBinding = { fingerprint: payload.cfp, epoch: payload.sep };
-		const user = await prisma.user.findUnique({
-			where: { id: payload.userId },
-			select: { passwordHash: true, sessionEpoch: true, status: true },
-		});
-		if (!credentialBindingMatches(credentialBinding, user)) return null;
+    const { issuer, audience } = getSessionIdentity();
+    if (payload.iss !== issuer || payload.aud !== `${audience}-pending-2fa`) return null;
+    if (!Number.isFinite(payload.exp) || payload.exp <= Date.now()) return null;
+    if (!payload.pending2fa) return null;
+    // Pre-binding pending cookies expire within five minutes. Fail closed so
+    // a password reset or "sign out everywhere" also retires that login stage.
+    if (typeof payload.cfp !== "string" || !Number.isSafeInteger(payload.sep)) return null;
+    const credentialBinding = { fingerprint: payload.cfp, epoch: payload.sep };
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { passwordHash: true, sessionEpoch: true, status: true },
+    });
+    if (!credentialBindingMatches(credentialBinding, user)) return null;
 
-		return {
-			userId: payload.userId,
-			username: payload.username,
-			roles: payload.roles,
-			mustChangePassword: payload.mustChangePassword,
-			currentTeamId: payload.currentTeamId ?? null,
-			remember: payload.remember === true,
-			credentialBinding,
-		};
-	} catch {
-		return null;
-	}
+    return {
+      userId: payload.userId,
+      username: payload.username,
+      roles: payload.roles,
+      mustChangePassword: payload.mustChangePassword,
+      currentTeamId: payload.currentTeamId ?? null,
+      remember: payload.remember === true,
+      credentialBinding,
+    };
+  } catch {
+    return null;
+  }
 }

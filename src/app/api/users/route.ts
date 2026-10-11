@@ -166,13 +166,13 @@ export async function PATCH(request: Request) {
       }
 
       if (userAction === "disable") {
-				await withAdminInvariantLock(async () => {
-					await assertAdminAccessMayBeRemoved(userId);
-					await prisma.user.update({
-						where: { id: userId },
-						data: { status: "DISABLED" },
-					});
-				});
+        await withAdminInvariantLock(async () => {
+          await assertAdminAccessMayBeRemoved(userId);
+          await prisma.user.update({
+            where: { id: userId },
+            data: { status: "DISABLED" },
+          });
+        });
         await auditUserAction(session.userId, "user.disable", {
           targetUsername: targetUser.username,
         }, undefined, session.currentTeamId);

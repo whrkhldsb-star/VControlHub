@@ -33,25 +33,25 @@ type JobEventsDialogProps = {
 };
 
 function buildLevelLabels(t: (key: string, vars?: Record<string, string | number>) => string): Record<JobEventLevel, string> {
-	return {
-		info: t("jobEventsDialog.level.info"),
-		warn: t("jobEventsDialog.level.warn"),
-		error: t("jobEventsDialog.level.error"),
-	};
+  return {
+    info: t("jobEventsDialog.level.info"),
+    warn: t("jobEventsDialog.level.warn"),
+    error: t("jobEventsDialog.level.error"),
+  };
 }
 
 function buildTypeLabels(t: (key: string, vars?: Record<string, string | number>) => string): Record<string, string> {
-	return {
-		claimed: t("jobEventsDialog.type.claimed"),
-		heartbeat: t("jobEventsDialog.type.heartbeat"),
-		progress: t("jobEventsDialog.type.progress"),
-		completed: t("jobEventsDialog.type.completed"),
-		failed: t("jobEventsDialog.type.failed"),
-		retrying: t("jobEventsDialog.type.retrying"),
-		recovered: t("jobEventsDialog.type.recovered"),
-		cancelled: t("jobEventsDialog.type.cancelled"),
-		enqueued: t("jobEventsDialog.type.enqueued"),
-	};
+  return {
+    claimed: t("jobEventsDialog.type.claimed"),
+    heartbeat: t("jobEventsDialog.type.heartbeat"),
+    progress: t("jobEventsDialog.type.progress"),
+    completed: t("jobEventsDialog.type.completed"),
+    failed: t("jobEventsDialog.type.failed"),
+    retrying: t("jobEventsDialog.type.retrying"),
+    recovered: t("jobEventsDialog.type.recovered"),
+    cancelled: t("jobEventsDialog.type.cancelled"),
+    enqueued: t("jobEventsDialog.type.enqueued"),
+  };
 }
 
 function levelTone(level: string): JobEventLevel {

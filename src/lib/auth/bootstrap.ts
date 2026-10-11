@@ -6,10 +6,10 @@ import { verifyPassword } from "./password";
 const logger = createLogger("auth:bootstrap");
 
 export const ADMIN_BOOTSTRAP = {
- username: "admin",
- displayName: "Platform Admin",
- status: "PENDING_PASSWORD_RESET",
- mustChangePassword: true,
+	username: "admin",
+	displayName: "Platform Admin",
+	status: "PENDING_PASSWORD_RESET",
+	mustChangePassword: true,
 } as const;
 
 /** Get initial admin password from env or fallback (only for seeding new DBs) */

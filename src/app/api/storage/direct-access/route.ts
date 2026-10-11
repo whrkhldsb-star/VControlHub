@@ -65,7 +65,7 @@ function redirectToDirectAccessLocation(location: string, requestUrl: string) {
 }
 
 function getDirectAccessSecret() {
-	return config.auth.storageGatewaySecret ?? "";
+  return config.auth.storageGatewaySecret ?? "";
 }
 
 function normalizeDirectGatewaySignedPath(input: {
@@ -122,7 +122,7 @@ function buildSignedDirectUrl(input: {
 }
 
 async function isDirectGatewayHealthy(publicBaseUrl: string) {
-	await assertPublicBaseUrlResolvesPublic(publicBaseUrl);
+  await assertPublicBaseUrlResolvesPublic(publicBaseUrl);
   const healthUrl = new URL(
     "/__vch_health",
     publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`,

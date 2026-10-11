@@ -155,15 +155,15 @@ export async function executeDeleteFile(
       }
     }
 
-	const affectedShareIds = await findAffectedShareIds({
-	  storageNodeId: entry.storageNodeId,
-	  relativePath: entry.relativePath,
-	  isDirectory: entry.entryType === "DIRECTORY",
-	});
-	const revokeShares = prisma.shareLink.updateMany({
-	  where: { id: { in: affectedShareIds }, revokedAt: null },
-	  data: { revokedAt: new Date() },
-	});
+  const affectedShareIds = await findAffectedShareIds({
+    storageNodeId: entry.storageNodeId,
+    relativePath: entry.relativePath,
+    isDirectory: entry.entryType === "DIRECTORY",
+  });
+  const revokeShares = prisma.shareLink.updateMany({
+    where: { id: { in: affectedShareIds }, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
 
     // Soft-delete is index-only. Revoke every direct, descendant, or parent
     // directory share in the same transaction so recycle-bin bytes cannot be
@@ -187,16 +187,16 @@ export async function executeDeleteFile(
           where: { id: fileEntryId },
           data: { isDeleted: true, deleteBatchId },
         }),
-		revokeShares,
+    revokeShares,
       ]);
     } else {
-	  await prisma.$transaction([
-		prisma.fileEntry.update({
-		  where: { id: fileEntryId },
-		  data: { isDeleted: true, deleteBatchId: crypto.randomUUID() },
-		}),
-		revokeShares,
-	  ]);
+    await prisma.$transaction([
+    prisma.fileEntry.update({
+      where: { id: fileEntryId },
+      data: { isDeleted: true, deleteBatchId: crypto.randomUUID() },
+    }),
+    revokeShares,
+    ]);
     }
 
     await auditUserAction(

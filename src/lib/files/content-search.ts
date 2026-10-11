@@ -22,9 +22,9 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import type { SessionPayload } from "@/lib/auth/session";
 
 type ContentSearchSession = {
-  userId: string;
-  roles: RoleKey[];
-  currentTeamId: string | null;
+	userId: string;
+	roles: RoleKey[];
+	currentTeamId: string | null;
 };
 
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";

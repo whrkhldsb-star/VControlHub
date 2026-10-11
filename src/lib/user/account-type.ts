@@ -6,7 +6,8 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
-import { applyCustomerMembership, assertPlatformAdmin, resolveCustomerMembershipTarget } from "@/lib/team/service";
+import { assertPlatformAdmin } from "@/lib/auth/platform-admin-guard";
+import { applyCustomerMembership, resolveCustomerMembershipTarget } from "@/lib/team/service";
 import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "./admin-invariant";
 
 export type AccountTypeInput =

@@ -8,15 +8,15 @@ const TOKEN_BYTES=32;
 const TOKEN_PREFIX="whr_";
 
 export const ALLOWED_API_TOKEN_SCOPES = [
-	"read",
-	"server:read",
-	"storage:read",
-	"storage:write",
-	"storage:delete",
-	"health:read",
-	"status:read",
-	"image:read",
-	"image:write",
+  "read",
+  "server:read",
+  "storage:read",
+  "storage:write",
+  "storage:delete",
+  "health:read",
+  "status:read",
+  "image:read",
+  "image:write",
 ] as const;
 const ALLOWED_API_TOKEN_SCOPE_SET = new Set<string>(ALLOWED_API_TOKEN_SCOPES);
 

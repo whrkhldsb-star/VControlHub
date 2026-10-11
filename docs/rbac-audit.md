@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-10-10T17:51:50.244Z | Permissions: 52 | Roles: 4 | API routes: 189 | Pages: 56 | Drift: 0
+> Generated: 2026-10-11T00:19:32.919Z | Permissions: 52 | Roles: 4 | API routes: 189 | Pages: 56 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -25,16 +25,16 @@ This report cross-references four RBAC sources of truth:
 | Permission | Granted to roles | Pages using | API routes using | Files |
 |---|---|---|---|---|
 | `ai:action:approve` | admin | 0 | 0 | 0 |
-| `ai:chat` | admin, operator, viewer, storage_manager | 2 | 0 | 26 |
+| `ai:chat` | admin, operator, viewer, storage_manager | 1 | 0 | 25 |
 | `ai:manage` | admin, operator | 1 | 1 | 16 |
 | `ai:ops:autonomous` | admin | 1 | 1 | 2 |
 | `ai:ops:manage` | admin | 1 | 0 | 9 |
 | `ai:ops:read` | admin | 0 | 0 | 8 |
-| `announcement:manage` | admin | 1 | 1 | 8 |
-| `api-token:manage` | admin, operator | 1 | 0 | 6 |
-| `audit:read` | admin, operator, viewer, storage_manager | 1 | 1 | 9 |
+| `announcement:manage` | admin | 0 | 1 | 7 |
+| `api-token:manage` | admin, operator | 0 | 0 | 5 |
+| `audit:read` | admin, operator, viewer, storage_manager | 0 | 1 | 8 |
 | `backup:create` | admin | 1 | 0 | 21 |
-| `backup:read` | admin | 1 | 0 | 11 |
+| `backup:read` | admin | 0 | 0 | 10 |
 | `backup:restore` | admin | 1 | 0 | 5 |
 | `command:approve` | admin | 3 | 2 | 7 |
 | `command:create` | admin, operator | 3 | 0 | 17 |
@@ -44,10 +44,10 @@ This report cross-references four RBAC sources of truth:
 | `cost:read` | admin, operator, viewer | 1 | 0 | 15 |
 | `deploy:export` | admin, operator | 1 | 0 | 7 |
 | `deploy:manage` | admin | 0 | 0 | 0 |
-| `deploy:read` | admin, operator, viewer | 1 | 0 | 3 |
+| `deploy:read` | admin, operator, viewer | 0 | 0 | 2 |
 | `deploy:run` | admin, operator | 2 | 0 | 5 |
 | `docker:manage` | admin, operator | 1 | 1 | 25 |
-| `health:read` | admin, operator, viewer, storage_manager | 2 | 1 | 13 |
+| `health:read` | admin, operator, viewer, storage_manager | 0 | 1 | 11 |
 | `image:read` | admin | 0 | 1 | 6 |
 | `image:write` | admin | 1 | 1 | 8 |
 | `media:manage` | admin, operator, storage_manager | 2 | 6 | 12 |
@@ -62,19 +62,19 @@ This report cross-references four RBAC sources of truth:
 | `server:write` | admin, operator | 1 | 1 | 22 |
 | `share:create` | admin, operator, storage_manager | 1 | 0 | 3 |
 | `share:manage` | admin, operator, storage_manager | 1 | 0 | 5 |
-| `share:read` | admin, operator, viewer, storage_manager | 1 | 0 | 5 |
+| `share:read` | admin, operator, viewer, storage_manager | 0 | 0 | 4 |
 | `snippet:manage` | admin, operator, storage_manager | 0 | 0 | 8 |
 | `storage:delete` | admin, storage_manager | 2 | 2 | 7 |
 | `storage:manage-node` | admin, storage_manager | 3 | 4 | 14 |
-| `storage:read` | admin, operator, viewer, storage_manager | 2 | 2 | 58 |
+| `storage:read` | admin, operator, viewer, storage_manager | 0 | 2 | 56 |
 | `storage:write` | admin, operator, storage_manager | 3 | 4 | 48 |
-| `task:read` | admin, operator, viewer, storage_manager | 1 | 0 | 7 |
-| `team:manage` | admin | 2 | 8 | 38 |
+| `task:read` | admin, operator, viewer, storage_manager | 0 | 0 | 6 |
+| `team:manage` | admin | 1 | 8 | 37 |
 | `team:read` | admin, operator, viewer, storage_manager | 0 | 0 | 2 |
 | `ticket:create` | admin, operator, viewer, storage_manager | 1 | 0 | 4 |
-| `ticket:manage` | admin, operator, storage_manager | 3 | 3 | 30 |
-| `ticket:read` | admin, operator, viewer, storage_manager | 1 | 0 | 8 |
+| `ticket:manage` | admin, operator, storage_manager | 2 | 3 | 29 |
+| `ticket:read` | admin, operator, viewer, storage_manager | 0 | 0 | 7 |
 | `user:manage` | admin | 2 | 0 | 26 |
-| `user:read` | admin, operator, viewer, storage_manager | 1 | 0 | 3 |
+| `user:read` | admin, operator, viewer, storage_manager | 0 | 0 | 2 |
 
 ## ✅ No drift detected

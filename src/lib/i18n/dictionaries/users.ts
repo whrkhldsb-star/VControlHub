@@ -8,7 +8,6 @@
 export const zh: Record<string, string> = {
 	"users.desc.manage": "创建用户、分配角色与权限管理",
 	"users.desc.readonly": "查看用户、角色与权限（只读）",
-	"users.noPermission": "你没有查看用户的权限。",
 	"users.title": "用户管理",
 	"usersPage.eyebrow": "用户",
 	"usersPage.action.cancel": "取消",
@@ -55,7 +54,6 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"users.desc.manage": "Create users, assign roles, and manage permissions",
 	"users.desc.readonly": "View users, roles, and permissions (read-only)",
-	"users.noPermission": "You don't have permission to view users.",
 	"users.title": "User management",
 	"usersPage.eyebrow": "Users",
 	"usersPage.action.cancel": "Cancel",

@@ -9,7 +9,7 @@ export function effectiveDeleteOrphans(
   deleteOrphans: boolean,
 ): boolean {
   if (isBidirectionalSyncType(syncType)) return false;
-	if ((syncType ?? "").toUpperCase() === "MIRROR") return true;
+  if ((syncType ?? "").toUpperCase() === "MIRROR") return true;
   return deleteOrphans;
 }
 

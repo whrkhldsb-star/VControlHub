@@ -60,12 +60,12 @@ const SCHEDULES = [
 ] as const;
 
 function syncTypeLabel(t: (key: string) => string, value: string): string {
-	return value === "BIDIRECTIONAL" ? t("filesPage.syncJobs.type.bidirectional") : value === "MIRROR" ? t("filesPage.syncJobs.type.mirror") : value;
+  return value === "BIDIRECTIONAL" ? t("filesPage.syncJobs.type.bidirectional") : value === "MIRROR" ? t("filesPage.syncJobs.type.mirror") : value;
 }
 
 function scheduleLabel(t: (key: string) => string, value: string): string {
-	const option = SCHEDULES.find((item) => item.value === value);
-	return option ? t(option.key) : value;
+  const option = SCHEDULES.find((item) => item.value === value);
+  return option ? t(option.key) : value;
 }
 
 export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] }) {

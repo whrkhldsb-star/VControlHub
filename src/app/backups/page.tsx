@@ -1,5 +1,5 @@
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
 import { config } from "@/lib/config/env";
 import { getServerLocale, t as translate, type TFn } from "@/lib/i18n/translations";
@@ -31,8 +31,7 @@ const logger = createLogger("backups:page");
 export default async function BackupsPage() {
 	const locale = await getServerLocale();
 	const t: TFn = (key, vars) => translate(key, locale, vars);
-	const session = await requireSession("/backups");
-	if (!sessionHasPermission(session, "backup:read")) return <PageShell><EmptyState text={t("backupsPage.noPermission")} variant="boxed" /></PageShell>;
+	const session = await requirePagePermission("backup:read", { redirectTo: "/backups" });
 	const canCreate = sessionHasPermission(session, "backup:create");
 	const canRestore = sessionHasPermission(session, "backup:restore");
 	const [backups, offsiteState] = await Promise.all([

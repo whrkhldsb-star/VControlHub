@@ -186,24 +186,24 @@ export async function permanentDeleteFileEntryAction(
     }
     try {
     const affectedShareIds = await findAffectedShareIds({
-	  storageNodeId: entry.storageNodeId,
-	  relativePath: entry.relativePath,
-	  isDirectory: entry.entryType === "DIRECTORY",
-	});
+    storageNodeId: entry.storageNodeId,
+    relativePath: entry.relativePath,
+    isDirectory: entry.entryType === "DIRECTORY",
+  });
 
-	// Delete backing first. If this fails, keep the tombstone and share records
-	// intact so the user can retry and the operation cannot report false success.
-	await deleteBackingObject({
-	  storageNode: entry.storageNode,
-	  relativePath: entry.relativePath,
-	  isDirectory: entry.entryType === "DIRECTORY",
-	  tolerateMissing: true,
-	});
+  // Delete backing first. If this fails, keep the tombstone and share records
+  // intact so the user can retry and the operation cannot report false success.
+  await deleteBackingObject({
+    storageNode: entry.storageNode,
+    relativePath: entry.relativePath,
+    isDirectory: entry.entryType === "DIRECTORY",
+    tolerateMissing: true,
+  });
 
-	const revokeShares = prisma.shareLink.updateMany({
-	  where: { id: { in: affectedShareIds }, revokedAt: null },
-	  data: { revokedAt: new Date() },
-	});
+  const revokeShares = prisma.shareLink.updateMany({
+    where: { id: { in: affectedShareIds }, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";
       // Purge version blobs for the directory's own entry AND every descendant
@@ -226,15 +226,15 @@ export async function permanentDeleteFileEntryAction(
         prisma.fileEntry.delete({
           where: { id: fileEntryId },
         }),
-		revokeShares,
+    revokeShares,
       ]);
     } else {
-	  // Purge version blobs before the cascade removes their rows (see above).
-	  await purgeAllFileVersionBlobs(fileEntryId);
-	  await prisma.$transaction([
-		prisma.fileEntry.delete({ where: { id: fileEntryId } }),
-		revokeShares,
-	  ]);
+    // Purge version blobs before the cascade removes their rows (see above).
+    await purgeAllFileVersionBlobs(fileEntryId);
+    await prisma.$transaction([
+    prisma.fileEntry.delete({ where: { id: fileEntryId } }),
+    revokeShares,
+    ]);
     }
 
     await auditUserAction(

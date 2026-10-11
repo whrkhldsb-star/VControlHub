@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T17:17:35.432Z",
+  "generatedAt": "2026-10-10T23:56:23.771Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 11,
@@ -236,12 +236,8 @@
       "file": "src/app/announcements/page.tsx",
       "inSidebarMain": true,
       "inSidebarSystem": false,
-      "declaredPermissions": [
-        "announcement:manage"
-      ],
-      "navigationPermissions": [
-        "announcement:manage"
-      ]
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/api-docs",
@@ -286,9 +282,7 @@
         "backup:restore"
       ],
       "navigationPermissions": [
-        "backup:create",
-        "backup:read",
-        "backup:restore"
+        "backup:read"
       ]
     },
     {
@@ -336,9 +330,7 @@
         "deploy:run"
       ],
       "navigationPermissions": [
-        "deploy:export",
-        "deploy:read",
-        "deploy:run"
+        "deploy:read"
       ]
     },
     {
@@ -445,12 +437,8 @@
       "file": "src/app/health/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": true,
-      "declaredPermissions": [
-        "health:read"
-      ],
-      "navigationPermissions": [
-        "health:read"
-      ]
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/image-bed",
@@ -474,12 +462,10 @@
       "inSidebarMain": false,
       "inSidebarSystem": true,
       "declaredPermissions": [
-        "ticket:manage",
-        "ticket:read"
+        "ticket:manage"
       ],
       "navigationPermissions": [
-        "ticket:manage",
-        "ticket:read"
+        "ticket:manage"
       ]
     },
     {
@@ -492,8 +478,7 @@
         "ai:manage"
       ],
       "navigationPermissions": [
-        "ai:chat",
-        "ai:manage"
+        "ai:chat"
       ]
     },
     {
@@ -534,7 +519,6 @@
         "storage:read"
       ],
       "navigationPermissions": [
-        "media:manage",
         "storage:read"
       ]
     },
@@ -543,12 +527,8 @@
       "file": "src/app/monitoring/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": true,
-      "declaredPermissions": [
-        "health:read"
-      ],
-      "navigationPermissions": [
-        "health:read"
-      ]
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/notifications",
@@ -711,8 +691,6 @@
         "share:read"
       ],
       "navigationPermissions": [
-        "share:create",
-        "share:manage",
         "share:read"
       ]
     },
@@ -806,7 +784,6 @@
         "user:read"
       ],
       "navigationPermissions": [
-        "user:manage",
         "user:read"
       ]
     },

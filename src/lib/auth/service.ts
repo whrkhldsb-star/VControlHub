@@ -46,7 +46,7 @@ function deriveRoleKeys(keys: string[]): RoleKey[] {
  * the account is real. Not a credential: it hashes no secret anyone can use.
  */
 const DUMMY_PASSWORD_HASH_FOR_TIMING =
-	"$2b$12$iyxLnESNwAUrz8qhz2FYCOwXhUeOv1zwowkGuJsB6xvaXjKuKzGN.";
+  "$2b$12$iyxLnESNwAUrz8qhz2FYCOwXhUeOv1zwowkGuJsB6xvaXjKuKzGN.";
 
 export async function authenticateUser(input: LoginInput): Promise<AuthenticatedUser | null> {
  const parsed = loginSchema.safeParse(input);
@@ -142,32 +142,32 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
 
   const nextPasswordHash = await hashPassword(payload.newPassword);
 
-	const updated = await prisma.user.updateMany({
-		where: {
-			id: input.userId,
-			passwordHash: user.passwordHash,
-			sessionEpoch: user.sessionEpoch ?? 0,
-			status: { not: "DISABLED" },
-		},
-		data: {
-			passwordHash: nextPasswordHash,
-			mustChangePassword: false,
-			status: "ACTIVE",
-			sessionEpoch: { increment: 1 },
-		},
-	});
-	if (updated.count !== 1) {
-		return { success: false, error: t("backend.auth.sessionCredentialsChanged") };
-	}
+  const updated = await prisma.user.updateMany({
+    where: {
+      id: input.userId,
+      passwordHash: user.passwordHash,
+      sessionEpoch: user.sessionEpoch ?? 0,
+      status: { not: "DISABLED" },
+    },
+    data: {
+      passwordHash: nextPasswordHash,
+      mustChangePassword: false,
+      status: "ACTIVE",
+      sessionEpoch: { increment: 1 },
+    },
+  });
+  if (updated.count !== 1) {
+    return { success: false, error: t("backend.auth.sessionCredentialsChanged") };
+  }
 
-	// Account-level, deliberately unstamped — see auth.password_change_skipped.
-	await auditUserAction(input.userId, "auth.password_change", { userId: input.userId });
+  // Account-level, deliberately unstamped — see auth.password_change_skipped.
+  await auditUserAction(input.userId, "auth.password_change", { userId: input.userId });
 
-	return {
-		success: true,
-		credentialBinding: captureSessionCredentialBinding({
-			passwordHash: nextPasswordHash,
-			sessionEpoch: (user.sessionEpoch ?? 0) + 1,
-		}),
-	};
+  return {
+    success: true,
+    credentialBinding: captureSessionCredentialBinding({
+      passwordHash: nextPasswordHash,
+      sessionEpoch: (user.sessionEpoch ?? 0) + 1,
+    }),
+  };
 }

@@ -1,5 +1,5 @@
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import {
   listMediaItems,
   listMediaTags,
@@ -10,7 +10,6 @@ import {
   PageHeader,
   StatGrid,
   StatCard,
-  PermissionDenied,
   EmptyState,
 } from "@/components/page-shell";
 import { ImageIcon } from "@/components/icons";
@@ -65,9 +64,7 @@ export default async function Page({
 }: {
   searchParams?: Promise<MediaSearchParams>;
 }) {
-  const session = await requireSession("/media");
-  if (!sessionHasPermission(session,"storage:read"))
-    return <PermissionDenied />;
+  const session = await requirePagePermission("storage:read", { redirectTo: "/media" });
   const canManageMedia = sessionHasPermission(session,"media:manage");
   const locale = await getServerLocale();
   const params = await searchParams;

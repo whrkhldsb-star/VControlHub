@@ -327,15 +327,15 @@ describe("createAiChatResponse", () => {
 
     expect(body).toContain('"type":"tool_call"');
     expect(body).toContain('"type":"tool_result","toolCallId":"tool-1","success":true');
-	expect(body).toContain('"type":"content","content":"hello"');
+  expect(body).toContain('"type":"content","content":"hello"');
     expect(body).toContain('"type":"done"');
-	expect(mocks.sendChatRequest).toHaveBeenCalledTimes(2);
-	expect(mocks.sendChatRequest.mock.calls[1]?.[0]).toEqual(expect.objectContaining({
-		messages: expect.arrayContaining([
-			expect.objectContaining({ role: "assistant", tool_calls: expect.any(Array) }),
-			expect.objectContaining({ role: "tool", tool_call_id: "tool-1" }),
-		]),
-	}));
+  expect(mocks.sendChatRequest).toHaveBeenCalledTimes(2);
+  expect(mocks.sendChatRequest.mock.calls[1]?.[0]).toEqual(expect.objectContaining({
+    messages: expect.arrayContaining([
+      expect.objectContaining({ role: "assistant", tool_calls: expect.any(Array) }),
+      expect.objectContaining({ role: "tool", tool_call_id: "tool-1" }),
+    ]),
+  }));
     expect(mocks.executeSafeAction).toHaveBeenCalledWith(
       { actionType: "list_servers", serverId: null, params: {} },
       { session, locale: "en" },
@@ -350,13 +350,13 @@ describe("createAiChatResponse", () => {
         completedAt: expect.any(Date),
       }),
     });
-	expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({
-		data: expect.objectContaining({
-			conversationId: conversation.id,
-			role: "assistant",
-			content: "hello",
-		}),
-	});
+  expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({
+    data: expect.objectContaining({
+      conversationId: conversation.id,
+      role: "assistant",
+      content: "hello",
+    }),
+  });
   });
 
   it("returns a readable tool summary when the model follow-up fails", async () => {

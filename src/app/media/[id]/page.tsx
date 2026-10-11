@@ -2,10 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Download, FolderOpen, ImageIcon, Music2, Star, Tag, Video } from "@/components/icons";
 
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { getMediaItem, listMediaItems } from "@/lib/media/service";
-import { PageShell, PageHeader, PermissionDenied } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { MediaPreviewClient } from "@/app/files/preview/media-preview-client";
 import {
   buildSearchHref,
@@ -80,10 +79,8 @@ export default async function MediaPlayerPage({
   params,
   searchParams,
 }: PageProps) {
-  const session = await requireSession("/media");
+  const session = await requirePagePermission("storage:read", { redirectTo: "/media" });
   const locale = await getServerLocale();
-  if (!sessionHasPermission(session,"storage:read"))
-    return <PermissionDenied />;
 
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const item = await getMediaItem(id, session);

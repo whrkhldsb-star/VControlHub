@@ -11,7 +11,7 @@ import {
   parseConfig,
   recordEvent,
   supportsInbound,
-	toEventRecord,
+  toEventRecord,
 } from "./service-internals";
 import type { ItsmEventRecord } from "./types";
 
@@ -76,23 +76,23 @@ export async function handleInboundWebhook(input: {
   const eventType = normalized.eventType;
   let ticketId = normalized.ticketId;
   let action = "ignored";
-	const releaseIdempotencyLock = normalized.externalId
-		? await acquireAdvisoryLock("itsm-inbound", `${row.id}:${normalized.externalId}`)
-		: async () => undefined;
+  const releaseIdempotencyLock = normalized.externalId
+    ? await acquireAdvisoryLock("itsm-inbound", `${row.id}:${normalized.externalId}`)
+    : async () => undefined;
   try {
-		if (normalized.externalId) {
-			const existingEvent = await prisma.itsmEvent.findFirst({
-				where: { connectionId: row.id, externalId: normalized.externalId },
-				orderBy: { createdAt: "desc" },
-			});
-			if (existingEvent) {
-				const event = toEventRecord(existingEvent);
-				const previousAction = typeof event.payload.action === "string"
-					? event.payload.action
-					: "duplicate";
-				return { event, ticketId: event.ticketId, action: previousAction };
-			}
-		}
+    if (normalized.externalId) {
+      const existingEvent = await prisma.itsmEvent.findFirst({
+        where: { connectionId: row.id, externalId: normalized.externalId },
+        orderBy: { createdAt: "desc" },
+      });
+      if (existingEvent) {
+        const event = toEventRecord(existingEvent);
+        const previousAction = typeof event.payload.action === "string"
+          ? event.payload.action
+          : "duplicate";
+        return { event, ticketId: event.ticketId, action: previousAction };
+      }
+    }
 
     if (normalized.commentBody && ticketId) {
       const commentTarget = await prisma.ticket.findFirst({
@@ -187,7 +187,7 @@ export async function handleInboundWebhook(input: {
       eventType,
     });
     throw err instanceof Error ? err : new Error(message);
-	} finally {
-		await releaseIdempotencyLock();
+  } finally {
+    await releaseIdempotencyLock();
   }
 }

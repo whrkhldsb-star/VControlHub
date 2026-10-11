@@ -14,18 +14,18 @@ import { getErrorMessage } from "@/lib/http/error-message";
 export const dynamic = "force-dynamic";
 
 const checkPortQuerySchema = z
-  .object({
-    port: z.coerce.number().int().min(1).max(65535).optional(),
-    action: z.enum(["check", "allocate", "used-ports"]).optional(),
-    preferred: z.coerce.number().int().min(1).max(65535).optional(),
+	.object({
+		port: z.coerce.number().int().min(1).max(65535).optional(),
+		action: z.enum(["check", "allocate", "used-ports"]).optional(),
+		preferred: z.coerce.number().int().min(1).max(65535).optional(),
 		serverId: z.string().min(1).optional(),
-  })
-  .transform((value) => ({
-    port: value.port,
-    action: value.action ?? "check",
-    preferred: value.preferred,
+	})
+	.transform((value) => ({
+		port: value.port,
+		action: value.action ?? "check",
+		preferred: value.preferred,
 		serverId: value.serverId,
-  }));
+	}));
 
 /** GET /api/quick-services/check-port?port=XXX — real-time port availability check */
 export async function GET(request: Request) {

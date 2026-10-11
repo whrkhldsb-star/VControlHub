@@ -52,7 +52,7 @@ export function AiChatHeader({
     <header className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
       {/* Mobile sidebar toggle */}
       <button
-		type="button"
+    type="button"
         onClick={onToggleSidebar}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] md:hidden"
         aria-label={t("common.openSidebar")}

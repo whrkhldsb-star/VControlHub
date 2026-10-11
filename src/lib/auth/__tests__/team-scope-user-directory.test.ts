@@ -5,9 +5,9 @@ const { mocks } = vi.hoisted(() => ({
   mocks: {
     sessionHasPermission: vi.fn(),
     prisma: {
-		user: {
-			findUnique: vi.fn(),
-		},
+    user: {
+      findUnique: vi.fn(),
+    },
       teamMember: {
         findUnique: vi.fn(),
       },

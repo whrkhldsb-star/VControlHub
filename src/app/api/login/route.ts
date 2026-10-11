@@ -22,10 +22,10 @@ const logger = createLogger("api:login");
 // guardMode: login
 
 const loginFormSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
-  next: z.string().optional(),
-  remember: z.string().optional(),
+	username: z.string().min(1, "Username is required"),
+	password: z.string().min(1, "Password is required"),
+	next: z.string().optional(),
+	remember: z.string().optional(),
 });
 
 function safeNextPath(nextValue: FormDataEntryValue | null) {
@@ -42,20 +42,20 @@ function redirectWithRelativeLocation(path: string, status: 303 = 303) {
 }
 
 export async function POST(request: Request) {
-  try {
-    // Login-CSRF guard: /api/login is exempt from the double-submit CSRF
-    // check in proxy.ts (no session exists yet to mint a token from), so a
-    // cross-site top-level form post with the attacker's credentials could
-    // otherwise install their session on the victim's browser. Reject any
-    // request that explicitly identifies as cross-site; non-browser clients
-    // (no Sec-Fetch-Site/Origin/Referer) are unaffected.
-    if (isCrossSiteFormPost(request)) {
-      const params = new URLSearchParams({ error: "invalid" });
-      return redirectWithRelativeLocation(`/login?${params.toString()}`);
-    }
+	try {
+		// Login-CSRF guard: /api/login is exempt from the double-submit CSRF
+		// check in proxy.ts (no session exists yet to mint a token from), so a
+		// cross-site top-level form post with the attacker's credentials could
+		// otherwise install their session on the victim's browser. Reject any
+		// request that explicitly identifies as cross-site; non-browser clients
+		// (no Sec-Fetch-Site/Origin/Referer) are unaffected.
+		if (isCrossSiteFormPost(request)) {
+			const params = new URLSearchParams({ error: "invalid" });
+			return redirectWithRelativeLocation(`/login?${params.toString()}`);
+		}
 
-    // Rate limiting — check both fast and slow windows
-    const clientIp = getClientIp(request);
+		// Rate limiting — check both fast and slow windows
+		const clientIp = getClientIp(request);
 		// Keep the fast and slow windows in separate buckets. Sharing the raw IP
 		// makes one login consume two entries and causes premature lockouts.
 		const fastCheck = await checkRateLimitAsync(`login:fast:${clientIp}`, LOGIN_RATE_LIMIT);

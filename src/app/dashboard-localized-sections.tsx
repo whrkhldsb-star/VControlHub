@@ -13,6 +13,8 @@ import {
   IconServer,
 } from "@/components/nav-icons";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { Badge as TagBadge } from "@/components/ui-primitives";
+import { announcementLevelLabel, announcementLevelTone } from "@/lib/announcement/level";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { ButtonLink } from "@/components/action-button";
@@ -50,6 +52,42 @@ type DashboardQueueSummary = {
 };
 
 type DashboardQuickLinksProps = DashboardQueueSummary;
+
+type DashboardAnnouncement = {
+  id: string;
+  title: string;
+  body: string;
+  level: string;
+  pinned: boolean;
+  startsAt: string;
+  formattedStartsAt: string;
+};
+
+/** Active platform announcements, pinned first; the full list is on /announcements. */
+export function DashboardAnnouncements({ items, total }: { items: DashboardAnnouncement[]; total: number }) {
+  const { t } = useI18n();
+  if (items.length === 0) return null;
+  return (
+    <ListPanel
+      title={t("dashboard.announcements.title")}
+      count={total}
+      className="mb-6"
+      actions={total > items.length ? <Link href="/announcements" className="inline-flex items-center gap-0.5 text-[13px] font-medium text-[var(--accent)] transition hover:text-[var(--accent-hover)]">{t("dashboard.view-all")}<IconChevronRight size={14} /></Link> : undefined}
+    >
+      {items.map((item) => (
+        <ListRow key={item.id}>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone={announcementLevelTone(item.level)} size="sm">{announcementLevelLabel(t, item.level)}</StatusBadge>
+            {item.pinned ? <TagBadge tone="accent">{t("common.pinned")}</TagBadge> : null}
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--text-primary)]">{item.title}</span>
+            <time className="shrink-0 text-xs text-[var(--text-muted)]" dateTime={item.startsAt} suppressHydrationWarning>{item.formattedStartsAt}</time>
+          </div>
+          <p className="mt-1 line-clamp-2 whitespace-pre-line text-[13px] leading-5 text-[var(--text-secondary)]">{item.body}</p>
+        </ListRow>
+      ))}
+    </ListPanel>
+  );
+}
 
 export function DashboardLocalizedHeader({ username }: { username: string }) {
   const { t } = useI18n();

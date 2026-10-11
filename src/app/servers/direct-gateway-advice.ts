@@ -40,8 +40,8 @@ export type DirectGatewayAdviceItem = {
 
 
 export function getDirectGatewayRepairAdvice(
-	t: (key: string, vars?: Record<string, string | number>) => string,
-	input: DirectGatewayInput,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  input: DirectGatewayInput,
 ): DirectGatewayAdviceItem[] {
   const result: DirectGatewayAdviceItem[] = [];
   const dg = input.directGateway;
@@ -175,8 +175,8 @@ export function getDirectGatewayRepairAdvice(
 
 
 export function getDirectGatewayHealthyNote(
-	t: (key: string, vars?: Record<string, string | number>) => string,
-	input: { statusLabel: string; publicUrl: string | null },
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  input: { statusLabel: string; publicUrl: string | null },
 ): string {
   if (input.publicUrl) {
     return t("directGatewayHealthyNote.withPublicUrl", { status: input.statusLabel, url: input.publicUrl });

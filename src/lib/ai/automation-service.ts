@@ -86,7 +86,7 @@ export async function materializeAutomationProposal(
 ) {
   const t = await serviceT();
   const input = createAutomationSchema(t).parse(raw);
-	const session = { userId: actor.userId, roles: actor.roles, currentTeamId: actor.currentTeamId ?? null };
+  const session = { userId: actor.userId, roles: actor.roles, currentTeamId: actor.currentTeamId ?? null };
   if (!sessionHasPermission(actor, "command:create")) {
     throw new ForbiddenError(t("backend.ai.missingPermissionCommandCreate"));
   }
@@ -102,7 +102,7 @@ export async function materializeAutomationProposal(
   const template = templateId || templateName
     ? await prisma.commandTemplate.findFirst({
         where: {
-		  ...commandTemplateScopeWhere(session),
+      ...commandTemplateScopeWhere(session),
           ...(templateId
             ? { id: templateId }
             : { name: { equals: templateName!, mode: "insensitive" } }),
@@ -124,7 +124,7 @@ export async function materializeAutomationProposal(
       variables: missingVariables.join(", "),
     }));
   }
-	validateBuiltinVariables(template, variables, t);
+  validateBuiltinVariables(template, variables, t);
   const command = renderCommand(templateCommand, variables);
   const rollbackCommand = input.rollbackCommand
     ?? (template?.rollbackCommand ? renderCommand(template.rollbackCommand, variables) : undefined);
@@ -139,7 +139,7 @@ export async function materializeAutomationProposal(
     const batch = await prisma.server.findMany({
       where: {
         enabled: true,
-	  ...serverTeamWhere(session, "connect"),
+    ...serverTeamWhere(session, "connect"),
         ...(input.targetScope === "selected" ? { id: { in: requestedIds } } : {}),
       },
       select: { id: true, name: true, host: true, teamId: true },
@@ -181,7 +181,7 @@ export async function executeAutomationProposal(
   hostedActionId: string,
 ) {
   const proposal = await materializeAutomationProposal(raw, actor);
-	const session = { userId: actor.userId, roles: actor.roles, currentTeamId: actor.currentTeamId ?? null };
+  const session = { userId: actor.userId, roles: actor.roles, currentTeamId: actor.currentTeamId ?? null };
   if (proposal.executionMode === "now") {
     const request = await createCommandRequest({
       title: `AI automation: ${proposal.name}`,

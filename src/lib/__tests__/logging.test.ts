@@ -21,7 +21,7 @@ describe("logging", () => {
         databaseUrl: "postgresql://REDACTED_DATABASE_URL_PLACEHOLDER",
       },
       list: [{ authorization: "Bearer abc123" }],
-		secrets: ["plain-secret-value"],
+    secrets: ["plain-secret-value"],
     });
 
     expect(redacted).toEqual({
@@ -33,7 +33,7 @@ describe("logging", () => {
         databaseUrl: "[REDACTED]",
       },
       list: [{ authorization: "[REDACTED]" }],
-		secrets: "[REDACTED]",
+    secrets: "[REDACTED]",
     });
   });
 

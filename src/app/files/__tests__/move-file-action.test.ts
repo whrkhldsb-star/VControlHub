@@ -2,15 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { moveBackingObjectMock, fileEntryMock, shareLinkMock } = vi.hoisted(() => ({
   moveBackingObjectMock: vi.fn(),
-	fileEntryMock: {
-		findFirst: vi.fn(),
-		findMany: vi.fn(),
-		update: vi.fn(),
-	},
-	shareLinkMock: {
-		findMany: vi.fn(),
-		update: vi.fn(),
-	},
+  fileEntryMock: {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+  },
+  shareLinkMock: {
+    findMany: vi.fn(),
+    update: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({
@@ -26,9 +26,9 @@ vi.mock("@/lib/auth/authorization", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-		fileEntry: fileEntryMock,
-		shareLink: shareLinkMock,
-		$transaction: vi.fn(async (callback) => callback({ fileEntry: fileEntryMock, shareLink: shareLinkMock })),
+    fileEntry: fileEntryMock,
+    shareLink: shareLinkMock,
+    $transaction: vi.fn(async (callback) => callback({ fileEntry: fileEntryMock, shareLink: shareLinkMock })),
   },
 }));
 
@@ -78,8 +78,8 @@ const baseEntry = {
 };
 
 function mockEntryLookup(entry: unknown) {
-	// Entry lookup uses where.id: string; collision probe uses where.id: { not }.
-	mockPrismaFindFirstById(prisma.fileEntry.findFirst as never, entry);
+  // Entry lookup uses where.id: string; collision probe uses where.id: { not }.
+  mockPrismaFindFirstById(prisma.fileEntry.findFirst as never, entry);
 }
 
 describe("moveFileAction", () => {

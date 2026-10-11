@@ -27,7 +27,6 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.launch.variablesHint": "下发前请填入实际值",
 	"deploymentsPage.launch.variablesTitle": "模板变量",
 
-	"deploymentsPage.page.noPermission": "你没有应用部署查看权限。",
 	"deploymentsPage.page.eyebrow": "部署",
 	"deploymentsPage.page.title": "应用部署",
 	"deploymentsPage.page.description": "选择部署模板 → 填写变量 → 选择目标 VPS → 提交审批 → 自动执行。",
@@ -135,7 +134,6 @@ export const en: Record<string, string> = {
 	"deploymentsPage.launch.variablesHint": "Fill in actual values before dispatching",
 	"deploymentsPage.launch.variablesTitle": "Template variables",
 
-	"deploymentsPage.page.noPermission": "You do not have permission to view deployments.",
 	"deploymentsPage.page.eyebrow": "Deploy",
 	"deploymentsPage.page.title": "Application deployment",
 	"deploymentsPage.page.description": "Pick a template → fill variables → pick target VPS → submit for approval → run automatically.",

@@ -1,23 +1,14 @@
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePlatformAdminPage } from "@/lib/auth/page-guard";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { SystemHealthClient } from "./system-health-client";
-import { Notice } from "@/components/ui-primitives";
 
+export const dynamic = "force-dynamic";
+
+/** The platform self-check: platform administrators only (customers watch their servers on /vps-status). */
 export default async function HealthPage() {
 	const locale = await getServerLocale();
-	const session = await requireSession("/health");
-
-	if (!sessionHasPermission(session, "health:read")) {
-		return (
-			<PageShell>
-				<Notice tone="warning" title={t("healthPage.noPermission", locale)}>
-					{t("healthPage.noPermissionHint", locale)}
-				</Notice>
-			</PageShell>
-		);
-	}
+	await requirePlatformAdminPage({ redirectTo: "/health" });
 
 	return (
 		<PageShell>

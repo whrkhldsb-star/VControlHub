@@ -16,6 +16,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { PLATFORM_PAGE_PERMISSIONS, isPlatformOnlyPage } from "./platform-pages";
 import type { Permission } from "./rbac";
 
 interface RouteCatalogPage {
@@ -41,7 +42,9 @@ function getAllDeclaredPermissions(): Record<string, readonly Permission[]> {
 		const catalog = loadRouteCatalog();
 		const map: Record<string, readonly Permission[]> = {};
 		for (const page of catalog.pages) {
-			map[page.path] = (page.navigationPermissions ?? page.declaredPermissions) as readonly Permission[];
+			map[page.path] = isPlatformOnlyPage(page.path)
+				? PLATFORM_PAGE_PERMISSIONS
+				: ((page.navigationPermissions ?? page.declaredPermissions) as readonly Permission[]);
 		}
 		cache = map;
 	}

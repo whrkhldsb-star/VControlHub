@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui-primitives";
 
 import { ActionButton } from "@/components/action-button";
 type StorageNodeItem = {
-  webdavConfig?: StorageNodeFieldValues["webdavConfig"];
+	webdavConfig?: StorageNodeFieldValues["webdavConfig"];
 	id: string;
 	name: string;
 	driver: string;
@@ -45,7 +45,7 @@ export function StorageNodeList({
 	servers: Array<{ id: string; name: string; host: string }>;
 	canManageNodes: boolean;
 }) {
-  const { t } = useI18n();
+	const { t } = useI18n();
 	if (nodes.length === 0) {
 		return <EmptyState variant="boxed">{t("storagePage.list.empty")}</EmptyState>;
 	}

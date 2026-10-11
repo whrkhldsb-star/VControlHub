@@ -20,34 +20,34 @@ function renderGlobalSearch(locale: "zh" | "en" = "zh") {
 }
 
 describe("GlobalSearch", () => {
-  afterEach(() => vi.unstubAllGlobals());
-  it("hides previous remote matches immediately when the query changes", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ label: "Old remote result", href: "/servers", category: "Server" }] })))
-      .mockImplementation(() => new Promise(() => {}));
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
-    renderGlobalSearch("en");
-    act(() => window.dispatchEvent(new Event("vcontrolhub:open-global-search")));
-    const input = await screen.findByRole("combobox");
-    await user.type(input, "remote-old");
-    expect(await screen.findByText("Old remote result")).toBeVisible();
-    await user.type(input, "-new");
-    expect(screen.queryByText("Old remote result")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-  it("makes remote search failures visible and aborts on close", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "Search unavailable" }), { status: 503 }));
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
-    renderGlobalSearch();
-    act(() => window.dispatchEvent(new Event("vcontrolhub:open-global-search")));
-    await user.type(await screen.findByRole("combobox"), "remote");
-    expect(await screen.findByRole("alert")).toHaveTextContent("Search unavailable");
-    const signal = fetchMock.mock.calls[0]?.[1].signal as AbortSignal;
-    await user.keyboard("{Escape}");
-    expect(signal.aborted).toBe(true);
-  });
+	afterEach(() => vi.unstubAllGlobals());
+	it("hides previous remote matches immediately when the query changes", async () => {
+		const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ label: "Old remote result", href: "/servers", category: "Server" }] })))
+			.mockImplementation(() => new Promise(() => {}));
+		vi.stubGlobal("fetch", fetchMock);
+		const user = userEvent.setup();
+		renderGlobalSearch("en");
+		act(() => window.dispatchEvent(new Event("vcontrolhub:open-global-search")));
+		const input = await screen.findByRole("combobox");
+		await user.type(input, "remote-old");
+		expect(await screen.findByText("Old remote result")).toBeVisible();
+		await user.type(input, "-new");
+		expect(screen.queryByText("Old remote result")).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Close" }));
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	});
+	it("makes remote search failures visible and aborts on close", async () => {
+		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "Search unavailable" }), { status: 503 }));
+		vi.stubGlobal("fetch", fetchMock);
+		const user = userEvent.setup();
+		renderGlobalSearch();
+		act(() => window.dispatchEvent(new Event("vcontrolhub:open-global-search")));
+		await user.type(await screen.findByRole("combobox"), "remote");
+		expect(await screen.findByRole("alert")).toHaveTextContent("Search unavailable");
+		const signal = fetchMock.mock.calls[0]?.[1].signal as AbortSignal;
+		await user.keyboard("{Escape}");
+		expect(signal.aborted).toBe(true);
+	});
 	it("routes to existing application pages from search results", async () => {
 		pushMock.mockClear();
 		const user = userEvent.setup();

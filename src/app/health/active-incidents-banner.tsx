@@ -21,7 +21,7 @@ type ActiveAnnouncement = {
 const INCIDENT_LEVELS = new Set(["incident", "maintenance"]);
 
 export function ActiveIncidentsBanner() {
-  const { t, locale } = useI18n();
+	const { t, locale } = useI18n();
 	const [incidents, setIncidents] = useState<ActiveAnnouncement[]>([]);
 	const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
