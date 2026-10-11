@@ -21,6 +21,7 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 - Platform-only pages: the platform self-check (`/health`) and the hub host monitor (`/monitoring`) describe the machine every customer shares, so they and their APIs now open only for platform administrators; customer accounts keep `/vps-status` (with capacity forecast) and `/alert-rules`. Navigation, ⌘K search and the `G` shortcuts hide them accordingly.
 - Announcements reach their readers: the page is listed in the sidebar for every signed-in account (publishing stays platform-only, as the guide always said), and the dashboard shows the latest active announcements.
 - The dashboard's first-setup checklist lists only the items the account may complete; a customer read-only account no longer sees rows that lead to "no permission".
+- Indentation: 178 files that mixed tabs and spaces (the code base grew under several hands) are normalised to each file's dominant style; `npm run indent:fix -- <file>` repeats that for a file and a unit test keeps every file to one style.
 - One permission guard for every page: thirteen pages that drew their own "no permission" banner (each with different copy and layout) now go through `requirePagePermission`, so a refused page always shows the shared denial surface and navigation advertises exactly the admission permission. The ITSM page is admitted by `ticket:manage` only; `ticket:read` holders no longer see a page that then refuses them.
 
 ### Fixed

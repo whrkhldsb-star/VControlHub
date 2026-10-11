@@ -13,33 +13,33 @@ import { config } from "@/lib/config/env";
 import { getRateLimitStore } from "@/lib/rate-limit-store";
 
 type RateLimitConfig = {
-  /** Max requests allowed within the window */
-  maxRequests: number;
-  /** Window duration in milliseconds */
-  windowMs: number;
+	/** Max requests allowed within the window */
+	maxRequests: number;
+	/** Window duration in milliseconds */
+	windowMs: number;
 };
 
 const DEFAULT_CONFIG: RateLimitConfig = {
-  maxRequests: 10,
-  windowMs: 60 * 1000, // 1 minute
+	maxRequests: 10,
+	windowMs: 60 * 1000, // 1 minute
 };
 
 export async function checkRateLimitAsync(
-  identifier: string,
-  config: RateLimitConfig = DEFAULT_CONFIG,
+	identifier: string,
+	config: RateLimitConfig = DEFAULT_CONFIG,
 ): Promise<{ allowed: boolean; retryAfterMs: number; remaining: number }> {
-  const now = Date.now();
-  const timestamps = await getRateLimitStore().addAndGetWindow(identifier, now, config.windowMs);
+	const now = Date.now();
+	const timestamps = await getRateLimitStore().addAndGetWindow(identifier, now, config.windowMs);
 
-  if (timestamps.length > config.maxRequests) {
-    // Rejected attempts also occupy the shared window. Leave room for the
-    // next request itself, not just for the oldest timestamp to expire.
-    const expiresForNextRequest = timestamps[timestamps.length - config.maxRequests] ?? now;
-    const retryAfterMs = expiresForNextRequest + config.windowMs - now;
-    return { allowed: false, retryAfterMs: Math.max(retryAfterMs, 0), remaining: 0 };
-  }
+	if (timestamps.length > config.maxRequests) {
+		// Rejected attempts also occupy the shared window. Leave room for the
+		// next request itself, not just for the oldest timestamp to expire.
+		const expiresForNextRequest = timestamps[timestamps.length - config.maxRequests] ?? now;
+		const retryAfterMs = expiresForNextRequest + config.windowMs - now;
+		return { allowed: false, retryAfterMs: Math.max(retryAfterMs, 0), remaining: 0 };
+	}
 
-  return { allowed: true, retryAfterMs: 0, remaining: Math.max(config.maxRequests - timestamps.length, 0) };
+	return { allowed: true, retryAfterMs: 0, remaining: Math.max(config.maxRequests - timestamps.length, 0) };
 }
 
 /**
@@ -58,25 +58,25 @@ export async function checkRateLimitAsync(
  * that as a shared bucket, which is safe (conservative), unlike a spoofed one.
  */
 export function getClientIp(request: Request): string {
-  const hops = config.http.trustedProxyHops;
-  if (hops <= 0) return "unknown";
+	const hops = config.http.trustedProxyHops;
+	if (hops <= 0) return "unknown";
 
-  if (config.http.trustCloudflareHeader) {
-    const cfIp = normalizeClientIp(request.headers.get("cf-connecting-ip") ?? "");
-    if (cfIp) return cfIp;
-  }
+	if (config.http.trustCloudflareHeader) {
+		const cfIp = normalizeClientIp(request.headers.get("cf-connecting-ip") ?? "");
+		if (cfIp) return cfIp;
+	}
 
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    const entries = forwardedFor
-      .split(",")
-      .map((entry) => normalizeClientIp(entry))
-      .filter((entry): entry is string => entry !== null);
-    // Rightmost entry is contributed by the nearest trusted proxy.
-    const candidate = entries[entries.length - hops];
-    if (candidate) return candidate;
-  }
-  return "unknown";
+	const forwardedFor = request.headers.get("x-forwarded-for");
+	if (forwardedFor) {
+		const entries = forwardedFor
+			.split(",")
+			.map((entry) => normalizeClientIp(entry))
+			.filter((entry): entry is string => entry !== null);
+		// Rightmost entry is contributed by the nearest trusted proxy.
+		const candidate = entries[entries.length - hops];
+		if (candidate) return candidate;
+	}
+	return "unknown";
 }
 
 /**
@@ -85,25 +85,25 @@ export function getClientIp(request: Request): string {
  * be able to inject unbounded or multi-line data.
  */
 function normalizeClientIp(raw: string): string | null {
-  let candidate = raw.trim();
-  if (!candidate) return null;
-  if (candidate.startsWith("[")) {
-    // "[2001:db8::1]:443" → "2001:db8::1"
-    const close = candidate.indexOf("]");
-    if (close > 0) candidate = candidate.slice(1, close);
-  } else if (candidate.split(":").length === 2) {
-    // "203.0.113.10:54321" → "203.0.113.10"
-    candidate = candidate.slice(0, candidate.lastIndexOf(":"));
-  }
-  candidate = candidate.trim();
-  if (!candidate || candidate.length > 64 || /[\r\n\s]/.test(candidate)) return null;
-  return candidate;
+	let candidate = raw.trim();
+	if (!candidate) return null;
+	if (candidate.startsWith("[")) {
+		// "[2001:db8::1]:443" → "2001:db8::1"
+		const close = candidate.indexOf("]");
+		if (close > 0) candidate = candidate.slice(1, close);
+	} else if (candidate.split(":").length === 2) {
+		// "203.0.113.10:54321" → "203.0.113.10"
+		candidate = candidate.slice(0, candidate.lastIndexOf(":"));
+	}
+	candidate = candidate.trim();
+	if (!candidate || candidate.length > 64 || /[\r\n\s]/.test(candidate)) return null;
+	return candidate;
 }
 
 /** Login-specific rate limit: 5 attempts per minute per IP */
 export const LOGIN_RATE_LIMIT: RateLimitConfig = {
-  maxRequests: 5,
-  windowMs: 60 * 1000,
+	maxRequests: 5,
+	windowMs: 60 * 1000,
 };
 
 /** Login-specific rate limit: 20 attempts per 15 minutes per IP (slower brute force) */

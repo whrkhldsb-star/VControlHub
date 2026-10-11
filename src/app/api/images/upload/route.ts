@@ -129,7 +129,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     let detectedFormat: string;
     try {
       const meta = await extractMetadata(buffer);
-			if (!meta.format || meta.format === "svg" || meta.width <= 0 || meta.height <= 0) throw new Error("Invalid image dimensions or format");
+      if (!meta.format || meta.format === "svg" || meta.width <= 0 || meta.height <= 0) throw new Error("Invalid image dimensions or format");
       // Decompression-bomb guard: a small file can carry gigapixel dimensions.
       // sharp's openImage() already caps decode, but reject here with a clear
       // message before we run it three more times for the variants.
@@ -143,8 +143,8 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
       detectedMime = canonicalImageMime(meta.format);
       detectedFormat = meta.format;
     } catch (error) {
-			if (error instanceof ValidationError) throw error;
-			throw new ValidationError(t("api.image.invalidImage", locale));
+      if (error instanceof ValidationError) throw error;
+      throw new ValidationError(t("api.image.invalidImage", locale));
     }
 
     // Client extensions can collide with generated variants (PNG named .webp).

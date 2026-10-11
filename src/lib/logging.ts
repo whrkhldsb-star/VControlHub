@@ -73,12 +73,12 @@ function emit(level: LogLevel, scope: string, message: string, errorOrContext?: 
 }
 
 export function createLogger(scope: string) {
-	return {
-		debug: (message: string, context?: LogContext) => emit("debug", scope, message, context),
-		info: (message: string, context?: LogContext) => emit("info", scope, message, context),
-		warn: (message: string, errorOrContext?: unknown, context?: LogContext) => emit("warn", scope, message, errorOrContext, context),
-		error: (message: string, error?: unknown, context?: LogContext) => emit("error", scope, message, error, context),
-	};
+  return {
+    debug: (message: string, context?: LogContext) => emit("debug", scope, message, context),
+    info: (message: string, context?: LogContext) => emit("info", scope, message, context),
+    warn: (message: string, errorOrContext?: unknown, context?: LogContext) => emit("warn", scope, message, errorOrContext, context),
+    error: (message: string, error?: unknown, context?: LogContext) => emit("error", scope, message, error, context),
+  };
 }
 
 const defaultLogger = createLogger("app");

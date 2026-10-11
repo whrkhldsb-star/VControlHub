@@ -26,7 +26,7 @@ const { listOperationTaskResult } = await import("../service");
 const MANAGER = { userId: "admin-1", roles: ["admin"] as const, currentTeamId: "team-1" };
 type ListOptions = Parameters<typeof listOperationTaskResult>[0];
 const listTasks = async (options: ListOptions = {}) =>
-	(await listOperationTaskResult(options, { ...MANAGER, roles: [...MANAGER.roles] })).tasks;
+  (await listOperationTaskResult(options, { ...MANAGER, roles: [...MANAGER.roles] })).tasks;
 const { getOperationTaskListLimit } = await import("@/lib/runtime-settings/service");
 
 describe("operation task service", () => {

@@ -468,7 +468,7 @@ describe("backup service", () => {
     }
   });
 
-	it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {
+  it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {
     await expect(restoreBackupRecord({ id: "bak1", confirm: "NOPE", projectRoot: "/opt/app" })).rejects.toThrow("恢复操作需要显式确认");
     expect(runBackupCommandMock).not.toHaveBeenCalled();
 
@@ -478,16 +478,16 @@ describe("backup service", () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak4", type: "DATABASE", status: "COMPLETED", filePath: "../database.sql.gz" });
     await expect(restoreBackupRecord({ id: "bak4", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("备份路径必须是可移植的相对路径");
     expect(runBackupCommandMock).not.toHaveBeenCalled();
-	});
+  });
 
-	it("refuses restore when the artifact checksum is missing or mismatched", async () => {
-		mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak5", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: null });
-		await expect(restoreBackupRecord({ id: "bak5", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("缺少校验和");
+  it("refuses restore when the artifact checksum is missing or mismatched", async () => {
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak5", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: null });
+    await expect(restoreBackupRecord({ id: "bak5", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("缺少校验和");
 
-		mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak6", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: "0".repeat(64) });
-		await expect(restoreBackupRecord({ id: "bak6", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("校验和验证失败");
-		expect(runBackupCommandMock).not.toHaveBeenCalled();
-	});
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak6", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: "0".repeat(64) });
+    await expect(restoreBackupRecord({ id: "bak6", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("校验和验证失败");
+    expect(runBackupCommandMock).not.toHaveBeenCalled();
+  });
 
   it("summarizes backup policy capacity, type mix, retention hints, and failure reasons", () => {
     const summary = summarizeBackupPolicy([
@@ -527,7 +527,7 @@ describe("backup service", () => {
 
   it("formats backup sizes without rounding small artifacts down to 0 MB", () => {
     expect(formatBackupSize(null)).toBe("—");
-		expect(formatBackupSize(0)).toBe("0 B");
+    expect(formatBackupSize(0)).toBe("0 B");
     expect(formatBackupSize("512")).toBe("512 B");
     expect(formatBackupSize(1536)).toBe("1.5 KB");
     expect(formatBackupSize(2 * 1024 * 1024)).toBe("2.0 MB");

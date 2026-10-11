@@ -11,9 +11,9 @@ const {
   imageCreateMock,
   storageFindFirstMock,
   assertStorageAccessMock,
-	indexLinkedStorageImageMock,
-	releaseStorageQuotaGuardMock,
-	extractMetadataMock,
+  indexLinkedStorageImageMock,
+  releaseStorageQuotaGuardMock,
+  extractMetadataMock,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
@@ -21,9 +21,9 @@ const {
   imageCreateMock: vi.fn(),
   storageFindFirstMock: vi.fn(),
   assertStorageAccessMock: vi.fn(),
-	indexLinkedStorageImageMock: vi.fn(),
-	releaseStorageQuotaGuardMock: vi.fn(),
-	extractMetadataMock: vi.fn(),
+  indexLinkedStorageImageMock: vi.fn(),
+  releaseStorageQuotaGuardMock: vi.fn(),
+  extractMetadataMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
@@ -88,7 +88,7 @@ function uploadRequest(
   return new Request("http://local/api/images/upload", {
     method: "POST",
     body: formData,
-		headers: {
+    headers: {
       "x-forwarded-for": `192.0.2.${++requestSequence}`,
       // Real browser multipart uploads always declare a length; the route
       // rejects a missing Content-Length with 411 before parsing the body.
@@ -114,9 +114,9 @@ describe("POST /api/images/upload", () => {
     authenticateBearerMock.mockResolvedValue(null);
     imageCreateMock.mockResolvedValue({ id: "img_1", filename: "photo.png" });
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
-		indexLinkedStorageImageMock.mockResolvedValue(undefined);
-		releaseStorageQuotaGuardMock.mockResolvedValue(undefined);
-		extractMetadataMock.mockResolvedValue({ width: 2, height: 2, format: "png", sizeBytes: 3 });
+    indexLinkedStorageImageMock.mockResolvedValue(undefined);
+    releaseStorageQuotaGuardMock.mockResolvedValue(undefined);
+    extractMetadataMock.mockResolvedValue({ width: 2, height: 2, format: "png", sizeBytes: 3 });
   });
 
   afterEach(async () => {
@@ -234,53 +234,53 @@ describe("POST /api/images/upload", () => {
     expect(imageCreateMock).not.toHaveBeenCalled();
   });
 
-	it("rejects MIME-spoofed bytes that cannot be decoded as an image", async () => {
-		extractMetadataMock.mockRejectedValueOnce(new Error("unsupported image format"));
+  it("rejects MIME-spoofed bytes that cannot be decoded as an image", async () => {
+    extractMetadataMock.mockRejectedValueOnce(new Error("unsupported image format"));
 
-		const response = await POST(uploadRequest());
+    const response = await POST(uploadRequest());
 
-		expect(response.status).toBe(400);
-		expect(imageCreateMock).not.toHaveBeenCalled();
-		expect(await listFiles(uploadRoot)).toEqual([]);
-	});
+    expect(response.status).toBe(400);
+    expect(imageCreateMock).not.toHaveBeenCalled();
+    expect(await listFiles(uploadRoot)).toEqual([]);
+  });
 
-	it("rejects a decompression bomb whose decoded dimensions exceed the pixel cap", async () => {
-		// A small file can still declare gigapixel dimensions. Reject before we
-		// run the variant encoders three more times.
-		extractMetadataMock.mockResolvedValueOnce({
-			width: 60000,
-			height: 60000,
-			format: "png",
-			sizeBytes: 3,
-		});
+  it("rejects a decompression bomb whose decoded dimensions exceed the pixel cap", async () => {
+    // A small file can still declare gigapixel dimensions. Reject before we
+    // run the variant encoders three more times.
+    extractMetadataMock.mockResolvedValueOnce({
+      width: 60000,
+      height: 60000,
+      format: "png",
+      sizeBytes: 3,
+    });
 
-		const response = await POST(uploadRequest());
+    const response = await POST(uploadRequest());
 
-		expect(response.status).toBe(400);
-		expect(imageCreateMock).not.toHaveBeenCalled();
-		expect(await listFiles(uploadRoot)).toEqual([]);
-	});
+    expect(response.status).toBe(400);
+    expect(imageCreateMock).not.toHaveBeenCalled();
+    expect(await listFiles(uploadRoot)).toEqual([]);
+  });
 
-	it("persists the sharp-detected MIME, not the client-declared Content-Type", async () => {
-		// Client Blob claims image/png (see uploadRequest), but sharp sniffs webp.
-		// The stored record must reflect the real bytes so a spoofed header can
-		// never dictate how the file is later served.
-		extractMetadataMock.mockResolvedValueOnce({
-			width: 2,
-			height: 2,
-			format: "webp",
-			sizeBytes: 3,
-		});
+  it("persists the sharp-detected MIME, not the client-declared Content-Type", async () => {
+    // Client Blob claims image/png (see uploadRequest), but sharp sniffs webp.
+    // The stored record must reflect the real bytes so a spoofed header can
+    // never dictate how the file is later served.
+    extractMetadataMock.mockResolvedValueOnce({
+      width: 2,
+      height: 2,
+      format: "webp",
+      sizeBytes: 3,
+    });
 
-		const response = await POST(uploadRequest());
+    const response = await POST(uploadRequest());
 
-		expect(response.status).toBe(201);
-		expect(imageCreateMock).toHaveBeenCalledWith(
-			expect.objectContaining({
-				data: expect.objectContaining({ mimeType: "image/webp" }),
-			}),
-		);
-	});
+    expect(response.status).toBe(201);
+    expect(imageCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ mimeType: "image/webp" }),
+      }),
+    );
+  });
 
   it.each(["photo.webp", "photo.avif"])("preserves original bytes when a PNG is named %s", async (filename) => {
     const response = await POST(uploadRequest(undefined, undefined, filename));

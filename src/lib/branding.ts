@@ -52,16 +52,16 @@ export function getSiteName(env: NodeJS.ProcessEnv = process.env) {
 }
 
 export function getPublicLabel(env?: NodeJS.ProcessEnv) {
-	const sourceEnv = env ?? process.env;
-	const trimmed = readTrimmed(env ? env.NEXT_PUBLIC_APP_PUBLIC_LABEL : PUBLIC_LABEL_ENV);
+  const sourceEnv = env ?? process.env;
+  const trimmed = readTrimmed(env ? env.NEXT_PUBLIC_APP_PUBLIC_LABEL : PUBLIC_LABEL_ENV);
   if (!trimmed) {
     return DEFAULT_PUBLIC_LABEL;
   }
 
   const normalized = normalizeToken(trimmed);
-	const appNameNormalized = normalizeToken(getAppName(sourceEnv));
-	const appSlugNormalized = normalizeToken(getAppSlug(sourceEnv));
-	if (normalized === appNameNormalized || normalized === appSlugNormalized || isInstallDomainLabel(trimmed, sourceEnv)) {
+  const appNameNormalized = normalizeToken(getAppName(sourceEnv));
+  const appSlugNormalized = normalizeToken(getAppSlug(sourceEnv));
+  if (normalized === appNameNormalized || normalized === appSlugNormalized || isInstallDomainLabel(trimmed, sourceEnv)) {
     return DEFAULT_PUBLIC_LABEL;
   }
 
@@ -69,9 +69,9 @@ export function getPublicLabel(env?: NodeJS.ProcessEnv) {
 }
 
 export function getAppDescription(env?: NodeJS.ProcessEnv) {
-	return readTrimmed(env ? env.NEXT_PUBLIC_APP_DESCRIPTION : PUBLIC_DESCRIPTION_ENV) || DEFAULT_DESCRIPTION;
+  return readTrimmed(env ? env.NEXT_PUBLIC_APP_DESCRIPTION : PUBLIC_DESCRIPTION_ENV) || DEFAULT_DESCRIPTION;
 }
 
 export function getAppMetadataTitle(env: NodeJS.ProcessEnv = process.env) {
-	return `${getSiteName(env)} | ${getAppDescription(env)}`;
+  return `${getSiteName(env)} | ${getAppDescription(env)}`;
 }

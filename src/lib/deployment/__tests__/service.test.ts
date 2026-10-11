@@ -10,7 +10,7 @@ const { mockPrisma, mockTeamWhere, mockDeploymentRunTeamWhere, mockTeamCreateDat
     deploymentSnapshot: { create: vi.fn() },
     deploymentRollbackRun: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     server: { findMany: vi.fn() },
-		$transaction: vi.fn(),
+    $transaction: vi.fn(),
   },
   mockTeamWhere: vi.fn(),
   mockDeploymentRunTeamWhere: vi.fn(),
@@ -54,7 +54,7 @@ describe("deployment service", () => {
     mockTeamWhere.mockReturnValue({ teamId: "team_a" });
     mockDeploymentRunTeamWhere.mockReturnValue({ teamId: "team_a" });
     mockTeamCreateData.mockReturnValue({ teamId: "team_a" });
-		mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
+    mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.server.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
       (where.id.in ?? []).map((id: string) => ({ id })),
     );

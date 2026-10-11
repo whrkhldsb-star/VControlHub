@@ -20,8 +20,8 @@ import { describeCron } from "@/lib/scheduled-task/describe-cron";
 
 const scheduledTaskPostSchema = z.object({
   name: z.string().min(1),
-	scheduleType: z.enum(["CRON", "ONCE"]).optional(),
-	runAt: z.coerce.date().optional(),
+  scheduleType: z.enum(["CRON", "ONCE"]).optional(),
+  runAt: z.coerce.date().optional(),
   cron: z.string().min(1).optional(),
   command: z.string().min(1),
   serverId: z.string().min(1).optional(),
@@ -30,11 +30,11 @@ const scheduledTaskPostSchema = z.object({
   cronExpression: z.string().min(1).optional(),
   reason: z.string().optional(),
   serverIds: z.array(z.string()).optional(),
-	plan: z.string().max(10000).optional(),
-	verificationCommand: z.string().max(10000).optional(),
-	rollbackCommand: z.string().max(10000).optional(),
-	approvalRequired: z.boolean().optional(),
-	templateId: z.string().min(1).nullable().optional(),
+  plan: z.string().max(10000).optional(),
+  verificationCommand: z.string().max(10000).optional(),
+  rollbackCommand: z.string().max(10000).optional(),
+  approvalRequired: z.boolean().optional(),
+  templateId: z.string().min(1).nullable().optional(),
 }).refine((data) => data.scheduleType === "ONCE" ? Boolean(data.runAt) : Boolean(data.cronExpression ?? data.cron), {
   message: "请填写 Cron 表达式",
   path: ["cronExpression"],
@@ -57,13 +57,13 @@ const scheduledTaskPatchSchema = z.object({
   description: z.string().optional(),
   enabled: z.boolean().optional(),
   status: z.enum(["ACTIVE", "PAUSED", "DISABLED"]).optional(),
-	scheduleType: z.enum(["CRON", "ONCE"]).optional(),
-	runAt: z.coerce.date().nullable().optional(),
-	plan: z.string().max(10000).optional(),
-	verificationCommand: z.string().max(10000).optional(),
-	rollbackCommand: z.string().max(10000).optional(),
-	approvalRequired: z.boolean().optional(),
-	templateId: z.string().min(1).nullable().optional(),
+  scheduleType: z.enum(["CRON", "ONCE"]).optional(),
+  runAt: z.coerce.date().nullable().optional(),
+  plan: z.string().max(10000).optional(),
+  verificationCommand: z.string().max(10000).optional(),
+  rollbackCommand: z.string().max(10000).optional(),
+  approvalRequired: z.boolean().optional(),
+  templateId: z.string().min(1).nullable().optional(),
 });
 
 export const dynamic = "force-dynamic";
@@ -100,19 +100,19 @@ export async function GET(request: Request) {
         id: task.id,
         name: task.name,
         cronExpression: task.cronExpression,
-		cronDescription: task.scheduleType === "ONCE"
-			? t("scheduledTasks.schedule.once", locale)
-			: describeCron(task.cronExpression, (key, vars) => t(key, locale, vars)) ?? task.cronExpression,
-		scheduleType: task.scheduleType,
-		runAt: task.runAt?.toISOString() ?? null,
+    cronDescription: task.scheduleType === "ONCE"
+      ? t("scheduledTasks.schedule.once", locale)
+      : describeCron(task.cronExpression, (key, vars) => t(key, locale, vars)) ?? task.cronExpression,
+    scheduleType: task.scheduleType,
+    runAt: task.runAt?.toISOString() ?? null,
         command: task.command,
         reason: task.reason,
-		plan: task.plan,
-		verificationCommand: task.verificationCommand,
-		rollbackCommand: task.rollbackCommand,
-		approvalRequired: task.approvalRequired,
-		source: task.source,
-		templateId: task.templateId,
+    plan: task.plan,
+    verificationCommand: task.verificationCommand,
+    rollbackCommand: task.rollbackCommand,
+    approvalRequired: task.approvalRequired,
+    source: task.source,
+    templateId: task.templateId,
         status: task.status,
         serverIds: task.serverIds,
         lastRunAt: task.lastRunAt?.toISOString() ?? null,
@@ -139,27 +139,27 @@ export async function POST(request: Request) {
     },
     async ({ session, body: data }) => {
       const locale = await getServerLocale();
-		const cronExpression = data.cronExpression ?? data.cron;
-		if (data.scheduleType !== "ONCE" && !cronExpression)
+    const cronExpression = data.cronExpression ?? data.cron;
+    if (data.scheduleType !== "ONCE" && !cronExpression)
         throw new ValidationError(t("api.cronRequired", locale));
-		if (data.approvalRequired === false && !sessionHasPermission(session, "command:approve")) {
-			throw new ValidationError(t("backend.scheduled-task.unattendedRequiresApprover", locale));
-		}
+    if (data.approvalRequired === false && !sessionHasPermission(session, "command:approve")) {
+      throw new ValidationError(t("backend.scheduled-task.unattendedRequiresApprover", locale));
+    }
       const task = await createScheduledTask(
         {
           name: data.name,
           cronExpression,
-		  scheduleType: data.scheduleType,
-		  runAt: data.runAt,
+      scheduleType: data.scheduleType,
+      runAt: data.runAt,
           command: data.command,
           reason: data.reason ?? data.description,
           serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : []),
           createdById: session.userId,
-		  plan: data.plan,
-		  verificationCommand: data.verificationCommand,
-		  rollbackCommand: data.rollbackCommand,
-		  approvalRequired: data.approvalRequired,
-		  templateId: data.templateId,
+      plan: data.plan,
+      verificationCommand: data.verificationCommand,
+      rollbackCommand: data.rollbackCommand,
+      approvalRequired: data.approvalRequired,
+      templateId: data.templateId,
         },
         session,
       );
@@ -200,11 +200,11 @@ export async function PATCH(request: Request) {
           auditScheduledTaskDetail(result), undefined, session.currentTeamId);
         return NextResponse.json({ task: result });
       }
-		if (!data.id)
+    if (!data.id)
         throw new ValidationError(t("api.missingTaskId", locale));
-		if (data.approvalRequired === false && !sessionHasPermission(session, "command:approve")) {
-			throw new ValidationError(t("backend.scheduled-task.disableApprovalRequiresApprover", locale));
-		}
+    if (data.approvalRequired === false && !sessionHasPermission(session, "command:approve")) {
+      throw new ValidationError(t("backend.scheduled-task.disableApprovalRequiresApprover", locale));
+    }
       const result = await updateScheduledTask(
         data.id,
         {
@@ -213,14 +213,14 @@ export async function PATCH(request: Request) {
           command: data.command,
           reason: data.reason ?? data.description,
           serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : undefined),
-		  status: data.status,
-		  scheduleType: data.scheduleType,
-		  runAt: data.runAt,
-		  plan: data.plan,
-		  verificationCommand: data.verificationCommand,
-		  rollbackCommand: data.rollbackCommand,
-		  approvalRequired: data.approvalRequired,
-		  templateId: data.templateId,
+      status: data.status,
+      scheduleType: data.scheduleType,
+      runAt: data.runAt,
+      plan: data.plan,
+      verificationCommand: data.verificationCommand,
+      rollbackCommand: data.rollbackCommand,
+      approvalRequired: data.approvalRequired,
+      templateId: data.templateId,
         },
         session,
       );

@@ -57,7 +57,7 @@ function getWorkerState() {
 }
 
 async function hasActiveScheduledTaskTickJob() {
-	const existing = await prisma.job.findFirst({
+  const existing = await prisma.job.findFirst({
     where: {
       type: SCHEDULED_TASK_TICK_JOB_TYPE,
       status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
@@ -68,23 +68,23 @@ async function hasActiveScheduledTaskTickJob() {
 }
 
 async function enqueueScheduledTaskTickJob(reason: string) {
-	// A regular transaction does not serialize two concurrent "no rows"
-	// reads under READ COMMITTED. A non-blocking PostgreSQL advisory lock
-	// makes the check-and-enqueue sequence genuinely single-flight.
-	const release = await tryAcquireAdvisoryLock("scheduled-task-enqueue", "global");
-	if (!release) return null;
-	try {
-		if (await hasActiveScheduledTaskTickJob()) return null;
-		return await enqueueJob({
-				type: SCHEDULED_TASK_TICK_JOB_TYPE,
+  // A regular transaction does not serialize two concurrent "no rows"
+  // reads under READ COMMITTED. A non-blocking PostgreSQL advisory lock
+  // makes the check-and-enqueue sequence genuinely single-flight.
+  const release = await tryAcquireAdvisoryLock("scheduled-task-enqueue", "global");
+  if (!release) return null;
+  try {
+    if (await hasActiveScheduledTaskTickJob()) return null;
+    return await enqueueJob({
+        type: SCHEDULED_TASK_TICK_JOB_TYPE,
         title: "Scheduled task dispatch tick",
         payload: { reason, requestedAt: new Date().toISOString() },
         priority: -5,
         maxAttempts: 3,
-			});
-	} finally {
-		await release();
-	}
+      });
+  } finally {
+    await release();
+  }
 }
 
 async function dispatchDueTask(task: {
@@ -95,7 +95,7 @@ async function dispatchDueTask(task: {
   serverIds: string[];
   createdById: string | null;
   nextRunAt: Date | null;
-	approvalRequired: boolean;
+  approvalRequired: boolean;
   /** Propagate parent ScheduledTask.teamId so the spawned CommandRequest is not global (null = shared). */
   teamId: string | null;
 }): Promise<boolean> {
@@ -166,11 +166,11 @@ async function dispatchDueTask(task: {
       requesterId: task.createdById,
       serverIds: task.serverIds,
       teamId: task.teamId,
-		approvalRequired: task.approvalRequired,
+    approvalRequired: task.approvalRequired,
       idempotencyKey: `scheduled-task:${task.id}:${task.nextRunAt?.toISOString() ?? "manual"}`,
     });
 
-	    await recordTaskDispatch(task.id, result.id);
+      await recordTaskDispatch(task.id, result.id);
     return true;
   } catch (error) {
     // We claimed the row (so no one else will dispatch it this tick),

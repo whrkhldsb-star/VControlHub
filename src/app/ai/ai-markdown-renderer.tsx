@@ -109,7 +109,7 @@ export const renderContent = (content: string, options?: { copyLabel?: string })
  let i = 0;
  let listItems: string[] = [];
  let listType: "ul" | "ol" | null = null;
-	let tableRows: string[][] = [];
+  let tableRows: string[][] = [];
 
  const flushList = () => {
  if (listItems.length > 0) {
@@ -150,8 +150,8 @@ export const renderContent = (content: string, options?: { copyLabel?: string })
  </table>
  </div>
  );
-		tableRows = [];
-	}
+    tableRows = [];
+  }
  };
 
  while (i < lines.length) {

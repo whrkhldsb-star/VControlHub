@@ -50,13 +50,13 @@ export function CreateRuleForm({
 	const [error, setError] = useState<string | null>(null);
 
 	const [dirty, setDirty] = useState(false);
-  const { requestDiscard, discardDialog } = useUnsavedChangesGuard({
-    dirty,
-    onDiscard: onClose,
-  });
+	const { requestDiscard, discardDialog } = useUnsavedChangesGuard({
+		dirty,
+		onDiscard: onClose,
+	});
 
-  const toggleChannel = (ch: string) => {
-    setDirty(true);
+	const toggleChannel = (ch: string) => {
+		setDirty(true);
 		setChannels((prev) => {
 			if (prev.includes(ch)) {
 				// Keep at least one channel so POST never sends notifyChannels:[].
@@ -67,13 +67,13 @@ export function CreateRuleForm({
 		});
 	};
 	const toggleServer = (serverId: string) => {
-    setDirty(true);
+		setDirty(true);
 		setSelectedServerIds((prev) =>
 			prev.includes(serverId) ? prev.filter((id) => id !== serverId) : [...prev, serverId],
 		);
 	};
 	const togglePlaybook = (playbookId: string) => {
-    setDirty(true);
+		setDirty(true);
 		setSelectedPlaybookIds((prev) =>
 			prev.includes(playbookId)
 				? prev.filter((id) => id !== playbookId)
@@ -120,7 +120,7 @@ export function CreateRuleForm({
 							: undefined,
 				}),
 			});
-      setDirty(false);
+			setDirty(false);
 			onClose();
 		} catch (err) {
 			setError(getErrorMessage(err, t("alertRulesPage.createForm.error")));
@@ -131,7 +131,7 @@ export function CreateRuleForm({
 
 	return (
 		<form onSubmit={handleSubmit}
-      onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
+			onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
 			<h3 className="ui-title-section">
 				{t("alertRulesPage.createForm.title")}
 			</h3>
@@ -381,7 +381,7 @@ export function CreateRuleForm({
 					{t("alertRulesPage.createForm.cancel")}
 				</ActionButton>
 			</div>
-      {discardDialog}
+			{discardDialog}
 		</form>
 	);
 }

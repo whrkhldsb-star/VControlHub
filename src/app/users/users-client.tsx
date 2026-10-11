@@ -50,7 +50,7 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
   currentUserId?: string;
 }) {
   const { t, locale } = useI18n();
-	const { addToast } = useToast();
+  const { addToast } = useToast();
   const { state: urlState, setField: setUrlField } = useUrlQueryState({ page: "1" });
   const page = Math.max(1, Number.parseInt(urlState.page || "1", 10) || 1);
   const setPage = (value: number) => setUrlField("page", String(Math.max(1, value)));
@@ -63,44 +63,44 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
   const [templates, setTemplates] = useState<IdentityTemplateOption[]>([]);
   const [creating, setCreating] = useState(false);
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserInfo | null>(null);
-	const [loadFailed, setLoadFailed] = useState(false);
-	const fetchGenRef = useRef(0);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const fetchGenRef = useRef(0);
 
-	const messageFromError = (err: unknown, fallback: string) => (getErrorMessage(err, fallback));
+  const messageFromError = (err: unknown, fallback: string) => (getErrorMessage(err, fallback));
 
-	const fetchUsers = useCallback(async () => {
-		const gen = ++fetchGenRef.current;
-		setLoadFailed(false);
-		try {
-			const data = await csrfFetch(`/api/users?page=${page}&pageSize=${USER_PAGE_SIZE}`) as { users?: UserInfo[]; total?: number } | UserInfo[];
-			// Ignore out-of-order responses from rapid pagination.
-			if (gen !== fetchGenRef.current) return;
-			if (Array.isArray(data)) {
-				setUsers(data);
-				setTotal(data.length);
-			} else {
-				setUsers(data.users ?? []);
-				setTotal(data.total ?? (data.users ?? []).length);
-			}
-		} catch (err) {
-			if (gen !== fetchGenRef.current) return;
-			setUsers([]);
-			setLoadFailed(true);
-			addToast("error", messageFromError(err, t("usersPage.error.loadFailed")) );
-		}
-		finally {
-			if (gen === fetchGenRef.current) setLoading(false);
-		}
-	}, [t, page, addToast]);
+  const fetchUsers = useCallback(async () => {
+    const gen = ++fetchGenRef.current;
+    setLoadFailed(false);
+    try {
+      const data = await csrfFetch(`/api/users?page=${page}&pageSize=${USER_PAGE_SIZE}`) as { users?: UserInfo[]; total?: number } | UserInfo[];
+      // Ignore out-of-order responses from rapid pagination.
+      if (gen !== fetchGenRef.current) return;
+      if (Array.isArray(data)) {
+        setUsers(data);
+        setTotal(data.length);
+      } else {
+        setUsers(data.users ?? []);
+        setTotal(data.total ?? (data.users ?? []).length);
+      }
+    } catch (err) {
+      if (gen !== fetchGenRef.current) return;
+      setUsers([]);
+      setLoadFailed(true);
+      addToast("error", messageFromError(err, t("usersPage.error.loadFailed")) );
+    }
+    finally {
+      if (gen === fetchGenRef.current) setLoading(false);
+    }
+  }, [t, page, addToast]);
 
-	useEffect(() => {
-		setLoading(true);
-		void fetchUsers();
-		return () => {
-			// Invalidate in-flight list so unmount/page-change cannot apply stale state.
-			fetchGenRef.current += 1;
-		};
-	}, [fetchUsers]);
+  useEffect(() => {
+    setLoading(true);
+    void fetchUsers();
+    return () => {
+      // Invalidate in-flight list so unmount/page-change cannot apply stale state.
+      fetchGenRef.current += 1;
+    };
+  }, [fetchUsers]);
 
   // Options for the create form: live customers and identity templates.
   useEffect(() => {
@@ -117,25 +117,25 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
 
   const handleCreate = async () => {
     setCreating(true);
-		try {
-			const { accountType, teamId, identityTemplateId, ...identity } = createForm;
-			await csrfFetch("/api/users", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					...identity,
-					account: accountType === "admin" ? { type: "admin" } : { type: "customer", teamId, identityTemplateId },
-				}),
-			});
-			addToast("success", t("usersPage.success.created", { name: createForm.username }));
-			setCreateForm({ ...EMPTY_CREATE_FORM, teamId: customers[0]?.id ?? "" });
-			setShowCreateForm(false);
-			fetchUsers();
-		} catch (err) {
-			addToast("error", getErrorMessage(err, t("usersPage.error.createFailed")) );
-		} finally {
-			setCreating(false);
-		}
+    try {
+      const { accountType, teamId, identityTemplateId, ...identity } = createForm;
+      await csrfFetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...identity,
+          account: accountType === "admin" ? { type: "admin" } : { type: "customer", teamId, identityTemplateId },
+        }),
+      });
+      addToast("success", t("usersPage.success.created", { name: createForm.username }));
+      setCreateForm({ ...EMPTY_CREATE_FORM, teamId: customers[0]?.id ?? "" });
+      setShowCreateForm(false);
+      fetchUsers();
+    } catch (err) {
+      addToast("error", getErrorMessage(err, t("usersPage.error.createFailed")) );
+    } finally {
+      setCreating(false);
+    }
   };
 
   const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
@@ -302,7 +302,7 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
               <Pagination page={page} pageSize={USER_PAGE_SIZE} totalItems={total} loading={loading} onPageChange={setPage} />
             </div>
           )}
-		</ListPanel>
+    </ListPanel>
       {editingPermissionsUser && (
         <UserPermissionPanel
           userId={editingPermissionsUser.id}

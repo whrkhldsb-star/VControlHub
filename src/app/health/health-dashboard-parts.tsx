@@ -12,8 +12,8 @@ export function SummaryCard({
 	value: number | string;
 	color: string;
 }) {
-  const accentColor = color === "emerald" || color === "amber" || color === "rose" ? color : undefined;
-  return <StatCard label={label} value={value} accent={Boolean(accentColor)} accentColor={accentColor} />;
+	const accentColor = color === "emerald" || color === "amber" || color === "rose" ? color : undefined;
+	return <StatCard label={label} value={value} accent={Boolean(accentColor)} accentColor={accentColor} />;
 }
 
 function FleetMetricBar({ label, value, unit }: { label: string; value: number; unit: string }) {

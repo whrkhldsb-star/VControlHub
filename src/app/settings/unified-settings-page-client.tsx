@@ -20,11 +20,11 @@ import { UI_INPUT } from "@/lib/ui/classes";
 type Props = {
   settings: Record<string, string>;
   runtimeSettings?: RuntimeSettingSummary[];
-	settingUpdateMetadata?: Record<string, SettingUpdateMetadata>;
-	canManage: boolean;
-	/** Built-in `admin` role — required by the config import/export surface. */
-	isPlatformAdmin?: boolean;
-	defaultPageOptions?: readonly DefaultPageOption[];
+  settingUpdateMetadata?: Record<string, SettingUpdateMetadata>;
+  canManage: boolean;
+  /** Built-in `admin` role — required by the config import/export surface. */
+  isPlatformAdmin?: boolean;
+  defaultPageOptions?: readonly DefaultPageOption[];
 };
 
 type SettingsTab = "personal" | "security" | "notifications" | "advanced";
@@ -80,10 +80,10 @@ const TAB_META: {
 export function UnifiedSettingsPageClient({
   settings,
   runtimeSettings = [],
-	settingUpdateMetadata = {},
-	canManage,
-	isPlatformAdmin = false,
-	defaultPageOptions = DEFAULT_PAGE_OPTIONS,
+  settingUpdateMetadata = {},
+  canManage,
+  isPlatformAdmin = false,
+  defaultPageOptions = DEFAULT_PAGE_OPTIONS,
 }: Props) {
   const { t } = useI18n();
   const [selectedTab, setActiveTab] = useState<SettingsTab>("personal");
@@ -268,9 +268,9 @@ export function UnifiedSettingsPageClient({
           <SettingsClient
             settings={settings}
             runtimeSettings={runtimeSettings}
-			settingUpdateMetadata={settingUpdateMetadata}
-			canManage={canManage}
-			showCategoryNav={false}
+      settingUpdateMetadata={settingUpdateMetadata}
+      canManage={canManage}
+      showCategoryNav={false}
             visibleSectionIds={visibleSectionIds}
           />
           {canManage && <div id="system-config" className={activeTab === "advanced" ? "scroll-mt-24" : "hidden"}>

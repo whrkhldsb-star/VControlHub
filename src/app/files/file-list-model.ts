@@ -123,14 +123,14 @@ export function getSelectionSummary({
 	selectedIds,
 	selectedScopeMatches,
 	fallbacks,
-  knownFiles,
+	knownFiles,
 }: {
 	visibleFiles: FileProp[];
 	selectableFiles: FileProp[];
 	selectedIds: Set<string>;
 	selectedScopeMatches: boolean;
 	fallbacks: FileEntryCapabilityFallbacks;
-  knownFiles?: FileProp[];
+	knownFiles?: FileProp[];
 }): FileSelectionSummary {
 	const selectableFileIds = selectableFiles.map((file) => file.id);
 	const selectableFileIdSet = new Set(knownFiles ? getSelectableFiles(knownFiles, fallbacks).map((file) => file.id) : selectableFileIds);

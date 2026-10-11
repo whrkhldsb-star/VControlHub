@@ -42,10 +42,10 @@ export const DEFAULT_PAGE_REQUIRED_PERMISSION: Record<DefaultPageOption, Permiss
  * new widget is added without one.
  */
 export const DASHBOARD_WIDGET_LABELS: Record<DashboardWidgetId, string> = {
-	"server-status": "dashboard.widget.serverStatus",
-	"quick-links": "dashboard.widget.quickLinks",
-	analytics: "dashboard.widget.analytics",
-	"audit-log": "dashboard.widget.auditLog",
+  "server-status": "dashboard.widget.serverStatus",
+  "quick-links": "dashboard.widget.quickLinks",
+  analytics: "dashboard.widget.analytics",
+  "audit-log": "dashboard.widget.auditLog",
 };
 
 export const defaultUserPreferences: UserPreferences = {

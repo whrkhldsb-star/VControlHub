@@ -113,23 +113,23 @@ function addSecurityHeaders(
 }
 
 function buildContentSecurityPolicy(nonce: string) {
-	return [
-		"default-src 'self'",
-		`script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://cdn.jsdelivr.net https://static.cloudflareinsights.com`,
-		// Tailwind and several existing components still use inline style attributes.
-		"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-		// 2FA QR is a same-origin data: URL from /api/auth/2fa/setup (no third-party QR hosts).
-		"img-src 'self' data: blob:",
-		"font-src 'self' data: https://fonts.scalar.com",
-		"connect-src 'self' ws: wss:",
-		"worker-src 'self' blob:",
-		"media-src 'self' blob:",
-		"frame-src 'self'",
-		"frame-ancestors 'self'",
-		"object-src 'none'",
-		"base-uri 'self'",
-		"form-action 'self'",
-	].join("; ");
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://cdn.jsdelivr.net https://static.cloudflareinsights.com`,
+    // Tailwind and several existing components still use inline style attributes.
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+    // 2FA QR is a same-origin data: URL from /api/auth/2fa/setup (no third-party QR hosts).
+    "img-src 'self' data: blob:",
+    "font-src 'self' data: https://fonts.scalar.com",
+    "connect-src 'self' ws: wss:",
+    "worker-src 'self' blob:",
+    "media-src 'self' blob:",
+    "frame-src 'self'",
+    "frame-ancestors 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
 }
 
 const BEARER_TOKEN_API_BYPASS: Array<{ method: string; pattern: RegExp }> = [
@@ -174,14 +174,14 @@ function formRequestNeedsDeclaredLength(request: NextRequest): boolean {
 // ── Main middleware ───────────────────────────────────────────────
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-	const nonce = process.env.NODE_ENV === "production"
-		? btoa(crypto.randomUUID())
-		: undefined;
-	const forwardedHeaders = new Headers(request.headers);
-	if (nonce) {
-		forwardedHeaders.set("x-nonce", nonce);
-		forwardedHeaders.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
-	}
+  const nonce = process.env.NODE_ENV === "production"
+    ? btoa(crypto.randomUUID())
+    : undefined;
+  const forwardedHeaders = new Headers(request.headers);
+  if (nonce) {
+    forwardedHeaders.set("x-nonce", nonce);
+    forwardedHeaders.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+  }
   const hasBearerToken =
     request.headers
       .get("authorization")
@@ -216,7 +216,7 @@ export function proxy(request: NextRequest) {
   // 1) Allow public paths through
   if (isPublicPath(pathname, request.method)) {
     const response = NextResponse.next({ request: { headers: forwardedHeaders } });
-		return addSecurityHeaders(response, request, nonce);
+    return addSecurityHeaders(response, request, nonce);
   }
 
   // 2) Check session cookie for protected paths
@@ -272,7 +272,7 @@ export function proxy(request: NextRequest) {
 
   // 4) Authenticated — pass through with security headers
   const response = NextResponse.next({ request: { headers: forwardedHeaders } });
-	return addSecurityHeaders(response, request, nonce);
+  return addSecurityHeaders(response, request, nonce);
 }
 
 export const config = {

@@ -17,18 +17,18 @@ const { prismaMock } = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 import {
-	buildRsyncCommand,
-	buildTarSyncCommand,
-	getSyncTempKeyPath,
-	shellQuote,
+  buildRsyncCommand,
+  buildTarSyncCommand,
+  getSyncTempKeyPath,
+  shellQuote,
 } from "@/lib/sync/service-commands";
 import { decryptSyncTargetCredentials } from "@/lib/sync/service-credentials";
 import {
-	createSyncJob,
-	getSyncJob,
-	getSyncJobForExecution,
-	listSyncJobs,
-	updateSyncJob,
+  createSyncJob,
+  getSyncJob,
+  getSyncJobForExecution,
+  listSyncJobs,
+  updateSyncJob,
 } from "@/lib/sync/service-crud";
 import { assertSyncRemoteSucceeded } from "@/lib/sync/service-runtime";
 
@@ -317,25 +317,25 @@ describe("sync service command helpers", () => {
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");
   });
 
-	it("uses the exact pinned known_hosts file for the real rsync and tar SSH connection", () => {
-		const common = {
-			sourcePath: "/src", targetPath: "/dst", targetUser: "deploy", targetHost: "example.com", targetPort: 2222,
-			hostKeySha256: "SHA256:abc", jobId: "job-1",
-		};
-		const rsync = buildRsyncCommand({ ...common, flags: ["-avz"] });
-		const tar = buildTarSyncCommand({ ...common, deleteOrphans: false });
-		for (const command of [rsync, tar]) {
-			expect(command).toContain("StrictHostKeyChecking=yes");
-			expect(command).not.toContain("StrictHostKeyChecking=accept-new");
-			expect(command).toContain("/tmp/app-sync-known_hosts-job-1");
-		}
-		// rsync hands the -e tokens straight to ssh: a quoted file name would be
-		// missing, and StrictHostKeyChecking=yes then aborts the whole transfer.
-		expect(rsync).toContain("UserKnownHostsFile=/tmp/app-sync-known_hosts-job-1 ");
-		expect(rsync).not.toContain("UserKnownHostsFile='");
-		// The tar fallback is read by a remote shell, which consumes the quotes.
-		expect(tar).toContain("UserKnownHostsFile='/tmp/app-sync-known_hosts-job-1'");
-	});
+  it("uses the exact pinned known_hosts file for the real rsync and tar SSH connection", () => {
+    const common = {
+      sourcePath: "/src", targetPath: "/dst", targetUser: "deploy", targetHost: "example.com", targetPort: 2222,
+      hostKeySha256: "SHA256:abc", jobId: "job-1",
+    };
+    const rsync = buildRsyncCommand({ ...common, flags: ["-avz"] });
+    const tar = buildTarSyncCommand({ ...common, deleteOrphans: false });
+    for (const command of [rsync, tar]) {
+      expect(command).toContain("StrictHostKeyChecking=yes");
+      expect(command).not.toContain("StrictHostKeyChecking=accept-new");
+      expect(command).toContain("/tmp/app-sync-known_hosts-job-1");
+    }
+    // rsync hands the -e tokens straight to ssh: a quoted file name would be
+    // missing, and StrictHostKeyChecking=yes then aborts the whole transfer.
+    expect(rsync).toContain("UserKnownHostsFile=/tmp/app-sync-known_hosts-job-1 ");
+    expect(rsync).not.toContain("UserKnownHostsFile='");
+    // The tar fallback is read by a remote shell, which consumes the quotes.
+    expect(tar).toContain("UserKnownHostsFile='/tmp/app-sync-known_hosts-job-1'");
+  });
 
   it("decrypts target credentials once before building remote sync commands", () => {
     const credentials = decryptSyncTargetCredentials({
@@ -349,131 +349,131 @@ describe("sync service command helpers", () => {
     expect(credentials.password).toBe("plain-password");
     expect(credentials.privateKey).toBe("PRIVATE KEY");
   });
-	it("rejects unsafe SSH users and hosts before building commands", () => {
-		expect(() =>
-			buildRsyncCommand({
-				flags: ["-avz"],
-				sourcePath: "/src",
-				targetPath: "/dst",
-				targetUser: "deploy;rm -rf /",
-				targetHost: "example.com",
-				targetPort: 22,
-			}),
-		).toThrow("不安全的 SSH 用户名");
+  it("rejects unsafe SSH users and hosts before building commands", () => {
+    expect(() =>
+      buildRsyncCommand({
+        flags: ["-avz"],
+        sourcePath: "/src",
+        targetPath: "/dst",
+        targetUser: "deploy;rm -rf /",
+        targetHost: "example.com",
+        targetPort: 22,
+      }),
+    ).toThrow("不安全的 SSH 用户名");
 
-		expect(() =>
-			buildTarSyncCommand({
-				sourcePath: "/src",
-				targetPath: "/dst",
-				targetUser: "root",
-				targetHost: "-oProxyCommand=sh",
-				targetPort: 22,
-				deleteOrphans: false,
-			}),
-		).toThrow("不安全的 SSH 主机");
-	});
+    expect(() =>
+      buildTarSyncCommand({
+        sourcePath: "/src",
+        targetPath: "/dst",
+        targetUser: "root",
+        targetHost: "-oProxyCommand=sh",
+        targetPort: 22,
+        deleteOrphans: false,
+      }),
+    ).toThrow("不安全的 SSH 主机");
+  });
 
-	it("uses unbracketed IPv6 addresses for raw ssh tar fallback targets", () => {
-		const command = buildTarSyncCommand({
-			sourcePath: "/src",
-			targetPath: "/dst",
-			targetUser: "root",
-			targetHost: "2001:db8::10",
-			targetPort: 22,
-			deleteOrphans: false,
-		});
+  it("uses unbracketed IPv6 addresses for raw ssh tar fallback targets", () => {
+    const command = buildTarSyncCommand({
+      sourcePath: "/src",
+      targetPath: "/dst",
+      targetUser: "root",
+      targetHost: "2001:db8::10",
+      targetPort: 22,
+      deleteOrphans: false,
+    });
 
-		expect(command).toContain("'root@2001:db8::10'");
-		expect(command).not.toContain("root@[2001:db8::10]");
-	});
-	it("rejects invalid SSH ports before interpolation", () => {
-		expect(() =>
-			buildRsyncCommand({
-				flags: ["-avz"],
-				sourcePath: "/src",
-				targetPath: "/dst",
-				targetUser: "deploy",
-				targetHost: "example.com",
-				targetPort: 0,
-			}),
-		).toThrow("不安全的 SSH 端口");
+    expect(command).toContain("'root@2001:db8::10'");
+    expect(command).not.toContain("root@[2001:db8::10]");
+  });
+  it("rejects invalid SSH ports before interpolation", () => {
+    expect(() =>
+      buildRsyncCommand({
+        flags: ["-avz"],
+        sourcePath: "/src",
+        targetPath: "/dst",
+        targetUser: "deploy",
+        targetHost: "example.com",
+        targetPort: 0,
+      }),
+    ).toThrow("不安全的 SSH 端口");
 
-		expect(() =>
-			buildTarSyncCommand({
-				sourcePath: "/src",
-				targetPath: "/dst",
-				targetUser: "deploy",
-				targetHost: "example.com",
-				targetPort: 65536,
-				deleteOrphans: false,
-			}),
-		).toThrow("不安全的 SSH 端口");
-	});
+    expect(() =>
+      buildTarSyncCommand({
+        sourcePath: "/src",
+        targetPath: "/dst",
+        targetUser: "deploy",
+        targetHost: "example.com",
+        targetPort: 65536,
+        deleteOrphans: false,
+      }),
+    ).toThrow("不安全的 SSH 端口");
+  });
 });
 
 describe("assertSyncRemoteSucceeded", () => {
-	it("allows exit 0 only", () => {
-		expect(() =>
-			assertSyncRemoteSucceeded({ stdout: "ok", stderr: "", exitCode: 0 }, "rsync"),
-		).not.toThrow();
-	});
+  it("allows exit 0 only", () => {
+    expect(() =>
+      assertSyncRemoteSucceeded({ stdout: "ok", stderr: "", exitCode: 0 }, "rsync"),
+    ).not.toThrow();
+  });
 
-	it("throws on null exitCode (SSH status missing — false-success guard)", () => {
-		expect(() =>
-			assertSyncRemoteSucceeded({ stdout: "", stderr: "broken pipe", exitCode: null }, "rsync"),
-		).toThrow(/rsync failed \(SSH connection\/status missing\).*broken pipe/);
-		expect(() =>
-			assertSyncRemoteSucceeded({ stdout: "", stderr: "", exitCode: null }, "tar sync"),
-		).toThrow(/tar sync failed \(SSH connection\/status missing\)/);
-	});
+  it("throws on null exitCode (SSH status missing — false-success guard)", () => {
+    expect(() =>
+      assertSyncRemoteSucceeded({ stdout: "", stderr: "broken pipe", exitCode: null }, "rsync"),
+    ).toThrow(/rsync failed \(SSH connection\/status missing\).*broken pipe/);
+    expect(() =>
+      assertSyncRemoteSucceeded({ stdout: "", stderr: "", exitCode: null }, "tar sync"),
+    ).toThrow(/tar sync failed \(SSH connection\/status missing\)/);
+  });
 
-	it("throws on non-zero exit with stderr/stdout detail (false-success guard)", () => {
-		expect(() =>
-			assertSyncRemoteSucceeded(
-				{ stdout: "rsync error: some files vanished", stderr: "", exitCode: 23 },
-				"rsync",
-			),
-		).toThrow(/rsync failed \(exit 23\).*vanished/);
+  it("throws on non-zero exit with stderr/stdout detail (false-success guard)", () => {
+    expect(() =>
+      assertSyncRemoteSucceeded(
+        { stdout: "rsync error: some files vanished", stderr: "", exitCode: 23 },
+        "rsync",
+      ),
+    ).toThrow(/rsync failed \(exit 23\).*vanished/);
 
-		expect(() =>
-			assertSyncRemoteSucceeded(
-				{ stdout: "", stderr: "Permission denied", exitCode: 1 },
-				"tar sync",
-			),
-		).toThrow(/tar sync failed \(exit 1\).*Permission denied/);
-	});
+    expect(() =>
+      assertSyncRemoteSucceeded(
+        { stdout: "", stderr: "Permission denied", exitCode: 1 },
+        "tar sync",
+      ),
+    ).toThrow(/tar sync failed \(exit 1\).*Permission denied/);
+  });
 });
 
 describe("sync job credential boundary", () => {
-	it("keeps the SSH key out of the row three HTTP routes hand back", async () => {
-		prismaMock.syncJob.findFirst.mockResolvedValueOnce(null);
+  it("keeps the SSH key out of the row three HTTP routes hand back", async () => {
+    prismaMock.syncJob.findFirst.mockResolvedValueOnce(null);
 
-		await getSyncJob("job-1");
+    await getSyncJob("job-1");
 
-		const args = prismaMock.syncJob.findFirst.mock.calls[0]![0] as {
-			include: { sourceServer: unknown; targetServer: unknown };
-		};
-		// `include: { sshKey: true }` here put the stored private key one
-		// `NextResponse.json(job)` away from the browser.
-		for (const endpoint of [args.include.sourceServer, args.include.targetServer]) {
-			expect(endpoint).toEqual({
-				select: { id: true, name: true, host: true, username: true },
-			});
-		}
-		expect(JSON.stringify(args.include)).not.toContain("sshKey");
-	});
+    const args = prismaMock.syncJob.findFirst.mock.calls[0]![0] as {
+      include: { sourceServer: unknown; targetServer: unknown };
+    };
+    // `include: { sshKey: true }` here put the stored private key one
+    // `NextResponse.json(job)` away from the browser.
+    for (const endpoint of [args.include.sourceServer, args.include.targetServer]) {
+      expect(endpoint).toEqual({
+        select: { id: true, name: true, host: true, username: true },
+      });
+    }
+    expect(JSON.stringify(args.include)).not.toContain("sshKey");
+  });
 
-	it("still loads credentials for the execution path", async () => {
-		prismaMock.syncJob.findFirst.mockResolvedValueOnce(null);
+  it("still loads credentials for the execution path", async () => {
+    prismaMock.syncJob.findFirst.mockResolvedValueOnce(null);
 
-		await getSyncJobForExecution("job-1");
+    await getSyncJobForExecution("job-1");
 
-		expect(prismaMock.syncJob.findFirst).toHaveBeenCalledWith({
-			where: { id: "job-1" },
-			include: {
-				sourceServer: { include: { sshKey: true } },
-				targetServer: { include: { sshKey: true } },
-			},
-		});
-	});
+    expect(prismaMock.syncJob.findFirst).toHaveBeenCalledWith({
+      where: { id: "job-1" },
+      include: {
+        sourceServer: { include: { sshKey: true } },
+        targetServer: { include: { sshKey: true } },
+      },
+    });
+  });
 });

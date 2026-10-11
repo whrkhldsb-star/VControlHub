@@ -20,8 +20,8 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 	const { t } = useI18n();
 	const { addToast } = useToast();
 	const [dirty, setDirty] = useState(false);
-  const { discardDialog } = useUnsavedChangesGuard({ dirty });
-  const [state, formAction, pending] = useActionState(async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
+	const { discardDialog } = useUnsavedChangesGuard({ dirty });
+	const [state, formAction, pending] = useActionState(async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
 		const title = String(formData.get("subject") ?? "").trim();
 		const description = String(formData.get("description") ?? "").trim();
 		const priority = String(formData.get("priority") ?? "NORMAL").toUpperCase();
@@ -33,7 +33,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 				headers: {"Content-Type":"application/json" },
 				body: JSON.stringify({ subject: title, description, priority, category, relatedServerId: String(formData.get("relatedServerId") ?? "") || undefined }),
 			});
-        setDirty(false);
+				setDirty(false);
 			router.refresh();
 			return { success: true };
 		} catch (err) {
@@ -51,7 +51,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 
 	return (
 		<form action={formAction}
-      onChange={() => setDirty(true)} data-card className="space-y-4 p-5">
+			onChange={() => setDirty(true)} data-card className="space-y-4 p-5">
 			<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 				<h2 className="ui-title-section">{t("ticketsPage.form.title")}</h2>
 			</div>
@@ -124,7 +124,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 			>
 				{pending ? t("ticketsPage.form.submitting") : t("ticketsPage.form.submit")}
 			</ActionButton>
-      {discardDialog}
+			{discardDialog}
 		</form>
 	);
 }

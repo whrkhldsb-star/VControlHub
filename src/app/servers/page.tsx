@@ -18,7 +18,7 @@ import { Plus } from "@/components/icons";
 export const dynamic = "force-dynamic";
 
 export default async function ServersPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
-  const locale = await getServerLocale();
+	const locale = await getServerLocale();
 	const t: TFn = (key, vars) => translate(key, locale, vars);
 	const session = await requirePagePermission("server:read", { redirectTo: "/servers" });
 	const canManageServers = sessionHasPermission(session, "server:write");

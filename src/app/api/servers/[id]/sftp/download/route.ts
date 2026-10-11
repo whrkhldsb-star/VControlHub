@@ -33,7 +33,7 @@ export async function GET(
       const { id } = await params;
       const teamAccess = await assertServerTeamAccess(session, id, "fileRead");
       if (!teamAccess.ok) return teamAccess.response;
-			await assertSftpPathAccess({ session: session, serverId: id, paths: [query.path] });
+      await assertSftpPathAccess({ session: session, serverId: id, paths: [query.path] });
       const { stream, size } = await downloadFile(id, query.path);
       await auditUserAction(
         session.userId,

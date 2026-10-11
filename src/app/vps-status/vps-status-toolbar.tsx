@@ -52,9 +52,9 @@ export function VpsStatusToolbar({
 						["issue", t("vpsStatusPage.filter.issue")],
 					] as const
 				).map(([key, label]) => (
-                    <ToggleChip key={key} active={filter === key} onClick={() => setFilter(key)}>
-                      {label}
-                    </ToggleChip>
+										<ToggleChip key={key} active={filter === key} onClick={() => setFilter(key)}>
+											{label}
+										</ToggleChip>
 				))}
 				<span className="ml-1 text-xs text-[var(--text-muted)]">
 					{tt("vpsStatusPage.showing", { count: filteredCount })}

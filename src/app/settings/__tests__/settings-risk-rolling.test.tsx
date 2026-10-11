@@ -159,30 +159,30 @@ describe("FieldRollbackButton", () => {
 });
 
 describe("SETTINGS_SCHEMA risk classification (TR-014 schema audit)", () => {
-	it("marks exactly the documented high-risk fields", () => {
-		const expectedHigh = new Set([
-			"session.timeout",
-			"password.minLength",
-			"smtp.pass",
-			"runtime.commandExecutionTimeoutMs",
-			"runtime.commandStaleRunningAfterMs",
-			"runtime.sshIdleTimeoutSec",
-			// TR-007 M03: 异地备份的 accessKeyId / secretAccessKey 改错会导致推送失败
-			"offsite.accessKeyId",
-			"offsite.secretAccessKey",
-			// TR-032 E02: ai.ops.mode 切到 autonomous 后 AI 会自动执行白名单内的安全动作, 风险高
-			"ai.ops.mode",
-			// TR-009 55d: Telegram Bot Token 错会让所有 Telegram 告警失败; 改后无法立即验证
-			"telegram.botToken",
-			]);
-		const allHigh: string[] = [];
-		for (const section of SETTINGS_SCHEMA) {
-			for (const field of section.fields) {
-				if (field.riskLevel === "high") allHigh.push(field.key);
-			}
-		}
-		expect(new Set(allHigh)).toEqual(expectedHigh);
-	});
+  it("marks exactly the documented high-risk fields", () => {
+    const expectedHigh = new Set([
+      "session.timeout",
+      "password.minLength",
+      "smtp.pass",
+      "runtime.commandExecutionTimeoutMs",
+      "runtime.commandStaleRunningAfterMs",
+      "runtime.sshIdleTimeoutSec",
+      // TR-007 M03: 异地备份的 accessKeyId / secretAccessKey 改错会导致推送失败
+      "offsite.accessKeyId",
+      "offsite.secretAccessKey",
+      // TR-032 E02: ai.ops.mode 切到 autonomous 后 AI 会自动执行白名单内的安全动作, 风险高
+      "ai.ops.mode",
+      // TR-009 55d: Telegram Bot Token 错会让所有 Telegram 告警失败; 改后无法立即验证
+      "telegram.botToken",
+      ]);
+    const allHigh: string[] = [];
+    for (const section of SETTINGS_SCHEMA) {
+      for (const field of section.fields) {
+        if (field.riskLevel === "high") allHigh.push(field.key);
+      }
+    }
+    expect(new Set(allHigh)).toEqual(expectedHigh);
+  });
 
   it("marks all password.requireXxx switches as medium risk", () => {
     for (const section of SETTINGS_SCHEMA) {

@@ -223,7 +223,11 @@ breadcrumb names the area, so page eyebrows are hidden.
 - uses `ModalShell` directly for a content dialog, or `window.confirm`.
 
 `src/components/__tests__/data-tone-vocabulary.test.ts` keeps `data-tone` to
-the hue names that `globals.css` defines. Test helpers in
+the hue names that `globals.css` defines.
+`src/__tests__/indentation-consistency.test.ts` fails when a source file mixes
+tab and space indentation; follow the style of the file you are editing (new
+files use tabs) and run `npm run indent:fix -- <file>` to normalise a file to
+its dominant style. Test helpers in
 `src/test/ui-assertions.ts` check touch targets and bottom sheets through the
 data attributes rather than pixel classes.
 

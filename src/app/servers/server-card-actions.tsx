@@ -33,7 +33,7 @@ type ServerCardActionsProps = {
 	operatingSystem?: string;
 	rdpDomain?: string;
 	rdpIgnoreCertificate?: boolean;
- rdpCertificateSha256?: string;
+	rdpCertificateSha256?: string;
 	serverId: string;
 	serverName: string;
 	host: string;
@@ -133,10 +133,10 @@ export function ServerCardActions({
 	return (
 		<div className="space-y-3">
 			{/* Windows terminals require the cloud-storage OpenSSH binding
-			    (storageNodeId present) — the proxy resolves the SFTP endpoint. */}
+					(storageNodeId present) — the proxy resolves the SFTP endpoint. */}
 			{enabled && canUseSshTerminal && (operatingSystem !== "WINDOWS" || Boolean(storageNodeId)) ? (
 				<ServerConnectionAction protocol="ssh" serverId={serverId} serverName={serverName}
-          size={terminalSize} block={terminalBlock} onClick={handleOpenTerminal} />
+					size={terminalSize} block={terminalBlock} onClick={handleOpenTerminal} />
 			) : null}
 
 			{canManageServers && directGateway && (operatingSystem !== "WINDOWS" || storageNodeId) ? (

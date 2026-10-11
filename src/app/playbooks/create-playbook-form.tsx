@@ -50,27 +50,27 @@ export function CreatePlaybookForm({
 	const [error, setError] = useState<string | null>(null);
 
 	const [dirty, setDirty] = useState(false);
-  const { requestDiscard, discardDialog } = useUnsavedChangesGuard({
-    dirty,
-    onDiscard: onClose,
-  });
+	const { requestDiscard, discardDialog } = useUnsavedChangesGuard({
+		dirty,
+		onDiscard: onClose,
+	});
 
-  const addStep = () => {
-    setDirty(true); setSteps((prev) => [...prev, makeNewStep()]);
-  };
+	const addStep = () => {
+		setDirty(true); setSteps((prev) => [...prev, makeNewStep()]);
+	};
 	const removeStep = (id: string) => {
-    setDirty(true); setSteps((prev) => prev.filter((s) => s.id !== id));
-  };
+		setDirty(true); setSteps((prev) => prev.filter((s) => s.id !== id));
+	};
 	const updateStep = (id: string, patch: Partial<SerializedStep>) => {
-    setDirty(true);
+		setDirty(true);
 		setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-  };
+	};
 	const updateStepConfig = (id: string, patch: Record<string, unknown>) => {
-    setDirty(true);
+		setDirty(true);
 		setSteps((prev) =>
 			prev.map((s) => (s.id === id ? { ...s, config: { ...s.config, ...patch } } : s)),
 		);
-  };
+	};
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
 		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -78,7 +78,7 @@ export function CreatePlaybookForm({
 	const handleStepDragEnd = (event: DragEndEvent) => {
 		const { active, over } = event;
 		if (!over || active.id === over.id) return;
-    setDirty(true);
+		setDirty(true);
 		setSteps((prev) => reorderSteps(prev, String(active.id), String(over.id)));
 	};
 
@@ -122,7 +122,7 @@ export function CreatePlaybookForm({
 				}),
 			});
 			addToast("success", t("playbooksPage.toast.created"));
-      setDirty(false);
+			setDirty(false);
 			onClose();
 		} catch (err) {
 			setError(getErrorMessage(err, t("playbooksPage.createForm.error")));
@@ -133,7 +133,7 @@ export function CreatePlaybookForm({
 
 	return (
 		<form onSubmit={handleSubmit}
-      onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
+			onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
 			<h3 className="ui-title-section">{t("playbooksPage.createForm.title")}</h3>
 			{error && (
 				<Notice tone="danger">{error}</Notice>
@@ -322,12 +322,12 @@ export function CreatePlaybookForm({
 					{submitting ? t("playbooksPage.createForm.submitting") : t("playbooksPage.createForm.submit")}
 				</ActionButton>
 				<ActionButton
-          type="button" variant="secondary"
+					type="button" variant="secondary"
 					onClick={requestDiscard}>
 					{t("playbooksPage.createForm.cancel")}
 				</ActionButton>
 			</div>
-      {discardDialog}
+			{discardDialog}
 		</form>
 	);
 }

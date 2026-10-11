@@ -78,15 +78,15 @@ describe("session auth helpers", () => {
     expect(session.getSessionCookieName()).toBe("custom_session");
   });
 
-	it("reads the configured cookie name after an early module import", async () => {
-		vi.stubEnv("AUTH_SESSION_COOKIE_NAME", "");
-		vi.resetModules();
-		const session = await import("@/lib/auth/session");
+  it("reads the configured cookie name after an early module import", async () => {
+    vi.stubEnv("AUTH_SESSION_COOKIE_NAME", "");
+    vi.resetModules();
+    const session = await import("@/lib/auth/session");
 
-		vi.stubEnv("AUTH_SESSION_COOKIE_NAME", "late-loaded-session");
+    vi.stubEnv("AUTH_SESSION_COOKIE_NAME", "late-loaded-session");
 
-		expect(session.getSessionCookieName()).toBe("late-loaded-session");
-	});
+    expect(session.getSessionCookieName()).toBe("late-loaded-session");
+  });
 
   it("round-trips a signed session token", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({

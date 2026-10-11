@@ -178,7 +178,7 @@ async function initOrResumeSession(
 	file: File,
 	storageNodeId: string | undefined,
 	relativePath: string | undefined,
-  copy: { unknown: string; finalizing: string },
+	copy: { unknown: string; finalizing: string },
 ): Promise<{ session: MediaUploadSessionView; resumed: boolean; skipped: number }> {
 	const persisted = loadPersistedSession(file);
 	if (persisted?.sessionId) {
@@ -187,19 +187,19 @@ async function initOrResumeSession(
 				`/api/images/upload/${encodeURIComponent(persisted.sessionId)}`,
 			);
 			const existing = view.session;
-      if (existing?.recoveryRequired) throw new ApiError(409, { code: "UPLOAD_OUTCOME_UNKNOWN", message: copy.unknown });
-      if (existing?.status === "FINALIZING") throw new ApiError(409, { code: "CONFLICT", message: copy.finalizing });
+			if (existing?.recoveryRequired) throw new ApiError(409, { code: "UPLOAD_OUTCOME_UNKNOWN", message: copy.unknown });
+			if (existing?.status === "FINALIZING") throw new ApiError(409, { code: "CONFLICT", message: copy.finalizing });
 			if (
 				existing &&
 				(existing.status === "PENDING" || existing.status === "UPLOADING" || existing.status === "COMPLETED") &&
-        existing.storageNodeId === (storageNodeId ?? null) && existing.relativePath === (relativePath ?? null) &&
+				existing.storageNodeId === (storageNodeId ?? null) && existing.relativePath === (relativePath ?? null) &&
 				existing.totalSize === Number(file.size)
 			) {
 				return { session: existing, resumed: true, skipped: existing.receivedChunks.length };
 			}
 		} catch (error) {
-      // A lost response may hide success. Only a confirmed 404 permits re-init.
-      if (!(error instanceof ApiError && error.status === 404)) throw error;
+			// A lost response may hide success. Only a confirmed 404 permits re-init.
+			if (!(error instanceof ApiError && error.status === 404)) throw error;
 		}
 		clearPersistedSession(file);
 	}
@@ -277,19 +277,19 @@ export function useChunkedMediaUpload(
 					file,
 					storageNodeId,
 					relativePath,
-          { unknown: t("storageUpload.unknown"), finalizing: t("storageUpload.finalizing") },
+					{ unknown: t("storageUpload.unknown"), finalizing: t("storageUpload.finalizing") },
 				);
 				if (cancelledRef.current) throw new Error("cancelled");
 
 				const totalChunks = session.totalChunks;
 				const chunkSize = session.chunkSize;
 				const totalBytes = Number(session.totalSize);
-        if (session.status === "COMPLETED") {
-          if (!session.resultImageId) throw new ApiError(409, { code: "UPLOAD_OUTCOME_UNKNOWN", message: t("storageUpload.unknown") });
-          clearPersistedSession(file);
-          emit({ status: "success", progress: { totalChunks, receivedChunks: session.receivedChunks, bytesUploaded: totalBytes, totalBytes, percent: 100, resumed, skipped }, error: null });
-          return { session, image: { id: session.resultImageId, publicUrl: `/api/images/${encodeURIComponent(session.resultImageId)}/file` } };
-        }
+				if (session.status === "COMPLETED") {
+					if (!session.resultImageId) throw new ApiError(409, { code: "UPLOAD_OUTCOME_UNKNOWN", message: t("storageUpload.unknown") });
+					clearPersistedSession(file);
+					emit({ status: "success", progress: { totalChunks, receivedChunks: session.receivedChunks, bytesUploaded: totalBytes, totalBytes, percent: 100, resumed, skipped }, error: null });
+					return { session, image: { id: session.resultImageId, publicUrl: `/api/images/${encodeURIComponent(session.resultImageId)}/file` } };
+				}
 
 
 				// Initialise progress state with whatever the server already has.

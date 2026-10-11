@@ -675,7 +675,7 @@ export async function readRemoteFile(
           resolve(Buffer.concat(chunks));
         });
 readStream.on("error", (readErr: Error) => {
-				reject(readErr);
+        reject(readErr);
         });
     }));
   });

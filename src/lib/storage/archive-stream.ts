@@ -151,7 +151,7 @@ export function streamLocalTarGz(directoryPath: string, entryName: string, exclu
 }
 
 export function connectArchiveSsh(config: ConnectConfig | SshConnectionParams): Promise<Client> {
-  return connectSsh(config);
+	return connectSsh(config);
 }
 
 /**
@@ -161,10 +161,10 @@ export function connectArchiveSsh(config: ConnectConfig | SshConnectionParams): 
  * to repeated `--exclude` argv entries with the same length cap.
  */
 export function streamRemoteTarGz(
-  client: Client,
-  remoteDirectoryPath: string,
-  excluded: string[] = [],
-  options: { bsdtar?: boolean } = {},
+	client: Client,
+	remoteDirectoryPath: string,
+	excluded: string[] = [],
+	options: { bsdtar?: boolean } = {},
 ) {
 	const input = options.bsdtar ? "" : archiveExclusionInput(excluded);
 	return new Promise<NodeJS.ReadableStream>((resolve, reject) => {

@@ -124,13 +124,13 @@ describe("useBatchMove", () => {
 	});
 
 	it("does not select uncertain moves for the next retry", async () => {
-    mocks.moveFileAction.mockResolvedValueOnce({error:"inspect both paths", needsReconcile:true}).mockResolvedValueOnce({error:"ordinary failure"});
-    const { state, input } = harness();
-    const { result } = renderHook(() => useBatchMove(input as never));
-    await act(async () => { result.current(); });
-    expect([...state.selectedIds]).toEqual(["f2"]);
-    expect(state.moveProgress.errors).toHaveLength(2);
-  });
+		mocks.moveFileAction.mockResolvedValueOnce({error:"inspect both paths", needsReconcile:true}).mockResolvedValueOnce({error:"ordinary failure"});
+		const { state, input } = harness();
+		const { result } = renderHook(() => useBatchMove(input as never));
+		await act(async () => { result.current(); });
+		expect([...state.selectedIds]).toEqual(["f2"]);
+		expect(state.moveProgress.errors).toHaveLength(2);
+	});
 
 	it("stays retryable after a partial failure once the panel is reopened", async () => {
 		// Reopening resets moveProgress (see the "batch move" button in

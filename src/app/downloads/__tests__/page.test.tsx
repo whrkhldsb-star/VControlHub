@@ -2,18 +2,18 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { requirePagePermissionMock } = vi.hoisted(() => ({
-	requirePagePermissionMock: vi.fn().mockResolvedValue({
-		userId: "u1",
-		username: "operator",
-		roles: ["operator"],
+  requirePagePermissionMock: vi.fn().mockResolvedValue({
+    userId: "u1",
+    username: "operator",
+    roles: ["operator"],
     permissions: ["storage:read", "storage:write"],
-		currentTeamId: "team-a",
-		mustChangePassword: false,
-	}),
+    currentTeamId: "team-a",
+    mustChangePassword: false,
+  }),
 }));
 
 vi.mock("@/lib/auth/page-guard", () => ({
-	requirePagePermission: requirePagePermissionMock,
+  requirePagePermission: requirePagePermissionMock,
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({
@@ -54,11 +54,11 @@ describe("DownloadsPage", () => {
     serverFindManyMock.mockClear();
   });
 
-	it("hydrates only download-capable VPS targets within team scope", async () => {
-		render(await DownloadsPage());
+  it("hydrates only download-capable VPS targets within team scope", async () => {
+    render(await DownloadsPage());
 
-		expect(requirePagePermissionMock).toHaveBeenCalledWith("storage:read", { redirectTo: "/downloads" });
-		expect(screen.getByTestId("downloads-client")).toHaveTextContent("下载 VPS:当前：直连");
+    expect(requirePagePermissionMock).toHaveBeenCalledWith("storage:read", { redirectTo: "/downloads" });
+    expect(screen.getByTestId("downloads-client")).toHaveTextContent("下载 VPS:当前：直连");
     // Strict `serverTeamWhere`: a null-team server is quarantined legacy data,
     // never a shared download target.
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({

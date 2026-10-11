@@ -61,38 +61,38 @@ export async function GET(request: Request) {
     request,
     { permission: "health:read", errorMessage: apiCopy("apiCopy.monitoring.sse.authentication.failed.75339d30"), rateLimit: { maxRequests: 30, windowMs: 60_000 } },
     async ({ session }) => {
-			assertPlatformAdmin(session);
-			const userId = session.userId;
-			const activeCount = activeConnectionsByUser.get(userId) ?? 0;
-			if (activeCount >= MAX_SSE_CONNECTIONS_PER_USER) {
-				return Response.json(
-					{
-						code: "RATE_LIMITED",
-						message: apiCopy("apiCopy.too.many.active.monitoring.streams.f2c04de1"),
-						error: apiCopy("apiCopy.too.many.active.monitoring.streams.f2c04de1"),
-					},
-					{ status: 429 },
-				);
-			}
-			activeConnectionsByUser.set(userId, activeCount + 1);
+      assertPlatformAdmin(session);
+      const userId = session.userId;
+      const activeCount = activeConnectionsByUser.get(userId) ?? 0;
+      if (activeCount >= MAX_SSE_CONNECTIONS_PER_USER) {
+        return Response.json(
+          {
+            code: "RATE_LIMITED",
+            message: apiCopy("apiCopy.too.many.active.monitoring.streams.f2c04de1"),
+            error: apiCopy("apiCopy.too.many.active.monitoring.streams.f2c04de1"),
+          },
+          { status: 429 },
+        );
+      }
+      activeConnectionsByUser.set(userId, activeCount + 1);
       const url = new URL(request.url);
       const intervalSeconds = Math.max(2, Math.min(30, Number(url.searchParams.get("interval")) || 5));
-			let released = false;
-			let timer: ReturnType<typeof setInterval> | undefined;
-			let keepAlive: ReturnType<typeof setInterval> | undefined;
-			let maxAgeTimer: ReturnType<typeof setTimeout> | undefined;
-			let onAbort: (() => void) | undefined;
-			const release = () => {
-				if (released) return;
-				released = true;
-				if (timer) clearInterval(timer);
-				if (keepAlive) clearInterval(keepAlive);
-				if (maxAgeTimer) clearTimeout(maxAgeTimer);
-				if (onAbort) request.signal.removeEventListener("abort", onAbort);
-				const current = activeConnectionsByUser.get(userId) ?? 1;
-				if (current <= 1) activeConnectionsByUser.delete(userId);
-				else activeConnectionsByUser.set(userId, current - 1);
-			};
+      let released = false;
+      let timer: ReturnType<typeof setInterval> | undefined;
+      let keepAlive: ReturnType<typeof setInterval> | undefined;
+      let maxAgeTimer: ReturnType<typeof setTimeout> | undefined;
+      let onAbort: (() => void) | undefined;
+      const release = () => {
+        if (released) return;
+        released = true;
+        if (timer) clearInterval(timer);
+        if (keepAlive) clearInterval(keepAlive);
+        if (maxAgeTimer) clearTimeout(maxAgeTimer);
+        if (onAbort) request.signal.removeEventListener("abort", onAbort);
+        const current = activeConnectionsByUser.get(userId) ?? 1;
+        if (current <= 1) activeConnectionsByUser.delete(userId);
+        else activeConnectionsByUser.set(userId, current - 1);
+      };
 
       const stream = new ReadableStream({
         start(controller) {
@@ -126,25 +126,25 @@ export async function GET(request: Request) {
           // Send initial snapshot immediately.
           void sendStats();
 
-					timer = setInterval(() => {
+          timer = setInterval(() => {
             void sendStats();
           }, intervalSeconds * 1000);
 
           // Keep-alive comment every 15s to prevent idle proxy close.
-				keepAlive = setInterval(() => {
+        keepAlive = setInterval(() => {
             if (released || (controller.desiredSize ?? 0) <= 0) return;
             try {
               controller.enqueue(encoder.encode(":keep-alive\n\n"));
             } catch {
-						release();
+            release();
             }
           }, 15_000);
 
-					maxAgeTimer = setTimeout(close, MAX_SSE_CONNECTION_AGE_MS);
+          maxAgeTimer = setTimeout(close, MAX_SSE_CONNECTION_AGE_MS);
         },
-			cancel() {
-				release();
-			},
+      cancel() {
+        release();
+      },
       });
 
       return new Response(stream, {

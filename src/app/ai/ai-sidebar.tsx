@@ -31,16 +31,16 @@ export function AiSidebar({
   onToggleSidebar,
   onToggleProviders,
 }: SidebarProps) {
-	const { t } = useI18n();
-	// Client-side title filter — conversation counts here are personal-scale,
-	// no server round-trip needed.
-	const [filter, setFilter] = useState("");
-	const filterNorm = filter.trim().toLowerCase();
-	const visibleConversations = filterNorm
-		? conversations.filter((conv) => conv.title.toLowerCase().includes(filterNorm))
-		: conversations;
-	return (
-		<>
+  const { t } = useI18n();
+  // Client-side title filter — conversation counts here are personal-scale,
+  // no server round-trip needed.
+  const [filter, setFilter] = useState("");
+  const filterNorm = filter.trim().toLowerCase();
+  const visibleConversations = filterNorm
+    ? conversations.filter((conv) => conv.title.toLowerCase().includes(filterNorm))
+    : conversations;
+  return (
+    <>
       {/* Mobile sidebar backdrop */}
       {showSidebar && (
         <div

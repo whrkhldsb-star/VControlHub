@@ -18,78 +18,78 @@ const refreshMock = vi.fn();
 const pushMock = vi.fn();
 
 vi.mock("@/lib/auth/csrf-client", () => ({
-	csrfFetch: vi.fn(),
+  csrfFetch: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
-	useRouter: () => ({ refresh: refreshMock, push: pushMock }),
+  useRouter: () => ({ refresh: refreshMock, push: pushMock }),
 }));
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 describe("SettingsClient", () => {
-	beforeEach(() => {
-		vi.mocked(csrfFetch).mockReset();
-		refreshMock.mockReset();
-		pushMock.mockReset();
-	});
+  beforeEach(() => {
+    vi.mocked(csrfFetch).mockReset();
+    refreshMock.mockReset();
+    pushMock.mockReset();
+  });
 
-	it("persists edited settings through the settings API", async () => {
-		const user = userEvent.setup();
-		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
+  it("persists edited settings through the settings API", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
-		render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />);
-		const input = screen.getByLabelText("平台名称");
-		await user.clear(input);
-		await user.type(input, "新平台名称");
-		await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
+    render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />);
+    const input = screen.getByLabelText("平台名称");
+    await user.clear(input);
+    await user.type(input, "新平台名称");
+    await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
 
-		await waitFor(() => {
-			expect(csrfFetch).toHaveBeenCalledWith("/api/settings", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "" }),
-			});
-		});
-		expect(await screen.findByText(/设置已保存/)).toBeInTheDocument();
-		expect(screen.getByText(/平台信息已保存/)).toBeInTheDocument();
-	});
+    await waitFor(() => {
+      expect(csrfFetch).toHaveBeenCalledWith("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "" }),
+      });
+    });
+    expect(await screen.findByText(/设置已保存/)).toBeInTheDocument();
+    expect(screen.getByText(/平台信息已保存/)).toBeInTheDocument();
+  });
 
-	it("protects unsaved changes during client-side navigation", async () => {
-		const user = userEvent.setup();
-		render(<><SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage /><a href="/servers">前往节点</a></>);
-		await user.clear(screen.getByLabelText("平台名称"));
-		await user.type(screen.getByLabelText("平台名称"), "未保存名称");
+  it("protects unsaved changes during client-side navigation", async () => {
+    const user = userEvent.setup();
+    render(<><SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage /><a href="/servers">前往节点</a></>);
+    await user.clear(screen.getByLabelText("平台名称"));
+    await user.type(screen.getByLabelText("平台名称"), "未保存名称");
 
-		await user.click(screen.getByRole("link", { name: "前往节点" }));
-		expect(pushMock).not.toHaveBeenCalled();
-		const dialog = screen.getByRole("dialog", { name: "有设置尚未保存" });
-		expect(dialog).toHaveTextContent("当前有 1 项更改尚未保存");
-		await user.click(screen.getByRole("button", { name: "放弃更改并离开" }));
-		expect(pushMock).toHaveBeenCalledWith("/servers");
-	});
+    await user.click(screen.getByRole("link", { name: "前往节点" }));
+    expect(pushMock).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("dialog", { name: "有设置尚未保存" });
+    expect(dialog).toHaveTextContent("当前有 1 项更改尚未保存");
+    await user.click(screen.getByRole("button", { name: "放弃更改并离开" }));
+    expect(pushMock).toHaveBeenCalledWith("/servers");
+  });
 
-	it("validates platform settings before calling the API", async () => {
-		const user = userEvent.setup();
-		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
+  it("validates platform settings before calling the API", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
-		render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "ftp://example.com/logo.png" }} canManage />);
-		await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
+    render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "ftp://example.com/logo.png" }} canManage />);
+    await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
 
-		expect(screen.getByText("Logo URL 只支持 http(s) 或站内路径")).toBeInTheDocument();
-		expect(csrfFetch).not.toHaveBeenCalled();
-	});
+    expect(screen.getByText("Logo URL 只支持 http(s) 或站内路径")).toBeInTheDocument();
+    expect(csrfFetch).not.toHaveBeenCalled();
+  });
 
-	it("shows API errors instead of falsely reporting success", async () => {
-		const user = userEvent.setup();
-		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("权限不足"));
+  it("shows API errors instead of falsely reporting success", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("权限不足"));
 
-		render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />);
-		await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
+    render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />);
+    await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
 
-		expect(await screen.findByText("权限不足")).toBeInTheDocument();
-		expect(screen.queryByText(/设置已保存/)).not.toBeInTheDocument();
-	});
+    expect(await screen.findByText("权限不足")).toBeInTheDocument();
+    expect(screen.queryByText(/设置已保存/)).not.toBeInTheDocument();
+  });
 
   it("persists edited runtime settings through the settings API", async () => {
     const user = userEvent.setup();
@@ -237,13 +237,13 @@ describe("SettingsClient", () => {
     expect(screen.getByText("命令执行超时（毫秒） 必须在 5000 到 3600000 之间")).toBeInTheDocument();
     expect(csrfFetch).not.toHaveBeenCalled();
   });
-	it("hosts account two-factor controls in system settings", () => {
-		render(<SettingsClient settings={{}} canManage twoFactorEnabled={false} />);
+  it("hosts account two-factor controls in system settings", () => {
+    render(<SettingsClient settings={{}} canManage twoFactorEnabled={false} />);
 
-		expect(screen.getByRole("heading", { name: /账户安全/ })).toBeInTheDocument();
-		expect(screen.getByRole("heading", { name: /账户安全/ }).closest("section")).toHaveAttribute("id", "2fa");
-		expect(screen.getByRole("heading", { name: /会话与安全/ }).closest("section")).toHaveAttribute("id", "password");
-		expect(screen.getByRole("heading", { name: /两步验证 \(2FA\)/ })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "开启两步验证" })).toBeInTheDocument();
-	});
+    expect(screen.getByRole("heading", { name: /账户安全/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /账户安全/ }).closest("section")).toHaveAttribute("id", "2fa");
+    expect(screen.getByRole("heading", { name: /会话与安全/ }).closest("section")).toHaveAttribute("id", "password");
+    expect(screen.getByRole("heading", { name: /两步验证 \(2FA\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "开启两步验证" })).toBeInTheDocument();
+  });
 });

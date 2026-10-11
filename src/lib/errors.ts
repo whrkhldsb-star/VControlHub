@@ -117,8 +117,8 @@ export function isAppError(value: unknown): value is AppError {
 
 /** A storage write may have succeeded: clients must not automatically replay it. */
 export class UploadOutcomeUnknownError extends AppError {
-  constructor(message: string) {
-    super({ code: "UPLOAD_OUTCOME_UNKNOWN", message, status: 409 });
-    this.name = "UploadOutcomeUnknownError";
-  }
+	constructor(message: string) {
+		super({ code: "UPLOAD_OUTCOME_UNKNOWN", message, status: 409 });
+		this.name = "UploadOutcomeUnknownError";
+	}
 }

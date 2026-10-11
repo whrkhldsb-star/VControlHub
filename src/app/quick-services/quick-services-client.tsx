@@ -9,8 +9,8 @@ import { EmptyState, Toolbar, StatCard, StatGrid } from "@/components/page-shell
 import { Badge, CONTROL_CLASS, InlineLoading, Notice, SegmentedTabs } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
-  useQuickServiceActions,
-  type ConfigPreview,
+	useQuickServiceActions,
+	type ConfigPreview,
 } from "./use-quick-service-actions";
 import {
 	PendingUninstallDialogLazy,

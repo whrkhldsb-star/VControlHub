@@ -16,27 +16,27 @@ vi.mock("../client", async (importOriginal) => {
 });
 
 describe("SSH client host key verification", () => {
-	it("honors SSH_ENFORCE_HOST_KEY_PIN when callers omit an explicit override", () => {
-		process.env.SSH_ENFORCE_HOST_KEY_PIN = "true";
-		try {
-			const config = createVerifiedSshConfig({ host: "203.0.113.10", port: 22, username: "root", password: "secret" }) as ConnectConfig;
-			expect(config.hostHash).toBe("sha256");
-			const verifier = config.hostVerifier as unknown as (hash: string) => boolean;
-			expect(verifier("unknown-host-key")).toBe(false);
-		} finally {
-			delete process.env.SSH_ENFORCE_HOST_KEY_PIN;
-		}
-	});
+  it("honors SSH_ENFORCE_HOST_KEY_PIN when callers omit an explicit override", () => {
+    process.env.SSH_ENFORCE_HOST_KEY_PIN = "true";
+    try {
+      const config = createVerifiedSshConfig({ host: "203.0.113.10", port: 22, username: "root", password: "secret" }) as ConnectConfig;
+      expect(config.hostHash).toBe("sha256");
+      const verifier = config.hostVerifier as unknown as (hash: string) => boolean;
+      expect(verifier("unknown-host-key")).toBe(false);
+    } finally {
+      delete process.env.SSH_ENFORCE_HOST_KEY_PIN;
+    }
+  });
 
-	it("lets an explicit bootstrap override disable the global pin requirement", () => {
-		process.env.SSH_ENFORCE_HOST_KEY_PIN = "true";
-		try {
-			const config = createVerifiedSshConfig({ host: "203.0.113.10", port: 22, username: "root", password: "secret", enforceHostKeyPin: false }) as ConnectConfig;
-			expect(config.hostVerifier).toBeUndefined();
-		} finally {
-			delete process.env.SSH_ENFORCE_HOST_KEY_PIN;
-		}
-	});
+  it("lets an explicit bootstrap override disable the global pin requirement", () => {
+    process.env.SSH_ENFORCE_HOST_KEY_PIN = "true";
+    try {
+      const config = createVerifiedSshConfig({ host: "203.0.113.10", port: 22, username: "root", password: "secret", enforceHostKeyPin: false }) as ConnectConfig;
+      expect(config.hostVerifier).toBeUndefined();
+    } finally {
+      delete process.env.SSH_ENFORCE_HOST_KEY_PIN;
+    }
+  });
   it("installs a sha256 hostVerifier when a host key fingerprint is configured", () => {
     const config = createVerifiedSshConfig({
       host: "203.0.113.10",

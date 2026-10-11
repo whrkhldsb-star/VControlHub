@@ -19,7 +19,7 @@ describe("bidirectional sync policy", () => {
   it("forces deleteOrphans off for bidirectional", () => {
     expect(effectiveDeleteOrphans("BIDIRECTIONAL", true)).toBe(false);
     expect(effectiveDeleteOrphans("MIRROR", true)).toBe(true);
-	expect(effectiveDeleteOrphans("MIRROR", false)).toBe(true);
+  expect(effectiveDeleteOrphans("MIRROR", false)).toBe(true);
   });
 
   it("adds --update and never --delete for bidirectional flags", () => {

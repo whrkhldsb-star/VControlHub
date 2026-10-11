@@ -73,7 +73,7 @@ vi.mock("@/lib/audit/service", () => ({
 
 vi.mock("@/lib/db", () => {
 	const prisma = {
-    $executeRaw: vi.fn(async () => 1),
+	$executeRaw: vi.fn(async () => 1),
 		mediaUploadSession: { findFirst: vi.fn(), updateMany: mocks.sessionUpdateMany },
 		imageUpload: { create: mocks.imageCreate, delete: mocks.imageDelete },
 		storageNode: { findFirst: mocks.storageFindFirst },

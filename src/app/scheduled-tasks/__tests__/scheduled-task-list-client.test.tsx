@@ -60,11 +60,11 @@ describe("ScheduledTaskListClient", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: "清理日志",
-		scheduleType: "CRON",
+    scheduleType: "CRON",
         cronExpression: "0 2 * * *",
         command: "journalctl --vacuum-time=7d",
         reason: "",
-		approvalRequired: true,
+    approvalRequired: true,
         serverIds: ["srv_1"],
       }),
     })));
@@ -163,20 +163,20 @@ describe("ScheduledTaskListClient", () => {
 
   describe("touch targets (TR-022 R17 mobile)", () => {
     function mockHeightsBySelector(measurements: Record<string, number>) {
-    	// jsdom reports getBoundingClientRect as 0x0. Control heights come from
-    	// design tokens (--control-height is 44px on touch screens), so report the
-    	// requested height for elements that are touch targets by construction.
-    	const height = Math.max(...Object.values(measurements));
-    	const original = Element.prototype.getBoundingClientRect;
-    	Element.prototype.getBoundingClientRect = function () {
-    		if (isTouchTarget(this)) {
-    			return { x: 0, y: 0, top: 0, left: 0, right: height, bottom: height, width: height, height, toJSON: () => ({}) } as DOMRect;
-    		}
-    		return original.call(this);
-    	};
-    	return () => {
-    		Element.prototype.getBoundingClientRect = original;
-    	};
+      // jsdom reports getBoundingClientRect as 0x0. Control heights come from
+      // design tokens (--control-height is 44px on touch screens), so report the
+      // requested height for elements that are touch targets by construction.
+      const height = Math.max(...Object.values(measurements));
+      const original = Element.prototype.getBoundingClientRect;
+      Element.prototype.getBoundingClientRect = function () {
+        if (isTouchTarget(this)) {
+          return { x: 0, y: 0, top: 0, left: 0, right: height, bottom: height, width: height, height, toJSON: () => ({}) } as DOMRect;
+        }
+        return original.call(this);
+      };
+      return () => {
+        Element.prototype.getBoundingClientRect = original;
+      };
     }
 
     it("renders list row action buttons with at least 44px height", () => {

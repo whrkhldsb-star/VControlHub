@@ -31,8 +31,8 @@ describe("generic AI automation proposals", () => {
       name: "Install SSH public key",
       command: "install-key '{{public_key}}'",
       rollbackCommand: "remove-key '{{public_key}}'",
-	  variables: ["public_key"],
-	  isBuiltin: true,
+    variables: ["public_key"],
+    isBuiltin: true,
     });
     serverFindMany.mockResolvedValue([
       { id: "srv_1", name: "A", host: "10.0.0.1", teamId: "team_1" },
@@ -99,9 +99,9 @@ describe("generic AI automation proposals", () => {
   });
 
   it("rejects multiline or shell-injected public keys before approval", async () => {
-	serverFindMany.mockResolvedValueOnce([
-		{ id: "srv_1", name: "A", host: "10.0.0.1", teamId: "team_1" },
-	]);
+  serverFindMany.mockResolvedValueOnce([
+    { id: "srv_1", name: "A", host: "10.0.0.1", teamId: "team_1" },
+  ]);
     await expect(materializeAutomationProposal({
       name: "Install key",
       plan: "Install one key.",

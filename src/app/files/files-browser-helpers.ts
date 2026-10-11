@@ -26,10 +26,10 @@ export type TreeRootNode = {
 };
 
 export type FilesApiResponse = {
-	/** Absent only on legacy embedded listings. */
-	pagination?: {page:number;pageSize:number;totalItems:number;totalPages:number};
-	sort?: "name" | "size" | "source" | "updated";
-	direction?: "asc" | "desc";
+  /** Absent only on legacy embedded listings. */
+  pagination?: {page:number;pageSize:number;totalItems:number;totalPages:number};
+  sort?: "name" | "size" | "source" | "updated";
+  direction?: "asc" | "desc";
   currentPath: string;
   nodeIdFilter: string;
   folders: FolderProp[];

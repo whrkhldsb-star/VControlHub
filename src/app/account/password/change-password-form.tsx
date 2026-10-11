@@ -10,8 +10,8 @@ import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import {
-  changePasswordAction,
-  type AccountPasswordActionState,
+	changePasswordAction,
+	type AccountPasswordActionState,
 } from "./actions";
 
 import { ActionButton } from "@/components/action-button";

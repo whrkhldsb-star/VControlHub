@@ -6,8 +6,8 @@ const { mocks } = vi.hoisted(() => ({
     requireApiSession: vi.fn(),
     hashPassword: vi.fn(),
     auditUserAction: vi.fn(),
-		assertAdminAccessMayBeRemoved: vi.fn(),
-		withAdminInvariantLock: vi.fn(),
+    assertAdminAccessMayBeRemoved: vi.fn(),
+    withAdminInvariantLock: vi.fn(),
     assertUserInActorScope: vi.fn(),
     userDirectoryWhere: vi.fn(),
     isGlobalTeamManager: vi.fn(),
@@ -53,8 +53,8 @@ vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.auditUserAction,
 }));
 vi.mock("@/lib/user/admin-invariant", () => ({
-	assertAdminAccessMayBeRemoved: mocks.assertAdminAccessMayBeRemoved,
-	withAdminInvariantLock: mocks.withAdminInvariantLock,
+  assertAdminAccessMayBeRemoved: mocks.assertAdminAccessMayBeRemoved,
+  withAdminInvariantLock: mocks.withAdminInvariantLock,
 }));
 vi.mock("@/lib/auth/team-scope", () => ({
   assertUserInActorScope: mocks.assertUserInActorScope,
@@ -87,8 +87,8 @@ describe("/api/users", () => {
     // these tests use an admin session, which a real isGlobalTeamManager call
     // would classify as global.
     mocks.isGlobalTeamManager.mockReturnValue(true);
-		mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
-		mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
+    mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
+    mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
     mocks.userDirectoryWhere.mockReturnValue({
       OR: [{ id: "admin1" }, { teamMembership: { is: { teamId: "team-a" } } }],
     });
@@ -237,46 +237,46 @@ describe("/api/users", () => {
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
   });
 
-	it("rejects a PATCH that carries no action instead of reporting success", async () => {
-		mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "ACTIVE" });
-		// {userId, newPassword} passes the schema but matches no branch: the old code
-		// answered 200 {success:true} while leaving the password untouched.
-		const res = await route.PATCH(new Request("http://local/api/users", {
-			method: "PATCH",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ userId: "user1", newPassword: "Secret123" }),
-		}));
-		expect(res.status).toBe(400);
-		expect(mocks.prisma.user.update).not.toHaveBeenCalled();
-	});
+  it("rejects a PATCH that carries no action instead of reporting success", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "ACTIVE" });
+    // {userId, newPassword} passes the schema but matches no branch: the old code
+    // answered 200 {success:true} while leaving the password untouched.
+    const res = await route.PATCH(new Request("http://local/api/users", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId: "user1", newPassword: "Secret123" }),
+    }));
+    expect(res.status).toBe(400);
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
 
-	it("resets a password and forces a change on next sign-in", async () => {
-		mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "ACTIVE" });
-		mocks.prisma.user.update.mockResolvedValue({ id: "user1" });
-		const res = await route.PATCH(new Request("http://local/api/users", {
-			method: "PATCH",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ userId: "user1", action: "reset_password", newPassword: "Secret123" }),
-		}));
-		expect(res.status).toBe(200);
-		expect(mocks.prisma.user.update).toHaveBeenCalledWith({
-			where: { id: "user1" },
-			data: {
-				passwordHash: "hashed-password",
-				mustChangePassword: true,
-				status: "PENDING_PASSWORD_RESET",
-			},
-		});
-	});
+  it("resets a password and forces a change on next sign-in", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "ACTIVE" });
+    mocks.prisma.user.update.mockResolvedValue({ id: "user1" });
+    const res = await route.PATCH(new Request("http://local/api/users", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId: "user1", action: "reset_password", newPassword: "Secret123" }),
+    }));
+    expect(res.status).toBe(200);
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user1" },
+      data: {
+        passwordHash: "hashed-password",
+        mustChangePassword: true,
+        status: "PENDING_PASSWORD_RESET",
+      },
+    });
+  });
 
-	it("rejects legacy role assignment PATCHes before mutating roles", async () => {
-		mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "ACTIVE" });
-		const res = await route.PATCH(new Request("http://local/api/users", {
-			method: "PATCH",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ userId: "user1", roleKeys: ["admin"] }),
-		}));
-		expect(res.status).toBe(400);
-		expect(mocks.prisma.userRole.deleteMany).not.toHaveBeenCalled();
-	});
+  it("rejects legacy role assignment PATCHes before mutating roles", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "ACTIVE" });
+    const res = await route.PATCH(new Request("http://local/api/users", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId: "user1", roleKeys: ["admin"] }),
+    }));
+    expect(res.status).toBe(400);
+    expect(mocks.prisma.userRole.deleteMany).not.toHaveBeenCalled();
+  });
 });

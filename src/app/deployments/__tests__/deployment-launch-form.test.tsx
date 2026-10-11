@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DeploymentLaunchForm } from "../deployment-launch-form";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }) }));
+	useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }) }));
 
 const servers = [
 	{ id: "srv_1", name: "香港 VPS", host: "hk.example.test", username: "root" },

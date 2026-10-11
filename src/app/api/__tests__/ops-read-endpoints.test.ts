@@ -153,15 +153,28 @@ describe("read-only ops endpoints", () => {
 	});
 
 	describe("GET /api/system-health", () => {
+		// The platform self-check describes the hub every customer shares: only
+		// the platform role reads it, whatever health:read a template grants.
+		const platformSession = { ...session, roles: ["admin"] };
+		beforeEach(() => {
+			currentSession = platformSession;
+		});
+
 		it("is gated on health:read", async () => {
 			await systemHealth.GET(req("https://a.test/api/system-health"));
 			expect(mocks.guardCalls[0]!.permission).toBe("health:read");
 		});
 
-		it("passes the session so inventory counts stay team-scoped", async () => {
-			// Without `session` the report leaks platform-wide VPS/storage totals.
+		it("refuses a customer account even with health:read", async () => {
+			currentSession = session;
+			const res = await systemHealth.GET(req("https://a.test/api/system-health"));
+			expect(res.status).toBe(403);
+			expect(mocks.collectSystemHealthChecks).not.toHaveBeenCalled();
+		});
+
+		it("passes the session so inventory counts stay scoped", async () => {
 			await systemHealth.GET(req("https://a.test/api/system-health"));
-			expect(mocks.collectSystemHealthChecks).toHaveBeenCalledWith({ session });
+			expect(mocks.collectSystemHealthChecks).toHaveBeenCalledWith({ session: platformSession });
 		});
 
 		it("returns the report as the response body without re-wrapping it", async () => {

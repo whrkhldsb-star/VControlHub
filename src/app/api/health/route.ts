@@ -25,16 +25,16 @@ export const dynamic = "force-dynamic";
  * served to a caller with different visibility.
  */
 const healthOverviewFlight = createSingleFlight<HealthOverview>({
-	ttlMs: () => config.health.overviewCacheTtlMs,
-	maxKeys: 128,
+  ttlMs: () => config.health.overviewCacheTtlMs,
+  maxKeys: 128,
 });
 
 function healthOverviewKey(session: SessionPayload): string {
-	return [
-		session.userId,
-		session.currentTeamId ?? "-",
-		[...session.roles].sort().join(","),
-	].join("|");
+  return [
+    session.userId,
+    session.currentTeamId ?? "-",
+    [...session.roles].sort().join(","),
+  ].join("|");
 }
 
 function parseHistoryHours(value: string | null) {

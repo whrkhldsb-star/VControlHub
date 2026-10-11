@@ -71,11 +71,11 @@ const listDeploymentRunsMock = vi.mocked(listDeploymentRuns);
 const serverFindManyMock = vi.mocked(prisma.server.findMany);
 
 const wrap = (ui: React.ReactNode) =>
-	render(
-		<I18nProvider initialLocale="zh">
-			<ToastProvider>{ui}</ToastProvider>
-		</I18nProvider>,
-	);
+  render(
+    <I18nProvider initialLocale="zh">
+      <ToastProvider>{ui}</ToastProvider>
+    </I18nProvider>,
+  );
 
 const sampleExport = {
   export: {
@@ -94,15 +94,15 @@ describe("DeploymentsPage deploy-export panel", () => {
   beforeEach(() => {
     csrfFetchMock.mockReset();
     csrfFetchMock.mockResolvedValue(sampleExport);
-		listDeploymentRunsMock.mockReset();
-		listDeploymentRunsMock.mockResolvedValue([]);
+    listDeploymentRunsMock.mockReset();
+    listDeploymentRunsMock.mockResolvedValue([]);
   });
 
   it("renders the panel, generates a portable export, and shows the ZIP download + tree preview", async () => {
     const user = userEvent.setup();
     wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
 
-		await user.click(screen.getByText("迁移部署导出"));
+    await user.click(screen.getByText("迁移部署导出"));
     expect(screen.getByText("迁移部署导出包")).toBeInTheDocument();
     await user.type(screen.getByLabelText("目标域名"), " Console.Example.Test ");
     await user.type(screen.getByLabelText("应用标识"), " VControlHub ");
@@ -172,41 +172,41 @@ describe("DeploymentsPage deploy-export panel", () => {
     }));
   });
 
-	it("collapses repeated guidance and links a pending deployment to its approval record", async () => {
-		listDeploymentRunsMock.mockResolvedValue([{
-			id: "run-1",
-			templateId: "tmpl1",
-			template: { name: "Docker Compose 更新" },
-			serverIds: ["srv1"],
-			createdAt: new Date("2026-08-09T01:00:00.000Z"),
-			status: "PENDING_APPROVAL",
-			commandRequestId: "req-1",
-			snapshotId: "snap-1",
-			snapshot: { rollbackCommand: "docker compose down" },
-			variables: { project_dir: "/srv/app" },
-			renderedCommand: "cd /srv/app && docker compose up -d",
-			rollbackAttempts: [],
-			errorMessage: null,
-		}] as unknown as Awaited<ReturnType<typeof listDeploymentRuns>>);
+  it("collapses repeated guidance and links a pending deployment to its approval record", async () => {
+    listDeploymentRunsMock.mockResolvedValue([{
+      id: "run-1",
+      templateId: "tmpl1",
+      template: { name: "Docker Compose 更新" },
+      serverIds: ["srv1"],
+      createdAt: new Date("2026-08-09T01:00:00.000Z"),
+      status: "PENDING_APPROVAL",
+      commandRequestId: "req-1",
+      snapshotId: "snap-1",
+      snapshot: { rollbackCommand: "docker compose down" },
+      variables: { project_dir: "/srv/app" },
+      renderedCommand: "cd /srv/app && docker compose up -d",
+      rollbackAttempts: [],
+      errorMessage: null,
+    }] as unknown as Awaited<ReturnType<typeof listDeploymentRuns>>);
 
-		wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
+    wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
 
-		expect(screen.getByText("使用流程").closest("details")).not.toHaveAttribute("open");
-		expect(screen.getAllByText("下一步：等待审批。")).toHaveLength(2);
-		for (const link of screen.getAllByRole("link", { name: "查看审批与执行记录" })) {
-			expect(link).toHaveAttribute("href", "/requests#command-req-1");
-		}
-		// Every status pill on the page comes from the shared badge, not a hand-rolled span.
-		expect(screen.getAllByText("等待审批").every((pill) => pill.hasAttribute("data-status-badge"))).toBe(true);
-	});
+    expect(screen.getByText("使用流程").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getAllByText("下一步：等待审批。")).toHaveLength(2);
+    for (const link of screen.getAllByRole("link", { name: "查看审批与执行记录" })) {
+      expect(link).toHaveAttribute("href", "/requests#command-req-1");
+    }
+    // Every status pill on the page comes from the shared badge, not a hand-rolled span.
+    expect(screen.getAllByText("等待审批").every((pill) => pill.hasAttribute("data-status-badge"))).toBe(true);
+  });
 
-	it("bounds the ?error= flash so a crafted link cannot fill the danger banner", async () => {
-		const crafted = "假".repeat(900);
-		wrap(await DeploymentsPage({ searchParams: Promise.resolve({ error: crafted }) }));
+  it("bounds the ?error= flash so a crafted link cannot fill the danger banner", async () => {
+    const crafted = "假".repeat(900);
+    wrap(await DeploymentsPage({ searchParams: Promise.resolve({ error: crafted }) }));
 
-		const banner = screen.getByRole("alert");
-		expect(banner).toHaveTextContent("部署提交失败：");
-		// 300 echoed characters, not the 900 the URL carried.
-		expect(banner.textContent?.match(/假/g)).toHaveLength(300);
-	});
+    const banner = screen.getByRole("alert");
+    expect(banner).toHaveTextContent("部署提交失败：");
+    // 300 echoed characters, not the 900 the URL carried.
+    expect(banner.textContent?.match(/假/g)).toHaveLength(300);
+  });
 });

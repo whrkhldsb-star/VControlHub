@@ -43,7 +43,7 @@ type Hit = {
 
 export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const { t } = useI18n();
-	const { addToast } = useToast();
+  const { addToast } = useToast();
   const [bases, setBases] = useState<KnowledgeBase[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [documents, setDocuments] = useState<DocumentRow[]>([]);

@@ -126,10 +126,10 @@ describe("command execution durable job worker", () => {
           createdBy: "user_1",
         }),
       );
-		expect(findUniqueCommandRequestMock).toHaveBeenCalledWith({
-			where: { id: "req-42" },
-			select: { teamId: true, requesterId: true },
-		});
+    expect(findUniqueCommandRequestMock).toHaveBeenCalledWith({
+      where: { id: "req-42" },
+      select: { teamId: true, requesterId: true },
+    });
     });
 
     it("rejects empty commandRequestId to surface caller bugs early", async () => {

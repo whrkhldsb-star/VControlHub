@@ -19,11 +19,11 @@ import { buildRsyncCommand, buildTarSyncCommand, getSyncTempKeyPath } from "./se
 import { decryptSyncTargetCredentials } from "./service-credentials";
 import {
 	effectiveDeleteOrphans,
-  formatBidirectionalResult,
-  isBidirectionalSyncType,
-  mergeSyncStats,
-  rsyncFlagsForJob,
-  type OneWaySyncStats,
+	formatBidirectionalResult,
+	isBidirectionalSyncType,
+	mergeSyncStats,
+	rsyncFlagsForJob,
+	type OneWaySyncStats,
 } from "./bidirectional";
 import { assertDisjointSyncEndpoints, getSyncJobForExecution } from "./service-crud";
 
@@ -167,101 +167,101 @@ async function executeTarSync(
 
 /** Push sourcePath → targetPath once (rsync or tar). Returns parsed stats + raw output. */
 async function runOneWayRsync(input: {
-  jobId: string;
-  sourceServer: NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["sourceServer"];
-  targetServer: NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["targetServer"];
-  sourcePath: string;
-  targetPath: string;
-  flags: string[];
-  deleteOrphans: boolean;
+	jobId: string;
+	sourceServer: NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["sourceServer"];
+	targetServer: NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["targetServer"];
+	sourcePath: string;
+	targetPath: string;
+	flags: string[];
+	deleteOrphans: boolean;
 	allowTarFallback: boolean;
 }): Promise<{ output: string; stats: OneWaySyncStats }> {
-  const sourceSsh = await buildSshParamsFromServer(input.sourceServer, input.sourceServer.sshKey);
-  const targetSsh = await buildSshParamsFromServer(input.targetServer, input.targetServer.sshKey);
-  const targetHost = input.targetServer.host;
-  const targetPort = input.targetServer.port || 22;
-  const targetUser = input.targetServer.username || "root";
-  const targetCredentials = decryptSyncTargetCredentials(input.targetServer);
-  const targetKeyPath = targetCredentials.privateKey ? getSyncTempKeyPath(input.jobId, "rsync") : undefined;
-  if (!targetCredentials.privateKey && !targetCredentials.password) {
-    throw new Error("Target server has no SSH key or password configured");
-  }
-  const legJobId = `${input.jobId}-leg`;
-  const rsyncCmd = buildRsyncCommand({
-    flags: input.flags,
-    sourcePath: input.sourcePath,
-    targetPath: input.targetPath,
-    targetUser,
-    targetHost,
-    targetPort,
-    keyPath: targetKeyPath,
-    password: targetKeyPath ? undefined : targetCredentials.password,
-    hostKeySha256: input.targetServer.hostKeySha256,
-    jobId: legJobId,
-  });
-  await writePinnedKnownHosts(sourceSsh, legJobId, targetHost, targetPort, input.targetServer.hostKeySha256);
-  const mkdirTarget = await execRemoteCommand({
-    ...targetSsh,
-    command: `mkdir -p -- ${shellQuote(input.targetPath)}`,
-    timeout: 15000,
-  });
-  assertSyncRemoteSucceeded(mkdirTarget, "target mkdir");
-  const mkdirSource = await execRemoteCommand({
-    ...sourceSsh,
-    command: `mkdir -p -- ${shellQuote(input.sourcePath)}`,
-    timeout: 15000,
-  });
-  assertSyncRemoteSucceeded(mkdirSource, "source mkdir");
-  const whichResult = await execRemoteCommand({
-    ...sourceSsh,
-    command: "which rsync 2>/dev/null || echo MISSING",
-    timeout: 8000,
-  });
-  // which may exit non-zero when missing; we still read stdout for MISSING
-  const whichRsync = whichResult.stdout;
-  let output: string;
-  if (whichRsync.trim() === "MISSING") {
-	if (!input.allowTarFallback) {
-	  throw new Error(
-		"Bidirectional sync requires rsync on both VPS nodes; install rsync and retry. Tar fallback is disabled because it cannot preserve newer-wins semantics.",
-	  );
+	const sourceSsh = await buildSshParamsFromServer(input.sourceServer, input.sourceServer.sshKey);
+	const targetSsh = await buildSshParamsFromServer(input.targetServer, input.targetServer.sshKey);
+	const targetHost = input.targetServer.host;
+	const targetPort = input.targetServer.port || 22;
+	const targetUser = input.targetServer.username || "root";
+	const targetCredentials = decryptSyncTargetCredentials(input.targetServer);
+	const targetKeyPath = targetCredentials.privateKey ? getSyncTempKeyPath(input.jobId, "rsync") : undefined;
+	if (!targetCredentials.privateKey && !targetCredentials.password) {
+		throw new Error("Target server has no SSH key or password configured");
 	}
-    const targetSshKey = targetCredentials.privateKey ? { privateKey: targetCredentials.privateKey } : null;
-    output = await executeTarSync(
-      sourceSsh,
-      legJobId,
-      input.sourcePath,
-      targetSsh,
-      targetHost,
-      targetPort,
-      targetUser,
-      targetSshKey,
-      targetCredentials.password ?? null,
-      input.targetPath,
-      input.deleteOrphans,
-      input.targetServer.hostKeySha256,
-    );
-  } else {
-    if (targetCredentials.privateKey && targetKeyPath) {
-      await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, targetCredentials.privateKey);
-    }
-    const result = await execRemoteCommand({
-      ...sourceSsh,
-      command: rsyncCmd,
-      timeout: 600_000,
-    });
-    assertSyncRemoteSucceeded(result, "rsync");
-    output = result.stdout;
-  }
-  const stats = parseRsyncOutput(output);
-  return {
-    output,
-    stats: {
-      totalFiles: stats.totalFiles,
-      transferredFiles: stats.transferredFiles,
-      totalSize: stats.totalSize,
-    },
-  };
+	const legJobId = `${input.jobId}-leg`;
+	const rsyncCmd = buildRsyncCommand({
+		flags: input.flags,
+		sourcePath: input.sourcePath,
+		targetPath: input.targetPath,
+		targetUser,
+		targetHost,
+		targetPort,
+		keyPath: targetKeyPath,
+		password: targetKeyPath ? undefined : targetCredentials.password,
+		hostKeySha256: input.targetServer.hostKeySha256,
+		jobId: legJobId,
+	});
+	await writePinnedKnownHosts(sourceSsh, legJobId, targetHost, targetPort, input.targetServer.hostKeySha256);
+	const mkdirTarget = await execRemoteCommand({
+		...targetSsh,
+		command: `mkdir -p -- ${shellQuote(input.targetPath)}`,
+		timeout: 15000,
+	});
+	assertSyncRemoteSucceeded(mkdirTarget, "target mkdir");
+	const mkdirSource = await execRemoteCommand({
+		...sourceSsh,
+		command: `mkdir -p -- ${shellQuote(input.sourcePath)}`,
+		timeout: 15000,
+	});
+	assertSyncRemoteSucceeded(mkdirSource, "source mkdir");
+	const whichResult = await execRemoteCommand({
+		...sourceSsh,
+		command: "which rsync 2>/dev/null || echo MISSING",
+		timeout: 8000,
+	});
+	// which may exit non-zero when missing; we still read stdout for MISSING
+	const whichRsync = whichResult.stdout;
+	let output: string;
+	if (whichRsync.trim() === "MISSING") {
+	if (!input.allowTarFallback) {
+		throw new Error(
+		"Bidirectional sync requires rsync on both VPS nodes; install rsync and retry. Tar fallback is disabled because it cannot preserve newer-wins semantics.",
+		);
+	}
+		const targetSshKey = targetCredentials.privateKey ? { privateKey: targetCredentials.privateKey } : null;
+		output = await executeTarSync(
+			sourceSsh,
+			legJobId,
+			input.sourcePath,
+			targetSsh,
+			targetHost,
+			targetPort,
+			targetUser,
+			targetSshKey,
+			targetCredentials.password ?? null,
+			input.targetPath,
+			input.deleteOrphans,
+			input.targetServer.hostKeySha256,
+		);
+	} else {
+		if (targetCredentials.privateKey && targetKeyPath) {
+			await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, targetCredentials.privateKey);
+		}
+		const result = await execRemoteCommand({
+			...sourceSsh,
+			command: rsyncCmd,
+			timeout: 600_000,
+		});
+		assertSyncRemoteSucceeded(result, "rsync");
+		output = result.stdout;
+	}
+	const stats = parseRsyncOutput(output);
+	return {
+		output,
+		stats: {
+			totalFiles: stats.totalFiles,
+			transferredFiles: stats.transferredFiles,
+			totalSize: stats.totalSize,
+		},
+	};
 }
 
 /* ── Main entry point ─────────────────────────────────────── */
@@ -440,39 +440,39 @@ const STALE_SYNC_RUNNING_MS = 30 * 60 * 1000;
  * and the schedule worker skip forever and manual /run also fails CAS.
  */
 export async function reclaimStaleRunningSyncJobs(options?: {
-  olderThanMs?: number;
-  now?: Date;
+	olderThanMs?: number;
+	now?: Date;
 }): Promise<string[]> {
-  const olderThanMs = options?.olderThanMs ?? STALE_SYNC_RUNNING_MS;
-  const now = options?.now ?? new Date();
-  const cutoff = new Date(now.getTime() - olderThanMs);
+	const olderThanMs = options?.olderThanMs ?? STALE_SYNC_RUNNING_MS;
+	const now = options?.now ?? new Date();
+	const cutoff = new Date(now.getTime() - olderThanMs);
 
-  const stale = await prisma.syncJob.findMany({
-    where: { status: "RUNNING", updatedAt: { lt: cutoff } },
-    select: { id: true },
-    take: 100,
-    orderBy: { updatedAt: "asc" },
-  });
+	const stale = await prisma.syncJob.findMany({
+		where: { status: "RUNNING", updatedAt: { lt: cutoff } },
+		select: { id: true },
+		take: 100,
+		orderBy: { updatedAt: "asc" },
+	});
 
-  const reclaimed: string[] = [];
-  for (const job of stale) {
-    const moved = await prisma.syncJob.updateMany({
-      where: { id: job.id, status: "RUNNING", updatedAt: { lt: cutoff } },
-      data: {
-        status: "ERROR",
-        lastSyncResult: `Failed: reclaimed stale RUNNING after ${Math.round(olderThanMs / 60_000)}m (worker may have died)`,
-      },
-    });
-    if (moved.count === 0) continue;
-    await prisma.syncLog.updateMany({
-      where: { syncJobId: job.id, status: "RUNNING" },
-      data: {
-        status: "FAILED",
-        errorMessage: apiCopy("apiCopy.reclaimed.stale.running.sync.after.process.loss.8aa169ca"),
-        completedAt: now,
-      },
-    });
-    reclaimed.push(job.id);
-  }
-  return reclaimed;
+	const reclaimed: string[] = [];
+	for (const job of stale) {
+		const moved = await prisma.syncJob.updateMany({
+			where: { id: job.id, status: "RUNNING", updatedAt: { lt: cutoff } },
+			data: {
+				status: "ERROR",
+				lastSyncResult: `Failed: reclaimed stale RUNNING after ${Math.round(olderThanMs / 60_000)}m (worker may have died)`,
+			},
+		});
+		if (moved.count === 0) continue;
+		await prisma.syncLog.updateMany({
+			where: { syncJobId: job.id, status: "RUNNING" },
+			data: {
+				status: "FAILED",
+				errorMessage: apiCopy("apiCopy.reclaimed.stale.running.sync.after.process.loss.8aa169ca"),
+				completedAt: now,
+			},
+		});
+		reclaimed.push(job.id);
+	}
+	return reclaimed;
 }

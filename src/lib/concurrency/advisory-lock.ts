@@ -67,14 +67,14 @@ const NAMESPACE_KEYS: Record<string, number> = {
   "health-sample-enqueue": 45079,
   /** Serialize traffic sampling job enqueue. */
   "traffic-sample-enqueue": 45080,
-	/** Serialize singleton scheduled-command tick enqueue. */
-	"scheduled-task-enqueue": 45081,
-	/** Serialize singleton backup-schedule tick enqueue. */
-	"backup-schedule-enqueue": 45082,
-	/** Serialize idempotent inbound ITSM webhook side effects per external event. */
-	"itsm-inbound": 45083,
-	/** Serialize cloud billing import per account+month (concurrent upserts collide). */
-	"cloud-billing-sync": 45084,
+  /** Serialize singleton scheduled-command tick enqueue. */
+  "scheduled-task-enqueue": 45081,
+  /** Serialize singleton backup-schedule tick enqueue. */
+  "backup-schedule-enqueue": 45082,
+  /** Serialize idempotent inbound ITSM webhook side effects per external event. */
+  "itsm-inbound": 45083,
+  /** Serialize cloud billing import per account+month (concurrent upserts collide). */
+  "cloud-billing-sync": 45084,
 };
 
 function connectionStringForPg() {

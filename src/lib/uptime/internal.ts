@@ -40,7 +40,7 @@ export type UptimeListOptions = {
  * their team (+ legacy null teamId) nodes.
  */
 export async function getAllUptimeDataInternal(options: UptimeListOptions = {}) {
-	if (!options.session) return { servers: [] };
+  if (!options.session) return { servers: [] };
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 89);
   ninetyDaysAgo.setUTCHours(0, 0, 0, 0);

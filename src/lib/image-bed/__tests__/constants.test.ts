@@ -24,10 +24,10 @@ describe("image-bed constants", () => {
     expect(UPLOAD_DIR).toBe(path.join("/srv/example-app", "uploads", "image-bed"));
   });
 
-	it("uses the current application directory as the default upload root", async () => {
-		vi.stubEnv("APP_DIR", "");
+  it("uses the current application directory as the default upload root", async () => {
+    vi.stubEnv("APP_DIR", "");
 
-		const { UPLOAD_DIR } = await loadConstants();
+    const { UPLOAD_DIR } = await loadConstants();
 
     expect(UPLOAD_DIR).toBe(path.join(process.cwd(), "uploads", "image-bed"));
   });

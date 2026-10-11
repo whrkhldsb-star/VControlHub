@@ -41,7 +41,7 @@ function sourceTypeLabel(t: (k: string, vars?: Record<string, string | number>) 
 }
 
 function getSourcePresets(t: (k: string, vars?: Record<string, string | number>) => string) {
-  return [
+	return [
 	{
 		key:"linuxserver",
 		badge:"LinuxServer",
@@ -58,7 +58,7 @@ function getSourcePresets(t: (k: string, vars?: Record<string, string | number>)
 		url:"",
 		description: t("quickServicesPage.sources.customDesc"),
 	},
-  ];
+	];
 }
 
 type SourcePresetKey ="linuxserver" |"custom";
