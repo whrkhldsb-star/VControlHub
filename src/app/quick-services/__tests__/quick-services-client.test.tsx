@@ -479,4 +479,18 @@ describe("QuickServicesClient", () => {
 			expect((select as HTMLSelectElement).value).toBe("");
 		});
 	});
+
+	it("moves a customer operator to their own node instead of the hub host", async () => {
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce({ ...catalogResponse, catalog: [], hubHostDenied: true, servers: [{ id: "server-remote", name: "Production VPS", host: "203.0.113.20" }] })
+			.mockResolvedValueOnce({ ...catalogResponse, servers: [{ id: "server-remote", name: "Production VPS", host: "203.0.113.20" }], selectedServerId: "server-remote" });
+
+		render(<QuickServicesClient canManage canManageHubHost={false} />);
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services?serverId=server-remote"));
+		expect(csrfFetch).not.toHaveBeenCalledWith("/api/app-sources?includeApps=false");
+		expect(screen.getByRole("combobox", { name: /部署节点|Target node/ })).toHaveValue("server-remote");
+		expect(screen.queryByText(/应用源|App sources/)).not.toBeInTheDocument();
+	});
 });
+

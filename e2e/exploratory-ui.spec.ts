@@ -19,7 +19,9 @@ function observe(page: Page) {
 	const failures: string[] = [];
 	page.on("pageerror", (error) => failures.push(`pageerror ${page.url()}: ${error.message}`));
 	page.on("console", (message) => {
-		if (message.type() === "error" && !/favicon|ResizeObserver/i.test(message.text())) {
+		// WebKit does not know the `interactive-widget` viewport key (layout.tsx asks Android to
+		// shrink the page for the keyboard) and reports it as a console error; a browser notice, not a fault.
+		if (message.type() === "error" && !/favicon|ResizeObserver|Viewport argument key "interactive-widget" not recognized/i.test(message.text())) {
 			failures.push(`console ${page.url()}: ${message.text()}`);
 		}
 	});

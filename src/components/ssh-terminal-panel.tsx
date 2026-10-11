@@ -6,12 +6,18 @@ import { installSshTerminalIme } from "@/components/ssh-terminal-ime";
 import { installSshTerminalTouchScroll } from "@/components/ssh-terminal-touch-scroll";
 import { parseQuickKeyPresets, quickKeyPresetsToEntries, serializeQuickKeyPresets, type QuickKeyPreset } from "@/components/ssh-quick-keys";
 import {
+	SSH_TERMINAL_FONT_SIZE_KEY,
+	clampSshTerminalFontSize,
+	parseSshTerminalFontSize,
+	readSshTerminalFontSize,
+} from "@/components/ssh-terminal-font-size";
+import {
 	SSH_TERMINAL_KEEP_ALIVE_KEY,
 	parseSshTerminalKeepAlive,
 	readSshTerminalKeepAlive,
 } from "@/components/ssh-terminal-keep-alive";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildSshWebSocketUrl } from "@/components/ssh-terminal-url";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -22,6 +28,7 @@ import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { writeLocalStorageValue } from "@/lib/browser-storage";
 import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 import { AlertTriangle } from "@/components/icons";
+import { cn } from "@/lib/ui/cn";
 export type { TerminalStatus } from "@/components/ssh-terminal-types";
 
 const FAVORITE_COMMANDS_KEY = "ssh-favorite-commands";
@@ -61,9 +68,22 @@ export type SshTerminalPanelProps = {
 	onClose: () => void;
 	/** Called when connection status changes (for tab badge display). */
 	onStatusChange?: (status: TerminalStatus) => void;
+	/** Full screen: the terminal fills the viewport, chrome shrinks to a strip. */
+	fullscreen?: boolean;
+	/** Absent when the host offers no full-screen mode. */
+	onToggleFullscreen?: () => void;
 };
 
-export function SshTerminalPanel({ serverId, serverName, host, visible, onClose, onStatusChange }: SshTerminalPanelProps) {
+export function SshTerminalPanel({
+	serverId,
+	serverName,
+	host,
+	visible,
+	onClose,
+	onStatusChange,
+	fullscreen = false,
+	onToggleFullscreen,
+}: SshTerminalPanelProps) {
 	const { t } = useI18n();
 	// Keep the translator reachable from async WS callbacks without adding `t`
 	// to the connection effect deps — a locale switch must NOT tear down live
@@ -99,6 +119,12 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 		[quickKeyPresets],
 	);
 
+	const storedFontSize = useBrowserStorageSnapshot(SSH_TERMINAL_FONT_SIZE_KEY, readSshTerminalFontSize, null);
+	const fontSize = parseSshTerminalFontSize(storedFontSize);
+	// Read by the terminal effect when it builds the terminal, without
+	// making the font size a reason to rebuild it.
+	const fontSizeRef = useRef(fontSize);
+
 	const storedKeepAlive = useBrowserStorageSnapshot(SSH_TERMINAL_KEEP_ALIVE_KEY, readSshTerminalKeepAlive, null);
 	const keepAlive = parseSshTerminalKeepAlive(storedKeepAlive);
 	const keepAliveRef = useRef(keepAlive);
@@ -118,25 +144,37 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 		onStatusChange?.(status);
 	}, [status, onStatusChange]);
 
+	/** Size the grid to the surface and tell the remote PTY; a no-op before the terminal exists. */
+	const fitTerminal = useCallback(() => {
+		const term = terminalRef.current;
+		const fitAddon = fitAddonRef.current;
+		if (!term || !fitAddon) return;
+		try {
+			fitAddon.fit();
+		} catch {
+			return;
+		}
+		if (wsRef.current?.readyState === WebSocket.OPEN) {
+			wsRef.current.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+		}
+	}, []);
+
 	// Refit terminal when tab becomes visible (xterm needs visible DOM to fit)
 	useEffect(() => {
-		if (visible && fitAddonRef.current && terminalRef.current) {
-			// Small delay to ensure DOM is visible before fit
-			const timer = setTimeout(() => {
-				try {
-					fitAddonRef.current?.fit();
-					if (wsRef.current?.readyState === WebSocket.OPEN && terminalRef.current) {
-						wsRef.current.send(JSON.stringify({
-							type: "resize",
-							cols: terminalRef.current.cols,
-							rows: terminalRef.current.rows,
-						}));
-					}
-				} catch {}
-			}, 50);
-			return () => clearTimeout(timer);
-		}
-	}, [visible]);
+		if (!visible) return;
+		// Small delay to ensure DOM is visible before fit
+		const timer = setTimeout(fitTerminal, 50);
+		return () => clearTimeout(timer);
+	}, [visible, fitTerminal]);
+
+	// A new font size changes the cell size, so the grid must be measured again.
+	useEffect(() => {
+		fontSizeRef.current = fontSize;
+		const term = terminalRef.current;
+		if (!term || term.options.fontSize === fontSize) return;
+		term.options.fontSize = fontSize;
+		fitTerminal();
+	}, [fontSize, fitTerminal]);
 
 	/** Drop the socket and sender; the terminal itself lives on for the next connection. */
 	function disposeConnection() {
@@ -176,7 +214,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 
 			const term = new Terminal({
 				cursorBlink: true,
-				fontSize: 14,
+				fontSize: fontSizeRef.current,
 				fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace",
 				theme: {
 					background: "#0a0e1a",
@@ -235,18 +273,28 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 				}
 			});
 
-			const handleResize = () => {
-				try { fitAddon.fit(); } catch {}
-				if (wsRef.current?.readyState === WebSocket.OPEN) {
-					wsRef.current.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-				}
+			// The surface changes size with the window, the mobile drag handle,
+			// full screen, the side panel and the on-screen keyboard. Observe the
+			// element itself where the browser allows, one measurement per frame;
+			// a hidden tab (0 × 0) waits for the `visible` refit instead.
+			let pendingFrame = 0;
+			const refitSurface = () => {
+				if (pendingFrame) return;
+				pendingFrame = requestAnimationFrame(() => {
+					pendingFrame = 0;
+					if (surface.clientHeight > 0) fitTerminal();
+				});
 			};
-			window.addEventListener("resize", handleResize);
+			const observer = typeof ResizeObserver === "function" ? new ResizeObserver(refitSurface) : null;
+			if (observer) observer.observe(surface);
+			else window.addEventListener("resize", refitSurface);
 
 			cleanup = () => {
 				removeIme();
 				removeTouchScroll();
-				window.removeEventListener("resize", handleResize);
+				observer?.disconnect();
+				window.removeEventListener("resize", refitSurface);
+				if (pendingFrame) cancelAnimationFrame(pendingFrame);
 				try { term.dispose(); } catch {}
 				if (terminalRef.current === term) terminalRef.current = null;
 				fitAddonRef.current = null;
@@ -261,7 +309,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			disposed = true;
 			cleanup?.();
 		};
-	}, [serverId]);
+	}, [serverId, fitTerminal]);
 
 	useEffect(() => {
 		const term = terminalRef.current;
@@ -432,6 +480,9 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 		return () => clearTimeout(timer);
 	}, [sessionNotice]);
 
+	const changeFontSize = (size: number) => {
+		writeLocalStorageValue(SSH_TERMINAL_FONT_SIZE_KEY, String(clampSshTerminalFontSize(size)));
+	};
 
 	const saveFavorites = (items: string[]) => {
 		writeLocalStorageValue(FAVORITE_COMMANDS_KEY, JSON.stringify(items));
@@ -518,8 +569,10 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 				t={t}
 				showSidePanel={showSidePanel}
 				showFileManager={showFileManager}
+				fullscreen={fullscreen}
 				onToggleSidePanel={() => setShowSidePanel(!showSidePanel)}
 				onToggleFileManager={() => setShowFileManager(!showFileManager)}
+				onToggleFullscreen={onToggleFullscreen}
 				onReconnect={handleReconnect}
 				onClose={onClose}
 			/>
@@ -539,20 +592,31 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 					{t(sessionNotice === "resumed" ? "sshTerminalModal.sessionResumed" : "sshTerminalModal.sessionFresh")}
 				</p>
 			)}
-			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 lg:flex-row lg:overflow-hidden">
+			<div
+				className={cn(
+					"flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain lg:flex-row lg:overflow-hidden",
+					fullscreen ? "gap-2 p-1" : "gap-3 p-3",
+				)}
+			>
 				<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-					<SshTerminalSearchBar
-						serverId={serverId}
-						t={t}
-						terminalSearch={terminalSearch}
-						onSearchChange={setTerminalSearch}
-						onSearch={searchTerminal}
-						onClear={clearTerminalSearch}
-					/>
+					{/* Full screen gives the search bar's rows to the terminal. */}
+					{!fullscreen && (
+						<SshTerminalSearchBar
+							serverId={serverId}
+							t={t}
+							terminalSearch={terminalSearch}
+							onSearchChange={setTerminalSearch}
+							onSearch={searchTerminal}
+							onClear={clearTerminalSearch}
+						/>
+					)}
 					<div
 						ref={termRef}
 						data-testid="ssh-terminal-surface"
-						className="min-h-[280px] min-w-0 flex-1 w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-root)] lg:h-full lg:min-h-[350px]"
+						className={cn(
+							"min-h-[280px] min-w-0 flex-1 w-full overflow-hidden bg-[var(--surface-root)] lg:h-full lg:min-h-[350px]",
+							fullscreen ? "rounded-lg" : "rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)]",
+						)}
 					/>
 				</div>
 				{showFileManager && (
@@ -573,6 +637,8 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 						customQuickKeys={customQuickKeys}
 						onAddQuickKey={addQuickKeyPreset}
 						onResetQuickKeys={resetQuickKeyPresets}
+						fontSize={fontSize}
+						onFontSizeChange={changeFontSize}
 						keepAlive={keepAlive}
 						keepAliveMinutes={keepAliveMs > 0 ? Math.round(keepAliveMs / 60_000) : null}
 						onKeepAliveChange={changeKeepAlive}

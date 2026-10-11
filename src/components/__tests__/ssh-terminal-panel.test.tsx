@@ -35,7 +35,12 @@ vi.mock("@xterm/xterm", () => ({
 			active: { type: "normal", cursorY: 0, viewportY: 10, length: 100, getLine: () => ({ translateToString: () => "" }) },
 		};
 		modes = { mouseTrackingMode: "none" };
+		options: { fontSize?: number } = {};
 		scrollLines = vi.fn();
+		constructor(options: { fontSize?: number } = {}) {
+			this.options = { ...options };
+			MockTerminal.instances.push(this);
+		}
 		loadAddon() {}
 		textarea = document.createElement("textarea");
 		open(parent: HTMLElement) { parent.appendChild(this.textarea); }
@@ -44,9 +49,6 @@ vi.mock("@xterm/xterm", () => ({
 		write() {}
 		onData() {}
 		dispose() {}
-		constructor() {
-			MockTerminal.instances.push(this);
-		}
 	},
 }));
 
@@ -189,6 +191,68 @@ describe("SshTerminalPanel", () => {
 		render(<SshTerminalPanel {...defaultProps} />);
 
 		expect(screen.getByPlaceholderText("搜索终端输出…")).toBeInTheDocument();
+	});
+
+	it("offers full screen only when the host provides it", () => {
+		render(<SshTerminalPanel {...defaultProps} />);
+
+		expect(screen.queryByRole("button", { name: "全屏" })).not.toBeInTheDocument();
+	});
+
+	it("asks the host to toggle full screen", async () => {
+		const { userEvent } = require("@testing-library/user-event");
+		const user = userEvent.setup();
+		const onToggleFullscreen = vi.fn();
+		render(<SshTerminalPanel {...defaultProps} onToggleFullscreen={onToggleFullscreen} />);
+
+		await user.click(screen.getByRole("button", { name: "全屏" }));
+		expect(onToggleFullscreen).toHaveBeenCalledTimes(1);
+	});
+
+	it("in full screen keeps only the strip: status, command panel and the way out", () => {
+		const onToggleFullscreen = vi.fn();
+		render(<SshTerminalPanel {...defaultProps} fullscreen onToggleFullscreen={onToggleFullscreen} />);
+
+		expect(screen.queryByPlaceholderText("搜索终端输出…")).not.toBeInTheDocument();
+		expect(screen.queryByText("203.0.113.10:22")).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "文件" })).not.toBeInTheDocument();
+		expect(screen.getByRole("status")).toHaveTextContent("连接中");
+		expect(screen.getByRole("button", { name: "命令面板" })).toBeInTheDocument();
+		expect(screen.getByTestId("ssh-terminal-surface")).toBeInTheDocument();
+
+		const { fireEvent } = require("@testing-library/react");
+		fireEvent.click(screen.getByRole("button", { name: "退出全屏" }));
+		expect(onToggleFullscreen).toHaveBeenCalledTimes(1);
+	});
+
+	it("lets the user pick a font size that the terminal applies and the browser remembers", async () => {
+		window.localStorage.clear();
+		const { userEvent } = require("@testing-library/user-event");
+		const user = userEvent.setup();
+		render(<SshTerminalPanel {...defaultProps} />);
+		await waitFor(() => expect(terminalInstances()).toHaveLength(1));
+		const term = terminalInstances()[0]! as MockTerm & { options: { fontSize?: number } };
+		expect(term.options.fontSize).toBe(14);
+
+		await user.click(screen.getByRole("button", { name: "命令面板" }));
+		await user.click(screen.getByRole("button", { name: "放大终端字号" }));
+		await user.click(screen.getByRole("button", { name: "放大终端字号" }));
+
+		expect(window.localStorage.getItem("ssh-terminal-font-size")).toBe("16");
+		expect(term.options.fontSize).toBe(16);
+		expect(screen.getByText("16 px")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "缩小终端字号" }));
+		expect(term.options.fontSize).toBe(15);
+	});
+
+	it("builds the terminal with the remembered font size", async () => {
+		window.localStorage.setItem("ssh-terminal-font-size", "18");
+		render(<SshTerminalPanel {...defaultProps} />);
+		await waitFor(() => expect(terminalInstances()).toHaveLength(1));
+		const term = terminalInstances()[0]! as MockTerm & { options: { fontSize?: number } };
+		expect(term.options.fontSize).toBe(18);
+		window.localStorage.clear();
 	});
 
 	it("translates finger drags into scrollLines so mobile users can reach the scrollback", async () => {

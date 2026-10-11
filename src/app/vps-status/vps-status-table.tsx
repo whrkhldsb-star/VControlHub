@@ -14,15 +14,17 @@ import {
 import type { ServerHealth } from "@/app/health/health-types";
 
 import { StatusBadge } from "@/components/status-badge";
+import { formatShortDate, formatShortTime } from "@/lib/datetime/format";
+import type { Locale } from "@/lib/i18n/core";
 import { formatDisk, formatKbps, formatMem } from "./vps-node-card";
 
 export function VpsStatusTable({
 	servers,
-	browserLocale,
+	locale,
 	t,
 }: {
 	servers: ServerHealth[];
-	browserLocale: string;
+	locale: Locale;
 	t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
 	return (
@@ -99,13 +101,7 @@ export function VpsStatusTable({
 								<td className="px-3 py-2.5 text-[var(--text-secondary)]">{server.uptime ?? "—"}</td>
 								<td className="px-3 py-2.5 text-[var(--text-muted)]">
 									{server.lastCheck
-										? new Date(server.lastCheck).toLocaleString(browserLocale, {
-												month: "2-digit",
-												day: "2-digit",
-												hour: "2-digit",
-												minute: "2-digit",
-												hour12: false,
-											})
+										? `${formatShortDate(server.lastCheck, locale)} ${formatShortTime(server.lastCheck, locale)}`
 										: "—"}
 								</td>
 							</tr>

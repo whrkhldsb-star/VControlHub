@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { PermissionDenied, StatusScreen } from "@/components/page-shell";
 import { AlertTriangle, RefreshCw } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { isForbiddenErrorLike } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { ActionButton, ButtonLink } from "@/components/action-button";
 
@@ -29,7 +30,7 @@ export function RouteError({
 		// TR-030 / 56 multi-tenant (Tick 3): ForbiddenError is an expected,
 		// permission-driven signal, not a defect. Log at warn for audit so
 		// cron / smoke pipelines can correlate page hits with denial.
-		if (error.name === "ForbiddenError") {
+		if (isForbiddenErrorLike(error)) {
 			logger.warn("route error boundary captured forbidden", {
 				name: error.name,
 				message: error.message,
@@ -42,8 +43,10 @@ export function RouteError({
 
 	// Second-line guard for `requirePagePermission()`: render the shared
 	// <PermissionDenied /> surface so the user sees a consistent denial
-	// state across every route, instead of a generic rose error card.
-	if (error.name === "ForbiddenError") {
+	// state across every route, instead of a generic rose error card. In a
+	// production build only the digest survives the server render, so the
+	// name alone would never match there.
+	if (isForbiddenErrorLike(error)) {
 		return <PermissionDenied />;
 	}
 

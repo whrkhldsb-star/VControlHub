@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-11T10:17:49.706Z",
+  "generatedAt": "2026-10-11T12:37:16.230Z",
   "summary": {
     "permissionsInList": 52,
     "rolesDefined": 4,
     "apiRoutesAudited": 189,
     "pagesAudited": 56,
-    "callSitesAudited": 635,
+    "callSitesAudited": 634,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -1054,7 +1054,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 51
+          "line": 50
         }
       ],
       "pages": [
@@ -1112,7 +1112,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 50
+          "line": 49
         },
         {
           "path": "src/app/templates/page.tsx",
@@ -1206,36 +1206,30 @@
         },
         {
           "path": "src/app/api/quick-services/route.ts",
-          "line": 37
+          "line": 51
         },
         {
           "path": "src/app/api/quick-services/route.ts",
-          "line": 37
+          "line": 51
         },
         {
           "path": "src/app/api/quick-services/route.ts",
-          "line": 131
+          "line": 156
         },
         {
           "path": "src/app/api/quick-services/route.ts",
-          "line": 131
+          "line": 156
         },
         {
           "path": "src/app/api/search/route.ts",
           "line": 93
         },
         {
-          "path": "src/app/quick-services/page.tsx",
-          "line": 12
-        },
-        {
           "path": "src/components/sidebar-loader.tsx",
           "line": 28
         }
       ],
-      "pages": [
-        "quick-services"
-      ],
+      "pages": [],
       "apiRoutes": [
         "/api/search"
       ],
@@ -1696,11 +1690,11 @@
         },
         {
           "path": "src/app/api/servers/[id]/uptime/route.ts",
-          "line": 34
+          "line": 17
         },
         {
           "path": "src/app/api/servers/[id]/uptime/route.ts",
-          "line": 34
+          "line": 17
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/records/route.ts",

@@ -51,6 +51,15 @@ export function useQuickServiceCatalog(t: TFn, canManageHubHost = true) {
         : "";
       const data = await csrfFetch(`/api/quick-services${qs}`);
       if (catalogServerRef.current !== serverAtFetch) return;
+      if (data.hubHostDenied === true) {
+        // The hub host is platform infrastructure; this account only gets the
+        // nodes it may install on. Move to the first one, or say there is none.
+        const options: QuickServiceServerOption[] = Array.isArray(data.servers) ? data.servers : [];
+        setServers(options);
+        if (options.length > 0) setSelectedServerId(options[0]!.id);
+        else setError(t("qsPage.noInstallTargets"));
+        return;
+      }
       setError(null);
       setCatalog(data.catalog ?? []);
       setRemoteCatalog(data.remoteCatalog ?? []);
@@ -81,6 +90,9 @@ export function useQuickServiceCatalog(t: TFn, canManageHubHost = true) {
   }, [selectedServerId, t, canManageHubHost]);
 
   const fetchSources = useCallback(async () => {
+    // App sources are platform-level catalog feeds (user:manage); a customer
+    // account would only collect a refusal here.
+    if (!canManageHubHost) return;
     try {
       const data = await csrfFetch("/api/app-sources?includeApps=false");
       setSources(data.sources ?? []);
@@ -88,7 +100,7 @@ export function useQuickServiceCatalog(t: TFn, canManageHubHost = true) {
     } catch (err) {
       setSourcesError(getErrorMessage(err, t("qsPage.sourcesLoadFailed")));
     }
-  }, [t]);
+  }, [t, canManageHubHost]);
 
   /* eslint-disable react-hooks/set-state-in-effect -- catalog bootstrap + hostName browser capability read. */
   useEffect(() => {

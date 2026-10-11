@@ -301,10 +301,13 @@ export function ServerOverviewDetails({
 							{t("serverOverviewDetails.diagnosticsDescription")}
 						</p>
 					</div>
+					{/* A JSON endpoint, not a page: `external` keeps the router from
+					    prefetching it as a route (which answers 400 in the console). */}
 					<ButtonLink
 						size="sm"
 						variant="outline"
 						href={`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`}
+						external
 						className="shrink-0"
 					>
 						{t("serverOverviewDetails.viewMonitorJson")}

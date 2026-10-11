@@ -8,7 +8,6 @@
 
 import { useMemo, useState } from "react";
 
-import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { writeLocalStorageValue } from "@/lib/browser-storage";
@@ -34,7 +33,6 @@ function readViewMode(storage: Storage): VpsStatusViewMode {
 
 export function useVpsStatusView() {
 	const { locale, t } = useI18n();
-	const browserLocale = toDateLocale(locale);
 	const {
 		overview,
 		history,
@@ -45,7 +43,7 @@ export function useVpsStatusView() {
 		refreshIntervalSeconds,
 		fetchHealth,
 		fetchHistory,
-	} = useHealthData({ browserLocale, locale, mode: "vps" });
+	} = useHealthData({ locale, mode: "vps" });
 
 	const [expandedServer, setExpandedServer] = useState<string | null>(null);
 	// Filter lives in the URL (like docker's serverId) so refresh/navigation
@@ -100,7 +98,6 @@ export function useVpsStatusView() {
 		locale,
 		t,
 		tt,
-		browserLocale,
 		overview,
 		history,
 		historyErrors,

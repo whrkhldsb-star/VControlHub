@@ -129,8 +129,14 @@ export function SaveButtonWithDiff({
             </span>
           </ActionButton>
         )}
+        {/* Pressing Save right after editing a high-risk field would blur that
+            field, mount its warning banner above this button and push the
+            button out from under the pointer before mouseup, so the click was
+            lost. Keeping focus where it is on mousedown avoids that shift;
+            the high-risk confirm modal still guards the save. */}
         <ActionButton variant={highCount > 0 ? "danger" : "primary"}
           onClick={onClick}
+          onMouseDown={(event) => event.preventDefault()}
           disabled={saving}
           data-component="save-button">
           {saving ? t("settingsClient.saving") : t("settingsClient.save")}

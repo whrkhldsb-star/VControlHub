@@ -1,5 +1,7 @@
 "use client";
 
+import { formatShortDate, formatShortTime } from "@/lib/datetime/format";
+import type { Locale } from "@/lib/i18n/core";
 import type { RefObject } from "react";
 import { getCsrfTokenFromCookie } from "@/lib/auth/csrf-client";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -33,14 +35,10 @@ export function formatSshFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-export function formatSshFileDate(unix: number, locale?: string): string {
-  if (!unix) return"";
-  return new Date(unix * 1000).toLocaleDateString(locale ?? undefined, {
-    month:"short",
-    day:"numeric",
-    hour:"2-digit",
-    minute:"2-digit",
-  });
+export function formatSshFileDate(unix: number, locale: Locale): string {
+  if (!unix) return "";
+  const at = unix * 1000;
+  return `${formatShortDate(at, locale)} ${formatShortTime(at, locale)}`;
 }
 
 export function getCsrfToken(): string {

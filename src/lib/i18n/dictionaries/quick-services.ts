@@ -104,6 +104,7 @@ export const zh: Record<string, string> = {
 	// quick-services-client (R14)
 	"qsPage.loading": "加载中…",
 	"qsPage.loadFailedFallback": "加载失败",
+	"qsPage.noInstallTargets": "当前账号没有可安装服务的节点；快捷服务需要在你有管理权限的节点上运行。",
 	"qsPage.sourcesLoadFailed": "应用源加载失败，内置服务仍可正常使用",
 	"qsPage.categoryFilter": "应用分类",
 	"qsPage.categoryAll": "全部分类",
@@ -410,6 +411,7 @@ export const en: Record<string, string> = {
 	// quick-services-client (R14)
 	"qsPage.loading": "Loading…",
 	"qsPage.loadFailedFallback": "Load failed",
+	"qsPage.noInstallTargets": "This account has no node to install services on; quick services run on a node you may manage.",
 	"qsPage.sourcesLoadFailed": "App sources failed to load; built-in services remain available",
 	"qsPage.categoryFilter": "App category",
 	"qsPage.categoryAll": "All categories",

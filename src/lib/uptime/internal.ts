@@ -4,7 +4,7 @@ import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { appTimeZoneDateKey, shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
 
-interface UptimeDay {
+export interface UptimeDay {
   date: string;
   uptimePercent: number;
   onlineMinutes: number;
@@ -12,7 +12,7 @@ interface UptimeDay {
   checkCount: number;
 }
 
-function formatUptimeDay(
+export function formatUptimeDay(
   snapshot: Pick<
     ServerUptimeSnapshot,
     "date" | "uptimePercent" | "onlineMinutes" | "offlineMinutes" | "checkCount"

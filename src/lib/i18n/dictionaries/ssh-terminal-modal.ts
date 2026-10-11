@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `sshTerminalModal.*` (41 keys) + `sshTerminalManager.*` (5 keys) + `sshFileManager.*` (21 keys).
+ * i18n dictionary: `sshTerminalModal.*` (48 keys) + `sshTerminalManager.*` (9 keys) + `sshFileManager.*` (21 keys).
  *
  * Used by:
  *   - src/components/ssh-terminal-modal.tsx (client component)
@@ -22,6 +22,8 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.ariaClose": "关闭 SSH 终端",
 	"sshTerminalModal.reconnect": "重连",
 	"sshTerminalModal.close": "关闭",
+	"sshTerminalModal.fullscreen": "全屏",
+	"sshTerminalModal.fullscreenExit": "退出全屏",
 
 	// WebSocket connection errors (setErrorMsg fallbacks)
 	"sshTerminalModal.errTokenFetchFailed": "无法获取 SSH WebSocket 临时令牌，请重新登录后再试",
@@ -64,6 +66,11 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.quickKeysAdd": "添加",
 	"sshTerminalModal.quickKeysResetHint": "已启用自定义按键，",
 	"sshTerminalModal.quickKeysReset": "恢复默认",
+
+	// Side panel — display (终端字号，保存在当前浏览器)
+	"sshTerminalModal.fontSizeTitle": "终端字号",
+	"sshTerminalModal.fontSizeDecrease": "缩小终端字号",
+	"sshTerminalModal.fontSizeIncrease": "放大终端字号",
 
 	// Side panel — connection (中断后保留会话，由代理在服务端保持 shell)
 	"sshTerminalModal.keepAliveTitle": "连接",
@@ -118,6 +125,8 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.ariaClose": "Close SSH terminal",
 	"sshTerminalModal.reconnect": "Reconnect",
 	"sshTerminalModal.close": "Close",
+	"sshTerminalModal.fullscreen": "Fullscreen",
+	"sshTerminalModal.fullscreenExit": "Exit fullscreen",
 
 	// WebSocket connection errors (setErrorMsg fallbacks)
 	"sshTerminalModal.errTokenFetchFailed": "Failed to fetch SSH WebSocket token. Please sign in again.",
@@ -160,6 +169,11 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.quickKeysAdd": "Add",
 	"sshTerminalModal.quickKeysResetHint": "Custom keys in use, ",
 	"sshTerminalModal.quickKeysReset": "reset to defaults",
+
+	// Side panel — display (terminal font size, kept in this browser)
+	"sshTerminalModal.fontSizeTitle": "Terminal font size",
+	"sshTerminalModal.fontSizeDecrease": "Smaller terminal font",
+	"sshTerminalModal.fontSizeIncrease": "Larger terminal font",
 
 	// Side panel — connection (keep the shell on the proxy across a dropped socket)
 	"sshTerminalModal.keepAliveTitle": "Connection",

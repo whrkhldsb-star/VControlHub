@@ -301,14 +301,14 @@ export function QuickServicesClient({
 						{usedPorts.slice(0, 8).map((port) => <Badge key={port}>{port}</Badge>)}
 					</div>
 				</div>
-				<div data-tile className="p-4">
+				{canManageHubHost && <div data-tile className="p-4">
 					<p className="text-xs text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
 					<h3 className="ui-title-section mt-1">{t("qsPage.sourcesEnabledCount", { enabled: sources.filter((s) => s.enabled).length, total: sources.length })}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced", { name: lastSyncedSource.displayName }) : t("qsPage.noSyncRecord")}</p>
 					<ActionButton size="sm" variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => selectTab("sources")} className="!mt-3">
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources", { count: staleSources.length }) : t("qsPage.manageSources")}
 					</ActionButton>
-				</div>
+				</div>}
 			</section>
 
 			<Toolbar className="flex-col items-stretch gap-3 sm:flex-row sm:items-end">
@@ -369,8 +369,8 @@ export function QuickServicesClient({
 				items={[
 					{ id:"store", label: t("qsPage.tabStore", { count: localAvailable.length }) },
 					{ id:"community", label: t("qsPage.tabCommunity", { count: remoteAvailable.length }) },
-					{ id:"installed", label: t("qsPage.tabInstalled", { count: installed.length }) },
-					{ id:"sources", label: t("qsPage.tabSources", { count: sources.length }) },
+					{ id: "installed", label: t("qsPage.tabInstalled", { count: installed.length }) },
+					...(canManageHubHost ? [{ id: "sources", label: t("qsPage.tabSources", { count: sources.length }) }] : []),
 				]}
 			/>
 			{/* Sources management tab (extracted to <SourcesPanel /> in TR-036 T37) */}

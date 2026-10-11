@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -121,6 +121,22 @@ describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 		await waitFor(() => {
 			expect(screen.queryAllByTestId("high-risk-blur-warning")).toHaveLength(0);
 		});
+	});
+
+	it("opens the high-risk confirm when Save is pressed straight after editing, without the blur banner shifting the button", async () => {
+		const user = userEvent.setup();
+		render(<I18nProvider initialLocale="zh"><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></I18nProvider>);
+		const input = screen.getByLabelText("命令执行超时（毫秒）");
+		await user.clear(input);
+		await user.type(input, "120000");
+		// A real pointer press moves focus off the input first; the button must
+		// opt out of that so the banner does not mount under the pointer.
+		const runtimeSection = screen.getByRole("heading", { name: /运行参数/ }).closest("section")!;
+		const save = within(runtimeSection).getByRole("button", { name: "保存" });
+		expect(fireEvent.mouseDown(save)).toBe(false);
+		expect(screen.queryAllByTestId("high-risk-blur-warning")).toHaveLength(0);
+		await user.click(save);
+		expect(await screen.findByTestId("high-risk-confirm-modal")).toBeInTheDocument();
 	});
 
 	it("does NOT show a high-risk warning for low-risk fields on blur", async () => {

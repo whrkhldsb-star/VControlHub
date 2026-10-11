@@ -25,7 +25,6 @@ export function VpsStatusClient({ serverCount }: Props) {
 		locale,
 		t,
 		tt,
-		browserLocale,
 		overview,
 		history,
 		historyErrors,
@@ -124,7 +123,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 			) : filteredServers.length === 0 ? (
 				<EmptyState variant="boxed" text={t("vpsStatusPage.empty")} />
 			) : viewMode === "table" ? (
-				<VpsStatusTable servers={filteredServers} browserLocale={browserLocale} t={t} />
+				<VpsStatusTable servers={filteredServers} locale={locale} t={t} />
 			) : (
 				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
 					{filteredServers.map((server) => (
