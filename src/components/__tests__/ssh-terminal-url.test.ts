@@ -18,4 +18,11 @@ describe("buildSshWebSocketUrl", () => {
     expect(url).not.toContain("secret=");
     expect(url).not.toContain("session-token");
   });
+
+  it("asks for a kept shell, and names the one to resume, only when the terminal opted in", () => {
+    const base = { pageProtocol: "http:", host: "127.0.0.1:3000", serverId: "server-1", handshakeToken: "tok" };
+    expect(buildSshWebSocketUrl({ ...base, keepAlive: true })).toBe("ws://127.0.0.1:3000/ssh?serverId=server-1&handshake=tok&keepAlive=1");
+    expect(buildSshWebSocketUrl({ ...base, keepAlive: true, resumeId: "abc" })).toBe("ws://127.0.0.1:3000/ssh?serverId=server-1&handshake=tok&keepAlive=1&resume=abc");
+    expect(buildSshWebSocketUrl({ ...base, keepAlive: false, resumeId: "abc" })).toBe("ws://127.0.0.1:3000/ssh?serverId=server-1&handshake=tok");
+  });
 });

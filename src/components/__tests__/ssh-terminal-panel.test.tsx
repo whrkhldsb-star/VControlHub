@@ -75,15 +75,26 @@ class MockWebSocket {
 	static CLOSED = 3;
 	static instances: MockWebSocket[] = [];
 	readyState = 0;
+	url: string;
 	onopen: (() => void) | null = null;
 	onmessage: ((event: { data: string }) => void) | null = null;
 	onclose: (() => void) | null = null;
 	onerror: (() => void) | null = null;
-	constructor() {
+	constructor(url: string) {
+		this.url = url;
 		MockWebSocket.instances.push(this);
 	}
 	send() {}
 	close() {}
+}
+
+function connectSocket(socket: MockWebSocket, session?: { resumeId: string | null; resumed: boolean; keepAliveMs: number }) {
+	act(() => {
+		socket.readyState = MockWebSocket.OPEN;
+		socket.onopen?.();
+		socket.onmessage?.({ data: JSON.stringify({ type: "connected" }) });
+		if (session) socket.onmessage?.({ data: JSON.stringify({ type: "session", ...session }) });
+	});
 }
 
 const defaultProps = {
@@ -337,4 +348,69 @@ describe("SshTerminalPanel", () => {
 		await user.click(screen.getByRole("button", { name: "Shift+Tab" }));
 		expect(send).toHaveBeenCalledWith(JSON.stringify({ type: "input", data: encodeBase64("\u001b[Z") }));
 	});
+
+	it("keeps the session across a disconnect by default and remembers the choice", async () => {
+		window.localStorage.clear();
+		const { userEvent } = require("@testing-library/user-event");
+		const user = userEvent.setup();
+		render(<SshTerminalPanel {...defaultProps} />);
+		await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+		expect(MockWebSocket.instances[0]!.url).toContain("keepAlive=1");
+		expect(MockWebSocket.instances[0]!.url).not.toContain("resume=");
+
+		await user.click(screen.getByRole("button", { name: "命令面板" }));
+		const toggle = screen.getByRole("checkbox", { name: /中断后保留会话/ });
+		expect(toggle).toBeChecked();
+		await user.click(toggle);
+		expect(window.localStorage.getItem("ssh-terminal-keep-alive")).toBe("0");
+		expect(toggle).not.toBeChecked();
+	});
+
+	it("reconnects into the shell the proxy kept and keeps the terminal's content", async () => {
+		window.localStorage.clear();
+		const { userEvent } = require("@testing-library/user-event");
+		const user = userEvent.setup();
+		render(<SshTerminalPanel {...defaultProps} />);
+		await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+		await waitFor(() => expect(terminalInstances()).toHaveLength(1));
+		const first = MockWebSocket.instances[0]!;
+		connectSocket(first, { resumeId: "shell-1", resumed: false, keepAliveMs: 600_000 });
+		expect(screen.getByRole("status")).toHaveTextContent("已连接");
+
+		act(() => { first.readyState = MockWebSocket.CLOSED; first.onclose?.(); });
+		expect(screen.getByRole("status")).toHaveTextContent("已断开");
+		await user.click(screen.getByRole("button", { name: "重连" }));
+
+		await waitFor(() => expect(MockWebSocket.instances).toHaveLength(2));
+		const second = MockWebSocket.instances[1]!;
+		expect(second.url).toContain("keepAlive=1");
+		expect(second.url).toContain("resume=shell-1");
+		connectSocket(second, { resumeId: "shell-1", resumed: true, keepAliveMs: 600_000 });
+		expect(screen.getByTestId("ssh-terminal-session-notice")).toHaveTextContent("已接回中断前的会话。");
+		// The same xterm instance serves both connections: nothing on screen is lost.
+		expect(terminalInstances()).toHaveLength(1);
+	});
+
+	it("says so when the proxy could not keep the shell and starts fresh", async () => {
+		window.localStorage.clear();
+		const { userEvent } = require("@testing-library/user-event");
+		const user = userEvent.setup();
+		render(<SshTerminalPanel {...defaultProps} />);
+		await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+		connectSocket(MockWebSocket.instances[0]!, { resumeId: "shell-1", resumed: false, keepAliveMs: 600_000 });
+		act(() => { MockWebSocket.instances[0]!.onclose?.(); });
+		await user.click(screen.getByRole("button", { name: "重连" }));
+		await waitFor(() => expect(MockWebSocket.instances).toHaveLength(2));
+		connectSocket(MockWebSocket.instances[1]!, { resumeId: "shell-2", resumed: false, keepAliveMs: 600_000 });
+		expect(screen.getByTestId("ssh-terminal-session-notice")).toHaveTextContent("已重新建立会话，之前的进程已结束。");
+	});
+
+	it("asks for a plain shell when keeping sessions is switched off", async () => {
+		window.localStorage.setItem("ssh-terminal-keep-alive", "0");
+		render(<SshTerminalPanel {...defaultProps} />);
+		await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+		expect(MockWebSocket.instances[0]!.url).not.toContain("keepAlive");
+		window.localStorage.clear();
+	});
 });
+

@@ -49,6 +49,9 @@ export function SshTerminalSidePanel({
 	onResetQuickKeys,
 	fontSize,
 	onFontSizeChange,
+	keepAlive,
+	keepAliveMinutes,
+	onKeepAliveChange,
 }: {
 	serverId: string;
 	t: TFn;
@@ -67,6 +70,11 @@ export function SshTerminalSidePanel({
 	/** Terminal font size in CSS pixels; the stepper stays within the allowed range. */
 	fontSize: number;
 	onFontSizeChange: (size: number) => void;
+	/** Keep the shell on the proxy across a dropped connection so a reconnect resumes it. */
+	keepAlive: boolean;
+	/** The grace period the proxy announced, in minutes; null before the first connection. */
+	keepAliveMinutes: number | null;
+	onKeepAliveChange: (value: boolean) => void;
 }) {
 	return (
 		<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-56">
@@ -95,6 +103,25 @@ export function SshTerminalSidePanel({
 						A+
 					</ActionButton>
 				</div>
+			</section>
+			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
+				<h4 className="ui-title-caption mb-2">
+					{t("sshTerminalModal.keepAliveTitle")}
+				</h4>
+				<label className="flex min-h-11 cursor-pointer items-start gap-2 text-[13px] text-[var(--text-secondary)]">
+					<input
+						type="checkbox"
+						checked={keepAlive}
+						onChange={(event) => onKeepAliveChange(event.target.checked)}
+						className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+					/>
+					<span>
+						<span className="block text-[var(--text-primary)]">{t("sshTerminalModal.keepAliveLabel")}</span>
+						<span className="mt-0.5 block text-xs leading-5 text-[var(--text-muted)]">
+							{t("sshTerminalModal.keepAliveHint", { minutes: keepAliveMinutes ?? 10 })}
+						</span>
+					</span>
+				</label>
 			</section>
 			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
 				<h4 className="ui-title-caption mb-2">

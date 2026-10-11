@@ -6,7 +6,7 @@ const state = vi.hoisted(() => ({
   connection: undefined as unknown as (...args: unknown[]) => Promise<void>,
   options: {} as Record<string, unknown>,
   clients: new Set<{ bufferedAmount: number }>(),
-  stream: undefined as unknown as EventEmitter & { write: ReturnType<typeof vi.fn>; pause: ReturnType<typeof vi.fn>; resume: ReturnType<typeof vi.fn> },
+  stream: undefined as unknown as EventEmitter & { write: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn>; pause: ReturnType<typeof vi.fn>; resume: ReturnType<typeof vi.fn> },
   verify: vi.fn(), server: vi.fn(),
   handshakeUserId: "audit-user",
 }));
@@ -63,15 +63,25 @@ afterEach(() => {
   }
 });
 
-async function connect(expectConnected = true) {
+async function connect(expectConnected = true, query = "") {
   await import("../ssh-ws-proxy");
   const socket = Object.assign(new EventEmitter(), { readyState: 1, bufferedAmount: 0, send: vi.fn(), close: vi.fn(), ping: vi.fn(), terminate: vi.fn() });
   socket.close.mockImplementation(() => { socket.readyState = 3; state.clients.delete(socket); socket.emit("close"); });
   socket.ping.mockImplementation(() => socket.emit("pong"));
   state.clients.add(socket);
-  await state.connection(socket, { url: "/ssh?serverId=audit-server&handshake=fixture", headers: { origin: "http://127.0.0.1:15430", cookie: "audit_session=fixture-cookie" } });
+  await state.connection(socket, { url: `/ssh?serverId=audit-server&handshake=fixture${query}`, headers: { origin: "http://127.0.0.1:15430", cookie: "audit_session=fixture-cookie" } });
   if (expectConnected) expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "connected", inputAck: true }));
   return socket;
+}
+
+/** The `session` message the proxy sends right after `connected`. */
+function sessionMessage(socket: { send: ReturnType<typeof vi.fn> }) {
+  const raw = socket.send.mock.calls.map((call) => String(call[0])).find((text) => text.includes('"type":"session"'));
+  return raw ? JSON.parse(raw) as { type: "session"; resumeId: string | null; resumed: boolean; keepAliveMs: number } : null;
+}
+
+function outputMessages(socket: { send: ReturnType<typeof vi.fn> }) {
+  return socket.send.mock.calls.map((call) => JSON.parse(String(call[0]))).filter((m) => m.type === "output").map((m) => Buffer.from(m.data, "base64").toString());
 }
 
 it("stops an already connected shell after account/session revocation", async () => {
@@ -178,3 +188,75 @@ it("limits total active terminals across different users", async () => {
   expect(rejected.close).toHaveBeenCalledWith(1013, expect.any(String));
   expect(state.clients.size).toBe(64);
 });
+
+it("ends the shell with the socket unless the terminal opted into keep-alive", async () => {
+  const socket = await connect();
+  expect(sessionMessage(socket)).toEqual({ type: "session", resumeId: null, resumed: false, keepAliveMs: 0 });
+  socket.close();
+  expect(state.stream.close).toHaveBeenCalled();
+});
+
+it("keeps an opted-in shell alive across a dropped socket and replays what it printed", async () => {
+  const first = await connect(true, "&keepAlive=1");
+  const announced = sessionMessage(first);
+  expect(announced?.resumed).toBe(false);
+  expect(announced?.resumeId).toMatch(/^[0-9a-f]{32}$/);
+  expect(announced?.keepAliveMs).toBe(10 * 60_000);
+  const stream = state.stream;
+
+  first.close();
+  expect(stream.close).not.toHaveBeenCalled();
+  stream.emit("data", Buffer.from("still running\n"));
+
+  const second = await connect(true, `&keepAlive=1&resume=${announced!.resumeId}`);
+  expect(sessionMessage(second)).toEqual({ type: "session", resumeId: announced!.resumeId, resumed: true, keepAliveMs: 10 * 60_000 });
+  expect(outputMessages(second)).toEqual(["still running\n"]);
+  expect(state.stream).toBe(stream);
+
+  // Input and output continue on the same shell.
+  second.emit("message", Buffer.from(JSON.stringify({ type: "input", data: "YXVkaXQ=" })), false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(stream.write).toHaveBeenCalledWith(Buffer.from("audit"));
+  stream.emit("data", Buffer.from("later\n"));
+  expect(outputMessages(second)).toEqual(["still running\n", "later\n"]);
+});
+
+it("drops a detached shell once the grace period runs out", async () => {
+  const socket = await connect(true, "&keepAlive=1");
+  const { resumeId } = sessionMessage(socket)!;
+  const stream = state.stream;
+  socket.close();
+  await vi.advanceTimersByTimeAsync(10 * 60_000);
+  expect(stream.close).toHaveBeenCalled();
+
+  const replacement = await connect(true, `&keepAlive=1&resume=${resumeId}`);
+  expect(sessionMessage(replacement)?.resumed).toBe(false);
+  expect(state.stream).not.toBe(stream);
+});
+
+it("never hands a detached shell to another account", async () => {
+  const socket = await connect(true, "&keepAlive=1");
+  const { resumeId } = sessionMessage(socket)!;
+  const stream = state.stream;
+  socket.close();
+
+  const session = await state.verify();
+  state.handshakeUserId = "audit-user-2";
+  state.verify.mockResolvedValue({ ...session, userId: "audit-user-2" });
+  const other = await connect(true, `&keepAlive=1&resume=${resumeId}`);
+  expect(sessionMessage(other)?.resumed).toBe(false);
+  expect(state.stream).not.toBe(stream);
+  expect(stream.close).not.toHaveBeenCalled();
+});
+
+it("ends a detached shell when the remote side closes it", async () => {
+  const socket = await connect(true, "&keepAlive=1");
+  const { resumeId } = sessionMessage(socket)!;
+  const stream = state.stream;
+  socket.close();
+  stream.emit("close");
+
+  const replacement = await connect(true, `&keepAlive=1&resume=${resumeId}`);
+  expect(sessionMessage(replacement)?.resumed).toBe(false);
+});
+

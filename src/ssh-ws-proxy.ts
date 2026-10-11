@@ -9,7 +9,7 @@ import { setupRdpWebSocket } from "@/lib/rdp/ws";
 import { createServer } from "http";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { Client } from "ssh2";
 import { prisma } from "@/lib/db";
@@ -406,6 +406,146 @@ function resolveSshSessionToken(req: import("http").IncomingMessage): string | n
 	return fromCookie && fromCookie.trim() ? fromCookie.trim() : null;
 }
 
+// ── Detachable shell sessions ──────────────────────────────────────
+//
+// A browser connection drops far more often than the shell behind it has any
+// reason to die: phones lock their screen, Wi-Fi hands over to mobile data, a
+// laptop sleeps. A terminal that opted in (`keepAlive=1` in the WebSocket URL)
+// keeps its shell for SSH_WS_DETACH_TTL_MS after the drop: output accumulates
+// in a bounded buffer, and a new WebSocket carrying `resume=<id>` from the same
+// account on the same server (and the same endpoint credentials) takes the
+// shell over and replays what it missed. Programs keep running meanwhile.
+// Without the opt-in the shell ends with the WebSocket, exactly as before.
+
+const SSH_DETACH_TTL_MS = Math.max(0, config.ssh.wsDetachTtlMs);
+const SSH_DETACH_BUFFER_BYTES = 256 * 1024;
+const SSH_MAX_DETACHED_SESSIONS = 32;
+const SSH_MAX_DETACHED_PER_USER = 4;
+
+type ShellAttachment = {
+	ws: WebSocket;
+	sendOutput: (data: Buffer) => void;
+	/** Tell the browser the shell is gone (`closed`) and close the socket. */
+	notifyClosed: (message: string) => void;
+	/** Refuse to go on (`error`) and close the socket. */
+	fail: (message: string, code?: number) => void;
+};
+
+type ShellSession = {
+	id: string;
+	userId: string;
+	serverId: string;
+	endpointHash: string;
+	sshClient: Client;
+	stream: import("ssh2").ClientChannel | undefined;
+	attachment: ShellAttachment | null;
+	/** Output produced while no browser was attached, oldest first. */
+	buffer: Buffer[];
+	bufferedBytes: number;
+	detachTimer: NodeJS.Timeout | undefined;
+	idleTimer: NodeJS.Timeout | undefined;
+	idleTimeoutMs: number;
+	ended: boolean;
+};
+
+const detachedSessions = new Map<string, ShellSession>();
+const detachedSessionsByUser = new Map<string, number>();
+
+function adjustDetachedCount(userId: string, delta: number) {
+	const next = (detachedSessionsByUser.get(userId) ?? 0) + delta;
+	if (next <= 0) detachedSessionsByUser.delete(userId);
+	else detachedSessionsByUser.set(userId, next);
+}
+
+/** Close the shell and its SSH connection; the attached browser, if any, learns why. */
+function endShellSession(session: ShellSession, notice?: string) {
+	if (session.ended) return;
+	session.ended = true;
+	if (session.detachTimer) clearTimeout(session.detachTimer);
+	if (session.idleTimer) clearTimeout(session.idleTimer);
+	session.detachTimer = undefined;
+	session.idleTimer = undefined;
+	if (detachedSessions.delete(session.id)) adjustDetachedCount(session.userId, -1);
+	session.buffer = [];
+	session.bufferedBytes = 0;
+	if (notice && session.attachment) session.attachment.notifyClosed(notice);
+	session.attachment = null;
+	try { session.stream?.close(); } catch { /* already closed */ }
+	try { session.sshClient.end(); } catch { /* already closed */ }
+}
+
+/** The browser went away: keep the shell for a reconnect when allowed, else end it. */
+function detachShellSession(session: ShellSession) {
+	session.attachment = null;
+	if (session.ended) return;
+	const roomLeft = detachedSessions.size < SSH_MAX_DETACHED_SESSIONS
+		&& (detachedSessionsByUser.get(session.userId) ?? 0) < SSH_MAX_DETACHED_PER_USER;
+	if (SSH_DETACH_TTL_MS <= 0 || !session.stream || !roomLeft) {
+		endShellSession(session);
+		return;
+	}
+	detachedSessions.set(session.id, session);
+	adjustDetachedCount(session.userId, 1);
+	session.detachTimer = setTimeout(() => endShellSession(session), SSH_DETACH_TTL_MS);
+	session.detachTimer.unref?.();
+}
+
+/** Claim a detached shell for a reconnect; null when there is none to resume. */
+function takeDetachedSession(id: string, userId: string, serverId: string, endpointHash: string): ShellSession | null {
+	const session = detachedSessions.get(id);
+	if (!session || session.ended || session.userId !== userId || session.serverId !== serverId || session.endpointHash !== endpointHash) {
+		return null;
+	}
+	detachedSessions.delete(id);
+	adjustDetachedCount(userId, -1);
+	if (session.detachTimer) clearTimeout(session.detachTimer);
+	session.detachTimer = undefined;
+	return session;
+}
+
+function bufferDetachedOutput(session: ShellSession, data: Buffer) {
+	session.buffer.push(data);
+	session.bufferedBytes += data.length;
+	while (session.bufferedBytes > SSH_DETACH_BUFFER_BYTES && session.buffer.length > 1) {
+		const dropped = session.buffer.shift()!;
+		session.bufferedBytes -= dropped.length;
+	}
+	if (session.bufferedBytes > SSH_DETACH_BUFFER_BYTES) {
+		const only = session.buffer[0]!;
+		session.buffer[0] = only.subarray(only.length - SSH_DETACH_BUFFER_BYTES);
+		session.bufferedBytes = SSH_DETACH_BUFFER_BYTES;
+	}
+}
+
+/** Output goes to the attached browser, or waits in the buffer for the next one. */
+function deliverShellOutput(session: ShellSession, data: Buffer) {
+	resetShellIdle(session);
+	if (session.attachment) session.attachment.sendOutput(data);
+	else bufferDetachedOutput(session, data);
+}
+
+// Idle guard: unlike the ping/pong heartbeat (which only detects a dead
+// transport), this reaps a *live but unattended* terminal — an open root
+// shell left behind pins an SSH connection + PTY on the target and consumes a
+// slot from the global cap. The clock resets on real activity in EITHER
+// direction (client keystrokes/resize OR server output), so a user watching
+// `tail -f` is never disconnected; only true silence trips it. The limit
+// comes from runtime.sshIdleTimeoutSec (0 = never reap), the same setting
+// the settings page shows — NOT the legacy env-only WS idle value. A detached
+// shell is subject to it as well, so a forgotten terminal cannot outlive it.
+function resetShellIdle(session: ShellSession) {
+	if (session.idleTimeoutMs <= 0 || session.ended) return;
+	if (session.idleTimer) clearTimeout(session.idleTimer);
+	session.idleTimer = setTimeout(() => {
+		endShellSession(session, t("backend.sshTerminal.idleClosed", { minutes: session.idleTimeoutMs / 60_000 }));
+	}, session.idleTimeoutMs);
+	session.idleTimer.unref?.();
+}
+
+function endAllDetachedSessions() {
+	for (const session of [...detachedSessions.values()]) endShellSession(session);
+}
+
 wss.on("connection", async (ws, req) => {
 	if (wss.clients.size > 64) {
 		ws.close(1013, "Terminal capacity reached");
@@ -441,10 +581,10 @@ wss.on("connection", async (ws, req) => {
 	const token = resolveSshSessionToken(req);
 
 	if (!serverId || !token || !handshake) {
-	 ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.missingParams") }));
-	 ws.close();
-	 return;
-	 }
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.missingParams") }));
+		ws.close();
+		return;
+	}
 
 	let session: SessionPayload;
 	try {
@@ -501,9 +641,28 @@ wss.on("connection", async (ws, req) => {
 		return;
 	}
 
-	const sshClient = new Client();
 	const terminalRuntimeConfig = await getSshTerminalRuntimeConfigWithFallback();
-	let sshStream: import("ssh2").ClientChannel | undefined;
+	const endpointHash = createHash("sha256").update(JSON.stringify(connParams)).digest("hex");
+	const keepAlive = SSH_DETACH_TTL_MS > 0 && url.searchParams.get("keepAlive") === "1";
+	const resumeId = url.searchParams.get("resume");
+	const resumedShell = resumeId ? takeDetachedSession(resumeId, session.userId, serverId, endpointHash) : null;
+	const shell: ShellSession = resumedShell ?? {
+		id: randomBytes(16).toString("hex"),
+		userId: session.userId,
+		serverId,
+		endpointHash,
+		sshClient: new Client(),
+		stream: undefined,
+		attachment: null,
+		buffer: [],
+		bufferedBytes: 0,
+		detachTimer: undefined,
+		idleTimer: undefined,
+		idleTimeoutMs: terminalRuntimeConfig.sshIdleTimeoutMs ?? 0,
+		ended: false,
+	};
+	const resumed = resumedShell !== null;
+
 	let stopped = false;
 	let paused = false;
 	let lastAuthorizedAt = Date.now();
@@ -512,21 +671,25 @@ wss.on("connection", async (ws, req) => {
 	let pendingInputMessages = 0;
 	let authorizationTimer: NodeJS.Timeout | undefined;
 	let drainTimer: NodeJS.Timeout | undefined;
-	const endpointHash = createHash("sha256").update(JSON.stringify(connParams)).digest("hex");
-	const stopTerminal = (message: string, code = 1008) => {
+	const releaseAttachment = () => {
 		if (stopped) return;
 		stopped = true;
-		clearIdle();
 		clearInterval(authorizationTimer);
 		clearInterval(drainTimer);
 		authorizationTimer = undefined;
 		drainTimer = undefined;
+		if (shell.attachment?.ws === ws) shell.attachment = null;
+	};
+	const stopTerminal = (message: string, code = 1008) => {
+		if (stopped) return;
+		releaseAttachment();
 		if (ws.readyState === WebSocket.OPEN) {
 			if (ws.bufferedAmount < SSH_MAX_QUEUED_BYTES) ws.send(JSON.stringify({ type: "error", data: message }));
 			ws.close(code, "SSH terminal closed");
 		}
-		try { sshStream?.close(); } catch { /* already closed */ }
-		try { sshClient.end(); } catch { /* already closed */ }
+		// Refusals (revoked access, abuse of the wire protocol) end the shell
+		// outright: it must not linger as a resumable session.
+		endShellSession(shell);
 	};
 	const ensureAuthorized = (force = false): Promise<boolean> => {
 		if (stopped) return Promise.resolve(false);
@@ -563,80 +726,70 @@ wss.on("connection", async (ws, req) => {
 			return;
 		}
 		ws.send(message);
-		if (ws.bufferedAmount > 1024 * 1024 && !paused) { paused = true; sshStream?.pause(); }
+		if (ws.bufferedAmount > 1024 * 1024 && !paused) { paused = true; shell.stream?.pause(); }
 	};
-
-	// Idle guard: unlike the ping/pong heartbeat (which only detects a dead
-	// transport), this reaps a *live but unattended* terminal — an open root
-	// shell left behind pins an SSH connection + PTY on the target and consumes a
-	// slot from the global cap. The clock resets on real activity in EITHER
-	// direction (client keystrokes/resize OR server output), so a user watching
-	// `tail -f` is never disconnected; only true silence trips it. The limit
-	// comes from runtime.sshIdleTimeoutSec (0 = never reap), the same setting
-	// the settings page shows — NOT the legacy env-only WS idle value.
-	const idleTimeoutMs = terminalRuntimeConfig.sshIdleTimeoutMs ?? 0;
-	let idleTimer: NodeJS.Timeout | undefined;
-	const clearIdle = () => {
-		if (idleTimer) clearTimeout(idleTimer);
-		idleTimer = undefined;
-	};
-	const resetIdle = () => {
-		if (idleTimeoutMs <= 0) return;
-		if (idleTimer) clearTimeout(idleTimer);
-		idleTimer = setTimeout(() => {
+	const attachment: ShellAttachment = {
+		ws,
+		sendOutput,
+		notifyClosed: (message) => {
+			releaseAttachment();
 			if (ws.readyState === WebSocket.OPEN) {
-				ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.idleClosed", { minutes: idleTimeoutMs / 60_000 }) }));
+				ws.send(JSON.stringify({ type: "closed", data: message }));
 				ws.close();
 			}
-			try { sshStream?.close(); } catch { /* best-effort */ }
-			try { sshClient.end(); } catch { /* best-effort */ }
-		}, idleTimeoutMs);
-		idleTimer.unref?.();
+		},
+		fail: (message, code) => {
+			releaseAttachment();
+			if (ws.readyState === WebSocket.OPEN) {
+				ws.send(JSON.stringify({ type: "error", data: message }));
+				if (code !== undefined) ws.close(code, "SSH terminal closed");
+				else ws.close();
+			}
+		},
+	};
+	const announceShell = () => {
+		ws.send(JSON.stringify({ type: "connected", inputAck: true }));
+		ws.send(JSON.stringify({
+			type: "session",
+			resumeId: keepAlive ? shell.id : null,
+			resumed,
+			keepAliveMs: keepAlive ? SSH_DETACH_TTL_MS : 0,
+		}));
 	};
 
-	sshClient.on("ready", () => {
-		sshClient.shell({ term: "xterm-256color" }, (err, stream) => {
-			if (err) {
-				ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.shellCreationFailed", { message: err.message }) }));
-				ws.close();
-				return;
-			}
-			sshStream = stream;
-			ws.send(JSON.stringify({ type: "connected", inputAck: true }));
-			resetIdle();
-
-			stream.on("data", (data: Buffer) => {
-				resetIdle();
-				sendOutput(data);
-			});
-
-			stream.on("close", () => {
-				if (ws.readyState === WebSocket.OPEN) {
-					ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.connectionClosed") }));
-					ws.close();
+	if (!resumed) {
+		shell.sshClient.on("ready", () => {
+			shell.sshClient.shell({ term: "xterm-256color" }, (err, stream) => {
+				if (err) {
+					shell.attachment?.fail(t("backend.sshTerminal.shellCreationFailed", { message: err.message }));
+					endShellSession(shell);
+					return;
 				}
-			});
-
-			stream.stderr?.on("data", (data: Buffer) => {
-				resetIdle();
-				sendOutput(data);
+				if (shell.ended) {
+					try { stream.close(); } catch { /* best-effort */ }
+					return;
+				}
+				shell.stream = stream;
+				if (shell.attachment?.ws === ws) announceShell();
+				resetShellIdle(shell);
+				stream.on("data", (data: Buffer) => deliverShellOutput(shell, data));
+				stream.stderr?.on("data", (data: Buffer) => deliverShellOutput(shell, data));
+				stream.on("close", () => endShellSession(shell, t("backend.sshTerminal.connectionClosed")));
 			});
 		});
-	});
-
-	sshClient.on("error", (err) => {
-		if (ws.readyState === WebSocket.OPEN) {
-			ws.send(JSON.stringify({ type: "error", data: describeTerminalSshError(err) }));
-			ws.close();
-		}
-	});
-
-	sshClient.on("close", () => {
-		if (ws.readyState === WebSocket.OPEN) {
-			ws.send(JSON.stringify({ type: "closed", data: "SSH connection disconnected" }));
-			ws.close();
-		}
-	});
+		shell.sshClient.on("error", (err) => {
+			shell.attachment?.fail(describeTerminalSshError(err));
+			endShellSession(shell);
+		});
+		shell.sshClient.on("close", () => endShellSession(shell, "SSH connection disconnected"));
+		shell.sshClient.on("end", () => {
+			// SSH connection ended gracefully — notify client
+			const attached = shell.attachment?.ws;
+			if (attached && attached.readyState === WebSocket.OPEN) {
+				attached.send(JSON.stringify({ type: "closed", data: "SSH connection ended gracefully, you may try reconnecting" }));
+			}
+		});
+	}
 
 	ws.on("message", (raw, binary) => {
 		if (stopped) return;
@@ -656,8 +809,9 @@ wss.on("connection", async (ws, req) => {
 			pendingSshInputBytes += messageBytes;
 			pendingInputMessages++;
 			void ensureAuthorized().then(async (allowed) => {
-				if (!allowed || stopped || !sshStream) return;
-				resetIdle();
+				const sshStream = shell.stream;
+				if (!allowed || stopped || !sshStream || shell.ended) return;
+				resetShellIdle(shell);
 				if (msg.type === "input") {
 					if (sshStream.writableLength > 1024 * 1024) { stopTerminal(t("backend.sshTerminal.connectionClosed"), 1013); return; }
 					if (msg.id === undefined) {
@@ -665,7 +819,7 @@ wss.on("connection", async (ws, req) => {
 						sshStream.write(Buffer.from(msg.data, "base64"));
 					} else {
 						await new Promise<void>((resolve, reject) => {
-							sshStream!.write(Buffer.from(msg.data, "base64"), (error?: Error | null) => error ? reject(error) : resolve());
+							sshStream.write(Buffer.from(msg.data, "base64"), (error?: Error | null) => error ? reject(error) : resolve());
 						});
 						if (!stopped && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input-ack", id: msg.id }));
 					}
@@ -681,19 +835,11 @@ wss.on("connection", async (ws, req) => {
 	});
 
 	ws.on("close", () => {
-	stopped = true;
-	clearInterval(authorizationTimer);
-	clearInterval(drainTimer);
-	clearIdle();
-	if (sshStream) { try { sshStream.close(); } catch {} }
-	try { sshClient.end(); } catch {}
-	});
-
-	sshClient.on("end", () => {
-	// SSH connection ended gracefully — notify client
-	if (ws.readyState === WebSocket.OPEN) {
-	ws.send(JSON.stringify({ type: "closed", data: "SSH connection ended gracefully, you may try reconnecting" }));
-	}
+		if (stopped) return;
+		releaseAttachment();
+		// Opted-in terminals keep their shell for a reconnect; others end here.
+		if (keepAlive) detachShellSession(shell);
+		else endShellSession(shell);
 	});
 
 	// OPEN-1: buildTerminalSshConfig pins enforceHostKeyPin, so an unpinned
@@ -701,16 +847,32 @@ wss.on("connection", async (ws, req) => {
 	// The awaits above (session verify, runtime config) can outlive the client
 	// (tab closed mid-handshake): connecting then would open an SSH shell that
 	// only the idle reaper — or nothing, when the idle timeout is disabled —
-	// would ever close. Bail instead.
-	if (ws.readyState !== WebSocket.OPEN) return;
+	// would ever close. Bail instead (and give a claimed shell back).
+	if (ws.readyState !== WebSocket.OPEN) {
+		if (resumed) detachShellSession(shell);
+		return;
+	}
 	if (!await ensureAuthorized(true)) return;
+	shell.attachment = attachment;
 	authorizationTimer = setInterval(() => { void ensureAuthorized(true); }, SSH_AUTH_REVALIDATION_MS);
 	authorizationTimer.unref?.();
 	drainTimer = setInterval(() => {
-	if (paused && !stopped && ws.bufferedAmount < 256 * 1024) { paused = false; sshStream?.resume(); }
+		if (paused && !stopped && ws.bufferedAmount < 256 * 1024) { paused = false; shell.stream?.resume(); }
 	}, 125);
 	drainTimer.unref?.();
-	sshClient.connect(buildTerminalSshConfig(connParams, terminalRuntimeConfig));
+	if (resumed) {
+		// The shell is live: hand over what it printed while nobody was watching.
+		announceShell();
+		resetShellIdle(shell);
+		if (shell.bufferedBytes > 0) {
+			const missed = Buffer.concat(shell.buffer);
+			shell.buffer = [];
+			shell.bufferedBytes = 0;
+			sendOutput(missed);
+		}
+		return;
+	}
+	shell.sshClient.connect(buildTerminalSshConfig(connParams, terminalRuntimeConfig));
 });
 
 const shouldStartServer = process.env.NODE_ENV !== "test";
@@ -723,6 +885,7 @@ if (shouldStartServer) {
 
 function shutdown() {
 	closeRdp();
+	endAllDetachedSessions();
 	if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
 	wss.close();
 	server.close();
@@ -747,6 +910,7 @@ process.on("uncaughtException", (err) => {
 	logger.error("Uncaught exception:", err);
 	try {
 		closeRdp();
+		endAllDetachedSessions();
 		if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
 		wss.close();
 		server.close();
