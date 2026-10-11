@@ -70,12 +70,10 @@ PG_DB_USER="${PG_DB_USER:-$(pg_identifier_from_slug "${APP_SLUG}")}"
 PG_DB_PASSWORD="${PG_DB_PASSWORD:-}"
 DATABASE_URL_OVERRIDE="${DATABASE_URL:-}"
 STORAGE_ROOT_OVERRIDE="${STORAGE_ROOT:-}"
-DOWNLOAD_ROOT_OVERRIDE="${DOWNLOAD_ROOT:-}"
 BACKUP_DIR_OVERRIDE="${BACKUP_DIR:-}"
 ARIA2_RPC_DIR_OVERRIDE="${ARIA2_RPC_DIR:-}"
 if [ "${APP_SLUG}" != "vcontrolhub" ]; then
   [ "${STORAGE_ROOT_OVERRIDE}" != "/var/lib/vcontrolhub/storage" ] || STORAGE_ROOT_OVERRIDE=""
-  [ "${DOWNLOAD_ROOT_OVERRIDE}" != "/var/lib/vcontrolhub/downloads" ] || DOWNLOAD_ROOT_OVERRIDE=""
   [ "${BACKUP_DIR_OVERRIDE}" != "/var/backups/vcontrolhub" ] || BACKUP_DIR_OVERRIDE=""
   [ "${ARIA2_RPC_DIR_OVERRIDE}" != "/var/lib/vcontrolhub/aria2" ] || ARIA2_RPC_DIR_OVERRIDE=""
 fi
@@ -533,15 +531,12 @@ sync_installer_env_overrides() {
   set_env_var DATABASE_URL "${DATABASE_URL_OVERRIDE}"
  fi
  local effective_storage_root="${STORAGE_ROOT_OVERRIDE:-/var/lib/${APP_SLUG}/storage}"
- local effective_download_root="${DOWNLOAD_ROOT_OVERRIDE:-/var/lib/${APP_SLUG}/downloads}"
  local effective_backup_dir="${BACKUP_DIR_OVERRIDE:-/var/backups/${APP_SLUG}}"
  local effective_aria2_rpc_dir="${ARIA2_RPC_DIR_OVERRIDE:-/var/lib/${APP_SLUG}/aria2}"
  set_env_var STORAGE_ROOT "${effective_storage_root}"
- set_env_var DOWNLOAD_ROOT "${effective_download_root}"
  set_env_var BACKUP_DIR "${effective_backup_dir}"
  set_env_var ARIA2_RPC_DIR "${effective_aria2_rpc_dir}"
  export STORAGE_ROOT="${effective_storage_root}"
- export DOWNLOAD_ROOT="${effective_download_root}"
  export BACKUP_DIR="${effective_backup_dir}"
  export ARIA2_RPC_DIR="${effective_aria2_rpc_dir}"
  if [ -n "${DOMAIN}" ]; then
@@ -768,15 +763,13 @@ validate_install_scope() {
 
 create_runtime_dirs() {
   log "Creating runtime directories"
-  local storage_root download_root backup_root aria2_root
+  local storage_root backup_root aria2_root
   if [ -n "${DESTDIR}" ]; then
     storage_root="${STORAGE_ROOT_OVERRIDE:-${DESTDIR}/var/lib/${APP_SLUG}/storage}"
-    download_root="${DOWNLOAD_ROOT_OVERRIDE:-${DESTDIR}/var/lib/${APP_SLUG}/downloads}"
     backup_root="${BACKUP_DIR_OVERRIDE:-${DESTDIR}/var/backups/${APP_SLUG}}"
     aria2_root="${ARIA2_RPC_DIR_OVERRIDE:-${DESTDIR}/var/lib/${APP_SLUG}/aria2}"
   else
     storage_root="${STORAGE_ROOT:-/var/lib/${APP_SLUG}/storage}"
-    download_root="${DOWNLOAD_ROOT:-/var/lib/${APP_SLUG}/downloads}"
     backup_root="${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
     aria2_root="${ARIA2_RPC_DIR:-/var/lib/${APP_SLUG}/aria2}"
   fi
@@ -788,7 +781,6 @@ create_runtime_dirs() {
     "${APP_DIR}/backups" \
     "${APP_DIR}/logs" \
     "${storage_root}" \
-    "${download_root}" \
     "${backup_root}" \
     "${aria2_root}"
   chown -R "${APP_USER}:${APP_USER}" \
@@ -799,7 +791,6 @@ create_runtime_dirs() {
     "${APP_DIR}/backups" \
     "${APP_DIR}/logs" \
     "${storage_root}" \
-    "${download_root}" \
     "${backup_root}" \
     "${aria2_root}"
 }

@@ -12,6 +12,7 @@
  *   - S3 key 规则: `${pathPrefix}${YYYY-MM-DD}/${backupId}-${type}${ext}`
  *     其中 ext = `.gz` 走压缩, `` 不压缩; pathPrefix 默认 `vcontrolhub-backups/`
  */
+import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -209,8 +210,7 @@ export async function uploadBackupToOffsite(input: {
 	const ext = compressed ? ".gz" : "";
 	const contentType = compressed ? "application/gzip" : "application/octet-stream";
 	// 5. 构造 S3 key
-	const date = new Date();
-	const dateStr = date.toISOString().slice(0, 10);
+	const dateStr = appTimeZoneDateKey(new Date());
 	const prefix = (config.pathPrefix || "vcontrolhub-backups/").replace(/\/+$/, "") + "/";
 	const key = `${prefix}${dateStr}/${record.id}-${record.type.toLowerCase()}${ext}`;
 	// 6. 推 S3

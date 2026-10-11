@@ -8,28 +8,20 @@
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { HEALTH_SAMPLE_INTERVAL_MINUTES } from "@/lib/health/service-types";
+import { appTimeZoneDateKey, shiftAppTimeZoneDay, startOfDayInAppTimeZone } from "@/lib/datetime/time-zone";
 
 const logger = createLogger("uptime-rollup");
 
-function utcDayStart(date = new Date()): Date {
-  const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-}
-
-function utcDayEnd(dayStart: Date): Date {
-  return new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-}
-
 /**
- * Roll up MetricSnapshot samples for a UTC calendar day into
- * ServerUptimeSnapshot rows (one per enabled server that has samples).
+ * Roll up MetricSnapshot samples for one application-time-zone calendar day
+ * (the day the status page labels) into ServerUptimeSnapshot rows, one per
+ * enabled server that has samples. `date` is the instant that day starts.
  */
 export async function rollupServerUptimeForDay(
   day: Date = new Date(),
 ): Promise<{ upserted: number }> {
-  const dayStart = utcDayStart(day);
-  const dayEnd = utcDayEnd(dayStart);
+  const dayStart = startOfDayInAppTimeZone(day);
+  const dayEnd = shiftAppTimeZoneDay(dayStart, 1);
 
   const grouped = await prisma.metricSnapshot.groupBy({
     by: ["serverId", "isOnline"],
@@ -89,7 +81,7 @@ export async function rollupServerUptimeForDay(
 
   if (upserted > 0) {
     logger.info("uptime rollup completed", {
-      day: dayStart.toISOString().slice(0, 10),
+      day: appTimeZoneDateKey(dayStart),
       upserted,
       samples: grouped.reduce((total, group) => total + group._count._all, 0),
     });
@@ -101,9 +93,8 @@ export async function rollupServerUptimeForDay(
 export async function rollupRecentServerUptime(): Promise<{
   upserted: number;
 }> {
-  const today = await rollupServerUptimeForDay(new Date());
-  const yesterday = new Date();
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  const y = await rollupServerUptimeForDay(yesterday);
+  const now = new Date();
+  const today = await rollupServerUptimeForDay(now);
+  const y = await rollupServerUptimeForDay(shiftAppTimeZoneDay(now, -1));
   return { upserted: today.upserted + y.upserted };
 }

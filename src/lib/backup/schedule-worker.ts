@@ -14,6 +14,7 @@
  * this tick only does lightweight DB writes. This separation keeps the
  * tick fast and survives process restarts.
  */
+import { appTimeZoneDateKey, startOfDayInAppTimeZone, wallClockInAppTimeZone } from "@/lib/datetime/time-zone";
 import { JobStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
@@ -152,20 +153,21 @@ async function dispatchDueScheduleRow(schedule: {
 }
 
 
-/** Once per UTC day, enqueue a platform backup.retention job so offsite retentionDays is applied. */
+/** Once per application-time-zone day, enqueue a platform backup.retention job so offsite retentionDays is applied. */
 async function maybeEnqueueOffsiteRetentionTick(): Promise<{
   enqueued: boolean;
   skipped?: string;
   jobId?: string;
 }> {
   try {
-    const dayKey = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const dayKey = appTimeZoneDateKey(now);
     const title = `Offsite retention ${dayKey}`;
     const existing = await prisma.job.findFirst({
       where: {
         type: "backup.retention",
         title,
-        createdAt: { gte: new Date(`${dayKey}T00:00:00.000Z`) },
+        createdAt: { gte: startOfDayInAppTimeZone(now) },
       },
       select: { id: true },
     });
@@ -203,10 +205,12 @@ async function maybeEnqueueOffsiteUploadTick(now = new Date()): Promise<{
     const { loadOffsiteConfig } = await import("@/lib/storage/offsite/schema");
     const offsite = await loadOffsiteConfig();
     if (!offsite.enabled) return { enqueued: false, skipped: "offsite-disabled" };
-    if (now.getUTCHours() !== offsite.dailyWindowHour) {
+    // The window hour is a wall-clock hour in the application time zone, the
+    // same clock the settings page and every schedule use.
+    if (wallClockInAppTimeZone(now).hour !== offsite.dailyWindowHour) {
       return { enqueued: false, skipped: "outside-daily-window" };
     }
-    const dayKey = now.toISOString().slice(0, 10);
+    const dayKey = appTimeZoneDateKey(now);
     const title = `Offsite upload ${dayKey}`;
     const existing = await prisma.job.findFirst({
       where: { type: "backup.offsite-sync", title },

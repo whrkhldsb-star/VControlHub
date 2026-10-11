@@ -1646,7 +1646,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>可列出本地迁移包、填写备注、查看校验结果。导入登记不会立即覆盖生产数据，实际恢复仍需独立确认。</p>
 <p>数据库迁移包、系统配置导出和部署模板导出各有用途：前者搬数据，配置导出搬配置，部署模板帮助搭建运行环境。它们不能互相替代。</p>
 <h3 id="section-13-6">13.6 S3 兼容异地备份</h3>
-<p>设置中支持 S3、Cloudflare R2、Backblaze B2、MinIO 类型及相应 endpoint、region、bucket、访问凭据、路径前缀、UTC 每日窗口、保留天数和失败通知收件人。</p>
+<p>设置中支持 S3、Cloudflare R2、Backblaze B2、MinIO 类型及相应 endpoint、region、bucket、访问凭据、路径前缀、每日窗口（应用时区整点）、保留天数和失败通知收件人。</p>
 <p>界面可保存配置、启用／停用、执行连接探测。名为 Dry-run 的连接探测会创建一个小测试对象、检查它并尝试删除，所以它是受控的连通性与权限试写，不是完全无写入请求。</p>
 <p>完成备份可上传异地，后台窗口可补传，保留策略处理受管理对象。异地上传失败会保留本地完成的备份，并记录上传错误／按配置发送通知；本地备份完成和异地副本可用是两个结果。</p>
 <p>此外，系统级完整恢复归档提供独立上传入口 <code>upload-recovery-backup</code>，需同时满足 S3 配置启用和 <code>OFFSITE_RECOVERY_UPLOAD_ENABLED</code> 开关。该入口对完成归档做流式 SHA-256、按内容寻址上传、远端回读核对字节数与摘要并写收据，默认关闭。页面中的普通备份上传与这一路系统恢复归档上传不要混为同一个开关。</p>
@@ -2087,7 +2087,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 <tr>
 <td>异地备份</td>
-<td>S3 兼容连接、凭据、UTC 窗口、保留、失败通知</td>
+<td>S3 兼容连接、凭据、每日窗口（应用时区）、保留、失败通知</td>
 <td>需显式启用并完成连接验证</td>
 </tr>
 <tr>
@@ -2334,7 +2334,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 <tr>
 <td><code>offsite.dailyWindowHour</code></td>
-<td>每日上传窗口小时，按 UTC 解释</td>
+<td>每日上传窗口小时，按应用时区 <code>Asia/Shanghai</code> 解释</td>
 </tr>
 <tr>
 <td><code>offsite.retentionDays</code></td>
@@ -3409,7 +3409,7 @@ npm run docs:check
 </table></div>
 <h3 id="section-23-4">23.4 时间、状态和能力说明的阅读规则</h3>
 <ul>
-<li>Cron 计划、Playbook 和 AI 日常扫描使用项目应用时区 <code>Asia/Shanghai</code>；S3 每日上传窗口按 UTC；系统级 timer 以其部署配置为准。</li>
+<li>Cron 计划、Playbook、AI 日常扫描、S3 每日上传窗口、运行时间热力图和成本预算周期都使用项目应用时区 <code>Asia/Shanghai</code>；系统级 timer 以其部署配置为准。</li>
 <li>表单“启用”表示允许使用，健康探测“可达”表示某条链路通过，任务“完成”表示该任务定义的步骤结束，应分别阅读。</li>
 <li>可配置字段、代码中存在的适配、实际部署启用及第三方实机验收是不同层次。</li>
 <li>本文与所在仓库版本的源代码配套使用。较早专项文档可能保留历史方案或待办；遇到冲突应核对本文引用的当前服务与接口。</li>
