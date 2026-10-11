@@ -414,6 +414,7 @@ test("customer create, select, delete and restore lifecycle", async ({ page }) =
 	const marker = `QA Customer ${Date.now()}`;
 	let createdId: string | null = null;
 	const csrfHeaders = async () => ({ "x-csrf-token": (await page.context().cookies()).find((cookie) => cookie.name === "csrf_token")?.value ?? "" });
+	const startingCustomer = ((await (await page.context().request.get("/api/teams")).json()) as { currentTeamId: string | null }).currentTeamId;
 	try {
 		await page.getByRole("button", { name: /新建客户|New customer/i }).first().click();
 		await page.getByLabel(/客户名称|Customer name/i).fill(marker);
@@ -459,6 +460,11 @@ test("customer create, select, delete and restore lifecycle", async ({ page }) =
 		if (createdId) {
 			await page.context().request.delete(`/api/teams/${encodeURIComponent(createdId)}`, { headers: await csrfHeaders() }).catch(() => undefined);
 		}
+		// Deleting the selected customer left this shared administrator in "all customers".
+		// Later specs mint sessions for it and create customer-bound records (API tokens,
+		// fixtures), so hand it back in the customer it started in.
+		const restored = await page.context().request.post("/api/teams/switch", { headers: await csrfHeaders(), data: { teamId: startingCustomer } });
+		expect.soft(restored.status(), "restore the starting customer").toBe(200);
 	}
 });
 
