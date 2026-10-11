@@ -19,6 +19,8 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Changed
 
+- One clock for day and month buckets. Uptime rollups and the public status page's 90-day heatmap, the cost budgets' "current period", the daily cost snapshot, the monthly traffic figure on the health page, the offsite backup's daily window hour and once-a-day job keys all used UTC calendar days while schedules and every timestamp on screen follow Asia/Shanghai; they now share the application clock (`lib/datetime/time-zone`). The offsite window hour setting is therefore read in Asia/Shanghai; a deployment that tuned it for UTC should adjust it by eight hours.
+- `DOWNLOAD_ROOT` is gone from the installer, the example env files and the deploy guide: no code read it (remote downloads stage in `ARIA2_RPC_DIR` and land on the target node). Existing `.env.local` entries are ignored harmlessly.
 - Platform-only pages: the platform self-check (`/health`) and the hub host monitor (`/monitoring`) describe the machine every customer shares, so they and their APIs now open only for platform administrators; customer accounts keep `/vps-status` (with capacity forecast) and `/alert-rules`. Navigation, ⌘K search and the `G` shortcuts hide them accordingly.
 - Announcements reach their readers: the page is listed in the sidebar for every signed-in account (publishing stays platform-only, as the guide always said), and the dashboard shows the latest active announcements.
 - The dashboard's first-setup checklist lists only the items the account may complete; a customer read-only account no longer sees rows that lead to "no permission".

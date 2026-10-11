@@ -1,3 +1,4 @@
+import { wallClockInAppTimeZone } from "@/lib/datetime/time-zone";
 import { Prisma } from "@prisma/client";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
@@ -14,8 +15,14 @@ type BudgetRow = {
 	period: string; alertThresholdPercent: number; enabled: boolean; createdAt: Date; updatedAt: Date;
 };
 
+/**
+ * The budget period `now` falls in. "Now" is read on the application clock
+ * (a month turns at midnight in Asia/Shanghai, not at 08:00), while the
+ * bounds stay calendar dates stored as UTC midnight, matching effectiveDate.
+ */
 export function getBudgetPeriodRange(period: CostBudgetPeriod, now = new Date()): { start: Date; endExclusive: Date } {
-	const year = now.getUTCFullYear(); const month = now.getUTCMonth();
+	const wall = wallClockInAppTimeZone(now);
+	const year = wall.year; const month = wall.month - 1;
 	if (period === "monthly") return { start: new Date(Date.UTC(year, month, 1)), endExclusive: new Date(Date.UTC(year, month + 1, 1)) };
 	if (period === "quarterly") { const start = Math.floor(month / 3) * 3; return { start: new Date(Date.UTC(year, start, 1)), endExclusive: new Date(Date.UTC(year, start + 3, 1)) }; }
 	return { start: new Date(Date.UTC(year, 0, 1)), endExclusive: new Date(Date.UTC(year + 1, 0, 1)) };

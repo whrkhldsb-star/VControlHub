@@ -2,6 +2,7 @@ import { PageShell, PageHeader } from "@/components/page-shell";
 import { type SystemHealthCheck } from "@/lib/system-health/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
+import { appTimeZoneDateKey, shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
 import { getPublicStatus, getPublicStatusSummary } from "@/lib/status/service";
 import { createLogger } from "@/lib/logging";
 import { getAllUptimeDataInternal } from "@/lib/uptime/internal";
@@ -84,14 +85,11 @@ function renderUptimeSection(
               if (dateKey) daysMap.set(dateKey, d);
             });
 
-            const today = new Date();
-            today.setUTCHours(0, 0, 0, 0);
+            // Day cells follow the application time zone, like the rollup that fills them.
+            const now = new Date();
             const days: string[] = [];
             for (let i = 89; i >= 0; i--) {
-              const d = new Date(today);
-              d.setUTCDate(d.getUTCDate() - i);
-              const dateStr = d.toISOString().split("T")[0];
-              if (dateStr) days.push(dateStr);
+              days.push(appTimeZoneDateKey(shiftAppTimeZoneDay(now, -i)));
             }
 
             const filled = days.map((date) => {

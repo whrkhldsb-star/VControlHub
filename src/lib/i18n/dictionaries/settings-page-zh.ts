@@ -253,7 +253,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.field.offsite.accessKeyId.helper": "从 provider 后台获取的 access key；不要使用主账号 root key。",
 	"settingsClient.field.offsite.secretAccessKey.helper": "凭据 at-rest 加密 (settings.crypto.service); GET 时返回 *** 占位。",
 	"settingsClient.field.offsite.pathPrefix.helper": "对象 key 前缀；必须以 / 结尾。",
-	"settingsClient.field.offsite.dailyWindowHour.helper": "0–23 整数；UTC 整点窗口；默认 03:00。",
+	"settingsClient.field.offsite.dailyWindowHour.helper": "0–23 整数；按应用时区（Asia/Shanghai）的整点窗口；默认 03:00。",
 	"settingsClient.field.offsite.retentionDays.helper": "异地端保留天数；超过的备份对象会被 lifecycle job 清理。",
 	"settingsClient.field.offsite.failureAlertRecipient.helper": "异地推送失败时发告警邮件到此地址；留空则不告警。",
 	"settingsClient.field.ai.ops.mode.helper": "切换到 autonomous 前请确认已开启 ai:ops:autonomous 权限，并理解 AI 会按 AI_OPS_SAFE_AUTONOMOUS_ACTIONS 白名单自动执行。",

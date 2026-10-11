@@ -684,7 +684,6 @@ describeOrSkip("deploy/install.sh", () => {
         /^DATABASE_URL="postgresql:\/\/smoke_console:.+@127\.0\.0\.1:5432\/smoke_console"$/m,
       );
       expect(envContent).toContain('STORAGE_ROOT="/var/lib/smoke-console/storage"');
-      expect(envContent).toContain('DOWNLOAD_ROOT="/var/lib/smoke-console/downloads"');
       expect(envContent).toContain('BACKUP_DIR="/var/backups/smoke-console"');
       expect(envContent).toContain('ARIA2_RPC_DIR="/var/lib/smoke-console/aria2"');
       expect(envContent).not.toContain('${APP_SLUG:-');
