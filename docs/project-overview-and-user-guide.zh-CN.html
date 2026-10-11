@@ -12,7 +12,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <div class="layout"><aside class="sidebar" aria-label="文档章节"><strong>目录 · 24 章</strong><input id="chapter-filter" type="search" placeholder="筛选章节名称" aria-label="筛选章节名称"><ol><li><a href="#project">项目定位、整体能力与功能设计目标</a></li><li><a href="#getting-started">核心概念与首次使用</a></li><li><a href="#workspace">全站交互与个人工作台</a></li><li><a href="#servers">服务器纳管与节点管理</a></li><li><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></li><li><a href="#files">存储节点与文件管理</a></li><li><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></li><li><a href="#media-downloads">远程下载、媒体库与图片外链</a></li><li><a href="#deployment">命令模板、应用部署与 Docker</a></li><li><a href="#quick-services">快捷服务与应用目录</a></li><li><a href="#automation">审批、定时任务、Playbook 与统一任务中心</a></li><li><a href="#observability">监控、健康检查、流量与告警</a></li><li><a href="#backup">平台备份、VPS 备份、恢复与迁移</a></li><li><a href="#ai">AI 助手、知识库与 AI 运维</a></li><li><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></li><li><a href="#cost">成本、账单与预算</a></li><li><a href="#permissions">账号、角色、团队与资源授权</a></li><li><a href="#settings-api">系统设置、配置导入导出与开放 API</a></li><li><a href="#architecture">系统设计与运行架构</a></li><li><a href="#data-workers">数据模型与后台任务设计</a></li><li><a href="#operations">部署、升级、运行维护与测试体系</a></li><li><a href="#workflows">典型完整使用流程</a></li><li><a href="#boundaries">功能边界与常见问题</a></li><li><a href="#reference">完整页面、权限、接口与源码索引</a></li></ol><p id="nav-empty" class="nav-empty" hidden>没有匹配的章节；全文搜索请按 Ctrl / ⌘ + F。</p></aside><main><details class="mobile-toc"><summary>查看全部 24 章目录</summary><ol><li><a href="#project">项目定位、整体能力与功能设计目标</a></li><li><a href="#getting-started">核心概念与首次使用</a></li><li><a href="#workspace">全站交互与个人工作台</a></li><li><a href="#servers">服务器纳管与节点管理</a></li><li><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></li><li><a href="#files">存储节点与文件管理</a></li><li><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></li><li><a href="#media-downloads">远程下载、媒体库与图片外链</a></li><li><a href="#deployment">命令模板、应用部署与 Docker</a></li><li><a href="#quick-services">快捷服务与应用目录</a></li><li><a href="#automation">审批、定时任务、Playbook 与统一任务中心</a></li><li><a href="#observability">监控、健康检查、流量与告警</a></li><li><a href="#backup">平台备份、VPS 备份、恢复与迁移</a></li><li><a href="#ai">AI 助手、知识库与 AI 运维</a></li><li><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></li><li><a href="#cost">成本、账单与预算</a></li><li><a href="#permissions">账号、角色、团队与资源授权</a></li><li><a href="#settings-api">系统设置、配置导入导出与开放 API</a></li><li><a href="#architecture">系统设计与运行架构</a></li><li><a href="#data-workers">数据模型与后台任务设计</a></li><li><a href="#operations">部署、升级、运行维护与测试体系</a></li><li><a href="#workflows">典型完整使用流程</a></li><li><a href="#boundaries">功能边界与常见问题</a></li><li><a href="#reference">完整页面、权限、接口与源码索引</a></li></ol></details><h1>VControlHub 项目全景、功能详解与使用指南</h1>
 <blockquote>
 <p>本指南按仓库中的实际功能组织，说明功能入口、配置条件、操作流程、权限、运行架构及能力边界。适用于使用者、管理员和项目维护者。
-具体实例能否使用某项功能，取决于部署配置、当前工作区、账号授权和目标主机条件；各模块的配置要求见对应章节。
+具体实例能否使用某项功能，取决于部署配置、当前客户、账号授权和目标主机条件；各模块的配置要求见对应章节。
 适用对象：项目使用者、平台管理员、运维人员、项目介绍与交接文档的读者、后续开发维护者。
 这是一份当前实现说明。功能是否能在某个安装实例中使用，还取决于账号权限、团队、目标操作系统、外部服务及部署配置。本地代码版本与 GitHub 分支是否同步，应另行核对。</p>
 </blockquote>
@@ -24,7 +24,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>主要使用场景包括：</p>
 <ul>
 <li>个人同时维护多台 VPS，集中查看状态、连接终端、上传配置和部署应用。</li>
-<li>小团队共享运维控制台，通过工作区、角色和目录授权划分资源访问范围。</li>
+<li>平台方为多个客户提供运维控制台：每个客户的数据相互隔离，客户账号按身份模板和逐台、逐目录授权划分访问范围。</li>
 <li>将重复巡检、清理、通知、备份和部署流程做成模板、计划或 Playbook。</li>
 <li>统一浏览本机、SFTP 和外部 WebDAV 文件，创建有期限或密码的分享链接。</li>
 <li>使用 AI 查询环境、分析日志、参考知识库、生成方案，并在授权后执行受控动作。</li>
@@ -108,7 +108,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tbody>
 </table></div>
 <h3 id="section-1-3">1.3 当前代码规模与口径</h3>
-<p>项目包含：55 个 <code>page.tsx</code> 页面文件、188 个 API 路由文件、79 个 Prisma 数据模型、54 个业务权限项、4 个内置账号角色、24 类后台 Worker，以及 44 个本地快捷服务模板。</p>
+<p>项目包含：56 个 <code>page.tsx</code> 页面文件、189 个 API 路由文件、79 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 44 个本地快捷服务模板。</p>
 <p>配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、42 个系统设置表单字段、8 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。</p>
 <p>这里的“页面”包含详情页、登录页和兼容跳转入口；“API 路由文件”可能同时处理多个 HTTP 方法；“应用模板”表示存在安装定义，不代表所有第三方应用在所有硬件和网络环境中都已逐项验收。</p>
 <p>依据：<a href="../README.md">README</a>、<a href="route-catalog.json">页面与接口目录</a>、<a href="../prisma/schema.prisma">数据模型</a>、<a href="../src/lib/workers/registry.ts">Worker 注册表</a>。</p>
@@ -121,7 +121,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <li><strong>支持不同系统与网络条件。</strong> 为 Linux、Windows、本地目录、SFTP 和 WebDAV 提供适合各自能力的接入方式，通过 SSH、Agent、RDP 和文件网关组合完成管理。界面应说明通道差异，用户可以按实际需要启用。</li>
 <li><strong>把重复工作做成可复用流程。</strong> 用命令模板减少重复填写，用定时任务执行单项计划，用 Playbook 编排多步骤，再通过后台任务承担耗时工作。关闭浏览器后，已持久化入队且权限、依赖有效的后台任务仍可执行和查询；尚在浏览器传输中的上传及交互终端会话按各自连接状态处理。</li>
 <li><strong>在执行前明确授权，在执行后给出证据。</strong> 命令、部署和 AI 变更应能说明谁提出、操作什么、由谁确认或审批、在哪台机器执行，以及成功或失败的依据。提交、批准、执行中与完成是不同状态。</li>
-<li><strong>支持团队协作与按资源授权。</strong> 使用统一账号、工作区成员、岗位权限、逐服务器和逐目录规则，让不同成员承担观察、运维、文件管理和平台管理职责；切换工作区后按相应资源范围工作。</li>
+<li><strong>支持多客户隔离与按资源授权。</strong> 平台管理员开设客户和客户账号，用身份模板、逐服务器和逐目录规则让不同账号承担只读、运维、文件管理等职责；平台管理员可在客户之间切换或查看全部客户。</li>
 <li><strong>尽早发现异常并推进处理。</strong> 提供资源指标、流量、历史趋势、容量预测、告警、工单和 AI 分析等发现与处理入口，配合通知及当前支持的自动化联动，使异常能被发现、分派、处理，并追踪相应结果。</li>
 <li><strong>保留数据保护与转移能力。</strong> 用文件版本、回收站、平台备份、VPS 备份、异地副本及迁移包应对不同问题；让用户能识别备份范围、校验状态和恢复条件，按需要完成实际恢复验证。</li>
 <li><strong>让 AI 使用当前环境的真实信息。</strong> 在用户权限范围内提供服务器、日志、文件、知识库及任务工具；对变更保留确认和审批，让建议可以关联真实执行结果。自主运维只承担当前白名单允许的动作。</li>
@@ -389,7 +389,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <tr>
 <td><a id="feature-f36"></a><code>F-36</code> 知识库</td>
 <td>运维约定与 SOP 分散，难以供 AI 复用</td>
-<td>录入文本知识，切块、检索试跑，并在当前工作区范围内辅助对话</td>
+<td>录入文本知识，切块、检索试跑，并在当前客户范围内辅助对话</td>
 <td><a href="#ai">第 14 章</a></td>
 <td><a href="../src/app/knowledge/page.tsx">知识页面</a>、<a href="../src/lib/ai/knowledge.ts">知识检索</a></td>
 </tr>
@@ -436,11 +436,11 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td><a href="../src/app/account/security/page.tsx">账号安全</a>、<a href="../src/lib/auth/rbac.ts">角色权限</a></td>
 </tr>
 <tr>
-<td><a id="feature-f43"></a><code>F-43</code> 工作区与资源授权</td>
-<td>不同团队、服务器或目录需要不同访问范围</td>
-<td>管理成员和所有权，用权限组及例外授予服务器与目录的读、写、删等能力</td>
+<td><a id="feature-f43"></a><code>F-43</code> 客户与资源授权</td>
+<td>不同客户、服务器或目录需要不同访问范围</td>
+<td>开设、删除和恢复客户，用身份模板分配权限，逐台服务器和逐目录收窄，在客户之间转移服务器</td>
 <td><a href="#permissions">第 17 章</a></td>
-<td><a href="../src/lib/team/service.ts">团队管理</a>、<a href="../src/lib/server/resource-access.ts">服务器授权</a>、<a href="../src/lib/storage/access-control.ts">目录授权</a></td>
+<td><a href="../src/lib/team/service.ts">客户管理</a>、<a href="../src/lib/auth/identity-templates.ts">身份模板</a>、<a href="../src/lib/server/resource-access.ts">服务器授权</a>、<a href="../src/lib/storage/access-control.ts">目录授权</a></td>
 </tr>
 <tr>
 <td><a id="feature-f44"></a><code>F-44</code> 审计</td>
@@ -511,8 +511,8 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td>备份范围明确、产物及校验可查；按需要在独立环境恢复数据库和文件，并验证目标业务可用</td>
 </tr>
 <tr>
-<td>给成员最小必要访问</td>
-<td>成员在指定工作区完成授权操作，未授权资源被拒绝；撤回权限或移除成员后后续访问受到限制</td>
+<td>给客户账号最小必要访问</td>
+<td>客户账号只在自己的客户内完成授权操作，未授权资源被拒绝；调整身份模板或移出客户后后续访问受到限制</td>
 </tr>
 <tr>
 <td>使用 AI 辅助操作</td>
@@ -580,14 +580,14 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td>节点“已启用”是允许接受操作的管理状态，不等于网络实时在线</td>
 </tr>
 <tr>
-<td>团队／工作区</td>
-<td>一组成员及其服务器、存储、任务等资源的归属范围</td>
-<td>账号是全局账号，进入不同工作区看到的业务资源会变化</td>
+<td>客户</td>
+<td>一组客户账号及其服务器、存储、任务等资源的隔离边界</td>
+<td>客户账号只属于一个客户；平台管理员可切换客户或查看全部客户</td>
 </tr>
 <tr>
 <td>平台管理员</td>
 <td>具有内置 <code>admin</code> 角色的账号</td>
-<td>与某个工作区的所有者或管理员不同</td>
+<td>不属于任何客户，与“客户管理员”身份模板不同</td>
 </tr>
 <tr>
 <td>存储节点</td>
@@ -640,7 +640,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <ol>
 <li>完成平台部署，通过自己的 HTTPS 地址登录。</li>
 <li>按账号状态要求修改初始密码，进入账户安全配置双因素认证。</li>
-<li>确认当前工作区；团队使用时先创建账号，再加入工作区并分配权限。</li>
+<li>在 <code>/customers</code> 新建客户，再在用户管理中创建客户账号并选择身份模板；平台管理员用侧栏顶部的切换器确认当前客户。</li>
 <li>添加第一台服务器，独立核对 SSH 主机指纹，完成连接检查。</li>
 <li>打开浏览器终端执行一次只读检查，确认账号和 shell 可用。</li>
 <li>为服务器配置云盘根目录，或添加本地／外部 WebDAV 存储节点。</li>
@@ -651,7 +651,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </ol>
 <p>仪表盘会提供首次设置清单，提示服务器、告警、外发通知、备份计划和节点月费等尚未配置的项目。清单可以暂时关闭；关闭提示不会替代相应配置。</p>
 <h3 id="section-2-3">2.3 权限对界面的影响</h3>
-<p>导航、按钮、列表数据和 API 都会受到权限约束。同一个工作区中，普通观察者、运维人员和存储管理员看到的操作按钮不完全一致。若某个功能不存在于当前页面，应先核对账号角色、工作区身份、资源授权和功能依赖，而不是直接认为功能未实现。</p>
+<p>导航、按钮、列表数据和 API 都会受到权限约束。同一个客户中，“客户只读”“客户运维”“仅文件”等身份模板看到的操作按钮不完全一致。若某个功能不存在于当前页面，应先核对账号类型、身份模板、资源授权和功能依赖，而不是直接认为功能未实现。</p>
 <h3 id="section-2-4">2.4 先确定要使用的连接通道</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -759,7 +759,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <li>桌面侧栏按用途分组：总览（仪表盘、通知）、服务器（VPS 管理、节点状态、流量、告警规则、成本）、文件与传输、应用（快捷服务、Docker、应用部署）、自动化（任务中心、审批中心、命令模板、代码片段、定时任务、Playbook）、AI 与工单，以及系统管理（设置、用户、平台健康、Hub 主机监控、平台备份、审计、API、ITSM、公开状态页）。总览、服务器和文件三组默认展开，其余分组按需展开并记住每个人的选择。</li>
 <li>移动端提供仪表盘、服务器、任务、文件、设置的主要快捷入口，以及其他页面的导航抽屉。</li>
 <li>全局搜索可以检索页面与快捷操作，也可以查询有权限看到的服务器、Playbook 和快捷服务。</li>
-<li>搜索支持键盘上下选择、确认跳转和 Esc 关闭；结果受当前身份及工作区范围限制。</li>
+<li>搜索支持键盘上下选择、确认跳转和 Esc 关闭；结果受当前身份及客户范围限制。</li>
 <li>中文和英文界面可切换，支持深色、浅色主题。</li>
 <li>列表、详情面板和确认对话框适配窄屏；分页、筛选和空状态帮助处理较多资源。</li>
 <li>错误提示、操作反馈、加载状态和重试入口贯穿各模块。</li>
@@ -917,7 +917,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>支持的 SSH 密钥类型包括 RSA、ECDSA、Ed25519 和传统 DSA；导入成功还需满足目标 SSH 服务的算法策略。公钥文件 <code>.pub</code>、证书、硬件令牌引用和未知专有容器不能替代可用的私钥。</p>
 <h4>保存、识别与复用</h4>
 <p>导入过程提取公钥，以公钥内容计算 SHA-256 指纹，并将私钥统一转换为 SSH 可用格式后按平台凭据加密机制保存。新导入记录不保留导入时的解密密码。列表提供名称、指纹等管理信息，不提供已保存私钥的明文回显。</p>
-<p>登录密钥指纹标识的是这对登录密钥；节点连接检查显示的 SSH 主机指纹标识的是目标服务器。两者用途不同，不需要相同。密钥与节点的引用受到工作区范围约束；在节点编辑中可以更换绑定密钥。</p>
+<p>登录密钥指纹标识的是这对登录密钥；节点连接检查显示的 SSH 主机指纹标识的是目标服务器。两者用途不同，不需要相同。密钥与节点的引用受到客户范围约束；在节点编辑中可以更换绑定密钥。</p>
 <p>当前常规界面以新增、查看和复用密钥为主，没有独立的通用密钥编辑／删除管理页。移除某节点的 SSH 回退凭据是另一项节点操作，并不等同于删除密钥记录。</p>
 <p>依据：<a href="../src/app/servers/ssh-key-create-form.tsx">密钥表单</a>、<a href="../src/lib/server/ssh-keys.ts">密钥导入和保存</a>。</p>
 <h3 id="section-4-4">4.4 节点详情与连接诊断</h3>
@@ -1118,8 +1118,8 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 </tbody>
 </table></div>
-<p>存储节点可添加、编辑、删除，设置当前工作区默认节点，查看健康状态、来源、连接信息和文件计数。默认节点的驱动与默认身份有保护，迁移默认存储时应先将另一节点设为默认。</p>
-<p>本地新工作区的默认存储按工作区划分目录。SFTP 根路径定义云盘范围；外部 WebDAV 无需绑定 VPS，凭据只由服务端使用。</p>
+<p>存储节点可添加、编辑、删除，设置当前客户的默认节点，查看健康状态、来源、连接信息和文件计数。默认节点的驱动与默认身份有保护，迁移默认存储时应先将另一节点设为默认。</p>
+<p>每个新客户的默认本地存储使用独立目录。SFTP 根路径定义云盘范围；外部 WebDAV 无需绑定 VPS，凭据只由服务端使用。</p>
 <h3 id="section-6-2">6.2 浏览与整理文件</h3>
 <ul>
 <li>按节点筛选，浏览根目录和子目录，使用面包屑、目录树和返回上级导航。</li>
@@ -1216,7 +1216,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>底层内容适配覆盖 LOCAL、SFTP 和 WebDAV 的读取／写回，但仍取决于后端访问及权限。恢复版本是写操作，需要当前路径写权限；永久删除时也要处理对应历史字节。</p>
 <h3 id="section-6-8">6.8 回收站</h3>
 <p>入口：<code>/files/recycle-bin</code>。</p>
-<p>普通删除先标记为已删除，用户可在回收站中查看、搜索或分页、恢复、彻底删除。列表要求文件读取权限，并按工作区限制节点；工作区所有者／管理员和具有存储节点管理权限的用户在可管理范围内查看，普通成员仅看到有效读取授权覆盖的路径。被回收的文件不会继续作为正常文件展示或通过普通分享下载；目录归档也需要排除回收站内容。</p>
+<p>普通删除先标记为已删除，用户可在回收站中查看、搜索或分页、恢复、彻底删除。列表要求文件读取权限，并按客户限制节点；平台管理员和具有存储节点管理权限的账号在可管理范围内查看，设置了路径授权的账号仅看到授权覆盖的路径。被回收的文件不会继续作为正常文件展示或通过普通分享下载；目录归档也需要排除回收站内容。</p>
 <p>恢复依赖底层文件仍然存在。平台外直接删除磁盘文件后，仅有数据库中的回收站记录并不能重建文件字节。永久删除不可通过回收站撤销。</p>
 <h3 id="section-6-9">6.9 文件搜索与索引同步</h3>
 <p>入口：<code>/files/search</code>。</p>
@@ -1301,7 +1301,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <h3 id="section-8-2">8.2 媒体库</h3>
 <p>入口：<code>/media</code>、<code>/media/[id]</code>。</p>
 <p>媒体库统一整理图片、视频和音频。用户可以按类型、关键词、收藏和标签筛选，扫描可访问存储中的媒体文件，查看缩略图和元信息，修改整理信息、收藏、播放、下载或跳回源文件位置。</p>
-<p>图片工作区可选择存储节点批量上传，并将已入库图片发布成外链。视频和音频通过媒体流接口提供播放，支持单区间读取；缩略图通过独立接口获取。</p>
+<p>图片管理页可选择存储节点批量上传，并将已入库图片发布成外链。视频和音频通过媒体流接口提供播放，支持单区间读取；缩略图通过独立接口获取。</p>
 <p>媒体记录通常与源文件关联。外部移动／删除源文件、节点离线或撤销路径授权都可能影响播放。当前没有宣称通用实时转码或所有视频编码兼容，播放能力以浏览器支持为准。</p>
 <h3 id="section-8-3">8.3 图片外链中心</h3>
 <p>入口：<code>/image-bed</code>。</p>
@@ -1342,7 +1342,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <li>区分独立容器与 Compose 项目中的容器。</li>
 <li>按个人刷新偏好更新状态与统计。</li>
 </ul>
-<p>本机 Docker 属于共享控制台基础设施，要求平台级管理身份及相应权限；普通团队不能仅凭 <code>docker:manage</code> 就操作 Hub 上所有容器。远程目标则要通过工作区及服务器读／管理授权。</p>
+<p>本机 Docker 属于共享控制台基础设施，要求平台级管理身份及相应权限；客户账号不能仅凭 <code>docker:manage</code> 就操作 Hub 上所有容器。远程目标则要通过客户范围及服务器读／管理授权。</p>
 <h3 id="section-9-5">9.5 Compose 项目、网络与数据卷</h3>
 <p>Compose 支持发现已有项目、查看项目容器，并按项目执行 <code>ps</code>、<code>up</code>、<code>down</code>、<code>start</code>、<code>stop</code>、<code>restart</code> 等受支持动作。相关主机需要安装并能访问 Compose；界面管理已有项目不等于提供任意 Compose 文件的完整可视化编辑器。</p>
 <p>Docker 资源区域支持查看、创建、检查详情和删除网络／数据卷，操作针对当前所选目标。删除容器、项目和卷是不同范围：停止容器不等于删除数据卷，<code>down</code> 不应被用户理解为业务数据已完成备份。</p>
@@ -1437,7 +1437,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 </tbody>
 </table></div>
-<p>AI 页面中的用户确认与命令审批可能是同一操作链的不同阶段；看到“已确认”应继续查看命令或任务是否完成。审批能力不能越过工作区和资源范围，权限也会在后续执行阶段重新校验。</p>
+<p>AI 页面中的用户确认与命令审批可能是同一操作链的不同阶段；看到“已确认”应继续查看命令或任务是否完成。审批能力不能越过客户和资源范围，权限也会在后续执行阶段重新校验。</p>
 <p>审批卡片展示发起者、时间、状态、最新审批、目标节点以及执行日志，并可与工单关联，便于将“提出问题”和“实际处理命令”连成时间线。命令审批队列只列出仍需处理或正在执行的请求（待审批、已批准、执行中、取消中），计数也只统计这些；已完成、失败、拒绝和取消的请求收在默认折叠的“已处理记录”中。</p>
 <p>审批中心还支持选择多条待处理命令，统一批准或拒绝并填写共同意见。批量审核逐请求检查和反馈，一条已被其他人处理或无权审批的记录失败，不会把其余记录的结果一并隐藏。</p>
 <h3 id="section-11-3">11.3 定时任务</h3>
@@ -1680,7 +1680,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </ul>
 <p>附件是否真正可被模型理解取决于格式、内容抽取、提供商适配及选定模型；界面可以选择文件不等于所有文件均可原生输入所有模型。执行日志和知识库片段若进入对话，会按配置发送给对应 AI 服务。</p>
 <h3 id="section-14-3">14.3 普通问答、辅助执行与方案模式</h3>
-<p>关闭托管能力时以对话为主。开启后，模型可以调用允许的工具，但每个工具仍按当前用户、工作区和资源重新授权。</p>
+<p>关闭托管能力时以对话为主。开启后，模型可以调用允许的工具，但每个工具仍按当前用户、客户和资源重新授权。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1762,7 +1762,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <tr>
 <td>知识</td>
 <td><code>search_knowledge</code></td>
-<td>检索工作区知识库</td>
+<td>检索当前客户的知识库</td>
 </tr>
 <tr>
 <td>流量</td>
@@ -1824,9 +1824,9 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>只读工具也不是任意访问：日志、文件、服务器、备份均检查相应资源范围。工具执行失败后显示错误结果，模型生成的文字本身不能作为命令已经成功执行的证据。</p>
 <h3 id="section-14-5">14.5 知识库</h3>
 <p>入口：<code>/knowledge</code>。</p>
-<p>可创建工作区知识库，录入标题及 Markdown／纯文本的运维手册、SOP、架构说明，查看文档和切块情况，删除文档或知识库，并通过“检索试跑”验证效果。</p>
+<p>可创建客户知识库，录入标题及 Markdown／纯文本的运维手册、SOP、架构说明，查看文档和切块情况，删除文档或知识库，并通过“检索试跑”验证效果。</p>
 <p>系统按约 800 字符、120 字符重叠的窗口分块，以关键词、短语和中文相关分词逻辑排序。AI 对话可自动检索并加入相关内容，也可通过知识检索工具查询。</p>
-<p>当前是数据库中的文本分块与词法检索，不依赖外部向量数据库，也不能描述为已实现任意 PDF OCR、网站爬取或通用向量语义搜索。只有当前工作区可见的知识内容进入检索范围。</p>
+<p>当前是数据库中的文本分块与词法检索，不依赖外部向量数据库，也不能描述为已实现任意 PDF OCR、网站爬取或通用向量语义搜索。只有当前客户可见的知识内容进入检索范围。</p>
 <h3 id="section-14-6">14.6 AI 智能运维</h3>
 <p>入口：<code>/ai-ops</code>。</p>
 <p>后台按应用时区默认每日 02:00 扫描，也可手动触发。输入来自平台已有事实，例如告警、命令失败、工作流失败等；输出包括发现、严重程度、资源关联、建议、动作和扫描日志。</p>
@@ -1845,7 +1845,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <h3 id="section-15-1">15.1 工单与请求</h3>
 <p>入口：<code>/tickets</code>、<code>/tickets/[id]</code>。</p>
 <p>用户可填写标题、详细描述、分类和优先级，提交资源申请、故障反馈或运维请求；列表支持搜索、状态／优先级／SLA 筛选及看板视图。</p>
-<p>工单有待处理、处理中、已解决、已关闭等状态。详情支持评论、调整有权限管理的处理人及状态，查看发起者、处理过程、关联命令和对象。普通用户主要看到本人提交或负责的工单，工单管理员按当前工作区管理。</p>
+<p>工单有待处理、处理中、已解决、已关闭等状态。详情支持评论、调整有权限管理的处理人及状态，查看发起者、处理过程、关联命令和对象。普通用户主要看到本人提交或负责的工单，工单管理员按当前客户管理。</p>
 <p>双向时间线将工单状态、评论，以及关联命令审批和执行事件按时间合并，便于回答“谁提出、谁批准、执行了什么、结果如何”。</p>
 <p>可在有权限的时间线操作中关联或解除关联服务器、命令。解除关联只调整工单的关联关系，不代表删除服务器、撤销已经执行的命令或清空历史执行记录。</p>
 <h3 id="section-15-2">15.2 SLA 与升级</h3>
@@ -1876,13 +1876,13 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 </tbody>
 </table></div>
-<p>页面显示截止时间、正常、即将超时、已超时或无有效 SLA。后台检查尚未解决的超时工单，按低→普通→高→紧急链路升级并通知同工作区内相应人员，记录升级前后优先级和原因。已经解决／关闭的工单不继续作为未解决超时项处理。</p>
+<p>页面显示截止时间、正常、即将超时、已超时或无有效 SLA。后台检查尚未解决的超时工单，按低→普通→高→紧急链路升级并通知同一客户内的相应人员，记录升级前后优先级和原因。已经解决／关闭的工单不继续作为未解决超时项处理。</p>
 <p>此处 SLA 是项目内跟踪规则，不包含复杂工作日、节假日和多阶段服务合同引擎。</p>
 <h3 id="section-15-3">15.3 ITSM／IM 双向集成</h3>
 <p>入口：<code>/itsm</code>。</p>
 <p>可配置通用 Webhook、Slack、Telegram、钉钉、飞书等提供商适配，选择出站、入站或双向。连接配置包括名称、Webhook、目标标识、凭据、入站默认分类／优先级、是否允许创建工单及启用状态。</p>
 <p>出站将工单创建、状态或评论相关事件按适配发送，后台处理发送及错误；用户可测试出站并查看最近事件、方向、状态和失败原因。</p>
-<p>入站入口验证共享密钥的 HMAC 签名，按平台定义的数据格式创建工单、添加评论或更新状态。事件可按外部 ID 去重，且只能操作连接所属工作区的工单；回写不会简单再次向同一链路无限转发。</p>
+<p>入站入口验证共享密钥的 HMAC 签名，按平台定义的数据格式创建工单、添加评论或更新状态。事件可按外部 ID 去重，且只能操作连接所属客户的工单；回写不会简单再次向同一链路无限转发。</p>
 <p>这些提供商选项表示已实现相应消息格式／连接适配，不代表原生支持每家平台全部事件协议、OAuth 安装、按钮交互或免转换回调。对接方需要按本项目入站签名和数据格式配置，必要时加适配层。</p>
 <h3 id="section-15-4">15.4 通知中心</h3>
 <p>入口：<code>/notifications</code>，全站通知铃铛提供快捷查看。</p>
@@ -1914,81 +1914,89 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>预算面板可按分类、币种创建月度、季度或年度预算，设置额度和提醒阈值，查看当前使用额／百分比，删除预算，并立即检查。预算更新接口还支持修改字段及启停状态；当前面板主要提供创建、查看、删除和检查按钮。</p>
 <p>后台快照和预算检查帮助保留趋势与发出提醒。预算只累计相应币种，其他币种支出单独列示；成本变更或补录会影响预算使用情况。</p>
 <p>依据：<a href="../src/lib/cost/types.ts">成本模型</a>、<a href="../src/lib/cost/cloud-billing/adapters.ts">账单适配实现</a>、<a href="../src/lib/cost/snapshot-worker.ts">成本快照 Worker</a>。</p>
-<h2 id="permissions">17. 账号、角色、团队与资源授权</h2>
+<h2 id="permissions">17. 账号、客户与资源授权</h2>
 <h3 id="section-17-1">17.1 登录、密码与会话</h3>
 <p>入口：<code>/login</code>、<code>/login/verify-2fa</code>、<code>/account/password</code>、<code>/account/security</code>。</p>
 <p>用户使用账号和密码登录，可按界面选择记住登录。需要改初始密码的账号会先进入改密流程；启用了 MFA 的账号还需要 TOTP 验证码或有效恢复码。</p>
-<p>用户可以修改密码、退出当前登录或退出所有设备。服务端结合会话签名、账号状态、密码相关校验及会话撤销状态验证登录；禁用账号、撤回权限和移除团队成员会影响后续请求，不是只在登录时检查一次。</p>
+<p>用户可以修改密码、退出当前登录或退出所有设备。服务端结合会话签名、账号状态、密码相关校验及会话撤销状态验证登录；禁用账号、调整身份模板和移出客户会影响后续请求，不是只在登录时检查一次。</p>
 <p>密码最小长度、是否要求大写／数字／特殊字符由平台设置约束，作用于新建、重置和改密。登录限流与账号锁定状态用于限制持续错误尝试，配置 Redis 后可在多实例间共享相关状态。</p>
 <h3 id="section-17-2">17.2 双因素认证</h3>
 <p>用户在账户安全中发起设置，使用自己的认证器扫描二维码或手工录入密钥，输入当前验证码完成启用。</p>
 <p>启用后提供恢复码，用于无法使用认证器时登录；恢复码应由本人保存，重新生成需要再次验证当前 TOTP 或有效恢复码，并使旧恢复码失效。启用、关闭 MFA 或重新生成恢复码会原子撤销旧会话，正常情况下刷新当前浏览器会话，其他设备需重新登录。密码变更、全端退出等凭据撤销也会使旧的待二次验证登录失效；发生并发凭据变更时，当前浏览器可能需要重新登录。关闭 MFA 需要按界面要求完成身份验证。</p>
 <p>“部署支持 MFA”与“每个账号已绑定 MFA”是两个状态；管理员不能仅通过安装平台替每位用户完成认证器绑定。</p>
-<h3 id="section-17-3">17.3 用户管理</h3>
+<h3 id="section-17-3">17.3 账号类型与用户管理</h3>
 <p>入口：<code>/users</code>。</p>
-<p>平台管理员可创建用户、分配角色、启用／禁用账号、重置密码、维护操作权限和资源授权；有只读权限的账号可按允许范围查看用户信息。系统保护最后一个有效平台管理员，防止常规管理操作导致无人可管理平台。</p>
-<p>岗位权限模板可保存角色、额外操作权限、服务器例外和存储路径授权，用于复用一组账号配置。账号模板按应用时的配置使用；工作区权限组则是后续修改会实时影响已分配成员的另一种机制。</p>
-<h3 id="section-17-4">17.4 四个内置账号角色</h3>
+<p>账号只有两类：</p>
+<ul>
+<li><strong>平台管理员</strong>：持有内置 <code>admin</code> 角色，不属于任何客户，可跨客户管理全部资源、账号、身份模板和平台设置。</li>
+<li><strong>客户账号</strong>：只属于一个客户，权限完全来自该成员身份上的身份模板；账号角色和额外授权对客户账号不起作用。</li>
+</ul>
+<p>账号由平台管理员创建。新建表单一步选择“平台管理员”或“客户账号＋所属客户＋身份模板”；之后也可以把账号改成另一类型或移到另一个客户，移动时原客户内的逐台服务器和存储路径限制会被清除。管理员还可以启用／禁用账号、重置密码。系统保护最后一个有效平台管理员，防止常规操作导致无人可管理平台。</p>
+<h3 id="section-17-4">17.4 身份模板</h3>
+<p>入口：<code>/customers</code> 页的“身份模板”区域。</p>
+<p>身份模板是平台统一定义的一组权限，客户账号按所选模板获得权限。内置四个模板：</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
-<th>角色</th>
-<th>默认定位</th>
-<th>默认关键能力与限制</th>
+<th>模板</th>
+<th>定位</th>
+<th>主要能力</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>admin</code> 管理员</td>
-<td>平台维护者</td>
-<td>全部业务权限及需要平台身份的全局管理</td>
+<td>客户管理员</td>
+<td>管理本客户全部资源</td>
+<td>本客户内除平台专属权限外的全部操作</td>
 </tr>
 <tr>
-<td><code>operator</code> 运维</td>
+<td>客户运维</td>
 <td>日常运维</td>
-<td>服务器、SSH、命令执行、部署、Docker、AI 提供商、成本等；默认没有命令审批、全局备份恢复、用户管理和存储删除</td>
+<td>连接服务器、执行命令与部署、Docker、文件读写、成本；默认没有命令审批和存储删除</td>
 </tr>
 <tr>
-<td><code>viewer</code> 观察者</td>
+<td>客户只读</td>
 <td>观察与反馈</td>
-<td>读取允许资源、健康、成本、审计，创建自己的工单并使用获准 AI；默认不能连接 SSH 或修改服务器</td>
+<td>查看服务器、文件、成本、审计，创建工单；不能连接 SSH 或修改资源</td>
 </tr>
 <tr>
-<td><code>storage_manager</code> 存储管理员</td>
+<td>仅文件</td>
 <td>文件与资料维护</td>
-<td>存储节点、读写删除、分享、媒体、片段及工单；默认没有 SSH、Docker和部署执行</td>
+<td>存储节点、文件读写删除、分享、媒体和片段；没有 SSH 和部署执行</td>
 </tr>
 </tbody>
 </table></div>
-<p>角色可以组合，账号也可获得明确的额外操作权限。删除额外权限不会收回角色本身授予的权限；需要调整角色才能收回后者。具体 54 项权限见文末矩阵。</p>
-<h3 id="section-17-5">17.5 工作区与成员</h3>
-<p>入口：设置页“团队与权限”标签（所有登录用户可见，能做哪些修改取决于工作区身份）及全站团队切换器。工作区权限组按业务域分组列出权限，并显示权限的中文名称和原始权限键。</p>
-<p>支持创建、查看、修改、切换工作区，添加和移除已有账号成员，调整成员身份、访问角色及权限组，转移所有权，并由获准身份删除工作区。</p>
+<p>管理员可以新建自定义模板；内置模板的权限在每次安装或升级时与代码同步。平台专属权限（账号管理、客户管理、平台备份恢复、公告、角色管理）不能放进任何模板。修改模板会实时影响使用它的所有账号；仍有账号使用的模板不能删除。具体 52 项权限见文末矩阵。</p>
+<h3 id="section-17-5">17.5 客户</h3>
+<p>入口：平台管理员的 <code>/customers</code> 页及侧栏顶部的客户切换器。</p>
+<p>客户是数据隔离边界：服务器、存储、密钥、任务、工单、成本、通知等业务数据都归属某个客户，客户账号只能看到自己的客户。</p>
 <ul>
-<li>工作区身份包含 owner、admin、member。</li>
-<li>owner／admin 在该工作区内拥有完整业务操作能力，但不会因此成为全平台管理员。</li>
-<li>普通成员的访问角色可选择继承、运维、观察者、存储管理员，再由可编辑权限组进一步收紧。</li>
-<li>当前所有者或平台管理员可将所有权交给有效成员，原所有者保留工作区管理员身份。</li>
-<li>使用中的权限组不能直接删除，需要先处理引用成员。</li>
-<li>删除工作区保留历史归属标记，相关资源从正常视图中隔离，不等同于立即物理擦除所有数据。</li>
+<li><strong>新建</strong>：每个客户自带一个独立的本地存储目录。</li>
+<li><strong>客户账号</strong>：在客户的“账号”对话框中调整身份模板、加入未分配的账号或移出账号；新账号在用户管理中创建。</li>
+<li><strong>删除与恢复</strong>：删除前显示受影响的账号、服务器和存储数量，需要输入客户名称确认。删除只做标记、不清除数据：该客户账号立即失去访问，资源从所有视图中隔离；在“已删除的客户”中可以恢复。</li>
+<li><strong>切换器</strong>：平台管理员可选择“全部客户”或某一个客户，列表和新建操作随之变化；服务器卡片和通知会标出所属客户。客户账号只显示自己的客户名称，不能切换。</li>
 </ul>
-<p>浏览器切换工作区只更新当前浏览器会话。账号保存的最近工作区可作为下次登录偏好，不会强制把另一个已登录浏览器同时切到相同团队。</p>
-<h3 id="section-17-6">17.6 有效权限怎样计算</h3>
-<p>对普通成员，授权需要同时满足：账号角色／额外授权、当前工作区有效成员身份、访问角色或权限组限制，以及具体服务器／存储路径范围。API Token 还要再满足自己的 scopes。</p>
-<p>工作区 owner／admin 可绕过该工作区普通成员的资源限制，执行工作区内完整业务操作；平台级资源、账号、全局凭据、全平台备份恢复和公告仍需平台管理员。</p>
-<p>授权检查不仅用于“按钮显示”，API 和后台执行也必须通过对应校验。更换工作区不会让旧 Token 自动换成新工作区。</p>
-<h3 id="section-17-7">17.7 单台服务器授权</h3>
-<p>服务器例外授权可分别约束：查看、连接、管理，以及文件读、写、删除等能力。没有例外记录时，普通成员按当前有效操作权限继承；显式例外用于收紧原有能力，不能凭空增加账号原本没有的操作权限。</p>
-<p>新增服务器会出现在权限编辑器中，管理员可补充规则。即使有 <code>server:ssh</code>，仍要满足目标服务器可访问、启用及连接凭据等条件。</p>
+<p>浏览器切换客户只影响当前浏览器会话；账号保存的最近选择作为下次登录的默认值。</p>
+<h3 id="section-17-6">17.6 服务器来源与转移</h3>
+<p>服务器记录来源：平台管理员添加的是“平台分配”，客户账号添加的是“客户添加”。客户账号只能编辑、启停和删除本客户自己添加的服务器；平台分配的服务器对客户只读，卡片上会注明由平台维护。</p>
+<p>平台管理员可以把服务器转移到另一个客户：存储节点、监控历史、快捷服务和 VPS 备份随服务器一起转移，原客户账号对它的逐台授权和存储路径授权被清除。如果原客户仍有引用这台服务器的分享链接、图床图片、定时任务、告警规则、Playbook、同步任务、未完成的命令或下载，转移会被拒绝并列出需要先处理的项目，避免一个客户的数据延伸到另一个客户。</p>
+<h3 id="section-17-7">17.7 有效权限与逐台收窄</h3>
+<ul>
+<li>平台管理员：拥有全部权限，不受下列收窄限制。</li>
+<li>客户账号：权限 = 基础权限（查看所属客户与同事）＋身份模板权限，只在自己的客户内有效；所属客户被删除后不再有任何业务权限。</li>
+<li>API Token 还要再满足自己的 scopes，并在签发时绑定客户。</li>
+</ul>
+<p>服务器可以逐台收窄：分别约束查看、连接、管理，以及文件读、写、删除。某账号对某台服务器没有收窄记录时，按身份模板访问本客户的全部服务器；显式记录只能收紧，不能增加模板没有的权限。即使有 <code>server:ssh</code>，仍要满足服务器启用和连接凭据等条件。</p>
+<p>授权检查不仅用于“按钮显示”，API 和后台执行也必须通过对应校验。</p>
 <h3 id="section-17-8">17.8 存储路径授权与配额</h3>
-<p>普通成员访问存储需要节点及路径白名单，可以按目录授予读、写、删除，并设置容量配额和单文件大小上限。新的存储节点默认不会自动向所有普通成员开放。</p>
-<p>路径校验覆盖浏览、上传、下载、分享、版本和相应 WebDAV 操作。能读某个目录不代表能读它的兄弟目录；有写权限不自动包含删除权限。当前工作区存储管理身份及工作区管理员按各自管理规则处理。</p>
+<p>存储同样按“无记录即全部、有记录则收窄”处理：某账号在某个存储节点上没有路径授权时，按身份模板访问该节点；一旦设置路径授权，就只能访问列出的目录，可以分别授予读、写、删除，并设置容量配额和单文件大小上限；读写删全部不勾选的授权表示禁止访问该节点。</p>
+<p>路径校验覆盖浏览、上传、下载、分享、版本和相应 WebDAV 操作。能读某个目录不代表能读它的兄弟目录；有写权限不自动包含删除权限。平台管理员和持有 <code>storage:manage-node</code> 的账号不受路径授权限制。</p>
 <h3 id="section-17-9">17.9 审计日志</h3>
 <p>入口：<code>/audit</code>。</p>
 <p>审计记录用户、AI 助手和系统动作，按 INFO、WARNING、CRITICAL 分类，关联时间、操作者、动作、资源及细节。支持搜索、动作／严重程度／来源筛选、排序和分页，查看最近 24 小时、高风险占比、常见动作等统计。</p>
 <p>覆盖登录、改密、MFA、Token、节点、文件、命令审批执行、部署、容器、备份、团队、权限和相关业务操作。导出接口支持 CSV 和 JSON，仍执行身份及范围校验。</p>
 <p>审计用于操作追踪，不代表完整录制每个 SSH 屏幕或具有外部不可篡改存证能力。数据保留策略可能清理旧记录，需要长期留档时应按管理流程导出。</p>
-<p>依据：<a href="../src/lib/auth/rbac.ts">角色定义</a>、<a href="multi-tenant.md">工作区边界</a>、<a href="../src/lib/auth/session.ts">会话实现</a>、<a href="../src/lib/server/resource-access.ts">资源授权</a>、<a href="../src/lib/storage/access-control.ts">存储授权</a>、<a href="../src/lib/audit/service.ts">审计服务</a>。</p>
+<p>依据：<a href="../src/lib/auth/rbac.ts">角色定义</a>、<a href="../src/lib/auth/identity-templates.ts">身份模板</a>、<a href="multi-tenant.md">客户边界</a>、<a href="../src/lib/auth/session.ts">会话实现</a>、<a href="../src/lib/server/resource-access.ts">资源授权</a>、<a href="../src/lib/storage/access-control.ts">存储授权</a>、<a href="../src/lib/audit/service.ts">审计服务</a>。</p>
 <h2 id="settings-api">18. 系统设置、配置导入导出与开放 API</h2>
 <h3 id="section-18-1">18.1 设置的组织方式</h3>
 <p>入口：<code>/settings</code>。</p>
@@ -2053,9 +2061,9 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td>自主模式需额外权限及白名单限制</td>
 </tr>
 <tr>
-<td>团队</td>
-<td>工作区、成员、权限组、所有权</td>
-<td>成员及权限变更会影响后续授权</td>
+<td>客户</td>
+<td>客户、客户账号、身份模板（平台管理员在 <code>/customers</code> 页操作）</td>
+<td>身份模板和成员变更会影响后续授权</td>
 </tr>
 <tr>
 <td>配置迁移</td>
@@ -2125,14 +2133,14 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 </tbody>
 </table></div>
-<p>Token 创建时绑定一个有效成员工作区，后续不跟随浏览器切换团队。使用时同时检查 Token 状态、用户状态、团队成员关系、scopes 和业务资源授权。API Token 不是把管理员浏览器全部权限复制给脚本的通用凭据，也不能假定所有内部 API 都接受它执行写操作。</p>
+<p>Token 创建时绑定一个客户，后续不跟随浏览器切换客户。使用时同时检查 Token 状态、用户状态、所属客户、scopes 和业务资源授权。API Token 不是把管理员浏览器全部权限复制给脚本的通用凭据，也不能假定所有内部 API 都接受它执行写操作。</p>
 <h3 id="section-18-4">18.4 API 文档与接口</h3>
 <p>入口：<code>/api-docs</code>；OpenAPI 输出有 <code>/api/docs/openapi</code> 和 <code>/api/docs/openapi.json</code>。</p>
 <p>可查看接口路径、方法和认证说明。当前 OpenAPI 区分 <code>catalog</code> 路由目录与 <code>documented</code> 已补充合约的接口，页面描述也标出差异；目录覆盖不表示每个请求参数和响应结构均已完整描述。Agent 安装／轮询和图片分页列表提供明确参数及响应结构，其余接口需核对实现。Agent 使用节点专用 Bearer Token，与用户 API Token 分开；会话 Cookie 名跟随当前部署配置。Web 界面还使用 Server Actions，因此仅数 HTTP 路由不能完整解释所有页面操作。</p>
 <p>内部浏览器请求使用统一 API 客户端处理错误、认证与 CSRF；WebDAV、Agent、分享和集成回调使用各自明确的认证协议。集成时应选对应接口，避免模拟页面内部动作来代替稳定的 API 合约。</p>
 <p>依据：<a href="../src/app/settings/field-schema.ts">设置结构</a>、<a href="../src/lib/system/">配置迁移业务</a>、<a href="../src/lib/api-token/service.ts">Token 服务</a>、<a href="../src/lib/api-token/authorization.ts">Token 授权</a>、<a href="../src/app/api-docs/page.tsx">API 页面</a>。</p>
 <h3 id="section-18-5">18.5 系统设置表单的全部 42 个配置项</h3>
-<p>下列清单按当前声明式设置表单核对，便于查找每个开关或输入项的用途。个人偏好的 8 个字段见第 3.3 节；MFA、团队、权限组及配置迁移使用独立交互，不能因为没有列入这 42 个字段就认为没有这些功能。</p>
+<p>下列清单按当前声明式设置表单核对，便于查找每个开关或输入项的用途。个人偏好的 8 个字段见第 3.3 节；MFA、客户、身份模板及配置迁移使用独立交互，不能因为没有列入这 42 个字段就认为没有这些功能。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -2516,7 +2524,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>持久化任务支持重试、租约恢复和去重，但平台没有对任意远端命令承诺“恰好执行一次”。网络中断后无法确认副作用的操作可能要求人工核对，而不是直接再执行一遍。</p>
 <h3 id="section-19-5">19.5 SSH／RDP 与站内通知实时链路</h3>
 <p>SSH：浏览器获取短期连接凭据 → 连接 <code>/ssh</code> → 网关校验来源、登录、服务器访问与状态 → 解密必要的服务器凭据 → 建立 SSH PTY → 双向转发字节、尺寸及心跳。</p>
-<p>RDP：浏览器领取单次票据 → 连接 <code>/rdp</code> → 校验票据、用户、工作区和服务器 → 网关连接本机 guacd → guacd 使用服务端凭据连接 Windows → 返回画面与交互指令。</p>
+<p>RDP：浏览器领取单次票据 → 连接 <code>/rdp</code> → 校验票据、用户、客户和服务器 → 网关连接本机 guacd → guacd 使用服务端凭据连接 Windows → 返回画面与交互指令。</p>
 <p>站内通知：浏览器经认证连接 Web 进程的 <code>/ws</code> 通知通道，收到允许的实时通知及更新；完整通知记录和已读操作仍通过通知业务接口处理。这个通道与独立网关上的 <code>/ssh</code>、<code>/rdp</code> 各有用途。</p>
 <p>实时连接会持续检查授权有效性，并控制消息大小、缓冲、空闲／生命周期和慢客户端。前端关闭会话或授权被撤销后，不能仅凭原来已经建立连接而永久访问。</p>
 <h3 id="section-19-6">19.6 文件数据与索引分离</h3>
@@ -2539,9 +2547,9 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td>页面可见和真实操作权限保持一致，后台任务也重新授权</td>
 </tr>
 <tr>
-<td>团队范围</td>
+<td>客户范围</td>
 <td>业务查询和资源归属</td>
-<td>以当前工作区隔离数据，历史无归属数据需明确处理</td>
+<td>以当前客户隔离数据，历史无归属数据需明确处理</td>
 </tr>
 <tr>
 <td>密码与凭据保护</td>
@@ -2600,8 +2608,8 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <tbody>
 <tr>
 <td>身份与权限，11 个</td>
-<td><code>User</code>、<code>Team</code>、<code>TeamMember</code>、<code>Role</code>、<code>Permission</code>、<code>UserRole</code>、<code>RolePermission</code>、<code>UserServerAccess</code>、<code>UserStorageAccess</code>、<code>RoleTemplate</code>、<code>ApiToken</code></td>
-<td>账号、成员、角色、策略、单资源授权和集成凭据</td>
+<td><code>User</code>、<code>Team</code>、<code>TeamMember</code>、<code>Role</code>、<code>Permission</code>、<code>UserRole</code>、<code>RolePermission</code>、<code>UserServerAccess</code>、<code>UserStorageAccess</code>、<code>IdentityTemplate</code>、<code>ApiToken</code></td>
+<td>账号、客户成员、平台角色、身份模板、单资源授权和集成凭据</td>
 </tr>
 <tr>
 <td>服务器与连接，6 个</td>
@@ -2672,7 +2680,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </table></div>
 <h3 id="section-20-2">20.2 主要关系</h3>
 <ul>
-<li>用户通过成员关系进入工作区，业务资源以 <code>teamId</code> 形成归属。</li>
+<li>客户账号通过唯一的成员关系属于一个客户，业务资源以 <code>teamId</code> 形成归属；身份模板（<code>IdentityTemplate</code>）决定客户账号的权限。</li>
 <li>服务器关联 SSH 密钥、存储节点、命令目标、采样历史、Agent 任务和备份。</li>
 <li>存储节点包含文件条目，条目关联版本、个人收藏／标签、分享和媒体。</li>
 <li>命令请求关联审批及多个目标，每个目标记录执行结果。</li>
@@ -2971,7 +2979,7 @@ npm run docs:check
 <h2 id="workflows">22. 典型完整使用流程</h2>
 <h3 id="section-22-1">22.1 接入一台 Linux VPS 并开始使用</h3>
 <ol>
-<li>进入目标工作区，准备可达的 SSH 地址和登录凭据。</li>
+<li>平台管理员先在切换器中选择目标客户（客户账号直接在自己的客户内添加），准备可达的 SSH 地址和登录凭据。</li>
 <li>添加服务器，检测连接并独立核对主机指纹。</li>
 <li>保存后打开 SSH，检查当前用户、主机与工作目录。</li>
 <li>配置存储根路径并检查文件权限，进入云盘上传、下载一个测试文件。</li>
@@ -2990,10 +2998,10 @@ npm run docs:check
 <li>需要云盘时另行启用 Windows OpenSSH，填写独立 SFTP 凭据和真实根目录，核对 SSH 指纹。</li>
 <li>分别验证桌面、Agent 指标、命令和文件；其中一项通过不能替代其他项。</li>
 </ol>
-<h3 id="section-22-3">22.3 给团队成员开放指定目录</h3>
+<h3 id="section-22-3">22.3 给客户账号开放指定目录</h3>
 <ol>
 <li>平台管理员创建账号并配置合适角色。</li>
-<li>将账号加入目标工作区，选择普通成员及合适访问角色／权限组。</li>
+<li>创建客户账号，选择所属客户和合适的身份模板（例如“仅文件”）。</li>
 <li>授予所需存储操作权限，再授权具体节点与目录前缀。</li>
 <li>按需要限制写入、删除、单文件大小和容量。</li>
 <li>如需 SSH 或服务器管理，另外设置相应服务器授权。</li>
@@ -3347,12 +3355,12 @@ npm run docs:check
 <td>快捷应用与云盘驱动是不同能力；S3 当前主要用于异地备份</td>
 </tr>
 <tr>
-<td>团队管理员不能改平台用户或恢复全库</td>
-<td>工作区管理员没有自动获得平台 <code>admin</code> 身份</td>
+<td>客户管理员不能改平台用户或恢复全库</td>
+<td>“客户管理员”只是身份模板，账号管理和全库恢复属于平台专属权限</td>
 </tr>
 <tr>
-<td>切换工作区后旧 Token 没有变化</td>
-<td>Token 在签发时固定绑定工作区，需要为另一工作区单独创建</td>
+<td>平台管理员切换客户后旧 Token 没有变化</td>
+<td>Token 在签发时固定绑定客户，需要为另一客户单独创建</td>
 </tr>
 <tr>
 <td>PWA 离线后看不到资产数据</td>
@@ -3371,7 +3379,7 @@ npm run docs:check
 <h2 id="reference">24. 完整页面、权限、接口与源码索引</h2>
 <p>本章用于检查模块覆盖及快速定位实现；日常使用可按前面的功能章节阅读。</p>
 <!-- GENERATED_REFERENCE_START -->
-<h3 id="section-24-1">24.1 全部 55 个页面入口</h3>
+<h3 id="section-24-1">24.1 全部 56 个页面入口</h3>
 <p>动态段 <code>[id]</code>、<code>[token]</code> 需要真实对象标识；本表包含兼容跳转和公开页面。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -3451,6 +3459,11 @@ npm run docs:check
 <td><a href="../src/app/dashboard/page.tsx"><code>/dashboard</code></a></td>
 <td>仪表盘</td>
 <td><a href="#workspace">资源统计、趋势、待办、布局与首次设置</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/customers/page.tsx"><code>/customers</code></a></td>
+<td>客户管理</td>
+<td><a href="#permissions">客户、客户账号、身份模板、删除与恢复</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/deployments/page.tsx"><code>/deployments</code></a></td>
@@ -3650,7 +3663,7 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/users/page.tsx"><code>/users</code></a></td>
 <td>用户管理</td>
-<td><a href="#permissions">账号、角色、权限、资源授权与岗位模板</a></td>
+<td><a href="#permissions">账号类型、所属客户、身份模板与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/vps-status/page.tsx"><code>/vps-status</code></a></td>
@@ -3659,31 +3672,88 @@ npm run docs:check
 </tr>
 </tbody>
 </table></div>
-<h3 id="section-24-2">24.2 全部 54 项权限与默认账号角色</h3>
-<p>✓ 表示该内置账号角色默认授予，— 表示默认未授予。此表描述账号角色的静态定义；实际操作还需满足工作区身份、成员限制、平台级身份要求、Token scopes 和资源路径授权。工作区所有者／管理员的特殊业务授权见第 17 章。</p>
+<h3 id="section-24-2">24.2 全部 52 项权限与内置身份模板</h3>
+<p>✓ 表示默认授予，— 表示未授予，“平台专属”表示任何身份模板都不能包含。平台管理员拥有全部权限；客户账号的权限只来自身份模板（另含查看所属客户与同事的基础权限），实际操作还需满足 Token scopes、逐台服务器收窄和存储路径授权，见第 17 章。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
 <th>权限</th>
 <th>含义</th>
-<th style="text-align:center">admin</th>
-<th style="text-align:center">operator</th>
-<th style="text-align:center">viewer</th>
-<th style="text-align:center">storage_manager</th>
+<th style="text-align:center">平台管理员</th>
+<th style="text-align:center">客户管理员</th>
+<th style="text-align:center">客户运维</th>
+<th style="text-align:center">客户只读</th>
+<th style="text-align:center">仅文件</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>announcement:manage</code></td>
-<td>发布和管理公告</td>
+<td><code>ai:action:approve</code></td>
+<td>审批 AI 动作</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
 </tr>
 <tr>
+<td><code>ai:chat</code></td>
+<td>AI 对话</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+</tr>
+<tr>
+<td><code>ai:manage</code></td>
+<td>管理 AI 提供商等配置</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
+</tr>
+<tr>
+<td><code>ai:ops:autonomous</code></td>
+<td>允许 AI 运维自主模式</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
+</tr>
+<tr>
+<td><code>ai:ops:manage</code></td>
+<td>管理及触发 AI 运维</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
+</tr>
+<tr>
+<td><code>ai:ops:read</code></td>
+<td>读取 AI 运维记录</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
+</tr>
+<tr>
+<td><code>announcement:manage</code></td>
+<td>发布和管理公告</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+</tr>
+<tr>
 <td><code>api-token:manage</code></td>
 <td>管理个人 API Token</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
@@ -3696,82 +3766,39 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
-</tr>
-<tr>
-<td><code>ai:chat</code></td>
-<td>AI 对话</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">✓</td>
-</tr>
-<tr>
-<td><code>ai:manage</code></td>
-<td>管理 AI 提供商等配置</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-</tr>
-<tr>
-<td><code>ai:action:approve</code></td>
-<td>审批 AI 动作</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-</tr>
-<tr>
-<td><code>ai:ops:read</code></td>
-<td>读取 AI 运维记录</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-</tr>
-<tr>
-<td><code>ai:ops:manage</code></td>
-<td>管理及触发 AI 运维</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-</tr>
-<tr>
-<td><code>ai:ops:autonomous</code></td>
-<td>允许 AI 运维自主模式</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
 </tr>
 <tr>
 <td><code>backup:create</code></td>
 <td>创建和管理允许的备份任务</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
 </tr>
 <tr>
 <td><code>backup:read</code></td>
 <td>查看备份</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
 </tr>
 <tr>
 <td><code>backup:restore</code></td>
 <td>恢复备份</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
 </tr>
 <tr>
 <td><code>command:approve</code></td>
 <td>审批命令及相应免逐次审批配置</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
@@ -3782,12 +3809,14 @@ npm run docs:check
 <td>创建命令请求</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
 </tr>
 <tr>
 <td><code>command:execute</code></td>
 <td>执行获准命令</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
@@ -3800,6 +3829,16 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+</tr>
+<tr>
+<td><code>cost:manage</code></td>
+<td>管理费用和预算</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
 </tr>
 <tr>
 <td><code>cost:read</code></td>
@@ -3807,11 +3846,13 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 </tr>
 <tr>
-<td><code>cost:manage</code></td>
-<td>管理费用和预算</td>
+<td><code>deploy:export</code></td>
+<td>导出部署模板</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
@@ -3820,6 +3861,7 @@ npm run docs:check
 <tr>
 <td><code>deploy:manage</code></td>
 <td>部署管理权限项；当前不是独立页面能力</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
@@ -3831,19 +3873,13 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 </tr>
 <tr>
 <td><code>deploy:run</code></td>
 <td>发起部署</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-</tr>
-<tr>
-<td><code>deploy:export</code></td>
-<td>导出部署模板</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
@@ -3852,6 +3888,7 @@ npm run docs:check
 <tr>
 <td><code>docker:manage</code></td>
 <td>管理授权目标的 Docker</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
@@ -3864,10 +3901,12 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 </tr>
 <tr>
 <td><code>image:read</code></td>
 <td>读取图片发布记录</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
@@ -3876,6 +3915,7 @@ npm run docs:check
 <tr>
 <td><code>image:write</code></td>
 <td>写入及管理图片发布</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
@@ -3886,6 +3926,7 @@ npm run docs:check
 <td>管理媒体库</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">✓</td>
 </tr>
@@ -3894,12 +3935,14 @@ npm run docs:check
 <td>相关通知／告警管理</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
 </tr>
 <tr>
 <td><code>playbook:manage</code></td>
 <td>管理 Playbook</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
@@ -3910,6 +3953,7 @@ npm run docs:check
 <td>读取 Playbook</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
 </tr>
@@ -3918,16 +3962,18 @@ npm run docs:check
 <td>运行 Playbook</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
 </tr>
 <tr>
 <td><code>role:manage</code></td>
-<td>角色和岗位模板相关管理</td>
+<td>角色与身份模板相关管理</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
 </tr>
 <tr>
 <td><code>server:read</code></td>
@@ -3936,26 +3982,30 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+</tr>
+<tr>
+<td><code>server:sftp:unrestricted</code></td>
+<td>允许受控入口的完整服务器文件访问</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
 </tr>
 <tr>
 <td><code>server:ssh</code></td>
 <td>服务器远程连接</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-</tr>
-<tr>
-<td><code>server:sftp:unrestricted</code></td>
-<td>允许受控入口的完整服务器文件访问</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
 </tr>
 <tr>
 <td><code>server:write</code></td>
 <td>管理服务器配置</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
@@ -3966,12 +4016,14 @@ npm run docs:check
 <td>分享创建权限项</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">✓</td>
 </tr>
 <tr>
 <td><code>share:manage</code></td>
 <td>管理分享链接</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
@@ -3984,10 +4036,12 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 </tr>
 <tr>
 <td><code>snippet:manage</code></td>
 <td>管理代码片段</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
@@ -3997,6 +4051,7 @@ npm run docs:check
 <td><code>storage:delete</code></td>
 <td>删除文件</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">✓</td>
@@ -4004,6 +4059,7 @@ npm run docs:check
 <tr>
 <td><code>storage:manage-node</code></td>
 <td>管理存储节点</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
@@ -4016,10 +4072,12 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 </tr>
 <tr>
 <td><code>storage:write</code></td>
 <td>写入文件</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
@@ -4032,38 +4090,25 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
-</tr>
-<tr>
-<td><code>team:create</code></td>
-<td>创建工作区</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-</tr>
-<tr>
-<td><code>team:read</code></td>
-<td>查看工作区</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">✓</td>
-<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 </tr>
 <tr>
 <td><code>team:manage</code></td>
 <td>平台团队管理相关权限</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
 </tr>
 <tr>
-<td><code>team:member:manage</code></td>
-<td>团队成员管理相关权限</td>
+<td><code>team:read</code></td>
+<td>查看所属客户与同事</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 </tr>
 <tr>
 <td><code>ticket:create</code></td>
@@ -4072,10 +4117,12 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 </tr>
 <tr>
 <td><code>ticket:manage</code></td>
 <td>管理工单</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">—</td>
@@ -4088,18 +4135,21 @@ npm run docs:check
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
 </tr>
 <tr>
 <td><code>user:manage</code></td>
 <td>管理平台用户</td>
 <td style="text-align:center">✓</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
-<td style="text-align:center">—</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
 </tr>
 <tr>
 <td><code>user:read</code></td>
 <td>读取允许的用户信息</td>
+<td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
 <td style="text-align:center">✓</td>
@@ -4109,7 +4159,7 @@ npm run docs:check
 </table></div>
 <p>权限项是代码定义的授权词汇，不等于每项都有一个独立按钮。部分操作组合使用多个权限，部分平台级操作还明确检查内置 <code>admin</code> 身份。</p>
 <h3 id="section-24-3">24.3 全部 API 路由分组</h3>
-<p>按 <code>/api/</code> 下第一层路径分为 54 组，共 188 个 <code>route.ts</code> 文件。一个文件可提供多个方法，动态路径和协议入口也计入。完整路径、方法和声明权限可继续查看 <a href="route-catalog.json">route-catalog.json</a> 与运行实例中的 API 文档。</p>
+<p>按 <code>/api/</code> 下第一层路径分为 54 组，共 189 个 <code>route.ts</code> 文件。一个文件可提供多个方法，动态路径和协议入口也计入。完整路径、方法和声明权限可继续查看 <a href="route-catalog.json">route-catalog.json</a> 与运行实例中的 API 文档。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -4235,6 +4285,11 @@ npm run docs:check
 <td>节点健康及容量预测</td>
 </tr>
 <tr>
+<td><a href="../src/app/api/identity-templates/"><code>/api/identity-templates</code></a></td>
+<td style="text-align:right">2</td>
+<td>客户账号使用的身份模板</td>
+</tr>
+<tr>
 <td><a href="../src/app/api/images/"><code>/api/images</code></a></td>
 <td style="text-align:right">11</td>
 <td>图片上传、分片、发布、统计和批量操作</td>
@@ -4295,11 +4350,6 @@ npm run docs:check
 <td>应用目录、实例动作与端口检查</td>
 </tr>
 <tr>
-<td><a href="../src/app/api/role-templates/"><code>/api/role-templates</code></a></td>
-<td style="text-align:right">2</td>
-<td>岗位模板及工作区策略组相关操作</td>
-</tr>
-<tr>
 <td><a href="../src/app/api/scheduled-tasks/"><code>/api/scheduled-tasks</code></a></td>
 <td style="text-align:right">1</td>
 <td>周期及一次性命令计划</td>
@@ -4311,8 +4361,8 @@ npm run docs:check
 </tr>
 <tr>
 <td><a href="../src/app/api/servers/"><code>/api/servers</code></a></td>
-<td style="text-align:right">18</td>
-<td>采样、SFTP、OS 探测、重载、RDP、网关及 VPS 备份</td>
+<td style="text-align:right">19</td>
+<td>采样、SFTP、OS 探测、重载、RDP、网关、VPS 备份及客户间转移</td>
 </tr>
 <tr>
 <td><a href="../src/app/api/settings/"><code>/api/settings</code></a></td>
@@ -4367,7 +4417,7 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/api/teams/"><code>/api/teams</code></a></td>
 <td style="text-align:right">6</td>
-<td>团队、切换、成员及所有权</td>
+<td>客户、切换、客户账号及恢复</td>
 </tr>
 <tr>
 <td><a href="../src/app/api/tickets/"><code>/api/tickets</code></a></td>
@@ -4391,7 +4441,7 @@ npm run docs:check
 </tr>
 <tr>
 <td><strong>合计</strong></td>
-<td style="text-align:right"><strong>188</strong></td>
+<td style="text-align:right"><strong>189</strong></td>
 <td><strong>所有 API 路由文件</strong></td>
 </tr>
 </tbody>
@@ -4418,14 +4468,14 @@ npm run docs:check
 <td>可核对的完整路由及声明权限</td>
 </tr>
 <tr>
-<td>用户与团队边界</td>
+<td>客户隔离边界</td>
 <td><a href="../docs/multi-tenant.md">docs/multi-tenant.md</a></td>
-<td>成员、工作区和授权规则</td>
+<td>客户、客户账号和授权规则</td>
 </tr>
 <tr>
 <td>角色与权限</td>
 <td><a href="../src/lib/auth/rbac.ts">src/lib/auth/rbac.ts</a></td>
-<td>默认角色与 54 项权限</td>
+<td>平台角色与 52 项权限</td>
 </tr>
 <tr>
 <td>服务器业务</td>
@@ -4578,12 +4628,12 @@ npm run docs:check
 <tbody>
 <tr>
 <td>页面文件</td>
-<td style="text-align:right">55</td>
+<td style="text-align:right">56</td>
 <td>第 24.1 节及对应功能章节</td>
 </tr>
 <tr>
 <td>API 路由文件</td>
-<td style="text-align:right">188</td>
+<td style="text-align:right">189</td>
 <td>第 24.3 节分组及第 24.7 节逐项索引</td>
 </tr>
 <tr>
@@ -4602,8 +4652,8 @@ npm run docs:check
 <td>第 3.3 节</td>
 </tr>
 <tr>
-<td>内置账号角色／业务权限</td>
-<td style="text-align:right">4／54</td>
+<td>内置身份模板／业务权限</td>
+<td style="text-align:right">4／52</td>
 <td>第 17 章及第 24.2 节</td>
 </tr>
 <tr>
@@ -4630,7 +4680,7 @@ npm run docs:check
 </table></div>
 <p>通知 <code>/ws</code>、SSH <code>/ssh</code>、RDP <code>/rdp</code>、自定义 WebDAV 方法、Agent 轮询、系统恢复归档及部署入口，分别在实时链路、文件接入、服务器管理、备份和运行维护章节说明。</p>
 <p>查阅某个功能时，先确认业务页面，再沿接口或 Server Action 定位服务实现；涉及耗时操作时继续查看 Worker 与任务模型。这里的入口数量不是业务成功率或第三方兼容性承诺，具体驱动和操作系统的能力对照见第 23 章。</p>
-<h3 id="section-24-7">24.7 全部 188 个 API 路由的功能索引</h3>
+<h3 id="section-24-7">24.7 全部 189 个 API 路由的功能索引</h3>
 <p>HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路由。方法声明用于定位接口；具体操作仍由输入、权限和处理器决定。WebDAV 的 PROPFIND、MKCOL、COPY、MOVE 等扩展方法经自定义 Web 入口派发，见第 7 章。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -4790,43 +4840,43 @@ npm run docs:check
 <td><a href="../src/app/api/audit/route.ts"><code>/api/audit</code></a></td>
 <td>GET</td>
 <td>审计事件查询、过滤与汇总</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/audit/export/route.ts"><code>/api/audit/export</code></a></td>
 <td>GET</td>
 <td>导出可访问审计的 CSV 或 JSON</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/auth/2fa/disable/route.ts"><code>/api/auth/2fa/disable</code></a></td>
 <td>POST</td>
 <td>按验证流程关闭本人 MFA</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/auth/2fa/enable/route.ts"><code>/api/auth/2fa/enable</code></a></td>
 <td>POST</td>
 <td>验证 TOTP 并启用本人 MFA</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/auth/2fa/recovery-codes/route.ts"><code>/api/auth/2fa/recovery-codes</code></a></td>
 <td>POST</td>
 <td>生成新恢复码并使旧码失效</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/auth/2fa/setup/route.ts"><code>/api/auth/2fa/setup</code></a></td>
 <td>POST</td>
 <td>创建待绑定的 TOTP 配置</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/auth/2fa/verify-login/route.ts"><code>/api/auth/2fa/verify-login</code></a></td>
 <td>POST</td>
 <td>登录时验证 TOTP 或恢复码</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/auth/rdp-ticket/route.ts"><code>/api/auth/rdp-ticket</code></a></td>
@@ -4838,13 +4888,13 @@ npm run docs:check
 <td><a href="../src/app/api/auth/signout/route.ts"><code>/api/auth/signout</code></a></td>
 <td>POST</td>
 <td>退出当前登录</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/auth/signout-all/route.ts"><code>/api/auth/signout-all</code></a></td>
 <td>POST</td>
 <td>退出当前账号的全部会话</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/auth/ws-token/route.ts"><code>/api/auth/ws-token</code></a></td>
@@ -5147,6 +5197,18 @@ npm run docs:check
 <td><a href="#observability">监控、健康检查、流量与告警</a></td>
 </tr>
 <tr>
+<td><a href="../src/app/api/identity-templates/route.ts"><code>/api/identity-templates</code></a></td>
+<td>GET / POST</td>
+<td>身份模板列表（含使用账号数）及新建自定义模板</td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/api/identity-templates/%5Bid%5D/route.ts"><code>/api/identity-templates/[id]</code></a></td>
+<td>PATCH / DELETE</td>
+<td>修改模板权限；删除未被使用的自定义模板</td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
+</tr>
+<tr>
 <td><a href="../src/app/api/images/%5Bid%5D/route.ts"><code>/api/images/[id]</code></a></td>
 <td>DELETE</td>
 <td>删除允许管理的图片外链记录及相关数据</td>
@@ -5239,7 +5301,7 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/api/itsm/inbound/%5BconnectionId%5D/route.ts"><code>/api/itsm/inbound/[connectionId]</code></a></td>
 <td>POST</td>
-<td>验签、去重并处理连接所属工作区的入站事件</td>
+<td>验签、去重并处理连接所属客户的入站事件</td>
 <td><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></td>
 </tr>
 <tr>
@@ -5270,7 +5332,7 @@ npm run docs:check
 <td><a href="../src/app/api/login/route.ts"><code>/api/login</code></a></td>
 <td>POST</td>
 <td>验证登录信息、建立会话或要求二次验证</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/media/route.ts"><code>/api/media</code></a></td>
@@ -5387,18 +5449,6 @@ npm run docs:check
 <td><a href="#quick-services">快捷服务与应用目录</a></td>
 </tr>
 <tr>
-<td><a href="../src/app/api/role-templates/route.ts"><code>/api/role-templates</code></a></td>
-<td>GET / POST</td>
-<td>岗位／权限组模板查询及创建</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
-</tr>
-<tr>
-<td><a href="../src/app/api/role-templates/%5Bid%5D/route.ts"><code>/api/role-templates/[id]</code></a></td>
-<td>PATCH / DELETE</td>
-<td>编辑或删除允许管理的权限模板</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
-</tr>
-<tr>
 <td><a href="../src/app/api/scheduled-tasks/route.ts"><code>/api/scheduled-tasks</code></a></td>
 <td>GET / POST / PATCH / DELETE</td>
 <td>计划任务列表、创建、编辑、启停、重试及删除</td>
@@ -5469,6 +5519,12 @@ npm run docs:check
 <td>POST</td>
 <td>服务器文件面板上传文件</td>
 <td><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/api/servers/%5Bid%5D/transfer/route.ts"><code>/api/servers/[id]/transfer</code></a></td>
+<td>POST</td>
+<td>平台管理员把服务器连同存储和历史转移到另一个客户</td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/servers/%5Bid%5D/uptime/route.ts"><code>/api/servers/[id]/uptime</code></a></td>
@@ -5683,38 +5739,38 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/api/teams/route.ts"><code>/api/teams</code></a></td>
 <td>GET / POST</td>
-<td>工作区列表及创建</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td>客户列表（含资源计数和已删除客户）及新建客户</td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/teams/%5Bid%5D/route.ts"><code>/api/teams/[id]</code></a></td>
 <td>PATCH / DELETE</td>
-<td>修改或删除允许管理的工作区</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td>修改客户信息；标记删除客户</td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/teams/%5Bid%5D/members/route.ts"><code>/api/teams/[id]/members</code></a></td>
-<td>POST</td>
-<td>添加／更新成员身份、权限组及成员配置</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td>GET / POST</td>
+<td>客户账号列表；把账号加入客户或调整其身份模板</td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/teams/%5Bid%5D/members/%5BuserId%5D/route.ts"><code>/api/teams/[id]/members/[userId]</code></a></td>
 <td>DELETE</td>
-<td>由有管理权限者移除成员，并更新其默认工作区</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td>把账号移出客户并清除其逐台与路径授权</td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
-<td><a href="../src/app/api/teams/%5Bid%5D/owner/route.ts"><code>/api/teams/[id]/owner</code></a></td>
+<td><a href="../src/app/api/teams/%5Bid%5D/restore/route.ts"><code>/api/teams/[id]/restore</code></a></td>
 <td>POST</td>
-<td>转移工作区所有权</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td>恢复已删除的客户及其账号和资源</td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/teams/switch/route.ts"><code>/api/teams/switch</code></a></td>
 <td>POST</td>
-<td>切换当前工作区并更新会话范围</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td>平台管理员切换当前客户或“全部客户”并更新会话范围</td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/tickets/route.ts"><code>/api/tickets</code></a></td>
@@ -5756,13 +5812,13 @@ npm run docs:check
 <td><a href="../src/app/api/users/route.ts"><code>/api/users</code></a></td>
 <td>GET / POST / PATCH</td>
 <td>用户列表、创建、启停、角色及密码重置</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/users/permissions/route.ts"><code>/api/users/permissions</code></a></td>
 <td>GET / PATCH</td>
 <td>读取有效权限并修改角色／例外／资源授权</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/webdav/%5BstorageNodeId%5D/%5B%5B...path%5D%5D/route.ts"><code>/api/webdav/[storageNodeId]/[[...path]]</code></a></td>
@@ -5786,7 +5842,7 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/account/password/actions.ts"><code>changePasswordAction</code></a></td>
 <td>修改本人密码并执行策略校验</td>
-<td><a href="#permissions">账号、角色、团队与资源授权</a></td>
+<td><a href="#permissions">账号、客户与资源授权</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/backups/actions.ts"><code>createBackupAction</code></a></td>

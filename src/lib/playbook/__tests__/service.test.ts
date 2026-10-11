@@ -195,7 +195,7 @@ describe("playbook service", () => {
         "u1",
         session,
       ),
-    ).rejects.toThrow(/outside your team scope/i);
+    ).rejects.toThrow(/outside your customer scope/i);
     expect(mocks.playbookCreate).not.toHaveBeenCalled();
   });
 
@@ -260,7 +260,7 @@ describe("playbook service", () => {
         "u1",
         session,
       ),
-    ).rejects.toThrow(/notification recipients were not found or are outside your team scope/i);
+    ).rejects.toThrow(/notification recipients were not found or are outside your customer scope/i);
     expect(mocks.playbookCreate).not.toHaveBeenCalled();
     expect(mocks.teamMemberFindUnique).toHaveBeenCalledWith({
       where: { teamId_userId: { teamId: "team1", userId: "u-other-team" } },
@@ -330,7 +330,7 @@ describe("playbook service", () => {
         "u1",
         session,
       ),
-    ).rejects.toThrow(/outside your team scope/i);
+    ).rejects.toThrow(/outside your customer scope/i);
     expect(mocks.playbookUpdate).not.toHaveBeenCalled();
   });
 
@@ -356,7 +356,7 @@ describe("playbook service", () => {
         "u1",
         session,
       ),
-    ).rejects.toThrow(/notification recipients were not found or are outside your team scope/i);
+    ).rejects.toThrow(/notification recipients were not found or are outside your customer scope/i);
     expect(mocks.playbookUpdate).not.toHaveBeenCalled();
   });
 

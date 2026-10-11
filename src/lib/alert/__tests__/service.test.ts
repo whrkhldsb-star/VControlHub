@@ -311,11 +311,13 @@ describe("alert service", () => {
 		});
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin1" }]);
 		await testAlertRule("rule_team");
+		// Platform administrators plus team_a accounts whose identity template
+		// may manage notifications.
 		expect(prismaMock.user.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				where: expect.objectContaining({
 					OR: expect.arrayContaining([
-						{ teamMemberships: { some: { teamId: "team_a" } } },
+						{ teamMembership: { is: { teamId: "team_a", team: { deletedAt: null }, identityTemplate: { permissions: { has: "notification:manage" } } } } },
 					]),
 				}),
 			}),

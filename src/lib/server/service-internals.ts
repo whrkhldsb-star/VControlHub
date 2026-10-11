@@ -87,6 +87,8 @@ export type ServerWithRelations = {
   costCurrency?: string;
   costProvider?: string | null;
   costLastSyncedAt?: Date | string | null;
+  origin?: "PLATFORM" | "CUSTOMER";
+  team?: { name: string } | null;
   // TR-030: multi-tenancy resource scoping
   teamId?: string | null;
   onboardingStatus?: "READY" | "DRAFT" | "NEEDS_ATTENTION";
@@ -378,6 +380,8 @@ export function enrichServer(server: ServerWithRelations) {
     costLastSyncedAt: server.costLastSyncedAt ? serializeDate(server.costLastSyncedAt) : null,
     // TR-030: multi-tenancy resource scoping
     teamId: server.teamId ?? null,
+    teamName: server.team?.name ?? null,
+    origin: server.origin ?? "PLATFORM",
   };
 }
 

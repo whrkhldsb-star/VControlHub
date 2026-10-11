@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { EmptyState } from "@/components/page-shell";
-import { Chip, InlineLoading, Notice } from "@/components/ui-primitives";
+import { Badge, Chip, InlineLoading, Notice } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { Dialog } from "@/components/ui/dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -13,9 +13,9 @@ import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import { Plus } from "@/components/icons";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { groupPermissionsByDomain, permissionLabelKey } from "@/lib/auth/permission-labels";
+import { identityTemplateName } from "@/lib/auth/identity-templates";
 
-type RoleInfo = { key: string; name: string; description?: string | null };
-type PermissionInfo = { key: string; name: string; description?: string | null };
 type StorageNodeInfo = { id: string; name: string; driver: string; basePath: string };
 type ServerInfo = { id: string; name: string; operatingSystem: string; teamId: string | null };
 type ServerGrant = {
@@ -39,37 +39,25 @@ type StorageGrant = {
   usedBytes?: string;
   storageNode?: StorageNodeInfo;
 };
+type IdentityTemplateInfo = { id: string; name: string; isBuiltin: boolean; permissions: string[] };
+type AccountType = "admin" | "customer";
 
 type PermissionsPayload = {
   user: {
     id: string;
     username: string;
     displayName: string | null;
-    roles: RoleInfo[];
+    accountType: AccountType;
+    teamId: string | null;
+    identityTemplateId: string | null;
     effectivePermissions: string[];
-    resourceAccessBypassed: boolean;
-    /** Fine-grained custom role only (not base role grants). */
-    directPermissionKeys?: string[];
     storageAccess: StorageGrant[];
     serverAccess?: ServerGrant[];
   };
-  roles: RoleInfo[];
-  permissions: PermissionInfo[];
+  identityTemplates: IdentityTemplateInfo[];
+  customers: Array<{ id: string; name: string }>;
   storageNodes: StorageNodeInfo[];
   servers?: ServerInfo[];
-};
-
-type RoleTemplate = {
-  id: string;
-  name: string;
-  description: string | null;
-  roleKeys: string[];
-  permissions: string[];
-  storageAccess: StorageGrant[];
-  serverAccess?: ServerGrant[];
-  kind: "ACCOUNT_TEMPLATE";
-  /** Built-in templates are read-only: the API refuses PATCH/DELETE on them. */
-  isBuiltin: boolean;
 };
 
 type Props = {
@@ -77,7 +65,6 @@ type Props = {
   username: string;
   onClose: () => void;
   onSaved: () => void;
-  resourceOnly?: boolean;
 };
 
 function formatBytes(value: string | null | undefined, t: (k: string, vars?: Record<string, string | number>) => string) {
@@ -127,38 +114,31 @@ function normalizeStorageGrants(grants: StorageGrant[]) {
   return normalized;
 }
 
-export function UserPermissionPanel({ userId, username, onClose, onSaved, resourceOnly = false }: Props) {
+export function UserPermissionPanel({ userId, username, onClose, onSaved }: Props) {
   const { t } = useI18n();
   // Reach the translator from the load effect without putting `t` in its deps:
   // a locale switch must not refetch and overwrite unsaved admin edits.
   const tRef = useRef(t);
   useEffect(() => { tRef.current = t; }, [t]);
   const [payload, setPayload] = useState<PermissionsPayload | null>(null);
-  const [roleKeys, setRoleKeys] = useState<string[]>([]);
-  const [permissionKeys, setPermissionKeys] = useState<string[]>([]);
+  const [accountType, setAccountType] = useState<AccountType>("customer");
+  const [teamId, setTeamId] = useState("");
+  const [identityTemplateId, setIdentityTemplateId] = useState("");
   const [grants, setGrants] = useState<StorageGrant[]>([]);
   const [serverGrants, setServerGrants] = useState<ServerGrant[]>([]);
-  const [templateNameDraft, setTemplateNameDraft] = useState("");
-  const [savingTemplate, setSavingTemplate] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [templates, setTemplates] = useState<RoleTemplate[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [confirmingTemplateDelete, setConfirmingTemplateDelete] = useState(false);
-  const [deletingTemplate, setDeletingTemplate] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-csrfFetch(`/api/users/permissions?userId=${encodeURIComponent(userId)}`)
-.then((data) => {
-return data as PermissionsPayload;
-})
+    csrfFetch<PermissionsPayload>(`/api/users/permissions?userId=${encodeURIComponent(userId)}`)
       .then((data) => {
         if (cancelled) return;
         setPayload(data);
-        setRoleKeys(data.user.roles.map((role) => role.key).filter((key) => !key.startsWith("user:") || !key.endsWith(":custom")));
-        setPermissionKeys(data.user.directPermissionKeys ?? []);
+        setAccountType(data.user.accountType);
+        setTeamId(data.user.teamId ?? data.customers[0]?.id ?? "");
+        setIdentityTemplateId(data.user.identityTemplateId ?? "identity:viewer");
         setGrants(data.user.storageAccess.map((grant) => ({ ...grant })));
         setServerGrants((data.user.serverAccess ?? []).map((grant) => ({ ...grant })));
       })
@@ -167,16 +147,15 @@ return data as PermissionsPayload;
     return () => { cancelled = true; };
   }, [userId]);
 
-  useEffect(() => {
-    if (resourceOnly) return;
-    csrfFetch("/api/role-templates?kind=ACCOUNT_TEMPLATE")
-      .then((data) => setTemplates((data as { templates?: RoleTemplate[] }).templates ?? []))
-      .catch(() => setTemplates([]));
-  }, [resourceOnly]);
-
   const storageNodeMap = useMemo(() => new Map(payload?.storageNodes.map((node) => [node.id, node]) ?? []), [payload]);
-
-  const toggle = (values: string[], value: string) => values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+  const selectedTemplate = payload?.identityTemplates.find((template) => template.id === identityTemplateId) ?? null;
+  const accountChanged = Boolean(payload) && (
+    accountType !== payload!.user.accountType
+    || (accountType === "customer" && (teamId !== payload!.user.teamId || identityTemplateId !== payload!.user.identityTemplateId))
+  );
+  // Narrowing lists the saved customer's servers; edit it once the customer is saved.
+  const narrowingEditable = accountType === "customer" && Boolean(payload?.user.teamId) && teamId === payload?.user.teamId;
+  const previewPermissions = accountType === "admin" ? null : groupPermissionsByDomain(selectedTemplate?.permissions ?? []);
 
   const addGrant = () => {
     const firstNode = payload?.storageNodes[0];
@@ -196,112 +175,25 @@ return data as PermissionsPayload;
     setGrants((current) => current.map((grant, i) => i === index ? { ...grant, ...patch } : grant));
   };
 
-  const applyTemplate = () => {
-    const template = templates.find((item) => item.id === selectedTemplateId);
-    if (!template) return;
-    setRoleKeys([...template.roleKeys]);
-    setPermissionKeys([...template.permissions]);
-    setGrants(template.storageAccess.map((grant) => ({ ...grant })));
-    setServerGrants((template.serverAccess ?? []).map((grant) => ({ ...grant })));
-    setMessage({ type: "success", text: t("usersPerm.template.applied") });
-  };
-
-  const selectedTemplate = templates.find((item) => item.id === selectedTemplateId) ?? null;
-
-  const deleteSelectedTemplate = async () => {
-    if (!selectedTemplate || selectedTemplate.isBuiltin) return;
-    setDeletingTemplate(true);
-    try {
-      await csrfFetch(`/api/role-templates/${encodeURIComponent(selectedTemplate.id)}`, { method: "DELETE" });
-      setTemplates((current) => current.filter((item) => item.id !== selectedTemplate.id));
-      setSelectedTemplateId("");
-      setConfirmingTemplateDelete(false);
-      setMessage({ type: "success", text: t("usersPerm.template.deleted") });
-    } catch (error) {
-      setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.template.deleteFailed")) });
-    } finally {
-      setDeletingTemplate(false);
-    }
-  };
-
-  const saveTemplate = async () => {
-    const name = templateNameDraft.trim();
-    if (!name) {
-      setMessage({ type: "error", text: t("usersPerm.template.namePrompt") });
-      return;
-    }
-    setSavingTemplate(true);
-    try {
-      const normalizedGrants = normalizeStorageGrants(grants);
-      if (!normalizedGrants) {
-        setMessage({ type: "error", text: t("usersPerm.error.invalidQuota") });
-        return;
-      }
-      const data = await csrfFetch("/api/role-templates", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "ACCOUNT_TEMPLATE", name, roleKeys, permissions: permissionKeys, storageAccess: normalizedGrants, serverAccess: serverGrants }),
-      }) as { template: RoleTemplate };
-      setTemplates((current) => [...current, data.template].sort((a, b) => a.name.localeCompare(b.name)));
-      setSelectedTemplateId(data.template.id);
-      setTemplateNameDraft("");
-      setMessage({ type: "success", text: t("usersPerm.template.saved") });
-    } catch (error) {
-      setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.error.saveFailed")) });
-    } finally {
-      setSavingTemplate(false);
-    }
-  };
-
-  const updateSelectedTemplate = async () => {
-    if (!selectedTemplate || selectedTemplate.isBuiltin) return;
-    setSavingTemplate(true);
-    try {
-      const normalizedGrants = normalizeStorageGrants(grants);
-      if (!normalizedGrants) {
-        setMessage({ type: "error", text: t("usersPerm.error.invalidQuota") });
-        return;
-      }
-      const data = await csrfFetch(`/api/role-templates/${encodeURIComponent(selectedTemplate.id)}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind: "ACCOUNT_TEMPLATE",
-          name: selectedTemplate.name,
-          description: selectedTemplate.description,
-          roleKeys,
-          permissions: permissionKeys,
-          storageAccess: normalizedGrants,
-          serverAccess: serverGrants,
-        }),
-      }) as { template: RoleTemplate };
-      setTemplates((current) => current.map((item) => item.id === data.template.id ? data.template : item));
-      setMessage({ type: "success", text: t("usersPerm.template.updated") });
-    } catch (error) {
-      setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.error.saveFailed")) });
-    } finally {
-      setSavingTemplate(false);
-    }
-  };
-
   const save = async () => {
     setSaving(true);
     setMessage(null);
-
     const normalizedGrants = normalizeStorageGrants(grants);
     if (!normalizedGrants) {
       setMessage({ type: "error", text: t("usersPerm.error.invalidQuota") });
       setSaving(false);
       return;
     }
-
     try {
-      const includeResourceAccess = !payload?.user.resourceAccessBypassed && !roleKeys.includes("admin");
       await csrfFetch("/api/users/permissions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
-          ...(resourceOnly ? {} : { roleKeys, permissionKeys }),
-          ...(includeResourceAccess ? {
+          ...(accountChanged
+            ? { account: accountType === "admin" ? { type: "admin" } : { type: "customer", teamId, identityTemplateId } }
+            : {}),
+          ...(narrowingEditable ? {
             storageAccess: normalizedGrants,
             storageAccessScopeIds: (payload?.storageNodes ?? []).map((node) => node.id),
             serverAccess: serverGrants,
@@ -332,89 +224,57 @@ return data as PermissionsPayload;
       closeLabel={t("usersPerm.action.close")}
       footer={<>
         <ActionButton variant="secondary" onClick={onClose}>{t("usersPerm.action.cancel")}</ActionButton>
-        {payload && (!resourceOnly || !payload.user.resourceAccessBypassed) ? (
-          <ActionButton onClick={save} loading={saving}>{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</ActionButton>
-        ) : null}
+        {payload ? <ActionButton onClick={save} loading={saving}>{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</ActionButton> : null}
       </>}
     >
         {message && <Notice tone={message.type === "success" ? "success" : "danger"} compact className="mb-4">{message.text}</Notice>}
         {loading || !payload ? <InlineLoading label={t("usersPerm.loading")} /> : (
           <div className="space-y-6">
-            {!resourceOnly && <section data-inset className="p-4">
-              <h4 className="ui-title-group">{t("usersPerm.template.title")}</h4>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.template.desc")}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <select aria-label={t("usersPerm.template.select")} value={selectedTemplateId} onChange={(event) => { setSelectedTemplateId(event.target.value); setConfirmingTemplateDelete(false); }} className={cn(UI_INPUT, "w-auto min-h-10 text-sm")}>
-                  <option value="">{t("usersPerm.template.select")}</option>
-                  {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
-                </select>
-                <ActionButton variant="outline" onClick={applyTemplate} disabled={!selectedTemplateId}>{t("usersPerm.template.apply")}</ActionButton>
-                {selectedTemplate && !selectedTemplate.isBuiltin && <ActionButton variant="secondary" onClick={updateSelectedTemplate} disabled={savingTemplate}>{t("usersPerm.template.update")}</ActionButton>}
-                {/* Custom templates were creatable but never removable from the UI;
-                    built-ins stay read-only because the API refuses to delete them. */}
-                {selectedTemplate && !selectedTemplate.isBuiltin && (confirmingTemplateDelete ? (
-                  <>
-                    <ActionButton variant="danger-solid" onClick={deleteSelectedTemplate} disabled={deletingTemplate}>
-                      {deletingTemplate ? "…" : t("usersPerm.template.deleteConfirm")}
-                    </ActionButton>
-                    <ActionButton variant="secondary" onClick={() => setConfirmingTemplateDelete(false)} disabled={deletingTemplate}>
-                      {t("usersPerm.action.cancel")}
-                    </ActionButton>
-                  </>
-                ) : (
-                  <ActionButton variant="danger" onClick={() => setConfirmingTemplateDelete(true)}>
-                    {t("usersPerm.template.delete")}
-                  </ActionButton>
-                ))}
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    value={templateNameDraft}
-                    onChange={(e) => setTemplateNameDraft(e.target.value)}
-                    placeholder={t("usersPerm.template.namePrompt")}
-                    aria-label={t("usersPerm.template.namePrompt")}
-                    className={cn(UI_INPUT, "min-w-[10rem] flex-1 text-sm")}
-                  />
-                  <ActionButton variant="secondary"
-                    onClick={saveTemplate}
-                    disabled={savingTemplate || !templateNameDraft.trim()}>
-                    {savingTemplate ? "…" : t("usersPerm.template.saveCurrent")}
-                  </ActionButton>
-                </div>
-              </div>
-            </section>}
-            {!resourceOnly && <section data-inset className="p-4">
-              <h4 className="ui-title-group">{t("usersPerm.section.roles")}</h4>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {payload.roles.map((role) => (
-                  <Chip key={role.key} selected={roleKeys.includes(role.key)} onClick={() => setRoleKeys((current) => toggle(current, role.key))}>{t(`usersPage.role.${role.key}`)}</Chip>
+            <section data-inset className="p-4">
+              <h4 className="ui-title-group">{t("usersPerm.account.title")}</h4>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.account.desc")}</p>
+              <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label={t("usersPerm.account.title")}>
+                {(["customer", "admin"] as const).map((type) => (
+                  <Chip key={type} selected={accountType === type} onClick={() => setAccountType(type)}>{t(`usersPerm.account.type.${type}`)}</Chip>
                 ))}
               </div>
-            </section>}
-
-            {!resourceOnly && <section data-inset className="p-4">
-              <h4 className="ui-title-group">{t("usersPerm.section.perms")}</h4>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                <p className="mb-2 text-xs text-[var(--text-muted)]">
-                  {t("usersPerm.perms.directHint")}
-                </p>
-                {payload.permissions.map((permission) => {
-                  const direct = permissionKeys.includes(permission.key);
-                  const effective = payload.user.effectivePermissions.includes(permission.key);
-                  return (
-                  <label key={permission.key} data-tile="" data-selected={direct ? "" : undefined} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)]">
-                    <input type="checkbox" checked={direct} onChange={() => setPermissionKeys((current) => toggle(current, permission.key))} />
-                    <span>{permission.name || permission.key}</span>
-                    <span className="text-xs text-[var(--text-muted)]">{permission.key}{effective && !direct ? ` · ${t("usersPerm.perms.viaRole")}` : ""}</span>
+              {accountType === "customer" && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm text-[var(--text-secondary)]">
+                    <span className="ui-label mb-1 block">{t("usersPerm.account.customer")}</span>
+                    <select value={teamId} onChange={(event) => setTeamId(event.target.value)} className={cn(UI_INPUT, "text-sm")}>
+                      {payload.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+                    </select>
                   </label>
-                  );
-                })}
+                  <label className="text-sm text-[var(--text-secondary)]">
+                    <span className="ui-label mb-1 block">{t("usersPerm.account.template")}</span>
+                    <select value={identityTemplateId} onChange={(event) => setIdentityTemplateId(event.target.value)} className={cn(UI_INPUT, "text-sm")}>
+                      {payload.identityTemplates.map((template) => <option key={template.id} value={template.id}>{identityTemplateName(template, t)}</option>)}
+                    </select>
+                  </label>
+                </div>
+              )}
+              <div className="mt-4">
+                <h5 className="ui-label">{t("usersPerm.account.effective")}</h5>
+                {previewPermissions === null ? (
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.account.adminAll")}</p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    {previewPermissions.map((group) => (
+                      <div key={group.domain} className="flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="w-24 shrink-0 text-[var(--text-muted)]">{t(group.labelKey)}</span>
+                        {group.permissions.map((permission) => <Badge key={permission} tone="neutral">{t(permissionLabelKey(permission))}</Badge>)}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </section>}
+            </section>
 
-            {payload.user.resourceAccessBypassed && <Notice tone="info">{t("usersPerm.adminResourceAccess")}</Notice>}
+            {accountType === "admin" && <Notice tone="info">{t("usersPerm.adminResourceAccess")}</Notice>}
+            {accountType === "customer" && !narrowingEditable && <Notice tone="info">{t("usersPerm.narrowAfterSave")}</Notice>}
 
-            {!payload.user.resourceAccessBypassed && <section data-inset className="p-4">
+            {narrowingEditable && <section data-inset className="p-4">
               <h4 className="ui-title-group">{t("usersPerm.section.servers")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.servers.hint")}</p>
               <div className="mt-3 space-y-3">
@@ -451,7 +311,7 @@ return data as PermissionsPayload;
               </div>
             </section>}
 
-            {!payload.user.resourceAccessBypassed && <section data-inset className="p-4">
+            {narrowingEditable && <section data-inset className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h4 className="ui-title-group">{t("usersPerm.section.grants")}</h4>

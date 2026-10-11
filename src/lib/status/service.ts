@@ -1,3 +1,4 @@
+import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { summarizeSystemHealth, type SystemHealthCheck, type SystemHealthStatus } from "@/lib/system-health/service";
 import { getAppSlug } from "@/lib/branding";
@@ -52,9 +53,9 @@ export async function getPublicStatus() {
 	const [serverCount, storageNodes] = await Promise.all([
 		prisma.server.count({ where: { enabled: true } }).catch(() => 0),
 		prisma.storageNode.findMany({
-			// Deleted workspaces retain their records for ownership history.
+			// Deleted customers retain their records for ownership history.
 			// Their retired storage must not affect the live service's status.
-			where: { team: { isNot: { slug: { startsWith: "\\_\\_deleted\\_\\_" } } } },
+			where: liveCustomerRowsWhere(),
 			select: { healthStatus: true, lastHealthCheckAt: true },
 			take: 500,
 		}).catch(() => []),  // P2: storage node 总数有限
@@ -106,10 +107,7 @@ export async function getPublicStatusSummary() {
 	try {
 		await prisma.$queryRaw`SELECT 1`;
 		const unhealthyStorage = await prisma.storageNode.count({
-			where: {
-				healthStatus: "UNHEALTHY",
-				team: { isNot: { slug: { startsWith: "\\_\\_deleted\\_\\_" } } },
-			},
+			where: { healthStatus: "UNHEALTHY", ...liveCustomerRowsWhere() },
 		});
 		if (unhealthyStorage > 0) overall = "warning";
 	} catch {

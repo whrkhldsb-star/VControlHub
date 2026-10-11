@@ -11,7 +11,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("server inve
     const db = new URL(process.env.DATABASE_URL!);
     if (!["127.0.0.1", "localhost", "[::1]"].includes(db.hostname) || !/audit|test|_ci/.test(db.pathname)) throw new Error("Isolated database required");
     await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "fixture-unused" } });
-    await prisma.team.create({ data: { id: prefix, name: prefix, slug: prefix, ownerId: prefix } });
+    await prisma.team.create({ data: { id: prefix, name: prefix, slug: prefix } });
     await prisma.server.createMany({ data: Array.from({ length: 526 }, (_, i) => ({
       id: `${prefix}-${String(i).padStart(4, "0")}`, name: `${prefix}-${i}`, host: `192.0.2.${i % 255}`, port: 22,
       username: "fixture", connectionType: "PASSWORD" as const, password: "fixture-secret",

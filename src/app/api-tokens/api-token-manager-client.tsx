@@ -29,7 +29,7 @@ export type SafeApiToken = {
 type Props = {
   initialTokens: SafeApiToken[];
   allowedScopes: readonly string[];
-  currentWorkspaceName: string | null;
+  currentCustomerName: string | null;
 };
 
 function tokenStatus(t: (k: string, vars?: Record<string, string | number>) => string, token: SafeApiToken) {
@@ -45,7 +45,7 @@ function scopeLabel(t: (k: string, vars?: Record<string, string | number>) => st
   return translated === `apiTokensPage.scope.${scope}` ? scope : translated;
 }
 
-export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWorkspaceName }: Props) {
+export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCustomerName }: Props) {
   const { t, locale } = useI18n();
   const [tokens, setTokens] = useState(initialTokens);
   const [name, setName] = useState("");
@@ -147,9 +147,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
       <section data-card className="p-5">
         <h2 className="ui-title-section">{t("apiTokensPage.create.heading")}</h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">{t("apiTokensPage.create.note")}</p>
-		<p className="mt-2 text-sm text-[var(--text-secondary)]">{currentWorkspaceName
-			? t("apiTokensPage.workspace.active", { name: currentWorkspaceName })
-			: t("apiTokensPage.workspace.none")}</p>
+		<p className="mt-2 text-sm text-[var(--text-secondary)]">{currentCustomerName
+			? t("apiTokensPage.customer.active", { name: currentCustomerName })
+			: t("apiTokensPage.customer.none")}</p>
         <form onSubmit={createToken} className="mt-5 grid gap-4">
           <FormGrid>
             <FormField label={t("apiTokensPage.create.nameLabel")} htmlFor="api-token-name">
@@ -170,7 +170,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
           </div>
 
           <div>
-            <ActionButton variant="primary" type="submit" disabled={submitting || !currentWorkspaceName}>
+            <ActionButton variant="primary" type="submit" disabled={submitting || !currentCustomerName}>
               {submitting ? t("apiTokensPage.create.submitting") : t("apiTokensPage.create.submit")}
             </ActionButton>
           </div>
@@ -195,7 +195,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="ui-title-section">{token.name}</h3>
                         <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-						<span className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.workspace.bound", { name: token.team?.name ?? "—" })}</span>
+						<span className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.customer.bound", { name: token.team?.name ?? "—" })}</span>
                       </div>
                       <p className="mt-2 font-mono text-xs text-[var(--text-secondary)]">{token.tokenPrefix}…{token.tokenSuffix}</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">

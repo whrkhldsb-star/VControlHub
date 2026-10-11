@@ -1,5 +1,5 @@
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere } from "@/lib/auth/team-scope";
+import { serverProfileTeamWhere } from "@/lib/auth/team-scope";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError } from "@/lib/errors";
@@ -21,7 +21,7 @@ export async function deleteServerProfile(
   try {
     const current = session
       ? await prisma.server.findFirst({
-          where: { id: serverId, ...serverTeamWhere(session, "manage") },
+          where: { id: serverId, ...serverProfileTeamWhere(session) },
           include: { storageNode: { select: { id: true, driver: true } } },
         })
       : await prisma.server.findUnique({

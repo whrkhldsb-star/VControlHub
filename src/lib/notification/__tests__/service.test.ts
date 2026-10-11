@@ -106,7 +106,7 @@ describe("notification service state synchronization", () => {
     expect(pushUnreadCountMock).not.toHaveBeenCalled();
   });
 
-  it("notifyCommandPending scopes approvers to team membership when teamId set", async () => {
+  it("notifyCommandPending notifies administrators and the customer's approvers when teamId set", async () => {
     prismaMock.user.findMany.mockResolvedValueOnce([{ id: "a1" }, { id: "a2" }]);
     prismaMock.notification.create.mockImplementation(async ({ data }: any) => ({ id: "n", ...data, createdAt: new Date() }));
     prismaMock.notification.count.mockResolvedValue(0);
@@ -116,15 +116,16 @@ describe("notification service state synchronization", () => {
     expect(prismaMock.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: expect.arrayContaining([
-            { teamMemberships: { some: { teamId: "team_a" } } },
-          ]),
+          OR: [
+            { roles: { some: { role: { key: "admin" } } } },
+            { teamMembership: { is: { teamId: "team_a", team: { deletedAt: null }, identityTemplate: { permissions: { has: "command:approve" } } } } },
+          ],
         }),
       }),
     );
   });
 
-  it("notifyCommandPending restricts null-team requests to global team managers", async () => {
+  it("notifyCommandPending restricts null-team requests to platform administrators", async () => {
     prismaMock.user.findMany.mockResolvedValueOnce([{ id: "a1" }]);
     prismaMock.notification.create.mockImplementation(async ({ data }: any) => ({ id: "n", ...data, createdAt: new Date() }));
     prismaMock.notification.count.mockResolvedValue(0);
@@ -132,15 +133,9 @@ describe("notification service state synchronization", () => {
     await notifyCommandPending("requester", "reboot edge", null);
 
     const where = prismaMock.user.findMany.mock.calls.at(-1)![0].where;
-    // No OR broadcast to every tenant's approvers; only team:manage holders.
+    // No broadcast to any customer's approvers; only platform administrators.
     expect(where.OR).toBeUndefined();
-    expect(where.roles).toEqual({
-      some: {
-        role: {
-          permissions: { some: { permission: { key: "team:manage" } } },
-        },
-      },
-    });
+    expect(where.roles).toEqual({ some: { role: { key: "admin" } } });
   });
 
 });

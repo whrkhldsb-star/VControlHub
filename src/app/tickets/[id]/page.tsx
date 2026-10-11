@@ -6,6 +6,7 @@ import { TicketDetailClient, type Ticket, type TicketUser } from "./ticket-detai
 import { notFound } from "next/navigation";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { prisma } from "@/lib/db";
+import { userDirectoryWhere } from "@/lib/auth/team-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,6 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   // Assignee dropdown: always team-scoped for ticket:manage unless the actor
   // also has team:manage (platform admin). Never fall through to an unscoped
   // findMany when currentTeamId is missing 鈥?that enumerated every user.
-  const canManageTeams = sessionHasPermission(session, "team:manage");
 
   // One ticket load + the (independent) assignee list, fetched concurrently.
   // The participant check is derived from the loaded row instead of a second
@@ -27,16 +27,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
     getTicketById(id, session),
     canManage
       ? prisma.user.findMany({
-          where: canManageTeams
-            ? undefined
-            : session.currentTeamId
-              ? {
-                  OR: [
-                    { teamMemberships: { some: { teamId: session.currentTeamId } } },
-                    { id: session.userId },
-                  ],
-                }
-              : { id: session.userId },
+          where: userDirectoryWhere(session),
           select: { id: true, username: true, displayName: true },
           orderBy: { username: "asc" },
           take: 200,

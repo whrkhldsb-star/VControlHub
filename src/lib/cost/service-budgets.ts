@@ -7,6 +7,7 @@ import { createNotification } from "@/lib/notification/service";
 import { createCostBudgetSchema, updateCostBudgetSchema } from "./schema";
 import type { CostBudgetPeriod, CostBudgetRecord, CostCategory, CostCurrency, CostCurrencyBucket } from "./types";
 import { DEFAULT_CURRENCY, isoDateOnly, type TeamSession } from "./service-internals";
+import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
 
 type BudgetRow = {
 	id: string; category: string; name: string; limitAmount: Prisma.Decimal; currency: string;
@@ -74,13 +75,9 @@ export async function deleteCostBudget(id: string, session?: TeamSession | null)
 }
 
 async function listCostBudgetAlertManagers(teamId: string | null | undefined) {
-	const teamManage = { roles: { some: { role: { permissions: { some: { permission: { key: "team:manage" } } } } } } };
-	// Team-scoped budgets notify same-team members plus global managers. Null-team
-	// (shared) budgets must NOT fan out to every tenant's cost managers — require
-	// team:manage in addition to cost:manage so only global managers are alerted
-	// (mirrors the notifyCommandPending null-team quarantine). Combined via AND so
-	// the outer cost:manage requirement is preserved rather than overwritten.
-	return prisma.user.findMany({ where: { roles: { some: { role: { permissions: { some: { permission: { key: "cost:manage" } } } } } }, ...(teamId ? { OR: [{ teamMemberships: { some: { teamId } } }, teamManage] } : { AND: [teamManage] }) }, select: { id: true }, take: 1000 });
+	// The customer's cost managers plus platform administrators; a null-team
+	// (legacy) budget only reaches administrators.
+	return prisma.user.findMany({ where: { status: { not: "DISABLED" }, ...permissionHoldersWhere("cost:manage", teamId) }, select: { id: true }, take: 1000 });
 }
 export async function checkBudgetAlerts(now = new Date(), session?: TeamSession | null) {
 	const budgets = await listCostBudgets(now, session); let triggered = 0; let notificationsSent = 0; let duplicatesSkipped = 0;

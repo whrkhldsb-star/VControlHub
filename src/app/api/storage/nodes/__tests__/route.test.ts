@@ -113,12 +113,15 @@ describe("/api/storage/nodes", () => {
     });
   });
 
-  it("filters node metadata to readable grants for non-manager users", async () => {
+  it("hides nodes whose path grants deny reading and keeps nodes without grants", async () => {
     requireApiPermissionMock.mockResolvedValueOnce({
       session: { userId: "user_1", username: "viewer", roles: ["viewer"] },
     });
+    // sftp_1 is narrowed to a readable path, sftp_host to a write-only one;
+    // local_1 has no grants and is not narrowed.
     prismaMock.userStorageAccess.findMany.mockResolvedValueOnce([
-      { storageNodeId: "sftp_1" },
+      { storageNodeId: "sftp_1", canRead: true },
+      { storageNodeId: "sftp_host", canRead: false },
     ]);
 
     const response = await GET(
@@ -127,23 +130,12 @@ describe("/api/storage/nodes", () => {
 
     expect(response.status).toBe(200);
     expect(prismaMock.userStorageAccess.findMany).toHaveBeenCalledWith({
-      where: { userId: "user_1", canRead: true },
-      select: { storageNodeId: true },
-      distinct: ["storageNodeId"],
-      take: 500,
+      where: { userId: "user_1" },
+      select: { storageNodeId: true, canRead: true },
+      take: 5000,
     });
-    await expect(response.json()).resolves.toEqual({
-      nodes: [
-        {
-          id: "sftp_1",
-          name: "远端资料盘",
-          driver: "SFTP",
-          basePath: "/data",
-          serverId: "srv_1",
-          serverName: "prod-vps",
-        },
-      ],
-    });
+    const { nodes } = await response.json() as { nodes: Array<{ id: string }> };
+    expect(nodes.map((node) => node.id)).toEqual(["local_1", "sftp_1"]);
   });
 
   it("requires storage read permission", async () => {

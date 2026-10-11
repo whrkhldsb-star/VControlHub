@@ -3,20 +3,16 @@ import { NextResponse } from "next/server";
 
 import { hashPassword } from "@/lib/auth/password";
 import { validatePasswordPolicy } from "@/lib/auth/password-policy";
-import {
-  assertUserInActorScope,
-  isGlobalTeamManager,
-  userHoldsTeamManage,
-  userDirectoryWhere,
-} from "@/lib/auth/team-scope";
+import { assertUserInActorScope, userDirectoryWhere } from "@/lib/auth/team-scope";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { paginationQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
+import { DEFAULT_IDENTITY_TEMPLATE_ID } from "@/lib/auth/identity-templates";
 
-import { NotFoundError, ValidationError, ForbiddenError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 import { z } from "zod";
 import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "@/lib/user/admin-invariant";
@@ -32,46 +28,50 @@ const usersListQuerySchema = paginationQuerySchema
     pageSize: z.coerce.number().int().min(1).max(100).default(50),
   });
 
-/** GET: List users visible in the actor's team scope */
+/** GET: administrators list every account; customer accounts their colleagues. */
 export async function GET(request: Request) {
-  return withApiRoute(request, { permissions: ["user:read", "team:member:manage"] }, async ({ session }) => {
+  return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
     const { page, pageSize } = parseSearchParams(request, usersListQuerySchema);
     const skip = (page - 1) * pageSize;
     const where = userDirectoryWhere(session);
     const [users, total] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        status: true,
-        mustChangePassword: true,
-        createdAt: true,
-        updatedAt: true,
-        roles: {
-          include: {
-            role: { select: { key: true, name: true } },
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          status: true,
+          mustChangePassword: true,
+          createdAt: true,
+          updatedAt: true,
+          roles: { select: { role: { select: { key: true } } } },
+          teamMembership: {
+            select: {
+              team: { select: { id: true, name: true, deletedAt: true } },
+              identityTemplate: { select: { id: true, name: true, isBuiltin: true } },
+            },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: pageSize,
-    }),
-    prisma.user.count({ where }),
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSize,
+      }),
+      prisma.user.count({ where }),
     ]);
 
-    const safeUsers = users.map((user) => ({
+    const safeUsers = users.map(({ roles, teamMembership, ...user }) => ({
       ...user,
-      roles: user.roles.map((role) => role.role),
+      accountType: roles.some((entry) => entry.role.key === "admin") ? "admin" as const : "customer" as const,
+      customer: teamMembership ? { id: teamMembership.team.id, name: teamMembership.team.name, deleted: Boolean(teamMembership.team.deletedAt) } : null,
+      identityTemplate: teamMembership?.identityTemplate ?? null,
     }));
 
-    return NextResponse.json({ users: safeUsers, total: total ?? safeUsers.length, page, pageSize, totalPages: Math.ceil((total ?? safeUsers.length) / pageSize) });
+    return NextResponse.json({ users: safeUsers, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
   });
 }
 
-/** POST: Create a new user */
+/** POST: create a platform administrator or a customer account. */
 export async function POST(request: Request) {
   return withApiRoute(
     request,
@@ -84,96 +84,55 @@ export async function POST(request: Request) {
     },
     async ({ session, body }) => {
       const passwordPolicyError = await validatePasswordPolicy(body.password);
-      if (passwordPolicyError) {
-        throw new ValidationError(passwordPolicyError);
-      }
-      const username = body.username;
-      const displayName = body.displayName ?? null;
-      const requestedRoleKeys = Array.from(
-        new Set((body.roleKeys ?? ["viewer"]).map((key) => key.trim()).filter(Boolean)),
-      );
-      const roleKeys = requestedRoleKeys.length > 0 ? requestedRoleKeys : ["viewer"];
+      if (passwordPolicyError) throw new ValidationError(passwordPolicyError);
+      const { account } = body;
+      const identityTemplateId = account.type === "customer" ? account.identityTemplateId || DEFAULT_IDENTITY_TEMPLATE_ID : null;
 
+      // Hash before the transaction: scrypt is slow and must not hold a connection.
+      const passwordHash = await hashPassword(body.password);
       const user = await prisma.$transaction(async (tx) => {
-        const existing = await tx.user.findUnique({ where: { username } });
-        if (existing) {
+        if (await tx.user.findUnique({ where: { username: body.username }, select: { id: true } })) {
           throw new ValidationError(t("backend.user.usernameAlreadyExists"));
         }
-
-        const roles = await tx.role.findMany({
-          where: { key: { in: roleKeys } },
-          select: {
-            id: true,
-            key: true,
-            permissions: { select: { permission: { select: { key: true } } } },
-          },
-          take: roleKeys.length,
-        });
-        const foundRoleKeys = new Set(roles.map((role) => role.key));
-        const missingRoleKeys = roleKeys.filter((key) => !foundRoleKeys.has(key));
-        if (missingRoleKeys.length > 0) {
-          throw new ValidationError(t("backend.user.roleNotFound", { roles: missingRoleKeys.join(", ") }));
+        if (account.type === "customer") {
+          const [team, template] = await Promise.all([
+            tx.team.findUnique({ where: { id: account.teamId }, select: { deletedAt: true } }),
+            tx.identityTemplate.findUnique({ where: { id: identityTemplateId! }, select: { id: true } }),
+          ]);
+          if (!team || team.deletedAt) throw new NotFoundError(t("backend.customer.notFound"));
+          if (!template) throw new NotFoundError(t("backend.customer.templateNotFound"));
         }
-		if (!isGlobalTeamManager(session)) {
-			if (roles.some((role) => role.key === "admin")) {
-				throw new ForbiddenError(t("backend.user.cannotGrantAdminRole"));
-			}
-			const actorPermissions = new Set<string>(session.permissions ?? []);
-			const beyondActor = roles.filter((role) =>
-				role.permissions.some((grant) => !actorPermissions.has(grant.permission.key)),
-			);
-			if (beyondActor.length > 0) {
-				throw new ForbiddenError(t("backend.user.cannotGrantBeyondOwnPermissions", {
-					roles: beyondActor.map((role) => role.key).join(", "),
-				}));
-			}
-		}
+        const adminRole = account.type === "admin"
+          ? await tx.role.findUnique({ where: { key: "admin" }, select: { id: true } })
+          : null;
+        if (account.type === "admin" && !adminRole) throw new ValidationError(t("backend.user.roleNotFound", { roles: "admin" }));
 
-        const passwordHash = await hashPassword(body.password);
-        const createdUser = await tx.user.create({
+        return tx.user.create({
           data: {
-            username,
-            displayName,
+            username: body.username,
+            displayName: body.displayName ?? null,
             passwordHash,
             status: "ACTIVE",
-            // Admin-provisioned accounts must set their own password on first login.
+            // Accounts provisioned by an administrator set their own password on first login.
             mustChangePassword: true,
+            ...(adminRole ? { roles: { create: { roleId: adminRole.id } } } : {}),
+            ...(account.type === "customer"
+              ? {
+                  currentTeamId: account.teamId,
+                  teamMembership: { create: { teamId: account.teamId, identityTemplateId: identityTemplateId! } },
+                }
+              : {}),
           },
+          select: { id: true },
         });
-
-        if (roles.length > 0) {
-          await tx.userRole.createMany({
-            data: roles.map((role) => ({ userId: createdUser.id, roleId: role.id })),
-            skipDuplicates: true,
-          });
-        }
-
-        // Non-global managers create users into the current team workspace.
-        if (session.currentTeamId) {
-          await tx.teamMember.upsert({
-            where: {
-              teamId_userId: {
-                teamId: session.currentTeamId,
-                userId: createdUser.id,
-              },
-            },
-            update: {},
-            create: {
-              teamId: session.currentTeamId,
-              userId: createdUser.id,
-              role: "member",
-            },
-          });
-        }
-
-        return createdUser;
       });
 
       await auditUserAction(session.userId, "user.create", {
-        targetUsername: username,
-        roles: roleKeys,
-        teamId: session.currentTeamId ?? null,
-      }, undefined, session.currentTeamId);
+        targetUsername: body.username,
+        accountType: account.type,
+        teamId: account.type === "customer" ? account.teamId : null,
+        identityTemplateId,
+      }, undefined, account.type === "customer" ? account.teamId : null);
 
       return NextResponse.json({ success: true, userId: user.id });
     },
@@ -191,10 +150,7 @@ export async function PATCH(request: Request) {
       errorMessage: apiCopy("apiCopy.failed.to.update.user.237db3c5"),
     },
     async ({ session, body }) => {
-      const { userId, action: userAction, roleKeys, newPassword } = body;
-			if (roleKeys !== undefined) {
-				throw new ValidationError(t("backend.user.rolesMustUsePermissionsEndpoint"));
-			}
+      const { userId, action: userAction, newPassword } = body;
 
       await assertUserInActorScope(session, userId);
 
@@ -203,20 +159,6 @@ export async function PATCH(request: Request) {
       });
       if (!targetUser) {
         throw new NotFoundError(t("backend.user.notFound"));
-      }
-
-      // Credential/status changes on a platform administrator are reserved for
-      // global team managers. A delegated team `user:manage` who pulled the
-      // admin into their workspace must not be able to reset the admin's
-      // password (account takeover) or disable them (platform lockout).
-      if (
-        (userAction === "reset_password" || userAction === "disable") &&
-        !isGlobalTeamManager(session)
-      ) {
-        const targetIsPlatformAdmin = await userHoldsTeamManage(userId);
-        if (targetIsPlatformAdmin) {
-          throw new ForbiddenError(t("backend.user.cannotModifyPlatformAdmin"));
-        }
       }
 
       if (userId === session.userId && userAction === "disable") {
@@ -269,9 +211,9 @@ export async function PATCH(request: Request) {
           session.currentTeamId,
         );
       } else {
-        // `action` is optional in the schema (it also accepts roleKeys/newPassword
-        // only). Without it nothing above runs, and returning success would tell
-        // the caller a password reset happened when the account is untouched.
+        // `action` is optional in the schema (it also accepts newPassword only).
+        // Without it nothing above runs, and returning success would tell the
+        // caller a password reset happened when the account is untouched.
         throw new ValidationError(t("backend.user.missingAction"));
       }
 

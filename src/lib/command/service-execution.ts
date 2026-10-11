@@ -461,7 +461,7 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
           requesterId: request.requesterId,
         },
         "INFO",
-        // Without the workspace stamp the row lands at `teamId: null`, which
+        // Without the customer stamp the row lands at `teamId: null`, which
         // `teamWhere` reads as shared/legacy data — the command title and its
         // execution summary would appear on every tenant's audit page.
         request.teamId,

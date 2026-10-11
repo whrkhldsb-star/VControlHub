@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 import { getApiSession } from "@/lib/auth/api-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { hasBearerAuthorization, verifyBearerToken } from "@/lib/auth/bearer-token";
-import { isGlobalTeamManager } from "@/lib/auth/team-scope";
+import { seesAllCustomers } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 
@@ -67,7 +67,7 @@ export async function GET(
       // Owner, or team/media managers — not every holder of image:read (list own library).
       const isInManagedTeam =
         !!session &&
-        (isGlobalTeamManager(session) ||
+        (seesAllCustomers(session) ||
           (image.teamId !== null && image.teamId === session.currentTeamId));
       const canReadPrivateImage =
         !!session &&

@@ -26,9 +26,7 @@ vi.mock("@/lib/concurrency/advisory-lock", () => ({
 }));
 
 vi.mock("@/lib/auth/team-scope", () => ({
-  isWorkspaceTeamManager: (session: { roles?: string[]; currentTeamId?: string | null; currentTeamRole?: string | null }) =>
-    session.roles?.includes("admin") === true
-    || Boolean(session.currentTeamId && (session.currentTeamRole === "owner" || session.currentTeamRole === "admin")),
+  isGlobalTeamManager: (session: { roles?: string[] }) => session.roles?.includes("admin") === true,
   teamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
     if (session.roles?.includes("admin")) return {};
     if (session.currentTeamId) {
@@ -118,7 +116,7 @@ describe("storage access control", () => {
     });
   });
 
-  it("denies role-based storage access when no explicit grants exist", async () => {
+  it("applies the template's permissions to a node the account has no grants on", async () => {
     vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({ id: "node-1" } as never);
     vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([]);
 
@@ -127,55 +125,21 @@ describe("storage access control", () => {
       storageNodeId: "node-1",
       relativePath: "docs/a.txt",
       operation: "read",
-    })).resolves.toMatchObject({ allowed: false, reason: "no_access" });
+    })).resolves.toMatchObject({ allowed: true });
   });
 
-  it("allows no-grant role-based access only when the legacy fallback flag is enabled", async () => {
-    const previous = process.env.VCONTROLHUB_STORAGE_GRANT_FALLBACK;
-    process.env.VCONTROLHUB_STORAGE_GRANT_FALLBACK = "true";
-    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([]);
-
-    try {
-      await expect(assertStorageAccess({
-        session: baseSession,
-        storageNodeId: "node-1",
-        relativePath: "docs/a.txt",
-        operation: "read",
-      })).resolves.toMatchObject({ allowed: true });
-    } finally {
-      if (previous === undefined) {
-        delete process.env.VCONTROLHUB_STORAGE_GRANT_FALLBACK;
-      } else {
-        process.env.VCONTROLHUB_STORAGE_GRANT_FALLBACK = previous;
-      }
-    }
-  });
-
-  it("lets a workspace administrator token bypass member path grants within its scoped operation", async () => {
-    const ownerReadToken = {
-      ...baseSession,
-      roles: [],
-      permissions: ["storage:read"],
-      currentTeamId: "team-a",
-      currentTeamRole: "owner",
-    } satisfies SessionPayload;
+  it("still requires the operation permission on a node without grants", async () => {
+    const readOnly = { ...baseSession, roles: [], permissions: ["storage:read"] } satisfies SessionPayload;
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValue([]);
 
     await expect(assertStorageAccess({
-      session: ownerReadToken,
-      storageNodeId: "node-1",
-      relativePath: "docs/report.txt",
-      operation: "read",
-    })).resolves.toEqual({ allowed: true });
-    await expect(assertStorageAccess({
-      session: ownerReadToken,
+      session: readOnly,
       storageNodeId: "node-1",
       relativePath: "docs/report.txt",
       operation: "write",
     })).resolves.toMatchObject({ allowed: false, reason: "no_permission" });
-    expect(prisma.userStorageAccess.findMany).not.toHaveBeenCalled();
-
     await expect(getStorageAccessCapabilities({
-      session: ownerReadToken,
+      session: readOnly,
       targets: [{ storageNodeId: "node-1", relativePath: "docs/report.txt" }],
     })).resolves.toEqual(new Map([
       ["node-1:docs/report.txt", { canRead: true, canWrite: false, canDelete: false }],

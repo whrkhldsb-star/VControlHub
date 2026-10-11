@@ -198,7 +198,7 @@ describe("executePlaybookChain", () => {
 			teamId: "team1",
 		});
 		expect(results[0]?.status).toBe("failed");
-		expect(results[0]?.error).toMatch(/outside team scope/i);
+		expect(results[0]?.error).toMatch(/outside customer scope/i);
 		expect(mocks.notificationCreate).not.toHaveBeenCalled();
 	});
 

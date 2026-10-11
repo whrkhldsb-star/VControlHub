@@ -2134,13 +2134,13 @@ describe("server service", () => {
     );
   });
 
-  it("does not filter listServerProfiles for team:manage admins", async () => {
+  it("does not filter listServerProfiles for administrators viewing all customers", async () => {
     vi.mocked(prisma.server.findMany).mockResolvedValueOnce([]);
 
     await listServerProfiles({
       userId: "u_admin",
       roles: ["admin"],
-      currentTeamId: "team_ops",
+      currentTeamId: null,
     });
 
     expect(prisma.server.findMany).toHaveBeenCalledWith(

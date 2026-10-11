@@ -27,6 +27,8 @@ const {
   imageTeamWhere,
   isGlobalTeamManager,
   playbookTeamWhere,
+  serverOriginData,
+  serverProfileTeamWhere,
   serverTeamWhere,
   syncJobTeamWhere,
   teamAccessFilter,
@@ -39,12 +41,6 @@ const {
 const ADMIN: TeamSession = { userId: "u_admin", roles: ["admin"], currentTeamId: null };
 const ADMIN_IN_TEAM: TeamSession = { userId: "u_admin", roles: ["admin"], currentTeamId: "team_a" };
 const MEMBER: TeamSession = { userId: "u_member", roles: ["operator"], currentTeamId: "team_a" };
-const WORKSPACE_ADMIN: TeamSession = {
-  userId: "u_workspace_admin",
-  roles: ["viewer"],
-  currentTeamId: "team_a",
-  permissions: ["team:member:manage"],
-};
 const TEAMLESS: TeamSession = { userId: "u_free", roles: ["operator"], currentTeamId: null };
 
 const STRICT_HELPERS = [
@@ -59,7 +55,7 @@ const STRICT_HELPERS = [
 describe("isGlobalTeamManager", () => {
   it("recognises team:manage and nothing weaker", () => {
     expect(isGlobalTeamManager(ADMIN)).toBe(true);
-    // operator holds team:create and team:member:manage — neither is team:manage.
+    // Customer accounts never hold team:manage, whatever their template.
     expect(isGlobalTeamManager(MEMBER)).toBe(false);
     expect(isGlobalTeamManager({ ...MEMBER, roles: ["viewer"] })).toBe(false);
     expect(isGlobalTeamManager({ ...MEMBER, roles: [] })).toBe(false);
@@ -67,9 +63,12 @@ describe("isGlobalTeamManager", () => {
 });
 
 describe("teamWhere (strict tenant ownership)", () => {
-  it("applies no filter for a global manager", () => {
+  it("applies no filter for an administrator viewing all customers", () => {
     expect(teamWhere(ADMIN)).toEqual({});
-    expect(teamWhere(ADMIN_IN_TEAM)).toEqual({});
+  });
+
+  it("scopes an administrator to the customer it selected", () => {
+    expect(teamWhere(ADMIN_IN_TEAM)).toEqual({ teamId: "team_a" });
   });
 
   it("admits only the selected workspace", () => {
@@ -90,8 +89,12 @@ describe("teamWhere (strict tenant ownership)", () => {
 describe("security-root helpers (strict: null teamId is quarantined)", () => {
   for (const [name, helper] of STRICT_HELPERS) {
     describe(name, () => {
-      it("applies no filter for a global manager", () => {
+      it("applies no filter for an administrator viewing all customers", () => {
         expect(helper(ADMIN)).toEqual({});
+      });
+
+      it("scopes an administrator to the selected customer without per-user narrowing", () => {
+        expect(helper(ADMIN_IN_TEAM)).toEqual({ teamId: "team_a" });
       });
 
       it("pins the current team exactly, with no unassigned branch", () => {
@@ -124,9 +127,28 @@ describe("security-root helpers (strict: null teamId is quarantined)", () => {
   }
 });
 
-describe("workspace administrator resource access", () => {
-  it("keeps the workspace boundary while bypassing member server overrides", () => {
-    expect(serverTeamWhere(WORKSPACE_ADMIN, "manage")).toEqual({ teamId: "team_a" });
+
+describe("serverProfileTeamWhere", () => {
+  it("lets administrators change any server they can see", () => {
+    expect(serverProfileTeamWhere(ADMIN)).toEqual({});
+    expect(serverProfileTeamWhere(ADMIN_IN_TEAM)).toEqual({ teamId: "team_a" });
+  });
+
+  it("limits customer accounts to servers their customer added", () => {
+    expect(serverProfileTeamWhere(MEMBER)).toEqual({
+      AND: [serverTeamWhere(MEMBER, "manage"), { origin: "CUSTOMER" }],
+    });
+  });
+});
+
+describe("serverOriginData", () => {
+  it("records platform servers for administrators and system callers", () => {
+    expect(serverOriginData(ADMIN_IN_TEAM)).toEqual({ origin: "PLATFORM", addedById: "u_admin" });
+    expect(serverOriginData({})).toEqual({ origin: "PLATFORM", addedById: null });
+  });
+
+  it("records customer servers for customer accounts", () => {
+    expect(serverOriginData(MEMBER)).toEqual({ origin: "CUSTOMER", addedById: "u_member" });
   });
 });
 
@@ -139,7 +161,7 @@ describe("userDirectoryWhere", () => {
     expect(userDirectoryWhere(MEMBER)).toEqual({
       OR: [
         { id: "u_member" },
-        { teamMemberships: { some: { teamId: "team_a" } } },
+        { teamMembership: { is: { teamId: "team_a" } } },
       ],
     });
   });

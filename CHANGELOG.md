@@ -6,6 +6,26 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Changed
 
+- **Workspaces became customers with identity templates.** VControlHub now serves several customers from one platform. Platform administrators (role `admin`) belong to no customer and switch between one customer or "all customers"; every other account belongs to exactly one customer and takes its permissions only from the identity template on that membership (built-ins: customer admin, operator, read-only, files only; administrators may add their own). Workspace owner/admin/member roles, access roles, policy groups, account templates, ownership transfer and the `team:create` / `team:member:manage` permissions are gone. Accounts are created by administrators in one step (account type, customer, template). Migration `20261011090000_customer_identity_templates` converts existing data; see `docs/multi-tenant.md`.
+- New `/customers` page: customer list with member/server/storage counts, customer accounts and their templates, delete with a typed-name confirmation, restore of deleted customers (`Team.deletedAt` replaces the `__deleted__` slug tombstone), identity-template management.
+- Per-server and per-storage rows now narrow a customer account: without a row the template applies to all of the customer's servers or the whole node; a row with every flag cleared blocks it.
+
+### Added
+
+- Server origin: servers record whether the platform assigned them or a customer added them (`Server.origin`, `addedById`). Customer accounts can edit, enable/disable and delete only their own servers; platform servers show as read-only with a notice.
+- Administrators can move a server to another customer (`POST /api/servers/[id]/transfer`) with its storage node, metric history, quick services and backups. The move is refused while the old customer still has shares, image uploads, schedules, alert rules, playbooks, sync jobs or unfinished commands/downloads on it.
+- Notifications carry their customer: administrators see the customer name, and opening one from another customer switches to it first. Server cards and storage nodes also show the customer to administrators.
+
+### Fixed
+
+- Status summaries and the lazy storage health probe excluded retired storage by the old `__deleted__` slug prefix, so storage of a customer deleted after the migration (`Team.deletedAt`) kept raising health warnings and being probed. Both now use the shared `liveCustomerRowsWhere()` filter.
+- Changing an account to a customer account removed its roles before validating the customer and template, and outside the membership transaction; a failure left an account with neither. The checks now run first and both writes share one transaction.
+- Built-in identity templates are created by the seed when missing (databases built with `prisma db push` never ran the migration that inserted them), so creating a customer account no longer fails there.
+- Schema/migration naming drift: 33 constraint and index names left over from early table renames are aligned by an idempotent migration (`20261011110000_constraint_names`); `prisma migrate diff` is now empty.
+- Installer: Caddy comes from the distribution where available and falls back to the upstream repository on Ubuntu 22.04 / Debian 11, which do not package it.
+
+### Changed
+
 - VPS 管理页按钮布局归位：问 AI 从每张服务器卡片移到页面顶部操作区（前往部署旁，带 ai:chat 权限门控与舰队级预填提示）；Windows 卡片的远程桌面按钮不再独占一整行——折叠卡上改为与 查看详情 同排的紧凑按钮，详情弹窗中移到底部管理操作区（与 编辑/停用/删除 同区），与 Linux 卡片的 SSH 终端按钮位置一致。详情弹窗底部区块沿用 Linux 弹窗的 `canManageServers || canUseSshTerminal` 门控：仅持 server:ssh 的用户在弹窗中同样保留远程桌面与 OpenSSH shell 入口（此前误挂 canManageServers，折叠卡可见而弹窗内消失）。
 - undici pinned to 8.11.2 — a batch of high-severity advisories against ≤8.10.1 (WebSocket decompression DoS, RetryHandler orphaned-body DoS, TLS validation bypass in BalancedPool, unsafe-method cache replay, and others) tripped the CI dependency-audit gate.
 

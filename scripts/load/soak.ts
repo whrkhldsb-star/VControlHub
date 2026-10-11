@@ -55,7 +55,7 @@ async function main() {
  let timer: ReturnType<typeof setInterval> | undefined;
  try {
   await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "fixture-unused" } });
-  await prisma.team.create({ data: { id: prefix, slug: prefix, name: prefix, ownerId: prefix } });
+  await prisma.team.create({ data: { id: prefix, slug: prefix, name: prefix } });
   await prisma.server.createMany({ data: Array.from({ length: 525 }, (_, index) => ({ id: `${prefix}-${index}`, name: `Node ${index}`, host: "192.0.2.1", username: "fixture", teamId: prefix, enabled: false, tags: [prefix] })) });
   await prisma.job.createMany({ data: Array.from({ length: concurrency }, (_, index) => ({ id: `${prefix}-job-${index}`, type: `${prefix}-${index}`, title: prefix, payload: {}, teamId: prefix })) });
   const started = performance.now();

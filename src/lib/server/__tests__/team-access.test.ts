@@ -83,18 +83,17 @@ describe("assertServerTeamAccess", () => {
     expect((await assertServerTeamAccess(session, "server_1", "fileWrite")).ok).toBe(true);
   });
 
-  it("does not apply member-level overrides to a workspace administrator", async () => {
+  it("narrows every customer account by its per-server rows, whatever its template", async () => {
     serverFindUniqueMock.mockResolvedValue({ id: "server_1", teamId: "team_1" });
     userServerAccessFindUniqueMock.mockResolvedValue({ canManage: false });
     const result = await assertServerTeamAccess({
-      userId: "workspace_admin",
-      username: "workspace-admin",
-      roles: ["viewer"],
-      permissions: ["team:member:manage", "server:write"],
+      userId: "customer_admin",
+      username: "customer-admin",
+      roles: [],
+      permissions: ["server:write", "server:ssh"],
       mustChangePassword: false,
       currentTeamId: "team_1",
     }, "server_1", "manage");
-    expect(result.ok).toBe(true);
-    expect(userServerAccessFindUniqueMock).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
   });
 });

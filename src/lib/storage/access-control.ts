@@ -1,10 +1,9 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 
-import { config } from "@/lib/config/env";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { isWorkspaceTeamManager, storageNodeTeamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
@@ -122,10 +121,6 @@ async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: st
   return usage._sum.size ?? BigInt(0);
 }
 
-function isLegacyGrantFallbackEnabled() {
-  return config.storage.grantFallback;
-}
-
 export async function assertStorageAccess(input: {
   session: SessionPayload;
   storageNodeId: string;
@@ -151,11 +146,10 @@ export async function assertStorageAccess(input: {
     return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.noAccess };
   }
 
-  // Workspace owners/admins bypass member path grants even when a bearer token
-  // intentionally carries only the requested file operation. The permission
-  // check above still limits a token to read, write, or delete as scoped.
+  // Administrators and node managers are not narrowed by path grants. The
+  // permission check above still limits a token to the operation it carries.
   if (
-    isWorkspaceTeamManager(input.session)
+    isGlobalTeamManager(input.session)
     || sessionHasPermission(input.session, "storage:manage-node")
   ) {
     return { allowed: true };
@@ -174,11 +168,10 @@ export async function assertStorageAccess(input: {
     grantCursor = page.length === 500 ? { id: page[page.length - 1]!.id } : undefined;
   } while (grantCursor);
 
+  // Path grants narrow a customer account, like per-server rows: without any
+  // grant on this node the identity template's permissions apply to all of it.
   if (grants.length === 0) {
-    if (isLegacyGrantFallbackEnabled()) {
-      return { allowed: true };
-    }
-    return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.noAccess };
+    return { allowed: true };
   }
 
   const targetPath = normalizeAccessPath(input.relativePath);
@@ -262,7 +255,7 @@ export async function getStorageAccessCapabilities(input: {
   const canRoleRead = sessionHasPermission(input.session, "storage:read");
   const canRoleWrite = sessionHasPermission(input.session, "storage:write");
   const canRoleDelete = sessionHasPermission(input.session, "storage:delete");
-  const bypassMemberGrants = isWorkspaceTeamManager(input.session)
+  const bypassMemberGrants = isGlobalTeamManager(input.session)
     || sessionHasPermission(input.session, "storage:manage-node");
 
   const uniqueTargets = new Map<string, { storageNodeId: string; relativePath: string }>();
@@ -330,15 +323,11 @@ export async function getStorageAccessCapabilities(input: {
     grantsByNode.set(grant.storageNodeId, rows);
   }
 
-  const legacyFallback = isLegacyGrantFallbackEnabled();
   for (const [key, target] of uniqueTargets) {
     const nodeGrants = grantsByNode.get(target.storageNodeId) ?? [];
+    // No grant on the node: not narrowed, the template's permissions apply.
     if (nodeGrants.length === 0) {
-      result.set(key, {
-        canRead: canRoleRead && legacyFallback,
-        canWrite: canRoleWrite && legacyFallback,
-        canDelete: canRoleDelete && legacyFallback,
-      });
+      result.set(key, { canRead: canRoleRead, canWrite: canRoleWrite, canDelete: canRoleDelete });
       continue;
     }
 

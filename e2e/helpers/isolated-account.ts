@@ -42,13 +42,13 @@ export async function createIsolatedE2eAccount() {
 			 FROM teams t
 			 LEFT JOIN "StorageNode" sn
 			   ON sn."teamId" = t.id AND sn.id = 'node_local_default'
-			 WHERE t.slug NOT LIKE '__deleted__%'
+			 WHERE t."deletedAt" IS NULL
 			 ORDER BY (sn.id IS NOT NULL) DESC, t."createdAt" ASC
 			 LIMIT 1`,
 		);
 		const teamId = workspace.rows[0]?.id;
 		if (!teamId) {
-			throw new Error("Seeded workspace is required for isolated E2E accounts");
+			throw new Error("A seeded customer is required for isolated E2E accounts");
 		}
 		await client.query(
 			`INSERT INTO "User" (id, username, "displayName", "passwordHash", status, "mustChangePassword", "currentTeamId", "createdAt", "updatedAt")
@@ -63,12 +63,6 @@ export async function createIsolatedE2eAccount() {
 			 WHERE u.username = $1 AND r.key = 'admin'
 			 ON CONFLICT ("userId", "roleId") DO NOTHING`,
 			[ISOLATED_E2E_USERNAME],
-		);
-		await client.query(
-			`INSERT INTO team_members ("teamId", "userId", role, "accessRole", "joinedAt")
-			 SELECT $2, u.id, 'admin', 'inherit', NOW() FROM "User" u WHERE u.username = $1
-			 ON CONFLICT ("teamId", "userId") DO UPDATE SET role = 'admin', "accessRole" = 'inherit', "permissionTemplateId" = NULL`,
-			[ISOLATED_E2E_USERNAME, teamId],
 		);
 		await client.query(
 			`INSERT INTO servers (id, name, host, port, username, password, tags, enabled, "connectionType", "teamId", "createdAt", "updatedAt")

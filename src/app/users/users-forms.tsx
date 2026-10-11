@@ -7,33 +7,20 @@ import { ActionButton } from "@/components/action-button";
 import { Dialog } from "@/components/ui/dialog";
 
 import { Chip } from "@/components/ui-primitives";
-export const ROLE_KEYS = ["admin","operator","storage_manager","viewer"] as const;
-export type RoleKey = (typeof ROLE_KEYS)[number];
+import { identityTemplateName } from "@/lib/auth/identity-templates";
 /** Subset of StatusBadge's StatusTone that the users page uses. */
-export type Tone ="accent" |"success" |"warning" |"danger" |"neutral";
-
-/** Roles are labels, not states: only the administrator role stands out. */
-export const ROLE_COLORS: Record<RoleKey, "accent" | "neutral"> = {
-  admin: "accent",
-  operator: "neutral",
-  storage_manager: "neutral",
-  viewer: "neutral",
-};
-
-export function roleBadgeTone(key: string): "accent" | "neutral" {
-  return (ROLE_COLORS as Record<string, "accent" | "neutral">)[key] ?? "neutral";
-}
+export type Tone = "accent" | "success" | "warning" | "danger" | "neutral";
 
 export function statusTone(status: string): Tone {
-  if (status ==="ACTIVE") return"success";
-  if (status ==="DISABLED") return"danger";
-  return"warning";
+  if (status === "ACTIVE") return "success";
+  if (status === "DISABLED") return "danger";
+  return "warning";
 }
 
 export function statusLabel(status: string, t: (k: string, vars?: Record<string, string | number>) => string) {
-  if (status ==="ACTIVE") return t("usersPage.status.active");
-  if (status ==="DISABLED") return t("usersPage.status.disabled");
-  if (status ==="PENDING_PASSWORD_RESET") return t("usersPage.status.pending");
+  if (status === "ACTIVE") return t("usersPage.status.active");
+  if (status === "DISABLED") return t("usersPage.status.disabled");
+  if (status === "PENDING_PASSWORD_RESET") return t("usersPage.status.pending");
   return status;
 }
 
@@ -41,8 +28,13 @@ export type CreateUserFormState = {
   username: string;
   displayName: string;
   password: string;
-  roleKeys: string[];
+  accountType: "customer" | "admin";
+  teamId: string;
+  identityTemplateId: string;
 };
+
+export type CustomerOption = { id: string; name: string };
+export type IdentityTemplateOption = { id: string; name: string; isBuiltin: boolean };
 
 export function UsersCreateForm({
   t,
@@ -50,14 +42,16 @@ export function UsersCreateForm({
   setCreateForm,
   creating,
   onSubmit,
-  onToggleRole,
+  customers,
+  templates,
 }: {
   t: (k: string, vars?: Record<string, string | number>) => string;
   createForm: CreateUserFormState;
   setCreateForm: React.Dispatch<React.SetStateAction<CreateUserFormState>>;
   creating: boolean;
   onSubmit: () => void;
-  onToggleRole: (roleKey: string) => void;
+  customers: CustomerOption[];
+  templates: IdentityTemplateOption[];
 }) {
   return (
     <SurfacePanel className="mb-6" title={t("usersPage.action.create")}>
@@ -104,23 +98,35 @@ export function UsersCreateForm({
         </div>
       </div>
       <div>
-        <label className="ui-label mb-2 block">{t("usersPage.form.roles")}</label>
-        <div className="flex flex-wrap gap-2">
-          {ROLE_KEYS.map((key) => (
-            <Chip
-              key={key}
-              selected={createForm.roleKeys.includes(key)}
-              onClick={() => onToggleRole(key)}
-            >
-              {t(`usersPage.role.${key}`)}
+        <span className="ui-label mb-2 block">{t("usersPage.form.accountType")}</span>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("usersPage.form.accountType")}>
+          {(["customer", "admin"] as const).map((type) => (
+            <Chip key={type} selected={createForm.accountType === type} onClick={() => setCreateForm((p) => ({ ...p, accountType: type }))}>
+              {t(`usersPerm.account.type.${type}`)}
             </Chip>
           ))}
         </div>
       </div>
+      {createForm.accountType === "customer" && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="ui-label mb-1 block" htmlFor="createUserCustomer">{t("usersPerm.account.customer")}</label>
+            <select id="createUserCustomer" value={createForm.teamId} onChange={(e) => setCreateForm((p) => ({ ...p, teamId: e.target.value }))} className={cn(UI_INPUT)}>
+              {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="ui-label mb-1 block" htmlFor="createUserTemplate">{t("usersPerm.account.template")}</label>
+            <select id="createUserTemplate" value={createForm.identityTemplateId} onChange={(e) => setCreateForm((p) => ({ ...p, identityTemplateId: e.target.value }))} className={cn(UI_INPUT)}>
+              {templates.map((template) => <option key={template.id} value={template.id}>{identityTemplateName(template, t)}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
       <ActionButton
         variant="primary"
         onClick={onSubmit}
-        disabled={creating || !createForm.username || !createForm.password}>
+        disabled={creating || !createForm.username || !createForm.password || (createForm.accountType === "customer" && !createForm.teamId)}>
         {creating ? t("usersPage.action.creating") : t("usersPage.action.confirm")}
       </ActionButton>
     </SurfacePanel>

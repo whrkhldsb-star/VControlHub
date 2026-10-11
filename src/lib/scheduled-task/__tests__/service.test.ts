@@ -369,7 +369,7 @@ describe("scheduled task service", () => {
         },
         teamSession,
       ),
-    ).rejects.toThrow(/outside your team scope/);
+    ).rejects.toThrow(/outside your customer scope/);
     expect(mockPrisma.scheduledTask.create).not.toHaveBeenCalled();
   });
 
@@ -382,7 +382,7 @@ describe("scheduled task service", () => {
         { serverIds: ["foreign-srv"] },
         teamSession,
       ),
-    ).rejects.toThrow(/outside your team scope/);
+    ).rejects.toThrow(/outside your customer scope/);
     expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
   });
 

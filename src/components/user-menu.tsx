@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Account menu at the foot of the sidebar: who is signed in, the workspace,
+ * Account menu at the foot of the sidebar: who is signed in, the customer,
  * personal settings, appearance and sign-out — everything that used to be a
  * stack of separate rows under the navigation.
  */
@@ -13,7 +13,6 @@ import { useOptionalTheme } from "@/lib/theme/use-theme";
 import { cn } from "@/lib/ui/cn";
 import { ChangePasswordModal } from "./change-password-modal";
 import { SignOutButton } from "./sign-out-button";
-import { TeamSwitcher } from "./team-switcher";
 import { useDismiss } from "./ui/menu";
 import {
 	IconChevronsUpDown,
@@ -145,7 +144,6 @@ export function UserMenu({
 						<div className="text-[11px] text-[var(--text-muted)]">{t("shell.user.signedInAs")}</div>
 						<div className="truncate text-sm font-semibold text-[var(--text-primary)]">{username}</div>
 					</div>
-					<TeamSwitcher />
 					<div data-menu-separator />
 					<Link href="/account/security" onClick={close} data-menu-item>
 						<IconShield size={16} />

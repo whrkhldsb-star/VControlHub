@@ -134,35 +134,25 @@ describe("session auth helpers", () => {
     expect(() => assertSessionCredentialBinding(JSON.parse(serialized), row)).toThrow();
   });
 
-  it("resolves the direct grants of a custom role into session.permissions", async () => {
+  it("derives a customer account's permissions from its identity template only", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       id: "u_1",
       username: "alice",
       status: "ACTIVE",
       mustChangePassword: false,
-      teamMemberships: [{ teamId: "team_1", role: "member", accessRole: "inherit", team: { slug: "ops" } }],
+      teamMembership: { teamId: "team_1", team: { deletedAt: null }, identityTemplate: { permissions: ["docker:manage", "storage:read", "user:manage"] } },
       passwordHash: "$2b$10$originalhash",
-      roles: [{ role: { key: "viewer" } }, { role: { key: "user:u_1:custom" } }],
+      // Leftover account roles grant nothing to a customer account.
+      roles: [{ role: { key: "operator" } }],
     } as any);
-    vi.mocked(prisma.rolePermission.findMany).mockResolvedValueOnce([
-      { permission: { key: "docker:manage" } },
-    ] as any);
-    const token = await createSessionToken({
-      userId: "u_1",
-      username: "alice",
-      roles: ["viewer"],
-      mustChangePassword: false,
-      currentTeamId: "team_1",
-    });
+    const token = await createSessionToken({ userId: "u_1", username: "alice", roles: ["operator"], mustChangePassword: false, currentTeamId: "team_1" });
 
     const session = await verifySessionToken(token);
 
-    // Without this the permission panel's saved grants were persisted and shown
-    // back to the admin, but never honoured by sessionHasPermission.
-    expect(session.permissions).toContain("docker:manage");
-    expect(session.permissions).toContain("storage:read");
-    // The synthetic per-user role is not a RoleKey and stays out of the list.
-    expect(session.roles).toEqual(["viewer"]);
+    expect(session.permissions).toEqual(expect.arrayContaining(["docker:manage", "storage:read", "team:read", "user:read"]));
+    // Platform-only permissions are never granted through a template.
+    expect(session.permissions).not.toContain("user:manage");
+    expect(session.permissions).not.toContain("server:write");
   });
 
   it("rejects signed sessions for disabled users", async () => {
@@ -281,132 +271,78 @@ describe("session auth helpers", () => {
     await expect(verifySessionToken(legacy)).rejects.toThrow(/credentials have changed|会话凭据已变更/i);
   });
 
-  it("keeps currentTeamId while the membership behind it is live", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      id: "u_1",
-      username: "alice",
-      status: "ACTIVE",
-      mustChangePassword: false,
-      teamMemberships: [{ teamId: "team_1", team: { slug: "ops" } }],
-      passwordHash: "$2b$10$originalhash",
-      roles: [{ role: { key: "viewer" } }],
-    } as any);
-    const token = await createSessionToken({
-      userId: "u_1",
-      username: "alice",
-      roles: ["viewer"],
-      mustChangePassword: false,
-      currentTeamId: "team_1",
-    });
+  const customerRow = (teamMembership: unknown) => ({
+    id: "u_1",
+    username: "alice",
+    status: "ACTIVE",
+    mustChangePassword: false,
+    teamMembership,
+    passwordHash: "$2b$10$originalhash",
+    roles: [],
+  });
+  const customerToken = (currentTeamId: string | null) =>
+    createSessionToken({ userId: "u_1", username: "alice", roles: [], mustChangePassword: false, currentTeamId });
 
-    await expect(verifySessionToken(token)).resolves.toMatchObject({
-      currentTeamId: "team_1",
-    });
+  it("keeps a customer account inside its own customer whatever the cookie selects", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(customerRow({ teamId: "team_1", team: { deletedAt: null }, identityTemplate: { permissions: ["server:read"] } }) as any);
+    await expect(verifySessionToken(await customerToken("team_2"))).resolves.toMatchObject({ currentTeamId: "team_1" });
+    await expect(verifySessionToken(await customerToken(null))).resolves.toMatchObject({ currentTeamId: "team_1" });
   });
 
-  it("drops currentTeamId when the membership behind it is gone", async () => {
-    // The cookie retains its selection, but removal must revoke its access.
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      id: "u_1",
-      username: "alice",
-      status: "ACTIVE",
-      mustChangePassword: false,
-      teamMemberships: [],
-      passwordHash: "$2b$10$originalhash",
-      roles: [{ role: { key: "viewer" } }],
-    } as any);
-    const token = await createSessionToken({
-      userId: "u_1",
-      username: "alice",
-      roles: ["viewer"],
-      mustChangePassword: false,
-      currentTeamId: "team_1",
-    });
-
-    await expect(verifySessionToken(token)).resolves.toMatchObject({
+  it("revokes a customer account's access once its membership is gone", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(customerRow(null) as any);
+    await expect(verifySessionToken(await customerToken("team_1"))).resolves.toMatchObject({
       currentTeamId: null,
+      permissions: ["user:read"],
     });
   });
 
-  it("lets a platform admin select a live workspace without becoming a member", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      id: "u_1", username: "admin", status: "ACTIVE", mustChangePassword: false,
-      teamMemberships: [], passwordHash: "$2b$10$originalhash",
-      roles: [{ role: { key: "admin" } }],
-    } as any);
-    vi.mocked(prisma.team.findUnique).mockResolvedValueOnce({ id: "team_1", slug: "ops" } as any);
-    const token = await createSessionToken({
-      userId: "u_1", username: "admin", roles: ["admin"], mustChangePassword: false, currentTeamId: "team_1",
+  it("revokes a customer account's access once its customer is deleted", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(customerRow({ teamId: "team_1", team: { deletedAt: new Date() }, identityTemplate: { permissions: ["server:read"] } }) as any);
+    await expect(verifySessionToken(await customerToken("team_1"))).resolves.toMatchObject({
+      currentTeamId: null,
+      permissions: ["user:read"],
     });
-    await expect(verifySessionToken(token)).resolves.toMatchObject({ currentTeamId: "team_1" });
-
-    vi.mocked(prisma.team.findUnique).mockResolvedValueOnce({ id: "team_1", slug: "__deleted__ops" } as any);
-    await expect(verifySessionToken(token)).resolves.toMatchObject({ currentTeamId: null });
   });
 
-  it("scopes the membership probe to the session user in one round trip", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      id: "u_1",
-      username: "alice",
-      status: "ACTIVE",
-      mustChangePassword: false,
-      teamMemberships: [{ teamId: "team_1", team: { slug: "ops" } }],
-      passwordHash: "$2b$10$originalhash",
-      roles: [{ role: { key: "viewer" } }],
-    } as any);
-    const token = await createSessionToken({
-      userId: "u_1",
-      username: "alice",
-      roles: ["viewer"],
-      mustChangePassword: false,
-      currentTeamId: "team_1",
-    });
-
-    // Only count what verification itself queries; minting the token reads the
-    // credential owner too.
+  it("reads the membership in the same user lookup", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(customerRow({ teamId: "team_1", team: { deletedAt: null }, identityTemplate: { permissions: ["server:read"] } }) as any);
+    const token = await customerToken("team_1");
+    // Only count what verification itself queries; minting reads the owner too.
     vi.mocked(prisma.user.findUnique).mockClear();
 
     await verifySessionToken(token);
 
-    // The probe rides along in the user lookup and filters by the cookie's
-    // selected workspace; the parent user lookup supplies the userId.
     expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
     const arg = vi.mocked(prisma.user.findUnique).mock.calls[0]?.[0] as any;
-    expect(arg.select.teamMemberships).toMatchObject({
-      where: { teamId: "team_1" },
-      take: 1,
-    });
+    expect(arg.select.teamMembership.select).toMatchObject({ teamId: true, identityTemplate: { select: { permissions: true } } });
   });
 
-  it("keeps each browser's selected workspace independent of the login preference", async () => {
-    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: any) => {
-      const requested = args.select?.teamMemberships?.where?.teamId;
-      return {
-        id: "u_1",
-        username: "alice",
-        status: "ACTIVE",
-        mustChangePassword: false,
-        passwordHash: "$2b$10$originalhash",
-        roles: [{ role: { key: "viewer" } }],
-        currentTeamId: "team_2",
-        teamMemberships: requested === "team_1" || requested === "team_2"
-          ? [{ teamId: requested, team: { slug: requested } }]
-          : [],
-      } as any;
-    }) as any);
-    const base = { userId: "u_1", username: "alice", roles: ["viewer"] as const, mustChangePassword: false };
-    const first = await createSessionToken({ ...base, roles: [...base.roles], currentTeamId: "team_1" });
-    const second = await createSessionToken({ ...base, roles: [...base.roles], currentTeamId: "team_2" });
+  it("lets a platform admin select any live customer, or all customers, per browser", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "u_1", username: "admin", status: "ACTIVE", mustChangePassword: false,
+      teamMembership: null, passwordHash: "$2b$10$originalhash",
+      roles: [{ role: { key: "admin" } }],
+    } as any);
+    vi.mocked(prisma.team.findUnique).mockImplementation((async (args: any) => (
+      args.where.id === "team_gone" ? { id: "team_gone", deletedAt: new Date() } : { id: args.where.id, deletedAt: null }
+    )) as any);
+    const base = { userId: "u_1", username: "admin", roles: ["admin" as const], mustChangePassword: false };
+    const first = await createSessionToken({ ...base, currentTeamId: "team_1" });
+    const second = await createSessionToken({ ...base, currentTeamId: "team_2" });
     expect((await verifySessionToken(first)).currentTeamId).toBe("team_1");
     expect((await verifySessionToken(second)).currentTeamId).toBe("team_2");
 
     const rotated = await reissueSessionForTeam(first, "team_2");
     expect(rotated.maxAge).toBeGreaterThan(0);
     expect((await verifySessionToken(rotated.token)).currentTeamId).toBe("team_2");
-    expect((await verifySessionToken(second)).currentTeamId).toBe("team_2");
 
-    const cleared = await reissueSessionForTeam(rotated.token, null);
-    expect((await verifySessionToken(cleared.token)).currentTeamId).toBeNull();
+    const allCustomers = await reissueSessionForTeam(rotated.token, null);
+    expect((await verifySessionToken(allCustomers.token)).currentTeamId).toBeNull();
+
+    // A deleted customer falls back to "all customers".
+    const deleted = await createSessionToken({ ...base, currentTeamId: "team_gone" });
+    expect((await verifySessionToken(deleted)).currentTeamId).toBeNull();
   });
 
   it("round-trips a pending 2FA token and never accepts it as a full session", async () => {

@@ -4,7 +4,6 @@ import type { RoleKey } from "@/lib/auth/rbac";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     sessionHasPermission: vi.fn(),
-    resolveEffectivePermissions: vi.fn(),
     prisma: {
 		user: {
 			findUnique: vi.fn(),
@@ -23,14 +22,10 @@ vi.mock("@/lib/auth/authorization", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: mocks.prisma,
 }));
-vi.mock("@/lib/auth/effective-permissions", () => ({
-	resolveEffectivePermissions: mocks.resolveEffectivePermissions,
-}));
 
 const {
   assertUserInActorScope,
   isGlobalTeamManager,
-  userHoldsTeamManage,
   userDirectoryWhere,
 } = await import("@/lib/auth/team-scope");
 
@@ -52,18 +47,6 @@ describe("user directory team scope", () => {
     expect(userDirectoryWhere(session)).toEqual({});
   });
 
-	it("reserves global team management for the built-in admin role", async () => {
-		mocks.prisma.user.findUnique.mockResolvedValue({
-			roles: [
-				{ role: { key: "viewer" } },
-				{ role: { key: "user:target:custom" } },
-			],
-		});
-		await expect(userHoldsTeamManage("target")).resolves.toBe(false);
-		mocks.prisma.user.findUnique.mockResolvedValue({ roles: [{ role: { key: "admin" } }] });
-		await expect(userHoldsTeamManage("target")).resolves.toBe(true);
-	});
-
   it("scopes list to current team members + self", () => {
     mocks.sessionHasPermission.mockReturnValue(false);
     expect(
@@ -75,7 +58,7 @@ describe("user directory team scope", () => {
     ).toEqual({
       OR: [
         { id: "u1" },
-        { teamMemberships: { some: { teamId: "team-a" } } },
+        { teamMembership: { is: { teamId: "team-a" } } },
       ],
     });
   });

@@ -2,6 +2,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { ForbiddenError } from "@/lib/errors";
 import type { Permission, RoleKey } from "./rbac";
 import { getPermissionsFromRoles } from "./rbac";
+import { PLATFORM_ONLY_PERMISSIONS } from "./identity-templates";
 import { requireSession } from "./require-session";
 
 // Re-export for backwards compat — existing consumers (require-api-permission.ts,
@@ -13,19 +14,10 @@ export function sessionHasPermission(
 	session: { roles: RoleKey[]; permissions?: Permission[] },
 	permission: Permission,
 ) {
-	// Cross-workspace access is a platform role, never a delegable direct grant.
-	// In particular a bearer token carries roles: [] and cannot inherit it.
-	if (permission === "team:manage") return session.roles?.includes("admin") === true;
-	// User credentials, global role assignments and role templates are shared
-	// across workspaces; team membership has its own scoped management API.
-	if (permission === "user:manage" || permission === "role:manage" || permission === "announcement:manage") {
-		return session.roles?.includes("admin") === true;
-	}
-	// Hub backups contain the whole database and application files, including
-	// other tenants. A workspace permission or bearer token cannot own them.
-	if (permission === "backup:create" || permission === "backup:read" || permission === "backup:restore") {
-		return session.roles?.includes("admin") === true;
-	}
+	// Customers, accounts, identity templates, announcements and Hub backups
+	// (the whole database, every customer) belong to the platform role alone:
+	// no identity template or bearer token (roles: []) can carry them.
+	if (PLATFORM_ONLY_PERMISSIONS.has(permission)) return session.roles?.includes("admin") === true;
 	if (Array.isArray(session.permissions)) {
 		return session.permissions.includes(permission);
 	}

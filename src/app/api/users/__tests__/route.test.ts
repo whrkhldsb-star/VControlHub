@@ -11,7 +11,6 @@ const { mocks } = vi.hoisted(() => ({
     assertUserInActorScope: vi.fn(),
     userDirectoryWhere: vi.fn(),
     isGlobalTeamManager: vi.fn(),
-    userHoldsTeamManage: vi.fn(),
     prisma: {
       user: {
         findMany: vi.fn(),
@@ -33,6 +32,8 @@ const { mocks } = vi.hoisted(() => ({
         upsert: vi.fn(),
         findUnique: vi.fn(),
       },
+      team: { findUnique: vi.fn() },
+      identityTemplate: { findUnique: vi.fn() },
       setting: {
         findUnique: vi.fn(),
       },
@@ -59,7 +60,6 @@ vi.mock("@/lib/auth/team-scope", () => ({
   assertUserInActorScope: mocks.assertUserInActorScope,
   userDirectoryWhere: mocks.userDirectoryWhere,
   isGlobalTeamManager: mocks.isGlobalTeamManager,
-  userHoldsTeamManage: mocks.userHoldsTeamManage,
 }));
 vi.mock("@/lib/db", () => ({
   prisma: mocks.prisma,
@@ -87,11 +87,10 @@ describe("/api/users", () => {
     // these tests use an admin session, which a real isGlobalTeamManager call
     // would classify as global.
     mocks.isGlobalTeamManager.mockReturnValue(true);
-    mocks.userHoldsTeamManage.mockResolvedValue(false);
 		mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
 		mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
     mocks.userDirectoryWhere.mockReturnValue({
-      OR: [{ id: "admin1" }, { teamMemberships: { some: { teamId: "team-a" } } }],
+      OR: [{ id: "admin1" }, { teamMembership: { is: { teamId: "team-a" } } }],
     });
     mocks.prisma.$transaction.mockImplementation(async (callback) => callback(mocks.prisma));
     mocks.prisma.user.findUnique.mockResolvedValue(null);
@@ -101,163 +100,103 @@ describe("/api/users", () => {
       { id: "role-viewer", key: "viewer" },
       { id: "role-operator", key: "operator" },
     ]);
-    mocks.prisma.userRole.createMany.mockResolvedValue({ count: 2 });
-    mocks.prisma.teamMember.upsert.mockResolvedValue({ role: "member" });
+    mocks.prisma.role.findUnique.mockResolvedValue({ id: "role-admin" });
+    mocks.prisma.team.findUnique.mockResolvedValue({ deletedAt: null });
+    mocks.prisma.identityTemplate.findUnique.mockResolvedValue({ id: "identity:operator" });
   });
 
-  it("lists users with team directory where", async () => {
+  const post = (body: unknown) => new Request("http://local/api/users", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  it("lists the directory with each account's type, customer and identity template", async () => {
     mocks.prisma.user.findMany.mockResolvedValue([
       {
-        id: "user1",
-        username: "alice",
-        displayName: "Alice",
-        status: "ACTIVE",
-        mustChangePassword: false,
-        createdAt: new Date("2026-01-01"),
-        updatedAt: new Date("2026-01-01"),
-        roles: [{ role: { key: "viewer", name: "Viewer" } }],
+        id: "user1", username: "alice", displayName: "Alice", status: "ACTIVE", mustChangePassword: false,
+        createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
+        roles: [],
+        teamMembership: { team: { id: "team-a", name: "Acme", deletedAt: null }, identityTemplate: { id: "identity:operator", name: "客户运维", isBuiltin: true } },
+      },
+      {
+        id: "admin1", username: "root", displayName: null, status: "ACTIVE", mustChangePassword: false,
+        createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
+        roles: [{ role: { key: "admin" } }],
+        teamMembership: null,
       },
     ]);
+    mocks.prisma.user.count.mockResolvedValue(2);
 
-    mocks.prisma.user.count.mockResolvedValue(1);
     const res = await route.GET(new Request("http://local/api/users"));
+
     expect(res.status).toBe(200);
     expect(mocks.userDirectoryWhere).toHaveBeenCalledWith(session);
-    expect(mocks.prisma.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          OR: [{ id: "admin1" }, { teamMemberships: { some: { teamId: "team-a" } } }],
-        },
-      }),
-    );
-    expect(mocks.prisma.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        skip: 0,
-        take: 50,
-      }),
-    );
-    expect(mocks.prisma.user.count).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          OR: [{ id: "admin1" }, { teamMemberships: { some: { teamId: "team-a" } } }],
-        },
-      }),
-    );
-    await expect(res.json()).resolves.toEqual({
-      users: [
-        expect.objectContaining({
-          id: "user1",
-          roles: [{ key: "viewer", name: "Viewer" }],
-        }),
-      ],
-      total: 1,
-      page: 1,
-      pageSize: 50,
-      totalPages: 1,
+    expect(mocks.prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { OR: [{ id: "admin1" }, { teamMembership: { is: { teamId: "team-a" } } }] },
+      skip: 0,
+      take: 50,
+    }));
+    const body = await res.json();
+    expect(body).toMatchObject({ total: 2, page: 1, pageSize: 50, totalPages: 1 });
+    expect(body.users[0]).toMatchObject({
+      accountType: "customer",
+      customer: { id: "team-a", name: "Acme", deleted: false },
+      identityTemplate: { id: "identity:operator" },
     });
+    expect(body.users[0]).not.toHaveProperty("roles");
+    expect(body.users[1]).toMatchObject({ accountType: "admin", customer: null });
   });
 
-  it("creates users in one transaction and deduplicates role keys before assigning roles", async () => {
-    const req = new Request("http://local/api/users", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        username: " alice ",
-        displayName: " Alice Ops ",
-        password: "Secret123",
-        roleKeys: [" viewer ", "operator", "viewer", ""],
-      }),
-    });
-
-    const res = await route.POST(req);
+  it("creates a customer account with its membership in one write", async () => {
+    const res = await route.POST(post({
+      username: " alice ",
+      displayName: " Alice Ops ",
+      password: "Secret123",
+      account: { type: "customer", teamId: "team-a", identityTemplateId: "identity:operator" },
+    }));
 
     expect(res.status).toBe(200);
     expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(mocks.prisma.user.findUnique).toHaveBeenCalledWith({ where: { username: "alice" } });
     expect(mocks.prisma.user.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         username: "alice",
         displayName: "Alice Ops",
         passwordHash: "hashed-password",
+        mustChangePassword: true,
+        currentTeamId: "team-a",
+        teamMembership: { create: { teamId: "team-a", identityTemplateId: "identity:operator" } },
       }),
+      select: { id: true },
     });
-    expect(mocks.prisma.role.findMany).toHaveBeenCalledWith({
-      where: { key: { in: ["viewer", "operator"] } },
-      select: {
-        id: true,
-        key: true,
-        permissions: { select: { permission: { select: { key: true } } } },
-      },
-      take: 2,
-    });
-    expect(mocks.prisma.userRole.createMany).toHaveBeenCalledWith({
-      data: [
-        { userId: "user1", roleId: "role-viewer" },
-        { userId: "user1", roleId: "role-operator" },
-      ],
-      skipDuplicates: true,
-    });
-    expect(mocks.prisma.teamMember.upsert).toHaveBeenCalledWith({
-      where: { teamId_userId: { teamId: "team-a", userId: "user1" } },
-      update: {},
-      create: { teamId: "team-a", userId: "user1", role: "member" },
-    });
-    expect(mocks.prisma.userRole.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.user.create.mock.calls[0]![0].data).not.toHaveProperty("roles");
   });
 
-  it("rejects unknown requested roles before creating a user", async () => {
-    mocks.prisma.role.findMany.mockResolvedValue([{ id: "role-viewer", key: "viewer" }]);
-    const req = new Request("http://local/api/users", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        username: "bob",
-        password: "Secret123",
-        roleKeys: ["viewer", "missing-role"],
-      }),
-    });
+  it("creates a platform administrator without any customer", async () => {
+    const res = await route.POST(post({ username: "ops2", password: "Secret123", account: { type: "admin" } }));
 
-    const res = await route.POST(req);
+    expect(res.status).toBe(200);
+    const data = mocks.prisma.user.create.mock.calls[0]![0].data;
+    expect(data.roles).toEqual({ create: { roleId: "role-admin" } });
+    expect(data).not.toHaveProperty("teamMembership");
+  });
 
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/Role|角色/) });
+  it("refuses a customer account for a deleted customer or an unknown template", async () => {
+    mocks.prisma.team.findUnique.mockResolvedValueOnce({ deletedAt: new Date() });
+    const deleted = await route.POST(post({ username: "bob", password: "Secret123", account: { type: "customer", teamId: "team-gone" } }));
+    expect(deleted.status).toBe(404);
+
+    mocks.prisma.identityTemplate.findUnique.mockResolvedValueOnce(null);
+    const unknown = await route.POST(post({ username: "bob", password: "Secret123", account: { type: "customer", teamId: "team-a", identityTemplateId: "missing" } }));
+    expect(unknown.status).toBe(404);
     expect(mocks.prisma.user.create).not.toHaveBeenCalled();
-    expect(mocks.prisma.userRole.createMany).not.toHaveBeenCalled();
   });
 
-	it("does not let a delegated manager create an admin account", async () => {
-		mocks.isGlobalTeamManager.mockReturnValue(false);
-		mocks.prisma.role.findMany.mockResolvedValueOnce([{
-			id: "role-admin", key: "admin", permissions: [],
-		}]);
-		const response = await route.POST(new Request("http://local/api/users", {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ username: "escalated", password: "Secret123", roleKeys: ["admin"] }),
-		}));
-
-		expect(response.status).toBe(403);
-		expect(mocks.prisma.user.create).not.toHaveBeenCalled();
-	});
-
-	it("does not let a delegated manager assign a role beyond their own permissions", async () => {
-		mocks.isGlobalTeamManager.mockReturnValue(false);
-		mocks.requireApiPermission.mockResolvedValue({
-			session: { ...session, permissions: ["user:manage", "user:read"] },
-		});
-		mocks.prisma.role.findMany.mockResolvedValueOnce([{
-			id: "role-operator", key: "operator",
-			permissions: [{ permission: { key: "server:manage" } }],
-		}]);
-		const response = await route.POST(new Request("http://local/api/users", {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ username: "escalated", password: "Secret123", roleKeys: ["operator"] }),
-		}));
-
-		expect(response.status).toBe(403);
-		expect(mocks.prisma.user.create).not.toHaveBeenCalled();
-	});
+  it("requires an account type", async () => {
+    const res = await route.POST(post({ username: "bob", password: "Secret123" }));
+    expect(res.status).toBe(400);
+    expect(mocks.prisma.user.create).not.toHaveBeenCalled();
+  });
 
   it("scopes PATCH target lookup via assertUserInActorScope", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue({
@@ -297,22 +236,6 @@ describe("/api/users", () => {
     expect(mocks.prisma.user.findUnique).not.toHaveBeenCalled();
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
   });
-
-	it("blocks a delegated manager from resetting a globally privileged target", async () => {
-		mocks.isGlobalTeamManager.mockReturnValue(false);
-		mocks.userHoldsTeamManage.mockResolvedValue(true);
-		mocks.prisma.user.findUnique.mockResolvedValue({ id: "target", username: "privileged", status: "ACTIVE" });
-
-		const response = await route.PATCH(new Request("http://local/api/users", {
-			method: "PATCH",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ userId: "target", action: "reset_password", newPassword: "Secret123" }),
-		}));
-
-		expect(response.status).toBe(403);
-		expect(mocks.userHoldsTeamManage).toHaveBeenCalledWith("target");
-		expect(mocks.prisma.user.update).not.toHaveBeenCalled();
-	});
 
 	it("rejects a PATCH that carries no action instead of reporting success", async () => {
 		mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "ACTIVE" });

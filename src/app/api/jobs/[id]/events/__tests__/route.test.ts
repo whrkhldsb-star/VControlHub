@@ -38,8 +38,8 @@ describe("GET /api/jobs/[id]/events ownership scope", () => {
     expect(mocks.listJobEvents).toHaveBeenCalledWith({ jobId: "job-1", limit: undefined, beforeId: undefined });
   });
 
-  it("allows team managers to inspect jobs in their team scope", async () => {
-    mocks.requireApiPermission.mockResolvedValueOnce({ session: { userId: "admin-1", roles: ["admin"], currentTeamId: "team-1" } });
+  it("lets administrators viewing all customers inspect any job", async () => {
+    mocks.requireApiPermission.mockResolvedValueOnce({ session: { userId: "admin-1", roles: ["admin"], currentTeamId: null } });
     const response = await route.GET(new Request("http://local/api/jobs/job-1/events"), { params: Promise.resolve({ id: "job-1" }) });
     expect(response.status).toBe(200);
     expect(mocks.jobFindFirst).toHaveBeenCalledWith({ where: { id: "job-1" }, select: { id: true } });

@@ -1,19 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-/**
- * Tests for `src/lib/team/schema.ts`.
- *
- * The load-bearing rule is the slug regex `^[a-z0-9][a-z0-9-]*$`. Deleted teams
- * are tombstoned by rewriting their slug to `__deleted__<slug>` (see
- * `isDeletedTeamSlug` in the service), and `listTeamsForSession` filters those
- * out with a `startsWith` NOT clause. A slug that may begin with `_` would let a
- * caller create a team that every listing hides — so the regex is the first of
- * two guards, the service's own `isDeletedTeamSlug` check on create being the
- * second. Both are worth pinning; this file covers the schema half.
- */
+/** Tests for `src/lib/team/schema.ts` (customer request bodies). */
 import {
-	addTeamMemberSchema,
 	createTeamSchema,
+	setTeamMemberSchema,
 	switchTeamSchema,
 	updateTeamSchema,
 } from "../schema";
@@ -28,9 +18,7 @@ describe("createTeamSchema", () => {
 		expect(createTeamSchema.parse({ name: "Ops" })).toEqual({ name: "Ops" });
 	});
 
-	it("rejects a tombstone-shaped slug so a hidden team cannot be created", () => {
-		// `__deleted__*` slugs are filtered out of every team listing; a team
-		// wearing one would exist but be invisible in the UI.
+	it("rejects slugs starting with an underscore", () => {
 		expect(createTeamSchema.safeParse({ name: "Ghost", slug: "__deleted__ghost" }).success).toBe(false);
 		expect(createTeamSchema.safeParse({ name: "Ghost", slug: "_ops" }).success).toBe(false);
 	});
@@ -81,9 +69,8 @@ describe("updateTeamSchema", () => {
 		expect(updateTeamSchema.parse({ name: "New" })).toEqual({ name: "New" });
 	});
 
-	it("does not accept a slug, so a rename cannot escape the tombstone filter", () => {
-		// Slugs are immutable after creation; a smuggled one is stripped rather
-		// than applied.
+	it("does not accept a slug: slugs are immutable after creation", () => {
+		// A smuggled slug is stripped rather than applied.
 		const parsed = updateTeamSchema.parse({ name: "T", slug: "__deleted__x" } as never);
 		expect(parsed).not.toHaveProperty("slug");
 	});
@@ -94,28 +81,19 @@ describe("updateTeamSchema", () => {
 });
 
 describe("switchTeamSchema", () => {
-	it("requires a non-blank teamId", () => {
+	it("takes a customer id, or null for all customers, but never a blank id", () => {
 		expect(switchTeamSchema.parse({ teamId: " team_1 " })).toEqual({ teamId: "team_1" });
+		expect(switchTeamSchema.parse({ teamId: null })).toEqual({ teamId: null });
 		expect(switchTeamSchema.safeParse({ teamId: "   " }).success).toBe(false);
 		expect(switchTeamSchema.safeParse({}).success).toBe(false);
 	});
 });
 
-describe("addTeamMemberSchema", () => {
-	it("defaults the role to member rather than admin", () => {
-		// Getting this default wrong would silently promote every added member.
-		expect(addTeamMemberSchema.parse({ username: "alice" })).toEqual({ username: "alice", role: "member" });
-	});
-
-	it("accepts only admin or member", () => {
-		expect(addTeamMemberSchema.parse({ username: "a", role: "admin" }).role).toBe("admin");
-		for (const role of ["owner", "superadmin", "ADMIN", ""]) {
-			expect(addTeamMemberSchema.safeParse({ username: "a", role }).success).toBe(false);
-		}
-	});
-
-	it("requires a username", () => {
-		expect(addTeamMemberSchema.safeParse({ role: "member" }).success).toBe(false);
-		expect(addTeamMemberSchema.safeParse({ username: "  " }).success).toBe(false);
+describe("setTeamMemberSchema", () => {
+	it("requires the account and leaves the template optional", () => {
+		expect(setTeamMemberSchema.parse({ userId: "u1" })).toEqual({ userId: "u1" });
+		expect(setTeamMemberSchema.parse({ userId: "u1", identityTemplateId: "identity:viewer" }).identityTemplateId).toBe("identity:viewer");
+		expect(setTeamMemberSchema.safeParse({ identityTemplateId: "identity:viewer" }).success).toBe(false);
+		expect(setTeamMemberSchema.safeParse({ userId: "  " }).success).toBe(false);
 	});
 });

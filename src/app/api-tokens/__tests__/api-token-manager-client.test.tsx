@@ -34,7 +34,7 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read", "status:read"]} currentWorkspaceName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read", "status:read"]} currentCustomerName="Ops" />, { locale: "en" });
 
 		fireEvent.change(screen.getByLabelText("Token name"), { target: { value: "mobile" } });
 		fireEvent.click(screen.getByLabelText("status:read"));
@@ -57,7 +57,7 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentWorkspaceName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 
 		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
@@ -78,7 +78,7 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentWorkspaceName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
 		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));
@@ -95,7 +95,7 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentWorkspaceName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
 		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));

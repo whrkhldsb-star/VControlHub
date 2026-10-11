@@ -141,7 +141,7 @@ describe("createUserSchema", () => {
     const out = createUserSchema.parse({
       username: "alice",
       password: "Secret123",
-      roleKeys: ["viewer"],
+      account: { type: "customer", teamId: "team_1", identityTemplateId: "identity:viewer" },
     });
     expect(out.username).toBe("alice");
   });
@@ -167,13 +167,8 @@ describe("createUserSchema", () => {
     ).toThrow();
   });
 
-  it("roleKeys 接受空字符串数组 (route 负责去重)", () => {
-    const out = createUserSchema.parse({
-      username: "alice",
-      password: "Secret123",
-      roleKeys: ["viewer", ""],
-    });
-    expect(out.roleKeys).toEqual(["viewer", ""]);
+  it("缺少账号类型时拒绝", () => {
+    expect(() => createUserSchema.parse({ username: "alice", password: "Secret123" })).toThrow();
   });
 });
 

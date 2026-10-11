@@ -3,21 +3,32 @@ import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { removeTeamMember } from "@/lib/team/service";
+import { updateTeamMemberSchema } from "@/lib/team/schema";
+import { removeTeamMember, setCustomerMembership } from "@/lib/team/service";
 
 export const dynamic = "force-dynamic";
 
-export async function DELETE(
-	request: Request,
-	{ params }: { params: Promise<{ id: string; userId: string }> },
-) {
+type Params = { params: Promise<{ id: string; userId: string }> };
+
+/** Change the member's identity template. */
+export async function PATCH(request: Request, { params }: Params) {
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.remove.team.member.8a8fc863") },
+		{ permission: "team:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateTeamMemberSchema },
+		async ({ session, body }) => {
+			const { id, userId } = await params;
+			return NextResponse.json({ success: true, member: await setCustomerMembership({ teamId: id, userId, identityTemplateId: body.identityTemplateId }, session) });
+		},
+	);
+}
+
+export async function DELETE(request: Request, { params }: Params) {
+	return withApiRoute(
+		request,
+		{ permission: "team:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.remove.team.member.8a8fc863") },
 		async ({ session }) => {
 			const { id, userId } = await params;
 			await removeTeamMember(id, userId, session);
-			// Audit is recorded inside removeTeamMember (includes slug + removedUserId).
 			return NextResponse.json({ success: true });
 		},
 	);

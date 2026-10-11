@@ -101,9 +101,9 @@ describe("/api/images/stats", () => {
     expect(imageCountMock).toHaveBeenCalledWith({ where: { userId: "u_1" } });
   });
 
-  it("allows team managers to read fleet-wide image stats", async () => {
+  it("allows administrators viewing all customers to read fleet-wide image stats", async () => {
     vi.clearAllMocks();
-    requireApiSessionMock.mockResolvedValueOnce({ ...session, roles: ["admin"] });
+    requireApiSessionMock.mockResolvedValueOnce({ ...session, roles: ["admin"], currentTeamId: null });
     sessionHasPermissionMock.mockImplementation(
       (_session, permission) =>
         permission === "image:read" || permission === "team:manage",
@@ -148,7 +148,7 @@ describe("/api/images/stats", () => {
   ])("counts more than 5000 uploads without truncation in the $permission scope", async ({ permission, scope }) => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-08T12:00:00Z"));
-    requireApiSessionMock.mockResolvedValueOnce({ ...session, roles: permission === "team:manage" ? ["admin"] : [] });
+    requireApiSessionMock.mockResolvedValueOnce({ ...session, roles: permission === "team:manage" ? ["admin"] : [], currentTeamId: permission === "team:manage" ? null : session.currentTeamId });
     sessionHasPermissionMock.mockImplementation((_session, required) => required === "image:read" || required === permission);
     imageCountMock.mockImplementation(({ where }) => {
       const { createdAt, ...actualScope } = where;

@@ -244,7 +244,7 @@ describe("migration packages", () => {
       "migration-packages/mig-team123",
       tmp,
       { userId: "u2", roles: ["operator"], currentTeamId: "team-b" },
-    )).rejects.toThrow(/其他团队/);
+    )).rejects.toThrow(/其他客户/);
 
     manifest.source.teamId = null as unknown as string;
     await fs.writeFile(path.join(packageDir, "manifest.json"), JSON.stringify(manifest));

@@ -12,7 +12,7 @@ vi.mock("@/lib/storage/health", async (importOriginal) => ({
 	scheduleStorageNodeHealthProbe: vi.fn(),
 }));
 
-describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("retired workspace storage health", () => {
+describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("deleted customer storage health", () => {
 	const prefix = `status-${randomUUID()}`;
 	const activeTeam = `${prefix}-active`;
 	const deletedTeam = `${prefix}-deleted`;
@@ -28,9 +28,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("retired wor
 			throw new Error("Storage health regression requires an isolated database");
 		}
 		await prisma.team.createMany({ data: [
-			// LIKE treats underscores as wildcards; this is a live, valid slug.
-			{ id: activeTeam, name: prefix, slug: `abdeletedcd-${prefix}` },
-			{ id: deletedTeam, name: prefix, slug: `__deleted__${prefix}` },
+			{ id: activeTeam, name: prefix, slug: `live-${prefix}` },
+			{ id: deletedTeam, name: prefix, slug: `deleted-${prefix}`, deletedAt: checkedAt },
 		] });
 		await prisma.storageNode.createMany({ data: [
 			{ id: activeNode, name: prefix, driver: "LOCAL", basePath: "/unused-status-test", teamId: activeTeam, healthStatus: "HEALTHY", lastHealthCheckAt: checkedAt },

@@ -5,329 +5,175 @@ const { mocks } = vi.hoisted(() => ({
     requireApiPermission: vi.fn(),
     requireApiSession: vi.fn(),
     auditUserAction: vi.fn(),
-		assertAdminAccessMayBeRemoved: vi.fn(),
-		withAdminInvariantLock: vi.fn(),
-    assertUserInActorScope: vi.fn(),
-    isGlobalTeamManager: vi.fn(),
-    userHoldsTeamManage: vi.fn(),
-    teamWhere: vi.fn(),
+    setAccountType: vi.fn(),
+    listIdentityTemplates: vi.fn(),
     getStorageAccessUsage: vi.fn(),
     parseNullableBigIntInput: vi.fn((v) => v ?? null),
     prisma: {
-      user: {
-        findUnique: vi.fn(),
-      },
-      role: {
-        findMany: vi.fn(),
-        upsert: vi.fn(),
-      },
-      permission: {
-        findMany: vi.fn(),
-      },
-      storageNode: {
-        findMany: vi.fn(),
-      },
+      user: { findUnique: vi.fn() },
+      team: { findMany: vi.fn() },
+      teamMember: { findUnique: vi.fn() },
+      storageNode: { findMany: vi.fn() },
       server: { findMany: vi.fn() },
       userServerAccess: { deleteMany: vi.fn(), createMany: vi.fn() },
-      userRole: {
-        deleteMany: vi.fn(),
-        createMany: vi.fn(),
-        upsert: vi.fn(),
-      },
-      rolePermission: {
-        deleteMany: vi.fn(),
-        createMany: vi.fn(),
-      },
-      userStorageAccess: {
-        deleteMany: vi.fn(),
-        createMany: vi.fn(),
-      },
+      userStorageAccess: { deleteMany: vi.fn(), createMany: vi.fn() },
       $transaction: vi.fn(),
     },
   },
 }));
 
-vi.mock("@/lib/auth/require-api-permission", () => ({
-  requireApiPermission: mocks.requireApiPermission,
-}));
+vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession, isSessionPayload: (value: unknown) => !(value instanceof Response) }));
-vi.mock("@/lib/audit/service", () => ({
-  auditUserAction: mocks.auditUserAction,
-}));
-vi.mock("@/lib/user/admin-invariant", () => ({
-	assertAdminAccessMayBeRemoved: mocks.assertAdminAccessMayBeRemoved,
-	withAdminInvariantLock: mocks.withAdminInvariantLock,
-}));
-vi.mock("@/lib/auth/team-scope", () => ({
-  assertUserInActorScope: mocks.assertUserInActorScope,
-  isGlobalTeamManager: mocks.isGlobalTeamManager,
-  userHoldsTeamManage: mocks.userHoldsTeamManage,
-  teamWhere: mocks.teamWhere,
-}));
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
+vi.mock("@/lib/user/account-type", () => ({ setAccountType: mocks.setAccountType }));
+vi.mock("@/lib/auth/identity-template-service", () => ({ listIdentityTemplates: mocks.listIdentityTemplates }));
 vi.mock("@/lib/storage/access-control", () => ({
   getStorageAccessUsage: mocks.getStorageAccessUsage,
   parseNullableBigIntInput: mocks.parseNullableBigIntInput,
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
-vi.mock("@/lib/db", () => ({
-  prisma: mocks.prisma,
-}));
+vi.mock("@/lib/db", () => ({ prisma: mocks.prisma }));
 
 const route = await import("../route");
 
-const session = {
-  userId: "admin1",
-  username: "root",
-  roles: ["operator"] as const,
-  permissions: ["user:read", "team:member:manage"] as const,
-  mustChangePassword: false,
-  currentTeamId: "team-a",
-};
+const admin = { userId: "admin1", username: "root", roles: ["admin"] as const, mustChangePassword: false, currentTeamId: null };
+
+const patch = (body: unknown) => route.PATCH(new Request("http://local/api/users/permissions", {
+  method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+}));
 
 describe("/api/users/permissions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireApiPermission.mockResolvedValue({ session });
-    mocks.requireApiSession.mockResolvedValue(session);
-    mocks.assertUserInActorScope.mockResolvedValue(undefined);
-		mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
-		mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
-    mocks.isGlobalTeamManager.mockReturnValue(false);
-    mocks.userHoldsTeamManage.mockResolvedValue(false);
-    mocks.teamWhere.mockReturnValue({
-      teamId: "team-a",
-    });
+    mocks.requireApiPermission.mockResolvedValue({ session: admin });
+    mocks.requireApiSession.mockResolvedValue(admin);
     mocks.getStorageAccessUsage.mockResolvedValue(BigInt(0));
+    mocks.listIdentityTemplates.mockResolvedValue([
+      { id: "identity:operator", name: "客户运维", isBuiltin: true, permissions: ["server:read", "server:ssh"] },
+    ]);
     mocks.prisma.$transaction.mockImplementation(async (callback) => callback(mocks.prisma));
+    mocks.prisma.team.findMany.mockResolvedValue([{ id: "team-a", name: "Acme" }]);
+    mocks.prisma.storageNode.findMany.mockResolvedValue([{ id: "node-a" }]);
+    mocks.prisma.server.findMany.mockResolvedValue([]);
+    mocks.prisma.teamMember.findUnique.mockResolvedValue({ teamId: "team-a" });
     mocks.prisma.user.findUnique.mockResolvedValue({
       id: "user1",
       username: "alice",
       displayName: "Alice",
       roles: [],
-      teamMemberships: [],
+      teamMembership: {
+        teamId: "team-a",
+        team: { name: "Acme", deletedAt: null },
+        identityTemplateId: "identity:operator",
+        identityTemplate: { permissions: ["server:read", "server:ssh"] },
+      },
       storageAccess: [],
       serverAccess: [],
     });
-    mocks.prisma.role.findMany.mockResolvedValue([]);
-    mocks.prisma.permission.findMany.mockResolvedValue([]);
-    mocks.prisma.storageNode.findMany.mockResolvedValue([{ id: "node-a" }]);
-    mocks.prisma.server.findMany.mockResolvedValue([]);
   });
 
-  it("GET asserts target user is in actor team scope", async () => {
-    const res = await route.GET(
-      new Request("http://local/api/users/permissions?userId=user1"),
-    );
-    expect(res.status).toBe(200);
-    expect(mocks.assertUserInActorScope).toHaveBeenCalledWith(session, "user1");
-    expect(mocks.prisma.user.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "user1" },
-        select: expect.objectContaining({
-          // Storage nodes are security roots: for non-global actors only the
-          // current team's nodes are offered (null-team nodes quarantined).
-          storageAccess: expect.objectContaining({
-            where: { storageNode: { teamId: "team-a" } },
-          }),
-        }),
-      }),
-    );
+  it("requires the platform-only user:manage permission", async () => {
+    await route.GET(new Request("http://local/api/users/permissions?userId=user1"));
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("user:manage");
   });
 
-  it("GET returns 404 when target is outside team scope", async () => {
-    const { NotFoundError } = await import("@/lib/errors");
-    mocks.assertUserInActorScope.mockRejectedValueOnce(new NotFoundError("User not found"));
-    const res = await route.GET(
-      new Request("http://local/api/users/permissions?userId=foreign"),
-    );
-    expect(res.status).toBe(404);
-    expect(mocks.prisma.user.findUnique).not.toHaveBeenCalled();
-  });
-
-  it("GET reports permissions after the target member's workspace ceiling", async () => {
-    mocks.prisma.user.findUnique.mockResolvedValueOnce({
-      id: "user1",
-      username: "alice",
-      displayName: "Alice",
-      roles: [{
-        role: {
-          key: "operator",
-          name: "Operator",
-          permissions: [
-            { permission: { key: "server:read" } },
-            { permission: { key: "server:write" } },
-          ],
-        },
-      }],
-      teamMemberships: [{ role: "member", accessRole: "viewer", permissionTemplate: null }],
-      storageAccess: [],
-      serverAccess: [],
-    });
+  it("GET describes a customer account: customer, template and effective permissions", async () => {
     const res = await route.GET(new Request("http://local/api/users/permissions?userId=user1"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.user.effectivePermissions).toContain("server:read");
-    expect(body.user.effectivePermissions).not.toContain("server:write");
-    expect(body.user.resourceAccessBypassed).toBe(false);
-  });
-
-  it("PATCH scopes storage grant delete to team nodes for non-global managers", async () => {
-    const res = await route.PATCH(
-      new Request("http://local/api/users/permissions", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          userId: "user1",
-          storageAccess: [
-            {
-              storageNodeId: "node-a",
-              pathPrefix: "docs",
-              canRead: true,
-              canWrite: false,
-              canDelete: false,
-            },
-          ],
-          storageAccessScopeIds: ["node-a"],
-        }),
-      }),
-    );
-    expect(res.status).toBe(200);
-    expect(mocks.assertUserInActorScope).toHaveBeenCalledWith(session, "user1");
-    expect(mocks.prisma.userStorageAccess.deleteMany).toHaveBeenCalledWith({
-      where: {
-        userId: "user1",
-        storageNodeId: { in: ["node-a"] },
-      },
+    expect(body.user).toMatchObject({
+      accountType: "customer",
+      teamId: "team-a",
+      identityTemplateId: "identity:operator",
+      effectivePermissions: expect.arrayContaining(["server:read", "server:ssh", "team:read", "user:read"]),
     });
-    expect(mocks.prisma.userStorageAccess.createMany).toHaveBeenCalled();
+    expect(body.customers).toEqual([{ id: "team-a", name: "Acme" }]);
+    // Narrowing choices come from the account's own customer only.
+    expect(mocks.prisma.server.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { teamId: "team-a" } }));
   });
 
-  it("PATCH rejects unknown role keys before replacing assignments", async () => {
-    mocks.isGlobalTeamManager.mockReturnValue(true);
-    mocks.requireApiSession.mockResolvedValue({ ...session, roles: ["admin"] });
-    mocks.prisma.role.findMany.mockResolvedValueOnce([{ id: "r1", key: "viewer" }]);
-
-    const res = await route.PATCH(
-      new Request("http://local/api/users/permissions", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ userId: "user1", roleKeys: ["viewer", "missing"] }),
-      }),
-    );
-
-    expect(res.status).toBe(400);
-    expect(mocks.prisma.userRole.deleteMany).not.toHaveBeenCalled();
-  });
-
-	it("PATCH blocks a delegated manager from editing a platform manager's grants", async () => {
-		mocks.prisma.user.findUnique.mockResolvedValueOnce({
-			id: "user1",
-			username: "alice",
-			roles: [{ role: { key: "admin" } }],
-			teamMemberships: [],
-		});
-		const response = await route.PATCH(new Request("http://local/api/users/permissions", {
-			method: "PATCH",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ userId: "user1", roleKeys: ["viewer"] }),
-		}));
-
-		expect(response.status).toBe(403);
-		expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
-	});
-
-	it("PATCH checks the active-admin invariant before removing the admin role", async () => {
-		mocks.isGlobalTeamManager.mockReturnValue(true);
-		mocks.requireApiSession.mockResolvedValue({ ...session, roles: ["admin"] });
-		// The delegation check reads role.permissions, so the mock must carry it.
-		mocks.prisma.role.findMany.mockResolvedValueOnce([{ id: "r1", key: "viewer", permissions: [] }]);
-		const res = await route.PATCH(new Request("http://local/api/users/permissions", {
-			method: "PATCH",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ userId: "user1", roleKeys: ["viewer"] }),
-		}));
-		expect(res.status).toBe(200);
-		expect(mocks.withAdminInvariantLock).toHaveBeenCalledOnce();
-		expect(mocks.assertAdminAccessMayBeRemoved).toHaveBeenCalledWith("user1");
-	});
-
-  it("PATCH rejects unknown permission keys before replacing custom grants", async () => {
-    mocks.isGlobalTeamManager.mockReturnValue(true);
-    mocks.requireApiSession.mockResolvedValue({ ...session, roles: ["admin"] });
-    mocks.prisma.role.upsert.mockResolvedValueOnce({ id: "custom-role" });
-    mocks.prisma.permission.findMany.mockResolvedValueOnce([]);
-
-    const res = await route.PATCH(
-      new Request("http://local/api/users/permissions", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ userId: "user1", permissionKeys: ["unknown:grant"] }),
-      }),
-    );
-
-    expect(res.status).toBe(400);
-    expect(mocks.prisma.rolePermission.deleteMany).not.toHaveBeenCalled();
-  });
-
-  it("prevents workspace managers from changing platform account roles", async () => {
-    const res = await route.PATCH(new Request("http://local/api/users/permissions", {
-      method: "PATCH", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ userId: "user1", roleKeys: ["admin"] }),
-    }));
-    expect(res.status).toBe(403);
-    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
-  });
-
-  it("rejects member-level resource restrictions for a workspace administrator", async () => {
+  it("GET reports a platform administrator without customer resources", async () => {
     mocks.prisma.user.findUnique.mockResolvedValueOnce({
-      id: "user1", username: "alice", roles: [], teamMemberships: [{ role: "admin" }],
+      id: "admin2", username: "ops", displayName: null,
+      roles: [{ role: { key: "admin" } }], teamMembership: null, storageAccess: [], serverAccess: [],
     });
-    const res = await route.PATCH(new Request("http://local/api/users/permissions", {
-      method: "PATCH", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ userId: "user1", serverAccess: [], serverAccessScopeIds: [] }),
-    }));
+    const res = await route.GET(new Request("http://local/api/users/permissions?userId=admin2"));
+    const body = await res.json();
+    expect(body.user.accountType).toBe("admin");
+    expect(body.storageNodes).toEqual([]);
+    expect(mocks.prisma.server.findMany).not.toHaveBeenCalled();
+  });
+
+  it("PATCH changes the account type through the account service", async () => {
+    const res = await patch({ userId: "user1", account: { type: "customer", teamId: "team-b", identityTemplateId: "identity:files" } });
+    expect(res.status).toBe(200);
+    expect(mocks.setAccountType).toHaveBeenCalledWith("user1", { type: "customer", teamId: "team-b", identityTemplateId: "identity:files" }, admin);
+  });
+
+  it("PATCH never lets an administrator edit its own account", async () => {
+    const res = await patch({ userId: "admin1", account: { type: "customer", teamId: "team-a" } });
+    expect(res.status).toBe(403);
+    expect(mocks.setAccountType).not.toHaveBeenCalled();
+  });
+
+  it("PATCH narrows servers only within the account's customer", async () => {
+    mocks.prisma.server.findMany.mockResolvedValueOnce([{ id: "srv-1" }]);
+    const grant = { serverId: "srv-1", canRead: true, canConnect: false, canManage: false, canFileRead: true, canFileWrite: false, canFileDelete: false };
+    const res = await patch({ userId: "user1", serverAccess: [grant], serverAccessScopeIds: ["srv-1"] });
+    expect(res.status).toBe(200);
+    expect(mocks.prisma.server.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: ["srv-1"] }, teamId: "team-a" } }));
+    expect(mocks.prisma.userServerAccess.createMany).toHaveBeenCalledWith({ data: [{ userId: "user1", ...grant }] });
+  });
+
+  it("PATCH keeps a storage grant with every flag cleared, which blocks that node", async () => {
+    mocks.prisma.storageNode.findMany.mockResolvedValueOnce([{ id: "node-a" }]);
+    const res = await patch({
+      userId: "user1",
+      storageAccess: [{ storageNodeId: "node-a", pathPrefix: "", canRead: false, canWrite: false, canDelete: false }],
+      storageAccessScopeIds: ["node-a"],
+    });
+    expect(res.status).toBe(200);
+    expect(mocks.prisma.userStorageAccess.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ userId: "user1", storageNodeId: "node-a", canRead: false, canWrite: false, canDelete: false })],
+      skipDuplicates: true,
+    });
+  });
+
+  it("PATCH refuses resource narrowing for an account without a customer", async () => {
+    mocks.prisma.teamMember.findUnique.mockResolvedValueOnce(null);
+    const res = await patch({ userId: "user1", serverAccess: [], serverAccessScopeIds: [] });
     expect(res.status).toBe(400);
-    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("rejects malformed quotas before replacing any storage grants", async () => {
-    const res = await route.PATCH(new Request("http://local/api/users/permissions", {
-      method: "PATCH", headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        userId: "user1",
-        storageAccess: [{ storageNodeId: "node-a", pathPrefix: "docs", canRead: true, quotaBytes: "unlimited-ish" }],
-        storageAccessScopeIds: ["node-a"],
-      }),
-    }));
+    const res = await patch({
+      userId: "user1",
+      storageAccess: [{ storageNodeId: "node-a", pathPrefix: "docs", canRead: true, quotaBytes: "unlimited-ish" }],
+      storageAccessScopeIds: ["node-a"],
+    });
     expect(res.status).toBe(400);
     expect(mocks.prisma.userStorageAccess.deleteMany).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate normalized storage paths instead of silently dropping one", async () => {
-    const res = await route.PATCH(new Request("http://local/api/users/permissions", {
-      method: "PATCH", headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        userId: "user1",
-        storageAccess: [
-          { storageNodeId: "node-a", pathPrefix: "docs/", canRead: true },
-          { storageNodeId: "node-a", pathPrefix: "/docs", canRead: true },
-        ],
-        storageAccessScopeIds: ["node-a"],
-      }),
-    }));
+    const res = await patch({
+      userId: "user1",
+      storageAccess: [
+        { storageNodeId: "node-a", pathPrefix: "docs/", canRead: true },
+        { storageNodeId: "node-a", pathPrefix: "/docs", canRead: true },
+      ],
+      storageAccessScopeIds: ["node-a"],
+    });
     expect(res.status).toBe(400);
     expect(mocks.prisma.userStorageAccess.deleteMany).not.toHaveBeenCalled();
   });
 
   it("rejects unsafe storage paths before replacing existing grants", async () => {
-    const res = await route.PATCH(new Request("http://local/api/users/permissions", {
-      method: "PATCH", headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        userId: "user1",
-        storageAccess: [{ storageNodeId: "node-a", pathPrefix: "../secret", canRead: true }],
-        storageAccessScopeIds: ["node-a"],
-      }),
-    }));
+    const res = await patch({
+      userId: "user1",
+      storageAccess: [{ storageNodeId: "node-a", pathPrefix: "../secret", canRead: true }],
+      storageAccessScopeIds: ["node-a"],
+    });
     expect(res.status).toBe(400);
     expect(mocks.prisma.userStorageAccess.deleteMany).not.toHaveBeenCalled();
   });

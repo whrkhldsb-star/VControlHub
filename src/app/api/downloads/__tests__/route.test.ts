@@ -607,7 +607,7 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(200);
     // Admin (team:manage) uses empty teamWhere — still filters by creator/storage ACL.
     expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: {},
+      where: { teamId: "team_1" },
       orderBy: [ { createdAt: "desc" }, { id: "desc" }],
       take: 101,
     }));

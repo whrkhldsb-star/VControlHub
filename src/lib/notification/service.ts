@@ -5,6 +5,7 @@ import { NotFoundError } from "@/lib/errors";
 import { timeDelivery } from "@/lib/monitoring/runtime-metrics";
 import { t } from "@/lib/i18n/service-translations";
 import { renderNotificationFallback, type NotificationMessage } from "./message";
+import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
 
 const logger = createLogger("notification:service");
 
@@ -78,6 +79,7 @@ export async function createNotification(input: CreateNotificationInput) {
 				messageCode: record.messageCode,
 				messageParams: record.messageParams,
 				actionUrl: record.actionUrl,
+				teamId: record.teamId,
 				createdAt: record.createdAt.toISOString(),
 			});
 
@@ -101,6 +103,8 @@ export async function listUserNotifications(userId: string, opts?: { unreadOnly?
 		orderBy: { createdAt: "desc" },
 		take: opts?.limit ?? 50,
 		...(opts?.skip && opts.skip > 0 ? { skip: opts.skip } : {}),
+		// Administrators receive notifications from every customer; name the source.
+		include: { team: { select: { name: true } } },
 	});
 }
 
@@ -165,26 +169,10 @@ export async function notifyCommandPending(
 	commandTitle: string,
 	teamId?: string | null,
 ) {
-	// Notify approvers. Prefer same-team members when teamId is set so other
-	// tenants' admins are not spammed with foreign command requests.
+	// Approvers: platform administrators plus this customer's accounts allowed
+	// to approve. A null-team (legacy) request only reaches administrators.
 	const admins = await prisma.user.findMany({
-		where: {
-			roles: { some: { role: { permissions: { some: { permission: { key: "command:approve" } } } } } },
-			...(teamId
-				? {
-						OR: [
-							{ teamMemberships: { some: { teamId } } },
-							// Global team managers may lack membership rows but still approve.
-							{ roles: { some: { role: { permissions: { some: { permission: { key: "team:manage" } } } } } } },
-						],
-					}
-				: {
-						// Null-team (legacy/shared) request: mirror the null-team
-						// quarantine — do NOT broadcast to every tenant's approvers.
-						// Only global team managers see cross/null-team requests.
-						roles: { some: { role: { permissions: { some: { permission: { key: "team:manage" } } } } } },
-					}),
-		},
+		where: { status: { not: "DISABLED" }, ...permissionHoldersWhere("command:approve", teamId) },
 		select: { id: true },
 		take: 1000,
 	});

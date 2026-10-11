@@ -18,7 +18,7 @@ const session = (permissions: SessionPayload["permissions"], roles: SessionPaylo
 describe("background command authorization", () => {
   beforeEach(() => loadApiTokenOwnerSession.mockReset());
 
-  it("checks the target workspace role even when another workspace permits commands", async () => {
+  it("checks the target customer even when another customer permits commands", async () => {
     loadApiTokenOwnerSession
       .mockResolvedValueOnce(session(["command:execute"]))
       .mockResolvedValueOnce(session(["command:read"]));

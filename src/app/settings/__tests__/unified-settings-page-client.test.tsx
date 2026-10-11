@@ -43,37 +43,25 @@ const serverPrefs = {
   autoProbeIntervalSec: 60,
 };
 
-const adminTeamCapabilities = {
-  viewerId: "u_admin",
-  canCreate: true,
-  canManageAll: true,
-};
-
-const viewerTeamCapabilities = {
-  viewerId: "u_viewer",
-  canCreate: false,
-  canManageAll: false,
-};
-
 describe("UnifiedSettingsPageClient", () => {
   it("keeps restricted bookmarks on personal preferences", async () => {
     window.history.replaceState(null, "", "#runtime");
-    render(<UnifiedSettingsPageClient settings={{}} canManage={false} teamCapabilities={viewerTeamCapabilities} />);
+    render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
     expect(await screen.findByRole("button", { name: "仪表盘" }, { timeout: 5_000 })).toBeVisible();
     expect(screen.getByRole("tab", { name: /个人偏好/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("tab", { name: /高级配置/ })).not.toBeInTheDocument();
   });
 
-  it("gives everyone a team tab and opens it from the workspace bookmark", async () => {
+  it("routes the retired workspace bookmark to personal preferences", async () => {
     window.history.replaceState(null, "", "#team-workspaces");
-    render(<UnifiedSettingsPageClient settings={{}} canManage={false} teamCapabilities={viewerTeamCapabilities} />);
-    expect(await screen.findByRole("tab", { name: /团队与权限/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("tab", { name: /安全与账户/ })).not.toBeInTheDocument();
+    render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
+    expect(await screen.findByRole("tab", { name: /个人偏好/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: /团队与权限/ })).not.toBeInTheDocument();
   });
 
   it("preserves unsaved platform fields and router history across tab changes", async () => {
     window.history.replaceState({ marker: "router" }, "", "#platform");
-    render(<UnifiedSettingsPageClient settings={{ "platform.name": "Original", ...runtimeDefaults }} canManage teamCapabilities={adminTeamCapabilities} />);
+    render(<UnifiedSettingsPageClient settings={{ "platform.name": "Original", ...runtimeDefaults }} canManage />);
     const input = await screen.findByLabelText("平台名称");
     fireEvent.change(input, { target: { value: "Unsaved draft" } });
     fireEvent.click(screen.getByRole("tab", { name: /个人偏好/ }));
@@ -89,7 +77,7 @@ describe("UnifiedSettingsPageClient", () => {
     window.addEventListener("vcontrolhub:settings-open-section", listener);
     try {
       window.history.replaceState(null, "", "#runtime");
-      const view = render(<UnifiedSettingsPageClient settings={{ ...runtimeDefaults }} canManage teamCapabilities={adminTeamCapabilities} />);
+      const view = render(<UnifiedSettingsPageClient settings={{ ...runtimeDefaults }} canManage />);
       fireEvent.click(screen.getByRole("tab", { name: /个人偏好/ }));
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 120)); });
       expect(events).toEqual([]);
@@ -129,7 +117,6 @@ describe("UnifiedSettingsPageClient", () => {
       <UnifiedSettingsPageClient
         settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }}
         canManage
-        teamCapabilities={adminTeamCapabilities}
       />,
     );
 
@@ -138,9 +125,8 @@ describe("UnifiedSettingsPageClient", () => {
     expect(screen.getByText("个人使用习惯、界面行为、账户安全与平台级参数集中在一个入口中管理。"))
       .toBeInTheDocument();
 
-    // Tab bar with 4 tabs
+    // Tab bar with 4 tabs (customers are managed on /customers)
     expect(screen.getByRole("tab", { name: /个人偏好/ })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /团队与权限/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /安全与账户/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /通知与集成/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /高级配置/ })).toBeInTheDocument();
@@ -156,7 +142,6 @@ describe("UnifiedSettingsPageClient", () => {
       <UnifiedSettingsPageClient
         settings={{ "platform.name": "旧名称", "platform.logo": "", ...runtimeDefaults }}
         canManage
-        teamCapabilities={adminTeamCapabilities}
       />,
     );
 
@@ -190,7 +175,6 @@ describe("UnifiedSettingsPageClient", () => {
       <UnifiedSettingsPageClient
         settings={{}}
         canManage={false}
-        teamCapabilities={viewerTeamCapabilities}
       />,
     );
 
@@ -211,7 +195,6 @@ describe("UnifiedSettingsPageClient", () => {
       <UnifiedSettingsPageClient
         settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }}
         canManage
-        teamCapabilities={adminTeamCapabilities}
       />,
     );
 

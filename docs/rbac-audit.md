@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-10-09T18:08:42.349Z | Permissions: 54 | Roles: 4 | API routes: 188 | Pages: 55 | Drift: 0
+> Generated: 2026-10-10T17:51:50.244Z | Permissions: 52 | Roles: 4 | API routes: 189 | Pages: 56 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -55,7 +55,7 @@ This report cross-references four RBAC sources of truth:
 | `playbook:manage` | admin | 1 | 0 | 7 |
 | `playbook:read` | admin, operator | 1 | 1 | 8 |
 | `playbook:run` | admin, operator | 1 | 0 | 5 |
-| `role:manage` | admin | 0 | 4 | 7 |
+| `role:manage` | admin | 0 | 4 | 4 |
 | `server:read` | admin, operator, viewer, storage_manager | 0 | 3 | 19 |
 | `server:sftp:unrestricted` | admin | 0 | 0 | 0 |
 | `server:ssh` | admin, operator | 1 | 1 | 29 |
@@ -69,14 +69,12 @@ This report cross-references four RBAC sources of truth:
 | `storage:read` | admin, operator, viewer, storage_manager | 2 | 2 | 58 |
 | `storage:write` | admin, operator, storage_manager | 3 | 4 | 48 |
 | `task:read` | admin, operator, viewer, storage_manager | 1 | 0 | 7 |
-| `team:create` | admin, operator | 1 | 0 | 1 |
-| `team:manage` | admin | 3 | 8 | 11 |
-| `team:member:manage` | admin | 1 | 0 | 9 |
-| `team:read` | admin, operator, viewer, storage_manager | 0 | 1 | 1 |
+| `team:manage` | admin | 2 | 8 | 38 |
+| `team:read` | admin, operator, viewer, storage_manager | 0 | 0 | 2 |
 | `ticket:create` | admin, operator, viewer, storage_manager | 1 | 0 | 4 |
 | `ticket:manage` | admin, operator, storage_manager | 3 | 3 | 30 |
 | `ticket:read` | admin, operator, viewer, storage_manager | 1 | 0 | 8 |
-| `user:manage` | admin | 2 | 0 | 22 |
-| `user:read` | admin, operator, viewer, storage_manager | 1 | 0 | 4 |
+| `user:manage` | admin | 2 | 0 | 26 |
+| `user:read` | admin, operator, viewer, storage_manager | 1 | 0 | 3 |
 
 ## ✅ No drift detected

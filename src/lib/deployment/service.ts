@@ -73,7 +73,7 @@ async function getDeploymentRunForSession(
  * Load the targets, refusing any that the caller cannot see.
  *
  * Both launch and rollback need this: a snapshot stores raw server ids, so a
- * server that has since moved to another workspace must not be reachable by
+ * server that has since moved to another customer must not be reachable by
  * replaying an old run.
  */
 async function loadDeploymentServersInScope(
@@ -475,7 +475,7 @@ export async function createDeploymentRollbackRun(
   if (!snapshot.rollbackCommand?.trim()) throw new ValidationError(t("backend.deployment.thisDeploymentSnapshotHasNoRollbackCommand"));
   // The snapshot froze raw server ids at launch time. Re-check visibility (not
   // availability — a rollback is exactly what you run when a target is sick) so
-  // a server that has since moved workspaces cannot be commanded through an old
+  // a server that has since moved to another customer cannot be commanded through an old
   // run.
   if (session && Array.isArray(snapshot.serverIds) && snapshot.serverIds.length > 0) {
     await loadDeploymentServersInScope(snapshot.serverIds, session);

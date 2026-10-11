@@ -582,7 +582,7 @@ describe("ITSM service", () => {
 				json: JSON.parse(rawBody) as Record<string, unknown>,
 				systemUserId: "sys",
 			}),
-		).rejects.toThrow(/不存在|not found|团队范围|team/i);
+		).rejects.toThrow(/不存在|未找到|not found|customer/i);
 	});
 
 	it("ignores non-admin body.teamId spoof on create", async () => {

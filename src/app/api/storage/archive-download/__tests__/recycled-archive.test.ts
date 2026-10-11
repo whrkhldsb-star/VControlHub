@@ -44,6 +44,8 @@ vi.mock("@/lib/auth/team-scope", () => ({
   teamCreateData: () => ({ teamId: "team" }),
   // share-link/service now branches on the global-team-manager role check.
   isGlobalTeamManager: () => false,
+  seesAllCustomers: () => false,
+  storageNodeTeamWhere: () => ({ teamId: "team" }),
 }));
 vi.mock("@/lib/http/rate-limit-presets", () => ({
   withRateLimit: async () => ({ allowed: true }),

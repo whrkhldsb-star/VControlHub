@@ -3,20 +3,26 @@ import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { addTeamMemberSchema } from "@/lib/team/schema";
-import { addTeamMember } from "@/lib/team/service";
+import { setTeamMemberSchema } from "@/lib/team/schema";
+import { listCustomerMembers, setCustomerMembership } from "@/lib/team/service";
 
 export const dynamic = "force-dynamic";
 
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+	return withApiRoute(request, { permission: "team:manage" }, async ({ session }) => {
+		const { id } = await params;
+		return NextResponse.json({ members: await listCustomerMembers(id, session) });
+	});
+}
+
+/** Put an account into this customer (moving it from any other customer). */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: addTeamMemberSchema, errorMessage: apiCopy("apiCopy.failed.to.add.team.member.75d0df98") },
+		{ permission: "team:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: setTeamMemberSchema, errorMessage: apiCopy("apiCopy.failed.to.add.team.member.75d0df98") },
 		async ({ session, body }) => {
 			const { id } = await params;
-			const member = await addTeamMember(id, body, session);
-			// Audit is recorded inside addTeamMember (team.member.upsert + username/role).
-			return NextResponse.json({ success: true, member });
+			return NextResponse.json({ success: true, member: await setCustomerMembership({ teamId: id, ...body }, session) });
 		},
 	);
 }

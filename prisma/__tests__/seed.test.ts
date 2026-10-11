@@ -33,9 +33,8 @@ const { mockPrisma } = vi.hoisted(() => ({
       upsert: vi.fn(),
       updateMany: vi.fn(),
     },
-    team: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
-    teamMember: { upsert: vi.fn() },
-    roleTemplate: { createMany: vi.fn() },
+    team: { findMany: vi.fn(), create: vi.fn() },
+    identityTemplate: { upsert: vi.fn() },
     commandRequest: {
       upsert: vi.fn(),
     },
@@ -123,10 +122,8 @@ beforeEach(() => {
     { id: "perm_playbook:manage", key: "playbook:manage" },
     { id: "perm_playbook:read", key: "playbook:read" },
     { id: "perm_playbook:run", key: "playbook:run" },
-    { id: "perm_team:create", key: "team:create" },
     { id: "perm_team:read", key: "team:read" },
     { id: "perm_team:manage", key: "team:manage" },
-    { id: "perm_team:member:manage", key: "team:member:manage" },
   ]);
   mockPrisma.role.upsert.mockImplementation(async ({ where }: any) => ({ id: `role_${where.key}` }));
   mockPrisma.role.findUniqueOrThrow.mockResolvedValue({ id: "role_admin" });
@@ -138,10 +135,8 @@ beforeEach(() => {
   mockPrisma.user.upsert.mockResolvedValue({ id: "user_admin" });
   mockPrisma.userRole.upsert.mockResolvedValue({});
   mockPrisma.team.findMany.mockResolvedValue([]);
-  mockPrisma.team.findUnique.mockResolvedValue({ ownerId: "user_admin" });
   mockPrisma.team.create.mockResolvedValue({ id: "team_default", slug: "default" });
-  mockPrisma.teamMember.upsert.mockResolvedValue({});
-  mockPrisma.roleTemplate.createMany.mockResolvedValue({ count: 3 });
+  mockPrisma.identityTemplate.upsert.mockResolvedValue({});
   mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
   mockPrisma.storageNode.updateMany.mockResolvedValue({ count: 1 });
   mockPrisma.server.upsert.mockResolvedValue({ id: "srv_demo" });
@@ -164,13 +159,16 @@ describe("prisma seed", () => {
     expect(mockPrisma.role.upsert).toHaveBeenCalled();
     expect(mockPrisma.rolePermission.createMany).toHaveBeenCalled();
     expect(mockPrisma.user.upsert).toHaveBeenCalled();
-    expect(mockPrisma.team.create).toHaveBeenCalledWith({ data: expect.objectContaining({ slug: "default", ownerId: "user_admin" }) });
-    expect(mockPrisma.roleTemplate.createMany).toHaveBeenCalledWith({
-      data: expect.arrayContaining([
-        expect.objectContaining({ teamId: "team_default", kind: "POLICY_GROUP", isBuiltin: false }),
-      ]),
-      skipDuplicates: true,
+    // One customer for the platform's own resources, preselected for the admin.
+    expect(mockPrisma.team.create).toHaveBeenCalledWith({ data: expect.objectContaining({ slug: "default" }) });
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "user_admin", currentTeamId: null },
+      data: { currentTeamId: "team_default" },
     });
+    // Built-in identity templates are kept in sync with the code definitions.
+    expect(mockPrisma.identityTemplate.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "identity:viewer" },
+    }));
     expect(mockPrisma.server.upsert).not.toHaveBeenCalled();
     expect(mockPrisma.storageNode.upsert).toHaveBeenCalledWith({
       where: { id: "node_local_default" },

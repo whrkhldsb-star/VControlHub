@@ -108,6 +108,9 @@ export function WindowsServerDetails({
 							rdpIgnoreCertificate={server.rdpIgnoreCertificate}
 							managementMode={server.managementMode}
 							canManageServers={canManageServers}
+							profileLocked={server.profileLocked}
+							canTransfer={server.canTransfer}
+							teamId={server.teamId}
 							// The SSH terminal needs the OpenSSH binding (storageNode);
 							// the proxy resolves the SFTP endpoint for Windows shells.
 							canUseSshTerminal={canUseSshTerminal && Boolean(server.storageNode)}

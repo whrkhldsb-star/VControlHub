@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 
-import { teamCreateData } from "@/lib/auth/team-scope";
+import { serverOriginData, teamCreateData } from "@/lib/auth/team-scope";
 import { encrypt } from "@/lib/crypto/service";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
@@ -66,7 +66,7 @@ export async function createWindowsServerProfile(
       costProvider: payload.costProvider || null,
       description: payload.description, tags: payload.tags, enabled: true,
       onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null,
-      ...(session ? teamCreateData(session) : {}),
+      ...(session ? { ...teamCreateData(session), ...serverOriginData(session) } : {}),
     } as const;
     const server = payload.windowsSftpEnabled
       ? await prisma.$transaction(async (tx) => {

@@ -157,7 +157,7 @@ export async function materializeAutomationProposal(
   }
   const teamIds = unique(servers.map((server) => server.teamId ?? ""));
   if (teamIds.length !== 1) {
-    throw new BusinessError(t("backend.ai.automationSingleWorkspace"));
+    throw new BusinessError(t("backend.ai.automationSingleCustomer"));
   }
 
   return {

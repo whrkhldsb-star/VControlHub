@@ -26,6 +26,8 @@ vi.mock("@/lib/command-template/service", async () => {
 vi.mock("@/lib/auth/team-scope", () => ({
   teamWhere: mockTeamWhere,
   deploymentRunTeamWhere: mockDeploymentRunTeamWhere,
+  seesAllCustomers: (session: { roles?: string[]; currentTeamId?: string | null }) =>
+    session.roles?.includes("admin") === true && !session.currentTeamId,
   serverTeamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
     if (session.roles?.includes("admin")) return {};
     return session.currentTeamId
@@ -504,7 +506,7 @@ describe("deployment service", () => {
         { templateId: "tmpl1", serverIds: ["srv1", "srv_other"], variables: { pkg: "nginx" }, requesterId: "u1" },
         teamSession,
       ),
-    ).rejects.toThrow(/outside your team scope/);
+    ).rejects.toThrow(/outside your customer scope/);
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 });

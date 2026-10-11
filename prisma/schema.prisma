@@ -63,6 +63,13 @@ enum ServerManagementMode {
   AGENT
 }
 
+/// Who brought a server in: the platform (assigned to a customer) or the
+/// customer itself. Customer accounts may edit and delete only their own.
+enum ServerOrigin {
+  PLATFORM
+  CUSTOMER
+}
+
 enum ServerAgentJobStatus {
   PENDING
   CLAIMED
@@ -109,6 +116,7 @@ model User {
   roles                      UserRole[]
   storageAccess              UserStorageAccess[]
   serverAccess               UserServerAccess[]
+  addedServers               Server[]                @relation("ServerAddedBy")
   commandRequests            CommandRequest[]        @relation("requester")
   jobs                       Job[]                   @relation("jobCreator")
   approvals                  CommandApproval[]
@@ -151,8 +159,7 @@ model User {
   mediaUploadSessions        MediaUploadSession[]
   fileVersions               FileVersion[]
   filePreferences            FilePreference[]
-  ownedTeams                 Team[]                  @relation("TeamOwner")
-  teamMemberships            TeamMember[]
+  teamMembership             TeamMember?
   // Login preference only. Active tenant is bound to each session or API token.
   currentTeamId              String?
   currentTeam                Team?                   @relation("UserCurrentTeam", fields: [currentTeamId], references: [id], onDelete: SetNull)
@@ -160,7 +167,7 @@ model User {
   twoFactorSecret            String?
   twoFactorRecoveryCodes     Json?
   preferences                Json?
-  roleTemplates              RoleTemplate[]          @relation("RoleTemplateCreator")
+  identityTemplates          IdentityTemplate[]      @relation("IdentityTemplateCreator")
 
   @@map("User")
 }
@@ -170,10 +177,9 @@ model Team {
   slug                 String                @unique
   name                 String
   description          String?
-  ownerId              String?
-  owner                User?                 @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  /// Set when a platform administrator deletes the customer; clearing it restores.
+  deletedAt            DateTime?
   members              TeamMember[]
-  roleTemplates        RoleTemplate[]
   currentFor           User[]                @relation("UserCurrentTeam")
   servers              Server[]              @relation("TeamServers")
   storageNodes         StorageNode[]         @relation("TeamStorageNodes")
@@ -205,24 +211,22 @@ model Team {
   aiHostedActions      AiHostedAction[]      @relation("TeamAiHostedActions")
   apiTokens            ApiToken[]            @relation("TeamApiTokens")
 
-  @@index([ownerId])
   @@map("teams")
 }
 
+/// A customer account's membership. Each non-admin account belongs to at most
+/// one customer; its permissions come from the identity template.
 model TeamMember {
-  teamId               String
-  userId               String
-  role                 String        @default("member") // owner|admin|member
-  accessRole           String        @default("inherit") // inherit|operator|viewer|storage_manager
-  permissionTemplateId String?
-  permissionTemplate   RoleTemplate? @relation(fields: [permissionTemplateId], references: [id], onDelete: Restrict)
-  joinedAt             DateTime      @default(now())
-  team                 Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId             String
+  userId             String           @unique
+  identityTemplateId String
+  identityTemplate   IdentityTemplate @relation(fields: [identityTemplateId], references: [id], onDelete: Restrict)
+  joinedAt           DateTime         @default(now())
+  team               Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([teamId, userId])
-  @@index([userId])
-  @@index([permissionTemplateId])
+  @@index([identityTemplateId])
   @@map("team_members")
 }
 
@@ -354,10 +358,14 @@ model Server {
   rdpTickets                   RdpTicket[]
   userAccess                   UserServerAccess[]
   agentJobs                    ServerAgentJob[]
+  origin                       ServerOrigin           @default(PLATFORM)
+  addedById                    String?
+  addedBy                      User?                  @relation("ServerAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
 
   @@index([host, port])
   @@index([enabled])
   @@index([teamId])
+  @@index([addedById])
   // FK index: SshKey deletion (SetNull) would otherwise full-scan servers.
   @@index([sshKeyId])
   @@map("servers")
@@ -2161,26 +2169,21 @@ model ServerUptimeSnapshot {
 }
 
 /// FEAT-P1-7: Position role template
-model RoleTemplate {
+/// Platform-defined permission set assigned to customer accounts.
+model IdentityTemplate {
   id          String       @id @default(cuid())
   name        String
   description String?
-  kind        String       @default("ACCOUNT_TEMPLATE") // ACCOUNT_TEMPLATE | POLICY_GROUP
-  roleKeys    String[] // e.g. ["operator", "viewer"]
-  permissions String[] // explicit permission overrides
-  dataScope   Json? // storageAccess grants / future resource scope
+  permissions String[]
   isBuiltin   Boolean      @default(false)
   createdBy   String?
-  teamId      String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  creator     User?        @relation("RoleTemplateCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  team        Team?        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator     User?        @relation("IdentityTemplateCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   members     TeamMember[]
 
   @@index([name])
-  @@index([teamId, kind, name])
-  @@map("role_templates")
+  @@map("identity_templates")
 }
 
 // TR: AI Knowledge Base / RAG — lexical retrieval over chunked documents.

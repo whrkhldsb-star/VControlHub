@@ -104,7 +104,9 @@ describe("GET /api/images/list", () => {
     expect(imageFindManyMock).not.toHaveBeenCalled();
   });
 
-  it("lets team managers request all images fleet-wide", async () => {
+  it("lets administrators viewing all customers request every image", async () => {
+    const allCustomers = { ...session, currentTeamId: null };
+    requireApiSessionMock.mockResolvedValueOnce(allCustomers);
     sessionHasPermissionMock.mockImplementation(
       (_session, permission) =>
         permission === "image:read" || permission === "team:manage",
@@ -114,8 +116,8 @@ describe("GET /api/images/list", () => {
       new Request("http://local/api/images/list?all=true"),
     );
     expect(response.status).toBe(200);
-    expect(sessionHasPermissionMock).toHaveBeenCalledWith(session, "team:manage");
-    // team:manage → teamWhere is empty (global)
+    expect(sessionHasPermissionMock).toHaveBeenCalledWith(allCustomers, "team:manage");
+    // "all customers" → teamWhere is empty (global)
     expect(imageFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: {} }),
     );

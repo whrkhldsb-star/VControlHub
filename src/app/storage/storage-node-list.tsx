@@ -26,6 +26,8 @@ type StorageNodeItem = {
 	username?: string | null;
 	serverId?: string | null;
 	connectionSummary: string;
+	/** Owning customer, shown to administrators. */
+	teamName?: string | null;
 	directAccess: { mode: string; description: string; href: string | null };
 	fileCount: number;
 	healthStatus?:"UNKNOWN" |"HEALTHY" |"UNHEALTHY" | string | null;
@@ -111,7 +113,10 @@ function StorageNodeCard({
 		<article data-inset>
 			<div className="flex items-start justify-between gap-3">
 				<div>
-					<h3 className="ui-title-section">{node.name}</h3>
+					<div className="flex flex-wrap items-center gap-2">
+						<h3 className="ui-title-section">{node.name}</h3>
+						{node.teamName ? <Badge tone="neutral">{node.teamName}</Badge> : null}
+					</div>
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{node.connectionSummary}</p>
 				</div>
 					<div className="flex items-center gap-2">

@@ -14,6 +14,7 @@ import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
 import { localizeNotification } from "@/lib/notification/message";
+import { useNotificationLink } from "@/lib/notification/use-notification-link";
 
 type NotificationItem = {
 	id: string;
@@ -25,6 +26,8 @@ type NotificationItem = {
 	isRead: boolean;
 	actionUrl: string | null;
 	createdAt: string;
+	teamId?: string | null;
+	teamName?: string | null;
 };
 
 type Props = {
@@ -73,6 +76,7 @@ const NotificationRow = memo(function NotificationRow({
 	onDelete: (id: string) => void;
 }) {
 	const text = localizeNotification(n, t);
+	const { showCustomer, onOpen } = useNotificationLink();
 	return (
 		<article
 			data-card
@@ -91,8 +95,9 @@ const NotificationRow = memo(function NotificationRow({
 					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{text.message}</p>
 					<div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
 						<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, nowMs, t, locale)}</span>
+						{showCustomer && n.teamName ? <span className="text-[var(--text-muted)]">{t("notificationsPage.customer", { name: n.teamName })}</span> : null}
 						{n.actionUrl && (
-							<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 font-medium text-[var(--accent)] transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
+							<Link href={getSafeNotificationActionUrl(n.actionUrl)} onClick={onOpen(n)} className="rounded-lg px-1 py-0.5 font-medium text-[var(--accent)] transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
 								{t("notificationsPage.action.view")}
 								<ChevronRight size={12} aria-hidden className="ml-0.5 inline" />
 							</Link>

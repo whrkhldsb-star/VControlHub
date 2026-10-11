@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
 import { useServerDiagnostics } from "./use-server-diagnostics";
 import { ActionButton } from "@/components/action-button";
+import { Badge } from "@/components/ui-primitives";
 import { Dialog } from "@/components/ui/dialog";
 import { ServerConnectionAction } from "./server-connection-action";
 import { directGatewayModeLabel, serverConnectionLabel } from "./server-labels";
@@ -148,6 +149,13 @@ export function ServerOverviewCard({
           <p className="mt-1.5 break-all font-mono text-xs text-[var(--text-muted)]" title={`${server.username}@${server.host}:${server.port}`}>
             {server.username}@{server.host}:{server.port}
           </p>
+          {server.teamName || server.origin === "CUSTOMER" || server.profileLocked ? (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {server.teamName ? <Badge tone="neutral">{server.teamName}</Badge> : null}
+              {server.origin === "CUSTOMER" ? <Badge tone="accent">{t("serverOverviewCard.originCustomer")}</Badge> : null}
+              {server.profileLocked ? <Badge tone="neutral">{t("serverOverviewCard.originPlatform")}</Badge> : null}
+            </div>
+          ) : null}
         </div>
         <span
           role="status"

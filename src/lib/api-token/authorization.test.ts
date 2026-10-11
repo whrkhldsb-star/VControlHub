@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionPayload } from "@/lib/auth/session";
 
-const { findUniqueMock, membershipMock } = vi.hoisted(() => ({ findUniqueMock: vi.fn(), membershipMock: vi.fn() }));
+const { findUniqueMock, teamFindUniqueMock } = vi.hoisted(() => ({ findUniqueMock: vi.fn(), teamFindUniqueMock: vi.fn() }));
 
 vi.mock("@/lib/db", () => ({
-	prisma: { user: { findUnique: findUniqueMock }, teamMember: { findUnique: membershipMock } },
+	prisma: { user: { findUnique: findUniqueMock }, team: { findUnique: teamFindUniqueMock } },
 }));
 
 import {
@@ -37,57 +37,52 @@ describe("API token authorization", () => {
 		expect(apiTokenScopeAllowedForSession("unknown:scope", viewerSession)).toBe(false);
 	});
 
-	it("builds a current owner session with full workspace access and drops unknown role keys", async () => {
-		findUniqueMock.mockResolvedValue({
-			id: "user-1",
-			username: "alice",
-			status: "ACTIVE",
-			mustChangePassword: false,
-			currentTeam: { id: "team-1", members: [{ userId: "user-1", role: "owner", accessRole: "viewer", permissionTemplate: null }] },
-			roles: [{ role: { key: "viewer" } }, { role: { key: "removed-role" } }],
-		});
+	const customerOwner = (teamMembership: unknown) => ({
+		id: "user-1",
+		username: "alice",
+		status: "ACTIVE",
+		mustChangePassword: false,
+		currentTeamId: "team-1",
+		teamMembership,
+		roles: [{ role: { key: "removed-role" } }],
+	});
+	const liveMembership = { teamId: "team-1", team: { deletedAt: null }, identityTemplate: { permissions: ["server:read", "server:write"] } };
+
+	it("builds a customer owner's session from its identity template", async () => {
+		findUniqueMock.mockResolvedValue(customerOwner(liveMembership));
 
 		await expect(loadApiTokenOwnerSession("user-1")).resolves.toMatchObject({
 			userId: "user-1",
-			roles: ["viewer"],
+			roles: [],
 			currentTeamId: "team-1",
-			currentTeamRole: "owner",
-			permissions: expect.arrayContaining(["server:write", "team:member:manage"]),
+			permissions: expect.arrayContaining(["server:write", "team:read"]),
 		});
 	});
 
-	it("drops the tenant pointer once the owner's membership is gone", async () => {
-		// A token outlives the removal that revoked its owner's team access, and
-		// `currentTeamId` is what `teamWhere()` scopes every query by — so the
-		// pointer has to be re-validated here, not trusted because the column is set.
-		findUniqueMock.mockResolvedValue({
-			id: "user-1",
-			username: "alice",
-			status: "ACTIVE",
-			mustChangePassword: false,
-			currentTeam: { id: "team-1", members: [] },
-			roles: [{ role: { key: "viewer" } }],
-		});
+	it("drops the customer once the owner's membership is gone", async () => {
+		// A token outlives the removal that revoked its owner's access, and
+		// `currentTeamId` is what `teamWhere()` scopes every query by.
+		findUniqueMock.mockResolvedValue(customerOwner(null));
 
 		await expect(loadApiTokenOwnerSession("user-1")).resolves.toMatchObject({
 			currentTeamId: null,
+			permissions: ["user:read"],
 		});
-		const arg = findUniqueMock.mock.calls[0]?.[0];
-		expect(arg.select.currentTeam.select.members.where).toEqual({ userId: "user-1" });
 	});
 
-	it("keeps a bearer credential bound to its issued workspace after the owner's preference changes", async () => {
-		membershipMock.mockResolvedValueOnce({ team: { slug: "ops" } });
-		findUniqueMock.mockResolvedValueOnce({
-			id: "user-1", username: "alice", status: "ACTIVE", mustChangePassword: false,
-			currentTeam: { id: "team-2", members: [{ userId: "user-1" }] },
-			roles: [{ role: { key: "viewer" } }],
-		});
-		await expect(loadApiTokenOwnerSession("user-1", "team-1")).resolves.toMatchObject({
-			currentTeamId: "team-1",
-		});
-		membershipMock.mockResolvedValueOnce(null);
-		await expect(loadApiTokenOwnerSession("user-1", "team-1")).resolves.toBeNull();
+	it("keeps a bearer credential bound to its issued customer and rejects any other", async () => {
+		findUniqueMock.mockResolvedValue(customerOwner(liveMembership));
+		await expect(loadApiTokenOwnerSession("user-1", "team-1")).resolves.toMatchObject({ currentTeamId: "team-1" });
+		// The owner moved to another customer: the old credential stops working.
+		await expect(loadApiTokenOwnerSession("user-1", "team-2")).resolves.toBeNull();
+	});
+
+	it("binds an administrator token to its customer while that customer is live", async () => {
+		findUniqueMock.mockResolvedValue({ ...customerOwner(null), roles: [{ role: { key: "admin" } }] });
+		teamFindUniqueMock.mockResolvedValueOnce({ deletedAt: null });
+		await expect(loadApiTokenOwnerSession("user-1", "team-9")).resolves.toMatchObject({ currentTeamId: "team-9", roles: ["admin"] });
+		teamFindUniqueMock.mockResolvedValueOnce({ deletedAt: new Date() });
+		await expect(loadApiTokenOwnerSession("user-1", "team-9")).resolves.toBeNull();
 	});
 
 	it.each([
@@ -99,7 +94,7 @@ describe("API token authorization", () => {
 			username: "alice",
 			status,
 			mustChangePassword,
-			currentTeam: null,
+			teamMembership: null,
 			roles: [],
 		});
 
