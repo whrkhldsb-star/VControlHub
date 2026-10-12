@@ -243,7 +243,7 @@ describe("sync service command helpers", () => {
     });
 
     expect(command).toContain("trap 'rm -f -- ");
-    expect(command).toContain("rsync -avz --stats");
+    expect(command).toContain("rsync -avz --stats -s -e ");
     // rsync splits -e on whitespace and execs it, so nothing inside may be
     // shell-quoted: `-i '/tmp/k'` would reach ssh with the quotes attached and
     // the key would be ignored ("Identity file not accessible").
@@ -315,6 +315,23 @@ describe("sync service command helpers", () => {
     expect(command).toContain("tar cf - -C ");
     expect(command).toContain("root@example.com");
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");
+  });
+
+  it("keeps a hostile target path out of the target host's shell", () => {
+    const command = buildRsyncCommand({
+      flags: ["-av"],
+      sourcePath: "/srv/source",
+      targetPath: "/tmp/x;id>/tmp/pwned;$(touch /tmp/pwned)",
+      targetUser: "deploy",
+      targetHost: "example.com",
+      targetPort: 22,
+      keyPath: "/tmp/app-sync-rsync-job_1",
+    });
+    // --protect-args: rsync sends the remote path over its own protocol instead
+    // of the target's login shell (older rsync passed it unescaped).
+    expect(command).toContain(" -s -e ");
+    // The source shell sees the whole user@host:path inside one single-quoted word.
+    expect(command).toContain("'deploy@example.com:/tmp/x;id>/tmp/pwned;$(touch /tmp/pwned)/'");
   });
 
   it("uses the exact pinned known_hosts file for the real rsync and tar SSH connection", () => {

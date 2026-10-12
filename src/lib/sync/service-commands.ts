@@ -178,7 +178,12 @@ function withCredentialCleanup(command: string, input: SyncTargetCommandInput): 
 export function buildRsyncCommand(input: RsyncCommandInput): string {
 	const { transport, envPrefix } = buildSshTransport(input, assertUnquotedTransportPath);
 	const target = `${buildRsyncTargetAddress(input.targetUser, input.targetHost)}:${input.targetPath.replace(/\/$/, "")}/`;
-	const command = `${envPrefix}rsync ${input.flags.join(" ")} -e ${shellDoubleQuote(transport)} ${shellQuote(`${input.sourcePath.replace(/\/$/, "")}/`)} ${shellQuote(target)} 2>&1`;
+	// `-s` (--protect-args) sends the remote path through rsync's own protocol
+	// stream instead of the target host's login shell. Without it an rsync older
+	// than 3.2.4 on the source host hands `user@host:/path` to the remote shell
+	// unescaped, so a job's targetPath could carry `;`/`$()` and run commands on
+	// the target as the sync user. shellQuote only protects the source shell.
+	const command = `${envPrefix}rsync ${input.flags.join(" ")} -s -e ${shellDoubleQuote(transport)} ${shellQuote(`${input.sourcePath.replace(/\/$/, "")}/`)} ${shellQuote(target)} 2>&1`;
 	return withCredentialCleanup(command, input);
 }
 

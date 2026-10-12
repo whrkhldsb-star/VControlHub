@@ -43,7 +43,9 @@ export function requiredPermissionForAction(actionType: string): Permission {
   if (actionType === "create_automation_task") return "command:create";
   if (actionType === "manage_cron") return "command:create";
   if (actionType === "search_knowledge") return "ai:chat";
-  if (actionType === "list_files" || actionType === "search_files" || actionType === "read_file") return "storage:read";
+  // list_files / search_files / read_file run find/grep/tail on arbitrary
+  // absolute paths of the VPS as its SSH user — nothing like the storage nodes
+  // that storage:read scopes — so they need the same permission as read_logs.
   return "server:ssh";
 }
 
@@ -64,12 +66,6 @@ export function permissionDeniedMessage(
     return t("backend.ai.permissionDenied.scheduledTaskManage", locale);
   if (actionType === "search_knowledge")
     return t("backend.ai.permissionDenied.aiChat", locale);
-  if (
-    actionType === "list_files" ||
-    actionType === "search_files" ||
-    actionType === "read_file"
-  )
-    return t("backend.ai.permissionDenied.storageRead", locale);
   return t("backend.ai.permissionDenied.required", locale, {
     permission: perm,
   });

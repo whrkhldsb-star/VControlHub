@@ -32,7 +32,7 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { apiError } from "@/lib/http/api-error";
 import { ForbiddenError } from "@/lib/errors";
-import { getClientIp } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { rateLimitResponse, withRateLimit, type RateLimitConfig } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -62,11 +62,15 @@ function readCookie(request: Request, name: string): string | undefined {
 	}
 }
 
-async function checkSharePasswordRateLimit(request: Request, clientIp: string | null, token: string) {
-	return withRateLimit(
-		new Request(request.url, { headers: { "x-forwarded-for": `${clientIp}:share:${token}` } }),
-		SHARE_PASSWORD_LIMIT,
-	);
+/**
+ * Password guesses are throttled per share AND per client. Keyed directly: the
+ * previous fake-request trick put `${ip}:share:${token}` into x-forwarded-for,
+ * which normalizeClientIp rejects once it exceeds 64 characters (tokens are 48),
+ * so every guess for a share landed in one shared "unknown" bucket and eight
+ * wrong guesses from anyone locked that share for everybody for 15 minutes.
+ */
+async function checkSharePasswordRateLimit(clientIp: string | null, token: string) {
+	return checkRateLimitAsync(`share-password:${token}:${clientIp ?? "unknown"}`, SHARE_PASSWORD_LIMIT);
 }
 
 const passwordAuthorizationSchema = z.object({
@@ -104,7 +108,7 @@ export async function POST(
 	}
 
 	const clientIp = getClientIp(request);
-	const passwordLimit = await checkSharePasswordRateLimit(request, clientIp, token);
+	const passwordLimit = await checkSharePasswordRateLimit(clientIp, token);
 	if (!passwordLimit.allowed) return rateLimitResponse(passwordLimit.retryAfterMs);
 	try {
 		const share = await authorizeShareDownload(token, parsed.data.password, {
@@ -186,7 +190,7 @@ export async function GET(
 		const ticket = readCookie(request, getShareDownloadTicketCookieName());
 		const authorizedShareId = ticket ? verifyShareDownloadTicket(ticket, hashShareToken(token)) : null;
 		if (password) {
-			const passwordLimit = await checkSharePasswordRateLimit(request, clientIp, token);
+			const passwordLimit = await checkSharePasswordRateLimit(clientIp, token);
 			if (!passwordLimit.allowed) return rateLimitResponse(passwordLimit.retryAfterMs);
 		}
 		share = await resolveShareToken(

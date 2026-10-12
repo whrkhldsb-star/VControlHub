@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { syncEndpointPathSchema } from "@/lib/sync/path-schema";
 /**
  * PATCH  /api/sync-jobs/[id] — update schedule / name / paths
  * DELETE /api/sync-jobs/[id] — delete team-scoped sync job
@@ -17,8 +18,8 @@ export const dynamic = "force-dynamic";
 
 const patchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
-  sourcePath: z.string().trim().min(1).optional(),
-  targetPath: z.string().trim().min(1).optional(),
+  sourcePath: syncEndpointPathSchema.optional(),
+  targetPath: syncEndpointPathSchema.optional(),
   schedule: z.string().trim().max(80).nullable().optional(),
   compress: z.boolean().optional(),
 });

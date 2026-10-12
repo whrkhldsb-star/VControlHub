@@ -65,6 +65,18 @@ describe("storage path utils", () => {
     expect(getPathName("a.txt")).toBe("a.txt");
   });
 
+  it("keeps entries whose own name starts with two dots inside the root", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "vch-dotdot-"));
+    try {
+      const resolved = resolveStoragePathWithinBase(root, "..cache/index.bin");
+      expect(resolved.ok).toBe(true);
+      if (resolved.ok) expect(resolved.path).toBe(path.join(root, "..cache", "index.bin"));
+      expect(resolveStoragePathWithinBase(root, "../outside").ok).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("resolves paths only inside the configured storage root", () => {
     const resolved = resolveStoragePathWithinBase("/srv/storage", "team-a/docs/a.txt");
     expect(resolved).toEqual({ ok: true, path: path.resolve("/srv/storage", "team-a/docs/a.txt") });

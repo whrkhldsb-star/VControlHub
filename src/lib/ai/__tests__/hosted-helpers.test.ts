@@ -57,14 +57,13 @@ describe("requiredPermissionForAction", () => {
 		["create_automation_task", "command:create"],
 		["manage_cron", "command:create"],
 		["search_knowledge", "ai:chat"],
-		["list_files", "storage:read"],
-		["search_files", "storage:read"],
-		["read_file", "storage:read"],
 	])("maps %s to %s", (action, permission) => {
 		expect(requiredPermissionForAction(action)).toBe(permission);
 	});
 
-	it.each(["execute_command", "restart_service", "modify_config", "deploy_docker", "read_logs", "get_status"])(
+	// list_files / search_files / read_file read arbitrary absolute paths on the
+	// VPS as its SSH user; storage:read only ever covered storage-node roots.
+	it.each(["execute_command", "restart_service", "modify_config", "deploy_docker", "read_logs", "get_status", "list_files", "search_files", "read_file"])(
 		"requires server:ssh for the executing action %s",
 		(action) => {
 			expect(requiredPermissionForAction(action)).toBe("server:ssh");

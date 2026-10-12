@@ -169,6 +169,15 @@ export function localBasePathBelongsToTenant(basePath: string, teamId: string, s
   return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 }
 
+/**
+ * True when a `path.relative(root, target)` result leaves the root. Compared
+ * segment-wise: a plain `startsWith("..")` also rejected legitimate entries
+ * whose own name begins with two dots, such as `..cache`.
+ */
+function escapesRoot(relativeToRoot: string): boolean {
+  return relativeToRoot === ".." || relativeToRoot.startsWith(`..${path.sep}`) || path.isAbsolute(relativeToRoot);
+}
+
 export function resolveStoragePathWithinBase(basePath: string, relativePath: string | null | undefined): StoragePathResult {
   const normalizedPath = normalizeStorageRelativePath(relativePath);
   if (!normalizedPath.ok) {
@@ -179,7 +188,7 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
   const absolutePath = path.resolve(allowedRoot, normalizedPath.path);
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+  if (escapesRoot(relativeToRoot)) {
     return { ok: false, reason: "Path is out of allowed bounds" };
   }
 
@@ -192,10 +201,7 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
     return { ok: false, reason: "Path cannot be safely resolved" };
   }
   const relativeToRealRoot = path.relative(realRoot, realTarget);
-  if (
-    relativeToRealRoot.startsWith("..") ||
-    path.isAbsolute(relativeToRealRoot)
-  ) {
+  if (escapesRoot(relativeToRealRoot)) {
     return { ok: false, reason: "Path is out of allowed bounds" };
   }
 

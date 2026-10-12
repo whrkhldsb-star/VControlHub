@@ -1,32 +1,14 @@
-"use client";
+import { requirePagePermission } from "@/lib/auth/page-guard";
+import { FilesRecentDownloadsClient } from "./recent-downloads-client";
 
-import { useRouter } from "next/navigation";
-import { useI18n } from "@/lib/i18n/use-locale";
-import { PageShell, PageHeader } from "@/components/page-shell";
-import { RecentDownloadsPanel } from "../recent-downloads-panel";
-import { FilesSubpageNav } from "../files-subpage-nav";
+export const dynamic = "force-dynamic";
 
-export default function FilesRecentDownloadsPage() {
-  const { t } = useI18n();
-  const router = useRouter();
-
-  return (
-    <PageShell>
-      <PageHeader
-        eyebrow={t("filesPage.eyebrow")}
-        title={t("filesPage.subPage.recentDownloads")}
-        description={t("filesPage.subPage.recentDownloadsDesc")}
-      />
-      <FilesSubpageNav />
-      <RecentDownloadsPanel
-        onNavigate={(path, nodeId) => {
-          const params = new URLSearchParams();
-          if (path) params.set("path", path);
-          if (nodeId) params.set("nodeId", nodeId);
-          const qs = params.toString();
-          router.push(qs ? `/files?${qs}` : "/files");
-        }}
-      />
-    </PageShell>
-  );
+/**
+ * Server entry so an invalid or expired session is sent to /login like every
+ * other files page, instead of rendering the client shell and surfacing the
+ * API's 401 as an error message.
+ */
+export default async function FilesRecentDownloadsPage() {
+  await requirePagePermission("storage:read", { redirectTo: "/files/recent-downloads" });
+  return <FilesRecentDownloadsClient />;
 }
