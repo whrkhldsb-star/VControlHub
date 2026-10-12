@@ -61,10 +61,6 @@ export async function listCostBudgets(now = new Date(), session?: TeamSession | 
 	const rows = await prisma.costBudget.findMany({ where: session ? teamWhere(session) : {}, orderBy: { createdAt: "desc" } });
 	return Promise.all(rows.map((row) => budgetToRecord(row, now)));
 }
-export async function getCostBudget(id: string, now = new Date(), session?: TeamSession | null): Promise<CostBudgetRecord | null> {
-	const row = session ? await prisma.costBudget.findFirst({ where: { id, ...teamWhere(session) } }) : await prisma.costBudget.findUnique({ where: { id } });
-	return row ? budgetToRecord(row, now) : null;
-}
 export async function updateCostBudget(id: string, input: unknown, session?: TeamSession | null): Promise<CostBudgetRecord> {
 	const parsed = updateCostBudgetSchema.parse(input); const data: Prisma.CostBudgetUpdateInput = { ...parsed };
 	if (parsed.limitAmount !== undefined) data.limitAmount = new Prisma.Decimal(parsed.limitAmount);

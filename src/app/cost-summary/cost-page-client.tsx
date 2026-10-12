@@ -40,8 +40,6 @@ type Props = {
 	availableCurrencies: CostCurrency[];
 };
 
-export type { CostCurrency };
-
 export function CostPageClient({
 	initialMonth,
 	initialCurrency,

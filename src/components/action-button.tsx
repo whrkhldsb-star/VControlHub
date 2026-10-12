@@ -107,9 +107,6 @@ export function ActionButton({
 	);
 }
 
-/** Preferred name for new code. */
-export const Button = ActionButton;
-
 type ButtonLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "children" | "href"> &
 	ButtonLookProps & {
 		href: string;

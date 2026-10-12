@@ -288,29 +288,9 @@ export async function tellStatus(gid: string, keys?: string[]): Promise<Aria2Sta
 	return result as Aria2Status;
 }
 
-export async function tellActive(keys?: string[]): Promise<Aria2Status[]> {
-	const result = await rpcCall("aria2.tellActive", [keys ?? []]);
-	return result as Aria2Status[];
-}
-
-export async function tellWaiting(offset = 0, num = 100, keys?: string[]): Promise<Aria2Status[]> {
-	const result = await rpcCall("aria2.tellWaiting", [offset, num, keys ?? []]);
-	return result as Aria2Status[];
-}
-
-export async function tellStopped(offset = 0, num = 100, keys?: string[]): Promise<Aria2Status[]> {
-	const result = await rpcCall("aria2.tellStopped", [offset, num, keys ?? []]);
-	return result as Aria2Status[];
-}
-
 export async function getGlobalStat(): Promise<Aria2GlobalStat> {
 	const result = await rpcCall("aria2.getGlobalStat");
 	return result as Aria2GlobalStat;
-}
-
-export async function purgeDownloadResult(): Promise<string> {
-	const result = await rpcCall("aria2.purgeDownloadResult");
-	return result as string;
 }
 
 export async function changeOption(gid: string, options: Record<string, string>): Promise<string> {

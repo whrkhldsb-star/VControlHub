@@ -1,10 +1,5 @@
 export type StorageUploadNode = { id: string; name: string; driver: string };
 export type UploadMessage = { type: "success" | "error"; text: string } | null;
-export type UploadQueueItem = {
-  name: string;
-  status: "pending" | "uploading" | "success" | "error";
-  message: string;
-};
 export type BrowserFileWithRelativePath = File & { webkitRelativePath?: string };
 export type PathValidationError =
   | "controlChars"

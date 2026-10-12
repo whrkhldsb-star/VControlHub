@@ -24,11 +24,7 @@ import type {
 
 export type ItsmFetch = typeof fetch;
 const ITSM_RESPONSE_MAX_BYTES = 64 * 1024;
-let fetchImpl: ItsmFetch = (...args) => fetch(...args);
-
-export function __setItsmFetch(impl: ItsmFetch | null) {
-	fetchImpl = impl ?? ((...args) => fetch(...args));
-}
+const fetchImpl: ItsmFetch = (...args) => fetch(...args);
 
 export function buildOutboundBody(
 	provider: ItsmProvider,

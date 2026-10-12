@@ -7,11 +7,10 @@
  * convenience wrappers for server actions.
  */
 
-import { t as translate, type Locale, type TFn } from "./translations";
+import { t as translate, type TFn } from "./translations";
 import { getServerLocale } from "./server-locale-cookie";
 
 export { getServerLocale };
-export type { Locale };
 
 /**
  * Convenience: produce a `t(key)` function bound to the request locale.

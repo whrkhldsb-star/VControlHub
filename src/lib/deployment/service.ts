@@ -13,25 +13,6 @@ import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 // 'from "@/lib/deployment/service"' keeps working.
 import { t } from "@/lib/i18n/service-translations";
 import { getServerTargetAvailability } from "@/lib/server/availability";
-import type {
-  DeploymentLaunchInputDto,
-  DeploymentRollbackInputDto,
-  DeploymentRollbackRunDto,
-  DeploymentRunDto,
-  DeploymentSnapshotDto,
-  DeploymentStatusDto,
-  DeploymentTemplateDto,
-} from "./dto";
-
-export type {
-  DeploymentLaunchInputDto,
-  DeploymentRollbackInputDto,
-  DeploymentRollbackRunDto,
-  DeploymentRunDto,
-  DeploymentSnapshotDto,
-  DeploymentStatusDto,
-  DeploymentTemplateDto,
-};
 
 export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 

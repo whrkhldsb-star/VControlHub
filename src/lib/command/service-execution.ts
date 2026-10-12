@@ -16,7 +16,7 @@ import { executeCommandWithAgent } from "@/lib/server/agent-service";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { monitorCommandCancellation } from "./cancellation";
 
-export { executeCommandOverSsh, getCommandRuntimeConfigValues, setPasswordExecutorMode, shouldUseSsh2PasswordExecutor } from "./service-ssh";
+export { executeCommandOverSsh, getCommandRuntimeConfigValues, setPasswordExecutorMode } from "./service-ssh";
 
 const cmdExecLogger = createLogger("command-execution");
 

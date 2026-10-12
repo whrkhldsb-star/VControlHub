@@ -123,13 +123,3 @@ export type SerializedTreeFolderDto = {
   sourceKeys: string[];
   sourceValues: string[];
 };
-
-/**
- * Wire shape for search results that have already been passed through
- * `serializeFileTreeFolder`. Most callers should run the serializer on
- * the runtime search output before shipping it across the
- * server↔client boundary; this alias exists so the client-side
- * import surface can be one symbol that matches what the
- * `searchFileTree` consumer will hand it.
- */
-export type FileTreeSearchFoldersDto = SerializedTreeFolderDto[];
