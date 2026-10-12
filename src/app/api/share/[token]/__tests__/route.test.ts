@@ -141,6 +141,22 @@ describe("share token file route", () => {
     expect(last?.status).toBe(429);
   });
 
+  it("throttles password guesses per client address, not per share for everyone", async () => {
+    vi.mocked(resolveShareToken).mockRejectedValue(new Error("密码错误"));
+    const token = "share-token-per-client-bucket-0123456789abcdef";
+    const attempt = (ip: string, n: number) => route.GET(new Request("http://local/api/share/token", {
+      headers: { "x-forwarded-for": ip, "x-share-password": `bad${n}` },
+    }), { params: Promise.resolve({ token }) });
+
+    let last: Response | null = null;
+    for (let i = 0; i < 9; i++) last = await attempt("203.0.113.10", i);
+    expect(last?.status).toBe(429);
+    // A different client is still allowed to try: eight wrong guesses from one
+    // address must not lock the share for everybody.
+    const other = await attempt("203.0.113.11", 0);
+    expect(other.status).not.toBe(429);
+  });
+
   it("exchanges a password for a short-lived HttpOnly download credential", async () => {
     vi.mocked(authorizeShareDownload).mockResolvedValueOnce({ id: "share-password" } as never);
     const token = "share-token-password";

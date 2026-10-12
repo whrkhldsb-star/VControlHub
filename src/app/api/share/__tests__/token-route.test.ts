@@ -43,7 +43,9 @@ describe("/api/share/[token]", () => {
 	it("maps resolve failures to 403 for a wrong password and 404 for everything else", async () => {
 		mocks.resolveShareToken.mockRejectedValueOnce(new ForbiddenError("password"));
 		expect((await get("", { "x-share-password": "nope" })).status).toBe(403);
-		expect(mocks.withRateLimit).toHaveBeenCalledTimes(2);
+		// Only the per-token limiter goes through withRateLimit; password guesses are
+		// keyed directly on share + client address (see checkSharePasswordRateLimit).
+		expect(mocks.withRateLimit).toHaveBeenCalledTimes(1);
 		mocks.resolveShareToken.mockRejectedValueOnce(new NotFoundError("expired"));
 		expect((await get()).status).toBe(404);
 	});

@@ -13,15 +13,16 @@ import { createSyncJob, listSyncJobs } from "@/lib/sync/service-crud";
 import { effectiveDeleteOrphans } from "@/lib/sync/bidirectional";
 import { isValidSyncSchedule, normalizeSyncSchedule } from "@/lib/sync/schedule";
 import { ValidationError } from "@/lib/errors";
+import { syncEndpointPathSchema } from "@/lib/sync/path-schema";
 
 export const dynamic = "force-dynamic";
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(120),
   sourceServerId: z.string().trim().min(1),
-  sourcePath: z.string().trim().min(1),
+  sourcePath: syncEndpointPathSchema,
   targetServerId: z.string().trim().min(1),
-  targetPath: z.string().trim().min(1),
+  targetPath: syncEndpointPathSchema,
   syncType: z
     .enum(["MIRROR", "BACKUP", "INCREMENTAL", "BIDIRECTIONAL"])
     .optional()

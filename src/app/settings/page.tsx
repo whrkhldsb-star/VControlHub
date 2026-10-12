@@ -43,7 +43,7 @@ const SETTINGS_AUDIT_KEYS = [
 ];
 
 export default async function SettingsPage() {
-	const session = await requireSession();
+	const session = await requireSession("/settings");
 	const canManage = sessionHasPermission(session, "user:manage");
 	// Config import, cross-team export and secret-bearing export are reserved for
 	// the built-in admin role — `user:manage` can also arrive as a direct grant,

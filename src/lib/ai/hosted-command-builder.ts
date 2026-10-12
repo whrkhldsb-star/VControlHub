@@ -193,7 +193,9 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
       const path = normalizeConfigPath(params.configPath);
       const content = normalizeConfigContent(params.content);
       if (!path || content === null) return null;
-      return `cp -- ${shellQuote(path)} ${shellQuote(`${path}.bak.$(date +%s)`)} && cat > ${shellQuote(path)} << 'AIEOF'\n${content}\nAIEOF`;
+      // The timestamp stays outside the quotes so the shell expands it; quoted,
+      // every backup was written to one literal "…bak.$(date +%s)" file.
+      return `cp -- ${shellQuote(path)} ${shellQuote(`${path}.bak.`)}$(date +%s) && cat > ${shellQuote(path)} << 'AIEOF'\n${content}\nAIEOF`;
     }
 
     case "deploy_docker": {
