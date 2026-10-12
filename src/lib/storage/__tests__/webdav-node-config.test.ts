@@ -27,7 +27,7 @@ describe("WebDAV node configuration boundary", () => {
     expect(result).not.toHaveProperty("webdavConfigEncrypted");
     expect(result).not.toHaveProperty("password");
     db.storageNode.findMany.mockResolvedValue([row]);
-    const [dto] = await listStorageNodes();
+    const [dto] = await listStorageNodes({ userId: "admin", roles: ["admin" as const], currentTeamId: null });
     expect(db.storageNode.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
       include: expect.objectContaining({ _count: { select: { fileEntries: { where: { isDeleted: false } } } } }),
     }));

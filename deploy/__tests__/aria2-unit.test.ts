@@ -38,6 +38,11 @@ describeLinux("confined aria2 relay unit", () => {
 		const rendered = result.stdout.split("\n").filter((line) => !line.startsWith("ARGS:") && line !== "rpc-secret=unit-test-secret").join("\n").trim();
 		expect(rendered).toBe(expected);
 		expect(result.stdout).toContain("rpc-secret=unit-test-secret");
+		// Fixed BitTorrent listener for firewalls, no LAN discovery, and no unknown `session=` option.
+		expect(rendered).toContain("listen-port=6881-6889");
+		expect(rendered).toContain("dht-listen-port=6881-6889");
+		expect(rendered).toContain("bt-enable-lpd=false");
+		expect(rendered).not.toMatch(/^session=/m);
 		// The secret never travels on argv.
 		expect(result.stdout).not.toMatch(/ARGS:.*unit-test-secret/);
 		const conf = await readFile(path.join(rpcDir, "aria2.unit.conf"), "utf8");

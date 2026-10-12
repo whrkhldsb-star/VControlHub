@@ -92,6 +92,33 @@ describe("storage chunk transport", () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(attempts).toBe(1);
   });
+  it("retries the finalize call while the server reports it is busy with another upload", async () => {
+    vi.useFakeTimers();
+    const file = new File(["a"], "busy.txt");
+    const session = { id: "busy", totalSize: 1, totalChunks: 1, chunkSize: 1, receivedChunks: [] };
+    let completes = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        if (String(url).includes("/chunk?")) {
+          return new Response(JSON.stringify({ session: { ...session, receivedChunks: [0] } }));
+        }
+        if (String(url).endsWith("/complete")) {
+          completes++;
+          // Another tab of the same account is finalizing: the per-user cap answers 409.
+          if (completes < 3) return new Response(JSON.stringify({ error: "Upload finalization is busy; retry shortly" }), { status: 409 });
+        }
+        return new Response(JSON.stringify({ session, size: 1, relativePath: file.name, storageNodeId: "node" }));
+      }),
+    );
+    const upload = uploadStorageFileChunked({ file, storageNodeId: "node", relativePath: file.name });
+    await vi.waitFor(() => expect(completes).toBe(1));
+    await vi.advanceTimersByTimeAsync(1_000);
+    await vi.waitFor(() => expect(completes).toBe(2));
+    await vi.advanceTimersByTimeAsync(2_000);
+    await expect(upload).resolves.toMatchObject({ size: 1 });
+    expect(completes).toBe(3);
+  });
   it("reconciles a lost completion response without uploading or overwriting again", async () => {
     const file = new File(["proof"], "proof.txt", { lastModified: 123 });
     const session = {

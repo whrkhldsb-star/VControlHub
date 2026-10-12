@@ -462,7 +462,7 @@ describe("storage service", () => {
       ])
       .mockResolvedValueOnce([]);
 
-    const result = await getStorageOverview();
+    const result = await getStorageOverview({ userId: "admin", roles: ["admin" as const], currentTeamId: null });
 
     expect(result.stats.totalNodes).toBe(1);
     expect(result.stats.totalEntries).toBe(1208);

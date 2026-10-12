@@ -48,39 +48,55 @@ describe("checkRateLimitAsync", () => {
 });
 
 describe("account lockout shared store", () => {
+  const store = new Map<string, { failCount: number; lockedUntil: number | null; lastFailureAt: number }>();
   beforeEach(() => {
     vi.clearAllMocks();
+    store.clear();
     vi.spyOn(Date, "now").mockReturnValue(50_000);
-    getLockoutMock.mockResolvedValue(null);
-    setLockoutMock.mockResolvedValue(undefined);
-    deleteLockoutMock.mockResolvedValue(undefined);
+    getLockoutMock.mockImplementation(async (key: string) => store.get(key) ?? null);
+    setLockoutMock.mockImplementation(async (key: string, entry: { failCount: number; lockedUntil: number | null; lastFailureAt: number }) => { store.set(key, entry); });
+    deleteLockoutMock.mockImplementation(async (key: string) => { store.delete(key); });
   });
 
-  it("records failures via the shared store and locks after max failures", async () => {
-    getLockoutMock
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ failCount: 1, lockedUntil: null, lastFailureAt: 50_000 })
-      .mockResolvedValueOnce({ failCount: 2, lockedUntil: null, lastFailureAt: 50_000 })
-      .mockResolvedValueOnce({ failCount: 3, lockedUntil: null, lastFailureAt: 50_000 })
-      .mockResolvedValueOnce({ failCount: 4, lockedUntil: null, lastFailureAt: 50_000 });
-
+  it("locks the guessing client after five misses but leaves the owner's other addresses alone", async () => {
     for (let i = 0; i < 4; i += 1) {
-      const r = await recordLoginFailureAsync("bob");
-      expect(r.locked).toBe(false);
+      expect((await recordLoginFailureAsync("bob", "203.0.113.5")).locked).toBe(false);
     }
-    const locked = await recordLoginFailureAsync("bob");
-    expect(locked.locked).toBe(true);
-    expect(setLockoutMock).toHaveBeenCalled();
-    getLockoutMock.mockResolvedValueOnce({
-      failCount: 5,
-      lockedUntil: 50_000 + 15 * 60 * 1_000,
-      lastFailureAt: 50_000,
-    });
-    expect(await isAccountLockedAsync("bob")).toMatchObject({ locked: true });
+    const locked = await recordLoginFailureAsync("bob", "203.0.113.5");
+    expect(locked).toMatchObject({ locked: true, scope: "client", failCount: 5, accountFailCount: 5 });
+    expect(await isAccountLockedAsync("bob", "203.0.113.5")).toMatchObject({ locked: true, scope: "client" });
+    // The account owner on another address is not locked out by a stranger.
+    expect(await isAccountLockedAsync("bob", "198.51.100.7")).toMatchObject({ locked: false, scope: null });
+    expect(await isAccountLockedAsync("BOB", "198.51.100.7")).toMatchObject({ locked: false });
   });
 
-  it("clears lockout on the shared store", async () => {
-    await clearLoginFailureAsync("bob");
+  it("locks the whole account once misses from many addresses reach the account-wide ceiling", async () => {
+    let last: Awaited<ReturnType<typeof recordLoginFailureAsync>> | null = null;
+    for (let i = 0; i < 25; i += 1) {
+      last = await recordLoginFailureAsync("bob", `10.0.${Math.floor(i / 4)}.${i % 4}`);
+    }
+    expect(last).toMatchObject({ locked: true, scope: "account", accountFailCount: 25 });
+    expect(await isAccountLockedAsync("bob", "198.51.100.7")).toMatchObject({ locked: true, scope: "account" });
+  });
+
+  it("keeps the legacy shared bucket when no client address is known", async () => {
+    for (let i = 0; i < 5; i += 1) await recordLoginFailureAsync("bob");
+    expect(await isAccountLockedAsync("bob")).toMatchObject({ locked: true, scope: "client" });
+    expect(store.has("bob@unknown")).toBe(true);
+  });
+
+  it("expires a lock after its window", async () => {
+    for (let i = 0; i < 5; i += 1) await recordLoginFailureAsync("bob", "203.0.113.5");
+    vi.spyOn(Date, "now").mockReturnValue(50_000 + 15 * 60 * 1_000 + 1);
+    expect(await isAccountLockedAsync("bob", "203.0.113.5")).toMatchObject({ locked: false });
+    expect(store.has("bob@203.0.113.5")).toBe(false);
+  });
+
+  it("clears both the client and the account-wide counters on the shared store", async () => {
+    await recordLoginFailureAsync("bob", "203.0.113.5");
+    await clearLoginFailureAsync("bob", "203.0.113.5");
     expect(deleteLockoutMock).toHaveBeenCalledWith("bob");
+    expect(deleteLockoutMock).toHaveBeenCalledWith("bob@203.0.113.5");
+    expect(store.size).toBe(0);
   });
 });

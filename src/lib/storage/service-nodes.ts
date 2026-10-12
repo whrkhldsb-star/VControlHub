@@ -2,7 +2,7 @@ import { constants as fsConstants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { isGlobalTeamManager, serverTeamWhere, teamCreateData, teamWhere, teamScopeWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -468,10 +468,10 @@ export async function deleteStorageNode(
   return { deleted: true };
 }
 
-export async function listStorageNodes(session?: TeamSession | null) {
+export async function listStorageNodes(session: TeamSession) {
   // P2: take=500 上界。storage node 数量本质有限（每存储设备 1 行），上界即异常告警。
   const nodes = await prisma.storageNode.findMany({
-    where: teamScopeWhere(session),
+    where: teamWhere(session),
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     take: 500,
     include: {

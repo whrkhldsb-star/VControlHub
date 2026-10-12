@@ -123,12 +123,26 @@ type LockoutEntry = {
 	lastFailureAt: number;
 };
 
-const ACCOUNT_LOCKOUT_MAX_FAILURES = 5; // lock after N consecutive failures
+/**
+ * Two counters per account. The client counter (username + source address)
+ * locks that address after a few misses, so a stranger who knows a username
+ * cannot lock its owner out. The account-wide counter is much larger and only
+ * exists to bound distributed guessing across many addresses; when it trips
+ * the account is locked for everyone and the audit log says so.
+ */
+const ACCOUNT_LOCKOUT_MAX_FAILURES = 5; // per client address
+const ACCOUNT_WIDE_LOCKOUT_MAX_FAILURES = 25; // across every address
 const ACCOUNT_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const ACCOUNT_FAILURE_RETENTION_MS = 15 * 60 * 1000;
 
+export type LockoutScope = "client" | "account";
+
 function lockoutKey(username: string) {
 	return username.toLowerCase();
+}
+
+function clientLockoutKey(username: string, clientIp: string | null | undefined) {
+	return `${lockoutKey(username)}@${(clientIp?.trim() || "unknown").toLowerCase()}`;
 }
 
 function lockoutTtlMs(entry: LockoutEntry, now: number) {
@@ -136,7 +150,7 @@ function lockoutTtlMs(entry: LockoutEntry, now: number) {
 	return Math.max(1_000, until - now + 1_000);
 }
 
-function applyLoginFailure(entry: LockoutEntry | null, now: number): LockoutEntry {
+function applyLoginFailure(entry: LockoutEntry | null, now: number, maxFailures = ACCOUNT_LOCKOUT_MAX_FAILURES): LockoutEntry {
 	let next = entry;
 	if (
 		!next ||
@@ -150,19 +164,13 @@ function applyLoginFailure(entry: LockoutEntry | null, now: number): LockoutEntr
 		lockedUntil: next.lockedUntil,
 		lastFailureAt: now,
 	};
-	if (next.failCount >= ACCOUNT_LOCKOUT_MAX_FAILURES && !next.lockedUntil) {
+	if (next.failCount >= maxFailures && !next.lockedUntil) {
 		next.lockedUntil = now + ACCOUNT_LOCKOUT_DURATION_MS;
 	}
 	return next;
 }
 
-/**
- * Shared-store lockout check (Redis when configured).
- */
-export async function isAccountLockedAsync(
-	username: string,
-): Promise<{ locked: boolean; lockedUntil: number | null }> {
-	const key = lockoutKey(username);
+async function readLock(key: string): Promise<{ locked: boolean; lockedUntil: number | null }> {
 	const store = getRateLimitStore();
 	const entry = await store.getLockout(key);
 	if (!entry || !entry.lockedUntil) return { locked: false, lockedUntil: null };
@@ -180,6 +188,23 @@ export async function isAccountLockedAsync(
 		return { locked: false, lockedUntil: null };
 	}
 	return { locked: true, lockedUntil: entry.lockedUntil };
+}
+
+/**
+ * Shared-store lockout check (Redis when configured). Locked when either this
+ * client's counter or the account-wide counter has tripped.
+ */
+export async function isAccountLockedAsync(
+	username: string,
+	clientIp?: string | null,
+): Promise<{ locked: boolean; lockedUntil: number | null; scope: LockoutScope | null }> {
+	const [account, client] = await Promise.all([
+		readLock(lockoutKey(username)),
+		readLock(clientLockoutKey(username, clientIp)),
+	]);
+	if (account.locked) return { ...account, scope: "account" };
+	if (client.locked) return { ...client, scope: "client" };
+	return { locked: false, lockedUntil: null, scope: null };
 }
 
 /**
@@ -213,29 +238,45 @@ function chainLockoutMutation<T>(key: string, run: () => Promise<T>): Promise<T>
 	return operation;
 }
 
-/**
- * Record a failed login against the shared store.
- */
-export async function recordLoginFailureAsync(
-	username: string,
-): Promise<{ locked: boolean; lockedUntil: number | null; failCount: number }> {
-	const key = lockoutKey(username);
+async function recordFailure(key: string, maxFailures: number) {
 	return chainLockoutMutation(key, async () => {
 		const now = Date.now();
 		const store = getRateLimitStore();
 		const previousEntry = await store.getLockout(key);
-		const entry = applyLoginFailure(previousEntry, now);
+		const entry = applyLoginFailure(previousEntry, now, maxFailures);
 		await store.setLockout(key, entry, lockoutTtlMs(entry, now));
-		return { locked: !!entry.lockedUntil, lockedUntil: entry.lockedUntil, failCount: entry.failCount };
+		return entry;
 	});
+}
+
+/**
+ * Record a failed login against the shared store: the client counter and the
+ * account-wide counter both advance. `failCount` is the client's count (what
+ * the user sees), `accountFailCount` the total across addresses.
+ */
+export async function recordLoginFailureAsync(
+	username: string,
+	clientIp?: string | null,
+): Promise<{ locked: boolean; lockedUntil: number | null; scope: LockoutScope | null; failCount: number; accountFailCount: number }> {
+	const client = await recordFailure(clientLockoutKey(username, clientIp), ACCOUNT_LOCKOUT_MAX_FAILURES);
+	const account = await recordFailure(lockoutKey(username), ACCOUNT_WIDE_LOCKOUT_MAX_FAILURES);
+	const scope: LockoutScope | null = account.lockedUntil ? "account" : client.lockedUntil ? "client" : null;
+	return {
+		locked: scope !== null,
+		lockedUntil: account.lockedUntil ?? client.lockedUntil,
+		scope,
+		failCount: client.failCount,
+		accountFailCount: account.failCount,
+	};
 }
 
 /**
  * Clear lockout on the shared store after a successful login.
  */
-export async function clearLoginFailureAsync(username: string): Promise<void> {
-	const key = lockoutKey(username);
-	await chainLockoutMutation(key, async () => {
-		await getRateLimitStore().deleteLockout(key);
-	});
+export async function clearLoginFailureAsync(username: string, clientIp?: string | null): Promise<void> {
+	for (const key of [lockoutKey(username), clientLockoutKey(username, clientIp)]) {
+		await chainLockoutMutation(key, async () => {
+			await getRateLimitStore().deleteLockout(key);
+		});
+	}
 }

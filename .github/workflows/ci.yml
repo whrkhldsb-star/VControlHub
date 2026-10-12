@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Merge queue: required checks run again on the queued merge result.
+  merge_group:
   workflow_dispatch:
   schedule:
     - cron: "23 2 * * *"

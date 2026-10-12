@@ -100,14 +100,14 @@ export async function seedBuiltinTemplates() {
 
 /* ── CRUD ─────────────────────────────────────────────────── */
 
-export function commandTemplateScopeWhere(session?: TeamSession | null) {
-	if (!session || seesAllCustomers(session)) return {};
+export function commandTemplateScopeWhere(session: TeamSession) {
+	if (seesAllCustomers(session)) return {};
 	return session.currentTeamId
 		? { OR: [{ isBuiltin: true }, { teamId: session.currentTeamId }] }
 		: { isBuiltin: true };
 }
 
-export async function listTemplates(limit = 200, session?: TeamSession | null) {
+export async function listTemplates(limit = 200, session: TeamSession) {
 	await seedBuiltinTemplates();
 	const where = commandTemplateScopeWhere(session);
 	return prisma.commandTemplate.findMany({
@@ -156,11 +156,9 @@ function assertCanMutateTemplate(
 	throw new ForbiddenError(t("backend.command-template.noPermissionToModifyOthersCommandTemplates"));
 }
 
-export async function updateTemplate(id: string, input: UpdateTemplateInput, actor?: TemplateActor, session?: TeamSession | null) {
+export async function updateTemplate(id: string, input: UpdateTemplateInput, actor: TemplateActor | undefined, session: TeamSession) {
 	const select = { id: true, isBuiltin: true, command: true, rollbackCommand: true, createdById: true } as const;
-	const existingRow = session
-		? await prisma.commandTemplate.findFirst({ where: { id, ...commandTemplateScopeWhere(session) }, select })
-		: await prisma.commandTemplate.findUnique({ where: { id }, select });
+	const existingRow = await prisma.commandTemplate.findFirst({ where: { id, ...commandTemplateScopeWhere(session) }, select });
 	if (!existingRow) {
 		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
 	}
@@ -191,11 +189,9 @@ export async function updateTemplate(id: string, input: UpdateTemplateInput, act
 	return prisma.commandTemplate.findUniqueOrThrow({ where: { id } });
 }
 
-export async function deleteTemplate(id: string, actor?: TemplateActor, session?: TeamSession | null) {
+export async function deleteTemplate(id: string, actor: TemplateActor | undefined, session: TeamSession) {
 	const select = { id: true, name: true, isBuiltin: true, tags: true, variables: true, createdById: true } as const;
-	const existingRow = session
-		? await prisma.commandTemplate.findFirst({ where: { id, ...commandTemplateScopeWhere(session) }, select })
-		: await prisma.commandTemplate.findUnique({ where: { id }, select });
+	const existingRow = await prisma.commandTemplate.findFirst({ where: { id, ...commandTemplateScopeWhere(session) }, select });
 	if (!existingRow) {
 		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
 	}

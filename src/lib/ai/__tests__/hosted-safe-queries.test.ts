@@ -277,9 +277,11 @@ describe("executeServerlessQuery", () => {
 			expect(mocks.listScheduledTasks).toHaveBeenCalledWith(50, operator);
 		});
 
-		it("passes null rather than undefined when there is no scope", async () => {
-			await call("list_scheduled_tasks", {}, null);
-			expect(mocks.listScheduledTasks).toHaveBeenCalledWith(50, null);
+		it("lists nothing without a scope instead of querying every customer", async () => {
+			const res = (await call("list_scheduled_tasks", {}, null)) as { success: boolean; error?: string };
+			expect(res.success).toBe(false);
+			expect(res.error).toBeTruthy();
+			expect(mocks.listScheduledTasks).not.toHaveBeenCalled();
 		});
 
 		it("truncates a long lastResult", async () => {

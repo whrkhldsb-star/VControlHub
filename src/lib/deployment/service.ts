@@ -43,24 +43,20 @@ export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTea
  * invisible to every tenant instead of being readable (and roll-back-able) by
  * all of them.
  */
-function teamScopeWhere(session?: SessionScope | null): Record<string, unknown> {
-  return session ? deploymentRunTeamWhere(session) : {};
-}
-
 /**
  * Load a deployment run by id under optional team scope.
  * Mutate paths (rollback) use this so cross-team IDs resolve as not-found (no IDOR).
  */
 async function getDeploymentRunForSession(
   id: string,
-  session?: SessionScope | null,
+  session: SessionScope,
   include?: {
     snapshot?: boolean;
     template?: boolean;
   },
 ) {
   return prisma.deploymentRun.findFirst({
-    where: { id, ...teamScopeWhere(session) },
+    where: { id, ...deploymentRunTeamWhere(session) },
     include: {
       snapshot: include?.snapshot ?? false,
       template: include?.template ?? false,
@@ -100,11 +96,9 @@ async function loadDeploymentServersInScope(
 
 async function assertDeploymentServersInScope(
   serverIds: string[],
-  session?: SessionScope | null,
+  session: SessionScope,
 ): Promise<void> {
   if (serverIds.length === 0) return;
-  // Prefer session teamWhere; when no session, skip (system/unscoped callers).
-  if (!session) return;
   const servers = await loadDeploymentServersInScope(serverIds, session);
   if (servers.some((server) => server.enabled === false || !getServerTargetAvailability({
     onboardingStatus: server.onboardingStatus,
@@ -153,7 +147,7 @@ function assertTemplateVariables(
     throw new ValidationError(apiCopy("apiCopy.deployment.template.variables.not.fully.filled.in.a18cdd6c", { v0: String(missing.join(", ")) }));
 }
 
-export async function listDeploymentTemplates(session?: SessionScope | null) {
+export async function listDeploymentTemplates(session: SessionScope) {
   await seedBuiltinTemplates();
   const where = commandTemplateScopeWhere(session);
   return prisma.commandTemplate.findMany({ ...(Object.keys(where).length > 0 ? { where } : {}), orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
@@ -168,12 +162,12 @@ export async function createDeploymentRunFromTemplate(
     reason?: string;
     idempotencyKey?: string;
   },
-  session?: SessionScope | null,
+  session: SessionScope,
 ) {
   const rawIdempotencyKey = input.idempotencyKey?.trim() || null;
-  const idempotencyScope = session?.currentTeamId
+  const idempotencyScope = session.currentTeamId
     ? `team:${session.currentTeamId}`
-    : `user:${session?.userId ?? input.requesterId.trim()}`;
+    : `user:${session.userId}`;
   const idempotencyKey = rawIdempotencyKey
     ? `${idempotencyScope}:${rawIdempotencyKey}`
     : null;
@@ -195,13 +189,11 @@ async function createDeploymentRunFromTemplateUnlocked(
     reason?: string;
     idempotencyKey?: string;
   },
-  session?: SessionScope | null,
+  session: SessionScope,
 ) {
   const normalized = normalizeDeploymentInput(input);
   await assertDeploymentServersInScope(normalized.serverIds, session);
-  const template = session
-    ? await prisma.commandTemplate.findFirst({ where: { id: normalized.templateId, ...commandTemplateScopeWhere(session) } })
-    : await prisma.commandTemplate.findUnique({ where: { id: normalized.templateId } });
+  const template = await prisma.commandTemplate.findFirst({ where: { id: normalized.templateId, ...commandTemplateScopeWhere(session) } });
   if (!template) throw new NotFoundError(t("backend.deployment.deploymentTemplateNotFound"));
   assertTemplateVariables(
     template.command,
@@ -214,11 +206,11 @@ async function createDeploymentRunFromTemplateUnlocked(
     ? renderCommand(template.rollbackCommand, normalized.variables)
     : null;
 
-  const teamId = session ? (teamCreateData(session).teamId ?? null) : null;
+  const teamId = teamCreateData(session).teamId ?? null;
   const idempotencyKey = input.idempotencyKey?.trim() || null;
   if (idempotencyKey) {
     const existing = await prisma.deploymentRun.findFirst({
-      where: { idempotencyKey, ...teamScopeWhere(session) },
+      where: { idempotencyKey, ...deploymentRunTeamWhere(session) },
     });
     if (existing) {
       if (existing.commandRequestId) return existing;
@@ -233,7 +225,7 @@ async function createDeploymentRunFromTemplateUnlocked(
         idempotencyKey: `deployment:${idempotencyKey}`,
       });
       const recovered = await prisma.deploymentRun.updateMany({
-        where: { id: existing.id, ...teamScopeWhere(session) },
+        where: { id: existing.id, ...deploymentRunTeamWhere(session) },
         data: {
           commandRequestId: command.id,
           status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING",
@@ -244,7 +236,7 @@ async function createDeploymentRunFromTemplateUnlocked(
         throw new NotFoundError(t("backend.deployment.deploymentRunNotFound"));
       }
       const recoveredRun = await prisma.deploymentRun.findFirst({
-        where: { id: existing.id, ...teamScopeWhere(session) },
+        where: { id: existing.id, ...deploymentRunTeamWhere(session) },
       });
       if (!recoveredRun) {
         throw new NotFoundError(t("backend.deployment.deploymentRunNotFound"));
@@ -393,10 +385,10 @@ async function persistResolvedDeploymentRunStatus<
   return { ...updated, ...resolveDeploymentRunStatus(updated) };
 }
 
-export async function listDeploymentRuns(session?: SessionScope | null,
+export async function listDeploymentRuns(session: SessionScope,
   pagination?: { skip?: number; take?: number },) {
   const runs = await prisma.deploymentRun.findMany({
-    where: teamScopeWhere(session),
+    where: deploymentRunTeamWhere(session),
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     ...(pagination?.skip ? { skip: pagination.skip } : {}),
     take: pagination?.take ?? 100,
@@ -463,7 +455,7 @@ async function refreshDeploymentRollbackStatuses(runs: RollbackRunWithCommand[])
 
 export async function createDeploymentRollbackRun(
   input: { sourceRunId: string; requesterId: string; reason?: string },
-  session?: SessionScope | null,
+  session: SessionScope,
 ) {
   const sourceRun = await getDeploymentRunForSession(input.sourceRunId, session, {
     snapshot: true,
@@ -477,7 +469,7 @@ export async function createDeploymentRollbackRun(
   // availability — a rollback is exactly what you run when a target is sick) so
   // a server that has since moved to another customer cannot be commanded through an old
   // run.
-  if (session && Array.isArray(snapshot.serverIds) && snapshot.serverIds.length > 0) {
+  if (Array.isArray(snapshot.serverIds) && snapshot.serverIds.length > 0) {
     await loadDeploymentServersInScope(snapshot.serverIds, session);
   }
 

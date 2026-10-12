@@ -11,11 +11,33 @@
 "use client";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { ApiError } from "@/lib/http/api-client-error";
 import {
   DEFAULT_CHUNK_SIZE,
   type MediaUploadSessionView,
 } from "@/lib/upload/types";
 
+
+/** Retries of the finalize call while the server reports it is busy. */
+const COMPLETE_BUSY_RETRIES = 6;
+
+function waitUnlessAborted(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
 export const STORAGE_CHUNKED_THRESHOLD_BYTES = DEFAULT_CHUNK_SIZE;
 const MAX_CONCURRENT_CHUNKS = 5;
 const STORAGE_PREFIX = "vcStorageUploadSession:";
@@ -407,14 +429,27 @@ export async function uploadStorageFileChunked(params: {
   // aborted HTTP request can undo the committed storage write.
   onFinalizing?.();
 
-  const complete = await csrfFetch<{
+  type CompleteResponse = {
     session: MediaUploadSessionView;
     relativePath: string;
     size: number;
     storageNodeId: string;
-  }>(`/api/storage/upload/${encodeURIComponent(session.id)}/complete`, {
-    method: "POST",
-  });
+  };
+  let complete: CompleteResponse | undefined;
+  // The server finalizes one upload per account (and two per node) at a time
+  // and answers 409 "busy" beyond that. A second tab of the same account hits
+  // it routinely, so wait and try again instead of failing the upload.
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      complete = await csrfFetch<CompleteResponse>(`/api/storage/upload/${encodeURIComponent(session.id)}/complete`, {
+        method: "POST",
+      });
+      break;
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 409 || attempt >= COMPLETE_BUSY_RETRIES) throw error;
+      await waitUnlessAborted(Math.min(8_000, 1_000 * 2 ** attempt), signal);
+    }
+  }
 
   clearPersistedSession(file, storageNodeId, relativePath, scope);
   onProgress?.({

@@ -59,12 +59,14 @@ const teamSession: SessionScope = {
   roles: ["operator"] as RoleKey[],
   currentTeamId: "team_a",
 };
+// Platform administrator viewing all customers: the unscoped view the old sessionless calls had.
+const PLATFORM: SessionScope = { userId: "u1", roles: ["admin"] as RoleKey[], currentTeamId: null };
 
 describe("scheduled task service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockTeamWhere.mockReturnValue({ teamId: "team_a" });
-    mockTeamCreateData.mockReturnValue({ teamId: "team_a" });
+    mockTeamWhere.mockImplementation((session: SessionScope) => (session.currentTeamId ? { teamId: session.currentTeamId } : {}));
+    mockTeamCreateData.mockImplementation((session: SessionScope) => ({ teamId: session.currentTeamId ?? undefined }));
     mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.scheduledTaskRun.findUnique.mockResolvedValue(null);
     mockPrisma.scheduledTaskRun.create.mockResolvedValue({ id: "run1" });
@@ -90,7 +92,7 @@ describe("scheduled task service", () => {
       command: "df -h",
       serverIds: [" srv1 ", "srv1", "", "srv2"],
       createdById: "u1",
-    });
+    }, PLATFORM);
 
     expect(mockPrisma.scheduledTask.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -133,7 +135,7 @@ describe("scheduled task service", () => {
       runAt,
       command: "true",
       serverIds: ["srv1"],
-    });
+    }, PLATFORM);
 
     expect(mockPrisma.scheduledTask.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -151,7 +153,7 @@ describe("scheduled task service", () => {
 
     await service.updateScheduledTask("task1", {
       serverIds: ["srv1", " srv2 ", "srv1", ""],
-    });
+    }, PLATFORM);
 
     expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith({
       where: { id: "task1" },
@@ -162,7 +164,7 @@ describe("scheduled task service", () => {
   it("bounds scheduled task list hydration newest-first", async () => {
     mockPrisma.scheduledTask.findMany.mockResolvedValue([]);
 
-    await service.listScheduledTasks();
+    await service.listScheduledTasks(200, PLATFORM);
 
     expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith({
       where: {},
@@ -240,7 +242,7 @@ describe("scheduled task service", () => {
       lastResult: "Manual retry dispatched command request cmd1; awaiting final result",
     });
 
-    const result = await service.retryScheduledTask("task1");
+    const result = await service.retryScheduledTask("task1", PLATFORM);
 
     expect(mockCreateCommandRequest).toHaveBeenCalledWith({
       title: "Scheduled task retry: Clean logs",
