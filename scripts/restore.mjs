@@ -59,7 +59,11 @@ async function prepareDatabaseRestore(appDir) {
 
 async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
   log(`Restoring ${backupFile} into configured database`);
-  const child = spawn(psql, ["-v", "ON_ERROR_STOP=1", ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
+  // --single-transaction (with `-f -`, which psql requires for it to apply to
+  // stdin) makes the dump all-or-nothing. ON_ERROR_STOP alone stops at the
+  // first error but leaves every DROP/CREATE/COPY before it committed, i.e. a
+  // half-restored database.
+  const child = spawn(psql, ["-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-", ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
   const source = createReadStream(backupFile);
   const gunzip = backupFile.endsWith(".gz") ? createGunzip() : null;
   const completed = new Promise((resolve, reject) => {
@@ -160,7 +164,11 @@ async function containsNoSymlinks(root) {
   await walk(root);
 }
 
-async function restoreFiles(archive, appDir, inspected = false) {
+/**
+ * Extract and vet the archive's files in a private staging directory. Nothing
+ * in appDir changes until {@link applyStagedFiles}.
+ */
+async function stageFiles(archive, appDir, inspected = false) {
   if (!archive) fail("archive path is required");
   try { await fs.access(archive); } catch { fail(`archive not found: ${archive}`); }
   if (!appDir) fail("application directory is required");
@@ -178,11 +186,28 @@ async function restoreFiles(archive, appDir, inspected = false) {
   try {
     await runBinary(tar, ["-xzf", archive, "-C", staging, "--no-same-owner", "--exclude=database.sql.gz"]);
     await containsNoSymlinks(staging);
+  } catch (error) {
+    await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
+  }
+  return staging;
+}
+
+/**
+ * Overlay the staged files onto appDir. This merges: files created after the
+ * backup are kept, files in the backup overwrite their current versions.
+ */
+async function applyStagedFiles(staging, appDir) {
+  try {
     await fs.cp(path.join(staging, "."), appDir, { recursive: true, force: true });
   } finally {
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
   }
   log(`Files restored to ${appDir}`);
+}
+
+async function restoreFiles(archive, appDir, inspected = false) {
+  await applyStagedFiles(await stageFiles(archive, appDir, inspected), appDir);
 }
 
 async function extractDatabaseMember(archive, targetDir, databaseMember) {
@@ -240,11 +265,26 @@ async function runRestore(component, archive, componentArg, appDirArg) {
   const databaseTarget = which === "files" ? null : await prepareDatabaseRestore(targetDir);
   if (which === "database" || which === "all") {
     const staging = await fs.mkdtemp(path.join(os.tmpdir(), "vch-restore-full-"));
+    let stagedFiles = null;
     try {
       const databaseDump = await extractDatabaseMember(archive, staging, databaseMember);
-      if (which === "all") await restoreFiles(archive, targetDir, true);
+      // Everything that can fail without touching the live system runs first:
+      // extract + vet the files, then the all-or-nothing database transaction.
+      // Only after the database committed are the staged files copied in, so a
+      // failing dump leaves both database and files exactly as they were.
+      if (which === "all") stagedFiles = await stageFiles(archive, targetDir, true);
       await restoreDatabase(databaseDump, databaseTarget);
+      if (stagedFiles) {
+        const files = stagedFiles;
+        stagedFiles = null;
+        try {
+          await applyStagedFiles(files, targetDir);
+        } catch (error) {
+          fail(`PARTIAL RESTORE: the database was restored but copying files into ${targetDir} failed (${error instanceof Error ? error.message : String(error)}). Restore the pre-restore safety snapshot or re-run a files-only restore.`);
+        }
+      }
     } finally {
+      if (stagedFiles) await fs.rm(stagedFiles, { recursive: true, force: true }).catch(() => undefined);
       await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
     }
   } else {

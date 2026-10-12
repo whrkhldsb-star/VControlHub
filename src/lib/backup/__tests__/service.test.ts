@@ -12,6 +12,9 @@ const platformPath = (posixPath: string) =>
 const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.hoisted(() => ({
   mockPrisma: {
     backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    // Restore drain: no other background work running.
+    job: { findMany: vi.fn(async () => []) },
+    syncJob: { findMany: vi.fn(async () => []) },
     $executeRaw: vi.fn().mockResolvedValue(undefined),
   },
   runBackupCommandMock: vi.fn(),
@@ -488,6 +491,34 @@ describe("backup service", () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak6", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: "0".repeat(64) });
     await expect(restoreBackupRecord({ id: "bak6", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("校验和验证失败");
     expect(runBackupCommandMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses the restore before any snapshot or restore step while other background work keeps running", async () => {
+    mockPrisma.job.findMany.mockResolvedValue([{ id: "job-dl", type: "download.execute" }] as never);
+    mockPrisma.syncJob.findMany.mockResolvedValue([{ id: "sync-1", name: "nightly mirror" }] as never);
+    await expect(restoreBackupRecord({ id: "bak1", confirm: "RESTORE", projectRoot: "/opt/app", drainTimeoutMs: 0 }))
+      .rejects.toMatchObject({ name: "ConflictError", message: expect.stringContaining("download.execute (job-dl)") });
+    expect(runBackupCommandMock).not.toHaveBeenCalled();
+    mockPrisma.job.findMany.mockResolvedValue([] as never);
+    mockPrisma.syncJob.findMany.mockResolvedValue([] as never);
+  });
+
+  it("excludes its own durable job from the drain and waits for the rest to finish", async () => {
+    mockPrisma.job.findMany
+      .mockResolvedValueOnce([{ id: "job-other", type: "playbook.run" }] as never)
+      .mockResolvedValue([] as never);
+    await restoreBackupRecord({ id: "bak1", confirm: "RESTORE", projectRoot: "/opt/app", jobId: "restore-job" });
+    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ status: "RUNNING", id: { not: "restore-job" } }),
+    }));
+    expect(mockPrisma.job.findMany).toHaveBeenCalledTimes(2);
+    expect(runBackupCommandMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("labels a failed restore step with the safety snapshot to roll back to", async () => {
+    runBackupCommandMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("psql exited with code 3: division by zero"));
+    await expect(restoreBackupRecord({ id: "bak1", confirm: "RESTORE", projectRoot: "/opt/app" }))
+      .rejects.toThrow(/psql exited with code 3[^]*(pre-restore|安全快照)/);
   });
 
   it("summarizes backup policy capacity, type mix, retention hints, and failure reasons", () => {

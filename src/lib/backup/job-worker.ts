@@ -306,6 +306,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
             projectRoot: payload.projectRoot,
             component: payload.component ?? "all",
             session: workerSession(job, payload.teamId),
+            jobId: job.id,
           }),
       });
       await completeJob(job.id, WORKER_ID, restore);

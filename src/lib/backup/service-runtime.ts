@@ -15,7 +15,7 @@ import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
  * `getBackupPolicySummary` is a thin aggregate over `listBackupRecords`
  * + the pure `summarizeBackupPolicy` reducer.
  */
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { appendFile, mkdtemp, rm, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -32,9 +32,11 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { backupCommandErrorMessage, runBackupCommand, type RunBackupCommandInput } from "./command-runner";
 import { backupRunnerSpec } from "./platform-runner";
 import {
+	getBackupStorageRoot,
 	isBackupType,
 	resolveBackupPath,
 } from "./service-types";
+import { PLATFORM_RESTORE_LOCK } from "./restore-gate";
 import { planBackupRestoreSteps } from "./service-commands";
 import {
 	createBackupRecord,
@@ -47,6 +49,7 @@ import { uploadBackupToOffsite } from "./offsite-uploader";
 import { t } from "@/lib/i18n/service-translations";
 
 const offsiteUploadLogger = createLogger("backup-offsite-uploader");
+const restoreLogger = createLogger("backup-restore");
 
 
 
@@ -269,10 +272,64 @@ function planPreRestoreSnapshot(input: {
 	return { relativePath, absolutePath, args, snapshotType };
 }
 
-/** Resource id of the single platform-wide restore lock. */
-export const PLATFORM_RESTORE_LOCK_ID = "platform";
+const RESTORE_DRAIN_TIMEOUT_MS = 120_000;
+const RESTORE_DRAIN_POLL_MS = 2_000;
 
-export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string; component?: "database" | "files" | "all"; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
+/**
+ * Quiesce background execution before the destructive step. While the restore
+ * lock is held, job claiming and sync execution start nothing new (see
+ * ./restore-gate); this waits for work that was already running to finish and
+ * refuses the restore if it does not, rather than replacing the database and
+ * files underneath a running job that would then write stale results back.
+ */
+async function waitForBackgroundWorkToDrain(input: { excludeJobId?: string; timeoutMs: number }) {
+	const deadline = Date.now() + input.timeoutMs;
+	for (;;) {
+		const now = new Date();
+		const [jobs, syncJobs] = await Promise.all([
+			prisma.job.findMany({
+				where: {
+					status: "RUNNING",
+					OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { gte: now } }],
+					...(input.excludeJobId ? { id: { not: input.excludeJobId } } : {}),
+				},
+				select: { id: true, type: true },
+				take: 10,
+			}),
+			prisma.syncJob.findMany({ where: { status: "RUNNING" }, select: { id: true, name: true }, take: 10 }),
+		]);
+		if (jobs.length === 0 && syncJobs.length === 0) return;
+		if (Date.now() >= deadline) {
+			const tasks = [...jobs.map((job) => `${job.type} (${job.id})`), ...syncJobs.map((job) => `sync ${job.name} (${job.id})`)];
+			throw new ConflictError(t("backend.backup.restoreWorkStillRunning", { tasks: tasks.join(", ") }));
+		}
+		await new Promise((resolve) => setTimeout(resolve, RESTORE_DRAIN_POLL_MS));
+	}
+}
+
+/**
+ * Outcome log kept next to the backup artifacts. The Job row of an in-app
+ * restore lives in the database being restored, so its own record of the run
+ * does not survive a database restore.
+ */
+async function appendRestoreHistory(projectRoot: string, entry: Record<string, unknown>) {
+	try {
+		await appendFile(join(getBackupStorageRoot(projectRoot), "restore-history.jsonl"), `${JSON.stringify(entry)}\n`);
+	} catch (error) {
+		restoreLogger.warn("failed to append restore history", { error: error instanceof Error ? error.message : String(error) });
+	}
+}
+
+export async function restoreBackupRecord(input: {
+	id: string;
+	confirm: string;
+	projectRoot?: string;
+	component?: "database" | "files" | "all";
+	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+	/** The durable job running this restore, excluded from the drain. */
+	jobId?: string;
+	drainTimeoutMs?: number;
+}) {
 	if (input.confirm !== "RESTORE") {
 		throw new ValidationError(t("backend.backup.restoreConfirmRequired"));
 	}
@@ -280,7 +337,7 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 	// restores of different backups overwrite the same database and file tree.
 	// Keying this lock by backup id (as before) let them run concurrently. The
 	// restore scripts additionally hold a host-level lock against the CLI.
-	const releaseLock = await tryAcquireAdvisoryLock("backup-restore", PLATFORM_RESTORE_LOCK_ID);
+	const releaseLock = await tryAcquireAdvisoryLock(PLATFORM_RESTORE_LOCK.namespace, PLATFORM_RESTORE_LOCK.resourceId);
 	if (!releaseLock) throw new ConflictError(t("backend.backup.restoreAlreadyRunning"));
 	try {
 		const record = await getBackupRecord(input.id, input.session);
@@ -301,6 +358,10 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 		if (actualChecksum !== record.checksumSha256) {
 			throw new BusinessError(t("backend.backup.checksumMismatch"));
 		}
+		await waitForBackgroundWorkToDrain({
+			excludeJobId: input.jobId,
+			timeoutMs: input.drainTimeoutMs ?? RESTORE_DRAIN_TIMEOUT_MS,
+		});
 		const snapshot = planPreRestoreSnapshot({
 			id: record.id,
 			type: isBackupType(record.type) ? record.type : "DATABASE",
@@ -335,13 +396,45 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 			await rm(snapshot.absolutePath, { force: true }).catch(() => undefined);
 			throw error;
 		}
-		for (const step of execution.steps) {
-			await runBackupCommand({
-				file: step.file,
-				args: step.args,
-				options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" } },
+		const startedAt = new Date().toISOString();
+		try {
+			for (const step of execution.steps) {
+				await runBackupCommand({
+					file: step.file,
+					args: step.args,
+					options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" } },
+				});
+			}
+		} catch (error) {
+			await appendRestoreHistory(projectRoot, {
+				backupId: record.id,
+				component,
+				status: "FAILED",
+				startedAt,
+				finishedAt: new Date().toISOString(),
+				safetySnapshotId: safetySnapshotRecord.id,
+				safetySnapshotPath: snapshot.relativePath,
+				error: backupCommandErrorMessage(error).slice(0, 2000),
 			});
+			// Never leave an unlabelled failure: say what rolled back and where the
+			// way back is.
+			throw new BusinessError(
+				t("backend.backup.restoreFailedWithSnapshot", {
+					error: backupCommandErrorMessage(error).slice(0, 500),
+					snapshotId: safetySnapshotRecord.id,
+					snapshotPath: snapshot.relativePath,
+				}),
+			);
 		}
+		await appendRestoreHistory(projectRoot, {
+			backupId: record.id,
+			component,
+			status: "COMPLETED",
+			startedAt,
+			finishedAt: new Date().toISOString(),
+			safetySnapshotId: safetySnapshotRecord.id,
+			safetySnapshotPath: snapshot.relativePath,
+		});
 		return {
 			id: record.id,
 			type: record.type,

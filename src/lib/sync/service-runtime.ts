@@ -9,6 +9,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * Pure command building lives in `./service-commands`, credential
  * decryption in `./service-credentials`, prisma CRUD in `./service-crud`.
  */
+import { isPlatformRestoreInProgress } from "@/lib/backup/restore-gate";
 import { prisma } from "@/lib/db";
 import { formatBytes } from "@/lib/format/bytes";
 import { execRemoteCommand, buildSshParamsFromServer, writeRemoteFile, type SshConnectionParams } from "@/lib/ssh/client";
@@ -343,6 +344,9 @@ export async function executeSyncJob(
 ): Promise<ExecuteSyncJobResult> {
 	const job = await getSyncJobForExecution(jobId);
 	if (!job) throw new Error("Sync job not found");
+	if (await isPlatformRestoreInProgress()) {
+		throw new Error("A platform restore is in progress; sync jobs do not start until it finishes");
+	}
 
 	// CAS claim: only one runner can move IDLE/ERROR → RUNNING.
 	const claimed = await prisma.syncJob.updateMany({
