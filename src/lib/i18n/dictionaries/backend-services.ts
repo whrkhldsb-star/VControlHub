@@ -135,6 +135,7 @@ export const zh: Record<string, string> = {
 	"backend.aria2.missingBinary": "未安装 aria2c，无法进行磁力/BT 中继下载。请在服务器上安装 aria2。",
 	"backend.aria2.rpcSecretMissing": "aria2 RPC 密钥未配置，无法启动中继下载服务。请在设置中配置 ARIA2_RPC_SECRET。",
 	"backend.aria2.startFailed": "aria2 中继下载服务启动失败。请检查 aria2 进程是否运行，或前往「运维自动化 → 任务中心」查看详细日志。",
+	"backend.aria2.managedDaemonUnreachable": "aria2 中继服务（systemd 的 aria2 unit）未运行。请在主机上执行 systemctl start <前缀>-aria2.service，或查看 journalctl -u <前缀>-aria2.service。",
 
 	// ticket/sla.ts (background escalation notifications)
 
@@ -754,6 +755,7 @@ export const en: Record<string, string> = {
 	"backend.aria2.missingBinary": "aria2c is not installed; cannot perform magnet/BT relay download. Please install aria2 on the server.",
 	"backend.aria2.rpcSecretMissing": "aria2 RPC secret is not configured; cannot start the relay download service. Configure ARIA2_RPC_SECRET in settings.",
 	"backend.aria2.startFailed": "Failed to start the aria2 relay download service. Check that aria2 is running, or open Ops Automation → Task Center for details.",
+	"backend.aria2.managedDaemonUnreachable": "The aria2 relay service (the systemd aria2 unit) is not running. Run systemctl start <prefix>-aria2.service on the host, or check journalctl -u <prefix>-aria2.service.",
 
 	// ticket/sla.ts (background escalation notifications)
 

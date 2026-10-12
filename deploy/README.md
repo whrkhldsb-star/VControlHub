@@ -297,6 +297,7 @@ Cron 示例：
 - `${SERVICE_PREFIX:-vcontrolhub}-next.service`：Next.js 应用，默认监听 `127.0.0.1:3000`
 - `${SERVICE_PREFIX:-vcontrolhub}-worker.service`：独立后台任务进程，通过数据库心跳向 Web 端报告健康状态
 - `${SERVICE_PREFIX:-vcontrolhub}-ssh-ws.service`：SSH WebSocket 辅助服务，默认监听 `127.0.0.1:3001`
+- `${SERVICE_PREFIX:-vcontrolhub}-aria2.service`：磁力/BT 中继下载守护进程（`deploy/aria2-daemon.sh` 拉起 `aria2c`，只监听 `127.0.0.1:6800`）。该 unit 用 `IPAddressDeny` 禁止访问私有网段、CGNAT、链路本地与云元数据地址，只放行回环供应用 RPC 调用；安装器与 `deploy.sh` 会写入 `ARIA2_MANAGED_EXTERNALLY=1`，应用因此不再自行拉起无限制的 aria2。没有 systemd 或未安装 `aria2c` 的主机保持旧的自拉起行为。
 - `caddy`：公网 HTTPS 反向代理
 - PostgreSQL：通过 `DATABASE_URL` 连接，可以是本机或外部数据库
 

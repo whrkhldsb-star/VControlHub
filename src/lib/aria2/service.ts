@@ -93,6 +93,9 @@ export function getPublicAria2Error(error: unknown, locale: Locale = "zh"): stri
 		if (error.message.includes("ARIA2_RPC_SECRET")) {
 			return t("backend.aria2.rpcSecretMissing", locale);
 		}
+		if (error.message.includes("ARIA2_MANAGED_EXTERNALLY")) {
+			return t("backend.aria2.managedDaemonUnreachable", locale);
+		}
 	}
 	return t("backend.aria2.startFailed", locale);
 }
@@ -146,6 +149,20 @@ async function rpcCall(method: string, params: unknown[] = []): Promise<unknown>
 
 /* ── Daemon Management ────────────────────────────────────── */
 
+/**
+ * True when the daemon is run by the host (the installer's confined
+ * `<prefix>-aria2.service`, which denies private-network and metadata egress).
+ * The application must then never spawn its own copy: it would run unconfined
+ * inside the worker's cgroup and race the unit for the RPC port.
+ */
+export function isAria2ManagedExternally(env: Partial<NodeJS.ProcessEnv> = process.env): boolean {
+	const value = env.ARIA2_MANAGED_EXTERNALLY?.trim().toLowerCase();
+	return value === "1" || value === "true";
+}
+
+export const ARIA2_MANAGED_DAEMON_UNREACHABLE =
+	"aria2 RPC is unreachable and ARIA2_MANAGED_EXTERNALLY forbids spawning a daemon; start the aria2 service";
+
 export async function ensureAria2Daemon(): Promise<void> {
 	// Always re-probe RPC health. A sticky daemonStarted flag would skip restart
 	// after aria2c dies/OOM, leaving downloads permanently broken until process restart.
@@ -155,6 +172,10 @@ export async function ensureAria2Daemon(): Promise<void> {
 		return;
 	} catch {
 		// Not running — fall through to spawn
+	}
+
+	if (isAria2ManagedExternally()) {
+		throw new Error(ARIA2_MANAGED_DAEMON_UNREACHABLE);
 	}
 
 	const config = getAria2RuntimeConfig();

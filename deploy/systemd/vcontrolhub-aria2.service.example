@@ -1,0 +1,63 @@
+[Unit]
+Description={{SITE_NAME}} aria2 relay daemon (magnet/BT downloads)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory={{APP_DIR}}
+EnvironmentFile={{RUNTIME_ENV_FILE}}
+Environment=PATH={{SYSTEMD_PATH}}
+ExecStart=/bin/bash {{APP_DIR}}/deploy/aria2-daemon.sh
+Restart=always
+RestartSec=5
+User={{APP_USER}}
+Group={{APP_USER}}
+
+# Security hardening (same baseline as the worker unit)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RemoveIPC=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# Magnet/BT peers and trackers are public hosts by definition, but a torrent can
+# name an internal tracker or peer. The daemon runs on the control plane, so it
+# must never reach the hub's private networks or cloud metadata; only loopback
+# stays open for the application's RPC calls. (An aria2 spawned by the worker
+# inherited the worker's cgroup, which has to reach private VPS addresses.)
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10 169.254.0.0/16 fc00::/7 fe80::/10
+IPAddressAllow=127.0.0.0/8 ::1
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @cpu-emulation @debug @obsolete
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+PrivateTmp=true
+
+# Session, config and downloaded files live under ARIA2_RPC_DIR (installer
+# default /var/lib/{{APP_SLUG}}/aria2, application default {{APP_DIR}}/tmp/aria2).
+ReadWritePaths=-/var/lib/{{APP_SLUG}} -{{APP_DIR}}/tmp
+
+MemoryMax=512M
+MemoryHigh=448M
+CPUQuota=100%
+TasksMax=256
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{SERVICE_PREFIX}}-aria2
+
+[Install]
+WantedBy=multi-user.target

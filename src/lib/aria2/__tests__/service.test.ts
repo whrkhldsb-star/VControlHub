@@ -1,14 +1,30 @@
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const spawnMock = vi.hoisted(() => vi.fn());
+vi.mock("../command-runner", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../command-runner")>()),
+  spawnAria2Detached: spawnMock,
+}));
 
 import {
+  ARIA2_MANAGED_DAEMON_UNREACHABLE,
   buildAria2Config,
   buildAria2LaunchConfig,
   buildAria2SpawnArgs,
+  ensureAria2Daemon,
   getAria2RuntimeConfig,
   getPublicAria2Error,
+  isAria2ManagedExternally,
 } from "../service";
+
+afterEach(() => {
+  delete process.env.ARIA2_MANAGED_EXTERNALLY;
+  delete process.env.ARIA2_RPC_PORT;
+  delete process.env.ARIA2_RPC_SECRET;
+  spawnMock.mockReset();
+});
 
 describe("aria2 runtime config", () => {
   it("defaults to portable app-scoped paths and loopback RPC", () => {
@@ -74,5 +90,24 @@ describe("aria2 runtime config", () => {
     ).toBe(
       "aria2c is not installed; cannot perform magnet/BT relay download. Please install aria2 on the server.",
     );
+  });
+});
+
+describe("externally managed aria2 daemon", () => {
+  it("recognises the flag in its accepted spellings", () => {
+    expect(isAria2ManagedExternally({})).toBe(false);
+    expect(isAria2ManagedExternally({ ARIA2_MANAGED_EXTERNALLY: "0" })).toBe(false);
+    expect(isAria2ManagedExternally({ ARIA2_MANAGED_EXTERNALLY: "1" })).toBe(true);
+    expect(isAria2ManagedExternally({ ARIA2_MANAGED_EXTERNALLY: " true " })).toBe(true);
+  });
+
+  it("never spawns its own daemon when the host runs the confined unit; the error names the service", async () => {
+    process.env.ARIA2_MANAGED_EXTERNALLY = "1";
+    // Nothing listens here, so the RPC probe fails fast and the old code path would spawn.
+    process.env.ARIA2_RPC_PORT = "1";
+    process.env.ARIA2_RPC_SECRET = "unit-test-secret";
+    await expect(ensureAria2Daemon()).rejects.toThrow(ARIA2_MANAGED_DAEMON_UNREACHABLE);
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(getPublicAria2Error(new Error(ARIA2_MANAGED_DAEMON_UNREACHABLE), "en")).toContain("systemctl start <prefix>-aria2.service");
   });
 });

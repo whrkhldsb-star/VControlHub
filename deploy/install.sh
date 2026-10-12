@@ -541,6 +541,16 @@ sync_installer_env_overrides() {
  export STORAGE_ROOT="${effective_storage_root}"
  export BACKUP_DIR="${effective_backup_dir}"
  export ARIA2_RPC_DIR="${effective_aria2_rpc_dir}"
+ # The magnet/BT relay daemon runs as its own confined systemd unit
+ # (${SERVICE_PREFIX}-aria2.service, no access to private networks or cloud
+ # metadata). With the flag set the application never spawns a second,
+ # unconfined aria2 of its own; without systemd or aria2c it keeps the old
+ # self-spawn behaviour.
+ if [ -z "${DESTDIR}" ] && [ "${SKIP_SYSTEMD}" != "1" ] && have_cmd systemctl && have_cmd aria2c; then
+  set_env_var ARIA2_MANAGED_EXTERNALLY 1
+ else
+  remove_env_var ARIA2_MANAGED_EXTERNALLY
+ fi
  if [ -n "${DOMAIN}" ]; then
   set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL "${SITE_NAME}"
   set_env_var SSH_WS_ALLOWED_ORIGINS "https://${DOMAIN},http://${DOMAIN}"
@@ -1027,11 +1037,15 @@ install_systemd() {
 		quick_service_read_write_paths=" $(quick_service_host_paths | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
 	fi
 	local svc
-	for svc in next worker ssh-ws; do
+	for svc in next worker ssh-ws aria2; do
 		local src="${APP_DIR}/deploy/systemd/${APP_SLUG}-${svc}.service.example"
 		# Custom APP_SLUG installs have no slug-named templates in the repo;
 		# fall back to the canonical shipped templates.
 		[ -f "${src}" ] || src="${APP_DIR}/deploy/systemd/vcontrolhub-${svc}.service.example"
+		if [ "${svc}" = "aria2" ] && [ ! -f "${src}" ]; then
+			warn "aria2 systemd template not found; the application will spawn aria2 itself (unconfined)"
+			continue
+		fi
 		[ -f "${src}" ] || fail "Systemd template not found: ${src}"
 		if [ -n "${DESTDIR}" ]; then
 			case "${src}" in
@@ -1090,7 +1104,9 @@ sed \
 		log "Rendered systemd units under ${DESTDIR}; skipping host systemctl daemon-reload/enable"
 	else
 		systemctl daemon-reload
-		systemctl enable "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service"
+		local enable_units=("${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service")
+		[ ! -f "/etc/systemd/system/${SERVICE_PREFIX}-aria2.service" ] || enable_units+=("${SERVICE_PREFIX}-aria2.service")
+		systemctl enable "${enable_units[@]}"
 	fi
 }
 install_caddy() {
@@ -1201,6 +1217,9 @@ restart_services() {
  [ "${SKIP_RESTART}" = "1" ] && { warn "Skipping service restart"; return; }
  log "Restarting services"
  systemctl restart "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service"
+ if [ -f "/etc/systemd/system/${SERVICE_PREFIX}-aria2.service" ]; then
+  systemctl restart "${SERVICE_PREFIX}-aria2.service" || warn "${SERVICE_PREFIX}-aria2.service did not start; magnet/BT relay downloads stay unavailable until it runs (journalctl -u ${SERVICE_PREFIX}-aria2.service)"
+ fi
 	# Restart Caddy with the newly rendered config. `systemctl reload caddy` fails
 	# when Caddy is installed/enabled but not currently running (common after a
 	# reboot or first install), so try reload only for an active service and fall

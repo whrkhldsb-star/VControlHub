@@ -40,6 +40,7 @@ APP_DIR="${APP_DIR:-/opt/VControlHub}"
 SERVICE_NAME="${SERVICE_NAME:-vcontrolhub-next}"
 WORKER_SERVICE_NAME="${WORKER_SERVICE_NAME:-vcontrolhub-worker}"
 SSH_SERVICE_NAME="${SSH_SERVICE_NAME:-vcontrolhub-ssh-ws}"
+ARIA2_SERVICE_NAME="${ARIA2_SERVICE_NAME:-vcontrolhub-aria2}"
 SYSTEMD_UNIT_DIR="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
 stage_dir=""
 rollback_dir=""
@@ -64,11 +65,12 @@ on_exit() {
 		done
 	fi
 	if [ "$status" -ne 0 ] && [ "$units_saved" -eq 1 ]; then
-		for item in next.service worker.service workers.conf; do
+		for item in next.service worker.service workers.conf aria2.service; do
 			case "$item" in
 				next.service) target="$SYSTEMD_UNIT_DIR/$SERVICE_NAME.service" ;;
 				worker.service) target="$SYSTEMD_UNIT_DIR/$WORKER_SERVICE_NAME.service" ;;
 				workers.conf) target="$SYSTEMD_UNIT_DIR/$SERVICE_NAME.service.d/10-workers.conf" ;;
+				aria2.service) target="$SYSTEMD_UNIT_DIR/$ARIA2_SERVICE_NAME.service" ;;
 			esac
 			if [ -f "$rollback_dir/units/$item" ]; then cp -a "$rollback_dir/units/$item" "$target"; else rm -f "$target"; fi
 		done
@@ -126,6 +128,8 @@ WORKER_UNIT="$SYSTEMD_UNIT_DIR/$WORKER_SERVICE_NAME.service"
 [ -f "$NEXT_UNIT" ] || { echo "找不到 $NEXT_UNIT"; exit 1; }
 cp -a "$NEXT_UNIT" "$rollback_dir/units/next.service"
 if [ -f "$WORKER_UNIT" ]; then worker_was_present=1; cp -a "$WORKER_UNIT" "$rollback_dir/units/worker.service"; fi
+ARIA2_UNIT="$SYSTEMD_UNIT_DIR/$ARIA2_SERVICE_NAME.service"
+if [ -f "$ARIA2_UNIT" ]; then cp -a "$ARIA2_UNIT" "$rollback_dir/units/aria2.service"; fi
 if [ -f "$SYSTEMD_UNIT_DIR/$SERVICE_NAME.service.d/10-workers.conf" ]; then cp -a "$SYSTEMD_UNIT_DIR/$SERVICE_NAME.service.d/10-workers.conf" "$rollback_dir/units/workers.conf"; fi
 CADDY_FILE="${CADDY_FILE:-/etc/caddy/Caddyfile}"
 [ ! -f "$CADDY_FILE" ] || cp -a "$CADDY_FILE" "$rollback_dir/Caddyfile"
@@ -151,6 +155,41 @@ printf '[Service]\nEnvironment=VCONTROLHUB_WORKERS_DISABLED=true\n' \
 chmod 0644 "$WORKER_UNIT" "$SYSTEMD_UNIT_DIR/${SERVICE_NAME}.service.d/10-workers.conf"
 systemctl daemon-reload
 systemctl enable "$WORKER_SERVICE_NAME"
+
+# The magnet/BT relay daemon gets its own confined unit (no private-network or
+# metadata egress). Rendered from the candidate's template with the values the
+# installed next unit already carries, so an upgrade of an older host picks it
+# up without re-running the installer. The flag tells the application never to
+# spawn an unconfined aria2 of its own.
+ARIA2_TEMPLATE="$stage_dir/deploy/systemd/vcontrolhub-aria2.service.example"
+if [ -f "$ARIA2_TEMPLATE" ] && command -v aria2c >/dev/null 2>&1; then
+	echo "==> [4b/8] 安装受限的 aria2 中继 unit（禁止访问内网与元数据地址）"
+	unit_value() { sed -n "s|^$1=||p" "$NEXT_UNIT" | head -n1; }
+	runtime_env_file="$(unit_value EnvironmentFile)"
+	[ -n "$runtime_env_file" ] || runtime_env_file="$APP_DIR/.env.runtime"
+	systemd_path="$(sed -n 's|^Environment=PATH=||p' "$NEXT_UNIT" | head -n1)"
+	[ -n "$systemd_path" ] || systemd_path="/usr/local/bin:/usr/bin:/bin"
+	site_name="$(unit_value Description | sed 's/ Next\.js.*$//; s/ application.*$//')"
+	[ -n "$site_name" ] || site_name="VControlHub"
+	service_prefix="${SERVICE_NAME%-next}"
+	sed \
+		-e "s|{{SITE_NAME}}|$site_name|g" \
+		-e "s|{{APP_DIR}}|$APP_DIR|g" \
+		-e "s|{{RUNTIME_ENV_FILE}}|$runtime_env_file|g" \
+		-e "s|{{SYSTEMD_PATH}}|$systemd_path|g" \
+		-e "s|{{APP_USER}}|$APP_USER|g" \
+		-e "s|{{APP_SLUG}}|$service_prefix|g" \
+		-e "s|{{SERVICE_PREFIX}}|$service_prefix|g" \
+		"$ARIA2_TEMPLATE" > "$ARIA2_UNIT"
+	chmod 0644 "$ARIA2_UNIT"
+	for env_file in "$runtime_env_file" "$APP_DIR/.env.local"; do
+		[ -f "$env_file" ] || continue
+		grep -q '^ARIA2_MANAGED_EXTERNALLY=' "$env_file" || printf 'ARIA2_MANAGED_EXTERNALLY=1\n' >> "$env_file"
+	done
+	systemctl daemon-reload
+	systemctl enable "$ARIA2_SERVICE_NAME"
+	systemctl restart "$ARIA2_SERVICE_NAME" || echo "  WARNING: $ARIA2_SERVICE_NAME 未能启动，磁力/BT 中继在它恢复前不可用：journalctl -u $ARIA2_SERVICE_NAME"
+fi
 
 echo "==> [5/8] 检测并更新 Caddy /direct 反代（写入前后校验 + 备份轮转）"
 CADDY_FILE="${CADDY_FILE:-/etc/caddy/Caddyfile}"
@@ -233,6 +272,9 @@ echo "==> [8/8] 验证服务及 SSH 协议，再执行 smoke test"
 for svc in "$SERVICE_NAME" "$WORKER_SERVICE_NAME" "$SSH_SERVICE_NAME"; do
 	if ! systemctl is-active --quiet "$svc"; then echo "FAIL: $svc 未 active"; exit 1; fi
 done
+if [ -f "$ARIA2_UNIT" ] && ! systemctl is-active --quiet "$ARIA2_SERVICE_NAME"; then
+	echo "  WARNING: $ARIA2_SERVICE_NAME 未 active，磁力/BT 中继不可用（不影响本次部署）"
+fi
 # Run the candidate helper, even when a source-only deploy has not updated it
 # in the live tree yet. The environment is injected without reading sandboxed
 # files as the gateway's dynamic user.
