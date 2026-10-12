@@ -48,6 +48,7 @@ function useCrumbs(pathname: string): Crumb[] {
 	if (ACCOUNT_CRUMBS[pathname]) {
 		return [{ label: t("shell.crumb.account") }, { label: t(ACCOUNT_CRUMBS[pathname]) }];
 	}
+	if (pathname === "/offline") return [{ label: t("shell.crumb.offline") }];
 	const location = findNavLocation(pathname);
 	if (!location) return [];
 	const crumbs: Crumb[] = [

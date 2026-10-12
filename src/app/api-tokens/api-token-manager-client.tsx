@@ -178,8 +178,8 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="ui-title-section">{t("apiTokensPage.list.heading")}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <h2 className="ui-title-section shrink-0">{t("apiTokensPage.list.heading")}</h2>
           <p className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.list.note")}</p>
         </div>
         {tokens.length === 0 ? (

@@ -334,7 +334,8 @@ export function MetricPanel({
 				</div>
 			) : null}
 			<div className={`grid grid-cols-2 gap-px overflow-hidden rounded-b-[var(--radius-card)] border-t border-[var(--border-subtle)] bg-[var(--border-subtle)] ${title == null && actions == null ? "rounded-t-[var(--radius-card)] border-t-0" : ""} ${colCls}`}>
-				{metrics.map((metric) => {
+				{metrics.map((metric, index) => {
+					const fill = index === metrics.length - 1 && metrics.length % 2 === 1 ? " max-sm:col-span-2" : "";
 					const c = metric.tone ? ACCENT_COLORS[metric.tone] : null;
 					const body = (
 						<>
@@ -349,9 +350,9 @@ export function MetricPanel({
 						</>
 					);
 					return metric.href ? (
-						<a key={metric.label} href={metric.href} className="block bg-[var(--surface)] px-4 py-3.5 transition hover:bg-[var(--surface-hover)] sm:px-5">{body}</a>
+						<a key={metric.label} href={metric.href} className={`block bg-[var(--surface)] px-4 py-3.5 transition hover:bg-[var(--surface-hover)] sm:px-5${fill}`}>{body}</a>
 					) : (
-						<div key={metric.label} className="bg-[var(--surface)] px-4 py-3.5 sm:px-5">{body}</div>
+						<div key={metric.label} className={`bg-[var(--surface)] px-4 py-3.5 sm:px-5${fill}`}>{body}</div>
 					);
 				})}
 			</div>

@@ -33,7 +33,7 @@ export function MobileNav({
 	const tabClass = (active: boolean) =>
 		cn(
 			"flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 transition",
-			active ? "text-[var(--accent)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
+			active ? "text-[var(--accent)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
 		);
 
 	return (

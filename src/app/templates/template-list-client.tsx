@@ -202,17 +202,22 @@ export function TemplateListClient({
 									</StatusBadge>
 								)}
 							</div>
-							<div data-inset className="mt-2.5 line-clamp-2 px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
-								{tmpl.command}
+							{/* Clamp an inner block: clamping the padded box itself leaves a sliced
+							    third line visible inside the bottom padding. */}
+							<div data-inset className="mt-2.5 px-3 py-2 font-mono text-xs text-[var(--text-secondary)]" title={tmpl.command}>
+								<span className="line-clamp-2 break-all">{tmpl.command}</span>
 							</div>
 							{tmpl.rollbackCommand && (
 								<div
-									className="ui-mono mt-2 line-clamp-2 rounded-md bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]"
+									className="ui-mono mt-2 rounded-md bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]"
+									title={tmpl.rollbackCommand}
 								>
-									<span className="mr-2 font-sans text-xs uppercase text-[var(--success)]">
-										{t("templatesPage.badge.rollback")}
+									<span className="line-clamp-2 break-all">
+										<span className="mr-2 font-sans text-xs uppercase text-[var(--success)]">
+											{t("templatesPage.badge.rollback")}
+										</span>
+										{tmpl.rollbackCommand}
 									</span>
-									{tmpl.rollbackCommand}
 								</div>
 							)}
 							{tmpl.variables.length > 0 && (

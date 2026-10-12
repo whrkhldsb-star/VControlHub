@@ -44,6 +44,32 @@ describe("system health service", () => {
     expect(JSON.stringify(result)).not.toMatch(/postgres:\/\/[^\s]+:[^\s]+@/i);
   });
 
+  it("reports git-sync healthy when the local HEAD and origin/main are the same commit at different hash lengths", async () => {
+    const full = "b27f9b90536ebf3449c280e9fa3e4ec6944c9675";
+    mockExecFile.mockImplementation((file: string, args: string[], _options: unknown, cb: ExecFileCallback) => {
+      if (file === "git" && args.includes("rev-parse")) { cb(null, `${full}\n`, ""); return; }
+      if (file === "git" && args.includes("ls-remote")) { cb(null, `${full}\trefs/heads/main\n`, ""); return; }
+      cb(null, "", "");
+    });
+    const result = await collectSystemHealthChecks({ projectRoot: process.cwd() });
+    const git = result.checks.find((check) => check.id === "git-sync");
+    expect(git?.status).toBe("healthy");
+    expect(git?.messageCode).toBe("synced");
+    expect(git?.params).toEqual({ head: "b27f9b9" });
+  });
+
+  it("reports git-sync warning only when origin/main is a different commit", async () => {
+    mockExecFile.mockImplementation((file: string, args: string[], _options: unknown, cb: ExecFileCallback) => {
+      if (file === "git" && args.includes("rev-parse")) { cb(null, "b27f9b90536ebf3449c280e9fa3e4ec6944c9675\n", ""); return; }
+      if (file === "git" && args.includes("ls-remote")) { cb(null, "3a66eff0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\trefs/heads/main\n", ""); return; }
+      cb(null, "", "");
+    });
+    const result = await collectSystemHealthChecks({ projectRoot: process.cwd() });
+    const git = result.checks.find((check) => check.id === "git-sync");
+    expect(git?.status).toBe("warning");
+    expect(git?.params).toEqual({ head: "b27f9b9", remote: "3a66eff" });
+  });
+
   it("scopes inventory counts to the caller's team for non-admins", async () => {
     await collectSystemHealthChecks({
       projectRoot: process.cwd(),

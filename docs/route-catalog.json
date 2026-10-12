@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T23:56:23.771Z",
+  "generatedAt": "2026-10-12T15:26:00.338Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 11,
@@ -386,8 +386,12 @@
       "file": "src/app/files/recent-downloads/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": [],
-      "navigationPermissions": []
+      "declaredPermissions": [
+        "storage:read"
+      ],
+      "navigationPermissions": [
+        "storage:read"
+      ]
     },
     {
       "path": "/files/recycle-bin",

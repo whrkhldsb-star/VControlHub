@@ -251,7 +251,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       description={t("operationTasksPage.recentTasksHint")}
       count={visibleTasks.length}
       actions={
-        <Toolbar className="!mb-0 flex-col gap-2 border-0 bg-transparent p-0 shadow-none sm:flex-row sm:items-end">
+        <Toolbar className="!mb-0 flex-col items-stretch gap-2 border-0 bg-transparent p-0 shadow-none sm:flex-row sm:flex-wrap sm:items-end">
           <label className="ui-label">
             <span className="mb-1 block">{t("operationTasksPage.filter.search")}</span>
             <input
@@ -260,30 +260,32 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
               onChange={(event) => setNeedle(event.target.value)}
               placeholder={t("operationTasksPage.filter.searchPlaceholder")}
               aria-label={t("operationTasksPage.filter.search")}
-              className={`${CONTROL_CLASS} min-w-44 sm:w-52`}
+              className={`${CONTROL_CLASS} w-full sm:w-52`}
             />
           </label>
           <label className="ui-label">
             <span className="mb-1 block">{t("operationTasksPage.filter.status")}</span>
-            <select data-input value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${CONTROL_CLASS} !w-auto min-w-32`}>
+            <select data-input value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${CONTROL_CLASS} w-full sm:!w-auto sm:min-w-32`}>
               {statusFilters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
             </select>
           </label>
           <label className="ui-label">
             <span className="mb-1 block">{t("operationTasksPage.filter.taskType")}</span>
-            <select data-input value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className={`${CONTROL_CLASS} !w-auto min-w-44`}>
+            <select data-input value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className={`${CONTROL_CLASS} w-full sm:!w-auto sm:min-w-44`}>
               <option value="all">{t("operationTasksPage.filter.allTypes")}</option>
               {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{taskType}</option>)}
             </select>
           </label>
           <label className="ui-label">
             <span className="mb-1 block">{t("operationTasksPage.filter.sort")}</span>
-            <select data-input value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className={`${CONTROL_CLASS} !w-auto min-w-36`}>
+            <select data-input value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className={`${CONTROL_CLASS} w-full sm:!w-auto sm:min-w-36`}>
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
-          <ActionButton variant="secondary" onClick={refresh} disabled={refreshing}>{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</ActionButton>
-          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-size="sm" data-variant="ghost">{t("operationTasksPage.export.csv")}</a>
+          <div className="flex flex-wrap items-center gap-2">
+            <ActionButton variant="secondary" onClick={refresh} disabled={refreshing}>{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</ActionButton>
+            <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-size="sm" data-variant="ghost">{t("operationTasksPage.export.csv")}</a>
+          </div>
         </Toolbar>
       }
       empty={visibleTasks.length === 0 ? <EmptyState text={needleNorm ? t("operationTasksPage.filter.noMatch") : t("operationTasks.tasks.empty")} /> : undefined}

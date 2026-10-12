@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { X } from "@/components/icons";
 
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -32,6 +33,18 @@ const QUICK_KEYS: ReadonlyArray<{ label: string; data: string }> = [
 ];
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
+
+/** Long combos break after each "+" ("Ctrl+ / Shift+ / Enter"), never inside a key name. */
+function renderQuickKeyLabel(label: string) {
+	const parts = label.split("+");
+	if (parts.length < 2 || parts.some((part) => part === "")) return label;
+	return parts.map((part, index) => (
+		<Fragment key={`${part}-${index}`}>
+			{index > 0 ? <>+<wbr /></> : null}
+			{part}
+		</Fragment>
+	));
+}
 
 export function SshTerminalSidePanel({
 	serverId,
@@ -187,14 +200,17 @@ export function SshTerminalSidePanel({
 				<h4 className="ui-title-caption mb-2">
 					{t("sshTerminalModal.quickKeysTitle")}
 				</h4>
-				<div className="grid grid-cols-4 gap-1">
+				{/* Chips size to their label: a custom "Ctrl+Shift+Alt+Enter" grows and
+				    wraps to the next row instead of spilling over its neighbours the way
+				    a fixed four-column grid made it. */}
+				<div className="flex flex-wrap gap-1">
 					{(customQuickKeys ?? QUICK_KEYS).map((key) => (
 						<ActionButton variant="ghost"
 							key={key.label}
-							onClick={() => sendKeys(key.data)} className="!min-h-11 !rounded-lg !px-1 !py-1 !text-center !text-[12px] !font-mono text-[var(--text-muted)]"
+							onClick={() => sendKeys(key.data)} className="!min-h-11 min-w-0 flex-[1_0_calc(33.333%-0.1875rem)] !whitespace-normal break-words !rounded-lg !px-1 !py-1 !text-center !text-[12px] !leading-tight !font-mono text-[var(--text-muted)]"
 							title={key.label}
 						>
-							{key.label}
+							{renderQuickKeyLabel(key.label)}
 						</ActionButton>
 					))}
 				</div>

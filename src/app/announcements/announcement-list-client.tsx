@@ -41,13 +41,10 @@ type AnnouncementCardProps = {
 const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, locale, canManage, onEdit, onDelete }: AnnouncementCardProps) {
   return (
     <div data-card className="group relative p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <StatusBadge tone={announcementLevelTone(a.level)}>{levelLabel(t, a.level)}</StatusBadge>
-            {a.pinned && <Badge tone="accent">{t("common.pinned")}</Badge>}
-          </div>
-          <h2 className="ui-title-section mt-2">{a.title}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone={announcementLevelTone(a.level)}>{levelLabel(t, a.level)}</StatusBadge>
+          {a.pinned && <Badge tone="accent">{t("common.pinned")}</Badge>}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as"zh" |"en")}</span>
@@ -63,6 +60,7 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
           )}
         </div>
       </div>
+      <h2 className="ui-title-section mt-2 break-words">{a.title}</h2>
       <p className="mt-3 text-sm text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">{a.body}</p>
       {a.expiresAt && (
         <p className="mt-3 text-xs text-[var(--text-muted)]">{t("common.validUntil")} {formatDateTime(a.expiresAt, locale as"zh" |"en")}</p>

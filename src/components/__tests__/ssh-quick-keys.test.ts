@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	BUILDER_KEYS,
+	DEFAULT_QUICK_KEY_PRESETS,
 	buildQuickKeyPreset,
 	encodeQuickKeySequence,
 	parseQuickKeyPresets,
@@ -74,5 +75,17 @@ describe("preset persistence", () => {
 		const invalid = [{ label: "Bad", sequence: { keyId: "nope", modifiers: [] } }];
 		const entries = quickKeyPresetsToEntries(invalid as never);
 		expect(entries).toEqual(quickKeyPresetsToEntries(null));
+	});
+});
+
+describe("quickKeyPresetsToEntries", () => {
+	it("appends custom combos after the default keys and skips duplicates of them", () => {
+		const entries = quickKeyPresetsToEntries([
+			{ label: "Ctrl+Shift+Alt+Enter", sequence: { keyId: "enter", modifiers: ["ctrl", "shift", "alt"] } },
+			{ label: "Ctrl+C", sequence: { keyId: "c", modifiers: ["ctrl"] } },
+		]);
+		expect(entries.slice(0, DEFAULT_QUICK_KEY_PRESETS.length)).toEqual(DEFAULT_QUICK_KEY_PRESETS);
+		expect(entries.map((entry) => entry.label).filter((label) => label === "Ctrl+C")).toHaveLength(1);
+		expect(entries.at(-1)?.label).toBe("Ctrl+Shift+Alt+Enter");
 	});
 });

@@ -79,8 +79,8 @@ export function DashboardAnnouncements({ items, total }: { items: DashboardAnnou
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge tone={announcementLevelTone(item.level)} size="sm">{announcementLevelLabel(t, item.level)}</StatusBadge>
             {item.pinned ? <TagBadge tone="accent">{t("common.pinned")}</TagBadge> : null}
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--text-primary)]">{item.title}</span>
-            <time className="shrink-0 text-xs text-[var(--text-muted)]" dateTime={item.startsAt} suppressHydrationWarning>{item.formattedStartsAt}</time>
+            <span className="min-w-[8rem] flex-1 truncate text-sm font-medium text-[var(--text-primary)]" title={item.title}>{item.title}</span>
+            <time className="ml-auto shrink-0 text-xs text-[var(--text-muted)]" dateTime={item.startsAt} suppressHydrationWarning>{item.formattedStartsAt}</time>
           </div>
           <p className="mt-1 line-clamp-2 whitespace-pre-line text-[13px] leading-5 text-[var(--text-secondary)]">{item.body}</p>
         </ListRow>
@@ -228,6 +228,13 @@ type DashboardCommandRequest = {
   targetCount: number;
 };
 
+/** Audit actions are machine keys (`auth.login_password_ok`); show the audit page's label when one exists. */
+function auditActionLabel(t: (key: string) => string, action: string): string {
+  const key = `audit.action.${action}`;
+  const label = t(key);
+  return label === key ? action : label;
+}
+
 export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { recentRequests: DashboardCommandRequest[]; recentAuditLogs: DashboardAuditLog[] }) {
   const { t } = useI18n();
   const approvalsTitle = t("dashboard.recent-approvals");
@@ -276,10 +283,10 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
       >
         {recentAuditLogs.map((log) => (
           <ListRow key={log.id}>
-            <div className="flex items-center gap-2 text-xs">
-              <Badge color={log.severity === "WARNING" ? "amber" : log.severity === "CRITICAL" ? "rose" : "slate"}>{log.action}</Badge>
-              <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{log.actor?.displayName ?? log.actor?.username ?? t(AUDIT_ACTOR_LABEL_KEYS[log.actorType] ?? "dashboard.actor-user")}</span>
-              <time className="shrink-0 whitespace-nowrap text-[var(--text-muted)]" dateTime={log.createdAt} suppressHydrationWarning>{log.formattedCreatedAt}</time>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <Badge color={log.severity === "WARNING" ? "amber" : log.severity === "CRITICAL" ? "rose" : "slate"}>{auditActionLabel(t, log.action)}</Badge>
+              <span className="min-w-[6rem] flex-1 truncate text-[var(--text-muted)]">{log.actor?.displayName ?? log.actor?.username ?? t(AUDIT_ACTOR_LABEL_KEYS[log.actorType] ?? "dashboard.actor-user")}</span>
+              <time className="ml-auto shrink-0 whitespace-nowrap text-[var(--text-muted)]" dateTime={log.createdAt} suppressHydrationWarning>{log.formattedCreatedAt}</time>
             </div>
           </ListRow>
         ))}
