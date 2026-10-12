@@ -44,6 +44,7 @@ ARIA2_SERVICE_NAME="${ARIA2_SERVICE_NAME:-vcontrolhub-aria2}"
 SYSTEMD_UNIT_DIR="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
 stage_dir=""
 rollback_dir=""
+aria2_unit_ready=0
 artifacts_promoted=0
 units_saved=0
 worker_was_present=0
@@ -188,7 +189,10 @@ if [ -f "$ARIA2_TEMPLATE" ] && command -v aria2c >/dev/null 2>&1; then
 	done
 	systemctl daemon-reload
 	systemctl enable "$ARIA2_SERVICE_NAME"
-	systemctl restart "$ARIA2_SERVICE_NAME" || echo "  WARNING: $ARIA2_SERVICE_NAME 未能启动，磁力/BT 中继在它恢复前不可用：journalctl -u $ARIA2_SERVICE_NAME"
+	# Started in step 7, after the application units are stopped: an aria2c the
+	# old build spawned itself lives in their cgroups and still holds the RPC
+	# port until then; starting the unit here would fail to bind.
+	aria2_unit_ready=1
 fi
 
 echo "==> [5/8] 检测并更新 Caddy /direct 反代（写入前后校验 + 备份轮转）"
@@ -265,6 +269,10 @@ for artifact in .next dist node_modules; do
 	mv "$stage_dir/$artifact" "$APP_DIR/$artifact"
 done
 systemctl reset-failed "$SERVICE_NAME" "$WORKER_SERVICE_NAME" "$SSH_SERVICE_NAME" 2>/dev/null || true
+if [ "$aria2_unit_ready" -eq 1 ]; then
+	systemctl reset-failed "$ARIA2_SERVICE_NAME" 2>/dev/null || true
+	systemctl restart "$ARIA2_SERVICE_NAME" || echo "  WARNING: $ARIA2_SERVICE_NAME 未能启动，磁力/BT 中继在它恢复前不可用：journalctl -u $ARIA2_SERVICE_NAME"
+fi
 systemctl start "$SERVICE_NAME" "$WORKER_SERVICE_NAME" "$SSH_SERVICE_NAME"
 if [ -f "$CADDY_FILE" ]; then systemctl reload caddy; fi
 
