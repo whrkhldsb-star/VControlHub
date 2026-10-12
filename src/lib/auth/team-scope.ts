@@ -59,14 +59,6 @@ export function teamWhere(session: TeamSession): Record<string, unknown> {
 }
 
 /**
- * Optional-session wrapper for trusted internal workers. HTTP callers must
- * provide a session; a missing one deliberately means an unrestricted query.
- */
-export function teamScopeWhere(session?: TeamSession | null): Record<string, unknown> {
-	return session ? teamWhere(session) : {};
-}
-
-/**
  * Rows that still belong to the live service: those of a live customer plus
  * null-team legacy rows. A deleted customer (`Team.deletedAt` set) keeps its
  * rows for ownership history, so health checks and status summaries must not

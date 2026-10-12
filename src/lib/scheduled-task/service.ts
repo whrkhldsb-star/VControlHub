@@ -6,7 +6,7 @@ import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere, isGlobalTeamManager, teamCreateData, teamScopeWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, isGlobalTeamManager, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { t } from "@/lib/i18n/service-translations";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
@@ -106,9 +106,9 @@ async function assertScheduledTaskServersInScope(
  * Load a scheduled task by id under optional team scope.
  * Used by mutate paths so cross-team IDs resolve as not-found (no IDOR).
  */
-async function getScheduledTaskForSession(id: string, session?: SessionScope | null) {
+async function getScheduledTaskForSession(id: string, session: SessionScope) {
 	return prisma.scheduledTask.findFirst({
-		where: { id, ...teamScopeWhere(session) },
+		where: { id, ...teamWhere(session) },
 	});
 }
 
@@ -116,7 +116,7 @@ async function getScheduledTaskForSession(id: string, session?: SessionScope | n
 
 export async function createScheduledTask(
 	input: CreateScheduledTaskInput,
-	session?: SessionScope | null,
+	session: SessionScope,
 ) {
 	const schedule = resolveSchedule(input);
 	const teamFromSession = session ? teamCreateData(session).teamId : undefined;
@@ -151,10 +151,10 @@ export async function createScheduledTask(
 
 export async function listScheduledTasks(
 	limit = 200,
-	session?: SessionScope | null,
+	session: SessionScope,
 ) {
 	return prisma.scheduledTask.findMany({
-		where: teamScopeWhere(session),
+		where: teamWhere(session),
 		orderBy: { createdAt: "desc" },
 		take: limit,
 		include: { creator: { select: { username: true, displayName: true } } },
@@ -163,7 +163,7 @@ export async function listScheduledTasks(
 
 export async function getScheduledTask(
 	id: string,
-	session?: SessionScope | null,
+	session: SessionScope,
 ) {
 	const task = await getScheduledTaskForSession(id, session);
 	if (!task) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
@@ -173,7 +173,7 @@ export async function getScheduledTask(
 export async function updateScheduledTask(
 	id: string,
 	input: UpdateScheduledTaskInput,
-	session?: SessionScope | null,
+	session: SessionScope,
 ) {
 	const existing = await getScheduledTaskForSession(id, session);
 	if (!existing) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
@@ -217,7 +217,7 @@ export async function updateScheduledTask(
 		data.teamId = input.teamId;
 	}
 	const updated = await prisma.scheduledTask.updateMany({
-		where: { id, ...teamScopeWhere(session) },
+		where: { id, ...teamWhere(session) },
 		data,
 	});
 	if (updated.count === 0) {
@@ -228,12 +228,12 @@ export async function updateScheduledTask(
 
 export async function deleteScheduledTask(
 	id: string,
-	session?: SessionScope | null,
+	session: SessionScope,
 ) {
 	const existing = await getScheduledTaskForSession(id, session);
 	if (!existing) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	const deleted = await prisma.scheduledTask.deleteMany({
-		where: { id, ...teamScopeWhere(session) },
+		where: { id, ...teamWhere(session) },
 	});
 	if (deleted.count === 0) {
 		throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
@@ -243,7 +243,7 @@ export async function deleteScheduledTask(
 
 export async function toggleScheduledTask(
 	id: string,
-	session?: SessionScope | null,
+	session: SessionScope,
 ) {
 	const current = await getScheduledTaskForSession(id, session);
 	if (!current) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
@@ -252,7 +252,7 @@ export async function toggleScheduledTask(
 		throw new BusinessError(t("backend.scheduled-task.completedCannotResume"));
 	}
 	const updated = await prisma.scheduledTask.updateMany({
-		where: { id, ...teamScopeWhere(session) },
+		where: { id, ...teamWhere(session) },
 		data: {
 			status: newStatus,
 			...(newStatus === "ACTIVE"
@@ -268,7 +268,7 @@ export async function toggleScheduledTask(
 
 export async function retryScheduledTask(
 	id: string,
-	session?: SessionScope | null,
+	session: SessionScope,
 ) {
 	const task = await getScheduledTaskForSession(id, session);
 	if (!task) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));

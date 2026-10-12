@@ -113,7 +113,7 @@ export async function POST(request: Request) {
 		const requestedNextPath = safeNextPath(formData.get("next"));
 
 		// Check account lockout before attempting authentication
-		const lockCheck = await isAccountLockedAsync(username);
+		const lockCheck = await isAccountLockedAsync(username, clientIp);
 		if (lockCheck.locked) {
 			const remainingMin = Math.ceil((lockCheck.lockedUntil! - Date.now()) / 60000);
 			const params = new URLSearchParams({ error: "locked", minutes: String(remainingMin) });
@@ -123,10 +123,10 @@ export async function POST(request: Request) {
 		const user = await authenticateUser({ username, password });
 		if (!user) {
 			// Account lockout: record failure and check
-			const lockResult = await recordLoginFailureAsync(username);
+			const lockResult = await recordLoginFailureAsync(username, clientIp);
 			if (lockResult.locked) {
 				const remainingMin = Math.ceil((lockResult.lockedUntil! - Date.now()) / 60000);
-				await auditSystemAction("auth.account_locked", { username, ip: clientIp, failCount: lockResult.failCount }, "WARNING");
+				await auditSystemAction("auth.account_locked", { username, ip: clientIp, scope: lockResult.scope, failCount: lockResult.failCount, accountFailCount: lockResult.accountFailCount }, "WARNING");
 				const params = new URLSearchParams({ error: "locked", minutes: String(remainingMin) });
 				return redirectWithRelativeLocation(`/login?${params.toString()}`);
 			}
@@ -180,7 +180,7 @@ export async function POST(request: Request) {
 		// ── No 2FA — create full session ──
 		// Password login is complete only on this branch; clear the lockout
 		// counter here (2FA users get it cleared by verify-login instead).
-		await clearLoginFailureAsync(username);
+		await clearLoginFailureAsync(username, clientIp);
 
 		const token = await createSessionToken({
 			userId: user.id,

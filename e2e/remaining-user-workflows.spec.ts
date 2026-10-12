@@ -451,10 +451,14 @@ test("customer create, select, delete and restore lifecycle", async ({ page }) =
 		await expect.poll(async () => ((await (await page.context().request.get("/api/teams")).json()) as { currentTeamId: string | null }).currentTeamId).toBeNull();
 
 		await page.getByText(/已删除的客户|Deleted customers/i).click();
+		// The deleted-customers list loads on demand; wait for this customer's
+		// restore button instead of letting a slow CI runner eat the 90 s budget.
+		const restoreButton = page.locator("li").filter({ hasText: marker }).getByRole("button", { name: /恢复|Restore/i });
+		await expect(restoreButton).toBeVisible({ timeout: 30_000 });
 		const restoredResponse = page.waitForResponse((response) =>
 			new URL(response.url()).pathname === `/api/teams/${createdId}/restore`,
-		);
-		await page.locator("li").filter({ hasText: marker }).getByRole("button", { name: /恢复|Restore/i }).click();
+		{ timeout: 30_000 });
+		await restoreButton.click();
 		expect((await restoredResponse).status()).toBe(200);
 		await expect(row).toBeVisible();
 	} finally {

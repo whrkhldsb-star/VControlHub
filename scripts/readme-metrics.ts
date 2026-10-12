@@ -25,19 +25,6 @@ function countModels(): number {
   return (schema.match(/^model\s+\w+\s+\{/gm) ?? []).length;
 }
 
-function countUseI18n(): number {
-  return walk(join(ROOT, "src"), (p) => /\.[tj]sx?$/.test(p)).reduce((sum, file) => {
-    const text = readFileSync(file, "utf8");
-    return sum + (text.match(/\buseI18n\s*\(/g) ?? []).length;
-  }, 0);
-}
-
-function srcLines(): number {
-  return walk(join(ROOT, "src"), (p) => /\.[tj]sx?$/.test(p)).reduce((sum, file) => {
-    return sum + readFileSync(file, "utf8").split(/\r?\n/).length;
-  }, 0);
-}
-
 function metrics(): Metric[] {
   const srcApp = join(ROOT, "src/app");
   // Path separators differ between POSIX and Windows — match both so the
@@ -45,7 +32,6 @@ function metrics(): Metric[] {
   const pages = walk(srcApp, (p) => /[/\\]page\.tsx$/.test(p)).length;
   const apiRoutes = walk(srcApp, (p) => /[/\\]api[/\\].*[/\\]route\.ts$/.test(p)).length;
   const components = walk(join(ROOT, "src/components"), (p) => /\.[tj]sx?$/.test(p) && !p.includes("/__tests__/")).length;
-  const tests = walk(ROOT, (p) => /(__tests__\/.*\.(test|spec)\.[tj]sx?$)|(\.(test|spec)\.[tj]sx?$)/.test(p)).length;
   const dictionaries = walk(join(ROOT, "src/lib/i18n/dictionaries"), (p) => p.endsWith(".ts")).length;
   const catalogFiles = walk(join(ROOT, "src/lib/quick-service"), (p) => /catalog.*\.ts$/.test(p));
   const templates = catalogFiles.reduce((sum, file) => {
@@ -57,10 +43,11 @@ function metrics(): Metric[] {
     { label: "API 路由文件", value: String(apiRoutes) },
     { label: "数据模型", value: String(countModels()) },
     { label: "UI 组件", value: String(components) },
-    { label: "代码行数", value: `~${srcLines().toLocaleString("en-US")}（src 扫描）` },
-    { label: "测试", value: `${tests} 文件` },
     { label: "Docker 应用模板", value: `${templates} (本地) + 社区源实时同步` },
-    { label: "i18n", value: `${countUseI18n()} useI18n() 调用点，${dictionaries} 字典文件` },
+    // Only structural counts live here. Lines of code, test-file and call-site
+    // counts changed with almost every pull request and made docs:check fail on
+    // unrelated work; they add nothing a reader acts on.
+    { label: "i18n", value: `${dictionaries} 字典文件` },
   ];
 }
 

@@ -292,6 +292,11 @@ if [ -f "$APP_DIR/.env.runtime" ]; then probe_env="$APP_DIR/.env.runtime"; else 
 APP_DIR="$APP_DIR" bash "$stage_dir/deploy/smoke-test.sh"
 service_stopped=0
 echo "==> 运行产物回滚目录: $rollback_dir"
+# 每个回滚目录都是一整套 .next/dist/node_modules（几百 MB 到 1 GB），只保留最近 2 个。
+for old_rollback in $(ls -dt "$(dirname "$APP_DIR")"/.vcontrolhub-rollback.* 2>/dev/null | tail -n +3); do
+	[ -d "$old_rollback" ] || continue
+	rm -rf -- "$old_rollback" && echo "==> [cleanup] 已删除旧回滚目录 $old_rollback"
+done
 
 # 部署成功后清理 webpack 持久化缓存 (deploy 后留 429M+ 没用, 下次 build 重建)
 # 保留 swc cache (12K, 加快 next build 编译)

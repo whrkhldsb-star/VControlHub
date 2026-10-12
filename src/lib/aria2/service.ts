@@ -53,6 +53,12 @@ export function getAria2RuntimeConfig(env: Partial<NodeJS.ProcessEnv> = process.
 	return { rpcHost, rpcPort, rpcSecret, rpcDir, rpcSession, rpcConf };
 }
 
+/**
+ * Daemon options. The BitTorrent listener (peers and DHT) is pinned to
+ * 6881–6889 so a firewall can name it; local peer discovery is off because the
+ * daemon lives on a server, not a LAN. (`session=` is not an aria2 option —
+ * input-file/save-session are — so it is not written.)
+ */
 export function buildAria2Config(config: Aria2RuntimeConfig): string {
 	return `
 # Aria2 RPC daemon for app
@@ -60,7 +66,6 @@ enable-rpc=true
 rpc-listen-all=false
 rpc-listen-port=${config.rpcPort}
 dir=${config.rpcDir}
-session=${config.rpcSession}
 input-file=${config.rpcSession}
 save-session=${config.rpcSession}
 save-session-interval=60
@@ -72,6 +77,9 @@ file-allocation=none
 continue=true
 seed-time=0
 disk-cache=32M
+listen-port=6881-6889
+dht-listen-port=6881-6889
+bt-enable-lpd=false
 `.trim();
 }
 

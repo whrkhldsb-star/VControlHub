@@ -17,6 +17,11 @@ export type SafeActionResult = { success: boolean; data: unknown; error?: string
 
 type TeamScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null;
 
+/** Customer-scoped records need a session to scope them; nothing is listed without one. */
+function scopeRequired(locale: Locale) {
+  return { success: false as const, data: null, error: t("backend.team.activeTeamRequired", locale) };
+}
+
 function periodToSince(periodRaw: unknown): { since: Date; period: string } {
   const period = typeof periodRaw === "string" ? periodRaw.trim().toLowerCase() : "today";
   const now = Date.now();
@@ -205,8 +210,9 @@ export async function executeServerlessQuery(
   }
 
   if (action.actionType === "list_scheduled_tasks") {
+    if (!scope) return scopeRequired(locale);
     const { listScheduledTasks } = await import("@/lib/scheduled-task/service");
-    const tasks = await listScheduledTasks(50, scope ?? null);
+    const tasks = await listScheduledTasks(50, scope);
     return {
       success: true,
       data: {
@@ -233,7 +239,8 @@ export async function executeServerlessQuery(
 
   if (action.actionType === "list_command_templates") {
     const { listTemplates } = await import("@/lib/command-template/service");
-    const templates = await listTemplates(100, scope ?? null);
+    if (!scope) return scopeRequired(locale);
+    const templates = await listTemplates(100, scope);
     const query = typeof action.params.query === "string" ? action.params.query.trim().toLowerCase() : "";
     const filtered = query
       ? templates.filter((template) => [template.name, template.description, ...template.tags]
@@ -272,7 +279,8 @@ export async function executeServerlessQuery(
       // (which recomputes nextRunAt on resume).
       const { getScheduledTask, toggleScheduledTask } = await import("@/lib/scheduled-task/service");
       try {
-        const task = await getScheduledTask(taskId, scope ?? null);
+        if (!scope) return scopeRequired(locale);
+        const task = await getScheduledTask(taskId, scope);
         if (cronAction === "pause") {
           if (task.status === "PAUSED") {
             return { success: true, data: { id: task.id, status: task.status, message: t("backend.ai.cron.alreadyPaused", locale) } };
@@ -286,7 +294,7 @@ export async function executeServerlessQuery(
               }),
             };
           }
-          const updated = await toggleScheduledTask(taskId, scope ?? null);
+          const updated = await toggleScheduledTask(taskId, scope);
           return { success: true, data: { id: updated.id, status: updated.status } };
         }
         // resume
@@ -302,7 +310,7 @@ export async function executeServerlessQuery(
             }),
           };
         }
-        const updated = await toggleScheduledTask(taskId, scope ?? null);
+        const updated = await toggleScheduledTask(taskId, scope);
         return { success: true, data: { id: updated.id, status: updated.status } };
       } catch (err) {
         return {

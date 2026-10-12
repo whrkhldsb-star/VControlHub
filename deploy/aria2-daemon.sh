@@ -24,7 +24,6 @@ enable-rpc=true
 rpc-listen-all=false
 rpc-listen-port=${port}
 dir=${rpc_dir}
-session=${session}
 input-file=${session}
 save-session=${session}
 save-session-interval=60
@@ -36,6 +35,9 @@ file-allocation=none
 continue=true
 seed-time=0
 disk-cache=32M
+listen-port=6881-6889
+dht-listen-port=6881-6889
+bt-enable-lpd=false
 rpc-secret=${ARIA2_RPC_SECRET}
 EOF
 exec "${ARIA2_BIN:-aria2c}" --conf-path="${conf}"

@@ -47,13 +47,15 @@ const teamSession: SessionScope = {
   roles: ["operator"] as RoleKey[],
   currentTeamId: "team_a",
 };
+// Platform administrator viewing all customers: the unscoped view the old sessionless calls had.
+const PLATFORM: SessionScope = { userId: "u1", roles: ["admin"] as RoleKey[], currentTeamId: null };
 
 describe("deployment service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockTeamWhere.mockReturnValue({ teamId: "team_a" });
-    mockDeploymentRunTeamWhere.mockReturnValue({ teamId: "team_a" });
-    mockTeamCreateData.mockReturnValue({ teamId: "team_a" });
+    mockDeploymentRunTeamWhere.mockImplementation((session: SessionScope) => (session.currentTeamId ? { teamId: session.currentTeamId } : {}));
+    mockTeamCreateData.mockImplementation((session: SessionScope) => (session.currentTeamId ? { teamId: session.currentTeamId } : {}));
     mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.server.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
       (where.id.in ?? []).map((id: string) => ({ id })),
@@ -74,7 +76,7 @@ describe("deployment service", () => {
   });
 
   it("renders template variables and submits through command approval pipeline", async () => {
-    const run = await createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" });
+    const run = await createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }, PLATFORM);
 
     expect(run.commandRequestId).toBe("cmd1");
     expect(mockPrisma.deploymentRun.create.mock.calls[0]![0].data.renderedCommand).toBe("apt install nginx");
@@ -154,7 +156,7 @@ describe("deployment service", () => {
       serverIds: [" srv1 ", "srv1", "srv2", "srv2"],
       variables: { pkg: "nginx" },
       requesterId: "u1",
-    });
+    }, PLATFORM);
 
     expect(mockPrisma.deploymentRun.create.mock.calls[0]![0]!.data.serverIds).toEqual(["srv1", "srv2"]);
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ serverIds: ["srv1", "srv2"] }));
@@ -162,24 +164,24 @@ describe("deployment service", () => {
   });
 
   it("rejects deployment requests without at least one target server", async () => {
-    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: [], variables: { pkg: "nginx" }, requesterId: "u1" })).rejects.toThrow("至少选择 1 台目标 VPS");
+    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: [], variables: { pkg: "nginx" }, requesterId: "u1" }, PLATFORM)).rejects.toThrow("至少选择 1 台目标 VPS");
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 
   it("rejects missing required template variables before creating command requests", async () => {
-    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: {}, requesterId: "u1" })).rejects.toThrow("Deployment template variables not fully filled in: pkg");
+    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: {}, requesterId: "u1" }, PLATFORM)).rejects.toThrow("Deployment template variables not fully filled in: pkg");
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 
   it("rejects missing variables declared on the template even when they are not placeholders", async () => {
-    mockPrisma.commandTemplate.findUnique.mockResolvedValueOnce({ id: "tmpl_explicit", name: "Explicit", command: "deploy static", variables: ["version"] });
+    mockPrisma.commandTemplate.findFirst.mockResolvedValueOnce({ id: "tmpl_explicit", name: "Explicit", command: "deploy static", variables: ["version"] });
 
-    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl_explicit", serverIds: ["srv1"], variables: {}, requesterId: "u1" })).rejects.toThrow("Deployment template variables not fully filled in: version");
+    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl_explicit", serverIds: ["srv1"], variables: {}, requesterId: "u1" }, PLATFORM)).rejects.toThrow("Deployment template variables not fully filled in: version");
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 
   it("rejects missing placeholders that appear only in rollbackCommand", async () => {
-    mockPrisma.commandTemplate.findUnique.mockResolvedValueOnce({
+    mockPrisma.commandTemplate.findFirst.mockResolvedValueOnce({
       id: "tmpl_rb",
       name: "Rollback vars",
       command: "deploy {{pkg}}",
@@ -193,7 +195,7 @@ describe("deployment service", () => {
         serverIds: ["srv1"],
         variables: { pkg: "nginx" },
         requesterId: "u1",
-      }),
+      }, PLATFORM),
     ).rejects.toThrow("Deployment template variables not fully filled in: tag");
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
@@ -202,7 +204,7 @@ describe("deployment service", () => {
     vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("Approval chain not available"));
 
     await expect(
-      createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }),
+      createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }, PLATFORM),
     ).rejects.toThrow("Approval chain not available");
 
     expect(mockPrisma.deploymentRun.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -260,7 +262,7 @@ describe("deployment service", () => {
     mockPrisma.deploymentRollbackRun.create.mockImplementation(async ({ data }: any) => ({ id: "rb1", ...data }));
     mockPrisma.deploymentRollbackRun.update.mockImplementation(async ({ where, data }: any) => ({ id: where.id, ...data }));
 
-    const rollback = await createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1", reason: "bad deploy" });
+    const rollback = await createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1", reason: "bad deploy" }, PLATFORM);
 
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({
       title: "Rollback deployment: Nginx",
@@ -286,7 +288,7 @@ describe("deployment service", () => {
     });
     mockPrisma.deploymentRollbackRun.findFirst.mockResolvedValueOnce({ id: "rb_active", status: "PENDING" });
 
-    await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" })).rejects.toThrow(/rollback|回滚/i);
+    await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM)).rejects.toThrow(/rollback|回滚/i);
     expect(mockPrisma.deploymentRollbackRun.create).not.toHaveBeenCalled();
     expect(commandService.createCommandRequest).not.toHaveBeenCalled();
   });
@@ -331,7 +333,7 @@ describe("deployment service", () => {
   });
 
   it("lists templates for the deployment page without rendering secrets", async () => {
-    const templates = await listDeploymentTemplates();
+    const templates = await listDeploymentTemplates(PLATFORM);
     expect(templates).toEqual([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isBuiltin: true }]);
     expect(commandTemplateService.seedBuiltinTemplates).toHaveBeenCalled();
     expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
@@ -385,7 +387,7 @@ describe("deployment service", () => {
       },
     ]);
 
-    const runs = await listDeploymentRuns();
+    const runs = await listDeploymentRuns(PLATFORM);
 
     expect(runs[0]).toMatchObject({
       id: "dep_rejected",
@@ -436,7 +438,7 @@ describe("deployment service", () => {
       ...data,
     }));
 
-    const runs = await listDeploymentRuns();
+    const runs = await listDeploymentRuns(PLATFORM);
 
     expect(mockPrisma.deploymentRun.update).toHaveBeenCalledWith({
       where: { id: "dep_failed" },
@@ -483,7 +485,7 @@ describe("deployment service", () => {
       completedAt: new Date("2026-05-25T00:02:00Z"),
     });
 
-    const runs = await listDeploymentRuns();
+    const runs = await listDeploymentRuns(PLATFORM);
 
     expect(mockPrisma.deploymentRollbackRun.update).toHaveBeenCalledWith({
       where: { id: "rollback_completed" },

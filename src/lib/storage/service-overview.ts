@@ -78,7 +78,7 @@ function buildDirectorySummaries(
 
 export type { DirectorySummary };
 
-export async function getStorageOverview(session?: TeamSession | null, options: {includeEntries?: boolean} = {}) {
+export async function getStorageOverview(session: TeamSession, options: {includeEntries?: boolean} = {}) {
   const [nodes, entries, deletedEntries] = await Promise.all([
     listStorageNodes(session),
     options.includeEntries === false ? Promise.resolve([]) : listFileEntries(undefined, {}, session),

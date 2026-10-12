@@ -25,6 +25,9 @@ vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 
 const service = await import("../service");
 
+// A platform administrator in "all customers" mode: unscoped, like the old sessionless calls.
+const PLATFORM = { userId: "platform", roles: ["admin" as const], currentTeamId: null };
+
 describe("command template service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -82,7 +85,7 @@ describe("command template service", () => {
   it("bounds command template list hydration while preserving built-in ordering", async () => {
     mockPrisma.commandTemplate.findMany.mockResolvedValue([]);
 
-    await service.listTemplates();
+    await service.listTemplates(200, PLATFORM);
 
     expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({
       orderBy: [{ isBuiltin: "desc" }, { name: "asc" }],
@@ -127,7 +130,7 @@ describe("command template service", () => {
   });
 
   it("refuses to update or delete built-in templates", async () => {
-    mockPrisma.commandTemplate.findUnique.mockResolvedValue({
+    mockPrisma.commandTemplate.findFirst.mockResolvedValue({
       id: "builtin_1",
       isBuiltin: true,
       command: "systemctl restart nginx",
@@ -143,18 +146,19 @@ describe("command template service", () => {
         "builtin_1",
         { name: "Hijacked" },
         { userId: "u1" },
+        PLATFORM,
       ),
     ).rejects.toThrow("内置命令模板不可修改");
     expect(mockPrisma.commandTemplate.update).not.toHaveBeenCalled();
 
     await expect(
-      service.deleteTemplate("builtin_1", { userId: "u1" }),
+      service.deleteTemplate("builtin_1", { userId: "u1" }, PLATFORM),
     ).rejects.toThrow("内置命令模板不可删除");
     expect(mockPrisma.commandTemplate.delete).not.toHaveBeenCalled();
   });
 
   it("updates and deletes non-builtin templates owned by the actor", async () => {
-    mockPrisma.commandTemplate.findUnique
+    mockPrisma.commandTemplate.findFirst
       .mockResolvedValueOnce({
         id: "user_1",
         isBuiltin: false,
@@ -179,20 +183,21 @@ describe("command template service", () => {
       "user_1",
       { name: "Renamed" },
       { userId: "u1" },
+      PLATFORM,
     );
     expect(mockPrisma.commandTemplate.updateMany).toHaveBeenCalledWith({
       where: { id: "user_1" },
       data: { name: "Renamed" },
     });
 
-    await service.deleteTemplate("user_1", { userId: "u1" });
+    await service.deleteTemplate("user_1", { userId: "u1" }, PLATFORM);
     expect(mockPrisma.commandTemplate.deleteMany).toHaveBeenCalledWith({
       where: { id: "user_1" },
     });
   });
 
   it("rejects update/delete of another user's template without canManageAll", async () => {
-    mockPrisma.commandTemplate.findUnique.mockResolvedValue({
+    mockPrisma.commandTemplate.findFirst.mockResolvedValue({
       id: "user_2",
       isBuiltin: false,
       command: "echo secret",
@@ -204,18 +209,18 @@ describe("command template service", () => {
     });
 
     await expect(
-      service.updateTemplate("user_2", { name: "Hijack" }, { userId: "u1" }),
+      service.updateTemplate("user_2", { name: "Hijack" }, { userId: "u1" }, PLATFORM),
     ).rejects.toThrow(/无权|No permission/);
     expect(mockPrisma.commandTemplate.update).not.toHaveBeenCalled();
 
     await expect(
-      service.deleteTemplate("user_2", { userId: "u1" }),
+      service.deleteTemplate("user_2", { userId: "u1" }, PLATFORM),
     ).rejects.toThrow(/无权|No permission/);
     expect(mockPrisma.commandTemplate.delete).not.toHaveBeenCalled();
   });
 
   it("allows managers to mutate another user's template", async () => {
-    mockPrisma.commandTemplate.findUnique.mockResolvedValue({
+    mockPrisma.commandTemplate.findFirst.mockResolvedValue({
       id: "user_2",
       isBuiltin: false,
       command: "echo secret",
@@ -231,12 +236,13 @@ describe("command template service", () => {
       "user_2",
       { name: "Managed" },
       { userId: "admin", canManageAll: true },
+      PLATFORM,
     );
     expect(mockPrisma.commandTemplate.updateMany).toHaveBeenCalled();
   });
 
   it("blocks mutation of legacy null-owner templates for non-managers", async () => {
-    mockPrisma.commandTemplate.findUnique.mockResolvedValue({
+    mockPrisma.commandTemplate.findFirst.mockResolvedValue({
       id: "legacy_1",
       isBuiltin: false,
       command: "echo legacy",
@@ -244,7 +250,7 @@ describe("command template service", () => {
       createdById: null,
     });
     await expect(
-      service.updateTemplate("legacy_1", { name: "x" }, { userId: "u1" }),
+      service.updateTemplate("legacy_1", { name: "x" }, { userId: "u1" }, PLATFORM),
     ).rejects.toThrow(/无权|No permission/);
   });
 });

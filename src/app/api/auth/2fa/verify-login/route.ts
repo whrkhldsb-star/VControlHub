@@ -140,7 +140,7 @@ export async function POST(request: Request) {
 		// an attacker holding the password (and a stolen pending cookie) must
 		// not get unlimited TOTP guesses just by rotating IPs past the per-IP
 		// limiter above.
-		const twoFactorLock = await isAccountLockedAsync(user.username);
+		const twoFactorLock = await isAccountLockedAsync(user.username, clientIp);
 		if (twoFactorLock.locked) {
 			cookieStore.delete(getPending2faCookieName());
 			return apiError({
@@ -164,10 +164,10 @@ export async function POST(request: Request) {
 			// Count 2FA misses against the account lockout (same counter the
 			// password stage uses). Without this, a leaked password plus IP
 			// rotation reduces 2FA to an offline guess of a 6-digit space.
-			const lockResult = await recordLoginFailureAsync(user.username);
+			const lockResult = await recordLoginFailureAsync(user.username, clientIp);
 			if (lockResult.locked) {
 				cookieStore.delete(getPending2faCookieName());
-				await auditSystemAction("auth.account_locked", { username: user.username, ip: clientIp, stage: "2fa", failCount: lockResult.failCount }, "WARNING");
+				await auditSystemAction("auth.account_locked", { username: user.username, ip: clientIp, stage: "2fa", scope: lockResult.scope, failCount: lockResult.failCount, accountFailCount: lockResult.accountFailCount }, "WARNING");
 				return apiError({
 					code: "ACCOUNT_LOCKED",
 					message: apiCopy("apiCopy.too.many.verification.attempts.please.try.again.later.a8754aa7"),
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
 			});
 		}
 		// Full success — the login (password + second factor) is complete.
-		await clearLoginFailureAsync(user.username);
+		await clearLoginFailureAsync(user.username, clientIp);
 
 		// ── 2FA verified — create full session from live DB state ──
 		const liveRoles = user.roles
