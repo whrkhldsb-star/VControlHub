@@ -22,11 +22,7 @@ import {
 import { findMatchingTwoFactorRecoveryCode } from "./two-factor-recovery";
 import { openTwoFactorSecret } from "./two-factor-secret";
 
-export {
-  isAcceptableTwoFactorCodeShape,
-  isRecoveryCodeShape,
-  isTotpCodeShape,
-} from "./two-factor-challenge-shape";
+export { isAcceptableTwoFactorCodeShape } from "./two-factor-challenge-shape";
 
 export type TwoFactorChallengeResult = {
   valid: boolean;

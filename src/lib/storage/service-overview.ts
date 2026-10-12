@@ -1,12 +1,7 @@
 import type { SessionPayload } from "@/lib/auth/session";
-import type {
-  FileEntryListRow,
-  DeletedFileEntryRow,
-} from "./service-entries";
 import { listFileEntries, listDeletedFileEntries } from "./service-entries";
 import { listStorageNodes } from "./service-nodes";
 import { getFileIndexStatistics } from "./service-statistics";
-import type { StorageNodeListRow } from "./service-direct-access";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -126,7 +121,3 @@ export async function getStorageOverview(session: TeamSession, options: {include
     },
   };
 }
-
-// Re-export the row types that callers used to import from "./service" via the
-// barrel — preserved for source compatibility.
-export type { FileEntryListRow, DeletedFileEntryRow, StorageNodeListRow };

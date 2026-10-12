@@ -2,9 +2,6 @@
 
 import type React from "react";
 
-/* ── Escape HTML to prevent XSS ──────────────────────────────── */
-export { escapeHtml } from "@/lib/sanitize/escape-html";
-
 /** Only allow safe navigable schemes for markdown links (blocks javascript:/data: XSS). */
 export function safeMarkdownHref(raw: string): string | null {
   const href = raw.trim();

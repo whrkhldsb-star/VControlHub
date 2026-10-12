@@ -25,9 +25,6 @@ export type RateLimitConfig = {
 	bucketKey?: string;
 };
 
-/** AI chat: 20 messages per minute per IP */
-export const AI_CHAT_LIMIT: RateLimitConfig = { maxRequests: 20, windowMs: 60_000 };
-
 /** File uploads: 10 per minute per IP */
 export const UPLOAD_LIMIT: RateLimitConfig = { maxRequests: 10, windowMs: 60_000 };
 

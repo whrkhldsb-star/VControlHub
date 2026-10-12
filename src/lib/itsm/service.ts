@@ -12,9 +12,5 @@ export {
   listItsmEvents,
   updateItsmConnection,
 } from "./service-connections";
-export {
-  fanOutTicketEvent,
-  safeFanOutTicketEvent,
-  testItsmConnection,
-} from "./service-outbound";
+export { safeFanOutTicketEvent, testItsmConnection } from "./service-outbound";
 export { handleInboundWebhook } from "./service-inbound";

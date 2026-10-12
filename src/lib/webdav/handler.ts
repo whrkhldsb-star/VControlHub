@@ -62,11 +62,7 @@ import {
   type WebDavContext,
 } from "./handler-internals";
 
-export {
-  buildWebDavHref,
-  normalizeWebDavRelativePath,
-  type WebDavContext,
-} from "./handler-internals";
+export { normalizeWebDavRelativePath, type WebDavContext } from "./handler-internals";
 
 const MAX_WEBDAV_PUT_BYTES = 100 * 1024 * 1024;
 

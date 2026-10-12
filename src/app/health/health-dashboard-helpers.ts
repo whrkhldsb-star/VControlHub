@@ -1,9 +1,9 @@
 /** Pure helpers / tone maps for the health dashboard. */
 
-import type { SystemHealthReport, SystemHealthStatus, SystemHealthSummary } from "./health-types";
+import type { SystemHealthReport, SystemHealthStatus } from "./health-types";
 import type { BadgeTone } from "@/components/ui-primitives";
 
-export type { SystemHealthStatus, SystemHealthSummary };
+export type { SystemHealthStatus };
 
 export type RepairSuggestion = {
 	id: string;
@@ -112,13 +112,6 @@ export function usageColor(val: number | undefined, warn = 80, crit = 95): strin
 	if (val >= crit) return "text-[var(--danger)]";
 	if (val >= warn) return "text-[var(--warning)]";
 	return "text-[var(--success)]";
-}
-
-export function usageBarColor(val: number | undefined, warn = 80, crit = 95): string {
-	if (val === undefined) return "bg-[var(--surface)]";
-	if (val >= crit) return "bg-[var(--danger)]";
-	if (val >= warn) return "bg-[var(--warning)]";
-	return "bg-[var(--success)]";
 }
 
 /** Tone equivalent of usageBarColor, for the shared ProgressBar primitive.

@@ -19,22 +19,4 @@ export {
   recoverQueuedApprovedCommandRequests,
 } from "./service-recovery";
 
-export {
-  cancelCommandRequest,
-  createCommandRequest,
-  listCommandRequests,
-  reviewCommandRequest,
-  type CommandSessionScope,
-} from "./service-requests";
-
-// Re-export the worker-id constant so maintenance scripts (worker.ts,
-// monitor scripts) can still import it from the service barrel.
-export { COMMAND_WORKER_ID } from "./service-execution";
-
-// TR-001 (T11): re-export the durable-job types/parsers so callers
-// (e.g. operation-tasks API, deployment status sync) can introspect jobs
-// that came from the command execution path.
-export {
-  COMMAND_EXECUTION_JOB_TYPE,
-  parseCommandExecutionJobPayload,
-} from "./execution-worker";
+export { cancelCommandRequest, createCommandRequest, listCommandRequests, reviewCommandRequest } from "./service-requests";

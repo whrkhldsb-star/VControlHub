@@ -22,8 +22,6 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 const logger = createLogger("share-link");
 
-export { QUICK_SHARE_DEFAULT_EXPIRY_HOURS } from "./policy";
-
 export function hashShareToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }

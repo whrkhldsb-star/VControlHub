@@ -57,7 +57,6 @@ export interface AppNavGroup {
 /* Glyphs still imported by individual pages. */
 export const IconKey = () => <IconKeyGlyph size={18} />;
 export const IconCode = () => <IconBraces size={18} />;
-export const IconServer = () => <IconServerGlyph size={18} />;
 
 /**
  * Grouped primary navigation, ordered by what people come to do: watch their

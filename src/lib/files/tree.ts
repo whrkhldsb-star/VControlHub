@@ -2,21 +2,9 @@
 // without pulling the whole server-only service module. We import them
 // for in-file use AND re-export them so every existing call site
 // 'from "@/lib/files/tree"' keeps working.
-import type {
-	FileTreeSearchFoldersDto,
-	SerializedTreeFolderDto,
-	SerializedTreeNodeDto,
-	StorageDirectoryForTreeDto,
-	StorageEntryForTreeDto,
-} from "./dto";
+import type { SerializedTreeNodeDto, StorageDirectoryForTreeDto, StorageEntryForTreeDto } from "./dto";
 
-export type {
-	FileTreeSearchFoldersDto,
-	SerializedTreeFolderDto,
-	SerializedTreeNodeDto,
-	StorageDirectoryForTreeDto,
-	StorageEntryForTreeDto,
-};
+export type { SerializedTreeNodeDto, StorageDirectoryForTreeDto, StorageEntryForTreeDto };
 
 // Backwards-compatible aliases — existing call sites that imported
 // `StorageEntryForTree` / `StorageDirectoryForTree` /
@@ -26,7 +14,6 @@ export type {
 export type StorageEntryForTree = StorageEntryForTreeDto;
 export type StorageDirectoryForTree = StorageDirectoryForTreeDto;
 export type SerializedTreeNode = SerializedTreeNodeDto;
-export type SerializedTreeFolder = SerializedTreeFolderDto;
 
 export function isDirectoryEntry(entry: { entryType?: string | null; mimeType?: string | null }) {
 	return entry.entryType === "DIRECTORY" || entry.mimeType === "inode/directory";

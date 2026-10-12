@@ -59,14 +59,6 @@ export type FilesApiResponse = {
   nodes: { id: string; name: string; driver: string; basePath?: string; isDefault?: boolean; healthStatus?: string | null }[];
 };
 
-export type DeletedEntryProp = {
-  id: string;
-  name: string;
-  entryType: string;
-  relativePath: string;
-  size: number | bigint | null;
-};
-
 /* ── Helpers ────────────────────────────────────────────────────── */
 
 export function splitPath(path: string) {

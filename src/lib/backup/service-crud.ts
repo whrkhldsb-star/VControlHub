@@ -16,7 +16,6 @@ import {
 	buildBackupFilePath,
 	isBackupType,
 } from "./service-types";
-import { RESTORE_CONFIRM_TEXT } from "./service-types";
 import { t } from "@/lib/i18n/service-translations";
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
@@ -201,6 +200,3 @@ export async function abandonStaleRunningBackupRecords(input?: {
 	}
 	return { abandoned: ids.length, ids };
 }
-
-/** Re-exported for callers that import the constant from `./service`. */
-export { RESTORE_CONFIRM_TEXT };

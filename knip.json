@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/worker.ts",
+    "src/ssh-ws-proxy.ts",
+    "src/instrumentation-node.ts",
+    "scripts/**/*.{ts,tsx,mjs,js}",
+    "e2e/**/*.ts",
+    "deploy/**/*.ts",
+    "public/sw.js",
+    "src/lib/upload/__tests__/fixtures/finalizer-child.ts",
+    "!scripts/load/k6-baseline.js"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,tsx,mjs}",
+    "e2e/**/*.ts",
+    "deploy/**/*.ts",
+    "!scripts/load/k6-baseline.js"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [
+    "tailwindcss"
+  ]
+}

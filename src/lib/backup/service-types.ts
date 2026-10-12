@@ -12,11 +12,7 @@ import { config } from "@/lib/config/env";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
-export const RESTORE_CONFIRM_TEXT = "RESTORE";
-
 export type BackupType = "DATABASE" | "FILES" | "FULL";
-
-type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 
 export type BackupRecordForSummary = {
 	id: string;
@@ -100,6 +96,3 @@ export function resolveBackupPath(projectRoot: string, filePath: string) {
 	const portablePath = assertPortableBackupPath(filePath);
 	return join(getBackupStorageRoot(projectRoot), portablePath);
 }
-
-/** Internal — exposed for sibling `service-runtime` to type status updates. */
-export type { BackupStatus };

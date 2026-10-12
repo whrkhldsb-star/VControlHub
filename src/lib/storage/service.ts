@@ -12,47 +12,13 @@
  *   service-overview.ts        aggregated overview + directory summaries
  *   service-editable.ts        local-only online editor draft save / load
  */
-export {
-  buildDirectAccessStrategy,
-  buildStorageConnectionSummary,
-  type DirectAccessMode,
-  type DirectAccessResult,
-  type StorageNodeListRow,
-} from "./service-direct-access";
+export { buildDirectAccessStrategy } from "./service-direct-access";
 
-export {
-  checkStorageNodeHealth,
-  createStorageNode,
-  deleteStorageNode,
-  ensureDefaultNodeState,
-  listStorageNodes,
-  updateStorageNode,
-  type StorageNodeHealthStatus,
-} from "./service-nodes";
+export { checkStorageNodeHealth, createStorageNode, deleteStorageNode, listStorageNodes, updateStorageNode } from "./service-nodes";
 
-export {
-  createFileEntry,
-  formatFileSize,
-  isEditableTextFile,
-  listDeletedFileEntries,
-  listFileEntries,
-  resolveLocalAbsolutePath,
-  restoreFileEntry,
-  type DeletedFileEntryRow,
-  type DeletedFileEntryWithNode,
-  type FileEntryListRow,
-} from "./service-entries";
+export { createFileEntry, listDeletedFileEntries, listFileEntries, restoreFileEntry } from "./service-entries";
 
-export {
-  detectAndPruneSftpStaleInventory,
-  listSftpNodesForStaleInventory,
-  type SftpStaleInventoryResult,
-} from "./sftp-stale-inventory";
-
-export {
-  getStorageOverview,
-  type DirectorySummary,
-} from "./service-overview";
+export { getStorageOverview } from "./service-overview";
 
 export {
   getLocalEditableFileDraft,
