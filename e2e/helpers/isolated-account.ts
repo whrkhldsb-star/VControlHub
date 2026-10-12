@@ -90,6 +90,40 @@ export async function createIsolatedE2eAccount() {
 	}
 }
 
+/**
+ * Point the isolated account back at a customer. Specs that select and then
+ * delete a customer leave the shared account in "all customers"; restoring
+ * through the API needs a live browser context, which is already gone when
+ * the spec timed out, so this writes the column directly. With no customer
+ * to go back to (a previous broken run already leaked), the seeded default
+ * customer is used, the same one createIsolatedE2eAccount starts from.
+ */
+export async function restoreIsolatedAccountCustomer(teamId: string | null) {
+	if (process.env.E2E_ISOLATED_ACCOUNT !== "1") return false;
+	const client = new Client({ connectionString: localConnectionString() });
+	await client.connect();
+	try {
+		let target = teamId;
+		if (!target) {
+			const workspace = await client.query<{ id: string }>(
+				`SELECT t.id
+				 FROM teams t
+				 LEFT JOIN "StorageNode" sn
+				   ON sn."teamId" = t.id AND sn.id = 'node_local_default'
+				 WHERE t."deletedAt" IS NULL
+				 ORDER BY (sn.id IS NOT NULL) DESC, t."createdAt" ASC
+				 LIMIT 1`,
+			);
+			target = workspace.rows[0]?.id ?? null;
+		}
+		if (!target) return false;
+		await client.query(`UPDATE "User" SET "currentTeamId" = $1, "updatedAt" = NOW() WHERE username = $2`, [target, ISOLATED_E2E_USERNAME]);
+		return true;
+	} finally {
+		await client.end();
+	}
+}
+
 export async function removeIsolatedE2eAccount() {
 	if (process.env.E2E_ISOLATED_ACCOUNT !== "1") return;
 	const client = new Client({ connectionString: localConnectionString() });
