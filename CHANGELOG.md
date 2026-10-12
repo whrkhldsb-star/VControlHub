@@ -35,6 +35,7 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Fixed
 
+- Knowledge-base excerpts reach the assistant as a user turn placed just before the question, framed as untrusted uploaded material that must not be followed as instructions. They used to be injected as a system message that told the model to prefer them, so a document uploaded by anyone with knowledge-base access carried system-level authority in every colleague's conversation.
 - Account lockout can no longer be used to lock someone else out. Failed logins used to count per username alone, so anyone who knew a username could lock its owner out for 15 minutes with five wrong guesses. Failures now count per username **and** source address (five misses lock that address), with a separate account-wide ceiling of 25 misses across all addresses that locks the account for everyone and is recorded in the audit log with its scope; a successful login clears both.
 - Tenant-scoped services no longer accept a missing session as "unrestricted". `listStorageNodes`, the scheduled-task, deployment and command-template services and the storage overview take a required session; the assistant's scheduled-task and template tools answer with "select a customer first" instead of querying every customer when no scope is present.
 - The browser upload retries the finalize call while the server reports it busy (one finalization per account at a time), so a second tab uploading at the same time no longer fails with "busy".

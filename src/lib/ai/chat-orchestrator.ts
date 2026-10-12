@@ -67,6 +67,25 @@ function toolResultFallback(results: ToolResult[], locale: Locale): string {
   return `${heading}\n\n${summaries.map((summary) => `- ${summary}`).join("\n")}`;
 }
 
+/**
+ * Knowledge excerpts go in as a user turn right before the question, not as a
+ * system message: they are documents other users uploaded, and a system
+ * message would hand their contents the model's highest authority.
+ */
+export function insertKnowledgeContext<T extends { role: string }>(
+  messages: T[],
+  context: string,
+  make: (content: string) => T = (content) => ({ role: "user", content }) as unknown as T,
+): void {
+  let lastUser = -1;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]!.role === "user") { lastUser = i; break; }
+  }
+  const entry = make(context);
+  if (lastUser === -1) messages.push(entry);
+  else messages.splice(lastUser, 0, entry);
+}
+
 function encodeSse(payload: unknown): Uint8Array {
   return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
 }
@@ -569,7 +588,7 @@ export async function createAiChatResponse(input: {
       session: input.session,
       limit: 4,
     });
-    if (context) messages.unshift({ role: "system", content: context });
+    if (context) insertKnowledgeContext(messages, context);
   } catch (error) {
     logger.warn(
       "Knowledge retrieval failed; continuing without context",
