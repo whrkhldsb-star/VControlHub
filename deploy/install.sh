@@ -468,8 +468,10 @@ sync_source() {
     warn "SOURCE_DIR and APP_DIR are the same (${APP_DIR}); skipping source sync"
   elif [ -n "${REPO_URL}" ]; then
     if [ -d "${APP_DIR}/.git" ]; then
-      git -C "${APP_DIR}" fetch --all --prune
-      git -C "${APP_DIR}" pull --ff-only
+      # The checkout belongs to ${APP_USER} after the first install while this
+      # script runs as root; without the exception git refuses it as "dubious".
+      git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch --all --prune
+      git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" pull --ff-only
     else
       find "${APP_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
       git clone "${REPO_URL}" "${APP_DIR}"
@@ -545,6 +547,11 @@ sync_installer_env_overrides() {
  else
   set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL ""
   remove_env_var SSH_WS_ALLOWED_ORIGINS
+  # upgrade.sh exports the previous .env.local before calling us; drop the
+  # stale value from this shell too, or auto_generate_env_secrets sees it as
+  # already set, never re-detects the IP origins, and the gateway refuses to
+  # start after the upgrade with "SSH_WS_ALLOWED_ORIGINS is missing".
+  unset SSH_WS_ALLOWED_ORIGINS
  fi
  chmod 600 "${ENV_FILE}"
 }

@@ -207,6 +207,8 @@ sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your
 
 可选开关：`SKIP_PRE_BACKUP=1` 跳过升级前备份，`SKIP_POST_CHECK=1` 跳过升级后自检，`CHECK_PUBLIC_URL=https://your.example.com` 增加公网 smoke。
 
+> 安装目录归运行用户所有而升级以 root 执行，脚本会为本次调用把该目录声明为 git 安全目录。若现有安装的 `deploy/upgrade.sh` 早于这一处理（表现为升级在 "Fetching latest code" 处报 `dubious ownership`），先执行一次 `sudo git config --global --add safe.directory /opt/VControlHub`，之后的升级就会带上修复后的脚本。
+
 ## 数据库初始化示例
 
 如果目标机器使用本机 PostgreSQL，可以先创建最小权限数据库用户；也可以跳过本节，直接在 `.env.local` 里填写外部 PostgreSQL 的 `DATABASE_URL`。

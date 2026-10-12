@@ -17,6 +17,10 @@ UPGRADE_REF="${UPGRADE_REF:-main}"
 CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL:-}"
 
 log() { printf '\033[1;32m[upgrade]\033[0m %s\n' "$*"; }
+# install.sh hands the checkout to the service user, while upgrades are run with
+# sudo as the installer documents; git then refuses the repository as having
+# "dubious ownership". Declare the checkout safe for this invocation only.
+git_app() { git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" "$@"; }
 warn() { printf '\033[1;33m[upgrade]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[upgrade]\033[0m %s\n' "$*" >&2; exit 1; }
 
@@ -34,11 +38,17 @@ load_env_for_defaults() {
     public_origin="${public_origin%%,*}"
   fi
   if [ -z "${DOMAIN:-}" ] && { [ -z "${public_origin}" ] || [[ "${public_origin}" == http://localhost* ]] || [[ "${public_origin}" == http://127.0.0.1* ]]; }; then
-    local caddy_file="/etc/caddy/Caddyfile"
+    local caddy_file="${CADDY_FILE:-/etc/caddy/Caddyfile}"
     if [ -f "${caddy_file}" ] && grep -Fq "# Managed by VControlHub installer:" "${caddy_file}"; then
       public_origin="$(sed -nE 's|^[[:space:]]*(https?://[^, {]+).*|\1|p' "${caddy_file}" | head -1)"
     fi
   fi
+  # A loopback origin is the IP-only/Apache install talking to itself, not a
+  # public domain: deriving DOMAIN=localhost from it would hand install.sh a
+  # domain and flip the installation into Caddy mode next to the running Apache.
+  case "${public_origin}" in
+    http://localhost*|http://127.0.0.1*|https://localhost*|https://127.0.0.1*) public_origin="" ;;
+  esac
   if [ -z "${DOMAIN:-}" ] && [ -n "${public_origin}" ]; then
     case "${public_origin}" in
       http://*|https://*)
@@ -64,23 +74,23 @@ pull_latest_code() {
   command -v git >/dev/null 2>&1 || fail "git is required to pull updates"
 
   log "Fetching latest code for ${UPGRADE_REF}"
-  git -C "${APP_DIR}" fetch --prune origin
+  git_app fetch --prune origin
 
-  if [ -n "$(git -C "${APP_DIR}" status --porcelain)" ]; then
+  if [ -n "$(git_app status --porcelain)" ]; then
     fail "Working tree has local changes. Commit/stash them or run with SKIP_PULL=1."
   fi
 
   local remote_ref remote_sha current_sha
   remote_ref="origin/${UPGRADE_REF}"
-  remote_sha="$(git -C "${APP_DIR}" rev-parse "${remote_ref}" 2>/dev/null || true)"
+  remote_sha="$(git_app rev-parse "${remote_ref}" 2>/dev/null || true)"
   [ -n "${remote_sha}" ] || fail "Remote ref not found: ${remote_ref}"
-  current_sha="$(git -C "${APP_DIR}" rev-parse HEAD)"
+  current_sha="$(git_app rev-parse HEAD)"
   if [ "${current_sha}" = "${remote_sha}" ]; then
     log "Already at latest ${UPGRADE_REF}: ${current_sha}"
   else
     log "Updating ${current_sha} -> ${remote_sha}"
-    git -C "${APP_DIR}" checkout -q "${UPGRADE_REF}"
-    git -C "${APP_DIR}" merge --ff-only "${remote_ref}"
+    git_app checkout -q "${UPGRADE_REF}"
+    git_app merge --ff-only "${remote_ref}"
   fi
 }
 
@@ -100,8 +110,8 @@ run_post_upgrade_check() {
   APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" APP_NAME="${APP_NAME}" CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL}" "${SCRIPT_DIR}/check.sh"
   if [ -d "${APP_DIR}/.git" ]; then
     local head remote
-    head="$(git -C "${APP_DIR}" rev-parse HEAD)"
-    remote="$(git -C "${APP_DIR}" rev-parse "origin/${UPGRADE_REF}" 2>/dev/null || true)"
+    head="$(git_app rev-parse HEAD)"
+    remote="$(git_app rev-parse "origin/${UPGRADE_REF}" 2>/dev/null || true)"
     [ -z "${remote}" ] || [ "${head}" = "${remote}" ] || fail "Upgrade completed but HEAD ${head} does not match origin/${UPGRADE_REF} ${remote}"
     log "Code version verified: ${head}"
   fi
