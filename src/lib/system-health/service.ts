@@ -186,13 +186,20 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
     messageCode: configured.length > 0 ? "healthy" : "warning",
   });
 
-  const [gitHead, remoteLine] = await Promise.all([
-    safeExecFile("git", ["-C", projectRoot, "rev-parse", "--short", "HEAD"]),
+  // Full hashes on both sides: `rev-parse --short` lengthens its output as the
+  // repository grows (8+ chars), so comparing it with a 7-char slice of the
+  // remote hash reported "differs" for identical commits.
+  const [gitHeadFull, remoteLine] = await Promise.all([
+    safeExecFile("git", ["-C", projectRoot, "rev-parse", "HEAD"]),
     safeExecFile("git", ["-C", projectRoot, "ls-remote", "origin", "refs/heads/main"]),
   ]);
-  const gitRemoteHead = remoteLine?.split(/\s+/)[0]?.slice(0, 7) || null;
-  if (gitHead) {
-    const gitHealthy = !gitRemoteHead || gitHead === gitRemoteHead;
+  const gitHeadRaw = gitHeadFull?.trim() || null;
+  const gitRemoteRaw = remoteLine?.split(/\s+/)[0]?.trim() || null;
+  const gitHead = gitHeadRaw ? gitHeadRaw.slice(0, 7) : null;
+  const gitRemoteHead = gitRemoteRaw ? gitRemoteRaw.slice(0, 7) : null;
+  if (gitHead && gitHeadRaw) {
+    const gitHealthy =
+      !gitRemoteRaw || gitRemoteRaw.startsWith(gitHeadRaw) || gitHeadRaw.startsWith(gitRemoteRaw);
     checks.push({
       id: "git-sync",
       label: "GitHub sync status",

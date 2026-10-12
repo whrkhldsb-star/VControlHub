@@ -31,7 +31,10 @@ type TimelineEvent = {
   title: string;
   detail?: string | null;
   actor?: string | null;
+  meta?: Record<string, unknown> | null;
 };
+
+const SLA_BREACH_REASON = /^SLA breach: due (\S+)$/;
 
 type TimelineResponse = {
   events: TimelineEvent[];
@@ -190,6 +193,67 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
     const key = `ticketsDetail.event.${type}`;
     const translated = t(key);
     return translated === key ? type : translated;
+  };
+  const codeLabel = (prefix: "status" | "priority", code: unknown) => {
+    if (typeof code !== "string" || !code) return "";
+    const key = `ticketsDetail.${prefix}.${code}`;
+    const translated = t(key);
+    return translated === key ? code : translated;
+  };
+  // The API ships English titles for machine consumers; the page builds its
+  // own localized headline from the event type and metadata so a zh reader
+  // never sees "Status OPEN → OPEN" or a raw server id.
+  const eventTitle = (ev: TimelineEvent): string | null => {
+    const meta = ev.meta ?? {};
+    switch (ev.type) {
+      case "ticket.created":
+        return null;
+      case "ticket.comment":
+        return null;
+      case "ticket.closed":
+        return t("ticketsDetail.event.ticket.closed");
+      case "ticket.linked_server":
+        return t("ticketsDetail.timeline.linkedServer", {
+          name: timeline?.related.server?.name ?? ev.detail ?? "",
+        });
+      case "ticket.status": {
+        if (meta.fromStatus !== meta.toStatus && meta.toStatus) {
+          return t("ticketsDetail.timeline.statusChanged", {
+            from: codeLabel("status", meta.fromStatus),
+            to: codeLabel("status", meta.toStatus),
+          });
+        }
+        if (meta.fromPriority !== meta.toPriority && meta.toPriority) {
+          return t("ticketsDetail.timeline.priorityChanged", {
+            from: codeLabel("priority", meta.fromPriority),
+            to: codeLabel("priority", meta.toPriority),
+          });
+        }
+        return t("ticketsDetail.event.ticket.status");
+      }
+      case "command.created":
+        return t("ticketsDetail.timeline.commandRequest", {
+          title: timeline?.related.command?.title ?? ev.title.replace(/^Command request: /, ""),
+        });
+      case "command.approval":
+        return t(meta.approved ? "ticketsDetail.timeline.commandApproved" : "ticketsDetail.timeline.commandRejected");
+      case "command.execution":
+        return t("ticketsDetail.event.command.execution");
+      default:
+        return ev.title;
+    }
+  };
+  const eventDetail = (ev: TimelineEvent): string | null => {
+    if (!ev.detail) return null;
+    if (ev.type === "ticket.linked_server") return null;
+    const sla = SLA_BREACH_REASON.exec(ev.detail);
+    if (sla) {
+      const due = Date.parse(sla[1]!);
+      return t("ticketsDetail.timeline.slaBreach", {
+        due: Number.isNaN(due) ? sla[1]! : formatDateTime(new Date(due).toISOString(), locale),
+      });
+    }
+    return ev.detail;
   };
 
   return (
@@ -359,10 +423,18 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
                   </span>
                   {ev.actor && <span>{ev.actor}</span>}
                 </div>
-                <div className="mt-0.5 text-sm font-medium text-[var(--text-primary)]">{ev.title}</div>
-                {ev.detail && (
-                  <pre className="mt-1 whitespace-pre-wrap font-sans text-xs text-[var(--text-secondary)]">{ev.detail}</pre>
-                )}
+                {(() => {
+                  const title = eventTitle(ev);
+                  const detail = eventDetail(ev);
+                  return (
+                    <>
+                      {title && <div className="mt-0.5 text-sm font-medium text-[var(--text-primary)]">{title}</div>}
+                      {detail && (
+                        <pre className={`${title ? "mt-1" : "mt-0.5"} whitespace-pre-wrap font-sans text-xs ${title ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>{detail}</pre>
+                      )}
+                    </>
+                  );
+                })()}
               </li>
             ))}
           </ol>

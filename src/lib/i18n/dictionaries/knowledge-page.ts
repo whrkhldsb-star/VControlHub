@@ -35,7 +35,7 @@ export const zh: Record<string, string> = {
 	"knowledgePage.searchOk": "命中 {count} 条",
 	"knowledgePage.working": "处理中…",
 	"knowledgePage.error": "操作失败",
-	"knowledgePage.aiHint": "AI 聊天会在用户提问时自动检索知识库并注入 system 上下文；托管模式下还可调用 search_knowledge 工具。",
+	"knowledgePage.aiHint": "AI 聊天会在用户提问时自动检索知识库，并把摘录作为参考资料附在问题前（不作为指令）；托管模式下还可调用 search_knowledge 工具。",
 };
 
 export const en: Record<string, string> = {
@@ -72,5 +72,5 @@ export const en: Record<string, string> = {
 	"knowledgePage.searchOk": "{count} hit(s)",
 	"knowledgePage.working": "Working…",
 	"knowledgePage.error": "Action failed",
-	"knowledgePage.aiHint": "AI chat auto-retrieves knowledge on each user message; hosted mode can also call the search_knowledge tool.",
+	"knowledgePage.aiHint": "AI chat retrieves knowledge on each user message and attaches the excerpts as reference material before the question (never as instructions); hosted mode can also call the search_knowledge tool.",
 };

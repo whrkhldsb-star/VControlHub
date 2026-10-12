@@ -32,14 +32,14 @@ export function DockerContainerCard({
 	const stat = stats[c.Id];
 	return (
 		<div key={c.Id} data-inset className="p-3.5">
-			<div className="mb-2 flex items-center justify-between gap-3">
+			<div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 				<div className="flex min-w-0 items-center gap-3">
-					<StatusBadge tone={c.State === "running" ? "success" : c.State === "paused" || c.State === "restarting" ? "warning" : c.State === "created" ? "accent" : c.State === "dead" || c.State === "removing" ? "danger" : "neutral"} size="sm">
+					<StatusBadge tone={c.State === "running" ? "success" : c.State === "paused" || c.State === "restarting" ? "warning" : c.State === "created" ? "accent" : c.State === "dead" || c.State === "removing" ? "danger" : "neutral"} size="sm" className="shrink-0 whitespace-nowrap">
 						{stateLabel(t, c.State)}
 					</StatusBadge>
 					<span className="ui-mono truncate text-sm font-medium text-[var(--text-primary)]">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//,"")}</span>
 				</div>
-				<span className="ml-3 truncate text-xs text-[var(--text-muted)]">{c.Image}</span>
+				<span className="min-w-0 truncate text-xs text-[var(--text-muted)] sm:ml-3 sm:max-w-[45%]" title={c.Image}>{c.Image}</span>
 			</div>
 			<div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
 				<span>{c.Status}</span>

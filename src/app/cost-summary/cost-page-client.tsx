@@ -226,7 +226,7 @@ export function CostPageClient({
 			>
 				{entries.length > 0 ? (
 					<div className="overflow-x-auto">
-						<table className="w-full text-sm text-[var(--text-primary)]">
+						<table className="w-full min-w-[40rem] text-sm text-[var(--text-primary)]">
 							<thead>
 								<tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs uppercase text-[var(--text-muted)]">
 									<th className="px-3 py-2">{t("costPage.list.column.date")}</th>
@@ -240,11 +240,11 @@ export function CostPageClient({
 							<tbody>
 								{entries.map((e) => (
 									<tr key={e.id} className="border-b border-[var(--border)]">
-										<td className="px-3 py-2 font-mono text-xs">{e.effectiveDate}</td>
-										<td className="px-3 py-2">{t(`costPage.category.${e.category}`)}</td>
+										<td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{e.effectiveDate}</td>
+										<td className="whitespace-nowrap px-3 py-2">{t(`costPage.category.${e.category}`)}</td>
 										<td className="px-3 py-2">{e.provider}</td>
-										<td className="px-3 py-2 text-right font-mono">{formatAmount(e.amount, e.currency, localeTag)}</td>
-										<td className="px-3 py-2 text-[var(--text-primary)]/70">{e.notes ?? "—"}</td>
+										<td className="whitespace-nowrap px-3 py-2 text-right font-mono">{formatAmount(e.amount, e.currency, localeTag)}</td>
+										<td className="max-w-[18rem] truncate px-3 py-2 text-[var(--text-primary)]/70" title={e.notes ?? undefined}>{e.notes ?? "—"}</td>
 										{canManage ? (
 											<td className="px-3 py-2 text-right">
 												<div className="flex justify-end gap-2">

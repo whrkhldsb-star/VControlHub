@@ -82,6 +82,9 @@ export default async function RequestsPage() {
 
 								<div className="mt-4 grid gap-3 lg:grid-cols-3">
 									<InfoSection title={t("requestsPage.card.targetNodesTitle", locale)}>
+										{request.targets.length === 0 ? (
+											<p className="text-xs text-[var(--text-muted)]">{t("requestsPage.card.noTargets", locale)}</p>
+										) : null}
 										<div className="space-y-1.5">
 											{request.targets.map((target: (typeof request.targets)[number]) => (
 												<InfoItem key={target.id}>

@@ -170,7 +170,7 @@ export const en: Record<string, string> = {
 	"dockerResources.refreshBusy": "Refreshing...",
 	"dockerResources.field.name": "Name",
 	"dockerResources.field.type": "Type",
-	"dockerResources.field.driver": "driver",
+	"dockerResources.field.driver": "Driver",
 	"dockerResources.create": "Create",
 	"dockerResources.group.networks": "Networks ({count})",
 	"dockerResources.group.volumes": "Volumes ({count})",

@@ -222,7 +222,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           description={t("knowledgePage.basesDescription")}
         >
           <div className="space-y-3">
-            {canManage && <div className="flex flex-wrap gap-2">
+            {canManage && <div className="flex flex-wrap items-end gap-2">
               <FormField label={t("knowledgePage.namePlaceholder")} htmlFor="knowledge-base-name" className="min-w-[10rem] flex-1">
               <input
                 id="knowledge-base-name"

@@ -64,7 +64,7 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.quickKeysClose": "关闭自定义组合键",
 	"sshTerminalModal.quickKeysPickKey": "选择按键",
 	"sshTerminalModal.quickKeysAdd": "添加",
-	"sshTerminalModal.quickKeysResetHint": "已启用自定义按键，",
+	"sshTerminalModal.quickKeysResetHint": "已添加自定义按键，",
 	"sshTerminalModal.quickKeysReset": "恢复默认",
 
 	// Side panel — display (终端字号，保存在当前浏览器)
@@ -167,7 +167,7 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.quickKeysClose": "Close custom key builder",
 	"sshTerminalModal.quickKeysPickKey": "Pick a key",
 	"sshTerminalModal.quickKeysAdd": "Add",
-	"sshTerminalModal.quickKeysResetHint": "Custom keys in use, ",
+	"sshTerminalModal.quickKeysResetHint": "Custom keys added, ",
 	"sshTerminalModal.quickKeysReset": "reset to defaults",
 
 	// Side panel — display (terminal font size, kept in this browser)

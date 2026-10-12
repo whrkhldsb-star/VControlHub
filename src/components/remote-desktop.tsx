@@ -320,6 +320,6 @@ export function RemoteDesktop({ serverId }: { serverId: string }) {
   <p className="text-sm text-[var(--text-muted)]">{t("rdp.help")}</p>
   {error && <Notice tone="danger">{t(error)}</Notice>}
   {clipboardError && <Notice tone="warning">{t(clipboardError)}</Notice>}
-  <div ref={container} data-input-label={t("rdp.input")} aria-label={t("rdp.display")} className="h-[65vh] min-h-64 w-full overflow-hidden rounded-lg border border-[var(--border)] bg-black" />
+  <div ref={container} role="group" data-input-label={t("rdp.input")} aria-label={t("rdp.display")} className="h-[65vh] min-h-64 w-full overflow-hidden rounded-lg border border-[var(--border)] bg-black" />
  </section>;
 }

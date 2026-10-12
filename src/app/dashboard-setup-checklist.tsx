@@ -81,7 +81,7 @@ export function DashboardSetupChecklist({ items }: Props) {
 
 			<ul className="grid gap-px border-t border-[var(--border-subtle)] bg-[var(--border-subtle)] sm:grid-cols-2 lg:grid-cols-5">
 				{items.map((item) => (
-					<li key={item.id} className="bg-[var(--surface)] first:rounded-bl-[var(--radius-card)] last:rounded-br-[var(--radius-card)]">
+					<li key={item.id} className="bg-[var(--surface)] first:rounded-bl-[var(--radius-card)] last:rounded-br-[var(--radius-card)] sm:max-lg:last:odd:col-span-2">
 						<Link
 							href={item.href}
 							className="group flex h-full items-start gap-2.5 px-4 py-3 text-sm transition hover:bg-[var(--surface-hover)]"

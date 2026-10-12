@@ -26,7 +26,16 @@ const RULES: ReadonlyArray<{ pattern: RegExp; summaryKey: string }> = [
 
 /** Map a raw error string to a localized summary; never throws, never empty. */
 export function describeKnownError(raw: string, t: TFn): KnownErrorCopy {
-	const detail = raw.trim();
-	const rule = RULES.find(({ pattern }) => pattern.test(detail));
-	return { summary: rule ? t(rule.summaryKey) : t("commonError.generic"), detail };
+	const trimmed = raw.trim();
+	const rule = RULES.find(({ pattern }) => pattern.test(trimmed));
+	return { summary: rule ? t(rule.summaryKey) : t("commonError.generic"), detail: collapseAbsolutePaths(trimmed) };
+}
+
+/**
+ * Absolute filesystem paths in a raw message (`scandir '/srv/storage/teams/x'`)
+ * describe the host, not the user's folder: keep only the last segment so the
+ * notice still names what failed without mapping the server's directory layout.
+ */
+export function collapseAbsolutePaths(message: string): string {
+	return message.replace(/(?<![\w.:/])\/(?:[^\s'"`,;:()]+\/)+([^\s'"`,;:()]+)/g, "…/$1");
 }

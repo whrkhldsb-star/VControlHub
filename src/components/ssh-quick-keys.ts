@@ -202,13 +202,18 @@ export function quickKeyPresetsToEntries(
 	presets: QuickKeyPreset[] | null,
 ): ReadonlyArray<{ label: string; data: string }> {
 	if (!presets) return DEFAULT_QUICK_KEY_PRESETS;
-	const entries: { label: string; data: string }[] = [];
+	// Custom combos extend the baseline rather than replace it: adding one
+	// shortcut must not take Ctrl+C and the arrow keys away.
+	const entries: { label: string; data: string }[] = [...DEFAULT_QUICK_KEY_PRESETS];
+	const seen = new Set(entries.map((entry) => entry.label));
 	for (const preset of presets) {
+		if (seen.has(preset.label)) continue;
 		try {
 			entries.push({ label: preset.label, data: encodeQuickKeySequence(preset.sequence) });
+			seen.add(preset.label);
 		} catch {
 			// Skip presets that reference unknown keys (e.g. from an older build).
 		}
 	}
-	return entries.length > 0 ? entries : DEFAULT_QUICK_KEY_PRESETS;
+	return entries;
 }
