@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { generate as generateTotp } from "otplib";
 import { setTimeout as delay } from "node:timers/promises";
 import { installDirectSession } from "./helpers/direct-session";
+import { restoreIsolatedAccountCustomer } from "./helpers/isolated-account";
 import { loginWithCredentials } from "./helpers/login";
 import { inspectDetailLayouts } from "./helpers/detail-layouts";
 
@@ -462,9 +463,18 @@ test("customer create, select, delete and restore lifecycle", async ({ page }) =
 		}
 		// Deleting the selected customer left this shared administrator in "all customers".
 		// Later specs mint sessions for it and create customer-bound records (API tokens,
-		// fixtures), so hand it back in the customer it started in.
-		const restored = await page.context().request.post("/api/teams/switch", { headers: await csrfHeaders(), data: { teamId: startingCustomer } });
-		expect.soft(restored.status(), "restore the starting customer").toBe(200);
+		// fixtures), so hand it back in the customer it started in. The isolated account
+		// is restored in the database: after a timeout the browser context is already
+		// closed, and an API call from here would fail and leak the state into the next
+		// spec (the WebDAV token test then fails with "select a valid customer first").
+		const restoredDirectly = await restoreIsolatedAccountCustomer(startingCustomer).catch((error: unknown) => {
+			console.warn(`restore the starting customer in the database failed: ${String(error)}`);
+			return false;
+		});
+		if (!restoredDirectly) {
+			const restored = await page.context().request.post("/api/teams/switch", { headers: await csrfHeaders(), data: { teamId: startingCustomer } });
+			expect.soft(restored.status(), "restore the starting customer").toBe(200);
+		}
 	}
 });
 
