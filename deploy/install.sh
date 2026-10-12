@@ -468,8 +468,10 @@ sync_source() {
     warn "SOURCE_DIR and APP_DIR are the same (${APP_DIR}); skipping source sync"
   elif [ -n "${REPO_URL}" ]; then
     if [ -d "${APP_DIR}/.git" ]; then
-      git -C "${APP_DIR}" fetch --all --prune
-      git -C "${APP_DIR}" pull --ff-only
+      # The checkout belongs to ${APP_USER} after the first install while this
+      # script runs as root; without the exception git refuses it as "dubious".
+      git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch --all --prune
+      git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" pull --ff-only
     else
       find "${APP_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
       git clone "${REPO_URL}" "${APP_DIR}"
