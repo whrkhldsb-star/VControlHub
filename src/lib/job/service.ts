@@ -13,12 +13,3 @@ export {
   pruneTerminalJobsByType,
   recoverStaleRunningJobs,
 } from "./service-maintenance";
-export type {
-  ClaimJobOptions,
-  EnqueueJobInput,
-  JobPayload,
-  JobResult,
-  PruneCompletedJobsByTypeOptions,
-  PruneTerminalJobsByTypeOptions,
-  PruneTerminalJobsOptions,
-} from "./service-internals";

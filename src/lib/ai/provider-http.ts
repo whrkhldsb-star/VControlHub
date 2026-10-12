@@ -43,7 +43,6 @@ export interface ProviderChatRequest {
 
 const DEFAULT_AI_BASE_URL = "https://api.openai.com/v1";
 const MODELS_PATH = "/models";
-const CHAT_PATH_SUFFIX = "/chat/completions";
 /** Bound hung upstream AI hosts so model-list / chat routes cannot stall until platform kill. */
 const AI_PROVIDER_MODELS_TIMEOUT_MS = 30_000;
 /** Non-streaming chat: total cap covering headers + body (short, bounded payloads). */
@@ -260,5 +259,3 @@ export async function postProviderChat(input: ProviderChatRequest): Promise<Resp
 		disarmFirstByteTimeout?.();
 	}
 }
-
-export { CHAT_PATH_SUFFIX };

@@ -34,7 +34,7 @@ import {
 	writeQuickServiceAudit,
 	__internals,
 } from "./service-internals";
-import { installService, recreateDockerContainer, type InstallOptions } from "./service-lifecycle-install";
+import { installService, recreateDockerContainer } from "./service-lifecycle-install";
 import type { ServiceTemplate } from "./types";
 import { createLogger } from "@/lib/logging";
 
@@ -44,7 +44,7 @@ const runFile = promisify(execFile);
 const { rmSync } = __internals;
 
 
-export { installService, type InstallOptions };
+export { installService };
 
 export interface UninstallServiceOptions {
 	deleteVolumes?: boolean;
@@ -89,13 +89,6 @@ export async function listQuickServiceHistory(limit = 20) {
 		orderBy: { createdAt: "desc" },
 		take: Math.max(1, Math.min(limit, 50)),
 		select: { id: true, action: true, severity: true, detail: true, createdAt: true, actor: { select: { username: true, displayName: true } } },
-	});
-}
-
-export async function getQuickService(slug: string, instanceKey: string = HUB_HOST_INSTANCE_KEY) {
-	return prisma.quickService.findUnique({
-		where: { instanceKey_slug: { instanceKey, slug } },
-		select: QUICK_SERVICE_LIST_SELECT,
 	});
 }
 

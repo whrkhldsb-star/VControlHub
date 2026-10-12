@@ -18,7 +18,3 @@
  */
 export * from "./service-internals";
 export * from "./service-lifecycle";
-
-// Back-compat: callers that import `ServiceTemplate` from `./service`
-// keep working. (R28 barrel split — the type lives in `./types`.)
-export type { ServiceTemplate } from "./types";

@@ -18,11 +18,3 @@
 export * from "./service-crud";
 export * from "./service-runtime";
 export * from "./service-serialize";
-export type {
-  AiConversationDto,
-  AiConversationListItemDto,
-  AiHostedActionDto,
-  AiMessageDto,
-  AiProviderDto,
-  AiProviderRowDto,
-} from "./dto";

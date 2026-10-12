@@ -10,7 +10,7 @@
  */
 import { z } from "zod";
 
-import { getAllSettings, getSetting, setManySettings } from "@/lib/settings/service";
+import { getAllSettings, setManySettings } from "@/lib/settings/service";
 import { MASKED_VALUE } from "@/lib/settings/schema";
 
 /* ── Schemas ─────────────────────────────────────────────── */
@@ -194,11 +194,4 @@ export async function saveOffsiteConfig(update: OffsiteConfigUpdate): Promise<Of
 	// setManySettings encrypts sensitive keys (accessKeyId / secretAccessKey) at rest.
 	await setManySettings(entries);
 	return validated;
-}
-
-/* ── Single-key read for runtime paths ───────────────────── */
-
-export async function isOffsiteEnabled(): Promise<boolean> {
-	const v = await getSetting("offsite.enabled");
-	return v === "true" || v === "1";
 }

@@ -38,4 +38,4 @@ export function localizeApiCopy(text: string, locale: Locale = localeStore.getSt
   return text;
 }
 
-export { en, zh } from "./dictionaries/api-copy";
+export { en } from "./dictionaries/api-copy";

@@ -3,17 +3,6 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { config } from "@/lib/config/env";
 
-export function isDatabaseUnavailableError(error: unknown) {
-	if (!(error instanceof Error)) {
-		return false;
-	}
-
-	const message = error.message;
-	return /P1001|Can't reach database server|PrismaClientInitializationError|database server|driver adapter|accelerateUrl|engine type\s+["']?client["']?\s+requires|ECONNREFUSED|connect ECONNREFUSED|Connection terminated unexpectedly|connection error/i.test(
-		message,
-	);
-}
-
 /** Prisma unique-constraint helper shared by storage upsert/create races. */
 export function isUniqueViolation(error: unknown): boolean {
 	const code =

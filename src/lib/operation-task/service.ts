@@ -23,17 +23,7 @@ import type {
   OperationTaskStatus,
 } from "./dto";
 
-export type {
-  OperationTask,
-  OperationTaskFailureSummary,
-  OperationTaskListFilters,
-  OperationTaskListOptions,
-  OperationTaskListResult,
-  OperationTaskListSort,
-  OperationTaskSource,
-  OperationTaskSourceSummary,
-  OperationTaskStatus,
-};
+export type { OperationTaskListOptions, OperationTaskListResult, OperationTaskStatus };
 
 type JobTaskRow = Job & {
   creator?: { username: string; displayName: string | null } | null;

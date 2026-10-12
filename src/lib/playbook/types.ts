@@ -32,7 +32,6 @@ export type TriggerConfig = CronTriggerConfig | MetricTriggerConfig;
  * discriminated union lets the executor pattern-match without an `any`.
  */
 export const STEP_TYPES = ["run_command", "send_notification", "call_webhook"] as const;
-export type StepType = (typeof STEP_TYPES)[number];
 
 export type RunCommandStepConfig = {
   command: string;
