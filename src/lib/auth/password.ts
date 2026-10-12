@@ -1,4 +1,7 @@
-import bcrypt from "bcryptjs";
+// Native bcrypt hashes on the libuv thread pool. bcryptjs did the same work in
+// JavaScript on the event loop: at cost 12 every login held the whole server
+// for ~350 ms, and a dozen concurrent logins stalled every request for seconds.
+import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 12;
 

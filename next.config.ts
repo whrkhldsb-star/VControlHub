@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
 	// Disable streaming metadata for this SSR-heavy admin console
 	htmlLimitedBots: /.*/,
 	// Keep native SSH-related packages outside Next's server bundles.
-	serverExternalPackages: ["ssh2", "ppk-to-openssh"],
+	serverExternalPackages: ["bcrypt", "ssh2", "ppk-to-openssh"],
 	// The dev server binds the loopback interface, but browsers may address it
 	// as 127.0.0.1 or ::1 (e.g. DATABASE_URL-style URLs, bookmarked hosts).
 	// Without this allowlist Next 16 blocks the HMR websocket as a "cross-origin

@@ -1,7 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 
 import type { BrowserContext } from "@playwright/test";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import { Client } from "pg";
 import type { RoleKey } from "../../src/lib/auth/rbac";
 import { getAppSlug } from "../../src/lib/branding";
