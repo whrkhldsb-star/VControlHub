@@ -806,6 +806,10 @@ model ScheduledTask {
   createdById         String?
   lastRunAt           DateTime?
   nextRunAt           DateTime?
+  /// Occurrence a worker has claimed but not yet recorded as dispatched. While
+  /// set, nextRunAt holds the claim's lease expiry; a worker that finds the
+  /// lease expired re-dispatches this same occurrence (same idempotency key).
+  claimedOccurrenceAt DateTime?
   lastResult          String?
   runCount            Int                 @default(0)
   createdAt           DateTime            @default(now())

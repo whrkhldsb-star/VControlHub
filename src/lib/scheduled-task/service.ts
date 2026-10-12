@@ -190,6 +190,8 @@ export async function updateScheduledTask(
 		data.cronExpression = schedule.cronExpression;
 		data.runAt = schedule.runAt;
 		data.nextRunAt = schedule.nextRunAt;
+		// A pending claim belongs to the old schedule's occurrence.
+		data.claimedOccurrenceAt = null;
 	}
 	if (input.command !== undefined) data.command = input.command;
 	if (input.reason !== undefined) data.reason = input.reason;
@@ -255,6 +257,7 @@ export async function toggleScheduledTask(
 		where: { id, ...teamWhere(session) },
 		data: {
 			status: newStatus,
+			claimedOccurrenceAt: null,
 			...(newStatus === "ACTIVE"
 				? { nextRunAt: current.scheduleType === "ONCE" ? current.runAt : computeNextRun(current.cronExpression) }
 				: { nextRunAt: null }),
@@ -313,6 +316,7 @@ export async function recordTaskDispatch(id: string, commandRequestId: string, m
 					lastResult: `${manual ? "Manual retry dispatched" : "Dispatched"} command request ${commandRequestId}; awaiting final result`,
 					runCount: { increment: 1 },
 					...(!manual ? {
+						claimedOccurrenceAt: null,
 						nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
 						...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
 					} : {}),
@@ -433,6 +437,7 @@ export async function recordTaskRun(
 			lastRunAt: new Date(),
 			lastResult: result,
 			runCount: task.runCount + 1,
+			claimedOccurrenceAt: null,
 			nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
 			...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
 		},
