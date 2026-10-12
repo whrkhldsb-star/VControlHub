@@ -11,6 +11,7 @@
  * public-address rules as the original URL and connecting only to the address
  * that was validated.
  */
+import { isIP } from "node:net";
 import { Agent, request } from "undici";
 
 import { assertDownloadSourceUrlSafe, type DownloadSourceResolution } from "./source-url";
@@ -25,7 +26,7 @@ export type RedirectProbe = (url: string, resolution: DownloadSourceResolution) 
 export async function resolveDownloadRedirects(
 	rawUrl: string,
 	options: { probe?: RedirectProbe; maxRedirects?: number } = {},
-): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
+): Promise<{ ok: true; url: string; resolution?: DownloadSourceResolution } | { ok: false; reason: string }> {
 	const probe = options.probe ?? probeRedirect;
 	const maxRedirects = options.maxRedirects ?? MAX_DOWNLOAD_REDIRECTS;
 	let current = rawUrl;
@@ -34,15 +35,16 @@ export async function resolveDownloadRedirects(
 		if (!safe.ok) return { ok: false, reason: hop === 0 ? safe.reason : `Redirect target rejected: ${safe.reason}` };
 		// Magnet links have no HTTP redirect chain.
 		if (!safe.resolution) return { ok: true, url: current };
+		const resolution = safe.resolution;
 		let location: string | null;
 		try {
 			location = await probe(current, safe.resolution);
 		} catch {
 			// The probe is only a convenience: aria2 runs with max-redirect=0, so an
 			// unprobed redirect fails the download instead of being followed.
-			return { ok: true, url: current };
+			return { ok: true, url: current, resolution };
 		}
-		if (!location) return { ok: true, url: current };
+		if (!location) return { ok: true, url: current, resolution };
 		if (hop >= maxRedirects) return { ok: false, reason: "Download URL redirects too many times" };
 		try {
 			current = new URL(location, current).toString();
@@ -50,6 +52,30 @@ export async function resolveDownloadRedirects(
 			return { ok: false, reason: "Download URL redirects to an invalid location" };
 		}
 	}
+}
+
+/**
+ * aria2 resolves the final URL by itself, so a hostile DNS answer may differ
+ * between our validation and its connect (DNS rebinding to a loopback or
+ * metadata address). Plain-http downloads are therefore handed to aria2 on the
+ * validated address, with the original host carried in a Host header so
+ * virtual hosting keeps working. https stays on the hostname: the certificate
+ * is verified against it and an IP URL would not validate.
+ */
+export function pinHttpSourceForAria2(
+	url: string,
+	resolution: DownloadSourceResolution | undefined,
+): { uri: string; options: Record<string, string> } {
+	if (!resolution || isIP(resolution.hostname)) return { uri: url, options: {} };
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return { uri: url, options: {} };
+	}
+	if (parsed.protocol !== "http:") return { uri: url, options: {} };
+	parsed.hostname = resolution.address.includes(":") ? `[${resolution.address}]` : resolution.address;
+	return { uri: parsed.toString(), options: { header: `Host: ${resolution.hostname}` } };
 }
 
 async function probeRedirect(url: string, resolution: DownloadSourceResolution): Promise<string | null> {

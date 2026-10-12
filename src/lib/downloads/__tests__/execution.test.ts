@@ -26,6 +26,7 @@ const aria2 = {
 };
 vi.mock("@/lib/downloads/redirect-chain", () => ({
   resolveDownloadRedirects: vi.fn(async (url: string) => ({ ok: true, url })),
+  pinHttpSourceForAria2: vi.fn((url: string) => ({ uri: url, options: {} })),
 }));
 vi.mock("@/lib/aria2/service", () => aria2);
 

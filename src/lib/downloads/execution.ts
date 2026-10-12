@@ -37,7 +37,7 @@ import { relayTempDir } from "@/lib/runtime/platform-paths";
 import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
 import { randomUUID, createHash } from "node:crypto";
 import { hashTransferFile, parseTransferManifest, type TransferManifest } from "./transfer-manifest";
-import { resolveDownloadRedirects } from "@/lib/downloads/redirect-chain";
+import { pinHttpSourceForAria2, resolveDownloadRedirects } from "@/lib/downloads/redirect-chain";
 
 
 
@@ -116,15 +116,26 @@ export async function executeAria2RelayDownload(
    // must never follow a redirect: the chain is resolved here, every hop
    // validated against the public-address rules (see redirect-chain.ts).
    const resolvedUrls: string[] = [];
+   // A single plain-http source is pinned to the address that passed the
+   // checks (Host header carries the name); aria2 options apply to the whole
+   // download, so a multi-source request keeps the hostnames.
+   const pinnedOptions: Record<string, string> = {};
    for (const url of urls) {
     const resolved = await resolveDownloadRedirects(url);
     if (!resolved.ok) throw new DownloadSourceRejectedError(resolved.reason);
-    resolvedUrls.push(resolved.url);
+    if (urls.length === 1) {
+     const pinned = pinHttpSourceForAria2(resolved.url, resolved.resolution);
+     resolvedUrls.push(pinned.uri);
+     Object.assign(pinnedOptions, pinned.options);
+    } else {
+     resolvedUrls.push(resolved.url);
+    }
    }
    const options: Record<string, string> = {
     dir: tempDir,
     "seed-time": "0",
     "max-redirect": "0",
+    ...pinnedOptions,
    };
    if (maxSpeedKb) options["max-download-limit"] = `${maxSpeedKb}K`;
 
