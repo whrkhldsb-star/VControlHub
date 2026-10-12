@@ -187,12 +187,45 @@ export function buildRsyncCommand(input: RsyncCommandInput): string {
 	return withCredentialCleanup(command, input);
 }
 
+/**
+ * tar fallback, in three checked phases so a failure can never be reported as
+ * success or leave the target half-replaced:
+ *
+ *   1. stream `tar cf` into a staging directory inside the target;
+ *   2. only when BOTH the source tar and the receiving tar exited 0 (a shell
+ *      pipeline reports only its last command, so the source status is carried
+ *      out through a temp file) commit the stage into the target — mirror mode
+ *      replaces the target's entries, merge mode overlays them;
+ *   3. otherwise drop the stage and fail, target untouched.
+ *
+ * The stage lives inside the target so the commit is a same-filesystem move.
+ * It costs up to one extra copy of the data on the target until committed.
+ */
 export function buildTarSyncCommand(input: TarSyncCommandInput): string {
 	const { transport, envPrefix } = buildSshTransport(input, shellQuote);
-	const targetAddress = buildSshTargetAddress(input.targetUser, input.targetHost);
-	const prepareTarget = input.deleteOrphans
-		? `mkdir -p -- ${shellQuote(input.targetPath)} && cd -- ${shellQuote(input.targetPath)} && find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && tar xf - -C ${shellQuote(input.targetPath)}`
-		: `mkdir -p -- ${shellQuote(input.targetPath)} && tar xf - -C ${shellQuote(input.targetPath)}`;
-	const command = `tar cf - -C ${shellQuote(input.sourcePath)} . | ${envPrefix}${transport} ${shellQuote(targetAddress)} ${shellQuote(prepareTarget)} 2>&1`;
+	const remote = `${transport} ${shellQuote(buildSshTargetAddress(input.targetUser, input.targetHost))}`;
+	const target = shellQuote(input.targetPath);
+	const stageName = `.vch-sync-stage-${safeFileStem(input.jobId ?? "sync")}`;
+	const stage = shellQuote(`${input.targetPath.replace(/\/+$/, "")}/${stageName}`);
+	const receive = `rm -rf -- ${stage} && mkdir -p -- ${stage} && tar xf - -C ${stage}`;
+	const commit = input.deleteOrphans
+		? `cd -- ${target} && find . -mindepth 1 -maxdepth 1 ! -name ${shellQuote(stageName)} -exec rm -rf -- {} + && find ${shellQuote(stageName)} -mindepth 1 -maxdepth 1 -exec mv -f -- {} . \\; && rmdir -- ${shellQuote(stageName)}`
+		: `cp -a -- ${stage}/. ${target}/ && rm -rf -- ${stage}`;
+	const abort = `rm -rf -- ${stage}`;
+	const command = [
+		// The password must reach every ssh below, so export it once instead of
+		// prefixing one command.
+		...(envPrefix ? [`${envPrefix.trim()}; export SSHPASS`] : []),
+		`vch_tar_status=$(mktemp "\${TMPDIR:-/tmp}/vch-sync-tar.XXXXXX") || exit 1`,
+		`{ tar cf - -C ${shellQuote(input.sourcePath)} .; echo "$?" > "$vch_tar_status"; } | ${remote} ${shellQuote(receive)} 2>&1`,
+		`vch_receive_status=$?`,
+		`vch_source_status=$(cat "$vch_tar_status" 2>/dev/null); rm -f -- "$vch_tar_status"`,
+		`if [ "$vch_source_status" != 0 ] || [ "$vch_receive_status" -ne 0 ]; then`,
+		`  echo "tar sync aborted: source tar exit \${vch_source_status:-unknown}, target receive exit $vch_receive_status; target left unchanged" >&2`,
+		`  ${remote} ${shellQuote(abort)} >/dev/null 2>&1`,
+		`  exit 1`,
+		`fi`,
+		`${remote} ${shellQuote(commit)} 2>&1`,
+	].join("\n");
 	return withCredentialCleanup(command, input);
 }
