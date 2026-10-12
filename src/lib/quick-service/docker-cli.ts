@@ -220,6 +220,77 @@ export async function getContainerHealthFor(
   }
 }
 
+/**
+ * True only for Docker's own "this container does not exist" answer. Every
+ * other failure (daemon down, SSH lost, permission denied, timeout) means the
+ * container's state is unknown and must not be treated as "absent".
+ */
+export function isDockerNoSuchContainerError(error: unknown): boolean {
+  return /no such (?:object|container)/i.test(dockerErrorMessage(error));
+}
+
+/**
+ * Timing of the post-start acceptance check. Mutable so tests can shorten it;
+ * production keeps the defaults.
+ */
+export const containerHealthGate = { settleMs: 5_000, pollMs: 2_000, timeoutMs: 90_000 };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type ContainerRuntimeState = { status: string; health: string; restarts: number };
+
+async function inspectContainerRuntimeState(target: DockerTarget, containerName: string): Promise<ContainerRuntimeState> {
+  const raw = (
+    await dockerExec(
+      target,
+      ["inspect", "--format={{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}", containerName],
+      10_000,
+    )
+  ).trim();
+  const [status = "", health = "", restarts = "0"] = raw.split("|");
+  return { status, health, restarts: Number.parseInt(restarts, 10) || 0 };
+}
+
+/**
+ * Acceptance check after `docker run`: `run -d` succeeds as soon as the
+ * container is created, even when the process exits a second later. The
+ * container must still be running after a settle period, must not have
+ * restarted, and must not report an unhealthy healthcheck; a healthcheck that
+ * is still "starting" is waited for up to the timeout and then reported as
+ * pending rather than failed (slow first starts are normal). Returns the
+ * observed health ("healthy", "starting", or "running" without a healthcheck).
+ */
+export async function assertContainerStarted(target: DockerTarget, containerName: string): Promise<string> {
+  const deadline = Date.now() + containerHealthGate.timeoutMs;
+  await sleep(containerHealthGate.settleMs);
+  for (;;) {
+    const state = await inspectContainerRuntimeState(target, containerName);
+    if (state.status !== "running") {
+      throw new BusinessError(`container ${containerName} is ${state.status || "unknown"} after start, not running`);
+    }
+    if (state.restarts > 0) {
+      throw new BusinessError(`container ${containerName} restarted ${state.restarts} time(s) right after start`);
+    }
+    if (state.health === "unhealthy") {
+      throw new BusinessError(`container ${containerName} reports an unhealthy healthcheck`);
+    }
+    if (state.health === "healthy") return "healthy";
+    if (!state.health) {
+      // No healthcheck: one more look after a second settle period catches a
+      // process that dies shortly after start.
+      if (Date.now() >= deadline) return "running";
+      await sleep(containerHealthGate.settleMs);
+      const again = await inspectContainerRuntimeState(target, containerName);
+      if (again.status !== "running" || again.restarts > 0) {
+        throw new BusinessError(`container ${containerName} stopped shortly after start (${again.status || "unknown"}, ${again.restarts} restart(s))`);
+      }
+      return "running";
+    }
+    if (Date.now() >= deadline) return state.health;
+    await sleep(containerHealthGate.pollMs);
+  }
+}
+
 /** Local sync log tail (historical API). */
 export function getContainerLogTail(containerName: string, timeoutMs = 10_000): string | null {
   try {

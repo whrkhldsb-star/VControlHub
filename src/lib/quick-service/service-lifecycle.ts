@@ -20,6 +20,7 @@ import {
 	dockerExec,
 	getContainerHealthFor,
 	getContainerLogTailFor,
+	isDockerNoSuchContainerError,
 	targetFromService,
 	HUB_HOST_INSTANCE_KEY,
 } from "./docker-cli";
@@ -200,8 +201,15 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 
 		const containerName = safeContainerName(svc.slug);
 		const target = targetFromService(svc);
+		let startError: unknown = null;
 		try {
 			await dockerExec(target, ["start", containerName], 30_000);
+		} catch (error) {
+			startError = error;
+		}
+		if (!startError) {
+			// Bookkeeping failures after a successful start propagate as-is; they
+			// must not fall into the recreate path below.
 			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "running", error: null } });
 			await writeQuickServiceAudit({
 				action: "start",
@@ -210,8 +218,25 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 				detail: { mode: "existing-container" },
 				diff: { before, after: { status: "running", mode: "existing-container" } },
 			});
-		} catch {
-			// Container not found or start failed — fall back to re-creating it from the template.
+			return;
+		}
+		if (!isDockerNoSuchContainerError(startError)) {
+			// The container exists (or its state is unknown) but would not start:
+			// re-creating it would not fix that and would replace a container the
+			// operator may need to inspect.
+			const msg = dockerErrorMessage(startError);
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "error", error: msg } });
+			await writeQuickServiceAudit({
+				action: "start",
+				slug: svc.slug,
+				status: "failed",
+				detail: { error: msg.slice(0, 500), mode: "existing-container" },
+				diff: { before, after: { status: "error", error: msg.slice(0, 500) } },
+			});
+			throw new BusinessError(t("backend.quick-service.startFailedWithMessage", { message: msg }));
+		}
+		{
+			// The container is gone — re-create it from the stored template.
 			const tmpl: ServiceTemplate = {
 				slug: svc.slug,
 				name: svc.name,

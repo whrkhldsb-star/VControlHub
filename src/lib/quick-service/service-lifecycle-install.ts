@@ -15,8 +15,10 @@ import {
 	dockerErrorMessage,
 	dockerExec,
 	dockerRun,
+	assertContainerStarted,
 	getDockerEnvironmentStatusFor,
 	instanceKeyForTarget,
+	isDockerNoSuchContainerError,
 	isRemotePortAvailable,
 	type DockerTarget,
 } from "./docker-cli";
@@ -240,12 +242,11 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		await recreateDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target });
 	} catch (err) {
 		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
-		let msg = dockerErrorMessage(err);
-		try {
-			await dockerExec(target, ["rm", "-f", safeContainerName(template.slug)], 15_000);
-		} catch (cleanupErr) {
-			msg = `${msg}; failed to clean up leftover container: ${dockerErrorMessage(cleanupErr)}`;
-		}
+		// recreateDockerContainer already removed any container it created and
+		// restored a previous one; removing the container name again here would
+		// delete that restored container (or a healthy one whose bookkeeping
+		// failed afterwards).
+		const msg = dockerErrorMessage(err);
 		const rollback = await rollbackInstallToSnapshot(template.slug, before, msg.slice(0, 500), instanceKey);
 		await writeQuickServiceAudit({
 			userId,
@@ -282,11 +283,16 @@ export async function recreateDockerContainer(
 	const containerName = safeContainerName(tmpl.slug);
 	// Side-by-side recreate: rename existing container so a failed run/post-install can restore it.
 	const backupName = `${containerName}__prev`;
-	let hadExisting = false;
+	let hadExisting: boolean;
 	try {
 		const existingId = (await dockerExec(target, ["inspect", "--format={{.Id}}", containerName], 10_000)).trim();
 		hadExisting = existingId.length > 0;
-	} catch {
+	} catch (error) {
+		// Only Docker's own "no such container" means there is nothing to keep.
+		// Anything else (daemon or SSH failure) leaves the state unknown: stop
+		// here rather than let `docker run` collide with a container that exists
+		// and have the failure cleanup remove it.
+		if (!isDockerNoSuchContainerError(error)) throw error;
 		hadExisting = false;
 	}
 	if (hadExisting) {
@@ -297,12 +303,12 @@ export async function recreateDockerContainer(
 		}
 		try {
 			await dockerExec(target, ["rename", containerName, backupName], 15_000);
-		} catch {
-			// Rename failed — fall back to destructive remove.
-			await dockerExec(target, ["rm", "-f", containerName], 15_000);
-			hadExisting = false;
+		} catch (error) {
+			// Without the renamed copy there is nothing to roll back to. The
+			// current container is untouched; stop instead of deleting it.
+			throw new BusinessError(`could not preserve the current container for rollback (rename failed: ${dockerErrorMessage(error)}); nothing was changed`);
 		}
-		if (hadExisting) {
+		{
 			try {
 				// Renaming does not release published ports. Stop the preserved
 				// container before starting its replacement, then restart it only
@@ -356,29 +362,37 @@ export async function recreateDockerContainer(
 	args.push(tmpl.image, ...parseCommandArgs(tmpl.command));
 
 	let containerId: string;
+	let health: string;
 	try {
 		const { stdout } = await dockerRun(target, args, 300_000);
 		containerId = stdout.trim().substring(0, 12);
 		await applyPostInstallSetup(target, tmpl, containerName);
+		// `docker run -d` succeeds once the container exists. Accept the new
+		// container only if it is actually up (and healthy when it has a
+		// healthcheck); otherwise fall through to the rollback below while the
+		// previous container still exists.
+		health = await assertContainerStarted(target, containerName);
 	} catch (err) {
+		const cleanupNotes: string[] = [];
 		try {
 			await dockerExec(target, ["rm", "-f", containerName], 15_000);
-		} catch {
-			// ignore partial container
+		} catch (cleanupErr) {
+			cleanupNotes.push(`failed to clean up leftover container: ${dockerErrorMessage(cleanupErr)}`);
 		}
 		if (hadExisting) {
 			try {
 				await dockerExec(target, ["rename", backupName, containerName], 15_000);
 				try {
 					await dockerExec(target, ["start", containerName], 30_000);
-				} catch {
-					// leave stopped; caller records error
+				} catch (startErr) {
+					cleanupNotes.push(`previous container restored but not started: ${dockerErrorMessage(startErr)}`);
 				}
-			} catch {
-				// restore failed
+			} catch (restoreErr) {
+				cleanupNotes.push(`previous container kept as ${backupName} (restore failed: ${dockerErrorMessage(restoreErr)})`);
 			}
 		}
-		throw err;
+		if (cleanupNotes.length === 0) throw err;
+		throw new BusinessError(`${dockerErrorMessage(err)}; ${cleanupNotes.join("; ")}`);
 	}
 
 	if (hadExisting) {
@@ -398,7 +412,7 @@ export async function recreateDockerContainer(
 		action: "install",
 		slug: tmpl.slug,
 		status: "succeeded",
-		detail: { image: tmpl.image, port: hostPort, containerId },
+		detail: { image: tmpl.image, port: hostPort, containerId, health },
 		diff: {
 			after: { status: "running", port: hostPort, containerId, image: tmpl.image },
 		},
