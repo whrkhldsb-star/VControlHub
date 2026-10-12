@@ -22,6 +22,7 @@ import { createInterface } from "node:readline";
 import { pipeline } from "node:stream/promises";
 
 import {
+  acquireRestoreLock,
   findBinary,
   findTar,
   makeLogger,
@@ -202,6 +203,15 @@ async function main() {
     fail("Usage: node scripts/restore.mjs <database|files|full> <archive> [component] [appDir]");
   }
 
+  const releaseLock = await acquireRestoreLock(APP_DIR);
+  try {
+    await runRestore(component, archive, componentArg, appDirArg);
+  } finally {
+    await releaseLock();
+  }
+}
+
+async function runRestore(component, archive, componentArg, appDirArg) {
   if (component === "database") {
     if (!archive) fail("backup file path is required");
     try { await fs.access(archive); } catch { fail(`Backup file not found: ${archive}`); }

@@ -26,7 +26,7 @@ import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
-import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { backupCommandErrorMessage, runBackupCommand, type RunBackupCommandInput } from "./command-runner";
@@ -269,11 +269,19 @@ function planPreRestoreSnapshot(input: {
 	return { relativePath, absolutePath, args, snapshotType };
 }
 
+/** Resource id of the single platform-wide restore lock. */
+export const PLATFORM_RESTORE_LOCK_ID = "platform";
+
 export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string; component?: "database" | "files" | "all"; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
 	if (input.confirm !== "RESTORE") {
 		throw new ValidationError(t("backend.backup.restoreConfirmRequired"));
 	}
-	const releaseLock = await acquireAdvisoryLock("backup-restore", input.id);
+	// One restore at a time for the whole platform, whichever backup it is: two
+	// restores of different backups overwrite the same database and file tree.
+	// Keying this lock by backup id (as before) let them run concurrently. The
+	// restore scripts additionally hold a host-level lock against the CLI.
+	const releaseLock = await tryAcquireAdvisoryLock("backup-restore", PLATFORM_RESTORE_LOCK_ID);
+	if (!releaseLock) throw new ConflictError(t("backend.backup.restoreAlreadyRunning"));
 	try {
 		const record = await getBackupRecord(input.id, input.session);
 		if (!record) {

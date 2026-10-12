@@ -87,4 +87,28 @@ describe("restore runner destination and preflight", () => {
     });
     expect(await readdir(target)).toEqual([]);
   });
+
+  it.each(process.platform === "win32" ? ["node"] : ["node", "bash"])("%s restore refuses to run while another live restore holds the installation lock", async (kind) => {
+    const lock = path.join(fallback, ".restore.lock");
+    await mkdir(lock);
+    await writeFile(path.join(lock, "owner"), `pid=${process.pid}\nhost=${os.hostname()}\nstartedAt=now\n`);
+    const file = kind === "node" ? process.execPath : "bash";
+    const args = kind === "node" ? [runner, "files", archive, target] : ["scripts/restore-files.sh", archive, target];
+    await expect(runFile(file, args, { env })).rejects.toMatchObject({ stderr: expect.stringContaining("another restore is already running") });
+    expect(await readdir(target)).toEqual([]);
+    // A refused restore must not remove the live owner's lock.
+    expect(await readdir(lock)).toEqual(["owner"]);
+  });
+
+  it.each(process.platform === "win32" ? ["node"] : ["node", "bash"])("%s restore reclaims a lock left by a dead process and releases it afterwards", async (kind) => {
+    const lock = path.join(fallback, ".restore.lock");
+    await mkdir(lock);
+    // PID 2^22+ is above the default pid_max, so it cannot be alive.
+    await writeFile(path.join(lock, "owner"), `pid=${2 ** 22 + 7}\nhost=${os.hostname()}\nstartedAt=then\n`);
+    const file = kind === "node" ? process.execPath : "bash";
+    const args = kind === "node" ? [runner, "files", archive, target] : ["scripts/restore-files.sh", archive, target];
+    await runFile(file, args, { env });
+    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
+    expect(await readdir(fallback)).toEqual([]);
+  });
 });

@@ -22,6 +22,7 @@ const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
   acquireAdvisoryLock: vi.fn(async () => async () => undefined),
+  tryAcquireAdvisoryLock: vi.fn(async () => async () => undefined),
 }));
 vi.mock("@/lib/backup/command-runner", () => {
   const isMissingBackupBinaryError = (error: unknown) => {
