@@ -28,12 +28,29 @@ const COMMAND_TERMINAL = new Set(["COMPLETED", "FAILED", "REJECTED", "CANCELLED"
  * then re-fire the webhook/notification the guard just refused to send. So
  * {@link executeWithRetries} treats this error as terminal: no retry, no splice.
  */
-class SideEffectAlreadyDispatchedError extends Error {
+class NonRetryableStepError extends Error {}
+
+class SideEffectAlreadyDispatchedError extends NonRetryableStepError {
   constructor(message: string) {
     super(message);
     this.name = "SideEffectAlreadyDispatchedError";
   }
 }
+
+/**
+ * A timed-out command was cancelled but never confirmed terminal: it may still
+ * be running on the target. Retrying would start a second copy of a possibly
+ * non-idempotent command concurrently, so the step fails without retrying.
+ */
+class CommandOutcomeUnknownError extends NonRetryableStepError {
+  constructor(message: string) {
+    super(message);
+    this.name = "CommandOutcomeUnknownError";
+  }
+}
+
+/** How long a cancelled command may take to reach a terminal state. */
+const CANCEL_ACK_GRACE_MS = 60_000;
 
 function truncate(input: string, max = TRUNCATE_AT): string {
   return input.length <= max ? input : `${input.slice(0, max)}…`;
@@ -78,12 +95,12 @@ function substituteVariables(command: string, variables: Record<string, string>)
   );
 }
 
-async function waitForCommand(
+/** Poll until the request is terminal or the deadline passes (null). */
+async function pollUntilTerminal(
   commandRequestId: string,
-  timeoutSec: number,
+  deadline: number,
   onProgress?: (progress: string) => Promise<unknown>,
-): Promise<string> {
-  const deadline = Date.now() + Math.max(1, timeoutSec) * 1_000;
+): Promise<string | null> {
   let lastHeartbeat = 0;
   while (Date.now() <= deadline) {
     const request = await prisma.commandRequest.findUnique({
@@ -91,12 +108,7 @@ async function waitForCommand(
       select: { status: true },
     });
     if (!request) throw new Error(`command request disappeared: ${commandRequestId}`);
-    if (COMMAND_TERMINAL.has(request.status)) {
-      if (request.status !== "COMPLETED") {
-        throw new Error(`command request ${commandRequestId} ended with ${request.status}`);
-      }
-      return `command request ${commandRequestId} completed`;
-    }
+    if (COMMAND_TERMINAL.has(request.status)) return request.status;
     const now = Date.now();
     // C4: keep durable playbook job lease alive during long SSH waits.
     if (onProgress && now - lastHeartbeat >= 15_000) {
@@ -105,6 +117,23 @@ async function waitForCommand(
     }
     await new Promise((resolve) => setTimeout(resolve, COMMAND_POLL_MS));
   }
+  return null;
+}
+
+function terminalOutcome(commandRequestId: string, status: string): string {
+  if (status !== "COMPLETED") {
+    throw new Error(`command request ${commandRequestId} ended with ${status}`);
+  }
+  return `command request ${commandRequestId} completed`;
+}
+
+async function waitForCommand(
+  commandRequestId: string,
+  timeoutSec: number,
+  onProgress?: (progress: string) => Promise<unknown>,
+): Promise<string> {
+  const status = await pollUntilTerminal(commandRequestId, Date.now() + Math.max(1, timeoutSec) * 1_000, onProgress);
+  if (status) return terminalOutcome(commandRequestId, status);
   // Timeout: cancel the still-running request (kills the remote SSH subprocess)
   // BEFORE the step retries. Otherwise a step-level retry would create a second
   // CommandRequest and run the same (possibly destructive) command concurrently
@@ -116,10 +145,21 @@ async function waitForCommand(
       reason: `Playbook step timed out after ${timeoutSec}s`,
     });
   } catch {
-    // Best-effort: the request may already be terminal; the throw below still
-    // surfaces the timeout so the step is recorded as failed.
+    // Best-effort: the request may already be terminal. Whatever happened, the
+    // barrier below decides from the request's actual state.
   }
-  throw new Error(`command request ${commandRequestId} timed out after ${timeoutSec}s`);
+  // Cancelling a RUNNING request only moves it to CANCELLING; the target keeps
+  // running until its executor acknowledges. Wait for a terminal state before
+  // the step may retry, and refuse to retry at all if it never arrives.
+  const settled = await pollUntilTerminal(commandRequestId, Date.now() + CANCEL_ACK_GRACE_MS, onProgress);
+  if (!settled) {
+    throw new CommandOutcomeUnknownError(
+      `command request ${commandRequestId} timed out after ${timeoutSec}s and its cancellation was not confirmed within ${CANCEL_ACK_GRACE_MS / 1000}s; outcome unknown, not retrying while it may still be running`,
+    );
+  }
+  // It finished on its own while being cancelled: that is the real result.
+  if (settled === "COMPLETED") return terminalOutcome(commandRequestId, settled);
+  throw new Error(`command request ${commandRequestId} timed out after ${timeoutSec}s (${settled})`);
 }
 
 async function resolveResumableCommandRequestId(
@@ -314,9 +354,10 @@ async function executeWithRetries<T>(
       return await run();
     } catch (error) {
       lastError = error;
-      // A refusal to replay a dispatched side effect must not be retried: the
-      // retry would undo the marker and fire it anyway.
-      if (error instanceof SideEffectAlreadyDispatchedError) throw error;
+      // A refusal to replay a dispatched side effect must not be retried (the
+      // retry would undo the marker and fire it anyway), nor may a command whose
+      // cancellation was never confirmed (it may still be running).
+      if (error instanceof NonRetryableStepError) throw error;
       if (attempt + 1 < attempts) await onRetry?.(error);
     }
   }
