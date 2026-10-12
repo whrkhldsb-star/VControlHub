@@ -149,7 +149,10 @@ function resolveUpgradeSessionToken(request: IncomingMessage): string | null {
  */
 function isCrossOriginUpgrade(request: IncomingMessage): boolean {
 	const origin = request.headers.origin;
-	if (!origin || origin === "null") return false;
+	// Non-browser clients send no Origin. A literal "null" is a browser in an
+	// opaque context (sandboxed iframe, file:// page) and is never this site.
+	if (!origin) return false;
+	if (origin === "null") return true;
 	let originHost: string;
 	try {
 		originHost = new URL(origin).host.toLowerCase();

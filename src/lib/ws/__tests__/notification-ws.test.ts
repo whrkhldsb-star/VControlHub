@@ -87,6 +87,16 @@ describe("notification WebSocket lifecycle", () => {
 		expect(onConnection).not.toHaveBeenCalled();
 	});
 
+	it("rejects an upgrade from the opaque null origin before touching the session", async () => {
+		const { port } = await listen();
+		// A sandboxed iframe or file:// page sends "Origin: null"; it is never this site.
+		const client = new WebSocket(`ws://127.0.0.1:${port}/ws`, { origin: "null", headers: { cookie: "test_session=valid" } });
+		client.on("error", () => {});
+		const closed = new Promise<void>((resolve) => client.once("close", () => resolve()));
+		await closed;
+		expect(verifySessionTokenMock).not.toHaveBeenCalled();
+	});
+
 	it("rejects upgrades that try to authenticate via the query string", async () => {
 		const { port } = await listen();
 		const client = new WebSocket(`ws://127.0.0.1:${port}/ws?token=valid`);

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const dns = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup: dns.lookup, default: { lookup: dns.lookup } }));
 
-import { resolveDownloadRedirects } from "../redirect-chain";
+import { pinHttpSourceForAria2, resolveDownloadRedirects } from "../redirect-chain";
 import type { DownloadSourceResolution } from "../source-url";
 
 const PUBLIC: Record<string, string> = {
@@ -24,7 +24,11 @@ beforeEach(() => {
 describe("resolveDownloadRedirects", () => {
 	it("follows a public redirect chain hop by hop, pinning each validated address", async () => {
 		const probe = vi.fn(async (url: string, _resolution: DownloadSourceResolution) => (url.includes("downloads.example.com") ? "https://cdn.example.net/file.iso" : null));
-		await expect(resolveDownloadRedirects("https://downloads.example.com/latest", { probe })).resolves.toEqual({ ok: true, url: "https://cdn.example.net/file.iso" });
+		await expect(resolveDownloadRedirects("https://downloads.example.com/latest", { probe })).resolves.toEqual({
+			ok: true,
+			url: "https://cdn.example.net/file.iso",
+			resolution: { hostname: "cdn.example.net", address: "203.0.113.20", port: 443 },
+		});
 		expect(probe.mock.calls.map(([, resolution]) => resolution.address)).toEqual(["203.0.113.10", "203.0.113.20"]);
 	});
 
@@ -45,6 +49,22 @@ describe("resolveDownloadRedirects", () => {
 
 	it("hands the URL over unchanged when the probe cannot reach it (aria2 then refuses redirects)", async () => {
 		const failing = vi.fn(async () => { throw new Error("ECONNRESET"); });
-		await expect(resolveDownloadRedirects("https://downloads.example.com/file", { probe: failing })).resolves.toEqual({ ok: true, url: "https://downloads.example.com/file" });
+		await expect(resolveDownloadRedirects("https://downloads.example.com/file", { probe: failing })).resolves.toMatchObject({ ok: true, url: "https://downloads.example.com/file" });
+	});
+});
+
+describe("pinHttpSourceForAria2", () => {
+	it("hands aria2 the validated address for plain http and keeps the name in a Host header", () => {
+		expect(pinHttpSourceForAria2("http://downloads.example.com/a/b.iso?x=1", { hostname: "downloads.example.com", address: "203.0.113.10", port: 80 })).toEqual({
+			uri: "http://203.0.113.10/a/b.iso?x=1",
+			options: { header: "Host: downloads.example.com" },
+		});
+		expect(pinHttpSourceForAria2("http://v6.example.com/f", { hostname: "v6.example.com", address: "2001:db8::10", port: 80 }).uri).toBe("http://[2001:db8::10]/f");
+	});
+
+	it("leaves https, IP-literal and unresolved sources untouched", () => {
+		expect(pinHttpSourceForAria2("https://cdn.example.net/file.iso", { hostname: "cdn.example.net", address: "203.0.113.20", port: 443 })).toEqual({ uri: "https://cdn.example.net/file.iso", options: {} });
+		expect(pinHttpSourceForAria2("http://203.0.113.10/file", { hostname: "203.0.113.10", address: "203.0.113.10", port: 80 })).toEqual({ uri: "http://203.0.113.10/file", options: {} });
+		expect(pinHttpSourceForAria2("magnet:?xt=urn:btih:abc", undefined)).toEqual({ uri: "magnet:?xt=urn:btih:abc", options: {} });
 	});
 });
