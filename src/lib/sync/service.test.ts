@@ -315,7 +315,7 @@ describe("sync service command helpers", () => {
     expect(command).toContain("trap 'rm -f -- ");
     // Behaviour (staging, status propagation, untouched target on failure) is
     // exercised on real files in __tests__/tar-sync-fault-injection.test.ts.
-    expect(command).toContain("! -name '\\''.vch-sync-stage-sync'\\'' -exec rm -rf -- {} +");
+    expect(command).toContain(".vch-sync-prev-sync");
     expect(command).toContain("tar cf - -C ");
     expect(command).toContain("root@example.com");
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");

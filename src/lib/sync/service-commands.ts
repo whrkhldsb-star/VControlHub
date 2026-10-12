@@ -187,6 +187,32 @@ export function buildRsyncCommand(input: RsyncCommandInput): string {
 	return withCredentialCleanup(command, input);
 }
 
+const TAR_STAGE_PREFIX = ".vch-sync-stage-";
+const TAR_PREV_PREFIX = ".vch-sync-prev-";
+
+/**
+ * Mirror commit, run on the target inside the target directory. The current
+ * entries are moved aside into PREV (not deleted), the staged entries moved in,
+ * and only then is PREV removed. A failing move puts the old entries back. If
+ * the commit is killed outright (dropped SSH session), PREV survives with the
+ * old data and the next run refuses to commit until an operator has looked at
+ * it. Other jobs' stage/prev directories are never touched. `find -exec … {} +`
+ * through `sh -c` is used because `-exec … \;` swallows a failed mv.
+ */
+function buildMirrorCommitScript(target: string, stage: string, prev: string): string {
+	const moveInto = (destination: string) => `-exec sh -c 'mv -f -- "$@" "$0"' ${destination} {} +`;
+	const ownEntries = `find . -mindepth 1 -maxdepth 1 ! -name '${TAR_STAGE_PREFIX}*' ! -name '${TAR_PREV_PREFIX}*'`;
+	return [
+		`cd -- ${target} || exit 1`,
+		`if [ -e ${prev} ]; then echo "an earlier tar sync commit into this target was interrupted; the entries it replaced are kept in "${prev}". Restore or remove that directory, then retry." >&2; exit 1; fi`,
+		`mkdir -- ${prev} || exit 1`,
+		`vch_restore_prev() { find ${prev} -mindepth 1 -maxdepth 1 ${moveInto(".")} && rmdir -- ${prev}; }`,
+		`if ! ${ownEntries} ${moveInto(prev)}; then vch_restore_prev; echo "tar sync commit failed while setting the current entries aside; target restored" >&2; exit 1; fi`,
+		`if ! find ${stage} -mindepth 1 -maxdepth 1 ${moveInto(".")}; then ${ownEntries} -exec rm -rf -- {} +; vch_restore_prev; rm -rf -- ${stage}; echo "tar sync commit failed while moving the new entries in; target restored" >&2; exit 1; fi`,
+		`rmdir -- ${stage} && rm -rf -- ${prev}`,
+	].join("\n");
+}
+
 /**
  * tar fallback, in three checked phases so a failure can never be reported as
  * success or leave the target half-replaced:
@@ -200,16 +226,21 @@ export function buildRsyncCommand(input: RsyncCommandInput): string {
  *
  * The stage lives inside the target so the commit is a same-filesystem move.
  * It costs up to one extra copy of the data on the target until committed.
+ * Merge mode overlays with `cp -a`; an interrupted overlay can leave the file
+ * being copied incomplete (as the former direct extraction could), but never
+ * removes anything.
  */
 export function buildTarSyncCommand(input: TarSyncCommandInput): string {
 	const { transport, envPrefix } = buildSshTransport(input, shellQuote);
 	const remote = `${transport} ${shellQuote(buildSshTargetAddress(input.targetUser, input.targetHost))}`;
 	const target = shellQuote(input.targetPath);
-	const stageName = `.vch-sync-stage-${safeFileStem(input.jobId ?? "sync")}`;
+	const stem = safeFileStem(input.jobId ?? "sync");
+	const stageName = `${TAR_STAGE_PREFIX}${stem}`;
+	const prevName = `${TAR_PREV_PREFIX}${stem}`;
 	const stage = shellQuote(`${input.targetPath.replace(/\/+$/, "")}/${stageName}`);
 	const receive = `rm -rf -- ${stage} && mkdir -p -- ${stage} && tar xf - -C ${stage}`;
 	const commit = input.deleteOrphans
-		? `cd -- ${target} && find . -mindepth 1 -maxdepth 1 ! -name ${shellQuote(stageName)} -exec rm -rf -- {} + && find ${shellQuote(stageName)} -mindepth 1 -maxdepth 1 -exec mv -f -- {} . \\; && rmdir -- ${shellQuote(stageName)}`
+		? buildMirrorCommitScript(target, shellQuote(stageName), shellQuote(prevName))
 		: `cp -a -- ${stage}/. ${target}/ && rm -rf -- ${stage}`;
 	const abort = `rm -rf -- ${stage}`;
 	const command = [

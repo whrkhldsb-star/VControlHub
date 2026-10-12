@@ -14,6 +14,7 @@ import { buildTarSyncCommand } from "@/lib/sync/service-commands";
  */
 const posix = process.platform !== "win32";
 const realTar = spawnSync("sh", ["-c", "command -v tar"], { encoding: "utf8" }).stdout.trim();
+const realMv = spawnSync("sh", ["-c", "command -v mv"], { encoding: "utf8" }).stdout.trim();
 
 let root: string;
 let bin: string;
@@ -25,7 +26,7 @@ function writeExecutable(path: string, body: string) {
   chmodSync(path, 0o755);
 }
 
-function runTarSync(options: { deleteOrphans: boolean; failArchive?: boolean; failExtract?: boolean }) {
+function runTarSync(options: { deleteOrphans: boolean; failArchive?: boolean; failExtract?: boolean; failCommit?: boolean }) {
   const command = buildTarSyncCommand({
     sourcePath: source,
     targetPath: target,
@@ -43,6 +44,8 @@ function runTarSync(options: { deleteOrphans: boolean; failArchive?: boolean; fa
       VCH_TEST_REAL_TAR: realTar,
       VCH_TEST_FAIL_ARCHIVE: options.failArchive ? "1" : "",
       VCH_TEST_FAIL_EXTRACT: options.failExtract ? "1" : "",
+      VCH_TEST_FAIL_COMMIT: options.failCommit ? "1" : "",
+      VCH_TEST_REAL_MV: realMv,
     },
   });
 }
@@ -69,6 +72,19 @@ describe.skipIf(!posix || !realTar)("tar fallback sync — fault injection on re
         'if [ "$1" = "cf" ] && [ -n "$VCH_TEST_FAIL_ARCHIVE" ]; then "$VCH_TEST_REAL_TAR" "$@"; exit 2; fi',
         'if [ "$1" = "xf" ] && [ -n "$VCH_TEST_FAIL_EXTRACT" ]; then cat >/dev/null; echo "tar: write error: No space left on device" >&2; exit 2; fi',
         'exec "$VCH_TEST_REAL_TAR" "$@"',
+        "",
+      ].join("\n"),
+    );
+    // Moving staged entries into place fails after the first one (e.g. the
+    // filesystem errors mid-commit).
+    writeExecutable(
+      join(bin, "mv"),
+      [
+        "#!/bin/sh",
+        'if [ -n "$VCH_TEST_FAIL_COMMIT" ]; then',
+        '  case "$*" in *.vch-sync-stage-*) shift; [ "$1" = "--" ] && shift; "$VCH_TEST_REAL_MV" -f -- "$1" .; exit 1 ;; esac',
+        "fi",
+        'exec "$VCH_TEST_REAL_MV" "$@"',
         "",
       ].join("\n"),
     );
@@ -113,5 +129,39 @@ describe.skipIf(!posix || !realTar)("tar fallback sync — fault injection on re
     const result = runTarSync({ deleteOrphans, failExtract: true });
     expect(result.status).not.toBe(0);
     expect(listTree(target)).toEqual(before);
+  });
+
+  it("puts the previous entries back when the mirror commit fails part-way", () => {
+    writeFileSync(join(source, "a.txt"), "new a");
+    writeFileSync(join(source, "b.txt"), "new b");
+    writeFileSync(join(source, "c.txt"), "new c");
+    const before = listTree(target);
+    const result = runTarSync({ deleteOrphans: true, failCommit: true });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toMatch(/target restored/);
+    expect(listTree(target)).toEqual(before);
+    expect(readFileSync(join(target, "valuable.txt"), "utf8")).toBe("existing data");
+  });
+
+  it("refuses to commit over the preserved entries of an interrupted earlier commit", () => {
+    writeFileSync(join(source, "fresh.txt"), "new data");
+    // What a killed commit leaves behind: the old entries moved aside.
+    const prev = join(target, ".vch-sync-prev-fault-injection");
+    mkdirSync(prev);
+    writeFileSync(join(prev, "older.txt"), "only copy of the old data");
+    const result = runTarSync({ deleteOrphans: true });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toMatch(/interrupted/);
+    expect(readFileSync(join(prev, "older.txt"), "utf8")).toBe("only copy of the old data");
+    expect(readFileSync(join(target, "valuable.txt"), "utf8")).toBe("existing data");
+  });
+
+  it("leaves another job's staging directory in the target alone", () => {
+    writeFileSync(join(source, "fresh.txt"), "new data");
+    mkdirSync(join(target, ".vch-sync-stage-other-job"));
+    writeFileSync(join(target, ".vch-sync-stage-other-job", "inflight.txt"), "other");
+    const result = runTarSync({ deleteOrphans: true });
+    expect(result.status, result.stderr).toBe(0);
+    expect(listTree(target)).toEqual([".vch-sync-stage-other-job", ".vch-sync-stage-other-job/inflight.txt", "fresh.txt"]);
   });
 });
