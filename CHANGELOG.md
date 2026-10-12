@@ -30,6 +30,7 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Fixed
 
+- Login no longer stalls the whole server. Password hashes were checked with `bcryptjs`, which runs the bcrypt rounds in JavaScript on the event loop: at cost 12 one check held every request for about 350 ms, and a dozen concurrent logins (a team signing back in after an outage, or a credential-stuffing attempt from several addresses) froze pages and APIs for several seconds. Hashing now uses the native `bcrypt` module on the thread pool; stored hashes are unchanged and keep verifying. The module ships prebuilt binaries for Linux (glibc and musl), macOS and Windows, so no compiler is needed on install.
 - Folder names were not validated in the browser: the `pattern` on the new-folder and rename inputs contained `/` and `|` unescaped, which Chrome rejects under its current regular-expression mode, so the attribute was ignored (and a console error logged) on every open of the file manager. The pattern is escaped; the server-side check was never affected.
 - Uploads, new folders and the share picker started on the newest storage node, which is the node just created for a server that has not connected yet (saved as a draft); the request then waited fifteen seconds and failed. They now start on a usable node (the default node, else the first that is not known to be unreachable).
 - The "a node with the same IP/host already exists" refusal was the only onboarding message not translated; it now follows the interface language.

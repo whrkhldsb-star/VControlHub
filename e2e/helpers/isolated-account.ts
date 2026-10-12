@@ -1,5 +1,5 @@
 import { Client } from "pg";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import path from "node:path";
 import { readdir, rm } from "node:fs/promises";
 
