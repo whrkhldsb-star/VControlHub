@@ -9,7 +9,8 @@
     "deploy/**/*.ts",
     "public/sw.js",
     "src/lib/upload/__tests__/fixtures/finalizer-child.ts",
-    "!scripts/load/k6-baseline.js"
+    "!scripts/load/k6-baseline.js",
+    "src/lib/ai/dto.ts"
   ],
   "project": [
     "src/**/*.{ts,tsx}",
