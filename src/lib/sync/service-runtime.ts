@@ -15,7 +15,14 @@ import { execRemoteCommand, buildSshParamsFromServer, writeRemoteFile, type SshC
 import { logError } from "@/lib/logging";
 import { shellQuote } from "@/lib/shell-quote";
 
-import { buildRsyncCommand, buildTarSyncCommand, getSyncTempKeyPath } from "./service-commands";
+import {
+	buildRsyncCommand,
+	buildSyncSourceProbeCommand,
+	buildSyncTargetPrepareCommand,
+	buildTarSyncCommand,
+	getSyncTempKeyPath,
+	parseSyncSourceProbe,
+} from "./service-commands";
 import { decryptSyncTargetCredentials } from "./service-credentials";
 import {
 	effectiveDeleteOrphans,
@@ -121,6 +128,59 @@ async function writePinnedKnownHosts(sourceSsh: SshConnectionParams, jobId: stri
 	await writeRemoteFile({ ...sourceSsh, remotePath: knownHostsPath, content: `${matchedLine}\n` });
 }
 
+/* ── endpoint preflight ───────────────────────────────────── */
+
+/**
+ * The source must already exist and be readable. It used to be created with
+ * mkdir -p, so a mistyped path, a deleted directory or a mount that was not up
+ * yet turned into an empty source — and a MIRROR (or delete-orphans) run then
+ * deleted everything on the target. An existing but empty source is refused
+ * the same way when deletion would empty a non-empty target: there is no
+ * explicit "clear the target" operation, and an unmounted mount point looks
+ * exactly like an empty directory.
+ */
+async function assertSyncSourceUsable(input: {
+	sourceSsh: SshConnectionParams;
+	targetSsh: SshConnectionParams;
+	sourcePath: string;
+	targetPath: string;
+	deleteOrphans: boolean;
+	createMissingSource: boolean;
+}): Promise<void> {
+	const probe = await execRemoteCommand({
+		...input.sourceSsh,
+		command: buildSyncSourceProbeCommand(input.sourcePath),
+		timeout: 15000,
+	});
+	assertSyncRemoteSucceeded(probe, "source check");
+	let state = parseSyncSourceProbe(probe.stdout);
+	if (!state) throw new Error(`source check returned no status for ${input.sourcePath}`);
+	if (state === "missing" && input.createMissingSource && !input.deleteOrphans) {
+		const created = await execRemoteCommand({
+			...input.sourceSsh,
+			command: `mkdir -p -- ${shellQuote(input.sourcePath)}`,
+			timeout: 15000,
+		});
+		assertSyncRemoteSucceeded(created, "source mkdir");
+		state = "empty";
+	}
+	if (state === "missing") {
+		throw new Error(`Source directory ${input.sourcePath} does not exist; it is not created automatically. Check the path or mount, then retry.`);
+	}
+	if (state === "unreadable") {
+		throw new Error(`Source directory ${input.sourcePath} is not readable by the sync user.`);
+	}
+	const prepared = await execRemoteCommand({
+		...input.targetSsh,
+		command: buildSyncTargetPrepareCommand(input.targetPath),
+		timeout: 15000,
+	});
+	assertSyncRemoteSucceeded(prepared, "target mkdir");
+	if (state === "empty" && input.deleteOrphans && prepared.stdout.includes("VCH_SYNC_TARGET=nonempty")) {
+		throw new Error(`Source directory ${input.sourcePath} is empty; refusing to delete everything in ${input.targetPath}. Check that the source is mounted and populated.`);
+	}
+}
+
 /* ── tar fallback ──────────────────────────────────────────── */
 
 /** Fallback tar-based sync when rsync is not available */
@@ -175,6 +235,8 @@ async function runOneWayRsync(input: {
 	flags: string[];
 	deleteOrphans: boolean;
 	allowTarFallback: boolean;
+	/** Only a leg that never deletes may create its own missing source. */
+	createMissingSource: boolean;
 }): Promise<{ output: string; stats: OneWaySyncStats }> {
 	const sourceSsh = await buildSshParamsFromServer(input.sourceServer, input.sourceServer.sshKey);
 	const targetSsh = await buildSshParamsFromServer(input.targetServer, input.targetServer.sshKey);
@@ -200,18 +262,14 @@ async function runOneWayRsync(input: {
 		jobId: legJobId,
 	});
 	await writePinnedKnownHosts(sourceSsh, legJobId, targetHost, targetPort, input.targetServer.hostKeySha256);
-	const mkdirTarget = await execRemoteCommand({
-		...targetSsh,
-		command: `mkdir -p -- ${shellQuote(input.targetPath)}`,
-		timeout: 15000,
+	await assertSyncSourceUsable({
+		sourceSsh,
+		targetSsh,
+		sourcePath: input.sourcePath,
+		targetPath: input.targetPath,
+		deleteOrphans: input.deleteOrphans,
+		createMissingSource: input.createMissingSource,
 	});
-	assertSyncRemoteSucceeded(mkdirTarget, "target mkdir");
-	const mkdirSource = await execRemoteCommand({
-		...sourceSsh,
-		command: `mkdir -p -- ${shellQuote(input.sourcePath)}`,
-		timeout: 15000,
-	});
-	assertSyncRemoteSucceeded(mkdirSource, "source mkdir");
 	const whichResult = await execRemoteCommand({
 		...sourceSsh,
 		command: "which rsync 2>/dev/null || echo MISSING",
@@ -326,8 +384,11 @@ export async function executeSyncJob(
 			sourcePath: job.sourcePath,
 			targetPath: job.targetPath,
 			flags,
-				deleteOrphans,
-				allowTarFallback: !bidirectional,
+			deleteOrphans,
+			allowTarFallback: !bidirectional,
+			// Bidirectional legs never delete, and the reverse leg fills a newly
+			// created side; one-way jobs must point at a real source.
+			createMissingSource: bidirectional,
 		});
 
 		let reverse: { stats: OneWaySyncStats } | null = null;
@@ -346,6 +407,7 @@ export async function executeSyncJob(
 					flags,
 					deleteOrphans: false,
 					allowTarFallback: false,
+					createMissingSource: true,
 				});
 			} catch (revErr) {
 				reverseError = revErr instanceof Error ? revErr.message : String(revErr);

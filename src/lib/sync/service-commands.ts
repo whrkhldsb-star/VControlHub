@@ -229,3 +229,33 @@ export function buildTarSyncCommand(input: TarSyncCommandInput): string {
 	].join("\n");
 	return withCredentialCleanup(command, input);
 }
+
+export type SyncSourceState = "ready" | "empty" | "missing" | "unreadable";
+
+const SOURCE_PROBE_MARKER = "VCH_SYNC_SOURCE=";
+
+/**
+ * Inspect the source directory without creating it. A missing source must not
+ * be "fixed" with mkdir -p: an empty source mirrored with orphan deletion
+ * empties the target.
+ */
+export function buildSyncSourceProbeCommand(sourcePath: string): string {
+	const source = shellQuote(sourcePath);
+	return [
+		`if [ ! -d ${source} ]; then echo '${SOURCE_PROBE_MARKER}missing'`,
+		`elif [ ! -r ${source} ] || [ ! -x ${source} ]; then echo '${SOURCE_PROBE_MARKER}unreadable'`,
+		`elif [ -z "$(ls -A ${source} 2>/dev/null | head -n 1)" ]; then echo '${SOURCE_PROBE_MARKER}empty'`,
+		`else echo '${SOURCE_PROBE_MARKER}ready'; fi`,
+	].join("; ");
+}
+
+export function parseSyncSourceProbe(output: string): SyncSourceState | null {
+	const match = output.match(/VCH_SYNC_SOURCE=(ready|empty|missing|unreadable)/);
+	return match ? (match[1] as SyncSourceState) : null;
+}
+
+/** Create the target and report whether it already holds entries. */
+export function buildSyncTargetPrepareCommand(targetPath: string): string {
+	const target = shellQuote(targetPath);
+	return `mkdir -p -- ${target} && if [ -z "$(ls -A ${target} 2>/dev/null | head -n 1)" ]; then echo VCH_SYNC_TARGET=empty; else echo VCH_SYNC_TARGET=nonempty; fi`;
+}
