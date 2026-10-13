@@ -41,6 +41,8 @@ describe("restore runner destination and preflight", () => {
       APP_DIR: fallback,
       CONFIRM_RESTORE: "1",
       ENV_FILE: path.join(tmp, "restore.env"),
+      // Hermetic: a deploy.sh running on this host must not refuse the test restores.
+      DEPLOY_LOCK: path.join(tmp, "no-deploy.lock"),
       // No systemd on Windows: the operator's explicit confirmation.
       ...(process.platform === "win32" ? { VCONTROLHUB_SERVICE_UNITS: "none" } : {}),
     };

@@ -26,7 +26,7 @@ describe.skipIf(process.platform === "win32")("restore-files archive safety", ()
     await mkdir(target);
     const bin = await installFakeRestoreTools(tmp);
     await writeFile(path.join(tmp, "restore.env"), "DATABASE_URL=postgresql://tester@127.0.0.1/audit_target\n");
-    env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, APP_DIR: tmp, CONFIRM_RESTORE: "1", ENV_FILE: path.join(tmp, "restore.env") };
+    env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, APP_DIR: tmp, CONFIRM_RESTORE: "1", ENV_FILE: path.join(tmp, "restore.env"), DEPLOY_LOCK: path.join(tmp, "no-deploy.lock") };
   });
 
   afterEach(async () => {
