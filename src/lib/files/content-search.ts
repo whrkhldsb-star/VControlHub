@@ -29,6 +29,7 @@ type ContentSearchSession = {
 
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { resolveLocalAbsolutePath } from "@/lib/storage/service-entries";
+import { expandStorageBasePath } from "@/lib/storage/path-utils";
 
 import { shellQuote } from "@/lib/shell-quote";
 
@@ -107,7 +108,12 @@ async function searchLocalNode(
 ): Promise<ContentSearchResult[]> {
 	const results: ContentSearchResult[] = [];
 	const lowerQuery = query.toLowerCase();
-	const searchRoot = resolveLocalAbsolutePath(basePath, searchPath);
+	const nodeRoot = path.resolve(expandStorageBasePath(basePath));
+	// No path means the whole node. resolveLocalAbsolutePath rejects the empty
+	// path (it resolves file targets), which made every default search of a
+	// LOCAL node fail and return nothing. A sub-path keeps its containment
+	// check, including the symlink-aware one.
+	const searchRoot = searchPath ? resolveLocalAbsolutePath(basePath, searchPath) : nodeRoot;
 
 	logger.debug("Local content search", { nodeId, searchRoot, query });
 
@@ -147,10 +153,7 @@ async function searchLocalNode(
 					}
 
 					if (snippets.length > 0) {
-						const relativePath = path.relative(
-							path.resolve(basePath),
-							fullPath,
-						);
+						const relativePath = path.relative(nodeRoot, fullPath);
 						results.push({
 							filePath: fullPath,
 							relativePath,
@@ -243,7 +246,17 @@ async function searchSftpNode(
 	// Use grep -r (recursive) -F (fixed string, no regex) -I (skip binary)
 	// -l (list filenames only) --include to limit file types
 	// Then for each matching file, grep -n to get line numbers + content
-	const grepCmd = `grep -rFIl --include='*.txt' --include='*.log' --include='*.md' --include='*.json' --include='*.yaml' --include='*.yml' --include='*.toml' --include='*.ini' --include='*.cfg' --include='*.conf' --include='*.env' --include='*.sh' --include='*.bash' --include='*.py' --include='*.js' --include='*.ts' --include='*.jsx' --include='*.tsx' --include='*.html' --include='*.css' --include='*.scss' --include='*.xml' --include='*.sql' --include='*.csv' --include='*.tsv' --include='*.go' --include='*.rs' --include='*.java' --include='*.c' --include='*.cpp' --include='*.h' --include='*.hpp' --include='*.rb' --include='*.php' --include='*.pl' --include='*.swift' --include='*.kt' --include='*.scala' --include='*.lua' --include='*.r' --include='*.vue' --include='*.svelte' --include='*.properties' --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -${MAX_RESULTS}`;
+	// grep follows a symlink given as its starting point, so a link inside the
+	// node pointing elsewhere would be searched (and its lines returned).
+	// Compare the physical (symlink-free) search path with the physical node
+	// root first, in the same shell, as the SFTP access control does; recursion
+	// itself (grep -r) does not follow links below the starting point.
+	const containment = [
+		`root=$(cd -P -- ${shellQuote(basePath)} 2>/dev/null && pwd -P) || exit 2`,
+		`target=$(cd -P -- ${shellQuote(remoteSearchPath)} 2>/dev/null && pwd -P) || exit 2`,
+		'case "$target/" in "${root%/}/"*) ;; *) exit 3 ;; esac',
+	].join("\n");
+	const grepCmd = `${containment}\ngrep -rFIl --include='*.txt' --include='*.log' --include='*.md' --include='*.json' --include='*.yaml' --include='*.yml' --include='*.toml' --include='*.ini' --include='*.cfg' --include='*.conf' --include='*.env' --include='*.sh' --include='*.bash' --include='*.py' --include='*.js' --include='*.ts' --include='*.jsx' --include='*.tsx' --include='*.html' --include='*.css' --include='*.scss' --include='*.xml' --include='*.sql' --include='*.csv' --include='*.tsv' --include='*.go' --include='*.rs' --include='*.java' --include='*.c' --include='*.cpp' --include='*.h' --include='*.hpp' --include='*.rb' --include='*.php' --include='*.pl' --include='*.swift' --include='*.kt' --include='*.scala' --include='*.lua' --include='*.r' --include='*.vue' --include='*.svelte' --include='*.properties' --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -${MAX_RESULTS}`;
 
 	logger.debug("Remote content search", { nodeId, remoteSearchPath, query: sanitizedQuery });
 
@@ -254,6 +267,10 @@ async function searchSftpNode(
 			timeout: SEARCH_TIMEOUT_MS,
 		});
 
+		if (result.exitCode === 3) {
+			logger.warn("SFTP content search rejected: search path resolves outside the node root", { nodeId, searchPath });
+			return [];
+		}
 		if (result.exitCode !== 0 && result.exitCode !== 1) {
 			// exit code 1 = no matches (normal), other = error
 			logger.error("Remote grep failed", undefined, {
