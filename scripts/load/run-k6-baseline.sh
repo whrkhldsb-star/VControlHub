@@ -2,7 +2,8 @@
 # Wrapper around k6 baseline with clear install guidance.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Repository root: this script lives in scripts/load/.
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BASE_URL="${BASE_URL:-http://127.0.0.1:3000}"
 
 if ! command -v k6 >/dev/null 2>&1; then
