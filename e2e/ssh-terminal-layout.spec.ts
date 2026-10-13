@@ -38,7 +38,7 @@ async function layout(page: Page) {
 		const last = rows.find((row) => row.textContent?.includes("BOTTOM-ROW"))?.getBoundingClientRect();
 		return {
 			gridRows: rows.length,
-			gridCols: rows[1]?.textContent?.replace(/\s+$/, "").length ?? 0,
+			gridCols: rows[0]?.textContent?.replace(/\s+$/, "").length ?? 0,
 			lastRowVisible: Boolean(last && last.top >= top - 0.5 && last.bottom <= bottom + 0.5),
 		};
 	});
@@ -65,7 +65,15 @@ test("terminal grid fits the visible dialog and matches the PTY in every window 
 			 VALUES ($1, 'ssh-layout', '127.0.0.1', $2, 'layout', 'PASSWORD', $3, $4, '{}', $5, now())`,
 			[SERVER_ID, fake.port, encryptServerPassword("layout-pass"), fake.fingerprint, team.rows[0]?.currentTeamId ?? null],
 		);
-		for (const viewport of [{ width: 1366, height: 768 }, { width: 1920, height: 1080 }, { width: 390, height: 844 }]) {
+		for (const viewport of [
+			{ width: 1366, height: 768 },
+			{ width: 1920, height: 1080 },
+			// sm..lg: the dialog is already 72vh while the frame is not yet lg:min-h-0.
+			{ width: 900, height: 600 },
+			{ width: 768, height: 600 },
+			{ width: 1280, height: 520 },
+			{ width: 390, height: 844 },
+		]) {
 			const context = await browser.newContext({ viewport, baseURL, locale: "zh-CN" });
 			await installDirectSession(context);
 			const page = await context.newPage();

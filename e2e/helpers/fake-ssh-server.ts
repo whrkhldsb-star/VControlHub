@@ -31,7 +31,9 @@ export async function startFakeSshServer(options: { username: string; password: 
 					if (!stream) return;
 					windows.push({ cols, rows });
 					const ruler = Array.from({ length: cols }, (_, i) => ((i + 1) % 10 === 0 ? "|" : String((i + 1) % 10))).join("");
-					let out = `\x1b[2J\x1b[H${`PTY ${cols}x${rows}`.padEnd(cols).slice(0, cols)}\r\n${ruler}`;
+					// Ruler first, so it stays on row 0 even in a two-row grid.
+					let out = `\x1b[2J\x1b[H${ruler}`;
+					if (rows >= 3) out += `\r\nPTY ${cols}x${rows}`;
 					for (let row = 3; row < rows; row += 1) out += `\r\nrow ${String(row).padStart(3, "0")}`;
 					out += `\r\nBOTTOM-ROW-${rows} $ `;
 					stream.write(out);

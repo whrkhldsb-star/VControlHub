@@ -620,10 +620,14 @@ export function SshTerminalPanel({
 					    border as usable space. On wide screens the surface takes
 					    exactly the space left in the dialog — a fixed minimum there
 					    made the grid taller than the visible area, so the bottom
-					    rows (prompt and cursor) were clipped outside full screen. */}
+					    rows (prompt and cursor) were clipped outside full screen.
+					    Below lg the same holds unless a side panel is stacked under
+					    the terminal: only then keep a usable minimum and let the
+					    column scroll between terminal and panel. */}
 					<div
 						className={cn(
-							"flex min-h-[280px] min-w-0 flex-1 w-full overflow-hidden bg-[var(--surface-root)] lg:min-h-0",
+							"flex min-h-0 min-w-0 flex-1 w-full overflow-hidden bg-[var(--surface-root)]",
+							(showFileManager || showSidePanel) && "min-h-[280px] lg:min-h-0",
 							fullscreen ? "rounded-lg" : "rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)]",
 						)}
 					>
