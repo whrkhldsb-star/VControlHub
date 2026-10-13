@@ -3,11 +3,10 @@
  *
  * Mirrors the scheduled-task tick worker pattern: every 60s, enqueue a
  * `backup-schedule.tick` durable job. The worker claims the job, finds all
- * BackupSchedule rows with status=ACTIVE and nextRunAt <= now, CAS-claims
- * each (set nextRunAt to a far-future sentinel to prevent duplicate
- * dispatch across workers), calls `dispatchDueSchedule` (which creates a
- * PENDING BackupRecord + enqueues a `backup.create` durable job), then
- * records the run result.
+ * BackupSchedule rows with status=ACTIVE and nextRunAt <= now, and calls
+ * `dispatchDueSchedule` for each: one transaction that CAS-claims the
+ * occurrence (moving nextRunAt to the next cron time), creates the PENDING
+ * BackupRecord and enqueues the `backup.create` durable job.
  *
  * The actual backup execution (bash deploy/backup.sh) is done by the
  * existing backup-job-worker when it picks up the `backup.create` job —
@@ -91,65 +90,17 @@ async function enqueueTickJob(reason: string) {
   }
 }
 
-async function dispatchDueScheduleRow(schedule: {
-  id: string;
-  name: string;
-  backupType: string;
-  note: string | null;
-  retentionDays: number | null;
-  createdById: string | null;
-  teamId: string | null;
-  nextRunAt: Date | null;
-}): Promise<boolean> {
-  if (!schedule.createdById) {
-    await recordScheduleRun(schedule.id, "Skipped: backup schedule has no creator");
-    return false;
-  }
-
-  // CAS claim: pin nextRunAt to the original value and advance it to a
-  // far-future sentinel. The loser (count === 0) bails; the winner
-  // proceeds. recordScheduleRun (called by dispatchDueSchedule) will
-  // recompute the real next cron firing time.
-  const claimSentinel = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const claim = await prisma.backupSchedule.updateMany({
-    where: {
-      id: schedule.id,
-      status: "ACTIVE",
-      nextRunAt: schedule.nextRunAt,
-    },
-    data: { nextRunAt: claimSentinel },
-  });
-  if (claim.count === 0) {
+async function dispatchDueScheduleRow(schedule: Parameters<typeof dispatchDueSchedule>[0]): Promise<boolean> {
+  // dispatchDueSchedule claims the occurrence and creates the record and job
+  // in one transaction; null means another worker claimed it first.
+  const dispatched = await dispatchDueSchedule(schedule);
+  if (!dispatched && schedule.createdById) {
     logger.info("Backup schedule already claimed by another worker, skipping duplicate dispatch", {
       scheduleId: schedule.id,
       name: schedule.name,
     });
-    return false;
   }
-
-  try {
-    await dispatchDueSchedule(schedule);
-    return true;
-  } catch (error) {
-    // We claimed the row but dispatch failed. Roll the claim back so a
-    // future tick or operator can retry.
-    logger.error("Backup schedule CAS claimed but dispatch failed; rolling claim back", {
-      scheduleId: schedule.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    try {
-      await prisma.backupSchedule.update({
-        where: { id: schedule.id },
-        data: { nextRunAt: schedule.nextRunAt },
-      });
-    } catch (rollbackError) {
-      logger.error("Failed to roll back the backup-schedule CAS claim after dispatch error", {
-        scheduleId: schedule.id,
-        error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
-      });
-    }
-    throw error;
-  }
+  return Boolean(dispatched);
 }
 
 

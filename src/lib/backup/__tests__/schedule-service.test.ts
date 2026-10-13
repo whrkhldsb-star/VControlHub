@@ -32,6 +32,10 @@ vi.mock("@/lib/db", () => ({
       updateMany: backupScheduleUpdateManyMock,
       delete: backupScheduleDeleteMock,
     },
+    // The dispatch transaction runs against the same mocks.
+    $transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({
+      backupSchedule: { update: backupScheduleUpdateMock, updateMany: backupScheduleUpdateManyMock },
+    })),
   },
 }));
 
@@ -235,40 +239,67 @@ describe("backup schedule service", () => {
   });
 
   describe("dispatchDueSchedule", () => {
-    it("creates a BackupRecord + enqueues a backup.create job", async () => {
+    it("claims the occurrence, creates the BackupRecord and enqueues the job in one transaction", async () => {
+      backupScheduleUpdateManyMock.mockResolvedValue({ count: 1 });
+      const observed = new Date();
       const result = await dispatchDueSchedule({
         id: "s1",
         name: "Nightly DB",
         backupType: "DATABASE",
+        cronExpression: "0 3 * * *",
         note: null,
         retentionDays: null,
         createdById: "u1",
-        nextRunAt: new Date(),
+        nextRunAt: observed,
       });
       expect(result).toEqual({
         scheduleId: "s1",
         backupRecordId: "b1",
         jobId: "j1",
       });
+      expect(backupScheduleUpdateManyMock).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: "s1", status: "ACTIVE", nextRunAt: observed },
+        data: expect.objectContaining({ nextRunAt: expect.any(Date) }),
+      }));
+      const tx = expect.objectContaining({ backupSchedule: expect.anything() });
       expect(createBackupRecordMock).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "DATABASE",
           createdBy: "u1",
           note: expect.stringContaining("Nightly DB"),
         }),
+        tx,
       );
       expect(enqueueJobMock).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "backup.create",
           createdBy: "u1",
         }),
+        tx,
       );
+    });
+    it("creates nothing when another worker already claimed the occurrence", async () => {
+      backupScheduleUpdateManyMock.mockResolvedValue({ count: 0 });
+      const result = await dispatchDueSchedule({
+        id: "s1",
+        name: "Nightly DB",
+        backupType: "DATABASE",
+        cronExpression: "0 3 * * *",
+        note: null,
+        retentionDays: null,
+        createdById: "u1",
+        nextRunAt: new Date(),
+      });
+      expect(result).toBeNull();
+      expect(createBackupRecordMock).not.toHaveBeenCalled();
+      expect(enqueueJobMock).not.toHaveBeenCalled();
     });
     it("returns null and records skip when createdById is null", async () => {
       const result = await dispatchDueSchedule({
         id: "s1",
         name: "Orphan",
         backupType: "DATABASE",
+        cronExpression: "0 3 * * *",
         note: null,
         retentionDays: null,
         createdById: null,
@@ -281,6 +312,7 @@ describe("backup schedule service", () => {
         id: "s1",
         name: "Bad type",
         backupType: "WAL",
+        cronExpression: "0 3 * * *",
         note: null,
         retentionDays: null,
         createdById: "u1",
@@ -288,29 +320,25 @@ describe("backup schedule service", () => {
       });
       expect(result).toBeNull();
     });
-    it("voids the PENDING BackupRecord when enqueueJob fails", async () => {
+    it("propagates an enqueue failure so the whole dispatch transaction rolls back", async () => {
+      backupScheduleUpdateManyMock.mockResolvedValue({ count: 1 });
       createBackupRecordMock.mockResolvedValue({ id: "b-orphan" });
       enqueueJobMock.mockRejectedValue(new Error("job queue down"));
-      voidBackupRecordMock.mockResolvedValue({ id: "b-orphan", status: "VOIDED" });
 
       await expect(
         dispatchDueSchedule({
           id: "s1",
           name: "Nightly DB",
           backupType: "DATABASE",
+          cronExpression: "0 3 * * *",
           note: null,
           retentionDays: null,
           createdById: "u1",
           nextRunAt: new Date(),
         }),
       ).rejects.toThrow(/job queue down/);
-
-      expect(voidBackupRecordMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "b-orphan",
-          reason: expect.stringContaining("enqueue failed"),
-        }),
-      );
+      // Nothing to compensate: the record was created inside the transaction.
+      expect(voidBackupRecordMock).not.toHaveBeenCalled();
     });
   });
 });

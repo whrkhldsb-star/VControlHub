@@ -13,6 +13,8 @@ const prismaMock = vi.hoisted(() => ({
     count: vi.fn(),
     updateMany: vi.fn(),
   },
+  // The dispatch transaction runs against the same mocks.
+  $transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback(prismaMock)),
 }));
 
 const { enqueueJobMock, createVpsBackupRecordMock, pruneOldVpsBackupRecordsMock } = vi.hoisted(() => ({
