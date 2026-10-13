@@ -18,6 +18,7 @@ import { sendAlertEmail } from "@/lib/notification/email";
 import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 import { t } from "@/lib/i18n/service-translations";
+import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
 import type { NotificationMessage } from "@/lib/notification/message";
 import type { AlertIncidentStatus } from "@prisma/client";
 import { customerPermissionHoldersWhere, PLATFORM_ADMIN_WHERE } from "@/lib/auth/permission-holders";
@@ -272,7 +273,12 @@ async function dispatchChannels(input: {
 }
 
 /** Total delivery attempts for an incident's "fired" notification. */
+/** Fallback when the `alerts.notifyMaxAttempts` setting cannot be read. */
 const MAX_NOTIFY_ATTEMPTS = 8;
+
+async function notifyMaxAttempts(): Promise<number> {
+  return getRuntimeSettingNumber("alerts.notifyMaxAttempts").catch(() => MAX_NOTIFY_ATTEMPTS);
+}
 
 /** 1, 2, 4 … minutes after attempt n, capped at an hour. */
 function nextNotifyRetryAt(now: Date, attempts: number): Date {
@@ -284,12 +290,12 @@ function summarizeFailures(failed: { channel: string; error: string }[]): string
 }
 
 /** Delivery bookkeeping after an attempt; nothing pending → no retry scheduled. */
-function deliveryState(now: Date, attempts: number, failed: { channel: string; error: string }[]) {
+function deliveryState(now: Date, attempts: number, failed: { channel: string; error: string }[], maxAttempts = MAX_NOTIFY_ATTEMPTS) {
   const pending = Array.from(new Set(failed.map((item) => item.channel)));
   return {
     pendingNotifyChannels: pending,
     notifyAttempts: attempts,
-    nextNotifyAt: pending.length > 0 && attempts < MAX_NOTIFY_ATTEMPTS ? nextNotifyRetryAt(now, attempts) : null,
+    nextNotifyAt: pending.length > 0 && attempts < maxAttempts ? nextNotifyRetryAt(now, attempts) : null,
     lastNotifyError: pending.length > 0 ? summarizeFailures(failed) : null,
   };
 }
@@ -401,7 +407,8 @@ async function retryPendingIncidentDelivery(
 ): Promise<AlertDispatchResult & { attempted: boolean }> {
   const pending = (existing.pendingNotifyChannels ?? []).filter((channel) => input.notifyChannels.includes(channel));
   const attempts = existing.notifyAttempts ?? 0;
-  if (existing.status !== "OPEN" || pending.length === 0 || !existing.nextNotifyAt || existing.nextNotifyAt.getTime() > now.getTime() || attempts >= MAX_NOTIFY_ATTEMPTS) {
+  const maxAttempts = await notifyMaxAttempts();
+  if (existing.status !== "OPEN" || pending.length === 0 || !existing.nextNotifyAt || existing.nextNotifyAt.getTime() > now.getTime() || attempts >= maxAttempts) {
     return { delivered: [], failed: [], attempted: false };
   }
   const claimed = await prisma.alertIncident.updateMany({
@@ -419,12 +426,12 @@ async function retryPendingIncidentDelivery(
           webhookUrl: input.webhookUrl ?? null,
         },
         level: existing.level,
-        minutes: Math.max(1, input.escalationMinutes ?? 30),
+        minutes: Math.max(1, input.escalationMinutes ?? (await getRuntimeSettingNumber("alerts.defaultEscalationMinutes").catch(() => 30))),
       }, pending)
     : await dispatchFiredNotice({ ...input, incidentId: existing.id }, pending);
   await prisma.alertIncident.updateMany({
     where: { id: existing.id, status: "OPEN" },
-    data: deliveryState(now, attempts + 1, dispatch.failed),
+    data: deliveryState(now, attempts + 1, dispatch.failed, maxAttempts),
   });
   if (dispatch.failed.length > 0) {
     logger.warn("alert incident notification retry failed", { incidentId: existing.id, attempt: attempts + 1, failed: dispatch.failed });
@@ -592,7 +599,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
   try {
     await prisma.alertIncident.updateMany({
       where: { id: incident.id, status: "OPEN" },
-      data: deliveryState(now, 1, dispatch.failed),
+      data: deliveryState(now, 1, dispatch.failed, await notifyMaxAttempts()),
     });
   } catch (error) {
     logger.error("failed to record alert notification delivery state", {
@@ -848,6 +855,8 @@ export async function escalateOverdueAlertIncidents(options?: {
   // Escalations that reached zero channels — the caller/cron can surface this.
   let notifyFailures = 0;
   const nowMs = Date.now();
+  const defaultEscalationMinutes = await getRuntimeSettingNumber("alerts.defaultEscalationMinutes").catch(() => 30);
+  const maxAttempts = await notifyMaxAttempts();
   // Keyset pagination on (updatedAt, id). The previous skip/limit pagination
   // iterated an offset while the loop itself MUTATED the ordering key
   // (escalating an incident stamps lastNotifiedAt/updatedAt, reshuffling the
@@ -884,7 +893,7 @@ export async function escalateOverdueAlertIncidents(options?: {
 
     for (const incident of open) {
       if (!incident.rule?.enabled) continue;
-      const minutes = Math.max(1, incident.rule.escalationMinutes ?? 30);
+      const minutes = Math.max(1, incident.rule.escalationMinutes ?? defaultEscalationMinutes);
       const anchor = incident.lastNotifiedAt ?? incident.createdAt;
       if (nowMs - anchor.getTime() < minutes * 60_000) continue;
       if (incident.level >= 3) continue;
@@ -924,7 +933,7 @@ export async function escalateOverdueAlertIncidents(options?: {
       try {
         await prisma.alertIncident.updateMany({
           where: { id: incident.id, status: "OPEN", level: nextLevel },
-          data: deliveryState(escalatedAt, 1, escalationDispatch.failed),
+          data: deliveryState(escalatedAt, 1, escalationDispatch.failed, maxAttempts),
         });
       } catch (error) {
         logger.error("failed to record alert escalation delivery state", {

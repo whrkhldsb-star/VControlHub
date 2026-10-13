@@ -36,6 +36,28 @@ export const BASE_SETTINGS_SECTIONS: SectionDef[] = [
 				helperTextKey: "settingsClient.field.platform.logo.helper",
 				validate: validateLogoUrl,
 			},
+			{
+				key: "platform.defaultLocale",
+				labelKey: "settingsClient.field.platform.defaultLocale.label",
+				type: "select",
+				defaultValue: "zh",
+				options: [
+					{ value: "zh", labelKey: "settingsClient.option.locale.zh" },
+					{ value: "en", labelKey: "settingsClient.option.locale.en" },
+				],
+				helperTextKey: "settingsClient.field.platform.defaultLocale.helper",
+			},
+			{
+				key: "platform.defaultTheme",
+				labelKey: "settingsClient.field.platform.defaultTheme.label",
+				type: "select",
+				defaultValue: "dark",
+				options: [
+					{ value: "dark", labelKey: "settingsClient.option.theme.dark" },
+					{ value: "light", labelKey: "settingsClient.option.theme.light" },
+				],
+				helperTextKey: "settingsClient.field.platform.defaultTheme.helper",
+			},
 		],
 	},
 	{

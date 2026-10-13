@@ -6,6 +6,7 @@
  * target-aware helpers.
  */
 import { execFile, execFileSync, spawnSync } from "child_process";
+import { getRuntimeSettingNumberCached } from "@/lib/runtime-settings/cached";
 import { promisify } from "util";
 
 import { BusinessError } from "@/lib/errors";
@@ -235,6 +236,13 @@ export function isDockerNoSuchContainerError(error: unknown): boolean {
  * production keeps the defaults.
  */
 export const containerHealthGate = { settleMs: 5_000, pollMs: 2_000, timeoutMs: 90_000 };
+const DEFAULT_HEALTH_GATE_TIMEOUT_MS = containerHealthGate.timeoutMs;
+/** The `quickService.healthGateTimeoutMs` setting, unless a test shortened the gate. */
+function healthGateTimeoutMs() {
+  return containerHealthGate.timeoutMs === DEFAULT_HEALTH_GATE_TIMEOUT_MS
+    ? getRuntimeSettingNumberCached("quickService.healthGateTimeoutMs")
+    : containerHealthGate.timeoutMs;
+}
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -262,7 +270,7 @@ async function inspectContainerRuntimeState(target: DockerTarget, containerName:
  * observed health ("healthy", "starting", or "running" without a healthcheck).
  */
 export async function assertContainerStarted(target: DockerTarget, containerName: string): Promise<string> {
-  const deadline = Date.now() + containerHealthGate.timeoutMs;
+  const deadline = Date.now() + healthGateTimeoutMs();
   await sleep(containerHealthGate.settleMs);
   for (;;) {
     const state = await inspectContainerRuntimeState(target, containerName);

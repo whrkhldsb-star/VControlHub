@@ -112,7 +112,19 @@ function normalizeSettingValue(key: string, value: string) {
 		case "smtp.pass":
 			return { key, value: value.trim() };
 		case "telegram.enabled":
+		case "security.sshEnforceHostKeyPin":
 			return normalizeBooleanSetting(key, value);
+		case "platform.defaultLocale": {
+			const trimmed = value.trim().toLowerCase();
+			// Empty means the built-in default (a form that never showed the field).
+			if (trimmed && trimmed !== "zh" && trimmed !== "en") throw new ValidationError(t("backend.settings.platformDefaultLocaleInvalid"));
+			return { key, value: trimmed };
+		}
+		case "platform.defaultTheme": {
+			const trimmed = value.trim().toLowerCase();
+			if (trimmed && trimmed !== "dark" && trimmed !== "light") throw new ValidationError(t("backend.settings.platformDefaultThemeInvalid"));
+			return { key, value: trimmed };
+		}
 		case "telegram.botToken":
 			// Bot Token 形如 "123456:ABC-DEF..." — 拒绝空白和明显非 token 字符; 不强校验格式以兼容老 Bot API
 			return { key, value: value.trim() };

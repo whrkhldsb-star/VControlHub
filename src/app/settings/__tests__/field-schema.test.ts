@@ -48,7 +48,7 @@ describe("parseInteger", () => {
 describe("getSectionSaveKeys", () => {
 	it("returns every field key for a non-custom section", () => {
 		const platform = SETTINGS_SCHEMA.find((s) => s.id === "platform");
-		expect(getSectionSaveKeys(platform!)).toEqual(["platform.name", "platform.logo"]);
+		expect(getSectionSaveKeys(platform!)).toEqual(["platform.name", "platform.logo", "platform.defaultLocale", "platform.defaultTheme"]);
 	});
 
 	it("returns runtime field keys in declaration order", () => {
@@ -205,7 +205,10 @@ describe("Runtime schema", () => {
 describe("Schema declaration order", () => {
 	it("matches the save-button order asserted by settings-client tests", () => {
 		const saveable = SETTINGS_SCHEMA.filter((s) => !s.custom);
-		expect(saveable.map((s) => s.id)).toEqual(["platform", "password", "runtime", "smtp", "telegram", "dashboard", "offsite", "aiOps"]);
+		expect(saveable.map((s) => s.id)).toEqual([
+			"platform", "password", "runtime", "smtp", "telegram", "dashboard", "offsite", "aiOps",
+			"securityPolicy", "jobs", "alerts", "storage", "monitoring", "retention", "ai",
+		]);
 	});
 });
 

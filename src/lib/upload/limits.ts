@@ -1,10 +1,14 @@
 import { statfs } from "node:fs/promises";
 
-import { config } from "@/lib/config/env";
+import { getRuntimeSettingNumberCached } from "@/lib/runtime-settings/cached";
 
-/** Largest chunked storage upload, from STORAGE_UPLOAD_MAX_BYTES (default 2 GiB). */
+/**
+ * Largest chunked storage upload: the `storage.uploadMaxBytes` setting, else
+ * STORAGE_UPLOAD_MAX_BYTES, else 2 GiB. Sync callers (schema parsing) get the
+ * per-process cached value, refreshed within a minute of a change.
+ */
 export function getStorageUploadMaxBytes(): number {
-	return config.storage.uploadMaxBytes;
+	return getRuntimeSettingNumberCached("storage.uploadMaxBytes");
 }
 
 /** Kept free on the upload temp volume after admitting an upload. */

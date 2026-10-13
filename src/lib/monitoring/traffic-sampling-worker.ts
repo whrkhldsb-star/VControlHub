@@ -15,6 +15,7 @@
  * - Prune completed traffic.sample jobs after each successful tick.
  */
 import { readFileSync } from "node:fs";
+import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
 import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
@@ -52,6 +53,7 @@ const TRAFFIC_SAMPLE_LEASE_MS = Math.max(
 );
 const TRAFFIC_SAMPLE_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:traffic-sampling:${process.pid}`;
 const TRAFFIC_SAMPLE_JOB_KEEP_LATEST = 50;
+/** Fallback when the `retention.trafficSnapshotsDays` setting cannot be read. */
 const TRAFFIC_SNAPSHOT_RETENTION_DAYS = 14;
 const logger = createLogger("traffic-sampling-worker");
 
@@ -130,8 +132,9 @@ async function sampleLocalPrimary(): Promise<{
 }
 
 async function pruneOldTrafficSnapshots() {
+  const retentionDays = await getRuntimeSettingNumber("retention.trafficSnapshotsDays").catch(() => TRAFFIC_SNAPSHOT_RETENTION_DAYS);
   const olderThan = new Date(
-    Date.now() - TRAFFIC_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    Date.now() - retentionDays * 24 * 60 * 60 * 1000,
   );
   return prisma.trafficSnapshot.deleteMany({
     where: { sampledAt: { lt: olderThan } },

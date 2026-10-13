@@ -7,6 +7,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { getRuntimeSettingNumbers } from "@/lib/runtime-settings/service";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import {
@@ -36,21 +37,22 @@ const DEFAULT_WINDOW_HOURS = 168; // 7 days
 const DEFAULT_HORIZON_DAYS = 14;
 const MAX_SNAPSHOTS = 50_000;
 
-function normalizeWindowHours(value: number | undefined): number {
-  const n = Number.isFinite(value) ? Math.floor(value as number) : DEFAULT_WINDOW_HOURS;
+function normalizeWindowHours(value: number | undefined, fallback = DEFAULT_WINDOW_HOURS): number {
+  const n = Number.isFinite(value) ? Math.floor(value as number) : fallback;
   return Math.min(Math.max(n, 24), 30 * 24);
 }
 
-function normalizeHorizonDays(value: number | undefined): number {
-  const n = Number.isFinite(value) ? Math.floor(value as number) : DEFAULT_HORIZON_DAYS;
+function normalizeHorizonDays(value: number | undefined, fallback = DEFAULT_HORIZON_DAYS): number {
+  const n = Number.isFinite(value) ? Math.floor(value as number) : fallback;
   return Math.min(Math.max(n, 1), 90);
 }
 
 export async function getCapacityForecast(
   options: CapacityForecastOptions = {},
 ): Promise<CapacityForecastResult> {
-  const windowHours = normalizeWindowHours(options.windowHours);
-  const horizonDays = normalizeHorizonDays(options.horizonDays);
+  const defaults = await getRuntimeSettingNumbers(["monitoring.capacityWindowHours", "monitoring.capacityHorizonDays"]);
+  const windowHours = normalizeWindowHours(options.windowHours, defaults["monitoring.capacityWindowHours"]);
+  const horizonDays = normalizeHorizonDays(options.horizonDays, defaults["monitoring.capacityHorizonDays"]);
   const nowMs = options.nowMs ?? Date.now();
   const since = new Date(nowMs - windowHours * 3_600_000);
 

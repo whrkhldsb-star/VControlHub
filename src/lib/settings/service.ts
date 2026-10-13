@@ -6,6 +6,9 @@ import {
 } from "@/lib/settings/schema";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { RUNTIME_SETTING_DEFINITIONS, isRuntimeSettingKey, normalizeRuntimeSettingValue } from "@/lib/runtime-settings/service";
+import { rememberRuntimeSettingNumber } from "@/lib/runtime-settings/cached";
+import { invalidatePlatformDefaults } from "@/lib/settings/platform-defaults";
+import { invalidateCachedFlags } from "@/lib/settings/cached-flags";
 
 /* ── Safe decrypt helper ──────────────────────────────────── */
 function safeDecrypt(value: string): string {
@@ -55,6 +58,10 @@ const DEFAULTS: Record<string, string> = {
 	"telegram.enabled": "false",
 	"telegram.botToken": "",
 	"telegram.chatId": "",
+	// Platform defaults for visitors without a preference cookie; SSH host key pin policy (env SSH_ENFORCE_HOST_KEY_PIN is the fallback).
+	"platform.defaultLocale": "zh",
+	"platform.defaultTheme": "dark",
+	"security.sshEnforceHostKeyPin": "",
 	...Object.fromEntries(
 		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])
 	),
@@ -158,6 +165,16 @@ export async function setSetting(key: string, value: string): Promise<void> {
 		update: { value: storedValue },
 		create: { key, value: storedValue },
 	});
+	rememberSaved([{ key, value: normalizedValue }]);
+}
+
+/** Keep this process's sync caches in step with what was just written. */
+function rememberSaved(entries: Array<{ key: string; value: string }>) {
+	for (const { key, value } of entries) {
+		if (isRuntimeSettingKey(key)) rememberRuntimeSettingNumber(key, Number(value));
+	}
+	if (entries.some(({ key }) => key.startsWith("platform."))) invalidatePlatformDefaults();
+	if (entries.some(({ key }) => key === "security.sshEnforceHostKeyPin")) invalidateCachedFlags();
 }
 
 export async function setManySettings(
@@ -174,6 +191,7 @@ export async function setManySettings(
 			});
 		})
 	);
+	rememberSaved(entries.map(({ key, value }) => ({ key, value: isRuntimeSettingKey(key) ? normalizeRuntimeSettingValue(key, value) : value })));
 }
 
 /**

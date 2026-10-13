@@ -150,12 +150,17 @@ function lockoutTtlMs(entry: LockoutEntry, now: number) {
 	return Math.max(1_000, until - now + 1_000);
 }
 
-function applyLoginFailure(entry: LockoutEntry | null, now: number, maxFailures = ACCOUNT_LOCKOUT_MAX_FAILURES): LockoutEntry {
+function applyLoginFailure(
+	entry: LockoutEntry | null,
+	now: number,
+	maxFailures = ACCOUNT_LOCKOUT_MAX_FAILURES,
+	lockoutMs = ACCOUNT_LOCKOUT_DURATION_MS,
+): LockoutEntry {
 	let next = entry;
 	if (
 		!next ||
 		(next.lockedUntil && next.lockedUntil < now) ||
-		now - next.lastFailureAt >= ACCOUNT_FAILURE_RETENTION_MS
+		now - next.lastFailureAt >= Math.max(lockoutMs, ACCOUNT_FAILURE_RETENTION_MS)
 	) {
 		next = { failCount: 0, lockedUntil: null, lastFailureAt: now };
 	}
@@ -165,7 +170,7 @@ function applyLoginFailure(entry: LockoutEntry | null, now: number, maxFailures 
 		lastFailureAt: now,
 	};
 	if (next.failCount >= maxFailures && !next.lockedUntil) {
-		next.lockedUntil = now + ACCOUNT_LOCKOUT_DURATION_MS;
+		next.lockedUntil = now + lockoutMs;
 	}
 	return next;
 }
@@ -238,12 +243,39 @@ function chainLockoutMutation<T>(key: string, run: () => Promise<T>): Promise<T>
 	return operation;
 }
 
-async function recordFailure(key: string, maxFailures: number) {
+/**
+ * Lockout thresholds from the settings (database, then env, then the
+ * constants above). Imported lazily so this module stays free of database
+ * imports for the request paths that only need `getClientIp`.
+ */
+async function loginLockoutPolicy(): Promise<{ clientFailures: number; accountFailures: number; lockoutMs: number }> {
+	try {
+		const { getRuntimeSettingNumbers } = await import("@/lib/runtime-settings/service");
+		const values = await getRuntimeSettingNumbers([
+			"security.loginLockoutClientFailures",
+			"security.loginLockoutAccountFailures",
+			"security.loginLockoutMinutes",
+		]);
+		return {
+			clientFailures: values["security.loginLockoutClientFailures"],
+			accountFailures: values["security.loginLockoutAccountFailures"],
+			lockoutMs: values["security.loginLockoutMinutes"] * 60 * 1000,
+		};
+	} catch {
+		return {
+			clientFailures: ACCOUNT_LOCKOUT_MAX_FAILURES,
+			accountFailures: ACCOUNT_WIDE_LOCKOUT_MAX_FAILURES,
+			lockoutMs: ACCOUNT_LOCKOUT_DURATION_MS,
+		};
+	}
+}
+
+async function recordFailure(key: string, maxFailures: number, lockoutMs: number) {
 	return chainLockoutMutation(key, async () => {
 		const now = Date.now();
 		const store = getRateLimitStore();
 		const previousEntry = await store.getLockout(key);
-		const entry = applyLoginFailure(previousEntry, now, maxFailures);
+		const entry = applyLoginFailure(previousEntry, now, maxFailures, lockoutMs);
 		await store.setLockout(key, entry, lockoutTtlMs(entry, now));
 		return entry;
 	});
@@ -258,8 +290,9 @@ export async function recordLoginFailureAsync(
 	username: string,
 	clientIp?: string | null,
 ): Promise<{ locked: boolean; lockedUntil: number | null; scope: LockoutScope | null; failCount: number; accountFailCount: number }> {
-	const client = await recordFailure(clientLockoutKey(username, clientIp), ACCOUNT_LOCKOUT_MAX_FAILURES);
-	const account = await recordFailure(lockoutKey(username), ACCOUNT_WIDE_LOCKOUT_MAX_FAILURES);
+	const policy = await loginLockoutPolicy();
+	const client = await recordFailure(clientLockoutKey(username, clientIp), policy.clientFailures, policy.lockoutMs);
+	const account = await recordFailure(lockoutKey(username), policy.accountFailures, policy.lockoutMs);
 	const scope: LockoutScope | null = account.lockedUntil ? "account" : client.lockedUntil ? "client" : null;
 	return {
 		locked: scope !== null,

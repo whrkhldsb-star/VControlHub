@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef, useId, type ReactNode } from "react";
-import { Bell, Settings, User } from "@/components/icons";
+import { Bell, Database, Globe, HardDrive, Settings, Sparkles, User } from "@/components/icons";
 import { IconKey } from "@/components/nav-items";
 import { PageHeader } from "@/components/page-shell";
 import { SegmentedTabs, SideNav, SplitPane } from "@/components/ui-primitives";
@@ -27,7 +27,7 @@ type Props = {
   defaultPageOptions?: readonly DefaultPageOption[];
 };
 
-type SettingsTab = "personal" | "security" | "notifications" | "advanced";
+type SettingsTab = "personal" | "platform" | "security" | "notifications" | "operations" | "storage" | "data" | "ai";
 /** Platform tabs render SettingsClient sections; the personal tab renders its own panel. */
 type PlatformTab = Exclude<SettingsTab, "personal">;
 const isPlatformTab = (tab: SettingsTab): tab is PlatformTab => tab !== "personal";
@@ -35,10 +35,16 @@ const isPlatformTab = (tab: SettingsTab): tab is PlatformTab => tab !== "persona
 const SELF_SERVICE_TABS: SettingsTab[] = ["personal"];
 
 const TAB_SECTION_IDS: Record<PlatformTab, string[]> = {
-  security: ["platform", "password"],
-  notifications: ["smtp", "telegram"],
-  advanced: ["runtime", "dashboard", "offsite", "aiOps"],
+  platform: ["platform", "dashboard"],
+  security: ["password", "securityPolicy"],
+  notifications: ["smtp", "telegram", "alerts"],
+  operations: ["runtime", "jobs"],
+  storage: ["storage", "offsite"],
+  data: ["monitoring", "retention"],
+  ai: ["aiOps", "ai"],
 };
+/** The config export/import panel is rendered after the platform sections. */
+const SYSTEM_CONFIG_TAB: PlatformTab = "platform";
 
 const PERSONAL_SECTION_IDS = [
   "preferences-default-page",
@@ -57,7 +63,7 @@ const SECTION_TO_TAB: Record<string, SettingsTab> = {
   "preferences-auto-refresh": "personal",
   "preferences-auto-probe": "personal",
   security: "security",
-  "system-config": "advanced",
+  "system-config": SYSTEM_CONFIG_TAB,
   ...Object.fromEntries(
     Object.entries(TAB_SECTION_IDS).flatMap(([tab, ids]) =>
       ids.map((id) => [id, tab] as const),
@@ -72,9 +78,13 @@ const TAB_META: {
   descKey: string;
 }[] = [
   { id: "personal", icon: <User size={18} aria-hidden />, labelKey: "settingsPage.tab.personal", descKey: "settingsPage.tab.personal.desc" },
+  { id: "platform", icon: <Globe size={18} aria-hidden />, labelKey: "settingsPage.tab.platform", descKey: "settingsPage.tab.platform.desc" },
   { id: "security", icon: <IconKey />, labelKey: "settingsPage.tab.security", descKey: "settingsPage.tab.security.desc" },
   { id: "notifications", icon: <Bell size={18} aria-hidden />, labelKey: "settingsPage.tab.notifications", descKey: "settingsPage.tab.notifications.desc" },
-  { id: "advanced", icon: <Settings size={18} aria-hidden />, labelKey: "settingsPage.tab.advanced", descKey: "settingsPage.tab.advanced.desc" },
+  { id: "operations", icon: <Settings size={18} aria-hidden />, labelKey: "settingsPage.tab.operations", descKey: "settingsPage.tab.operations.desc" },
+  { id: "storage", icon: <HardDrive size={18} aria-hidden />, labelKey: "settingsPage.tab.storage", descKey: "settingsPage.tab.storage.desc" },
+  { id: "data", icon: <Database size={18} aria-hidden />, labelKey: "settingsPage.tab.data", descKey: "settingsPage.tab.data.desc" },
+  { id: "ai", icon: <Sparkles size={18} aria-hidden />, labelKey: "settingsPage.tab.ai", descKey: "settingsPage.tab.ai.desc" },
 ];
 
 export function UnifiedSettingsPageClient({
@@ -169,12 +179,11 @@ export function UnifiedSettingsPageClient({
   const tabs = canManage ? TAB_META : TAB_META.filter((tab) => SELF_SERVICE_TABS.includes(tab.id));
 
   const tabCounts = useMemo(() => {
-    return {
-      personal: PERSONAL_SECTION_IDS.length,
-      security: TAB_SECTION_IDS.security.length,
-      notifications: TAB_SECTION_IDS.notifications.length,
-      advanced: TAB_SECTION_IDS.advanced.length + (canManage ? 1 : 0),
-    } as Record<SettingsTab, number>;
+    const counts = { personal: PERSONAL_SECTION_IDS.length } as Record<SettingsTab, number>;
+    for (const [tab, ids] of Object.entries(TAB_SECTION_IDS) as [PlatformTab, string[]][]) {
+      counts[tab] = ids.length + (tab === SYSTEM_CONFIG_TAB && canManage ? 1 : 0);
+    }
+    return counts;
   }, [canManage]);
 
   const systemTab = isPlatformTab(activeTab) ? activeTab : null;
@@ -190,7 +199,7 @@ export function UnifiedSettingsPageClient({
         }),
       );
     }
-    const ids = [...TAB_SECTION_IDS[activeTab], ...(activeTab === "advanced" ? ["system-config"] : [])];
+    const ids = [...TAB_SECTION_IDS[activeTab], ...(activeTab === SYSTEM_CONFIG_TAB && canManage ? ["system-config"] : [])];
     return ids.map((id) => {
       const section = SETTINGS_SCHEMA.find((s) => s.id === id);
       let description: string | undefined;
@@ -211,7 +220,7 @@ export function UnifiedSettingsPageClient({
         description,
       };
     });
-  }, [activeTab, t]);
+  }, [activeTab, canManage, t]);
 
   return (
     <div className="space-y-5">
@@ -273,7 +282,7 @@ export function UnifiedSettingsPageClient({
       showCategoryNav={false}
             visibleSectionIds={visibleSectionIds}
           />
-          {canManage && <div id="system-config" className={activeTab === "advanced" ? "scroll-mt-24" : "hidden"}>
+          {canManage && <div id="system-config" className={activeTab === SYSTEM_CONFIG_TAB ? "scroll-mt-24" : "hidden"}>
             <SystemConfigSection isPlatformAdmin={isPlatformAdmin} />
           </div>}
         </div>

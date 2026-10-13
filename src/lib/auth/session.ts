@@ -45,8 +45,16 @@ export async function getConfiguredSessionTtlSeconds(remember = false): Promise<
   if (envOverride) {
     return getSessionTtlSeconds(remember);
   }
-  // "Remember me" sessions keep their long fixed TTL; the configurable
-  // timeout only applies to standard logins.
+  // "Remember me" sessions take their lifetime from the security policy
+  // setting; the session timeout setting governs standard logins.
+  if (remember) {
+    try {
+      const { getRuntimeSettingNumber } = await import("@/lib/runtime-settings/service");
+      return await getRuntimeSettingNumber("security.rememberSessionTtlSeconds");
+    } catch (error) {
+      logger.warn("Failed to read security.rememberSessionTtlSeconds setting, using default remember-me duration", error);
+    }
+  }
   if (!remember) {
     try {
       const { getSetting } = await import("@/lib/settings/service");
