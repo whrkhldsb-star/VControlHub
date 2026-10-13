@@ -157,6 +157,28 @@ describe("restore runner destination and preflight", () => {
     expect(await readdir(target)).toEqual([]);
   });
 
+  it("refuses while deploy.sh holds the deployment lock with a live pid", async () => {
+    const deployLock = path.join(tmp, "deploy.lock");
+    await writeFile(deployLock, `${process.pid}\n`);
+    await expect(runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, DEPLOY_LOCK: deployLock } })).rejects.toMatchObject({
+      stderr: expect.stringContaining(`a deployment is running (deploy.sh pid ${process.pid}`),
+    });
+    expect(await readdir(target)).toEqual([]);
+  });
+
+  it.skipIf(posixOnly)("ignores a released or stale deployment lock", async () => {
+    const deployLock = path.join(tmp, "deploy.lock");
+    // Released: deploy.sh empties the file while still holding flock, then unlocks.
+    await writeFile(deployLock, "");
+    await runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, DEPLOY_LOCK: deployLock } });
+    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
+    // Stale: a pid above pid_max cannot be alive.
+    await rm(path.join(target, "hello.txt"));
+    await writeFile(deployLock, `${2 ** 22 + 9}\n`);
+    await runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, DEPLOY_LOCK: deployLock } });
+    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
+  });
+
   it.skipIf(posixOnly)("refuses a files restore while another client is connected to the database", async () => {
     await expect(runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, FAKE_PSQL_OTHER_CLIENTS: "2" } })).rejects.toMatchObject({
       stderr: expect.stringContaining("OFFLINE RESTORE REQUIRED: 2 other client connection(s)"),

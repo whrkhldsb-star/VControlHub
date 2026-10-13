@@ -39,3 +39,27 @@ export class GunzipOutputLimiter extends Transform {
     callback(null, chunk);
   }
 }
+
+/**
+ * Decompressed size recorded in a gzip trailer (ISIZE, the last four bytes,
+ * little-endian, modulo 2^32). Exact for every output the limiter above would
+ * accept; for a concatenated multi-member file it describes the last member
+ * only, so it admits a write but never replaces the limiter. Null when the
+ * file is too short to be gzip or cannot be read.
+ */
+export async function readGzipDecompressedSize(filePath: string): Promise<number | null> {
+  const { open } = await import("node:fs/promises");
+  let handle: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    handle = await open(filePath, "r");
+    const { size } = await handle.stat();
+    if (size < 18) return null;
+    const trailer = Buffer.alloc(4);
+    const { bytesRead } = await handle.read(trailer, 0, 4, size - 4);
+    return bytesRead === 4 ? trailer.readUInt32LE(0) : null;
+  } catch {
+    return null;
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
+}

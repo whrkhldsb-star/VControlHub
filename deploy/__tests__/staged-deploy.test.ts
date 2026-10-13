@@ -76,6 +76,25 @@ describeLinux("staged deployment and recovery", () => {
 		expect(await readFile(f.log, "utf8")).toContain("systemctl start fixture-next fixture-ssh-ws");
 	});
 
+	it("refuses to start over a restore whose owner is alive, and only warns about a stale one", async () => {
+		const f = await fixture("good");
+		const lock = path.join(f.app, ".restore.lock");
+		await mkdir(lock);
+		const hostname = (await import("node:os")).hostname();
+		await writeFile(path.join(lock, "owner"), `pid=${process.pid}\nhost=${hostname}\nstartedAt=now\n`);
+		const refused = await run(f.env);
+		expect(refused.code).toBe(75);
+		expect(refused.output).toContain("a restore is in progress");
+		for (const artifact of [".next", "dist", "node_modules"]) expect(await readFile(path.join(f.app, artifact, "version"), "utf8")).toBe("previous");
+		expect(await readFile(f.log, "utf8").catch(() => "")).not.toContain("systemctl stop");
+
+		// PID 2^22+ is above the default pid_max, so the owner cannot be alive.
+		await writeFile(path.join(lock, "owner"), `pid=${2 ** 22 + 11}\nhost=${hostname}\nstartedAt=then\n`);
+		const proceeded = await run(f.env);
+		expect(proceeded.output).toContain("stale restore lock");
+		expect(proceeded.code).toBe(0);
+	});
+
 	it("promotes only a built candidate and keeps the old runtime available for rollback", async () => {
 		const f = await fixture("good");
 		const result = await run(f.env);

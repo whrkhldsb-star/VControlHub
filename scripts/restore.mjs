@@ -74,6 +74,27 @@ function assertRestoreConfirmed() {
 
 const OFFLINE_HINT = "Stop every VControlHub service (web, worker, SSH proxy) and any other database client, then retry; start the services again after the restore.";
 
+const DEPLOY_LOCK = process.env.DEPLOY_LOCK?.trim() || "/run/lock/vcontrolhub-deploy.lock";
+
+/**
+ * deploy.sh holds DEPLOY_LOCK for its whole run and keeps its PID in it (the
+ * PID is cleared on release). Its artifact switch stops the services for a
+ * moment, which would satisfy the service check below while a deployment is
+ * half done; deploy.sh refuses to start over a restore lock in the same way.
+ */
+async function assertNoDeploymentRunning() {
+  const content = await fs.readFile(DEPLOY_LOCK, "utf8").catch(() => "");
+  const pid = Number.parseInt(content.trim(), 10);
+  if (!Number.isInteger(pid) || pid <= 0) return;
+  let alive = true;
+  try {
+    process.kill(pid, 0);
+  } catch (error) {
+    alive = error?.code === "EPERM";
+  }
+  if (alive) fail(`a deployment is running (deploy.sh pid ${pid} holds ${DEPLOY_LOCK}); wait for it to finish before restoring`);
+}
+
 const DEFAULT_SERVICE_UNITS = "vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws";
 const NON_SYSTEMD_HINT = "If the platform does not run under systemd on this host, stop every instance yourself and re-run with VCONTROLHUB_SERVICE_UNITS=none.";
 // Only these mean "not running". Running and transitional states, "unknown",
@@ -330,6 +351,7 @@ async function main() {
   }
 
   assertRestoreConfirmed();
+  await assertNoDeploymentRunning();
   await assertPlatformServicesStopped();
   const releaseLock = await acquireRestoreLock(APP_DIR);
   const startedAt = new Date().toISOString();

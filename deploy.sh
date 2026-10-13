@@ -37,6 +37,22 @@ release_deploy_lock() {
 
 APP_USER="${APP_USER:-vcontrolhub}"
 APP_DIR="${APP_DIR:-/opt/VControlHub}"
+
+# A restore in progress (scripts/restore.mjs or restore-files.sh) holds
+# $APP_DIR/.restore.lock. Deploying over it would restart the services the
+# restore needs stopped and swap the tree it is writing. A lock whose owner is
+# dead on this host is only reported; restore.mjs reclaims it itself.
+RESTORE_LOCK="$APP_DIR/.restore.lock"
+if [ -d "$RESTORE_LOCK" ]; then
+	restore_pid="$(sed -n 's/^pid=//p' "$RESTORE_LOCK/owner" 2>/dev/null | head -n 1)"
+	restore_host="$(sed -n 's/^host=//p' "$RESTORE_LOCK/owner" 2>/dev/null | head -n 1)"
+	if [ "$restore_host" = "$(hostname)" ] && [ -n "$restore_pid" ] && ! kill -0 "$restore_pid" 2>/dev/null; then
+		echo "WARN: stale restore lock $RESTORE_LOCK (pid $restore_pid is gone); continuing"
+	else
+		echo "ERROR: a restore is in progress ($RESTORE_LOCK, pid ${restore_pid:-unknown} on ${restore_host:-unknown}); wait for it to finish"
+		exit 75
+	fi
+fi
 SERVICE_NAME="${SERVICE_NAME:-vcontrolhub-next}"
 WORKER_SERVICE_NAME="${WORKER_SERVICE_NAME:-vcontrolhub-worker}"
 SSH_SERVICE_NAME="${SSH_SERVICE_NAME:-vcontrolhub-ssh-ws}"
