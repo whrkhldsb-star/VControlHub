@@ -364,6 +364,52 @@ describe("alert incidents", () => {
     );
   });
 
+  it("persists the escalation's delivery intent with the claim and keeps a failed channel pending", async () => {
+    const old = new Date(Date.now() - 60 * 60_000);
+    prismaMock.alertIncident.findMany.mockResolvedValue([
+      {
+        id: "inc1",
+        ruleId: "r1",
+        status: "OPEN",
+        level: 1,
+        title: "Alert",
+        message: "cpu high",
+        serverName: "vps-1",
+        metric: "cpu_usage",
+        createdAt: old,
+        lastNotifiedAt: old,
+        rule: {
+          id: "r1",
+          name: "High CPU",
+          escalationMinutes: 15,
+          onCallUserIds: ["oncall1"],
+          notifyChannels: ["in_app", "webhook"],
+          webhookUrl: "https://hooks.example.test/alert",
+          enabled: true,
+        },
+      },
+    ]);
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 1 });
+    webhookMock.mockResolvedValue({ ok: true, response: { ok: false, status: 503, statusText: "Service Unavailable" } });
+
+    const result = await escalateOverdueAlertIncidents();
+    expect(result.escalated).toBe(1);
+    const writes = prismaMock.alertIncident.updateMany.mock.calls.map((call) => call[0]);
+    // Claim: level 2 + every channel pending before anything is sent.
+    expect(writes[0]).toMatchObject({
+      where: { id: "inc1", status: "OPEN", level: 1 },
+      data: { level: 2, pendingNotifyChannels: ["in_app", "webhook"], notifyAttempts: 1 },
+    });
+    expect(writes[0].data.nextNotifyAt).toBeInstanceOf(Date);
+    // Bookkeeping after the send: only the failed channel stays pending, with a retry time.
+    expect(writes[1]).toMatchObject({
+      where: { id: "inc1", status: "OPEN", level: 2 },
+      data: { pendingNotifyChannels: ["webhook"], notifyAttempts: 1 },
+    });
+    expect(writes[1].data.nextNotifyAt).toBeInstanceOf(Date);
+    expect(writes[1].data.lastNotifyError).toContain("webhook");
+  });
+
   it("paginates escalation with a stable keyset cursor instead of a mutating offset", async () => {
     const older = new Date("2026-05-01T00:00:00.000Z");
     const newer = new Date("2026-05-02T00:00:00.000Z");
