@@ -120,11 +120,17 @@ async function pollUntilTerminal(
   return null;
 }
 
-function terminalOutcome(commandRequestId: string, status: string): string {
-  if (status !== "COMPLETED") {
-    throw new Error(`command request ${commandRequestId} ended with ${status}`);
+async function terminalOutcome(commandRequestId: string, status: string): Promise<string> {
+  if (status === "COMPLETED") return `command request ${commandRequestId} completed`;
+  // FAILED is also how a lost executor or an Agent that never confirmed a
+  // stop is recorded; such a target may still be running remotely.
+  const unknown = await prisma.commandTarget.count({ where: { commandRequestId, outcomeUnknown: true } });
+  if (unknown > 0) {
+    throw new CommandOutcomeUnknownError(
+      `command request ${commandRequestId} ended with ${status}, but ${unknown} target(s) could not confirm the remote process stopped; not retrying`,
+    );
   }
-  return `command request ${commandRequestId} completed`;
+  throw new Error(`command request ${commandRequestId} ended with ${status}`);
 }
 
 async function waitForCommand(

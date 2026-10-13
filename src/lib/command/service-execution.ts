@@ -15,6 +15,7 @@ import { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-
 import { executeCommandWithAgent } from "@/lib/server/agent-service";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { monitorCommandCancellation } from "./cancellation";
+import { CommandCancellationUnconfirmedError } from "./cancellation-error";
 
 export { executeCommandOverSsh, getCommandRuntimeConfigValues, setPasswordExecutorMode } from "./service-ssh";
 
@@ -174,7 +175,15 @@ export async function executeTarget(
     }).catch((error): SshExecutionResult => {
       // Only an explicit Agent result can acknowledge remote cancellation.
       // A rejected database/control-plane operation is never that proof.
-      return { stdout: "", stderr: error instanceof Error ? error.message : "Agent execution failed", exitCode: 255, cancelled: false };
+      return {
+        stdout: "",
+        stderr: error instanceof Error ? error.message : "Agent execution failed",
+        exitCode: 255,
+        cancelled: false,
+        // The Agent took the job and never confirmed it stopped: the command
+        // may still be running remotely. Never fall back or retry on that.
+        outcomeUnknown: error instanceof CommandCancellationUnconfirmedError,
+      };
     });
     await prisma.executionLog.create({
       data: {
@@ -253,6 +262,7 @@ export async function executeTarget(
       stderr: result.stderr || null,
       exitCode: cancelled ? 130 : result.exitCode,
       finishedAt: new Date(),
+      outcomeUnknown: result.outcomeUnknown === true,
     },
   });
 

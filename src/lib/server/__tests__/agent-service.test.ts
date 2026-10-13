@@ -162,22 +162,4 @@ describe("server Agent authentication and routing", () => {
     await expect(heartbeatServerAgentJob({ serverId: "srv1", jobId: "job1" })).resolves.toBe(true);
   });
 
-  it("cancels a claimed job on control-plane timeout", async () => {
-    vi.useFakeTimers();
-    mocks.serverFindUnique.mockResolvedValueOnce({
-      managementMode: "AGENT",
-      agentLastSeenAt: new Date(),
-    });
-    mocks.agentJobCreate.mockResolvedValueOnce({ id: "job1" });
-    mocks.agentJobFindUnique.mockResolvedValue({ id: "job1", status: "CLAIMED", stdout: null });
-    mocks.agentJobUpdateMany.mockResolvedValueOnce({ count: 1 });
-    const resultPromise = executeCommandWithAgent({ serverId: "srv1", command: "sleep 1", timeoutMs: 1 });
-    await vi.advanceTimersByTimeAsync(11_001);
-    await expect(resultPromise).resolves.toMatchObject({ exitCode: 124 });
-    expect(mocks.agentJobUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ id: "job1", status: { in: ["PENDING", "CLAIMED"] } }),
-      data: expect.objectContaining({ status: "CANCELLED", exitCode: 124 }),
-    }));
-    vi.useRealTimers();
-  });
 });

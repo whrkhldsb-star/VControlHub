@@ -19,6 +19,7 @@ vi.mock("@/lib/db", () => ({
 		notification: { create: mocks.notificationCreate },
 		playbookRun: { updateMany: mocks.playbookRunUpdateMany },
 		commandRequest: { findUnique: mocks.commandRequestFindUnique },
+		commandTarget: { count: vi.fn(async () => 0) },
 		teamMember: { findUnique: mocks.teamMemberFindUnique },
 	},
 }));

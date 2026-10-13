@@ -27,6 +27,9 @@ vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: vi.fn() }));
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		playbookRun: { updateMany: mocks.playbookRunUpdateMany },
+		commandTarget: {
+			count: vi.fn(async ({ where }: { where: { commandRequestId: string } }) => (statuses.get(`unknown:${where.commandRequestId}`) ? 1 : 0)),
+		},
 		commandRequest: {
 			findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
 				const status = statuses.get(where.id);
@@ -120,5 +123,31 @@ describe("playbook command timeout → cancel → retry barrier", () => {
 		const { results } = await run();
 		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
 		expect(results[0]).toMatchObject({ status: "ok", commandRequestId: "request-1" });
+	});
+
+	it("does not retry a failed command whose target could not confirm the remote process stopped", async () => {
+		mocks.createCommandRequest.mockImplementation(async () => {
+			created += 1;
+			const id = `request-${created}`;
+			statuses.set(id, "FAILED");
+			statuses.set(`unknown:${id}`, "1");
+			return { id };
+		});
+		const { results } = await run();
+		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+		expect(results[0]).toMatchObject({ status: "failed", commandRequestId: "request-1" });
+		expect(results[0]?.error).toMatch(/could not confirm the remote process stopped/);
+	});
+
+	it("still retries an ordinary failure", async () => {
+		mocks.createCommandRequest.mockImplementation(async () => {
+			created += 1;
+			const id = `request-${created}`;
+			statuses.set(id, created < 3 ? "FAILED" : "COMPLETED");
+			return { id };
+		});
+		const { results } = await run();
+		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(3);
+		expect(results[0]).toMatchObject({ status: "ok", commandRequestId: "request-3" });
 	});
 });

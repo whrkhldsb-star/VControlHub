@@ -80,6 +80,8 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
         stderr: "The background SSH executor may have been interrupted by a service restart or process exit; it has been automatically marked as failed. Cancellation could not be confirmed; check the remote process before retrying.",
         exitCode: 255,
         finishedAt: now,
+        // The executor was lost mid-run: whether the command ran is unknown.
+        outcomeUnknown: true,
       },
     });
     const heartbeatDetail = request.workerHeartbeatAt

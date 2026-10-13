@@ -484,6 +484,10 @@ model CommandTarget {
   exitCode         Int?
   startedAt        DateTime?
   finishedAt       DateTime?
+  /// The remote process may still be running (or may have run): cancellation
+  /// was never acknowledged. The target is FAILED for bookkeeping, but automatic
+  /// retries must not treat it as a clean failure.
+  outcomeUnknown   Boolean              @default(false)
   commandRequest   CommandRequest       @relation(fields: [commandRequestId], references: [id], onDelete: Cascade)
   server           Server               @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
