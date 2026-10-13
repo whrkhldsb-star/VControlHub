@@ -16,6 +16,7 @@ import { createLogger } from "@/lib/logging";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { collectAllHealth } from "./service-collect";
 import { HEALTH_SAMPLE_INTERVAL_MINUTES } from "./service-types";
+import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
 import {
   pruneMetricSnapshots,
   snapshotHealthOverview,
@@ -31,7 +32,7 @@ export const HEALTH_SAMPLING_JOB_TYPE = "health.sample";
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:health-sampling:${process.pid}`;
 const LEASE_MS = computeLeaseMs("health-sampling");
 const DEFAULT_INTERVAL_MS = HEALTH_SAMPLE_INTERVAL_MINUTES * 60_000;
-const RETENTION_MS = 30 * 24 * 60 * 60_000;
+const DAY_MS = 24 * 60 * 60_000;
 const HEALTH_SAMPLE_JOB_KEEP_LATEST = 50;
 const logger = createLogger("health-sampling-worker");
 
@@ -39,7 +40,10 @@ type State = SingletonIntervalWorkerState;
 
 const healthSamplingWorker = createSingletonIntervalWorker({
   globalKey: "__vcontrolhubHealthSamplingWorker",
-  resolveIntervalMs: () => DEFAULT_INTERVAL_MS,
+  resolveIntervalMs: () =>
+    getRuntimeSettingNumber("monitoring.healthSampleIntervalMinutes")
+      .then((minutes) => minutes * 60_000)
+      .catch(() => DEFAULT_INTERVAL_MS),
   tick: (_state, reason) => {
     void runHealthSamplingWorkerOnce(reason).catch((error) =>
       logger.error(
@@ -108,8 +112,9 @@ async function processSample(jobId: string) {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+  const retentionDays = await getRuntimeSettingNumber("retention.healthSamplesDays").catch(() => 30);
   const pruned = await pruneMetricSnapshots(
-    new Date(Date.now() - RETENTION_MS),
+    new Date(Date.now() - retentionDays * DAY_MS),
   );
   // Feed /status 90-day heatmap from metric samples (table was previously never written).
   const uptime = await rollupRecentServerUptime();

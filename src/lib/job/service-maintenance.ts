@@ -1,4 +1,5 @@
 import { JobStatus, Prisma } from "@prisma/client";
+import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
 
 import { prisma } from "@/lib/db";
 import { t } from "@/lib/i18n/service-translations";
@@ -292,9 +293,10 @@ export async function pruneTerminalJobs(
   const now = options?.now ?? new Date();
   const statuses = options?.statuses ?? [JobStatus.FAILED, JobStatus.CANCELLED];
   if (statuses.length === 0) return { count: 0 };
+  const retentionDays = await getRuntimeSettingNumber("retention.terminalJobsDays").catch(() => TERMINAL_JOB_RETENTION_DAYS);
   const olderThan =
     options?.olderThan ??
-    new Date(now.getTime() - TERMINAL_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
   const batchSize = Math.min(Math.max(options?.batchSize ?? TERMINAL_JOB_PRUNE_BATCH, 1), TERMINAL_JOB_PRUNE_BATCH);
   const where = {
     status: { in: statuses },

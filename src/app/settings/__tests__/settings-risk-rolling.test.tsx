@@ -174,6 +174,17 @@ describe("SETTINGS_SCHEMA risk classification (TR-014 schema audit)", () => {
       "ai.ops.mode",
       // TR-009 55d: Telegram Bot Token 错会让所有 Telegram 告警失败; 改后无法立即验证
       "telegram.botToken",
+      // 2026-10 settings expansion: lockout thresholds and the remember-me lifetime gate access;
+      // the host-key pin can refuse every unpinned server; the upload cap, sampling interval
+      // and audit retention change capacity, load and compliance posture.
+      "security.loginLockoutClientFailures",
+      "security.loginLockoutAccountFailures",
+      "security.loginLockoutMinutes",
+      "security.rememberSessionTtlSeconds",
+      "security.sshEnforceHostKeyPin",
+      "storage.uploadMaxBytes",
+      "monitoring.healthSampleIntervalMinutes",
+      "retention.auditLogDays",
       ]);
     const allHigh: string[] = [];
     for (const section of SETTINGS_SCHEMA) {

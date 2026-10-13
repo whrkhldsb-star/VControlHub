@@ -1,5 +1,6 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { config } from "@/lib/config/env";
+import { readPersistedRuntimeSettingNumber } from "@/lib/runtime-settings/service";
 
 /**
  * File version history — control-plane snapshots for ordinary files.
@@ -179,7 +180,8 @@ async function nextVersionNumber(fileEntryId: string): Promise<number> {
   return (latest?.versionNumber ?? 0) + 1;
 }
 
-async function enforceRetention(fileEntryId: string, keep = DEFAULT_FILE_VERSION_KEEP) {
+async function enforceRetention(fileEntryId: string, keepOverride?: number) {
+  const keep = keepOverride ?? (await readPersistedRuntimeSettingNumber("storage.fileVersionKeep")) ?? DEFAULT_FILE_VERSION_KEEP;
   if (keep <= 0) return;
   const surplus = await prisma.fileVersion.findMany({
     where: { fileEntryId },
@@ -276,7 +278,7 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
   /** Also snapshot a recycle-bin entry (its bytes are still at its path). */
   includeDeleted?: boolean;
 }): Promise<FileVersionView | null> {
-  const maxBytes = input.maxBytes ?? DEFAULT_FILE_VERSION_MAX_BYTES;
+  const maxBytes = input.maxBytes ?? (await readPersistedRuntimeSettingNumber("storage.fileVersionMaxBytes")) ?? DEFAULT_FILE_VERSION_MAX_BYTES;
   const entry = await prisma.fileEntry.findUnique({
     where: { id: input.fileEntryId },
     include: {

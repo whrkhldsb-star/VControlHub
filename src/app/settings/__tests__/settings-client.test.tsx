@@ -48,7 +48,7 @@ describe("SettingsClient", () => {
       expect(csrfFetch).toHaveBeenCalledWith("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "" }),
+        body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "", "platform.defaultLocale": "", "platform.defaultTheme": "" }),
       });
     });
     expect(await screen.findByText(/设置已保存/)).toBeInTheDocument();

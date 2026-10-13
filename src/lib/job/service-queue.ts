@@ -2,6 +2,7 @@ import { JobStatus, Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { getRuntimeSettingNumberCached } from "@/lib/runtime-settings/cached";
 
 import {
   DEFAULT_LEASE_MS,
@@ -12,7 +13,7 @@ import {
 } from "./service-internals";
 
 function sanitizeAttempts(value: number | undefined) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return config.job.defaultMaxAttempts;
+  if (typeof value !== "number" || !Number.isFinite(value)) return getRuntimeSettingNumberCached("jobs.defaultMaxAttempts");
   return Math.max(1, Math.floor(value));
 }
 

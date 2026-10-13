@@ -21,6 +21,7 @@ const {
   getRuntimeSettingFallback,
   getRuntimeSettingSummaries,
   normalizeRuntimeSettingValue,
+  RUNTIME_SETTING_DEFINITIONS,
 } = await import("./service");
 
 describe("runtime settings", () => {
@@ -177,5 +178,22 @@ describe("runtime settings", () => {
     expect(reconcile).toMatchObject({ value: 45000, source: "database", sourceLabel: "Database setting", requiresRestart: true });
     // sshIdleTimeoutSec now applies per terminal connection (no restart).
     expect(invalidIdle).toMatchObject({ value: 0, source: "invalid-database", sourceLabel: "Database value invalid, fell back", requiresRestart: false });
+  });
+
+  it("accepts an env value of 0 only for keys whose minimum is 0", () => {
+    process.env.AUDIT_RETENTION_DAYS = "0";
+    expect(getRuntimeSettingFallback("retention.auditLogDays")).toBe(0);
+    delete process.env.AUDIT_RETENTION_DAYS;
+    process.env.AI_PROVIDER_LIST_LIMIT = "0";
+    expect(getRuntimeSettingFallback("runtime.aiProviderListLimit")).toBe(100);
+    delete process.env.AI_PROVIDER_LIST_LIMIT;
+  });
+
+  it("keeps every definition's default inside its own range", () => {
+    for (const [key, definition] of Object.entries(RUNTIME_SETTING_DEFINITIONS)) {
+      expect(definition.defaultValue, key).toBeGreaterThanOrEqual(definition.min);
+      expect(definition.defaultValue, key).toBeLessThanOrEqual(definition.max);
+      expect(normalizeRuntimeSettingValue(key as keyof typeof RUNTIME_SETTING_DEFINITIONS, definition.defaultValue)).toBe(String(definition.defaultValue));
+    }
   });
 });

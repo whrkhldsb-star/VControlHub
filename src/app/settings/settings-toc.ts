@@ -9,4 +9,11 @@ export const TOC_SUBTITLE_KEYS: Record<string, string> = {
 	dashboard: "settingsClient.toc.dashboard.subtitle",
 	offsite: "settingsClient.toc.offsite.subtitle",
 	aiOps: "settingsClient.toc.aiOps.subtitle",
+	securityPolicy: "settingsClient.toc.securityPolicy.subtitle",
+	jobs: "settingsClient.toc.jobs.subtitle",
+	alerts: "settingsClient.toc.alerts.subtitle",
+	storage: "settingsClient.toc.storage.subtitle",
+	monitoring: "settingsClient.toc.monitoring.subtitle",
+	retention: "settingsClient.toc.retention.subtitle",
+	ai: "settingsClient.toc.ai.subtitle",
 };

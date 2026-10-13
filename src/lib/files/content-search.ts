@@ -12,6 +12,7 @@
  * - Only text files are searched (binary files skipped via grep -I)
  */
 import fs from "node:fs/promises";
+import { getRuntimeSettingNumberCached } from "@/lib/runtime-settings/cached";
 import path from "node:path";
 
 import { createLogger } from "@/lib/logging";
@@ -54,7 +55,8 @@ export type ContentSearchResponse = {
 const MAX_RESULTS = 100;
 const MAX_SNIPPETS_PER_FILE = 5;
 const MAX_SNIPPET_LENGTH = 200;
-const MAX_FILE_SIZE_BYTES = 1024 * 1024; // 1MB - skip files larger than this
+/** Files above `storage.contentSearchMaxFileBytes` (default 1 MiB) are skipped. */
+const maxFileSizeBytes = () => getRuntimeSettingNumberCached("storage.contentSearchMaxFileBytes");
 const SEARCH_TIMEOUT_MS = 30_000;
 
 // Text file extensions to search for LOCAL nodes
@@ -139,7 +141,7 @@ async function searchLocalNode(
 			} else if (entry.isFile() && isSearchableFile(entry.name)) {
 				try {
 					const stat = await fs.stat(fullPath);
-					if (stat.size > MAX_FILE_SIZE_BYTES) continue;
+					if (stat.size > maxFileSizeBytes()) continue;
 
 					const content = await fs.readFile(fullPath, "utf-8");
 					const lines: string[] = content.split("\n");

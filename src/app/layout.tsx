@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { getPlatformDefaults } from "@/lib/settings/platform-defaults";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -64,8 +65,10 @@ export default async function RootLayout({
 	const localeCookie = cookieStore.get("vps-locale")?.value;
 	const themeCookie = cookieStore.get("vps-theme")?.value;
 	const sidebarCollapsed = cookieStore.get("vch-sidebar")?.value === "collapsed";
-	const initialLocale: Locale = localeCookie === "en" ? "en" : "zh";
-	const initialTheme: Theme = themeCookie === "light" ? "light" : "dark";
+	// Visitors without a preference cookie get the platform defaults from settings.
+	const platformDefaults = await getPlatformDefaults();
+	const initialLocale: Locale = localeCookie === "en" || localeCookie === "zh" ? localeCookie : platformDefaults.locale;
+	const initialTheme: Theme = themeCookie === "light" || themeCookie === "dark" ? themeCookie : platformDefaults.theme;
 
 	// TR-030 / task 56: build a `SessionGate` server-side so the entire
 	// authenticated chrome (sidebar + global search + mobile nav) shares the

@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
 /**
  * Knowledge Base / RAG — chunking + lexical retrieval.
  *
@@ -419,7 +420,8 @@ export async function searchKnowledge(input: {
   }
 
   ranked.sort((a, b) => b.score - a.score || a.chunkIndex - b.chunkIndex);
-  const limit = Math.min(MAX_RESULTS, Math.max(1, input.limit ?? 5));
+  const maxResults = await getRuntimeSettingNumber("ai.knowledgeMaxResults").catch(() => MAX_RESULTS);
+  const limit = Math.min(maxResults, Math.max(1, input.limit ?? 5));
   return ranked.slice(0, limit);
 }
 

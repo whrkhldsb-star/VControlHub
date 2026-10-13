@@ -1,4 +1,5 @@
 import { Client, type ConnectConfig } from "ssh2";
+import { getSshEnforceHostKeyPin } from "@/lib/settings/cached-flags";
 import type { SFTPWrapper } from "ssh2";
 import { createHash } from "node:crypto";
 import { StringDecoder } from "node:string_decoder";
@@ -80,7 +81,7 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
  }
 
  const expectedHostKey = stripHostKeyFingerprintPrefix(input.hostKeySha256);
- const enforceHostKeyPin = input.enforceHostKeyPin ?? appConfig.ssh.enforceHostKeyPin;
+ const enforceHostKeyPin = input.enforceHostKeyPin ?? getSshEnforceHostKeyPin();
  const needsVerifier = expectedHostKey || input.onHostKeySha256 || enforceHostKeyPin;
  if (needsVerifier) {
   config.hostHash = "sha256";
@@ -141,7 +142,7 @@ function sshPoolKey(input: SshConnectionParams) {
     passphrase: input.passphrase ?? null,
     password: input.password ?? null,
     hostKeySha256: stripHostKeyFingerprintPrefix(input.hostKeySha256),
-    enforceHostKeyPin: input.enforceHostKeyPin ?? appConfig.ssh.enforceHostKeyPin,
+    enforceHostKeyPin: input.enforceHostKeyPin ?? getSshEnforceHostKeyPin(),
   })).digest("hex");
 }
 

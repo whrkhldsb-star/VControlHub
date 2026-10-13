@@ -65,7 +65,7 @@ describe("UnifiedSettingsPageClient", () => {
     const input = await screen.findByLabelText("平台名称");
     fireEvent.change(input, { target: { value: "Unsaved draft" } });
     fireEvent.click(screen.getByRole("tab", { name: /个人偏好/ }));
-    fireEvent.click(screen.getByRole("tab", { name: /安全与账户/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /平台与外观/ }));
     expect(screen.getByLabelText("平台名称")).toHaveValue("Unsaved draft");
     expect(window.history.state).toEqual({ marker: "router" });
     expect(csrfFetch).not.toHaveBeenCalledWith("/api/settings", expect.anything());
@@ -125,11 +125,11 @@ describe("UnifiedSettingsPageClient", () => {
     expect(screen.getByText("个人使用习惯、界面行为、账户安全与平台级参数集中在一个入口中管理。"))
       .toBeInTheDocument();
 
-    // Tab bar with 4 tabs (customers are managed on /customers)
-    expect(screen.getByRole("tab", { name: /个人偏好/ })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /安全与账户/ })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /通知与集成/ })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /高级配置/ })).toBeInTheDocument();
+    // Tab bar with the eight categories (customers are managed on /customers)
+    for (const name of [/个人偏好/, /平台与外观/, /安全与账户/, /通知与集成/, /运维与执行/, /存储与备份/, /监控与数据/, /AI/]) {
+      expect(screen.getByRole("tab", { name })).toBeInTheDocument();
+    }
+    expect(screen.getAllByRole("tab")).toHaveLength(8);
 
     // Personal preferences content is visible by default
     expect(await screen.findByRole("button", { name: "VPS 管理" })).toBeInTheDocument();
@@ -153,8 +153,8 @@ describe("UnifiedSettingsPageClient", () => {
       body: expect.stringContaining('"defaultPage":"/servers"'),
     }));
 
-    // ── Tab 2: Security & Account (contains platform info) ──
-    await user.click(screen.getByRole("tab", { name: /安全与账户/ }));
+    // ── Tab 2: Platform & appearance (contains platform info) ──
+    await user.click(screen.getByRole("tab", { name: /平台与外观/ }));
 
     const input = await screen.findByLabelText("平台名称");
     await user.clear(input);
@@ -165,7 +165,7 @@ describe("UnifiedSettingsPageClient", () => {
     await waitFor(() => {
       expect(csrfFetch).toHaveBeenCalledWith("/api/settings", expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "" }),
+        body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "", "platform.defaultLocale": "", "platform.defaultTheme": "" }),
       }));
     });
   });
@@ -202,7 +202,7 @@ describe("UnifiedSettingsPageClient", () => {
     const personalTab = screen.getByRole("tab", { name: /个人偏好/ });
     const securityTab = screen.getByRole("tab", { name: /安全与账户/ });
     const notificationsTab = screen.getByRole("tab", { name: /通知与集成/ });
-    const advancedTab = screen.getByRole("tab", { name: /高级配置/ });
+    const advancedTab = screen.getByRole("tab", { name: /运维与执行/ });
 
     expect(personalTab).toHaveAttribute("aria-selected", "true");
     expect(securityTab).toHaveAttribute("aria-selected", "false");
