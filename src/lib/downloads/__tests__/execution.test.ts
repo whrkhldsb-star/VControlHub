@@ -50,6 +50,9 @@ vi.mock("fs", () => ({ default: { createReadStream: vi.fn() }, createReadStream:
 vi.mock("@/lib/notification/service", () => ({ notifyDownloadResult: vi.fn(async () => undefined) }));
 vi.mock("@/lib/downloads/remote-command", () => ({
   buildDirectDownloadCommand: vi.fn(() => "DL_CMD"),
+  buildDirectDownloadStopCommand: vi.fn(() => "STOP_CMD"),
+  parseDirectDownloadStopResult: (result: { stdout: string; exitCode?: number | null }) =>
+    result.exitCode === 0 && /^(STOPPED|NOT_RUNNING)$/m.test(result.stdout) ? result.stdout.trim() : null,
   getDirectDownloadLogCommand: vi.fn(() => "LOG_CMD"),
   shellQuote: (s: string) => `'${s}'`,
   toRemoteChildPath: (base: string, f: string) => `${base}/${f}`,
@@ -179,12 +182,32 @@ describe("executeDirectDownload claim ordering", () => {
 
     expect(ssh.execRemoteCommand).toHaveBeenCalledTimes(3);
     const cleanupCall = (ssh.execRemoteCommand.mock.calls as unknown[][])[2]?.[0];
-    expect(cleanupCall).toEqual(expect.objectContaining({
-      command: expect.stringContaining("kill"),
-    }));
+    expect(cleanupCall).toEqual(expect.objectContaining({ command: "STOP_CMD" }));
     expect(prismaMock.downloadTask.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
       where: { id: "task-5", status: "RUNNING" },
       data: expect.objectContaining({ status: "FAILED" }),
     }));
+  });
+
+  it("stops the remote download it just started when the task was cancelled during the spawn", async () => {
+    ssh.execRemoteCommand
+      .mockResolvedValueOnce({ stdout: "", exitCode: 0 }) // mkdir
+      .mockResolvedValueOnce({ stdout: "4321", exitCode: 0 }) // spawn
+      .mockResolvedValueOnce({ stdout: "STOPPED\n", exitCode: 0 }); // stop
+    prismaMock.downloadTask.updateMany
+      .mockResolvedValueOnce({ count: 1 }) // PENDING -> RUNNING claim
+      .mockResolvedValueOnce({ count: 0 }); // pid record: the row is CANCELLED now
+    const { indexDownloadedFileEntry } = await import("@/lib/downloads/helpers");
+
+    await executeDirectDownload("task-6", server, "http://x/f", "/target", "f", undefined, {
+      hostname: "x",
+      address: "1.2.3.4",
+      port: 443,
+    });
+
+    expect(ssh.execRemoteCommand).toHaveBeenCalledTimes(3);
+    expect((ssh.execRemoteCommand.mock.calls as unknown[][])[2]?.[0]).toEqual(expect.objectContaining({ command: "STOP_CMD" }));
+    expect(indexDownloadedFileEntry).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledTimes(2);
   });
 });

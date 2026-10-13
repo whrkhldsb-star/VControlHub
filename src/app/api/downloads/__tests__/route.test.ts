@@ -1110,7 +1110,7 @@ describe("/api/downloads", () => {
       url: "https://example.com/file.iso", status: "RUNNING", pid: 12345, aria2Gid: null,
       relayMode: false, server: serverFixture(),
     });
-    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 });
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "STOPPED\n", stderr: "", exitCode: 0 });
     prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
 
     const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_race", { method: "DELETE" }));
@@ -1119,6 +1119,63 @@ describe("/api/downloads", () => {
     expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "task_race", status: { in: ["PENDING", "RUNNING"] } },
     }));
+  });
+
+  it("stops a running direct download on the server even when its pid was never stored", async () => {
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
+      id: "task_nopid", createdBy: "u_1", targetPath: "/srv/cloud/downloads",
+      url: "https://example.com/file.iso", status: "RUNNING", pid: null, aria2Gid: null,
+      relayMode: false, server: serverFixture(),
+    });
+    execRemoteCommandMock.mockReset();
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "STOPPED\n", stderr: "", exitCode: 0 });
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_nopid", { method: "DELETE" }));
+
+    expect(response.status).toBe(200);
+    expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({
+      command: expect.stringContaining("pkill -TERM -f"),
+    }));
+    expect(execRemoteCommandMock.mock.calls[0]![0].command).toContain("task_nopid");
+  });
+
+  it("keeps a direct task RUNNING when the server cannot confirm the download stopped", async () => {
+    // Other unconfirmed outputs (empty, NO_PGREP, null exit) are covered by
+    // parseDirectDownloadStopResult in remote-stop.process.test.ts.
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
+      id: "task_direct", createdBy: "u_1", targetPath: "/srv/cloud/downloads",
+      url: "https://example.com/file.iso", status: "RUNNING", pid: 12345, aria2Gid: null,
+      relayMode: false, server: serverFixture(),
+    });
+    execRemoteCommandMock.mockReset();
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "STILL_RUNNING\n", stderr: "", exitCode: 4 });
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_direct", { method: "DELETE" }));
+
+    expect(response.status).toBe(502);
+    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("cancels a task the worker claimed meanwhile as a running one (stops the remote process first)", async () => {
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
+      id: "task_claimed", createdBy: "u_1", targetPath: "/srv/cloud/downloads",
+      url: "https://example.com/file.iso", status: "PENDING", pid: null, aria2Gid: null,
+      relayMode: false, server: serverFixture(),
+    });
+    prismaMock.downloadTask.updateMany
+      .mockResolvedValueOnce({ count: 0 }) // PENDING CAS lost: the worker claimed it
+      .mockResolvedValueOnce({ count: 1 });
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({ status: "RUNNING" });
+    execRemoteCommandMock.mockReset();
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "STOPPED\n", stderr: "", exitCode: 0 });
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_claimed", { method: "DELETE" }));
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.downloadTask.updateMany.mock.calls[0]![0]).toMatchObject({ where: { id: "task_claimed", status: "PENDING" } });
+    expect(execRemoteCommandMock).toHaveBeenCalledTimes(1);
+    expect(execRemoteCommandMock.mock.invocationCallOrder[0]!).toBeLessThan(prismaMock.downloadTask.updateMany.mock.invocationCallOrder[1]!);
   });
 
   it("cleans the relay temp directory when cancelling a relay task even if pid is missing", async () => {

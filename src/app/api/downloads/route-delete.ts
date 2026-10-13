@@ -6,7 +6,10 @@ import { auditUserAction } from "@/lib/audit/service";
 import { removeDownload } from "@/lib/aria2/service";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { shellQuote } from "@/lib/downloads/remote-command";
+import {
+  buildDirectDownloadStopCommand,
+  parseDirectDownloadStopResult,
+} from "@/lib/downloads/remote-command";
 import { cleanupTemp } from "@/lib/downloads/execution";
 import { relayTempDir } from "@/lib/runtime/platform-paths";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -89,7 +92,37 @@ export async function DELETE(request: Request) {
         }
       }
 
-      if (task.status === "RUNNING") {
+      const cancelledData = { status: "CANCELLED" as const, errorMessage: t("apiDownloads.userCancelled", locale) };
+      const finishCancel = async () => {
+        await auditUserAction(session.userId, "download.cancel", {
+          taskId,
+          url: task.url,
+        }, undefined, session.currentTeamId);
+        return NextResponse.json({ success: true });
+      };
+
+      let status = task.status;
+      if (status === "PENDING") {
+        // A worker that has not claimed the task yet can no longer start it.
+        const won = await prisma.downloadTask.updateMany({
+          where: { id: taskId, status: "PENDING" },
+          data: cancelledData,
+        });
+        if (won.count > 0) return finishCancel();
+        // The worker claimed it meanwhile: it may already be starting the
+        // remote process, so cancel it as a running task.
+        const current = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true } });
+        if (current?.status === "CANCELLED") return NextResponse.json({ success: true });
+        if (current?.status !== "RUNNING") {
+          return NextResponse.json(
+            { error: t("apiDownloads.taskNoLongerActive", locale) },
+            { status: 409 },
+          );
+        }
+        status = "RUNNING";
+      }
+
+      if (status === "RUNNING") {
         if (task.relayMode) {
           if (task.pid) {
             try {
@@ -103,19 +136,27 @@ export async function DELETE(request: Request) {
             }
           }
           await cleanupTemp(relayTempDir(taskId));
-        } else if (task.pid) {
+        } else {
+          // Always ask the server, with or without a stored pid: the remote
+          // process records its own identity and may be running even when the
+          // controller never stored the pid. Only a confirmed stop (no download
+          // process left) may mark the task cancelled; otherwise it stays
+          // RUNNING and the user can cancel again.
+          let stopped = null;
           try {
             const sshParams = await buildSshParamsFromServer(
               task.server,
               task.server.sshKey,
             );
-            await execRemoteCommand({
+            stopped = parseDirectDownloadStopResult(await execRemoteCommand({
               ...sshParams,
-              command: `kill ${task.pid} 2>/dev/null; rm -f -- ${shellQuote(`/tmp/app-dl-${task.id}.pid`)}`,
-              timeout: 10000,
-            });
+              command: buildDirectDownloadStopCommand(task.id, task.targetPath),
+              timeout: 20000,
+            }));
           } catch (err) {
             logError("[DownloadAPI] Failed to kill remote process:", err);
+          }
+          if (!stopped) {
             return NextResponse.json(
               { error: t("apiDownloads.remoteProcessCancelFailed", locale) },
               { status: 502 },
@@ -126,7 +167,7 @@ export async function DELETE(request: Request) {
 
       const cancelled = await prisma.downloadTask.updateMany({
         where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } },
-        data: { status: "CANCELLED", errorMessage: t("apiDownloads.userCancelled", locale) },
+        data: cancelledData,
       });
       if (cancelled.count === 0) {
         return NextResponse.json(
@@ -134,12 +175,7 @@ export async function DELETE(request: Request) {
           { status: 409 },
         );
       }
-
-      await auditUserAction(session.userId, "download.cancel", {
-        taskId,
-        url: task.url,
-      }, undefined, session.currentTeamId);
-      return NextResponse.json({ success: true });
+      return finishCancel();
     },
   );
 }
