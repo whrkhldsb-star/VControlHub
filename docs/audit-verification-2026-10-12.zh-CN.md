@@ -479,5 +479,4 @@
 
 ## 8. main 集成
 
-本机没有可用的 Git 推送凭据（无 gh CLI；HTTPS 需要用户名；SSH 被拒绝）。没有另找凭据，通过仓库所有者已授权的 GitHub 连接器发布，所有请求内容由本工作编写。Git Data API 无法保留本地提交 SHA，所以远端是一个聚合提交，其树与上述验证的本地树逐字节一致；第 7 节的提交号指本地审核分支 `fix/verified-audit-20261012` 上的提交。远端提交、PR 与合并结果记录在交接目录的 `result.md`。
-
+审核分支 `fix/verified-audit-20261012` 连同全部本地提交（第 7 节的提交号即远端提交号）由用户授权的另一会话推送到远端，以 PR 合入 `main`，经过 4 项必需 CI 检查后合并，并通过 `deploy.sh` 部署到本机（迁移由 `prisma migrate deploy` 应用）。合并提交与部署时间见 `git log` 与 `CHANGELOG.md`。
