@@ -1,9 +1,12 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
+import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { installFakeRestoreTools } from "../../../../scripts/__tests__/helpers/fake-restore-tools";
 
 /**
  * Fault injection against scripts/restore.mjs with a real PostgreSQL: the dump
@@ -11,8 +14,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * The restore must not leave a half-restored database behind, and a FULL
  * restore must not have replaced files when its database step fails.
  *
+ * It also proves the offline guard: the import refuses while any other client
+ * is connected, and a client that connects during the import only ever sees
+ * the restored data. systemctl is faked (the host's own services are not the
+ * subject here); psql and pg_dump are real.
+ *
  * Runs only with RUN_DATABASE_INTEGRATION_TESTS=1 and a DATABASE_URL that may
- * CREATE DATABASE; it creates and drops its own scratch database.
+ * CREATE DATABASE; it creates and drops its own scratch databases, so it never
+ * restores over a database another suite is using.
  */
 const hasDatabase = process.env.RUN_DATABASE_INTEGRATION_TESTS === "1" && Boolean(process.env.DATABASE_URL);
 const has = (bin: string) => spawnSync("sh", ["-c", `command -v ${bin}`]).status === 0;
@@ -38,8 +47,9 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
   let url: string;
   let work: string;
   let failingDump: string;
+  let fakeBin: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     psql(adminUrl("postgres"), `CREATE DATABASE ${database}`);
     url = adminUrl(database);
     psql(url, "CREATE TABLE probe (id int PRIMARY KEY, v text); INSERT INTO probe VALUES (1, 'from-backup')");
@@ -47,6 +57,7 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
     expect(dump.status, dump.stderr).toBe(0);
     psql(url, "UPDATE probe SET v = 'live-data'; CREATE TABLE created_after_backup (id int)");
     work = mkdtempSync(join(tmpdir(), "vch-restore-atomicity-"));
+    fakeBin = await installFakeRestoreTools(work, { psql: false });
     writeFileSync(join(work, ".env.restore"), `DATABASE_URL=${url}\n`);
     // A dump that dies after its schema and data statements have executed.
     failingDump = join(work, "database.sql.gz");
@@ -61,8 +72,12 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
   function runRestore(args: string[], appDir: string) {
     return spawnSync(process.execPath, [RESTORE_SCRIPT, ...args], {
       encoding: "utf8",
-      env: { ...process.env, CONFIRM_RESTORE: "1", APP_DIR: appDir, ENV_FILE: join(work, ".env.restore") },
+      env: restoreEnv(appDir, join(work, ".env.restore")),
     });
+  }
+
+  function restoreEnv(appDir: string, envFile: string) {
+    return { ...process.env, PATH: `${fakeBin}:${process.env.PATH}`, CONFIRM_RESTORE: "1", APP_DIR: appDir, ENV_FILE: envFile };
   }
 
   it("rolls the whole database restore back when the dump fails part-way", () => {
@@ -70,6 +85,7 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
     mkdirSync(appDir);
     const result = runRestore(["database", failingDump], appDir);
     expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/division by zero/);
     expect(psql(url, "SELECT v FROM probe WHERE id = 1")).toBe("live-data");
     expect(psql(url, "SELECT to_regclass('public.created_after_backup') IS NOT NULL")).toBe("t");
   });
@@ -107,12 +123,71 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
       writeFileSync(join(work, ".env.schema"), `DATABASE_URL=${scratchUrl}\n`);
       const result = spawnSync(process.execPath, [RESTORE_SCRIPT, "database", dumpFile], {
         encoding: "utf8",
-        env: { ...process.env, CONFIRM_RESTORE: "1", APP_DIR: appDir, ENV_FILE: join(work, ".env.schema") },
+        env: restoreEnv(appDir, join(work, ".env.schema")),
       });
       expect(result.status, result.stderr).toBe(0);
       const countTables = (target: string) => psql(target, "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'");
       expect(Number(countTables(scratchUrl))).toBeGreaterThan(50);
       expect(countTables(scratchUrl)).toBe(countTables(process.env.DATABASE_URL!));
+    } finally {
+      psql(adminUrl("postgres"), `DROP DATABASE IF EXISTS ${scratch} WITH (FORCE)`);
+    }
+  });
+
+  it("refuses to import while another client is connected and changes nothing", async () => {
+    const appDir = join(work, "app-online");
+    mkdirSync(appDir);
+    const goodDump = join(work, "good.sql.gz");
+    const dump = spawnSync("pg_dump", [url, "--no-owner", "--no-privileges", "--clean", "--if-exists"], { encoding: "utf8" });
+    writeFileSync(goodDump, gzipSync(dump.stdout.replace("live-data", "from-good-dump")));
+    // A running web/worker process holds a pooled connection like this one.
+    const app = new Client({ connectionString: url });
+    await app.connect();
+    try {
+      const result = runRestore(["database", goodDump], appDir);
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toMatch(/OFFLINE RESTORE REQUIRED: 1 other client connection/);
+      expect(psql(url, "SELECT v FROM probe WHERE id = 1")).toBe("live-data");
+    } finally {
+      await app.end();
+    }
+    // Once nothing else is connected the same restore goes through.
+    const result = runRestore(["database", goodDump], appDir);
+    expect(result.status, result.stderr).toBe(0);
+    expect(psql(url, "SELECT v FROM probe WHERE id = 1")).toBe("from-good-dump");
+  });
+
+  it("makes a client that connects during the import wait and see only restored data", async () => {
+    const scratch = `${database}_race`;
+    psql(adminUrl("postgres"), `CREATE DATABASE ${scratch}`);
+    const scratchUrl = adminUrl(scratch);
+    try {
+      psql(scratchUrl, "CREATE TABLE probe (id int PRIMARY KEY, v text); INSERT INTO probe VALUES (1, 'from-backup')");
+      const dump = spawnSync("pg_dump", [scratchUrl, "--no-owner", "--no-privileges", "--clean", "--if-exists"], { encoding: "utf8" });
+      psql(scratchUrl, "UPDATE probe SET v = 'live-data'");
+      const slowDump = join(work, "slow.sql.gz");
+      // Hold the import transaction open after its DROP/CREATE/COPY ran.
+      writeFileSync(slowDump, gzipSync(`${dump.stdout}
+SELECT pg_sleep(2);
+`));
+      writeFileSync(join(work, ".env.race"), `DATABASE_URL=${scratchUrl}
+`);
+      const appDir = join(work, "app-race");
+      mkdirSync(appDir);
+      const restore = spawn(process.execPath, [RESTORE_SCRIPT, "database", slowDump], { env: restoreEnv(appDir, join(work, ".env.race")) });
+      const restored = new Promise<number | null>((resolveExit) => restore.on("close", resolveExit));
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 800));
+      // A service started mid-restore: its first query blocks on the import's
+      // locks and returns only after the commit — never the pre-restore row.
+      const late = new Client({ connectionString: scratchUrl });
+      await late.connect();
+      const started = Date.now();
+      const { rows } = await late.query("SELECT v FROM probe WHERE id = 1");
+      const waitedMs = Date.now() - started;
+      await late.end();
+      expect(await restored).toBe(0);
+      expect(rows[0]?.v).toBe("from-backup");
+      expect(waitedMs).toBeGreaterThan(500);
     } finally {
       psql(adminUrl("postgres"), `DROP DATABASE IF EXISTS ${scratch} WITH (FORCE)`);
     }

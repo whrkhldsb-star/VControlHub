@@ -1,12 +1,13 @@
 // @vitest-environment node
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { gzipSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
+import { installFakeRestoreTools } from "./helpers/fake-restore-tools";
 
 const runFile = promisify(execFile);
 const runner = path.resolve("scripts/restore.mjs");
@@ -28,7 +29,9 @@ describe("restore runner destination and preflight", () => {
     await writeFile(path.join(source, "hello.txt"), "restored fixture");
     await writeFile(path.join(source, "database.sql.gz"), gzipSync("SELECT 1;\n"));
     await runFile(resolveLocalTarBinary(), ["-czf", archive, "-C", source, "hello.txt", "database.sql.gz"]);
-    env = { ...process.env, APP_DIR: fallback, CONFIRM_RESTORE: "0", ENV_FILE: path.join(tmp, "missing.env") };
+    const bin = await installFakeRestoreTools(tmp);
+    await writeFile(path.join(tmp, "restore.env"), "DATABASE_URL=postgresql://tester:test-secret@127.0.0.1/audit_target\n");
+    env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, APP_DIR: fallback, CONFIRM_RESTORE: "1", ENV_FILE: path.join(tmp, "restore.env") };
   });
   afterEach(async () => { await rm(tmp, { recursive: true, force: true }); });
 
@@ -43,35 +46,32 @@ describe("restore runner destination and preflight", () => {
     await writeFile(path.join(target, "hello.txt"), "preserve current data");
     const file = kind === "node" ? process.execPath : "bash";
     const args = kind === "node" ? [runner, "full", archive, "all", target] : ["scripts/restore-full.sh", archive, "all", target];
-    await expect(runFile(file, args, { env })).rejects.toThrow();
+    await expect(runFile(file, args, { env: { ...env, CONFIRM_RESTORE: "0" } })).rejects.toThrow();
     expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("preserve current data");
   });
 
   it("checks the database configuration before a confirmed full restore changes files", async () => {
     await writeFile(path.join(target, "hello.txt"), "preserve current data");
-    await expect(runFile(process.execPath, [runner, "full", archive, "all", target], { env: { ...env, CONFIRM_RESTORE: "1" } })).rejects.toThrow();
+    await expect(runFile(process.execPath, [runner, "full", archive, "all", target], { env: { ...env, ENV_FILE: path.join(tmp, "missing.env") } })).rejects.toThrow();
     expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("preserve current data");
   });
 
   it.skipIf(process.platform === "win32")("keeps the chosen database even when the archive restores an older .env.local", async () => {
-    const bin = path.join(tmp, "bin");
     const capture = path.join(tmp, "connection.json");
-    await mkdir(bin);
-    const psql = path.join(bin, "psql");
-    await writeFile(psql, `#!${process.execPath}\nrequire('node:fs').writeFileSync(process.env.RESTORE_CAPTURE, JSON.stringify({ args: process.argv.slice(2), password: process.env.PGPASSWORD })); process.stdin.resume();\n`);
-    await chmod(psql, 0o755);
     await writeFile(path.join(target, ".env.local"), "DATABASE_URL=postgresql://tester:target-secret@127.0.0.1/audit_target\n");
     await writeFile(path.join(source, ".env.local"), "DATABASE_URL=postgresql://tester:archive-secret@127.0.0.1/archive_database\n");
     // The ./database.sql.gz spelling is valid too.
     await runFile(resolveLocalTarBinary(), ["-czf", archive, "-C", source, "."]);
     await runFile(process.execPath, [runner, "full", archive, "all", target], { env: {
-      ...env, CONFIRM_RESTORE: "1", ENV_FILE: path.join(target, ".env.local"),
-      PATH: `${bin}${path.delimiter}${process.env.PATH}`, RESTORE_CAPTURE: capture,
+      ...env, ENV_FILE: path.join(target, ".env.local"), RESTORE_CAPTURE: capture,
     } });
     const connection = JSON.parse(await readFile(capture, "utf8"));
     expect(connection.args.join(" ")).toContain("/audit_target");
     expect(connection.args.join(" ")).not.toContain("secret");
     expect(connection.password).toBe("target-secret");
+    // The import opens with the offline guard inside its single transaction.
+    expect(connection.args).toEqual(expect.arrayContaining(["--single-transaction", "-f", "-"]));
+    expect(connection.sql).toMatch(/^DO \$vch_offline\$/);
     expect(await readFile(path.join(target, ".env.local"), "utf8")).toContain("archive_database");
   });
 
@@ -110,5 +110,36 @@ describe("restore runner destination and preflight", () => {
     await runFile(file, args, { env });
     expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
     expect(await readdir(fallback)).toEqual([]);
+  });
+
+  it.each(process.platform === "win32" ? ["node"] : ["node", "bash"])("%s restore refuses while a platform service is still running", async (kind) => {
+    const file = kind === "node" ? process.execPath : "bash";
+    const args = kind === "node" ? [runner, "files", archive, target] : ["scripts/restore-files.sh", archive, target];
+    await expect(runFile(file, args, { env: { ...env, FAKE_SYSTEMCTL_STATE: "active" } })).rejects.toMatchObject({
+      stderr: expect.stringContaining("OFFLINE RESTORE REQUIRED: vcontrolhub-next (active)"),
+    });
+    expect(await readdir(target)).toEqual([]);
+  });
+
+  it("refuses a files restore while another client is connected to the database", async () => {
+    await expect(runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, FAKE_PSQL_OTHER_CLIENTS: "2" } })).rejects.toMatchObject({
+      stderr: expect.stringContaining("OFFLINE RESTORE REQUIRED: 2 other client connection(s)"),
+    });
+    expect(await readdir(target)).toEqual([]);
+  });
+
+  it("refuses a FULL restore before touching files when the database guard finds other clients", async () => {
+    await writeFile(path.join(target, "hello.txt"), "preserve current data");
+    await expect(runFile(process.execPath, [runner, "full", archive, "all", target], { env: { ...env, FAKE_PSQL_OTHER_CLIENTS: "1" } })).rejects.toMatchObject({
+      stderr: expect.stringContaining("OFFLINE RESTORE REQUIRED"),
+    });
+    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("preserve current data");
+  });
+
+  it("appends every outcome to restore-history.jsonl next to the archive", async () => {
+    await runFile(process.execPath, [runner, "files", archive, target], { env });
+    await expect(runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, FAKE_SYSTEMCTL_STATE: "active" } })).rejects.toThrow();
+    const history = (await readFile(path.join(tmp, "restore-history.jsonl"), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+    expect(history.map((entry) => [entry.component, entry.status, entry.archive])).toEqual([["files", "COMPLETED", "full.tar.gz"]]);
   });
 });

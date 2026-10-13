@@ -56,15 +56,17 @@ export function planBackupRestoreSteps(input: {
 	return [{ file, args: [script, input.backupPath, component, input.projectRoot] }];
 }
 
-function formatRestoreStepsAsShell(projectRoot: string, steps: BackupRestoreStep[]) {
+function formatRestoreStepsAsShell(projectRoot: string, steps: BackupRestoreStep[], confirm = false) {
 	const parts = steps.map((step) => {
 		// Invoker + script stay unquoted for readable docs; every value after
 		// them (paths, components) is shell-quoted.
 		const [head, script, ...rest] = [step.file, ...step.args];
 		const tail = rest.map(shellQuote).join(" ");
-		return tail ? `${head} ${script} ${tail}` : `${head} ${script}`;
+		const invocation = tail ? `${head} ${script} ${tail}` : `${head} ${script}`;
+		return confirm && !IS_WINDOWS ? `CONFIRM_RESTORE=1 ${invocation}` : invocation;
 	});
-	return `cd ${shellQuote(projectRoot)} && ${parts.join(" && ")}`;
+	const prefix = confirm && IS_WINDOWS ? `set "CONFIRM_RESTORE=1" && ` : "";
+	return `${prefix}cd ${shellQuote(projectRoot)} && ${parts.join(" && ")}`;
 }
 
 export function buildPortableBackupCommand(input: { projectRoot: string; outputPath: string; type?: BackupType }) {
@@ -80,6 +82,8 @@ export function buildBackupRestoreCommand(input: {
 	backupPath: string;
 	type?: BackupType;
 	component?: "database" | "files" | "all";
+	/** Prefix CONFIRM_RESTORE=1 — for the runbook an operator runs offline. */
+	confirm?: boolean;
 }) {
 	const backupPath = assertPortableBackupPath(input.backupPath);
 	const steps = planBackupRestoreSteps({
@@ -88,5 +92,5 @@ export function buildBackupRestoreCommand(input: {
 		type: input.type,
 		component: input.component,
 	});
-	return formatRestoreStepsAsShell(input.projectRoot, steps);
+	return formatRestoreStepsAsShell(input.projectRoot, steps, input.confirm === true);
 }

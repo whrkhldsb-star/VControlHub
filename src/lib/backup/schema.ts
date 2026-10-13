@@ -44,8 +44,10 @@ export const createBackupSchema = z.object({
   note: trimmedNote,
 });
 
+// Preparing the offline restore plan changes nothing, so no confirmation token
+// is required; `confirm` from older clients is accepted and ignored.
 export const restoreBackupSchema = z.object({
-  confirm: z.enum(["RESTORE"], { message: "Restore confirmation text does not match" }),
+  confirm: z.string().optional(),
   component: z.enum(["database", "files", "all"]).optional().default("all"),
 });
 

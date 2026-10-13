@@ -12,9 +12,6 @@ const platformPath = (posixPath: string) =>
 const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.hoisted(() => ({
   mockPrisma: {
     backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
-    // Restore drain: no other background work running.
-    job: { findMany: vi.fn(async () => []) },
-    syncJob: { findMany: vi.fn(async () => []) },
     $executeRaw: vi.fn().mockResolvedValue(undefined),
   },
   runBackupCommandMock: vi.fn(),
@@ -25,7 +22,6 @@ const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
   acquireAdvisoryLock: vi.fn(async () => async () => undefined),
-  tryAcquireAdvisoryLock: vi.fn(async () => async () => undefined),
 }));
 vi.mock("@/lib/backup/command-runner", () => {
   const isMissingBackupBinaryError = (error: unknown) => {
@@ -66,7 +62,7 @@ const {
   prepareBackupRecordRetry,
   abandonStalePendingBackupRecords,
   abandonStaleRunningBackupRecords,
-  restoreBackupRecord,
+  prepareOfflineRestore,
   listBackupRecords,
   getBackupRecord,
   formatBackupSize,
@@ -366,159 +362,45 @@ describe("backup service", () => {
     }
   });
 
-  it("executes database restore only after explicit confirmation and completed record validation", async () => {
-    const result = await restoreBackupRecord({ id: "bak1", confirm: "RESTORE", projectRoot: "/opt/app" });
-    const { file: backupFile, script: backupScript } = backupRunnerSpec();
-    const { file: restoreFile, script: restoreScript } = restoreRunnerSpec();
-    const backupPath = platformPath("/var/backups/vcontrolhub/backups/database.sql.gz");
+  it("prepares an offline restore plan only after verifying status and checksum, without running anything", async () => {
+    const plan = await prepareOfflineRestore({ id: "bak1", projectRoot: "/opt/app" });
 
     expect(mockPrisma.backupRecord.findUnique).toHaveBeenCalledWith({ where: { id: "bak1" } });
-    expect(statMock).toHaveBeenCalledWith(backupPath);
-    const snapshotCall = runBackupCommandMock.mock.calls[0]![0] as { file: string; args: string[] };
-    expect(snapshotCall.file).toBe(backupFile);
-    expect(snapshotCall.args[0]).toBe(backupScript);
-    expect(toPosix(snapshotCall.args.at(-1) ?? "")).toMatch(/^\/var\/backups\/vcontrolhub\/backups\/pre-restore-bak1-\d+\.sql\.gz$/);
-    const restoreCall = runBackupCommandMock.mock.calls[1]![0] as { file: string; args: string[] };
-    expect(restoreCall.file).toBe(restoreFile);
-    if (process.platform === "win32") {
-      expect(restoreCall.args).toEqual([restoreScript, "database", backupPath]);
-    } else {
-      expect(restoreCall.args).toEqual([restoreScript, backupPath]);
-    }
-    expect(mockPrisma.backupRecord.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        type: "DATABASE",
-        status: "COMPLETED",
-        filePath: expect.stringMatching(/^backups\/pre-restore-bak1-/),
-        checksumSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
-      }),
-    }));
-    expect(result).toMatchObject({ id: "bak1", type: "DATABASE", filePath: "backups/database.sql.gz" });
-  });
-
-  it("creates a files safety snapshot before restoring a completed FILES record", async () => {
-    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak2", type: "FILES", status: "COMPLETED", filePath: "backups/files.tar.gz", checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86" });
-    const { file: backupFile, script: backupScript } = backupRunnerSpec();
-    const { file: restoreFile, script: restoreScript } = restoreRunnerSpec("FILES");
-
-    await restoreBackupRecord({ id: "bak2", confirm: "RESTORE", projectRoot: "/opt/app" });
-
-    expect(statMock).toHaveBeenCalledWith(platformPath("/var/backups/vcontrolhub/backups/files.tar.gz"));
-    const snapshotCall = runBackupCommandMock.mock.calls[0]![0] as { file: string; args: string[] };
-    expect(snapshotCall.file).toBe(backupFile);
-    expect(snapshotCall.args[0]).toBe(backupScript);
-    expect(snapshotCall.args).toContain("--files");
-    expect(toPosix(snapshotCall.args.at(-1) ?? "")).toMatch(/^\/var\/backups\/vcontrolhub\/backups\/pre-restore-bak2-\d+\.tar\.gz$/);
-    const restoreCall = runBackupCommandMock.mock.calls[1]![0] as { file: string; args: string[] };
-    expect(restoreCall.file).toBe(restoreFile);
-    if (process.platform === "win32") {
-      expect(restoreCall.args).toEqual([restoreScript, "files", platformPath("/var/backups/vcontrolhub/backups/files.tar.gz"), "/opt/app"]);
-    } else {
-      expect(restoreCall.args).toEqual([restoreScript, platformPath("/var/backups/vcontrolhub/backups/files.tar.gz"), "/opt/app"]);
-    }
-  });
-
-  it("creates a full safety snapshot before restoring all FULL components", async () => {
-    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({
-      id: "bak-full",
-      type: "FULL",
-      status: "COMPLETED",
-      filePath: "backups/full.tar.gz",
-      checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86",
-    });
-    const { file: backupFile, script: backupScript } = backupRunnerSpec();
-    const { file: restoreFile, script: restoreScript } = restoreRunnerSpec("FULL");
-
-    await restoreBackupRecord({ id: "bak-full", confirm: "RESTORE", projectRoot: "/opt/app", component: "all" });
-
-    expect(runBackupCommandMock).toHaveBeenCalledTimes(2);
-    const snapshotCall = runBackupCommandMock.mock.calls[0]![0] as { file: string; args: string[] };
-    expect(snapshotCall.file).toBe(backupFile);
-    expect(snapshotCall.args[0]).toBe(backupScript);
-    expect(snapshotCall.args).toContain("--full");
-    expect(toPosix(snapshotCall.args.at(-1) ?? "")).toMatch(/^\/var\/backups\/vcontrolhub\/backups\/pre-restore-bak-full-\d+\.tar\.gz$/);
-    const restoreCall = runBackupCommandMock.mock.calls[1]![0] as { file: string; args: string[] };
-    expect(restoreCall.file).toBe(restoreFile);
-    if (process.platform === "win32") {
-      expect(restoreCall.args).toEqual([restoreScript, "full", platformPath("/var/backups/vcontrolhub/backups/full.tar.gz"), "all", "/opt/app"]);
-    } else {
-      expect(restoreCall.args).toEqual([restoreScript, platformPath("/var/backups/vcontrolhub/backups/full.tar.gz"), "all", "/opt/app"]);
-    }
-  });
-
-  it("supports restoring only the embedded database from a FULL backup", async () => {
-    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({
-      id: "bak-full-db",
-      type: "FULL",
-      status: "COMPLETED",
-      filePath: "backups/full.tar.gz",
-      checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86",
-    });
-    const { file: backupFile, script: backupScript } = backupRunnerSpec();
-    const { file: restoreFile, script: restoreScript } = restoreRunnerSpec("FULL");
-
-    await restoreBackupRecord({ id: "bak-full-db", confirm: "RESTORE", projectRoot: "/opt/app", component: "database" });
-
-    const snapshotCall = runBackupCommandMock.mock.calls[0]![0] as { file: string; args: string[] };
-    expect(snapshotCall.file).toBe(backupFile);
-    expect(snapshotCall.args[0]).toBe(backupScript);
-    expect(toPosix(snapshotCall.args.at(-1) ?? "")).toMatch(/^\/var\/backups\/vcontrolhub\/backups\/pre-restore-bak-full-db-\d+\.sql\.gz$/);
-    const restoreCall = runBackupCommandMock.mock.calls[1]![0] as { file: string; args: string[] };
-    expect(restoreCall.file).toBe(restoreFile);
-    if (process.platform === "win32") {
-      expect(restoreCall.args).toEqual([restoreScript, "full", platformPath("/var/backups/vcontrolhub/backups/full.tar.gz"), "database", "/opt/app"]);
-    } else {
-      expect(restoreCall.args).toEqual([restoreScript, platformPath("/var/backups/vcontrolhub/backups/full.tar.gz"), "database", "/opt/app"]);
-    }
-  });
-
-  it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {
-    await expect(restoreBackupRecord({ id: "bak1", confirm: "NOPE", projectRoot: "/opt/app" })).rejects.toThrow("恢复操作需要显式确认");
+    expect(statMock).toHaveBeenCalledWith(platformPath("/var/backups/vcontrolhub/backups/database.sql.gz"));
     expect(runBackupCommandMock).not.toHaveBeenCalled();
+    expect(mockPrisma.backupRecord.create).not.toHaveBeenCalled();
+    expect(plan).toMatchObject({ id: "bak1", type: "DATABASE", component: "database", checksumSha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    if (process.platform !== "win32") {
+      expect(plan.commands.stopServices).toBe("sudo systemctl stop vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws");
+      expect(plan.commands.restore).toBe("cd '/opt/app' && CONFIRM_RESTORE=1 bash scripts/restore-db.sh 'backups/database.sql.gz'");
+      expect(plan.commands.safetySnapshot).toMatch(/^cd '\/opt\/app' && bash deploy\/backup\.sh 'backups\/pre-restore-bak1-\d+\.sql\.gz'$/);
+      expect(plan.commands.startServices).toBe("sudo systemctl start vcontrolhub-ssh-ws vcontrolhub-worker vcontrolhub-next");
+    }
+  });
 
+  it("plans a FULL restore for the chosen component with a matching safety snapshot", async () => {
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-full", type: "FULL", status: "COMPLETED", filePath: "backups/full.tar.gz", checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86" });
+    const plan = await prepareOfflineRestore({ id: "bak-full", projectRoot: "/opt/app", component: "files" });
+    expect(plan.component).toBe("files");
+    if (process.platform !== "win32") {
+      expect(plan.commands.restore).toBe("cd '/opt/app' && CONFIRM_RESTORE=1 bash scripts/restore-full.sh 'backups/full.tar.gz' 'files' '/opt/app'");
+      expect(plan.commands.safetySnapshot).toContain("--files 'backups/pre-restore-bak-full-");
+    }
+  });
+
+  it("refuses to plan a restore of an unusable backup", async () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak3", type: "DATABASE", status: "FAILED", filePath: "backups/database.sql.gz" });
-    await expect(restoreBackupRecord({ id: "bak3", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("只有已完成的备份可以恢复");
+    await expect(prepareOfflineRestore({ id: "bak3", projectRoot: "/opt/app" })).rejects.toThrow("只有已完成的备份可以恢复");
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak4", type: "DATABASE", status: "COMPLETED", filePath: "../database.sql.gz" });
-    await expect(restoreBackupRecord({ id: "bak4", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("备份路径必须是可移植的相对路径");
-    expect(runBackupCommandMock).not.toHaveBeenCalled();
-  });
+    await expect(prepareOfflineRestore({ id: "bak4", projectRoot: "/opt/app" })).rejects.toThrow("备份路径必须是可移植的相对路径");
 
-  it("refuses restore when the artifact checksum is missing or mismatched", async () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak5", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: null });
-    await expect(restoreBackupRecord({ id: "bak5", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("缺少校验和");
+    await expect(prepareOfflineRestore({ id: "bak5", projectRoot: "/opt/app" })).rejects.toThrow("缺少校验和");
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak6", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: "0".repeat(64) });
-    await expect(restoreBackupRecord({ id: "bak6", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("校验和验证失败");
+    await expect(prepareOfflineRestore({ id: "bak6", projectRoot: "/opt/app" })).rejects.toThrow("校验和验证失败");
     expect(runBackupCommandMock).not.toHaveBeenCalled();
-  });
-
-  it("refuses the restore before any snapshot or restore step while other background work keeps running", async () => {
-    mockPrisma.job.findMany.mockResolvedValue([{ id: "job-dl", type: "download.execute" }] as never);
-    mockPrisma.syncJob.findMany.mockResolvedValue([{ id: "sync-1", name: "nightly mirror" }] as never);
-    await expect(restoreBackupRecord({ id: "bak1", confirm: "RESTORE", projectRoot: "/opt/app", drainTimeoutMs: 0 }))
-      .rejects.toMatchObject({ name: "ConflictError", message: expect.stringContaining("download.execute (job-dl)") });
-    expect(runBackupCommandMock).not.toHaveBeenCalled();
-    mockPrisma.job.findMany.mockResolvedValue([] as never);
-    mockPrisma.syncJob.findMany.mockResolvedValue([] as never);
-  });
-
-  it("excludes its own durable job from the drain and waits for the rest to finish", async () => {
-    mockPrisma.job.findMany
-      .mockResolvedValueOnce([{ id: "job-other", type: "playbook.run" }] as never)
-      .mockResolvedValue([] as never);
-    await restoreBackupRecord({ id: "bak1", confirm: "RESTORE", projectRoot: "/opt/app", jobId: "restore-job" });
-    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ status: "RUNNING", id: { not: "restore-job" } }),
-    }));
-    expect(mockPrisma.job.findMany).toHaveBeenCalledTimes(2);
-    expect(runBackupCommandMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("labels a failed restore step with the safety snapshot to roll back to", async () => {
-    runBackupCommandMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("psql exited with code 3: division by zero"));
-    await expect(restoreBackupRecord({ id: "bak1", confirm: "RESTORE", projectRoot: "/opt/app" }))
-      .rejects.toThrow(/psql exited with code 3[^]*(pre-restore|安全快照)/);
   });
 
   it("summarizes backup policy capacity, type mix, retention hints, and failure reasons", () => {

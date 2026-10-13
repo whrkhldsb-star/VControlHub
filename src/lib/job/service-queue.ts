@@ -1,6 +1,5 @@
 import { JobStatus, Prisma } from "@prisma/client";
 
-import { isPlatformRestoreInProgress } from "@/lib/backup/restore-gate";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 
@@ -70,10 +69,6 @@ export async function claimNextJob(options: ClaimJobOptions) {
     status: JobStatus.RUNNING,
     OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { gte: now } }],
   };
-
-  // A platform restore is replacing the database and files under every
-  // worker: start nothing new until it has finished (it drains running work).
-  if (await isPlatformRestoreInProgress()) return null;
 
   return prisma.$transaction(async (tx) => {
     // Serialize count-and-claim only when caps are enabled. Row locks alone

@@ -3,9 +3,10 @@ import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 /**
  * Backup service — execution / orchestration layer (R28 god-file split).
  *
- * `runBackupRecord` and `restoreBackupRecord` drive the actual backup
- * and restore operations: they call CRUD + commands + command-runner
- * and update the record's status / log as the work progresses.
+ * `runBackupRecord` drives the actual backup: it calls CRUD + commands +
+ * command-runner and updates the record's status / log as the work
+ * progresses. Restore is offline only: `prepareOfflineRestore` verifies the
+ * artifact and returns the runbook the restore scripts then enforce.
  *
  * `pruneOldBackupRecordsNow` runs the retention plan produced by
  * `pruneOldBackupRecords`, removes the underlying artifact (only for
@@ -15,7 +16,7 @@ import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
  * `getBackupPolicySummary` is a thin aggregate over `listBackupRecords`
  * + the pure `summarizeBackupPolicy` reducer.
  */
-import { appendFile, mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, rm, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -26,18 +27,16 @@ import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
-import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { backupCommandErrorMessage, runBackupCommand, type RunBackupCommandInput } from "./command-runner";
 import { backupRunnerSpec } from "./platform-runner";
 import {
-	getBackupStorageRoot,
 	isBackupType,
 	resolveBackupPath,
 } from "./service-types";
-import { PLATFORM_RESTORE_LOCK } from "./restore-gate";
-import { planBackupRestoreSteps } from "./service-commands";
+import { buildBackupRestoreCommand, buildPortableBackupCommand } from "./service-commands";
+import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import {
 	createBackupRecord,
 	getBackupRecord,
@@ -49,7 +48,6 @@ import { uploadBackupToOffsite } from "./offsite-uploader";
 import { t } from "@/lib/i18n/service-translations";
 
 const offsiteUploadLogger = createLogger("backup-offsite-uploader");
-const restoreLogger = createLogger("backup-restore");
 
 
 
@@ -233,219 +231,79 @@ async function logOffsiteUploadResult(backupId: string, projectRoot: string) {
 	}
 }
 
-function buildRestoreExecution(record: { type: string; filePath: string }, projectRoot: string, component: "database" | "files" | "all" = "all") {
-	const backupPath = resolveBackupPath(projectRoot, record.filePath);
-	const type = isBackupType(record.type) ? record.type : "DATABASE";
+/** systemd units that must be stopped for an offline restore (see deploy.sh). */
+const PLATFORM_SERVICE_UNITS = ["vcontrolhub-next", "vcontrolhub-worker", "vcontrolhub-ssh-ws"];
 
-	// Prefer argv arrays (execFile) over bash -c string interpolation so paths
-	// never re-enter a shell parser even when already path-validated.
-	// Policy is shared with buildBackupRestoreCommand via planBackupRestoreSteps.
-	return {
-		steps: planBackupRestoreSteps({ projectRoot, backupPath, type, component }),
-		backupPath,
-	};
-}
-
-function planPreRestoreSnapshot(input: {
+export type OfflineRestorePlan = {
 	id: string;
-	type: "DATABASE" | "FILES" | "FULL";
+	type: string;
 	component: "database" | "files" | "all";
-	projectRoot: string;
-}) {
-	const snapshotType =
-		input.type === "FULL"
-			? input.component === "database"
-				? "DATABASE"
-				: input.component === "files"
-					? "FILES"
-					: "FULL"
-			: input.type;
-	const suffix = snapshotType === "DATABASE" ? ".sql.gz" : ".tar.gz";
-	const relativePath = `backups/pre-restore-${input.id}-${Date.now()}${suffix}`;
-	const absolutePath = resolveBackupPath(input.projectRoot, relativePath);
-	const args =
-		snapshotType === "FILES"
-			? ["--files", absolutePath]
-			: snapshotType === "FULL"
-				? ["--full", absolutePath]
-				: [absolutePath];
-	return { relativePath, absolutePath, args, snapshotType };
-}
-
-const RESTORE_DRAIN_TIMEOUT_MS = 120_000;
-const RESTORE_DRAIN_POLL_MS = 2_000;
+	filePath: string;
+	checksumSha256: string;
+	checksumVerifiedAt: string;
+	commands: {
+		/** null where the platform does not run under systemd (Windows). */
+		stopServices: string | null;
+		safetySnapshot: string;
+		restore: string;
+		startServices: string | null;
+	};
+};
 
 /**
- * Quiesce background execution before the destructive step. While the restore
- * lock is held, job claiming and sync execution start nothing new (see
- * ./restore-gate); this waits for work that was already running to finish and
- * refuses the restore if it does not, rather than replacing the database and
- * files underneath a running job that would then write stale results back.
+ * Restore is offline only. Web requests, workers, agent callbacks, schedules
+ * and terminal sessions all write to the database and the file tree, and none
+ * of them can be paused reliably from inside the running platform (a gate that
+ * workers check before claiming is check-then-act: a worker that passed it can
+ * still start after the restore began). So the app no longer restores: it
+ * verifies the artifact and hands the operator the exact offline runbook. The
+ * restore scripts enforce the prerequisite themselves — they refuse while the
+ * platform services run or any other client is connected to the database, and
+ * the database check is the first statement of the import transaction.
  */
-async function waitForBackgroundWorkToDrain(input: { excludeJobId?: string; timeoutMs: number }) {
-	const deadline = Date.now() + input.timeoutMs;
-	for (;;) {
-		const now = new Date();
-		const [jobs, syncJobs] = await Promise.all([
-			prisma.job.findMany({
-				where: {
-					status: "RUNNING",
-					OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { gte: now } }],
-					...(input.excludeJobId ? { id: { not: input.excludeJobId } } : {}),
-				},
-				select: { id: true, type: true },
-				take: 10,
-			}),
-			prisma.syncJob.findMany({ where: { status: "RUNNING" }, select: { id: true, name: true }, take: 10 }),
-		]);
-		if (jobs.length === 0 && syncJobs.length === 0) return;
-		if (Date.now() >= deadline) {
-			const tasks = [...jobs.map((job) => `${job.type} (${job.id})`), ...syncJobs.map((job) => `sync ${job.name} (${job.id})`)];
-			throw new ConflictError(t("backend.backup.restoreWorkStillRunning", { tasks: tasks.join(", ") }));
-		}
-		await new Promise((resolve) => setTimeout(resolve, RESTORE_DRAIN_POLL_MS));
-	}
-}
-
-/**
- * Outcome log kept next to the backup artifacts. The Job row of an in-app
- * restore lives in the database being restored, so its own record of the run
- * does not survive a database restore.
- */
-async function appendRestoreHistory(projectRoot: string, entry: Record<string, unknown>) {
-	try {
-		await appendFile(join(getBackupStorageRoot(projectRoot), "restore-history.jsonl"), `${JSON.stringify(entry)}\n`);
-	} catch (error) {
-		restoreLogger.warn("failed to append restore history", { error: error instanceof Error ? error.message : String(error) });
-	}
-}
-
-export async function restoreBackupRecord(input: {
+export async function prepareOfflineRestore(input: {
 	id: string;
-	confirm: string;
 	projectRoot?: string;
 	component?: "database" | "files" | "all";
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
-	/** The durable job running this restore, excluded from the drain. */
-	jobId?: string;
-	drainTimeoutMs?: number;
-}) {
-	if (input.confirm !== "RESTORE") {
-		throw new ValidationError(t("backend.backup.restoreConfirmRequired"));
+}): Promise<OfflineRestorePlan> {
+	const record = await getBackupRecord(input.id, input.session);
+	if (!record) {
+		throw new NotFoundError(t("backend.backup.recordNotFound"));
 	}
-	// One restore at a time for the whole platform, whichever backup it is: two
-	// restores of different backups overwrite the same database and file tree.
-	// Keying this lock by backup id (as before) let them run concurrently. The
-	// restore scripts additionally hold a host-level lock against the CLI.
-	const releaseLock = await tryAcquireAdvisoryLock(PLATFORM_RESTORE_LOCK.namespace, PLATFORM_RESTORE_LOCK.resourceId);
-	if (!releaseLock) throw new ConflictError(t("backend.backup.restoreAlreadyRunning"));
-	try {
-		const record = await getBackupRecord(input.id, input.session);
-		if (!record) {
-			throw new NotFoundError(t("backend.backup.recordNotFound"));
-		}
-		if (record.status !== "COMPLETED") {
-			throw new BusinessError(t("backend.backup.onlyCompletedCanRestore"));
-		}
-		const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
-		const component = input.component ?? "all";
-		const execution = buildRestoreExecution(record, projectRoot, component);
-		await stat(execution.backupPath);
-		if (!record.checksumSha256) {
-			throw new BusinessError(t("backend.backup.checksumMissing"));
-		}
-		const actualChecksum = await calculateFileSha256(execution.backupPath);
-		if (actualChecksum !== record.checksumSha256) {
-			throw new BusinessError(t("backend.backup.checksumMismatch"));
-		}
-		await waitForBackgroundWorkToDrain({
-			excludeJobId: input.jobId,
-			timeoutMs: input.drainTimeoutMs ?? RESTORE_DRAIN_TIMEOUT_MS,
-		});
-		const snapshot = planPreRestoreSnapshot({
-			id: record.id,
-			type: isBackupType(record.type) ? record.type : "DATABASE",
-			component,
-			projectRoot,
-		});
-		await runBackupCommand({
-			...buildBackupInvocation(snapshot.args),
-			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot } },
-		});
-		const snapshotInfo = await stat(snapshot.absolutePath);
-		if (!snapshotInfo.isFile() || snapshotInfo.size < 32) {
-			throw new BusinessError(t("backend.backup.artifactEmpty"));
-		}
-		let safetySnapshotRecord;
-		try {
-			const snapshotChecksum = await calculateFileSha256(snapshot.absolutePath);
-			safetySnapshotRecord = await prisma.backupRecord.create({
-				data: {
-					type: snapshot.snapshotType,
-					status: "COMPLETED",
-					filePath: snapshot.relativePath,
-					fileSize: String(snapshotInfo.size),
-					checksumSha256: snapshotChecksum,
-					note: `Automatic safety snapshot before restoring ${record.id}`,
-					createdBy: input.session?.userId ?? null,
-					teamId: record.teamId ?? input.session?.currentTeamId ?? null,
-					completedAt: new Date(),
-				},
-			});
-		} catch (error) {
-			await rm(snapshot.absolutePath, { force: true }).catch(() => undefined);
-			throw error;
-		}
-		const startedAt = new Date().toISOString();
-		try {
-			for (const step of execution.steps) {
-				await runBackupCommand({
-					file: step.file,
-					args: step.args,
-					options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" } },
-				});
-			}
-		} catch (error) {
-			await appendRestoreHistory(projectRoot, {
-				backupId: record.id,
-				component,
-				status: "FAILED",
-				startedAt,
-				finishedAt: new Date().toISOString(),
-				safetySnapshotId: safetySnapshotRecord.id,
-				safetySnapshotPath: snapshot.relativePath,
-				error: backupCommandErrorMessage(error).slice(0, 2000),
-			});
-			// Never leave an unlabelled failure: say what rolled back and where the
-			// way back is.
-			throw new BusinessError(
-				t("backend.backup.restoreFailedWithSnapshot", {
-					error: backupCommandErrorMessage(error).slice(0, 500),
-					snapshotId: safetySnapshotRecord.id,
-					snapshotPath: snapshot.relativePath,
-				}),
-			);
-		}
-		await appendRestoreHistory(projectRoot, {
-			backupId: record.id,
-			component,
-			status: "COMPLETED",
-			startedAt,
-			finishedAt: new Date().toISOString(),
-			safetySnapshotId: safetySnapshotRecord.id,
-			safetySnapshotPath: snapshot.relativePath,
-		});
-		return {
-			id: record.id,
-			type: record.type,
-			filePath: record.filePath,
-			safetySnapshotPath: snapshot.relativePath,
-			safetySnapshotId: safetySnapshotRecord.id,
-			restoredAt: new Date().toISOString(),
-		};
-	} finally {
-		await releaseLock();
+	if (record.status !== "COMPLETED") {
+		throw new BusinessError(t("backend.backup.onlyCompletedCanRestore"));
 	}
+	if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
+	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
+	const type = record.type;
+	const component = type === "FULL" ? (input.component ?? "all") : type === "FILES" ? "files" : "database";
+	const backupPath = resolveBackupPath(projectRoot, record.filePath);
+	await stat(backupPath);
+	if (!record.checksumSha256) {
+		throw new BusinessError(t("backend.backup.checksumMissing"));
+	}
+	const actualChecksum = await calculateFileSha256(backupPath);
+	if (actualChecksum !== record.checksumSha256) {
+		throw new BusinessError(t("backend.backup.checksumMismatch"));
+	}
+	const snapshotType = type === "FULL" ? (component === "database" ? "DATABASE" : component === "files" ? "FILES" : "FULL") : type;
+	const snapshotPath = `backups/pre-restore-${record.id}-${Date.now()}${snapshotType === "DATABASE" ? ".sql.gz" : ".tar.gz"}`;
+	const systemd = !IS_WINDOWS;
+	return {
+		id: record.id,
+		type,
+		component,
+		filePath: record.filePath,
+		checksumSha256: actualChecksum,
+		checksumVerifiedAt: new Date().toISOString(),
+		commands: {
+			stopServices: systemd ? `sudo systemctl stop ${PLATFORM_SERVICE_UNITS.join(" ")}` : null,
+			safetySnapshot: buildPortableBackupCommand({ projectRoot, outputPath: snapshotPath, type: snapshotType }),
+			restore: buildBackupRestoreCommand({ projectRoot, backupPath: record.filePath, type, component, confirm: true }),
+			startServices: systemd ? `sudo systemctl start ${[...PLATFORM_SERVICE_UNITS].reverse().join(" ")}` : null,
+		},
+	};
 }
 
 export type BackupDrillReport = {

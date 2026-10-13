@@ -70,22 +70,15 @@ describe("backup schema", () => {
   });
 
   describe("restoreBackupSchema", () => {
-    it("accepts the literal RESTORE confirmation", () => {
-      const result = restoreBackupSchema.safeParse({ confirm: "RESTORE" });
-      expect(result.success).toBe(true);
+    // Preparing the offline restore plan is non-destructive: no confirmation
+    // token, only the component of a FULL backup.
+    it("defaults the component and accepts a legacy confirm field", () => {
+      expect(restoreBackupSchema.parse({})).toEqual({ component: "all" });
+      expect(restoreBackupSchema.parse({ confirm: "RESTORE", component: "files" })).toMatchObject({ component: "files" });
     });
 
-    it("rejects any other confirmation value with the Chinese confirm-required message", () => {
-      const result = restoreBackupSchema.safeParse({ confirm: "restore" });
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0]?.message).toBe("Restore confirmation text does not match");
-      }
-    });
-
-    it("rejects missing confirm payload entirely", () => {
-      const result = restoreBackupSchema.safeParse({});
-      expect(result.success).toBe(false);
+    it("rejects an unknown component", () => {
+      expect(restoreBackupSchema.safeParse({ component: "everything" }).success).toBe(false);
     });
   });
 

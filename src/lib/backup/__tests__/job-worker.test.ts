@@ -9,7 +9,6 @@ const { mocks } = vi.hoisted(() => ({
     heartbeatJob: vi.fn(),
     getBackupRecord: vi.fn(),
     runExistingBackupRecord: vi.fn(),
-    restoreBackupRecord: vi.fn(),
     drillBackupRecord: vi.fn(),
     pruneOldBackupRecordsNow: vi.fn(),
     runWithLeaseHeartbeat: vi.fn(),
@@ -49,7 +48,6 @@ vi.mock("@/lib/logging", () => ({
 vi.mock("@/lib/backup/service", () => ({
   getBackupRecord: mocks.getBackupRecord,
   runExistingBackupRecord: mocks.runExistingBackupRecord,
-  restoreBackupRecord: mocks.restoreBackupRecord,
   drillBackupRecord: mocks.drillBackupRecord,
   pruneOldBackupRecordsNow: mocks.pruneOldBackupRecordsNow,
   abandonStalePendingBackupRecords: vi.fn().mockResolvedValue({ abandoned: 0, ids: [] }),
@@ -72,6 +70,7 @@ const {
   BACKUP_CREATE_JOB_TYPE,
   BACKUP_OFFSITE_SYNC_JOB_TYPE,
   BACKUP_RETENTION_JOB_TYPE,
+  BACKUP_RESTORE_JOB_TYPE,
 } = await import("../job-worker");
 
 describe("backup job worker create path", () => {
@@ -82,6 +81,20 @@ describe("backup job worker create path", () => {
     mocks.failJob.mockResolvedValue({ count: 1 });
     mocks.failJobTerminal.mockResolvedValue({ count: 1 });
     mocks.runWithLeaseHeartbeat.mockImplementation(async ({ run }: { run: () => Promise<unknown> }) => run());
+  });
+
+  it("fails a restore job queued by an older version terminally: restore is offline only", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_restore",
+      type: BACKUP_RESTORE_JOB_TYPE,
+      payload: { backupId: "bak_1", confirm: "RESTORE", component: "all" },
+    });
+
+    expect(await runBackupJobWorkerOnce()).toBe(true);
+    expect(mocks.failJobTerminal).toHaveBeenCalledWith("job_restore", expect.any(String), expect.stringContaining("恢复只能离线执行"));
+    expect(mocks.failJob).not.toHaveBeenCalled();
+    expect(mocks.completeJob).not.toHaveBeenCalled();
+    expect(mocks.runWithLeaseHeartbeat).not.toHaveBeenCalled();
   });
 
   it("fails the durable job when runExistingBackupRecord returns FAILED (no throw)", async () => {
