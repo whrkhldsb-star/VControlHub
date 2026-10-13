@@ -170,6 +170,36 @@ describe("alert notification delivery retry", () => {
 		expect(sendEmail).toHaveBeenCalledTimes(2);
 	});
 
+	it("re-sends the escalation copy, not the fired one, to a channel that missed an escalation", async () => {
+		// An incident escalated to L2 whose webhook failed at escalation time.
+		const escalatedAt = new Date(Date.now() - 5 * 60_000);
+		store.set("inc-esc", {
+			id: "inc-esc",
+			fingerprint: `${fire.ruleId}::${fire.serverId}::${fire.metric}`,
+			status: "OPEN",
+			level: 2,
+			title: fire.title,
+			message: fire.message,
+			serverName: fire.serverName,
+			metric: fire.metric,
+			createdAt: new Date(Date.now() - 60 * 60_000),
+			lastNotifiedAt: escalatedAt,
+			escalatedAt,
+			pendingNotifyChannels: ["webhook"],
+			notifyAttempts: 1,
+			nextNotifyAt: new Date(Date.now() - 60_000),
+			lastNotifyError: "webhook: 503",
+		});
+		webhook.mockResolvedValue(webhookUp);
+
+		const later = await openOrRefreshAlertIncident({ ...fire, escalationMinutes: 15 });
+		expect(later).toMatchObject({ fired: false, notified: true, deliveredChannels: ["webhook"], level: 2 });
+		expect(sendEmail).not.toHaveBeenCalled(); // email had received the escalation
+		expect(webhook).toHaveBeenCalledTimes(1);
+		expect(JSON.stringify(webhook.mock.calls[0])).toContain("escalated to L2 (no acknowledgement within 15m)");
+		expect(store.get("inc-esc")).toMatchObject({ level: 2, pendingNotifyChannels: [], nextNotifyAt: null });
+	});
+
 	it("reopening replaces the previous round's delivery state before sending", async () => {
 		store.set("inc-old", {
 			id: "inc-old",

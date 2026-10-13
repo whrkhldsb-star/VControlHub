@@ -344,6 +344,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
         message,
         teamId: rule.teamId ?? null,
         cooldownMinutes: rule.cooldownMinutes,
+        escalationMinutes: rule.escalationMinutes ?? undefined,
       });
 
       // Stamp lastTriggeredAt and run remediation on a fresh fire regardless of

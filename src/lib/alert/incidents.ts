@@ -46,6 +46,11 @@ export type AlertFireInput = {
    * lastNotifiedAt + cooldown elapses. OPEN/ACKNOWLEDGED still never re-notify.
    */
   cooldownMinutes?: number;
+  /**
+   * The rule's escalation interval, for the copy of an escalation notice that
+   * is re-sent to a channel which failed when the incident was escalated.
+   */
+  escalationMinutes?: number;
 };
 
 export function buildAlertFingerprint(ruleId: string, serverId: string | null, metric: string): string {
@@ -335,14 +340,62 @@ function dispatchFiredNotice(input: FireDispatchInput, notifyChannels: string[])
   }));
 }
 
+type EscalationDispatchInput = {
+  incident: { id: string; title: string; message: string; serverName: string; metric: string; createdAt: Date };
+  rule: { name: string; teamId: string | null; onCallUserIds: string[]; webhookUrl: string | null };
+  level: number;
+  minutes: number;
+};
+
+/** Escalation copy to on-call plus the notification managers of the same scope. */
+async function dispatchEscalationNotice({ incident, rule, level, minutes }: EscalationDispatchInput, notifyChannels: string[]) {
+  const userIds = await resolveNotifyUserIds(rule.onCallUserIds, rule.teamId);
+  // On L2+, also include notification:manage users in the same team scope.
+  const adminIds = await resolveNotifyUserIds([], rule.teamId);
+  return dispatchChannels({
+    userIds: Array.from(new Set([...userIds, ...adminIds])),
+    type: "server_alert",
+    notice: incidentNotice("escalated", { ...incident, ruleName: rule.name }, { level, minutes }),
+    title: incident.title,
+    message: `${incident.message} — escalated to L${level} (no acknowledgement within ${minutes}m)`,
+    actionUrl: `/alert-rules?incident=${incident.id}`,
+    notifyChannels,
+    webhookUrl: rule.webhookUrl,
+    contextLines: [
+      `Server: ${incident.serverName}`,
+      `Metric: ${incident.metric}`,
+      `Level: ${level}`,
+      `Open since: ${incident.createdAt.toISOString()}`,
+      `Incident: ${incident.id}`,
+    ],
+    level,
+    teamId: rule.teamId,
+  });
+}
+
 /**
- * Re-send the fired notification to the channels that have not received it.
- * Only for OPEN incidents: an acknowledged one has been seen by a person. The
- * attempt is claimed with a CAS on nextNotifyAt first, so two evaluators that
- * see the same due row cannot both send.
+ * Re-send the pending notification to the channels that have not received it:
+ * the fired notice at level 1, the latest escalation notice above it (an
+ * escalation replaces the pending state of the round before it, see
+ * {@link escalateOverdueAlertIncidents}). Only for OPEN incidents: an
+ * acknowledged one has been seen by a person. The attempt is claimed with a
+ * CAS on nextNotifyAt first, so two evaluators that see the same due row
+ * cannot both send.
  */
 async function retryPendingIncidentDelivery(
-  existing: { id: string; status: string; pendingNotifyChannels?: string[] | null; notifyAttempts?: number | null; nextNotifyAt?: Date | null },
+  existing: {
+    id: string;
+    status: string;
+    level: number;
+    title: string;
+    message: string;
+    serverName: string;
+    metric: string;
+    createdAt: Date;
+    pendingNotifyChannels?: string[] | null;
+    notifyAttempts?: number | null;
+    nextNotifyAt?: Date | null;
+  },
   input: AlertFireInput,
   now: Date,
 ): Promise<AlertDispatchResult & { attempted: boolean }> {
@@ -356,7 +409,19 @@ async function retryPendingIncidentDelivery(
     data: { notifyAttempts: attempts + 1, nextNotifyAt: nextNotifyRetryAt(now, attempts + 1) },
   });
   if (claimed.count === 0) return { delivered: [], failed: [], attempted: false };
-  const dispatch = await dispatchFiredNotice({ ...input, incidentId: existing.id }, pending);
+  const dispatch = existing.level > 1
+    ? await dispatchEscalationNotice({
+        incident: existing,
+        rule: {
+          name: input.ruleName,
+          teamId: input.teamId ?? null,
+          onCallUserIds: input.onCallUserIds ?? [],
+          webhookUrl: input.webhookUrl ?? null,
+        },
+        level: existing.level,
+        minutes: Math.max(1, input.escalationMinutes ?? 30),
+      }, pending)
+    : await dispatchFiredNotice({ ...input, incidentId: existing.id }, pending);
   await prisma.alertIncident.updateMany({
     where: { id: existing.id, status: "OPEN" },
     data: deliveryState(now, attempts + 1, dispatch.failed),
@@ -826,6 +891,12 @@ export async function escalateOverdueAlertIncidents(options?: {
 
       const nextLevel = Math.min(3, incident.level + 1);
       const threshold = new Date(nowMs - minutes * 60_000);
+      const escalatedAt = new Date();
+      // The claim also persists the escalation's delivery intent (every
+      // channel pending, attempt 1 claimed), replacing whatever the previous
+      // level left pending: the escalation is the notice that matters now, and
+      // a channel that missed it is retried by later evaluations like a missed
+      // fired notice. At-least-once, as for the fired notice.
       const claimed = await prisma.alertIncident.updateMany({
         where: {
           id: incident.id,
@@ -835,36 +906,32 @@ export async function escalateOverdueAlertIncidents(options?: {
         },
         data: {
           level: nextLevel,
-          escalatedAt: new Date(),
-          lastNotifiedAt: new Date(),
+          escalatedAt,
+          lastNotifiedAt: escalatedAt,
+          ...initialDeliveryState(escalatedAt, incident.rule.notifyChannels),
         },
       });
       if (claimed.count !== 1) continue;
 
-      const userIds = await resolveNotifyUserIds(incident.rule.onCallUserIds, incident.rule.teamId ?? null);
-      // On L2+, also include notification:manage users in the same team scope.
-      const adminIds = await resolveNotifyUserIds([], incident.rule.teamId ?? null);
-      const merged = Array.from(new Set([...userIds, ...adminIds]));
-
-      const escalationDispatch = await dispatchChannels({
-        userIds: merged,
-        type: "server_alert",
-        notice: incidentNotice("escalated", { ...incident, ruleName: incident.rule.name }, { level: nextLevel, minutes }),
-        title: incident.title,
-        message: `${incident.message} — escalated to L${nextLevel} (no acknowledgement within ${minutes}m)`,
-        actionUrl: `/alert-rules?incident=${incident.id}`,
-        notifyChannels: incident.rule.notifyChannels,
-        webhookUrl: incident.rule.webhookUrl,
-        contextLines: [
-          `Server: ${incident.serverName}`,
-          `Metric: ${incident.metric}`,
-          `Level: ${nextLevel}`,
-          `Open since: ${incident.createdAt.toISOString()}`,
-          `Incident: ${incident.id}`,
-        ],
+      const escalationDispatch = await dispatchEscalationNotice({
+        incident,
+        rule: { ...incident.rule, teamId: incident.rule.teamId ?? null },
         level: nextLevel,
-        teamId: incident.rule.teamId ?? null,
-      });
+        minutes,
+      }, incident.rule.notifyChannels);
+      // Best effort, like the fired notice: losing this write leaves every
+      // channel pending, so the escalation is re-sent rather than forgotten.
+      try {
+        await prisma.alertIncident.updateMany({
+          where: { id: incident.id, status: "OPEN", level: nextLevel },
+          data: deliveryState(escalatedAt, 1, escalationDispatch.failed),
+        });
+      } catch (error) {
+        logger.error("failed to record alert escalation delivery state", {
+          incidentId: incident.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       logger.info("alert incident escalated", {
         incidentId: incident.id,
