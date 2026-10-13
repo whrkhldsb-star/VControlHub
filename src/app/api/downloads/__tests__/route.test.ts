@@ -1138,6 +1138,8 @@ describe("/api/downloads", () => {
       command: expect.stringContaining("pkill -TERM -f"),
     }));
     expect(execRemoteCommandMock.mock.calls[0]![0].command).toContain("task_nopid");
+    // A user cancel leaves the tombstone before it looks for processes.
+    expect(execRemoteCommandMock.mock.calls[0]![0].command).toContain("/tmp/app-dl-task_nopid.cancel");
   });
 
   it("keeps a direct task RUNNING when the server cannot confirm the download stopped", async () => {

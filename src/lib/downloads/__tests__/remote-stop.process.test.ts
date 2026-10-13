@@ -45,6 +45,7 @@ describe.skipIf(!supported)("direct download stop command (real bash/curl proces
       rmSync(`/tmp/app-dl-${id}.pid`, { force: true });
       rmSync(`/tmp/app-dl-${id}.pid.exit`, { force: true });
       rmSync(`/tmp/app-dl-${id}.log`, { force: true });
+      rmSync(`/tmp/app-dl-${id}.cancel`, { force: true });
     }
     if (targetDir) rmSync(targetDir, { recursive: true, force: true });
   });
@@ -120,6 +121,27 @@ describe.skipIf(!supported)("direct download stop command (real bash/curl proces
     } finally {
       unrelated.kill("SIGKILL");
     }
+  });
+
+  it("a cancel that found nothing still wins against a spawn that starts right after it (worker dies before recording the pid)", async () => {
+    const id = `t${randomUUID().replace(/-/g, "")}`;
+    taskIds.push(id);
+    targetDir = mkdtempSync(join(tmpdir(), "vch-dl-stop-"));
+    // The cancel runs first and finds no process: the task becomes CANCELLED.
+    expect(parseDirectDownloadStopResult(runRemote(buildDirectDownloadStopCommand(id, targetDir, { cancel: true })))).toBe("NOT_RUNNING");
+    // The worker's spawn was already in flight and lands now; the worker then
+    // dies, so nobody runs the worker-side stop.
+    runRemote(buildDirectDownloadCommand({
+      taskId: id,
+      url: `http://127.0.0.1:${port}/big.bin`,
+      targetPath: targetDir,
+      fileName: "big.bin",
+      sourceResolution: { hostname: "127.0.0.1", address: "127.0.0.1", port: port as 80 },
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    expect(curlRunning(id)).toBe(false);
+    expect(downloadProcesses(id)).toEqual([]);
+    expect(readdirSync(targetDir)).toEqual([]);
   });
 
   it("treats a failed or unparseable stop as unconfirmed", () => {

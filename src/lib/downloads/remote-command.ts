@@ -15,6 +15,10 @@ function safeTaskFileStem(taskId: string): string {
   return taskId.replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
+function cancelFileFor(safeTaskId: string) {
+  return `/tmp/app-dl-${safeTaskId}.cancel`;
+}
+
 type DirectDownloadCommandInput = {
   taskId: string;
   url: string;
@@ -52,6 +56,10 @@ export function buildDirectDownloadCommand({
     // The detached process persists its own identity, even if the controller
     // dies before it can store the SSH response in PostgreSQL.
     'echo $$ >"$pid_file"',
+    // A cancel that ran before this process existed left a tombstone: never
+    // start the transfer (see buildDirectDownloadStopCommand).
+    `cancel_file=${shellQuote(cancelFileFor(safeTaskId))}`,
+    'if [ -e "$cancel_file" ]; then rm -f "$pid_file"; exit 130; fi',
     "if [ -z \"$output_path\" ]; then",
     "  clean_url=${download_url%%[?#]*}",
     "  base_name=${clean_url##*/}",
@@ -102,12 +110,24 @@ export type DirectDownloadStopState = "STOPPED" | "NOT_RUNNING";
  * Prints STOPPED or NOT_RUNNING and exits 0 only when no such process remains;
  * anything else (exit != 0) means the outcome is unconfirmed.
  */
-export function buildDirectDownloadStopCommand(taskId: string, targetPath?: string | null): string {
+export function buildDirectDownloadStopCommand(
+  taskId: string,
+  targetPath?: string | null,
+  options: { cancel?: boolean } = {},
+): string {
   const safeTaskId = safeTaskFileStem(taskId);
   const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
   return [
     `id=${shellQuote(safeTaskId)}`,
     `target_dir=${shellQuote(targetPath ?? "")}`,
+    // A user cancel first leaves a task-owned tombstone, then looks for
+    // processes. A spawn already under way is visible to pgrep (the token is
+    // in its command line from the start); one that starts afterwards sees the
+    // tombstone and exits before curl. So a cancel reported as confirmed can
+    // no longer race a worker that dies between spawning and recording the pid.
+    ...(options.cancel
+      ? [`if ! : >${shellQuote(cancelFileFor(safeTaskId))} 2>/dev/null; then echo NO_TOMBSTONE; exit 5; fi`]
+      : []),
     'pat="\\.vch-$id\\.part"',
     "command -v pgrep >/dev/null 2>&1 && command -v pkill >/dev/null 2>&1 || { echo NO_PGREP; exit 3; }",
     // pgrep: 0 = match, 1 = none, anything else = cannot tell.

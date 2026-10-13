@@ -150,7 +150,7 @@ export async function DELETE(request: Request) {
             );
             stopped = parseDirectDownloadStopResult(await execRemoteCommand({
               ...sshParams,
-              command: buildDirectDownloadStopCommand(task.id, task.targetPath),
+              command: buildDirectDownloadStopCommand(task.id, task.targetPath, { cancel: true }),
               timeout: 20000,
             }));
           } catch (err) {
