@@ -130,65 +130,118 @@ const mediaStreamItemSelect = {
   },
 } as const;
 
-export async function listMediaItems(
-  input: {
-    mediaType?: "image" | "video" | "audio";
-    q?: string;
-    favorite?: boolean;
-    tag?: string;
-    session?: TeamSession | null;
-  } = {},
-) {
+type MediaListFilters = {
+  mediaType?: "image" | "video" | "audio";
+  q?: string;
+  favorite?: boolean;
+  tag?: string;
+  session?: TeamSession | null;
+};
+
+/** One filter definition for the list, its total and the per-type counts. */
+function mediaListWhere(input: MediaListFilters) {
   const q = input.q?.trim();
   const tag = input.tag?.trim();
+  return {
+    ...mediaTeamWhere(input.session),
+    mediaType: input.mediaType,
+    favorite: input.favorite,
+    ...(tag ? { tags: { has: tag } } : {}),
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { relativePath: { contains: q, mode: "insensitive" as const } },
+            { tags: { has: q } },
+          ],
+        }
+      : {}),
+  };
+}
+
+export const MEDIA_PAGE_SIZE = 100;
+export const MEDIA_MAX_PAGE_SIZE = 200;
+
+/**
+ * One page of the media library. The id tie-breaker keeps the order stable so
+ * consecutive pages neither repeat nor skip items that share a timestamp.
+ */
+export async function listMediaItems(
+  input: MediaListFilters & { page?: number; pageSize?: number } = {},
+) {
+  const pageSize = Math.min(Math.max(Math.trunc(input.pageSize ?? MEDIA_MAX_PAGE_SIZE), 1), MEDIA_MAX_PAGE_SIZE);
+  const page = Math.max(Math.trunc(input.page ?? 1), 1);
   return prisma.mediaItem.findMany({
-    where: {
-      ...mediaTeamWhere(input.session),
-      mediaType: input.mediaType,
-      favorite: input.favorite,
-      ...(tag ? { tags: { has: tag } } : {}),
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { relativePath: { contains: q, mode: "insensitive" } },
-              { tags: { has: q } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }],
-    take: 200,
+    where: mediaListWhere(input),
+    orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
     select: mediaItemSelect,
   });
 }
 
-export async function listMediaTypeCounts(
-  input: {
-    q?: string;
-    favorite?: boolean;
-    tag?: string;
-    session?: TeamSession | null;
-  } = {},
+/** Number of items matching the same filters as {@link listMediaItems}. */
+export async function countMediaItems(input: MediaListFilters = {}) {
+  return prisma.mediaItem.count({ where: mediaListWhere(input) });
+}
+
+/** Filters of the media list a detail page was opened from. */
+export function mediaListFiltersFromHref(href: string): Omit<MediaListFilters, "session"> {
+  const params = new URL(href, "http://media.local").searchParams;
+  const type = params.get("type");
+  return {
+    mediaType: type === "image" || type === "video" || type === "audio" ? type : undefined,
+    q: params.get("q")?.trim() || undefined,
+    favorite: params.get("favorite") === "1" ? true : undefined,
+    tag: params.get("tag")?.trim() || undefined,
+  };
+}
+
+/**
+ * The items directly before and after `item` in the media list with these
+ * filters, in the list's own order (favourite, updatedAt, id — all
+ * descending). Keyset queries, so navigation works from any page of any
+ * size; it used to look only at the first 200 items of the same type.
+ */
+export async function getMediaNeighbors(
+  item: { id: string; favorite: boolean; updatedAt: Date },
+  filters: MediaListFilters,
 ) {
-  const q = input.q?.trim();
-  const tag = input.tag?.trim();
+  const base = mediaListWhere(filters);
+  const sameFavorite = { favorite: item.favorite };
+  // "Earlier in the list" = greater sort key; "later" = smaller.
+  const earlier = [
+    ...(item.favorite ? [] : [{ favorite: true }]),
+    { ...sameFavorite, updatedAt: { gt: item.updatedAt } },
+    { ...sameFavorite, updatedAt: item.updatedAt, id: { gt: item.id } },
+  ];
+  const later = [
+    ...(item.favorite ? [{ favorite: false }] : []),
+    { ...sameFavorite, updatedAt: { lt: item.updatedAt } },
+    { ...sameFavorite, updatedAt: item.updatedAt, id: { lt: item.id } },
+  ];
+  const select = { id: true, name: true } as const;
+  const [previous, next] = await Promise.all([
+    prisma.mediaItem.findFirst({
+      where: { AND: [base, { OR: earlier }] },
+      orderBy: [{ favorite: "asc" }, { updatedAt: "asc" }, { id: "asc" }],
+      select,
+    }),
+    prisma.mediaItem.findFirst({
+      where: { AND: [base, { OR: later }] },
+      orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
+      select,
+    }),
+  ]);
+  return { previous, next };
+}
+
+export async function listMediaTypeCounts(
+  input: Omit<MediaListFilters, "mediaType"> = {},
+) {
   const grouped = await prisma.mediaItem.groupBy({
     by: ["mediaType"],
-    where: {
-      ...mediaTeamWhere(input.session),
-      favorite: input.favorite,
-      ...(tag ? { tags: { has: tag } } : {}),
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { relativePath: { contains: q, mode: "insensitive" } },
-              { tags: { has: q } },
-            ],
-          }
-        : {}),
-    },
+    where: mediaListWhere({ ...input, mediaType: undefined }),
     _count: { _all: true },
   });
   const counts = { image: 0, video: 0, audio: 0 };

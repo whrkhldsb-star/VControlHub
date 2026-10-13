@@ -30,9 +30,12 @@ export type { MediaItem } from "./media-item-helpers";
 export function MediaItemCard({
   item,
   canManage,
+  listHref,
 }: {
   item: MediaItem;
   canManage: boolean;
+  /** URL of the list (filters and page) this card is shown in. */
+  listHref?: string;
 }) {
   const { t } = useI18n();
   const [fav, setFav] = useState(item.favorite);
@@ -133,7 +136,7 @@ export function MediaItemCard({
     }
   };
 
-  const { previewHref, downloadHref, sourceHref } = buildMediaLinks(item, t);
+  const { previewHref, downloadHref, sourceHref } = buildMediaLinks(item, t, listHref);
 
   return (
     <div data-card="" className="group overflow-hidden p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-action-border)]/25 light:hover:border-[var(--color-action-border)] light:hover:shadow-md">

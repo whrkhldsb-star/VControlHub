@@ -271,7 +271,7 @@ describe("sync service command helpers", () => {
     expect(command).not.toContain('-e "SSHPASS=');
   });
 
-  it("keeps the sshpass assignment inside the tar pipeline, where a shell reads it", () => {
+  it("exports the sshpass password once for every ssh leg of the tar fallback", () => {
     const command = buildTarSyncCommand({
       sourcePath: "/src",
       targetPath: "/dst",
@@ -282,7 +282,9 @@ describe("sync service command helpers", () => {
       deleteOrphans: false,
     });
 
-    expect(command).toContain("| SSHPASS='p@ss word' sshpass -e ssh ");
+    expect(command).toContain("SSHPASS='p@ss word'; export SSHPASS\n");
+    expect(command).toContain("| sshpass -e ssh ");
+    expect(command.match(/SSHPASS=/g)).toHaveLength(1);
   });
 
   it("refuses a transport path that rsync could not carry unquoted", () => {
@@ -299,7 +301,7 @@ describe("sync service command helpers", () => {
     ).toThrow("不安全的 SSH 传输路径");
   });
 
-  it("builds tar fallback commands with key cleanup and optional target purge", () => {
+  it("builds tar fallback commands with key cleanup and a staged target replacement", () => {
     const command = buildTarSyncCommand({
       sourcePath: "/srv/source; nope",
       targetPath: "/srv/target path",
@@ -311,7 +313,9 @@ describe("sync service command helpers", () => {
     });
 
     expect(command).toContain("trap 'rm -f -- ");
-    expect(command).toContain("find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +");
+    // Behaviour (staging, status propagation, untouched target on failure) is
+    // exercised on real files in __tests__/tar-sync-fault-injection.test.ts.
+    expect(command).toContain(".vch-sync-prev-sync");
     expect(command).toContain("tar cf - -C ");
     expect(command).toContain("root@example.com");
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");

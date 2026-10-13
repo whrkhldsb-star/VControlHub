@@ -9,6 +9,7 @@
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 export const IS_WINDOWS = process.platform === "win32";
@@ -161,4 +162,70 @@ export function pgConnection(env) {
     ],
     childEnv,
   };
+}
+
+/**
+ * Host-level restore lock shared by every restore entrypoint (the app's
+ * restore job, `npm run restore`, the restore-*.sh wrappers). Two restores of
+ * different backups would otherwise overwrite the same database and file tree
+ * concurrently. The in-app path additionally holds a PostgreSQL advisory lock
+ * so app instances on other hosts are excluded too.
+ *
+ * The lock is per installation (APP_DIR), not per restore destination, and is
+ * removed on exit. mkdir is atomic on every platform. The owner file lets a
+ * lock left behind by a killed process on this host be reclaimed; a live owner
+ * is never displaced. scripts/restore-files.sh implements the same protocol.
+ */
+export function restoreLockPath(appDir) {
+  return path.join(appDir, ".restore.lock");
+}
+
+function readLockOwner(content) {
+  const owner = {};
+  for (const line of content.split(/\r?\n/)) {
+    const match = line.match(/^(pid|host|startedAt)=(.*)$/);
+    if (match) owner[match[1]] = match[2];
+  }
+  return owner;
+}
+
+function processIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === "EPERM";
+  }
+}
+
+export async function acquireRestoreLock(appDir) {
+  const lockDir = restoreLockPath(appDir);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await fs.mkdir(lockDir);
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      const owner = readLockOwner(await fs.readFile(path.join(lockDir, "owner"), "utf8").catch(() => ""));
+      const pid = Number(owner.pid);
+      const stale = owner.host === os.hostname() && Number.isInteger(pid) && pid > 0 && !processIsAlive(pid);
+      if (attempt === 0 && stale) {
+        await fs.rm(lockDir, { recursive: true, force: true });
+        continue;
+      }
+      throw new Error(
+        `another restore is already running for ${appDir} (lock ${lockDir}, pid ${owner.pid ?? "unknown"} on ${owner.host ?? "unknown host"} since ${owner.startedAt ?? "unknown"}). Wait for it to finish; remove the lock only if that process is gone.`,
+      );
+    }
+    await fs.writeFile(
+      path.join(lockDir, "owner"),
+      `pid=${process.pid}\nhost=${os.hostname()}\nstartedAt=${new Date().toISOString()}\n`,
+    );
+    let released = false;
+    return async () => {
+      if (released) return;
+      released = true;
+      await fs.rm(lockDir, { recursive: true, force: true }).catch(() => undefined);
+    };
+  }
+  throw new Error(`could not acquire restore lock ${lockDir}`);
 }

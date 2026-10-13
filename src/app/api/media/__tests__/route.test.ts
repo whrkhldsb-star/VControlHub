@@ -16,6 +16,8 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 
 vi.mock("@/lib/media/service", () => ({
   listMediaItems: listMediaItemsMock,
+  countMediaItems: vi.fn(async () => 1),
+  MEDIA_MAX_PAGE_SIZE: 200,
   scanMediaFromFileEntries: scanMediaFromFileEntriesMock,
 }));
 
@@ -44,8 +46,10 @@ describe("/api/media", () => {
       favorite: true,
       tag: "demo",
       session: expect.anything(),
+      page: 1,
+      pageSize: 200,
     });
-    expect(body.media).toEqual([{ id: "m_1", mediaType: "image" }]);
+    expect(body).toMatchObject({ media: [{ id: "m_1", mediaType: "image" }], total: 1, page: 1, pageSize: 200 });
   });
 
   it("scans media with media manage permission and authenticated user id", async () => {

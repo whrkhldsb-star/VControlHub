@@ -28,12 +28,29 @@ const COMMAND_TERMINAL = new Set(["COMPLETED", "FAILED", "REJECTED", "CANCELLED"
  * then re-fire the webhook/notification the guard just refused to send. So
  * {@link executeWithRetries} treats this error as terminal: no retry, no splice.
  */
-class SideEffectAlreadyDispatchedError extends Error {
+class NonRetryableStepError extends Error {}
+
+class SideEffectAlreadyDispatchedError extends NonRetryableStepError {
   constructor(message: string) {
     super(message);
     this.name = "SideEffectAlreadyDispatchedError";
   }
 }
+
+/**
+ * A timed-out command was cancelled but never confirmed terminal: it may still
+ * be running on the target. Retrying would start a second copy of a possibly
+ * non-idempotent command concurrently, so the step fails without retrying.
+ */
+class CommandOutcomeUnknownError extends NonRetryableStepError {
+  constructor(message: string) {
+    super(message);
+    this.name = "CommandOutcomeUnknownError";
+  }
+}
+
+/** How long a cancelled command may take to reach a terminal state. */
+const CANCEL_ACK_GRACE_MS = 60_000;
 
 function truncate(input: string, max = TRUNCATE_AT): string {
   return input.length <= max ? input : `${input.slice(0, max)}…`;
@@ -78,12 +95,12 @@ function substituteVariables(command: string, variables: Record<string, string>)
   );
 }
 
-async function waitForCommand(
+/** Poll until the request is terminal or the deadline passes (null). */
+async function pollUntilTerminal(
   commandRequestId: string,
-  timeoutSec: number,
+  deadline: number,
   onProgress?: (progress: string) => Promise<unknown>,
-): Promise<string> {
-  const deadline = Date.now() + Math.max(1, timeoutSec) * 1_000;
+): Promise<string | null> {
   let lastHeartbeat = 0;
   while (Date.now() <= deadline) {
     const request = await prisma.commandRequest.findUnique({
@@ -91,12 +108,7 @@ async function waitForCommand(
       select: { status: true },
     });
     if (!request) throw new Error(`command request disappeared: ${commandRequestId}`);
-    if (COMMAND_TERMINAL.has(request.status)) {
-      if (request.status !== "COMPLETED") {
-        throw new Error(`command request ${commandRequestId} ended with ${request.status}`);
-      }
-      return `command request ${commandRequestId} completed`;
-    }
+    if (COMMAND_TERMINAL.has(request.status)) return request.status;
     const now = Date.now();
     // C4: keep durable playbook job lease alive during long SSH waits.
     if (onProgress && now - lastHeartbeat >= 15_000) {
@@ -105,6 +117,80 @@ async function waitForCommand(
     }
     await new Promise((resolve) => setTimeout(resolve, COMMAND_POLL_MS));
   }
+  return null;
+}
+
+/**
+ * FAILED/CANCELLED is also how a lost executor or an Agent that never
+ * confirmed a stop is recorded; such a target may still be running remotely.
+ * Every non-COMPLETED terminal state goes through this before any further
+ * attempt may be created — after a plain wait, after a timeout's cancellation
+ * wait, and when a reclaimed run finds its previous request already terminal.
+ */
+async function assertOutcomeKnown(commandRequestId: string, status: string): Promise<void> {
+  const unknown = await prisma.commandTarget.count({ where: { commandRequestId, outcomeUnknown: true } });
+  if (unknown > 0) {
+    throw new CommandOutcomeUnknownError(
+      `command request ${commandRequestId} ended with ${status}, but ${unknown} target(s) could not confirm the remote process stopped; not retrying`,
+    );
+  }
+}
+
+/**
+ * Gate before a run_command step may retry after ANY error — including a
+ * database read that failed while waiting, or a progress write that failed
+ * right after the command was created. A retry creates a new command, so it
+ * is only safe when every command of the failed attempt is known to have
+ * ended without completing and without an unconfirmed target. A command that
+ * is still running, one that completed (the step failed afterwards), or a
+ * state that cannot be read now, stops the step instead.
+ */
+async function assertCommandRetryable(commandRequestIds: string[], cause: unknown): Promise<void> {
+  const reason = cause instanceof Error ? cause.message : String(cause);
+  for (const commandRequestId of commandRequestIds) {
+    let status: string | undefined;
+    let unknown = 0;
+    try {
+      status = (await prisma.commandRequest.findUnique({ where: { id: commandRequestId }, select: { status: true } }))?.status;
+      if (status && COMMAND_TERMINAL.has(status) && status !== "COMPLETED") {
+        unknown = await prisma.commandTarget.count({ where: { commandRequestId, outcomeUnknown: true } });
+      }
+    } catch (lookupError) {
+      throw new CommandOutcomeUnknownError(
+        `step failed (${reason}) and the state of command request ${commandRequestId} could not be read (${lookupError instanceof Error ? lookupError.message : String(lookupError)}); not retrying while it may still be running`,
+      );
+    }
+    if (!status || !COMMAND_TERMINAL.has(status)) {
+      throw new CommandOutcomeUnknownError(
+        `step failed (${reason}) while command request ${commandRequestId} is ${status ?? "missing"}; not retrying while it may still be running`,
+      );
+    }
+    if (status === "COMPLETED") {
+      throw new CommandOutcomeUnknownError(
+        `step failed (${reason}) after command request ${commandRequestId} completed; not running the command again`,
+      );
+    }
+    if (unknown > 0) {
+      throw new CommandOutcomeUnknownError(
+        `command request ${commandRequestId} ended with ${status}, but ${unknown} target(s) could not confirm the remote process stopped; not retrying`,
+      );
+    }
+  }
+}
+
+async function terminalOutcome(commandRequestId: string, status: string): Promise<string> {
+  if (status === "COMPLETED") return `command request ${commandRequestId} completed`;
+  await assertOutcomeKnown(commandRequestId, status);
+  throw new Error(`command request ${commandRequestId} ended with ${status}`);
+}
+
+async function waitForCommand(
+  commandRequestId: string,
+  timeoutSec: number,
+  onProgress?: (progress: string) => Promise<unknown>,
+): Promise<string> {
+  const status = await pollUntilTerminal(commandRequestId, Date.now() + Math.max(1, timeoutSec) * 1_000, onProgress);
+  if (status) return terminalOutcome(commandRequestId, status);
   // Timeout: cancel the still-running request (kills the remote SSH subprocess)
   // BEFORE the step retries. Otherwise a step-level retry would create a second
   // CommandRequest and run the same (possibly destructive) command concurrently
@@ -116,10 +202,25 @@ async function waitForCommand(
       reason: `Playbook step timed out after ${timeoutSec}s`,
     });
   } catch {
-    // Best-effort: the request may already be terminal; the throw below still
-    // surfaces the timeout so the step is recorded as failed.
+    // Best-effort: the request may already be terminal. Whatever happened, the
+    // barrier below decides from the request's actual state.
   }
-  throw new Error(`command request ${commandRequestId} timed out after ${timeoutSec}s`);
+  // Cancelling a RUNNING request only moves it to CANCELLING; the target keeps
+  // running until its executor acknowledges. Wait for a terminal state before
+  // the step may retry, and refuse to retry at all if it never arrives.
+  const settled = await pollUntilTerminal(commandRequestId, Date.now() + CANCEL_ACK_GRACE_MS, onProgress);
+  if (!settled) {
+    throw new CommandOutcomeUnknownError(
+      `command request ${commandRequestId} timed out after ${timeoutSec}s and its cancellation was not confirmed within ${CANCEL_ACK_GRACE_MS / 1000}s; outcome unknown, not retrying while it may still be running`,
+    );
+  }
+  // It finished on its own while being cancelled: that is the real result.
+  if (settled === "COMPLETED") return terminalOutcome(commandRequestId, settled);
+  // The cancellation may have ended as FAILED/CANCELLED with a target whose
+  // stop was never confirmed (e.g. an Agent that did not acknowledge): that
+  // is not a clean timeout a retry may follow.
+  await assertOutcomeKnown(commandRequestId, settled);
+  throw new Error(`command request ${commandRequestId} timed out after ${timeoutSec}s (${settled})`);
 }
 
 async function resolveResumableCommandRequestId(
@@ -134,7 +235,12 @@ async function resolveResumableCommandRequestId(
   // Resume only non-terminal (or completed) requests. A FAILED/REJECTED/CANCELLED
   // id must not be reused: createCommandRequest would also idempotency-replay it.
   if (request.status === "COMPLETED") return candidateId;
-  if (COMMAND_TERMINAL.has(request.status)) return undefined;
+  if (COMMAND_TERMINAL.has(request.status)) {
+    // Dropping it would let the reclaimed run create a fresh attempt while the
+    // previous one may still be running on the target.
+    await assertOutcomeKnown(candidateId, request.status);
+    return undefined;
+  }
   return candidateId;
 }
 
@@ -314,9 +420,10 @@ async function executeWithRetries<T>(
       return await run();
     } catch (error) {
       lastError = error;
-      // A refusal to replay a dispatched side effect must not be retried: the
-      // retry would undo the marker and fire it anyway.
-      if (error instanceof SideEffectAlreadyDispatchedError) throw error;
+      // A refusal to replay a dispatched side effect must not be retried (the
+      // retry would undo the marker and fire it anyway), nor may a command whose
+      // cancellation was never confirmed (it may still be running).
+      if (error instanceof NonRetryableStepError) throw error;
       if (attempt + 1 < attempts) await onRetry?.(error);
     }
   }
@@ -372,7 +479,30 @@ export async function executePlaybookChain(input: {
               onProgress: input.onProgress,
             });
           },
-          async () => {
+          async (error) => {
+            if (step.type === "run_command") {
+              // Before the link to the failed attempt's command is dropped:
+              // every command it may have created must be known to have
+              // stopped without completing. That includes one created under
+              // its idempotency key whose id never reached `results` (the
+              // create or the progress write threw).
+              const failedAttempt = attemptIndex - 1;
+              const ids = new Set<string>();
+              const live = results.find((item) => item.stepId === step.id)?.commandRequestId;
+              if (live) ids.add(live);
+              try {
+                const byKey = await prisma.commandRequest.findUnique({
+                  where: { idempotencyKey: `playbook:${input.runId}:step:${step.id}:a${failedAttempt}` },
+                  select: { id: true },
+                });
+                if (byKey) ids.add(byKey.id);
+              } catch (lookupError) {
+                throw new CommandOutcomeUnknownError(
+                  `step failed (${error instanceof Error ? error.message : String(error)}) and its command could not be looked up (${lookupError instanceof Error ? lookupError.message : String(lookupError)}); not retrying`,
+                );
+              }
+              await assertCommandRetryable([...ids], error);
+            }
             // Drop the failed attempt's running row so the next attempt can
             // create a fresh commandRequestId (not resume the FAILED one).
             const liveIndex = results.findIndex((item) => item.stepId === step.id);

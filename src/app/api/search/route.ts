@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { playbookTeamWhere, serverTeamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, playbookTeamWhere, serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
@@ -94,13 +94,15 @@ export async function GET(request: Request) {
 			// Search across all instance keys (hub + remote VPS installs), not only hub-host.
 			const installed = await prisma.quickService.findMany({
 				where: {
-					// QuickService has no teamId of its own. Hub-host installs
-					// (serverId null) are platform-level and stay visible to any
-					// docker:manage holder; remote installs (serverId set) inherit
-					// their server's tenant, so scope them by the strict server root
-					// to stop a team operator enumerating another team's VPS inventory.
+					// QuickService has no teamId of its own. Remote installs
+					// (serverId set) inherit their server's tenant, so scope them by
+					// the strict server root to stop a team operator enumerating
+					// another team's VPS inventory. Hub-host installs (serverId null)
+					// run on the platform's own Docker daemon, which only platform
+					// managers may address (assertHubHostDockerAccess) — the same rule
+					// applies to listing them here.
 					OR: [
-						{ serverId: null },
+						...(isGlobalTeamManager(session) ? [{ serverId: null }] : []),
 						{ server: serverTeamWhere(session) },
 					],
 				},

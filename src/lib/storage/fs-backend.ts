@@ -2,9 +2,8 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { mkdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
 
 import { BusinessError, ValidationError } from "@/lib/errors";
-import { resolveStorageSshCredentials } from "./ssh-credentials";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "./path-utils";
-import { normalizeRemoteTargetPath } from "./remote-path";
+import { resolveStorageRemotePath } from "./remote-containment";
 import { t } from "@/lib/i18n/service-translations";
 import { createWebDavClient } from "./webdav-client";
 import {
@@ -100,11 +99,7 @@ export async function createManagedFolder(input: {
   }
 
   if (input.storageNode.driver === "SFTP") {
-    const remotePath = normalizeRemoteTargetPath(
-      input.storageNode.basePath,
-      input.relativePath,
-    );
-    const credentials = resolveStorageSshCredentials(input.storageNode);
+    const { remotePath, credentials } = await resolveStorageRemotePath(input.storageNode, input.relativePath);
     await createRemoteDirectory({
       ...credentials,
       remotePath,
@@ -149,11 +144,7 @@ export async function writeBackingObject(input: {
   }
 
   if (input.storageNode.driver === "SFTP") {
-    const remotePath = normalizeRemoteTargetPath(
-      input.storageNode.basePath,
-      input.relativePath,
-    );
-    const credentials = resolveStorageSshCredentials(input.storageNode);
+    const { remotePath, credentials } = await resolveStorageRemotePath(input.storageNode, input.relativePath);
     const path = await import("node:path");
     const parentDirectory = path.posix.dirname(remotePath);
     if (
@@ -212,11 +203,7 @@ export async function readBackingObject(input: {
   }
 
   if (input.storageNode.driver === "SFTP") {
-    const remotePath = normalizeRemoteTargetPath(
-      input.storageNode.basePath,
-      input.relativePath,
-    );
-    const credentials = resolveStorageSshCredentials(input.storageNode);
+    const { remotePath, credentials } = await resolveStorageRemotePath(input.storageNode, input.relativePath);
     return readRemoteFile({
       ...credentials,
       remotePath,
@@ -258,11 +245,7 @@ export async function statBackingObject(input: {
   }
 
   if (input.storageNode.driver === "SFTP") {
-    const remotePath = normalizeRemoteTargetPath(
-      input.storageNode.basePath,
-      input.relativePath,
-    );
-    const credentials = resolveStorageSshCredentials(input.storageNode);
+    const { remotePath, credentials } = await resolveStorageRemotePath(input.storageNode, input.relativePath);
     try {
       const entry = await statRemoteEntry({ ...credentials, remotePath });
       return { size: entry.size ?? 0, lastModifiedMs: entry.modifyTime ?? 0 };
@@ -306,11 +289,7 @@ export async function deleteBackingObject(input: {
     }
 
     if (input.storageNode.driver === "SFTP") {
-      const remotePath = normalizeRemoteTargetPath(
-        input.storageNode.basePath,
-        input.relativePath,
-      );
-      const credentials = resolveStorageSshCredentials(input.storageNode);
+      const { remotePath, credentials } = await resolveStorageRemotePath(input.storageNode, input.relativePath);
       await deleteRemoteFile({
         ...credentials,
         remotePath,
@@ -358,15 +337,8 @@ export async function renameBackingObject(input: {
   }
 
   if (input.storageNode.driver === "SFTP") {
-    const oldPath = normalizeRemoteTargetPath(
-      input.storageNode.basePath,
-      input.oldRelativePath,
-    );
-    const newPath = normalizeRemoteTargetPath(
-      input.storageNode.basePath,
-      input.newRelativePath,
-    );
-    const credentials = resolveStorageSshCredentials(input.storageNode);
+    const { remotePath: oldPath, credentials } = await resolveStorageRemotePath(input.storageNode, input.oldRelativePath);
+    const { remotePath: newPath } = await resolveStorageRemotePath(input.storageNode, input.newRelativePath, { credentials });
     const path = await import("node:path");
     const targetParentDirectory = path.posix.dirname(newPath);
     if (

@@ -198,6 +198,28 @@ describe("executeTarget", () => {
     }));
   });
 
+  it("flags the target outcome-unknown and never falls back to SSH when the Agent cannot confirm a stop", async () => {
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue({
+      id: "target-1",
+      status: "RUNNING",
+      commandRequest: { status: "RUNNING" },
+    });
+    const { CommandCancellationUnconfirmedError } = await import("@/lib/command/cancellation-error");
+    mocks.executeCommandWithAgent.mockRejectedValue(new CommandCancellationUnconfirmedError());
+    mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    mocks.prisma.executionLog.create.mockResolvedValue({});
+
+    const result = await executeTarget("req-1", buildTarget({
+      server: { managementMode: "AGENT", sshKey: null, hostKeySha256: "SHA256:pinned" },
+    }));
+
+    expect(result).toBe(false);
+    expect(mocks.executeCommandOverSsh).not.toHaveBeenCalled();
+    expect(mocks.prisma.commandTarget.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "FAILED", outcomeUnknown: true }),
+    }));
+  });
+
   it("fails Windows targets without an SSH fallback when the Agent is unavailable", async () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",

@@ -26,8 +26,7 @@ import {
   statBackingObject,
 } from "@/lib/storage/fs-backend";
 import { createWebDavClient } from "@/lib/storage/webdav-client";
-import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
-import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
+import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import {
   normalizeStorageRelativePath,
@@ -119,9 +118,10 @@ async function listChildren(
       directory: entry.isDirectory,
     }));
   if (node.driver === "SFTP") {
+    const { remotePath, credentials } = await resolveStorageRemotePath(node, relativePath);
     const entries = await listRemoteDirectory({
-      ...resolveStorageSshCredentials(node),
-      remotePath: normalizeRemoteTargetPath(node.basePath, relativePath),
+      ...credentials,
+      remotePath,
       maxEntries: 10001,
     });
     return entries.map((entry) => {

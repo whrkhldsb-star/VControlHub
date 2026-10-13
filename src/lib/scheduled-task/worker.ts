@@ -30,6 +30,8 @@ const logger = createLogger("scheduled-task-worker");
 export const SCHEDULED_TASK_TICK_JOB_TYPE = "scheduled-task.tick";
 
 const SCHEDULED_TASK_INTERVAL_MS = 60_000;
+/** How long a claimed occurrence stays invisible before another worker may re-claim it. */
+const SCHEDULED_TASK_CLAIM_LEASE_MS = 10 * 60_000;
 // TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= SCHEDULED_TASK_LEASE_MS 等同原值)。
 const SCHEDULED_TASK_LEASE_MS = computeLeaseMs("scheduled-task");
 const SCHEDULED_TASK_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:scheduled-task:${process.pid}`;
@@ -95,6 +97,7 @@ async function dispatchDueTask(task: {
   serverIds: string[];
   createdById: string | null;
   nextRunAt: Date | null;
+  claimedOccurrenceAt?: Date | null;
   approvalRequired: boolean;
   /** Propagate parent ScheduledTask.teamId so the spawned CommandRequest is not global (null = shared). */
   teamId: string | null;
@@ -131,18 +134,24 @@ async function dispatchDueTask(task: {
   // the same `dueTasks` list (via findMany) cannot both call
   // createCommandRequest for the same ScheduledTask. We race an
   // updateMany with the original `nextRunAt` pinned — the loser sees
-  // count === 0 and bails. The CAS advances `nextRunAt` to a far-future
-  // sentinel so the row is also invisible to subsequent findMany calls
-  // in this tick; recordTaskRun (called below on success) will recompute
-  // the real next cron firing time and persist it as the final state.
-  const claimSentinel = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  // count === 0 and bails.
+  //
+  // The claim keeps the occurrence in claimedOccurrenceAt and turns nextRunAt
+  // into a short lease. If this worker dies before recordTaskDispatch, the
+  // row becomes due again when the lease expires and the next worker
+  // dispatches the SAME occurrence: its idempotency key replays the command
+  // already created (if any) instead of running it twice, and the run gets
+  // recorded. (A 24 h sentinel used to replace nextRunAt here, which skipped
+  // the task for a day and lost the original occurrence.)
+  const occurrence = task.claimedOccurrenceAt ?? task.nextRunAt;
+  const claimLease = new Date(Date.now() + SCHEDULED_TASK_CLAIM_LEASE_MS);
   const claim = await prisma.scheduledTask.updateMany({
     where: {
       id: task.id,
       status: "ACTIVE",
       nextRunAt: task.nextRunAt,
     },
-    data: { nextRunAt: claimSentinel },
+    data: { nextRunAt: claimLease, claimedOccurrenceAt: occurrence },
   });
   if (claim.count === 0) {
     // Another worker already claimed this row. Skip silently — the
@@ -167,7 +176,7 @@ async function dispatchDueTask(task: {
       serverIds: task.serverIds,
       teamId: task.teamId,
     approvalRequired: task.approvalRequired,
-      idempotencyKey: `scheduled-task:${task.id}:${task.nextRunAt?.toISOString() ?? "manual"}`,
+      idempotencyKey: `scheduled-task:${task.id}:${occurrence?.toISOString() ?? "manual"}`,
     });
 
       await recordTaskDispatch(task.id, result.id);
@@ -184,7 +193,7 @@ async function dispatchDueTask(task: {
     try {
       await prisma.scheduledTask.update({
         where: { id: task.id },
-        data: { nextRunAt: task.nextRunAt },
+        data: { nextRunAt: occurrence, claimedOccurrenceAt: null },
       });
     } catch (rollbackError) {
       logger.error(
@@ -202,7 +211,7 @@ async function dispatchDueTask(task: {
   }
 }
 
-async function dispatchDueScheduledTasks(reason: string) {
+export async function dispatchDueScheduledTasks(reason: string) {
   const dueTasks = await prisma.scheduledTask.findMany({
     where: {
       status: "ACTIVE",

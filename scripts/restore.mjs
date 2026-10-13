@@ -8,10 +8,31 @@
  *   node scripts/restore.mjs files <files.tar.gz> <appDir>
  *   node scripts/restore.mjs full <full.tar.gz> <all|database|files> <appDir>
  *
- * Env: APP_DIR, ENV_FILE (default APP_DIR/.env.local), CONFIRM_RESTORE=1 for
- *      the destructive database step, PG_INSTALL_DIR, TAR_BIN.
+ * Env: APP_DIR, ENV_FILE (default APP_DIR/.env.local), CONFIRM_RESTORE=1 (every
+ *      component is destructive), PG_INSTALL_DIR, TAR_BIN,
+ *      VCONTROLHUB_SERVICE_UNITS (systemd units that must be stopped; default
+ *      "vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws"; "none" when
+ *      the platform is not run by systemd on this host — the operator then
+ *      confirms that every instance is stopped).
+ *
+ * Restore is OFFLINE ONLY. Web requests, workers, agent callbacks, schedules
+ * and terminal sessions all write to the database and the file tree; none of
+ * them can be safely paused from inside the running platform. The operator
+ * must stop every platform instance and keep it stopped until the restore has
+ * finished. This runner checks that prerequisite; it cannot enforce it:
+ *  - every listed systemd unit must be confirmed stopped (fails safe: a unit
+ *    that is running, transitional, not found or whose state cannot be read,
+ *    or a host without systemctl, refuses unless VCONTROLHUB_SERVICE_UNITS=none);
+ *  - the database import begins, inside its single transaction, by refusing
+ *    if any other client is connected to the target database, and the same
+ *    check runs again before files are copied.
+ * These are point-in-time checks. A client that connects after them (an
+ * instance on another host, a custom unit name not listed, a manual start)
+ * is not excluded; table locks taken by the import only cover the tables it
+ * has already touched, and nothing fences the file phase.
+ * Restore runbook: docs/audit-verification-2026-10-12.zh-CN.md (R04).
  */
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -22,6 +43,7 @@ import { createInterface } from "node:readline";
 import { pipeline } from "node:stream/promises";
 
 import {
+  acquireRestoreLock,
   findBinary,
   findTar,
   makeLogger,
@@ -44,10 +66,81 @@ async function loadEnvFile(appDir) {
   return envFile;
 }
 
-async function prepareDatabaseRestore(appDir) {
+function assertRestoreConfirmed() {
   if (process.env.CONFIRM_RESTORE !== "1") {
     fail("Restore is destructive. Re-run with CONFIRM_RESTORE=1 after taking a fresh backup.");
   }
+}
+
+const OFFLINE_HINT = "Stop every VControlHub service (web, worker, SSH proxy) and any other database client, then retry; start the services again after the restore.";
+
+const DEFAULT_SERVICE_UNITS = "vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws";
+const NON_SYSTEMD_HINT = "If the platform does not run under systemd on this host, stop every instance yourself and re-run with VCONTROLHUB_SERVICE_UNITS=none.";
+// Only these mean "not running". Running and transitional states, "unknown",
+// errors and missing output all mean the stop cannot be confirmed.
+const STOPPED_ACTIVE_STATES = new Set(["inactive", "failed"]);
+const KNOWN_LOAD_STATES = new Set(["loaded", "masked"]);
+
+/**
+ * The platform's systemd units; none may be running during a restore. Fails
+ * safe: anything but a unit positively reported as stopped refuses. A unit
+ * systemd does not know ("not-found") refuses too — with other unit names the
+ * default list would otherwise pass while the real units keep running.
+ */
+async function assertPlatformServicesStopped() {
+  const configured = process.env.VCONTROLHUB_SERVICE_UNITS;
+  if (configured?.trim().toLowerCase() === "none") {
+    log("VCONTROLHUB_SERVICE_UNITS=none: no service-manager check; the operator confirmed every platform instance is stopped.");
+    return;
+  }
+  const units = (configured ?? DEFAULT_SERVICE_UNITS).split(/[\s,]+/).filter(Boolean);
+  if (units.length === 0) fail(`VCONTROLHUB_SERVICE_UNITS is empty. List the platform's systemd units. ${NON_SYSTEMD_HINT}`);
+  const systemctl = process.platform === "win32" ? null : await findBinary("systemctl");
+  if (!systemctl) fail(`OFFLINE RESTORE REQUIRED: cannot confirm that ${units.join(", ")} are stopped (systemctl not available). ${NON_SYSTEMD_HINT}`);
+  const unconfirmed = [];
+  for (const unit of units) {
+    const result = spawnSync(systemctl, ["show", "-p", "LoadState", "-p", "ActiveState", "--", unit], { encoding: "utf8" });
+    const properties = Object.fromEntries(
+      (result.error || result.status !== 0 ? "" : result.stdout || "")
+        .split(/\r?\n/)
+        .map((line) => line.split("="))
+        .filter((pair) => pair.length === 2),
+    );
+    const { LoadState: load, ActiveState: active } = properties;
+    if (!KNOWN_LOAD_STATES.has(load)) unconfirmed.push(`${unit} (${load || "state unknown"})`);
+    else if (!STOPPED_ACTIVE_STATES.has(active)) unconfirmed.push(`${unit} (${active || "state unknown"})`);
+  }
+  if (unconfirmed.length > 0) {
+    fail(`OFFLINE RESTORE REQUIRED: ${unconfirmed.join(", ")} not confirmed stopped. ${OFFLINE_HINT} ${NON_SYSTEMD_HINT}`);
+  }
+}
+
+const OTHER_CLIENTS_SQL =
+  "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND backend_type = 'client backend'";
+
+/**
+ * First statement of the import transaction. A web/worker process (or another
+ * restore) that is connected fails the whole transaction before anything is
+ * dropped. This is a point-in-time check, not a fence: a client that connects
+ * afterwards is not refused (it only waits on tables the import has already
+ * locked). Keeping every instance stopped remains the operator's job.
+ */
+const OFFLINE_GUARD_SQL = `DO $vch_offline$ DECLARE other integer; BEGIN
+  ${OTHER_CLIENTS_SQL} INTO other;
+  IF other > 0 THEN RAISE EXCEPTION 'OFFLINE RESTORE REQUIRED: % other client connection(s) to this database. ${OFFLINE_HINT}', other; END IF;
+END $vch_offline$;
+`;
+
+/** Same check as a standalone query, for the file phase. */
+async function assertNoOtherDatabaseClients({ psql, connArgs, childEnv }) {
+  const { stdout } = await runBinary(psql, ["-X", "-q", "-t", "-A", "-c", OTHER_CLIENTS_SQL, ...connArgs], { env: childEnv });
+  const other = Number.parseInt(stdout.trim(), 10);
+  if (!Number.isInteger(other)) fail(`could not verify that the platform is offline (unexpected psql output: ${stdout.trim().slice(0, 200)})`);
+  if (other > 0) fail(`OFFLINE RESTORE REQUIRED: ${other} other client connection(s) to the database. ${OFFLINE_HINT}`);
+}
+
+async function prepareDatabaseRestore(appDir) {
+  assertRestoreConfirmed();
   const envFile = await loadEnvFile(appDir);
   const env = { ...process.env, ...envFile };
   const psql = await findBinary("psql");
@@ -58,7 +151,12 @@ async function prepareDatabaseRestore(appDir) {
 
 async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
   log(`Restoring ${backupFile} into configured database`);
-  const child = spawn(psql, ["-v", "ON_ERROR_STOP=1", ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
+  // --single-transaction (with `-f -`, which psql requires for it to apply to
+  // stdin) makes the dump all-or-nothing. ON_ERROR_STOP alone stops at the
+  // first error but leaves every DROP/CREATE/COPY before it committed, i.e. a
+  // half-restored database.
+  const child = spawn(psql, ["-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-", ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
+  child.stdin.write(OFFLINE_GUARD_SQL);
   const source = createReadStream(backupFile);
   const gunzip = backupFile.endsWith(".gz") ? createGunzip() : null;
   const completed = new Promise((resolve, reject) => {
@@ -159,7 +257,11 @@ async function containsNoSymlinks(root) {
   await walk(root);
 }
 
-async function restoreFiles(archive, appDir, inspected = false) {
+/**
+ * Extract and vet the archive's files in a private staging directory. Nothing
+ * in appDir changes until {@link applyStagedFiles}.
+ */
+async function stageFiles(archive, appDir, inspected = false) {
   if (!archive) fail("archive path is required");
   try { await fs.access(archive); } catch { fail(`archive not found: ${archive}`); }
   if (!appDir) fail("application directory is required");
@@ -177,11 +279,36 @@ async function restoreFiles(archive, appDir, inspected = false) {
   try {
     await runBinary(tar, ["-xzf", archive, "-C", staging, "--no-same-owner", "--exclude=database.sql.gz"]);
     await containsNoSymlinks(staging);
+  } catch (error) {
+    await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
+  }
+  return staging;
+}
+
+/**
+ * Overlay the staged files onto appDir. This merges: files created after the
+ * backup are kept, files in the backup overwrite their current versions.
+ */
+async function applyStagedFiles(staging, appDir) {
+  try {
     await fs.cp(path.join(staging, "."), appDir, { recursive: true, force: true });
   } finally {
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
   }
   log(`Files restored to ${appDir}`);
+}
+
+async function restoreFiles(archive, appDir, databaseTarget, inspected = false) {
+  const staged = await stageFiles(archive, appDir, inspected);
+  try {
+    await assertPlatformServicesStopped();
+    await assertNoOtherDatabaseClients(databaseTarget);
+  } catch (error) {
+    await fs.rm(staged, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
+  }
+  await applyStagedFiles(staged, appDir);
 }
 
 async function extractDatabaseMember(archive, targetDir, databaseMember) {
@@ -202,6 +329,29 @@ async function main() {
     fail("Usage: node scripts/restore.mjs <database|files|full> <archive> [component] [appDir]");
   }
 
+  assertRestoreConfirmed();
+  await assertPlatformServicesStopped();
+  const releaseLock = await acquireRestoreLock(APP_DIR);
+  const startedAt = new Date().toISOString();
+  try {
+    await runRestore(component, archive, componentArg, appDirArg);
+    await appendRestoreHistory(archive, { component, which: componentArg ?? null, status: "COMPLETED", startedAt });
+  } catch (error) {
+    await appendRestoreHistory(archive, { component, which: componentArg ?? null, status: "FAILED", startedAt, error: redactConnectionString(error instanceof Error ? error.message : String(error)).slice(0, 2000) });
+    throw error;
+  } finally {
+    await releaseLock();
+  }
+}
+
+/** Outcome log next to the backup artifacts (outside the database being replaced). */
+async function appendRestoreHistory(archive, entry) {
+  if (!archive) return;
+  const line = JSON.stringify({ ...entry, archive: path.basename(archive), finishedAt: new Date().toISOString() });
+  await fs.appendFile(path.join(path.dirname(path.resolve(archive)), "restore-history.jsonl"), `${line}\n`).catch(() => undefined);
+}
+
+async function runRestore(component, archive, componentArg, appDirArg) {
   if (component === "database") {
     if (!archive) fail("backup file path is required");
     try { await fs.access(archive); } catch { fail(`Backup file not found: ${archive}`); }
@@ -210,7 +360,8 @@ async function main() {
   }
 
   if (component === "files") {
-    await restoreFiles(archive, componentArg || APP_DIR);
+    const targetDir = componentArg || APP_DIR;
+    await restoreFiles(archive, targetDir, await prepareDatabaseRestore(targetDir));
     return;
   }
 
@@ -227,18 +378,39 @@ async function main() {
 
   const targetDir = appDirArg || APP_DIR;
   // Capture the destination configuration before restored .env files replace it.
-  const databaseTarget = which === "files" ? null : await prepareDatabaseRestore(targetDir);
+  const databaseTarget = await prepareDatabaseRestore(targetDir);
   if (which === "database" || which === "all") {
     const staging = await fs.mkdtemp(path.join(os.tmpdir(), "vch-restore-full-"));
+    let stagedFiles = null;
     try {
       const databaseDump = await extractDatabaseMember(archive, staging, databaseMember);
-      if (which === "all") await restoreFiles(archive, targetDir, true);
+      // Everything that can fail without touching the live system runs first:
+      // extract + vet the files, then the all-or-nothing database transaction.
+      // Only after the database committed are the staged files copied in, so a
+      // failing dump leaves both database and files exactly as they were.
+      if (which === "all") stagedFiles = await stageFiles(archive, targetDir, true);
       await restoreDatabase(databaseDump, databaseTarget);
+      if (stagedFiles) {
+        const files = stagedFiles;
+        stagedFiles = null;
+        try {
+          // The database transaction proved nothing else was connected when it
+          // started; prove it again before the file phase, which no table lock
+          // protects.
+          await assertPlatformServicesStopped();
+          await assertNoOtherDatabaseClients(databaseTarget);
+          await applyStagedFiles(files, targetDir);
+        } catch (error) {
+          await fs.rm(files, { recursive: true, force: true }).catch(() => undefined);
+          fail(`PARTIAL RESTORE: the database was restored but copying files into ${targetDir} failed (${error instanceof Error ? error.message : String(error)}). Restore the pre-restore safety snapshot or re-run a files-only restore.`);
+        }
+      }
     } finally {
+      if (stagedFiles) await fs.rm(stagedFiles, { recursive: true, force: true }).catch(() => undefined);
       await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
     }
   } else {
-    await restoreFiles(archive, targetDir, true);
+    await restoreFiles(archive, targetDir, databaseTarget, true);
   }
 }
 

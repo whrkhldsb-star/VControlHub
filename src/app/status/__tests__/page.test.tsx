@@ -110,4 +110,27 @@ describe("uptime presentation", () => {
     ).toBe(99.65);
     expect(calculateWeightedSla([])).toBeNull();
   });
+
+  it("does not present a day with one online sample as a 100% day", async () => {
+    const { describeUptimeDay, expectedChecksForDay, getUptimeColorClass, EXPECTED_CHECKS_PER_DAY } = await import("../uptime-presentation");
+    expect(EXPECTED_CHECKS_PER_DAY).toBe(288);
+    const sparse = describeUptimeDay({ uptimePercent: 100, checkCount: 1 }, expectedChecksForDay());
+    expect(sparse).toMatchObject({ sampled: true, sufficient: false, coveragePercent: 0, unknownMinutes: 287 * 5 });
+    expect(getUptimeColorClass(100, sparse.sampled, sparse.sufficient)).not.toContain("success");
+    const full = describeUptimeDay({ uptimePercent: 100, checkCount: 288 }, expectedChecksForDay());
+    expect(full).toMatchObject({ sufficient: true, coveragePercent: 100, unknownMinutes: 0 });
+    // Today is judged against the samples possible so far (06:00 → 72).
+    expect(describeUptimeDay({ uptimePercent: 100, checkCount: 70 }, expectedChecksForDay(360))).toMatchObject({ sufficient: true });
+  });
+
+  it("reports window coverage from the first sampled day on", async () => {
+    const { calculateWindowCoverage } = await import("../uptime-presentation");
+    expect(calculateWindowCoverage([
+      { uptimePercent: 0, checkCount: 0, expectedChecks: 288 },
+      { uptimePercent: 100, checkCount: 288, expectedChecks: 288 },
+      { uptimePercent: 100, checkCount: 1, expectedChecks: 288 },
+    ])).toMatchObject({ coveragePercent: 50, sufficient: true });
+    expect(calculateWindowCoverage([{ uptimePercent: 100, checkCount: 3, expectedChecks: 288 }])).toMatchObject({ sufficient: false });
+    expect(calculateWindowCoverage([{ uptimePercent: 0, checkCount: 0, expectedChecks: 288 }])).toBeNull();
+  });
 });

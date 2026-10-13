@@ -84,6 +84,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/ssh/client", () => ({
+  resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
   createRemoteDirectory: createRemoteDirectoryMock,
   writeRemoteFile: writeRemoteFileMock,
   deleteRemoteFile: deleteRemoteFileMock,

@@ -2,13 +2,16 @@ import { PageShell, PageHeader } from "@/components/page-shell";
 import { type SystemHealthCheck } from "@/lib/system-health/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { formatDateTime } from "@/lib/datetime/format";
-import { appTimeZoneDateKey, shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
+import { appTimeZoneDateKey, shiftAppTimeZoneDay, startOfDayInAppTimeZone } from "@/lib/datetime/time-zone";
 import { getPublicStatus, getPublicStatusSummary } from "@/lib/status/service";
 import { createLogger } from "@/lib/logging";
 import { getAllUptimeDataInternal } from "@/lib/uptime/internal";
 import { getCurrentSession } from "@/lib/auth/server-session";
 import {
   calculateWeightedSla,
+  calculateWindowCoverage,
+  describeUptimeDay,
+  expectedChecksForDay,
   getUptimeColorClass,
 } from "./uptime-presentation";
 
@@ -92,16 +95,16 @@ function renderUptimeSection(
               days.push(appTimeZoneDateKey(shiftAppTimeZoneDay(now, -i)));
             }
 
+            const today = days[days.length - 1];
+            const minutesToday = (now.getTime() - startOfDayInAppTimeZone(now).getTime()) / 60_000;
             const filled = days.map((date) => {
               const sample = daysMap.get(date);
-              return {
-                date,
-                uptimePercent: sample?.uptimePercent ?? 0,
-                checkCount: sample?.checkCount ?? 0,
-                sampled: Boolean(sample && sample.checkCount > 0),
-              };
+              const day = { uptimePercent: sample?.uptimePercent ?? 0, checkCount: sample?.checkCount ?? 0 };
+              const expectedChecks = expectedChecksForDay(date === today ? minutesToday : 1440);
+              return { date, ...day, expectedChecks, ...describeUptimeDay(day, expectedChecks) };
             });
             const sla = calculateWeightedSla(server.data ?? []);
+            const windowCoverage = calculateWindowCoverage(filled);
 
             return (
               <div key={server.id} data-card className="p-4">
@@ -112,16 +115,29 @@ function renderUptimeSection(
                   <div className="text-xs text-[var(--text-muted)]">
                     {t("statusPage.uptime.slaLabel", locale)}{" "}
                     <span className="font-mono">{sla === null ? "—" : `${sla}%`}</span>
+                    {windowCoverage ? (
+                      <span className={windowCoverage.sufficient ? undefined : "text-[var(--warning)]"}>
+                        {" · "}
+                        {t("statusPage.uptime.coverage", locale, { coverage: windowCoverage.coveragePercent })}
+                        {windowCoverage.sufficient ? "" : ` · ${t("statusPage.uptime.insufficient", locale)}`}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {filled.map((d) => (
                     <div
                       key={d.date}
-                      className={`h-4 w-4 rounded ${getUptimeColorClass(d.uptimePercent, d.sampled)} transition hover:scale-125 hover:z-10`}
+                      className={`h-4 w-4 rounded ${getUptimeColorClass(d.uptimePercent, d.sampled, d.sufficient)} transition hover:scale-125 hover:z-10`}
                       title={
                         d.sampled
-                          ? `${d.date}: ${d.uptimePercent}%`
+                          ? t("statusPage.uptime.dayTooltip", locale, {
+                              date: d.date,
+                              percent: d.uptimePercent,
+                              checks: d.checkCount,
+                              expected: d.expectedChecks,
+                              coverage: d.coveragePercent,
+                            }) + (d.sufficient ? "" : ` · ${t("statusPage.uptime.insufficient", locale)}`)
                           : `${d.date}: ${t("statusPage.uptime.noSample", locale)}`
                       }
                     />

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Download, FolderOpen, ImageIcon, Music2, Star, Tag, Video } from "@/components/icons";
 
 import { requirePagePermission } from "@/lib/auth/page-guard";
-import { getMediaItem, listMediaItems } from "@/lib/media/service";
+import { getMediaItem, getMediaNeighbors, mediaListFiltersFromHref } from "@/lib/media/service";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { MediaPreviewClient } from "@/app/files/preview/media-preview-client";
 import {
@@ -86,16 +86,13 @@ export default async function MediaPlayerPage({
   const item = await getMediaItem(id, session);
   if (!item) notFound();
 
-  const siblings = await listMediaItems({
-    mediaType: item.mediaType as"image" |"video" |"audio",
-    session,
-  });
-  const currentIndex = siblings.findIndex((entry) => entry.id === item.id);
-  const previousItem = currentIndex > 0 ? siblings[currentIndex - 1] : null;
-  const nextItem =
-    currentIndex >= 0 && currentIndex < siblings.length - 1
-      ? siblings[currentIndex + 1]
-      : null;
+  const returnHref = safeMediaReturnHref(query?.from);
+  // Previous/next follow the list the item was opened from (its filters), at
+  // any position; a direct link without a list falls back to the item's type.
+  const listFilters = query?.from
+    ? mediaListFiltersFromHref(returnHref)
+    : { mediaType: item.mediaType as "image" | "video" | "audio" };
+  const { previous: previousItem, next: nextItem } = await getMediaNeighbors(item, { ...listFilters, session });
 
   const storageEntry = createStorageEntry(item, locale);
   if (!storageEntry) notFound();
@@ -106,7 +103,6 @@ export default async function MediaPlayerPage({
     nodeId: item.storageNode?.id ?? "",
     q: item.name,
   });
-  const returnHref = safeMediaReturnHref(query?.from);
   const navigationFrom = encodeURIComponent(returnHref);
   const isImage =
     item.mimeType.startsWith("image/") && item.mimeType !=="image/svg+xml";

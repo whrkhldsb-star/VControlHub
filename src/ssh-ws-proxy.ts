@@ -438,6 +438,14 @@ type ShellSession = {
 	endpointHash: string;
 	sshClient: Client;
 	stream: import("ssh2").ClientChannel | undefined;
+	/**
+	 * Latest grid size the browser asked for. The browser sends it as soon as
+	 * the socket opens — before SSH authentication finished and the shell
+	 * exists — so it is kept here and used to open the PTY, instead of the
+	 * shell starting at ssh2's default 80×24 while the browser shows another
+	 * grid (remote output then wraps and scrolls in the wrong places).
+	 */
+	window: { rows: number; cols: number } | null;
 	attachment: ShellAttachment | null;
 	/** Output produced while no browser was attached, oldest first. */
 	buffer: Buffer[];
@@ -653,6 +661,7 @@ wss.on("connection", async (ws, req) => {
 		endpointHash,
 		sshClient: new Client(),
 		stream: undefined,
+		window: null,
 		attachment: null,
 		buffer: [],
 		bufferedBytes: 0,
@@ -759,7 +768,7 @@ wss.on("connection", async (ws, req) => {
 
 	if (!resumed) {
 		shell.sshClient.on("ready", () => {
-			shell.sshClient.shell({ term: "xterm-256color" }, (err, stream) => {
+			shell.sshClient.shell({ term: "xterm-256color", ...(shell.window ?? {}) }, (err, stream) => {
 				if (err) {
 					shell.attachment?.fail(t("backend.sshTerminal.shellCreationFailed", { message: err.message }));
 					endShellSession(shell);
@@ -770,6 +779,8 @@ wss.on("connection", async (ws, req) => {
 					return;
 				}
 				shell.stream = stream;
+				// A resize may have arrived while the shell request was in flight.
+				if (shell.window) stream.setWindow(shell.window.rows, shell.window.cols, 0, 0);
 				if (shell.attachment?.ws === ws) announceShell();
 				resetShellIdle(shell);
 				stream.on("data", (data: Buffer) => deliverShellOutput(shell, data));
@@ -809,8 +820,10 @@ wss.on("connection", async (ws, req) => {
 			pendingSshInputBytes += messageBytes;
 			pendingInputMessages++;
 			void ensureAuthorized().then(async (allowed) => {
+				if (!allowed || stopped || shell.ended) return;
+				if (msg.type === "resize") shell.window = { rows: msg.rows, cols: msg.cols };
 				const sshStream = shell.stream;
-				if (!allowed || stopped || !sshStream || shell.ended) return;
+				if (!sshStream) return;
 				resetShellIdle(shell);
 				if (msg.type === "input") {
 					if (sshStream.writableLength > 1024 * 1024) { stopTerminal(t("backend.sshTerminal.connectionClosed"), 1013); return; }

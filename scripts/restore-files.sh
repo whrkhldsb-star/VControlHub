@@ -1,35 +1,11 @@
 #!/usr/bin/env bash
-
+# Keep the Linux argv contract (archive, target directory); all restore paths
+# share the Node runner's archive vetting, host lock and offline checks.
 set -euo pipefail
-
-ARCHIVE="${1:-}"
-APP_DIR="${2:-${APP_DIR:-}}"
-
-fail() { printf '[restore-files] %s\n' "$*" >&2; exit 1; }
-
-[ -n "${ARCHIVE}" ] || fail "archive path is required"
-[ -f "${ARCHIVE}" ] || fail "archive not found: ${ARCHIVE}"
-[ -n "${APP_DIR}" ] || fail "application directory is required"
-[ -d "${APP_DIR}" ] || fail "application directory not found: ${APP_DIR}"
-
-while IFS= read -r member; do
-  case "${member}" in
-    /*|../*|*/../*|*/..) fail "unsafe archive member: ${member}" ;;
-  esac
-done < <(tar -tzf "${ARCHIVE}")
-
-# A staging directory does not make archive links harmless: a symlink or
-# hardlink can redirect a later member outside the stage during extraction.
-while IFS= read -r detail; do
-  [ -n "${detail}" ] || continue
-  case "${detail:0:1}" in
-    -|d) ;;
-    *) fail "archive links and special files are not supported" ;;
-  esac
-done < <(tar -tvzf "${ARCHIVE}")
-
-STAGE_DIR="$(mktemp -d)"
-trap 'rm -rf -- "${STAGE_DIR}"' EXIT
-tar -xzf "${ARCHIVE}" -C "${STAGE_DIR}" --no-same-owner --no-same-permissions --exclude=database.sql.gz
-[ -z "$(find "${STAGE_DIR}" -type l -print -quit)" ] || fail "archive contains a symbolic link"
-cp -a "${STAGE_DIR}/." "${APP_DIR}/"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET_DIR="${2:-${APP_DIR:-}}"
+if [ -z "${TARGET_DIR}" ]; then
+  printf '[restore-files] application directory is required\n' >&2
+  exit 1
+fi
+exec node "${SCRIPT_DIR}/restore.mjs" files "${1:-}" "${TARGET_DIR}"

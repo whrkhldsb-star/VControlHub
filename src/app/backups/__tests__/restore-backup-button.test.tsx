@@ -7,89 +7,69 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { RestoreBackupButton } from "../restore-backup-button";
 import { expectBottomSheet, expectTouchTarget } from "@/test/ui-assertions";
 
-const refreshMock = vi.fn();
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: refreshMock }),
-}));
-
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
 }));
 
-describe("RestoreBackupButton", () => {
+const plan = {
+  checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86",
+  component: "all",
+  commands: {
+    stopServices: "sudo systemctl stop vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws",
+    safetySnapshot: "cd '/opt/app' && bash deploy/backup.sh --full 'backups/pre-restore-bak1-1.tar.gz'",
+    restore: "cd '/opt/app' && CONFIRM_RESTORE=1 bash scripts/restore-full.sh 'backups/full.tar.gz' 'all' '/opt/app'",
+    startServices: "sudo systemctl start vcontrolhub-ssh-ws vcontrolhub-worker vcontrolhub-next",
+  },
+};
+
+describe("RestoreBackupButton (offline restore)", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(csrfFetch).mockResolvedValue({ restoredAt: "2026-05-30T00:00:00.000Z" });
+    vi.mocked(csrfFetch).mockResolvedValue({ offlineRestore: plan });
   });
 
-  it("requires an explicit visible restore confirmation label before calling the API", async () => {
-    render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
-
+  it("explains that restore is offline only and calls nothing until asked to verify", async () => {
+    render(<RestoreBackupButton backupId="bak1" backupType="FULL" />);
     await userEvent.click(screen.getByRole("button", { name: "恢复" }));
 
-    expect(screen.getByRole("dialog", { name: "确认恢复备份" })).toBeInTheDocument();
-    expect(screen.getByLabelText("输入 RESTORE 确认恢复")).toHaveAttribute("placeholder", "RESTORE");
-    expect(screen.getByRole("button", { name: "确认恢复" })).toBeDisabled();
-    expect(csrfFetch).not.toHaveBeenCalled();
-
-    await userEvent.type(screen.getByLabelText("输入 RESTORE 确认恢复"), "RESTORE");
-
-    expect(screen.getByRole("button", { name: "确认恢复" })).toBeEnabled();
-  });
-
-  it("keeps restore blocked for the wrong confirmation", async () => {
-    render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
-
-    await userEvent.click(screen.getByRole("button", { name: "恢复" }));
-    await userEvent.type(screen.getByLabelText("输入 RESTORE 确认恢复"), "RESTOR");
-
-    expect(screen.getByRole("button", { name: "确认恢复" })).toBeDisabled();
+    expect(screen.getByRole("dialog", { name: "离线恢复" })).toHaveTextContent(/只能在平台停机时执行/);
     expect(csrfFetch).not.toHaveBeenCalled();
   });
 
-  it("posts to the restore API through csrfFetch and shows queued task status (not false restore-completed)", async () => {
-    vi.mocked(csrfFetch).mockResolvedValue({ jobId: "job1", taskId: "job:job1", deduped: false });
-    render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
-
+  it("verifies the backup on the server and shows the runbook in order", async () => {
+    render(<RestoreBackupButton backupId="bak1" backupType="FULL" />);
     await userEvent.click(screen.getByRole("button", { name: "恢复" }));
-    await userEvent.type(screen.getByLabelText("输入 RESTORE 确认恢复"), "RESTORE");
-    await userEvent.click(screen.getByRole("button", { name: "确认恢复" }));
+    await userEvent.click(screen.getByRole("button", { name: "仅数据库" }));
+    await userEvent.click(screen.getByRole("button", { name: "校验并生成步骤" }));
 
-    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/backups/bak1/restore", expect.objectContaining({ method: "POST", body: JSON.stringify({ confirm: "RESTORE", component: "all" }) })));
-    expect(refreshMock).toHaveBeenCalledOnce();
-    expect(screen.getByText(/恢复任务已创建/)).toBeInTheDocument();
-    expect(screen.queryByText(/恢复已执行/)).not.toBeInTheDocument();
-    expect(screen.queryByText("恢复成功")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks");
-    expect(screen.queryByRole("dialog", { name: "确认恢复备份" })).not.toBeInTheDocument();
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/backups/bak1/restore", expect.objectContaining({ method: "POST", body: JSON.stringify({ component: "database" }) })));
+    expect(await screen.findByText(/备份校验通过（SHA-256 a92e0ec81286…）/)).toBeInTheDocument();
+    const commands = screen.getAllByText(/systemctl|backup\.sh|restore-full\.sh/).map((node) => node.textContent);
+    expect(commands).toEqual([plan.commands.stopServices, plan.commands.safetySnapshot, plan.commands.restore, plan.commands.startServices]);
   });
 
-  it("shows restore-completed only when API returns a restoredAt (wait=1 shape)", async () => {
-    vi.mocked(csrfFetch).mockResolvedValue({ restore: { restoredAt: "2026-05-30T00:00:00.000Z" } });
+  it("shows the server's refusal (e.g. checksum mismatch) instead of any steps", async () => {
+    vi.mocked(csrfFetch).mockRejectedValue(new Error("备份校验和验证失败，产物可能已损坏或被篡改"));
     render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
-
     await userEvent.click(screen.getByRole("button", { name: "恢复" }));
-    await userEvent.type(screen.getByLabelText("输入 RESTORE 确认恢复"), "RESTORE");
-    await userEvent.click(screen.getByRole("button", { name: "确认恢复" }));
+    await userEvent.click(screen.getByRole("button", { name: "校验并生成步骤" }));
 
-    await waitFor(() => expect(screen.getByText(/恢复已执行/)).toBeInTheDocument());
-    expect(screen.queryByRole("link", { name: "查看任务中心" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("备份校验和验证失败");
+    expect(screen.queryByText(/systemctl/)).not.toBeInTheDocument();
   });
 
-  it("renders the restore confirm dialog as a mobile bottom sheet (TR-022 R10)", async () => {
+  it("renders the dialog as a mobile bottom sheet with touch-sized actions", async () => {
     const user = userEvent.setup();
     render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
 
     await user.click(screen.getByRole("button", { name: "恢复" }));
-    const dialog = await screen.findByRole("dialog", { name: "确认恢复备份" });
+    const dialog = await screen.findByRole("dialog", { name: "离线恢复" });
     expectBottomSheet(dialog);
-    // Cancel/confirm footer must stack on mobile and row on desktop
-    const cancelButton = screen.getByRole("button", { name: "取消" });
-    const confirmButton = screen.getByRole("button", { name: "确认恢复" });
-    expectTouchTarget(cancelButton);
-    expectTouchTarget(confirmButton);
-    const footer = cancelButton.parentElement as HTMLElement;
+    const closeButton = screen.getByRole("button", { name: "取消" });
+    const prepareButton = screen.getByRole("button", { name: "校验并生成步骤" });
+    expectTouchTarget(closeButton);
+    expectTouchTarget(prepareButton);
+    const footer = closeButton.parentElement as HTMLElement;
     expect(footer.className).toMatch(/flex-col-reverse/);
     expect(footer.className).toMatch(/sm:flex-row/);
   });

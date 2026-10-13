@@ -657,8 +657,8 @@ export async function createVpsBackupRecord(input: {
   scheduleId?: string;
   createdBy?: string | null;
   paths?: string[];
-}): Promise<{ id: string }> {
-  const record = await prisma.vpsBackupRecord.create({
+}, client: Pick<typeof prisma, "vpsBackupRecord"> = prisma): Promise<{ id: string }> {
+  const record = await client.vpsBackupRecord.create({
     data: {
       serverId: input.serverId,
       backupType: input.backupType,

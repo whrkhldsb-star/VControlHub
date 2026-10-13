@@ -1,4 +1,4 @@
-import { Prisma, type Job } from "@prisma/client";
+import { CommandRequestStatus, DownloadTaskStatus, JobStatus, Prisma, SyncJobStatus, type Job } from "@prisma/client";
 
 import { teamWhere } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -43,13 +43,64 @@ function toIso(value: Date | string | null | undefined) {
   return value ? new Date(value).toISOString() : new Date(0).toISOString();
 }
 
+const RAW_STATUS_GROUPS: Array<[OperationTaskStatus, readonly string[]]> = [
+  ["running", ["RUNNING", "CANCELLING", "ACTIVE", "IN_PROGRESS", "APPROVED"]],
+  ["completed", ["COMPLETED", "IDLE"]],
+  // SyncJob ERROR is a failed run (it used to fall through to "pending").
+  ["failed", ["FAILED", "REJECTED", "EXPIRED", "ERROR"]],
+  ["cancelled", ["CANCELLED", "DISABLED"]],
+  ["paused", ["PAUSED"]],
+];
+/** Every raw status with an explicit mapping; anything else is "pending". */
+const KNOWN_RAW_STATUSES = RAW_STATUS_GROUPS.flatMap(([, raw]) => raw);
+
 export function mapOperationStatus(status: string): OperationTaskStatus {
-  if (["RUNNING", "CANCELLING", "ACTIVE", "IN_PROGRESS", "APPROVED"].includes(status)) return "running";
-  if (["COMPLETED", "IDLE"].includes(status)) return "completed";
-  if (["FAILED", "REJECTED", "EXPIRED"].includes(status)) return "failed";
-  if (["CANCELLED", "DISABLED"].includes(status)) return "cancelled";
-  if (["PAUSED"].includes(status)) return "paused";
+  for (const [mapped, raw] of RAW_STATUS_GROUPS) if (raw.includes(status)) return mapped;
   return "pending";
+}
+
+type WhereClause = Record<string, unknown>;
+
+/**
+ * The inverse of {@link mapOperationStatus} for one source's `status` column,
+ * so the requested statuses are filtered in the database before `take`.
+ * Enum columns list their values; free-text columns are open-ended, where
+ * "pending" also means "any value without an explicit mapping". Returns null
+ * when no row of this source can match.
+ */
+function rawStatusWhere(
+  statuses: ReadonlySet<OperationTaskStatus>,
+  candidates: readonly string[],
+  openEnded: boolean,
+  field = "status",
+): WhereClause | null {
+  const included = candidates.filter((value) => statuses.has(mapOperationStatus(value)));
+  const clauses: WhereClause[] = included.length ? [{ [field]: { in: included } }] : [];
+  if (openEnded && statuses.has("pending")) clauses.push({ [field]: { notIn: KNOWN_RAW_STATUSES } });
+  if (clauses.length === 0) return null;
+  return clauses.length === 1 ? clauses[0]! : { OR: clauses };
+}
+
+/** syncJobOperationStatus, inverted: IDLE is "pending" until the first run. */
+function syncStatusWhere(statuses: ReadonlySet<OperationTaskStatus>): WhereClause | null {
+  const clauses: WhereClause[] = [];
+  const nonIdle = Object.values(SyncJobStatus).filter((value) => value !== "IDLE" && statuses.has(mapOperationStatus(value)));
+  if (nonIdle.length) clauses.push({ status: { in: nonIdle } });
+  if (statuses.has("pending")) clauses.push({ status: "IDLE", lastSyncAt: null });
+  if (statuses.has("completed")) clauses.push({ status: "IDLE", lastSyncAt: { not: null } });
+  return clauses.length ? { OR: clauses } : null;
+}
+
+/** resolveDeploymentOperationStatus, inverted: a linked command's status wins. */
+function deploymentStatusWhere(statuses: ReadonlySet<OperationTaskStatus>): WhereClause | null {
+  const commandStatuses = Object.values(CommandRequestStatus).filter((value) =>
+    value === "PENDING_APPROVAL" ? statuses.has("pending") : statuses.has(mapOperationStatus(value)),
+  );
+  const ownStatus = rawStatusWhere(statuses, KNOWN_RAW_STATUSES, true);
+  const clauses: WhereClause[] = [];
+  if (ownStatus) clauses.push({ commandRequestId: null, ...ownStatus });
+  if (commandStatuses.length) clauses.push({ commandRequest: { status: { in: commandStatuses } } });
+  return clauses.length ? { OR: clauses } : null;
 }
 
 /**
@@ -278,13 +329,52 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
     if (canReadTeamTasks) return teamScope;
     return { AND: [teamScope, { [ownerField]: session.userId }] };
   };
+
+  // Filters are pushed into every source query BEFORE `take`. Filtering the
+  // merged newest-N rows afterwards (as before) hid an old RUNNING/FAILED task
+  // behind any burst of newer ones. The in-memory filter below stays as the
+  // authoritative check. With the "attention" sort and no status filter, the
+  // attention rows of each source are fetched in addition to the newest rows
+  // so a long-stuck task is still ranked first.
+  const requestedStatuses = normalizeStatusFilter(options.status);
+  const taskType = normalizeTaskTypeFilter(options.taskType);
+  const attentionStatuses = new Set<OperationTaskStatus>(["failed", "running", "pending"]);
+  const statusPasses: Array<ReadonlySet<OperationTaskStatus> | null> = requestedStatuses
+    ? [requestedStatuses]
+    : options.sort === "attention" ? [null, attentionStatuses] : [null];
+  /** Run one source query per status pass and merge by id (newest first). */
+  async function fetchSource<T extends { id: string; createdAt: Date }>(
+    ownerField: string,
+    statusWhere: (statuses: ReadonlySet<OperationTaskStatus>) => WhereClause | null,
+    extraWhere: WhereClause | null,
+    run: (where: WhereClause) => Promise<T[]>,
+  ): Promise<T[]> {
+    if (extraWhere === null) return [];
+    const merged = new Map<string, T>();
+    for (const statuses of statusPasses) {
+      const status = statuses ? statusWhere(statuses) : {};
+      if (status === null) continue;
+      const parts = [scopedWhere(ownerField), status, extraWhere].filter((part) => Object.keys(part).length > 0);
+      for (const row of await run(parts.length <= 1 ? (parts[0] ?? {}) : { AND: parts })) merged.set(row.id, row);
+    }
+    return [...merged.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  // Only jobs and backups carry a task type; other sources cannot match one.
+  const typedWhere = taskType ? { type: taskType } : {};
+  const untypedWhere = taskType ? null : {};
   const [jobs, commands, downloads, syncJobs, backups, deployments] = await Promise.all([
-    prisma.job.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } }),
-    prisma.commandRequest.findMany({ where: scopedWhere("requesterId"), take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: { id: true, status: true, finishedAt: true, startedAt: true } }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } }, scheduledTaskRuns: { take: 1, select: { scheduledTask: { select: { name: true } } } } } }),
-    prisma.downloadTask.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
-    prisma.syncJob.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
-    prisma.backupRecord.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
-    prisma.deploymentRun.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, template: { select: { name: true } }, commandRequest: { select: { status: true, workerId: true, workerHeartbeatAt: true, updatedAt: true } } } }),
+    fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(JobStatus), false), typedWhere, (where) =>
+      prisma.job.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } })),
+    fetchSource("requesterId", (statuses) => rawStatusWhere(statuses, Object.values(CommandRequestStatus), false), untypedWhere, (where) =>
+      prisma.commandRequest.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: { id: true, status: true, finishedAt: true, startedAt: true } }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } }, scheduledTaskRuns: { take: 1, select: { scheduledTask: { select: { name: true } } } } } })),
+    fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(DownloadTaskStatus), false), untypedWhere, (where) =>
+      prisma.downloadTask.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } })),
+    fetchSource("createdBy", syncStatusWhere, untypedWhere, (where) =>
+      prisma.syncJob.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } })),
+    fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, KNOWN_RAW_STATUSES, true), typedWhere, (where) =>
+      prisma.backupRecord.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } })),
+    fetchSource("createdBy", deploymentStatusWhere, untypedWhere, (where) =>
+      prisma.deploymentRun.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, template: { select: { name: true } }, commandRequest: { select: { status: true, workerId: true, workerHeartbeatAt: true, updatedAt: true } } } })),
   ]);
 
   const targetOutputTails = await fetchTargetOutputTails(

@@ -8,7 +8,8 @@ const { mockPrisma, mockTeamWhere, mockDeploymentRunTeamWhere, mockTeamCreateDat
     commandTemplate: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), createMany: vi.fn() },
     deploymentRun: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     deploymentSnapshot: { create: vi.fn() },
-    deploymentRollbackRun: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    deploymentRollbackRun: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    commandRequest: { findUnique: vi.fn() },
     server: { findMany: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -73,6 +74,8 @@ describe("deployment service", () => {
       return { count: where?.id ? 1 : 0 };
     });
     mockPrisma.deploymentRollbackRun.findFirst.mockResolvedValue(null);
+    mockPrisma.deploymentRollbackRun.findMany.mockResolvedValue([]);
+    mockPrisma.commandRequest.findUnique.mockResolvedValue(null);
   });
 
   it("renders template variables and submits through command approval pipeline", async () => {
@@ -286,11 +289,106 @@ describe("deployment service", () => {
         serverIds: ["srv1"],
       },
     });
-    mockPrisma.deploymentRollbackRun.findFirst.mockResolvedValueOnce({ id: "rb_active", status: "PENDING" });
+    mockPrisma.deploymentRollbackRun.findMany.mockResolvedValueOnce([{ id: "rb_active", status: "PENDING", commandRequestId: "cmd_active" }]);
 
     await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM)).rejects.toThrow(/rollback|回滚/i);
     expect(mockPrisma.deploymentRollbackRun.create).not.toHaveBeenCalled();
     expect(commandService.createCommandRequest).not.toHaveBeenCalled();
+  });
+
+  describe("rollback crash and bookkeeping windows (stateful store)", () => {
+    type Row = { id: string; sourceRunId: string; status: string; commandRequestId: string | null; errorMessage?: string | null };
+    let rollbacks: Map<string, Row>;
+    let commands: Map<string, { id: string; status: string; idempotencyKey: string }>;
+    let failLinkUpdate: boolean;
+    let failRecoveryLookup: boolean;
+
+    beforeEach(() => {
+      rollbacks = new Map();
+      commands = new Map();
+      failLinkUpdate = false;
+      failRecoveryLookup = false;
+      mockPrisma.deploymentRun.findFirst.mockResolvedValue({
+        id: "dep1",
+        teamId: null,
+        template: { id: "tmpl1", name: "Nginx" },
+        snapshot: { id: "snap1", templateName: "Nginx", rollbackCommand: "apt remove nginx", serverIds: ["srv1"] },
+      });
+      mockPrisma.deploymentRollbackRun.findMany.mockImplementation(async ({ where }: any) =>
+        [...rollbacks.values()].filter((row) => row.sourceRunId === where.sourceRunId && where.status.in.includes(row.status)));
+      // findFirst mirrors findMany so the pre-fix single-row lookup sees the same store.
+      mockPrisma.deploymentRollbackRun.findFirst.mockImplementation(async ({ where }: any) =>
+        [...rollbacks.values()].find((row) => row.sourceRunId === where.sourceRunId && where.status.in.includes(row.status)) ?? null);
+      mockPrisma.deploymentRollbackRun.create.mockImplementation(async ({ data }: any) => {
+        const row = { id: `rb${rollbacks.size + 1}`, sourceRunId: data.sourceRunId, status: data.status, commandRequestId: null };
+        rollbacks.set(row.id, row);
+        return row;
+      });
+      mockPrisma.deploymentRollbackRun.update.mockImplementation(async ({ where, data }: any) => {
+        if (failLinkUpdate && data.commandRequestId) throw new Error("link write failed");
+        const row = rollbacks.get(where.id)!;
+        Object.assign(row, data);
+        return { ...row };
+      });
+      mockPrisma.commandRequest.findUnique.mockImplementation(async ({ where }: any) => {
+        if (failRecoveryLookup) throw new Error("process killed (injected)");
+        return [...commands.values()].find((command) => command.idempotencyKey === where.idempotencyKey) ?? null;
+      });
+      vi.mocked(commandService.createCommandRequest).mockImplementation((async (input: any) => {
+        const command = { id: `cmd${commands.size + 1}`, status: "PENDING_APPROVAL", idempotencyKey: input.idempotencyKey };
+        commands.set(command.id, command);
+        return command;
+      }) as never);
+    });
+
+    it("a rollback interrupted before its command was created does not block the next rollback forever", async () => {
+      vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("process killed (injected)"));
+      failRecoveryLookup = true; // a killed process runs no compensation
+      await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM)).rejects.toThrow("process killed");
+      expect(rollbacks.get("rb1")).toMatchObject({ status: "PENDING", commandRequestId: null });
+
+      failRecoveryLookup = false;
+      const next = await createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM);
+
+      expect(next).toMatchObject({ id: "rb2", commandRequestId: "cmd1" });
+      expect(rollbacks.get("rb1")).toMatchObject({ status: "FAILED" });
+      expect(commands.size).toBe(1);
+    });
+
+    it("a command created but not linked is linked, never marked FAILED, and never submitted twice", async () => {
+      failLinkUpdate = true;
+      await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM)).rejects.toThrow("link write failed");
+      failLinkUpdate = false;
+      // The failure path itself must not retire a rollback whose command exists.
+      expect(rollbacks.get("rb1")!.status).not.toBe("FAILED");
+
+      await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM)).rejects.toThrow(/rollback|回滚/i);
+      expect(rollbacks.get("rb1")).toMatchObject({ status: "PENDING", commandRequestId: "cmd1" });
+      expect(commands.size).toBe(1);
+    });
+
+    it("a process killed between command creation and the link is recovered by the next request", async () => {
+      failLinkUpdate = true;
+      failRecoveryLookup = true;
+      await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM)).rejects.toThrow("link write failed");
+      failLinkUpdate = false;
+      failRecoveryLookup = false;
+      expect(rollbacks.get("rb1")).toMatchObject({ status: "PENDING", commandRequestId: null });
+
+      await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM)).rejects.toThrow(/rollback|回滚/i);
+      expect(rollbacks.get("rb1")).toMatchObject({ commandRequestId: "cmd1", status: "PENDING" });
+      expect(commands.size).toBe(1);
+    });
+
+    it("an unlinked rollback whose command already finished is closed and lets a new rollback start", async () => {
+      rollbacks.set("rb_old", { id: "rb_old", sourceRunId: "dep1", status: "PENDING", commandRequestId: null });
+      commands.set("cmd_old", { id: "cmd_old", status: "COMPLETED", idempotencyKey: "deployment-rollback:rb_old" });
+
+      const next = await createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM);
+
+      expect(rollbacks.get("rb_old")).toMatchObject({ status: "COMPLETED", commandRequestId: "cmd_old" });
+      expect(next).toMatchObject({ commandRequestId: "cmd2" });
+    });
   });
 
   it("rejects rollback when source run is outside team scope", async () => {

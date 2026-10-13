@@ -38,6 +38,7 @@ vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-cr
 }));
 
 vi.mock("@/lib/ssh/client", () => ({
+  resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
   listRemoteDirectory: listRemoteDirectoryMock,
 }));
 

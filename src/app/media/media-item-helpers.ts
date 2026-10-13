@@ -85,10 +85,11 @@ export function mediaTypeLabel(mediaType: string, t: MediaTFn) {
   return t("mediaItemCard.type.other");
 }
 
-export function buildMediaLinks(item: MediaItem, t: MediaTFn) {
+/** `listHref` is the list the card is shown in, so the detail page can return to it and navigate within it. */
+export function buildMediaLinks(item: MediaItem, t: MediaTFn, listHref = "/media") {
   const storageEntry = createStorageEntry(item, t);
   const previewHref = storageEntry
-    ? `/media/${encodeURIComponent(item.id)}?from=${encodeURIComponent("/media")}`
+    ? `/media/${encodeURIComponent(item.id)}?from=${encodeURIComponent(listHref)}`
     : null;
   const downloadHref = storageEntry
     ? appendDownloadFlag(buildProxyDownloadHref(storageEntry))

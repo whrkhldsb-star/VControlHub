@@ -67,7 +67,7 @@ vi.mock("node:net", () => {
 });
 
 import { checkPort, installService, listQuickServiceHistory, resetQuickServiceProcessStateForTests, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
-import { getDockerEnvironmentStatus } from "../docker-cli";
+import { containerHealthGate, getDockerEnvironmentStatus } from "../docker-cli";
 import { hubHostDockerSocketMount } from "@/lib/runtime/platform-paths";
 import type { ServiceTemplate } from "../types";
 
@@ -97,6 +97,11 @@ function dockerRunArgs(): string[] {
 	return call?.[1] as string[];
 }
 
+/** The post-start acceptance check's `docker inspect` (status|health|restarts). */
+function isStateInspect(args: string[]) {
+	return args[0] === "inspect" && String(args[1]).includes("{{.State.Status}}|");
+}
+
 /** execFile routing helper: default success, with per-argv overrides. */
 function routeExecFile(overrides: Record<string, (cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => void>) {
 	execFileMock.mockImplementation(
@@ -116,7 +121,12 @@ describe("quick service docker lifecycle", () => {
 		vi.clearAllMocks();
 		resetQuickServiceProcessStateForTests();
 		busyPorts.clear();
-		execFileSyncMock.mockReturnValue("");
+		containerHealthGate.settleMs = 0;
+		containerHealthGate.pollMs = 0;
+		containerHealthGate.timeoutMs = 0;
+		// Every container reports "running, no healthcheck, no restarts" to the
+		// post-start acceptance check unless a test says otherwise.
+		execFileSyncMock.mockImplementation((_file: string, args: string[]) => isStateInspect(args) ? "running||0\n" : "");
 		spawnSyncMock.mockImplementation((file: string, args: string[]) => {
 			// Route docker logs through the same fixture surface as execFileSync
 			// so tests that mock docker CLI output keep working after the
@@ -176,7 +186,7 @@ describe("quick service docker lifecycle", () => {
 			command: "serve --safe",
 		});
 		execFileSyncMock.mockImplementationOnce(() => {
-			throw new Error("missing container");
+			throw Object.assign(new Error("Command failed: docker start qs-demo"), { stderr: "Error response from daemon: No such container: qs-demo" });
 		});
 		prismaMock.quickService.update.mockResolvedValue({});
 
@@ -273,11 +283,11 @@ describe("quick service docker lifecycle", () => {
 			return "";
 		});
 
-		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("failed to clean up leftover container");
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("清理残留容器失败");
 		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } } });
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
 			action: "quick_service.install.failed",
-			detail: expect.objectContaining({ error: expect.stringContaining("failed to clean up leftover container"), rollback: "deleted" }),
+			detail: expect.objectContaining({ error: expect.stringContaining("清理残留容器失败"), rollback: "deleted" }),
 		}));
 	});
 
@@ -400,7 +410,7 @@ describe("quick service docker lifecycle", () => {
 			command: null,
 		});
 		execFileSyncMock.mockImplementationOnce(() => {
-			throw new Error("missing container");
+			throw Object.assign(new Error("Command failed: docker start qs-demo"), { stderr: "Error response from daemon: No such container: qs-demo" });
 		});
 		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
 			cb(new Error("docker daemon unavailable"));
@@ -519,6 +529,7 @@ describe("quick service docker lifecycle", () => {
 		});
 		prismaMock.quickService.update.mockResolvedValue({});
 		execFileSyncMock.mockImplementation((file: string, args: string[]) => {
+			if (file === "docker" && isStateInspect(args)) return "running|healthy|0\n";
 			if (file === "docker" && args[0] === "inspect") return "healthy\n";
 			if (file === "docker" && args[0] === "logs") return "old line\nservice ready\n";
 			return "";
@@ -804,6 +815,7 @@ describe("quick service docker lifecycle", () => {
 		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-upd", slug: "demo", name: "Demo", category: "other", icon: "pkg", description: "Demo", image: "example/demo:new", port: 18080, path: "/demo/", envJson: "{}", volumesJson: "[]", internalPort: null, extraPortsJson: "[]", command: null, status: "running" });
 		prismaMock.quickService.update.mockResolvedValue({});
 		execFileSyncMock.mockImplementation((file: string, args: string[]) => {
+			if (file === "docker" && isStateInspect(args)) return "running|healthy|0\n";
 			if (file === "docker" && args[0] === "inspect") return "healthy\n";
 			if (file === "docker" && args[0] === "logs") return "ready\n";
 			return "";

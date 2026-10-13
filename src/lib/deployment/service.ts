@@ -434,6 +434,51 @@ async function refreshDeploymentRollbackStatuses(runs: RollbackRunWithCommand[])
   }));
 }
 
+const ACTIVE_ROLLBACK_STATUSES = new Set(["PENDING", "APPROVED", "RUNNING"]);
+
+function rollbackCommandKey(rollbackId: string) {
+  return `deployment-rollback:${rollbackId}`;
+}
+
+/**
+ * Resolve a rollback whose command creation or link was interrupted. If a
+ * command carries the rollback's key it is linked (and the rollback takes its
+ * status); otherwise nothing was ever submitted and the rollback is retired as
+ * FAILED. Callers must hold the per-source-run rollback lock.
+ */
+async function recoverUnlinkedRollback(rollbackId: string, failureMessage?: string) {
+  const command = await prisma.commandRequest.findUnique({
+    where: { idempotencyKey: rollbackCommandKey(rollbackId) },
+    select: { id: true, status: true },
+  });
+  if (command) {
+    const resolved = resolveRollbackRunStatus({
+      id: rollbackId,
+      status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING",
+      commandRequest: { status: command.status },
+    });
+    return prisma.deploymentRollbackRun.update({
+      where: { id: rollbackId },
+      data: {
+        commandRequestId: command.id,
+        status: resolved.status,
+        errorMessage: resolved.errorMessage,
+        ...(TERMINAL_DEPLOYMENT_STATUSES.has(resolved.status) ? { completedAt: new Date() } : {}),
+      },
+      select: { id: true, status: true },
+    });
+  }
+  return prisma.deploymentRollbackRun.update({
+    where: { id: rollbackId },
+    data: {
+      status: "FAILED",
+      errorMessage: (failureMessage ?? "Rollback was interrupted before its command was created; nothing was executed.").slice(0, 2000),
+      completedAt: new Date(),
+    },
+    select: { id: true, status: true },
+  });
+}
+
 export async function createDeploymentRollbackRun(
   input: { sourceRunId: string; requesterId: string; reason?: string },
   session: SessionScope,
@@ -457,15 +502,23 @@ export async function createDeploymentRollbackRun(
   // Serialize concurrent rollback POSTs for the same source run.
   const releaseLock = await acquireAdvisoryLock("deployment-rollback", sourceRun.id);
   try {
-    const activeRollback = await prisma.deploymentRollbackRun.findFirst({
+    const activeRollbacks = await prisma.deploymentRollbackRun.findMany({
       where: {
         sourceRunId: sourceRun.id,
-        status: { in: ["PENDING", "APPROVED", "RUNNING"] },
+        status: { in: [...ACTIVE_ROLLBACK_STATUSES] },
       },
-      select: { id: true, status: true },
+      select: { id: true, status: true, commandRequestId: true },
       orderBy: { createdAt: "desc" },
     });
-    if (activeRollback) throw new ConflictError(t("backend.deployment.aRollbackTaskIsAlreadyInProgressPlease"));
+    for (const active of activeRollbacks) {
+      // We hold the per-run lock, so no request is still creating this
+      // rollback's command: an unlinked one was interrupted. Resolve it from
+      // its command key instead of letting it block every future rollback.
+      const status = active.commandRequestId ? active.status : (await recoverUnlinkedRollback(active.id)).status;
+      if (ACTIVE_ROLLBACK_STATUSES.has(status)) {
+        throw new ConflictError(t("backend.deployment.aRollbackTaskIsAlreadyInProgressPlease"));
+      }
+    }
 
     const reason = input.reason?.trim() || `Rollback: ${snapshot.templateName}`;
     const rollbackTeamId = sourceRun.teamId ?? null;
@@ -491,6 +544,9 @@ export async function createDeploymentRollbackRun(
         requesterId: input.requesterId,
         serverIds: snapshot.serverIds,
         teamId: rollbackTeamId,
+        // Stable link from the rollback to its command: recovery finds the
+        // command by this key if the link below is never written.
+        idempotencyKey: rollbackCommandKey(rollback.id),
       });
 
       return await prisma.deploymentRollbackRun.update({
@@ -502,20 +558,15 @@ export async function createDeploymentRollbackRun(
         include: { commandRequest: { select: { status: true } }, snapshot: true },
       });
     } catch (error) {
-      // Avoid orphan PENDING with null commandRequestId permanently blocking new rollbacks.
+      // The command may exist although this call failed (created, then the
+      // link failed). Marking the rollback FAILED would then allow a second
+      // rollback to run the same command again: link it if it exists, retire
+      // it only if it was never created. If even that fails the row stays
+      // PENDING and the next rollback request recovers it under the lock.
       const errMsg = error instanceof Error ? error.message : String(error);
-      await prisma.deploymentRollbackRun
-        .update({
-          where: { id: rollback.id },
-          data: {
-            status: "FAILED",
-            errorMessage: errMsg.slice(0, 2000),
-            completedAt: new Date(),
-          },
-        })
-        .catch(() => {
-          /* best-effort compensation */
-        });
+      await recoverUnlinkedRollback(rollback.id, errMsg).catch(() => {
+        /* recovered by the next rollback request */
+      });
       throw error;
     }
   } finally {

@@ -1,17 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Dialog } from "@/components/ui/dialog";
-import { FormField, SegmentedControl } from "@/components/ui-primitives";
-import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
-import { cn } from "@/lib/ui/cn";
+import { SegmentedControl } from "@/components/ui-primitives";
+import { UI_LABEL } from "@/lib/ui/classes";
 import { getBackupTypeLabel } from "@/lib/i18n/domain-labels";
 
 type Props = {
@@ -20,123 +17,85 @@ type Props = {
   disabled?: boolean;
 };
 
+type OfflineRestorePlan = {
+  checksumSha256: string;
+  component: "database" | "files" | "all";
+  commands: {
+    stopServices: string | null;
+    safetySnapshot: string;
+    restore: string;
+    startServices: string | null;
+  };
+};
+
+/**
+ * Restore is offline only: the platform cannot safely replace its own database
+ * and files while it serves requests. This dialog verifies the backup on the
+ * server and shows the exact commands to run with the services stopped; the
+ * restore scripts refuse to run while the platform is online.
+ */
 export function RestoreBackupButton({ backupId, backupType, disabled = false }: Props) {
-  const { t, locale } = useI18n();
-  const CONFIRM_TEXT = t("backupsPage.restore.confirmToken");
-  const router = useRouter();
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
   const [component, setComponent] = useState<"all" | "database" | "files">("all");
-  const [message, setMessage] = useState<string | null>(null);
-  const [queuedTaskLink, setQueuedTaskLink] = useState(false);
+  const [plan, setPlan] = useState<OfflineRestorePlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const openConfirm = () => {
-    setConfirmText("");
-    setMessage(null);
-    setQueuedTaskLink(false);
+  const openDialog = () => {
+    setPlan(null);
     setError(null);
-    setConfirmOpen(true);
+    setOpen(true);
   };
 
-  const handleRestore = async () => {
-    if (confirmText !== CONFIRM_TEXT) {
-      setError(t("backupsPage.restore.errorInput", { confirmText: CONFIRM_TEXT }));
-      return;
-    }
-
+  const prepare = async () => {
     setPending(true);
-    setMessage(null);
-    setQueuedTaskLink(false);
+    setPlan(null);
     setError(null);
     try {
-      // Default POST enqueues a durable backup.restore job (202 { jobId, taskId }).
-      // Only wait=1 returns { restore: { restoredAt } } after synchronous execution.
-      // Treating a queued job as "restore completed" is a false-success UX/safety bug.
       const result = await csrfFetch(`/api/backups/${backupId}/restore`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ confirm: CONFIRM_TEXT, component }),
-      }) as {
-        restore?: { restoredAt?: string };
-        restoredAt?: string;
-        jobId?: string;
-        taskId?: string;
-        deduped?: boolean;
-        error?: string;
-      };
-
-      const restoredAt = result.restore?.restoredAt ?? result.restoredAt;
-      if (restoredAt) {
-        setMessage(
-          t("backupsPage.restore.successWithTime", { time: formatDateTime(restoredAt, locale) }),
-        );
-        setQueuedTaskLink(false);
-      } else if (result.taskId || result.jobId) {
-        const taskId = result.taskId ?? (result.jobId ? `job:${result.jobId}` : "");
-        const key = result.deduped ? "backupsPage.restore.deduped" : "backupsPage.restore.queued";
-        setMessage(t(key, { taskId }));
-        setQueuedTaskLink(true);
-      } else {
-        // Unknown 2xx shape — do not claim restore completed.
-        setMessage(t("backupsPage.restore.queuedUnknown"));
-        setQueuedTaskLink(true);
-      }
-      setConfirmOpen(false);
-      setConfirmText("");
-      router.refresh();
-    } catch (restoreError) {
-      setError(getErrorMessage(restoreError, t("backupsPage.restore.errorFallback")));
+        body: JSON.stringify({ component }),
+      }) as { offlineRestore?: OfflineRestorePlan };
+      if (!result.offlineRestore) throw new Error(t("backupsPage.restore.errorFallback"));
+      setPlan(result.offlineRestore);
+    } catch (prepareError) {
+      setError(getErrorMessage(prepareError, t("backupsPage.restore.errorFallback")));
     } finally {
       setPending(false);
     }
   };
 
+  const steps = plan
+    ? [
+        { key: "stop", label: t("backupsPage.restore.step.stop"), command: plan.commands.stopServices ?? t("backupsPage.restore.step.stopManual") },
+        { key: "snapshot", label: t("backupsPage.restore.step.snapshot"), command: plan.commands.safetySnapshot },
+        { key: "restore", label: t("backupsPage.restore.step.restore"), command: plan.commands.restore },
+        { key: "start", label: t("backupsPage.restore.step.start"), command: plan.commands.startServices ?? t("backupsPage.restore.step.startManual") },
+      ]
+    : [];
+
   return (
     <div className="grid gap-1">
-      <ActionButton size="sm" variant="danger"
-        disabled={disabled || pending}
-        onClick={openConfirm} className="w-fit">
-        {pending ? t("backupsPage.restore.pending") : t("common.restore")}
+      <ActionButton size="sm" variant="danger" disabled={disabled} onClick={openDialog} className="w-fit">
+        {t("common.restore")}
       </ActionButton>
-      {message && (
-        <p className="text-xs text-[var(--success)]">
-          {message}{" "}
-          {queuedTaskLink ? (
-            <a href="/operation-tasks" className="underline">
-              {t("backupsPage.restore.openTasks")}
-            </a>
-          ) : null}
-        </p>
-      )}
-      {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
-      {confirmOpen && (
+      {open && (
         <Dialog
           open
           placement="sheet"
-          onClose={() => setConfirmOpen(false)}
+          onClose={() => setOpen(false)}
           closeOnBackdrop={false}
           busy={pending}
-          title={t("backupsPage.restore.confirmTitle")}
-          description={<>
-            {t("backupsPage.restore.warningPrefix")} <span className="font-semibold text-[var(--text-primary)]">{getBackupTypeLabel(t, backupType)}</span> {t("backupsPage.restore.warningSuffix")} <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> {t("backupsPage.restore.warningContinue")}
-          </>}
+          title={t("backupsPage.restore.offlineTitle")}
+          description={t("backupsPage.restore.offlineIntro", { type: getBackupTypeLabel(t, backupType) })}
           footer={<>
-            <ActionButton variant="secondary"
-              disabled={pending}
-              onClick={() => {
-                setConfirmOpen(false);
-                setConfirmText("");
-                setError(null);
-              }}>
+            <ActionButton variant="secondary" disabled={pending} onClick={() => setOpen(false)}>
               {t("common.cancel")}
             </ActionButton>
-            <ActionButton variant="danger-solid"
-              loading={pending}
-              disabled={confirmText !== CONFIRM_TEXT}
-              onClick={handleRestore}>
-              {pending ? t("backupsPage.restore.pending") : t("backupsPage.restore.confirm")}
+            <ActionButton variant="primary" loading={pending} onClick={prepare}>
+              {pending ? t("backupsPage.restore.preparing") : t("backupsPage.restore.prepare")}
             </ActionButton>
           </>}
         >
@@ -147,22 +106,33 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 <SegmentedControl
                   ariaLabel={t("backupsPage.restore.component.label")}
                   value={component}
-                  onChange={setComponent}
+                  onChange={(next) => {
+                    setComponent(next);
+                    setPlan(null);
+                  }}
                   options={(["all", "database", "files"] as const).map((c) => ({ value: c, label: t(`backupsPage.restore.component.${c}`), tone: "danger" as const }))}
                 />
               </div>
             ) : null}
-            <FormField label={t("backupsPage.restore.inputLabel", { confirmText: CONFIRM_TEXT })} htmlFor="restore-backup-confirm" error={error ?? undefined}>
-              <input
-                id="restore-backup-confirm"
-                value={confirmText}
-                onChange={(event) => setConfirmText(event.target.value)}
-                autoFocus
-                autoComplete="off"
-                className={cn(UI_INPUT, "font-mono")}
-                placeholder={CONFIRM_TEXT}
-              />
-            </FormField>
+            {error ? <p role="alert" className="text-xs text-[var(--danger)]">{error}</p> : null}
+            {plan ? (
+              <div className="space-y-3">
+                <p className="text-xs text-[var(--success)]">
+                  {t("backupsPage.restore.verified", { checksum: plan.checksumSha256.slice(0, 12) })}
+                </p>
+                <ol className="space-y-3">
+                  {steps.map((step) => (
+                    <li key={step.key} className="grid gap-1">
+                      <span className="text-xs font-medium text-[var(--text-primary)]">{step.label}</span>
+                      <code data-inset="" className="block overflow-x-auto whitespace-pre p-2 font-mono text-xs text-[var(--text-secondary)]">
+                        {step.command}
+                      </code>
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-xs text-[var(--text-muted)]">{t("backupsPage.restore.offlineNote")}</p>
+              </div>
+            ) : null}
           </div>
         </Dialog>
       )}

@@ -20,8 +20,11 @@ import { t } from "@/lib/i18n/service-translations";
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 
-export async function createBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string | null; note?: string; teamId?: string | null }) {
-	return prisma.backupRecord.create({
+export async function createBackupRecord(
+	input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string | null; note?: string; teamId?: string | null },
+	client: Pick<typeof prisma, "backupRecord"> = prisma,
+) {
+	return client.backupRecord.create({
 		data: {
 			type: input.type,
 			status: "PENDING",

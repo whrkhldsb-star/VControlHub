@@ -10,9 +10,12 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  */
 import { createHash } from "node:crypto";
 
+import { Prisma } from "@prisma/client";
+
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -21,6 +24,9 @@ const DEFAULT_CHUNK_OVERLAP = 120;
 const MAX_DOCUMENT_CHARS = 200_000;
 const MAX_QUERY_CHARS = 500;
 const MAX_RESULTS = 8;
+/** Chunks re-scored in memory after the database has ranked them by relevance. */
+const CANDIDATE_POOL = 200;
+const MAX_SEARCH_BASES = 500;
 
 export type KnowledgeHit = {
   chunkId: string;
@@ -329,6 +335,38 @@ export async function deleteKnowledgeDocument(
   return { id: documentId };
 }
 
+/**
+ * Candidate recall ordered by relevance in the database. The pool used to be
+ * the newest 200 chunks that matched any of the first 8 terms, scored only
+ * afterwards — so an older chunk matching every term lost its place to newer
+ * chunks sharing one common word and was never scored at all. The database
+ * now orders matches by the same weights the in-memory scorer starts from
+ * (whole query 12, term ≥4 chars 3, shorter term 2), newest first only as a
+ * tie-breaker. LIKE wildcards in terms are escaped.
+ */
+async function rankKnowledgeCandidateIds(baseIds: string[], query: string, tokens: string[]): Promise<string[]> {
+  const terms = tokens.length > 0 ? tokens : [query.toLowerCase().slice(0, 40)];
+  const pattern = (value: string) => `%${escapeLikeLiteral(value.toLowerCase())}%`;
+  const hit = (value: string, weight: number) =>
+    Prisma.sql`(CASE WHEN c."searchText" LIKE ${pattern(value)} THEN ${weight}::int ELSE 0 END)`;
+  const score = Prisma.join(
+    [hit(query.trim(), 12), ...terms.map((term) => hit(term, term.length >= 4 ? 3 : 2))],
+    " + ",
+  );
+  const anyTerm = Prisma.join(terms.map((term) => Prisma.sql`c."searchText" LIKE ${pattern(term)}`), " OR ");
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT c.id
+    FROM knowledge_chunks c
+    JOIN knowledge_documents d ON d.id = c."documentId"
+    WHERE c."knowledgeBaseId" = ANY(${baseIds}::text[])
+      AND d.status = 'READY'
+      AND (${anyTerm})
+    ORDER BY (${score}) DESC, c."createdAt" DESC, c.id ASC
+    LIMIT ${CANDIDATE_POOL}
+  `;
+  return rows.map((row) => row.id);
+}
+
 export async function searchKnowledge(input: {
   query: string;
   knowledgeBaseId?: string;
@@ -347,30 +385,20 @@ export async function searchKnowledge(input: {
       ...(input.session ? teamWhere(input.session) : {}),
     },
     select: { id: true, name: true },
-    take: 50,
+    orderBy: { id: "asc" },
+    take: MAX_SEARCH_BASES,
   });
   if (bases.length === 0) return [];
   const baseIds = bases.map((b) => b.id);
   const baseName = new Map(bases.map((b) => [b.id, b.name]));
 
-  // Pull a candidate pool with simple SQL ILIKE filters for at least one token
-  const orFilters = tokens.slice(0, 8).map((token) => ({
-    searchText: { contains: token.toLowerCase() },
-  }));
-  if (orFilters.length === 0) {
-    orFilters.push({ searchText: { contains: query.toLowerCase().slice(0, 40) } });
-  }
-
+  const candidateIds = await rankKnowledgeCandidateIds(baseIds, query, tokens);
+  if (candidateIds.length === 0) return [];
   const candidates = await prisma.knowledgeChunk.findMany({
-    where: {
-      knowledgeBaseId: { in: baseIds },
-      OR: orFilters,
-    },
+    where: { id: { in: candidateIds } },
     include: {
       document: { select: { id: true, title: true, status: true } },
     },
-    take: 200,
-    orderBy: { createdAt: "desc" },
   });
 
   const ranked: KnowledgeHit[] = [];

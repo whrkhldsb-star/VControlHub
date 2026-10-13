@@ -1,5 +1,4 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { setTimeout as delay } from "node:timers/promises";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
@@ -29,6 +28,16 @@ export const AGENT_CLEANUP_COMMAND = "nohup sh -c 'sleep 2; systemctl disable vc
  * PowerShell parses the command; the path contains no spaces by construction.
  */
 export const AGENT_WINDOWS_CLEANUP_COMMAND = `powershell -NoProfile -Command "Start-Process -WindowStyle Hidden cmd -ArgumentList '/c','ping -n 4 127.0.0.1 >nul & schtasks /end /tn ${AGENT_WINDOWS_TASK_NAME} >nul 2>&1 & schtasks /delete /f /tn ${AGENT_WINDOWS_TASK_NAME} >nul 2>&1 & rd /s /q %ProgramData%\\VControlHub >nul 2>&1'"`;
+
+/** Abortable sleep on the global timer (so it follows fake timers in tests). */
+function delay(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) { reject(signal.reason); return; }
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", onAbort); resolve(); }, ms);
+    const onAbort = () => { clearTimeout(timer); reject(signal?.reason); };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
 
 function tokenHash(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -137,11 +146,16 @@ export async function claimNextServerAgentJob(serverId: string) {
           },
         ],
       },
+      // An expired lease means the control plane lost contact, not that the
+      // remote process stopped (an Agent blocked on a slow request keeps
+      // running its command). Record a cancellation REQUEST — no completedAt —
+      // so a live Agent stops the process and acknowledges via its next
+      // heartbeat, and nobody reads this as a finished job and runs it again.
       data: {
         status: "CANCELLED",
-        stderr: "Agent job lease expired before completion",
+        stderr: "Agent job lease expired; awaiting Agent cancellation acknowledgement",
         exitCode: 124,
-        completedAt: now,
+        completedAt: null,
         leaseExpiresAt: null,
       },
     });
@@ -195,44 +209,18 @@ export async function executeCommandWithAgent(input: {
       return { stdout: current.stdout ?? "", stderr: current.stderr ?? "", exitCode: current.exitCode ?? 255 };
     }
     if (current.status === "CANCELLED" && current.completedAt) return { stdout: "", stderr: current.stderr ?? "Agent job cancelled", exitCode: current.exitCode ?? 130, cancelled: current.exitCode === 130 };
-    await delay(500, undefined, { signal: input.signal });
+    await delay(500, input.signal);
   }
-  const current = await prisma.serverAgentJob.findUnique({ where: { id: job.id } });
-  if (!current) return null;
-  if (current.status === "COMPLETED" || current.status === "FAILED") {
-    return { stdout: current.stdout ?? "", stderr: current.stderr ?? "", exitCode: current.exitCode ?? 255 };
-  }
-  if (current.status === "CANCELLED" && current.completedAt) {
-    return { stdout: "", stderr: current.stderr ?? "Agent job cancelled", exitCode: current.exitCode ?? 130, cancelled: current.exitCode === 130 };
-  }
-  const cancelled = await prisma.serverAgentJob.updateMany({
-    where: {
-      id: job.id,
-      serverId: input.serverId,
-      status: { in: ["PENDING", "CLAIMED"] },
-    },
-    data: {
-      status: "CANCELLED",
-      stderr: "Agent command timed out after dispatch",
-      exitCode: 124,
-      completedAt: new Date(),
-      leaseExpiresAt: null,
-    },
+  // Deadline passed. Only a job that provably never left PENDING may fall
+  // back to SSH; the PENDING check and the cancel are one atomic update, so an
+  // Agent that claims it at this moment makes the update miss instead of the
+  // command running twice (once by the Agent, once over SSH).
+  const neverDispatched = await prisma.serverAgentJob.updateMany({
+    where: { id: job.id, serverId: input.serverId, status: "PENDING" },
+    data: { status: "CANCELLED", stderr: "Agent did not pick the job up in time", exitCode: 124, completedAt: new Date(), leaseExpiresAt: null },
   });
-  if (cancelled.count === 0) {
-    const final = await prisma.serverAgentJob.findUnique({ where: { id: job.id } });
-    if (final?.status === "COMPLETED" || final?.status === "FAILED") {
-      return { stdout: final.stdout ?? "", stderr: final.stderr ?? "", exitCode: final.exitCode ?? 255 };
-    }
-  }
-  if (current.status === "PENDING") {
-    return null;
-  }
-  return {
-    stdout: current.stdout ?? "",
-    stderr: "Agent command timed out after dispatch; SSH fallback was suppressed to avoid duplicate execution.",
-    exitCode: 124,
-  };
+  if (neverDispatched.count > 0) return null;
+  return awaitAgentCancellation(job.id, input.serverId, "Agent command timed out after dispatch; awaiting cancellation acknowledgement");
   } catch (error) {
     if (!input.signal?.aborted) throw error;
     try {
@@ -241,23 +229,38 @@ export async function executeCommandWithAgent(input: {
       data: { status: "CANCELLED", stderr: "Cancelled before Agent dispatch", exitCode: 130, completedAt: new Date(), leaseExpiresAt: null },
     }));
     if (pending.count > 0) return { stdout: "", stderr: "Cancelled before Agent dispatch", exitCode: 130, cancelled: true };
+    } catch { /* Any control-plane failure leaves cancellation unconfirmed. */ }
+    return awaitAgentCancellation(job.id, input.serverId, "Awaiting remote Agent cancellation acknowledgement");
+  }
+}
+
+/** Agents heartbeat every 20 seconds and allow five seconds for shutdown. */
+const AGENT_CANCEL_ACK_MS = 35_000;
+
+/**
+ * Ask the Agent to stop a dispatched job and wait for its own report. A job
+ * already finished by the Agent returns its real result. Without a report the
+ * remote outcome is unknown: CommandCancellationUnconfirmedError — never a
+ * synthetic failure that would invite a retry or an SSH fallback.
+ */
+async function awaitAgentCancellation(jobId: string, serverId: string, reason: string) {
+  try {
     await withAgentCancellationDeadline(prisma.serverAgentJob.updateMany({
-      where: { id: job.id, serverId: input.serverId, status: "CLAIMED" },
-      data: { status: "CANCELLED", stderr: "Awaiting remote Agent cancellation acknowledgement", exitCode: 130, completedAt: null, leaseExpiresAt: null },
+      where: { id: jobId, serverId, status: "CLAIMED" },
+      data: { status: "CANCELLED", stderr: reason, exitCode: 130, completedAt: null, leaseExpiresAt: null },
     }));
-    // Agents heartbeat every 20 seconds and allow five seconds for shutdown.
-    const acknowledgementDeadline = Date.now() + 35_000;
-    while (Date.now() < acknowledgementDeadline) {
-      const current = await withAgentCancellationDeadline(prisma.serverAgentJob.findUnique({ where: { id: job.id } }));
+    const acknowledgementDeadline = Date.now() + AGENT_CANCEL_ACK_MS;
+    for (;;) {
+      const current = await withAgentCancellationDeadline(prisma.serverAgentJob.findUnique({ where: { id: jobId } }));
       if (!current) break;
       if (current.completedAt && ["COMPLETED", "FAILED", "CANCELLED"].includes(current.status)) {
         return { stdout: current.stdout ?? "", stderr: current.stderr ?? "", exitCode: current.exitCode ?? 255, cancelled: current.status === "CANCELLED" && current.exitCode === 130 };
       }
+      if (Date.now() >= acknowledgementDeadline) break;
       await delay(500);
     }
-    } catch { /* Any control-plane failure leaves cancellation unconfirmed. */ }
-    throw new CommandCancellationUnconfirmedError();
-  }
+  } catch { /* Any control-plane failure leaves cancellation unconfirmed. */ }
+  throw new CommandCancellationUnconfirmedError();
 }
 
 async function withAgentCancellationDeadline<T>(query: PromiseLike<T>): Promise<T> {

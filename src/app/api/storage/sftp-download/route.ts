@@ -13,6 +13,7 @@ import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
+import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import {
   normalizeRemoteTargetPath,
   normalizeRemoteRelativePath,
@@ -112,6 +113,15 @@ export async function GET(request: Request) {
           { error: storageAccessDeniedCopy(accessDecision.reason, locale) },
           { status: 403 },
         );
+      }
+      // Same place physically: no symlink hop below the node root.
+      try {
+        normalizedRemotePath = await assertRemotePathContained(connectionCredentials, node.basePath, normalizedRemotePath);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          return NextResponse.json(toClientStorageError(error.message), { status: 400 });
+        }
+        throw error;
       }
 
     const indexedEntry = await prisma.fileEntry.findFirst({

@@ -187,12 +187,106 @@ export function buildRsyncCommand(input: RsyncCommandInput): string {
 	return withCredentialCleanup(command, input);
 }
 
+const TAR_STAGE_PREFIX = ".vch-sync-stage-";
+const TAR_PREV_PREFIX = ".vch-sync-prev-";
+
+/**
+ * Mirror commit, run on the target inside the target directory. The current
+ * entries are moved aside into PREV (not deleted), the staged entries moved in,
+ * and only then is PREV removed. A failing move puts the old entries back. If
+ * the commit is killed outright (dropped SSH session), PREV survives with the
+ * old data and the next run refuses to commit until an operator has looked at
+ * it. Other jobs' stage/prev directories are never touched. `find -exec … {} +`
+ * through `sh -c` is used because `-exec … \;` swallows a failed mv.
+ */
+function buildMirrorCommitScript(target: string, stage: string, prev: string): string {
+	const moveInto = (destination: string) => `-exec sh -c 'mv -f -- "$@" "$0"' ${destination} {} +`;
+	const ownEntries = `find . -mindepth 1 -maxdepth 1 ! -name '${TAR_STAGE_PREFIX}*' ! -name '${TAR_PREV_PREFIX}*'`;
+	return [
+		`cd -- ${target} || exit 1`,
+		`if [ -e ${prev} ]; then echo "an earlier tar sync commit into this target was interrupted; the entries it replaced are kept in "${prev}". Restore or remove that directory, then retry." >&2; exit 1; fi`,
+		`mkdir -- ${prev} || exit 1`,
+		`vch_restore_prev() { find ${prev} -mindepth 1 -maxdepth 1 ${moveInto(".")} && rmdir -- ${prev}; }`,
+		`if ! ${ownEntries} ${moveInto(prev)}; then vch_restore_prev; echo "tar sync commit failed while setting the current entries aside; target restored" >&2; exit 1; fi`,
+		`if ! find ${stage} -mindepth 1 -maxdepth 1 ${moveInto(".")}; then ${ownEntries} -exec rm -rf -- {} +; vch_restore_prev; rm -rf -- ${stage}; echo "tar sync commit failed while moving the new entries in; target restored" >&2; exit 1; fi`,
+		`rmdir -- ${stage} && rm -rf -- ${prev}`,
+	].join("\n");
+}
+
+/**
+ * tar fallback, in three checked phases so a failure can never be reported as
+ * success or leave the target half-replaced:
+ *
+ *   1. stream `tar cf` into a staging directory inside the target;
+ *   2. only when BOTH the source tar and the receiving tar exited 0 (a shell
+ *      pipeline reports only its last command, so the source status is carried
+ *      out through a temp file) commit the stage into the target — mirror mode
+ *      replaces the target's entries, merge mode overlays them;
+ *   3. otherwise drop the stage and fail, target untouched.
+ *
+ * The stage lives inside the target so the commit is a same-filesystem move.
+ * It costs up to one extra copy of the data on the target until committed.
+ * Merge mode overlays with `cp -a`; an interrupted overlay can leave the file
+ * being copied incomplete (as the former direct extraction could), but never
+ * removes anything.
+ */
 export function buildTarSyncCommand(input: TarSyncCommandInput): string {
 	const { transport, envPrefix } = buildSshTransport(input, shellQuote);
-	const targetAddress = buildSshTargetAddress(input.targetUser, input.targetHost);
-	const prepareTarget = input.deleteOrphans
-		? `mkdir -p -- ${shellQuote(input.targetPath)} && cd -- ${shellQuote(input.targetPath)} && find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && tar xf - -C ${shellQuote(input.targetPath)}`
-		: `mkdir -p -- ${shellQuote(input.targetPath)} && tar xf - -C ${shellQuote(input.targetPath)}`;
-	const command = `tar cf - -C ${shellQuote(input.sourcePath)} . | ${envPrefix}${transport} ${shellQuote(targetAddress)} ${shellQuote(prepareTarget)} 2>&1`;
+	const remote = `${transport} ${shellQuote(buildSshTargetAddress(input.targetUser, input.targetHost))}`;
+	const target = shellQuote(input.targetPath);
+	const stem = safeFileStem(input.jobId ?? "sync");
+	const stageName = `${TAR_STAGE_PREFIX}${stem}`;
+	const prevName = `${TAR_PREV_PREFIX}${stem}`;
+	const stage = shellQuote(`${input.targetPath.replace(/\/+$/, "")}/${stageName}`);
+	const receive = `rm -rf -- ${stage} && mkdir -p -- ${stage} && tar xf - -C ${stage}`;
+	const commit = input.deleteOrphans
+		? buildMirrorCommitScript(target, shellQuote(stageName), shellQuote(prevName))
+		: `cp -a -- ${stage}/. ${target}/ && rm -rf -- ${stage}`;
+	const abort = `rm -rf -- ${stage}`;
+	const command = [
+		// The password must reach every ssh below, so export it once instead of
+		// prefixing one command.
+		...(envPrefix ? [`${envPrefix.trim()}; export SSHPASS`] : []),
+		`vch_tar_status=$(mktemp "\${TMPDIR:-/tmp}/vch-sync-tar.XXXXXX") || exit 1`,
+		`{ tar cf - -C ${shellQuote(input.sourcePath)} .; echo "$?" > "$vch_tar_status"; } | ${remote} ${shellQuote(receive)} 2>&1`,
+		`vch_receive_status=$?`,
+		`vch_source_status=$(cat "$vch_tar_status" 2>/dev/null); rm -f -- "$vch_tar_status"`,
+		`if [ "$vch_source_status" != 0 ] || [ "$vch_receive_status" -ne 0 ]; then`,
+		`  echo "tar sync aborted: source tar exit \${vch_source_status:-unknown}, target receive exit $vch_receive_status; target left unchanged" >&2`,
+		`  ${remote} ${shellQuote(abort)} >/dev/null 2>&1`,
+		`  exit 1`,
+		`fi`,
+		`${remote} ${shellQuote(commit)} 2>&1`,
+	].join("\n");
 	return withCredentialCleanup(command, input);
+}
+
+export type SyncSourceState = "ready" | "empty" | "missing" | "unreadable";
+
+const SOURCE_PROBE_MARKER = "VCH_SYNC_SOURCE=";
+
+/**
+ * Inspect the source directory without creating it. A missing source must not
+ * be "fixed" with mkdir -p: an empty source mirrored with orphan deletion
+ * empties the target.
+ */
+export function buildSyncSourceProbeCommand(sourcePath: string): string {
+	const source = shellQuote(sourcePath);
+	return [
+		`if [ ! -d ${source} ]; then echo '${SOURCE_PROBE_MARKER}missing'`,
+		`elif [ ! -r ${source} ] || [ ! -x ${source} ]; then echo '${SOURCE_PROBE_MARKER}unreadable'`,
+		`elif [ -z "$(ls -A ${source} 2>/dev/null | head -n 1)" ]; then echo '${SOURCE_PROBE_MARKER}empty'`,
+		`else echo '${SOURCE_PROBE_MARKER}ready'; fi`,
+	].join("; ");
+}
+
+export function parseSyncSourceProbe(output: string): SyncSourceState | null {
+	const match = output.match(/VCH_SYNC_SOURCE=(ready|empty|missing|unreadable)/);
+	return match ? (match[1] as SyncSourceState) : null;
+}
+
+/** Create the target and report whether it already holds entries. */
+export function buildSyncTargetPrepareCommand(targetPath: string): string {
+	const target = shellQuote(targetPath);
+	return `mkdir -p -- ${target} && if [ -z "$(ls -A ${target} 2>/dev/null | head -n 1)" ]; then echo VCH_SYNC_TARGET=empty; else echo VCH_SYNC_TARGET=nonempty; fi`;
 }

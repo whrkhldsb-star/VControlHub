@@ -48,6 +48,7 @@ vi.mock("@/lib/db", () => ({
   isDatabaseUnavailableError: vi.fn(() => false),
 }));
 vi.mock("@/lib/ssh/client", () => ({
+  resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
   listRemoteDirectory: listRemoteDirectoryMock,
 }));
 vi.mock("@/lib/storage/access-control", () => ({

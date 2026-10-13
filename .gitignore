@@ -97,3 +97,6 @@ make_*.py
 
 # python bytecode
 __pycache__/
+
+# restore lock left by a killed restore (scripts/lib/backup-common.mjs)
+/.restore.lock/

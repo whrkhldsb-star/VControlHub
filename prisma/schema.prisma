@@ -484,6 +484,10 @@ model CommandTarget {
   exitCode         Int?
   startedAt        DateTime?
   finishedAt       DateTime?
+  /// The remote process may still be running (or may have run): cancellation
+  /// was never acknowledged. The target is FAILED for bookkeeping, but automatic
+  /// retries must not treat it as a clean failure.
+  outcomeUnknown   Boolean              @default(false)
   commandRequest   CommandRequest       @relation(fields: [commandRequestId], references: [id], onDelete: Cascade)
   server           Server               @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
@@ -806,6 +810,10 @@ model ScheduledTask {
   createdById         String?
   lastRunAt           DateTime?
   nextRunAt           DateTime?
+  /// Occurrence a worker has claimed but not yet recorded as dispatched. While
+  /// set, nextRunAt holds the claim's lease expiry; a worker that finds the
+  /// lease expired re-dispatches this same occurrence (same idempotency key).
+  claimedOccurrenceAt DateTime?
   lastResult          String?
   runCount            Int                 @default(0)
   createdAt           DateTime            @default(now())
@@ -1023,28 +1031,35 @@ enum AlertIncidentStatus {
 }
 
 model AlertIncident {
-  id               String              @id @default(cuid())
+  id                    String              @id @default(cuid())
   /// Stable key: ruleId + serverId + metric
-  fingerprint      String              @unique
-  ruleId           String
-  serverId         String?
-  serverName       String
-  metric           String
-  operator         String
-  threshold        Float
-  value            Float
-  status           AlertIncidentStatus @default(OPEN)
+  fingerprint           String              @unique
+  ruleId                String
+  serverId              String?
+  serverName            String
+  metric                String
+  operator              String
+  threshold             Float
+  value                 Float
+  status                AlertIncidentStatus @default(OPEN)
   /// 1 = initial fire, 2 = escalated (no ack), 3 = re-escalated / critical
-  level            Int                 @default(1)
-  title            String
-  message          String
-  acknowledgedAt   DateTime?
-  acknowledgedById String?
-  escalatedAt      DateTime?
-  lastNotifiedAt   DateTime?
-  resolvedAt       DateTime?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  level                 Int                 @default(1)
+  title                 String
+  message               String
+  acknowledgedAt        DateTime?
+  acknowledgedById      String?
+  escalatedAt           DateTime?
+  lastNotifiedAt        DateTime?
+  /// Channels whose "fired" notification has not been delivered yet. Retried
+  /// with backoff while the incident stays OPEN; kept (with nextNotifyAt null)
+  /// once the attempt limit is reached so the UI can show the gap.
+  pendingNotifyChannels String[]            @default([])
+  notifyAttempts        Int                 @default(0)
+  nextNotifyAt          DateTime?
+  lastNotifyError       String?
+  resolvedAt            DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   rule           AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   acknowledgedBy User?     @relation("AlertIncidentAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)

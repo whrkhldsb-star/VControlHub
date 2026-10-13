@@ -7,12 +7,14 @@ export type MediaFilterState = {
 	tag?: string;
 };
 
-export function mediaHref(input: MediaFilterState) {
+/** Filter links never carry a page: changing a filter starts at page 1. */
+export function mediaHref(input: MediaFilterState & { page?: number }) {
 	const params = new URLSearchParams();
 	if (input.type) params.set("type", input.type);
 	if (input.favorite) params.set("favorite", "1");
 	if (input.q) params.set("q", input.q);
 	if (input.tag) params.set("tag", input.tag);
+	if (input.page && input.page > 1) params.set("page", String(input.page));
 	const query = params.toString();
 	return query ? `/media?${query}` : "/media";
 }

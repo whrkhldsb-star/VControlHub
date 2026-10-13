@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
+import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { getSftpSyncDirectoryTimeoutMs } from "@/lib/runtime-settings/service";
 import { t } from "@/lib/i18n/service-translations";
@@ -273,6 +274,14 @@ export async function syncSftpDirectoryEntries(input: {
 
   const basePath = normalizeRemotePath(node.basePath);
   const normalizedStartPath = normalizeRemotePath(node.basePath, remotePath);
+  try {
+    // Listing below the start never follows links (they list as "other"), but
+    // the start itself must not be reached through one.
+    await assertRemotePathContained(credentials, node.basePath, normalizedStartPath);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    return { synced: 0, created: 0, updated: 0, deleted: 0, errors: [msg] };
+  }
   const result: SftpSyncResult = {
     synced: 0,
     created: 0,

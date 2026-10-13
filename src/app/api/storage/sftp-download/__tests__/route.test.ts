@@ -26,6 +26,11 @@ const {
 	sftpStatMock: vi.fn(),
 }));
 
+// No symlinks on the mocked host: physical path == lexical path.
+vi.mock("@/lib/ssh/client", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/lib/ssh/client")>()),
+	resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
+}));
 vi.mock("ssh2", () => ({
 	Client: class MockClient {
 		private handlers = new Map<string, (value?: unknown) => void>();

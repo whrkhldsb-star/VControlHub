@@ -17,7 +17,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { computeNextRun } from "@/lib/scheduled-task/service";
 import { CronExpressionParser } from "cron-parser";
 import { isBackupType, type BackupType } from "./service-types";
-import { createBackupRecord, voidBackupRecord } from "./service-crud";
+import { createBackupRecord } from "./service-crud";
 import { BACKUP_CREATE_JOB_TYPE } from "./job-worker";
 import { enqueueJob } from "@/lib/job/service";
 import { t } from "@/lib/i18n/service-translations";
@@ -199,16 +199,21 @@ export type DispatchedBackupSchedule = {
 };
 
 /**
- * Create a PENDING BackupRecord for the schedule and enqueue a
- * `backup.create` durable job. The backup-job-worker picks up the job
- * and runs `runExistingBackupRecord` locally. Separating "schedule tick"
- * (lightweight DB writes) from "backup execution" (heavy bash) keeps the
- * tick fast and survives process restarts.
+ * Dispatch one due occurrence of a schedule: claim it, create the PENDING
+ * BackupRecord, enqueue the `backup.create` job and advance nextRunAt — all in
+ * one transaction. The claim is a compare-and-set on the observed nextRunAt
+ * that moves it straight to the next cron time, so a concurrent tick finds
+ * nothing to claim. A process that dies mid-way commits nothing and the
+ * occurrence is still due on the next tick; one that commits has created the
+ * record and job exactly once. (The claim used to park nextRunAt on a sentinel
+ * 24 h ahead and do the rest in separate writes, so a crash in between skipped
+ * the schedule for a day.) Returns null when another worker won the claim.
  */
 export async function dispatchDueSchedule(schedule: {
   id: string;
   name: string;
   backupType: string;
+  cronExpression: string;
   note: string | null;
   createdById: string | null;
   teamId?: string | null;
@@ -223,21 +228,22 @@ export async function dispatchDueSchedule(schedule: {
     await recordScheduleRun(schedule.id, `Skipped: invalid backup type ${schedule.backupType}`);
     return null;
   }
+  const backupType = schedule.backupType;
+  const createdById = schedule.createdById;
 
   const note = schedule.note
     ? `${schedule.note} (scheduled: ${schedule.name})`
     : `Scheduled backup: ${schedule.name}`;
 
-  const backup = await createBackupRecord({
-    type: schedule.backupType,
-    createdBy: schedule.createdById,
-    teamId: schedule.teamId ?? null,
-    note,
-  });
-
-  let job: { id: string };
-  try {
-    job = await enqueueJob({
+  return prisma.$transaction(async (tx) => {
+    const now = new Date();
+    const claimed = await tx.backupSchedule.updateMany({
+      where: { id: schedule.id, status: "ACTIVE", nextRunAt: schedule.nextRunAt },
+      data: { nextRunAt: computeNextRun(schedule.cronExpression), lastRunAt: now, runCount: { increment: 1 } },
+    });
+    if (claimed.count === 0) return null;
+    const backup = await createBackupRecord({ type: backupType, createdBy: createdById, teamId: schedule.teamId ?? null, note }, tx);
+    const job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,
       title: `Scheduled backup: ${schedule.name}`,
       payload: {
@@ -246,25 +252,16 @@ export async function dispatchDueSchedule(schedule: {
         retentionDays: schedule.retentionDays,
         teamId: schedule.teamId ?? null,
       },
-      createdBy: schedule.createdById,
+      createdBy: createdById,
       teamId: schedule.teamId,
       maxAttempts: 1,
+    }, tx);
+    await tx.backupSchedule.update({
+      where: { id: schedule.id },
+      data: { lastResult: `Backup task ${backup.id} triggered (job ${job.id})` },
     });
-  } catch (error) {
-    // Compensate orphan PENDING BackupRecord when the durable job cannot be
-    // enqueued (DB/job outage). VOIDED so abandon/retry paths do not requeue it.
-    const reason = error instanceof Error ? error.message : String(error);
-    await voidBackupRecord({
-      id: backup.id,
-      reason: `enqueue failed: ${reason}`.slice(0, 480),
-    }).catch(() => {
-      /* best-effort compensation; rethrow original */
-    });
-    throw error;
-  }
-
-  await recordScheduleRun(schedule.id, `Backup task ${backup.id} triggered (job ${job.id})`);
-  return { scheduleId: schedule.id, backupRecordId: backup.id, jobId: job.id };
+    return { scheduleId: schedule.id, backupRecordId: backup.id, jobId: job.id };
+  });
 }
 
 /* ── Description helper (re-export for UI) ───────────────── */

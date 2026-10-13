@@ -19,6 +19,7 @@ vi.mock("@/lib/db", () => ({
 		notification: { create: mocks.notificationCreate },
 		playbookRun: { updateMany: mocks.playbookRunUpdateMany },
 		commandRequest: { findUnique: mocks.commandRequestFindUnique },
+		commandTarget: { count: vi.fn(async () => 0) },
 		teamMember: { findUnique: mocks.teamMemberFindUnique },
 	},
 }));
@@ -292,6 +293,9 @@ describe("executePlaybookChain", () => {
 			.mockResolvedValueOnce({ id: "request-2" });
 		mocks.commandRequestFindUnique
 			// waitForCommand poll for request-1 → FAILED
+			.mockResolvedValueOnce({ status: "FAILED" })
+			// retry gate: the failed attempt's idempotency key, then request-1's state
+			.mockResolvedValueOnce(null)
 			.mockResolvedValueOnce({ status: "FAILED" })
 			// resolveResumableCommandRequestId on attempt 1 should not see live running id
 			// (cleared by onRetry); create request-2 then wait COMPLETED

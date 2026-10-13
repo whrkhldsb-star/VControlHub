@@ -10,7 +10,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 vi.mock("@/lib/db", () => ({
   prisma: {
     userStorageAccess: { findMany: vi.fn() },
-    fileEntry: { findMany: vi.fn(), aggregate: vi.fn() },
+    fileEntry: { findMany: vi.fn(), findFirst: vi.fn(async () => null), aggregate: vi.fn() },
     storageNode: {
       findFirst: vi.fn(async (args: { where?: { id?: string } } = {}) => ({ id: args.where?.id ?? "node-1" })),
       findMany: vi.fn(async (args: { where?: { id?: { in?: string[] } } } = {}) => {

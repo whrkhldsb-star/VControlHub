@@ -28,10 +28,11 @@ import {
 } from "@/lib/share-link/service";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
+import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { apiError } from "@/lib/http/api-error";
-import { ForbiddenError } from "@/lib/errors";
+import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { rateLimitResponse, withRateLimit, type RateLimitConfig } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -306,6 +307,14 @@ export async function GET(
 			credentials = resolveStorageSshCredentials(node);
 		} catch (err) {
 			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: getErrorMessage(err, t("apiShareToken.missingRemoteCredentials", locale)), status: 400 }));
+		}
+		try {
+			remotePath = await assertRemotePathContained(credentials, node.basePath, remotePath);
+		} catch (err) {
+			if (err instanceof ValidationError) {
+				return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
+			}
+			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 }));
 		}
 		let client: Client | null = null;
 		try {

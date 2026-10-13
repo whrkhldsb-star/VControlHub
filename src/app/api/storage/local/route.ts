@@ -21,6 +21,7 @@ import {
 } from "@/lib/ssh/client";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
+import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
@@ -253,6 +254,14 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
         { error: getErrorMessage(error, t("api.storage.connectionCredentialsUnavailable", locale)) },
         { status: 400 },
       );
+    }
+    try {
+      remotePath = await assertRemotePathContained(sftpCredentials, storageNode.basePath, remotePath);
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      throw error;
     }
     const remoteParent = path.posix.dirname(remotePath);
     try {

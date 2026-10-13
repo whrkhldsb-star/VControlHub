@@ -25,6 +25,7 @@ import {
 } from "@/lib/storage/archive-stream";
 import { normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
+import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { storageFileQuerySchema } from "@/lib/storage/schema";
 import { isDirectoryEntry } from "@/lib/files/tree";
@@ -193,7 +194,11 @@ export async function GET(request: Request) {
 
     let client: Client | null = null;
     try {
-      const remotePath = normalizeRemoteTargetPath(entry.storageNode.basePath, entry.relativePath);
+      const remotePath = await assertRemotePathContained(
+        credentials,
+        entry.storageNode.basePath,
+        normalizeRemoteTargetPath(entry.storageNode.basePath, entry.relativePath),
+      );
       client = await connectArchiveSsh({
         host: credentials.host,
         port: credentials.port,
@@ -219,6 +224,7 @@ export async function GET(request: Request) {
       return archiveStreamResponse(stream, archiveName);
     } catch (error) {
       client?.end();
+      if (error instanceof ValidationError) throw error;
       logger.error("archive download failed", error, { nodeId: entry.storageNode.id });
       return NextResponse.json(toClientStorageError("Directory archive download failed"), { status: 502 });
     }

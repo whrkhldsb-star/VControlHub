@@ -194,50 +194,35 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 	let dispatched = 0;
 	for (const schedule of due) {
 		try {
-			// CAS claim: pin nextRunAt to far-future sentinel to prevent
-			// concurrent dispatch by another tick
-			const claimed = await prisma.vpsBackupSchedule.updateMany({
-				where: { id: schedule.id, nextRunAt: schedule.nextRunAt },
-				data: { nextRunAt: new Date("2099-01-01T00:00:00Z") },
-			});
-
-			if (claimed.count === 0) continue; // Already claimed by another worker
-
-			// Overlap guard: if the previous cycle for this server is still
-			// PENDING/RUNNING (slow backup + short cron), skip this tick instead
-			// of stacking concurrent SSH backup sessions against the same host.
-			// Advance nextRunAt so the schedule stays healthy and retries next
-			// cycle. The stale-record reaper (job maintenance) fails any RUNNING
-			// row whose worker actually died, so this cannot wedge permanently.
-			const inFlight = await prisma.vpsBackupRecord.count({
-				where: {
-					serverId: schedule.serverId,
-					status: { in: ["PENDING", "RUNNING"] },
-				},
-			});
-			if (inFlight > 0) {
-				const skipNextRunAt = computeNextRun(schedule.cronExpression);
-				await prisma.vpsBackupSchedule.update({
-					where: { id: schedule.id },
-					data: { nextRunAt: skipNextRunAt, lastResult: "SKIPPED_OVERLAP" },
+			// Claim the occurrence, create the record and enqueue the job in one
+			// transaction. The claim is a compare-and-set that moves nextRunAt to
+			// the next cron time; a process dying mid-way commits nothing, so the
+			// occurrence stays due. (It used to park nextRunAt on 2099-01-01 first
+			// and do the rest in separate writes: a crash in between disabled the
+			// schedule for good.)
+			const outcome = await prisma.$transaction(async (tx) => {
+				const claimed = await tx.vpsBackupSchedule.updateMany({
+					where: { id: schedule.id, status: "ACTIVE", nextRunAt: schedule.nextRunAt },
+					data: { nextRunAt: computeNextRun(schedule.cronExpression) },
 				});
-				vpsSchedLogger.warn("VPS backup skipped: previous run still in flight", {
+				if (claimed.count === 0) return "claimed-elsewhere" as const;
+				// Overlap guard: if the previous cycle for this server is still
+				// PENDING/RUNNING (slow backup + short cron), skip this occurrence
+				// instead of stacking concurrent SSH backup sessions against the
+				// same host. The stale-record reaper (job maintenance) fails any
+				// RUNNING row whose worker actually died, so this cannot wedge.
+				const inFlight = await tx.vpsBackupRecord.count({
+					where: { serverId: schedule.serverId, status: { in: ["PENDING", "RUNNING"] } },
+				});
+				if (inFlight > 0) {
+					await tx.vpsBackupSchedule.update({ where: { id: schedule.id }, data: { lastResult: "SKIPPED_OVERLAP" } });
+					return { skipped: inFlight };
+				}
+				const { id: recordId } = await createVpsBackupRecord({
+					serverId: schedule.serverId,
+					backupType: schedule.backupType,
 					scheduleId: schedule.id,
-					serverId: schedule.serverId,
-					inFlight,
-				});
-				continue;
-			}
-
-			// Create PENDING record
-			const { id: recordId } = await createVpsBackupRecord({
-				serverId: schedule.serverId,
-				backupType: schedule.backupType,
-				scheduleId: schedule.id,
-			});
-
-			// Enqueue backup job; compensate orphan PENDING if enqueue fails.
-			try {
+				}, tx);
 				await enqueueJob({
 					type: VPS_BACKUP_CREATE_JOB_TYPE,
 					title: `VPS backup: ${schedule.name}`,
@@ -249,38 +234,22 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 					},
 					teamId: schedule.server?.teamId ?? null,
 					maxAttempts: 1,
+				}, tx);
+				await tx.vpsBackupSchedule.update({
+					where: { id: schedule.id },
+					data: { lastRunAt: now, runCount: { increment: 1 }, lastResult: "DISPATCHED" },
 				});
-			} catch (enqueueError) {
-				const errMsg = enqueueError instanceof Error ? enqueueError.message : String(enqueueError);
-				await prisma.vpsBackupRecord
-					.updateMany({
-						where: { id: recordId, status: "PENDING" },
-						data: {
-							status: "FAILED",
-							errorMessage: `Dispatch enqueue failed: ${errMsg}`.slice(0, 500),
-							completedAt: new Date(),
-						},
-					})
-					.catch((compErr) => {
-						vpsSchedLogger.error("Failed to compensate orphan VPS backup record after enqueue error", {
-							recordId,
-							error: compErr instanceof Error ? compErr.message : String(compErr),
-						});
-					});
-				throw enqueueError;
-			}
-
-			// Record schedule run
-			const nextRunAt = computeNextRun(schedule.cronExpression);
-			await prisma.vpsBackupSchedule.update({
-				where: { id: schedule.id },
-				data: {
-					lastRunAt: now,
-					nextRunAt,
-					runCount: { increment: 1 },
-					lastResult: "DISPATCHED",
-				},
+				return "dispatched" as const;
 			});
+			if (outcome === "claimed-elsewhere") continue;
+			if (outcome !== "dispatched") {
+				vpsSchedLogger.warn("VPS backup skipped: previous run still in flight", {
+					scheduleId: schedule.id,
+					serverId: schedule.serverId,
+					inFlight: outcome.skipped,
+				});
+				continue;
+			}
 
 			// Auto-prune old records if retentionDays is set
 			if (schedule.retentionDays && schedule.retentionDays > 0) {
@@ -289,7 +258,8 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 
 			dispatched++;
 		} catch (error) {
-			// Rollback CAS claim on failure — never silent (ops need lastResult + logs).
+			// The claim transaction rolled back; record the failure (never silent:
+			// ops need lastResult + logs) and move on to the next occurrence.
 			const errMsg = error instanceof Error ? error.message : String(error);
 			vpsSchedLogger.error("VPS backup schedule dispatch failed", {
 				scheduleId: schedule.id,

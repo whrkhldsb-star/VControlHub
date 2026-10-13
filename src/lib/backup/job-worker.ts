@@ -6,7 +6,6 @@ import {
   getBackupRecord,
   drillBackupRecord,
   pruneOldBackupRecordsNow,
-  restoreBackupRecord,
   runExistingBackupRecord,
 } from "@/lib/backup/service";
 import { config } from "@/lib/config/env";
@@ -20,6 +19,7 @@ import {
   heartbeatJob,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { t } from "@/lib/i18n/service-translations";
 
 const logger = createLogger("backup-job-worker");
 
@@ -59,14 +59,6 @@ type BackupCreatePayload = {
   backupId: string;
   projectRoot?: string;
   retentionDays?: number;
-  teamId?: string | null;
-};
-
-type BackupRestorePayload = {
-  backupId: string;
-  confirm: "RESTORE";
-  projectRoot?: string;
-  component?: "database" | "files" | "all";
   teamId?: string | null;
 };
 
@@ -141,36 +133,6 @@ function parseCreatePayload(payload: Prisma.JsonValue): BackupCreatePayload {
         ? payload.projectRoot.trim()
         : undefined,
     retentionDays,
-    teamId,
-  };
-}
-
-function parseRestorePayload(payload: Prisma.JsonValue): BackupRestorePayload {
-  if (
-    !isRecord(payload) ||
-    typeof payload.backupId !== "string" ||
-    !payload.backupId.trim()
-  ) {
-    throw new PermanentBackupJobError("Restore job payload missing backupId");
-  }
-  if (payload.confirm !== "RESTORE") {
-    throw new PermanentBackupJobError(
-      "Restore job payload missing explicit RESTORE confirmation",
-    );
-  }
-  const teamId =
-    typeof payload.teamId === "string" && payload.teamId.trim()
-      ? payload.teamId.trim()
-      : null;
-  return {
-    backupId: payload.backupId.trim(),
-    confirm: payload.confirm,
-    projectRoot:
-      typeof payload.projectRoot === "string" && payload.projectRoot.trim()
-        ? payload.projectRoot.trim()
-        : undefined,
-    component:
-      (payload.component as BackupRestorePayload["component"]) ?? "all",
     teamId,
   };
 }
@@ -286,30 +248,9 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
     }
 
     if (job.type === BACKUP_RESTORE_JOB_TYPE) {
-      const payload = parseRestorePayload(job.payload);
-      await heartbeatJob(job.id, WORKER_ID, {
-        leaseMs: LEASE_MS,
-        progress: "Restoring backup",
-      });
-      const restore = await runWithLeaseHeartbeat({
-        jobId: job.id,
-        leaseMs: LEASE_MS,
-        heartbeat: () =>
-          heartbeatJob(job.id, WORKER_ID, {
-            leaseMs: LEASE_MS,
-            progress: "Restoring backup",
-          }),
-        run: () =>
-          restoreBackupRecord({
-            id: payload.backupId,
-            confirm: payload.confirm,
-            projectRoot: payload.projectRoot,
-            component: payload.component ?? "all",
-            session: workerSession(job, payload.teamId),
-          }),
-      });
-      await completeJob(job.id, WORKER_ID, restore);
-      return true;
+      // Restore is offline only (see prepareOfflineRestore). A restore job
+      // queued by an older version fails permanently instead of running.
+      throw new PermanentBackupJobError(t("backend.backup.offlineRestoreRequired"));
     }
 
     if (job.type === BACKUP_RETENTION_JOB_TYPE) {

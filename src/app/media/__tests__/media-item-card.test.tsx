@@ -72,6 +72,11 @@ describe("MediaItemCard", () => {
     );
   });
 
+  it("returns to and navigates within the list it was opened from", () => {
+    render(<MediaItemCard item={item} canManage listHref="/media?type=video&q=demo&page=3" />);
+    expect(screen.getByRole("link", { name: /预览\/播放/ })).toHaveAttribute("href", "/media/m_1?from=%2Fmedia%3Ftype%3Dvideo%26q%3Ddemo%26page%3D3");
+  });
+
   it("offers image-bed publishing only for stored images", () => {
     render(<MediaItemCard item={{ ...item, mediaType: "image", mimeType: "image/png", name: "photo.png", relativePath: "images/photo.png" }} canManage />);
 

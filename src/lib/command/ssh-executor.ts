@@ -9,6 +9,8 @@ export type SshExecutionResult = {
   exitCode: number;
   timedOut?: boolean;
   cancelled?: boolean;
+  /** The remote process was not confirmed stopped; see CommandTarget.outcomeUnknown. */
+  outcomeUnknown?: boolean;
 };
 
 export type SshRuntimeConfig = {

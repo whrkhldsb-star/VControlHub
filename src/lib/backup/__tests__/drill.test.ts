@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({ getBackupRecord: vi.fn(), runBackupCommand: vi
 vi.mock("../service-crud", () => ({ getBackupRecord: mocks.getBackupRecord, createBackupRecord: vi.fn(), listBackupRecords: vi.fn(), updateBackupRecordStatus: vi.fn() }));
 vi.mock("../command-runner", () => ({ runBackupCommand: mocks.runBackupCommand, backupCommandErrorMessage: (e: Error) => e.message }));
 vi.mock("../offsite-uploader", () => ({ uploadBackupToOffsite: vi.fn() }));
-vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn() }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn(), tryAcquireAdvisoryLock: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 vi.mock("@/lib/config/env", () => ({ config: { app: { appDir: "" }, storage: { backupDir: "" } } }));
 

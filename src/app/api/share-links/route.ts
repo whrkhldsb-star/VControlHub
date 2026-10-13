@@ -7,8 +7,10 @@ import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params
 import {
   createShareLink,
   createShareLinkFromFileEntry,
-  listShareLinks,
+  listShareLinkPage,
   revokeShareLink,
+  SHARE_LINK_MAX_PAGE_SIZE,
+  SHARE_LINK_STATUS_FILTERS,
 } from "@/lib/share-link/service";
 import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS } from "@/lib/share-link/policy";
 import { auditUserAction } from "@/lib/audit/service";
@@ -35,6 +37,15 @@ const shareLinkPostSchema = z.object({
     { message: t("api.share.previewPolicyConflict") },
   );
 
+// Without parameters the response is the newest 200 shares, as before; `total`
+// tells the caller whether more pages exist.
+const shareLinkListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(SHARE_LINK_MAX_PAGE_SIZE).default(SHARE_LINK_MAX_PAGE_SIZE),
+  status: z.enum(SHARE_LINK_STATUS_FILTERS).optional(),
+  q: z.string().trim().max(200).optional(),
+});
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -43,7 +54,8 @@ export async function GET(request: Request) {
     request,
     { permission: "share:read", errorMessage: t("api.share.operationFailed", locale) },
     async ({ session }) => {
-      return NextResponse.json({ shares: await listShareLinks(undefined, session) });
+      const query = parseSearchParams(request, shareLinkListQuerySchema);
+      return NextResponse.json(await listShareLinkPage(session, query));
     },
   );
 }
