@@ -9,8 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 type Row = Record<string, unknown> & { id: string; fingerprint: string };
 
-const { store, sendEmail, webhook } = vi.hoisted(() => ({
+const { store, sendEmail, webhook, faults } = vi.hoisted(() => ({
 	store: new Map<string, Record<string, unknown> & { id: string; fingerprint: string }>(),
+	/** Process death / database failure injection, consumed once. */
+	faults: { userLookup: 0, updateMany: 0 },
 	sendEmail: vi.fn(),
 	webhook: vi.fn(),
 }));
@@ -50,6 +52,10 @@ vi.mock("@/lib/db", () => ({
 			}),
 			update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => ({ ...apply(store.get(where.id)!, data) })),
 			updateMany: vi.fn(async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+				if (faults.updateMany > 0) {
+					faults.updateMany -= 1;
+					throw new Error("bookkeeping write failed (injected)");
+				}
 				let count = 0;
 				for (const row of store.values()) {
 					if (matches(row, where)) {
@@ -60,7 +66,15 @@ vi.mock("@/lib/db", () => ({
 				return { count };
 			}),
 		},
-		user: { findMany: vi.fn(async () => [{ id: "admin1" }]) },
+		user: {
+			findMany: vi.fn(async () => {
+				if (faults.userLookup > 0) {
+					faults.userLookup -= 1;
+					throw new Error("process killed before sending (injected)");
+				}
+				return [{ id: "admin1" }];
+			}),
+		},
 	},
 }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: vi.fn(async () => ({})) }));
@@ -93,6 +107,7 @@ beforeEach(() => {
 	vi.useFakeTimers({ toFake: ["Date"] });
 	vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
 	store.clear();
+	Object.assign(faults, { userLookup: 0, updateMany: 0 });
 	sendEmail.mockReset().mockResolvedValue({ accepted: ["ops@example.test"], rejected: [] });
 	webhook.mockReset();
 });
@@ -123,6 +138,58 @@ describe("alert notification delivery retry", () => {
 		minutes(10);
 		await openOrRefreshAlertIncident(fire);
 		expect(webhook).toHaveBeenCalledTimes(2);
+	});
+
+	it("an incident opened by a process that died before sending is still notified later", async () => {
+		faults.userLookup = 1;
+		await expect(openOrRefreshAlertIncident(fire)).rejects.toThrow(/before sending/);
+		expect(sendEmail).not.toHaveBeenCalled();
+		const row = [...store.values()][0]!;
+		expect(row).toMatchObject({ status: "OPEN", pendingNotifyChannels: ["email", "webhook"], notifyAttempts: 1 });
+
+		webhook.mockResolvedValue(webhookUp);
+		minutes(2);
+		const later = await openOrRefreshAlertIncident(fire);
+		expect(later.fired).toBe(false);
+		expect([...(later.deliveredChannels ?? [])].sort()).toEqual(["email", "webhook"]);
+		expect(sendEmail).toHaveBeenCalledTimes(1);
+		expect(webhook).toHaveBeenCalledTimes(1);
+	});
+
+	it("a failed delivery whose bookkeeping also failed is still retried (at least once)", async () => {
+		webhook.mockResolvedValueOnce(webhookDown).mockResolvedValue(webhookUp);
+		faults.updateMany = 1;
+		const first = await openOrRefreshAlertIncident(fire);
+		expect(first).toMatchObject({ fired: true, deliveredChannels: ["email"] });
+
+		minutes(2);
+		const later = await openOrRefreshAlertIncident(fire);
+		expect(later.deliveredChannels).toContain("webhook");
+		expect(webhook).toHaveBeenCalledTimes(2);
+		// At-least-once: email had delivered, but its success was never recorded.
+		expect(sendEmail).toHaveBeenCalledTimes(2);
+	});
+
+	it("reopening replaces the previous round's delivery state before sending", async () => {
+		store.set("inc-old", {
+			id: "inc-old",
+			fingerprint: `${fire.ruleId}::${fire.serverId}::${fire.metric}`,
+			status: "RESOLVED",
+			level: 1,
+			lastNotifiedAt: new Date("2026-10-01T00:00:00Z"),
+			pendingNotifyChannels: ["webhook"],
+			notifyAttempts: 8,
+			nextNotifyAt: null,
+			lastNotifyError: "old round",
+		} as Row);
+		faults.userLookup = 1;
+		await expect(openOrRefreshAlertIncident(fire)).rejects.toThrow(/before sending/);
+		expect(store.get("inc-old")).toMatchObject({ status: "OPEN", pendingNotifyChannels: ["email", "webhook"], notifyAttempts: 1, lastNotifyError: null });
+
+		webhook.mockResolvedValue(webhookUp);
+		minutes(2);
+		const later = await openOrRefreshAlertIncident(fire);
+		expect([...(later.deliveredChannels ?? [])].sort()).toEqual(["email", "webhook"]);
 	});
 
 	it("backs off between attempts and stops after the attempt limit", async () => {

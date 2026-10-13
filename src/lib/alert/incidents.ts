@@ -289,6 +289,27 @@ function deliveryState(now: Date, attempts: number, failed: { channel: string; e
   };
 }
 
+/**
+ * Delivery intent persisted together with the incident's (re)opening, before
+ * anything is sent: every configured channel is pending and attempt 1 is
+ * claimed until its retry time. If the process dies before or during the
+ * send, or the bookkeeping after it fails, a later evaluation finds the
+ * channels still pending once that time has passed and sends again. This is
+ * at-least-once: a channel that did deliver before the crash may receive the
+ * fired notice twice, which is preferable to never paging anyone. It also
+ * replaces whatever delivery state a previous round of a reopened incident
+ * left behind.
+ */
+function initialDeliveryState(now: Date, notifyChannels: string[]) {
+  const pending = Array.from(new Set(notifyChannels));
+  return {
+    pendingNotifyChannels: pending,
+    notifyAttempts: 1,
+    nextNotifyAt: pending.length > 0 ? nextNotifyRetryAt(now, 1) : null,
+    lastNotifyError: null,
+  };
+}
+
 type FireDispatchInput = AlertFireInput & { incidentId: string };
 
 function dispatchFiredNotice(input: FireDispatchInput, notifyChannels: string[]) {
@@ -431,6 +452,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
         escalatedAt: null,
         resolvedAt: null,
         lastNotifiedAt: now,
+        ...initialDeliveryState(now, input.notifyChannels),
       },
     });
   } else {
@@ -450,6 +472,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
           title: input.title,
           message: input.message,
           lastNotifiedAt: now,
+          ...initialDeliveryState(now, input.notifyChannels),
         },
       });
       created = true;
@@ -490,6 +513,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
           escalatedAt: null,
           resolvedAt: null,
           lastNotifiedAt: now,
+          ...initialDeliveryState(now, input.notifyChannels),
         },
       });
     }
@@ -498,7 +522,8 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
   const dispatch = await dispatchFiredNotice({ ...input, incidentId: incident.id }, input.notifyChannels);
   // Delivery state is kept apart from the incident state so a failed channel
   // is retried by later evaluations instead of being forgotten. Best effort:
-  // losing this bookkeeping must not turn a recorded fire into a failure.
+  // losing this bookkeeping must not turn a recorded fire into a failure — the
+  // intent persisted with the incident then still has every channel pending.
   try {
     await prisma.alertIncident.updateMany({
       where: { id: incident.id, status: "OPEN" },
