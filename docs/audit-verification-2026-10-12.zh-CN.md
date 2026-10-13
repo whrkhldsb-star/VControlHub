@@ -1,36 +1,48 @@
 # 2026-10-12 审查结论核验与修复记录
 
-本文记录对《VControlHub 全面审查报告》（2026-10-12，基准 `b27f9b90`）R01～R16 的独立核验、修复与验证。面向没有参与讨论的维护者：每项都给出结论分类、当前源码依据、触发条件与风险界限、修复方式、回归证据和对应提交。
+本文记录对《VControlHub 全面审查报告》（2026-10-12，基准 `b27f9b90`）R01～R16 的独立核验、修复与验证，以及第二轮只读审查交接的 S01～S09（含用户报告的 SSH 终端非全屏错位）。面向没有参与讨论的维护者：每项都给出结论分类、当前源码依据、触发条件与风险界限、修复方式、回归证据和对应提交。
 
 - 工作分支：`fix/verified-audit-20261012`；起点 `8e8980cd`（已含 PR #30 知识库提示隔离、PR #31 UI 修复）。
 - 核验以起点源码为准，不以报告中的历史快照为准。下文的“依据”行号均指 `8e8980cd`。
 - PR #30 已修复的“知识库片段注入 system 消息”问题按报告说明排除，本次未改动。
-- 所有验证都在独立工作区和一次性测试数据库中进行（见第 5 节）；没有部署、没有重启服务、没有连接生产数据库或真实 VPS，也没有对外发送通知。
+- 所有验证都在独立工作区和一次性测试数据库中进行（见第 5 节）；没有部署、没有重启服务、没有连接生产数据库或真实 VPS，也没有对外发送通知。唯一越界是测试在本机数据目录写入了 4 个测试版本文件，已删除并修正测试默认值（见第 5 节“测试数据目录事件”）。
 
 ## 1. 结论速览
 
-分类含义：**confirmed** 当前代码中缺陷真实存在；**partially-confirmed** 报告描述部分成立，或部分属于设计取舍；**false-positive** 不成立；**already-fixed** 起点前已修复。本次 16 项中没有 false-positive，也没有 already-fixed。
+分类含义：**confirmed** 当前代码中缺陷真实存在；**partially-confirmed** 报告描述部分成立，或部分属于设计取舍；**false-positive** 不成立；**already-fixed** 起点前已修复。R01～R16 与 S01～S09 中没有 false-positive，也没有 already-fixed；S09 的一个前提（“普通 SFTP 存储读取已有 realpath 校验”）不成立，见该节。
 
 | 编号 | 分类 | 一句话结论 | 修复状态 | 提交 |
 | --- | --- | --- | --- | --- |
 | R01 | confirmed | 同步前对源目录 `mkdir -p`，MIRROR/删除孤立项会把“源缺失”变成“清空目标” | 已修复 | `9f68e319` |
 | R02 | confirmed | tar 回退只看管道末端退出码；镜像模式先清空目标再解包 | 已修复（含提交阶段可恢复） | `80d06d05`、`958c54f4` |
-| R03 | confirmed | 恢复锁按 backupId 加，不同备份可并发恢复同一目标 | 已修复 | `1c35d1d5` |
-| R04 | partially-confirmed | SQL 非单事务、FULL 先文件后库、恢复期间 Worker 照常运行；文件“覆盖合并”是语义而非缺陷 | 已修复可修部分；交互式写入与“精确还原”模式列为剩余 | `b0de217e` |
+| R03 | confirmed | 恢复锁按 backupId 加，不同备份可并发恢复同一目标 | 已修复（应用内恢复已取消，主机级锁保留） | `1c35d1d5`、`4b5f1b78` |
+| R04 | partially-confirmed | SQL 非单事务、FULL 先文件后库、恢复期间平台照常写入；文件“覆盖合并”是语义而非缺陷 | 已修复：恢复改为仅离线执行，由恢复脚本检查前提；检查是时间点检查，边界见该节 | `b0de217e`、`4b5f1b78`、`c0d4a97c` |
 | R05 | confirmed | Playbook 超时后发出取消即重试，旧命令仍在 CANCELLING | 已修复 | `2d3c4c10` |
 | R06 | confirmed | 定时任务认领用 +24h 哨兵覆盖 nextRunAt，崩溃后跳过一天并丢失原 occurrence 幂等键 | 已修复（含迁移） | `4540ced5` |
 | R07 | confirmed | 快捷应用重建：inspect 任意错误当“不存在”、rename 失败退化为 `rm -f`、不验收运行状态、start 大范围 catch | 已修复 | `ed7bdf60`、`1d7f6229` |
 | R08 | confirmed | 告警首次投递失败的渠道，事件持续 OPEN 时不再补投 | 已修复（含迁移） | `8b291872` |
 | R09 | confirmed | 搜索对任意 docker:manage 持有者返回 Hub 主机快捷应用元数据 | 已修复 | `cf1af656` |
 | R10 | confirmed | 分享列表固定 200 条，无分页/搜索 | 已修复 | `c80b8b89` |
-| R11 | confirmed | 媒体列表固定 200 条，收藏数只算当前批次 | 已修复（详情页上下项仍限 200，列为剩余） | `a00ddec6` |
+| R11 | confirmed | 媒体列表固定 200 条，收藏数只算当前批次；详情页上一项/下一项只在前 200 条内 | 已修复 | `a00ddec6`、`f0779e41` |
 | R12 | confirmed | 任务中心先按来源截断再按状态/类型筛选 | 已修复 | `e5fa6201` |
 | R13 | confirmed | 知识库候选先按时间取 200 再算相关度 | 已修复召回排序；向量/全文检索不在本次范围 | `24b7c0a1` |
 | R14 | confirmed | 可用率只表达已采样成功比例，不显示采样覆盖 | 已修复展示层；“采样器故障/主机不可达”区分列为剩余 | `84442ef3` |
 | R15 | confirmed | k6 包装脚本 ROOT 指向 scripts/，路径变成 scripts/scripts/… | 已修复（仅入口，未做容量压测） | `14ecfd3b` |
 | R16 | confirmed | RBAC 审计无条件 exit 0，且不在 CI 中 | 已修复并接入 CI | `2e756b93` |
 
-另有一个文档提交 `eb1f65cd`（README 指标随新增组件更新，`docs:check` 门禁要求）。
+| 编号 | 分类 | 一句话结论 | 修复状态 | 提交 |
+| --- | --- | --- | --- | --- |
+| S01 | confirmed | SSH 终端非全屏时网格高于可见区域、底部行被裁；PTY 停在 80x24；sm～lg 宽度下固定最小高度仍溢出 | 已修复，真实浏览器三内核验证 | `4b1b580f`、`9360a015` |
+| S02 | confirmed | 版本恢复不检查单文件上限与配额；覆盖写重复计入原文件大小 | 已修复 | `6a36c32c` |
+| S03 | confirmed | ITSM 入站首次失败后，同一外部事件的重试永远返回旧错误 | 已修复 | `91696492` |
+| S04 | confirmed | 下载取消：无 pid 时不处理远端、只杀父 shell 留下 curl、结果未检查、PENDING→RUNNING 竞态 | 已修复 | `da68b3d9` |
+| S05 | confirmed | Agent 超时读到 PENDING 后被领取仍走 SSH 回退；租约过期伪造完成 | 已修复（含迁移） | `a040b676` |
+| S06 | confirmed | VPS 备份计划 2099 哨兵、平台备份计划 24h 哨兵，认领后崩溃即永久/一天漏执行 | 已修复 | `a5bec026` |
+| S07 | confirmed | 部署回滚：命令创建前后崩溃使回滚永久阻塞；关联失败标 FAILED 后可重复下发 | 已修复 | `83d858ac` |
+| S08 | confirmed | WebDAV 覆盖 MOVE 必撞唯一索引；MOVE/COPY 覆盖回收站文件字节；目录 MOVE 一律 500 | 已修复 | `1b567234` |
+| S09 | confirmed（前提部分不成立） | LOCAL 默认全节点内容搜索恒为 0；SFTP 以符号链接为起点可搜到根外内容 | 已修复搜索；普通 SFTP 存储读取的链接问题列为剩余 | `eb50150e` |
+
+另有：文档提交 `eb1f65cd`（README 指标，`docs:check` 门禁要求）、报告提交 `7bc5fa83`，以及测试环境修正 `2dab5fe4`（见第 5 节“测试数据目录事件”）。
 
 ## 2. 逐项核验与修复
 
@@ -57,25 +69,37 @@
 ### R03 恢复互斥按 backupId 而非恢复目标 — confirmed
 
 - **依据**：`src/lib/backup/service-runtime.ts:276` 用 `acquireAdvisoryLock("backup-restore", input.id)`；`src/app/api/backups/[id]/restore/route.ts:42` 的 `wait=1` 直接执行，`:59` 仅按同一 backupId 查重；`scripts/restore.mjs` 与 `restore-*.sh` 无互斥。
-- **修复**：应用内恢复改为平台唯一的非阻塞锁，占用时返回 409“已有恢复在运行”。`restore.mjs` 与 `restore-files.sh` 增加主机级锁 `APP_DIR/.restore.lock`（mkdir 原子创建，记录 pid/host）：CLI 与应用不能同时恢复；同机已死进程留下的锁可回收，活着的持有者绝不被替换。
-- **证据**：`restore-mutex.integration.test.ts` 使用真实 PostgreSQL advisory lock，让恢复 A 停在破坏性步骤内，断言恢复 B 被拒（修复前 B 继续执行）；`scripts/__tests__/restore-runner.test.ts` 分别覆盖 node 与 bash 入口的活锁拒绝、死锁回收。
-- **界限**：“恢复与升级/部署互斥”未实现，`deploy.sh` 有自己的部署锁，两者之间没有冲突矩阵（见第 6 节）。
+- **修复**：
+  - 第一版（`1c35d1d5`）把应用内恢复改为平台唯一锁，并给 `restore.mjs` 与 `restore-files.sh` 增加主机级锁 `APP_DIR/.restore.lock`（mkdir 原子创建，记录 pid/host；同机已死进程留下的锁可回收，活着的持有者绝不被替换）。
+  - R04 改为仅离线恢复后（`4b5f1b78`），应用内已不再执行恢复，应用内锁随之删除。现在 `restore-db.sh`、`restore-files.sh`、`restore-full.sh` 都转交 `restore.mjs`，所有组件都持有同一个主机级锁。
+- **证据**：`scripts/__tests__/restore-runner.test.ts` 分别覆盖 node 与 bash 入口的活锁拒绝（不写入任何文件、不删除对方的锁）和死锁回收。
+- **界限**：主机级锁只在同一安装目录内互斥；恢复与 `deploy.sh` 升级之间没有互斥矩阵（见第 6 节）。
 
 ### R04 在线恢复缺少停写与一致性 — partially-confirmed
 
-- **依据**：`scripts/restore.mjs:61` 仅用 `-v ON_ERROR_STOP=1` 导入，无单事务；`:235` FULL 先恢复文件再导入数据库；恢复期间 Worker 继续领取任务。
-- **成立的部分**：SQL 中途失败时之前的 DROP/CREATE/COPY 已提交，得到半恢复的数据库；FULL 中数据库失败会留下“新文件 + 旧库”；后台任务可能在数据被替换期间写回旧状态。
+- **依据**：`scripts/restore.mjs:61` 仅用 `-v ON_ERROR_STOP=1` 导入，无单事务；`:235` FULL 先恢复文件再导入数据库；恢复期间 Worker、API、Agent 回报、计划任务和终端会话照常写入。
+- **成立的部分**：SQL 中途失败时之前的 DROP/CREATE/COPY 已提交，得到半恢复的数据库；FULL 中数据库失败会留下“新文件 + 旧库”；平台在数据被替换期间写回旧状态。
 - **不认定为缺陷的部分**：`restore-files.sh` 的 `cp -a`/Node `fs.cp` 是覆盖合并（备份后新增的文件保留），这是一种恢复语义，不是错误。本次在文档中明确说明，未新增“精确还原”模式。
-- **修复**：
-  1. `psql --single-transaction -f -`：导入要么全部生效，要么完全回滚。已用真实迁移后的完整应用 schema 验证可在单事务中恢复。
-  2. FULL `all` 改为：先解压并校验文件到暂存区，再执行数据库事务，提交后才复制文件。数据库失败时数据库与文件都不变；文件复制失败（数据库已提交）时明确报告 `PARTIAL RESTORE`。
-  3. 后台停写与排空：恢复持锁期间，`claimNextJob` 与 `executeSyncJob` 都不启动新工作（通过 `pg_locks` 看到恢复锁，该状态不在被恢复的数据里，跨实例可见）。恢复在拍安全快照前最多等待 120 秒让运行中的任务/同步结束，仍未结束则返回 409 且不改动任何数据。
-  4. 失败信息写明可用于回退的安全快照 ID/路径；每次恢复结果追加到 `<备份根>/restore-history.jsonl`，因为恢复任务自身的 Job 行位于被替换的数据库里。
+- **第一版及其问题**（`b0de217e`）：单事务导入、FULL 先库后文件仍然保留。但其“在线停写”有缺陷，监督复核后在真实 PostgreSQL 上复现：
+  - `claimNextJob`/同步启动前的 `pg_locks` 探测是先检查后执行，Worker 可在恢复取得锁之前通过检查、在排空看到空队列之后才领取；
+  - 只排空 Job/SyncJob 不等于平台静止，API 写入、Agent 回报、计划任务、终端会话不受控；
+  - 表锁只覆盖数据库事务，不覆盖 FULL 的文件阶段。
+
+  因此第一版不能作为安全保证。
+- **当前设计：恢复只能离线执行**（`4b5f1b78`，`c0d4a97c`）：
+  1. 应用不再执行任何恢复。`POST /api/backups/:id/restore` 只核对备份状态与 SHA-256，返回离线步骤：停止服务 → 恢复前安全快照 → 带 `CONFIRM_RESTORE=1` 的恢复命令 → 启动服务。备份页以对话框展示，并审计为 `backup.restore_plan`。旧版本排入的恢复任务以永久错误结束，不会执行。在线停写的门（`restore-gate.ts`、领取/同步检查、排空）已删除。
+  2. `scripts/restore.mjs`（三个 `.sh` 入口都转交它）检查前提：
+     - 每个组件都要求 `CONFIRM_RESTORE=1`；
+     - 平台 systemd 服务（默认 `vcontrolhub-next`、`vcontrolhub-worker`、`vcontrolhub-ssh-ws`，`VCONTROLHUB_SERVICE_UNITS` 可改）必须被确认已停止：读取 `LoadState`/`ActiveState`，只有 loaded/masked 且为 inactive/failed 才通过。运行中、过渡态、unknown、服务名不存在（多为自定义服务名）、`systemctl` 出错或不存在都拒绝。非 systemd 部署须在自行停止全部实例后显式设置 `VCONTROLHUB_SERVICE_UNITS=none`，脚本记录这一确认；Windows 的恢复命令已带此设置。
+     - 数据库导入（`psql -X -v ON_ERROR_STOP=1 --single-transaction -f -`）的第一条语句检查 `pg_stat_activity`，还有其他客户端连接目标库则整个事务放弃；FULL/仅文件在复制文件前再检查一次服务与数据库连接。
+     - FULL `all`：先解压并校验文件到暂存区，再执行数据库事务，提交后才复制文件。数据库失败时数据库与文件都不变；文件复制失败（数据库已提交）时明确报告 `PARTIAL RESTORE`。
+     - 结果追加到归档旁的 `restore-history.jsonl`。
+  3. **边界（必须由运维保证）**：上述都是时间点检查，不是隔离。检查之后才启动或连接的实例不会被拦住，例如其他主机上的实例、未列入的自定义服务、手工启动的进程。导入事务的表锁只覆盖已处理到的表，文件阶段没有任何隔离。所以从停止服务到恢复完成，所有实例必须一直保持停止；用户指南 13.4 和恢复对话框都写明了这一点。第一版提交说明 `4b5f1b78` 中“该检查不会被并发绕过”的表述过强，已由 `c0d4a97c` 在代码注释、文档和界面中更正。
 - **证据**：
-  - `restore-atomicity.integration.test.ts`（真实 PostgreSQL）：dump 在数据语句之后失败时，数据库与文件都保持原样（修复前数据库变为备份内容、文件被替换）；真实应用 schema 单事务恢复成功。
-  - `restore-quiesce.integration.test.ts`：持恢复锁时 `claimNextJob` 不领取，释放后恢复（修复前照常领取）。
-  - `src/lib/backup/__tests__/service.test.ts`：排空超时在快照前拒绝、自身任务被排除、失败信息带快照。
-- **剩余边界**：交互式 API 写入在恢复期间不会被拒绝，只会在数据库事务期间被表锁阻塞；FULL 的“数据库已提交、文件复制失败”仍是一个已标明的部分状态；没有影子库切换、恢复后的登录/凭据解密自动探针。是否引入全站维护模式需要产品决策。
+  - `restore-atomicity.integration.test.ts`（真实 PostgreSQL，各自的临时库）：存在其他连接时导入拒绝且数据不变（旧脚本照常恢复）；dump 在数据语句之后失败时数据库与文件都保持原样；FULL 数据库失败时文件不变；真实应用 schema 单事务恢复成功。
+  - `scripts/__tests__/restore-runner.test.ts`、`restore-files.test.ts`（伪 systemctl/psql）：服务运行、过渡态、unknown、not-found、systemctl 出错、空服务列表时都拒绝且不写入目标；其中 4 种在 `c0d4a97c` 之前的脚本下照常恢复。`none` 确认可以恢复，但仍会因数据库连接而拒绝。node 与 bash 入口都覆盖。
+  - service、route、job-worker 与对话框测试覆盖离线步骤与旧任务的终止。
+- **剩余**：没有全站维护模式、影子库切换、恢复后自动业务探针、“精确还原”文件模式，也没有恢复与 `deploy.sh` 的互斥矩阵。
 
 ### R05 Playbook 取消确认屏障 — confirmed
 
@@ -132,8 +156,8 @@
 
 - **依据**：`src/lib/media/service.ts:161` `take: 200`；页面收藏数由当前批次计算。
 - **修复**：列表支持 page/pageSize，按 favorite、updatedAt、id 稳定排序（扫描会批量写入相同时间戳）。`countMediaItems` 与列表、类型计数共用同一筛选构造。页面显示真实匹配数和数据库收藏数，分页链接保留筛选条件。`GET /api/media` 返回 `total/page/pageSize`。
-- **证据**：`media-pagination.integration.test.ts`（450 条相同 updatedAt，逐页不重不漏、数据库计数）；`media/__tests__/page.test.tsx`（5000 条中第 3 页、收藏数来自数据库、分页链接）。
-- **剩余**：媒体详情页的“上一项/下一项”仍只在同类型前 200 条内导航。
+- **详情页导航**（`f0779e41`）：详情页原先取同类型前 200 条再查当前项，第 200 条之后的项目没有上一项/下一项，且忽略用户来自哪个列表。现在 `getMediaNeighbors` 按列表自身的顺序（收藏、updatedAt、id 降序）和筛选条件（类型、搜索、收藏、标签，从 `from` 链接解析），用 keyset 查询相邻项；卡片带上当前列表链接（含筛选与页码），“返回”回到同一页。
+- **证据**：`media-pagination.integration.test.ts`（450 条相同 updatedAt：逐页不重不漏、数据库计数、从第一项连续“下一项”走完全部 450 条且顺序与分页一致、页边界与两端、筛选列表内导航）；`media/__tests__/page.test.tsx`（5000 条中第 3 页、收藏数来自数据库、分页链接）与卡片测试（携带列表链接）。
 
 ### R12 任务中心筛选前截断 — confirmed
 
@@ -175,6 +199,114 @@
 - **修复**：发现阻断型漂移（除软信号 `page-button-perm-unused` 外的全部类别）时 exit 1。有意公开的路由仍是 `api-no-declared-perm` 白名单中的已审查例外。`--no-write` 不改写受版本控制的报告，`--report-only` 保留原信息模式。已接入 CI test 作业、`ci:local` 和 `test:merge`，说明见 `docs/ci-gates.md`。当前代码 0 漂移，门禁通过。
 - **证据**：`scripts/__tests__/rbac-audit-gate.test.ts` 以子进程在夹具仓库中运行审计（使用真实 rbac.ts）：声明 server:read 却不校验的路由 exit 1（修复前 exit 0），正确校验的路由 exit 0。
 
+## 2b. 第二轮审查 S01～S09
+
+“修复前失败”的方法与 R 系列相同：临时把被测文件换回修复前版本运行同一测试，再恢复修复版本，替换从未提交。
+
+### S01 SSH 终端非全屏文字错位（用户报告）— confirmed
+
+- **复现**：真实浏览器实验环境（自定义服务器 + 真实 ssh-ws-proxy + 按 PTY 尺寸绘制标尺与末行标记的进程内 SSH 服务器），Chromium/Firefox/WebKit。1366x768 普通窗口：屏上网格 117x21，但远端 shell 为 80x24；可见裁剪高度 289px 而网格 336px，末尾约 3 行（提示符与光标）在对话框可见区之外。全屏时两个问题都被掩盖。
+- **根因**：
+  1. 布局：桌面普通对话框为 `h-auto` + `max-h-[72vh]`，终端表面却保留 `lg:min-h-[350px]`，FitAddon 按表面而非可见区计算网格。1px 边框在 border-box 宿主上也被算作可用空间。
+  2. PTY 尺寸：浏览器在 SSH 认证完成前发送尺寸，代理因 shell 尚未建立而丢弃，shell 以 ssh2 默认 80x24 打开。
+  3. 监督复核发现的 sm～lg 宽度问题：对话框从 sm 起已是 72vh，而表面框架直到 lg 才取消 `min-h-[280px]`。900x600 初始状态末行仍在可见区外（已在实验环境复现）。
+- **修复**：
+  - 对话框高度确定，表面在宽屏下恰好占满剩余空间；边框移到外层框架。
+  - 代理保存最后请求的窗口尺寸，以该尺寸打开 shell（建立过程中到达的尺寸也会应用）；客户端在 `connected` 时再发送一次。
+  - 280px 的固定最小高度只在 lg 以下、侧栏或文件管理器叠在终端下方时启用（此时列可滚动，是有意的布局）。其他情况表面恰好占满剩余空间。
+- **证据**：`e2e/ssh-terminal-layout.spec.ts`（需显式开启 `E2E_SSH_LAYOUT_LAB=1`）。覆盖 1366x768、1920x1080、900x600、768x600、1280x520、390x844，每个尺寸都检查初始、全屏、退出全屏、缩小与还原窗口、最小化后恢复；要求末行在可见裁剪区内，且 PTY 等于屏上网格。三内核全部通过；旧代码在“1366x768 initial”失败，`9360a015` 之前在“900x600 initial”失败。另有 `ssh-ws-proxy-session.test.ts` 覆盖认证前到达的尺寸。
+
+### S02 存储配额：版本恢复绕过、覆盖写重复计费 — confirmed
+
+- **依据**：`file-versions.ts` 的 `restoreFileVersion` 经 `resolveAccessibleFileEntry` 授权写入，但不传 `writeBytes`，而 `access-control.ts` 只在有 `writeBytes` 时检查 `maxFileBytes`/`quotaBytes`。另外配额判断为 `已用 + writeBytes`，已用量里已经包含被覆盖文件的大小。
+- **影响**：管理员降低额度后，成员可恢复更大的旧版本绕过限制；额度已满时，同大小或更小的改写（文本编辑、续传、WebDAV PUT、复制覆盖）也被拒绝。
+- **修复**：
+  - 恢复以版本字节数作为写入检查，并持有配额锁直到索引更新。
+  - `assertStorageAccess` 在配额锁内减去被替换的现存文件大小（新文件或目录目标为 0），所有调用方统一按增量计费。
+  - 语义写在函数注释中：授权额度约束的是其路径前缀下全部现存文件字节，不分写入者；对同一目录有授权的不同用户共享其中的存量，各自按自己的授权衡量。
+- **证据**：`quota-overwrite.integration.test.ts`（真实 PostgreSQL + 真实本地目录）：超过新单文件上限或配额的版本恢复被拒且文件不变，合规恢复生效；满额时同大小/更小覆盖允许，增长和新文件被拒。旧代码 3 例全部失败。
+- **剩余**：解压、压缩、SFTP 同步、远端下载、跨授权移动等事先不知道大小的写入仍没有按字节准入。
+
+### S03 ITSM 入站失败被当作永久去重 — confirmed
+
+- **依据**：`service-inbound.ts` 在外部事件锁内按 externalId `findFirst`，不看状态就返回已有事件；catch 又以同一 externalId 记录 `status:error`。唯一索引只允许一行。
+- **影响**：createTicket 短暂失败后，发送方的重试永远收到旧错误，工单不会创建。路由把该事件映射为非 ok，不会误报 200 成功。
+- **修复**：处理前先认领事件行。ok/ignored 是真正的重复；error/pending 行被复用并重新处理。副作用（建工单、评论、改状态）完成后立即写入 `applied` 标记和动作、工单 ID，此后记账失败的重试只补完记录、不重复副作用。
+- **证据**：`itsm/__tests__/service.test.ts`（带唯一索引语义的有状态事件存储）：首次失败 → 重试只建一张工单、只有一行事件；副作用成功但记账失败 → 重试不重复。旧代码 2 例失败。
+- **剩余**：工单创建与事件行不在同一事务，进程恰好在 createTicket 返回与写入标记之间被杀，重试仍可能重复建单。
+
+### S04 下载取消报告已取消但远端仍在执行 — confirmed
+
+- **依据**（`api/downloads/route-delete.ts`、`downloads/remote-command.ts`）：
+  - RUNNING 直连任务没有数据库 pid 时，直接标记 CANCELLED，不处理远端；
+  - 有 pid 时执行 `kill PID; rm -f marker`，退出码被 rm 覆盖，且调用方也不检查；
+  - PID 是 `nohup bash`：bash 收到 SIGTERM 退出，但前台 curl 不会收到信号；
+  - 取消读到 PENDING 后，Worker 领取并启动，取消的 CAS（PENDING|RUNNING）仍成功，Worker 记录 pid 的更新静默落空。
+- **复现**：真实 bash + curl + 本地慢速 HTTP 服务器，旧取消命令执行后 curl 仍在运行。
+- **修复**：
+  - `buildDirectDownloadStopCommand` 以任务唯一的暂存后缀 `.vch-<task>.part` 识别进程（bash 脚本与 curl 的 `-o` 参数都含它）：不依赖 pid，能找到孤儿 curl，不会误杀复用了 pid 的无关进程。模式在运行时拼接，命令自身的 shell 不会匹配。命令先 TERM、再 KILL，然后复查，并清理暂存文件与标记；只有确认没有残留时才以 0 退出。
+  - 路由对 RUNNING 直连任务总是执行停止，确认后才标记取消；否则返回 502 且保持 RUNNING，可以再次取消，对账器也会继续探测。PENDING 用只针对 PENDING 的 CAS 取消；若 Worker 抢先领取，则按运行中任务处理。
+  - Worker 记录 pid 时若发现任务已不在 RUNNING，就停止自己刚启动的进程；其失败清理也用同一停止命令。
+- **证据**：`remote-stop.process.test.ts`（真实进程）：无进程残留、无暂存文件，无 pid 标记也能找到，能停止孤儿 curl，不碰持有标记 pid 的无关进程。路由/Worker 测试覆盖无 pid、未确认、PENDING 竞态和启动期间取消，5 例在旧代码下失败。
+- **剩余**：Worker 在“启动远端进程”与“记录 pid”之间被杀、且恰好与取消并发时，留下的下载无人停止。
+
+### S05 Agent 超时/租约过期伪造完成 — confirmed
+
+- **依据**：`server/agent-service.ts`：
+  - 超时分支读到 PENDING 后，用 `status in (PENDING, CLAIMED)` 写 CANCELLED + completedAt。Agent 若在两步之间领取，旧的 PENDING 读取仍返回 null，调用方再经 SSH 执行同一命令。
+  - 租约过期同样写入完成；租约过期只说明心跳停了，不代表远端已停止。
+- **修复**：
+  - 只有原子的 PENDING→CANCELLED（证明从未派发）才允许返回 null 回退 SSH。
+  - 已领取的任务改为“请求取消”（completedAt 为空）并等待 Agent 自己的报告；等不到则抛出 `CommandCancellationUnconfirmedError`，既不伪造结果也不回退。
+  - 租约过期同样只记录取消请求，Agent 迟到的结果仍会记录。
+  - 新增 `CommandTarget.outcomeUnknown`。Playbook 对结果未知的命令不再重试（`CommandOutcomeUnknownError`），普通失败照常重试。
+- **证据**：`agent-timeout-race.test.ts`（执行条件更新的有状态任务存储），旧代码 4 例中 3 例失败；另有 service-execution 与 executor-cancel-barrier 测试。
+- **迁移**：`20261013090000_command_target_outcome_unknown`。
+
+### S06 两种备份计划的哨兵崩溃窗口 — confirmed
+
+- **依据**：
+  - `vps-backup-schedule-service.ts` 认领时把 nextRunAt 写成 2099-01-01，之后才创建记录、入队、推进 cron；
+  - `schedule-worker.ts` 写 now+24h 哨兵后再派发；
+  - 进程在认领后退出时，前者永久停止调度，后者静默跳过一天。
+- **修复**：两者都在一个数据库事务内完成认领（对观察到的 nextRunAt 做 CAS，直接推进到下一个 cron 时间）、PENDING 记录、持久任务与运行记账。中途崩溃什么都不提交，occurrence 保持到期；并发 tick 仍只派发一次。VPS 的重叠跳过也在同一事务内。
+- **同类排查**：Playbook cron 触发器已是同事务认领入队；定时任务已由 R06 修复；同步计划由 lastSyncAt 推导，没有哨兵。
+- **证据**：`schedule-crash-recovery.integration.test.ts`（真实 PostgreSQL）在最后一次写入（入队）处注入崩溃，并抑制调用方的失败记账，模拟被杀的进程。两种计划都保持到期、没有任何产物；随后两个并发重试只派发一次。VPS 用例在旧代码下得到 nextRunAt = 2099-01-01。
+
+### S07 部署回滚落库与命令创建的崩溃窗口 — confirmed
+
+- **依据**：`deployment/service.ts` 的 `createDeploymentRollbackRun` 先建 PENDING 回滚，再 `createCommandRequest`（无幂等键），最后关联。没有任何对账器处理 commandRequestId 为空的回滚（`refreshDeploymentRollbackStatuses` 只处理已关联的）。
+- **影响**：任一步之间崩溃，留下的 PENDING 回滚使该部署之后的回滚永远被拒绝；命令已创建但关联失败时，catch 把回滚标为 FAILED，命令却仍可被批准执行，下一次回滚再下发一条相同命令。
+- **修复**：
+  - 命令带稳定幂等键 `deployment-rollback:<rollbackId>`。
+  - `recoverUnlinkedRollback` 按该键恢复：命令存在则关联并取其状态（已结束则关闭）；不存在说明从未下发，标为 FAILED。
+  - 回滚请求在既有的按源部署 advisory 锁（会话级锁，持有者进程死亡即释放，因此锁内不会有正在创建的请求）内，对所有未关联的活动回滚先执行恢复，再判断冲突。
+  - 失败路径也用同一恢复，不再盲目标 FAILED；恢复本身失败时保持 PENDING，由下一次请求恢复。
+- **证据**：`deployment/__tests__/service.test.ts`（有状态存储）覆盖 4 种情况，旧代码下 4 例全部失败：命令创建前崩溃后可再次回滚；关联失败既不标 FAILED，也不下发第二条命令；创建与关联之间崩溃后，由下一次请求完成关联；命令已结束的未关联回滚被关闭。
+
+### S08 WebDAV MOVE/COPY/PUT 与回收站、唯一索引 — confirmed
+
+- **依据**：`webdav/handler.ts`。唯一索引 `(storageNodeId, relativePath)` 包含软删除行；文件管理器删除只改索引，回收站文件的字节仍在原路径。
+- **真实环境复现**（真实临时目录 + 真实 PostgreSQL）：
+  - 覆盖 MOVE 原地把旧行标为删除（路径未让出），索引更新必撞唯一约束，返回 500；
+  - MOVE/COPY 到回收站文件：先改写字节再撞唯一约束，回滚后回收站字节丢失；
+  - 任何带子项的目录 MOVE 都返回 500：`substring(... FROM $n)` 的参数未声明类型，PostgreSQL 选了正则形式，返回 NULL，违反 name 非空约束；
+  - PUT 覆盖回收站文件时不留版本，且不清除 deleteBatchId。mock 测试暴露不了这些问题。
+  - 核对审查说明：PUT 本身不会撞唯一约束（它另外按唯一键查找）；核心问题是覆盖 MOVE 和回收站字节保护。
+- **修复**：
+  - 目标处（或其下）仍有回收站字节时，MOVE/COPY 在改动字节前返回 409；
+  - 占用目标路径的行（被覆盖的现存行、字节已不存在的回收站行）在同一事务内移到唯一的墓碑路径并软删除，让出路径、保留历史；
+  - 目录改写用 `::int` 并连同回收站子项一起移动；
+  - PUT 覆盖回收站文件时先把其字节存为版本（不能存则拒绝），并清除 deleteBatchId。
+- **证据**：`move-copy-recycle.integration.test.ts` 8 例：Overwrite:T/F、目录移到新路径与覆盖现存目录、回收站文件与子项拒绝且字节完好、COPY 拒绝、PUT 版本与批次清除。原始 7 例中 6 例在旧代码下失败，其中 2 例回收站字节被毁。
+
+### S09 内容搜索默认根目录与 SFTP 边界 — confirmed（前提部分不成立）
+
+- **LOCAL**：默认不带路径。`searchLocalNode` 把空串交给 `resolveLocalAbsolutePath`，它面向文件目标，拒绝空路径；外层 catch 只记日志，所以 LOCAL 节点的全节点内容搜索恒为 0。现在无路径即节点根，子路径保留原有的词法与符号链接包含检查。
+- **SFTP**：远端路径只做拼接和 “..” 拒绝。grep 会跟随作为起点的符号链接，`searchPath=<指向根外的链接>` 能返回根外文本。现在远端命令先在同一 shell 中比较搜索路径与节点根的物理路径（`cd -P`/`pwd -P`），超出则以 3 退出；节点根本身是链接时仍可用。`grep -r` 递归时不跟随起点以下的链接。
+- **不成立的前提**：审查说明认为普通 SFTP 存储读取已有远端 realpath 包含校验，实际没有。`readStorageFileBuffer`/`streamStorageFile` 对 SFTP 只做词法包含，`sftp.readFile` 会跟随链接。这属于所有 SFTP 存储操作的设计问题，本次没有改（列为剩余）。
+- **证据**：`content-search.process.test.ts`（真实临时目录与符号链接；SFTP 生成的远端命令由本机 sh 执行，代替 SSH）：LOCAL 默认搜索能找到文件（旧代码返回 []）；经链接的 SFTP 搜索不返回根外内容（旧代码返回根外文件内容）；子路径与链接根仍可用。
+
 ## 3. 关于 F-01～F-47 矩阵
 
 矩阵用于理解产品目标，本次没有把其中的设计建议扩展为新功能。涉及的、仍待产品决策的方向见第 6 节，例如有效权限模拟器、全站维护模式、精确恢复模式、步骤幂等声明、统一 correlationId 时间线。
@@ -185,15 +317,20 @@
 | --- | --- | --- |
 | `20261012120000_scheduled_task_claimed_occurrence` | `scheduled_tasks."claimedOccurrenceAt" TIMESTAMP(3)` 可空 | 只增不改。旧代码忽略该列；无需回填。回滚旧代码后，残留的认领值只会在新代码再次部署时被使用或清除。 |
 | `20261012130000_alert_incident_delivery_retry` | `alert_incidents` 增加 `pendingNotifyChannels TEXT[] DEFAULT '{}'`、`notifyAttempts INT NOT NULL DEFAULT 0`、`nextNotifyAt`、`lastNotifyError` | 只增不改、带默认值。旧代码忽略；已有事件视为无待补投。 |
+| `20261013090000_command_target_outcome_unknown` | `command_targets."outcomeUnknown" BOOLEAN NOT NULL DEFAULT false`（S05） | 只增不改、带默认值。旧代码忽略；已有目标视为结果已知。 |
 
 `prisma migrate deploy` 已在一次性数据库上从空库应用全部迁移，`prisma migrate diff`（迁移后数据库对 schema.prisma）为空，`prisma format --check` 通过。
 
 **行为变化（发布说明需要提及）**：
 - 单向/镜像同步的源目录不存在时，作业失败而不再自动创建。
-- 平台恢复同一时间只能有一个，后台仍有任务运行时最多等待 120 秒后返回 409。
+- **应用内不再执行恢复**：备份页“恢复”只校验备份并给出离线步骤；`POST /api/backups/:id/restore` 返回 `{ offlineRestore }`；旧版本排入的恢复任务以错误结束。恢复脚本在服务未确认停止或仍有数据库连接时拒绝执行；非 systemd 部署需设置 `VCONTROLHUB_SERVICE_UNITS=none`。
 - 快捷应用安装、更新约多 10 秒验收。
 - `GET /api/share-links`、`GET /api/media` 响应新增 `total/page/pageSize` 字段（原字段不变）。
 - CI 新增 RBAC 漂移门禁。
+- Agent 任务超时后若 Agent 已领取，不再回退 SSH；无法确认停止时报错并标记结果未知，Playbook 不会重试该步骤。
+- 下载取消在远端无法确认停止时返回 502，任务保持运行中。
+- WebDAV MOVE/COPY 到仍有回收站内容的路径返回 409。
+- 配额改为按覆盖增量计费；版本恢复受单文件上限与配额约束。
 
 ## 5. 验证环境与结果
 
@@ -204,43 +341,55 @@
   - restore-files 覆盖合并为既定语义，结果不变。
   - 第 1 例仍显示目标被清空，这是预期结果：该脚本自行 `mkdir` 源目录、直接调用 tar 命令构造器，模拟的正是修复前运行时的行为。新的防护位于运行时探测（不创建源、拒绝空源镜像），由 `mirror-source-guard.test.ts` 端到端验证。
 
+**最终验证**：在最终代码 `c0d4a97c` 上统一运行一次，所有退出码均为实测值；本报告提交只改动文档。
+
 | 检查 | 结果 |
 | --- | --- |
-| `npm run typecheck` | 通过 |
-| `npm run lint`（max-warnings=0） | 通过 |
-| 全量 Vitest（`RUN_DATABASE_INTEGRATION_TESTS=1`，一次性库） | 通过：810 个测试文件；6449 passed，3 skipped，0 failed；耗时 621 秒 |
-| `npm run route:verify` | 通过：56 pages、189 API routes、52 permissions |
-| `npm run docs:check` | 通过（README 指标已随新增组件更新） |
-| `npm run i18n:key-check` | 通过：缺失 0，中英不一致 0 |
-| `npm run api-copy:audit` | 通过：0 项新增硬编码英文 |
-| `npm run rbac:audit -- --no-write` | 通过：0 漂移 |
-| `prisma format --check` / 迁移漂移 | 通过 / 无漂移 |
-| `npm run build`（Next 生产构建，在本工作区以低优先级运行，未触碰运行中的服务目录） | 通过 |
-| `npm run build:runtime` | 通过 |
+| `npm run typecheck` | exit 0 |
+| `npm run lint`（max-warnings=0） | exit 0 |
+| 全量 Vitest（`RUN_DATABASE_INTEGRATION_TESTS=1`，一次性库，`FILE_VERSION_DIR` 指向临时目录） | exit 0：813 个测试文件；6489 passed，3 skipped，0 failed；耗时 625 秒 |
+| `npm run route:verify` | exit 0：56 pages、189 API routes、52 permissions |
+| `npm run docs:check` | exit 0 |
+| `npm run i18n:key-check` | exit 0：缺失 0，中英不一致 0 |
+| `npm run api-copy:audit` | exit 0：0 项 |
+| `npm run rbac:audit -- --no-write` | exit 0：634 处调用、0 漂移 |
+| `prisma migrate deploy`（含 `20261013090000`）/ `prisma migrate diff --from-config-datasource --to-schema` / `prisma format --check` | exit 0 / “No difference detected” / exit 0 |
+| `npm run build`（Next 生产构建，在本工作区低优先级运行） | exit 0 |
+| `npm run build:runtime` | exit 0 |
+| `e2e/ssh-terminal-layout.spec.ts`（S01，真实浏览器实验环境） | exit 0：chromium、firefox、webkit 均通过 |
 
-每个修复的“修复前失败、修复后通过”记录保存在 `/tmp/claude-audit-work/r*-before.log`。方法是临时把被测文件换回修复前版本运行同一测试，再恢复修复版本；该替换从未提交。
+各项“修复前失败、修复后通过”的记录保存在 `/tmp/claude-audit-work/*-before.log`。
 
-**全量测试**：第一次全量运行出现 5 项失败。其中 4 项是运行期间源文件被修改（同时提交了文案本地化）造成的不一致。另 1 项是真实问题：R03 的互斥集成测试早于 R04 的排空步骤，mock 缺少 `job/syncJob`，已在 `bc0771b5` 修复。修复后在不做任何改动的情况下完整重跑，结果全部通过（见上表）。
+**S01 实验环境**：工作区内的自定义服务器（`next dev`）与 ssh-ws-proxy 运行在 127.0.0.1:3461/3462，连接一次性库 `vch_sshlab` 和进程内假 SSH 服务器，使用一次性密钥。验证完成后已停止，生产服务（含 3001 端口的生产代理）未受影响。
+
+**第一轮全量测试**：第一次全量运行出现 5 项失败。其中 4 项是运行期间源文件被修改造成的不一致；另 1 项是真实的测试 mock 缺漏（`bc0771b5`）。之后的全量运行都在没有任何改动的情况下完成。
+
+**测试数据目录事件（已处理）**：`FILE_VERSION_DIR` 默认是本机数据根 `/var/lib/vcontrolhub/file-versions`。S08 集成测试在开发时运行了 4 次，在该目录写入了 4 个仅含测试内容的版本文件（各 14 字节，位于以测试前缀命名的 `webdav-<uuid>/` 目录）。核对名称、时间、大小和内容确认它们只来自本次测试后，删除了这 4 个目录；其他文件均早于本次会话，没有改动。`2dab5fe4` 让测试默认使用每进程临时目录，最终全量运行前后对 `/var/lib/vcontrolhub` 的完整清单（路径与修改时间）逐项比对，没有差异。此前其他人留下的同类旧目录（10 月 1 日的 `webdav-locks-*`/`webdav-move-*`）没有触碰。
 
 **未运行**：
 - `npm run audit:high`：需联网查询 npm 漏洞库。
-- E2E/Playwright：需要完整登录态环境与浏览器。
-- 真实 VPS/Docker/SMTP/Webhook。
-- 真实数据库恢复演练。
+- 完整 E2E 套件（只运行了 S01 布局 spec）。
+- 真实 VPS/Docker/SMTP/Webhook/ITSM。
+- 真实数据库恢复演练（恢复脚本由一次性库和伪 systemctl 验证）。
 - k6 容量测试。
+
+**main 集成**：见第 8 节。
 
 ## 6. 剩余事项（未标为已修复）
 
-1. **R04**：恢复期间的交互式 API 写入仅受数据库事务的表锁阻塞，未实现全站维护模式（需决定是否对所有写接口返回 503）。没有“精确还原”文件模式和差异预览。没有影子库切换与恢复后自动业务探针。恢复与 `deploy.sh` 升级之间没有互斥矩阵。
+1. **R04**：恢复的前提（所有实例保持停止）由运维保证，脚本只做时间点检查，不能防止检查后启动的实例。没有全站维护模式、影子库切换、恢复后自动业务探针和“精确还原”文件模式；恢复与 `deploy.sh` 升级之间没有互斥矩阵。
 2. **R01**：没有源挂载身份标记和删除比例阈值。
 3. **R05**：没有步骤级幂等声明或人工确认，取消确认后的非幂等重试仍按配置进行。
 4. **R07**：没有应用层就绪探针、镜像 digest 和数据卷恢复点。
 5. **R08**：没有逐收件人投递追踪；升级通知的失败重试未纳入。
-6. **R11**：媒体详情页上一项/下一项仍限前 200 条。
-7. **R13**：全文/向量检索、中文分词、召回评测集。
-8. **R14**：缺样原因（采样器/主机/应用）区分需在采样与 rollup 中新增字段。
-9. **R15**：容量基线需要在隔离环境用真实负载测量。
-10. **CI 外部条件**：GitHub 分支保护仍需仓库管理员在 Settings 中开启（见 `docs/ci-gates.md`）。
+6. **R13**：全文/向量检索、中文分词、召回评测集。
+7. **R14**：缺样原因（采样器/主机/应用）区分需在采样与 rollup 中新增字段。
+8. **R15**：容量基线需要在隔离环境用真实负载测量。
+9. **S02**：解压、压缩、SFTP 同步、远端下载、跨授权移动等事先不知道大小的写入没有按字节准入。
+10. **S03**：工单创建与事件行不在同一事务，createTicket 返回后、写入 applied 标记前进程被杀，重试仍可能重复建单。
+11. **S04**：Worker 在启动远端下载与记录 pid 之间被杀、且同时有取消请求时，留下的下载无人停止。
+12. **S09**：普通 SFTP 存储读取/流式读取只做词法包含，会跟随存储根内指向根外的符号链接（与搜索无关的既有设计问题）。
+13. **CI 外部条件**：GitHub 分支保护仍需仓库管理员在 Settings 中开启（见 `docs/ci-gates.md`）。
 
 ## 7. 提交对应关系
 
@@ -249,7 +398,7 @@
 | `80d06d05` | R02 tar 暂存接收与全阶段状态检查 |
 | `9f68e319` | R01 不自动创建源、拒绝空源镜像覆盖 |
 | `1c35d1d5` | R03 平台级恢复锁 + 主机级 CLI 锁 |
-| `b0de217e` | R04 单事务恢复、DB 先于文件、后台停写排空、失败标注与历史 |
+| `b0de217e` | R04 单事务恢复、DB 先于文件、后台停写排空、失败标注与历史（在线停写与应用内恢复已由 `4b5f1b78` 移除） |
 | `958c54f4` | R02 镜像提交阶段可恢复 |
 | `2d3c4c10` | R05 取消确认屏障 |
 | `4540ced5` | R06 保存认领 occurrence（迁移） |
@@ -265,4 +414,24 @@
 | `2e756b93` | R16 RBAC 门禁接入 CI |
 | `1d7f6229` | R07 新增错误文案本地化（api-copy 门禁） |
 | `eb1f65cd` | README 指标更新（docs:check 门禁） |
-| `bc0771b5` | R04 后续：恢复互斥集成测试补充排空查询的 mock |
+| `bc0771b5` | R04 后续：恢复互斥集成测试补充排空查询的 mock（该测试随在线恢复一起移除） |
+| `7bc5fa83` | 第一版核验报告 |
+| `4b5f1b78` | R04 恢复改为仅离线执行，由恢复脚本检查前提 |
+| `f0779e41` | R11 详情页上一项/下一项按列表顺序 |
+| `4b1b580f` | S01 终端网格贴合可见区域、PTY 以该尺寸打开 |
+| `a040b676` | S05 Agent 领取后不伪造完成（迁移） |
+| `a5bec026` | S06 备份计划同事务认领与派发 |
+| `1b567234` | S08 WebDAV MOVE/COPY/PUT 与回收站 |
+| `91696492` | S03 ITSM 入站失败可重试 |
+| `da68b3d9` | S04 下载取消确认整个远端进程树停止 |
+| `2dab5fe4` | 测试默认使用临时文件版本目录 |
+| `6a36c32c` | S02 版本恢复受限额约束、覆盖按增量计费 |
+| `83d858ac` | S07 回滚以稳定键关联命令并恢复中断 |
+| `eb50150e` | S09 内容搜索根目录与 SFTP 链接边界 |
+| `9360a015` | S01 sm～lg 宽度不再强制最小高度 |
+| `c0d4a97c` | R04 服务状态检查失败即拒绝；离线边界表述更正 |
+
+## 8. main 集成
+
+本机没有可用的 Git 推送凭据（无 gh CLI；HTTPS 需要用户名；SSH 被拒绝）。没有另找凭据，通过仓库所有者已授权的 GitHub 连接器发布，所有请求内容由本工作编写。Git Data API 无法保留本地提交 SHA，所以远端是一个聚合提交，其树与上述验证的本地树逐字节一致；第 7 节的提交号指本地审核分支 `fix/verified-audit-20261012` 上的提交。远端提交、PR 与合并结果记录在交接目录的 `result.md`。
+
