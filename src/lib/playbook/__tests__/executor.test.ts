@@ -294,6 +294,9 @@ describe("executePlaybookChain", () => {
 		mocks.commandRequestFindUnique
 			// waitForCommand poll for request-1 → FAILED
 			.mockResolvedValueOnce({ status: "FAILED" })
+			// retry gate: the failed attempt's idempotency key, then request-1's state
+			.mockResolvedValueOnce(null)
+			.mockResolvedValueOnce({ status: "FAILED" })
 			// resolveResumableCommandRequestId on attempt 1 should not see live running id
 			// (cleared by onRetry); create request-2 then wait COMPLETED
 			.mockResolvedValueOnce({ status: "COMPLETED" });

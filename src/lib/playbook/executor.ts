@@ -136,6 +136,48 @@ async function assertOutcomeKnown(commandRequestId: string, status: string): Pro
   }
 }
 
+/**
+ * Gate before a run_command step may retry after ANY error — including a
+ * database read that failed while waiting, or a progress write that failed
+ * right after the command was created. A retry creates a new command, so it
+ * is only safe when every command of the failed attempt is known to have
+ * ended without completing and without an unconfirmed target. A command that
+ * is still running, one that completed (the step failed afterwards), or a
+ * state that cannot be read now, stops the step instead.
+ */
+async function assertCommandRetryable(commandRequestIds: string[], cause: unknown): Promise<void> {
+  const reason = cause instanceof Error ? cause.message : String(cause);
+  for (const commandRequestId of commandRequestIds) {
+    let status: string | undefined;
+    let unknown = 0;
+    try {
+      status = (await prisma.commandRequest.findUnique({ where: { id: commandRequestId }, select: { status: true } }))?.status;
+      if (status && COMMAND_TERMINAL.has(status) && status !== "COMPLETED") {
+        unknown = await prisma.commandTarget.count({ where: { commandRequestId, outcomeUnknown: true } });
+      }
+    } catch (lookupError) {
+      throw new CommandOutcomeUnknownError(
+        `step failed (${reason}) and the state of command request ${commandRequestId} could not be read (${lookupError instanceof Error ? lookupError.message : String(lookupError)}); not retrying while it may still be running`,
+      );
+    }
+    if (!status || !COMMAND_TERMINAL.has(status)) {
+      throw new CommandOutcomeUnknownError(
+        `step failed (${reason}) while command request ${commandRequestId} is ${status ?? "missing"}; not retrying while it may still be running`,
+      );
+    }
+    if (status === "COMPLETED") {
+      throw new CommandOutcomeUnknownError(
+        `step failed (${reason}) after command request ${commandRequestId} completed; not running the command again`,
+      );
+    }
+    if (unknown > 0) {
+      throw new CommandOutcomeUnknownError(
+        `command request ${commandRequestId} ended with ${status}, but ${unknown} target(s) could not confirm the remote process stopped; not retrying`,
+      );
+    }
+  }
+}
+
 async function terminalOutcome(commandRequestId: string, status: string): Promise<string> {
   if (status === "COMPLETED") return `command request ${commandRequestId} completed`;
   await assertOutcomeKnown(commandRequestId, status);
@@ -437,7 +479,30 @@ export async function executePlaybookChain(input: {
               onProgress: input.onProgress,
             });
           },
-          async () => {
+          async (error) => {
+            if (step.type === "run_command") {
+              // Before the link to the failed attempt's command is dropped:
+              // every command it may have created must be known to have
+              // stopped without completing. That includes one created under
+              // its idempotency key whose id never reached `results` (the
+              // create or the progress write threw).
+              const failedAttempt = attemptIndex - 1;
+              const ids = new Set<string>();
+              const live = results.find((item) => item.stepId === step.id)?.commandRequestId;
+              if (live) ids.add(live);
+              try {
+                const byKey = await prisma.commandRequest.findUnique({
+                  where: { idempotencyKey: `playbook:${input.runId}:step:${step.id}:a${failedAttempt}` },
+                  select: { id: true },
+                });
+                if (byKey) ids.add(byKey.id);
+              } catch (lookupError) {
+                throw new CommandOutcomeUnknownError(
+                  `step failed (${error instanceof Error ? error.message : String(error)}) and its command could not be looked up (${lookupError instanceof Error ? lookupError.message : String(lookupError)}); not retrying`,
+                );
+              }
+              await assertCommandRetryable([...ids], error);
+            }
             // Drop the failed attempt's running row so the next attempt can
             // create a fresh commandRequestId (not resume the FAILED one).
             const liveIndex = results.findIndex((item) => item.stepId === step.id);

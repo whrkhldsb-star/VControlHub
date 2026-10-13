@@ -8,8 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * until the first one is terminal, and must stop retrying if that never
  * happens.
  */
-const { mocks, statuses } = vi.hoisted(() => ({
+const { mocks, statuses, keys, faults } = vi.hoisted(() => ({
 	statuses: new Map<string, string>(),
+	keys: new Map<string, string>(),
+	/** Transient database failures, consumed one per call. */
+	faults: { count: 0, findUnique: [] as number[], findUniqueCalls: 0, updateMany: 0 },
 	mocks: {
 		createCommandRequest: vi.fn(),
 		cancelCommandRequest: vi.fn(),
@@ -26,14 +29,31 @@ vi.mock("@/lib/job/events", () => ({ recordJobEvent: mocks.recordJobEvent }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: vi.fn() }));
 vi.mock("@/lib/db", () => ({
 	prisma: {
-		playbookRun: { updateMany: mocks.playbookRunUpdateMany },
+		playbookRun: {
+			updateMany: vi.fn(async (...args: unknown[]) => {
+				if (faults.updateMany > 0) {
+					faults.updateMany -= 1;
+					throw new Error("progress write failed (injected)");
+				}
+				return mocks.playbookRunUpdateMany(...(args as []));
+			}),
+		},
 		commandTarget: {
-			count: vi.fn(async ({ where }: { where: { commandRequestId: string } }) => (statuses.get(`unknown:${where.commandRequestId}`) ? 1 : 0)),
+			count: vi.fn(async ({ where }: { where: { commandRequestId: string } }) => {
+				if (faults.count > 0) {
+					faults.count -= 1;
+					throw new Error("count failed (injected)");
+				}
+				return statuses.get(`unknown:${where.commandRequestId}`) ? 1 : 0;
+			}),
 		},
 		commandRequest: {
-			findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
-				const status = statuses.get(where.id);
-				return status ? { status } : null;
+			findUnique: vi.fn(async ({ where }: { where: { id?: string; idempotencyKey?: string } }) => {
+				faults.findUniqueCalls += 1;
+				if (faults.findUnique.includes(faults.findUniqueCalls)) throw new Error("read failed (injected)");
+				const id = where.idempotencyKey ? keys.get(where.idempotencyKey) : where.id;
+				const status = id ? statuses.get(id) : undefined;
+				return status ? { id, status } : null;
 			}),
 		},
 	},
@@ -63,6 +83,8 @@ let created = 0;
 beforeEach(() => {
 	vi.useFakeTimers();
 	statuses.clear();
+	keys.clear();
+	Object.assign(faults, { count: 0, findUnique: [], findUniqueCalls: 0, updateMany: 0 });
 	created = 0;
 	mocks.createCommandRequest.mockReset().mockImplementation(async () => {
 		created += 1;
@@ -180,6 +202,78 @@ describe("playbook command timeout → cancel → retry barrier", () => {
 		expect(mocks.createCommandRequest).not.toHaveBeenCalled();
 		expect(results[0]).toMatchObject({ status: "failed" });
 		expect(results[0]?.error).toMatch(/could not confirm the remote process stopped/);
+	});
+
+	describe("a transient database failure never lets a possibly running command be started twice", () => {
+		it("the unknown-outcome count fails once: the next check still finds the unconfirmed target", async () => {
+			mocks.createCommandRequest.mockImplementation(async () => {
+				created += 1;
+				const id = `request-${created}`;
+				statuses.set(id, "FAILED");
+				statuses.set(`unknown:${id}`, "1");
+				return { id };
+			});
+			faults.count = 1;
+			const { results } = await run();
+			expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+			expect(results[0]).toMatchObject({ status: "failed", commandRequestId: "request-1" });
+			expect(results[0]?.error).toMatch(/could not confirm the remote process stopped/);
+		});
+
+		it("a status read fails while the command is still running: no retry", async () => {
+			faults.findUnique = [1];
+			const { results } = await run();
+			expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+			expect(results[0]).toMatchObject({ status: "failed", commandRequestId: "request-1" });
+			expect(results[0]?.error).toMatch(/is RUNNING; not retrying/);
+		});
+
+		it("the progress write fails right after the command was created: no retry", async () => {
+			faults.updateMany = 1;
+			const { results } = await run();
+			expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+			expect(results[0]?.error).toMatch(/not retrying while it may still be running/);
+		});
+
+		it("the create call throws after the command row exists: found by its key, no retry", async () => {
+			mocks.createCommandRequest.mockImplementationOnce(async (request: { idempotencyKey: string }) => {
+				created += 1;
+				statuses.set("request-1", "RUNNING");
+				keys.set(request.idempotencyKey, "request-1");
+				throw new Error("enqueue failed after insert (injected)");
+			});
+			const { results } = await run();
+			expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+			expect(results[0]?.error).toMatch(/request-1 is RUNNING; not retrying/);
+		});
+
+		it("the retry gate cannot read the command state: no retry", async () => {
+			mocks.createCommandRequest.mockImplementation(async () => {
+				created += 1;
+				const id = `request-${created}`;
+				statuses.set(id, "FAILED");
+				return { id };
+			});
+			// 1: wait sees FAILED; 2: key lookup; 3: gate status read fails.
+			faults.findUnique = [3];
+			const { results } = await run();
+			expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+			expect(results[0]?.error).toMatch(/could not be read/);
+		});
+
+		it("a command that completed before the step failed is not run again", async () => {
+			mocks.createCommandRequest.mockImplementation(async () => {
+				created += 1;
+				const id = `request-${created}`;
+				statuses.set(id, "COMPLETED");
+				return { id };
+			});
+			// The wait's status read fails once although the command has completed.
+			faults.findUnique = [1];
+			const { results } = await run();
+			expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+			expect(results[0]?.error).toMatch(/completed; not running the command again/);
+		});
 	});
 
 	it("still retries an ordinary failure", async () => {
