@@ -273,6 +273,8 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
   reason: FileVersionReason;
   note?: string | null;
   maxBytes?: number;
+  /** Also snapshot a recycle-bin entry (its bytes are still at its path). */
+  includeDeleted?: boolean;
 }): Promise<FileVersionView | null> {
   const maxBytes = input.maxBytes ?? DEFAULT_FILE_VERSION_MAX_BYTES;
   const entry = await prisma.fileEntry.findUnique({
@@ -307,7 +309,7 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
       },
     },
   });
-  if (!entry || entry.isDeleted || entry.entryType !== "FILE") return null;
+  if (!entry || (entry.isDeleted && !input.includeDeleted) || entry.entryType !== "FILE") return null;
 
   const node = entry.storageNode as StorageFileNode;
   // expand LOCAL basePath placeholders

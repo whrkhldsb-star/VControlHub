@@ -37,7 +37,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     storageNode: { findFirst: mocks.storageNodeFindFirst },
-    fileEntry: { findFirst: mocks.fileEntryFindFirst, update: mocks.fileEntryUpdate },
+    // No recycle-bin rows at the destination unless a test says otherwise.
+    fileEntry: { findFirst: mocks.fileEntryFindFirst, findMany: vi.fn(async () => []), update: mocks.fileEntryUpdate },
     $queryRaw: mocks.queryRaw,
     $transaction: mocks.transaction,
   },
@@ -64,6 +65,7 @@ vi.mock("@/lib/storage/fs-backend", () => ({
   createManagedFolder: mocks.createManagedFolder,
   deleteBackingObject: mocks.deleteBackingObject,
   renameBackingObject: mocks.renameBackingObject,
+  statBackingObject: vi.fn(async () => null),
 }));
 vi.mock("@/lib/storage/service-entries", () => ({ createFileEntry: mocks.createFileEntry }));
 vi.mock("@/lib/storage/file-versions", () => ({
@@ -510,8 +512,10 @@ describe("webdav handlers", () => {
         "write:a.txt",
         "write:moved/b.txt",
       ]);
-      // File moves rewrite no descendants.
-      expect(mocks.executeRaw).not.toHaveBeenCalled();
+      // File moves rewrite no descendants; the one statement retires whatever
+      // held the destination path.
+      expect(mocks.executeRaw).toHaveBeenCalledTimes(1);
+      expect(String(mocks.executeRaw.mock.calls[0]![0])).toContain(`"isDeleted" = true`);
     });
 
     it("rewrites a moved directory's descendants in ONE statement", async () => {
@@ -535,11 +539,13 @@ describe("webdav handlers", () => {
 
       expect(response.status).toBe(201);
       // Regression: descendant rewrites used to be one UPDATE round-trip per
-      // child inside the transaction; they must now be one statement.
-      expect(mocks.executeRaw).toHaveBeenCalledTimes(1);
-      const sql = String(mocks.executeRaw.mock.calls[0]![0]);
-      expect(sql).toContain("UPDATE file_entries");
-      expect(sql).toContain("regexp_replace");
+      // child inside the transaction; they must now be one statement. The
+      // other statement retires whatever held the destination path.
+      expect(mocks.executeRaw).toHaveBeenCalledTimes(2);
+      const statements = mocks.executeRaw.mock.calls.map((call) => String(call[0]));
+      expect(statements[0]).toContain(`"isDeleted" = true`);
+      expect(statements[1]).toContain("UPDATE file_entries");
+      expect(statements[1]).toContain("regexp_replace");
     });
   });
 

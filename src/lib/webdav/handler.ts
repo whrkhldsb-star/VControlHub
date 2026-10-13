@@ -24,6 +24,7 @@ const webdavLogger = createLogger("webdav:handler");
 import {
   deleteBackingObject,
   renameBackingObject,
+  statBackingObject,
 } from "@/lib/storage/fs-backend";
 import {
   copyStorageFile,
@@ -277,6 +278,27 @@ export async function handleWebDavPut(
         reason: "UPLOAD",
         note: "WebDAV PUT overwrite",
       }).catch(() => undefined);
+    } else {
+      // A recycle-bin file at this path still has its bytes there (file-manager
+      // delete is index-only). Keep them as a version of the revived entry
+      // before overwriting; if that is impossible, refuse instead of
+      // destroying them.
+      const recycled = await prisma.fileEntry.findFirst({
+        where: { storageNodeId: ctx.storageNodeId, relativePath: ctx.relativePath, isDeleted: true, entryType: "FILE" },
+        select: { id: true },
+      });
+      if (recycled && await statBackingObject({ storageNode: node, relativePath: ctx.relativePath })) {
+        const version = await snapshotFileVersionBeforeOverwrite({
+          fileEntryId: recycled.id,
+          userId: ctx.session.userId,
+          reason: "UPLOAD",
+          note: "WebDAV PUT over a recycle-bin file",
+          includeDeleted: true,
+        }).catch(() => null);
+        if (!version) {
+          throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${ctx.relativePath}` }));
+        }
+      }
     }
 
     await writeStorageFileBuffer(node, ctx.relativePath, body);
@@ -289,6 +311,9 @@ export async function handleWebDavPut(
       size: BigInt(body.byteLength),
       entryType: "FILE" as const,
       isDeleted: false as const,
+      // A revived recycle-bin row must leave its delete batch, or a later
+      // batch restore would treat this live file as part of it.
+      deleteBatchId: null,
     };
 
     // Prefer unique-key lookup (includes soft-deleted) so concurrent PUTs converge.
@@ -533,6 +558,65 @@ function destinationRelativePath(
   return normalizeWebDavRelativePath(rest);
 }
 
+/**
+ * Recycle-bin rows at `relativePath` (and below it). A file-manager delete is
+ * index-only — the bytes of a recycled file stay at its path until purged — so
+ * any WebDAV write there would silently destroy them, and the row still holds
+ * the unique (storageNodeId, relativePath) slot.
+ */
+async function recycledRowsAt(storageNodeId: string, relativePath: string) {
+  return prisma.fileEntry.findMany({
+    where: {
+      storageNodeId,
+      isDeleted: true,
+      OR: [{ relativePath }, { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) } }],
+    },
+    select: { id: true, relativePath: true, entryType: true },
+    take: 10_001,
+  });
+}
+
+/** 409 when a recycled file still has bytes where the write would land. */
+async function assertRecycledBytesSafe(
+  node: Awaited<ReturnType<typeof loadNode>>,
+  rows: Array<{ relativePath: string; entryType: string }>,
+) {
+  if (rows.length > 10_000) {
+    throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${rows[0]!.relativePath}` }));
+  }
+  for (const row of rows) {
+    if (row.entryType !== "FILE") continue;
+    if (await statBackingObject({ storageNode: node, relativePath: row.relativePath })) {
+      throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${row.relativePath}` }));
+    }
+  }
+}
+
+/**
+ * Move every index row at `relativePath` or below it — live rows being
+ * overwritten and recycle-bin rows whose bytes are already gone — under a
+ * unique tombstone prefix, soft-deleted. That frees the unique slot for the
+ * incoming entry while keeping the old rows' history (versions, audit).
+ */
+async function retireRowsAt(
+  tx: Pick<typeof prisma, "$executeRaw">,
+  storageNodeId: string,
+  relativePath: string,
+) {
+  const tombstone = `.vcontrolhub-webdav-retired-${randomUUID()}`;
+  const batch = randomUUID();
+  await tx.$executeRaw`
+    UPDATE file_entries
+    SET "relativePath" = ${tombstone} || '/' || "relativePath",
+        "isDeleted" = true,
+        "deleteBatchId" = COALESCE("deleteBatchId", ${batch}),
+        "updatedAt" = now()
+    WHERE "storageNodeId" = ${storageNodeId}
+      AND ("relativePath" = ${relativePath}
+        OR "relativePath" LIKE ${`${escapeLikePrefix(`${relativePath}/`)}%`} ESCAPE '\\')
+  `;
+}
+
 export async function handleWebDavMove(
   ctx: WebDavContext,
   request: Request,
@@ -570,6 +654,9 @@ export async function handleWebDavMove(
   }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
+  // Refuse before any byte moves if a recycled file still lives at (or under)
+  // the destination; recycle-bin rows without bytes are retired below.
+  await assertRecycledBytesSafe(node, await recycledRowsAt(ctx.storageNodeId, destPath));
   const destParent = parentRelativePath(destPath);
   const stagedDestPath = existingDest
     ? `${destParent ? `${destParent}/` : ""}.vcontrolhub-webdav-${randomUUID()}.staged`
@@ -604,18 +691,11 @@ export async function handleWebDavMove(
   const newPrefix = destPath;
   try {
     await prisma.$transaction(async (tx) => {
-      if (existingDest) {
-        await tx.fileEntry.updateMany({
-          where: {
-            storageNodeId: ctx.storageNodeId,
-            OR: [
-              { id: existingDest.id },
-              { relativePath: { startsWith: escapeLikeLiteral(`${destPath}/`) } },
-            ],
-          },
-          data: { isDeleted: true },
-        });
-      }
+      // The overwritten destination (and stale recycle rows there) used to be
+      // marked deleted in place, keeping its relativePath — which collided
+      // with the moved entry on the unique index, so every Overwrite:T MOVE
+      // onto an existing resource failed.
+      await retireRowsAt(tx, ctx.storageNodeId, destPath);
       await tx.fileEntry.update({
         where: { id: entry.id },
         data: { relativePath: destPath, name: entryName(destPath) },
@@ -628,19 +708,22 @@ export async function handleWebDavMove(
       // the unique constraint reserves the target prefix before descendants.
       const oldPrefixLength = oldPrefix.length;
       // Backslashes are escape metacharacters in regexp_replace's replacement.
+      // The ::int casts matter: an untyped parameter makes PostgreSQL pick the
+      // regex form substring(text FROM pattern), which returned NULL and failed
+      // every directory MOVE with descendants on the NOT NULL name column.
       const replacementPrefix = newPrefix.replace(/\\/g, "\\\\");
       await tx.$executeRaw`
         UPDATE file_entries
-        SET "relativePath" = ${replacementPrefix} || substring("relativePath" from ${oldPrefixLength + 1}),
+        SET "relativePath" = ${replacementPrefix} || substring("relativePath" from ${oldPrefixLength + 1}::int),
             "name" = regexp_replace(
-              ${replacementPrefix} || substring("relativePath" from ${oldPrefixLength + 1}),
+              ${replacementPrefix} || substring("relativePath" from ${oldPrefixLength + 1}::int),
               '^.*/', ''
             ),
             "updatedAt" = now()
         WHERE "storageNodeId" = ${ctx.storageNodeId}
-          AND "isDeleted" = false
           AND "relativePath" LIKE ${`${escapeLikePrefix(`${oldPrefix}/`)}%`} ESCAPE '\\'
       `;
+      // Recycle-bin descendants included: their bytes moved with the directory.
     });
   } catch (databaseError) {
     const rollbackErrors: unknown[] = [];
@@ -762,6 +845,10 @@ async function performWebDavCopy(input: {
     );
   }
 
+  // A recycled file at the destination keeps its bytes there; never copy over it.
+  const recycledAtDest = existingDest ? [] : await recycledRowsAt(ctx.storageNodeId, destPath);
+  await assertRecycledBytesSafe(node, recycledAtDest);
+
   const destName = entryName(destPath);
   const destMime = entry.mimeType || undefined;
   let copiedSize = 0;
@@ -816,6 +903,8 @@ async function performWebDavCopy(input: {
         },
       });
     } else {
+      // Recycle rows without bytes still hold the unique slot.
+      if (recycledAtDest.length) await retireRowsAt(prisma, ctx.storageNodeId, destPath);
       await createFileEntry({
         storageNodeId: ctx.storageNodeId,
         name: destName,
