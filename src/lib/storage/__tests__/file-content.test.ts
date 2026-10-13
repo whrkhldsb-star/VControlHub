@@ -18,8 +18,8 @@ const { sftpReadFileMock, sftpWriteFileMock, sftpUnlinkMock, connectMock, sftpSt
 
 // No symlinks on the mocked host: physical path == lexical path.
 vi.mock("@/lib/ssh/client", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/ssh/client")>()),
-  resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
+	...(await importOriginal<typeof import("@/lib/ssh/client")>()),
+	resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
 }));
 vi.mock("ssh2", () => ({
 	Client: class MockClient {

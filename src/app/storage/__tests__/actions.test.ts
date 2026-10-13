@@ -106,6 +106,8 @@ vi.mock("@/lib/server/service", () => ({
 }));
 
 vi.mock("@/lib/ssh/client", () => ({
+  // No symlinks on the mocked host: physical path == lexical path.
+  resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
   createRemoteDirectory: createRemoteDirectoryMock,
   deleteRemoteFile: deleteRemoteFileMock,
   renameRemoteFile: renameRemoteFileMock,
