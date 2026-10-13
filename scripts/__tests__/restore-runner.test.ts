@@ -11,6 +11,10 @@ import { installFakeRestoreTools } from "./helpers/fake-restore-tools";
 
 const runFile = promisify(execFile);
 const runner = path.resolve("scripts/restore.mjs");
+// On Windows the fake psql is a .cmd wrapper, which Node cannot spawn without a
+// shell, and VCONTROLHUB_SERVICE_UNITS=none skips the service check; the cases
+// that reach either run on POSIX only (a Windows restore uses the real psql.exe).
+const posixOnly = process.platform === "win32";
 
 describe("restore runner destination and preflight", () => {
   let tmp: string;
@@ -43,7 +47,7 @@ describe("restore runner destination and preflight", () => {
   });
   afterEach(async () => { await rm(tmp, { recursive: true, force: true }); });
 
-  it("restores files into the explicit positional destination without touching APP_DIR", async () => {
+  it.skipIf(posixOnly)("restores files into the explicit positional destination without touching APP_DIR", async () => {
     await runFile(process.execPath, [runner, "files", archive, target], { env });
     expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
     expect(await readdir(target)).toEqual(["hello.txt"]);
@@ -108,7 +112,7 @@ describe("restore runner destination and preflight", () => {
     expect(await readdir(lock)).toEqual(["owner"]);
   });
 
-  it.each(process.platform === "win32" ? ["node"] : ["node", "bash"])("%s restore reclaims a lock left by a dead process and releases it afterwards", async (kind) => {
+  it.skipIf(posixOnly).each(["node", "bash"])("%s restore reclaims a lock left by a dead process and releases it afterwards", async (kind) => {
     const lock = path.join(fallback, ".restore.lock");
     await mkdir(lock);
     // PID 2^22+ is above the default pid_max, so it cannot be alive.
@@ -120,7 +124,7 @@ describe("restore runner destination and preflight", () => {
     expect(await readdir(fallback)).toEqual([]);
   });
 
-  it.each(process.platform === "win32" ? ["node"] : ["node", "bash"])("%s restore refuses while a platform service is still running", async (kind) => {
+  it.skipIf(posixOnly).each(["node", "bash"])("%s restore refuses while a platform service is still running", async (kind) => {
     const file = kind === "node" ? process.execPath : "bash";
     const args = kind === "node" ? [runner, "files", archive, target] : ["scripts/restore-files.sh", archive, target];
     await expect(runFile(file, args, { env: { ...env, FAKE_SYSTEMCTL_STATE: "active" } })).rejects.toMatchObject({
@@ -153,14 +157,14 @@ describe("restore runner destination and preflight", () => {
     expect(await readdir(target)).toEqual([]);
   });
 
-  it("refuses a files restore while another client is connected to the database", async () => {
+  it.skipIf(posixOnly)("refuses a files restore while another client is connected to the database", async () => {
     await expect(runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, FAKE_PSQL_OTHER_CLIENTS: "2" } })).rejects.toMatchObject({
       stderr: expect.stringContaining("OFFLINE RESTORE REQUIRED: 2 other client connection(s)"),
     });
     expect(await readdir(target)).toEqual([]);
   });
 
-  it("refuses a FULL restore before touching files when the database guard finds other clients", async () => {
+  it.skipIf(posixOnly)("refuses a FULL restore before touching files when the database guard finds other clients", async () => {
     await writeFile(path.join(target, "hello.txt"), "preserve current data");
     await expect(runFile(process.execPath, [runner, "full", archive, "all", target], { env: { ...env, FAKE_PSQL_OTHER_CLIENTS: "1" } })).rejects.toMatchObject({
       stderr: expect.stringContaining("OFFLINE RESTORE REQUIRED"),
@@ -168,7 +172,7 @@ describe("restore runner destination and preflight", () => {
     expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("preserve current data");
   });
 
-  it("appends every outcome to restore-history.jsonl next to the archive", async () => {
+  it.skipIf(posixOnly)("appends every outcome to restore-history.jsonl next to the archive", async () => {
     await runFile(process.execPath, [runner, "files", archive, target], { env });
     await expect(runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, FAKE_SYSTEMCTL_STATE: "active" } })).rejects.toThrow();
     const history = (await readFile(path.join(tmp, "restore-history.jsonl"), "utf8")).trim().split("\n").map((line) => JSON.parse(line));

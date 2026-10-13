@@ -37,7 +37,10 @@ import { resolveStoragePathWithinBase } from "../path-utils";
 import { deleteBackingObject, readBackingObject, renameBackingObject, statBackingObject, writeBackingObject } from "../fs-backend";
 import { readStorageFileBuffer, streamStorageFile } from "../file-content";
 
-const hasPython = spawnSync("sh", ["-c", "command -v python3"]).status === 0;
+// The in-process SFTP server serves POSIX paths and the Agent fake runs sh/python3;
+// neither exists on Windows, where only the LOCAL cases run.
+const posix = process.platform !== "win32";
+const hasPython = posix && spawnSync("sh", ["-c", "command -v python3"]).status === 0;
 
 let sandbox: string;
 let server: Awaited<ReturnType<typeof startSftpFsServer>>;
@@ -93,7 +96,7 @@ const refused = async (operation: Promise<unknown>) => {
   await expect(operation).rejects.toBeInstanceOf(ValidationError);
 };
 
-describe.each([
+describe.skipIf(!posix).each([
   ["direct SSH", directNode, true],
   ["Agent", agentNode, hasPython],
 ] as const)("SFTP storage containment over %s (real files and symlinks)", (_transport, node, enabled) => {
@@ -146,6 +149,6 @@ describe("LOCAL storage containment (real symlinks)", () => {
   });
 });
 
-it("the SFTP test server never served anything outside its sandbox", () => {
+it.skipIf(!posix)("the SFTP test server never served anything outside its sandbox", () => {
   expect(server.outsideRequests).toEqual([]);
 });

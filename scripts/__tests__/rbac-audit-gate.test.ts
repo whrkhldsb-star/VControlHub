@@ -11,7 +11,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
  * same route enforcing the permission passes. Uses the real rbac.ts.
  */
 const repo = path.resolve(".");
-const tsx = path.join(repo, "node_modules", ".bin", process.platform === "win32" ? "tsx.cmd" : "tsx");
+// tsx through node itself: the node_modules/.bin shim is a .cmd on Windows, which
+// spawnSync cannot run without a shell.
+const tsxCli = path.join(repo, "node_modules", "tsx", "dist", "cli.mjs");
 
 function writeFixtureRoute(root: string, body: string) {
   const dir = path.join(root, "src", "app", "api", "fixture");
@@ -19,7 +21,7 @@ function writeFixtureRoute(root: string, body: string) {
   writeFileSync(path.join(dir, "route.ts"), body);
 }
 
-describe.skipIf(!existsSync(tsx))("rbac:audit gate", () => {
+describe.skipIf(!existsSync(tsxCli))("rbac:audit gate", () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(path.join(tmpdir(), "vch-rbac-gate-"));
@@ -39,7 +41,7 @@ describe.skipIf(!existsSync(tsx))("rbac:audit gate", () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   const run = (...args: string[]) =>
-    spawnSync(tsx, [path.join(repo, "scripts", "rbac-audit.ts"), "--no-write", ...args], { cwd: root, encoding: "utf8" });
+    spawnSync(process.execPath, [tsxCli, path.join(repo, "scripts", "rbac-audit.ts"), "--no-write", ...args], { cwd: root, encoding: "utf8" });
 
   it("fails on a route that declares a permission it does not enforce", () => {
     writeFixtureRoute(root, "export async function GET() { return new Response('open to everyone'); }\n");
