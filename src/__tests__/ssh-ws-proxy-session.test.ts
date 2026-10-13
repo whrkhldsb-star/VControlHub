@@ -9,6 +9,8 @@ const state = vi.hoisted(() => ({
   stream: undefined as unknown as EventEmitter & { write: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn>; pause: ReturnType<typeof vi.fn>; resume: ReturnType<typeof vi.fn> },
   verify: vi.fn(), server: vi.fn(),
   handshakeUserId: "audit-user",
+  deferReady: null as null | (() => void),
+  shellOptions: [] as unknown[],
 }));
 vi.mock("http", async (original) => {
   const http = await original<typeof import("node:http")>();
@@ -30,8 +32,12 @@ vi.mock("ws", async () => {
 vi.mock("ssh2", async () => {
   const { EventEmitter: Emitter } = await import("node:events");
   return { Client: class extends Emitter {
-    connect() { this.emit("ready"); }
-    shell(_options: unknown, callback: (error: null, stream: unknown) => void) {
+    connect() {
+      if (state.deferReady === null) this.emit("ready");
+      else state.deferReady = () => this.emit("ready");
+    }
+    shell(options: unknown, callback: (error: null, stream: unknown) => void) {
+      state.shellOptions.push(options);
       state.stream = Object.assign(new Emitter(), { write: vi.fn(), close: vi.fn(), setWindow: vi.fn(), pause: vi.fn(), resume: vi.fn(), writableLength: 0, stderr: new Emitter() });
       callback(null, state.stream);
     }
@@ -52,6 +58,8 @@ beforeEach(() => {
   for (const event of ["SIGINT", "SIGTERM", "uncaughtException", "unhandledRejection"]) initialProcessListeners.set(event, process.listeners(event));
   vi.resetModules(); vi.useFakeTimers(); state.clients.clear(); state.verify.mockReset(); state.server.mockReset();
   state.handshakeUserId = "audit-user";
+  state.deferReady = null;
+  state.shellOptions = [];
   vi.stubEnv("SSH_WS_SECRET", "fixture-only"); vi.stubEnv("SSH_WS_ALLOWED_ORIGINS", "http://127.0.0.1:15430");
   state.verify.mockResolvedValue({ userId: "audit-user", username: "audit", roles: ["operator"], permissions: ["server:ssh"], currentTeamId: "audit-team", mustChangePassword: false });
   state.server.mockResolvedValue({ id: "audit-server", enabled: true, operatingSystem: "LINUX", host: "192.0.2.2", port: 22, username: "audit", connectionType: "PASSWORD", password: "fixture-only", sshKey: null, hostKeySha256: "fixture-pin", teamId: "audit-team" });
@@ -111,6 +119,24 @@ it("bounds output, pauses a slow consumer and resumes after draining", async () 
   socket.bufferedAmount = 0; await vi.advanceTimersByTimeAsync(125); expect(state.stream.resume).toHaveBeenCalled();
   socket.bufferedAmount = 5 * 1024 * 1024; state.stream.emit("data", Buffer.from("output"));
   expect(socket.close).toHaveBeenCalledWith(1013, expect.any(String));
+});
+
+it("opens the PTY at the size the browser sent before SSH authentication finished", async () => {
+  // The browser reports its grid as soon as the socket opens; the SSH shell
+  // only exists after authentication. That first resize used to be dropped,
+  // so the shell started at 80x24 while the browser showed another grid.
+  state.deferReady = () => undefined;
+  const socket = await connect(false);
+  socket.emit("message", Buffer.from(JSON.stringify({ type: "resize", rows: 17, cols: 116 })), false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(state.shellOptions).toEqual([]);
+  state.deferReady!();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(state.shellOptions).toEqual([{ term: "xterm-256color", rows: 17, cols: 116 }]);
+  expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "connected", inputAck: true }));
+  socket.emit("message", Buffer.from(JSON.stringify({ type: "resize", rows: 30, cols: 100 })), false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect((state.stream as unknown as { setWindow: ReturnType<typeof vi.fn> }).setWindow).toHaveBeenLastCalledWith(30, 100, 0, 0);
 });
 
 it("rejects malformed resize input before writing to SSH", async () => {

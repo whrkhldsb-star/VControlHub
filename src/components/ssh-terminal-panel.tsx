@@ -396,6 +396,10 @@ export function SshTerminalPanel({
 						term.write(decodeBase64Bytes(msg.data));
 					} else if (msg.type === "connected") {
 						inputSender.connected(msg.inputAck === true);
+						// The shell exists now: report the grid again so the PTY
+						// matches what is on screen (the size sent on open can
+						// arrive before the shell does with an older proxy).
+						fitTerminal();
 						reconnectAttemptsRef.current = 0;
 						if (!disposed && nonce === connectionNonceRef.current) {
 							setStatus("connected");
@@ -454,7 +458,7 @@ export function SshTerminalPanel({
 			inputSenderRef.current = null;
 			if (wsRef.current) { try { wsRef.current.close(); } catch {} wsRef.current = null; }
 		};
-	}, [serverId, reconnectKey, terminalGeneration]);
+	}, [serverId, reconnectKey, terminalGeneration, fitTerminal]);
 
 	// A phone coming back from the lock screen, or a laptop regaining its
 	// network, retries on its own when a kept shell may still be waiting.
@@ -610,14 +614,21 @@ export function SshTerminalPanel({
 							onClear={clearTerminalSearch}
 						/>
 					)}
+					{/* The border lives on this frame, not on the element xterm is
+					    fitted to: FitAddon sizes the grid from its host's computed
+					    box, and with border-box sizing a bordered host reports the
+					    border as usable space. On wide screens the surface takes
+					    exactly the space left in the dialog — a fixed minimum there
+					    made the grid taller than the visible area, so the bottom
+					    rows (prompt and cursor) were clipped outside full screen. */}
 					<div
-						ref={termRef}
-						data-testid="ssh-terminal-surface"
 						className={cn(
-							"min-h-[280px] min-w-0 flex-1 w-full overflow-hidden bg-[var(--surface-root)] lg:h-full lg:min-h-[350px]",
+							"flex min-h-[280px] min-w-0 flex-1 w-full overflow-hidden bg-[var(--surface-root)] lg:min-h-0",
 							fullscreen ? "rounded-lg" : "rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)]",
 						)}
-					/>
+					>
+						<div ref={termRef} data-testid="ssh-terminal-surface" className="min-h-0 min-w-0 flex-1 overflow-hidden" />
+					</div>
 				</div>
 				{showFileManager && (
 				<SshFileManager serverId={serverId} visible={showFileManager} />

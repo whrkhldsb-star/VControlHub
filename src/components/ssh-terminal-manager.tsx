@@ -270,7 +270,10 @@ export function SshTerminalManager({
 					"pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface)] pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-[var(--text-primary)] shadow-2xl",
 					fullscreen
 						? "h-[100dvh] max-h-none max-w-none rounded-none"
-						: "h-[100dvh] max-h-[100dvh] max-w-5xl rounded-none sm:h-auto sm:max-h-[72vh] sm:rounded-3xl sm:pt-0",
+						// A definite height: the terminal fills what the chrome leaves
+						// and is fitted to exactly that (an auto height clamped by a
+						// max-height let the grid outgrow the visible box).
+						: "h-[100dvh] max-h-[100dvh] max-w-5xl rounded-none sm:h-[72vh] sm:rounded-3xl sm:pt-0",
 				)}
 			>
 				{!fullscreen && (
