@@ -184,6 +184,39 @@ describe("POST /api/files/extract", () => {
     );
   });
 
+  it("admits the .gz output by its decompressed size and refuses when the grant rejects it", async () => {
+    await createGz();
+    prismaMock.storageNode.findFirst.mockResolvedValue({
+      id: "node_1",
+      name: "local",
+      driver: "LOCAL",
+      basePath: tempDir,
+    });
+    assertStorageAccessMock.mockImplementation(async (input: { writeBytes?: number | null }) =>
+      input.writeBytes === undefined ? { allowed: true } : { allowed: false, reason: "quota_exceeded" },
+    );
+
+    const response = await POST(
+      new NextRequest("https://app.example.test/api/files/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          storageNodeId: "node_1",
+          remotePath: "notes.txt.gz",
+          driver: "LOCAL",
+          name: "notes.txt.gz",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: "write", relativePath: "notes.txt", writeBytes: 10 }),
+    );
+    expect(createFileEntryMock).not.toHaveBeenCalled();
+    await expect(import("node:fs/promises").then((fs) => fs.access(path.join(tempDir, "notes.txt")))).rejects.toThrow();
+  });
+
   it("refuses .gz extraction when the output path already has an active index", async () => {
     await createGz();
     prismaMock.storageNode.findFirst.mockResolvedValue({

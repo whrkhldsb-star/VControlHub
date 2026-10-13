@@ -10,14 +10,14 @@ import { createGunzip } from "node:zlib";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { createFileEntry } from "@/lib/storage/service";
 // Next.js route modules may only export route handlers and route config —
 // the bomb-cap limiter lives in lib (unit-testable, importable).
-import { GunzipOutputLimiter, MAX_GUNZIP_OUTPUT_BYTES } from "@/lib/storage/gunzip-limiter";
+import { GunzipOutputLimiter, MAX_GUNZIP_OUTPUT_BYTES, readGzipDecompressedSize } from "@/lib/storage/gunzip-limiter";
 
 import { NotFoundError, ValidationError, isAppError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -176,6 +176,25 @@ export async function POST(request: NextRequest) {
             // Expected: gunzip should create this file.
           }
 
+          // The gzip trailer states the decompressed size, so the output is
+          // admitted against the grant's per-file limit and quota before a
+          // byte is written, like an upload of that size. The limiter below
+          // still caps the real output (the trailer is advisory).
+          const admission = await assertStorageAccess({
+            session,
+            storageNodeId: node.id,
+            relativePath: outputRelativePath,
+            operation: "write",
+            writeBytes: await readGzipDecompressedSize(fullPath),
+          });
+          if (!admission.allowed) {
+            return NextResponse.json(
+              { error: storageAccessDeniedCopy(admission.reason) },
+              { status: 403 },
+            );
+          }
+
+          try {
           // Decompress with Node's zlib instead of the gunzip binary: same
           // "keep original, write output beside it" semantics without a
           // platform-specific executable (Windows/minimal images have no gzip).
@@ -222,6 +241,9 @@ export async function POST(request: NextRequest) {
               // Best-effort cleanup: keep the original indexing error visible.
             }
             throw error;
+          }
+          } finally {
+            await releaseStorageQuotaGuard(admission);
           }
         } else if (ext === ".zip" || ext === ".jar") {
           return NextResponse.json(
