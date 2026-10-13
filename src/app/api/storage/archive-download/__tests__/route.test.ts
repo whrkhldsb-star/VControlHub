@@ -65,6 +65,11 @@ vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-cr
   decryptSshPrivateKey: (value: string) => value,
 }));
 
+// No symlinks on the mocked host: physical path == lexical path.
+vi.mock("@/lib/ssh/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/ssh/client")>()),
+  resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
+}));
 vi.mock("ssh2", () => ({
   Client: class ClientMock {
     on(event: string, callback: (...args: unknown[]) => void) {

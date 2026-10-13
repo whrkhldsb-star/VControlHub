@@ -11,6 +11,7 @@ import { serviceT } from "@/lib/i18n/service-locale";
 import { t } from "@/lib/i18n/service-translations";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
+import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import { resolveStorageSshCredentials, resolveStorageSshPort } from "@/lib/storage/ssh-credentials";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import {
@@ -362,17 +363,15 @@ async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
 
   const parentRelativePath = path.posix.dirname(entry.relativePath);
   const normalizedParent = parentRelativePath === "." ? "" : parentRelativePath;
-  let remoteParentPath: string;
   try {
-    remoteParentPath = normalizeRemotePath(
-      entry.storageNode.basePath,
-      normalizedParent,
-    );
+    normalizeRemotePath(entry.storageNode.basePath, normalizedParent);
   } catch {
     throw new BusinessError(t("backend.storage.remotePathInvalid"));
   }
 
   const credentials = resolveStorageSshCredentials(entry.storageNode);
+  // The parent's physical location must be the same place inside the node.
+  const remoteParentPath = (await resolveStorageRemotePath(entry.storageNode, normalizedParent, { allowRoot: true, credentials })).remotePath;
   let entries;
   try {
     entries = await listRemoteDirectory({

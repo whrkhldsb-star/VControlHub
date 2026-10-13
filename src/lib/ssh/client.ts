@@ -351,7 +351,12 @@ export async function resolveRemoteRealPath(
     // os.path.realpath resolves existing components and leaves the rest intact.
     const source = "import os,sys\nprint(os.path.realpath(sys.argv[1]))";
     const result = await execAgentOnly(input, pythonCommand(source, [target]));
-    return result.stdout.trim() || target;
+    const resolved = result.stdout.trim();
+    // No answer is not an answer: returning the unresolved input here would
+    // let every containment check pass without having looked at the host.
+    // An absolute POSIX path, or a drive path should a Windows host answer.
+    if (result.exitCode !== 0 || !/^(\/|[A-Za-z]:[\\/])/.test(resolved)) throw new Error("Unable to resolve remote path");
+    return resolved;
   }
 
   return withReusableSshClient(input, (client) =>

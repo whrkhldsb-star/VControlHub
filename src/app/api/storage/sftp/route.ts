@@ -6,6 +6,7 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
+import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import {
   normalizeRemotePath,
   normalizeRemoteRelativePath,
@@ -57,6 +58,15 @@ async function handleGet(request: Request, session: SessionPayload) {
       { error: storageAccessDeniedCopy(accessDecision.reason) },
       { status: 403 },
     );
+  }
+  // Same place physically: no symlink hop below the node root.
+  try {
+    normalizedRemotePath = await assertRemotePathContained(connectionCredentials, node.basePath, normalizedRemotePath);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json(toClientStorageError(error.message), { status: 400 });
+    }
+    throw error;
   }
 
   try {

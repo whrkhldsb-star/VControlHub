@@ -204,6 +204,16 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
   if (escapesRoot(relativeToRealRoot)) {
     return { ok: false, reason: "Path is out of allowed bounds" };
   }
+  // Path grants are matched on the lexical path, so a link inside the root
+  // to a sibling directory (a/link -> ../b) would let a grant on `a` reach
+  // `b`. The physical location must be the lexical one: no link hop below
+  // the root (the root itself may be a link).
+  const sameLocation = process.platform === "win32"
+    ? relativeToRealRoot.toLowerCase() === relativeToRoot.toLowerCase()
+    : relativeToRealRoot === relativeToRoot;
+  if (!sameLocation) {
+    return { ok: false, reason: "Path goes through a symbolic link" };
+  }
 
   return { ok: true, path: absolutePath };
 }

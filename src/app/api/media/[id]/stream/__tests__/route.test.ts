@@ -51,6 +51,7 @@ vi.mock("@/lib/logging", () => ({
 }));
 vi.mock("ssh2", () => ({ Client: vi.fn() }));
 vi.mock("@/lib/ssh/client", () => ({
+  resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
   connectSsh: connectSshMock,
   readRemoteFile: readRemoteFileMock,
 }));

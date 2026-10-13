@@ -15,6 +15,7 @@ import {
   writeBackingObject,
 } from "@/lib/storage/fs-backend";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
+import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import path from "node:path";
 import {
   normalizeRemoteTargetPath,
@@ -194,7 +195,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   }
 
   // Resolve storage node (credentials resolved inside fs-backend for SFTP).
-  const { node } = await getSftpNodeConnection(nodeId, session);
+  const { node, credentials } = await getSftpNodeConnection(nodeId, session);
 
   // Path containment only — physical ops go through fs-backend which
   // re-derives absolute/remote paths from the storage node.
@@ -237,6 +238,16 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       { error: storageAccessDeniedCopy(accessDecision.reason) },
       { status: 403 },
     );
+  }
+  // Physical containment before anything changes (delete soft-deletes the
+  // index first). fs-backend checks again right before each remote call.
+  try {
+    await resolveStorageRemotePath(node, normalizedRelativePath, { credentials });
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json(toClientStorageError(error.message), { status: 400 });
+    }
+    throw error;
   }
 
   try {

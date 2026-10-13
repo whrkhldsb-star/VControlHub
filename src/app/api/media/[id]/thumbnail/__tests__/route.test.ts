@@ -16,7 +16,10 @@ vi.mock("@/lib/media/service", () => ({ getMediaItem: getMediaItemMock }));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
 }));
-vi.mock("@/lib/ssh/client", () => ({ connectSsh: connectSshMock }));
+vi.mock("@/lib/ssh/client", () => ({
+  connectSsh: connectSshMock,
+  resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
+}));
 // Credential decryption needs the real key material; the breaker behaviour under
 // test starts after credentials resolve.
 vi.mock("@/lib/storage/ssh-credentials", () => ({

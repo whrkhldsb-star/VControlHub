@@ -247,14 +247,18 @@ async function searchSftpNode(
 	// -l (list filenames only) --include to limit file types
 	// Then for each matching file, grep -n to get line numbers + content
 	// grep follows a symlink given as its starting point, so a link inside the
-	// node pointing elsewhere would be searched (and its lines returned).
-	// Compare the physical (symlink-free) search path with the physical node
-	// root first, in the same shell, as the SFTP access control does; recursion
-	// itself (grep -r) does not follow links below the starting point.
+	// node pointing elsewhere would be searched (and its lines returned). The
+	// physical (symlink-free) search path must be exactly the physical node
+	// root joined with the requested path — the storage containment rule (see
+	// remote-containment.ts): no link hop below the root, which also keeps a
+	// path grant from reaching a sibling through a link. Recursion itself
+	// (grep -r) does not follow links below the starting point.
+	const relativeSearchPath = path.posix.normalize(sanitizedSearchPath || ".").replace(/\/+$/, "");
 	const containment = [
 		`root=$(cd -P -- ${shellQuote(basePath)} 2>/dev/null && pwd -P) || exit 2`,
 		`target=$(cd -P -- ${shellQuote(remoteSearchPath)} 2>/dev/null && pwd -P) || exit 2`,
-		'case "$target/" in "${root%/}/"*) ;; *) exit 3 ;; esac',
+		`expected="\${root%/}"${relativeSearchPath === "." ? "" : shellQuote(`/${relativeSearchPath}`)}`,
+		'[ "$target" = "${expected:-/}" ] || exit 3',
 	].join("\n");
 	const grepCmd = `${containment}\ngrep -rFIl --include='*.txt' --include='*.log' --include='*.md' --include='*.json' --include='*.yaml' --include='*.yml' --include='*.toml' --include='*.ini' --include='*.cfg' --include='*.conf' --include='*.env' --include='*.sh' --include='*.bash' --include='*.py' --include='*.js' --include='*.ts' --include='*.jsx' --include='*.tsx' --include='*.html' --include='*.css' --include='*.scss' --include='*.xml' --include='*.sql' --include='*.csv' --include='*.tsv' --include='*.go' --include='*.rs' --include='*.java' --include='*.c' --include='*.cpp' --include='*.h' --include='*.hpp' --include='*.rb' --include='*.php' --include='*.pl' --include='*.swift' --include='*.kt' --include='*.scala' --include='*.lua' --include='*.r' --include='*.vue' --include='*.svelte' --include='*.properties' --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -${MAX_RESULTS}`;
 

@@ -78,6 +78,7 @@ const {
 });
 
 vi.mock("@/lib/ssh/client", () => ({
+  resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
   createRemoteDirectory: createRemoteDirectoryMock,
   deleteRemoteFile: deleteRemoteFileMock,
   renameRemoteFile: renameRemoteFileMock,
@@ -85,7 +86,8 @@ vi.mock("@/lib/ssh/client", () => ({
   readRemoteFile: readRemoteFileMock,
 }));
 
-vi.mock("@/lib/storage/remote-path", () => ({
+vi.mock("@/lib/storage/remote-path", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/storage/remote-path")>()),
   normalizeRemoteTargetPath: normalizeRemoteTargetPathMock,
 }));
 

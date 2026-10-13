@@ -21,10 +21,8 @@ import { connectSsh, createRemoteDirectory, deleteRemoteFile, readRemoteFile, wr
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
-import {
-  normalizeRemoteTargetPath,
-  normalizeRemoteRelativePath,
-} from "@/lib/storage/remote-path";
+import { normalizeRemoteRelativePath } from "@/lib/storage/remote-path";
+import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { t } from "@/lib/i18n/service-translations";
 import { createWebDavClient } from "@/lib/storage/webdav-client";
@@ -105,10 +103,7 @@ export async function readStorageFileBuffer(
 
   if (node.driver === "SFTP") {
     const credentials = resolveStorageSshCredentials(node);
-    const normalizedRemotePath = normalizeRemoteTargetPath(
-      node.basePath,
-      relativePath,
-    );
+    const normalizedRemotePath = (await resolveStorageRemotePath(node, relativePath, { credentials })).remotePath;
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       return readRemoteFile({ ...credentials, remotePath: normalizedRemotePath });
     }
@@ -156,10 +151,7 @@ export async function streamStorageFile(
   }
   if (node.driver === "SFTP") {
     const credentials = resolveStorageSshCredentials(node);
-    const normalizedRemotePath = normalizeRemoteTargetPath(
-      node.basePath,
-      relativePath,
-    );
+    const normalizedRemotePath = (await resolveStorageRemotePath(node, relativePath, { credentials })).remotePath;
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       const buffer = await readRemoteFile({ ...credentials, remotePath: normalizedRemotePath });
       const selected = range ? buffer.subarray(range.start, Math.min(buffer.length, range.end + 1)) : buffer;
@@ -298,10 +290,7 @@ export async function writeStorageFileBuffer(
 
   if (node.driver === "SFTP") {
     const credentials = resolveStorageSshCredentials(node);
-    const normalizedRemotePath = normalizeRemoteTargetPath(
-      node.basePath,
-      relativePath,
-    );
+    const normalizedRemotePath = (await resolveStorageRemotePath(node, relativePath, { credentials })).remotePath;
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(normalizedRemotePath), recursive: true });
       await writeRemoteFile({ ...credentials, remotePath: normalizedRemotePath, content: buffer });
@@ -373,8 +362,8 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
   }
   if (node.driver === "SFTP") {
     const credentials = resolveStorageSshCredentials(node);
-    const destination = normalizeRemoteTargetPath(node.basePath, relativePath);
-    const temporaryPath = normalizeRemoteTargetPath(node.basePath, temporaryRelativePath);
+    const destination = (await resolveStorageRemotePath(node, relativePath, { credentials })).remotePath;
+    const temporaryPath = (await resolveStorageRemotePath(node, temporaryRelativePath, { credentials })).remotePath;
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       // The Agent protocol embeds base64 in a bounded command payload.
       if ((await statFile(sourcePath)).size > 6_000_000) throw new BusinessError(t("backend.server.agentWriteLimit"));
@@ -418,10 +407,7 @@ export async function deleteStorageFileBuffer(
 
   if (node.driver === "SFTP") {
     const credentials = resolveStorageSshCredentials(node);
-    const normalizedRemotePath = normalizeRemoteTargetPath(
-      node.basePath,
-      relativePath,
-    );
+    const normalizedRemotePath = (await resolveStorageRemotePath(node, relativePath, { credentials })).remotePath;
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       await deleteRemoteFile({ ...credentials, remotePath: normalizedRemotePath });
       return normalizedRemotePath;
@@ -497,14 +483,8 @@ export async function copyStorageFile(
 
   if (node.driver === "SFTP") {
     const credentials = resolveStorageSshCredentials(node);
-    const sourceRemote = normalizeRemoteTargetPath(
-      node.basePath,
-      sourceRelativePath,
-    );
-    const destRemote = normalizeRemoteTargetPath(
-      node.basePath,
-      destinationRelativePath,
-    );
+    const sourceRemote = (await resolveStorageRemotePath(node, sourceRelativePath, { credentials })).remotePath;
+    const destRemote = (await resolveStorageRemotePath(node, destinationRelativePath, { credentials })).remotePath;
     const tempRemote = `${destRemote}.vch-copy-${randomUUID()}.tmp`;
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       const buffer = await readRemoteFile({ ...credentials, remotePath: sourceRemote });

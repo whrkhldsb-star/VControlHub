@@ -19,6 +19,7 @@ import {
   normalizeRemoteTargetPath,
   toClientStorageError,
 } from "@/lib/storage/remote-path";
+import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import {
   parseStorageRange,
   storageStreamResponse,
@@ -28,7 +29,7 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
-import { isAppError } from "@/lib/errors";
+import { isAppError, ValidationError } from "@/lib/errors";
 
 import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
@@ -223,6 +224,14 @@ export async function GET(
           message: connectionCredentials.message,
           status: 400,
         });
+      }
+      try {
+        normalizedRemotePath = await assertRemotePathContained(connectionCredentials, node.basePath, normalizedRemotePath);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          return NextResponse.json(toClientStorageError(error.message), { status: 400 });
+        }
+        throw error;
       }
 
       let client: Client | null = null;

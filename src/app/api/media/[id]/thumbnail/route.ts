@@ -19,6 +19,8 @@ import {
   normalizeRemoteTargetPath,
   toClientStorageError,
 } from "@/lib/storage/remote-path";
+import { ValidationError } from "@/lib/errors";
+import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { getServerLocale } from "@/lib/i18n/translations";
 
@@ -369,6 +371,14 @@ export async function GET(
                 message: credentials.message,
                 status: 400,
               });
+            }
+            try {
+              normalizedRemotePath = await assertRemotePathContained(credentials, node.basePath, normalizedRemotePath);
+            } catch (error) {
+              if (error instanceof ValidationError) {
+                return NextResponse.json(toClientStorageError(error.message), { status: 400 });
+              }
+              throw error;
             }
             const client = await connectSsh({
               host: credentials.host,
