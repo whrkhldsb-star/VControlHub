@@ -139,6 +139,49 @@ describe("playbook command timeout → cancel → retry barrier", () => {
 		expect(results[0]?.error).toMatch(/could not confirm the remote process stopped/);
 	});
 
+	it("does not retry when the timed-out command's cancellation ends FAILED with an unconfirmed target", async () => {
+		// timeout → cancel → CANCELLING for a while → the executor gives up on an
+		// Agent that never acknowledged: FAILED + outcomeUnknown.
+		mocks.cancelCommandRequest.mockImplementation(async ({ commandRequestId }: { commandRequestId: string }) => {
+			statuses.set(commandRequestId, "CANCELLING");
+			setTimeout(() => {
+				statuses.set(commandRequestId, "FAILED");
+				statuses.set(`unknown:${commandRequestId}`, "1");
+			}, 35_000);
+		});
+		const { results } = await run();
+		expect(mocks.cancelCommandRequest).toHaveBeenCalledTimes(1);
+		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+		expect(results[0]).toMatchObject({ status: "failed", commandRequestId: "request-1" });
+		expect(results[0]?.error).toMatch(/could not confirm the remote process stopped/);
+	});
+
+	it("does not retry when the cancellation ends CANCELLED with an unconfirmed target either", async () => {
+		mocks.cancelCommandRequest.mockImplementation(async ({ commandRequestId }: { commandRequestId: string }) => {
+			statuses.set(commandRequestId, "CANCELLED");
+			statuses.set(`unknown:${commandRequestId}`, "1");
+		});
+		const { results } = await run();
+		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+		expect(results[0]?.error).toMatch(/could not confirm the remote process stopped/);
+	});
+
+	it("a reclaimed run never starts a new attempt after a previous request ended with an unknown outcome", async () => {
+		statuses.set("request-prev", "FAILED");
+		statuses.set("unknown:request-prev", "1");
+		const pending = executePlaybookChain({
+			playbook: playbookWithRetry(),
+			runId: "run-1",
+			dryRun: false,
+			resumeResults: [{ stepId: "s1", status: "running", startedAt: new Date().toISOString(), completedAt: "", summary: "", commandRequestId: "request-prev" }],
+		});
+		await vi.runAllTimersAsync();
+		const { results } = await pending;
+		expect(mocks.createCommandRequest).not.toHaveBeenCalled();
+		expect(results[0]).toMatchObject({ status: "failed" });
+		expect(results[0]?.error).toMatch(/could not confirm the remote process stopped/);
+	});
+
 	it("still retries an ordinary failure", async () => {
 		mocks.createCommandRequest.mockImplementation(async () => {
 			created += 1;

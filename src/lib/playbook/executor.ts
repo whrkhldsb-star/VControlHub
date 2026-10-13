@@ -120,16 +120,25 @@ async function pollUntilTerminal(
   return null;
 }
 
-async function terminalOutcome(commandRequestId: string, status: string): Promise<string> {
-  if (status === "COMPLETED") return `command request ${commandRequestId} completed`;
-  // FAILED is also how a lost executor or an Agent that never confirmed a
-  // stop is recorded; such a target may still be running remotely.
+/**
+ * FAILED/CANCELLED is also how a lost executor or an Agent that never
+ * confirmed a stop is recorded; such a target may still be running remotely.
+ * Every non-COMPLETED terminal state goes through this before any further
+ * attempt may be created — after a plain wait, after a timeout's cancellation
+ * wait, and when a reclaimed run finds its previous request already terminal.
+ */
+async function assertOutcomeKnown(commandRequestId: string, status: string): Promise<void> {
   const unknown = await prisma.commandTarget.count({ where: { commandRequestId, outcomeUnknown: true } });
   if (unknown > 0) {
     throw new CommandOutcomeUnknownError(
       `command request ${commandRequestId} ended with ${status}, but ${unknown} target(s) could not confirm the remote process stopped; not retrying`,
     );
   }
+}
+
+async function terminalOutcome(commandRequestId: string, status: string): Promise<string> {
+  if (status === "COMPLETED") return `command request ${commandRequestId} completed`;
+  await assertOutcomeKnown(commandRequestId, status);
   throw new Error(`command request ${commandRequestId} ended with ${status}`);
 }
 
@@ -165,6 +174,10 @@ async function waitForCommand(
   }
   // It finished on its own while being cancelled: that is the real result.
   if (settled === "COMPLETED") return terminalOutcome(commandRequestId, settled);
+  // The cancellation may have ended as FAILED/CANCELLED with a target whose
+  // stop was never confirmed (e.g. an Agent that did not acknowledge): that
+  // is not a clean timeout a retry may follow.
+  await assertOutcomeKnown(commandRequestId, settled);
   throw new Error(`command request ${commandRequestId} timed out after ${timeoutSec}s (${settled})`);
 }
 
@@ -180,7 +193,12 @@ async function resolveResumableCommandRequestId(
   // Resume only non-terminal (or completed) requests. A FAILED/REJECTED/CANCELLED
   // id must not be reused: createCommandRequest would also idempotency-replay it.
   if (request.status === "COMPLETED") return candidateId;
-  if (COMMAND_TERMINAL.has(request.status)) return undefined;
+  if (COMMAND_TERMINAL.has(request.status)) {
+    // Dropping it would let the reclaimed run create a fresh attempt while the
+    // previous one may still be running on the target.
+    await assertOutcomeKnown(candidateId, request.status);
+    return undefined;
+  }
   return candidateId;
 }
 
