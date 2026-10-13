@@ -18,7 +18,7 @@ vi.mock("@/lib/runtime-settings/service", () => ({
   getOperationTaskListLimit: vi.fn(async () => 100),
 }));
 
-const { listOperationTaskResult } = await import("../service");
+const { listOperationTaskResult, mapOperationStatus } = await import("../service");
 
 // A team manager: `teamWhere` collapses to `{}` for this role, which is the same
 // unfiltered `where` the old session-less overload produced — so the existing
@@ -464,5 +464,11 @@ describe("operation task service", () => {
         href: "/deployments",
       }),
     ]);
+  });
+
+  it("maps a sync job in ERROR to failed, not pending", () => {
+    expect(mapOperationStatus("ERROR")).toBe("failed");
+    expect(mapOperationStatus("PENDING_APPROVAL")).toBe("pending");
+    expect(mapOperationStatus("SOMETHING_NEW")).toBe("pending");
   });
 });
