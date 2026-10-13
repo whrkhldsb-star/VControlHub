@@ -1,10 +1,13 @@
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import {
+  countMediaItems,
   listMediaItems,
   listMediaTags,
   listMediaTypeCounts,
+  MEDIA_PAGE_SIZE,
 } from "@/lib/media/service";
+import { LinkPagination } from "@/components/link-pagination";
 import {
   PageShell,
   PageHeader,
@@ -35,6 +38,7 @@ type MediaSearchParams = {
   q?: string;
   favorite?: string;
   tag?: string;
+  page?: string;
 };
 function modeTitle(
   locale: Locale,
@@ -77,10 +81,16 @@ export default async function Page({
   const favorite = params?.favorite ==="1" ? true : undefined;
   const q = params?.q?.trim() || undefined;
   const tag = params?.tag?.trim() || undefined;
-  const [media, tagCloud, typeCounts] = await Promise.all([
-    listMediaItems({ mediaType, q, favorite, tag, session }),
+  const requestedPage = /^\d+$/.test(params?.page ?? "") ? Number(params?.page) : 1;
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  // The list is one page; the totals come from the database for the same
+  // filters, so counts and what can be browsed always agree.
+  const [media, tagCloud, typeCounts, matchingCount, favCount] = await Promise.all([
+    listMediaItems({ mediaType, q, favorite, tag, session, page, pageSize: MEDIA_PAGE_SIZE }),
     listMediaTags(session),
     listMediaTypeCounts({ q, favorite, tag , session}),
+    countMediaItems({ mediaType, q, favorite, tag, session }),
+    countMediaItems({ mediaType, q, tag, favorite: true, session }),
   ]);
   const filters: MediaFilterState = { type: mediaType, q, favorite, tag };
   const grouped = new Map<string, typeof media>();
@@ -96,7 +106,6 @@ export default async function Page({
   const videoCount = typeCounts.video;
   const audioCount = typeCounts.audio;
   const totalCount = imageCount + videoCount + audioCount;
-  const favCount = media.filter((m) => m.favorite).length;
   const modeTitleText = modeTitle(locale, mediaType);
   const modeDescriptionText = modeDescription(locale, mediaType);
   return (
@@ -135,7 +144,7 @@ export default async function Page({
                 data-tone="cyan"
                 className="inline-flex items-center rounded-lg border border-[var(--accent-border)] px-3 py-1.5 text-[var(--text-secondary)]"
               >
-                {t("mediaPage.viewCount", locale, { count: media.length })}
+                {t("mediaPage.viewCount", locale, { count: matchingCount })}
               </span>
             </div>
           </div>
@@ -380,6 +389,22 @@ export default async function Page({
           </div>
         </section>
       ))}
+      <LinkPagination
+        page={page}
+        pageSize={MEDIA_PAGE_SIZE}
+        total={matchingCount}
+        hrefFor={(target) => mediaHref({ ...filters, page: target })}
+        labels={{
+          label: t("common.pagination.label", locale),
+          range: t("common.pagination.range", locale, {
+            start: matchingCount ? (page - 1) * MEDIA_PAGE_SIZE + 1 : 0,
+            end: Math.min(page * MEDIA_PAGE_SIZE, matchingCount),
+            total: matchingCount,
+          }),
+          previous: t("common.pagination.previous", locale),
+          next: t("common.pagination.next", locale),
+        }}
+      />
     </PageShell>
   );
 }

@@ -24,11 +24,14 @@ vi.mock("@/lib/auth/authorization", () => ({
 const listMediaItemsMock = vi.fn();
 const listMediaTagsMock = vi.fn();
 const listMediaTypeCountsMock = vi.fn();
+const countMediaItemsMock = vi.fn();
 
 vi.mock("@/lib/media/service", () => ({
   listMediaItems: (...args: unknown[]) => listMediaItemsMock(...args),
   listMediaTags: (...args: unknown[]) => listMediaTagsMock(...args),
   listMediaTypeCounts: (...args: unknown[]) => listMediaTypeCountsMock(...args),
+  countMediaItems: (...args: unknown[]) => countMediaItemsMock(...args),
+  MEDIA_PAGE_SIZE: 100,
 }));
 
 vi.mock("../media-image-upload-panel", () => ({
@@ -67,6 +70,20 @@ describe("MediaPage", () => {
     listMediaItemsMock.mockResolvedValue([mediaItem]);
     listMediaTagsMock.mockResolvedValue([{ tag: "demo", count: 1 }]);
     listMediaTypeCountsMock.mockResolvedValue({ image: 12, video: 3, audio: 2 });
+    countMediaItemsMock.mockReset();
+    countMediaItemsMock.mockImplementation(async (filters: { favorite?: boolean }) => (filters.favorite ? 0 : 1));
+  });
+
+  it("pages through every matching item and counts favourites in the database, not in the loaded page", async () => {
+    countMediaItemsMock.mockImplementation(async (filters: { favorite?: boolean }) => (filters.favorite ? 37 : 5000));
+    render(await MediaPage({ searchParams: Promise.resolve({ type: "image", q: "cat", page: "3" }) }));
+
+    expect(listMediaItemsMock).toHaveBeenCalledWith(expect.objectContaining({ mediaType: "image", q: "cat", page: 3, pageSize: 100 }));
+    expect(screen.getByText("当前视图 5000 项")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /收藏 37/ })).toBeInTheDocument();
+    expect(screen.getByText("显示 201–300，共 5000 条")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "上一页" })).toHaveAttribute("href", "/media?type=image&q=cat&page=2");
+    expect(screen.getByRole("link", { name: "下一页" })).toHaveAttribute("href", "/media?type=image&q=cat&page=4");
   });
 
   it("renders a first-class media workspace with visual type cards and global counts", async () => {

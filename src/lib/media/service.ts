@@ -130,65 +130,67 @@ const mediaStreamItemSelect = {
   },
 } as const;
 
-export async function listMediaItems(
-  input: {
-    mediaType?: "image" | "video" | "audio";
-    q?: string;
-    favorite?: boolean;
-    tag?: string;
-    session?: TeamSession | null;
-  } = {},
-) {
+type MediaListFilters = {
+  mediaType?: "image" | "video" | "audio";
+  q?: string;
+  favorite?: boolean;
+  tag?: string;
+  session?: TeamSession | null;
+};
+
+/** One filter definition for the list, its total and the per-type counts. */
+function mediaListWhere(input: MediaListFilters) {
   const q = input.q?.trim();
   const tag = input.tag?.trim();
+  return {
+    ...mediaTeamWhere(input.session),
+    mediaType: input.mediaType,
+    favorite: input.favorite,
+    ...(tag ? { tags: { has: tag } } : {}),
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { relativePath: { contains: q, mode: "insensitive" as const } },
+            { tags: { has: q } },
+          ],
+        }
+      : {}),
+  };
+}
+
+export const MEDIA_PAGE_SIZE = 100;
+export const MEDIA_MAX_PAGE_SIZE = 200;
+
+/**
+ * One page of the media library. The id tie-breaker keeps the order stable so
+ * consecutive pages neither repeat nor skip items that share a timestamp.
+ */
+export async function listMediaItems(
+  input: MediaListFilters & { page?: number; pageSize?: number } = {},
+) {
+  const pageSize = Math.min(Math.max(Math.trunc(input.pageSize ?? MEDIA_MAX_PAGE_SIZE), 1), MEDIA_MAX_PAGE_SIZE);
+  const page = Math.max(Math.trunc(input.page ?? 1), 1);
   return prisma.mediaItem.findMany({
-    where: {
-      ...mediaTeamWhere(input.session),
-      mediaType: input.mediaType,
-      favorite: input.favorite,
-      ...(tag ? { tags: { has: tag } } : {}),
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { relativePath: { contains: q, mode: "insensitive" } },
-              { tags: { has: q } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }],
-    take: 200,
+    where: mediaListWhere(input),
+    orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
     select: mediaItemSelect,
   });
 }
 
+/** Number of items matching the same filters as {@link listMediaItems}. */
+export async function countMediaItems(input: MediaListFilters = {}) {
+  return prisma.mediaItem.count({ where: mediaListWhere(input) });
+}
+
 export async function listMediaTypeCounts(
-  input: {
-    q?: string;
-    favorite?: boolean;
-    tag?: string;
-    session?: TeamSession | null;
-  } = {},
+  input: Omit<MediaListFilters, "mediaType"> = {},
 ) {
-  const q = input.q?.trim();
-  const tag = input.tag?.trim();
   const grouped = await prisma.mediaItem.groupBy({
     by: ["mediaType"],
-    where: {
-      ...mediaTeamWhere(input.session),
-      favorite: input.favorite,
-      ...(tag ? { tags: { has: tag } } : {}),
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { relativePath: { contains: q, mode: "insensitive" } },
-              { tags: { has: q } },
-            ],
-          }
-        : {}),
-    },
+    where: mediaListWhere({ ...input, mediaType: undefined }),
     _count: { _all: true },
   });
   const counts = { image: 0, video: 0, audio: 0 };

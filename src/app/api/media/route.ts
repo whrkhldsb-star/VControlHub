@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { listMediaItems, scanMediaFromFileEntries } from "@/lib/media/service";
+import { countMediaItems, listMediaItems, MEDIA_MAX_PAGE_SIZE, scanMediaFromFileEntries } from "@/lib/media/service";
 
 import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     request,
     { permission: "storage:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.fetch.media.list.74ffa9e4") },
     async ({ session }) => {
-      const { type, q, favorite, tag } = parseSearchParams(
+      const { type, q, favorite, tag, page, pageSize } = parseSearchParams(
         request,
         z.object({
           type: z.enum(["image", "video", "audio"]).optional(),
@@ -26,18 +26,17 @@ export async function GET(request: Request) {
             .optional()
             .transform((value) => value === "1"),
           tag: z.string().trim().min(1).optional(),
+          page: z.coerce.number().int().min(1).default(1),
+          pageSize: z.coerce.number().int().min(1).max(MEDIA_MAX_PAGE_SIZE).default(MEDIA_MAX_PAGE_SIZE),
         }),
       );
 
-      return NextResponse.json({
-        media: await listMediaItems({
-          mediaType: type,
-          q,
-          favorite: favorite ? true : undefined,
-          tag,
-          session,
-        }),
-      });
+      const filters = { mediaType: type, q, favorite: favorite ? true : undefined, tag, session };
+      const [media, total] = await Promise.all([
+        listMediaItems({ ...filters, page, pageSize }),
+        countMediaItems(filters),
+      ]);
+      return NextResponse.json({ media, total, page, pageSize });
     },
   );
 }
