@@ -384,6 +384,7 @@ export default async function Page({
                 key={m.id}
                 item={m as unknown as import("./media-item-card").MediaItem}
                 canManage={canManageMedia}
+                listHref={mediaHref({ ...filters, page })}
               />
             ))}
           </div>

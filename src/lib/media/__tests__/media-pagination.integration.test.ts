@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
 
-import { countMediaItems, listMediaItems } from "../service";
+import { countMediaItems, getMediaNeighbors, listMediaItems, mediaListFiltersFromHref } from "../service";
 
 /**
  * 450 media items of one customer, all sharing one updatedAt (a scan writes
@@ -57,5 +57,39 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("media libra
     expect(await countMediaItems({ session, favorite: true })).toBe(45);
     expect(await countMediaItems({ session, q: "clip-44" })).toBe(11); // clip-44, clip-440…449
     expect(await countMediaItems({ session: { ...session, currentTeamId: `${prefix}-other` } })).toBe(0);
+  });
+
+  it("walks previous/next through every item in list order, across page boundaries", async () => {
+    const listed: Array<{ id: string; favorite: boolean; updatedAt: Date }> = [];
+    for (let page = 1; page <= 5; page += 1) listed.push(...(await listMediaItems({ session, page, pageSize: 100 })));
+    const byId = new Map(listed.map((item) => [item.id, item]));
+
+    const walked = [listed[0]!.id];
+    for (let current = listed[0]!; ; ) {
+      const { next } = await getMediaNeighbors(current, { session });
+      if (!next) break;
+      walked.push(next.id);
+      current = byId.get(next.id)!;
+    }
+    expect(walked).toEqual(listed.map((item) => item.id));
+
+    // Item 101 opened from page 2: its neighbours are the last of page 1 and item 102.
+    const neighbours = await getMediaNeighbors(listed[100]!, { session });
+    expect(neighbours.previous?.id).toBe(listed[99]!.id);
+    expect(neighbours.next?.id).toBe(listed[101]!.id);
+    expect((await getMediaNeighbors(listed[0]!, { session })).previous).toBeNull();
+    expect((await getMediaNeighbors(listed[449]!, { session })).next).toBeNull();
+  });
+
+  it("navigates within the filters of the list the item was opened from", async () => {
+    const filters = mediaListFiltersFromHref("/media?type=video&q=clip-44&page=1");
+    expect(filters).toEqual({ mediaType: "video", q: "clip-44", favorite: undefined, tag: undefined });
+    const listed = await listMediaItems({ ...filters, session });
+    expect(listed).toHaveLength(11);
+    for (let index = 0; index < listed.length; index += 1) {
+      const { previous, next } = await getMediaNeighbors(listed[index]!, { ...filters, session });
+      expect(previous?.id ?? null).toBe(listed[index - 1]?.id ?? null);
+      expect(next?.id ?? null).toBe(listed[index + 1]?.id ?? null);
+    }
   });
 });

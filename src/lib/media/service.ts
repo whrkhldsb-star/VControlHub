@@ -185,6 +185,57 @@ export async function countMediaItems(input: MediaListFilters = {}) {
   return prisma.mediaItem.count({ where: mediaListWhere(input) });
 }
 
+/** Filters of the media list a detail page was opened from. */
+export function mediaListFiltersFromHref(href: string): Omit<MediaListFilters, "session"> {
+  const params = new URL(href, "http://media.local").searchParams;
+  const type = params.get("type");
+  return {
+    mediaType: type === "image" || type === "video" || type === "audio" ? type : undefined,
+    q: params.get("q")?.trim() || undefined,
+    favorite: params.get("favorite") === "1" ? true : undefined,
+    tag: params.get("tag")?.trim() || undefined,
+  };
+}
+
+/**
+ * The items directly before and after `item` in the media list with these
+ * filters, in the list's own order (favourite, updatedAt, id — all
+ * descending). Keyset queries, so navigation works from any page of any
+ * size; it used to look only at the first 200 items of the same type.
+ */
+export async function getMediaNeighbors(
+  item: { id: string; favorite: boolean; updatedAt: Date },
+  filters: MediaListFilters,
+) {
+  const base = mediaListWhere(filters);
+  const sameFavorite = { favorite: item.favorite };
+  // "Earlier in the list" = greater sort key; "later" = smaller.
+  const earlier = [
+    ...(item.favorite ? [] : [{ favorite: true }]),
+    { ...sameFavorite, updatedAt: { gt: item.updatedAt } },
+    { ...sameFavorite, updatedAt: item.updatedAt, id: { gt: item.id } },
+  ];
+  const later = [
+    ...(item.favorite ? [{ favorite: false }] : []),
+    { ...sameFavorite, updatedAt: { lt: item.updatedAt } },
+    { ...sameFavorite, updatedAt: item.updatedAt, id: { lt: item.id } },
+  ];
+  const select = { id: true, name: true } as const;
+  const [previous, next] = await Promise.all([
+    prisma.mediaItem.findFirst({
+      where: { AND: [base, { OR: earlier }] },
+      orderBy: [{ favorite: "asc" }, { updatedAt: "asc" }, { id: "asc" }],
+      select,
+    }),
+    prisma.mediaItem.findFirst({
+      where: { AND: [base, { OR: later }] },
+      orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
+      select,
+    }),
+  ]);
+  return { previous, next };
+}
+
 export async function listMediaTypeCounts(
   input: Omit<MediaListFilters, "mediaType"> = {},
 ) {
