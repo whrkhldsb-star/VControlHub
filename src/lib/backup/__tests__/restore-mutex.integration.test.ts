@@ -25,6 +25,9 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) => state.records.get(where.id) ?? null),
       create: vi.fn(async () => ({ id: `snapshot-${state.restoreStarts.length}` })),
     },
+    // Restore drain: no other background work is running.
+    job: { findMany: vi.fn(async () => []) },
+    syncJob: { findMany: vi.fn(async () => []) },
   },
 }));
 vi.mock("@/lib/backup/command-runner", async () => {
