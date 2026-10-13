@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -87,10 +88,15 @@ async function claimInboundEvent(
   return { done: null, claim };
 }
 
-/** Record, right after a side effect, that it happened (see InboundClaim.applied). */
-async function markApplied(claim: InboundClaim | null, action: string, ticketId: string | null) {
+/**
+ * Record that the side effect happened (see InboundClaim.applied). Called on
+ * the side effect's own transaction, so the business write and this marker
+ * commit together or not at all: a retry can never find the ticket/comment/
+ * status change applied while the marker says it was not.
+ */
+async function markApplied(db: Prisma.TransactionClient, claim: InboundClaim | null, action: string, ticketId: string | null) {
   if (!claim) return;
-  await prisma.itsmEvent.update({
+  await db.itsmEvent.update({
     where: { id: claim.id },
     data: { ticketId, payload: { action, applied: true } },
   });
@@ -166,31 +172,40 @@ export async function handleInboundWebhook(input: {
       if (!commentTarget) {
         throw new NotFoundError(t("backend.itsm.ticketNotFoundForThisConnectionTeam"));
       }
-      await addTicketComment({
-        ticketId,
-        authorId: input.systemUserId,
-        body: `[ITSM inbound] ${normalized.commentBody}`,
-        skipItsmFanOut: true,
+      const commentTicketId = ticketId;
+      await prisma.$transaction(async (tx) => {
+        await addTicketComment({
+          ticketId: commentTicketId,
+          authorId: input.systemUserId,
+          body: `[ITSM inbound] ${normalized.commentBody}`,
+          skipItsmFanOut: true,
+          db: tx,
+        });
+        await markApplied(tx, claim, "comment", commentTicketId);
       });
       action = "comment";
-      await markApplied(claim, action, ticketId);
     } else if (
       (eventType.includes("create") || !ticketId) &&
       config.createOnInbound !== false &&
       normalized.title
     ) {
-      const ticket = await createTicket({
-        title: normalized.title,
-        description: normalized.description || normalized.title,
-        priority: normalizePriority(normalized.priority ?? config.defaultPriority),
-        category: normalized.category ?? config.defaultCategory,
-        createdBy: input.systemUserId,
-        skipItsmFanOut: true,
-        session: row.teamId ? { currentTeamId: row.teamId } : undefined,
+      const title = normalized.title;
+      const ticket = await prisma.$transaction(async (tx) => {
+        const created = await createTicket({
+          title,
+          description: normalized.description || title,
+          priority: normalizePriority(normalized.priority ?? config.defaultPriority),
+          category: normalized.category ?? config.defaultCategory,
+          createdBy: input.systemUserId,
+          skipItsmFanOut: true,
+          session: row.teamId ? { currentTeamId: row.teamId } : undefined,
+          db: tx,
+        });
+        await markApplied(tx, claim, "create", created.id);
+        return created;
       });
       ticketId = ticket.id;
       action = "create";
-      await markApplied(claim, action, ticketId);
     } else if (ticketId && normalized.status) {
       const status = normalizeStatus(normalized.status);
       if (status) {
@@ -204,9 +219,12 @@ export async function handleInboundWebhook(input: {
         if (!statusTarget) {
           throw new NotFoundError(t("backend.itsm.ticketNotFoundForThisConnectionTeam"));
         }
-        await updateTicketStatus({ id: ticketId, status, skipItsmFanOut: true });
+        const statusTicketId = ticketId;
+        await prisma.$transaction(async (tx) => {
+          await updateTicketStatus({ id: statusTicketId, status, skipItsmFanOut: true, db: tx });
+          await markApplied(tx, claim, "status_update", statusTicketId);
+        });
         action = "status_update";
-        await markApplied(claim, action, ticketId);
       } else {
         action = "ignored_status";
       }

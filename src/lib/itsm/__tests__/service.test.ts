@@ -23,8 +23,10 @@ function reset() {
 	failNextFinalEventUpdate = false;
 }
 
-vi.mock("@/lib/db", () => ({
-	prisma: {
+vi.mock("@/lib/db", async () => {
+	const prisma: Record<string, unknown> = {
+		// No real transaction here: the callback runs on the same mock.
+		$transaction: async (callback: (tx: unknown) => unknown) => callback(prisma),
 		itsmConnection: {
 			create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
 				seq += 1;
@@ -156,8 +158,9 @@ vi.mock("@/lib/db", () => ({
 				return row;
 			}),
 		},
-	},
-}));
+	};
+	return { prisma };
+});
 
 vi.mock("@/lib/crypto/service", () => ({
 	encrypt: (s: string) => `enc:${s}`,

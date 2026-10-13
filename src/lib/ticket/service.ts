@@ -1,5 +1,6 @@
 import { ValidationError, ConflictError, NotFoundError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { t } from "@/lib/i18n/service-translations";
@@ -106,7 +107,15 @@ export async function createTicket(input: {
   slaDueAt?: Date;
   session?: Pick<TeamSession, "userId" | "roles" | "currentTeamId"> | { currentTeamId: string | null };
   skipItsmFanOut?: boolean;
+  /**
+   * Run the writes on this transaction client, so a caller can commit them
+   * together with its own bookkeeping. Only with skipItsmFanOut: fan-out is
+   * an external side effect that must not run inside a transaction.
+   */
+  db?: Prisma.TransactionClient;
 }) {
+  if (input.db && !input.skipItsmFanOut) throw new Error("a transaction client requires skipItsmFanOut");
+  const db = input.db ?? prisma;
   if (!input.title.trim() || !input.description.trim()) throw new ValidationError(t("backend.ticket.ticketTitleAndDescriptionCannotBeEmpty"));
   const priority = input.priority ?? "NORMAL";
   const { computeSlaDueAt } = await import("./sla");
@@ -125,7 +134,7 @@ export async function createTicket(input: {
     teamSession,
   );
 
-  const ticket = await prisma.ticket.create({
+  const ticket = await db.ticket.create({
     data: {
       title: input.title.trim(),
       description: input.description.trim(),
@@ -250,8 +259,16 @@ export async function updateTicketStatus(input: {
   assigneeId?: string | null;
   priority?: string;
   skipItsmFanOut?: boolean;
+  /**
+   * Run the writes on this transaction client, so a caller can commit them
+   * together with its own bookkeeping. Only with skipItsmFanOut: fan-out is
+   * an external side effect that must not run inside a transaction.
+   */
+  db?: Prisma.TransactionClient;
   session?: TeamSession | null;
 }) {
+  if (input.db && !input.skipItsmFanOut) throw new Error("a transaction client requires skipItsmFanOut");
+  const db = input.db ?? prisma;
   const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null; priority?: string; slaDueAt?: Date | null; escalatedAt?: Date | null } = {};
   const teamFilter = ticketTeamFilter(input.session);
 
@@ -260,11 +277,11 @@ export async function updateTicketStatus(input: {
     // Enforce the state machine with CAS so concurrent PATCHes cannot
     // both win illegal transitions (e.g. OPEN→IN_PROGRESS and OPEN→CLOSED).
     const current = input.session
-      ? await prisma.ticket.findFirst({
+      ? await db.ticket.findFirst({
           where: { id: input.id, ...teamFilter },
           select: { status: true, teamId: true, createdAt: true },
         })
-      : await prisma.ticket.findUnique({
+      : await db.ticket.findUnique({
           where: { id: input.id },
           select: { status: true, teamId: true, createdAt: true },
         });
@@ -296,7 +313,7 @@ export async function updateTicketStatus(input: {
       }
     }
 
-    const claimed = await prisma.ticket.updateMany({
+    const claimed = await db.ticket.updateMany({
       where: { id: input.id, status: current.status, ...teamFilter },
       data,
     });
@@ -304,8 +321,8 @@ export async function updateTicketStatus(input: {
       throw new ConflictError(t("backend.ticket.ticketStatusChangedConcurrentlyPleaseRetry"));
     }
     const updated = input.session
-      ? await prisma.ticket.findFirst({ where: { id: input.id, ...teamFilter } })
-      : await prisma.ticket.findUnique({ where: { id: input.id } });
+      ? await db.ticket.findFirst({ where: { id: input.id, ...teamFilter } })
+      : await db.ticket.findUnique({ where: { id: input.id } });
     if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     if (!input.skipItsmFanOut) {
       const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
@@ -326,11 +343,11 @@ export async function updateTicketStatus(input: {
   if (input.assigneeId !== undefined) {
     // Load ticket team for membership check before writing assigneeId.
     const existing = input.session
-      ? await prisma.ticket.findFirst({
+      ? await db.ticket.findFirst({
           where: { id: input.id, ...teamFilter },
           select: { teamId: true },
         })
-      : await prisma.ticket.findUnique({
+      : await db.ticket.findUnique({
           where: { id: input.id },
           select: { teamId: true },
         });
@@ -342,11 +359,11 @@ export async function updateTicketStatus(input: {
   if (input.priority !== undefined) {
     data.priority = input.priority;
     const row = input.session
-      ? await prisma.ticket.findFirst({
+      ? await db.ticket.findFirst({
           where: { id: input.id, ...teamFilter },
           select: { createdAt: true, status: true },
         })
-      : await prisma.ticket.findUnique({
+      : await db.ticket.findUnique({
           where: { id: input.id },
           select: { createdAt: true, status: true },
         });
@@ -362,12 +379,12 @@ export async function updateTicketStatus(input: {
 
   // Team-scoped update: claim via updateMany so cross-team ids cannot mutate.
   if (input.session) {
-    const claimed = await prisma.ticket.updateMany({
+    const claimed = await db.ticket.updateMany({
       where: { id: input.id, ...teamFilter },
       data,
     });
     if (claimed.count === 0) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-    const updated = await prisma.ticket.findFirst({ where: { id: input.id, ...teamFilter } });
+    const updated = await db.ticket.findFirst({ where: { id: input.id, ...teamFilter } });
     if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     if (!input.skipItsmFanOut) {
       const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
@@ -385,7 +402,7 @@ export async function updateTicketStatus(input: {
     return updated;
   }
 
-  const updated = await prisma.ticket.update({ where: { id: input.id }, data });
+  const updated = await db.ticket.update({ where: { id: input.id }, data });
   if (!input.skipItsmFanOut) {
     const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
     await safeFanOutTicketEvent({
@@ -407,25 +424,33 @@ export async function addTicketComment(input: {
   authorId: string;
   body: string;
   skipItsmFanOut?: boolean;
+  /**
+   * Run the writes on this transaction client, so a caller can commit them
+   * together with its own bookkeeping. Only with skipItsmFanOut: fan-out is
+   * an external side effect that must not run inside a transaction.
+   */
+  db?: Prisma.TransactionClient;
   session?: TeamSession | null;
 }) {
+  if (input.db && !input.skipItsmFanOut) throw new Error("a transaction client requires skipItsmFanOut");
+  const db = input.db ?? prisma;
   if (!input.body.trim()) throw new ValidationError(t("backend.ticket.replyContentCannotBeEmpty"));
   const teamFilter = ticketTeamFilter(input.session);
   if (input.session) {
-    const ticketExists = await prisma.ticket.findFirst({
+    const ticketExists = await db.ticket.findFirst({
       where: { id: input.ticketId, ...teamFilter },
       select: { id: true },
     });
     if (!ticketExists) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
   }
-  const comment = await prisma.ticketComment.create({
+  const comment = await db.ticketComment.create({
     data: { ticketId: input.ticketId, authorId: input.authorId, body: input.body.trim() },
     include: { author: { select: { id: true, username: true, displayName: true } } },
   });
   if (!input.skipItsmFanOut) {
     const ticket = input.session
-      ? await prisma.ticket.findFirst({ where: { id: input.ticketId, ...teamFilter } })
-      : await prisma.ticket.findUnique({ where: { id: input.ticketId } });
+      ? await db.ticket.findFirst({ where: { id: input.ticketId, ...teamFilter } })
+      : await db.ticket.findUnique({ where: { id: input.ticketId } });
     if (ticket) {
       const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
       await safeFanOutTicketEvent({
