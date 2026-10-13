@@ -266,9 +266,91 @@ async function dispatchChannels(input: {
   return { delivered, failed };
 }
 
+/** Total delivery attempts for an incident's "fired" notification. */
+const MAX_NOTIFY_ATTEMPTS = 8;
+
+/** 1, 2, 4 … minutes after attempt n, capped at an hour. */
+function nextNotifyRetryAt(now: Date, attempts: number): Date {
+  return new Date(now.getTime() + Math.min(60, 2 ** Math.max(0, attempts - 1)) * 60_000);
+}
+
+function summarizeFailures(failed: { channel: string; error: string }[]): string {
+  return failed.map((item) => `${item.channel}: ${item.error}`).join("; ").slice(0, 1000);
+}
+
+/** Delivery bookkeeping after an attempt; nothing pending → no retry scheduled. */
+function deliveryState(now: Date, attempts: number, failed: { channel: string; error: string }[]) {
+  const pending = Array.from(new Set(failed.map((item) => item.channel)));
+  return {
+    pendingNotifyChannels: pending,
+    notifyAttempts: attempts,
+    nextNotifyAt: pending.length > 0 && attempts < MAX_NOTIFY_ATTEMPTS ? nextNotifyRetryAt(now, attempts) : null,
+    lastNotifyError: pending.length > 0 ? summarizeFailures(failed) : null,
+  };
+}
+
+type FireDispatchInput = AlertFireInput & { incidentId: string };
+
+function dispatchFiredNotice(input: FireDispatchInput, notifyChannels: string[]) {
+  return resolveNotifyUserIds(input.onCallUserIds, input.teamId).then((userIds) => dispatchChannels({
+    userIds,
+    type: "server_alert",
+    notice: incidentNotice("fired", input),
+    title: input.title,
+    message: input.message,
+    actionUrl: `/alert-rules?incident=${input.incidentId}`,
+    notifyChannels,
+    webhookUrl: input.webhookUrl,
+    contextLines: [
+      `Server: ${input.serverName}`,
+      `Metric: ${input.metric}`,
+      `Current: ${input.value}`,
+      `Threshold: ${input.operator} ${input.threshold}`,
+      `Level: 1`,
+      `Incident: ${input.incidentId}`,
+    ],
+    level: 1,
+    teamId: input.teamId ?? null,
+  }));
+}
+
+/**
+ * Re-send the fired notification to the channels that have not received it.
+ * Only for OPEN incidents: an acknowledged one has been seen by a person. The
+ * attempt is claimed with a CAS on nextNotifyAt first, so two evaluators that
+ * see the same due row cannot both send.
+ */
+async function retryPendingIncidentDelivery(
+  existing: { id: string; status: string; pendingNotifyChannels?: string[] | null; notifyAttempts?: number | null; nextNotifyAt?: Date | null },
+  input: AlertFireInput,
+  now: Date,
+): Promise<AlertDispatchResult & { attempted: boolean }> {
+  const pending = (existing.pendingNotifyChannels ?? []).filter((channel) => input.notifyChannels.includes(channel));
+  const attempts = existing.notifyAttempts ?? 0;
+  if (existing.status !== "OPEN" || pending.length === 0 || !existing.nextNotifyAt || existing.nextNotifyAt.getTime() > now.getTime() || attempts >= MAX_NOTIFY_ATTEMPTS) {
+    return { delivered: [], failed: [], attempted: false };
+  }
+  const claimed = await prisma.alertIncident.updateMany({
+    where: { id: existing.id, status: "OPEN", nextNotifyAt: existing.nextNotifyAt },
+    data: { notifyAttempts: attempts + 1, nextNotifyAt: nextNotifyRetryAt(now, attempts + 1) },
+  });
+  if (claimed.count === 0) return { delivered: [], failed: [], attempted: false };
+  const dispatch = await dispatchFiredNotice({ ...input, incidentId: existing.id }, pending);
+  await prisma.alertIncident.updateMany({
+    where: { id: existing.id, status: "OPEN" },
+    data: deliveryState(now, attempts + 1, dispatch.failed),
+  });
+  if (dispatch.failed.length > 0) {
+    logger.warn("alert incident notification retry failed", { incidentId: existing.id, attempt: attempts + 1, failed: dispatch.failed });
+  }
+  return { ...dispatch, attempted: true };
+}
+
 /**
  * Create or refresh an OPEN incident and send level-1 notifications.
- * Re-firing while OPEN/ACKNOWLEDGED only updates value; does not spam unless escalated.
+ * Re-firing while OPEN/ACKNOWLEDGED only updates value and re-sends to the
+ * channels that have not received the fired notification yet (with backoff);
+ * channels that delivered are never paged again unless escalated.
  */
 export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise<{
   incidentId: string;
@@ -301,12 +383,14 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
         serverName: input.serverName,
       },
     });
+    const retry = await retryPendingIncidentDelivery(existing, input, now);
     return {
       incidentId: existing.id,
       created: false,
       fired: false,
-      notified: false,
+      notified: retry.delivered.length > 0,
       level: existing.level,
+      ...(retry.attempted ? { deliveredChannels: retry.delivered, failedChannels: retry.failed } : {}),
     };
   }
 
@@ -411,27 +495,21 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
     }
   }
 
-  const userIds = await resolveNotifyUserIds(input.onCallUserIds, input.teamId);
-  const dispatch = await dispatchChannels({
-    userIds,
-    type: "server_alert",
-    notice: incidentNotice("fired", input),
-    title: input.title,
-    message: input.message,
-    actionUrl: `/alert-rules?incident=${incident.id}`,
-    notifyChannels: input.notifyChannels,
-    webhookUrl: input.webhookUrl,
-    contextLines: [
-      `Server: ${input.serverName}`,
-      `Metric: ${input.metric}`,
-      `Current: ${input.value}`,
-      `Threshold: ${input.operator} ${input.threshold}`,
-      `Level: 1`,
-      `Incident: ${incident.id}`,
-    ],
-    level: 1,
-    teamId: input.teamId ?? null,
-  });
+  const dispatch = await dispatchFiredNotice({ ...input, incidentId: incident.id }, input.notifyChannels);
+  // Delivery state is kept apart from the incident state so a failed channel
+  // is retried by later evaluations instead of being forgotten. Best effort:
+  // losing this bookkeeping must not turn a recorded fire into a failure.
+  try {
+    await prisma.alertIncident.updateMany({
+      where: { id: incident.id, status: "OPEN" },
+      data: deliveryState(now, 1, dispatch.failed),
+    });
+  } catch (error) {
+    logger.error("failed to record alert notification delivery state", {
+      incidentId: incident.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   // `notified` must reflect reality. Reporting true while every channel failed
   // is the worst kind of silent failure: the operator believes they were paged.
@@ -482,7 +560,7 @@ export async function resolveAlertIncident(input: {
   const now = new Date();
   await prisma.alertIncident.update({
     where: { id: existing.id },
-    data: { status: "RESOLVED", resolvedAt: now },
+    data: { status: "RESOLVED", resolvedAt: now, pendingNotifyChannels: [], nextNotifyAt: null },
   });
 
   const userIds = await resolveNotifyUserIds(input.onCallUserIds, input.teamId);
@@ -573,6 +651,8 @@ export async function acknowledgeAlertIncident(input: {
       status: "ACKNOWLEDGED",
       acknowledgedAt: new Date(),
       acknowledgedById: input.userId,
+      // A person has seen it; stop re-sending the fired notification.
+      nextNotifyAt: null,
     },
   });
   return { id: updated.id, status: updated.status };

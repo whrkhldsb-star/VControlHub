@@ -1027,28 +1027,35 @@ enum AlertIncidentStatus {
 }
 
 model AlertIncident {
-  id               String              @id @default(cuid())
+  id                    String              @id @default(cuid())
   /// Stable key: ruleId + serverId + metric
-  fingerprint      String              @unique
-  ruleId           String
-  serverId         String?
-  serverName       String
-  metric           String
-  operator         String
-  threshold        Float
-  value            Float
-  status           AlertIncidentStatus @default(OPEN)
+  fingerprint           String              @unique
+  ruleId                String
+  serverId              String?
+  serverName            String
+  metric                String
+  operator              String
+  threshold             Float
+  value                 Float
+  status                AlertIncidentStatus @default(OPEN)
   /// 1 = initial fire, 2 = escalated (no ack), 3 = re-escalated / critical
-  level            Int                 @default(1)
-  title            String
-  message          String
-  acknowledgedAt   DateTime?
-  acknowledgedById String?
-  escalatedAt      DateTime?
-  lastNotifiedAt   DateTime?
-  resolvedAt       DateTime?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  level                 Int                 @default(1)
+  title                 String
+  message               String
+  acknowledgedAt        DateTime?
+  acknowledgedById      String?
+  escalatedAt           DateTime?
+  lastNotifiedAt        DateTime?
+  /// Channels whose "fired" notification has not been delivered yet. Retried
+  /// with backoff while the incident stays OPEN; kept (with nextNotifyAt null)
+  /// once the attempt limit is reached so the UI can show the gap.
+  pendingNotifyChannels String[]            @default([])
+  notifyAttempts        Int                 @default(0)
+  nextNotifyAt          DateTime?
+  lastNotifyError       String?
+  resolvedAt            DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   rule           AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   acknowledgedBy User?     @relation("AlertIncidentAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)

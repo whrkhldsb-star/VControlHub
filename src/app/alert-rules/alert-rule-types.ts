@@ -35,6 +35,11 @@ export type AlertIncident = {
 	acknowledgedBy: { id: string; username: string; displayName: string | null } | null;
 	escalatedAt: string | null;
 	createdAt: string;
+	/** Channels the fired notification has not reached yet. */
+	pendingNotifyChannels?: string[];
+	/** Next automatic retry; null once retries stopped. */
+	nextNotifyAt?: string | null;
+	lastNotifyError?: string | null;
 };
 
 export type TestDelivery = {

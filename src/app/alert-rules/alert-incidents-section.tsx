@@ -99,6 +99,13 @@ export function AlertIncidentsSection({
 								</span>
 							</div>
 							<p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{incidentDetail(incident, t)}</p>
+							{incident.pendingNotifyChannels?.length ? (
+								<p className="mt-1 text-xs text-[var(--warning)]" title={incident.lastNotifyError ?? undefined}>
+									{t(incident.nextNotifyAt ? "alertRulesPage.incidents.notifyRetrying" : "alertRulesPage.incidents.notifyFailed", {
+										channels: incident.pendingNotifyChannels.join(", "),
+									})}
+								</p>
+							) : null}
 						</div>
 						{incident.status === "OPEN" ? (
 							<ActionButton
