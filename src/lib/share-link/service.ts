@@ -243,40 +243,86 @@ export async function authorizeShareDownload(
   return share;
 }
 
-export async function listShareLinks(userId?: string, session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null }) {
-  // When session is present without an explicit userId filter, return the team-
-  // scoped catalogue (matches /shares page). Pass userId only when intentionally
-  // restricting to a creator (e.g. personal history widgets).
-  const teamFilter = session ? shareLinkTeamWhere(session) : {};
-  const where: Record<string, unknown> = userId ? { createdBy: userId } : {};
-  if (session) Object.assign(where, teamFilter);
-  // Explicit select: `include` returned every scalar column, leaking
-  // passwordHash (scrypt of a share password — offline dictionary target) and
-  // tokenHash to any viewer holding share:read. Keep the field list in sync
-  // with the /shares page UI.
-  return prisma.shareLink.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    select: {
-      id: true,
-      storageNodeId: true,
-      path: true,
-      entryType: true,
-      name: true,
-      expiresAt: true,
-      revokedAt: true,
-      accessCount: true,
-      maxDownloads: true,
-      permissionLevel: true,
-      createdAt: true,
-      updatedAt: true,
-      createdBy: true,
-      teamId: true,
-      storageNode: { select: { id: true, name: true, driver: true } },
-      creator: { select: { username: true, displayName: true } },
-    },
-  });
+/**
+ * Column projection for share lists. Explicit select: `include` returned every
+ * scalar column, leaking passwordHash (scrypt of a share password — offline
+ * dictionary target) and tokenHash to any viewer holding share:read. Keep the
+ * field list in sync with the /shares page UI.
+ */
+const SHARE_LINK_LIST_SELECT = {
+  id: true,
+  storageNodeId: true,
+  path: true,
+  entryType: true,
+  name: true,
+  expiresAt: true,
+  revokedAt: true,
+  accessCount: true,
+  maxDownloads: true,
+  permissionLevel: true,
+  createdAt: true,
+  updatedAt: true,
+  createdBy: true,
+  teamId: true,
+  storageNode: { select: { id: true, name: true, driver: true } },
+  creator: { select: { username: true, displayName: true } },
+} as const;
+
+type ShareListSession = { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null };
+
+export const SHARE_LINK_STATUS_FILTERS = ["active", "expired", "revoked"] as const;
+export type ShareLinkStatusFilter = (typeof SHARE_LINK_STATUS_FILTERS)[number];
+export const SHARE_LINK_PAGE_SIZE = 50;
+export const SHARE_LINK_MAX_PAGE_SIZE = 200;
+
+export type ShareLinkListOptions = {
+  status?: ShareLinkStatusFilter;
+  /** Matches name, path or creator. */
+  q?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+function shareLinkFilterWhere(options: ShareLinkListOptions, now: Date) {
+  const clauses: Record<string, unknown>[] = [];
+  if (options.status === "active") clauses.push({ revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] });
+  if (options.status === "expired") clauses.push({ revokedAt: null, expiresAt: { lte: now } });
+  if (options.status === "revoked") clauses.push({ revokedAt: { not: null } });
+  const q = options.q?.trim();
+  if (q) {
+    const contains = { contains: q, mode: "insensitive" as const };
+    clauses.push({
+      OR: [
+        { name: contains },
+        { path: contains },
+        { creator: { username: contains } },
+        { creator: { displayName: contains } },
+      ],
+    });
+  }
+  return clauses;
+}
+
+/**
+ * One page of the share catalogue with its real total, newest first (id breaks
+ * ties so pages never overlap). Every share — however old — stays reachable,
+ * and status/search filters run in the database before paging.
+ */
+export async function listShareLinkPage(session: ShareListSession, options: ShareLinkListOptions = {}) {
+  const pageSize = Math.min(Math.max(Math.trunc(options.pageSize ?? SHARE_LINK_PAGE_SIZE), 1), SHARE_LINK_MAX_PAGE_SIZE);
+  const page = Math.max(Math.trunc(options.page ?? 1), 1);
+  const where = { AND: [shareLinkTeamWhere(session), ...shareLinkFilterWhere(options, new Date())] };
+  const [total, shares] = await Promise.all([
+    prisma.shareLink.count({ where }),
+    prisma.shareLink.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: SHARE_LINK_LIST_SELECT,
+    }),
+  ]);
+  return { shares, total, page, pageSize };
 }
 
 export async function revokeShareLink(

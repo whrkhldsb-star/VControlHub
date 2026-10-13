@@ -4,13 +4,13 @@ const {
   requireApiPermissionMock,
   createShareLinkMock,
   createShareLinkFromFileEntryMock,
-  listShareLinksMock,
+  listShareLinkPageMock,
   revokeShareLinkMock,
 } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   createShareLinkMock: vi.fn(),
   createShareLinkFromFileEntryMock: vi.fn(),
-  listShareLinksMock: vi.fn(),
+  listShareLinkPageMock: vi.fn(),
   revokeShareLinkMock: vi.fn(),
 }));
 
@@ -20,7 +20,9 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 vi.mock("@/lib/share-link/service", () => ({
   createShareLink: createShareLinkMock,
   createShareLinkFromFileEntry: createShareLinkFromFileEntryMock,
-  listShareLinks: listShareLinksMock,
+  listShareLinkPage: listShareLinkPageMock,
+  SHARE_LINK_MAX_PAGE_SIZE: 200,
+  SHARE_LINK_STATUS_FILTERS: ["active", "expired", "revoked"],
   revokeShareLink: revokeShareLinkMock,
 }));
 
@@ -46,7 +48,7 @@ describe("/api/share-links", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValue({ session });
-    listShareLinksMock.mockResolvedValue([{ id: "share_1" }]);
+    listShareLinkPageMock.mockResolvedValue({ shares: [{ id: "share_1" }], total: 1, page: 1, pageSize: 200 });
     revokeShareLinkMock.mockResolvedValue({
       id: "share_1",
       revokedAt: new Date().toISOString(),
@@ -70,7 +72,15 @@ describe("/api/share-links", () => {
     expect(requireApiPermissionMock).toHaveBeenCalledWith("share:read");
     await expect(response.json()).resolves.toMatchObject({
       shares: [{ id: "share_1" }],
+      total: 1,
     });
+    expect(listShareLinkPageMock).toHaveBeenCalledWith(session, { pageSize: 200 });
+  });
+
+  it("passes page, status and search through to the paginated share query", async () => {
+    const response = await GET(new Request("https://example.com/api/share-links?page=3&pageSize=50&status=active&q=report"));
+    expect(response.status).toBe(200);
+    expect(listShareLinkPageMock).toHaveBeenCalledWith(session, { page: 3, pageSize: 50, status: "active", q: "report" });
   });
 
   it("creates file share links from storage payloads without requiring unrelated legacy resource fields", async () => {

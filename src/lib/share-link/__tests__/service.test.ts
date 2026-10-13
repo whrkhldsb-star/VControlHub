@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    shareLink: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    shareLink: { create: vi.fn(), count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     shareAccessLog: { create: vi.fn() },
     fileEntry: { findFirst: vi.fn() },
   },
@@ -38,7 +38,7 @@ vi.mock("@/lib/storage/access-control", () => ({
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 
-const { createShareLink, createShareLinkFromFileEntry, listShareLinks, normalizeSharePath, releaseShareQuotaClaim, resolveShareToken, revokeShareLink } = await import("../service");
+const { createShareLink, createShareLinkFromFileEntry, listShareLinkPage, normalizeSharePath, releaseShareQuotaClaim, resolveShareToken, revokeShareLink } = await import("../service");
 
 describe("share link service", () => {
   beforeEach(() => {
@@ -76,15 +76,18 @@ describe("share link service", () => {
     expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
   });
 
-  it("bounds share-link list hydration for growing public-link history", async () => {
+  it("pages the share list with a stable order, a real total and no secret columns", async () => {
     mockPrisma.shareLink.findMany.mockResolvedValueOnce([]);
+    mockPrisma.shareLink.count.mockResolvedValueOnce(205);
 
-    await listShareLinks();
+    const result = await listShareLinkPage({ userId: "u1", roles: ["operator"], currentTeamId: "team-1" }, { page: 3, pageSize: 50 });
 
-    expect(mockPrisma.shareLink.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }));
+    expect(result).toMatchObject({ total: 205, page: 3, pageSize: 50 });
+    const query = mockPrisma.shareLink.findMany.mock.calls[0]![0];
+    expect(query).toMatchObject({ orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: 100, take: 50 });
+    expect(query.select).not.toHaveProperty("passwordHash");
+    expect(query.select).not.toHaveProperty("tokenHash");
+    expect(mockPrisma.shareLink.count).toHaveBeenCalledWith({ where: query.where });
   });
 
   it("normalizes share paths and rejects traversal or unsafe absolute paths", () => {
