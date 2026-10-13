@@ -8,6 +8,10 @@ const eventStore = new Map<string, Record<string, unknown>>();
 const ticketStore = new Map<string, Record<string, unknown>>();
 let seq = 0;
 let forcedEventCreateError: (Error & { code: string }) | null = null;
+/** Fail the next createTicket (a transient business failure). */
+let failNextTicketCreate = false;
+/** Fail the next event update that writes a final ok/ignored status. */
+let failNextFinalEventUpdate = false;
 
 function reset() {
 	connectionStore.clear();
@@ -15,6 +19,8 @@ function reset() {
 	ticketStore.clear();
 	seq = 0;
 	forcedEventCreateError = null;
+	failNextTicketCreate = false;
+	failNextFinalEventUpdate = false;
 }
 
 vi.mock("@/lib/db", () => ({
@@ -111,6 +117,17 @@ vi.mock("@/lib/db", () => ({
 				if (where?.ticketId) rows = rows.filter((r) => r.ticketId === where.ticketId);
 				return rows;
 			}),
+			update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+				const prev = eventStore.get(where.id);
+				if (!prev) throw new Error("missing event");
+				if (failNextFinalEventUpdate && (data.status === "ok" || data.status === "ignored")) {
+					failNextFinalEventUpdate = false;
+					throw new Error("event store unavailable");
+				}
+				const next = { ...prev, ...data };
+				eventStore.set(where.id, next);
+				return next;
+			}),
 			findFirst: vi.fn(async ({ where }: { where: { connectionId?: string | null; externalId?: string } }) => {
 				return (
 					Array.from(eventStore.values()).find(
@@ -166,6 +183,10 @@ vi.mock("@/lib/ticket/service", () => ({
 		createdBy: string;
 		session?: { currentTeamId: string | null };
 	}) => {
+		if (failNextTicketCreate) {
+			failNextTicketCreate = false;
+			throw new Error("ticket store temporarily unavailable");
+		}
 		seq += 1;
 		const row = {
 			id: `tk_${seq}`,
@@ -480,6 +501,56 @@ describe("ITSM service", () => {
 		expect(second.ticketId).toBe(first.ticketId);
 		expect(second.event.id).toBe(first.event.id);
 		expect(Array.from(ticketStore.values()).filter((ticket) => ticket.title === "Create once")).toHaveLength(1);
+	});
+
+	it("processes a retried inbound event after its first attempt failed (no permanent dedupe of failures)", async () => {
+		const conn = await createItsmConnection({
+			name: "Inbound retry",
+			provider: "generic_webhook",
+			direction: "inbound",
+			credentials: { webhookSecret: "sec" },
+			config: { createOnInbound: true },
+		});
+		const rawBody = JSON.stringify({ eventType: "ticket.create", externalId: "event-retry-1", ticket: { title: "Retry me", description: "x" } });
+		const request = {
+			connectionId: conn.id,
+			rawBody,
+			signatureHeader: `sha256=${createHmac("sha256", "sec").update(rawBody).digest("hex")}`,
+			json: JSON.parse(rawBody) as Record<string, unknown>,
+			systemUserId: "sys",
+		};
+		failNextTicketCreate = true;
+		await expect(handleInboundWebhook(request)).rejects.toThrow("temporarily unavailable");
+		const retry = await handleInboundWebhook(request);
+		expect(retry).toMatchObject({ action: "create", event: expect.objectContaining({ status: "ok" }) });
+		expect(retry.ticketId).toMatch(/^tk_/);
+		expect(Array.from(ticketStore.values()).filter((ticket) => ticket.title === "Retry me")).toHaveLength(1);
+		// One event row for the external id, now finished.
+		expect(Array.from(eventStore.values()).filter((event) => event.externalId === "event-retry-1")).toHaveLength(1);
+	});
+
+	it("does not repeat a side effect that succeeded when only its bookkeeping failed", async () => {
+		const conn = await createItsmConnection({
+			name: "Inbound bookkeeping",
+			provider: "generic_webhook",
+			direction: "inbound",
+			credentials: { webhookSecret: "sec" },
+			config: { createOnInbound: true },
+		});
+		const rawBody = JSON.stringify({ eventType: "ticket.create", externalId: "event-applied-1", ticket: { title: "Create exactly once", description: "x" } });
+		const request = {
+			connectionId: conn.id,
+			rawBody,
+			signatureHeader: `sha256=${createHmac("sha256", "sec").update(rawBody).digest("hex")}`,
+			json: JSON.parse(rawBody) as Record<string, unknown>,
+			systemUserId: "sys",
+		};
+		failNextFinalEventUpdate = true;
+		await expect(handleInboundWebhook(request)).rejects.toThrow("event store unavailable");
+		const retry = await handleInboundWebhook(request);
+		expect(retry).toMatchObject({ action: "create", event: expect.objectContaining({ status: "ok" }) });
+		expect(Array.from(ticketStore.values()).filter((ticket) => ticket.title === "Create exactly once")).toHaveLength(1);
+		expect(retry.ticketId).toBe(Array.from(ticketStore.values()).find((ticket) => ticket.title === "Create exactly once")!.id);
 	});
 
 	it("rejects inbound with bad signature", async () => {

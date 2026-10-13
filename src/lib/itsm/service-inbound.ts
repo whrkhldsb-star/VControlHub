@@ -39,6 +39,63 @@ function normalizePriority(raw: string | null | undefined, fallback = "NORMAL"):
   return fallback;
 }
 
+type InboundClaim = {
+  id: string;
+  /** A previous attempt already performed the side effect (ticket/comment/status). */
+  applied: boolean;
+  action: string | null;
+  ticketId: string | null;
+};
+
+/**
+ * Claim the (connection, externalId) event row before doing anything. A row
+ * that finished (ok/ignored) is a genuine duplicate. A row left in error or
+ * pending by an earlier attempt is reused — the unique (connectionId,
+ * externalId) index allows one row — so the sender's retry is processed
+ * instead of being answered with the old failure forever.
+ */
+async function claimInboundEvent(
+  connectionId: string,
+  externalId: string,
+  eventType: string,
+): Promise<{ done: ItsmEventRecord } | { done: null; claim: InboundClaim }> {
+  const existing = await prisma.itsmEvent.findFirst({
+    where: { connectionId, externalId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (existing && (existing.status === "ok" || existing.status === "ignored")) {
+    return { done: toEventRecord(existing) };
+  }
+  if (existing) {
+    const payload = toEventRecord(existing).payload;
+    await prisma.itsmEvent.update({
+      where: { id: existing.id },
+      data: { status: "pending", errorMessage: null, eventType },
+    });
+    const claim: InboundClaim = {
+      id: existing.id,
+      applied: payload.applied === true,
+      action: typeof payload.action === "string" ? payload.action : null,
+      ticketId: existing.ticketId,
+    };
+    return { done: null, claim };
+  }
+  const row = await prisma.itsmEvent.create({
+    data: { connectionId, direction: "inbound", eventType, status: "pending", externalId, payload: {} },
+  });
+  const claim: InboundClaim = { id: row.id, applied: false, action: null, ticketId: null };
+  return { done: null, claim };
+}
+
+/** Record, right after a side effect, that it happened (see InboundClaim.applied). */
+async function markApplied(claim: InboundClaim | null, action: string, ticketId: string | null) {
+  if (!claim) return;
+  await prisma.itsmEvent.update({
+    where: { id: claim.id },
+    data: { ticketId, payload: { action, applied: true } },
+  });
+}
+
 export async function handleInboundWebhook(input: {
   connectionId: string;
   rawBody: string;
@@ -79,22 +136,26 @@ export async function handleInboundWebhook(input: {
   const releaseIdempotencyLock = normalized.externalId
     ? await acquireAdvisoryLock("itsm-inbound", `${row.id}:${normalized.externalId}`)
     : async () => undefined;
+  let claim: InboundClaim | null = null;
   try {
     if (normalized.externalId) {
-      const existingEvent = await prisma.itsmEvent.findFirst({
-        where: { connectionId: row.id, externalId: normalized.externalId },
-        orderBy: { createdAt: "desc" },
-      });
-      if (existingEvent) {
-        const event = toEventRecord(existingEvent);
+      const claimed = await claimInboundEvent(row.id, normalized.externalId, eventType);
+      if (claimed.done) {
+        const event = claimed.done;
         const previousAction = typeof event.payload.action === "string"
           ? event.payload.action
           : "duplicate";
         return { event, ticketId: event.ticketId, action: previousAction };
       }
+      claim = claimed.claim;
     }
 
-    if (normalized.commentBody && ticketId) {
+    if (claim?.applied) {
+      // The side effect already happened on an earlier attempt that then
+      // failed to record its outcome: finish the bookkeeping, never repeat it.
+      action = claim.action ?? "acknowledged";
+      ticketId = claim.ticketId ?? ticketId;
+    } else if (normalized.commentBody && ticketId) {
       const commentTarget = await prisma.ticket.findFirst({
         where: {
           id: ticketId,
@@ -112,6 +173,7 @@ export async function handleInboundWebhook(input: {
         skipItsmFanOut: true,
       });
       action = "comment";
+      await markApplied(claim, action, ticketId);
     } else if (
       (eventType.includes("create") || !ticketId) &&
       config.createOnInbound !== false &&
@@ -128,6 +190,7 @@ export async function handleInboundWebhook(input: {
       });
       ticketId = ticket.id;
       action = "create";
+      await markApplied(claim, action, ticketId);
     } else if (ticketId && normalized.status) {
       const status = normalizeStatus(normalized.status);
       if (status) {
@@ -143,6 +206,7 @@ export async function handleInboundWebhook(input: {
         }
         await updateTicketStatus({ id: ticketId, status, skipItsmFanOut: true });
         action = "status_update";
+        await markApplied(claim, action, ticketId);
       } else {
         action = "ignored_status";
       }
@@ -152,15 +216,22 @@ export async function handleInboundWebhook(input: {
       action = "ignored_no_ticket";
     }
 
-    const event = await recordEvent({
-      connectionId: row.id,
-      direction: "inbound",
-      eventType,
-      ticketId,
-      status: action.startsWith("ignored") ? "ignored" : "ok",
-      externalId: normalized.externalId,
-      payload: { action, title: normalized.title, status: normalized.status },
-    });
+    const finalStatus = action.startsWith("ignored") ? "ignored" : "ok";
+    const finalPayload = { action, title: normalized.title, status: normalized.status, applied: !action.startsWith("ignored") };
+    const event = claim
+      ? toEventRecord(await prisma.itsmEvent.update({
+        where: { id: claim.id },
+        data: { status: finalStatus, ticketId, payload: finalPayload, errorMessage: null },
+      }))
+      : await recordEvent({
+        connectionId: row.id,
+        direction: "inbound",
+        eventType,
+        ticketId,
+        status: finalStatus,
+        externalId: normalized.externalId,
+        payload: finalPayload,
+      });
     await prisma.itsmConnection.update({
       where: { id: row.id },
       data: { lastInboundAt: new Date(), lastError: null },
@@ -168,16 +239,25 @@ export async function handleInboundWebhook(input: {
     return { event, ticketId, action };
   } catch (err) {
     const message = err instanceof Error ? err.message : "inbound processing failed";
-    await recordEvent({
-      connectionId: row.id,
-      direction: "inbound",
-      eventType,
-      ticketId,
-      status: "error",
-      externalId: normalized.externalId,
-      payload: { action: "error" },
-      errorMessage: message,
-    });
+    if (claim) {
+      // Keep the claim row (and any applied marker) so the sender's retry is
+      // processed — and does not repeat a side effect that already happened.
+      await prisma.itsmEvent.update({
+        where: { id: claim.id },
+        data: { status: "error", errorMessage: message.slice(0, 2000) },
+      }).catch((recordError) => logger.error("failed to record inbound event failure", recordError, { connectionId: row.id }));
+    } else {
+      await recordEvent({
+        connectionId: row.id,
+        direction: "inbound",
+        eventType,
+        ticketId,
+        status: "error",
+        externalId: normalized.externalId,
+        payload: { action: "error" },
+        errorMessage: message,
+      });
+    }
     await prisma.itsmConnection.update({
       where: { id: row.id },
       data: { lastInboundAt: new Date(), lastError: message },
