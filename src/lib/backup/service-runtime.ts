@@ -257,9 +257,11 @@ export type OfflineRestorePlan = {
  * workers check before claiming is check-then-act: a worker that passed it can
  * still start after the restore began). So the app no longer restores: it
  * verifies the artifact and hands the operator the exact offline runbook. The
- * restore scripts enforce the prerequisite themselves — they refuse while the
- * platform services run or any other client is connected to the database, and
- * the database check is the first statement of the import transaction.
+ * restore scripts check the prerequisite themselves — they refuse unless every
+ * platform systemd unit is confirmed stopped and no other client is connected
+ * to the database (the first statement of the import transaction, repeated
+ * before the file phase). Those are point-in-time checks: the operator keeps
+ * every instance stopped until the restore finished.
  */
 export async function prepareOfflineRestore(input: {
 	id: string;

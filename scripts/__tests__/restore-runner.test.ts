@@ -31,7 +31,15 @@ describe("restore runner destination and preflight", () => {
     await runFile(resolveLocalTarBinary(), ["-czf", archive, "-C", source, "hello.txt", "database.sql.gz"]);
     const bin = await installFakeRestoreTools(tmp);
     await writeFile(path.join(tmp, "restore.env"), "DATABASE_URL=postgresql://tester:test-secret@127.0.0.1/audit_target\n");
-    env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, APP_DIR: fallback, CONFIRM_RESTORE: "1", ENV_FILE: path.join(tmp, "restore.env") };
+    env = {
+      ...process.env,
+      PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+      APP_DIR: fallback,
+      CONFIRM_RESTORE: "1",
+      ENV_FILE: path.join(tmp, "restore.env"),
+      // No systemd on Windows: the operator's explicit confirmation.
+      ...(process.platform === "win32" ? { VCONTROLHUB_SERVICE_UNITS: "none" } : {}),
+    };
   });
   afterEach(async () => { await rm(tmp, { recursive: true, force: true }); });
 
@@ -117,6 +125,30 @@ describe("restore runner destination and preflight", () => {
     const args = kind === "node" ? [runner, "files", archive, target] : ["scripts/restore-files.sh", archive, target];
     await expect(runFile(file, args, { env: { ...env, FAKE_SYSTEMCTL_STATE: "active" } })).rejects.toMatchObject({
       stderr: expect.stringContaining("OFFLINE RESTORE REQUIRED: vcontrolhub-next (active)"),
+    });
+    expect(await readdir(target)).toEqual([]);
+  });
+
+  it.skipIf(process.platform === "win32").each([
+    ["a transitional state", { FAKE_SYSTEMCTL_STATE: "deactivating" }, "vcontrolhub-next (deactivating)"],
+    ["an unknown state", { FAKE_SYSTEMCTL_STATE: "unknown" }, "vcontrolhub-next (unknown)"],
+    ["a unit systemd does not know (other unit names)", { FAKE_SYSTEMCTL_LOAD: "not-found" }, "vcontrolhub-next (not-found)"],
+    ["systemctl failing to report", { FAKE_SYSTEMCTL_FAIL: "1" }, "vcontrolhub-next (state unknown)"],
+    ["an empty unit list", { VCONTROLHUB_SERVICE_UNITS: "" }, "VCONTROLHUB_SERVICE_UNITS is empty"],
+  ])("fails safe on %s: refuses and leaves the target untouched", async (_name, extra, message) => {
+    await expect(runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, ...extra } })).rejects.toMatchObject({
+      stderr: expect.stringContaining(message),
+    });
+    expect(await readdir(target)).toEqual([]);
+  });
+
+  it.skipIf(process.platform === "win32")("accepts the explicit non-systemd confirmation and still checks database clients", async () => {
+    const result = await runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, VCONTROLHUB_SERVICE_UNITS: "none", FAKE_SYSTEMCTL_STATE: "active" } });
+    expect(result.stdout + result.stderr).toContain("VCONTROLHUB_SERVICE_UNITS=none");
+    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
+    await rm(path.join(target, "hello.txt"));
+    await expect(runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, VCONTROLHUB_SERVICE_UNITS: "none", FAKE_PSQL_OTHER_CLIENTS: "1" } })).rejects.toMatchObject({
+      stderr: expect.stringContaining("OFFLINE RESTORE REQUIRED"),
     });
     expect(await readdir(target)).toEqual([]);
   });

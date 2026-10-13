@@ -11,16 +11,26 @@
  * Env: APP_DIR, ENV_FILE (default APP_DIR/.env.local), CONFIRM_RESTORE=1 (every
  *      component is destructive), PG_INSTALL_DIR, TAR_BIN,
  *      VCONTROLHUB_SERVICE_UNITS (systemd units that must be stopped; default
- *      "vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws").
+ *      "vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws"; "none" when
+ *      the platform is not run by systemd on this host — the operator then
+ *      confirms that every instance is stopped).
  *
  * Restore is OFFLINE ONLY. Web requests, workers, agent callbacks, schedules
  * and terminal sessions all write to the database and the file tree; none of
- * them can be safely paused from inside the running platform. This runner
- * therefore refuses to start while the platform's systemd services are active,
- * and the database import itself begins (inside its single transaction) by
- * refusing if any other client is connected to the target database, so the
- * check cannot be raced. Files are copied only after the same checks pass
- * again. Restore runbook: docs/audit-verification-2026-10-12.zh-CN.md (R04).
+ * them can be safely paused from inside the running platform. The operator
+ * must stop every platform instance and keep it stopped until the restore has
+ * finished. This runner checks that prerequisite; it cannot enforce it:
+ *  - every listed systemd unit must be confirmed stopped (fails safe: a unit
+ *    that is running, transitional, not found or whose state cannot be read,
+ *    or a host without systemctl, refuses unless VCONTROLHUB_SERVICE_UNITS=none);
+ *  - the database import begins, inside its single transaction, by refusing
+ *    if any other client is connected to the target database, and the same
+ *    check runs again before files are copied.
+ * These are point-in-time checks. A client that connects after them (an
+ * instance on another host, a custom unit name not listed, a manual start)
+ * is not excluded; table locks taken by the import only cover the tables it
+ * has already touched, and nothing fences the file phase.
+ * Restore runbook: docs/audit-verification-2026-10-12.zh-CN.md (R04).
  */
 import { spawn, spawnSync } from "node:child_process";
 import { createReadStream } from "node:fs";
@@ -64,19 +74,45 @@ function assertRestoreConfirmed() {
 
 const OFFLINE_HINT = "Stop every VControlHub service (web, worker, SSH proxy) and any other database client, then retry; start the services again after the restore.";
 
-/** systemd units of the platform; none may be running during a restore. */
+const DEFAULT_SERVICE_UNITS = "vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws";
+const NON_SYSTEMD_HINT = "If the platform does not run under systemd on this host, stop every instance yourself and re-run with VCONTROLHUB_SERVICE_UNITS=none.";
+// Only these mean "not running". Running and transitional states, "unknown",
+// errors and missing output all mean the stop cannot be confirmed.
+const STOPPED_ACTIVE_STATES = new Set(["inactive", "failed"]);
+const KNOWN_LOAD_STATES = new Set(["loaded", "masked"]);
+
+/**
+ * The platform's systemd units; none may be running during a restore. Fails
+ * safe: anything but a unit positively reported as stopped refuses. A unit
+ * systemd does not know ("not-found") refuses too — with other unit names the
+ * default list would otherwise pass while the real units keep running.
+ */
 async function assertPlatformServicesStopped() {
-  const systemctl = process.platform === "win32" ? null : await findBinary("systemctl");
-  if (!systemctl) return; // no systemd: the database client check below still applies
-  const units = (process.env.VCONTROLHUB_SERVICE_UNITS ?? "vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws")
-    .split(/[\s,]+/)
-    .filter(Boolean);
-  const running = [];
-  for (const unit of units) {
-    const state = (spawnSync(systemctl, ["is-active", unit], { encoding: "utf8" }).stdout || "").trim();
-    if (["active", "activating", "reloading", "deactivating", "refreshing"].includes(state)) running.push(`${unit} (${state})`);
+  const configured = process.env.VCONTROLHUB_SERVICE_UNITS;
+  if (configured?.trim().toLowerCase() === "none") {
+    log("VCONTROLHUB_SERVICE_UNITS=none: no service-manager check; the operator confirmed every platform instance is stopped.");
+    return;
   }
-  if (running.length > 0) fail(`OFFLINE RESTORE REQUIRED: ${running.join(", ")} still running. ${OFFLINE_HINT}`);
+  const units = (configured ?? DEFAULT_SERVICE_UNITS).split(/[\s,]+/).filter(Boolean);
+  if (units.length === 0) fail(`VCONTROLHUB_SERVICE_UNITS is empty. List the platform's systemd units. ${NON_SYSTEMD_HINT}`);
+  const systemctl = process.platform === "win32" ? null : await findBinary("systemctl");
+  if (!systemctl) fail(`OFFLINE RESTORE REQUIRED: cannot confirm that ${units.join(", ")} are stopped (systemctl not available). ${NON_SYSTEMD_HINT}`);
+  const unconfirmed = [];
+  for (const unit of units) {
+    const result = spawnSync(systemctl, ["show", "-p", "LoadState", "-p", "ActiveState", "--", unit], { encoding: "utf8" });
+    const properties = Object.fromEntries(
+      (result.error || result.status !== 0 ? "" : result.stdout || "")
+        .split(/\r?\n/)
+        .map((line) => line.split("="))
+        .filter((pair) => pair.length === 2),
+    );
+    const { LoadState: load, ActiveState: active } = properties;
+    if (!KNOWN_LOAD_STATES.has(load)) unconfirmed.push(`${unit} (${load || "state unknown"})`);
+    else if (!STOPPED_ACTIVE_STATES.has(active)) unconfirmed.push(`${unit} (${active || "state unknown"})`);
+  }
+  if (unconfirmed.length > 0) {
+    fail(`OFFLINE RESTORE REQUIRED: ${unconfirmed.join(", ")} not confirmed stopped. ${OFFLINE_HINT} ${NON_SYSTEMD_HINT}`);
+  }
 }
 
 const OTHER_CLIENTS_SQL =
@@ -85,8 +121,9 @@ const OTHER_CLIENTS_SQL =
 /**
  * First statement of the import transaction. A web/worker process (or another
  * restore) that is connected fails the whole transaction before anything is
- * dropped; one that connects later blocks on the dump's table locks until the
- * import committed, i.e. it only ever sees the restored data.
+ * dropped. This is a point-in-time check, not a fence: a client that connects
+ * afterwards is not refused (it only waits on tables the import has already
+ * locked). Keeping every instance stopped remains the operator's job.
  */
 const OFFLINE_GUARD_SQL = `DO $vch_offline$ DECLARE other integer; BEGIN
   ${OTHER_CLIENTS_SQL} INTO other;

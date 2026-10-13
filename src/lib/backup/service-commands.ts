@@ -65,7 +65,10 @@ function formatRestoreStepsAsShell(projectRoot: string, steps: BackupRestoreStep
 		const invocation = tail ? `${head} ${script} ${tail}` : `${head} ${script}`;
 		return confirm && !IS_WINDOWS ? `CONFIRM_RESTORE=1 ${invocation}` : invocation;
 	});
-	const prefix = confirm && IS_WINDOWS ? `set "CONFIRM_RESTORE=1" && ` : "";
+	// Windows has no systemd for the runner to check: the runbook's manual stop
+	// step comes first, and VCONTROLHUB_SERVICE_UNITS=none records that the
+	// operator confirms it (the database-client check still runs).
+	const prefix = confirm && IS_WINDOWS ? `set "CONFIRM_RESTORE=1" && set "VCONTROLHUB_SERVICE_UNITS=none" && ` : "";
 	return `${prefix}cd ${shellQuote(projectRoot)} && ${parts.join(" && ")}`;
 }
 

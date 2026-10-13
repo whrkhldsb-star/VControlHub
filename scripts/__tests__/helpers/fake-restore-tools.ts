@@ -5,7 +5,9 @@ import path from "node:path";
  * Fake `systemctl` and `psql` for the restore runner tests, so they never
  * consult the real host (where the platform's own services may be running).
  *
- * - systemctl prints FAKE_SYSTEMCTL_STATE (default "inactive").
+ * - systemctl reports ActiveState FAKE_SYSTEMCTL_STATE (default "inactive")
+ *   and LoadState FAKE_SYSTEMCTL_LOAD (default "loaded"); FAKE_SYSTEMCTL_FAIL=1
+ *   makes it fail like a host whose systemd cannot be reached.
  * - psql answers the offline check query (`-c …`) with FAKE_PSQL_OTHER_CLIENTS
  *   (default 0); for an import it drains stdin, records argv and PGPASSWORD to
  *   RESTORE_CAPTURE when set, and fails with the offline error when
@@ -24,6 +26,9 @@ process.stdin.on("end", () => {
 });
 `;
 const SYSTEMCTL = `const state = process.env.FAKE_SYSTEMCTL_STATE || "inactive";
+const load = process.env.FAKE_SYSTEMCTL_LOAD || "loaded";
+if (process.env.FAKE_SYSTEMCTL_FAIL === "1") { process.stderr.write("Failed to connect to bus\\n"); process.exit(1); }
+if (process.argv[2] === "show") { process.stdout.write("LoadState=" + load + "\\nActiveState=" + state + "\\n"); process.exit(0); }
 process.stdout.write(state + "\\n");
 process.exit(state === "active" ? 0 : 3);
 `;
