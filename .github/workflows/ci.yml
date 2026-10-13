@@ -129,6 +129,9 @@ jobs:
       - name: API copy audit
         run: npm run api-copy:audit
 
+      - name: RBAC drift gate
+        run: npm run rbac:audit -- --no-write
+
       # Push the schema before the suite: the database integration tests
       # (files/job/upload/downloads/server inventory) run against this
       # isolated loopback database and need real tables to exist.

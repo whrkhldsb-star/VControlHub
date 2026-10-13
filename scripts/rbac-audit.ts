@@ -39,9 +39,14 @@
  *   - JSON report to `docs/rbac-audit.json` (machine-readable).
  *   - Markdown report to `docs/rbac-audit.md` (human-readable).
  *   - Stdout summary: perm count, role count, drift count by category.
- *   - Exit code 0 (informational — backlog, not a regression signal).
+ *   - Exit code 1 when any BLOCKING drift is found (every code except the
+ *     soft `page-button-perm-unused` signal), 0 otherwise. Intentionally
+ *     public routes are reviewed exceptions in the api-no-declared-perm
+ *     allowlist below, not ignored drift.
  *
- * Run: `npx tsx scripts/rbac-audit.ts`
+ * Run: `npx tsx scripts/rbac-audit.ts [--no-write] [--report-only]`
+ *   --no-write     do not rewrite docs/rbac-audit.{json,md} (CI / local gate)
+ *   --report-only  always exit 0 (the former informational behaviour)
  */
 import {
   readFileSync,
@@ -725,7 +730,21 @@ export function buildMarkdown(report: AuditReport): string {
 
 // ─── Main ──────────────────────────────────────────────────────────────────
 
-export function runAudit(): AuditReport {
+/** Drift codes that fail the gate. page-button-perm-unused is a soft signal. */
+export const BLOCKING_DRIFT_CODES: ReadonlySet<Drift["code"]> = new Set<Drift["code"]>([
+  "perm-not-in-list",
+  "perm-without-role",
+  "role-grants-unknown",
+  "api-no-declared-perm",
+  "api-decl-perm-unused",
+  "api-route-missing",
+]);
+
+export function blockingDrifts(report: Pick<AuditReport, "drifts">): Drift[] {
+  return report.drifts.filter((drift) => BLOCKING_DRIFT_CODES.has(drift.code));
+}
+
+export function runAudit(options: { write?: boolean } = {}): AuditReport {
   if (!existsSync(resolve(ROOT, CATALOG_PATH))) {
     console.error(`Missing ${CATALOG_PATH} — run \`npm run route:catalog\` first`);
     process.exit(2);
@@ -767,17 +786,21 @@ export function runAudit(): AuditReport {
     drifts,
   };
 
-  writeFileSync(
-    resolve(ROOT, REPORT_JSON_PATH),
-    JSON.stringify(report, null, 2) + "\n",
-  );
-  writeFileSync(resolve(ROOT, REPORT_MD_PATH), buildMarkdown(report));
+  if (options.write !== false) {
+    writeFileSync(
+      resolve(ROOT, REPORT_JSON_PATH),
+      JSON.stringify(report, null, 2) + "\n",
+    );
+    writeFileSync(resolve(ROOT, REPORT_MD_PATH), buildMarkdown(report));
+  }
 
   return report;
 }
 
 function main() {
-  const report = runAudit();
+  const args = new Set(process.argv.slice(2));
+  const write = !args.has("--no-write");
+  const report = runAudit({ write });
   const { summary } = report;
   console.log(
     `loaded ${summary.permissionsInList} permissions, ${summary.rolesDefined} roles, ${summary.apiRoutesAudited} API routes, ${summary.pagesAudited} pages`,
@@ -785,17 +808,28 @@ function main() {
   console.log(
     `scanned ${summary.callSitesAudited} call sites, found ${summary.driftCount} drift(s)`,
   );
-  console.log(
-    `wrote ${REPORT_JSON_PATH} (${statSync(resolve(ROOT, REPORT_JSON_PATH)).size} bytes)`,
-  );
-  console.log(
-    `wrote ${REPORT_MD_PATH} (${statSync(resolve(ROOT, REPORT_MD_PATH)).size} bytes)`,
-  );
+  if (write) {
+    console.log(
+      `wrote ${REPORT_JSON_PATH} (${statSync(resolve(ROOT, REPORT_JSON_PATH)).size} bytes)`,
+    );
+    console.log(
+      `wrote ${REPORT_MD_PATH} (${statSync(resolve(ROOT, REPORT_MD_PATH)).size} bytes)`,
+    );
+  }
   for (const [code, count] of Object.entries(summary.driftByCode)) {
     if (count > 0) console.log(`  ${count}x  ${code}`);
   }
-  // Informational only — drift is a backlog, not a regression signal.
-  process.exit(0);
+  const blocking = blockingDrifts(report);
+  if (blocking.length === 0) {
+    process.exit(0);
+  }
+  for (const drift of blocking) console.error(`RBAC drift [${drift.code}] ${drift.message}`);
+  if (args.has("--report-only")) {
+    console.warn(`${blocking.length} blocking RBAC drift(s) reported; --report-only keeps exit 0`);
+    process.exit(0);
+  }
+  console.error(`${blocking.length} blocking RBAC drift(s): fix them, or review and add an explicit exception`);
+  process.exit(1);
 }
 
 if (resolve(process.argv[1] || "") === resolve(__filename)) {

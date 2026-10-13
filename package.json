@@ -22,7 +22,7 @@
     "ci:local:full": "bash scripts/ci-local.sh --full",
     "test:watch": "vitest",
     "test:quick": "npm run typecheck && npm run lint",
-    "test:merge": "npm run test:quick && npm test && npm run route:verify && npm run rbac:audit",
+    "test:merge": "npm run test:quick && npm test && npm run route:verify && npm run rbac:audit -- --no-write",
     "test:deploy": "npm run build && npm run build:runtime && npm run verify:deploy-assets && npm run docs:check",
     "test:e2e:nightly": "E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 E2E_ISOLATED_ACCOUNT=1 E2E_USER=vcontrolhub_e2e E2E_PASS=VControlHub-E2E-2026! playwright test --project=chromium --workers=1",
     "test:e2e:cross-browser": "PLAYWRIGHT_CROSS_BROWSER=1 E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 E2E_ISOLATED_ACCOUNT=1 E2E_USER=vcontrolhub_e2e E2E_PASS=VControlHub-E2E-2026! playwright test --project=chromium --project=firefox --project=webkit --workers=1",

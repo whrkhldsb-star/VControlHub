@@ -26,6 +26,18 @@ git config core.hooksPath .githooks
 # then every push runs `make ci-local` unless CI_SKIP=1
 ```
 
+## RBAC drift gate
+
+`npm run rbac:audit -- --no-write` runs in the CI `test` job and in
+`ci:local`. It exits 1 on any blocking drift — every drift code except the
+soft `page-button-perm-unused` signal — e.g. a route whose
+`declaredPermissions` it never enforces, or a permission missing from
+`PERMISSIONS`. Intentionally public API routes are reviewed exceptions in the
+`api-no-declared-perm` allowlist in `scripts/rbac-audit.ts`; add to it only
+after review. Without `--no-write` the command also refreshes
+`docs/rbac-audit.{json,md}`; `--report-only` keeps the old informational
+exit 0.
+
 ## GitHub Branch protection (one-time, repo admin)
 
 In **Settings → Branches → Branch protection rules → main**:
