@@ -121,6 +121,23 @@ async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: st
   return usage._sum.size ?? BigInt(0);
 }
 
+/** Size of the live file at the write target (0 for a new file or a directory target). */
+async function getReplacedFileBytes(storageNodeId: string, targetPath: string) {
+  if (!targetPath) return BigInt(0);
+  const existing = await prisma.fileEntry.findFirst({
+    where: { storageNodeId, relativePath: targetPath, isDeleted: false, entryType: "FILE" },
+    select: { size: true },
+  });
+  return existing?.size ?? BigInt(0);
+}
+
+/**
+ * Quota semantics: a grant's quotaBytes bounds the live file bytes under its
+ * pathPrefix on that node, whoever wrote them — users with grants on the same
+ * directory share what is stored there, each measured against their own
+ * grant. writeBytes is the full size of the file being written; overwriting
+ * an existing file is charged only the difference.
+ */
 export async function assertStorageAccess(input: {
   session: SessionPayload;
   storageNodeId: string;
@@ -209,7 +226,12 @@ export async function assertStorageAccess(input: {
           storageNodeId: input.storageNodeId,
           pathPrefix: operationGrant.pathPrefix,
         });
-        if (usedBytes + writeBytes > operationGrant.quotaBytes) {
+        // Usage already counts the live file this write replaces, so a quota
+        // admits the size change, not the full new size: a same-size or
+        // smaller rewrite always fits. Read under the lock, so a concurrent
+        // writer of the same grant cannot change it in between.
+        const replacedBytes = await getReplacedFileBytes(input.storageNodeId, targetPath);
+        if (usedBytes - replacedBytes + writeBytes > operationGrant.quotaBytes) {
           await releaseQuotaGuard();
           return {
             allowed: false,

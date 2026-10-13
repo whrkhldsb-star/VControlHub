@@ -27,7 +27,7 @@ import {
   ValidationError,
 } from "@/lib/errors";
 import { logError } from "@/lib/logging";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { statBackingObject } from "@/lib/storage/fs-backend";
 import {
@@ -482,30 +482,50 @@ export async function restoreFileVersion(input: {
     throw new BusinessError(t("backend.storage.versionChecksumMismatch"));
   }
 
-  // Snapshot current body as RESTORE_POINT before overwriting.
-  const restorePoint = await snapshotFileVersionBeforeOverwrite({
-    fileEntryId: entry.id,
-    userId: input.session.userId,
-    reason: "RESTORE_POINT",
-    note: `Before restore to v${version.versionNumber}`,
+  // A restore is a write of the version's bytes: the grant's maxFileBytes and
+  // quota apply as they do today (they may have been lowered since the
+  // version was taken). The quota guard is held until the index carries the
+  // new size, like every other quota-checked write.
+  const quota = await assertStorageAccess({
+    session: input.session,
+    storageNodeId: entry.storageNodeId,
+    relativePath: entry.relativePath,
+    operation: "write",
+    writeBytes: buffer.byteLength,
   });
-
-  const node = entry.storageNode as StorageFileNode;
-  if (node.driver === "LOCAL") {
-    node.basePath = expandStorageBasePath(node.basePath);
+  if (!quota.allowed) {
+    throw new ForbiddenError(storageAccessDeniedCopy(quota.reason));
   }
-  await writeStorageFileBuffer(node, entry.relativePath, buffer);
 
-  await prisma.fileEntry.update({
-    where: { id: entry.id },
-    data: {
-      size: BigInt(buffer.byteLength),
-      mimeType: version.mimeType ?? entry.mimeType,
-      checksumSha256: blobChecksum,
-      isDeleted: false,
-      updatedAt: new Date(),
-    },
-  });
+  let restorePoint: FileVersionView | null;
+  try {
+    // Snapshot current body as RESTORE_POINT before overwriting.
+    restorePoint = await snapshotFileVersionBeforeOverwrite({
+      fileEntryId: entry.id,
+      userId: input.session.userId,
+      reason: "RESTORE_POINT",
+      note: `Before restore to v${version.versionNumber}`,
+    });
+
+    const node = entry.storageNode as StorageFileNode;
+    if (node.driver === "LOCAL") {
+      node.basePath = expandStorageBasePath(node.basePath);
+    }
+    await writeStorageFileBuffer(node, entry.relativePath, buffer);
+
+    await prisma.fileEntry.update({
+      where: { id: entry.id },
+      data: {
+        size: BigInt(buffer.byteLength),
+        mimeType: version.mimeType ?? entry.mimeType,
+        checksumSha256: blobChecksum,
+        isDeleted: false,
+        updatedAt: new Date(),
+      },
+    });
+  } finally {
+    await releaseStorageQuotaGuard(quota);
+  }
 
   return {
     restored: toView({ ...version, createdBy: null }),
