@@ -497,6 +497,15 @@ export const zh: Record<string, string> = {
 	"backend.quick-service.uninstallRollbackFailed":
 		"容器已删除，但数据库记录保留；请重试卸载：{message}",
 	"backend.quick-service.startFailedWithMessage": "启动失败：{message}",
+	"backend.quick-service.containerNotRunningAfterStart": "容器 {name} 启动后状态为 {status}，没有在运行",
+	"backend.quick-service.containerRestartedAfterStart": "容器 {name} 启动后立即重启了 {count} 次",
+	"backend.quick-service.containerUnhealthy": "容器 {name} 的健康检查结果为 unhealthy",
+	"backend.quick-service.containerStoppedAfterStart": "容器 {name} 启动后不久即停止（{status}，重启 {count} 次）",
+	"backend.quick-service.renameForRollbackFailed": "无法保留当前容器用于回滚（重命名失败：{message}），未做任何更改",
+	"backend.quick-service.cleanupLeftoverFailed": "清理残留容器失败：{message}",
+	"backend.quick-service.previousRestoredNotStarted": "已恢复原容器但未能启动：{message}",
+	"backend.quick-service.previousKeptAsBackup": "原容器保留为 {name}（恢复失败：{message}）",
+	"backend.quick-service.failureWithCleanupNotes": "{message}；{notes}",
 	"backend.quick-service.updateFailedWithMessage": "更新失败：{message}",
 	"backend.quick-service.stopFailedWithMessage": "停止失败：{message}",
 	"backend.quick-service.hostMountOutsideAllowedRoots":
@@ -1140,6 +1149,15 @@ export const en: Record<string, string> = {
 	"backend.quick-service.uninstallRollbackFailed":
 		"The container was deleted but the database record remains; retry uninstall: {message}",
 	"backend.quick-service.startFailedWithMessage": "Start failed: {message}",
+	"backend.quick-service.containerNotRunningAfterStart": "container {name} is {status} after start, not running",
+	"backend.quick-service.containerRestartedAfterStart": "container {name} restarted {count} time(s) right after start",
+	"backend.quick-service.containerUnhealthy": "container {name} reports an unhealthy healthcheck",
+	"backend.quick-service.containerStoppedAfterStart": "container {name} stopped shortly after start ({status}, {count} restart(s))",
+	"backend.quick-service.renameForRollbackFailed": "could not preserve the current container for rollback (rename failed: {message}); nothing was changed",
+	"backend.quick-service.cleanupLeftoverFailed": "failed to clean up leftover container: {message}",
+	"backend.quick-service.previousRestoredNotStarted": "previous container restored but not started: {message}",
+	"backend.quick-service.previousKeptAsBackup": "previous container kept as {name} (restore failed: {message})",
+	"backend.quick-service.failureWithCleanupNotes": "{message}; {notes}",
 	"backend.quick-service.updateFailedWithMessage": "Update failed: {message}",
 	"backend.quick-service.stopFailedWithMessage": "Stop failed: {message}",
 	"backend.quick-service.hostMountOutsideAllowedRoots":

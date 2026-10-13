@@ -306,7 +306,7 @@ export async function recreateDockerContainer(
 		} catch (error) {
 			// Without the renamed copy there is nothing to roll back to. The
 			// current container is untouched; stop instead of deleting it.
-			throw new BusinessError(`could not preserve the current container for rollback (rename failed: ${dockerErrorMessage(error)}); nothing was changed`);
+			throw new BusinessError(t("backend.quick-service.renameForRollbackFailed", { message: dockerErrorMessage(error) }));
 		}
 		{
 			try {
@@ -377,7 +377,7 @@ export async function recreateDockerContainer(
 		try {
 			await dockerExec(target, ["rm", "-f", containerName], 15_000);
 		} catch (cleanupErr) {
-			cleanupNotes.push(`failed to clean up leftover container: ${dockerErrorMessage(cleanupErr)}`);
+			cleanupNotes.push(t("backend.quick-service.cleanupLeftoverFailed", { message: dockerErrorMessage(cleanupErr) }));
 		}
 		if (hadExisting) {
 			try {
@@ -385,14 +385,14 @@ export async function recreateDockerContainer(
 				try {
 					await dockerExec(target, ["start", containerName], 30_000);
 				} catch (startErr) {
-					cleanupNotes.push(`previous container restored but not started: ${dockerErrorMessage(startErr)}`);
+					cleanupNotes.push(t("backend.quick-service.previousRestoredNotStarted", { message: dockerErrorMessage(startErr) }));
 				}
 			} catch (restoreErr) {
-				cleanupNotes.push(`previous container kept as ${backupName} (restore failed: ${dockerErrorMessage(restoreErr)})`);
+				cleanupNotes.push(t("backend.quick-service.previousKeptAsBackup", { name: backupName, message: dockerErrorMessage(restoreErr) }));
 			}
 		}
 		if (cleanupNotes.length === 0) throw err;
-		throw new BusinessError(`${dockerErrorMessage(err)}; ${cleanupNotes.join("; ")}`);
+		throw new BusinessError(t("backend.quick-service.failureWithCleanupNotes", { message: dockerErrorMessage(err), notes: cleanupNotes.join("; ") }));
 	}
 
 	if (hadExisting) {

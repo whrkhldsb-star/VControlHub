@@ -283,11 +283,11 @@ describe("quick service docker lifecycle", () => {
 			return "";
 		});
 
-		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("failed to clean up leftover container");
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("清理残留容器失败");
 		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } } });
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
 			action: "quick_service.install.failed",
-			detail: expect.objectContaining({ error: expect.stringContaining("failed to clean up leftover container"), rollback: "deleted" }),
+			detail: expect.objectContaining({ error: expect.stringContaining("清理残留容器失败"), rollback: "deleted" }),
 		}));
 	});
 

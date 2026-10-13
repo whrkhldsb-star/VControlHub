@@ -11,6 +11,7 @@ import { promisify } from "util";
 import { BusinessError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { serviceT } from "@/lib/i18n/service-locale";
+import { t } from "@/lib/i18n/service-translations";
 import { shellQuote } from "@/lib/shell-quote";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { loadEnabledServerForSsh } from "@/lib/ssh/server-target";
@@ -266,13 +267,13 @@ export async function assertContainerStarted(target: DockerTarget, containerName
   for (;;) {
     const state = await inspectContainerRuntimeState(target, containerName);
     if (state.status !== "running") {
-      throw new BusinessError(`container ${containerName} is ${state.status || "unknown"} after start, not running`);
+      throw new BusinessError(t("backend.quick-service.containerNotRunningAfterStart", { name: containerName, status: state.status || "unknown" }));
     }
     if (state.restarts > 0) {
-      throw new BusinessError(`container ${containerName} restarted ${state.restarts} time(s) right after start`);
+      throw new BusinessError(t("backend.quick-service.containerRestartedAfterStart", { name: containerName, count: state.restarts }));
     }
     if (state.health === "unhealthy") {
-      throw new BusinessError(`container ${containerName} reports an unhealthy healthcheck`);
+      throw new BusinessError(t("backend.quick-service.containerUnhealthy", { name: containerName }));
     }
     if (state.health === "healthy") return "healthy";
     if (!state.health) {
@@ -282,7 +283,7 @@ export async function assertContainerStarted(target: DockerTarget, containerName
       await sleep(containerHealthGate.settleMs);
       const again = await inspectContainerRuntimeState(target, containerName);
       if (again.status !== "running" || again.restarts > 0) {
-        throw new BusinessError(`container ${containerName} stopped shortly after start (${again.status || "unknown"}, ${again.restarts} restart(s))`);
+        throw new BusinessError(t("backend.quick-service.containerStoppedAfterStart", { name: containerName, status: again.status || "unknown", count: again.restarts }));
       }
       return "running";
     }

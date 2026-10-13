@@ -145,7 +145,7 @@ describe("quick-service update keeps the previous container on failure", () => {
 
 	it("rolls back when the new container exits right after start", async () => {
 		faults.newContainer = { state: "exited", health: "", restarts: 0 };
-		await expect(updateService("demo")).rejects.toThrow(/exited after start/);
+		await expect(updateService("demo")).rejects.toThrow(/启动后状态为 exited/);
 		oldContainerIsBackAndRunning();
 	});
 
@@ -157,7 +157,7 @@ describe("quick-service update keeps the previous container on failure", () => {
 
 	it("rolls back when the new container is crash-looping", async () => {
 		faults.newContainer = { state: "running", health: "", restarts: 2 };
-		await expect(updateService("demo")).rejects.toThrow(/restarted 2 time/);
+		await expect(updateService("demo")).rejects.toThrow(/启动后立即重启了 2 次/);
 		oldContainerIsBackAndRunning();
 	});
 
@@ -169,7 +169,7 @@ describe("quick-service update keeps the previous container on failure", () => {
 
 	it("does not delete the current container when it cannot be renamed aside", async () => {
 		faults.renameError = "Error response from daemon: Error when allocating new name: permission denied";
-		await expect(updateService("demo")).rejects.toThrow(/could not preserve the current container/);
+		await expect(updateService("demo")).rejects.toThrow(/无法保留当前容器用于回滚/);
 		oldContainerIsBackAndRunning();
 	});
 });
