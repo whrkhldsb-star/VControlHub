@@ -52,15 +52,33 @@ describe("/api/search", () => {
     const res = await route.GET(new Request("http://local/api/search?q=alist"));
 
     expect(res.status).toBe(200);
-    // hub-host installs (serverId null) stay platform-visible; remote installs
-    // inherit their Server's strict tenant scope.
+    // Remote installs inherit their Server's strict tenant scope; hub-host
+    // installs (serverId null) are not visible to a customer operator.
     expect(mocks.prisma.quickService.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          OR: [{ serverId: null }, { server: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_a" }]) }) }],
+          OR: [{ server: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_a" }]) }) }],
         },
       }),
     );
+  });
+
+  it("keeps hub-host installs out of a customer's results and in a platform admin's", async () => {
+    mocks.sessionHasPermission.mockImplementation(
+      (_session, permission: string) => permission === "docker:manage",
+    );
+    mocks.prisma.quickService.findMany.mockImplementation(async ({ where }: { where: { OR: Array<Record<string, unknown>> } }) =>
+      where.OR.some((clause) => "serverId" in clause && clause.serverId === null)
+        ? [{ slug: "hub-secret-tool", name: "Hub Secret Tool", description: "platform only", status: "running", instanceKey: "hub-host" }]
+        : [],
+    );
+
+    const customer = await (await route.GET(new Request("http://local/api/search?q=secret"))).json();
+    expect(customer.results).toEqual([]);
+
+    mocks.requireApiSession.mockResolvedValue({ userId: "a1", username: "root", roles: ["admin"], currentTeamId: null });
+    const admin = await (await route.GET(new Request("http://local/api/search?q=secret"))).json();
+    expect(admin.results).toEqual([expect.objectContaining({ id: "quick-service:hub-secret-tool", label: "Hub Secret Tool" })]);
   });
 
   it("does not query quick-services at all without docker:manage", async () => {
