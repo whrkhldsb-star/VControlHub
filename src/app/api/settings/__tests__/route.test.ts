@@ -76,6 +76,20 @@ describe("/api/settings audit coverage", () => {
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("控制台");
   });
 
+  it("keeps a secret sent back as the *** sentinel and clears one sent empty", async () => {
+    const patch = (body: Record<string, string>) => route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }));
+
+    expect((await patch({ "platform.name": "控制台", "smtp.pass": "***" })).status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "platform.name", value: "控制台" }]);
+
+    expect((await patch({ "smtp.pass": "" })).status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "smtp.pass", value: "" }]);
+  });
+
   it("rejects malformed JSON with the shared bodySchema error envelope", async () => {
     const response = await route.PATCH(new Request("http://local/api/settings", {
       method: "PATCH",

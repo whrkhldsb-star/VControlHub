@@ -34,6 +34,10 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 - A direct-SSH storage write through a dangling symbolic link is refused with the same "path leaves the node" error as other links out of the root (it used to surface as a raw "No such file" error); the Agent path already refused it.
 - Lowering `storage.uploadMaxBytes` applies to every upload admission and assembly at once (read from the database at that moment), not after a process's cache refresh; the SSH host-key pin policy is strict (unpinned hosts refused) until the stored policy has been read.
 - The "remember me" session lifetime follows the settings page (database, then `AUTH_REMEMBER_SESSION_TTL_SECONDS`, then default); the environment variable used to win silently while the page said "database".
+- The SSH keepalive interval and tolerance count of terminal sessions follow `runtime.sshKeepaliveIntervalMs` / `runtime.sshKeepaliveCountMax` (database, then `SSH_KEEPALIVE_INTERVAL_MS` / `SSH_KEEPALIVE_COUNT_MAX`); both were defined but ignored (fixed 30 s, count from the idle timeout). Without a stored value or environment variable the count is still derived from the SSH idle timeout, so existing installations keep their behaviour.
+- `/settings` no longer sends decrypted secrets (SMTP password, Telegram bot token, off-site access keys) to the browser: a stored secret shows as an empty field marked "saved", typing replaces it verbatim, and only the field's Clear button removes it. Unset secrets are reported as empty (also by `GET /api/settings`) instead of `***`.
+- A retried escalation notice quotes the escalation window in force when the incident escalated (stored on the incident), not the rule's later edited value. Migration `20261014120000_alert_incident_escalation_minutes_snapshot` adds the nullable column; incidents escalated before it fall back to the rule's current value.
+- Batch publishing on `/public-status` is all-or-nothing: a failure part-way (for example a node removed meanwhile) no longer leaves earlier nodes public while the request reports an error without an audit entry.
 
 ### Changed
 

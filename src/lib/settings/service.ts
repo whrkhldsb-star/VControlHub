@@ -145,14 +145,14 @@ export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<s
 
 /**
  * Return all settings with sensitive values masked.
- * Keys containing password/secret/key/token/pass will have
- * their values replaced with '***'.
+ * A stored secret (see isSensitiveKey) is replaced with '***'; an unset one
+ * stays empty so the settings page does not show a secret that is not there.
  */
 export async function getAllSettingsMasked(): Promise<Record<string, string>> {
 	const settings = await getAllSettings();
 	const masked: Record<string, string> = {};
 	for (const [key, value] of Object.entries(settings)) {
-		masked[key] = isSensitiveKey(key) ? MASKED_VALUE : value;
+		masked[key] = isSensitiveKey(key) && value !== "" ? MASKED_VALUE : value;
 	}
 	return masked;
 }

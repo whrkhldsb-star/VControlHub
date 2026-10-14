@@ -580,22 +580,25 @@ export async function getSftpSyncDirectoryTimeoutMs(): Promise<number> {
 }
 
 export async function getSshTerminalRuntimeConfig() {
-  const values = await getRuntimeSettingNumbers([
-    "runtime.sshWsHeartbeatIntervalMs",
-    "runtime.sshKeepaliveIntervalMs",
-    "runtime.sshIdleTimeoutSec",
+  const countKey = "runtime.sshKeepaliveCountMax";
+  const [values, persistedCountMax] = await Promise.all([
+    getRuntimeSettingNumbers([
+      "runtime.sshWsHeartbeatIntervalMs",
+      "runtime.sshKeepaliveIntervalMs",
+      "runtime.sshIdleTimeoutSec",
+    ]),
+    // null for no row, an invalid row or a failed read.
+    readPersistedRuntimeSettingNumber(countKey),
   ]);
   const wsHeartbeatIntervalMs = values["runtime.sshWsHeartbeatIntervalMs"];
   const sshIdleTimeoutSec = values["runtime.sshIdleTimeoutSec"];
   // Keepalive 走 runtime.sshKeepaliveIntervalMs / runtime.sshKeepaliveCountMax
-  // 两个设置项 (缺省 30s)。countMax 只在管理员显式写入时覆盖推导值——
-  // getRuntimeSettingNumbers 对未落库的 key 也返回 defaultValue, 无法区分
-  // "显式 60" 与 "默认 60", 因此这里读原始行判断是否显式存在。
+  // 两个设置项 (缺省 30s)。countMax 的默认值 60 只是上限: 数据库值优先,
+  // 其次是有效的 SSH_KEEPALIVE_COUNT_MAX 环境变量, 两者都没有时按空闲超时推导。
   const sshKeepaliveIntervalMs = values["runtime.sshKeepaliveIntervalMs"];
-  const rawRows = await readRuntimeSettingValues(["runtime.sshKeepaliveCountMax"]);
-  const explicitCountMax = rawRows?.has("runtime.sshKeepaliveCountMax")
-    ? runtimeSettingNumberFrom("runtime.sshKeepaliveCountMax", rawRows.get("runtime.sshKeepaliveCountMax"))
-    : null;
+  const countDefinition = RUNTIME_SETTING_DEFINITIONS[countKey];
+  const explicitCountMax = persistedCountMax
+    ?? (hasEnvOverride(countDefinition.env, countDefinition.min) ? getRuntimeSettingFallback(countKey) : null);
   const SSH_KEEPALIVE_COUNT_MAX_CAP = 60;
   const derivedCountMax = sshIdleTimeoutSec === 0
     ? SSH_KEEPALIVE_COUNT_MAX_CAP

@@ -153,6 +153,30 @@ describe.skipIf(!RUN)("public status board (PostgreSQL)", () => {
 		await applyNodeBatch({ action: "publish", serverIds: [ids.metrics] }, "integration-admin");
 	});
 
+	it("batch publish is all-or-nothing when a node disappears part-way", async () => {
+		const publicId = publicIdOf.get(ids.metrics)!;
+		await applyNodeBatch({ action: "unpublish", serverIds: [ids.metrics] }, "integration-admin");
+		// The node row of the second target is gone by the time it is written
+		// (as when its server is deleted concurrently): a real P2025 from PostgreSQL.
+		const ghost = `${prefix}-ghost`;
+		const findMany = prisma.publicStatusNode.findMany.bind(prisma.publicStatusNode);
+		const spy = vi.spyOn(prisma.publicStatusNode, "findMany").mockImplementationOnce(((args: Parameters<typeof findMany>[0]) =>
+			findMany(args).then((rows) => [...rows, { serverId: ghost, displayName: "Ghost", server: { teamId: teamA } }])) as never);
+		try {
+			await expect(applyNodeBatch({ action: "publish", serverIds: [ids.metrics, ghost] }, "integration-admin")).rejects.toMatchObject({ code: "P2025" });
+		} finally {
+			spy.mockRestore();
+		}
+		const row = await prisma.publicStatusNode.findUnique({ where: { serverId: ids.metrics }, select: { published: true, publishedAt: true } });
+		expect(row).toEqual({ published: false, publishedAt: null });
+		invalidatePublicStatusCache();
+		expect(await readPublicNode(publicId)).toBeNull();
+
+		await expect(applyNodeBatch({ action: "publish", serverIds: [ids.metrics] }, "integration-admin")).resolves.toEqual({ changed: 1, skipped: [] });
+		invalidatePublicStatusCache();
+		expect(await readPublicNode(publicId)).not.toBeNull();
+	});
+
 	it("the cached board list re-checks visibility on every read (no invalidation call)", async () => {
 		const query = { ...DEFAULT_BOARD_QUERY, q: prefix, pageSize: 100 };
 		const visibleIds = async () => (await readPublicBoard(query))!.nodes.map((node) => node.id).sort();

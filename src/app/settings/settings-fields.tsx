@@ -9,9 +9,11 @@
  * own a11y wiring (label htmlFor, helper id, runtime summary id, blur
  * warning id) so the main component stays a thin orchestrator.
  */
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { isSensitiveKey, MASKED_VALUE } from "@/lib/settings/schema";
+import { ActionButton } from "@/components/action-button";
 import { CONTROL_CLASS, Notice, Switch } from "@/components/ui-primitives";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { FieldDef } from "./field-schema";
@@ -30,6 +32,8 @@ type CommonProps = {
   // TR-014 M02
   showHighRiskWarning: boolean;
   onHighRiskBlur: (currentValue: string) => void;
+  /** Last saved value (the section's baseline); "***" means a secret is stored. */
+  savedValue?: string;
 };
 
 export type FieldRendererProps = CommonProps;
@@ -43,6 +47,7 @@ export function FieldRenderer({
   runtimeSummary,
   showHighRiskWarning,
   onHighRiskBlur,
+  savedValue,
 }: FieldRendererProps) {
   const { t } = useI18n();
   if (field.type === "switch") {
@@ -96,6 +101,7 @@ export function FieldRenderer({
       runtimeSummary={runtimeSummary}
       showHighRiskWarning={showHighRiskWarning}
       onHighRiskBlur={onHighRiskBlur}
+      savedValue={savedValue}
     />
   );
 }
@@ -258,12 +264,25 @@ export function InputField({
   runtimeSummary,
   showHighRiskWarning,
   onHighRiskBlur,
+  savedValue,
 }: CommonProps) {
   const { t } = useI18n();
   const inputId = useId();
   const helperId = useId();
   const runtimeId = useId();
   const warningId = useId();
+  // A stored secret arrives as the "***" sentinel, which the settings API
+  // skips on save. The field shows it empty, so whatever is typed or pasted
+  // is the new secret verbatim; emptying the field again keeps the stored
+  // secret, and only the explicit clear button removes it. "Stored" follows
+  // the last saved value, so it stays right across saves without a reload.
+  const secretStored = isSensitiveKey(field.key) && savedValue === MASKED_VALUE;
+  // The value this field last produced while a secret is stored, and whether
+  // the clear button was used. Any other value (a save normalising the field
+  // back to "***", a section reset) ends that edit.
+  const [secretEdit, setSecretEdit] = useState<{ value: string; cleared: boolean } | null>(null);
+  const secretEditActive = secretEdit !== null && secretEdit.value === value;
+  const storedSecretKept = secretStored && value === MASKED_VALUE && !secretEditActive;
   const describedBy =
     [
       helperText ? helperId : null,
@@ -272,6 +291,20 @@ export function InputField({
     ]
       .filter(Boolean)
       .join(" ") || undefined;
+  const handleChange = (next: string) => {
+    if (!secretStored) {
+      onChange(next);
+      return;
+    }
+    const cleared = secretEditActive && secretEdit.cleared;
+    if (next === "" && !cleared) {
+      setSecretEdit(null);
+      onChange(MASKED_VALUE);
+      return;
+    }
+    setSecretEdit({ value: next, cleared });
+    onChange(next);
+  };
   return (
     <div data-inset=""
       data-form-field
@@ -289,6 +322,20 @@ export function InputField({
           {t(field.labelKey)}
         </label>
         <FieldRiskBadge level={field.riskLevel} />
+        {storedSecretKept && (
+          <ActionButton
+            size="xs"
+            variant="ghost"
+            onClick={() => {
+              setSecretEdit({ value: "", cleared: true });
+              onChange("");
+            }}
+            disabled={disabled}
+            aria-label={t("settingsClient.secretClearAria").replace("{label}", t(field.labelKey))}
+          >
+            {t("settingsClient.secretClear")}
+          </ActionButton>
+        )}
         <FieldRollbackButton
           field={field}
           value={value}
@@ -300,10 +347,12 @@ export function InputField({
         id={inputId}
         data-input
         type={field.type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={storedSecretKept ? "" : value}
+        onChange={(e) => handleChange(e.target.value)}
         onBlur={() => onHighRiskBlur(value)}
-        placeholder={field.placeholderKey ? t(field.placeholderKey) : field.defaultValue ?? ""}
+        placeholder={storedSecretKept
+          ? t("settingsClient.secretStoredPlaceholder")
+          : field.placeholderKey ? t(field.placeholderKey) : field.defaultValue ?? ""}
         autoComplete={field.autoComplete}
         disabled={disabled}
         aria-describedby={describedBy}

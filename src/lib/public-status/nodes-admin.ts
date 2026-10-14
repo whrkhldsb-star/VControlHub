@@ -260,20 +260,25 @@ export async function applyNodeBatch(input: NodeBatchInput, actorId: string) {
 	const targets = ids.filter((id) => configured.has(id));
 	let changed = 0;
 	if (input.action === "publish") {
-		// One statement per node keeps the per-node owner snapshot exact.
+		// One statement per node keeps the per-node owner snapshot exact. They
+		// run in one transaction: a failure part-way (e.g. a node removed in
+		// the meantime) must not leave earlier nodes public while the request
+		// reports an error and skips the audit entry and cache invalidation.
 		const now = new Date();
+		const updates = [];
 		for (const id of targets) {
 			const node = configured.get(id)!;
 			if (!node.displayName.trim()) {
 				skipped.push(id);
 				continue;
 			}
-			await prisma.publicStatusNode.update({
+			updates.push(prisma.publicStatusNode.update({
 				where: { serverId: id },
 				data: { published: true, publishedTeamId: node.server.teamId, publishedAt: now, publishedById: actorId },
-			});
-			changed += 1;
+			}));
 		}
+		await prisma.$transaction(updates);
+		changed = updates.length;
 	} else if (input.action === "unpublish") {
 		changed = (await prisma.publicStatusNode.updateMany({ where: { serverId: { in: targets } }, data: { published: false, publishedAt: null } })).count;
 	} else {
