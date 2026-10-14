@@ -217,6 +217,29 @@ describe("POST /api/files/extract", () => {
     await expect(import("node:fs/promises").then((fs) => fs.access(path.join(tempDir, "notes.txt")))).rejects.toThrow();
   });
 
+  it("never writes more than was admitted when a multi-member .gz understates its size", async () => {
+    // Two members: the trailer (last member) says 4 bytes, the real output is 4 KiB + 4.
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-extract-gz-multi-"));
+    await writeFile(
+      path.join(tempDir, "notes.txt.gz"),
+      Buffer.concat([gzipSync(Buffer.alloc(4096, 97)), gzipSync(Buffer.from("tail", "utf8"))]),
+    );
+    prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
+
+    const response = await POST(
+      new NextRequest("https://app.example.test/api/files/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ storageNodeId: "node_1", remotePath: "notes.txt.gz", driver: "LOCAL", name: "notes.txt.gz" }),
+      }),
+    );
+
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({ operation: "write", writeBytes: 4 }));
+    expect(response.status).toBe(413);
+    expect(createFileEntryMock).not.toHaveBeenCalled();
+    await expect(import("node:fs/promises").then((fs) => fs.access(path.join(tempDir, "notes.txt")))).rejects.toThrow();
+  });
+
   it("refuses .gz extraction when the output path already has an active index", async () => {
     await createGz();
     prismaMock.storageNode.findFirst.mockResolvedValue({

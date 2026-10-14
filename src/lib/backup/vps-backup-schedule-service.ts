@@ -258,8 +258,11 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 
 			dispatched++;
 		} catch (error) {
-			// The claim transaction rolled back; record the failure (never silent:
-			// ops need lastResult + logs) and move on to the next occurrence.
+			// The claim transaction rolled back, so this occurrence is still
+			// unclaimed. Retry it shortly (never later than the next cron time)
+			// instead of skipping it, and only while nobody else has claimed or
+			// changed the schedule since we read it: the compare-and-set keeps a
+			// failed tick from overwriting another worker's successful claim.
 			const errMsg = error instanceof Error ? error.message : String(error);
 			vpsSchedLogger.error("VPS backup schedule dispatch failed", {
 				scheduleId: schedule.id,
@@ -267,11 +270,11 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 				error: errMsg,
 			});
 			try {
-				const nextRunAt = computeNextRun(schedule.cronExpression);
-				await prisma.vpsBackupSchedule.update({
-					where: { id: schedule.id },
+				const retryAt = new Date(Math.min(Date.now() + VPS_DISPATCH_RETRY_MS, computeNextRun(schedule.cronExpression).getTime()));
+				await prisma.vpsBackupSchedule.updateMany({
+					where: { id: schedule.id, status: "ACTIVE", nextRunAt: schedule.nextRunAt },
 					data: {
-						nextRunAt,
+						nextRunAt: retryAt,
 						lastResult: `DISPATCH_FAILED: ${errMsg}`.slice(0, 500),
 					},
 				});
@@ -295,6 +298,9 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
  * retrying in 24h keeps the schedule observable instead of wedging it at the
  * CAS far-future sentinel.
  */
+/** A failed dispatch is retried after this long (or at the next cron time, if sooner). */
+export const VPS_DISPATCH_RETRY_MS = 5 * 60_000;
+
 export function computeNextRun(cronExpression: string, from: Date = new Date()): Date {
 	try {
 		return sharedComputeNextRun(cronExpression, from);

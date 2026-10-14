@@ -6,12 +6,18 @@ import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { shellQuote } from "@/lib/shell-quote";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
-import { MONITOR_SCRIPT } from "./monitor";
+import { MONITOR_SCRIPT, isUsableMonitorOutput, parseMonitorScriptOutput } from "./monitor";
+import { normalizeServerMetrics } from "@/lib/public-status/normalize";
+import { writeLatestMetrics } from "@/lib/public-status/latest-writer";
+import { createLogger } from "@/lib/logging";
 import { CommandCancellationUnconfirmedError } from "@/lib/command/cancellation-error";
 
 const AGENT_VERSION = "1.2.0";
 export const AGENT_FRESH_MS = 90_000;
 export const AGENT_JOB_HEARTBEAT_MS = 30_000;
+/** Both Agent scripts send a metric report at most once per this many seconds. */
+export const AGENT_METRICS_INTERVAL_SECONDS = 60;
+const logger = createLogger("server-agent");
 const AGENT_LEGACY_CLAIMED_STALE_MS = AGENT_FRESH_MS;
 const AGENT_OUTPUT_LIMIT = 8 * 1_048_576;
 /** Capabilities actually implemented by both the Linux (Python) and Windows (PowerShell) agents. */
@@ -84,6 +90,32 @@ export async function updateServerAgentHeartbeat(input: {
         : {}),
     },
   });
+  if (input.metricsRaw) await recordAgentLatestMetrics(input.serverId, input.metricsRaw.slice(0, 64_000), now);
+}
+
+/**
+ * Normalised copy of an Agent report for the status board. An unusable
+ * report is recorded as a collection failure, not as zeros; a failed write
+ * only logs, the heartbeat itself has already been stored.
+ */
+async function recordAgentLatestMetrics(serverId: string, raw: string, at: Date) {
+  try {
+    const metrics = parseMonitorScriptOutput(raw);
+    const usable = isUsableMonitorOutput(raw, metrics);
+    await writeLatestMetrics([
+      usable
+        ? {
+            serverId,
+            checkedAt: at,
+            online: true,
+            intervalSeconds: AGENT_METRICS_INTERVAL_SECONDS,
+            metrics: { sampledAt: at, source: "agent", values: normalizeServerMetrics(metrics) },
+          }
+        : { serverId, checkedAt: at, online: false, offlineReason: "collect_failed", intervalSeconds: AGENT_METRICS_INTERVAL_SECONDS },
+    ]);
+  } catch (error) {
+    logger.warn("agent latest metric upsert failed", { serverId, error: error instanceof Error ? error.message : String(error) });
+  }
 }
 
 export async function completeServerAgentJob(input: {

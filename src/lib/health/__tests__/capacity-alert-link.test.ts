@@ -136,6 +136,7 @@ describe("evaluateCapacityLinkedAlerts", () => {
           playbookIds: [],
           webhookUrl: null,
           onCallUserIds: [],
+          escalationMinutes: 45,
         },
       ],
       { isSilent: () => false },
@@ -145,6 +146,8 @@ describe("evaluateCapacityLinkedAlerts", () => {
     expect(openOrRefreshMock).toHaveBeenCalledWith(
       expect.objectContaining({
         ruleId: "rule_cap",
+        // The rule's own delay reaches the escalation (and its retried notice).
+        escalationMinutes: 45,
         serverId: "s1",
         metric: "capacity_disk_days",
         value: 10,

@@ -351,9 +351,17 @@ async function main() {
   }
 
   assertRestoreConfirmed();
-  await assertNoDeploymentRunning();
-  await assertPlatformServicesStopped();
+  // Take the restore lock before looking for a deployment: deploy.sh takes
+  // its lock first and then checks for ours, so with the same order on both
+  // sides one of the two always sees the other.
   const releaseLock = await acquireRestoreLock(APP_DIR);
+  try {
+    await assertNoDeploymentRunning();
+    await assertPlatformServicesStopped();
+  } catch (error) {
+    await releaseLock();
+    throw error;
+  }
   const startedAt = new Date().toISOString();
   try {
     await runRestore(component, archive, componentArg, appDirArg);

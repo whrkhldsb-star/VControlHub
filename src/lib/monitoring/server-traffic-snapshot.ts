@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/db";
 import type { ServerMetrics } from "@/lib/server/monitor";
-import { calculateTrafficRate, evictStaleTrafficSamples, type TrafficCounterSample } from "./traffic";
+import { calculateTrafficRate, evictStaleTrafficSamples, selectPrimaryInterface, type TrafficCounterSample } from "./traffic";
 
 const previousSamples = new Map<string, TrafficCounterSample>();
 
 export async function persistServerTrafficFromMetrics(serverId: string, metrics: ServerMetrics) {
-  const primary = metrics.network[0];
+  // The first listed interface is often docker0/veth; prefer a physical one
+  // (the status board derives rates from these rows).
+  const primary = selectPrimaryInterface(metrics.network);
   if (!primary) return false;
   const key = `${serverId}:${primary.iface}`;
   const current = { rxBytes: primary.rxBytes, txBytes: primary.txBytes, sampledAt: metrics.timestamp };

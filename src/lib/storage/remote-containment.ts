@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
-import { resolveRemoteRealPath, type SshConnectionParams } from "@/lib/ssh/client";
+import { RemoteDanglingLinkError, resolveRemoteRealPath, type SshConnectionParams } from "@/lib/ssh/client";
 
 import { normalizeRemotePath, normalizeRemoteTargetPath } from "./remote-path";
 import {
@@ -47,7 +47,11 @@ export async function assertRemotePathContained(
   }
   const realRoot = await resolveRemoteRealPath({ ...connection, remotePath: lexicalRoot });
   const realTarget = relative
-    ? await resolveRemoteRealPath({ ...connection, remotePath: lexicalPath })
+    ? await resolveRemoteRealPath({ ...connection, remotePath: lexicalPath }).catch((error: unknown) => {
+        // Where the link would lead cannot be known: refuse like a link out of the root.
+        if (error instanceof RemoteDanglingLinkError) throw new ValidationError(t("backend.storage.remotePathLeavesNodeRoot"));
+        throw error;
+      })
     : realRoot;
   const expected = relative ? path.posix.join(portable(realRoot), relative) : portable(realRoot);
   const actual = portable(realTarget);

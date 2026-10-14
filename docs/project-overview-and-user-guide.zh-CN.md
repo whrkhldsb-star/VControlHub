@@ -73,7 +73,7 @@ VControlHub 是面向个人运维及多客户服务场景的自托管服务器�
 
 ### 1.3 当前代码规模与口径
 
-项目包含：56 个 `page.tsx` 页面文件、189 个 API 路由文件、79 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 44 个本地快捷服务模板。
+项目包含：58 个 `page.tsx` 页面文件、195 个 API 路由文件、82 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 44 个本地快捷服务模板。
 
 配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、42 个系统设置表单字段、8 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。
 
@@ -979,7 +979,7 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 | `/vps-status` 节点状态 | 当前可见的被管理节点 | 哪台服务器在线，CPU／内存／磁盘是否异常 |
 | `/monitoring` 主机监控 | Hub 所在主机 | 控制台机器本身的进程和资源占用 |
 | `/traffic` 流量中心 | 本机网卡及可采集的远端节点 | 实时速度、累计流量、历史趋势 |
-| `/status` 服务状态 | 匿名安全摘要及登录后的授权详情 | 对外展示总体状态，内部查看历史可用率 |
+| `/status` 服务状态／公开看板 | 管理员发布的节点（开启时）或匿名安全摘要；登录后附授权详情 | 对外展示节点状态与总体状态，内部查看历史可用率 |
 
 ### 12.2 平台健康
 
@@ -1013,7 +1013,7 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 流量中心可自动选择主网卡或手动选择，查看当前收发速度、累计字节、各网卡明细和远端节点来源。图表区分当前页面会话内实时数据、本机持久化 24 小时历史和 7 天汇总。
 
-服务状态页匿名只给总体状态，不暴露主机名、端口、内部连接串等信息。登录并有权访问时可查看分项及客户范围内节点的 90 天可用率热力图。未采样时间单独表达，不能当成已验证正常运行。
+服务状态页在展示页关闭时匿名只给总体状态，不暴露主机名、端口、内部连接串等信息；开启后见 12.8。登录并有权访问时可查看分项及客户范围内节点的 90 天可用率热力图。每日可用率按真实样本时间计算覆盖分钟（每个样本最多覆盖两倍采样间隔），未覆盖时间单独表达为未知，不能当成已验证正常运行；调整采样间隔不会重算历史。
 
 ### 12.6 告警规则
 
@@ -1036,7 +1036,17 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 告警联动 Playbook 失败会被记录，不阻断告警状态更新。应分别查看“规则触发成功”“通知发送成功”“联动修复成功”。
 
-依据：[健康与预测](../src/lib/health/)、[监控业务层](../src/lib/monitoring/)、[告警规则接口](../src/app/api/alert-rules/route.ts)、[告警事件](../src/lib/alert/incidents.ts)、[可用率汇总](../src/lib/uptime/)。
+<a id="public-board"></a>
+
+### 12.8 公开节点状态展示页
+
+参考 Komari 的访客首页做的免登录看板，默认关闭、所有服务器默认不公开。平台管理员在 `/public-status`（设置页“数据”分类有入口）打开展示页、填写标题／简介／公告（纯文本）、选择默认视图、访客刷新间隔（10／15／30／60 秒）、强调色和允许公开的指标类别，并逐台为服务器填写公开名称（必填，不会回退为内部名称或主机，公开文本不得包含主机地址）、分组、地区、标签、排序、公开说明和维护标记后发布；可批量发布／撤销，保存前右侧列出访客将看到的字段，“以访客身份预览”在关闭状态下也能看到同一份公开数据。
+
+开启后未登录访问 `/` 会进入 `/status`：汇总在线／离线／陈旧／未采样／维护数量、地区与分组、实时吞吐、本月流量和最新采样时间；卡片／表格视图，按公开名称、地区、分组、标签搜索，按分组、状态过滤，排序与分页写入 URL。`/status/nodes/<公开 ID>` 显示当前指标、24 小时／7 天可用率与覆盖率、1h／6h／24h／7d 历史（资源、网络速率、控制端到节点 TCP 延迟及失败标记）和 90 天每日可用率。已登录访问 `/`、`/dashboard` 仍是管理仪表盘。
+
+访客请求只读取后台采样与 Agent 上报已保存的数据（`ServerMetricLatest`、`MetricSnapshot`、`TrafficSnapshot`、`ServerUptimeSnapshot`），不会触发 SSH 或 TCP 探测；公开接口只返回白名单字段。撤销公开、服务器禁用、转移到其他客户或客户删除后，列表、详情、历史和汇总同时收回。状态含义、单位、缓存时效、运行成本与后续路线见 [公开展示页说明](public-status-board.zh-CN.md)。
+
+依据：[健康与预测](../src/lib/health/)、[公开展示页](../src/lib/public-status/)、[监控业务层](../src/lib/monitoring/)、[告警规则接口](../src/app/api/alert-rules/route.ts)、[告警事件](../src/lib/alert/incidents.ts)、[可用率汇总](../src/lib/uptime/)。
 
 <a id="backup"></a>
 
@@ -1708,17 +1718,18 @@ RDP：浏览器领取单次票据 → 连接 `/rdp` → 校验票据、用户、
 
 ## 20. 数据模型与后台任务设计
 
-### 20.1 79 个数据模型按职责分组
+### 20.1 82 个数据模型按职责分组
 
 | 业务域 | 模型 | 记录的主要内容 |
 | --- | --- | --- |
 | 身份与权限，11 个 | `User`、`Team`、`TeamMember`、`Role`、`Permission`、`UserRole`、`RolePermission`、`UserServerAccess`、`UserStorageAccess`、`IdentityTemplate`、`ApiToken` | 账号、客户成员、平台角色、身份模板、单资源授权和集成凭据 |
-| 服务器与连接，6 个 | `SshKey`、`Server`、`RdpTicket`、`ServerAgentJob`、`ServerFileProxy`、`ServerUptimeSnapshot` | 节点、认证材料、桌面票据、Agent 任务、文件网关和可用率 |
+| 服务器与连接，7 个 | `SshKey`、`Server`、`RdpTicket`、`ServerAgentJob`、`ServerFileProxy`、`ServerUptimeSnapshot`、`ServerMetricLatest` | 节点、认证材料、桌面票据、Agent 任务、文件网关、可用率和每台最新标准化指标 |
 | 命令，5 个 | `CommandRequest`、`CommandApproval`、`CommandTarget`、`ExecutionLog`、`CommandTemplate` | 请求、审批、逐节点目标、执行输出和可复用模板 |
 | 存储与同步，7 个 | `StorageNode`、`FileEntry`、`FilePreference`、`FileVersion`、`SyncJob`、`SyncLog`、`MediaUploadSession` | 节点、索引、个人整理、版本、同步和上传会话 |
 | 任务与编排，7 个 | `Job`、`JobEvent`、`WorkerRuntime`、`ScheduledTask`、`ScheduledTaskRun`、`Playbook`、`PlaybookRun` | 队列、事件、心跳、调度和分步执行 |
 | 指标与告警，4 个 | `MetricSnapshot`、`TrafficSnapshot`、`AlertRule`、`AlertIncident` | 资源与流量历史、规则和告警生命周期 |
 | 平台基础，4 个 | `Setting`、`AuditLog`、`Notification`、`Announcement` | 系统设置、审计、通知和公告 |
+| 公开展示，2 个 | `PublicStatusSite`、`PublicStatusNode` | 免登录状态展示页的站点设置与逐台显式发布（公开 ID、公开字段、发布时归属） |
 | 传输与发布，5 个 | `DownloadTask`、`ShareLink`、`ShareAccessLog`、`MediaItem`、`ImageUpload` | 下载、分享访问、媒体索引和图片发布 |
 | 备份，4 个 | `BackupRecord`、`BackupSchedule`、`VpsBackupSchedule`、`VpsBackupRecord` | 平台与远程主机的备份计划、产物和状态 |
 | 部署与应用，7 个 | `DeploymentRun`、`DeploymentSnapshot`、`DeploymentRollbackRun`、`DeploymentExport`、`QuickService`、`AppSource`、`AppSourceApp` | 部署快照、回滚、导出、应用实例及来源目录 |
@@ -2063,7 +2074,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 本章用于检查模块覆盖及快速定位实现；日常使用可按前面的功能章节阅读。
 
 <!-- GENERATED_REFERENCE_START -->
-### 24.1 全部 56 个页面入口
+### 24.1 全部 58 个页面入口
 
 动态段 `[id]`、`[token]` 需要真实对象标识；本表包含兼容跳转和公开页面。
 
@@ -2108,6 +2119,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/operation-tasks`](../src/app/operation-tasks/page.tsx) | 任务中心 | [各类业务任务、失败聚合与事件流](#automation) |
 | [`/playbooks`](../src/app/playbooks/page.tsx) | Playbook | [步骤编排、触发、Dry-run 和运行历史](#automation) |
 | [`/preferences`](../src/app/preferences/page.tsx) | 旧偏好入口 | [跳转设置中的个人偏好区域](#workspace) |
+| [`/public-status`](../src/app/public-status/page.tsx) | 展示页管理 | [平台管理员配置免登录节点看板及逐台发布](#public-board) |
 | [`/quick-services`](../src/app/quick-services/page.tsx) | 快捷服务 | [应用模板、安装实例、更新、应用源](#quick-services) |
 | [`/requests`](../src/app/requests/page.tsx) | 审批中心 | [命令审批、AI 授权及执行记录](#automation) |
 | [`/scheduled-tasks`](../src/app/scheduled-tasks/page.tsx) | 定时任务 | [Cron／一次性计划、审批与运行记录](#automation) |
@@ -2117,7 +2129,8 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/share/[token]`](../src/app/share/[token]/page.tsx) | 公开分享页 | [访客按链接策略访问文件或目录](#sharing-sync) |
 | [`/shares`](../src/app/shares/page.tsx) | 分享管理 | [创建、撤销、限制、访问报告](#sharing-sync) |
 | [`/snippets`](../src/app/snippets/page.tsx) | 代码片段库 | [脚本／配置、语言、标签和私有片段](#collaboration) |
-| [`/status`](../src/app/status/page.tsx) | 服务状态 | [匿名总体状态及登录后的授权详情](#observability) |
+| [`/status`](../src/app/status/page.tsx) | 服务状态／公开看板 | [开启时为免登录节点看板，关闭时为匿名总体状态；登录后附内部详情](#public-board) |
+| [`/status/nodes/[publicId]`](../src/app/status/nodes/[publicId]/page.tsx) | 公开节点详情 | [已发布节点的指标、历史、TCP 延迟与可用率](#public-board) |
 | [`/storage`](../src/app/storage/page.tsx) | 旧存储入口 | [跳转 /files](#files) |
 | [`/templates`](../src/app/templates/page.tsx) | 命令模板 | [脚本、变量、标签、回滚及部署入口](#deployment) |
 | [`/tickets`](../src/app/tickets/page.tsx) | 工单列表 | [创建、筛选、看板与 SLA](#collaboration) |
@@ -2189,11 +2202,11 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 
 ### 24.3 全部 API 路由分组
 
-按 `/api/` 下第一层路径分为 54 组，共 189 个 `route.ts` 文件。一个文件可提供多个方法，动态路径和协议入口也计入。完整路径、方法和声明权限可继续查看 [route-catalog.json](route-catalog.json) 与运行实例中的 API 文档。
+按 `/api/` 下第一层路径分为 54 组，共 195 个 `route.ts` 文件。一个文件可提供多个方法，动态路径和协议入口也计入。完整路径、方法和声明权限可继续查看 [route-catalog.json](route-catalog.json) 与运行实例中的 API 文档。
 
 | 路径前缀 | 路由文件数 | 主要接口能力 |
 | --- | ---: | --- |
-| [`/api/admin`](../src/app/api/admin/) | 1 | 后台 Worker 状态 |
+| [`/api/admin`](../src/app/api/admin/) | 4 | 后台 Worker 状态、公开展示页站点与节点发布 |
 | [`/api/agent`](../src/app/api/agent/) | 2 | Agent 引导安装与轮询 |
 | [`/api/ai`](../src/app/api/ai/) | 16 | 提供商、模型、对话、托管动作、运维扫描与日志 |
 | [`/api/alert-incidents`](../src/app/api/alert-incidents/) | 1 | 告警事件生命周期 |
@@ -2237,7 +2250,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/api/share-links`](../src/app/api/share-links/) | 1 | 创建、列出和撤销分享 |
 | [`/api/shares`](../src/app/api/shares/) | 2 | 分享访问明细与报告 |
 | [`/api/snippets`](../src/app/api/snippets/) | 1 | 代码片段 |
-| [`/api/status`](../src/app/api/status/) | 1 | 公开总体状态及授权详情 |
+| [`/api/status`](../src/app/api/status/) | 4 | 公开总体状态及授权详情、公开看板、节点详情与历史 |
 | [`/api/storage`](../src/app/api/storage/) | 12 | 节点、后端传输、直连、归档、索引和上传 |
 | [`/api/sync-jobs`](../src/app/api/sync-jobs/) | 4 | 跨节点同步任务、运行和报告 |
 | [`/api/system`](../src/app/api/system/) | 3 | 配置导入、导出和可用率汇总 |
@@ -2247,7 +2260,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/api/traffic`](../src/app/api/traffic/) | 2 | 流量汇总与历史 |
 | [`/api/users`](../src/app/api/users/) | 2 | 用户及细粒度权限 |
 | [`/api/webdav`](../src/app/api/webdav/) | 1 | 对外 DAV 协议入口 |
-| **合计** | **189** | **所有 API 路由文件** |
+| **合计** | **195** | **所有 API 路由文件** |
 
 公开分享使用持链接及密码策略；Agent 使用节点令牌；ITSM 入站使用签名；WebDAV 使用平台 API Token；浏览器会话和 Bearer Token 的支持范围由各接口守卫决定。路径出现在本表中不表示可以匿名调用或允许全部 Token 使用。
 
@@ -2281,7 +2294,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | 工单与外部集成 | [src/lib/itsm](../src/lib/itsm) | 签名、适配、双向处理和投递 |
 | 成本 | [src/lib/cost](../src/lib/cost) | 费用、预算、快照和 CSV 账单 |
 | 配置迁移 | [src/lib/system](../src/lib/system) | 范围、脱敏、预览和导入执行 |
-| 数据库定义 | [prisma/schema.prisma](../prisma/schema.prisma) | 79 个模型及关系 |
+| 数据库定义 | [prisma/schema.prisma](../prisma/schema.prisma) | 82 个模型及关系 |
 | 部署生命周期 | [deploy/README.md](../deploy/README.md) | 安装、更新、备份和迁移入口 |
 | Windows 能力 | [docs/windows-development.md](../docs/windows-development.md) | 作为运行主机和被管节点的差异 |
 | 发布门禁 | [docs/ci-gates.md](../docs/ci-gates.md) | 本地检查、CI 和分支保护要求 |
@@ -2302,8 +2315,8 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 
 | 实现对象 | 数量 | 文档位置 |
 | --- | ---: | --- |
-| 页面文件 | 56 | 第 24.1 节及对应功能章节 |
-| API 路由文件 | 189 | 第 24.3 节分组及第 24.7 节逐项索引 |
+| 页面文件 | 58 | 第 24.1 节及对应功能章节 |
+| API 路由文件 | 195 | 第 24.3 节分组及第 24.7 节逐项索引 |
 | Server Action 运行时导出 | 25，分布在 9 个模块 | 第 24.8 节，包含表单选项／目标查询入口 |
 | 系统设置表单字段 | 42 | 第 18.5 节 |
 | 持久化个人偏好字段 | 8 | 第 3.3 节 |
@@ -2311,18 +2324,21 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | 本地快捷服务模板 | 44 | 第 10.4 节 |
 | AI 托管工具 | 21 | 第 14.4 节 |
 | Worker 类型 | 24 | 第 20.4 节 |
-| Prisma 数据模型 | 79 | 第 20.1 节 |
+| Prisma 数据模型 | 82 | 第 20.1 节 |
 
 通知 `/ws`、SSH `/ssh`、RDP `/rdp`、自定义 WebDAV 方法、Agent 轮询、系统恢复归档及部署入口，分别在实时链路、文件接入、服务器管理、备份和运行维护章节说明。
 
 查阅某个功能时，先确认业务页面，再沿接口或 Server Action 定位服务实现；涉及耗时操作时继续查看 Worker 与任务模型。这里的入口数量不是业务成功率或第三方兼容性承诺，具体驱动和操作系统的能力对照见第 23 章。
 
-### 24.7 全部 189 个 API 路由的功能索引
+### 24.7 全部 195 个 API 路由的功能索引
 
 HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路由。方法声明用于定位接口；具体操作仍由输入、权限和处理器决定。WebDAV 的 PROPFIND、MKCOL、COPY、MOVE 等扩展方法经自定义 Web 入口派发，见第 7 章。
 
 | 接口路径／源码 | 声明方法 | 功能与操作 | 对应章节 |
 | --- | --- | --- | --- |
+| [`/api/admin/public-status/nodes`](../src/app/api/admin/public-status/nodes/route.ts) | GET / POST | 平台管理员列出全部服务器的公开状态；批量发布、撤销、维护 | [公开节点状态展示页](#public-board) |
+| [`/api/admin/public-status/nodes/[serverId]`](../src/app/api/admin/public-status/nodes/[serverId]/route.ts) | PUT | 单台服务器的公开名称、分组、地区、标签、排序、说明、维护与发布 | [公开节点状态展示页](#public-board) |
+| [`/api/admin/public-status/site`](../src/app/api/admin/public-status/site/route.ts) | GET / PUT | 展示页开关、标题、简介、公告、默认视图、刷新间隔、强调色与公开指标 | [公开节点状态展示页](#public-board) |
 | [`/api/admin/workers`](../src/app/api/admin/workers/route.ts) | GET | 后台 Worker 注册、运行状态及心跳 | [数据模型与后台任务设计](#data-workers) |
 | [`/api/agent/v1/bootstrap`](../src/app/api/agent/v1/bootstrap/route.ts) | GET | 校验引导凭据并提供 Agent 安装内容 | [服务器纳管与节点管理](#servers) |
 | [`/api/agent/v1/poll`](../src/app/api/agent/v1/poll/route.ts) | POST | Agent 上报心跳／指标、领取命令并回传结果 | [服务器纳管与节点管理](#servers) |
@@ -2477,6 +2493,9 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 | [`/api/shares/access-report`](../src/app/api/shares/access-report/route.ts) | GET | 分享访问统计报告 | [文件分享、WebDAV 与跨节点同步](#sharing-sync) |
 | [`/api/snippets`](../src/app/api/snippets/route.ts) | GET / POST / PATCH / DELETE | 代码片段查询、创建、修改及删除 | [工单、ITSM、通知、公告与代码片段](#collaboration) |
 | [`/api/status`](../src/app/api/status/route.ts) | GET | 匿名总体状态和登录后的授权详情 | [监控、健康检查、流量与告警](#observability) |
+| [`/api/status/board`](../src/app/api/status/board/route.ts) | GET | 公开看板：站点信息、汇总与一页已发布节点（只读已保存样本） | [公开节点状态展示页](#public-board) |
+| [`/api/status/nodes/[publicId]`](../src/app/api/status/nodes/[publicId]/route.ts) | GET | 已发布节点详情、24 小时／7 天可用率与 90 天每日可用率 | [公开节点状态展示页](#public-board) |
+| [`/api/status/nodes/[publicId]/history`](../src/app/api/status/nodes/[publicId]/history/route.ts) | GET | 1h／6h／24h／7d 历史：资源、网络速率、TCP 延迟，带缺口与覆盖率 | [公开节点状态展示页](#public-board) |
 | [`/api/storage/archive-download`](../src/app/api/storage/archive-download/route.ts) | GET | 本地或具备条件的 SFTP 目录打包下载 | [存储节点与文件管理](#files) |
 | [`/api/storage/direct-access`](../src/app/api/storage/direct-access/route.ts) | GET / POST / DELETE | 签发／解析文件直连或中转入口；DELETE 是兼容空操作 | [存储节点与文件管理](#files) |
 | [`/api/storage/local`](../src/app/api/storage/local/route.ts) | GET / POST | 本地文件读取与多驱动上传兼容入口 | [存储节点与文件管理](#files) |

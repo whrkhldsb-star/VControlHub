@@ -44,6 +44,9 @@ export type ServerHealth = {
 	 *  network error). Absent for disabled servers and for the "host up
 	 *  but never reached by probe" historical records. */
 	latencyMs?: number;
+	/** Outcome of the TCP probe when one ran for this check; absent when the
+	 *  check relied on a fresh Agent report instead. */
+	probeStatus?: "ok" | "failed";
 	lastCheck: string;
 	metrics?: ServerMetrics;
 	error?: string;

@@ -14,7 +14,10 @@ export type ServerMetrics = {
 	disk: Array<{ mount: string; totalGb: string; usedGb: string; usagePercent: number }>;
 	network: Array<{ iface: string; rxBytes: number; txBytes: number }>;
 	uptime: string;
+	/** When the values were sampled on the host (an Agent report's own time). */
 	timestamp: string;
+	/** Which channel produced the sample. */
+	source?: "agent" | "ssh";
 };
 
 export type MonitorError = { error: string; serverId: string };
@@ -138,7 +141,7 @@ export function parseMonitorScriptOutput(stdout: string): ServerMetrics {
  * collection failure (→ caller maps to "warning": host online but metrics
  * unusable) rather than fabricating a healthy reading.
  */
-function isUsableMonitorOutput(stdout: string, metrics: ServerMetrics): boolean {
+export function isUsableMonitorOutput(stdout: string, metrics: ServerMetrics): boolean {
 	if (!stdout.includes("===CPU===") || !stdout.includes("===MEM===")) return false;
 	return metrics.memory.totalMb > 0;
 }
@@ -167,7 +170,8 @@ export async function collectServerMetrics(serverId: string, signal?: AbortSigna
 			if (!isUsableMonitorOutput(server.agentMetricsRaw, agentMetrics)) {
 				return { error: tr("backend.server.monitor.metricsUnavailable"), serverId };
 			}
-			return agentMetrics;
+			// The values are the Agent's last report, not a reading taken now.
+			return { ...agentMetrics, timestamp: server.agentMetricsAt.toISOString(), source: "agent" };
 		}
 
 		// Windows has no SSH channel to collect from: the only metrics source is
@@ -193,7 +197,7 @@ export async function collectServerMetrics(serverId: string, signal?: AbortSigna
 		if (!isUsableMonitorOutput(stdout, metrics)) {
 			return { error: tr("backend.server.monitor.metricsUnavailable"), serverId };
 		}
-		return metrics;
+		return { ...metrics, source: "ssh" };
 	} catch (err) {
 		if (signal?.aborted) throw err;
 		const message = err instanceof Error ? err.message : tr("backend.server.monitor.unknownError");

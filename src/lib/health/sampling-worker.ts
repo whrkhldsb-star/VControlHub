@@ -38,6 +38,9 @@ const logger = createLogger("health-sampling-worker");
 
 type State = SingletonIntervalWorkerState;
 
+/** Cadence of the running timer; each sample row records it (see uptime rollup). */
+let activeIntervalMs = DEFAULT_INTERVAL_MS;
+
 const healthSamplingWorker = createSingletonIntervalWorker({
   globalKey: "__vcontrolhubHealthSamplingWorker",
   resolveIntervalMs: () =>
@@ -53,6 +56,7 @@ const healthSamplingWorker = createSingletonIntervalWorker({
     );
   },
   onStarted: (_state, intervalMs) => {
+    activeIntervalMs = intervalMs;
     logger.info("health sampling worker started", {
       workerId: WORKER_ID,
       intervalMs,
@@ -98,7 +102,7 @@ async function processSample(jobId: string) {
   // path that persists durable per-server TrafficSnapshot rows (dashboard
   // polls and alert evals call collectAllHealth without persistTraffic).
   const overview = await collectAllHealth(undefined, { persistTraffic: true });
-  const sampled = await snapshotHealthOverview(overview);
+  const sampled = await snapshotHealthOverview(overview, { intervalSeconds: Math.round(activeIntervalMs / 1000) });
   // Metric-trigger Playbooks consume exactly the fresh health reading that
   // was just persisted. Their own edge state prevents a sustained breach from
   // re-running remediation on every sampling interval.

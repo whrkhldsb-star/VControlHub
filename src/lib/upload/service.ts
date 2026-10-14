@@ -16,7 +16,7 @@ import * as crypto from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { freeBytesOn, getStorageUploadMaxBytes, requiredUploadHeadroom } from "./limits";
+import { freeBytesOn, readStorageUploadMaxBytes, requiredUploadHeadroom } from "./limits";
 import {
 	mkdir,
 	readdir,
@@ -139,7 +139,7 @@ export async function initMediaUploadSession(
 	input: InitMediaUploadInput,
 ): Promise<MediaUploadSessionView> {
 	const chunkSize = input.chunkSize ?? DEFAULT_CHUNK_SIZE;
-	const maxBytes = getStorageUploadMaxBytes();
+	const maxBytes = await readStorageUploadMaxBytes();
 	if (input.totalSize > maxBytes) {
 		throw new MediaUploadError(
 			"total_size_too_large",
@@ -374,7 +374,7 @@ export async function assembleMediaUploadToFile(sessionId: string, userId: strin
 	const row = await prisma.mediaUploadSession.findFirst({ where: { id: sessionId, userId, status: "FINALIZING" } });
 	if (!row || row.status !== "FINALIZING") throw new MediaUploadError("session_not_active", "Upload finalization is not owned by this caller");
 	const totalSize = Number(row.totalSize);
-	if (!Number.isSafeInteger(totalSize) || totalSize < 0 || totalSize > getStorageUploadMaxBytes() || !Number.isSafeInteger(row.chunkSize) || row.chunkSize < 1 || row.totalChunks !== Math.ceil(totalSize / row.chunkSize)) {
+	if (!Number.isSafeInteger(totalSize) || totalSize < 0 || totalSize > (await readStorageUploadMaxBytes()) || !Number.isSafeInteger(row.chunkSize) || row.chunkSize < 1 || row.totalChunks !== Math.ceil(totalSize / row.chunkSize)) {
 		throw new MediaUploadError("total_size_too_large", "Invalid assembled upload size");
 	}
 	const received = new Set(row.receivedChunks);

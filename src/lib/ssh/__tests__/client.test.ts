@@ -59,6 +59,8 @@ describe("SSH client host key verification", () => {
       port: 22,
       username: "root",
       password: "secret",
+      // Trust on first use applies only where the pin policy is off.
+      enforceHostKeyPin: false,
       onHostKeySha256: (fingerprint) => observed.push(fingerprint),
     }) as ConnectConfig;
     const verifier = config.hostVerifier as unknown as (hash: string) => boolean;

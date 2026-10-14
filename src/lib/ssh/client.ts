@@ -342,6 +342,14 @@ export async function statRemoteEntry(input: SshConnectionParams & { remotePath:
  * caller enforce a home-directory jail that a symlinked parent could otherwise
  * bypass, while still allowing creation of brand-new paths.
  */
+/** A path component is a symbolic link whose target does not exist. */
+export class RemoteDanglingLinkError extends Error {
+  constructor(readonly remotePath: string) {
+    super(`Dangling symbolic link: ${remotePath}`);
+    this.name = "RemoteDanglingLinkError";
+  }
+}
+
 export async function resolveRemoteRealPath(
   input: SshConnectionParams & { remotePath: string },
 ): Promise<string> {
@@ -384,7 +392,7 @@ export async function resolveRemoteRealPath(
           });
           // A dangling link is not a missing filename: writing through it can
           // create its target elsewhere, outside the permitted root.
-          if (isSymlink) throw error;
+          if (isSymlink) throw new RemoteDanglingLinkError(candidate);
         }
         if (i > 0) trailing.push(segments[i - 1]!);
       }

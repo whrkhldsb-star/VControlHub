@@ -387,10 +387,19 @@ function hasEnvOverride(envName: string, min: number): boolean {
  */
 export async function readPersistedRuntimeSettingNumber(key: RuntimeSettingKey): Promise<number | null> {
   try {
-    const settingDelegate = (prisma as unknown as { setting?: RuntimeSettingDelegate }).setting;
-    if (!settingDelegate?.findUnique) return null;
-    const row = await settingDelegate.findUnique({ where: { key }, select: { value: true } });
-    if (!row?.value) return null;
+    return await readPersistedRuntimeSettingNumberStrict(key);
+  } catch {
+    return null;
+  }
+}
+
+/** Like readPersistedRuntimeSettingNumber, but a database error is thrown, not reported as "no row". */
+export async function readPersistedRuntimeSettingNumberStrict(key: RuntimeSettingKey): Promise<number | null> {
+  const settingDelegate = (prisma as unknown as { setting?: RuntimeSettingDelegate }).setting;
+  if (!settingDelegate?.findUnique) return null;
+  const row = await settingDelegate.findUnique({ where: { key }, select: { value: true } });
+  if (!row?.value) return null;
+  try {
     return Number(normalizeRuntimeSettingValue(key, row.value));
   } catch {
     return null;

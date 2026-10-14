@@ -97,6 +97,8 @@ export type CapacityAlertRuleSlice = {
   playbookIds: string[];
   webhookUrl: string | null;
   onCallUserIds: string[];
+  /** The rule's own escalation delay (null: the platform default). */
+  escalationMinutes?: number | null;
   teamId?: string | null;
 };
 
@@ -235,6 +237,7 @@ export async function evaluateCapacityLinkedAlerts(
         message,
         teamId: rule.teamId ?? null,
         cooldownMinutes: rule.cooldownMinutes,
+        escalationMinutes: rule.escalationMinutes ?? undefined,
       });
 
       if (!fire.fired) {

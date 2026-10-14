@@ -358,6 +358,8 @@ model Server {
   rdpTickets                   RdpTicket[]
   userAccess                   UserServerAccess[]
   agentJobs                    ServerAgentJob[]
+  publicStatusNode             PublicStatusNode?
+  metricLatest                 ServerMetricLatest?
   origin                       ServerOrigin           @default(PLATFORM)
   addedById                    String?
   addedBy                      User?                  @relation("ServerAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
@@ -946,17 +948,24 @@ model PlaybookRun {
 }
 
 model MetricSnapshot {
-  id        String   @id @default(cuid())
-  serverId  String
+  id              String   @id @default(cuid())
+  serverId        String
   /**
    * Denormalized from Server.teamId at write time for cheap team-scoped queries.
    */
-  teamId    String?
-  cpuUsage  Float
-  memUsage  Float
-  diskUsage Float // max disk usage percent across mounts
-  isOnline  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  teamId          String?
+  cpuUsage        Float
+  memUsage        Float
+  diskUsage       Float // max disk usage percent across mounts
+  isOnline        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  /// Sampler cadence when this row was written. Null on rows written before
+  /// the column existed, when the cadence was a fixed 5 minutes.
+  intervalSeconds Int?
+  /// Hub-to-node TCP probe for this sample: "ok", "failed", or null when no
+  /// probe ran (a fresh Agent report skips it).
+  probeStatus     String?
+  probeLatencyMs  Float?
 
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
   team   Team?  @relation("TeamMetricSnapshots", fields: [teamId], references: [id], onDelete: SetNull)
@@ -2181,6 +2190,110 @@ model ServerUptimeSnapshot {
   @@unique([serverId, date])
   @@index([serverId, date])
   @@map("server_uptime_snapshots")
+}
+
+/// Latest normalised monitoring numbers per server, written by the health
+/// sampler and by Agent metric reports. Readers (the public status board) use
+/// it instead of probing hosts. Holds no host, credential or raw output.
+model ServerMetricLatest {
+  serverId            String    @id
+  /// When the latest reachability verdict was made.
+  checkedAt           DateTime
+  online              Boolean
+  /// "unreachable" or "collect_failed" when offline.
+  offlineReason       String?
+  /// When the stored metric values were sampled on the host (not when read).
+  metricsAt           DateTime?
+  /// "agent" or "ssh".
+  metricsSource       String?
+  /// Expected seconds between reports from the writer of this row.
+  intervalSeconds     Int?
+  cpuUsage            Float?
+  cpuCores            Int?
+  load1               Float?
+  load5               Float?
+  load15              Float?
+  memUsage            Float?
+  memUsedMb           Int?
+  memTotalMb          Int?
+  swapUsage           Float?
+  diskUsage           Float?
+  /// Approximate, from `df -h` labels of the root (or busiest) mount.
+  diskUsedBytes       Float?
+  diskTotalBytes      Float?
+  uptimeSeconds       Int?
+  netIface            String?
+  netRxBytes          BigInt?
+  netTxBytes          BigInt?
+  /// Bytes per second between the two latest samples of the same interface;
+  /// null when unknown (first sample, counter reset, interface change, gap).
+  rxRateBps           Float?
+  txRateBps           Float?
+  rateIntervalSeconds Float?
+  /// Start of the calendar month the period counters belong to.
+  periodStart         DateTime?
+  /// First sample counted in this period (later than periodStart when
+  /// counting began mid-month).
+  periodSince         DateTime?
+  periodRxBytes       BigInt    @default(0)
+  periodTxBytes       BigInt    @default(0)
+  probeAt             DateTime?
+  probeOk             Boolean?
+  probeLatencyMs      Float?
+  updatedAt           DateTime  @updatedAt
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@map("server_metric_latest")
+}
+
+/// Settings of the anonymous status board. A missing row means the board is
+/// closed; the migration creates none.
+model PublicStatusSite {
+  id                 String   @id @default("default")
+  enabled            Boolean  @default(false)
+  title              String?
+  description        String?
+  announcement       String?
+  defaultView        String   @default("cards")
+  refreshSeconds     Int      @default(15)
+  accent             String   @default("default")
+  /// Metric categories visitors may see (cpu, memory, disk, network, traffic, uptime, load, latency, availability).
+  metrics            String[] @default(["cpu", "memory", "disk", "network", "traffic", "uptime", "load", "latency", "availability"])
+  showPlatformStatus Boolean  @default(true)
+  updatedById        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("public_status_sites")
+}
+
+/// Explicit opt-in publication of one server on the status board. Visitors
+/// only ever see `publicId` and the fields below, never the server id or host.
+model PublicStatusNode {
+  id              String    @id @default(cuid())
+  publicId        String    @unique
+  serverId        String    @unique
+  published       Boolean   @default(false)
+  /// Customer that owned the server when it was published. When the server
+  /// moves to another customer the board stops showing it until republished.
+  publishedTeamId String?
+  displayName     String
+  groupName       String?
+  region          String?
+  tags            String[]  @default([])
+  sortOrder       Int       @default(0)
+  note            String?
+  maintenance     Boolean   @default(false)
+  publishedAt     DateTime?
+  publishedById   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([published, sortOrder])
+  @@map("public_status_nodes")
 }
 
 /// FEAT-P1-7: Position role template

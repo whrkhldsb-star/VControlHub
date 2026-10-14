@@ -32,21 +32,23 @@ export function getSessionTtlSeconds(remember = false) {
 
 /**
  * Resolve the effective session TTL honouring (in priority order):
- *   1. The env override (AUTH_SESSION_TTL_SECONDS / AUTH_REMEMBER_SESSION_TTL_SECONDS).
- *   2. For non-remember sessions, the admin-configurable `session.timeout` setting.
+ *   1. Remember-me sessions: the `security.rememberSessionTtlSeconds` runtime
+ *      setting (database, then AUTH_REMEMBER_SESSION_TTL_SECONDS, then default).
+ *   2. Standard sessions: AUTH_SESSION_TTL_SECONDS, then the admin-configurable
+ *      `session.timeout` setting.
  *   3. The hardcoded fallback.
  *
  * This is what makes the "会话超时（秒）" setting in the admin UI actually
  * govern how long a normal login stays valid.
  */
 export async function getConfiguredSessionTtlSeconds(remember = false): Promise<number> {
-  const envName = remember ? "AUTH_REMEMBER_SESSION_TTL_SECONDS" : "AUTH_SESSION_TTL_SECONDS";
-  const envOverride = process.env[envName]?.trim();
-  if (envOverride) {
-    return getSessionTtlSeconds(remember);
-  }
   // "Remember me" sessions take their lifetime from the security policy
-  // setting; the session timeout setting governs standard logins.
+  // setting, resolved like every runtime setting (database, then
+  // AUTH_REMEMBER_SESSION_TTL_SECONDS, then the default) so the settings page
+  // shows the source that actually applies.
+  if (!remember && process.env.AUTH_SESSION_TTL_SECONDS?.trim()) {
+    return getSessionTtlSeconds(false);
+  }
   if (remember) {
     try {
       const { getRuntimeSettingNumber } = await import("@/lib/runtime-settings/service");

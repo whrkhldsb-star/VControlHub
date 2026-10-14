@@ -46,6 +46,8 @@ describe("/api/settings audit coverage", () => {
       "runtime.operationTaskListLimit",
       "runtime.aiProviderListLimit",
       "runtime.aiConversationListLimit",
+      "security.loginLockoutMinutes",
+      "security.sshEnforceHostKeyPin",
     ].includes(key));
     mocks.setManySettings.mockResolvedValue(undefined);
   });
@@ -143,6 +145,25 @@ describe("/api/settings audit coverage", () => {
     expect(response.status).toBe(400);
     expect(String(payload.error)).toMatch(/Logo URL|Session|Password|sender|发件人|必须/i);
     expect(mocks.setManySettings).not.toHaveBeenCalled();
+  });
+
+  it("accepts an empty host-key pin policy (env fallback) next to edited security settings", async () => {
+    const response = await route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ "security.loginLockoutMinutes": "20", "security.sshEnforceHostKeyPin": "" }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenCalledWith(expect.arrayContaining([
+      { key: "security.sshEnforceHostKeyPin", value: "" },
+    ]));
+    const invalid = await route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ "security.sshEnforceHostKeyPin": "yes" }),
+    }));
+    expect(invalid.status).toBe(400);
   });
 
   it("accepts bounded SSH idle timeout runtime settings", async () => {

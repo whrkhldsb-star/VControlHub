@@ -59,6 +59,7 @@ import { zh as sharesZh, en as sharesEn } from "./dictionaries/shares";
 import { zh as snippetsPageZh, en as snippetsPageEn } from "./dictionaries/snippets-page";
 import { zh as sshTerminalModalZh, en as sshTerminalModalEn } from "./dictionaries/ssh-terminal-modal";
 import { zh as statusPageZh, en as statusPageEn } from "./dictionaries/status-page";
+import { zh as publicStatusPageZh, en as publicStatusPageEn } from "./dictionaries/public-status-page";
 import { zh as templatesPageZh, en as templatesPageEn } from "./dictionaries/templates-page";
 import { zh as textPreviewZh, en as textPreviewEn } from "./dictionaries/text-preview";
 import { zh as themeZh, en as themeEn } from "./dictionaries/theme";
@@ -86,7 +87,7 @@ const zh: Record<string, string> = {
 	...notificationsPageZh, ...notificationMessagesZh, ...customersZh, ...officePreviewZh, ...operationTasksZh, ...preferencesPageZh,
 	...playbooksPageZh, ...pwaZh, ...quickServicesZh, ...recycleBinSectionZh,
 	...requestsPageZh, ...scheduledTasksZh, ...searchZh, ...serversZh, ...sharePageZh,
-	...sharesZh, ...snippetsPageZh, ...sshTerminalModalZh, ...statusPageZh,
+	...sharesZh, ...snippetsPageZh, ...sshTerminalModalZh, ...statusPageZh, ...publicStatusPageZh,
 	...templatesPageZh, ...textPreviewZh, ...themeZh, ...ticketsDetailZh, ...ticketsPageZh,
 	...itsmPageZh, ...trafficPageZh, ...usersZh, ...usersPermZh, ...storagePageZh,
 	...systemConfigZh,
@@ -106,7 +107,7 @@ const en: Record<string, string> = {
 	...notificationsPageEn, ...notificationMessagesEn, ...customersEn, ...officePreviewEn, ...operationTasksEn, ...preferencesPageEn,
 	...playbooksPageEn, ...pwaEn, ...quickServicesEn, ...recycleBinSectionEn,
 	...requestsPageEn, ...scheduledTasksEn, ...searchEn, ...serversEn, ...sharePageEn,
-	...sharesEn, ...snippetsPageEn, ...sshTerminalModalEn, ...statusPageEn,
+	...sharesEn, ...snippetsPageEn, ...sshTerminalModalEn, ...statusPageEn, ...publicStatusPageEn,
 	...templatesPageEn, ...textPreviewEn, ...themeEn, ...ticketsDetailEn, ...ticketsPageEn,
 	...itsmPageEn, ...trafficPageEn, ...usersEn, ...usersPermEn, ...storagePageEn,
 	...systemConfigEn,

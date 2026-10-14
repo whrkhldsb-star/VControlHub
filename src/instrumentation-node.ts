@@ -33,6 +33,15 @@ export async function register() {
   // 2) BigInt patch must load before any JSON serialization runs.
   await import("./lib/bigint-patch");
 
+  // 2b) Settings read by synchronous callers (SSH host-key pin, upload
+  //     limits …) are loaded before the first request uses them.
+  try {
+    const { primeSettingCaches } = await import("./lib/settings/prime");
+    await primeSettingCaches();
+  } catch (err) {
+    logger.error("Setting cache prime failed", err);
+  }
+
   // 3) Start all durable-job workers unless this process has the kill switch.
   try {
     const { startWorkerLifecycle } = await import("./lib/workers/startup");

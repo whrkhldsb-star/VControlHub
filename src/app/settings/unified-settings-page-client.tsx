@@ -12,6 +12,7 @@ import { replaceBrowserUrl } from "@/lib/browser-history";
 import { PreferencesSettingsContent, PREFERENCES_CATEGORY_SUMMARIES } from "../preferences/preferences-page-client";
 import { SettingsClient } from "./settings-client";
 import { SystemConfigSection } from "./system-config-section";
+import { PublicStatusSettingsLink } from "./public-status-settings-link";
 import { SETTINGS_SCHEMA } from "./field-schema";
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 import { DEFAULT_PAGE_OPTIONS, type DefaultPageOption } from "@/lib/preferences/user-preferences";
@@ -282,6 +283,8 @@ export function UnifiedSettingsPageClient({
       showCategoryNav={false}
             visibleSectionIds={visibleSectionIds}
           />
+          {/* The status board has its own page; monitoring settings link to it. */}
+          {isPlatformAdmin && activeTab === "data" ? <PublicStatusSettingsLink /> : null}
           {canManage && <div id="system-config" className={activeTab === SYSTEM_CONFIG_TAB ? "scroll-mt-24" : "hidden"}>
             <SystemConfigSection isPlatformAdmin={isPlatformAdmin} />
           </div>}

@@ -58,6 +58,9 @@ beforeAll(async () => {
   symlinkSync(join(sandbox, "outside"), join(sandbox, "root", "a", "out"));
   symlinkSync("../b", join(sandbox, "root", "a", "sib"));
   symlinkSync(join(sandbox, "root"), join(sandbox, "root-alias"));
+  // A dangling link whose (missing) target is outside the node: writing
+  // through it would create that file outside.
+  symlinkSync(join(sandbox, "outside", "created-through-link.txt"), join(sandbox, "root", "a", "dangle"));
   server = await startSftpFsServer({ sandbox, username: "storage", password: "storage-pass" });
 });
 
@@ -121,6 +124,11 @@ describe.skipIf(!posix).each([
     expect(existsSync(join(sandbox, "outside", "new.txt"))).toBe(false);
     expect(existsSync(join(sandbox, "outside", "moved.txt"))).toBe(false);
     expect(readFileSync(join(sandbox, "root", "a", "ok.txt"), "utf8")).toBe("inside");
+  });
+
+  it.skipIf(!enabled)("refuses a write through a dangling link whose target is outside the node", async () => {
+    await refused(writeBackingObject({ storageNode: node(), relativePath: "a/dangle", content: "x" } as never));
+    expect(existsSync(join(sandbox, "outside", "created-through-link.txt"))).toBe(false);
   });
 
   it.skipIf(!enabled)("refuses a link that stays in the root but crosses into another grant area", async () => {

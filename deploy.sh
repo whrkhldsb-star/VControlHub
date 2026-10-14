@@ -50,6 +50,9 @@ if [ -d "$RESTORE_LOCK" ]; then
 		echo "WARN: stale restore lock $RESTORE_LOCK (pid $restore_pid is gone); continuing"
 	else
 		echo "ERROR: a restore is in progress ($RESTORE_LOCK, pid ${restore_pid:-unknown} on ${restore_host:-unknown}); wait for it to finish"
+		# Give the lock back empty: a stale PID here would make restore.mjs
+		# believe a deployment is running once the number is reused.
+		release_deploy_lock
 		exit 75
 	fi
 fi

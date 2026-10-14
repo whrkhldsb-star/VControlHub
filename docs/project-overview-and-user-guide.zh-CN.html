@@ -108,7 +108,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tbody>
 </table></div>
 <h3 id="section-1-3">1.3 当前代码规模与口径</h3>
-<p>项目包含：56 个 <code>page.tsx</code> 页面文件、189 个 API 路由文件、79 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 44 个本地快捷服务模板。</p>
+<p>项目包含：58 个 <code>page.tsx</code> 页面文件、195 个 API 路由文件、82 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 44 个本地快捷服务模板。</p>
 <p>配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、42 个系统设置表单字段、8 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。</p>
 <p>这里的“页面”包含详情页、登录页和兼容跳转入口；“API 路由文件”可能同时处理多个 HTTP 方法；“应用模板”表示存在安装定义，不代表所有第三方应用在所有硬件和网络环境中都已逐项验收。</p>
 <p>依据：<a href="../README.md">README</a>、<a href="route-catalog.json">页面与接口目录</a>、<a href="../prisma/schema.prisma">数据模型</a>、<a href="../src/lib/workers/registry.ts">Worker 注册表</a>。</p>
@@ -1605,9 +1605,9 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td>实时速度、累计流量、历史趋势</td>
 </tr>
 <tr>
-<td><code>/status</code> 服务状态</td>
-<td>匿名安全摘要及登录后的授权详情</td>
-<td>对外展示总体状态，内部查看历史可用率</td>
+<td><code>/status</code> 服务状态／公开看板</td>
+<td>管理员发布的节点（开启时）或匿名安全摘要；登录后附授权详情</td>
+<td>对外展示节点状态与总体状态，内部查看历史可用率</td>
 </tr>
 </tbody>
 </table></div>
@@ -1627,7 +1627,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>受控的运行观测接口还提供 Web Vitals 聚合、通知投递延迟／失败率，以及通知与 SSH WebSocket 连接计数。这是平台维护的观测能力，没有单独列为新的侧栏页面。</p>
 <h3 id="section-12-5">12.5 流量中心与可用率</h3>
 <p>流量中心可自动选择主网卡或手动选择，查看当前收发速度、累计字节、各网卡明细和远端节点来源。图表区分当前页面会话内实时数据、本机持久化 24 小时历史和 7 天汇总。</p>
-<p>服务状态页匿名只给总体状态，不暴露主机名、端口、内部连接串等信息。登录并有权访问时可查看分项及客户范围内节点的 90 天可用率热力图。未采样时间单独表达，不能当成已验证正常运行。</p>
+<p>服务状态页在展示页关闭时匿名只给总体状态，不暴露主机名、端口、内部连接串等信息；开启后见 12.8。登录并有权访问时可查看分项及客户范围内节点的 90 天可用率热力图。每日可用率按真实样本时间计算覆盖分钟（每个样本最多覆盖两倍采样间隔），未覆盖时间单独表达为未知，不能当成已验证正常运行；调整采样间隔不会重算历史。</p>
 <h3 id="section-12-6">12.6 告警规则</h3>
 <p>入口：<code>/alert-rules</code>。</p>
 <p>可一键生成离线、CPU、内存、磁盘基础规则，也可自定义：</p>
@@ -1643,7 +1643,12 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <h3 id="section-12-7">12.7 告警事件处理</h3>
 <p>规则命中产生告警事件，可查看触发、确认、恢复等状态及相关时间。未确认事件达到升级条件后会升级并再次通知指定人员。冷却和持续时间用于减少抖动通知，静默窗口主要抑制相应通知，不应被理解为删除了异常事实。</p>
 <p>告警联动 Playbook 失败会被记录，不阻断告警状态更新。应分别查看“规则触发成功”“通知发送成功”“联动修复成功”。</p>
-<p>依据：<a href="../src/lib/health/">健康与预测</a>、<a href="../src/lib/monitoring/">监控业务层</a>、<a href="../src/app/api/alert-rules/route.ts">告警规则接口</a>、<a href="../src/lib/alert/incidents.ts">告警事件</a>、<a href="../src/lib/uptime/">可用率汇总</a>。</p>
+<p><a id="public-board"></a></p>
+<h3 id="section-12-8">12.8 公开节点状态展示页</h3>
+<p>参考 Komari 的访客首页做的免登录看板，默认关闭、所有服务器默认不公开。平台管理员在 <code>/public-status</code>（设置页“数据”分类有入口）打开展示页、填写标题／简介／公告（纯文本）、选择默认视图、访客刷新间隔（10／15／30／60 秒）、强调色和允许公开的指标类别，并逐台为服务器填写公开名称（必填，不会回退为内部名称或主机，公开文本不得包含主机地址）、分组、地区、标签、排序、公开说明和维护标记后发布；可批量发布／撤销，保存前右侧列出访客将看到的字段，“以访客身份预览”在关闭状态下也能看到同一份公开数据。</p>
+<p>开启后未登录访问 <code>/</code> 会进入 <code>/status</code>：汇总在线／离线／陈旧／未采样／维护数量、地区与分组、实时吞吐、本月流量和最新采样时间；卡片／表格视图，按公开名称、地区、分组、标签搜索，按分组、状态过滤，排序与分页写入 URL。<code>/status/nodes/&lt;公开 ID&gt;</code> 显示当前指标、24 小时／7 天可用率与覆盖率、1h／6h／24h／7d 历史（资源、网络速率、控制端到节点 TCP 延迟及失败标记）和 90 天每日可用率。已登录访问 <code>/</code>、<code>/dashboard</code> 仍是管理仪表盘。</p>
+<p>访客请求只读取后台采样与 Agent 上报已保存的数据（<code>ServerMetricLatest</code>、<code>MetricSnapshot</code>、<code>TrafficSnapshot</code>、<code>ServerUptimeSnapshot</code>），不会触发 SSH 或 TCP 探测；公开接口只返回白名单字段。撤销公开、服务器禁用、转移到其他客户或客户删除后，列表、详情、历史和汇总同时收回。状态含义、单位、缓存时效、运行成本与后续路线见 <a href="public-status-board.zh-CN.md">公开展示页说明</a>。</p>
+<p>依据：<a href="../src/lib/health/">健康与预测</a>、<a href="../src/lib/public-status/">公开展示页</a>、<a href="../src/lib/monitoring/">监控业务层</a>、<a href="../src/app/api/alert-rules/route.ts">告警规则接口</a>、<a href="../src/lib/alert/incidents.ts">告警事件</a>、<a href="../src/lib/uptime/">可用率汇总</a>。</p>
 <h2 id="backup">13. 平台备份、VPS 备份、恢复与迁移</h2>
 <h3 id="section-13-1">13.1 平台备份的三种类型</h3>
 <p>入口：<code>/backups</code>，主要由平台管理员使用。</p>
@@ -2697,7 +2702,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>这些机制是实现中的控制点，不构成“绝对安全”或特定合规认证。具体安全属性还依赖运行账号、环境密钥、数据库权限、反向代理和管理员配置。</p>
 <p>依据：<a href="../src/server.ts">Web 入口</a>、<a href="../src/ssh-ws-proxy.ts">WebSocket 入口</a>、<a href="../src/worker.ts">Worker 入口</a>、<a href="../src/lib/http/api-guard.ts">API 守卫</a>、<a href="../src/lib/crypto/service.ts">加密服务</a>。</p>
 <h2 id="data-workers">20. 数据模型与后台任务设计</h2>
-<h3 id="section-20-1">20.1 79 个数据模型按职责分组</h3>
+<h3 id="section-20-1">20.1 82 个数据模型按职责分组</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -2713,9 +2718,9 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td>账号、客户成员、平台角色、身份模板、单资源授权和集成凭据</td>
 </tr>
 <tr>
-<td>服务器与连接，6 个</td>
-<td><code>SshKey</code>、<code>Server</code>、<code>RdpTicket</code>、<code>ServerAgentJob</code>、<code>ServerFileProxy</code>、<code>ServerUptimeSnapshot</code></td>
-<td>节点、认证材料、桌面票据、Agent 任务、文件网关和可用率</td>
+<td>服务器与连接，7 个</td>
+<td><code>SshKey</code>、<code>Server</code>、<code>RdpTicket</code>、<code>ServerAgentJob</code>、<code>ServerFileProxy</code>、<code>ServerUptimeSnapshot</code>、<code>ServerMetricLatest</code></td>
+<td>节点、认证材料、桌面票据、Agent 任务、文件网关、可用率和每台最新标准化指标</td>
 </tr>
 <tr>
 <td>命令，5 个</td>
@@ -2741,6 +2746,11 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td>平台基础，4 个</td>
 <td><code>Setting</code>、<code>AuditLog</code>、<code>Notification</code>、<code>Announcement</code></td>
 <td>系统设置、审计、通知和公告</td>
+</tr>
+<tr>
+<td>公开展示，2 个</td>
+<td><code>PublicStatusSite</code>、<code>PublicStatusNode</code></td>
+<td>免登录状态展示页的站点设置与逐台显式发布（公开 ID、公开字段、发布时归属）</td>
 </tr>
 <tr>
 <td>传输与发布，5 个</td>
@@ -3484,7 +3494,7 @@ npm run docs:check
 <h2 id="reference">24. 完整页面、权限、接口与源码索引</h2>
 <p>本章用于检查模块覆盖及快速定位实现；日常使用可按前面的功能章节阅读。</p>
 <!-- GENERATED_REFERENCE_START -->
-<h3 id="section-24-1">24.1 全部 56 个页面入口</h3>
+<h3 id="section-24-1">24.1 全部 58 个页面入口</h3>
 <p>动态段 <code>[id]</code>、<code>[token]</code> 需要真实对象标识；本表包含兼容跳转和公开页面。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -3691,6 +3701,11 @@ npm run docs:check
 <td><a href="#workspace">跳转设置中的个人偏好区域</a></td>
 </tr>
 <tr>
+<td><a href="../src/app/public-status/page.tsx"><code>/public-status</code></a></td>
+<td>展示页管理</td>
+<td><a href="#public-board">平台管理员配置免登录节点看板及逐台发布</a></td>
+</tr>
+<tr>
 <td><a href="../src/app/quick-services/page.tsx"><code>/quick-services</code></a></td>
 <td>快捷服务</td>
 <td><a href="#quick-services">应用模板、安装实例、更新、应用源</a></td>
@@ -3737,8 +3752,13 @@ npm run docs:check
 </tr>
 <tr>
 <td><a href="../src/app/status/page.tsx"><code>/status</code></a></td>
-<td>服务状态</td>
-<td><a href="#observability">匿名总体状态及登录后的授权详情</a></td>
+<td>服务状态／公开看板</td>
+<td><a href="#public-board">开启时为免登录节点看板，关闭时为匿名总体状态；登录后附内部详情</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/status/nodes/%5BpublicId%5D/page.tsx"><code>/status/nodes/[publicId]</code></a></td>
+<td>公开节点详情</td>
+<td><a href="#public-board">已发布节点的指标、历史、TCP 延迟与可用率</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/storage/page.tsx"><code>/storage</code></a></td>
@@ -4264,7 +4284,7 @@ npm run docs:check
 </table></div>
 <p>权限项是代码定义的授权词汇，不等于每项都有一个独立按钮。部分操作组合使用多个权限，部分平台级操作还明确检查内置 <code>admin</code> 身份。</p>
 <h3 id="section-24-3">24.3 全部 API 路由分组</h3>
-<p>按 <code>/api/</code> 下第一层路径分为 54 组，共 189 个 <code>route.ts</code> 文件。一个文件可提供多个方法，动态路径和协议入口也计入。完整路径、方法和声明权限可继续查看 <a href="route-catalog.json">route-catalog.json</a> 与运行实例中的 API 文档。</p>
+<p>按 <code>/api/</code> 下第一层路径分为 54 组，共 195 个 <code>route.ts</code> 文件。一个文件可提供多个方法，动态路径和协议入口也计入。完整路径、方法和声明权限可继续查看 <a href="route-catalog.json">route-catalog.json</a> 与运行实例中的 API 文档。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -4276,8 +4296,8 @@ npm run docs:check
 <tbody>
 <tr>
 <td><a href="../src/app/api/admin/"><code>/api/admin</code></a></td>
-<td style="text-align:right">1</td>
-<td>后台 Worker 状态</td>
+<td style="text-align:right">4</td>
+<td>后台 Worker 状态、公开展示页站点与节点发布</td>
 </tr>
 <tr>
 <td><a href="../src/app/api/agent/"><code>/api/agent</code></a></td>
@@ -4496,8 +4516,8 @@ npm run docs:check
 </tr>
 <tr>
 <td><a href="../src/app/api/status/"><code>/api/status</code></a></td>
-<td style="text-align:right">1</td>
-<td>公开总体状态及授权详情</td>
+<td style="text-align:right">4</td>
+<td>公开总体状态及授权详情、公开看板、节点详情与历史</td>
 </tr>
 <tr>
 <td><a href="../src/app/api/storage/"><code>/api/storage</code></a></td>
@@ -4546,7 +4566,7 @@ npm run docs:check
 </tr>
 <tr>
 <td><strong>合计</strong></td>
-<td style="text-align:right"><strong>189</strong></td>
+<td style="text-align:right"><strong>195</strong></td>
 <td><strong>所有 API 路由文件</strong></td>
 </tr>
 </tbody>
@@ -4695,7 +4715,7 @@ npm run docs:check
 <tr>
 <td>数据库定义</td>
 <td><a href="../prisma/schema.prisma">prisma/schema.prisma</a></td>
-<td>79 个模型及关系</td>
+<td>82 个模型及关系</td>
 </tr>
 <tr>
 <td>部署生命周期</td>
@@ -4733,12 +4753,12 @@ npm run docs:check
 <tbody>
 <tr>
 <td>页面文件</td>
-<td style="text-align:right">56</td>
+<td style="text-align:right">58</td>
 <td>第 24.1 节及对应功能章节</td>
 </tr>
 <tr>
 <td>API 路由文件</td>
-<td style="text-align:right">189</td>
+<td style="text-align:right">195</td>
 <td>第 24.3 节分组及第 24.7 节逐项索引</td>
 </tr>
 <tr>
@@ -4778,14 +4798,14 @@ npm run docs:check
 </tr>
 <tr>
 <td>Prisma 数据模型</td>
-<td style="text-align:right">79</td>
+<td style="text-align:right">82</td>
 <td>第 20.1 节</td>
 </tr>
 </tbody>
 </table></div>
 <p>通知 <code>/ws</code>、SSH <code>/ssh</code>、RDP <code>/rdp</code>、自定义 WebDAV 方法、Agent 轮询、系统恢复归档及部署入口，分别在实时链路、文件接入、服务器管理、备份和运行维护章节说明。</p>
 <p>查阅某个功能时，先确认业务页面，再沿接口或 Server Action 定位服务实现；涉及耗时操作时继续查看 Worker 与任务模型。这里的入口数量不是业务成功率或第三方兼容性承诺，具体驱动和操作系统的能力对照见第 23 章。</p>
-<h3 id="section-24-7">24.7 全部 189 个 API 路由的功能索引</h3>
+<h3 id="section-24-7">24.7 全部 195 个 API 路由的功能索引</h3>
 <p>HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路由。方法声明用于定位接口；具体操作仍由输入、权限和处理器决定。WebDAV 的 PROPFIND、MKCOL、COPY、MOVE 等扩展方法经自定义 Web 入口派发，见第 7 章。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -4797,6 +4817,24 @@ npm run docs:check
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><a href="../src/app/api/admin/public-status/nodes/route.ts"><code>/api/admin/public-status/nodes</code></a></td>
+<td>GET / POST</td>
+<td>平台管理员列出全部服务器的公开状态；批量发布、撤销、维护</td>
+<td><a href="#public-board">公开节点状态展示页</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/api/admin/public-status/nodes/%5BserverId%5D/route.ts"><code>/api/admin/public-status/nodes/[serverId]</code></a></td>
+<td>PUT</td>
+<td>单台服务器的公开名称、分组、地区、标签、排序、说明、维护与发布</td>
+<td><a href="#public-board">公开节点状态展示页</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/api/admin/public-status/site/route.ts"><code>/api/admin/public-status/site</code></a></td>
+<td>GET / PUT</td>
+<td>展示页开关、标题、简介、公告、默认视图、刷新间隔、强调色与公开指标</td>
+<td><a href="#public-board">公开节点状态展示页</a></td>
+</tr>
 <tr>
 <td><a href="../src/app/api/admin/workers/route.ts"><code>/api/admin/workers</code></a></td>
 <td>GET</td>
@@ -5720,6 +5758,24 @@ npm run docs:check
 <td>GET</td>
 <td>匿名总体状态和登录后的授权详情</td>
 <td><a href="#observability">监控、健康检查、流量与告警</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/api/status/board/route.ts"><code>/api/status/board</code></a></td>
+<td>GET</td>
+<td>公开看板：站点信息、汇总与一页已发布节点（只读已保存样本）</td>
+<td><a href="#public-board">公开节点状态展示页</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/api/status/nodes/%5BpublicId%5D/route.ts"><code>/api/status/nodes/[publicId]</code></a></td>
+<td>GET</td>
+<td>已发布节点详情、24 小时／7 天可用率与 90 天每日可用率</td>
+<td><a href="#public-board">公开节点状态展示页</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/api/status/nodes/%5BpublicId%5D/history/route.ts"><code>/api/status/nodes/[publicId]/history</code></a></td>
+<td>GET</td>
+<td>1h／6h／24h／7d 历史：资源、网络速率、TCP 延迟，带缺口与覆盖率</td>
+<td><a href="#public-board">公开节点状态展示页</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/storage/archive-download/route.ts"><code>/api/storage/archive-download</code></a></td>

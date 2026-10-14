@@ -291,8 +291,9 @@ export function SettingsClient({
     setSaved(false);
     setSavedMessage(null);
   };
-  const runtimeSummaryByKey = new Map(
-    runtimeSettings.map((item) => [item.key, item]),
+  const runtimeSummaryByKey = useMemo(
+    () => new Map(runtimeSettings.map((item) => [item.key, item])),
+    [runtimeSettings],
   );
 
   const handleSave = useCallback(
@@ -331,13 +332,20 @@ export function SettingsClient({
         try {
           const payload: Record<string, string> = {};
           for (const k of keys) {
+            // A runtime knob that is not stored in the database shows its
+            // environment/default value; sending it back unchanged would pin
+            // that value in the database over a later env change.
+            const inherited = runtimeSummaryByKey.get(k);
+            if (inherited && inherited.source !== "database" && (settings[k] ?? "") === (baselineSettings[k] ?? "")) continue;
             payload[k] = settings[k] ?? "";
           }
-          await csrfFetch("/api/settings", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
+          if (Object.keys(payload).length > 0) {
+            await csrfFetch("/api/settings", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+          }
           // Advance the dirty baseline so pending badges / high-risk confirm
           // and blur warnings no longer treat the just-saved values as edits.
           setBaselineSettings((prev) => ({ ...prev, ...payload }));
@@ -376,7 +384,7 @@ export function SettingsClient({
       }
       await performSave();
     },
-    [settings, baselineSettings, t, tt],
+    [settings, baselineSettings, runtimeSummaryByKey, t, tt],
   );
 
   if (!canManage) {
