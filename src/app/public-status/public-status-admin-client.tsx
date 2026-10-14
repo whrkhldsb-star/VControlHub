@@ -387,7 +387,7 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 			</div>
 			<p className="text-xs text-[var(--text-muted)]">{t("publicStatusAdmin.batch.hint")}</p>
 			{error ? <Notice tone="danger" action={{ label: t("publicStatus.retry"), onClick: reload }}>{error}</Notice> : null}
-			<div className="overflow-x-auto">
+			<div className="relative overflow-x-auto">
 				<table className="w-full min-w-[720px] text-left text-sm">
 					<caption className="sr-only">{t("publicStatusAdmin.nodes.title")}</caption>
 					<thead className="text-xs text-[var(--text-muted)]">

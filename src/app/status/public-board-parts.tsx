@@ -190,7 +190,7 @@ export function NodeCard({ node, nowMs, locale, t, linkSuffix = "" }: { node: Pu
 export function NodeTable({ nodes, nowMs, locale, t, metrics, linkSuffix = "" }: { nodes: PublicNode[]; nowMs: number; locale: Locale; t: T; metrics: string[]; linkSuffix?: string }) {
 	const show = (key: string) => metrics.includes(key);
 	return (
-		<div data-card className="overflow-x-auto p-0">
+		<div data-card className="relative overflow-x-auto p-0">
 			<table className="w-full min-w-[640px] text-left text-sm">
 				<caption className="sr-only">{t("publicStatus.table.caption")}</caption>
 				<thead className="text-xs text-[var(--text-muted)]">
