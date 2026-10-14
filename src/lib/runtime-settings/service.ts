@@ -582,23 +582,31 @@ export async function getSftpSyncDirectoryTimeoutMs(): Promise<number> {
 export async function getSshTerminalRuntimeConfig() {
   const values = await getRuntimeSettingNumbers([
     "runtime.sshWsHeartbeatIntervalMs",
+    "runtime.sshKeepaliveIntervalMs",
     "runtime.sshIdleTimeoutSec",
   ]);
   const wsHeartbeatIntervalMs = values["runtime.sshWsHeartbeatIntervalMs"];
   const sshIdleTimeoutSec = values["runtime.sshIdleTimeoutSec"];
-  // SSH 空闲超时 0 = 永不(强保活, 60 次容忍 ≈ 30 分钟); 其它值按 30s 间隔计算容忍次数, 最多 60 次。
-  // interval 固定 30s, 避免误改既有行为。
-  const SSH_KEEPALIVE_INTERVAL_MS = 30_000;
+  // Keepalive 走 runtime.sshKeepaliveIntervalMs / runtime.sshKeepaliveCountMax
+  // 两个设置项 (缺省 30s)。countMax 只在管理员显式写入时覆盖推导值——
+  // getRuntimeSettingNumbers 对未落库的 key 也返回 defaultValue, 无法区分
+  // "显式 60" 与 "默认 60", 因此这里读原始行判断是否显式存在。
+  const sshKeepaliveIntervalMs = values["runtime.sshKeepaliveIntervalMs"];
+  const rawRows = await readRuntimeSettingValues(["runtime.sshKeepaliveCountMax"]);
+  const explicitCountMax = rawRows?.has("runtime.sshKeepaliveCountMax")
+    ? runtimeSettingNumberFrom("runtime.sshKeepaliveCountMax", rawRows.get("runtime.sshKeepaliveCountMax"))
+    : null;
   const SSH_KEEPALIVE_COUNT_MAX_CAP = 60;
-  const sshKeepaliveCountMax = sshIdleTimeoutSec === 0
+  const derivedCountMax = sshIdleTimeoutSec === 0
     ? SSH_KEEPALIVE_COUNT_MAX_CAP
     : Math.min(
         SSH_KEEPALIVE_COUNT_MAX_CAP,
-        Math.max(1, Math.ceil(sshIdleTimeoutSec * 1000 / SSH_KEEPALIVE_INTERVAL_MS)),
+        Math.max(1, Math.ceil(sshIdleTimeoutSec * 1000 / sshKeepaliveIntervalMs)),
       );
+  const sshKeepaliveCountMax = Math.min(SSH_KEEPALIVE_COUNT_MAX_CAP, explicitCountMax ?? derivedCountMax);
   return {
     wsHeartbeatIntervalMs,
-    sshKeepaliveIntervalMs: SSH_KEEPALIVE_INTERVAL_MS,
+    sshKeepaliveIntervalMs,
     sshKeepaliveCountMax,
     // Drives the live-but-idle terminal reaper in ssh-ws-proxy: 0 = never reap
     // (the settings-page contract), > 0 = reap after this long without traffic

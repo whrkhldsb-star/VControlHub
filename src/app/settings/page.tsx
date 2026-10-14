@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { getAllSettings, getSettingUpdateMetadata } from "@/lib/settings/service";
+import { getAllSettingsMasked, getSettingUpdateMetadata } from "@/lib/settings/service";
 import { getRuntimeSettingSummaries } from "@/lib/runtime-settings/service";
 import { getAvailableDefaultPageOptions } from "@/lib/preferences/user-preferences";
 import { isPlatformAdmin as checkPlatformAdmin } from "@/lib/system/platform-admin";
@@ -55,7 +55,10 @@ export default async function SettingsPage() {
 
 	const [settings, runtimeSettings, settingUpdateMetadata] = canManage
 		? await Promise.all([
-			getAllSettings(),
+			// Masked read: sensitive values (smtp.pass, telegram.botToken, …)
+			// must not ship to the browser in the SSR payload. The save path
+			// already skips the "***" sentinel unchanged (see /api/settings PATCH).
+			getAllSettingsMasked(),
 			getRuntimeSettingSummaries(),
 			getSettingUpdateMetadata(SETTINGS_AUDIT_KEYS),
 		])

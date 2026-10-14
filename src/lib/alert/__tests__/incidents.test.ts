@@ -240,6 +240,54 @@ describe("alert incidents", () => {
     expect(createNotificationMock).not.toHaveBeenCalled();
   });
 
+  it("escalation retry quotes the minutes snapshot taken at escalation time", async () => {
+    // Escalated incident: rule said 15 minutes when it escalated (snapshot),
+    // but the rule has since been edited to 60 — the retry copy must still
+    // quote the 15 that actually triggered the escalation.
+    const old = new Date(Date.now() - 60 * 60_000);
+    prismaMock.alertIncident.findUnique.mockResolvedValue({
+      id: "inc1",
+      status: "OPEN",
+      level: 2,
+      escalationMinutes: 15,
+      title: "Alert",
+      message: "cpu high",
+      serverName: "vps-1",
+      metric: "cpu_usage",
+      createdAt: old,
+      pendingNotifyChannels: ["in_app"],
+      notifyAttempts: 0,
+      nextNotifyAt: new Date(Date.now() - 1000),
+    });
+    prismaMock.alertIncident.update.mockResolvedValue({ id: "inc1" });
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 1 });
+    // Escalation dispatch resolves on-call + notification:manage recipients.
+    prismaMock.user.findMany.mockResolvedValue([{ id: "oncall1" }, { id: "admin1" }]);
+
+    const result = await openOrRefreshAlertIncident({
+      ruleId: "r1",
+      ruleName: "High CPU",
+      serverId: "s1",
+      serverName: "vps-1",
+      metric: "cpu_usage",
+      operator: "gte",
+      threshold: 90,
+      value: 95,
+      notifyChannels: ["in_app"],
+      onCallUserIds: [],
+      // The rule's CURRENT value — must NOT win over the snapshot.
+      escalationMinutes: 60,
+      title: "Alert",
+      message: "High CPU",
+    });
+
+    expect(result.notified).toBe(true);
+    expect(createNotificationMock).toHaveBeenCalled();
+    const messageArg = createNotificationMock.mock.calls[0]?.[0]?.message ?? "";
+    expect(messageArg).toContain("15");
+    expect(messageArg).not.toContain("60");
+  });
+
   it("acknowledges open incidents", async () => {
     prismaMock.alertIncident.findUnique.mockResolvedValue({
       id: "inc1",

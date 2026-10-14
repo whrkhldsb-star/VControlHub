@@ -401,6 +401,8 @@ async function retryPendingIncidentDelivery(
     pendingNotifyChannels?: string[] | null;
     notifyAttempts?: number | null;
     nextNotifyAt?: Date | null;
+    /** Snapshot taken when the incident escalated; used for retry copy. */
+    escalationMinutes?: number | null;
   },
   input: AlertFireInput,
   now: Date,
@@ -426,7 +428,9 @@ async function retryPendingIncidentDelivery(
           webhookUrl: input.webhookUrl ?? null,
         },
         level: existing.level,
-        minutes: Math.max(1, input.escalationMinutes ?? (await getRuntimeSettingNumber("alerts.defaultEscalationMinutes").catch(() => 30))),
+        // Quote the snapshot taken at escalation time; only fall back to the
+        // rule's current value for incidents that predate the column.
+        minutes: Math.max(1, existing.escalationMinutes ?? input.escalationMinutes ?? (await getRuntimeSettingNumber("alerts.defaultEscalationMinutes").catch(() => 30))),
       }, pending)
     : await dispatchFiredNotice({ ...input, incidentId: existing.id }, pending);
   await prisma.alertIncident.updateMany({
@@ -917,6 +921,7 @@ export async function escalateOverdueAlertIncidents(options?: {
           level: nextLevel,
           escalatedAt,
           lastNotifiedAt: escalatedAt,
+          escalationMinutes: minutes,
           ...initialDeliveryState(escalatedAt, incident.rule.notifyChannels),
         },
       });

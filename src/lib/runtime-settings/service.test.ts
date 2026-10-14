@@ -28,6 +28,9 @@ describe("runtime settings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.COMMAND_EXECUTION_TIMEOUT_MS;
+    // getRuntimeSettingNumbers reads persisted rows via findMany; default to
+    // "no rows" so each test's findUnique/findMany mocks decide the values.
+    prismaMock.setting.findMany.mockResolvedValue([]);
   });
 
   it("prefers persisted runtime settings over env/default fallbacks", async () => {
@@ -49,9 +52,10 @@ describe("runtime settings", () => {
   });
 
   it("normalizes command runtime config with a stale window no lower than execution timeout", async () => {
-    prismaMock.setting.findUnique.mockImplementation(async ({ where }: { where: { key: string } }) => ({
-      value: where.key === "runtime.commandStaleRunningAfterMs" ? "30000" : "60000",
-    }));
+    prismaMock.setting.findMany.mockResolvedValue([
+      { key: "runtime.commandExecutionTimeoutMs", value: "60000" },
+      { key: "runtime.commandStaleRunningAfterMs", value: "30000" },
+    ]);
 
     await expect(getCommandRuntimeConfig()).resolves.toMatchObject({
       executionTimeoutMs: 60000,
@@ -80,9 +84,11 @@ describe("runtime settings", () => {
   });
 
   it("reads SSH terminal keepalive settings from persisted runtime settings", async () => {
-    prismaMock.setting.findUnique.mockImplementation(async ({ where }: { where: { key: string } }) => ({
-      value: where.key === "runtime.sshIdleTimeoutSec" ? "600" : "15000",
-    }));
+    prismaMock.setting.findMany.mockResolvedValue([
+      { key: "runtime.sshWsHeartbeatIntervalMs", value: "15000" },
+      { key: "runtime.sshKeepaliveIntervalMs", value: "30000" },
+      { key: "runtime.sshIdleTimeoutSec", value: "600" },
+    ]);
 
     await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
       wsHeartbeatIntervalMs: 15000,
@@ -93,9 +99,10 @@ describe("runtime settings", () => {
   });
 
   it("caps SSH keepalive count at 60 even for long idle timeouts", async () => {
-    prismaMock.setting.findUnique.mockImplementation(async ({ where }: { where: { key: string } }) => ({
-      value: where.key === "runtime.sshIdleTimeoutSec" ? "7200" : "25000",
-    }));
+    prismaMock.setting.findMany.mockResolvedValue([
+      { key: "runtime.sshKeepaliveIntervalMs", value: "30000" },
+      { key: "runtime.sshIdleTimeoutSec", value: "7200" },
+    ]);
 
     await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
       wsHeartbeatIntervalMs: 25000,
@@ -117,12 +124,39 @@ describe("runtime settings", () => {
   });
 
   it("computes the SSH keepalive count for a 5 minute idle timeout", async () => {
-    prismaMock.setting.findUnique.mockImplementation(async ({ where }: { where: { key: string } }) => ({
-      value: where.key === "runtime.sshIdleTimeoutSec" ? "300" : "25000",
-    }));
+    prismaMock.setting.findMany.mockResolvedValue([
+      { key: "runtime.sshKeepaliveIntervalMs", value: "30000" },
+      { key: "runtime.sshIdleTimeoutSec", value: "300" },
+    ]);
 
     await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
       sshKeepaliveCountMax: 10, // 5 min / 30s = 10 keepalives
+    });
+  });
+
+  it("honors an explicit keepalive interval runtime setting", async () => {
+    prismaMock.setting.findMany.mockResolvedValue([
+      { key: "runtime.sshKeepaliveIntervalMs", value: "10000" },
+      { key: "runtime.sshIdleTimeoutSec", value: "300" },
+    ]);
+
+    await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
+      sshKeepaliveIntervalMs: 10000,
+      // derived count follows the configured interval: 5 min / 10s = 30
+      sshKeepaliveCountMax: 30,
+    });
+  });
+
+  it("honors an explicit keepalive count runtime setting, capped at 60", async () => {
+    prismaMock.setting.findMany.mockResolvedValue([
+      { key: "runtime.sshKeepaliveIntervalMs", value: "30000" },
+      { key: "runtime.sshKeepaliveCountMax", value: "3" },
+      { key: "runtime.sshIdleTimeoutSec", value: "300" },
+    ]);
+
+    await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
+      // explicit 3 overrides the derived 10 (5 min / 30s)
+      sshKeepaliveCountMax: 3,
     });
   });
 
