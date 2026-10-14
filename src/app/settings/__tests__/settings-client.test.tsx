@@ -123,6 +123,34 @@ describe("SettingsClient", () => {
     });
   });
 
+  it("does not pin inherited (env/default) runtime values into the database on save", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
+    const values = { "runtime.commandExecutionTimeoutMs": "300000", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "45000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshIdleTimeoutSec": "600", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" };
+    const summary = (key: string, value: number, source: "environment" | "default" | "database") => ({
+      key, label: key, unit: "", env: "X", value, defaultValue: value, min: 1, max: 10_000_000, source, sourceLabel: source, applies: "", requiresRestart: false,
+    });
+    render(<SettingsClient settings={values} canManage runtimeSettings={[
+      summary("runtime.commandReconcileIntervalMs", 45000, "environment"),
+      summary("runtime.commandOutputLimitBytes", 262144, "default"),
+      summary("runtime.commandExecutionTimeoutMs", 300000, "default"),
+      summary("runtime.sshIdleTimeoutSec", 600, "database"),
+    ]} />);
+    await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
+    await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
+    await user.click(screen.getAllByRole("button", { name: "保存" })[2]!);
+    await screen.findByTestId("high-risk-confirm-modal");
+    await user.click(screen.getByRole("button", { name: "确认保存" }));
+
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalled());
+    const body = JSON.parse(String(vi.mocked(csrfFetch).mock.calls[0]![1]!.body));
+    // Edited: sent. Inherited and unchanged (env 45000, default 262144): left alone. Stored in the database: sent as before.
+    expect(body["runtime.commandExecutionTimeoutMs"]).toBe("120000");
+    expect(body).not.toHaveProperty("runtime.commandReconcileIntervalMs");
+    expect(body).not.toHaveProperty("runtime.commandOutputLimitBytes");
+    expect(body["runtime.sshIdleTimeoutSec"]).toBe("600");
+  });
+
   it("keeps runtime setting labels visible and grouped for visual usability", () => {
     render(<SettingsClient settings={{}} canManage />);
 

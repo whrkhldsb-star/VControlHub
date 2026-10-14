@@ -180,12 +180,13 @@ export async function POST(request: NextRequest) {
           // admitted against the grant's per-file limit and quota before a
           // byte is written, like an upload of that size. The limiter below
           // still caps the real output (the trailer is advisory).
+          const declaredSize = await readGzipDecompressedSize(fullPath);
           const admission = await assertStorageAccess({
             session,
             storageNodeId: node.id,
             relativePath: outputRelativePath,
             operation: "write",
-            writeBytes: await readGzipDecompressedSize(fullPath),
+            writeBytes: declaredSize,
           });
           if (!admission.allowed) {
             return NextResponse.json(
@@ -204,8 +205,10 @@ export async function POST(request: NextRequest) {
             await pipeline(
               createReadStream(fullPath),
               createGunzip(),
+              // Never write more than was admitted: the trailer of a
+              // concatenated multi-member file describes its last member only.
               new GunzipOutputLimiter(
-                MAX_GUNZIP_OUTPUT_BYTES,
+                declaredSize === null ? MAX_GUNZIP_OUTPUT_BYTES : Math.min(MAX_GUNZIP_OUTPUT_BYTES, declaredSize),
                 t("backend.storageHardening.extract.gzOutputTooLarge", locale),
               ),
               createWriteStream(outputPath.path),

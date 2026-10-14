@@ -83,7 +83,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("backup sche
     });
     hooks.crashOnEnqueue = true;
     // A killed process never reaches the caller's failure bookkeeping.
-    const bookkeeping = vi.spyOn(prisma.vpsBackupSchedule, "update").mockRejectedValueOnce(new Error("process killed (injected)"));
+    // (Failure bookkeeping is a compare-and-set updateMany outside the rolled-back transaction.)
+    const bookkeeping = vi.spyOn(prisma.vpsBackupSchedule, "updateMany").mockRejectedValueOnce(new Error("process killed (injected)"));
     await dispatchDueVpsBackupSchedules();
     bookkeeping.mockRestore();
     const afterCrash = await prisma.vpsBackupSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
@@ -98,5 +99,32 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("backup sche
     expect(after.nextRunAt!.getTime()).toBeGreaterThan(Date.now());
     expect(after.nextRunAt!.getFullYear()).toBeLessThan(2099);
     expect(after).toMatchObject({ lastResult: "DISPATCHED", runCount: 1 });
+  });
+
+  it("VPS schedule: an ordinary dispatch error keeps the run for a short retry and never overwrites another claim", async () => {
+    // Its own server: the previous case left a pending backup on the shared one (overlap guard).
+    await prisma.server.create({ data: { id: `${prefix}-retry`, name: `${prefix}-retry`, host: "192.0.2.11", username: "root", tags: [] } });
+    const schedule = await prisma.vpsBackupSchedule.create({
+      data: { serverId: `${prefix}-retry`, name: `${prefix}-vps-retry`, cronExpression: "0 4 * * *", backupType: "files", paths: ["/etc"], status: "ACTIVE", nextRunAt: due },
+    });
+    hooks.crashOnEnqueue = true;
+    const before = Date.now();
+    await dispatchDueVpsBackupSchedules();
+    hooks.crashOnEnqueue = false;
+    const retry = await prisma.vpsBackupSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
+    expect(retry.lastResult).toMatch(/^DISPATCH_FAILED/);
+    // Due again within five minutes, not at the next cron time.
+    expect(retry.nextRunAt!.getTime()).toBeGreaterThan(before);
+    expect(retry.nextRunAt!.getTime()).toBeLessThanOrEqual(Date.now() + 5 * 60_000);
+    // Another worker that already moved the schedule on is not overwritten by a stale failure.
+    const claimedElsewhere = new Date(Date.now() + 6 * 60 * 60_000);
+    await prisma.vpsBackupSchedule.update({ where: { id: schedule.id }, data: { nextRunAt: claimedElsewhere, lastResult: "DISPATCHED" } });
+    const { computeNextRun } = await import("../vps-backup-schedule-service");
+    const stale = await prisma.vpsBackupSchedule.updateMany({
+      where: { id: schedule.id, status: "ACTIVE", nextRunAt: retry.nextRunAt },
+      data: { nextRunAt: computeNextRun("0 4 * * *"), lastResult: "DISPATCH_FAILED: stale" },
+    });
+    expect(stale.count).toBe(0);
+    await prisma.server.delete({ where: { id: `${prefix}-retry` } });
   });
 });

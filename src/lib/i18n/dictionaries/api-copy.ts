@@ -1,5 +1,8 @@
 /** Typed API/backend copy. English remains stable outside a request locale. */
 export const en = {
+  "apiCopy.publicStatus.loadFailed": "Failed to load the status board",
+  "apiCopy.publicStatus.notFound": "Public node not found",
+  "apiCopy.publicStatus.saveFailed": "Failed to save the status board settings",
   "apiCopy.files.op.failedCount": "{v0} item(s) failed",
   "apiCopy.apiTokens.expiryTimezoneRequired": "Expiration time must include a timezone (send ISO-8601, e.g. 2026-07-22T10:00:00.000Z)",
   "apiCopy.apiTokens.expiryInvalidFormat": "Invalid expiration time format",
@@ -398,6 +401,9 @@ export const en = {
 } as const;
 
 export const zh: Record<keyof typeof en, string> = {
+  "apiCopy.publicStatus.loadFailed": "加载状态展示页失败",
+  "apiCopy.publicStatus.notFound": "未找到该公开节点",
+  "apiCopy.publicStatus.saveFailed": "保存状态展示页设置失败",
   "apiCopy.files.op.failedCount": "{v0} 个条目失败或结果待确认",
   "apiCopy.apiTokens.expiryTimezoneRequired": "过期时间必须包含时区（请使用 ISO-8601 格式，如 2026-07-22T10:00:00.000Z）",
   "apiCopy.apiTokens.expiryInvalidFormat": "过期时间格式无效",

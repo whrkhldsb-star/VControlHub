@@ -101,6 +101,7 @@ export async function collectAllHealth(
     const probe = agentFresh
       ? { ok: true as const, latencyMs: undefined }
       : await tcpProbe(server.host, server.port, TCP_PROBE_TIMEOUT_MS);
+    const probeStatus = agentFresh ? undefined : probe.ok ? ("ok" as const) : ("failed" as const);
     if (!probe.ok) {
       return {
         serverId: server.id,
@@ -109,6 +110,7 @@ export async function collectAllHealth(
         enabled: true,
         status: "offline" as const,
         lastCheck: new Date().toISOString(),
+        probeStatus,
         error: `Network unreachable: ${probe.error ?? "unknown reason"}`,
       };
     }
@@ -129,6 +131,7 @@ export async function collectAllHealth(
           status: "warning" as const,
           lastCheck: new Date().toISOString(),
           latencyMs: rtt,
+          probeStatus,
           error: `SSH unreachable (host online, RTT ${rtt ?? "?"}ms): ${result.error}`,
         };
       }
@@ -178,6 +181,7 @@ export async function collectAllHealth(
         uptime: metrics.uptime,
         lastCheck: metrics.timestamp,
         latencyMs: probe.latencyMs,
+        probeStatus,
         metrics,
       };
     } catch (err) {
@@ -193,6 +197,7 @@ export async function collectAllHealth(
         status: "warning" as const,
         lastCheck: new Date().toISOString(),
         latencyMs: rtt,
+        probeStatus,
         error: `Collection failed (host online, RTT ${rtt ?? "?"}ms): ${err instanceof Error ? err.message : String(err)}`,
       };
     }

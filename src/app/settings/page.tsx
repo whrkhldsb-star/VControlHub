@@ -60,10 +60,16 @@ export default async function SettingsPage() {
 			getSettingUpdateMetadata(SETTINGS_AUDIT_KEYS),
 		])
 		: [{}, [], {}];
+	// Show each runtime knob's effective value: without a database row that is
+	// the environment variable (or the built-in default), not the default alone.
+	const effectiveSettings: Record<string, string> = { ...settings };
+	for (const summary of runtimeSettings) {
+		if (summary.source !== "database") effectiveSettings[summary.key] = String(summary.value);
+	}
 	return (
 		<PageShell>
 			<UnifiedSettingsPageClient
-				settings={settings}
+				settings={effectiveSettings}
 				runtimeSettings={runtimeSettings}
 				settingUpdateMetadata={settingUpdateMetadata}
 				canManage={canManage}

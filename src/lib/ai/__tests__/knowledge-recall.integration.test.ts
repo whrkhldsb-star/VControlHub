@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
 
-import { searchKnowledge } from "../knowledge";
+import { buildKnowledgeContextForPrompt, searchKnowledge } from "../knowledge";
 
 /**
  * Candidate recall must follow relevance, not age: one old SOP that matches
@@ -64,6 +64,20 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("knowledge s
   it("still finds the newer chunks for a query only they match", async () => {
     const hits = await searchKnowledge({ query: "access log line 249", session, limit: 3 });
     expect(hits[0]?.content).toBe("nginx access log line 249");
+  });
+
+  it("uses the platform's per-answer excerpt budget when the caller sets no limit", async () => {
+    // Default ai.knowledgeMaxResults is 8; the chat path passes no limit.
+    expect((await buildKnowledgeContextForPrompt({ query: "nginx", session })).hits).toHaveLength(8);
+    await prisma.setting.upsert({ where: { key: "ai.knowledgeMaxResults" }, create: { key: "ai.knowledgeMaxResults", value: "12" }, update: { value: "12" } });
+    try {
+      expect((await buildKnowledgeContextForPrompt({ query: "nginx", session })).hits).toHaveLength(12);
+      // A caller may still ask for fewer, never for more.
+      expect(await searchKnowledge({ query: "nginx", session, limit: 3 })).toHaveLength(3);
+      expect(await searchKnowledge({ query: "nginx", session, limit: 50 })).toHaveLength(12);
+    } finally {
+      await prisma.setting.deleteMany({ where: { key: "ai.knowledgeMaxResults" } });
+    }
   });
 
   it("treats LIKE wildcards in the query literally", async () => {

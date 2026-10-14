@@ -1,283 +1,75 @@
-import { PageShell, PageHeader } from "@/components/page-shell";
-import { type SystemHealthCheck } from "@/lib/system-health/service";
-import { getServerLocale, t } from "@/lib/i18n/translations";
-import { formatDateTime } from "@/lib/datetime/format";
-import { appTimeZoneDateKey, shiftAppTimeZoneDay, startOfDayInAppTimeZone } from "@/lib/datetime/time-zone";
-import { getPublicStatus, getPublicStatusSummary } from "@/lib/status/service";
-import { createLogger } from "@/lib/logging";
-import { getAllUptimeDataInternal } from "@/lib/uptime/internal";
+import { PageHeader, PageShell } from "@/components/page-shell";
+import { ButtonLink } from "@/components/action-button";
 import { getCurrentSession } from "@/lib/auth/server-session";
-import {
-  calculateWeightedSla,
-  calculateWindowCoverage,
-  describeUptimeDay,
-  expectedChecksForDay,
-  getUptimeColorClass,
-} from "./uptime-presentation";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
+import { formatDateTime } from "@/lib/datetime/format";
+import { getServerLocale, t } from "@/lib/i18n/translations";
+import { createLogger } from "@/lib/logging";
+import { parseBoardQuery } from "@/lib/public-status/query";
+import { readPublicBoard } from "@/lib/public-status/read";
+import { getPublicStatusSummary } from "@/lib/status/service";
+import { InternalStatusSection, healthDotClass, healthLabel } from "./internal-status-section";
+import { PublicBoardClient } from "./public-board-client";
 
 const logger = createLogger("status:page");
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type StatusCheck = SystemHealthCheck;
+/**
+ * /status
+ * - Board open (or a platform administrator previewing with ?preview=1): the
+ *   public node board, built by the same projection as /api/status/board.
+ * - Board closed: the overall platform status only, as before.
+ * - Signed-in accounts additionally see the internal component checks and
+ *   their customer's uptime below (not in guest preview).
+ */
+export default async function Page({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const [session, locale, params] = await Promise.all([getCurrentSession(), getServerLocale(), searchParams ?? Promise.resolve({} as Record<string, string | string[] | undefined>)]);
+  const isAdmin = Boolean(session && isGlobalTeamManager(session));
+  const preview = params.preview === "1" && isAdmin;
+  const board = await readPublicBoard(parseBoardQuery(params), { preview }).catch((error) => {
+    logger.error("Failed to load the public board", error);
+    return null;
+  });
 
-type UptimeDay = {
-  date: string;
-  uptimePercent: number;
-  checkCount: number;
-};
-
-type UptimeServer = {
-  id: string;
-  name?: string | null;
-  data?: UptimeDay[];
-};
-
-type UptimeResponse = {
-  servers?: UptimeServer[];
-};
-
-async function getAllUptimeData(session: Awaited<ReturnType<typeof getCurrentSession>>): Promise<UptimeResponse | null> {
-  try {
-    // Authenticated: team-scoped. Anonymous public page: fleet display names only
-    // (product status page; no host/port/credentials).
-    return await getAllUptimeDataInternal(session ? { session } : {});
-  } catch (err) {
-    logger.error("Failed to fetch uptime data", err);
-  }
-  return null;
-}
-
-function getHealthLabel(status: string, locale: Parameters<typeof t>[1]) {
-  switch (status) {
-    case "healthy":
-      return t("statusPage.health.healthy", locale);
-    case "warning":
-      return t("statusPage.health.warning", locale);
-    case "degraded":
-      return t("statusPage.health.degraded", locale);
-    case "critical":
-      return t("statusPage.health.critical", locale);
-    default:
-      return status;
-  }
-}
-
-function renderUptimeSection(
-  uptimeData: UptimeResponse | null,
-  locale: Parameters<typeof t>[1],
-) {
-  const servers = uptimeData?.servers ?? [];
   return (
-    <div className="mt-8">
-      <h2 className="ui-title-section">{t("statusPage.uptime.title", locale)}</h2>
-      <p className="mt-1 text-xs text-[var(--text-muted)]">
-        {t("statusPage.uptime.desc", locale)}
-      </p>
-      {servers.length === 0 ? (
-        <p className="mt-4 text-sm text-[var(--text-secondary)]">
-          {t("statusPage.uptime.empty", locale)}
-        </p>
+    <PageShell navigation={Boolean(session)}>
+      {board ? (
+        <PublicBoardClient initial={board} preview={preview} signedIn={Boolean(session)} />
       ) : (
-        <div className="mt-4 grid gap-6">
-          {servers.map((server: UptimeServer) => {
-            const daysMap = new Map<string, UptimeDay>();
-            (server.data || []).forEach((d: UptimeDay) => {
-              const dateKey = d.date ? String(d.date) : "";
-              if (dateKey) daysMap.set(dateKey, d);
-            });
-
-            // Day cells follow the application time zone, like the rollup that fills them.
-            const now = new Date();
-            const days: string[] = [];
-            for (let i = 89; i >= 0; i--) {
-              days.push(appTimeZoneDateKey(shiftAppTimeZoneDay(now, -i)));
-            }
-
-            const today = days[days.length - 1];
-            const minutesToday = (now.getTime() - startOfDayInAppTimeZone(now).getTime()) / 60_000;
-            const filled = days.map((date) => {
-              const sample = daysMap.get(date);
-              const day = { uptimePercent: sample?.uptimePercent ?? 0, checkCount: sample?.checkCount ?? 0 };
-              const expectedChecks = expectedChecksForDay(date === today ? minutesToday : 1440);
-              return { date, ...day, expectedChecks, ...describeUptimeDay(day, expectedChecks) };
-            });
-            const sla = calculateWeightedSla(server.data ?? []);
-            const windowCoverage = calculateWindowCoverage(filled);
-
-            return (
-              <div key={server.id} data-card className="p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="ui-title-group">
-                    {server.name || t("statusPage.uptime.defaultServerName", locale)}
-                  </h3>
-                  <div className="text-xs text-[var(--text-muted)]">
-                    {t("statusPage.uptime.slaLabel", locale)}{" "}
-                    <span className="font-mono">{sla === null ? "—" : `${sla}%`}</span>
-                    {windowCoverage ? (
-                      <span className={windowCoverage.sufficient ? undefined : "text-[var(--warning)]"}>
-                        {" · "}
-                        {t("statusPage.uptime.coverage", locale, { coverage: windowCoverage.coveragePercent })}
-                        {windowCoverage.sufficient ? "" : ` · ${t("statusPage.uptime.insufficient", locale)}`}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {filled.map((d) => (
-                    <div
-                      key={d.date}
-                      className={`h-4 w-4 rounded ${getUptimeColorClass(d.uptimePercent, d.sampled, d.sufficient)} transition hover:scale-125 hover:z-10`}
-                      title={
-                        d.sampled
-                          ? t("statusPage.uptime.dayTooltip", locale, {
-                              date: d.date,
-                              percent: d.uptimePercent,
-                              checks: d.checkCount,
-                              expected: d.expectedChecks,
-                              coverage: d.coveragePercent,
-                            }) + (d.sufficient ? "" : ` · ${t("statusPage.uptime.insufficient", locale)}`)
-                          : `${d.date}: ${t("statusPage.uptime.noSample", locale)}`
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <ClosedBoard signedIn={Boolean(session)} isAdmin={isAdmin} locale={locale} />
       )}
-    </div>
+      {session && !preview ? <InternalStatusSection session={session} /> : null}
+    </PageShell>
   );
 }
 
-/** The translated text, or the service's own wording when no entry exists. */
-function translatedOr(key: string, fallback: string, locale: Parameters<typeof t>[1], vars?: Record<string, string | number>) {
-  const text = t(key, locale, vars);
-  return text === key ? fallback : text;
-}
-
-export default async function Page() {
-  // Public status page:
-  // - anonymous: overall summary only
-  // - authenticated: full component checks + uptime
-  const session = await getCurrentSession();
-  const locale = await getServerLocale();
-  if (!session) {
-    const status = await getPublicStatusSummary();
-    return (
-      <PageShell width="narrow" navigation={Boolean(session)}>
-        <div>
-          <PageHeader eyebrow={t("statusPage.eyebrow", locale)} title={t("statusPage.title", locale)} description={t("statusPage.desc", locale)} />
-
-          <div data-card className="mt-6 p-5">
-            <div className="flex items-center gap-3">
-              <span
-                className={`inline-block h-3 w-3 rounded-full ${
-                  status.summary.overall === "healthy"
-                    ? "bg-[var(--success)]"
-                    : status.summary.overall === "warning"
-                      ? "bg-[var(--warning)]"
-                      : "bg-[var(--danger)]"
-                }`}
-              />
-              <span className="text-lg font-medium text-[var(--text-primary)]">
-                {t("statusPage.overallLabel", locale)}
-                {getHealthLabel(status.summary.overall, locale)}
-              </span>
-            </div>
-            <p className="mt-2 text-xs text-[var(--text-muted)]">
-              {t("statusPage.updatedAt", locale)}
-              {formatDateTime(status.generatedAt, locale)}
-            </p>
-          </div>
-
-          <p className="mt-6 text-sm leading-6 text-[var(--text-secondary)]">
-            {t("statusPage.public.detailsHint", locale)}
-          </p>
-
-          <p className="mt-8 text-center text-xs text-[var(--text-muted)]">
-            VControlHub · {new Date().getFullYear()}
-          </p>
-        </div>
-      </PageShell>
-    );
-  }
-
-  // The 90-day uptime scan and the status aggregation are independent —
-  // fetch concurrently so the page waits on the slower one, not both.
-  const [uptimeData, status] = await Promise.all([
-    getAllUptimeData(session),
-    getPublicStatus(),
-  ]);
-
+async function ClosedBoard({ signedIn, isAdmin, locale }: { signedIn: boolean; isAdmin: boolean; locale: Awaited<ReturnType<typeof getServerLocale>> }) {
+  const status = await getPublicStatusSummary();
   return (
-    <PageShell width="narrow" navigation={Boolean(session)}>
-      <div>
-        <PageHeader eyebrow={t("statusPage.eyebrow", locale)} title={t("statusPage.title", locale)} description={t("statusPage.desc", locale)} />
-
-        <div data-card className="mt-6 p-5">
-          <div className="flex items-center gap-3">
-            <span
-              className={`inline-block h-3 w-3 rounded-full ${
-                status.summary.overall === "healthy"
-                  ? "bg-[var(--success)]"
-                  : status.summary.overall === "warning"
-                    ? "bg-[var(--warning)]"
-                    : "bg-[var(--danger)]"
-              }`}
-            />
-            <span className="text-lg font-medium text-[var(--text-primary)]">
-              {t("statusPage.overallLabel", locale)}
-              {getHealthLabel(status.summary.overall, locale)}
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">
-            {t("statusPage.updatedAt", locale)}
-            {formatDateTime(status.generatedAt, locale)}
-          </p>
+    <div className="mx-auto w-full max-w-3xl">
+      <PageHeader eyebrow={t("statusPage.eyebrow", locale)} title={t("statusPage.title", locale)} description={t("statusPage.desc", locale)}>
+        {isAdmin ? (
+          <ButtonLink href="/public-status" variant="outline" size="sm">{t("statusPage.manageBoard", locale)}</ButtonLink>
+        ) : !signedIn ? (
+          <ButtonLink href="/login?next=%2F" variant="primary" size="sm">{t("statusPage.signIn", locale)}</ButtonLink>
+        ) : null}
+      </PageHeader>
+      <div data-card className="mt-6 p-5">
+        <div className="flex items-center gap-3">
+          <span className={`inline-block h-3 w-3 rounded-full ${healthDotClass(status.summary.overall)}`} />
+          <span className="text-lg font-medium text-[var(--text-primary)]">
+            {t("statusPage.overallLabel", locale)}
+            {healthLabel(status.summary.overall, locale)}
+          </span>
         </div>
-
-        <div className="mt-4 grid gap-3">
-          {status.checks.map((c: StatusCheck) => (
-            <div key={c.id} data-card className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-block h-2 w-2 rounded-full ${
-                      c.status === "healthy"
-                        ? "bg-[var(--success)]"
-                        : c.status === "warning"
-                          ? "bg-[var(--warning)]"
-                          : "bg-[var(--danger)]"
-                    }`}
-                  />
-                  <b className="text-sm text-[var(--text-primary)]">{translatedOr(`statusPage.check.${c.id}.label`, c.label, locale)}</b>
-                </div>
-                <span
-                  className={`text-xs ${
-                    c.status === "healthy"
-                      ? "text-[var(--success)]"
-                      : c.status === "warning"
-                        ? "text-[var(--warning)]"
-                        : "text-[var(--danger)]"
-                  }`}
-                >
-                  {getHealthLabel(c.status, locale)}
-                </span>
-              </div>
-              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{c.messageCode ? translatedOr(`statusPage.check.${c.id}.${c.messageCode}`, c.message, locale, c.params) : c.message}</p>
-            </div>
-          ))}
-        </div>
-
-        {renderUptimeSection(uptimeData, locale)}
-
-        <p className="mt-8 text-center text-xs text-[var(--text-muted)]">
-          VControlHub · {new Date().getFullYear()}
+        <p className="mt-2 text-xs text-[var(--text-muted)]">
+          {t("statusPage.updatedAt", locale)}
+          {formatDateTime(status.generatedAt, locale)}
         </p>
       </div>
-    </PageShell>
+      {!signedIn ? <p className="mt-6 text-sm leading-6 text-[var(--text-secondary)]">{t("statusPage.public.detailsHint", locale)}</p> : null}
+    </div>
   );
 }

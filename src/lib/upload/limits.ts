@@ -1,6 +1,7 @@
 import { statfs } from "node:fs/promises";
 
 import { getRuntimeSettingNumberCached } from "@/lib/runtime-settings/cached";
+import { getRuntimeSettingFallback, readPersistedRuntimeSettingNumberStrict } from "@/lib/runtime-settings/service";
 
 /**
  * Largest chunked storage upload: the `storage.uploadMaxBytes` setting, else
@@ -9,6 +10,17 @@ import { getRuntimeSettingNumberCached } from "@/lib/runtime-settings/cached";
  */
 export function getStorageUploadMaxBytes(): number {
 	return getRuntimeSettingNumberCached("storage.uploadMaxBytes");
+}
+
+/**
+ * The same limit read from the database at the moment of admission. The
+ * places that actually accept or assemble an upload use this, so a lowered
+ * limit applies even in a process whose cache is still cold; a database error
+ * fails the upload rather than falling back to a larger env/default limit.
+ */
+export async function readStorageUploadMaxBytes(): Promise<number> {
+	const persisted = await readPersistedRuntimeSettingNumberStrict("storage.uploadMaxBytes");
+	return persisted ?? getRuntimeSettingFallback("storage.uploadMaxBytes");
 }
 
 /** Kept free on the upload temp volume after admitting an upload. */

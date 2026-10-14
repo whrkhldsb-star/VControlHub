@@ -89,8 +89,10 @@ describe("fleet health background sampling", () => {
 
   it("collects, batches snapshots, prunes retention, rolls up uptime and completes the durable job", async () => {
     expect(await runHealthSamplingWorkerOnce("test")).toBe(true);
+    // Each sample row records the cadence it was taken at (default 5 minutes).
     expect(mocks.snapshotHealthOverview).toHaveBeenCalledWith(
       expect.objectContaining({ total: 2 }),
+      { intervalSeconds: 300 },
     );
     expect(mocks.pruneMetricSnapshots).toHaveBeenCalledWith(expect.any(Date));
     expect(mocks.rollupRecentServerUptime).toHaveBeenCalledTimes(1);

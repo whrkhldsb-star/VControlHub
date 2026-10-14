@@ -25,6 +25,9 @@ const PUBLIC_PATHS_EXACT = new Set([
   "/api/auth/2fa/verify-login",
   "/status",
   "/api/status",
+  // The home page decides itself: signed-in users get the dashboard, visitors
+  // the public status board when it is open, otherwise the login page.
+  "/",
   // TR-033 PWA: service worker + manifest + offline fallback must be reachable
   // without an auth cookie. Browsers fetch them from <link rel="manifest"> /
   // <link rel="icon"> tags and the service worker scope, never with cookies.
@@ -46,6 +49,10 @@ const PUBLIC_PATH_PREFIXES = [
   "/icon-192x192.png", // PWA home-screen icon (TR-033)
   "/apple-icon.png",
   "/share/", // share token pages (validated server-side)
+  // Public status board: node detail pages and read-only (GET) API. Each
+  // route answers 404 unless the board is open and the node is published.
+  "/status/",
+  "/api/status/",
 ];
 
 function isPublicPath(pathname: string, method = "GET"): boolean {
@@ -171,6 +178,51 @@ function formRequestNeedsDeclaredLength(request: NextRequest): boolean {
   return !contentLength || !/^\d+$/.test(contentLength);
 }
 
+// ── Public status board gate ────────────────────────────────────
+// Pages stream a 200 shell before they render (root loading.tsx), so a page
+// can no longer set the status code. These two entry points are decided
+// here instead, with one indexed query each (imported lazily, only for
+// these paths): anonymous "/" gets a real 307 to the board or the sign-in
+// page, and a node page that is not visible gets a real 404.
+const PUBLIC_NODE_PAGE = /^\/status\/nodes\/([^/]+)$/;
+/** No page exists here: rewriting to it renders the app's not-found page with status 404. */
+export const PUBLIC_NODE_NOT_FOUND_PATH = "/status/__node-not-found";
+
+function publicStatusGate(request: NextRequest, forwardedHeaders: Headers): Promise<NextResponse> | null {
+  if (!SAFE_METHODS.has(request.method.toUpperCase())) return null;
+  const { pathname, searchParams } = request.nextUrl;
+  const passThrough = () => NextResponse.next({ request: { headers: forwardedHeaders } });
+  if (pathname === "/" && !hasValidSessionCookie(request)) {
+    return import("@/lib/public-status/gate")
+      .then(({ isPublicBoardOpen }) => isPublicBoardOpen())
+      .then((open) => {
+        const target = request.nextUrl.clone();
+        target.search = "";
+        target.pathname = open ? "/status" : "/login";
+        if (!open) target.searchParams.set("next", "/");
+        return NextResponse.redirect(target);
+      })
+      // Without a database answer the page decides, as before.
+      .catch(passThrough);
+  }
+  const node = PUBLIC_NODE_PAGE.exec(pathname);
+  if (node) {
+    // An administrator's guest preview of a closed board is decided by the page.
+    if (searchParams.get("preview") === "1" && hasValidSessionCookie(request)) return null;
+    return import("@/lib/public-status/gate")
+      .then(({ isPublicNodeVisible }) => isPublicNodeVisible(node[1]!))
+      .then((visible) => {
+        if (visible) return passThrough();
+        const target = request.nextUrl.clone();
+        target.pathname = PUBLIC_NODE_NOT_FOUND_PATH;
+        target.search = "";
+        return NextResponse.rewrite(target, { request: { headers: forwardedHeaders } });
+      })
+      .catch(passThrough);
+  }
+  return null;
+}
+
 // ── Main middleware ───────────────────────────────────────────────
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -212,6 +264,9 @@ export function proxy(request: NextRequest) {
     });
     return addSecurityHeaders(response, request, nonce);
   }
+
+  const gated = publicStatusGate(request, forwardedHeaders);
+  if (gated) return gated.then((response) => addSecurityHeaders(response, request, nonce));
 
   // 1) Allow public paths through
   if (isPublicPath(pathname, request.method)) {

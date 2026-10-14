@@ -586,7 +586,6 @@ export async function createAiChatResponse(input: {
     const { context } = await buildKnowledgeContextForPrompt({
       query: payload.userText,
       session: input.session,
-      limit: 4,
     });
     if (context) insertKnowledgeContext(messages, context);
   } catch (error) {

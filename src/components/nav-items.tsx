@@ -150,6 +150,7 @@ export const systemNavItems: AppNavItem[] = [
 	{ href: "/api-docs", labelKey: "nav.api-docs", fallbackLabel: "API Docs", icon: <IconFileCode /> },
 	{ href: "/itsm", labelKey: "nav.itsm", fallbackLabel: "ITSM", icon: <IconPlug /> },
 	{ href: "/status", labelKey: "nav.status", fallbackLabel: "Public Status", icon: <IconGlobe /> },
+	{ href: "/public-status", labelKey: "nav.publicStatusAdmin", fallbackLabel: "Status Board Settings", icon: <IconSignal /> },
 ];
 
 export const systemNavGroup: AppNavGroup = {

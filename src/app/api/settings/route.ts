@@ -112,8 +112,10 @@ function normalizeSettingValue(key: string, value: string) {
 		case "smtp.pass":
 			return { key, value: value.trim() };
 		case "telegram.enabled":
-		case "security.sshEnforceHostKeyPin":
 			return normalizeBooleanSetting(key, value);
+		case "security.sshEnforceHostKeyPin":
+			// Empty keeps SSH_ENFORCE_HOST_KEY_PIN in force (the stored default).
+			return value.trim() === "" ? { key, value: "" } : normalizeBooleanSetting(key, value);
 		case "platform.defaultLocale": {
 			const trimmed = value.trim().toLowerCase();
 			// Empty means the built-in default (a form that never showed the field).

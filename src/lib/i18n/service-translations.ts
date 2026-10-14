@@ -18,6 +18,7 @@ import { zh as storageZh, en as storageEn } from "./dictionaries/storage-page";
 import { zh as storageHardeningZh, en as storageHardeningEn } from "./dictionaries/storage-hardening-api";
 import { zh as sshHardeningZh, en as sshHardeningEn } from "./dictionaries/ssh-hardening-api";
 import { zh as opsHardeningZh, en as opsHardeningEn } from "./dictionaries/ops-hardening-api";
+import { zh as publicStatusApiZh, en as publicStatusApiEn } from "./dictionaries/public-status-api";
 import { type Locale } from "./core";
 import { currentApiRequestLocale } from "./api-copy";
 import { makeT } from "./make-t";
@@ -33,7 +34,7 @@ const zh: Record<string, string> = {
 	...downloadsPageZh, ...openApiSpecZh, ...serversDetectOsApiZh,
 	...serversFileProxyApiZh, ...serversReloadApiZh, ...shareTokenApiZh,
 	...vpsBackupApiZh,
-	...storageHardeningZh, ...sshHardeningZh, ...opsHardeningZh,
+	...storageHardeningZh, ...sshHardeningZh, ...opsHardeningZh, ...publicStatusApiZh,
 	...apiCopyZh,
 };
 
@@ -43,7 +44,7 @@ const en: Record<string, string> = {
 	...downloadsPageEn, ...openApiSpecEn, ...serversDetectOsApiEn,
 	...serversFileProxyApiEn, ...serversReloadApiEn, ...shareTokenApiEn,
 	...vpsBackupApiEn,
-	...storageHardeningEn, ...sshHardeningEn, ...opsHardeningEn,
+	...storageHardeningEn, ...sshHardeningEn, ...opsHardeningEn, ...publicStatusApiEn,
 	...apiCopyEn,
 };
 

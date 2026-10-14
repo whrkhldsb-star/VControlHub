@@ -59,7 +59,7 @@ CLI (needs `admin:repo_hook` / repo admin token):
 ```bash
 # Example — adjust owner/repo
 gh api -X PUT repos/OWNER/REPO/branches/main/protection \
-  -f required_status_checks='{"strict":true,"contexts":["test","E2E public smoke (Chromium + Firefox + WebKit)"]}' \
+  -f required_status_checks='{"strict":true,"contexts":["test","E2E public smoke (Chromium + Firefox + WebKit)","test-windows","Docker fresh-install smoke"]}' \
   -F enforce_admins=true \
   -F required_pull_request_reviews=null \
   -F restrictions=null
@@ -133,6 +133,12 @@ WebKit after public smoke:
 - `E2E_DIRECT_SESSION=1` mints a signed session cookie (avoids form-login +
   `mustChangePassword` redirects)
 - Path covered: `/` → `/servers` → `/files` → `/settings` → dashboard chrome
+
+The same step runs `e2e/public-status-board.spec.ts` on all three browsers: it
+inserts public, hidden, maintenance, offline, never-sampled and 230 bulk status
+board fixtures under a random prefix, restores the board's site row and deletes
+the fixtures afterwards, and refuses any database that is not a loopback
+audit/test/`_ci` database.
 
 It then runs the complete non-destructive product workflow suite on Chromium.
 That gate renders every concrete authenticated page and exercises CRUD, files,

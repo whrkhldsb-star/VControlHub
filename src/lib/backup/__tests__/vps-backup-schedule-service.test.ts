@@ -237,6 +237,22 @@ describe("dispatchDueVpsBackupSchedules overlap guard", () => {
     );
   });
 
+  it("keeps a failed occurrence due for a short retry instead of skipping it", async () => {
+    prismaMock.vpsBackupRecord.count.mockResolvedValue(0);
+    enqueueJobMock.mockRejectedValueOnce(new Error("connection reset"));
+    const before = Date.now();
+
+    const dispatched = await dispatchDueVpsBackupSchedules();
+
+    expect(dispatched).toBe(0);
+    const retry = prismaMock.vpsBackupSchedule.updateMany.mock.calls.at(-1)![0];
+    // Compare-and-set on the occurrence we read: never overwrites another worker's claim.
+    expect(retry.where).toEqual({ id: "schedule-1", status: "ACTIVE", nextRunAt: dueSchedule.nextRunAt });
+    expect(retry.data.lastResult).toBe("DISPATCH_FAILED: connection reset");
+    expect(retry.data.nextRunAt.getTime()).toBeLessThanOrEqual(before + 5 * 60_000 + 1_000);
+    expect(prismaMock.vpsBackupSchedule.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastResult: expect.stringContaining("DISPATCH_FAILED") }) }));
+  });
+
   it("dispatches normally when no prior run is in flight", async () => {
     prismaMock.vpsBackupRecord.count.mockResolvedValue(0);
 

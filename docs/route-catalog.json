@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-12T15:26:00.338Z",
+  "generatedAt": "2026-10-13T17:31:01.191Z",
   "summary": {
     "sidebarMain": 26,
-    "sidebarSystem": 11,
+    "sidebarSystem": 12,
     "sidebarMobile": 4,
-    "pages": 56,
-    "apiRoutes": 189,
+    "pages": 58,
+    "apiRoutes": 195,
     "permissionsDefined": 52
   },
   "sidebar": {
@@ -159,6 +159,10 @@
       {
         "href": "/status",
         "fallbackLabel": "Public Status"
+      },
+      {
+        "href": "/public-status",
+        "fallbackLabel": "Status Board Settings"
       }
     ],
     "mobileHrefs": [
@@ -595,6 +599,14 @@
       "navigationPermissions": []
     },
     {
+      "path": "/public-status",
+      "file": "src/app/public-status/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
+      "declaredPermissions": [],
+      "navigationPermissions": []
+    },
+    {
       "path": "/quick-services",
       "file": "src/app/quick-services/page.tsx",
       "inSidebarMain": true,
@@ -711,6 +723,14 @@
       ]
     },
     {
+      "path": "/status/nodes/[publicId]",
+      "file": "src/app/status/nodes/[publicId]/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [],
+      "navigationPermissions": []
+    },
+    {
       "path": "/status",
       "file": "src/app/status/page.tsx",
       "inSidebarMain": false,
@@ -805,6 +825,41 @@
     }
   ],
   "apiRoutes": [
+    {
+      "path": "/api/admin/public-status/nodes/[serverId]",
+      "file": "src/app/api/admin/public-status/nodes/[serverId]/route.ts",
+      "methods": [
+        "PUT"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "team:manage"
+      ]
+    },
+    {
+      "path": "/api/admin/public-status/nodes",
+      "file": "src/app/api/admin/public-status/nodes/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "team:manage"
+      ]
+    },
+    {
+      "path": "/api/admin/public-status/site",
+      "file": "src/app/api/admin/public-status/site/route.ts",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "team:manage"
+      ]
+    },
     {
       "path": "/api/admin/workers",
       "file": "src/app/api/admin/workers/route.ts",
@@ -2593,6 +2648,33 @@
         "role:manage",
         "snippet:manage"
       ]
+    },
+    {
+      "path": "/api/status/board",
+      "file": "src/app/api/status/board/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "public",
+      "declaredPermissions": []
+    },
+    {
+      "path": "/api/status/nodes/[publicId]/history",
+      "file": "src/app/api/status/nodes/[publicId]/history/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "public",
+      "declaredPermissions": []
+    },
+    {
+      "path": "/api/status/nodes/[publicId]",
+      "file": "src/app/api/status/nodes/[publicId]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "public",
+      "declaredPermissions": []
     },
     {
       "path": "/api/status",

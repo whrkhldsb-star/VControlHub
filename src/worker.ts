@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
+import { primeSettingCaches } from "@/lib/settings/prime";
 import { closeSshPool } from "@/lib/ssh/client";
 import { startWorkerLifecycle, stopWorkerLifecycle } from "@/lib/workers/startup";
 
@@ -14,6 +15,8 @@ const logger = createLogger("worker-process");
 const SHUTDOWN_HARD_DEADLINE_MS = 10_000;
 
 async function main() {
+  // Sync callers (SSH host-key pin, queue limits) must not start on env defaults.
+  await primeSettingCaches();
   const result = await startWorkerLifecycle();
   if (result.skipped) {
     throw new Error(`Worker process startup was skipped: ${result.reason ?? "unknown"}`);

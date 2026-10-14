@@ -166,6 +166,21 @@ describe("restore runner destination and preflight", () => {
       stderr: expect.stringContaining(`a deployment is running (deploy.sh pid ${process.pid}`),
     });
     expect(await readdir(target)).toEqual([]);
+    // The restore lock taken before the check is given back.
+    expect(await readdir(fallback)).not.toContain(".restore.lock");
+  });
+
+  it.skipIf(posixOnly)("deploy.sh refusing over a live restore leaves its lock empty", async () => {
+    const deployLock = path.join(tmp, "deploy.lock");
+    const restoreLock = path.join(fallback, ".restore.lock");
+    await mkdir(restoreLock);
+    await writeFile(path.join(restoreLock, "owner"), `pid=${process.pid}\nhost=${os.hostname()}\nstartedAt=now\n`);
+    await expect(runFile("bash", [path.resolve("deploy.sh")], { env: { ...process.env, DEPLOY_LOCK: deployLock, APP_DIR: fallback } })).rejects.toMatchObject({
+      code: 75,
+      stdout: expect.stringContaining("a restore is in progress"),
+    });
+    // No PID left behind: a reused number must not look like a running deployment.
+    expect(await readFile(deployLock, "utf8")).toBe("");
   });
 
   it.skipIf(posixOnly)("ignores a released or stale deployment lock", async () => {

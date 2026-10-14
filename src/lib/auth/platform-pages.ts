@@ -8,7 +8,7 @@
  */
 import type { Permission } from "./rbac";
 
-export const PLATFORM_ONLY_PAGES: ReadonlySet<string> = new Set(["/health", "/monitoring"]);
+export const PLATFORM_ONLY_PAGES: ReadonlySet<string> = new Set(["/health", "/monitoring", "/public-status"]);
 
 /**
  * How navigation admits a platform-only page. The platform role holds every

@@ -511,6 +511,11 @@ export function buildUsage(
     "/api/docs/openapi",
     "/api/docs/openapi.json",
     "/api/status",
+    // Anonymous status board: read-only projection of explicitly published
+    // nodes (404 when the board is closed); reviewed in the public-status PR.
+    "/api/status/board",
+    "/api/status/nodes/[publicId]",
+    "/api/status/nodes/[publicId]/history",
     "/api/dashboard/analytics",
     "/api/preferences",
     "/api/monitoring/stats",

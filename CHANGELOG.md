@@ -4,6 +4,37 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+### Added
+
+- **Public node status board** (inspired by Komari's visitor page; no Komari code or assets copied). When a platform administrator opens it, visitors who are not signed in land on `/status` from `/` and see a summary (online/offline/stale/not-sampled/maintenance counts, regions and groups, live throughput, traffic this month, latest sample and page refresh times), card and table views, search by public name/region/group/tag, group and status filters, sorting (default order, name, status, CPU, memory, disk, network) and pagination kept in the URL, plus `/status/nodes/<publicId>` with current numbers, 24 h/7 d availability with coverage, 1 h/6 h/24 h/7 d history (CPU/memory/disk, network rate, Hub-to-node TCP latency with failed probes marked) and a 90-day strip. Signed-in users keep the dashboard at `/` and `/dashboard`. Read API: `GET /api/status/board`, `GET /api/status/nodes/[publicId]`, `GET /api/status/nodes/[publicId]/history` (no-store, one shared rate-limit bucket, a uniform 404 for a closed board, hidden nodes and guessed ids). See `docs/public-status-board.zh-CN.md`.
+- **Status board management** at `/public-status` (platform administrators; `GET/PUT /api/admin/public-status/site`, `GET/POST /api/admin/public-status/nodes`, `PUT /api/admin/public-status/nodes/[serverId]`, audited): on/off switch, title, description and announcement (plain text), default view, visitor refresh interval (10/15/30/60 s), accent preset, which metric categories are public, platform status on/off, guest preview; per server an explicit public name (never the internal name or host; text containing the host is refused), group, region, tags, order, public note, maintenance flag, publish/unpublish one by one or in batches, with a preview of exactly what visitors will see. Linked from the settings page's data category.
+- Migration `20261013180000_public_status_board` (expand-only): `public_status_sites`, `public_status_nodes`, `server_metric_latest`, and nullable `intervalSeconds`, `probeStatus`, `probeLatencyMs` on `metric_snapshots`. It publishes nothing: after the upgrade the board is closed and every server private.
+- `scripts/public-status-init.mjs` opens the board on an installation that never configured it — titled, platform status hidden, nothing published — with a SYSTEM audit record; an existing (open or closed) configuration is never changed.
+- `scripts/load/public-status-baseline.ts` measures SQL statements, body size and time of the public read paths for 200/500 published nodes on a disposable database.
+
+### Changed
+
+- The health sampler and Agent metric reports also write one normalised row per server (`server_metric_latest`): rates in bytes per second from interface counters (unknown after a counter reset, an interface change or a gap longer than three report intervals; never zero by default), monthly traffic by deltas, the latest reachability verdict and TCP probe. Each `metric_snapshots` row now records the sampler interval and the probe outcome (`ok`, `failed`, or not measured when a fresh Agent report was used).
+- **Daily uptime counts covered minutes from real sample times.** Each sample covers the time until the next one, at most twice its recorded interval (rows written before the interval was recorded: the former fixed 5 minutes), and the day's percentage is the online share of that covered time. A changed sampling interval no longer rescales history or makes complete days look "insufficient"; the `/status` heatmap's coverage is judged in minutes.
+- A published node disappears from every public view as soon as it is unpublished, its server is disabled, the server moves to another customer (the board recorded the owner at publish time; republishing confirms the new owner) or its customer is deleted — the cached board list re-checks the visible set on every request, so this holds without waiting for the cache.
+- Anonymous `/` gets a real `307` (to `/status` when the board is open, otherwise `/login?next=/`) and a hidden, unpublished or unknown `/status/nodes/<id>` a real `404`: the proxy decides these two entry points with one indexed query before the page streams (the root loading screen otherwise forces a streamed `200`).
+- Metrics read from an Agent report carry the report's own time instead of the time the sampler parsed them; server traffic history uses the first physical interface instead of whichever interface `/proc/net/dev` lists first (often `docker0`).
+- `/status` for signed-in accounts shows the public board first and the internal component checks and customer uptime below it; with the board closed, visitors see the overall status only, as before.
+
+### Fixed
+
+- Settings → Security policy can be saved again: the host-key pin switch defaults to "not set" (use `SSH_ENFORCE_HOST_KEY_PIN`), which the API now accepts instead of answering 400 for every save of the section.
+- Saving a settings section no longer writes the environment/default value of an untouched runtime knob into the database (which then overrode the environment variable, e.g. `AUDIT_RETENTION_DAYS=0` became 365 and old audit rows were pruned). The page also shows each knob's effective value instead of the built-in default.
+- "Knowledge excerpts per answer" (`ai.knowledgeMaxResults`) now governs chat answers; they were capped at 4 whatever the setting said.
+- Settings read by synchronous code (SSH host-key pin policy, upload limits, queue sizes) are loaded when the web and worker processes start, and a failed refresh keeps the last stored value instead of reverting to the environment default for a minute.
+- `restore.mjs` takes its restore lock before checking for a running deployment (the same order as `deploy.sh`), so a deploy and a restore started at the same moment can no longer both pass; `deploy.sh` clears its PID from the lock when it refuses to start over a restore.
+- `.gz` extraction never writes more than the size it was admitted with (the gzip trailer of a multi-member file describes only its last member).
+- A capacity-forecast alert rule's own escalation delay reaches the escalation notice and its retry, instead of the platform default.
+- A VPS backup schedule whose dispatch fails (database error) is retried within five minutes instead of skipping that run, and the retry is a compare-and-set, so a failed tick can no longer overwrite another worker's claim.
+- A direct-SSH storage write through a dangling symbolic link is refused with the same "path leaves the node" error as other links out of the root (it used to surface as a raw "No such file" error); the Agent path already refused it.
+- Lowering `storage.uploadMaxBytes` applies to every upload admission and assembly at once (read from the database at that moment), not after a process's cache refresh; the SSH host-key pin policy is strict (unpinned hosts refused) until the stored policy has been read.
+- The "remember me" session lifetime follows the settings page (database, then `AUTH_REMEMBER_SESSION_TTL_SECONDS`, then default); the environment variable used to win silently while the page said "database".
+
 ### Changed
 
 - **Settings page reorganised into eight categories** (personal, platform & appearance, security & account, notifications & alerts, operations, storage & backup, monitoring & data, AI), with the config export/import panel under platform.

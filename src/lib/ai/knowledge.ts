@@ -421,7 +421,8 @@ export async function searchKnowledge(input: {
 
   ranked.sort((a, b) => b.score - a.score || a.chunkIndex - b.chunkIndex);
   const maxResults = await getRuntimeSettingNumber("ai.knowledgeMaxResults").catch(() => MAX_RESULTS);
-  const limit = Math.min(maxResults, Math.max(1, input.limit ?? 5));
+  // The platform setting is the per-answer budget; a caller may only ask for fewer.
+  const limit = Math.min(maxResults, Math.max(1, input.limit ?? maxResults));
   return ranked.slice(0, limit);
 }
 
@@ -452,7 +453,7 @@ export async function buildKnowledgeContextForPrompt(input: {
     query: input.query,
     session: input.session,
     knowledgeBaseId: input.knowledgeBaseId,
-    limit: input.limit ?? 5,
+    limit: input.limit,
   });
   return { context: formatKnowledgeContext(hits), hits };
 }

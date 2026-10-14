@@ -6,6 +6,10 @@ vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
 }));
 
+vi.mock("@/lib/auth/server-session", () => ({
+  getCurrentSession: vi.fn().mockResolvedValue({ userId: "u_1", username: "admin", roles: ["admin"] }),
+}));
+
 vi.mock("@/lib/auth/require-session", () => ({
   requireSession: vi.fn().mockResolvedValue({
     userId: "u_1",
