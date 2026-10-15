@@ -15,6 +15,7 @@ import { evaluateHealth } from "./service-types";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { persistServerTrafficFromMetrics } from "@/lib/monitoring/server-traffic-snapshot";
+import { fullestDisk } from "@/lib/public-status/normalize";
 
 /** Default TCP probe deadline; tight enough to keep the health rollup snappy
  *  even when dozens of servers are probed in parallel. */
@@ -151,10 +152,9 @@ export async function collectAllHealth(
       }
       const health = evaluateHealth(metrics);
       const diskMax = Math.max(...metrics.disk.map((d) => d.usagePercent), 0);
-      // Prefer root mount for absolute disk labels; fall back to busiest mount.
-      const rootDisk =
-        metrics.disk.find((d) => d.mount === "/") ??
-        metrics.disk.slice().sort((a, b) => b.usagePercent - a.usagePercent)[0];
+      // Size labels from the same (fullest) partition as diskMax, never "/"
+      // sizes beside another mount's percentage.
+      const labelDisk = fullestDisk(metrics.disk);
       const totalNetRx = metrics.network.reduce((s, n) => s + n.rxBytes, 0);
       const totalNetTx = metrics.network.reduce((s, n) => s + n.txBytes, 0);
       const nowMs = Date.now();
@@ -170,8 +170,8 @@ export async function collectAllHealth(
         memUsedMb: metrics.memory.usedMb,
         memTotalMb: metrics.memory.totalMb,
         diskMax,
-        diskUsedLabel: rootDisk?.usedGb,
-        diskTotalLabel: rootDisk?.totalGb,
+        diskUsedLabel: labelDisk?.usedGb,
+        diskTotalLabel: labelDisk?.totalGb,
         loadAvg1m: metrics.cpu.loadAvg[0],
         networkInKbps: rates.inKbps,
         networkOutKbps: rates.outKbps,

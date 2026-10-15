@@ -108,11 +108,27 @@ function counterOrNull(value: number | undefined): bigint | null {
 	return BigInt(Math.trunc(value));
 }
 
+/**
+ * The fullest filesystem: the one the health status, disk alerts and the
+ * stored history percentage (`metric_snapshots.diskUsage`) already describe.
+ * Its own used/total sizes go with that percentage, so a display never pairs
+ * one partition's percent with another partition's bytes. "/" wins ties.
+ */
+export function fullestDisk(disks: ServerMetrics["disk"]): ServerMetrics["disk"][number] | undefined {
+	let fullest: ServerMetrics["disk"][number] | undefined;
+	for (const disk of disks) {
+		if (!Number.isFinite(disk.usagePercent)) continue;
+		if (!fullest || disk.usagePercent > fullest.usagePercent || (disk.usagePercent === fullest.usagePercent && disk.mount === "/")) {
+			fullest = disk;
+		}
+	}
+	return fullest;
+}
+
 export function normalizeServerMetrics(metrics: ServerMetrics): NormalizedMetrics {
-	const rootDisk =
-		metrics.disk.find((d) => d.mount === "/") ??
-		metrics.disk.slice().sort((a, b) => b.usagePercent - a.usagePercent)[0];
-	const diskMax = metrics.disk.length > 0 ? Math.max(...metrics.disk.map((d) => d.usagePercent)) : null;
+	// Percent and sizes from one partition. df -h rounds sizes and excludes
+	// reserved blocks from its percent, so used/total only approximates it.
+	const disk = fullestDisk(metrics.disk);
 	const primary = selectPrimaryInterface(metrics.network);
 	const memTotal = metrics.memory.totalMb > 0 ? metrics.memory.totalMb : null;
 	return {
@@ -125,9 +141,9 @@ export function normalizeServerMetrics(metrics: ServerMetrics): NormalizedMetric
 		memUsedMb: memTotal === null ? null : Math.round(metrics.memory.usedMb),
 		memTotalMb: memTotal,
 		swapUsage: percentOrNull(metrics.swapUsagePercent),
-		diskUsage: percentOrNull(diskMax),
-		diskUsedBytes: parseDfSizeLabel(rootDisk?.usedGb),
-		diskTotalBytes: parseDfSizeLabel(rootDisk?.totalGb),
+		diskUsage: percentOrNull(disk?.usagePercent),
+		diskUsedBytes: parseDfSizeLabel(disk?.usedGb),
+		diskTotalBytes: parseDfSizeLabel(disk?.totalGb),
 		uptimeSeconds: parseUptimeSeconds(metrics.uptime),
 		netIface: primary ? primary.iface.slice(0, 64) : null,
 		netRxBytes: primary ? counterOrNull(primary.rxBytes) : null,

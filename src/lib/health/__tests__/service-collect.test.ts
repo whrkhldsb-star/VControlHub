@@ -151,6 +151,27 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		expect(result.servers[0]?.error).toBeUndefined();
 	});
 
+	it("labels disk sizes from the same partition as diskMax", async () => {
+		prismaMock.server.findMany.mockResolvedValueOnce([
+			{ id: "s1", name: "Two disks", host: "10.0.0.1", port: 22, enabled: true },
+		]);
+		tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 3 });
+		collectServerMetricsMock.mockResolvedValueOnce({
+			...goodMetrics(),
+			disk: [
+				{ mount: "/", totalGb: "100G", usedGb: "20G", usagePercent: 20 },
+				{ mount: "/data", totalGb: "400G", usedGb: "360G", usagePercent: 90 },
+			],
+		});
+
+		const result = await collectAllHealth();
+
+		// diskMax keeps its fullest-partition meaning (health and alerts).
+		expect(result.servers[0]?.diskMax).toBe(90);
+		expect(result.servers[0]?.diskUsedLabel).toBe("360G");
+		expect(result.servers[0]?.diskTotalLabel).toBe("400G");
+	});
+
 	it("returns critical when TCP + SSH succeed and metrics exceed thresholds", async () => {
 		prismaMock.server.findMany.mockResolvedValueOnce([
 			{ id: "s1", name: "Hot", host: "10.0.0.1", port: 22, enabled: true },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeServerMetrics, parseDfSizeLabel, parseUptimeSeconds } from "../normalize";
+import { fullestDisk, normalizeServerMetrics, parseDfSizeLabel, parseUptimeSeconds } from "../normalize";
 import { classifyPublicNode, freshnessWindowMs, type StatusInput } from "../status";
 import { formatAge, formatDuration, formatIecBytes, formatIecRate, formatLatency, formatPercent } from "../format";
 
@@ -47,9 +47,10 @@ describe("normalize", () => {
 			memUsage: null,
 			memUsedMb: null,
 			memTotalMb: null,
+			// Percent and sizes both describe the fullest partition (/data).
 			diskUsage: 90,
-			diskUsedBytes: 5 * 1024 ** 3,
-			diskTotalBytes: 20 * 1024 ** 3,
+			diskUsedBytes: 90 * 1024 ** 3,
+			diskTotalBytes: 100 * 1024 ** 3,
 			uptimeSeconds: null,
 			netIface: "eth0",
 			netRxBytes: BigInt(1000),
@@ -59,6 +60,46 @@ describe("normalize", () => {
 			"cpuCores", "cpuUsage", "diskTotalBytes", "diskUsage", "diskUsedBytes", "load1", "load15", "load5",
 			"memTotalMb", "memUsage", "memUsedMb", "netIface", "netRxBytes", "netTxBytes", "swapUsage", "uptimeSeconds",
 		]);
+	});
+});
+
+describe("disk partition", () => {
+	const sample = (disk: Array<{ mount: string; totalGb: string; usedGb: string; usagePercent: number }>) => normalizeServerMetrics({
+		cpu: { usagePercent: 1, cores: 1, loadAvg: [0, 0, 0] },
+		memory: { totalMb: 100, usedMb: 20, availableMb: 80, usagePercent: 20 },
+		disk,
+		network: [],
+		uptime: "1 day",
+		timestamp: "2026-10-15T00:00:00Z",
+	});
+
+	it("never pairs one partition's percent with another partition's sizes", () => {
+		// Root 20 of 100 GiB, /data 90 of 400 GiB: distinct sizes on purpose.
+		const values = sample([
+			{ mount: "/", totalGb: "100G", usedGb: "20G", usagePercent: 20 },
+			{ mount: "/data", totalGb: "400G", usedGb: "360G", usagePercent: 90 },
+		]);
+		expect(values).toMatchObject({ diskUsage: 90, diskUsedBytes: 360 * 1024 ** 3, diskTotalBytes: 400 * 1024 ** 3 });
+	});
+
+	it("keeps df's own percent (reserved blocks, rounding) rather than recomputing it", () => {
+		// ext4 reserves ~5 %: df reports 47 % for 9.0G used of 20G.
+		const values = sample([
+			{ mount: "/", totalGb: "20G", usedGb: "9.0G", usagePercent: 47 },
+			{ mount: "/boot", totalGb: "974M", usedGb: "200M", usagePercent: 22 },
+		]);
+		expect(values).toMatchObject({ diskUsage: 47, diskUsedBytes: 9 * 1024 ** 3, diskTotalBytes: 20 * 1024 ** 3 });
+	});
+
+	it("prefers / on a tie, skips non-numeric percents and stays null without disks", () => {
+		const tie = [
+			{ mount: "/srv", totalGb: "50G", usedGb: "25G", usagePercent: 50 },
+			{ mount: "/", totalGb: "10G", usedGb: "5G", usagePercent: 50 },
+			{ mount: "/mnt/odd", totalGb: "1G", usedGb: "1G", usagePercent: Number.NaN },
+		];
+		expect(fullestDisk(tie)?.mount).toBe("/");
+		expect(sample(tie)).toMatchObject({ diskUsage: 50, diskUsedBytes: 5 * 1024 ** 3, diskTotalBytes: 10 * 1024 ** 3 });
+		expect(sample([])).toMatchObject({ diskUsage: null, diskUsedBytes: null, diskTotalBytes: null });
 	});
 });
 
