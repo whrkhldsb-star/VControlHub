@@ -81,6 +81,37 @@ describe("SSH terminal clipboard shortcuts", () => {
 		expect(data.setData).not.toHaveBeenCalled();
 	});
 
+	it.each([
+		{ name: "a fullscreen container holding the terminal", fullscreen: "container", host: "container" },
+		{ name: "the document element", fullscreen: "root", host: "body" },
+		{ name: "an unrelated fullscreen element", fullscreen: "other", host: "body" },
+		{ name: "no full screen", fullscreen: null, host: "body" },
+	])("mounts the legacy copy helper for $name", async ({ fullscreen, host }) => {
+		vi.stubGlobal("navigator", {});
+		const container = document.createElement("div");
+		const other = document.createElement("div");
+		document.body.append(container, other);
+		const { term, handler, report } = setup();
+		container.appendChild(term.textarea);
+		const full = { container, root: document.documentElement, other, none: null }[fullscreen ?? "none"];
+		Object.defineProperty(document, "fullscreenElement", { configurable: true, value: full });
+		let parent: Element | null = null;
+		vi.spyOn(document, "execCommand").mockImplementation(() => {
+			parent = (document.activeElement as HTMLElement).parentElement;
+			return false;
+		});
+		try {
+			handler(key("c"));
+			await vi.waitFor(() => expect(report).toHaveBeenCalledWith(false));
+			expect(parent).toBe(host === "container" ? container : document.body);
+			expect(container.querySelector("textarea[readonly]")).toBeNull();
+		} finally {
+			delete (document as { fullscreenElement?: unknown }).fullscreenElement;
+			container.remove();
+			other.remove();
+		}
+	});
+
 	it("reports denied clipboard access without clearing selection or sending input", async () => {
 		writeText.mockRejectedValue(new Error("denied"));
 		const { handler, term, report } = setup();

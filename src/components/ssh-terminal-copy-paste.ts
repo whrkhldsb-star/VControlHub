@@ -2,6 +2,19 @@ import type { Terminal } from "@xterm/xterm";
 
 type CopyCapableTerminal = Pick<Terminal, "textarea" | "hasSelection" | "getSelection">;
 
+/**
+ * Where the temporary copy textarea may live. In native full screen only the
+ * fullscreen element's subtree is interactive; WebKit refuses execCommand
+ * copy from a node outside it (e.g. document.body when a container, not the
+ * whole document, is full screen).
+ */
+function copyHost(doc: Document, term: CopyCapableTerminal): Element {
+	const full = doc.fullscreenElement ?? (doc as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement ?? null;
+	if (!full || full.contains(doc.body)) return doc.body;
+	// A fullscreen subtree that does not hold the terminal cannot be the copy target.
+	return !term.textarea || full.contains(term.textarea) ? full : doc.body;
+}
+
 /** Copy only explicitly selected text. Keep selection, focus and terminal input unchanged. */
 async function copySelection(term: CopyCapableTerminal, text: string): Promise<boolean> {
 	const doc = term.textarea?.ownerDocument ?? document;
@@ -26,7 +39,7 @@ async function copySelection(term: CopyCapableTerminal, text: string): Promise<b
 	textarea.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none";
 	doc.addEventListener("copy", onCopy, true);
 	try {
-		doc.body.appendChild(textarea);
+		copyHost(doc, term).appendChild(textarea);
 		textarea.focus({ preventScroll: true });
 		textarea.select();
 		if (doc.execCommand?.("copy") && copied) return true;
