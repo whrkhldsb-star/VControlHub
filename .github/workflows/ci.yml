@@ -319,7 +319,7 @@ jobs:
           set -euo pipefail
           # Confirm server still up before Playwright starts.
           curl -fsS http://127.0.0.1:3000/login >/dev/null
-          npx playwright test e2e/public-smoke.spec.ts \
+          npx playwright test e2e/public-smoke.spec.ts e2e/ssh-terminal-clipboard.spec.ts \
             --project=chromium --project=firefox --project=webkit \
             --workers=1 --retries=1
 

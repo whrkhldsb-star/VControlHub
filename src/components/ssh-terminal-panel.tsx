@@ -2,6 +2,7 @@
 
 import { decodeBase64Bytes } from "@/components/ssh-terminal-codec";
 import { createSshTerminalInputSender } from "@/components/ssh-terminal-input";
+import { chainSshTerminalCopyPaste } from "@/components/ssh-terminal-copy-paste";
 import { installSshTerminalIme } from "@/components/ssh-terminal-ime";
 import { installSshTerminalTouchScroll } from "@/components/ssh-terminal-touch-scroll";
 import { parseQuickKeyPresets, quickKeyPresetsToEntries, serializeQuickKeyPresets, type QuickKeyPreset } from "@/components/ssh-quick-keys";
@@ -104,6 +105,7 @@ export function SshTerminalPanel({
 	const [status, setStatus] = useState<TerminalStatus>("connecting");
 	const [errorMsg, setErrorMsg] = useState<string>("");
 	const [inputError, setInputError] = useState<string>("");
+	const [clipboardError, setClipboardError] = useState(false);
 	const [reconnectKey, setReconnectKey] = useState(0);
 	const [showSidePanel, setShowSidePanel] = useState(false);
 	const [showFileManager, setShowFileManager] = useState(false);
@@ -247,7 +249,13 @@ export function SshTerminalPanel({
 			term.loadAddon(fitAddon);
 			term.loadAddon(searchAddon);
 			term.open(surface);
-			const removeIme = installSshTerminalIme(term);
+			// Key handler chain: IME forwarding runs first (mobile punctuation),
+			// copy/paste chords second. installSshTerminalIme attaches the
+			// combined handler to xterm's single custom-key slot.
+			const copyPasteHandler = chainSshTerminalCopyPaste(term, () => true, (copied) => {
+				if (!disposed) setClipboardError(!copied);
+			});
+			const removeIme = installSshTerminalIme(term, copyPasteHandler);
 			fitAddon.fit();
 
 			terminalRef.current = term;
@@ -591,6 +599,8 @@ export function SshTerminalPanel({
 
 			{/* Terminal + side panel */}
 			{inputError && <p role="alert" className="mx-4 mt-3 text-sm text-[var(--danger)]">{inputError}</p>}
+			{clipboardError && <p role="alert" className="mx-4 mt-3 text-sm text-[var(--danger)]">{t("sshTerminalModal.errClipboardCopy")}</p>}
+			{!fullscreen && <p className="mx-4 mt-2 text-xs text-[var(--text-muted)]">{t("sshTerminalModal.copyHint")}</p>}
 			{sessionNotice && (
 				<p role="status" className="mx-4 mt-3 text-xs text-[var(--text-secondary)]" data-testid="ssh-terminal-session-notice">
 					{t(sessionNotice === "resumed" ? "sshTerminalModal.sessionResumed" : "sshTerminalModal.sessionFresh")}
