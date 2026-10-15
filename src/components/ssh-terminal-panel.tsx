@@ -2,6 +2,7 @@
 
 import { decodeBase64Bytes } from "@/components/ssh-terminal-codec";
 import { createSshTerminalInputSender } from "@/components/ssh-terminal-input";
+import { chainSshTerminalCopyPaste } from "@/components/ssh-terminal-copy-paste";
 import { installSshTerminalIme } from "@/components/ssh-terminal-ime";
 import { installSshTerminalTouchScroll } from "@/components/ssh-terminal-touch-scroll";
 import { parseQuickKeyPresets, quickKeyPresetsToEntries, serializeQuickKeyPresets, type QuickKeyPreset } from "@/components/ssh-quick-keys";
@@ -247,7 +248,11 @@ export function SshTerminalPanel({
 			term.loadAddon(fitAddon);
 			term.loadAddon(searchAddon);
 			term.open(surface);
-			const removeIme = installSshTerminalIme(term);
+			// Key handler chain: IME forwarding runs first (mobile punctuation),
+			// copy/paste chords second. installSshTerminalIme attaches the
+			// combined handler to xterm's single custom-key slot.
+			const copyPasteHandler = chainSshTerminalCopyPaste(term, () => true);
+			const removeIme = installSshTerminalIme(term, copyPasteHandler);
 			fitAddon.fit();
 
 			terminalRef.current = term;

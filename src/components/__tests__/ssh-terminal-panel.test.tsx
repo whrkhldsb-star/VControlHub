@@ -46,6 +46,9 @@ vi.mock("@xterm/xterm", () => ({
 		open(parent: HTMLElement) { parent.appendChild(this.textarea); }
 		input() {}
 		attachCustomKeyEventHandler() {}
+		hasSelection() { return false; }
+		getSelection() { return ""; }
+		clearSelection() {}
 		write() {}
 		onData() {}
 		dispose() {}
