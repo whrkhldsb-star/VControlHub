@@ -55,6 +55,25 @@ describe("SettingsClient", () => {
     expect(screen.getByText(/平台信息已保存/)).toBeInTheDocument();
   });
 
+  it("treats *** in a non-secret field as plain text, not the secret sentinel", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
+
+    render(<><SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage /><a href="/servers">前往节点</a></>);
+    const input = screen.getByLabelText("平台名称");
+    await user.clear(input);
+    await user.type(input, "***");
+    await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
+
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledOnce());
+    expect(JSON.parse(String(vi.mocked(csrfFetch).mock.calls[0]![1]!.body))["platform.name"]).toBe("***");
+    expect(await screen.findByText(/设置已保存/)).toBeInTheDocument();
+    // Saved like any other text: still shown, and no longer a pending edit.
+    expect(input).toHaveValue("***");
+    await user.click(screen.getByRole("link", { name: "前往节点" }));
+    expect(screen.queryByRole("dialog", { name: "有设置尚未保存" })).not.toBeInTheDocument();
+  });
+
   it("protects unsaved changes during client-side navigation", async () => {
     const user = userEvent.setup();
     render(<><SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage /><a href="/servers">前往节点</a></>);

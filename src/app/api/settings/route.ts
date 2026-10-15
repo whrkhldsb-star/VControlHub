@@ -6,7 +6,7 @@ import {
 	setManySettings,
 	isValidSettingKey,
 } from "@/lib/settings/service";
-import { SettingKey, MASKED_VALUE } from "@/lib/settings/schema";
+import { SettingKey, MASKED_VALUE, isSensitiveKey } from "@/lib/settings/schema";
 import { isRuntimeSettingKey, normalizeRuntimeSettingValue } from "@/lib/runtime-settings/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -177,8 +177,9 @@ export async function PATCH(request: Request) {
 				rejectedKeys.push(key);
 				continue;
 			}
-			// Skip if the client sent the masked sentinel back unchanged
-			if (value === MASKED_VALUE) {
+			// A secret sent back as the masked sentinel keeps its stored value.
+			// Only secrets are masked, so "***" is a real value for any other key.
+			if (value === MASKED_VALUE && isSensitiveKey(key)) {
 				continue;
 			}
 			// Per-entry Zod validation (key enum + string value)

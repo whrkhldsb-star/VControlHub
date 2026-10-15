@@ -88,6 +88,25 @@ describe("/api/settings audit coverage", () => {
 
     expect((await patch({ "smtp.pass": "" })).status).toBe(200);
     expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "smtp.pass", value: "" }]);
+
+    expect((await patch({ "smtp.pass": "new-secret" })).status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "smtp.pass", value: "new-secret" }]);
+  });
+
+  it("saves *** as a real value for keys that are never masked", async () => {
+    const patch = (body: Record<string, string>) => route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }));
+
+    expect((await patch({ "platform.name": "***" })).status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "platform.name", value: "***" }]);
+    expect(mocks.auditUserAction).toHaveBeenLastCalledWith("u1", "settings.update", { keys: ["platform.name"], count: 1 }, undefined, null);
+
+    // Mixed with a kept secret: only the secret's sentinel is dropped.
+    expect((await patch({ "platform.name": "***", "smtp.pass": "***" })).status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "platform.name", value: "***" }]);
   });
 
   it("rejects malformed JSON with the shared bodySchema error envelope", async () => {
