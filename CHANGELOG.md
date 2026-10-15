@@ -23,6 +23,9 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Fixed
 
+- SSH terminal copy without the Async Clipboard API (plain HTTP, restricted permission) also works while a container — not the whole page — is in native full screen: the temporary copy field is placed inside the fullscreen element, because WebKit refuses a legacy copy from outside it. Selection, focus, the failure notice, bare Ctrl+C as interrupt and a single native paste are unchanged; covered in Chromium, Firefox and WebKit full screen.
+- Disk usage on the public status board (and the size labels on the internal node status) now describes one partition: the percentage and used/total size both come from the fullest filesystem — the one health status, disk alerts and the stored disk history already use. Before, the fullest partition's percentage was shown next to the root partition's sizes (e.g. 90 % beside 20 / 100 GiB). Sizes are `df -h` labels, so they only approximate the percentage (rounding, reserved blocks).
+- Saving `***` as the value of a non-secret setting (e.g. the platform name) is stored. Only secret settings treat `***` as "keep the stored value"; before, every key skipped it while the API still answered success.
 - Settings → Security policy can be saved again: the host-key pin switch defaults to "not set" (use `SSH_ENFORCE_HOST_KEY_PIN`), which the API now accepts instead of answering 400 for every save of the section.
 - Saving a settings section no longer writes the environment/default value of an untouched runtime knob into the database (which then overrode the environment variable, e.g. `AUDIT_RETENTION_DAYS=0` became 365 and old audit rows were pruned). The page also shows each knob's effective value instead of the built-in default.
 - "Knowledge excerpts per answer" (`ai.knowledgeMaxResults`) now governs chat answers; they were capped at 4 whatever the setting said.
