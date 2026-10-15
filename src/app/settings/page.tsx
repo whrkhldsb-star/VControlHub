@@ -57,7 +57,7 @@ export default async function SettingsPage() {
 		? await Promise.all([
 			// Masked read: sensitive values (smtp.pass, telegram.botToken, …)
 			// must not ship to the browser in the SSR payload. The save path
-			// already skips the "***" sentinel unchanged (see /api/settings PATCH).
+			// keeps a secret sent back as the "***" sentinel (see /api/settings PATCH).
 			getAllSettingsMasked(),
 			getRuntimeSettingSummaries(),
 			getSettingUpdateMetadata(SETTINGS_AUDIT_KEYS),
