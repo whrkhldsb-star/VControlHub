@@ -15,8 +15,8 @@ export type SshTerminalKeyHandler = (event: KeyboardEvent) => boolean;
  * Composition sessions themselves remain owned by xterm.
  */
 export function installSshTerminalIme(
-	term: Pick<Terminal, "textarea" | "input" | "attachCustomKeyEventHandler">,
-	next?: SshTerminalKeyHandler,
+  term: Pick<Terminal, "textarea" | "input" | "attachCustomKeyEventHandler">,
+  next?: SshTerminalKeyHandler,
 ) {
   const textarea = term.textarea!;
   let composing = false;
