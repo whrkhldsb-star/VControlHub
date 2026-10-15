@@ -1053,6 +1053,10 @@ model AlertIncident {
   status                AlertIncidentStatus @default(OPEN)
   /// 1 = initial fire, 2 = escalated (no ack), 3 = re-escalated / critical
   level                 Int                 @default(1)
+  /// escalationMinutes snapshot taken when the incident escalated: retry
+  /// copies must quote the window that actually triggered the escalation,
+  /// not whatever the rule says at retry time.
+  escalationMinutes     Int?
   title                 String
   message               String
   acknowledgedAt        DateTime?

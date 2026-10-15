@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = vi.hoisted(() => ({
 	server: { findUnique: vi.fn() },
 	publicStatusNode: { findUnique: vi.fn(), upsert: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+	$transaction: vi.fn(async (operations: unknown[]) => Promise.all(operations)),
 }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
@@ -164,6 +165,8 @@ describe("node publication (admin)", () => {
 		prismaMock.publicStatusNode.update.mockResolvedValue({});
 		const result = await applyNodeBatch({ action: "publish", serverIds: ["s1", "s2"] }, "admin");
 		expect(result).toEqual({ changed: 1, skipped: ["s2"] });
+		expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+		expect(prismaMock.$transaction.mock.calls[0]![0]).toHaveLength(1);
 		expect(prismaMock.publicStatusNode.update).toHaveBeenCalledWith(expect.objectContaining({ where: { serverId: "s1" }, data: expect.objectContaining({ published: true, publishedTeamId: "team_a" }) }));
 	});
 });

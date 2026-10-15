@@ -33,6 +33,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
+import { isSensitiveKey, MASKED_VALUE } from "@/lib/settings/schema";
 
 import {
   SETTINGS_SCHEMA,
@@ -348,7 +349,20 @@ export function SettingsClient({
           }
           // Advance the dirty baseline so pending badges / high-risk confirm
           // and blur warnings no longer treat the just-saved values as edits.
-          setBaselineSettings((prev) => ({ ...prev, ...payload }));
+          // A saved secret is shown masked from now on, like after a reload:
+          // non-empty becomes the "***" sentinel, a cleared one stays empty.
+          const saved = Object.fromEntries(
+            Object.entries(payload).map(([k, v]) => [k, isSensitiveKey(k) && v !== "" ? MASKED_VALUE : v]),
+          );
+          setBaselineSettings((prev) => ({ ...prev, ...saved }));
+          setSettings((prev) => {
+            const next = { ...prev };
+            for (const [k, v] of Object.entries(saved)) {
+              // Only a secret still holding what was sent; later edits stay.
+              if (isSensitiveKey(k) && prev[k] === payload[k]) next[k] = v;
+            }
+            return next;
+          });
           setBlurredHighRiskKeys((prev) => {
             if (prev.size === 0) return prev;
             const next = new Set(prev);

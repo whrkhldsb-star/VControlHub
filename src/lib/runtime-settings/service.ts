@@ -580,25 +580,36 @@ export async function getSftpSyncDirectoryTimeoutMs(): Promise<number> {
 }
 
 export async function getSshTerminalRuntimeConfig() {
-  const values = await getRuntimeSettingNumbers([
-    "runtime.sshWsHeartbeatIntervalMs",
-    "runtime.sshIdleTimeoutSec",
+  const countKey = "runtime.sshKeepaliveCountMax";
+  const [values, persistedCountMax] = await Promise.all([
+    getRuntimeSettingNumbers([
+      "runtime.sshWsHeartbeatIntervalMs",
+      "runtime.sshKeepaliveIntervalMs",
+      "runtime.sshIdleTimeoutSec",
+    ]),
+    // null for no row, an invalid row or a failed read.
+    readPersistedRuntimeSettingNumber(countKey),
   ]);
   const wsHeartbeatIntervalMs = values["runtime.sshWsHeartbeatIntervalMs"];
   const sshIdleTimeoutSec = values["runtime.sshIdleTimeoutSec"];
-  // SSH 空闲超时 0 = 永不(强保活, 60 次容忍 ≈ 30 分钟); 其它值按 30s 间隔计算容忍次数, 最多 60 次。
-  // interval 固定 30s, 避免误改既有行为。
-  const SSH_KEEPALIVE_INTERVAL_MS = 30_000;
+  // Keepalive 走 runtime.sshKeepaliveIntervalMs / runtime.sshKeepaliveCountMax
+  // 两个设置项 (缺省 30s)。countMax 的默认值 60 只是上限: 数据库值优先,
+  // 其次是有效的 SSH_KEEPALIVE_COUNT_MAX 环境变量, 两者都没有时按空闲超时推导。
+  const sshKeepaliveIntervalMs = values["runtime.sshKeepaliveIntervalMs"];
+  const countDefinition = RUNTIME_SETTING_DEFINITIONS[countKey];
+  const explicitCountMax = persistedCountMax
+    ?? (hasEnvOverride(countDefinition.env, countDefinition.min) ? getRuntimeSettingFallback(countKey) : null);
   const SSH_KEEPALIVE_COUNT_MAX_CAP = 60;
-  const sshKeepaliveCountMax = sshIdleTimeoutSec === 0
+  const derivedCountMax = sshIdleTimeoutSec === 0
     ? SSH_KEEPALIVE_COUNT_MAX_CAP
     : Math.min(
         SSH_KEEPALIVE_COUNT_MAX_CAP,
-        Math.max(1, Math.ceil(sshIdleTimeoutSec * 1000 / SSH_KEEPALIVE_INTERVAL_MS)),
+        Math.max(1, Math.ceil(sshIdleTimeoutSec * 1000 / sshKeepaliveIntervalMs)),
       );
+  const sshKeepaliveCountMax = Math.min(SSH_KEEPALIVE_COUNT_MAX_CAP, explicitCountMax ?? derivedCountMax);
   return {
     wsHeartbeatIntervalMs,
-    sshKeepaliveIntervalMs: SSH_KEEPALIVE_INTERVAL_MS,
+    sshKeepaliveIntervalMs,
     sshKeepaliveCountMax,
     // Drives the live-but-idle terminal reaper in ssh-ws-proxy: 0 = never reap
     // (the settings-page contract), > 0 = reap after this long without traffic

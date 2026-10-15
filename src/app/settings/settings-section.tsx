@@ -313,6 +313,7 @@ export function SchemaDrivenSection({
                       onHighRiskBlur={(currentValue) =>
                         onHighRiskBlur(field, currentValue)
                       }
+                      savedValue={initialSettings[field.key] ?? ""}
                     />
                   );
                 })}
