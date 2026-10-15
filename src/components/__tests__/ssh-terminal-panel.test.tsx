@@ -7,6 +7,8 @@ import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import { Terminal } from "@xterm/xterm";
 
 type MockTerm = {
+	keyHandler?: (event: KeyboardEvent) => boolean;
+	selection: string;
 	scrollLines: ReturnType<typeof vi.fn>;
 	buffer: { active: { viewportY: number; length: number } };
 };
@@ -45,9 +47,11 @@ vi.mock("@xterm/xterm", () => ({
 		textarea = document.createElement("textarea");
 		open(parent: HTMLElement) { parent.appendChild(this.textarea); }
 		input() {}
-		attachCustomKeyEventHandler() {}
-		hasSelection() { return false; }
-		getSelection() { return ""; }
+		keyHandler?: (event: KeyboardEvent) => boolean;
+		selection = "";
+		attachCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean) { this.keyHandler = handler; }
+		hasSelection() { return this.selection.length > 0; }
+		getSelection() { return this.selection; }
 		clearSelection() {}
 		write() {}
 		onData() {}
@@ -114,6 +118,30 @@ describe("SshTerminalPanel", () => {
 		MockWebSocket.instances = [];
 		terminalInstances().length = 0;
 		vi.stubGlobal("WebSocket", MockWebSocket);
+	});
+
+	it("shows clipboard failures and clears them on a successful retry", async () => {
+		const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+		vi.stubGlobal("navigator", { clipboard: { writeText } });
+		try {
+			render(<SshTerminalPanel {...defaultProps} />);
+			await waitFor(() => expect(terminalInstances()[0]?.keyHandler).toBeTypeOf("function"));
+			const term = terminalInstances()[0]!;
+			term.selection = "selected";
+			await act(async () => { term.keyHandler!(new KeyboardEvent("keydown", { key: "c", ctrlKey: true })); });
+			expect(await screen.findByRole("alert")).toHaveTextContent("复制失败");
+			writeText.mockResolvedValue(undefined);
+			await act(async () => { term.keyHandler!(new KeyboardEvent("keydown", { key: "c", ctrlKey: true })); });
+			expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+			expect(term.selection).toBe("selected");
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
+	it("explains copy and Shift-drag selection", () => {
+		render(<SshTerminalPanel {...defaultProps} />);
+		expect(screen.getByText(/Ctrl\+Shift\+C/)).toHaveTextContent("Shift");
 	});
 
 	it("renders the toolbar with server name and host", () => {

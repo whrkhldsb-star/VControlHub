@@ -1,105 +1,119 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { chainSshTerminalCopyPaste } from "../ssh-terminal-copy-paste";
 
-const ctrlEvent = (key: string, opts: Partial<KeyboardEventInit> = {}) =>
-	new KeyboardEvent("keydown", { key, ctrlKey: true, bubbles: true, cancelable: true, ...opts });
+const key = (value: string, options: KeyboardEventInit = {}) =>
+	new KeyboardEvent("keydown", { key: value, ctrlKey: true, cancelable: true, ...options });
 
-function makeTerm(selection = "") {
-	return {
-		selection,
-		hasSelection: () => selection.length > 0,
-		getSelection: () => selection,
-		clearSelection: vi.fn(function (this: { selection: string }) {
-			this.selection = "";
-		}),
-		input: vi.fn(),
+function setup(selection = "hello") {
+	const textarea = document.createElement("textarea");
+	const term = {
+		textarea, hasSelection: () => selection.length > 0, getSelection: () => selection,
+		clearSelection: vi.fn(), input: vi.fn(), attachCustomKeyEventHandler: vi.fn(),
 	};
+	const next = vi.fn((_event: KeyboardEvent) => true);
+	const report = vi.fn();
+	return { term, next, report, handler: chainSshTerminalCopyPaste(term, next, report) };
 }
 
-describe("ssh terminal copy/paste chaining", () => {
+describe("SSH terminal clipboard shortcuts", () => {
 	let writeText: ReturnType<typeof vi.fn>;
 	let readText: ReturnType<typeof vi.fn>;
-
 	beforeEach(() => {
 		writeText = vi.fn().mockResolvedValue(undefined);
-		readText = vi.fn().mockResolvedValue("");
+		readText = vi.fn().mockResolvedValue("do not inject this");
 		vi.stubGlobal("navigator", { clipboard: { writeText, readText } });
+		Object.defineProperty(document, "execCommand", { configurable: true, value: vi.fn(() => false) });
 	});
+	afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); delete (document as Partial<Document>).execCommand; });
 
-	it("Ctrl+C with a selection copies and does not reach the shell", () => {
-		const term = makeTerm("echo hello");
-		const next = vi.fn((_: KeyboardEvent) => true);
-		const handler = chainSshTerminalCopyPaste(term as never, next);
-
-		expect(handler(ctrlEvent("c"))).toBe(false);
-		expect(writeText).toHaveBeenCalledWith("echo hello");
+	it.each([{ ctrlKey: true }, { ctrlKey: false, metaKey: true }, { ctrlKey: true, shiftKey: true }])("copies selected text for %j and prevents the browser default", async (modifiers) => {
+		const { handler, next, term, report } = setup("中文\nhello");
+		const event = key("c", modifiers);
+		expect(handler(event)).toBe(false);
+		expect(event.defaultPrevented).toBe(true);
+		await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("中文\nhello"));
 		expect(next).not.toHaveBeenCalled();
+		expect(term.input).not.toHaveBeenCalled();
+		expect(term.clearSelection).not.toHaveBeenCalled();
+		await vi.waitFor(() => expect(report).toHaveBeenCalledWith(true));
 	});
 
-	it("Ctrl+C without a selection falls through so the shell receives ^C", () => {
-		const term = makeTerm("");
-		const next = vi.fn((_: KeyboardEvent) => true);
-		const handler = chainSshTerminalCopyPaste(term as never, next);
-
-		expect(handler(ctrlEvent("c"))).toBe(true);
-		expect(writeText).not.toHaveBeenCalled();
+	it("leaves unselected Ctrl+C as an interrupt", () => {
+		const { handler, next } = setup("");
+		expect(handler(key("c"))).toBe(true);
 		expect(next).toHaveBeenCalledOnce();
 	});
 
-	it("clipboard write failure is swallowed and the key is still claimed", () => {
-		writeText.mockRejectedValue(new Error("denied"));
-		const term = makeTerm("secret");
-		const next = vi.fn((_: KeyboardEvent) => true);
-		const handler = chainSshTerminalCopyPaste(term as never, next);
-
-		expect(handler(ctrlEvent("c"))).toBe(false);
+	it("never turns unselected Ctrl+Shift+C into an interrupt", () => {
+		const { handler, next } = setup("");
+		const event = key("C", { shiftKey: true });
+		expect(handler(event)).toBe(false);
+		expect(event.defaultPrevented).toBe(true);
 		expect(next).not.toHaveBeenCalled();
-	});
-
-	it("Cmd+C on macOS copies a selection", () => {
-		const term = makeTerm("ls -la");
-		const next = vi.fn((_: KeyboardEvent) => true);
-		const handler = chainSshTerminalCopyPaste(term as never, next);
-		const cmdC = new KeyboardEvent("keydown", { key: "c", metaKey: true, cancelable: true });
-
-		expect(handler(cmdC)).toBe(false);
-		expect(writeText).toHaveBeenCalledWith("ls -la");
-	});
-
-	it("Ctrl+Shift+C (terminal-standard interrupt) is NOT treated as copy", () => {
-		const term = makeTerm("vim");
-		const next = vi.fn((_: KeyboardEvent) => true);
-		const handler = chainSshTerminalCopyPaste(term as never, next);
-		const chord = ctrlEvent("c", { shiftKey: true });
-
-		expect(handler(chord)).toBe(true);
 		expect(writeText).not.toHaveBeenCalled();
 	});
 
-	it("Ctrl+V pastes clipboard text through term.input", () => {
-		readText.mockResolvedValue("systemctl status nginx");
-		const term = makeTerm("");
-		const next = vi.fn((_: KeyboardEvent) => true);
-		const handler = chainSshTerminalCopyPaste(term as never, next);
-
-		expect(handler(ctrlEvent("v"))).toBe(false);
-		expect(next).not.toHaveBeenCalled();
-		// readText is async; flush microtasks before asserting the input call.
-		return vi.waitFor(() => {
-			expect(term.input).toHaveBeenCalledWith("systemctl status nginx", true);
-		});
+	it.each([{ ctrlKey: true }, { ctrlKey: false, metaKey: true }, { ctrlKey: true, shiftKey: true }])("leaves paste to the native event once for %j", async (modifiers) => {
+		const { handler, term } = setup();
+		const event = key("v", modifiers);
+		expect(handler(event)).toBe(false);
+		expect(event.defaultPrevented).toBe(false);
+		await Promise.resolve();
+		expect(readText).not.toHaveBeenCalled();
+		expect(term.input).not.toHaveBeenCalled();
 	});
 
-	it("non-copy/paste keys pass through untouched", () => {
-		const term = makeTerm("selected");
-		const next = vi.fn((_: KeyboardEvent) => true);
-		const handler = chainSshTerminalCopyPaste(term as never, next);
+	it("uses synchronous copy events without needing Async Clipboard API", async () => {
+		vi.stubGlobal("navigator", {});
+		const data = { setData: vi.fn() };
+		vi.spyOn(document, "execCommand").mockImplementation(() => {
+			const event = new Event("copy", { cancelable: true });
+			Object.defineProperty(event, "clipboardData", { value: data });
+			document.dispatchEvent(event);
+			return event.defaultPrevented;
+		});
+		const { handler, report } = setup();
+		expect(() => handler(key("c"))).not.toThrow();
+		await vi.waitFor(() => expect(report).toHaveBeenCalledWith(true));
+		expect(data.setData).toHaveBeenCalledWith("text/plain", "hello");
+		data.setData.mockClear();
+		document.dispatchEvent(new Event("copy"));
+		expect(data.setData).not.toHaveBeenCalled();
+	});
 
-		expect(handler(ctrlEvent("l"))).toBe(true);
-		expect(handler(new KeyboardEvent("keydown", { key: "a" }))).toBe(true);
-		expect(handler(new KeyboardEvent("keyup", { key: "c", ctrlKey: true }))).toBe(true);
+	it("reports denied clipboard access without clearing selection or sending input", async () => {
+		writeText.mockRejectedValue(new Error("denied"));
+		const { handler, term, report } = setup();
+		handler(key("c"));
+		await vi.waitFor(() => expect(report).toHaveBeenCalledWith(false));
+		expect(term.clearSelection).not.toHaveBeenCalled();
+		expect(term.input).not.toHaveBeenCalled();
+	});
+
+	it("reports unavailable APIs rather than throwing or silently succeeding", async () => {
+		vi.stubGlobal("navigator", {});
+		vi.spyOn(document, "execCommand").mockImplementation(() => { throw new Error("blocked"); });
+		const { handler, report } = setup();
+		expect(() => handler(key("c"))).not.toThrow();
+		await vi.waitFor(() => expect(report).toHaveBeenCalledWith(false));
+	});
+
+	it("does not write again on key repeat, keyup, or keypress", () => {
+		const { handler } = setup();
+		for (const event of [key("c", { repeat: true }), new KeyboardEvent("keyup", { key: "c", ctrlKey: true }), new KeyboardEvent("keypress", { key: "c", ctrlKey: true })]) {
+			expect(handler(event)).toBe(false);
+		}
+		expect(writeText).not.toHaveBeenCalled();
+	});
+
+	it("preserves AltGr, composition, unrelated keys and delegate results", () => {
+		const { handler, next } = setup();
+		for (const event of [key("c", { altKey: true }), key("v", { isComposing: true }), key("l"), key("c", { ctrlKey: false })]) {
+			expect(handler(event)).toBe(true);
+		}
+		next.mockReturnValue(false);
+		expect(handler(key("x"))).toBe(false);
 		expect(writeText).not.toHaveBeenCalled();
 		expect(readText).not.toHaveBeenCalled();
-		expect(next).toHaveBeenCalledTimes(3);
 	});
 });

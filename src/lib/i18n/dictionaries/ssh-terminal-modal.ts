@@ -35,6 +35,8 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.errInputTooLarge": "待发送内容超过 4 MiB，本次输入未发送。请分段粘贴或通过文件管理器上传。",
 
 	// Terminal search
+	"sshTerminalModal.errClipboardCopy": "复制失败：浏览器未允许写入剪贴板。选区已保留，请右键复制或检查浏览器权限后重试。",
+	"sshTerminalModal.copyHint": "选中文字后按 Ctrl+C / Cmd+C 或 Ctrl+Shift+C 复制；程序接管鼠标时，按住 Shift 拖动选择。未选中文字时 Ctrl+C 仍为中断。",
 	"sshTerminalModal.searchLabel": "搜索终端输出",
 	"sshTerminalModal.searchPlaceholder": "搜索终端输出…",
 	"sshTerminalModal.searchPrevious": "上一个",
@@ -138,6 +140,8 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.errInputTooLarge": "Pending input exceeds 4 MiB. This input was not sent. Paste smaller sections or upload through the file manager.",
 
 	// Terminal search
+	"sshTerminalModal.errClipboardCopy": "Copy failed: the browser did not allow clipboard access. Your selection is preserved. Try right-click Copy or check browser permissions and retry.",
+	"sshTerminalModal.copyHint": "Select text, then Ctrl+C / Cmd+C or Ctrl+Shift+C to copy. Hold Shift while dragging if a program captures the mouse. With no selection, Ctrl+C still interrupts.",
 	"sshTerminalModal.searchLabel": "Search terminal output",
 	"sshTerminalModal.searchPlaceholder": "Search terminal output…",
 	"sshTerminalModal.searchPrevious": "Previous",
