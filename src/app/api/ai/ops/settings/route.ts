@@ -65,6 +65,9 @@ export async function PATCH(request: Request) {
 			errorMessage: apiCopy("apiCopy.failed.to.save.ai.ops.settings.81755ded"),
 		},
 		async ({ session, body }) => {
+			// AI-ops settings affect fleet-wide scans and are platform-admin only,
+			// even when a custom role has been granted the manage permission.
+			assertAiOpsPlatformReader(session);
 			const previousMode = await getSetting("ai.ops.mode");
 			const previousProvider = await getSetting("ai.ops.provider");
 

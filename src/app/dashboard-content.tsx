@@ -28,6 +28,19 @@ import { DashboardSetupChecklist } from "./dashboard-setup-checklist";
 export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/dashboard" }) {
 	const session = await requireSession(sessionPath);
 	const teamScope = teamWhere(session);
+	// The dashboard is available to every signed-in account, but its widgets
+	// still carry the same data-class permissions as their target pages. Keep a
+	// custom role without one of those permissions from receiving the underlying
+	// command text, audit records, server inventory, or storage metadata in the
+	// server component payload.
+	const canReadServers = sessionHasPermission(session, "server:read");
+	const canReadStorage = sessionHasPermission(session, "storage:read");
+	const canReadCommands = sessionHasPermission(session, "command:read");
+	const canReadAudit = sessionHasPermission(session, "audit:read");
+	const canManageNotifications = sessionHasPermission(session, "notification:manage");
+	const canReadBackups = sessionHasPermission(session, "backup:read");
+	const canReadCosts = sessionHasPermission(session, "cost:read");
+	const canManageSettings = sessionHasPermission(session, "user:manage");
 	const [
 		servers,
 		storage,
@@ -44,37 +57,45 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		serversWithMonthlyCost,
 		announcements,
 	] = await Promise.all([
-		listServerProfiles(session),
-		getStorageOverview(session, { includeEntries: false }),
-		listCommandRequests(session),
-		prisma.auditLog.findMany({
+		canReadServers ? listServerProfiles(session) : Promise.resolve([]),
+		canReadStorage
+			? getStorageOverview(session, { includeEntries: false })
+			: Promise.resolve({ stats: { totalNodes: 0, totalEntries: 0 } }),
+		canReadCommands ? listCommandRequests(session) : Promise.resolve([]),
+		canReadAudit ? prisma.auditLog.findMany({
 			where: teamScope,
 			take: 5,
 			orderBy: { createdAt: "desc" },
 			include: { actor: { select: { username: true, displayName: true } } },
-		}),
-		prisma.downloadTask.groupBy({ by: ["status"], where: teamScope, _count: true }),
+		}) : Promise.resolve([]),
+		canReadStorage
+			? prisma.downloadTask.groupBy({ by: ["status"], where: teamScope, _count: true })
+			: Promise.resolve([]),
 		getUnreadCount(session.userId),
-		prisma.scheduledTask.count({ where: { status: "ACTIVE", ...teamScope } }),
+		canReadCommands
+			? prisma.scheduledTask.count({ where: { status: "ACTIVE", ...teamScope } })
+			: Promise.resolve(0),
 		getSetting("dashboard.layout.dragReorderEnabled"),
-		prisma.alertRule.count({ where: { enabled: true, ...teamScope } }).catch(() => 0),
-		getSetting("smtp.enabled"),
-		prisma.backupSchedule.count({ where: teamScope }).catch(() => 0),
-		prisma.vpsBackupSchedule
+		canManageNotifications
+			? prisma.alertRule.count({ where: { enabled: true, ...teamScope } }).catch(() => 0)
+			: Promise.resolve(0),
+		canManageSettings ? getSetting("smtp.enabled") : Promise.resolve(null),
+		canReadBackups ? prisma.backupSchedule.count({ where: teamScope }).catch(() => 0) : Promise.resolve(0),
+		canReadBackups ? prisma.vpsBackupSchedule
 			.count({
 				where: {
 					server: teamScope,
 				},
 			})
-			.catch(() => 0),
-		prisma.server
+			.catch(() => 0) : Promise.resolve(0),
+		canReadCosts ? prisma.server
 			.count({
 				where: {
 					...teamScope,
 					costMonthlyAmount: { gt: 0 },
 				},
 			})
-			.catch(() => 0),
+			.catch(() => 0) : Promise.resolve(0),
 		listActiveAnnouncements().catch(() => []),
 	]);
 

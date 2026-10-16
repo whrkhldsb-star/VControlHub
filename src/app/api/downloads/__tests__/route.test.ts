@@ -84,6 +84,12 @@ vi.mock("node:dns/promises", () => ({
 }));
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: requireSessionMock }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: sessionHasPermissionMock }));
+// Download scenarios share one URL and account; API throttling has its own
+// suite and must not make later scenarios fail after 30 writes in this file.
+vi.mock("@/lib/http/rate-limit-presets", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/http/rate-limit-presets")>(),
+  withRateLimit: vi.fn(async () => ({ allowed: true, retryAfterMs: 0 })),
+}));
 vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertStorageAccessMock , releaseStorageQuotaGuard: vi.fn(async () => undefined) }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/logging", () => ({ logError: logErrorMock, createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) }));
@@ -911,6 +917,24 @@ describe("/api/downloads", () => {
     }));
     expect(removeDownloadMock).not.toHaveBeenCalled();
     expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
+  });
+
+
+  it.each([-1, 1.5, 10_000_001])("rejects invalid download speed %s before any side effects", async (speed) => {
+    const created = await POST(request({
+      url: "https://example.com/file.iso", serverId: "srv_1",
+      targetPath: "/srv/cloud/downloads", maxSpeedKb: speed,
+    }));
+    expect(created.status).toBe(400);
+    for (const body of [{ taskId: "task_1", maxSpeedKb: speed }, { globalMaxSpeedKb: speed }]) {
+      const updated = await PATCH(new Request("https://example.com/api/downloads", {
+        method: "PATCH", body: JSON.stringify(body),
+      }));
+      expect(updated.status).toBe(400);
+    }
+    expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
+    expect(changeOptionMock).not.toHaveBeenCalled();
+    expect(changeGlobalOptionMock).not.toHaveBeenCalled();
   });
 
   it("requires storage node management permission for global download speed limits", async () => {

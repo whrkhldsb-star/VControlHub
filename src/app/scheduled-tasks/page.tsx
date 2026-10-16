@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listScheduledTasks } from "@/lib/scheduled-task/service";
 import { listServerProfiles } from "@/lib/server/service";
@@ -12,16 +12,17 @@ import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
 export const dynamic = "force-dynamic";
 
 export default async function ScheduledTasksPage() {
-	const session = await requireSession();
+	const session = await requirePagePermission("command:read", { redirectTo: "/scheduled-tasks" });
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const canCreate = sessionHasPermission(session, "command:create");
 	const canManage = sessionHasPermission(session, "command:execute");
 	const canApprove = sessionHasPermission(session, "command:approve");
+	const canReadServers = sessionHasPermission(session, "server:read");
 
 	const [tasks, servers, templates] = await Promise.all([
 		listScheduledTasks(200, session),
-		listServerProfiles(session),
+		canCreate && canReadServers ? listServerProfiles(session) : Promise.resolve([]),
 		listTemplates(200, session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
 	]);
 

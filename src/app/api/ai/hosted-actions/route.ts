@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "ai:chat" }, async ({ session }) => {
-    const actions = await getPendingActions(session.userId);
+    const actions = await getPendingActions(session);
     return NextResponse.json({ actions });
   });
 }

@@ -31,8 +31,8 @@ import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route
 const patchDownloadSchema = z.object({
   taskId: z.string().optional(),
   action: z.enum(["pause", "resume", "refresh"]).optional(),
-  maxSpeedKb: z.number().optional(),
-  globalMaxSpeedKb: z.number().optional(),
+  maxSpeedKb: z.number().int().min(0).max(10_000_000).optional(),
+  globalMaxSpeedKb: z.number().int().min(0).max(10_000_000).optional(),
 });
 
 export async function PATCH(request: Request) {

@@ -286,7 +286,7 @@ describe("/api/ai/ops/* routes", () => {
 		});
 
 		it("blocks forceAutonomous=true when the caller lacks ai:ops:autonomous", async () => {
-			mocks.sessionHasPermission.mockReturnValue(false);
+			mocks.sessionHasPermission.mockImplementation((_session, permission) => permission !== "ai:ops:autonomous");
 			const res = await executeRoute.POST(
 				new Request("http://local/api/ai/ops/logs/log-1/execute", {
 					method: "POST",

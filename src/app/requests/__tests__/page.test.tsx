@@ -19,6 +19,14 @@ vi.mock("@/lib/auth/require-session", () => ({
     roles: ["admin"],
     mustChangePassword: false }) }));
 
+vi.mock("@/lib/auth/page-guard", () => ({
+  requirePagePermission: vi.fn().mockResolvedValue({
+    userId: "u_1",
+    username: "admin",
+    roles: ["admin"],
+    mustChangePassword: false }),
+}));
+
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: vi.fn().mockReturnValue(true) }));
 

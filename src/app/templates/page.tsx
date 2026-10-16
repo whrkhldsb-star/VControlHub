@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listTemplates } from "@/lib/command-template/service";
 import { listServerProfiles } from "@/lib/server/service";
@@ -11,14 +11,15 @@ import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
 export const dynamic = "force-dynamic";
 
 export default async function CommandTemplatesPage() {
-	const session = await requireSession("/templates");
+	const session = await requirePagePermission("command:read", { redirectTo: "/templates" });
 	const canCreate = sessionHasPermission(session, "command:create");
 	const canDeploy = sessionHasPermission(session, "deploy:run");
+	const canReadServers = sessionHasPermission(session, "server:read");
 	const locale = await getServerLocale();
 
 	const [templates, servers] = await Promise.all([
 		listTemplates(200, session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
-		listServerProfiles(session),
+		canDeploy && canReadServers ? listServerProfiles(session) : Promise.resolve([]),
 	]);
 
 	const serialized = templates.map((t) => ({

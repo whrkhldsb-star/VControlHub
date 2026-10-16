@@ -216,6 +216,7 @@ export function ServerOverviewCard({
             serverName={server.name}
             host={server.host}
             port={server.port}
+            operatingSystem={server.operatingSystem}
             username={server.username}
             connectionType={server.connectionType as "SSH_KEY" | "PASSWORD"}
             managementMode={server.managementMode}

@@ -47,6 +47,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const trTpl = (key: string, vars: Record<string, string>) =>
 		Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), tr(key));
 	const canRun = sessionHasPermission(session, "deploy:run");
+	const canReadServers = sessionHasPermission(session, "server:read");
 	const canExport = sessionHasPermission(session, "deploy:export");
 	const params = await searchParams;
 	const pageParam = params?.page ?? "1";
@@ -67,7 +68,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 		}),
 		listDeploymentTemplates(session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
 		// Strict server scope: this picker carries host/username/credential refs.
-		prisma.server.findMany({
+		canRun && canReadServers ? prisma.server.findMany({
 			where: { enabled: true, ...serverTeamWhere(session, "connect") },
 			orderBy: { createdAt: "desc" },
 			take: 200,
@@ -84,7 +85,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				sshKeyId: true,
 				metricSnapshots: { select: { isOnline: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
 			},
-		}),
+		}) : Promise.resolve([]),
 	]);
 	const hasNextPage = runs.length > RUNS_PAGE_SIZE;
 	const visibleRuns = runs.slice(0, RUNS_PAGE_SIZE);

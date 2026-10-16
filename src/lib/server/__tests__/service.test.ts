@@ -11,6 +11,7 @@ import {
   deleteServerProfile,
   getServerDeletionImpact,
   listServerProfiles,
+  countServerProfiles,
   setServerDirectGatewayEnabled,
   toggleServerEnabled,
   updateServerProfile,
@@ -93,6 +94,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
     },
     server: {
+      count: vi.fn(),
       create: vi.fn(),
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -2133,6 +2135,17 @@ describe("server service", () => {
         where: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_ops" }]) }),
       }),
     );
+  });
+
+
+  it("counts all visible profiles without fetching credentials or truncating at 500", async () => {
+    vi.mocked(prisma.server.count).mockResolvedValueOnce(513);
+    const count = await countServerProfiles({ userId: "u_member", roles: ["operator"], currentTeamId: "team_ops" });
+    expect(count).toBe(513);
+    expect(prisma.server.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_ops" }]) }),
+    });
+    expect(prisma.server.findMany).not.toHaveBeenCalled();
   });
 
   it("does not filter listServerProfiles for administrators viewing all customers", async () => {

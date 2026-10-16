@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { customerSession, routeSession } from "@/test/route-session-mock";
+import { customerSession, platformSession, routeSession } from "@/test/route-session-mock";
 
 vi.mock("@/lib/auth/api-session", async () => {
 	const { NextResponse } = await import("next/server");
@@ -30,13 +30,21 @@ const post = (body: unknown) =>
 describe("POST /api/ai/ops/logs/[id]/execute", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		routeSession.current = customerSession(["ai:ops:manage"]);
+		// AI-ops is a cross-tenant platform capability; retain the customer
+		// identity in audit assertions while giving it the platform-admin role.
+		routeSession.current = platformSession({ userId: "u_cust", username: "cust", currentTeamId: "team_1" });
 		mocks.executeRecommendation.mockResolvedValue({ ok: true, executed: true });
 	});
 
 	it("needs ai:ops:manage", async () => {
 		routeSession.current = customerSession(["ai:ops:read"]);
 		expect((await post({ actionId: "a1" })).status).toBe(403);
+	});
+
+	it("rejects a custom role with ai:ops:manage because the records are cross-tenant", async () => {
+		routeSession.current = customerSession(["ai:ops:manage"]);
+		expect((await post({ actionId: "a1" })).status).toBe(403);
+		expect(mocks.executeRecommendation).not.toHaveBeenCalled();
 	});
 
 	it("executes a recommendation and audits the outcome", async () => {
@@ -47,10 +55,11 @@ describe("POST /api/ai/ops/logs/[id]/execute", () => {
 	});
 
 	it("refuses forceAutonomous without ai:ops:autonomous, and allows it with", async () => {
+		routeSession.current = platformSession({ permissions: ["ai:ops:manage"] });
 		expect((await post({ actionId: "a1", forceAutonomous: true })).status).toBe(403);
 		expect(mocks.executeRecommendation).not.toHaveBeenCalled();
 
-		routeSession.current = customerSession(["ai:ops:manage", "ai:ops:autonomous"]);
+		routeSession.current = platformSession({ userId: "u_cust", username: "cust", currentTeamId: "team_1" });
 		expect((await post({ actionId: "a1", forceAutonomous: true })).status).toBe(200);
 		expect(mocks.executeRecommendation).toHaveBeenCalledWith(expect.objectContaining({ forceAutonomous: true }));
 	});

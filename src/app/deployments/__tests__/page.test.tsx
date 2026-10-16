@@ -15,7 +15,7 @@ vi.mock("@/lib/auth/require-session", () => ({
     userId: "u1",
     username: "admin",
     roles: ["viewer"],
-    permissions: ["deploy:read", "deploy:run", "deploy:export"],
+    permissions: ["deploy:read", "deploy:run", "deploy:export", "server:read"],
     currentTeamId: "team-a",
     mustChangePassword: false,
   }),
@@ -24,7 +24,7 @@ vi.mock("@/lib/auth/require-session", () => ({
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: vi.fn((_session, permission: string) => {
     if (permission === "team:manage") return false;
-    return ["deploy:read", "deploy:run", "deploy:export"].includes(permission);
+    return ["deploy:read", "deploy:run", "deploy:export", "server:read"].includes(permission);
   }),
 }));
 

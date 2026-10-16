@@ -15,6 +15,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { approveRecommendation } from "@/lib/ai/ops/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { approveRecommendationSchema } from "@/lib/ai/schema";
+import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export async function POST(
 			errorMessage: apiCopy("apiCopy.failed.to.approve.recommendation.ee733a97"),
 		},
 		async ({ session, body }) => {
+			assertAiOpsPlatformReader(session);
 			const result = await approveRecommendation({
 				logId: id,
 				actionId: body.actionId,
