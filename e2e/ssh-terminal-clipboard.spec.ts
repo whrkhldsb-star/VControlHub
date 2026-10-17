@@ -7,7 +7,7 @@ import type { Terminal } from "@xterm/xterm";
 
 declare global {
 	interface Window {
-		clipboardLab: { term: Terminal; data: string[]; errors: number };
+		clipboardLab: { term: Terminal; data: string[]; errors: number; hints: number };
 	}
 }
 
@@ -23,13 +23,15 @@ test.beforeAll(async () => {
 			contents: `import { Terminal } from '@xterm/xterm';
 import { installSshTerminalIme } from './src/components/ssh-terminal-ime';
 import { chainSshTerminalCopyPaste } from './src/components/ssh-terminal-copy-paste';
+import { installSshTerminalContextMenuCopy } from './src/components/ssh-terminal-context-menu';
 const term = new Terminal({ cols: 80, rows: 10 });
 term.open(document.getElementById('terminal'));
 document.getElementById('shell-fullscreen').onclick = () => document.getElementById('shell').requestFullscreen();
 document.getElementById('root-fullscreen').onclick = () => document.documentElement.requestFullscreen();
-window.clipboardLab = { term, data: [], errors: 0 };
+window.clipboardLab = { term, data: [], errors: 0, hints: 0 };
 term.onData(data => window.clipboardLab.data.push(data));
 installSshTerminalIme(term, chainSshTerminalCopyPaste(term, () => true, copied => { if (!copied) window.clipboardLab.errors++; }));
+installSshTerminalContextMenuCopy(term, document.getElementById('terminal'), () => window.clipboardLab.hints++);
 term.write('COPY-ME 中文', () => document.body.dataset.ready = 'yes');`,
 			resolveDir: process.cwd(), loader: "ts",
 		},
@@ -118,6 +120,55 @@ test("mouse reporting supports Shift-drag selection without sending mouse packet
 	await page.keyboard.press("ControlOrMeta+c");
 	expect(await readClipboard(page)).toBe("COPY-ME");
 	expect(await page.evaluate(() => window.clipboardLab.data)).toEqual([]);
+});
+
+// Codex, Claude Code and tmux report every pointer move. Anything sent to the
+// program clears xterm's selection, so moving onto the selection and right
+// clicking it emptied it before the browser built its menu: Copy was greyed.
+test("right click keeps a Shift-drag selection for the browser menu while a program reports the mouse", async ({ page, browserName }) => {
+	await page.evaluate(() => new Promise<void>(resolve => window.clipboardLab.term.write("\x1b[?1000h\x1b[?1003h\x1b[?1006h", resolve)));
+	const screen = await page.locator(".xterm-screen").boundingBox();
+	if (!screen) throw new Error("terminal screen missing");
+	const cell = screen.width / 80;
+	await page.keyboard.down("Shift");
+	await page.mouse.move(screen.x + cell * 0.1, screen.y + 8);
+	await page.mouse.down();
+	await page.mouse.move(screen.x + cell * 7.1, screen.y + 8, { steps: 8 });
+	await page.mouse.up();
+	await page.keyboard.up("Shift");
+	expect(await page.evaluate(() => window.clipboardLab.term.getSelection())).toBe("COPY-ME");
+	// Hover before the selection existed was the program's to see; from here on nothing is.
+	const sentBefore = await page.evaluate(() => window.clipboardLab.data.length);
+	await page.mouse.move(screen.x + cell * 3.5, screen.y + 8, { steps: 4 });
+	await page.mouse.click(screen.x + cell * 3.5, screen.y + 8, { button: "right" });
+	const menu = await page.evaluate(() => {
+		const textarea = window.clipboardLab.term.textarea!;
+		return {
+			selection: window.clipboardLab.term.getSelection(),
+			focused: document.activeElement === textarea,
+			value: textarea.value,
+			selected: [textarea.selectionStart, textarea.selectionEnd],
+			canCopy: document.queryCommandEnabled("copy"),
+		};
+	});
+	expect(menu).toMatchObject({ selection: "COPY-ME", focused: true, value: "COPY-ME", selected: [0, 7] });
+	// Firefox answers true regardless; Chromium and WebKit reflect the menu's Copy.
+	if (browserName !== "firefox") expect(menu.canCopy).toBe(true);
+	expect(await page.evaluate((count) => window.clipboardLab.data.slice(count), sentBefore)).toEqual([]);
+	expect(await page.evaluate(() => window.clipboardLab.hints)).toBe(0);
+	// The next plain click belongs to the program again and ends the selection.
+	await page.mouse.click(screen.x + cell * 20.5, screen.y + 8);
+	await expect.poll(() => page.evaluate(() => window.clipboardLab.data.join(""))).toContain("\x1b[<0;");
+	expect(await page.evaluate(() => window.clipboardLab.term.hasSelection())).toBe(false);
+});
+
+test("right click with nothing selected still reaches a program that reports the mouse, with a hint", async ({ page }) => {
+	await page.evaluate(() => new Promise<void>(resolve => window.clipboardLab.term.write("\x1b[?1000h\x1b[?1006h", resolve)));
+	const screen = await page.locator(".xterm-screen").boundingBox();
+	if (!screen) throw new Error("terminal screen missing");
+	await page.mouse.click(screen.x + screen.width / 2, screen.y + 8, { button: "right" });
+	await expect.poll(() => page.evaluate(() => window.clipboardLab.data.join(""))).toContain("\x1b[<2;");
+	expect(await page.evaluate(() => window.clipboardLab.hints)).toBe(1);
 });
 
 // Native full screen of a container (not the whole document): only that
