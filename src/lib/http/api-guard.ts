@@ -303,6 +303,13 @@ async function runApiRoute<TBody = unknown, TQuery = unknown>(
     return attachRequestId(response, requestId, durationMs);
   } catch (error) {
     const durationMs = performance.now() - startTime;
+    if (request.signal.aborted) {
+      // The browser went away (navigation, a poll superseded by the next one)
+      // and the handler stopped on its signal: not a server fault. Nobody
+      // reads the response; 499 keeps it out of 5xx counts.
+      apiLogger.info("request aborted by client", { method, path, durationMs: Math.round(durationMs), requestId, error: error instanceof Error ? error.message : String(error) });
+      return attachRequestId(apiError({ code: "GENERIC_ERROR", message: "Client closed request", status: 499 }), requestId, durationMs);
+    }
     apiLogger.warn("request failed", { method, path, durationMs: Math.round(durationMs), requestId, error: error instanceof Error ? error.message : String(error) });
     if (options.onError) return attachRequestId(options.onError(error), requestId, durationMs);
     return attachRequestId(apiCatch(error, options.errorStatus ?? 500, options.errorMessage ?? "Operation failed"), requestId, durationMs);

@@ -127,9 +127,8 @@ export function apiCatch(
 			message: fallbackMessage,
 			status: fallbackStatus,
 		};
-		if (isServerError) {
-			logger.error(fallbackMessage, e);
-		} else {
+		// 5xx is logged once below, with every other server error.
+		if (!isServerError) {
 			// A 4xx fallback swallowing an unexpected internal exception hides a
 			// real fault behind a client-looking status — keep it observable.
 			logger.warn(`unexpected non-AppError on a ${fallbackStatus} route: ${e.message}`);
