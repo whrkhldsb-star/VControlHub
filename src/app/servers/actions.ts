@@ -63,7 +63,8 @@ export async function createServerAction(
     const directGatewayProtocol =
       formData.get("directGatewayProtocol") === "https" ? "https" : "http";
     const directGatewayDomain = String(formData.get("directGatewayDomain") ?? "").trim();
-    const storagePath = String(formData.get("storagePath") ?? "/root/drive");
+    // Blank → the login user's own folder, chosen server-side.
+    const storagePath = String(formData.get("storagePath") ?? "").trim() || undefined;
     const costAutoSync = formData.get("costAutoSync") === "on";
     const costMonthlyAmount = String(formData.get("costMonthlyAmount") ?? "");
     const costCurrency = String(formData.get("costCurrency") ?? "CNY") as "CNY" | "USD" | "EUR" | "JPY" | "HKD";

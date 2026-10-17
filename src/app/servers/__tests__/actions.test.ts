@@ -115,6 +115,27 @@ describe("server actions", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/servers");
   });
 
+  it("leaves a blank storage path to the server, which picks the login user's folder", async () => {
+    createServerProfileMock.mockResolvedValueOnce({ onboardingWarnings: [] });
+    const { createServerAction } = await import("../actions");
+    const formData = new FormData();
+    formData.set("name", "ubuntu-node");
+    formData.set("host", "203.0.113.20");
+    formData.set("port", "22");
+    formData.set("username", "ubuntu");
+    formData.set("connectionType", "SSH_KEY");
+    formData.set("sshKeyId", "key_1");
+    formData.set("storagePath", "  ");
+
+    const result = await createServerAction(null, formData);
+
+    expect(result.error).toBeUndefined();
+    expect(createServerProfileMock).toHaveBeenCalledWith(
+      expect.objectContaining({ username: "ubuntu", storagePath: undefined }),
+      expect.objectContaining({ userId: "user_1" }),
+    );
+  });
+
   it("reports a saved disabled draft when SSH is not ready", async () => {
     createServerProfileMock.mockResolvedValueOnce({
       id: "srv_draft",

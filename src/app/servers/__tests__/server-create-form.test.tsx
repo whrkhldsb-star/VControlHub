@@ -43,6 +43,9 @@ describe("ServerCreateForm", () => {
     expect(screen.getByRole("button", { name: "保存 Windows VPS" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("操作系统"), { target: { value: "LINUX" } });
     expect(document.querySelector('[name="port"]')).toHaveValue(22);
+    // Blank: the server picks the login user's own folder, not /root/drive for everyone.
+    expect(document.querySelector('[name="storagePath"]')).toHaveValue("");
+    expect(screen.getByText(/其他用户为 \/home\/<用户名>\/drive/)).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "连接方式" })).toBeInTheDocument();
   });
   beforeEach(() => {
