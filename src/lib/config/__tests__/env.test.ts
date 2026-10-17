@@ -44,6 +44,27 @@ describe("lib/config/env", () => {
 		});
 	});
 
+	describe("app.baseUrl", () => {
+		it("prefers NEXT_PUBLIC_APP_URL, then APP_BASE_URL", () => {
+			process.env.DOMAIN = "panel.example.com";
+			process.env.APP_BASE_URL = "https://hub.example.com";
+			expect(config.app.baseUrl).toBe("https://hub.example.com");
+			process.env.NEXT_PUBLIC_APP_URL = "https://public.example.com";
+			expect(config.app.baseUrl).toBe("https://public.example.com");
+		});
+
+		it("falls back to https://DOMAIN, the only address the installers record", () => {
+			delete process.env.NEXT_PUBLIC_APP_URL;
+			delete process.env.APP_BASE_URL;
+			process.env.DOMAIN = "panel.example.com";
+			expect(config.app.baseUrl).toBe("https://panel.example.com");
+			process.env.DOMAIN = "https://not-a-hostname/path";
+			expect(config.app.baseUrl).toBeUndefined();
+			process.env.DOMAIN = "";
+			expect(config.app.baseUrl).toBeUndefined();
+		});
+	});
+
 	describe("readString — required", () => {
 		it("throws a friendly error when missing", () => {
 			delete process.env.DATABASE_URL;

@@ -59,7 +59,7 @@ Windows 机器                          Hub (VControlHub)
 - 令牌只显示一次（获取新命令即轮换），hub 仅存哈希
 - bootstrap 与 poll 同一 Bearer 凭据：持有令牌即已具备命令执行权，下载安装器不引入新权限
 - 安装器强制管理员上下文；Agent 以 SYSTEM 运行（与 Linux systemd 部署等权）
-- `APP_BASE_URL` 必须为 HTTPS（localhost 除外）；嵌入 Agent 的 poll 地址取自 `APP_BASE_URL` 而非请求 Host 头，反代无法降级
+- Hub 地址必须为 HTTPS（localhost 除外）：取 `NEXT_PUBLIC_APP_URL` / `APP_BASE_URL`，都未设置时用安装脚本记录的 `DOMAIN`（`https://DOMAIN`）；嵌入 Agent 的 poll 地址取自这里而非请求 Host 头，反代无法降级
 
 ## 卸载
 

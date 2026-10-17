@@ -715,7 +715,7 @@ export async function installServerAgent(serverId: string) {
   // prepareWindowsAgentInstall + the bootstrap endpoint instead.
   if (server.operatingSystem === "WINDOWS") throw new BusinessError(t("backend.server.agentManualInstall"));
   const hubUrl = config.app.baseUrl;
-  if (!hubUrl) throw new Error("APP_BASE_URL is required to install Agent mode");
+  if (!hubUrl) throw new Error("The hub address is not configured: set DOMAIN or APP_BASE_URL to install Agent mode");
   const parsed = new URL(hubUrl);
   if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") {
     throw new Error("Agent hub URL must use HTTPS");
@@ -754,7 +754,7 @@ export async function installServerAgent(serverId: string) {
  */
 export async function prepareWindowsAgentInstall(serverId: string) {
   const hubUrl = config.app.baseUrl;
-  if (!hubUrl) throw new Error("APP_BASE_URL is required to install Agent mode");
+  if (!hubUrl) throw new Error("The hub address is not configured: set DOMAIN or APP_BASE_URL to install Agent mode");
   const parsed = new URL(hubUrl);
   if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") {
     throw new Error("Agent hub URL must use HTTPS");
