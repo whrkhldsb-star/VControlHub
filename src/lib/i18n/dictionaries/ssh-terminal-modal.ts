@@ -81,6 +81,11 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.sessionResumed": "已接回中断前的会话。",
 	"sshTerminalModal.sessionFresh": "已重新建立会话，之前的进程已结束。",
 	"sshTerminalModal.sessionFreshLine": "—— 新会话 ——",
+	"sshTerminalModal.sessionResumedPartial": "已接回中断前的会话；断开期间输出较多，只补发了最近的一部分。",
+	"sshTerminalModal.autoReconnectIn": "{seconds} 秒后自动重连",
+	"sshTerminalModal.terminalStateTitle": "终端状态",
+	"sshTerminalModal.resetTerminal": "重置终端状态",
+	"sshTerminalModal.resetTerminalHint": "程序异常退出后，如果移动鼠标或滚动出现乱码、光标消失，点此恢复；只重置本页终端，不向服务器发送任何内容。",
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "SSH 终端",
@@ -186,6 +191,11 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.sessionResumed": "Resumed the session from before the disconnect.",
 	"sshTerminalModal.sessionFresh": "Started a new session; the previous shell has ended.",
 	"sshTerminalModal.sessionFreshLine": "—— new session ——",
+	"sshTerminalModal.sessionResumedPartial": "Resumed the session. It printed a lot while disconnected, so only the latest output was replayed.",
+	"sshTerminalModal.autoReconnectIn": "Reconnecting in {seconds} s",
+	"sshTerminalModal.terminalStateTitle": "Terminal state",
+	"sshTerminalModal.resetTerminal": "Reset terminal state",
+	"sshTerminalModal.resetTerminalHint": "If a program quit abnormally and mouse moves or scrolling print garbage, or the cursor is gone, use this. Only this page's terminal is reset; nothing is sent to the server.",
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "SSH Terminal",

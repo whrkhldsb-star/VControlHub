@@ -71,6 +71,7 @@ export function SshTerminalSidePanel({
 	keepAlive,
 	keepAliveMinutes,
 	onKeepAliveChange,
+	onResetTerminal,
 }: {
 	serverId: string;
 	operatingSystem?: SshTerminalOperatingSystem;
@@ -95,6 +96,8 @@ export function SshTerminalSidePanel({
 	/** The grace period the proxy announced, in minutes; null before the first connection. */
 	keepAliveMinutes: number | null;
 	onKeepAliveChange: (value: boolean) => void;
+	/** Clear modes a crashed program left on (mouse reports, hidden cursor, alternate screen). */
+	onResetTerminal?: () => void;
 }) {
 	return (
 		<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-56">
@@ -142,6 +145,18 @@ export function SshTerminalSidePanel({
 						</span>
 					</span>
 				</label>
+			</section>
+			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
+				<h4 className="ui-title-caption mb-2">
+					{t("sshTerminalModal.terminalStateTitle")}
+				</h4>
+				{onResetTerminal && (
+					<ActionButton variant="outline" onClick={onResetTerminal} data-tone="cyan" className="min-h-11 w-full !text-[13px]">
+						{t("sshTerminalModal.resetTerminal")}
+					</ActionButton>
+				)}
+				<p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">{t("sshTerminalModal.resetTerminalHint")}</p>
+				<p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">{t("sshTerminalModal.copyHint")}</p>
 			</section>
 			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
 				<h4 className="ui-title-caption mb-2">
