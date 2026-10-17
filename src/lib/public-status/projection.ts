@@ -16,6 +16,8 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { getPublicStatusSummary } from "@/lib/status/service";
+import { isTrafficQuotaMode } from "./billing";
+import { normalizeCountryCode } from "./region-flag";
 import { classifyPublicNode, type PublicNodeStatus } from "./status";
 import { loadPublicSite } from "./site";
 import type { PublicMetricCategory, PublicSiteConfig } from "./site-config";
@@ -26,7 +28,9 @@ import type {
 	PublicBoardSummary,
 	PublicCountBucket,
 	PublicNode,
+	PublicNodeBilling,
 	PublicNodeMetrics,
+	PublicNodeSystem,
 	PublicSiteInfo,
 } from "./types";
 
@@ -74,6 +78,22 @@ export type VisibleNodeRow = {
 	probeAt: Date | null;
 	probeOk: boolean | null;
 	probeLatencyMs: number | null;
+	countryCode: string | null;
+	arch: string | null;
+	kernelVersion: string | null;
+	osName: string | null;
+	cpuModel: string | null;
+	virtualization: string | null;
+	processCount: number | null;
+	tcpConnections: number | null;
+	udpConnections: number | null;
+	osInfo: string | null;
+	operatingSystem: string | null;
+	expiresAt: Date | null;
+	trafficQuotaBytes: bigint | number | null;
+	trafficQuotaMode: string | null;
+	costMonthlyAmount: number | null;
+	costCurrency: string | null;
 };
 
 const ROW_COLUMNS = Prisma.sql`
@@ -85,7 +105,13 @@ const ROW_COLUMNS = Prisma.sql`
 	m."diskUsage", m."diskUsedBytes", m."diskTotalBytes", m."uptimeSeconds",
 	m."rxRateBps", m."txRateBps", m."rateIntervalSeconds",
 	m."periodStart", m."periodSince", m."periodRxBytes", m."periodTxBytes",
-	m."probeAt", m."probeOk", m."probeLatencyMs"`;
+	m."probeAt", m."probeOk", m."probeLatencyMs",
+	n."countryCode",
+	m."arch", m."kernelVersion", m."osName", m."cpuModel", m."virtualization",
+	m."processCount", m."tcpConnections", m."udpConnections",
+	s."osInfo", s."operatingSystem",
+	s."expiresAt", s."trafficQuotaBytes", s."trafficQuotaMode",
+	s."costMonthlyAmount"::float8 AS "costMonthlyAmount", s."costCurrency"`;
 
 const ROW_FROM = Prisma.sql`
 	FROM "public_status_nodes" n
@@ -154,6 +180,36 @@ export function publicSiteInfo(site: PublicSiteConfig): PublicSiteInfo {
 	};
 }
 
+/** One printable line; the stored distro name is set at onboarding but stays bounded. */
+function oneLine(value: string | null | undefined, max = 96): string | null {
+	if (!value) return null;
+	const cleaned = value.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").replace(/\s+/g, " ").trim();
+	return cleaned ? cleaned.slice(0, max) : null;
+}
+
+function systemOf(row: VisibleNodeRow): PublicNodeSystem | null {
+	const system: PublicNodeSystem = {
+		// A sample's OS line, else the distro recorded at onboarding, else the family.
+		// ("Unknown (default: Debian)" is the dialect detector's placeholder, not a distro.)
+		os: oneLine(row.osName) ?? (/^unknown\b/i.test(row.osInfo ?? "") ? null : oneLine(row.osInfo)) ?? (row.operatingSystem === "WINDOWS" ? "Windows" : null),
+		arch: row.arch,
+		kernel: row.kernelVersion,
+		cpuModel: row.cpuModel,
+		virtualization: row.virtualization,
+	};
+	return Object.values(system).some((value) => value !== null) ? system : null;
+}
+
+function billingOf(row: VisibleNodeRow): PublicNodeBilling | null {
+	const price = row.costMonthlyAmount !== null && Number.isFinite(row.costMonthlyAmount) && row.costMonthlyAmount > 0 ? round(row.costMonthlyAmount, 2) : null;
+	const billing: PublicNodeBilling = {
+		monthlyPrice: price,
+		currency: price === null ? null : row.costCurrency,
+		expiresAt: iso(row.expiresAt),
+	};
+	return billing.monthlyPrice !== null || billing.expiresAt !== null ? billing : null;
+}
+
 export function toPublicNode(row: VisibleNodeRow, allowed: ReadonlySet<PublicMetricCategory>, now: Date): PublicNode {
 	const latest = row.checkedAt
 		? {
@@ -196,12 +252,19 @@ export function toPublicNode(row: VisibleNodeRow, allowed: ReadonlySet<PublicMet
 		};
 	}
 	if (hasMetrics && allowed.has("traffic")) {
+		const limit = num(row.trafficQuotaBytes);
 		metrics.traffic = {
 			periodRxBytes: row.periodStart ? num(row.periodRxBytes) : null,
 			periodTxBytes: row.periodStart ? num(row.periodTxBytes) : null,
 			periodStart: iso(row.periodStart),
 			countedSince: iso(row.periodSince),
+			...(limit !== null && limit > 0
+				? { quota: { limitBytes: limit, mode: isTrafficQuotaMode(row.trafficQuotaMode) ? row.trafficQuotaMode : "sum" } }
+				: {}),
 		};
+	}
+	if (hasMetrics && allowed.has("connections") && (row.processCount !== null || row.tcpConnections !== null || row.udpConnections !== null)) {
+		metrics.connections = { processes: row.processCount, tcp: row.tcpConnections, udp: row.udpConnections };
 	}
 	if (hasMetrics && allowed.has("uptime")) metrics.uptime = { seconds: row.uptimeSeconds };
 	if (allowed.has("latency") && row.probeAt) {
@@ -212,6 +275,7 @@ export function toPublicNode(row: VisibleNodeRow, allowed: ReadonlySet<PublicMet
 		name: row.displayName,
 		group: row.groupName,
 		region: row.region,
+		countryCode: normalizeCountryCode(row.countryCode),
 		tags: [...(row.tags ?? [])],
 		note: row.note,
 		status: verdict.status,
@@ -222,6 +286,8 @@ export function toPublicNode(row: VisibleNodeRow, allowed: ReadonlySet<PublicMet
 		heartbeatAt: row.managementMode === "AGENT" ? iso(row.agentLastSeenAt) : null,
 		reportIntervalSeconds: row.intervalSeconds,
 		metrics,
+		system: allowed.has("system") ? systemOf(row) : null,
+		billing: allowed.has("billing") ? billingOf(row) : null,
 	};
 }
 
@@ -264,6 +330,7 @@ export function summarizeNodes(nodes: PublicNode[], truncated: boolean): PublicB
 		...counts,
 		groups: bucketCounts(nodes, (node) => node.group),
 		regions: bucketCounts(nodes, (node) => node.region),
+		countries: bucketCounts(nodes, (node) => node.countryCode),
 		rxBytesPerSecond: rateNodes > 0 ? rx : null,
 		txBytesPerSecond: rateNodes > 0 ? tx : null,
 		rateNodes,

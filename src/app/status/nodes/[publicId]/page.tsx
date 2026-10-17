@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/page-shell";
 import { getCurrentSession } from "@/lib/auth/server-session";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
+import { parseHistoryRange } from "@/lib/public-status/query";
 import { readPublicNode } from "@/lib/public-status/read";
 import { PublicNodeClient } from "./public-node-client";
 
@@ -29,7 +30,12 @@ export default async function PublicNodePage({
 	if (!detail) notFound();
 	return (
 		<PageShell navigation={Boolean(session)}>
-			<PublicNodeClient initial={detail} preview={preview} signedIn={Boolean(session)} />
+			<PublicNodeClient
+				initial={detail}
+				initialRange={parseHistoryRange(typeof query.range === "string" ? query.range : null)}
+				preview={preview}
+				signedIn={Boolean(session)}
+			/>
 		</PageShell>
 	);
 }

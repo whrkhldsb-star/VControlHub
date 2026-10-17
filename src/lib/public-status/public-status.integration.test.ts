@@ -32,6 +32,8 @@ function values(rx: bigint | null, tx: bigint | null, iface = "eth0"): Normalize
 	return {
 		cpuUsage: 10, cpuCores: 2, load1: 0.1, load5: 0.1, load15: 0.1, memUsage: 50, memUsedMb: 512, memTotalMb: 1024,
 		swapUsage: null, diskUsage: 40, diskUsedBytes: 1e9, diskTotalBytes: 2e9, uptimeSeconds: 100, netIface: iface, netRxBytes: rx, netTxBytes: tx,
+		arch: "x86_64", kernelVersion: "6.8.0-45-generic", osName: "Ubuntu 24.04.1 LTS", cpuModel: "AMD EPYC 7763", virtualization: "kvm",
+		processCount: 120, tcpConnections: 40, udpConnections: 5,
 	};
 }
 
@@ -335,6 +337,20 @@ describe.skipIf(!RUN)("public status board (PostgreSQL)", () => {
 
 		it("rows for servers that no longer exist are skipped, not fatal", async () => {
 			await expect(writeLatestMetrics([{ serverId: `${prefix}-missing`, checkedAt: t0, online: true, intervalSeconds: 60 }])).resolves.toBe(0);
+		});
+
+		it("keeps what the node is when a newer sample lacks it; counts follow every sample", async () => {
+			expect(await read()).toMatchObject({ arch: "x86_64", kernelVersion: "6.8.0-45-generic", osName: "Ubuntu 24.04.1 LTS", cpuModel: "AMD EPYC 7763", virtualization: "kvm", processCount: 120, tcpConnections: 40, udpConnections: 5 });
+			// A later sample from an Agent installed before host facts existed.
+			const later = new Date(startOfMonthInAppTimeZone(t0).getTime() + 41 * 86_400_000);
+			const bare: NormalizedMetrics = { ...values(BigInt(5_200_000), BigInt(5_200_000), "ens3"), arch: null, kernelVersion: null, osName: null, cpuModel: null, virtualization: null, processCount: null, tcpConnections: null, udpConnections: null };
+			await writeLatestMetrics([{ serverId, checkedAt: later, online: true, intervalSeconds: 300, metrics: { sampledAt: later, source: "agent", values: bare } }]);
+			const row = await read();
+			expect(row).toMatchObject({ arch: "x86_64", kernelVersion: "6.8.0-45-generic", osName: "Ubuntu 24.04.1 LTS", cpuModel: "AMD EPYC 7763", virtualization: "kvm" });
+			expect(row).toMatchObject({ processCount: null, tcpConnections: null, udpConnections: null });
+			// An older sample cannot bring old facts or counts back.
+			await writeLatestMetrics([{ serverId, checkedAt: t0, online: true, intervalSeconds: 300, metrics: { sampledAt: t0, source: "ssh", values: { ...values(BigInt(1), BigInt(1)), arch: "aarch64", processCount: 9 } } }]);
+			expect(await read()).toMatchObject({ arch: "x86_64", processCount: null });
 		});
 	});
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getServerLocale } from "@/lib/i18n/server-locale-cookie";
 import { t } from "@/lib/i18n/service-translations";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import { HOST_FACTS_SCRIPT, parseHostFacts, type HostFacts } from "./host-facts";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -18,11 +19,15 @@ export type ServerMetrics = {
 	timestamp: string;
 	/** Which channel produced the sample. */
 	source?: "agent" | "ssh";
+	/** Architecture, kernel, OS, CPU model, virtualization, process and socket counts; absent from older Agents. */
+	system?: HostFacts;
 };
 
 export type MonitorError = { error: string; serverId: string };
 
-export const MONITOR_SCRIPT = `echo "===CPU==="; nproc 2>/dev/null || echo 1; cat /proc/loadavg 2>/dev/null || echo "0 0 0"; awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null || echo "0 0"; echo "===MEM==="; awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"; echo "===SWAP==="; awk '/SwapTotal:/{t=$2} /SwapFree:/{f=$2} END{if(t>0){printf "%d %d\\n", t/1024, (t-f)/1024}else{print "0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0"; echo "===DISK==="; df -h --output=size,used,pcent,target -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2 || df -h 2>/dev/null | tail -n +2; echo "===LOAD==="; uptime 2>/dev/null || echo "unknown"; echo "===NET==="; awk 'NR>2 && $1!="lo:" {gsub(/:/,"",$1); print $1,$2,$10}' /proc/net/dev 2>/dev/null | head -5 || echo ""`;
+const BASE_MONITOR_SCRIPT = `echo "===CPU==="; nproc 2>/dev/null || echo 1; cat /proc/loadavg 2>/dev/null || echo "0 0 0"; awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null || echo "0 0"; echo "===MEM==="; awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"; echo "===SWAP==="; awk '/SwapTotal:/{t=$2} /SwapFree:/{f=$2} END{if(t>0){printf "%d %d\\n", t/1024, (t-f)/1024}else{print "0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0"; echo "===DISK==="; df -h --output=size,used,pcent,target -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2 || df -h 2>/dev/null | tail -n +2; echo "===LOAD==="; uptime 2>/dev/null || echo "unknown"; echo "===NET==="; awk 'NR>2 && $1!="lo:" {gsub(/:/,"",$1); print $1,$2,$10}' /proc/net/dev 2>/dev/null | head -5 || echo ""`;
+/** Metric sections, then host facts (an Agent embeds this script when it is installed). */
+export const MONITOR_SCRIPT = `${BASE_MONITOR_SCRIPT}; ${HOST_FACTS_SCRIPT}`;
 
 /* ── Parse helpers ────────────────────────────────────────── */
 
@@ -118,6 +123,7 @@ export function parseMonitorScriptOutput(stdout: string): ServerMetrics {
 	const network = parseNetSection(netLines);
 	const uptimeLine = splitSection(stdout, "===LOAD===").join(" ");
 	const uptime = parseUptime(uptimeLine);
+	const system = parseHostFacts(splitSection(stdout, "===SYS==="));
 
 	return {
 		cpu,
@@ -127,6 +133,7 @@ export function parseMonitorScriptOutput(stdout: string): ServerMetrics {
 		network,
 		uptime,
 		timestamp: new Date().toISOString(),
+		...(system ? { system } : {}),
 	};
 }
 

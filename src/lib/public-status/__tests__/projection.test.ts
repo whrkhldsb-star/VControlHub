@@ -53,6 +53,22 @@ function row(overrides: Partial<VisibleNodeRow> = {}): VisibleNodeRow {
 		probeAt: new Date(now.getTime() - 60_000),
 		probeOk: true,
 		probeLatencyMs: 23.456,
+		countryCode: "jp",
+		arch: "x86_64",
+		kernelVersion: "6.8.0-45-generic",
+		osName: "Ubuntu 24.04.1 LTS",
+		cpuModel: "AMD EPYC 7763",
+		virtualization: "kvm",
+		processCount: 123,
+		tcpConnections: 45,
+		udpConnections: 6,
+		osInfo: "Debian GNU/Linux 12",
+		operatingSystem: "LINUX",
+		expiresAt: new Date("2026-11-01T15:59:59.000Z"),
+		trafficQuotaBytes: BigInt(1024 ** 4),
+		trafficQuotaMode: "out",
+		costMonthlyAmount: 5.5,
+		costCurrency: "USD",
 		...overrides,
 	};
 }
@@ -75,8 +91,8 @@ describe("toPublicNode whitelist", () => {
 		const json = JSON.stringify(node);
 		expect(json).not.toMatch(FORBIDDEN);
 		expect(Object.keys(node).sort()).toEqual([
-			"checkedAt", "group", "heartbeatAt", "id", "metrics", "metricsAt", "metricsStale", "name", "note",
-			"offlineReason", "region", "reportIntervalSeconds", "status", "tags",
+			"billing", "checkedAt", "countryCode", "group", "heartbeatAt", "id", "metrics", "metricsAt", "metricsStale", "name", "note",
+			"offlineReason", "region", "reportIntervalSeconds", "status", "system", "tags",
 		]);
 		expect(node).toMatchObject({ id: "abcdefghijkl", name: "Tokyo 1", status: "online" });
 		expect(node.metrics.memory).toEqual({ usage: 50, usedBytes: 1024 * 1024 * 1024, totalBytes: 2048 * 1024 * 1024, swapUsage: null });
@@ -88,6 +104,41 @@ describe("toPublicNode whitelist", () => {
 	it("omits categories the site does not publish", () => {
 		const node = toPublicNode(row(), new Set<PublicMetricCategory>(["cpu"]), now);
 		expect(Object.keys(node.metrics)).toEqual(["cpu"]);
+		expect(node.system).toBeNull();
+		expect(node.billing).toBeNull();
+		// The flag is part of the public name, not a metric.
+		expect(node.countryCode).toBe("JP");
+	});
+
+	it("publishes what the node is, its connections, quota and billing when the site shows them", () => {
+		const node = toPublicNode(row(), ALL, now);
+		expect(node.system).toEqual({ os: "Ubuntu 24.04.1 LTS", arch: "x86_64", kernel: "6.8.0-45-generic", cpuModel: "AMD EPYC 7763", virtualization: "kvm" });
+		expect(node.metrics.connections).toEqual({ processes: 123, tcp: 45, udp: 6 });
+		expect(node.metrics.traffic?.quota).toEqual({ limitBytes: 1024 ** 4, mode: "out" });
+		expect(node.billing).toEqual({ monthlyPrice: 5.5, currency: "USD", expiresAt: "2026-11-01T15:59:59.000Z" });
+	});
+
+	it("falls back to the distro recorded at onboarding and drops empty facts and prices", () => {
+		const node = toPublicNode(
+			row({ osName: null, arch: null, kernelVersion: null, cpuModel: null, virtualization: null, costMonthlyAmount: 0, expiresAt: null, trafficQuotaBytes: null, trafficQuotaMode: "bogus" }),
+			ALL,
+			now,
+		);
+		expect(node.system).toEqual({ os: "Debian GNU/Linux 12", arch: null, kernel: null, cpuModel: null, virtualization: null });
+		expect(node.billing).toBeNull();
+		expect(node.metrics.traffic).not.toHaveProperty("quota");
+		const bare = toPublicNode(row({ osName: null, osInfo: "\u001b\u0007\t", arch: null, kernelVersion: null, cpuModel: null, virtualization: null }), ALL, now);
+		expect(bare.system).toBeNull();
+		const placeholder = toPublicNode(row({ osName: null, osInfo: "Unknown (default: Debian)", arch: null, kernelVersion: null, cpuModel: null, virtualization: null }), ALL, now);
+		expect(placeholder.system).toBeNull();
+		const windows = toPublicNode(row({ osName: null, osInfo: null, operatingSystem: "WINDOWS" }), ALL, now);
+		expect(windows.system?.os).toBe("Windows");
+	});
+
+	it("keeps billing off the default category list", async () => {
+		const { DEFAULT_PUBLIC_METRICS } = await import("../site-config");
+		expect(DEFAULT_PUBLIC_METRICS).not.toContain("billing");
+		expect(DEFAULT_PUBLIC_METRICS).toEqual(expect.arrayContaining(["system", "connections"]));
 	});
 
 	it("shows no metric objects (not zeros) before the first sample", () => {
@@ -200,6 +251,7 @@ describe("summary", () => {
 		expect(summary.offline).toBe(2);
 		expect(summary.groups.map((g) => g.name)).toEqual(["Even", "Odd"]);
 		expect(summary.regions.map((r) => r.name)).toEqual(["Asia", "EU"]);
+		expect(summary.countries).toEqual([{ name: "JP", total: 20, online: 18 }]);
 		// Offline nodes have no current rate; 18 online nodes contribute.
 		expect(summary.rateNodes).toBe(18);
 		expect(summary.rxBytesPerSecond).toBe(18 * 1000);

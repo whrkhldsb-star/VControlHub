@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { ServerBillingFields } from "./server-billing-fields";
 
 /** Billing section shared by the Linux and Windows create forms (same advanced-details pattern). */
 export function ServerCostFields() {
@@ -71,6 +72,7 @@ export function ServerCostFields() {
             className={UI_INPUT}
           />
         </div>
+        <ServerBillingFields />
       </div>
     </details>
   );

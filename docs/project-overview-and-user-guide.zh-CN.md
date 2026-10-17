@@ -1045,11 +1045,11 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 ### 12.8 公开节点状态展示页
 
-参考 Komari 的访客首页做的免登录看板，默认关闭、所有服务器默认不公开。平台管理员在 `/public-status`（设置页“数据”分类有入口）打开展示页、填写标题／简介／公告（纯文本）、选择默认视图、访客刷新间隔（10／15／30／60 秒）、强调色和允许公开的指标类别，并逐台为服务器填写公开名称（必填，不会回退为内部名称或主机，公开文本不得包含主机地址）、分组、地区、标签、排序、公开说明和维护标记后发布；可批量发布／撤销，保存前右侧列出访客将看到的字段，“以访客身份预览”在关闭状态下也能看到同一份公开数据。
+参考 Komari 的访客首页做的免登录看板，默认关闭、所有服务器默认不公开。平台管理员在 `/public-status`（设置页“数据”分类有入口）打开展示页、填写标题／简介／公告（纯文本）、选择默认视图、访客刷新间隔（10／15／30／60 秒）、强调色和允许公开的指标类别，并逐台为服务器填写公开名称（必填，不会自动回退为内部名称或主机，公开文本不得包含主机地址）、分组、地区、国家旗帜（两位代码，如 JP、HK）、标签、排序、公开说明和维护标记后发布；可批量发布／撤销，也可勾选服务器后“用服务器名称发布”（确认框列出将以服务器名称公开的机器，名称含主机地址的跳过）。保存前右侧列出访客将看到的字段，“以访客身份预览”在关闭状态下也能看到同一份公开数据。可公开的类别里，“系统信息”（发行版、架构、内核、CPU 型号、虚拟化）和“进程与连接数”默认勾选，“价格与到期”默认不公开；月费沿用服务器的成本字段，到期日期和每月流量配额（GiB，按上下行合计／较大者／仅上行／仅下行计量）在服务器新建／编辑表单的“费用”区填写，服务器详情会显示剩余天数。
 
-开启后未登录访问 `/` 会进入 `/status`：汇总在线／离线／陈旧／未采样／维护数量、地区与分组、实时吞吐、本月流量和最新采样时间；卡片／表格视图，按公开名称、地区、分组、标签搜索，按分组、状态过滤，排序与分页写入 URL。`/status/nodes/<公开 ID>` 显示当前指标、24 小时／7 天可用率与覆盖率、1h／6h／24h／7d 历史（资源、网络速率、控制端到节点 TCP 延迟及失败标记）和 90 天每日可用率。已登录访问 `/`、`/dashboard` 仍是管理仪表盘。
+开启后未登录访问 `/` 会进入 `/status`：顶部概况卡显示当前时间、在线比例、地区与国旗、本月流量和实时吞吐（访客可选择显示哪几张），并列出最新采样时间；卡片仿 Komari，含国旗、系统、按 60／80 % 变色的 CPU／内存／磁盘条、价格与到期徽章、流量配额条、速率、运行时长、TCP 延迟与连接数，右上角按钮可看近 24 小时趋势，点击卡片进入详情；表格视图带内嵌进度条。按公开名称、地区、分组、标签搜索（按 `/` 聚焦搜索框），按分组、状态过滤，排序与分页写入 URL。`/status/nodes/<公开 ID>` 显示进度条指标卡、基本信息（系统、架构、内核、CPU 型号、内存／磁盘总量、进程与连接数、配额、到期等已知项）、24 小时／7 天可用率与覆盖率、1h／6h／24h／7d／30d 历史（资源、网络速率、控制端到节点 TCP 延迟及失败标记、负载、连接数、进程数）和 90 天每日可用率。已登录访问 `/`、`/dashboard` 仍是管理仪表盘。
 
-访客请求只读取后台采样与 Agent 上报已保存的数据（`ServerMetricLatest`、`MetricSnapshot`、`TrafficSnapshot`、`ServerUptimeSnapshot`），不会触发 SSH 或 TCP 探测；公开接口只返回白名单字段。撤销公开、服务器禁用、转移到其他客户或客户删除后，列表、详情、历史和汇总同时收回。状态含义、单位、缓存时效、运行成本与后续路线见 [公开展示页说明](public-status-board.zh-CN.md)。
+访客请求只读取后台采样与 Agent 上报已保存的数据（`ServerMetricLatest`、`MetricSnapshot`、`TrafficSnapshot`、`ServerUptimeSnapshot`），不会触发 SSH 或 TCP 探测；公开接口只返回白名单字段。系统信息与连接数由采集脚本一并采集：SSH 采样的节点下一次采样即有，已安装的 Agent 需重新执行安装命令后才会上报。撤销公开、服务器禁用、转移到其他客户或客户删除后，列表、详情、历史和汇总同时收回。状态含义、单位、缓存时效、运行成本与后续路线见 [公开展示页说明](public-status-board.zh-CN.md)。
 
 依据：[健康与预测](../src/lib/health/)、[公开展示页](../src/lib/public-status/)、[监控业务层](../src/lib/monitoring/)、[告警规则接口](../src/app/api/alert-rules/route.ts)、[告警事件](../src/lib/alert/incidents.ts)、[可用率汇总](../src/lib/uptime/)。
 
@@ -2343,8 +2343,8 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 
 | 接口路径／源码 | 声明方法 | 功能与操作 | 对应章节 |
 | --- | --- | --- | --- |
-| [`/api/admin/public-status/nodes`](../src/app/api/admin/public-status/nodes/route.ts) | GET / POST | 平台管理员列出全部服务器的公开状态；批量发布、撤销、维护 | [公开节点状态展示页](#public-board) |
-| [`/api/admin/public-status/nodes/[serverId]`](../src/app/api/admin/public-status/nodes/[serverId]/route.ts) | PUT | 单台服务器的公开名称、分组、地区、标签、排序、说明、维护与发布 | [公开节点状态展示页](#public-board) |
+| [`/api/admin/public-status/nodes`](../src/app/api/admin/public-status/nodes/route.ts) | GET / POST | 平台管理员列出全部服务器的公开状态；批量发布、用服务器名称发布、撤销、维护 | [公开节点状态展示页](#public-board) |
+| [`/api/admin/public-status/nodes/[serverId]`](../src/app/api/admin/public-status/nodes/[serverId]/route.ts) | PUT | 单台服务器的公开名称、分组、地区、国家旗帜、标签、排序、说明、维护与发布 | [公开节点状态展示页](#public-board) |
 | [`/api/admin/public-status/site`](../src/app/api/admin/public-status/site/route.ts) | GET / PUT | 展示页开关、标题、简介、公告、默认视图、刷新间隔、强调色与公开指标 | [公开节点状态展示页](#public-board) |
 | [`/api/admin/workers`](../src/app/api/admin/workers/route.ts) | GET | 后台 Worker 注册、运行状态及心跳 | [数据模型与后台任务设计](#data-workers) |
 | [`/api/agent/v1/bootstrap`](../src/app/api/agent/v1/bootstrap/route.ts) | GET | 校验引导凭据并提供 Agent 安装内容 | [服务器纳管与节点管理](#servers) |

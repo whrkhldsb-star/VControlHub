@@ -46,13 +46,27 @@ function writeToLocation(state: Record<string, string>, defaults: UrlQueryDefaul
   }
 }
 
-/** @param defaults keys that participate in the URL; empty/default values are omitted */
-export function useUrlQueryState<T extends UrlQueryDefaults>(defaults: T) {
+/**
+ * @param defaults keys that participate in the URL; empty/default values are omitted
+ * @param initial what a server-rendered page rendered with (its search params).
+ *   Without it the server renders the defaults while the browser's first render
+ *   reads the address bar, and React keeps the server's attributes for the
+ *   mismatch (a filter or tab shown as selected that is not).
+ */
+export function useUrlQueryState<T extends UrlQueryDefaults>(defaults: T, initial?: Partial<Record<keyof T, string>>) {
   const defaultsRef = useRef(defaults);
   // Stable key list from first mount (callers pass a fixed key set).
   const [keys] = useState<string[]>(() => Object.keys(defaults));
 
-  const [state, setState] = useState<T>(() => readFromLocation(keys, defaults) as T);
+  const [state, setState] = useState<T>(() => {
+    if (!initial) return readFromLocation(keys, defaults) as T;
+    const next: Record<string, string> = { ...defaults };
+    for (const key of keys) {
+      const value = initial[key as keyof T];
+      if (typeof value === "string" && value !== "") next[key] = value;
+    }
+    return next as T;
+  });
 
   useEffect(() => {
     defaultsRef.current = defaults;

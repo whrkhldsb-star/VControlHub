@@ -90,7 +90,10 @@ describe("snapshotHealthOverview", () => {
       },
     ]));
     expect(createMany).toHaveBeenCalledWith({
-      data: [{ serverId: "s2", cpuUsage: 12, memUsage: 34, diskUsage: 50, isOnline: true, intervalSeconds: 300, probeStatus: null, probeLatencyMs: null, teamId: null }],
+      data: [{
+        serverId: "s2", cpuUsage: 12, memUsage: 34, diskUsage: 50, isOnline: true, intervalSeconds: 300, probeStatus: null, probeLatencyMs: null, teamId: null,
+        load1: null, processCount: null, tcpConnections: null, udpConnections: null,
+      }],
     });
   });
 

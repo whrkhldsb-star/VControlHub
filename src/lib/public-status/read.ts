@@ -138,7 +138,7 @@ export async function readPublicHistory(publicId: string, range: PublicHistoryRa
 	const to = new Date();
 	const from = new Date(to.getTime() - RANGE_SECONDS[range] * 1000);
 	const bucketSeconds = bucketSecondsFor(range);
-	const wantsResources = allowed.has("cpu") || allowed.has("memory") || allowed.has("disk");
+	const wantsResources = allowed.has("cpu") || allowed.has("memory") || allowed.has("disk") || allowed.has("load") || allowed.has("connections");
 	const [resourceRows, networkRows, coverage] = await Promise.all([
 		wantsResources || allowed.has("latency") ? queryResourceBuckets(row.serverId, from, to, bucketSeconds) : Promise.resolve([]),
 		allowed.has("network") ? queryNetworkBuckets(row.serverId, from, to, bucketSeconds) : Promise.resolve([]),
@@ -154,6 +154,8 @@ export async function readPublicHistory(publicId: string, range: PublicHistoryRa
 				...(allowed.has("cpu") ? { cpu: point.cpu } : {}),
 				...(allowed.has("memory") ? { memory: point.memory } : {}),
 				...(allowed.has("disk") ? { disk: point.disk } : {}),
+				...(allowed.has("load") ? { load: point.load } : {}),
+				...(allowed.has("connections") ? { processes: point.processes, tcp: point.tcp, udp: point.udp } : {}),
 			}))
 		: null;
 	const value: Omit<PublicHistoryResponse, "generatedAt"> = {

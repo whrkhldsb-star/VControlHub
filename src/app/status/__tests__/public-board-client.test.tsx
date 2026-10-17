@@ -17,6 +17,7 @@ function node(id: string, name: string, overrides: Partial<PublicNode> = {}): Pu
 		name,
 		group: "Asia",
 		region: "Tokyo",
+		countryCode: "JP",
 		tags: ["prod"],
 		note: null,
 		status: "online",
@@ -32,6 +33,8 @@ function node(id: string, name: string, overrides: Partial<PublicNode> = {}): Pu
 			disk: { usage: 47, usedBytes: 20 * 1024 ** 3, totalBytes: 40 * 1024 ** 3 },
 			network: { rxBytesPerSecond: 1_572_864, txBytesPerSecond: 524_288, rateWindowSeconds: 300 },
 		},
+		system: null,
+		billing: null,
 		...overrides,
 	};
 }
@@ -42,7 +45,7 @@ function board(nodes: PublicNode[], overrides: Partial<PublicBoardResponse> = {}
 		platform: { overall: "healthy" },
 		summary: {
 			total: nodes.length, online: nodes.filter((n) => n.status === "online").length, offline: nodes.filter((n) => n.status === "offline").length,
-			stale: 0, unknown: 0, maintenance: 0, groups: [{ name: "Asia", total: nodes.length, online: nodes.length }], regions: [{ name: "Tokyo", total: nodes.length, online: nodes.length }],
+			stale: 0, unknown: 0, maintenance: 0, groups: [{ name: "Asia", total: nodes.length, online: nodes.length }], regions: [{ name: "Tokyo", total: nodes.length, online: nodes.length }], countries: [{ name: "JP", total: nodes.length, online: nodes.length }],
 			rxBytesPerSecond: 1_572_864, txBytesPerSecond: 524_288, rateNodes: 1, periodRxBytes: null, periodTxBytes: null, lastSampleAt: "2026-10-13T11:59:30.000Z", truncated: false,
 		},
 		query: { q: "", group: "", status: "all", sort: "default", dir: "asc", page: 1, pageSize: 24 },

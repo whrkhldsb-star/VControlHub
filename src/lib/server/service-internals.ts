@@ -14,6 +14,7 @@ import {
 import { config } from "@/lib/config/env";
 import { getResolvedDirectGatewayProtocol } from "./direct-gateway";
 import { t } from "@/lib/i18n/service-translations";
+import { toServerBillingDto } from "./billing-form";
 
 type ServerCommandTarget = {
   id: string;
@@ -87,6 +88,9 @@ export type ServerWithRelations = {
   costCurrency?: string;
   costProvider?: string | null;
   costLastSyncedAt?: Date | string | null;
+  expiresAt?: Date | string | null;
+  trafficQuotaBytes?: bigint | number | null;
+  trafficQuotaMode?: string | null;
   origin?: "PLATFORM" | "CUSTOMER";
   team?: { name: string } | null;
   // TR-030: multi-tenancy resource scoping
@@ -378,6 +382,7 @@ export function enrichServer(server: ServerWithRelations) {
     costCurrency: normalizeServerCostCurrency(server.costCurrency),
     costProvider: server.costProvider ?? null,
     costLastSyncedAt: server.costLastSyncedAt ? serializeDate(server.costLastSyncedAt) : null,
+    billing: toServerBillingDto(server),
     // TR-030: multi-tenancy resource scoping
     teamId: server.teamId ?? null,
     teamName: server.team?.name ?? null,

@@ -14,8 +14,14 @@ export const PUBLIC_METRIC_CATEGORIES = [
 	"load",
 	"latency",
 	"availability",
+	"system",
+	"connections",
+	"billing",
 ] as const;
 export type PublicMetricCategory = (typeof PUBLIC_METRIC_CATEGORIES)[number];
+
+/** Billing (price and expiry) is the administrator's to publish, never a default. */
+export const DEFAULT_PUBLIC_METRICS: PublicMetricCategory[] = PUBLIC_METRIC_CATEGORIES.filter((category) => category !== "billing");
 
 export const PUBLIC_REFRESH_SECONDS = [10, 15, 30, 60] as const;
 export const PUBLIC_ACCENTS = ["default", "indigo", "purple", "emerald", "amber", "rose"] as const;
@@ -48,7 +54,7 @@ export const DEFAULT_PUBLIC_SITE: PublicSiteConfig = {
 	defaultView: "cards",
 	refreshSeconds: 15,
 	accent: "default",
-	metrics: [...PUBLIC_METRIC_CATEGORIES],
+	metrics: [...DEFAULT_PUBLIC_METRICS],
 	showPlatformStatus: true,
 	updatedAt: null,
 };

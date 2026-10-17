@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 				serverIds: body.serverIds.slice(0, 200),
 				changed: result.changed,
 				skipped: result.skipped.slice(0, 200),
-			}, body.action === "publish" ? "WARNING" : "INFO");
+			}, body.action === "publish" || body.action === "publish_named" ? "WARNING" : "INFO");
 			return NextResponse.json(result);
 		},
 	);

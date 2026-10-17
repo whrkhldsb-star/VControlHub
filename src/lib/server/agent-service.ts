@@ -12,7 +12,7 @@ import { writeLatestMetrics } from "@/lib/public-status/latest-writer";
 import { createLogger } from "@/lib/logging";
 import { CommandCancellationUnconfirmedError } from "@/lib/command/cancellation-error";
 
-const AGENT_VERSION = "1.2.0";
+const AGENT_VERSION = "1.3.0";
 export const AGENT_FRESH_MS = 90_000;
 export const AGENT_JOB_HEARTBEAT_MS = 30_000;
 /** Both Agent scripts send a metric report at most once per this many seconds. */

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
-	server: { findUnique: vi.fn() },
+	server: { findUnique: vi.fn(), findMany: vi.fn() },
 	publicStatusNode: { findUnique: vi.fn(), upsert: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 	$transaction: vi.fn(async (operations: unknown[]) => Promise.all(operations)),
 }));
@@ -18,7 +18,7 @@ import {
 } from "../history";
 import { applyNodeBatch, generatePublicId, normalizePublication, updateNodePublication } from "../nodes-admin";
 import { PUBLIC_ID_PATTERN, HISTORY_RANGES } from "../query";
-import { cleanPlainText, publicSiteUpdateSchema, siteConfigFromRow } from "../site-config";
+import { PUBLIC_METRIC_CATEGORIES, cleanPlainText, publicSiteUpdateSchema, siteConfigFromRow } from "../site-config";
 
 describe("history shaping", () => {
 	it("keeps every range at or below the point budget with at least minute buckets", () => {
@@ -44,15 +44,16 @@ describe("history shaping", () => {
 		const b = (minute: number) => new Date(Date.UTC(2026, 9, 13, 0, minute));
 		const shaped = shapeResourcePoints(
 			[
-				{ b: b(0), cpu: 10, mem: 20, disk: 30, online: BigInt(1), offline: BigInt(0), probe_ok: BigInt(1), probe_failed: BigInt(0), rtt_avg: 12, rtt_min: 12, rtt_max: 12, interval_s: 300 },
-				{ b: b(5), cpu: null, mem: null, disk: null, online: BigInt(0), offline: BigInt(1), probe_ok: BigInt(0), probe_failed: BigInt(1), rtt_avg: null, rtt_min: null, rtt_max: null, interval_s: 300 },
-				{ b: b(10), cpu: 11, mem: 21, disk: 31, online: BigInt(1), offline: BigInt(0), probe_ok: BigInt(0), probe_failed: BigInt(0), rtt_avg: null, rtt_min: null, rtt_max: null, interval_s: 300 },
+				{ b: b(0), cpu: 10, mem: 20, disk: 30, online: BigInt(1), offline: BigInt(0), probe_ok: BigInt(1), probe_failed: BigInt(0), rtt_avg: 12, rtt_min: 12, rtt_max: 12, interval_s: 300, load1: 0.567, procs: 101.6, tcp: 10.2, udp: 2.5 },
+				{ b: b(5), cpu: null, mem: null, disk: null, online: BigInt(0), offline: BigInt(1), probe_ok: BigInt(0), probe_failed: BigInt(1), rtt_avg: null, rtt_min: null, rtt_max: null, interval_s: 300, load1: null, procs: null, tcp: null, udp: null },
+				{ b: b(10), cpu: 11, mem: 21, disk: 31, online: BigInt(1), offline: BigInt(0), probe_ok: BigInt(0), probe_failed: BigInt(0), rtt_avg: null, rtt_min: null, rtt_max: null, interval_s: 300, load1: null, procs: null, tcp: null, udp: null },
 			],
 			60,
 			300,
 		);
 		expect(shaped.resources.map((p) => p.cpu)).toEqual([10, null, 11]);
-		expect(shaped.resources[1]).toMatchObject({ online: 0, offline: 1 });
+		expect(shaped.resources[0]).toMatchObject({ load: 0.57, processes: 102, tcp: 10, udp: 3 });
+		expect(shaped.resources[1]).toMatchObject({ online: 0, offline: 1, load: null, processes: null });
 		// The unprobed bucket is not a latency point at all; the failed one has no value.
 		expect(shaped.latency.map((p) => [p.avg, p.failed])).toEqual([[12, 0], [null, 1]]);
 		expect(shaped).toMatchObject({ probes: 2, failed: 1 });
@@ -81,9 +82,10 @@ describe("history shaping", () => {
 });
 
 describe("site settings", () => {
-	it("defaults to a closed board with every category", () => {
+	it("defaults to a closed board with every category except billing", () => {
 		expect(siteConfigFromRow(null)).toMatchObject({ enabled: false, defaultView: "cards", refreshSeconds: 15, accent: "default" });
-		expect(siteConfigFromRow(null).metrics).toHaveLength(9);
+		expect(siteConfigFromRow(null).metrics).toHaveLength(PUBLIC_METRIC_CATEGORIES.length - 1);
+		expect(siteConfigFromRow(null).metrics).not.toContain("billing");
 	});
 
 	it("sanitises unknown stored values", () => {
@@ -168,5 +170,31 @@ describe("node publication (admin)", () => {
 		expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
 		expect(prismaMock.$transaction.mock.calls[0]![0]).toHaveLength(1);
 		expect(prismaMock.publicStatusNode.update).toHaveBeenCalledWith(expect.objectContaining({ where: { serverId: "s1" }, data: expect.objectContaining({ published: true, publishedTeamId: "team_a" }) }));
+	});
+
+	it("takes a two-letter country code for the flag and refuses anything else", () => {
+		expect(normalizePublication({ ...input, countryCode: " jp " })).toMatchObject({ countryCode: "JP" });
+		expect(normalizePublication({ ...input, countryCode: "" })).toMatchObject({ countryCode: null });
+		expect(normalizePublication(input)).toMatchObject({ countryCode: null });
+		expect(() => normalizePublication({ ...input, countryCode: "JPN" })).toThrow(expect.objectContaining({ code: "VALIDATION_FAILED" }));
+	});
+
+	it("publishes with server names: keeps existing public names, names the rest, skips host leaks and unknown ids", async () => {
+		prismaMock.server.findMany.mockResolvedValue([
+			{ id: "s1", name: "tokyo-1", host: "203.0.113.7", teamId: "team_a", publicStatusNode: { displayName: "Tokyo Edge" } },
+			{ id: "s2", name: "osaka-2", host: "203.0.113.8", teamId: "team_a", publicStatusNode: null },
+			{ id: "s3", name: "web 203.0.113.9", host: "203.0.113.9", teamId: null, publicStatusNode: { displayName: "" } },
+		]);
+		const result = await applyNodeBatch({ action: "publish_named", serverIds: ["s1", "s2", "s3", "gone"] }, "admin");
+		expect(result).toEqual({ changed: 2, skipped: ["gone", "s3"] });
+		const calls = prismaMock.publicStatusNode.upsert.mock.calls.map((call) => call[0]);
+		expect(calls).toHaveLength(2);
+		// An existing public name is kept; only publication fields change.
+		expect(calls[0]).toMatchObject({ where: { serverId: "s1" }, update: { published: true, publishedTeamId: "team_a", publishedById: "admin" } });
+		expect(calls[0].update).not.toHaveProperty("displayName");
+		// A server without one is published under its server name.
+		expect(calls[1]).toMatchObject({ where: { serverId: "s2" }, create: { displayName: "osaka-2", published: true }, update: { displayName: "osaka-2" } });
+		expect(calls[1].create.publicId).toMatch(PUBLIC_ID_PATTERN);
+		expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
 	});
 });
