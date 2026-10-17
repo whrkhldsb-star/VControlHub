@@ -6,6 +6,7 @@
 #
 # 用法: sudo bash deploy.sh
 set -euo pipefail
+DEPLOY_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Agent shells (Hermes) often export umask 077; force a sane deploy umask so
 # any root-touched helper files are not left world-unreadable.
@@ -120,6 +121,9 @@ tar -C "$APP_DIR" --exclude='./.git' --exclude='./node_modules*' --exclude='./.n
 	--exclude='./dist*' --exclude='./.env*' --exclude='./storage' --exclude='./uploads' \
 	--exclude='./downloads' --exclude='./backups' --exclude='./logs' --exclude='./tmp' \
 	--exclude='./coverage' --exclude='./test-results' --exclude='./playwright-report' -cf - . | tar -C "$stage_dir" -xf -
+# Older installs lack secrets added since; generate them before the copy below.
+source "$DEPLOY_SCRIPT_DIR/deploy/lib/runtime-secrets.sh"
+ensure_runtime_secrets "$APP_DIR/.env.runtime"
 for secret in .env .env.local .env.runtime .env.production; do
 	if [ -f "$APP_DIR/$secret" ]; then install -m 600 "$APP_DIR/$secret" "$stage_dir/$secret"; fi
 done
