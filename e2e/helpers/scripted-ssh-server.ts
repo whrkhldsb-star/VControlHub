@@ -11,7 +11,11 @@ import { Server, utils } from "ssh2";
  *             (1000/1002/1003 + SGR 1006), focus reports and bracketed paste,
  *             and hide the cursor, like Codex and Claude Code
  *   tui-exit  undo all of that, like a program that exits cleanly
+ *   leak      turn mouse tracking on and go on as a plain shell, like a
+ *             program killed before it could turn it off again
  *   seq       print 120 numbered lines (scrollback for wheel checks)
+ *   stream    print `tick 000001`, `tick 000002`, … every 50 ms until Ctrl+C,
+ *             like a build log or a program that keeps redrawing
  *   drop      end the whole SSH connection, like a gateway restart
  *   exit      end the shell with exit status 0, like typing `exit`
  *
@@ -22,6 +26,8 @@ export type ScriptedShell = {
 	/** Every byte the shell received, latin1-decoded. */
 	received: string;
 	number: number;
+	/** The shell's channel closed (the browser ended it, or the connection went away). */
+	closed: boolean;
 };
 
 const TUI_ON = "\x1b[?1049h\x1b[H\x1b[2J\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h\x1b[?1004h\x1b[?2004h\x1b[?25lTUI-RUNNING";
@@ -73,8 +79,12 @@ export async function startScriptedSshServer(options: { username: string; passwo
 				session.on("shell", (accept) => {
 					const stream = accept();
 					if (!interactive) { stream.exit(0); stream.end(); return; }
-					const shell: ScriptedShell = { received: "", number: shells.length + 1 };
+					const shell: ScriptedShell = { received: "", number: shells.length + 1, closed: false };
 					shells.push(shell);
+					let ticker: ReturnType<typeof setInterval> | null = null;
+					let ticks = 0;
+					const stopTicker = () => { if (ticker) clearInterval(ticker); ticker = null; };
+					stream.on("close", () => { shell.closed = true; stopTicker(); });
 					const prompt = () => `lab-shell-${shell.number}$ `;
 					stream.write(`welcome to scripted shell ${shell.number}\r\n${prompt()}`);
 					let line = "";
@@ -82,7 +92,14 @@ export async function startScriptedSshServer(options: { username: string; passwo
 					const run = (command: string) => {
 						if (command === "tui") { fullScreen = true; stream.write(`\r\n${TUI_ON}`); }
 						else if (command === "tui-exit") { fullScreen = false; stream.write(`${TUI_OFF}\r\n${prompt()}`); }
-						else if (command === "seq") {
+						else if (command === "leak") stream.write(`\x1b[?1000h\x1b[?1003h\x1b[?1006h\r\n${prompt()}`);
+						else if (command === "stream") {
+							stream.write("\r\n");
+							ticker = setInterval(() => {
+								ticks += 1;
+								stream.write(`tick ${String(ticks).padStart(6, "0")}\r\n`);
+							}, 50);
+						} else if (command === "seq") {
 							let out = "\r\n";
 							for (let index = 1; index <= 120; index += 1) out += `line ${String(index).padStart(3, "0")}\r\n`;
 							stream.write(out + prompt());
@@ -100,6 +117,7 @@ export async function startScriptedSshServer(options: { username: string; passwo
 						const keys = text.replace(/\x1b\[[0-9;<?]*[A-Za-z~]|\x1b[^[]/g, "");
 						if (!fullScreen) for (const ch of text) if (ch !== "\r" && ch !== "\x7f") stream.write(visible(ch));
 						for (const ch of keys) {
+							if (ch === "\x03" && ticker) { stopTicker(); line = ""; stream.write(`^C\r\n${prompt()}`); continue; }
 							if (ch === "\r") { const command = line; line = ""; run(command); continue; }
 							if (ch === "\x7f") { if (line) { line = line.slice(0, -1); if (!fullScreen) stream.write("\b \b"); } continue; }
 							if (ch >= " ") line += ch;

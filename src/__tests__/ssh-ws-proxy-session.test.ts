@@ -80,14 +80,14 @@ async function connect(expectConnected = true, query = "") {
   socket.ping.mockImplementation(() => socket.emit("pong"));
   state.clients.add(socket);
   await state.connection(socket, { url: `/ssh?serverId=audit-server&handshake=fixture${query}`, headers: { origin: "http://127.0.0.1:15430", cookie: "audit_session=fixture-cookie" } });
-  if (expectConnected) expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "connected", inputAck: true }));
+  if (expectConnected) expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "connected", inputAck: true, heartbeat: true }));
   return socket;
 }
 
 /** The `session` message the proxy sends right after `connected`. */
 function sessionMessage(socket: { send: ReturnType<typeof vi.fn> }) {
   const raw = socket.send.mock.calls.map((call) => String(call[0])).find((text) => text.includes('"type":"session"'));
-  return raw ? JSON.parse(raw) as { type: "session"; resumeId: string | null; resumed: boolean; keepAliveMs: number } : null;
+  return raw ? JSON.parse(raw) as { type: "session"; resumeId: string | null; resumed: boolean; keepAliveMs: number; offset: number; replayTruncated: boolean } : null;
 }
 
 function outputMessages(socket: { send: ReturnType<typeof vi.fn> }) {
@@ -95,12 +95,17 @@ function outputMessages(socket: { send: ReturnType<typeof vi.fn> }) {
 }
 
 it("stops an already connected shell after account/session revocation", async () => {
-  const socket = await connect();
-  state.verify.mockRejectedValue(new Error("Revoked"));
+  const { AuthError } = await import("@/lib/errors");
+  const socket = await connect(true, "&keepAlive=1");
+  const stream = state.stream;
+  state.verify.mockRejectedValue(new AuthError("Session revoked"));
   await vi.advanceTimersByTimeAsync(30_000);
   socket.emit("message", Buffer.from(JSON.stringify({ type: "input", data: "YXVkaXQ=" })), false);
   await vi.advanceTimersByTimeAsync(0);
-  expect(socket.close).toHaveBeenCalled(); expect(state.stream.write).not.toHaveBeenCalled();
+  expect(socket.close).toHaveBeenCalledWith(1008, expect.any(String)); expect(state.stream.write).not.toHaveBeenCalled();
+  // A verdict ends even a kept shell, and the browser is told not to retry.
+  expect(stream.close).toHaveBeenCalled();
+  expect(frames(socket).find((frame) => frame.type === "error")).toMatchObject({ fatal: true });
 });
 
 it("stops on revoked node access", async () => {
@@ -111,6 +116,22 @@ it("stops on revoked node access", async () => {
 it("fails closed when authorization cannot be refreshed within its deadline", async () => {
   const socket = await connect(); state.verify.mockImplementation(() => new Promise(() => undefined));
   await vi.advanceTimersByTimeAsync(35_000); expect(socket.close).toHaveBeenCalled();
+});
+
+it("keeps a kept shell when the authorization check is only unavailable, and resumes it once checks pass", async () => {
+  const socket = await connect(true, "&keepAlive=1");
+  const { resumeId } = sessionMessage(socket)!;
+  const stream = state.stream;
+  const healthy = state.verify.getMockImplementation();
+  state.verify.mockRejectedValue(new Error("database is restarting"));
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(socket.close).toHaveBeenCalledWith(1011, expect.any(String));
+  expect(frames(socket).find((frame) => frame.type === "error")).toBeUndefined();
+  expect(stream.close).not.toHaveBeenCalled();
+  state.verify.mockImplementation(healthy!);
+  const again = await connect(true, `&keepAlive=1&resume=${resumeId}&offset=0`);
+  expect(sessionMessage(again)?.resumed).toBe(true);
+  expect(state.stream).toBe(stream);
 });
 
 it("bounds output, pauses a slow consumer and resumes after draining", async () => {
@@ -135,7 +156,7 @@ it("opens the PTY at the size the browser sent before SSH authentication finishe
   state.deferReady!();
   await vi.advanceTimersByTimeAsync(0);
   expect(state.shellOptions).toEqual([{ term: "xterm-256color", rows: 17, cols: 116 }]);
-  expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "connected", inputAck: true }));
+  expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "connected", inputAck: true, heartbeat: true }));
   socket.emit("message", Buffer.from(JSON.stringify({ type: "resize", rows: 30, cols: 100 })), false);
   await vi.advanceTimersByTimeAsync(0);
   expect((state.stream as unknown as { setWindow: ReturnType<typeof vi.fn> }).setWindow).toHaveBeenLastCalledWith(30, 100, 0, 0);
@@ -219,7 +240,7 @@ it("limits total active terminals across different users", async () => {
 
 it("ends the shell with the socket unless the terminal opted into keep-alive", async () => {
   const socket = await connect();
-  expect(sessionMessage(socket)).toEqual({ type: "session", resumeId: null, resumed: false, keepAliveMs: 0, replayTruncated: false });
+  expect(sessionMessage(socket)).toEqual({ type: "session", resumeId: null, resumed: false, keepAliveMs: 0, offset: 0, replayTruncated: false });
   socket.close();
   expect(state.stream.close).toHaveBeenCalled();
 });
@@ -237,7 +258,7 @@ it("keeps an opted-in shell alive across a dropped socket and replays what it pr
   stream.emit("data", Buffer.from("still running\n"));
 
   const second = await connect(true, `&keepAlive=1&resume=${announced!.resumeId}`);
-  expect(sessionMessage(second)).toEqual({ type: "session", resumeId: announced!.resumeId, resumed: true, keepAliveMs: 10 * 60_000, replayTruncated: false });
+  expect(sessionMessage(second)).toEqual({ type: "session", resumeId: announced!.resumeId, resumed: true, keepAliveMs: 10 * 60_000, offset: 0, replayTruncated: false });
   expect(outputMessages(second)).toEqual(["still running\n"]);
   expect(state.stream).toBe(stream);
 
@@ -358,4 +379,137 @@ it("classifies SSH failures a retry cannot fix", async () => {
   expect(isPermanentTerminalSshError(new Error("Host key verification failed"))).toBe(true);
   expect(isPermanentTerminalSshError(new Error("connect ECONNREFUSED 192.0.2.2:22"))).toBe(false);
   expect(isPermanentTerminalSshError(new Error("Timed out while waiting for handshake"))).toBe(false);
+});
+
+/** A socket that looks open to the proxy but whose browser is gone (a silent network drop). */
+async function connectKept(query = "") {
+  const socket = await connect(true, `&keepAlive=1${query}`);
+  return { socket, session: sessionMessage(socket)!, stream: state.stream };
+}
+
+it("lets a reconnect take its shell over from a socket that still looks open", async () => {
+  const { socket: first, session, stream } = await connectKept();
+  stream.emit("data", Buffer.from("one\n"));
+  // The browser lost its connection without a close; it reconnects with what it has.
+  const second = await connect(true, `&keepAlive=1&resume=${session.resumeId}&offset=4`);
+  expect(sessionMessage(second)).toMatchObject({ resumed: true, offset: 4, replayTruncated: false });
+  expect(outputMessages(second)).toEqual([]);
+  expect(frames(first).find((frame) => frame.type === "closed")).toMatchObject({ reason: "replaced" });
+  expect(first.close).toHaveBeenCalledWith(4001, expect.any(String));
+  expect(stream.close).not.toHaveBeenCalled();
+  // Output and input now belong to the new socket only.
+  stream.emit("data", Buffer.from("two\n"));
+  expect(outputMessages(second)).toEqual(["two\n"]);
+  expect(outputMessages(first)).toEqual(["one\n"]);
+  second.emit("message", Buffer.from(JSON.stringify({ type: "input", data: "YXVkaXQ=" })), false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(stream.write).toHaveBeenCalledWith(Buffer.from("audit"));
+});
+
+it("cuts a replaced socket that never finishes closing", async () => {
+  const { socket: first, session } = await connectKept();
+  first.close.mockImplementation(() => undefined);
+  await connect(true, `&keepAlive=1&resume=${session.resumeId}&offset=0`);
+  expect(first.terminate).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(5_000);
+  expect(first.terminate).toHaveBeenCalled();
+});
+
+it("replays exactly what the browser missed, from the offset it reports", async () => {
+  const { socket: first, session, stream } = await connectKept();
+  stream.emit("data", Buffer.from("one\n"));
+  stream.emit("data", Buffer.from("two\n"));
+  stream.emit("data", Buffer.from("three\n"));
+  first.close();
+  stream.emit("data", Buffer.from("four\n"));
+  // The browser saw "one\n" only: the rest of the history follows, in order.
+  const second = await connect(true, `&keepAlive=1&resume=${session.resumeId}&offset=4`);
+  expect(sessionMessage(second)).toMatchObject({ resumed: true, offset: 4, replayTruncated: false });
+  expect(outputMessages(second).join("")).toBe("two\nthree\nfour\n");
+});
+
+it("gives a reloaded page (offset 0) all the history there is", async () => {
+  const { socket: first, session, stream } = await connectKept();
+  stream.emit("data", Buffer.from("prompt$ ls\n"));
+  first.close();
+  const reloaded = await connect(true, `&keepAlive=1&resume=${session.resumeId}&offset=0`);
+  expect(sessionMessage(reloaded)).toMatchObject({ resumed: true, offset: 0, replayTruncated: false });
+  expect(outputMessages(reloaded).join("")).toBe("prompt$ ls\n");
+});
+
+it("starts the replay at a safe point and says so when the history no longer reaches the browser's offset", async () => {
+  const { socket: first, session, stream } = await connectKept();
+  const line = "\x1b[1;32mok\x1b[0m " + "x".repeat(60) + "\n";
+  for (let index = 0; index < 5_000; index += 1) stream.emit("data", Buffer.from(line.slice(3) + line.slice(0, 3)));
+  first.close();
+  const second = await connect(true, `&keepAlive=1&resume=${session.resumeId}&offset=10`);
+  const announced = sessionMessage(second)!;
+  expect(announced).toMatchObject({ resumed: true, replayTruncated: true });
+  const replay = outputMessages(second).join("");
+  // The offset names the first replayed byte: the browser keeps counting from there.
+  expect(announced.offset + Buffer.byteLength(replay)).toBe(5_000 * Buffer.byteLength(line));
+  expect(Buffer.byteLength(replay)).toBeLessThanOrEqual(256 * 1024);
+  expect(replay.startsWith("1;32mok")).toBe(false);
+});
+
+it("resumes output a backed-up socket had paused, on detach and on takeover", async () => {
+  const { socket: first, session, stream } = await connectKept();
+  first.bufferedAmount = 2 * 1024 * 1024;
+  stream.emit("data", Buffer.from("burst"));
+  expect(stream.pause).toHaveBeenCalledTimes(1);
+  // Taken over while paused: the new socket starts drained.
+  await connect(true, `&keepAlive=1&resume=${session.resumeId}&offset=5`);
+  expect(stream.resume).toHaveBeenCalledTimes(1);
+});
+
+it("lets a detached program keep running instead of staying paused", async () => {
+  const { socket: first, stream } = await connectKept();
+  first.bufferedAmount = 2 * 1024 * 1024;
+  stream.emit("data", Buffer.from("burst"));
+  expect(stream.pause).toHaveBeenCalledTimes(1);
+  first.close();
+  expect(stream.resume).toHaveBeenCalledTimes(1);
+  expect(stream.close).not.toHaveBeenCalled();
+});
+
+it("keeps a keep-alive shell when the socket's send queue overflows", async () => {
+  const { socket: first, session, stream } = await connectKept();
+  first.bufferedAmount = 5 * 1024 * 1024;
+  stream.emit("data", Buffer.from("too much"));
+  expect(first.close).toHaveBeenCalledWith(1013, expect.any(String));
+  expect(stream.close).not.toHaveBeenCalled();
+  const second = await connect(true, `&keepAlive=1&resume=${session.resumeId}&offset=0`);
+  expect(sessionMessage(second)?.resumed).toBe(true);
+  expect(outputMessages(second).join("")).toBe("too much");
+});
+
+it("answers pings at once without counting them as shell activity", async () => {
+  const socket = await connect(true, "&keepAlive=1");
+  socket.emit("message", Buffer.from(JSON.stringify({ type: "ping", id: 7 })), false);
+  expect(frames(socket).at(-1)).toEqual({ type: "pong", id: 7 });
+  expect(state.stream.write).not.toHaveBeenCalled();
+  socket.emit("message", Buffer.from(JSON.stringify({ type: "ping", id: -1 })), false);
+  expect(socket.close).toHaveBeenCalled();
+});
+
+it("ends a kept shell when the user closes the terminal", async () => {
+  const { socket, session, stream } = await connectKept();
+  socket.emit("message", Buffer.from(JSON.stringify({ type: "end" })), false);
+  expect(stream.close).toHaveBeenCalled();
+  expect(socket.close).toHaveBeenCalledWith(1000, expect.any(String));
+  const next = await connect(true, `&keepAlive=1&resume=${session.resumeId}&offset=0`);
+  expect(sessionMessage(next)?.resumed).toBe(false);
+});
+
+it("plans replays from the reported offset, the detach point, or the oldest kept byte", async () => {
+  const { planShellReplay } = await import("../ssh-ws-proxy");
+  const history = { start: 100, end: 500 };
+  expect(planShellReplay(history, 300, null)).toEqual({ from: 300, truncated: false });
+  expect(planShellReplay(history, 500, null)).toEqual({ from: 500, truncated: false });
+  expect(planShellReplay(history, 900, null)).toEqual({ from: 500, truncated: false });
+  expect(planShellReplay(history, 50, null)).toEqual({ from: 100, truncated: true });
+  // An older browser reports nothing: continue from where the socket was lost.
+  expect(planShellReplay(history, null, 450)).toEqual({ from: 450, truncated: false });
+  expect(planShellReplay(history, null, 20)).toEqual({ from: 100, truncated: true });
+  expect(planShellReplay(history, null, null)).toEqual({ from: 500, truncated: false });
 });

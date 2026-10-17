@@ -18,11 +18,12 @@ import {
 } from "@/components/ssh-terminal-font-size";
 import {
 	SSH_TERMINAL_KEEP_ALIVE_KEY,
+	sshTerminalResumeStore,
 	parseSshTerminalKeepAlive,
 	readSshTerminalKeepAlive,
 } from "@/components/ssh-terminal-keep-alive";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { SshFileManager } from "@/components/ssh-file-manager";
@@ -60,7 +61,14 @@ function parseFavoriteCommands(raw: string | null): string[] {
 /* ------------------------------------------------------------------ */
 
 
+/** What the terminal manager can ask of a panel. */
+export type SshTerminalPanelHandle = {
+	/** The user closed this terminal (tab ×, Escape, close all): end its shell. */
+	endSession(): void;
+};
+
 export type SshTerminalPanelProps = {
+	ref?: Ref<SshTerminalPanelHandle>;
 	serverId: string;
 	serverName: string;
 	host: string;
@@ -79,6 +87,7 @@ export type SshTerminalPanelProps = {
 };
 
 export function SshTerminalPanel({
+	ref,
 	serverId,
 	serverName,
 	host,
@@ -139,7 +148,7 @@ export function SshTerminalPanel({
 	/** Bumped once the terminal exists, so the connection effect can wait for it. */
 	const [terminalGeneration, setTerminalGeneration] = useState(0);
 	const [keepAliveMs, setKeepAliveMs] = useState(0);
-	const [sessionNotice, setSessionNotice] = useState<"resumed" | "resumedPartial" | "fresh" | null>(null);
+	const [sessionNotice, setSessionNotice] = useState<"resumed" | "resumedPartial" | "fresh" | "strayMouse" | null>(null);
 
 	// Notify parent of status changes
 	useEffect(() => {
@@ -324,11 +333,14 @@ export function SshTerminalPanel({
 			onState: setConnectionState,
 			onSession: (info) => {
 				setKeepAliveMs(info.keepAliveMs);
-				if (info.afterReconnect) {
+				if (info.afterReconnect || info.resumed) {
 					setSessionNotice(info.resumed ? (info.replayTruncated ? "resumedPartial" : "resumed") : "fresh");
 				}
 			},
 			onInputOverflow: () => setInputError(tRef.current("sshTerminalModal.errInputTooLarge")),
+			// A reloaded page continues the shell it had (within the keep-alive window).
+			resumeStore: sshTerminalResumeStore(serverId),
+			onStrayMouseTracking: () => setSessionNotice("strayMouse"),
 		});
 		connectionRef.current = connection;
 		connection.start();
@@ -430,6 +442,16 @@ export function SshTerminalPanel({
 		searchAddonRef.current?.clearDecorations();
 	};
 
+	// Closing on purpose ends the shell; leaving or reloading the page keeps it
+	// for a reconnect (see ssh-terminal-connection's resumeStore).
+	useImperativeHandle(ref, () => ({ endSession: () => connectionRef.current?.end() }), []);
+
+	/** Closing the tab ends its shell; leaving the page keeps it for a reconnect. */
+	const closeTerminal = () => {
+		connectionRef.current?.end();
+		onClose();
+	};
+
 	const handleReconnect = () => {
 		setInputError("");
 		connectionRef.current?.reconnect();
@@ -465,7 +487,7 @@ export function SshTerminalPanel({
 				onToggleFileManager={() => setShowFileManager(!showFileManager)}
 				onToggleFullscreen={onToggleFullscreen}
 				onReconnect={handleReconnect}
-				onClose={onClose}
+				onClose={closeTerminal}
 			/>
 
 			{/* Error banner */}
@@ -489,7 +511,9 @@ export function SshTerminalPanel({
 					{t(
 						sessionNotice === "fresh"
 							? "sshTerminalModal.sessionFresh"
-							: sessionNotice === "resumedPartial" ? "sshTerminalModal.sessionResumedPartial" : "sshTerminalModal.sessionResumed",
+							: sessionNotice === "strayMouse"
+								? "sshTerminalModal.strayMouseOff"
+								: sessionNotice === "resumedPartial" ? "sshTerminalModal.sessionResumedPartial" : "sshTerminalModal.sessionResumed",
 					)}
 				</p>
 			)}
