@@ -1,8 +1,12 @@
 "use client";
 
-import { decodeBase64Bytes } from "@/components/ssh-terminal-codec";
-import { createSshTerminalInputSender } from "@/components/ssh-terminal-input";
+import {
+	createSshTerminalConnection,
+	type SshConnectionState,
+	type SshTerminalConnection,
+} from "@/components/ssh-terminal-connection";
 import { chainSshTerminalCopyPaste } from "@/components/ssh-terminal-copy-paste";
+import { resetTerminalModes } from "@/components/ssh-terminal-modes";
 import { installSshTerminalIme } from "@/components/ssh-terminal-ime";
 import { installSshTerminalTouchScroll } from "@/components/ssh-terminal-touch-scroll";
 import { parseQuickKeyPresets, quickKeyPresetsToEntries, serializeQuickKeyPresets, type QuickKeyPreset } from "@/components/ssh-quick-keys";
@@ -20,7 +24,6 @@ import {
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { buildSshWebSocketUrl } from "@/components/ssh-terminal-url";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { SshFileManager } from "@/components/ssh-file-manager";
 import { SshTerminalSidePanel } from "@/components/ssh-terminal-side-panel";
@@ -34,8 +37,6 @@ export type { TerminalStatus } from "@/components/ssh-terminal-types";
 
 const FAVORITE_COMMANDS_KEY = "ssh-favorite-commands";
 const QUICK_KEY_PRESETS_KEY = "ssh-quick-key-presets";
-const MAX_AUTO_RECONNECT_ATTEMPTS = 5;
-const AUTO_RECONNECT_BASE_DELAY_MS = 1_000;
 
 function readFavoriteCommands(storage: Storage): string | null {
 	return storage.getItem(FAVORITE_COMMANDS_KEY);
@@ -91,25 +92,26 @@ export function SshTerminalPanel({
 	const { t } = useI18n();
 	// Keep the translator reachable from async WS callbacks without adding `t`
 	// to the connection effect deps — a locale switch must NOT tear down live
-	// terminals (WebSocket + xterm lifecycle depends on [serverId, reconnectKey]).
+	// terminals (WebSocket + xterm lifecycle depends on [serverId] only).
 	const tRef = useRef(t);
 	useEffect(() => { tRef.current = t; }, [t]);
 	const termRef = useRef<HTMLDivElement>(null);
-	const wsRef = useRef<WebSocket | null>(null);
-	const inputSenderRef = useRef<ReturnType<typeof createSshTerminalInputSender> | null>(null);
 	const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
 	const fitAddonRef = useRef<import("@xterm/addon-fit").FitAddon | null>(null);
 	const searchAddonRef = useRef<import("@xterm/addon-search").SearchAddon | null>(null);
+	const connectionRef = useRef<SshTerminalConnection | null>(null);
 	const currentCommandRef = useRef("");
-	const connectionNonceRef = useRef(0);
-	const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const reconnectAttemptsRef = useRef(0);
 
-	const [status, setStatus] = useState<TerminalStatus>("connecting");
-	const [errorMsg, setErrorMsg] = useState<string>("");
+	const [connectionState, setConnectionState] = useState<SshConnectionState>({
+		status: "connecting",
+		message: "",
+		retryAt: null,
+		waitingForUser: false,
+	});
+	const status: TerminalStatus = connectionState.status;
+	const errorMsg = connectionState.message;
 	const [inputError, setInputError] = useState<string>("");
 	const [clipboardError, setClipboardError] = useState(false);
-	const [reconnectKey, setReconnectKey] = useState(0);
 	const [showSidePanel, setShowSidePanel] = useState(false);
 	const [showFileManager, setShowFileManager] = useState(false);
 	const [terminalSearch, setTerminalSearch] = useState("");
@@ -134,15 +136,10 @@ export function SshTerminalPanel({
 	const keepAlive = parseSshTerminalKeepAlive(storedKeepAlive);
 	const keepAliveRef = useRef(keepAlive);
 	useEffect(() => { keepAliveRef.current = keepAlive; }, [keepAlive]);
-	/** The shell the proxy kept for this panel, announced on each connection. */
-	const resumeIdRef = useRef<string | null>(null);
-	const statusRef = useRef<TerminalStatus>("connecting");
-	useEffect(() => { statusRef.current = status; }, [status]);
-	const reconnectRef = useRef<() => void>(() => {});
 	/** Bumped once the terminal exists, so the connection effect can wait for it. */
 	const [terminalGeneration, setTerminalGeneration] = useState(0);
 	const [keepAliveMs, setKeepAliveMs] = useState(0);
-	const [sessionNotice, setSessionNotice] = useState<"resumed" | "fresh" | null>(null);
+	const [sessionNotice, setSessionNotice] = useState<"resumed" | "resumedPartial" | "fresh" | null>(null);
 
 	// Notify parent of status changes
 	useEffect(() => {
@@ -151,17 +148,14 @@ export function SshTerminalPanel({
 
 	/** Size the grid to the surface and tell the remote PTY; a no-op before the terminal exists. */
 	const fitTerminal = useCallback(() => {
-		const term = terminalRef.current;
 		const fitAddon = fitAddonRef.current;
-		if (!term || !fitAddon) return;
+		if (!terminalRef.current || !fitAddon) return;
 		try {
 			fitAddon.fit();
 		} catch {
 			return;
 		}
-		if (wsRef.current?.readyState === WebSocket.OPEN) {
-			wsRef.current.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-		}
+		connectionRef.current?.resize();
 	}, []);
 
 	// Refit terminal when tab becomes visible (xterm needs visible DOM to fit)
@@ -180,24 +174,6 @@ export function SshTerminalPanel({
 		term.options.fontSize = fontSize;
 		fitTerminal();
 	}, [fontSize, fitTerminal]);
-
-	/** Drop the socket and sender; the terminal itself lives on for the next connection. */
-	function disposeConnection() {
-		connectionNonceRef.current += 1;
-		inputSenderRef.current?.dispose();
-		inputSenderRef.current = null;
-		if (wsRef.current) {
-			try { wsRef.current.close(); } catch {}
-			wsRef.current = null;
-		}
-	}
-
-	useEffect(() => () => {
-		if (reconnectTimerRef.current) {
-			clearTimeout(reconnectTimerRef.current);
-			reconnectTimerRef.current = null;
-		}
-	}, []);
 
 	// The terminal outlives its connections: a reconnect keeps the scrollback
 	// and, when the proxy still has the shell, continues it where it was.
@@ -221,6 +197,8 @@ export function SshTerminalPanel({
 				cursorBlink: true,
 				fontSize: fontSizeRef.current,
 				fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace",
+				// Plenty of history to scroll back through after long commands.
+				scrollback: 5000,
 				theme: {
 					background: "#0a0e1a",
 					foreground: "#e2e8f0",
@@ -268,8 +246,7 @@ export function SshTerminalPanel({
 			const removeTouchScroll = installSshTerminalTouchScroll(term, surface);
 
 			term.onData((data: string) => {
-				const inputSender = inputSenderRef.current;
-				if (!inputSender || !inputSender.enqueue(data)) return;
+				if (!connectionRef.current?.send(data)) return;
 				setInputError("");
 				if (data === "\r" || data === "\n") {
 					const cmd = currentCommandRef.current.trim();
@@ -322,171 +299,71 @@ export function SshTerminalPanel({
 		};
 	}, [serverId, fitTerminal]);
 
+	// One connection controller per terminal: it fetches handshake tokens,
+	// resumes kept shells, retries drops and resets the terminal's modes when a
+	// reconnect lands on a new shell (see ssh-terminal-connection).
 	useEffect(() => {
 		const term = terminalRef.current;
 		if (!term) return;
-
-		let disposed = false;
-		const nonce = connectionNonceRef.current;
-		// A resume is attempted on every connection after the first, when the
-		// proxy announced a resumable shell and the preference is still on.
-		const resumeId = reconnectKey > 0 && keepAliveRef.current ? resumeIdRef.current : null;
-
-		const scheduleReconnect = () => {
-			if (
-				disposed
-				|| nonce !== connectionNonceRef.current
-				|| reconnectTimerRef.current
-				|| reconnectAttemptsRef.current >= MAX_AUTO_RECONNECT_ATTEMPTS
-			) return;
-			const attempt = reconnectAttemptsRef.current;
-			reconnectAttemptsRef.current += 1;
-			const delay = AUTO_RECONNECT_BASE_DELAY_MS * 2 ** attempt;
-			reconnectTimerRef.current = setTimeout(() => {
-				reconnectTimerRef.current = null;
-				if (disposed || nonce !== connectionNonceRef.current) return;
-				setStatus("connecting");
-				setReconnectKey((previous) => previous + 1);
-			}, delay);
-		};
-
-		const connect = async () => {
-			let handshakeToken = "";
-			try {
-				const data = await csrfFetch("/api/auth/ws-token", {
+		const connection = createSshTerminalConnection({
+			serverId,
+			terminal: term,
+			fitGrid: () => {
+				try { fitAddonRef.current?.fit(); } catch { /* hidden surface: the visible refit sizes it */ }
+			},
+			keepAlive: () => keepAliveRef.current,
+			fetchHandshakeToken: async () => {
+				const data = await csrfFetch<{ token?: string }>("/api/auth/ws-token", {
 					method: "POST",
 					body: JSON.stringify({ serverId }),
 				});
-				handshakeToken = data.token || "";
-			} catch {
-				// Token fetch failed — surface the error to the user and abort the connection.
-				if (!disposed && nonce === connectionNonceRef.current) {
-					setStatus("error");
-					setErrorMsg(tRef.current("sshTerminalModal.errTokenFetchFailed"));
+				return data.token || "";
+			},
+			location: window.location,
+			t: (key) => tRef.current(key),
+			onState: setConnectionState,
+			onSession: (info) => {
+				setKeepAliveMs(info.keepAliveMs);
+				if (info.afterReconnect) {
+					setSessionNotice(info.resumed ? (info.replayTruncated ? "resumedPartial" : "resumed") : "fresh");
 				}
-				return;
-			}
-
-			if (!handshakeToken) {
-				if (!disposed && nonce === connectionNonceRef.current) {
-					setStatus("error");
-					setErrorMsg(tRef.current("sshTerminalModal.errTokenEmpty"));
-				}
-				return;
-			}
-
-			if (disposed || nonce !== connectionNonceRef.current) return;
-
-			const finalWsUrl = buildSshWebSocketUrl({
-				pageProtocol: window.location.protocol,
-				host: window.location.host,
-				serverId,
-				handshakeToken,
-				keepAlive: keepAliveRef.current,
-				resumeId,
-			});
-			const ws = new WebSocket(finalWsUrl);
-			wsRef.current = ws;
-			const inputSender = createSshTerminalInputSender(ws, () => {
-				if (!disposed && nonce === connectionNonceRef.current) setInputError(tRef.current("sshTerminalModal.errInputTooLarge"));
-			});
-			inputSenderRef.current = inputSender;
-
-			ws.onopen = () => {
-				// The browser transport being open does not mean the proxy has
-				// finished SSH authentication. Keep the UI in "connecting" until
-				// the proxy emits its explicit connected handshake; otherwise a
-				// command clicked in this window can be silently dropped.
-				ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-			};
-
-			ws.onmessage = (event) => {
-				try {
-					const msg = JSON.parse(event.data);
-					if (msg.type === "output" && msg.data) {
-						term.write(decodeBase64Bytes(msg.data));
-					} else if (msg.type === "connected") {
-						inputSender.connected(msg.inputAck === true);
-						// The shell exists now: report the grid again so the PTY
-						// matches what is on screen (the size sent on open can
-						// arrive before the shell does with an older proxy).
-						fitTerminal();
-						reconnectAttemptsRef.current = 0;
-						if (!disposed && nonce === connectionNonceRef.current) {
-							setStatus("connected");
-							setErrorMsg("");
-						}
-					} else if (msg.type === "session") {
-						// The proxy says whether this socket continues the previous
-						// shell. A fresh shell after a reconnect gets a visible seam
-						// so old and new output are not read as one session.
-						resumeIdRef.current = typeof msg.resumeId === "string" ? msg.resumeId : null;
-						if (!disposed && nonce === connectionNonceRef.current) {
-							setKeepAliveMs(Number.isFinite(msg.keepAliveMs) ? Number(msg.keepAliveMs) : 0);
-							if (reconnectKey > 0) {
-								setSessionNotice(msg.resumed === true ? "resumed" : "fresh");
-								if (msg.resumed !== true) term.write(`\r\n\u001b[2m${tRef.current("sshTerminalModal.sessionFreshLine")}\u001b[0m\r\n`);
-							}
-						}
-					} else if (msg.type === "input-ack") {
-						inputSender.acknowledge(msg.id);
-					} else if (msg.type === "error") {
-						if (!disposed && nonce === connectionNonceRef.current) {
-							setStatus("error");
-							setErrorMsg(msg.data || tRef.current("sshTerminalModal.errUnknown"));
-						}
-					} else if (msg.type === "closed") {
-						if (!disposed && nonce === connectionNonceRef.current) {
-							setStatus("closed");
-							setErrorMsg(msg.data || tRef.current("sshTerminalModal.errClosed"));
-						}
-					}
-				} catch {}
-			};
-
-			ws.onclose = () => {
-				inputSender.dispose();
-				if (!disposed && nonce === connectionNonceRef.current) {
-					setStatus("closed");
-					setErrorMsg(tRef.current("sshTerminalModal.errDisconnected"));
-					scheduleReconnect();
-				}
-			};
-
-			ws.onerror = () => {
-				if (!disposed && nonce === connectionNonceRef.current) {
-					setStatus("error");
-					setErrorMsg(tRef.current("sshTerminalModal.errConnectionFailed"));
-				}
-			};
-		};
-
-		void connect();
-
+			},
+			onInputOverflow: () => setInputError(tRef.current("sshTerminalModal.errInputTooLarge")),
+		});
+		connectionRef.current = connection;
+		connection.start();
 		return () => {
-			disposed = true;
-			inputSenderRef.current?.dispose();
-			inputSenderRef.current = null;
-			if (wsRef.current) { try { wsRef.current.close(); } catch {} wsRef.current = null; }
+			connection.dispose();
+			if (connectionRef.current === connection) connectionRef.current = null;
 		};
-	}, [serverId, reconnectKey, terminalGeneration, fitTerminal]);
+	}, [serverId, terminalGeneration]);
 
 	// A phone coming back from the lock screen, or a laptop regaining its
-	// network, retries on its own when a kept shell may still be waiting.
+	// network, retries at once instead of waiting for the next scheduled try.
 	useEffect(() => {
-		const retryIfResumable = () => {
-			if (document.visibilityState !== "visible") return;
-			if (statusRef.current !== "closed" && statusRef.current !== "error") return;
-			if (!keepAliveRef.current || !resumeIdRef.current) return;
-			reconnectRef.current();
+		const wake = () => {
+			if (document.visibilityState === "visible") connectionRef.current?.wake();
 		};
-		window.addEventListener("online", retryIfResumable);
-		document.addEventListener("visibilitychange", retryIfResumable);
+		window.addEventListener("online", wake);
+		document.addEventListener("visibilitychange", wake);
 		return () => {
-			window.removeEventListener("online", retryIfResumable);
-			document.removeEventListener("visibilitychange", retryIfResumable);
+			window.removeEventListener("online", wake);
+			document.removeEventListener("visibilitychange", wake);
 		};
 	}, []);
+
+	// Seconds until the next automatic attempt, for the banner.
+	const [retryInSeconds, setRetryInSeconds] = useState<number | null>(null);
+	useEffect(() => {
+		const retryAt = connectionState.retryAt;
+		const update = () => setRetryInSeconds(retryAt === null ? null : Math.max(1, Math.ceil((retryAt - Date.now()) / 1000)));
+		const first = setTimeout(update, 0);
+		const ticker = retryAt === null ? null : setInterval(update, 1000);
+		return () => {
+			clearTimeout(first);
+			if (ticker) clearInterval(ticker);
+		};
+	}, [connectionState.retryAt]);
 
 	// The seam notice is transient; the terminal content is the real record.
 	useEffect(() => {
@@ -528,12 +405,12 @@ export function SshTerminalPanel({
 	};
 
 	const sendCommand = (cmd: string) => {
-		if (inputSenderRef.current?.enqueue(cmd + "\r")) setInputError("");
+		if (connectionRef.current?.send(cmd + "\r")) setInputError("");
 	};
 
 	/** Send raw key sequences (Ctrl+C, arrows, …) without appending Enter. */
 	const sendKeys = (data: string) => {
-		if (inputSenderRef.current?.enqueue(data)) setInputError("");
+		if (connectionRef.current?.send(data)) setInputError("");
 		// Keys that rewrite or discard the pending input line invalidate the
 		// tracked current command; keep the panel's history accurate for them.
 		if (data === "\u0003" || data === "\u0015" || data === "\u001b[A" || data === "\u001b[B") {
@@ -554,18 +431,17 @@ export function SshTerminalPanel({
 	};
 
 	const handleReconnect = () => {
-		disposeConnection();
-		if (reconnectTimerRef.current) {
-			clearTimeout(reconnectTimerRef.current);
-			reconnectTimerRef.current = null;
-		}
-		reconnectAttemptsRef.current = 0;
-		setStatus("connecting");
-		setErrorMsg("");
 		setInputError("");
-		setReconnectKey((prev) => prev + 1);
+		connectionRef.current?.reconnect();
 	};
-	useEffect(() => { reconnectRef.current = handleReconnect; });
+
+	/** Undo modes a crashed program left on (mouse reports, hidden cursor…); local only. */
+	const resetTerminal = () => {
+		const term = terminalRef.current;
+		if (!term) return;
+		resetTerminalModes(term);
+		term.focus();
+	};
 
 	const changeKeepAlive = (value: boolean) => {
 		writeLocalStorageValue(SSH_TERMINAL_KEEP_ALIVE_KEY, value ? "1" : "0");
@@ -594,19 +470,27 @@ export function SshTerminalPanel({
 
 			{/* Error banner */}
 			{errorMsg && (status === "error" || status === "closed") && (
-				<div data-tone="rose" className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm text-[var(--danger)]">
+				<div data-tone="rose" className="mx-4 mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm text-[var(--danger)]">
 					<AlertTriangle size={15} className="shrink-0" aria-hidden="true" />
-					<span>{errorMsg}</span>
+					<span className="min-w-0 break-words">{errorMsg}</span>
+					{retryInSeconds !== null && (
+						<span className="text-xs text-[var(--text-muted)]" data-testid="ssh-terminal-retry">
+							{t("sshTerminalModal.autoReconnectIn", { seconds: retryInSeconds })}
+						</span>
+					)}
 				</div>
 			)}
 
 			{/* Terminal + side panel */}
 			{inputError && <p role="alert" className="mx-4 mt-3 text-sm text-[var(--danger)]">{inputError}</p>}
 			{clipboardError && <p role="alert" className="mx-4 mt-3 text-sm text-[var(--danger)]">{t("sshTerminalModal.errClipboardCopy")}</p>}
-			{!fullscreen && <p className="mx-4 mt-2 text-xs text-[var(--text-muted)]">{t("sshTerminalModal.copyHint")}</p>}
 			{sessionNotice && (
 				<p role="status" className="mx-4 mt-3 text-xs text-[var(--text-secondary)]" data-testid="ssh-terminal-session-notice">
-					{t(sessionNotice === "resumed" ? "sshTerminalModal.sessionResumed" : "sshTerminalModal.sessionFresh")}
+					{t(
+						sessionNotice === "fresh"
+							? "sshTerminalModal.sessionFresh"
+							: sessionNotice === "resumedPartial" ? "sshTerminalModal.sessionResumedPartial" : "sshTerminalModal.sessionResumed",
+					)}
 				</p>
 			)}
 			<div
@@ -671,6 +555,7 @@ export function SshTerminalPanel({
 						keepAlive={keepAlive}
 						keepAliveMinutes={keepAliveMs > 0 ? Math.round(keepAliveMs / 60_000) : null}
 						onKeepAliveChange={changeKeepAlive}
+						onResetTerminal={resetTerminal}
 					/>
 				)}
 			</div>

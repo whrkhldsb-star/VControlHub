@@ -222,6 +222,15 @@ export function describeTerminalSshError(err: Error): string {
 	return `SSH connection error: ${err.message}`;
 }
 
+/**
+ * Failures a retry cannot fix — the host key is not pinned or changed, the
+ * target rejects the stored credentials. The browser then waits for the user
+ * instead of reconnecting on its own; network errors stay retryable.
+ */
+export function isPermanentTerminalSshError(err: Error): boolean {
+	return /host key verification|host verifier|all configured authentication methods failed|authentication failed/i.test(err.message);
+}
+
 // ── WebSocket server ────────────────────────────────────────────────
 
 const MAX_WS_CONNECTIONS = config.ssh.wsMaxConnections;
@@ -425,11 +434,18 @@ const SSH_MAX_DETACHED_PER_USER = 4;
 type ShellAttachment = {
 	ws: WebSocket;
 	sendOutput: (data: Buffer) => void;
-	/** Tell the browser the shell is gone (`closed`) and close the socket. */
-	notifyClosed: (message: string) => void;
-	/** Refuse to go on (`error`) and close the socket. */
-	fail: (message: string, code?: number) => void;
+	/** Tell the browser the shell is gone (`closed`, with why) and close the socket. */
+	notifyClosed: (message: string, reason: ShellEndReason) => void;
+	/** Refuse to go on (`error`) and close the socket; `fatal` when a retry cannot help. */
+	fail: (message: string, options?: { code?: number; fatal?: boolean }) => void;
 };
+
+/**
+ * Why a shell ended, as the browser needs it: `exit` (the shell or its
+ * login exited) and `idle` (reaped after inactivity) are deliberate, so the
+ * browser waits for the user; `lost` (the SSH connection dropped) is retried.
+ */
+type ShellEndReason = "exit" | "idle" | "lost";
 
 type ShellSession = {
 	id: string;
@@ -450,6 +466,10 @@ type ShellSession = {
 	/** Output produced while no browser was attached, oldest first. */
 	buffer: Buffer[];
 	bufferedBytes: number;
+	/** The buffer overflowed and dropped its oldest output since the last replay. */
+	replayTruncated: boolean;
+	/** Exit status reported by the remote shell, when it reported one. */
+	exit: { code: number | null; signal: string | null } | null;
 	detachTimer: NodeJS.Timeout | undefined;
 	idleTimer: NodeJS.Timeout | undefined;
 	idleTimeoutMs: number;
@@ -466,7 +486,7 @@ function adjustDetachedCount(userId: string, delta: number) {
 }
 
 /** Close the shell and its SSH connection; the attached browser, if any, learns why. */
-function endShellSession(session: ShellSession, notice?: string) {
+function endShellSession(session: ShellSession, notice?: string, reason: ShellEndReason = "lost") {
 	if (session.ended) return;
 	session.ended = true;
 	if (session.detachTimer) clearTimeout(session.detachTimer);
@@ -476,7 +496,7 @@ function endShellSession(session: ShellSession, notice?: string) {
 	if (detachedSessions.delete(session.id)) adjustDetachedCount(session.userId, -1);
 	session.buffer = [];
 	session.bufferedBytes = 0;
-	if (notice && session.attachment) session.attachment.notifyClosed(notice);
+	if (notice && session.attachment) session.attachment.notifyClosed(notice, reason);
 	session.attachment = null;
 	try { session.stream?.close(); } catch { /* already closed */ }
 	try { session.sshClient.end(); } catch { /* already closed */ }
@@ -517,12 +537,32 @@ function bufferDetachedOutput(session: ShellSession, data: Buffer) {
 	while (session.bufferedBytes > SSH_DETACH_BUFFER_BYTES && session.buffer.length > 1) {
 		const dropped = session.buffer.shift()!;
 		session.bufferedBytes -= dropped.length;
+		session.replayTruncated = true;
 	}
 	if (session.bufferedBytes > SSH_DETACH_BUFFER_BYTES) {
 		const only = session.buffer[0]!;
 		session.buffer[0] = only.subarray(only.length - SSH_DETACH_BUFFER_BYTES);
 		session.bufferedBytes = SSH_DETACH_BUFFER_BYTES;
+		session.replayTruncated = true;
 	}
+}
+
+/**
+ * Where a replay may start when the oldest output was dropped: the cut fell at
+ * an arbitrary byte, possibly inside an escape sequence or a multi-byte
+ * character, which the browser would print as stray text (`[?1049h`). Start
+ * after the first line break near the cut, else at the next escape sequence,
+ * else at the next UTF-8 character boundary.
+ */
+export function safeReplayStart(data: Buffer): number {
+	const window = data.subarray(0, Math.min(data.length, 4096));
+	const lineBreak = window.indexOf(0x0a);
+	if (lineBreak >= 0) return lineBreak + 1;
+	const escape = window.indexOf(0x1b);
+	if (escape >= 0) return escape;
+	let index = 0;
+	while (index < window.length && (window[index]! & 0xc0) === 0x80) index += 1;
+	return index;
 }
 
 /** Output goes to the attached browser, or waits in the buffer for the next one. */
@@ -545,7 +585,7 @@ function resetShellIdle(session: ShellSession) {
 	if (session.idleTimeoutMs <= 0 || session.ended) return;
 	if (session.idleTimer) clearTimeout(session.idleTimer);
 	session.idleTimer = setTimeout(() => {
-		endShellSession(session, t("backend.sshTerminal.idleClosed", { minutes: session.idleTimeoutMs / 60_000 }));
+		endShellSession(session, t("backend.sshTerminal.idleClosed", { minutes: session.idleTimeoutMs / 60_000 }), "idle");
 	}, session.idleTimeoutMs);
 	session.idleTimer.unref?.();
 }
@@ -576,7 +616,7 @@ wss.on("connection", async (ws, req) => {
 
 	if (!isOriginAllowed(req)) {
 		recordWsEvent("ssh", "reject");
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.originNotAllowed") }));
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.originNotAllowed"), fatal: true }));
 		ws.close();
 		return;
 	}
@@ -589,7 +629,7 @@ wss.on("connection", async (ws, req) => {
 	const token = resolveSshSessionToken(req);
 
 	if (!serverId || !token || !handshake) {
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.missingParams") }));
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.missingParams"), fatal: true }));
 		ws.close();
 		return;
 	}
@@ -598,13 +638,13 @@ wss.on("connection", async (ws, req) => {
 	try {
 		session = await withAuthorizationDeadline(verifySessionToken(token));
 	} catch {
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.authFailed") }));
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.authFailed"), fatal: true }));
 		ws.close();
 		return;
 	}
 
 	if (!canUseSshTerminal(session)) {
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.permissionDenied") }));
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.permissionDenied"), fatal: true }));
 		ws.close();
 		return;
 	}
@@ -639,12 +679,12 @@ wss.on("connection", async (ws, req) => {
 		connParams = await withAuthorizationDeadline(resolveServerConnection(serverId, session));
 	} catch (error) {
 		logger.error("failed to resolve SSH connection", error, { serverId, userId: session.userId });
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoDecryptFailed") }));
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoDecryptFailed"), fatal: true }));
 		ws.close();
 		return;
 	}
 	if (!connParams) {
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoMissing") }));
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoMissing"), fatal: true }));
 		ws.close();
 		return;
 	}
@@ -665,6 +705,8 @@ wss.on("connection", async (ws, req) => {
 		attachment: null,
 		buffer: [],
 		bufferedBytes: 0,
+		replayTruncated: false,
+		exit: null,
 		detachTimer: undefined,
 		idleTimer: undefined,
 		idleTimeoutMs: terminalRuntimeConfig.sshIdleTimeoutMs ?? 0,
@@ -689,11 +731,11 @@ wss.on("connection", async (ws, req) => {
 		drainTimer = undefined;
 		if (shell.attachment?.ws === ws) shell.attachment = null;
 	};
-	const stopTerminal = (message: string, code = 1008) => {
+	const stopTerminal = (message: string, code = 1008, fatal = false) => {
 		if (stopped) return;
 		releaseAttachment();
 		if (ws.readyState === WebSocket.OPEN) {
-			if (ws.bufferedAmount < SSH_MAX_QUEUED_BYTES) ws.send(JSON.stringify({ type: "error", data: message }));
+			if (ws.bufferedAmount < SSH_MAX_QUEUED_BYTES) ws.send(JSON.stringify({ type: "error", data: message, ...(fatal ? { fatal: true } : {}) }));
 			ws.close(code, "SSH terminal closed");
 		}
 		// Refusals (revoked access, abuse of the wire protocol) end the shell
@@ -719,7 +761,8 @@ wss.on("connection", async (ws, req) => {
 				lastAuthorizedAt = Date.now();
 				return !stopped;
 			} catch {
-				stopTerminal(t("backend.sshTerminal.authFailed"));
+				// Access was revoked or the endpoint changed: a retry is refused too.
+				stopTerminal(t("backend.sshTerminal.authFailed"), 1008, true);
 				return false;
 			} finally { clearTimeout(deadline); authorizationCheck = null; }
 		})();
@@ -740,18 +783,18 @@ wss.on("connection", async (ws, req) => {
 	const attachment: ShellAttachment = {
 		ws,
 		sendOutput,
-		notifyClosed: (message) => {
+		notifyClosed: (message, reason) => {
 			releaseAttachment();
 			if (ws.readyState === WebSocket.OPEN) {
-				ws.send(JSON.stringify({ type: "closed", data: message }));
+				ws.send(JSON.stringify({ type: "closed", data: message, reason }));
 				ws.close();
 			}
 		},
-		fail: (message, code) => {
+		fail: (message, options) => {
 			releaseAttachment();
 			if (ws.readyState === WebSocket.OPEN) {
-				ws.send(JSON.stringify({ type: "error", data: message }));
-				if (code !== undefined) ws.close(code, "SSH terminal closed");
+				ws.send(JSON.stringify({ type: "error", data: message, ...(options?.fatal ? { fatal: true } : {}) }));
+				if (options?.code !== undefined) ws.close(options.code, "SSH terminal closed");
 				else ws.close();
 			}
 		},
@@ -763,6 +806,8 @@ wss.on("connection", async (ws, req) => {
 			resumeId: keepAlive ? shell.id : null,
 			resumed,
 			keepAliveMs: keepAlive ? SSH_DETACH_TTL_MS : 0,
+			// The replay that follows lost its beginning (the buffer overflowed).
+			replayTruncated: resumed && shell.replayTruncated,
 		}));
 	};
 
@@ -785,21 +830,30 @@ wss.on("connection", async (ws, req) => {
 				resetShellIdle(shell);
 				stream.on("data", (data: Buffer) => deliverShellOutput(shell, data));
 				stream.stderr?.on("data", (data: Buffer) => deliverShellOutput(shell, data));
-				stream.on("close", () => endShellSession(shell, t("backend.sshTerminal.connectionClosed")));
+				// `exit` arrives before `close` when the shell itself ended
+				// (exit, logout, killed): that end is deliberate.
+				stream.on("exit", (code: unknown, signal: unknown) => {
+					shell.exit = {
+						code: typeof code === "number" ? code : null,
+						signal: typeof signal === "string" ? signal : null,
+					};
+				});
+				stream.on("close", () => {
+					const exit = shell.exit;
+					if (!exit) endShellSession(shell, t("backend.sshTerminal.connectionClosed"), "lost");
+					else if (exit.code !== null) endShellSession(shell, t("backend.sshTerminal.shellExited", { code: exit.code }), "exit");
+					else endShellSession(shell, t("backend.sshTerminal.shellKilled", { signal: exit.signal ?? "?" }), "exit");
+				});
 			});
 		});
 		shell.sshClient.on("error", (err) => {
-			shell.attachment?.fail(describeTerminalSshError(err));
+			shell.attachment?.fail(describeTerminalSshError(err), { fatal: isPermanentTerminalSshError(err) });
 			endShellSession(shell);
 		});
-		shell.sshClient.on("close", () => endShellSession(shell, "SSH connection disconnected"));
-		shell.sshClient.on("end", () => {
-			// SSH connection ended gracefully — notify client
-			const attached = shell.attachment?.ws;
-			if (attached && attached.readyState === WebSocket.OPEN) {
-				attached.send(JSON.stringify({ type: "closed", data: "SSH connection ended gracefully, you may try reconnecting" }));
-			}
-		});
+		// The SSH connection itself went away (server restart, network): the
+		// browser retries, which opens a new shell once the server is back.
+		shell.sshClient.on("end", () => endShellSession(shell, t("backend.sshTerminal.connectionLost"), "lost"));
+		shell.sshClient.on("close", () => endShellSession(shell, t("backend.sshTerminal.connectionLost"), "lost"));
 	}
 
 	ws.on("message", (raw, binary) => {
@@ -879,9 +933,11 @@ wss.on("connection", async (ws, req) => {
 		resetShellIdle(shell);
 		if (shell.bufferedBytes > 0) {
 			const missed = Buffer.concat(shell.buffer);
+			const start = shell.replayTruncated ? safeReplayStart(missed) : 0;
 			shell.buffer = [];
 			shell.bufferedBytes = 0;
-			sendOutput(missed);
+			shell.replayTruncated = false;
+			sendOutput(missed.subarray(start));
 		}
 		return;
 	}

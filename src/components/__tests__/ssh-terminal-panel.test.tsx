@@ -54,6 +54,7 @@ vi.mock("@xterm/xterm", () => ({
 		getSelection() { return this.selection; }
 		clearSelection() {}
 		write() {}
+		focus() {}
 		onData() {}
 		dispose() {}
 	},
@@ -139,9 +140,25 @@ describe("SshTerminalPanel", () => {
 		}
 	});
 
-	it("explains copy and Shift-drag selection", () => {
+	it("keeps the copy tip in the command panel, not above the terminal", async () => {
+		const { userEvent } = require("@testing-library/user-event");
+		const user = userEvent.setup();
 		render(<SshTerminalPanel {...defaultProps} />);
+		expect(screen.queryByText(/Ctrl\+Shift\+C/)).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "命令面板" }));
 		expect(screen.getByText(/Ctrl\+Shift\+C/)).toHaveTextContent("Shift");
+	});
+
+	it("resets the terminal's modes from the command panel without sending anything", async () => {
+		const { userEvent } = require("@testing-library/user-event");
+		const user = userEvent.setup();
+		render(<SshTerminalPanel {...defaultProps} />);
+		await waitFor(() => expect(terminalInstances()).toHaveLength(1));
+		const term = terminalInstances()[0] as unknown as { write: ReturnType<typeof vi.fn> };
+		const write = vi.spyOn(term, "write");
+		await user.click(screen.getByRole("button", { name: "命令面板" }));
+		await user.click(screen.getByRole("button", { name: "重置终端状态" }));
+		expect(write).toHaveBeenCalledWith(expect.stringContaining("\x1b[?1003l"));
 	});
 
 	it("renders the toolbar with server name and host", () => {

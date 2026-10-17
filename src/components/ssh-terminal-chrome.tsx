@@ -179,7 +179,9 @@ export function SshTerminalSearchBar({
 	onClear: () => void;
 }) {
 	return (
-		<div data-inset className="flex flex-wrap items-center gap-2 light:border-[var(--border)] light:bg-[var(--surface)] p-2">
+		// One row on phones too: the input flexes and the buttons shrink to
+		// symbols, so the search bar does not take terminal rows away.
+		<div data-inset className="flex items-center gap-2 light:border-[var(--border)] light:bg-[var(--surface)] p-2">
 			<label htmlFor={`ssh-terminal-search-${serverId}`} className="sr-only">
 				{t("sshTerminalModal.searchLabel")}
 			</label>
@@ -201,23 +203,32 @@ export function SshTerminalSearchBar({
 				}}
 				placeholder={t("sshTerminalModal.searchPlaceholder")}
 				className={cn(
-					UI_INPUT,"min-h-10 min-w-[180px] flex-1 placeholder:text-[var(--text-muted)]/20",
+					UI_INPUT,"min-h-10 min-w-0 flex-1 placeholder:text-[var(--text-muted)]/20 sm:min-w-[180px]",
 				)}
 			/>
 			<ActionButton variant="outline"
 				onClick={() => onSearch("previous")}
+				aria-label={t("sshTerminalModal.searchPrevious")}
 				data-tone="cyan"
+				className="shrink-0 max-sm:!min-w-11 max-sm:!px-0"
 			>
-				{t("sshTerminalModal.searchPrevious")}
+				<span aria-hidden="true" className="sm:hidden">↑</span>
+				<span className="max-sm:hidden">{t("sshTerminalModal.searchPrevious")}</span>
 			</ActionButton>
 			<ActionButton variant="outline"
 				onClick={() => onSearch("next")}
-				data-tone="cyan">
-				{t("sshTerminalModal.searchNext")}
+				aria-label={t("sshTerminalModal.searchNext")}
+				data-tone="cyan"
+				className="shrink-0 max-sm:!min-w-11 max-sm:!px-0">
+				<span aria-hidden="true" className="sm:hidden">↓</span>
+				<span className="max-sm:hidden">{t("sshTerminalModal.searchNext")}</span>
 			</ActionButton>
 			<ActionButton variant="secondary"
-				onClick={onClear}>
-				{t("sshTerminalModal.searchClear")}
+				onClick={onClear}
+				aria-label={t("sshTerminalModal.searchClear")}
+				className="shrink-0 max-sm:!min-w-11 max-sm:!px-0">
+				<span aria-hidden="true" className="sm:hidden">✕</span>
+				<span className="max-sm:hidden">{t("sshTerminalModal.searchClear")}</span>
 			</ActionButton>
 		</div>
 	);

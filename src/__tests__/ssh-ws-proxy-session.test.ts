@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   handshakeUserId: "audit-user",
   deferReady: null as null | (() => void),
   shellOptions: [] as unknown[],
+  client: undefined as unknown as import("node:events").EventEmitter,
 }));
 vi.mock("http", async (original) => {
   const http = await original<typeof import("node:http")>();
@@ -33,6 +34,7 @@ vi.mock("ssh2", async () => {
   const { EventEmitter: Emitter } = await import("node:events");
   return { Client: class extends Emitter {
     connect() {
+      state.client = this;
       if (state.deferReady === null) this.emit("ready");
       else state.deferReady = () => this.emit("ready");
     }
@@ -217,7 +219,7 @@ it("limits total active terminals across different users", async () => {
 
 it("ends the shell with the socket unless the terminal opted into keep-alive", async () => {
   const socket = await connect();
-  expect(sessionMessage(socket)).toEqual({ type: "session", resumeId: null, resumed: false, keepAliveMs: 0 });
+  expect(sessionMessage(socket)).toEqual({ type: "session", resumeId: null, resumed: false, keepAliveMs: 0, replayTruncated: false });
   socket.close();
   expect(state.stream.close).toHaveBeenCalled();
 });
@@ -235,7 +237,7 @@ it("keeps an opted-in shell alive across a dropped socket and replays what it pr
   stream.emit("data", Buffer.from("still running\n"));
 
   const second = await connect(true, `&keepAlive=1&resume=${announced!.resumeId}`);
-  expect(sessionMessage(second)).toEqual({ type: "session", resumeId: announced!.resumeId, resumed: true, keepAliveMs: 10 * 60_000 });
+  expect(sessionMessage(second)).toEqual({ type: "session", resumeId: announced!.resumeId, resumed: true, keepAliveMs: 10 * 60_000, replayTruncated: false });
   expect(outputMessages(second)).toEqual(["still running\n"]);
   expect(state.stream).toBe(stream);
 
@@ -286,3 +288,74 @@ it("ends a detached shell when the remote side closes it", async () => {
   expect(sessionMessage(replacement)?.resumed).toBe(false);
 });
 
+/** Parsed frames the proxy sent on a socket. */
+function frames(socket: { send: ReturnType<typeof vi.fn> }) {
+  return socket.send.mock.calls.map((call) => JSON.parse(String(call[0])) as Record<string, unknown>);
+}
+
+it("tells the browser a shell that exited ended on purpose, with its exit code", async () => {
+  const socket = await connect(true, "&keepAlive=1");
+  state.stream.emit("exit", 0);
+  state.stream.emit("close");
+  const closed = frames(socket).find((frame) => frame.type === "closed");
+  expect(closed).toMatchObject({ type: "closed", reason: "exit" });
+  expect(String(closed?.data)).toContain("0");
+  expect(socket.close).toHaveBeenCalled();
+});
+
+it("reports a shell ended by a signal as an exit too", async () => {
+  const socket = await connect(true, "&keepAlive=1");
+  state.stream.emit("exit", null, "KILL", false, "");
+  state.stream.emit("close");
+  const closed = frames(socket).find((frame) => frame.type === "closed");
+  expect(closed).toMatchObject({ reason: "exit" });
+  expect(String(closed?.data)).toContain("KILL");
+});
+
+it("reports a dropped SSH connection as lost, once, so the browser retries", async () => {
+  const socket = await connect(true, "&keepAlive=1");
+  state.client.emit("end");
+  state.client.emit("close");
+  const closed = frames(socket).filter((frame) => frame.type === "closed");
+  expect(closed).toHaveLength(1);
+  expect(closed[0]).toMatchObject({ reason: "lost" });
+});
+
+it("marks refusals a retry cannot change as fatal", async () => {
+  state.verify.mockResolvedValue({ userId: "audit-user", username: "audit", roles: ["viewer"], permissions: [], currentTeamId: "audit-team", mustChangePassword: false });
+  const socket = await connect(false);
+  expect(frames(socket).find((frame) => frame.type === "error")).toMatchObject({ fatal: true });
+});
+
+it("replays only the end of an overflowing detach buffer, from a line start, and says so", async () => {
+  const first = await connect(true, "&keepAlive=1");
+  const { resumeId } = sessionMessage(first)!;
+  const stream = state.stream;
+  first.close();
+  // 300 KiB of output while nobody watches; each chunk starts mid-sequence.
+  const line = "\x1b[1;32mok\x1b[0m " + "x".repeat(60) + "\n";
+  for (let index = 0; index < 5_000; index += 1) stream.emit("data", Buffer.from(line.slice(3) + line.slice(0, 3)));
+  const second = await connect(true, `&keepAlive=1&resume=${resumeId}`);
+  expect(sessionMessage(second)).toMatchObject({ resumed: true, replayTruncated: true });
+  const replay = outputMessages(second).join("");
+  expect(replay.length).toBeLessThanOrEqual(256 * 1024);
+  expect(replay.startsWith("1;32mok")).toBe(false);
+  expect(replay.charCodeAt(0)).not.toBe(0x0a);
+});
+
+it("finds a safe replay start: after a line break, else at an escape, else at a character boundary", async () => {
+  const { safeReplayStart } = await import("../ssh-ws-proxy");
+  expect(safeReplayStart(Buffer.from("049h partial\nnext line"))).toBe("049h partial\n".length);
+  expect(safeReplayStart(Buffer.from("049h\x1b[2Jdrawn"))).toBe(4);
+  const chinese = Buffer.from("中文");
+  expect(safeReplayStart(chinese.subarray(1))).toBe(2);
+  expect(safeReplayStart(Buffer.alloc(0))).toBe(0);
+});
+
+it("classifies SSH failures a retry cannot fix", async () => {
+  const { isPermanentTerminalSshError } = await import("../ssh-ws-proxy");
+  expect(isPermanentTerminalSshError(new Error("All configured authentication methods failed"))).toBe(true);
+  expect(isPermanentTerminalSshError(new Error("Host key verification failed"))).toBe(true);
+  expect(isPermanentTerminalSshError(new Error("connect ECONNREFUSED 192.0.2.2:22"))).toBe(false);
+  expect(isPermanentTerminalSshError(new Error("Timed out while waiting for handshake"))).toBe(false);
+});
