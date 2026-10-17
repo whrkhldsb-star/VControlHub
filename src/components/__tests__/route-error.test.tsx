@@ -1,6 +1,8 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { UnrecognizedActionError } from "next/dist/client/components/unrecognized-action-error";
+
 import { RouteError } from "../route-error";
 import { renderWithI18n as renderI18n } from "@/lib/i18n/__tests__/test-helpers";
 
@@ -11,6 +13,15 @@ function makeError(message: string, digest?: string): Error & { digest?: string 
 }
 
 describe("RouteError", () => {
+	it("tells a tab from before a deploy to reload instead of showing a fault", () => {
+		const error = new UnrecognizedActionError("Server Action \"abc\" was not found on the server.");
+		renderI18n(<RouteError error={error} reset={vi.fn()} />, { locale: "zh" });
+		expect(screen.getByRole("heading", { name: "系统刚刚更新" })).toBeInTheDocument();
+		expect(screen.getByText(/这个页面还是更新前的版本/)).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "刷新页面" })).toBeInTheDocument();
+		expect(screen.queryByText(/was not found on the server/)).not.toBeInTheDocument();
+	});
+
 	it("renders localized Chinese copy via t() for all hardcoded strings (zh)", () => {
 		const error = makeError("", "abc123");
 		renderI18n(
