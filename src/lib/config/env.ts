@@ -38,6 +38,12 @@ function readOptionalString(name: string): string | undefined {
 	return raw === undefined || raw === "" ? undefined : raw;
 }
 
+/** `https://DOMAIN` for a bare hostname; anything else (a URL, a path) is not guessed at. */
+function domainBaseUrl(): string | undefined {
+	const domain = readOptionalString("DOMAIN")?.trim();
+	return domain && /^[A-Za-z0-9.-]+(:\d+)?$/.test(domain) ? `https://${domain}` : undefined;
+}
+
 function readInt(name: string, fallback: number): number {
 	const raw = process.env[name];
 	if (raw === undefined || raw === "") return fallback;
@@ -237,9 +243,13 @@ export const config = {
 		get hostname(): string | undefined { return readOptionalString("HOSTNAME"); },
 		get nextHost(): string | undefined { return readOptionalString("NEXT_HOST"); },
 		get port(): number { return readInt("PORT", 3000); },
-		/** Public site URL (server-side). Prefer NEXT_PUBLIC_APP_URL then APP_BASE_URL. */
+		/**
+		 * Public site URL (server-side): NEXT_PUBLIC_APP_URL, then APP_BASE_URL,
+		 * then https://DOMAIN — the hostname install.sh serves through Caddy,
+		 * and the only one the installers record. Agents poll this address.
+		 */
 		get baseUrl(): string | undefined {
-			return readOptionalString("NEXT_PUBLIC_APP_URL") ?? readOptionalString("APP_BASE_URL");
+			return readOptionalString("NEXT_PUBLIC_APP_URL") ?? readOptionalString("APP_BASE_URL") ?? domainBaseUrl();
 		},
 		get demoMode(): boolean { return readBool("DEMO_MODE", false); },
 		get publicDemoMode(): boolean { return readBool("NEXT_PUBLIC_DEMO_MODE", false); },
