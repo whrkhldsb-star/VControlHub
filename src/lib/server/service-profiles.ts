@@ -19,6 +19,7 @@ import { encryptServerPasswordIfPlain, SSH_KEY_CREDENTIAL_SELECT } from "@/lib/s
 import type { TFn } from "@/lib/i18n/core";
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 import { normalizeServerInput } from "./config";
+import { defaultStoragePath } from "./default-storage-path";
 import { SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
@@ -389,7 +390,7 @@ export async function createServerProfile(
   const provisionalName = normalized.name;
   configuredPath =
     normalized.storagePath ||
-    (isLocalHost ? `/srv/storage/${provisionalName}` : "/root/drive");
+    (isLocalHost ? `/srv/storage/${provisionalName}` : defaultStoragePath(normalized.username));
 
   server = await prisma.$transaction(async (tx) => {
     const created = await tx.server.create({

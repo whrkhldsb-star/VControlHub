@@ -15,7 +15,8 @@ const storagePathSchema = z
   .refine((value) => value.startsWith("/"), "Storage path must be an absolute POSIX path")
   .refine((value) => !value.includes("\0") && !value.split("/").includes(".."), "Storage path must not contain traversal segments")
   .refine((value) => !["/", "/proc", "/sys", "/dev"].includes(value.replace(/\/+$/, "") || "/"), "Storage path must not target a system root")
-  .default("/root/drive");
+  // Omitted → the login user's own folder (see defaultStoragePath).
+  .optional();
 
 const windowsSftpPathSchema = z.string().trim().max(500)
   .refine((value) => !value || /^\/[A-Za-z]:\//.test(value) && value.slice(4).split("/").filter(Boolean).length > 0 &&

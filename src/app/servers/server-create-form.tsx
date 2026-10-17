@@ -240,16 +240,11 @@ export function ServerCreateForm({
           id="serverStoragePath"
           name="storagePath"
           type="text"
-          defaultValue={t("serversPage.create.storagePathDefault")}
-          placeholder="/root/drive"
+          placeholder={t("serversPage.create.storagePathPlaceholder")}
           className={UI_INPUT}
         />{" "}
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {" "}
-          {t("serversPage.create.storagePathDesc").replace(
-            "{path}",
-            "/root/drive",
-          )}{" "}
+          {t("serversPage.create.storagePathDesc")}
         </p>{" "}
       </div>{" "}
       <label

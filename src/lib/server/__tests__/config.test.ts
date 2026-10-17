@@ -48,6 +48,13 @@ describe("server config helpers", () => {
     expect(result.username).toBe("root");
   });
 
+  it("puts a non-root user's storage in their own home unless a path is given", () => {
+    const base = { name: "node", host: "203.0.113.10", connectionType: "PASSWORD" as const, password: "secret" };
+    expect(normalizeServerInput({ ...base, username: "ubuntu" }).storagePath).toBe("/home/ubuntu/drive");
+    expect(normalizeServerInput({ ...base, username: "root" }).storagePath).toBe("/root/drive");
+    expect(normalizeServerInput({ ...base, username: "ubuntu", storagePath: " /data/files " }).storagePath).toBe("/data/files");
+  });
+
   it("rejects host/username that could be reinterpreted as ssh CLI options", () => {
     const base = {
       name: "node",

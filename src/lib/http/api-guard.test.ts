@@ -156,6 +156,22 @@ describe("api guard", () => {
     });
   });
 
+  it("treats a request the browser cancelled as a client disconnect, not a server error", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const controller = new AbortController();
+      const aborted = new Request("https://example.test/api/demo", { signal: controller.signal });
+      const response = await withApiRoute(aborted, { permission: "snippet:manage" }, async () => {
+        controller.abort();
+        throw Object.assign(new Error("SSH command cancelled"), { name: "AbortError" });
+      });
+      expect(response.status).toBe(499);
+      expect(errors).not.toHaveBeenCalled();
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
   it("supports route-specific error mapping", async () => {
     const response = await withApiRoute(
       request(),

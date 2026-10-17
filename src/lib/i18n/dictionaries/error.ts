@@ -11,6 +11,9 @@ export const zh: Record<string, string> = {
 	"error.hard-refresh": "硬刷新",
 	"error.health-check": "系统自检",
 	"error.routeDescription": "当前页面遇到了异常，已保留现场信息。你可以重试，或稍后从系统自检/日志中继续排查。",
+	"error.staleDeployment.description": "这个页面还是更新前的版本，刚才的操作没有提交成功。刷新页面后再试一次，未保存的输入可能需要重新填写。",
+	"error.staleDeployment.reload": "刷新页面",
+	"error.staleDeployment.title": "系统刚刚更新",
 	"error.title": "页面加载出错",
 	"error.unknown": "发生了未知错误",
 };
@@ -21,6 +24,9 @@ export const en: Record<string, string> = {
 	"error.hard-refresh": "Hard refresh",
 	"error.health-check": "System health check",
 	"error.routeDescription": "The current page hit an error and the trace has been preserved. You can retry, or check the system health and logs.",
+	"error.staleDeployment.description": "This page is from before the update, so what you just did was not sent. Reload the page and try again; unsaved input may need to be entered again.",
+	"error.staleDeployment.reload": "Reload page",
+	"error.staleDeployment.title": "The app was just updated",
 	"error.title": "Page failed to load",
 	"error.unknown": "An unknown error occurred",
 };

@@ -124,12 +124,12 @@ async function maybeEnqueueOffsiteRetentionTick(): Promise<{
     });
     if (existing) return { enqueued: false, skipped: "already-today", jobId: existing.id };
     const { enqueueJob } = await import("@/lib/job/service");
-    // teamId null + olderThanDays large: local prune is fail-closed without teamId;
-    // the worker still runs offsite prune as a side effect.
+    // Offsite objects only: local records are pruned per customer after each
+    // scheduled backup, and a platform-wide local prune is refused by design.
     const job = await enqueueJob({
       type: "backup.retention",
       title,
-      payload: { olderThanDays: 3650, keepLatestPerType: 1, teamId: null },
+      payload: { offsiteOnly: true, teamId: null },
       createdBy: null,
       teamId: null,
       maxAttempts: 1,

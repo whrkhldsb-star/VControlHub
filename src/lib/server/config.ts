@@ -1,5 +1,6 @@
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { defaultStoragePath } from "./default-storage-path";
 
 export type ServerInput = {
   name: string;
@@ -79,7 +80,7 @@ export function normalizeServerInput(
       new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean)),
     ),
     description: input.description?.trim() || null,
-    storagePath: input.storagePath?.trim() || "/root/drive",
+    storagePath: input.storagePath?.trim() || defaultStoragePath(username),
     costAutoSync: Boolean(input.costAutoSync),
     costMonthlyAmount: input.costMonthlyAmount?.trim() || null,
     costCurrency: input.costCurrency ?? "CNY",

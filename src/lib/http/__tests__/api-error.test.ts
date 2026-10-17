@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { apiCatch, apiError } from "@/lib/http/api-error";
 import {
 	AuthError,
@@ -55,6 +55,17 @@ describe("lib/http/api-error", () => {
 	});
 
 	describe("apiCatch", () => {
+		it("logs an internal 5xx exactly once", async () => {
+			const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+			try {
+				const res = apiCatch(new Error("db exploded"), 500, "Operation failed");
+				expect(res.status).toBe(500);
+				expect(errors).toHaveBeenCalledTimes(1);
+			} finally {
+				errors.mockRestore();
+			}
+		});
+
 		it("AppError subclass → maps status + code + details", async () => {
 			const res = apiCatch(
 				new ValidationError("bad", { fieldErrors: { x: ["required"] } }),
