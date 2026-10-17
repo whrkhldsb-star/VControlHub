@@ -418,9 +418,11 @@ Linux 节点编辑还提供存储路径修复选项，按现有配置尝试准�
 | Linux 纯 Agent | Agent 在线时可移除 SSH 回退凭据 | 交互式 SSH 终端将不可用；可由 Agent 承担的监控、命令和文件操作按能力继续工作 |
 | Windows Agent | 在 Windows 管理员 PowerShell 中执行生成的安装命令 | 提供监控与命令通道；文件访问另配 OpenSSH，桌面另走 RDP |
 
-Linux Agent 安装由控制台通过可用 SSH 通道引导。Agent 上报心跳和能力，平台显示最后连接时间、状态和最近错误。对于已经被 Agent 领取的命令，平台不会在结果超时后再盲目通过 SSH 重放，以免重复执行有副作用的命令。
+Linux Agent 安装由控制台通过可用 SSH 通道引导，需要目标机有 Python 3.5 及以上和 systemd；SSH 登录用户不是 root 时通过免密 `sudo` 安装。Agent 上报心跳、版本和能力，平台显示版本、最后连接时间、状态和最近错误。对于已经被 Agent 领取的命令，平台不会在结果超时后再盲目通过 SSH 重放，以免重复执行有副作用的命令。
 
-Windows Agent 通过“获取安装命令”生成一次引导命令；重新生成会使旧令牌失效。管理员在目标 Windows 上执行后，Agent 作为开机计划任务运行。Windows Agent 当前提供指标和命令能力，命令通过 `cmd.exe` 执行；需要 PowerShell 语法时应显式调用 PowerShell。
+已安装的 Agent 一直运行安装时的版本，不会自行更新。版本低于当前版本时详情会提示：Linux 用“升级 Agent”（同一按钮平时是“重新安装 Agent”，用于修复）通过 SSH 安装当前版本并重启；Windows 重新获取安装命令并在目标机执行。两种方式都会签发新令牌，并让正在运行的旧 Agent 退出，不会留下拿着失效令牌的旧进程。
+
+Windows Agent 通过“获取安装命令”生成一次引导命令；重新生成会立即使旧令牌失效，在线的 Agent 会断开到新命令执行为止。管理员在目标 Windows 上执行后，Agent 作为开机计划任务运行，没有运行时长上限。安装命令会为 Windows Server 2016 等旧系统打开 TLS 1.2。Windows Agent 当前提供指标（含系统、CPU 型号、进程与连接数等主机信息）和命令能力，命令通过 `cmd.exe` 执行；需要 PowerShell 语法时应显式调用 PowerShell。
 
 ### 4.6 Windows 节点
 

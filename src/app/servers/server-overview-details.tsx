@@ -30,6 +30,8 @@ import { Badge, Notice } from "@/components/ui-primitives";
 import { serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "./server-labels";
 import type { ServerBillingDto } from "@/lib/server/billing-form";
 import { ServerBillingRows } from "./server-billing-rows";
+import { ServerAgentReinstall } from "./server-agent-reinstall";
+import { formatDateTime } from "@/lib/datetime/format";
 
 export type ServerOverviewDetailsServer = {
 	operatingSystem?: string;
@@ -110,7 +112,7 @@ export function ServerOverviewDetails({
 	diagnosticRun,
 	onRunRealtimeDiagnostics,
 }: ServerOverviewDetailsProps) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const directGatewayAdvice = getDirectGatewayRepairAdvice(t, {
 		directGateway: server.directGateway ?? null,
 		serverEnabled: server.enabled,
@@ -246,7 +248,19 @@ export function ServerOverviewDetails({
 							? `${t("serversPage.management.agent")} · ${server.agent?.online ? t("serversPage.management.online") : server.hasSshCredential === false ? t("serversPage.management.agentOnly") : t("serversPage.management.fallback")}`
 							: t("serversPage.management.direct")}
 					/>
+					{server.managementMode === "AGENT" ? (
+						<>
+							<InfoRow label={t("serversPage.agent.version")} value={server.agent?.version ?? "—"} />
+							<InfoRow
+								label={t("serversPage.agent.lastSeen")}
+								value={server.agent?.lastSeenAt ? formatDateTime(new Date(server.agent.lastSeenAt), locale) : t("serversPage.agent.never")}
+							/>
+						</>
+					) : null}
 					{server.managementMode === "AGENT" && server.agent?.lastError ? <InfoRow label={t("serversPage.management.lastError")} value={server.agent.lastError} /> : null}
+					{server.managementMode === "AGENT" && canManageServers && server.hasSshCredential !== false ? (
+						<ServerAgentReinstall serverId={server.id} version={server.agent?.version ?? null} />
+					) : null}
 					<OsDialectSection
 						serverId={server.id}
 						osDialect={server.osDialect}
