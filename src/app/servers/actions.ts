@@ -502,6 +502,51 @@ export async function deleteServerAction(
   }
 }
 
+/**
+ * Repair or upgrade a Linux Agent: installs the current build over SSH and
+ * restarts it (a running Agent would keep its revoked token otherwise).
+ */
+export async function reinstallServerAgentAction(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
+  const session = await requirePermission("server:write");
+  const tr = await serverActionTranslator();
+
+  try {
+    const serverId = String(formData.get("serverId") ?? "");
+    const { prisma } = await import("@/lib/db");
+    const { serverTeamWhere } = await import("@/lib/auth/team-scope");
+    const current = await prisma.server.findFirst({
+      where: { id: serverId, ...serverTeamWhere(session, "manage") },
+      select: { operatingSystem: true, managementMode: true, host: true },
+    });
+    if (!current) {
+      return { error: tr("serversPage.action.notFound") } as ServerActionState;
+    }
+    const { isLocalHostLiteral } = await import("@/lib/server/service-internals");
+    if (current.operatingSystem === "WINDOWS" || current.managementMode !== "AGENT" || isLocalHostLiteral(current.host)) {
+      return { error: tr("serversPage.agent.reinstallUnavailable") } as ServerActionState;
+    }
+
+    const { installServerAgent } = await import("@/lib/server/agent-service");
+    await installServerAgent(serverId);
+    await auditUserAction(
+      session.userId,
+      "server.agent_reinstall",
+      { serverId },
+      undefined,
+      session.currentTeamId,
+    );
+    revalidatePath("/servers");
+    return { success: tr("serversPage.agent.reinstalled") } as ServerActionState;
+  } catch (error) {
+    return {
+      error: getErrorMessage(error, tr("serversPage.agent.reinstallFailed")),
+    } as ServerActionState;
+  }
+}
+
 export async function getWindowsAgentInstallCommandAction(
   _prevState: ServerActionState | null,
   formData: FormData,

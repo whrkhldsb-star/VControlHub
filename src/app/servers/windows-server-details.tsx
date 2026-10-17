@@ -67,6 +67,8 @@ export function WindowsServerDetails({
 					<WindowsAgentInstallPanel
 						serverId={server.id}
 						agentOnline={Boolean(server.agent?.online)}
+						agentVersion={server.agent?.version ?? null}
+						agentLastSeenAt={server.agent?.lastSeenAt ?? null}
 						agentLastError={server.agent?.lastError ?? null}
 						canManageServers={canManageServers}
 					/>
