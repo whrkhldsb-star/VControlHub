@@ -9,6 +9,7 @@ import { chainSshTerminalCopyPaste } from "@/components/ssh-terminal-copy-paste"
 import { resetTerminalModes } from "@/components/ssh-terminal-modes";
 import { installSshTerminalIme } from "@/components/ssh-terminal-ime";
 import { installSshTerminalTouchScroll } from "@/components/ssh-terminal-touch-scroll";
+import { installSshTerminalContextMenuCopy } from "@/components/ssh-terminal-context-menu";
 import { parseQuickKeyPresets, quickKeyPresetsToEntries, serializeQuickKeyPresets, type QuickKeyPreset } from "@/components/ssh-quick-keys";
 import {
 	SSH_TERMINAL_FONT_SIZE_KEY,
@@ -149,6 +150,7 @@ export function SshTerminalPanel({
 	const [terminalGeneration, setTerminalGeneration] = useState(0);
 	const [keepAliveMs, setKeepAliveMs] = useState(0);
 	const [sessionNotice, setSessionNotice] = useState<"resumed" | "resumedPartial" | "fresh" | "strayMouse" | null>(null);
+	const [selectHint, setSelectHint] = useState(false);
 
 	// Notify parent of status changes
 	useEffect(() => {
@@ -232,6 +234,9 @@ export function SshTerminalPanel({
 					brightWhite: "#f8fafc",
 				},
 				allowProposedApi: true,
+				// While a program reports the mouse, Shift-drag selects (Windows,
+				// Linux); this gives Mac the usual Option-drag.
+				macOptionClickForcesSelection: true,
 			});
 
 			const fitAddon = new FitAddon();
@@ -253,6 +258,9 @@ export function SshTerminalPanel({
 			searchAddonRef.current = searchAddon;
 
 			const removeTouchScroll = installSshTerminalTouchScroll(term, surface);
+			const removeContextMenuCopy = installSshTerminalContextMenuCopy(term, surface, () => {
+				if (!disposed) setSelectHint(true);
+			});
 
 			term.onData((data: string) => {
 				if (!connectionRef.current?.send(data)) return;
@@ -289,6 +297,7 @@ export function SshTerminalPanel({
 			cleanup = () => {
 				removeIme();
 				removeTouchScroll();
+				removeContextMenuCopy();
 				observer?.disconnect();
 				window.removeEventListener("resize", refitSurface);
 				if (pendingFrame) cancelAnimationFrame(pendingFrame);
@@ -383,6 +392,12 @@ export function SshTerminalPanel({
 		const timer = setTimeout(() => setSessionNotice(null), 8000);
 		return () => clearTimeout(timer);
 	}, [sessionNotice]);
+
+	useEffect(() => {
+		if (!selectHint) return;
+		const timer = setTimeout(() => setSelectHint(false), 6000);
+		return () => clearTimeout(timer);
+	}, [selectHint]);
 
 	const changeFontSize = (size: number) => {
 		writeLocalStorageValue(SSH_TERMINAL_FONT_SIZE_KEY, String(clampSshTerminalFontSize(size)));
@@ -547,12 +562,25 @@ export function SshTerminalPanel({
 					    column scroll between terminal and panel. */}
 					<div
 						className={cn(
-							"flex min-h-0 min-w-0 flex-1 w-full overflow-hidden bg-[var(--surface-root)]",
+							"relative flex min-h-0 min-w-0 flex-1 w-full overflow-hidden bg-[var(--surface-root)]",
 							(showFileManager || showSidePanel) && "min-h-[280px] lg:min-h-0",
 							fullscreen ? "rounded-lg" : "rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)]",
 						)}
 					>
 						<div ref={termRef} data-testid="ssh-terminal-surface" className="min-h-0 min-w-0 flex-1 overflow-hidden" />
+						{/* Floats over the terminal: a notice above it would change the
+						    row count when it comes and goes, and xterm clears the
+						    selection on every row change. */}
+						{selectHint && (
+							<p
+								role="status"
+								data-popover
+								data-testid="ssh-terminal-select-hint"
+								className="pointer-events-none absolute bottom-3 right-3 max-w-[calc(100%-1.5rem)] px-3 py-2 text-xs text-[var(--text-secondary)] sm:max-w-sm"
+							>
+								{t("sshTerminalModal.selectHint")}
+							</p>
+						)}
 					</div>
 				</div>
 				{showFileManager && (
