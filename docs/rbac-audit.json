@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-14T15:47:52.318Z",
+  "generatedAt": "2026-10-17T08:39:28.136Z",
   "summary": {
     "permissionsInList": 52,
     "rolesDefined": 4,
     "apiRoutesAudited": 195,
     "pagesAudited": 58,
-    "callSitesAudited": 644,
+    "callSitesAudited": 666,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -127,11 +127,16 @@
           "line": 78
         },
         {
+          "path": "src/app/requests/page.tsx",
+          "line": 29
+        },
+        {
           "path": "src/app/servers/page.tsx",
           "line": 29
         }
       ],
       "pages": [
+        "requests",
         "servers"
       ],
       "apiRoutes": [],
@@ -230,7 +235,7 @@
         },
         {
           "path": "src/app/api/ai/ops/logs/[id]/execute/route.ts",
-          "line": 42
+          "line": 44
         }
       ],
       "pages": [
@@ -252,27 +257,27 @@
         },
         {
           "path": "src/app/api/ai/ops/logs/[id]/approve/route.ts",
-          "line": 29
+          "line": 30
         },
         {
           "path": "src/app/api/ai/ops/logs/[id]/approve/route.ts",
-          "line": 29
+          "line": 30
         },
         {
           "path": "src/app/api/ai/ops/logs/[id]/execute/route.ts",
-          "line": 35
+          "line": 36
         },
         {
           "path": "src/app/api/ai/ops/logs/[id]/execute/route.ts",
-          "line": 35
+          "line": 36
         },
         {
           "path": "src/app/api/ai/ops/scan/route.ts",
-          "line": 29
+          "line": 30
         },
         {
           "path": "src/app/api/ai/ops/scan/route.ts",
-          "line": 29
+          "line": 30
         },
         {
           "path": "src/app/api/ai/ops/settings/route.ts",
@@ -438,6 +443,10 @@
         {
           "path": "src/app/api/monitoring/observability/route.ts",
           "line": 60
+        },
+        {
+          "path": "src/app/dashboard-content.tsx",
+          "line": 39
         }
       ],
       "pages": [],
@@ -589,6 +598,10 @@
         {
           "path": "src/app/api/backups/route.ts",
           "line": 26
+        },
+        {
+          "path": "src/app/dashboard-content.tsx",
+          "line": 41
         }
       ],
       "pages": [],
@@ -827,6 +840,10 @@
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
           "line": 93
+        },
+        {
+          "path": "src/app/dashboard-content.tsx",
+          "line": 38
         }
       ],
       "pages": [],
@@ -1013,6 +1030,10 @@
         {
           "path": "src/app/cost-summary/page.tsx",
           "line": 28
+        },
+        {
+          "path": "src/app/dashboard-content.tsx",
+          "line": 42
         }
       ],
       "pages": [
@@ -1054,7 +1075,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 50
+          "line": 51
         }
       ],
       "pages": [
@@ -1507,6 +1528,10 @@
         {
           "path": "src/app/api/alert-rules/route.ts",
           "line": 308
+        },
+        {
+          "path": "src/app/dashboard-content.tsx",
+          "line": 40
         }
       ],
       "pages": [
@@ -1562,6 +1587,10 @@
       "permission": "playbook:read",
       "files": [
         {
+          "path": "src/app/alert-rules/page.tsx",
+          "line": 17
+        },
+        {
           "path": "src/app/api/playbooks/[id]/route.ts",
           "line": 22
         },
@@ -1595,6 +1624,7 @@
         }
       ],
       "pages": [
+        "alert-rules",
         "playbooks"
       ],
       "apiRoutes": [
@@ -1673,6 +1703,10 @@
       "permission": "server:read",
       "files": [
         {
+          "path": "src/app/alert-rules/page.tsx",
+          "line": 16
+        },
+        {
           "path": "src/app/api/dashboard/analytics/route.ts",
           "line": 58
         },
@@ -1745,11 +1779,51 @@
           "line": 163
         },
         {
+          "path": "src/app/dashboard-content.tsx",
+          "line": 36
+        },
+        {
+          "path": "src/app/deployments/page.tsx",
+          "line": 50
+        },
+        {
+          "path": "src/app/docker/page.tsx",
+          "line": 9
+        },
+        {
+          "path": "src/app/playbooks/page.tsx",
+          "line": 17
+        },
+        {
+          "path": "src/app/scheduled-tasks/page.tsx",
+          "line": 21
+        },
+        {
           "path": "src/app/servers/inventory-actions.ts",
           "line": 8
+        },
+        {
+          "path": "src/app/storage/actions-nodes.ts",
+          "line": 47
+        },
+        {
+          "path": "src/app/templates/page.tsx",
+          "line": 17
+        },
+        {
+          "path": "src/app/tickets/page.tsx",
+          "line": 22
         }
       ],
-      "pages": [],
+      "pages": [
+        "alert-rules",
+        "deployments",
+        "docker",
+        "playbooks",
+        "scheduled-tasks",
+        "templates",
+        "tickets"
+      ],
       "apiRoutes": [
         "/api/dashboard/analytics",
         "/api/search",
@@ -1955,39 +2029,39 @@
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 45
+          "line": 46
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 148
+          "line": 153
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 243
+          "line": 251
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 286
+          "line": 294
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 326
+          "line": 334
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 373
+          "line": 381
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 424
+          "line": 432
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 500
+          "line": 508
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 539
+          "line": 547
         },
         {
           "path": "src/app/servers/page.tsx",
@@ -2228,19 +2302,23 @@
         },
         {
           "path": "src/app/storage/actions-nodes.ts",
-          "line": 58
+          "line": 42
         },
         {
           "path": "src/app/storage/actions-nodes.ts",
-          "line": 85
+          "line": 66
         },
         {
           "path": "src/app/storage/actions-nodes.ts",
-          "line": 148
+          "line": 93
         },
         {
           "path": "src/app/storage/actions-nodes.ts",
-          "line": 233
+          "line": 156
+        },
+        {
+          "path": "src/app/storage/actions-nodes.ts",
+          "line": 241
         }
       ],
       "pages": [
@@ -2485,9 +2563,23 @@
         {
           "path": "src/app/api/traffic/summary/route.ts",
           "line": 181
+        },
+        {
+          "path": "src/app/dashboard-content.tsx",
+          "line": 37
+        },
+        {
+          "path": "src/app/shares/page.tsx",
+          "line": 43
+        },
+        {
+          "path": "src/app/shares/page.tsx",
+          "line": 45
         }
       ],
-      "pages": [],
+      "pages": [
+        "shares"
+      ],
       "apiRoutes": [
         "/api/dashboard/analytics",
         "/api/traffic/summary"
@@ -2693,6 +2785,10 @@
         {
           "path": "src/app/storage/actions-directories.ts",
           "line": 226
+        },
+        {
+          "path": "src/app/storage/actions-nodes.ts",
+          "line": 41
         }
       ],
       "pages": [
@@ -3284,6 +3380,10 @@
         {
           "path": "src/app/api/users/route.ts",
           "line": 147
+        },
+        {
+          "path": "src/app/dashboard-content.tsx",
+          "line": 43
         },
         {
           "path": "src/app/settings/page.tsx",

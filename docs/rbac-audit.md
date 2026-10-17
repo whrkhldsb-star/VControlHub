@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-10-14T15:47:52.318Z | Permissions: 52 | Roles: 4 | API routes: 195 | Pages: 58 | Drift: 0
+> Generated: 2026-10-17T08:39:28.136Z | Permissions: 52 | Roles: 4 | API routes: 195 | Pages: 58 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -25,23 +25,23 @@ This report cross-references four RBAC sources of truth:
 | Permission | Granted to roles | Pages using | API routes using | Files |
 |---|---|---|---|---|
 | `ai:action:approve` | admin | 0 | 0 | 0 |
-| `ai:chat` | admin, operator, viewer, storage_manager | 1 | 0 | 25 |
+| `ai:chat` | admin, operator, viewer, storage_manager | 2 | 0 | 26 |
 | `ai:manage` | admin, operator | 1 | 1 | 16 |
 | `ai:ops:autonomous` | admin | 1 | 1 | 2 |
 | `ai:ops:manage` | admin | 1 | 0 | 9 |
 | `ai:ops:read` | admin | 0 | 0 | 8 |
 | `announcement:manage` | admin | 0 | 1 | 7 |
 | `api-token:manage` | admin, operator | 0 | 0 | 5 |
-| `audit:read` | admin, operator, viewer, storage_manager | 0 | 1 | 8 |
+| `audit:read` | admin, operator, viewer, storage_manager | 0 | 1 | 9 |
 | `backup:create` | admin | 1 | 0 | 21 |
-| `backup:read` | admin | 0 | 0 | 10 |
+| `backup:read` | admin | 0 | 0 | 11 |
 | `backup:restore` | admin | 1 | 0 | 5 |
 | `command:approve` | admin | 3 | 2 | 7 |
 | `command:create` | admin, operator | 3 | 0 | 17 |
 | `command:execute` | admin, operator | 2 | 1 | 5 |
-| `command:read` | admin, operator, viewer, storage_manager | 0 | 0 | 8 |
+| `command:read` | admin, operator, viewer, storage_manager | 0 | 0 | 9 |
 | `cost:manage` | admin, operator | 1 | 0 | 25 |
-| `cost:read` | admin, operator, viewer | 1 | 0 | 15 |
+| `cost:read` | admin, operator, viewer | 1 | 0 | 16 |
 | `deploy:export` | admin, operator | 1 | 0 | 7 |
 | `deploy:manage` | admin | 0 | 0 | 0 |
 | `deploy:read` | admin, operator, viewer | 0 | 0 | 2 |
@@ -51,12 +51,12 @@ This report cross-references four RBAC sources of truth:
 | `image:read` | admin | 0 | 1 | 6 |
 | `image:write` | admin | 1 | 1 | 8 |
 | `media:manage` | admin, operator, storage_manager | 2 | 6 | 12 |
-| `notification:manage` | admin, operator | 1 | 0 | 14 |
+| `notification:manage` | admin, operator | 1 | 0 | 15 |
 | `playbook:manage` | admin | 1 | 0 | 7 |
-| `playbook:read` | admin, operator | 1 | 1 | 8 |
+| `playbook:read` | admin, operator | 2 | 1 | 9 |
 | `playbook:run` | admin, operator | 1 | 0 | 5 |
 | `role:manage` | admin | 0 | 4 | 4 |
-| `server:read` | admin, operator, viewer, storage_manager | 0 | 3 | 19 |
+| `server:read` | admin, operator, viewer, storage_manager | 7 | 3 | 28 |
 | `server:sftp:unrestricted` | admin | 0 | 0 | 0 |
 | `server:ssh` | admin, operator | 1 | 1 | 29 |
 | `server:write` | admin, operator | 1 | 1 | 22 |
@@ -65,16 +65,16 @@ This report cross-references four RBAC sources of truth:
 | `share:read` | admin, operator, viewer, storage_manager | 0 | 0 | 4 |
 | `snippet:manage` | admin, operator, storage_manager | 0 | 0 | 8 |
 | `storage:delete` | admin, storage_manager | 2 | 2 | 7 |
-| `storage:manage-node` | admin, storage_manager | 3 | 4 | 14 |
-| `storage:read` | admin, operator, viewer, storage_manager | 0 | 2 | 56 |
-| `storage:write` | admin, operator, storage_manager | 3 | 4 | 48 |
+| `storage:manage-node` | admin, storage_manager | 3 | 4 | 15 |
+| `storage:read` | admin, operator, viewer, storage_manager | 1 | 2 | 59 |
+| `storage:write` | admin, operator, storage_manager | 3 | 4 | 49 |
 | `task:read` | admin, operator, viewer, storage_manager | 0 | 0 | 6 |
 | `team:manage` | admin | 1 | 8 | 47 |
 | `team:read` | admin, operator, viewer, storage_manager | 0 | 0 | 2 |
 | `ticket:create` | admin, operator, viewer, storage_manager | 1 | 0 | 4 |
 | `ticket:manage` | admin, operator, storage_manager | 2 | 3 | 29 |
 | `ticket:read` | admin, operator, viewer, storage_manager | 0 | 0 | 7 |
-| `user:manage` | admin | 2 | 0 | 26 |
+| `user:manage` | admin | 2 | 0 | 27 |
 | `user:read` | admin, operator, viewer, storage_manager | 0 | 0 | 2 |
 
 ## ✅ No drift detected
