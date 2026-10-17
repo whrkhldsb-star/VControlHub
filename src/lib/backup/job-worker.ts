@@ -67,6 +67,8 @@ type BackupRetentionPayload = {
   keepLatestPerType?: number;
   projectRoot?: string;
   teamId?: string | null;
+  /** The platform's daily tick: offsite objects only; local records are pruned per customer. */
+  offsiteOnly?: boolean;
 };
 
 function parseRetentionPayload(
@@ -96,7 +98,7 @@ function parseRetentionPayload(
     typeof payload.teamId === "string" && payload.teamId.trim()
       ? payload.teamId.trim()
       : null;
-  return { olderThanDays, keepLatestPerType, projectRoot, teamId };
+  return { olderThanDays, keepLatestPerType, projectRoot, teamId, offsiteOnly: payload.offsiteOnly === true };
 }
 
 let timer: NodeJS.Timeout | null = null;
@@ -275,12 +277,16 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
             progress: "Cleaning up old backups",
           }),
         run: async () => {
-          const localSummary = await pruneOldBackupRecordsNow({
-            olderThanDays: payload.olderThanDays,
-            keepLatestPerType: payload.keepLatestPerType,
-            projectRoot: payload.projectRoot,
-            teamId: payload.teamId,
-          });
+          // The daily offsite tick has no customer: local pruning would only
+          // refuse (fail-closed) and leave a warning plus an error in the result.
+          const localSummary = payload.offsiteOnly
+            ? null
+            : await pruneOldBackupRecordsNow({
+                olderThanDays: payload.olderThanDays,
+                keepLatestPerType: payload.keepLatestPerType,
+                projectRoot: payload.projectRoot,
+                teamId: payload.teamId,
+              });
           // Offsite retentionDays is platform-wide; run best-effort prune alongside local retention.
           let offsiteResult: Awaited<
             ReturnType<
@@ -303,21 +309,23 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         },
       });
       await completeJob(job.id, WORKER_ID, {
-        retention: {
-          deletedRecords: summary.deletedRecords,
-          filesDeleted: summary.filesDeleted,
-          filesSkipped: summary.filesSkipped,
-          fileErrors: summary.fileErrors,
-          olderThanDays: summary.olderThanDays,
-          keepLatestPerType: summary.keepLatestPerType,
-          cutoff: summary.cutoff.toISOString(),
-          oldestKeptByType: Object.fromEntries(
-            Object.entries(summary.oldestKeptByType).map(([k, v]) => [
-              k,
-              v ? v.toISOString() : null,
-            ]),
-          ),
-        },
+        retention: summary
+          ? {
+              deletedRecords: summary.deletedRecords,
+              filesDeleted: summary.filesDeleted,
+              filesSkipped: summary.filesSkipped,
+              fileErrors: summary.fileErrors,
+              olderThanDays: summary.olderThanDays,
+              keepLatestPerType: summary.keepLatestPerType,
+              cutoff: summary.cutoff.toISOString(),
+              oldestKeptByType: Object.fromEntries(
+                Object.entries(summary.oldestKeptByType).map(([k, v]) => [
+                  k,
+                  v ? v.toISOString() : null,
+                ]),
+              ),
+            }
+          : null,
         offsite,
       });
       return true;

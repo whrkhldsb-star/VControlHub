@@ -244,6 +244,25 @@ describe("backup job worker create path", () => {
     expect(mocks.failJobTerminal).not.toHaveBeenCalled();
   });
 
+  it("runs only the offsite sweep for the platform's daily retention tick", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_offsite_tick",
+      type: BACKUP_RETENTION_JOB_TYPE,
+      payload: { offsiteOnly: true, teamId: null },
+    });
+
+    const ran = await runBackupJobWorkerOnce();
+    expect(ran).toBe(true);
+    // No customer: a local prune would only refuse and record an error.
+    expect(mocks.pruneOldBackupRecordsNow).not.toHaveBeenCalled();
+    expect(mocks.completeJob).toHaveBeenCalledWith(
+      "job_offsite_tick",
+      expect.any(String),
+      expect.objectContaining({ retention: null }),
+    );
+    expect(mocks.failJob).not.toHaveBeenCalled();
+  });
+
   it("fails the durable offsite-sync job when any upload fails", async () => {
     mocks.claimNextJob.mockResolvedValueOnce({
       id: "job_offsite_fail",
