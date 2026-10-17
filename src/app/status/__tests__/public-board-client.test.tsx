@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/lib/theme/provider";
 import type { PublicBoardResponse, PublicNode } from "@/lib/public-status/types";
 import { PublicBoardClient } from "../public-board-client";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }), usePathname: () => "/status" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }), usePathname: () => "/status", useSearchParams: () => null }));
 
 const now = "2026-10-13T12:00:00.000Z";
 
