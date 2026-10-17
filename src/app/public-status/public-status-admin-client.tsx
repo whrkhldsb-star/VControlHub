@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { ActionButton, ButtonLink } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { Dialog } from "@/components/ui/dialog";
 import { CheckboxField, FormField, Notice, Switch } from "@/components/ui-primitives";
@@ -15,6 +16,7 @@ import { api, ApiError } from "@/lib/http/api-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatAge } from "@/lib/public-status/format";
 import type { AdminNodeFilter, AdminNodeRow } from "@/lib/public-status/nodes-admin";
+import { COMMON_COUNTRY_CODES, countryName, normalizeCountryCode } from "@/lib/public-status/region-flag";
 import {
 	ANNOUNCEMENT_MAX,
 	DESCRIPTION_MAX,
@@ -25,6 +27,7 @@ import {
 	type PublicSiteConfig,
 } from "@/lib/public-status/site-config";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { CountryFlag } from "../status/board-visuals";
 import { ACCENT_VARS } from "../status/public-board-parts";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
@@ -131,6 +134,7 @@ function SiteSettings({ initial, t }: { initial: PublicSiteConfig; t: T }) {
 			<fieldset>
 				<legend className="mb-2 text-sm font-medium">{t("publicStatusAdmin.site.metrics")}</legend>
 				<p className="mb-2 text-xs text-[var(--text-muted)]">{t("publicStatusAdmin.site.metricsHint")}</p>
+				<p className="mb-2 text-xs text-[var(--text-muted)]">{t("publicStatusAdmin.site.newCategoriesHint")}</p>
 				<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
 					{PUBLIC_METRIC_CATEGORIES.map((category) => (
 						<CheckboxField
@@ -163,6 +167,7 @@ type EditState = {
 	displayName: string;
 	groupName: string;
 	region: string;
+	countryCode: string;
 	tags: string;
 	sortOrder: string;
 	note: string;
@@ -178,6 +183,7 @@ function editStateFor(row: AdminNodeRow): EditState {
 		displayName: p?.displayName ?? "",
 		groupName: p?.groupName ?? "",
 		region: p?.region ?? "",
+		countryCode: p?.countryCode ?? "",
 		tags: p?.tags.join(", ") ?? "",
 		sortOrder: String(p?.sortOrder ?? 0),
 		note: p?.note ?? "",
@@ -207,6 +213,7 @@ function EditDialog({ state, onClose, onSaved, metrics, t }: { state: EditState;
 				displayName: form.displayName,
 				groupName: form.groupName || null,
 				region: form.region || null,
+				countryCode: form.countryCode.trim() || null,
 				tags,
 				sortOrder: Number.parseInt(form.sortOrder, 10) || 0,
 				note: form.note || null,
@@ -222,6 +229,9 @@ function EditDialog({ state, onClose, onSaved, metrics, t }: { state: EditState;
 	};
 	const field = (key: keyof EditState) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((prev) => ({ ...prev, [key]: event.target.value }));
 	const ownerChanged = form.row.publication?.hiddenReason === "owner_changed";
+	const { locale } = useI18n();
+	const country = normalizeCountryCode(form.countryCode);
+	const countryInvalid = form.countryCode.trim() !== "" && !country;
 	return (
 		<Dialog
 			open
@@ -233,7 +243,7 @@ function EditDialog({ state, onClose, onSaved, metrics, t }: { state: EditState;
 			footer={
 				<>
 					<ActionButton variant="secondary" onClick={onClose}>{t("publicStatusAdmin.cancel")}</ActionButton>
-					<ActionButton onClick={save} loading={saving} disabled={!form.displayName.trim()}>{t("publicStatusAdmin.save")}</ActionButton>
+					<ActionButton onClick={save} loading={saving} disabled={!form.displayName.trim() || countryInvalid}>{t("publicStatusAdmin.save")}</ActionButton>
 				</>
 			}
 		>
@@ -247,6 +257,33 @@ function EditDialog({ state, onClose, onSaved, metrics, t }: { state: EditState;
 					</FormField>
 					<FormField label={t("publicStatusAdmin.edit.region")} htmlFor="pn-region" hint={t("publicStatusAdmin.edit.regionHint")}>
 						<input id="pn-region" className={UI_INPUT} maxLength={40} value={form.region} onChange={field("region")} />
+					</FormField>
+					<FormField
+						label={t("publicStatusAdmin.edit.country")}
+						htmlFor="pn-country"
+						hint={countryInvalid ? undefined : t("publicStatusAdmin.edit.countryHint")}
+						error={countryInvalid ? t("publicStatusAdmin.edit.countryInvalid") : undefined}
+					>
+						<div className="flex items-center gap-2">
+							<input
+								id="pn-country"
+								className={UI_INPUT}
+								maxLength={2}
+								autoCapitalize="characters"
+								spellCheck={false}
+								list="pn-country-list"
+								value={form.countryCode}
+								onChange={(event) => setForm((prev) => ({ ...prev, countryCode: event.target.value.toUpperCase() }))}
+								aria-invalid={countryInvalid || undefined}
+							/>
+							<span className="flex min-w-0 shrink-0 items-center gap-1.5 text-sm text-[var(--text-secondary)]">
+								<CountryFlag code={country} locale={locale} className="text-xl" />
+								{country ? <span className="truncate">{countryName(country, locale)}</span> : null}
+							</span>
+						</div>
+						<datalist id="pn-country-list">
+							{COMMON_COUNTRY_CODES.map((code) => <option key={code} value={code}>{countryName(code, locale)}</option>)}
+						</datalist>
 					</FormField>
 					<FormField label={t("publicStatusAdmin.edit.tags")} htmlFor="pn-tags" hint={t("publicStatusAdmin.edit.tagsHint")}>
 						<input id="pn-tags" className={UI_INPUT} value={form.tags} onChange={field("tags")} />
@@ -270,7 +307,10 @@ function EditDialog({ state, onClose, onSaved, metrics, t }: { state: EditState;
 						<dt className="text-[var(--text-muted)]">{t("publicStatusAdmin.edit.group")}</dt>
 						<dd>{form.groupName.trim() || "—"}</dd>
 						<dt className="text-[var(--text-muted)]">{t("publicStatusAdmin.edit.region")}</dt>
-						<dd>{form.region.trim() || "—"}</dd>
+						<dd className="flex items-center gap-1.5">
+							<CountryFlag code={country} locale={locale} />
+							<span>{form.region.trim() || (country ? countryName(country, locale) : "—")}</span>
+						</dd>
 						<dt className="text-[var(--text-muted)]">{t("publicStatusAdmin.edit.tags")}</dt>
 						<dd>{tags.length ? tags.join(" · ") : "—"}</dd>
 						<dt className="text-[var(--text-muted)]">{t("publicStatusAdmin.edit.note")}</dt>
@@ -302,6 +342,7 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 	const [busy, setBusy] = useState(false);
 	const [nowMs, setNowMs] = useState(() => Date.now());
 	const [reloadKey, setReloadKey] = useState(0);
+	const [confirmNamed, setConfirmNamed] = useState(false);
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
@@ -344,12 +385,13 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 		return next;
 	});
 
-	const batch = async (action: "publish" | "unpublish" | "maintenance_on" | "maintenance_off") => {
+	const batch = async (action: "publish" | "publish_named" | "unpublish" | "maintenance_on" | "maintenance_off") => {
 		setBusy(true);
 		try {
 			const result = await api.post<{ changed: number; skipped: string[] }>("/api/admin/public-status/nodes", { action, serverIds: [...selected] });
 			addToast(result.skipped.length ? "warning" : "success", t("publicStatusAdmin.batch.result", { changed: result.changed, skipped: result.skipped.length }));
 			setSelected(new Set());
+			setConfirmNamed(false);
 			reload();
 		} catch (err) {
 			addToast("error", errorText(err));
@@ -357,6 +399,8 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 			setBusy(false);
 		}
 	};
+	// Servers among the selection that would go public under their server name.
+	const unnamed = rows.filter((row) => selected.has(row.serverId) && !row.publication?.displayName.trim());
 
 	return (
 		<section data-card className="flex flex-col gap-4 p-5" aria-labelledby="nodes-title">
@@ -381,6 +425,7 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 			<div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("publicStatusAdmin.batch.label")}>
 				<span className="text-xs text-[var(--text-muted)]">{t("publicStatusAdmin.batch.selected", { count: selected.size })}</span>
 				<ActionButton size="sm" variant="outline" disabled={!selected.size || busy} onClick={() => batch("publish")}>{t("publicStatusAdmin.batch.publish")}</ActionButton>
+				<ActionButton size="sm" variant="outline" disabled={!selected.size || busy} onClick={() => setConfirmNamed(true)}>{t("publicStatusAdmin.batch.publishNamed")}</ActionButton>
 				<ActionButton size="sm" variant="outline" disabled={!selected.size || busy} onClick={() => batch("unpublish")}>{t("publicStatusAdmin.batch.unpublish")}</ActionButton>
 				<ActionButton size="sm" variant="ghost" disabled={!selected.size || busy} onClick={() => batch("maintenance_on")}>{t("publicStatusAdmin.batch.maintenanceOn")}</ActionButton>
 				<ActionButton size="sm" variant="ghost" disabled={!selected.size || busy} onClick={() => batch("maintenance_off")}>{t("publicStatusAdmin.batch.maintenanceOff")}</ActionButton>
@@ -462,6 +507,25 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 				<ActionButton size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>{t("publicStatus.next")}</ActionButton>
 				{loading ? <span className="text-xs text-[var(--text-muted)]" role="status">{t("publicStatus.refreshing")}</span> : null}
 			</nav>
+			<ConfirmDialog
+				open={confirmNamed}
+				title={t("publicStatusAdmin.batch.publishNamedTitle", { count: selected.size })}
+				description={
+					<>
+						<span className="block">{t("publicStatusAdmin.batch.publishNamedDesc")}</span>
+						{unnamed.length ? (
+							<span className="mt-2 block text-xs">
+								{t("publicStatusAdmin.batch.publishNamedList", { names: unnamed.slice(0, 8).map((row) => row.serverName).join("、") + (unnamed.length > 8 ? " …" : "") })}
+							</span>
+						) : null}
+					</>
+				}
+				cancelLabel={t("publicStatusAdmin.cancel")}
+				confirmLabel={t("publicStatusAdmin.batch.publishNamedConfirm")}
+				busy={busy}
+				onCancel={() => setConfirmNamed(false)}
+				onConfirm={() => void batch("publish_named")}
+			/>
 			{editing ? (
 				<EditDialog
 					state={editing}

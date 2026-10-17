@@ -13,6 +13,7 @@ import {
   updateServerProfile,
 } from "@/lib/server/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { billingInputFromForm, normalizeServerBilling, saveNewServerBilling, updateServerBilling } from "@/lib/server/billing";
 import { SshHostKeyApprovalRequiredError } from "@/lib/ssh/host-key";
 import { getErrorMessage } from "@/lib/http/error-message";
 
@@ -70,6 +71,9 @@ export async function createServerAction(
     const approvedHostKeySha256 = String(formData.get("approvedHostKeySha256") ?? "") || undefined;
     const saveAsDraftOnConnectionFailure =
       formData.get("saveAsDraftOnConnectionFailure") === "on";
+    // Checked before anything is created, stored once the profile exists.
+    const billingInput = billingInputFromForm(formData);
+    const billing = billingInput ? normalizeServerBilling(billingInput) : null;
 
     const windows = formData.get("operatingSystem") === "WINDOWS";
     const created = await createServerProfile(windows ? {
@@ -109,6 +113,7 @@ export async function createServerAction(
       approvedHostKeySha256,
       saveAsDraftOnConnectionFailure,
     }, session);
+    if (billing) await saveNewServerBilling(created.id, billing);
 
     await auditUserAction(
       session.userId,
@@ -160,6 +165,8 @@ export async function updateServerAction(
 
     const storagePathRaw = String(formData.get("storagePath") ?? "").trim();
     const repairStoragePath = formData.get("repairStoragePath") === "on";
+    const billingInput = billingInputFromForm(formData);
+    const billing = billingInput ? normalizeServerBilling(billingInput) : null;
     const changes = formData.get("operatingSystem") === "WINDOWS" ? {
       operatingSystem: "WINDOWS" as const,
       name: String(formData.get("name") ?? ""), host: String(formData.get("host") ?? ""),
@@ -204,11 +211,12 @@ export async function updateServerAction(
     };
 
     const updated = await updateServerProfile(serverId, changes, session);
+    if (billing) await updateServerBilling(serverId, billing, session);
 
     await auditUserAction(
       session.userId,
       "server.update",
-      { serverId, fields: Object.keys(changes) },
+      { serverId, fields: [...Object.keys(changes), ...(billing ? ["expiresAt", "trafficQuotaBytes", "trafficQuotaMode"] : [])] },
       undefined,
       session.currentTeamId,
     );

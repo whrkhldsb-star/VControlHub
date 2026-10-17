@@ -86,12 +86,17 @@ export async function snapshotHealthOverview(
       }
       return [];
     }
+    const load1 = server.loadAvg1m ?? server.metrics?.cpu.loadAvg[0];
     return [{
       serverId: server.serverId,
       cpuUsage: server.cpu,
       memUsage: server.mem,
       diskUsage: server.diskMax,
       isOnline: true,
+      load1: typeof load1 === "number" && Number.isFinite(load1) ? load1 : null,
+      processCount: server.metrics?.system?.processes ?? null,
+      tcpConnections: server.metrics?.system?.tcpConnections ?? null,
+      udpConnections: server.metrics?.system?.udpConnections ?? null,
       ...extra,
     }];
   });

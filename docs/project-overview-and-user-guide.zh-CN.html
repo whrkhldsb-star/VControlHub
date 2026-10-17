@@ -1648,9 +1648,9 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>告警联动 Playbook 失败会被记录，不阻断告警状态更新。应分别查看“规则触发成功”“通知发送成功”“联动修复成功”。</p>
 <p><a id="public-board"></a></p>
 <h3 id="section-12-8">12.8 公开节点状态展示页</h3>
-<p>参考 Komari 的访客首页做的免登录看板，默认关闭、所有服务器默认不公开。平台管理员在 <code>/public-status</code>（设置页“数据”分类有入口）打开展示页、填写标题／简介／公告（纯文本）、选择默认视图、访客刷新间隔（10／15／30／60 秒）、强调色和允许公开的指标类别，并逐台为服务器填写公开名称（必填，不会回退为内部名称或主机，公开文本不得包含主机地址）、分组、地区、标签、排序、公开说明和维护标记后发布；可批量发布／撤销，保存前右侧列出访客将看到的字段，“以访客身份预览”在关闭状态下也能看到同一份公开数据。</p>
-<p>开启后未登录访问 <code>/</code> 会进入 <code>/status</code>：汇总在线／离线／陈旧／未采样／维护数量、地区与分组、实时吞吐、本月流量和最新采样时间；卡片／表格视图，按公开名称、地区、分组、标签搜索，按分组、状态过滤，排序与分页写入 URL。<code>/status/nodes/&lt;公开 ID&gt;</code> 显示当前指标、24 小时／7 天可用率与覆盖率、1h／6h／24h／7d 历史（资源、网络速率、控制端到节点 TCP 延迟及失败标记）和 90 天每日可用率。已登录访问 <code>/</code>、<code>/dashboard</code> 仍是管理仪表盘。</p>
-<p>访客请求只读取后台采样与 Agent 上报已保存的数据（<code>ServerMetricLatest</code>、<code>MetricSnapshot</code>、<code>TrafficSnapshot</code>、<code>ServerUptimeSnapshot</code>），不会触发 SSH 或 TCP 探测；公开接口只返回白名单字段。撤销公开、服务器禁用、转移到其他客户或客户删除后，列表、详情、历史和汇总同时收回。状态含义、单位、缓存时效、运行成本与后续路线见 <a href="public-status-board.zh-CN.md">公开展示页说明</a>。</p>
+<p>参考 Komari 的访客首页做的免登录看板，默认关闭、所有服务器默认不公开。平台管理员在 <code>/public-status</code>（设置页“数据”分类有入口）打开展示页、填写标题／简介／公告（纯文本）、选择默认视图、访客刷新间隔（10／15／30／60 秒）、强调色和允许公开的指标类别，并逐台为服务器填写公开名称（必填，不会自动回退为内部名称或主机，公开文本不得包含主机地址）、分组、地区、国家旗帜（两位代码，如 JP、HK）、标签、排序、公开说明和维护标记后发布；可批量发布／撤销，也可勾选服务器后“用服务器名称发布”（确认框列出将以服务器名称公开的机器，名称含主机地址的跳过）。保存前右侧列出访客将看到的字段，“以访客身份预览”在关闭状态下也能看到同一份公开数据。可公开的类别里，“系统信息”（发行版、架构、内核、CPU 型号、虚拟化）和“进程与连接数”默认勾选，“价格与到期”默认不公开；月费沿用服务器的成本字段，到期日期和每月流量配额（GiB，按上下行合计／较大者／仅上行／仅下行计量）在服务器新建／编辑表单的“费用”区填写，服务器详情会显示剩余天数。</p>
+<p>开启后未登录访问 <code>/</code> 会进入 <code>/status</code>：顶部概况卡显示当前时间、在线比例、地区与国旗、本月流量和实时吞吐（访客可选择显示哪几张），并列出最新采样时间；卡片仿 Komari，含国旗、系统、按 60／80 % 变色的 CPU／内存／磁盘条、价格与到期徽章、流量配额条、速率、运行时长、TCP 延迟与连接数，右上角按钮可看近 24 小时趋势，点击卡片进入详情；表格视图带内嵌进度条。按公开名称、地区、分组、标签搜索（按 <code>/</code> 聚焦搜索框），按分组、状态过滤，排序与分页写入 URL。<code>/status/nodes/&lt;公开 ID&gt;</code> 显示进度条指标卡、基本信息（系统、架构、内核、CPU 型号、内存／磁盘总量、进程与连接数、配额、到期等已知项）、24 小时／7 天可用率与覆盖率、1h／6h／24h／7d／30d 历史（资源、网络速率、控制端到节点 TCP 延迟及失败标记、负载、连接数、进程数）和 90 天每日可用率。已登录访问 <code>/</code>、<code>/dashboard</code> 仍是管理仪表盘。</p>
+<p>访客请求只读取后台采样与 Agent 上报已保存的数据（<code>ServerMetricLatest</code>、<code>MetricSnapshot</code>、<code>TrafficSnapshot</code>、<code>ServerUptimeSnapshot</code>），不会触发 SSH 或 TCP 探测；公开接口只返回白名单字段。系统信息与连接数由采集脚本一并采集：SSH 采样的节点下一次采样即有，已安装的 Agent 需重新执行安装命令后才会上报。撤销公开、服务器禁用、转移到其他客户或客户删除后，列表、详情、历史和汇总同时收回。状态含义、单位、缓存时效、运行成本与后续路线见 <a href="public-status-board.zh-CN.md">公开展示页说明</a>。</p>
 <p>依据：<a href="../src/lib/health/">健康与预测</a>、<a href="../src/lib/public-status/">公开展示页</a>、<a href="../src/lib/monitoring/">监控业务层</a>、<a href="../src/app/api/alert-rules/route.ts">告警规则接口</a>、<a href="../src/lib/alert/incidents.ts">告警事件</a>、<a href="../src/lib/uptime/">可用率汇总</a>。</p>
 <h2 id="backup">13. 平台备份、VPS 备份、恢复与迁移</h2>
 <h3 id="section-13-1">13.1 平台备份的三种类型</h3>
@@ -4824,13 +4824,13 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/api/admin/public-status/nodes/route.ts"><code>/api/admin/public-status/nodes</code></a></td>
 <td>GET / POST</td>
-<td>平台管理员列出全部服务器的公开状态；批量发布、撤销、维护</td>
+<td>平台管理员列出全部服务器的公开状态；批量发布、用服务器名称发布、撤销、维护</td>
 <td><a href="#public-board">公开节点状态展示页</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/admin/public-status/nodes/%5BserverId%5D/route.ts"><code>/api/admin/public-status/nodes/[serverId]</code></a></td>
 <td>PUT</td>
-<td>单台服务器的公开名称、分组、地区、标签、排序、说明、维护与发布</td>
+<td>单台服务器的公开名称、分组、地区、国家旗帜、标签、排序、说明、维护与发布</td>
 <td><a href="#public-board">公开节点状态展示页</a></td>
 </tr>
 <tr>

@@ -30,6 +30,7 @@ export const RANGE_SECONDS: Record<PublicHistoryRange, number> = {
 	"6h": 21_600,
 	"24h": 86_400,
 	"7d": 604_800,
+	"30d": 2_592_000,
 };
 export const MAX_POINTS = 360;
 export const MIN_BUCKET_SECONDS = 60;
@@ -76,6 +77,10 @@ type ResourceRow = {
 	rtt_min: number | null;
 	rtt_max: number | null;
 	interval_s: number | null;
+	load1: number | null;
+	procs: number | null;
+	tcp: number | null;
+	udp: number | null;
 };
 
 function n(value: bigint | number | null | undefined): number {
@@ -101,7 +106,11 @@ export async function queryResourceBuckets(serverId: string, from: Date, to: Dat
 			avg("probeLatencyMs") FILTER (WHERE "probeStatus" = 'ok') AS rtt_avg,
 			min("probeLatencyMs") FILTER (WHERE "probeStatus" = 'ok') AS rtt_min,
 			max("probeLatencyMs") FILTER (WHERE "probeStatus" = 'ok') AS rtt_max,
-			max(COALESCE("intervalSeconds", ${LEGACY_SAMPLE_INTERVAL_SECONDS}))::float8 AS interval_s
+			max(COALESCE("intervalSeconds", ${LEGACY_SAMPLE_INTERVAL_SECONDS}))::float8 AS interval_s,
+			avg("load1") FILTER (WHERE "isOnline") AS load1,
+			avg("processCount") FILTER (WHERE "isOnline")::float8 AS procs,
+			avg("tcpConnections") FILTER (WHERE "isOnline")::float8 AS tcp,
+			avg("udpConnections") FILTER (WHERE "isOnline")::float8 AS udp
 		FROM "metric_snapshots"
 		WHERE "serverId" = ${serverId} AND "createdAt" >= ${from}::timestamp AND "createdAt" < ${to}::timestamp
 		GROUP BY 1
@@ -196,6 +205,10 @@ export function shapeResourcePoints(rows: ResourceRow[], bucketSeconds: number, 
 		cpu: r1(row.cpu),
 		memory: r1(row.mem),
 		disk: r1(row.disk),
+		load: row.load1 === null || row.load1 === undefined ? null : Math.round(row.load1 * 100) / 100,
+		processes: row.procs === null || row.procs === undefined ? null : Math.round(row.procs),
+		tcp: row.tcp === null || row.tcp === undefined ? null : Math.round(row.tcp),
+		udp: row.udp === null || row.udp === undefined ? null : Math.round(row.udp),
 		online: n(row.online),
 		offline: n(row.offline),
 	}));
@@ -211,7 +224,7 @@ export function shapeResourcePoints(rows: ResourceRow[], bucketSeconds: number, 
 		}));
 	const maxGap = 2 * Math.max(bucketSeconds, interval) + 1;
 	return {
-		resources: insertGaps(resources, maxGap, (t) => ({ t, cpu: null, memory: null, disk: null, online: 0, offline: 0 })),
+		resources: insertGaps(resources, maxGap, (t) => ({ t, cpu: null, memory: null, disk: null, load: null, processes: null, tcp: null, udp: null, online: 0, offline: 0 })),
 		latency: insertGaps(latency, maxGap, (t) => ({ t, avg: null, min: null, max: null, ok: 0, failed: 0 })),
 		probes: latency.reduce((sum, point) => sum + point.ok + point.failed, 0),
 		failed: latency.reduce((sum, point) => sum + point.failed, 0),

@@ -57,8 +57,9 @@ describe("normalize", () => {
 			netTxBytes: BigInt(2000),
 		});
 		expect(Object.keys(values).sort()).toEqual([
-			"cpuCores", "cpuUsage", "diskTotalBytes", "diskUsage", "diskUsedBytes", "load1", "load15", "load5",
-			"memTotalMb", "memUsage", "memUsedMb", "netIface", "netRxBytes", "netTxBytes", "swapUsage", "uptimeSeconds",
+			"arch", "cpuCores", "cpuModel", "cpuUsage", "diskTotalBytes", "diskUsage", "diskUsedBytes", "kernelVersion", "load1", "load15", "load5",
+			"memTotalMb", "memUsage", "memUsedMb", "netIface", "netRxBytes", "netTxBytes", "osName", "processCount", "swapUsage",
+			"tcpConnections", "udpConnections", "uptimeSeconds", "virtualization",
 		]);
 	});
 });

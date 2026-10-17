@@ -20,6 +20,7 @@ import { useSshTerminal } from "./ssh-terminal-context";
 import { ActionButton, type ButtonSize } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { ServerConnectionAction } from "./server-connection-action";
+import type { ServerBillingDto } from "@/lib/server/billing-form";
 
 const initialState: ServerActionState = {
 	error: undefined,
@@ -50,6 +51,7 @@ type ServerCardActionsProps = {
 	costCurrency?: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
 	costProvider?: string | null;
 	costLastSyncedAt?: string | null;
+	billing?: ServerBillingDto | null;
 	storagePath?: string | null;
 	storageNodeId?: string | null;
 	windowsSftpPort?: number;
@@ -88,6 +90,7 @@ export function ServerCardActions({
 	costCurrency = "CNY",
 	costProvider = null,
 	costLastSyncedAt = null,
+	billing = null,
 	storagePath = null,
 	storageNodeId = null,
 	windowsSftpPort = 22,
@@ -178,6 +181,7 @@ export function ServerCardActions({
 					costCurrency={costCurrency}
 					costProvider={costProvider}
 					costLastSyncedAt={costLastSyncedAt}
+					billing={billing}
 					storagePath={storagePath}
 					storageNodeId={storageNodeId}
 					windowsSftpPort={windowsSftpPort}

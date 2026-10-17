@@ -6,6 +6,7 @@
  * latency milliseconds, percentages 0–100, durations seconds, timestamps ISO.
  * A missing measurement is `null` — never a default zero.
  */
+import type { TrafficQuotaMode } from "./billing";
 import type { PublicNodeStatus } from "./status";
 
 export type { PublicNodeStatus };
@@ -16,9 +17,36 @@ export type PublicNodeMetrics = {
 	memory?: { usage: number | null; usedBytes: number | null; totalBytes: number | null; swapUsage: number | null };
 	disk?: { usage: number | null; usedBytes: number | null; totalBytes: number | null };
 	network?: { rxBytesPerSecond: number | null; txBytesPerSecond: number | null; rateWindowSeconds: number | null };
-	traffic?: { periodRxBytes: number | null; periodTxBytes: number | null; periodStart: string | null; countedSince: string | null };
+	traffic?: {
+		periodRxBytes: number | null;
+		periodTxBytes: number | null;
+		periodStart: string | null;
+		countedSince: string | null;
+		/** Monthly allowance and the direction it counts; absent when unlimited. */
+		quota?: { limitBytes: number; mode: TrafficQuotaMode };
+	};
 	uptime?: { seconds: number | null };
 	latency?: { ms: number | null; ok: boolean | null; at: string | null };
+	/** Process and socket counts of the latest sample. */
+	connections?: { processes: number | null; tcp: number | null; udp: number | null };
+};
+
+/** What the node is; each field null when no sample reported it. */
+export type PublicNodeSystem = {
+	os: string | null;
+	arch: string | null;
+	kernel: string | null;
+	cpuModel: string | null;
+	virtualization: string | null;
+};
+
+/** Published only when the site shows billing. */
+export type PublicNodeBilling = {
+	/** Monthly price in `currency`; null when not recorded. */
+	monthlyPrice: number | null;
+	currency: string | null;
+	/** Rental end (renewal or expiry); null when not recorded. */
+	expiresAt: string | null;
 };
 
 export type PublicNode = {
@@ -26,6 +54,8 @@ export type PublicNode = {
 	name: string;
 	group: string | null;
 	region: string | null;
+	/** ISO 3166-1 alpha-2, shown as a flag. */
+	countryCode: string | null;
 	tags: string[];
 	note: string | null;
 	status: PublicNodeStatus;
@@ -41,6 +71,8 @@ export type PublicNode = {
 	/** Expected seconds between metric reports for this node. */
 	reportIntervalSeconds: number | null;
 	metrics: PublicNodeMetrics;
+	system: PublicNodeSystem | null;
+	billing: PublicNodeBilling | null;
 };
 
 export type PublicCountBucket = { name: string; total: number; online: number };
@@ -54,6 +86,8 @@ export type PublicBoardSummary = {
 	maintenance: number;
 	groups: PublicCountBucket[];
 	regions: PublicCountBucket[];
+	/** Country codes (flags) of the visible nodes. */
+	countries: PublicCountBucket[];
 	/** Sums over nodes whose current rate is known; null when none is. */
 	rxBytesPerSecond: number | null;
 	txBytesPerSecond: number | null;
@@ -130,7 +164,7 @@ export type PublicNodeDetailResponse = {
 	generatedAt: string;
 };
 
-export type PublicHistoryRange = "1h" | "6h" | "24h" | "7d";
+export type PublicHistoryRange = "1h" | "6h" | "24h" | "7d" | "30d";
 
 export type PublicHistoryPoint = {
 	t: string;
@@ -138,6 +172,11 @@ export type PublicHistoryPoint = {
 	cpu?: number | null;
 	memory?: number | null;
 	disk?: number | null;
+	/** 1-minute load average. */
+	load?: number | null;
+	processes?: number | null;
+	tcp?: number | null;
+	udp?: number | null;
 	online?: number;
 	offline?: number;
 };

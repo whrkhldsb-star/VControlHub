@@ -62,6 +62,9 @@ function rowSql(input: LatestMetricInput) {
 		${periodStart}::timestamp,
 		${input.probe?.at ?? null}::timestamp, ${input.probe ? input.probe.ok : null}::boolean,
 		${input.probe?.latencyMs ?? null}::float8,
+		${v?.arch ?? null}::text, ${v?.kernelVersion ?? null}::text, ${v?.osName ?? null}::text,
+		${v?.cpuModel ?? null}::text, ${v?.virtualization ?? null}::text,
+		${v?.processCount ?? null}::int, ${v?.tcpConnections ?? null}::int, ${v?.udpConnections ?? null}::int,
 		(now() AT TIME ZONE 'UTC')
 	)`;
 }
@@ -105,7 +108,9 @@ async function writeWave(inputs: LatestMetricInput[]): Promise<number> {
 				"memUsage", "memUsedMb", "memTotalMb", "swapUsage", "diskUsage",
 				"diskUsedBytes", "diskTotalBytes", "uptimeSeconds", "netIface",
 				"netRxBytes", "netTxBytes", "periodStart",
-				"probeAt", "probeOk", "probeLatencyMs", "updatedAt",
+				"probeAt", "probeOk", "probeLatencyMs",
+				"arch", "kernelVersion", "osName", "cpuModel", "virtualization",
+				"processCount", "tcpConnections", "udpConnections", "updatedAt",
 				"periodSince", "periodRxBytes", "periodTxBytes"
 			)
 			SELECT v.*, v."metricsAt", 0::bigint, 0::bigint
@@ -116,7 +121,9 @@ async function writeWave(inputs: LatestMetricInput[]): Promise<number> {
 				"memUsage", "memUsedMb", "memTotalMb", "swapUsage", "diskUsage",
 				"diskUsedBytes", "diskTotalBytes", "uptimeSeconds", "netIface",
 				"netRxBytes", "netTxBytes", "periodStart",
-				"probeAt", "probeOk", "probeLatencyMs", "updatedAt"
+				"probeAt", "probeOk", "probeLatencyMs",
+				"arch", "kernelVersion", "osName", "cpuModel", "virtualization",
+				"processCount", "tcpConnections", "udpConnections", "updatedAt"
 			)
 			JOIN "servers" s ON s."id" = v."serverId"
 			ON CONFLICT ("serverId") DO UPDATE SET
@@ -177,6 +184,16 @@ async function writeWave(inputs: LatestMetricInput[]): Promise<number> {
 				"netIface" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."netIface" ELSE t."netIface" END,
 				"netRxBytes" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."netRxBytes" ELSE t."netRxBytes" END,
 				"netTxBytes" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."netTxBytes" ELSE t."netTxBytes" END,
+				-- Static facts survive a newer sample that lacks them (an older Agent);
+				-- counts describe one sample and follow it, null included.
+				"arch" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN COALESCE(EXCLUDED."arch", t."arch") ELSE t."arch" END,
+				"kernelVersion" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN COALESCE(EXCLUDED."kernelVersion", t."kernelVersion") ELSE t."kernelVersion" END,
+				"osName" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN COALESCE(EXCLUDED."osName", t."osName") ELSE t."osName" END,
+				"cpuModel" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN COALESCE(EXCLUDED."cpuModel", t."cpuModel") ELSE t."cpuModel" END,
+				"virtualization" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN COALESCE(EXCLUDED."virtualization", t."virtualization") ELSE t."virtualization" END,
+				"processCount" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."processCount" ELSE t."processCount" END,
+				"tcpConnections" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."tcpConnections" ELSE t."tcpConnections" END,
+				"udpConnections" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."udpConnections" ELSE t."udpConnections" END,
 				"metricsAt" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."metricsAt" ELSE t."metricsAt" END,
 				"updatedAt" = (now() AT TIME ZONE 'UTC')
 		`;

@@ -640,6 +640,8 @@ export const zh: Record<string, string> = {
 	"backend.customer.builtinTemplateReadOnly": "内置身份模板不可修改",
 	"backend.customer.templateInUse": "仍有 {count} 个账号在使用这个模板，先为它们换一个模板",
 	"backend.customer.templateNeedsPermissions": "身份模板至少需要一项权限",
+	"backend.server.billing.expiryInvalid": "到期日期无效，请使用 YYYY-MM-DD 格式。",
+	"backend.server.billing.quotaInvalid": "流量配额必须是大于 0 的数字（单位 GiB，最多 3 位小数）。",
 };
 
 
@@ -1296,4 +1298,6 @@ export const en: Record<string, string> = {
 	"backend.customer.builtinTemplateReadOnly": "Built-in identity templates are read-only",
 	"backend.customer.templateInUse": "{count} accounts still use this template; move them to another template first",
 	"backend.customer.templateNeedsPermissions": "An identity template needs at least one permission",
+	"backend.server.billing.expiryInvalid": "The expiry date is not valid; use YYYY-MM-DD.",
+	"backend.server.billing.quotaInvalid": "The traffic quota must be a number greater than 0 (GiB, up to 3 decimals).",
 };

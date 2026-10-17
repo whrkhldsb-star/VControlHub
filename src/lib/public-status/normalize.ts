@@ -26,6 +26,14 @@ export type NormalizedMetrics = {
 	netIface: string | null;
 	netRxBytes: bigint | null;
 	netTxBytes: bigint | null;
+	arch: string | null;
+	kernelVersion: string | null;
+	osName: string | null;
+	cpuModel: string | null;
+	virtualization: string | null;
+	processCount: number | null;
+	tcpConnections: number | null;
+	udpConnections: number | null;
 };
 
 const SIZE_UNITS: Record<string, number> = {
@@ -148,5 +156,13 @@ export function normalizeServerMetrics(metrics: ServerMetrics): NormalizedMetric
 		netIface: primary ? primary.iface.slice(0, 64) : null,
 		netRxBytes: primary ? counterOrNull(primary.rxBytes) : null,
 		netTxBytes: primary ? counterOrNull(primary.txBytes) : null,
+		arch: metrics.system?.arch ?? null,
+		kernelVersion: metrics.system?.kernel ?? null,
+		osName: metrics.system?.os ?? null,
+		cpuModel: metrics.system?.cpuModel ?? null,
+		virtualization: metrics.system?.virtualization ?? null,
+		processCount: metrics.system?.processes ?? null,
+		tcpConnections: metrics.system?.tcpConnections ?? null,
+		udpConnections: metrics.system?.udpConnections ?? null,
 	};
 }

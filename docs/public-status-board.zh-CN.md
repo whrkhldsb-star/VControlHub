@@ -7,9 +7,10 @@
 | 位置 | 内容 |
 | --- | --- |
 | `/`（未登录） | 展示页开启时进入 `/status`；关闭时进入登录页（`/login?next=%2F`）。已登录访问 `/`、`/dashboard` 仍是原管理仪表盘。 |
-| `/status` | 公开看板：标题/简介/公告（纯文本）、平台整体状态（可关闭）、在线/离线/陈旧/未采样/维护数量、地区与分组数、实时吞吐合计、本月流量合计、最新采样时间与页面刷新时间；卡片/表格两种视图（本地记住）；按公开名称/地区/分组/标签搜索，按分组、状态过滤；默认顺序（管理员排序）或按名称、状态、CPU、内存、磁盘、网络速率排序；分页（12/24/48/96 每页），查询条件写入 URL。登录账号在看板下方另见原有的内部组件检查与本客户可用率（`?preview=1` 访客预览时隐藏）。 |
-| `/status/nodes/<publicId>` | 节点详情：CPU（核数）、负载、内存（含交换）、磁盘（最满分区的使用率及其已用/总量，`df -h` 近似值）、当前上下行速率及其计算窗口、本月流量（注明统计起点）、运行时长、控制端到节点 TCP 延迟；近 24 小时 / 7 天可用率与覆盖率；1h/6h/24h/7d 历史（CPU/内存/磁盘、网络速率、TCP 延迟与失败标记），每张图 ≤ 360 个时间桶并显示分辨率、采样间隔、覆盖率；近 90 天每日可用率条。无终端、重启、命令、文件等任何操作入口。 |
-| `/public-status`（平台管理员） | 站点设置：公开开关、标题、简介、公告、默认视图、访客刷新间隔（10/15/30/60 秒）、强调色预设、允许公开的指标类别、是否显示平台整体状态；“以访客身份预览”。节点设置：按服务器搜索/筛选（全部、已公开、未公开、已公开但当前未显示），逐个编辑公开名称/分组/地区/标签/排序/公开说明/维护标记/是否公开，保存前右侧列出访客将看到的字段；批量发布/撤销/维护。设置页“数据”分类中有入口卡片。 |
+| `/status` | 公开看板：标题/简介/公告（纯文本）、平台整体状态（可关闭）；顶部概况卡（当前时间、在线 x/总数及状态比例条、地区数与国家旗帜、本月流量合计、实时吞吐合计；访客可在齿轮菜单里选择显示哪几张，只存本浏览器），下方列出最新采样时间与页面刷新时间；卡片/表格两种视图（本地记住）。卡片：国旗、状态点、价格/到期徽章（站点公开“价格与到期”时）、按名称着色的标签、系统行（发行版图标 · 架构 · 虚拟化）、CPU/内存/磁盘进度条（< 60 % 绿、60–80 % 琥珀、≥ 80 % 红）、有配额时的本月流量配额条、速率/流量/运行时长/负载/TCP 延迟/连接数，右上角“趋势”按钮按需加载近 24 小时 CPU/内存与 TCP 延迟；整张卡片可点进详情。表格：国旗与系统标识、内嵌进度条、配额用量百分比、到期列（有到期数据时）；按 `/` 聚焦搜索框；按公开名称/地区/分组/标签搜索，按分组、状态过滤；默认顺序（管理员排序）或按名称、状态、CPU、内存、磁盘、网络速率排序；分页（12/24/48/96 每页），查询条件写入 URL。登录账号在看板下方另见原有的内部组件检查与本客户可用率（`?preview=1` 访客预览时隐藏）。 |
+| `/status/nodes/<publicId>` | 节点详情：国旗、价格/到期徽章与标签；CPU/内存/磁盘/流量配额进度卡、负载、当前上下行速率及其计算窗口、本月流量（注明统计起点）、运行时长、控制端到节点 TCP 延迟、近 24 小时 / 7 天可用率与覆盖率；“基本信息”网格（操作系统、架构、虚拟化、内核、CPU 型号与核数、内存/磁盘总量、交换占用、运行时长、进程数、TCP/UDP 连接数、流量配额、到期日、最近更新，只列已知项）；1h/6h/24h/7d/30d 历史（CPU/内存/磁盘、网络速率、TCP 延迟与失败标记、1 分钟负载、TCP/UDP 连接数、进程数），每张图 ≤ 360 个时间桶并显示分辨率、采样间隔、覆盖率；近 90 天每日可用率条。磁盘为最满分区的使用率及其已用/总量（`df -h` 近似值）。无终端、重启、命令、文件等任何操作入口。 |
+| `/public-status`（平台管理员） | 站点设置：公开开关、标题、简介、公告、默认视图、访客刷新间隔（10/15/30/60 秒）、强调色预设、允许公开的指标类别、是否显示平台整体状态；“以访客身份预览”。节点设置：按服务器搜索/筛选（全部、已公开、未公开、已公开但当前未显示），逐个编辑公开名称/分组/地区/国家旗帜（ISO 3166-1 两位代码，带旗帜和名称预览）/标签/排序/公开说明/维护标记/是否公开，保存前右侧列出访客将看到的字段；批量发布/撤销/维护，以及“用服务器名称发布”（确认框列出将以服务器名称公开的服务器，名称含主机地址的跳过）。设置页“数据”分类中有入口卡片。 |
+| 服务器新建/编辑（“费用”区） | 到期日期（按平台时区计到当天结束）、每月流量配额（GiB，留空不限）与计量方式（上下行合计/取较大者/仅上行/仅下行）；服务器详情显示“到期：日期（还剩 N 天）”和配额。 |
 
 主题（浅色/深色）与语言沿用访客自己的选择与平台默认设置（PR #35 的 `platform.defaultLocale/defaultTheme`），页面提供切换按钮。
 
@@ -21,12 +22,15 @@
 | --- | --- |
 | 首页汇总：在线/总数、地区数、流量合计、速率合计（`komari-web/src/pages/Index.tsx`） | 采用，另加陈旧/未采样/维护计数、最新采样时间与页面刷新时间分列。 |
 | 卡片/表格切换存 localStorage，分组 tab，搜索（`NodeDisplay.tsx`） | 采用；搜索/过滤/排序/分页另写入 URL，可分享。 |
-| 卡片：CPU/内存/磁盘条、上下行速率、总流量、运行时长（`Node.tsx`） | 采用；缺失值显示“—/未采样”，不像 Komari 那样回落为 0。 |
+| 卡片：国旗、名称、价格/到期标签、OS 图标与架构、CPU/内存/磁盘条（60/80 % 变色）、流量配额条、速率、总流量、运行时长、迷你延迟图弹层（`Node.tsx`、`UsageBar.tsx`、`PriceTags.tsx`、`MiniPingChartFloat.tsx`） | 采用同样的信息结构与阈值；OS 标识是首字母加品牌色的圆点（不使用 Komari 的图标素材）；迷你图改为按需加载的 24 小时 CPU/内存与 TCP 延迟弹窗；缺失值显示“—/未采样”，不像 Komari 那样回落为 0。 |
+| 首页时间卡、可勾选显示哪些汇总卡（`Index.tsx` 设置弹层） | 采用，选择只存访客本地。 |
+| 详情页 DetailsGrid（OS、架构、内核、虚拟化、内存、交换、磁盘、运行时长、更新时间）与 Load/连接/进程曲线（`DetailsGrid.tsx`、`LoadChart.tsx`） | 采用；只列已采集到的项；历史另加 30 天。 |
+| 流量上限与计量方式（sum/max/up/down）、到期剩余天数配色（`getTrafficPercentage`、`PriceTags.tsx`） | 采用：服务器上的每月配额与 sum/max/out/in 计量，≤ 7 天或已过期红、≤ 15 天琥珀；价格只有月费（来自已有的成本字段），不做多计费周期。 |
 | Guest 接口过滤 hidden 节点并清除 IP/备注/token（`web/rpc/jsonrpc/common.go`） | 改为**白名单投影**：只拷贝公开字段，不是返回内部对象后清字段。 |
 | `private_site` 整站私有 | 对应“公开开关”，默认关闭。 |
 | 2 秒 RPC 轮询实时数据 | 不采用秒级；默认 15 秒读已保存样本，见 §5。 |
 | 历史查询多聚合、Ping 曲线失败值置空断线、丢包只在统计里（`LoadChart.tsx`、`MiniPingChart.tsx`） | 历史在 PostgreSQL 按时间桶聚合；失败探测画为 x 轴红色刻度，统计写“N 次探测、M 次失败”，不称为丢包。 |
-| PingTask 多目标 ICMP/TCP/HTTP、GPU/温度、流量账期、到期计费、主题市场 | 未做，见 §7。 |
+| PingTask 多目标 ICMP/TCP/HTTP、GPU/温度、自定义流量账期重置日、多计费周期、主题市场 | 未做，见 §7。 |
 
 ## 3. 数据契约
 
@@ -34,13 +38,15 @@
 
 - `GET /api/status/board?q&group&status&sort&dir&page&pageSize`（`pageSize ≤ 100`，越界页码夹到最后一页）
 - `GET /api/status/nodes/<publicId>`
-- `GET /api/status/nodes/<publicId>/history?range=1h|6h|24h|7d`
+- `GET /api/status/nodes/<publicId>/history?range=1h|6h|24h|7d|30d`
 
 展示页关闭、节点未发布/被隐藏、ID 不存在或格式不符，一律返回同样的 404。平台管理员加 `?preview=1` 可在关闭状态下读取，使用同一投影函数。
 
 页面同样给出真实状态码：根 `loading.tsx` 会让页面先流式输出 200 的外壳，之后 `notFound()`/`redirect()` 只能在正文里表达，因此 `src/proxy.ts` 在页面开始流式输出之前用一次索引查询做判断——未登录访问 `/` 得到 307（展示页开启时去 `/status`，否则 `/login?next=/`），不可见的 `/status/nodes/<id>` 改写到不存在的路径，得到应用的 404 页面和 404 状态码。数据库不可用时交回页面自行处理（行为同此前）；平台管理员带 `?preview=1` 的预览由页面判断角色。
 
-节点对象（`src/lib/public-status/types.ts`）只含：`id`（12 位随机 base32，与内部 ID 无关）、`name`、`group`、`region`、`tags`、`note`、`status`、`offlineReason`（`unreachable`/`collect_failed`）、`metricsStale`、`metricsAt`、`checkedAt`、`heartbeatAt`（仅 Agent 节点）、`reportIntervalSeconds`、`metrics`（按站点允许的类别逐项拷贝）。**永不返回**：主机/IP、SSH 端口、用户名、密码/密钥、Agent token、`agentMetricsRaw`、`osDialect`/系统细节、内部名称与描述、客户/团队信息、内部 serverId、错误文本与堆栈、管理链接。站点未允许的指标类别既不返回也不能用于排序（避免以排序泄漏）。
+节点对象（`src/lib/public-status/types.ts`）只含：`id`（12 位随机 base32，与内部 ID 无关）、`name`、`group`、`region`、`countryCode`（两位大写代码或 null）、`tags`、`note`、`status`、`offlineReason`（`unreachable`/`collect_failed`）、`metricsStale`、`metricsAt`、`checkedAt`、`heartbeatAt`（仅 Agent 节点）、`reportIntervalSeconds`、`metrics`（按站点允许的类别逐项拷贝；`connections` 为进程数与 TCP/UDP 套接字数，`traffic.quota` 为每月配额字节数与计量方式）、`system`（类别“系统信息”：发行版、架构、内核、CPU 型号、虚拟化，未允许时为 null）、`billing`（类别“价格与到期”，**默认不公开**：月费、币种、到期时间）。**永不返回**：主机/IP、SSH 端口、用户名、密码/密钥、Agent token、`agentMetricsRaw`、`osDialect` 原始数据、内部名称与描述（“用服务器名称发布”时由管理员确认的名称除外）、费用供应商、客户/团队信息、内部 serverId、错误文本与堆栈、管理链接。站点未允许的指标类别既不返回也不能用于排序（避免以排序泄漏）。
+
+类别：`cpu`、`memory`、`disk`、`network`、`traffic`、`uptime`、`load`、`latency`、`availability`、`system`、`connections`、`billing`。新站点默认勾选前 11 个；迁移 `20261017090000_node_facts_billing_quota` 只给“勾选了原来全部 9 个类别”的站点补上 `system` 与 `connections`，自定义过的列表不动，`billing` 从不自动勾选。
 
 单位：速率为字节/秒（界面以 IEC 单位 B/s、KiB/s、MiB/s 显示），流量与容量为字节，延迟为毫秒，百分比 0–100，时间为 ISO 字符串。**缺失即 `null`**，不填 0。
 
@@ -52,7 +58,7 @@
 
 - 迁移 `20261013180000_public_status_board` 只加表和可空列，不插入任何站点或节点记录：升级后展示页关闭、所有服务器私有。新服务器没有发布记录即为隐藏。
 - 运维可选：`ENV_FILE=<运行环境文件> node scripts/public-status-init.mjs [--title VControlHub] [--dry-run]` 在**从未配置过**展示页（无站点行）时把它打开为“空看板”（不显示平台状态、不发布任何节点、不写简介/公告），同一事务写入 `public_status.site.initialize` 系统审计；已有站点行（无论开启还是有意关闭）一律不改。
-- 发布需要管理员填写公开名称（不会回退为内部名称或主机），公开文本不得包含该服务器主机地址（服务端校验）。
+- 发布需要公开名称：逐台编辑时由管理员填写（不会自动回退为内部名称或主机）；批量“用服务器名称发布”是唯一会使用内部服务器名称的入口，执行前确认框列出受影响的服务器，名称中含主机地址的会被跳过。公开文本不得包含该服务器主机地址（服务端校验）。
 - 唯一可见性规则（`src/lib/public-status/visibility.ts`）：`已发布 ∧ 服务器启用 ∧ 当前归属 = 发布时记录的归属 ∧ 客户未删除`。列表、详情、历史、汇总全部经过它；服务器禁用、转移到其他客户、客户删除后立即不可见，管理页标出“已公开但当前未显示”及原因，归属变更需管理员重新保存确认。
 - 管理接口 `/api/admin/public-status/*` 需要平台专属权限 `team:manage` 并再次断言平台管理员；写操作经 proxy 的 CSRF 校验并写审计日志（发布/开启为 WARNING）。
 
@@ -62,10 +68,12 @@
 
 | 数据 | 写入方 | 频率 |
 | --- | --- | --- |
-| `server_metric_latest`（每台一行，标准化数值） | 健康采样 worker（SSH 与 Agent 过期节点，附 TCP 探测结果）、Agent 上报 | 采样间隔（默认 5 分钟，设置页可调 1–60）；Agent 约 60 秒 |
-| `metric_snapshots`（历史，新增 `intervalSeconds`、`probeStatus`、`probeLatencyMs`） | 健康采样 worker | 采样间隔 |
+| `server_metric_latest`（每台一行，标准化数值；另有架构、内核、发行版、CPU 型号、虚拟化、进程数、TCP/UDP 连接数） | 健康采样 worker（SSH 与 Agent 过期节点，附 TCP 探测结果）、Agent 上报 | 采样间隔（默认 5 分钟，设置页可调 1–60）；Agent 约 60 秒 |
+| `metric_snapshots`（历史，含 `intervalSeconds`、`probeStatus`、`probeLatencyMs`，以及 `load1`、`processCount`、`tcpConnections`、`udpConnections`） | 健康采样 worker | 采样间隔；保留天数见设置 `retention.healthSamplesDays`（默认 30 天，30d 图依赖它） |
 | `traffic_snapshots`（接口计数器，现取第一个非虚拟网卡） | 健康采样 worker | 采样间隔 |
 | `server_uptime_snapshots`（每日） | 采样后的 rollup | 采样间隔 |
+
+主机信息由同一个采集脚本在 `===SYS===` 段输出（`src/lib/server/host-facts.ts`：`uname -m/-r`、`/etc/os-release`、`/proc/cpuinfo` 或 `lscpu`、`systemd-detect-virt`、`/proc` 进程目录数、`/proc/net/{tcp,udp}{,6}` 行数），POSIX sh / BusyBox 可用，取不到的项为空；值来自远端，入库前截成一行有限长度的可打印文本，数字做范围校验。SSH 采样的节点下一次采样即有；Agent 在安装时内置采集脚本，**已安装的 Agent 需重新执行安装命令**（版本 1.3.0 起）才会上报这些信息。较旧样本缺少静态信息时保留上次的值，进程/连接数随样本更新。
 
 状态定义（`src/lib/public-status/status.ts`）：维护（管理员标记，优先）；在线（Agent 心跳 < 90 秒，或最近判定在新鲜窗口内且可采集）；离线（最近判定在窗口内但不可达或采不到指标）；陈旧（有过数据但超出窗口，例如 worker 停止）；未采样（从无数据）。新鲜窗口 = max(3 × 写入方记录的间隔, 180 秒)。Agent 心跳新而指标旧时状态为在线，同时单独标“指标已过期”；指标时间用真实采样时间（Agent 用其上报时间），页面刷新时间单独显示。
 
@@ -94,14 +102,14 @@
 ## 7. 后续路线（未在本轮实现）
 
 - 节点侧多目标 ICMP/TCP/HTTP 探测任务（Komari PingTask），需要 Agent 协议扩展与结果存储。
-- GPU、温度、进程数、TCP/UDP 连接数等指标（当前采集脚本不提供）。
-- 流量账期、流量上限、到期/计费展示。
+- GPU、温度等指标（当前采集脚本不提供）；Windows Agent 的系统信息只给出“Windows”。
+- 自定义流量账期重置日（目前按自然月）、多计费周期与到期提醒通知（到期目前只在页面上着色显示）。
 - 实时通道（SSE 推送 latest 变化）与更细的 Agent 上报间隔（目前 60 秒）。
 - 主题/插件市场、自定义 HTML；目前只提供标题、简介、公告与有限强调色。
-- 自动发现与自动发布（刻意不做：发布必须是管理员的显式动作）。
+- 自动发现与自动发布（刻意不做：发布必须是管理员的显式动作，“用服务器名称发布”也需要勾选并确认）。
 
 ## 8. 验证
 
-- 单元与路由测试：`src/lib/public-status/__tests__/`、`src/app/api/status/__tests__/public-board-routes.test.ts`、`src/app/api/admin/public-status/__tests__/`、`src/app/status/__tests__/`、`src/__tests__/proxy.test.ts`。
+- 单元与路由测试：`src/lib/public-status/__tests__/`（含配额/到期/旗帜 `billing-and-flags.test.ts`）、`src/lib/server/__tests__/host-facts.test.ts` 与 `monitor.test.ts`（主机信息解析，含在本机 POSIX sh 上实际运行采集脚本）、`src/app/api/status/__tests__/public-board-routes.test.ts`、`src/app/api/admin/public-status/__tests__/`、`src/app/status/__tests__/`、`src/__tests__/proxy.test.ts`。
 - PostgreSQL 集成：`src/lib/public-status/public-status.integration.test.ts`（latest upsert 的速率/回绕/换网卡/跨月/幂等、可见性与撤销、归属变更、关闭与预览、历史 SQL、覆盖率、rollup、采样写入）。
 - 浏览器：`e2e/public-status-board.spec.ts`（访客根入口与看板、视图/搜索/过滤/排序/超过 200 节点分页、详情与时间窗、猜测 ID 404、管理员发布→访客可见→撤销、关闭与预览、320/390/768/1440 中英文深浅色、主题切换），Chromium/Firefox/WebKit。

@@ -251,8 +251,8 @@ test("visitor: root entry lands on the board, with summary, filters, views and p
 	await page.getByLabel("Sort", { exact: true }).selectOption("default");
 	await page.getByLabel("Per page", { exact: true }).selectOption("96");
 	await expect(page.getByText("Page 1 of 3")).toBeVisible();
-	await page.getByRole("button", { name: "Next" }).click();
-	await page.getByRole("button", { name: "Next" }).click();
+	await page.getByRole("button", { name: "Next", exact: true }).click();
+	await page.getByRole("button", { name: "Next", exact: true }).click();
 	await expect(page).toHaveURL(/page=3/);
 	await expect(page.getByText("Page 3 of 3")).toBeVisible();
 	await expect(page.locator("tbody tr[data-public-node]")).toHaveCount(BULK + 5 - 192);

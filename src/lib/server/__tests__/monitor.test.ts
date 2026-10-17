@@ -71,6 +71,34 @@ describe("parseMonitorScriptOutput", () => {
 
 		const result = parseMonitorScriptOutput(output);
 		expect(result.swapUsagePercent).toBeUndefined();
+		// Output from an Agent installed before host facts existed.
+		expect(result).not.toHaveProperty("system");
+	});
+
+	it("reads host facts after the network section without disturbing it", () => {
+		const output = [
+			"===CPU===", "2", "0.01 0.02 0.03 1/100 1", "90 100",
+			"===MEM===", "8000 2000 6000",
+			"===SWAP===", "0 0",
+			"===DISK===", "20G 5G 25% /",
+			"===LOAD===", "up 1 day, 1 user, load average: 0.01, 0.02, 0.03",
+			"===NET===", "eth0 100 200",
+			"===SYS===", "arch=aarch64", "kernel=6.8.0-1013-oracle", "os=Ubuntu 24.04.4 LTS", "cpu=Neoverse-N1", "virt=kvm", "procs=180", "tcp=31", "udp=4",
+		].join("\n");
+		const result = parseMonitorScriptOutput(output);
+		expect(result.network).toEqual([{ iface: "eth0", rxBytes: 100, txBytes: 200 }]);
+		expect(result.system).toEqual({
+			arch: "aarch64", kernel: "6.8.0-1013-oracle", os: "Ubuntu 24.04.4 LTS", cpuModel: "Neoverse-N1",
+			virtualization: "kvm", processes: 180, tcpConnections: 31, udpConnections: 4,
+		});
+	});
+
+	it.skipIf(process.platform === "win32")("runs the whole monitor script under a POSIX shell", async () => {
+		const { execFileSync } = await import("node:child_process");
+		const { MONITOR_SCRIPT } = await import("../monitor");
+		const result = parseMonitorScriptOutput(execFileSync("/bin/sh", ["-c", MONITOR_SCRIPT], { encoding: "utf8" }));
+		expect(result.cpu.cores).toBeGreaterThan(0);
+		expect(result.system?.processes).toBeGreaterThan(0);
 	});
 });
 

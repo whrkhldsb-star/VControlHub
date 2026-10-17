@@ -348,6 +348,12 @@ model Server {
   costCurrency                 String                 @default("CNY") // TR-031: VPS 月费币种
   costProvider                 String? // TR-031: 账单提供方（为空时使用节点名称）
   costLastSyncedAt             DateTime? // TR-031: 最近一次自动同步时间
+  /// When the VPS rental ends (renewal or expiry date); null when unknown or not rented.
+  expiresAt                    DateTime?
+  /// Monthly traffic allowance in bytes; null when unlimited or unknown.
+  trafficQuotaBytes            BigInt?
+  /// Which direction counts against the allowance: sum, max, out (upload) or in (download).
+  trafficQuotaMode             String                 @default("sum")
   teamId                       String? // TR-030: 多租户资源隔离
   team                         Team?                  @relation("TeamServers", fields: [teamId], references: [id], onDelete: SetNull)
   hostedActions                AiHostedAction[]
@@ -966,6 +972,12 @@ model MetricSnapshot {
   /// probe ran (a fresh Agent report skips it).
   probeStatus     String?
   probeLatencyMs  Float?
+  /// 1-minute load average and process/socket counts of this sample; null on
+  /// rows written before the columns existed or when the sample lacked them.
+  load1           Float?
+  processCount    Int?
+  tcpConnections  Int?
+  udpConnections  Int?
 
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
   team   Team?  @relation("TeamMetricSnapshots", fields: [teamId], references: [id], onDelete: SetNull)
@@ -2244,6 +2256,16 @@ model ServerMetricLatest {
   probeAt             DateTime?
   probeOk             Boolean?
   probeLatencyMs      Float?
+  /// Host facts from the latest sample that carried them (src/lib/server/host-facts.ts);
+  /// null until a sample includes the system section (older Agents never do).
+  arch                String?
+  kernelVersion       String?
+  osName              String?
+  cpuModel            String?
+  virtualization      String?
+  processCount        Int?
+  tcpConnections      Int?
+  udpConnections      Int?
   updatedAt           DateTime  @updatedAt
 
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
@@ -2262,8 +2284,9 @@ model PublicStatusSite {
   defaultView        String   @default("cards")
   refreshSeconds     Int      @default(15)
   accent             String   @default("default")
-  /// Metric categories visitors may see (cpu, memory, disk, network, traffic, uptime, load, latency, availability).
-  metrics            String[] @default(["cpu", "memory", "disk", "network", "traffic", "uptime", "load", "latency", "availability"])
+  /// Metric categories visitors may see (cpu, memory, disk, network, traffic, uptime, load, latency, availability,
+  /// system, connections, billing). Billing (price and expiry) is never on by default.
+  metrics            String[] @default(["cpu", "memory", "disk", "network", "traffic", "uptime", "load", "latency", "availability", "system", "connections"])
   showPlatformStatus Boolean  @default(true)
   updatedById        String?
   createdAt          DateTime @default(now())
@@ -2285,6 +2308,8 @@ model PublicStatusNode {
   displayName     String
   groupName       String?
   region          String?
+  /// ISO 3166-1 alpha-2 code shown as the node's flag; optional.
+  countryCode     String?
   tags            String[]  @default([])
   sortOrder       Int       @default(0)
   note            String?

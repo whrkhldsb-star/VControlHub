@@ -119,6 +119,7 @@ export function WindowsServerDetails({
 							costCurrency={server.costCurrency}
 							costProvider={server.costProvider}
 							costLastSyncedAt={server.costLastSyncedAt}
+							billing={server.billing}
 							storagePath={server.storageNode?.basePath ?? null}
 							storageNodeId={server.storageNode?.id ?? null}
 							windowsSftpPort={server.storageNode?.port ?? 22}

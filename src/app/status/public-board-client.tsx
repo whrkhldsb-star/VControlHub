@@ -5,9 +5,10 @@
  * from the same projection; this component keeps it fresh by polling
  * `/api/status/board` — the only endpoint it calls.
  */
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { ActionButton, ButtonLink } from "@/components/action-button";
+import { Search } from "@/components/icons";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ToggleChip } from "@/components/page-shell";
 import { SegmentedControl } from "@/components/ui-primitives";
@@ -21,10 +22,12 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { formatAge } from "@/lib/public-status/format";
 import { BOARD_SORTS, BOARD_STATUS_FILTERS, DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, boardQueryToSearch, parseBoardQuery } from "@/lib/public-status/query";
 import type { PublicBoardResponse } from "@/lib/public-status/types";
-import { NodeCard, NodeTable, SummaryStrip, accentStyle } from "./public-board-parts";
+import { BoardSummary, NodeCard, NodeTable, SUMMARY_TILES, type SummaryTile } from "./board-nodes";
+import { accentStyle } from "./public-board-parts";
 import { usePublicPolling } from "./use-public-polling";
 
 const VIEW_KEY = "vch.publicStatus.view";
+const TILES_KEY = "vch.publicStatus.hiddenTiles";
 const URL_DEFAULTS = { q: "", group: "", status: "all", sort: "default", dir: "asc", page: "1", pageSize: String(DEFAULT_PAGE_SIZE) };
 
 class BoardClosedError extends Error {}
@@ -34,14 +37,28 @@ function readView(storage: Storage): "cards" | "table" | null {
 	return value === "cards" || value === "table" ? value : null;
 }
 
+/** Summary tiles this visitor hid, as a stable comma-separated snapshot. */
+function readHiddenTiles(storage: Storage): string {
+	const known: readonly string[] = SUMMARY_TILES;
+	return (storage.getItem(TILES_KEY) ?? "").split(",").filter((tile) => known.includes(tile)).join(",");
+}
+
 export function PublicBoardClient({ initial, preview, signedIn }: { initial: PublicBoardResponse; preview: boolean; signedIn: boolean }) {
 	const { t, locale } = useI18n();
 	const fieldId = useId();
-	const { state: urlState, patch } = useUrlQueryState(URL_DEFAULTS);
+	// Start from the query the server rendered: the first render matches its HTML.
+	const { state: urlState, patch } = useUrlQueryState(URL_DEFAULTS, {
+		...initial.query,
+		page: String(initial.query.page),
+		pageSize: String(initial.query.pageSize),
+	});
 	const query = useMemo(() => parseBoardQuery(urlState), [urlState]);
 	const search = boardQueryToSearch(query);
 	const [searchText, setSearchText] = useState(query.q);
 	const storedView = useBrowserStorageSnapshot(VIEW_KEY, readView, null);
+	const hiddenRaw = useBrowserStorageSnapshot(TILES_KEY, readHiddenTiles, "");
+	const hiddenTiles = useMemo(() => new Set((hiddenRaw ? hiddenRaw.split(",") : []) as SummaryTile[]), [hiddenRaw]);
+	const searchRef = useRef<HTMLInputElement>(null);
 	const [nowMs, setNowMs] = useState(() => Date.parse(initial.generatedAt));
 
 	const fetcher = useCallback(
@@ -72,6 +89,19 @@ export function PublicBoardClient({ initial, preview, signedIn }: { initial: Pub
 		const timer = setInterval(() => setNowMs(Date.now()), 5_000);
 		return () => clearInterval(timer);
 	}, []);
+	// "/" jumps to the search field, as on Komari and most dashboards.
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) return;
+			const target = event.target instanceof HTMLElement ? event.target : null;
+			if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+			if (document.querySelector("[data-modal-overlay]")) return;
+			event.preventDefault();
+			searchRef.current?.focus();
+		};
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, []);
 	// A 404 while viewing means the board was closed (or this preview lost its admin session).
 	const closed = polling.error === "closed";
 	// Debounced search → URL (resets to the first page).
@@ -82,6 +112,7 @@ export function PublicBoardClient({ initial, preview, signedIn }: { initial: Pub
 	}, [searchText, query.q, patch]);
 
 	const setView = (next: "cards" | "table") => writeLocalStorageValue(VIEW_KEY, next);
+	const setHiddenTiles = (next: SummaryTile[]) => writeLocalStorageValue(TILES_KEY, next.join(","));
 	const filtersActive = query.q !== "" || query.group !== "" || query.status !== "all";
 	const clearFilters = () => {
 		setSearchText("");
@@ -145,7 +176,17 @@ export function PublicBoardClient({ initial, preview, signedIn }: { initial: Pub
 				</p>
 			) : null}
 
-			<SummaryStrip summary={board.summary} metrics={site.metrics} nowMs={nowMs} refreshedAt={polling.refreshedAt} locale={locale} t={t} />
+			<BoardSummary
+				summary={board.summary}
+				metrics={site.metrics}
+				nowMs={nowMs}
+				refreshedAt={polling.refreshedAt}
+				generatedAtMs={Date.parse(initial.generatedAt)}
+				locale={locale}
+				t={t}
+				hidden={hiddenTiles}
+				onHiddenChange={setHiddenTiles}
+			/>
 			{board.summary.truncated ? (
 				<p role="note" className="text-sm text-[var(--warning)]">{t("publicStatus.truncated", { count: board.summary.total })}</p>
 			) : null}
@@ -158,29 +199,33 @@ export function PublicBoardClient({ initial, preview, signedIn }: { initial: Pub
 			) : (
 				<>
 					<section aria-label={t("publicStatus.filters")} className="flex flex-col gap-3">
-						<div className="flex flex-wrap items-end gap-2">
-							<div className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-[var(--text-muted)]">
-								<label htmlFor={`${fieldId}-q`}>{t("publicStatus.search")}</label>
+						<div className="flex flex-wrap items-center gap-2">
+							<div className="relative min-w-[min(100%,16rem)] flex-1">
+								<label htmlFor={`${fieldId}-q`} className="sr-only">{t("publicStatus.search")}</label>
+								<Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
 								<input
+									ref={searchRef}
 									id={`${fieldId}-q`}
 									type="search"
-									className={UI_INPUT}
+									className={`${UI_INPUT} pl-9 sm:pr-9`}
 									value={searchText}
 									maxLength={100}
 									placeholder={t("publicStatus.searchPlaceholder")}
+									aria-keyshortcuts="/"
 									onChange={(event) => setSearchText(event.target.value)}
 								/>
+								<kbd aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-[var(--border)] px-1.5 font-mono text-[11px] leading-5 text-[var(--text-muted)] sm:block">/</kbd>
 							</div>
-							<div className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
-								<label htmlFor={`${fieldId}-status`}>{t("publicStatus.statusFilter")}</label>
+							<div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+								<label htmlFor={`${fieldId}-status`} className="whitespace-nowrap">{t("publicStatus.statusFilter")}</label>
 								<select id={`${fieldId}-status`} className={UI_INPUT} value={query.status} onChange={(event) => patch({ status: event.target.value, page: "1" })}>
 									{BOARD_STATUS_FILTERS.map((status) => (
 										<option key={status} value={status}>{status === "all" ? t("publicStatus.all") : t(`publicStatus.status.${status}`)}</option>
 									))}
 								</select>
 							</div>
-							<div className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
-								<label htmlFor={`${fieldId}-sort`}>{t("publicStatus.sort")}</label>
+							<div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+								<label htmlFor={`${fieldId}-sort`} className="whitespace-nowrap">{t("publicStatus.sort")}</label>
 								<select id={`${fieldId}-sort`} className={UI_INPUT} value={board.query.sort} onChange={(event) => patch({ sort: event.target.value, page: "1" })}>
 									{BOARD_SORTS.filter(metricSortable).map((sort) => (
 										<option key={sort} value={sort}>{t(`publicStatus.sort.${sort}`)}</option>
@@ -232,9 +277,9 @@ export function PublicBoardClient({ initial, preview, signedIn }: { initial: Pub
 					) : view === "table" ? (
 						<NodeTable nodes={board.nodes} nowMs={nowMs} locale={locale} t={t} metrics={site.metrics} linkSuffix={linkSuffix} />
 					) : (
-						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+						<div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-3">
 							{board.nodes.map((node) => (
-								<NodeCard key={node.id} node={node} nowMs={nowMs} locale={locale} t={t} linkSuffix={linkSuffix} />
+								<NodeCard key={node.id} node={node} nowMs={nowMs} locale={locale} t={t} linkSuffix={linkSuffix} preview={preview} />
 							))}
 						</div>
 					)}

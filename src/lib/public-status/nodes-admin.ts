@@ -10,6 +10,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { normalizeCountryCode } from "./region-flag";
 import { cleanPlainText } from "./site-config";
 import { publicationHiddenReason, type HiddenReason } from "./visibility";
 
@@ -41,6 +42,8 @@ export const nodePublicationSchema = z.object({
 	displayName: z.string().max(DISPLAY_NAME_MAX * 2),
 	groupName: z.string().max(GROUP_MAX * 2).nullable(),
 	region: z.string().max(REGION_MAX * 2).nullable(),
+	/** ISO 3166-1 alpha-2 for the flag; optional for older clients. */
+	countryCode: z.string().max(8).nullable().optional(),
 	tags: z.array(z.string().max(TAG_MAX * 2)).max(TAGS_MAX),
 	sortOrder: z.number().int().min(-100_000).max(100_000),
 	note: z.string().max(NOTE_MAX * 2).nullable(),
@@ -50,7 +53,12 @@ export const nodePublicationSchema = z.object({
 export type NodePublicationInput = z.infer<typeof nodePublicationSchema>;
 
 export const nodeBatchSchema = z.object({
-	action: z.enum(["publish", "unpublish", "maintenance_on", "maintenance_off"]),
+	/**
+	 * `publish_named` also publishes servers that have no public name yet,
+	 * using the server's own name (the administrator confirms that list in
+	 * the UI); a name containing the host is refused like any other.
+	 */
+	action: z.enum(["publish", "publish_named", "unpublish", "maintenance_on", "maintenance_off"]),
 	serverIds: z.array(z.string().min(1).max(64)).min(1).max(BATCH_MAX),
 }).strict();
 export type NodeBatchInput = z.infer<typeof nodeBatchSchema>;
@@ -69,6 +77,7 @@ export type AdminNodeRow = {
 		displayName: string;
 		groupName: string | null;
 		region: string | null;
+		countryCode: string | null;
 		tags: string[];
 		sortOrder: number;
 		note: string | null;
@@ -79,23 +88,31 @@ export type AdminNodeRow = {
 	lastSampleAt: string | null;
 };
 
+function containsHost(server: { host: string }, values: Array<string | null>): boolean {
+	const host = server.host.trim().toLowerCase();
+	if (!host) return false;
+	return values.some((value) => Boolean(value && value.toLowerCase().includes(host)));
+}
+
 /** Values that would expose the host must not be published as public text. */
 function assertNoHostLeak(server: { host: string; name: string }, values: Array<string | null>) {
-	const host = server.host.trim().toLowerCase();
-	if (!host) return;
-	for (const value of values) {
-		if (value && value.toLowerCase().includes(host)) {
-			throw new ValidationError(t("backend.publicStatus.containsHost"), { code: "PUBLIC_FIELD_CONTAINS_HOST" });
-		}
+	if (containsHost(server, values)) {
+		throw new ValidationError(t("backend.publicStatus.containsHost"), { code: "PUBLIC_FIELD_CONTAINS_HOST" });
 	}
 }
 
 export function normalizePublication(input: NodePublicationInput) {
 	const tags = [...new Set(input.tags.map((tag) => singleLine(tag, TAG_MAX)).filter((tag): tag is string => Boolean(tag)))].slice(0, TAGS_MAX);
+	const countryInput = (input.countryCode ?? "").trim();
+	const countryCode = normalizeCountryCode(countryInput);
+	if (countryInput && !countryCode) {
+		throw new ValidationError(t("backend.publicStatus.countryCodeInvalid"), { code: "PUBLIC_COUNTRY_CODE_INVALID" });
+	}
 	return {
 		displayName: singleLine(input.displayName, DISPLAY_NAME_MAX),
 		groupName: singleLine(input.groupName, GROUP_MAX),
 		region: singleLine(input.region, REGION_MAX),
+		countryCode,
 		tags,
 		sortOrder: input.sortOrder,
 		note: cleanPlainText(input.note, NOTE_MAX),
@@ -131,6 +148,7 @@ type ServerWithPublication = {
 		displayName: string;
 		groupName: string | null;
 		region: string | null;
+		countryCode: string | null;
 		tags: string[];
 		sortOrder: number;
 		note: string | null;
@@ -154,6 +172,7 @@ function toAdminRow(server: ServerWithPublication): AdminNodeRow {
 					displayName: node.displayName,
 					groupName: node.groupName,
 					region: node.region,
+					countryCode: node.countryCode,
 					tags: node.tags,
 					sortOrder: node.sortOrder,
 					note: node.note,
@@ -226,6 +245,7 @@ export async function updateNodePublication(serverId: string, input: NodePublica
 		displayName: values.displayName,
 		groupName: values.groupName,
 		region: values.region,
+		countryCode: values.countryCode,
 		tags: values.tags,
 		sortOrder: values.sortOrder,
 		note: values.note,
@@ -249,8 +269,41 @@ export async function updateNodePublication(serverId: string, input: NodePublica
 	return { ...saved, wasPublished: existing?.published ?? false };
 }
 
+/**
+ * Publish the chosen servers, giving the ones without a public name their
+ * server name. Skips servers that no longer exist and names that contain the
+ * host. All-or-nothing, like `publish`.
+ */
+async function publishWithServerNames(ids: string[], actorId: string) {
+	const servers = await prisma.server.findMany({
+		where: { id: { in: ids } },
+		select: { id: true, name: true, host: true, teamId: true, publicStatusNode: { select: { displayName: true } } },
+	});
+	const found = new Set(servers.map((server) => server.id));
+	const skipped = ids.filter((id) => !found.has(id));
+	const now = new Date();
+	const updates = [];
+	for (const server of servers) {
+		const current = server.publicStatusNode?.displayName.trim() || null;
+		const name = current ?? singleLine(server.name, DISPLAY_NAME_MAX);
+		if (!name || containsHost(server, [name])) {
+			skipped.push(server.id);
+			continue;
+		}
+		const published = { published: true, publishedTeamId: server.teamId, publishedAt: now, publishedById: actorId };
+		updates.push(prisma.publicStatusNode.upsert({
+			where: { serverId: server.id },
+			create: { serverId: server.id, publicId: generatePublicId(), displayName: name, ...published },
+			update: current ? published : { displayName: name, ...published },
+		}));
+	}
+	await prisma.$transaction(updates);
+	return { changed: updates.length, skipped };
+}
+
 export async function applyNodeBatch(input: NodeBatchInput, actorId: string) {
 	const ids = [...new Set(input.serverIds)];
+	if (input.action === "publish_named") return publishWithServerNames(ids, actorId);
 	const nodes = await prisma.publicStatusNode.findMany({
 		where: { serverId: { in: ids } },
 		select: { serverId: true, displayName: true, server: { select: { teamId: true } } },

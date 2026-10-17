@@ -6,7 +6,7 @@ import type { PublicBoardQuery, PublicBoardSort, PublicBoardStatusFilter, Public
 
 export const BOARD_SORTS: readonly PublicBoardSort[] = ["default", "name", "cpu", "memory", "disk", "network", "status"];
 export const BOARD_STATUS_FILTERS: readonly PublicBoardStatusFilter[] = ["all", "online", "offline", "stale", "unknown", "maintenance"];
-export const HISTORY_RANGES: readonly PublicHistoryRange[] = ["1h", "6h", "24h", "7d"];
+export const HISTORY_RANGES: readonly PublicHistoryRange[] = ["1h", "6h", "24h", "7d", "30d"];
 export const PAGE_SIZE_OPTIONS = [12, 24, 48, 96] as const;
 export const DEFAULT_PAGE_SIZE = 24;
 export const MAX_PAGE_SIZE = 100;

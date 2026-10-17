@@ -11,6 +11,8 @@ import { ServerManagementModeFields } from "./server-management-mode-fields";
 import { RdpCredentialFields } from "./rdp-credential-fields";
 import { WindowsSftpFields } from "./windows-sftp-fields";
 import { Notice } from "@/components/ui-primitives";
+import { billingFormValues, type ServerBillingDto } from "@/lib/server/billing-form";
+import { ServerBillingFields } from "./server-billing-fields";
 type Props = {
   operatingSystem?: string; rdpDomain?: string; rdpIgnoreCertificate?: boolean; rdpCertificateSha256?: string;
   serverId: string;
@@ -28,6 +30,7 @@ type Props = {
   costCurrency: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
   costProvider: string | null | undefined;
   costLastSyncedAt: string | null | undefined;
+  billing?: ServerBillingDto | null;
   storagePath?: string | null;
   storageNodeId?: string | null;
   windowsSftpPort?: number;
@@ -54,6 +57,7 @@ export function ServerCardEditForm({
   costCurrency,
   costProvider,
   costLastSyncedAt,
+  billing,
   storagePath = null,
   storageNodeId = null,
   windowsSftpPort = 22,
@@ -306,6 +310,7 @@ export function ServerCardEditForm({
             {t("serverCardActions.edit.costLastSynced", { time: costLastSyncedAt })}
           </p>
         ) : null}
+        <ServerBillingFields compact defaults={billingFormValues(billing)} />
       </div>
       <SubmitButton pendingLabel={t("serverCardActions.edit.pending")} variant="success" className="w-full">
         {t(observedHostKeySha256 ? "serverCardActions.edit.submitConfirmed" : "serverCardActions.edit.submit")}

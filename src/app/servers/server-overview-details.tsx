@@ -28,6 +28,8 @@ import { ActionButton, ButtonLink } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, Notice } from "@/components/ui-primitives";
 import { serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "./server-labels";
+import type { ServerBillingDto } from "@/lib/server/billing-form";
+import { ServerBillingRows } from "./server-billing-rows";
 
 export type ServerOverviewDetailsServer = {
 	operatingSystem?: string;
@@ -74,6 +76,7 @@ export type ServerOverviewDetailsServer = {
 	costCurrency?: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
 	costProvider?: string | null;
 	costLastSyncedAt?: string | null;
+	billing?: ServerBillingDto | null;
 	origin?: "PLATFORM" | "CUSTOMER";
 	/** Customer name, shown to administrators. */
 	teamName?: string | null;
@@ -236,6 +239,7 @@ export function ServerOverviewDetails({
 					<InfoRow label={t("serverOverviewDetails.directMode")} value={directLabel} />
 					<InfoRow label={t("serverOverviewDetails.totalCommandTargets")} value={String(server.targetCount)} />
 					<InfoRow label={t("serverOverviewDetails.connectionSummary")} value={serverConnectionSummary(server, t)} />
+					<ServerBillingRows billing={server.billing} />
 					<InfoRow
 						label={t("serversPage.management.title")}
 						value={server.managementMode === "AGENT"
@@ -285,6 +289,7 @@ export function ServerOverviewDetails({
 							costCurrency={server.costCurrency}
 							costProvider={server.costProvider}
 							costLastSyncedAt={server.costLastSyncedAt}
+							billing={server.billing}
 							storagePath={server.storageNode?.basePath ?? null}
 							storageNodeId={server.storageNode?.id ?? null}
 							directGateway={server.directGateway ?? undefined}
