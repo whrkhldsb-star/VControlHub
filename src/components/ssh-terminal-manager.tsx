@@ -5,7 +5,7 @@ import { X } from "@/components/icons";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { cn } from "@/lib/ui/cn";
-import { SshTerminalPanel, type TerminalStatus } from "@/components/ssh-terminal-panel";
+import { SshTerminalPanel, type SshTerminalPanelHandle, type TerminalStatus } from "@/components/ssh-terminal-panel";
 import { useVisualViewportBox } from "@/components/ssh-terminal-viewport";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -66,6 +66,18 @@ export function SshTerminalManager({
 	const { t } = useI18n();
 	const [minimized, setMinimized] = useState(false);
 	const [confirmCloseAll, setConfirmCloseAll] = useState(false);
+	// Closing a tab or the manager on purpose ends those shells; an unmount for
+	// any other reason (navigation, reload) leaves them resumable.
+	const panelHandles = useRef(new Map<string, SshTerminalPanelHandle>());
+	const closeTab = useCallback((index: number) => {
+		const tab = tabs[index];
+		if (tab) panelHandles.current.get(tab.id)?.endSession();
+		onTabClose(index);
+	}, [tabs, onTabClose]);
+	const closeAll = useCallback(() => {
+		for (const tab of tabs) panelHandles.current.get(tab.id)?.endSession();
+		onClose();
+	}, [tabs, onClose]);
 	const [mobileHeight, setMobileHeight] = useState<number | null>(null);
 	const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
 	const [fullscreen, setFullscreen] = useState(false);
@@ -197,11 +209,11 @@ export function SshTerminalManager({
 					return;
 				}
 				if (tabs.length > 0) {
-					onTabClose(activeTabIndex);
+					closeTab(activeTabIndex);
 				}
 			}
 		},
-		[activeTabIndex, tabs.length, onTabSelect, onTabClose, minimized, fullscreen, exitFullscreen],
+		[activeTabIndex, tabs.length, onTabSelect, closeTab, minimized, fullscreen, exitFullscreen],
 	);
 
 	useEffect(() => {
@@ -321,7 +333,7 @@ export function SshTerminalManager({
 									// (especially on mobile) must not drop every PTY.
 									// Escape intentionally closes only the active tab.
 									if (tabs.length > 1) setConfirmCloseAll(true);
-									else onClose();
+									else closeAll();
 								}}
 								aria-label={t("sshTerminalModal.ariaClose")}
 								title={t("sshTerminalModal.close")}
@@ -389,7 +401,7 @@ export function SshTerminalManager({
 										type="button"
 										onClick={(e) => {
 											e.stopPropagation();
-											onTabClose(i);
+											closeTab(i);
 										}}
 										aria-label={t("sshTerminalManager.closeTab", { serverName: tab.serverName })}
 										className="ml-1 shrink-0 rounded p-1.5 min-h-11 min-w-11 text-[var(--text-muted)] opacity-100 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)] hover:text-[var(--danger)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
@@ -408,6 +420,10 @@ export function SshTerminalManager({
 					{tabs.map((tab, i) => (
 						<SshTerminalPanel
 							key={tab.id}
+							ref={(handle) => {
+								if (handle) panelHandles.current.set(tab.id, handle);
+								else panelHandles.current.delete(tab.id);
+							}}
 							serverId={tab.serverId}
 							serverName={tab.serverName}
 							host={tab.host}
@@ -432,7 +448,7 @@ export function SshTerminalManager({
 				cancelLabel={t("common.cancel")}
 				onConfirm={() => {
 					setConfirmCloseAll(false);
-					onClose();
+					closeAll();
 				}}
 				onCancel={() => setConfirmCloseAll(false)}
 			/>

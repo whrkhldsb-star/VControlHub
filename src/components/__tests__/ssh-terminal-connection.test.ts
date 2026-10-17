@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+	SSH_CLOSE_REPLACED,
+	SSH_HEARTBEAT_INTERVAL_MS,
+	SSH_HEARTBEAT_TIMEOUT_MS,
 	SSH_RECONNECT_DELAYS_MS,
 	SSH_RECONNECT_WINDOW_MS,
 	createSshTerminalConnection,
 	type SshConnectionState,
+	type SshResumeStore,
 	type SshSessionInfo,
 } from "../ssh-terminal-connection";
 import { ApiError } from "@/lib/http/api-client-error";
@@ -15,7 +19,7 @@ class FakeSocket {
 	sent: string[] = [];
 	onopen: (() => void) | null = null;
 	onmessage: ((event: { data: string }) => void) | null = null;
-	onclose: (() => void) | null = null;
+	onclose: ((event?: { code: number }) => void) | null = null;
 	onerror: (() => void) | null = null;
 	closedByClient = false;
 	constructor(public url: string) { FakeSocket.instances.push(this); }
@@ -24,15 +28,17 @@ class FakeSocket {
 	open() { this.readyState = 1; this.onopen?.(); }
 	message(payload: Record<string, unknown>) { this.onmessage?.({ data: JSON.stringify(payload) }); }
 	/** The gateway confirms the shell and says whether it is the old one. */
-	attach(session: { resumeId?: string | null; resumed?: boolean; keepAliveMs?: number; replayTruncated?: boolean } = {}) {
+	attach(session: { resumeId?: string | null; resumed?: boolean; keepAliveMs?: number; replayTruncated?: boolean; offset?: number } = {}) {
 		this.open();
 		this.message({ type: "connected", inputAck: true });
 		this.message({ type: "session", resumeId: "shell-1", resumed: false, keepAliveMs: 600_000, ...session });
 	}
-	drop() { this.readyState = 3; this.onclose?.(); }
+	drop(code = 1006) { this.readyState = 3; this.onclose?.({ code }); }
+	/** Messages of one type the terminal sent, parsed. */
+	sentOfType(type: string) { return this.sent.map((m) => JSON.parse(m) as Record<string, unknown>).filter((m) => m.type === type); }
 }
 
-function setup(overrides: { keepAlive?: boolean; token?: () => Promise<string> } = {}) {
+function setup(overrides: { keepAlive?: boolean; token?: () => Promise<string>; resumeStore?: SshResumeStore } = {}) {
 	const writes: string[] = [];
 	const terminal = {
 		cols: 120,
@@ -56,6 +62,7 @@ function setup(overrides: { keepAlive?: boolean; token?: () => Promise<string> }
 		onSession: (info) => sessions.push(info),
 		onInputOverflow: vi.fn(),
 		createSocket: (url) => new FakeSocket(url) as unknown as WebSocket,
+		resumeStore: overrides.resumeStore,
 	});
 	const last = () => states.at(-1)!;
 	return { connection, terminal, writes, states, sessions, fitGrid, fetchHandshakeToken, last };
@@ -294,5 +301,192 @@ describe("SSH terminal connection", () => {
 		connection.dispose();
 		await vi.advanceTimersByTimeAsync(SSH_RECONNECT_WINDOW_MS);
 		expect(FakeSocket.instances).toHaveLength(1);
+	});
+
+	it("resumes from the last output byte it received", async () => {
+		const { connection } = setup();
+		connection.start();
+		await flush();
+		const first = FakeSocket.instances[0]!;
+		first.attach({ offset: 100 });
+		first.message({ type: "output", data: btoa("hello") });
+		first.drop();
+		await vi.advanceTimersByTimeAsync(SSH_RECONNECT_DELAYS_MS[0]);
+		expect(FakeSocket.instances[1]!.url).toContain("resume=shell-1&offset=105");
+		connection.dispose();
+	});
+
+	it("treats a socket that stops answering pings as dropped and continues the shell at once", async () => {
+		const { connection, last } = setup();
+		connection.start();
+		await flush();
+		const first = FakeSocket.instances[0]!;
+		first.open();
+		first.message({ type: "connected", inputAck: true, heartbeat: true });
+		first.message({ type: "session", resumeId: "shell-1", resumed: false, keepAliveMs: 600_000, offset: 0 });
+		await vi.advanceTimersByTimeAsync(SSH_HEARTBEAT_INTERVAL_MS);
+		expect(first.sentOfType("ping")).toHaveLength(1);
+		// An answer (or any other message) keeps the socket.
+		first.message({ type: "pong", id: 1 });
+		await vi.advanceTimersByTimeAsync(SSH_HEARTBEAT_INTERVAL_MS + SSH_HEARTBEAT_TIMEOUT_MS - 1);
+		expect(FakeSocket.instances).toHaveLength(1);
+		// Silence after the next ping: the socket is dead even though it never closed.
+		await vi.advanceTimersByTimeAsync(SSH_HEARTBEAT_INTERVAL_MS);
+		await flush();
+		expect(first.closedByClient).toBe(true);
+		expect(FakeSocket.instances).toHaveLength(2);
+		expect(FakeSocket.instances[1]!.url).toContain("resume=shell-1&offset=0");
+		expect(last().status).toBe("connecting");
+		connection.dispose();
+	});
+
+	it("does not ping a gateway that does not support it", async () => {
+		const { connection } = setup();
+		connection.start();
+		await flush();
+		const socket = FakeSocket.instances[0]!;
+		socket.attach();
+		await vi.advanceTimersByTimeAsync(SSH_HEARTBEAT_INTERVAL_MS * 3);
+		expect(socket.sentOfType("ping")).toHaveLength(0);
+		expect(FakeSocket.instances).toHaveLength(1);
+		connection.dispose();
+	});
+
+	it("checks the socket at once when the page wakes up", async () => {
+		const { connection } = setup();
+		connection.start();
+		await flush();
+		const socket = FakeSocket.instances[0]!;
+		socket.open();
+		socket.message({ type: "connected", inputAck: true, heartbeat: true });
+		connection.wake();
+		expect(socket.sentOfType("ping")).toHaveLength(1);
+		await vi.advanceTimersByTimeAsync(SSH_HEARTBEAT_TIMEOUT_MS);
+		await flush();
+		expect(FakeSocket.instances).toHaveLength(2);
+		connection.dispose();
+	});
+
+	it("waits for the user when another window took the shell over", async () => {
+		const { connection, last } = setup();
+		connection.start();
+		await flush();
+		const socket = FakeSocket.instances[0]!;
+		socket.attach();
+		socket.drop(SSH_CLOSE_REPLACED);
+		expect(last()).toMatchObject({ status: "closed", message: "sshTerminalModal.errReplaced", waitingForUser: true, retryAt: null });
+		await vi.advanceTimersByTimeAsync(SSH_RECONNECT_WINDOW_MS);
+		expect(FakeSocket.instances).toHaveLength(1);
+		// Taking it back is a click away and continues the same shell.
+		connection.reconnect();
+		await flush();
+		expect(FakeSocket.instances[1]!.url).toContain("resume=shell-1");
+		connection.dispose();
+	});
+
+	it("continues a shell kept across a page reload and forgets it when it ends or is closed", async () => {
+		const saved: Array<string | null> = [];
+		const store: SshResumeStore = { load: () => "shell-9", save: (id) => { saved.push(id); } };
+		const { connection } = setup({ resumeStore: store });
+		connection.start();
+		await flush();
+		// A reloaded page has nothing on screen: offset 0 asks for all the history.
+		expect(FakeSocket.instances[0]!.url).toContain("resume=shell-9&offset=0");
+		FakeSocket.instances[0]!.attach({ resumeId: "shell-9", resumed: true });
+		expect(saved).toEqual(["shell-9"]);
+		FakeSocket.instances[0]!.message({ type: "closed", reason: "exit", data: "bye" });
+		expect(saved.at(-1)).toBeNull();
+		connection.dispose();
+
+		const ended: Array<string | null> = [];
+		const second = setup({ resumeStore: { load: () => null, save: (id) => { ended.push(id); } } });
+		second.connection.start();
+		await flush();
+		const socket = FakeSocket.instances.at(-1)!;
+		socket.attach({ resumeId: "shell-10" });
+		second.connection.end();
+		expect(socket.sentOfType("end")).toHaveLength(1);
+		expect(socket.closedByClient).toBe(true);
+		expect(ended).toEqual(["shell-10", null]);
+	});
+});
+
+describe("stray mouse tracking", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		FakeSocket.instances = [];
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	function setupWithModes(mode: string) {
+		const writes: string[] = [];
+		const terminal = {
+			cols: 80,
+			rows: 24,
+			buffer: { active: { type: "normal" as const } },
+			modes: { mouseTrackingMode: mode },
+			write: vi.fn((data: string | Uint8Array) => { writes.push(typeof data === "string" ? data : new TextDecoder().decode(data)); }),
+		};
+		const onStrayMouseTracking = vi.fn();
+		const connection = createSshTerminalConnection({
+			serverId: "srv-1",
+			terminal,
+			fitGrid: vi.fn(),
+			keepAlive: () => true,
+			fetchHandshakeToken: () => Promise.resolve("token"),
+			location: { protocol: "https:", host: "hub.example.test" },
+			t: (key) => key,
+			onState: vi.fn(),
+			onSession: vi.fn(),
+			onInputOverflow: vi.fn(),
+			onStrayMouseTracking,
+			createSocket: (url) => new FakeSocket(url) as unknown as WebSocket,
+		});
+		return { connection, writes, onStrayMouseTracking };
+	}
+
+	it("switches mouse tracking off when the shell echoes a report it was sent", async () => {
+		const { connection, writes, onStrayMouseTracking } = setupWithModes("any");
+		connection.start();
+		await vi.advanceTimersByTimeAsync(0);
+		const socket = FakeSocket.instances[0]!;
+		socket.attach();
+		connection.send("\x1b[<35;12;5M");
+		// A plain shell prints it back, split across two packets.
+		socket.message({ type: "output", data: btoa("^[[<35;1") });
+		socket.message({ type: "output", data: btoa("2;5M") });
+		expect(writes.join("")).toContain("\x1b[?1003l");
+		expect(onStrayMouseTracking).toHaveBeenCalledTimes(1);
+		connection.dispose();
+	});
+
+	it("leaves a program that consumes reports alone, and ignores look-alike colours", async () => {
+		const { connection, writes, onStrayMouseTracking } = setupWithModes("any");
+		connection.start();
+		await vi.advanceTimersByTimeAsync(0);
+		const socket = FakeSocket.instances[0]!;
+		socket.attach();
+		connection.send("\x1b[<35;12;5M");
+		socket.message({ type: "output", data: btoa("\x1b[38;5;196mredraw\x1b[0m\x1b[12;5H") });
+		// Too late to be an echo of that report.
+		await vi.advanceTimersByTimeAsync(5_000);
+		socket.message({ type: "output", data: btoa("35;12;5M") });
+		expect(writes.join("")).not.toContain("\x1b[?1003l");
+		expect(onStrayMouseTracking).not.toHaveBeenCalled();
+		connection.dispose();
+	});
+
+	it("does nothing while mouse tracking is off", async () => {
+		const { connection, onStrayMouseTracking } = setupWithModes("none");
+		connection.start();
+		await vi.advanceTimersByTimeAsync(0);
+		const socket = FakeSocket.instances[0]!;
+		socket.attach();
+		connection.send("\x1b[<35;12;5M");
+		socket.message({ type: "output", data: btoa("35;12;5M") });
+		expect(onStrayMouseTracking).not.toHaveBeenCalled();
+		connection.dispose();
 	});
 });

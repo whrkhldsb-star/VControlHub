@@ -24,5 +24,9 @@ describe("buildSshWebSocketUrl", () => {
     expect(buildSshWebSocketUrl({ ...base, keepAlive: true })).toBe("ws://127.0.0.1:3000/ssh?serverId=server-1&handshake=tok&keepAlive=1");
     expect(buildSshWebSocketUrl({ ...base, keepAlive: true, resumeId: "abc" })).toBe("ws://127.0.0.1:3000/ssh?serverId=server-1&handshake=tok&keepAlive=1&resume=abc");
     expect(buildSshWebSocketUrl({ ...base, keepAlive: false, resumeId: "abc" })).toBe("ws://127.0.0.1:3000/ssh?serverId=server-1&handshake=tok");
+    // How much of the shell's output the terminal has, so the gateway replays only the rest.
+    expect(buildSshWebSocketUrl({ ...base, keepAlive: true, resumeId: "abc", resumeOffset: 1234 })).toBe("ws://127.0.0.1:3000/ssh?serverId=server-1&handshake=tok&keepAlive=1&resume=abc&offset=1234");
+    expect(buildSshWebSocketUrl({ ...base, keepAlive: true, resumeId: "abc", resumeOffset: -1 })).toBe("ws://127.0.0.1:3000/ssh?serverId=server-1&handshake=tok&keepAlive=1&resume=abc");
+    expect(buildSshWebSocketUrl({ ...base, keepAlive: true, resumeOffset: 5 })).toBe("ws://127.0.0.1:3000/ssh?serverId=server-1&handshake=tok&keepAlive=1");
   });
 });

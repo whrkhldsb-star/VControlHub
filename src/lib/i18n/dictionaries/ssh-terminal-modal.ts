@@ -32,6 +32,7 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.errClosed": "连接已关闭",
 	"sshTerminalModal.errDisconnected": "WebSocket 连接已断开",
 	"sshTerminalModal.errConnectionFailed": "WebSocket 连接失败，请确认 SSH 代理服务正在运行",
+	"sshTerminalModal.errReplaced": "这个会话已在另一个窗口中继续。点“重连”可以在这里接回。",
 	"sshTerminalModal.errInputTooLarge": "待发送内容超过 4 MiB，本次输入未发送。请分段粘贴或通过文件管理器上传。",
 
 	// Terminal search
@@ -77,11 +78,12 @@ export const zh: Record<string, string> = {
 	// Side panel — connection (中断后保留会话，由代理在服务端保持 shell)
 	"sshTerminalModal.keepAliveTitle": "连接",
 	"sshTerminalModal.keepAliveLabel": "中断后保留会话",
-	"sshTerminalModal.keepAliveHint": "网络中断或手机锁屏后，{minutes} 分钟内重连会接回原来的会话：远端程序继续运行，期间的输出不会丢失。",
+	"sshTerminalModal.keepAliveHint": "网络中断、手机锁屏或刷新页面后，{minutes} 分钟内重连会接回原来的会话：远端程序继续运行，期间的输出不会丢失。点“关闭”会结束会话。",
 	"sshTerminalModal.sessionResumed": "已接回中断前的会话。",
 	"sshTerminalModal.sessionFresh": "已重新建立会话，之前的进程已结束。",
 	"sshTerminalModal.sessionFreshLine": "—— 新会话 ——",
 	"sshTerminalModal.sessionResumedPartial": "已接回中断前的会话；断开期间输出较多，只补发了最近的一部分。",
+	"sshTerminalModal.strayMouseOff": "鼠标操作被远端当作文字输入（打开鼠标模式的程序可能已异常退出），已在本地关闭鼠标上报。",
 	"sshTerminalModal.autoReconnectIn": "{seconds} 秒后自动重连",
 	"sshTerminalModal.terminalStateTitle": "终端状态",
 	"sshTerminalModal.resetTerminal": "重置终端状态",
@@ -142,6 +144,7 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.errClosed": "Connection closed",
 	"sshTerminalModal.errDisconnected": "WebSocket connection disconnected",
 	"sshTerminalModal.errConnectionFailed": "WebSocket connection failed. Please confirm the SSH proxy service is running.",
+	"sshTerminalModal.errReplaced": "This session continued in another window. Reconnect to take it back here.",
 	"sshTerminalModal.errInputTooLarge": "Pending input exceeds 4 MiB. This input was not sent. Paste smaller sections or upload through the file manager.",
 
 	// Terminal search
@@ -187,11 +190,12 @@ export const en: Record<string, string> = {
 	// Side panel — connection (keep the shell on the proxy across a dropped socket)
 	"sshTerminalModal.keepAliveTitle": "Connection",
 	"sshTerminalModal.keepAliveLabel": "Keep the session after a disconnect",
-	"sshTerminalModal.keepAliveHint": "After a network drop or a locked phone screen, reconnecting within {minutes} minutes picks the same session up: the remote program keeps running and nothing it printed is lost.",
+	"sshTerminalModal.keepAliveHint": "After a network drop, a locked phone screen or a page reload, reconnecting within {minutes} minutes picks the same session up: the remote program keeps running and nothing it printed is lost. Close ends the session.",
 	"sshTerminalModal.sessionResumed": "Resumed the session from before the disconnect.",
 	"sshTerminalModal.sessionFresh": "Started a new session; the previous shell has ended.",
 	"sshTerminalModal.sessionFreshLine": "—— new session ——",
 	"sshTerminalModal.sessionResumedPartial": "Resumed the session. It printed a lot while disconnected, so only the latest output was replayed.",
+	"sshTerminalModal.strayMouseOff": "The remote side took mouse actions as typed text (the program that turned mouse reporting on may have died), so mouse reporting was turned off here.",
 	"sshTerminalModal.autoReconnectIn": "Reconnecting in {seconds} s",
 	"sshTerminalModal.terminalStateTitle": "Terminal state",
 	"sshTerminalModal.resetTerminal": "Reset terminal state",

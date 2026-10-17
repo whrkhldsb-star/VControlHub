@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { SshTerminalPanel } from "../ssh-terminal-panel";
 import { encodeBase64 } from "../ssh-terminal-codec";
@@ -202,6 +202,31 @@ describe("SshTerminalPanel", () => {
 		render(<SshTerminalPanel {...defaultProps} />);
 
 		expect(screen.getByRole("button", { name: "关闭 SSH 终端" })).toBeInTheDocument();
+	});
+
+	it("ends the shell when the user closes the terminal", async () => {
+		const onClose = vi.fn();
+		render(<SshTerminalPanel {...defaultProps} onClose={onClose} />);
+		await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+		const socket = MockWebSocket.instances[0]!;
+		const send = vi.spyOn(socket, "send");
+		connectSocket(socket, { resumeId: "a".repeat(32), resumed: false, keepAliveMs: 600_000 });
+		expect(window.sessionStorage.getItem("ssh-terminal-resume:srv_1")).toBe("a".repeat(32));
+		fireEvent.click(screen.getByRole("button", { name: "关闭 SSH 终端" }));
+		expect(send).toHaveBeenCalledWith(JSON.stringify({ type: "end" }));
+		expect(onClose).toHaveBeenCalled();
+		expect(window.sessionStorage.getItem("ssh-terminal-resume:srv_1")).toBeNull();
+	});
+
+	it("continues the shell this tab had before a reload", async () => {
+		window.sessionStorage.setItem("ssh-terminal-resume:srv_1", "b".repeat(32));
+		try {
+			render(<SshTerminalPanel {...defaultProps} />);
+			await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+			expect(MockWebSocket.instances[0]!.url).toContain(`resume=${"b".repeat(32)}&offset=0`);
+		} finally {
+			window.sessionStorage.removeItem("ssh-terminal-resume:srv_1");
+		}
 	});
 
 	it("renders the command panel and file manager toggle buttons", () => {
