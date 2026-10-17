@@ -45,6 +45,29 @@ describe("Windows agent script generation", () => {
     expect(script).not.toContain("file");
   });
 
+  it("reaches the hub from Server 2016, names itself, and backs off when refused", () => {
+    const script = buildAgentPowerShell(HUB, TOKEN);
+    // .NET before 4.7 offers no TLS 1.2 by default; SystemDefault (0) stays.
+    expect(script.indexOf("-bor 3072")).toBeGreaterThanOrEqual(0);
+    expect(script.indexOf("-bor 3072")).toBeLessThan(script.indexOf("New-Object System.Net.Http.HttpClient"));
+    expect(script).toContain("if ($tlsProtocols -ne 0)");
+    expect(script).toContain("'VControlHub-Agent/' + $VERSION + ' (windows)'");
+    // A revoked token or an edge refusal is retried rarely, not every 5 s.
+    expect(script).toContain("$script:LastStatus -eq 401 -or $script:LastStatus -eq 403) { $sleepMilliseconds = 60000 }");
+    // A result the hub refuses is replaced once instead of resent forever.
+    expect(script).toContain("$script:LastStatus -eq 400 -and $null -ne $pending");
+    // Output is cut by its encoded size, not its length.
+    expect(script).toContain("stdout = (Limit-Text $stdout $OUTPUT_LIMIT)");
+  });
+
+  it("reports host facts in the shared ===SYS=== section", () => {
+    const script = buildAgentPowerShell(HUB, TOKEN);
+    expect(script.indexOf("$lines.Add('===SYS===')")).toBeGreaterThan(script.indexOf("$lines.Add('===NET===')"));
+    for (const key of ["arch=", "kernel=", "os=", "cpu=", "virt=", "procs=", "tcp=", "udp="]) {
+      expect(script).toContain(`'${key}'`);
+    }
+  });
+
   it("emits metrics in the shared ===SECTION=== format the hub parser expects", () => {
     const script = buildAgentPowerShell(HUB, TOKEN);
     for (const marker of ["===CPU===", "===MEM===", "===SWAP===", "===DISK===", "===LOAD===", "===NET==="]) {
@@ -65,6 +88,15 @@ describe("Windows agent script generation", () => {
     expect(installer).toContain("-User 'SYSTEM' -RunLevel Highest");
     expect(installer).toContain("-RestartCount 999");
     expect(installer).toContain("Start-ScheduledTask");
+    // A running Agent ignores Start-ScheduledTask and keeps its revoked token:
+    // reinstalling stops it before writing and registering the new one.
+    const stop = installer.indexOf("Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue");
+    expect(stop).toBeGreaterThanOrEqual(0);
+    expect(stop).toBeLessThan(installer.indexOf("WriteAllBytes"));
+    expect(stop).toBeLessThan(installer.indexOf("Register-ScheduledTask"));
+    // Zero means no limit; 365 days stopped the Agent after a year of uptime.
+    expect(installer).toContain("-ExecutionTimeLimit ([TimeSpan]::Zero)");
+    expect(installer).not.toContain("-Days 365");
     // The agent payload is embedded as base64, not inline script text.
     const agentScript = buildAgentPowerShell(HUB, TOKEN);
     expect(installer).not.toContain(agentScript);
@@ -106,6 +138,8 @@ describe("prepareWindowsAgentInstall", () => {
     const plan = await prepareWindowsAgentInstall("win");
     expect(plan.installCommand).toContain("https://hub.example.com/api/agent/v1/bootstrap");
     expect(plan.installCommand).toMatch(/Bearer vca_win_/);
+    // TLS 1.2 is enabled before the download (Windows Server 2016).
+    expect(plan.installCommand.indexOf("-bor 3072")).toBeLessThan(plan.installCommand.indexOf("Invoke-RestMethod"));
     // Token stored as digest only.
     const stored = mocks.serverUpdate.mock.calls[0]?.[0]?.data.agentTokenHash as string;
     expect(stored).toMatch(/^[a-f0-9]{64}$/);

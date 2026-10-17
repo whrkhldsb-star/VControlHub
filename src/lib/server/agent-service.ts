@@ -11,8 +11,8 @@ import { normalizeServerMetrics } from "@/lib/public-status/normalize";
 import { writeLatestMetrics } from "@/lib/public-status/latest-writer";
 import { createLogger } from "@/lib/logging";
 import { CommandCancellationUnconfirmedError } from "@/lib/command/cancellation-error";
+import { AGENT_VERSION } from "./agent-version";
 
-const AGENT_VERSION = "1.3.0";
 export const AGENT_FRESH_MS = 90_000;
 export const AGENT_JOB_HEARTBEAT_MS = 30_000;
 /** Both Agent scripts send a metric report at most once per this many seconds. */
@@ -34,6 +34,25 @@ export const AGENT_CLEANUP_COMMAND = "nohup sh -c 'sleep 2; systemctl disable vc
  * PowerShell parses the command; the path contains no spaces by construction.
  */
 export const AGENT_WINDOWS_CLEANUP_COMMAND = `powershell -NoProfile -Command "Start-Process -WindowStyle Hidden cmd -ArgumentList '/c','ping -n 4 127.0.0.1 >nul & schtasks /end /tn ${AGENT_WINDOWS_TASK_NAME} >nul 2>&1 & schtasks /delete /f /tn ${AGENT_WINDOWS_TASK_NAME} >nul 2>&1 & rd /s /q %ProgramData%\\VControlHub >nul 2>&1'"`;
+
+/**
+ * Removal over SSH, for when the Agent cannot remove itself: synchronous (the
+ * Agent is not the one running it), so the exit code says whether it worked.
+ */
+export const AGENT_SSH_CLEANUP_SCRIPT = "systemctl disable --now vcontrolhub-agent.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/vcontrolhub-agent.service; rm -rf /opt/vcontrolhub-agent; systemctl daemon-reload >/dev/null 2>&1 || true";
+
+/**
+ * .NET before 4.7 (Windows Server 2016) offers only TLS 1.0/1.1 by default,
+ * which the hub's edge refuses. Adds TLS 1.2 there; SystemDefault (0) on newer
+ * systems is left alone so they keep TLS 1.3.
+ */
+const POWERSHELL_ENABLE_TLS12 = "$tlsProtocols = [int][Net.ServicePointManager]::SecurityProtocol; if ($tlsProtocols -ne 0) { [Net.ServicePointManager]::SecurityProtocol = $tlsProtocols -bor 3072 }";
+
+/** `script` as root: directly for a root login, else through passwordless sudo (cloud images log in as ubuntu, opc, ec2-user…). */
+function asRoot(script: string) {
+  const quoted = shellQuote(script);
+  return `if [ "$(id -u)" -eq 0 ]; then sh -c ${quoted}; elif command -v sudo >/dev/null 2>&1; then sudo -n sh -c ${quoted}; else echo "The Agent needs a root login or passwordless sudo" >&2; exit 1; fi`;
+}
 
 /** Abortable sleep on the global timer (so it follows fake timers in tests). */
 function delay(ms: number, signal?: AbortSignal) {
@@ -304,7 +323,7 @@ async function withAgentCancellationDeadline<T>(query: PromiseLike<T>): Promise<
   } finally { clearTimeout(timer); }
 }
 
-function buildAgentPython(hubUrl: string, token: string) {
+export function buildAgentPython(hubUrl: string, token: string) {
   const endpoint = new URL("/api/agent/v1/poll", hubUrl).toString();
   return `#!/usr/bin/env python3
 import http.client, json, os, signal, subprocess, time, urllib.parse
@@ -312,25 +331,51 @@ ENDPOINT=${JSON.stringify(endpoint)}
 TOKEN=${JSON.stringify(token)}
 MONITOR=${JSON.stringify(MONITOR_SCRIPT)}
 VERSION=${JSON.stringify(AGENT_VERSION)}
+CAPABILITIES=${JSON.stringify([...AGENT_CAPABILITIES])}
 HEARTBEAT_SECONDS=20
+OUTPUT_LIMIT=8388608
+ERROR_LIMIT=1048576
+REJECTED="Agent result rejected by the hub"
 pending=None
 last_metrics=0
+metrics_error=None
 parts=urllib.parse.urlsplit(ENDPOINT)
 conn=None
+class HubStatus(Exception):
+    def __init__(self, status):
+        Exception.__init__(self, "hub returned %s" % status)
+        self.status=status
 def connect():
     cls=http.client.HTTPSConnection if parts.scheme == "https" else http.client.HTTPConnection
     return cls(parts.hostname, parts.port, timeout=35)
+def text(value):
+    if value is None: return ""
+    return value.decode(errors="replace") if isinstance(value, bytes) else value
 def post(payload):
     global conn
     body=json.dumps(payload).encode()
     if conn is None: conn=connect()
-    conn.request("POST", parts.path, body, {"Authorization":"Bearer "+TOKEN,"Content-Type":"application/json","Content-Length":str(len(body))})
+    # Named explicitly: edge networks block some library defaults (Python-urllib).
+    conn.request("POST", parts.path, body, {"Authorization":"Bearer "+TOKEN,"Content-Type":"application/json","Content-Length":str(len(body)),"User-Agent":"VControlHub-Agent/"+VERSION+" (linux)"})
     response=conn.getresponse(); data=response.read()
-    if response.status != 200: raise RuntimeError("hub returned %s" % response.status)
-    return json.loads(data or b"{}")
-def text(value):
-    if value is None: return ""
-    return value.decode(errors="replace") if isinstance(value, bytes) else value
+    if response.status != 200: raise HubStatus(response.status)
+    return json.loads(text(data) or "{}")
+def fit(value, limit):
+    # The hub caps the JSON body, where escapes grow non-ASCII and control
+    # characters up to six bytes each: cut by the encoded size.
+    value=text(value)[:limit]
+    while value and len(json.dumps(value)) > limit+2: value=value[:len(value)*4//5]
+    return value
+def collect_metrics():
+    # A slow or failing collection must not cost the heartbeat.
+    global metrics_error
+    try:
+        result=subprocess.run(["/bin/sh","-c",MONITOR],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=15)
+        metrics_error=None
+        return text(result.stdout)[:64000]
+    except Exception as exc:
+        metrics_error=("metrics collection failed: %s" % exc)[:1000]
+        return None
 def terminate(proc):
     # The shell may have exited while children still own its pipes.
     try: os.killpg(proc.pid, signal.SIGTERM)
@@ -340,50 +385,63 @@ def terminate(proc):
         try: os.killpg(proc.pid, signal.SIGKILL)
         except ProcessLookupError: pass
         proc.communicate(timeout=5)
+def run(job):
+    timeout_seconds=max(1,min(int(job.get("timeoutMs",60000))/1000,3600))
+    # Bytes, not text: output that is not valid UTF-8 must not abort the job.
+    proc=subprocess.Popen(["/bin/sh","-c",job["command"]],stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
+    deadline=time.time()+timeout_seconds
+    while True:
+        remaining=max(0,deadline-time.time())
+        try:
+            stdout,stderr=proc.communicate(timeout=min(HEARTBEAT_SECONDS,remaining or 0.001))
+            # A signal shows as a negative code; the hub takes 0-255, as a shell reports it.
+            code=proc.returncode if proc.returncode >= 0 else min(255,128-proc.returncode)
+            return {"jobId":job["id"],"stdout":fit(stdout,OUTPUT_LIMIT),"stderr":fit(stderr,ERROR_LIMIT),"exitCode":code}
+        except subprocess.TimeoutExpired as exc:
+            try:
+                heartbeat=post({"version":VERSION,"heartbeatJobId":job["id"]})
+            except Exception:
+                heartbeat={}
+            if heartbeat.get("cancelled"):
+                terminate(proc)
+                stdout,stderr=proc.communicate()
+                return {"jobId":job["id"],"stdout":fit(stdout or exc.stdout,OUTPUT_LIMIT),"stderr":"Agent command cancelled","exitCode":130}
+            if time.time() >= deadline:
+                terminate(proc)
+                stdout,stderr=proc.communicate()
+                return {"jobId":job["id"],"stdout":fit(stdout or exc.stdout,OUTPUT_LIMIT),"stderr":"Agent command timed out","exitCode":124}
 while True:
     try:
-        now=time.time()
-        payload={"version":VERSION,"capabilities":${JSON.stringify([...AGENT_CAPABILITIES])}}
+        payload={"version":VERSION,"capabilities":CAPABILITIES}
         if pending is not None: payload["result"]=pending
+        now=time.time()
         if now-last_metrics >= 60:
-            metrics=subprocess.run(["/bin/sh","-c",MONITOR],capture_output=True,text=True,timeout=15)
-            payload["metricsRaw"]=metrics.stdout[:64000]; last_metrics=now
-        message=post(payload)
+            last_metrics=now
+            raw=collect_metrics()
+            if raw is not None: payload["metricsRaw"]=raw
+        if metrics_error: payload["error"]=metrics_error
+        try:
+            message=post(payload)
+        except HubStatus as exc:
+            if exc.status == 400 and pending is not None:
+                # Resending a result the hub refuses would block every later
+                # job: report the job as failed instead, once.
+                pending=None if pending["stderr"] == REJECTED else {"jobId":pending["jobId"],"stdout":"","stderr":REJECTED,"exitCode":1}
+            raise
         pending=None
         job=message.get("job")
-        if job:
-            timeout_seconds=max(1,min(int(job.get("timeoutMs",60000))/1000,3600))
-            proc=subprocess.Popen(["/bin/sh","-c",job["command"]],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
-            deadline=time.time()+timeout_seconds
-            while True:
-                remaining=max(0,deadline-time.time())
-                try:
-                    stdout,stderr=proc.communicate(timeout=min(HEARTBEAT_SECONDS,remaining or 0.001))
-                    pending={"jobId":job["id"],"stdout":text(stdout)[:8388608],"stderr":text(stderr)[:1048576],"exitCode":proc.returncode}
-                    break
-                except subprocess.TimeoutExpired as exc:
-                    try:
-                        heartbeat=post({"version":VERSION,"heartbeatJobId":job["id"]})
-                    except Exception:
-                        heartbeat={}
-                    if heartbeat.get("cancelled"):
-                        terminate(proc)
-                        stdout,stderr=proc.communicate()
-                        pending={"jobId":job["id"],"stdout":text(stdout or exc.stdout)[:8388608],"stderr":"Agent command cancelled"[:1048576],"exitCode":130}
-                        break
-                    if time.time() >= deadline:
-                        terminate(proc)
-                        stdout,stderr=proc.communicate()
-                        pending={"jobId":job["id"],"stdout":text(stdout or exc.stdout)[:8388608],"stderr":"Agent command timed out"[:1048576],"exitCode":124}
-                        break
+        if job: pending=run(job)
         else: time.sleep(max(1,min(int(message.get("pollAfterMs",5000))/1000,30)))
-    except Exception:
+    except Exception as exc:
         try:
             if conn: conn.close()
         except Exception: pass
-        conn=None; time.sleep(5)
+        conn=None
+        status=getattr(exc,"status",None)
+        # 401: the token was revoked (reinstalled or removed); 403: an edge
+        # proxy refuses. Neither changes within seconds, so ask again rarely.
+        time.sleep(60 if status in (401,403) else 30 if status == 429 else 5)
 `;
-
 }
 
 /**
@@ -399,6 +457,7 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
   return [
     "# VControlHub Windows Agent",
     "$ErrorActionPreference = 'Continue'",
+    POWERSHELL_ENABLE_TLS12,
     "Add-Type -AssemblyName System.Net.Http | Out-Null",
     `$ENDPOINT = ${JSON.stringify(endpoint)}`,
     `$TOKEN = ${JSON.stringify(token)}`,
@@ -406,25 +465,58 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "$HEARTBEAT_SECONDS = 20",
     "$OUTPUT_LIMIT = 8388608",
     "$ERROR_LIMIT = 1048576",
+    "$REJECTED = 'Agent result rejected by the hub'",
+    "$script:LastStatus = 0",
     "",
     "$script:Client = New-Object System.Net.Http.HttpClient",
     "$script:Client.Timeout = [TimeSpan]::FromSeconds(35)",
+    "# Named explicitly: edge networks block some library defaults.",
+    "$null = $script:Client.DefaultRequestHeaders.TryAddWithoutValidation('User-Agent', 'VControlHub-Agent/' + $VERSION + ' (windows)')",
     "",
     "function Invoke-AgentPost {",
     "  param([string]$Json)",
+    "  $script:LastStatus = 0",
     "  $request = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Post, $ENDPOINT)",
     "  $null = $request.Headers.TryAddWithoutValidation('Authorization', 'Bearer ' + $TOKEN)",
     "  $request.Content = New-Object System.Net.Http.StringContent($Json, [System.Text.Encoding]::UTF8, 'application/json')",
     "  $response = $script:Client.SendAsync($request).GetAwaiter().GetResult()",
     "  try {",
+    "    $script:LastStatus = [int]$response.StatusCode",
     "    $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()",
-    "    if (-not $response.IsSuccessStatusCode) { throw ('hub returned ' + [int]$response.StatusCode) }",
+    "    if (-not $response.IsSuccessStatusCode) { throw ('hub returned ' + $script:LastStatus) }",
     "    if ([string]::IsNullOrWhiteSpace($body)) { return $null }",
     "    return ($body | ConvertFrom-Json)",
     "  } finally {",
     "    $request.Dispose()",
     "    $response.Dispose()",
     "  }",
+    "}",
+    "",
+    "function Limit-Text {",
+    "  param([string]$Value, [int]$Limit)",
+    "  if ($null -eq $Value) { return '' }",
+    "  if ($Value.Length -gt $Limit) { $Value = $Value.Substring(0, $Limit) }",
+    "  # The hub caps the JSON body: cut by the encoded size, not the character count.",
+    "  while ($Value.Length -gt 0 -and [System.Text.Encoding]::UTF8.GetByteCount((ConvertTo-Json $Value -Compress)) -gt $Limit + 2) {",
+    "    $Value = $Value.Substring(0, [int][Math]::Floor($Value.Length * 0.8))",
+    "  }",
+    "  return $Value",
+    "}",
+    "",
+    "# systemd-detect-virt's names for the hypervisors Windows reports by maker and model.",
+    "function Get-AgentVirtualization {",
+    "  param($System)",
+    "  if (-not $System) { return '' }",
+    "  $signature = ([string]$System.Manufacturer + ' ' + [string]$System.Model).ToLowerInvariant()",
+    "  if ($signature -match 'kvm|qemu|standard pc') { return 'kvm' }",
+    "  if ($signature -match 'vmware') { return 'vmware' }",
+    "  if ($signature -match 'virtualbox') { return 'oracle' }",
+    "  if ($signature -match 'xen') { return 'xen' }",
+    "  if ($signature -match 'amazon ec2') { return 'amazon' }",
+    "  if ($signature -match 'google') { return 'google' }",
+    "  if ($signature -match 'microsoft corporation virtual machine') { return 'microsoft' }",
+    "  if ($System.HypervisorPresent) { return '' }",
+    "  return 'none'",
     "}",
     "",
     "function Get-AgentMetrics {",
@@ -463,6 +555,19 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "  Get-NetAdapterStatistics -ErrorAction SilentlyContinue | Select-Object -First 5 | ForEach-Object {",
     "    $lines.Add(('{0} {1} {2}' -f $_.Name, [long]$_.ReceivedBytes, [long]$_.SentBytes))",
     "  }",
+    "  # Host facts, as the Linux script reports them (see host-facts.ts).",
+    "  $lines.Add('===SYS===')",
+    "  $arch = [string]$env:PROCESSOR_ARCHITECTURE",
+    "  if ($arch -eq 'AMD64') { $arch = 'x86_64' } elseif ($arch -eq 'ARM64') { $arch = 'aarch64' } elseif ($arch -eq 'x86') { $arch = 'i686' }",
+    "  $lines.Add('arch=' + $arch)",
+    "  $lines.Add('kernel=' + [string]$osInfo.Version)",
+    "  $lines.Add('os=' + [string]$osInfo.Caption)",
+    "  $cpu = Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1",
+    "  if ($cpu) { $lines.Add('cpu=' + ([string]$cpu.Name).Trim()) }",
+    "  $lines.Add('virt=' + (Get-AgentVirtualization (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue)))",
+    "  $lines.Add('procs=' + [string](@(Get-Process -ErrorAction SilentlyContinue)).Count)",
+    "  $lines.Add('tcp=' + [string](@(Get-NetTCPConnection -ErrorAction SilentlyContinue)).Count)",
+    "  $lines.Add('udp=' + [string](@(Get-NetUDPEndpoint -ErrorAction SilentlyContinue)).Count)",
     "  return ($lines -join [string][char]10)",
     "}",
     "",
@@ -506,18 +611,17 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "  $stderr = ''",
     "  try { $stdout = $stdoutTask.Result } catch { }",
     "  try { $stderr = $stderrTask.Result } catch { }",
-    "  if ($stdout.Length -gt $OUTPUT_LIMIT) { $stdout = $stdout.Substring(0, $OUTPUT_LIMIT) }",
-    "  if ($stderr.Length -gt $ERROR_LIMIT) { $stderr = $stderr.Substring(0, $ERROR_LIMIT) }",
     "  # Hub protocol caps exitCode at 255; Windows exit codes are 32-bit.",
     "  $exitCode = $process.ExitCode",
     "  if ($cancelled) { $exitCode = 130; $stderr = 'Agent command cancelled' }",
     "  elseif ($timedOut) { $exitCode = 124; $stderr = 'Agent command timed out' }",
     "  elseif ($exitCode -lt 0 -or $exitCode -gt 255) { $exitCode = 1 }",
-    "  return [ordered]@{ jobId = [string]$Job.id; stdout = $stdout; stderr = $stderr; exitCode = $exitCode }",
+    "  return [ordered]@{ jobId = [string]$Job.id; stdout = (Limit-Text $stdout $OUTPUT_LIMIT); stderr = (Limit-Text $stderr $ERROR_LIMIT); exitCode = $exitCode }",
     "}",
     "",
     "$pending = $null",
     "$lastMetrics = [DateTime]::MinValue",
+    "$metricsError = $null",
     "while ($true) {",
     "  $sleepMilliseconds = 5000",
     "  try {",
@@ -525,13 +629,26 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "    if ($null -ne $pending) { $payload['result'] = $pending }",
     "    $now = [DateTime]::UtcNow",
     "    if (($now - $lastMetrics).TotalSeconds -ge 60) {",
+    "      $lastMetrics = $now",
     "      try {",
     "        $raw = Get-AgentMetrics",
     "        if ($raw) { $payload['metricsRaw'] = $raw.Substring(0, [Math]::Min(64000, $raw.Length)) }",
-    "      } catch { }",
-    "      $lastMetrics = $now",
+    "        $metricsError = $null",
+    "      } catch {",
+    "        $metricsError = 'metrics collection failed: ' + $_.Exception.Message",
+    "      }",
     "    }",
-    "    $message = Invoke-AgentPost ($payload | ConvertTo-Json -Depth 6 -Compress)",
+    "    if ($metricsError) { $payload['error'] = $metricsError.Substring(0, [Math]::Min(1000, $metricsError.Length)) }",
+    "    try {",
+    "      $message = Invoke-AgentPost ($payload | ConvertTo-Json -Depth 6 -Compress)",
+    "    } catch {",
+    "      if ($script:LastStatus -eq 400 -and $null -ne $pending) {",
+    "        # Resending a result the hub refuses would block every later job: report the job as failed instead, once.",
+    "        if ($pending.stderr -eq $REJECTED) { $pending = $null }",
+    "        else { $pending = [ordered]@{ jobId = $pending.jobId; stdout = ''; stderr = $REJECTED; exitCode = 1 } }",
+    "      }",
+    "      throw",
+    "    }",
     "    $pending = $null",
     "    if ($message -and $message.job) {",
     "      $pending = Invoke-AgentJob $message.job",
@@ -540,7 +657,10 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "      try { $sleepMilliseconds = [Math]::Max(1000, [Math]::Min([int]$message.pollAfterMs, 30000)) } catch { }",
     "    }",
     "  } catch {",
-    "    $sleepMilliseconds = 5000",
+    "    # 401: the token was revoked (reinstalled or removed); 403: an edge proxy refuses. Ask again rarely.",
+    "    if ($script:LastStatus -eq 401 -or $script:LastStatus -eq 403) { $sleepMilliseconds = 60000 }",
+    "    elseif ($script:LastStatus -eq 429) { $sleepMilliseconds = 30000 }",
+    "    else { $sleepMilliseconds = 5000 }",
     "  }",
     "  Start-Sleep -Milliseconds $sleepMilliseconds",
     "}",
@@ -564,14 +684,21 @@ export function buildWindowsAgentInstaller(hubUrl: string, token: string) {
     "  Write-Error 'VControlHub agent setup requires an elevated (Administrator) PowerShell.'",
     "  exit 1",
     "}",
+    `$taskName = ${JSON.stringify(AGENT_WINDOWS_TASK_NAME)}`,
+    "# An installed Agent keeps its old token in memory, and Start-ScheduledTask",
+    "# ignores a task that is still running: stop it, and let it end, before replacing it.",
+    "try {",
+    "  Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue",
+    "  for ($i = 0; $i -lt 20 -and (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue).State -eq 'Running'; $i++) { Start-Sleep -Milliseconds 500 }",
+    "} catch { }",
     "$agentDir = Join-Path $env:ProgramData 'VControlHub'",
     "New-Item -ItemType Directory -Path $agentDir -Force | Out-Null",
     "$agentPath = Join-Path $agentDir 'agent.ps1'",
     `[System.IO.File]::WriteAllBytes($agentPath, [Convert]::FromBase64String(${JSON.stringify(agentBase64)}))`,
-    `$taskName = ${JSON.stringify(AGENT_WINDOWS_TASK_NAME)}`,
     "$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"' + $agentPath + '\"')",
     "$trigger = New-ScheduledTaskTrigger -AtStartup",
-    "$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Days 365) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)",
+    "# A zero execution time limit means none: the Agent runs as long as the machine does.",
+    "$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)",
     "Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -User 'SYSTEM' -RunLevel Highest -Force | Out-Null",
     "Start-ScheduledTask -TaskName $taskName",
     "Write-Output 'VControlHub agent installed and started.'",
@@ -596,9 +723,22 @@ export async function installServerAgent(serverId: string) {
   const token = await issueServerAgentToken(serverId);
   const python = Buffer.from(buildAgentPython(hubUrl, token)).toString("base64");
   const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=always\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
-  const command = `command -v python3 >/dev/null 2>&1 && command -v systemctl >/dev/null 2>&1 && install -d -m 700 /opt/vcontrolhub-agent && printf %s ${shellQuote(python)} | base64 -d > /opt/vcontrolhub-agent/agent.py && chmod 700 /opt/vcontrolhub-agent/agent.py && printf %s ${shellQuote(unit)} > /etc/systemd/system/vcontrolhub-agent.service && systemctl daemon-reload && systemctl enable --now vcontrolhub-agent.service`;
+  const script = [
+    "set -e",
+    `command -v python3 >/dev/null 2>&1 || { echo "The Agent needs python3" >&2; exit 1; }`,
+    `python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 5) else 1)' || { echo "The Agent needs Python 3.5 or newer" >&2; exit 1; }`,
+    `command -v systemctl >/dev/null 2>&1 || { echo "The Agent needs systemd" >&2; exit 1; }`,
+    "install -d -m 700 /opt/vcontrolhub-agent",
+    `printf %s ${shellQuote(python)} | base64 -d > /opt/vcontrolhub-agent/agent.py`,
+    "chmod 700 /opt/vcontrolhub-agent/agent.py",
+    `printf %s ${shellQuote(unit)} > /etc/systemd/system/vcontrolhub-agent.service`,
+    "systemctl daemon-reload",
+    "systemctl enable vcontrolhub-agent.service >/dev/null",
+    // An installed Agent keeps its previous token in memory: restart, not just start.
+    "systemctl restart vcontrolhub-agent.service",
+  ].join("\n");
   const ssh = await buildSshParamsFromServer(server, server.sshKey);
-  const result = await execRemoteCommand({ ...ssh, command, timeout: 60_000 });
+  const result = await execRemoteCommand({ ...ssh, command: asRoot(script), timeout: 60_000 });
   if (result.exitCode !== 0) {
     await prisma.server.update({ where: { id: serverId }, data: { agentLastError: (result.stderr || result.stdout || "Agent installation failed").slice(0, 1000) } });
     throw new Error(result.stderr || result.stdout || "Agent installation failed");
@@ -628,7 +768,7 @@ export async function prepareWindowsAgentInstall(serverId: string) {
   if (server.managementMode !== "AGENT") throw new BusinessError(t("backend.server.agentModeRequired"));
   const token = await issueServerAgentToken(serverId);
   const bootstrapUrl = new URL("/api/agent/v1/bootstrap", hubUrl).toString();
-  const installCommand = `& ([scriptblock]::Create((Invoke-RestMethod -UseBasicParsing -Uri '${bootstrapUrl}' -Headers @{ Authorization = 'Bearer ${token}' })))`;
+  const installCommand = `${POWERSHELL_ENABLE_TLS12}; & ([scriptblock]::Create((Invoke-RestMethod -UseBasicParsing -Uri '${bootstrapUrl}' -Headers @{ Authorization = 'Bearer ${token}' })))`;
   return { installCommand, bootstrapUrl };
 }
 
@@ -653,12 +793,11 @@ export async function uninstallServerAgent(serverId: string) {
     await prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: null } });
     return { removed };
   }
-  const cleanupCommand = AGENT_CLEANUP_COMMAND;
   let removed = false;
   if (server.agentLastSeenAt && Date.now() - server.agentLastSeenAt.getTime() < AGENT_FRESH_MS) {
     const result = await executeCommandWithAgent({
       serverId,
-      command: cleanupCommand,
+      command: AGENT_CLEANUP_COMMAND,
       timeoutMs: 15_000,
     }).catch(() => null);
     removed = result?.exitCode === 0;
@@ -670,8 +809,8 @@ export async function uninstallServerAgent(serverId: string) {
         : Boolean(server.password);
       if (hasSshCredential) {
         const ssh = await buildSshParamsFromServer(server, server.sshKey);
-        await execRemoteCommand({ ...ssh, command: cleanupCommand, timeout: 30_000 });
-        removed = true;
+        const result = await execRemoteCommand({ ...ssh, command: asRoot(AGENT_SSH_CLEANUP_SCRIPT), timeout: 30_000 });
+        removed = result.exitCode === 0;
       }
     }
   } catch {
