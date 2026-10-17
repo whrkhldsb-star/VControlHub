@@ -21,7 +21,7 @@ vi.mock("@/lib/command/service", () => ({ createCommandRequest: vi.fn() }));
 vi.mock("@/lib/scheduled-task/service", () => ({ createScheduledTask: vi.fn() }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn() }));
 
-const { materializeAutomationProposal } = await import("../automation-service");
+const { materializeAutomationProposal, executeAutomationProposal } = await import("../automation-service");
 
 describe("generic AI automation proposals", () => {
   beforeEach(() => {
@@ -38,6 +38,21 @@ describe("generic AI automation proposals", () => {
       { id: "srv_1", name: "A", host: "10.0.0.1", teamId: "team_1" },
       { id: "srv_2", name: "B", host: "10.0.0.2", teamId: "team_1" },
     ]);
+  });
+
+
+  it.each(["now", "daily"])("preserves identity-template grants for %s execution", async (executionMode) => {
+    const { createCommandRequest } = await import("@/lib/command/service");
+    const { createScheduledTask } = await import("@/lib/scheduled-task/service");
+    vi.mocked(createCommandRequest).mockResolvedValue({ id: "request_1", requiresApproval: true } as Awaited<ReturnType<typeof createCommandRequest>>);
+    vi.mocked(createScheduledTask).mockResolvedValue({ id: "task_1", scheduleType: "CRON", nextRunAt: null } as Awaited<ReturnType<typeof createScheduledTask>>);
+    const actor = { userId: "u1", roles: [], currentTeamId: "team_1", permissions: ["server:ssh", "command:create"] as import("@/lib/auth/rbac").Permission[] };
+    await executeAutomationProposal({
+      name: "Check status", plan: "Read uptime", reason: "Status check", executionMode,
+      dailyTime: "03:30", targetScope: "all", command: "uptime", approvalMode: "every_run",
+    }, actor, "hosted_1");
+    const executor = executionMode === "now" ? createCommandRequest : createScheduledTask;
+    expect(executor).toHaveBeenCalledWith(expect.anything(), actor);
   });
 
   it("renders a reviewed template and expands all visible targets", async () => {

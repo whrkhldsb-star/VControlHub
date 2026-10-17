@@ -851,9 +851,7 @@ export async function toggleServerEnabled(
   return { ...updated, onboardingWarnings: [] as string[] };
 }
 
-export async function listServerProfiles(
-  sessionOrTeamId?: TeamSession | string | null,
-) {
+function serverProfileListWhere(sessionOrTeamId?: TeamSession | string | null) {
   let where: Record<string, unknown> | undefined;
   if (sessionOrTeamId && typeof sessionOrTeamId === "object") {
     where = serverTeamWhere(sessionOrTeamId);
@@ -861,6 +859,13 @@ export async function listServerProfiles(
     // Backward-compat: listServerProfiles(teamId) still accepted by internal callers
     where = { teamId: sessionOrTeamId ?? null };
   }
+  return where;
+}
+
+export async function listServerProfiles(
+  sessionOrTeamId?: TeamSession | string | null,
+) {
+  const where = serverProfileListWhere(sessionOrTeamId);
 
   const servers = await prisma.server.findMany({
     where,
@@ -870,4 +875,11 @@ export async function listServerProfiles(
   });
 
   return servers.map((server: ServerProfileRow) => enrichServer(server));
+}
+
+/** Count visible profiles without hydrating credential-bearing relations. */
+export async function countServerProfiles(
+  sessionOrTeamId?: TeamSession | string | null,
+) {
+  return prisma.server.count({ where: serverProfileListWhere(sessionOrTeamId) });
 }

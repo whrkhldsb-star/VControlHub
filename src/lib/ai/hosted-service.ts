@@ -305,6 +305,18 @@ async function persistHostedToolOutcome(
   });
 }
 
+async function persistHostedActionFailure(
+  action: { id: string; conversationId: string; toolCallId: string | null },
+  error: unknown,
+) {
+  const message = error instanceof Error ? error.message : t("backend.ai.unknownError");
+  await prisma.aiHostedAction.update({
+    where: { id: action.id },
+    data: { status: "FAILED", errorMessage: message, completedAt: new Date() },
+  });
+  await persistHostedToolOutcome(action, { success: false, status: "FAILED", error: message });
+}
+
 async function executeConfirmedServerlessAction(
   action: {
     id: string;
@@ -412,12 +424,7 @@ async function executeConfirmedAutomationAction(
     });
     await persistHostedToolOutcome(action, { success: true, status: "COMPLETED", data: result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : t("backend.ai.unknownError");
-    await prisma.aiHostedAction.update({
-      where: { id: action.id },
-      data: { status: "FAILED", errorMessage: message, completedAt: new Date() },
-    });
-    await persistHostedToolOutcome(action, { success: false, status: "FAILED", error: message });
+    await persistHostedActionFailure(action, error);
   }
 }
 
@@ -463,8 +470,7 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
   const request = await createCommandRequest(
     { ...commandRequestPayload, idempotencyKey: `ai-hosted-action:${actionId}` },
     {
-      userId: approver.userId,
-      roles: approver.roles,
+      ...approver,
       currentTeamId: approver.currentTeamId ?? null,
     },
   );
@@ -534,21 +540,26 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     }
 
     const { runPlaybook } = await import("@/lib/playbook/service");
-    const run = await runPlaybook({
-      playbookId: playbook.id,
-      dryRun: false,
-      createdById: requester.userId,
-      session: {
-        userId: requester.userId,
-        roles: requester.roles,
-        currentTeamId: requester.currentTeamId ?? null,
-      },
-      triggerContext: {
-        source: "ai_hosted_action",
-        hostedActionId: actionId,
-        serverId: typeof params.serverId === "string" ? params.serverId : action.serverId,
-      },
-    });
+    let run: Awaited<ReturnType<typeof runPlaybook>>;
+    try {
+      run = await runPlaybook({
+        playbookId: playbook.id,
+        dryRun: false,
+        createdById: requester.userId,
+        session: {
+          ...requester,
+          currentTeamId: requester.currentTeamId ?? null,
+        },
+        triggerContext: {
+          source: "ai_hosted_action",
+          hostedActionId: actionId,
+          serverId: typeof params.serverId === "string" ? params.serverId : action.serverId,
+        },
+      });
+    } catch (error) {
+      await persistHostedActionFailure(action, error);
+      throw error;
+    }
 
     await prisma.aiHostedAction.update({
       where: { id: actionId },
@@ -587,7 +598,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
   // Atomic compare-and-swap: prevent two concurrent confirmations from
   // both creating a command request and overwriting APPROVED state.
   const claimed = await prisma.aiHostedAction.updateMany({
-    where: { id: actionId, status: "PENDING_APPROVAL" },
+    where: { id: actionId, status: "PENDING_APPROVAL", ...actionScope },
     data: {
       status: "APPROVED",
       approverId: requester.userId,
@@ -598,11 +609,16 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
   }
 
-  const request = await createCommandRequest(commandRequestPayload, {
-    userId: requester.userId,
-    roles: requester.roles,
-    currentTeamId: requester.currentTeamId ?? null,
-  });
+  let request: Awaited<ReturnType<typeof createCommandRequest>>;
+  try {
+    request = await createCommandRequest(
+      { ...commandRequestPayload, idempotencyKey: `ai-hosted-action:${actionId}` },
+      { ...requester, currentTeamId: requester.currentTeamId ?? null },
+    );
+  } catch (error) {
+    await persistHostedActionFailure(action, error);
+    throw error;
+  }
 
   await persistApprovedCommandRequestOutcome(actionId, action, request);
 }
@@ -655,9 +671,9 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
 
 // ── 获取待审批操作 ────────────────────────────────────────
 
-export async function getPendingActions(userId: string) {
+export async function getPendingActions(session: HostedActionSession) {
   return prisma.aiHostedAction.findMany({
-    where: { status: "PENDING_APPROVAL", requesterId: userId },
+    where: { status: "PENDING_APPROVAL", requesterId: session.userId, ...teamWhere(sessionForTeamScope(session)!) },
     include: { server: { select: { id: true, name: true, host: true } }, message: true },
     orderBy: { createdAt: "desc" },
     take: 200, // P2: 单用户 PENDING 操作数有限

@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { listStorageNodes } from "@/lib/storage/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
@@ -10,7 +10,7 @@ import { FilesSubpageNav } from "../files-subpage-nav";
 export const dynamic = "force-dynamic";
 
 export default async function FilesWebDavPage() {
-  const session = await requireSession("/files/webdav");
+  const session = await requirePagePermission("storage:read", { redirectTo: "/files/webdav" });
   const locale = await getServerLocale();
   const nodes = await listStorageNodes(session);
   const headerStore = await headers();

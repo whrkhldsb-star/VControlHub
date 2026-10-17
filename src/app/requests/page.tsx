@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getPendingActions } from "@/lib/ai/hosted-service";
 import { listCommandRequests } from "@/lib/command/service";
@@ -21,12 +21,12 @@ export const dynamic = "force-dynamic";
 const ACTIVE_REQUEST_STATUSES = new Set(["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"]);
 
 export default async function RequestsPage() {
-	const session = await requireSession("/requests");
+	const session = await requirePagePermission("command:read", { redirectTo: "/requests" });
 	const canApprove = sessionHasPermission(session, "command:approve");
 	const locale = await getServerLocale();
 	const [requests, aiActions] = await Promise.all([
 		listCommandRequests(session),
-		getPendingActions(session.userId),
+		sessionHasPermission(session, "ai:chat") ? getPendingActions(session) : Promise.resolve([]),
 	]);
 
 	// Sort: actionable statuses first (PENDING_APPROVAL → APPROVED/RUNNING → terminal),

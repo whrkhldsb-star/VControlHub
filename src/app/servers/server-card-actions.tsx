@@ -127,6 +127,7 @@ export function ServerCardActions({
 			serverId,
 			serverName,
 			host: `${host}:${port}`,
+			operatingSystem: operatingSystem === "WINDOWS" ? "WINDOWS" : "LINUX",
 		});
 	};
 

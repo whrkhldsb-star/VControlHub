@@ -10,9 +10,14 @@ import { ActionButton } from "@/components/action-button";
 import { QuickKeyBuilder } from "@/components/ssh-quick-key-builder";
 import type { QuickKeyPreset } from "@/components/ssh-quick-keys";
 import { MAX_SSH_TERMINAL_FONT_SIZE, MIN_SSH_TERMINAL_FONT_SIZE } from "@/components/ssh-terminal-font-size";
+import type { SshTerminalOperatingSystem } from "@/components/ssh-terminal-types";
 
-const QUICK_COMMANDS = ["ls -la","df -h","free -m","top -bn1 | head -20","uptime","whoami","cat /etc/os-release","ps aux --sort=-%mem | head -10",
-] as const;
+const QUICK_COMMANDS_BY_OS: Record<SshTerminalOperatingSystem, readonly string[]> = {
+	LINUX: ["ls -la", "df -h", "free -m", "top -bn1 | head -20", "uptime", "whoami", "cat /etc/os-release", "ps aux --sort=-%mem | head -10"],
+	// Shared commands work in cmd.exe and PowerShell; invoke cmd explicitly
+	// for its built-in version command.
+	WINDOWS: ["dir", "systeminfo", "tasklist", "ipconfig", "whoami", "hostname", "cmd /c ver", "netstat -ano"],
+};
 
 /** Raw key sequences sent as-is (no Enter appended) — the on-screen stand-ins
  *  for keys mobile keyboards cannot type, e.g. interrupt, line editing, arrows.
@@ -48,6 +53,7 @@ function renderQuickKeyLabel(label: string) {
 
 export function SshTerminalSidePanel({
 	serverId,
+	operatingSystem = "LINUX",
 	t,
 	favoriteCommands,
 	newFavorite,
@@ -67,6 +73,7 @@ export function SshTerminalSidePanel({
 	onKeepAliveChange,
 }: {
 	serverId: string;
+	operatingSystem?: SshTerminalOperatingSystem;
 	t: TFn;
 	favoriteCommands: string[];
 	newFavorite: string;
@@ -255,7 +262,7 @@ export function SshTerminalSidePanel({
 					{t("sshTerminalModal.quickCommandsTitle")}
 				</h4>
 				<div className="space-y-1">
-					{QUICK_COMMANDS.map((cmd) => (
+					{QUICK_COMMANDS_BY_OS[operatingSystem].map((cmd) => (
 						<ActionButton variant="ghost"
 							key={cmd}
 							onClick={() => sendCommand(cmd)} className="!min-h-11 !block !w-full !truncate !rounded-lg !px-3 !py-1 !text-left !text-[12px] !font-mono text-[var(--text-muted)]"

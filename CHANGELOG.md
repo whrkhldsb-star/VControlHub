@@ -23,6 +23,11 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Fixed
 
+- Dashboard data and secondary form options now respect each account's permissions; command and file subpages enforce their read grants before loading data.
+- AI Ops mutations require a platform administrator, matching the existing read boundary. Hosted actions preserve identity-template permissions through command, playbook and scheduled-task calls, scope pending actions to the selected customer, and record failed confirmation outcomes.
+- SSH quick commands follow the target operating system; Windows commands work in both cmd and PowerShell. VPS status counts use a scoped count query without loading credentials or truncating the total at 500.
+- Download speed limits reject fractional, negative and out-of-range values before creating jobs or calling aria2.
+
 - SSH terminal copy without the Async Clipboard API (plain HTTP, restricted permission) also works while a container — not the whole page — is in native full screen: the temporary copy field is placed inside the fullscreen element, because WebKit refuses a legacy copy from outside it. Selection, focus, the failure notice, bare Ctrl+C as interrupt and a single native paste are unchanged; covered in Chromium, Firefox and WebKit full screen.
 - Disk usage on the public status board (and the size labels on the internal node status) now describes one partition: the percentage and used/total size both come from the fullest filesystem — the one health status, disk alerts and the stored disk history already use. Before, the fullest partition's percentage was shown next to the root partition's sizes (e.g. 90 % beside 20 / 100 GiB). Sizes are `df -h` labels, so they only approximate the percentage (rounding, reserved blocks).
 - Saving `***` as the value of a non-secret setting (e.g. the platform name) is stored. Only secret settings treat `***` as "keep the stored value"; before, every key skipped it while the API still answered success.

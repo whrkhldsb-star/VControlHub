@@ -25,7 +25,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { SshFileManager } from "@/components/ssh-file-manager";
 import { SshTerminalSidePanel } from "@/components/ssh-terminal-side-panel";
 import { SshTerminalSearchBar, SshTerminalToolbar } from "@/components/ssh-terminal-chrome";
-import type { TerminalStatus } from "@/components/ssh-terminal-types";
+import type { SshTerminalOperatingSystem, TerminalStatus } from "@/components/ssh-terminal-types";
 import { writeLocalStorageValue } from "@/lib/browser-storage";
 import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 import { AlertTriangle } from "@/components/icons";
@@ -63,6 +63,8 @@ export type SshTerminalPanelProps = {
 	serverId: string;
 	serverName: string;
 	host: string;
+	/** Shell family used to choose commands that are safe for this server. */
+	operatingSystem?: SshTerminalOperatingSystem;
 	/** When false, the panel is hidden via CSS but keeps its WS + terminal alive. */
 	visible: boolean;
 	/** Called when the user clicks the close button on this tab. */
@@ -79,6 +81,7 @@ export function SshTerminalPanel({
 	serverId,
 	serverName,
 	host,
+	operatingSystem = "LINUX",
 	visible,
 	onClose,
 	onStatusChange,
@@ -650,6 +653,7 @@ export function SshTerminalPanel({
 			{showSidePanel && (
 					<SshTerminalSidePanel
 						serverId={serverId}
+						operatingSystem={operatingSystem}
 						t={t}
 						favoriteCommands={favoriteCommands}
 						newFavorite={newFavorite}

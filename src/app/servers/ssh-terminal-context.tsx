@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from "react";
 import { SshTerminalManager, type SshTerminalTab } from "@/components/ssh-terminal-manager";
-import type { TerminalStatus } from "@/components/ssh-terminal-panel";
+import type { SshTerminalOperatingSystem, TerminalStatus } from "@/components/ssh-terminal-types";
 
 /* ------------------------------------------------------------------ */
 /* SshTerminalProvider — global multi-tab SSH terminal state          */
@@ -14,6 +14,7 @@ type SshTerminalContextValue = {
 		serverId: string;
 		serverName: string;
 		host: string;
+		operatingSystem?: SshTerminalOperatingSystem;
 	}) => void;
 	/** Whether any terminal tabs are open. */
 	isOpen: boolean;
@@ -41,6 +42,7 @@ type TerminalAction =
 				serverId: string;
 				serverName: string;
 				host: string;
+				operatingSystem?: SshTerminalOperatingSystem;
 			};
 	  }
 	| { type: "close"; index: number }
@@ -62,6 +64,7 @@ function terminalReducer(state: TerminalState, action: TerminalAction): Terminal
 				serverId: action.server.serverId,
 				serverName: action.server.serverName,
 				host: action.server.host,
+				operatingSystem: action.server.operatingSystem,
 				status: "connecting",
 			};
 			return {
@@ -119,6 +122,7 @@ export function SshTerminalProvider({ children }: { children: ReactNode }) {
 		serverId: string;
 		serverName: string;
 		host: string;
+		operatingSystem?: SshTerminalOperatingSystem;
 	}) => {
 		dispatch({ type: "open", server });
 	}, []);

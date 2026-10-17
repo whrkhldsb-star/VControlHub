@@ -323,6 +323,23 @@ describe("SshTerminalPanel", () => {
 		expect(term.scrollLines).not.toHaveBeenCalled();
 	});
 
+	it.each([
+		["LINUX", "ls -la", "systeminfo"],
+		["WINDOWS", "cmd /c ver", "ls -la"],
+	] as const)("sends %s quick commands for the selected server", async (operatingSystem, command, otherCommand) => {
+		const { userEvent } = require("@testing-library/user-event");
+		const user = userEvent.setup();
+		render(<SshTerminalPanel {...defaultProps} operatingSystem={operatingSystem} />);
+		await user.click(screen.getByRole("button", { name: "命令面板" }));
+		await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+		const socket = MockWebSocket.instances[0]!;
+		const send = vi.spyOn(socket, "send");
+		connectSocket(socket);
+		expect(screen.queryByRole("button", { name: otherCommand })).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: command }));
+		expect(send).toHaveBeenCalledWith(JSON.stringify({ type: "input", data: encodeBase64(`${command}\r`) }));
+	});
+
 	it("sends raw key sequences from the quick keys palette without appending Enter", async () => {
 		const { userEvent } = require("@testing-library/user-event");
 		const user = userEvent.setup();

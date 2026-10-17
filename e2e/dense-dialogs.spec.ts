@@ -43,9 +43,15 @@ test("global search keeps keyboard selection and close controls visible", async 
       { name: "vps-theme", value: theme, url: baseURL! }, { name: "vps-locale", value: locale, url: baseURL! },
     ]);
     await page.goto("/downloads");
-    await page.keyboard.press("Control+k");
     const dialog = page.getByRole("dialog", { name: /全局搜索|Global search/ });
     const input = dialog.getByRole("combobox");
+    // Confirm the hydrated search control works before sending a raw keyboard
+    // shortcut, which Playwright does not wait to dispatch after navigation.
+    await page.getByRole("button", { name: /^(全局搜索|Global search)$/ }).filter({ visible: true }).click();
+    await expect(input).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await page.keyboard.press("Control+k");
     await expect(input).toBeFocused();
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);

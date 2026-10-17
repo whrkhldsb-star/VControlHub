@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import { auditUserAction } from "@/lib/audit/service";
-import { requirePermission } from "@/lib/auth/authorization";
+import { requirePermission, sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
+import { ForbiddenError } from "@/lib/errors";
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { serverT } from "@/lib/i18n/server-locale";
 import {
   checkStorageNodeHealth,
@@ -35,8 +37,14 @@ export async function getStorageFormOptions() {
   // Called from files page for users with storage:write OR storage:manage-node.
   // Scope servers by session team; do not require manage-node here.
   const session = await requireSession();
+  if (
+    !sessionHasPermission(session, "storage:write") &&
+    !sessionHasPermission(session, "storage:manage-node")
+  ) {
+    throw new ForbiddenError(apiCopy("apiCopy.insufficient.permissions.37e6815b"));
+  }
   const [servers, nodes] = await Promise.all([
-    listServerProfiles(session),
+    sessionHasPermission(session, "server:read") ? listServerProfiles(session) : Promise.resolve([]),
     listStorageNodes(session),
   ]);
   return {
@@ -44,7 +52,7 @@ export async function getStorageFormOptions() {
       id: server.id,
       name: server.name,
       host: server.host,
-    storageNodeId: server.storageNode?.id ?? null,
+      storageNodeId: server.storageNode?.id ?? null,
     })),
     nodes: nodes.map((node: (typeof nodes)[number]) => ({
       id: node.id,

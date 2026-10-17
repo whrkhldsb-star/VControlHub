@@ -32,6 +32,7 @@ export {
   updateServerProfile,
   toggleServerEnabled,
   listServerProfiles,
+  countServerProfiles,
 } from "./service-profiles";
 
 export { deleteServerProfile } from "./service-profile-deletion";

@@ -240,3 +240,12 @@ describe("resolvePlaybookId", () => {
 		);
 	});
 });
+
+
+describe("hosted session permissions", () => {
+	it("keeps explicit grants and explicit empty grants when normalizing a session", () => {
+		expect(sessionForTeamScope({ userId: "u1", roles: [], permissions: ["command:create"] }))
+			.toEqual({ userId: "u1", roles: [], permissions: ["command:create"], currentTeamId: null });
+		expect(sessionForTeamScope({ ...operator, permissions: [] })?.permissions).toEqual([]);
+	});
+});

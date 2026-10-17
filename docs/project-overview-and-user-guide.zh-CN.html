@@ -14,7 +14,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>本指南按仓库中的实际功能组织，说明功能入口、配置条件、操作流程、权限、运行架构及能力边界。适用于使用者、管理员和项目维护者。
 具体实例能否使用某项功能，取决于部署配置、当前客户、账号授权和目标主机条件；各模块的配置要求见对应章节。
 适用对象：项目使用者、平台管理员、运维人员、项目介绍与交接文档的读者、后续开发维护者。
-本次内容核对：2026-10-11，覆盖客户与身份模板改造及后续权限、公告和界面一致性修正。本文描述仓库实现；本地提交、GitHub 合并与实际部署是不同状态，使用时需核对部署版本。</p>
+内容核对日期：2026-10-16。本文描述仓库实现；本地提交、GitHub 合并与实际部署是不同状态，使用时需核对部署版本。</p>
 </blockquote>
 <p>重点阅读：<a href="#functional-goals">功能设计目标</a> · <a href="#coverage-review">功能范围与实现索引</a> · <a href="#reference">完整功能索引</a> · <a href="#feature-upgrades">指南使用方式</a>。</p>
 <h2 id="project">1. 项目定位、整体能力与功能设计目标</h2>
@@ -827,6 +827,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <li>VPS 资源 24 小时趋势（当前 CPU、内存、磁盘占用，以及各节点每小时平均 CPU 的柱状图，刻度固定为 0–100%）、下载任务 7 天趋势、审计活动 30 天趋势及图片上传趋势。</li>
 <li>仪表盘组件显示／隐藏、拖动调整顺序、恢复默认布局。</li>
 </ul>
+<p>仪表盘按当前账号权限读取各类数据：VPS 需要 <code>server:read</code>，文件和下载需要 <code>storage:read</code>，命令与定时任务需要 <code>command:read</code>，审计需要 <code>audit:read</code>。没有相应权限的内容不会作为页面数据传给浏览器；客户范围与各业务页面一致。</p>
 <p>布局编辑能否使用还受平台“允许拖拽重排”设置控制。图表没有数据时会显示空状态；新增节点需要等待采样或实际产生业务记录后才有趋势。</p>
 <h3 id="section-3-3">3.3 个人偏好与账户入口</h3>
 <p>统一入口：<code>/settings</code>；旧 <code>/preferences</code> 跳转到设置页的个人偏好区域。</p>
@@ -1070,8 +1071,8 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 <tr>
 <td>常用命令</td>
-<td>一键发送面板提供的命令</td>
-<td>应按目标操作系统和 shell 选择适用命令</td>
+<td>一键发送并回车执行，按节点系统显示对应列表</td>
+<td>Linux 提供 <code>ls -la</code>、<code>df -h</code> 等；Windows 提供 <code>dir</code>、<code>systeminfo</code>、<code>tasklist</code>、<code>ipconfig</code> 等，版本查询使用兼容 cmd 和 PowerShell 的 <code>cmd /c ver</code></td>
 </tr>
 <tr>
 <td>快捷按键</td>
@@ -1927,6 +1928,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 </tbody>
 </table></div>
+<p>待确认操作列表按当前客户和发起人筛选；确认与执行沿用当前账号的身份模板权限，切换客户不会显示其他客户的待确认操作。命令请求或 Playbook 无法创建时，操作记录会显示失败原因。</p>
 <p>只读工具也不是任意访问：日志、文件、服务器、备份均检查相应资源范围。工具执行失败后显示错误结果，模型生成的文字本身不能作为命令已经成功执行的证据。</p>
 <h3 id="section-14-5">14.5 知识库</h3>
 <p>入口：<code>/knowledge</code>。</p>
@@ -1934,7 +1936,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>系统按约 800 字符、120 字符重叠的窗口分块，以关键词、短语和中文相关分词逻辑排序。AI 对话可自动检索并加入相关内容，也可通过知识检索工具查询。</p>
 <p>当前是数据库中的文本分块与词法检索，不依赖外部向量数据库，也不能描述为已实现任意 PDF OCR、网站爬取或通用向量语义搜索。只有当前客户可见的知识内容进入检索范围。</p>
 <h3 id="section-14-6">14.6 AI 智能运维</h3>
-<p>入口：<code>/ai-ops</code>。</p>
+<p>入口：<code>/ai-ops</code>。这是平台管理员功能：读取日志、配置、触发扫描、批准和执行建议均要求平台管理员身份，同时检查对应的 <code>ai:ops:*</code> 权限。普通客户身份模板不能将跨客户的智能运维权限授予客户账号。</p>
 <p>后台按应用时区默认每日 02:00 扫描，也可手动触发。输入来自平台已有事实，例如告警、命令失败、工作流失败等；输出包括发现、严重程度、资源关联、建议、动作和扫描日志。</p>
 <p>页面提供扫描汇总、按模式／状态／触发来源筛选、详情查看、批准建议、执行建议，以及提供商和模式配置。</p>
 <p>建议模式需要人工批准；自主模式还需要 <code>ai:ops:autonomous</code>，仅执行代码白名单。当前可实际自主执行的动作只有：</p>

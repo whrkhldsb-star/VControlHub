@@ -5,20 +5,17 @@
  * lifecycle (create -> execute -> approve/confirm/reject).
  */
 
-import type { Permission, RoleKey } from "@/lib/auth/rbac";
+import type { Permission } from "@/lib/auth/rbac";
 import type { SessionPayload } from "@/lib/auth/session";
-import { playbookTeamWhere, serverTeamWhere } from "@/lib/auth/team-scope";
+import { playbookTeamWhere, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { t, type Locale } from "@/lib/i18n/service-translations";
 import { deserializeDialect } from "@/lib/ssh/os-dialect";
 
 import type { HostedActionType, HostedTool } from "./hosted-tools";
 
-export type HostedActionSession = {
-  userId: string;
-  roles: RoleKey[];
-  currentTeamId?: string | null;
-};
+export type HostedActionSession = Pick<SessionPayload, "userId" | "roles"> &
+  Partial<Pick<SessionPayload, "permissions" | "currentTeamId">>;
 
 export type HostedActionExecutionContext = {
   session: HostedActionSession;
@@ -28,9 +25,9 @@ export type HostedActionExecutionContext = {
 
 export function sessionForTeamScope(
   session?: HostedActionSession | null,
-): Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null {
+): TeamSession | null {
   if (!session) return null;
-  return { userId: session.userId, roles: session.roles, currentTeamId: session.currentTeamId ?? null };
+  return { ...session, currentTeamId: session.currentTeamId ?? null };
 }
 
 export function requiredPermissionForAction(actionType: string): Permission {

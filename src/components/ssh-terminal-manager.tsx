@@ -9,6 +9,7 @@ import { SshTerminalPanel, type TerminalStatus } from "@/components/ssh-terminal
 import { useVisualViewportBox } from "@/components/ssh-terminal-viewport";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import type { SshTerminalOperatingSystem } from "@/components/ssh-terminal-types";
 
 /* ------------------------------------------------------------------ */
 /* SshTerminalManager — multi-tab SSH terminal floating workbench     */
@@ -31,6 +32,7 @@ export type SshTerminalTab = {
 	serverId: string;
 	serverName: string;
 	host: string;
+	operatingSystem?: SshTerminalOperatingSystem;
 	status: TerminalStatus;
 };
 
@@ -409,6 +411,7 @@ export function SshTerminalManager({
 							serverId={tab.serverId}
 							serverName={tab.serverName}
 							host={tab.host}
+							operatingSystem={tab.operatingSystem}
 							// When manager is minimized, treat all as not "visible" for
 							// layout fit only — connection lifecycle ignores `visible`.
 							visible={!minimized && i === activeTabIndex}

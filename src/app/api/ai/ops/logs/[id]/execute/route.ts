@@ -21,6 +21,7 @@ import { executeRecommendation } from "@/lib/ai/ops/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { ForbiddenError } from "@/lib/errors";
+import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export async function POST(
 			errorMessage: apiCopy("apiCopy.failed.to.execute.recommendation.b113d006"),
 		},
 		async ({ session, body }) => {
+			assertAiOpsPlatformReader(session);
 			if (body.forceAutonomous && !sessionHasPermission(session, "ai:ops:autonomous")) {
 				throw new ForbiddenError(apiCopy("apiCopy.forceautonomous.requires.ai.ops.autonomous.permission.9466ebc3"));
 			}

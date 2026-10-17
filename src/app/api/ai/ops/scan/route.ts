@@ -19,6 +19,7 @@ import { triggerAiOpsScanSchema } from "@/lib/ai/ops/schema";
 import { listAiOpsLogs } from "@/lib/ai/ops/service";
 import { runAiOpsScanWorkerOnce } from "@/lib/ai/ops/scan-worker";
 import { auditUserAction } from "@/lib/audit/service";
+import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
 			errorMessage: apiCopy("apiCopy.failed.to.trigger.scan.c41a3220"),
 		},
 		async ({ session, body }) => {
+			assertAiOpsPlatformReader(session);
 			const triggered = await runAiOpsScanWorkerOnce("manual", {
 				notes: body.notes ?? null,
 			});

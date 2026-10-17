@@ -14,11 +14,12 @@ export default async function PlaybooksPage() {
 	const canManage = sessionHasPermission(session, "playbook:manage");
 	const canRun = sessionHasPermission(session, "playbook:run");
 	const canRead = sessionHasPermission(session, "playbook:read");
+	const canReadServers = sessionHasPermission(session, "server:read");
 	const locale = await getServerLocale();
 
 	const playbooks = canRead ? await listPlaybooks(session) : [];
 	// Team-scoped VPS options for run_command step target picker (create form).
-	const serverOptions = canManage
+	const serverOptions = canManage && canReadServers
 		? (await listServerProfiles(session)).map((s) => ({
 				id: s.id,
 				name: s.name,

@@ -86,7 +86,7 @@ export async function materializeAutomationProposal(
 ) {
   const t = await serviceT();
   const input = createAutomationSchema(t).parse(raw);
-  const session = { userId: actor.userId, roles: actor.roles, currentTeamId: actor.currentTeamId ?? null };
+  const session = { ...actor, currentTeamId: actor.currentTeamId ?? null };
   if (!sessionHasPermission(actor, "command:create")) {
     throw new ForbiddenError(t("backend.ai.missingPermissionCommandCreate"));
   }
@@ -181,7 +181,7 @@ export async function executeAutomationProposal(
   hostedActionId: string,
 ) {
   const proposal = await materializeAutomationProposal(raw, actor);
-  const session = { userId: actor.userId, roles: actor.roles, currentTeamId: actor.currentTeamId ?? null };
+  const session = { ...actor, currentTeamId: actor.currentTeamId ?? null };
   if (proposal.executionMode === "now") {
     const request = await createCommandRequest({
       title: `AI automation: ${proposal.name}`,

@@ -40,9 +40,9 @@ export default async function SharesPage({ searchParams }: { searchParams?: Prom
 	const requestedPage = /^\d+$/.test(params.page ?? "") ? Number(params.page) : 1;
 	const [{ shares, total, page, pageSize }, nodes] = await Promise.all([
 		listShareLinkPage(session, { status, q, page: Number.isSafeInteger(requestedPage) ? requestedPage : 1 }),
-		listStorageNodes(session),
+		sessionHasPermission(session, "storage:read") ? listStorageNodes(session) : Promise.resolve([]),
 	]);
-	const canCreate = sessionHasPermission(session, "share:create");
+	const canCreate = sessionHasPermission(session, "share:create") && sessionHasPermission(session, "storage:read");
 	const canManage = sessionHasPermission(session, "share:manage");
 
 	return (

@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getStorageFormOptions } from "@/app/storage/actions";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -9,7 +9,7 @@ import { FilesSubpageNav } from "../files-subpage-nav";
 export const dynamic = "force-dynamic";
 
 export default async function FilesSyncPage() {
-  const session = await requireSession("/files/sync");
+  const session = await requirePagePermission("storage:read", { redirectTo: "/files/sync" });
   const locale = await getServerLocale();
   const canManage = sessionHasPermission(session, "storage:write")
     || sessionHasPermission(session, "storage:manage-node");

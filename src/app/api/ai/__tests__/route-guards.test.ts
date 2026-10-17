@@ -226,7 +226,7 @@ describe("AI API shared guard migration", () => {
     );
     expect(listResponse.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat")
-    expect(mocks.getPendingActions).toHaveBeenCalledWith("u1");
+    expect(mocks.getPendingActions).toHaveBeenCalledWith(session);
 
     const confirmResponse = await hostedActionDetailRoute.PATCH(
       new Request("http://local/api/ai/hosted-actions/a1", {

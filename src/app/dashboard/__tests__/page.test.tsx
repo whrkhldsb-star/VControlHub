@@ -125,11 +125,17 @@ vi.mock("@/lib/db", () => ({
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import Dashboard from "../page";
+import { requireSession } from "@/lib/auth/require-session";
+import { listServerProfiles } from "@/lib/server/service";
+import { getStorageOverview } from "@/lib/storage/service";
+import { listCommandRequests } from "@/lib/command/service";
+import { prisma } from "@/lib/db";
 
 const csrfFetchMock = vi.mocked(csrfFetch);
 
 describe("Dashboard", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     window.localStorage.clear();
     csrfFetchMock.mockReset();
     csrfFetchMock.mockImplementation(async (url) => {
@@ -140,6 +146,31 @@ describe("Dashboard", () => {
       }
       return { servers: [], downloads: [], audit: [], imageBed: [] };
     });
+  });
+
+
+  it("does not load restricted data for an account without dashboard data permissions", async () => {
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      userId: "restricted", username: "restricted", roles: [], permissions: [],
+      currentTeamId: "team_1", mustChangePassword: false,
+    });
+    await Dashboard();
+    for (const query of [listServerProfiles, getStorageOverview, listCommandRequests,
+      prisma.auditLog.findMany, prisma.downloadTask.groupBy, prisma.scheduledTask.count,
+      prisma.alertRule.count, prisma.backupSchedule.count, prisma.vpsBackupSchedule.count, prisma.server.count]) {
+      expect(query).not.toHaveBeenCalled();
+    }
+  });
+
+  it("uses command:read for scheduled-task statistics", async () => {
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      userId: "reader", username: "reader", roles: [], permissions: ["command:read"],
+      currentTeamId: "team_1", mustChangePassword: false,
+    });
+    await Dashboard();
+    expect(prisma.scheduledTask.count).toHaveBeenCalledWith({ where: { status: "ACTIVE", teamId: "team_1" } });
+    expect(listCommandRequests).toHaveBeenCalled();
+    expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
   });
 
   it("renders dashboard sections for servers and storage overview", async () => {

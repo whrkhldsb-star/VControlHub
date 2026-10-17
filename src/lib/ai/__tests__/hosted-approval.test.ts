@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { RoleKey } from "@/lib/auth/rbac";
+import type { Permission, RoleKey } from "@/lib/auth/rbac";
 
 const prismaMock = vi.hoisted(() => ({
 	aiHostedAction: {
 		create: vi.fn(),
 		findFirst: vi.fn(),
+		findMany: vi.fn(),
 		findUnique: vi.fn(),
 		findUniqueOrThrow: vi.fn(),
 		update: vi.fn(),
@@ -546,7 +547,8 @@ describe("AI hosted action approvals", () => {
 
 		await confirmHostedAction("action_pb", {
 			userId: "user_1",
-			roles: ["operator"],
+			roles: [],
+			permissions: ["playbook:run", "command:execute"],
 			currentTeamId: "team_a",
 		});
 
@@ -556,6 +558,7 @@ describe("AI hosted action approvals", () => {
 				playbookId: "pb_1",
 				dryRun: false,
 				createdById: "user_1",
+				session: expect.objectContaining({ roles: [], permissions: ["playbook:run", "command:execute"] }),
 			}),
 		);
 		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
@@ -571,4 +574,58 @@ describe("AI hosted action approvals", () => {
 			}),
 		});
 	});
+
+	it("preserves identity-template permissions when confirming commands", async () => {
+		const { confirmHostedAction } = await import("../hosted-service");
+		const requester = {
+			userId: "customer_user", roles: [] as RoleKey[], currentTeamId: "team_a",
+			permissions: ["server:ssh", "command:approve"] as Permission[],
+		};
+		prismaMock.aiHostedAction.findFirst.mockResolvedValue({
+			id: "action_custom", status: "PENDING_APPROVAL", actionType: "execute_command",
+			actionName: "Read status", riskLevel: "low", autoApproved: false,
+			requesterId: requester.userId, serverId: "srv_1", teamId: "team_a",
+			params: JSON.stringify({ command: "uptime", reason: "Check status" }),
+		});
+		prismaMock.server.findFirst.mockResolvedValue({ osDialect: null, teamId: "team_a" });
+		commandServiceMock.createCommandRequest.mockResolvedValue({ id: "request_1", requiresApproval: false });
+		await confirmHostedAction("action_custom", requester);
+		expect(commandServiceMock.createCommandRequest).toHaveBeenCalledWith(
+			expect.objectContaining({ idempotencyKey: "ai-hosted-action:action_custom" }), requester,
+		);
+		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+			where: { id: "action_custom", status: "PENDING_APPROVAL", teamId: "team_a" },
+		}));
+	});
+
+	it.each(["execute_command", "run_playbook"])("records failed %s confirmation instead of leaving it approved", async (actionType) => {
+		const { confirmHostedAction } = await import("../hosted-service");
+		prismaMock.aiHostedAction.findFirst.mockResolvedValue({
+			id: "action_failed", status: "PENDING_APPROVAL", actionType,
+			actionName: "Check status", riskLevel: "low", autoApproved: false,
+			requesterId: "user_1", serverId: "srv_1", teamId: "team_a",
+			params: JSON.stringify({ command: "uptime", playbookId: "pb_1" }),
+		});
+		prismaMock.server.findFirst.mockResolvedValue({ osDialect: null, teamId: "team_a" });
+		prismaMock.playbook.findFirst.mockResolvedValue({ id: "pb_1", name: "Check status" });
+		const executor = actionType === "run_playbook" ? playbookServiceMock.runPlaybook : commandServiceMock.createCommandRequest;
+		executor.mockRejectedValueOnce(new Error("Target no longer available"));
+		await expect(confirmHostedAction("action_failed", {
+			userId: "user_1", roles: ["admin"], currentTeamId: "team_a",
+		})).rejects.toThrow("Target no longer available");
+		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
+			where: { id: "action_failed" },
+			data: { status: "FAILED", errorMessage: "Target no longer available", completedAt: expect.any(Date) },
+		});
+	});
+
+	it("lists only the requester's pending actions in the selected customer", async () => {
+		const { getPendingActions } = await import("../hosted-service");
+		prismaMock.aiHostedAction.findMany.mockResolvedValue([]);
+		await getPendingActions({ userId: "user_1", roles: ["admin"], currentTeamId: "team_a" });
+		expect(prismaMock.aiHostedAction.findMany).toHaveBeenCalledWith(expect.objectContaining({
+			where: { status: "PENDING_APPROVAL", requesterId: "user_1", teamId: "team_a" },
+		}));
+	});
+
 });

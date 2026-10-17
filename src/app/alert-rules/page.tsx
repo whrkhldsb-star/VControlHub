@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { ensureDefaultAlertRules, listAlertRules } from "@/lib/alert/service";
 import { listServerProfiles } from "@/lib/server/service";
@@ -11,8 +11,10 @@ import { PageShell, PageHeader } from "@/components/page-shell";
 export const dynamic = "force-dynamic";
 
 export default async function AlertRulesPage() {
-	const session = await requireSession("/alert-rules");
+	const session = await requirePagePermission("notification:manage", { redirectTo: "/alert-rules" });
 	const canManage = sessionHasPermission(session, "notification:manage");
+	const canReadServers = sessionHasPermission(session, "server:read");
+	const canReadPlaybooks = sessionHasPermission(session, "playbook:read");
 	const locale = await getServerLocale();
 
 	if (canManage) {
@@ -21,8 +23,8 @@ export default async function AlertRulesPage() {
 
 	const [rules, servers, playbooks] = await Promise.all([
 		canManage ? listAlertRules(session) : Promise.resolve([]),
-		listServerProfiles(session),
-		canManage ? listPlaybooks(session) : Promise.resolve([]),
+		canReadServers ? listServerProfiles(session) : Promise.resolve([]),
+		canReadPlaybooks ? listPlaybooks(session) : Promise.resolve([]),
 	]);
 
 	const serialized = rules.map((r) => ({

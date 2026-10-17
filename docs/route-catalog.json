@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T17:31:01.191Z",
+  "generatedAt": "2026-10-16T04:07:38.713Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -229,7 +229,9 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "notification:manage"
+        "notification:manage",
+        "playbook:read",
+        "server:read"
       ],
       "navigationPermissions": [
         "notification:manage"
@@ -331,7 +333,8 @@
       "declaredPermissions": [
         "deploy:export",
         "deploy:read",
-        "deploy:run"
+        "deploy:run",
+        "server:read"
       ],
       "navigationPermissions": [
         "deploy:read"
@@ -343,7 +346,8 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "docker:manage"
+        "docker:manage",
+        "server:read"
       ],
       "navigationPermissions": [
         "docker:manage"
@@ -415,8 +419,12 @@
       "file": "src/app/files/search/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": [],
-      "navigationPermissions": []
+      "declaredPermissions": [
+        "storage:read"
+      ],
+      "navigationPermissions": [
+        "storage:read"
+      ]
     },
     {
       "path": "/files/sync",
@@ -425,11 +433,11 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "storage:manage-node",
+        "storage:read",
         "storage:write"
       ],
       "navigationPermissions": [
-        "storage:manage-node",
-        "storage:write"
+        "storage:read"
       ]
     },
     {
@@ -437,8 +445,12 @@
       "file": "src/app/files/webdav/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": [],
-      "navigationPermissions": []
+      "declaredPermissions": [
+        "storage:read"
+      ],
+      "navigationPermissions": [
+        "storage:read"
+      ]
     },
     {
       "path": "/health",
@@ -582,12 +594,14 @@
       "declaredPermissions": [
         "playbook:manage",
         "playbook:read",
-        "playbook:run"
+        "playbook:run",
+        "server:read"
       ],
       "navigationPermissions": [
         "playbook:manage",
         "playbook:read",
-        "playbook:run"
+        "playbook:run",
+        "server:read"
       ]
     },
     {
@@ -624,10 +638,12 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "command:approve"
+        "ai:chat",
+        "command:approve",
+        "command:read"
       ],
       "navigationPermissions": [
-        "command:approve"
+        "command:read"
       ]
     },
     {
@@ -638,12 +654,12 @@
       "declaredPermissions": [
         "command:approve",
         "command:create",
-        "command:execute"
+        "command:execute",
+        "command:read",
+        "server:read"
       ],
       "navigationPermissions": [
-        "command:approve",
-        "command:create",
-        "command:execute"
+        "command:read"
       ]
     },
     {
@@ -704,7 +720,8 @@
       "declaredPermissions": [
         "share:create",
         "share:manage",
-        "share:read"
+        "share:read",
+        "storage:read"
       ],
       "navigationPermissions": [
         "share:read"
@@ -753,11 +770,12 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "command:create",
-        "deploy:run"
+        "command:read",
+        "deploy:run",
+        "server:read"
       ],
       "navigationPermissions": [
-        "command:create",
-        "deploy:run"
+        "command:read"
       ]
     },
     {
@@ -778,10 +796,12 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "server:read",
         "ticket:create",
         "ticket:manage"
       ],
       "navigationPermissions": [
+        "server:read",
         "ticket:create",
         "ticket:manage"
       ]

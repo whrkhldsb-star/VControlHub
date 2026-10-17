@@ -40,7 +40,7 @@ const postDownloadSchema = z.object({
   targetPath: z.string().min(1, t("apiDownloads.missingTargetPath", "en")),
   fileName: z.string().optional(),
   category: z.string().optional(),
-  maxSpeedKb: z.number().optional(),
+  maxSpeedKb: z.number().int().min(0).max(10_000_000).optional(),
   isBatch: z.boolean().optional(),
   batchUrls: z.array(z.string().trim().min(1).max(2048)).max(MAX_BATCH_URLS, "Too many URLs in one batch request").optional(),
 });
