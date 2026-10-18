@@ -356,6 +356,8 @@ export const zh: Record<string, string> = {
 	"serverCardActions.edit.port": "SSH 端口",
 	"serverCardActions.edit.username": "用户名",
 	"serverCardActions.edit.password": "新密码（留空保持不变）",
+	"serverCardActions.edit.currentKey": "当前密钥（不在你的密钥库中）",
+	"serverCardActions.edit.sshKeyHint": "新密钥请先在「添加密钥」页导入，再回到这里选择。保存前会用新的账号和凭据试连一次。",
 	"serverCardActions.edit.description": "描述",
 	"serverCardActions.edit.tags": "标签",
 	"serverCardActions.edit.costAutoSync": "纳入成本自动同步",

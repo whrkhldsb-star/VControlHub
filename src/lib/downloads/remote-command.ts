@@ -25,6 +25,8 @@ type DirectDownloadCommandInput = {
   targetPath: string;
   fileName?: string | null;
   sourceResolution: DownloadSourceResolution;
+  /** The creator's storage limit for this file (per-file limit or what the quota has left); null: none. */
+  maxBytes?: bigint | null;
 };
 
 export function buildDirectDownloadCommand({
@@ -33,6 +35,7 @@ export function buildDirectDownloadCommand({
   targetPath,
   fileName,
   sourceResolution,
+  maxBytes = null,
 }: DirectDownloadCommandInput): string {
   const safeTaskId = safeTaskFileStem(taskId);
   const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
@@ -53,6 +56,7 @@ export function buildDirectDownloadCommand({
     `pid_file=${shellQuote(pidFile)}`,
     `exit_file=${shellQuote(exitFile)}`,
     `resolve_entry=${shellQuote(resolveEntry)}`,
+    `max_bytes=${maxBytes === null ? "" : maxBytes.toString()}`,
     // The detached process persists its own identity, even if the controller
     // dies before it can store the SSH response in PostgreSQL.
     'echo $$ >"$pid_file"',
@@ -71,12 +75,15 @@ export function buildDirectDownloadCommand({
     "if command -v curl >/dev/null 2>&1; then",
     // Pin the public DNS result and fail on any redirect. A redirect target
     // has not passed the controller's DNS allowlist and may be an intranet IP.
-    "  curl --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http --resolve \"$resolve_entry\" -o \"$partial_path\" \"$download_url\" >\"$log_file\" 2>&1",
+    // --max-filesize stops a too-large file early when its size is announced.
+    "  curl --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http ${max_bytes:+--max-filesize \"$max_bytes\"} --resolve \"$resolve_entry\" -o \"$partial_path\" \"$download_url\" >\"$log_file\" 2>&1",
     "else",
     "  echo \"ERROR: curl is required for DNS-pinned downloads\" >\"$log_file\"",
     "  false",
     "fi",
     "status=$?",
+    // Unannounced sizes (and curl before 8.4) are only known at the end.
+    'if [ "$status" = 0 ] && [ -n "$max_bytes" ] && [ "$(wc -c <"$partial_path")" -gt "$max_bytes" ]; then echo "ERROR: the file is larger than the storage limit allows" >>"$log_file"; status=63; fi',
     // Publish only complete files. Interrupted downloads never truncate the
     // destination; a retry uses its own task-owned staging file.
     'if [ "$status" = 0 ]; then mv -f -- "$partial_path" "$output_path"; status=$?; fi',

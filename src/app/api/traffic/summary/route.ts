@@ -210,6 +210,8 @@ export async function GET(req: NextRequest) {
               username: true,
               password: true,
               sshKeyId: true,
+              connectionType: true,
+              hostKeySha256: true,
               sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
             },
             orderBy: { name: "asc" },
@@ -236,6 +238,8 @@ export async function GET(req: NextRequest) {
               port: number;
               username: string;
               password: string | null;
+              connectionType: string;
+              hostKeySha256: string | null;
               sshKeyId: string | null;
               sshKey?: StoredSshKey | null;
             }>,

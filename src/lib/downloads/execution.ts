@@ -35,6 +35,7 @@ import {
 } from "@/lib/downloads/helpers";
 import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { largestAllowedWrite, type StorageWriteCapacity } from "@/lib/storage/access-control";
 import { relayTempDir } from "@/lib/runtime/platform-paths";
 import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
 import { randomUUID, createHash } from "node:crypto";
@@ -60,9 +61,9 @@ export type DownloadServer = {
  connectionType?: string;
  sshKeyId: string | null;
  password: string | null;
- hostKeySha256?: string | null;
+ hostKeySha256: string | null;
  storageNode?: { id: string; basePath: string | null } | null;
- sshKey?: { privateKey: string } | null;
+ sshKey?: { privateKey: string; passphrase?: string } | null;
 };
 
 /* ── Aria2 relay download ──────────────────────────────── */
@@ -84,6 +85,8 @@ export async function executeAria2RelayDownload(
  maxSpeedKb?: number | null,
  userId?: string,
  signal?: AbortSignal,
+ /** The creator's storage limits for the target; the relay knows the real sizes before publishing. */
+ limits?: StorageWriteCapacity,
 ) {
  void _fileName;
  const tempDir = relayTempDir(taskId);
@@ -265,6 +268,11 @@ export async function executeAria2RelayDownload(
    if (!stat.isFile()) throw new Error("Relay output contains a non-file entry");
    files.push({ name: f, size: stat.size, sha256: await hashTransferFile(path.join(tempDir, f), signal) });
   }
+  // Sizes are known now, before anything reaches the VPS: hold them to the
+  // creator's per-file limit and what the quota has left.
+  if (limits && relayExceedsLimits(files, limits)) {
+   throw new DownloadSourceRejectedError(t("backend.downloads.storageLimitExceeded"));
+  }
   const manifest = parseTransferManifest({ version: 1, files })!;
   const journaled = await prisma.downloadTask.updateMany({
    where: { id: taskId, status: "RUNNING" },
@@ -295,6 +303,14 @@ export async function executeAria2RelayDownload(
   } catch (err) { logError("[DownloadAPI] Failed to update task status after relay failure:", err); }
   await cleanupTemp(tempDir);
  }
+}
+
+/** Whether relayed files break the per-file limit, or together the quota left. */
+export function relayExceedsLimits(files: Array<{ size: number }>, limits: StorageWriteCapacity): boolean {
+ const total = files.reduce((sum, file) => sum + BigInt(file.size), BigInt(0));
+ const largest = files.reduce((max, file) => (BigInt(file.size) > max ? BigInt(file.size) : max), BigInt(0));
+ return (limits.maxFileBytes !== null && largest > limits.maxFileBytes)
+  || (limits.remainingBytes !== null && total > limits.remainingBytes);
 }
 
 async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir: string,
@@ -330,6 +346,8 @@ targetPath: string,
 fileName?: string | null,
 userId?: string,
 sourceResolution?: DownloadSourceResolution,
+/** The creator's storage limits; the remote script enforces the largest allowed size. */
+limits?: StorageWriteCapacity,
 ) {
  const teamId = await loadDownloadTeamId(taskId);
  let sshParams: Awaited<ReturnType<typeof buildSshParamsFromServer>> | null = null;
@@ -363,6 +381,7 @@ sourceResolution?: DownloadSourceResolution,
    targetPath,
    fileName,
    sourceResolution,
+   maxBytes: limits ? largestAllowedWrite(limits) : null,
   });
   const { stdout: pidOutput, exitCode } = await execRemoteCommand({ ...sshParams, command: downloadCmd, timeout: 30000 });
   const pid = parseInt(pidOutput.trim(), 10);

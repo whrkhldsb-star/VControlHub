@@ -897,7 +897,7 @@ describe("storage service", () => {
     await writeFileToDisk(absolutePath, "old", "utf8");
     const updatedAt = new Date("2026-04-21T01:02:03.000Z");
 
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+    const editableEntrySave = {
       id: "file_save",
       name: "notes.txt",
       entryType: "FILE",
@@ -916,7 +916,9 @@ describe("storage service", () => {
         driver: "LOCAL",
         basePath: tempRoot,
       },
-    } as any);
+    } as any;
+    // Read once to resolve, once more under the editor lock.
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce(editableEntrySave).mockResolvedValueOnce(editableEntrySave);
     vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({
       id: "file_save",
       updatedAt,
@@ -962,7 +964,7 @@ describe("storage service", () => {
     await mkdir(path.dirname(absolutePath), { recursive: true });
     await writeFileToDisk(absolutePath, "newer on disk", "utf8");
 
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+    const editableEntryStale = {
       id: "file_stale",
       name: "notes.txt",
       entryType: "FILE",
@@ -981,7 +983,9 @@ describe("storage service", () => {
         driver: "LOCAL",
         basePath: tempRoot,
       },
-    } as any);
+    } as any;
+    // Read once to resolve, once more under the editor lock.
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce(editableEntryStale).mockResolvedValueOnce(editableEntryStale);
 
     try {
       assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
@@ -1000,6 +1004,57 @@ describe("storage service", () => {
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
+  });
+
+  it("compares the version read under the lock, so two saves of the same version cannot both win", async () => {
+    vi.clearAllMocks();
+    const tempRoot = await mkdtemp(path.join(tmpdir(), "storage-editable-race-"));
+    const relativePath = "docs/notes.txt";
+    await mkdir(path.join(tempRoot, "docs"), { recursive: true });
+    await writeFileToDisk(path.join(tempRoot, relativePath), "first editor's text", "utf8");
+    const entry = {
+      id: "file_race", name: "notes.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(19),
+      checksumSha256: null, relativePath, storageNodeId: "node_1", parentId: null, isDeleted: false,
+      createdAt: new Date(), updatedAt: new Date("2026-04-20T01:02:03.000Z"),
+      storageNode: { id: "node_1", name: "主控本机", driver: "LOCAL", basePath: tempRoot },
+    };
+    // Resolved before the lock with the version both editors loaded; by the
+    // time this save holds the lock, the other editor's save has landed.
+    vi.mocked(prisma.fileEntry.findUnique)
+      .mockResolvedValueOnce(entry as any)
+      .mockResolvedValueOnce({ updatedAt: new Date("2026-04-20T01:05:00.000Z"), isDeleted: false } as any);
+    try {
+      assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+      await expect(saveLocalEditableFileDraft({
+        fileEntryId: "file_race",
+        content: "second editor's text",
+        session: storageSession,
+        expectedUpdatedAt: "2026-04-20T01:02:03.000Z",
+      })).rejects.toThrow(/updated by another operation|文件已被其他操作更新/);
+      await expect(readFileToDisk(path.join(tempRoot, relativePath), "utf8")).resolves.toBe("first editor's text");
+      expect(prisma.fileEntry.update).not.toHaveBeenCalled();
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("releases the quota lock when a write is refused after it was taken", async () => {
+    vi.clearAllMocks();
+    const { releaseStorageQuotaGuard } = await import("@/lib/storage/access-control");
+    const decision = { allowed: true, releaseQuotaGuard: vi.fn(async () => undefined) };
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+      id: "file_blob", name: "blob.bin", entryType: "FILE", mimeType: "application/octet-stream", size: BigInt(4),
+      checksumSha256: null, relativePath: "blob.bin", storageNodeId: "node_1", parentId: null, isDeleted: false,
+      createdAt: new Date(), updatedAt: new Date(),
+      storageNode: { id: "node_1", name: "主控本机", driver: "LOCAL", basePath: "/tmp/unused" },
+    } as any);
+    assertStorageAccessMock.mockResolvedValueOnce(decision);
+    await expect(saveLocalEditableFileDraft({
+      fileEntryId: "file_blob",
+      content: "x",
+      session: storageSession,
+    })).rejects.toThrow();
+    expect(releaseStorageQuotaGuard).toHaveBeenCalledWith(decision);
   });
 
   it("loads editable local file drafts from local storage roots with app slug placeholders", async () => {

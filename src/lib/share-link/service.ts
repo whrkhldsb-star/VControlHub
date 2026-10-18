@@ -517,7 +517,10 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
   }
 
   const toCreate = records.filter((r) => !existingByPath.has(r.relativePath));
-  const toUpdate = records.filter((r) => existingByPath.has(r.relativePath));
+  // Soft delete is index-only, so a recycle-bin file is still on disk: a
+  // rescan must leave it deleted (as the SFTP and WebDAV syncs do), or a new
+  // share of its folder would hand it to visitors.
+  const toUpdate = records.filter((r) => existingByPath.get(r.relativePath)?.isDeleted === false);
 
   for (let i = 0; i < toCreate.length; i += batchSize) {
     const batch = toCreate.slice(i, i + batchSize);
@@ -538,14 +541,14 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
     await Promise.all(
       batch.map((r) => {
         const row = existingByPath.get(r.relativePath)!;
-        return prisma.fileEntry.update({
-          where: { id: row.id },
+        // The predicate also covers a delete that lands between read and write.
+        return prisma.fileEntry.updateMany({
+          where: { id: row.id, isDeleted: false },
           data: {
             name: r.name,
             entryType: r.entryType,
             mimeType: r.mimeType,
             size: r.size,
-            isDeleted: false,
           },
         });
       }),

@@ -51,7 +51,8 @@ describe("sync job run and report routes", () => {
 		const ok = await run.POST(new Request("http://local/api/sync-jobs/sync_1/run", { method: "POST" }), { params });
 		expect(ok.status).toBe(200);
 		expect(mocks.getSyncJob).toHaveBeenCalledWith("sync_1", expect.objectContaining({ currentTeamId: "team_1" }));
-		expect(mocks.executeSyncJob).toHaveBeenCalledWith("sync_1");
+		// A manual run is authorised as the person running it, not the creator.
+		expect(mocks.executeSyncJob).toHaveBeenCalledWith("sync_1", { actor: expect.objectContaining({ userId: "u_cust" }) });
 		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_cust", "sync_job.run", expect.objectContaining({ jobId: "sync_1", ok: true }), undefined, "team_1");
 
 		mocks.executeSyncJob.mockResolvedValue({ ok: false, status: "ERROR", lastSyncResult: "rsync exit 23", errorMessage: "rsync exit 23" });

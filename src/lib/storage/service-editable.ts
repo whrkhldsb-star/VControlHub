@@ -63,32 +63,39 @@ async function resolveLocalEditableFileEntry(input: {
     throw new ForbiddenError(storageAccessDeniedCopy(storageAccess.reason));
   }
 
-  if (
-    !isEditableTextFile({
-      entryType: entry.entryType,
-      name: entry.name,
-      mimeType: entry.mimeType,
-    })
-  ) {
-    throw new ValidationError(t("backend.storage.editableTextOnly"));
+  // A write holds the grant's quota lock from here; the caller releases it,
+  // but only once this returns — a check failing below must release it here.
+  try {
+    if (
+      !isEditableTextFile({
+        entryType: entry.entryType,
+        name: entry.name,
+        mimeType: entry.mimeType,
+      })
+    ) {
+      throw new ValidationError(t("backend.storage.editableTextOnly"));
+    }
+
+    const absolutePath = resolveLocalAbsolutePath(
+      entry.storageNode.basePath,
+      entry.relativePath,
+    );
+    await access(absolutePath);
+    const fileStat = await stat(absolutePath);
+
+    if (!fileStat.isFile()) {
+      throw new BusinessError(t("backend.storage.editableTargetNotFile"));
+    }
+
+    if (fileStat.size > MAX_EDITABLE_FILE_SIZE_BYTES) {
+      throw new ValidationError(t("backend.storage.editableFileTooLarge"));
+    }
+
+    return { entry, absolutePath, fileStat, storageAccess };
+  } catch (error) {
+    await releaseStorageQuotaGuard(storageAccess);
+    throw error;
   }
-
-  const absolutePath = resolveLocalAbsolutePath(
-    entry.storageNode.basePath,
-    entry.relativePath,
-  );
-  await access(absolutePath);
-  const fileStat = await stat(absolutePath);
-
-  if (!fileStat.isFile()) {
-    throw new BusinessError(t("backend.storage.editableTargetNotFile"));
-  }
-
-  if (fileStat.size > MAX_EDITABLE_FILE_SIZE_BYTES) {
-    throw new ValidationError(t("backend.storage.editableFileTooLarge"));
-  }
-
-  return { entry, absolutePath, fileStat, storageAccess };
 }
 
 export async function getLocalEditableFileDraft(input: {
@@ -131,7 +138,7 @@ export async function saveLocalEditableFileDraft(input: {
     throw new ValidationError(t("backend.storage.editableFileTooLarge"));
   }
 
-  const { entry, fileStat, absolutePath, storageAccess } =
+  const { entry, absolutePath, storageAccess } =
     await resolveLocalEditableFileEntry({
       fileEntryId: input.fileEntryId,
       session: input.session,
@@ -142,8 +149,17 @@ export async function saveLocalEditableFileDraft(input: {
   try {
     const releaseLock = await acquireAdvisoryLock("storage-editable", entry.id);
     try {
-      const currentUpdatedAt =
-        entry.updatedAt?.toISOString?.() ?? entry.updatedAt;
+      // Compare against what is current now, under the lock: two saves that
+      // both read the same version before locking must not both pass.
+      const current = await prisma.fileEntry.findUnique({
+        where: { id: entry.id },
+        select: { updatedAt: true, isDeleted: true },
+      });
+      if (!current || current.isDeleted) {
+        throw new NotFoundError(t("backend.storage.editableEntryNotFound"));
+      }
+      const currentStat = await stat(absolutePath);
+      const currentUpdatedAt = current.updatedAt.toISOString();
       if (
         input.expectedUpdatedAt &&
         currentUpdatedAt &&
@@ -157,7 +173,7 @@ export async function saveLocalEditableFileDraft(input: {
       if (
         typeof input.expectedLastModifiedMs === "number" &&
         Number.isFinite(input.expectedLastModifiedMs) &&
-        Math.abs(fileStat.mtimeMs - input.expectedLastModifiedMs) > 1
+        Math.abs(currentStat.mtimeMs - input.expectedLastModifiedMs) > 1
       ) {
         throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
       }
@@ -186,7 +202,7 @@ export async function saveLocalEditableFileDraft(input: {
         name: entry.name,
         relativePath: entry.relativePath,
         byteSize: nextStat.size,
-        previousByteSize: fileStat.size,
+        previousByteSize: currentStat.size,
         lastModifiedMs: nextStat.mtimeMs,
         updatedAt: updated.updatedAt?.toISOString?.() ?? updated.updatedAt,
       };

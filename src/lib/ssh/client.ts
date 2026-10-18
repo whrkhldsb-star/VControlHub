@@ -760,7 +760,11 @@ export async function buildSshParamsFromServer(server: {
  connectionType?: string;
  sshKeyId: string | null;
  password: string | null;
-  hostKeySha256?: string | null;
+  /**
+   * Required on purpose: a projection that forgot it silently connected
+   * without the saved host-key pin (no verifier; or a refusal under strict mode).
+   */
+  hostKeySha256: string | null;
   id?: string;
   managementMode?: string;
 }, sshKey?: StoredSshKey | null): Promise<SshConnectionParams> {

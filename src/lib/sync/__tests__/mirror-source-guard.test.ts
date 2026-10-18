@@ -14,6 +14,8 @@ const posix = process.platform !== "win32";
 
 const state = vi.hoisted(() => ({ bin: "", job: null as Record<string, unknown> | null }));
 
+// Execution-time authorisation has its own tests (execution-actor).
+vi.mock("@/lib/auth/execution-actor", () => ({ executionRefusal: vi.fn(async () => null), loadExecutionActor: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     syncJob: { updateMany: vi.fn(async () => ({ count: 1 })), update: vi.fn(async () => ({})) },

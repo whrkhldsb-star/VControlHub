@@ -50,6 +50,8 @@ function serverInput(id: string) {
 		username: "root",
 		sshKeyId: "key_1",
 		password: null,
+		connectionType: "SSH_KEY",
+		hostKeySha256: `SHA256:pin-${id}`,
 		sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
 	};
 }
@@ -59,6 +61,15 @@ describe("sampleRemoteServersTraffic", () => {
 		vi.clearAllMocks();
 		vi.useRealTimers();
 		__resetRemoteTrafficCache();
+	});
+
+	it("connects with each server's saved host-key pin", async () => {
+		mocks.execRemoteCommand.mockResolvedValue({ stdout: procNetDev(1000, 2000), stderr: "", exitCode: 0 });
+		await sampleRemoteServersTraffic([serverInput("srv7")]);
+		expect(mocks.buildSshParamsFromServer).toHaveBeenCalledWith(
+			expect.objectContaining({ hostKeySha256: "SHA256:pin-srv7" }),
+			expect.anything(),
+		);
 	});
 
 	it("caps concurrent SSH sessions at 5 instead of opening one per server", async () => {

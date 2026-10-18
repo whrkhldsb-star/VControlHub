@@ -144,6 +144,13 @@ export async function assertStorageAccess(input: {
   relativePath?: string | null;
   operation: StorageAccessOperation;
   writeBytes?: number | bigint | null;
+  /** A directory arriving at once: the per-file limit applies to its largest file, the quota to writeBytes. */
+  largestFileBytes?: number | bigint | null;
+  /**
+   * The bytes are moved from this path on the same node. Already under the
+   * grant's prefix, they are counted there and the move does not grow it.
+   */
+  movedFrom?: string | null;
 }): Promise<StorageAccessDecision> {
   const requiredPermission = input.operation === "delete" ? "storage:delete" : input.operation === "read" ? "storage:read" : "storage:write";
   if (!sessionHasPermission(input.session, requiredPermission)) {
@@ -172,18 +179,7 @@ export async function assertStorageAccess(input: {
     return { allowed: true };
   }
 
-  const grants: StorageAccessGrantRow[] = [];
-  let grantCursor: { id: string } | undefined;
-  do {
-    const page = await prisma.userStorageAccess.findMany({
-      where: { userId: input.session.userId, storageNodeId: input.storageNodeId },
-      orderBy: { id: "asc" },
-      take: 500,
-      ...(grantCursor ? { cursor: grantCursor, skip: 1 } : {}),
-    });
-    grants.push(...page);
-    grantCursor = page.length === 500 ? { id: page[page.length - 1]!.id } : undefined;
-  } while (grantCursor);
+  const grants = await loadStorageGrants(input.session.userId, input.storageNodeId);
 
   // Path grants narrow a customer account, like per-server rows: without any
   // grant on this node the identity template's permissions apply to all of it.
@@ -209,11 +205,16 @@ export async function assertStorageAccess(input: {
       : BigInt(Math.max(0, Math.floor(input.writeBytes)));
 
   if (input.operation === "write" && writeBytes !== null) {
-    if (operationGrant.maxFileBytes !== null && writeBytes > operationGrant.maxFileBytes) {
+    const largestFileBytes = input.largestFileBytes === null || input.largestFileBytes === undefined
+      ? writeBytes
+      : BigInt(input.largestFileBytes);
+    if (operationGrant.maxFileBytes !== null && largestFileBytes > operationGrant.maxFileBytes) {
       return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.fileTooLarge, matchedGrantId: operationGrant.id };
     }
 
-    if (operationGrant.quotaBytes !== null) {
+    const movedFrom = input.movedFrom === null || input.movedFrom === undefined ? null : normalizeAccessPath(input.movedFrom);
+    const alreadyCounted = movedFrom !== null && pathMatchesGrant(movedFrom, operationGrant.pathPrefix);
+    if (operationGrant.quotaBytes !== null && !alreadyCounted) {
       // Serialize concurrent quota checks for the same grant so two writers
       // cannot both observe usedBytes under quota and then both commit.
       // Lock is held until the caller releases after FileEntry create/update.
@@ -252,6 +253,59 @@ export async function assertStorageAccess(input: {
   }
 
   return { allowed: true, matchedGrantId: operationGrant.id };
+}
+
+async function loadStorageGrants(userId: string, storageNodeId: string) {
+  const grants: StorageAccessGrantRow[] = [];
+  let grantCursor: { id: string } | undefined;
+  do {
+    const page = await prisma.userStorageAccess.findMany({
+      where: { userId, storageNodeId },
+      orderBy: { id: "asc" },
+      take: 500,
+      ...(grantCursor ? { cursor: grantCursor, skip: 1 } : {}),
+    });
+    grants.push(...page);
+    grantCursor = page.length === 500 ? { id: page[page.length - 1]!.id } : undefined;
+  } while (grantCursor);
+  return grants;
+}
+
+/** Limits on a write; null means none. */
+export type StorageWriteCapacity = { maxFileBytes: bigint | null; remainingBytes: bigint | null };
+
+/**
+ * What a write may add under the caller's grant for this path, for work whose
+ * size is only known once it has run (a remote download): the per-file limit
+ * and what is left of the quota. Read without the quota lock, so concurrent
+ * downloads into one grant can still overrun it together; an upload, whose
+ * size is known up front, goes through assertStorageAccess and is exact.
+ * Call after access itself was allowed.
+ */
+export async function getStorageWriteCapacity(input: {
+  session: SessionPayload;
+  storageNodeId: string;
+  relativePath?: string | null;
+}): Promise<StorageWriteCapacity> {
+  const unlimited = { maxFileBytes: null, remainingBytes: null };
+  if (isGlobalTeamManager(input.session) || sessionHasPermission(input.session, "storage:manage-node")) return unlimited;
+  const grants = await loadStorageGrants(input.session.userId, input.storageNodeId);
+  if (grants.length === 0) return unlimited;
+  const targetPath = normalizeAccessPath(input.relativePath);
+  const grant = targetPath === null
+    ? undefined
+    : grants.find((candidate) => pathMatchesGrant(targetPath, candidate.pathPrefix) && grantAllowsOperation(candidate, "write"));
+  if (!grant) return { maxFileBytes: BigInt(0), remainingBytes: BigInt(0) };
+  if (grant.quotaBytes === null) return { maxFileBytes: grant.maxFileBytes, remainingBytes: null };
+  const used = await getGrantUsageBytes({ storageNodeId: input.storageNodeId, pathPrefix: grant.pathPrefix });
+  const remaining = grant.quotaBytes - used;
+  return { maxFileBytes: grant.maxFileBytes, remainingBytes: remaining > BigInt(0) ? remaining : BigInt(0) };
+}
+
+/** The most one file may be under these limits; null when unlimited. */
+export function largestAllowedWrite(capacity: StorageWriteCapacity): bigint | null {
+  const limits = [capacity.maxFileBytes, capacity.remainingBytes].filter((value): value is bigint => value !== null);
+  return limits.length ? limits.reduce((a, b) => (a < b ? a : b)) : null;
 }
 
 export type StorageAccessCapability = {

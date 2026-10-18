@@ -12,9 +12,12 @@ import {
   heartbeatJob,
   pruneTerminalJobsByType,
 } from "@/lib/job/service";
+import { executionRefusal, loadExecutionActor } from "@/lib/auth/execution-actor";
+import { getStorageWriteCapacity } from "@/lib/storage/access-control";
+import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
-import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { decryptServerPassword, decryptStoredSshKey, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 
 import {
   executeAria2RelayDownload,
@@ -22,6 +25,7 @@ import {
   type DownloadServer,
 } from "./execution";
 import type { DownloadSourceResolution } from "./source-url";
+import { getDownloadTargetRelativePath } from "./target-path";
 
 const logger = createLogger("download-execution-worker");
 
@@ -185,11 +189,11 @@ function buildServerForExec(server: {
   password: string | null;
   hostKeySha256?: string | null;
   storageNode?: { id: string; basePath: string | null } | null;
-  sshKey?: { privateKey: string | null } | null;
+  sshKey?: StoredSshKey | null;
 }): DownloadServer {
-  const decryptedKey = server.sshKey?.privateKey
-    ? decryptSshPrivateKey(server.sshKey.privateKey)
-    : "";
+  // decryptStoredSshKey keeps a legacy key's passphrase (unlocking the key
+  // when it can); decrypting only privateKey left such keys unusable.
+  const decryptedKey = decryptStoredSshKey(server.sshKey);
   return {
     host: server.host,
     port: server.port,
@@ -201,7 +205,7 @@ function buildServerForExec(server: {
     storageNode: server.storageNode
       ? { id: server.storageNode.id, basePath: server.storageNode.basePath }
       : null,
-    sshKey: decryptedKey ? { privateKey: decryptedKey } : null,
+    sshKey: decryptedKey,
   };
 }
 
@@ -313,6 +317,43 @@ async function handleClaimedJob(
       return true;
     }
 
+    // Queued work runs with the rights its creator has now: a disabled
+    // account, a revoked grant, or a server disabled or moved to another
+    // customer stops it before the platform's credentials are used.
+    let targetRelativePath: string | null;
+    try {
+      targetRelativePath = getDownloadTargetRelativePath(task.server.storageNode.basePath, task.targetPath);
+    } catch {
+      // The node's root moved since the task was queued.
+      targetRelativePath = null;
+    }
+    const actor = await loadExecutionActor(task.createdBy ?? payload.userId, task.teamId);
+    const refusal = targetRelativePath === null
+      ? t("backend.execution.storageRevoked")
+      : await executionRefusal({
+          actor,
+          createdBy: task.createdBy ?? payload.userId,
+          teamId: task.teamId,
+          permission: "storage:write",
+          serverIds: [task.serverId],
+          writesTo: { storageNodeId: task.server.storageNode.id, relativePath: targetRelativePath },
+        });
+    if (refusal) {
+      const { prisma } = await import("@/lib/db");
+      await prisma.downloadTask.updateMany({
+        where: { id: task.id, status: { in: ["PENDING", "RUNNING"] } },
+        data: { status: "FAILED", errorMessage: refusal.slice(0, 2000) },
+      });
+      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, refusal.slice(0, 2000));
+      return true;
+    }
+
+    // A remote download's size is only known as it runs: carry the creator's
+    // per-file limit and what the quota has left into the transfer.
+    const limits = actor && targetRelativePath !== null
+      ? await getStorageWriteCapacity({ session: actor, storageNodeId: task.server.storageNode.id, relativePath: targetRelativePath })
+      : undefined;
+
     const serverForExec = buildServerForExec(task.server);
     // The downstream execute* helpers re-decrypt server.password on demand (see
     // transferFileViaSsh2 which reads it again for sshpass). Surface the same
@@ -346,6 +387,7 @@ async function handleClaimedJob(
             task.maxSpeedKb,
             payload.userId ?? task.createdBy ?? undefined,
             signal,
+            limits,
           );
         } else {
           await executeDirectDownload(
@@ -356,6 +398,7 @@ async function handleClaimedJob(
             task.fileName,
             payload.userId ?? task.createdBy ?? undefined,
             payload.sourceResolution,
+            limits,
           );
         }
       },

@@ -74,7 +74,9 @@ export default async function SharePage({
   }
 
   const isPreviewOnly = share?.permissionLevel === "preview";
-  const isLocked = Boolean(share && (share.hasPassword || (share as { locked?: boolean }).locked));
+  // `locked` is true until this visitor holds a valid ticket; `hasPassword`
+  // stays true after the password was given, so it must not keep the gate up.
+  const isLocked = Boolean(share && (share as { locked?: boolean }).locked);
 
   return (
     <div className="min-h-screen bg-[var(--page-bg)] px-4 py-12 text-[var(--text-primary)] sm:py-16">

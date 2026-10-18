@@ -42,6 +42,7 @@ type ServerCardActionsProps = {
 	enabled: boolean;
 	username?: string;
 	connectionType?: "SSH_KEY" | "PASSWORD";
+	sshKeyId?: string | null;
 	managementMode?: "DIRECT" | "AGENT";
 	hasSshCredential?: boolean;
 	description?: string | null;
@@ -81,6 +82,7 @@ export function ServerCardActions({
 	enabled,
 	username = "root",
 	connectionType = "PASSWORD",
+	sshKeyId = null,
 	managementMode = "DIRECT",
 	hasSshCredential = true,
 	description = "",
@@ -172,6 +174,7 @@ export function ServerCardActions({
 					port={port}
 					username={username}
 					connectionType={connectionType}
+					sshKeyId={sshKeyId}
 					managementMode={managementMode}
 					hasSshCredential={hasSshCredential}
 					description={description}

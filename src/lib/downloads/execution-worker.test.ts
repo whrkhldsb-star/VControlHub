@@ -33,6 +33,10 @@ const {
   errorMock: vi.fn(),
 }));
 
+const LIMITS = { maxFileBytes: null, remainingBytes: null };
+const executionMocks = vi.hoisted(() => ({ loadExecutionActor: vi.fn(), executionRefusal: vi.fn() }));
+vi.mock("@/lib/auth/execution-actor", () => executionMocks);
+vi.mock("@/lib/storage/access-control", () => ({ getStorageWriteCapacity: vi.fn(async () => ({ maxFileBytes: null, remainingBytes: null })) }));
 vi.mock("@/lib/job/service", () => ({
   enqueueJob: enqueueJobMock,
   claimNextJob: claimNextJobMock,
@@ -46,6 +50,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     downloadTask: {
       findUnique: prismaDownloadTaskFindUniqueMock,
+      updateMany: vi.fn(async () => ({ count: 1 })),
     },
   },
 }));
@@ -135,6 +140,8 @@ describe("download execution durable job worker", () => {
     vi.useRealTimers();
     vi.clearAllMocks();
     enqueueJobMock.mockResolvedValue({ id: "job-dl-enqueued" });
+    executionMocks.loadExecutionActor.mockResolvedValue({ userId: "u-1", roles: ["operator"], currentTeamId: null });
+    executionMocks.executionRefusal.mockResolvedValue(null);
     claimNextJobMock.mockResolvedValue(null);
     completeJobMock.mockResolvedValue({ count: 1 });
     failJobMock.mockResolvedValue({ count: 1 });
@@ -274,6 +281,7 @@ describe("download execution durable job worker", () => {
           address: "93.184.216.34",
           port: 443,
         },
+        LIMITS,
       );
       expect(executeAria2RelayDownloadMock).not.toHaveBeenCalled();
       expect(completeJobMock).toHaveBeenCalledWith(
@@ -329,6 +337,7 @@ describe("download execution durable job worker", () => {
         1024,
         "u-2",
         expect.any(AbortSignal),
+        LIMITS,
       );
       expect(executeDirectDownloadMock).not.toHaveBeenCalled();
       expect(completeJobMock).toHaveBeenCalledWith(
@@ -336,6 +345,17 @@ describe("download execution durable job worker", () => {
         expect.stringContaining(":download-execution:"),
         expect.objectContaining({ mode: "aria2_relay" }),
       );
+    });
+
+    it("refuses a queued download its creator may no longer run, without touching the VPS", async () => {
+      claimNextJobMock.mockResolvedValueOnce(makeJob());
+      executionMocks.executionRefusal.mockResolvedValueOnce("creator disabled");
+
+      await runDownloadExecutionJobWorkerOnce();
+
+      expect(executeDirectDownloadMock).not.toHaveBeenCalled();
+      expect(executeAria2RelayDownloadMock).not.toHaveBeenCalled();
+      expect(failJobTerminalMock).toHaveBeenCalledWith("job-dl-1", expect.any(String), "creator disabled");
     });
 
     it("falls back to task.createdBy when payload userId is missing", async () => {
@@ -364,6 +384,7 @@ describe("download execution durable job worker", () => {
         expect.anything(),
         "u-fallback",
         undefined,
+        LIMITS,
       );
     });
 

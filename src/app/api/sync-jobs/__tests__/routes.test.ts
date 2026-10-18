@@ -339,7 +339,7 @@ describe("sync-job routes", () => {
 				lastSyncResult: "SUCCESS",
 				syncType: "MIRROR",
 			});
-			expect(mocks.executeSyncJob).toHaveBeenCalledWith("job_1");
+			expect(mocks.executeSyncJob).toHaveBeenCalledWith("job_1", { actor: expect.objectContaining({ userId: expect.any(String) }) });
 		});
 
 		it("reports a failed rsync as a failure, not success with status ERROR", async () => {

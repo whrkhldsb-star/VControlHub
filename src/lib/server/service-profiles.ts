@@ -356,7 +356,7 @@ export async function createServerProfile(
 
   const pendingServerForPreflight = buildPendingServer(normalized, validatedSshKey);
   const pendingSsh = await buildSshParamsFromServer(
-    pendingServerForPreflight,
+    { ...pendingServerForPreflight, hostKeySha256: pendingServerForPreflight.hostKeySha256 ?? null },
     pendingServerForPreflight.sshKey
       ? {
           privateKey: pendingServerForPreflight.sshKey.privateKey ?? null,
@@ -591,7 +591,7 @@ export async function updateServerProfile(
   let hostKeySha256 = current.hostKeySha256 ?? null;
   if (connectionChanged) {
     const nextSsh = await buildSshParamsFromServer(
-      nextServerForPreflight,
+      { ...nextServerForPreflight, hostKeySha256: nextServerForPreflight.hostKeySha256 ?? null },
       nextServerForPreflight.sshKey
         ? {
             privateKey: nextServerForPreflight.sshKey.privateKey ?? null,

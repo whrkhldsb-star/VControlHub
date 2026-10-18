@@ -59,6 +59,7 @@ export type ServerOverviewDetailsServer = {
 		requestStatus: string;
 		targetStatus: string;
 	}>;
+	sshKeyId?: string | null;
 	sshKey: { name: string; fingerprint?: string | null } | null;
 	storageNode?: { id: string; name: string; basePath: string; host?: string | null; port?: number | null; username?: string | null } | null;
 	directGateway?: {
@@ -294,6 +295,7 @@ export function ServerOverviewDetails({
 							canUseSshTerminal={canUseSshTerminal && server.hasSshCredential !== false}
 							username={server.username}
 							connectionType={server.connectionType}
+							sshKeyId={server.sshKeyId}
 							managementMode={server.managementMode}
 							hasSshCredential={server.hasSshCredential}
 							description={server.description}

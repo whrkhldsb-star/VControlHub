@@ -4,7 +4,7 @@ import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard, type StorageAccessDecision } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { BusinessError, ForbiddenError } from "@/lib/errors";
 import { moveBackingObject, statBackingObject } from "@/lib/storage/fs-backend";
@@ -28,6 +28,8 @@ export async function executeMoveFile(
 ): Promise<MoveFileActionState> {
   const tr = await serviceT(locale);
   let release: (() => Promise<void>) | null = null;
+  // Held from the destination quota check until the move is recorded.
+  let destinationAccess: StorageAccessDecision | null = null;
   try {
     const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
     const targetDir = String(formData.get("targetDir") ?? "").trim();
@@ -58,6 +60,7 @@ export async function executeMoveFile(
         id: true,
         name: true,
         entryType: true,
+        size: true,
         relativePath: true,
         storageNodeId: true,
         storageNode: {
@@ -124,11 +127,29 @@ export async function executeMoveFile(
       } satisfies MoveFileActionState;
     }
 
-    const destinationAccess = await assertStorageAccess({
+    // What arrives counts against the destination's per-file limit and quota,
+    // as an upload there would (bytes already under the same grant excepted).
+    const moved = entry.entryType === "DIRECTORY"
+      ? await prisma.fileEntry.aggregate({
+          where: {
+            storageNodeId: entry.storageNodeId,
+            isDeleted: false,
+            entryType: "FILE",
+            relativePath: { startsWith: escapeLikeLiteral(`${normalizedCurrentPath.path}/`) },
+          },
+          _sum: { size: true },
+          _max: { size: true },
+        })
+      : null;
+    const movedBytes = moved ? moved._sum.size ?? BigInt(0) : entry.size ?? BigInt(0);
+    destinationAccess = await assertStorageAccess({
       session,
       storageNodeId: entry.storageNodeId,
       relativePath: newRelativePath,
       operation: "write",
+      writeBytes: movedBytes,
+      largestFileBytes: moved ? moved._max.size ?? BigInt(0) : movedBytes,
+      movedFrom: normalizedCurrentPath.path,
     });
 
     if (!destinationAccess.allowed) {
@@ -301,6 +322,7 @@ export async function executeMoveFile(
       error: getErrorMessage(error, tr("filesPage.move.errorMoveFailed")),
     } satisfies MoveFileActionState;
   } finally {
+    await releaseStorageQuotaGuard(destinationAccess);
     await release?.();
   }
 }

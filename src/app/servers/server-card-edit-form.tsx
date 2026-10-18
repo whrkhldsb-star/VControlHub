@@ -10,7 +10,8 @@ import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { ServerManagementModeFields } from "./server-management-mode-fields";
 import { RdpCredentialFields } from "./rdp-credential-fields";
 import { WindowsSftpFields } from "./windows-sftp-fields";
-import { Notice } from "@/components/ui-primitives";
+import { Notice, SegmentedControl } from "@/components/ui-primitives";
+import { useSshKeyOptions } from "./ssh-key-options";
 import { billingFormValues, type ServerBillingDto } from "@/lib/server/billing-form";
 import { ServerBillingFields } from "./server-billing-fields";
 type Props = {
@@ -21,6 +22,8 @@ type Props = {
   port: number;
   username: string;
   connectionType: "SSH_KEY" | "PASSWORD";
+  /** The key the node uses now (connectionType SSH_KEY). */
+  sshKeyId?: string | null;
   managementMode?: "DIRECT" | "AGENT";
   hasSshCredential?: boolean;
   description: string | null | undefined;
@@ -48,6 +51,7 @@ export function ServerCardEditForm({
   port,
   username,
   connectionType,
+  sshKeyId = null,
   managementMode = "DIRECT",
   hasSshCredential = true,
   description,
@@ -72,6 +76,11 @@ export function ServerCardEditForm({
   );
   const [hostKeyConfirmed, setHostKeyConfirmed] = useState(false);
   const [selectedManagementMode, setSelectedManagementMode] = useState(managementMode);
+  const [selectedConnectionType, setSelectedConnectionType] = useState(connectionType);
+  const sshKeys = useSshKeyOptions();
+  // Switching the login type keeps nothing of the old credential (also under
+  // Agent mode, where saving without one would drop it): the new one is required.
+  const credentialRequired = selectedConnectionType !== connectionType || (selectedManagementMode === "DIRECT" && !hasSshCredential);
   const { formRef, captureBeforeSubmit } = usePreservedActionForm(
     editState,
     Boolean(editState.error),
@@ -96,7 +105,7 @@ export function ServerCardEditForm({
       onChange={(event) => {
         const field = event.target;
         if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
-        if (["host", "port", "username", "password", "windowsSftpPort", "windowsSftpUsername", "windowsSftpPassword"].includes(field.name)) {
+        if (["host", "port", "username", "password", "sshKeyId", "windowsSftpPort", "windowsSftpUsername", "windowsSftpPassword"].includes(field.name)) {
           setObservedHostKeySha256("");
           setHostKeyConfirmed(false);
         }
@@ -105,7 +114,7 @@ export function ServerCardEditForm({
       <input type="hidden" name="serverId" value={serverId} />
       <input type="hidden" name="operatingSystem" value={operatingSystem} />
       <p className="text-xs text-[var(--text-muted)]">{t("serversPage.windows.os")}: {windows ? "Windows" : "Linux"}</p>
-      <input type="hidden" name="connectionType" value={connectionType} />
+      <input type="hidden" name="connectionType" value={windows ? connectionType : selectedConnectionType} />
       <ServerManagementModeFields
         defaultValue={managementMode}
         onChange={setSelectedManagementMode}
@@ -194,21 +203,63 @@ export function ServerCardEditForm({
           </>
         ) : null}
       </Notice>
-      {connectionType === "PASSWORD" ? (
+      <div className="space-y-1.5">
+        <span className="ui-label block">{t("serversPage.create.connectionType")}</span>
+        <SegmentedControl
+          block
+          ariaLabel={t("serversPage.create.connectionType")}
+          value={selectedConnectionType}
+          onChange={(value) => {
+            setSelectedConnectionType(value);
+            setObservedHostKeySha256("");
+            setHostKeyConfirmed(false);
+          }}
+          options={[
+            { value: "SSH_KEY", label: t("serversPage.create.sshKey") },
+            { value: "PASSWORD", label: t("serversPage.create.password") },
+          ]}
+        />
+      </div>
+      {selectedConnectionType === "SSH_KEY" ? (
+        <>
+          <label className="ui-label block" htmlFor={`edit-ssh-key-${serverId}`}>
+            {t("serversPage.create.sshKey")}
+          </label>
+          <select
+            id={`edit-ssh-key-${serverId}`}
+            name="sshKeyId"
+            defaultValue={connectionType === "SSH_KEY" ? sshKeyId ?? "" : ""}
+            required={credentialRequired || selectedManagementMode === "DIRECT"}
+            className={UI_INPUT}
+          >
+            <option value="">{t("serversPage.create.selectKey")}</option>
+            {sshKeys.map((key) => (
+              <option key={key.id} value={key.id}>{key.name}</option>
+            ))}
+            {/* A key outside this account's library (e.g. another customer's) stays selectable as is. */}
+            {connectionType === "SSH_KEY" && sshKeyId && !sshKeys.some((key) => key.id === sshKeyId) ? (
+              <option value={sshKeyId}>{t("serverCardActions.edit.currentKey")}</option>
+            ) : null}
+          </select>
+          <p className="text-xs text-[var(--text-muted)]">{t("serverCardActions.edit.sshKeyHint")}</p>
+        </>
+      ) : (
         <>
           <label className="ui-label block" htmlFor={`edit-password-${serverId}`}>
-            {t("serverCardActions.edit.password")}
+            {t(credentialRequired ? "serversPage.create.password" : "serverCardActions.edit.password")}
           </label>
           <input
+            key={credentialRequired ? "password-required" : "password-optional"}
             id={`edit-password-${serverId}`}
             name="password"
             type="password"
             defaultValue=""
             autoComplete="new-password"
+            required={credentialRequired}
             className={UI_INPUT}
           />
         </>
-      ) : null}
+      )}
       </>}
       <label className="ui-label block" htmlFor={`edit-description-${serverId}`}>
         {t("serverCardActions.edit.description")}

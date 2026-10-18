@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assertStorageAccess,
   getStorageAccessCapabilities,
+  getStorageWriteCapacity,
+  largestAllowedWrite,
   parseNullableBigIntInput,
 } from "../access-control";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -241,6 +243,60 @@ describe("storage access control", () => {
     expect(typeof decision.releaseQuotaGuard).toBe("function");
     expect(acquireAdvisoryLock).toHaveBeenCalledWith("storage-quota", "grant-1");
     await decision.releaseQuotaGuard?.();
+  });
+
+  const quotaGrant = (overrides: Record<string, unknown> = {}) => ({
+    id: "grant-1", userId: "user-1", storageNodeId: "node-1", pathPrefix: "team-a",
+    canRead: true, canWrite: true, canDelete: false,
+    quotaBytes: BigInt(100), maxFileBytes: BigInt(60), createdAt: new Date(), updatedAt: new Date(),
+    ...overrides,
+  });
+
+  it("holds each moved file, not the folder's total, to the per-file limit", async () => {
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([quotaGrant({ quotaBytes: null })]);
+    await expect(assertStorageAccess({
+      session: baseSession, storageNodeId: "node-1", relativePath: "team-a/folder", operation: "write",
+      writeBytes: 90, largestFileBytes: 40,
+    })).resolves.toMatchObject({ allowed: true });
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([quotaGrant({ quotaBytes: null })]);
+    await expect(assertStorageAccess({
+      session: baseSession, storageNodeId: "node-1", relativePath: "team-a/folder", operation: "write",
+      writeBytes: 90, largestFileBytes: 70,
+    })).resolves.toMatchObject({ allowed: false, reason: "file_too_large" });
+  });
+
+  it("does not count a move inside one grant against its quota twice", async () => {
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([quotaGrant()]);
+    vi.mocked(prisma.fileEntry.aggregate).mockResolvedValue({ _sum: { size: BigInt(95) } } as Awaited<ReturnType<typeof prisma.fileEntry.aggregate>>);
+    await expect(assertStorageAccess({
+      session: baseSession, storageNodeId: "node-1", relativePath: "team-a/b/file.bin", operation: "write",
+      writeBytes: 50, movedFrom: "team-a/a/file.bin",
+    })).resolves.toMatchObject({ allowed: true });
+    // Moving in from outside the grant adds to it.
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([quotaGrant()]);
+    await expect(assertStorageAccess({
+      session: baseSession, storageNodeId: "node-1", relativePath: "team-a/b/file.bin", operation: "write",
+      writeBytes: 50, movedFrom: "elsewhere/file.bin",
+    })).resolves.toMatchObject({ allowed: false, reason: "quota_exceeded" });
+  });
+
+  it("reports what a download may still add: the per-file limit and the quota left", async () => {
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([quotaGrant()]);
+    vi.mocked(prisma.fileEntry.aggregate).mockResolvedValueOnce({ _sum: { size: BigInt(70) } } as Awaited<ReturnType<typeof prisma.fileEntry.aggregate>>);
+    const capacity = await getStorageWriteCapacity({ session: baseSession, storageNodeId: "node-1", relativePath: "team-a/downloads" });
+    expect(capacity).toEqual({ maxFileBytes: BigInt(60), remainingBytes: BigInt(30) });
+    expect(largestAllowedWrite(capacity)).toBe(BigInt(30));
+
+    // Over quota already: nothing more, never a negative number.
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([quotaGrant()]);
+    vi.mocked(prisma.fileEntry.aggregate).mockResolvedValueOnce({ _sum: { size: BigInt(130) } } as Awaited<ReturnType<typeof prisma.fileEntry.aggregate>>);
+    expect(largestAllowedWrite(await getStorageWriteCapacity({ session: baseSession, storageNodeId: "node-1", relativePath: "team-a" }))).toBe(BigInt(0));
+
+    // No grants on the node, or an administrator: no limits.
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([]);
+    expect(await getStorageWriteCapacity({ session: baseSession, storageNodeId: "node-1", relativePath: "x" })).toEqual({ maxFileBytes: null, remainingBytes: null });
+    expect(await getStorageWriteCapacity({ session: { ...baseSession, roles: ["admin"] }, storageNodeId: "node-1", relativePath: "x" })).toEqual({ maxFileBytes: null, remainingBytes: null });
+    expect(largestAllowedWrite({ maxFileBytes: null, remainingBytes: null })).toBeNull();
   });
 
   it("computes per-entry capabilities from explicit storage grants", async () => {

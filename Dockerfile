@@ -23,6 +23,9 @@ ENV NODE_ENV=production
 ENV NEXT_HOST=0.0.0.0
 ENV PORT=3000
 
+# Platform backup and restore run pg_dump / psql. Debian's own client is
+# PostgreSQL 15, which refuses to dump the 16 server of docker-compose.yml,
+# so the matching client comes from the PostgreSQL project's repository.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
       ca-certificates \
@@ -31,6 +34,12 @@ RUN apt-get update \
       openssh-client \
       openssl \
       sshpass \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && . /etc/os-release \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-16 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/public ./public
@@ -44,6 +53,10 @@ COPY --from=builder /app/dist/next.config.mjs ./next.config.mjs
 COPY --from=builder /app/docs/route-catalog.json ./docs/route-catalog.json
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 COPY --from=builder /app/scripts/check-ssh-gateway.mjs ./scripts/check-ssh-gateway.mjs
+# Platform backup and restore entrypoints (src/lib/backup/platform-runner.ts).
+COPY --from=builder /app/deploy/backup.sh ./deploy/backup.sh
+COPY --from=builder /app/scripts/backup.mjs /app/scripts/restore.mjs /app/scripts/restore-db.sh /app/scripts/restore-files.sh /app/scripts/restore-full.sh ./scripts/
+COPY --from=builder /app/scripts/lib/backup-common.mjs ./scripts/lib/backup-common.mjs
 
 RUN chmod +x ./docker-entrypoint.sh && mkdir -p storage tmp uploads downloads backups logs
 

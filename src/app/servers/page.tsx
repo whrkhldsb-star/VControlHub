@@ -10,6 +10,7 @@ import { ServerOperationPanel } from "./server-operation-panel";
 import { ServerCreateForm } from "./server-create-form";
 import { SshKeyCreateForm } from "./ssh-key-create-form";
 import { ServerTabLayout } from "./server-tab-layout";
+import { SshKeyOptionsProvider } from "./ssh-key-options";
 import { ServerInventory } from "./server-inventory";
 import { AutoProbeProvider } from "./auto-probe-context";
 import { ButtonLink } from "@/components/action-button";
@@ -72,7 +73,9 @@ export default async function ServersPage({ searchParams }: { searchParams?: Pro
 			<ServerTabLayout
 				initialPanel={stats.total === 0 && canManageServers ? "create" : "nodes"}
 				nodesPanel={
-					<ServerInventory inventory={inventory} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} />
+					<SshKeyOptionsProvider sshKeys={formOptions.sshKeys}>
+						<ServerInventory inventory={inventory} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} />
+					</SshKeyOptionsProvider>
 				}
 				commandPanel={canLaunchCommands ? <ServerOperationPanel key={inventory.loadedAt} kind="command" allowDirectExecution={canExecuteCommands} /> : undefined}
 				createPanel={

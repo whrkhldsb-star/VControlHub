@@ -45,6 +45,9 @@ export type RemoteServerInput = {
 	username: string;
 	sshKeyId: string | null;
 	password: string | null;
+	connectionType?: string;
+	/** The saved host-key pin; without it the sample would connect unverified. */
+	hostKeySha256: string | null;
 	sshKey?: StoredSshKey | null;
 };
 

@@ -99,6 +99,24 @@ describe("runSyncScheduleWorkerOnce", () => {
     expect(peak).toBeGreaterThan(1);
   });
 
+  it("reads every scheduled job, so due jobs beyond the first page still run, never-run ones first", async () => {
+    // 500 scheduled jobs that are not due, then two due ones on the next page.
+    const notDue = dueJobs(500).map((job) => ({ ...job, lastSyncAt: new Date("2026-10-18T00:00:00Z") }));
+    const ran = { ...dueJobs(1)[0]!, id: "job-ran", lastSyncAt: new Date("2026-10-01T00:00:00Z") };
+    const neverRan = { ...dueJobs(1)[0]!, id: "job-never" };
+    mocks.syncJobFindMany.mockResolvedValueOnce(notDue).mockResolvedValueOnce([ran, neverRan]);
+    // The re-check under the lock reads a row without an id.
+    mocks.isSyncJobDue.mockImplementation((job: { id?: string }) => !job.id || job.id === "job-ran" || job.id === "job-never");
+    const order: string[] = [];
+    mocks.executeSyncJob.mockImplementation(async (id: string) => { order.push(id); return { ok: true }; });
+
+    await expect(runSyncScheduleWorkerOnce("test")).resolves.toBe(2);
+
+    expect(mocks.syncJobFindMany).toHaveBeenCalledTimes(2);
+    expect(mocks.syncJobFindMany.mock.calls[1]![0]).toMatchObject({ cursor: { id: "job-499" }, skip: 1 });
+    expect(order).toEqual(["job-never", "job-ran"]);
+  });
+
   it("keeps dispatching the rest of the batch when one job throws", async () => {
     mocks.syncJobFindMany.mockResolvedValue(dueJobs(3));
     mocks.executeSyncJob.mockImplementation(async (jobId: string) => {

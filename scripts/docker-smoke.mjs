@@ -70,7 +70,10 @@ try {
   }
   await docker("exec", app, "node", "-e", "require('prisma/config'); require('dotenv'); if(require('node:fs').existsSync('node_modules/tsx')) process.exit(1);");
   await docker("exec", app, "node", "scripts/check-ssh-gateway.mjs");
-  console.log("docker-smoke-ok: fresh migrations, bundled seed, login, authenticated OpenAPI, web/worker/gateway processes, SSH protocol and production-only dependencies");
+  // Platform backup runs deploy/backup.sh (→ scripts/backup.mjs → pg_dump) inside the image.
+  await docker("exec", app, "bash", "deploy/backup.sh", "/app/backups/docker-smoke.sql.gz");
+  await docker("exec", app, "sh", "-c", "test -s /app/backups/docker-smoke.sql.gz && gzip -t /app/backups/docker-smoke.sql.gz && psql --version | grep -q ' 16\\.'");
+  console.log("docker-smoke-ok: fresh migrations, bundled seed, login, authenticated OpenAPI, web/worker/gateway processes, SSH protocol, platform database backup and production-only dependencies");
 } catch (error) {
   console.error(error instanceof Error ? error.message : "Docker smoke failed");
   try {
