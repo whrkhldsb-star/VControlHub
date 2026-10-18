@@ -195,7 +195,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td>Windows 图形界面管理需要统一入口</td>
 <td>经平台认证打开 RDP，处理画面缩放、键鼠、全屏、文本剪贴板和证书策略</td>
 <td><a href="#remote-access">第 5 章</a></td>
-<td><a href="../src/components/remote-desktop.tsx">远程桌面</a>、<a href="../src/lib/rdp/ws.ts">RDP 网关</a></td>
+<td><a href="../src/components/remote-desktop-panel.tsx">远程桌面</a>、<a href="../src/lib/rdp/ws.ts">RDP 网关</a></td>
 </tr>
 <tr>
 <td><a id="feature-f09"></a><code>F-09</code> 文件直连网关</td>
@@ -1135,16 +1135,21 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>单文件上传上限为 100 MiB。每批文件顺序上传，允许前一批尚未完成时加入另一批；每个文件分别显示进度、成功或失败，失败行保留。上传及目录操作结束后只刷新仍在查看的原目录，切换目录时会清除原目录的选择和编辑状态。</p>
 <p>面板与云盘共用部分底层远程访问能力，但授权入口不同：此处使用服务器资源能力及 SFTP 目录范围，云盘使用存储节点和路径授权。</p>
 <h3 id="section-5-3">5.3 Windows 浏览器远程桌面</h3>
-<p>入口：Windows 服务器卡片或详情中的远程桌面，页面为 <code>/servers/[id]/remote-desktop</code>。需要节点已启用、相应连接权限、RDP 账号密码，以及平台侧启用的 RDP 网关。SSH 与远程桌面是独立连接入口，Linux 节点不提供 Windows 桌面。</p>
+<p>入口：Windows 服务器卡片或详情中的“远程桌面”。它和 SSH 终端在同一个“远程会话”窗口里打开，作为一个标签（标有 RDP），窗口、标签栏、最小化、全屏和工具栏都与 SSH 终端一致，SSH 与远程桌面标签可以同时开着切换。旧地址 <code>/servers/[id]/remote-desktop</code> 仍可用，会打开这个标签并回到服务器列表。需要节点已启用、相应连接权限、RDP 账号密码，以及平台侧启用的 RDP 网关。Linux 节点不提供 Windows 桌面。</p>
 <h4>连接与操作</h4>
 <ol>
-<li>打开目标 Windows 的远程桌面页面，确认节点信息后连接。</li>
-<li>连接成功后点击远程画面，把键盘输入交给桌面；使用鼠标和键盘操作目标系统。</li>
-<li>按显示需要切换“适应窗口”或“原始尺寸”，进入或退出全屏。</li>
-<li>需要目标系统的安全操作界面时，使用发送 Ctrl+Alt+Del 功能。</li>
-<li>页面显示连接时长，并提供手动断开与重新连接。</li>
+<li>点击“远程桌面”即开始连接，状态由“连接中”变为“已连接”，旁边显示连接时长。</li>
+<li>电脑上点击远程画面，把键盘输入交给桌面；使用鼠标和键盘操作目标系统。</li>
+<li>工具栏可发送 Ctrl+Alt+Del、在“适应窗口”与“原始大小”间切换、进入或退出全屏；断开后出现“重新连接”。关闭标签即结束远程会话。</li>
+<li>手机和平板（触屏）上的用法参照 Microsoft 远程桌面（RD Client）：
+<ul>
+<li>默认“触控板模式”：画面上有指针，单指拖动移动指针，轻点单击，双指轻点右键，双指拖动滚动；页面不会跟着手指滚动或缩放。</li>
+<li>工具栏的指针按钮切换到“触控模式”：指针跟随手指，轻点即单击，按住拖动即拖拽。</li>
+<li>键盘按钮弹出手机软键盘输入；轻点画面不会弹出键盘。手机上画面固定适应窗口。</li>
+</ul>
+</li>
 </ol>
-<p>首次连接失败会显示具体错误。曾经连接成功的会话意外断开时，自动重连最多尝试 8 次，等待间隔从 3 秒递增至最多 60 秒；手动断开会停止重连。重新建立 RDP 连接后能否恢复 Windows 中的原会话，取决于目标系统的会话策略。</p>
+<p>首次连接失败会在画面中显示具体错误。曾经连接成功的会话意外断开时，自动重连最多尝试 8 次，等待间隔从 3 秒递增至最多 60 秒；关闭标签会停止重连。重新建立 RDP 连接后能否恢复 Windows 中的原会话，取决于目标系统的会话策略。</p>
 <h4>文字剪贴板</h4>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1172,7 +1177,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <h3 id="section-5-4">5.4 RDP 证书和连接依赖</h3>
 <p>浏览器通过平台认证的 WebSocket 与 RDP 网关通信，Windows 凭据保留在服务端。管理员需要部署并启用 guacd，设置 <code>RDP_ENABLED=true</code>，配置 WebSocket 反向代理及允许的网页来源；安装器自带的 Caddy、Apache 模板已把 <code>/rdp</code> 转发到 SSH WebSocket 网关。guacd 使用配置的地址和端口，常见本机端口为 4822。<code>RDP_ENABLE_CLIPBOARD</code> 默认为启用，设为 <code>false</code> 可关闭；音频仅在 <code>RDP_AUDIO_ENABLED=true</code> 时启用。目标地址仍需满足平台的 RDP 主机访问限制，不能把平台当作任意内网地址的透传入口。</p>
 <p>证书策略包括默认验证、明确选择忽略验证，以及固定整张证书的 SHA-256。证书固定需要支持该校验的加固网关；固定指纹与忽略验证不能同时启用。指纹应由管理员在 Windows 本机或独立可信渠道核对，证书更换后要更新。</p>
-<p>依据：<a href="../src/components/ssh-terminal-manager.tsx">SSH 终端管理器</a>、<a href="../src/components/ssh-terminal-input.ts">终端输入队列</a>、<a href="../src/components/remote-desktop.tsx">远程桌面组件</a>、<a href="../src/lib/rdp/features.ts">RDP 功能开关</a>、<a href="rdp-certificate-pinning.md">证书固定说明</a>。</p>
+<p>依据：<a href="../src/components/ssh-terminal-manager.tsx">SSH 终端管理器</a>、<a href="../src/components/ssh-terminal-input.ts">终端输入队列</a>、<a href="../src/components/remote-desktop-panel.tsx">远程桌面组件</a>、<a href="../src/lib/rdp/features.ts">RDP 功能开关</a>、<a href="rdp-certificate-pinning.md">证书固定说明</a>。</p>
 <h2 id="files">6. 存储节点与文件管理</h2>
 <p>入口：<code>/files</code>。旧 <code>/storage</code> 会跳转到文件页。存储节点管理与文件浏览整合在同一功能区域。</p>
 <h3 id="section-6-1">6.1 三类存储节点</h3>

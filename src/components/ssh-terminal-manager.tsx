@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { useI18n } from "@/lib/i18n/use-locale";
 import { cn } from "@/lib/ui/cn";
 import { SshTerminalPanel, type SshTerminalPanelHandle, type TerminalStatus } from "@/components/ssh-terminal-panel";
+import { RemoteDesktopPanel, type RemoteDesktopPanelHandle } from "@/components/remote-desktop-panel";
 import { useVisualViewportBox } from "@/components/ssh-terminal-viewport";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -29,6 +30,8 @@ import type { SshTerminalOperatingSystem } from "@/components/ssh-terminal-types
 
 export type SshTerminalTab = {
 	id: string; // `${serverId}-${nonce}` to allow re-opening same server
+	/** An SSH terminal (default) or a Windows remote desktop; both live in this workbench. */
+	kind?: "ssh" | "rdp";
 	serverId: string;
 	serverName: string;
 	host: string;
@@ -68,7 +71,7 @@ export function SshTerminalManager({
 	const [confirmCloseAll, setConfirmCloseAll] = useState(false);
 	// Closing a tab or the manager on purpose ends those shells; an unmount for
 	// any other reason (navigation, reload) leaves them resumable.
-	const panelHandles = useRef(new Map<string, SshTerminalPanelHandle>());
+	const panelHandles = useRef(new Map<string, SshTerminalPanelHandle | RemoteDesktopPanelHandle>());
 	const closeTab = useCallback((index: number) => {
 		const tab = tabs[index];
 		if (tab) panelHandles.current.get(tab.id)?.endSession();
@@ -200,7 +203,7 @@ export function SshTerminalManager({
 						tag === "INPUT" ||
 						tag === "TEXTAREA" ||
 						tag === "SELECT" ||
-						target.closest(".xterm, .xterm-helper-textarea, [role='textbox']") !== null;
+						target.closest(".xterm, .xterm-helper-textarea, [role='textbox'], [role='application']") !== null;
 					if (editable) return;
 				}
 				e.preventDefault();
@@ -396,6 +399,7 @@ export function SshTerminalManager({
 									}`}
 								>
 									<span className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} aria-hidden="true" />
+									{tab.kind === "rdp" && <span className="shrink-0 text-[10px] font-semibold text-[var(--text-muted)]">RDP</span>}
 									<span className="max-w-[160px] truncate font-medium">{tab.serverName}</span>
 									<button
 										type="button"
@@ -417,7 +421,23 @@ export function SshTerminalManager({
 				{/* Terminal panels — always mounted; only active tab is visible.
 				    Minimize does NOT unmount these (keeps WebSocket + xterm alive). */}
 				<div className="flex min-h-0 flex-1 flex-col">
-					{tabs.map((tab, i) => (
+					{tabs.map((tab, i) => tab.kind === "rdp" ? (
+						<RemoteDesktopPanel
+							key={tab.id}
+							ref={(handle) => {
+								if (handle) panelHandles.current.set(tab.id, handle);
+								else panelHandles.current.delete(tab.id);
+							}}
+							serverId={tab.serverId}
+							serverName={tab.serverName}
+							host={tab.host}
+							visible={!minimized && i === activeTabIndex}
+							fullscreen={fullscreen}
+							onToggleFullscreen={toggleFullscreen}
+							onClose={() => closeTab(i)}
+							onStatusChange={(status) => onStatusChange(tab.id, status)}
+						/>
+					) : (
 						<SshTerminalPanel
 							key={tab.id}
 							ref={(handle) => {

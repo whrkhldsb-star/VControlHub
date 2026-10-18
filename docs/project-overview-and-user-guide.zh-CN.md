@@ -113,7 +113,7 @@ VControlHub 是面向个人运维及多客户服务场景的自托管服务器�
 | <a id="feature-f05"></a>`F-05` SSH 密钥与主机身份 | 密钥重复维护，连接目标难以确认 | 保存可复用认证材料，绑定到允许管理的节点，并核对及固定主机指纹 | [第 4 章](#servers) | [密钥导入与保存](../src/lib/server/ssh-keys.ts)、[节点模型](../src/lib/server/schema.ts) |
 | <a id="feature-f06"></a>`F-06` Agent 管理 | 部分节点需要主动回连或不同采样方式 | 安装并追踪 Agent 心跳，在能力范围内提供监控和命令通道，明确 SSH 回退与纯 Agent 条件 | [第 4 章](#servers) | [Agent 服务](../src/lib/server/agent-service.ts) |
 | <a id="feature-f07"></a>`F-07` 浏览器 SSH | 临时操作需要快速取得交互 shell | 多会话连接、终端搜索、命令复用、快捷键及内嵌文件操作，并呈现连接错误与重连状态 | [第 5 章](#remote-access) | [会话管理](../src/components/ssh-terminal-manager.tsx)、[终端面板](../src/components/ssh-terminal-panel.tsx) |
-| <a id="feature-f08"></a>`F-08` Windows 远程桌面 | Windows 图形界面管理需要统一入口 | 经平台认证打开 RDP，处理画面缩放、键鼠、全屏、文本剪贴板和证书策略 | [第 5 章](#remote-access) | [远程桌面](../src/components/remote-desktop.tsx)、[RDP 网关](../src/lib/rdp/ws.ts) |
+| <a id="feature-f08"></a>`F-08` Windows 远程桌面 | Windows 图形界面管理需要统一入口 | 经平台认证打开 RDP，处理画面缩放、键鼠、全屏、文本剪贴板和证书策略 | [第 5 章](#remote-access) | [远程桌面](../src/components/remote-desktop-panel.tsx)、[RDP 网关](../src/lib/rdp/ws.ts) |
 | <a id="feature-f09"></a>`F-09` 文件直连网关 | 大文件经过 Hub 中转会增加其流量和负载 | 在授权后按节点策略取得短时文件入口，并能回到网站中转；清楚区分直连与预览链路 | [第 4、6 章](#files) | [直连接口](../src/app/api/storage/direct-access/route.ts)、[网关开关](../src/app/servers/actions.ts) |
 | <a id="feature-f10"></a>`F-10` 存储节点 | 文件位于多个主机和不同协议的目录 | 把 LOCAL、SFTP 和外部 WebDAV 映射为带名称、根目录、健康状态及授权的存储空间 | [第 6 章](#files) | [节点操作](../src/app/storage/actions-nodes.ts) |
 | <a id="feature-f11"></a>`F-11` 文件浏览与整理 | 远端文件查找、归类和批量操作繁琐 | 浏览、排序、分页、新建目录、重命名、复制、移动、删除、收藏及标签整理 | [第 6 章](#files) | [文件页面](../src/app/files/page.tsx)、[文件操作](../src/lib/files/) |
@@ -530,17 +530,19 @@ Linux 网关可以按配置安装 HTTP 入口，或配合域名和 HTTPS 反代�
 
 ### 5.3 Windows 浏览器远程桌面
 
-入口：Windows 服务器卡片或详情中的远程桌面，页面为 `/servers/[id]/remote-desktop`。需要节点已启用、相应连接权限、RDP 账号密码，以及平台侧启用的 RDP 网关。SSH 与远程桌面是独立连接入口，Linux 节点不提供 Windows 桌面。
+入口：Windows 服务器卡片或详情中的“远程桌面”。它和 SSH 终端在同一个“远程会话”窗口里打开，作为一个标签（标有 RDP），窗口、标签栏、最小化、全屏和工具栏都与 SSH 终端一致，SSH 与远程桌面标签可以同时开着切换。旧地址 `/servers/[id]/remote-desktop` 仍可用，会打开这个标签并回到服务器列表。需要节点已启用、相应连接权限、RDP 账号密码，以及平台侧启用的 RDP 网关。Linux 节点不提供 Windows 桌面。
 
 #### 连接与操作
 
-1. 打开目标 Windows 的远程桌面页面，确认节点信息后连接。
-2. 连接成功后点击远程画面，把键盘输入交给桌面；使用鼠标和键盘操作目标系统。
-3. 按显示需要切换“适应窗口”或“原始尺寸”，进入或退出全屏。
-4. 需要目标系统的安全操作界面时，使用发送 Ctrl+Alt+Del 功能。
-5. 页面显示连接时长，并提供手动断开与重新连接。
+1. 点击“远程桌面”即开始连接，状态由“连接中”变为“已连接”，旁边显示连接时长。
+2. 电脑上点击远程画面，把键盘输入交给桌面；使用鼠标和键盘操作目标系统。
+3. 工具栏可发送 Ctrl+Alt+Del、在“适应窗口”与“原始大小”间切换、进入或退出全屏；断开后出现“重新连接”。关闭标签即结束远程会话。
+4. 手机和平板（触屏）上的用法参照 Microsoft 远程桌面（RD Client）：
+   - 默认“触控板模式”：画面上有指针，单指拖动移动指针，轻点单击，双指轻点右键，双指拖动滚动；页面不会跟着手指滚动或缩放。
+   - 工具栏的指针按钮切换到“触控模式”：指针跟随手指，轻点即单击，按住拖动即拖拽。
+   - 键盘按钮弹出手机软键盘输入；轻点画面不会弹出键盘。手机上画面固定适应窗口。
 
-首次连接失败会显示具体错误。曾经连接成功的会话意外断开时，自动重连最多尝试 8 次，等待间隔从 3 秒递增至最多 60 秒；手动断开会停止重连。重新建立 RDP 连接后能否恢复 Windows 中的原会话，取决于目标系统的会话策略。
+首次连接失败会在画面中显示具体错误。曾经连接成功的会话意外断开时，自动重连最多尝试 8 次，等待间隔从 3 秒递增至最多 60 秒；关闭标签会停止重连。重新建立 RDP 连接后能否恢复 Windows 中的原会话，取决于目标系统的会话策略。
 
 #### 文字剪贴板
 
@@ -559,7 +561,7 @@ Linux 网关可以按配置安装 HTTP 入口，或配合域名和 HTTPS 反代�
 
 证书策略包括默认验证、明确选择忽略验证，以及固定整张证书的 SHA-256。证书固定需要支持该校验的加固网关；固定指纹与忽略验证不能同时启用。指纹应由管理员在 Windows 本机或独立可信渠道核对，证书更换后要更新。
 
-依据：[SSH 终端管理器](../src/components/ssh-terminal-manager.tsx)、[终端输入队列](../src/components/ssh-terminal-input.ts)、[远程桌面组件](../src/components/remote-desktop.tsx)、[RDP 功能开关](../src/lib/rdp/features.ts)、[证书固定说明](rdp-certificate-pinning.md)。
+依据：[SSH 终端管理器](../src/components/ssh-terminal-manager.tsx)、[终端输入队列](../src/components/ssh-terminal-input.ts)、[远程桌面组件](../src/components/remote-desktop-panel.tsx)、[RDP 功能开关](../src/lib/rdp/features.ts)、[证书固定说明](rdp-certificate-pinning.md)。
 
 <a id="files"></a>
 

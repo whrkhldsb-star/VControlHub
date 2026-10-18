@@ -1,0 +1,506 @@
+"use client";
+
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+
+import { RemoteDesktopToolbar, type RemoteDesktopTouchMode } from "@/components/ssh-terminal-chrome";
+import type { TerminalStatus } from "@/components/ssh-terminal-types";
+import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
+import { cn } from "@/lib/ui/cn";
+import { createRdpTunnel, rdpTicketError, rdpWebSocketUrl } from "./rdp-tunnel";
+
+/** Bounded recovery: transient gateway drops retry, a flapping gateway gives up. */
+const MAX_RECONNECT_ATTEMPTS = 8;
+/** Guacamole keysyms for the SAS (secure attention sequence) shortcut. */
+const KEYSYM_CTRL = 0xffe3, KEYSYM_ALT = 0xffe9, KEYSYM_DELETE = 0xffff;
+/** Base64 chunk size for outbound clipboard text (must stay well under the WS frame cap). */
+const CLIPBOARD_CHUNK = 3072;
+/** Text limit shared by both clipboard directions. */
+const MAX_CLIPBOARD_CHARS = 262_144;
+/** How long the touch gesture hint stays up. */
+const TOUCH_HINT_MS = 6000;
+
+function formatElapsed(seconds: number) {
+	const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+function isTouchScreen() {
+	return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+}
+
+type ViewMode = "fit" | "actual";
+type Phase = "connecting" | "connected" | "reconnecting" | "disconnected";
+
+export type RemoteDesktopPanelHandle = {
+	/** The user closed this tab: end the RDP session. */
+	endSession(): void;
+};
+
+export type RemoteDesktopPanelProps = {
+	ref?: Ref<RemoteDesktopPanelHandle>;
+	serverId: string;
+	serverName: string;
+	host: string;
+	/** When false, the panel is hidden via CSS but keeps its session alive. */
+	visible: boolean;
+	onClose: () => void;
+	onStatusChange?: (status: TerminalStatus) => void;
+	fullscreen?: boolean;
+	onToggleFullscreen?: () => void;
+};
+
+/**
+ * A Windows remote desktop as a tab of the session workbench, beside SSH
+ * terminals: same window, same bar, same full screen. It connects as soon
+ * as the tab opens.
+ *
+ * Touch screens never send mouse moves — a finger drag scrolls the page —
+ * so a phone could click but never move the pointer. As in Microsoft's
+ * Remote Desktop app, touch input is a touchpad by default (drag moves a
+ * visible pointer, tap clicks, two-finger tap right-clicks, two-finger drag
+ * scrolls), or direct touch (the pointer goes where the finger is).
+ */
+export function RemoteDesktopPanel({
+	ref,
+	serverId,
+	serverName,
+	host,
+	visible,
+	onClose,
+	onStatusChange,
+	fullscreen = false,
+	onToggleFullscreen,
+}: RemoteDesktopPanelProps) {
+	const { t } = useI18n();
+	const container = useRef<HTMLDivElement>(null);
+	const stop = useRef<() => void>(() => {});
+	const sendCtrlAltDel = useRef<() => void>(() => {});
+	const refit = useRef<() => void>(() => {});
+	const applyScale = useRef<() => void>(() => {});
+	const focusInput = useRef<() => void>(() => {});
+	const applyTouchMode = useRef<() => void>(() => {});
+	// An SSH tab connects when it opens; so does this one.
+	const [attempt, setAttempt] = useState(1);
+	const [phase, setPhase] = useState<Phase>("connecting");
+	const [reconnectAttempt, setReconnectAttempt] = useState(0);
+	const [error, setError] = useState<string | null>(null);
+	const [clipboardError, setClipboardError] = useState<string | null>(null);
+	const [viewMode, setViewMode] = useState<ViewMode>("fit");
+	const viewModeRef = useRef<ViewMode>(viewMode);
+	const [touch] = useState(isTouchScreen);
+	const [touchMode, setTouchMode] = useState<RemoteDesktopTouchMode>("touchpad");
+	const touchModeRef = useRef<RemoteDesktopTouchMode>(touchMode);
+	const [touchHint, setTouchHint] = useState(false);
+	const [connectedFor, setConnectedFor] = useState(0);
+	const visibleRef = useRef(visible);
+	const connected = phase === "connected";
+
+	const status: TerminalStatus = connected
+		? "connected"
+		: phase === "connecting" || phase === "reconnecting"
+			? "connecting"
+			: error ? "error" : "closed";
+	useEffect(() => {
+		onStatusChange?.(status);
+	}, [status, onStatusChange]);
+
+	useImperativeHandle(ref, () => ({ endSession: () => stop.current() }), []);
+
+	useEffect(() => {
+		if (!attempt || !container.current) return;
+		const host = container.current;
+		const abort = new AbortController();
+		let disposed = false;
+		let release = () => {};
+		let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+		let reconnects = 0;
+		let everConnected = false;
+		let dropped = false;
+		let userStopped = false;
+		const cleanup = () => {
+			// Closing a tab ends the session and then unmounts it: release once,
+			// never write to a tunnel that is already closed.
+			if (disposed) return;
+			disposed = true;
+			clearTimeout(startTimer);
+			clearTimeout(reconnectTimer);
+			abort.abort();
+			release();
+			host.replaceChildren();
+		};
+		stop.current = () => { userStopped = true; cleanup(); setPhase("disconnected"); };
+		sendCtrlAltDel.current = () => {};
+		const connect = async () => {
+			try {
+				const response = await csrfFetch<Response>("/api/auth/rdp-ticket", {
+					// csrfFetch normally returns parsed JSON; this flow needs HTTP status.
+					raw: true,
+					method: "POST", credentials: "same-origin", cache: "no-store",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ serverId }), signal: abort.signal,
+				});
+				if (!response.ok) {
+					if (!disposed) setError(rdpTicketError(response.status));
+					throw new Error("ticket");
+				}
+				const ticket: unknown = await response.json();
+				if (!ticket || typeof ticket !== "object" || !("token" in ticket) || typeof ticket.token !== "string" || !("path" in ticket) || ticket.path !== "/rdp") throw new Error("ticket");
+				const G = (await import("guacamole-common-js")).default;
+				if (disposed) return;
+				dropped = false;
+				const tunnel = createRdpTunnel(G, rdpWebSocketUrl(window.location));
+				const client = new G.Client(tunnel);
+				const display = client.getDisplay();
+				const displayElement = display.getElement();
+				// The browser must not scroll or zoom the page under a finger on the desktop.
+				displayElement.style.touchAction = "none";
+				// Own a fresh input element per session: Guacamole attaches DOM listeners.
+				const surface = document.createElement("div");
+				surface.tabIndex = 0;
+				surface.setAttribute("role", "application");
+				surface.setAttribute("aria-label", host.getAttribute("aria-label") ?? "");
+				surface.className = "relative outline-none focus-within:ring-2 focus-within:ring-[var(--accent)]";
+				surface.style.touchAction = "none";
+				surface.appendChild(displayElement);
+				// An editable focus target gives native paste, IME and the on-screen
+				// keyboard to the browser. The remote display itself must never
+				// become an editable DOM subtree.
+				const input = document.createElement("textarea");
+				input.tabIndex = -1;
+				input.setAttribute("aria-label", host.dataset.inputLabel!);
+				input.autocomplete = "off";
+				input.autocapitalize = "off";
+				input.spellcheck = false;
+				input.className = "absolute left-0 top-0 h-px w-px resize-none opacity-0";
+				surface.appendChild(input);
+				host.replaceChildren(surface);
+				const keyboard = new G.Keyboard(surface);
+				const mouse = new G.Mouse(displayElement);
+				const touchpad = new G.Mouse.Touchpad(displayElement);
+				const touchscreen = new G.Mouse.Touchscreen(displayElement);
+				const pasteKeys = new Set<number>();
+				// Mac Command shortcuts use the Windows Control modifier.
+				const remoteKeysym = (key: number) => key === 0xffe7 || key === 0xffe8 ? KEYSYM_CTRL : key;
+				keyboard.onkeydown = key => {
+					const modifiers = keyboard.modifiers;
+					const nativePaste = !modifiers.alt && (
+						((modifiers.ctrl || modifiers.meta) && (key === 0x76 || key === 0x56)) ||
+						(modifiers.shift && key === 0xff63)
+					);
+					if (nativePaste) { pasteKeys.add(key); return true; }
+					client.sendKeyEvent(1, remoteKeysym(key));
+					return false;
+				};
+				keyboard.onkeyup = key => { if (!pasteKeys.delete(key)) client.sendKeyEvent(0, remoteKeysym(key)); };
+				const mouseEvents = ["mousedown", "mouseup", "mousemove"];
+				const sendMouse = (event: import("guacamole-common-js").Event) => {
+					if (event instanceof G.Mouse.Event) client.sendMouseState(event.state, true);
+				};
+				// Both touch handlers listen; the chosen mode decides which one is sent.
+				const sendTouchpad = (event: import("guacamole-common-js").Event) => { if (touchModeRef.current === "touchpad") sendMouse(event); };
+				const sendTouchscreen = (event: import("guacamole-common-js").Event) => { if (touchModeRef.current === "touch") sendMouse(event); };
+				mouse.onEach(mouseEvents, sendMouse);
+				touchpad.onEach(mouseEvents, sendTouchpad);
+				touchscreen.onEach(mouseEvents, sendTouchscreen);
+				// A touchpad needs a pointer to look at; a mouse or a finger already shows where it is.
+				applyTouchMode.current = () => display.showCursor(touch && touchModeRef.current === "touchpad");
+				applyTouchMode.current();
+				client.onclipboard = (stream, mimetype) => {
+					if (mimetype.split(";")[0] !== "text/plain") { stream.sendAck("Text only", G.Status.Code.UNSUPPORTED); return; }
+					const reader = new G.StringReader(stream);
+					let text: string | null = "";
+					reader.ontext = chunk => {
+						if (text === null) return;
+						if (text.length + chunk.length > MAX_CLIPBOARD_CHARS) {
+							text = null;
+							setClipboardError("rdp.error.clipboardSize");
+							stream.sendAck("Clipboard too large", G.Status.Code.CLIENT_OVERRUN);
+							return;
+						}
+						text += chunk;
+						// guacd waits for each blob ACK before sending the next clipboard chunk.
+						stream.sendAck("OK", G.Status.Code.SUCCESS);
+					};
+					reader.onend = () => {
+						if (text === null || !document.hasFocus()) return;
+						if (!navigator.clipboard) { setClipboardError("rdp.error.clipboardWrite"); return; }
+						void navigator.clipboard.writeText(text).then(
+							() => setClipboardError(null),
+							() => setClipboardError("rdp.error.clipboardWrite"),
+						);
+					};
+				};
+				const paste = (event: ClipboardEvent) => {
+					event.preventDefault();
+					// WebKit can provide plain text while reporting an empty types list.
+					const text = event.clipboardData?.getData("text/plain");
+					if (!text) return;
+					if (text.length > MAX_CLIPBOARD_CHARS) { setClipboardError("rdp.error.clipboardSize"); return; }
+					setClipboardError(null);
+					const stream = client.createClipboardStream("text/plain");
+					const bytes = new TextEncoder().encode(text);
+					for (let i = 0; i < bytes.length; i += CLIPBOARD_CHUNK) {
+						let binary = "";
+						for (const byte of bytes.subarray(i, i + CLIPBOARD_CHUNK)) binary += String.fromCharCode(byte);
+						stream.sendBlob(btoa(binary));
+					}
+					stream.sendEnd();
+					// Clipboard data must precede the remote paste shortcut. Temporarily
+					// release physical modifiers, then restore them until their real keyup.
+					const modifiers = Object.keys(keyboard.pressed).map(Number).filter(key => key >= 0xffe1 && key <= 0xffee);
+					for (const key of modifiers) client.sendKeyEvent(0, remoteKeysym(key));
+					client.sendKeyEvent(1, KEYSYM_CTRL);
+					client.sendKeyEvent(1, 0x76);
+					client.sendKeyEvent(0, 0x76);
+					client.sendKeyEvent(0, KEYSYM_CTRL);
+					for (const key of modifiers) client.sendKeyEvent(1, remoteKeysym(key));
+				};
+				surface.addEventListener("paste", paste);
+				input.addEventListener("input", () => { input.value = ""; });
+				sendCtrlAltDel.current = () => {
+					client.sendKeyEvent(1, KEYSYM_CTRL);
+					client.sendKeyEvent(1, KEYSYM_ALT);
+					client.sendKeyEvent(1, KEYSYM_DELETE);
+					client.sendKeyEvent(0, KEYSYM_DELETE);
+					client.sendKeyEvent(0, KEYSYM_ALT);
+					client.sendKeyEvent(0, KEYSYM_CTRL);
+				};
+				const focus = () => input.focus({ preventScroll: true });
+				focusInput.current = focus;
+				// A mouse click focuses the keyboard input; a tap must not, or every
+				// tap would pop the on-screen keyboard over the desktop.
+				const pointerFocus = (event: PointerEvent) => { if (event.pointerType === "mouse") focus(); };
+				const surfaceFocus = () => { if (!touch) focus(); };
+				const reset = () => { keyboard.reset(); mouse.reset(); };
+				surface.addEventListener("pointerdown", pointerFocus);
+				surface.addEventListener("focus", surfaceFocus);
+				input.addEventListener("blur", reset);
+				window.addEventListener("blur", reset);
+				const visibility = () => { if (document.hidden) reset(); };
+				document.addEventListener("visibilitychange", visibility);
+				let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+				const fit = () => {
+					if (display.getWidth() && display.getHeight()) display.scale(Math.min(1, host.clientWidth / display.getWidth(), host.clientHeight / display.getHeight()));
+				};
+				const applyScaleNow = () => {
+					if (viewModeRef.current === "actual") display.scale(1);
+					else fit();
+				};
+				const resize = () => {
+					// A hidden tab measures 0 × 0; it is fitted again when shown.
+					if (!host.clientWidth || !host.clientHeight) return;
+					applyScaleNow();
+					clearTimeout(resizeTimer);
+					resizeTimer = setTimeout(() => {
+						if (viewModeRef.current !== "fit" || !host.clientWidth || !host.clientHeight) return;
+						client.sendSize(Math.max(200, Math.min(4096, Math.floor(host.clientWidth))), Math.max(200, Math.min(4096, Math.floor(host.clientHeight))));
+					}, 150);
+				};
+				applyScale.current = applyScaleNow;
+				refit.current = resize;
+				// Start the touchpad pointer in the middle, where a thumb finds it —
+				// once the desktop has a size (it arrives just after the session opens).
+				// Touchpad coordinates are on the scaled display.
+				let pointerCentered = false;
+				const centerTouchpadPointer = () => {
+					if (pointerCentered || !touch || !display.getWidth() || !display.getHeight()) return;
+					pointerCentered = true;
+					touchpad.currentState.x = (display.getWidth() * display.getScale()) / 2;
+					touchpad.currentState.y = (display.getHeight() * display.getScale()) / 2;
+					if (touchModeRef.current === "touchpad") client.sendMouseState(touchpad.currentState, true);
+				};
+				const observer = new ResizeObserver(resize);
+				observer.observe(host);
+				display.onresize = () => { applyScaleNow(); centerTouchpadPointer(); };
+				release = () => {
+					reset();
+					keyboard.onkeydown = keyboard.onkeyup = null;
+					mouse.offEach(mouseEvents, sendMouse);
+					touchpad.offEach(mouseEvents, sendTouchpad);
+					touchscreen.offEach(mouseEvents, sendTouchscreen);
+					surface.removeEventListener("paste", paste);
+					surface.removeEventListener("pointerdown", pointerFocus);
+					surface.removeEventListener("focus", surfaceFocus);
+					input.removeEventListener("blur", reset);
+					window.removeEventListener("blur", reset);
+					document.removeEventListener("visibilitychange", visibility);
+					observer.disconnect(); clearTimeout(resizeTimer);
+					client.onerror = client.onstatechange = client.onclipboard = null;
+					display.onresize = null;
+					focusInput.current = () => {};
+					applyTouchMode.current = () => {};
+					client.disconnect();
+				};
+				const drop = () => {
+					if (disposed || dropped) return;
+					dropped = true;
+					release();
+					host.replaceChildren();
+					// Only an established session auto-reconnects — a failed first
+					// connect must leave its error message on screen, not loop.
+					if (everConnected && !userStopped && reconnects < MAX_RECONNECT_ATTEMPTS) {
+						reconnects += 1;
+						setReconnectAttempt(reconnects);
+						setPhase("reconnecting");
+						reconnectTimer = setTimeout(() => { dropped = false; void connect(); }, Math.min(3_000 * 2 ** (reconnects - 1), 60_000));
+						return;
+					}
+					setPhase("disconnected");
+					if (!userStopped && everConnected) setError(previous => previous ?? "rdp.error.connection");
+				};
+				const failed = () => {
+					if (disposed) return;
+					if (everConnected) drop();
+					else { setError("rdp.error.connection"); setPhase("disconnected"); cleanup(); }
+				};
+				client.onerror = failed;
+				tunnel.onerror = failed;
+				tunnel.onstatechange = state => {
+					if (disposed) return;
+					// The bridge only delivers the UUID after guacd reports the RDP
+					// session ready, so OPEN is the earliest safe reconnect point.
+					if (state === G.Tunnel.State.OPEN) everConnected = true;
+					else if (state === G.Tunnel.State.CLOSED) drop();
+				};
+				client.onstatechange = state => {
+					if (disposed) return;
+					if (state === 3) {
+						setPhase("connected"); setError(null); reconnects = 0; setReconnectAttempt(0);
+						resize();
+						if (touch) {
+							centerTouchpadPointer();
+							setTouchHint(true);
+						} else if (visibleRef.current) {
+							focus();
+						}
+					}
+					if (state === 5) drop();
+				};
+				client.connect(ticket.token);
+			} catch {
+				if (!disposed) {
+					setError(previous => previous ?? "rdp.error.connection");
+					setPhase("disconnected"); cleanup();
+				}
+			}
+		};
+		// One tick later: a mount undone at once (React's development double
+		// mount) must not fetch a ticket and open a session of its own.
+		const startTimer = setTimeout(() => void connect(), 0);
+		return cleanup;
+	}, [attempt, serverId, touch]);
+
+	// The view mode never reconnects; the live session just rescales.
+	useEffect(() => {
+		viewModeRef.current = viewMode;
+		if (container.current) container.current.style.overflow = viewMode === "actual" ? "auto" : "hidden";
+		applyScale.current();
+	}, [viewMode]);
+
+	useEffect(() => {
+		touchModeRef.current = touchMode;
+		applyTouchMode.current();
+	}, [touchMode]);
+
+	// A tab shown again (or the window resized while it was hidden) is fitted now.
+	useEffect(() => {
+		visibleRef.current = visible;
+		if (visible) refit.current();
+	}, [visible, fullscreen]);
+
+	useEffect(() => {
+		if (!touchHint) return;
+		const timer = setTimeout(() => setTouchHint(false), TOUCH_HINT_MS);
+		return () => clearTimeout(timer);
+	}, [touchHint, touchMode]);
+
+	useEffect(() => {
+		if (!connected) return;
+		const openedAt = Date.now();
+		const timer = setInterval(() => setConnectedFor(Math.floor((Date.now() - openedAt) / 1000)), 1000);
+		return () => { clearInterval(timer); setConnectedFor(0); };
+	}, [connected]);
+
+	const reconnect = () => {
+		stop.current();
+		setError(null);
+		setClipboardError(null);
+		setPhase("connecting");
+		setAttempt(value => value + 1);
+	};
+
+	const overlay = phase === "connected"
+		? null
+		: phase === "reconnecting"
+			? t("rdp.status.reconnecting", { attempt: reconnectAttempt })
+			: phase === "connecting"
+				? t("rdp.status.connecting")
+				: error ? t(error) : t("rdp.status.disconnected");
+
+	return (
+		<div
+			className="flex min-h-0 flex-1 flex-col"
+			style={{ display: visible ? "flex" : "none" }}
+			data-testid={`rdp-panel-${serverId}`}
+		>
+			<RemoteDesktopToolbar
+				serverName={serverName}
+				host={host}
+				status={status}
+				t={t}
+				fullscreen={fullscreen}
+				touch={touch}
+				touchMode={touchMode}
+				viewMode={viewMode}
+				elapsed={connected ? formatElapsed(connectedFor) : null}
+				onToggleTouchMode={() => { setTouchMode(mode => mode === "touchpad" ? "touch" : "touchpad"); setTouchHint(true); }}
+				onKeyboard={() => focusInput.current()}
+				onToggleView={() => setViewMode(mode => mode === "fit" ? "actual" : "fit")}
+				onCtrlAltDel={() => sendCtrlAltDel.current()}
+				onToggleFullscreen={onToggleFullscreen}
+				onReconnect={reconnect}
+				onClose={onClose}
+			/>
+			<div className={cn("flex min-h-0 flex-1 flex-col", fullscreen ? "p-1" : "p-3")}>
+				<div
+					className={cn(
+						"relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-black",
+						fullscreen ? "rounded-lg" : "rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)]",
+					)}
+				>
+					<div
+						ref={container}
+						role="group"
+						data-input-label={t("rdp.input")}
+						aria-label={t("rdp.display")}
+						className="min-h-0 min-w-0 flex-1 overflow-hidden"
+					/>
+					{overlay ? (
+						<p
+							role={error ? "alert" : "status"}
+							className={cn(
+								"pointer-events-none absolute inset-x-4 top-1/2 -translate-y-1/2 text-center text-sm",
+								error && phase === "disconnected" ? "text-[var(--danger)]" : "text-[var(--text-secondary)]",
+							)}
+							data-testid="rdp-overlay"
+						>
+							{overlay}
+						</p>
+					) : null}
+					{/* Floating notes: a bar above the desktop would resize the remote session. */}
+					{clipboardError ? (
+						<p role="alert" data-popover className="pointer-events-none absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] px-3 py-2 text-xs text-[var(--warning)] sm:max-w-sm">
+							{t(clipboardError)}
+						</p>
+					) : touchHint && connected ? (
+						<p role="status" data-popover className="pointer-events-none absolute bottom-3 right-3 max-w-[calc(100%-1.5rem)] px-3 py-2 text-xs text-[var(--text-secondary)] sm:max-w-sm" data-testid="rdp-touch-hint">
+							{t(touchMode === "touchpad" ? "rdp.pointer.touchpadHint" : "rdp.pointer.touchHint")}
+						</p>
+					) : null}
+				</div>
+			</div>
+		</div>
+	);
+}
