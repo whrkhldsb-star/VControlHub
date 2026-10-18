@@ -1,5 +1,7 @@
 import type { CostCategory, CostCurrency } from "@/lib/cost/types";
 import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
+import { isCalendarDate } from "@/lib/cost/calendar-date";
+import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 
 export const CATEGORIES: CostCategory[] = ["vps", "bandwidth", "storage", "other"];
 
@@ -32,13 +34,12 @@ export function emptyForm(): {
 		provider: "",
 		amount: "",
 		currency: "CNY",
-		effectiveDate: new Date().toISOString().slice(0, 10),
+		// Today in application time: before 08:00 in UTC+8 the UTC date is still yesterday.
+		effectiveDate: appTimeZoneDateKey(),
 		notes: "",
 	};
 }
 
 export function isValidDate(s: string): boolean {
-	if (!/^\d{4}-\d{2}-\d{2}$/u.test(s)) return false;
-	const d = new Date(`${s}T00:00:00Z`);
-	return !Number.isNaN(d.getTime());
+	return isCalendarDate(s);
 }

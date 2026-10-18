@@ -599,6 +599,30 @@ describe("cloud billing service", () => {
     expect(lockAcquisitions).toEqual([`cloud-billing-sync:${account.id}:2026-07`]);
   });
 
+  it("skips and reports a billing line dated on a day that does not exist", async () => {
+    const account = await createCloudBillingAccount(
+      {
+        name: "bad-date",
+        provider: "generic_csv",
+        credentials: {},
+        config: {
+          sampleCsv: `date,amount
+2026-02-31,89
+2026-02-28,11
+`,
+        },
+      },
+      null,
+    );
+
+    const result = await syncCloudBillingAccount(account.id, "2026-02");
+
+    // 2026-02-31 must not be stored as 2026-03-03 under a February import.
+    expect(result).toMatchObject({ imported: 1, skipped: 1 });
+    expect(result.warnings.join(" ")).toContain("2026-02-31");
+    expect(Array.from(entryStore.values()).map((row) => (row.effectiveDate as Date).toISOString())).toEqual(["2026-02-28T00:00:00.000Z"]);
+  });
+
   it("keeps distinct long external ids on distinct sourceRefs", async () => {
     // Same 140-char prefix and same tail — the shape that used to collapse into
     // one sourceRef, so the second line item overwrote the first.

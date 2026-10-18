@@ -8,6 +8,7 @@
  *
  * On-call users (rule.onCallUserIds) receive in-app first; empty = notification:manage admins.
  */
+import type { Prisma } from "@prisma/client";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
@@ -449,6 +450,23 @@ async function retryPendingIncidentDelivery(
  * channels that have not received the fired notification yet (with backoff);
  * channels that delivered are never paged again unless escalated.
  */
+/**
+ * Reopen a RESOLVED incident only if it is still RESOLVED: two evaluations
+ * (the worker and a manual run) that both read the resolved snapshot must not
+ * both notify and both start the linked playbook. Null when another caller
+ * reopened it first.
+ */
+async function reopenResolvedIncident(id: string, data: Prisma.AlertIncidentUpdateManyMutationInput) {
+  const claimed = await prisma.alertIncident.updateMany({ where: { id, status: "RESOLVED" }, data });
+  return claimed.count === 1 ? prisma.alertIncident.findUniqueOrThrow({ where: { id } }) : null;
+}
+
+/** Lost the reopen race: the winner notifies; this caller reports no fire. */
+async function alreadyReopened(id: string) {
+  const current = await prisma.alertIncident.findUnique({ where: { id }, select: { level: true } });
+  return { incidentId: id, created: false, fired: false, notified: false, level: current?.level ?? 1 };
+}
+
 export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise<{
   incidentId: string;
   created: boolean;
@@ -511,27 +529,27 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
     };
   }
 
+  const reopenData = {
+    status: "OPEN" as const,
+    level: 1,
+    value: input.value,
+    title: input.title,
+    message: input.message,
+    serverName: input.serverName,
+    acknowledgedAt: null,
+    acknowledgedById: null,
+    escalatedAt: null,
+    escalationMinutes: null,
+    resolvedAt: null,
+    lastNotifiedAt: now,
+    ...initialDeliveryState(now, input.notifyChannels),
+  };
   let incident;
   let created = false;
   if (existing) {
-    incident = await prisma.alertIncident.update({
-      where: { id: existing.id },
-      data: {
-        status: "OPEN",
-        level: 1,
-        value: input.value,
-        title: input.title,
-        message: input.message,
-        serverName: input.serverName,
-        acknowledgedAt: null,
-        acknowledgedById: null,
-        escalatedAt: null,
-        escalationMinutes: null,
-        resolvedAt: null,
-        lastNotifiedAt: now,
-        ...initialDeliveryState(now, input.notifyChannels),
-      },
-    });
+    const reopened = await reopenResolvedIncident(existing.id, reopenData);
+    if (!reopened) return alreadyReopened(existing.id);
+    incident = reopened;
   } else {
     try {
       incident = await prisma.alertIncident.create({
@@ -576,24 +594,9 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
           level: raced.level,
         };
       }
-      incident = await prisma.alertIncident.update({
-        where: { id: raced.id },
-        data: {
-          status: "OPEN",
-          level: 1,
-          value: input.value,
-          title: input.title,
-          message: input.message,
-          serverName: input.serverName,
-          acknowledgedAt: null,
-          acknowledgedById: null,
-          escalatedAt: null,
-          escalationMinutes: null,
-          resolvedAt: null,
-          lastNotifiedAt: now,
-          ...initialDeliveryState(now, input.notifyChannels),
-        },
-      });
+      const reopened = await reopenResolvedIncident(raced.id, reopenData);
+      if (!reopened) return alreadyReopened(raced.id);
+      incident = reopened;
     }
   }
 

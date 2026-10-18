@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isCalendarDate } from "./calendar-date";
 import { COST_BUDGET_PERIOD_VALUES, COST_CATEGORY_VALUES, COST_CURRENCY_VALUES } from "./types";
 
 export const costCategorySchema = z.enum(COST_CATEGORY_VALUES);
@@ -6,7 +7,7 @@ export const costCurrencySchema = z.enum(COST_CURRENCY_VALUES);
 export const costBudgetPeriodSchema = z.enum(COST_BUDGET_PERIOD_VALUES);
 
 export const costDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "Date must be in YYYY-MM-DD format").refine(
-	(s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)),
+	isCalendarDate,
 	{ message: "Date is not a valid date" },
 );
 

@@ -45,6 +45,10 @@ const executors = {
   importAiProviders: recorder("aiProviders"),
   importAnnouncements: recorder("announcements"),
   importSnippets: recorder("snippets"),
+  importTeams: recorder("teams"),
+  importIdentityTemplates: recorder("identityTemplates"),
+  importTeamMembers: recorder("teamMembers"),
+  importUserServerAccess: recorder("userServerAccess"),
 };
 
 vi.mock("../import-executors-rbac", () => ({
@@ -72,6 +76,17 @@ vi.mock("../import-executors-config", () => ({
   importAnnouncements: executors.importAnnouncements,
   importSnippets: executors.importSnippets,
 }));
+vi.mock("../import-executors-tenancy", () => ({
+  importTeams: executors.importTeams,
+  importIdentityTemplates: executors.importIdentityTemplates,
+  importTeamMembers: executors.importTeamMembers,
+  importUserServerAccess: executors.importUserServerAccess,
+}));
+// Id alignment and the missing-customer check have their own tests.
+vi.mock("../import-id-alignment", () => ({
+  alignImportIds: vi.fn(async (_tx: unknown, tables: unknown) => tables),
+  findMissingTeamIds: vi.fn(async () => []),
+}));
 vi.mock("../import-executors-helpers", () => ({}));
 
 const { executeImport } = await import("../import-executors");
@@ -98,10 +113,14 @@ describe("executeImport", () => {
       "permissions",
       "roles",
       "rolePermissions",
+      "teams",
+      "identityTemplates",
       "users",
       "userRoles",
+      "teamMembers",
       "sshKeys",
       "servers",
+      "userServerAccess",
       "storageNodes",
       "userStorageAccess",
       "commandTemplates",
@@ -118,7 +137,7 @@ describe("executeImport", () => {
   it("reports the accumulated counts and no rollback flag on success", async () => {
     const result = await executeImport(FILE, OPTIONS);
 
-    expect(result).toEqual({ created: 17, updated: 0, skipped: 0, errors: [] });
+    expect(result).toEqual({ created: 21, updated: 0, skipped: 0, errors: [] });
     expect(result).not.toHaveProperty("rolledBack");
   });
 

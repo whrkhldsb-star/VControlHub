@@ -34,9 +34,20 @@ const stubs = {
   previewAiProviders: stub(),
   previewAnnouncements: stub(),
   previewSnippets: stub(),
+  previewTeams: stub(),
+  previewIdentityTemplates: stub(),
+  previewTeamMembers: stub(),
+  previewUserServerAccess: stub(),
 };
 
 vi.mock("../import-preview-tables", () => stubs);
+const alignment = vi.hoisted(() => ({ missing: [] as string[] }));
+// Id alignment has its own tests; here the package is taken as is.
+vi.mock("@/lib/db", () => ({ prisma: {} }));
+vi.mock("../import-id-alignment", () => ({
+  alignImportIds: vi.fn(async (_db: unknown, tables: unknown) => tables),
+  findMissingTeamIds: vi.fn(async () => alignment.missing),
+}));
 
 const { previewImport } = await import("../import-preview");
 const { zh, en } = await import("@/lib/i18n/dictionaries/system-config");
@@ -51,6 +62,10 @@ const OPTIONS = {
 function file(over: Record<string, unknown> = {}): ExportFile {
   const empty = Object.fromEntries(
     [
+      "teams",
+      "identityTemplates",
+      "teamMembers",
+      "userServerAccess",
       "permissions",
       "roles",
       "rolePermissions",
@@ -80,6 +95,7 @@ function file(over: Record<string, unknown> = {}): ExportFile {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  alignment.missing = [];
 });
 
 describe("previewImport", () => {
@@ -87,12 +103,21 @@ describe("previewImport", () => {
     const preview = await previewImport(file(), OPTIONS);
 
     const keys = Object.keys(preview.summary);
-    expect(keys).toHaveLength(17);
+    expect(keys).toHaveLength(21);
     for (const key of keys) {
       expect(key).toMatch(/^systemConfig\.import\.preview\.table\./);
       expect(zh[key]).toBeTypeOf("string");
       expect(en[key]).toBeTypeOf("string");
     }
+  });
+
+  it("warns before importing a package whose customers cannot be found, and about Agent nodes", async () => {
+    alignment.missing = ["team-gone"];
+    const preview = await previewImport(file({ tables: { servers: [{ id: "s1", managementMode: "AGENT" }] } }), OPTIONS);
+    expect(preview.warnings).toEqual(expect.arrayContaining([
+      "systemConfig.import.preview.warning.missingCustomers",
+      "systemConfig.import.preview.warning.agentReinstall",
+    ]));
   });
 
   it("emits warnings as i18n keys that both dictionaries resolve", async () => {
@@ -114,9 +139,9 @@ describe("previewImport", () => {
     // counting it would enable an import that does nothing.
     const preview = await previewImport(file(), OPTIONS);
 
-    // 15 tables contribute create+update; the two pure join tables contribute
-    // create only.
-    expect(preview.totalRecords).toBe(15 * 3 + 2 * 1);
+    // 19 tables contribute create+update (customer memberships and per-server
+    // access can be overwritten); the two pure join tables contribute create only.
+    expect(preview.totalRecords).toBe(19 * 3 + 2 * 1);
   });
 
   it("does not query the users table when user import is off, and says so", async () => {

@@ -142,6 +142,21 @@ describe("markTargetsRunning", () => {
 });
 
 describe("executeTarget", () => {
+  it("runs every target of a large request, reading them in pages", async () => {
+    const page = (from: number, count: number) => Array.from({ length: count }, (_, i) => ({ ...buildTarget(), id: `t-${String(from + i).padStart(4, "0")}` }));
+    mocks.prisma.commandTarget.findMany.mockResolvedValueOnce(page(0, 500)).mockResolvedValueOnce(page(500, 500)).mockResolvedValueOnce(page(1000, 1));
+    // Each target is already terminal: no remote work, just the bookkeeping.
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue({ id: "t", status: "CANCELLED", commandRequest: { status: "RUNNING" } });
+    mocks.prisma.executionLog.create.mockResolvedValue({});
+
+    const result = await executeTargets("req-1");
+
+    expect(result.totalCount).toBe(1001);
+    expect(mocks.prisma.commandTarget.findUnique).toHaveBeenCalledTimes(1001);
+    expect(mocks.prisma.commandTarget.findMany.mock.calls[1]![0]).toMatchObject({ cursor: { id: "t-0499" }, skip: 1 });
+    expect(mocks.prisma.commandTarget.findMany.mock.calls[2]![0]).toMatchObject({ cursor: { id: "t-0999" }, skip: 1 });
+  });
+
   it("skips remote work when the target already reached a terminal status", async () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",

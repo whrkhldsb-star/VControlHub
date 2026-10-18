@@ -158,7 +158,7 @@ describe("evaluateCapacityLinkedAlerts", () => {
     expect(resolveMock).not.toHaveBeenCalled();
   });
 
-  it("resolves when forecast has insufficient data", async () => {
+  it("keeps an open incident when the forecast has insufficient data (unknown is not recovered)", async () => {
     getCapacityForecastMock.mockResolvedValue({
       summary: {
         serverCount: 1,
@@ -218,9 +218,9 @@ describe("evaluateCapacityLinkedAlerts", () => {
       { isSilent: () => false },
     );
 
-    expect(result.resolved).toBe(1);
+    expect(result.resolved).toBe(0);
     expect(openOrRefreshMock).not.toHaveBeenCalled();
-    expect(resolveMock).toHaveBeenCalled();
+    expect(resolveMock).not.toHaveBeenCalled();
   });
 
   it("does not inflate resolved when resolveAlertIncident finds no open incident", async () => {
@@ -239,13 +239,13 @@ describe("evaluateCapacityLinkedAlerts", () => {
       servers: [
         serverForecast({
           serverId: "s1",
-          overallRisk: "insufficient_data",
+          overallRisk: "ok",
           metrics: [
             {
               metric: "disk",
-              sampleCount: 1,
+              sampleCount: 48,
               windowHours: 168,
-              dataSpanHours: 1,
+              dataSpanHours: 48,
               latest: 50,
               slopePerDay: null,
               r2: null,
@@ -253,8 +253,9 @@ describe("evaluateCapacityLinkedAlerts", () => {
               horizonDays: 14,
               daysUntil85: null,
               daysUntil95: null,
-              risk: "insufficient_data",
-              reason: "insufficient_data",
+              // Flat usage: no longer projected to reach 85%.
+              risk: "ok",
+              reason: "not_projected",
             },
           ],
         }),

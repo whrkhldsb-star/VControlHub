@@ -15,12 +15,13 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageHeader, PageShell } from "@/components/page-shell";
 
 import { CostPageClient } from "./cost-page-client";
+import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 
 export const dynamic = "force-dynamic";
 
+/** Application time, as budgets and the monthly fee sync read it. */
 function currentMonth(): string {
-	const now = new Date();
-	return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+	return appTimeZoneDateKey().slice(0, 7);
 }
 
 export default async function CostSummaryPage() {

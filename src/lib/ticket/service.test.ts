@@ -236,12 +236,13 @@ describe("ticket service", () => {
     await listTickets({ userId: "u1", includeAll: false });
     await listTickets({ userId: "u1", includeAll: true });
 
-    expect(mockPrisma.ticket.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      where: { OR: [{ createdBy: "u1" }, { assigneeId: "u1" }] },
-    }));
-    expect(mockPrisma.ticket.findMany).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      where: {},
-    }));
+    // Each list reads open work (whatever its age) and recent history.
+    const mine = { OR: [{ createdBy: "u1" }, { assigneeId: "u1" }] };
+    const active = { status: { in: ["OPEN", "IN_PROGRESS"] } };
+    expect(mockPrisma.ticket.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: { AND: [mine, active] } }));
+    expect(mockPrisma.ticket.findMany).toHaveBeenNthCalledWith(2, expect.objectContaining({ where: mine, take: 200 }));
+    expect(mockPrisma.ticket.findMany).toHaveBeenNthCalledWith(3, expect.objectContaining({ where: { AND: [{}, active] } }));
+    expect(mockPrisma.ticket.findMany).toHaveBeenNthCalledWith(4, expect.objectContaining({ where: {}, take: 200 }));
   });
 
   it("scopes getTicketById with teamWhere for non-admin sessions", async () => {

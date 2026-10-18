@@ -113,6 +113,17 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("WebDAV MOVE
     expect(rows[0]!.id).toBe(source.id);
   });
 
+  it("MOVE of a directory whose name has an emoji or CJK re-indexes descendants exactly", async () => {
+    // JavaScript counts 🚀 as two UTF-16 units, PostgreSQL as one character.
+    await dir("🚀 发布");
+    await file("🚀 发布/example.txt", "original bytes");
+    await file("🚀 发布/子目录/深.txt", "deep");
+    expect(await status(handleWebDavMove(ctx("🚀 发布"), request("MOVE", "docs")))).toBe(201);
+    expect(read("docs/example.txt")).toBe("original bytes");
+    const rows = await prisma.fileEntry.findMany({ where: { storageNodeId: prefix }, orderBy: { relativePath: "asc" }, select: { relativePath: true, name: true } });
+    expect(rows.map((row) => [row.relativePath, row.name])).toEqual([["docs", "docs"], ["docs/example.txt", "example.txt"], ["docs/子目录/深.txt", "深.txt"]]);
+  });
+
   it("MOVE of a directory over a live directory moves every child and retires the old tree", async () => {
     const source = await dir("src");
     await file("src/one.txt", "one");

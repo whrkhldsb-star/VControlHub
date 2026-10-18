@@ -164,21 +164,22 @@ export async function createTicket(input: {
   return ticket;
 }
 
-export async function listTickets(
-  input?:
-    | {
-        userId?: string;
-        includeAll?: boolean;
-        session?: { userId: string; roles: RoleKey[]; currentTeamId: string | null };
-      }
-    | string,
-) {
+type TicketListInput =
+  | {
+      userId?: string;
+      includeAll?: boolean;
+      session?: { userId: string; roles: RoleKey[]; currentTeamId: string | null };
+    }
+  | string;
+
+/** Which tickets the caller's list covers (participant and customer filters). */
+function ticketListWhere(input?: TicketListInput): Prisma.TicketWhereInput {
   const userId = typeof input === "string" ? input : input?.userId;
   const includeAll = typeof input === "object" ? input.includeAll === true : false;
   const session = typeof input === "object" ? input.session : undefined;
   // Combine participant + team filters with AND. Spreading/Object.assign would
   // overwrite one OR clause with the other when both are present.
-  const clauses: Record<string, unknown>[] = [];
+  const clauses: Prisma.TicketWhereInput[] = [];
   if (!includeAll && userId) {
     clauses.push({ OR: [{ createdBy: userId }, { assigneeId: userId }] });
   }
@@ -186,18 +187,54 @@ export async function listTickets(
     const teamFilter = ticketTeamFilter(session);
     if (Object.keys(teamFilter).length > 0) clauses.push(teamFilter);
   }
-  const where =
-    clauses.length === 0 ? {} : clauses.length === 1 ? clauses[0]! : { AND: clauses };
-  return prisma.ticket.findMany({
-    where,
-    include: {
-      creator: { select: { username: true, displayName: true } },
-      assignee: { select: { username: true, displayName: true } },
-      comments: { select: { id: true, body: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 200,
-  });
+  return clauses.length === 0 ? {} : clauses.length === 1 ? clauses[0]! : { AND: clauses };
+}
+
+const TICKET_LIST_INCLUDE = {
+  creator: { select: { username: true, displayName: true } },
+  assignee: { select: { username: true, displayName: true } },
+  comments: { select: { id: true, body: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+} satisfies Prisma.TicketInclude;
+
+/** Open work shown however old it is; finished tickets only as recent history. */
+const ACTIVE_TICKET_LIMIT = 1000;
+const RECENT_TICKET_LIMIT = 200;
+
+/**
+ * The ticket workspace list: every open or in-progress ticket (up to
+ * ACTIVE_TICKET_LIMIT) plus the most recently updated ones. Only the latest
+ * 200 used to be read, so an old pending ticket close to its SLA deadline was
+ * hidden behind recently closed ones and missing from every filter.
+ */
+export async function listTickets(input?: TicketListInput) {
+  const where = ticketListWhere(input);
+  const [active, recent] = await Promise.all([
+    prisma.ticket.findMany({
+      where: { AND: [where, { status: { in: ["OPEN", "IN_PROGRESS"] } }] },
+      include: TICKET_LIST_INCLUDE,
+      orderBy: { updatedAt: "desc" },
+      take: ACTIVE_TICKET_LIMIT,
+    }),
+    prisma.ticket.findMany({
+      where,
+      include: TICKET_LIST_INCLUDE,
+      orderBy: { updatedAt: "desc" },
+      take: RECENT_TICKET_LIMIT,
+    }),
+  ]);
+  const byId = new Map([...active, ...recent].map((ticket) => [ticket.id, ticket]));
+  return [...byId.values()].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+}
+
+/** Status and high-priority counts over every ticket the list covers, not just the loaded rows. */
+export async function countTickets(input?: TicketListInput) {
+  const where = ticketListWhere(input);
+  const [byStatus, urgent] = await Promise.all([
+    prisma.ticket.groupBy({ by: ["status"], where, _count: { _all: true } }),
+    prisma.ticket.count({ where: { AND: [where, { priority: { in: ["URGENT", "HIGH"] } }] } }),
+  ]);
+  const count = (status: string) => byStatus.find((row) => row.status === status)?._count._all ?? 0;
+  return { open: count("OPEN"), inProgress: count("IN_PROGRESS"), resolved: count("RESOLVED") + count("CLOSED"), urgent };
 }
 
 /**

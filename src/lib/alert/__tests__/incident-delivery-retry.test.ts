@@ -50,6 +50,7 @@ vi.mock("@/lib/db", () => ({
 				store.set(row.id, row);
 				return { ...row };
 			}),
+			findUniqueOrThrow: vi.fn(async ({ where }: { where: { id: string } }) => ({ ...store.get(where.id)! })),
 			update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => ({ ...apply(store.get(where.id)!, data) })),
 			updateMany: vi.fn(async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
 				if (faults.updateMany > 0) {

@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionPayload } from "../session";
 
 const loadApiTokenOwnerSession = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/api-token/authorization", () => ({ loadApiTokenOwnerSession }));
+const { jobOwner } = vi.hoisted(() => ({ jobOwner: (load: (userId: string, teamId?: string) => Promise<{ roles: string[] } | null>) =>
+  async (userId: string, teamId: string | null | undefined) => {
+    if (teamId) return load(userId, teamId);
+    const account = await load(userId);
+    return account && account.roles.includes("admin") ? { ...account, currentTeamId: null } : account;
+  } }));
+vi.mock("@/lib/api-token/authorization", () => ({ loadApiTokenOwnerSession, loadJobOwnerSession: jobOwner(loadApiTokenOwnerSession) }));
 
 import { assertRequesterMayExecuteCommand } from "../command-execution-authz";
 
@@ -37,9 +43,10 @@ describe("background command authorization", () => {
     expect((await assertRequesterMayExecuteCommand("user-1", null)).ok).toBe(false);
   });
 
-  it("lets a platform administrator execute without a target membership", async () => {
-    loadApiTokenOwnerSession.mockResolvedValueOnce(session(["command:execute"], ["admin"]));
+  it("lets a platform administrator execute without a target membership, scoped to the command's customer", async () => {
+    loadApiTokenOwnerSession.mockResolvedValue(session(["command:execute"], ["admin"]));
     expect(await assertRequesterMayExecuteCommand("user-1", "team-b")).toEqual({ ok: true });
-    expect(loadApiTokenOwnerSession).toHaveBeenCalledTimes(1);
+    // Not the customer the administrator has selected in the console.
+    expect(loadApiTokenOwnerSession).toHaveBeenLastCalledWith("user-1", "team-b");
   });
 });

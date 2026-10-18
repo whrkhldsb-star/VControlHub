@@ -51,6 +51,12 @@ vi.mock("@/lib/job/heartbeat-runner", () => ({
 }));
 vi.mock("@/lib/api-token/authorization", () => ({
   loadApiTokenOwnerSession: mocks.loadApiTokenOwnerSession,
+  // Composes the loader as the real one does (covered against PostgreSQL elsewhere).
+  loadJobOwnerSession: async (userId: string, teamId: string | null | undefined) => {
+    if (teamId) return mocks.loadApiTokenOwnerSession(userId, teamId);
+    const account = await mocks.loadApiTokenOwnerSession(userId);
+    return account?.roles?.includes("admin") ? { ...account, currentTeamId: null } : account;
+  },
 }));
 vi.mock("@/lib/job/lease", () => ({
   computeLeaseMs: () => 30 * 60 * 1000,

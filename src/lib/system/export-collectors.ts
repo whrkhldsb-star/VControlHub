@@ -218,6 +218,21 @@ export async function exportServers(
       createdAt: true,
       teamId: true,
       password: mode === "full",
+      operatingSystem: true,
+      managementMode: true,
+      origin: true,
+      hostKeySha256: true,
+      rdpDomain: true,
+      rdpPassword: mode === "full",
+      rdpIgnoreCertificate: true,
+      rdpCertificateSha256: true,
+      costAutoSync: true,
+      costMonthlyAmount: true,
+      costCurrency: true,
+      costProvider: true,
+      expiresAt: true,
+      trafficQuotaBytes: true,
+      trafficQuotaMode: true,
     },
     ...page,
   }));
@@ -239,6 +254,69 @@ export async function exportServers(
     osInfo: r.osInfo,
     teamId: r.teamId ?? null,
     createdAt: dateToISO(r.createdAt)!,
+    operatingSystem: r.operatingSystem === "WINDOWS" ? "WINDOWS" as const : "LINUX" as const,
+    managementMode: r.managementMode,
+    origin: r.origin,
+    hostKeySha256: r.hostKeySha256,
+    rdpDomain: r.rdpDomain,
+    rdpPassword: mode === "full" ? r.rdpPassword ?? null : null,
+    rdpIgnoreCertificate: r.rdpIgnoreCertificate,
+    rdpCertificateSha256: r.rdpCertificateSha256,
+    costAutoSync: r.costAutoSync,
+    costMonthlyAmount: r.costMonthlyAmount?.toFixed(2) ?? null,
+    costCurrency: r.costCurrency,
+    costProvider: r.costProvider,
+    expiresAt: dateToISO(r.expiresAt),
+    trafficQuotaBytes: r.trafficQuotaBytes?.toString() ?? null,
+    trafficQuotaMode: r.trafficQuotaMode,
+  }));
+}
+
+/** The customers the package's resources belong to (one in team scope). */
+export async function exportTeams(scope: ExportScope, teamId: string | null) {
+  const rows = await readAllPages(async (page) => prisma.team.findMany({
+    where: scope === "team" && teamId ? { id: teamId } : { deletedAt: null },
+    orderBy: [{ slug: "asc" }, { id: "asc" }],
+    select: { id: true, slug: true, name: true, description: true },
+    ...page,
+  }));
+  return rows.map((r) => ({ id: r.id, slug: r.slug, name: r.name, description: r.description }));
+}
+
+/** Memberships of the exported users in the exported customers. */
+export async function exportTeamMembers(teamIds: string[], userIds: string[]) {
+  if (teamIds.length === 0 || userIds.length === 0) return [];
+  const rows = await readAllPages(async (page) => prisma.teamMember.findMany({
+    where: { teamId: { in: teamIds }, userId: { in: userIds } },
+    orderBy: { userId: "asc" },
+    ...page,
+  }));
+  return rows.map((r) => ({ teamId: r.teamId, userId: r.userId, identityTemplateId: r.identityTemplateId, joinedAt: dateToISO(r.joinedAt)! }));
+}
+
+/** Identity templates the exported memberships use (all of them in global scope). */
+export async function exportIdentityTemplates(scope: ExportScope, templateIds: string[]) {
+  if (scope === "team" && templateIds.length === 0) return [];
+  const rows = await readAllPages(async (page) => prisma.identityTemplate.findMany({
+    where: scope === "team" ? { id: { in: templateIds } } : {},
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: { id: true, name: true, description: true, permissions: true, isBuiltin: true },
+    ...page,
+  }));
+  return rows.map((r) => ({ id: r.id, name: r.name, description: r.description, permissions: r.permissions, isBuiltin: r.isBuiltin }));
+}
+
+/** Per-server permissions of the exported users on the exported servers. */
+export async function exportUserServerAccess(userIds: string[], serverIds: string[]) {
+  if (userIds.length === 0 || serverIds.length === 0) return [];
+  const rows = await readAllPages(async (page) => prisma.userServerAccess.findMany({
+    where: { userId: { in: userIds }, serverId: { in: serverIds } },
+    orderBy: [{ userId: "asc" }, { serverId: "asc" }],
+    ...page,
+  }));
+  return rows.map((r) => ({
+    userId: r.userId, serverId: r.serverId, canRead: r.canRead, canConnect: r.canConnect, canManage: r.canManage,
+    canFileRead: r.canFileRead, canFileWrite: r.canFileWrite, canFileDelete: r.canFileDelete,
   }));
 }
 

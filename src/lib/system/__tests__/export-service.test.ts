@@ -35,6 +35,9 @@ vi.mock("@/lib/db", () => ({
     },
     userRole: { findMany: vi.fn().mockResolvedValue([]) },
     teamMember: { findMany: vi.fn().mockResolvedValue([]) },
+    team: { findMany: vi.fn().mockResolvedValue([]) },
+    identityTemplate: { findMany: vi.fn().mockResolvedValue([]) },
+    userServerAccess: { findMany: vi.fn().mockResolvedValue([]) },
     sshKey: {
       findMany: vi.fn().mockResolvedValue([
         {

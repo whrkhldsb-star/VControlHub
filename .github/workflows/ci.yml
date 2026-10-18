@@ -90,6 +90,14 @@ jobs:
           PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d vcontrolhub_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE vcontrolhub_migrate;'
           npx prisma migrate deploy
 
+      # CHECK constraints exist only in migrations (the suite's db push schema
+      # has none): test what the services write against the migrated schema.
+      - name: Test migrated constraints
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate
+          RUN_DATABASE_INTEGRATION_TESTS: "1"
+        run: npx vitest run src/lib/server/__tests__/windows-constraint.integration.test.ts
+
       # Schema-vs-migrations drift guard. A schema.prisma edit without a
       # matching migration previously only surfaced at `migrate deploy` time
       # (the September incident needed a hand-written reconciliation

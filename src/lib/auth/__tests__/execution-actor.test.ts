@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 	assertStorageAccess: vi.fn(),
 }));
 
-vi.mock("@/lib/api-token/authorization", () => ({ loadApiTokenOwnerSession: mocks.loadApiTokenOwnerSession }));
+vi.mock("@/lib/api-token/authorization", () => ({ loadJobOwnerSession: mocks.loadApiTokenOwnerSession }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
 vi.mock("@/lib/auth/team-scope", () => ({ serverTeamWhere: (session: { currentTeamId: string | null }) => ({ teamId: session.currentTeamId }) }));
 vi.mock("@/lib/db", () => ({ prisma: { server: { count: mocks.serverCount } } }));

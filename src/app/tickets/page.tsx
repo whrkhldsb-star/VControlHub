@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listTickets } from "@/lib/ticket/service";
+import { countTickets, listTickets } from "@/lib/ticket/service";
 import { PageShell, PageHeader, StatCard, StatGrid } from "@/components/page-shell";
 import { CreateTicketForm } from "./create-ticket-form";
 import { TicketWorkspace, type TicketWorkspaceTicket } from "./ticket-workspace";
@@ -21,16 +21,10 @@ export default async function Page() {
   const locale = await getServerLocale();
   const canUseServerPicker = canCreate && sessionHasPermission(session, "server:read");
   const servers = canUseServerPicker ? await listServerProfiles(session) : [];
-  const tickets = await listTickets({
-    userId: session.userId,
-    includeAll: canManage,
-    session,
-  });
-
-  const openCount = tickets.filter((ticket) => ticket.status === "OPEN").length;
-  const progressCount = tickets.filter((ticket) => ticket.status === "IN_PROGRESS").length;
-  const resolvedCount = tickets.filter((ticket) => ticket.status === "RESOLVED" || ticket.status === "CLOSED").length;
-  const urgentCount = tickets.filter((ticket) => ticket.priority === "URGENT" || ticket.priority === "HIGH").length;
+  const listInput = { userId: session.userId, includeAll: canManage, session };
+  // Counted in the database: the loaded list holds open work plus recent history only.
+  const [tickets, counts] = await Promise.all([listTickets(listInput), countTickets(listInput)]);
+  const { open: openCount, inProgress: progressCount, resolved: resolvedCount, urgent: urgentCount } = counts;
   const initialTickets: TicketWorkspaceTicket[] = tickets.map((ticket) => ({
     id: ticket.id,
     title: ticket.title,

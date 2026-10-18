@@ -6,6 +6,7 @@
  * (30-day retention). Offline rows are excluded from regression fits.
  */
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getRuntimeSettingNumbers } from "@/lib/runtime-settings/service";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
@@ -35,7 +36,11 @@ export type CapacityForecastOptions = {
 
 const DEFAULT_WINDOW_HOURS = 168; // 7 days
 const DEFAULT_HORIZON_DAYS = 14;
-const MAX_SNAPSHOTS = 50_000;
+const SERVER_PAGE = 500;
+/** Servers per snapshot query; with MAX_POINTS_PER_SERVER this bounds one result. */
+const SNAPSHOT_SERVER_CHUNK = 100;
+/** History points per server: the window is averaged into this many buckets. */
+const MAX_POINTS_PER_SERVER = 720;
 
 function normalizeWindowHours(value: number | undefined, fallback = DEFAULT_WINDOW_HOURS): number {
   const n = Number.isFinite(value) ? Math.floor(value as number) : fallback;
@@ -61,12 +66,21 @@ export async function getCapacityForecast(
     ...(options.serverId ? { id: options.serverId } : {}),
   };
 
-  const servers = await prisma.server.findMany({
-    where: serverWhere,
-    select: { id: true, name: true, host: true, enabled: true },
-    orderBy: { name: "asc" },
-    take: 200,
-  });
+  // Every server in scope: a fixed first page (it was the first 200 by name)
+  // left later servers out of the fleet summary and their capacity alerts.
+  const servers: Array<{ id: string; name: string; host: string; enabled: boolean }> = [];
+  let cursor: string | undefined;
+  do {
+    const page = await prisma.server.findMany({
+      where: serverWhere,
+      select: { id: true, name: true, host: true, enabled: true },
+      orderBy: { id: "asc" },
+      take: SERVER_PAGE,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    servers.push(...page);
+    cursor = page.length === SERVER_PAGE ? page[page.length - 1]!.id : undefined;
+  } while (cursor);
 
   if (servers.length === 0) {
     return {
@@ -76,25 +90,6 @@ export async function getCapacityForecast(
   }
 
   const serverIds = servers.map((s) => s.id);
-  // Prefer newest samples under the hard take cap (fleet growth exceeds 50k oldest-first).
-  const snapshotsDesc = await prisma.metricSnapshot.findMany({
-    where: {
-      serverId: { in: serverIds },
-      createdAt: { gte: since },
-      isOnline: true,
-    },
-    orderBy: { createdAt: "desc" },
-    take: MAX_SNAPSHOTS,
-    select: {
-      serverId: true,
-      cpuUsage: true,
-      memUsage: true,
-      diskUsage: true,
-      createdAt: true,
-    },
-  });
-  const snapshots = snapshotsDesc.slice().reverse();
-
   const byServer = new Map<
     string,
     { cpu: MetricSample[]; mem: MetricSample[]; disk: MetricSample[] }
@@ -102,13 +97,34 @@ export async function getCapacityForecast(
   for (const id of serverIds) {
     byServer.set(id, { cpu: [], mem: [], disk: [] });
   }
-  for (const snap of snapshots) {
-    const bucket = byServer.get(snap.serverId);
-    if (!bucket) continue;
-    const t = snap.createdAt.getTime();
-    bucket.cpu.push({ t, value: snap.cpuUsage });
-    bucket.mem.push({ t, value: snap.memUsage });
-    bucket.disk.push({ t, value: snap.diskUsage });
+  // Each server's history across the whole window, averaged into time buckets
+  // in PostgreSQL. A row cap shared by all servers (the newest 50,000) left
+  // each one only minutes of history at a 1-minute sampling interval, so the
+  // whole fleet read as "insufficient data" however long it had been sampled.
+  const bucketSeconds = Math.max(60, Math.ceil((windowHours * 3600) / MAX_POINTS_PER_SERVER));
+  for (let i = 0; i < serverIds.length; i += SNAPSHOT_SERVER_CHUNK) {
+    const chunk = serverIds.slice(i, i + SNAPSHOT_SERVER_CHUNK);
+    const rows = await prisma.$queryRaw<Array<{ serverId: string; t: number; cpu: number; mem: number; disk: number }>>(Prisma.sql`
+      SELECT "serverId",
+             (avg(extract(epoch from "createdAt")) * 1000)::float8 AS t,
+             avg("cpuUsage")::float8 AS cpu,
+             avg("memUsage")::float8 AS mem,
+             avg("diskUsage")::float8 AS disk
+      FROM metric_snapshots
+      WHERE "serverId" IN (${Prisma.join(chunk)})
+        AND "createdAt" >= ${since}
+        AND "isOnline" = true
+      GROUP BY "serverId", floor(extract(epoch from "createdAt") / ${bucketSeconds})
+      ORDER BY "serverId", t
+    `);
+    for (const row of rows) {
+      const bucket = byServer.get(row.serverId);
+      if (!bucket) continue;
+      const t = Number(row.t);
+      bucket.cpu.push({ t, value: Number(row.cpu) });
+      bucket.mem.push({ t, value: Number(row.mem) });
+      bucket.disk.push({ t, value: Number(row.disk) });
+    }
   }
 
   const forecasts: ServerCapacityForecast[] = servers.map((server) => {

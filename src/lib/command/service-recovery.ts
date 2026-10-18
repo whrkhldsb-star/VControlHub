@@ -56,6 +56,21 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
   return { recovered };
 }
 
+/**
+ * The claim only wins while the request is exactly as the sweep read it: same
+ * status (an operator cancel can race), same executor and same heartbeat. An
+ * executor that came back and renewed its heartbeat in between keeps its
+ * request instead of being marked lost.
+ */
+function stillStale(request: StaleRequest) {
+  return {
+    id: request.id,
+    status: request.status ?? "RUNNING",
+    workerId: request.workerId,
+    workerHeartbeatAt: request.workerHeartbeatAt,
+  };
+}
+
 async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
   const targetStatuses = request.targets.map((target) => target.status);
   const hasRunningOrQueuedTarget = targetStatuses.some((status) => ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"].includes(status));
@@ -64,7 +79,7 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
     // before the claim left CANCELLED requests with FAILED targets when cancel
     // won on the request after recovery rewrote targets.
     const claimed = await prisma.commandRequest.updateMany({
-      where: { id: request.id, status: request.status ?? "RUNNING" },
+      where: stillStale(request),
       data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
     });
     if (claimed.count === 0) {
@@ -101,7 +116,7 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
   const nextStatus = request.status === "CANCELLING" && !targetStatuses.includes("FAILED") ? "CANCELLED" : allCompleted ? "COMPLETED" : "FAILED";
   // Same CAS for archive path (targets already terminal, request still RUNNING).
   const claimed = await prisma.commandRequest.updateMany({
-    where: { id: request.id, status: request.status ?? "RUNNING" },
+    where: stillStale(request),
     data: { status: nextStatus, workerId: null, workerHeartbeatAt: null },
   });
   if (claimed.count === 0) {

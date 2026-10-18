@@ -241,7 +241,7 @@ describe("getCapacityForecast service", () => {
     vi.doMock("@/lib/db", () => ({
       prisma: {
         server: { findMany: findManyServers },
-        metricSnapshot: { findMany: findManySnapshots },
+        $queryRaw: findManySnapshots,
       },
     }));
     vi.doMock("@/lib/auth/team-scope", () => ({ teamWhere: () => ({}) }));
@@ -258,7 +258,7 @@ describe("getCapacityForecast service", () => {
     vi.doMock("@/lib/db", () => ({
       prisma: {
         server: { findMany: findManyServers },
-        metricSnapshot: { findMany: findManySnapshots },
+        $queryRaw: findManySnapshots,
       },
     }));
     vi.doMock("@/lib/auth/team-scope", () => ({ teamWhere: () => ({}) }));
@@ -267,13 +267,14 @@ describe("getCapacityForecast service", () => {
     findManyServers.mockResolvedValue([
       { id: "s1", name: "prod", host: "1.1.1.1", enabled: true },
     ]);
+    // Rows as the bucketed query returns them (one per server and time bucket).
     findManySnapshots.mockResolvedValue(
       Array.from({ length: 24 }, (_, i) => ({
         serverId: "s1",
-        cpuUsage: 40 + i * 0.1,
-        memUsage: 50,
-        diskUsage: 60 + i * 0.2,
-        createdAt: new Date(nowMs - (24 - i) * 3_600_000),
+        cpu: 40 + i * 0.1,
+        mem: 50,
+        disk: 60 + i * 0.2,
+        t: nowMs - (24 - i) * 3_600_000,
       })),
     );
 
@@ -287,10 +288,6 @@ describe("getCapacityForecast service", () => {
     expect(result.servers[0]!.serverId).toBe("s1");
     expect(result.servers[0]!.metrics).toHaveLength(3);
     expect(result.summary.serverCount).toBe(1);
-    expect(findManySnapshots).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ isOnline: true }),
-      }),
-    );
+    expect(String((findManySnapshots.mock.calls[0]![0] as { sql: string }).sql)).toContain('"isOnline" = true');
   });
 });
