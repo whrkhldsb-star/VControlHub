@@ -4,8 +4,7 @@ import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageShell, PageHeader } from "@/components/page-shell";
-import { RemoteDesktop } from "@/components/remote-desktop";
-import { ButtonLink } from "@/components/action-button";
+import { OpenRemoteDesktop } from "./open-remote-desktop";
 
 export const dynamic = "force-dynamic";
 
@@ -16,14 +15,12 @@ export default async function RemoteDesktopPage({ params }: { params: Promise<{ 
   });
   const server = await prisma.server.findFirst({
     where: { AND: [{ id, operatingSystem: "WINDOWS", enabled: true }, serverTeamWhere(session, "connect")] },
-    select: { id: true, name: true },
+    select: { id: true, name: true, host: true },
   });
   if (!server) notFound();
   const locale = await getServerLocale();
   return <PageShell>
-    <PageHeader eyebrow="Windows · RDP" title={t("rdp.title", locale)} description={server.name}>
-      <ButtonLink variant="secondary" href="/servers">{t("rdp.back", locale)}</ButtonLink>
-    </PageHeader>
-    <RemoteDesktop serverId={server.id} />
+    <PageHeader eyebrow="Windows · RDP" title={t("rdp.title", locale)} description={t("rdp.opening", locale)} />
+    <OpenRemoteDesktop serverId={server.id} serverName={server.name} host={server.host} />
   </PageShell>;
 }

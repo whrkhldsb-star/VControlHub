@@ -207,7 +207,7 @@ export function ServerOverviewCard({
 
       <div className="mt-3 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-3">
         {isWindows && server.enabled && canUseSshTerminal ? (
-          <ServerConnectionAction protocol="rdp" serverId={server.id} serverName={server.name} size="sm" block={false} />
+          <ServerConnectionAction protocol="rdp" serverId={server.id} serverName={server.name} host={server.host} size="sm" block={false} />
         ) : null}
         {!isWindows && server.enabled && canUseSshTerminal && server.hasSshCredential !== false ? (
           <ServerCardActions

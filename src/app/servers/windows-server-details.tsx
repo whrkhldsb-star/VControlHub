@@ -92,7 +92,7 @@ export function WindowsServerDetails({
 								Linux card puts its SSH-terminal button. */}
 						{server.enabled && canUseSshTerminal ? (
 							<div className="mb-3">
-								<ServerConnectionAction protocol="rdp" serverId={server.id} serverName={server.name} size="md" block />
+								<ServerConnectionAction protocol="rdp" serverId={server.id} serverName={server.name} host={server.host} size="md" block />
 							</div>
 						) : null}
 						<ServerCardActions

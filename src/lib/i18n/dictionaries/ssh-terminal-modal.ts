@@ -91,7 +91,7 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.resetTerminalHint": "程序异常退出后，如果移动鼠标或滚动出现乱码、光标消失，点此恢复；只重置本页终端，不向服务器发送任何内容。",
 
 	// Multi-tab manager (TR-039)
-	"sshTerminalManager.title": "SSH 终端",
+	"sshTerminalManager.title": "远程会话",
 	"sshTerminalManager.tabsSuffix": "个标签",
 	"sshTerminalManager.closeTab": "关闭 {serverName} 标签",
 	"sshTerminalManager.minimize": "最小化",
@@ -204,7 +204,7 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.resetTerminalHint": "If a program quit abnormally and mouse moves or scrolling print garbage, or the cursor is gone, use this. Only this page's terminal is reset; nothing is sent to the server.",
 
 	// Multi-tab manager (TR-039)
-	"sshTerminalManager.title": "SSH Terminal",
+	"sshTerminalManager.title": "Remote sessions",
 	"sshTerminalManager.tabsSuffix": "tabs",
 	"sshTerminalManager.closeTab": "Close {serverName} tab",
 	"sshTerminalManager.minimize": "Minimize",

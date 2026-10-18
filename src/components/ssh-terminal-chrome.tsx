@@ -3,10 +3,11 @@
 import { UI_INPUT } from "@/lib/ui/classes";
 import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
+import type { ReactNode } from "react";
 
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { ActionButton } from "@/components/action-button";
-import { ClipboardList, Folder, Maximize2, Minimize2, Server } from "@/components/icons";
+import { ClipboardList, Folder, Hand, Keyboard, Maximize2, Minimize2, Monitor, MousePointer, Server, X } from "@/components/icons";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
@@ -16,6 +17,20 @@ const chipIdle = "border-[var(--border-subtle)] light:border-[var(--border)] bg-
 const chipActive = "border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action-text)]";
 /** Chip whose icon stands alone (phones, the full-screen strip): a square touch target. */
 const chipIcon = "inline-flex min-h-9 min-w-9 items-center justify-center";
+
+/** Status badge tone and label shared by the SSH and remote desktop toolbars. */
+function sessionStatus(status: TerminalStatus, t: TFn): { tone: StatusTone; label: string } {
+	return {
+		tone: status === "connected" ? "success" : status === "connecting" ? "warning" : "danger",
+		label: status === "connected"
+			? t("sshTerminalModal.statusConnected")
+			: status === "connecting"
+				? t("sshTerminalModal.statusConnecting")
+				: status === "error"
+					? t("sshTerminalModal.statusError")
+					: t("sshTerminalModal.statusClosed"),
+	};
+}
 
 export function SshTerminalToolbar({
 	serverName,
@@ -46,20 +61,7 @@ export function SshTerminalToolbar({
 	onReconnect: () => void;
 	onClose: () => void;
 }) {
-	const statusTone: StatusTone =
-		status === "connected"
-			? "success"
-			: status === "connecting"
-				? "warning"
-				: "danger";
-	const statusLabel =
-		status === "connected"
-			? t("sshTerminalModal.statusConnected")
-			: status === "connecting"
-				? t("sshTerminalModal.statusConnecting")
-				: status === "error"
-					? t("sshTerminalModal.statusError")
-					: t("sshTerminalModal.statusClosed");
+	const { tone: statusTone, label: statusLabel } = sessionStatus(status, t);
 	const reconnectButton = (status === "error" || status === "closed") && (
 		<ActionButton size="sm" variant="outline" onClick={onReconnect} data-tone="cyan">
 			{t("sshTerminalModal.reconnect")}
@@ -157,6 +159,153 @@ export function SshTerminalToolbar({
 					className={`${chipBase} ${chipIdle}`}
 				>
 					{t("sshTerminalModal.close")}
+				</button>
+			</div>
+		</div>
+	);
+}
+
+export type RemoteDesktopTouchMode = "touchpad" | "touch";
+
+/**
+ * The remote desktop's bar, built like the SSH one: name and host, status,
+ * then chips. On touch screens it adds the two things a phone needs and a
+ * desktop does not — the on-screen keyboard and the pointer mode (a touchpad
+ * with a visible pointer, as in Microsoft's Remote Desktop app, or direct touch).
+ */
+export function RemoteDesktopToolbar({
+	serverName,
+	host,
+	status,
+	t,
+	fullscreen = false,
+	touch,
+	touchMode,
+	viewMode,
+	elapsed,
+	onToggleTouchMode,
+	onKeyboard,
+	onToggleView,
+	onCtrlAltDel,
+	onToggleFullscreen,
+	onReconnect,
+	onClose,
+}: {
+	serverName: string;
+	host: string;
+	status: TerminalStatus;
+	t: TFn;
+	fullscreen?: boolean;
+	/** A touch screen: show the keyboard and pointer-mode chips. */
+	touch: boolean;
+	touchMode: RemoteDesktopTouchMode;
+	viewMode: "fit" | "actual";
+	/** Connected time, e.g. "03:12"; null while not connected. */
+	elapsed: string | null;
+	onToggleTouchMode: () => void;
+	onKeyboard: () => void;
+	onToggleView: () => void;
+	onCtrlAltDel: () => void;
+	onToggleFullscreen?: () => void;
+	onReconnect: () => void;
+	onClose: () => void;
+}) {
+	const { tone: statusTone, label: statusLabel } = sessionStatus(status, t);
+	const connected = status === "connected";
+	const pointerLabel = t(touchMode === "touchpad" ? "rdp.pointer.touchpad" : "rdp.pointer.touch");
+	const reconnectButton = (status === "error" || status === "closed") && (
+		<ActionButton size="sm" variant="outline" onClick={onReconnect} data-tone="cyan">
+			{t("sshTerminalModal.reconnect")}
+		</ActionButton>
+	);
+	// Phones: icon-only chips, so the bar stays one row and the desktop keeps its height.
+	const chip = (label: string, icon: ReactNode, onClick: () => void, extra?: { pressed?: boolean; disabled?: boolean; testId?: string; iconOnly?: boolean }) => (
+		<button
+			type="button"
+			onClick={onClick}
+			disabled={extra?.disabled}
+			aria-pressed={extra?.pressed}
+			aria-label={label}
+			title={label}
+			data-testid={extra?.testId}
+			className={cn(chipBase, chipIcon, !extra?.iconOnly && "sm:min-w-0", extra?.pressed ? chipActive : chipIdle, "disabled:opacity-50")}
+		>
+			{icon}
+			{!extra?.iconOnly && <span className="hidden sm:ml-1 sm:inline">{label}</span>}
+		</button>
+	);
+	const touchChips = touch && (
+		<>
+			{chip(t("rdp.keyboard"), <Keyboard size={14} aria-hidden="true" />, onKeyboard, { disabled: !connected, iconOnly: fullscreen, testId: "rdp-keyboard" })}
+			{chip(pointerLabel, touchMode === "touchpad" ? <MousePointer size={14} aria-hidden="true" /> : <Hand size={14} aria-hidden="true" />, onToggleTouchMode, { iconOnly: fullscreen, testId: "rdp-pointer-mode" })}
+		</>
+	);
+
+	if (fullscreen) {
+		return (
+			<div className="flex items-center gap-2 border-b border-[var(--border-subtle)] light:border-[var(--border)] px-2 py-1">
+				<StatusBadge tone={statusTone} size="sm" role="status" aria-live="polite">
+					{statusLabel}
+				</StatusBadge>
+				<span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">{serverName}</span>
+				<div className="ml-auto flex shrink-0 items-center gap-1">
+					{reconnectButton}
+					{touchChips}
+					{chip("Ctrl+Alt+Del", <span className="text-[10px] font-semibold">CAD</span>, onCtrlAltDel, { disabled: !connected, iconOnly: true })}
+					<button
+						type="button"
+						onClick={onToggleFullscreen}
+						aria-label={t("sshTerminalModal.fullscreenExit")}
+						title={t("sshTerminalModal.fullscreenExit")}
+						className={cn(chipBase, chipIcon, chipIdle)}
+						data-testid="rdp-fullscreen-exit"
+					>
+						<Minimize2 size={14} aria-hidden="true" />
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] light:border-[var(--border)] px-4 py-2">
+			<div className="flex min-w-0 items-center gap-2">
+				<Monitor size={15} className="shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+				<span className="truncate text-sm font-medium text-[var(--text-primary)]">{serverName}</span>
+				<span className="truncate text-xs text-[var(--text-secondary)]">{host}</span>
+			</div>
+			<div className="ml-auto flex flex-wrap items-center gap-2">
+				<StatusBadge tone={statusTone} size="md" role="status" aria-live="polite">
+					{statusLabel}
+				</StatusBadge>
+				{elapsed && <span className="hidden text-xs tabular-nums text-[var(--text-muted)] sm:inline" title={t("rdp.elapsed", { time: elapsed })}>{elapsed}</span>}
+				{touchChips}
+				{chip("Ctrl+Alt+Del", <span className="text-[10px] font-semibold sm:hidden">CAD</span>, onCtrlAltDel, { disabled: !connected })}
+				{/* A phone fits the desktop to the screen; actual size cannot be panned by touch. */}
+				{!touch && chip(t(viewMode === "fit" ? "rdp.view.actual" : "rdp.view.fit"), <span className="text-[10px] font-semibold sm:hidden">1:1</span>, onToggleView, { pressed: viewMode === "actual", disabled: !connected })}
+				{onToggleFullscreen && (
+					<button
+						type="button"
+						onClick={onToggleFullscreen}
+						aria-label={t("sshTerminalModal.fullscreen")}
+						title={t("sshTerminalModal.fullscreen")}
+						className={cn(chipBase, chipIcon, "sm:min-w-0", chipIdle)}
+						data-testid="rdp-fullscreen-enter"
+					>
+						<Maximize2 size={14} className="sm:mr-1" aria-hidden="true" />
+						<span className="hidden sm:inline">{t("sshTerminalModal.fullscreen")}</span>
+					</button>
+				)}
+				{reconnectButton}
+				<button
+					type="button"
+					onClick={onClose}
+					aria-label={t("rdp.closeAria")}
+					title={t("rdp.closeAria")}
+					className={cn(chipBase, chipIcon, "sm:min-w-0", chipIdle)}
+				>
+					<X size={14} className="sm:hidden" aria-hidden="true" />
+					<span className="hidden sm:inline">{t("sshTerminalModal.close")}</span>
 				</button>
 			</div>
 		</div>

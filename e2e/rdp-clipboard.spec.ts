@@ -102,9 +102,11 @@ test("RDP native text paste and Linux/Windows connection control dimensions", as
         else parser.feed(String(data));
       });
     });
+    // The old address opens a tab in the session workbench, which connects by itself.
     await page.goto(`/servers/${prefix}WINDOWS/remote-desktop`, { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: /连接 \/ 重新连接|Connect \/ Reconnect/ }).click();
-    await expect(page.getByRole("status").filter({ hasText: /已连接|^Connected$/ })).toBeVisible();
+    await page.waitForURL(/\/servers$/);
+    const desktop = page.getByTestId(`rdp-panel-${prefix}WINDOWS`);
+    await expect(desktop.getByRole("status").filter({ hasText: /已连接|^Connected$/ })).toBeVisible();
     await page.evaluate(() => {
       const source = document.createElement("textarea");
       source.id = "local-copy-source";
@@ -124,7 +126,8 @@ test("RDP native text paste and Linux/Windows connection control dimensions", as
     expect(pasted).toHaveLength(2);
     expect(pageErrors).toEqual([]);
     await expect(page.getByRole("textbox", { name: /远程桌面键盘输入|Remote desktop keyboard input/ })).toHaveValue("");
-    await page.getByRole("button", { name: /断开连接|Disconnect/ }).click();
+    await desktop.getByRole("button", { name: /关闭远程桌面|Close remote desktop/ }).click();
+    await expect(desktop).toHaveCount(0);
   } finally {
     await db.query('DELETE FROM "StorageNode" WHERE id=$1', [prefix]);
     await db.query('DELETE FROM servers WHERE id=ANY($1::text[])', [[prefix + "LINUX", prefix + "WINDOWS"]]);

@@ -106,6 +106,7 @@ vi.mock("../ssh-terminal-context", () => ({
     minimize: vi.fn(),
     restore: vi.fn(),
   }),
+  useOptionalSshTerminal: () => ({ openTerminal: vi.fn(), openRemoteDesktop: vi.fn(), isOpen: false }),
 }));
 
 vi.mock("@/lib/server/inventory", () => ({

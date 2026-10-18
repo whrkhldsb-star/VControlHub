@@ -16,6 +16,8 @@ type SshTerminalContextValue = {
 		host: string;
 		operatingSystem?: SshTerminalOperatingSystem;
 	}) => void;
+	/** Open a Windows remote desktop tab in the same workbench. If already open, switch to it. */
+	openRemoteDesktop: (server: { serverId: string; serverName: string; host: string }) => void;
 	/** Whether any terminal tabs are open. */
 	isOpen: boolean;
 };
@@ -28,6 +30,11 @@ export function useSshTerminal() {
 	return ctx;
 }
 
+/** The workbench when one is mounted (the app shell), else null. */
+export function useOptionalSshTerminal() {
+	return useContext(SshTerminalContext);
+}
+
 let tabNonce = 0;
 
 type TerminalState = {
@@ -38,6 +45,7 @@ type TerminalState = {
 type TerminalAction =
 	| {
 			type: "open";
+			kind: "ssh" | "rdp";
 			server: {
 				serverId: string;
 				serverName: string;
@@ -53,14 +61,15 @@ type TerminalAction =
 function terminalReducer(state: TerminalState, action: TerminalAction): TerminalState {
 	switch (action.type) {
 		case "open": {
-			const existingIdx = state.tabs.findIndex((t) => t.serverId === action.server.serverId);
+			const existingIdx = state.tabs.findIndex((t) => t.serverId === action.server.serverId && (t.kind ?? "ssh") === action.kind);
 			if (existingIdx >= 0) {
 				return existingIdx === state.activeTabIndex
 					? state
 					: { ...state, activeTabIndex: existingIdx };
 			}
 			const newTab: SshTerminalTab = {
-				id: `${action.server.serverId}-${++tabNonce}`,
+				id: `${action.kind === "rdp" ? "rdp-" : ""}${action.server.serverId}-${++tabNonce}`,
+				kind: action.kind,
 				serverId: action.server.serverId,
 				serverName: action.server.serverName,
 				host: action.server.host,
@@ -124,7 +133,11 @@ export function SshTerminalProvider({ children }: { children: ReactNode }) {
 		host: string;
 		operatingSystem?: SshTerminalOperatingSystem;
 	}) => {
-		dispatch({ type: "open", server });
+		dispatch({ type: "open", kind: "ssh", server });
+	}, []);
+
+	const openRemoteDesktop = useCallback((server: { serverId: string; serverName: string; host: string }) => {
+		dispatch({ type: "open", kind: "rdp", server: { ...server, operatingSystem: "WINDOWS" } });
 	}, []);
 
 	const closeTab = useCallback((index: number) => {
@@ -140,8 +153,8 @@ export function SshTerminalProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const value = useMemo<SshTerminalContextValue>(
-		() => ({ openTerminal, isOpen: state.tabs.length > 0 }),
-		[openTerminal, state.tabs.length],
+		() => ({ openTerminal, openRemoteDesktop, isOpen: state.tabs.length > 0 }),
+		[openTerminal, openRemoteDesktop, state.tabs.length],
 	);
 
 	return (
