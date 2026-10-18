@@ -261,7 +261,7 @@ export async function verifyServerSshConnectivity(
 
   try {
     const ssh = await buildSshParamsFromServer(
-      serverLike as ServerWithRelations,
+      { ...(serverLike as ServerWithRelations), hostKeySha256: (serverLike as ServerWithRelations).hostKeySha256 ?? null },
       serverLike.sshKey
         ? { privateKey: serverLike.sshKey.privateKey ?? null, passphrase: serverLike.sshKey.passphrase ?? null }
         : null,

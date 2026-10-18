@@ -90,7 +90,17 @@ vi.mock("@/lib/http/rate-limit-presets", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/http/rate-limit-presets")>(),
   withRateLimit: vi.fn(async () => ({ allowed: true, retryAfterMs: 0 })),
 }));
-vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertStorageAccessMock , releaseStorageQuotaGuard: vi.fn(async () => undefined) }));
+const { getStorageWriteCapacityMock } = vi.hoisted(() => ({ getStorageWriteCapacityMock: vi.fn() }));
+vi.mock("@/lib/storage/access-control", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage/access-control")>();
+  return {
+    STORAGE_ACCESS_DENIED_REASONS: actual.STORAGE_ACCESS_DENIED_REASONS,
+    largestAllowedWrite: actual.largestAllowedWrite,
+    assertStorageAccess: assertStorageAccessMock,
+    releaseStorageQuotaGuard: vi.fn(async () => undefined),
+    getStorageWriteCapacity: getStorageWriteCapacityMock,
+  };
+});
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/logging", () => ({ logError: logErrorMock, createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: auditUserActionMock }));
@@ -189,6 +199,7 @@ const { enqueueDownloadExecutionJobMock } = vi.hoisted(() => {
           username: task.server.username,
           sshKeyId: task.server.sshKeyId,
           password: task.server.password,
+          hostKeySha256: (task.server as { hostKeySha256?: string | null }).hostKeySha256 ?? null,
           storageNode: task.server.storageNode
             ? { id: task.server.storageNode.id, basePath: task.server.storageNode.basePath }
             : null,
@@ -203,6 +214,7 @@ const { enqueueDownloadExecutionJobMock } = vi.hoisted(() => {
           sshKeyId: null,
           password: null,
           storageNode: { id: "store_1", basePath: "/srv/cloud" },
+          hostKeySha256: null,
           sshKey: null,
         };
     const fallbackUrl = "https://example.com/file.iso";
@@ -304,6 +316,7 @@ function serverFixture() {
 
 describe("/api/downloads", () => {
   beforeEach(() => {
+    getStorageWriteCapacityMock.mockResolvedValue({ maxFileBytes: null, remainingBytes: null });
     session.roles = ["admin"];
     // vi.clearAllMocks() only resets call history, not implementations —
     // but to keep behaviour tight we explicitly reset the two mocks that
@@ -354,6 +367,7 @@ describe("/api/downloads", () => {
               username: task.server.username,
               sshKeyId: task.server.sshKeyId,
               password: task.server.password,
+              hostKeySha256: (task.server as { hostKeySha256?: string | null }).hostKeySha256 ?? null,
               storageNode: task.server.storageNode
                 ? { id: task.server.storageNode.id, basePath: task.server.storageNode.basePath }
                 : null,
@@ -368,6 +382,7 @@ describe("/api/downloads", () => {
               sshKeyId: null,
               password: null,
               storageNode: { id: "store_1", basePath: "/srv/cloud" },
+              hostKeySha256: null,
               sshKey: null,
             };
         const fallbackUrl = "https://example.com/file.iso";
@@ -451,6 +466,21 @@ describe("/api/downloads", () => {
     }));
     expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a remote download into a folder whose quota is used up, before creating a task", async () => {
+    getStorageWriteCapacityMock.mockResolvedValueOnce({ maxFileBytes: BigInt(1_000), remainingBytes: BigInt(0) });
+
+    const response = await POST(request({
+      url: "https://example.com/releases/app.iso",
+      serverId: "srv_1",
+      targetPath: "downloads",
+      fileName: "app.iso",
+    }));
+
+    expect(response.status).toBe(403);
+    expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
+    expect(getStorageWriteCapacityMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "downloads" }));
   });
 
   it("indexes a started direct download as a pending storage file entry", async () => {

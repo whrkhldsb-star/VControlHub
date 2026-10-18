@@ -9,7 +9,10 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * Pure command building lives in `./service-commands`, credential
  * decryption in `./service-credentials`, prisma CRUD in `./service-crud`.
  */
+import { executionRefusal } from "@/lib/auth/execution-actor";
+import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { ForbiddenError } from "@/lib/errors";
 import { formatBytes } from "@/lib/format/bytes";
 import { execRemoteCommand, buildSshParamsFromServer, writeRemoteFile, type SshConnectionParams } from "@/lib/ssh/client";
 import { logError } from "@/lib/logging";
@@ -339,7 +342,11 @@ export type ExecuteSyncJobResult = {
  */
 export async function executeSyncJob(
 	jobId: string,
-	options?: { onClaimed?: () => void | Promise<void> },
+	options?: {
+		onClaimed?: () => void | Promise<void>;
+		/** Who runs it now (a manual run); a scheduled run acts as the job's creator. */
+		actor?: SessionPayload;
+	},
 ): Promise<ExecuteSyncJobResult> {
 	const job = await getSyncJobForExecution(jobId);
 	if (!job) throw new Error("Sync job not found");
@@ -365,6 +372,16 @@ export async function executeSyncJob(
 		// cross-process mutual-exclusion lock is now redundant and must not pin a
 		// scarce advisory-lock connection for the full (possibly hours-long) rsync.
 		if (options?.onClaimed) await options.onClaimed();
+		// Authorised when created is not authorised now: the runner (or the
+		// creator, for a scheduled run) must still reach both enabled servers.
+		const refusal = await executionRefusal({
+			actor: options?.actor,
+			createdBy: job.createdBy,
+			teamId: job.teamId,
+			permission: "storage:write",
+			serverIds: [job.sourceServerId, job.targetServerId],
+		});
+		if (refusal) throw new ForbiddenError(refusal);
 		// Existing jobs must obey the same directory policy as newly saved jobs.
 		assertDisjointSyncEndpoints(job);
 

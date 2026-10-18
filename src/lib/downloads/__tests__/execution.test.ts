@@ -211,3 +211,14 @@ describe("executeDirectDownload claim ordering", () => {
     expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("relayExceedsLimits", () => {
+  it("holds each file to the per-file limit and all of them to the quota left", async () => {
+    const { relayExceedsLimits } = await import("@/lib/downloads/execution");
+    const files = [{ size: 40 }, { size: 50 }];
+    expect(relayExceedsLimits(files, { maxFileBytes: null, remainingBytes: null })).toBe(false);
+    expect(relayExceedsLimits(files, { maxFileBytes: BigInt(50), remainingBytes: BigInt(90) })).toBe(false);
+    expect(relayExceedsLimits(files, { maxFileBytes: BigInt(45), remainingBytes: null })).toBe(true);
+    expect(relayExceedsLimits(files, { maxFileBytes: null, remainingBytes: BigInt(89) })).toBe(true);
+  });
+});

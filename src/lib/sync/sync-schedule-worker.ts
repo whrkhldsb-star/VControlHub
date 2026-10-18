@@ -94,6 +94,8 @@ async function dispatchOne(job: DueJob, reason: string): Promise<boolean> {
   }
 }
 
+const SCHEDULE_SCAN_PAGE = 500;
+
 export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<number> {
   const state = getState();
   if (state.running) {
@@ -108,23 +110,33 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
       logger.warn("reclaimed stale RUNNING sync jobs", { count: reclaimed.length, ids: reclaimed });
     }
 
-    const jobs = await prisma.syncJob.findMany({
-      where: {
-        status: { in: ["IDLE", "ERROR"] },
-        schedule: { not: null },
-      },
-      select: {
-        id: true,
-        schedule: true,
-        lastSyncAt: true,
-        status: true,
-        name: true,
-      },
-      take: 100,
-      orderBy: { lastSyncAt: "asc" },
-    });
-
-    const dueJobs = jobs.filter((job) => isSyncJobDue(job));
+    // Whether a job is due is decided here, not in SQL, so every scheduled
+    // job is read: a fixed first page (oldest lastSyncAt, where PostgreSQL
+    // sorts never-run jobs last) could hold back due jobs indefinitely.
+    const dueJobs: Array<{ id: string; schedule: string | null; lastSyncAt: Date | null; status: string; name: string }> = [];
+    let cursor: string | undefined;
+    do {
+      const page = await prisma.syncJob.findMany({
+        where: {
+          status: { in: ["IDLE", "ERROR"] },
+          schedule: { not: null },
+        },
+        select: {
+          id: true,
+          schedule: true,
+          lastSyncAt: true,
+          status: true,
+          name: true,
+        },
+        orderBy: { id: "asc" },
+        take: SCHEDULE_SCAN_PAGE,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      dueJobs.push(...page.filter((job) => isSyncJobDue(job)));
+      cursor = page.length === SCHEDULE_SCAN_PAGE ? page[page.length - 1]!.id : undefined;
+    } while (cursor);
+    // Never-run jobs first, then the longest waiting.
+    dueJobs.sort((a, b) => (a.lastSyncAt?.getTime() ?? -Infinity) - (b.lastSyncAt?.getTime() ?? -Infinity));
     for (let i = 0; i < dueJobs.length; i += DISPATCH_CONCURRENCY) {
       const batch = dueJobs.slice(i, i + DISPATCH_CONCURRENCY);
       const outcomes = await Promise.all(batch.map((job) => dispatchOne(job, reason)));

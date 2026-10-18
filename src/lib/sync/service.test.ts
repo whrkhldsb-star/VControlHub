@@ -22,6 +22,8 @@ import {
   getSyncTempKeyPath,
   shellQuote,
 } from "@/lib/sync/service-commands";
+import { utils } from "ssh2";
+import { encryptSshKeyPassphrase, encryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { decryptSyncTargetCredentials } from "@/lib/sync/service-credentials";
 import {
   createSyncJob,
@@ -370,6 +372,18 @@ describe("sync service command helpers", () => {
     expect(credentials.password).toBe("plain-password");
     expect(credentials.privateKey).toBe("PRIVATE KEY");
   });
+  it("unlocks a legacy passphrase-protected target key, since rsync on the source VPS runs without a prompt", () => {
+    const passphrase = "legacy pass";
+    const key = utils.generateKeyPairSync("ed25519", { passphrase, cipher: "aes256-cbc", rounds: 4 });
+    const credentials = decryptSyncTargetCredentials({
+      sshKey: { privateKey: encryptSshPrivateKey(key.private), passphrase: encryptSshKeyPassphrase(passphrase) },
+    });
+
+    const parsed = utils.parseKey(credentials.privateKey!);
+    expect(parsed).not.toBeInstanceOf(Error);
+    expect((parsed as { getPublicSSH(): Buffer }).getPublicSSH().equals((utils.parseKey(key.public) as { getPublicSSH(): Buffer }).getPublicSSH())).toBe(true);
+  });
+
   it("rejects unsafe SSH users and hosts before building commands", () => {
     expect(() =>
       buildRsyncCommand({

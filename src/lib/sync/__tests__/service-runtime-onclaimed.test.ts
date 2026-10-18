@@ -25,6 +25,8 @@ const prismaMock = {
     update: vi.fn(async () => ({})),
   },
 };
+// Execution-time authorisation has its own tests (execution-actor).
+vi.mock("@/lib/auth/execution-actor", () => ({ executionRefusal: vi.fn(async () => null), loadExecutionActor: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 // The execution path reads the credential-bearing variant; `getSyncJobForExecution` (no

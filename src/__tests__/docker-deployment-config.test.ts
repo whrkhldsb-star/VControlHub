@@ -25,6 +25,24 @@ describe("Docker deployment configuration", () => {
     expect(entrypoint).not.toContain("wait -n");
   });
 
+  it("ships what platform backup and restore run, with a client matching the compose database", async () => {
+    const dockerfile = await readRootFile("Dockerfile");
+    const compose = await readRootFile("docker-compose.yml");
+    const runner = await readRootFile("src/lib/backup/platform-runner.ts");
+    const runtimeStage = dockerfile.slice(dockerfile.indexOf("AS runner"));
+    // Every POSIX entrypoint platform-runner.ts hands to bash, and what they load.
+    for (const script of [...runner.matchAll(/"((?:deploy|scripts)\/[\w-]+\.sh)"/g)].map((match) => match[1]!)) {
+      expect(runtimeStage).toContain(`/app/${script}`);
+    }
+    for (const file of ["scripts/backup.mjs", "scripts/restore.mjs", "scripts/lib/backup-common.mjs"]) {
+      expect(runtimeStage).toContain(`/app/${file}`);
+    }
+    // pg_dump refuses a newer server: the client follows the compose image.
+    const serverMajor = /image: postgres:(\d+)/.exec(compose)?.[1];
+    expect(serverMajor).toBeTruthy();
+    expect(runtimeStage).toContain(`postgresql-client-${serverMajor}`);
+  });
+
   it("defines container-native database, WebSocket, and healthcheck settings", async () => {
     const compose = await readRootFile("docker-compose.yml");
 

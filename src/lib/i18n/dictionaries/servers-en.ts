@@ -345,6 +345,8 @@ export const en: Record<string, string> = {
 	"serverCardActions.edit.port": "SSH port",
 	"serverCardActions.edit.username": "Username",
 	"serverCardActions.edit.password": "New password (leave empty to keep current)",
+	"serverCardActions.edit.currentKey": "Current key (not in your key library)",
+	"serverCardActions.edit.sshKeyHint": "Import a new key on the Add key tab first, then pick it here. Saving tests the new account and credential with one connection first.",
 	"serverCardActions.edit.description": "Description",
 	"serverCardActions.edit.tags": "Tags",
 	"serverCardActions.edit.costAutoSync": "Include in automatic cost sync",

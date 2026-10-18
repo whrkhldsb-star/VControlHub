@@ -14,7 +14,7 @@ import {
   getDownloadTargetRelativePath,
   resolveDownloadTargetPath,
 } from "@/lib/downloads/target-path";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { STORAGE_ACCESS_DENIED_REASONS, assertStorageAccess, getStorageWriteCapacity, largestAllowedWrite } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -155,6 +155,19 @@ export async function POST(request: Request) {
       if (!accessDecision.allowed) {
         return NextResponse.json(
           { error: storageAccessDeniedCopy(accessDecision.reason, locale) },
+          { status: 403 },
+        );
+      }
+      // The size is only known as the download runs, where the worker holds
+      // it to these limits; a destination with no room at all is refused now.
+      const capacity = await getStorageWriteCapacity({
+        session,
+        storageNodeId: server.storageNode.id,
+        relativePath: targetRelativePath,
+      });
+      if (largestAllowedWrite(capacity) === BigInt(0)) {
+        return NextResponse.json(
+          { error: storageAccessDeniedCopy(STORAGE_ACCESS_DENIED_REASONS.quotaExceeded, locale) },
           { status: 403 },
         );
       }

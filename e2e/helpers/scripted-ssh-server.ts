@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Server, utils } from "ssh2";
+import { Server, utils, type AuthContext } from "ssh2";
 
 /**
  * In-process SSH server whose shell behaves like a line editor: it echoes
@@ -53,7 +53,28 @@ function generateHostKey() {
 	}
 }
 
-export async function startScriptedSshServer(options: { username: string; password: string }) {
+/** One more login the server accepts: a password, or an OpenSSH public key (`ssh-ed25519 AAAA…`). */
+export type ScriptedSshAccount = { username: string; password?: string; publicKey?: string };
+
+export async function startScriptedSshServer(options: {
+	username: string;
+	password: string;
+	/** Further logins, e.g. to test changing a node's credentials. */
+	accounts?: ScriptedSshAccount[];
+	/** Bind address; 127.0.0.2 is loopback the app does not treat as "this host", so it really logs in. */
+	host?: string;
+}) {
+	const accounts: ScriptedSshAccount[] = [{ username: options.username, password: options.password }, ...(options.accounts ?? [])];
+	const accepts = (ctx: AuthContext) => accounts.some((account) => {
+		if (account.username !== ctx.username) return false;
+		if (ctx.method === "password") return account.password !== undefined && ctx.password === account.password;
+		if (ctx.method !== "publickey" || !account.publicKey) return false;
+		const allowed = utils.parseKey(account.publicKey);
+		if (allowed instanceof Error || Array.isArray(allowed)) return false;
+		if (ctx.key.algo !== allowed.type || !ctx.key.data.equals(allowed.getPublicSSH())) return false;
+		// Without a signature the client only asks whether the key would do.
+		return !ctx.signature || allowed.verify(ctx.blob!, ctx.signature, ctx.hashAlgo) === true;
+	});
 	const keys = generateHostKey();
 	const publicBlob = Buffer.from(keys.public.trim().split(/\s+/)[1]!, "base64");
 	const fingerprint = `SHA256:${createHash("sha256").update(publicBlob).digest("base64").replace(/=+$/, "")}`;
@@ -64,8 +85,8 @@ export async function startScriptedSshServer(options: { username: string; passwo
 		clients.add(client);
 		client.on("close", () => clients.delete(client));
 		client.on("authentication", (ctx) => {
-			if (ctx.method === "password" && ctx.username === options.username && ctx.password === options.password) ctx.accept();
-			else ctx.reject(["password"]);
+			if (accepts(ctx)) ctx.accept();
+			else ctx.reject(["password", "publickey"]);
 		}).on("ready", () => {
 			client.on("session", (acceptSession) => {
 				const session = acceptSession();
@@ -127,7 +148,7 @@ export async function startScriptedSshServer(options: { username: string; passwo
 			});
 		}).on("error", () => undefined);
 	});
-	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+	await new Promise<void>((resolve) => server.listen(0, options.host ?? "127.0.0.1", resolve));
 	const address = server.address();
 	const port = typeof address === "object" && address ? address.port : 0;
 	const close = () => new Promise<void>((resolve) => {

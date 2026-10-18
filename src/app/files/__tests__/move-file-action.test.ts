@@ -6,6 +6,7 @@ const { moveBackingObjectMock, fileEntryMock, shareLinkMock } = vi.hoisted(() =>
     findFirst: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
+    aggregate: vi.fn(),
   },
   shareLinkMock: {
     findMany: vi.fn(),
@@ -147,6 +148,41 @@ describe("moveFileAction", () => {
     );
     expect(moveBackingObjectMock).not.toHaveBeenCalled();
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
+  });
+
+  it("holds the destination to the moved bytes and releases its quota lock", async () => {
+    mockEntryLookup({ ...baseEntry, size: BigInt(4_096) });
+    const destination = { allowed: true as const, matchedGrantId: "grant-b", releaseQuotaGuard: vi.fn() };
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true }).mockResolvedValueOnce(destination);
+    vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({ id: "file-1" } as never);
+    const formData = new FormData();
+    formData.set("fileEntryId", "file-1");
+    formData.set("targetDir", "team-b");
+
+    await moveFileAction(null, formData);
+
+    expect(assertStorageAccess).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      relativePath: "team-b/a.txt",
+      writeBytes: BigInt(4_096),
+      largestFileBytes: BigInt(4_096),
+      movedFrom: "team-a/a.txt",
+    }));
+    const { releaseStorageQuotaGuard } = await import("@/lib/storage/access-control");
+    expect(releaseStorageQuotaGuard).toHaveBeenCalledWith(destination);
+  });
+
+  it("sizes a moved folder by the files under it", async () => {
+    mockEntryLookup({ ...baseEntry, name: "dir", relativePath: "team-a/dir", entryType: "DIRECTORY", size: null });
+    fileEntryMock.aggregate.mockResolvedValueOnce({ _sum: { size: BigInt(900) }, _max: { size: BigInt(500) } });
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true }).mockResolvedValueOnce({ allowed: false, reason: "quota_exceeded" });
+    const formData = new FormData();
+    formData.set("fileEntryId", "file-1");
+    formData.set("targetDir", "team-b");
+
+    await moveFileAction(null, formData);
+
+    expect(assertStorageAccess).toHaveBeenNthCalledWith(2, expect.objectContaining({ writeBytes: BigInt(900), largestFileBytes: BigInt(500) }));
+    expect(moveBackingObjectMock).not.toHaveBeenCalled();
   });
 
   it("loads WebDAV credentials, pinned host keys and Agent routing for the backing move", async () => {
