@@ -196,18 +196,9 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
         },
       })
       .catch(() => 0),
-    // Prefer metricSnapshot.isOnline=false over "any enabled server" (false positive).
-    prisma.metricSnapshot
-      .findMany({
-        where: {
-          isOnline: false,
-          createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
-        },
-        select: { serverId: true },
-        orderBy: { createdAt: "desc" },
-        take: 500,
-      })
-      .then((rows) => new Set(rows.map((r) => r.serverId)).size)
+    // Servers whose latest sample in the last 30 minutes says offline.
+    latestSnapshotPerServer(new Date(Date.now() - 30 * 60 * 1000))
+      .then((rows) => rows.filter((row) => !row.isOnline).length)
       .catch(() => 0),
     // Backup records that failed in the last 24h
     prisma.backupRecord
@@ -286,26 +277,13 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 
   // Check latest metric snapshots for resource pressure
   try {
-    const recentMetrics = await prisma.metricSnapshot.findMany({
-      where: { createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) } },
-      select: {
-        serverId: true,
-        cpuUsage: true,
-        memUsage: true,
-        diskUsage: true,
-        isOnline: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    });
-    // Deduplicate by serverId — keep the most recent snapshot per server
-    const seen = new Set<string>();
+    const recentMetrics = await latestSnapshotPerServer(new Date(Date.now() - 30 * 60 * 1000));
     let highCpuCount = 0;
     let highMemCount = 0;
     let highDiskCount = 0;
     for (const m of recentMetrics) {
-      if (seen.has(m.serverId)) continue;
-      seen.add(m.serverId);
+      // An offline sample carries no usable usage figures.
+      if (!m.isOnline) continue;
       if (m.cpuUsage > 85) highCpuCount++;
       if (m.memUsage > 90) highMemCount++;
       if (m.diskUsage > 85) highDiskCount++;
@@ -434,6 +412,20 @@ function buildScan(
     actions,
     status: signals.length > 0 ? "warning" : "ok",
   };
+}
+
+/**
+ * Each server's latest sample since `since`. The newest 500 samples of the
+ * whole fleet used to stand in for this: with frequent sampling they covered
+ * only some servers, so pressure and offline signals missed the rest.
+ */
+async function latestSnapshotPerServer(since: Date) {
+  return prisma.$queryRaw<Array<{ serverId: string; cpuUsage: number; memUsage: number; diskUsage: number; isOnline: boolean }>>`
+    SELECT DISTINCT ON ("serverId") "serverId", "cpuUsage", "memUsage", "diskUsage", "isOnline"
+    FROM metric_snapshots
+    WHERE "createdAt" >= ${since}
+    ORDER BY "serverId", "createdAt" DESC
+  `;
 }
 
 export async function runAiOpsScanWorkerOnce(

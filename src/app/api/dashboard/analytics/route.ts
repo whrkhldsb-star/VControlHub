@@ -16,6 +16,7 @@ import { CachePresets, withCacheHeaders } from "@/lib/cache";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import type { SessionPayload } from "@/lib/auth/session";
 import { t } from "@/lib/i18n/translations";
+import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 
 export const dynamic = "force-dynamic";
 
@@ -50,8 +51,9 @@ function startOfUtcHour(value: Date) {
   return hour.toISOString();
 }
 
-function startOfUtcDay(value: Date) {
-  return value.toISOString().slice(0, 10);
+/** The application-time-zone day an event belongs to (UTC filed 00:00-08:00 Beijing under the day before). */
+function appDayKey(value: Date) {
+  return appTimeZoneDateKey(value);
 }
 
 function canReadAnalyticsDomain(session: SessionPayload, type: AnalyticsDomain) {
@@ -180,7 +182,7 @@ export async function GET(request: Request) {
             select: { id: true, status: true, createdAt: true },
           }),
         (download) => {
-          const day = startOfUtcDay(download.createdAt);
+          const day = appDayKey(download.createdAt);
           if (!dayBuckets.has(day)) {
             dayBuckets.set(day, {
               completed: 0,
@@ -219,7 +221,7 @@ export async function GET(request: Request) {
             select: { id: true, action: true, createdAt: true },
           }),
         (audit) => {
-          const day = startOfUtcDay(audit.createdAt);
+          const day = appDayKey(audit.createdAt);
           if (!dayBuckets.has(day)) {
             dayBuckets.set(day, { total: 0, actions: {} });
           }
@@ -252,7 +254,7 @@ export async function GET(request: Request) {
             select: { id: true, sizeBytes: true, createdAt: true },
           }),
         (image) => {
-          const day = startOfUtcDay(image.createdAt);
+          const day = appDayKey(image.createdAt);
           if (!dayBuckets.has(day)) {
             dayBuckets.set(day, { count: 0, size: 0 });
           }

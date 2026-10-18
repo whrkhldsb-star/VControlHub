@@ -23,6 +23,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 
 	const cleanup = async () => {
 		await prisma.userServerAccess.deleteMany({ where: { userId: { startsWith: p } } });
+		await prisma.storageNode.deleteMany({ where: { id: { startsWith: p } } });
 		await prisma.server.deleteMany({ where: { id: { startsWith: p } } });
 		await prisma.sshKey.deleteMany({ where: { id: { startsWith: p } } });
 		await prisma.teamMember.deleteMany({ where: { userId: { startsWith: p } } });
@@ -41,6 +42,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 		await prisma.role.create({ data: { id: `${p}-role-src`, key: `${p}-ops`, name: "Ops" } });
 		await prisma.team.create({ data: { id: `${p}-team-src`, slug: `${p}-acme`, name: "Acme" } });
 		await prisma.user.create({ data: { id: `${p}-user`, username: `${p}-user`, passwordHash: "hash", roles: { create: { roleId: `${p}-role-src` } },
+			twoFactorEnabled: true, twoFactorSecret: "enc:totp", twoFactorRecoveryCodes: ["hash-1", "hash-2"],
 			teamMembership: { create: { teamId: `${p}-team-src`, identityTemplateId: "identity:customer_admin" } } } });
 		await prisma.sshKey.create({ data: { id: `${p}-key-src`, name: "deploy", fingerprint: `SHA256:${p}`, publicKey: "ssh-ed25519 AAAA", privateKey: "enc:key", teamId: `${p}-team-src` } });
 		await prisma.server.create({ data: { id: `${p}-win`, name: `${p}-win`, host: `${p}-win.test`, port: 3389, username: "Administrator", teamId: `${p}-team-src`,
@@ -49,6 +51,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 		await prisma.server.create({ data: { id: `${p}-linux`, name: `${p}-linux`, host: `${p}-linux.test`, username: "root", teamId: `${p}-team-src`,
 			connectionType: "SSH_KEY", sshKeyId: `${p}-key-src`, hostKeySha256: "SHA256:linux" } });
 		await prisma.userServerAccess.create({ data: { userId: `${p}-user`, serverId: `${p}-linux`, canRead: true, canConnect: true } });
+		await prisma.storageNode.create({ data: { id: `${p}-dav`, name: `${p}-dav`, driver: "WEBDAV", basePath: "/", teamId: `${p}-team-src`, webdavConfigEncrypted: "enc:dav" } });
+		await prisma.storageNode.create({ data: { id: `${p}-sftp`, name: `${p}-sftp`, driver: "SFTP", basePath: "/srv", host: "sftp.test", teamId: `${p}-team-src`, hostKeySha256: "SHA256:sftp" } });
 
 		const exported = await buildExportFile({ session: admin as never, mode: "full", scope: "global", sourceDomain: "source.test" });
 		// As uploaded: JSON, validated by the import schema; only this test's rows.
@@ -91,6 +95,10 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 		const linux = await prisma.server.findUniqueOrThrow({ where: { id: `${p}-linux` } });
 		expect(linux).toMatchObject({ teamId: `${p}-team-dst`, sshKeyId: `${p}-key-dst`, hostKeySha256: "SHA256:linux" });
 		expect(await prisma.userServerAccess.findUnique({ where: { userId_serverId: { userId: `${p}-user`, serverId: `${p}-linux` } } })).toMatchObject({ canConnect: true });
+		// A WebDAV node keeps its endpoint, an SFTP node its host-key pin, a 2FA account its recovery codes.
+		expect(await prisma.storageNode.findUniqueOrThrow({ where: { id: `${p}-dav` } })).toMatchObject({ teamId: `${p}-team-dst`, webdavConfigEncrypted: "enc:dav" });
+		expect(await prisma.storageNode.findUniqueOrThrow({ where: { id: `${p}-sftp` } })).toMatchObject({ hostKeySha256: "SHA256:sftp" });
+		expect(await prisma.user.findUniqueOrThrow({ where: { id: `${p}-user` } })).toMatchObject({ twoFactorSecret: "enc:totp", twoFactorRecoveryCodes: ["hash-1", "hash-2"] });
 		// Nothing duplicated under the source ids.
 		expect(await prisma.team.count({ where: { id: `${p}-team-src` } })).toBe(0);
 		expect(await prisma.role.count({ where: { id: `${p}-role-src` } })).toBe(0);

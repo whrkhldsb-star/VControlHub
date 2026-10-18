@@ -136,7 +136,7 @@ export async function buildExportFile(options: ExportOptions): Promise<ExportFil
     exportUserRoles(scope, userIds),
     exportSshKeys(mode, scope, teamId),
     exportServers(mode, scope, teamId),
-    exportStorageNodes(scope, teamId),
+    exportStorageNodes(mode, scope, teamId),
     exportCommandTemplates(scope, teamId),
     exportQuickServices(mode, scope, teamId),
     exportPlaybooks(scope, teamId),

@@ -688,6 +688,9 @@ describe("webdav handlers", () => {
       expect(response.status).toBe(200);
       expect(await response.text()).toBe("hello");
       expect(response.headers.get("ETag")).toMatch(/^W\//);
+      // Uploaded bytes never run as a page on the application's origin.
+      expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+      expect(response.headers.get("Content-Security-Policy")).toBe("sandbox");
     });
 
     it("reports an empty GET body as zero bytes", async () => {

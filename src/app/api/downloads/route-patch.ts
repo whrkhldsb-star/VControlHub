@@ -100,6 +100,17 @@ export async function PATCH(request: Request) {
         }
       }
 
+      // Pause, resume and refresh act on a download still in progress only. A
+      // finished task keeps its aria2 gid, and aria2 reports it "complete":
+      // a refresh used to turn a COMPLETED relay task back into RUNNING, and a
+      // cancelled one into FAILED. Each write is also conditional, so a task
+      // that finishes between the read above and the write keeps its outcome.
+      const active = task.status === "PENDING" || task.status === "RUNNING";
+      const whileActive = { id: taskId, status: { in: ["PENDING", "RUNNING"] as Array<"PENDING" | "RUNNING"> } };
+      if ((action === "pause" || action === "resume") && task.aria2Gid && !active) {
+        return NextResponse.json({ error: t("apiDownloads.taskNotActive", locale) }, { status: 409 });
+      }
+
       if (action === "pause" && task.aria2Gid) {
         try {
           await pauseDownload(task.aria2Gid);
@@ -110,8 +121,8 @@ export async function PATCH(request: Request) {
             { status: 502 },
           );
         }
-        await prisma.downloadTask.update({
-          where: { id: taskId },
+        await prisma.downloadTask.updateMany({
+          where: whileActive,
           data: { status: "PENDING", progress: t("apiDownloads.paused", locale) },
         });
         return NextResponse.json({ success: true });
@@ -127,14 +138,22 @@ export async function PATCH(request: Request) {
             { status: 502 },
           );
         }
-        await prisma.downloadTask.update({
-          where: { id: taskId },
+        await prisma.downloadTask.updateMany({
+          where: whileActive,
           data: { status: "RUNNING", progress: t("apiDownloads.resuming", locale) },
         });
         return NextResponse.json({ success: true });
       }
 
       // Refresh: re-fetch aria2 status and return
+      if (action === "refresh" && task.aria2Gid && !active) {
+        return NextResponse.json({
+          status: task.status,
+          progress: task.progress,
+          downloadAccess: taskDownloadAccess({ ...task, locale, status: task.status, fileName: task.fileName ?? null, relayMode: task.relayMode ?? null }),
+        });
+      }
+
       if (action === "refresh" && task.aria2Gid) {
         try {
           await ensureAria2Daemon();
@@ -143,8 +162,8 @@ export async function PATCH(request: Request) {
             ? t("apiDownloads.transferPending", locale)
             : buildProgressText(st);
           const newStatus = mapAria2RelayStatus(st.status);
-          await prisma.downloadTask.update({
-            where: { id: taskId },
+          await prisma.downloadTask.updateMany({
+            where: whileActive,
             data: {
               status: newStatus,
               progress,

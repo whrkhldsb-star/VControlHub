@@ -846,6 +846,31 @@ describe("/api/downloads", () => {
     }));
   });
 
+  it("leaves a finished relay task as it is on refresh, pause or resume", async () => {
+    // aria2 still knows the gid and reports it "complete": that once turned a
+    // COMPLETED task back into RUNNING.
+    const finished = {
+      id: "task_done", createdBy: "u_1", status: "COMPLETED", progress: "Download and transfer completed",
+      url: "https://example.com/file.iso", fileName: "file.iso", relayMode: true, aria2Gid: "gid_done",
+      targetPath: "/srv/cloud/downloads", server: { ...serverFixture() },
+    };
+    const patch = (action: string) => PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH",
+      body: JSON.stringify({ taskId: "task_done", action }),
+    }));
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce(finished);
+    const refreshed = await patch("refresh");
+    expect(refreshed.status).toBe(200);
+    await expect(refreshed.json()).resolves.toMatchObject({ status: "COMPLETED" });
+    for (const action of ["pause", "resume"]) {
+      prismaMock.downloadTask.findFirst.mockResolvedValueOnce(finished);
+      expect((await patch(action)).status).toBe(409);
+    }
+    expect(tellStatusMock).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
+  });
+
   it("returns aria2 refresh byte counters so the Downloads page can update immediately", async () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
@@ -881,8 +906,9 @@ describe("/api/downloads", () => {
       downloadSpeed: "0",
       downloadAccess: null,
     });
-    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay" },
+    // Written only while the task is still in progress.
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay", status: { in: ["PENDING", "RUNNING"] } },
       data: expect.objectContaining({
         status: "RUNNING",
         completedBytes: "4096",

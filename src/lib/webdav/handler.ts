@@ -190,6 +190,12 @@ export async function handleWebDavGetHead(
     "Content-Type": contentType,
     "Content-Length": String(fileSize === 0 ? 0 : range.end - range.start + 1),
     "Accept-Ranges": "bytes",
+    // The type comes from whoever uploaded the file. Opened in a browser that
+    // holds cached Basic credentials for this origin, an uploaded HTML or SVG
+    // would run with the application's cookies: never sniff, never script
+    // (same as every other file response, see buildStorageStreamHeaders).
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "sandbox",
   };
   const etag = weakEtag(entry);
   if (etag) headers.ETag = etag;

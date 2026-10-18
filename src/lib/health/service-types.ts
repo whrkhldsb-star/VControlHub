@@ -6,6 +6,7 @@
  * collectors / alert evaluators.
  */
 import type { ServerMetrics } from "@/lib/server/monitor";
+import { wallClockInAppTimeZone } from "@/lib/datetime/time-zone";
 
 export type HealthStatus =
 	| "healthy"
@@ -98,14 +99,14 @@ const SILENCE_WINDOW_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5
 /**
  * True when `now` falls inside any `HH:mm-HH:mm` silence window.
  *
- * Windows are evaluated in the **server's local time zone** (via getHours/
- * getMinutes), matching the documented `AlertRule.silenceWindows` contract
- * ("local server time") and the form hint. There is no per-rule/per-team tz —
- * introducing one would be a schema change. `start === end` means "all day".
+ * Windows are wall-clock times in the application time zone (APP_TIME_ZONE,
+ * as every schedule in the app), not the host's: on a UTC host "00:00-08:00"
+ * used to silence 08:00-16:00 Beijing time. `start === end` means "all day".
  */
 export function isNowInAlertSilenceWindow(windows: readonly string[], now: Date = new Date()): boolean {
 	if (windows.length === 0) return false;
-	const currentMinutes = now.getHours() * 60 + now.getMinutes();
+	const wall = wallClockInAppTimeZone(now);
+	const currentMinutes = wall.hour * 60 + wall.minute;
 	for (const window of windows) {
 		const match = SILENCE_WINDOW_PATTERN.exec(window);
 		if (!match) continue;

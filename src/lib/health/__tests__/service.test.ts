@@ -15,6 +15,8 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMo
 			findMany: vi.fn(),
 			create: vi.fn(),
 			update: vi.fn(),
+			updateMany: vi.fn(async () => ({ count: 1 })),
+			findUniqueOrThrow: vi.fn(),
 		},
 		user: {
 			findMany: vi.fn(),
@@ -393,12 +395,15 @@ describe("evaluateAlerts", () => {
 		expect(withMatch?.data.matchState.srv1).toBeTruthy();
 	});
 
-	it("detects same-day and overnight alert silence windows", () => {
-		expect(isNowInAlertSilenceWindow(["09:00-17:00"], new Date("2026-05-25T10:30:00"))).toBe(true);
-		expect(isNowInAlertSilenceWindow(["09:00-17:00"], new Date("2026-05-25T17:00:00"))).toBe(false);
-		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T23:15:00"))).toBe(true);
-		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T07:59:00"))).toBe(true);
-		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T08:01:00"))).toBe(false);
+	it("detects same-day and overnight alert silence windows in application time (Asia/Shanghai)", () => {
+		expect(isNowInAlertSilenceWindow(["09:00-17:00"], new Date("2026-05-25T10:30:00+08:00"))).toBe(true);
+		expect(isNowInAlertSilenceWindow(["09:00-17:00"], new Date("2026-05-25T17:00:00+08:00"))).toBe(false);
+		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T23:15:00+08:00"))).toBe(true);
+		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T07:59:00+08:00"))).toBe(true);
+		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T08:01:00+08:00"))).toBe(false);
+		// Not the host's clock: 01:00 UTC is 09:00 in Beijing.
+		expect(isNowInAlertSilenceWindow(["00:00-08:00"], new Date("2026-05-25T01:00:00Z"))).toBe(false);
+		expect(isNowInAlertSilenceWindow(["00:00-08:00"], new Date("2026-05-24T17:00:00Z"))).toBe(true);
 	});
 
 	it("sends email alerts through the SMTP alert channel when a rule triggers", async () => {

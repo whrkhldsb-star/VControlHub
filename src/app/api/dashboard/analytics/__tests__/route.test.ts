@@ -127,4 +127,17 @@ describe("/api/dashboard/analytics", () => {
       expect.objectContaining({ cursor: { id: "audit-4999" }, skip: 1 }),
     );
   });
+
+  it("files events under their application-time (Asia/Shanghai) day", async () => {
+    mocks.sessionHasPermission.mockImplementation((_session, permission: string) => permission === "audit:read");
+    // 01:00 on 2026-08-02 in Beijing is still 2026-08-01 in UTC.
+    mocks.prisma.auditLog.findMany.mockResolvedValueOnce([
+      { id: "a1", action: "login", createdAt: new Date("2026-08-01T17:00:00.000Z") },
+      { id: "a2", action: "login", createdAt: new Date("2026-08-01T15:00:00.000Z") },
+    ]);
+
+    const body = await (await route.GET(new Request("http://local/api/dashboard/analytics?type=audit"))).json();
+
+    expect(body.audit.map((day: { date: string; total: number }) => [day.date, day.total]).sort()).toEqual([["2026-08-01", 1], ["2026-08-02", 1]]);
+  });
 });
