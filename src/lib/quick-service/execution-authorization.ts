@@ -1,4 +1,4 @@
-import { loadApiTokenOwnerSession } from "@/lib/api-token/authorization";
+import { loadApiTokenOwnerSession, loadJobOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { isGlobalTeamManager, serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
@@ -15,7 +15,8 @@ export async function assertQuickServiceExecutionAuthorized(job: {
   const account = await loadApiTokenOwnerSession(job.createdBy);
   if (!account) throw new ForbiddenError(t("backend.quickService.requesterDisabled"));
   const global = isGlobalTeamManager(account);
-  const session = global ? account : job.teamId ? await loadApiTokenOwnerSession(job.createdBy, job.teamId) : null;
+  // The job's customer, not the one an administrator has selected now.
+  const session = global || job.teamId ? await loadJobOwnerSession(job.createdBy, job.teamId) : null;
   if (!session || !sessionHasPermission(session, "docker:manage")) {
     throw new ForbiddenError(t("backend.quickService.permissionRevoked"));
   }

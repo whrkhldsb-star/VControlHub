@@ -18,10 +18,11 @@
  * 替代 N 次 per-record findUnique + create。
  * N findUnique + N create → 1 findMany + 1 createMany + M updates（M = 已存在数）。
  *
- * 依赖顺序：
+ * 依赖顺序（导入前先按业务键对齐 ID，见 import-id-alignment）：
  *  Permission → Role → RolePermission
- *  → User → UserRole
- *  → SshKey → Server
+ *  → Team → IdentityTemplate
+ *  → User → UserRole → TeamMember
+ *  → SshKey → Server → UserServerAccess
  *  → StorageNode → UserStorageAccess
  *  → CommandTemplate → QuickService → Playbook → AlertRule
  *  → Setting → AiProvider → Announcement → Snippet
@@ -33,6 +34,7 @@ export * from "./import-executors-rbac";
 export * from "./import-executors-infrastructure";
 export * from "./import-executors-automation";
 export * from "./import-executors-config";
+export * from "./import-executors-tenancy";
 
 // ── executeImport 编排函数 ───────────────────────────────
 
@@ -64,6 +66,10 @@ import {
   importAnnouncements,
   importSnippets,
 } from "./import-executors-config";
+import { importIdentityTemplates, importTeamMembers, importTeams, importUserServerAccess } from "./import-executors-tenancy";
+import { alignImportIds, findMissingTeamIds } from "./import-id-alignment";
+import { ValidationError } from "@/lib/errors";
+import { t as translate } from "@/lib/i18n/service-translations";
 
 /**
  * 按依赖顺序事务性导入所有配置表。
@@ -73,7 +79,6 @@ export async function executeImport(
   file: ExportFile,
   options: ImportOptions,
 ): Promise<ImportResult> {
-  const t = file.tables;
   const counts: Counts = { created: 0, updated: 0, skipped: 0 };
   const errors: string[] = [];
 
@@ -81,20 +86,34 @@ export async function executeImport(
   // transaction timeout (P2028). Give operators a realistic window.
   let rolledBack = false;
   await prisma.$transaction(async (tx) => {
+    // 0. Take this instance's ids for objects it already has under the same
+    //    business key, and refuse references to customers that exist nowhere.
+    const t = await alignImportIds(tx, file.tables);
+    const missingTeams = await findMissingTeamIds(tx, t);
+    if (missingTeams.length > 0) {
+      throw new ValidationError(translate("backend.system.importMissingCustomers", { ids: missingTeams.slice(0, 5).join(", "), count: missingTeams.length }));
+    }
     // 1. Permissions
     await importPermissions(tx, t, options, counts);
     // 2. Roles
     await importRoles(tx, t, options, counts);
     // 3. RolePermissions
     await importRolePermissions(tx, t, options, counts);
+    // 3a. Customers and identity templates
+    await importTeams(tx, t, options, counts);
+    await importIdentityTemplates(tx, t, options, counts);
     // 4. Users (可选)
     await importUsers(tx, t, options, counts);
     // 5. UserRoles
     await importUserRoles(tx, t, options, counts);
+    // 5a. Customer memberships
+    await importTeamMembers(tx, t, options, counts);
     // 6. SshKeys
     await importSshKeys(tx, t, options, counts);
     // 7. Servers
     await importServers(tx, t, options, counts);
+    // 7a. Per-server permissions
+    await importUserServerAccess(tx, t, options, counts);
     // 8. StorageNodes
     await importStorageNodes(tx, t, options, counts);
     // 9. UserStorageAccess

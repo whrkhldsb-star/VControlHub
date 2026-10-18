@@ -1,4 +1,4 @@
-import { loadApiTokenOwnerSession } from "@/lib/api-token/authorization";
+import { loadJobOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { Permission } from "@/lib/auth/rbac";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -9,7 +9,7 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 
 /** The creator's current session for the job's customer; null once it may no longer act. */
 export async function loadExecutionActor(createdBy: string | null | undefined, teamId: string | null | undefined) {
-	return createdBy ? loadApiTokenOwnerSession(createdBy, teamId ?? undefined) : null;
+	return createdBy ? loadJobOwnerSession(createdBy, teamId) : null;
 }
 
 /**

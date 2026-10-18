@@ -30,6 +30,8 @@ import {
 	updateCloudBillingAccountSchema,
 } from "./schema";
 import { t } from "@/lib/i18n/service-translations";
+import { isCalendarDate } from "../calendar-date";
+import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 import type {
 	CloudBillingAccountConfig,
 	CloudBillingAccountRecord,
@@ -124,8 +126,9 @@ function toRunRecord(row: {
 	};
 }
 
-function currentMonthUtc(): string {
-	return new Date().toISOString().slice(0, 7);
+function currentAppMonth(): string {
+	// Application time, as budgets read it.
+	return appTimeZoneDateKey().slice(0, 7);
 }
 
 function sourceRefFor(accountId: string, externalId: string): string {
@@ -243,7 +246,7 @@ export interface CloudBillingSyncResult {
 
 export async function syncCloudBillingAccount(
 	accountId: string,
-	month = currentMonthUtc(),
+	month = currentAppMonth(),
 	session?: SessionScope,
 ): Promise<CloudBillingSyncResult> {
 	// Serialize per account+month. Two concurrent imports upsert the same
@@ -297,6 +300,12 @@ async function runCloudBillingSync(
 		warnings = fetched.warnings;
 
 		for (const item of fetched.items) {
+			// An impossible day would roll into the next month once stored.
+			if (!isCalendarDate(item.effectiveDate)) {
+				skipped += 1;
+				warnings = [...warnings, t("backend.cost.invalidBillingDate", { date: item.effectiveDate })];
+				continue;
+			}
 			if (!item.effectiveDate.startsWith(month)) {
 				skipped += 1;
 				continue;

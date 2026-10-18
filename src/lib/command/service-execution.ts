@@ -300,7 +300,23 @@ export async function executeTarget(
 /** Bound concurrent SSH/target fan-out (aligned with RECOVER_*_CONCURRENCY). */
 const EXECUTE_TARGETS_CONCURRENCY = 5;
 
+/** Targets are read in pages so a request of any size runs every one of them. */
+const EXECUTE_TARGETS_PAGE = 500;
+
 export async function executeTargets(commandRequestId: string) {
+  let totalCount = 0;
+  let completedCount = 0;
+  let cursor: string | undefined;
+  do {
+    const page = await executeTargetPage(commandRequestId, cursor);
+    totalCount += page.totalCount;
+    completedCount += page.completedCount;
+    cursor = page.totalCount === EXECUTE_TARGETS_PAGE ? page.lastId : undefined;
+  } while (cursor);
+  return { totalCount, completedCount };
+}
+
+async function executeTargetPage(commandRequestId: string, cursor: string | undefined) {
   const targets = await prisma.commandTarget.findMany({
     where: { commandRequestId },
     include: {
@@ -330,7 +346,9 @@ export async function executeTargets(commandRequestId: string) {
         select: { command: true, title: true },
       },
     },
-    take: 1000, // P2: 单 request 的 target 数本质有限
+    orderBy: { id: "asc" },
+    take: EXECUTE_TARGETS_PAGE,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
   // Bounded concurrency: avoid unbounded Promise.allSettled over hundreds of SSH sessions.
@@ -384,7 +402,7 @@ export async function executeTargets(commandRequestId: string) {
     (result) => result.status === "fulfilled" && result.value,
   ).length;
 
-  return { totalCount: targets.length, completedCount };
+  return { totalCount: targets.length, completedCount, lastId: targets.at(-1)?.id };
 }
 
 export async function heartbeatRunningCommandRequest(commandRequestId: string) {

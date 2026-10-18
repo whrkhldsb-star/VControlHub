@@ -525,6 +525,23 @@ describe("syncServerMonthlyCosts", () => {
 		return Array.from(store.entries.values()).filter((row) => row.sourceType === "server_monthly");
 	}
 
+	it("files the monthly fee under the application-time month, as budgets do", async () => {
+		store.servers.set("srv_tz", {
+			id: "srv_tz", name: "tz", host: "203.0.113.11", enabled: true, costAutoSync: true,
+			costMonthlyAmount: { toFixed: () => "10.00" }, costCurrency: "CNY", costProvider: "x", costLastSyncedAt: null,
+		});
+		vi.useFakeTimers({ toFake: ["Date"] });
+		// 2026-11-01 00:30 in Asia/Shanghai; UTC is still in October.
+		vi.setSystemTime(new Date("2026-10-31T16:30:00Z"));
+		try {
+			expect((await syncServerMonthlyCosts()).month).toBe("2026-11");
+		} finally {
+			vi.useRealTimers();
+		}
+		expect(syncedRows().find((row) => row.sourceRef === "srv_tz")?.effectiveDate.toISOString()).toBe("2026-11-01T00:00:00.000Z");
+		store.servers.delete("srv_tz");
+	});
+
 	it("upserts enabled server monthly costs idempotently", async () => {
 		store.servers.set("srv_1", {
 			id: "srv_1",

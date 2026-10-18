@@ -13,7 +13,10 @@
  *  → Setting → AiProvider → Announcement → Snippet
  */
 
+import { prisma } from "@/lib/db";
 import type { ExportFile, ImportOptions, ImportPreview } from "@/lib/system/config-schema";
+
+import { alignImportIds, findMissingTeamIds } from "./import-id-alignment";
 
 import {
   previewPermissions,
@@ -33,6 +36,10 @@ import {
   previewAiProviders,
   previewAnnouncements,
   previewSnippets,
+  previewTeams,
+  previewIdentityTemplates,
+  previewTeamMembers,
+  previewUserServerAccess,
 } from "./import-preview-tables";
 
 /**
@@ -59,6 +66,10 @@ const T = {
   aiProviders: "systemConfig.import.preview.table.aiProviders",
   announcements: "systemConfig.import.preview.table.announcements",
   snippets: "systemConfig.import.preview.table.snippets",
+  teams: "systemConfig.import.preview.table.teams",
+  identityTemplates: "systemConfig.import.preview.table.identityTemplates",
+  teamMembers: "systemConfig.import.preview.table.teamMembers",
+  serverAccess: "systemConfig.import.preview.table.serverAccess",
 } as const;
 
 const W = {
@@ -70,6 +81,8 @@ const W = {
   aiKeysStripped: "systemConfig.import.preview.warning.aiKeysStripped",
   settingsCleared: "systemConfig.import.preview.warning.settingsCleared",
   fullModeSensitive: "systemConfig.import.preview.warning.fullModeSensitive",
+  missingCustomers: "systemConfig.import.preview.warning.missingCustomers",
+  agentReinstall: "systemConfig.import.preview.warning.agentReinstall",
 } as const;
 
 // ── 预览模式 ──────────────────────────────────────────────
@@ -82,10 +95,15 @@ export async function previewImport(
   file: ExportFile,
   options: ImportOptions,
 ): Promise<ImportPreview> {
-  const t = file.tables;
+  // Counted as the import will see it: ids aligned with this instance first.
+  const t = await alignImportIds(prisma, file.tables);
   const summary: ImportPreview["summary"] = {};
   const warnings: string[] = [];
   let totalRecords = 0;
+
+  // The import refuses a package whose resources name customers it cannot find.
+  if ((await findMissingTeamIds(prisma, t)).length > 0) warnings.push(W.missingCustomers);
+  if (t.servers.some((server) => server.managementMode === "AGENT")) warnings.push(W.agentReinstall);
 
   // ── Permissions ──
   {
@@ -108,6 +126,15 @@ export async function previewImport(
     totalRecords += r.create;
   }
 
+  // ── Customers and identity templates ──
+  for (const [label, r] of [
+    [T.teams, await previewTeams(t, options)],
+    [T.identityTemplates, await previewIdentityTemplates(t, options)],
+  ] as const) {
+    summary[label] = r;
+    totalRecords += r.create + r.update;
+  }
+
   // ── Users ──
   {
     if (options.importUsers) {
@@ -127,6 +154,13 @@ export async function previewImport(
     totalRecords += r.create;
   }
 
+  // ── Customer memberships ──
+  {
+    const r = await previewTeamMembers(t, options);
+    summary[T.teamMembers] = r;
+    totalRecords += r.create + r.update;
+  }
+
   // ── SshKeys ──
   {
     const r = await previewSshKeys(t, options);
@@ -138,6 +172,13 @@ export async function previewImport(
   {
     const r = await previewServers(t, options);
     summary[T.servers] = r;
+    totalRecords += r.create + r.update;
+  }
+
+  // ── Per-server permissions ──
+  {
+    const r = await previewUserServerAccess(t, options);
+    summary[T.serverAccess] = r;
     totalRecords += r.create + r.update;
   }
 

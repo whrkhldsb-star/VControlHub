@@ -59,4 +59,24 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("queued comm
     expect(state.ssh).not.toHaveBeenCalled();
     expect(await prisma.commandTarget.findUnique({ where: { id: prefix }, select: { status: true } })).toEqual({ status: "FAILED" });
   });
+
+  it("judges an administrator's command by the command's customer, not the one selected in the console now", async () => {
+    const prefix = `vch-authz-admin-${randomUUID()}`;
+    const [teamA, teamB] = [`${prefix}-a`, `${prefix}-b`];
+    const fixtureA = { user: prefix, team: teamA, server: prefix, request: prefix };
+    created.push(fixtureA, { user: prefix, team: teamB, server: `${prefix}-none`, request: `${prefix}-none` });
+    const adminRole = await prisma.role.upsert({ where: { key: "admin" }, update: {}, create: { key: "admin", name: "admin" } });
+    await prisma.team.createMany({ data: [{ id: teamA, slug: teamA, name: teamA }, { id: teamB, slug: teamB, name: teamB }] });
+    // The administrator queued work for customer A, then switched the console to B.
+    await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "not-a-login-hash", status: "ACTIVE", mustChangePassword: false, currentTeamId: teamB,
+      roles: { create: { roleId: adminRole.id } } } });
+    await prisma.server.create({ data: { id: prefix, name: prefix, host: "192.0.2.6", username: "audit", tags: [], teamId: teamA, connectionType: "PASSWORD", password: "audit-only", hostKeySha256: "SHA256:audit-only" } });
+    await prisma.server.create({ data: { id: `${prefix}-none`, name: `${prefix}-none`, host: "192.0.2.7", username: "audit", tags: [], teamId: null, connectionType: "PASSWORD", password: "audit-only", hostKeySha256: "SHA256:audit-only" } });
+
+    expect(await assertRequesterMayExecuteCommand(prefix, teamA, prefix)).toEqual({ ok: true });
+    // A job without a customer runs across all customers for an administrator.
+    expect(await assertRequesterMayExecuteCommand(prefix, null, `${prefix}-none`)).toEqual({ ok: true });
+    // The command's customer still bounds it: A's command cannot reach a server outside A.
+    expect((await assertRequesterMayExecuteCommand(prefix, teamA, `${prefix}-none`)).ok).toBe(false);
+  });
 });

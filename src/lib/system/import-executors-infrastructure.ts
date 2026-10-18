@@ -5,8 +5,10 @@
  * 从 import-executors.ts 按域拆分而来。
  */
 
+import { Prisma } from "@prisma/client";
+
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
-import { parseBigInt, upsertById, upsertByIdWithSecondaryUnique, type Tx, type Counts } from "./import-executors-helpers";
+import { parseBigInt, parseDate, upsertById, upsertByIdWithSecondaryUnique, type Tx, type Counts } from "./import-executors-helpers";
 
 // 6. SshKeys (fingerprint is a secondary unique key)
 export async function importSshKeys(
@@ -73,6 +75,32 @@ export async function importSshKeys(
   });
 }
 
+/**
+ * The node's kind and profile beyond its SSH login. Fields a package does not
+ * carry (exported before they were included) stay undefined, so Prisma keeps
+ * the column default on create and the current value on update — a Windows or
+ * Agent node is no longer silently recreated as a Linux DIRECT one.
+ */
+function serverProfileFields(r: ExportFile["tables"]["servers"][number]) {
+  return {
+    operatingSystem: r.operatingSystem,
+    managementMode: r.managementMode,
+    origin: r.origin,
+    hostKeySha256: r.hostKeySha256,
+    rdpDomain: r.rdpDomain,
+    rdpPassword: r.rdpPassword,
+    rdpIgnoreCertificate: r.rdpIgnoreCertificate,
+    rdpCertificateSha256: r.rdpCertificateSha256,
+    costAutoSync: r.costAutoSync,
+    costMonthlyAmount: r.costMonthlyAmount === undefined ? undefined : r.costMonthlyAmount === null ? null : new Prisma.Decimal(r.costMonthlyAmount),
+    costCurrency: r.costCurrency,
+    costProvider: r.costProvider,
+    expiresAt: r.expiresAt === undefined ? undefined : r.expiresAt === null ? null : parseDate(r.expiresAt, "servers.expiresAt"),
+    trafficQuotaBytes: r.trafficQuotaBytes === undefined ? undefined : parseBigInt(r.trafficQuotaBytes, "servers.trafficQuotaBytes"),
+    trafficQuotaMode: r.trafficQuotaMode,
+  };
+}
+
 // 7. Servers
 export async function importServers(
   tx: Tx,
@@ -101,6 +129,7 @@ export async function importServers(
     osInfo: r.osInfo,
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
     teamId: r.teamId ?? null,
+    ...serverProfileFields(r),
   });
   const toUpdateData = (r: ExportFile["tables"]["servers"][number]) => ({
     name: r.name,
@@ -119,6 +148,9 @@ export async function importServers(
     osDialect: r.osDialect,
     osInfo: r.osInfo,
     teamId: r.teamId ?? null,
+    ...serverProfileFields(r),
+    // Standard mode carries no RDP password: keep the existing one.
+    ...(r.rdpPassword ? {} : { rdpPassword: undefined }),
   });
   await upsertById(t.servers, options, counts, {
     listExistingIds: async (ids) =>

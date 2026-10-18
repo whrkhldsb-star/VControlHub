@@ -182,8 +182,13 @@ export async function evaluateCapacityLinkedAlerts(
     for (const server of targets) {
       const { value, reason } = daysValueFromServerForecast(server, key);
 
+      if (value === null && (reason === "insufficient_data" || reason === "metric_missing")) {
+        // Unknown is not recovered: missing history (a sampling gap, a
+        // restart) must not clear an open capacity incident.
+        continue;
+      }
       if (value === null) {
-        // Recovered / not projected / insufficient — resolve any open incident.
+        // Recovered / not projected — resolve any open incident.
         const cleared = await resolveAlertIncident({
           ruleId: rule.id,
           ruleName: rule.name,

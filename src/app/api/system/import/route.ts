@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { auditUserAction } from "@/lib/audit/service";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { exportFileSchema, importOptionsSchema } from "@/lib/system/config-schema";
+import { CONFIG_IMPORT_MAX_BODY_BYTES, exportFileSchema, importOptionsSchema } from "@/lib/system/config-schema";
 import { previewImport, executeImport } from "@/lib/system/import-service";
 import { assertPlatformAdminForConfigImport } from "@/lib/system/platform-admin";
 
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: importBodySchema,
+      maxBodyBytes: CONFIG_IMPORT_MAX_BODY_BYTES,
     },
     async ({ session, body }) => {
       // `user:manage` opens the settings tab, but an import writes the global

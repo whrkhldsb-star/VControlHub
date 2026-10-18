@@ -7,6 +7,7 @@ import { createCostEntrySchema, updateCostEntrySchema } from "./schema";
 import type { CostCategory, CostCurrency, CostCurrencyBucket, CostEntryRecord, CostSummary, DailySnapshot } from "./types";
 import { COST_CATEGORY_VALUES } from "./types";
 import { DEFAULT_CURRENCY, DEFAULT_LIST_LIMIT, addDecimal, automaticTags, emptyByCategory, endOfMonthUtc, isoDateOnly, lastDayIsoOfMonth, startOfMonthUtc, toRecord, type TeamSession } from "./service-internals";
+import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 
 export async function createCostEntry(input: unknown, createdById?: string | null, session?: TeamSession | null): Promise<CostEntryRecord> {
 	const parsed = createCostEntrySchema.parse(input);
@@ -154,7 +155,8 @@ export interface ServerMonthlyCostSyncSkip { serverId: string; serverName: strin
  * was pure payload and heap weight proportional to fleet size.
  */
 export interface ServerMonthlyCostSyncResult { month: string; synced: number; skipped: number; skippedDetails: ServerMonthlyCostSyncSkip[]; }
-export async function syncServerMonthlyCosts(month = new Date().toISOString().slice(0, 7), session?: TeamSession | null): Promise<ServerMonthlyCostSyncResult> {
+// The month turns at midnight application time, as budgets do (not at 08:00 UTC+8).
+export async function syncServerMonthlyCosts(month = appTimeZoneDateKey().slice(0, 7), session?: TeamSession | null): Promise<ServerMonthlyCostSyncResult> {
 	const effectiveDate = startOfMonthUtc(month);
 	let synced = 0; let skipped = 0; let cursor: { id: string } | undefined;
 	// Skipping silently is a false success: the toast says "synced N, skipped M"

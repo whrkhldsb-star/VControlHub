@@ -35,11 +35,14 @@ export function isSlaBreached(ticket: { slaDueAt: Date | null; status: string },
   return ticket.slaDueAt.getTime() < now.getTime();
 }
 
+/** An active ticket is in "warning" for the last hour before its SLA is due. */
+const SLA_WARNING_MS = 60 * 60 * 1000;
+
 export function getSlaStatus(ticket: { slaDueAt: Date | null; status: string }, now = new Date()): "ok" | "warning" | "breached" | "none" {
   if (!ticket.slaDueAt || ticket.status === "CLOSED" || ticket.status === "RESOLVED") return "none";
   const remaining = ticket.slaDueAt.getTime() - now.getTime();
   if (remaining < 0) return "breached";
-  if (remaining < 60 * 60 * 1000) return "warning";
+  if (remaining < SLA_WARNING_MS) return "warning";
   return "ok";
 }
 
@@ -191,7 +194,14 @@ export async function listTicketsAdvanced(input: {
   if (input.assigneeId) clauses.push({ assigneeId: input.assigneeId });
   if (input.search) clauses.push({ OR: [{ title: { contains: input.search, mode: "insensitive" } }, { description: { contains: input.search, mode: "insensitive" } }] });
   if (input.slaStatus === "none") clauses.push({ OR: [{ slaDueAt: null }, { status: { in: ["RESOLVED", "CLOSED"] } }] });
-  if (input.slaStatus === "breached") clauses.push({ slaDueAt: { lt: new Date() }, status: { in: ["OPEN", "IN_PROGRESS"] } });
+  // Every SLA state is filtered in the query, before the 200-row cap: filtering
+  // warning/ok afterwards returned nothing when older tickets were the ones due.
+  const now = new Date();
+  const warnUntil = new Date(now.getTime() + SLA_WARNING_MS);
+  const active = { status: { in: ["OPEN", "IN_PROGRESS"] } };
+  if (input.slaStatus === "breached") clauses.push({ slaDueAt: { lt: now }, ...active });
+  if (input.slaStatus === "warning") clauses.push({ slaDueAt: { gte: now, lt: warnUntil }, ...active });
+  if (input.slaStatus === "ok") clauses.push({ slaDueAt: { gte: warnUntil }, ...active });
 
   const tickets = await prisma.ticket.findMany({
     where: { AND: clauses },
@@ -204,10 +214,6 @@ export async function listTicketsAdvanced(input: {
     take: 200,
   });
 
-  if (input.slaStatus === "warning" || input.slaStatus === "ok") {
-    const now = new Date();
-    return tickets.filter((ticket) => getSlaStatus(ticket, now) === input.slaStatus);
-  }
   return tickets;
 }
 

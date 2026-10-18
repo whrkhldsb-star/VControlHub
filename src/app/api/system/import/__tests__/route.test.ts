@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { guardMock, importMock, auditMock } = vi.hoisted(() => ({
-  guardMock: { roles: ["admin"] as string[] },
+  guardMock: { roles: ["admin"] as string[], options: undefined as unknown },
   importMock: { previewImport: vi.fn(), executeImport: vi.fn() },
   auditMock: vi.fn(),
 }));
@@ -12,9 +12,10 @@ const { guardMock, importMock, auditMock } = vi.hoisted(() => ({
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: async (
     request: Request,
-    _options: unknown,
+    options: unknown,
     handler: (ctx: { session: unknown; body: unknown }) => Promise<Response>,
   ) => {
+    guardMock.options = options;
     const body = await request.clone().json().catch(() => undefined);
     try {
       return await handler({
@@ -65,6 +66,14 @@ describe("POST /api/system/import", () => {
     const response = await POST(importRequest({ dryRun: false, file: FILE }));
     expect(response.status).toBe(200);
     expect(importMock.executeImport).toHaveBeenCalledOnce();
+  });
+
+  it("accepts the project's own large exports instead of the generic 1 MiB body limit", async () => {
+    await POST(importRequest({ dryRun: true, file: FILE }));
+    const { CONFIG_IMPORT_MAX_BODY_BYTES } = await import("@/lib/system/config-schema");
+    expect(guardMock.options).toMatchObject({ maxBodyBytes: CONFIG_IMPORT_MAX_BODY_BYTES });
+    // 110 templates of 10,000 characters already exceed 1 MiB.
+    expect(CONFIG_IMPORT_MAX_BODY_BYTES).toBeGreaterThan(110 * 10_000 * 4);
   });
 
   it("refuses a caller who holds user:manage without the admin role", async () => {

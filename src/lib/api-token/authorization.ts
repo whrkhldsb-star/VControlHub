@@ -92,3 +92,17 @@ export async function loadApiTokenOwnerSession(
 		currentTeamId,
 	};
 }
+
+/**
+ * The session background work runs with: its creator's, in the job's
+ * customer. For an administrator that is the customer the job belongs to, not
+ * the one their console has selected now (switching it, even in another
+ * browser, must not change what a queued or scheduled job may reach); a job
+ * without a customer runs across all customers. Null once the creator may no
+ * longer act there.
+ */
+export async function loadJobOwnerSession(userId: string, teamId: string | null | undefined): Promise<SessionPayload | null> {
+	if (teamId) return loadApiTokenOwnerSession(userId, teamId);
+	const account = await loadApiTokenOwnerSession(userId);
+	return account && account.roles.includes("admin") ? { ...account, currentTeamId: null } : account;
+}

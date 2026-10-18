@@ -418,3 +418,45 @@ export async function previewSnippets(
     select: { id: true },
   }));
 }
+
+export async function previewTeams(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {
+  return previewById(t.teams, options, (ids) => prisma.team.findMany({ where: { id: { in: ids } }, select: { id: true } }));
+}
+
+export async function previewIdentityTemplates(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {
+  return previewById(t.identityTemplates, options, (ids) => prisma.identityTemplate.findMany({ where: { id: { in: ids } }, select: { id: true } }));
+}
+
+/** A user belongs to one customer: an existing membership is replaced only with overwrite. */
+export async function previewTeamMembers(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {
+  const records = t.teamMembers;
+  if (records.length === 0) return { ...ZERO };
+  const [members, users] = await Promise.all([
+    chunkedExistingKeys(records.map((r) => r.userId), "userId", (chunk) => prisma.teamMember.findMany({ where: { userId: { in: chunk } }, select: { userId: true } })),
+    availableIds(records.map((r) => r.userId), options.importUsers ? t.users.map((r) => r.id) : [], (ids) => prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true } })),
+  ]);
+  const out: PreviewCounts = { create: 0, update: 0, skip: 0 };
+  for (const r of records) {
+    if (!users.has(r.userId)) out.skip += 1;
+    else if (members.has(r.userId)) out[options.overwriteExisting ? "update" : "skip"] += 1;
+    else out.create += 1;
+  }
+  return out;
+}
+
+export async function previewUserServerAccess(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {
+  const records = t.userServerAccess;
+  if (records.length === 0) return { ...ZERO };
+  const [existing, users] = await Promise.all([
+    prisma.userServerAccess.findMany({ where: { userId: { in: [...new Set(records.map((r) => r.userId))] } }, select: { userId: true, serverId: true } }),
+    availableIds(records.map((r) => r.userId), options.importUsers ? t.users.map((r) => r.id) : [], (ids) => prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true } })),
+  ]);
+  const present = new Set(existing.map((row) => `${row.userId}:${row.serverId}`));
+  const out: PreviewCounts = { create: 0, update: 0, skip: 0 };
+  for (const r of records) {
+    if (!users.has(r.userId)) out.skip += 1;
+    else if (present.has(`${r.userId}:${r.serverId}`)) out[options.overwriteExisting ? "update" : "skip"] += 1;
+    else out.create += 1;
+  }
+  return out;
+}

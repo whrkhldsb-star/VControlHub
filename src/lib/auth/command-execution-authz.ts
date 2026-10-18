@@ -1,4 +1,4 @@
-import { loadApiTokenOwnerSession } from "@/lib/api-token/authorization";
+import { loadApiTokenOwnerSession, loadJobOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
@@ -33,7 +33,8 @@ export async function assertRequesterMayExecuteCommand(
   if (!platformAdmin && !teamId) {
     return { ok: false, reason: "command target has no customer" };
   }
-  const teamSession = platformAdmin ? accountSession : await loadApiTokenOwnerSession(requesterId, teamId!);
+  // The command's customer, not the one an administrator has selected now.
+  const teamSession = await loadJobOwnerSession(requesterId, teamId);
   if (!teamSession) {
     return { ok: false, reason: "command requester is no longer a member of the target team" };
   }

@@ -37,6 +37,10 @@ import {
   exportServers,
   exportStorageNodes,
   exportUserStorageAccess,
+  exportTeams,
+  exportTeamMembers,
+  exportIdentityTemplates,
+  exportUserServerAccess,
   exportCommandTemplates,
   exportQuickServices,
   exportPlaybooks,
@@ -145,6 +149,12 @@ export async function buildExportFile(options: ExportOptions): Promise<ExportFil
 
   const storageNodeIds = storageNodes.map((n) => n.id);
   const userStorageAccess = await exportUserStorageAccess(scope, storageNodeIds, userIds);
+  const teams = await exportTeams(scope, teamId);
+  const teamMembers = await exportTeamMembers(teams.map((team) => team.id), userIds);
+  const [identityTemplates, userServerAccess] = await Promise.all([
+    exportIdentityTemplates(scope, [...new Set(teamMembers.map((member) => member.identityTemplateId))]),
+    exportUserServerAccess(userIds, servers.map((server) => server.id)),
+  ]);
 
   return {
     schemaVersion: EXPORT_SCHEMA_VERSION,
@@ -154,6 +164,10 @@ export async function buildExportFile(options: ExportOptions): Promise<ExportFil
     exportScope: scope,
     exportTeamId: teamId,
     tables: {
+      teams,
+      identityTemplates,
+      teamMembers,
+      userServerAccess,
       permissions,
       roles,
       rolePermissions,
@@ -178,6 +192,10 @@ export async function buildExportFile(options: ExportOptions): Promise<ExportFil
 export function getExportSummary(file: ExportFile): Record<string, number> {
   const t = file.tables;
   return {
+    teams: t.teams.length,
+    identityTemplates: t.identityTemplates.length,
+    teamMembers: t.teamMembers.length,
+    userServerAccess: t.userServerAccess.length,
     permissions: t.permissions.length,
     roles: t.roles.length,
     rolePermissions: t.rolePermissions.length,

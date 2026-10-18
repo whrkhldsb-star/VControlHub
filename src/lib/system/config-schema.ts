@@ -19,6 +19,12 @@ import { z } from "zod";
 
 export const EXPORT_SCHEMA_VERSION = 1;
 
+/**
+ * Largest import request (file plus options). A full export is not bounded by
+ * the generic 1 MiB API body limit, so its own exports must fit through here.
+ */
+export const CONFIG_IMPORT_MAX_BODY_BYTES = 32 * 1024 * 1024;
+
 /** 敏感 Setting key 模式 — 值在导出时清空 */
 const SENSITIVE_SETTING_PATTERN =
   /(_key|_secret|_token|_password|_url|\.(password|secret|token|api_key|apikey|botToken|s3SecretKey|s3AccessKey))$/i;
@@ -104,6 +110,60 @@ const serverExportSchema = z.object({
   osDialect: z.string().nullable(),
   osInfo: z.string().nullable(),
   createdAt: z.string(),
+  // Optional: packages exported before these were carried still import (with
+  // the column defaults, as they did before).
+  operatingSystem: z.enum(["LINUX", "WINDOWS"]).optional(),
+  /** AGENT nodes come back without their Agent token: the Agent must be reinstalled. */
+  managementMode: z.enum(["DIRECT", "AGENT"]).optional(),
+  origin: z.enum(["PLATFORM", "CUSTOMER"]).optional(),
+  hostKeySha256: z.string().nullable().optional(),
+  rdpDomain: z.string().nullable().optional(),
+  // rdpPassword: null in standard mode, actual (encrypted) password in full mode
+  rdpPassword: z.string().nullable().optional(),
+  rdpIgnoreCertificate: z.boolean().optional(),
+  rdpCertificateSha256: z.string().nullable().optional(),
+  costAutoSync: z.boolean().optional(),
+  costMonthlyAmount: z.string().nullable().optional(),
+  costCurrency: z.string().optional(),
+  costProvider: z.string().nullable().optional(),
+  expiresAt: z.string().nullable().optional(),
+  trafficQuotaBytes: z.string().nullable().optional(),
+  trafficQuotaMode: z.string().optional(),
+});
+
+// Customers and who belongs to them: resources carry their teamId, so a
+// package must bring the customers it refers to.
+const teamExportSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+});
+
+const identityTemplateExportSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  permissions: z.array(z.string()),
+  isBuiltin: z.boolean(),
+});
+
+const teamMemberExportSchema = z.object({
+  teamId: z.string(),
+  userId: z.string(),
+  identityTemplateId: z.string(),
+  joinedAt: z.string(),
+});
+
+const userServerAccessExportSchema = z.object({
+  userId: z.string(),
+  serverId: z.string(),
+  canRead: z.boolean(),
+  canConnect: z.boolean(),
+  canManage: z.boolean(),
+  canFileRead: z.boolean(),
+  canFileWrite: z.boolean(),
+  canFileDelete: z.boolean(),
 });
 
 const storageNodeExportSchema = z.object({
@@ -269,6 +329,11 @@ export const exportFileSchema = z.object({
   /** team id when exportScope=team */
   exportTeamId: z.string().nullable().optional(),
   tables: z.object({
+    // Added after schemaVersion 1 shipped: absent in older packages.
+    teams: z.array(teamExportSchema).optional().default([]),
+    identityTemplates: z.array(identityTemplateExportSchema).optional().default([]),
+    teamMembers: z.array(teamMemberExportSchema).optional().default([]),
+    userServerAccess: z.array(userServerAccessExportSchema).optional().default([]),
     permissions: z.array(permissionSchema),
     roles: z.array(roleSchema),
     rolePermissions: z.array(rolePermissionSchema),

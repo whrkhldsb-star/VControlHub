@@ -380,6 +380,31 @@ export async function scanMediaFromFileEntries(
       cursor = { id: page[page.length - 1]!.id };
     }
   }
+  // A rescan hard-deletes the index row of a file that is gone (WebDAV/SFTP
+  // sync), and MediaItem.fileEntryId has no foreign key, so nothing above can
+  // find that media: it lingered, and the file reappearing added a duplicate.
+  // Media whose FileEntry no longer exists is stale too; media without a
+  // FileEntry source is left alone.
+  {
+    let cursor: { id: string } | undefined;
+    for (;;) {
+      const page = await prisma.mediaItem.findMany({
+        where: { fileEntryId: { not: null }, ...scopedNode },
+        orderBy: { id: "asc" },
+        take: 1000,
+        ...(cursor ? { cursor, skip: 1 } : {}),
+        select: { id: true, fileEntryId: true },
+      });
+      const referenced = page.map((item) => item.fileEntryId!);
+      if (referenced.length === 0) break;
+      const live = new Set(
+        (await prisma.fileEntry.findMany({ where: { id: { in: referenced } }, select: { id: true } })).map((entry) => entry.id),
+      );
+      staleFileEntryIds.push(...referenced.filter((id) => !live.has(id)));
+      if (page.length < 1000) break;
+      cursor = { id: page[page.length - 1]!.id };
+    }
+  }
   const cleanup = staleFileEntryIds.length
     ? await prisma.mediaItem.deleteMany({
         where: { fileEntryId: { in: staleFileEntryIds } },

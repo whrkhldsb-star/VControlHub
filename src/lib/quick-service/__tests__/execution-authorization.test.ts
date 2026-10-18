@@ -1,6 +1,12 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ load: vi.fn(), server: vi.fn() }));
-vi.mock("@/lib/api-token/authorization", () => ({ loadApiTokenOwnerSession: state.load }));
+const { jobOwner } = vi.hoisted(() => ({ jobOwner: (load: (userId: string, teamId?: string) => Promise<{ roles: string[] } | null>) =>
+  async (userId: string, teamId: string | null | undefined) => {
+    if (teamId) return load(userId, teamId);
+    const account = await load(userId);
+    return account && account.roles.includes("admin") ? { ...account, currentTeamId: null } : account;
+  } }));
+vi.mock("@/lib/api-token/authorization", () => ({ loadApiTokenOwnerSession: state.load, loadJobOwnerSession: jobOwner(state.load) }));
 vi.mock("@/lib/db", () => ({ prisma: { server: { findFirst: state.server } } }));
 vi.mock("../docker-cli", () => ({ HUB_HOST_INSTANCE_KEY: "hub-host" }));
 import { assertQuickServiceExecutionAuthorized } from "../execution-authorization";

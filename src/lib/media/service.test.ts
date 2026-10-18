@@ -24,6 +24,8 @@ const {
 describe("media service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // No media yet unless a test says so (the orphan sweep reads it).
+    mockPrisma.mediaItem.findMany.mockResolvedValue([]);
     mockPrisma.mediaItem.findMany.mockResolvedValue([]);
     mockPrisma.mediaItem.deleteMany.mockResolvedValue({ count: 0 });
   });
@@ -97,6 +99,24 @@ describe("media service", () => {
     expect(mockPrisma.mediaItem.deleteMany).toHaveBeenCalledWith({
       where: { fileEntryId: { in: ["deleted_file", "folder_entry"] } },
     });
+  });
+
+  it("removes media whose file entry a rescan hard-deleted, keeping media without a file source", async () => {
+    mockPrisma.fileEntry.findMany
+      .mockResolvedValueOnce([]) // nothing to index
+      .mockResolvedValueOnce([]) // no soft-deleted or non-file entries
+      .mockResolvedValueOnce([{ id: "still_here" }]); // which referenced entries exist
+    mockPrisma.mediaItem.findMany.mockResolvedValueOnce([
+      { id: "m1", fileEntryId: "still_here" },
+      { id: "m2", fileEntryId: "hard_deleted" },
+    ]);
+    mockPrisma.mediaItem.deleteMany.mockResolvedValue({ count: 1 });
+
+    const res = await scanMediaFromFileEntries("u1");
+
+    expect(res.removed).toBe(1);
+    expect(mockPrisma.mediaItem.findMany.mock.calls[0]![0]).toMatchObject({ where: { fileEntryId: { not: null } } });
+    expect(mockPrisma.mediaItem.deleteMany).toHaveBeenCalledWith({ where: { fileEntryId: { in: ["hard_deleted"] } } });
   });
 
   it("scans past the first 1000 entries with deterministic cursor pagination", async () => {
