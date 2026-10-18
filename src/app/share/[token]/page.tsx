@@ -12,6 +12,7 @@ import { SharePasswordGate } from "./share-password-gate";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { checkRateLimitAsync } from "@/lib/rate-limit";
 import { Notice } from "@/components/ui-primitives";
+import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +87,7 @@ export default async function SharePage({
             aria-hidden="true"
             className="pointer-events-none mb-4 select-none break-all text-right text-xs font-medium text-[var(--text-muted)]"
           >
-            {token.slice(0, 8)} · {new Date().toISOString().slice(0, 10)}
+            {token.slice(0, 8)} · {appTimeZoneDateKey()}
           </div>
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]">

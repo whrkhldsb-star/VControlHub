@@ -10,6 +10,7 @@ import { imageTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
+import { appTimeZoneDateKey, shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
 
 export const dynamic = "force-dynamic";
 
@@ -44,18 +45,17 @@ export async function GET(request: Request) {
         }),
       ]);
 
-      // Count seven UTC calendar days without loading/truncating image rows.
-      // Prisma predicates preserve the same owner/team scope as the totals.
+      // Count the last seven application-time-zone days (as every other date in
+      // the app) without loading/truncating image rows. Prisma predicates
+      // preserve the same owner/team scope as the totals.
       const now = new Date();
-      const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-      const dayMs = 24 * 60 * 60 * 1000;
       const dailyCounts = await Promise.all(Array.from({ length: 7 }, async (_, index) => {
-        const start = new Date(today - (6 - index) * dayMs);
-        const end = new Date(start.getTime() + dayMs);
+        const start = shiftAppTimeZoneDay(now, index - 6);
+        const end = shiftAppTimeZoneDay(now, index - 5);
         const count = await prisma.imageUpload.count({
           where: { ...where, createdAt: { gte: start, lt: end } },
         });
-        return { date: start.toISOString().slice(0, 10), count };
+        return { date: appTimeZoneDateKey(start), count };
       }));
       const uploadTrend = dailyCounts.filter(({ count }) => count > 0);
 

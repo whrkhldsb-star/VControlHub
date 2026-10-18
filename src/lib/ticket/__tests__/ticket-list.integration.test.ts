@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
 import { countTickets, listTickets } from "../service";
-import { listTicketsAdvanced } from "../sla";
+import { getTicketKanban, listTicketsAdvanced } from "../sla";
 
 /**
  * 200 recently updated closed tickets and one older open ticket due in half an
@@ -41,5 +41,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ticket list
 		expect(await countTickets(input)).toEqual({ open: 1, inProgress: 0, resolved: 200, urgent: 1 });
 		const warning = await listTicketsAdvanced({ session, slaStatus: "warning" });
 		expect(warning.map((ticket) => ticket.id)).toEqual([`${prefix}-open`]);
+		// The board reads each column on its own: recent closed tickets do not push it off.
+		const board = await getTicketKanban({ session });
+		expect(board.OPEN.map((ticket) => ticket.id)).toEqual([`${prefix}-open`]);
+		expect(board.CLOSED).toHaveLength(200);
 	});
 });

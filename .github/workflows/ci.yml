@@ -85,18 +85,20 @@ jobs:
       # to a scratch database so that class of break fails here.
       - name: Verify migration chain applies to a fresh database
         env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate_ci
         run: |
-          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d vcontrolhub_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE vcontrolhub_migrate;'
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d vcontrolhub_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE vcontrolhub_migrate_ci;'
           npx prisma migrate deploy
 
-      # CHECK constraints exist only in migrations (the suite's db push schema
-      # has none): test what the services write against the migrated schema.
-      - name: Test migrated constraints
+      # CHECK constraints, triggers and hand-written SQL exist only in the
+      # migrations: the main suite's `db push` schema has none of them, so a
+      # write the migrated database refuses passed CI. Run the database
+      # integration tests against the migrated schema as well.
+      - name: Integration tests on the migrated schema
         env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate_ci
           RUN_DATABASE_INTEGRATION_TESTS: "1"
-        run: npx vitest run src/lib/server/__tests__/windows-constraint.integration.test.ts
+        run: npx vitest run integration --maxWorkers=1 --no-file-parallelism
 
       # Schema-vs-migrations drift guard. A schema.prisma edit without a
       # matching migration previously only surfaced at `migrate deploy` time
@@ -108,7 +110,7 @@ jobs:
       # make this gate fire on every unrelated PR.
       - name: Fail on schema/migration drift
         env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate_ci
           SHADOW_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate_shadow
         run: |
           PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d vcontrolhub_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE vcontrolhub_migrate_shadow;'

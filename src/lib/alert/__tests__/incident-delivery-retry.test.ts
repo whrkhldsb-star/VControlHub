@@ -21,6 +21,9 @@ function matches(row: Row, where: Record<string, unknown>): boolean {
 	return Object.entries(where).every(([key, expected]) => {
 		const actual = row[key];
 		if (expected instanceof Date) return actual instanceof Date && actual.getTime() === expected.getTime();
+		if (expected && typeof expected === "object" && "in" in (expected as object)) {
+			return ((expected as { in: unknown[] }).in).includes(actual);
+		}
 		if (expected && typeof expected === "object" && "lte" in (expected as object)) {
 			return actual instanceof Date && actual.getTime() <= ((expected as { lte: Date }).lte).getTime();
 		}

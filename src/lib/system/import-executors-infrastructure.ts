@@ -225,6 +225,9 @@ export async function importStorageNodes(
     healthStatus: r.healthStatus,
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
     teamId: r.teamId ?? null,
+    hostKeySha256: r.hostKeySha256,
+    // Standard exports carry no WebDAV credentials: keep what is here.
+    ...(r.webdavConfigEncrypted ? { webdavConfigEncrypted: r.webdavConfigEncrypted } : {}),
   });
   await upsertById(records, options, counts, {
     listExistingIds: async (ids) =>

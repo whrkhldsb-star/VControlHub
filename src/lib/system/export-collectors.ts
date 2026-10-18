@@ -112,6 +112,7 @@ export async function exportUsers(
       createdAt: true,
       passwordHash: mode === "full",
       twoFactorSecret: mode === "full",
+      twoFactorRecoveryCodes: mode === "full",
     },
     ...page,
   }));
@@ -124,6 +125,8 @@ export async function exportUsers(
     mustChangePassword: r.mustChangePassword,
     twoFactorEnabled: r.twoFactorEnabled,
     twoFactorSecret: mode === "full" ? r.twoFactorSecret : null,
+    // The secret alone left a migrated 2FA account without its recovery codes.
+    twoFactorRecoveryCodes: mode === "full" ? r.twoFactorRecoveryCodes ?? null : null,
     preferences: r.preferences,
     createdAt: dateToISO(r.createdAt)!,
   }));
@@ -321,6 +324,7 @@ export async function exportUserServerAccess(userIds: string[], serverIds: strin
 }
 
 export async function exportStorageNodes(
+  mode: ExportMode,
   scope: ExportScope,
   teamId: string | null,
 ) {
@@ -346,6 +350,10 @@ export async function exportStorageNodes(
     healthStatus: r.healthStatus,
     teamId: r.teamId ?? null,
     createdAt: dateToISO(r.createdAt)!,
+    hostKeySha256: r.hostKeySha256,
+    // A WebDAV node is unusable without it; it holds credentials, so only a
+    // full export carries it (as server passwords).
+    webdavConfigEncrypted: mode === "full" ? r.webdavConfigEncrypted : null,
   }));
 }
 

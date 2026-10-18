@@ -664,10 +664,13 @@ export async function resolveAlertIncident(input: {
   }
 
   const now = new Date();
-  await prisma.alertIncident.update({
-    where: { id: existing.id },
+  // Only the caller that actually moves it to RESOLVED notifies: two
+  // evaluations seeing the metric recover used to send "resolved" twice.
+  const claimed = await prisma.alertIncident.updateMany({
+    where: { id: existing.id, status: { in: ["OPEN", "ACKNOWLEDGED"] } },
     data: { status: "RESOLVED", resolvedAt: now, pendingNotifyChannels: [], nextNotifyAt: null },
   });
+  if (claimed.count === 0) return { resolved: false };
 
   const userIds = await resolveNotifyUserIds(input.onCallUserIds, input.teamId);
   const dispatch = await dispatchChannels({
@@ -751,8 +754,10 @@ export async function acknowledgeAlertIncident(input: {
     return { id: incident.id, status: incident.status };
   }
 
-  const updated = await prisma.alertIncident.update({
-    where: { id: incident.id },
+  // Conditional on OPEN: an incident resolved after it was read above must
+  // not be turned back into ACKNOWLEDGED (it would then never resolve).
+  const claimed = await prisma.alertIncident.updateMany({
+    where: { id: incident.id, status: "OPEN" },
     data: {
       status: "ACKNOWLEDGED",
       acknowledgedAt: new Date(),
@@ -761,7 +766,12 @@ export async function acknowledgeAlertIncident(input: {
       nextNotifyAt: null,
     },
   });
-  return { id: updated.id, status: updated.status };
+  if (claimed.count === 0) {
+    const current = await prisma.alertIncident.findUnique({ where: { id: incident.id }, select: { status: true } });
+    if (current?.status === "RESOLVED") throw new ValidationError(t("backend.alert.resolvedIncidentsCannotBeAcknowledged"));
+    return { id: incident.id, status: current?.status ?? "ACKNOWLEDGED" };
+  }
+  return { id: incident.id, status: "ACKNOWLEDGED" as const };
 }
 
 /**

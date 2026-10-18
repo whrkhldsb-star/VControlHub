@@ -20,7 +20,9 @@ const {
   getSettingMock,
   providerFindFirstMock,
   sendChatRequestMock,
+  latestSamplesMock,
 } = vi.hoisted(() => ({
+  latestSamplesMock: vi.fn(async () => [] as unknown[]),
   jobMocks: {
     enqueueJob: vi.fn(),
     claimNextJob: vi.fn(),
@@ -94,6 +96,8 @@ vi.mock("@/lib/db", () => ({
     metricSnapshot: {
       findMany: vi.fn(async () => []),
     },
+    // Each server's latest sample (DISTINCT ON in SQL).
+    $queryRaw: latestSamplesMock,
     backupRecord: {
       count: backupFailureCountMock,
     },
@@ -257,6 +261,23 @@ describe("runAiOpsScanWorkerOnce", () => {
       status?: string;
     };
     expect(completeArgs?.status).toBe("warning");
+  });
+
+  it("judges pressure and offline state from every server's latest sample", async () => {
+    // 600 servers: the newest 500 samples of the fleet no longer stand in for all of them.
+    latestSamplesMock.mockResolvedValue([
+      ...Array.from({ length: 598 }, (_, i) => ({ serverId: `s${i}`, cpuUsage: 10, memUsage: 20, diskUsage: 30, isOnline: true })),
+      { serverId: "full", cpuUsage: 10, memUsage: 20, diskUsage: 95, isOnline: true },
+      { serverId: "down", cpuUsage: 99, memUsage: 99, diskUsage: 99, isOnline: false },
+    ]);
+    await expect(runAiOpsScanWorkerOnce("manual")).resolves.toBe(true);
+    const findings = (vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data as { findings: Array<{ source: string; body: string }> }).findings;
+    const disk = findings.find((finding) => finding.source === "metric.disk");
+    // One full disk; the offline server's figures are not counted as pressure.
+    expect(disk?.body).toMatch(/^1 server/);
+    expect(findings.some((finding) => finding.source === "metric.cpu")).toBe(false);
+    expect(String((latestSamplesMock.mock.calls[0] as unknown as [TemplateStringsArray])[0].join(""))).toContain('DISTINCT ON ("serverId")');
+    latestSamplesMock.mockResolvedValue([]);
   });
 
   it("calls failJob when an underlying signal collector throws", async () => {

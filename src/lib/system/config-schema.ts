@@ -65,6 +65,8 @@ const userExportSchema = z.object({
   twoFactorEnabled: z.boolean(),
   // twoFactorSecret: null in standard mode, actual secret in full mode
   twoFactorSecret: z.string().nullable(),
+  /** Hashed 2FA recovery codes, full mode only (optional for older packages). */
+  twoFactorRecoveryCodes: z.unknown().nullable().optional(),
   preferences: z.unknown().nullable(),
   createdAt: z.string(),
 });
@@ -183,6 +185,11 @@ const storageNodeExportSchema = z.object({
   serverId: z.string().nullable(),
   healthStatus: z.enum(["UNKNOWN", "HEALTHY", "UNHEALTHY"]),
   createdAt: z.string(),
+  // Optional for packages exported before these were carried.
+  /** SFTP host-key pin. */
+  hostKeySha256: z.string().nullable().optional(),
+  /** WebDAV endpoint and credentials (encrypted): null in standard mode. */
+  webdavConfigEncrypted: z.string().nullable().optional(),
 });
 
 const userStorageAccessSchema = z.object({

@@ -170,6 +170,7 @@ export async function importUsers(
             mustChangePassword: r.passwordHash ? r.mustChangePassword : true,
             twoFactorEnabled: r.twoFactorEnabled,
             twoFactorSecret: r.twoFactorSecret,
+            twoFactorRecoveryCodes: (r.twoFactorRecoveryCodes ?? undefined) as Prisma.InputJsonValue | undefined,
             preferences: r.preferences as Prisma.InputJsonValue | undefined,
           })),
           skipDuplicates: true,
@@ -195,6 +196,7 @@ export async function importUsers(
           twoFactorEnabled: r.twoFactorEnabled,
           // In full mode, restore 2FA secret; otherwise keep existing
           ...(r.twoFactorSecret !== null ? { twoFactorSecret: r.twoFactorSecret } : {}),
+          ...(r.twoFactorRecoveryCodes != null ? { twoFactorRecoveryCodes: r.twoFactorRecoveryCodes as Prisma.InputJsonValue } : {}),
           // Mirror createMany: restore UI prefs / locale / layout on overwrite
           ...(r.preferences !== undefined
             ? { preferences: r.preferences as Prisma.InputJsonValue }

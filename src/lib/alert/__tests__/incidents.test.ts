@@ -293,15 +293,14 @@ describe("alert incidents", () => {
       id: "inc1",
       status: "OPEN",
     });
-    prismaMock.alertIncident.update.mockResolvedValue({
-      id: "inc1",
-      status: "ACKNOWLEDGED",
-    });
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await acknowledgeAlertIncident({ incidentId: "inc1", userId: "u1" });
     expect(result.status).toBe("ACKNOWLEDGED");
-    expect(prismaMock.alertIncident.update).toHaveBeenCalledWith(
+    expect(prismaMock.alertIncident.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        // Only while still OPEN: a concurrent resolve must win.
+        where: { id: "inc1", status: "OPEN" },
         data: expect.objectContaining({
           status: "ACKNOWLEDGED",
           acknowledgedById: "u1",
@@ -310,7 +309,27 @@ describe("alert incidents", () => {
     );
   });
 
+  it("refuses to acknowledge an incident resolved after it was read", async () => {
+    prismaMock.alertIncident.findUnique
+      .mockResolvedValueOnce({ id: "inc1", status: "OPEN" })
+      .mockResolvedValueOnce({ status: "RESOLVED" });
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(acknowledgeAlertIncident({ incidentId: "inc1", userId: "u1" })).rejects.toThrow();
+  });
+
+  it("lets only one of two concurrent resolutions notify", async () => {
+    prismaMock.alertIncident.findUnique.mockResolvedValue({ id: "inc1", status: "OPEN", level: 1, serverName: "s", metric: "cpu_usage" });
+    prismaMock.alertIncident.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+    const input = { ruleId: "r1", serverId: "s1", metric: "cpu_usage", title: "ok", message: "ok", notifyChannels: [] as string[] };
+
+    const results = await Promise.all([resolveAlertIncident(input), resolveAlertIncident(input)]);
+
+    expect(results.map((result) => result.resolved).sort()).toEqual([false, true]);
+  });
+
   it("resolves open incidents and notifies", async () => {
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.alertIncident.findUnique.mockResolvedValue({
       id: "inc1",
       status: "OPEN",

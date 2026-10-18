@@ -154,15 +154,16 @@ describe("/api/images/stats", () => {
       const { createdAt, ...actualScope } = where;
       expect(actualScope).toEqual(scope);
       if (!createdAt) return Promise.resolve(6002);
-      return Promise.resolve(createdAt.gte.toISOString() === "2026-09-08T00:00:00.000Z" ? 6001 : 0);
+      // Days are application-time (Asia/Shanghai): 2026-09-08 starts at 16:00 UTC the day before.
+      return Promise.resolve(createdAt.gte.toISOString() === "2026-09-07T16:00:00.000Z" ? 6001 : 0);
     });
     const response = await GET(new Request("https://example.com/api/images/stats"));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ totalCount: 6002, uploadTrend: [{ date: "2026-09-08", count: 6001 }] });
     const ranges = imageCountMock.mock.calls.map(([args]) => args.where.createdAt).filter(Boolean);
     expect(ranges).toHaveLength(7);
-    expect(ranges[0].gte.toISOString()).toBe("2026-09-02T00:00:00.000Z");
-    expect(ranges.at(-1).lt.toISOString()).toBe("2026-09-09T00:00:00.000Z");
+    expect(ranges[0].gte.toISOString()).toBe("2026-09-01T16:00:00.000Z");
+    expect(ranges.at(-1).lt.toISOString()).toBe("2026-09-08T16:00:00.000Z");
     for (let index = 1; index < ranges.length; index++) expect(ranges[index].gte).toEqual(ranges[index - 1].lt);
     expect(imageFindManyMock).not.toHaveBeenCalled();
   });

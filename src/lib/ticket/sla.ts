@@ -217,26 +217,40 @@ export async function listTicketsAdvanced(input: {
   return tickets;
 }
 
-export async function getTicketKanban(input: { session: TicketSession }) {
-  const tickets = await prisma.ticket.findMany({
-    where: { AND: [ticketVisibilityWhere(input.session), { status: { in: ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"] } }] },
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      priority: true,
-      category: true,
-      slaDueAt: true,
-      escalatedAt: true,
-      assigneeId: true,
-      assignee: { select: { id: true, username: true, displayName: true } },
-      updatedAt: true,
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 200,
-  });
+/** Per board column: open work in full (up to the first), finished work as recent history. */
+const KANBAN_ACTIVE_LIMIT = 1000;
+const KANBAN_DONE_LIMIT = 200;
 
-  const columns: Record<string, typeof tickets> = { OPEN: [], IN_PROGRESS: [], RESOLVED: [], CLOSED: [] };
-  for (const ticket of tickets) columns[ticket.status]?.push(ticket);
-  return columns;
+/**
+ * The board's columns, each read on its own. One "latest 200 of all statuses"
+ * read let recently closed tickets push older open or in-progress ones off
+ * the board altogether.
+ */
+export async function getTicketKanban(input: { session: TicketSession }) {
+  const select = {
+    id: true,
+    title: true,
+    status: true,
+    priority: true,
+    category: true,
+    slaDueAt: true,
+    escalatedAt: true,
+    assigneeId: true,
+    assignee: { select: { id: true, username: true, displayName: true } },
+    updatedAt: true,
+  } as const;
+  const visible = ticketVisibilityWhere(input.session);
+  const column = (status: string, take: number) => prisma.ticket.findMany({
+    where: { AND: [visible, { status }] },
+    select,
+    orderBy: { updatedAt: "desc" },
+    take,
+  });
+  const [open, inProgress, resolved, closed] = await Promise.all([
+    column("OPEN", KANBAN_ACTIVE_LIMIT),
+    column("IN_PROGRESS", KANBAN_ACTIVE_LIMIT),
+    column("RESOLVED", KANBAN_DONE_LIMIT),
+    column("CLOSED", KANBAN_DONE_LIMIT),
+  ]);
+  return { OPEN: open, IN_PROGRESS: inProgress, RESOLVED: resolved, CLOSED: closed };
 }

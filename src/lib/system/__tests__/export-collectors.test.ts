@@ -113,7 +113,7 @@ describe("readAllPages", () => {
   });
 
   it("orders every paged query so the pages do not interleave", async () => {
-    await exportStorageNodes("global", null);
+    await exportStorageNodes("standard", "global", null);
 
     expect(model("storageNode").findMany).toHaveBeenCalledWith(
       expect.objectContaining({ orderBy: [{ name: "asc" }, { id: "asc" }] }),
@@ -202,7 +202,7 @@ describe("team scope leaves platform-wide tables out entirely", () => {
   });
 
   it("excludes unassigned legacy rows from a team export of an owned table", async () => {
-    await exportStorageNodes("team", "team_a");
+    await exportStorageNodes("standard", "team", "team_a");
 
     expect(model("storageNode").findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { teamId: "team_a" } }),
