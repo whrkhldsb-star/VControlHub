@@ -111,6 +111,13 @@ export async function updateWindowsServerProfile(
     description: input.description ?? current.description ?? "",
   });
   if (rdpInput.rdpPassword === undefined && !current.rdpPassword) throw new ValidationError();
+  // The stored password belongs to the account the node used so far: keeping
+  // it for another user name or domain makes every login fail (and repeated
+  // failures lock the new account), so another account needs its password.
+  const sameAccount = (a: string | null | undefined, b: string | null | undefined) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
+  if (rdpInput.rdpPassword === undefined && (!sameAccount(payload.username, current.username) || !sameAccount(payload.domain, current.rdpDomain))) {
+    throw new ValidationError(t("backend.server.windowsAccountNeedsPassword"));
+  }
   if (input.windowsSftpEnabled && current.storageNode && current.storageNode.driver !== "SFTP") {
     throw new ValidationError(t("backend.server.windowsStorageRequiresSftp"));
   }

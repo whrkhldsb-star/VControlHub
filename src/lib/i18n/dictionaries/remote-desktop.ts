@@ -22,6 +22,8 @@ export const zh: Record<string, string> = {
   "rdp.error.denied": "无权连接此服务器，或服务器不可用。",
   "rdp.error.rate": "连接请求过于频繁，请稍后重试。",
   "rdp.error.connection": "远程桌面连接失败或已中断。请检查网关、服务器可达性、NLA 和证书配置后重试。",
+  "rdp.error.credentials": "Windows 拒绝了登录：用户名或密码不对。如果刚改过节点的 Windows 用户名，请在“编辑节点”里同时填写这个账号的 RDP 密码。已停止自动重连，以免多次失败锁定账户。",
+  "rdp.error.accountRefused": "Windows 拒绝了这个账户：可能已被锁定、停用、过期，或必须先修改密码。请在服务器上处理后再连接。已停止自动重连。",
 };
 export const en: Record<string, string> = {
   "rdp.title": "Windows Remote Desktop",
@@ -47,4 +49,6 @@ export const en: Record<string, string> = {
   "rdp.error.denied": "You cannot access this server, or it is unavailable.",
   "rdp.error.rate": "Too many connection requests. Try again later.",
   "rdp.error.connection": "The remote desktop connection failed or was interrupted. Check the gateway, server connectivity, NLA and certificate settings, then retry.",
+  "rdp.error.credentials": "Windows refused the login: the user name or password is wrong. If you just changed the node's Windows user name, enter that account's RDP password in Edit node as well. Automatic reconnection stopped so failed attempts do not lock the account.",
+  "rdp.error.accountRefused": "Windows refused this account: it may be locked, disabled or expired, or must change its password first. Fix it on the server, then connect again. Automatic reconnection stopped.",
 };

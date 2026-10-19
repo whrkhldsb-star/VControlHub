@@ -77,6 +77,9 @@ export function ServerCardEditForm({
   const [hostKeyConfirmed, setHostKeyConfirmed] = useState(false);
   const [selectedManagementMode, setSelectedManagementMode] = useState(managementMode);
   const [selectedConnectionType, setSelectedConnectionType] = useState(connectionType);
+  // Windows: another account needs its own password — the stored one belongs
+  // to the account the node used before.
+  const [rdpAccountChanged, setRdpAccountChanged] = useState(false);
   const sshKeys = useSshKeyOptions();
   // Switching the login type keeps nothing of the old credential (also under
   // Agent mode, where saving without one would drop it): the new one is required.
@@ -105,6 +108,10 @@ export function ServerCardEditForm({
       onChange={(event) => {
         const field = event.target;
         if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
+        if (windows && (field.name === "username" || field.name === "rdpDomain")) {
+          const value = (name: string) => ((field.form?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? "").trim();
+          setRdpAccountChanged(value("username").toLowerCase() !== username.trim().toLowerCase() || value("rdpDomain").toLowerCase() !== (rdpDomain ?? "").trim().toLowerCase());
+        }
         if (["host", "port", "username", "password", "sshKeyId", "windowsSftpPort", "windowsSftpUsername", "windowsSftpPassword"].includes(field.name)) {
           setObservedHostKeySha256("");
           setHostKeyConfirmed(false);
@@ -168,7 +175,7 @@ export function ServerCardEditForm({
         defaultValue={username}
         className={UI_INPUT}
       />
-      {windows ? <><RdpCredentialFields idPrefix={`edit-rdp-${serverId}`} editing certificateSha256={rdpCertificateSha256} domain={rdpDomain} ignoreCertificate={rdpIgnoreCertificate} />
+      {windows ? <><RdpCredentialFields idPrefix={`edit-rdp-${serverId}`} editing passwordRequired={rdpAccountChanged} certificateSha256={rdpCertificateSha256} domain={rdpDomain} ignoreCertificate={rdpIgnoreCertificate} />
       <WindowsSftpFields editing configured={Boolean(storageNodeId)} port={windowsSftpPort} username={windowsSftpUsername} basePath={storagePath ?? "/C:/VControlHub/Files"} />
       {observedHostKeySha256 ? <Notice tone="warning" role="group" compact>
         <p className="font-medium text-[var(--text-primary)]">{t("serverCardActions.edit.hostKeyTrustTitle")}</p>

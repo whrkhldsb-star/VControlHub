@@ -54,6 +54,17 @@ describe("established RDP authorization", () => {
     return { ws, tunnel };
   }
 
+  it("tells the browser when Windows refuses the account, and keeps other failures generic", async () => {
+    // guacd: error,<message>,<status>; Windows' refusal arrives after "ready".
+    for (const [status, sent] of [["769", "769"], ["771", "771"], ["519", "512"]] as const) {
+      const { ws, tunnel } = await connect();
+      tunnel.emit("data", Buffer.from(instruction("error", "Authentication failure (invalid credentials?)", status)));
+      expect(ws.send).toHaveBeenLastCalledWith(expect.stringMatching(new RegExp(`,3\\.${sent};$`)));
+      expect(ws.close).toHaveBeenCalled();
+      stop?.();
+    }
+  });
+
   it("resets the clipboard transfer budget for each completed paste", async () => {
     mocks.clipboard.mockReturnValue(true);
     const { ws, tunnel } = await connect();

@@ -74,6 +74,24 @@ it("auto-reconnects with backoff after a dropped live session", async () => {
   expect(Socket.instances[1]!.url).not.toContain("test-ticket");
 });
 
+it.each([[769, "rdp.error.credentials"], [771, "rdp.error.accountRefused"]])("stops and explains when Windows refuses the account (status %i)", async (status, message) => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ token: "test-ticket", path: "/rdp" }), { status: 200 }))));
+  renderPanel();
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const socket = Socket.instances[0]!;
+  act(() => { socket.onopen?.(); });
+  // The session is "ready" first; then Windows rejects the login.
+  act(() => { socket.onmessage?.({ data: instruction("", "uuid") + instruction("sync", "1") }); });
+  act(() => { socket.onmessage?.({ data: instruction("error", "Windows refused the login", String(status)) }); });
+  act(() => { socket.onclose?.(); });
+  expect(overlay()).toHaveTextContent(message);
+  expect(overlay()).toHaveAttribute("role", "alert");
+  // No retry: each attempt counts towards Windows' account lockout.
+  await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+  expect(Socket.instances).toHaveLength(1);
+});
+
 async function connectedDesktop() {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ token: "test-ticket", path: "/rdp" }), { status: 200 })));
   renderPanel();

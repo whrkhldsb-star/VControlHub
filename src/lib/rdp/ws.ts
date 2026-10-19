@@ -38,6 +38,10 @@ const MAX_RDP_SESSIONS = 20;
 const PRE_AUTH_WINDOW_MS = 10_000;
 const AUTHORIZATION_TIMEOUT_MS = 5_000;
 /** Shares the existing loopback SSH service, but never its protocol or credentials. */
+/** Guacamole status codes guacd reports when Windows refuses the account. */
+const RDP_STATUS_UNAUTHORIZED = "769";
+const RDP_STATUS_FORBIDDEN = "771";
+
 export function setupRdpWebSocket(server: HttpServer) {
  const wss = new WebSocketServer({ noServer: true, maxPayload: 16_384, perMessageDeflate: false,
   handleProtocols: protocols => protocols.has("guacamole") ? "guacamole" : false });
@@ -77,9 +81,9 @@ export function setupRdpWebSocket(server: HttpServer) {
   const audit = (event: string) => {
    if (userId && serverId) void auditUserAction(userId, event, { serverId }, undefined, teamId).catch(() => {});
   };
-  const close = (reason: string, code = 1011) => {
+  const close = (reason: string, code = 1011, status = "512") => {
    stopped = true;
-   if (ws.readyState === WebSocket.OPEN) { ws.send(instruction("error", reason, "512")); ws.close(code); }
+   if (ws.readyState === WebSocket.OPEN) { ws.send(instruction("error", reason, status)); ws.close(code); }
    tunnel?.destroy();
   };
   const handshakeTimeout = setTimeout(() => close("RDP handshake timed out"), 30_000);
@@ -198,7 +202,17 @@ export function setupRdpWebSocket(server: HttpServer) {
     tunnel.on("close", () => { if (ws.readyState === WebSocket.OPEN) ws.close(1000); });
     const output = new GuacParser(row => {
      if (stopped) return;
-     if (row[0] === "error") { audit("server.rdp.failed"); close("Windows RDP connection failed (check credentials, NLA and certificate)"); return; }
+     if (row[0] === "error") {
+      audit("server.rdp.failed");
+      // Windows refusing the login arrives after "ready". Keep guacd's
+      // status for it: the browser must tell a wrong account or password
+      // (769) and a locked, disabled or expired account (771) from a dropped
+      // connection, and must not retry a login Windows rejected — repeated
+      // attempts count towards the account lockout.
+      const status = row[2] ?? "";
+      if (status === RDP_STATUS_UNAUTHORIZED || status === RDP_STATUS_FORBIDDEN) { close("Windows refused the login", 1000, status); return; }
+      close("Windows RDP connection failed (check credentials, NLA and certificate)"); return;
+     }
      if (phase === "args") {
       if (row[0] !== "args") throw new Error("Expected args");
       const args = row.slice(1);
