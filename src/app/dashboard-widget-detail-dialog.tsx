@@ -97,9 +97,28 @@ function WidgetClone({ host }: { host: HTMLElement }) {
 		// Move the live DOM into our container. The original stays in
 		// the grid; we just want a "detail surface" — to keep the live
 		// widget interactive (links, buttons) we deep-clone instead.
-		const clone = host.cloneNode(true) as HTMLElement;
-		clone.removeAttribute("style");
-		ref.current.replaceChildren(clone);
+		const container = ref.current;
+		const copy = () => {
+			const clone = host.cloneNode(true) as HTMLElement;
+			clone.removeAttribute("style");
+			container.replaceChildren(clone);
+		};
+		copy();
+		// Keep the copy in step with the live widget: opened while it was
+		// loading, a one-off clone kept showing "loading" after the data came.
+		let frame: number | null = null;
+		const observer = new MutationObserver(() => {
+			if (frame !== null) return;
+			frame = window.requestAnimationFrame(() => {
+				frame = null;
+				copy();
+			});
+		});
+		observer.observe(host, { subtree: true, childList: true, characterData: true, attributes: true });
+		return () => {
+			observer.disconnect();
+			if (frame !== null) window.cancelAnimationFrame(frame);
+		};
 	}, [host]);
 	return <div ref={ref} />;
 }

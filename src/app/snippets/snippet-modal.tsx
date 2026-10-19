@@ -74,8 +74,10 @@ export function SnippetModal({
 				title,
 				content,
 				language: language.trim() || undefined,
-				description: description.trim() || undefined,
-				tags: tags.length ? tags : undefined,
+				// An edit sends cleared fields explicitly ("" / []): left out, a
+				// PATCH keeps the old description and tags.
+				description: description.trim() || (mode === "edit" ? "" : undefined),
+				tags: tags.length || mode === "edit" ? tags : undefined,
 				isPrivate,
 			};
 			const data = await csrfFetch<{ snippet: SnippetFormValue }>("/api/snippets", {

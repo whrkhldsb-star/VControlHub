@@ -199,11 +199,16 @@ export async function exportAuditLogs(
 	})) as unknown as AuditLogEntry[];
 }
 
+/** Actions the audit overview counts as high-risk. */
+export const HIGH_RISK_AUDIT_ACTIONS = ["command.execute", "storage.file_delete", "server.delete", "user.permission_update", "docker.container_restart", "api_token.create"] as const;
+
 export async function getAuditStats(
 	session?: SessionScope | null,
 ): Promise<{
 	bySeverity: Record<string, number>;
 	byAction: Record<string, number>;
+	/** Every high-risk action's count: byAction holds the top 20 only. */
+	highRiskByAction: Record<string, number>;
 	recentCount: number;
 	total: number;
 }> {
@@ -213,7 +218,7 @@ export async function getAuditStats(
 		extra: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
 	});
 
-	const [total, recentCount, severityGroups, actionGroups] = await Promise.all([
+	const [total, recentCount, severityGroups, actionGroups, highRiskGroups] = await Promise.all([
 		prisma.auditLog.count({ where: baseWhere }),
 		prisma.auditLog.count({ where: recentWhere }),
 		// Group by severity (team-scoped)
@@ -230,11 +235,17 @@ export async function getAuditStats(
 			orderBy: { _count: { action: "desc" } },
 			take: 20,
 		}),
+		prisma.auditLog.groupBy({
+			by: ["action"],
+			where: { AND: [baseWhere, { action: { in: [...HIGH_RISK_AUDIT_ACTIONS] } }] },
+			_count: true,
+		}),
 	]);
 
 	return {
 		bySeverity: Object.fromEntries(severityGroups.map((g) => [g.severity, g._count])),
 		byAction: Object.fromEntries(actionGroups.map((g) => [g.action, g._count])),
+		highRiskByAction: Object.fromEntries(highRiskGroups.map((g) => [g.action, g._count])),
 		recentCount,
 		total,
 	};

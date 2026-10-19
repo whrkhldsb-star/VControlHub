@@ -43,7 +43,14 @@ type DashboardAnalytics = {
   imageBed?: ImageBedTrendPoint[];
 };
 
-function formatShortDate(value: string) {
+/**
+ * "M/D" of a day key. A "YYYY-MM-DD" is a calendar day already (the
+ * application's): parsed as a Date it is UTC midnight, which a browser west
+ * of UTC showed as the day before.
+ */
+export function formatShortDate(value: string) {
+  const dayKey = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (dayKey) return `${Number(dayKey[2])}/${Number(dayKey[3])}`;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return `${date.getMonth() + 1}/${date.getDate()}`;

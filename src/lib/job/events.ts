@@ -65,11 +65,7 @@ export type PruneJobEventsOptions = {
   olderThan?: Date;
 };
 
-/**
- * Hard bound on how many jobs one global sweep touches. A backlog larger than
- * this drains over successive maintenance ticks (each run's deletions shrink the
- * set of jobs that still qualify), and hitting it is logged rather than silent.
- */
+/** A sweep visiting more jobs than this is logged (it still visits every one). */
 const MAX_PRUNE_JOB_SCOPES = 500;
 
 const DEFAULT_LIST_LIMIT = 100;
@@ -178,17 +174,24 @@ export async function pruneJobEvents(
     return { count: await pruneOneJobEvents(options.jobId, keepLatest, options.olderThan) };
   }
 
-  // Only jobs that actually have prunable events are worth visiting.
-  const groups = await prisma.jobEvent.groupBy({
+  // Only jobs holding more than keepLatest events can lose any, and of those
+  // only ones with events old enough. A fixed first slice of every job with an
+  // old event (one quiet job counted as much as a chatty one) was re-read
+  // unchanged each run, so jobs past it were never pruned.
+  const crowded = await prisma.jobEvent.groupBy({
     by: ["jobId"],
-    where: options.olderThan ? { createdAt: { lt: options.olderThan } } : {},
+    having: { jobId: { _count: { gt: keepLatest } } },
   });
-  const scopes = groups.slice(0, MAX_PRUNE_JOB_SCOPES);
-  if (groups.length > scopes.length) {
-    logger.warn("job event prune scope cap reached; remaining jobs prune on the next run", {
-      jobs: groups.length,
-      cap: MAX_PRUNE_JOB_SCOPES,
-    });
+  let scopes = crowded;
+  if (options.olderThan && crowded.length > 0) {
+    const stale = new Set((await prisma.jobEvent.groupBy({
+      by: ["jobId"],
+      where: { createdAt: { lt: options.olderThan }, jobId: { in: crowded.map((group) => group.jobId) } },
+    })).map((group) => group.jobId));
+    scopes = crowded.filter((group) => stale.has(group.jobId));
+  }
+  if (scopes.length > MAX_PRUNE_JOB_SCOPES) {
+    logger.info("job event prune visiting many jobs", { jobs: scopes.length });
   }
 
   let count = 0;

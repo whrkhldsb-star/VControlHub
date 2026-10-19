@@ -53,7 +53,10 @@ export async function runOffsiteDryRun(): Promise<OffsiteDryRunResult> {
 	try {
 		await client.putObject(probeKey, payload, "text/plain");
 		putSucceeded = true;
-		await client.headObject(probeKey);
+		// headObject answers "not found" with null rather than throwing: the
+		// probe only passes when the object just written can be read back.
+		const head = await client.headObject(probeKey);
+		if (!head) throw new S3Error("The probe object was written but cannot be read back (HEAD returned 404)", 404, "Dry-run failed");
 	} catch (err) {
 		if (err instanceof S3Error) {
 			throw err;

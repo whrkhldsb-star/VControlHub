@@ -43,6 +43,11 @@ export function useCostPageState(options: {
 
   const [month, setMonth] = useState(initialMonth);
   const [currency, setCurrency] = useState<CostCurrency>(initialCurrency);
+  // The filters as selected now: a refresh that runs after a slow action
+  // (a sync started under another month) must load what is on screen, not
+  // the month its closure captured — its newer request number made the stale
+  // month win.
+  const filters = useRef({ month: initialMonth, currency: initialCurrency });
   const [summary, setSummary] = useState<CostSummary | null>(initialSummary);
   const [entries, setEntries] = useState<CostEntryRecord[]>(initialEntries);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>(initialSnapshots);
@@ -128,8 +133,9 @@ export function useCostPageState(options: {
   }, [addToast, t, currency, month]);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([fetchSummary(month, currency), fetchEntries(), fetchSnapshots(currency, month)]);
-  }, [fetchSummary, fetchEntries, fetchSnapshots, month, currency]);
+    const { month: m, currency: c } = filters.current;
+    await Promise.all([fetchSummary(m, c), fetchEntries(m), fetchSnapshots(c, m)]);
+  }, [fetchSummary, fetchEntries, fetchSnapshots]);
 
   const syncServerCosts = useCallback(async () => {
     if (!canManage) return;
@@ -182,6 +188,7 @@ export function useCostPageState(options: {
 
   const onChangeMonth = useCallback(
     async (m: string) => {
+      filters.current.month = m;
       setMonth(m);
       // The trend chart must follow the selected month too, otherwise it keeps
       // rendering "last 30 days" next to a historical summary.
@@ -192,6 +199,7 @@ export function useCostPageState(options: {
 
   const onChangeCurrency = useCallback(
     async (c: CostCurrency) => {
+      filters.current.currency = c;
       setCurrency(c);
       await Promise.all([fetchSummary(month, c), fetchSnapshots(c, month)]);
     },

@@ -18,6 +18,7 @@ import { getOpenAIToolsFormat } from "./hosted-tools";
 import { buildKnowledgeContextForPrompt } from "./knowledge";
 import type { ChatRequestBody } from "./schema";
 import { createMessage, getConversationById, sendChatRequest } from "./service";
+import { detectModelCapabilities } from "./service-runtime";
 
 const logger = createLogger("ai:chat");
 const encoder = new TextEncoder();
@@ -561,13 +562,17 @@ export async function createAiChatResponse(input: {
   const payload = buildAiChatMessagePayload({
     body: input.body,
     conv: conversation,
-    isVisionCapable: conversation.enableVision,
+    // As the composer decides what it accepts: the model's own vision support,
+    // or the conversation's explicit switch (for models detection misses).
+    // Only the switch counted here, so images the page accepted and sent were
+    // silently dropped on a vision model with the switch off.
+    isVisionCapable: conversation.enableVision || detectModelCapabilities(conversation.model).vision,
     locale: input.locale,
   });
   const userMessage = await createMessage({
     conversationId: conversation.id,
     role: "user",
-    content: payload.userText,
+    content: payload.persistedText,
     imageUrls: payload.allImageUrls,
   });
 

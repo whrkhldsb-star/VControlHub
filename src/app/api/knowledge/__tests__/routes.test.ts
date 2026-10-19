@@ -275,9 +275,24 @@ describe("knowledge routes", () => {
 				documentCount: 1,
 				chunkCount: 4,
 				documents: [{ id: "doc_1", title: "nginx" }],
+				documentsOffset: 0,
+				documentsHasMore: false,
 				updatedAt: "2026-08-30T00:00:00.000Z",
 			});
-			expect(mocks.getKnowledgeBase).toHaveBeenCalledWith("kb_1", manager);
+			expect(mocks.getKnowledgeBase).toHaveBeenCalledWith("kb_1", manager, 0);
+		});
+
+		it("pages the documents: every one stays reachable past the first hundred", async () => {
+			// Documents past 100 still answer searches but were not listed anywhere.
+			mocks.getKnowledgeBase.mockResolvedValueOnce({
+				id: "kb_1", name: "runbooks", description: null, isActive: true, updatedAt: new Date("2026-08-30T00:00:00Z"),
+				documents: [{ id: "doc_101", title: "oldest" }],
+				_count: { documents: 101, chunks: 400 },
+			});
+			const res = await item.GET(req("GET", undefined, "/kb_1?offset=100"), { params: Promise.resolve({ id: "kb_1" }) });
+			const json = await res.json();
+			expect(mocks.getKnowledgeBase).toHaveBeenCalledWith("kb_1", manager, 100);
+			expect(json.knowledgeBase).toMatchObject({ documentsOffset: 100, documentsHasMore: false, documents: [{ id: "doc_101" }] });
 		});
 
 		it("404s a base outside the caller's scope", async () => {

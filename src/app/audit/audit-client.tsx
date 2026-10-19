@@ -165,6 +165,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             variant="secondary"
             onClick={() => {
               setSearchQuery("");
+              setDebouncedSearch("");
             }}
           >
             {t("common.clear")}
@@ -212,7 +213,9 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               const params = new URLSearchParams();
               if (severityFilter) params.set("severity", severityFilter);
               if (actionFilter) params.set("action", actionFilter);
-              if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+              // What the search box shows now: the debounced copy lags 350 ms,
+              // so clearing then exporting still sent the old keyword.
+              if (searchQuery.trim()) params.set("search", searchQuery.trim());
               window.open(`/api/audit/export?${params.toString()}`,"_self");
             }}
           >

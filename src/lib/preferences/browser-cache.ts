@@ -34,8 +34,10 @@ export function writeUserPreferencesCache(
 	} = {},
 ): UserPreferences {
 	const normalized = normalizeUserPreferences(value);
-	const storage = options.storage ?? (typeof window !== "undefined" ? window.localStorage : null);
 	try {
+		// Inside the try: reading window.localStorage itself throws where
+		// storage is blocked, and that must not look like a failed request.
+		const storage = options.storage ?? (typeof window !== "undefined" ? window.localStorage : null);
 		if (!storage) return normalized;
 		storage.setItem(USER_PREFERENCES_STORAGE_KEY, JSON.stringify(normalized));
 		if (options.notify !== false && typeof window !== "undefined") {

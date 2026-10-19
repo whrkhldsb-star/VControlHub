@@ -99,6 +99,27 @@ export function buildOutboundBody(
 	};
 }
 
+/**
+ * The provider's own verdict in a successful HTTP response, or null when it
+ * accepted the message. DingTalk: `errcode` (0 = ok); Feishu: `code` (newer)
+ * or `StatusCode` (older robots), 0 = ok. Other providers report failures
+ * through the HTTP status.
+ */
+export function providerRejection(provider: ItsmProvider, body: string): string | null {
+	if (provider !== "dingtalk" && provider !== "feishu") return null;
+	let parsed: Record<string, unknown>;
+	try {
+		parsed = JSON.parse(body) as Record<string, unknown>;
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== "object") return null;
+	const code = provider === "dingtalk" ? parsed.errcode : parsed.code ?? parsed.StatusCode;
+	if (typeof code !== "number" || code === 0) return null;
+	const message = provider === "dingtalk" ? parsed.errmsg : parsed.msg ?? parsed.StatusMessage;
+	return `${provider} rejected the message: ${code}${typeof message === "string" && message ? ` ${message}` : ""}`.slice(0, 500);
+}
+
 export async function deliverOutbound(input: {
 	provider: ItsmProvider;
 	config: ItsmConnectionConfig;
@@ -182,6 +203,18 @@ export async function deliverOutbound(input: {
 				ok: false,
 				statusCode: result.response.status,
 				error: `Webhook HTTP ${result.response.status}`,
+				responseBody: responseBody.slice(0, 500),
+			};
+		}
+		// DingTalk and Feishu answer a rejected message with HTTP 200 and an
+		// error code in the body (e.g. Feishu 19024 "Key Words Not Found"):
+		// that is a failed delivery, to be recorded and retried.
+		const rejected = providerRejection(input.provider, responseBody);
+		if (rejected) {
+			return {
+				ok: false,
+				statusCode: result.response.status,
+				error: rejected,
 				responseBody: responseBody.slice(0, 500),
 			};
 		}

@@ -68,23 +68,29 @@ export async function PUT(request: Request) {
       // Partial PUT: merge into existing preferences so clients that only send
       // autoProbe* / one field (e.g. servers AutoProbeProvider) do not wipe
       // defaultPage, widgets, refresh interval, etc. back to defaults.
-      const existingRow = await prisma.user.findUnique({
-        where: { id: session.userId },
-        select: { preferences: true },
-      });
-      const existing =
-        existingRow?.preferences && typeof existingRow.preferences === "object"
-          ? (existingRow.preferences as Record<string, unknown>)
-          : {};
-      const prefs = normalizeUserPreferencesForSession({
-        ...defaultPreferences,
-        ...existing,
-        ...body,
-      }, session);
-
-      await prisma.user.update({
-        where: { id: session.userId },
-        data: { preferences: JSON.parse(JSON.stringify(prefs)) },
+      // Read and write under the row lock: two partial saves (two tabs, the
+      // dashboard and auto-probe) each merged into the same old snapshot,
+      // and the later write silently undid the earlier one's field.
+      const prefs = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT 1 FROM "User" WHERE id = ${session.userId} FOR UPDATE`;
+        const existingRow = await tx.user.findUnique({
+          where: { id: session.userId },
+          select: { preferences: true },
+        });
+        const existing =
+          existingRow?.preferences && typeof existingRow.preferences === "object"
+            ? (existingRow.preferences as Record<string, unknown>)
+            : {};
+        const merged = normalizeUserPreferencesForSession({
+          ...defaultPreferences,
+          ...existing,
+          ...body,
+        }, session);
+        await tx.user.update({
+          where: { id: session.userId },
+          data: { preferences: JSON.parse(JSON.stringify(merged)) },
+        });
+        return merged;
       });
 
       return NextResponse.json(prefs);

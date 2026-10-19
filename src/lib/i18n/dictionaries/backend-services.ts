@@ -427,6 +427,8 @@ export const zh: Record<string, string> = {
 	"backend.ai.providerNameIsRequired": "提供商名称不能为空",
 	"backend.ai.apiKeyIsRequired": "必须填写 API Key",
 	"backend.ai.invalidProviderType": "无效的 AI 提供商类型",
+	"backend.ai.attachmentImagesOnly": "该提供商无法读取 {media} 附件，仅支持图片。",
+	"backend.ai.attachmentAnthropicUnsupported": "Anthropic 无法读取 {media} 附件，仅支持图片和 PDF。",
 	"backend.ai.providerNotFound": "提供商不存在",
 	"backend.ai.aiProviderNotFound": "AI 提供商不存在",
 	"backend.ai.conversationNotFound": "对话不存在",
@@ -496,6 +498,7 @@ export const zh: Record<string, string> = {
 		"目标 VPS 上的附加端口 {port} 已被占用",
 	"backend.quick-service.noAvailablePortOnTarget":
 		"无法在目标 VPS 上分配可用端口，请指定一个空闲端口",
+	"backend.quick-service.appSourceNotCatalogue": "应用源返回的不是应用目录（可能是错误响应或格式变化），已保留原有应用。",
 	"backend.quick-service.dockerNotInstalled": "尚未安装 Docker",
 	"backend.quick-service.dockerNotRunning": "Docker 未运行，或当前用户无权访问 Docker 服务",
 	"backend.quick-service.dockerInstallHintLocal": "快捷服务依赖 Docker。请先运行 curl -fsSL https://get.docker.com | sh，并确认已执行 systemctl enable --now docker。",
@@ -1076,6 +1079,8 @@ export const en: Record<string, string> = {
 	"backend.ai.providerNameIsRequired": "Provider name is required",
 	"backend.ai.apiKeyIsRequired": "API Key is required",
 	"backend.ai.invalidProviderType": "Invalid AI provider type",
+	"backend.ai.attachmentImagesOnly": "This provider cannot read {media} attachments; only images are supported.",
+	"backend.ai.attachmentAnthropicUnsupported": "Anthropic cannot read {media} attachments; images and PDF are supported.",
 	"backend.ai.providerNotFound": "Provider not found",
 	"backend.ai.aiProviderNotFound": "AI provider not found",
 	"backend.ai.conversationNotFound": "Conversation not found",
@@ -1158,6 +1163,7 @@ export const en: Record<string, string> = {
 		"Extra port {port} is already in use on the target VPS",
 	"backend.quick-service.noAvailablePortOnTarget":
 		"No available port could be allocated on the target VPS; specify a free port",
+	"backend.quick-service.appSourceNotCatalogue": "The app source did not return a catalogue (an error response or an unexpected format); its apps were kept.",
 	"backend.quick-service.dockerNotInstalled": "Docker is not installed",
 	"backend.quick-service.dockerNotRunning": "Docker is not running, or the current user cannot access the Docker daemon",
 	"backend.quick-service.dockerInstallHintLocal": "Quick services require Docker. Run curl -fsSL https://get.docker.com | sh, then ensure systemctl enable --now docker has completed.",

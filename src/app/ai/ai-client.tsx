@@ -114,6 +114,7 @@ export function AiClient({
     currentModelCaps,
     modelName: activeConv?.model,
     enableVision: activeConv?.enableVision,
+    providerType: activeProvider?.type,
     onReject: (msg) => addToast("error", msg),
     t,
   });

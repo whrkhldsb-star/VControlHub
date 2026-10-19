@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DashboardWidgetDetailDialog } from "../dashboard-widget-detail-dialog";
@@ -82,4 +82,23 @@ describe("DashboardWidgetDetailDialog", () => {
 		);
 		expect(screen.queryByTestId("dashboard-widget-detail-dialog")).not.toBeInTheDocument();
 	});
+
+	it("follows the live widget: opened while it was loading, it shows the data that arrives", async () => {
+		// A one-off clone kept showing "loading" after the widget had its chart.
+		const ref = makeWidgetRef();
+		const widget = ref.current.querySelector("section")!;
+		widget.textContent = "Loading analytics";
+		render(
+			<DashboardWidgetDetailDialog
+				openId="server-status"
+				onClose={vi.fn()}
+				widgetRef={ref as unknown as React.RefObject<HTMLElement | null>}
+			/>,
+		);
+		expect(screen.getByText("Loading analytics")).toBeInTheDocument();
+		widget.innerHTML = `<div data-testid="server-analytics-chart">chart</div>`;
+		await waitFor(() => expect(screen.getByTestId("server-analytics-chart")).toBeInTheDocument());
+		expect(screen.queryByText("Loading analytics")).not.toBeInTheDocument();
+	});
 });
+

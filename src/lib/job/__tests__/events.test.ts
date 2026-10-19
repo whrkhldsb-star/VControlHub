@@ -116,10 +116,10 @@ describe("job events service", () => {
 
   it("applies keepLatest per job, so a chatty job cannot consume another job's budget", async () => {
     const olderThan = new Date("2026-06-01T00:00:00Z");
-    mockPrisma.jobEvent.groupBy.mockResolvedValueOnce([
-      { jobId: "job-chatty" },
-      { jobId: "job-quiet" },
-    ]);
+    // Jobs over their budget, then those of them with events old enough.
+    mockPrisma.jobEvent.groupBy
+      .mockResolvedValueOnce([{ jobId: "job-chatty" }, { jobId: "job-quiet" }, { jobId: "job-fresh" }])
+      .mockResolvedValueOnce([{ jobId: "job-chatty" }, { jobId: "job-quiet" }]);
     mockPrisma.jobEvent.findMany
       .mockResolvedValueOnce([{ id: "chatty-1" }, { id: "chatty-2" }])
       .mockResolvedValueOnce([{ id: "quiet-1" }]);
@@ -129,11 +129,16 @@ describe("job events service", () => {
 
     const result = await pruneJobEvents({ keepLatest: 2, olderThan });
 
-    // Only jobs holding prunable events are visited.
-    expect(mockPrisma.jobEvent.groupBy).toHaveBeenCalledWith({
+    // Only jobs holding more than keepLatest events, with some old enough, are visited.
+    expect(mockPrisma.jobEvent.groupBy).toHaveBeenNthCalledWith(1, {
       by: ["jobId"],
-      where: { createdAt: { lt: olderThan } },
+      having: { jobId: { _count: { gt: 2 } } },
     });
+    expect(mockPrisma.jobEvent.groupBy).toHaveBeenNthCalledWith(2, {
+      by: ["jobId"],
+      where: { createdAt: { lt: olderThan }, jobId: { in: ["job-chatty", "job-quiet", "job-fresh"] } },
+    });
+    expect(mockPrisma.jobEvent.findMany).not.toHaveBeenCalledWith(expect.objectContaining({ where: { jobId: "job-fresh" } }));
     // Each job gets the full keepLatest, scoped to its own stream.
     expect(mockPrisma.jobEvent.findMany).toHaveBeenCalledWith({
       where: { jobId: "job-chatty" },
@@ -157,7 +162,7 @@ describe("job events service", () => {
     expect(result).toEqual({ count: 12 });
   });
 
-  it("caps how many jobs one global sweep visits and warns instead of skipping silently", async () => {
+  it("visits every job over its budget in one sweep (a fixed first slice re-read the same jobs each run)", async () => {
     const groups = Array.from({ length: 501 }, (_, index) => ({ jobId: `job-${index}` }));
     mockPrisma.jobEvent.groupBy.mockResolvedValueOnce(groups);
     mockPrisma.jobEvent.findMany.mockResolvedValue([]);
@@ -165,11 +170,7 @@ describe("job events service", () => {
 
     await pruneJobEvents({ keepLatest: 10 });
 
-    expect(mockPrisma.jobEvent.findMany).toHaveBeenCalledTimes(500);
-    expect(warnMock).toHaveBeenCalledWith(
-      "job event prune scope cap reached; remaining jobs prune on the next run",
-      { jobs: 501, cap: 500 },
-    );
+    expect(mockPrisma.jobEvent.findMany).toHaveBeenCalledTimes(501);
   });
 
   it("scopes prune to a single job when jobId is provided", async () => {

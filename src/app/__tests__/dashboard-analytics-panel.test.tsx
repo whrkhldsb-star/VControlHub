@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { I18nProvider } from "@/lib/i18n/provider";
-import { DashboardAnalyticsPanel } from "../dashboard-analytics-panel";
+import { DashboardAnalyticsPanel, formatShortDate } from "../dashboard-analytics-panel";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
@@ -71,5 +71,13 @@ describe("DashboardAnalyticsPanel", () => {
     expect(screen.getByText("No download tasks in the last 7 days.")).toBeInTheDocument();
     expect(screen.queryByText("数据趋势")).not.toBeInTheDocument();
     expect(screen.queryByText("暂无节点指标快照。")).not.toBeInTheDocument();
+  });
+});
+
+describe("formatShortDate", () => {
+  it("labels a day key as that calendar day in any browser time zone", () => {
+    // new Date("2026-10-19") is UTC midnight: a browser west of UTC showed 10/18.
+    expect(formatShortDate("2026-10-19")).toBe("10/19");
+    expect(formatShortDate("2026-01-05")).toBe("1/5");
   });
 });

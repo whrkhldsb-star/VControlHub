@@ -33,12 +33,15 @@ export function extractTemplateVariables(command: string, rollbackCommand?: stri
 
 /* ── Render command with variables ────────────────────────── */
 
+/**
+ * Fill `{{name}}` placeholders with the values as literal text, in one pass.
+ * A replacement string reads `$$`, `$&` and `$'` as patterns (a value
+ * "pa$$word" rendered "pa$word"), and replacing one variable after another
+ * expanded placeholders that a value itself contained.
+ */
 export function renderCommand(template: string, vars: Record<string, string>): string {
-	let result = template;
-	for (const [key, value] of Object.entries(vars)) {
-		result = result.replaceAll(`{{${key}}}`, value);
-	}
-	return result;
+	return template.replace(/\{\{(\w+)\}\}/g, (placeholder, name: string) =>
+		Object.prototype.hasOwnProperty.call(vars, name) ? vars[name]! : placeholder);
 }
 
 /* ── Built-in templates ───────────────────────────────────── */

@@ -12,6 +12,14 @@ const { prismaMock, createNotificationMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
+// Two evaluators must not both alert one budget period: serialised per period.
+const lockKeys = vi.hoisted(() => [] as string[]);
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+	acquireAdvisoryLock: vi.fn(async (namespace: string, key: string) => {
+		lockKeys.push(`${namespace}|${key}`);
+		return async () => undefined;
+	}),
+}));
 
 const { createCostBudget, updateCostBudget, deleteCostBudget, listCostBudgets, getBudgetPeriodRange, checkBudgetAlerts } = await import("../service");
 
@@ -75,6 +83,7 @@ describe("cost budget service", () => {
 		const second = await checkBudgetAlerts(new Date("2026-06-16T10:00:00.000Z"));
 		expect(second.notificationsSent).toBe(0);
 		expect(second.duplicatesSkipped).toBe(2);
+		expect(lockKeys).toContain("cost-budget-alert|budget-1:2026-06-01");
 		expect(createNotificationMock).not.toHaveBeenCalled();
 	});
 

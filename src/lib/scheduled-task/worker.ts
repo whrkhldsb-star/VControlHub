@@ -179,7 +179,15 @@ async function dispatchDueTask(task: {
       idempotencyKey: `scheduled-task:${task.id}:${occurrence?.toISOString() ?? "manual"}`,
     });
 
+    try {
       await recordTaskDispatch(task.id, result.id);
+    } catch (error) {
+      // The request exists; only its link failed. Not an execution failure
+      // (that disabled a ONCE task and lost the request's result): the claim
+      // is handed back below, and the next tick replays this occurrence,
+      // which returns the same request (idempotency key) and links it.
+      throw new DispatchLinkError(result.id, error);
+    }
     return true;
   } catch (error) {
     // We claimed the row (so no one else will dispatch it this tick),
@@ -211,6 +219,14 @@ async function dispatchDueTask(task: {
   }
 }
 
+/** The command request was created but linking it to its task failed. */
+export class DispatchLinkError extends Error {
+  constructor(readonly commandRequestId: string, cause: unknown) {
+    super(`Command request ${commandRequestId} created but not linked: ${cause instanceof Error ? cause.message : String(cause)}`);
+    this.name = "DispatchLinkError";
+  }
+}
+
 export async function dispatchDueScheduledTasks(reason: string) {
   const dueTasks = await prisma.scheduledTask.findMany({
     where: {
@@ -236,6 +252,7 @@ export async function dispatchDueScheduledTasks(reason: string) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error("Scheduled task execution failed", { reason, taskId: task.id, error: message });
+      if (error instanceof DispatchLinkError) continue;
       try {
         // Structured "failed" outcome — the prefix on this string is display
         // copy only; failure detection must never parse it (see recordTaskRun).

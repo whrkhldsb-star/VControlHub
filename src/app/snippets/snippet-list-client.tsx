@@ -88,6 +88,26 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
   const { state: filters, setField: setFilter } = useUrlQueryState({ q: "", lang: "ALL" });
   const search = filters.q;
   const langFilter = filters.lang;
+  // The list carries a 240-character preview only: whole-body matches come
+  // from the server, so a word further down a long snippet is found too
+  // (and the result no longer depends on whether it was opened before).
+  const [bodyMatches, setBodyMatches] = useState<{ q: string; ids: Set<string> } | null>(null);
+  useEffect(() => {
+    const q = search.trim();
+    if (!q) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      csrfFetch<{ snippets: Snippet[] }>(`/api/snippets?q=${encodeURIComponent(q)}`)
+        .then((data) => {
+          if (!cancelled) setBodyMatches({ q, ids: new Set((data.snippets ?? []).map((row) => row.id)) });
+        })
+        .catch(() => undefined);
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [search]);
 
   useEffect(
     () => () => {
@@ -103,13 +123,14 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
+    const serverMatches = bodyMatches && bodyMatches.q === search.trim() ? bodyMatches.ids : null;
     return items.filter((s) => {
       if (langFilter !=="ALL" && s.language !== langFilter) return false;
       const searchableContent = (s.content ?? s.contentPreview ?? "").toLowerCase();
-      if (q && !s.title.toLowerCase().includes(q) && !searchableContent.includes(q) && !s.description?.toLowerCase().includes(q) && !s.tags.some((t) => t.toLowerCase().includes(q))) return false;
+      if (q && !serverMatches?.has(s.id) && !s.title.toLowerCase().includes(q) && !searchableContent.includes(q) && !s.description?.toLowerCase().includes(q) && !s.tags.some((t) => t.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [items, search, langFilter]);
+  }, [items, search, langFilter, bodyMatches]);
 
   const handleDelete = async () => {
     if (!pendingDelete) return;

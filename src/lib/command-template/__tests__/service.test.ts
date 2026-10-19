@@ -254,3 +254,18 @@ describe("command template service", () => {
     ).rejects.toThrow(/无权|No permission/);
   });
 });
+
+describe("renderCommand", () => {
+  it("substitutes in one pass: a value that looks like a placeholder stays literal", () => {
+    // Sequential replaces re-expanded "{{b}}" inside a's value.
+    expect(service.renderCommand("echo {{a}} {{b}}", { a: "{{b}}", b: "x" })).toBe("echo {{b}} x");
+  });
+
+  it("leaves unknown placeholders and inherited names alone", () => {
+    expect(service.renderCommand("{{missing}} {{toString}}", {})).toBe("{{missing}} {{toString}}");
+  });
+
+  it("does not interpret $ patterns in values", () => {
+    expect(service.renderCommand("echo {{v}}", { v: "$& $1 $$" })).toBe("echo $& $1 $$");
+  });
+});

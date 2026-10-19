@@ -1,6 +1,7 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
+import type { CommandRequestStatus } from "@prisma/client";
 import { createCommandRequest } from "@/lib/command/service";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
@@ -330,8 +331,10 @@ export async function recordTaskDispatch(id: string, commandRequestId: string, m
 const TERMINAL_COMMAND_STATUSES = new Set(["COMPLETED", "FAILED", "REJECTED", "CANCELLED"]);
 
 export async function reconcileScheduledTaskRuns(limit = 500) {
+	// Only runs whose request has finished: reading the oldest DISPATCHED
+	// first let 500 requests waiting for approval hide every finished one.
 	const pendingRuns = await prisma.scheduledTaskRun.findMany({
-		where: { status: "DISPATCHED" },
+		where: { status: "DISPATCHED", commandRequest: { status: { in: [...TERMINAL_COMMAND_STATUSES] as CommandRequestStatus[] } } },
 		orderBy: { dispatchedAt: "asc" },
 		take: limit,
 		include: {

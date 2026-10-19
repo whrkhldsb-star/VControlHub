@@ -199,7 +199,10 @@ interface LSIOResponse {
 
 async function fetchLinuxServer(url: string, sourceName: string): Promise<NormalizedApp[]> {
 	const data = (await fetchCatalogJson(url)) as LSIOResponse;
-	const images = data.data?.repositories?.linuxserver ?? [];
+	// Not a catalogue (an error body with HTTP 200, a changed format) is a
+	// failed sync: read as an empty catalogue it deleted every app of the source.
+	const images = data?.data?.repositories?.linuxserver;
+	if (!Array.isArray(images)) throw new BusinessError(t("backend.quick-service.appSourceNotCatalogue"));
 	const prefix = sourceSlug(sourceName);
 
 	// Build set of local catalog slugs to de-duplicate
@@ -277,8 +280,9 @@ async function fetchGenericJSON(url: string, sourceName: string): Promise<Normal
 
 	const apps: NormalizedApp[] = [];
 	const record = Array.isArray(data) ? null : data;
-	const candidateItems = Array.isArray(data) ? data : record?.apps ?? record?.data ?? [];
-	const items = Array.isArray(candidateItems) ? candidateItems.slice(0, APP_SOURCE_MAX_APPS) : [];
+	const candidateItems = Array.isArray(data) ? data : record?.apps ?? record?.data;
+	if (!Array.isArray(candidateItems)) throw new BusinessError(t("backend.quick-service.appSourceNotCatalogue"));
+	const items = candidateItems.slice(0, APP_SOURCE_MAX_APPS);
 	const prefix = sourceSlug(sourceName);
 
 	for (const item of items) {

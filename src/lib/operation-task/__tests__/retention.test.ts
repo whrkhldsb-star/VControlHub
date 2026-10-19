@@ -229,16 +229,12 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
     expect(result.perSource.command?.deleted).toBe(42);
   });
 
-  it("teamId 分组数超过上限 → 只处理前 200 个并 warn, 其余留给下一轮", async () => {
+  it("visits every customer scope: a fixed first 200 were the same each run, so later customers were never pruned", async () => {
     const scopes = Array.from({ length: 201 }, (_, index) => ({ teamId: `team_${index}` }));
     mockPrisma.commandRequest.groupBy.mockResolvedValue(scopes);
 
     await pruneOperationTaskHistory({ now: new Date("2026-06-15T00:00:00Z") });
 
-    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledTimes(200);
-    expect(warnMock).toHaveBeenCalledWith(
-      "Retention team scope cap reached; remaining scopes prune on the next run",
-      { source: "command", scopes: 201, cap: 200 },
-    );
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledTimes(201);
   });
 });

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
 	getAllSettingsMasked,
+	getSetting,
 	setManySettings,
 	isValidSettingKey,
 } from "@/lib/settings/service";
@@ -171,6 +172,11 @@ export async function PATCH(request: Request) {
 		const entries: Array<{ key: string; value: string }> = [];
 		const rejectedKeys: string[] = [];
 		const validationErrors: string[] = [];
+		// Telegram as it is after this update: turning it off while clearing
+		// the target is allowed (the target is required only to send).
+		const telegramEnabledAfter = typeof parsed.data["telegram.enabled"] === "string"
+			? parsed.data["telegram.enabled"]
+			: await getSetting("telegram.enabled").catch(() => "");
 
 		for (const [key, value] of Object.entries(parsed.data)) {
 			if (!isValidSettingKey(key)) {
@@ -186,6 +192,10 @@ export async function PATCH(request: Request) {
 			const entryResult = patchEntrySchema.safeParse({ key, value });
 			if (!entryResult.success) {
 				rejectedKeys.push(key);
+				continue;
+			}
+			if (key === "telegram.chatId" && telegramEnabledAfter !== "true" && value.trim() === "") {
+				entries.push({ key, value: "" });
 				continue;
 			}
 			try {

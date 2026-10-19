@@ -197,9 +197,14 @@ export async function createKnowledgeBase(input: {
   });
 }
 
+/** Documents per page of a knowledge base's list. */
+export const KNOWLEDGE_DOCUMENT_PAGE_SIZE = 100;
+
 export async function getKnowledgeBase(
   id: string,
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+  /** Documents to skip: later pages of the list (every document stays reachable). */
+  documentOffset = 0,
 ) {
   return prisma.knowledgeBase.findFirst({
     where: {
@@ -208,8 +213,9 @@ export async function getKnowledgeBase(
     },
     include: {
       documents: {
-        orderBy: { updatedAt: "desc" },
-        take: 100,
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        skip: Math.max(0, Math.floor(documentOffset)),
+        take: KNOWLEDGE_DOCUMENT_PAGE_SIZE,
         select: {
           id: true,
           title: true,

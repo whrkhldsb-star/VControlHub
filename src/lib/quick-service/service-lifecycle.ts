@@ -21,6 +21,7 @@ import {
 	getContainerHealthFor,
 	getContainerLogTailFor,
 	isDockerNoSuchContainerError,
+	assertContainerStarted,
 	targetFromService,
 	HUB_HOST_INSTANCE_KEY,
 } from "./docker-cli";
@@ -208,6 +209,23 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 			startError = error;
 		}
 		if (!startError) {
+			// `docker start` returning only means the start was accepted: hold an
+			// existing container to the same acceptance as a new one, or one
+			// whose process exits at once was recorded as running.
+			try {
+				await assertContainerStarted(target, containerName);
+			} catch (error) {
+				const msg = dockerErrorMessage(error);
+				await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "error", error: msg } });
+				await writeQuickServiceAudit({
+					action: "start",
+					slug: svc.slug,
+					status: "failed",
+					detail: { mode: "existing-container", error: msg.slice(0, 500) },
+					diff: { before, after: { status: "error", mode: "existing-container" } },
+				});
+				throw error;
+			}
 			// Bookkeeping failures after a successful start propagate as-is; they
 			// must not fall into the recreate path below.
 			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "running", error: null } });
@@ -412,8 +430,22 @@ export async function syncServiceStatus(slug: string, instanceKey: string = HUB_
 			diff: { before, after: { status, containerExisted: true } },
 		});
 		return status;
-	} catch {
-		// Container inspection failed (missing or unreachable) — treat as stopped.
+	} catch (error) {
+		// Only Docker saying the container does not exist means stopped. A
+		// timeout or an unreachable host says nothing about the container:
+		// keep the recorded status, record why, and let the refresh fail.
+		const message = dockerErrorMessage(error);
+		if (!isDockerNoSuchContainerError(error)) {
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { error: message.slice(0, 1000) } });
+			await writeQuickServiceAudit({
+				action: "sync",
+				slug: svc.slug,
+				status: "failed",
+				detail: { error: message.slice(0, 500) },
+				diff: { before, after: null },
+			});
+			throw new BusinessError(message.slice(0, 500));
+		}
 		await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "stopped" } });
 		await writeQuickServiceAudit({
 			action: "sync",

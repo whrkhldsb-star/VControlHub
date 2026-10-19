@@ -44,7 +44,7 @@ export function buildAiChatMessagePayload(input: {
   conv: ConversationForAiChat;
   isVisionCapable: boolean;
   locale: Locale;
-}): { allImageUrls: string[]; historyMessages: HistoryMessage[]; userText: string } {
+}): { allImageUrls: string[]; historyMessages: HistoryMessage[]; userText: string; persistedText: string } {
   const { body, conv, isVisionCapable, locale } = input;
   const historyMessages: HistoryMessage[] = [];
 
@@ -52,16 +52,22 @@ export function buildAiChatMessagePayload(input: {
     historyMessages.push({ role: "system", content: conv.systemPrompt });
   }
 
+  // The history is the latest window of a long thread, cut by row count: it
+  // can begin with tool results whose assistant call fell outside it.
+  // Providers reject a result with no matching call, so those are dropped.
+  const announcedToolCalls = new Set<string>();
   for (const msg of conv.messages) {
     if (msg.role === "system") continue;
 
     if (msg.role === "tool") {
-      historyMessages.push({ role: "tool", content: msg.content, tool_call_id: msg.toolCallId || undefined });
+      if (!msg.toolCallId || !announcedToolCalls.has(msg.toolCallId)) continue;
+      historyMessages.push({ role: "tool", content: msg.content, tool_call_id: msg.toolCallId });
       continue;
     }
 
     const toolCalls = safeJsonArray<AiToolCall>(msg.toolCalls);
     if (msg.role === "assistant" && toolCalls.length > 0) {
+      for (const call of toolCalls) announcedToolCalls.add(call.id);
       historyMessages.push({ role: "assistant", content: msg.content || "", tool_calls: toolCalls });
       continue;
     }
@@ -113,5 +119,7 @@ export function buildAiChatMessagePayload(input: {
   }
 
   // Base64 data is provider-only and must never be persisted in chat history.
-  return { allImageUrls: [...imageUrls], historyMessages, userText };
+  // Text attachments are: `persistedText` is what the model saw this turn, so
+  // the next turn (rebuilt from the database) can still refer to the file.
+  return { allImageUrls: [...imageUrls], historyMessages, userText, persistedText: fullText };
 }

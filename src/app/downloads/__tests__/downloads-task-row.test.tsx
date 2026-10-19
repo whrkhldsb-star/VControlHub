@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { DownloadTaskRow } from "../downloads-task-row";
+import { computePct, DownloadTaskRow } from "../downloads-task-row";
 import type { DownloadTask } from "../downloads-shared";
 
 const task: DownloadTask = {
@@ -53,5 +53,15 @@ describe("DownloadTaskRow file-manager link", () => {
       "href",
       "/files?nodeId=node_1&path=releases%2F2026%20Q3",
     );
+  });
+});
+
+describe("computePct", () => {
+  it("is a percentage, as the progress bar and the % label read it", () => {
+    expect(computePct("512", "1024")).toBe(50);
+    expect(computePct("1024", "1024")).toBe(100);
+    expect(computePct("1", "3")).toBe(33.3);
+    expect(computePct("0", "1024")).toBe(0);
+    expect(computePct("5", "0")).toBe(0);
   });
 });

@@ -20,6 +20,7 @@ import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 import { t } from "@/lib/i18n/service-translations";
 import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
+import { isNowInAlertSilenceWindow } from "@/lib/health/service-types";
 import type { NotificationMessage } from "@/lib/notification/message";
 import type { AlertIncidentStatus } from "@prisma/client";
 import { customerPermissionHoldersWhere, PLATFORM_ADMIN_WHERE } from "@/lib/auth/permission-holders";
@@ -434,8 +435,10 @@ async function retryPendingIncidentDelivery(
         minutes: Math.max(1, existing.escalationMinutes ?? input.escalationMinutes ?? (await getRuntimeSettingNumber("alerts.defaultEscalationMinutes").catch(() => 30))),
       }, pending)
     : await dispatchFiredNotice({ ...input, incidentId: existing.id }, pending);
+  // Only for the round it sent: an escalation in the meantime replaced the
+  // pending state, and this late level-N result must not clear it.
   await prisma.alertIncident.updateMany({
-    where: { id: existing.id, status: "OPEN" },
+    where: { id: existing.id, status: "OPEN", level: existing.level },
     data: deliveryState(now, attempts + 1, dispatch.failed, maxAttempts),
   });
   if (dispatch.failed.length > 0) {
@@ -607,7 +610,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
   // intent persisted with the incident then still has every channel pending.
   try {
     await prisma.alertIncident.updateMany({
-      where: { id: incident.id, status: "OPEN" },
+      where: { id: incident.id, status: "OPEN", level: 1 },
       data: deliveryState(now, 1, dispatch.failed, await notifyMaxAttempts()),
     });
   } catch (error) {
@@ -902,6 +905,7 @@ export async function escalateOverdueAlertIncidents(options?: {
             notifyChannels: true,
             webhookUrl: true,
             enabled: true,
+            silenceWindows: true,
           },
         },
       },
@@ -912,6 +916,9 @@ export async function escalateOverdueAlertIncidents(options?: {
 
     for (const incident of open) {
       if (!incident.rule?.enabled) continue;
+      // A silence window promises no in-app notice or webhook: hold the
+      // escalation; its anchor is unchanged, so it goes out once the window ends.
+      if (isNowInAlertSilenceWindow(incident.rule.silenceWindows ?? [], new Date(nowMs))) continue;
       const minutes = Math.max(1, incident.rule.escalationMinutes ?? defaultEscalationMinutes);
       const anchor = incident.lastNotifiedAt ?? incident.createdAt;
       if (nowMs - anchor.getTime() < minutes * 60_000) continue;

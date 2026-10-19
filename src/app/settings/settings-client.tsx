@@ -346,6 +346,9 @@ export function SettingsClient({
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
             });
+            // The effective-value panel and "last changed by" come from the
+            // server render: refresh it (form state is client state and stays).
+            router.refresh();
           }
           // Advance the dirty baseline so pending badges / high-risk confirm
           // and blur warnings no longer treat the just-saved values as edits.
@@ -398,7 +401,7 @@ export function SettingsClient({
       }
       await performSave();
     },
-    [settings, baselineSettings, runtimeSummaryByKey, t, tt],
+    [settings, baselineSettings, runtimeSummaryByKey, router, t, tt],
   );
 
   if (!canManage) {

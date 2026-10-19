@@ -137,4 +137,25 @@ describe("runOffsiteDryRun", () => {
 			globalThis.fetch = originalFetch;
 		}
 	});
+
+	it("fails when the probe it just wrote cannot be read back (HEAD 404)", async () => {
+		// A bucket that accepts writes but serves no reads would pass the
+		// dry run and fail every restore.
+		mocks.loadOffsiteConfig.mockResolvedValue(ENABLED_CONFIG);
+		const { fetchImpl, calls } = makeFetchMock(({ method }) => {
+			if (method === "PUT") return new Response("", { status: 200, headers: { etag: '"e"' } });
+			if (method === "HEAD") return new Response(null, { status: 404 });
+			if (method === "DELETE") return new Response(null, { status: 204 });
+			return new Response("", { status: 200 });
+		});
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchImpl as unknown as typeof fetch;
+		try {
+			await expect(runOffsiteDryRun()).rejects.toBeInstanceOf(S3Error);
+			expect(calls.map((c) => c.method)).toEqual(["PUT", "HEAD", "DELETE"]);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
 });
+

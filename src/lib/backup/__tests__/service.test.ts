@@ -372,7 +372,9 @@ describe("backup service", () => {
     expect(plan).toMatchObject({ id: "bak1", type: "DATABASE", component: "database", checksumSha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
     if (process.platform !== "win32") {
       expect(plan.commands.stopServices).toBe("sudo systemctl stop vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws");
-      expect(plan.commands.restore).toBe("cd '/opt/app' && CONFIRM_RESTORE=1 bash scripts/restore-db.sh 'backups/database.sql.gz'");
+      // The file the plan just verified, under BACKUP_DIR — not a path
+      // relative to the app directory the command runs in.
+      expect(plan.commands.restore).toBe("cd '/opt/app' && CONFIRM_RESTORE=1 bash scripts/restore-db.sh '/var/backups/vcontrolhub/backups/database.sql.gz'");
       expect(plan.commands.safetySnapshot).toMatch(/^cd '\/opt\/app' && bash deploy\/backup\.sh 'backups\/pre-restore-bak1-\d+\.sql\.gz'$/);
       expect(plan.commands.startServices).toBe("sudo systemctl start vcontrolhub-ssh-ws vcontrolhub-worker vcontrolhub-next");
     }
@@ -383,7 +385,7 @@ describe("backup service", () => {
     const plan = await prepareOfflineRestore({ id: "bak-full", projectRoot: "/opt/app", component: "files" });
     expect(plan.component).toBe("files");
     if (process.platform !== "win32") {
-      expect(plan.commands.restore).toBe("cd '/opt/app' && CONFIRM_RESTORE=1 bash scripts/restore-full.sh 'backups/full.tar.gz' 'files' '/opt/app'");
+      expect(plan.commands.restore).toBe("cd '/opt/app' && CONFIRM_RESTORE=1 bash scripts/restore-full.sh '/var/backups/vcontrolhub/backups/full.tar.gz' 'files' '/opt/app'");
       expect(plan.commands.safetySnapshot).toContain("--files 'backups/pre-restore-bak-full-");
     }
   });

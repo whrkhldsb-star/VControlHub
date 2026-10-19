@@ -66,7 +66,7 @@ async function dispatchOne(job: DueJob, reason: string): Promise<boolean> {
     // re-check after lock
     const fresh = await prisma.syncJob.findUnique({
       where: { id: job.id },
-      select: { schedule: true, lastSyncAt: true, status: true },
+      select: { schedule: true, lastSyncAt: true, createdAt: true, status: true },
     });
     if (!fresh || !isSyncJobDue(fresh)) return false;
     logger.info("dispatching scheduled sync job", {
@@ -113,7 +113,7 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
     // Whether a job is due is decided here, not in SQL, so every scheduled
     // job is read: a fixed first page (oldest lastSyncAt, where PostgreSQL
     // sorts never-run jobs last) could hold back due jobs indefinitely.
-    const dueJobs: Array<{ id: string; schedule: string | null; lastSyncAt: Date | null; status: string; name: string }> = [];
+    const dueJobs: Array<{ id: string; schedule: string | null; lastSyncAt: Date | null; createdAt: Date; status: string; name: string }> = [];
     let cursor: string | undefined;
     do {
       const page = await prisma.syncJob.findMany({
@@ -125,6 +125,7 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
           id: true,
           schedule: true,
           lastSyncAt: true,
+          createdAt: true,
           status: true,
           name: true,
         },

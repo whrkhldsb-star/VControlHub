@@ -44,6 +44,8 @@ type DashboardQueueSummary = {
   pendingApprovals: number;
   downloads: {
     running: number;
+    /** Queued (and paused) tasks: work still to do, counted like running. */
+    pending?: number;
     completed: number;
     failed: number;
   };
@@ -147,8 +149,21 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
   const completed = t("dashboard.completed");
   const failed = t("dashboard.failed");
 
-  const downloadValue = queue.downloads.running > 0 ? `${queue.downloads.running} ${running}` : String(queue.downloads.running + queue.downloads.completed + queue.downloads.failed);
-  const downloadDetail = queue.downloads.running > 0 ? `${queue.downloads.running} ${running} / ${queue.downloads.completed} ${completed} / ${queue.downloads.failed} ${failed}` : undefined;
+  const queued = queue.downloads.pending ?? 0;
+  const active = queue.downloads.running > 0 || queued > 0;
+  const downloadValue = queue.downloads.running > 0
+    ? `${queue.downloads.running} ${running}`
+    : queued > 0
+      ? `${queued} ${t("dashboard.queued")}`
+      : String(queue.downloads.completed + queue.downloads.failed);
+  const downloadDetail = active
+    ? [
+        queue.downloads.running > 0 ? `${queue.downloads.running} ${running}` : null,
+        queued > 0 ? `${queued} ${t("dashboard.queued")}` : null,
+        `${queue.downloads.completed} ${completed}`,
+        `${queue.downloads.failed} ${failed}`,
+      ].filter(Boolean).join(" / ")
+    : undefined;
 
   return (
     <section className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -166,7 +181,7 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
         columns={4}
         metrics={[
           { label: pending, value: String(queue.pendingApprovals), tone: queue.pendingApprovals > 0 ? "amber" : undefined, href: "/requests" },
-          { label: downloads, value: downloadValue, tone: queue.downloads.running > 0 ? "cyan" : undefined, detail: downloadDetail, href: "/downloads" },
+          { label: downloads, value: downloadValue, tone: active ? "cyan" : undefined, detail: downloadDetail, href: "/downloads" },
           { label: t("dashboard.unread-notifications"), value: String(queue.unreadNotifications), tone: queue.unreadNotifications > 0 ? "amber" : undefined, href: "/notifications" },
           { label: t("dashboard.active-schedules"), value: String(queue.activeScheduledTasks), href: "/scheduled-tasks" },
         ]}

@@ -302,7 +302,10 @@ export async function prepareOfflineRestore(input: {
 		commands: {
 			stopServices: systemd ? `sudo systemctl stop ${PLATFORM_SERVICE_UNITS.join(" ")}` : null,
 			safetySnapshot: buildPortableBackupCommand({ projectRoot, outputPath: snapshotPath, type: snapshotType }),
-			restore: buildBackupRestoreCommand({ projectRoot, backupPath: record.filePath, type, component, confirm: true }),
+			// The file just verified: records hold a path relative to the backup
+			// storage root (BACKUP_DIR), not to the app directory the command
+			// runs in, so the relative path pointed at a file that is not there.
+			restore: buildBackupRestoreCommand({ projectRoot, backupPath: record.filePath, resolvedBackupPath: backupPath, type, component, confirm: true }),
 			startServices: systemd ? `sudo systemctl start ${[...PLATFORM_SERVICE_UNITS].reverse().join(" ")}` : null,
 		},
 	};

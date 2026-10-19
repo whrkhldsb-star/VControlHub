@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
-  serverUptimeSnapshot: { upsert: vi.fn() },
+  serverUptimeSnapshot: { upsert: vi.fn(), findUnique: vi.fn(async () => null) },
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));

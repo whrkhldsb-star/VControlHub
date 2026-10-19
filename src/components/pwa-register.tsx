@@ -103,7 +103,12 @@ export function PwaRegister() {
   }, [addToast, t]);
   const refreshToUpdate = () => {
     const worker = updateState.waiting;
-    if (worker) {
+    // sw.js activates new versions on its own (skipWaiting + clients.claim):
+    // by the time the banner is clicked the worker has usually taken over and
+    // controllerchange already fired, so waiting for it never reloaded.
+    const alreadyActive = !worker || worker.state === "activating" || worker.state === "activated" || worker.state === "redundant"
+      || navigator.serviceWorker?.controller === worker;
+    if (!alreadyActive) {
       updateRequestedRef.current = true;
       worker.postMessage({ type: "VCH_PWA_SKIP_WAITING" });
       return;

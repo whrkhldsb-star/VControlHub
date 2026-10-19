@@ -240,6 +240,7 @@ export async function consumeProviderChatStream(input: {
   input.signal?.addEventListener("abort", cancelReader, { once: true });
   const decoder = new TextDecoder();
   let buffer = "";
+  let sawFinishReason = false;
 
   const consumeLine = (line: string) => {
     if (line.length > MAX_EVENT_CHARS) {
@@ -267,8 +268,13 @@ export async function consumeProviderChatStream(input: {
     }
     if (input.providerType === "ANTHROPIC") {
       if (event.type === "message_stop") finished = true;
-      else applyAnthropicEvent(event, state, input.onEvent);
+      else {
+        if (event.type === "message_delta" && record(event.delta)?.stop_reason) sawFinishReason = true;
+        applyAnthropicEvent(event, state, input.onEvent);
+      }
     } else {
+      const choices = Array.isArray(event.choices) ? event.choices : [];
+      if (choices.some((choice) => record(choice)?.finish_reason)) sawFinishReason = true;
       applyOpenAiEvent(event, state, input.onEvent);
     }
   };
@@ -319,6 +325,12 @@ export async function consumeProviderChatStream(input: {
     readError = new Error(
       `AI provider stream timed out after ${totalTimeoutMs / 1000} seconds`,
     );
+  }
+  // A body that simply ends, with no [DONE], finish_reason or message_stop,
+  // was cut off (a gateway closing early): the partial answer must not be
+  // reported as a completed one.
+  if (reachedEof && !finished && !sawFinishReason && !readError && !cancelRequested) {
+    readError = new Error("AI provider stream ended before the response was complete");
   }
   if (input.signal?.aborted && !readError) {
     readError = input.signal.reason ?? new DOMException("The operation was aborted", "AbortError");

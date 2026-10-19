@@ -72,22 +72,25 @@ export function assertSyncRemoteSucceeded(
 
 /* ── rsync output parsing ─────────────────────────────────── */
 
-function parseRsyncOutput(output: string) {
-	let totalFiles = 0;
-	let transferredFiles = 0;
-	let totalSize = 0;
+/**
+ * rsync --stats as numbers. Counts carry thousands separators ("1,006"), so
+ * a plain \d+ read 1; a real 0 is a result, not a reason to guess from the
+ * output's line count; and what this run moved is "Total transferred file
+ * size", not the size of everything at the source ("Total file size").
+ */
+export function parseRsyncOutput(output: string) {
+	const stat = (label: string): number | null => {
+		const match = new RegExp(`${label}:\\s*([\\d,.]+)`).exec(output);
+		if (!match) return null;
+		const value = Number.parseInt(match[1]!.replace(/[,.]/g, ""), 10);
+		return Number.isFinite(value) ? value : null;
+	};
+	const totalFiles = stat("Number of files") ?? 0;
+	let transferredFiles = stat("Number of regular files transferred");
+	const totalSize = stat("Total transferred file size") ?? 0;
 
-	const totalFileMatch = output.match(/Number of files:\s*(\d+)/);
-	if (totalFileMatch) totalFiles = parseInt(totalFileMatch[1]!, 10);
-
-	const transferredMatch = output.match(/Number of regular files transferred:\s*(\d+)/);
-	if (transferredMatch) transferredFiles = parseInt(transferredMatch[1]!, 10);
-
-	const totalSizeMatch = output.match(/Total file size:\s*([\d,]+)/);
-	if (totalSizeMatch) totalSize = parseInt(totalSizeMatch[1]!.replace(/,/g, ""), 10);
-
-	// Fallback: count lines that look like file transfers
-	if (transferredFiles === 0) {
+	// No --stats block at all (tar fallback): count lines that look like files.
+	if (transferredFiles === null) {
 		const lines = output.split("\n").filter((l) => l && !l.startsWith("sent ") && !l.startsWith("total ") && !l.startsWith("Number") && !l.startsWith("Total") && !l.startsWith("speedup"));
 		transferredFiles = lines.length;
 	}
@@ -360,9 +363,18 @@ export async function executeSyncJob(
 		throw new Error("Sync job is already running or paused");
 	}
 
-	const logEntry = await prisma.syncLog.create({
-		data: { syncJobId: jobId, status: "RUNNING" },
-	});
+	// Nothing ran yet: if the log cannot be written, hand the claim back
+	// instead of leaving the job RUNNING until the stale sweep (30 minutes).
+	let logEntry: { id: string };
+	try {
+		logEntry = await prisma.syncLog.create({
+			data: { syncJobId: jobId, status: "RUNNING" },
+		});
+	} catch (error) {
+		await prisma.syncJob.updateMany({ where: { id: jobId, status: "RUNNING" }, data: { status: job.status === "ERROR" ? "ERROR" : "IDLE" } })
+			.catch(() => undefined);
+		throw error;
+	}
 
 	const startTime = Date.now();
 

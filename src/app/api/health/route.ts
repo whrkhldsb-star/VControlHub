@@ -79,7 +79,8 @@ async function handleHealthRequest(request: Request, session: SessionPayload) {
       history: serialized,
       windowHours: hours ?? 24,
       latestSampleAt: serialized.at(-1)?.t ?? null,
-      samplingIntervalSeconds: 300,
+      // The cadence the newest sample was taken at (rows before the column: 5 min).
+      samplingIntervalSeconds: history.at(-1)?.intervalSeconds ?? 300,
     });
   }
 

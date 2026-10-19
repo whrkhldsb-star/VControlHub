@@ -109,6 +109,13 @@ const mediaStreamItemSelect = {
       publicBaseUrl: true,
       serverId: true,
       hostKeySha256: true,
+      // The node's own endpoint overrides and the server's OS decide the
+      // target and transport (resolveStorageSshCredentials), as for file
+      // operations (sftp-node.ts): without them playback used the server's
+      // host/user and, on Windows, its RDP port.
+      host: true,
+      port: true,
+      username: true,
       server: {
         select: {
           id: true,
@@ -118,6 +125,7 @@ const mediaStreamItemSelect = {
           username: true,
           connectionType: true,
           managementMode: true,
+          operatingSystem: true,
           password: true,
           // Without the pin the streaming routes' enforceHostKeyPin would fail
           // every connection — resolveStorageSshCredentials can only forward
@@ -383,8 +391,8 @@ export async function scanMediaFromFileEntries(
   // A rescan hard-deletes the index row of a file that is gone (WebDAV/SFTP
   // sync), and MediaItem.fileEntryId has no foreign key, so nothing above can
   // find that media: it lingered, and the file reappearing added a duplicate.
-  // Media whose FileEntry no longer exists is stale too; media without a
-  // FileEntry source is left alone.
+  // Media whose FileEntry no longer exists, or no longer is media, is stale
+  // too; media without a FileEntry source is left alone.
   {
     let cursor: { id: string } | undefined;
     for (;;) {
@@ -397,8 +405,13 @@ export async function scanMediaFromFileEntries(
       });
       const referenced = page.map((item) => item.fileEntryId!);
       if (referenced.length === 0) break;
+      // Still media: the entry exists and its current name/MIME classifies as
+      // media. A file renamed to note.txt kept its photo.jpg media row, since
+      // the scan only visits entries that look like media now.
       const live = new Set(
-        (await prisma.fileEntry.findMany({ where: { id: { in: referenced } }, select: { id: true } })).map((entry) => entry.id),
+        (await prisma.fileEntry.findMany({ where: { id: { in: referenced } }, select: { id: true, name: true, relativePath: true, mimeType: true } }))
+          .filter((entry) => classifyMedia(entry.mimeType, entry.name || entry.relativePath))
+          .map((entry) => entry.id),
       );
       staleFileEntryIds.push(...referenced.filter((id) => !live.has(id)));
       if (page.length < 1000) break;

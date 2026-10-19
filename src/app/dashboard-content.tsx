@@ -106,6 +106,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		pendingApprovals,
 		downloads: {
 			running: downloads.RUNNING ?? 0,
+			pending: downloads.PENDING ?? 0,
 			completed: downloads.COMPLETED ?? 0,
 			failed: downloads.FAILED ?? 0,
 		},

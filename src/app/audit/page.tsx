@@ -1,6 +1,6 @@
 
 import { requirePagePermission } from "@/lib/auth/page-guard";
-import { getAuditStats } from "@/lib/audit/service";
+import { getAuditStats, HIGH_RISK_AUDIT_ACTIONS } from "@/lib/audit/service";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { AuditLogClient } from "./audit-client";
 import { Card, PageShell, PageHeader, StatCard, StatGrid } from "@/components/page-shell";
@@ -8,7 +8,7 @@ import { Badge, Notice } from "@/components/ui-primitives";
 import { createLogger } from "@/lib/logging";
 import { ButtonLink } from "@/components/action-button";
 
-const HIGH_RISK_ACTIONS = ["command.execute", "storage.file_delete", "server.delete", "user.permission_update", "docker.container_restart", "api_token.create"];
+const HIGH_RISK_ACTIONS = HIGH_RISK_AUDIT_ACTIONS;
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +61,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 		logger.warn("Failed to load audit stats", error);
 	}
 	const highRiskCount = stats
-		? HIGH_RISK_ACTIONS.reduce((sum, action) => sum + (stats.byAction[action] ?? 0), 0)
+		? HIGH_RISK_ACTIONS.reduce((sum, action) => sum + (stats.highRiskByAction[action] ?? 0), 0)
 		: 0;
 	const topActions = stats ? Object.entries(stats.byAction).slice(0, 5) : [];
 	const warningRatio = stats && stats.total > 0 ? Math.round(((stats.bySeverity["WARNING"] ?? 0) / stats.total) * 100) : 0;

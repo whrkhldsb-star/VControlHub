@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+import { createHash, createHmac } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { S3Client, S3Error, randomProbeKey } from "../offsite/s3-client";
+import { S3Client, S3Error, randomProbeKey, uriEncodeKey, xmlText } from "../offsite/s3-client";
 
 function makeFetchMock(handler: (req: { method: string; url: string; body: Buffer | null; headers: Record<string, string> }) => Response | Promise<Response>) {
 	const calls: Array<{ method: string; url: string; body: Buffer | null; headers: Record<string, string> }> = [];
@@ -233,5 +234,67 @@ describe("randomProbeKey", () => {
 		const a = randomProbeKey();
 		const b = randomProbeKey();
 		expect(a).not.toBe(b);
+	});
+});
+
+/**
+ * SigV4 as the AWS documentation defines it, written independently of the
+ * client: the canonical URI is each path segment UriEncoded once.
+ */
+function referenceSignature(call: { method: string; url: string; headers: Record<string, string> }, secret: string, region: string) {
+	const url = new URL(call.url);
+	const auth = call.headers["authorization"]!;
+	const signed = /SignedHeaders=([^,]+)/.exec(auth)![1]!.split(";");
+	const amzDate = call.headers["x-amz-date"]!;
+	const day = amzDate.slice(0, 8);
+	const value = (name: string) => (name === "host" ? url.host : (call.headers[name] ?? "").trim());
+	const query = [...url.searchParams.entries()]
+		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+		.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+		.join("&");
+	const canonical = [
+		call.method,
+		url.pathname,
+		query,
+		signed.map((name) => `${name}:${value(name)}\n`).join(""),
+		signed.join(";"),
+		call.headers["x-amz-content-sha256"],
+	].join("\n");
+	const scope = `${day}/${region}/s3/aws4_request`;
+	const toSign = ["AWS4-HMAC-SHA256", amzDate, scope, createHash("sha256").update(canonical).digest("hex")].join("\n");
+	const hmac = (key: Buffer | string, data: string) => createHmac("sha256", key).update(data).digest();
+	const key = hmac(hmac(hmac(hmac(`AWS4${secret}`, day), region), "s3"), "aws4_request");
+	return createHmac("sha256", key).update(toSign).digest("hex");
+}
+
+describe("S3Client — object keys outside plain ASCII", () => {
+	it("UriEncodes each key segment once (spaces, non-ASCII, ? and # included)", () => {
+		expect(uriEncodeKey("dir one/中?#&+=.txt")).toBe("dir%20one/%E4%B8%AD%3F%23%26%2B%3D.txt");
+		expect(uriEncodeKey("a/b/c-_.~(1)!*'.gz")).toBe("a/b/c-_.~%281%29%21%2A%27.gz");
+	});
+
+	it("sends the key in full and signs the path it sends", async () => {
+		const { fetchImpl, calls } = makeFetchMock(() => new Response("", { status: 200, headers: { etag: '"e"' } }));
+		const client = new S3Client({ ...basicConfig(), fetchImpl });
+		await client.putObject("backups/报告 2026?v=1#a.tar.gz", "x");
+		const call = calls[0]!;
+		// "?" and "#" no longer cut the key off into a query/fragment.
+		expect(new URL(call.url).search).toBe("");
+		expect(new URL(call.url).hash).toBe("");
+		expect(decodeURIComponent(new URL(call.url).pathname)).toBe("/my-bucket/backups/报告 2026?v=1#a.tar.gz");
+		const signature = /Signature=([a-f0-9]{64})/.exec(call.headers["authorization"]!)![1];
+		expect(signature).toBe(referenceSignature(call, "examplesecret", "us-east-1"));
+	});
+
+	it("lists keys with XML entities decoded, so they can be deleted as listed", async () => {
+		const xml = `<ListBucketResult><IsTruncated>true</IsTruncated><NextContinuationToken>a&amp;b</NextContinuationToken>
+<Contents><Key>old&amp;one &lt;1&gt; &#x4E2D;&#25991;.gz</Key><Size>1</Size><LastModified>x</LastModified><ETag>&quot;e1&quot;</ETag></Contents></ListBucketResult>`;
+		const { fetchImpl } = makeFetchMock(() => new Response(xml, { status: 200 }));
+		const client = new S3Client({ ...basicConfig(), fetchImpl });
+		const out = await client.listObjects("");
+		expect(out.objects[0]!.key).toBe("old&one <1> 中文.gz");
+		expect(out.objects[0]!.etag).toBe("e1");
+		expect(out.nextContinuationToken).toBe("a&b");
+		expect(xmlText("&amp;lt; stays &amp;lt;")).toBe("&lt; stays &lt;");
 	});
 });

@@ -22,7 +22,9 @@ export async function GET(
     },
     async ({ session }) => {
       const { id } = await context.params;
-      const base = await getKnowledgeBase(id, session);
+      const offset = Number.parseInt(new URL(request.url).searchParams.get("offset") ?? "0", 10);
+      const documentOffset = Number.isFinite(offset) && offset > 0 ? offset : 0;
+      const base = await getKnowledgeBase(id, session, documentOffset);
       if (!base) throw new NotFoundError(apiCopy("apiCopy.knowledge.base.not.found.0ac936d8"));
       return NextResponse.json({
         knowledgeBase: {
@@ -33,6 +35,9 @@ export async function GET(
           documentCount: base._count.documents,
           chunkCount: base._count.chunks,
           documents: base.documents,
+          // Older documents still answer searches: the list must reach them.
+          documentsOffset: documentOffset,
+          documentsHasMore: documentOffset + base.documents.length < base._count.documents,
           updatedAt: base.updatedAt,
         },
       });

@@ -264,8 +264,15 @@ export function setupWebSocketServer(
 			heartbeatState.set(ws, true);
 		});
 
-		// Send initial unread count
 		ws.send(JSON.stringify({ type: "connected", userId }));
+		// The badge starts from the stored count: the client shows 0 until a
+		// count arrives, and existing unread notifications had no badge.
+		void import("@/lib/db")
+			.then(({ prisma }) => prisma.notification.count({ where: { userId, isRead: false } }))
+			.then((count) => {
+				if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: "unread_count", count }));
+			})
+			.catch(() => { /* the HTTP count remains the fallback */ });
 
 		// Heartbeat: client sends ping, server responds pong
 		ws.on("message", (data: Buffer) => {

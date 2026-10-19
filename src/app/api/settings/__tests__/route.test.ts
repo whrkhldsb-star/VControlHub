@@ -6,6 +6,7 @@ const { mocks } = vi.hoisted(() => ({
     getAllSettingsMasked: vi.fn(),
     setManySettings: vi.fn(),
     isValidSettingKey: vi.fn(),
+    getSetting: vi.fn(),
     auditUserAction: vi.fn(),
   },
 }));
@@ -15,6 +16,7 @@ vi.mock("@/lib/settings/service", () => ({
   getAllSettingsMasked: mocks.getAllSettingsMasked,
   setManySettings: mocks.setManySettings,
   isValidSettingKey: mocks.isValidSettingKey,
+  getSetting: mocks.getSetting,
 }));
 vi.mock("@/lib/settings/schema", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/settings/schema")>();
@@ -48,7 +50,10 @@ describe("/api/settings audit coverage", () => {
       "runtime.aiConversationListLimit",
       "security.loginLockoutMinutes",
       "security.sshEnforceHostKeyPin",
+      "telegram.enabled",
+      "telegram.chatId",
     ].includes(key));
+    mocks.getSetting.mockResolvedValue("");
     mocks.setManySettings.mockResolvedValue(undefined);
   });
 
@@ -252,4 +257,26 @@ describe("/api/settings audit coverage", () => {
     expect(response.status).toBe(400);
     expect(mocks.setManySettings).not.toHaveBeenCalled();
   });
+
+  it("turns Telegram off while clearing its target in one save", async () => {
+    // The target is required to send, not to stay off: requiring it here
+    // made the user keep (or re-type) the value they meant to remove.
+    const patch = (body: Record<string, string>) => route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }));
+    mocks.getSetting.mockResolvedValue("true");
+    const off = await patch({ "telegram.enabled": "false", "telegram.chatId": "" });
+    expect(off.status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([
+      { key: "telegram.enabled", value: "false" },
+      { key: "telegram.chatId", value: "" },
+    ]);
+
+    // Enabled (in this save or already), the target is still required.
+    expect((await patch({ "telegram.enabled": "true", "telegram.chatId": "" })).status).toBe(400);
+    expect((await patch({ "telegram.chatId": "" })).status).toBe(400);
+  });
 });
+

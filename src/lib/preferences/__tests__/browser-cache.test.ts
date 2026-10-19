@@ -49,4 +49,23 @@ describe("user preference browser cache", () => {
 			expect.objectContaining({ type: USER_PREFERENCES_CHANGED_EVENT }),
 		);
 	});
+
+	it("degrades when reading window.localStorage itself throws (storage blocked)", () => {
+		// Only setItem was guarded: a throwing getter escaped and a successful
+		// preferences load was shown as a failure.
+		const descriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+		Object.defineProperty(window, "localStorage", {
+			configurable: true,
+			get() {
+				throw new DOMException("The operation is insecure.", "SecurityError");
+			},
+		});
+		try {
+			expect(() => writeUserPreferencesCache({ autoRefreshInterval: 5 })).not.toThrow();
+			expect(readUserPreferencesCache()).toBeNull();
+		} finally {
+			if (descriptor) Object.defineProperty(window, "localStorage", descriptor);
+		}
+	});
 });
+

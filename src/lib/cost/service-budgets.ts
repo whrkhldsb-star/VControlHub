@@ -9,6 +9,7 @@ import { createCostBudgetSchema, updateCostBudgetSchema } from "./schema";
 import type { CostBudgetPeriod, CostBudgetRecord, CostCategory, CostCurrency, CostCurrencyBucket } from "./types";
 import { DEFAULT_CURRENCY, isoDateOnly, type TeamSession } from "./service-internals";
 import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 type BudgetRow = {
 	id: string; category: string; name: string; limitAmount: Prisma.Decimal; currency: string;
@@ -87,9 +88,16 @@ export async function checkBudgetAlerts(now = new Date(), session?: TeamSession 
 	for (const budget of budgets) {
 		if (!budget.enabled || budget.usagePercent < budget.alertThresholdPercent) continue; triggered += 1;
 		const actionUrl = `/cost-summary?budget=${budget.id}&periodStart=${budget.periodStart}`;
-		for (const manager of await listCostBudgetAlertManagers(budget.teamId)) {
-			if (await prisma.notification.findFirst({ where: { userId: manager.id, type: "system", actionUrl } })) { duplicatesSkipped += 1; continue; }
-			await createNotification({ userId: manager.id, type: "system", notice: { code: "costBudgetAlert", params: { budget: budget.name, used: budget.usageAmount, currency: budget.currency, percent: budget.usagePercent, threshold: budget.alertThresholdPercent, limit: budget.limitAmount } }, actionUrl, teamId: budget.teamId ?? null }); notificationsSent += 1;
+		// One alert per budget period and person: a manual check overlapping
+		// another (or the daily worker) both found none sent and both sent one.
+		const release = await acquireAdvisoryLock("cost-budget-alert", `${budget.id}:${budget.periodStart}`);
+		try {
+			for (const manager of await listCostBudgetAlertManagers(budget.teamId)) {
+				if (await prisma.notification.findFirst({ where: { userId: manager.id, type: "system", actionUrl } })) { duplicatesSkipped += 1; continue; }
+				await createNotification({ userId: manager.id, type: "system", notice: { code: "costBudgetAlert", params: { budget: budget.name, used: budget.usageAmount, currency: budget.currency, percent: budget.usagePercent, threshold: budget.alertThresholdPercent, limit: budget.limitAmount } }, actionUrl, teamId: budget.teamId ?? null }); notificationsSent += 1;
+			}
+		} finally {
+			await release();
 		}
 	}
 	return { checked: budgets.length, triggered, notificationsSent, duplicatesSkipped, budgets };

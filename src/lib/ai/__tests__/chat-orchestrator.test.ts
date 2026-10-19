@@ -63,7 +63,8 @@ const conversation = {
 function upstreamResponse(content: string): Response {
   return new Response(
     `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n` +
-      `data: ${JSON.stringify({ usage: { prompt_tokens: 2, completion_tokens: 1 } })}\n\n`,
+      `data: ${JSON.stringify({ usage: { prompt_tokens: 2, completion_tokens: 1 } })}\n\n` +
+      "data: [DONE]\n\n",
   );
 }
 
@@ -306,7 +307,7 @@ describe("createAiChatResponse", () => {
     });
     mocks.sendChatRequest.mockResolvedValueOnce({
       response: new Response(
-        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tool-1","function":{"name":"list_servers","arguments":"{}"}}]}}]}\n',
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tool-1","function":{"name":"list_servers","arguments":"{}"}}]}}]}\n' + 'data: [DONE]\n',
       ),
       providerType: "OPENAI",
       startTime: Date.now(),
@@ -381,7 +382,7 @@ describe("createAiChatResponse", () => {
     mocks.sendChatRequest
       .mockResolvedValueOnce({
         response: new Response(
-          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tool-1","function":{"name":"list_command_templates","arguments":"{}"}}]}}]}\n',
+          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tool-1","function":{"name":"list_command_templates","arguments":"{}"}}]}}]}\n' + 'data: [DONE]\n',
         ),
         providerType: "OPENAI",
         startTime: Date.now(),
@@ -433,7 +434,7 @@ describe("createAiChatResponse", () => {
     });
     mocks.sendChatRequest.mockResolvedValueOnce({
       response: new Response(
-        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tool-2","function":{"name":"restart_server","arguments":"{\\"serverId\\":\\"srv-1\\"}"}}]}}]}\n',
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tool-2","function":{"name":"restart_server","arguments":"{\\"serverId\\":\\"srv-1\\"}"}}]}}]}\n' + 'data: [DONE]\n',
       ),
       providerType: "OPENAI",
       startTime: Date.now(),

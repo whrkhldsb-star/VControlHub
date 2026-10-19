@@ -1,6 +1,6 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { createHash } from "node:crypto";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { createHash, randomBytes } from "node:crypto";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import path from "node:path";
 
@@ -440,10 +440,15 @@ export async function GET(
           throw new Error("THUMBNAIL_GENERATION_FAILED");
         }
 
+        // Write aside, then rename into place: a partial write (disk full)
+        // straight into the cache name was served as a "hit" from then on.
+        const partial = `${cacheFile}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
         try {
           await mkdir(cacheRoot, { recursive: true });
-          await writeFile(cacheFile, thumbnail);
+          await writeFile(partial, thumbnail);
+          await rename(partial, cacheFile);
         } catch (error) {
+          await rm(partial, { force: true }).catch(() => undefined);
           logger.warn("media thumbnail cache write failed", {
             error,
             id,

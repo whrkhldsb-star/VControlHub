@@ -71,15 +71,15 @@ export async function probeAllStaleStorageNodes(): Promise<{
 			AND: [
 				// Deleted customers retain data but no longer have live storage.
 				liveCustomerRowsWhere(),
-				{
-					OR: [
-						{ lastHealthCheckAt: null },
-						{ lastHealthCheckAt: { lt: cutoff } },
-						{ healthStatus: "UNKNOWN" },
-					],
-				},
+				// Only drivers with a probe: WebDAV always answers UNKNOWN, and
+				// "UNKNOWN is a candidate" kept fifty of them in every batch while
+				// LOCAL/SFTP nodes behind them were never checked.
+				{ driver: { in: ["LOCAL", "SFTP"] } },
+				{ OR: [{ lastHealthCheckAt: null }, { lastHealthCheckAt: { lt: cutoff } }] },
 			],
 		},
+		// Never checked first, then the longest unchecked.
+		orderBy: [{ lastHealthCheckAt: { sort: "asc", nulls: "first" } }, { id: "asc" }],
 		take: PROBE_BATCH_LIMIT,
 	});
 	if (candidates.length === 0) {

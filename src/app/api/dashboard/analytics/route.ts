@@ -45,9 +45,10 @@ async function forEachAnalyticsPage<T extends { id: string }>(
   }
 }
 
+/** The UTC hour (setMinutes worked in the host's zone: off on a :30/:45 offset). */
 function startOfUtcHour(value: Date) {
   const hour = new Date(value);
-  hour.setMinutes(0, 0, 0);
+  hour.setUTCMinutes(0, 0, 0);
   return hour.toISOString();
 }
 

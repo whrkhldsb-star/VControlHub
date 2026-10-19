@@ -9,6 +9,8 @@ const { prismaMock, fetchSourceAppsMock } = vi.hoisted(() => ({
 		},
 		appSourceApp: {
 			findMany: vi.fn(),
+			// Slug holder lookup: null means no other source owns the slug.
+			findUnique: vi.fn(async () => null),
 			upsert: vi.fn(),
 			deleteMany: vi.fn(),
 		},

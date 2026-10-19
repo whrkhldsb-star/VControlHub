@@ -42,6 +42,14 @@ describe("pruneLogTables", () => {
 		expect(delegates.serverAgentJob.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["j1", "j2"] } } });
 	});
 
+	it("keeps upload sessions that await manual recovery", async () => {
+		// Their metadata is what the recovery runbook lists; the chunks stay on disk.
+		delegates.mediaUploadSession.findMany.mockResolvedValueOnce([{ id: "m1" }]);
+		await pruneLogTables({ now: NOW });
+		expect(delegates.mediaUploadSession.findMany.mock.calls[0]![0].where.recoveryRequired).toBe(false);
+		expect(delegates.mediaUploadSession.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["m1"] }, recoveryRequired: false } });
+	});
+
 	it("works through a backlog in bounded batches and reports the table as truncated", async () => {
 		const batch = Array.from({ length: 2_000 }, (_, index) => ({ id: `s${index}` }));
 		delegates.shareAccessLog.findMany.mockResolvedValue(batch);

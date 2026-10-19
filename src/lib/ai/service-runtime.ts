@@ -15,6 +15,7 @@ import { defaultAiBaseUrl, fetchProviderModels, postProviderChat, trimProviderBa
 
 import { safeDecryptApiKey } from "./service-crud";
 import { t } from "@/lib/i18n/service-translations";
+import { assertImageOnlyAttachments, toAnthropicMessages } from "./anthropic-messages";
 
 const DEFAULT_AI_BASE_URL = defaultAiBaseUrl();
 
@@ -31,7 +32,11 @@ export async function createMessage(input: {
 	outputTokens?: number;
 	latencyMs?: number;
 }) {
-	return prisma.aiMessage.create({
+	// A message is activity: the sidebar orders conversations by updatedAt,
+	// which an insert into ai_messages does not touch on its own, so a
+	// conversation picked up again stayed where it was (or off the list).
+	const [message] = await prisma.$transaction([
+		prisma.aiMessage.create({
 		data: {
 			conversationId: input.conversationId,
 			role: input.role,
@@ -43,7 +48,10 @@ export async function createMessage(input: {
 			outputTokens: input.outputTokens ?? null,
 			latencyMs: input.latencyMs ?? null,
 		},
-	});
+		}),
+		prisma.aiConversation.updateMany({ where: { id: input.conversationId }, data: { updatedAt: new Date() } }),
+	]);
+	return message;
 }
 
 /* ── Model discovery ─────────────────────────────────────────── */
@@ -277,37 +285,8 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 		const systemMsg = req.messages.find((m) => m.role === "system");
 		const chatMessages = req.messages.filter((m) => m.role !== "system");
 
-		// Convert OpenAI-style content parts to Anthropic format
-		const anthropicMessages = chatMessages.map((m) => {
-			if (typeof m.content === "string") {
-				return { role: m.role, content: m.content };
-			}
-			// Multimodal: convert image_url → Anthropic image blocks
-			const parts: Array<{ type: string; text?: string; source?: Record<string, unknown> }> = [];
-			for (const part of m.content as Array<{ type: string; text?: string; image_url?: { url: string } }>) {
-				if (part.type === "text") {
-					parts.push({ type: "text", text: part.text });
-				} else if (part.type === "image_url" && part.image_url) {
-					const imgSrc = part.image_url.url;
-					if (imgSrc.startsWith("data:")) {
-						// data:image/png;base64,xxxx → extract
-						const match = imgSrc.match(/^data:([^;]+);base64,(.+)$/);
-						if (match) {
-							parts.push({
-								type: "image",
-								source: { type: "base64", media_type: match[1], data: match[2] },
-							});
-						}
-					} else {
-						parts.push({
-							type: "image",
-							source: { type: "url", url: imgSrc },
-						});
-					}
-				}
-			}
-			return { role: m.role, content: parts };
-		});
+		// Tool calls, tool results and PDFs in the Messages API's own shape.
+		const anthropicMessages = toAnthropicMessages(chatMessages);
 
 		body = {
 			model: req.model,
@@ -330,6 +309,7 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 		// Use OpenAI-compatible proxy if available; otherwise native format
 		url = `${baseUrl}/chat/completions`;
 		headers["Authorization"] = `Bearer ${rawApiKey}`;
+		assertImageOnlyAttachments(req.messages);
 		body = {
 			model: req.model,
 			messages: req.messages,
@@ -337,11 +317,15 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 			max_tokens: req.max_tokens ?? 4096,
 			top_p: req.top_p ?? 1.0,
 			stream: req.stream ?? true,
+			// The OpenAI-compatible endpoint takes function tools as the others do;
+			// without them hosting could never call one through Gemini.
+			...(req.tools && req.tools.length > 0 && { tools: req.tools }),
 		};
 	} else {
 		// ── OpenAI / OpenAI-Compatible ──
 		url = `${baseUrl}/chat/completions`;
 		headers["Authorization"] = `Bearer ${rawApiKey}`;
+		assertImageOnlyAttachments(req.messages);
 		body = {
 			model: req.model,
 			messages: req.messages,

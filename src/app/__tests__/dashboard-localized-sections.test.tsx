@@ -140,3 +140,21 @@ describe("localized dashboard sections", () => {
     expect(stats).toHaveLength(1);
   });
 });
+
+describe("dashboard download indicator", () => {
+  it("counts queued (PENDING) downloads instead of showing zero", () => {
+    renderWithLocale(
+      <DashboardStatsSection
+        storage={{ serverTotal: 1, serverEnabled: 1, totalNodes: 1, totalEntries: 1 }}
+        queue={{
+          pendingApprovals: 0,
+          downloads: { running: 0, pending: 1, completed: 0, failed: 0 },
+          unreadNotifications: 0,
+          activeScheduledTasks: 0,
+        }}
+      />,
+      "en",
+    );
+    expect(screen.getAllByText("1 queued").length).toBeGreaterThan(0);
+  });
+});

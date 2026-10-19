@@ -89,10 +89,24 @@ function isAwsS3(endpoint: string): boolean {
 	return /(^|\.)amazonaws\.com$/i.test(new URL(endpoint.startsWith("http") ? endpoint : `https://${endpoint}`).hostname);
 }
 
+/**
+ * AWS SigV4 UriEncode of an object key, once, segment by segment: every byte
+ * but A-Z a-z 0-9 - . _ ~ is percent-encoded, "/" separates segments. encodeURI
+ * left "?" and "#" alone (they then cut the key off in the URL) and the
+ * signer encoded the already-encoded path again, so keys with non-ASCII
+ * characters or spaces failed their signature.
+ */
+export function uriEncodeKey(key: string): string {
+	return key
+		.split("/")
+		.map((segment) => encodeURIComponent(segment).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`))
+		.join("/");
+}
+
 function buildBaseUrl(cfg: S3ClientConfig, key = ""): string {
 	const endpoint = normalizeEndpoint(cfg.endpoint);
 	const usePathStyle = cfg.pathStyle ?? !isAwsS3(endpoint);
-	const keyPart = key ? `/${encodeURI(key).replace(/\+/g, "%2B")}` : "";
+	const keyPart = key ? `/${uriEncodeKey(key)}` : "";
 	if (usePathStyle) {
 		return `${endpoint}/${cfg.bucket}${keyPart}`;
 	}
@@ -160,7 +174,8 @@ function signV4(req: SignableRequest, secretAccessKey: string): { headers: Recor
 		}).join("");
 	const canonicalRequest = [
 		req.method,
-		encodeURI(req.url.pathname).replace(/%2F/g, "/"),
+		// Already UriEncoded once by buildBaseUrl: S3 signs it as sent.
+		req.url.pathname,
 		// Canonical query string: sort by name, then value
 		Array.from(req.url.searchParams.entries())
 			.sort(([a], [b]) => a.localeCompare(b))
@@ -445,17 +460,32 @@ export class S3Client {
 		const codeMatch = /<Code>([^<]+)<\/Code>/.exec(text);
 		const msgMatch = /<Message>([^<]+)<\/Message>/.exec(text);
 		const code = codeMatch?.[1] ?? "UnknownError";
-		const message = msgMatch?.[1] ?? (text.slice(0, 200) || `${op} ${key} failed with status ${res.status}`);
+		const message = msgMatch?.[1] ? xmlText(msgMatch[1]) : (text.slice(0, 200) || `${op} ${key} failed with status ${res.status}`);
 		throw new S3Error(`${op} ${key} failed: ${message}`, res.status, code, requestId);
 	}
 }
 
 /* ── Lightweight XML parser (list-type=2 only) ────────────── */
 
+/**
+ * XML text content as the string it encodes: a key "old&one.gz" is listed as
+ * "old&amp;one.gz", and deleting that literal text removed nothing (a 404
+ * counts as done) while retention reported the object deleted.
+ */
+export function xmlText(raw: string): string {
+	return raw.replace(/&(#x[0-9a-fA-F]+|#[0-9]+|amp|lt|gt|quot|apos);/g, (entity, body: string) => {
+		if (body[0] === "#") {
+			const code = body[1] === "x" ? Number.parseInt(body.slice(2), 16) : Number.parseInt(body.slice(1), 10);
+			return Number.isFinite(code) && code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+		}
+		return ({ amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'" } as Record<string, string>)[body] ?? entity;
+	});
+}
+
 function parseListV2(xml: string): S3ListResult {
 	const tag = (name: string): string => {
 		const re = new RegExp(`<${name}>([\\s\\S]*?)</${name}>`);
-		return re.exec(xml)?.[1]?.trim() ?? "";
+		return xmlText(re.exec(xml)?.[1]?.trim() ?? "");
 	};
 	const isTruncated = tag("IsTruncated") === "true";
 	const nextContinuationToken = tag("NextContinuationToken") || undefined;
@@ -464,10 +494,10 @@ function parseListV2(xml: string): S3ListResult {
 	let m: RegExpExecArray | null;
 	while ((m = contentsRe.exec(xml)) !== null) {
 		const block = m[1] ?? "";
-		const key = /<Key>([\s\S]*?)<\/Key>/.exec(block)?.[1] ?? "";
+		const key = xmlText(/<Key>([\s\S]*?)<\/Key>/.exec(block)?.[1] ?? "");
 		const size = Number(/<Size>([\s\S]*?)<\/Size>/.exec(block)?.[1] ?? 0);
 		const lastModified = /<LastModified>([\s\S]*?)<\/LastModified>/.exec(block)?.[1] ?? "";
-		const etag = /<ETag>([\s\S]*?)<\/ETag>/.exec(block)?.[1] ?? "";
+		const etag = xmlText(/<ETag>([\s\S]*?)<\/ETag>/.exec(block)?.[1] ?? "");
 		if (key) objects.push({ key, size, lastModified, etag: etag.replace(/"/g, "") });
 	}
 	return { objects, isTruncated, nextContinuationToken };

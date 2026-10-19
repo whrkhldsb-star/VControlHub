@@ -271,3 +271,25 @@ describe("collectServerMetrics", () => {
 		});
 	});
 });
+
+describe.skipIf(process.platform === "win32")("monitor script CPU sample", () => {
+	it("reports load over the sampling interval, not the average since boot", async () => {
+		const { execFileSync } = await import("node:child_process");
+		const { mkdtempSync, writeFileSync } = await import("node:fs");
+		const { tmpdir } = await import("node:os");
+		const path = await import("node:path");
+		const { MONITOR_SCRIPT } = await import("../monitor");
+		const dir = mkdtempSync(path.join(tmpdir(), "cpu-"));
+		// Since boot: 90% idle. Over the interval: 100 of 200 ticks idle, 50% busy.
+		const before = path.join(dir, "stat1");
+		const after = path.join(dir, "stat2");
+		writeFileSync(before, "cpu  500 0 400 9000 0 0 0 0 0 0\n");
+		writeFileSync(after, "cpu  550 0 450 9100 0 0 0 0 0 0\n");
+		const cpu = MONITOR_SCRIPT.slice(MONITOR_SCRIPT.indexOf('echo "===CPU==="'), MONITOR_SCRIPT.indexOf('echo "===MEM==="'));
+		expect(cpu.split("/proc/stat")).toHaveLength(3);
+		let read = 0;
+		const script = cpu.replace(/\/proc\/stat/g, () => (read++ === 0 ? before : after)).replace("sleep 0.5 2>/dev/null || sleep 1", "true");
+		const stdout = execFileSync("bash", ["-c", script], { encoding: "utf8" });
+		expect(parseMonitorScriptOutput(stdout).cpu.usagePercent).toBe(50);
+	});
+});

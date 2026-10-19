@@ -46,6 +46,14 @@ const qsLogger = createLogger("quick-service-lifecycle");
 
 const { normalizeVolumeEndpoint, splitContainerPathAndOptions, mkdirSync, DOCKER_SOCKET, TRUSTED_HOST_MOUNTS } = __internals;
 
+/** The container started and passed acceptance, but its final database write failed. */
+class ContainerCommittedError extends Error {
+	constructor(readonly containerId: string, readonly cause: unknown) {
+		super("Quick service container is running but its final state could not be saved");
+		this.name = "ContainerCommittedError";
+	}
+}
+
 async function rollbackInstallToSnapshot(
 	slug: string,
 	before: QuickServiceSnapshot | null,
@@ -165,15 +173,23 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		return port;
 	});
 
+	// Every exit before the container is created gives the ports back: a
+	// failed mkdir or upsert left them reserved in this process, so later
+	// installs avoided free ports and their check reported them taken.
 	if (target.kind === "local") {
-		for (const vol of template.volumesJson) {
-			const host = normalizeVolumeEndpoint(vol.host, "Host mount");
-			// The docker socket "host path" is a device/pipe, not a directory: on
-			// POSIX it is the unix socket literal, on Windows Docker Desktop the
-			// named pipe. mkdir would create a bogus directory either way.
-			if (host !== DOCKER_SOCKET && !TRUSTED_HOST_MOUNTS.has(host)) {
-				mkdirSync(host, { recursive: true });
+		try {
+			for (const vol of template.volumesJson) {
+				const host = normalizeVolumeEndpoint(vol.host, "Host mount");
+				// The docker socket "host path" is a device/pipe, not a directory: on
+				// POSIX it is the unix socket literal, on Windows Docker Desktop the
+				// named pipe. mkdir would create a bogus directory either way.
+				if (host !== DOCKER_SOCKET && !TRUSTED_HOST_MOUNTS.has(host)) {
+					mkdirSync(host, { recursive: true });
+				}
 			}
+		} catch (error) {
+			if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
+			throw error;
 		}
 	}
 
@@ -219,6 +235,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			},
 		});
 	} catch (err) {
+		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
 		// Upsert itself failed (db connectivity / unique constraint edge
 		// case) — record a "failed" audit with the pre-install snapshot so
 		// operators can see what state was supposed to be transitioned to.
@@ -242,6 +259,20 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		await recreateDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target });
 	} catch (err) {
 		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
+		if (err instanceof ContainerCommittedError) {
+			// Running and accepted; only its final bookkeeping failed. The row
+			// already holds the new configuration: keep it, do not roll back.
+			const msg = dockerErrorMessage(err.cause);
+			await writeQuickServiceAudit({
+				userId,
+				action: "install",
+				slug: template.slug,
+				status: "failed",
+				detail: { image: template.image, port: hostPort, error: msg.slice(0, 500), phase: "finalize", containerId: err.containerId },
+				diff: { before, after: { status: "unknown", containerId: err.containerId } },
+			}).catch(() => undefined);
+			throw new BusinessError(t("backend.quick-service.installFailedWithMessage", { message: msg }));
+		}
 		// recreateDockerContainer already removed any container it created and
 		// restored a previous one; removing the container name again here would
 		// delete that restored container (or a healthy one whose bookkeeping
@@ -403,10 +434,19 @@ export async function recreateDockerContainer(
 		}
 	}
 
-	await prisma.quickService.update({
-		where: { id: serviceId },
-		data: { status: "running", containerId, error: null },
-	});
+	// The new container runs and the previous one is gone: from here a
+	// database failure must not be "undone" by restoring the old row (it
+	// would describe a container that no longer exists). Retry once, then
+	// tell the caller the container is committed.
+	try {
+		await prisma.quickService.update({ where: { id: serviceId }, data: { status: "running", containerId, error: null } })
+			.catch(async () => {
+				await new Promise((resolve) => setTimeout(resolve, 500));
+				await prisma.quickService.update({ where: { id: serviceId }, data: { status: "running", containerId, error: null } });
+			});
+	} catch (error) {
+		throw new ContainerCommittedError(containerId, error);
+	}
 	await writeQuickServiceAudit({
 		userId: notice?.userId,
 		action: "install",
