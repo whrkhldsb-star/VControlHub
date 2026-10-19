@@ -213,15 +213,32 @@ describe("server service", () => {
     expect(result.password).not.toBe("sftp-secret");
   });
 
-  it("updates Windows domain while retaining encrypted password", async () => {
+  it("keeps the encrypted RDP password while the Windows account stays the same", async () => {
     const current = { id:"win", operatingSystem:"WINDOWS", host:"8.8.8.8", port:3389, name:"Windows", username:"Admin", rdpPassword:"ciphertext", rdpDomain:"OLD", rdpIgnoreCertificate:false, tags:[], teamId:null, commandTargets:[], createdAt:new Date(), updatedAt:new Date(), enabled:true };
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current as any);
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
     vi.mocked(prisma.server.update).mockImplementationOnce(({data})=>Promise.resolve({...current,...data}) as unknown as ReturnType<typeof prisma.server.update>);
-    const result = await updateServerProfile("win", { operatingSystem:"WINDOWS", rdpDomain:"NEW" });
-    expect(prisma.server.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({rdpPassword:"ciphertext",rdpDomain:"NEW"})}));
+    const result = await updateServerProfile("win", { operatingSystem:"WINDOWS", name:"Renamed node", username:"admin" });
+    expect(prisma.server.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({rdpPassword:"ciphertext",rdpDomain:"OLD",name:"Renamed node"})}));
     expect(result).not.toHaveProperty("rdpPassword");
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
+  });
+
+  it("requires the password of the account a Windows node switches to", async () => {
+    const current = { id:"win", operatingSystem:"WINDOWS", host:"8.8.8.8", port:3389, name:"Windows", username:"Administrator", rdpPassword:"ciphertext", rdpDomain:null, rdpIgnoreCertificate:false, tags:[], teamId:null, commandTargets:[], createdAt:new Date(), updatedAt:new Date(), enabled:true };
+    // Another user name, or another domain, keeping the old account's password: refused.
+    for (const change of [{ username:"whrkhldsb" }, { rdpDomain:"CORP" }]) {
+      vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current as any);
+      await expect(updateServerProfile("win", { operatingSystem:"WINDOWS", ...change })).rejects.toThrow();
+    }
+    expect(prisma.server.update).not.toHaveBeenCalled();
+    // With its own password it is saved.
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current as any);
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.server.update).mockImplementationOnce(({data})=>Promise.resolve({...current,...data}) as unknown as ReturnType<typeof prisma.server.update>);
+    await updateServerProfile("win", { operatingSystem:"WINDOWS", username:"whrkhldsb", rdpPassword:"new-account-secret" });
+    expect(prisma.server.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({username:"whrkhldsb"})}));
+    expect(vi.mocked(prisma.server.update).mock.calls[0]![0].data.rdpPassword).not.toBe("ciphertext");
   });
 
   it("requires SFTP revalidation before changing a Windows storage host", async () => {

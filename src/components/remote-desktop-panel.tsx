@@ -11,6 +11,12 @@ import { createRdpTunnel, rdpTicketError, rdpWebSocketUrl } from "./rdp-tunnel";
 
 /** Bounded recovery: transient gateway drops retry, a flapping gateway gives up. */
 const MAX_RECONNECT_ATTEMPTS = 8;
+/**
+ * Guacamole status codes for Windows refusing the account (wrong user or
+ * password; locked, disabled or expired account). Retrying cannot help and
+ * each attempt counts towards the account lockout.
+ */
+const LOGIN_REFUSED_ERRORS: Record<number, string> = { 0x0301: "rdp.error.credentials", 0x0303: "rdp.error.accountRefused" };
 /** Guacamole keysyms for the SAS (secure attention sequence) shortcut. */
 const KEYSYM_CTRL = 0xffe3, KEYSYM_ALT = 0xffe9, KEYSYM_DELETE = 0xffff;
 /** Base64 chunk size for outbound clipboard text (must stay well under the WS frame cap). */
@@ -119,6 +125,7 @@ export function RemoteDesktopPanel({
 		let everConnected = false;
 		let dropped = false;
 		let userStopped = false;
+		let loginRefused = false;
 		const cleanup = () => {
 			// Closing a tab ends the session and then unmounts it: release once,
 			// never write to a tunnel that is already closed.
@@ -340,7 +347,7 @@ export function RemoteDesktopPanel({
 					host.replaceChildren();
 					// Only an established session auto-reconnects — a failed first
 					// connect must leave its error message on screen, not loop.
-					if (everConnected && !userStopped && reconnects < MAX_RECONNECT_ATTEMPTS) {
+					if (everConnected && !userStopped && !loginRefused && reconnects < MAX_RECONNECT_ATTEMPTS) {
 						reconnects += 1;
 						setReconnectAttempt(reconnects);
 						setPhase("reconnecting");
@@ -350,10 +357,16 @@ export function RemoteDesktopPanel({
 					setPhase("disconnected");
 					if (!userStopped && everConnected) setError(previous => previous ?? "rdp.error.connection");
 				};
-				const failed = () => {
+				const failed = (status?: { code?: number }) => {
 					if (disposed) return;
+					const refused = status?.code === undefined ? undefined : LOGIN_REFUSED_ERRORS[status.code];
+					if (refused) {
+						// Windows answered (the session is "ready" first): say why, do not retry.
+						loginRefused = true;
+						setError(refused);
+					}
 					if (everConnected) drop();
-					else { setError("rdp.error.connection"); setPhase("disconnected"); cleanup(); }
+					else { setError(refused ?? "rdp.error.connection"); setPhase("disconnected"); cleanup(); }
 				};
 				client.onerror = failed;
 				tunnel.onerror = failed;

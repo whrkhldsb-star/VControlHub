@@ -7,8 +7,11 @@ import { UI_INPUT } from "@/lib/ui/classes";
 const LABEL = "text-xs font-medium text-[var(--text-primary)]/70";
 
 /** Same sectioned layout the Linux-only blocks use, so the Windows form does not read as a bolt-on. */
-export function RdpCredentialFields({ idPrefix, editing = false, domain = "", certificateSha256 = "", ignoreCertificate = false }: {
-  idPrefix: string; editing?: boolean; domain?: string; ignoreCertificate?: boolean; certificateSha256?: string;
+export function RdpCredentialFields({ idPrefix, editing = false, passwordRequired = false, domain = "", certificateSha256 = "", ignoreCertificate = false }: {
+  idPrefix: string; editing?: boolean;
+  /** Editing switched to another Windows account: its password must be entered. */
+  passwordRequired?: boolean;
+  domain?: string; ignoreCertificate?: boolean; certificateSha256?: string;
 }) {
   const { t } = useI18n();
   return <section data-tile className="space-y-3 p-4">
@@ -22,8 +25,8 @@ export function RdpCredentialFields({ idPrefix, editing = false, domain = "", ce
         <input id={`${idPrefix}-username`} name="username" defaultValue="Administrator" required maxLength={128} className={UI_INPUT} autoComplete="off" />
       </div>}
       <div className="space-y-1.5">
-        <label htmlFor={`${idPrefix}-password`} className={LABEL}>{t(editing ? "serversPage.windows.passwordKeep" : "serversPage.windows.password")}</label>
-        <input id={`${idPrefix}-password`} name="rdpPassword" type="password" required={!editing} maxLength={1024} autoComplete="new-password" className={UI_INPUT} />
+        <label htmlFor={`${idPrefix}-password`} className={LABEL}>{t(!editing ? "serversPage.windows.password" : passwordRequired ? "serversPage.windows.passwordNewAccount" : "serversPage.windows.passwordKeep")}</label>
+        <input key={passwordRequired ? "required" : "optional"} id={`${idPrefix}-password`} name="rdpPassword" type="password" required={!editing || passwordRequired} maxLength={1024} autoComplete="new-password" className={UI_INPUT} />
       </div>
       <div className="space-y-1.5">
         <label htmlFor={`${idPrefix}-domain`} className={LABEL}>{t("serversPage.windows.domain")}</label>

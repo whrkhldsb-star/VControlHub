@@ -5,6 +5,7 @@ export const en: Record<string, string> = {
 	"serversPage.windows.username": "Windows username",
 	"serversPage.windows.password": "RDP password",
 	"serversPage.windows.passwordKeep": "RDP password (leave blank to keep)",
+	"serversPage.windows.passwordNewAccount": "The new account's RDP password (required after changing the user name or domain)",
 	"serversPage.windows.domain": "Windows domain (optional)",
 	"serversPage.windows.ignoreCertificate": "Ignore RDP certificate validation (unsafe; trusted hosts only)",
 	"serversPage.windows.hint": "Windows remote desktop uses RDP. Cloud storage can optionally use Windows OpenSSH SFTP; credentials are separate.",

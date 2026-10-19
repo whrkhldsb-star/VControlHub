@@ -17,6 +17,7 @@ export const zh: Record<string, string> = {
 	"serversPage.windows.username": "Windows 用户名",
 	"serversPage.windows.password": "RDP 密码",
 	"serversPage.windows.passwordKeep": "RDP 密码（留空保留）",
+	"serversPage.windows.passwordNewAccount": "新账号的 RDP 密码（换了用户名或域，必须填写）",
 	"serversPage.windows.domain": "Windows 域（可选）",
 	"serversPage.windows.ignoreCertificate": "忽略 RDP 证书验证（不安全，仅用于可信主机）",
 	"serversPage.windows.hint": "Windows 远程桌面走 RDP；云盘可选用 Windows OpenSSH 的 SFTP。两组凭据分别保存。",
