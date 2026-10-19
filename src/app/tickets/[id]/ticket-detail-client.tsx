@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -87,19 +87,25 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
   const [commandIdInput, setCommandIdInput] = useState(initial.relatedCommandId ?? "");
   const [serverIdInput, setServerIdInput] = useState(initial.relatedServerId ?? "");
 
+  // Bumped by every timeline the page shows: a read that started before a
+  // newer one (or before a saved link) must not put the older state back.
+  const timelineVersion = useRef(0);
+
   const loadTimeline = useCallback(async (opts?: { isStale?: () => boolean }) => {
+    const version = ++timelineVersion.current;
+    const stale = () => Boolean(opts?.isStale?.()) || version !== timelineVersion.current;
     setTimelineLoading(true);
     try {
       const data = await csrfFetch<TimelineResponse>(`/api/tickets/${ticket.id}/timeline`);
-      if (opts?.isStale?.()) return;
+      if (stale()) return;
       setTimeline(data);
       if (data.related.command) setCommandIdInput(data.related.command.id);
       if (data.related.server) setServerIdInput(data.related.server.id);
     } catch (e: unknown) {
-      if (opts?.isStale?.()) return;
+      if (stale()) return;
       setError(getErrorMessage(e, t("ticketsDetail.error.timelineFailed")));
     } finally {
-      if (!opts?.isStale?.()) setTimelineLoading(false);
+      if (!stale()) setTimelineLoading(false);
     }
   }, [ticket.id, t]);
 
@@ -147,21 +153,24 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
   };
 
   const addComment = async () => {
-    if (!comment.trim()) return;
+    const submitted = comment.trim();
+    if (!submitted) return;
     setSaving(true);
     setError("");
     try {
       const data = await csrfFetch<{ comment: TicketComment }>(`/api/tickets/${ticket.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: comment.trim() }),
+        body: JSON.stringify({ body: submitted }),
       });
       setTicket((prev) => ({
         ...prev,
         comments: [...prev.comments, data.comment],
         updatedAt: new Date().toISOString(),
       }));
-      setComment("");
+      // Only what was sent: the box stays editable while sending, and a next
+      // draft typed meanwhile is the user's, not part of this comment.
+      setComment((current) => (current.trim() === submitted ? "" : current));
       await loadTimeline();
     } catch (e: unknown) { setError(getErrorMessage(e, t("ticketsDetail.error.replyFailed"))); }
     finally { setSaving(false); }
@@ -176,7 +185,9 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      timelineVersion.current += 1;
       setTimeline(data);
+      setTimelineLoading(false);
       setTicket((prev) => ({
         ...prev,
         relatedCommandId: data.related.command?.id ?? null,

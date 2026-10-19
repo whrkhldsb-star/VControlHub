@@ -45,9 +45,12 @@ vi.mock("@/lib/auth/team-scope", () => ({
   seesAllCustomers: () => false,
   teamWhere: () => ({ teamId: "team_1" }),
 }));
+// Linked LOCAL paths are directories (legacy records) unless a test says otherwise.
+const statMock = vi.hoisted(() => vi.fn(async (): Promise<{ isDirectory: () => boolean }> => ({ isDirectory: () => true })));
 vi.mock("node:fs/promises", () => ({
-  default: { unlink: unlinkMock },
+  default: { unlink: unlinkMock, stat: statMock },
   unlink: unlinkMock,
+  stat: statMock,
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -203,6 +206,35 @@ describe("/api/images/[id]", () => {
     expect(transactionMock.mock.invocationCallOrder[0]).toBeLessThan(
       unlinkMock.mock.invocationCallOrder[0]!,
     );
+  });
+
+  it("leaves the user's own source file alone for an image published from storage", async () => {
+    // The record points at the source file (another name than the image's
+    // storage key): treating it as a legacy directory failed every delete
+    // with ENOTDIR and reported a cleanup that was never owed.
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation((_session: unknown, permission: string) => permission === "image:write");
+    imageFindUniqueMock.mockResolvedValueOnce({
+      id: "img_1",
+      userId: "u_1",
+      teamId: "team_1",
+      storageKey: "2f1c0b7e-uuid.png",
+      storageNodeId: "node_1",
+      relativePath: "source/photo.png",
+    });
+    storageFindFirstMock.mockResolvedValueOnce({ driver: "LOCAL", basePath: "/srv/images" });
+    statMock.mockResolvedValueOnce({ isDirectory: () => false });
+    unlinkMock.mockResolvedValue(undefined);
+    imageDeleteMock.mockResolvedValueOnce({ id: "img_1" });
+
+    const response = await DELETE(new Request("https://example.com/api/images/img_1", { method: "DELETE" }), {
+      params: Promise.resolve({ id: "img_1" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ success: true });
+    expect(unlinkMock).not.toHaveBeenCalledWith(expect.stringContaining(path.join("source", "photo.png")));
   });
 
   it("keeps access revoked when a linked LOCAL storage copy cannot be removed", async () => {

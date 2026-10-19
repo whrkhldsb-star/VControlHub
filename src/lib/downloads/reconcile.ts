@@ -204,17 +204,39 @@ async function reconcileRelayTask(
   return "running";
 }
 
+/** When each stale task was last probed (process-local; a restart simply starts over). */
+const lastProbedAt = new Map<string, number>();
+const MAX_RECONCILE_CANDIDATES = 2_000;
+
 export async function reconcileStaleRunningDownloadTasks(input?: {
   limit?: number;
   taskIds?: string[];
 }): Promise<{ completed: number; failed: number; ids: string[] }> {
   const limit = Math.min(Math.max(input?.limit ?? DEFAULT_LIMIT, 1), 100);
   const cutoff = new Date(Date.now() - DIRECT_STALE_MS);
-  const rows = await prisma.downloadTask.findMany({
-    where: { status: "RUNNING", updatedAt: { lt: cutoff }, ...(input?.taskIds ? { id: { in: input.taskIds } } : {}) },
+  const where = { status: "RUNNING" as const, updatedAt: { lt: cutoff }, ...(input?.taskIds ? { id: { in: input.taskIds } } : {}) };
+  // Least recently probed first. Taking the oldest `limit` by updatedAt read
+  // the same tasks every pass while they still ran (or were briefly
+  // unreachable), so a later task that had finished was never looked at.
+  // updatedAt itself must not move: the unreachable deadline counts from it.
+  const candidates = await prisma.downloadTask.findMany({
+    where,
+    select: { id: true, updatedAt: true },
+    orderBy: { updatedAt: "asc" },
+    take: MAX_RECONCILE_CANDIDATES,
+  });
+  const live = new Set(candidates.map((row) => row.id));
+  for (const id of lastProbedAt.keys()) if (!live.has(id)) lastProbedAt.delete(id);
+  const chosen = candidates
+    .sort((a, b) => (lastProbedAt.get(a.id) ?? 0) - (lastProbedAt.get(b.id) ?? 0) || a.updatedAt.getTime() - b.updatedAt.getTime())
+    .slice(0, limit)
+    .map((row) => row.id);
+  const probedAt = Date.now();
+  for (const id of chosen) lastProbedAt.set(id, probedAt);
+  const rows = chosen.length === 0 ? [] : await prisma.downloadTask.findMany({
+    where: { ...where, id: { in: chosen } },
     include: { server: { include: { sshKey: true, storageNode: true } } },
     orderBy: { updatedAt: "asc" },
-    take: limit,
   });
 
   let completed = 0;

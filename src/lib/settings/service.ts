@@ -98,6 +98,9 @@ export async function getAllSettings(): Promise<Record<string, string>> {
 	return result;
 }
 
+/** An audit entry is written right after its settings write. */
+const AUDIT_MATCH_TOLERANCE_MS = 5_000;
+
 export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<string, SettingUpdateMetadata>> {
 	const uniqueKeys = [...new Set(keys)];
 	const result = Object.fromEntries(
@@ -129,11 +132,19 @@ export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<s
 		result[setting.key]!.updatedAt = setting.updatedAt;
 	}
 
+	// The setting row's time is authoritative. An audit entry names who made
+	// that change only if it was written with it (audit is best effort): when
+	// the latest change has no audit entry, an older one must not be credited.
+	const rowTime = new Map(settings.map((setting) => [setting.key, setting.updatedAt.getTime()]));
+	const attributed = new Set<string>();
 	for (const log of auditLogs) {
 		for (const key of auditKeys(log.detail)) {
-			if (!result[key] || result[key].actorName) continue;
+			if (!result[key] || attributed.has(key)) continue;
+			attributed.add(key);
+			const stored = rowTime.get(key);
+			if (stored !== undefined && log.createdAt.getTime() < stored - AUDIT_MATCH_TOLERANCE_MS) continue;
 			result[key] = {
-				updatedAt: log.createdAt,
+				updatedAt: stored !== undefined ? new Date(stored) : log.createdAt,
 				actorId: log.actorId,
 				actorName: log.actor?.displayName || log.actor?.username || log.actorId || "Unknown user",
 			};

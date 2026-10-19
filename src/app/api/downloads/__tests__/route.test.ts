@@ -809,6 +809,7 @@ describe("/api/downloads", () => {
       server: serverFixture(),
     });
     execRemoteCommandMock.mockResolvedValueOnce({ stdout: "COMPLETED\n2048\n", stderr: "", exitCode: 0 });
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
     const response = await PATCH(new Request("https://example.com/api/downloads", {
       method: "PATCH",
@@ -834,8 +835,8 @@ describe("/api/downloads", () => {
     expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({
       command: expect.stringContaining("app-dl-task_direct.pid.exit"),
     }));
-    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_direct" },
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_direct", status: { in: ["PENDING", "RUNNING"] } },
       data: expect.objectContaining({
         status: "COMPLETED",
         progress: "下载完成",
@@ -844,6 +845,38 @@ describe("/api/downloads", () => {
         completedBytes: "2048",
       }),
     }));
+  });
+
+  it("a direct refresh that answers after a cancel keeps the cancel", async () => {
+    // The probe took a while; the task was cancelled meanwhile. Its late
+    // COMPLETED used to overwrite CANCELLED and index the file.
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
+      id: "task_direct",
+      createdBy: "u_1",
+      url: "https://example.com/file.iso",
+      status: "RUNNING",
+      progress: "Downloading...",
+      pid: 12345,
+      aria2Gid: null,
+      relayMode: false,
+      targetPath: "/srv/cloud/downloads",
+      fileName: "file.iso",
+      server: serverFixture(),
+    });
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "COMPLETED\n2048\n", stderr: "", exitCode: 0 });
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({ status: "CANCELLED", progress: "已取消" });
+
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH",
+      body: JSON.stringify({ taskId: "task_direct", action: "refresh" }),
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ status: "CANCELLED", progress: "已取消" });
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 
   it("leaves a finished relay task as it is on refresh, pause or resume", async () => {

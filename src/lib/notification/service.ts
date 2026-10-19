@@ -137,8 +137,10 @@ export async function markAllAsRead(userId: string) {
 		where: { userId, isRead: false },
 		data: { isRead: true },
 	});
+	// The count as it is now, not 0: a notification created while the update
+	// ran is still unread, and a late "0" overwrote its badge.
 	try {
-		pushUnreadCount(userId, 0);
+		pushUnreadCount(userId, await getUnreadCount(userId));
 	} catch (err) {
 		logger.warn("WS unread push failed after markAllAsRead", err);
 	}

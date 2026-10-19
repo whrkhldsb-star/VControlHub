@@ -11,6 +11,12 @@
  * Mirrors rate-limit-store's dynamic `redis` import (optional dependency,
  * error listener attached so an outage never becomes an unhandled
  * 'error' event crash).
+ *
+ * Without Redis the deployment still runs the worker as a separate process
+ * from the web server: in-process delivery dropped every notification the
+ * worker created (alerts, backups, commands) while the page, connected to the
+ * web server, had stopped polling. PostgreSQL's LISTEN/NOTIFY carries them
+ * across processes there, with no extra service.
  */
 import { config } from "@/lib/config/env";
 import { createLogger } from "@/lib/logging";
@@ -31,7 +37,12 @@ type RedisClientLike = {
 	duplicate?: () => RedisClientLike;
 };
 
-export type NotificationBusMode = "local" | "redis";
+export type NotificationBusMode = "local" | "redis" | "postgres";
+
+/** LISTEN/NOTIFY channel of the PostgreSQL mode. */
+export const NOTIFICATION_BUS_PG_CHANNEL = "vch_notifications";
+/** NOTIFY payloads must stay under 8000 bytes. */
+const PG_PAYLOAD_LIMIT = 7_900;
 
 export type NotificationBus = {
 	readonly mode: NotificationBusMode;
@@ -108,8 +119,104 @@ function ensurePublisher(url: string): Promise<RedisClientLike | null> {
  * available; Redis mode activates only when REDIS_URL is set and connects
  * lazily — a failed connect falls back to local delivery for this publish.
  */
+function databaseUrl(): string | undefined {
+	try {
+		return (config as { db?: { url?: string } }).db?.url || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/** A notification body cut to fit NOTIFY; null when nothing useful fits. */
+function pgPayload(userId: string, message: unknown): string | null {
+	const payload = JSON.stringify({ userId, message });
+	if (Buffer.byteLength(payload) <= PG_PAYLOAD_LIMIT) return payload;
+	const data = (message as { type?: string; data?: { message?: unknown } })?.data;
+	if (data && typeof data.message === "string") {
+		const shorter = JSON.stringify({ userId, message: { ...(message as object), data: { ...data, message: data.message.slice(0, 1_000) } } });
+		if (Buffer.byteLength(shorter) <= PG_PAYLOAD_LIMIT) return shorter;
+	}
+	return null;
+}
+
+type PgListener = { connect(): Promise<unknown>; query(sql: string): Promise<unknown>; on(event: string, listener: (...args: unknown[]) => void): unknown; end(): Promise<unknown> };
+let pgListener: PgListener | null = null;
+let pgReconnect: ReturnType<typeof setTimeout> | null = null;
+
+async function listenPostgres(url: string): Promise<void> {
+	const { Client } = (await import("pg")) as unknown as { Client: new (options: { connectionString: string }) => PgListener };
+	const client = new Client({ connectionString: url });
+	const retry = () => {
+		if (pgListener !== client) return;
+		pgListener = null;
+		state.subscribed = false;
+		void client.end().catch(() => undefined);
+		if (!state.deliver || pgReconnect) return;
+		pgReconnect = setTimeout(() => {
+			pgReconnect = null;
+			if (state.deliver) void listenPostgres(url).catch((error: unknown) => {
+				logger.warn("notification bus LISTEN reconnect failed", { error: error instanceof Error ? error.message : String(error) });
+			});
+		}, 5_000);
+		pgReconnect.unref?.();
+	};
+	client.on("error", (error: unknown) => {
+		logger.warn("notification bus LISTEN connection error", { error: error instanceof Error ? error.message : String(error) });
+		retry();
+	});
+	client.on("end", retry);
+	client.on("notification", (event: unknown) => {
+		const payload = (event as { payload?: string }).payload;
+		if (payload) handleMessage(payload);
+	});
+	pgListener = client;
+	await client.connect();
+	await client.query(`LISTEN ${NOTIFICATION_BUS_PG_CHANNEL}`);
+	state.subscribed = true;
+}
+
 export function getNotificationBus(): NotificationBus {
-	const mode: NotificationBusMode = config.redis.url ? "redis" : "local";
+	const pgUrl = config.redis.url ? undefined : databaseUrl();
+	const mode: NotificationBusMode = config.redis.url ? "redis" : pgUrl ? "postgres" : "local";
+
+	if (mode === "postgres") {
+		return {
+			mode,
+			publish(userId, message) {
+				// As the Redis mode: a process without a subscription (the
+				// worker) delivers nothing itself; the web server's LISTEN does.
+				const deliveredLocally = !state.subscribed;
+				if (deliveredLocally) state.deliver?.(userId, message);
+				const payload = pgPayload(userId, message);
+				if (!payload) return;
+				void import("@/lib/db")
+					.then(({ prisma }) => prisma.$executeRaw`SELECT pg_notify(${NOTIFICATION_BUS_PG_CHANNEL}, ${payload})`)
+					.catch((error: unknown) => {
+						logger.warn("notification bus NOTIFY failed; delivering locally", { error: error instanceof Error ? error.message : String(error) });
+						if (!deliveredLocally) state.deliver?.(userId, message);
+					});
+			},
+			async start(deliver) {
+				state.deliver = deliver;
+				if (pgListener) return;
+				try {
+					await listenPostgres(pgUrl!);
+					logger.info("notification bus using PostgreSQL LISTEN/NOTIFY", { channel: NOTIFICATION_BUS_PG_CHANNEL });
+				} catch (error) {
+					logger.warn("notification bus LISTEN setup failed; local delivery only", { error: error instanceof Error ? error.message : String(error) });
+				}
+			},
+			async stop() {
+				state.deliver = null;
+				state.subscribed = false;
+				if (pgReconnect) clearTimeout(pgReconnect);
+				pgReconnect = null;
+				const client = pgListener;
+				pgListener = null;
+				await client?.end().catch(() => undefined);
+			},
+		};
+	}
 
 	if (mode === "local") {
 		return {

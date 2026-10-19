@@ -16,6 +16,7 @@ import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
  *    via the existing restore pipeline.
  */
 import { randomUUID } from "node:crypto";
+import { constants as fsConstants } from "node:fs";
 import {
   access,
   copyFile,
@@ -514,11 +515,23 @@ export async function importMigrationPackage(input: {
 
     const { manifest, payloadAbsolutePath } = validated;
     const type = manifest.backup.type;
-    const portablePath = buildBackupFilePath(type);
-    assertPortableBackupPath(portablePath);
-    const destAbsolute = resolveBackupPath(root, portablePath);
-    await mkdir(dirname(destAbsolute), { recursive: true });
-    await copyFile(payloadAbsolutePath, destAbsolute);
+    // Exclusive copy: two imports stamped in the same millisecond used to
+    // share one path, and the second silently overwrote the first backup
+    // while both records said COMPLETED. A taken name gets a random suffix.
+    let portablePath = buildBackupFilePath(type);
+    let destAbsolute = "";
+    for (let attempt = 0; ; attempt += 1) {
+      assertPortableBackupPath(portablePath);
+      destAbsolute = resolveBackupPath(root, portablePath);
+      await mkdir(dirname(destAbsolute), { recursive: true });
+      try {
+        await copyFile(payloadAbsolutePath, destAbsolute, fsConstants.COPYFILE_EXCL);
+        break;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST" || attempt >= 3) throw error;
+        portablePath = buildBackupFilePath(type).replace(/(\.(?:sql|tar)\.gz)$/, `-${randomUUID().slice(0, 8)}$1`);
+      }
+    }
 
     const fileInfo = await stat(destAbsolute);
     const checksum = await sha256File(destAbsolute);

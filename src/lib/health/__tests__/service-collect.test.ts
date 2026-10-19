@@ -19,6 +19,7 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock } = vi.hoisted(() => 
 			findMany: vi.fn(),
 			create: vi.fn(),
 		},
+		$queryRaw: vi.fn(async (): Promise<Array<{ serverId: string; rx: string; tx: string }>> => []),
 	},
 	collectServerMetricsMock: vi.fn(),
 	tcpProbeMock: vi.fn(),
@@ -257,37 +258,37 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		);
 	});
 
-	it("derives monthly traffic from the true first/last sample per server (no take:5000 truncation)", async () => {
+	it("takes monthly traffic from the per-interface step sum (the SQL itself runs in the PostgreSQL integration test)", async () => {
 		prismaMock.server.findMany.mockResolvedValueOnce([
 			{ id: "s1", name: "Healthy", host: "10.0.0.1", port: 22, enabled: true },
 		]);
 		tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 3 });
 		collectServerMetricsMock.mockResolvedValueOnce(goodMetrics());
-		// Two DISTINCT ON queries: earliest sample first, then latest sample.
-		prismaMock.trafficSnapshot.findMany
-			.mockResolvedValueOnce([{ serverId: "s1", rxBytes: BigInt(100), txBytes: BigInt(200) }])
-			.mockResolvedValueOnce([{ serverId: "s1", rxBytes: BigInt(1_100), txBytes: BigInt(1_200) }]);
+		prismaMock.$queryRaw.mockResolvedValueOnce([{ serverId: "s1", rx: "1000", tx: "500" }]);
 
 		const result = await collectAllHealth();
 
-		// delta = last - first, independent of how many rows exist in between.
 		expect(result.servers[0]?.monthlyRxBytes).toBe(1_000);
-		expect(result.servers[0]?.monthlyTxBytes).toBe(1_000);
-		// The first query walks sampledAt asc, the second desc — both DISTINCT ON serverId.
-		expect(prismaMock.trafficSnapshot.findMany).toHaveBeenCalledTimes(2);
-		expect(prismaMock.trafficSnapshot.findMany).toHaveBeenNthCalledWith(
-			1,
-			expect.objectContaining({
-				distinct: ["serverId"],
-				orderBy: [{ serverId: "asc" }, { sampledAt: "asc" }],
-			}),
-		);
-		expect(prismaMock.trafficSnapshot.findMany).toHaveBeenNthCalledWith(
-			2,
-			expect.objectContaining({
-				distinct: ["serverId"],
-				orderBy: [{ serverId: "asc" }, { sampledAt: "desc" }],
-			}),
-		);
+		expect(result.servers[0]?.monthlyTxBytes).toBe(500);
+		expect(prismaMock.trafficSnapshot.findMany).not.toHaveBeenCalled();
+	});
+
+	it("keeps an Agent's rates when its last report is read again", async () => {
+		// The Agent reports once a minute; the dashboard reads far more often.
+		// Re-reading one report moved the baseline to "now", so the next
+		// report's minute of bytes was divided by a few seconds.
+		const servers = [{ id: "s-agent", name: "Agent", host: "10.0.0.2", port: 22, enabled: true }];
+		const report = (rx: number, at: string) => ({ ...goodMetrics(), timestamp: at, network: [{ iface: "eth0", rxBytes: rx, txBytes: 0 }] });
+		const read = async (metrics: ReturnType<typeof report>) => {
+			prismaMock.server.findMany.mockResolvedValueOnce(servers);
+			tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 3 });
+			collectServerMetricsMock.mockResolvedValueOnce(metrics);
+			return (await collectAllHealth()).servers[0]!;
+		};
+		await read(report(0, "2026-10-19T10:00:00.000Z"));
+		const first = await read(report(60 * 1024 * 100, "2026-10-19T10:01:00.000Z")); // 100 KiB/s over a minute
+		const again = await read(report(60 * 1024 * 100, "2026-10-19T10:01:00.000Z"));
+		const next = await read(report(2 * 60 * 1024 * 100, "2026-10-19T10:02:00.000Z"));
+		expect([first.networkInKbps, again.networkInKbps, next.networkInKbps]).toEqual([100, 100, 100]);
 	});
 });

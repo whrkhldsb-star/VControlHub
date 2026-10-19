@@ -41,6 +41,8 @@ export function isValidSyncSchedule(raw: string | null | undefined): boolean {
 export function isSyncJobDue(input: {
   schedule: string | null | undefined;
   lastSyncAt: Date | null | undefined;
+  /** A never-run cron job's first occurrence counts from here (creation). */
+  createdAt?: Date | null;
   status: string;
   now?: Date;
 }): boolean {
@@ -58,7 +60,9 @@ export function isSyncJobDue(input: {
 
   try {
     const expr = CronExpressionParser.parse(s, {
-      currentDate: last ?? new Date(0),
+      // Never run: the first occurrence after the job was created, not the
+      // first since 1970 (which is always past, so it ran at once).
+      currentDate: last ?? (input.createdAt ? new Date(input.createdAt) : new Date(0)),
       tz: APP_TIME_ZONE,
     });
     const next = expr.next().toDate();

@@ -335,13 +335,16 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
   // behind any burst of newer ones. The in-memory filter below stays as the
   // authoritative check. With the "attention" sort and no status filter, the
   // attention rows of each source are fetched in addition to the newest rows
-  // so a long-stuck task is still ranked first.
+  // so a long-stuck task is still ranked first — one pass per attention
+  // level, so a hundred newer pending tasks cannot push an older failure out
+  // of the candidates before the ranking sees it.
   const requestedStatuses = normalizeStatusFilter(options.status);
   const taskType = normalizeTaskTypeFilter(options.taskType);
-  const attentionStatuses = new Set<OperationTaskStatus>(["failed", "running", "pending"]);
+  const attentionLevels: Array<ReadonlySet<OperationTaskStatus>> = (["failed", "running", "pending"] as const)
+    .map((status) => new Set<OperationTaskStatus>([status]));
   const statusPasses: Array<ReadonlySet<OperationTaskStatus> | null> = requestedStatuses
     ? [requestedStatuses]
-    : options.sort === "attention" ? [null, attentionStatuses] : [null];
+    : options.sort === "attention" ? [null, ...attentionLevels] : [null];
   /** Run one source query per status pass and merge by id (newest first). */
   async function fetchSource<T extends { id: string; createdAt: Date }>(
     ownerField: string,

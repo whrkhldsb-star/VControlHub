@@ -105,18 +105,24 @@ describe("media service", () => {
     mockPrisma.fileEntry.findMany
       .mockResolvedValueOnce([]) // nothing to index
       .mockResolvedValueOnce([]) // no soft-deleted or non-file entries
-      .mockResolvedValueOnce([{ id: "still_here" }]); // which referenced entries exist
+      // Which referenced entries exist, and whether they still are media.
+      .mockResolvedValueOnce([
+        { id: "still_here", name: "a.png", relativePath: "a.png", mimeType: "image/png" },
+        { id: "now_text", name: "note.txt", relativePath: "note.txt", mimeType: "text/plain" },
+      ]);
     mockPrisma.mediaItem.findMany.mockResolvedValueOnce([
       { id: "m1", fileEntryId: "still_here" },
       { id: "m2", fileEntryId: "hard_deleted" },
+      { id: "m3", fileEntryId: "now_text" },
     ]);
-    mockPrisma.mediaItem.deleteMany.mockResolvedValue({ count: 1 });
+    mockPrisma.mediaItem.deleteMany.mockResolvedValue({ count: 2 });
 
     const res = await scanMediaFromFileEntries("u1");
 
-    expect(res.removed).toBe(1);
+    expect(res.removed).toBe(2);
     expect(mockPrisma.mediaItem.findMany.mock.calls[0]![0]).toMatchObject({ where: { fileEntryId: { not: null } } });
-    expect(mockPrisma.mediaItem.deleteMany).toHaveBeenCalledWith({ where: { fileEntryId: { in: ["hard_deleted"] } } });
+    // A file renamed to text kept its media row: it is no longer media.
+    expect(mockPrisma.mediaItem.deleteMany).toHaveBeenCalledWith({ where: { fileEntryId: { in: ["hard_deleted", "now_text"] } } });
   });
 
   it("scans past the first 1000 entries with deterministic cursor pagination", async () => {

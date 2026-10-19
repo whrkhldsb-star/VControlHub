@@ -169,6 +169,7 @@ describe("consumeProviderChatStream", () => {
           await new Promise((resolve) => setTimeout(resolve, 80));
           const chunk = chunks.shift();
           if (chunk === undefined) {
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
             controller.close();
             return;
           }
@@ -193,12 +194,31 @@ describe("consumeProviderChatStream", () => {
     }
   });
 
+  it("reports a body that ends without any completion marker as cut off", async () => {
+    for (const providerType of ["OPENAI", "ANTHROPIC"] as const) {
+      const chunk = providerType === "OPENAI"
+        ? 'data: {"choices":[{"delta":{"content":"The first step is to "},"finish_reason":null}]}\n'
+        : 'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"The first step is to "}}\n';
+      const result = await consumeProviderChatStream({ providerType, body: streamChunks([chunk]), onEvent: vi.fn() });
+      expect(result.content).toBe("The first step is to ");
+      expect(String(result.readError)).toMatch(/ended before the response was complete/);
+    }
+    // A finish_reason is completion evidence even without [DONE].
+    const finished = await consumeProviderChatStream({
+      providerType: "OPENAI",
+      body: streamChunks(['data: {"choices":[{"delta":{"content":"done"},"finish_reason":"stop"}]}\n']),
+      onEvent: vi.fn(),
+    });
+    expect(finished.readError).toBeUndefined();
+  });
+
   it("skips malformed chunks without dropping later valid events", async () => {
     const result = await consumeProviderChatStream({
       providerType: "OPENAI",
       body: streamChunks([
         "data: {not-json}\n",
-        'data:{"choices":[{"delta":{"content":"ok"}}]}',
+        'data:{"choices":[{"delta":{"content":"ok"}}]}\n',
+        "data: [DONE]",
       ]),
       onEvent: vi.fn(),
     });

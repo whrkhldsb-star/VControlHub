@@ -91,4 +91,44 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-t
     ]);
     expect(recordTaskDispatch).toHaveBeenLastCalledWith(task.id, "request-2");
   });
+
+  it("a dispatch that cannot be linked is retried, not recorded as a failed run", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const t0 = new Date();
+    vi.setSystemTime(t0);
+    const occurrence = new Date(t0.getTime() - 60_000);
+    const task = await prisma.scheduledTask.create({
+      data: {
+        name: `${prefix}-once`,
+        cronExpression: "0 * * * *",
+        scheduleType: "ONCE",
+        command: "uptime",
+        serverIds: ["srv-link"],
+        createdById: prefix,
+        approvalRequired: true,
+        status: "ACTIVE",
+        nextRunAt: occurrence,
+      },
+    });
+    createCommandRequest.mockReset();
+    recordTaskDispatch.mockReset();
+    createCommandRequest.mockResolvedValue({ id: "request-linked" });
+    // The request exists; writing its link fails once.
+    recordTaskDispatch.mockRejectedValueOnce(new Error("connection reset"));
+    await dispatchDueScheduledTasks("link-fails");
+
+    // A ONCE task used to be disabled here with "Execution failed", and the
+    // pending approval it created lost its result for good.
+    const afterFailure = await prisma.scheduledTask.findUniqueOrThrow({ where: { id: task.id } });
+    expect(afterFailure.status).toBe("ACTIVE");
+    expect(afterFailure.nextRunAt?.toISOString()).toBe(occurrence.toISOString());
+    expect(afterFailure.lastResult ?? "").not.toMatch(/failed/i);
+
+    // The next tick replays the occurrence: same idempotency key, same request, now linked.
+    recordTaskDispatch.mockResolvedValue(undefined);
+    await dispatchDueScheduledTasks("retry");
+    expect(createCommandRequest).toHaveBeenLastCalledWith(expect.objectContaining({ idempotencyKey: `scheduled-task:${task.id}:${occurrence.toISOString()}` }));
+    expect(recordTaskDispatch).toHaveBeenLastCalledWith(task.id, "request-linked");
+  });
 });
+

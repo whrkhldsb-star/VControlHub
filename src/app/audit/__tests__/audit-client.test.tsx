@@ -61,4 +61,21 @@ describe("AuditLogClient", () => {
     expect(screen.getAllByText("删除节点").length).toBeGreaterThan(1);
     await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
   });
+
+  it("exports what the search box shows right after it is cleared", async () => {
+    // The export read the 350 ms debounced copy and still sent the old keyword.
+    const actor = userEvent.setup();
+    window.history.replaceState({}, "", "/audit?q=previous-keyword");
+    vi.mocked(csrfFetch).mockResolvedValue(auditResponse);
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    render(<AuditLogClient />);
+    await screen.findByText("删除节点");
+    await actor.click(screen.getByRole("button", { name: "清除" }));
+    await actor.click(screen.getByRole("button", { name: "导出 CSV" }));
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(String(open.mock.calls[0]![0])).not.toContain("search=");
+    open.mockRestore();
+    window.history.replaceState({}, "", "/");
+  });
 });
+

@@ -1,5 +1,5 @@
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -85,4 +85,43 @@ describe("TicketDetailClient", () => {
     expect(await screen.findByText("Restart database · 等待审批")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Database latency · 处理中" })).toBeInTheDocument();
   });
+
+  it("a slow initial timeline does not put back the link saved after it", async () => {
+    const server = (id: string, name: string) => ({ events: [], related: { server: { id, name, host: `${id}.test` }, command: null, reverseTickets: [] } });
+    let answerInitial!: (value: unknown) => void;
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      if (String(input).endsWith("/timeline") && !init?.method) return new Promise((resolve) => { answerInitial = resolve; });
+      if (String(input).endsWith("/timeline") && init?.method === "POST") return server("new-server", "New linked server");
+      throw new Error(`Unexpected request: ${String(input)}`);
+    });
+    render(<TicketDetailClient initial={initial} canManage users={[]} />, { locale: "en" });
+
+    const input = await screen.findByLabelText("Server ID");
+    fireEvent.change(input, { target: { value: "new-server" } });
+    fireEvent.click(screen.getByRole("button", { name: "Link VPS" }));
+    expect(await screen.findByText(/New linked server/)).toBeInTheDocument();
+
+    await act(async () => answerInitial(server("old-server", "Old linked server")));
+    expect(screen.getByText(/New linked server/)).toBeInTheDocument();
+    expect(screen.queryByText(/Old linked server/)).not.toBeInTheDocument();
+    expect(input).toHaveValue("new-server");
+  });
+
+  it("keeps a next comment typed while the previous one was sending", async () => {
+    let resolveComment!: (value: unknown) => void;
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      if (String(input).endsWith("/timeline") && !init?.method) return emptyTimeline;
+      if ((init as RequestInit | undefined)?.method === "POST") return new Promise((resolve) => { resolveComment = resolve; });
+      throw new Error(`Unexpected request: ${String(input)}`);
+    });
+    render(<TicketDetailClient initial={initial} canManage users={[]} />, { locale: "en" });
+    const box = await screen.findByLabelText("Add a comment");
+    fireEvent.change(box, { target: { value: "First comment" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send comment" }));
+    fireEvent.change(box, { target: { value: "Next comment draft" } });
+    await act(async () => resolveComment({ comment: { id: "c1", body: "First comment", createdAt: "2026-01-01T01:00:00Z", author: initial.creator } }));
+    expect(await screen.findByText("First comment")).toBeInTheDocument();
+    expect(box).toHaveValue("Next comment draft");
+  });
 });
+

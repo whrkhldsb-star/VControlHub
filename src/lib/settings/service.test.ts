@@ -26,8 +26,9 @@ describe("settings service audit metadata", () => {
 	});
 
 	it("maps each setting key to its latest settings.update actor and timestamp", async () => {
-		const dbUpdatedAt = new Date("2026-06-01T00:00:00Z");
 		const newest = new Date("2026-06-02T03:04:05Z");
+		// The row is written, then its audit entry, a moment later.
+		const dbUpdatedAt = new Date(newest.getTime() - 20);
 		const older = new Date("2026-06-01T03:04:05Z");
 
 		prismaMock.setting.findMany.mockResolvedValueOnce([
@@ -56,7 +57,7 @@ describe("settings service audit metadata", () => {
 			take: 100,
 		}));
 		expect(result["runtime.commandExecutionTimeoutMs"]).toEqual({
-			updatedAt: newest,
+			updatedAt: dbUpdatedAt,
 			actorId: "u2",
 			actorName: "Alice Admin",
 		});
@@ -67,4 +68,17 @@ describe("settings service audit metadata", () => {
 		});
 		expect(result["platform.name"]).toEqual({ updatedAt: null, actorId: null, actorName: null });
 	});
+
+	it("does not credit a newer change to the author of an older audit entry", async () => {
+		// The latest save's audit write failed (audit is best effort): naming
+		// the previous editor would attribute their change wrongly.
+		const saved = new Date("2026-06-02T12:00:00Z");
+		prismaMock.setting.findMany.mockResolvedValueOnce([{ key: "platform.name", updatedAt: saved }]);
+		prismaMock.auditLog.findMany.mockResolvedValueOnce([
+			{ actorId: "u-old", createdAt: new Date("2026-06-02T10:00:00Z"), detail: { keys: ["platform.name"] }, actor: { username: "old", displayName: null } },
+		]);
+		const result = await getSettingUpdateMetadata(["platform.name"]);
+		expect(result["platform.name"]).toEqual({ updatedAt: saved, actorId: null, actorName: null });
+	});
 });
+

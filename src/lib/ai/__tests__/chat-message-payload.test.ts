@@ -57,15 +57,27 @@ describe("buildAiChatMessagePayload", () => {
 
 	it("preserves tool_call_id on a stored tool result", () => {
 		// Without it the provider sees an orphaned tool message and rejects the turn.
+		const call = { id: "call_1", type: "function", function: { name: "list_servers", arguments: "{}" } };
 		const { historyMessages } = build({
-			conv: conv([{ role: "tool", content: '{"ok":true}', toolCallId: "call_1" }]),
+			conv: conv([
+				{ role: "assistant", content: "", toolCalls: JSON.stringify([call]) },
+				{ role: "tool", content: '{"ok":true}', toolCallId: "call_1" },
+			]),
 		});
-		expect(historyMessages[0]).toEqual({ role: "tool", content: '{"ok":true}', tool_call_id: "call_1" });
+		expect(historyMessages[1]).toEqual({ role: "tool", content: '{"ok":true}', tool_call_id: "call_1" });
 	});
 
-	it("normalises an empty toolCallId to undefined rather than sending an empty string", () => {
-		const { historyMessages } = build({ conv: conv([{ role: "tool", content: "x", toolCallId: "" }]) });
-		expect(historyMessages[0]!.tool_call_id).toBeUndefined();
+	it("drops a tool result whose call is outside the history window (or has no id)", () => {
+		// The window is the latest N rows: it can start with results whose
+		// assistant call was cut off, and providers reject such a result.
+		const { historyMessages } = build({
+			conv: conv([
+				{ role: "tool", content: "orphan", toolCallId: "call_0" },
+				{ role: "tool", content: "no id", toolCallId: "" },
+				{ role: "user", content: "next" },
+			]),
+		});
+		expect(historyMessages.filter((m) => m.role === "tool")).toEqual([]);
 	});
 
 	it("re-attaches an assistant turn's tool_calls", () => {
@@ -166,5 +178,15 @@ describe("buildAiChatMessagePayload", () => {
 			body: { content: "third" },
 		});
 		expect(historyMessages.map((m) => m.content)).toEqual(["first", "second", "third"]);
+	});
+
+	it("persists the text the model saw, attached file contents included", () => {
+		// The next turn is rebuilt from the database: storing only the typed
+		// text left the model unable to refer back to the file.
+		const { userText, persistedText } = build({
+			body: { content: "summarise", fileAttachments: [{ name: "a.log", content: "line 1" }] },
+		});
+		expect(userText).toBe("summarise");
+		expect(persistedText).toBe("summarise\n\n[attachments]\n\n--- File: a.log ---\nline 1\n--- End of a.log ---");
 	});
 });

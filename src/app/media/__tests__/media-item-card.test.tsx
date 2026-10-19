@@ -1,5 +1,5 @@
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
-import { screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -93,4 +93,29 @@ describe("MediaItemCard", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("保存收藏失败");
   });
+
+  it("sends one card's saves in click order and a stale failure does not undo a newer change", async () => {
+    // Two PATCHes in flight could land in either order, and the older one's
+    // failure rolled the tags back over the newer, saved change.
+    const pending: Array<{ body: unknown; settle: (ok: boolean) => void }> = [];
+    vi.mocked(csrfFetch).mockImplementation((_url: unknown, init?: RequestInit) => new Promise((resolve, reject) => {
+      pending.push({ body: JSON.parse(String(init?.body)), settle: (ok) => (ok ? resolve({} as never) : reject(new Error("HTTP 500"))) });
+    }) as never);
+    render(<MediaItemCard item={{ ...item, tags: ["alpha"] }} canManage />);
+
+    await userEvent.click(screen.getByRole("button", { name: "删除" }));
+    await userEvent.click(screen.getByText("添加标签"));
+    await userEvent.type(screen.getByRole("textbox"), "beta{Enter}");
+    // The second save waits for the first.
+    expect(pending.map((call) => call.body)).toEqual([{ tags: [] }]);
+
+    await act(async () => pending[0]!.settle(false));
+    await waitFor(() => expect(pending).toHaveLength(2));
+    expect(pending[1]!.body).toEqual({ tags: ["beta"] });
+    await act(async () => pending[1]!.settle(true));
+
+    expect(screen.getByText("#beta")).toBeInTheDocument();
+    expect(screen.queryByText("#alpha")).not.toBeInTheDocument();
+  });
 });
+

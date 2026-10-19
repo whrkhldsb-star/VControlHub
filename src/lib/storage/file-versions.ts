@@ -365,14 +365,17 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
   const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
   for (let attempt = 0; attempt < 5; attempt++) {
     const versionNumber = await nextVersionNumber(entry.id);
+    // A blob this attempt owns alone: two concurrent snapshots of the same
+    // content used to write one path, and the one that lost the version
+    // number race then deleted the file the winner's row points at.
     const blobRelativePath = path.posix.join(
       entry.storageNodeId,
       entry.id,
-      `v${versionNumber}-${checksum.slice(0, 12)}.bin`,
+      `v${versionNumber}-${checksum.slice(0, 12)}-${crypto.randomUUID().slice(0, 8)}.bin`,
     );
     const abs = blobAbsolutePath(blobRelativePath);
     await mkdir(path.dirname(abs), { recursive: true });
-    await writeFile(abs, buffer);
+    await writeFile(abs, buffer, { flag: "wx" });
 
     try {
       const row = await prisma.fileVersion.create({

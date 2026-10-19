@@ -27,6 +27,12 @@ export interface UseFileAttachmentsOptions {
   currentModelCaps: ModelCapabilities;
   modelName: string | null | undefined;
   enableVision?: boolean;
+  /**
+   * The conversation's provider type. Only images go to every provider; PDFs
+   * only to Anthropic (sent as document blocks). Audio and video have no
+   * adapted request format yet: they were sent as images and misread.
+   */
+  providerType?: string | null;
   onReject?: (message: string) => void;
   t?: (key: string, vars?: Record<string, string | number>) => string;
 }
@@ -47,6 +53,7 @@ export function useFileAttachments({
   currentModelCaps,
   modelName,
   enableVision,
+  providerType,
   onReject,
   t,
 }: UseFileAttachmentsOptions): UseFileAttachmentsReturn {
@@ -104,49 +111,18 @@ export function useFileAttachments({
               ]);
               break;
             }
-            case "video": {
-              if (!currentModelCaps.video) {
-                showRejection(
-                  tr("aiPage.unsupportedVideoModel", { model: modelName ?? "-" })
-                );
-                continue;
-              }
-              const dataUrl = await readFileAsDataURL(file);
-              const base64Data = dataUrl.split(",")[1];
-              setFileAttachments((prev) => [
-                ...prev,
-                {
-                  name: file.name,
-                  content: "",
-                  type: "video",
-                  mimeType: file.type || "video/mp4",
-                  base64Data,
-                  preview: undefined,
-                },
-              ]);
-              break;
-            }
+            case "video":
             case "audio": {
-              if (!currentModelCaps.audio) {
+              if (!currentModelCaps[category]) {
                 showRejection(
-                  tr("aiPage.unsupportedAudioModel", { model: modelName ?? "-" })
+                  tr(category === "video" ? "aiPage.unsupportedVideoModel" : "aiPage.unsupportedAudioModel", { model: modelName ?? "-" })
                 );
                 continue;
               }
-              const dataUrl = await readFileAsDataURL(file);
-              const base64Data = dataUrl.split(",")[1];
-              setFileAttachments((prev) => [
-                ...prev,
-                {
-                  name: file.name,
-                  content: "",
-                  type: "audio",
-                  mimeType: file.type || "audio/mp3",
-                  base64Data,
-                  preview: undefined,
-                },
-              ]);
-              break;
+              // No provider request format for these yet: they used to go out
+              // as images, which no provider reads as audio or video.
+              showRejection(tr("aiPage.unsupportedMediaAttachment", { name: file.name }));
+              continue;
             }
             case "document": {
               if (!currentModelCaps.document) {
@@ -159,6 +135,11 @@ export function useFileAttachments({
                 showRejection(
                   tr("aiPage.unsupportedOfficeModel", { model: modelName ?? "-" })
                 );
+                continue;
+              }
+              // PDFs reach the model only through Anthropic's document blocks.
+              if (providerType !== "ANTHROPIC" || !file.name.toLowerCase().endsWith(".pdf")) {
+                showRejection(tr("aiPage.unsupportedDocumentProvider", { name: file.name }));
                 continue;
               }
               const dataUrl = await readFileAsDataURL(file);
@@ -204,7 +185,7 @@ export function useFileAttachments({
         }
       }
     },
-    [currentModelCaps, enableVision, modelName, showRejection, tr]
+    [currentModelCaps, enableVision, modelName, providerType, showRejection, tr]
   );
 
   const handlePaste = useCallback(

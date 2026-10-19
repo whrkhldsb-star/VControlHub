@@ -15,6 +15,14 @@ describe("sync schedule", () => {
     expect(isValidSyncSchedule("not a cron")).toBe(false);
   });
 
+  it("a never-run cron job waits for its first occurrence after creation", () => {
+    // Counting from 1970 made every new cron job run at once.
+    const createdAt = new Date("2026-10-19T02:10:00Z"); // 10:10 Asia/Shanghai
+    const daily3am = { schedule: "0 3 * * *", lastSyncAt: null, createdAt, status: "IDLE" };
+    expect(isSyncJobDue({ ...daily3am, now: new Date("2026-10-19T02:11:00Z") })).toBe(false);
+    expect(isSyncJobDue({ ...daily3am, now: new Date("2026-10-19T19:00:00Z") })).toBe(true); // 03:00 next day
+  });
+
   it("due when never ran and scheduled", () => {
     expect(
       isSyncJobDue({ schedule: "every:1h", lastSyncAt: null, status: "IDLE" }),

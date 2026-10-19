@@ -79,14 +79,6 @@ function resolveKeepLatest(options: OperationTaskRetentionOptions): number {
 }
 
 /**
- * Hard upper bound on how many `teamId` scopes one source prunes per run.
- * Team count is already small in practice; the cap only exists so a corrupted
- * or unexpectedly wide grouping cannot turn one tick into thousands of queries.
- * Hitting it is logged, never silent — the remaining scopes are pruned next run.
- */
-const MAX_RETENTION_TEAM_SCOPES = 200;
-
-/**
  * Apply "keep the newest `keepLatest`, delete everything else older than
  * `olderThan`" **once per team scope** (plus the `teamId: null` legacy scope).
  *
@@ -101,15 +93,10 @@ async function pruneTerminalHistoryPerTeam(input: {
   listRetainedIds: (teamId: string | null, take: number) => Promise<string[]>;
   deleteOlderThan: (teamId: string | null, retainedIds: string[]) => Promise<number>;
 }): Promise<OperationTaskRetentionPerSourceResult> {
-  const allScopes = await input.listTeamScopes();
-  const scopes = allScopes.slice(0, MAX_RETENTION_TEAM_SCOPES);
-  if (allScopes.length > scopes.length) {
-    logger.warn("Retention team scope cap reached; remaining scopes prune on the next run", {
-      source: input.source,
-      scopes: allScopes.length,
-      cap: MAX_RETENTION_TEAM_SCOPES,
-    });
-  }
+  // Every customer, every run: scopes keep their newest records, so a fixed
+  // first slice came back unchanged each run and later customers were never
+  // pruned. Each scope costs two indexed queries.
+  const scopes = await input.listTeamScopes();
 
   let scanned = 0;
   let deleted = 0;
@@ -211,6 +198,8 @@ async function pruneBackup(_keepLatest: number, _olderThan: Date): Promise<Opera
 // DeploymentRun status is String. Live terminal set includes REJECTED (deployment service);
 // keep ROLLED_BACK for forward-compat even if writers do not emit it today.
 const DEPLOYMENT_TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED", "REJECTED", "ROLLED_BACK"] as const;
+/** Rollback states whose command may still run (see resolveRollbackRunStatus). */
+const ACTIVE_ROLLBACK_STATUSES = ["PENDING", "RUNNING"] as const;
 
 async function pruneDeployment(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
   return pruneTerminalHistoryPerTeam({
@@ -240,6 +229,10 @@ async function pruneDeployment(keepLatest: number, olderThan: Date): Promise<Ope
           teamId,
           createdAt: { lt: olderThan },
           ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
+          // A rollback cascades with its source run: keep the run while one
+          // is still pending or running (its command keeps going otherwise
+          // with no record left of it).
+          rollbackAttempts: { none: { status: { in: [...ACTIVE_ROLLBACK_STATUSES] } } },
         },
       });
       return result.count;

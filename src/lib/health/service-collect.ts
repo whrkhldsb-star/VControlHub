@@ -6,6 +6,7 @@
  * results into a `HealthOverview`. Heavy I/O (parallel SSH) lives here; the
  * alert evaluation logic lives in `./service-alerts`.
  */
+import { Prisma } from "@prisma/client";
 import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 import { prisma } from "@/lib/db";
 import { collectServerMetrics, type ServerMetrics } from "@/lib/server/monitor";
@@ -28,31 +29,64 @@ const SERVER_PAGE_SIZE = 200;
  * absolute cumulative bytes / 1024 — which falsely looks like multi-Gbps load
  * and would fire any reasonable network_* alert rule after a few hours of uptime.
  */
-type NetSample = { atMs: number; rxBytes: number; txBytes: number };
+type NetSample = { atMs: number; rxBytes: number; txBytes: number; rates: { inKbps: number; outKbps: number } };
 const lastNetSampleByServer = new Map<string, NetSample>();
 
+/**
+ * Rates between consecutive samples, timed by when each sample was taken
+ * (`sampledAtMs`), not when it was read. An Agent reports once a minute while
+ * the dashboard and alerts read its last report far more often: re-reading
+ * one sample used to move the baseline to "now", so the next sample's
+ * minute of bytes was divided by a few seconds. A sample read again (or one
+ * older than the baseline) keeps the rates it produced and the baseline.
+ */
 function networkRatesKbps(
   serverId: string,
   totalRx: number,
   totalTx: number,
-  nowMs: number,
+  sampledAtMs: number,
 ): { inKbps: number; outKbps: number } {
   const prev = lastNetSampleByServer.get(serverId);
-  lastNetSampleByServer.set(serverId, {
-    atMs: nowMs,
-    rxBytes: totalRx,
-    txBytes: totalTx,
-  });
-  if (!prev) return { inKbps: 0, outKbps: 0 };
-  const elapsedSec = (nowMs - prev.atMs) / 1000;
-  if (elapsedSec <= 0) return { inKbps: 0, outKbps: 0 };
-  // Counter reset / reboot → treat as zero rate rather than negative flood.
-  const dRx = totalRx >= prev.rxBytes ? totalRx - prev.rxBytes : 0;
-  const dTx = totalTx >= prev.txBytes ? totalTx - prev.txBytes : 0;
-  return {
-    inKbps: Math.max(0, Math.round(dRx / 1024 / elapsedSec)),
-    outKbps: Math.max(0, Math.round(dTx / 1024 / elapsedSec)),
-  };
+  if (prev && sampledAtMs <= prev.atMs) return prev.rates;
+  let rates = { inKbps: 0, outKbps: 0 };
+  if (prev) {
+    const elapsedSec = (sampledAtMs - prev.atMs) / 1000;
+    // Counter reset / reboot → treat as zero rate rather than negative flood.
+    const dRx = totalRx >= prev.rxBytes ? totalRx - prev.rxBytes : 0;
+    const dTx = totalTx >= prev.txBytes ? totalTx - prev.txBytes : 0;
+    rates = {
+      inKbps: Math.max(0, Math.round(dRx / 1024 / elapsedSec)),
+      outKbps: Math.max(0, Math.round(dTx / 1024 / elapsedSec)),
+    };
+  }
+  lastNetSampleByServer.set(serverId, { atMs: sampledAtMs, rxBytes: totalRx, txBytes: totalTx, rates });
+  return rates;
+}
+
+/**
+ * Bytes each server moved since `since`: the sum of every step between
+ * consecutive samples of one interface (a counter that went down was reset,
+ * so its new value is what accrued since). First-vs-last lost all traffic
+ * before a reboot in the month.
+ */
+export async function sumTrafficSince(serverIds: string[], since: Date): Promise<Map<string, { rx: number; tx: number }>> {
+  if (serverIds.length === 0) return new Map();
+  // One aggregate in SQL: the previous `take: 5000` scan lost the end of the month.
+  const rows = await prisma.$queryRaw<Array<{ serverId: string; rx: string; tx: string }>>(Prisma.sql`
+    SELECT "serverId",
+      COALESCE(SUM(CASE WHEN prev_rx IS NULL THEN 0 WHEN "rxBytes" >= prev_rx THEN "rxBytes" - prev_rx ELSE "rxBytes" END), 0)::text AS rx,
+      COALESCE(SUM(CASE WHEN prev_tx IS NULL THEN 0 WHEN "txBytes" >= prev_tx THEN "txBytes" - prev_tx ELSE "txBytes" END), 0)::text AS tx
+    FROM (
+      SELECT "serverId", "rxBytes", "txBytes",
+        LAG("rxBytes") OVER w AS prev_rx,
+        LAG("txBytes") OVER w AS prev_tx
+      FROM traffic_snapshots
+      WHERE source = 'server' AND "serverId" IN (${Prisma.join(serverIds)}) AND "sampledAt" >= ${since}
+      WINDOW w AS (PARTITION BY "serverId", iface ORDER BY "sampledAt", id)
+    ) steps
+    GROUP BY "serverId"
+  `);
+  return new Map(rows.map((row) => [row.serverId, { rx: Number(row.rx), tx: Number(row.tx) }]));
 }
 
 export async function collectAllHealth(
@@ -157,8 +191,8 @@ export async function collectAllHealth(
       const labelDisk = fullestDisk(metrics.disk);
       const totalNetRx = metrics.network.reduce((s, n) => s + n.rxBytes, 0);
       const totalNetTx = metrics.network.reduce((s, n) => s + n.txBytes, 0);
-      const nowMs = Date.now();
-      const rates = networkRatesKbps(server.id, totalNetRx, totalNetTx, nowMs);
+      const sampledAtMs = Date.parse(metrics.timestamp);
+      const rates = networkRatesKbps(server.id, totalNetRx, totalNetTx, Number.isFinite(sampledAtMs) ? sampledAtMs : Date.now());
       return {
         serverId: server.id,
         serverName: server.name,
@@ -211,48 +245,12 @@ export async function collectAllHealth(
     const monthStart = startOfMonthInAppTimeZone();
     const ids = results.map((r) => r.serverId);
     if (ids.length > 0) {
-      const snapWhere = {
-        source: "server",
-        serverId: { in: ids },
-        sampledAt: { gte: monthStart },
-      };
-      const snapSelect = { serverId: true, rxBytes: true, txBytes: true };
-      // DISTINCT ON (serverId): the earliest and latest sample per server this
-      // month, in two bounded queries (≤ ids.length rows each). The previous
-      // `take: 5000` asc scan silently truncated the month once the fleet
-      // produced >5000 rows — it read the oldest 5000, so each server's "last"
-      // sample was capped early in the month and monthly traffic was
-      // under-reported (worse still under the pre-fix write amplification).
-      const [firstRows, lastRows] = await Promise.all([
-        prisma.trafficSnapshot.findMany({
-          where: snapWhere,
-          select: snapSelect,
-          orderBy: [{ serverId: "asc" }, { sampledAt: "asc" }],
-          distinct: ["serverId"],
-        }),
-        prisma.trafficSnapshot.findMany({
-          where: snapWhere,
-          select: snapSelect,
-          orderBy: [{ serverId: "asc" }, { sampledAt: "desc" }],
-          distinct: ["serverId"],
-        }),
-      ]);
-      const first = new Map<string, { rx: bigint; tx: bigint }>();
-      const last = new Map<string, { rx: bigint; tx: bigint }>();
-      for (const s of firstRows) {
-        if (s.serverId) first.set(s.serverId, { rx: s.rxBytes, tx: s.txBytes });
-      }
-      for (const s of lastRows) {
-        if (s.serverId) last.set(s.serverId, { rx: s.rxBytes, tx: s.txBytes });
-      }
+      const monthly = await sumTrafficSince(ids, monthStart);
       for (const r of results) {
-        const a = first.get(r.serverId);
-        const b = last.get(r.serverId);
-        if (!a || !b) continue;
-        const dRx = b.rx >= a.rx ? b.rx - a.rx : b.rx;
-        const dTx = b.tx >= a.tx ? b.tx - a.tx : b.tx;
-        r.monthlyRxBytes = Number(dRx);
-        r.monthlyTxBytes = Number(dTx);
+        const row = monthly.get(r.serverId);
+        if (!row) continue;
+        r.monthlyRxBytes = row.rx;
+        r.monthlyTxBytes = row.tx;
       }
     }
   } catch {

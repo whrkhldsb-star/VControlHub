@@ -61,6 +61,9 @@ export function DashboardPreferenceClient({
 	const [openDetailId, setOpenDetailId] = useState<DashboardWidgetId | null>(null);
 	const [preferenceError, setPreferenceError] = useState<string | null>(null);
 	const gridRef = useRef<HTMLDivElement | null>(null);
+	// Set once a layout is saved here: the initial read, if it answers later,
+	// holds the layout from before and must not put it back (or into the cache).
+	const layoutChangedRef = useRef(false);
 
 	// Load preferences from localStorage and /api/preferences on mount.
 	useEffect(() => {
@@ -78,6 +81,7 @@ export function DashboardPreferenceClient({
 
 		csrfFetch("/api/preferences")
 			.then((data) => {
+				if (layoutChangedRef.current) return;
 				const nextPreferences = normalizeUserPreferences(data);
 				writeUserPreferencesCache(nextPreferences, { notify: false });
 				loadPreferences(nextPreferences);
@@ -152,6 +156,7 @@ export function DashboardPreferenceClient({
 	const persistPreferences = useCallback(
 		async (order: DashboardWidgetId[], hidden: Set<DashboardWidgetId>) => {
 			const visibleOrder = order.filter((id) => !hidden.has(id));
+			layoutChangedRef.current = true;
 			setPreferences({ dashboardWidgets: visibleOrder });
 			mergeUserPreferencesCache({ dashboardWidgets: visibleOrder });
 			try {

@@ -71,6 +71,15 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 								rawJson: app.rawJson ?? null,
 								sourceVersion: app.sourceVersion ?? null,
 							};
+							// "<source>-<app>" can collide across sources ("feed" +
+							// "tools-demo" and "feed-tools" + "demo"): never let one
+							// source overwrite another's app (it kept the other's
+							// ownership); report the clash instead.
+							const holder = await prisma.appSourceApp.findUnique({ where: { slug: app.slug }, select: { sourceId: true } });
+							if (holder && holder.sourceId !== source.id) {
+								logger.warn(`App ${app.slug} of ${source.name} collides with another source's app; skipped`);
+								return "err" as const;
+							}
 							await prisma.appSourceApp.upsert({
 								where: { slug: app.slug },
 								update: fields,

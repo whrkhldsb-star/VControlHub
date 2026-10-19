@@ -188,6 +188,28 @@ describe("useFileAttachments", () => {
     expect(onReject).toHaveBeenCalledWith(expect.stringMatching(/不支持 PDF/));
   });
 
+  it("sends a PDF only to Anthropic, and audio/video to no provider yet", async () => {
+    // Other providers got these as image parts, which they cannot read.
+    const attach = async (providerType: string, file: File) => {
+      const onReject = vi.fn();
+      const { result } = renderHook(() =>
+        useFileAttachments({ currentModelCaps: ALL_CAPS, modelName: "m", providerType, t: testT, onReject })
+      );
+      await act(async () => {
+        await result.current.handleFileSelect([file]);
+      });
+      return { onReject, attachments: result.current.fileAttachments };
+    };
+    const pdf = () => makeFile("a.pdf", "application/pdf");
+    expect((await attach("ANTHROPIC", pdf())).attachments).toHaveLength(1);
+    const openai = await attach("OPENAI", pdf());
+    expect(openai.attachments).toHaveLength(0);
+    expect(openai.onReject).toHaveBeenCalled();
+    const video = await attach("GOOGLE", makeFile("a.mp4", "video/mp4"));
+    expect(video.attachments).toHaveLength(0);
+    expect(video.onReject).toHaveBeenCalled();
+  });
+
   it("accepts text file and truncates long content", async () => {
     const longContent = "a".repeat(150000);
     const { result } = renderHook(() =>

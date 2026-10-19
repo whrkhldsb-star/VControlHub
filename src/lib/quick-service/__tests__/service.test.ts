@@ -641,6 +641,53 @@ describe("quick service docker lifecycle", () => {
 		expect(execFileMock).not.toHaveBeenCalledWith(expect.stringContaining("grep"), expect.anything(), expect.anything(), expect.anything());
 	});
 
+	it("does not call a container stopped when Docker could not be asked", async () => {
+		// A timeout or an unreachable daemon says nothing about the container.
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-sync", slug: "demo", status: "running" });
+		execFileSyncMock.mockImplementationOnce(() => {
+			throw Object.assign(new Error("Command failed: docker inspect"), {
+				stderr: "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?\n",
+				stdout: "",
+			});
+		});
+		prismaMock.quickService.update.mockResolvedValue({});
+
+		await expect(syncServiceStatus("demo")).rejects.toThrow(/Cannot connect to the Docker daemon/);
+		expect(prismaMock.quickService.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "stopped" }) }));
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.sync.failed" }));
+	});
+
+	it("gives the reserved port back when an install fails before the container is created", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValue(null);
+		mkdirSyncMock.mockImplementationOnce(() => {
+			throw Object.assign(new Error("EACCES: permission denied, mkdir '/opt/demo/data'"), { code: "EACCES" });
+		});
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow(/EACCES/);
+
+		// The same port is free for the next attempt (it stayed reserved in this process).
+		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-1", slug: "demo", port: 12345 });
+		prismaMock.quickService.update.mockResolvedValueOnce({});
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).resolves.toMatchObject({ port: 12345 });
+	});
+
+	it("keeps the row of a running replacement when only its final save fails", async () => {
+		// The new container passed acceptance and the old one is gone: rolling
+		// the row back would describe a container that no longer exists.
+		const before = { id: "svc-existing", slug: "demo", status: "running", port: 18080, containerId: "oldcontainer1", image: "example/demo:old", path: "/", internalPort: null, extraPortsJson: "[]", command: null, envJson: "{}", volumesJson: "[]", error: null };
+		prismaMock.quickService.findUnique.mockResolvedValue(before);
+		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-existing", slug: "demo", port: 12345 });
+		prismaMock.quickService.update.mockRejectedValue(new Error("database connection lost"));
+
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow(/database connection lost/);
+		expect(prismaMock.quickService.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ containerId: "oldcontainer1" }) }));
+		expect(prismaMock.quickService.delete).not.toHaveBeenCalled();
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.install.failed",
+			detail: expect.objectContaining({ phase: "finalize" }),
+		}));
+		prismaMock.quickService.update.mockReset();
+	});
+
 	it("treats missing quick-service containers as stopped during status sync instead of surfacing docker inspect noise", async () => {
 		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-sync", slug: "demo" });
 		execFileSyncMock.mockImplementationOnce(() => {

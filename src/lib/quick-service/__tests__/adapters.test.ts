@@ -91,4 +91,23 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 			extraPorts: [{ host: 9898, container: 9898 }],
 		});
 	});
+
+	it("refuses a 200 response that is not a catalogue instead of reading it as empty", async () => {
+		// Read as an empty catalogue, the sync deleted every app of the source
+		// and recorded success.
+		const errorBody = { status: "error", message: "temporary backend failure" };
+		globalThis.fetch = vi.fn(async () => new Response(JSON.stringify(errorBody), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+		await expect(fetchSourceApps("catalog", "json", "https://catalog.example/apps.json")).rejects.toThrow();
+		await expect(fetchSourceApps("lsio", "linuxserver", "https://catalog.example/lsio.json")).rejects.toThrow();
+	});
+
+	it("still accepts a well-formed empty catalogue", async () => {
+		globalThis.fetch = vi.fn(async (url: string | URL) => new Response(
+			JSON.stringify(String(url).includes("lsio") ? { status: "OK", data: { repositories: { linuxserver: [] } } } : { apps: [] }),
+			{ status: 200, headers: { "content-type": "application/json" } },
+		)) as unknown as typeof fetch;
+		await expect(fetchSourceApps("catalog", "json", "https://catalog.example/apps.json")).resolves.toEqual([]);
+		await expect(fetchSourceApps("lsio", "linuxserver", "https://catalog.example/lsio.json")).resolves.toEqual([]);
+	});
 });
+

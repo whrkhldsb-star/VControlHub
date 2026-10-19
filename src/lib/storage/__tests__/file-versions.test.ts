@@ -51,6 +51,7 @@ vi.mock("@/lib/logging", () => ({
 }));
 
 vi.mock("@/lib/db", () => ({
+  isUniqueViolation: (error: unknown) => (error as { code?: string })?.code === "P2002",
   prisma: {
     fileEntry: {
       findUnique: vi.fn(async ({ where }: any) => store.entries.get(where.id) ?? null),
@@ -88,6 +89,10 @@ vi.mock("@/lib/db", () => ({
         }));
       }),
       create: vi.fn(async ({ data, include }: any) => {
+        // (fileEntryId, versionNumber) is unique, as in the schema.
+        if ([...store.versions.values()].some((v) => v.fileEntryId === data.fileEntryId && v.versionNumber === data.versionNumber)) {
+          throw Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+        }
         store.seq += 1;
         const row = {
           id: `ver_${store.seq}`,
@@ -178,6 +183,22 @@ describe("file-versions service", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]!.versionNumber).toBe(3);
     expect(rows[1]!.versionNumber).toBe(2);
+  });
+
+  it("two concurrent snapshots of the same content each keep their own blob", async () => {
+    // Both took version 1 and wrote the same path; the one that lost the
+    // version race deleted that path, under the winner's row.
+    const mod = await import("@/lib/storage/file-versions");
+    const [a, b] = await Promise.all([
+      mod.snapshotFileVersionBeforeOverwrite({ fileEntryId: "fe_1", userId: "u1", reason: "EDIT" }),
+      mod.snapshotFileVersionBeforeOverwrite({ fileEntryId: "fe_1", userId: "u1", reason: "EDIT" }),
+    ]);
+    expect([a?.versionNumber, b?.versionNumber].sort()).toEqual([1, 2]);
+    const rows = [...store.versions.values()];
+    expect(new Set(rows.map((row) => row.blobRelativePath)).size).toBe(2);
+    for (const row of rows) {
+      await expect(fs.readFile(path.join(tmpDir, row.blobRelativePath))).resolves.toEqual(Buffer.from("hello v1"));
+    }
   });
 
   it("restores a version and writes storage + creates restore point", async () => {

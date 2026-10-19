@@ -192,4 +192,35 @@ describe("SnippetList", () => {
       }
     });
   });
+
+  it("finds a word past the 240-character preview through the server's full-text match", async () => {
+    // The list carries a preview only; matching it locally missed the rest.
+    const long = { id: "snip-long", title: "Long plain note", contentPreview: `${"A".repeat(240)}…`, contentLength: 400, language: "text", description: null, tags: [], isPrivate: false };
+    vi.mocked(csrfFetch).mockImplementation(async (url: unknown) =>
+      (String(url).startsWith("/api/snippets?q=needle_after_preview") ? { snippets: [{ id: "snip-long" }] } : {}) as never);
+    render(
+      <ToastProvider>
+        <SnippetList snippets={[...snippets, long] as never} />
+      </ToastProvider>,
+    );
+    await userEvent.type(screen.getByRole("searchbox", { name: "搜索代码片段" }), "needle_after_preview");
+    expect(await screen.findByText("Long plain note")).toBeInTheDocument();
+    expect(screen.queryByText("部署脚本")).not.toBeInTheDocument();
+  });
+
+  it("an edit that clears the description and every tag sends the clears", async () => {
+    // Left out of a PATCH, both kept their old values while the save "succeeded".
+    vi.mocked(csrfFetch).mockImplementation(async (_url: unknown, init?: RequestInit) =>
+      (init?.method === "PATCH" ? { snippet: { ...snippets[0], description: null, tags: [] } } : {}) as never);
+    renderList();
+    await userEvent.click(screen.getByRole("button", { name: "编辑" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.clear(within(dialog).getByLabelText("描述（可选）"));
+    await userEvent.clear(within(dialog).getByLabelText("标签（用逗号分隔）"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/snippets", expect.objectContaining({ method: "PATCH" })));
+    const patch = vi.mocked(csrfFetch).mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")!;
+    expect(JSON.parse(String((patch[1] as RequestInit).body))).toMatchObject({ id: "snip-1", description: "", tags: [] });
+  });
 });
+

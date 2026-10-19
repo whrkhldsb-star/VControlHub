@@ -385,6 +385,17 @@ def terminate(proc):
         try: os.killpg(proc.pid, signal.SIGKILL)
         except ProcessLookupError: pass
         proc.communicate(timeout=5)
+def job_heartbeat(job):
+    # A long job keeps the hub's metrics fresh too: without them the node read
+    # as offline (metrics older than 3 minutes) while its heartbeat arrived.
+    global last_metrics
+    payload={"version":VERSION,"heartbeatJobId":job["id"]}
+    now=time.time()
+    if now-last_metrics >= 60:
+        last_metrics=now
+        raw=collect_metrics()
+        if raw is not None: payload["metricsRaw"]=raw
+    return payload
 def run(job):
     timeout_seconds=max(1,min(int(job.get("timeoutMs",60000))/1000,3600))
     # Bytes, not text: output that is not valid UTF-8 must not abort the job.
@@ -399,7 +410,7 @@ def run(job):
             return {"jobId":job["id"],"stdout":fit(stdout,OUTPUT_LIMIT),"stderr":fit(stderr,ERROR_LIMIT),"exitCode":code}
         except subprocess.TimeoutExpired as exc:
             try:
-                heartbeat=post({"version":VERSION,"heartbeatJobId":job["id"]})
+                heartbeat=post(job_heartbeat(job))
             except Exception:
                 heartbeat={}
             if heartbeat.get("cancelled"):
@@ -593,7 +604,13 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "    if ([DateTime]::UtcNow -ge $deadline) { break }",
     "    if (([DateTime]::UtcNow - $lastHeartbeat).TotalSeconds -ge $HEARTBEAT_SECONDS) {",
     "      try {",
-    "        $beat = Invoke-AgentPost ((@{ version = $VERSION; heartbeatJobId = [string]$Job.id } | ConvertTo-Json -Compress))",
+    "        $beatPayload = @{ version = $VERSION; heartbeatJobId = [string]$Job.id }",
+    "        # A long job keeps the hub's metrics fresh too (they expire after 3 minutes).",
+    "        if (([DateTime]::UtcNow - $script:lastMetrics).TotalSeconds -ge 60) {",
+    "          $script:lastMetrics = [DateTime]::UtcNow",
+    "          try { $raw = Get-AgentMetrics; if ($raw) { $beatPayload['metricsRaw'] = $raw.Substring(0, [Math]::Min(64000, $raw.Length)) } } catch { }",
+    "        }",
+    "        $beat = Invoke-AgentPost (($beatPayload | ConvertTo-Json -Compress))",
     "        if ($beat -and $beat.cancelled) { $cancelled = $true; break }",
     "      } catch { }",
     "      $lastHeartbeat = [DateTime]::UtcNow",

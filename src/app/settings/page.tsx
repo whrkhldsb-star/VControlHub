@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getAllSettingsMasked, getSettingUpdateMetadata } from "@/lib/settings/service";
+import { VALID_SETTING_KEYS } from "@/lib/settings/schema";
 import { getRuntimeSettingSummaries } from "@/lib/runtime-settings/service";
 import { getAvailableDefaultPageOptions } from "@/lib/preferences/user-preferences";
 import { isPlatformAdmin as checkPlatformAdmin } from "@/lib/system/platform-admin";
@@ -10,37 +11,9 @@ import { PageShell } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
-const SETTINGS_AUDIT_KEYS = [
-	"platform.name",
-	"platform.logo",
-	"session.timeout",
-	"password.minLength",
-	"password.requireUppercase",
-	"password.requireNumber",
-	"password.requireSpecial",
-	"runtime.commandExecutionTimeoutMs",
-	"runtime.commandOutputLimitBytes",
-	"runtime.commandStaleRunningAfterMs",
-	"runtime.commandExecutionHeartbeatMs",
-	"runtime.commandReconcileIntervalMs",
-	"runtime.sftpSyncDirectoryTimeoutMs",
-	"runtime.sshWsHeartbeatIntervalMs",
-	"runtime.sshIdleTimeoutSec",
-	"runtime.operationTaskListLimit",
-	"runtime.aiProviderListLimit",
-	"runtime.aiConversationListLimit",
-	"smtp.enabled",
-	"smtp.host",
-	"smtp.port",
-	"smtp.user",
-	"smtp.pass",
-	"smtp.from",
-	"smtp.alertRecipients",
-	// TR-009 55d: Telegram alert channel (settings UI + health self-check)
-	"telegram.enabled",
-	"telegram.botToken",
-	"telegram.chatId",
-];
+// Every key the settings page can save: a fixed list here fell behind as
+// sections were added, and their "last changed" showed no record.
+const SETTINGS_AUDIT_KEYS = VALID_SETTING_KEYS;
 
 export default async function SettingsPage() {
 	const session = await requireSession("/settings");

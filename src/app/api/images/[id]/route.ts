@@ -1,5 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { unlink } from "node:fs/promises";
+import { stat, unlink } from "node:fs/promises";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
@@ -121,11 +121,15 @@ export async function DELETE(
               );
             }
             // New records store the full relative file path; legacy records
-            // stored only the directory. Support both shapes during cleanup.
-            linkedFilePath =
-              path.basename(image.relativePath) === image.storageKey
-                ? resolvedDir.path
-                : path.join(resolvedDir.path, image.storageKey);
+            // stored only the directory. An image published from storage
+            // points at the user's own source file (another name than the
+            // storage key): that file is not the image bed's to delete, and
+            // treating it as a legacy directory failed every such delete.
+            if (path.basename(image.relativePath) === image.storageKey) {
+              linkedFilePath = resolvedDir.path;
+            } else if ((await stat(resolvedDir.path).catch(() => null))?.isDirectory()) {
+              linkedFilePath = path.join(resolvedDir.path, image.storageKey);
+            }
           }
         }
       }

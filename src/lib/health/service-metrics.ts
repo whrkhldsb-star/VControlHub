@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { normalizeServerMetrics } from "@/lib/public-status/normalize";
@@ -122,13 +123,35 @@ export async function pruneMetricSnapshots(olderThan: Date) {
   return prisma.metricSnapshot.deleteMany({ where: { createdAt: { lt: olderThan } } });
 }
 
-export async function getMetricHistory(serverId: string, hours: number = 24) {
+export type MetricHistoryPoint = {
+  cpuUsage: number;
+  memUsage: number;
+  diskUsage: number;
+  isOnline: boolean;
+  createdAt: Date;
+  intervalSeconds: number | null;
+};
+
+/**
+ * The window's samples, thinned evenly to at most the old 5-minute point
+ * budget and always ending at the newest sample. The budget used to be a
+ * `take` on the oldest rows: at a 1-minute cadence "24 hours" stopped 19
+ * hours ago.
+ */
+export async function getMetricHistory(serverId: string, hours: number = 24): Promise<MetricHistoryPoint[]> {
   const normalizedHours = Math.min(Math.max(Math.floor(hours), 1), 168);
   const since = new Date(Date.now() - normalizedHours * 3_600_000);
-  return prisma.metricSnapshot.findMany({
-    where: { serverId, createdAt: { gte: since } },
-    orderBy: { createdAt: "asc" },
-    select: { cpuUsage: true, memUsage: true, diskUsage: true, isOnline: true, createdAt: true },
-    take: Math.min(2_100, normalizedHours * 12 + 12),
-  });
+  const maxPoints = Math.min(2_100, normalizedHours * 12 + 12);
+  return prisma.$queryRaw<MetricHistoryPoint[]>(Prisma.sql`
+    SELECT "cpuUsage", "memUsage", "diskUsage", "isOnline", "createdAt", "intervalSeconds"
+    FROM (
+      SELECT "cpuUsage", "memUsage", "diskUsage", "isOnline", "createdAt", "intervalSeconds",
+        row_number() OVER (ORDER BY "createdAt" DESC, id DESC) AS rn,
+        count(*) OVER () AS total
+      FROM metric_snapshots
+      WHERE "serverId" = ${serverId} AND "createdAt" >= ${since}
+    ) window_rows
+    WHERE (rn - 1) % GREATEST(1, CEIL(total::numeric / ${maxPoints}))::bigint = 0
+    ORDER BY "createdAt" ASC
+  `);
 }

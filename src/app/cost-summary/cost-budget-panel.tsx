@@ -43,19 +43,23 @@ export function CostBudgetPanel({
   };
 
   const create = async () => {
-    if (!form.name.trim() || !form.limitAmount.trim()) return;
+    const name = form.name.trim();
+    const limitAmount = form.limitAmount.trim();
+    if (!name || !limitAmount) return;
     setBusy(true);
     try {
       await csrfFetch("/api/cost/budgets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          name: form.name.trim(),
-          limitAmount: form.limitAmount.trim(),
-        }),
+        body: JSON.stringify({ ...form, name, limitAmount }),
       });
-      setForm((current) => ({ ...current, name: "", limitAmount: "" }));
+      // Clear only what was saved: the fields stay editable while saving,
+      // and a next budget typed meanwhile is not this one.
+      setForm((current) =>
+        current.name.trim() === name && current.limitAmount.trim() === limitAmount
+          ? { ...current, name: "", limitAmount: "" }
+          : current,
+      );
       await reload();
       addToast("success", t("costPage.budget.created"));
     } catch (error) {

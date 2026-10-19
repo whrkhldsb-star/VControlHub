@@ -43,10 +43,13 @@ export const LOG_RETENTION_TABLES = {
 	mediaUploadSession: {
 		days: 30,
 		find: (before, take) => prisma.mediaUploadSession.findMany({
-			where: { status: { in: ["COMPLETED", "CANCELLED", "FAILED"] }, updatedAt: { lt: before } },
+			// A session awaiting manual recovery (outcome unknown, chunks kept on
+			// disk) is not history: its metadata is what the recovery runbook
+			// lists. It goes only once an administrator resolved it.
+			where: { status: { in: ["COMPLETED", "CANCELLED", "FAILED"] }, recoveryRequired: false, updatedAt: { lt: before } },
 			orderBy: { updatedAt: "asc" }, take, select: { id: true },
 		}),
-		remove: (ids) => prisma.mediaUploadSession.deleteMany({ where: { id: { in: ids } } }),
+		remove: (ids) => prisma.mediaUploadSession.deleteMany({ where: { id: { in: ids }, recoveryRequired: false } }),
 	},
 	playbookRun: {
 		days: 90,

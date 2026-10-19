@@ -198,6 +198,10 @@ export async function PATCH(request: Request) {
 
       // Non-aria2 refresh: inspect the real remote process/exit marker before reporting status.
       if (action === "refresh") {
+        const currentOutcome = async () => {
+          const now = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true, progress: true } });
+          return NextResponse.json({ status: now?.status ?? task.status, progress: now?.progress ?? task.progress });
+        };
         if (task.pid && task.status === "RUNNING") {
           try {
             const sshParams = await buildSshParamsFromServer(
@@ -224,13 +228,16 @@ export async function PATCH(request: Request) {
                   ? { fileSize: size, totalBytes: size, completedBytes: size }
                   : {}),
               };
+              // The probe took a while: a task cancelled meanwhile keeps its
+              // outcome (and gets no file index), like the aria2 branch above.
+              const won = await prisma.downloadTask.updateMany({ where: whileActive, data });
+              if (won.count === 0) return currentOutcome();
               await indexDownloadedFileEntry({
                 storageNode: task.server.storageNode,
                 targetPath: task.targetPath,
                 fileName: resolvedFileName,
                 size: size ? BigInt(size) : null,
               });
-              await prisma.downloadTask.update({ where: { id: taskId }, data });
               const downloadAccess = taskDownloadAccess({
                 ...task,
                 locale,
@@ -254,7 +261,8 @@ export async function PATCH(request: Request) {
                 progress: t("apiDownloads.failed", locale),
                 errorMessage: t("apiDownloads.remoteProcessFailed", locale),
               };
-              await prisma.downloadTask.update({ where: { id: taskId }, data });
+              const won = await prisma.downloadTask.updateMany({ where: whileActive, data });
+              if (won.count === 0) return currentOutcome();
               return NextResponse.json({ status: data.status, progress: data.progress });
             }
           } catch (err) {

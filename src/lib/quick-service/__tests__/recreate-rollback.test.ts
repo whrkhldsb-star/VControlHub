@@ -15,6 +15,8 @@ const { docker, prismaMock, faults } = vi.hoisted(() => ({
 		inspectError: "" as string,
 		renameError: "" as string,
 		startError: "" as string,
+		/** State an existing container is left in by `docker start`. */
+		startLeaves: "running" as Container["state"],
 		newContainer: { state: "running", health: "", restarts: 0 } as Pick<Container, "state" | "health" | "restarts">,
 	},
 	prismaMock: {
@@ -59,7 +61,7 @@ function dockerSync(args: string[]): string {
 			if (faults.startError) throw dockerError(faults.startError);
 			const container = docker.get(name);
 			if (!container) throw dockerError(`Error response from daemon: No such container: ${name}`);
-			container.state = "running";
+			container.state = faults.startLeaves;
 			return "";
 		}
 		case "logs":
@@ -131,6 +133,7 @@ beforeEach(() => {
 	faults.inspectError = "";
 	faults.renameError = "";
 	faults.startError = "";
+	faults.startLeaves = "running";
 	faults.newContainer = { state: "running", health: "", restarts: 0 };
 	prismaMock.quickService.findUnique.mockResolvedValue({ ...serviceRow });
 	prismaMock.quickService.update.mockResolvedValue({});
@@ -188,6 +191,15 @@ describe("quick-service start only re-creates a container that is really gone", 
 		await expect(startService("demo")).rejects.toThrow(/port is already allocated/);
 		expect(docker.get("qs-demo")).toMatchObject({ id: "oldcontainer0001", state: "exited" });
 		expect([...docker.keys()]).toEqual(["qs-demo"]);
+	});
+
+	it("reports a started container that exits at once as failed, not running", async () => {
+		// `docker start` succeeds for a container whose process dies right away.
+		docker.get("qs-demo")!.state = "exited";
+		faults.startLeaves = "exited";
+		await expect(startService("demo")).rejects.toThrow(/exited/);
+		expect(prismaMock.quickService.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "running" }) }));
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "error" }) }));
 	});
 
 	it("re-creates the container when Docker says it does not exist", async () => {

@@ -32,11 +32,12 @@ function urlTypeLabel(url: string, t: (k: string, vars?: Record<string, string |
 	return t("downloadsPage.linkType.unknown");
 }
 
-function computePct(completed: string | null, total: string | null): number {
+/** Percent (0-100, one decimal), as the progress bar and the "%" label read it. */
+export function computePct(completed: string | null, total: string | null): number {
 	const c = parseInt(completed ?? "0", 10);
 	const t = parseInt(total ?? "0", 10);
 	if (isNaN(c) || isNaN(t) || t === 0) return 0;
-	return Math.min(100, Math.round((c / t) * 10) / 10);
+	return Math.min(100, Math.max(0, Math.round((c / t) * 1000) / 10));
 }
 
 export const DownloadTaskRow = memo(function DownloadTaskRow({

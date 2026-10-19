@@ -111,3 +111,20 @@ describe("executeSyncJob onClaimed ordering", () => {
     expect(order).toEqual(["cas", "rsync-side-effect"]);
   });
 });
+
+describe("executeSyncJob start log failure", () => {
+  it("hands the claim back when the start log cannot be written, instead of staying RUNNING", async () => {
+    // Nothing ran yet; left RUNNING, the job could not be retried or deleted
+    // until the 30-minute stale sweep.
+    prismaMock.syncLog.create.mockRejectedValueOnce(new Error("connection reset"));
+    const onClaimed = vi.fn();
+    await expect(executeSyncJob("job-1", { onClaimed })).rejects.toThrow("connection reset");
+    expect(onClaimed).not.toHaveBeenCalled();
+    expect(buildSshParamsFromServer).not.toHaveBeenCalled();
+    expect(prismaMock.syncJob.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "job-1", status: "RUNNING" },
+      data: { status: "IDLE" },
+    });
+  });
+});
+

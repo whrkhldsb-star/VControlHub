@@ -90,6 +90,16 @@ export async function rollupServerUptimeForDay(
       ? Math.round((onlineSeconds / coveredSeconds) * 10000) / 100
       : Math.round((online / checkCount) * 10000) / 100;
 
+    // A day's samples only grow while its raw rows are kept. Fewer than the
+    // stored summary counted means retention pruned part of the day: the
+    // stored figure is the complete one (a short retention rewrote a finished
+    // 50% day as 100% from its surviving half).
+    const stored = await prisma.serverUptimeSnapshot.findUnique({
+      where: { serverId_date: { serverId: row.serverId, date: dayStart } },
+      select: { checkCount: true },
+    });
+    if (stored && stored.checkCount > checkCount) continue;
+
     await prisma.serverUptimeSnapshot.upsert({
       where: {
         serverId_date: {

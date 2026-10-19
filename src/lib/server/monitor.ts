@@ -25,7 +25,7 @@ export type ServerMetrics = {
 
 export type MonitorError = { error: string; serverId: string };
 
-const BASE_MONITOR_SCRIPT = `echo "===CPU==="; nproc 2>/dev/null || echo 1; cat /proc/loadavg 2>/dev/null || echo "0 0 0"; awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null || echo "0 0"; echo "===MEM==="; awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"; echo "===SWAP==="; awk '/SwapTotal:/{t=$2} /SwapFree:/{f=$2} END{if(t>0){printf "%d %d\\n", t/1024, (t-f)/1024}else{print "0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0"; echo "===DISK==="; df -h --output=size,used,pcent,target -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2 || df -h 2>/dev/null | tail -n +2; echo "===LOAD==="; uptime 2>/dev/null || echo "unknown"; echo "===NET==="; awk 'NR>2 && $1!="lo:" {gsub(/:/,"",$1); print $1,$2,$10}' /proc/net/dev 2>/dev/null | head -5 || echo ""`;
+const BASE_MONITOR_SCRIPT = `echo "===CPU==="; nproc 2>/dev/null || echo 1; cat /proc/loadavg 2>/dev/null || echo "0 0 0"; cpu1=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null); sleep 0.5 2>/dev/null || sleep 1; cpu2=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null); echo "\${cpu1:-0 0} \${cpu2:-0 0}" | awk '{di=$3-$1; dt=$4-$2; if(dt>0) print di,dt; else print $3,$4}'; echo "===MEM==="; awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"; echo "===SWAP==="; awk '/SwapTotal:/{t=$2} /SwapFree:/{f=$2} END{if(t>0){printf "%d %d\\n", t/1024, (t-f)/1024}else{print "0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0"; echo "===DISK==="; df -h --output=size,used,pcent,target -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2 || df -h 2>/dev/null | tail -n +2; echo "===LOAD==="; uptime 2>/dev/null || echo "unknown"; echo "===NET==="; awk 'NR>2 && $1!="lo:" {gsub(/:/,"",$1); print $1,$2,$10}' /proc/net/dev 2>/dev/null | head -5 || echo ""`;
 /** Metric sections, then host facts (an Agent embeds this script when it is installed). */
 export const MONITOR_SCRIPT = `${BASE_MONITOR_SCRIPT}; ${HOST_FACTS_SCRIPT}`;
 
@@ -36,6 +36,11 @@ function parseFloatOr(val: string, fallback: number): number {
 	return Number.isNaN(n) ? fallback : n;
 }
 
+/**
+ * The ===CPU=== section's third line is "idleTicks totalTicks" over the last
+ * half second (two /proc/stat reads): a single read is cumulative since boot,
+ * which reported the boot-time average, not current load.
+ */
 function parseCpuSection(lines: string[]): ServerMetrics["cpu"] {
 	const cores = parseInt(lines[0] || "1", 10) || 1;
 	const loadParts = (lines[1] || "0 0 0").trim().split(/\s+/);

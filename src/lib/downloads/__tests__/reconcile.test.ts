@@ -58,6 +58,15 @@ function relayRow(over: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * The reconciler reads candidate ids first, then the chosen rows in full:
+ * both reads answer with the same fixture rows.
+ */
+function queueStaleTasks(rows: Array<Record<string, unknown>>) {
+  prismaMock.downloadTask.findMany.mockResolvedValueOnce(rows);
+  if (rows.length > 0) prismaMock.downloadTask.findMany.mockResolvedValueOnce(rows);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
@@ -67,7 +76,7 @@ beforeEach(() => {
 
 describe("reconcileStaleRunningDownloadTasks — direct", () => {
   it("completes a direct download whose remote exit marker says success", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([directRow()]);
+    queueStaleTasks([directRow()]);
     ssh.execRemoteCommand.mockResolvedValueOnce({ stdout: "COMPLETED\n12345\n/data/dl/f.bin", exitCode: 0 });
 
     const res = await reconcileStaleRunningDownloadTasks();
@@ -82,7 +91,7 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
   });
 
   it("does not report completion when indexing rejects the transaction", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([directRow()]);
+    queueStaleTasks([directRow()]);
     ssh.execRemoteCommand.mockResolvedValueOnce({ stdout: "COMPLETED\n12345\n/data/dl/f.bin", exitCode: 0 });
     helpers.indexDownloadedFileEntry.mockRejectedValueOnce(new Error("index unavailable"));
     expect(await reconcileStaleRunningDownloadTasks()).toEqual({ completed: 0, failed: 0, ids: [] });
@@ -90,7 +99,7 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
   });
 
   it("does not index after a concurrent cancellation wins the status update", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([directRow()]);
+    queueStaleTasks([directRow()]);
     ssh.execRemoteCommand.mockResolvedValueOnce({ stdout: "COMPLETED\n0\n/data/dl/f.bin", exitCode: 0 });
     prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
     expect(await reconcileStaleRunningDownloadTasks()).toEqual({ completed: 0, failed: 0, ids: [] });
@@ -98,7 +107,7 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
   });
 
   it("leaves a direct download whose pid is still alive untouched", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([directRow()]);
+    queueStaleTasks([directRow()]);
     ssh.execRemoteCommand.mockResolvedValueOnce({ stdout: "RUNNING\n0", exitCode: 0 });
 
     const res = await reconcileStaleRunningDownloadTasks();
@@ -109,7 +118,7 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
   });
 
   it("fails a direct download whose remote process failed", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([directRow()]);
+    queueStaleTasks([directRow()]);
     ssh.execRemoteCommand.mockResolvedValueOnce({ stdout: "FAILED\n0", exitCode: 0 });
 
     const res = await reconcileStaleRunningDownloadTasks();
@@ -120,7 +129,7 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
   });
 
   it("does NOT fail a direct download on a transient SSH error within the window", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([directRow()]);
+    queueStaleTasks([directRow()]);
     ssh.execRemoteCommand.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
 
     const res = await reconcileStaleRunningDownloadTasks();
@@ -130,7 +139,7 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
   });
 
   it("fails a direct download unreachable beyond the give-up window", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([
+    queueStaleTasks([
       directRow({ updatedAt: new Date(Date.now() - 7 * 60 * 60_000) }),
     ]);
     ssh.execRemoteCommand.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
@@ -143,7 +152,7 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
 
 describe("reconcileStaleRunningDownloadTasks — relay", () => {
   it("skips a relay task not yet stale past the download cap", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([
+    queueStaleTasks([
       relayRow({ updatedAt: new Date(Date.now() - 30 * 60_000) }),
     ]);
 
@@ -154,7 +163,7 @@ describe("reconcileStaleRunningDownloadTasks — relay", () => {
   });
 
   it("fails a long-stale relay task once aria2 reports complete (transfer unconfirmed)", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([relayRow()]);
+    queueStaleTasks([relayRow()]);
     aria2.tellStatus.mockResolvedValueOnce({ status: "complete" });
 
     const res = await reconcileStaleRunningDownloadTasks();
@@ -163,7 +172,7 @@ describe("reconcileStaleRunningDownloadTasks — relay", () => {
   });
 
   it("leaves a long-stale relay task still actively downloading in aria2", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([relayRow()]);
+    queueStaleTasks([relayRow()]);
     aria2.tellStatus.mockResolvedValueOnce({ status: "active" });
 
     const res = await reconcileStaleRunningDownloadTasks();
@@ -175,7 +184,7 @@ describe("reconcileStaleRunningDownloadTasks — relay", () => {
 
 describe("reconcileStaleRunningDownloadTasks — neither pid nor gid", () => {
   it("probes remote markers before failing a task whose database pid was never recorded", async () => {
-    prismaMock.downloadTask.findMany.mockResolvedValueOnce([
+    queueStaleTasks([
       directRow({ pid: null, aria2Gid: null, updatedAt: new Date(Date.now() - 7 * 60 * 60_000) }),
     ]);
 
@@ -186,3 +195,21 @@ describe("reconcileStaleRunningDownloadTasks — neither pid nor gid", () => {
     expect(ssh.execRemoteCommand).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("reconcileStaleRunningDownloadTasks — candidate rotation", () => {
+  it("probes the least recently probed tasks first, not the same oldest ones every pass", async () => {
+    // Taking the oldest `limit` by updatedAt re-probed tasks that were still
+    // running every pass, so a finished task behind them was never looked at.
+    const rows = ["rot-a", "rot-b", "rot-c"].map((id, i) => directRow({ id, updatedAt: new Date(Date.now() - (30 - i) * 60_000) }));
+    const probed: string[] = [];
+    prismaMock.downloadTask.findMany.mockImplementation(async (args: { where: { id?: { in: string[] } } }) => {
+      const chosen = args.where.id?.in;
+      if (chosen) probed.push(...chosen);
+      return chosen ? rows.filter((row) => chosen.includes(row.id as string)) : rows;
+    });
+    for (let pass = 0; pass < 3; pass += 1) await reconcileStaleRunningDownloadTasks({ limit: 1 });
+    expect(probed).toEqual(["rot-a", "rot-b", "rot-c"]);
+    prismaMock.downloadTask.findMany.mockReset();
+  });
+});
+

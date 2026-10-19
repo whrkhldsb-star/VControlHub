@@ -79,6 +79,16 @@ describe("notification service state synchronization", () => {
     expect(pushUnreadCountMock).toHaveBeenCalledWith("u_1", 0);
   });
 
+  it("after mark-all, pushes the count as it is then, not a blanket zero", async () => {
+    // A notification created while the update ran is still unread; a late
+    // "0" overwrote the badge that had just announced it.
+    prismaMock.notification.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.notification.count.mockResolvedValueOnce(1);
+    await markAllAsRead("u_1");
+    expect(prismaMock.notification.count).toHaveBeenCalledWith({ where: { userId: "u_1", isRead: false } });
+    expect(pushUnreadCountMock).toHaveBeenLastCalledWith("u_1", 1);
+  });
+
   it("pushes unread counts only after delete persistence completes", async () => {
     let resolveDelete!: (value: { count: number }) => void;
     const deletePromise = new Promise<{ count: number }>((resolve) => {

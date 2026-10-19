@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Download,
@@ -47,64 +47,68 @@ export function MediaItemCard({
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
 
+  // Saves of one card go out one after another, in click order: two PATCHes
+  // in flight could land in either order and leave the older value saved
+  // while the newer one is shown. A failure rolls back to the last saved
+  // value, and only if no newer change of that field was made since.
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+  const saved = useRef({ favorite: item.favorite, tags: item.tags || [] });
+  const intent = useRef({ favorite: 0, tags: 0 });
+
   // Keep local optimistic state aligned when list refresh replaces `item` props.
   useEffect(() => {
     setFav(item.favorite);
     setTags(item.tags || []);
+    saved.current = { favorite: item.favorite, tags: item.tags || [] };
   }, [item.id, item.favorite, item.tags]);
+
+  const persist = (patch: { favorite: boolean } | { tags: string[] }) => {
+    const field = "favorite" in patch ? "favorite" : "tags";
+    const version = ++intent.current[field];
+    const run = async () => {
+      try {
+        await csrfFetch(`/api/media/${item.id}`, {
+          method:"PATCH",
+          headers: {"Content-Type":"application/json" },
+          body: JSON.stringify(patch),
+        });
+        saved.current = { ...saved.current, ...patch };
+      } catch (error) {
+        if (intent.current[field] === version) {
+          if (field === "favorite") setFav(saved.current.favorite);
+          else setTags(saved.current.tags);
+        }
+        setMutationError(getErrorMessage(error, t("mediaItemCard.updateErrorFallback")));
+      }
+    };
+    const next = saveQueue.current.then(run, run);
+    saveQueue.current = next;
+    return next;
+  };
 
   const toggleFav = async () => {
     const next = !fav;
     setFav(next);
     setMutationError(null);
-    try {
-      await csrfFetch(`/api/media/${item.id}`, {
-        method:"PATCH",
-        headers: {"Content-Type":"application/json" },
-        body: JSON.stringify({ favorite: next }),
-      });
-    } catch (error) {
-      setFav(!next);
-      setMutationError(getErrorMessage(error, t("mediaItemCard.updateErrorFallback")));
-    }
+    await persist({ favorite: next });
   };
 
   const addTag = async () => {
     const tag = newTag.trim();
     if (!tag || tags.includes(tag)) return;
-    const previous = tags;
     const next = [...tags, tag];
     setTags(next);
     setNewTag("");
     setShowTagInput(false);
     setMutationError(null);
-    try {
-      await csrfFetch(`/api/media/${item.id}`, {
-        method:"PATCH",
-        headers: {"Content-Type":"application/json" },
-        body: JSON.stringify({ tags: next }),
-      });
-    } catch (error) {
-      setTags(previous);
-      setMutationError(getErrorMessage(error, t("mediaItemCard.updateErrorFallback")));
-    }
+    await persist({ tags: next });
   };
 
   const removeTag = async (tag: string) => {
-    const previous = tags;
     const next = tags.filter((x) => x !== tag);
     setTags(next);
     setMutationError(null);
-    try {
-      await csrfFetch(`/api/media/${item.id}`, {
-        method:"PATCH",
-        headers: {"Content-Type":"application/json" },
-        body: JSON.stringify({ tags: next }),
-      });
-    } catch (error) {
-      setTags(previous);
-      setMutationError(getErrorMessage(error, t("mediaItemCard.updateErrorFallback")));
-    }
+    await persist({ tags: next });
   };
 
   const publishAsImageBed = async () => {

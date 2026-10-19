@@ -265,6 +265,10 @@ export function PreferencesSettingsContent({
 		}
 		savingRef.current = true;
 		let payload = normalizedPrefs;
+		// What the server holds, advanced by every PUT that succeeds: a later
+		// queued PUT that fails rolls back to this, not to the state before
+		// the earlier PUTs that were accepted.
+		let confirmed = lastSavedPrefs;
 		try {
 			while (true) {
 				const requestIdAtSend = latestSaveRequestIdRef.current;
@@ -273,11 +277,12 @@ export function PreferencesSettingsContent({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
+				confirmed = normalizePrefs({ ...payload, ...savedPrefs });
+				setLastSavedPrefs(confirmed);
 				// Only apply response if nothing newer was queued/optimistic.
 				if (requestIdAtSend === latestSaveRequestIdRef.current) {
-					const nextPrefs = normalizePrefs({ ...payload, ...savedPrefs });
+					const nextPrefs = confirmed;
 					setPrefs(nextPrefs);
-					setLastSavedPrefs(nextPrefs);
 					writeUserPreferencesCache(nextPrefs);
 					setSaved(true);
 					setTimeout(() => setSaved(false), 2000);
@@ -292,8 +297,8 @@ export function PreferencesSettingsContent({
 			}
 		} catch (err) {
 			// Prefer current last-saved; if a newer optimistic exists, keep UI but report error.
-			setPrefs(lastSavedPrefs);
-			writeUserPreferencesCache(lastSavedPrefs, { notify: false });
+			setPrefs(confirmed);
+			writeUserPreferencesCache(confirmed, { notify: false });
 			setError(messageFromError(err, t("preferencesPage.error.save")));
 			pendingSavePrefsRef.current = null;
 		} finally {

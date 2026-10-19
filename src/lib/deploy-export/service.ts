@@ -45,9 +45,12 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		'ADMIN_INITIAL_PASSWORD="REPLACE_WITH_A_SECURE_ADMIN_PASSWORD"',
 		`NEXT_PUBLIC_APP_PUBLIC_LABEL="VPS Management & Distributed Cloud Drive"`,
 		'SSH_WS_HOST="127.0.0.1"',
-		'SSH_WS_PORT="${SSH_WS_PORT:-3001}"',
+		// Literal values: systemd's EnvironmentFile (and dotenv) do not expand
+		// shell defaults, so "${PORT:-3000}" reached the server as text and it
+		// exited on an invalid port.
+		'SSH_WS_PORT="3001"',
 		'SSH_WS_SECRET="REPLACE_WITH_A_RANDOM_SECRET_AT_LEAST_32_CHARS"',
-		'PORT="${PORT:-3000}"',
+		'PORT="3000"',
 		`SSH_WS_ALLOWED_ORIGINS="https://${domain}"`,
 		...DANGEROUS_ENV_FLAGS.map((key) => `${key}="false"`),
 	].join("\n");

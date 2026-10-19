@@ -47,6 +47,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const [bases, setBases] = useState<KnowledgeBase[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
+  const [hasMoreDocuments, setHasMoreDocuments] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [docTitle, setDocTitle] = useState("");
@@ -72,13 +73,29 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const loadDetail = useCallback(async (id: string) => {
     if (!id) {
       setDocuments([]);
+      setHasMoreDocuments(false);
       return;
     }
     const data = await csrfFetch<{
-      knowledgeBase: { documents: DocumentRow[] };
+      knowledgeBase: { documents: DocumentRow[]; documentsHasMore?: boolean };
     }>(`/api/knowledge/${encodeURIComponent(id)}`);
     setDocuments(data.knowledgeBase?.documents ?? []);
+    setHasMoreDocuments(Boolean(data.knowledgeBase?.documentsHasMore));
   }, []);
+
+  const loadMoreDocuments = useCallback(async () => {
+    if (!selectedId) return;
+    try {
+      const data = await csrfFetch<{
+        knowledgeBase: { documents: DocumentRow[]; documentsHasMore?: boolean };
+      }>(`/api/knowledge/${encodeURIComponent(selectedId)}?offset=${documents.length}`);
+      const next = data.knowledgeBase?.documents ?? [];
+      setDocuments((current) => [...current, ...next.filter((doc) => !current.some((existing) => existing.id === doc.id))]);
+      setHasMoreDocuments(Boolean(data.knowledgeBase?.documentsHasMore));
+    } catch (e) {
+      setError(getErrorMessage(e, t("knowledgePage.error")));
+    }
+  }, [documents.length, selectedId, setError, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,9 +123,12 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
     void (async () => {
       try {
         const data = await csrfFetch<{
-          knowledgeBase: { documents: DocumentRow[] };
+          knowledgeBase: { documents: DocumentRow[]; documentsHasMore?: boolean };
         }>(`/api/knowledge/${encodeURIComponent(selectedId)}`);
-        if (!cancelled) setDocuments(data.knowledgeBase?.documents ?? []);
+        if (!cancelled) {
+          setDocuments(data.knowledgeBase?.documents ?? []);
+          setHasMoreDocuments(Boolean(data.knowledgeBase?.documentsHasMore));
+        }
       } catch (e) {
         if (!cancelled) setError(getErrorMessage(e, t("knowledgePage.error")));
       }
@@ -327,6 +347,11 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                   )}
                 </div>
               ))}
+              {hasMoreDocuments && (
+                <ActionButton size="sm" variant="outline" onClick={() => void loadMoreDocuments()}>
+                  {t("knowledgePage.loadMoreDocuments")}
+                </ActionButton>
+              )}
             </div>
           </div>
         </SurfacePanel>

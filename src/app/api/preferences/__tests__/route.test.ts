@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock } = vi.hoisted(() => ({
-  prismaMock: {
+const { prismaMock } = vi.hoisted(() => {
+  const prismaMock = {
     user: {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
-  },
-}));
+    $queryRaw: vi.fn(async () => []),
+    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(prismaMock)),
+  };
+  return { prismaMock };
+});
 
 const apiSession = vi.hoisted(() => ({
   userId: "u_1",
@@ -144,6 +147,21 @@ describe("/api/preferences", () => {
       autoProbeEnabled: false,
       autoProbeIntervalSec: 60,
     }));
+  });
+
+  it("reads and writes the preferences under a row lock, so concurrent saves cannot drop each other's fields", async () => {
+    const order: string[] = [];
+    prismaMock.$queryRaw.mockImplementationOnce(async () => { order.push("lock"); return []; });
+    prismaMock.user.findUnique.mockImplementationOnce(async () => { order.push("read"); return { preferences: {} }; });
+    prismaMock.user.update.mockImplementationOnce(async () => { order.push("write"); return {}; });
+    await PUT(new Request("http://local/api/preferences", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ autoProbeEnabled: false }),
+    }));
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(["lock", "read", "write"]);
+    expect(String((prismaMock.$queryRaw.mock.calls[0] as unknown[])[0])).toContain("FOR UPDATE");
   });
 
   it("rejects a default page the current role cannot open", async () => {

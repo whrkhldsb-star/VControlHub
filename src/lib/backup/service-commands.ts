@@ -7,6 +7,9 @@
  * Restore policy lives in `planBackupRestoreSteps` so the UI/docs shell
  * formatter and the runtime argv executor cannot drift.
  */
+import { isAbsolute } from "node:path";
+import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import { shellQuote } from "@/lib/shell-quote";
 import type { BackupType } from "./service-types";
@@ -82,13 +85,24 @@ export function buildPortableBackupCommand(input: { projectRoot: string; outputP
 
 export function buildBackupRestoreCommand(input: {
 	projectRoot: string;
+	/** Portable path relative to the directory the command runs in. */
 	backupPath: string;
+	/**
+	 * The archive's absolute location, resolved by the server from a validated
+	 * record (BACKUP_DIR may lie outside the app directory). Used instead of
+	 * `backupPath` when given.
+	 */
+	resolvedBackupPath?: string;
 	type?: BackupType;
 	component?: "database" | "files" | "all";
 	/** Prefix CONFIRM_RESTORE=1 — for the runbook an operator runs offline. */
 	confirm?: boolean;
 }) {
-	const backupPath = assertPortableBackupPath(input.backupPath);
+	const portable = assertPortableBackupPath(input.backupPath);
+	if (input.resolvedBackupPath !== undefined && !isAbsolute(input.resolvedBackupPath)) {
+		throw new ValidationError(t("backend.backup.pathNotPortable"));
+	}
+	const backupPath = input.resolvedBackupPath ?? portable;
 	const steps = planBackupRestoreSteps({
 		projectRoot: input.projectRoot,
 		backupPath,

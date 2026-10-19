@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,4 +26,31 @@ describe("CostPageClient budgets", () => {
 		await user.click(screen.getByRole("button", { name: "costPage.budget.check" }));
 		expect(csrfFetchMock).toHaveBeenCalledWith("/api/cost/budgets/check", expect.objectContaining({ method: "POST" }));
 	});
+
+	it("keeps a next budget typed while the previous one was saving", async () => {
+		// The fields stay editable while saving; clearing them on success threw
+		// away a draft that had not been submitted.
+		const user = userEvent.setup();
+		let finish!: () => void;
+		csrfFetchMock.mockImplementation((url: string, init?: RequestInit) => {
+			if (url === "/api/cost/budgets" && init?.method === "POST") return new Promise((resolve) => { finish = () => resolve({}); });
+			return Promise.resolve({ budgets: [] });
+		});
+		render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null} initialEntries={[]} initialSnapshots={[]}
+			initialBudgets={[]} initialBillingAccounts={[]} canRead canManage availableCurrencies={["CNY"]} />);
+		const name = screen.getByRole("textbox", { name: "costPage.budget.name" });
+		const limit = screen.getByRole("textbox", { name: "costPage.budget.limit" });
+		await user.type(name, "First budget");
+		await user.type(limit, "100");
+		await user.click(within(name.parentElement!).getByRole("button", { name: "costPage.budget.create" }));
+		await user.clear(name);
+		await user.type(name, "Next draft");
+		await user.clear(limit);
+		await user.type(limit, "200");
+		await act(async () => finish());
+		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("success", "costPage.budget.created"));
+		expect(name).toHaveValue("Next draft");
+		expect(limit).toHaveValue("200");
+	});
 });
+

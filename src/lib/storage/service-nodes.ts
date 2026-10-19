@@ -140,6 +140,25 @@ export async function ensureDefaultNodeState(
   }
 }
 
+/**
+ * What resolveStorageSshCredentials needs, as file operations load it
+ * (sftp-node.ts): without the id, management mode and OS an Agent node was
+ * probed as if it lacked an SSH key and a Windows node on its RDP port.
+ */
+const HEALTH_PROBE_SERVER_SELECT = {
+  id: true,
+  host: true,
+  port: true,
+  username: true,
+  connectionType: true,
+  managementMode: true,
+  operatingSystem: true,
+  password: true,
+  sshKeyId: true,
+  hostKeySha256: true,
+  sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
+} as const;
+
 export async function checkStorageNodeHealth(
   storageNodeId: string,
   session?: TeamSession | null,
@@ -148,33 +167,13 @@ export async function checkStorageNodeHealth(
     ? await prisma.storageNode.findFirst({
         where: { id: storageNodeId, ...teamWhere(session) },
         include: {
-          server: {
-            select: {
-              host: true,
-              port: true,
-              username: true,
-              password: true,
-              sshKeyId: true,
-              hostKeySha256: true,
-              sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
-            },
-          },
+          server: { select: HEALTH_PROBE_SERVER_SELECT },
         },
       })
     : await prisma.storageNode.findUnique({
         where: { id: storageNodeId },
         include: {
-          server: {
-            select: {
-              host: true,
-              port: true,
-              username: true,
-              password: true,
-              sshKeyId: true,
-              hostKeySha256: true,
-              sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
-            },
-          },
+          server: { select: HEALTH_PROBE_SERVER_SELECT },
         },
       });
 
