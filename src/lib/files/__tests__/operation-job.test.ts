@@ -28,7 +28,7 @@ vi.mock("@/lib/job/service", () => ({
   cancelJob: mocks.cancel,
 }));
 vi.mock("@/lib/api-token/authorization", () => ({
-  loadApiTokenOwnerSession: mocks.user,
+  loadJobOwnerSession: mocks.user,
 }));
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: mocks.permission,
@@ -119,6 +119,16 @@ describe("durable file operation worker", () => {
       "1 item(s) failed",
     );
     expect(mocks.complete).not.toHaveBeenCalled();
+  });
+  it("runs an administrator's job from the all-customers view, which has no customer", async () => {
+    mocks.claim.mockResolvedValue({ id: "job", payload, createdBy: "admin", teamId: null });
+    mocks.user.mockImplementation(async (_userId, teamId) => ({ userId: "admin", currentTeamId: teamId, roles: ["admin"] }));
+    await runFileOperationWorkerOnce();
+    expect(mocks.user).toHaveBeenCalledWith("admin", null);
+    expect(mocks.copy).toHaveBeenCalledTimes(2);
+    expect(mocks.copy.mock.calls[0]![0].session.currentTeamId).toBeNull();
+    expect(mocks.complete).toHaveBeenCalled();
+    expect(mocks.fail).not.toHaveBeenCalled();
   });
   it("does not execute queued mutations after permission revocation", async () => {
     mocks.permission.mockReturnValue(false);

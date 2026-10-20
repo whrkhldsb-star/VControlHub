@@ -8,7 +8,7 @@ import {
   cancelJob,
 } from "@/lib/job/service";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
-import { loadApiTokenOwnerSession } from "@/lib/api-token/authorization";
+import { loadJobOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { executeMoveFile } from "./move-operation";
 import { executeDeleteFile } from "./delete-operation";
@@ -57,9 +57,13 @@ export async function runFileOperationWorkerOnce() {
                   select: { payload: true, status: true },
                 });
                 if (!latest || latest.status !== "RUNNING") return;
-                if (!job.teamId) throw new Error(apiCopy("apiCopy.files.op.membership"));
+                // A job without a customer is an administrator's from the
+                // all-customers view and runs across all customers, as every
+                // other job kind does. It used to be refused as a revoked
+                // membership, so no bulk copy, move or delete started there
+                // ever ran.
                 const session = job.createdBy
-                  ? await loadApiTokenOwnerSession(job.createdBy, job.teamId)
+                  ? await loadJobOwnerSession(job.createdBy, job.teamId)
                   : null;
                 if (
                   !session ||
