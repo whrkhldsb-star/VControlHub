@@ -2,9 +2,9 @@
  * TR-009 55c: API route tests for chunked media upload.
  *
  * Covers:
- *   - POST /api/images/upload/init              (storage:write, init schema)
+ *   - POST /api/images/upload/init              (image:write + storage:write, init schema)
  *   - PUT  /api/images/upload/[id]/chunk        (storage:write, raw body, query schema)
- *   - POST /api/images/upload/[id]/complete     (storage:write, assembly + image pipeline)
+ *   - POST /api/images/upload/[id]/complete     (image:write + storage:write, assembly + image pipeline)
  *   - GET  /api/images/upload/[id]              (storage:write, owner-scoped view)
  *   - DELETE /api/images/upload/[id]            (storage:write, cancel + cleanup)
  *
@@ -202,6 +202,21 @@ afterEach(async () => {
 
 // ── POST /api/images/upload/init ─────────────────────────────────────────
 describe("POST /api/images/upload/init", () => {
+	it("is an image-bed upload: image:write, and storage:write as well", async () => {
+		// Roles with storage:write but not the image bed (operator,
+		// storage_manager) added images through the chunked path.
+		const body = JSON.stringify({ filename: "photo.png", mimeType: "image/png", totalSize: 1024 });
+		mocks.requireApiPermission.mockResolvedValueOnce(new Response(JSON.stringify({ error: "forbidden" }), { status: 403 }));
+		const refused = await initRoute.POST(new Request("http://local/api/images/upload/init", { method: "POST", body }));
+		expect(mocks.requireApiPermission).toHaveBeenCalledWith("image:write");
+		expect(refused.status).toBe(403);
+		// image:write without storage:write: refused too.
+		mocks.requireApiPermission.mockResolvedValueOnce({ session: { userId: "u-img", username: "img", roles: [], permissions: ["image:write"], currentTeamId: "team-a" } });
+		const noStorage = await initRoute.POST(new Request("http://local/api/images/upload/init", { method: "POST", body }));
+		expect(noStorage.status).toBe(403);
+		expect(mocks.initMediaUploadSession).not.toHaveBeenCalled();
+	});
+
 	it("initialises a session and writes an audit entry", async () => {
 		const res = await initRoute.POST(
 			new Request("http://local/api/images/upload/init", {
@@ -216,7 +231,7 @@ describe("POST /api/images/upload/init", () => {
 		);
 		const text = await res.clone().text();
 		expect(res.status, "body=" + text).toBe(201);
-		expect(mocks.requireApiPermission).toHaveBeenCalledWith("storage:write");
+		expect(mocks.requireApiPermission).toHaveBeenCalledWith("image:write");
 		expect(mocks.initMediaUploadSession).toHaveBeenCalledWith(
 			expect.objectContaining({
 				userId: "u-admin",
@@ -382,6 +397,14 @@ describe("PUT /api/images/upload/[id]/chunk", () => {
 
 // ── POST /api/images/upload/[id]/complete ────────────────────────────────
 describe("POST /api/images/upload/[id]/complete", () => {
+	it("needs image:write: a storage upload session cannot be finished as an image", async () => {
+		mocks.requireApiPermission.mockResolvedValueOnce(new Response(JSON.stringify({ error: "forbidden" }), { status: 403 }));
+		const res = await completeRoute.POST(new Request("http://local/api/images/upload/sess_1/complete", { method: "POST" }), { params: Promise.resolve({ id: "sess_1" }) });
+		expect(mocks.requireApiPermission).toHaveBeenCalledWith("image:write");
+		expect(res.status).toBe(403);
+		expect(mocks.imageCreate).not.toHaveBeenCalled();
+	});
+
 	const complete = () => completeRoute.POST(
 		new Request("http://local/api/images/upload/sess_1/complete", { method: "POST" }),
 		{ params: Promise.resolve({ id: "sess_1" }) },

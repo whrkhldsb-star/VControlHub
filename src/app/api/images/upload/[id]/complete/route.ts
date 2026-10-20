@@ -13,7 +13,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  *   4. mark session COMPLETED with the new imageId as resultImageId
  *
  * Returns: { session: MediaUploadSessionView, image: { id, publicUrl } }
- * Permission: storage:write (session-based, owner-scoped via service).
+ * Permission: image:write and storage:write (session-based, owner-scoped via service).
  */
 import * as crypto from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -34,6 +34,7 @@ import {
   MAX_IMAGE_PIXELS,
 } from "@/lib/image/service";
 import { logError } from "@/lib/logging";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import {
@@ -67,12 +68,18 @@ export async function POST(
   return withApiRoute(
     request,
     {
-      permission: "storage:write",
+      // Completing makes the image: image:write, and storage:write below. A
+      // session opened by the storage uploader (storage:write only) could
+      // otherwise be finished here as an image.
+      permission: "image:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorStatus: 500,
       errorMessage: apiCopy("apiCopy.failed.to.complete.upload.session.dae9f71c"),
     },
     async ({ session }) => {
+      if (!sessionHasPermission(session, "storage:write")) {
+        throw new ForbiddenError(t("api.storage.writeDenied", await getServerLocale()));
+      }
       // Reject legacy sessions created before the image-specific cap without
       // assembling their chunks into memory.
       const existing = await prisma.mediaUploadSession.findFirst({
