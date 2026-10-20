@@ -44,7 +44,7 @@ describe("POST /api/files/[id]/versions/[versionId]/restore", () => {
 		const res = await post();
 		expect(res.status).toBe(200);
 		expect(await res.json()).toMatchObject({ success: true, restored: { versionNumber: 3 }, restorePoint: { id: "v_4" } });
-		expect(mocks.restoreFileVersion).toHaveBeenCalledWith({ fileEntryId: "file_1", versionId: "v_3", session: expect.objectContaining({ userId: "u_cust", currentTeamId: "team_1" }) });
+		expect(mocks.restoreFileVersion).toHaveBeenCalledWith({ fileEntryId: "file_1", versionId: "v_3", session: expect.objectContaining({ userId: "u_cust", currentTeamId: "team_1" }), allowWithoutRestorePoint: false });
 		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_cust", "file.version.restore", expect.objectContaining({ fileEntryId: "file_1", versionId: "v_3", restoredVersionNumber: 3, restorePointId: "v_4" }), "WARNING", "team_1");
 	});
 

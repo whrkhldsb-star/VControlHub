@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { ApiError } from "@/lib/http/api-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDate } from "@/app/files/file-entry-utils";
 import { formatBytes } from "@/lib/format/bytes";
@@ -47,6 +48,13 @@ export function FileVersionHistoryPanel({
   const [pendingRestore, setPendingRestore] = useState<{
     id: string;
     versionNumber: number;
+  } | null>(null);
+  // Set when the current content could not be saved as a restore point: the
+  // restore then needs a second, explicit confirmation.
+  const [pendingUnsafeRestore, setPendingUnsafeRestore] = useState<{
+    id: string;
+    versionNumber: number;
+    message: string;
   } | null>(null);
   const loadGenRef = useRef(0);
 
@@ -109,20 +117,29 @@ export function FileVersionHistoryPanel({
     setPendingRestore({ id: versionId, versionNumber });
   }
 
-  async function confirmRestore() {
-    if (!pendingRestore || busyId) return;
-    const { id: versionId } = pendingRestore;
+  async function confirmRestore(withoutRestorePoint = false) {
+    const pending = withoutRestorePoint ? pendingUnsafeRestore : pendingRestore;
+    if (!pending || busyId) return;
+    const { id: versionId } = pending;
     setBusyId(versionId);
     try {
       await csrfFetch(
-        `/api/files/${encodeURIComponent(fileEntryId)}/versions/${encodeURIComponent(versionId)}/restore`,
+        `/api/files/${encodeURIComponent(fileEntryId)}/versions/${encodeURIComponent(versionId)}/restore${withoutRestorePoint ? "?allowWithoutRestorePoint=1" : ""}`,
         { method: "POST" },
       );
       setPendingRestore(null);
+      setPendingUnsafeRestore(null);
       onNotify("success", t("fileVersionHistory.restoreSuccess"));
       await load();
       onRestored?.();
     } catch (error) {
+      if (!withoutRestorePoint && error instanceof ApiError && error.status === 409) {
+        // No snapshot of the current content could be saved: ask again,
+        // saying the restore cannot be undone, instead of failing outright.
+        setPendingRestore(null);
+        setPendingUnsafeRestore({ ...pending, message: error.message });
+        return;
+      }
       onNotify(
         "error",
         error instanceof Error
@@ -152,6 +169,16 @@ export function FileVersionHistoryPanel({
         onCancel={() => setPendingRestore(null)}
         onConfirm={() => void confirmRestore()}
         busy={Boolean(pendingRestore && busyId === pendingRestore.id)}
+      />
+      <ConfirmDialog
+        open={pendingUnsafeRestore !== null}
+        title={t("fileVersionHistory.restoreWithoutSnapshotTitle")}
+        description={pendingUnsafeRestore?.message}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("fileVersionHistory.restoreWithoutSnapshotBtn")}
+        onCancel={() => setPendingUnsafeRestore(null)}
+        onConfirm={() => void confirmRestore(true)}
+        busy={Boolean(pendingUnsafeRestore && busyId === pendingUnsafeRestore.id)}
       />
 
       <div className="flex items-center justify-between gap-3">

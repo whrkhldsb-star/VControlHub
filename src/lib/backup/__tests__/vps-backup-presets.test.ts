@@ -8,6 +8,7 @@ import {
 	buildRemoteBackupCommand,
 	buildRemoteCleanupCommand,
 	generateRemoteBackupPath,
+	invalidCustomBackupPaths,
 	VALID_PRESET_TYPES,
 } from "../vps-backup-presets";
 import { computeNextRun, validateVpsCronExpression } from "../vps-backup-schedule-service";
@@ -67,6 +68,23 @@ describe("buildRemoteBackupCommand", () => {
 		expect(cmd).toContain("var/www");
 		expect(cmd).toContain("opt/data");
 		expect(cmd).toContain("tar");
+	});
+
+	it("quotes custom paths with shell metacharacters or quotes instead of dropping or rewriting them", () => {
+		// "(old) & $x" was dropped and "O'Brien" became "OBrien": the archive
+		// held fewer (or other) paths than asked and the backup still succeeded.
+		const cmd = buildRemoteBackupCommand("custom", "/tmp/vch-backup_custom.tar.gz", [
+			"/etc/nginx",
+			"/srv/data (old) & $x",
+			"/home/O'Brien",
+			"/-x",
+		]);
+		expect(cmd).toContain("-C / -- 'etc/nginx' 'srv/data (old) & $x' 'home/O'\\''Brien' '-x';");
+	});
+
+	it("refuses custom paths it cannot take as given instead of skipping them", () => {
+		expect(() => buildRemoteBackupCommand("custom", "/tmp/x.tar.gz", ["/etc/nginx", "/srv/../etc/shadow"])).toThrow(/invalid/i);
+		expect(invalidCustomBackupPaths(["/etc/nginx", "/srv/a\nb", "/", "/srv/file..bak", "../x"])).toEqual(["/srv/a\nb", "/", "../x"]);
 	});
 });
 

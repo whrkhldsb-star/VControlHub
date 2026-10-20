@@ -6,7 +6,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { prisma } from "@/lib/db";
 import { enqueueJob } from "@/lib/job/service";
 import { createVpsBackupRecord, VPS_BACKUP_CREATE_JOB_TYPE } from "./vps-backup-service";
-import { isVpsBackupPresetType } from "./vps-backup-presets";
+import { invalidCustomBackupPaths, isVpsBackupPresetType } from "./vps-backup-presets";
 import { createLogger } from "@/lib/logging";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -49,6 +49,14 @@ export async function listVpsBackupSchedules(serverId?: string) {
 	});
 }
 
+/** Reject custom paths a backup could not take as given (see invalidCustomBackupPaths). */
+function assertCustomBackupPaths(paths: string[]) {
+	const invalid = invalidCustomBackupPaths(paths);
+	if (invalid.length > 0) {
+		throw new ValidationError(t("vpsBackupApi.errorCustomPathsInvalid", { paths: invalid.join(", ") }));
+	}
+}
+
 export async function createVpsBackupSchedule(input: {
 	serverId: string;
 	name: string;
@@ -69,6 +77,7 @@ export async function createVpsBackupSchedule(input: {
 	if (input.backupType === "custom" && paths.length === 0) {
 		throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired"));
 	}
+	if (input.backupType === "custom") assertCustomBackupPaths(paths);
 
 	const cronExpression = validateVpsCronExpression(input.cronExpression);
 	validateVpsRetentionDays(input.retentionDays);
@@ -152,6 +161,7 @@ export async function updateVpsBackupSchedule(
 	if (nextType === "custom" && nextPaths.length === 0) {
 		throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired"));
 	}
+	if (nextType === "custom") assertCustomBackupPaths(nextPaths);
 
 	const nextStatus = (data.status as VpsBackupScheduleStatus | undefined) ?? (existing.status as VpsBackupScheduleStatus);
 	if (nextStatus !== "ACTIVE") {

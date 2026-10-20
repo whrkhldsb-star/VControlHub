@@ -233,6 +233,7 @@ export const zh: Record<string, string> = {
 	"backend.playbook.cannotDeleteWhileRunning": "Playbook 有进行中的运行，无法删除",
 	"backend.storage.unsupportedNodeType": "不支持的存储节点类型",
 	"backend.storage.versionBlobMissing": "版本内容在磁盘上缺失",
+	"backend.storage.restorePointUnavailable": "无法先保存当前内容的快照（超过版本大小上限或读取失败）。恢复后当前内容将无法找回，请确认后再恢复。",
 	"backend.storage.versionChecksumMismatch": "版本内容校验失败，拒绝恢复（可能已损坏）",
 	"backend.storage.versionSnapshotFailed": "无法创建版本快照（文件缺失、过大或不可读）",
 	"backend.storage.localRootNotDir": "本地存储根路径不是目录",
@@ -884,6 +885,8 @@ export const en: Record<string, string> = {
 
 	"backend.storage.unsupportedNodeType": "Unsupported storage node type",
 	"backend.storage.versionBlobMissing": "Version blob is missing on disk",
+	"backend.storage.restorePointUnavailable":
+		"The current content could not be saved as a snapshot first (larger than the version size limit, or unreadable). After the restore it cannot be recovered; confirm to restore anyway.",
 	"backend.storage.versionChecksumMismatch": "Version blob checksum mismatch; restore rejected (blob may be corrupted)",
 	"backend.storage.versionSnapshotFailed": "Unable to create version snapshot (file missing, oversized, or unreadable)",
 	"backend.storage.localRootNotDir": "Local storage root path is not a directory",

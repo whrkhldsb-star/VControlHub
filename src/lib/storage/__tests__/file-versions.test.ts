@@ -262,4 +262,48 @@ describe("file-versions service", () => {
     });
     expect(snap).toBeNull();
   });
+
+  it("refuses to restore over current content it could not snapshot, unless the caller allows it", async () => {
+    const mod = await import("@/lib/storage/file-versions");
+    const snap = await mod.snapshotFileVersionBeforeOverwrite({ fileEntryId: "fe_1", userId: "u1", reason: "MANUAL" });
+    expect(snap).not.toBeNull();
+
+    // The current file is now larger than a version may be: no restore point.
+    statMock.mockResolvedValue({ size: 10_000_000_000, lastModifiedMs: 2_000 });
+    writeBufferMock.mockClear();
+    await expect(mod.restoreFileVersion({ fileEntryId: "fe_1", versionId: snap!.id, session: { userId: "u1" } as never }))
+      .rejects.toMatchObject({ status: 409 });
+    expect(writeBufferMock).not.toHaveBeenCalled();
+
+    const forced = await mod.restoreFileVersion({
+      fileEntryId: "fe_1",
+      versionId: snap!.id,
+      session: { userId: "u1" } as never,
+      allowWithoutRestorePoint: true,
+    });
+    expect(forced.newRestorePoint).toBeNull();
+    expect(writeBufferMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores without asking when there is no current content to keep", async () => {
+    const mod = await import("@/lib/storage/file-versions");
+    const snap = await mod.snapshotFileVersionBeforeOverwrite({ fileEntryId: "fe_1", userId: "u1", reason: "MANUAL" });
+    statMock.mockResolvedValue(null);
+    const result = await mod.restoreFileVersion({ fileEntryId: "fe_1", versionId: snap!.id, session: { userId: "u1" } as never });
+    expect(result.newRestorePoint).toBeNull();
+    expect(writeBufferMock).toHaveBeenCalled();
+  });
+
+  it("keeps a new version's blob when the retention pass after it fails", async () => {
+    const mod = await import("@/lib/storage/file-versions");
+    const { prisma } = await import("@/lib/db");
+    // Retention lists the surplus versions; a failed query there used to land
+    // in the creation catch, which deleted the blob the new row points at.
+    vi.mocked(prisma.fileVersion.findMany).mockRejectedValueOnce(new Error("connection reset"));
+    const snap = await mod.snapshotFileVersionBeforeOverwrite({ fileEntryId: "fe_1", userId: "u1", reason: "MANUAL" });
+    expect(snap).not.toBeNull();
+    const row = store.versions.get(snap!.id);
+    await expect(fs.readFile(path.join(tmpDir, row.blobRelativePath), "utf8")).resolves.toBe("hello v1");
+  });
 });
+

@@ -15,6 +15,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { NotFoundError, ValidationError, AppError } from "@/lib/errors";
+import { invalidCustomBackupPaths } from "@/lib/backup/vps-backup-presets";
 import {
 	listVpsBackupRecords,
 	createVpsBackupRecord,
@@ -84,6 +85,10 @@ export async function POST(
 
 			if (body.backupType === "custom" && (!body.paths || body.paths.length === 0)) {
 				throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired", locale));
+			}
+			const invalidPaths = body.backupType === "custom" ? invalidCustomBackupPaths(body.paths ?? []) : [];
+			if (invalidPaths.length > 0) {
+				throw new ValidationError(t("vpsBackupApi.errorCustomPathsInvalid", locale, { paths: invalidPaths.join(", ") }));
 			}
 
 			const { id: recordId } = await createVpsBackupRecord({
