@@ -445,7 +445,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.field.retention.healthSamplesDays.label": "指标样本保留（天）",
 	"settingsClient.field.retention.healthSamplesDays.helper": "节点指标历史的保留天数（1–365），影响图表可回看的范围。",
 	"settingsClient.field.retention.trafficSnapshotsDays.label": "流量快照保留（天）",
-	"settingsClient.field.retention.trafficSnapshotsDays.helper": "流量采样快照的保留天数（1–365）。",
+	"settingsClient.field.retention.trafficSnapshotsDays.helper": "流量采样快照的保留天数（1–365）。当月的快照总会保留，用于统计本月流量。",
 	"settingsClient.field.retention.terminalJobsDays.label": "失败/取消作业保留（天）",
 	"settingsClient.field.retention.terminalJobsDays.helper": "已失败或已取消的后台作业记录保留天数（1–365）。",
 	"settingsClient.field.ai.knowledgeMaxResults.label": "每次回答附带的知识片段上限",
