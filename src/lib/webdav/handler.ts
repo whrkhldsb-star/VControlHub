@@ -613,12 +613,15 @@ async function retireRowsAt(
 ) {
   const tombstone = `.vcontrolhub-webdav-retired-${randomUUID()}`;
   const batch = randomUUID();
+  // Timestamp columns hold UTC wall time. A bare now() is converted with the
+  // session time zone: on a PostgreSQL whose zone is not UTC (initdb takes
+  // the host's) the rows would read as updated hours away from now.
   await tx.$executeRaw`
     UPDATE file_entries
     SET "relativePath" = ${tombstone} || '/' || "relativePath",
         "isDeleted" = true,
         "deleteBatchId" = COALESCE("deleteBatchId", ${batch}),
-        "updatedAt" = now()
+        "updatedAt" = (now() AT TIME ZONE 'UTC')
     WHERE "storageNodeId" = ${storageNodeId}
       AND ("relativePath" = ${relativePath}
         OR "relativePath" LIKE ${`${escapeLikePrefix(`${relativePath}/`)}%`} ESCAPE '\\')
@@ -734,7 +737,7 @@ export async function handleWebDavMove(
               ${replacementPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
               '^.*/', ''
             ),
-            "updatedAt" = now()
+            "updatedAt" = (now() AT TIME ZONE 'UTC')
         WHERE "storageNodeId" = ${ctx.storageNodeId}
           AND "relativePath" LIKE ${`${escapeLikePrefix(`${oldPrefix}/`)}%`} ESCAPE '\\'
       `;

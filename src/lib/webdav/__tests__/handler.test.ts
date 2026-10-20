@@ -567,6 +567,9 @@ describe("webdav handlers", () => {
       expect(statements[0]).toContain(`"isDeleted" = true`);
       expect(statements[1]).toContain("UPDATE file_entries");
       expect(statements[1]).toContain("regexp_replace");
+      // UTC wall time, as every column holds: a bare now() follows the
+      // session time zone of a PostgreSQL not set to UTC.
+      for (const statement of statements) expect(statement).toContain(`"updatedAt" = (now() AT TIME ZONE 'UTC')`);
     });
   });
 

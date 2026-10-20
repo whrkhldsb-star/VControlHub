@@ -41,7 +41,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("download re
 			})),
 		});
 		// Stale past the relay cap, newest last.
-		await prisma.$executeRaw`UPDATE download_tasks SET "updatedAt" = now() - interval '4 hours' + (CAST(substring(id from '[0-9]{4}$') AS int) * interval '1 second') WHERE "serverId" = ${prefix}`;
+		await prisma.$executeRaw`UPDATE download_tasks SET "updatedAt" = (now() AT TIME ZONE 'UTC') - interval '4 hours' + (CAST(substring(id from '[0-9]{4}$') AS int) * interval '1 second') WHERE "serverId" = ${prefix}`;
 		resetReconcileCursorForTests();
 	});
 	afterAll(async () => {
