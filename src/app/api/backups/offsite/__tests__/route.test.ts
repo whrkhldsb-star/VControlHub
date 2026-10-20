@@ -81,7 +81,7 @@ describe("/api/backups/offsite", () => {
 			enabled: true,
 			bucket: "my-bucket",
 			region: "us-east-1",
-		});
+		}, "u1");
 		expect(body.config.accessKeyId).toBe("***");
 		expect(body.config.secretAccessKey).toBe("***");
 	});

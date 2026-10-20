@@ -138,10 +138,13 @@ export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<s
 	// The row names its writer. Only rows written before that column existed
 	// fall back to the audit log, and only to an entry written right after
 	// the stored change: an older entry belongs to an earlier change.
-	const writers = await prisma.user.findMany({
-		where: { id: { in: [...new Set(settings.map((setting) => setting.updatedBy).filter((id): id is string => Boolean(id)))] } },
-		select: { id: true, username: true, displayName: true },
-	});
+	const writerIds = [...new Set(settings.map((setting) => setting.updatedBy).filter((id): id is string => Boolean(id)))];
+	const writers = writerIds.length > 0
+		? await prisma.user.findMany({
+			where: { id: { in: writerIds } },
+			select: { id: true, username: true, displayName: true },
+		})
+		: [];
 	const writerById = new Map(writers.map((user) => [user.id, user]));
 	const needsAudit = new Map<string, number>();
 	for (const setting of settings) {
