@@ -30,6 +30,10 @@ const {
       update: vi.fn(),
       count: vi.fn(),
     },
+    shareLink: {
+      findMany: vi.fn(async (): Promise<Array<{ id: string; path: string }>> => []),
+      update: vi.fn(async () => ({})),
+    },
   },
   deleteRemoteFileMock: vi.fn(),
   createRemoteDirectoryMock: vi.fn(),
@@ -453,6 +457,26 @@ describe("/api/storage/sftp-ops", () => {
       },
       data: { isDeleted: true },
     });
+  });
+
+  it("moves the live shares of a renamed SFTP directory with it", async () => {
+    // Left at the old path, a share broke, and served whatever was later
+    // created there.
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice", roles: ["admin"], currentTeamId: null });
+    mockSftpNode();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ entryType: "DIRECTORY" });
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce([]);
+    prismaMock.shareLink.findMany.mockResolvedValueOnce([
+      { id: "s_dir", path: "allowed" },
+      { id: "s_file", path: "allowed/nested/b.txt" },
+    ]);
+
+    const response = await POST(request({ action: "rename", nodeId: "node_1", path: "allowed", newPath: "renamed", isDirectory: true }));
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.shareLink.update).toHaveBeenCalledWith({ where: { id: "s_dir" }, data: { path: "renamed" } });
+    expect(prismaMock.shareLink.update).toHaveBeenCalledWith({ where: { id: "s_file" }, data: { path: "renamed/nested/b.txt" } });
   });
 
   it("renames a SFTP directory and rewrites indexed descendant paths", async () => {

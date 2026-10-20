@@ -13,6 +13,10 @@ import { Readable } from "node:stream";
  */
 
 const mocks = vi.hoisted(() => ({
+  shareLink: {
+    findMany: vi.fn(async (): Promise<Array<{ id: string; path: string }>> => []),
+    update: vi.fn(async () => ({})),
+  },
   assertStorageAccess: vi.fn(),
   releaseStorageQuotaGuard: vi.fn(),
   storageNodeFindFirst: vi.fn(),
@@ -502,7 +506,7 @@ describe("webdav handlers", () => {
           : null,
       );
       mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
-        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() }, $executeRaw: mocks.executeRaw }),
+        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() }, shareLink: mocks.shareLink, $executeRaw: mocks.executeRaw }),
       );
 
       const response = await moveWith(destination);
@@ -518,6 +522,25 @@ describe("webdav handlers", () => {
       expect(String(mocks.executeRaw.mock.calls[0]![0])).toContain(`"isDeleted" = true`);
     });
 
+    it("moves the live shares of a moved file with it", async () => {
+      // Left at the old path, a share broke, and served whatever was later
+      // created there.
+      mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
+        args.where.relativePath === "a.txt"
+          ? { id: "f1", entryType: "FILE", relativePath: "a.txt" }
+          : null,
+      );
+      mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
+        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() }, shareLink: mocks.shareLink, $executeRaw: mocks.executeRaw }),
+      );
+      mocks.shareLink.findMany.mockResolvedValueOnce([{ id: "s1", path: "a.txt" }]);
+
+      const response = await moveWith("/api/webdav/n1/moved/b.txt");
+
+      expect(response.status).toBe(201);
+      expect(mocks.shareLink.update).toHaveBeenCalledWith({ where: { id: "s1" }, data: { path: "moved/b.txt" } });
+    });
+
     it("rewrites a moved directory's descendants in ONE statement", async () => {
       mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
         args.where.relativePath === "docs"
@@ -525,7 +548,7 @@ describe("webdav handlers", () => {
           : null,
       );
       mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
-        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() }, $executeRaw: mocks.executeRaw }),
+        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() }, shareLink: mocks.shareLink, $executeRaw: mocks.executeRaw }),
       );
       mocks.executeRaw.mockResolvedValue(3);
 

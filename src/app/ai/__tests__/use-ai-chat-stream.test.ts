@@ -404,7 +404,7 @@ describe("useAiChatStream", () => {
 
 		it("does not put the decided chat's transcript under a chat opened meanwhile", async () => {
 			let answerRefresh: ((value: unknown) => void) | undefined;
-			mocks.csrfFetch.mockImplementation((url: string, init?: { method?: string }) =>
+			mocks.csrfFetch.mockImplementation((_url: string, init?: { method?: string }) =>
 				init?.method === "PATCH" ? Promise.resolve({ success: true }) : new Promise((resolve) => { answerRefresh = resolve; }));
 			const { state, args } = setup("conv_a");
 			const { result, rerender } = renderHook((props: typeof args) => useAiChatStream(props), { initialProps: args });

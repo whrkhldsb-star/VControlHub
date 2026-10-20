@@ -18,6 +18,7 @@ import {
 import { getErrorMessage } from "@/lib/http/error-message";
 import { FileOperationUncertainError } from "./operation-schema";
 import { STORAGE_SSH_SERVER_SELECT } from "@/lib/storage/ssh-credentials";
+import { moveSharePaths } from "@/lib/share-link/follow-path";
 
 export type MoveFileActionState = { error?: string; success?: string; needsReconcile?: boolean };
 
@@ -224,36 +225,12 @@ export async function executeMoveFile(
           data: { relativePath: newRelativePath },
         });
 
-        const oldSharePrefix = `${entry.relativePath}/`;
-        const newSharePrefix = `${newRelativePath}/`;
-        const activeShares = await tx.shareLink.findMany({
-          where: {
-            storageNodeId: entry.storageNodeId,
-            revokedAt: null,
-            OR: [
-              { path: entry.relativePath },
-              ...(entry.entryType === "DIRECTORY"
-                ? [{ path: { startsWith: escapeLikeLiteral(oldSharePrefix) } }]
-                : []),
-            ],
-          },
-          select: { id: true, path: true },
-          take: 10_001,
+        await moveSharePaths(tx, {
+          storageNodeId: entry.storageNodeId,
+          oldPath: entry.relativePath,
+          newPath: newRelativePath,
+          isDirectory: entry.entryType === "DIRECTORY",
         });
-        if (activeShares.length > 10_000) {
-          throw new BusinessError(tr("backend.storageHardening.files.tooManyShares"));
-        }
-        for (const share of activeShares) {
-          await tx.shareLink.update({
-            where: { id: share.id },
-            data: {
-              path:
-                share.path === entry.relativePath
-                  ? newRelativePath
-                  : share.path.replace(oldSharePrefix, newSharePrefix),
-            },
-          });
-        }
 
         if (entry.entryType === "DIRECTORY") {
           const oldPrefix = entry.relativePath + "/";

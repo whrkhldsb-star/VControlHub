@@ -62,6 +62,7 @@ import {
   weakEtag,
   type WebDavContext,
 } from "./handler-internals";
+import { moveSharePaths } from "@/lib/share-link/follow-path";
 
 export { normalizeWebDavRelativePath, type WebDavContext } from "./handler-internals";
 
@@ -705,6 +706,13 @@ export async function handleWebDavMove(
       await tx.fileEntry.update({
         where: { id: entry.id },
         data: { relativePath: destPath, name: entryName(destPath) },
+      });
+      // Shares follow the moved entry, as they do in the file manager.
+      await moveSharePaths(tx, {
+        storageNodeId: ctx.storageNodeId,
+        oldPath: entry.relativePath,
+        newPath: destPath,
+        isDirectory: entry.entryType === "DIRECTORY",
       });
       if (entry.entryType !== "DIRECTORY") return;
       // Rewrite every descendant's path (and its basename) in ONE statement.
