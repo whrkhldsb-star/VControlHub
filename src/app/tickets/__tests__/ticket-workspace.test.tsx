@@ -92,6 +92,23 @@ describe("TicketWorkspace", () => {
     expect(await screen.findByText("Add staging VPS")).toBeInTheDocument();
   });
 
+  it("shows a ticket created meanwhile once the page renders again (router.refresh)", async () => {
+    // The first page lives in state: a new server render used to leave it as
+    // it was, so a ticket just created did not appear until a filter changed.
+    const view = (rows: TicketWorkspaceTicket[]) => (
+      <I18nProvider initialLocale="en">
+        <TicketWorkspace initialPage={firstPage(rows)} initialBoard={null} canManage now="2026-01-02T00:00:00.000Z" />
+      </I18nProvider>
+    );
+    const { rerender } = render(view(tickets));
+    const created = { ...tickets[0]!, id: "t3", title: "Printer on fire", updatedAt: "2026-01-01T02:00:00.000Z" };
+    serve([created, ...tickets]);
+
+    rerender(view([created, ...tickets]));
+
+    expect(await screen.findByText("Printer on fire")).toBeInTheDocument();
+  });
+
   it("reaches tickets beyond any loaded window: paging and totals come from the server", async () => {
     // 75 open tickets; the list used to filter what one load had brought.
     const many = Array.from({ length: 75 }, (_, i) => ({ ...tickets[0]!, id: `open-${i}`, title: `Open ticket ${i}` }));

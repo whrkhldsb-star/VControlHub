@@ -152,6 +152,14 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // router.refresh() (after a ticket is created) renders the page again with
+  // new first-page data. The lists are state, so the new ticket stayed out of
+  // view until a filter changed: a new server render re-reads the current view.
+  const [serverRender, setServerRender] = useState({ initialPage, initialBoard });
+  if (serverRender.initialPage !== initialPage || serverRender.initialBoard !== initialBoard) {
+    setServerRender({ initialPage, initialBoard });
+    setReloadKey((key) => key + 1);
+  }
   const request = useMemo(() => {
     const params = new URLSearchParams();
     if (view === "board") params.set("view", "board");
