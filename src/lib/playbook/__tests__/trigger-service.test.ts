@@ -7,6 +7,7 @@ const { mocks } = vi.hoisted(() => ({
     playbookFindUnique: vi.fn(),
     playbookUpdateMany: vi.fn(),
     playbookUpdate: vi.fn(),
+    teamCount: vi.fn(),
     serverFindMany: vi.fn(),
     transaction: vi.fn(),
     tryAcquireAdvisoryLock: vi.fn(),
@@ -91,7 +92,9 @@ describe("Playbook automatic trigger dispatch", () => {
         updateMany: mocks.playbookUpdateMany,
         update: mocks.playbookUpdate,
       },
+      team: { count: mocks.teamCount },
     }));
+    mocks.teamCount.mockResolvedValue(0);
     mocks.playbookUpdateMany.mockResolvedValue({ count: 1 });
     mocks.playbookUpdate.mockResolvedValue({});
     mocks.queuePlaybookRunWithClient.mockResolvedValue({ created: true, run: { id: "run-1" } });
@@ -139,6 +142,20 @@ describe("Playbook automatic trigger dispatch", () => {
 
     await expect(dispatchDueCronPlaybooks(now)).resolves.toEqual({ dispatched: 1, advanced: 1 });
     expect(mocks.queuePlaybookRunWithClient).toHaveBeenCalledTimes(2);
+  });
+
+  it("moves a deleted customer's due playbook to its next occurrence without running it", async () => {
+    // Its webhook and notification steps kept running for the hidden customer.
+    mocks.playbookFindUnique.mockResolvedValue(cronPlaybook());
+    mocks.teamCount.mockResolvedValue(1);
+
+    await expect(dispatchDueCronPlaybook({ playbookId: "pb-cron", dueAt, now })).resolves.toEqual({ dispatched: false, advanced: true });
+    expect(mocks.teamCount).toHaveBeenCalledWith({ where: { id: "team-1", deletedAt: { not: null } } });
+    expect(mocks.playbookUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: { nextRunAt: new Date("2026-08-21T19:00:00.000Z") },
+    }));
+    expect(mocks.queuePlaybookRunWithClient).not.toHaveBeenCalled();
+    expect(mocks.auditSystemAction).not.toHaveBeenCalled();
   });
 
   it("atomically advances a due Cron schedule and queues one occurrence", async () => {

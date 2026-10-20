@@ -239,7 +239,8 @@ describe("listSftpNodesForStaleInventory", () => {
       expect(result.map((n) => n.id)).toEqual(["n1", "n2"]);
       expect(prismaStorageNodeMock.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { driver: "SFTP" },
+          // The system sweep skips a deleted customer's nodes.
+          where: { driver: "SFTP", OR: [{ teamId: null }, { team: { deletedAt: null } }] },
           orderBy: { name: "asc" },
         }),
       );

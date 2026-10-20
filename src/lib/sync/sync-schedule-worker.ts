@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { createLogger } from "@/lib/logging";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { createSingletonIntervalWorker, type SingletonIntervalWorkerState } from "@/lib/workers/singleton-interval-worker";
 
 import { isSyncJobDue } from "./schedule";
@@ -120,6 +121,9 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
         where: {
           status: { in: ["IDLE", "ERROR"] },
           schedule: { not: null },
+          // A deleted customer's jobs wait for its restoration: they could
+          // only fail (their owner can no longer act for it).
+          ...liveCustomerRowsWhere(),
         },
         select: {
           id: true,

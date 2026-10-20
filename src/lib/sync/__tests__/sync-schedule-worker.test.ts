@@ -79,6 +79,14 @@ describe("runSyncScheduleWorkerOnce", () => {
     mocks.executeSyncJob.mockResolvedValue({ ok: true });
   });
 
+  it("leaves a deleted customer's jobs for its restoration", async () => {
+    mocks.syncJobFindMany.mockResolvedValue([]);
+    await runSyncScheduleWorkerOnce("test");
+    expect(mocks.syncJobFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ OR: [{ teamId: null }, { team: { deletedAt: null } }] }),
+    }));
+  });
+
   it("dispatches due jobs concurrently, capped at 5 in flight", async () => {
     mocks.syncJobFindMany.mockResolvedValue(dueJobs(12));
     let inFlight = 0;
