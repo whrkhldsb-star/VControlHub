@@ -132,6 +132,11 @@ export async function sampleRemoteServerTraffic(
 		interfaces: [] as RemoteInterfaceTraffic[],
 		sampledAt,
 	};
+	// The sample reads /proc/net/dev: on Windows (over its OpenSSH or its
+	// Agent) every summary load ran a command bound to fail.
+	if (server.operatingSystem === "WINDOWS") {
+		return { ...base, error: t("backend.traffic.remote.unsupportedOs") };
+	}
 	// An Agent-managed server needs no SSH credentials: commands go through its Agent.
 	if (!server.sshKey?.privateKey && !server.password && server.managementMode !== "AGENT") {
 		return { ...base, error: t("backend.traffic.remote.noCredentials") };

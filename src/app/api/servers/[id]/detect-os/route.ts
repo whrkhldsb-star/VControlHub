@@ -87,6 +87,11 @@ export async function POST(
       if (!server) {
         return Response.json({ error: t("apiServersDetectOs.serverNotFound", locale) }, { status: 404 });
       }
+      // The probe reads os-release / uname: on Windows it stored an
+      // "Unknown" dialect over the node's details.
+      if (server.operatingSystem === "WINDOWS") {
+        return Response.json({ error: t("backend.server.linuxOnly", locale) }, { status: 400 });
+      }
 
       try {
         const sshParams = await buildSshParamsFromServer(server, server.sshKey);

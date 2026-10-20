@@ -1021,7 +1021,7 @@ model AlertRule {
   webhookUrl        String?
   playbookIds       String[]        @default([]) // TR-023: playbooks to run when this alert triggers
   cooldownMinutes   Int             @default(30)
-  silenceWindows    String[]        @default([]) // HH:mm-HH:mm windows, local server time
+  silenceWindows    String[]        @default([]) // HH:mm-HH:mm windows in the application time zone (APP_TIME_ZONE), not the server's
   /// Minutes without acknowledgement before escalating to on-call / L2 notify
   escalationMinutes Int             @default(30)
   /// Preferred on-call user IDs (routed first for in-app / ack ownership)

@@ -74,13 +74,17 @@ export async function POST(
 
 			const server = await prisma.server.findUnique({
 				where: { id: serverId },
-				select: { id: true, name: true, enabled: true, teamId: true },
+				select: { id: true, name: true, enabled: true, teamId: true, operatingSystem: true },
 			});
 			if (!server) {
 				throw new NotFoundError(apiCopy("apiCopy.server.not.found.d7783f94"));
 			}
 			if (!server.enabled) {
 				throw new ValidationError(t("vpsBackupApi.errorServerDisabled", locale));
+			}
+			// The backup presets are POSIX shell: on Windows the run would fail.
+			if (server.operatingSystem === "WINDOWS") {
+				throw new ValidationError(t("backend.server.linuxOnly", locale));
 			}
 
 			if (body.backupType === "custom" && (!body.paths || body.paths.length === 0)) {

@@ -46,15 +46,16 @@ const silenceWindowSchema = z
   .trim()
   .regex(/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/, "Silence period format should be HH:mm-HH:mm, e.g. 22:00-08:00");
 
-const alertRuleSchemaBase = z.object({
+/** The rule's fields as a request may name them, without creation defaults. */
+const alertRuleFields = {
   name: z.string().trim().min(1, "Rule name is required").max(100, "Rule name is too long"),
   metric: z.enum(metrics),
   operator: z.enum(operators),
   threshold: z.coerce.number().finite().min(0).max(100000),
   durationSeconds: z.coerce.number().int().min(0).max(86_400).optional(),
-  serverIds: z.array(z.string().trim().min(1)).default([]),
-  notifyChannels: z.array(z.enum(channels)).default(["in_app"]),
-  playbookIds: z.array(z.string().trim().min(1)).default([]),
+  serverIds: z.array(z.string().trim().min(1)),
+  notifyChannels: z.array(z.enum(channels)),
+  playbookIds: z.array(z.string().trim().min(1)),
   webhookUrl: z.preprocess(
     (value) => {
       if (typeof value !== "string" || !value.trim()) return undefined;
@@ -73,10 +74,19 @@ const alertRuleSchemaBase = z.object({
       .optional(),
   ),
   cooldownMinutes: z.coerce.number().int().min(1).max(10_080).optional(),
-  silenceWindows: z.array(silenceWindowSchema).max(8).default([]),
+  silenceWindows: z.array(silenceWindowSchema).max(8),
   escalationMinutes: z.coerce.number().int().min(1).max(10_080).optional(),
-  onCallUserIds: z.array(z.string().trim().min(1)).max(50).default([]),
+  onCallUserIds: z.array(z.string().trim().min(1)).max(50),
   enabled: z.boolean().optional(),
+};
+
+const alertRuleSchemaBase = z.object({
+  ...alertRuleFields,
+  serverIds: alertRuleFields.serverIds.default([]),
+  notifyChannels: alertRuleFields.notifyChannels.default(["in_app"]),
+  playbookIds: alertRuleFields.playbookIds.default([]),
+  silenceWindows: alertRuleFields.silenceWindows.default([]),
+  onCallUserIds: alertRuleFields.onCallUserIds.default([]),
 });
 
 function requireWebhookUrlWhenEnabled(
@@ -106,7 +116,11 @@ const alertRuleSchema = alertRuleSchemaBase
   .superRefine(requireWebhookUrlWhenEnabled)
   .transform(normalizeOfflineAlertRuleFields);
 
-const updateAlertRuleSchema = alertRuleSchemaBase
+// Built from the fields, not from the creation schema: zod 4 fills .default()
+// values in for absent keys even under .partial(), so an update that named
+// only a threshold reset the rule to every server, in-app delivery only, and
+// no playbooks, silence windows or on-call users.
+const updateAlertRuleSchema = z.object(alertRuleFields)
   .partial()
   .extend({ id: z.string().trim().min(1) })
   .superRefine(requireWebhookUrlWhenEnabled)
