@@ -112,6 +112,8 @@ async function readConfiguredProvider() {
   return { providerId, provider };
 }
 
+const AI_OPS_ANALYSIS_MAX_TOKENS = 3000;
+
 async function requestProviderAnalysis(
   provider: { id: string; createdBy: string; defaultModel: string },
   signals: SystemHealthSignal[],
@@ -122,7 +124,11 @@ async function requestProviderAnalysis(
       model: provider.defaultModel,
       stream: false,
       temperature: 0.1,
-      max_tokens: 700,
+      // Reasoning models spend completion tokens thinking before they answer:
+      // at 700 GLM-5.3 returned a cut-off sentence and GLM-5.3-flash nothing.
+      // 3000 leaves room for both and still finishes inside the 90 s
+      // non-streaming provider timeout at ~45 tokens/s.
+      max_tokens: AI_OPS_ANALYSIS_MAX_TOKENS,
       messages: [
         {
           role: "system",
@@ -139,7 +145,7 @@ async function requestProviderAnalysis(
   );
   const payload = (await response.json().catch(() => null)) as
     | {
-        choices?: Array<{ message?: { content?: unknown } }>;
+        choices?: Array<{ finish_reason?: unknown; message?: { content?: unknown } }>;
         content?: Array<{ type?: string; text?: unknown }>;
       }
     | null;
@@ -150,10 +156,15 @@ async function requestProviderAnalysis(
     .join("\n");
   const text =
     (typeof openAiText === "string" ? openAiText : anthropicText)?.trim() ?? "";
+  const truncated = payload?.choices?.[0]?.finish_reason === "length";
   if (!text) {
-    throw new Error(`AI Ops provider (${providerType}) returned no analysis text`);
+    throw new Error(
+      truncated
+        ? `AI Ops provider (${providerType}) used the whole ${AI_OPS_ANALYSIS_MAX_TOKENS}-token budget before answering`
+        : `AI Ops provider (${providerType}) returned no analysis text`,
+    );
   }
-  return text.replace(/\0/g, "").slice(0, 4000);
+  return `${text.replace(/\0/g, "").slice(0, 4000)}${truncated ? "\n\n[…]" : ""}`;
 }
 
 interface SystemHealthSignal {
