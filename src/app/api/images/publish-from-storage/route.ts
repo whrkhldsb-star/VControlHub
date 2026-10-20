@@ -42,7 +42,10 @@ export async function POST(request: Request) {
   return withApiRoute(
     request,
     {
-      permission: "storage:read",
+      // It creates an image, as an upload does: image:write, plus read access
+      // to the source path (checked below, with storage:read). Gated by
+      // storage:read alone, a read-only role added images to the image bed.
+      permission: "image:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorMessage: apiCopy("apiCopy.failed.to.publish.from.storage.b1d93bfc"),
       bodySchema: publishSchema,

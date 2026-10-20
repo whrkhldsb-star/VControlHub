@@ -20,6 +20,11 @@ const {
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: requireApiPermissionMock,
 }));
+// Six requests in one file: keep the 5-per-minute upload limit out of the way.
+vi.mock("@/lib/http/rate-limit-presets", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/http/rate-limit-presets")>()),
+  IMAGE_UPLOAD_LIMIT: { maxRequests: 1000, windowMs: 60_000 },
+}));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
@@ -69,6 +74,15 @@ async function listFiles(root: string) {
 }
 
 describe("POST /api/images/publish-from-storage", () => {
+  it("needs the image-bed write permission, not only storage read", async () => {
+    // A read-only role (viewer: storage:read, no image:write) could add images.
+    requireApiPermissionMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: "forbidden" }), { status: 403 }));
+    const response = await POST(publishRequest());
+    expect(requireApiPermissionMock).toHaveBeenCalledWith("image:write");
+    expect(response.status).toBe(403);
+    expect(imageCreateMock).not.toHaveBeenCalled();
+  });
+
   beforeEach(async () => {
     vi.clearAllMocks();
     await rm(uploadRoot, { recursive: true, force: true });
@@ -91,7 +105,7 @@ describe("POST /api/images/publish-from-storage", () => {
     const response = await POST(publishRequest());
 
     expect(response.status).toBe(201);
-    expect(requireApiPermissionMock).toHaveBeenCalledWith("storage:read");
+    expect(requireApiPermissionMock).toHaveBeenCalledWith("image:write");
     expect(assertStorageAccessMock).toHaveBeenCalledWith({
       session,
       storageNodeId: "node_1",
