@@ -57,6 +57,30 @@ type DueJob = {
 };
 
 /**
+ * When each failed job last tried to run. A failure leaves lastSyncAt alone,
+ * so a failed job stayed due and was retried on every tick — a FAILED log and
+ * another connection to its servers a minute — until it succeeded. Its failed
+ * attempt now counts as the occurrence: it waits for the next one (a manual run
+ * is always available). Only ERROR jobs need the lookup: a job whose last run
+ * succeeded has a lastSyncAt after that run's log started.
+ */
+async function lastFailedAttempts(jobs: Array<{ id: string; status: string }>): Promise<Map<string, Date>> {
+  const ids = jobs.filter((job) => job.status === "ERROR").map((job) => job.id);
+  if (ids.length === 0) return new Map();
+  const rows = await prisma.syncLog.groupBy({
+    by: ["syncJobId"],
+    where: { syncJobId: { in: ids } },
+    _max: { startedAt: true },
+  });
+  return new Map(rows.flatMap((row) => (row._max.startedAt ? [[row.syncJobId, row._max.startedAt] as const] : [])));
+}
+
+function dueAfterAttempt(job: Parameters<typeof isSyncJobDue>[0], attemptedAt: Date | undefined): boolean {
+  const last = attemptedAt && (!job.lastSyncAt || job.lastSyncAt < attemptedAt) ? attemptedAt : job.lastSyncAt;
+  return isSyncJobDue({ ...job, lastSyncAt: last });
+}
+
+/**
  * Dispatch one due job under its own advisory lock. Returns whether it ran, and
  * never throws: one failed sync must not abort the rest of the batch.
  */
@@ -69,7 +93,9 @@ async function dispatchOne(job: DueJob, reason: string): Promise<boolean> {
       where: { id: job.id },
       select: { schedule: true, lastSyncAt: true, createdAt: true, status: true },
     });
-    if (!fresh || !isSyncJobDue(fresh)) return false;
+    if (!fresh) return false;
+    const attempts = await lastFailedAttempts([{ id: job.id, status: fresh.status }]);
+    if (!dueAfterAttempt(fresh, attempts.get(job.id))) return false;
     logger.info("dispatching scheduled sync job", {
       workerId: WORKER_ID,
       jobId: job.id,
@@ -137,7 +163,8 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
         take: SCHEDULE_SCAN_PAGE,
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       });
-      dueJobs.push(...page.filter((job) => isSyncJobDue(job)));
+      const attempts = await lastFailedAttempts(page);
+      dueJobs.push(...page.filter((job) => dueAfterAttempt(job, attempts.get(job.id))));
       cursor = page.length === SCHEDULE_SCAN_PAGE ? page[page.length - 1]!.id : undefined;
     } while (cursor);
     // Never-run jobs first, then the longest waiting.
