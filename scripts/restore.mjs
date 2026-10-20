@@ -344,6 +344,45 @@ async function extractDatabaseMember(archive, targetDir, databaseMember) {
   return target;
 }
 
+async function pathExists(target) {
+  try { await fs.access(target); return true; } catch { return false; }
+}
+
+/**
+ * A backup made by an older version restores that version's schema and
+ * migration history with it. The code about to start expects every migration
+ * this installation ships, and the roles and permissions deploy.sh syncs right
+ * after migrating: started on the old schema, the platform failed on each
+ * missing column. Run the same two steps here, against the database just
+ * restored. A directory without migrations is not an installation (a restore
+ * into a scratch directory): say what to run instead.
+ */
+async function upgradeRestoredDatabase({ childEnv }) {
+  const prismaCli = path.join(APP_DIR, "node_modules", "prisma", "build", "index.js");
+  const migrations = path.join(APP_DIR, "prisma", "migrations");
+  const manual = `run "npx prisma migrate deploy" and "node dist/seed.js" in the installation directory before starting the platform`;
+  if (!(await pathExists(prismaCli)) || !(await pathExists(migrations)) || !childEnv.DATABASE_URL) {
+    log(`No Prisma migrations or DATABASE_URL for ${APP_DIR}; the schema was not upgraded: ${manual}.`);
+    return;
+  }
+  try {
+    log("Applying this installation's database migrations to the restored database");
+    await runBinary(process.execPath, [prismaCli, "migrate", "deploy"], { cwd: APP_DIR, env: childEnv });
+    const seed = path.join(APP_DIR, "dist", "seed.js");
+    if (await pathExists(seed)) {
+      log("Syncing roles and permissions");
+      // The environment deploy.sh seeds with (.env.runtime when present), on
+      // the database just restored.
+      const runtimeEnv = (await readEnvFile(path.join(APP_DIR, ".env.runtime"))) ?? {};
+      await runBinary(process.execPath, [seed], { cwd: APP_DIR, env: { ...childEnv, ...runtimeEnv, DATABASE_URL: childEnv.DATABASE_URL } });
+    } else {
+      log(`No ${seed}: run the role and permission sync before starting the platform.`);
+    }
+  } catch (error) {
+    fail(`DATABASE RESTORED, NOT UPGRADED: ${error instanceof Error ? error.message : String(error)}. The restored schema may be older than this installation: ${manual}.`);
+  }
+}
+
 async function main() {
   const [component, archive, componentArg, appDirArg] = process.argv.slice(2);
   if (!["database", "files", "full"].includes(component ?? "")) {
@@ -385,7 +424,9 @@ async function runRestore(component, archive, componentArg, appDirArg) {
   if (component === "database") {
     if (!archive) fail("backup file path is required");
     try { await fs.access(archive); } catch { fail(`Backup file not found: ${archive}`); }
-    await restoreDatabase(archive, await prepareDatabaseRestore(APP_DIR));
+    const databaseTarget = await prepareDatabaseRestore(APP_DIR);
+    await restoreDatabase(archive, databaseTarget);
+    await upgradeRestoredDatabase(databaseTarget);
     return;
   }
 
@@ -435,6 +476,7 @@ async function runRestore(component, archive, componentArg, appDirArg) {
           fail(`PARTIAL RESTORE: the database was restored but copying files into ${targetDir} failed (${error instanceof Error ? error.message : String(error)}). Restore the pre-restore safety snapshot or re-run a files-only restore.`);
         }
       }
+      await upgradeRestoredDatabase(databaseTarget);
     } finally {
       if (stagedFiles) await fs.rm(stagedFiles, { recursive: true, force: true }).catch(() => undefined);
       await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);

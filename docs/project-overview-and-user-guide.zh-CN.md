@@ -1106,6 +1106,8 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 平台内不会执行任何恢复动作。
 
+恢复脚本导入数据库之后，会接着对刚恢复的数据库执行本安装的数据库迁移（`prisma migrate deploy`）和角色权限同步，与升级部署时的这两步相同。旧版本做的备份带着当时的表结构和迁移记录，不升级就启动，平台会在缺少的列上报错。如果这一步失败，脚本会以 `DATABASE RESTORED, NOT UPGRADED` 报错退出。此时请先在安装目录手动执行 `npx prisma migrate deploy` 和 `node dist/seed.js`，再启动服务。
+
 **前提：从停止服务到恢复完成，所有平台实例必须一直保持停止。** 恢复脚本会检查这一前提，但无法强制它：
 
 - 平台的 systemd 服务（默认 `vcontrolhub-next`、`vcontrolhub-worker`、`vcontrolhub-ssh-ws`，可用 `VCONTROLHUB_SERVICE_UNITS` 指定）必须都被确认为已停止（`inactive` 或 `failed`）。以下情况一律拒绝执行：服务在运行或处于过渡状态、状态未知、systemd 不认识该服务名（多半是服务名不同）、`systemctl` 无法给出状态、主机上没有 `systemctl`。
