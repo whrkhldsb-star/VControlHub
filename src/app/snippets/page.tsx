@@ -1,5 +1,5 @@
 import { requirePagePermission } from "@/lib/auth/page-guard";
-import { listSnippets } from "@/lib/snippet/service";
+import { listSnippets, snippetViewer } from "@/lib/snippet/service";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { SnippetList } from "./snippet-list-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
 	const locale = await getServerLocale();
 	const session = await requirePagePermission("snippet:manage");
-	const snippets = await listSnippets({ userId: session.userId });
+	const snippets = await listSnippets({ viewer: snippetViewer(session) });
 
 	const serialized = snippets.map((s) => ({
 		...s,

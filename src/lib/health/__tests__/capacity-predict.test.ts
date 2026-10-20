@@ -244,11 +244,13 @@ describe("getCapacityForecast service", () => {
         $queryRaw: findManySnapshots,
       },
     }));
-    vi.doMock("@/lib/auth/team-scope", () => ({ teamWhere: () => ({}) }));
+    vi.doMock("@/lib/auth/team-scope", () => ({ teamWhere: () => ({}), serverTeamWhere: () => ({}), liveCustomerRowsWhere: () => ({ OR: [{ teamId: null }, { team: { deletedAt: null } }] }) }));
     findManyServers.mockResolvedValue([]);
 
     const { getCapacityForecast } = await import("../capacity-service");
     const result = await getCapacityForecast({ nowMs: Date.parse("2026-07-16T00:00:00Z") });
+    // The background forecast leaves a deleted customer's servers out.
+    expect(findManyServers).toHaveBeenCalledWith(expect.objectContaining({ where: { OR: [{ teamId: null }, { team: { deletedAt: null } }] } }));
     expect(result.servers).toEqual([]);
     expect(result.summary.serverCount).toBe(0);
     expect(findManySnapshots).not.toHaveBeenCalled();
@@ -261,7 +263,7 @@ describe("getCapacityForecast service", () => {
         $queryRaw: findManySnapshots,
       },
     }));
-    vi.doMock("@/lib/auth/team-scope", () => ({ teamWhere: () => ({}) }));
+    vi.doMock("@/lib/auth/team-scope", () => ({ teamWhere: () => ({}), serverTeamWhere: () => ({}), liveCustomerRowsWhere: () => ({ OR: [{ teamId: null }, { team: { deletedAt: null } }] }) }));
 
     const nowMs = Date.parse("2026-07-16T12:00:00.000Z");
     findManyServers.mockResolvedValue([

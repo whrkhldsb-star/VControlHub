@@ -13,7 +13,7 @@ import { collectServerMetrics, type ServerMetrics } from "@/lib/server/monitor";
 import { tcpProbe } from "@/lib/server/connectivity";
 import type { HealthOverview, ServerHealth } from "./service-types";
 import { evaluateHealth } from "./service-types";
-import { serverTeamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { persistServerTrafficFromMetrics } from "@/lib/monitoring/server-traffic-snapshot";
 import { fullestDisk } from "@/lib/public-status/normalize";
@@ -105,7 +105,10 @@ export async function collectAllHealth(
   let cursorId: string | undefined;
   for (;;) {
     const page = await prisma.server.findMany({
-      where: session ? serverTeamWhere(session) : {},
+      // The background sweep (no session) probes live customers' servers
+      // only: a deleted customer's servers are kept for its history, not
+      // probed over SSH, alerted on or counted.
+      where: session ? serverTeamWhere(session) : liveCustomerRowsWhere(),
       select: { id: true, name: true, host: true, port: true, enabled: true, managementMode: true, agentLastSeenAt: true },
       orderBy: { id: "asc" },
       take: SERVER_PAGE_SIZE,

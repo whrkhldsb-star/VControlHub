@@ -113,9 +113,22 @@ describe("read-only ops endpoints", () => {
 	});
 
 	describe("GET /api/admin/workers", () => {
+		// The worker fleet is platform internals, like the self-check below:
+		// task:read is in every customer identity template.
+		beforeEach(() => {
+			currentSession = { ...session, roles: ["admin"] };
+		});
+
 		it("is gated on task:read", async () => {
 			await workers.GET(req("https://a.test/api/admin/workers"));
 			expect(mocks.guardCalls[0]!.permission).toBe("task:read");
+		});
+
+		it("refuses a customer account even with task:read", async () => {
+			currentSession = session;
+			const res = await workers.GET(req("https://a.test/api/admin/workers"));
+			expect(res.status).toBe(403);
+			expect(mocks.getWorkerRuntimeHealth).not.toHaveBeenCalled();
 		});
 
 		it("answers 200 with healthy:true when every worker has started", async () => {

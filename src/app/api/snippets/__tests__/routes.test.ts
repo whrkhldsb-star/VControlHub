@@ -35,6 +35,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/snippet/service", () => ({
+	// The real mapping: who reads decides which shared snippets show.
+	snippetViewer: (viewer: { userId: string; currentTeamId?: string | null; roles?: string[] }) => ({
+		userId: viewer.userId,
+		currentTeamId: viewer.currentTeamId ?? null,
+		platformAdmin: viewer.roles?.includes("admin") === true,
+	}),
 	listSnippets: mocks.listSnippets,
 	getSnippet: mocks.getSnippet,
 	createSnippet: mocks.createSnippet,
@@ -155,7 +161,7 @@ describe("/api/snippets routes", () => {
 			const res = await route.GET(req("GET"));
 			expect(res.status).toBe(200);
 			expect(mocks.listSnippets).toHaveBeenCalledWith({
-				userId: "u_1",
+				viewer: { userId: "u_1", currentTeamId: "team_1", platformAdmin: false },
 				q: undefined,
 				language: undefined,
 			});
@@ -165,7 +171,7 @@ describe("/api/snippets routes", () => {
 		it("forwards the q and language filters", async () => {
 			await route.GET(req("GET", undefined, "https://a.test/api/snippets?q=nginx&language=bash"));
 			expect(mocks.listSnippets).toHaveBeenCalledWith({
-				userId: "u_1",
+				viewer: { userId: "u_1", currentTeamId: "team_1", platformAdmin: false },
 				q: "nginx",
 				language: "bash",
 			});
@@ -195,14 +201,14 @@ describe("/api/snippets routes", () => {
 		it("does not grant canManageAll from a direct role:manage grant", async () => {
 			session.permissions = ["snippet:manage", "role:manage"];
 			await route.GET(req("GET", undefined, "https://a.test/api/snippets?id=sn_1"));
-			expect(mocks.getSnippet).toHaveBeenCalledWith("sn_1", { userId: "u_1", canManageAll: false });
+			expect(mocks.getSnippet).toHaveBeenCalledWith("sn_1", { userId: "u_1", currentTeamId: "team_1", platformAdmin: false, canManageAll: false });
 		});
 
 		it("grants canManageAll only to a platform administrator", async () => {
 			session.roles = ["admin"];
 			session.permissions = ["snippet:manage", "role:manage"];
 			await route.GET(req("GET", undefined, "https://a.test/api/snippets?id=sn_1"));
-			expect(mocks.getSnippet).toHaveBeenCalledWith("sn_1", { userId: "u_1", canManageAll: true });
+			expect(mocks.getSnippet).toHaveBeenCalledWith("sn_1", { userId: "u_1", currentTeamId: "team_1", platformAdmin: true, canManageAll: true });
 		});
 
 		it("maps a private-snippet refusal to 403, not 500", async () => {

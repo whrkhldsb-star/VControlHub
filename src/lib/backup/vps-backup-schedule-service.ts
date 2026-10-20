@@ -4,6 +4,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  */
 
 import { prisma } from "@/lib/db";
+import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { enqueueJob } from "@/lib/job/service";
 import { createVpsBackupRecord, VPS_BACKUP_CREATE_JOB_TYPE } from "./vps-backup-service";
 import { invalidCustomBackupPaths, isVpsBackupPresetType } from "./vps-backup-presets";
@@ -195,6 +196,9 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 		where: {
 			status: "ACTIVE",
 			nextRunAt: { lte: now },
+			// A deleted customer's servers are no longer backed up (a system
+			// job, no owner check stopped it): kept for history, not run.
+			server: liveCustomerRowsWhere(),
 		},
 		include: { server: { select: { id: true, teamId: true, name: true } } },
 		orderBy: { nextRunAt: "asc" },

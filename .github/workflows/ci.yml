@@ -32,7 +32,9 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Green runs take 18.5-19.5 minutes (integration tests, gates, unit tests,
+    # build); at 20 a slower runner cancelled a passing run mid-build.
+    timeout-minutes: 30
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_ci
       RUN_DATABASE_INTEGRATION_TESTS: "1"

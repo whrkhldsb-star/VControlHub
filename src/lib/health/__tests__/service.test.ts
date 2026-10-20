@@ -85,6 +85,19 @@ describe("evaluateAlerts", () => {
 	runPlaybookMock.mockResolvedValue({ id: "run1", status: "completed" });
 	});
 
+	it("evaluates only platform and live customers' rules on a fleet-wide pass", async () => {
+		// A deleted customer's rules kept notifying its channels after removal.
+		prismaMock.alertRule.findMany.mockResolvedValue([]);
+		await evaluateAlerts();
+		expect(prismaMock.alertRule.findMany).toHaveBeenCalledWith(expect.objectContaining({
+			where: expect.objectContaining({ enabled: true, OR: [{ teamId: null }, { team: { deletedAt: null } }] }),
+		}));
+		// A manual, team-scoped pass keeps the caller's scope.
+		prismaMock.alertRule.findMany.mockClear();
+		await evaluateAlerts({ ruleWhere: { teamId: "team_1" } });
+		expect(prismaMock.alertRule.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { enabled: true, teamId: "team_1" } }));
+	});
+
 	it("does not trigger rules with durationSeconds until the condition is sustained", async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2026-05-25T00:00:00.000Z"));

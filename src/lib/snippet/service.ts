@@ -1,6 +1,34 @@
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
+import { isGlobalTeamManager, type TeamSession } from "@/lib/auth/team-scope";
 import { t } from "@/lib/i18n/service-translations";
+
+/** Who reads snippets: their customer and role decide which shared ones show. */
+export type SnippetViewer = { userId: string; currentTeamId: string | null; platformAdmin: boolean };
+
+export function snippetViewer(session: TeamSession): SnippetViewer {
+  return { userId: session.userId, currentTeamId: session.currentTeamId ?? null, platformAdmin: isGlobalTeamManager(session) };
+}
+
+/**
+ * A snippet that is not private is shared within its creator's customer, and
+ * a platform administrator's with everyone (as before). Unticking "visible
+ * only to me" used to share a customer's snippet with every other customer.
+ */
+function sharedSnippetWhere(viewer: SnippetViewer) {
+  if (viewer.platformAdmin) return { isPrivate: false };
+  return {
+    isPrivate: false,
+    creator: {
+      is: {
+        OR: [
+          { roles: { some: { role: { key: "admin" } } } },
+          ...(viewer.currentTeamId ? [{ teamMembership: { is: { teamId: viewer.currentTeamId } } }] : []),
+        ],
+      },
+    },
+  };
+}
 
 function tags(input?: string[]) {
   return Array.from(new Set((input ?? []).map((t) => t.trim()).filter(Boolean))).slice(0, 20);
@@ -26,13 +54,10 @@ export async function createSnippet(input: { title: string; content: string; lan
 
 const SNIPPET_LIST_PREVIEW_CHARS = 240;
 
-export async function listSnippets(input: { userId?: string; q?: string; language?: string } = {}) {
+export async function listSnippets(input: { viewer: SnippetViewer; q?: string; language?: string }) {
   const q = input.q?.trim();
-  // Empty Prisma `{}` matches every row — never use it as the private-owner branch.
-  // Without userId, only public snippets; with userId, public + own private.
-  const privacyFilter = input.userId
-    ? { OR: [{ isPrivate: false }, { createdBy: input.userId }] }
-    : { isPrivate: false };
+  // Shared snippets the viewer's customer may see, plus their own private ones.
+  const privacyFilter = { OR: [sharedSnippetWhere(input.viewer), { createdBy: input.viewer.userId }] };
   const rows = await prisma.snippet.findMany({
     take: 500,
     where: {
@@ -77,16 +102,15 @@ export async function listSnippets(input: { userId?: string; q?: string; languag
 
 export async function getSnippet(
   id: string,
-  actor?: { userId?: string | null; canManageAll?: boolean },
+  actor: SnippetViewer & { canManageAll?: boolean },
 ) {
   const existing = await prisma.snippet.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
-  if (existing.isPrivate) {
-    const canRead =
-      actor?.canManageAll ||
-      (Boolean(actor?.userId) && existing.createdBy === actor?.userId);
-    if (!canRead) throw new ForbiddenError(t("backend.snippet.noPermissionToModifyOthersSnippets"));
-  }
+  if (actor.canManageAll || existing.createdBy === actor.userId) return existing;
+  if (existing.isPrivate) throw new ForbiddenError(t("backend.snippet.noPermissionToModifyOthersSnippets"));
+  // Shared, but with another customer: as if it did not exist.
+  const visible = await prisma.snippet.count({ where: { id, ...sharedSnippetWhere(actor) } });
+  if (visible === 0) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
   return existing;
 }
 

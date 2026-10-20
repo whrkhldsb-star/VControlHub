@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T04:07:38.713Z",
+  "generatedAt": "2026-10-20T08:11:06.209Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -1948,7 +1948,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "storage:read"
+        "image:write"
       ]
     },
     {
@@ -1983,6 +1983,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "image:write",
         "storage:write"
       ]
     },
@@ -2006,6 +2007,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "image:write",
         "storage:write"
       ]
     },

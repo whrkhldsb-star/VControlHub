@@ -4,7 +4,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { createSnippet, deleteSnippet, getSnippet, listSnippets, updateSnippet } from "@/lib/snippet/service";
+import { createSnippet, deleteSnippet, getSnippet, listSnippets, snippetViewer, updateSnippet } from "@/lib/snippet/service";
 import {
   createSnippetSchema,
   deleteSnippetQuerySchema,
@@ -38,13 +38,13 @@ export async function GET(request: Request) {
     { permission: "snippet:manage", querySchema: snippetsGetQuerySchema },
     async ({ session, query }) => {
       if (query.id) {
-        const snippet = await getSnippet(query.id, snippetActor(session));
+        const snippet = await getSnippet(query.id, { ...snippetViewer(session), ...snippetActor(session) });
         return NextResponse.json({ snippet });
       }
       return NextResponse.json({
         snippets: await listSnippets({
-        userId: session.userId,
-        q: query.q,
+          viewer: snippetViewer(session),
+          q: query.q,
           language: query.language,
         }),
       });

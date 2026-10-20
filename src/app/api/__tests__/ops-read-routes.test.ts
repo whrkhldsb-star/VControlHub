@@ -60,7 +60,10 @@ describe("operational read routes", () => {
 	it("reports worker health with 503 when any worker is down", async () => {
 		routeSession.current = customerSession(["server:read"]);
 		expect((await workers.GET(new Request("http://local/x"))).status).toBe(403);
+		// The fleet is the platform's: task:read alone (every customer template) is refused.
 		routeSession.current = customerSession(["task:read"]);
+		expect((await workers.GET(new Request("http://local/x"))).status).toBe(403);
+		routeSession.current = platformSession();
 		const healthy = await workers.GET(new Request("http://local/x"));
 		expect(healthy.status).toBe(200);
 		expect(await healthy.json()).toMatchObject({ healthy: true, startedCount: 2, totalCount: 2 });

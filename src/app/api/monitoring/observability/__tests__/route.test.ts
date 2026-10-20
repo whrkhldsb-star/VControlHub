@@ -51,6 +51,13 @@ describe("GET /api/monitoring/observability", () => {
 		);
 	});
 
+	it("refuses a customer account even with audit:read", async () => {
+		requireApiPermissionMock.mockResolvedValueOnce({ session: { userId: "u2", username: "cust", roles: [], currentTeamId: "team_1" } } as never);
+		const res = await GET(new Request("http://local/api/monitoring/observability"));
+		expect(res.status).toBe(403);
+		expect(getObservabilitySnapshotMock).not.toHaveBeenCalled();
+	});
+
 	it("requires audit:read and returns metrics snapshot", async () => {
 		const res = await GET(new Request("http://local/api/monitoring/observability"));
 		const body = await res.json();

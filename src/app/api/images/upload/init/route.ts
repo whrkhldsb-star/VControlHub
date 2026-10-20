@@ -8,7 +8,9 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * Returns:
  *   { session: MediaUploadSessionView } (status=201)
  *
- * Permission: storage:write (session-based). API-token uploads of chunked
+ * Permission: image:write and storage:write, as the single-shot upload
+ * (session-based; the chunk and session routes are shared with storage file
+ * uploads and keep storage:write). API-token uploads of chunked
  * sessions are out of scope for now — existing /api/images/upload/route.ts
  * still covers the single-shot bearer-token path.
  */
@@ -22,19 +24,28 @@ import {
   MediaUploadError,
 } from "@/lib/upload/service";
 import { auditUserAction } from "@/lib/audit/service";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { ForbiddenError } from "@/lib/errors";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   return withApiRoute(
     request,
     {
-      permission: "storage:write",
+      // An image-bed upload, like the single-shot one: image:write, and
+      // storage:write below. With storage:write alone, roles without the
+      // image bed (operator, storage_manager) added images this way.
+      permission: "image:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       bodySchema: initMediaUploadSchema,
       errorStatus: 500,
       errorMessage: apiCopy("apiCopy.failed.to.initialize.upload.session.ede9e883"),
     },
     async ({ session, body }) => {
+      if (!sessionHasPermission(session, "storage:write")) {
+        throw new ForbiddenError(t("api.storage.writeDenied", await getServerLocale()));
+      }
       try {
         const view = await initMediaUploadSession({
           userId: session.userId,

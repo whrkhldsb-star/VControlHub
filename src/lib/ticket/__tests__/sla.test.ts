@@ -124,6 +124,15 @@ describe("ticket SLA service", () => {
 		);
 	});
 
+	it("skips a deleted customer's tickets on the fleet-wide sweep, keeping the retry condition", async () => {
+		// They were re-escalated every hour, notifying its ticket managers.
+		prismaMocks.findMany.mockResolvedValue([]);
+		await escalateBreachedTickets();
+		const where = prismaMocks.findMany.mock.calls[0]![0].where;
+		expect(where.AND).toEqual([{ OR: [{ teamId: null }, { team: { deletedAt: null } }] }]);
+		expect(where.OR).toEqual([{ escalatedAt: null }, { escalatedAt: { lt: expect.any(Date) } }]);
+	});
+
 	it("keeps an empty sweep out of production info logs", async () => {
 			prismaMocks.findMany.mockResolvedValue([]);
 

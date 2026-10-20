@@ -1,6 +1,7 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
+import { assertPlatformAdmin } from "@/lib/auth/platform-admin-guard";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { createLogger } from "@/lib/logging";
 import { config } from "@/lib/config/env";
@@ -58,7 +59,11 @@ export async function GET(request: Request) {
 	return withApiRoute(
 		request,
 		{ permission: "audit:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.observability.metrics.b9fb0882") },
-		async () => {
+		async ({ session }) => {
+			// The whole platform's runtime (every user's web vitals, delivery
+			// and connection counters), like /api/monitoring/stats: the platform
+			// role's, whatever audit:read a customer identity template grants.
+			assertPlatformAdmin(session);
 			const metrics = await mergeSshWsMetrics(getObservabilitySnapshot());
 			return NextResponse.json({ metrics });
 		},
