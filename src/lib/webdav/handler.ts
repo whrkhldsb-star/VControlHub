@@ -76,15 +76,16 @@ const MAX_WEBDAV_PUT_BYTES = 100 * 1024 * 1024;
  * closing leaked one per request.
  */
 async function probeStorageFileSize(
-  node: Parameters<typeof streamStorageFile>[0],
+  node: Parameters<typeof statBackingObject>[0]["storageNode"],
   relativePath: string,
 ): Promise<number> {
-  const probe = await streamStorageFile(node, relativePath);
-  try {
-    return probe.size;
-  } finally {
-    probe.close();
-  }
+  // Metadata only. Opening a read stream for its size, then closing the SSH
+  // connection at once, failed the stream's pending SFTP open; the stream
+  // reported that as an 'error' event nobody listened to, which is thrown
+  // and ends the process.
+  const stat = await statBackingObject({ storageNode: node, relativePath });
+  if (!stat) throw new ValidationError(t("backend.webdav.fileNotFound"));
+  return stat.size;
 }
 export async function handleWebDavOptions(): Promise<Response> {
   return new Response(null, {

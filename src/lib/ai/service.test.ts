@@ -1,8 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+const prismaMockRef = vi.hoisted(() => ({ current: null as unknown }));
+
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
-  $transaction: vi.fn(async (operations: unknown[]) => operations),
+  // Array form returns the operations; callback form runs against the mock.
+  $transaction: vi.fn(async (arg: unknown): Promise<unknown> =>
+    typeof arg === "function" ? (arg as (tx: unknown) => Promise<unknown>)(prismaMockRef.current) : arg),
     aiProvider: {
       findMany: vi.fn(),
       create: vi.fn(),
@@ -29,7 +33,8 @@ const { prismaMock } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+prismaMockRef.current = prismaMock;
+vi.mock("@/lib/db", () => ({ prisma: prismaMock, isUniqueViolation: (error: unknown) => (error as { code?: string })?.code === "P2002" }));
 vi.mock("@/lib/crypto/service", () => ({
   encrypt: (value: string) => `encrypted:${value}`,
   decrypt: (value: string) => value.replace(/^encrypted:/, ""),

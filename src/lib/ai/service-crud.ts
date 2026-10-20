@@ -6,7 +6,7 @@
  * `./service-runtime`; DTO serializers in `./service-serialize`; this
  * module owns the prisma CRUD paths plus the input types.
  */
-import { prisma } from "@/lib/db";
+import { isUniqueViolation, prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
@@ -131,28 +131,43 @@ export async function createProvider(input: CreateProviderInput) {
 	const encryptedKey = encrypt(input.apiKey.trim());
 	const providerType = resolveProviderType(input.type);
 
-	if (input.isDefault) {
-		await prisma.aiProvider.updateMany({
-			where: { isDefault: true, createdBy: input.createdBy },
-			data: { isDefault: false },
-		});
-	}
+	// The default moves in the same transaction as the write: a create
+	// refused for a name the user already has used to leave them with no
+	// default provider at all.
+	return withProviderNameCheck(() => prisma.$transaction(async (tx) => {
+		if (input.isDefault) {
+			await tx.aiProvider.updateMany({
+				where: { isDefault: true, createdBy: input.createdBy },
+				data: { isDefault: false },
+			});
+		}
 
-	return prisma.aiProvider.create({
-		data: {
-			name: input.name.trim(),
-			type: providerType,
-			apiKey: encryptedKey,
-			baseUrl: normalizedBaseUrl,
-			defaultModel: input.defaultModel?.trim() || "gpt-4o",
-			availableModels: JSON.stringify(normalizedModels),
-			isDefault: input.isDefault ?? false,
-			enabled: input.enabled ?? true,
-			settings: input.settings ? (input.settings as object) : undefined,
-			createdBy: input.createdBy,
-		},
-		select: AI_PROVIDER_LIST_SELECT,
-	});
+		return tx.aiProvider.create({
+			data: {
+				name: input.name.trim(),
+				type: providerType,
+				apiKey: encryptedKey,
+				baseUrl: normalizedBaseUrl,
+				defaultModel: input.defaultModel?.trim() || "gpt-4o",
+				availableModels: JSON.stringify(normalizedModels),
+				isDefault: input.isDefault ?? false,
+				enabled: input.enabled ?? true,
+				settings: input.settings ? (input.settings as object) : undefined,
+				createdBy: input.createdBy,
+			},
+			select: AI_PROVIDER_LIST_SELECT,
+		});
+	}));
+}
+
+/** Provider names are unique per user; say so instead of a database error. */
+async function withProviderNameCheck<T>(write: () => Promise<T>): Promise<T> {
+	try {
+		return await write();
+	} catch (error) {
+		if (isUniqueViolation(error)) throw new ValidationError(t("backend.ai.providerNameTaken"));
+		throw error;
+	}
 }
 
 export async function listProviders(userId: string) {
@@ -188,19 +203,23 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 	if (input.enabled !== undefined) data.enabled = input.enabled;
 	if (input.settings !== undefined) data.settings = input.settings;
 
-	if (input.isDefault === true) {
-		await prisma.aiProvider.updateMany({
-			where: { isDefault: true, createdBy: userId, NOT: { id } },
-			data: { isDefault: false },
-		});
-	}
+	// One transaction: an update that fails (unknown id, a name the user
+	// already has) must not have cleared their default provider first.
+	return withProviderNameCheck(() => prisma.$transaction(async (tx) => {
+		if (input.isDefault === true) {
+			await tx.aiProvider.updateMany({
+				where: { isDefault: true, createdBy: userId, NOT: { id } },
+				data: { isDefault: false },
+			});
+		}
 
-	const updated = await prisma.aiProvider.updateMany({
-		where: { id, createdBy: userId },
-		data,
-	});
-	if (updated.count === 0) throw new NotFoundError(t("backend.ai.providerNotFound"));
-	return prisma.aiProvider.findUnique({ where: { id }, select: AI_PROVIDER_LIST_SELECT });
+		const updated = await tx.aiProvider.updateMany({
+			where: { id, createdBy: userId },
+			data,
+		});
+		if (updated.count === 0) throw new NotFoundError(t("backend.ai.providerNotFound"));
+		return tx.aiProvider.findUnique({ where: { id }, select: AI_PROVIDER_LIST_SELECT });
+	}));
 }
 
 export async function deleteProvider(id: string, userId: string) {

@@ -88,7 +88,12 @@ function connectionStringForPg() {
 
 function getLockPool() {
   const globalState = globalThis as AdvisoryLockGlobal;
-  globalState.__vcontrolhubAdvisoryLockPool ??= new Pool({
+  globalState.__vcontrolhubAdvisoryLockPool ??= createLockPool();
+  return globalState.__vcontrolhubAdvisoryLockPool;
+}
+
+function createLockPool() {
+  const pool = new Pool({
     connectionString: connectionStringForPg(),
     max: Math.max(2, Math.min(config.db.poolSize, 4)),
     idleTimeoutMillis: config.db.poolIdleTimeoutMs,
@@ -99,16 +104,50 @@ function getLockPool() {
     connectionTimeoutMillis: 10_000,
     allowExitOnIdle: true,
   });
-  return globalState.__vcontrolhubAdvisoryLockPool;
+  // When the backend of an idle client goes away (a PostgreSQL restart sends
+  // 57P01 to every session; unattended upgrades do that), the pool drops the
+  // client and re-emits the error. An 'error' event without a listener is
+  // thrown, which took the worker process down on 2026-10-09 and 2026-10-15.
+  pool.on("error", (error) => {
+    logger.warn("advisory lock pool dropped an idle connection", { error: error.message });
+  });
+  return pool;
+}
+
+/**
+ * Check out a dedicated client. The pool only listens for errors while a
+ * client is idle, so a checked-out one needs its own listener: a connection
+ * lost while a lock is held (or being acquired) would otherwise be thrown
+ * from the socket and crash the process. PostgreSQL ends the session lock
+ * with the session, so the holder is no longer exclusive; say so.
+ */
+async function connectLockClient(namespace: string, resourceId: string) {
+  const client = await getLockPool().connect();
+  const onError = (error: Error) => {
+    logger.error("advisory lock connection lost; the lock is no longer held", {
+      namespace,
+      resourceId,
+      error: error.message,
+    });
+  };
+  client.on("error", onError);
+  const giveBack = (error?: Error) => {
+    client.removeListener("error", onError);
+    // With an error the pool closes the client instead of reusing it.
+    client.release(error);
+  };
+  return { client, giveBack };
 }
 
 async function releaseClientLock(
   client: PoolClient,
+  giveBack: (error?: Error) => void,
   k1: number,
   k2: number,
   namespace: string,
   resourceId: string,
 ) {
+  let failure: Error | undefined;
   try {
     const result = await client.query<{ unlocked: boolean }>(
       "SELECT pg_advisory_unlock($1, $2) AS unlocked",
@@ -123,18 +162,22 @@ async function releaseClientLock(
       });
     else logger.debug("advisory lock released", { namespace, resourceId });
   } catch (error) {
+    failure = error instanceof Error ? error : new Error(String(error));
     logger.error("failed to release advisory lock", {
       namespace,
       resourceId,
-      error: error instanceof Error ? error.message : String(error),
+      error: failure.message,
     });
   } finally {
-    client.release();
+    // A failed unlock may leave the lock held by this session: close the
+    // session (which ends the lock) rather than pool it with the lock held.
+    giveBack(failure);
   }
 }
 
 function buildRelease(
   client: PoolClient,
+  giveBack: (error?: Error) => void,
   k1: number,
   k2: number,
   namespace: string,
@@ -144,7 +187,7 @@ function buildRelease(
   return async () => {
     if (released) return;
     released = true;
-    await releaseClientLock(client, k1, k2, namespace, resourceId);
+    await releaseClientLock(client, giveBack, k1, k2, namespace, resourceId);
   };
 }
 
@@ -156,17 +199,18 @@ export async function acquireAdvisoryLock(
   resourceId: string,
 ): Promise<() => Promise<void>> {
   const { k1, k2 } = getLockKeys(namespace, resourceId);
-  const client = await getLockPool().connect();
+  const { client, giveBack } = await connectLockClient(namespace, resourceId);
   try {
-    // Session-local only; resets when the client returns to the pool.
+    // A session setting: it stays on this pooled connection, which only
+    // ever serves advisory locks, and every blocking acquire sets it.
     await client.query(
       `SET lock_timeout = ${ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS}`,
     );
     await client.query("SELECT pg_advisory_lock($1, $2)", [k1, k2]);
     logger.debug("advisory lock acquired", { namespace, resourceId, k1, k2 });
-    return buildRelease(client, k1, k2, namespace, resourceId);
+    return buildRelease(client, giveBack, k1, k2, namespace, resourceId);
   } catch (error) {
-    client.release();
+    giveBack();
     throw error;
   }
 }
@@ -176,14 +220,14 @@ export async function tryAcquireAdvisoryLock(
   resourceId: string,
 ): Promise<(() => Promise<void>) | null> {
   const { k1, k2 } = getLockKeys(namespace, resourceId);
-  const client = await getLockPool().connect();
+  const { client, giveBack } = await connectLockClient(namespace, resourceId);
   try {
     const result = await client.query<{ acquired: boolean }>(
       "SELECT pg_try_advisory_lock($1, $2) AS acquired",
       [k1, k2],
     );
     if (result.rows[0]?.acquired !== true) {
-      client.release();
+      giveBack();
       logger.debug("advisory lock busy", { namespace, resourceId });
       return null;
     }
@@ -193,9 +237,9 @@ export async function tryAcquireAdvisoryLock(
       k1,
       k2,
     });
-    return buildRelease(client, k1, k2, namespace, resourceId);
+    return buildRelease(client, giveBack, k1, k2, namespace, resourceId);
   } catch (error) {
-    client.release();
+    giveBack();
     throw error;
   }
 }

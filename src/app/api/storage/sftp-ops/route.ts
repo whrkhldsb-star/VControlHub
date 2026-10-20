@@ -36,6 +36,7 @@ import { ConflictError, ForbiddenError, ValidationError, isAppError } from "@/li
 import { t } from "@/lib/i18n/service-translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { moveSharePaths } from "@/lib/share-link/follow-path";
+import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 const logger = createLogger("api:storage:sftp-ops");
 
 async function upsertSftpFileIndex(params: {
@@ -515,15 +516,25 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         }
         // If an index row already exists this is an overwrite — never delete the
         // remote file when a later index upsert fails (would destroy the previous version).
-        const hadIndex = Boolean(
-          await prisma.fileEntry.findFirst({
-            where: {
-              storageNodeId: node.id,
-              relativePath: normalizedRelativePath,
-            },
-            select: { id: true },
-          }),
-        );
+        const indexed = await prisma.fileEntry.findFirst({
+          where: {
+            storageNodeId: node.id,
+            relativePath: normalizedRelativePath,
+          },
+          select: { id: true, isDeleted: true },
+        });
+        const hadIndex = Boolean(indexed);
+        // The editor saves SFTP files here: like the LOCAL editor (and the
+        // version panel's promise), keep the previous body as a version first.
+        // Without it an online edit of an SFTP file left no history.
+        if (indexed && !indexed.isDeleted) {
+          await snapshotFileVersionBeforeOverwrite({
+            fileEntryId: indexed.id,
+            userId: session.userId,
+            reason: "EDIT",
+            note: "Before text editor save",
+          }).catch(() => undefined);
+        }
         const { byteSize: writtenSize } = await writeBackingObject({
           storageNode: node,
           relativePath: normalizedRelativePath,

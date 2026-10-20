@@ -53,6 +53,9 @@ vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
 }));
 
+const { snapshotMock } = vi.hoisted(() => ({ snapshotMock: vi.fn(async () => null) }));
+vi.mock("@/lib/storage/file-versions", () => ({ snapshotFileVersionBeforeOverwrite: snapshotMock }));
+
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
@@ -118,6 +121,22 @@ const session = {
 };
 
 describe("/api/storage/sftp-ops", () => {
+  it("keeps the previous body of an indexed file as a version before an editor save", async () => {
+    // The editor saves SFTP files through this action; unlike the LOCAL
+    // editor it left no version, so an online edit could not be undone.
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice", roles: ["admin"], currentTeamId: null });
+    mockSftpNode();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "entry_1", isDeleted: false });
+    statRemoteEntryMock.mockResolvedValue({ size: 2, type: "file", modifyTime: 9_000, accessTime: 0, mode: 0 });
+
+    const response = await POST(request({ action: "write", nodeId: "node_1", path: "notes.txt", content: "v2" }));
+
+    expect(response.status).toBe(200);
+    expect(snapshotMock).toHaveBeenCalledWith(expect.objectContaining({ fileEntryId: "entry_1", reason: "EDIT", userId: "u_1" }));
+    expect(snapshotMock.mock.invocationCallOrder[0]).toBeLessThan(writeRemoteFileMock.mock.invocationCallOrder[0]!);
+  });
+
   it("allows writing a new file under a nested directory so users can create files from the file manager", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce({
