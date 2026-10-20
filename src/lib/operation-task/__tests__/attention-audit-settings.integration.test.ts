@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
 import { getAuditStats } from "@/lib/audit/service";
-import { getSettingUpdateMetadata } from "@/lib/settings/service";
+import { getSettingUpdateMetadata, setManySettings } from "@/lib/settings/service";
 import { listOperationTaskResult } from "../service";
 
 /**
@@ -75,4 +75,13 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("capped summ
 		const row = await prisma.setting.findUniqueOrThrow({ where: { key: "platform.name" } });
 		expect(metadata["platform.name"]).toMatchObject({ updatedAt: row.updatedAt, actorId: null, actorName: null });
 	});
+
+	it("records who saved a setting on the row itself", async () => {
+		await setManySettings([{ key: "platform.name", value: `${prefix} by row` }], prefix);
+		const row = await prisma.setting.findUniqueOrThrow({ where: { key: "platform.name" } });
+		expect(row.updatedBy).toBe(prefix);
+		const metadata = await getSettingUpdateMetadata(["platform.name"]);
+		expect(metadata["platform.name"]).toMatchObject({ actorId: prefix, actorName: prefix, updatedAt: row.updatedAt });
+	});
 });
+

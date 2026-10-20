@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -93,4 +93,46 @@ describe("PublicStatusAdminClient", () => {
 		await user.click(screen.getByRole("button", { name: "Unpublish" }));
 		await waitFor(() => expect(api.post).toHaveBeenCalledWith("/api/admin/public-status/nodes", { action: "unpublish", serverIds: ["srv_1"] }));
 	});
+
+	it("keeps a site draft typed while the previous save was pending", async () => {
+		// The answer used to replace the form with what was saved, wiping the newer draft.
+		const user = userEvent.setup();
+		let answer!: (value: unknown) => void;
+		api.put.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+		renderAdmin();
+		const title = screen.getByLabelText("Title");
+		await user.type(title, "Submitted title");
+		await user.click(screen.getAllByRole("button", { name: "Save" })[0]!);
+		await user.clear(title);
+		await user.type(title, "Later unsaved title");
+		await act(async () => answer({ site: { ...DEFAULT_PUBLIC_SITE, title: "Submitted title" } }));
+		expect(title).toHaveValue("Later unsaved title");
+	});
+
+	it("takes the server's normalised copy when nothing was typed meanwhile", async () => {
+		const user = userEvent.setup();
+		renderAdmin();
+		const title = screen.getByLabelText("Title");
+		await user.type(title, "  Spaced  ");
+		api.put.mockResolvedValueOnce({ site: { ...DEFAULT_PUBLIC_SITE, title: "Spaced" } });
+		await user.click(screen.getAllByRole("button", { name: "Save" })[0]!);
+		await waitFor(() => expect(title).toHaveValue("Spaced"));
+	});
+
+	it("cannot cancel a node dialog while its save is pending", async () => {
+		// Cancelling let another node's dialog open, which the late answer then closed.
+		const user = userEvent.setup();
+		renderAdmin();
+		const row = await screen.findByText("internal-db-01");
+		await user.click(within(row.closest("tr")!).getByRole("button", { name: "Public settings" }));
+		const dialog = await screen.findByRole("dialog");
+		await user.type(within(dialog).getByLabelText("Public name"), "Tokyo 1");
+		let answer!: (value: unknown) => void;
+		api.put.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+		await user.click(within(dialog).getByRole("button", { name: "Save" }));
+		expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+		await act(async () => answer({ publicId: "abcdefghijkl", published: false }));
+		await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+	});
 });
+

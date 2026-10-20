@@ -164,7 +164,7 @@ export async function createTicket(input: {
   return ticket;
 }
 
-type TicketListInput =
+export type TicketListInput =
   | {
       userId?: string;
       includeAll?: boolean;
@@ -173,7 +173,7 @@ type TicketListInput =
   | string;
 
 /** Which tickets the caller's list covers (participant and customer filters). */
-function ticketListWhere(input?: TicketListInput): Prisma.TicketWhereInput {
+export function ticketListWhere(input?: TicketListInput): Prisma.TicketWhereInput {
   const userId = typeof input === "string" ? input : input?.userId;
   const includeAll = typeof input === "object" ? input.includeAll === true : false;
   const session = typeof input === "object" ? input.session : undefined;

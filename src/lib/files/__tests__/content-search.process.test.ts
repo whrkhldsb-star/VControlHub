@@ -19,14 +19,17 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(async () => hoisted.nodes),
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
         const node = hoisted.nodes.find((candidate) => candidate.id === where.id);
-        return node ? { ...node, host: null, port: null, username: null, server: { id: "srv", operatingSystem: "LINUX", sshKey: null } } : null;
+        // An Agent-managed server: commands go through the Agent, no SSH key needed.
+        return node ? {
+          ...node, host: null, port: null, username: null, hostKeySha256: null,
+          server: { id: "srv", operatingSystem: "LINUX", host: "sftp.test", port: 22, username: "files", connectionType: "SSH_KEY", managementMode: "AGENT", password: null, hostKeySha256: null, sshKey: null },
+        } : null;
       }),
     },
     fileEntry: { findMany: vi.fn(async () => []) },
   },
 }));
 vi.mock("@/lib/ssh/client", () => ({
-  buildSshParamsFromServer: vi.fn(async () => ({})),
   execRemoteCommand: vi.fn(async ({ command }: { command: string }) => {
     const result = spawnSync("sh", ["-c", command], { encoding: "utf8", timeout: 20_000 });
     return { stdout: result.stdout, stderr: result.stderr, exitCode: result.status };
@@ -81,4 +84,36 @@ describe.skipIf(!hasGrep)("content search roots and symlinks (real files)", () =
     expect((await search("SFTP", "docs")).map((result) => result.path)).toEqual(["docs/inside.txt"]);
     expect((await search("SFTP", "", join(base, "root-alias"))).map((result) => result.path)).toEqual(["docs/inside.txt"]);
   });
+
+  it("says the results are incomplete when a node has more matches than the cap", async () => {
+    // 101 matching files: 100 were returned with truncated=false.
+    const many = join(base, "many");
+    mkdirSync(many);
+    for (let i = 0; i < 101; i += 1) writeFileSync(join(many, `f${String(i).padStart(3, "0")}.txt`), "needle\n");
+    for (const driver of ["LOCAL", "SFTP"] as const) {
+      hoisted.nodes = [{ id: `n-${driver}`, name: driver, driver, basePath: many }];
+      const response = await searchFileContents({ query: "needle" });
+      expect(response.results).toHaveLength(100);
+      expect(response.truncated).toBe(true);
+    }
+    // Exactly at the cap is complete.
+    rmSync(join(many, "f100.txt"));
+    for (const driver of ["LOCAL", "SFTP"] as const) {
+      hoisted.nodes = [{ id: `n-${driver}`, name: driver, driver, basePath: many }];
+      const response = await searchFileContents({ query: "needle" });
+      expect(response.results).toHaveLength(100);
+      expect(response.truncated).toBe(false);
+    }
+  });
+
+  it("returns every listed SFTP match with its snippets, not only the first 20", async () => {
+    const some = join(base, "some");
+    mkdirSync(some);
+    for (let i = 0; i < 21; i += 1) writeFileSync(join(some, `g${i}.txt`), `line needle ${i}\n`);
+    hoisted.nodes = [{ id: "n-SFTP", name: "SFTP", driver: "SFTP", basePath: some }];
+    const response = await searchFileContents({ query: "needle" });
+    expect(response.results).toHaveLength(21);
+    expect(response.results.every((result) => result.snippets.length === 1)).toBe(true);
+  });
 });
+

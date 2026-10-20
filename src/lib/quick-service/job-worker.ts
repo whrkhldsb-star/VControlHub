@@ -360,6 +360,46 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 	});
 }
 
+/** An install not finished after this long, with no job running for it, is stuck. */
+const STUCK_INSTALL_MS = 15 * 60_000;
+const STUCK_INSTALL_SWEEP_MS = 5 * 60_000;
+let lastStuckInstallSweep = 0;
+
+/**
+ * Re-read rows left "installing" from Docker. An install whose container was
+ * already replaced but whose final save failed (or whose worker died) kept
+ * the row "installing" — every other operation refuses that state — with
+ * the old container's id. The status sync records what really runs.
+ */
+export async function reconcileStuckQuickServiceInstalls(now = new Date()): Promise<number> {
+	const stuck = await prisma.quickService.findMany({
+		where: { status: "installing", updatedAt: { lt: new Date(now.getTime() - STUCK_INSTALL_MS) } },
+		select: { slug: true, instanceKey: true },
+		orderBy: { updatedAt: "asc" },
+		take: 20,
+	});
+	let reconciled = 0;
+	for (const row of stuck) {
+		if (await findActiveQuickServiceJob(row.slug, row.instanceKey)) continue;
+		try {
+			await syncServiceStatus(row.slug, row.instanceKey);
+			reconciled += 1;
+		} catch (error) {
+			logger.warn("Stuck quick-service install could not be re-read", {
+				slug: row.slug,
+				instanceKey: row.instanceKey,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+	}
+	return reconciled;
+}
+
+/** Test hook: let the next tick sweep stuck installs at once. */
+export function resetStuckInstallSweepForTests() {
+	lastStuckInstallSweep = 0;
+}
+
 export async function runQuickServiceJobWorkerOnce(state = getWorkerState(), reason = "manual") {
 	if (state.running) {
 		logger.warn("Skipping QuickService job tick because a previous tick is still running", { reason });
@@ -373,7 +413,16 @@ export async function runQuickServiceJobWorkerOnce(state = getWorkerState(), rea
 			types: [QUICK_SERVICE_JOB_TYPE],
 			leaseMs: QUICK_SERVICE_WORKER_LEASE_MS,
 		});
-		if (!job) return false;
+		if (!job) {
+			// Idle tick: now and then, re-read installs that never finished.
+			if (Date.now() - lastStuckInstallSweep >= STUCK_INSTALL_SWEEP_MS) {
+				lastStuckInstallSweep = Date.now();
+				await reconcileStuckQuickServiceInstalls().catch((error: unknown) => {
+					logger.warn("Stuck quick-service install sweep failed", { error: error instanceof Error ? error.message : String(error) });
+				});
+			}
+			return false;
+		}
 
 		try {
 			await runWithLeaseHeartbeat({

@@ -20,7 +20,7 @@ export type WsNotification = {
 export type WsMessage =
 	| { type: "connected"; userId: string }
 	| { type: "notification"; data: WsNotification }
-	| { type: "unread_count"; count: number }
+	| { type: "unread_count"; count: number; asOfUs?: number }
 	| { type: "pong"; ts: number };
 
 type UseWsNotificationsReturn = {
@@ -44,6 +44,8 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 	const [connected, setConnected] = useState(false);
 	const [lastNotification, setLastNotification] = useState<WsNotification | null>(null);
 	const [unreadCount, setUnreadCount] = useState(0);
+	/** Read time of the count on display: an older count arriving later is stale. */
+	const unreadAsOfRef = useRef(0);
 
 	const cleanup = useCallback(() => {
 		if (heartbeatRef.current) {
@@ -89,6 +91,10 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 							setLastNotification(msg.data);
 							break;
 						case "unread_count":
+							if (typeof msg.asOfUs === "number") {
+								if (msg.asOfUs < unreadAsOfRef.current) break;
+								unreadAsOfRef.current = msg.asOfUs;
+							}
 							setUnreadCount(msg.count);
 							break;
 					}

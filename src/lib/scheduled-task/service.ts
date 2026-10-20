@@ -212,7 +212,19 @@ export async function updateScheduledTask(
 		await assertScheduledTaskServersInScope(serverIds, session);
 		data.serverIds = serverIds;
 	}
-	if (input.status !== undefined) data.status = input.status;
+	if (input.status !== undefined && input.status !== existing.status) {
+		// The same transition as the toggle: resuming schedules the next run
+		// (a resumed task kept nextRunAt null and never ran again), pausing
+		// clears it; a pending claim belongs to the state before.
+		Object.assign(data, statusTransitionData({
+			status: input.status,
+			scheduleType: (data.scheduleType as typeof existing.scheduleType | undefined) ?? existing.scheduleType,
+			cronExpression: (data.cronExpression as string | undefined) ?? existing.cronExpression,
+			runAt: data.runAt !== undefined ? (data.runAt as Date | null) : existing.runAt,
+		}));
+	} else if (input.status !== undefined) {
+		data.status = input.status;
+	}
 	if (input.teamId !== undefined) {
 		if (session && !isGlobalTeamManager(session) && input.teamId !== session.currentTeamId) {
 			throw new ValidationError(t("backend.scheduled-task.teamChangeRequiresManager"));
@@ -244,6 +256,28 @@ export async function deleteScheduledTask(
 	return existing;
 }
 
+/**
+ * The fields a status change sets. Resuming computes the next run (a ONCE
+ * task whose time has passed cannot resume); pausing or disabling clears it.
+ * Either way a pending claim belongs to the state before.
+ */
+function statusTransitionData(task: {
+	status: "ACTIVE" | "PAUSED" | "DISABLED";
+	scheduleType: string;
+	cronExpression: string;
+	runAt: Date | null;
+}) {
+	if (task.status !== "ACTIVE") return { status: task.status, nextRunAt: null, claimedOccurrenceAt: null };
+	if (task.scheduleType === "ONCE" && (!task.runAt || task.runAt.getTime() <= Date.now())) {
+		throw new BusinessError(t("backend.scheduled-task.completedCannotResume"));
+	}
+	return {
+		status: task.status,
+		nextRunAt: task.scheduleType === "ONCE" ? task.runAt : computeNextRun(task.cronExpression),
+		claimedOccurrenceAt: null,
+	};
+}
+
 export async function toggleScheduledTask(
 	id: string,
 	session: SessionScope,
@@ -251,18 +285,9 @@ export async function toggleScheduledTask(
 	const current = await getScheduledTaskForSession(id, session);
 	if (!current) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	const newStatus = current.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
-	if (newStatus === "ACTIVE" && current.scheduleType === "ONCE" && (!current.runAt || current.runAt.getTime() <= Date.now())) {
-		throw new BusinessError(t("backend.scheduled-task.completedCannotResume"));
-	}
 	const updated = await prisma.scheduledTask.updateMany({
 		where: { id, ...teamWhere(session) },
-		data: {
-			status: newStatus,
-			claimedOccurrenceAt: null,
-			...(newStatus === "ACTIVE"
-				? { nextRunAt: current.scheduleType === "ONCE" ? current.runAt : computeNextRun(current.cronExpression) }
-				: { nextRunAt: null }),
-		},
+		data: statusTransitionData({ ...current, status: newStatus }),
 	});
 	if (updated.count === 0) {
 		throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
@@ -351,18 +376,35 @@ export async function reconcileScheduledTaskRuns(limit = 500) {
 			? `Execution failed: command request ${run.commandRequestId} ended as ${status}`
 			: `Completed command request ${run.commandRequestId}`;
 		const completedAt = new Date();
-		const claimed = await prisma.scheduledTaskRun.updateMany({
-			where: { id: run.id, status: "DISPATCHED" },
-			data: { status, result, completedAt },
-		});
-		if (claimed.count === 0) continue;
-		await prisma.scheduledTask.updateMany({
-			where: {
-				id: run.scheduledTaskId,
-				OR: [{ lastRunAt: null }, { lastRunAt: { lte: run.dispatchedAt } }],
-			},
-			data: { lastResult: result },
-		});
+		// The run's outcome and the task's summary commit together: written
+		// one after the other, a failed summary left the run finished and out
+		// of this DISPATCHED scan for good, the task saying "awaiting result".
+		let claimed: boolean;
+		try {
+			claimed = await prisma.$transaction(async (tx) => {
+				const won = await tx.scheduledTaskRun.updateMany({
+					where: { id: run.id, status: "DISPATCHED" },
+					data: { status, result, completedAt },
+				});
+				if (won.count === 0) return false;
+				await tx.scheduledTask.updateMany({
+					where: {
+						id: run.scheduledTaskId,
+						OR: [{ lastRunAt: null }, { lastRunAt: { lte: run.dispatchedAt } }],
+					},
+					data: { lastResult: result },
+				});
+				return true;
+			});
+		} catch (error) {
+			// Rolled back: the run stays DISPATCHED and the next pass retries it.
+			taskLogger.warn("scheduled run outcome could not be recorded; retrying next pass", {
+				runId: run.id,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			continue;
+		}
+		if (!claimed) continue;
 		if (failed && run.scheduledTask.createdById) {
 			const previous = await prisma.scheduledTaskRun.findFirst({
 				where: {

@@ -6,6 +6,7 @@ import type { RoleKey } from "@/lib/auth/rbac";
 import { createLogger } from "@/lib/logging";
 import { notificationContentData } from "@/lib/notification/service";
 import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
+import { SLA_WARNING_MS, ticketQueryClauses } from "./query";
 
 const logger = createLogger("ticket-sla");
 
@@ -36,7 +37,6 @@ export function isSlaBreached(ticket: { slaDueAt: Date | null; status: string },
 }
 
 /** An active ticket is in "warning" for the last hour before its SLA is due. */
-const SLA_WARNING_MS = 60 * 60 * 1000;
 
 export function getSlaStatus(ticket: { slaDueAt: Date | null; status: string }, now = new Date()): "ok" | "warning" | "breached" | "none" {
   if (!ticket.slaDueAt || ticket.status === "CLOSED" || ticket.status === "RESOLVED") return "none";
@@ -187,21 +187,7 @@ export async function listTicketsAdvanced(input: {
   slaStatus?: "ok" | "warning" | "breached" | "none";
   search?: string;
 }) {
-  const clauses: Record<string, unknown>[] = [ticketVisibilityWhere(input.session)];
-  if (input.status) clauses.push({ status: input.status });
-  if (input.priority) clauses.push({ priority: input.priority });
-  if (input.category) clauses.push({ category: input.category });
-  if (input.assigneeId) clauses.push({ assigneeId: input.assigneeId });
-  if (input.search) clauses.push({ OR: [{ title: { contains: input.search, mode: "insensitive" } }, { description: { contains: input.search, mode: "insensitive" } }] });
-  if (input.slaStatus === "none") clauses.push({ OR: [{ slaDueAt: null }, { status: { in: ["RESOLVED", "CLOSED"] } }] });
-  // Every SLA state is filtered in the query, before the 200-row cap: filtering
-  // warning/ok afterwards returned nothing when older tickets were the ones due.
-  const now = new Date();
-  const warnUntil = new Date(now.getTime() + SLA_WARNING_MS);
-  const active = { status: { in: ["OPEN", "IN_PROGRESS"] } };
-  if (input.slaStatus === "breached") clauses.push({ slaDueAt: { lt: now }, ...active });
-  if (input.slaStatus === "warning") clauses.push({ slaDueAt: { gte: now, lt: warnUntil }, ...active });
-  if (input.slaStatus === "ok") clauses.push({ slaDueAt: { gte: warnUntil }, ...active });
+  const clauses = [ticketVisibilityWhere(input.session), ...ticketQueryClauses(input, new Date())];
 
   const tickets = await prisma.ticket.findMany({
     where: { AND: clauses },

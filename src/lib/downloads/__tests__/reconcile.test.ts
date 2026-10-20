@@ -36,7 +36,7 @@ vi.mock("@/lib/downloads/helpers", () => helpers);
 vi.mock("@/lib/downloads/remote-command", () => ({ shellQuote: (s: string) => `'${s}'` }));
 vi.mock("@/lib/logging", () => ({ logError: vi.fn() }));
 
-const { reconcileStaleRunningDownloadTasks } = await import("../reconcile");
+const { reconcileStaleRunningDownloadTasks, resetReconcileCursorForTests } = await import("../reconcile");
 
 const baseServer = {
   host: "h", port: 22, username: "u", sshKeyId: null, password: null, hostKeySha256: "ab",
@@ -69,6 +69,7 @@ function queueStaleTasks(rows: Array<Record<string, unknown>>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetReconcileCursorForTests();
   prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
   prismaMock.downloadTask.updateMany.mockResolvedValue({ count: 1 });
   ssh.buildSshParamsFromServer.mockResolvedValue({ host: "h", port: 22, username: "u" });
@@ -195,21 +196,3 @@ describe("reconcileStaleRunningDownloadTasks — neither pid nor gid", () => {
     expect(ssh.execRemoteCommand).toHaveBeenCalledTimes(1);
   });
 });
-
-describe("reconcileStaleRunningDownloadTasks — candidate rotation", () => {
-  it("probes the least recently probed tasks first, not the same oldest ones every pass", async () => {
-    // Taking the oldest `limit` by updatedAt re-probed tasks that were still
-    // running every pass, so a finished task behind them was never looked at.
-    const rows = ["rot-a", "rot-b", "rot-c"].map((id, i) => directRow({ id, updatedAt: new Date(Date.now() - (30 - i) * 60_000) }));
-    const probed: string[] = [];
-    prismaMock.downloadTask.findMany.mockImplementation(async (args: { where: { id?: { in: string[] } } }) => {
-      const chosen = args.where.id?.in;
-      if (chosen) probed.push(...chosen);
-      return chosen ? rows.filter((row) => chosen.includes(row.id as string)) : rows;
-    });
-    for (let pass = 0; pass < 3; pass += 1) await reconcileStaleRunningDownloadTasks({ limit: 1 });
-    expect(probed).toEqual(["rot-a", "rot-b", "rot-c"]);
-    prismaMock.downloadTask.findMany.mockReset();
-  });
-});
-

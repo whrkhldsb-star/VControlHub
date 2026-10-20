@@ -4,15 +4,16 @@
  * gives it a public name and publishes it.
  */
 import { randomBytes } from "node:crypto";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { normalizeCountryCode } from "./region-flag";
 import { cleanPlainText } from "./site-config";
-import { publicationHiddenReason, type HiddenReason } from "./visibility";
+import { publicationHiddenReason, VISIBLE_NODE_SQL, type HiddenReason } from "./visibility";
 
 export const DISPLAY_NAME_MAX = 60;
 export const GROUP_MAX = 40;
@@ -202,18 +203,27 @@ export async function listAdminNodes(options: { q: string; filter: AdminNodeFilt
 	const published: Prisma.ServerWhereInput = { publicStatusNode: { is: { published: true } } };
 	const unpublished: Prisma.ServerWhereInput = { OR: [{ publicStatusNode: { is: null } }, { publicStatusNode: { is: { published: false } } }] };
 	// "attention" (published but no longer shown: disabled, deleted customer,
-	// owner changed) needs a column-to-column comparison Prisma cannot
-	// express, so it filters the published set in memory.
+	// owner changed) compares two columns, which Prisma cannot express: the
+	// page and its total are taken in SQL with the same visibility rule the
+	// board uses. Filtering the first 5000 published servers in memory
+	// reported "none" while flagged servers sorted after them.
 	if (options.filter === "attention") {
-		const rows = await prisma.server.findMany({
-			where: { AND: [search, published] },
-			select: SERVER_SELECT,
-			orderBy: [{ name: "asc" }, { id: "asc" }],
-			take: 5_000,
-		});
-		const flagged = rows.map(toAdminRow).filter((row) => row.publication?.hiddenReason);
-		const start = (options.page - 1) * options.pageSize;
-		return { total: flagged.length, rows: flagged.slice(start, start + options.pageSize) };
+		const pattern = q ? `%${escapeLikeLiteral(q)}%` : null;
+		const where = Prisma.sql`n."published" = TRUE AND NOT (${VISIBLE_NODE_SQL})
+			${pattern ? Prisma.sql`AND (s."name" ILIKE ${pattern} OR n."displayName" ILIKE ${pattern})` : Prisma.empty}`;
+		const from = Prisma.sql`FROM servers s JOIN public_status_nodes n ON n."serverId" = s."id" LEFT JOIN teams tm ON tm."id" = s."teamId"`;
+		const [[counted], page] = await Promise.all([
+			prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`SELECT count(*)::int AS total ${from} WHERE ${where}`),
+			prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT s."id" ${from} WHERE ${where}
+				ORDER BY s."name" ASC, s."id" ASC OFFSET ${(options.page - 1) * options.pageSize} LIMIT ${options.pageSize}`),
+		]);
+		const ids = page.map((row) => row.id);
+		const rows = ids.length === 0 ? [] : await prisma.server.findMany({ where: { id: { in: ids } }, select: SERVER_SELECT });
+		const byId = new Map(rows.map((row) => [row.id, row]));
+		return {
+			total: counted?.total ?? 0,
+			rows: ids.flatMap((id) => (byId.has(id) ? [toAdminRow(byId.get(id)!)] : [])),
+		};
 	}
 	const where: Prisma.ServerWhereInput = {
 		AND: [search, options.filter === "published" ? published : options.filter === "unpublished" ? unpublished : {}],

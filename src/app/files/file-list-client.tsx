@@ -382,7 +382,9 @@ export function FileListClient({
         {viewMode === "list" ? (
           <FileListListView
             {...sharedViewProps}
-            visibleFilesCount={visibleFiles.length}
+            // Directories can be selected too: a folder of only directories
+            // still has something to select all of.
+            selectableCount={allFileIds.length}
             allSelected={allSelected}
             someSelected={someSelected}
             toggleAll={toggleAll}

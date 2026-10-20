@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -73,4 +73,25 @@ describe("NotificationListClient", () => {
     expect(deleteButton).toHaveAttribute("data-action-button");
     expect(deleteButton.closest("article")).toHaveClass("focus-within:ring-2");
   });
+
+  it("counts a notification once when its mark-read and delete finish together", async () => {
+    // The delete took the notification as unread from the list it started
+    // with; mark-read had already counted it: the badge lost the other one.
+    const user = userEvent.setup();
+    const second = { ...unreadNotification, id: "n_2", title: "第二条通知" };
+    const answers: Array<() => void> = [];
+    vi.mocked(csrfFetch).mockImplementation(() => new Promise((resolve) => { answers.push(() => resolve({} as never)); }) as never);
+    render(<NotificationListClient initialNotifications={[unreadNotification, second]} initialUnreadCount={2} initialNow={INITIAL_NOW} />);
+
+    const first = screen.getByText("需要处理的通知").closest("li") ?? screen.getByText("需要处理的通知").parentElement!.parentElement!;
+    await user.click(within(first as HTMLElement).getByRole("button", { name: "标为已读" }));
+    await user.click(within(first as HTMLElement).getByRole("button", { name: "删除" }));
+    expect(answers).toHaveLength(2);
+    await act(async () => { answers[0]!(); answers[1]!(); });
+
+    expect(screen.queryByText("需要处理的通知")).not.toBeInTheDocument();
+    expect(screen.getByText("只看未读 (1)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "全部标记已读" })).toBeInTheDocument();
+  });
 });
+

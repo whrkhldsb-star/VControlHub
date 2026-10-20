@@ -28,7 +28,9 @@ type ContentSearchSession = {
 	currentTeamId: string | null;
 };
 
-import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
+import { execRemoteCommand } from "@/lib/ssh/client";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { resolveLocalAbsolutePath } from "@/lib/storage/service-entries";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
 
@@ -53,6 +55,11 @@ export type ContentSearchResponse = {
 };
 
 const MAX_RESULTS = 100;
+/** Directory levels a LOCAL search descends; deeper ones count as not searched. */
+const MAX_DEPTH = 10;
+
+/** One node's matches, and whether it stopped before finding them all. */
+type NodeSearchOutcome = { results: ContentSearchResult[]; truncated: boolean };
 const MAX_SNIPPETS_PER_FILE = 5;
 const MAX_SNIPPET_LENGTH = 200;
 /** Files above `storage.contentSearchMaxFileBytes` (default 1 MiB) are skipped. */
@@ -107,8 +114,11 @@ async function searchLocalNode(
 	basePath: string,
 	query: string,
 	searchPath: string,
-): Promise<ContentSearchResult[]> {
+): Promise<NodeSearchOutcome> {
 	const results: ContentSearchResult[] = [];
+	// Set when the walk stopped early (result cap, depth cap): the caller
+	// must say the results are incomplete instead of presenting them as all.
+	let truncated = false;
 	const lowerQuery = query.toLowerCase();
 	const nodeRoot = path.resolve(expandStorageBasePath(basePath));
 	// No path means the whole node. resolveLocalAbsolutePath rejects the empty
@@ -120,7 +130,11 @@ async function searchLocalNode(
 	logger.debug("Local content search", { nodeId, searchRoot, query });
 
 	async function walk(dir: string, depth: number): Promise<void> {
-		if (depth > 10 || results.length >= MAX_RESULTS) return;
+		if (results.length > MAX_RESULTS) return;
+		if (depth > MAX_DEPTH) {
+			truncated = true;
+			return;
+		}
 
 		let entries: import("node:fs").Dirent[];
 		try {
@@ -130,7 +144,8 @@ async function searchLocalNode(
 		}
 
 		for (const entry of entries) {
-			if (results.length >= MAX_RESULTS) return;
+			// One match past the cap tells that there were more.
+			if (results.length > MAX_RESULTS) return;
 
 			const fullPath = path.join(dir, entry.name);
 
@@ -173,7 +188,7 @@ async function searchLocalNode(
 	}
 
 	await walk(searchRoot, 0);
-	return results;
+	return { results: results.slice(0, MAX_RESULTS), truncated: truncated || results.length > MAX_RESULTS };
 }
 
 /**
@@ -185,10 +200,16 @@ async function searchSftpNode(
 	basePath: string,
 	query: string,
 	searchPath: string,
-): Promise<ContentSearchResult[]> {
+): Promise<NodeSearchOutcome> {
+	const none: NodeSearchOutcome = { results: [], truncated: false };
 	const sanitizedQuery = sanitizeSearchQuery(query);
 
-	// Fetch the storage node with server info
+	// The node as file operations load it (sftp-node.ts): its own endpoint
+	// overrides, the server's credentials and how it is managed. Built from
+	// the server alone with no key id and no connection type, a key-based
+	// server was treated as a password one without a password, so every
+	// search of it failed and returned nothing; overrides and Agent-managed
+	// servers were ignored too.
 	const node = await prisma.storageNode.findUnique({
 		where: { id: nodeId },
 		select: {
@@ -198,6 +219,7 @@ async function searchSftpNode(
 			host: true,
 			port: true,
 			username: true,
+			hostKeySha256: true,
 			server: {
 				select: {
 					id: true,
@@ -205,9 +227,11 @@ async function searchSftpNode(
 					host: true,
 					port: true,
 					username: true,
+					connectionType: true,
+					managementMode: true,
 					password: true,
 					hostKeySha256: true,
-					sshKey: { select: { privateKey: true, passphrase: true } },
+					sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
 				},
 			},
 		},
@@ -215,7 +239,7 @@ async function searchSftpNode(
 
 	if (!node || !node.server) {
 		logger.warn("SFTP node has no associated server", { nodeId });
-		return [];
+		return none;
 	}
 
 	// The search runs `grep` over SSH exec. Windows OpenSSH sessions default to
@@ -224,22 +248,16 @@ async function searchSftpNode(
 	// backend exists; filename search (the files page) still covers these nodes.
 	if (node.server.operatingSystem === "WINDOWS") {
 		logger.info("SFTP content search skipped: Windows node has no grep", { nodeId });
-		return [];
+		return none;
 	}
 
-	const sshParams = await buildSshParamsFromServer(
-		{
-			...node.server,
-			sshKeyId: null,
-		} as never,
-		node.server.sshKey,
-	);
+	const sshParams = resolveStorageSshCredentials(node);
 
 	// Build the remote search path — validate against path traversal
 	const sanitizedSearchPath = (searchPath || "").replace(/^\/+/, "");
 	if (sanitizedSearchPath.includes("..")) {
 		logger.warn("SFTP content search rejected: path traversal detected", { nodeId, searchPath });
-		return [];
+		return none;
 	}
 	const remoteSearchPath = sanitizedSearchPath
 		? `${basePath}/${sanitizedSearchPath}`
@@ -262,7 +280,7 @@ async function searchSftpNode(
 		`expected="\${root%/}"${relativeSearchPath === "." ? "" : shellQuote(`/${relativeSearchPath}`)}`,
 		'[ "$target" = "${expected:-/}" ] || exit 3',
 	].join("\n");
-	const grepCmd = `${containment}\ngrep -rFIl --include='*.txt' --include='*.log' --include='*.md' --include='*.json' --include='*.yaml' --include='*.yml' --include='*.toml' --include='*.ini' --include='*.cfg' --include='*.conf' --include='*.env' --include='*.sh' --include='*.bash' --include='*.py' --include='*.js' --include='*.ts' --include='*.jsx' --include='*.tsx' --include='*.html' --include='*.css' --include='*.scss' --include='*.xml' --include='*.sql' --include='*.csv' --include='*.tsv' --include='*.go' --include='*.rs' --include='*.java' --include='*.c' --include='*.cpp' --include='*.h' --include='*.hpp' --include='*.rb' --include='*.php' --include='*.pl' --include='*.swift' --include='*.kt' --include='*.scala' --include='*.lua' --include='*.r' --include='*.vue' --include='*.svelte' --include='*.properties' --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -${MAX_RESULTS}`;
+	const grepCmd = `${containment}\ngrep -rFIl --include='*.txt' --include='*.log' --include='*.md' --include='*.json' --include='*.yaml' --include='*.yml' --include='*.toml' --include='*.ini' --include='*.cfg' --include='*.conf' --include='*.env' --include='*.sh' --include='*.bash' --include='*.py' --include='*.js' --include='*.ts' --include='*.jsx' --include='*.tsx' --include='*.html' --include='*.css' --include='*.scss' --include='*.xml' --include='*.sql' --include='*.csv' --include='*.tsv' --include='*.go' --include='*.rs' --include='*.java' --include='*.c' --include='*.cpp' --include='*.h' --include='*.hpp' --include='*.rb' --include='*.php' --include='*.pl' --include='*.swift' --include='*.kt' --include='*.scala' --include='*.lua' --include='*.r' --include='*.vue' --include='*.svelte' --include='*.properties' --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -${MAX_RESULTS + 1}`;
 
 	logger.debug("Remote content search", { nodeId, remoteSearchPath, query: sanitizedQuery });
 
@@ -275,7 +293,7 @@ async function searchSftpNode(
 
 		if (result.exitCode === 3) {
 			logger.warn("SFTP content search rejected: search path resolves outside the node root", { nodeId, searchPath });
-			return [];
+			return none;
 		}
 		if (result.exitCode !== 0 && result.exitCode !== 1) {
 			// exit code 1 = no matches (normal), other = error
@@ -284,21 +302,23 @@ async function searchSftpNode(
 				exitCode: result.exitCode,
 				stderr: result.stderr,
 			});
-			return [];
+			return none;
 		}
 
-		const matchedFiles = result.stdout
-			.split("\n")
-			.filter(Boolean)
-			.slice(0, MAX_RESULTS);
+		// One file past the cap tells that the listing was cut.
+		const listed = result.stdout.split("\n").filter(Boolean);
+		const truncated = listed.length > MAX_RESULTS;
+		const matchedFiles = listed.slice(0, MAX_RESULTS);
 
-		if (matchedFiles.length === 0) return [];
+		if (matchedFiles.length === 0) return none;
 
 		// For each matched file, fetch matching lines with context in ONE
 		// remote command — one grep per file meant one sequential SSH exec per
 		// result (up to 20 round-trips per search on the node).
+		// Every listed file gets its snippets: only the first 20 used to, and
+		// the other matches were dropped without a word.
 		const results: ContentSearchResult[] = [];
-		const batch = matchedFiles.slice(0, 20); // Limit to 20 files for snippet fetching
+		const batch = matchedFiles;
 
 		if (batch.length > 0) {
 			// -H prefixes every match line with its filename so a single grep
@@ -317,7 +337,7 @@ async function searchSftpNode(
 			} catch {
 				// Whole-batch transport failure: report nothing rather than
 				// falling back to the per-file exec storm.
-				return [];
+				return none;
 			}
 
 			for (const filePath of batch) {
@@ -343,10 +363,10 @@ async function searchSftpNode(
 			}
 		}
 
-		return results;
+		return { results, truncated };
 	} catch (err) {
 		logger.error("SFTP content search SSH error", err, { nodeId });
-		return [];
+		return none;
 	}
 }
 
@@ -382,6 +402,7 @@ export async function searchFileContents(params: {
 	});
 
 	const allResults: ContentSearchResult[] = [];
+	let nodeTruncated = false;
 
 	for (const node of nodes) {
 		try {
@@ -398,23 +419,25 @@ export async function searchFileContents(params: {
 				}
 			}
 			if (node.driver === "LOCAL") {
-				const localResults = await searchLocalNode(
+				const local = await searchLocalNode(
 					node.id,
 					node.name,
 					node.basePath,
 					query,
 					searchPath ?? "",
 				);
-				allResults.push(...localResults);
+				allResults.push(...local.results);
+				nodeTruncated ||= local.truncated;
 			} else if (node.driver === "SFTP") {
-				const sftpResults = await searchSftpNode(
+				const sftp = await searchSftpNode(
 					node.id,
 					node.name,
 					node.basePath,
 					query,
 					searchPath ?? "",
 				);
-				allResults.push(...sftpResults);
+				allResults.push(...sftp.results);
+				nodeTruncated ||= sftp.truncated;
 			}
 		} catch (err) {
 			logger.error(`Content search failed for node ${node.name}`, err, {
@@ -459,7 +482,7 @@ export async function searchFileContents(params: {
 	// Sort: most snippets first
 	visibleResults.sort((a, b) => b.snippets.length - a.snippets.length);
 
-	const truncated = visibleResults.length > MAX_RESULTS;
+	const truncated = nodeTruncated || visibleResults.length > MAX_RESULTS;
 	const results = visibleResults.slice(0, MAX_RESULTS);
 
 	return {

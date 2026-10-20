@@ -103,9 +103,9 @@ export async function PATCH(request: Request) {
 				}
 			}
 
-			await setSetting("ai.ops.mode", body.mode);
+			await setSetting("ai.ops.mode", body.mode, session.userId);
 			if (body.providerId !== undefined) {
-				await setSetting("ai.ops.provider", normalizedProviderId);
+				await setSetting("ai.ops.provider", normalizedProviderId, session.userId);
 			}
 
 			// Normalize the response:

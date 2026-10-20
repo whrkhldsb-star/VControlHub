@@ -27,13 +27,17 @@ vi.mock("@/lib/logging", () => ({
 	}),
 }));
 vi.mock("@/lib/ssh/client", () => ({
-	buildSshParamsFromServer: vi.fn(),
 	execRemoteCommand: vi.fn(),
 }));
 vi.mock("@/lib/storage/service-entries", () => ({
 	resolveLocalAbsolutePath: vi.fn((base: string, rel: string) => `${base}/${rel}`),
 }));
 vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: accessMock }));
+vi.mock("@/lib/ssh/ssh-key-crypto", async () =>
+	(await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({
+		decryptSshPrivateKey: (value: string) => value.replace(/^enc:/, ""),
+		decryptServerPassword: (value: string) => value,
+	}));
 
 import { sanitizeSearchQuery, searchFileContents } from "../content-search";
 
@@ -135,13 +139,14 @@ describe("searchFileContents", () => {
 				host: "10.0.0.5",
 				port: 22,
 				username: "root",
+				connectionType: "PASSWORD",
+				managementMode: "DIRECT",
 				password: "pw",
 				hostKeySha256: null,
 				sshKey: null,
 			},
 		});
-		const { execRemoteCommand, buildSshParamsFromServer } = await import("@/lib/ssh/client");
-		vi.mocked(buildSshParamsFromServer).mockResolvedValue({} as never);
+		const { execRemoteCommand } = await import("@/lib/ssh/client");
 		vi.mocked(execRemoteCommand)
 			.mockResolvedValueOnce({
 				exitCode: 0,
@@ -172,6 +177,39 @@ describe("searchFileContents", () => {
 		expect(snippetCommand).toContain("grep -HnIF");
 		expect(snippetCommand).toContain("/srv/data/a.txt");
 		expect(snippetCommand).toContain("/srv/data/b.txt");
+	});
+
+	it("connects to an SFTP node the way file operations do: its own endpoint and the server's key", async () => {
+		// The server was passed without its key id or connection type, so a
+		// key-based server was treated as a password one without a password:
+		// every search of it failed silently. Node overrides were ignored too.
+		findManyMock.mockResolvedValue([{ id: "node-sftp", name: "remote", driver: "SFTP", basePath: "/srv/data" }]);
+		findUniqueMock.mockResolvedValue({
+			id: "node-sftp",
+			name: "remote",
+			basePath: "/srv/data",
+			host: "198.51.100.20",
+			port: 2222,
+			username: "storage-user",
+			hostKeySha256: "SHA256:node-pin",
+			server: {
+				id: "srv-1", operatingSystem: "LINUX", host: "192.0.2.10", port: 22, username: "root",
+				connectionType: "SSH_KEY", managementMode: "DIRECT", password: null, hostKeySha256: null,
+				sshKey: { privateKey: "enc:PRIVATE KEY", passphrase: null },
+			},
+		});
+		const { execRemoteCommand } = await import("@/lib/ssh/client");
+		vi.mocked(execRemoteCommand).mockResolvedValue({ exitCode: 1, stdout: "", stderr: "" });
+
+		await searchFileContents({ query: "needle", nodeId: "node-sftp" });
+
+		expect(execRemoteCommand).toHaveBeenCalledWith(expect.objectContaining({
+			host: "198.51.100.20",
+			port: 2222,
+			username: "storage-user",
+			privateKey: "PRIVATE KEY",
+			hostKeySha256: "SHA256:node-pin",
+		}));
 	});
 
 	it("applies teamWhere when session is provided", async () => {

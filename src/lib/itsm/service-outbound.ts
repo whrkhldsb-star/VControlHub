@@ -72,6 +72,9 @@ export async function testItsmConnection(
   return { ok: delivery.ok, event, error: delivery.ok ? undefined : delivery.error };
 }
 
+const OUTBOUND_DIRECTIONS = ["outbound", "bidirectional"];
+const CONNECTION_PAGE_SIZE = 50;
+
 export async function fanOutTicketEvent(input: {
   ticketId: string;
   eventType: string;
@@ -84,20 +87,32 @@ export async function fanOutTicketEvent(input: {
   teamId?: string | null;
   deliveryKey?: string;
 }): Promise<{ sent: number; failed: number }> {
-  const connections = await prisma.itsmConnection.findMany({
-    where: {
-      enabled: true,
-      // A ticket fans out ONLY to its own team's connections. null-team
-      // connections are legacy/private (see connectionScope: they are "not
-      // global integrations that every tenant can inspect or mutate"), so
-      // including them for a team ticket would push one team's ticket data to
-      // an integration another user configured and manages — a cross-tenant
-      // leak. Legacy tickets with no team still reach legacy null-team
-      // connections (same quarantined scope), keeping the mapping symmetric.
-      teamId: input.teamId ?? null,
-    },
-    take: 50,
-  });
+  // Every outbound-capable connection, page by page. One page of 50 of any
+  // direction, filtered afterwards, let inbound-only connections crowd out
+  // the outbound ones: they were never delivered to and the job completed.
+  const connections: Awaited<ReturnType<typeof prisma.itsmConnection.findMany>> = [];
+  for (let after: string | undefined; ;) {
+    const page = await prisma.itsmConnection.findMany({
+      where: {
+        enabled: true,
+        direction: { in: OUTBOUND_DIRECTIONS },
+        // A ticket fans out ONLY to its own team's connections. null-team
+        // connections are legacy/private (see connectionScope: they are "not
+        // global integrations that every tenant can inspect or mutate"), so
+        // including them for a team ticket would push one team's ticket data to
+        // an integration another user configured and manages — a cross-tenant
+        // leak. Legacy tickets with no team still reach legacy null-team
+        // connections (same quarantined scope), keeping the mapping symmetric.
+        teamId: input.teamId ?? null,
+        ...(after ? { id: { gt: after } } : {}),
+      },
+      orderBy: { id: "asc" },
+      take: CONNECTION_PAGE_SIZE,
+    });
+    connections.push(...page);
+    if (page.length < CONNECTION_PAGE_SIZE) break;
+    after = page[page.length - 1]!.id;
+  }
   let sent = 0;
   let failed = 0;
   for (const row of connections) {

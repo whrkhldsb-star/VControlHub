@@ -9,7 +9,7 @@
 
 import { Prisma } from "@prisma/client";
 
-import { prisma } from "@/lib/db";
+import { isUniqueViolation, prisma } from "@/lib/db";
 import { BusinessError, NotFoundError } from "@/lib/errors";
 import { fetchSourceApps, type NormalizedApp } from "./adapters";
 import { createLogger } from "@/lib/logging";
@@ -74,18 +74,22 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 							// "<source>-<app>" can collide across sources ("feed" +
 							// "tools-demo" and "feed-tools" + "demo"): never let one
 							// source overwrite another's app (it kept the other's
-							// ownership); report the clash instead.
-							const holder = await prisma.appSourceApp.findUnique({ where: { slug: app.slug }, select: { sourceId: true } });
-							if (holder && holder.sourceId !== source.id) {
+							// ownership); report the clash instead. Each write is
+							// atomic — update only a row this source holds, or create
+							// one — so two sources syncing at once cannot both "find
+							// it free" and overwrite each other.
+							const ownUpdate = () => prisma.appSourceApp.updateMany({ where: { slug: app.slug, sourceId: source.id }, data: fields });
+							if ((await ownUpdate()).count === 1) return "ok" as const;
+							try {
+								await prisma.appSourceApp.create({ data: { slug: app.slug, sourceId: source.id, ...fields } });
+								return "ok" as const;
+							} catch (error) {
+								if (!isUniqueViolation(error)) throw error;
+								// Created meanwhile: ours (a concurrent sync of this source) or another's.
+								if ((await ownUpdate()).count === 1) return "ok" as const;
 								logger.warn(`App ${app.slug} of ${source.name} collides with another source's app; skipped`);
 								return "err" as const;
 							}
-							await prisma.appSourceApp.upsert({
-								where: { slug: app.slug },
-								update: fields,
-								create: { slug: app.slug, sourceId: source.id, ...fields },
-							});
-							return "ok" as const;
 						} catch (err) {
 							logger.error(`Failed to upsert app ${app.slug}: ${err}`);
 							return "err" as const;

@@ -688,6 +688,19 @@ describe("quick service docker lifecycle", () => {
 		prismaMock.quickService.update.mockReset();
 	});
 
+	it("status sync records the container that runs now, clearing a stuck install", async () => {
+		// An install whose final save failed left "installing" and the replaced container's id.
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-sync", slug: "demo", status: "installing", containerId: "oldcontainer1" });
+		execFileSyncMock.mockImplementationOnce(() => "running|newcontainer1234abcd\n");
+		prismaMock.quickService.update.mockResolvedValueOnce({});
+
+		await expect(syncServiceStatus("demo")).resolves.toBe("running");
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
+			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
+			data: { status: "running", error: null, containerId: "newcontainer1234abcd" },
+		});
+	});
+
 	it("treats missing quick-service containers as stopped during status sync instead of surfacing docker inspect noise", async () => {
 		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-sync", slug: "demo" });
 		execFileSyncMock.mockImplementationOnce(() => {
@@ -701,7 +714,7 @@ describe("quick service docker lifecycle", () => {
 		await expect(syncServiceStatus("demo")).resolves.toBe("stopped");
 		expect(execFileSyncMock).toHaveBeenCalledWith(
 			"docker",
-			["inspect", "--format={{.State.Status}}", "qs-demo"],
+			["inspect", "--format={{.State.Status}}|{{.Id}}", "qs-demo"],
 			expect.objectContaining({ timeout: 10_000, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }),
 		);
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } }, data: { status: "stopped" } });

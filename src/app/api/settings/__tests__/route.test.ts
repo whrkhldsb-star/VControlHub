@@ -72,7 +72,7 @@ describe("/api/settings audit coverage", () => {
     expect(mocks.setManySettings).toHaveBeenCalledWith([
       { key: "platform.name", value: "控制台" },
       { key: "smtp.pass", value: "super-secret-session-value-that-must-not-leak" },
-    ]);
+    ], "u1");
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "settings.update", {
       keys: ["platform.name", "smtp.pass"],
       count: 2,
@@ -89,13 +89,13 @@ describe("/api/settings audit coverage", () => {
     }));
 
     expect((await patch({ "platform.name": "控制台", "smtp.pass": "***" })).status).toBe(200);
-    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "platform.name", value: "控制台" }]);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "platform.name", value: "控制台" }], "u1");
 
     expect((await patch({ "smtp.pass": "" })).status).toBe(200);
-    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "smtp.pass", value: "" }]);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "smtp.pass", value: "" }], "u1");
 
     expect((await patch({ "smtp.pass": "new-secret" })).status).toBe(200);
-    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "smtp.pass", value: "new-secret" }]);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "smtp.pass", value: "new-secret" }], "u1");
   });
 
   it("saves *** as a real value for keys that are never masked", async () => {
@@ -106,12 +106,12 @@ describe("/api/settings audit coverage", () => {
     }));
 
     expect((await patch({ "platform.name": "***" })).status).toBe(200);
-    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "platform.name", value: "***" }]);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "platform.name", value: "***" }], "u1");
     expect(mocks.auditUserAction).toHaveBeenLastCalledWith("u1", "settings.update", { keys: ["platform.name"], count: 1 }, undefined, null);
 
     // Mixed with a kept secret: only the secret's sentinel is dropped.
     expect((await patch({ "platform.name": "***", "smtp.pass": "***" })).status).toBe(200);
-    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "platform.name", value: "***" }]);
+    expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "platform.name", value: "***" }], "u1");
   });
 
   it("rejects malformed JSON with the shared bodySchema error envelope", async () => {
@@ -137,7 +137,7 @@ describe("/api/settings audit coverage", () => {
     expect(response.status).toBe(200);
     expect(mocks.setManySettings).toHaveBeenCalledWith([
       { key: "runtime.commandExecutionTimeoutMs", value: "120000" },
-    ]);
+    ], "u1");
   });
 
   it("normalizes and persists bounded system setting values", async () => {
@@ -164,7 +164,7 @@ describe("/api/settings audit coverage", () => {
       { key: "password.requireUppercase", value: "false" },
       { key: "smtp.port", value: "587" },
       { key: "smtp.from", value: "ops@example.com" },
-    ]);
+    ], "u1");
   });
 
   it("rejects invalid system setting values before persisting", async () => {
@@ -195,7 +195,7 @@ describe("/api/settings audit coverage", () => {
     expect(response.status).toBe(200);
     expect(mocks.setManySettings).toHaveBeenCalledWith(expect.arrayContaining([
       { key: "security.sshEnforceHostKeyPin", value: "" },
-    ]));
+    ]), "u1");
     const invalid = await route.PATCH(new Request("http://local/api/settings", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -214,7 +214,7 @@ describe("/api/settings audit coverage", () => {
     expect(response.status).toBe(200);
     expect(mocks.setManySettings).toHaveBeenCalledWith([
       { key: "runtime.sshIdleTimeoutSec", value: "600" },
-    ]);
+    ], "u1");
   });
 
   it("accepts bounded Operation Tasks list limit runtime settings", async () => {
@@ -227,7 +227,7 @@ describe("/api/settings audit coverage", () => {
     expect(response.status).toBe(200);
     expect(mocks.setManySettings).toHaveBeenCalledWith([
       { key: "runtime.operationTaskListLimit", value: "250" },
-    ]);
+    ], "u1");
   });
 
   it("accepts bounded AI list limit runtime settings", async () => {
@@ -244,7 +244,7 @@ describe("/api/settings audit coverage", () => {
     expect(mocks.setManySettings).toHaveBeenCalledWith([
       { key: "runtime.aiProviderListLimit", value: "80" },
       { key: "runtime.aiConversationListLimit", value: "350" },
-    ]);
+    ], "u1");
   });
 
   it("rejects out-of-range runtime settings", async () => {
@@ -272,7 +272,7 @@ describe("/api/settings audit coverage", () => {
     expect(mocks.setManySettings).toHaveBeenLastCalledWith([
       { key: "telegram.enabled", value: "false" },
       { key: "telegram.chatId", value: "" },
-    ]);
+    ], "u1");
 
     // Enabled (in this save or already), the target is still required.
     expect((await patch({ "telegram.enabled": "true", "telegram.chatId": "" })).status).toBe(400);

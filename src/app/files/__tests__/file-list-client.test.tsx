@@ -516,6 +516,24 @@ describe("FileListClient", () => {
     );
   });
 
+  it("offers no archive download for folders the archive endpoint cannot serve", () => {
+    // A node's group root and a folder known only from its files' paths have
+    // no directory entry: the link used to fall back to the virtual path (404).
+    const groupRoot: FolderProp = { ...folder, name: "local__node_1", displayName: "本机存储", path: "local__node_1", entryId: null, storageNodeId: null, relativePath: null };
+    const implicit: FolderProp = { ...folder, name: "docs", displayName: "docs", path: "docs", entryId: null, relativePath: null };
+    renderFileList({ files: [], folders: [groupRoot, implicit] });
+    expect(screen.queryByRole("link", { name: /下载目录归档/ })).not.toBeInTheDocument();
+  });
+
+  it("enables select-all when the listing holds only selectable directories", async () => {
+    // The header counted plain files only and stayed disabled.
+    renderFileList({ files: [], folders: [folder] });
+    const selectAll = screen.getByRole("checkbox", { name: "全选文件" });
+    expect(selectAll).toBeEnabled();
+    fireEvent.click(selectAll);
+    expect(selectAll).toBeChecked();
+  });
+
   it("keeps folder rename, move, download, and delete available in every view", async () => {
     renderFileList({ files: [], folders: [folder], canDelete: true });
 

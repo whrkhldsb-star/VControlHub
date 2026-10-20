@@ -370,15 +370,25 @@ export function PublicNodeClient({ initial, initialRange, preview, signedIn }: {
 					/>
 				</div>
 				{history ? (
-					<p className="text-xs text-[var(--text-muted)]">
-						{t("publicStatus.history.meta", {
-							bucket: Math.round(history.bucketSeconds / 60),
-							coverage: history.coveragePercent,
-							samples: history.samples,
-						})}
-						{history.sampleIntervalSeconds ? ` · ${t("publicStatus.history.interval", { minutes: Math.round(history.sampleIntervalSeconds / 6) / 10 })}` : ""}
-						{history.coveragePercent < MIN_SAMPLE_COVERAGE * 100 ? ` · ${t("publicStatus.availability.insufficient")}` : ""}
-					</p>
+					<>
+						<p className="text-xs text-[var(--text-muted)]">
+							{t("publicStatus.history.meta", {
+								bucket: Math.round(history.bucketSeconds / 60),
+								coverage: history.coveragePercent,
+								samples: history.samples,
+							})}
+							{history.sampleIntervalSeconds ? ` · ${t("publicStatus.history.interval", { minutes: Math.round(history.sampleIntervalSeconds / 6) / 10 })}` : ""}
+							{history.coveragePercent < MIN_SAMPLE_COVERAGE * 100 ? ` · ${t("publicStatus.availability.insufficient")}` : ""}
+						</p>
+						{/* A later refresh that failed: the charts below are the last
+						    good ones, which must not pass for current. */}
+						{historyPoll.error ? (
+							<div role="alert" className="flex items-center gap-2 text-sm text-[var(--warning)]">
+								{t("publicStatus.history.refreshFailed")}
+								<ActionButton size="xs" variant="outline" onClick={historyPoll.refresh}>{t("publicStatus.retry")}</ActionButton>
+							</div>
+						) : null}
+					</>
 				) : historyPoll.error ? (
 					<div role="alert" className="flex items-center gap-2 text-sm text-[var(--warning)]">
 						{t("publicStatus.history.failed")}

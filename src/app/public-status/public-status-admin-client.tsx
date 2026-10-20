@@ -60,19 +60,23 @@ function SiteSettings({ initial, t }: { initial: PublicSiteConfig; t: T }) {
 	const save = async () => {
 		setSaving(true);
 		setError(null);
+		const submitted = {
+			enabled: site.enabled,
+			title: site.title,
+			description: site.description,
+			announcement: site.announcement,
+			defaultView: site.defaultView,
+			refreshSeconds: site.refreshSeconds,
+			accent: site.accent,
+			metrics: site.metrics,
+			showPlatformStatus: site.showPlatformStatus,
+		};
 		try {
-			const result = await api.put<{ site: PublicSiteConfig }>("/api/admin/public-status/site", {
-				enabled: site.enabled,
-				title: site.title,
-				description: site.description,
-				announcement: site.announcement,
-				defaultView: site.defaultView,
-				refreshSeconds: site.refreshSeconds,
-				accent: site.accent,
-				metrics: site.metrics,
-				showPlatformStatus: site.showPlatformStatus,
-			});
-			setSite(result.site);
+			const result = await api.put<{ site: PublicSiteConfig }>("/api/admin/public-status/site", submitted);
+			// The fields stay editable while saving: take the server's
+			// normalised copy only if nothing was typed since, or the newer
+			// draft would be replaced by what was just saved.
+			setSite((current) => (Object.keys(submitted) as Array<keyof typeof submitted>).every((key) => JSON.stringify(current[key]) === JSON.stringify(submitted[key])) ? result.site : current);
 			addToast("success", t("publicStatusAdmin.site.saved"));
 		} catch (err) {
 			setError(errorText(err));
@@ -200,7 +204,7 @@ function publicationBadge(row: AdminNodeRow, t: T) {
 	return <StatusBadge tone="success">{t("publicStatusAdmin.state.published")}</StatusBadge>;
 }
 
-function EditDialog({ state, onClose, onSaved, metrics, t }: { state: EditState; onClose: () => void; onSaved: () => void; metrics: string[]; t: T }) {
+function EditDialog({ state, onClose, onSaved, metrics, t }: { state: EditState; onClose: () => void; onSaved: (state: EditState) => void; metrics: string[]; t: T }) {
 	const [form, setForm] = useState(state);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -220,7 +224,7 @@ function EditDialog({ state, onClose, onSaved, metrics, t }: { state: EditState;
 				maintenance: form.maintenance,
 				published: form.published,
 			});
-			onSaved();
+			onSaved(state);
 		} catch (err) {
 			setError(errorText(err));
 		} finally {
@@ -242,7 +246,9 @@ function EditDialog({ state, onClose, onSaved, metrics, t }: { state: EditState;
 			description={t("publicStatusAdmin.edit.internal", { name: form.row.serverName })}
 			footer={
 				<>
-					<ActionButton variant="secondary" onClick={onClose}>{t("publicStatusAdmin.cancel")}</ActionButton>
+					{/* As the dialog's own close: not while the save is pending (its
+					    answer would then close or reset another node's dialog). */}
+					<ActionButton variant="secondary" onClick={onClose} disabled={saving}>{t("publicStatusAdmin.cancel")}</ActionButton>
 					<ActionButton onClick={save} loading={saving} disabled={!form.displayName.trim() || countryInvalid}>{t("publicStatusAdmin.save")}</ActionButton>
 				</>
 			}
@@ -532,8 +538,9 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 					metrics={metrics}
 					t={t}
 					onClose={() => setEditing(null)}
-					onSaved={() => {
-						setEditing(null);
+					onSaved={(saved) => {
+						// Only the dialog that saved closes.
+						setEditing((current) => (current === saved ? null : current));
 						addToast("success", t("publicStatusAdmin.edit.saved"));
 						reload();
 					}}

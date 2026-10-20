@@ -158,7 +158,7 @@ const OFFSITE_FIELD_TO_SETTING_KEY: Record<keyof OffsiteConfig, (typeof OFFSITE_
 	failureAlertRecipient: "offsite.failureAlertRecipient",
 };
 
-export async function saveOffsiteConfig(update: OffsiteConfigUpdate): Promise<OffsiteConfig> {
+export async function saveOffsiteConfig(update: OffsiteConfigUpdate, actorId: string | null = null): Promise<OffsiteConfig> {
 	const current = await loadOffsiteConfig();
 	// GET masks credentials as "***"; ignore masked/empty secrets on partial updates so
 	// clients can round-trip non-secret fields without clobbering real keys.
@@ -192,6 +192,6 @@ export async function saveOffsiteConfig(update: OffsiteConfigUpdate): Promise<Of
 		},
 	);
 	// setManySettings encrypts sensitive keys (accessKeyId / secretAccessKey) at rest.
-	await setManySettings(entries);
+	await setManySettings(entries, actorId);
 	return validated;
 }

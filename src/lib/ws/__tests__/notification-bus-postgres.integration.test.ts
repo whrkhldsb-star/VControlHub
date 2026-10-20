@@ -41,3 +41,14 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || Boolean(pr
 		expect(delivered).toHaveLength(2);
 	});
 });
+
+describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("unread count read time (PostgreSQL)", () => {
+	it("stamps each count with when it was read, later reads later", async () => {
+		const { readUnreadCount } = await import("@/lib/notification/service");
+		const first = await readUnreadCount("no-such-user");
+		const second = await readUnreadCount("no-such-user");
+		expect(first.count).toBe(0);
+		expect(second.asOfUs).toBeGreaterThan(first.asOfUs);
+		expect(Math.abs(second.asOfUs / 1000 - Date.now())).toBeLessThan(60_000);
+	});
+});

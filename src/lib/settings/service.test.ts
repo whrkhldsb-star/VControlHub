@@ -9,6 +9,9 @@ const prismaMock = vi.hoisted(() => ({
 	auditLog: {
 		findMany: vi.fn(),
 	},
+	user: {
+		findMany: vi.fn(async (): Promise<Array<{ id: string; username: string; displayName: string | null }>> => []),
+	},
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
@@ -76,6 +79,29 @@ describe("settings service audit metadata", () => {
 		prismaMock.setting.findMany.mockResolvedValueOnce([{ key: "platform.name", updatedAt: saved }]);
 		prismaMock.auditLog.findMany.mockResolvedValueOnce([
 			{ actorId: "u-old", createdAt: new Date("2026-06-02T10:00:00Z"), detail: { keys: ["platform.name"] }, actor: { username: "old", displayName: null } },
+		]);
+		const result = await getSettingUpdateMetadata(["platform.name"]);
+		expect(result["platform.name"]).toEqual({ updatedAt: saved, actorId: null, actorName: null });
+	});
+
+	it("names the writer recorded on the row, whatever the audit log says", async () => {
+		// The newest save's audit write failed; an older entry by someone else exists.
+		const saved = new Date("2026-06-02T12:00:00Z");
+		prismaMock.setting.findMany.mockResolvedValueOnce([{ key: "platform.name", updatedAt: saved, updatedBy: "u-new" }]);
+		prismaMock.auditLog.findMany.mockResolvedValueOnce([
+			{ actorId: "u-old", createdAt: new Date("2026-06-02T11:59:58Z"), detail: { keys: ["platform.name"] }, actor: { username: "old", displayName: null } },
+		]);
+		prismaMock.user.findMany.mockResolvedValueOnce([{ id: "u-new", username: "new", displayName: "New Editor" }]);
+		const result = await getSettingUpdateMetadata(["platform.name"]);
+		expect(result["platform.name"]).toEqual({ updatedAt: saved, actorId: "u-new", actorName: "New Editor" });
+	});
+
+	it("for a row from before the writer column, never credits an audit entry written before the change", async () => {
+		// Two seconds before the stored change: the earlier 5-second tolerance credited it.
+		const saved = new Date("2026-06-02T12:00:00Z");
+		prismaMock.setting.findMany.mockResolvedValueOnce([{ key: "platform.name", updatedAt: saved, updatedBy: null }]);
+		prismaMock.auditLog.findMany.mockResolvedValueOnce([
+			{ actorId: "u-old", createdAt: new Date("2026-06-02T11:59:58Z"), detail: { keys: ["platform.name"] }, actor: { username: "old", displayName: null } },
 		]);
 		const result = await getSettingUpdateMetadata(["platform.name"]);
 		expect(result["platform.name"]).toEqual({ updatedAt: saved, actorId: null, actorName: null });

@@ -1122,6 +1122,11 @@ model Setting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+  /// User who wrote the current value; null for system writes (and rows
+  /// written before the column existed). Attributing the latest change from
+  /// the audit log credited an older editor whenever the newest save's audit
+  /// write had failed.
+  updatedBy String?
 
   @@map("settings")
 }
