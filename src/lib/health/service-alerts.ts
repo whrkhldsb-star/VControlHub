@@ -373,8 +373,14 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
                 incidentId: fire.incidentId,
               },
             });
-          } catch {
-            /* playbook automation is best-effort */
+          } catch (error) {
+            // Best-effort, but not silent: a remediation that never starts
+            // (playbook disabled or deleted, its creator gone) left no trace.
+            logger.warn("alert remediation playbook did not start", {
+              ruleId: rule.id,
+              playbookId,
+              error: error instanceof Error ? error.message : String(error),
+            });
           }
         }
       }

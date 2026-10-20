@@ -35,6 +35,7 @@ const {
     },
     shareLink: {
       findMany: vi.fn().mockResolvedValue([]),
+      update: vi.fn().mockResolvedValue({}),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
     // permanentDeleteFileEntryAction purges version blobs before the cascade;
@@ -582,6 +583,20 @@ describe("SFTP file entry actions", () => {
         data: { name: "new.txt", relativePath: "docs/new.txt" },
       }),
     );
+  });
+
+  it("moves the live shares of a renamed file with it", async () => {
+    // Left at the old path, a share broke, and served whatever was later
+    // created there (a link given out for one document handed out its replacement).
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "entry-1" });
+    prismaMock.shareLink.findMany.mockResolvedValueOnce([{ id: "share-1", path: "docs/old.txt" }]);
+
+    const result = await renameFileEntryAction(null, entryForm("entry-1", { newName: "new.txt" }));
+
+    expect(result.success).toContain("new.txt");
+    expect(prismaMock.shareLink.update).toHaveBeenCalledWith({ where: { id: "share-1" }, data: { path: "docs/new.txt" } });
   });
 
   it("rewrites only live (non-soft-deleted) descendants when renaming a directory", async () => {

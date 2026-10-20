@@ -100,23 +100,38 @@ const CUSTOM_PRESET: BackupPreset = {
 	requiresPaths: true,
 	description: "Backs up user-specified directories/files",
 	buildCommand: (remoteFilePath, customPaths) => {
-		if (!customPaths || customPaths.length === 0) {
+		const paths = (customPaths ?? []).map((p) => p.trim()).filter(Boolean);
+		if (paths.length === 0) {
 			throw new Error("Custom backup requires at least one path");
 		}
-		// Sanitize each path: strip quotes, reject shell metacharacters
-		const sanitized = customPaths
-			.map((p) => p.trim().replace(/['"]/g, ""))
-			.filter((p) => p && !p.includes("..") && !/[;|&`$(){}]/.test(p));
-
-		if (sanitized.length === 0) {
-			throw new Error("Custom backup: all paths were invalid after sanitization");
+		// Paths are quoted, not filtered: dropping the ones with shell
+		// metacharacters (and stripping quotes from the rest) backed up fewer
+		// paths than asked, or other ones, and still reported success.
+		const invalid = invalidCustomBackupPaths(paths);
+		if (invalid.length > 0) {
+			throw new Error(`Custom backup paths are invalid: ${invalid.join(", ")}`);
 		}
 
-		// tar with explicit path list — each path is relative to /
-		const pathArgs = sanitized.map((p) => `'${p.replace(/^\/+/, "")}'`).join(" ");
-		return `set -euo pipefail; tar czf '${remoteFilePath}' -C / ${pathArgs}; test -s '${remoteFilePath}'`;
+		// tar with explicit path list — each path is relative to /; "--" keeps
+		// a member that starts with "-" from being read as an option.
+		const pathArgs = paths.map((p) => shellQuote(p.replace(/^\/+/, ""))).join(" ");
+		return `set -euo pipefail; tar czf '${remoteFilePath}' -C / -- ${pathArgs}; test -s '${remoteFilePath}'`;
 	},
 };
+
+/**
+ * Custom backup paths that cannot be backed up as given: a ".." segment, a
+ * control character (NUL, newline), or nothing left once leading slashes
+ * (paths are relative to /) are removed. Anything else is quoted as is.
+ */
+export function invalidCustomBackupPaths(paths: string[]): string[] {
+	return paths.filter((path) => {
+		const trimmed = path.trim();
+		if (!trimmed.replace(/^\/+/, "")) return true;
+		if ([...trimmed].some((ch) => ch.charCodeAt(0) < 0x20 || ch.charCodeAt(0) === 0x7f)) return true;
+		return trimmed.split("/").includes("..");
+	});
+}
 
 /* ── Registry ────────────────────────────────────────────── */
 
@@ -178,3 +193,5 @@ export function buildRemoteCleanupCommand(remoteFilePath: string): string {
 	return `rm -f '${sanitized}' 2>/dev/null; true`;
 }
 import { randomUUID } from "node:crypto";
+
+import { shellQuote } from "@/lib/shell-quote";

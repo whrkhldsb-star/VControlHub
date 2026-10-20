@@ -107,6 +107,16 @@ describe("VPS backup schedule ownership", () => {
     })).rejects.toThrow();
   });
 
+  it("rejects custom paths a backup could not take as given", async () => {
+    await expect(createVpsBackupSchedule({
+      serverId: "server-1",
+      name: "Custom",
+      cronExpression: "0 3 * * *",
+      backupType: "custom",
+      paths: ["/srv/data", "/srv/../etc/shadow"],
+    })).rejects.toThrow(/\.\.|invalid|无效/i);
+  });
+
   it("rejects out-of-range retentionDays (defense-in-depth beyond the route zod)", async () => {
     await expect(createVpsBackupSchedule({
       serverId: "server-1",

@@ -84,6 +84,15 @@ describe("sampleRemoteServersTraffic", () => {
 		expect(mocks.buildSshParamsFromServer).toHaveBeenCalledWith(expect.objectContaining({ managementMode: "AGENT", id: "srv9" }), null);
 	});
 
+	it("does not run the Linux sample on a Windows node", async () => {
+		// /proc/net/dev does not exist there: over OpenSSH or the Agent, every
+		// summary load ran a command bound to fail.
+		const windows = { ...serverInput("srv_win"), operatingSystem: "WINDOWS", managementMode: "AGENT" };
+		const [result] = await sampleRemoteServersTraffic([windows]);
+		expect(result!.error).toMatch(/unsupportedOs|Windows/);
+		expect(mocks.execRemoteCommand).not.toHaveBeenCalled();
+	});
+
 	it("caps concurrent SSH sessions at 5 instead of opening one per server", async () => {
 		let inFlight = 0;
 		let peakInFlight = 0;

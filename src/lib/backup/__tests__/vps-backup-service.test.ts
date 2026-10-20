@@ -190,6 +190,17 @@ describe("runVpsBackupRecord false-success guards", () => {
     mocks.execRemoteCommand.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
   });
 
+  it("fails a backup of a Windows node up front instead of running POSIX shell there", async () => {
+    // A schedule on a Windows node failed every run with a shell error.
+    mocks.findUnique.mockResolvedValue({ ...baseRecord(), server: { ...baseRecord().server, operatingSystem: "WINDOWS" } });
+
+    const result = await runVpsBackupRecord("rec_1");
+
+    expect(result.success).toBe(false);
+    expect(result.errorMessage).toMatch(/Linux/);
+    expect(mocks.execRemoteCommand).not.toHaveBeenCalled();
+  });
+
   it("fails when remote SSH exitCode is null (connection failure)", async () => {
     mocks.execRemoteCommand.mockResolvedValueOnce({
       stdout: "",

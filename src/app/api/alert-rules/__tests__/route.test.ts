@@ -217,6 +217,22 @@ describe("/api/alert-rules", () => {
     expect(res.headers.get("location")).toBe("http://local/alert-rules");
   });
 
+  it("updates only the fields a request names", async () => {
+    // zod 4 applied the creation defaults to absent keys: changing a threshold
+    // also reset the rule to every server, in-app only, no playbooks, no
+    // silence windows and no on-call users.
+    const res = await route.PATCH(
+      new Request("http://local/api/alert-rules", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: "rule1", threshold: 95 }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.updateAlertRule).toHaveBeenCalledWith("rule1", { id: "rule1", threshold: 95 }, expect.anything());
+  });
+
   it("rejects updates that enable webhook notifications without a webhook URL", async () => {
     const res = await route.PATCH(
       new Request("http://local/api/alert-rules", {

@@ -233,6 +233,7 @@ export const zh: Record<string, string> = {
 	"backend.playbook.cannotDeleteWhileRunning": "Playbook 有进行中的运行，无法删除",
 	"backend.storage.unsupportedNodeType": "不支持的存储节点类型",
 	"backend.storage.versionBlobMissing": "版本内容在磁盘上缺失",
+	"backend.storage.restorePointUnavailable": "无法先保存当前内容的快照（超过版本大小上限或读取失败）。恢复后当前内容将无法找回，请确认后再恢复。",
 	"backend.storage.versionChecksumMismatch": "版本内容校验失败，拒绝恢复（可能已损坏）",
 	"backend.storage.versionSnapshotFailed": "无法创建版本快照（文件缺失、过大或不可读）",
 	"backend.storage.localRootNotDir": "本地存储根路径不是目录",
@@ -346,6 +347,7 @@ export const zh: Record<string, string> = {
 	"backend.traffic.source.remoteSftpDetail": "{host}:{port} 流量发生在目标机；采样请将 SFTP 节点绑定到 VPS 节点。",
 	"backend.traffic.source.remoteSftpNoHost": "SFTP 节点未配置主机，无法定位远程流量来源。",
 	"backend.traffic.remote.noCredentials": "未配置 SSH 凭据，跳过流量采样",
+	"backend.traffic.remote.unsupportedOs": "Windows 节点暂不支持流量采样",
 	"backend.traffic.remote.commandFailed": "远程命令退出码 {code}：{stderr}",
 	"backend.traffic.remote.parseFailed": "无法解析 /proc/net/dev",
 	"backend.traffic.remote.connectionFailed": "连接失败：{message}",
@@ -884,6 +886,8 @@ export const en: Record<string, string> = {
 
 	"backend.storage.unsupportedNodeType": "Unsupported storage node type",
 	"backend.storage.versionBlobMissing": "Version blob is missing on disk",
+	"backend.storage.restorePointUnavailable":
+		"The current content could not be saved as a snapshot first (larger than the version size limit, or unreadable). After the restore it cannot be recovered; confirm to restore anyway.",
 	"backend.storage.versionChecksumMismatch": "Version blob checksum mismatch; restore rejected (blob may be corrupted)",
 	"backend.storage.versionSnapshotFailed": "Unable to create version snapshot (file missing, oversized, or unreadable)",
 	"backend.storage.localRootNotDir": "Local storage root path is not a directory",
@@ -999,6 +1003,7 @@ export const en: Record<string, string> = {
 	"backend.traffic.source.remoteSftpDetail": "{host}:{port} traffic occurs on the target server; bind the SFTP node to a VPS node for sampling.",
 	"backend.traffic.source.remoteSftpNoHost": "The SFTP node has no host configured; cannot locate the remote traffic source.",
 	"backend.traffic.remote.noCredentials": "SSH credentials not configured; skipping traffic sampling",
+	"backend.traffic.remote.unsupportedOs": "Traffic sampling is not available for Windows nodes",
 	"backend.traffic.remote.commandFailed": "Remote command exit code {code}: {stderr}",
 	"backend.traffic.remote.parseFailed": "Failed to parse /proc/net/dev",
 	"backend.traffic.remote.connectionFailed": "Connection failed: {message}",

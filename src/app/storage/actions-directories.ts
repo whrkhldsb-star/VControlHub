@@ -28,6 +28,7 @@ import {
 import type { StorageActionState } from "./actions-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { STORAGE_SSH_SERVER_SELECT } from "@/lib/storage/ssh-credentials";
+import { moveSharePaths } from "@/lib/share-link/follow-path";
 
 export async function createFolderAction(
   _prev: StorageActionState | null,
@@ -407,6 +408,13 @@ export async function renameFileEntryAction(
         await tx.fileEntry.update({
           where: { id: fileEntryId },
           data: { name: normalizedNewName, relativePath: newRelativePath },
+        });
+        // Shares follow the renamed entry, as they follow a move.
+        await moveSharePaths(tx, {
+          storageNodeId: entry.storageNodeId,
+          oldPath: entry.relativePath,
+          newPath: newRelativePath,
+          isDirectory: entry.entryType === "DIRECTORY",
         });
       });
     } catch (databaseError) {

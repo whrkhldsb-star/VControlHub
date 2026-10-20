@@ -370,10 +370,16 @@ export async function deletePlaybook(
     if (activeRun) {
       throw new BusinessError(t("backend.playbook.cannotDeleteWhileRunning"));
     }
-    const deleted = await prisma.playbook.deleteMany({
-      where: { id, ...(session ? playbookTeamWhere(session) : {}) },
+    await prisma.$transaction(async (tx) => {
+      const deleted = await tx.playbook.deleteMany({
+        where: { id, ...(session ? playbookTeamWhere(session) : {}) },
+      });
+      if (deleted.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
+      // Alert rules name their remediation playbooks by id, without a foreign
+      // key: a deleted one stayed listed (and counted on the rule's card) and
+      // every later fire tried to start it.
+      await tx.$executeRaw`UPDATE "alert_rules" SET "playbookIds" = array_remove("playbookIds", ${id}) WHERE ${id} = ANY("playbookIds")`;
     });
-    if (deleted.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
   } finally {
     await releaseLock();
   }

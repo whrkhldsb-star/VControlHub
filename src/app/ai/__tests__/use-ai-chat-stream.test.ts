@@ -345,6 +345,20 @@ describe("useAiChatStream", () => {
 			expect(state.messages).toEqual([{ id: "partial_1", content: "half a reply" }]);
 		});
 
+		it("does not put the stopped chat's transcript under a chat opened meanwhile", async () => {
+			let answer: ((value: unknown) => void) | undefined;
+			mocks.csrfFetch.mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
+			const { state, args } = setup("conv_a");
+			const { result, rerender } = renderHook((props: typeof args) => useAiChatStream(props), { initialProps: args });
+			await act(async () => { result.current.stopGeneration(); });
+			await act(async () => {
+				rerender({ ...args, activeConvId: "conv_b", activeConv: { id: "conv_b", model: "m" } as never });
+			});
+			state.messages = [{ id: "b_1", conversationId: "conv_b" }];
+			await act(async () => { answer?.({ conversation: { messages: [{ id: "a_1", conversationId: "conv_a" }] } }); });
+			expect(state.messages).toEqual([{ id: "b_1", conversationId: "conv_b" }]);
+		});
+
 		it("warns when the post-stop refresh fails instead of failing silently", async () => {
 			mocks.csrfFetch.mockRejectedValue(new Error("offline"));
 			const { state, args } = setup();
@@ -386,6 +400,22 @@ describe("useAiChatStream", () => {
 			expect(result.current.pendingApprovals).toEqual([]);
 			expect(state.messages).toEqual([{ id: "after_approve" }]);
 			expect(state.toasts.at(-1)).toMatchObject({ kind: "success" });
+		});
+
+		it("does not put the decided chat's transcript under a chat opened meanwhile", async () => {
+			let answerRefresh: ((value: unknown) => void) | undefined;
+			mocks.csrfFetch.mockImplementation((_url: string, init?: { method?: string }) =>
+				init?.method === "PATCH" ? Promise.resolve({ success: true }) : new Promise((resolve) => { answerRefresh = resolve; }));
+			const { state, args } = setup("conv_a");
+			const { result, rerender } = renderHook((props: typeof args) => useAiChatStream(props), { initialProps: args });
+			let decided: Promise<void> | undefined;
+			await act(async () => { decided = result.current.decideApproval(approval, "confirm"); });
+			await act(async () => {
+				rerender({ ...args, activeConvId: "conv_b", activeConv: { id: "conv_b", model: "m" } as never });
+			});
+			state.messages = [{ id: "b_1", conversationId: "conv_b" }];
+			await act(async () => { answerRefresh?.({ conversation: { messages: [{ id: "a_1", conversationId: "conv_a" }] } }); await decided; });
+			expect(state.messages).toEqual([{ id: "b_1", conversationId: "conv_b" }]);
 		});
 
 		it("sends a reason when rejecting", async () => {

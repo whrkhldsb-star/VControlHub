@@ -25,10 +25,14 @@ export async function POST(
     },
     async ({ session }) => {
       const { id, versionId } = await params;
+      // Set only after the user confirmed restoring without a restore point
+      // (the first attempt answered 409 because none could be saved).
+      const allowWithoutRestorePoint = new URL(request.url).searchParams.get("allowWithoutRestorePoint") === "1";
       const result = await restoreFileVersion({
         fileEntryId: id,
         versionId,
         session,
+        allowWithoutRestorePoint,
       });
       await auditUserAction(
         session.userId,
@@ -38,6 +42,7 @@ export async function POST(
           versionId,
           restoredVersionNumber: result.restored.versionNumber,
           restorePointId: result.newRestorePoint?.id ?? null,
+          ...(allowWithoutRestorePoint && !result.newRestorePoint ? { withoutRestorePoint: true } : {}),
         },
         "WARNING",
         session.currentTeamId,

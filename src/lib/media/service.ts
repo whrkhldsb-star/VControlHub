@@ -73,6 +73,7 @@ function inferMediaMimeType(entry: {
 
 const mediaItemSelect = {
   id: true,
+  fileEntryId: true,
   name: true,
   mediaType: true,
   relativePath: true,
@@ -302,12 +303,39 @@ export async function getMediaItem(
   session?: TeamSession | null,
   options?: { includeCredentials?: boolean },
 ) {
-  return prisma.mediaItem.findFirst({
+  const item = await prisma.mediaItem.findFirst({
     where: { id, ...mediaTeamWhere(session) },
     select: options?.includeCredentials
       ? mediaStreamItemSelect
       : mediaItemSelect,
   });
+  return item ? resolveAgainstFileEntry(item) : null;
+}
+
+/**
+ * The library is re-indexed only by a scan, so a row can describe a file
+ * deleted, recycled, renamed or moved since then: it played (or showed the
+ * thumbnail of) a recycle-bin file, and 404ed after a rename. Opening an item
+ * now follows its file entry: none (deleted for good) drops the row, a
+ * recycled one is hidden, and a new name or path is used and stored.
+ */
+async function resolveAgainstFileEntry<T extends { id: string; fileEntryId: string | null; name: string; relativePath: string; storageNode: { id: string } | null }>(item: T): Promise<T | null> {
+  if (!item.fileEntryId) return item;
+  const entry = await prisma.fileEntry.findUnique({
+    where: { id: item.fileEntryId },
+    select: { name: true, relativePath: true, storageNodeId: true, isDeleted: true },
+  });
+  if (!entry) {
+    await prisma.mediaItem.deleteMany({ where: { id: item.id } }).catch(() => undefined);
+    return null;
+  }
+  if (entry.isDeleted || entry.storageNodeId !== item.storageNode?.id) return null;
+  if (entry.relativePath === item.relativePath && entry.name === item.name) return item;
+  await prisma.mediaItem.updateMany({
+    where: { id: item.id },
+    data: { relativePath: entry.relativePath, name: entry.name },
+  }).catch(() => undefined);
+  return { ...item, relativePath: entry.relativePath, name: entry.name };
 }
 
 /** Deterministic page ordering shared by the scan loops below. */

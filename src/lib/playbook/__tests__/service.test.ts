@@ -17,6 +17,7 @@ const { mocks } = vi.hoisted(() => ({
     jobCreate: vi.fn(),
     jobEventCreate: vi.fn(),
     transaction: vi.fn(),
+    executeRaw: vi.fn(async () => 0),
     auditUserAction: vi.fn(),
     serverFindMany: vi.fn(),
     teamMemberFindUnique: vi.fn(),
@@ -95,11 +96,12 @@ describe("playbook service", () => {
     mocks.acquireAdvisoryLock.mockResolvedValue(mocks.releaseAdvisoryLock);
     mocks.releaseAdvisoryLock.mockResolvedValue(undefined);
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
+      playbook: { deleteMany: mocks.playbookDeleteMany },
       playbookRun: { create: mocks.runCreate, update: mocks.runUpdate },
       job: { create: mocks.jobCreate },
-          jobEvent: { create: mocks.jobEventCreate
-    },
-        }));
+      jobEvent: { create: mocks.jobEventCreate },
+      $executeRaw: mocks.executeRaw,
+    }));
   });
 
   it("lists and narrows playbooks", async () => {

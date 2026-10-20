@@ -15,6 +15,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { NotFoundError, ValidationError, AppError } from "@/lib/errors";
+import { invalidCustomBackupPaths } from "@/lib/backup/vps-backup-presets";
 import {
 	listVpsBackupRecords,
 	createVpsBackupRecord,
@@ -73,7 +74,7 @@ export async function POST(
 
 			const server = await prisma.server.findUnique({
 				where: { id: serverId },
-				select: { id: true, name: true, enabled: true, teamId: true },
+				select: { id: true, name: true, enabled: true, teamId: true, operatingSystem: true },
 			});
 			if (!server) {
 				throw new NotFoundError(apiCopy("apiCopy.server.not.found.d7783f94"));
@@ -81,9 +82,17 @@ export async function POST(
 			if (!server.enabled) {
 				throw new ValidationError(t("vpsBackupApi.errorServerDisabled", locale));
 			}
+			// The backup presets are POSIX shell: on Windows the run would fail.
+			if (server.operatingSystem === "WINDOWS") {
+				throw new ValidationError(t("backend.server.linuxOnly", locale));
+			}
 
 			if (body.backupType === "custom" && (!body.paths || body.paths.length === 0)) {
 				throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired", locale));
+			}
+			const invalidPaths = body.backupType === "custom" ? invalidCustomBackupPaths(body.paths ?? []) : [];
+			if (invalidPaths.length > 0) {
+				throw new ValidationError(t("vpsBackupApi.errorCustomPathsInvalid", locale, { paths: invalidPaths.join(", ") }));
 			}
 
 			const { id: recordId } = await createVpsBackupRecord({

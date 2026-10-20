@@ -16,7 +16,7 @@ import {
 	listVpsBackupSchedules,
 	createVpsBackupSchedule,
 } from "@/lib/backup/vps-backup-schedule-service";
-import { NotFoundError, AppError, isAppError } from "@/lib/errors";
+import { NotFoundError, AppError, isAppError, ValidationError } from "@/lib/errors";
 import { VALID_PRESET_TYPES } from "@/lib/backup/vps-backup-presets";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -76,10 +76,14 @@ export async function POST(
 
 			const server = await prisma.server.findUnique({
 				where: { id: serverId },
-				select: { id: true, name: true },
+				select: { id: true, name: true, operatingSystem: true },
 			});
 			if (!server) {
 				throw new NotFoundError(apiCopy("apiCopy.server.not.found.d7783f94"));
+			}
+			// The backup presets are POSIX shell: on Windows every run would fail.
+			if (server.operatingSystem === "WINDOWS") {
+				throw new ValidationError(t("backend.server.linuxOnly", await getServerLocale()));
 			}
 
 			// Service AppErrors (invalid cron / custom paths → ValidationError)

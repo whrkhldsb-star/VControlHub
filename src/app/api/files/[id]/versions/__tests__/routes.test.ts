@@ -222,6 +222,7 @@ describe("file version routes", () => {
 				fileEntryId: "file_1",
 				versionId: "ver_9",
 				session,
+				allowWithoutRestorePoint: false,
 			});
 			// Overwriting live storage is a destructive act: WARNING, not INFO.
 			expect(mocks.auditUserAction).toHaveBeenCalledWith(

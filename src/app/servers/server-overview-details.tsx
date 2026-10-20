@@ -262,14 +262,16 @@ export function ServerOverviewDetails({
 					{server.managementMode === "AGENT" && canManageServers && server.hasSshCredential !== false ? (
 						<ServerAgentReinstall serverId={server.id} version={server.agent?.version ?? null} />
 					) : null}
-					<OsDialectSection
-						serverId={server.id}
-						osDialect={server.osDialect}
-						osInfo={server.osInfo}
-					/>
+					{server.operatingSystem !== "WINDOWS" ? (
+						<OsDialectSection
+							serverId={server.id}
+							osDialect={server.osDialect}
+							osInfo={server.osInfo}
+						/>
+					) : null}
 					</div>
-					{/* TR-043: VPS Remote Backup */}
-					{canManageServers ? (
+					{/* TR-043: VPS Remote Backup — POSIX shell presets, Linux nodes only */}
+					{canManageServers && server.operatingSystem !== "WINDOWS" ? (
 					<div className="mt-4">
 						<div className="mb-2 text-xs font-semibold uppercase text-[var(--text-muted)]">
 							{t("vpsBackup.sectionTitle")}

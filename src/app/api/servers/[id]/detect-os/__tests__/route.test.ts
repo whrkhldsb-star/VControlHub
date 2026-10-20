@@ -95,6 +95,16 @@ describe("POST /api/servers/[id]/detect-os", () => {
     auditUserActionMock.mockResolvedValue(undefined);
   });
 
+  it("refuses a Windows node instead of storing an Unknown dialect over its details", async () => {
+    serverFindUniqueMock.mockResolvedValueOnce({ id: "srv_1", host: "203.0.113.10", port: 48163, operatingSystem: "WINDOWS", managementMode: "AGENT" });
+
+    const response = await POST(request(), params);
+
+    expect(response.status).toBe(400);
+    expect(detectOsDialectMock).not.toHaveBeenCalled();
+    expect(serverUpdateMock).not.toHaveBeenCalled();
+  });
+
   it("persists dialect + osInfo and returns a dialect summary with teamId audit", async () => {
     detectOsDialectMock.mockResolvedValueOnce({
       packageManager: "apt",

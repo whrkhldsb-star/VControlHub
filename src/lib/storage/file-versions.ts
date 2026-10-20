@@ -23,6 +23,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import {
   BusinessError,
+  ConflictError,
   ForbiddenError,
   NotFoundError,
   ValidationError,
@@ -224,6 +225,16 @@ export async function purgeAllFileVersionBlobs(fileEntryId: string): Promise<num
 }
 
 /**
+ * Remove every version blob kept for a storage node: the node's directory
+ * under FILE_VERSION_DIR (blobs live at `<storageNodeId>/<fileEntryId>/…`).
+ * For a deleted node, whose version rows went with it by cascade.
+ */
+export async function purgeStorageNodeVersionBlobs(storageNodeId: string): Promise<void> {
+  if (!/^[A-Za-z0-9_-]+$/.test(storageNodeId)) return;
+  await rm(blobAbsolutePath(storageNodeId), { recursive: true, force: true });
+}
+
+/**
  * Remove version blobs for EVERY entry under a directory in ONE query plus
  * bounded-concurrency unlinks, instead of one `purgeAllFileVersionBlobs`
  * round trip per descendant — a large subtree otherwise costs 1 + D queries
@@ -377,8 +388,9 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
     await mkdir(path.dirname(abs), { recursive: true });
     await writeFile(abs, buffer, { flag: "wx" });
 
+    let row;
     try {
-      const row = await prisma.fileVersion.create({
+      row = await prisma.fileVersion.create({
         data: {
           fileEntryId: entry.id,
           storageNodeId: entry.storageNodeId,
@@ -397,14 +409,16 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
           createdBy: { select: { username: true, displayName: true } },
         },
       });
-      await enforceRetention(entry.id);
-      return toView(row);
     } catch (err) {
       await rm(abs, { force: true }).catch(() => undefined);
       if (isUniqueViolation(err) && attempt < 4) continue;
       logError("file-version:create-failed", err);
       return null;
     }
+    // Outside the try above: a failed retention pass used to land in its
+    // catch, which deleted this version's blob while its row stayed.
+    await enforceRetention(entry.id).catch((err) => logError("file-version:retention-failed", err));
+    return toView(row);
   }
   return null;
 }
@@ -458,6 +472,12 @@ export async function restoreFileVersion(input: {
   fileEntryId: string;
   versionId: string;
   session: SessionPayload;
+  /**
+   * Restore even when the current content could not be saved as a restore
+   * point first (too large for a version, or unreadable); the caller has
+   * confirmed that the restore then cannot be undone.
+   */
+  allowWithoutRestorePoint?: boolean;
 }): Promise<{ restored: FileVersionView; newRestorePoint: FileVersionView | null }> {
   const entry = await resolveAccessibleFileEntry({
     fileEntryId: input.fileEntryId,
@@ -504,6 +524,11 @@ export async function restoreFileVersion(input: {
 
   let restorePoint: FileVersionView | null;
   try {
+    const node = entry.storageNode as StorageFileNode;
+    if (node.driver === "LOCAL") {
+      node.basePath = expandStorageBasePath(node.basePath);
+    }
+
     // Snapshot current body as RESTORE_POINT before overwriting.
     restorePoint = await snapshotFileVersionBeforeOverwrite({
       fileEntryId: entry.id,
@@ -511,11 +536,16 @@ export async function restoreFileVersion(input: {
       reason: "RESTORE_POINT",
       note: `Before restore to v${version.versionNumber}`,
     });
-
-    const node = entry.storageNode as StorageFileNode;
-    if (node.driver === "LOCAL") {
-      node.basePath = expandStorageBasePath(node.basePath);
+    // The confirmation promised that snapshot. Without it the restore went
+    // ahead and the current content was gone for good; now it needs the
+    // caller's explicit consent, unless there is no current content to keep.
+    if (!restorePoint && !input.allowWithoutRestorePoint) {
+      const current = await statBackingObject({ storageNode: node, relativePath: entry.relativePath }).catch(() => undefined);
+      if (current !== null) {
+        throw new ConflictError(t("backend.storage.restorePointUnavailable"), { reason: "restore-point-unavailable" });
+      }
     }
+
     await writeStorageFileBuffer(node, entry.relativePath, buffer);
 
     await prisma.fileEntry.update({

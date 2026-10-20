@@ -35,6 +35,7 @@ import {
 import { ConflictError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { moveSharePaths } from "@/lib/share-link/follow-path";
 const logger = createLogger("api:storage:sftp-ops");
 
 async function upsertSftpFileIndex(params: {
@@ -179,6 +180,8 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
       name: path.posix.basename(newRelativePath),
     },
   });
+  // Shares follow the renamed entry (and back, when this rolls a rename back).
+  await moveSharePaths(prisma, { storageNodeId, oldPath: oldRelativePath, newPath: newRelativePath, isDirectory });
 }
 
 export const dynamic = "force-dynamic";

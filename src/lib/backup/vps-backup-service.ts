@@ -285,6 +285,10 @@ export async function runVpsBackupRecord(
     preClaimError = "Associated server not found";
   } else if (!record.server.enabled) {
     preClaimError = "Server is disabled";
+  } else if (record.server.operatingSystem === "WINDOWS") {
+    // The presets are POSIX shell (tar, set -o pipefail): a schedule on a
+    // Windows node failed every run with a shell error instead of this.
+    preClaimError = t("backend.server.linuxOnly");
   } else if (!getPreset(record.backupType)) {
     preClaimError = `Unknown backup type: ${record.backupType}`;
   }
