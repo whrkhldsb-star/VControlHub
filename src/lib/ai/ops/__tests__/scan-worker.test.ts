@@ -21,8 +21,10 @@ const {
   providerFindFirstMock,
   sendChatRequestMock,
   latestSamplesMock,
+  jobGroupByMock,
 } = vi.hoisted(() => ({
   latestSamplesMock: vi.fn(async () => [] as unknown[]),
+  jobGroupByMock: vi.fn(async () => [] as Array<{ type: string; _count: { _all: number } }>),
   jobMocks: {
     enqueueJob: vi.fn(),
     claimNextJob: vi.fn(),
@@ -74,6 +76,7 @@ vi.mock("@/lib/db", () => ({
     job: {
       findFirst: jobMocks.findFirst,
       count: vi.fn(async () => 0),
+      groupBy: jobGroupByMock,
     },
     systemConfig: {
       findUnique: vi.fn(async () => null),
@@ -278,6 +281,19 @@ describe("runAiOpsScanWorkerOnce", () => {
     expect(findings.some((finding) => finding.source === "metric.cpu")).toBe(false);
     expect(String((latestSamplesMock.mock.calls[0] as unknown as [TemplateStringsArray])[0].join(""))).toContain('DISTINCT ON ("serverId")');
     latestSamplesMock.mockResolvedValue([]);
+  });
+
+  it("flags completed jobs only beyond what each type keeps on purpose", async () => {
+    // Every type keeps its latest runs (up to 200) as its history: counting all
+    // week-old completed jobs flagged that on every scan and recommended a purge.
+    const findings = async () => {
+      await runAiOpsScanWorkerOnce("manual");
+      return (vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data as { findings: Array<{ id: string; body: string }> }).findings;
+    };
+    jobGroupByMock.mockResolvedValueOnce(Array.from({ length: 20 }, (_, i) => ({ type: `t${i}`, _count: { _all: 25 } })));
+    expect((await findings()).some((finding) => finding.id === "job.stale-accumulation")).toBe(false);
+    jobGroupByMock.mockResolvedValueOnce([{ type: "kept", _count: { _all: 200 } }, { type: "stuck", _count: { _all: 450 } }]);
+    expect((await findings()).find((finding) => finding.id === "job.stale-accumulation")?.body).toMatch(/^250 /);
   });
 
   it("calls failJob when an underlying signal collector throws", async () => {
