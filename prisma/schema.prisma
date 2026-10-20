@@ -960,9 +960,12 @@ model MetricSnapshot {
    * Denormalized from Server.teamId at write time for cheap team-scoped queries.
    */
   teamId          String?
-  cpuUsage        Float
-  memUsage        Float
-  diskUsage       Float // max disk usage percent across mounts
+  /// Null when nothing was measured: a reachable server without a metrics
+  /// channel (Windows without the agent) is online with no values. Offline
+  /// samples keep zeros. Readers average only rows that carry values.
+  cpuUsage        Float?
+  memUsage        Float?
+  diskUsage       Float? // max disk usage percent across mounts
   isOnline        Boolean  @default(true)
   createdAt       DateTime @default(now())
   /// Sampler cadence when this row was written. Null on rows written before

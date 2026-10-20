@@ -31,6 +31,8 @@ export function latestMetricInput(server: ServerHealth, checkedAt: Date, interva
   const probe = server.probeStatus
     ? { at: checkedAt, ok: server.probeStatus === "ok", latencyMs: server.probeStatus === "ok" && typeof server.latencyMs === "number" ? server.latencyMs : null }
     : null;
+  // Reachable without a metrics channel: online, nothing measured.
+  if (server.metricsUnavailable) return { serverId: server.serverId, checkedAt, online: true, intervalSeconds, probe };
   const sampledAt = server.metrics ? new Date(server.metrics.timestamp) : null;
   if (server.metrics && sampledAt && Number.isFinite(sampledAt.getTime())) {
     return {
@@ -74,11 +76,15 @@ export async function snapshotHealthOverview(
 ) {
   const intervalSeconds = Math.max(1, Math.round(options.intervalSeconds ?? HEALTH_SAMPLE_INTERVAL_MINUTES * 60));
   const checkedAt = options.checkedAt ?? new Date();
-  const base = overview.servers.flatMap((server) => {
+  const base = overview.servers.flatMap((server): Array<Omit<Prisma.MetricSnapshotCreateManyInput, "teamId">> => {
     if (!server.enabled) return [];
     const extra = { intervalSeconds, ...probeColumns(server) };
     if (server.status === "offline") {
       return [{ serverId: server.serverId, cpuUsage: 0, memUsage: 0, diskUsage: 0, isOnline: false, ...extra }];
+    }
+    // Online with nothing measured: no values, so no reader averages zeros.
+    if (server.metricsUnavailable) {
+      return [{ serverId: server.serverId, cpuUsage: null, memUsage: null, diskUsage: null, isOnline: true, ...extra }];
     }
     // SSH auth / collect failure still means "not online for metrics".
     if (server.cpu === undefined || server.mem === undefined || server.diskMax === undefined) {
@@ -149,7 +155,8 @@ export async function getMetricHistory(serverId: string, hours: number = 24): Pr
         row_number() OVER (ORDER BY "createdAt" DESC, id DESC) AS rn,
         count(*) OVER () AS total
       FROM metric_snapshots
-      WHERE "serverId" = ${serverId} AND "createdAt" >= ${since}
+      -- Rows without values (a server with no metrics channel) have nothing to chart.
+      WHERE "serverId" = ${serverId} AND "createdAt" >= ${since} AND "cpuUsage" IS NOT NULL
     ) window_rows
     WHERE (rn - 1) % GREATEST(1, CEIL(total::numeric / ${maxPoints}))::bigint = 0
     ORDER BY "createdAt" ASC

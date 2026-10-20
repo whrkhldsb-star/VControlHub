@@ -132,10 +132,14 @@ export async function GET(request: Request) {
               cpuUsage: true,
               memUsage: true,
               diskUsage: true,
+              isOnline: true,
               createdAt: true,
             },
           }),
         (metric) => {
+          // Only measured samples: an offline sample's zeros (and a server
+          // with no metrics channel) pulled the fleet's usage averages down.
+          if (!metric.isOnline || metric.cpuUsage === null || metric.memUsage === null || metric.diskUsage === null) return;
           const key = startOfUtcHour(metric.createdAt);
           const bucket = buckets.get(key) ?? {
             cpu: 0,

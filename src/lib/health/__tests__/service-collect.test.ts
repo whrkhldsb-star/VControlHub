@@ -74,6 +74,28 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		expect(result.servers[0]?.enabled).toBe(false);
 	});
 
+	it("checks a Windows server without the agent by its probe, with no collection", async () => {
+		// Collection can only fail for it: a reachable server in daily RDP use read
+		// as a warning, offline on the board and 0% uptime every day.
+		prismaMock.server.findMany.mockResolvedValueOnce([
+			{ id: "w1", name: "Windows", host: "10.0.0.9", port: 3389, enabled: true, managementMode: "DIRECT", operatingSystem: "WINDOWS" },
+		]);
+		tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 12 });
+
+		const result = await collectAllHealth();
+
+		expect(collectServerMetricsMock).not.toHaveBeenCalled();
+		expect(result.online).toBe(1);
+		expect(result.servers[0]).toMatchObject({ status: "healthy", metricsUnavailable: true, probeStatus: "ok", latencyMs: 12 });
+		expect(result.servers[0]?.error).toBeUndefined();
+
+		prismaMock.server.findMany.mockResolvedValueOnce([
+			{ id: "w1", name: "Windows", host: "10.0.0.9", port: 3389, enabled: true, managementMode: "DIRECT", operatingSystem: "WINDOWS" },
+		]);
+		tcpProbeMock.mockResolvedValueOnce({ ok: false, error: "timeout" });
+		expect((await collectAllHealth()).servers[0]).toMatchObject({ status: "offline", probeStatus: "failed" });
+	});
+
 	it("marks a server offline with 网络不可达 reason when the TCP probe fails", async () => {
 		prismaMock.server.findMany.mockResolvedValueOnce([
 			{ id: "s1", name: "Unreachable", host: "10.0.0.1", port: 22, enabled: true },

@@ -284,9 +284,9 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
     for (const m of recentMetrics) {
       // An offline sample carries no usable usage figures.
       if (!m.isOnline) continue;
-      if (m.cpuUsage > 85) highCpuCount++;
-      if (m.memUsage > 90) highMemCount++;
-      if (m.diskUsage > 85) highDiskCount++;
+      if (m.cpuUsage !== null && m.cpuUsage > 85) highCpuCount++;
+      if (m.memUsage !== null && m.memUsage > 90) highMemCount++;
+      if (m.diskUsage !== null && m.diskUsage > 85) highDiskCount++;
     }
     if (highCpuCount > 0) {
       signals.push({
@@ -420,7 +420,8 @@ function buildScan(
  * only some servers, so pressure and offline signals missed the rest.
  */
 async function latestSnapshotPerServer(since: Date) {
-  return prisma.$queryRaw<Array<{ serverId: string; cpuUsage: number; memUsage: number; diskUsage: number; isOnline: boolean }>>`
+  // Values are null when the server was online with nothing measured.
+  return prisma.$queryRaw<Array<{ serverId: string; cpuUsage: number | null; memUsage: number | null; diskUsage: number | null; isOnline: boolean }>>`
     SELECT DISTINCT ON ("serverId") "serverId", "cpuUsage", "memUsage", "diskUsage", "isOnline"
     FROM metric_snapshots
     WHERE "createdAt" >= ${since}

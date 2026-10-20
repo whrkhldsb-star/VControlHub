@@ -50,6 +50,10 @@ export type ServerHealth = {
 	probeStatus?: "ok" | "failed";
 	lastCheck: string;
 	metrics?: ServerMetrics;
+	/** Reachable, with nothing to measure: a Windows server without the agent
+	 *  has no metrics channel (collection is SSH-only, Linux-only), so the TCP
+	 *  probe is its whole check. */
+	metricsUnavailable?: boolean;
 	error?: string;
 };
 

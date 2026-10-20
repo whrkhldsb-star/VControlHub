@@ -101,6 +101,7 @@ export async function collectAllHealth(
     enabled: boolean;
     managementMode: "DIRECT" | "AGENT";
     agentLastSeenAt: Date | null;
+    operatingSystem: string;
   }> = [];
   let cursorId: string | undefined;
   for (;;) {
@@ -109,7 +110,7 @@ export async function collectAllHealth(
       // only: a deleted customer's servers are kept for its history, not
       // probed over SSH, alerted on or counted.
       where: session ? serverTeamWhere(session) : liveCustomerRowsWhere(),
-      select: { id: true, name: true, host: true, port: true, enabled: true, managementMode: true, agentLastSeenAt: true },
+      select: { id: true, name: true, host: true, port: true, enabled: true, managementMode: true, agentLastSeenAt: true, operatingSystem: true },
       orderBy: { id: "asc" },
       take: SERVER_PAGE_SIZE,
       ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
@@ -150,6 +151,24 @@ export async function collectAllHealth(
         lastCheck: new Date().toISOString(),
         probeStatus,
         error: `Network unreachable: ${probe.error ?? "unknown reason"}`,
+      };
+    }
+
+    // A Windows server without the agent has no metrics channel, so the
+    // probe is its whole check. It used to fall through to a collection that
+    // can only fail: a reachable server in daily use read as a warning here,
+    // offline on the status board and 0% uptime every day.
+    if (server.operatingSystem === "WINDOWS" && server.managementMode === "DIRECT") {
+      return {
+        serverId: server.id,
+        serverName: server.name,
+        host: server.host,
+        enabled: true,
+        status: "healthy" as const,
+        lastCheck: new Date().toISOString(),
+        latencyMs: probe.latencyMs,
+        probeStatus,
+        metricsUnavailable: true,
       };
     }
 
