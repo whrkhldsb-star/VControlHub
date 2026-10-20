@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { customerSession, routeSession } from "@/test/route-session-mock";
+import { customerSession, platformSession, routeSession } from "@/test/route-session-mock";
 
 vi.mock("@/lib/auth/api-session", async () => {
 	const { NextResponse } = await import("next/server");
@@ -58,8 +58,16 @@ describe("scoped read routes", () => {
 		expect((await shareLogs.GET(get("http://local/api/shares/s1/access-logs"), { params: Promise.resolve({ id: "s1" }) })).status).toBe(403);
 	});
 
-	it("worker health answers 503 while any worker is down, 200 when all run", async () => {
+	it("worker health is the platform's: a customer with task:read is refused", async () => {
+		// task:read is in every customer identity template; the fleet, its
+		// instances and last errors are platform internals (like /api/system-health).
 		routeSession.current = customerSession(["task:read"]);
+		expect((await workers.GET(get("http://local/api/admin/workers"))).status).toBe(403);
+		expect(mocks.getWorkerRuntimeHealth).not.toHaveBeenCalled();
+	});
+
+	it("worker health answers 503 while any worker is down, 200 when all run", async () => {
+		routeSession.current = platformSession();
 		const degraded = await workers.GET(get("http://local/api/admin/workers"));
 		expect(degraded.status).toBe(503);
 		expect(await degraded.json()).toMatchObject({ healthy: false, startedCount: 1, totalCount: 2 });
