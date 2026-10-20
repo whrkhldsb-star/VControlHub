@@ -299,7 +299,7 @@ Cron 示例：
 - `${SERVICE_PREFIX:-vcontrolhub}-ssh-ws.service`：SSH WebSocket 辅助服务，默认监听 `127.0.0.1:3001`
 - `${SERVICE_PREFIX:-vcontrolhub}-aria2.service`：磁力/BT 中继下载守护进程（`deploy/aria2-daemon.sh` 拉起 `aria2c`，只监听 `127.0.0.1:6800`）。该 unit 用 `IPAddressDeny` 禁止访问私有网段、CGNAT、链路本地与云元数据地址，只放行回环供应用 RPC 调用；安装器与 `deploy.sh` 会写入 `ARIA2_MANAGED_EXTERNALLY=1`，应用因此不再自行拉起无限制的 aria2。没有 systemd 或未安装 `aria2c` 的主机保持旧的自拉起行为。该守护进程的 BitTorrent 监听（peer 与 DHT）固定在 `6881–6889/tcp+udp`，可在防火墙中按需放行或封锁；LAN 对等发现（LPD）已关闭。Docker Compose 拓扑不带 `aria2c`，磁力/BT 中继在该拓扑下不可用（http/https 下载不受影响，由目标 VPS 自行下载）。
 - `caddy`：公网 HTTPS 反向代理
-- PostgreSQL：通过 `DATABASE_URL` 连接，可以是本机或外部数据库
+- PostgreSQL 14 及以上：通过 `DATABASE_URL` 连接，可以是本机或外部数据库（公开看板的历史图表用到 PostgreSQL 14 的 `date_bin`；Debian 11 自带的 13、Ubuntu 20.04 自带的 12 都不够，需要改装官方源的新版本）
 
 ## 回滚建议
 

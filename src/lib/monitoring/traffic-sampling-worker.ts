@@ -16,6 +16,7 @@
  */
 import { readFileSync } from "node:fs";
 import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
+import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
@@ -131,13 +132,20 @@ async function sampleLocalPrimary(): Promise<{
   return { sampled: true, iface: summary.iface };
 }
 
+/**
+ * Snapshots older than this are pruned: the retention setting, but never this
+ * month's samples. The VPS status page sums the month's traffic from them
+ * (sumTrafficSince from the start of the month); with the 14-day default the
+ * month's first days were gone from the 15th on and the monthly totals shrank.
+ */
+export function trafficSnapshotPruneCutoff(now: Date, retentionDays: number): Date {
+  return new Date(Math.min(now.getTime() - retentionDays * 24 * 60 * 60 * 1000, startOfMonthInAppTimeZone(now).getTime()));
+}
+
 async function pruneOldTrafficSnapshots() {
   const retentionDays = await getRuntimeSettingNumber("retention.trafficSnapshotsDays").catch(() => TRAFFIC_SNAPSHOT_RETENTION_DAYS);
-  const olderThan = new Date(
-    Date.now() - retentionDays * 24 * 60 * 60 * 1000,
-  );
   return prisma.trafficSnapshot.deleteMany({
-    where: { sampledAt: { lt: olderThan } },
+    where: { sampledAt: { lt: trafficSnapshotPruneCutoff(new Date(), retentionDays) } },
   });
 }
 

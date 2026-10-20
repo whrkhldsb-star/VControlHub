@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
   deferReady: null as null | (() => void),
   shellOptions: [] as unknown[],
   client: undefined as unknown as import("node:events").EventEmitter,
+  audit: vi.fn(async () => undefined),
 }));
 vi.mock("http", async (original) => {
   const http = await original<typeof import("node:http")>();
@@ -46,7 +47,8 @@ vi.mock("ssh2", async () => {
     end() {}
   } };
 });
-vi.mock("@/lib/db", () => ({ prisma: { server: { findFirst: state.server }, $disconnect: vi.fn() } }));
+vi.mock("@/lib/db", () => ({ prisma: { server: { findFirst: state.server, findUnique: async () => ({ teamId: "audit-team" }) }, $disconnect: vi.fn() } }));
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: state.audit }));
 vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "audit_session", verifySessionToken: state.verify }));
 vi.mock("@/lib/auth/ssh-ws-token", () => ({ verifySshWsHandshakeToken: () => ({ userId: state.handshakeUserId }) }));
 vi.mock("@/lib/auth/team-scope", () => ({ serverTeamWhere: () => ({ teamId: "audit-team" }) }));
@@ -58,7 +60,7 @@ vi.mock("@/lib/runtime-settings/service", () => ({ getSshTerminalRuntimeConfig: 
 const initialProcessListeners = new Map<string, ReturnType<typeof process.listeners>>();
 beforeEach(() => {
   for (const event of ["SIGINT", "SIGTERM", "uncaughtException", "unhandledRejection"]) initialProcessListeners.set(event, process.listeners(event));
-  vi.resetModules(); vi.useFakeTimers(); state.clients.clear(); state.verify.mockReset(); state.server.mockReset();
+  vi.resetModules(); vi.useFakeTimers(); state.clients.clear(); state.verify.mockReset(); state.server.mockReset(); state.audit.mockClear();
   state.handshakeUserId = "audit-user";
   state.deferReady = null;
   state.shellOptions = [];
@@ -160,6 +162,26 @@ it("opens the PTY at the size the browser sent before SSH authentication finishe
   socket.emit("message", Buffer.from(JSON.stringify({ type: "resize", rows: 30, cols: 100 })), false);
   await vi.advanceTimersByTimeAsync(0);
   expect((state.stream as unknown as { setWindow: ReturnType<typeof vi.fn> }).setWindow).toHaveBeenLastCalledWith(30, 100, 0, 0);
+});
+
+it("audits a terminal session from open to close", async () => {
+  // Interactive shells left no trace in the audit log; RDP sessions did.
+  const socket = await connect();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(state.audit).toHaveBeenCalledWith("audit-user", "server.ssh.connected", { serverId: "audit-server" }, undefined, "audit-team");
+  socket.emit("message", Buffer.from(JSON.stringify({ type: "end" })), false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(state.audit).toHaveBeenCalledWith("audit-user", "server.ssh.closed", { serverId: "audit-server" }, undefined, "audit-team");
+  expect(state.audit).toHaveBeenCalledTimes(2);
+});
+
+it("audits a terminal that could not connect, once, with why", async () => {
+  state.deferReady = () => undefined;
+  await connect(false);
+  state.client.emit("error", new Error("All configured authentication methods failed"));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(state.audit).toHaveBeenCalledTimes(1);
+  expect(state.audit).toHaveBeenCalledWith("audit-user", "server.ssh.failed", { serverId: "audit-server", message: expect.any(String) }, undefined, "audit-team");
 });
 
 it("rejects malformed resize input before writing to SSH", async () => {

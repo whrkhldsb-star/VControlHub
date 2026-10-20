@@ -35,6 +35,22 @@ describe("/api/dashboard/analytics", () => {
     mocks.prisma.imageUpload.findMany.mockResolvedValue([]);
   });
 
+  it("averages server usage over measured samples only", async () => {
+    // An offline sample's zeros (and a server with no metrics channel) pulled
+    // the fleet's hourly usage averages down.
+    mocks.sessionHasPermission.mockImplementation((_session, permission: string) => permission === "server:read");
+    const at = new Date(Date.now() - 60 * 60 * 1000);
+    mocks.prisma.metricSnapshot.findMany.mockResolvedValueOnce([
+      { id: "m1", cpuUsage: 60, memUsage: 40, diskUsage: 20, isOnline: true, createdAt: at },
+      { id: "m2", cpuUsage: 0, memUsage: 0, diskUsage: 0, isOnline: false, createdAt: at },
+      { id: "m3", cpuUsage: null, memUsage: null, diskUsage: null, isOnline: true, createdAt: at },
+    ]);
+
+    const body = await (await route.GET(new Request("http://local/api/dashboard/analytics?type=servers"))).json();
+
+    expect(body.servers).toEqual([expect.objectContaining({ cpu: 60, memory: 40, disk: 20 })]);
+  });
+
   it("rejects audit analytics when the session lacks audit:read", async () => {
     const response = await route.GET(new Request("http://local/api/dashboard/analytics?type=audit"));
 

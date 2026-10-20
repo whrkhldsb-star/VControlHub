@@ -13,6 +13,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { Client } from "ssh2";
 import { prisma } from "@/lib/db";
+import { auditUserAction } from "@/lib/audit/service";
 import { config } from "@/lib/config/env";
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 import { createVerifiedSshConfig } from "@/lib/ssh/client";
@@ -502,6 +503,8 @@ type ShellSession = {
 	idleTimer: NodeJS.Timeout | undefined;
 	idleTimeoutMs: number;
 	ended: boolean;
+	/** A failure before the shell opened was already audited, with its reason. */
+	failureAudited: boolean;
 };
 
 /** Shells a reconnect may continue (keep-alive, not ended), attached or not. */
@@ -523,9 +526,27 @@ function setShellPaused(session: ShellSession, paused: boolean) {
 	else session.stream?.resume();
 }
 
+/**
+ * Terminal sessions in the audit log, as RDP sessions are: who opened a shell
+ * on which server, and when it ended or why it could not open. Interactive
+ * shells left no trace there at all.
+ */
+async function auditTerminal(session: ShellSession, action: "server.ssh.connected" | "server.ssh.closed" | "server.ssh.failed", detail: Record<string, string> = {}) {
+	const server = await prisma.server.findUnique({ where: { id: session.serverId }, select: { teamId: true } });
+	await auditUserAction(session.userId, action, { serverId: session.serverId, ...detail }, undefined, server?.teamId ?? null);
+}
+
+function auditTerminalFailure(session: ShellSession, message: string) {
+	if (session.stream || session.ended || session.failureAudited) return;
+	session.failureAudited = true;
+	void auditTerminal(session, "server.ssh.failed", { message }).catch(() => undefined);
+}
+
 /** Close the shell and its SSH connection; the attached browser, if any, learns why. */
 function endShellSession(session: ShellSession, notice?: string, reason: ShellEndReason = "lost") {
 	if (session.ended) return;
+	if (session.stream) void auditTerminal(session, "server.ssh.closed").catch(() => undefined);
+	else if (!session.failureAudited) void auditTerminal(session, "server.ssh.failed", notice ? { message: notice } : {}).catch(() => undefined);
 	session.ended = true;
 	if (session.detachTimer) clearTimeout(session.detachTimer);
 	if (session.idleTimer) clearTimeout(session.idleTimer);
@@ -806,6 +827,7 @@ wss.on("connection", async (ws, req) => {
 		idleTimer: undefined,
 		idleTimeoutMs: terminalRuntimeConfig.sshIdleTimeoutMs ?? 0,
 		ended: false,
+		failureAudited: false,
 	};
 	const resumed = resumedShell !== null;
 
@@ -948,6 +970,7 @@ wss.on("connection", async (ws, req) => {
 			shell.sshClient.shell({ term: "xterm-256color", ...(shell.window ?? {}) }, (err, stream) => {
 				if (err) {
 					shell.attachment?.fail(t("backend.sshTerminal.shellCreationFailed", { message: err.message }));
+					auditTerminalFailure(shell, err.message);
 					endShellSession(shell);
 					return;
 				}
@@ -956,6 +979,7 @@ wss.on("connection", async (ws, req) => {
 					return;
 				}
 				shell.stream = stream;
+				void auditTerminal(shell, "server.ssh.connected").catch(() => undefined);
 				// A resize may have arrived while the shell request was in flight.
 				if (shell.window) stream.setWindow(shell.window.rows, shell.window.cols, 0, 0);
 				if (shell.attachment?.ws === ws) announceShell(shell.outputEnd, false);
@@ -980,6 +1004,7 @@ wss.on("connection", async (ws, req) => {
 		});
 		shell.sshClient.on("error", (err) => {
 			shell.attachment?.fail(describeTerminalSshError(err), { fatal: isPermanentTerminalSshError(err) });
+			auditTerminalFailure(shell, describeTerminalSshError(err));
 			endShellSession(shell);
 		});
 		// The SSH connection itself went away (server restart, network): the

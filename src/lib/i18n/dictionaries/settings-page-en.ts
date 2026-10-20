@@ -422,7 +422,7 @@ export const en: Record<string, string> = {
 	"settingsClient.field.retention.healthSamplesDays.label": "Metric sample retention (days)",
 	"settingsClient.field.retention.healthSamplesDays.helper": "Days of node metric history to keep (1–365); bounds how far charts look back.",
 	"settingsClient.field.retention.trafficSnapshotsDays.label": "Traffic snapshot retention (days)",
-	"settingsClient.field.retention.trafficSnapshotsDays.helper": "Days of traffic sampling snapshots to keep (1–365).",
+	"settingsClient.field.retention.trafficSnapshotsDays.helper": "Days of traffic sampling snapshots to keep (1–365). The current month's snapshots are always kept for the monthly traffic totals.",
 	"settingsClient.field.retention.terminalJobsDays.label": "Failed/cancelled job retention (days)",
 	"settingsClient.field.retention.terminalJobsDays.helper": "Days to keep records of failed or cancelled background jobs (1–365).",
 	"settingsClient.field.ai.knowledgeMaxResults.label": "Knowledge excerpts per answer",

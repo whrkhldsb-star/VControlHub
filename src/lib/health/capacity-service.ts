@@ -116,6 +116,8 @@ export async function getCapacityForecast(
       WHERE "serverId" IN (${Prisma.join(chunk)})
         AND "createdAt" >= ${since}
         AND "isOnline" = true
+        -- Online without values (no metrics channel) is not a 0% reading.
+        AND "cpuUsage" IS NOT NULL
       GROUP BY "serverId", floor(extract(epoch from "createdAt") / ${bucketSeconds})
       ORDER BY "serverId", t
     `);

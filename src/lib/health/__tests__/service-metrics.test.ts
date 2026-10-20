@@ -56,6 +56,31 @@ describe("snapshotHealthOverview", () => {
     });
   });
 
+  it("records a reachable host with no metrics channel as online, with no values", async () => {
+    // It was recorded offline with zeros: 0% uptime every day for a Windows
+    // server in use, and zeros in every average that read the samples.
+    await snapshotHealthOverview(overview([
+      {
+        serverId: "w1",
+        serverName: "Windows",
+        host: "10.0.0.9",
+        enabled: true,
+        status: "healthy",
+        probeStatus: "ok",
+        latencyMs: 12,
+        lastCheck: new Date().toISOString(),
+        metricsUnavailable: true,
+      },
+    ]));
+    expect(createMany).toHaveBeenCalledWith({
+      data: [{ serverId: "w1", cpuUsage: null, memUsage: null, diskUsage: null, isOnline: true, intervalSeconds: 300, probeStatus: "ok", probeLatencyMs: 12, teamId: null }],
+    });
+    expect(writeLatestMetrics).toHaveBeenCalledWith([expect.objectContaining({ serverId: "w1", online: true })]);
+    const latest = writeLatestMetrics.mock.calls[0]![0][0];
+    expect(latest.metrics).toBeUndefined();
+    expect(latest.offlineReason).toBeUndefined();
+  });
+
   it("records SSH-auth warning hosts as isOnline=false instead of omitting them", async () => {
     await snapshotHealthOverview(overview([
       {

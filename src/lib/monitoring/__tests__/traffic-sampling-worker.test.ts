@@ -116,6 +116,32 @@ describe("traffic sampling worker", () => {
     mocks.pruneCompletedJobsByType.mockResolvedValue({ count: 0 });
   });
 
+  it("keeps this month's samples whatever the retention, for the monthly totals", async () => {
+    // With the 14-day default the month's first days were pruned from the
+    // 15th on, so the VPS status page's monthly traffic shrank.
+    const { trafficSnapshotPruneCutoff } = await import("../traffic-sampling-worker");
+    const { startOfMonthInAppTimeZone } = await import("@/lib/datetime/time-zone");
+    const late = new Date("2026-10-20T09:00:00Z");
+    expect(trafficSnapshotPruneCutoff(late, 14)).toEqual(startOfMonthInAppTimeZone(late));
+    expect(trafficSnapshotPruneCutoff(late, 60)).toEqual(new Date("2026-08-21T09:00:00Z"));
+    const early = new Date("2026-10-05T09:00:00Z");
+    expect(trafficSnapshotPruneCutoff(early, 14)).toEqual(new Date("2026-09-21T09:00:00Z"));
+  });
+
+  it("prunes nothing from this month on the 20th, with the default retention", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-20T09:00:00Z"));
+    try {
+      expect(await runTrafficSamplingWorkerOnce("test")).toBe(true);
+      const { startOfMonthInAppTimeZone } = await import("@/lib/datetime/time-zone");
+      expect(mocks.trafficSnapshotDeleteMany).toHaveBeenCalledWith({
+        where: { sampledAt: { lt: startOfMonthInAppTimeZone(new Date("2026-10-20T09:00:00Z")) } },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not enqueue a duplicate pending/running sample", async () => {
     mocks.jobFindFirst.mockResolvedValue({ id: "active" });
     expect(await enqueueTrafficSampleIfIdle("interval")).toBe(false);
