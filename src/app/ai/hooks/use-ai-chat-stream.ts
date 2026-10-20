@@ -100,8 +100,12 @@ export function useAiChatStream({
     }
     setStreaming(false);
     if (activeConvId) {
-      csrfFetch(`/api/ai/conversations/${activeConvId}`)
+      const convId = activeConvId;
+      csrfFetch(`/api/ai/conversations/${convId}`)
         .then((data) => {
+          // The user may have opened another chat while this was in flight:
+          // its transcript would then replace that chat's messages.
+          if (convId !== activeConvIdRef.current) return;
           if (data.conversation?.messages)
             setMessages(data.conversation.messages);
         })
@@ -111,7 +115,9 @@ export function useAiChatStream({
 
   const refreshActiveMessages = useCallback(async () => {
     if (!activeConvId) return;
-    const data = await csrfFetch(`/api/ai/conversations/${activeConvId}`);
+    const convId = activeConvId;
+    const data = await csrfFetch(`/api/ai/conversations/${convId}`);
+    if (convId !== activeConvIdRef.current) return;
     if (data.conversation?.messages) setMessages(data.conversation.messages);
   }, [activeConvId, setMessages]);
 
@@ -348,7 +354,9 @@ export function useAiChatStream({
             const data = await csrfFetch(
               `/api/ai/conversations/${convIdAtSend}`,
             );
-            if (data.conversation?.messages)
+            // Checked again after the read: a switch during it must not
+            // put this chat's transcript under the one now open.
+            if (convIdAtSend === activeConvIdRef.current && data.conversation?.messages)
               setMessages(data.conversation.messages);
           } catch {
             // Keep the local transcript, but tell the user the server copy may lag.
