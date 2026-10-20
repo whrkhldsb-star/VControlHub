@@ -24,6 +24,8 @@ vi.mock("@/lib/db", () => ({
       update: mocks.shareUpdate,
     },
     shareAccessLog: { create: mocks.accessLog },
+    // The share's customer is live.
+    team: { count: async () => 0 },
   },
 }));
 vi.mock("@/lib/http/api-guard", () => ({
