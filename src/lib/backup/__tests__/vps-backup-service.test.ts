@@ -359,7 +359,7 @@ describe("retryPendingVpsOffsiteUploads", () => {
 
     const result = await retryPendingVpsOffsiteUploads();
 
-    expect(result).toEqual({ observed: 101, uploaded: 0, failed: 0, skipped: 101 });
+    expect(result).toEqual({ observed: 101, uploaded: 0, failed: 0, skipped: 101, errors: [] });
     expect(mocks.findMany).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ cursor: { id: "vps-099" }, skip: 1 }),

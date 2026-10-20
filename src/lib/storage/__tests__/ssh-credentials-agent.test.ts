@@ -14,7 +14,13 @@ describe("Agent-only storage credentials", () => {
         connectionType: "SSH_KEY",
         password: null,
         sshKey: null,
+        operatingSystem: "LINUX",
+        hostKeySha256: null,
       },
+      host: null,
+      port: null,
+      username: null,
+      hostKeySha256: null,
     })).toMatchObject({ agentServerId: "srv_agent", host: "203.0.113.10" });
   });
 
@@ -27,7 +33,15 @@ describe("Agent-only storage credentials", () => {
         username: "root",
         connectionType: "PASSWORD",
         password: null,
+        operatingSystem: "LINUX",
+        port: 22,
+        sshKey: null,
+        hostKeySha256: null,
       },
+      host: null,
+      port: null,
+      username: null,
+      hostKeySha256: null,
     })).toThrow();
   });
 
@@ -44,13 +58,17 @@ describe("Agent-only storage credentials", () => {
         username: "RdpAdmin",
         connectionType: "PASSWORD",
         password: "sftp-secret",
+        sshKey: null,
+        hostKeySha256: null,
       },
+      host: null,
+      hostKeySha256: null,
     });
     expect(resolved).toMatchObject({ port: 22, username: "storage-user", password: "sftp-secret" });
     expect(resolved.agentServerId).toBeUndefined();
   });
 
   it("defaults a Windows bound storage node to SSH port 22 rather than its RDP port", () => {
-    expect(resolveStorageSshPort({ server: { operatingSystem: "WINDOWS", port: 3389 } })).toBe(22);
+    expect(resolveStorageSshPort({ server: { operatingSystem: "WINDOWS", port: 3389 }, port: null })).toBe(22);
   });
 });

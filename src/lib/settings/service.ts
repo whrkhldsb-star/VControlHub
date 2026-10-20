@@ -98,8 +98,11 @@ export async function getAllSettings(): Promise<Record<string, string>> {
 	return result;
 }
 
-/** An audit entry is written right after its settings write. */
-const AUDIT_MATCH_TOLERANCE_MS = 5_000;
+/**
+ * For rows written before the updatedBy column: an audit entry names who made
+ * the stored change only if it was written right after it (never before it).
+ */
+const AUDIT_MATCH_WINDOW_MS = 60_000;
 
 export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<string, SettingUpdateMetadata>> {
 	const uniqueKeys = [...new Set(keys)];
@@ -112,7 +115,7 @@ export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<s
 	const [settings, auditLogs] = await Promise.all([
 		prisma.setting.findMany({
 			where: { key: { in: uniqueKeys } },
-			select: { key: true, updatedAt: true },
+			select: { key: true, updatedAt: true, updatedBy: true },
 			take: 500, // P2: uniqueKeys 已外部限,500 作 hard 上界
 		}),
 		prisma.auditLog.findMany({
@@ -132,22 +135,49 @@ export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<s
 		result[setting.key]!.updatedAt = setting.updatedAt;
 	}
 
-	// The setting row's time is authoritative. An audit entry names who made
-	// that change only if it was written with it (audit is best effort): when
-	// the latest change has no audit entry, an older one must not be credited.
-	const rowTime = new Map(settings.map((setting) => [setting.key, setting.updatedAt.getTime()]));
-	const attributed = new Set<string>();
+	// The row names its writer. Only rows written before that column existed
+	// fall back to the audit log, and only to an entry written right after
+	// the stored change: an older entry belongs to an earlier change.
+	const writerIds = [...new Set(settings.map((setting) => setting.updatedBy).filter((id): id is string => Boolean(id)))];
+	const writers = writerIds.length > 0
+		? await prisma.user.findMany({
+			where: { id: { in: writerIds } },
+			select: { id: true, username: true, displayName: true },
+		})
+		: [];
+	const writerById = new Map(writers.map((user) => [user.id, user]));
+	const needsAudit = new Map<string, number>();
+	for (const setting of settings) {
+		if (setting.updatedBy) {
+			const writer = writerById.get(setting.updatedBy);
+			result[setting.key] = {
+				updatedAt: setting.updatedAt,
+				actorId: setting.updatedBy,
+				actorName: writer?.displayName || writer?.username || setting.updatedBy,
+			};
+		} else {
+			needsAudit.set(setting.key, setting.updatedAt.getTime());
+		}
+	}
+	const settled = new Set<string>();
 	for (const log of auditLogs) {
 		for (const key of auditKeys(log.detail)) {
-			if (!result[key] || attributed.has(key)) continue;
-			attributed.add(key);
-			const stored = rowTime.get(key);
-			if (stored !== undefined && log.createdAt.getTime() < stored - AUDIT_MATCH_TOLERANCE_MS) continue;
-			result[key] = {
-				updatedAt: stored !== undefined ? new Date(stored) : log.createdAt,
-				actorId: log.actorId,
-				actorName: log.actor?.displayName || log.actor?.username || log.actorId || "Unknown user",
-			};
+			if (!result[key] || settled.has(key)) continue;
+			const stored = needsAudit.get(key);
+			if (stored === undefined) {
+				// No row (never stored, or written elsewhere): the newest audit entry tells.
+				if (!settings.some((setting) => setting.key === key)) {
+					settled.add(key);
+					result[key] = { updatedAt: log.createdAt, actorId: log.actorId, actorName: log.actor?.displayName || log.actor?.username || log.actorId || "Unknown user" };
+				}
+				continue;
+			}
+			const written = log.createdAt.getTime();
+			// Entries newer than the window belong to no stored change; keep looking.
+			if (written > stored + AUDIT_MATCH_WINDOW_MS) continue;
+			settled.add(key);
+			if (written < stored) continue; // older than the stored change: not its author
+			result[key] = { updatedAt: new Date(stored), actorId: log.actorId, actorName: log.actor?.displayName || log.actor?.username || log.actorId || "Unknown user" };
 		}
 	}
 
@@ -168,13 +198,14 @@ export async function getAllSettingsMasked(): Promise<Record<string, string>> {
 	return masked;
 }
 
-export async function setSetting(key: string, value: string): Promise<void> {
+/** `actorId`: the user making the change (null for system writes). */
+export async function setSetting(key: string, value: string, actorId: string | null = null): Promise<void> {
 	const normalizedValue = isRuntimeSettingKey(key) ? normalizeRuntimeSettingValue(key, value) : value;
 	const storedValue = isSensitiveKey(key) ? encrypt(normalizedValue) : normalizedValue;
 	await prisma.setting.upsert({
 		where: { key },
-		update: { value: storedValue },
-		create: { key, value: storedValue },
+		update: { value: storedValue, updatedBy: actorId },
+		create: { key, value: storedValue, updatedBy: actorId },
 	});
 	rememberSaved([{ key, value: normalizedValue }]);
 }
@@ -189,7 +220,9 @@ function rememberSaved(entries: Array<{ key: string; value: string }>) {
 }
 
 export async function setManySettings(
-	entries: Array<{ key: string; value: string }>
+	entries: Array<{ key: string; value: string }>,
+	/** The user making the change (null for system writes). */
+	actorId: string | null = null,
 ): Promise<void> {
 	await prisma.$transaction(
 		entries.map(({ key, value }) => {
@@ -197,8 +230,8 @@ export async function setManySettings(
 			const storedValue = isSensitiveKey(key) ? encrypt(normalizedValue) : normalizedValue;
 			return prisma.setting.upsert({
 				where: { key },
-				update: { value: storedValue },
-				create: { key, value: storedValue },
+				update: { value: storedValue, updatedBy: actorId },
+				create: { key, value: storedValue, updatedBy: actorId },
 			});
 		})
 	);

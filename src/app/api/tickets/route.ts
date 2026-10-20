@@ -4,6 +4,8 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
 import { listTicketsAdvanced, getTicketKanban } from "@/lib/ticket/sla";
+import { listTicketBoard, listTicketPage, type TicketQuery, type TicketSlaFilter } from "@/lib/ticket/query";
+import { toWorkspaceBoard, toWorkspaceTicket } from "@/lib/ticket/workspace-dto";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -45,6 +47,8 @@ function normalizeStatus(status: string) {
 }
 export const dynamic = "force-dynamic";
 
+const SLA_FILTERS = new Set(["ok", "warning", "breached", "none"]);
+
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "ticket:read", rateLimit: GENERAL_READ_LIMIT }, async ({ session }) => {
     const url = new URL(request.url);
@@ -55,6 +59,36 @@ export async function GET(request: Request) {
     const assigneeId = url.searchParams.get("assigneeId") ?? undefined;
     const slaStatus = url.searchParams.get("slaStatus") ?? undefined;
     const search = url.searchParams.get("search") ?? undefined;
+
+    // The workspace: filtered in the query, one page (or one board) at a time,
+    // with the total each belongs to.
+    const listScope = {
+      userId: session.userId,
+      includeAll: Boolean(sessionHasPermission(session, "ticket:manage")),
+      session,
+    };
+    const workspaceQuery: TicketQuery = {
+      status: status?.toUpperCase(),
+      priority: priority?.toUpperCase(),
+      category,
+      assigneeId,
+      slaStatus: SLA_FILTERS.has(slaStatus ?? "") ? (slaStatus as TicketSlaFilter) : undefined,
+      search,
+    };
+    if (view === "board") {
+      return NextResponse.json({ columns: toWorkspaceBoard(await listTicketBoard({ ...listScope, query: workspaceQuery })) });
+    }
+    if (url.searchParams.has("page")) {
+      const page = Number.parseInt(url.searchParams.get("page") ?? "1", 10);
+      const pageSize = Number.parseInt(url.searchParams.get("pageSize") ?? "", 10);
+      const result = await listTicketPage({
+        ...listScope,
+        query: workspaceQuery,
+        page: Number.isFinite(page) ? page : 1,
+        pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+      });
+      return NextResponse.json({ ...result, tickets: result.tickets.map(toWorkspaceTicket) });
+    }
 
     // FEAT-P1-1: Kanban view
     if (view === "kanban") {

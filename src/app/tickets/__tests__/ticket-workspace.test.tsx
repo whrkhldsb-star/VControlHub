@@ -1,9 +1,13 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 import { I18nProvider } from "@/lib/i18n/provider";
 import { TicketWorkspace, type TicketWorkspaceTicket } from "../ticket-workspace";
+
+vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: vi.fn() }));
 
 const tickets: TicketWorkspaceTicket[] = [
   {
@@ -34,37 +38,121 @@ const tickets: TicketWorkspaceTicket[] = [
   },
 ];
 
+/** The tickets API as the workspace uses it: filters and paging happen on the server. */
+function serve(all: TicketWorkspaceTicket[]) {
+  vi.mocked(csrfFetch).mockImplementation(async (input: unknown) => {
+    const url = new URL(String(input), "https://local");
+    const matches = all.filter((ticket) =>
+      (!url.searchParams.get("status") || ticket.status === url.searchParams.get("status"))
+      && (!url.searchParams.get("priority") || ticket.priority === url.searchParams.get("priority"))
+      && (!url.searchParams.get("search") || ticket.title.toLowerCase().includes(url.searchParams.get("search")!.toLowerCase())));
+    if (url.searchParams.get("view") === "board") {
+      const column = (status: string) => {
+        const rows = matches.filter((ticket) => ticket.status === status);
+        return { tickets: rows, total: rows.length };
+      };
+      return { columns: { OPEN: column("OPEN"), IN_PROGRESS: column("IN_PROGRESS"), RESOLVED: column("RESOLVED"), CLOSED: column("CLOSED") } } as never;
+    }
+    const page = Number(url.searchParams.get("page") ?? "1");
+    return { tickets: matches.slice((page - 1) * 30, page * 30), total: matches.length, page } as never;
+  });
+}
+
+const firstPage = (rows: TicketWorkspaceTicket[]) => ({ tickets: rows.slice(0, 30), total: rows.length, page: 1 });
+
 describe("TicketWorkspace", () => {
-  it("filters tickets by search, status, priority, category and SLA", async () => {
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/tickets");
+    vi.mocked(csrfFetch).mockReset();
+    serve(tickets);
+  });
+
+  it("asks the server for each filter and shows what it returns", async () => {
     const user = userEvent.setup();
     render(
       <I18nProvider initialLocale="en">
-        <TicketWorkspace initialTickets={tickets} canManage now="2026-01-02T00:00:00.000Z" />
+        <TicketWorkspace initialPage={firstPage(tickets)} initialBoard={null} canManage now="2026-01-02T00:00:00.000Z" />
       </I18nProvider>,
     );
 
+    // The server rendered the first page: nothing is fetched again.
     expect(screen.getByText("Database outage")).toBeInTheDocument();
     expect(screen.getByText("Add staging VPS")).toBeInTheDocument();
+    expect(csrfFetch).not.toHaveBeenCalled();
 
     await user.selectOptions(screen.getByLabelText("Status"), "OPEN");
+    await waitFor(() => expect(screen.queryByText("Add staging VPS")).not.toBeInTheDocument());
     expect(screen.getByText("Database outage")).toBeInTheDocument();
-    expect(screen.queryByText("Add staging VPS")).not.toBeInTheDocument();
+    expect(String(vi.mocked(csrfFetch).mock.calls.at(-1)![0])).toContain("status=OPEN");
 
-    await user.selectOptions(screen.getByLabelText("Priority"), "URGENT");
-    await user.selectOptions(screen.getByLabelText("Category"), "incident");
-    await user.selectOptions(screen.getByLabelText("SLA status"), "breached");
     await user.type(screen.getByLabelText("Search title or description"), "database");
-    expect(screen.getByText("Database outage")).toBeInTheDocument();
+    await waitFor(() => expect(String(vi.mocked(csrfFetch).mock.calls.at(-1)![0])).toContain("search=database"));
 
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(screen.getByText("Add staging VPS")).toBeInTheDocument();
+    expect(await screen.findByText("Add staging VPS")).toBeInTheDocument();
+  });
+
+  it("shows a ticket created meanwhile once the page renders again (router.refresh)", async () => {
+    // The first page lives in state: a new server render used to leave it as
+    // it was, so a ticket just created did not appear until a filter changed.
+    const view = (rows: TicketWorkspaceTicket[]) => (
+      <I18nProvider initialLocale="en">
+        <TicketWorkspace initialPage={firstPage(rows)} initialBoard={null} canManage now="2026-01-02T00:00:00.000Z" />
+      </I18nProvider>
+    );
+    const { rerender } = render(view(tickets));
+    const created = { ...tickets[0]!, id: "t3", title: "Printer on fire", updatedAt: "2026-01-01T02:00:00.000Z" };
+    serve([created, ...tickets]);
+
+    rerender(view([created, ...tickets]));
+
+    expect(await screen.findByText("Printer on fire")).toBeInTheDocument();
+  });
+
+  it("reaches tickets beyond any loaded window: paging and totals come from the server", async () => {
+    // 75 open tickets; the list used to filter what one load had brought.
+    const many = Array.from({ length: 75 }, (_, i) => ({ ...tickets[0]!, id: `open-${i}`, title: `Open ticket ${i}` }));
+    serve(many);
+    const user = userEvent.setup();
+    render(
+      <I18nProvider initialLocale="en">
+        <TicketWorkspace initialPage={firstPage(many)} initialBoard={null} canManage now="2026-01-02T00:00:00.000Z" />
+      </I18nProvider>,
+    );
+    expect(screen.getByText("Tickets (75)")).toBeInTheDocument();
+    const next = () => screen.getByRole("button", { name: "Next" });
+    await user.click(next());
+    expect(await screen.findByText("Open ticket 59")).toBeInTheDocument();
+    await user.click(next());
+    expect(await screen.findByText("Open ticket 74")).toBeInTheDocument();
+    expect(String(vi.mocked(csrfFetch).mock.calls.at(-1)![0])).toContain("page=3");
+  });
+
+  it("shows only the newest request's answer", async () => {
+    // The status filter answers after the priority one that followed it.
+    const answers: Array<(value: unknown) => void> = [];
+    vi.mocked(csrfFetch).mockImplementation(() => new Promise((resolve) => { answers.push(resolve); }) as never);
+    const user = userEvent.setup();
+    render(
+      <I18nProvider initialLocale="en">
+        <TicketWorkspace initialPage={firstPage(tickets)} initialBoard={null} canManage now="2026-01-02T00:00:00.000Z" />
+      </I18nProvider>,
+    );
+    await user.selectOptions(screen.getByLabelText("Status"), "IN_PROGRESS");
+    await waitFor(() => expect(answers).toHaveLength(1));
+    await user.selectOptions(screen.getByLabelText("Priority"), "URGENT");
+    await waitFor(() => expect(answers).toHaveLength(2));
+    await act(async () => answers[1]!({ tickets: [], total: 0, page: 1 }));
+    await act(async () => answers[0]!({ tickets: [tickets[1]], total: 1, page: 1 }));
+    expect(screen.queryByText("Add staging VPS")).not.toBeInTheDocument();
+    expect(screen.getByText("Tickets (0)")).toBeInTheDocument();
   });
 
   it("switches between list and board and renders SLA due information", async () => {
     const user = userEvent.setup();
     render(
       <I18nProvider initialLocale="en">
-        <TicketWorkspace initialTickets={tickets} canManage={false} now="2026-01-02T00:00:00.000Z" />
+        <TicketWorkspace initialPage={firstPage(tickets)} initialBoard={null} canManage={false} now="2026-01-02T00:00:00.000Z" />
       </I18nProvider>,
     );
 
@@ -72,9 +160,10 @@ describe("TicketWorkspace", () => {
     expect(screen.getAllByText(/SLA due:/).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "Board" }));
-    const openColumn = screen.getByTestId("ticket-column-OPEN");
+    const openColumn = await screen.findByTestId("ticket-column-OPEN");
     const progressColumn = screen.getByTestId("ticket-column-IN_PROGRESS");
     expect(within(openColumn).getByText("Database outage")).toBeInTheDocument();
     expect(within(progressColumn).getByText("Add staging VPS")).toBeInTheDocument();
+    expect(String(vi.mocked(csrfFetch).mock.calls.at(-1)![0])).toContain("view=board");
   });
 });

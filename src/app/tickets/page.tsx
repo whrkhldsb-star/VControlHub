@@ -1,9 +1,11 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { countTickets, listTickets } from "@/lib/ticket/service";
+import { countTickets } from "@/lib/ticket/service";
+import { listTicketBoard, listTicketPage, type TicketSlaFilter } from "@/lib/ticket/query";
 import { PageShell, PageHeader, StatCard, StatGrid } from "@/components/page-shell";
 import { CreateTicketForm } from "./create-ticket-form";
-import { TicketWorkspace, type TicketWorkspaceTicket } from "./ticket-workspace";
+import { TicketWorkspace } from "./ticket-workspace";
+import { toWorkspaceBoard, toWorkspaceTicket } from "@/lib/ticket/workspace-dto";
 import { listServerProfiles } from "@/lib/server/service-profiles";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 
@@ -14,7 +16,13 @@ function priorityLabel(locale: Locale, key: string): string {
   return translated !== `ticketsPage.priority.${key}` ? translated : key;
 }
 
-export default async function Page() {
+const SLA_FILTERS = new Set(["ok", "warning", "breached", "none"]);
+
+function param(value: string | string[] | undefined): string {
+  return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+}
+
+export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await requireSession("/tickets");
   const canManage = sessionHasPermission(session, "ticket:manage");
   const canCreate = sessionHasPermission(session, "ticket:create");
@@ -22,22 +30,25 @@ export default async function Page() {
   const canUseServerPicker = canCreate && sessionHasPermission(session, "server:read");
   const servers = canUseServerPicker ? await listServerProfiles(session) : [];
   const listInput = { userId: session.userId, includeAll: canManage, session };
-  // Counted in the database: the loaded list holds open work plus recent history only.
-  const [tickets, counts] = await Promise.all([listTickets(listInput), countTickets(listInput)]);
+  // The first view the URL asks for, filtered and paged in the database like
+  // every later one the workspace fetches.
+  const params = await searchParams;
+  const sla = param(params.sla);
+  const query = {
+    status: param(params.status) || undefined,
+    priority: param(params.priority) || undefined,
+    category: param(params.category) || undefined,
+    slaStatus: SLA_FILTERS.has(sla) ? (sla as TicketSlaFilter) : undefined,
+    search: param(params.q) || undefined,
+  };
+  const now = new Date();
+  const board = param(params.view) === "board";
+  const [counts, firstPage, firstBoard] = await Promise.all([
+    countTickets(listInput),
+    board ? null : listTicketPage({ ...listInput, query, page: Number.parseInt(param(params.page) || "1", 10) || 1, now }),
+    board ? listTicketBoard({ ...listInput, query, now }) : null,
+  ]);
   const { open: openCount, inProgress: progressCount, resolved: resolvedCount, urgent: urgentCount } = counts;
-  const initialTickets: TicketWorkspaceTicket[] = tickets.map((ticket) => ({
-    id: ticket.id,
-    title: ticket.title,
-    description: ticket.description,
-    status: ticket.status,
-    priority: ticket.priority,
-    category: ticket.category,
-    slaDueAt: ticket.slaDueAt?.toISOString() ?? null,
-    createdAt: ticket.createdAt.toISOString(),
-    updatedAt: ticket.updatedAt.toISOString(),
-    creator: ticket.creator,
-    assignee: ticket.assignee,
-  }));
 
   return (
     <PageShell>
@@ -56,7 +67,12 @@ export default async function Page() {
         </div>
       )}
 
-      <TicketWorkspace initialTickets={initialTickets} canManage={canManage} now={new Date().toISOString()} />
+      <TicketWorkspace
+        initialPage={firstPage ? { tickets: firstPage.tickets.map(toWorkspaceTicket), total: firstPage.total, page: firstPage.page } : null}
+        initialBoard={firstBoard ? toWorkspaceBoard(firstBoard) : null}
+        canManage={canManage}
+        now={now.toISOString()}
+      />
     </PageShell>
   );
 }

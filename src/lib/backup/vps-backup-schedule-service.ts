@@ -5,7 +5,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 
 import { prisma } from "@/lib/db";
 import { enqueueJob } from "@/lib/job/service";
-import { createVpsBackupRecord, VPS_BACKUP_CREATE_JOB_TYPE, pruneOldVpsBackupRecords } from "./vps-backup-service";
+import { createVpsBackupRecord, VPS_BACKUP_CREATE_JOB_TYPE } from "./vps-backup-service";
 import { isVpsBackupPresetType } from "./vps-backup-presets";
 import { createLogger } from "@/lib/logging";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -251,10 +251,9 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 				continue;
 			}
 
-			// Auto-prune old records if retentionDays is set
-			if (schedule.retentionDays && schedule.retentionDays > 0) {
-				await pruneOldVpsBackupRecords(schedule.serverId, schedule.retentionDays).catch((err) => { vpsSchedLogger.warn("pruneOldVpsBackupRecords failed", { error: err instanceof Error ? err.message : String(err) }); });
-			}
+			// Retention runs after a backup succeeds (vps-backup-job-worker), not
+			// here: pruning at dispatch, before knowing whether the new backup
+			// works, removed old backups while every new one was failing.
 
 			dispatched++;
 		} catch (error) {

@@ -213,10 +213,73 @@ describe("deployment service", () => {
     expect(mockPrisma.deploymentRun.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: "PENDING" }),
     }));
-    expect(mockPrisma.deploymentRun.update).toHaveBeenCalledWith({
-      where: { id: "dep1" },
-      data: { status: "FAILED", errorMessage: "Approval chain not available" },
+    // No command carries the run's key: nothing was submitted, the run failed.
+    expect(mockPrisma.commandRequest.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { idempotencyKey: "deployment:dep1" } }));
+    expect(mockPrisma.deploymentRun.updateMany).toHaveBeenCalledWith({
+      where: { id: "dep1", commandRequestId: null },
+      data: expect.objectContaining({ status: "FAILED", errorMessage: "Approval chain not available" }),
     });
+  });
+
+  it("links a command whose creation committed although the call failed, instead of failing a deployment that runs", async () => {
+    // The reply was lost after the insert committed: the deployment must
+    // follow that command, not say FAILED while it runs.
+    vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("enqueue failed"));
+    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd-created", status: "APPROVED" });
+
+    await expect(
+      createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }, PLATFORM),
+    ).rejects.toThrow("enqueue failed");
+
+    expect(mockPrisma.deploymentRun.updateMany).toHaveBeenCalledWith({
+      where: { id: "dep1", commandRequestId: null },
+      data: expect.objectContaining({ commandRequestId: "cmd-created", status: "RUNNING" }),
+    });
+    expect(mockPrisma.deploymentRun.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
+  });
+
+  it("links the command when the run's link write fails", async () => {
+    // The unawaited link update escaped the catch: the run stayed PENDING and
+    // unlinked while its command could be approved and run.
+    mockPrisma.deploymentRun.update
+      .mockImplementationOnce(async ({ where, data }: any) => ({ id: where?.id ?? "dep1", ...data }))
+      .mockRejectedValueOnce(new Error("connection reset"));
+    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd1", status: "PENDING_APPROVAL" });
+
+    await expect(
+      createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }, PLATFORM),
+    ).rejects.toThrow("connection reset");
+
+    expect(mockPrisma.deploymentRun.updateMany).toHaveBeenCalledWith({
+      where: { id: "dep1", commandRequestId: null },
+      data: expect.objectContaining({ commandRequestId: "cmd1", status: "PENDING" }),
+    });
+  });
+
+  it("settles a run left unlinked by an interrupted request when the runs are listed", async () => {
+    const stale = { id: "dep_stale", status: "PENDING", commandRequestId: null, idempotencyKey: null, createdAt: new Date(Date.now() - 10 * 60_000), rollbackAttempts: [] };
+    mockPrisma.deploymentRun.findMany
+      .mockResolvedValueOnce([stale])
+      .mockResolvedValueOnce([{ ...stale, commandRequestId: "cmd_stale", commandRequest: { status: "PENDING_APPROVAL" } }]);
+    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd_stale", status: "PENDING_APPROVAL" });
+
+    const runs = await listDeploymentRuns(PLATFORM);
+
+    expect(mockPrisma.commandRequest.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { idempotencyKey: "deployment:dep_stale" } }));
+    expect(mockPrisma.deploymentRun.updateMany).toHaveBeenCalledWith({
+      where: { id: "dep_stale", commandRequestId: null },
+      data: expect.objectContaining({ commandRequestId: "cmd_stale" }),
+    });
+    expect(runs[0]).toMatchObject({ id: "dep_stale", commandRequestId: "cmd_stale" });
+  });
+
+  it("leaves a fresh unlinked run alone (its request may still be creating the command)", async () => {
+    mockPrisma.deploymentRun.findMany.mockResolvedValueOnce([
+      { id: "dep_new", status: "PENDING", commandRequestId: null, idempotencyKey: null, createdAt: new Date(), rollbackAttempts: [] },
+    ]);
+    await listDeploymentRuns(PLATFORM);
+    expect(mockPrisma.commandRequest.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledTimes(1);
   });
 
   it("propagates source DeploymentRun.teamId onto rollback CommandRequest", async () => {

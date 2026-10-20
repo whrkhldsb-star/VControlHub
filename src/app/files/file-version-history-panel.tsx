@@ -13,6 +13,7 @@ import { InlineLoading } from "@/components/ui-primitives";
 import { RefreshCw } from "@/components/icons";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { clearIfUnchanged } from "@/lib/ui/form-draft";
 type VersionItem = {
   id: string;
   versionNumber: number;
@@ -89,7 +90,7 @@ export function FileVersionHistoryPanel({
         method: "POST",
         body: JSON.stringify({ note: note.trim() || null }),
       });
-      setNote("");
+      clearIfUnchanged(setNote, note, "");
       onNotify("success", t("fileVersionHistory.snapshotCreated"));
       await load();
     } catch (error) {

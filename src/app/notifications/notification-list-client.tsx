@@ -139,8 +139,12 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	const { t, locale } = useI18n();
 	const parsedNow = Date.parse(initialNow);
 	const nowMs = Number.isFinite(parsedNow) ? parsedNow : 0;
-	const [notifications, setNotifications] = useState(initialNotifications);
-	const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
+	// The list and the unread count change together, in one update: deciding
+	// the count from a stale copy of the list let a delete and a mark-read
+	// that finished together both subtract the same notification.
+	const [{ notifications, unreadCount }, setView] = useState({ notifications: initialNotifications, unreadCount: initialUnreadCount });
+	const setNotifications = useCallback((update: (prev: NotificationItem[]) => NotificationItem[]) =>
+		setView((view) => ({ ...view, notifications: update(view.notifications) })), []);
 	const [error, setError] = useState<string | null>(null);
 	const [hasMore, setHasMore] = useState(initialNotifications.length >= 50);
 	const [loadingMore, setLoadingMore] = useState(false);
@@ -154,8 +158,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		setError(null);
 		try {
 			await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
-			setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-			setUnreadCount(0);
+			setView((view) => ({ notifications: view.notifications.map((n) => ({ ...n, isRead: true })), unreadCount: 0 }));
 		} catch (err) {
 			setError(messageFromError(err, t("notificationsPage.error.markAllFailed")));
 		}
@@ -165,18 +168,15 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		setError(null);
 		try {
 			await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notificationId: id }) });
-			// Only decrement when this id was still unread in local state (avoids double-count under concurrent markAll/markOne).
-			let wasUnread = false;
-			setNotifications((prev) =>
-				prev.map((n) => {
-					if (n.id !== id) return n;
-					wasUnread = !n.isRead;
-					return { ...n, isRead: true };
-				}),
-			);
-			if (wasUnread) {
-				setUnreadCount((c) => Math.max(0, c - 1));
-			}
+			// Counted only if it is still listed and unread now (a concurrent
+			// mark-all or delete may have accounted for it already).
+			setView((view) => {
+				const target = view.notifications.find((n) => n.id === id);
+				return {
+					notifications: view.notifications.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+					unreadCount: target && !target.isRead ? Math.max(0, view.unreadCount - 1) : view.unreadCount,
+				};
+			});
 		} catch (err) {
 			setError(messageFromError(err, t("notificationsPage.error.markOneFailed")));
 		}
@@ -186,15 +186,17 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		setError(null);
 		try {
 			await csrfFetch(`/api/notifications?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-			const deleted = notifications.find((n) => n.id === id);
-			setNotifications((prev) => prev.filter((n) => n.id !== id));
-			if (deleted && !deleted.isRead) {
-				setUnreadCount((c) => Math.max(0, c - 1));
-			}
+			setView((view) => {
+				const deleted = view.notifications.find((n) => n.id === id);
+				return {
+					notifications: view.notifications.filter((n) => n.id !== id),
+					unreadCount: deleted && !deleted.isRead ? Math.max(0, view.unreadCount - 1) : view.unreadCount,
+				};
+			});
 		} catch (err) {
 			setError(messageFromError(err, t("notificationsPage.error.deleteFailed")));
 		}
-	}, [notifications, t]);
+	}, [t]);
 
 	const loadMore = useCallback(async () => {
 		if (loadingMore || !hasMore) return;
@@ -219,7 +221,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		} finally {
 			setLoadingMore(false);
 		}
-	}, [hasMore, loadingMore, notifications.length, t]);
+	}, [hasMore, loadingMore, notifications.length, setNotifications, t]);
 
 	if (notifications.length === 0) {
 		return (

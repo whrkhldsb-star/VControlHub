@@ -48,7 +48,8 @@ export async function importSettings(
       if (r.value !== "") {
         await tx.setting.update({
           where: { key: r.key },
-          data: { value: r.value },
+          // The import wrote this value, not the previous editor.
+          data: { value: r.value, updatedBy: null },
         });
         counts.updated++;
       } else {

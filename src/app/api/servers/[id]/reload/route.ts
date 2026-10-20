@@ -31,7 +31,7 @@ import { deserializeDialect, serviceCommand, type OsDialect } from "@/lib/ssh/os
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import { SSH_CONNECTION_SERVER_SELECT } from "@/lib/ssh/server-connection-select";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:reload");
@@ -89,6 +89,9 @@ type ServerRow = {
   host: string;
   port: number;
   username: string;
+  operatingSystem: string;
+  connectionType: string;
+  managementMode: string;
   sshKeyId: string | null;
   password: string | null;
   hostKeySha256: string | null;
@@ -99,17 +102,8 @@ type ServerRow = {
 async function loadServer(id: string): Promise<ServerRow | null> {
   const server = await prisma.server.findUnique({
     where: { id },
-    select: {
-      id: true,
-      host: true,
-      port: true,
-      username: true,
-      sshKeyId: true,
-      password: true,
-      hostKeySha256: true,
-      sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
-      osDialect: true,
-    },
+    // The whole connection (see SSH_CONNECTION_SERVER_SELECT).
+    select: { ...SSH_CONNECTION_SERVER_SELECT, osDialect: true },
   });
   return (server as ServerRow | null) ?? null;
 }

@@ -364,6 +364,18 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         },
       });
       if (summary.failed > 0) {
+        // One alert for the day's catch-up, on its first attempt: each record
+        // used to email its own, on every attempt.
+        if ((job.attempts ?? 1) <= 1) {
+          const { sendOffsiteFailureAlert } = await import("@/lib/backup/offsite-uploader");
+          const { loadOffsiteConfig } = await import("@/lib/storage/offsite/schema");
+          const recipient = await loadOffsiteConfig().then((offsite) => offsite.failureAlertRecipient).catch(() => null);
+          await sendOffsiteFailureAlert({
+            recipient,
+            backupLabel: `${summary.failed} of ${summary.observed} pending backups`,
+            error: [...(summary.local.errors ?? []), ...(summary.vps.errors ?? [])].slice(0, 5).join("\n"),
+          });
+        }
         throw new Error(
           `Offsite backup sync failed for ${summary.failed} of ${summary.observed} record(s)`,
         );

@@ -48,4 +48,20 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("app source 
 		const row = await prisma.appSourceApp.findUniqueOrThrow({ where: { slug } });
 		expect(row).toMatchObject({ sourceId: first.id, image: "first/demo:1" });
 	});
+
+	it("keeps one owner when two sources sync the same slug at the same time", async () => {
+		// Both used to see the slug free, then both wrote it: the second
+		// source's image under the first source's ownership.
+		const race = `${prefix}-race-x`;
+		const a = await prisma.appSource.create({ data: { name: `${prefix}-race`, displayName: "race", url: "https://c.example/apps.json" } });
+		const b = await prisma.appSource.create({ data: { name: `${prefix}-race-two`, displayName: "race two", url: "https://d.example/apps.json" } });
+		catalogues.set(a.name, [app(race, "a/demo:1")]);
+		catalogues.set(b.name, [app(race, "b/demo:1")]);
+
+		const results = await Promise.all([syncSource(a.id), syncSource(b.id)]);
+		expect(results.map((result) => result.errors).sort()).toEqual([0, 1]);
+		const row = await prisma.appSourceApp.findUniqueOrThrow({ where: { slug: race } });
+		expect(row.image).toBe(row.sourceId === a.id ? "a/demo:1" : "b/demo:1");
+	});
 });
+

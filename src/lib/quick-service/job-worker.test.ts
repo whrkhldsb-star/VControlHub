@@ -8,6 +8,7 @@ const { mocks } = vi.hoisted(() => ({
 		failJob: vi.fn(),
 		heartbeatJob: vi.fn(),
 		findMany: vi.fn(),
+		quickServiceFindMany: vi.fn(),
 	},
 }));
 
@@ -26,6 +27,7 @@ vi.mock("@/lib/db", () => ({
 			findUnique: vi.fn().mockResolvedValue(null),
 			update: vi.fn().mockResolvedValue({}),
 		},
+		quickService: { findMany: mocks.quickServiceFindMany },
 	},
 }));
 
@@ -44,7 +46,7 @@ vi.mock("./service", () => ({
 }));
 vi.mock("./execution-authorization", () => ({ assertQuickServiceExecutionAuthorized: vi.fn(async () => {}) }));
 
-const { enqueueQuickServiceJob, runQuickServiceJobWorkerOnce, QUICK_SERVICE_JOB_TYPE } = await import("./job-worker");
+const { enqueueQuickServiceJob, runQuickServiceJobWorkerOnce, QUICK_SERVICE_JOB_TYPE, reconcileStuckQuickServiceInstalls } = await import("./job-worker");
 const quickService = await import("./service");
 
 describe("QuickService lifecycle job enqueue", () => {
@@ -119,3 +121,30 @@ describe("QuickService lifecycle job worker observability", () => {
 		expect(mocks.completeJob).toHaveBeenCalled();
 	});
 });
+
+describe("QuickService stuck install sweep", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mocks.findMany.mockResolvedValue([]);
+	});
+
+	it("re-reads installs left unfinished with no job running for them", async () => {
+		// A replaced container whose final save failed left the row
+		// "installing" (every other operation refuses it) with the old id.
+		mocks.quickServiceFindMany.mockResolvedValueOnce([
+			{ slug: "alist", instanceKey: "hub-host" },
+			{ slug: "busy", instanceKey: "hub-host" },
+		]);
+		mocks.findMany.mockImplementation(async (args: { where: { payload: { equals: string } } }) =>
+			args.where.payload.equals === "busy" ? [{ id: "job_busy", status: "RUNNING", payload: { action: "start", slug: "busy" } }] : []);
+		vi.mocked(quickService.syncServiceStatus).mockResolvedValue("running");
+
+		await expect(reconcileStuckQuickServiceInstalls(new Date("2026-10-20T12:00:00Z"))).resolves.toBe(1);
+		expect(mocks.quickServiceFindMany).toHaveBeenCalledWith(expect.objectContaining({
+			where: { status: "installing", updatedAt: { lt: new Date("2026-10-20T11:45:00Z") } },
+		}));
+		expect(quickService.syncServiceStatus).toHaveBeenCalledTimes(1);
+		expect(quickService.syncServiceStatus).toHaveBeenCalledWith("alist", "hub-host");
+	});
+});
+

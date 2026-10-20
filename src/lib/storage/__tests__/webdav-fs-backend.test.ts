@@ -3,7 +3,7 @@ const dav = vi.hoisted(() => ({ mkdir: vi.fn(), write: vi.fn(), read: vi.fn(), s
 vi.mock("../webdav-client", () => ({ createWebDavClient: vi.fn(() => dav) }));
 import { createWebDavClient } from "../webdav-client";
 import { createManagedFolder, writeBackingObject, readBackingObject, statBackingObject, deleteBackingObject, renameBackingObject, moveBackingObject } from "../fs-backend";
-const storageNode = { driver: "WEBDAV", basePath: "/root", webdavConfigEncrypted: "encrypted-config" };
+const storageNode = { driver: "WEBDAV", basePath: "/root", webdavConfigEncrypted: "encrypted-config", host: null, port: null, username: null, hostKeySha256: null, server: null };
 const input = { storageNode, relativePath: "folder/file.txt" };
 beforeEach(() => vi.resetAllMocks());
 describe("WebDAV filesystem dispatch", () => {

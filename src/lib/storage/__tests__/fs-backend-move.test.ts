@@ -85,6 +85,7 @@ const localNode = {
   port: null,
   username: null,
   server: null,
+  hostKeySha256: null,
 } as const;
 
 const sftpNode = {
@@ -101,7 +102,12 @@ const sftpNode = {
     connectionType: "SSH_KEY",
     password: null,
     sshKey: { privateKey: "PRIVATE KEY" },
+    id: "srv-test",
+    managementMode: "DIRECT",
+    operatingSystem: "LINUX",
+    hostKeySha256: null,
   },
+  hostKeySha256: null,
 } as const;
 
 describe("moveBackingObject", () => {

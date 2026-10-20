@@ -120,6 +120,8 @@ function buildPendingServer(
     description: normalized.description ?? null,
     tags: normalized.tags,
     enabled: true,
+    // Windows nodes are created elsewhere (createWindowsServerProfile).
+    operatingSystem: "LINUX",
     connectionType: normalized.connectionType,
     managementMode: normalized.managementMode,
     sshKeyId:
@@ -356,7 +358,7 @@ export async function createServerProfile(
 
   const pendingServerForPreflight = buildPendingServer(normalized, validatedSshKey);
   const pendingSsh = await buildSshParamsFromServer(
-    { ...pendingServerForPreflight, hostKeySha256: pendingServerForPreflight.hostKeySha256 ?? null },
+    { ...pendingServerForPreflight, operatingSystem: "LINUX", managementMode: pendingServerForPreflight.managementMode ?? "DIRECT", hostKeySha256: pendingServerForPreflight.hostKeySha256 ?? null },
     pendingServerForPreflight.sshKey
       ? {
           privateKey: pendingServerForPreflight.sshKey.privateKey ?? null,
@@ -591,7 +593,7 @@ export async function updateServerProfile(
   let hostKeySha256 = current.hostKeySha256 ?? null;
   if (connectionChanged) {
     const nextSsh = await buildSshParamsFromServer(
-      { ...nextServerForPreflight, hostKeySha256: nextServerForPreflight.hostKeySha256 ?? null },
+      { ...nextServerForPreflight, operatingSystem: "LINUX", managementMode: nextServerForPreflight.managementMode ?? "DIRECT", hostKeySha256: nextServerForPreflight.hostKeySha256 ?? null },
       nextServerForPreflight.sshKey
         ? {
             privateKey: nextServerForPreflight.sshKey.privateKey ?? null,

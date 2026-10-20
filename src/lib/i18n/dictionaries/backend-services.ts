@@ -486,6 +486,7 @@ export const zh: Record<string, string> = {
 	"backend.ai.commandExecutionFailed": "命令执行失败（退出码 {code}）",
 	"backend.ai.executionFailed": "执行失败：{error}",
 	"backend.ai.unknownError": "未知错误",
+	"backend.ai.actionInterrupted": "执行过程中服务重启，操作被中断；无法确认是否已生效，请检查目标后再重试。",
 	"backend.ai.invalidActionParameters": "AI 操作参数无效，无法生成命令",
 	"backend.ai.assistantRequestReason": "由网页会话中的 AI 助手发起，需人工批准后执行。",
 	"backend.ai.assistantRequestTitle": "AI 助手：{action}",
@@ -1148,6 +1149,8 @@ export const en: Record<string, string> = {
 		"Command execution failed (exit code {code})",
 	"backend.ai.executionFailed": "Execution failed: {error}",
 	"backend.ai.unknownError": "Unknown error",
+	"backend.ai.actionInterrupted":
+		"The service restarted while this action was running; whether it took effect is unknown. Check the target before retrying.",
 	"backend.ai.invalidActionParameters":
 		"AI action parameters are invalid; a command could not be generated",
 	"backend.ai.assistantRequestReason":

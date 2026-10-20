@@ -14,31 +14,18 @@ import {
   renameRemoteFile,
   writeRemoteFile,
 } from "@/lib/ssh/client";
+import type { StorageSshCredentialNode } from "@/lib/storage/ssh-credentials";
 
 /**
  * Minimum shape of a storage node that the filesystem-backend adapter needs
  * to perform SFTP or LOCAL operations. The route layer hydrates this from
  * Prisma; the adapter only consumes the structural fields.
  */
-export type StorageNodeWithCredentials = {
+/** A node with its SFTP connection in full (see StorageSshCredentialNode). */
+export type StorageNodeWithCredentials = StorageSshCredentialNode & {
   driver: string;
   basePath: string;
-  host?: string | null;
-  port?: number | null;
-  username?: string | null;
-  hostKeySha256?: string | null;
   webdavConfigEncrypted?: string | null;
-  server?: {
-    id?: string | null;
-    managementMode?: string | null;
-    host?: string | null;
-    port?: number | null;
-    username?: string | null;
-    connectionType?: string | null;
-    password?: string | null;
-    hostKeySha256?: string | null;
-    sshKey?: { privateKey?: string | null } | null;
-  } | null;
 };
 
 /**

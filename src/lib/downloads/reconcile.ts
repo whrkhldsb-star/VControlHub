@@ -204,9 +204,19 @@ async function reconcileRelayTask(
   return "running";
 }
 
-/** When each stale task was last probed (process-local; a restart simply starts over). */
-const lastProbedAt = new Map<string, number>();
-const MAX_RECONCILE_CANDIDATES = 2_000;
+/**
+ * Where the last pass stopped in the (updatedAt, id) order of stale tasks
+ * (process-local; a restart starts from the oldest again). Each pass takes the
+ * next `limit` after it and wraps around, so every stale task is probed in
+ * turn however long the backlog is. A fixed window of the oldest (even a
+ * large one, rotated within) never reached the tasks behind it.
+ */
+let reconcileCursor: { updatedAt: Date; id: string } | null = null;
+
+/** Test hook: start the next pass from the oldest stale task. */
+export function resetReconcileCursorForTests() {
+  reconcileCursor = null;
+}
 
 export async function reconcileStaleRunningDownloadTasks(input?: {
   limit?: number;
@@ -215,24 +225,26 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
   const limit = Math.min(Math.max(input?.limit ?? DEFAULT_LIMIT, 1), 100);
   const cutoff = new Date(Date.now() - DIRECT_STALE_MS);
   const where = { status: "RUNNING" as const, updatedAt: { lt: cutoff }, ...(input?.taskIds ? { id: { in: input.taskIds } } : {}) };
-  // Least recently probed first. Taking the oldest `limit` by updatedAt read
-  // the same tasks every pass while they still ran (or were briefly
-  // unreachable), so a later task that had finished was never looked at.
-  // updatedAt itself must not move: the unreachable deadline counts from it.
-  const candidates = await prisma.downloadTask.findMany({
-    where,
+  // updatedAt itself must not move while a task is probed: the unreachable
+  // deadline counts from it, which also keeps this order stable.
+  const order = [{ updatedAt: "asc" as const }, { id: "asc" as const }];
+  const page = (after: { updatedAt: Date; id: string } | null, take: number) => prisma.downloadTask.findMany({
+    where: after
+      ? { AND: [where, { OR: [{ updatedAt: { gt: after.updatedAt } }, { updatedAt: after.updatedAt, id: { gt: after.id } }] }] }
+      : where,
     select: { id: true, updatedAt: true },
-    orderBy: { updatedAt: "asc" },
-    take: MAX_RECONCILE_CANDIDATES,
+    orderBy: order,
+    take,
   });
-  const live = new Set(candidates.map((row) => row.id));
-  for (const id of lastProbedAt.keys()) if (!live.has(id)) lastProbedAt.delete(id);
-  const chosen = candidates
-    .sort((a, b) => (lastProbedAt.get(a.id) ?? 0) - (lastProbedAt.get(b.id) ?? 0) || a.updatedAt.getTime() - b.updatedAt.getTime())
-    .slice(0, limit)
-    .map((row) => row.id);
-  const probedAt = Date.now();
-  for (const id of chosen) lastProbedAt.set(id, probedAt);
+  // Named tasks are probed as asked; the background pass walks the backlog.
+  const cursor = input?.taskIds ? null : reconcileCursor;
+  const ahead = await page(cursor, limit);
+  const wrapped = cursor && ahead.length < limit
+    ? (await page(null, limit - ahead.length)).filter((row) => !ahead.some((seen) => seen.id === row.id))
+    : [];
+  const chosenRows = [...ahead, ...wrapped];
+  if (!input?.taskIds) reconcileCursor = chosenRows.at(-1) ?? null;
+  const chosen = chosenRows.map((row) => row.id);
   const rows = chosen.length === 0 ? [] : await prisma.downloadTask.findMany({
     where: { ...where, id: { in: chosen } },
     include: { server: { include: { sshKey: true, storageNode: true } } },

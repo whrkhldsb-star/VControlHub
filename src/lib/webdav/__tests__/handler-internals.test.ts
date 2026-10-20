@@ -263,6 +263,7 @@ describe("ensureDirectoryIndexAndBacking", () => {
     username: "root",
     serverId: null,
     server: null,
+    hostKeySha256: null,
   };
 
   beforeEach(() => {

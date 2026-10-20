@@ -84,8 +84,15 @@ export type OffsiteUploadResult =
 export async function uploadBackupToOffsite(input: {
 	backupId: string;
 	projectRoot?: string;
+	/**
+	 * Email the failure alert for this backup (default). The catch-up sweep
+	 * turns it off and sends one summary instead: per-record alerts from a
+	 * sweep meant one email per pending backup per attempt.
+	 */
+	alert?: boolean;
 }): Promise<OffsiteUploadResult> {
 	const projectRoot = input.projectRoot || process.cwd();
+	const alertOn = input.alert !== false;
 	// Load the record first so every actionable failure can be persisted.
 	const record = await prisma.backupRecord.findUnique({ where: { id: input.backupId } });
 	if (!record) {
@@ -113,7 +120,7 @@ export async function uploadBackupToOffsite(input: {
 	if (issues.length > 0) {
 		return recordOffsiteFailure({
 			record,
-			recipient: config.failureAlertRecipient,
+			recipient: alertOn ? config.failureAlertRecipient : null,
 			code: "ConfigInvalid",
 			error: `Offsite configuration invalid: ${issues.join("; ")}`,
 		});
@@ -125,7 +132,7 @@ export async function uploadBackupToOffsite(input: {
 	} catch (err) {
 		return recordOffsiteFailure({
 			record,
-			recipient: config.failureAlertRecipient,
+			recipient: alertOn ? config.failureAlertRecipient : null,
 			code: "InvalidPath",
 			error: `Invalid backup path: ${formatError(err)}`,
 		});
@@ -136,7 +143,7 @@ export async function uploadBackupToOffsite(input: {
 		if (!fileStat.isFile()) {
 			return recordOffsiteFailure({
 				record,
-				recipient: config.failureAlertRecipient,
+				recipient: alertOn ? config.failureAlertRecipient : null,
 				code: "FileMissing",
 				error: "Backup artifact is missing or is not a file",
 			});
@@ -144,7 +151,7 @@ export async function uploadBackupToOffsite(input: {
 	} catch (_err) {
 		return recordOffsiteFailure({
 			record,
-			recipient: config.failureAlertRecipient,
+			recipient: alertOn ? config.failureAlertRecipient : null,
 			code: "FileMissing",
 			error: "Backup artifact is missing or cannot be read",
 		});
@@ -156,7 +163,7 @@ export async function uploadBackupToOffsite(input: {
 	} catch (err) {
 		return recordOffsiteFailure({
 			record,
-			recipient: config.failureAlertRecipient,
+			recipient: alertOn ? config.failureAlertRecipient : null,
 			code: "SettingError",
 			error: `Compression setting load failed: ${formatError(err)}`,
 		});
@@ -202,7 +209,7 @@ export async function uploadBackupToOffsite(input: {
 		}
 		return recordOffsiteFailure({
 			record,
-			recipient: config.failureAlertRecipient,
+			recipient: alertOn ? config.failureAlertRecipient : null,
 			code: "CompressError",
 			error: `Prepare upload body failed: ${formatError(err)}`,
 		});
@@ -262,7 +269,7 @@ export async function uploadBackupToOffsite(input: {
 		const code = err instanceof S3Error ? err.code : "UploadError";
 		return recordOffsiteFailure({
 			record,
-			recipient: config.failureAlertRecipient,
+			recipient: alertOn ? config.failureAlertRecipient : null,
 			code,
 			error: message,
 		});
@@ -284,6 +291,7 @@ export async function retryPendingOffsiteUploads(input: {
 	let failed = 0;
 	let skipped = 0;
 	let observed = 0;
+	const errors: string[] = [];
 	let cursorId: string | undefined;
 	while (observed < maxRecords) {
 		const take = Math.min(100, maxRecords - observed);
@@ -299,17 +307,21 @@ export async function retryPendingOffsiteUploads(input: {
 			const result = await uploadBackupToOffsite({
 				backupId: record.id,
 				projectRoot: input.projectRoot,
+				alert: false,
 			});
 			if (result.ok && !result.skipped) uploaded += 1;
 			else if (result.ok) skipped += 1;
-			else failed += 1;
+			else {
+				failed += 1;
+				if (errors.length < 5) errors.push(`${record.id}: ${result.code}: ${result.error}`);
+			}
 		}
 		observed += records.length;
 		const nextCursor = records.at(-1)?.id;
 		if (!nextCursor || nextCursor === cursorId || records.length < take) break;
 		cursorId = nextCursor;
 	}
-	return { observed, uploaded, failed, skipped };
+	return { observed, uploaded, failed, skipped, errors };
 }
 
 async function recordOffsiteFailure(input: {

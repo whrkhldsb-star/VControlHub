@@ -66,9 +66,13 @@ vi.mock("@/lib/downloads/helpers", () => ({
 const { executeAria2RelayDownload, executeDirectDownload } = await import("../execution");
 
 const server = {
+  id: "srv-1",
   host: "h",
   port: 22,
   username: "u",
+  operatingSystem: "LINUX",
+  managementMode: "DIRECT",
+  connectionType: "PASSWORD",
   sshKeyId: null,
   password: null,
   hostKeySha256: "ab",

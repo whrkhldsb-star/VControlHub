@@ -132,11 +132,23 @@ function thumbnailKey(input: {
   return `${hash}.jpg`;
 }
 
+/** A whole JPEG: starts with SOI (FF D8) and ends with EOI (FF D9). */
+function isCompleteJpeg(buffer: Buffer): boolean {
+  return buffer.length >= 4 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[buffer.length - 2] === 0xff && buffer[buffer.length - 1] === 0xd9;
+}
+
 async function getCachedThumbnail(filePath: string): Promise<Buffer | null> {
   try {
     const info = await stat(filePath);
     if (!info.isFile() || info.size === 0) return null;
-    return await readFile(filePath);
+    const cached = await readFile(filePath);
+    // Writes are atomic now, but a cache file cut short by an earlier version
+    // (disk full) would otherwise be served as a hit until it aged out.
+    if (!isCompleteJpeg(cached)) {
+      await rm(filePath, { force: true }).catch(() => undefined);
+      return null;
+    }
+    return cached;
   } catch {
     return null;
   }

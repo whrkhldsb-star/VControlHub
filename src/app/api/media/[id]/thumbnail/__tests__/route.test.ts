@@ -140,6 +140,21 @@ describe("media thumbnail route", () => {
     expect(second.headers.get("x-thumbnail-cache")).toBe("hit");
   });
 
+  it("regenerates a cached thumbnail that was cut short instead of serving it", async () => {
+    // An earlier version wrote the cache in place: a disk-full write left the
+    // first bytes only, and that file was served as a hit from then on.
+    const first = await call();
+    const whole = Buffer.from(await first.arrayBuffer());
+    const { readdir } = await import("node:fs/promises");
+    const [cached] = (await readdir(cacheRoot)).filter((name) => name.endsWith(".jpg"));
+    await writeFile(path.join(cacheRoot, cached!), whole.subarray(0, 8));
+
+    const again = await call();
+    expect(again.headers.get("x-thumbnail-cache")).toBe("miss");
+    expect(Buffer.from(await again.arrayBuffer())).toEqual(whole);
+    expect((await call()).headers.get("x-thumbnail-cache")).toBe("hit");
+  });
+
   it("refuses a media type it cannot render", async () => {
     getMediaItemMock.mockResolvedValue(localItem({ mimeType: "video/mp4" }));
     expect((await call()).status).toBe(415);

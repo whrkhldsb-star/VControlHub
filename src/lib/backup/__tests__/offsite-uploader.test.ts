@@ -28,6 +28,9 @@ vi.mock("@/lib/settings/service", () => ({
 	getSetting: vi.fn(),
 }));
 
+const { sendEmailMock } = vi.hoisted(() => ({ sendEmailMock: vi.fn(async () => undefined) }));
+vi.mock("@/lib/notification/email", () => ({ sendEmail: sendEmailMock }));
+
 const { loadConfigMock, validateForUseMock } = vi.hoisted(() => {
 	return {
 		loadConfigMock: vi.fn<(...args: unknown[]) => unknown>(),
@@ -361,10 +364,35 @@ describe("retryPendingOffsiteUploads", () => {
 
 		const result = await retryPendingOffsiteUploads();
 
-		expect(result).toEqual({ observed: 101, uploaded: 0, failed: 0, skipped: 101 });
+		expect(result).toEqual({ observed: 101, uploaded: 0, failed: 0, skipped: 101, errors: [] });
 		expect(mockPrisma.backupRecord.findMany).toHaveBeenNthCalledWith(
 			2,
 			expect.objectContaining({ cursor: { id: "rec-099" }, skip: 1 }),
 		);
 	});
+
+	it("does not email one alert per pending backup; it reports the failures for one summary", async () => {
+		// A rotated key failed every pending backup and emailed each of them,
+		// on each of the daily job's attempts.
+		mockPrisma.backupRecord.findMany.mockResolvedValueOnce([{ id: "rec-a" }, { id: "rec-b" }, { id: "rec-c" }]);
+		mockPrisma.backupRecord.findUnique.mockImplementation(async ({ where }) => ({ ...baseRecord, id: where.id }));
+		loadConfigMock.mockResolvedValue({ ...baseConfig, failureAlertRecipient: "ops@example.com" });
+		validateForUseMock.mockReturnValue(["secretAccessKey 未配置"]);
+		sendEmailMock.mockClear();
+
+		const result = await retryPendingOffsiteUploads();
+
+		expect(result.failed).toBe(3);
+		expect(result.errors).toHaveLength(3);
+		expect(sendEmailMock).not.toHaveBeenCalled();
+	});
+
+	it("still alerts for a single backup's own upload", async () => {
+		loadConfigMock.mockResolvedValue({ ...baseConfig, failureAlertRecipient: "ops@example.com" });
+		validateForUseMock.mockReturnValue(["secretAccessKey 未配置"]);
+		sendEmailMock.mockClear();
+		await uploadBackupToOffsite({ backupId: "rec-1" });
+		expect(sendEmailMock).toHaveBeenCalledTimes(1);
+	});
 });
+

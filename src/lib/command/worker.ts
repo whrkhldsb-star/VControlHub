@@ -44,6 +44,12 @@ async function reconcileStaleCommandsOnce(
     if (result.recovered > 0) {
       logger.warn("Recovered stale command requests", { reason, recovered: result.recovered });
     }
+
+    const { recoverInterruptedHostedActions } = await import("@/lib/ai/hosted-service");
+    const actions = await recoverInterruptedHostedActions();
+    if (actions.recovered > 0) {
+      logger.warn("Settled AI actions interrupted mid-execution", { reason, recovered: actions.recovered });
+    }
   } catch (error) {
     logger.error("Command reconciliation failed", {
       reason,

@@ -114,9 +114,10 @@ export function DownloadActionLink({
 }
 
 /**
- *"Download folder archive" anchor. Calls `buildArchiveDownloadHref`
- * which can return null when the folder is virtual (no source mount);
- * we early-return when there's no archivable backing store.
+ * "Download folder archive" anchor, only for a directory the archive endpoint
+ * serves: an indexed directory of one node. A node's group root or a folder
+ * known only from the paths of its files has no directory entry; the link
+ * used to fall back to the virtual path and the download answered 404.
  */
 export function FolderDownloadActionLink({
   folder,
@@ -128,9 +129,10 @@ export function FolderDownloadActionLink({
 } & CompactProp) {
   const { t } = useI18n();
   if (!entryCanRead(folder)) return null;
+  if (!folder.entryId) return null;
   const href = buildArchiveDownloadHref({
-    storageNodeId: folder.storageNodeId ?? folder.sourceKeys[0],
-    relativePath: folder.relativePath ?? folder.path,
+    storageNodeId: folder.storageNodeId,
+    relativePath: folder.relativePath,
   });
   if (!href) return null;
   return (

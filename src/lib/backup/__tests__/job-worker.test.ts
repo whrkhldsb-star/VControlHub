@@ -13,6 +13,7 @@ const { mocks } = vi.hoisted(() => ({
     pruneOldBackupRecordsNow: vi.fn(),
     runWithLeaseHeartbeat: vi.fn(),
     retryPendingOffsiteUploads: vi.fn(),
+    sendOffsiteFailureAlert: vi.fn(async () => true),
     retryPendingVpsOffsiteUploads: vi.fn(),
   },
 }));
@@ -54,6 +55,7 @@ vi.mock("@/lib/backup/service", () => ({
 }));
 
 vi.mock("@/lib/backup/offsite-uploader", () => ({
+  sendOffsiteFailureAlert: mocks.sendOffsiteFailureAlert,
   retryPendingOffsiteUploads: mocks.retryPendingOffsiteUploads,
 }));
 
@@ -274,17 +276,25 @@ describe("backup job worker create path", () => {
       uploaded: 1,
       failed: 1,
       skipped: 0,
+      errors: ["rec-2: UploadError: denied"],
     });
     mocks.retryPendingVpsOffsiteUploads.mockResolvedValueOnce({
       observed: 1,
       uploaded: 1,
       failed: 0,
       skipped: 0,
+      errors: [],
     });
 
     const ran = await runBackupJobWorkerOnce();
 
     expect(ran).toBe(true);
+    // One summary for the day's catch-up (first attempt), not one per record.
+    expect(mocks.sendOffsiteFailureAlert).toHaveBeenCalledTimes(1);
+    expect(mocks.sendOffsiteFailureAlert).toHaveBeenCalledWith(expect.objectContaining({
+      backupLabel: "1 of 3 pending backups",
+      error: "rec-2: UploadError: denied",
+    }));
     expect(mocks.failJob).toHaveBeenCalledWith(
       "job_offsite_fail",
       expect.any(String),

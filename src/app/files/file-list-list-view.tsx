@@ -31,7 +31,8 @@ type SortDir ="asc" |"desc";
 type SortKey ="name" |"size" |"source" |"updated";
 
 export type FileListListViewProps = FileListViewSharedProps & {
-  visibleFilesCount: number;
+  /** Rows (files and indexed directories) the header checkbox can select. */
+  selectableCount: number;
   allSelected: boolean;
   someSelected: boolean;
   toggleAll: () => void;
@@ -46,7 +47,7 @@ export function FileListListView(props: FileListListViewProps) {
   const {
     sortedFolders,
     sortedFiles,
-    visibleFilesCount,
+    selectableCount,
     emptyMessage,
   onGoUp,
     allSelected,
@@ -84,7 +85,7 @@ export function FileListListView(props: FileListListViewProps) {
                   if (el) el.indeterminate = someSelected;
                 }}
                 onChange={toggleAll}
-                disabled={visibleFilesCount === 0}
+                disabled={selectableCount === 0}
                 className="rounded-lg h-4 w-4 accent-[var(--color-action)]"
               />
             </div>

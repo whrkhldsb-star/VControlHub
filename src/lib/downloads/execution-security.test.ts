@@ -6,7 +6,7 @@ describe("relay transfer SSH trust", () => {
 	it("refuses to send files or credentials to an unpinned SSH host", async () => {
 		await expect(
 			transferFileViaSsh2(
-				{ host: "203.0.113.30", port: 22, username: "root", connectionType: "PASSWORD", sshKeyId: null, password: "encrypted-password", hostKeySha256: null },
+				{ id: "srv-1", host: "203.0.113.30", port: 22, username: "root", operatingSystem: "LINUX", managementMode: "DIRECT", connectionType: "PASSWORD", sshKeyId: null, password: "encrypted-password", hostKeySha256: null },
 				"/tmp/local.iso",
 				"/srv/files/remote.iso",
 				"task-1",

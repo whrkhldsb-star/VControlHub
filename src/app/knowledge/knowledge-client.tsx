@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -13,6 +13,7 @@ import { FormField, Notice } from "@/components/ui-primitives";
 import { useAsyncAction } from "@/lib/hooks/use-async-action";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { clearIfUnchanged } from "@/lib/ui/form-draft";
 
 type KnowledgeBase = {
   id: string;
@@ -46,6 +47,12 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const { addToast } = useToast();
   const [bases, setBases] = useState<KnowledgeBase[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
+  // The base shown now: a list loaded for another one (after an ingest or a
+  // "load more" that answered once the user had switched) must not land here.
+  const shownBaseRef = useRef(selectedId);
+  useEffect(() => {
+    shownBaseRef.current = selectedId;
+  }, [selectedId]);
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [hasMoreDocuments, setHasMoreDocuments] = useState(false);
   const [name, setName] = useState("");
@@ -79,6 +86,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
     const data = await csrfFetch<{
       knowledgeBase: { documents: DocumentRow[]; documentsHasMore?: boolean };
     }>(`/api/knowledge/${encodeURIComponent(id)}`);
+    if (shownBaseRef.current !== id) return;
     setDocuments(data.knowledgeBase?.documents ?? []);
     setHasMoreDocuments(Boolean(data.knowledgeBase?.documentsHasMore));
   }, []);
@@ -89,6 +97,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       const data = await csrfFetch<{
         knowledgeBase: { documents: DocumentRow[]; documentsHasMore?: boolean };
       }>(`/api/knowledge/${encodeURIComponent(selectedId)}?offset=${documents.length}`);
+      if (shownBaseRef.current !== selectedId) return;
       const next = data.knowledgeBase?.documents ?? [];
       setDocuments((current) => [...current, ...next.filter((doc) => !current.some((existing) => existing.id === doc.id))]);
       setHasMoreDocuments(Boolean(data.knowledgeBase?.documentsHasMore));
@@ -149,8 +158,8 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           description: description || undefined,
         }),
       });
-      setName("");
-      setDescription("");
+      clearIfUnchanged(setName, name, "");
+      clearIfUnchanged(setDescription, description, "");
       addToast("success", t("knowledgePage.created"));
       await loadBases();
     }, { fallback: t("knowledgePage.error") });
@@ -170,8 +179,8 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           sourceType: "MARKDOWN",
         }),
       });
-      setDocTitle("");
-      setDocContent("");
+      clearIfUnchanged(setDocTitle, docTitle, "");
+      clearIfUnchanged(setDocContent, docContent, "");
       addToast(
         "success",
         t("knowledgePage.ingested", { count: data.chunkCount ?? 0 }),

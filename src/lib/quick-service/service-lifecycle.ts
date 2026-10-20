@@ -419,9 +419,14 @@ export async function syncServiceStatus(slug: string, instanceKey: string = HUB_
 	const containerName = safeContainerName(svc.slug);
 	const target = targetFromService(svc);
 	try {
-		const state = (await dockerExec(target, ["inspect", "--format={{.State.Status}}", containerName], 10_000)).trim();
+		// The container that exists now, with its id: an install whose final
+		// save failed left the row "installing" with the replaced container's id.
+		const [state = "", containerId = ""] = (await dockerExec(target, ["inspect", "--format={{.State.Status}}|{{.Id}}", containerName], 10_000)).trim().split("|");
 		const status = state === "running" ? "running" : "stopped";
-		await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status, error: null } });
+		await prisma.quickService.update({
+			where: serviceWhere(slug, instanceKey),
+			data: { status, error: null, ...(containerId ? { containerId: containerId.slice(0, 64) } : {}) },
+		});
 		await writeQuickServiceAudit({
 			action: "sync",
 			slug: svc.slug,

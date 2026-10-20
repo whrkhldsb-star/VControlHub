@@ -317,6 +317,51 @@ async function persistHostedActionFailure(
   await persistHostedToolOutcome(action, { success: false, status: "FAILED", error: message });
 }
 
+/** An action still EXECUTING after this long lost the request running it. */
+const INTERRUPTED_ACTION_AFTER_MS = 30 * 60_000;
+
+/**
+ * Settle actions whose executing request died (a restart mid-execution):
+ * they stayed EXECUTING for good, which neither confirm nor reject accepts.
+ * An automation that had created its command takes that command; anything
+ * else is FAILED as interrupted, since whether it took effect is unknown.
+ */
+export async function recoverInterruptedHostedActions(now = new Date()) {
+  const stale = await prisma.aiHostedAction.findMany({
+    where: { status: "EXECUTING", executedAt: { lt: new Date(now.getTime() - INTERRUPTED_ACTION_AFTER_MS) } },
+    select: { id: true, conversationId: true, toolCallId: true, actionType: true, executedAt: true },
+    orderBy: { executedAt: "asc" },
+    take: 50,
+  });
+  let recovered = 0;
+  for (const action of stale) {
+    const command = action.actionType === "create_automation_task"
+      ? await prisma.commandRequest.findUnique({
+        where: { idempotencyKey: `ai-automation:${action.id}` },
+        select: { id: true, status: true },
+      })
+      : null;
+    const result = command
+      ? { kind: "command_request", commandRequestId: command.id, requiresApproval: command.status === "PENDING_APPROVAL" }
+      : null;
+    const errorMessage = t("backend.ai.actionInterrupted");
+    // Only the row as read: a request that finished in between keeps its outcome.
+    const claimed = await prisma.aiHostedAction.updateMany({
+      where: { id: action.id, status: "EXECUTING", executedAt: action.executedAt },
+      data: result
+        ? { status: "COMPLETED", result: JSON.stringify(result), completedAt: now }
+        : { status: "FAILED", errorMessage, completedAt: now },
+    });
+    if (claimed.count === 0) continue;
+    recovered += 1;
+    await persistHostedToolOutcome(
+      action,
+      result ? { success: true, status: "COMPLETED", data: result } : { success: false, status: "FAILED", error: errorMessage },
+    ).catch(() => undefined);
+  }
+  return { recovered };
+}
+
 async function executeConfirmedServerlessAction(
   action: {
     id: string;
@@ -616,7 +661,23 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
       { ...requester, currentTeamId: requester.currentTeamId ?? null },
     );
   } catch (error) {
-    await persistHostedActionFailure(action, error);
+    // The command may exist although the call failed (created, then its
+    // enqueue failed; the queue recovery still runs an approved one): record
+    // it rather than reporting the action failed while its command executes.
+    let created: { id: string; status: string } | null = null;
+    try {
+      created = await prisma.commandRequest.findUnique({
+        where: { idempotencyKey: `ai-hosted-action:${actionId}` },
+        select: { id: true, status: true },
+      });
+    } catch {
+      // The lookup must not mask the original error.
+    }
+    if (created) {
+      await persistApprovedCommandRequestOutcome(actionId, action, { id: created.id, requiresApproval: created.status === "PENDING_APPROVAL" });
+    } else {
+      await persistHostedActionFailure(action, error);
+    }
     throw error;
   }
 

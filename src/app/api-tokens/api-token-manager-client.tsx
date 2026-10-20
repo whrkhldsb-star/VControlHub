@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Badge, CheckboxField, FormField, FormGrid, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { clearIfUnchanged } from "@/lib/ui/form-draft";
 
 export type SafeApiToken = {
   id: string;
@@ -90,9 +91,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
     });
     setTokens((current) => [data.apiToken, ...current]);
       setCreatedPlaintext(data.token);
-      setName("");
+      clearIfUnchanged(setName, name, "");
       setSelectedScopes(["read"]);
-      setExpiresAt("");
+      clearIfUnchanged(setExpiresAt, expiresAt, "");
     } catch (err) {
       setError(getErrorMessage(err, t("apiTokensPage.create.failed")));
     } finally {

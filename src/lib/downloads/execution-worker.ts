@@ -181,10 +181,13 @@ async function loadTaskRow(taskId: string) {
 }
 
 function buildServerForExec(server: {
+  id: string;
   host: string;
   port: number;
   username: string;
-  connectionType?: string;
+  operatingSystem: string;
+  managementMode: string;
+  connectionType: string;
   sshKeyId: string | null;
   password: string | null;
   hostKeySha256?: string | null;
@@ -194,10 +197,15 @@ function buildServerForExec(server: {
   // decryptStoredSshKey keeps a legacy key's passphrase (unlocking the key
   // when it can); decrypting only privateKey left such keys unusable.
   const decryptedKey = decryptStoredSshKey(server.sshKey);
+  // Everything the SSH parameters are decided with: dropping the id and
+  // management mode sent an Agent-managed server's download over SSH.
   return {
+    id: server.id,
     host: server.host,
     port: server.port,
     username: server.username,
+    operatingSystem: server.operatingSystem,
+    managementMode: server.managementMode,
     connectionType: server.connectionType,
     sshKeyId: server.sshKeyId,
     password: server.password,

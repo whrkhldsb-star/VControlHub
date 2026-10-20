@@ -12,6 +12,8 @@ const { prismaMock, pushUnreadCountMock, pushNotificationMock } = vi.hoisted(() 
     user: {
       findMany: vi.fn(),
     },
+    // readUnreadCount: one statement returning the count and its read time.
+    $queryRaw: vi.fn(),
   },
   pushUnreadCountMock: vi.fn(),
   pushNotificationMock: vi.fn(),
@@ -29,6 +31,10 @@ describe("notification service state synchronization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.notification.count.mockResolvedValue(0);
+    let readAt = 0;
+    prismaMock.$queryRaw.mockImplementation(async (_sql: TemplateStringsArray, userId: string) => [
+      { count: await prismaMock.notification.count({ where: { userId, isRead: false } }), asOfUs: BigInt(++readAt) },
+    ]);
   });
 
   it("pushes unread counts only after mark-as-read persistence completes", async () => {
@@ -51,7 +57,7 @@ describe("notification service state synchronization", () => {
     expect(prismaMock.notification.count).toHaveBeenCalledWith({
       where: { userId: "u_1", isRead: false },
     });
-    expect(pushUnreadCountMock).toHaveBeenCalledWith("u_1", 3);
+    expect(pushUnreadCountMock).toHaveBeenCalledWith("u_1", 3, expect.any(Number));
   });
 
   it("rejects mark-as-read when the notification does not belong to the user", async () => {
@@ -76,7 +82,7 @@ describe("notification service state synchronization", () => {
 
     resolveUpdate({ count: 4 });
     await expect(resultPromise).resolves.toEqual({ count: 4 });
-    expect(pushUnreadCountMock).toHaveBeenCalledWith("u_1", 0);
+    expect(pushUnreadCountMock).toHaveBeenCalledWith("u_1", 0, expect.any(Number));
   });
 
   it("after mark-all, pushes the count as it is then, not a blanket zero", async () => {
@@ -86,7 +92,7 @@ describe("notification service state synchronization", () => {
     prismaMock.notification.count.mockResolvedValueOnce(1);
     await markAllAsRead("u_1");
     expect(prismaMock.notification.count).toHaveBeenCalledWith({ where: { userId: "u_1", isRead: false } });
-    expect(pushUnreadCountMock).toHaveBeenLastCalledWith("u_1", 1);
+    expect(pushUnreadCountMock).toHaveBeenLastCalledWith("u_1", 1, expect.any(Number));
   });
 
   it("pushes unread counts only after delete persistence completes", async () => {
@@ -105,7 +111,7 @@ describe("notification service state synchronization", () => {
 
     resolveDelete({ count: 1 });
     await expect(resultPromise).resolves.toEqual({ count: 1 });
-    expect(pushUnreadCountMock).toHaveBeenCalledWith("u_1", 2);
+    expect(pushUnreadCountMock).toHaveBeenCalledWith("u_1", 2, expect.any(Number));
   });
 
   it("rejects delete when the notification does not belong to the user", async () => {

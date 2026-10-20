@@ -17,9 +17,9 @@ import {
   type PersistTrafficSampleInput,
 } from "@/lib/monitoring/traffic";
 import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
-import { sampleRemoteServersTraffic } from "@/lib/monitoring/remote-traffic";
+import { sampleRemoteServersTraffic, type RemoteServerInput } from "@/lib/monitoring/remote-traffic";
+import { SSH_CONNECTION_SERVER_SELECT } from "@/lib/ssh/server-connection-select";
 import { t } from "@/lib/i18n/translations";
-import { SSH_KEY_CREDENTIAL_SELECT, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 
 /**
  * TR-037 R5+: the route used to inline `req.nextUrl.searchParams.get(...)`
@@ -202,18 +202,7 @@ export async function GET(req: NextRequest) {
       const servers = includeRemote
         ? await prisma.server.findMany({
             where: { enabled: true, ...serverFilter },
-            select: {
-              id: true,
-              name: true,
-              host: true,
-              port: true,
-              username: true,
-              password: true,
-              sshKeyId: true,
-              connectionType: true,
-              hostKeySha256: true,
-              sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
-            },
+            select: { ...SSH_CONNECTION_SERVER_SELECT, name: true },
             orderBy: { name: "asc" },
             take: 200,
           })
@@ -231,18 +220,7 @@ export async function GET(req: NextRequest) {
 
       const remoteServers = includeRemote
         ? await sampleRemoteServersTraffic(
-            servers as Array<{
-              id: string;
-              name: string;
-              host: string;
-              port: number;
-              username: string;
-              password: string | null;
-              connectionType: string;
-              hostKeySha256: string | null;
-              sshKeyId: string | null;
-              sshKey?: StoredSshKey | null;
-            }>,
+            servers as RemoteServerInput[],
           )
         : null;
 

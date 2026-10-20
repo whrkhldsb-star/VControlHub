@@ -110,6 +110,19 @@ describe("useWsNotifications", () => {
 
   });
 
+  it("keeps the newest unread count when an older one arrives later", () => {
+    // Mark-all-read counted 0, then a new notification counted 1; the 0 was
+    // delivered last and hid the new notification's badge.
+    const { result } = renderHook(() => useWsNotifications());
+    const ws = FakeWebSocket.instances.at(-1)!;
+    act(() => ws.fakeOpen());
+    act(() => ws.fakeMessage(JSON.stringify({ type: "unread_count", count: 1, asOfUs: 2_000 })));
+    act(() => ws.fakeMessage(JSON.stringify({ type: "unread_count", count: 0, asOfUs: 1_000 })));
+    expect(result.current.unreadCount).toBe(1);
+    act(() => ws.fakeMessage(JSON.stringify({ type: "unread_count", count: 0, asOfUs: 3_000 })));
+    expect(result.current.unreadCount).toBe(0);
+  });
+
   it("ignores non-JSON messages without throwing", () => {
     const { result } = renderHook(() => useWsNotifications());
     const ws = FakeWebSocket.instances.at(-1)!;

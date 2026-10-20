@@ -84,8 +84,7 @@ export async function createNotification(input: CreateNotificationInput) {
 			});
 
 			// Also push updated unread count
-			const unreadCount = await getUnreadCount(input.userId);
-			pushUnreadCount(input.userId, unreadCount);
+			await pushCurrentUnreadCount(input.userId);
 		});
 	} catch (err) {
 		logger.warn("WS push failed (user may be offline)", err);
@@ -114,6 +113,25 @@ export async function getUnreadCount(userId: string): Promise<number> {
 	});
 }
 
+/**
+ * The unread count with the moment its counting statement started, in
+ * microseconds of database time. Counts are pushed from several places and
+ * processes (the web server, the worker through the notification bus) and
+ * can arrive out of order: a count read earlier must not replace one read
+ * later, so the browser keeps the newest by this stamp.
+ */
+export async function readUnreadCount(userId: string): Promise<{ count: number; asOfUs: number }> {
+	const [row] = await prisma.$queryRaw<Array<{ count: number; asOfUs: bigint }>>`
+		SELECT count(*)::int AS count, (extract(epoch FROM statement_timestamp()) * 1000000)::bigint AS "asOfUs"
+		FROM notifications WHERE "userId" = ${userId} AND "isRead" = false`;
+	return { count: row?.count ?? 0, asOfUs: Number(row?.asOfUs ?? 0) };
+}
+
+async function pushCurrentUnreadCount(userId: string) {
+	const { count, asOfUs } = await readUnreadCount(userId);
+	pushUnreadCount(userId, count, asOfUs);
+}
+
 export async function markAsRead(notificationId: string, userId: string) {
 	const result = await prisma.notification.updateMany({
 		where: { id: notificationId, userId },
@@ -124,8 +142,7 @@ export async function markAsRead(notificationId: string, userId: string) {
 	}
 	// Push updated unread count after marking as read (best-effort; DB already committed)
 	try {
-		const unreadCount = await getUnreadCount(userId);
-		pushUnreadCount(userId, unreadCount);
+		await pushCurrentUnreadCount(userId);
 	} catch (err) {
 		logger.warn("WS unread push failed after markAsRead", err);
 	}
@@ -140,7 +157,7 @@ export async function markAllAsRead(userId: string) {
 	// The count as it is now, not 0: a notification created while the update
 	// ran is still unread, and a late "0" overwrote its badge.
 	try {
-		pushUnreadCount(userId, await getUnreadCount(userId));
+		await pushCurrentUnreadCount(userId);
 	} catch (err) {
 		logger.warn("WS unread push failed after markAllAsRead", err);
 	}
@@ -156,8 +173,7 @@ export async function deleteNotification(notificationId: string, userId: string)
 	}
 	// Push updated unread count after deletion (best-effort; DB already committed)
 	try {
-		const unreadCount = await getUnreadCount(userId);
-		pushUnreadCount(userId, unreadCount);
+		await pushCurrentUnreadCount(userId);
 	} catch (err) {
 		logger.warn("WS unread push failed after deleteNotification", err);
 	}

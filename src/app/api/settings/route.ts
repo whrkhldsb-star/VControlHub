@@ -226,7 +226,7 @@ export async function PATCH(request: Request) {
 			});
 		}
 
-		await setManySettings(entries);
+		await setManySettings(entries, session.userId);
 		await auditUserAction(session.userId, "settings.update", {
 			keys: entries.map((entry) => entry.key),
 			count: entries.length,

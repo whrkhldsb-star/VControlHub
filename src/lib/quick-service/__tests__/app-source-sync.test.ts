@@ -9,16 +9,19 @@ const { prismaMock, fetchSourceAppsMock } = vi.hoisted(() => ({
 		},
 		appSourceApp: {
 			findMany: vi.fn(),
-			// Slug holder lookup: null means no other source owns the slug.
-			findUnique: vi.fn(async () => null),
-			upsert: vi.fn(),
+			// Own-row update: 0 means the slug is new, so it is created.
+			updateMany: vi.fn(async () => ({ count: 0 })),
+			create: vi.fn(),
 			deleteMany: vi.fn(),
 		},
 	},
 	fetchSourceAppsMock: vi.fn(),
 }));
 
-vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/db", () => ({
+	prisma: prismaMock,
+	isUniqueViolation: (error: unknown) => (error as { code?: string })?.code === "P2002",
+}));
 vi.mock("@/lib/logging", () => ({ createLogger: () => ({ info: vi.fn(), error: vi.fn() }) }));
 vi.mock("../adapters", () => ({ fetchSourceApps: fetchSourceAppsMock }));
 
@@ -143,10 +146,10 @@ describe("app source catalog bounds", () => {
 		prismaMock.appSourceApp.findMany.mockResolvedValueOnce([]);
 		prismaMock.appSource.update.mockResolvedValue({});
 
-		// Track the maximum number of upsert calls that were in-flight at once.
+		// Track the maximum number of row writes that were in-flight at once.
 		let inFlight = 0;
 		let maxInFlight = 0;
-		prismaMock.appSourceApp.upsert.mockImplementation(async () => {
+		prismaMock.appSourceApp.create.mockImplementation(async () => {
 			inFlight++;
 			if (inFlight > maxInFlight) maxInFlight = inFlight;
 			await new Promise((r) => setTimeout(r, 5));
@@ -158,7 +161,7 @@ describe("app source catalog bounds", () => {
 
 		expect(result.synced).toBe(20);
 		expect(result.errors).toBe(0);
-		expect(prismaMock.appSourceApp.upsert).toHaveBeenCalledTimes(20);
+		expect(prismaMock.appSourceApp.create).toHaveBeenCalledTimes(20);
 		// Cap is 8 — never more concurrent upserts than SYNC_UPSERT_CONCURRENCY.
 		expect(maxInFlight).toBeLessThanOrEqual(8);
 		expect(maxInFlight).toBeGreaterThan(0);
@@ -175,8 +178,8 @@ describe("app source catalog bounds", () => {
 		prismaMock.appSourceApp.findMany.mockResolvedValueOnce([]);
 		prismaMock.appSource.update.mockResolvedValue({});
 
-		prismaMock.appSourceApp.upsert.mockImplementation(async (args: { where: { slug: string } }) => {
-			if (args.where.slug === "bad") throw new Error("boom");
+		prismaMock.appSourceApp.create.mockImplementation(async (args: { data: { slug: string } }) => {
+			if (args.data.slug === "bad") throw new Error("boom");
 			return {};
 		});
 

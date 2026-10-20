@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -57,4 +57,21 @@ describe("CreateShareForm", () => {
     expect(screen.queryByLabelText("访问密码（可选）")).not.toBeInTheDocument();
     expect(screen.getByText(/仅查看模式会展示目录和文件元数据/)).toBeInTheDocument();
   });
+
+  it("keeps a path typed while the previous share was being created", async () => {
+    // The success cleared every field, including the next path being typed.
+    const user = userEvent.setup();
+    let answer!: (value: unknown) => void;
+    mockedFetch.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }) as never);
+    render(<CreateShareForm nodes={[{ id: "node_1", name: "Local" }]} />);
+    await user.click(screen.getByRole("button", { name: "高级创建分享链接" }));
+    const path = screen.getByLabelText("访问路径");
+    await user.type(path, "docs/first.pdf");
+    await user.click(screen.getByRole("button", { name: "创建" }));
+    await user.clear(path);
+    await user.type(path, "docs/next.pdf");
+    await act(async () => answer({ token: "public-token" }));
+    expect(path).toHaveValue("docs/next.pdf");
+  });
 });
+

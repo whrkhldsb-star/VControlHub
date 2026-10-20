@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 			bodySchema: offsiteConfigUpdateApiSchema,
 		},
 		async ({ session, body }) => {
-			const next = await saveOffsiteConfig(body);
+			const next = await saveOffsiteConfig(body, session.userId);
 			await auditUserAction(session.userId, "backup.offsite.update", {
 				enabled: next.enabled,
 				provider: next.provider,

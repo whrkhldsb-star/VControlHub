@@ -66,7 +66,7 @@ function countActiveConnections() {
 /* ── Broadcast ───────────────────────────────────────────── */
 export type WsMessage =
 	| { type: "notification"; data: { id: string; title: string; message: string; actionUrl?: string | null; createdAt: string } }
-	| { type: "unread_count"; count: number }
+	| { type: "unread_count"; count: number; asOfUs?: number }
 	| { type: "pong"; ts: number };
 
 export function broadcastToUser(userId: string, message: WsMessage) {
@@ -267,10 +267,10 @@ export function setupWebSocketServer(
 		ws.send(JSON.stringify({ type: "connected", userId }));
 		// The badge starts from the stored count: the client shows 0 until a
 		// count arrives, and existing unread notifications had no badge.
-		void import("@/lib/db")
-			.then(({ prisma }) => prisma.notification.count({ where: { userId, isRead: false } }))
-			.then((count) => {
-				if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: "unread_count", count }));
+		void import("@/lib/notification/service")
+			.then(({ readUnreadCount }) => readUnreadCount(userId))
+			.then(({ count, asOfUs }) => {
+				if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: "unread_count", count, asOfUs }));
 			})
 			.catch(() => { /* the HTTP count remains the fallback */ });
 
@@ -333,7 +333,8 @@ export function pushNotification(userId: string, data: {
 	publishToUser(userId, { type: "notification", data });
 }
 
-export function pushUnreadCount(userId: string, count: number) {
-	publishToUser(userId, { type: "unread_count", count });
+/** `asOfUs`: when the count was read (see readUnreadCount); the browser keeps the newest. */
+export function pushUnreadCount(userId: string, count: number, asOfUs?: number) {
+	publishToUser(userId, { type: "unread_count", count, ...(asOfUs !== undefined ? { asOfUs } : {}) });
 }
 
