@@ -47,10 +47,13 @@ export async function GET(
         isPublic: true,
         userId: true,
         teamId: true,
+        team: { select: { deletedAt: true } },
       },
     });
 
-    if (!image) {
+    // A deleted customer is hidden with its data until restored: its public
+    // links stop serving its images too.
+    if (!image || (image.isPublic && image.team?.deletedAt)) {
       return NextResponse.json(
         { error: apiCopy("apiCopy.image.not.found.or.inaccessible.034fcf62") },
         { status: 404 },
