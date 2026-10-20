@@ -279,6 +279,53 @@ async function containsNoSymlinks(root) {
 }
 
 /**
+ * A FULL archive also carries the code of the version that made it, as a
+ * record of that version. Laid over this installation it mixed an older
+ * service worker, schema and package manifest into newer code, and left the
+ * git checkout modified so the next deploy's fast-forward refused to run.
+ */
+const CODE_MEMBERS = ["public", "prisma", "package.json", "package-lock.json"];
+
+async function removeStagedMember(staging, member) {
+  const target = path.resolve(staging, member);
+  if (!target.startsWith(`${staging}${path.sep}`)) return;
+  await fs.rm(target, { recursive: true, force: true });
+  // Drop the parents the member leaves empty (an external path's root dirs).
+  for (let dir = path.dirname(target); dir.startsWith(`${staging}${path.sep}`); dir = path.dirname(dir)) {
+    try { await fs.rmdir(dir); } catch { break; }
+  }
+}
+
+/**
+ * Keep only data in the staging directory. The installation's own code stays,
+ * and data from outside the application directory (BACKUP_EXTRA_PATHS_JSON,
+ * listed in external-data.json) is not copied in under the application
+ * directory: as documented, the administrator restores it to a location they
+ * choose. It used to land at <appDir>/<path without its root>, where nothing
+ * reads it and where it can fill the application's disk.
+ */
+async function dropNonDataMembers(staging) {
+  const manifestFile = path.join(staging, "external-data.json");
+  if (await pathExists(manifestFile)) {
+    let manifest;
+    try { manifest = JSON.parse(await fs.readFile(manifestFile, "utf8")); } catch { fail("external-data.json in the archive is not valid JSON"); }
+    for (const entry of Array.isArray(manifest?.paths) ? manifest.paths : []) {
+      if (typeof entry?.member !== "string" || !entry.member) continue;
+      await removeStagedMember(staging, entry.member);
+      log(`Not restored here: ${entry.source ?? "external data"} (archive member ${entry.member}); extract it from the archive to the location you choose`);
+    }
+    await fs.rm(manifestFile, { force: true });
+  }
+  const kept = [];
+  for (const name of CODE_MEMBERS) {
+    if (!(await pathExists(path.join(staging, name)))) continue;
+    await fs.rm(path.join(staging, name), { recursive: true, force: true });
+    kept.push(name);
+  }
+  if (kept.length > 0) log(`Kept this installation's own ${kept.join(", ")}; the archive's copies are the code of the version that made it`);
+}
+
+/**
  * Extract and vet the archive's files in a private staging directory. Nothing
  * in appDir changes until {@link applyStagedFiles}.
  */
@@ -300,6 +347,7 @@ async function stageFiles(archive, appDir, inspected = false) {
   try {
     await runBinary(tar, ["-xzf", archive, "-C", staging, "--no-same-owner", "--exclude=database.sql.gz"]);
     await containsNoSymlinks(staging);
+    await dropNonDataMembers(staging);
   } catch (error) {
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
     throw error;

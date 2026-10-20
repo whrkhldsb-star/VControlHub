@@ -1119,6 +1119,8 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 非 systemd 部署（Windows、容器、其他进程管理器）：自行停止全部实例后，以 `VCONTROLHUB_SERVICE_UNITS=none` 运行恢复脚本，表示由运维人员确认已停止；数据库连接检查仍然生效。Windows 上平台给出的恢复命令已带此设置。
 
+文件恢复只覆盖数据（`storage`、`uploads`、`downloads`、`logs`，以及包里的环境配置文件）。完整备份里附带的当时代码（`public`、`prisma`、`package.json`、`package-lock.json`）只作为版本记录，不会覆盖当前安装。通过 `BACKUP_EXTRA_PATHS_JSON` 纳入的项目外数据也不会被写进安装目录：日志会列出它们在包里的位置，请按 `external-data.json` 自行解压到目标目录。
+
 恢复会改变实际数据库或文件。文件、配置、数据库和加密密钥需要配套；只有数据库而没有原密钥，可能无法解密原先保存的 SSH、RDP 或外部服务凭据。
 
 ### 13.5 跨环境迁移
