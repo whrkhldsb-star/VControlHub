@@ -2,6 +2,7 @@ import { createHash, createHmac, generateKeyPairSync, sign, verify } from "node:
 import { parsePrivateKey } from "sshpk";
 import { utils } from "ssh2";
 import { describe, expect, it, vi } from "vitest";
+import { generateEd25519KeyPair } from "@/test/helpers/ssh-keygen";
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 import { normalizeImportedSshKey } from "../ssh-keys";
 
@@ -40,7 +41,7 @@ describe("SSH key import", () => {
     expect(manual.fingerprint).toBe(file.fingerprint);
   });
   it("imports password-protected modern OpenSSH without stripping password spaces", async () => {
-    const generated = utils.generateKeyPairSync("ed25519", { passphrase: password, cipher: "aes256-cbc", rounds: 4 });
+    const generated = generateEd25519KeyPair({ passphrase: password, cipher: "aes256-cbc", rounds: 4 });
     const imported = await normalizeImportedSshKey({ privateKey: generated.private, passphrase: password });
     const expected = utils.parseKey(generated.public);
     if (expected instanceof Error) throw expected;

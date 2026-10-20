@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { Server, utils, type SFTPWrapper } from "ssh2";
 
+import { generateEd25519KeyPair } from "./ssh-keygen";
+
 const { STATUS_CODE } = utils.sftp;
 
 /**
@@ -17,7 +19,7 @@ const { STATUS_CODE } = utils.sftp;
  * outside the storage root was even opened (`opened`).
  */
 export async function startSftpFsServer(options: { sandbox: string; username: string; password: string }) {
-  const keys = utils.generateKeyPairSync("ed25519");
+  const keys = generateEd25519KeyPair();
   const publicBlob = Buffer.from(keys.public.trim().split(/\s+/)[1]!, "base64");
   const fingerprint = `SHA256:${createHash("sha256").update(publicBlob).digest("base64").replace(/=+$/, "")}`;
   const sandbox = fs.realpathSync(options.sandbox);
