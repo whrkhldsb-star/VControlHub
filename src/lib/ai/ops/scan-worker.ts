@@ -51,6 +51,8 @@ import { createAiOpsLog, completeScan } from "./service";
 import { executeAiOpsAction } from "./action-executor";
 import { failedProviderHealth, parseProviderHealth, type AiOpsProviderHealth } from "./provider-health";
 
+/** The most completed runs any job type keeps on purpose (its prune's keepLatest). */
+const JOB_HISTORY_KEPT_PER_TYPE = 200;
 const logger = createLogger("ai-ops-scan-worker");
 
 export const AI_OPS_SCAN_LEASE_MS = computeLeaseMs("ai-ops-scan");
@@ -209,14 +211,20 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
         },
       })
       .catch(() => 0),
-    // Stale completed jobs older than 7 days
+    // Week-old completed jobs beyond what their type's retention keeps. Each
+    // type keeps its latest runs on purpose (up to 200) as its history, so
+    // counting every week-old completed job flagged that history on every
+    // scan with advice to clean up; only an excess means pruning stopped.
     prisma.job
-      .count({
+      .groupBy({
+        by: ["type"],
         where: {
           status: "COMPLETED",
           updatedAt: { lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
         },
+        _count: { _all: true },
       })
+      .then((groups) => groups.reduce((sum, group) => sum + Math.max(0, group._count._all - JOB_HISTORY_KEPT_PER_TYPE), 0))
       .catch(() => 0),
   ]);
 
@@ -270,7 +278,7 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
       id: "job.stale-accumulation",
       severity: "info",
       title: "Stale job accumulation",
-      body: `${staleJobs} completed jobs have not been cleaned up for over 7 days; recommend running cache cleanup.`,
+      body: `${staleJobs} completed jobs older than 7 days exceed their job type's retention; check the retention workers.`,
       source: "job.queue",
     });
   }
