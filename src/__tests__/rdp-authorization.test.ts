@@ -4,7 +4,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { instruction } from "@/lib/rdp/protocol";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), clipboard: vi.fn() }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), clipboard: vi.fn(), audit: vi.fn(async () => undefined) }));
 vi.mock("ws", () => ({
   WebSocket: { OPEN: 1 },
   WebSocketServer: class { constructor() { return mocks.webSocketServer(); } },
@@ -12,7 +12,7 @@ vi.mock("ws", () => ({
 vi.mock("node:net", () => ({ createConnection: () => mocks.tunnel() }));
 vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "session", verifySessionToken: mocks.verify }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: () => true }));
-vi.mock("@/lib/audit/service", () => ({ auditUserAction: async () => undefined }));
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.audit }));
 vi.mock("@/lib/crypto/service", () => ({ decrypt: () => "isolated-password" }));
 vi.mock("@/lib/rdp/certificate", () => ({ rdpCertificateOptions: () => ({}) }));
 vi.mock("@/lib/rdp/tickets", () => ({
@@ -35,7 +35,7 @@ describe("established RDP authorization", () => {
   });
   afterEach(() => { stop?.(); vi.useRealTimers(); });
 
-  async function connect() {
+  async function connect(handshake = instruction("args") + instruction("ready", "tunnel")) {
     const tunnel = Object.assign(new EventEmitter(), { write: vi.fn(), destroy: vi.fn(), pause: vi.fn(), resume: vi.fn() });
     mocks.tunnel.mockReturnValue(tunnel);
     const wss = Object.assign(new EventEmitter(), { clients: new Set(), close: vi.fn() });
@@ -49,10 +49,25 @@ describe("established RDP authorization", () => {
     stop = setupRdpWebSocket(new EventEmitter() as Server);
     wss.emit("connection", ws, { headers: { cookie: "session=authenticated", origin: "https://hub.test" } });
     await ws.listeners("message")[0]!(Buffer.from("single-use-ticket"), false);
-    tunnel.emit("data", Buffer.from(instruction("args") + instruction("ready", "tunnel")));
+    tunnel.emit("data", Buffer.from(handshake));
     expect(ws.close).not.toHaveBeenCalled();
     return { ws, tunnel };
   }
+
+  it("audits why a connection failed, once", async () => {
+    // The audit kept only the server, and a handshake failure counted twice.
+    const failed = () => mocks.audit.mock.calls.filter((call) => (call as unknown[])[1] === "server.rdp.failed");
+    const refused = await connect();
+    refused.tunnel.emit("data", Buffer.from(instruction("error", "Authentication failure (invalid credentials?)", "769")));
+    expect(failed()).toEqual([["u", "server.rdp.failed", { serverId: "s", status: "769", message: "Authentication failure (invalid credentials?)" }, undefined, "t"]]);
+    stop?.();
+
+    mocks.audit.mockClear();
+    const unreachable = await connect(instruction("args"));
+    unreachable.tunnel.emit("data", Buffer.from(instruction("error", "Upstream not found", "519")));
+    expect(unreachable.ws.close).toHaveBeenCalled();
+    expect(failed()).toEqual([["u", "server.rdp.failed", { serverId: "s", status: "519", message: "Upstream not found" }, undefined, "t"]]);
+  });
 
   it("tells the browser when Windows refuses the account, and keeps other failures generic", async () => {
     // guacd: error,<message>,<status>; Windows' refusal arrives after "ready".
