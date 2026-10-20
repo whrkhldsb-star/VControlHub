@@ -14,6 +14,7 @@ import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import { prisma } from "@/lib/db";
 import type { ServerHealth } from "@/lib/health/service-types";
+import { createLogger } from "@/lib/logging";
 
 import { queuePlaybookRunWithClient } from "./run-queue";
 import type { MetricTriggerConfig, PlaybookStep } from "./types";
@@ -28,6 +29,27 @@ import {
 import { toJsonValue } from "@/lib/db/json";
 
 const MAX_TRIGGER_PLAYBOOKS_PER_TICK = 500;
+
+const logger = createLogger("playbook-trigger");
+
+/**
+ * Run one playbook's step of a sweep, logging and skipping it on failure. A
+ * playbook whose schedule cannot be computed (an imported expression with no
+ * next date, say) threw out of the loop on every tick: the playbooks after it
+ * never ran, and a failed initialization stopped every Cron dispatch.
+ */
+async function forEachPlaybook<T>(playbookId: string, step: string, run: () => Promise<T>): Promise<T | null> {
+  try {
+    return await run();
+  } catch (error) {
+    logger.warn("Playbook trigger step failed; continuing with the others", {
+      playbookId,
+      step,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
 
 type TriggerReading = {
   serverId: string;
@@ -224,7 +246,7 @@ export async function initializeUnscheduledCronPlaybooks(now: Date = new Date())
       ...(cursor ? { cursor, skip: 1 } : {}),
     });
     for (const row of rows) {
-      if (await initializeCronPlaybookSchedule(row.id, now)) initialized += 1;
+      if (await forEachPlaybook(row.id, "cron-initialize", () => initializeCronPlaybookSchedule(row.id, now))) initialized += 1;
     }
     cursor = rows.length === MAX_TRIGGER_PLAYBOOKS_PER_TICK
       ? { id: rows[rows.length - 1]!.id }
@@ -253,14 +275,15 @@ export async function dispatchDueCronPlaybooks(now: Date = new Date()): Promise<
       ...(cursor ? { cursor, skip: 1 } : {}),
     });
     for (const row of rows) {
-      if (!row.nextRunAt) continue;
-      const outcome = await dispatchDueCronPlaybook({
+      const dueAt = row.nextRunAt;
+      if (!dueAt) continue;
+      const outcome = await forEachPlaybook(row.id, "cron-dispatch", () => dispatchDueCronPlaybook({
         playbookId: row.id,
-        dueAt: row.nextRunAt,
+        dueAt,
         now,
-      });
-      if (outcome.dispatched) dispatched += 1;
-      if (outcome.advanced) advanced += 1;
+      }));
+      if (outcome?.dispatched) dispatched += 1;
+      if (outcome?.advanced) advanced += 1;
     }
     cursor = rows.length === MAX_TRIGGER_PLAYBOOKS_PER_TICK
       ? { id: rows[rows.length - 1]!.id }
@@ -332,7 +355,7 @@ export async function dispatchMetricPlaybooksForHealthOverview(
       const teamReadings = readings.filter((reading) => reading.teamId === (playbook.teamId ?? null));
       if (teamReadings.length === 0) continue;
       evaluated += 1;
-      if (await dispatchMetricPlaybook({ playbookId: playbook.id, readings: teamReadings, now })) {
+      if (await forEachPlaybook(playbook.id, "metric-dispatch", () => dispatchMetricPlaybook({ playbookId: playbook.id, readings: teamReadings, now }))) {
         dispatched += 1;
       }
     }

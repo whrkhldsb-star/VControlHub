@@ -36,8 +36,10 @@ vi.mock("../run-queue", () => ({ queuePlaybookRunWithClient: mocks.queuePlaybook
 
 import {
   dispatchDueCronPlaybook,
+  dispatchDueCronPlaybooks,
   dispatchMetricPlaybooksForHealthOverview,
   initializeCronPlaybookSchedule,
+  initializeUnscheduledCronPlaybooks,
 } from "../trigger-service";
 
 const dueAt = new Date("2026-08-20T19:00:00.000Z"); // 03:00 Asia/Shanghai
@@ -106,6 +108,37 @@ describe("Playbook automatic trigger dispatch", () => {
       data: { nextRunAt: new Date("2026-08-21T19:00:00.000Z") },
     }));
     expect(mocks.queuePlaybookRunWithClient).not.toHaveBeenCalled();
+  });
+
+  it("one playbook whose schedule cannot be computed does not stop the others from initializing", async () => {
+    // An imported expression with no next date: cron-parser throws. It threw
+    // out of the sweep, and the worker tick (initialize, then dispatch) failed
+    // before dispatching any Cron playbook.
+    mocks.playbookFindMany.mockResolvedValueOnce([{ id: "pb-broken" }, { id: "pb-cron" }]);
+    mocks.playbookFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) => where.id === "pb-broken"
+      ? cronPlaybook({ id: "pb-broken", nextRunAt: null, triggerConfig: { expression: "0 0 30 2 *" } })
+      : cronPlaybook({ nextRunAt: null }));
+
+    await expect(initializeUnscheduledCronPlaybooks(now)).resolves.toBe(1);
+
+    expect(mocks.playbookUpdateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.playbookUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "pb-cron" }),
+    }));
+  });
+
+  it("one failing due playbook does not stop the dispatch of the others", async () => {
+    mocks.playbookFindMany.mockResolvedValueOnce([
+      { id: "pb-a", nextRunAt: dueAt },
+      { id: "pb-cron", nextRunAt: dueAt },
+    ]);
+    mocks.playbookFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) => cronPlaybook({ id: where.id }));
+    mocks.queuePlaybookRunWithClient
+      .mockRejectedValueOnce(new Error("invalid steps"))
+      .mockResolvedValueOnce({ created: true, run: { id: "run-2" } });
+
+    await expect(dispatchDueCronPlaybooks(now)).resolves.toEqual({ dispatched: 1, advanced: 1 });
+    expect(mocks.queuePlaybookRunWithClient).toHaveBeenCalledTimes(2);
   });
 
   it("atomically advances a due Cron schedule and queues one occurrence", async () => {
