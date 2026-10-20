@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     fileEntry: { findMany: vi.fn() },
+    storageNode: { findMany: vi.fn() },
+    userStorageAccess: { findMany: vi.fn() },
     mediaItem: {
       upsert: vi.fn(),
       findMany: vi.fn(),
@@ -28,6 +30,9 @@ describe("media service", () => {
     mockPrisma.mediaItem.findMany.mockResolvedValue([]);
     mockPrisma.mediaItem.findMany.mockResolvedValue([]);
     mockPrisma.mediaItem.deleteMany.mockResolvedValue({ count: 0 });
+    // The customer's one node, without path grants: readable whole.
+    mockPrisma.storageNode.findMany.mockResolvedValue([{ id: "node_a" }]);
+    mockPrisma.userStorageAccess.findMany.mockResolvedValue([]);
   });
   it("classifies images and videos only", () => {
     expect(classifyMedia("image/png")).toBe("image");
@@ -317,12 +322,23 @@ describe("media service", () => {
     expect(mockPrisma.mediaItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          storageNode: {
-            teamId: "team_a",
-          },
+          AND: [{ storageNode: { teamId: "team_a" } }, { OR: [{ storageNodeId: "node_a" }] }],
         }),
       }),
     );
+  });
+
+  it("narrows the list to the paths an account's grants let it read", async () => {
+    // Outside its grants it could not play a file, yet the library listed it.
+    mockPrisma.userStorageAccess.findMany.mockResolvedValueOnce([{ id: "g1", storageNodeId: "node_a", pathPrefix: "projectA", canRead: true }]);
+    await listMediaItems({ session: { userId: "u1", roles: ["operator"], currentTeamId: "team_a" }, q: "clip" });
+    const where = mockPrisma.mediaItem.findMany.mock.calls.at(-1)![0].where;
+    expect(where.AND).toEqual([
+      { storageNode: { teamId: "team_a" } },
+      { OR: [{ storageNodeId: "node_a", OR: [{ relativePath: "projectA" }, { relativePath: { startsWith: "projectA/" } }] }] },
+    ]);
+    // The search keeps its own OR beside the scope.
+    expect(where.OR).toEqual(expect.arrayContaining([{ name: { contains: "clip", mode: "insensitive" } }]));
   });
 
   it("getMediaItem uses findFirst with team scope", async () => {
@@ -334,12 +350,10 @@ describe("media service", () => {
     });
     expect(mockPrisma.mediaItem.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
+        where: {
           id: "m1",
-          storageNode: {
-            teamId: "team_a",
-          },
-        }),
+          AND: [{ storageNode: { teamId: "team_a" } }, { OR: [{ storageNodeId: "node_a" }] }],
+        },
       }),
     );
   });
