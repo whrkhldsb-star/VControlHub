@@ -31,7 +31,7 @@ VControlHub 使用 Next.js、React、TypeScript、PostgreSQL 和 Prisma，生产
 ### 环境要求
 
 - Debian / Ubuntu 系 Linux 可自动安装依赖；其他 systemd Linux 可预装依赖并使用 `SKIP_PACKAGES=1`。Windows 生产运行使用 PowerShell 入口，见 [Windows 指南](docs/windows-development.md)。
-- PostgreSQL；具体依赖安装和运行配置见 [部署文档](deploy/README.md)。
+- PostgreSQL 14 及以上；具体依赖安装和运行配置见 [部署文档](deploy/README.md)。
 - 推荐使用域名和 HTTPS，公开 Web 入口使用 80/443。
 - Web 与 SSH WebSocket 服务默认仅监听本机回环端口 3000/3001，不应直接暴露公网。
 
