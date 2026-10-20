@@ -178,6 +178,13 @@ export async function dispatchDueCronPlaybook(input: {
 
       const expression = playbook.triggerConfig.expression;
       const nextRunAt = computeNextPlaybookCronRun(expression, now);
+      // A deleted customer's playbook only moves on to its next occurrence: it
+      // kept calling its webhooks and sending its notifications (only command
+      // steps recheck their requester). Once the customer is restored it runs on
+      // schedule again, without a catch-up run for the time it was deleted.
+      const customerDeleted = playbook.teamId
+        ? (await tx.team.count({ where: { id: playbook.teamId, deletedAt: { not: null } } })) > 0
+        : false;
       const advanced = await tx.playbook.updateMany({
         where: {
           id: playbook.id,
@@ -185,12 +192,20 @@ export async function dispatchDueCronPlaybook(input: {
           triggerType: "cron",
           nextRunAt: input.dueAt,
         },
-        data: { nextRunAt, lastTriggeredAt: now },
+        data: customerDeleted ? { nextRunAt } : { nextRunAt, lastTriggeredAt: now },
       });
       if (advanced.count !== 1) {
         return {
           dispatched: false,
           advanced: false,
+          audit: null as AuditDetail | null,
+          teamId: null as string | null,
+        };
+      }
+      if (customerDeleted) {
+        return {
+          dispatched: false,
+          advanced: true,
           audit: null as AuditDetail | null,
           teamId: null as string | null,
         };

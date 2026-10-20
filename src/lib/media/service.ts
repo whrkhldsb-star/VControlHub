@@ -1,21 +1,28 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { getReadableStorageScope, readableStorageScopeWhere } from "@/lib/storage/readable-scope";
 import { NotFoundError } from "@/lib/errors";
 import { classifyMediaKind } from "@/lib/storage/mime-constants";
 import { t } from "@/lib/i18n/service-translations";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
-type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
-
-/** Media has no teamId column — scope through StorageNode.teamId. */
-function mediaTeamWhere(session?: TeamSession | null) {
+/**
+ * Media has no teamId column — scope through StorageNode.teamId, then to the
+ * paths the account may read: an account narrowed by path grants could not
+ * play or preview a file outside them, yet the library listed its name, path
+ * and tags (and counted it).
+ */
+async function mediaScopeWhere(session?: TeamSession | null): Promise<Prisma.MediaItemWhereInput> {
   if (!session) return {};
   const nodeScope = teamWhere(session);
+  const readable = await getReadableStorageScope(session);
+  const parts: Prisma.MediaItemWhereInput[] = [];
   // teamWhere: platform admins may inspect all; members match only their team.
-  if (Object.keys(nodeScope).length === 0) return {};
-  return { storageNode: nodeScope };
+  if (Object.keys(nodeScope).length > 0) parts.push({ storageNode: nodeScope });
+  if (readable) parts.push(readableStorageScopeWhere(readable));
+  // Under AND: the readable scope carries its own OR, as does the search.
+  return parts.length === 0 ? {} : { AND: parts };
 }
 
 export function classifyMedia(
@@ -149,11 +156,11 @@ type MediaListFilters = {
 };
 
 /** One filter definition for the list, its total and the per-type counts. */
-function mediaListWhere(input: MediaListFilters) {
+async function mediaListWhere(input: MediaListFilters): Promise<Prisma.MediaItemWhereInput> {
   const q = input.q?.trim();
   const tag = input.tag?.trim();
   return {
-    ...mediaTeamWhere(input.session),
+    ...(await mediaScopeWhere(input.session)),
     mediaType: input.mediaType,
     favorite: input.favorite,
     ...(tag ? { tags: { has: tag } } : {}),
@@ -182,7 +189,7 @@ export async function listMediaItems(
   const pageSize = Math.min(Math.max(Math.trunc(input.pageSize ?? MEDIA_MAX_PAGE_SIZE), 1), MEDIA_MAX_PAGE_SIZE);
   const page = Math.max(Math.trunc(input.page ?? 1), 1);
   return prisma.mediaItem.findMany({
-    where: mediaListWhere(input),
+    where: await mediaListWhere(input),
     orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
     skip: (page - 1) * pageSize,
     take: pageSize,
@@ -192,7 +199,7 @@ export async function listMediaItems(
 
 /** Number of items matching the same filters as {@link listMediaItems}. */
 export async function countMediaItems(input: MediaListFilters = {}) {
-  return prisma.mediaItem.count({ where: mediaListWhere(input) });
+  return prisma.mediaItem.count({ where: await mediaListWhere(input) });
 }
 
 /** Filters of the media list a detail page was opened from. */
@@ -217,7 +224,7 @@ export async function getMediaNeighbors(
   item: { id: string; favorite: boolean; updatedAt: Date },
   filters: MediaListFilters,
 ) {
-  const base = mediaListWhere(filters);
+  const base = await mediaListWhere(filters);
   const sameFavorite = { favorite: item.favorite };
   // "Earlier in the list" = greater sort key; "later" = smaller.
   const earlier = [
@@ -251,7 +258,7 @@ export async function listMediaTypeCounts(
 ) {
   const grouped = await prisma.mediaItem.groupBy({
     by: ["mediaType"],
-    where: mediaListWhere({ ...input, mediaType: undefined }),
+    where: await mediaListWhere({ ...input, mediaType: undefined }),
     _count: { _all: true },
   });
   const counts = { image: 0, video: 0, audio: 0 };
@@ -270,7 +277,7 @@ export async function listMediaTypeCounts(
 export async function listMediaTags(session?: TeamSession | null) {
   const items = await prisma.mediaItem.findMany({
     select: { tags: true },
-    where: { tags: { isEmpty: false }, ...mediaTeamWhere(session) },
+    where: { tags: { isEmpty: false }, ...(await mediaScopeWhere(session)) },
     take: 1000,
   });
   const counts = new Map<string, number>();
@@ -304,7 +311,7 @@ export async function getMediaItem(
   options?: { includeCredentials?: boolean },
 ) {
   const item = await prisma.mediaItem.findFirst({
-    where: { id, ...mediaTeamWhere(session) },
+    where: { id, ...(await mediaScopeWhere(session)) },
     select: options?.includeCredentials
       ? mediaStreamItemSelect
       : mediaItemSelect,
@@ -516,7 +523,7 @@ export async function updateMediaTags(input: {
   favorite?: boolean;
   session?: TeamSession | null;
 }) {
-  const teamScope = mediaTeamWhere(input.session);
+  const teamScope = await mediaScopeWhere(input.session);
   const existing = await prisma.mediaItem.findFirst({
     where: { id: input.id, ...teamScope },
     select: { id: true },

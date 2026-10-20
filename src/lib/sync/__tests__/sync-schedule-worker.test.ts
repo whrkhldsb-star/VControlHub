@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   syncJobFindMany: vi.fn(),
   syncJobFindUnique: vi.fn(),
+  syncLogGroupBy: vi.fn(),
   tryAcquireAdvisoryLock: vi.fn(),
   executeSyncJob: vi.fn(),
   reclaimStaleRunningSyncJobs: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("@/lib/db", () => ({
       findMany: mocks.syncJobFindMany,
       findUnique: mocks.syncJobFindUnique,
     },
+    syncLog: { groupBy: mocks.syncLogGroupBy },
   },
 }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
@@ -77,6 +79,34 @@ describe("runSyncScheduleWorkerOnce", () => {
       status: "IDLE",
     });
     mocks.executeSyncJob.mockResolvedValue({ ok: true });
+    mocks.syncLogGroupBy.mockResolvedValue([]);
+  });
+
+  it("waits for a failed job's next occurrence instead of retrying it every tick", async () => {
+    // A failure leaves lastSyncAt alone: the job stayed due and failed again every minute.
+    const { isSyncJobDue } = await vi.importActual<typeof import("../schedule")>("../schedule");
+    let now = new Date("2026-10-20T01:05:00Z");
+    mocks.isSyncJobDue.mockImplementation((job: Parameters<typeof isSyncJobDue>[0]) => isSyncJobDue({ ...job, now }));
+    const failed = { id: "job-failed", schedule: "every:1h", lastSyncAt: new Date("2026-10-20T00:00:00Z"), createdAt: new Date("2026-10-01T00:00:00Z"), status: "ERROR", name: "nightly" };
+    mocks.syncJobFindMany.mockResolvedValue([failed]);
+    mocks.syncJobFindUnique.mockResolvedValue(failed);
+    mocks.syncLogGroupBy.mockResolvedValue([{ syncJobId: "job-failed", _max: { startedAt: new Date("2026-10-20T01:00:10Z") } }]);
+
+    await expect(runSyncScheduleWorkerOnce("test")).resolves.toBe(0);
+    expect(mocks.syncLogGroupBy).toHaveBeenCalledWith(expect.objectContaining({ where: { syncJobId: { in: ["job-failed"] } } }));
+    expect(mocks.executeSyncJob).not.toHaveBeenCalled();
+
+    now = new Date("2026-10-20T02:00:10Z");
+    await expect(runSyncScheduleWorkerOnce("test")).resolves.toBe(1);
+    expect(mocks.executeSyncJob).toHaveBeenCalledWith("job-failed", expect.anything());
+  });
+
+  it("leaves a deleted customer's jobs for its restoration", async () => {
+    mocks.syncJobFindMany.mockResolvedValue([]);
+    await runSyncScheduleWorkerOnce("test");
+    expect(mocks.syncJobFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ OR: [{ teamId: null }, { team: { deletedAt: null } }] }),
+    }));
   });
 
   it("dispatches due jobs concurrently, capped at 5 in flight", async () => {

@@ -1,6 +1,6 @@
 import { wallClockInAppTimeZone } from "@/lib/datetime/time-zone";
 import { Prisma } from "@prisma/client";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -59,7 +59,9 @@ export async function createCostBudget(input: unknown, session?: TeamSession | n
 	return budgetToRecord(row);
 }
 export async function listCostBudgets(now = new Date(), session?: TeamSession | null): Promise<CostBudgetRecord[]> {
-	const rows = await prisma.costBudget.findMany({ where: session ? teamWhere(session) : {}, orderBy: { createdAt: "desc" } });
+	// Without a session (the daily alert check): live customers' budgets only,
+	// so a deleted customer's do not keep alerting.
+	const rows = await prisma.costBudget.findMany({ where: session ? teamWhere(session) : liveCustomerRowsWhere(), orderBy: { createdAt: "desc" } });
 	return Promise.all(rows.map((row) => budgetToRecord(row, now)));
 }
 export async function updateCostBudget(id: string, input: unknown, session?: TeamSession | null): Promise<CostBudgetRecord> {

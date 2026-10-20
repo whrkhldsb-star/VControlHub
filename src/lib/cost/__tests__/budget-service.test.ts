@@ -68,6 +68,13 @@ describe("cost budget service", () => {
 		expect(getBudgetPeriodRange("yearly", now)).toEqual({ start: new Date("2026-01-01T00:00:00.000Z"), endExclusive: new Date("2027-01-01T00:00:00.000Z") });
 	});
 
+	it("checks only live customers' budgets on the daily run", async () => {
+		// A deleted customer's budgets kept alerting its managers and the admins.
+		prismaMock.costBudget.findMany.mockResolvedValueOnce([]);
+		await checkBudgetAlerts(new Date("2026-06-15T10:00:00.000Z"));
+		expect(prismaMock.costBudget.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { OR: [{ teamId: null }, { team: { deletedAt: null } }] } }));
+	});
+
 	it("notifies cost managers once per budget period", async () => {
 		const first = await checkBudgetAlerts(new Date("2026-06-15T10:00:00.000Z"));
 		expect(first).toMatchObject({ checked: 1, triggered: 1, notificationsSent: 2, duplicatesSkipped: 0 });

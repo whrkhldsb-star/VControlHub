@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { dispatchDueVpsBackupSchedules } from "@/lib/backup/vps-backup-schedule-service";
 import { collectAllHealth } from "@/lib/health/service-collect";
 import { escalateBreachedTickets } from "@/lib/ticket/sla";
+import { hashShareToken, peekShareToken } from "@/lib/share-link/service";
 
 /**
  * Deleting a customer hides it and keeps its rows for its history; the
@@ -36,12 +37,18 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a deleted c
       await prisma.ticket.create({
         data: { id: `${team}-ticket`, title: prefix, description: prefix, createdBy: prefix, teamId: team, status: "OPEN", priority: "HIGH", slaDueAt: due },
       });
+      await prisma.storageNode.create({ data: { id: `${team}-node`, name: `${team}-node`, driver: "LOCAL", basePath: `/tmp/${team}`, teamId: team } });
+      await prisma.shareLink.create({
+        data: { tokenHash: hashShareToken(`${team}-token`), storageNodeId: `${team}-node`, path: "report.pdf", entryType: "FILE", name: "report.pdf", teamId: team, createdBy: prefix },
+      });
     }
   });
 
   afterAll(async () => {
     const servers = [live.server, gone.server];
     await prisma.ticket.deleteMany({ where: { createdBy: prefix } });
+    await prisma.shareLink.deleteMany({ where: { createdBy: prefix } });
+    await prisma.storageNode.deleteMany({ where: { id: { in: [`${live.team}-node`, `${gone.team}-node`] } } });
     await prisma.job.deleteMany({ where: { title: { startsWith: `VPS backup: ${prefix}` } } });
     await prisma.vpsBackupRecord.deleteMany({ where: { serverId: { in: servers } } });
     await prisma.vpsBackupSchedule.deleteMany({ where: { serverId: { in: servers } } });
@@ -63,6 +70,11 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a deleted c
     const tickets = await prisma.ticket.findMany({ where: { createdBy: prefix }, select: { teamId: true, escalatedAt: true } });
     expect(tickets.find((ticket) => ticket.teamId === live.team)?.escalatedAt).not.toBeNull();
     expect(tickets.find((ticket) => ticket.teamId === gone.team)?.escalatedAt).toBeNull();
+  });
+
+  it("stops serving a deleted customer's public share links", async () => {
+    await expect(peekShareToken(`${live.team}-token`)).resolves.toMatchObject({ name: "report.pdf" });
+    await expect(peekShareToken(`${gone.team}-token`)).rejects.toThrow();
   });
 
   it("leaves a deleted customer's servers out of the background fleet sweep", async () => {

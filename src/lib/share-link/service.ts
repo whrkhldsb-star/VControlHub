@@ -221,6 +221,12 @@ async function loadActiveShare(token: string) {
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
+  // A deleted customer is hidden with its data until restored: its public
+  // links stop serving its files rather than outlive it.
+  const teamIds = [share.teamId, share.storageNode?.teamId].filter((id): id is string => Boolean(id));
+  if (teamIds.length > 0 && (await prisma.team.count({ where: { id: { in: teamIds }, deletedAt: { not: null } } })) > 0) {
+    throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  }
   await assertShareTargetNotDeleted(share.storageNodeId, share.path);
   return share;
 }

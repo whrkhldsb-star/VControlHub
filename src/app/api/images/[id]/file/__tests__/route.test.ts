@@ -86,6 +86,12 @@ describe("GET /api/images/[id]/file", () => {
     await rm(uploadRoot, { recursive: true, force: true });
   });
 
+  it("does not serve a deleted customer's public image", async () => {
+    imageFindUniqueMock.mockResolvedValue(image({ isPublic: true, team: { deletedAt: new Date("2026-10-01T00:00:00Z") } }));
+    const response = await GET(new Request("http://local/api/images/img_1/file"), params);
+    expect(response.status).toBe(404);
+  });
+
   it("streams public images without requiring a logged-in session so copied external links work", async () => {
     imageFindUniqueMock.mockResolvedValue(image({ isPublic: true }));
 
@@ -106,6 +112,7 @@ describe("GET /api/images/[id]/file", () => {
         isPublic: true,
         userId: true,
         teamId: true,
+        team: { select: { deletedAt: true } },
       },
     });
     expect(response.headers.get("Content-Type")).toBe("image/png");

@@ -78,8 +78,11 @@ export function setupRdpWebSocket(server: HttpServer) {
   let clipboardAllowed = false;
   let audioAllowed = false;
   const clipboardStreams = new Map<number, number>();
-  const audit = (event: string) => {
-   if (userId && serverId) void auditUserAction(userId, event, { serverId }, undefined, teamId).catch(() => {});
+  // One "failed" per attempt: guacd's error already recorded why, so the
+  // close that follows a failed handshake must not record it a second time.
+  let failureAudited = false;
+  const audit = (event: string, detail: Record<string, string> = {}) => {
+   if (userId && serverId) void auditUserAction(userId, event, { serverId, ...detail }, undefined, teamId).catch(() => {});
   };
   const close = (reason: string, code = 1011, status = "512") => {
    stopped = true;
@@ -119,7 +122,8 @@ export function setupRdpWebSocket(server: HttpServer) {
    stopped = true;
    clearTimeout(handshakeTimeout); clearInterval(timer); tunnel?.destroy();
    if (userId && authenticated) { authedSessions--; const count = (users.get(userId) ?? 1) - 1; if (count) users.set(userId, count); else users.delete(userId); }
-   audit(started ? "server.rdp.closed" : "server.rdp.failed");
+   if (started) audit("server.rdp.closed");
+   else if (!failureAudited) audit("server.rdp.failed");
   });
   const input = new GuacParser(row => {
    if (stopped) return;
@@ -203,7 +207,11 @@ export function setupRdpWebSocket(server: HttpServer) {
     const output = new GuacParser(row => {
      if (stopped) return;
      if (row[0] === "error") {
-      audit("server.rdp.failed");
+      // Keep why: the audit held only the server, so a run of failed logins
+      // could not be told from a refused account (769), a locked one (771)
+      // or an unreachable host without guacd's own log.
+      failureAudited = true;
+      audit("server.rdp.failed", { status: row[2] ?? "", message: (row[1] ?? "").slice(0, 200) });
       // Windows refusing the login arrives after "ready". Keep guacd's
       // status for it: the browser must tell a wrong account or password
       // (769) and a locked, disabled or expired account (771) from a dropped

@@ -16,7 +16,7 @@ import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
@@ -294,7 +294,9 @@ export async function listSftpNodesForStaleInventory(
   return prisma.storageNode.findMany({
     where: {
       driver: "SFTP",
-      ...(session ? teamWhere(session) : {}),
+      // The system sweep (no session) skips a deleted customer's nodes: it
+      // kept connecting to its servers over SSH after the customer was gone.
+      ...(session ? teamWhere(session) : liveCustomerRowsWhere()),
     },
     take: 500,
     select: SFTP_STALE_INVENTORY_NODE_SELECT,

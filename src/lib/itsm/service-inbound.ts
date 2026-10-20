@@ -110,7 +110,11 @@ export async function handleInboundWebhook(input: {
   systemUserId: string;
 }): Promise<{ event: ItsmEventRecord; ticketId: string | null; action: string }> {
   const row = await prisma.itsmConnection.findUnique({ where: { id: input.connectionId } });
-  if (!row) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
+  // A deleted customer's connection takes no events until it is restored:
+  // they would keep creating and changing its hidden tickets.
+  if (!row || (row.teamId && (await prisma.team.count({ where: { id: row.teamId, deletedAt: { not: null } } })) > 0)) {
+    throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
+  }
   if (!row.enabled) throw new ValidationError(t("backend.itsm.connectionIsDisabled"));
   if (!supportsInbound(row.direction)) {
     throw new ValidationError(t("backend.itsm.connectionDoesNotAcceptInboundEvents"));

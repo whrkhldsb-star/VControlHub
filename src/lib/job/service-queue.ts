@@ -93,6 +93,11 @@ export async function claimNextJob(options: ClaimJobOptions) {
         (SELECT count(*) FROM jobs r WHERE ${active} AND r."createdBy" = j."createdBy") < ${maxPerUser})` : Prisma.empty;
       const nodeBudget = maxPerNode > 0 ? Prisma.sql`AND (j."targetStorageNodeId" IS NULL OR
         (SELECT count(*) FROM jobs r WHERE ${active} AND r."targetStorageNodeId" = j."targetStorageNodeId") < ${maxPerNode})` : Prisma.empty;
+      // NO KEY UPDATE, not UPDATE: writing one of the job's events holds its
+      // row KEY SHARE (the foreign key check), which UPDATE conflicts with, so
+      // SKIP LOCKED passed over a job whose "enqueued" event was still being
+      // written — the tick workers' own fresh job, claimed one tick late. Two
+      // claimers still exclude each other; the claim changes no key column.
       const rows = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT j.id FROM jobs j
         WHERE j.attempts < j."maxAttempts"
@@ -106,7 +111,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
             AND ((j."teamId" IS NOT NULL AND r."teamId" = j."teamId")
               OR (j."teamId" IS NULL AND r."teamId" IS NULL AND r."createdBy" IS NOT DISTINCT FROM j."createdBy"))) ASC,
           j."availableAt" ASC, j."createdAt" ASC, j.id ASC
-        FOR UPDATE OF j SKIP LOCKED
+        FOR NO KEY UPDATE OF j SKIP LOCKED
         LIMIT 1
       `;
       for (const row of rows) {
