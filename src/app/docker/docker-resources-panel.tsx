@@ -163,6 +163,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
     }
   }
   async function inspectResource(type: ResourceType, itemName: string) {
+    const requestedServerId = serverId;
     setBusyKey(`inspect:${type}:${itemName}`);
     setError("");
     try {
@@ -170,6 +171,9 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         `/api/docker/resources?type=${type}&name=${encodeURIComponent(itemName)}${serverId ? `&serverId=${serverId}` : ""}`,
       );
       if (data.error) throw new Error(data.error);
+      // Another server may be open by now: its view must not show (under the
+      // same resource name) what this one returned.
+      if (currentServerIdRef.current !== requestedServerId) return;
       setDetail({
         title: formatCopy(t("dockerResources.inspect.title"), {
           kind: resourceKind(type),
@@ -178,6 +182,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         json: JSON.stringify(data.data, null, 2),
       });
     } catch (err) {
+      if (currentServerIdRef.current !== requestedServerId) return;
       setError(
         getErrorMessage(err, t("dockerResources.error.inspect")),
       );

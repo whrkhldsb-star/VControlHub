@@ -127,91 +127,136 @@ async function processHostedTools(input: {
   }
 
   const results: ToolResult[] = [];
+  // A call left without a result broke the thread: providers reject every
+  // later request whose history holds an unanswered call. A call to a tool
+  // that does not exist, or one that failed before its result was recorded,
+  // is answered with the error, which the model then sees.
+  const answerWithError = async (toolCallId: string, toolName: string, error: string) => {
+    const execution = { success: false, data: null, error };
+    await prisma.aiMessage.create({
+      data: { conversationId: input.conversationId, role: "tool", content: JSON.stringify(execution), toolCallId },
+    }).catch((recordError) => logger.warn("failed to record a tool call error", {
+      toolCallId,
+      error: recordError instanceof Error ? recordError.message : String(recordError),
+    }));
+    input.send({ type: "tool_result", toolCallId, success: false, data: null });
+    results.push({ toolCallId, toolName, result: execution, needsApproval: false });
+  };
+  const parsedIds = new Set(parsedCalls.map(({ toolCall }) => toolCall.id));
+  for (const toolCall of input.toolCalls) {
+    if (parsedIds.has(toolCall.id)) continue;
+    await answerWithError(toolCall.id, toolCall.function.name, t("apiAiChat.unknownTool", input.locale, { name: toolCall.function.name }));
+  }
   // Each action has dependent create/execute/update writes, so this loop is
   // intentionally sequential rather than a batch or Promise.all.
   for (const { parsed } of parsedCalls) {
     const { tool, args, toolCallId } = parsed;
-    const action = await createHostedAction({
-      conversationId: input.conversationId,
-      messageId: input.assistantMessageId,
-      toolCallId,
-      tool,
-      args,
-      userId: input.session.userId,
-      session: input.session,
-    });
-    const params = JSON.parse(action.params) as Record<string, unknown>;
-
-    if (!tool.autoApproved) {
-      await prisma.aiMessage.create({
-        data: {
-          conversationId: input.conversationId,
-          role: "tool",
-          content: JSON.stringify({
-            actionId: action.id,
-            status: "PENDING_APPROVAL",
-            pendingApproval: true,
-          }),
-          toolCallId,
-        },
-      });
-      input.send({
-        type: "tool_approval_needed",
+    let answered = false;
+    let actionId: string | null = null;
+    try {
+      const action = await createHostedAction({
+        conversationId: input.conversationId,
+        messageId: input.assistantMessageId,
         toolCallId,
+        tool,
+        args,
+        userId: input.session.userId,
+        session: input.session,
+      });
+      actionId = action.id;
+      const params = JSON.parse(action.params) as Record<string, unknown>;
+
+      if (!tool.autoApproved) {
+        await prisma.aiMessage.create({
+          data: {
+            conversationId: input.conversationId,
+            role: "tool",
+            content: JSON.stringify({
+              actionId: action.id,
+              status: "PENDING_APPROVAL",
+              pendingApproval: true,
+            }),
+            toolCallId,
+          },
+        });
+        answered = true;
+        input.send({
+          type: "tool_approval_needed",
+          toolCallId,
+          actionId: action.id,
+          actionName: tool.actionName,
+          actionType: tool.actionType,
+          riskLevel: tool.riskLevel,
+          params,
+        });
+        results.push({
+          toolCallId,
+          toolName: tool.name,
+          result: t("apiAiChat.waitingForApproval", input.locale),
+          needsApproval: true,
+          actionId: action.id,
+        });
+        continue;
+      }
+
+      const execution = await executeSafeAction(
+        { actionType: tool.actionType, serverId: action.serverId, params },
+        { session: input.session, locale: input.locale },
+      );
+      await prisma.$transaction([
+        prisma.aiHostedAction.update({
+          where: { id: action.id },
+          data: {
+            status: execution.success ? "COMPLETED" : "FAILED",
+            result: JSON.stringify(execution.data ?? null),
+            errorMessage: execution.error,
+            executedAt: new Date(),
+            completedAt: new Date(),
+          },
+        }),
+        prisma.aiMessage.create({
+          data: {
+            conversationId: input.conversationId,
+            role: "tool",
+            content: JSON.stringify(execution),
+            toolCallId,
+          },
+        }),
+      ]);
+      answered = true;
+      input.send({
+        type: "tool_result",
+        toolCallId,
+        success: execution.success,
+        data: execution.data,
         actionId: action.id,
-        actionName: tool.actionName,
-        actionType: tool.actionType,
-        riskLevel: tool.riskLevel,
-        params,
       });
       results.push({
         toolCallId,
         toolName: tool.name,
-        result: t("apiAiChat.waitingForApproval", input.locale),
-        needsApproval: true,
+        result: execution,
+        needsApproval: false,
         actionId: action.id,
       });
-      continue;
+    } catch (error) {
+      logger.warn("hosted tool call failed", {
+        toolCallId,
+        tool: tool.name,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (!answered) {
+        const message = error instanceof Error ? error.message : t("backend.ai.unknownError", input.locale);
+        // The action row of a call that failed here would otherwise keep
+        // showing as approved, never run.
+        if (actionId) {
+          await prisma.aiHostedAction.updateMany({
+            where: { id: actionId, status: { in: ["APPROVED", "EXECUTING"] } },
+            data: { status: "FAILED", errorMessage: message.slice(0, 2000), completedAt: new Date() },
+          }).catch(() => undefined);
+        }
+        await answerWithError(toolCallId, tool.name, message);
+      }
     }
-
-    const execution = await executeSafeAction(
-      { actionType: tool.actionType, serverId: action.serverId, params },
-      { session: input.session, locale: input.locale },
-    );
-    await prisma.$transaction([
-      prisma.aiHostedAction.update({
-        where: { id: action.id },
-        data: {
-          status: execution.success ? "COMPLETED" : "FAILED",
-          result: JSON.stringify(execution.data ?? null),
-          errorMessage: execution.error,
-          executedAt: new Date(),
-          completedAt: new Date(),
-        },
-      }),
-      prisma.aiMessage.create({
-        data: {
-          conversationId: input.conversationId,
-          role: "tool",
-          content: JSON.stringify(execution),
-          toolCallId,
-        },
-      }),
-    ]);
-    input.send({
-      type: "tool_result",
-      toolCallId,
-      success: execution.success,
-      data: execution.data,
-      actionId: action.id,
-    });
-    results.push({
-      toolCallId,
-      toolName: tool.name,
-      result: execution,
-      needsApproval: false,
-      actionId: action.id,
-    });
   }
   return results;
 }

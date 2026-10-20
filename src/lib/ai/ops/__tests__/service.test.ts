@@ -78,7 +78,7 @@ function makePrismaMock() {
 					skip,
 				}: {
 					where?: { mode?: string; status?: string; triggerType?: string };
-					orderBy?: { createdAt?: "asc" | "desc" };
+					orderBy?: { createdAt?: "asc" | "desc" } | Array<{ createdAt?: "asc" | "desc"; id?: "asc" | "desc" }>;
 					take?: number;
 					skip?: number;
 				}) => {
@@ -87,9 +87,10 @@ function makePrismaMock() {
 					if (where.status) rows = rows.filter((r) => r.status === where.status);
 					if (where.triggerType)
 						rows = rows.filter((r) => r.triggerType === where.triggerType);
-					if (orderBy?.createdAt === "desc") {
+					const primary = Array.isArray(orderBy) ? orderBy[0] : orderBy;
+					if (primary?.createdAt === "desc") {
 						rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-					} else if (orderBy?.createdAt === "asc") {
+					} else if (primary?.createdAt === "asc") {
 						rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 					}
 					if (typeof skip === "number") rows = rows.slice(skip);

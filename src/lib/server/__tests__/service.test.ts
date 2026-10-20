@@ -125,6 +125,8 @@ vi.mock("@/lib/db", () => ({
     quickService: { count: vi.fn() },
     vpsBackupSchedule: { count: vi.fn() },
     vpsBackupRecord: { count: vi.fn() },
+    commandTarget: { count: vi.fn(async () => 0) },
+    downloadTask: { count: vi.fn(async () => 0) },
     // createServerProfile wraps server+storage in $transaction;
     // deleteServerProfile uses the array form for the storageNode+server pair.
     $transaction: vi.fn(async (arg: unknown) => {

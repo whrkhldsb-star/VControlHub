@@ -82,8 +82,7 @@ describe("transferServerToCustomer", () => {
   });
 
   it("refuses while the previous customer still uses the server", async () => {
-    mocks.impact.mockResolvedValue({ ...NO_IMPACT, shares: 2 });
-    mocks.commandTargetCount.mockResolvedValue(1);
+    mocks.impact.mockResolvedValue({ ...NO_IMPACT, shares: 2, unfinishedCommands: 1 });
     await expect(transferServerToCustomer("srv_1", "team_b", ADMIN)).rejects.toThrow(/backend\.server\.transfer\.blocked/);
     expect(mocks.transaction).not.toHaveBeenCalled();
   });

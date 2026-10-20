@@ -140,16 +140,18 @@ function buildAuditWhere(input: {
 
 /**
  * Sort mapping for the audit list. Relation sorts (actor) need the nested
- * orderBy form; secondary createdAt keeps pagination stable for ties.
+ * orderBy form. Entries written in one burst share a createdAt, so the id
+ * ends every order: without it, page boundaries among equal timestamps were
+ * resolved differently per query and entries were repeated or skipped.
  */
 function auditOrderBy(
 	sort: ListAuditLogsInput["sort"],
 	direction: ListAuditLogsInput["direction"],
 ): Prisma.AuditLogOrderByWithRelationInput[] {
 	const dir = direction === "asc" ? "asc" : "desc";
-	if (sort === "actor") return [{ actor: { username: dir } }, { createdAt: "desc" }];
-	if (sort === "action") return [{ action: dir }, { createdAt: "desc" }];
-	return [{ createdAt: dir }];
+	if (sort === "actor") return [{ actor: { username: dir } }, { createdAt: "desc" }, { id: "desc" }];
+	if (sort === "action") return [{ action: dir }, { createdAt: "desc" }, { id: "desc" }];
+	return [{ createdAt: dir }, { id: dir }];
 }
 
 export async function listAuditLogs(

@@ -99,7 +99,8 @@ export async function listUserNotifications(userId: string, opts?: { unreadOnly?
 			userId,
 			...(opts?.unreadOnly ? { isRead: false } : {}),
 		},
-		orderBy: { createdAt: "desc" },
+		// The id breaks createdAt ties, so offset pages neither repeat nor skip.
+		orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 		take: opts?.limit ?? 50,
 		...(opts?.skip && opts.skip > 0 ? { skip: opts.skip } : {}),
 		// Administrators receive notifications from every customer; name the source.

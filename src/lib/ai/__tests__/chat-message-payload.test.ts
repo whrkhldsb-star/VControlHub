@@ -60,11 +60,12 @@ describe("buildAiChatMessagePayload", () => {
 		const call = { id: "call_1", type: "function", function: { name: "list_servers", arguments: "{}" } };
 		const { historyMessages } = build({
 			conv: conv([
+				{ role: "user", content: "list them" },
 				{ role: "assistant", content: "", toolCalls: JSON.stringify([call]) },
 				{ role: "tool", content: '{"ok":true}', toolCallId: "call_1" },
 			]),
 		});
-		expect(historyMessages[1]).toEqual({ role: "tool", content: '{"ok":true}', tool_call_id: "call_1" });
+		expect(historyMessages[2]).toEqual({ role: "tool", content: '{"ok":true}', tool_call_id: "call_1" });
 	});
 
 	it("drops a tool result whose call is outside the history window (or has no id)", () => {
@@ -83,18 +84,62 @@ describe("buildAiChatMessagePayload", () => {
 	it("re-attaches an assistant turn's tool_calls", () => {
 		const toolCalls = [{ id: "call_1", type: "function", function: { name: "list_servers", arguments: "{}" } }];
 		const { historyMessages } = build({
-			conv: conv([{ role: "assistant", content: "", toolCalls: JSON.stringify(toolCalls) }]),
+			conv: conv([
+				{ role: "user", content: "list them" },
+				{ role: "assistant", content: "", toolCalls: JSON.stringify(toolCalls) },
+				{ role: "tool", content: "{}", toolCallId: "call_1" },
+			]),
 		});
-		expect(historyMessages[0]).toEqual({ role: "assistant", content: "", tool_calls: toolCalls });
+		expect(historyMessages[1]).toEqual({ role: "assistant", content: "", tool_calls: toolCalls });
+	});
+
+	it("replays only the tool calls that got a result", () => {
+		// A call to an unknown tool, or one whose recording failed, had no result;
+		// replayed, it made the provider reject every later request of the thread.
+		const answered = { id: "call_ok", type: "function", function: { name: "list_servers", arguments: "{}" } };
+		const orphan = { id: "call_lost", type: "function", function: { name: "made_up_tool", arguments: "{}" } };
+		const { historyMessages } = build({
+			body: { content: "again" },
+			conv: conv([
+				{ role: "user", content: "check" },
+				{ role: "assistant", content: "checking", toolCalls: JSON.stringify([answered, orphan]) },
+				{ role: "tool", content: "{}", toolCallId: "call_ok" },
+				{ role: "assistant", content: "", toolCalls: JSON.stringify([{ ...orphan, id: "call_lost_2" }]) },
+				{ role: "user", content: "next" },
+			]),
+		});
+		expect(historyMessages).toEqual([
+			{ role: "user", content: "check" },
+			{ role: "assistant", content: "checking", tool_calls: [answered] },
+			{ role: "tool", content: "{}", tool_call_id: "call_ok" },
+			{ role: "user", content: "next" },
+			{ role: "user", content: "again" },
+		]);
+	});
+
+	it("starts the history at the first user turn when the window opens mid-thread", () => {
+		// The latest-N window can begin on an assistant turn (and its results);
+		// Anthropic rejects a history whose first message is not the user's.
+		const call = { id: "call_cut", type: "function", function: { name: "list_servers", arguments: "{}" } };
+		const { historyMessages } = build({
+			body: { content: "again" },
+			conv: conv([
+				{ role: "assistant", content: "", toolCalls: JSON.stringify([call]) },
+				{ role: "tool", content: "{}", toolCallId: "call_cut" },
+				{ role: "assistant", content: "done" },
+				{ role: "user", content: "next" },
+			]),
+		});
+		expect(historyMessages).toEqual([{ role: "user", content: "next" }, { role: "user", content: "again" }]);
 	});
 
 	it("treats malformed stored toolCalls as no tool calls instead of throwing", () => {
 		// The column is free-form text; a parse error must not fail the request.
 		for (const raw of ["not json", "{}", "null", ""]) {
 			const { historyMessages } = build({
-				conv: conv([{ role: "assistant", content: "hello", toolCalls: raw }]),
+				conv: conv([{ role: "user", content: "hi" }, { role: "assistant", content: "hello", toolCalls: raw }]),
 			});
-			expect(historyMessages[0]).toEqual({ role: "assistant", content: "hello" });
+			expect(historyMessages[1]).toEqual({ role: "assistant", content: "hello" });
 		}
 	});
 

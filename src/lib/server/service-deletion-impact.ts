@@ -13,6 +13,14 @@ export type ServerDeletionImpact = {
   quickServices: number;
   backupSchedules: number;
   backupRecords: number;
+  /**
+   * Work still running against the server. Its rows go with the server by
+   * cascade: a running command lost its targets (the remote process went on
+   * with nowhere to report) and a running download its task (aria2 kept
+   * fetching). Moving the server is refused for the same reason.
+   */
+  unfinishedCommands: number;
+  unfinishedDownloads: number;
 };
 
 function jsonReferencesServer(value: unknown, serverId: string): boolean {
@@ -46,6 +54,8 @@ export async function getServerDeletionImpact(serverId: string): Promise<ServerD
     quickServices,
     backupSchedules,
     backupRecords,
+    unfinishedCommands,
+    unfinishedDownloads,
   ] = await Promise.all([
     storageScope ? prisma.fileEntry.count({ where: storageScope }) : 0,
     storageScope ? prisma.fileVersion.count({ where: storageScope }) : 0,
@@ -60,6 +70,8 @@ export async function getServerDeletionImpact(serverId: string): Promise<ServerD
     prisma.quickService.count({ where: { serverId } }),
     prisma.vpsBackupSchedule.count({ where: { serverId } }),
     prisma.vpsBackupRecord.count({ where: { serverId } }),
+    prisma.commandTarget.count({ where: { serverId, status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"] } } }),
+    prisma.downloadTask.count({ where: { serverId, status: { in: ["PENDING", "RUNNING"] } } }),
   ]);
 
   return {
@@ -75,6 +87,8 @@ export async function getServerDeletionImpact(serverId: string): Promise<ServerD
     quickServices,
     backupSchedules,
     backupRecords,
+    unfinishedCommands,
+    unfinishedDownloads,
   };
 }
 

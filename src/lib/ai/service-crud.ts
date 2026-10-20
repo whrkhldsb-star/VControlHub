@@ -286,9 +286,12 @@ export async function getConversationById(id: string, userId: string) {
 					updatedAt: true,
 				},
 			},
-			// Latest window first, then reverse to chronological for UI.
+			// Latest window first, then reverse to chronological for UI. The id
+			// orders turns written within one millisecond (an assistant turn and
+			// its tool results): by createdAt alone a result could precede its
+			// call, be dropped from the history, and leave the call unanswered.
 			messages: {
-				orderBy: { createdAt: "desc" },
+				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 				take: MESSAGE_TAKE,
 				include: {
 					hostedActions: {
