@@ -12,6 +12,7 @@
  * would skip duration or clear pending state across unrelated hosts.
  */
 import { prisma } from "@/lib/db";
+import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { createLogger } from "@/lib/logging";
 import {
   escalateOverdueAlertIncidents,
@@ -110,8 +111,11 @@ async function persistMatchState(
  *    opens/escalates/notifies — or runs playbooks against — other tenants' hosts.
  */
 export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unknown> }) {
-  const ruleScope = options?.ruleWhere ?? {};
-  const escalateOptions = Object.keys(ruleScope).length > 0 ? { ruleTeamWhere: ruleScope } : undefined;
+  // Fleet-wide passes cover platform rules and live customers' rules: a
+  // deleted customer's rules would keep notifying its channels (and starting
+  // its playbooks) and its open incidents kept escalating after removal.
+  const ruleScope = options?.ruleWhere ?? liveCustomerRowsWhere();
+  const escalateOptions = { ruleTeamWhere: ruleScope };
   const rules = [];
   let ruleCursorId: string | undefined;
   for (;;) {
