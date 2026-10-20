@@ -1112,6 +1112,7 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 - 平台的 systemd 服务（默认 `vcontrolhub-next`、`vcontrolhub-worker`、`vcontrolhub-ssh-ws`，可用 `VCONTROLHUB_SERVICE_UNITS` 指定）必须都被确认为已停止（`inactive` 或 `failed`）。以下情况一律拒绝执行：服务在运行或处于过渡状态、状态未知、systemd 不认识该服务名（多半是服务名不同）、`systemctl` 无法给出状态、主机上没有 `systemctl`。
 - 数据库导入是单个事务，其第一条语句检查是否还有其他客户端连接目标数据库，有则整体放弃；完整备份的文件在数据库提交后、复制之前会再检查一次。
+- 同一事务中，导入备份前会先删除恢复账号在 `public` 下拥有的表和枚举类型，使数据库与备份完全一致：备份之后才由新版本建立的表不会残留。否则只要新表引用了旧表，较早的备份就根本无法导入。
 - 同一安装同时只能有一个恢复（`.restore.lock`）。
 - 每次结果追加到备份目录的 `restore-history.jsonl`。
 

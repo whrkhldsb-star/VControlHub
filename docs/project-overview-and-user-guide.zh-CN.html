@@ -1716,6 +1716,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <ul>
 <li>平台的 systemd 服务（默认 <code>vcontrolhub-next</code>、<code>vcontrolhub-worker</code>、<code>vcontrolhub-ssh-ws</code>，可用 <code>VCONTROLHUB_SERVICE_UNITS</code> 指定）必须都被确认为已停止（<code>inactive</code> 或 <code>failed</code>）。以下情况一律拒绝执行：服务在运行或处于过渡状态、状态未知、systemd 不认识该服务名（多半是服务名不同）、<code>systemctl</code> 无法给出状态、主机上没有 <code>systemctl</code>。</li>
 <li>数据库导入是单个事务，其第一条语句检查是否还有其他客户端连接目标数据库，有则整体放弃；完整备份的文件在数据库提交后、复制之前会再检查一次。</li>
+<li>同一事务中，导入备份前会先删除恢复账号在 <code>public</code> 下拥有的表和枚举类型，使数据库与备份完全一致：备份之后才由新版本建立的表不会残留。否则只要新表引用了旧表，较早的备份就根本无法导入。</li>
 <li>同一安装同时只能有一个恢复（<code>.restore.lock</code>）。</li>
 <li>每次结果追加到备份目录的 <code>restore-history.jsonl</code>。</li>
 </ul>

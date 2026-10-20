@@ -152,6 +152,27 @@ const OFFLINE_GUARD_SQL = `DO $vch_offline$ DECLARE other integer; BEGIN
 END $vch_offline$;
 `;
 
+/**
+ * Second statement: make the database the backup. A dump made with --clean
+ * drops only the objects it contains, so tables and enum types created after
+ * the backup (by later migrations) stayed. One referencing an older table made
+ * the whole restore fail ("other objects depend on it"; any backup older than
+ * a table with a foreign key to an existing one); the others kept today's rows
+ * and refused the upgrade's own CREATE afterwards. Inside the import
+ * transaction, so a dump that fails still leaves everything as it was. Only
+ * this role's objects in the public schema: the application's own.
+ */
+const RESET_SCHEMA_SQL = `DO $vch_reset$ DECLARE r record; BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tableowner = current_user LOOP
+    EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', r.tablename);
+  END LOOP;
+  FOR r IN SELECT t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typtype = 'e' AND t.typowner = (SELECT oid FROM pg_roles WHERE rolname = current_user) LOOP
+    EXECUTE format('DROP TYPE IF EXISTS public.%I CASCADE', r.typname);
+  END LOOP;
+END $vch_reset$;
+`;
+
 /** Same check as a standalone query, for the file phase. */
 async function assertNoOtherDatabaseClients({ psql, connArgs, childEnv }) {
   const { stdout } = await runBinary(psql, ["-X", "-q", "-t", "-A", "-c", OTHER_CLIENTS_SQL, ...connArgs], { env: childEnv });
@@ -178,6 +199,7 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
   // half-restored database.
   const child = spawn(psql, ["-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-", ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
   child.stdin.write(OFFLINE_GUARD_SQL);
+  child.stdin.write(RESET_SCHEMA_SQL);
   const source = createReadStream(backupFile);
   const gunzip = backupFile.endsWith(".gz") ? createGunzip() : null;
   const completed = new Promise((resolve, reject) => {

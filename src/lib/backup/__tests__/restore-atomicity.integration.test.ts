@@ -173,6 +173,35 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
     }
   }, 120_000);
 
+  it("restores an older backup over tables and types created after it", () => {
+    // A --clean dump drops only what it contains. A newer table referencing
+    // an older one made the whole restore fail ("other objects depend on
+    // it"); newer tables and types without one stayed with today's rows and
+    // then refused the upgrade's own CREATE.
+    const scratch = `${database}_newer`;
+    psql(adminUrl("postgres"), `CREATE DATABASE ${scratch}`);
+    const scratchUrl = adminUrl(scratch);
+    try {
+      psql(scratchUrl, "CREATE TABLE parent (id int PRIMARY KEY, v text); INSERT INTO parent VALUES (1, 'from-backup')");
+      const dump = spawnSync("pg_dump", [scratchUrl, "--no-owner", "--no-privileges", "--clean", "--if-exists"], { encoding: "utf8" });
+      expect(dump.status, dump.stderr).toBe(0);
+      const olderDump = join(work, "older-than-tables.sql.gz");
+      writeFileSync(olderDump, gzipSync(dump.stdout));
+      psql(scratchUrl, "UPDATE parent SET v = 'live-data'; CREATE TABLE child (id int PRIMARY KEY, parent_id int REFERENCES parent(id)); INSERT INTO child VALUES (1, 1); CREATE TABLE loose (id int); CREATE TYPE mood AS ENUM ('ok')");
+      writeFileSync(join(work, ".env.newer"), `DATABASE_URL=${scratchUrl}\n`);
+      const appDir = join(work, "app-newer");
+      mkdirSync(appDir);
+
+      const result = spawnSync(process.execPath, [RESTORE_SCRIPT, "database", olderDump], { encoding: "utf8", env: restoreEnv(appDir, join(work, ".env.newer")) });
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(psql(scratchUrl, "SELECT v FROM parent WHERE id = 1")).toBe("from-backup");
+      expect(psql(scratchUrl, "SELECT to_regclass('public.child') IS NULL AND to_regclass('public.loose') IS NULL AND to_regtype('public.mood') IS NULL")).toBe("t");
+    } finally {
+      psql(adminUrl("postgres"), `DROP DATABASE IF EXISTS ${scratch} WITH (FORCE)`);
+    }
+  });
+
   it("refuses to import while another client is connected and changes nothing", async () => {
     const appDir = join(work, "app-online");
     mkdirSync(appDir);
