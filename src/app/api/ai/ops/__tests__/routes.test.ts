@@ -515,8 +515,8 @@ describe("/api/ai/ops/* routes", () => {
 			);
 			expect(res.status).toBe(200);
 			expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:ops:manage");
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "autonomous");
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.provider", "anthropic");
+			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "autonomous", "u-admin");
+			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.provider", "anthropic", "u-admin");
 			expect(mocks.auditUserAction).toHaveBeenCalledWith(
 				"u-admin",
 				"ai.ops.settings.update",
@@ -544,7 +544,7 @@ describe("/api/ai/ops/* routes", () => {
 				}),
 			);
 			expect(res.status).toBe(200);
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "autonomous");
+			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "autonomous", "u-admin");
 			expect(mocks.setSetting).not.toHaveBeenCalledWith("ai.ops.provider", expect.anything());
 			const body = await res.json();
 			expect(body.mode).toBe("autonomous");
@@ -603,8 +603,8 @@ describe("/api/ai/ops/* routes", () => {
 				}),
 			);
 			expect(res.status).toBe(200);
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "recommendation");
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.provider", "");
+			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "recommendation", "u-admin");
+			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.provider", "", "u-admin");
 			const body = await res.json();
 			expect(body.providerId).toBeNull();
 		});

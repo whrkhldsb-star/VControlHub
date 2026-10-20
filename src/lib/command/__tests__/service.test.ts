@@ -280,6 +280,25 @@ describe("command service execution flow", () => {
     });
   });
 
+  it("returns the created request when enqueuing fails, leaving it for the maintenance worker", async () => {
+    // The row is committed APPROVED and the maintenance worker enqueues it:
+    // throwing told callers nothing was created (deployments and AI actions
+    // were marked failed, an API retry created a second command).
+    mockPrisma.commandRequest.create.mockResolvedValue({ id: "req_enqueue_fail", status: "APPROVED", targets: [{ id: "target_1" }] });
+    mockPrisma.commandRequest.updateMany.mockRejectedValueOnce(new Error("connection reset"));
+
+    const result = await createCommandRequest({
+      title: "Run uptime",
+      command: "uptime",
+      reason: "Check status",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_1"],
+    });
+
+    expect(result).toMatchObject({ id: "req_enqueue_fail", status: "APPROVED", requiresApproval: false });
+  });
+
   it("keeps user-authored approval requests pending without enqueueing execution", async () => {
     mockPrisma.commandRequest.create.mockResolvedValue({
       id: "req_user_approval_1",
@@ -1299,6 +1318,22 @@ describe("command service execution flow", () => {
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ id: "target_2" }) }),
     );
+  });
+
+  it("does not report a committed approval as failed when enqueuing fails", async () => {
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce({ id: "req_approve_enqueue", status: "PENDING_APPROVAL", requesterId: "u_1", title: "Restart nginx" });
+    // The approval claim commits; the enqueue claim after it fails.
+    mockPrisma.commandRequest.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockRejectedValueOnce(new Error("connection reset"));
+    mockPrisma.commandRequest.findUniqueOrThrow.mockResolvedValueOnce({ id: "req_approve_enqueue", status: "APPROVED" });
+
+    await expect(reviewCommandRequest({
+      commandRequestId: "req_approve_enqueue",
+      approverId: "admin_1",
+      approved: true,
+      comment: "ok",
+    })).resolves.toMatchObject({ id: "req_approve_enqueue", status: "APPROVED" });
   });
 
   it("rejects review when command is not pending approval", async () => {

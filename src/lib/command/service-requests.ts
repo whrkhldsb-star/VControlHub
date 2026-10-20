@@ -434,10 +434,19 @@ export async function createCommandRequest(
   }
 
   if (!requiresApproval) {
+    // The request is durably APPROVED: if enqueuing fails now, the command
+    // maintenance worker enqueues it on its next sweep. Throwing would tell
+    // callers nothing was created while the command still runs (a deployment
+    // or AI action marked failed, or a retry creating a second command).
     await enqueueApprovedCommandExecution(
       commandRequest.id,
       t("backend.command.enqueuedFromCreate"),
-    );
+    ).catch((error) => {
+      commandLogger.warn("enqueue after create failed; left for the maintenance worker", {
+        commandRequestId: commandRequest.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
 
     // Notify requester that command execution has started; final status will be visible on the task row/logs.
     notifyCommandResult(payload.requesterId, payload.title, "approved", commandRequest.teamId).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
@@ -514,10 +523,17 @@ export async function reviewCommandRequest(
     // Notify requester: command approved
     notifyCommandResult(request.requesterId, request.title, "approved", request.teamId).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
+    // The approval is committed; a failed enqueue is retried by the
+    // maintenance worker, so it must not report the approval as failed.
     await enqueueApprovedCommandExecution(
       payload.commandRequestId,
       t("backend.command.enqueuedFromApproval"),
-    );
+    ).catch((error) => {
+      commandLogger.warn("enqueue after approval failed; left for the maintenance worker", {
+        commandRequestId: payload.commandRequestId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
 
     return prisma.commandRequest.findUniqueOrThrow({
       where: { id: payload.commandRequestId },

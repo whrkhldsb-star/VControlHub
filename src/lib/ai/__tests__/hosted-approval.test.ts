@@ -15,6 +15,8 @@ const prismaMock = vi.hoisted(() => ({
 	backupRecord: { findMany: vi.fn() },
 	trafficSnapshot: { findMany: vi.fn() },
 	playbook: { findFirst: vi.fn() },
+	commandRequest: { findUnique: vi.fn() },
+	aiMessage: { updateMany: vi.fn(async () => ({ count: 1 })) },
 }));
 
 const commandServiceMock = vi.hoisted(() => ({
@@ -314,6 +316,36 @@ describe("AI hosted action approvals", () => {
 			where: { id: "action_1" },
 			data: { result: JSON.stringify({ commandRequestId: "cmd_req_1", requiresApproval: true }) },
 		});
+	});
+
+	it("records a command whose creation committed although the call failed, not a failed action", async () => {
+		const { confirmHostedAction } = await import("../hosted-service");
+		prismaMock.aiHostedAction.findFirst.mockResolvedValue({
+			id: "action_lost",
+			status: "PENDING_APPROVAL",
+			actionType: "execute_command",
+			actionName: "Execute command",
+			riskLevel: "medium",
+			autoApproved: false,
+			requesterId: "user_1",
+			teamId: "team_a",
+			serverId: "srv_prod",
+			conversationId: "conv_1",
+			toolCallId: null,
+			params: JSON.stringify({ command: "uptime", reason: "check", serverId: "srv_prod" }),
+		});
+		prismaMock.server.findFirst.mockResolvedValue({ osDialect: null, teamId: "team_a" });
+		commandServiceMock.createCommandRequest.mockRejectedValueOnce(new Error("connection reset"));
+		prismaMock.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd_lost", status: "PENDING_APPROVAL" });
+
+		await expect(confirmHostedAction("action_lost", { userId: "user_1", roles: ["admin"], currentTeamId: null })).rejects.toThrow("connection reset");
+
+		expect(prismaMock.commandRequest.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { idempotencyKey: "ai-hosted-action:action_lost" } }));
+		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
+			where: { id: "action_lost" },
+			data: { result: JSON.stringify({ commandRequestId: "cmd_lost", requiresApproval: true }) },
+		});
+		expect(prismaMock.aiHostedAction.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
 	});
 
 	it("rejects confirmation when the pending AI action would produce an invalid command", async () => {
@@ -616,6 +648,34 @@ describe("AI hosted action approvals", () => {
 		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
 			where: { id: "action_failed" },
 			data: { status: "FAILED", errorMessage: "Target no longer available", completedAt: expect.any(Date) },
+		});
+	});
+
+	it("settles actions left EXECUTING by a restart instead of leaving them stuck", async () => {
+		const { recoverInterruptedHostedActions } = await import("../hosted-service");
+		const executedAt = new Date("2026-10-20T00:00:00Z");
+		prismaMock.aiHostedAction.findMany.mockResolvedValueOnce([
+			{ id: "act_cron", conversationId: "c1", toolCallId: null, actionType: "manage_cron", executedAt },
+			{ id: "act_auto", conversationId: "c1", toolCallId: null, actionType: "create_automation_task", executedAt },
+		]);
+		prismaMock.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd_auto", status: "PENDING_APPROVAL" });
+
+		const result = await recoverInterruptedHostedActions(new Date("2026-10-20T01:00:00Z"));
+
+		expect(result.recovered).toBe(2);
+		expect(prismaMock.aiHostedAction.findMany).toHaveBeenCalledWith(expect.objectContaining({
+			where: { status: "EXECUTING", executedAt: { lt: new Date("2026-10-20T00:30:00Z") } },
+		}));
+		// Whether the cron change took effect is unknown: FAILED, saying so.
+		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
+			where: { id: "act_cron", status: "EXECUTING", executedAt },
+			data: expect.objectContaining({ status: "FAILED", errorMessage: expect.stringMatching(/restart|重启/) }),
+		});
+		// The automation had created its command: it takes that command.
+		expect(prismaMock.commandRequest.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { idempotencyKey: "ai-automation:act_auto" } }));
+		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
+			where: { id: "act_auto", status: "EXECUTING", executedAt },
+			data: expect.objectContaining({ status: "COMPLETED", result: expect.stringContaining("cmd_auto") }),
 		});
 	});
 

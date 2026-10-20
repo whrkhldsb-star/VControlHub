@@ -268,7 +268,9 @@ async function createDeploymentRunFromTemplateUnlocked(
     teamId,
     idempotencyKey: `deployment:${idempotencyKey ?? run.id}`,
     });
-    return prisma.deploymentRun.update({
+    // Awaited so a failed link write is settled below too: unawaited, it
+    // escaped this catch and left the run PENDING and unlinked for good.
+    return await prisma.deploymentRun.update({
       where: { id: run.id },
       data: {
         commandRequestId: command.id,
@@ -278,12 +280,65 @@ async function createDeploymentRunFromTemplateUnlocked(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to create command approval chain";
-    await prisma.deploymentRun.update({
-      where: { id: run.id },
-      data: { status: "FAILED", errorMessage: message },
-    });
+    // The command may exist although this failed (our link write failed, or
+    // its creation committed but the reply was lost): link it instead of
+    // reporting a deployment as failed while its command awaits approval or
+    // runs.
+    await linkOrFailDeploymentRun(run.id, deploymentCommandKey(idempotencyKey ?? run.id), message).catch(() => undefined);
     throw error;
   }
+}
+
+function deploymentCommandKey(runKey: string) {
+  return `deployment:${runKey}`;
+}
+
+/**
+ * Settle a run whose command creation or link was interrupted: link the
+ * command carrying the run's key (the run takes its status), or, if none was
+ * ever created, mark the run FAILED. Only unlinked runs are touched.
+ */
+async function linkOrFailDeploymentRun(runId: string, commandKey: string, failureMessage: string) {
+  const command = await prisma.commandRequest.findUnique({
+    where: { idempotencyKey: commandKey },
+    select: { id: true, status: true },
+  });
+  if (command) {
+    const resolved = resolveDeploymentRunStatus({
+      id: runId,
+      status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING",
+      commandRequest: { status: command.status },
+    });
+    await prisma.deploymentRun.updateMany({
+      where: { id: runId, commandRequestId: null },
+      data: {
+        commandRequestId: command.id,
+        status: resolved.status,
+        errorMessage: resolved.errorMessage,
+        ...(TERMINAL_DEPLOYMENT_STATUSES.has(resolved.status) ? { completedAt: new Date() } : {}),
+      },
+    });
+    return;
+  }
+  await prisma.deploymentRun.updateMany({
+    where: { id: runId, commandRequestId: null },
+    data: { status: "FAILED", errorMessage: failureMessage.slice(0, 2000), completedAt: new Date() },
+  });
+}
+
+/** A run still unlinked after this long lost its creating request. */
+const UNLINKED_RUN_GRACE_MS = 5 * 60_000;
+
+async function healUnlinkedDeploymentRuns(runs: Array<{ id: string; status: string; commandRequestId: string | null; idempotencyKey: string | null; createdAt: Date }>) {
+  const stale = runs.filter((run) => !run.commandRequestId && run.status === "PENDING" && Date.now() - run.createdAt.getTime() > UNLINKED_RUN_GRACE_MS);
+  for (const run of stale) {
+    await linkOrFailDeploymentRun(
+      run.id,
+      deploymentCommandKey(run.idempotencyKey ?? run.id),
+      "Deployment was interrupted before its command was created; nothing was executed.",
+    ).catch(() => undefined);
+  }
+  return stale.length > 0;
 }
 
 type DeploymentRunWithCommand = {
@@ -368,13 +423,17 @@ async function persistResolvedDeploymentRunStatus<
 
 export async function listDeploymentRuns(session: SessionScope,
   pagination?: { skip?: number; take?: number },) {
-  const runs = await prisma.deploymentRun.findMany({
+  const page = () => prisma.deploymentRun.findMany({
     where: deploymentRunTeamWhere(session),
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     ...(pagination?.skip ? { skip: pagination.skip } : {}),
     take: pagination?.take ?? 100,
     include: DEPLOYMENT_RUN_INCLUDE,
   });
+  let runs = await page();
+  // Runs whose command was created but never linked (or never created) are
+  // settled here instead of showing "pending" forever.
+  if (await healUnlinkedDeploymentRuns(runs)) runs = await page();
   await refreshDeploymentRollbackStatuses(runs.flatMap((run) => run.rollbackAttempts ?? []));
   return Promise.all(
     runs.map((run) =>

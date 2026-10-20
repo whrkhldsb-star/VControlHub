@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { recoverStaleRunningCommandRequestsMock, recoverQueuedApprovedCommandRequestsMock, getRuntimeSettingNumberMock, infoMock, warnMock, errorMock } = vi.hoisted(() => ({
+const { recoverStaleRunningCommandRequestsMock, recoverQueuedApprovedCommandRequestsMock, recoverInterruptedHostedActionsMock, getRuntimeSettingNumberMock, infoMock, warnMock, errorMock } = vi.hoisted(() => ({
   recoverStaleRunningCommandRequestsMock: vi.fn(),
+  recoverInterruptedHostedActionsMock: vi.fn(),
   recoverQueuedApprovedCommandRequestsMock: vi.fn(),
   getRuntimeSettingNumberMock: vi.fn(),
   infoMock: vi.fn(),
@@ -12,6 +13,10 @@ const { recoverStaleRunningCommandRequestsMock, recoverQueuedApprovedCommandRequ
 vi.mock("./service", () => ({
   recoverStaleRunningCommandRequests: recoverStaleRunningCommandRequestsMock,
   recoverQueuedApprovedCommandRequests: recoverQueuedApprovedCommandRequestsMock,
+}));
+
+vi.mock("@/lib/ai/hosted-service", () => ({
+  recoverInterruptedHostedActions: recoverInterruptedHostedActionsMock,
 }));
 
 vi.mock("@/lib/logging", () => ({
@@ -36,6 +41,7 @@ describe("command maintenance worker", () => {
     getRuntimeSettingNumberMock.mockResolvedValue(1000);
     recoverStaleRunningCommandRequestsMock.mockResolvedValue({ recovered: 0 });
     recoverQueuedApprovedCommandRequestsMock.mockResolvedValue({ enqueued: 0 });
+    recoverInterruptedHostedActionsMock.mockResolvedValue({ recovered: 0 });
     stopCommandMaintenanceWorkerForTests();
   });
 
@@ -60,6 +66,15 @@ describe("command maintenance worker", () => {
     expect(recoverQueuedApprovedCommandRequestsMock).toHaveBeenCalledTimes(2);
     expect(recoverStaleRunningCommandRequestsMock).toHaveBeenCalledTimes(2);
     expect(warnMock).toHaveBeenCalledWith("Recovered stale command requests", { reason: "startup", recovered: 1 });
+  });
+
+  it("settles AI actions interrupted mid-execution on each tick", async () => {
+    recoverInterruptedHostedActionsMock.mockResolvedValueOnce({ recovered: 3 }).mockResolvedValue({ recovered: 0 });
+
+    await startCommandMaintenanceWorker();
+    await vi.waitFor(() => expect(recoverInterruptedHostedActionsMock).toHaveBeenCalledTimes(1));
+
+    expect(warnMock).toHaveBeenCalledWith("Settled AI actions interrupted mid-execution", { reason: "startup", recovered: 3 });
   });
 
   it("logs recovered queued approved commands during maintenance ticks", async () => {
