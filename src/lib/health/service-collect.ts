@@ -69,15 +69,18 @@ function networkRatesKbps(
  * so its new value is what accrued since). First-vs-last lost all traffic
  * before a reboot in the month.
  */
-export async function sumTrafficSince(serverIds: string[], since: Date): Promise<Map<string, { rx: number; tx: number }>> {
+/** Samples starting this long after the month began still count as the whole month. */
+const MONTHLY_TRAFFIC_GRACE_MS = 60 * 60 * 1000;
+
+export async function sumTrafficSince(serverIds: string[], since: Date): Promise<Map<string, { rx: number; tx: number; firstSampleAt: Date }>> {
   if (serverIds.length === 0) return new Map();
   // One aggregate in SQL: the previous `take: 5000` scan lost the end of the month.
-  const rows = await prisma.$queryRaw<Array<{ serverId: string; rx: string; tx: string }>>(Prisma.sql`
-    SELECT "serverId",
+  const rows = await prisma.$queryRaw<Array<{ serverId: string; rx: string; tx: string; first_sample_at: Date }>>(Prisma.sql`
+    SELECT "serverId", MIN("sampledAt") AS first_sample_at,
       COALESCE(SUM(CASE WHEN prev_rx IS NULL THEN 0 WHEN "rxBytes" >= prev_rx THEN "rxBytes" - prev_rx ELSE "rxBytes" END), 0)::text AS rx,
       COALESCE(SUM(CASE WHEN prev_tx IS NULL THEN 0 WHEN "txBytes" >= prev_tx THEN "txBytes" - prev_tx ELSE "txBytes" END), 0)::text AS tx
     FROM (
-      SELECT "serverId", "rxBytes", "txBytes",
+      SELECT "serverId", "sampledAt", "rxBytes", "txBytes",
         LAG("rxBytes") OVER w AS prev_rx,
         LAG("txBytes") OVER w AS prev_tx
       FROM traffic_snapshots
@@ -86,7 +89,7 @@ export async function sumTrafficSince(serverIds: string[], since: Date): Promise
     ) steps
     GROUP BY "serverId"
   `);
-  return new Map(rows.map((row) => [row.serverId, { rx: Number(row.rx), tx: Number(row.tx) }]));
+  return new Map(rows.map((row) => [row.serverId, { rx: Number(row.rx), tx: Number(row.tx), firstSampleAt: row.first_sample_at }]));
 }
 
 export async function collectAllHealth(
@@ -273,6 +276,11 @@ export async function collectAllHealth(
         if (!row) continue;
         r.monthlyRxBytes = row.rx;
         r.monthlyTxBytes = row.tx;
+        // Counting began after the month did (server added mid-month, or
+        // samples lost): say so rather than pass a partial sum off as the month.
+        if (row.firstSampleAt.getTime() - monthStart.getTime() > MONTHLY_TRAFFIC_GRACE_MS) {
+          r.monthlyTrafficSince = row.firstSampleAt.toISOString();
+        }
       }
     }
   } catch {
