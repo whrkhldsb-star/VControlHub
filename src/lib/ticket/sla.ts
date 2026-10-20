@@ -1,7 +1,7 @@
 /** FEAT-P1-1: ticket SLA calculation, filtering and escalation. */
 import { prisma } from "@/lib/db";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, teamWhere } from "@/lib/auth/team-scope";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { createLogger } from "@/lib/logging";
 import { notificationContentData } from "@/lib/notification/service";
@@ -56,7 +56,10 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
   const retryBefore = new Date(now.getTime() - 60 * 60 * 1000);
   const breached = await prisma.ticket.findMany({
     where: {
-      ...(input.teamId !== undefined ? { teamId: input.teamId } : {}),
+      // The fleet-wide pass skips a deleted customer's tickets: they were
+      // re-escalated every hour, notifying its ticket managers. (AND: the
+      // live-customer filter is an OR, and so is the retry condition below.)
+      ...(input.teamId !== undefined ? { teamId: input.teamId } : { AND: [liveCustomerRowsWhere()] }),
       slaDueAt: { lt: now },
       status: { in: ["OPEN", "IN_PROGRESS"] },
       OR: [{ escalatedAt: null }, { escalatedAt: { lt: retryBefore } }],
