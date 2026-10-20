@@ -10,6 +10,7 @@ import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { clearIfUnchanged } from "@/lib/ui/form-draft";
 
 interface StorageNode {
   id: string;
@@ -80,11 +81,11 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
         body: JSON.stringify(body),
       });
       setResult({ token: data.token });
-      setPath("");
-      setName("");
-      setExpiresIn("");
-      setMaxDownloads("");
-      setPassword("");
+      clearIfUnchanged(setPath, path, "");
+      clearIfUnchanged(setName, name, "");
+      clearIfUnchanged(setExpiresIn, expiresIn, "");
+      clearIfUnchanged(setMaxDownloads, maxDownloads, "");
+      clearIfUnchanged(setPassword, password, "");
       router.refresh();
     } catch (e: unknown) {
       setError(getErrorMessage(e, t("sharesPage.create.errorFallback")));

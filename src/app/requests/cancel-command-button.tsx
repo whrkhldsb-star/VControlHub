@@ -10,6 +10,7 @@ import { ActionButton } from "@/components/action-button";
 import { Dialog } from "@/components/ui/dialog";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { clearIfUnchanged } from "@/lib/ui/form-draft";
 
 type Props = {
   commandRequestId: string;
@@ -46,7 +47,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
       });
       setMessage(t("requestsPage.cancel.successMessage"));
       setOpen(false);
-      setReason("");
+      clearIfUnchanged(setReason, reason, "");
       router.refresh();
     } catch (cancelError) {
       setError(getErrorMessage(cancelError, t("requestsPage.cancel.errorFallback")));

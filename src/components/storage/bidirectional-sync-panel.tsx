@@ -12,6 +12,7 @@ import { Notice } from "@/components/ui-primitives";
 import { api } from "@/lib/http/api-client";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { clearIfUnchanged } from "@/lib/ui/form-draft";
 
 type ServerOption = { id: string; name: string; host: string | null };
 
@@ -122,7 +123,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         deleteOrphans: false,
         compress: false,
       });
-      setName("");
+      clearIfUnchanged(setName, name, "");
       await load();
     } catch (e) {
       setActionError(getErrorMessage(e, t("filesPage.syncJobs.createFailed")));

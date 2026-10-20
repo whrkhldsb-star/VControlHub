@@ -85,6 +85,8 @@ export type VpsOffsiteUploadResult =
 /** Upload one completed VPS backup without buffering the archive in memory. */
 export async function uploadVpsBackupToOffsite(
   recordId: string,
+  /** alert: email this record's failure (default; the catch-up sweep sends one summary). */
+  options: { alert?: boolean } = {},
 ): Promise<VpsOffsiteUploadResult> {
   const record = await prisma.vpsBackupRecord.findUnique({
     where: { id: recordId },
@@ -166,7 +168,8 @@ export async function uploadVpsBackupToOffsite(
       })
       .catch(() => undefined);
     await sendOffsiteFailureAlert({
-      recipient: alertRecipient,
+      // The catch-up sweep sends one summary instead (see retryPendingVpsOffsiteUploads).
+      recipient: options.alert === false ? null : alertRecipient,
       backupLabel: `${record.serverId} ${record.backupType} ${record.id}`,
       error: message,
     });
@@ -184,6 +187,7 @@ export async function retryPendingVpsOffsiteUploads(
   let failed = 0;
   let skipped = 0;
   let observed = 0;
+  const errors: string[] = [];
   let cursorId: string | undefined;
   while (observed < maxRecords) {
     const take = Math.min(100, maxRecords - observed);
@@ -200,17 +204,20 @@ export async function retryPendingVpsOffsiteUploads(
     });
     if (records.length === 0) break;
     for (const record of records) {
-      const result = await uploadVpsBackupToOffsite(record.id);
+      const result = await uploadVpsBackupToOffsite(record.id, { alert: false });
       if (result.ok && !result.skipped) uploaded += 1;
       else if (result.ok) skipped += 1;
-      else failed += 1;
+      else {
+        failed += 1;
+        if (errors.length < 5 && "error" in result) errors.push(`${record.id}: ${result.error}`);
+      }
     }
     observed += records.length;
     const nextCursor = records.at(-1)?.id;
     if (!nextCursor || nextCursor === cursorId || records.length < take) break;
     cursorId = nextCursor;
   }
-  return { observed, uploaded, failed, skipped };
+  return { observed, uploaded, failed, skipped, errors };
 }
 
 /** Result of a successful backup run */
@@ -782,18 +789,29 @@ export function resolveVpsBackupFilePath(localPath: string): string {
 
 /* ── Retention ───────────────────────────────────────────── */
 
-/** Prune old COMPLETED VpsBackupRecords based on retentionDays */
+/**
+ * Prune old COMPLETED VpsBackupRecords based on retentionDays, always keeping
+ * the newest completed backup of each type: with backups failing for longer
+ * than the retention window, age alone deleted the last good one.
+ */
 export async function pruneOldVpsBackupRecords(
   serverId: string,
   retentionDays: number,
 ): Promise<number> {
   const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
 
+  const newestPerType = await prisma.vpsBackupRecord.findMany({
+    where: { serverId, status: "COMPLETED" },
+    orderBy: [{ backupType: "asc" }, { completedAt: "desc" }, { id: "desc" }],
+    distinct: ["backupType"],
+    select: { id: true },
+  });
   const oldRecords = await prisma.vpsBackupRecord.findMany({
     where: {
       serverId,
       status: "COMPLETED",
       completedAt: { lt: cutoff },
+      id: { notIn: newestPerType.map((record) => record.id) },
     },
     select: { id: true, localPath: true },
     take: 1000,

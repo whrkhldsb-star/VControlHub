@@ -13,6 +13,7 @@ import { Badge, type BadgeTone } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { describeCron, isFiveFieldCron } from "@/lib/scheduled-task/describe-cron";
+import { clearIfUnchanged } from "@/lib/ui/form-draft";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -120,9 +121,9 @@ export function ScheduleBackupForm() {
 				body: JSON.stringify(body),
 			});
 			setMessage({ type:"ok", text: t("backupsPage.schedule.success") });
-			setName("");
-			setNote("");
-			setRetentionDays("");
+			clearIfUnchanged(setName, name, "");
+			clearIfUnchanged(setNote, note, "");
+			clearIfUnchanged(setRetentionDays, retentionDays, "");
 			await fetchSchedules();
 		} catch (error) {
 			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.failFallback")) });

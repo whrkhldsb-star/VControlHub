@@ -10,6 +10,7 @@ import { FormField, IconButton, Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { clearIfUnchanged } from "@/lib/ui/form-draft";
 
 /** Networks every Docker engine creates; the engine refuses to remove them. */
 const PREDEFINED_NETWORKS = new Set(["bridge", "host", "none"]);
@@ -149,7 +150,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
             : t("dockerResources.error.create"),
         );
       }
-      setName("");
+      clearIfUnchanged(setName, name, "");
       if (currentServerIdRef.current === serverId) {
         await fetchResources();
       }

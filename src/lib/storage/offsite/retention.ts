@@ -2,6 +2,7 @@
  * Offsite (S3) retention: delete objects under pathPrefix older than retentionDays.
  * UI documents this as a lifecycle job; implement here so the setting is not dead.
  */
+import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { loadOffsiteConfig, validateOffsiteConfigForUse } from "./schema";
 import { S3Client } from "./s3-client";
@@ -60,6 +61,10 @@ export async function pruneOffsiteObjects(options?: {
   });
 
   const prefix = (config.pathPrefix || "vcontrolhub-backups/").replace(/\/?$/, "/");
+  // The newest offsite copy of each kind is never pruned by age: if uploads
+  // have been failing for longer than the window, age alone removed the last
+  // copy there was.
+  const protectedKeys = await newestOffsiteKeys();
   let listed = 0;
   let deleted = 0;
   const errors: string[] = [];
@@ -75,6 +80,7 @@ export async function pruneOffsiteObjects(options?: {
       if (!lastModified || Number.isNaN(lastModified.getTime())) continue;
       if (lastModified >= cutoff) continue;
       if (!obj.key) continue;
+      if (protectedKeys.has(obj.key)) continue;
       try {
         await client.deleteObject(obj.key);
         deleted += 1;
@@ -104,3 +110,23 @@ export async function pruneOffsiteObjects(options?: {
     cutoffIso: cutoff.toISOString(),
   };
 }
+
+/** The newest uploaded offsite object per backup type, and per server and type for VPS backups. */
+async function newestOffsiteKeys(): Promise<Set<string>> {
+  const [app, vps] = await Promise.all([
+    prisma.backupRecord.findMany({
+      where: { offsiteKey: { not: null } },
+      orderBy: [{ type: "asc" }, { offsiteUploadedAt: "desc" }, { id: "desc" }],
+      distinct: ["type"],
+      select: { offsiteKey: true },
+    }),
+    prisma.vpsBackupRecord.findMany({
+      where: { offsiteKey: { not: null } },
+      orderBy: [{ serverId: "asc" }, { backupType: "asc" }, { offsiteUploadedAt: "desc" }, { id: "desc" }],
+      distinct: ["serverId", "backupType"],
+      select: { offsiteKey: true },
+    }),
+  ]);
+  return new Set([...app, ...vps].map((row) => row.offsiteKey!).filter(Boolean));
+}
+

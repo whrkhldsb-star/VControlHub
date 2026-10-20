@@ -25,6 +25,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import type { AppSource } from "./quick-services-shared";
 import { IconLink } from "@/components/nav-icons";
 import { Badge, Chip } from "@/components/ui-primitives";
+import { clearIfUnchanged } from "@/lib/ui/form-draft";
 
 type SourcesPanelActions = {
 	doSync: (sourceId?: string) => void;
@@ -96,9 +97,9 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 		});
 		// Only clear the form after a successful add (hook returns false on validation/network error).
 		if (ok) {
-			setNewSourceName("");
-			setNewSourceDisplayName("");
-			setNewSourceUrl("");
+			clearIfUnchanged(setNewSourceName, newSourceName, "");
+			clearIfUnchanged(setNewSourceDisplayName, newSourceDisplayName, "");
+			clearIfUnchanged(setNewSourceUrl, newSourceUrl, "");
 			setSourcePreset(null);
 		}
 	};
