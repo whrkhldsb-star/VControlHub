@@ -9,6 +9,7 @@ import { serviceT } from "@/lib/i18n/service-locale";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
+import { purgeStorageNodeVersionBlobs } from "@/lib/storage/file-versions";
 import { resolveStorageSshCredentials, resolveStorageSshPort } from "@/lib/storage/ssh-credentials";
 import { expandStorageBasePath, localBasePathBelongsToTenant } from "@/lib/storage/path-utils";
 import { decrypt, encrypt } from "@/lib/crypto/service";
@@ -435,11 +436,11 @@ export async function deleteStorageNode(
   const node = session
     ? await prisma.storageNode.findFirst({
         where: { id: storageNodeId, ...teamWhere(session) },
-        include: { fileEntries: { select: { id: true, isDeleted: true } } },
+        select: { id: true, isDefault: true },
       })
     : await prisma.storageNode.findUnique({
         where: { id: storageNodeId },
-        include: { fileEntries: { select: { id: true, isDeleted: true } } },
+        select: { id: true, isDefault: true },
       });
 
   const t = await serviceT();
@@ -451,19 +452,29 @@ export async function deleteStorageNode(
     throw new BusinessError(t("backend.storage.defaultCannotDelete"));
   }
 
-  const activeEntryCount = node.fileEntries.filter(
-    (entry) => !entry.isDeleted,
-  ).length;
+  // Counted, not loaded: every entry of the node (recycle bin included) used
+  // to be read into memory to find out whether one was still live.
+  const activeEntryCount = await prisma.fileEntry.count({
+    where: { storageNodeId: node.id, isDeleted: false },
+  });
   if (activeEntryCount > 0) {
     throw new BusinessError(t("backend.storage.nodeHasEntries"));
   }
 
-  const deleted = await prisma.storageNode.deleteMany({
-    where: { id: storageNodeId, ...(session ? teamWhere(session) : {}) },
-  });
+  // Media rows carry no foreign key to their file entry, so those of
+  // recycle-bin files stay until a rescan, and the node's RESTRICT key then
+  // failed this delete with a database error. They go with the node.
+  const [, deleted] = await prisma.$transaction([
+    prisma.mediaItem.deleteMany({ where: { storageNodeId: node.id } }),
+    prisma.storageNode.deleteMany({
+      where: { id: storageNodeId, ...(session ? teamWhere(session) : {}) },
+    }),
+  ]);
   if (deleted.count === 0) {
     throw new NotFoundError(t("backend.storage.nodeNotFound"));
   }
+  // The version rows went with the node (cascade); their blobs did not.
+  await purgeStorageNodeVersionBlobs(node.id).catch(() => undefined);
   return { deleted: true };
 }
 

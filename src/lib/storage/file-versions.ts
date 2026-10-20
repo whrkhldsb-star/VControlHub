@@ -225,6 +225,16 @@ export async function purgeAllFileVersionBlobs(fileEntryId: string): Promise<num
 }
 
 /**
+ * Remove every version blob kept for a storage node: the node's directory
+ * under FILE_VERSION_DIR (blobs live at `<storageNodeId>/<fileEntryId>/…`).
+ * For a deleted node, whose version rows went with it by cascade.
+ */
+export async function purgeStorageNodeVersionBlobs(storageNodeId: string): Promise<void> {
+  if (!/^[A-Za-z0-9_-]+$/.test(storageNodeId)) return;
+  await rm(blobAbsolutePath(storageNodeId), { recursive: true, force: true });
+}
+
+/**
  * Remove version blobs for EVERY entry under a directory in ONE query plus
  * bounded-concurrency unlinks, instead of one `purgeAllFileVersionBlobs`
  * round trip per descendant — a large subtree otherwise costs 1 + D queries
