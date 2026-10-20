@@ -10,6 +10,12 @@ vi.mock("@/lib/auth/session", () => ({
 	getSessionCookieName: () => "test_session",
 	verifySessionToken: verifySessionTokenMock,
 }));
+// A connection reads the stored unread count. Unmocked, that queried the real
+// database and its error was logged after the file had finished, which failed
+// runs intermittently ("Closing rpc while onUserConsoleLog was pending").
+vi.mock("@/lib/notification/service", () => ({
+	readUnreadCount: vi.fn(async () => ({ count: 0, asOfUs: 0 })),
+}));
 
 import {
 	closeWebSocketServer,
