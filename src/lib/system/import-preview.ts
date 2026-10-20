@@ -13,7 +13,9 @@
  *  → Setting → AiProvider → Announcement → Snippet
  */
 
+import { decrypt, isEncrypted } from "@/lib/crypto/service";
 import { prisma } from "@/lib/db";
+import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import type { ExportFile, ImportOptions, ImportPreview } from "@/lib/system/config-schema";
 
 import { alignImportIds, findMissingTeamIds } from "./import-id-alignment";
@@ -83,7 +85,34 @@ const W = {
   fullModeSensitive: "systemConfig.import.preview.warning.fullModeSensitive",
   missingCustomers: "systemConfig.import.preview.warning.missingCustomers",
   agentReinstall: "systemConfig.import.preview.warning.agentReinstall",
+  credentialsNeedSourceKey: "systemConfig.import.preview.warning.credentialsNeedSourceKey",
 } as const;
+
+/**
+ * A full export carries credentials as the source stored them, encrypted with
+ * its ENCRYPTION_KEY. Imported where the key differs they cannot be decrypted,
+ * and the servers, keys and providers using them fail only when first used.
+ * One credential of each kind is tried with this instance's key.
+ */
+function credentialsNeedSourceKey(t: ExportFile["tables"]): boolean {
+  const probes: Array<() => unknown> = [];
+  const password = t.servers.find((row) => row.password)?.password;
+  if (password) probes.push(() => decryptServerPassword(password));
+  const rdpPassword = t.servers.find((row) => row.rdpPassword)?.rdpPassword;
+  if (rdpPassword && isEncrypted(rdpPassword)) probes.push(() => decrypt(rdpPassword));
+  const privateKey = t.sshKeys.find((row) => row.privateKey)?.privateKey;
+  if (privateKey) probes.push(() => decryptSshPrivateKey(privateKey));
+  const apiKey = t.aiProviders.find((row) => row.apiKey)?.apiKey;
+  if (apiKey && isEncrypted(apiKey)) probes.push(() => decrypt(apiKey));
+  return probes.some((probe) => {
+    try {
+      probe();
+      return false;
+    } catch {
+      return true;
+    }
+  });
+}
 
 // ── 预览模式 ──────────────────────────────────────────────
 
@@ -277,6 +306,7 @@ export async function previewImport(
     }
   } else {
     warnings.push(W.fullModeSensitive);
+    if (credentialsNeedSourceKey(t)) warnings.push(W.credentialsNeedSourceKey);
   }
 
   return { summary, warnings, totalRecords };

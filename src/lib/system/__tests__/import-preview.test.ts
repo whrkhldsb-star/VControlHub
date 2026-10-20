@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+import { createCipheriv, randomBytes, scryptSync } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
@@ -59,6 +60,15 @@ const OPTIONS = {
   importSettings: true,
 } satisfies ImportOptions;
 
+/** What another instance (another ENCRYPTION_KEY) stores: lib/crypto's envelope. */
+function encryptWithKey(passphrase: string, plaintext: string) {
+  const salt = randomBytes(16);
+  const iv = randomBytes(16);
+  const cipher = createCipheriv("aes-256-gcm", scryptSync(passphrase, salt, 32), iv);
+  const data = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  return [salt, iv, cipher.getAuthTag(), data].map((part) => part.toString("base64")).join(":");
+}
+
 function file(over: Record<string, unknown> = {}): ExportFile {
   const empty = Object.fromEntries(
     [
@@ -118,6 +128,26 @@ describe("previewImport", () => {
       "systemConfig.import.preview.warning.missingCustomers",
       "systemConfig.import.preview.warning.agentReinstall",
     ]));
+  });
+
+  it("warns when a full export's credentials were encrypted with another key", async () => {
+    // They imported without a word and failed on first use.
+    const { encrypt } = await import("@/lib/crypto/service");
+    const { encryptServerPassword } = await import("@/lib/ssh/ssh-key-crypto");
+    const warning = "systemConfig.import.preview.warning.credentialsNeedSourceKey";
+    const ours = await previewImport(file({
+      exportMode: "full",
+      tables: { servers: [{ id: "s1", password: encryptServerPassword("pw"), rdpPassword: encrypt("rdp") }], sshKeys: [{ id: "k1", privateKey: encrypt("key") }] },
+    }), OPTIONS);
+    expect(ours.warnings).not.toContain(warning);
+
+    for (const tables of [
+      { servers: [{ id: "s1", password: `enc:v1:${encryptWithKey("another instance", "pw")}` }] },
+      { sshKeys: [{ id: "k1", privateKey: encryptWithKey("another instance", "key") }] },
+      { aiProviders: [{ id: "p1", apiKey: encryptWithKey("another instance", "sk") }] },
+    ]) {
+      expect((await previewImport(file({ exportMode: "full", tables }), OPTIONS)).warnings).toContain(warning);
+    }
   });
 
   it("emits warnings as i18n keys that both dictionaries resolve", async () => {
