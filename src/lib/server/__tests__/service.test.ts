@@ -87,6 +87,7 @@ vi.mock("@/lib/ssh/os-dialect", () => ({
 }));
 
 vi.mock("@/lib/db", () => ({
+  isUniqueViolation: (error: unknown) => (error as { code?: string })?.code === "P2002",
   prisma: {
     sshKey: {
       findUnique: vi.fn(),
@@ -263,6 +264,20 @@ describe("server service", () => {
     expect(saved).toMatchObject({ name: "manual-key", publicKey: publicKey.trim().split(/\s+/).slice(0, 2).join(" "), createdById: "u_1", passphrase: null });
     expect(saved.privateKey).not.toContain("PRIVATE KEY");
     expect(saved.fingerprint).toMatch(/^SHA256:/);
+  });
+
+  it("names the saved key when the same key is imported again, instead of a database error", async () => {
+    const generated = generateKeyPairSync("ed25519");
+    const privateKey = generated.privateKey.export({ format: "pem", type: "pkcs8" }).toString();
+    vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({ name: "prod-deploy", teamId: null } as never);
+    await expect(createSshKey({ name: "again", privateKey, createdById: "u_1" })).rejects.toThrow(/prod-deploy/);
+    // Saved under another customer: that it exists, not its name.
+    vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({ name: "their-key", teamId: "other-customer" } as never);
+    await expect(createSshKey({ name: "again", privateKey, createdById: "u_1" })).rejects.toThrow(/已经导入过/);
+    expect(prisma.sshKey.create).not.toHaveBeenCalled();
+    // Saved in between (two imports at once): the constraint answers the same way.
+    vi.mocked(prisma.sshKey.create).mockRejectedValueOnce(Object.assign(new Error("Unique constraint failed"), { code: "P2002" }));
+    await expect(createSshKey({ name: "again", privateKey, createdById: "u_1" })).rejects.toThrow(/已经导入过/);
   });
 
   it("rejects public-only records and malformed private keys without saving", async () => {
