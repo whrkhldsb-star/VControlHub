@@ -9,7 +9,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getRuntimeSettingNumbers } from "@/lib/runtime-settings/service";
-import { serverTeamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import {
   buildServerForecast,
@@ -62,7 +62,9 @@ export async function getCapacityForecast(
   const since = new Date(nowMs - windowHours * 3_600_000);
 
   const serverWhere = {
-    ...(options.session ? serverTeamWhere(options.session) : {}),
+    // The background forecast (capacity alerts) leaves a deleted customer's
+    // servers out, as the fleet sweep does.
+    ...(options.session ? serverTeamWhere(options.session) : liveCustomerRowsWhere()),
     ...(options.serverId ? { id: options.serverId } : {}),
   };
 
