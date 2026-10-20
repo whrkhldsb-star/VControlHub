@@ -24,7 +24,7 @@ describe("createManagedFolder LOCAL filesystem", () => {
     const relativePath = "first-folder";
 
     await createManagedFolder({
-      storageNode: { driver: "LOCAL", basePath },
+      storageNode: { driver: "LOCAL", basePath, host: null, port: null, username: null, hostKeySha256: null, server: null },
       relativePath,
     });
 
@@ -33,7 +33,7 @@ describe("createManagedFolder LOCAL filesystem", () => {
     );
     await expect(
       createManagedFolder({
-        storageNode: { driver: "LOCAL", basePath },
+        storageNode: { driver: "LOCAL", basePath, host: null, port: null, username: null, hostKeySha256: null, server: null },
         relativePath,
       }),
     ).rejects.toMatchObject({ code: "EEXIST" });

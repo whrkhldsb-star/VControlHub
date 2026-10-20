@@ -64,7 +64,7 @@ afterEach(async () => {
 });
 
 function localNode(basePath: string): StorageFileNode {
-	return { id: "local_1", driver: "LOCAL", basePath };
+	return { id: "local_1", driver: "LOCAL", basePath, host: null, port: null, username: null, hostKeySha256: null, server: null };
 }
 
 function sftpNode(): StorageFileNode {
@@ -81,7 +81,14 @@ function sftpNode(): StorageFileNode {
 			connectionType: "PASSWORD",
 			password: "secret",
 			sshKey: null,
+			managementMode: "DIRECT",
+			operatingSystem: "LINUX",
+			hostKeySha256: null,
 		},
+		host: null,
+		port: null,
+		username: null,
+		hostKeySha256: null,
 	};
 }
 

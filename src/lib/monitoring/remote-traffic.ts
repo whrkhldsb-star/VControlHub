@@ -45,7 +45,11 @@ export type RemoteServerInput = {
 	username: string;
 	sshKeyId: string | null;
 	password: string | null;
-	connectionType?: string;
+	connectionType: string;
+	/** Agent-managed servers are sampled through the Agent. */
+	managementMode: string;
+	/** Windows servers have no /proc/net/dev to read. */
+	operatingSystem: string;
 	/** The saved host-key pin; without it the sample would connect unverified. */
 	hostKeySha256: string | null;
 	sshKey?: StoredSshKey | null;
@@ -128,7 +132,8 @@ export async function sampleRemoteServerTraffic(
 		interfaces: [] as RemoteInterfaceTraffic[],
 		sampledAt,
 	};
-	if (!server.sshKey?.privateKey && !server.password) {
+	// An Agent-managed server needs no SSH credentials: commands go through its Agent.
+	if (!server.sshKey?.privateKey && !server.password && server.managementMode !== "AGENT") {
 		return { ...base, error: t("backend.traffic.remote.noCredentials") };
 	}
 	try {

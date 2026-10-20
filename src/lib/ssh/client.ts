@@ -753,20 +753,24 @@ export async function execRemoteCommand(
 
 /** Build SSH connection params from a Server + SshKey record */
 export async function buildSshParamsFromServer(server: {
- operatingSystem?: string;
- host: string;
- port: number;
- username: string;
- connectionType?: string;
- sshKeyId: string | null;
- password: string | null;
   /**
-   * Required on purpose: a projection that forgot it silently connected
-   * without the saved host-key pin (no verifier; or a refusal under strict mode).
+   * Every field below is required on purpose: a projection that left one out
+   * still compiled and silently took another path — without operatingSystem a
+   * Windows node was treated as Linux, without connectionType a key-based
+   * server fell into the password branch with no password, without
+   * managementMode/id an Agent-managed server was dialled over SSH, and
+   * without hostKeySha256 the saved pin was not checked.
    */
+  operatingSystem: string;
+  host: string;
+  port: number;
+  username: string;
+  connectionType: string;
+  sshKeyId: string | null;
+  password: string | null;
   hostKeySha256: string | null;
-  id?: string;
-  managementMode?: string;
+  id: string;
+  managementMode: string;
 }, sshKey?: StoredSshKey | null): Promise<SshConnectionParams> {
   if (server.operatingSystem === "WINDOWS") throw new BusinessError(t("backend.server.linuxOnly"));
   const base = {

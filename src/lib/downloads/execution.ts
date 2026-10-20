@@ -55,10 +55,14 @@ async function loadDownloadTeamId(taskId: string): Promise<string | null> {
 /* ── Shared server type ────────────────────────────────── */
 
 export type DownloadServer = {
+ id: string;
  host: string;
  port: number;
  username: string;
- connectionType?: string;
+ /** With managementMode: an Agent-managed server runs the download through its Agent. */
+ operatingSystem: string;
+ managementMode: string;
+ connectionType: string;
  sshKeyId: string | null;
  password: string | null;
  hostKeySha256: string | null;

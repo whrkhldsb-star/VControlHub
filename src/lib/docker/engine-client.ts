@@ -4,6 +4,7 @@ import { createLogger } from "@/lib/logging";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { dockerEngineEndpoint, dockerEngineSocketPath } from "@/lib/runtime/platform-paths";
+import { SSH_CONNECTION_SERVER_SELECT } from "@/lib/ssh/server-connection-select";
 
 const UNAVAILABLE_CODES = new Set(["ENOENT", "ECONNREFUSED", "EACCES"]);
 
@@ -202,16 +203,9 @@ export async function requestRemoteDockerEngine(
 	const server = await prisma.server.findUnique({
 		where: { id: serverId },
 		select: {
-			id: true,
+			...SSH_CONNECTION_SERVER_SELECT,
 			name: true,
-			host: true,
-			port: true,
-			username: true,
-			password: true,
-			sshKeyId: true,
-			hostKeySha256: true,
 			enabled: true,
-			sshKey: { select: { privateKey: true, passphrase: true } },
 		},
 	});
 

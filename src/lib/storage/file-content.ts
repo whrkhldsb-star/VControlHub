@@ -20,7 +20,7 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { connectSsh, createRemoteDirectory, deleteRemoteFile, readRemoteFile, writeRemoteFile, renameRemoteFile } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
-import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { resolveStorageSshCredentials, type StorageSshCredentialNode } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteRelativePath } from "@/lib/storage/remote-path";
 import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
@@ -28,28 +28,14 @@ import { t } from "@/lib/i18n/service-translations";
 import { createWebDavClient } from "@/lib/storage/webdav-client";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
-export type StorageFileNode = {
+/** A node as storageFileNodeSelect loads it (the SFTP connection in full). */
+export type StorageFileNode = StorageSshCredentialNode & {
   id: string;
   driver: "LOCAL" | "SFTP" | string;
   basePath: string;
   webdavConfigEncrypted?: string | null;
-  host?: string | null;
-  port?: number | null;
-  username?: string | null;
   password?: string | null;
-  hostKeySha256?: string | null;
   serverId?: string | null;
-  server?: {
-    id?: string;
-    operatingSystem?: string | null;
-    host?: string | null;
-    port?: number | null;
-    username?: string | null;
-    connectionType?: string | null;
-    password?: string | null;
-    hostKeySha256?: string | null;
-    sshKey?: { privateKey?: string | null } | null;
-  } | null;
 };
 
 export const storageFileNodeSelect = {

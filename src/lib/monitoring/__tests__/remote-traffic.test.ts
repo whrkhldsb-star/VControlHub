@@ -51,6 +51,8 @@ function serverInput(id: string) {
 		sshKeyId: "key_1",
 		password: null,
 		connectionType: "SSH_KEY",
+		managementMode: "DIRECT",
+		operatingSystem: "LINUX",
 		hostKeySha256: `SHA256:pin-${id}`,
 		sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
 	};
@@ -70,6 +72,16 @@ describe("sampleRemoteServersTraffic", () => {
 			expect.objectContaining({ hostKeySha256: "SHA256:pin-srv7" }),
 			expect.anything(),
 		);
+	});
+
+	it("samples an Agent-managed server without SSH credentials through its Agent", async () => {
+		// Refused as "no credentials" before: the management mode was not loaded,
+		// so the sampler never knew the Agent could run the command.
+		mocks.execRemoteCommand.mockResolvedValue({ stdout: procNetDev(1000, 2000), stderr: "", exitCode: 0 });
+		const agent = { ...serverInput("srv9"), managementMode: "AGENT", connectionType: "SSH_KEY", sshKeyId: null, sshKey: null };
+		const [result] = await sampleRemoteServersTraffic([agent]);
+		expect(result!.error).toBeNull();
+		expect(mocks.buildSshParamsFromServer).toHaveBeenCalledWith(expect.objectContaining({ managementMode: "AGENT", id: "srv9" }), null);
 	});
 
 	it("caps concurrent SSH sessions at 5 instead of opening one per server", async () => {

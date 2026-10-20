@@ -194,6 +194,10 @@ const { enqueueDownloadExecutionJobMock } = vi.hoisted(() => {
     // the side effects.
     const serverForExec = task?.server
       ? {
+          id: task.server.id,
+          operatingSystem: "LINUX",
+          managementMode: "DIRECT",
+          connectionType: task.server.sshKeyId ? "SSH_KEY" : "PASSWORD",
           host: task.server.host,
           port: task.server.port,
           username: task.server.username,
@@ -208,6 +212,10 @@ const { enqueueDownloadExecutionJobMock } = vi.hoisted(() => {
             : null,
         }
       : {
+          id: "srv-fallback",
+          operatingSystem: "LINUX",
+          managementMode: "DIRECT",
+          connectionType: "PASSWORD",
           host: "203.0.113.10",
           port: 22,
           username: "root",
@@ -362,6 +370,10 @@ describe("/api/downloads", () => {
         });
         const serverForExec = task?.server
           ? {
+              id: task.server.id,
+              operatingSystem: "LINUX",
+              managementMode: "DIRECT",
+              connectionType: task.server.sshKeyId ? "SSH_KEY" : "PASSWORD",
               host: task.server.host,
               port: task.server.port,
               username: task.server.username,
@@ -376,6 +388,10 @@ describe("/api/downloads", () => {
                 : null,
             }
           : {
+              id: "srv-fallback",
+              operatingSystem: "LINUX",
+              managementMode: "DIRECT",
+              connectionType: "PASSWORD",
               host: "203.0.113.10",
               port: 22,
               username: "root",

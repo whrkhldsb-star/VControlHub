@@ -247,6 +247,7 @@ export async function runVpsBackupRecord(
           sshKeyId: true,
           password: true,
           connectionType: true,
+          managementMode: true,
           hostKeySha256: true,
           sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
           enabled: true,

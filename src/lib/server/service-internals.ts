@@ -251,8 +251,10 @@ export async function verifyServerSshConnectivity(
   normalized: NormalizedServerInput,
   serverLike: Pick<
     ServerWithRelations,
-    "host" | "port" | "username" | "password" | "connectionType" | "sshKeyId" | "hostKeySha256"
+    "host" | "port" | "username" | "password" | "connectionType" | "sshKeyId" | "hostKeySha256" | "id" | "managementMode"
   > & {
+    /** Linux flows only reach here (Windows nodes have their own profile path). */
+    operatingSystem?: string;
     sshKey?: { privateKey?: string | null; passphrase?: string | null } | null;
   },
   options?: { failureMessage?: string },
@@ -261,7 +263,12 @@ export async function verifyServerSshConnectivity(
 
   try {
     const ssh = await buildSshParamsFromServer(
-      { ...(serverLike as ServerWithRelations), hostKeySha256: (serverLike as ServerWithRelations).hostKeySha256 ?? null },
+      {
+        ...(serverLike as ServerWithRelations),
+        operatingSystem: serverLike.operatingSystem ?? "LINUX",
+        managementMode: serverLike.managementMode ?? "DIRECT",
+        hostKeySha256: (serverLike as ServerWithRelations).hostKeySha256 ?? null,
+      },
       serverLike.sshKey
         ? { privateKey: serverLike.sshKey.privateKey ?? null, passphrase: serverLike.sshKey.passphrase ?? null }
         : null,

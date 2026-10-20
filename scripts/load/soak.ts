@@ -16,10 +16,17 @@ import type { DownloadServer } from "@/lib/downloads/execution";
 async function main() {
  const db = new URL(process.env.DATABASE_URL!);
  assert(["localhost", "127.0.0.1"].includes(db.hostname) && /audit|test|_ci/.test(db.pathname), "Isolated database required");
- const sshServer = JSON.parse(await readFile(process.env.VCH_TEST_SSH_CONFIG!, "utf8")) as DownloadServer;
+ const sshServer = JSON.parse(await readFile(process.env.VCH_TEST_SSH_CONFIG!, "utf8")) as Partial<DownloadServer> & Omit<DownloadServer, "id" | "operatingSystem" | "managementMode" | "connectionType">;
  assert.equal(sshServer.host, "127.0.0.1");
  assert.notEqual(sshServer.port, 22);
- const ssh = await buildSshParamsFromServer(sshServer, sshServer.sshKey);
+ // The test SSH config names the endpoint and credentials; it is a plain Linux host.
+ const ssh = await buildSshParamsFromServer({
+  ...sshServer,
+  id: sshServer.id ?? "soak",
+  operatingSystem: sshServer.operatingSystem ?? "LINUX",
+  managementMode: sshServer.managementMode ?? "DIRECT",
+  connectionType: sshServer.connectionType ?? (sshServer.sshKeyId ? "SSH_KEY" : "PASSWORD"),
+ }, sshServer.sshKey);
  const duration = Math.max(10, Number(process.env.SOAK_SECONDS ?? 1800)) * 1000;
  const concurrency = Math.min(10, Math.max(1, Number(process.env.SOAK_CONCURRENCY ?? 3)));
  const output = process.env.SOAK_OUTPUT!;

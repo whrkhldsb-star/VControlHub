@@ -17,7 +17,7 @@ import {
 } from "@/lib/storage/path-utils";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { FileOperationUncertainError } from "./operation-schema";
-import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import { STORAGE_SSH_SERVER_SELECT } from "@/lib/storage/ssh-credentials";
 
 export type MoveFileActionState = { error?: string; success?: string; needsReconcile?: boolean };
 
@@ -72,19 +72,7 @@ export async function executeMoveFile(
             username: true,
             hostKeySha256: true,
             webdavConfigEncrypted: true,
-            server: {
-              select: {
-                id: true,
-                managementMode: true,
-                hostKeySha256: true,
-                host: true,
-                port: true,
-                username: true,
-                connectionType: true,
-                password: true,
-                sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
-              },
-            },
+            server: { select: STORAGE_SSH_SERVER_SELECT },
           },
         },
       },

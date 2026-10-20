@@ -221,7 +221,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		} finally {
 			setLoadingMore(false);
 		}
-	}, [hasMore, loadingMore, notifications.length, t]);
+	}, [hasMore, loadingMore, notifications.length, setNotifications, t]);
 
 	if (notifications.length === 0) {
 		return (

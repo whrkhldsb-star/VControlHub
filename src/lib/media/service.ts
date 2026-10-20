@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -285,6 +286,17 @@ export async function listMediaTags(session?: TeamSession | null) {
     .slice(0, 40);
 }
 
+/** With credentials: the node as its SFTP connection is resolved from (mediaStreamItemSelect). */
+export async function getMediaItem(
+  id: string,
+  session: TeamSession | null | undefined,
+  options: { includeCredentials: true },
+): Promise<Prisma.MediaItemGetPayload<{ select: typeof mediaStreamItemSelect }> | null>;
+export async function getMediaItem(
+  id: string,
+  session?: TeamSession | null,
+  options?: { includeCredentials?: false },
+): Promise<Prisma.MediaItemGetPayload<{ select: typeof mediaItemSelect }> | null>;
 export async function getMediaItem(
   id: string,
   session?: TeamSession | null,

@@ -27,7 +27,7 @@ import {
 
 import type { StorageActionState } from "./actions-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import { STORAGE_SSH_SERVER_SELECT } from "@/lib/storage/ssh-credentials";
 
 export async function createFolderAction(
   _prev: StorageActionState | null,
@@ -97,18 +97,7 @@ export async function createFolderAction(
         username: true,
         hostKeySha256: true,
         serverId: true,
-        server: {
-          select: {
-            id: true,
-            host: true,
-            port: true,
-            username: true,
-            connectionType: true,
-            password: true,
-            hostKeySha256: true,
-            sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
-          },
-        },
+        server: { select: STORAGE_SSH_SERVER_SELECT },
       },
     });
 
@@ -264,17 +253,7 @@ export async function renameFileEntryAction(
             port: true,
             username: true,
             hostKeySha256: true,
-            server: {
-              select: {
-                host: true,
-                port: true,
-                username: true,
-                connectionType: true,
-                password: true,
-                hostKeySha256: true,
-                sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
-              },
-            },
+            server: { select: STORAGE_SSH_SERVER_SELECT },
           },
         },
       },

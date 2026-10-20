@@ -27,6 +27,7 @@ import {
 } from "@/lib/ssh/os-dialect";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { SSH_CONNECTION_SERVER_SELECT } from "@/lib/ssh/server-connection-select";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:detect-os");
@@ -36,6 +37,9 @@ type ServerRow = {
   host: string;
   port: number;
   username: string;
+  operatingSystem: string;
+  connectionType: string;
+  managementMode: string;
   sshKeyId: string | null;
   password: string | null;
   hostKeySha256: string | null;
@@ -55,16 +59,9 @@ function dialectSummary(dialect: OsDialect) {
 async function loadServer(id: string): Promise<ServerRow | null> {
   const server = await prisma.server.findUnique({
     where: { id },
-    select: {
-      id: true,
-      host: true,
-      port: true,
-      username: true,
-      sshKeyId: true,
-      password: true,
-      hostKeySha256: true,
-      sshKey: { select: { privateKey: true, passphrase: true } },
-    },
+    // The whole connection: an Agent-managed server was dialled over SSH
+    // and a Windows one probed on its RDP port without these fields.
+    select: SSH_CONNECTION_SERVER_SELECT,
   });
   return (server as ServerRow | null) ?? null;
 }

@@ -1,23 +1,43 @@
-import { decryptServerPassword, decryptStoredSshKey, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
+import { decryptServerPassword, decryptStoredSshKey, SSH_KEY_CREDENTIAL_SELECT, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
+/** The server fields a storage node's connection is resolved from (use with the node's own host/port/username/hostKeySha256). */
+export const STORAGE_SSH_SERVER_SELECT = {
+  id: true,
+  host: true,
+  port: true,
+  username: true,
+  connectionType: true,
+  managementMode: true,
+  operatingSystem: true,
+  password: true,
+  hostKeySha256: true,
+  sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
+} as const;
+
+/**
+ * Every field is required (nullable where the column is): with optional
+ * fields, a projection that left out the node's own endpoint or the server's
+ * id / management mode / OS still compiled and reached the wrong host, user,
+ * port or transport (media playback, the health probe, content search).
+ */
 export type StorageSshCredentialNode = {
-  host?: string | null;
-  port?: number | null;
-  username?: string | null;
-  hostKeySha256?: string | null;
-  server?: {
-    id?: string | null;
-    managementMode?: string | null;
-    operatingSystem?: string | null;
-    host?: string | null;
-    port?: number | null;
-    username?: string | null;
-    connectionType?: "SSH_KEY" | "PASSWORD" | string | null;
-    password?: string | null;
-    sshKey?: StoredSshKey | null;
-    hostKeySha256?: string | null;
+  host: string | null;
+  port: number | null;
+  username: string | null;
+  hostKeySha256: string | null;
+  server: {
+    id: string;
+    managementMode: string;
+    operatingSystem: string;
+    host: string;
+    port: number;
+    username: string;
+    connectionType: "SSH_KEY" | "PASSWORD" | string;
+    password: string | null;
+    sshKey: StoredSshKey | null;
+    hostKeySha256: string | null;
   } | null;
 };
 
@@ -34,7 +54,7 @@ export type ResolvedStorageSshCredentials = {
   agentServerId?: string;
 };
 
-export function resolveStorageSshPort(node: Pick<StorageSshCredentialNode, "port" | "server">) {
+export function resolveStorageSshPort(node: { port: number | null; server: { operatingSystem: string; port: number } | null }) {
   return node.port ?? (node.server?.operatingSystem === "WINDOWS" ? 22 : node.server?.port) ?? 22;
 }
 
