@@ -23,6 +23,7 @@ function reset() {
 	failNextFinalEventUpdate = false;
 }
 
+const deletedTeams = vi.hoisted(() => new Set<string>());
 vi.mock("@/lib/db", async () => {
 	const prisma: Record<string, unknown> = {
 		// No real transaction here: the callback runs on the same mock.
@@ -77,6 +78,8 @@ vi.mock("@/lib/db", async () => {
 				return { count: existed ? 1 : 0 };
 			}),
 		},
+		// Deleted customers: none unless a test marks one.
+		team: { count: vi.fn(async ({ where }: { where: { id: { in?: string[] } | string } }) => (typeof where.id === "string" && deletedTeams.has(where.id) ? 1 : 0)) },
 		itsmEvent: {
 			create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
 				if (forcedEventCreateError) {
@@ -474,6 +477,20 @@ describe("ITSM service", () => {
 		expect(result.action).toBe("create");
 		expect(result.ticketId).toMatch(/^tk_/);
 		expect(result.event.status).toBe("ok");
+	});
+
+	it("takes no events for a deleted customer's connection", async () => {
+		// They kept creating and changing the hidden customer's tickets.
+		const conn = await createItsmConnection(
+			{ name: "Gone", provider: "generic_webhook", direction: "inbound", credentials: { webhookSecret: "sec" }, config: { createOnInbound: true } },
+			{ userId: "user1", roles: ["admin"], currentTeamId: "team_gone" },
+		);
+		deletedTeams.add("team_gone");
+		const rawBody = JSON.stringify({ eventType: "ticket.create", externalId: "gone-1", ticket: { title: "x", description: "y" } });
+		const signatureHeader = `sha256=${createHmac("sha256", "sec").update(rawBody).digest("hex")}`;
+		await expect(handleInboundWebhook({ connectionId: conn.id, rawBody, signatureHeader, json: JSON.parse(rawBody) as Record<string, unknown>, systemUserId: "sys" }))
+			.rejects.toMatchObject({ status: 404 });
+		deletedTeams.delete("team_gone");
 	});
 
 	it("deduplicates an inbound externalId before repeating ticket side effects", async () => {
