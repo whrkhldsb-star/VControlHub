@@ -4,7 +4,7 @@ import { parsePrivateKey } from "sshpk";
 import { utils } from "ssh2";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
-import { prisma } from "@/lib/db";
+import { isUniqueViolation, prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
 import { encryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { t } from "@/lib/i18n/service-translations";
@@ -100,17 +100,31 @@ export async function createSshKey(input: ImportedKey & {
   if (!name) throw new ValidationError(t("backend.server.sshKeyNameRequired"));
   const key = await normalizeImportedSshKey(input);
   const teamId = input.session ? teamCreateData(input.session).teamId : null;
-  return prisma.sshKey.create({
-    data: {
-      name,
-      fingerprint: key.fingerprint,
-      publicKey: key.publicKey,
-      privateKey: encryptSshPrivateKey(key.privateKey),
-      passphrase: null,
-      description: input.description?.trim() || null,
-      createdById: input.createdById ?? null,
-      teamId: teamId ?? null,
-    },
-    select: { id: true, name: true, fingerprint: true, description: true, teamId: true },
-  });
+  // A fingerprint is stored once. Importing the same key again failed on the
+  // unique constraint and showed the database's own message; name the saved
+  // key instead (only within this customer: elsewhere, just that it exists).
+  const existing = await prisma.sshKey.findUnique({ where: { fingerprint: key.fingerprint }, select: { name: true, teamId: true } });
+  if (existing) {
+    throw new ValidationError(existing.teamId === (teamId ?? null)
+      ? t("backend.server.sshKeyAlreadySaved", { name: existing.name })
+      : t("backend.server.sshKeyAlreadyImported"));
+  }
+  try {
+    return await prisma.sshKey.create({
+      data: {
+        name,
+        fingerprint: key.fingerprint,
+        publicKey: key.publicKey,
+        privateKey: encryptSshPrivateKey(key.privateKey),
+        passphrase: null,
+        description: input.description?.trim() || null,
+        createdById: input.createdById ?? null,
+        teamId: teamId ?? null,
+      },
+      select: { id: true, name: true, fingerprint: true, description: true, teamId: true },
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new ValidationError(t("backend.server.sshKeyAlreadyImported"));
+    throw error;
+  }
 }

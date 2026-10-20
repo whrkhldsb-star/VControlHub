@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
@@ -27,7 +27,8 @@ const hasDatabase = process.env.RUN_DATABASE_INTEGRATION_TESTS === "1" && Boolea
 const has = (bin: string) => spawnSync("sh", ["-c", `command -v ${bin}`]).status === 0;
 const enabled = hasDatabase && process.platform !== "win32" && has("psql") && has("pg_dump") && has("tar");
 
-const RESTORE_SCRIPT = resolve(__dirname, "../../../../scripts/restore.mjs");
+const REPO_ROOT = resolve(__dirname, "../../../..");
+const RESTORE_SCRIPT = resolve(REPO_ROOT, "scripts/restore.mjs");
 
 function adminUrl(database: string) {
   const url = new URL(process.env.DATABASE_URL!);
@@ -129,6 +130,73 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
       const countTables = (target: string) => psql(target, "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'");
       expect(Number(countTables(scratchUrl))).toBeGreaterThan(50);
       expect(countTables(scratchUrl)).toBe(countTables(process.env.DATABASE_URL!));
+    } finally {
+      psql(adminUrl("postgres"), `DROP DATABASE IF EXISTS ${scratch} WITH (FORCE)`);
+    }
+  });
+
+  it("brings a backup from an older version up to this installation's schema", (ctx) => {
+    // Needs a migrated source database: one made with `db push` has no history.
+    if (psql(process.env.DATABASE_URL!, "SELECT to_regclass('public._prisma_migrations') IS NOT NULL") !== "t") ctx.skip();
+    // A backup taken before the newest migration: its schema lacks that
+    // migration's column and its history lacks the row. Restored as it was,
+    // the platform started on it and failed on the missing column.
+    const older = `${database}_older`;
+    const target = `${database}_upgrade`;
+    psql(adminUrl("postgres"), `CREATE DATABASE ${older}`);
+    psql(adminUrl("postgres"), `CREATE DATABASE ${target}`);
+    try {
+      const dumpOf = (source: string) => {
+        const dump = spawnSync("pg_dump", [source, "--no-owner", "--no-privileges", "--clean", "--if-exists"], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
+        expect(dump.status, dump.stderr).toBe(0);
+        return dump.stdout;
+      };
+      const load = spawnSync("psql", ["-X", "-q", "-v", "ON_ERROR_STOP=1", adminUrl(older)], { input: dumpOf(process.env.DATABASE_URL!), encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+      expect(load.status, load.stderr).toBe(0);
+      psql(adminUrl(older), `ALTER TABLE "settings" DROP COLUMN "updatedBy"; DELETE FROM "_prisma_migrations" WHERE migration_name = '20261020090000_setting_updated_by'`);
+      const dumpFile = join(work, "older.sql.gz");
+      writeFileSync(dumpFile, gzipSync(dumpOf(adminUrl(older))));
+      // An installation: this checkout's migrations and Prisma CLI.
+      const appDir = join(work, "app-upgrade");
+      mkdirSync(appDir);
+      for (const entry of ["prisma", "node_modules", "prisma.config.ts", "package.json"]) symlinkSync(resolve(REPO_ROOT, entry), join(appDir, entry));
+      writeFileSync(join(work, ".env.upgrade"), `DATABASE_URL=${adminUrl(target)}\n`);
+
+      const result = spawnSync(process.execPath, [RESTORE_SCRIPT, "database", dumpFile], { encoding: "utf8", env: restoreEnv(appDir, join(work, ".env.upgrade")) });
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(psql(adminUrl(target), `SELECT count(*) FROM information_schema.columns WHERE table_name = 'settings' AND column_name = 'updatedBy'`)).toBe("1");
+      expect(psql(adminUrl(target), `SELECT count(*) FROM "_prisma_migrations" WHERE migration_name = '20261020090000_setting_updated_by' AND finished_at IS NOT NULL`)).toBe("1");
+    } finally {
+      psql(adminUrl("postgres"), `DROP DATABASE IF EXISTS ${older} WITH (FORCE)`);
+      psql(adminUrl("postgres"), `DROP DATABASE IF EXISTS ${target} WITH (FORCE)`);
+    }
+  }, 120_000);
+
+  it("restores an older backup over tables and types created after it", () => {
+    // A --clean dump drops only what it contains. A newer table referencing
+    // an older one made the whole restore fail ("other objects depend on
+    // it"); newer tables and types without one stayed with today's rows and
+    // then refused the upgrade's own CREATE.
+    const scratch = `${database}_newer`;
+    psql(adminUrl("postgres"), `CREATE DATABASE ${scratch}`);
+    const scratchUrl = adminUrl(scratch);
+    try {
+      psql(scratchUrl, "CREATE TABLE parent (id int PRIMARY KEY, v text); INSERT INTO parent VALUES (1, 'from-backup')");
+      const dump = spawnSync("pg_dump", [scratchUrl, "--no-owner", "--no-privileges", "--clean", "--if-exists"], { encoding: "utf8" });
+      expect(dump.status, dump.stderr).toBe(0);
+      const olderDump = join(work, "older-than-tables.sql.gz");
+      writeFileSync(olderDump, gzipSync(dump.stdout));
+      psql(scratchUrl, "UPDATE parent SET v = 'live-data'; CREATE TABLE child (id int PRIMARY KEY, parent_id int REFERENCES parent(id)); INSERT INTO child VALUES (1, 1); CREATE TABLE loose (id int); CREATE TYPE mood AS ENUM ('ok')");
+      writeFileSync(join(work, ".env.newer"), `DATABASE_URL=${scratchUrl}\n`);
+      const appDir = join(work, "app-newer");
+      mkdirSync(appDir);
+
+      const result = spawnSync(process.execPath, [RESTORE_SCRIPT, "database", olderDump], { encoding: "utf8", env: restoreEnv(appDir, join(work, ".env.newer")) });
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(psql(scratchUrl, "SELECT v FROM parent WHERE id = 1")).toBe("from-backup");
+      expect(psql(scratchUrl, "SELECT to_regclass('public.child') IS NULL AND to_regclass('public.loose') IS NULL AND to_regtype('public.mood') IS NULL")).toBe("t");
     } finally {
       psql(adminUrl("postgres"), `DROP DATABASE IF EXISTS ${scratch} WITH (FORCE)`);
     }

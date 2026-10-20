@@ -138,6 +138,12 @@ async function pruneCommand(keepLatest: number, olderThan: Date): Promise<Operat
           teamId,
           createdAt: { lt: olderThan },
           ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
+          // A deployment or rollback learns its outcome from its command (on
+          // its next listing). Deleted first, the command took that outcome
+          // with it: the run stayed pending for good, then was settled as
+          // "never created" once its link was cleared.
+          deploymentRuns: { none: { status: { in: ["PENDING", "RUNNING"] } } },
+          deploymentRollbackRuns: { none: { status: { in: ["PENDING", "APPROVED", "RUNNING"] } } },
         },
       });
       return result.count;

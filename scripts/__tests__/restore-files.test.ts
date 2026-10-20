@@ -42,6 +42,46 @@ describe.skipIf(process.platform === "win32")("restore-files archive safety", ()
     await expect(readFile(path.join(target, "hello.txt"), "utf8")).resolves.toBe("hello");
   });
 
+  it("restores data and keeps the installation's own code from a FULL archive", async () => {
+    // A FULL archive records the code of the version that made it; laid over
+    // this installation it mixed old code into new and dirtied the checkout.
+    await mkdir(path.join(source, "storage"), { recursive: true });
+    await mkdir(path.join(source, "public"), { recursive: true });
+    await writeFile(path.join(source, "storage", "a.txt"), "from-backup");
+    await writeFile(path.join(source, "public", "sw.js"), "old worker");
+    await writeFile(path.join(source, "package.json"), "{\"version\":\"old\"}");
+    await mkdir(path.join(target, "public"), { recursive: true });
+    await writeFile(path.join(target, "public", "sw.js"), "new worker");
+    await writeFile(path.join(target, "package.json"), "{\"version\":\"new\"}");
+    const archive = path.join(tmp, "full-like.tar.gz");
+    await runFile("tar", ["-czf", archive, "-C", source, "storage", "public", "package.json"]);
+
+    await runFile("bash", ["scripts/restore-files.sh", archive, target], { cwd: process.cwd(), env });
+
+    await expect(readFile(path.join(target, "storage", "a.txt"), "utf8")).resolves.toBe("from-backup");
+    await expect(readFile(path.join(target, "public", "sw.js"), "utf8")).resolves.toBe("new worker");
+    await expect(readFile(path.join(target, "package.json"), "utf8")).resolves.toBe("{\"version\":\"new\"}");
+  });
+
+  it("leaves data from outside the application directory in the archive", async () => {
+    // BACKUP_EXTRA_PATHS_JSON data is restored by the administrator to a
+    // place they choose; it used to land under the application directory.
+    await mkdir(path.join(source, "srv", "media"), { recursive: true });
+    await writeFile(path.join(source, "srv", "media", "big.bin"), "external");
+    await writeFile(path.join(source, "external-data.json"), JSON.stringify({ version: 1, paths: [{ source: "/srv/media", member: "srv/media" }] }));
+    await mkdir(path.join(source, "uploads"), { recursive: true });
+    await writeFile(path.join(source, "uploads", "u.txt"), "upload");
+    const archive = path.join(tmp, "external.tar.gz");
+    await runFile("tar", ["-czf", archive, "-C", source, "uploads", "srv", "external-data.json"]);
+
+    const { stdout, stderr } = await runFile("bash", ["scripts/restore-files.sh", archive, target], { cwd: process.cwd(), env });
+
+    await expect(readFile(path.join(target, "uploads", "u.txt"), "utf8")).resolves.toBe("upload");
+    await expect(readFile(path.join(target, "srv", "media", "big.bin"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(path.join(target, "external-data.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(`${stdout}${stderr}`).toContain("srv/media");
+  });
+
   it("rejects symbolic-link members before extraction", async () => {
     await symlink("/etc/passwd", path.join(source, "outside-link"));
     const archive = path.join(tmp, "symlink.tar.gz");

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ connect: vi.fn(), query: vi.fn(), release: vi.fn(), end: vi.fn() }));
+const mocks = vi.hoisted(() => ({ connect: vi.fn(), query: vi.fn(), release: vi.fn(), end: vi.fn(), poolOn: vi.fn(), clientOn: vi.fn(), clientOff: vi.fn() }));
 vi.mock("pg", () => ({
-  Pool: vi.fn(function MockPool() { return { connect: mocks.connect, end: mocks.end }; }),
+  Pool: vi.fn(function MockPool() { return { connect: mocks.connect, end: mocks.end, on: mocks.poolOn }; }),
 }));
 vi.mock("@/lib/config/env", () => ({ config: { db: { url: "postgresql://user:pass@127.0.0.1:5432/db?pool_max=10&connection_limit=10", poolSize: 10, poolIdleTimeoutMs: 30000 } } }));
 
@@ -12,8 +12,28 @@ describe("advisory-lock service", () => {
   beforeEach(async () => {
     await closeAdvisoryLockPoolForTests();
     vi.clearAllMocks();
-    mocks.connect.mockResolvedValue({ query: mocks.query, release: mocks.release });
+    mocks.connect.mockResolvedValue({ query: mocks.query, release: mocks.release, on: mocks.clientOn, removeListener: mocks.clientOff });
     mocks.end.mockResolvedValue(undefined);
+  });
+
+  it("listens for connection errors on the pool and on a client while it holds a lock", async () => {
+    // Without a listener an 'error' event is thrown: a PostgreSQL restart
+    // (57P01 to every session) crashed the worker twice in production.
+    mocks.query.mockResolvedValueOnce({ rows: [{ acquired: true }] }).mockResolvedValueOnce({ rows: [{ unlocked: true }] });
+    const release = await tryAcquireAdvisoryLock("vps-backup-schedule", "global");
+    expect(mocks.poolOn).toHaveBeenCalledWith("error", expect.any(Function));
+    expect(mocks.clientOn).toHaveBeenCalledWith("error", expect.any(Function));
+    const onError = mocks.clientOn.mock.calls[0]![1] as (error: Error) => void;
+    expect(() => onError(new Error("terminating connection due to administrator command"))).not.toThrow();
+    await release!();
+    expect(mocks.clientOff).toHaveBeenCalledWith("error", onError);
+  });
+
+  it("closes the session instead of pooling it when the unlock fails", async () => {
+    mocks.query.mockResolvedValueOnce({ rows: [{ acquired: true }] }).mockRejectedValueOnce(new Error("connection lost"));
+    const release = await tryAcquireAdvisoryLock("vps-backup-schedule", "global");
+    await release!();
+    expect(mocks.release).toHaveBeenCalledWith(expect.objectContaining({ message: "connection lost" }));
   });
 
   it("returns stable namespace and resource keys", () => {

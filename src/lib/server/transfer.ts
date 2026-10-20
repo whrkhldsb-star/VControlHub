@@ -20,12 +20,11 @@ import { getServerDeletionImpact } from "./service-deletion-impact";
 
 /** Old-customer work that would cross customers if the server moved. */
 export async function getServerTransferBlockers(serverId: string, storageNodeIds: string[]) {
-  const [impact, imageUploads, unfinishedCommands, unfinishedDownloads] = await Promise.all([
+  const [impact, imageUploads] = await Promise.all([
     getServerDeletionImpact(serverId),
     storageNodeIds.length ? prisma.imageUpload.count({ where: { storageNodeId: { in: storageNodeIds } } }) : 0,
-    prisma.commandTarget.count({ where: { serverId, status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"] } } }),
-    prisma.downloadTask.count({ where: { serverId, status: { in: ["PENDING", "RUNNING"] } } }),
   ]);
+  const { unfinishedCommands, unfinishedDownloads } = impact;
   const blockers = {
     shares: impact.shares,
     imageUploads,

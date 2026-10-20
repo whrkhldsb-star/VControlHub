@@ -6,6 +6,12 @@ import { startWorkerLifecycle, stopWorkerLifecycle } from "@/lib/workers/startup
 
 const logger = createLogger("worker-process");
 
+// As in the web server and the SSH proxy: a stray rejection is logged, not
+// allowed to end the process (Node's default) and every job running in it.
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled rejection:", reason);
+});
+
 /**
  * systemd's default TimeoutStopSec is 90s. Pooled SSH sockets are ref'd
  * handles, so the event loop stays alive after the lifecycle teardown and

@@ -285,6 +285,8 @@ export const zh: Record<string, string> = {
 	"backend.server.sshPublicKeyMismatch": "公钥无法解析或与私钥不匹配，请核对密钥对。",
 	"backend.server.sshPrivateKeyImportFailed": "无法解析私钥。支持 OpenSSH、PEM、DER 和 PPK v2/v3；加密私钥请填写正确的解密密码。",
 	"backend.server.sshKeyNameRequired": "SSH 密钥名称不能为空",
+	"backend.server.sshKeyAlreadySaved": "这把密钥已经保存过，名称为「{name}」",
+	"backend.server.sshKeyAlreadyImported": "这把密钥已经导入过",
 
 	// B5 pass2 auto
 	"backend.deployment.deploymentTemplateIsRequired": "必须选择部署模板",
@@ -384,6 +386,7 @@ export const zh: Record<string, string> = {
 	"backend.command-template.noPermissionToModifyOthersCommandTemplates": "无权修改他人的命令模板",
 	"backend.command-template.commandTemplateNotFound": "命令模板不存在",
 	"backend.command-template.builtInCommandTemplatesCannotBeDeleted": "内置命令模板不可删除",
+	"backend.command-template.templateHasDeployments": "该模板已有 {count} 条部署记录；删除模板会连同这些记录及其回滚一起删除，因此不能删除",
 	"backend.backup.backupStatusChangedConcurrentlyCannotVoid": "备份状态已并发变更，无法作废",
 	"backend.backup.backupStatusChangedConcurrentlyCannotRetry": "备份状态已并发变更，无法重试",
 	"backend.backup.backupIsAlreadyRunning": "备份已在运行中",
@@ -427,6 +430,7 @@ export const zh: Record<string, string> = {
 	"backend.downloads.downloadFilenameInvalid": "下载文件名无效",
 	"backend.docker.hubHostRequiresPlatformManager": "宿主机 Docker 由平台共享，需平台管理员权限；请选择本客户的服务器",
 	"backend.ai.providerNameIsRequired": "提供商名称不能为空",
+	"backend.ai.providerNameTaken": "已有同名的提供商，请换一个名称",
 	"backend.ai.apiKeyIsRequired": "必须填写 API Key",
 	"backend.ai.invalidProviderType": "无效的 AI 提供商类型",
 	"backend.ai.attachmentImagesOnly": "该提供商无法读取 {media} 附件，仅支持图片。",
@@ -941,6 +945,8 @@ export const en: Record<string, string> = {
 	"backend.server.sshPublicKeyMismatch": "The public key is invalid or does not match the private key.",
 	"backend.server.sshPrivateKeyImportFailed": "Unable to parse the private key. Supported: OpenSSH, PEM, DER and PPK v2/v3. For encrypted keys, enter the correct decryption password.",
 	"backend.server.sshKeyNameRequired": "SSH key name is required",
+	"backend.server.sshKeyAlreadySaved": "This key is already saved as \"{name}\"",
+	"backend.server.sshKeyAlreadyImported": "This key has already been imported",
 
 	// B5 pass2 auto
 	"backend.deployment.deploymentTemplateIsRequired": "Deployment template is required",
@@ -1040,6 +1046,7 @@ export const en: Record<string, string> = {
 	"backend.command-template.noPermissionToModifyOthersCommandTemplates": "No permission to modify others' command templates",
 	"backend.command-template.commandTemplateNotFound": "Command template not found",
 	"backend.command-template.builtInCommandTemplatesCannotBeDeleted": "Built-in command templates cannot be deleted",
+	"backend.command-template.templateHasDeployments": "This template has {count} deployment run(s); deleting it would delete them and their rollbacks too, so it cannot be deleted",
 	"backend.backup.backupStatusChangedConcurrentlyCannotVoid": "Backup status changed concurrently; cannot void",
 	"backend.backup.backupStatusChangedConcurrentlyCannotRetry": "Backup status changed concurrently; cannot retry",
 	"backend.backup.backupIsAlreadyRunning": "Backup is already running",
@@ -1083,6 +1090,7 @@ export const en: Record<string, string> = {
 	"backend.downloads.downloadFilenameInvalid": "Download filename invalid",
 	"backend.docker.hubHostRequiresPlatformManager": "The hub host's Docker is shared platform infrastructure and requires platform-manager permission; pick one of your customer's servers instead",
 	"backend.ai.providerNameIsRequired": "Provider name is required",
+	"backend.ai.providerNameTaken": "You already have a provider with this name",
 	"backend.ai.apiKeyIsRequired": "API Key is required",
 	"backend.ai.invalidProviderType": "Invalid AI provider type",
 	"backend.ai.attachmentImagesOnly": "This provider cannot read {media} attachments; only images are supported.",

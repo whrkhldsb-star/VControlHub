@@ -153,7 +153,8 @@ export async function listAiOpsLogs(
 	);
 	const rows = await prisma.aiOpsLog.findMany({
 		where: toAiOpsLogWhere(input),
-		orderBy: { createdAt: "desc" },
+		// The id breaks createdAt ties, so offset pages neither repeat nor skip.
+		orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 		take: limit,
 		skip: Math.max(input.offset ?? 0, 0),
 	});

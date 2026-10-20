@@ -28,6 +28,7 @@ import {
   enqueueJob,
   failJob,
   heartbeatJob,
+  pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
@@ -45,6 +46,7 @@ const OPERATION_TASK_RETENTION_LEASE_MS = computeLeaseMs(
   "operation-task-retention",
 );
 const OPERATION_TASK_RETENTION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:operation-task-retention:${process.pid}`;
+const OPERATION_TASK_RETENTION_KEEP_LATEST = 25;
 
 const operationTaskRetentionWorker = createSingletonIntervalWorker({
   globalKey: "__vcontrolhubOperationTaskRetentionWorker",
@@ -168,6 +170,16 @@ export async function runOperationTaskRetentionJobWorkerOnce(
         durationMs: result.durationMs,
         olderThan: result.olderThan,
         keepLatest: result.keepLatest,
+      });
+      // Its own runs too, as every other periodic worker does: nothing else
+      // prunes COMPLETED rows of this type (production held ~400).
+      await pruneCompletedJobsByType({
+        type: OPERATION_TASK_RETENTION_JOB_TYPE,
+        keepLatest: OPERATION_TASK_RETENTION_KEEP_LATEST,
+      }).catch((error: unknown) => {
+        logger.warn("Failed to prune completed operation-task retention jobs", {
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
       return true;
     } catch (error) {

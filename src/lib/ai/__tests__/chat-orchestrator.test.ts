@@ -12,7 +12,7 @@ const { mocks } = vi.hoisted(() => ({
     parseToolCall: vi.fn(),
     prisma: {
       aiMessage: { create: vi.fn(), deleteMany: vi.fn() },
-      aiHostedAction: { update: vi.fn() },
+      aiHostedAction: { update: vi.fn(), updateMany: vi.fn(async () => ({ count: 1 })) },
       $transaction: vi.fn(),
     },
   },
@@ -480,6 +480,57 @@ describe("createAiChatResponse", () => {
     });
     expect(mocks.executeSafeAction).not.toHaveBeenCalled();
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("tool calls that get no result", () => {
+  // Stored on the assistant turn without a result, a call made the provider
+  // reject every later request of the thread: each one is answered instead.
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getConversationById.mockResolvedValue({ ...conversation, hostingEnabled: true });
+    mocks.createMessage.mockResolvedValue({ id: "user-message-1" });
+    mocks.buildKnowledgeContextForPrompt.mockResolvedValue({ context: "" });
+    mocks.getOpenAIToolsFormat.mockReturnValue([]);
+    mocks.prisma.aiMessage.create.mockResolvedValue({ id: "assistant-message-1" });
+    mocks.prisma.$transaction.mockResolvedValue([]);
+    mocks.sendChatRequest
+      .mockResolvedValueOnce({
+        response: new Response(
+          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tool-9","function":{"name":"made_up_tool","arguments":"{}"}}]}}]}\n' + "data: [DONE]\n",
+        ),
+        providerType: "OPENAI",
+        startTime: Date.now(),
+      })
+      .mockResolvedValue({ response: upstreamResponse("done"), providerType: "OPENAI", startTime: Date.now() });
+  });
+
+  it("answers a call to a tool that does not exist with an error", async () => {
+    mocks.parseToolCall.mockReturnValue(null);
+
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "go" }, session, locale: "en" });
+    await response.text();
+
+    expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ role: "tool", toolCallId: "tool-9", content: expect.stringContaining('"success":false') }),
+    });
+  });
+
+  it("answers a call whose action could not be created with the error", async () => {
+    mocks.parseToolCall.mockReturnValue({
+      toolCallId: "tool-9",
+      args: {},
+      tool: { name: "list_servers", actionName: "List servers", actionType: "list_servers", riskLevel: "low", autoApproved: true },
+    });
+    mocks.createHostedAction.mockRejectedValueOnce(new Error("server not in scope"));
+
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "go" }, session, locale: "en" });
+    const body = await response.text();
+
+    expect(body).toContain('"type":"tool_result"');
+    expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ role: "tool", toolCallId: "tool-9", content: expect.stringContaining("server not in scope") }),
+    });
   });
 });
 

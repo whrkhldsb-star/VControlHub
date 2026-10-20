@@ -56,8 +56,22 @@ export function buildAiChatMessagePayload(input: {
   // can begin with tool results whose assistant call fell outside it.
   // Providers reject a result with no matching call, so those are dropped.
   const announcedToolCalls = new Set<string>();
+  // The converse: a call that never got a result (an unknown tool, or one
+  // that failed before its result was recorded) made the provider reject
+  // every later request of the thread. Only answered calls are replayed.
+  const answeredToolCalls = new Set(
+    conv.messages.flatMap((msg) => (msg.role === "tool" && msg.toolCallId ? [msg.toolCallId] : [])),
+  );
+  // The window can open mid-thread on an assistant turn; Anthropic rejects a
+  // history that does not start with the user, so the history starts at the
+  // first user turn (results of calls left out are then dropped below).
+  let reachedUserTurn = false;
   for (const msg of conv.messages) {
     if (msg.role === "system") continue;
+    if (!reachedUserTurn) {
+      if (msg.role !== "user") continue;
+      reachedUserTurn = true;
+    }
 
     if (msg.role === "tool") {
       if (!msg.toolCallId || !announcedToolCalls.has(msg.toolCallId)) continue;
@@ -65,12 +79,13 @@ export function buildAiChatMessagePayload(input: {
       continue;
     }
 
-    const toolCalls = safeJsonArray<AiToolCall>(msg.toolCalls);
+    const toolCalls = safeJsonArray<AiToolCall>(msg.toolCalls).filter((call) => answeredToolCalls.has(call.id));
     if (msg.role === "assistant" && toolCalls.length > 0) {
       for (const call of toolCalls) announcedToolCalls.add(call.id);
       historyMessages.push({ role: "assistant", content: msg.content || "", tool_calls: toolCalls });
       continue;
     }
+    if (msg.role === "assistant" && !msg.content) continue;
 
     if (msg.role === "user" && isVisionCapable) {
       const imageUrls = safeJsonArray<string>(msg.imageUrls);

@@ -18,6 +18,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       delete: vi.fn(),
       deleteMany: vi.fn(),
     },
+    deploymentRun: { count: vi.fn(async () => 0) },
   },
 }));
 
@@ -194,6 +195,16 @@ describe("command template service", () => {
     expect(mockPrisma.commandTemplate.deleteMany).toHaveBeenCalledWith({
       where: { id: "user_1" },
     });
+  });
+
+  it("refuses to delete a template that has deployment runs, which would cascade", async () => {
+    // The runs (and their rollbacks) went with the template: history gone,
+    // and no snapshot left to roll the last deployment back from.
+    mockPrisma.commandTemplate.findFirst.mockResolvedValue({ id: "user_1", isBuiltin: false, createdById: "u1", name: "Deploy", tags: [], variables: [] });
+    mockPrisma.deploymentRun.count.mockResolvedValueOnce(2);
+
+    await expect(service.deleteTemplate("user_1", { userId: "u1" }, PLATFORM)).rejects.toThrow(/2/);
+    expect(mockPrisma.commandTemplate.deleteMany).not.toHaveBeenCalled();
   });
 
   it("rejects update/delete of another user's template without canManageAll", async () => {

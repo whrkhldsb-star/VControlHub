@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   queryRaw: vi.fn(),
   transaction: vi.fn(),
   streamStorageFile: vi.fn(),
+  statBackingObject: vi.fn(async (): Promise<{ size: number; lastModifiedMs: number } | null> => null),
   copyStorageFile: vi.fn(),
   writeStorageFileBuffer: vi.fn(),
   deleteStorageFileBuffer: vi.fn(),
@@ -69,7 +70,7 @@ vi.mock("@/lib/storage/fs-backend", () => ({
   createManagedFolder: mocks.createManagedFolder,
   deleteBackingObject: mocks.deleteBackingObject,
   renameBackingObject: mocks.renameBackingObject,
-  statBackingObject: vi.fn(async () => null),
+  statBackingObject: mocks.statBackingObject,
 }));
 vi.mock("@/lib/storage/service-entries", () => ({ createFileEntry: mocks.createFileEntry }));
 vi.mock("@/lib/storage/file-versions", () => ({
@@ -247,7 +248,6 @@ describe("webdav handlers", () => {
     });
 
     it("closes the size probe when the index has no recorded size", async () => {
-      const close = vi.fn();
       mocks.fileEntryFindFirst.mockResolvedValue({
         id: "f1",
         name: "a.bin",
@@ -257,18 +257,16 @@ describe("webdav handlers", () => {
         mimeType: null,
         updatedAt: new Date("2026-03-01T00:00:00Z"),
       });
-      mocks.streamStorageFile.mockResolvedValue({
-        size: 7,
-        stream: Readable.from([Buffer.from("abcdefg")]),
-        close,
-      });
+      mocks.statBackingObject.mockResolvedValueOnce({ size: 7, lastModifiedMs: 0 });
 
       const response = await handleWebDavGetHead(context("a.bin"), "HEAD");
 
       expect(response.headers.get("Content-Length")).toBe("7");
-      // Probing without closing leaked one fd (LOCAL) or one SSH client (SFTP)
-      // per request on any entry with a null size.
-      expect(close).toHaveBeenCalled();
+      // A metadata stat, not a read stream: opening one only to close its SSH
+      // connection at once failed its SFTP open, reported as an unheard
+      // 'error' event (thrown, ending the process). Earlier it leaked the fd
+      // or SSH client.
+      expect(mocks.streamStorageFile).not.toHaveBeenCalled();
     });
 
     it("serves a satisfiable range as 206 with Content-Range", async () => {
@@ -569,6 +567,9 @@ describe("webdav handlers", () => {
       expect(statements[0]).toContain(`"isDeleted" = true`);
       expect(statements[1]).toContain("UPDATE file_entries");
       expect(statements[1]).toContain("regexp_replace");
+      // UTC wall time, as every column holds: a bare now() follows the
+      // session time zone of a PostgreSQL not set to UTC.
+      for (const statement of statements) expect(statement).toContain(`"updatedAt" = (now() AT TIME ZONE 'UTC')`);
     });
   });
 
@@ -606,22 +607,17 @@ describe("webdav handlers", () => {
     });
 
     it("probes the backend for a size the index does not have", async () => {
-      const close = vi.fn();
       mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
         args.where.relativePath === "a.bin"
           ? { id: "f1", entryType: "FILE", relativePath: "a.bin", mimeType: null, size: null }
           : null,
       );
-      mocks.streamStorageFile.mockResolvedValue({
-        size: 512,
-        stream: Readable.from([]),
-        close,
-      });
+      mocks.statBackingObject.mockResolvedValueOnce({ size: 512, lastModifiedMs: 0 });
 
       await copyWith("/api/webdav/n1/b.bin");
 
       expect(accessCalls()[1]).toMatchObject({ operation: "write", writeBytes: 512 });
-      expect(close).toHaveBeenCalled();
+      expect(mocks.streamStorageFile).not.toHaveBeenCalled();
     });
 
     it("releases the quota guard once the index is written", async () => {

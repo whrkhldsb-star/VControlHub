@@ -25,6 +25,7 @@ const { pruneHistoryMock, infoMock, warnMock, errorMock, jobMocks, jobIds } =
       heartbeatJob: vi.fn(),
       completeJob: vi.fn(),
       failJob: vi.fn(),
+      pruneCompletedJobsByType: vi.fn(async () => ({ count: 0 })),
     },
   }));
 
@@ -53,6 +54,7 @@ vi.mock("@/lib/job/service", () => ({
   heartbeatJob: jobMocks.heartbeatJob,
   completeJob: jobMocks.completeJob,
   failJob: jobMocks.failJob,
+  pruneCompletedJobsByType: jobMocks.pruneCompletedJobsByType,
 }));
 
 vi.mock("../retention", () => ({
@@ -141,6 +143,8 @@ describe("operation task retention worker", () => {
         perSource: expect.any(Object),
       }),
     );
+    // Its own completed runs are trimmed as well: nothing else prunes them.
+    expect(jobMocks.pruneCompletedJobsByType).toHaveBeenCalledWith({ type: "operation-task.retention", keepLatest: 25 });
   });
 
   it("prune 抛错 → failJob 走 retry, errorMock 触发, complete 不调", async () => {

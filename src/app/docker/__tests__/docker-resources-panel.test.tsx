@@ -81,4 +81,27 @@ describe("DockerResourcesPanel", () => {
     expect(screen.queryByText("network-a")).not.toBeInTheDocument();
     expect(oldServerNetworkLoads).toBe(1);
   });
+
+  it("does not open the previous server's inspect result over a newly selected server", async () => {
+    const user = userEvent.setup();
+    const inspect = deferred<{ data: { Name: string; Marker: string } }>();
+    vi.mocked(csrfFetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("name=")) return inspect.promise;
+      const server = url.includes("serverId=server-a") ? "a" : "b";
+      if (url.includes("type=networks")) return { data: [{ Name: `shared-net`, Driver: "bridge", Scope: server }] };
+      return { data: { Volumes: [] } };
+    });
+
+    const view = render(wrap("server-a"));
+    await user.click(await screen.findByRole("button", { name: /查看.*shared-net/ }));
+    view.rerender(wrap("server-b"));
+    await screen.findByText("shared-net");
+
+    inspect.resolve({ data: { Name: "shared-net", Marker: "from-server-a" } });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByText(/from-server-a/)).not.toBeInTheDocument();
+  });
 });
+

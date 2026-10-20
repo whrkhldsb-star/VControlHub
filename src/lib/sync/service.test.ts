@@ -23,6 +23,8 @@ import {
   shellQuote,
 } from "@/lib/sync/service-commands";
 import { utils } from "ssh2";
+
+import { generateEd25519KeyPair } from "@/test/helpers/ssh-keygen";
 import { encryptSshKeyPassphrase, encryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { decryptSyncTargetCredentials } from "@/lib/sync/service-credentials";
 import {
@@ -374,7 +376,7 @@ describe("sync service command helpers", () => {
   });
   it("unlocks a legacy passphrase-protected target key, since rsync on the source VPS runs without a prompt", () => {
     const passphrase = "legacy pass";
-    const key = utils.generateKeyPairSync("ed25519", { passphrase, cipher: "aes256-cbc", rounds: 4 });
+    const key = generateEd25519KeyPair({ passphrase, cipher: "aes256-cbc", rounds: 4 });
     const credentials = decryptSyncTargetCredentials({
       sshKey: { privateKey: encryptSshPrivateKey(key.private), passphrase: encryptSshKeyPassphrase(passphrase) },
     });

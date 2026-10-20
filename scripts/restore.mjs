@@ -152,6 +152,27 @@ const OFFLINE_GUARD_SQL = `DO $vch_offline$ DECLARE other integer; BEGIN
 END $vch_offline$;
 `;
 
+/**
+ * Second statement: make the database the backup. A dump made with --clean
+ * drops only the objects it contains, so tables and enum types created after
+ * the backup (by later migrations) stayed. One referencing an older table made
+ * the whole restore fail ("other objects depend on it"; any backup older than
+ * a table with a foreign key to an existing one); the others kept today's rows
+ * and refused the upgrade's own CREATE afterwards. Inside the import
+ * transaction, so a dump that fails still leaves everything as it was. Only
+ * this role's objects in the public schema: the application's own.
+ */
+const RESET_SCHEMA_SQL = `DO $vch_reset$ DECLARE r record; BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tableowner = current_user LOOP
+    EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', r.tablename);
+  END LOOP;
+  FOR r IN SELECT t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typtype = 'e' AND t.typowner = (SELECT oid FROM pg_roles WHERE rolname = current_user) LOOP
+    EXECUTE format('DROP TYPE IF EXISTS public.%I CASCADE', r.typname);
+  END LOOP;
+END $vch_reset$;
+`;
+
 /** Same check as a standalone query, for the file phase. */
 async function assertNoOtherDatabaseClients({ psql, connArgs, childEnv }) {
   const { stdout } = await runBinary(psql, ["-X", "-q", "-t", "-A", "-c", OTHER_CLIENTS_SQL, ...connArgs], { env: childEnv });
@@ -178,6 +199,7 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
   // half-restored database.
   const child = spawn(psql, ["-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-", ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
   child.stdin.write(OFFLINE_GUARD_SQL);
+  child.stdin.write(RESET_SCHEMA_SQL);
   const source = createReadStream(backupFile);
   const gunzip = backupFile.endsWith(".gz") ? createGunzip() : null;
   const completed = new Promise((resolve, reject) => {
@@ -279,6 +301,53 @@ async function containsNoSymlinks(root) {
 }
 
 /**
+ * A FULL archive also carries the code of the version that made it, as a
+ * record of that version. Laid over this installation it mixed an older
+ * service worker, schema and package manifest into newer code, and left the
+ * git checkout modified so the next deploy's fast-forward refused to run.
+ */
+const CODE_MEMBERS = ["public", "prisma", "package.json", "package-lock.json"];
+
+async function removeStagedMember(staging, member) {
+  const target = path.resolve(staging, member);
+  if (!target.startsWith(`${staging}${path.sep}`)) return;
+  await fs.rm(target, { recursive: true, force: true });
+  // Drop the parents the member leaves empty (an external path's root dirs).
+  for (let dir = path.dirname(target); dir.startsWith(`${staging}${path.sep}`); dir = path.dirname(dir)) {
+    try { await fs.rmdir(dir); } catch { break; }
+  }
+}
+
+/**
+ * Keep only data in the staging directory. The installation's own code stays,
+ * and data from outside the application directory (BACKUP_EXTRA_PATHS_JSON,
+ * listed in external-data.json) is not copied in under the application
+ * directory: as documented, the administrator restores it to a location they
+ * choose. It used to land at <appDir>/<path without its root>, where nothing
+ * reads it and where it can fill the application's disk.
+ */
+async function dropNonDataMembers(staging) {
+  const manifestFile = path.join(staging, "external-data.json");
+  if (await pathExists(manifestFile)) {
+    let manifest;
+    try { manifest = JSON.parse(await fs.readFile(manifestFile, "utf8")); } catch { fail("external-data.json in the archive is not valid JSON"); }
+    for (const entry of Array.isArray(manifest?.paths) ? manifest.paths : []) {
+      if (typeof entry?.member !== "string" || !entry.member) continue;
+      await removeStagedMember(staging, entry.member);
+      log(`Not restored here: ${entry.source ?? "external data"} (archive member ${entry.member}); extract it from the archive to the location you choose`);
+    }
+    await fs.rm(manifestFile, { force: true });
+  }
+  const kept = [];
+  for (const name of CODE_MEMBERS) {
+    if (!(await pathExists(path.join(staging, name)))) continue;
+    await fs.rm(path.join(staging, name), { recursive: true, force: true });
+    kept.push(name);
+  }
+  if (kept.length > 0) log(`Kept this installation's own ${kept.join(", ")}; the archive's copies are the code of the version that made it`);
+}
+
+/**
  * Extract and vet the archive's files in a private staging directory. Nothing
  * in appDir changes until {@link applyStagedFiles}.
  */
@@ -300,6 +369,7 @@ async function stageFiles(archive, appDir, inspected = false) {
   try {
     await runBinary(tar, ["-xzf", archive, "-C", staging, "--no-same-owner", "--exclude=database.sql.gz"]);
     await containsNoSymlinks(staging);
+    await dropNonDataMembers(staging);
   } catch (error) {
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
     throw error;
@@ -344,6 +414,45 @@ async function extractDatabaseMember(archive, targetDir, databaseMember) {
   return target;
 }
 
+async function pathExists(target) {
+  try { await fs.access(target); return true; } catch { return false; }
+}
+
+/**
+ * A backup made by an older version restores that version's schema and
+ * migration history with it. The code about to start expects every migration
+ * this installation ships, and the roles and permissions deploy.sh syncs right
+ * after migrating: started on the old schema, the platform failed on each
+ * missing column. Run the same two steps here, against the database just
+ * restored. A directory without migrations is not an installation (a restore
+ * into a scratch directory): say what to run instead.
+ */
+async function upgradeRestoredDatabase({ childEnv }) {
+  const prismaCli = path.join(APP_DIR, "node_modules", "prisma", "build", "index.js");
+  const migrations = path.join(APP_DIR, "prisma", "migrations");
+  const manual = `run "npx prisma migrate deploy" and "node dist/seed.js" in the installation directory before starting the platform`;
+  if (!(await pathExists(prismaCli)) || !(await pathExists(migrations)) || !childEnv.DATABASE_URL) {
+    log(`No Prisma migrations or DATABASE_URL for ${APP_DIR}; the schema was not upgraded: ${manual}.`);
+    return;
+  }
+  try {
+    log("Applying this installation's database migrations to the restored database");
+    await runBinary(process.execPath, [prismaCli, "migrate", "deploy"], { cwd: APP_DIR, env: childEnv });
+    const seed = path.join(APP_DIR, "dist", "seed.js");
+    if (await pathExists(seed)) {
+      log("Syncing roles and permissions");
+      // The environment deploy.sh seeds with (.env.runtime when present), on
+      // the database just restored.
+      const runtimeEnv = (await readEnvFile(path.join(APP_DIR, ".env.runtime"))) ?? {};
+      await runBinary(process.execPath, [seed], { cwd: APP_DIR, env: { ...childEnv, ...runtimeEnv, DATABASE_URL: childEnv.DATABASE_URL } });
+    } else {
+      log(`No ${seed}: run the role and permission sync before starting the platform.`);
+    }
+  } catch (error) {
+    fail(`DATABASE RESTORED, NOT UPGRADED: ${error instanceof Error ? error.message : String(error)}. The restored schema may be older than this installation: ${manual}.`);
+  }
+}
+
 async function main() {
   const [component, archive, componentArg, appDirArg] = process.argv.slice(2);
   if (!["database", "files", "full"].includes(component ?? "")) {
@@ -385,7 +494,9 @@ async function runRestore(component, archive, componentArg, appDirArg) {
   if (component === "database") {
     if (!archive) fail("backup file path is required");
     try { await fs.access(archive); } catch { fail(`Backup file not found: ${archive}`); }
-    await restoreDatabase(archive, await prepareDatabaseRestore(APP_DIR));
+    const databaseTarget = await prepareDatabaseRestore(APP_DIR);
+    await restoreDatabase(archive, databaseTarget);
+    await upgradeRestoredDatabase(databaseTarget);
     return;
   }
 
@@ -435,6 +546,7 @@ async function runRestore(component, archive, componentArg, appDirArg) {
           fail(`PARTIAL RESTORE: the database was restored but copying files into ${targetDir} failed (${error instanceof Error ? error.message : String(error)}). Restore the pre-restore safety snapshot or re-run a files-only restore.`);
         }
       }
+      await upgradeRestoredDatabase(databaseTarget);
     } finally {
       if (stagedFiles) await fs.rm(stagedFiles, { recursive: true, force: true }).catch(() => undefined);
       await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);

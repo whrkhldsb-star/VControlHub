@@ -202,6 +202,13 @@ export async function deleteTemplate(id: string, actor: TemplateActor | undefine
 		throw new BusinessError(t("backend.command-template.builtInCommandTemplatesCannotBeDeleted"));
 	}
 	assertCanMutateTemplate(existingRow, actor);
+	// Deployment runs cascade with their template: deleting it erased their
+	// history, and with it the snapshot a rollback starts from (even for a
+	// deployment still awaiting approval, whose command then ran unrecorded).
+	const deployments = await prisma.deploymentRun.count({ where: { templateId: id } });
+	if (deployments > 0) {
+		throw new BusinessError(t("backend.command-template.templateHasDeployments", { count: deployments }));
+	}
 	const deleted = await prisma.commandTemplate.deleteMany({
 		where: { id, ...commandTemplateScopeWhere(session) },
 	});

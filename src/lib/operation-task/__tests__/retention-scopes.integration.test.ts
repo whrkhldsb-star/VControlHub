@@ -53,6 +53,30 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("operation h
 		expect(left).not.toContain(plain.id);
 	});
 
+	it("keeps a finished command while the deployment waiting on it is still pending", async () => {
+		const user = await prisma.user.create({ data: { username: `${prefix}-u`, passwordHash: "x" } });
+		const template = await prisma.commandTemplate.create({ data: { name: `${prefix}-c`, command: "deploy", teamId: prefix } });
+		const command = (day: number) => prisma.commandRequest.create({
+			data: { title: prefix, command: "deploy", requesterId: user.id, initiatedByType: "USER", status: "COMPLETED", teamId: prefix, createdAt: old(day) },
+		});
+		const awaited = await command(1);
+		const loose = await command(2);
+		await command(3);
+		await prisma.deploymentRun.create({
+			data: { templateId: template.id, variables: {}, renderedCommand: "deploy", serverIds: [], status: "PENDING", teamId: prefix, commandRequestId: awaited.id, createdAt: old(1) },
+		});
+
+		await pruneOperationTaskHistory({ olderThan: cutoff, keepLatest: 1 });
+
+		const left = (await prisma.commandRequest.findMany({ where: { teamId: prefix }, select: { id: true } })).map((row) => row.id);
+		expect(left).toContain(awaited.id);
+		expect(left).not.toContain(loose.id);
+		await prisma.deploymentRun.deleteMany({ where: { teamId: prefix } });
+		await prisma.commandRequest.deleteMany({ where: { teamId: prefix } });
+		await prisma.commandTemplate.deleteMany({ where: { name: `${prefix}-c` } });
+		await prisma.user.deleteMany({ where: { id: user.id } });
+	});
+
 	it("prunes every job over its event budget, not a first slice of jobs with old events", async () => {
 		// 600 quiet jobs with one old event each, then one crowded job.
 		await prisma.job.createMany({ data: Array.from({ length: 600 }, (_, i) => ({ id: `${prefix}-q${i}`, type: prefix, title: "quiet", payload: {}, createdAt: old(1) })) });

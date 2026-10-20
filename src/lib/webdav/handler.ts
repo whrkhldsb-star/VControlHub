@@ -76,15 +76,16 @@ const MAX_WEBDAV_PUT_BYTES = 100 * 1024 * 1024;
  * closing leaked one per request.
  */
 async function probeStorageFileSize(
-  node: Parameters<typeof streamStorageFile>[0],
+  node: Parameters<typeof statBackingObject>[0]["storageNode"],
   relativePath: string,
 ): Promise<number> {
-  const probe = await streamStorageFile(node, relativePath);
-  try {
-    return probe.size;
-  } finally {
-    probe.close();
-  }
+  // Metadata only. Opening a read stream for its size, then closing the SSH
+  // connection at once, failed the stream's pending SFTP open; the stream
+  // reported that as an 'error' event nobody listened to, which is thrown
+  // and ends the process.
+  const stat = await statBackingObject({ storageNode: node, relativePath });
+  if (!stat) throw new ValidationError(t("backend.webdav.fileNotFound"));
+  return stat.size;
 }
 export async function handleWebDavOptions(): Promise<Response> {
   return new Response(null, {
@@ -612,12 +613,15 @@ async function retireRowsAt(
 ) {
   const tombstone = `.vcontrolhub-webdav-retired-${randomUUID()}`;
   const batch = randomUUID();
+  // Timestamp columns hold UTC wall time. A bare now() is converted with the
+  // session time zone: on a PostgreSQL whose zone is not UTC (initdb takes
+  // the host's) the rows would read as updated hours away from now.
   await tx.$executeRaw`
     UPDATE file_entries
     SET "relativePath" = ${tombstone} || '/' || "relativePath",
         "isDeleted" = true,
         "deleteBatchId" = COALESCE("deleteBatchId", ${batch}),
-        "updatedAt" = now()
+        "updatedAt" = (now() AT TIME ZONE 'UTC')
     WHERE "storageNodeId" = ${storageNodeId}
       AND ("relativePath" = ${relativePath}
         OR "relativePath" LIKE ${`${escapeLikePrefix(`${relativePath}/`)}%`} ESCAPE '\\')
@@ -733,7 +737,7 @@ export async function handleWebDavMove(
               ${replacementPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
               '^.*/', ''
             ),
-            "updatedAt" = now()
+            "updatedAt" = (now() AT TIME ZONE 'UTC')
         WHERE "storageNodeId" = ${ctx.storageNodeId}
           AND "relativePath" LIKE ${`${escapeLikePrefix(`${oldPrefix}/`)}%`} ESCAPE '\\'
       `;
