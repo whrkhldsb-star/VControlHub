@@ -20,6 +20,7 @@ vi.mock("@/lib/storage/access-control", () => ({
 }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
+import { zipFixture } from "@/lib/storage/__tests__/archive-fixtures";
 import { GET } from "../route";
 
 let tempDir: string;
@@ -81,6 +82,40 @@ describe("GET /api/files/archive-list", () => {
         expect.objectContaining({ name: "hello.txt", isDirectory: false }),
       ],
     });
+  });
+
+  it("lists a ZIP's contents (unzip -l on Ubuntu printed dates the parser skipped, so every ZIP looked empty)", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-archive-list-zip-"));
+    await writeFile(path.join(tempDir, "release.zip"), zipFixture([
+      { name: "release/", directory: true },
+      { name: "release/程序.exe", data: "MZ", deflate: true },
+    ]));
+    prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
+
+    const response = await GET(
+      new NextRequest(`https://app.example.test/api/files/archive-list?nodeId=node_1&driver=LOCAL&relativePath=release.zip&name=release.zip`),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      entries: [
+        expect.objectContaining({ name: "release", isDirectory: true }),
+        expect.objectContaining({ name: "release/程序.exe", size: 2, isDirectory: false }),
+      ],
+    });
+  });
+
+  it("says a damaged ZIP is damaged instead of failing with a server error", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-archive-list-bad-"));
+    await writeFile(path.join(tempDir, "bad.zip"), "plain text");
+    prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
+
+    const response = await GET(
+      new NextRequest(`https://app.example.test/api/files/archive-list?nodeId=node_1&driver=LOCAL&relativePath=bad.zip&name=bad.zip`),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/damaged|损坏/) });
   });
 
   it("rejects archive listing outside the caller storage grant", async () => {

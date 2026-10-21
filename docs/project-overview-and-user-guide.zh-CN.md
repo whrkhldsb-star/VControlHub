@@ -120,7 +120,7 @@ VControlHub 是面向个人运维及多客户服务场景的自托管服务器�
 | <a id="feature-f12"></a>`F-12` 上传、下载与传输队列 | 传输耗时，容易丢失进度或不知道失败原因 | 多文件和目录上传、分片续传、下载与范围读取，查看逐任务状态并处理取消、重试 | [第 6 章](#files) | [上传队列](../src/components/storage/storage-upload-queue.ts)、[存储传输](../src/lib/storage/) |
 | <a id="feature-f13"></a>`F-13` 文件预览与文本编辑 | 查看或小幅修改文件总要完整下载 | 对支持类型在线预览；对符合条件的本地和 SFTP 文本查找、编辑、审查差异并保存 | [第 6 章](#files) | [预览入口](../src/app/files/preview/page.tsx)、[编辑界面](../src/app/files/preview/use-text-preview-controller.ts) |
 | <a id="feature-f14"></a>`F-14` 版本与回收站 | 覆盖或误删后缺乏找回入口 | 查看与恢复受限额保护的版本，恢复尚保留正文的回收站条目，并明确永久删除范围 | [第 6 章](#files) | [文件版本](../src/lib/storage/file-versions.ts)、[回收站](../src/app/files/recycle-bin/page.tsx) |
-| <a id="feature-f15"></a>`F-15` 搜索、索引与归档 | 外部文件变动后索引滞后，查找与打包不方便 | 搜索名称及支持范围的正文，同步和校验索引，按驱动能力打包、列压缩包目录或解压单个 GZ | [第 6 章](#files) | [文件搜索](../src/app/files/search/page.tsx)、[索引任务](../src/lib/workers/registry.ts)、[解压入口](../src/app/api/files/extract/route.ts) |
+| <a id="feature-f15"></a>`F-15` 搜索、索引与归档 | 外部文件变动后索引滞后，查找与打包不方便 | 搜索名称及支持范围的正文，同步和校验索引，按驱动能力打包、列压缩包目录，以及在线解压 ZIP、TAR 和 GZ | [第 6 章](#files) | [文件搜索](../src/app/files/search/page.tsx)、[索引任务](../src/lib/workers/registry.ts)、[解压入口](../src/app/api/files/extract/route.ts) |
 | <a id="feature-f16"></a>`F-16` 文件分享与报告 | 对外传文件需要时效和访问控制 | 发布文件或目录链接，设置密码、期限及下载限制，撤销分享并查看访问记录 | [第 7 章](#sharing-sync) | [分享服务](../src/lib/share-link/service.ts) |
 | <a id="feature-f17"></a>`F-17` 双向 WebDAV 接入 | 已有 WebDAV 存储和桌面挂载工具需要互通 | 接入外部 WebDAV，或将支持节点导出为带 Token 与路径授权的 WebDAV 入口 | [第 7 章](#sharing-sync) | [对外 WebDAV](../src/lib/webdav/handler.ts)、[存储适配](../src/lib/storage/) |
 | <a id="feature-f18"></a>`F-18` 跨节点文件同步 | 两处目录需要周期保持一致 | 保存受支持 Linux VPS 路径间的源、目标、方向及计划，手动或定时同步并查看报告；删除及冲突按现有策略处理 | [第 7 章](#sharing-sync) | [同步配置](../src/lib/sync/service-crud.ts)、[同步执行](../src/lib/sync/service-runtime.ts) |
@@ -683,9 +683,9 @@ LOCAL 和满足远端工具条件的 SFTP 目录可下载动态生成的 `tar.gz
 
 - 支持对同一个 LOCAL 节点下的选择项创建 `tar.gz`；不支持跨节点批量压缩。
 - LOCAL 压缩包目录查看支持 ZIP／JAR、TAR、TAR.GZ／TGZ、单文件 GZ；7z、RAR 依赖对应工具。
-- 当前受控在线解压只开放非 `tar.gz` 的单文件 `.gz`，在同目录生成去掉 `.gz` 后缀的文件。
-- ZIP、TAR、7z、RAR 的在线解压被明确限制，不能因“能列目录”就认为“能在线解压”。
-- GZ 使用流式解压及输出大小限制，当前最大解压产物为 1 GiB；已有同名目标会阻止覆盖。
+- LOCAL 节点上的 ZIP／JAR、TAR、TAR.GZ／TGZ 可以在线解压：打开压缩包后点“解压到文件夹”，或在列表的右键菜单中选择。内容会解压到压缩包旁边的新文件夹：如果所有内容在同一个顶层文件夹里就用它，否则用压缩包名；重名时依次用“名称 (2)”等，不会写入已有文件夹。
+- 解压由程序自己读取压缩包，只写普通文件和文件夹。符号链接、硬链接和设备文件会被跳过并在结果里计数；含 `..`、盘符等不安全路径的压缩包会整包拒绝。展开后最多 20,000 个条目、2 GiB，并按展开大小检查授权上限和配额。
+- 单文件 `.gz` 解压到同目录，生成去掉 `.gz` 后缀的文件，最大 1 GiB；已有同名目标会阻止覆盖。7z、RAR 只能查看目录，不能在线解压。
 
 依据：[文件业务层](../src/lib/files/)、[存储业务层](../src/lib/storage/)、[上传限制](../src/lib/upload/types.ts)、[在线编辑](../src/lib/storage/service-editable.ts)、[版本历史](../src/lib/storage/file-versions.ts)、[压缩包接口](../src/app/api/files/archive-list/route.ts)、[解压接口](../src/app/api/files/extract/route.ts)。
 

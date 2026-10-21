@@ -55,6 +55,8 @@ type FileActionsApi = {
 	share: (target: FileActionTarget) => void;
 	editTags: (target: FileActionTarget) => void;
 	toggleFavorite: (target: FileActionTarget) => Promise<void>;
+	/** Unpack a ZIP/tar archive on a LOCAL node into a new folder beside it. */
+	extract: (target: FileActionTarget) => Promise<void>;
 };
 
 const FileActionsContext = createContext<FileActionsApi | null>(null);
@@ -109,6 +111,21 @@ export function FileActionsProvider({ children, onChanged, onCleared }: {
 		}
 	}, [addToast, changed, t]);
 
+	const extract = useCallback(async (target: FileActionTarget) => {
+		addToast("info", t("filesPage.drive.extracting", { name: target.name }));
+		try {
+			const data = await csrfFetch("/api/files/extract", {
+				method: "POST",
+				body: JSON.stringify({ nodeId: target.storageNodeId, relativePath: target.relativePath, driver: "LOCAL", name: target.name }),
+			});
+			if (data.error) throw new Error(data.error);
+			addToast("success", data.message || t("archivePreview.extractDone"));
+			changed();
+		} catch (error) {
+			addToast("error", getErrorMessage(error, t("archivePreview.extractFailed")));
+		}
+	}, [addToast, changed, t]);
+
 	const api = useMemo<FileActionsApi>(() => ({
 		rename: (target) => setPending({ kind: "rename", target }),
 		move: (targets) => setPending({ kind: "move", targets }),
@@ -117,7 +134,8 @@ export function FileActionsProvider({ children, onChanged, onCleared }: {
 		share: (target) => setPending({ kind: "share", target }),
 		editTags: (target) => setPending({ kind: "tags", target }),
 		toggleFavorite,
-	}), [toggleFavorite]);
+		extract,
+	}), [extract, toggleFavorite]);
 
 	return (
 		<FileActionsContext.Provider value={api}>

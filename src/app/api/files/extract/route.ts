@@ -18,6 +18,9 @@ import { createFileEntry } from "@/lib/storage/service";
 // Next.js route modules may only export route handlers and route config —
 // the bomb-cap limiter lives in lib (unit-testable, importable).
 import { GunzipOutputLimiter, MAX_GUNZIP_OUTPUT_BYTES, readGzipDecompressedSize } from "@/lib/storage/gunzip-limiter";
+import { ArchiveExtractError, archiveKindOf, extractArchive, planExtraction } from "@/lib/storage/archive-extract";
+import { archiveErrorCopy } from "@/lib/storage/archive-error-copy";
+import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
 
 import { NotFoundError, ValidationError, isAppError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -248,44 +251,56 @@ export async function POST(request: NextRequest) {
           } finally {
             await releaseStorageQuotaGuard(admission);
           }
-        } else if (ext === ".zip" || ext === ".jar") {
-          return NextResponse.json(
-            {
-              error:
-                apiCopy("apiCopy.to.avoid.symlink.hardlink.traversal.risks.online.extraction.of.z.283ea5fc"),
-            },
-            { status: 400 },
-          );
-        } else if (
-          lowerName.endsWith(".tar.gz") ||
-          lowerName.endsWith(".tgz")
-        ) {
-          return NextResponse.json(
-            {
-              error:
-                apiCopy("apiCopy.to.avoid.symlink.hardlink.traversal.risks.online.extraction.of.t.48a2913a"),
-            },
-            { status: 400 },
-          );
-        } else if (ext === ".tar") {
-          return NextResponse.json(
-            {
-              error:
-                apiCopy("apiCopy.to.avoid.symlink.hardlink.traversal.risks.online.extraction.of.t.6dd7a102"),
-            },
-            { status: 400 },
-          );
-        } else if (ext === ".7z" || ext === ".rar") {
-          return NextResponse.json(
-            {
-              error:
-                apiCopy("apiCopy.to.avoid.symlink.hardlink.traversal.risks.online.extraction.of.7.f94ae3bb"),
-            },
-            { status: 400 },
-          );
+        } else if (archiveKindOf(formatName)) {
+          // ZIP and tar are read in-process and written as plain files and
+          // folders only (links and devices are skipped), into a new folder
+          // beside the archive; see lib/storage/archive-extract.ts.
+          const kind = archiveKindOf(formatName)!;
+          const parentRelative = writeRelativePath === "." ? "" : writeRelativePath;
+          const parentDir = path.dirname(fullPath);
+          const asValidation = (error: unknown): never => {
+            if (error instanceof ArchiveExtractError) throw new ValidationError(archiveErrorCopy(error));
+            throw error;
+          };
+          const plan = await planExtraction(fullPath, kind).catch(asValidation);
+          // Admitted like an upload of the expanded size: grant limits and quota apply.
+          const admission = await assertStorageAccess({
+            session,
+            storageNodeId: node.id,
+            relativePath: writeRelativePath,
+            operation: "write",
+            writeBytes: plan.totalBytes,
+          });
+          if (!admission.allowed) {
+            return NextResponse.json(
+              { error: storageAccessDeniedCopy(admission.reason) },
+              { status: 403 },
+            );
+          }
+          try {
+            const result = await extractArchive({ filePath: fullPath, kind, archiveName: formatName, parentDir, plan }).catch(asValidation);
+            // Index the new folder and everything under it, so listings and
+            // search show the files without visiting each folder first.
+            await syncLocalDirectoryEntries({ node, relativePath: parentRelative || undefined });
+            for (const directory of result.createdDirectories) {
+              const inParent = path.relative(parentDir, directory).split(path.sep).join("/");
+              await syncLocalDirectoryEntries({ node, relativePath: path.posix.join(parentRelative, inParent) });
+            }
+            return NextResponse.json({
+              message: result.skipped
+                ? apiCopy("apiCopy.archive.extractedSkipped", { v0: result.files, v1: result.folderName, v2: result.skipped })
+                : apiCopy("apiCopy.archive.extracted", { v0: result.files, v1: result.folderName }),
+              folder: path.posix.join(parentRelative, result.folderName),
+              files: result.files,
+              directories: result.createdDirectories.length,
+              skipped: result.skipped,
+            });
+          } finally {
+            await releaseStorageQuotaGuard(admission);
+          }
         } else {
           return NextResponse.json(
-            { error: apiCopy("apiCopy.unsupported.archive.format.d8dab752", { v0: String(ext) }) },
+            { error: apiCopy("apiCopy.archive.unsupportedFormat") },
             { status: 400 },
           );
         }
