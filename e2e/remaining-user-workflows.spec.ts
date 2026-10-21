@@ -306,8 +306,9 @@ test("primary operator workflows expose target context and progressive controls"
 	await expect(page.getByRole("button", { name: /检测连接并获取指纹|Check connection and get fingerprint/i })).toBeVisible();
 
 	await page.goto("/files");
-	const storageNodes = page.locator("#storage-nodes");
-	await storageNodes.getByRole("button", { name: /展开|Expand/i }).click();
+	// Node management opens from the page header, outside the drive.
+	await page.getByRole("button", { name: /^(?:存储节点|Storage nodes)$/i }).click();
+	const storageNodes = page.getByRole("dialog", { name: /^(?:存储节点|Storage nodes)$/i }).locator("#storage-nodes");
 	await expect(storageNodes).toContainText(/本机默认|Local default/i);
 });
 

@@ -1,674 +1,318 @@
 import React from "react";
-import {
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-  act,
-} from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FilesBrowserSpa } from "../files-browser-spa";
 import { renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
 import { expectTouchTarget } from "@/test/ui-assertions";
 
-const pushMock = vi.hoisted(() => vi.fn());
+const mocks = vi.hoisted(() => ({ push: vi.fn(), createFolder: vi.fn(), enqueue: vi.fn() }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    push: pushMock,
-  }),
-}));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
+vi.mock("../../storage/actions", () => ({ createFolderAction: mocks.createFolder }));
+vi.mock("@/components/storage/storage-upload-provider", () => ({ useStorageUploads: () => ({ enqueue: mocks.enqueue }) }));
 
 vi.mock("@/components/storage/file-upload-dropzone", () => ({
-  FileUploadDropzone: (props: {
-    nodes?: Array<{ id: string; driver: string }>;
-    initialNodeId?: string;
-    onUploadComplete?: () => void;
-  }) =>
-    React.createElement(
-      "button",
-      {
-        type: "button",
-        onClick: () => props.onUploadComplete?.(),
-        "data-upload-node-count": props.nodes?.length ?? 0,
-        "data-initial-node-id": props.initialNodeId ?? "",
-      },
-      "模拟上传完成",
-    ),
-}));
-
-vi.mock("../create-folder-form", () => ({
-  CreateFolderForm: (props: {
-    initialNodeId?: string;
-    disabled?: boolean;
-    onCreated?: () => void;
-  }) =>
-    React.createElement(
-      "button",
-      {
-        type: "button",
-        onClick: () => props.onCreated?.(),
-        disabled: props.disabled,
-        "data-initial-node-id": props.initialNodeId ?? "",
-      },
-      "新建文件夹",
-    ),
-}));
-
-vi.mock("../recycle-bin-section-client", () => ({
-  RecycleBinSectionClient: () => React.createElement("div", null, "回收站"),
+	FileUploadDropzone: (props: { initialNodeId?: string; onUploadComplete?: () => void }) =>
+		React.createElement("button", {
+			type: "button",
+			onClick: () => props.onUploadComplete?.(),
+			"data-initial-node-id": props.initialNodeId ?? "",
+		}, "模拟上传完成"),
 }));
 
 vi.mock("../recent-downloads-panel", () => ({
-  RecentDownloadsPanel: (props: { onNavigate: (path: string, nodeId: string) => void }) =>
-    React.createElement("button", {
-      type: "button",
-      onClick: () => props.onNavigate("downloads/releases", "node_2"),
-    }, "打开最近下载"),
+	RecentDownloadsPanel: () => React.createElement("button", { type: "button" }, "打开最近下载"),
 }));
 
 vi.mock("../file-list-client", () => ({
-  FileListClient: (props: { files: Array<{ name: string }> }) =>
-    React.createElement(
-      "div",
-      { "data-testid": "file-list" },
-      props.files.map((file) =>
-        React.createElement("span", { key: file.name }, file.name),
-      ),
-    ),
+	FileListClient: (props: { files: Array<{ name: string }> }) =>
+		React.createElement("div", { "data-testid": "file-list" }, props.files.map((file) => React.createElement("span", { key: file.name }, file.name))),
 }));
 
+const file = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
+	id,
+	name,
+	entryType: "FILE",
+	mimeType: "image/jpeg",
+	relativePath: `photos/${name}`,
+	sizeLabel: "10 KB",
+	previewable: true,
+	directAccessMode: "managed-download",
+	directAccessHref: `/api/storage/local?path=photos%2F${name}`,
+	directAccessDescription: "受控下载",
+	storageNodeId: "node_1",
+	storageNodeName: "本机存储",
+	storageNodeDriver: "LOCAL",
+	updatedAt: "2026-05-04T00:00:00.000Z",
+	...extra,
+});
+
 const baseData = {
-  currentPath: "photos",
-  nodeIdFilter: "node_1",
-  folders: [],
-  files: [
-    {
-      id: "file_1",
-      name: "before.jpg",
-      entryType: "FILE",
-      mimeType: "image/jpeg",
-      relativePath: "photos/before.jpg",
-      sizeLabel: "10 KB",
-      previewable: true,
-      directAccessMode: "managed-download",
-      directAccessHref: "/api/storage/local?path=photos%2Fbefore.jpg",
-      directAccessDescription: "受控下载",
-      storageNodeId: "node_1",
-      storageNodeName: "本机存储",
-      storageNodeDriver: "LOCAL",
-      updatedAt: "2026-05-04T00:00:00.000Z",
-    },
-  ],
-  tree: {
-    name: "root",
-    path: "",
-    children: [
-      {
-        name: "photos",
-        path: "photos",
-        fileCount: 1,
-        folderCount: 1,
-        sourceKeys: [],
-        sourceValues: [],
-        children: [
-          {
-            name: "raw",
-            path: "photos/raw",
-            fileCount: 2,
-            folderCount: 0,
-            sourceKeys: [],
-            sourceValues: [],
-            children: [],
-          },
-        ],
-      },
-    ],
-  },
-  stats: {
-    totalNodes: 1,
-    defaultNodeName: "本机存储",
-    localNodeCount: 1,
-    sftpNodeCount: 0,
-    totalEntries: 1,
-    previewableEntries: 1,
-    deletedEntries: 0,
-    remoteDirectoryCount: 0,
-    totalItems: 1,
-  },
-  sourceSummary: ["本机存储"],
-  searchQuery: "",
-  searchScope: "current" as const,
-  permissions: {
-    canEditLocalFiles: true,
-    canDelete: true,
-    canManageNodes: true,
-  },
-  nodes: [{ id: "node_1", name: "本机存储", driver: "LOCAL" }],
+	currentPath: "photos",
+	nodeIdFilter: "node_1",
+	folders: [],
+	files: [file("file_1", "before.jpg")],
+	tree: {
+		name: "root",
+		path: "",
+		children: [{
+			name: "photos", path: "photos", fileCount: 1, folderCount: 1, sourceKeys: [], sourceValues: [],
+			children: [{ name: "raw", path: "photos/raw", fileCount: 2, folderCount: 0, sourceKeys: [], sourceValues: [], children: [] }],
+		}],
+	},
+	stats: {
+		totalNodes: 1, defaultNodeName: "本机存储", localNodeCount: 1, sftpNodeCount: 0, totalEntries: 1,
+		previewableEntries: 1, deletedEntries: 3, remoteDirectoryCount: 0, totalItems: 1,
+	},
+	sourceSummary: ["本机存储"],
+	searchQuery: "",
+	searchScope: "current" as const,
+	permissions: { canEditLocalFiles: true, canDelete: true, canManageNodes: true },
+	nodes: [{ id: "node_1", name: "本机存储", driver: "LOCAL", healthStatus: "HEALTHY" }],
 };
 
+const twoNodes = [
+	{ id: "node_1", name: "本机存储", driver: "LOCAL", teamName: "平台自用" },
+	{ id: "node_sftp_1", name: "香港 VPS", driver: "SFTP", teamName: "Acme" },
+];
+
+function respondWith(data: Record<string, unknown>) {
+	return { ok: true, json: async () => data } as Response;
+}
+
 describe("FilesBrowserSpa", () => {
-  beforeEach(() => {
-    pushMock.mockReset();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          ...baseData,
-          files: [
-            {
-              ...baseData.files[0],
-              id: "file_2",
-              name: "after.jpg",
-              relativePath: "photos/after.jpg",
-            },
-          ],
-        }),
-      }),
-    );
-  });
+	beforeEach(() => {
+		mocks.push.mockReset();
+		mocks.createFolder.mockReset();
+		mocks.enqueue.mockReset();
+		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(respondWith({ ...baseData, files: [file("file_2", "after.jpg")] })));
+	});
 
-  it("shows a visible label for the file search input", () => {
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={baseData}
-      />,
-    );
+	it("labels the search box and switches its scope", async () => {
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		const search = screen.getByRole("searchbox", { name: "搜索文件名" });
+		expect(search).toHaveAttribute("placeholder", "在当前目录搜索…");
+		fireEvent.change(screen.getByLabelText("搜索范围"), { target: { value: "all" } });
+		expect(search).toHaveAttribute("placeholder", "在全部文件中搜索…");
+		fireEvent.change(search, { target: { value: "raw" } });
+		fireEvent.submit(search.closest("form")!);
+		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?path=photos&q=raw&scope=all&nodeId=node_1", expect.any(Object)));
+	});
 
-    expect(screen.getByText("搜索文件名")).toBeVisible();
-    expect(screen.getByRole("searchbox", { name: "搜索文件名" })).toHaveAttribute(
-      "placeholder",
-      "在当前目录搜索…",
-    );
-  });
+	it("searches file contents in the folder on screen and opens a hit's folder", async () => {
+		const fetchMock = vi.mocked(globalThis.fetch);
+		fetchMock.mockResolvedValueOnce(respondWith({ results: [{ filePath: "/srv/photos/notes.txt", relativePath: "photos/notes/notes.txt", nodeId: "node_1", nodeName: "本机存储", nodeDriver: "LOCAL", snippets: ["hello world"] }], totalMatches: 1, truncated: false }));
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		fireEvent.change(screen.getByLabelText("搜索范围"), { target: { value: "content" } });
+		const search = screen.getByRole("searchbox", { name: "搜索文件名" });
+		fireEvent.change(search, { target: { value: "hello" } });
+		fireEvent.submit(search.closest("form")!);
+		expect(await screen.findByText("hello world")).toBeVisible();
+		expect(fetchMock.mock.calls[0]![0]).toBe("/api/files/search-content?q=hello&nodeId=node_1&path=photos");
+		expect(screen.queryByTestId("file-list")).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "photos/notes/notes.txt" }));
+		await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith("/api/files/list?path=photos%2Fnotes&nodeId=node_1", expect.any(Object)));
+		await waitFor(() => expect(screen.getByTestId("file-list")).toBeInTheDocument());
+	});
 
-  it("refreshes the SPA file list after upload completes", async () => {
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={baseData}
-      />,
-    );
+	it("refreshes the listing when an upload to this node finishes", async () => {
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		expect(screen.getByText("before.jpg")).toBeInTheDocument();
+		act(() => {
+			window.dispatchEvent(new CustomEvent("storage-upload-completed", { detail: { nodeId: "node_1" } }));
+		});
+		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?path=photos&nodeId=node_1", expect.any(Object)));
+		await waitFor(() => expect(screen.getByText("after.jpg")).toBeInTheDocument());
+	});
 
-    expect(screen.getByText("before.jpg")).toBeInTheDocument();
+	it("keeps the previous list visible when a refresh fails", async () => {
+		vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error("文件列表刷新失败"));
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		fireEvent.click(screen.getByRole("button", { name: "刷新列表" }));
+		await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("文件列表刷新失败"));
+		expect(screen.getByText("before.jpg")).toBeInTheDocument();
+	});
 
-    fireEvent.click(screen.getByRole("button", { name: "上传文件" }));
-    fireEvent.click(await screen.findByRole("button", { name: "模拟上传完成" }));
+	it("creates a folder in the folder on screen and refreshes", async () => {
+		mocks.createFolder.mockResolvedValue({ success: "已创建" });
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		fireEvent.click(screen.getByRole("button", { name: "新建文件夹" }));
+		const dialog = screen.getByRole("dialog", { name: "新建文件夹" });
+		fireEvent.change(within(dialog).getByLabelText("文件夹名称"), { target: { value: "2026 旅行" } });
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "创建" }));
+		});
+		const form = mocks.createFolder.mock.calls[0]![1] as FormData;
+		expect([form.get("currentPath"), form.get("storageNodeId"), form.get("folderName")]).toEqual(["photos", "node_1", "2026 旅行"]);
+		await waitFor(() => expect(screen.getByText("after.jpg")).toBeInTheDocument());
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	});
 
-    await waitFor(() =>
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        "/api/files/list?path=photos&nodeId=node_1",
-        expect.any(Object),
-      ),
-    );
-    await waitFor(() =>
-      expect(screen.getByText("after.jpg")).toBeInTheDocument(),
-    );
-    expect(screen.getByRole("dialog", { name: /上传到当前目录/ })).toBeInTheDocument();
-  });
+	it("asks where to create a folder when no node is open", async () => {
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "", currentPath: "", nodes: twoNodes }} />);
+		fireEvent.click(screen.getByRole("button", { name: "新建文件夹" }));
+		const dialog = screen.getByRole("dialog", { name: "新建文件夹" });
+		expect(within(dialog).getByLabelText("目标节点")).toHaveValue("node_1");
+		expect(within(dialog).getByRole("option", { name: /香港 VPS · Acme/ })).toBeInTheDocument();
+	});
 
-  it("surfaces list refresh failures inline and keeps the previous file list visible", async () => {
-    vi.mocked(globalThis.fetch).mockRejectedValueOnce(
-      new Error("文件列表刷新失败"),
-    );
+	it("uploads straight into the open folder, and asks for a node at the root", async () => {
+		const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => undefined);
+		const { unmount } = renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		fireEvent.click(screen.getByRole("button", { name: "上传" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "上传文件" }));
+		expect(click).toHaveBeenCalledOnce();
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		unmount();
+		click.mockRestore();
 
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={baseData}
-      />,
-    );
-    expect(screen.getByText("before.jpg")).toBeInTheDocument();
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "", currentPath: "", nodes: twoNodes }} />);
+		fireEvent.click(screen.getByRole("button", { name: "上传" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "上传文件夹" }));
+		expect(await screen.findByRole("button", { name: "模拟上传完成" })).toHaveAttribute("data-initial-node-id", "node_1");
+	});
 
-    fireEvent.click(screen.getByRole("button", { name: "上传文件" }));
-    fireEvent.click(await screen.findByRole("button", { name: "模拟上传完成" }));
+	it("queues dropped files for the open folder", async () => {
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		const drive = document.querySelector("[data-file-browser]")!;
+		const dropped = new File(["x"], "dropped.png", { type: "image/png" });
+		const dataTransfer = { types: ["Files"], files: [dropped], items: [] };
+		fireEvent.dragEnter(drive, { dataTransfer });
+		expect(screen.getByText("松开鼠标，上传到 /photos")).toBeInTheDocument();
+		await act(async () => {
+			fireEvent.drop(drive, { dataTransfer });
+		});
+		expect(mocks.enqueue).toHaveBeenCalledWith([{ file: dropped, path: "photos/dropped.png" }], "node_1");
+		expect(screen.queryByText("松开鼠标，上传到 /photos")).not.toBeInTheDocument();
+	});
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent("文件列表刷新失败"),
-    );
-    expect(screen.getByText("before.jpg")).toBeInTheDocument();
-  });
+	it("switches locations from the sidebar and names each node's customer", async () => {
+		const fetchMock = vi.mocked(globalThis.fetch);
+		fetchMock.mockResolvedValueOnce(respondWith({ ...baseData, nodeIdFilter: "node_sftp_1", currentPath: "", files: [file("r1", "remote.log", { storageNodeDriver: "SFTP" })], nodes: twoNodes }));
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodes: twoNodes }} />);
+		const locations = screen.getByRole("region", { name: "存储位置" });
+		expect(within(locations).getByText("Acme")).toBeInTheDocument();
+		fireEvent.click(within(locations).getByRole("button", { name: /香港 VPS/ }));
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/files/list?nodeId=node_sftp_1", expect.any(Object)));
+		await waitFor(() => expect(screen.getByText("remote.log")).toBeInTheDocument());
+	});
 
-  it("refreshes the SPA file list after create-folder succeeds", async () => {
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={baseData}
-      />,
-    );
+	it("leaves the customer out when every location belongs to the same one", () => {
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodes: [{ id: "node_1", name: "本机存储", driver: "LOCAL", teamName: "平台自用" }] }} />);
+		const locations = screen.getByRole("region", { name: "存储位置" });
+		expect(within(locations).queryByText("平台自用")).not.toBeInTheDocument();
+		// The second line names the kind of location instead.
+		expect(within(locations).getByRole("button", { name: /本机存储/ })).toHaveTextContent(/本机存储.*本机/);
+	});
 
-    fireEvent.click(screen.getByRole("button", { name: "新建文件夹" }));
+	it("filters a long location list", () => {
+		const nodes = Array.from({ length: 8 }, (_, index) => ({ id: `n${index}`, name: index === 5 ? "东京归档" : `节点 ${index}`, driver: "SFTP" }));
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodes }} />);
+		const locations = screen.getByRole("region", { name: "存储位置" });
+		fireEvent.change(within(locations).getByRole("searchbox", { name: "搜索存储节点" }), { target: { value: "东京" } });
+		expect(within(locations).getAllByRole("listitem")).toHaveLength(1);
+		expect(within(locations).getByText("东京归档")).toBeInTheDocument();
+	});
 
-    await waitFor(() =>
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        "/api/files/list?path=photos&nodeId=node_1",
-        expect.any(Object),
-      ),
-    );
-    await waitFor(() =>
-      expect(screen.getByText("after.jpg")).toBeInTheDocument(),
-    );
-  });
+	it("blocks upload and folder creation until a location switch finishes", async () => {
+		let resolveSwitch!: (value: Response) => void;
+		vi.mocked(globalThis.fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveSwitch = resolve; }));
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodes: twoNodes }} />);
+		fireEvent.click(within(screen.getByRole("region", { name: "存储位置" })).getByRole("button", { name: /香港 VPS/ }));
+		await waitFor(() => expect(screen.getByRole("button", { name: "上传" })).toBeDisabled());
+		expect(screen.getByRole("button", { name: "新建文件夹" })).toBeDisabled();
+		await act(async () => {
+			resolveSwitch(respondWith({ ...baseData, currentPath: "", nodeIdFilter: "node_sftp_1", nodes: twoNodes }));
+		});
+		await waitFor(() => expect(screen.getByRole("button", { name: "上传" })).toBeEnabled());
+		expect(screen.getByRole("button", { name: "新建文件夹" })).toBeEnabled();
+	});
 
-  it("defaults create-folder and upload targets to the currently selected storage node", async () => {
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={{
-          ...baseData,
-          nodeIdFilter: "node_sftp_1",
-          nodes: [
-            { id: "node_1", name: "本机存储", driver: "LOCAL" },
-            { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
-          ],
-        }}
-      />,
-    );
+	it("names the refresh of an SFTP node after the remote and reloads the open folder", async () => {
+		const fetchMock = vi.mocked(globalThis.fetch);
+		fetchMock.mockResolvedValueOnce(respondWith({ ...baseData, nodeIdFilter: "node_sftp_1", currentPath: "logs", files: [file("f", "fresh.log")], nodes: twoNodes }));
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "node_sftp_1", currentPath: "logs", nodes: twoNodes }} />);
+		fireEvent.click(screen.getByRole("button", { name: "刷新远端文件" }));
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/files/list?path=logs&nodeId=node_sftp_1", expect.any(Object)));
+		await waitFor(() => expect(screen.getByText("fresh.log")).toBeInTheDocument());
+	});
 
-    expect(screen.getByRole("button", { name: "新建文件夹" })).toHaveAttribute(
-      "data-initial-node-id",
-      "node_sftp_1",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "上传文件" }));
-    expect(await screen.findByRole("button", { name: "模拟上传完成" })).toHaveAttribute(
-      "data-initial-node-id",
-      "node_sftp_1",
-    );
-  });
+	it("adds folder visits to browser history and restores prior folders on back navigation", async () => {
+		const fetchMock = vi.mocked(globalThis.fetch);
+		fetchMock
+			.mockResolvedValueOnce(respondWith({ ...baseData, currentPath: "photos/raw", files: [file("file_raw", "raw.nef")] }))
+			.mockResolvedValueOnce(respondWith({ ...baseData, currentPath: "photos", files: [file("file_1", "before.jpg")] }));
+		const pushStateSpy = vi.spyOn(window.history, "pushState");
+		const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		fireEvent.click(screen.getByRole("button", { name: "raw" }));
+		await waitFor(() => expect(screen.getByText("raw.nef")).toBeInTheDocument());
+		expect(pushStateSpy).toHaveBeenCalledWith(null, "", "/files?path=photos%2Fraw&nodeId=node_1");
+		await act(async () => {
+			window.history.pushState(null, "", "/files?path=photos&nodeId=node_1");
+			window.dispatchEvent(new PopStateEvent("popstate"));
+		});
+		await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith("/api/files/list?path=photos&nodeId=node_1&pageSize=100&sort=name&direction=asc&sync=0", expect.any(Object)));
+		await waitFor(() => expect(screen.getByText("before.jpg")).toBeInTheDocument());
+		expect(replaceStateSpy).not.toHaveBeenCalledWith(null, "", "/files?path=photos&nodeId=node_1");
+		pushStateSpy.mockRestore();
+		replaceStateSpy.mockRestore();
+	});
 
-  it("shows visible labels when filtering storage nodes before switching the file browser node", async () => {
-    const fetchMock = vi.mocked(globalThis.fetch);
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        ...baseData,
-        nodeIdFilter: "node_sftp_2",
-        currentPath: "",
-        files: [],
-        nodes: [
-          { id: "node_1", name: "本机存储", driver: "LOCAL" },
-          { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
-          { id: "node_sftp_2", name: "东京归档", driver: "SFTP" },
-        ],
-      }),
-    } as Response);
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={{
-          ...baseData,
-          nodes: [
-            { id: "node_1", name: "本机存储", driver: "LOCAL" },
-            { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
-            { id: "node_sftp_2", name: "东京归档", driver: "SFTP" },
-          ],
-        }}
-      />,
-    );
+	it("shows node names instead of internal grouped path keys in the breadcrumbs", () => {
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "", currentPath: "存储__cmps1rmy/docs", nodes: [{ id: "cmps1rmyabcdef", name: "45.88.1.2", driver: "SFTP" }] }} />);
+		const breadcrumbs = screen.getByRole("navigation", { name: "面包屑" });
+		expect(within(breadcrumbs).getByText("45.88.1.2")).toBeInTheDocument();
+		expect(within(breadcrumbs).getByText("docs")).toHaveAttribute("aria-current", "page");
+		expect(screen.queryByText(/存储__cmps1rmy/)).not.toBeInTheDocument();
+	});
 
-    expect(screen.getAllByText("搜索存储节点")[0]!).toBeVisible();
-    const sidebarSearch = screen.getAllByRole("searchbox", { name: "搜索存储节点" })[0]!;
-    expect(sidebarSearch).toHaveAttribute("placeholder", "节点名称、类型或 ID");
-    const sidebarSelect = screen.getAllByLabelText("选择存储节点")[0]!;
-    fireEvent.change(sidebarSearch, { target: { value: "东京" } });
-    expect(
-      within(sidebarSelect).getByRole("option", { name: /东京归档/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(sidebarSelect).queryByRole("option", { name: /香港 VPS/ }),
-    ).not.toBeInTheDocument();
+	it("folds long breadcrumbs and leads back up one level from the fold", async () => {
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, currentPath: "a/b/c/d/e" }} />);
+		const breadcrumbs = screen.getByRole("navigation", { name: "面包屑" });
+		expect(within(breadcrumbs).queryByRole("button", { name: "b" })).not.toBeInTheDocument();
+		fireEvent.click(within(breadcrumbs).getByRole("button", { name: "…" }));
+		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?path=a%2Fb%2Fc&nodeId=node_1", expect.any(Object)));
+	});
 
-    fireEvent.change(sidebarSelect, { target: { value: "node_sftp_2" } });
+	it("keeps nested folders in the tree collapsed until expanded", () => {
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, currentPath: "" }} />);
+		expect(screen.getByRole("button", { name: "photos" })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "raw" })).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "展开 photos" }));
+		expect(screen.getByRole("button", { name: "raw" })).toBeInTheDocument();
+	});
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/files/list?nodeId=node_sftp_2",
-        expect.any(Object),
-      ),
-    );
-  });
+	it("hides the sidebar behind a toggle on narrow screens", () => {
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		const toggle = screen.getByRole("button", { name: "展开目录树" });
+		expect(toggle).toHaveAttribute("aria-expanded", "false");
+		expect(toggle).toHaveAttribute("aria-controls", "files-browser-sidebar");
+		expectTouchTarget(toggle);
+		expect(toggle.className).toMatch(/lg:hidden/);
+		const sidebar = document.getElementById("files-browser-sidebar")!;
+		expect(sidebar.className.split(/\s+/)).toEqual(expect.arrayContaining(["hidden", "lg:block"]));
+		fireEvent.click(toggle);
+		expect(screen.getByRole("button", { name: "收起目录树" })).toHaveAttribute("aria-expanded", "true");
+		expect(sidebar.className.split(/\s+/)).not.toContain("hidden");
+		fireEvent.click(screen.getByRole("button", { name: "收起目录树" }));
+		expect(sidebar.className.split(/\s+/)).toContain("hidden");
+	});
 
-  it("blocks upload and folder creation until a storage-node switch finishes", async () => {
-    let resolveSwitch!: (value: Response) => void;
-    vi.mocked(globalThis.fetch).mockImplementationOnce(
-      () => new Promise<Response>((resolve) => { resolveSwitch = resolve; }),
-    );
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={{
-          ...baseData,
-          nodes: [
-            { id: "node_1", name: "本机存储", driver: "LOCAL" },
-            { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
-          ],
-        }}
-      />,
-    );
+	it("closes the narrow-screen sidebar after navigating from the tree", async () => {
+		vi.mocked(globalThis.fetch).mockResolvedValueOnce(respondWith({ ...baseData, currentPath: "photos" }));
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, currentPath: "" }} />);
+		fireEvent.click(screen.getByRole("button", { name: "展开目录树" }));
+		fireEvent.click(screen.getByRole("button", { name: "photos" }));
+		await waitFor(() => expect(screen.getByRole("button", { name: "展开目录树" })).toHaveAttribute("aria-expanded", "false"));
+		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?path=photos&nodeId=node_1", expect.any(Object)));
+	});
 
-    fireEvent.change(screen.getAllByLabelText("选择存储节点")[0]!, {
-      target: { value: "node_sftp_1" },
-    });
-
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "上传文件" })).toBeDisabled(),
-    );
-    expect(screen.getByRole("button", { name: "新建文件夹" })).toBeDisabled();
-
-    resolveSwitch({
-      ok: true,
-      json: async () => ({
-        ...baseData,
-        currentPath: "",
-        nodeIdFilter: "node_sftp_1",
-        nodes: [
-          { id: "node_1", name: "本机存储", driver: "LOCAL" },
-          { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
-        ],
-      }),
-    } as Response);
-
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "上传文件" })).toBeEnabled(),
-    );
-    expect(screen.getByRole("button", { name: "新建文件夹" })).toBeEnabled();
-  });
-
-  it("uses the unified file list for SFTP nodes instead of rendering a separate SFTP browser", async () => {
-    const fetchMock = vi.mocked(globalThis.fetch);
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        ...baseData,
-        currentPath: "",
-        nodeIdFilter: "node_sftp_1",
-        files: [
-          {
-            ...baseData.files[0],
-            id: "file_sftp_1",
-            name: "remote.log",
-            relativePath: "remote.log",
-            storageNodeId: "node_sftp_1",
-            storageNodeName: "香港 VPS",
-            storageNodeDriver: "SFTP",
-          },
-        ],
-        nodes: [
-          { id: "node_1", name: "本机存储", driver: "LOCAL" },
-          { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
-        ],
-      }),
-    } as Response);
-
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={{
-          ...baseData,
-          nodes: [
-            { id: "node_1", name: "本机存储", driver: "LOCAL" },
-            { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
-          ],
-        }}
-      />,
-    );
-
-    expect(screen.queryByText("SFTP 远端浏览")).not.toBeInTheDocument();
-    fireEvent.change(screen.getAllByLabelText("选择存储节点")[0]!, {
-      target: { value: "node_sftp_1" },
-    });
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/files/list?nodeId=node_sftp_1",
-        expect.any(Object),
-      ),
-    );
-    await waitFor(() => expect(screen.getByText("remote.log")).toBeInTheDocument());
-  });
-
-  it("renders an explicit remote refresh button for SFTP nodes and reloads the current path", async () => {
-    const fetchMock = vi.mocked(globalThis.fetch);
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        ...baseData,
-        nodeIdFilter: "node_sftp_1",
-        currentPath: "logs",
-        files: [
-          {
-            ...baseData.files[0],
-            id: "file_fresh",
-            name: "fresh.log",
-            relativePath: "logs/fresh.log",
-            storageNodeId: "node_sftp_1",
-            storageNodeName: "45.88.1.2",
-            storageNodeDriver: "SFTP",
-          },
-        ],
-        nodes: [
-          { id: "node_1", name: "本机存储", driver: "LOCAL" },
-          { id: "node_sftp_1", name: "45.88.1.2", driver: "SFTP" },
-        ],
-      }),
-    } as Response);
-
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={{
-          ...baseData,
-          nodeIdFilter: "node_sftp_1",
-          currentPath: "logs",
-          nodes: [
-            { id: "node_1", name: "本机存储", driver: "LOCAL" },
-            { id: "node_sftp_1", name: "45.88.1.2", driver: "SFTP" },
-          ],
-        }}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "刷新远端文件" }));
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/files/list?path=logs&nodeId=node_sftp_1",
-        expect.any(Object),
-      ),
-    );
-    await waitFor(() => expect(screen.getByText("fresh.log")).toBeInTheDocument());
-  });
-
-  it("adds directory clicks to browser history and restores prior folders on back navigation", async () => {
-    const fetchMock = vi.mocked(globalThis.fetch);
-    fetchMock
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          ...baseData,
-          currentPath: "photos/raw",
-          files: [
-            {
-              ...baseData.files[0],
-              id: "file_raw",
-              name: "raw.nef",
-              relativePath: "photos/raw/raw.nef",
-            },
-          ],
-        }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          ...baseData,
-          currentPath: "photos",
-          files: [baseData.files[0]],
-        }),
-      } as Response);
-    const pushStateSpy = vi.spyOn(window.history, "pushState");
-    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
-
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={baseData}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "raw" }));
-
-    await waitFor(() => expect(screen.getByText("raw.nef")).toBeInTheDocument());
-    expect(pushStateSpy).toHaveBeenCalledWith(null, "", "/files?path=photos%2Fraw&nodeId=node_1");
-
-    await act(async () => {
-      window.history.pushState(null, "", "/files?path=photos&nodeId=node_1");
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenLastCalledWith(
-        "/api/files/list?path=photos&nodeId=node_1&pageSize=100&sort=name&direction=asc&sync=0",
-        expect.any(Object),
-      ),
-    );
-    await waitFor(() => expect(screen.getByText("before.jpg")).toBeInTheDocument());
-    expect(replaceStateSpy).not.toHaveBeenCalledWith(null, "", "/files?path=photos&nodeId=node_1");
-
-    pushStateSpy.mockRestore();
-    replaceStateSpy.mockRestore();
-  });
-
-  it("hides internal grouped node path keys in current-path labels", () => {
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={{
-          ...baseData,
-          nodeIdFilter: "",
-          currentPath: "存储__cmps1rmy/docs",
-          nodes: [
-            { id: "cmps1rmyabcdef", name: "45.88.1.2", driver: "SFTP" },
-          ],
-        }}
-      />,
-    );
-
-    expect(screen.getAllByText(/当前路径：45\.88\.1\.2 \(SFTP\): \/docs/).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/存储__cmps1rmy/)).not.toBeInTheDocument();
-  });
-
-  it("keeps nested directory tree collapsed until a folder is expanded", () => {
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={{ ...baseData, currentPath: "" }}
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: "photos" })).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "raw" }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "展开 photos" }));
-
-    expect(screen.getByRole("button", { name: "raw" })).toBeInTheDocument();
-  });
-
-  it("collapses the directory tree sidebar behind a mobile toggle button by default", () => {
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={baseData}
-      />,
-    );
-
-    const toggle = screen.getByRole("button", { name: "展开目录树" });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(toggle).toHaveAttribute("aria-controls", "files-browser-sidebar");
-    expectTouchTarget(toggle);
-    expect(toggle.className).toMatch(/xl:hidden/);
-
-    const sidebar = document.getElementById("files-browser-sidebar");
-    expect(sidebar).not.toBeNull();
-    expect(sidebar?.className.split(/\s+/)).toContain("hidden");
-    expect(sidebar?.className.split(/\s+/)).toContain("xl:block");
-  });
-
-  it("expands the directory tree sidebar when the mobile toggle is clicked", () => {
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={baseData}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "展开目录树" }));
-
-    expect(
-      screen.getByRole("button", { name: "收起目录树" }),
-    ).toHaveAttribute("aria-expanded", "true");
-    const sidebar = document.getElementById("files-browser-sidebar");
-    expect(sidebar?.className.split(/\s+/)).not.toContain("hidden");
-  });
-
-  it("collapses the directory tree sidebar when the mobile toggle is clicked again", () => {
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={baseData}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "展开目录树" }));
-    fireEvent.click(screen.getByRole("button", { name: "收起目录树" }));
-
-    expect(
-      screen.getByRole("button", { name: "展开目录树" }),
-    ).toHaveAttribute("aria-expanded", "false");
-    const sidebar = document.getElementById("files-browser-sidebar");
-    expect(sidebar?.className.split(/\s+/)).toContain("hidden");
-  });
-
-  it("does not embed recent downloads on the main browser shell", async () => {
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={baseData}
-      />,
-      { locale: "zh" },
-    );
-    expect(screen.queryByRole("button", { name: "打开最近下载" })).not.toBeInTheDocument();
-    expect(screen.queryByText("最近下载")).not.toBeInTheDocument();
-  });
-
-  it("auto-closes the directory tree sidebar on mobile after a tree navigation click", async () => {
-    const fetchMock = vi.mocked(globalThis.fetch);
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        ...baseData,
-        currentPath: "photos",
-      }),
-    } as Response);
-
-    renderWithI18n(
-      <FilesBrowserSpa
-        initialData={{ ...baseData, currentPath: "" }}
-      />,
-    );
-
-    // Open the sidebar
-    fireEvent.click(screen.getByRole("button", { name: "展开目录树" }));
-    expect(
-      screen.getByRole("button", { name: "收起目录树" }),
-    ).toHaveAttribute("aria-expanded", "true");
-
-    // Click "photos" navigation button in the tree
-    fireEvent.click(screen.getByRole("button", { name: "photos" }));
-
-    // Sidebar should auto-close after navigation
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "展开目录树" }),
-      ).toHaveAttribute("aria-expanded", "false"),
-    );
-    const sidebar = document.getElementById("files-browser-sidebar");
-    expect(sidebar?.className.split(/\s+/)).toContain("hidden");
-
-    // Verify the underlying navigation fetch was triggered
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/files/list?path=photos&nodeId=node_1",
-        expect.any(Object),
-      ),
-    );
-  });
+	it("links quick access to the recycle bin and does not embed recent downloads", () => {
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		const quick = screen.getByRole("navigation", { name: "快速访问" });
+		expect(within(quick).getByRole("link", { name: /回收站\s*3/ })).toHaveAttribute("href", "/files/recycle-bin");
+		expect(screen.queryByRole("button", { name: "打开最近下载" })).not.toBeInTheDocument();
+	});
 });

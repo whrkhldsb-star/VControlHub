@@ -9,7 +9,6 @@ export const zh: Record<string, string> = {
 	"fileDetailPanel.storageNode": "存储节点",
 	"fileDetailPanel.driver": "驱动",
 	"fileDetailPanel.accessMode": "访问方式",
-	"fileDetailPanel.quickActions": "快捷操作",
 	"fileDetailPanel.preview": "预览 / 在线编辑",
 	"fileDetailPanel.download": "下载文件",
 	"fileDetailPanel.findInMedia": "在媒体库中查找",
@@ -18,10 +17,7 @@ export const zh: Record<string, string> = {
 	"fileMoreActions.more": "更多操作",
 	"renameInlineForm.rename": "重命名",
 	"renameInlineForm.newName": "新名称",
-	"renameInlineForm.inputPlaceholder": "输入新名称",
-	"renameInlineForm.pathPrefix": "路径：",
 	"renameInlineForm.confirm": "确认",
-	"renameInlineForm.cancel": "取消",
 };
 
 export const en: Record<string, string> = {
@@ -31,7 +27,6 @@ export const en: Record<string, string> = {
 	"fileDetailPanel.storageNode": "Storage node",
 	"fileDetailPanel.driver": "Driver",
 	"fileDetailPanel.accessMode": "Access mode",
-	"fileDetailPanel.quickActions": "Quick actions",
 	"fileDetailPanel.preview": "Preview / Edit online",
 	"fileDetailPanel.download": "Download file",
 	"fileDetailPanel.findInMedia": "Find in media library",
@@ -40,8 +35,5 @@ export const en: Record<string, string> = {
 	"fileMoreActions.more": "More actions",
 	"renameInlineForm.rename": "Rename",
 	"renameInlineForm.newName": "New name",
-	"renameInlineForm.inputPlaceholder": "Enter new name",
-	"renameInlineForm.pathPrefix": "Path:",
 	"renameInlineForm.confirm": "Confirm",
-	"renameInlineForm.cancel": "Cancel",
 };

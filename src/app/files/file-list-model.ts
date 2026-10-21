@@ -12,6 +12,8 @@ export type FolderProp = {
 	folderCount: number;
 	sourceKeys: string[];
 	sourceValues: string[];
+	/** Starred by the viewer. */
+	favorite?: boolean;
 };
 
 export type FileListSortKey = "name" | "size" | "source" | "updated";

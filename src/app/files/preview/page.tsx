@@ -12,6 +12,7 @@ import { ArchivePreviewClient } from "./archive-preview-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import { ButtonLink } from "@/components/action-button";
+import { buildSearchHref, containingFolderPath } from "../file-entry-utils";
 
 export const dynamic ="force-dynamic";
 
@@ -78,6 +79,8 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 				: undefined;
 
 	const downloadUrl = href ? `${href}${href.includes("?") ?"&" :"?"}download=1` :"";
+	// Back to the folder the file was opened from, not the root of every node.
+	const backHref = nodeId ? buildSearchHref(containingFolderPath(relativePath), { nodeId }) : "/files";
 
 	const isImage = mimeType.startsWith("image/") && mimeType !=="image/svg+xml";
 	const isSvg = mimeType ==="image/svg+xml";
@@ -106,7 +109,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 	return (
 		<PageShell>
 				<PageHeader eyebrow={getStorageDriverLabel((key, vars) => t(key, locale, vars), driver)} title={name}>
-					<ButtonLink href="/files" variant="secondary" icon={<ArrowLeft aria-hidden />}>
+					<ButtonLink href={backHref} variant="secondary" icon={<ArrowLeft aria-hidden />}>
 						{t("textPreview.preview.backToFiles", locale)}
 					</ButtonLink>
 					{downloadUrl ? <a href={downloadUrl} data-action-button data-variant="outline">

@@ -56,7 +56,7 @@ export type FilesApiResponse = {
     canShare?: boolean;
     canManageNodes: boolean;
   };
-  nodes: { id: string; name: string; driver: string; basePath?: string; isDefault?: boolean; healthStatus?: string | null }[];
+  nodes: { id: string; name: string; driver: string; basePath?: string; isDefault?: boolean; healthStatus?: string | null; teamName?: string | null; fileCount?: number }[];
 };
 
 /* ── Helpers ────────────────────────────────────────────────────── */

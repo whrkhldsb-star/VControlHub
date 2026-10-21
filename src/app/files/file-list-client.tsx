@@ -1,31 +1,26 @@
 "use client";
 
 /**
- * FileListClient — orchestration shell for the file list.
+ * FileListClient — the entry area of the drive: list or grid of the current
+ * folder, selection with its action bar, the right-click menu, drag-to-folder
+ * moves, the details drawer and the image viewer.
  *
- * R31 split: the heavy lifting (per-view layout, batch ops, toolbar,
- * toasts, action helpers) moved to sibling files. This component now
- * wires hooks together and delegates rendering to:
- *
- *   - FileListToolbar       (view-mode switcher)
- *   - FileListListView      (list view, default)
- *   - FileListGridView      (grid view)
- *   - FileListDetailsView   (details view)
- *   - FileBatchToolbarLazy  (bottom batch action bar — unchanged)
- *   - FileDetailPanelLazy   (right-side detail panel — unchanged)
- *
- * Batch handlers live in `use-file-batch-operations`; selection state in
- * `use-file-selection`; notifications ride the global toast system from
- * `@/components/toast-provider` (the former private `use-file-toast` /
- * `FileListToasts` stack was removed). The component itself is now
- * ~200 lines of glue, which is what was needed for the
- * "Super-large client component split" item in the README.
+ * Selection rules (unchanged from the dense table it replaces): only entries
+ * the viewer may change are selectable; a selection belongs to one
+ * folder/search scope and survives paging within it; batch actions act on the
+ * entries the server said the viewer may change.
  */
-import { useState, useCallback, useMemo, useTransition, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useTransition, useEffect, useRef, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
+import { ActionButton } from "@/components/action-button";
+import { Copy, Download, FolderInput, Trash2, X } from "@/components/icons";
+import { IconArchive } from "@/components/nav-icons";
+import { useToast } from "@/components/toast-provider";
+import { Dialog } from "@/components/ui/dialog";
+import { AnchoredMenu } from "@/components/ui/menu";
 import {
   entryCanDelete as canDeleteEntry,
   entryCanRead as canReadEntry,
@@ -44,30 +39,32 @@ import { getParentPath } from "./files-browser-helpers";
 import { useFileListSort } from "./use-file-list-sort";
 import { useFileSelection } from "./use-file-selection";
 import { useViewMode } from "./use-view-mode";
-import {
-  useBatchCompress,
-  useBatchDelete,
-  useBatchMove,
-} from "./use-file-batch-operations";
-import { FileBatchToolbarLazy } from "./file-batch-toolbar-lazy";
+import { useBatchCompress } from "./use-file-batch-operations";
 import { FileDetailPanelLazy } from "./file-detail-panel-lazy";
-import { FileListGridView } from "./file-list-grid-view";
-import { FileListDetailsView } from "./file-list-details-view";
-import { FileListListView } from "./file-list-list-view";
-import { FileListToolbar } from "./file-list-toolbar";
 import {
+  buildArchiveDownloadHref,
+  buildForcedDownloadHref,
   buildSearchHref,
+  containingFolderPath,
+  formatEntryDay,
+  formatEntryTime,
+  getPreviewActionCopy,
+  getPreviewHref,
+  getThumbnailUrl,
   toStorageEntry,
   type FileProp,
 } from "./file-entry-utils";
+import { getFileKind } from "./file-entry-icons";
+import { FileActionsProvider, useFileActions, type FileActionTarget } from "./file-actions";
+import { EntryMenuItems, fileActionTarget, folderActionTarget, triggerDownload, type EntryMenuModel } from "./file-entry-menu";
+import { FileGridView, FileListView, type DriveRow, type DriveRowHandlers } from "./file-list-views";
+import { FileListEmptyState } from "./file-list-empty-state";
+import { ImageLightbox } from "./image-lightbox";
+import { recordFileOpen } from "./file-preferences-client";
+import { submitFileOperation } from "./file-operation-controls";
 
 export type { FileProp } from "./file-entry-utils";
 export type { FolderProp } from "./file-list-model";
-import { recordFileOpen } from "./file-preferences-client";
-import { submitFileOperation } from "./file-operation-controls";
-import { Dialog } from "@/components/ui/dialog";
-import { ActionButton } from "@/components/action-button";
-import { useToast } from "@/components/toast-provider";
 
 type FileListClientProps = {
   folders: FolderProp[];
@@ -77,6 +74,12 @@ type FileListClientProps = {
   canShare?: boolean;
   currentPath: string;
   searchQuery: string;
+  /** The node the listing is filtered to; folder links carry it. */
+  nodeIdFilter?: string;
+  /** Show the storage node of each entry (all-nodes and search listings). */
+  showSource?: boolean;
+  /** Storage nodes, to show node roots as locations rather than folders. */
+  nodes?: Array<{ id: string; name: string; driver: string; teamName?: string | null }>;
   selectionScopeSeed?: string;
   selectionPage?: number;
   onFolderClick?: (path: string) => void;
@@ -84,112 +87,41 @@ type FileListClientProps = {
   serverSort?: {key:FileListSortKey;dir:FileListSortDir;onChange:(key:FileListSortKey,dir:FileListSortDir) => void};
 };
 
-export function FileListClient({
-  folders,
-  files,
-  canEditLocalFiles,
-  canDelete,
-  canShare = false,
-  currentPath,
-  searchQuery,
-  selectionScopeSeed,
-  selectionPage,
-  onFolderClick,
-  onRefresh,
-  serverSort,
-}: FileListClientProps) {
+export function FileListClient(props: FileListClientProps) {
   const { t } = useI18n();
   const router = useRouter();
-  // Global toast system (root ToastProvider) — replaces the former private
-  // file-list toast stack (use-file-toast + FileListToasts).
   const { addToast: showToast } = useToast();
-
-  const navigateToFolder = useCallback(
-    (path: string) => {
-      const entryId = folders.find((folder) => folder.path === path)?.entryId;
-      if (entryId) recordFileOpen(entryId);
-      if (onFolderClick) {
-        onFolderClick(path);
-      } else {
-        router.push(buildSearchHref(path), { scroll: false });
-      }
-    },
-    [onFolderClick, router, folders],
-  );
-
-  const [viewMode, handleViewModeChange] = useViewMode();
-  const localSort = useFileListSort();
-  const sortKey = serverSort?.key ?? localSort.sortKey;
-  const sortDir = serverSort?.dir ?? localSort.sortDir;
-  const toggleSort = (key:FileListSortKey) => {
-    if (serverSort) serverSort.onChange(key,key === sortKey && sortDir === "asc" ? "desc" : "asc");
-    else localSort.toggleSort(key);
-  };
+  const {
+    folders,
+    files,
+    canEditLocalFiles,
+    canDelete,
+    currentPath,
+    searchQuery,
+    selectionScopeSeed,
+    selectionPage,
+    onRefresh,
+  } = props;
 
   const capabilityFallbacks = useMemo(
     () => ({ canEditLocalFiles, canDelete }),
     [canEditLocalFiles, canDelete],
   );
-  const sortedFolders = useMemo(
-    () => serverSort ? folders : sortFolders(folders, sortKey, sortDir),
-    [folders, sortKey, sortDir, serverSort],
-  );
   const visibleFiles = useMemo(() => getVisibleFiles(files), [files]);
-  const currentSelectionScopeKey =
-    selectionScopeSeed ?? `${currentPath}\u0000${searchQuery}`;
+  const currentSelectionScopeKey = selectionScopeSeed ?? `${currentPath}\u0000${searchQuery}`;
 
-  const entryCanRead = useCallback(
-    (entry: { capabilities?: FileProp["capabilities"] }) => canReadEntry(entry),
-    [],
-  );
-  const entryCanWrite = useCallback(
-    (entry: { capabilities?: FileProp["capabilities"] }) =>
-      canWriteEntry(entry, { canEditLocalFiles }),
-    [canEditLocalFiles],
-  );
-  const entryCanDelete = useCallback(
-    (entry: { capabilities?: FileProp["capabilities"] }) =>
-      canDeleteEntry(entry, { canDelete }),
-    [canDelete],
-  );
+  // Directories are selectable too: the selection is a list of file entries.
   const selectionEntries = useMemo(() => [...visibleFiles, ...folders.flatMap((folder): FileProp[] => {
     const nodeId = folder.storageNodeId ?? (folder.sourceKeys.length === 1 ? folder.sourceKeys[0] : undefined);
     if (!folder.entryId || !nodeId) return [];
     return [{ id: folder.entryId, name: folder.name, entryType: "DIRECTORY", relativePath: folder.relativePath ?? folder.path,
       storageNodeId: nodeId, storageNodeName: folder.sourceValues[0] ?? "", storageNodeDriver: "", sizeLabel: "", previewable: false,
-      directAccessMode: "", directAccessDescription: "", capabilities: folder.capabilities }];
+      directAccessMode: "", directAccessDescription: "", capabilities: folder.capabilities, favorite: folder.favorite }];
   })], [visibleFiles, folders]);
   const selectableFiles = useMemo(() => getSelectableFiles(selectionEntries, capabilityFallbacks), [selectionEntries, capabilityFallbacks]);
-  const folderCanWrite = useCallback(
-    (folder: FolderProp) => canWriteFolder(folder, { canEditLocalFiles }),
-    [canEditLocalFiles],
-  );
 
-  const sortedFiles = useMemo(
-    () => serverSort ? visibleFiles : sortFiles(visibleFiles, sortKey, sortDir),
-    [visibleFiles, sortKey, sortDir, serverSort],
-  );
-
-  const {
-    selectedIds,
-    setSelectedIds,
-    setSelectedScopeKey,
-    batchAction,
-    setBatchAction,
-    progress,
-    setProgress,
-    moveTargetDir,
-    setMoveTargetDir,
-    moveProgress,
-    setMoveProgress,
-    selectedScopeMatches,
-    toggleAll: toggleAllRaw,
-    toggleOne,
-    clearSelection,
-  } = useFileSelection({ currentSelectionScopeKey });
-  const [isPending, startTransition] = useTransition();
-  const [dropMove, setDropMove] = useState<{ ids: string[]; path: string; requestId: string } | null>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  const selection = useFileSelection({ currentSelectionScopeKey });
+  const { selectedIds, setSelectedIds, setSelectedScopeKey, selectedScopeMatches, toggleAll: toggleAllRaw, toggleOne, clearSelection } = selection;
   const [selectionCache, setSelectionCache] = useState(() => ({ scope: currentSelectionScopeKey, page: selectionPage, visible: selectionEntries, entries: selectionEntries }));
   let knownFiles = selectionCache.entries;
   if (selectionCache.scope !== currentSelectionScopeKey || selectionCache.visible !== selectionEntries || selectionCache.page !== selectionPage) {
@@ -201,91 +133,128 @@ export function FileListClient({
   }
 
   const selectionSummary = useMemo(
-    () =>
-      getSelectionSummary({
-        visibleFiles: selectionEntries,
-        knownFiles,
-        selectableFiles,
-        selectedIds,
-        selectedScopeMatches,
-        fallbacks: capabilityFallbacks,
-      }),
-    [
-      selectionEntries,
+    () => getSelectionSummary({
+      visibleFiles: selectionEntries,
       knownFiles,
       selectableFiles,
       selectedIds,
       selectedScopeMatches,
-      capabilityFallbacks,
-    ],
+      fallbacks: capabilityFallbacks,
+    }),
+    [selectionEntries, knownFiles, selectableFiles, selectedIds, selectedScopeMatches, capabilityFallbacks],
   );
+
+  return (
+    <FileActionsProvider onChanged={onRefresh} onCleared={clearSelection}>
+      <FileListBody
+        {...props}
+        t={t}
+        router={router}
+        showToast={showToast}
+        visibleFiles={visibleFiles}
+        knownFiles={knownFiles}
+        selection={selection}
+        selectionSummary={selectionSummary}
+        selectedIds={selectedIds}
+        setSelectedIds={setSelectedIds}
+        setSelectedScopeKey={setSelectedScopeKey}
+        toggleAllRaw={toggleAllRaw}
+        toggleOne={toggleOne}
+        clearSelection={clearSelection}
+        currentSelectionScopeKey={currentSelectionScopeKey}
+      />
+    </FileActionsProvider>
+  );
+}
+
+type BodyProps = FileListClientProps & {
+  t: ReturnType<typeof useI18n>["t"];
+  router: ReturnType<typeof useRouter>;
+  showToast: ReturnType<typeof useToast>["addToast"];
+  visibleFiles: FileProp[];
+  knownFiles: FileProp[];
+  selection: ReturnType<typeof useFileSelection>;
+  selectionSummary: ReturnType<typeof getSelectionSummary>;
+  selectedIds: Set<string>;
+  setSelectedIds: (ids: Set<string>) => void;
+  setSelectedScopeKey: (key: string) => void;
+  toggleAllRaw: (ids: string[], allSelected: boolean) => void;
+  toggleOne: (id: string) => void;
+  clearSelection: () => void;
+  currentSelectionScopeKey: string;
+};
+
+function FileListBody({
+  folders,
+  canEditLocalFiles,
+  canDelete,
+  canShare = false,
+  currentPath,
+  searchQuery,
+  nodeIdFilter,
+  showSource = false,
+  nodes,
+  onFolderClick,
+  onRefresh,
+  serverSort,
+  t,
+  router,
+  showToast,
+  visibleFiles,
+  knownFiles,
+  selection,
+  selectionSummary,
+  setSelectedIds,
+  setSelectedScopeKey,
+  toggleAllRaw,
+  toggleOne,
+  clearSelection,
+  currentSelectionScopeKey,
+}: BodyProps) {
+  const actions = useFileActions();
+  const { locale } = useI18n();
+  const [viewMode] = useViewMode();
+  const localSort = useFileListSort();
+  const sortKey = serverSort?.key ?? localSort.sortKey;
+  const sortDir = serverSort?.dir ?? localSort.sortDir;
+  const toggleSort = (key: FileListSortKey) => {
+    if (serverSort) serverSort.onChange(key, key === sortKey && sortDir === "asc" ? "desc" : "asc");
+    else localSort.toggleSort(key);
+  };
+  const sortedFolders = useMemo(
+    () => (serverSort ? folders : sortFolders(folders, sortKey, sortDir)),
+    [folders, sortKey, sortDir, serverSort],
+  );
+  const sortedFiles = useMemo(
+    () => (serverSort ? visibleFiles : sortFiles(visibleFiles, sortKey, sortDir)),
+    [visibleFiles, sortKey, sortDir, serverSort],
+  );
+
+  const navigateToFolder = useCallback((path: string) => {
+    const entryId = folders.find((folder) => folder.path === path)?.entryId;
+    if (entryId) recordFileOpen(entryId);
+    if (onFolderClick) onFolderClick(path);
+    else router.push(buildSearchHref(path), { scroll: false });
+  }, [onFolderClick, router, folders]);
+
+  const [detailEntryId, setDetailEntryId] = useState<string | null>(null);
+  const detailEntry = useMemo(() => {
+    const file = visibleFiles.find((item) => item.id === detailEntryId);
+    return file ? toStorageEntry(file) : null;
+  }, [detailEntryId, visibleFiles]);
+  const [lightboxId, setLightboxId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ model: EntryMenuModel; label: string; point: { x: number; y: number } } | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [dropMove, setDropMove] = useState<{ ids: string[]; path: string; requestId: string } | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const anchorId = useRef<string | null>(null);
+
+  const entryCanRead = useCallback((entry: { capabilities?: FileProp["capabilities"] }) => canReadEntry(entry), []);
+  const entryCanWrite = useCallback((entry: { capabilities?: FileProp["capabilities"] }) => canWriteEntry(entry, { canEditLocalFiles }), [canEditLocalFiles]);
+  const entryCanDelete = useCallback((entry: { capabilities?: FileProp["capabilities"] }) => canDeleteEntry(entry, { canDelete }), [canDelete]);
+
+  const { effectiveSelectedIds, effectiveSelectedIdSet, selectedCount, selectedFileEntries } = selectionSummary;
   const allFileIds = selectionSummary.selectableFileIds;
-  const effectiveSelectedIds = selectionSummary.effectiveSelectedIds;
-  const effectiveSelectedIdSet = selectionSummary.effectiveSelectedIdSet;
-  const selectedCount = selectionSummary.selectedCount;
-  const selectedEntriesCanDelete = selectionSummary.selectedEntriesCanDelete;
-  const selectedEntriesCanMove = selectionSummary.selectedEntriesCanMove;
-  const selectedEntriesCanCompress = selectionSummary.selectedEntriesCanCompress;
-  const allSelected = selectionSummary.allSelected;
-  const someSelected = selectionSummary.someSelected;
-
-  const toggleAll = useCallback(() => {
-    toggleAllRaw(allFileIds, allSelected);
-  }, [toggleAllRaw, allFileIds, allSelected]);
-
-  // Selection shortcuts belong to the focused list, never to an open dialog.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const editing = target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
-      if (editing || event.defaultPrevented || event.isComposing || event.altKey || isPending || batchAction !== "none") return;
-      if (!listRef.current?.contains(target) || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
-        event.preventDefault();
-        toggleAllRaw(allFileIds, false);
-      } else if (event.key === "Escape" && selectedCount > 0) {
-        event.preventDefault();
-        clearSelection();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [toggleAllRaw, allFileIds, selectedCount, clearSelection, isPending, batchAction]);
-
-  const handleBatchDelete = useBatchDelete({
-    background: true,
-    effectiveSelectedIds,
-    files: knownFiles,
-    router,
-    clearSelection,
-    onRefresh,
-    currentSelectionScopeKey,
-    showToast,
-    t,
-    setBatchAction,
-    setProgress,
-    setSelectedIds,
-    setSelectedScopeKey,
-    startTransition,
-  });
-
-  const submitBatchMove = useBatchMove({
-    background: true,
-    effectiveSelectedIds,
-    moveTargetDir,
-    files: knownFiles,
-    router,
-    clearSelection,
-    onRefresh,
-    currentSelectionScopeKey,
-    showToast,
-    t,
-    setBatchAction,
-    setMoveProgress,
-    setSelectedIds,
-    setSelectedScopeKey,
-    startTransition,
-  });
 
   const handleBatchCompress = useBatchCompress({
     effectiveSelectedIds,
@@ -297,111 +266,313 @@ export function FileListClient({
     currentSelectionScopeKey,
     showToast,
     t,
-    setBatchAction,
-    setProgress,
+    setBatchAction: selection.setBatchAction,
+    setProgress: selection.setProgress,
     setSelectedIds,
     setSelectedScopeKey,
     startTransition,
   });
 
+  // Images of this page, in display order, for the viewer's previous / next.
+  const images = useMemo(() => sortedFiles.filter((file) => {
+    const entry = toStorageEntry(file);
+    return getFileKind(file) === "image" && entry.previewable && canReadEntry(file);
+  }), [sortedFiles]);
+
+  // Name the customer only when locations belong to more than one.
+  const manyCustomers = new Set((nodes ?? []).map((item) => item.teamName).filter(Boolean)).size > 1;
+  const folderRows = useMemo<DriveRow[]>(() => sortedFolders.map((folder) => {
+    const target = folderActionTarget(folder);
+    const canRead = entryCanRead(folder);
+    const canWrite = canWriteFolder(folder, { canEditLocalFiles });
+    const mayDelete = canDelete && entryCanDelete(folder);
+    // The all-locations root lists each node as a folder; show it as the location it is.
+    const node = !folder.relativePath && !folder.storageNodeId && folder.sourceKeys.length === 1
+      ? nodes?.find((item) => item.id === folder.sourceKeys[0])
+      : undefined;
+    const name = node?.name ?? folder.displayName ?? folder.name;
+    const archiveHref = target ? buildArchiveDownloadHref({ storageNodeId: folder.storageNodeId, relativePath: folder.relativePath }) : null;
+    const open = () => navigateToFolder(folder.path);
+    return {
+      key: `folder:${folder.path}`,
+      kind: "folder",
+      id: folder.entryId ?? null,
+      name,
+      detail: node ? ((manyCustomers && node.teamName) || getStorageDriverLabel(t, node.driver)) : undefined,
+      nodeDriver: node?.driver,
+      // The index only knows folders that were opened, so a count would say
+      // "0 items" for a full folder never visited; show none, like desktop drives.
+      sizeLabel: "—",
+      modifiedLabel: "—",
+      // The listing labels sources "name (DRIVER)"; say the node's name like file rows do.
+      sourceLabel: node
+        ? getStorageDriverLabel(t, node.driver)
+        : nodes?.find((item) => item.id === (folder.storageNodeId ?? folder.sourceKeys[0]))?.name ?? folder.sourceValues[0],
+      favorite: Boolean(folder.favorite),
+      icon: { entryType: "DIRECTORY", name },
+      thumbUrl: null,
+      openHref: buildSearchHref(folder.path, nodeIdFilter ? { nodeId: nodeIdFilter } : undefined),
+      onOpen: open,
+      selectable: Boolean(target) && (entryCanWrite(folder) || entryCanDelete(folder)),
+      selected: Boolean(folder.entryId && effectiveSelectedIdSet.has(folder.entryId)),
+      draggable: Boolean(target) && entryCanWrite(folder),
+      dropPath: target && entryCanWrite(folder) ? folder.path : undefined,
+      nodeId: folder.storageNodeId ?? folder.sourceKeys[0],
+      menu: { kind: "folder", target, canRead, canWrite, canDelete: mayDelete, canShare: false, openLabel: t("fileListClient.open"), onOpen: open, downloadHref: canRead ? archiveHref : null },
+      downloadHref: canRead ? archiveHref : null,
+    } satisfies DriveRow;
+  }), [sortedFolders, entryCanRead, entryCanWrite, entryCanDelete, canEditLocalFiles, canDelete, navigateToFolder, nodeIdFilter, nodes, manyCustomers, effectiveSelectedIdSet, t]);
+
+  const fileRows = useMemo<DriveRow[]>(() => sortedFiles.map((file) => {
+    const entry = toStorageEntry(file);
+    const target = fileActionTarget(file);
+    const canRead = entryCanRead(file);
+    const canWrite = entryCanWrite(file);
+    const mayDelete = canDelete && entryCanDelete(file);
+    const previewHref = entry.previewable && canRead ? getPreviewHref(entry) : null;
+    const isImage = Boolean(previewHref) && getFileKind(file) === "image";
+    const openDetails = () => {
+      recordFileOpen(file.id);
+      setDetailEntryId(file.id);
+    };
+    const open = isImage
+      ? () => { recordFileOpen(file.id); setLightboxId(file.id); }
+      : previewHref
+        ? () => { recordFileOpen(file.id); router.push(previewHref); }
+        : openDetails;
+    const downloadHref = canRead ? buildForcedDownloadHref(entry) : null;
+    const folderPath = containingFolderPath(file.relativePath);
+    const previewCopy = getPreviewActionCopy(entry, t);
+    return {
+      key: `file:${file.id}`,
+      kind: "file",
+      id: file.id,
+      name: file.name,
+      detail: searchQuery ? `/${folderPath}` : undefined,
+      sizeLabel: file.sizeLabel,
+      modifiedLabel: formatEntryTime(file.updatedAt, locale),
+      modifiedDay: formatEntryDay(file.updatedAt, locale),
+      sourceLabel: file.storageNodeName,
+      favorite: Boolean(file.favorite),
+      icon: { entryType: file.entryType, mimeType: file.mimeType, name: file.name },
+      thumbUrl: canRead ? getThumbnailUrl(entry) : null,
+      openHref: previewHref,
+      onOpen: open,
+      selectable: canWrite || entryCanDelete(file),
+      selected: effectiveSelectedIdSet.has(file.id),
+      draggable: canWrite,
+      nodeId: file.storageNodeId,
+      menu: {
+        kind: "file",
+        target,
+        canRead,
+        canWrite,
+        canDelete: mayDelete,
+        canShare,
+        openLabel: previewHref ? t("filesPage.preview.defaultTitle") : undefined,
+        openDescription: previewHref && previewCopy.title !== t("filesPage.preview.defaultTitle") ? previewCopy.title : undefined,
+        onOpen: open,
+        downloadHref,
+        onDetails: openDetails,
+      },
+      downloadHref,
+      onShare: canShare && canRead ? () => actions.share(target) : undefined,
+    } satisfies DriveRow;
+  }), [sortedFiles, entryCanRead, entryCanWrite, entryCanDelete, canDelete, canShare, searchQuery, effectiveSelectedIdSet, router, actions, locale, t]);
+
+  const rows = useMemo(() => [...folderRows, ...fileRows], [folderRows, fileRows]);
+  const selectableOrder = useMemo(() => rows.filter((row) => row.selectable && row.id).map((row) => row.id!), [rows]);
+
+  const allSelected = selectionSummary.allSelected;
+  const toggleAll = useCallback(() => {
+    toggleAllRaw(allFileIds, allSelected);
+  }, [toggleAllRaw, allFileIds, allSelected]);
+
+  const handlers = useMemo<DriveRowHandlers>(() => ({
+    onToggle: (row) => {
+      if (!row.id) return;
+      anchorId.current = row.id;
+      toggleOne(row.id);
+    },
+    onRowClick: (row, event) => {
+      if (!row.id || !row.selectable) return;
+      if (event.metaKey || event.ctrlKey) {
+        anchorId.current = row.id;
+        toggleOne(row.id);
+        return;
+      }
+      if (event.shiftKey && anchorId.current && selectableOrder.includes(anchorId.current)) {
+        const from = selectableOrder.indexOf(anchorId.current);
+        const to = selectableOrder.indexOf(row.id);
+        const range = selectableOrder.slice(Math.min(from, to), Math.max(from, to) + 1);
+        setSelectedScopeKey(currentSelectionScopeKey);
+        setSelectedIds(new Set([...effectiveSelectedIds, ...range].slice(0, 1000)));
+        return;
+      }
+      anchorId.current = row.id;
+      setSelectedScopeKey(currentSelectionScopeKey);
+      setSelectedIds(new Set([row.id]));
+    },
+    onContextMenu: (row, event: MouseEvent) => {
+      event.preventDefault();
+      setContextMenu({ model: row.menu, label: `${t("fileMoreActions.more")} ${row.name}`, point: { x: event.clientX, y: event.clientY } });
+    },
+  }), [toggleOne, selectableOrder, setSelectedIds, setSelectedScopeKey, currentSelectionScopeKey, effectiveSelectedIds, t]);
+
+  const selectedTargets = useMemo<FileActionTarget[]>(() => selectedFileEntries.map((entry) => ({
+    id: entry.id,
+    name: entry.name,
+    entryType: entry.entryType === "DIRECTORY" ? "DIRECTORY" : "FILE",
+    relativePath: entry.relativePath,
+    storageNodeId: entry.storageNodeId,
+    storageNodeName: entry.storageNodeName,
+    favorite: entry.favorite,
+  })), [selectedFileEntries]);
+  const singleNode = new Set(selectedTargets.map((target) => target.storageNodeId)).size === 1;
+  const selectionReadable = selectedFileEntries.every((entry) => canReadEntry(entry));
+  const singleFile = selectedFileEntries.length === 1 && selectedFileEntries[0]!.entryType !== "DIRECTORY" ? selectedFileEntries[0]! : null;
+
+  // Selection shortcuts belong to the focused list, never to an open dialog.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const editing = target?.closest('input:not([type="checkbox"]), textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
+      if (editing || event.defaultPrevented || event.isComposing || event.altKey || isPending) return;
+      if (!listRef.current?.contains(target) || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        toggleAllRaw(allFileIds, false);
+      } else if (event.key === "Escape" && selectedCount > 0) {
+        event.preventDefault();
+        clearSelection();
+      } else if ((event.key === "Delete" || (event.key === "Backspace" && event.metaKey)) && selectedCount > 0 && canDelete && selectionSummary.selectedEntriesCanDelete) {
+        event.preventDefault();
+        actions.remove(selectedTargets);
+      } else if (event.key === "F2" && selectedTargets.length === 1 && selectionSummary.selectedEntriesCanMove) {
+        event.preventDefault();
+        actions.rename(selectedTargets[0]!);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [toggleAllRaw, allFileIds, selectedCount, clearSelection, isPending, canDelete, selectionSummary, selectedTargets, actions]);
+
+  const parentPath = useMemo(() => getParentPath(currentPath), [currentPath]);
   const emptyMessage = searchQuery
     ? t("fileListClient.searchEmpty", { query: searchQuery })
     : t("fileListClient.emptyFolder");
-  const parentPath = useMemo(() => getParentPath(currentPath), [currentPath]);
-  const goToParent = useCallback(() => {
-    if (parentPath === null) return;
-    navigateToFolder(parentPath);
-  }, [navigateToFolder, parentPath]);
+  const empty = (
+    <FileListEmptyState
+      emptyMessage={emptyMessage}
+      onGoUp={parentPath !== null ? () => navigateToFolder(parentPath) : undefined}
+    />
+  );
 
-  const [detailEntryId, setDetailEntryId] = useState<string | null>(null);
-  const detailEntry = useMemo(() => {
-    const file = visibleFiles.find((item) => item.id === detailEntryId);
-    return file ? toStorageEntry(file) : null;
-  }, [detailEntryId, visibleFiles]);
+  const batchBusy = isPending || selection.batchAction === "compressing";
+  const selectionBar = selectedCount > 0 ? (
+    <div role="region" aria-label={t("filesPage.batchToolbar.regionTitle")} className="flex min-w-0 flex-wrap items-center gap-1.5 py-1.5">
+      <ActionButton size="sm" variant="ghost" square aria-label={t("filesPage.batchToolbar.clearSelection")} title={t("filesPage.batchToolbar.clearSelection")} onClick={clearSelection}>
+        <X aria-hidden />
+      </ActionButton>
+      <span className="mr-1 text-sm font-medium text-[var(--text-primary)]">{t("filesPage.batchToolbar.selectedCount", { count: selectedCount })}</span>
+      {singleFile && canReadEntry(singleFile) ? (
+        <ActionButton size="sm" variant="ghost" icon={<Download aria-hidden />} onClick={() => triggerDownload(buildForcedDownloadHref(toStorageEntry(singleFile)))}>
+          {t("fileListClient.downloadTitle")}
+        </ActionButton>
+      ) : null}
+      {selectionSummary.selectedEntriesCanMove && singleNode ? (
+        <ActionButton size="sm" variant="ghost" icon={<FolderInput aria-hidden />} disabled={batchBusy} onClick={() => actions.move(selectedTargets)}>
+          {t("filesPage.drive.moveToEllipsis")}
+        </ActionButton>
+      ) : null}
+      {selectionSummary.selectedEntriesCanMove && singleNode && selectionReadable ? (
+        <ActionButton size="sm" variant="ghost" icon={<Copy aria-hidden />} disabled={batchBusy} onClick={() => actions.copy(selectedTargets)}>
+          {t("filesPage.drive.copyToEllipsis")}
+        </ActionButton>
+      ) : null}
+      {selectionSummary.selectedEntriesCanCompress ? (
+        <ActionButton size="sm" variant="ghost" icon={<IconArchive size={16} aria-hidden />} loading={selection.batchAction === "compressing"} disabled={batchBusy} onClick={handleBatchCompress}>
+          {selection.batchAction === "compressing" ? t("filesPage.batchToolbar.compressing") : t("filesPage.drive.compress")}
+        </ActionButton>
+      ) : null}
+      {canDelete && selectionSummary.selectedEntriesCanDelete ? (
+        <ActionButton size="sm" variant="danger" icon={<Trash2 aria-hidden />} disabled={batchBusy} onClick={() => actions.remove(selectedTargets)}>
+          {t("common.delete")}
+        </ActionButton>
+      ) : null}
+    </div>
+  ) : undefined;
 
-  const closeDetail = useCallback(() => setDetailEntryId(null), []);
-
-  // Shared per-view render props
-  const sharedViewProps = {
-    sortedFolders,
-    sortedFiles,
-    emptyMessage,
-    parentPath,
-    onGoUp: parentPath !== null ? goToParent : undefined,
-    effectiveSelectedIdSet,
-    toggleOne,
-    navigateToFolder,
-    canShare,
-    canDelete,
-    onRefresh,
-    onNotify: showToast,
-    onOpenDetail: setDetailEntryId,
-    entryCanRead,
-    entryCanWrite,
-    entryCanDelete,
-  } as const;
+  const lightboxIndex = lightboxId ? images.findIndex((file) => file.id === lightboxId) : -1;
 
   return (
     <>
-      <div ref={listRef} data-file-list tabIndex={0} className="mt-6 overflow-x-auto rounded-2xl border border-[var(--border)]"
-        onClickCapture={(event) => {
-          const target = event.target as HTMLElement;
-          if (!target.closest("a[href]")) return;
-          const entryId = target.closest<HTMLElement>("[data-file-entry-id]")?.dataset.fileEntryId;
-          if (entryId) recordFileOpen(entryId);
-        }}
+      <div
+        ref={listRef}
+        data-file-list
+        tabIndex={-1}
+        className="min-w-0 outline-none"
         onDragStartCapture={(event) => {
           const row = (event.target as HTMLElement).closest<HTMLElement>("[data-file-entry-id]");
-          if (!row?.dataset.fileEntryId || isPending || batchAction !== "none") { event.preventDefault(); return; }
+          if (!row?.dataset.fileEntryId || isPending) { event.preventDefault(); return; }
           const ids = effectiveSelectedIdSet.has(row.dataset.fileEntryId) ? effectiveSelectedIds : [row.dataset.fileEntryId];
           const entries = knownFiles.filter((entry) => ids.includes(entry.id));
           if (entries.length !== ids.length || entries.some((entry) => !entryCanWrite(entry))) { event.preventDefault(); return; }
           event.dataTransfer.setData("application/x-vcontrolhub-files", JSON.stringify({ ids, nodeIds: [...new Set(entries.map((entry) => entry.storageNodeId))] }));
           event.dataTransfer.effectAllowed = "move";
         }}
-        onDragOver={(event) => { if (event.dataTransfer.types.includes("application/x-vcontrolhub-files") && (event.target as HTMLElement).closest("[data-file-drop-path]")) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; } }}
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes("application/x-vcontrolhub-files") && (event.target as HTMLElement).closest("[data-file-drop-path]")) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+          }
+        }}
         onDrop={(event) => {
           if (!event.dataTransfer.types.includes("application/x-vcontrolhub-files")) return;
-          event.preventDefault(); event.stopPropagation();
+          event.preventDefault();
+          event.stopPropagation();
           const folder = (event.target as HTMLElement).closest<HTMLElement>("[data-file-drop-path]");
           if (!folder || isPending) return;
           try {
             const payload = JSON.parse(event.dataTransfer.getData("application/x-vcontrolhub-files")) as { ids: string[]; nodeIds: string[] };
             if (!Array.isArray(payload.ids) || !payload.ids.length || payload.ids.length > 1000 || payload.ids.some((id) => typeof id !== "string") || payload.nodeIds.length !== 1 || payload.nodeIds[0] !== folder.dataset.fileNodeId) throw new Error(t("fileOperations.sameNode"));
+            if (payload.ids.includes(folder.dataset.fileEntryId ?? "")) return;
             setDropMove({ ids: payload.ids, path: folder.dataset.fileDropPath!, requestId: crypto.randomUUID() });
-          } catch (error) { showToast("error", error instanceof Error ? error.message : t("filePreferences.failed")); }
-        }}>
-        <FileListToolbar
-          itemCount={sortedFolders.length + sortedFiles.length}
-          selectedCount={selectedCount}
-          viewMode={viewMode}
-          onChangeViewMode={handleViewModeChange}
-          onGoUp={parentPath !== null ? goToParent : undefined}
-        />
-
-        {viewMode === "list" ? (
-          <FileListListView
-            {...sharedViewProps}
-            // Directories can be selected too: a folder of only directories
-            // still has something to select all of.
-            selectableCount={allFileIds.length}
-            allSelected={allSelected}
-            someSelected={someSelected}
-            toggleAll={toggleAll}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            toggleSort={toggleSort}
-            folderCanWrite={folderCanWrite}
-          />
-        ) : viewMode === "grid" ? (
-          <FileListGridView {...sharedViewProps} />
+          } catch (error) {
+            showToast("error", error instanceof Error ? error.message : t("filePreferences.failed"));
+          }
+        }}
+      >
+        {viewMode === "grid" ? (
+          <FileGridView rows={rows} handlers={handlers} empty={empty} selectionBar={selectionBar} />
         ) : (
-          <FileListDetailsView
-            {...sharedViewProps}
-            folderCanWrite={folderCanWrite}
+          <FileListView
+            rows={rows}
+            handlers={handlers}
+            empty={empty}
+            showSource={showSource}
+            header={{
+              allSelected,
+              someSelected: selectionSummary.someSelected,
+              selectableCount: allFileIds.length,
+              onToggleAll: toggleAll,
+              sortKey,
+              sortDir,
+              onSort: toggleSort,
+              selectionBar,
+            }}
           />
         )}
       </div>
+
+      <AnchoredMenu
+        anchor={contextMenu ? contextMenu.point : null}
+        label={contextMenu?.label ?? ""}
+        onClose={() => setContextMenu(null)}
+      >
+        {contextMenu ? <EntryMenuItems model={contextMenu.model} /> : null}
+      </AnchoredMenu>
+
       <Dialog
         size="sm"
         open={dropMove !== null}
@@ -418,6 +589,7 @@ export function FileListClient({
                 await submitFileOperation({ action: "move", fileEntryIds: target.ids, targetDir: target.path, policy: "skip" }, target.requestId);
                 setDropMove(null);
                 clearSelection();
+                showToast("info", t("fileOperations.queued"));
               } catch (error) {
                 showToast("error", error instanceof Error ? error.message : t("filePreferences.failed"));
               }
@@ -431,7 +603,8 @@ export function FileListClient({
       {detailEntry ? (
         <FileDetailPanelLazy
           detailEntry={detailEntry}
-          onClose={closeDetail}
+          favorite={Boolean(visibleFiles.find((file) => file.id === detailEntry.id)?.favorite)}
+          onClose={() => setDetailEntryId(null)}
           canShare={canShare}
           canDelete={canDelete}
           onRefresh={onRefresh}
@@ -442,30 +615,18 @@ export function FileListClient({
         />
       ) : null}
 
-      <FileBatchToolbarLazy
-        operationEntryIds={effectiveSelectedIds}
-        selectedCount={selectedCount}
-        batchAction={batchAction}
-        setBatchAction={setBatchAction}
-        progress={progress}
-        moveProgress={moveProgress}
-        moveTargetDir={moveTargetDir}
-        setMoveTargetDir={setMoveTargetDir}
-        setMoveProgress={setMoveProgress}
-        isPending={isPending}
-        canDelete={canDelete}
-        selectedEntriesCanDelete={selectedEntriesCanDelete}
-        selectedEntriesCanMove={selectedEntriesCanMove}
-        selectedEntriesCanCompress={selectedEntriesCanCompress}
-        selectedScopeMatches={selectedScopeMatches}
-        currentPath={currentPath}
-        moveNodeId={new Set(selectionSummary.selectedFileEntries.map((entry) => entry.storageNodeId)).size === 1
-          ? selectionSummary.selectedFileEntries[0]?.storageNodeId : undefined}
-        onClearSelection={clearSelection}
-        onConfirmDelete={handleBatchDelete}
-        onSubmitMove={submitBatchMove}
-        onCompressSelected={handleBatchCompress}
-      />
+      {lightboxIndex >= 0 ? (
+        <ImageLightbox
+          images={images}
+          index={lightboxIndex}
+          onIndexChange={(next) => setLightboxId(images[next]?.id ?? null)}
+          onClose={() => setLightboxId(null)}
+          onDetails={(id) => {
+            setLightboxId(null);
+            setDetailEntryId(id);
+          }}
+        />
+      ) : null}
     </>
   );
 }

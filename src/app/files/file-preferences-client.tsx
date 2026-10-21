@@ -150,12 +150,22 @@ export function FilePreferenceButton({ fileEntryId }: { fileEntryId: string }) {
   );
 }
 
-export function FileCollections() {
+export type FileCollectionMode = "favorites" | "recent" | "tags";
+
+/**
+ * The viewer's favorites, recently opened files and tags across every node.
+ * Mount it with a `key` per opening so it starts on `initialMode`.
+ */
+export function FileCollectionsDialog({ open, initialMode = "favorites", onClose }: {
+  open: boolean;
+  initialMode?: FileCollectionMode;
+  onClose: () => void;
+}) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"favorites" | "recent" | "tags">(
-    "favorites",
-  );
+  const setOpen = (value: boolean) => {
+    if (!value) onClose();
+  };
+  const [mode, setMode] = useState<FileCollectionMode>(initialMode);
   const [tag, setTag] = useState("");
   const [filter, setFilter] = useState("");
   const [page, setPage] = useState<Page>({ items: [], nextCursor: null });
@@ -201,9 +211,6 @@ export function FileCollections() {
   }, [open, mode, filter, cursor, reload]);
   return (
     <>
-      <ActionButton variant="outline" icon={<Star aria-hidden />} onClick={() => setOpen(true)}>
-        {t("filePreferences.collections")}
-      </ActionButton>
       <Dialog
         size="xl"
         open={open}

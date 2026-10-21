@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionPayload } from "@/lib/auth/session";
 const mocks = vi.hoisted(() => ({nodes:vi.fn(),entries:vi.fn(),stats:vi.fn(),query:vi.fn(),counts:vi.fn(),capabilities:vi.fn(),permission:vi.fn(),
-  localNode:vi.fn(),localSync:vi.fn(),sftpNode:vi.fn(),sftpSync:vi.fn(),webdavNode:vi.fn(),webdavSync:vi.fn()}));
+  localNode:vi.fn(),localSync:vi.fn(),sftpNode:vi.fn(),sftpSync:vi.fn(),webdavNode:vi.fn(),webdavSync:vi.fn(),preferences:vi.fn()}));
+vi.mock("@/lib/db",() => ({prisma:{filePreference:{findMany:mocks.preferences}}}));
 vi.mock("@/lib/storage/service-nodes",() => ({listStorageNodes:mocks.nodes}));
 vi.mock("@/lib/storage/service-entries",() => ({listFileEntries:mocks.entries}));
 vi.mock("@/lib/storage/service-statistics",() => ({getFileIndexStatistics:mocks.stats}));
@@ -30,8 +31,21 @@ beforeEach(() => {
   mocks.permission.mockReturnValue(false);
   mocks.sftpNode.mockResolvedValue(node);
   mocks.sftpSync.mockResolvedValue({errors:[]});
+  mocks.preferences.mockResolvedValue([]);
 });
 describe("shared files listing",() => {
+  it("marks the viewer's own starred entries on the page with one query",async () => {
+    mocks.preferences.mockResolvedValue([{fileEntryId:file.id}]);
+    const {listing} = await getFilesListing(session,listFilesQuerySchema.parse({nodeId:node.id}));
+    expect(listing.files[0]?.favorite).toBe(true);
+    expect(mocks.preferences).toHaveBeenCalledTimes(1);
+    expect(mocks.preferences).toHaveBeenCalledWith({where:{userId:"viewer",fileEntryId:{in:[file.id]},favorite:true},select:{fileEntryId:true}});
+  });
+  it("names each node's customer and file count for the drive's locations",async () => {
+    mocks.nodes.mockResolvedValue([{...node,teamName:"Acme",fileCount:7}]);
+    const {listing} = await getFilesListing(session,listFilesQuerySchema.parse({nodeId:node.id}));
+    expect(listing.nodes[0]).toMatchObject({id:node.id,teamName:"Acme",fileCount:7});
+  });
   it("keeps the indexed page visible after shallow SFTP sync fails",async () => {
     mocks.sftpSync.mockResolvedValue({errors:["Remote unavailable"]});
     const {listing} = await getFilesListing(session,listFilesQuerySchema.parse({nodeId:node.id}));

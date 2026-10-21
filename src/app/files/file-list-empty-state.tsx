@@ -1,48 +1,31 @@
 "use client";
 
 /**
- * Shared empty-folder UI for list/grid/details/mobile file views.
- * Keeps up-level CTA + i18n in one place to avoid four-way drift.
+ * Empty folder / no search results, shared by the list and grid views.
  */
-import type { ReactNode } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
+import { ArrowLeft, FolderOpen } from "@/components/icons";
 
 export type FileListEmptyStateProps = {
   emptyMessage: string;
   onGoUp?: () => void;
-  /** Optional leading icon (e.g. grid view folder silhouette). */
-  icon?: ReactNode;
-  /** Wrapper classes for the outer empty container. */
-  className?: string;
-  /** Classes for the empty message paragraph. */
-  messageClassName?: string;
 };
 
-export function FileListEmptyState({
-  emptyMessage,
-  onGoUp,
-  icon,
-  className = "px-6 py-16 text-center text-sm text-[var(--text-muted)]",
-  messageClassName,
-}: FileListEmptyStateProps) {
+export function FileListEmptyState({ emptyMessage, onGoUp }: FileListEmptyStateProps) {
   const { t } = useI18n();
   return (
-    <div className={className}>
-      {icon}
-      <p className={messageClassName}>{emptyMessage}</p>
+    <div data-empty-state className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+      <span aria-hidden="true" className="grid h-14 w-14 place-items-center rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]">
+        <FolderOpen size={26} />
+      </span>
+      <p className="text-sm text-[var(--text-secondary)]">{emptyMessage}</p>
       {onGoUp ? (
         <>
-          <ActionButton variant="secondary"
-            onClick={onGoUp}
-            data-testid="files-empty-up-level"
-
-            className="mt-4 inline-flex items-center gap-1.5"
-          >
-            <span aria-hidden="true">↑</span>
+          <p className="text-xs text-[var(--text-muted)]">{t("fileListClient.upLevelHint")}</p>
+          <ActionButton variant="secondary" size="sm" icon={<ArrowLeft aria-hidden />} onClick={onGoUp} data-testid="files-empty-up-level">
             {t("fileListClient.upLevel")}
           </ActionButton>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("fileListClient.upLevelHint")}</p>
         </>
       ) : null}
     </div>

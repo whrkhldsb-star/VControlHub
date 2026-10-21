@@ -16,12 +16,14 @@
  * menus, the account menu and the notification panel stay identical.
  */
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import {
 	createContext,
 	useCallback,
 	useContext,
 	useEffect,
 	useId,
+	useLayoutEffect,
 	useRef,
 	useState,
 	type KeyboardEvent as ReactKeyboardEvent,
@@ -176,6 +178,127 @@ export function Menu({
 				</div>
 			) : null}
 		</div>
+	);
+}
+
+/** Where an anchored menu opens: under an element, or at a pointer position. */
+export type MenuAnchor = HTMLElement | { x: number; y: number };
+
+const VIEWPORT_MARGIN = 8;
+
+/**
+ * A menu opened by code rather than by its own trigger: a context menu at the
+ * pointer, or the actions of a row's "more" button. It renders in a body
+ * portal with fixed positioning, so a scrolling or clipped container never
+ * cuts it off, and it flips above or left when the viewport is short. Items
+ * are the same `MenuItem`s as `Menu`; choosing one, Escape, an outside
+ * click, scrolling or resizing closes it.
+ */
+export function AnchoredMenu({
+	anchor,
+	onClose,
+	label,
+	children,
+	panelClassName,
+}: {
+	/** The menu is open while an anchor is set. */
+	anchor: MenuAnchor | null;
+	/** `restoreFocus` is true when focus should return to the trigger. */
+	onClose: (restoreFocus: boolean) => void;
+	label: string;
+	children: ReactNode;
+	panelClassName?: string;
+}) {
+	const panelRef = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLElement | null>(null);
+	const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+	const open = anchor !== null;
+	useLayoutEffect(() => {
+		triggerRef.current = anchor instanceof HTMLElement ? anchor : null;
+	}, [anchor]);
+
+	const close = useCallback((restoreFocus: boolean) => {
+		onClose(restoreFocus);
+		if (restoreFocus) triggerRef.current?.focus();
+	}, [onClose]);
+
+	useDismiss({ open, refs: [panelRef, triggerRef], onDismiss: (reason) => close(reason === "escape") });
+
+	useLayoutEffect(() => {
+		if (!anchor || !panelRef.current) {
+			setPosition(null);
+			return;
+		}
+		const panel = panelRef.current.getBoundingClientRect();
+		const box = anchor instanceof HTMLElement
+			? anchor.getBoundingClientRect()
+			: { top: anchor.y, bottom: anchor.y, left: anchor.x, right: anchor.x };
+		const fitsBelow = box.bottom + 4 + panel.height <= window.innerHeight - VIEWPORT_MARGIN;
+		const top = fitsBelow
+			? box.bottom + 4
+			: Math.max(VIEWPORT_MARGIN, box.top - 4 - panel.height);
+		// Buttons line the menu up with their right edge; a pointer opens to its right.
+		const preferredLeft = anchor instanceof HTMLElement ? box.right - panel.width : box.left;
+		const left = Math.min(
+			Math.max(VIEWPORT_MARGIN, preferredLeft),
+			window.innerWidth - VIEWPORT_MARGIN - panel.width,
+		);
+		setPosition({ top, left: Math.max(VIEWPORT_MARGIN, left) });
+	}, [anchor]);
+
+	useEffect(() => {
+		if (!open) return;
+		menuItems(panelRef.current)[0]?.focus({ preventScroll: true });
+		const dismiss = () => close(false);
+		window.addEventListener("resize", dismiss);
+		// Scrolling inside the menu itself keeps it; any other scroll closes it.
+		const onScroll = (event: Event) => {
+			if (event.target instanceof Node && panelRef.current?.contains(event.target)) return;
+			dismiss();
+		};
+		window.addEventListener("scroll", onScroll, true);
+		return () => {
+			window.removeEventListener("resize", dismiss);
+			window.removeEventListener("scroll", onScroll, true);
+		};
+	}, [open, close]);
+
+	if (!open || typeof document === "undefined") return null;
+	const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+		const items = menuItems(panelRef.current);
+		if (items.length === 0) return;
+		const index = items.indexOf(document.activeElement as HTMLElement);
+		const focusAt = (next: number) => items[(next + items.length) % items.length]?.focus();
+		if (event.key === "ArrowDown") focusAt(index + 1);
+		else if (event.key === "ArrowUp") focusAt(index - 1);
+		else if (event.key === "Home") focusAt(0);
+		else if (event.key === "End") focusAt(items.length - 1);
+		else if (event.key === "Tab") {
+			close(false);
+			return;
+		} else return;
+		event.preventDefault();
+	};
+	return createPortal(
+		<div
+			ref={panelRef}
+			role="menu"
+			aria-label={label}
+			data-popover
+			onKeyDown={onKeyDown}
+			onContextMenu={(event) => event.preventDefault()}
+			style={{
+				position: "fixed",
+				top: position?.top ?? 0,
+				left: position?.left ?? 0,
+				visibility: position ? "visible" : "hidden",
+				maxHeight: `calc(100dvh - ${VIEWPORT_MARGIN * 2}px)`,
+			}}
+			className={cn("overflow-y-auto", panelClassName)}
+		>
+			<MenuContext.Provider value={{ close: () => close(true) }}>{children}</MenuContext.Provider>
+		</div>,
+		document.body,
 	);
 }
 

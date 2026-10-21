@@ -24,7 +24,7 @@ export async function getRecycleBinPage(
       const totalItems = await tx.fileEntry.count({ where });
       const totalPages = Math.max(1, Math.ceil(totalItems / query.pageSize));
       const page = Math.min(query.page, totalPages);
-      const entries = await tx.fileEntry.findMany({
+      const rows = await tx.fileEntry.findMany({
         where,
         orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
         skip: (page - 1) * query.pageSize,
@@ -33,10 +33,19 @@ export async function getRecycleBinPage(
           id: true,
           name: true,
           entryType: true,
+          mimeType: true,
           relativePath: true,
           size: true,
+          // A recycled entry is not edited, so its last change is when it was deleted.
+          updatedAt: true,
+          storageNode: { select: { name: true } },
         },
       });
+      const entries = rows.map(({ updatedAt, storageNode, ...entry }) => ({
+        ...entry,
+        deletedAt: updatedAt,
+        storageNodeName: storageNode.name,
+      }));
       return {
         entries,
         pagination: { page, pageSize: query.pageSize, totalItems, totalPages },

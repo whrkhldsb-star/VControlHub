@@ -1,65 +1,34 @@
 "use client";
 
 import { pickPreferredStorageNode } from "@/lib/storage/preferred-node";
-import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
-import Link from "next/link";
+import { useState, useCallback, useEffect, useRef, type DragEvent, type ReactNode } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FileListClient } from "./file-list-client";
-import { UnifiedFileSearch } from "./unified-file-search";
 import { FileUploadDropzoneLazy } from "./file-upload-dropzone-lazy";
-import { CreateFolderForm } from "./create-folder-form";
 import { useFileBrowserListing } from "./use-file-browser-listing";
 import {
   type FilesApiResponse,
   getInitialExpandedTreePaths,
   getCurrentPathDisplay,
-  getNodeById,
 } from "./files-browser-helpers";
-import { BreadcrumbsClient } from "./breadcrumbs-client";
-import { FilesBrowserSidebar } from "./files-browser-sidebar";
+import { DriveSidebar } from "./drive-sidebar";
+import { DriveBreadcrumbs, DriveSearchBar, NewFolderDialog, SortMenu, UploadMenu, ViewToggle, type DriveSearchMode } from "./drive-toolbar";
+import { ContentSearchResults, useContentSearch } from "./unified-file-search";
+import { FileCollectionsDialog, type FileCollectionMode } from "./file-preferences-client";
+import { useViewMode } from "./use-view-mode";
 import { ActionButton } from "@/components/action-button";
-import { Notice, Spinner } from "@/components/ui-primitives";
+import { IconButton, Notice, Spinner } from "@/components/ui-primitives";
 import { Dialog } from "@/components/ui/dialog";
 import { Pagination } from "@/components/pagination";
-import { ChevronRight, Plus, RefreshCw } from "@/components/icons";
-import { IconButton } from "@/components/ui-primitives";
-import { StatCard, StatGrid, Toolbar } from "@/components/page-shell";
+import { FolderPlus, RefreshCw, Upload, X } from "@/components/icons";
+import { IconPanelLeft } from "@/components/nav-icons";
 import { KnownErrorNotice } from "@/components/known-error-notice";
 import { useStorageUploads } from "@/components/storage/storage-upload-provider";
 import { readDroppedFiles } from "@/components/storage/storage-drop-files";
 import { getBrowserRelativePath, normalizeRelativePath } from "@/components/storage/file-upload-helpers";
 
-/* ── Navigation hook ────────────────────────────────────────────── */
-
-type FetchFilesOptions = {
-  resetSelection?: boolean;
-  history?: "push" | "replace" | "none";
-};
-
-function useFolderNavigation(
-  fetchFiles: (
-    path: string,
-    q?: string,
-    scope?: string,
-    nodeId?: string,
-    options?: FetchFilesOptions,
-  ) => Promise<void>,
-) {
-  const navigateToFolder = useCallback(
-    (path: string) => {
-      fetchFiles(path, undefined, undefined, undefined, {
-        resetSelection: true,
-        history: "push",
-      });
-    },
-    [fetchFiles],
-  );
-
-  return { navigateToFolder };
-}
-
-/* ── Main Component ─────────────────────────────────────────────── */
+const UPLOAD_DRIVERS = new Set(["LOCAL", "SFTP", "WEBDAV"]);
 
 export function FilesBrowserSpa({
   initialData,
@@ -69,10 +38,6 @@ export function FilesBrowserSpa({
   children?: ReactNode;
 }) {
   const { t } = useI18n();
-  // Listing state (data / loading / listError / search / selection epoch /
-  // popstate listener) is owned by the hook (R25).  The mobile sidebar
-  // toggle stays here because the rendering is part of the page shell
-  // rather than the listing flow.
   const {
     data,
     loading,
@@ -84,16 +49,24 @@ export function FilesBrowserSpa({
   } = useFileBrowserListing({ initialData });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const uploads = useStorageUploads();
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [collection, setCollection] = useState<{ mode: FileCollectionMode; key: number } | null>(null);
+  const [searchMode, setSearchMode] = useState<DriveSearchMode>(initialData.searchScope === "all" ? "all" : "current");
   const [dropError, setDropError] = useState("");
+  const [dragDepth, setDragDepth] = useState(0);
+  const [viewMode] = useViewMode();
+  const uploads = useStorageUploads();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const contentSearch = useContentSearch({ nodeId: data.nodeIdFilter || undefined, searchPath: data.currentPath || undefined });
 
   // Keep the browser feeling like a desktop drive: `/` focuses search and
   // Escape closes transient UI. Ignore shortcuts while typing in another
   // control so normal file-name entry is never interrupted.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
+      const target = event.target instanceof Element ? event.target : null;
       const editing = target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
       if (event.defaultPrevented || event.isComposing || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if (event.key === "/" && !editing && !event.metaKey && !event.ctrlKey && !event.altKey) {
@@ -101,32 +74,24 @@ export function FilesBrowserSpa({
         searchInputRef.current?.focus();
         return;
       }
-      if (event.key === "Escape") {
-        if (mobileSidebarOpen) setMobileSidebarOpen(false);
-      }
+      if (event.key === "Escape" && mobileSidebarOpen) setMobileSidebarOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mobileSidebarOpen]);
 
-  const { navigateToFolder } = useFolderNavigation(fetchFiles);
-
-  const uploadNodes = data.nodes.filter(
-    (n) => n.driver === "LOCAL" || n.driver === "SFTP" || n.driver === "WEBDAV",
-  );
-  const currentPathDisplay = getCurrentPathDisplay(
-    t,
-    data.currentPath,
-    data.nodes,
-    data.nodeIdFilter,
-  );
-  const selectedNode = getNodeById(data.nodes, data.nodeIdFilter);
+  const canEdit = data.permissions.canEditLocalFiles;
+  const selectedNode = data.nodes.find((node) => node.id === data.nodeIdFilter);
+  const uploadNodes = data.nodes.filter((node) => UPLOAD_DRIVERS.has(node.driver));
   // Without a node filter, start uploads on a node that can take them: the
   // newest node is often a draft server's storage that has never connected.
   const preferredUploadNode = data.nodeIdFilter && uploadNodes.some((node) => node.id === data.nodeIdFilter)
     ? data.nodeIdFilter
     : pickPreferredStorageNode(uploadNodes)?.id ?? pickPreferredStorageNode(data.nodes)?.id;
+  const currentPathDisplay = getCurrentPathDisplay(t, data.currentPath, data.nodes, data.nodeIdFilter);
+  const directUpload = Boolean(selectedNode && UPLOAD_DRIVERS.has(selectedNode.driver));
   const refreshLabel = selectedNode?.driver === "SFTP" ? t("filesBrowserSpa.refreshRemoteFiles") : t("filesBrowserSpa.refreshList");
+
   const treeLocation = `${data.nodeIdFilter}:${data.currentPath}`;
   const [treeExpansion, setTreeExpansion] = useState(() => ({
     location: treeLocation,
@@ -147,7 +112,6 @@ export function FilesBrowserSpa({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [treeLocation]);
   /* eslint-enable react-hooks/set-state-in-effect */
-  const expandedTreePaths = treeExpansion.paths;
   const toggleTreePath = useCallback((path: string) => {
     setTreeExpansion((current) => {
       const next = new Set(current.paths);
@@ -156,21 +120,10 @@ export function FilesBrowserSpa({
       return { ...current, paths: next };
     });
   }, []);
+
   const refreshCurrentListing = useCallback(
-    () =>
-      fetchFiles(
-        data.currentPath,
-        data.searchQuery,
-        data.searchScope,
-        data.nodeIdFilter,
-      ),
-    [
-      data.currentPath,
-      data.nodeIdFilter,
-      data.searchQuery,
-      data.searchScope,
-      fetchFiles,
-    ],
+    () => fetchFiles(data.currentPath, data.searchQuery, data.searchScope, data.nodeIdFilter),
+    [data.currentPath, data.nodeIdFilter, data.searchQuery, data.searchScope, fetchFiles],
   );
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -185,268 +138,314 @@ export function FilesBrowserSpa({
     return () => { clearTimeout(timer); window.removeEventListener("storage-upload-completed", onCompleted); window.removeEventListener("file-operation-completed", onOperationCompleted); };
   }, [data.nodeIdFilter, refreshCurrentListing, uploadOpen]);
 
-  // Node filter handler
-  const handleNodeFilterChange = useCallback(
-    (newNodeId: string) => {
-      // Reset to root path when switching nodes
-      setUploadOpen(false);
-      fetchFiles("", data.searchQuery, data.searchScope, newNodeId, {
-        resetSelection: true,
-      });
-    },
-    [fetchFiles, data.searchQuery, data.searchScope],
-  );
+  const navigateToFolder = useCallback((path: string) => {
+    void fetchFiles(path, undefined, undefined, undefined, { resetSelection: true, history: "push" });
+  }, [fetchFiles]);
 
-  // Tree navigation handler — closes the mobile sidebar after navigation
-  // so the user can see the file list on small viewports.
-  const handleTreeNavigate = useCallback(
-    (path: string) => {
-      fetchFiles(path, undefined, undefined, undefined, {
-        resetSelection: true,
-        history: "push",
+  const selectNode = useCallback((nodeId: string) => {
+    setUploadOpen(false);
+    setMobileSidebarOpen(false);
+    setSearchInput("");
+    contentSearch.reset();
+    void fetchFiles("", undefined, undefined, nodeId, { resetSelection: true, history: "push" });
+  }, [fetchFiles, setSearchInput, contentSearch]);
+
+  const treeNavigate = useCallback((path: string) => {
+    navigateToFolder(path);
+    setMobileSidebarOpen(false);
+  }, [navigateToFolder]);
+
+  /** Queue files for the folder on screen; elsewhere ask where they go. */
+  const startUpload = useCallback(async (read: () => Promise<File[]> | File[]) => {
+    const nodeId = data.nodeIdFilter;
+    try {
+      if (!canEdit) throw new Error(t("filesBrowserSpa.cannotCreateFolderNoPermission"));
+      if (!nodeId || !directUpload) {
+        setUploadOpen(true);
+        return;
+      }
+      const files = await read();
+      const entries = files.map((file) => {
+        const path = normalizeRelativePath([data.currentPath, getBrowserRelativePath(file)].filter(Boolean).join("/"));
+        if (!path.ok) throw new Error(t(`fileUploadDropzone.pathError.${path.reason}`));
+        return { file, path: path.path };
       });
-      setMobileSidebarOpen(false);
-    },
-    [fetchFiles],
-  );
+      if (entries.length) uploads.enqueue(entries, nodeId);
+      setDropError("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("fileUploadDropzone.errorUpload");
+      setDropError(message.startsWith("storageUpload.") ? t(message) : message);
+    }
+  }, [canEdit, data.currentPath, data.nodeIdFilter, directUpload, t, uploads]);
+
+  const submitSearch = () => {
+    const query = searchInput.trim();
+    if (!query) return;
+    if (searchMode === "content") {
+      contentSearch.run(query);
+      return;
+    }
+    contentSearch.reset();
+    void fetchFiles(data.currentPath, query, searchMode, data.nodeIdFilter, { resetSelection: true });
+  };
+  const clearSearch = () => {
+    setSearchInput("");
+    contentSearch.reset();
+    if (data.searchQuery) void fetchFiles(data.currentPath, undefined, undefined, data.nodeIdFilter, { resetSelection: true });
+  };
+
+  const isFileDrag = (event: DragEvent) => event.dataTransfer.types.includes("Files");
+  // Only search results can mix nodes; at the root every row is a node already.
+  const showSource = Boolean(data.searchQuery) && (!data.nodeIdFilter || data.searchScope === "all");
+  const sortKey = data.sort ?? "name";
+  const sortDirection = data.direction ?? "asc";
+  const changeSort = (sort: typeof sortKey, direction: typeof sortDirection) => {
+    void fetchFiles(data.currentPath, data.searchQuery, data.searchScope, data.nodeIdFilter, { sort, direction, page: 1, resetSelection: true });
+  };
+  const contentActive = searchMode === "content" && (contentSearch.state.loading || Boolean(contentSearch.state.lastQuery));
 
   return (
     <>
-    <StatGrid>
-      <StatCard label={t("filesPage.statTotalNodes")} value={data.stats.totalNodes} />
-      <StatCard label={t("filesPage.statActiveFiles")} value={data.stats.totalEntries} />
-      <StatCard label={t("filesPage.statCurrentDirectory")} value={data.stats.totalItems} />
-      <Link href="/files/recycle-bin" data-stat-card data-card className="transition hover:bg-[var(--surface-hover)]">
-        <div className="text-xs font-medium text-[var(--text-muted)]">{t("filesPage.statRecycleBin")}</div>
-        <div className="mt-2 text-2xl font-semibold tabular-nums">{data.stats.deletedEntries}</div>
-      </Link>
-    </StatGrid>
-    {children}
-    {dropError ? <Notice tone="danger">{dropError}</Notice> : null}
-    <section className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[240px_minmax(0,1fr)]"
-      onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) event.preventDefault(); }}
-      onDrop={async (event) => {
-        if (!event.dataTransfer.types.includes("Files")) return;
-        event.preventDefault();
-        const nodeId = data.nodeIdFilter;
-        const directory = data.currentPath;
-        try {
-          if (!data.permissions.canEditLocalFiles) throw new Error(t("filesBrowserSpa.cannotCreateFolderNoPermission"));
-          if (!nodeId) throw new Error(t("fileUploadDropzone.errorNoNode"));
-          const files = await readDroppedFiles(event.dataTransfer);
-          const entries = files.map((file) => {
-            const path = normalizeRelativePath([directory, getBrowserRelativePath(file)].filter(Boolean).join("/"));
-            if (!path.ok) throw new Error(t(`fileUploadDropzone.pathError.${path.reason}`));
-            return { file, path: path.path };
-          });
-          uploads.enqueue(entries, nodeId);
-          setDropError("");
-        } catch (error) {
-          const message = error instanceof Error ? error.message : t("fileUploadDropzone.errorUpload");
-          setDropError(message.startsWith("storageUpload.") ? t(message) : message);
-        }
-      }}>
-      {/* Mobile-only sidebar toggle (hidden on xl+) */}
-      <ActionButton
-        variant="secondary"
-        block
-        onClick={() => setMobileSidebarOpen((value) => !value)}
-        aria-expanded={mobileSidebarOpen}
-        aria-controls="files-browser-sidebar"
-        className="justify-between xl:hidden"
+      <input ref={fileInputRef} type="file" multiple hidden aria-hidden="true" tabIndex={-1}
+        onChange={(event) => {
+          const files = Array.from(event.currentTarget.files ?? []);
+          event.currentTarget.value = "";
+          void startUpload(() => files);
+        }} />
+      <input ref={folderInputRef} type="file" multiple hidden aria-hidden="true" tabIndex={-1}
+        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+        onChange={(event) => {
+          const files = Array.from(event.currentTarget.files ?? []);
+          event.currentTarget.value = "";
+          void startUpload(() => files);
+        }} />
+
+      <section
+        data-file-browser
+        data-list-panel
+        aria-busy={loading}
+        className="relative grid min-w-0 lg:grid-cols-[15.5rem_minmax(0,1fr)]"
+        onDragEnter={(event) => {
+          if (!isFileDrag(event) || !canEdit) return;
+          event.preventDefault();
+          setDragDepth((depth) => depth + 1);
+        }}
+        onDragLeave={(event) => {
+          if (!isFileDrag(event)) return;
+          setDragDepth((depth) => Math.max(0, depth - 1));
+        }}
+        onDragOver={(event) => {
+          if (isFileDrag(event)) event.preventDefault();
+        }}
+        onDrop={(event) => {
+          if (!isFileDrag(event)) return;
+          event.preventDefault();
+          setDragDepth(0);
+          const transfer = event.dataTransfer;
+          void startUpload(() => readDroppedFiles(transfer));
+        }}
       >
-        <span>{mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}</span>
-        <ChevronRight size={18} aria-hidden className={mobileSidebarOpen ? "-rotate-90" : "rotate-90"} />
-      </ActionButton>
-      {/* Sidebar: Directory tree */}
-      <FilesBrowserSidebar
-        t={t}
-        data={data}
-        mobileSidebarOpen={mobileSidebarOpen}
-        expandedTreePaths={expandedTreePaths}
-        onToggleTreePath={toggleTreePath}
-        onNodeFilterChange={handleNodeFilterChange}
-        onTreeNavigate={handleTreeNavigate}
-      />
+        <DriveSidebar
+          t={t}
+          data={data}
+          mobileOpen={mobileSidebarOpen}
+          expandedTreePaths={treeExpansion.paths}
+          onToggleTreePath={toggleTreePath}
+          onSelectNode={selectNode}
+          onTreeNavigate={treeNavigate}
+          onOpenCollection={(mode) => setCollection({ mode, key: Date.now() })}
+        />
 
-      {/* Main content area — cloud-drive style browser only */}
-      <section data-file-browser className="min-w-0 space-y-5">
-        {/* Search + Toolbar */}
-        <div className="min-w-0">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              <h2 className="ui-title-section break-words">
-                {currentPathDisplay.title}
-                {loading ? (
-                  <span className="ml-2 inline-flex items-center gap-2 align-middle text-sm text-[var(--text-muted)]">
-                    <Spinner size="sm" label={t("filesBrowserSpa.loading")} />
-                    <span aria-hidden>{t("filesBrowserSpa.loading")}</span>
-                  </span>
-                ) : null}
-              </h2>
-              <p className="mt-1 break-all text-xs leading-5 text-[var(--text-secondary)]">
-                {currentPathDisplay.label ? t("filesBrowserSpa.currentPathPrefix") + currentPathDisplay.label : t("filesBrowserSpa.currentPathAllNodes")}
-              </p>
-              {selectedNode?.driver === "LOCAL" && selectedNode.basePath ? (
-                <p className="mt-1 break-all text-xs text-[var(--text-muted)]">
-                  {t("filesBrowserSpa.localDiskPath", { path: selectedNode.basePath })}
-                </p>
-              ) : null}
+        <div className="flex min-w-0 flex-col">
+          <header className="flex flex-col gap-2.5 border-b border-[var(--border)] px-3 py-3 sm:px-4">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                square
+                onClick={() => setMobileSidebarOpen((value) => !value)}
+                aria-expanded={mobileSidebarOpen}
+                aria-controls="files-browser-sidebar"
+                aria-label={mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}
+                title={mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}
+                className="lg:hidden"
+              >
+                <IconPanelLeft aria-hidden />
+              </ActionButton>
+              <DriveBreadcrumbs
+                t={t}
+                path={data.currentPath}
+                nodes={data.nodes}
+                nodeIdFilter={data.nodeIdFilter}
+                onNavigate={navigateToFolder}
+                onRoot={() => selectNode("")}
+              />
+              {loading ? <Spinner size="sm" label={t("filesBrowserSpa.loading")} /> : null}
+              <IconButton
+                label={loading ? t("filesBrowserSpa.refreshing") : refreshLabel}
+                onClick={() => void refreshCurrentListing()}
+                disabled={loading}
+                className="shrink-0 disabled:opacity-60"
+              >
+                <RefreshCw size={17} className={loading ? "animate-spin" : undefined} aria-hidden />
+              </IconButton>
             </div>
-            <BreadcrumbsClient
-              t={t}
-              path={data.currentPath}
+            <div className="flex flex-wrap items-center gap-2">
+              <UploadMenu
+                disabled={!canEdit || uploadNodes.length === 0 || loading}
+                onUploadFiles={() => {
+                  if (directUpload) fileInputRef.current?.click();
+                  else setUploadOpen(true);
+                }}
+                onUploadFolder={() => {
+                  if (directUpload) folderInputRef.current?.click();
+                  else setUploadOpen(true);
+                }}
+              />
+              <ActionButton
+                variant="secondary"
+                icon={<FolderPlus aria-hidden />}
+                disabled={!canEdit || uploadNodes.length === 0 || loading}
+                title={!canEdit ? t("filesBrowserSpa.cannotCreateFolderNoPermission") : uploadNodes.length === 0 ? t("filesBrowserSpa.cannotCreateFolderNoNode") : undefined}
+                onClick={() => setNewFolderOpen(true)}
+              >
+                {t("common.newFolder")}
+              </ActionButton>
+              <DriveSearchBar
+                value={searchInput}
+                onChange={setSearchInput}
+                mode={searchMode}
+                onModeChange={(mode) => {
+                  setSearchMode(mode);
+                  contentSearch.reset();
+                }}
+                onSubmit={submitSearch}
+                inputRef={searchInputRef}
+                busy={contentSearch.state.loading}
+              />
+              <div className="ml-auto flex items-center gap-1.5">
+                {viewMode === "grid" ? <SortMenu sortKey={sortKey} sortDir={sortDirection} onChange={changeSort} showSource={showSource} /> : null}
+                <ViewToggle />
+              </div>
+            </div>
+          </header>
+
+          {data.searchQuery || contentActive ? (
+            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)] sm:px-4">
+              {data.searchQuery && !contentActive ? (
+                <span>{t("filesBrowserSpa.searchResults", { query: data.searchQuery, scope: data.searchScope === "all" ? t("filesBrowserSpa.searchInAllFiles") : t("filesBrowserSpa.searchInCurrentFolder"), count: data.stats.totalItems })}</span>
+              ) : (
+                <span>{t("filesPage.drive.contentSearchFor", { query: contentSearch.state.lastQuery })}</span>
+              )}
+              <ActionButton size="xs" variant="ghost" icon={<X aria-hidden />} onClick={clearSearch}>{t("filesPage.drive.clearSearch")}</ActionButton>
+            </div>
+          ) : null}
+
+          {dropError || listError ? (
+            <div className="flex flex-col gap-2 px-3 pt-3 sm:px-4">
+              {dropError ? <Notice tone="danger" onDismiss={() => setDropError("")} dismissLabel={t("common.close")}>{dropError}</Notice> : null}
+              {listError ? <KnownErrorNotice tone={data.syncWarning === listError ? "warning" : "danger"} raw={listError} /> : null}
+            </div>
+          ) : null}
+
+          {contentActive ? (
+            <div className="flex flex-col gap-3 p-3 sm:p-4">
+              {contentSearch.state.loading ? <Spinner size="sm" label={t("filesBrowserSpa.contentSearching")} /> : null}
+              <ContentSearchResults
+                state={contentSearch.state}
+                onOpen={(hit) => {
+                  contentSearch.reset();
+                  setSearchMode("current");
+                  const folder = hit.relativePath.split("/").slice(0, -1).join("/");
+                  void fetchFiles(folder, undefined, undefined, hit.nodeId, { resetSelection: true, history: "push" });
+                }}
+              />
+            </div>
+          ) : (
+            <FileListClient
+              selectionScopeSeed={`${selectionEpoch}\u0000${data.currentPath}\u0000${data.searchQuery}\u0000${data.searchScope}\u0000${data.nodeIdFilter ?? ""}`}
+              selectionPage={data.pagination?.page}
+              serverSort={data.pagination ? { key: sortKey, dir: sortDirection, onChange: changeSort } : undefined}
+              folders={data.folders}
+              files={data.files}
+              canEditLocalFiles={data.permissions.canEditLocalFiles}
+              canDelete={data.permissions.canDelete}
+              canShare={data.permissions.canShare}
+              currentPath={data.currentPath}
+              searchQuery={data.searchQuery}
+              nodeIdFilter={data.nodeIdFilter}
+              showSource={showSource}
               nodes={data.nodes}
-              onNavigate={navigateToFolder}
+              onFolderClick={navigateToFolder}
+              onRefresh={refreshCurrentListing}
             />
-          </div>
+          )}
 
-          {/* Unified search bar (replaces old split scope toggle + content panel) */}
-          <UnifiedFileSearch
-            key={`${data.nodeIdFilter}:${data.currentPath}:${data.searchScope}`}
-            initialScope={data.searchScope}
-            searchInput={searchInput}
-            inputRef={searchInputRef}
-            onSearchInputChange={setSearchInput}
-            onFilenameSearch={(scope) => {
-              void fetchFiles(data.currentPath, searchInput, scope, data.nodeIdFilter, {
-                resetSelection: true,
-              });
-            }}
-            nodeId={data.nodeIdFilter || undefined}
-            searchPath={data.currentPath || undefined}
-          />
-
-          {data.searchQuery ? (
-            <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              {t("filesBrowserSpa.searchResults", { query: data.searchQuery, scope: data.searchScope === "all" ? t("filesBrowserSpa.searchInAllFiles") : t("filesBrowserSpa.searchInCurrentFolder"), count: data.stats.totalItems })}
-            </p>
+          {!contentActive && data.pagination && data.pagination.totalItems > 0 ? (
+            <footer className="mt-auto border-t border-[var(--border-subtle)] px-3 py-2 sm:px-4">
+              {data.pagination.totalItems > data.pagination.pageSize || data.pagination.page > 1 ? (
+                <Pagination page={data.pagination.page} pageSize={data.pagination.pageSize} totalItems={data.pagination.totalItems} loading={loading}
+                  onPageChange={(page) => { void fetchFiles(data.currentPath, data.searchQuery, data.searchScope, data.nodeIdFilter, { page, history: "push" }); }}
+                  onPageSizeChange={(pageSize) => { void fetchFiles(data.currentPath, data.searchQuery, data.searchScope, data.nodeIdFilter, { page: 1, pageSize, resetSelection: true }); }}
+                />
+              ) : (
+                <p className="py-1 text-xs text-[var(--text-muted)]">{t("filesPage.list.itemCount", { count: data.pagination.totalItems })}</p>
+              )}
+            </footer>
           ) : null}
-          {data.searchQuery ? (
-            <ActionButton variant="secondary"
-              onClick={() => {
-                setSearchInput("");
-                fetchFiles(data.currentPath);
-              }} className="mt-2"
-            >
-              {t("filesBrowserSpa.clear")}
-            </ActionButton>
-          ) : null}
-
-          <Toolbar className="mt-4 !mb-0 border-t pt-3">
-            <div className="flex w-full min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {t("filesBrowserSpa.itemCountWithSource", { count: data.stats.totalItems, sources: data.sourceSummary.join(t("filesBrowserSpa.sourceListSeparator")) })}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <IconButton label={loading ? t("filesBrowserSpa.refreshing") : refreshLabel}
-                  onClick={() =>
-                    fetchFiles(
-                      data.currentPath,
-                      data.searchQuery,
-                      data.searchScope,
-                      data.nodeIdFilter,
-                    )
-                  }
-                  disabled={loading} className="disabled:opacity-60"
-                >
-                  <RefreshCw size={18} className={loading ? "animate-spin" : undefined} aria-hidden />
-                </IconButton>
-                {data.permissions.canEditLocalFiles ? (
-                  <ActionButton
-                    type="button"
-                    onClick={() => setUploadOpen(true)}
-                    disabled={loading}
-                    variant="primary"
-                    aria-haspopup="dialog">
-                    <Plus size={18} aria-hidden />
-                    {t("filesBrowserSpa.uploadFiles")}
-                  </ActionButton>
-                ) : null}
-                {data.permissions.canEditLocalFiles && data.nodes.length > 0 ? (
-                  <CreateFolderForm
-                    storageNodes={data.nodes}
-                    currentPath={data.currentPath}
-                    initialNodeId={data.nodeIdFilter || undefined}
-                    disabled={loading}
-                    onCreated={refreshCurrentListing}
-                  />
-                ) : (
-                  <ActionButton variant="secondary"
-                    disabled
-                    aria-disabled="true"
-                    title={
-                      !data.permissions.canEditLocalFiles
-                        ? t("filesBrowserSpa.cannotCreateFolderNoPermission")
-                        : t("filesBrowserSpa.cannotCreateFolderNoNode")
-                    } className="cursor-not-allowed opacity-60"
-                  >
-                    {t("filesBrowserSpa.createFolder")}
-                  </ActionButton>
-                )}
-              </div>
-            </div>
-          </Toolbar>
-
-          {/* File list with batch operations */}
-          {listError ? <KnownErrorNotice tone={data.syncWarning === listError ? "warning" : "danger"} raw={listError} className="mt-4" /> : null}
-          <FileListClient
-            selectionScopeSeed={`${selectionEpoch}\u0000${data.currentPath}\u0000${data.searchQuery}\u0000${data.searchScope}\u0000${data.nodeIdFilter ?? ""}`}
-            selectionPage={data.pagination?.page}
-            serverSort={data.pagination ? {key:data.sort ?? "name",dir:data.direction ?? "asc",onChange:(sort,direction) => {
-              void fetchFiles(data.currentPath,data.searchQuery,data.searchScope,data.nodeIdFilter,{sort,direction,page:1,resetSelection:true});
-            }} : undefined}
-            folders={data.folders}
-            files={data.files}
-            canEditLocalFiles={data.permissions.canEditLocalFiles}
-            canDelete={data.permissions.canDelete}
-            canShare={data.permissions.canShare}
-            currentPath={data.currentPath}
-            searchQuery={data.searchQuery}
-            onFolderClick={navigateToFolder}
-            onRefresh={refreshCurrentListing}
-          />
-          {data.pagination ? <Pagination page={data.pagination.page} pageSize={data.pagination.pageSize} totalItems={data.pagination.totalItems} loading={loading}
-            onPageChange={(page) => { void fetchFiles(data.currentPath,data.searchQuery,data.searchScope,data.nodeIdFilter,{page,history:"push"}); }}
-            onPageSizeChange={(pageSize) => { void fetchFiles(data.currentPath,data.searchQuery,data.searchScope,data.nodeIdFilter,{page:1,pageSize,resetSelection:true}); }}
-          /> : null}
         </div>
 
-        {/* Keep the expensive upload widget out of the browsing flow until requested. */}
-        {data.permissions.canEditLocalFiles ? (
-          <Dialog
-            size="2xl"
-            open={uploadOpen}
-            onClose={() => setUploadOpen(false)}
-            title={t("filesBrowserSpa.uploadToPath", { path: currentPathDisplay.uploadPathLabel })}
-            description={t("filesBrowserSpa.uploadDescription")}
-          >
-            <FileUploadDropzoneLazy
-              nodes={data.nodes}
-              initialNodeId={preferredUploadNode}
-              initialRelativeDir={data.currentPath}
-              uploadDir={data.currentPath}
-              title={t("filesBrowserSpa.uploadToPath", { path: currentPathDisplay.uploadPathLabel })}
-              description={t("filesBrowserSpa.uploadDescription")}
-              submitLabel={t("filesBrowserSpa.uploadSubmitLabel")}
-              pathLabel={t("filesBrowserSpa.uploadPathLabel")}
-              allowNodeSelection={true}
-              embedded
-              onUploadComplete={() => {
-                return fetchFiles(
-                  data.currentPath,
-                  data.searchQuery,
-                  data.searchScope,
-                  data.nodeIdFilter,
-                );
-              }}
-            />
-          </Dialog>
+        {dragDepth > 0 ? (
+          <div data-dropzone="" data-drag-over="" aria-hidden="true" className="pointer-events-none absolute inset-2 z-20 !min-h-0 shadow-[var(--shadow-lg)]">
+            <Upload aria-hidden />
+            <span className="text-sm font-medium">
+              {directUpload
+                ? t("filesPage.drive.dropToUpload", { path: currentPathDisplay.uploadPathLabel })
+                : t("filesPage.drive.dropChooseNode")}
+            </span>
+          </div>
         ) : null}
       </section>
-    </section>
+
+      {children}
+
+      {canEdit ? (
+        <Dialog
+          size="2xl"
+          open={uploadOpen}
+          onClose={() => setUploadOpen(false)}
+          title={t("filesBrowserSpa.uploadToPath", { path: currentPathDisplay.uploadPathLabel })}
+          description={t("filesBrowserSpa.uploadDescription")}
+        >
+          <FileUploadDropzoneLazy
+            nodes={data.nodes}
+            initialNodeId={preferredUploadNode}
+            initialRelativeDir={data.nodeIdFilter ? data.currentPath : ""}
+            uploadDir={data.nodeIdFilter ? data.currentPath : undefined}
+            title={t("filesBrowserSpa.uploadToPath", { path: currentPathDisplay.uploadPathLabel })}
+            description={t("filesBrowserSpa.uploadDescription")}
+            submitLabel={t("filesBrowserSpa.uploadSubmitLabel")}
+            pathLabel={t("filesBrowserSpa.uploadPathLabel")}
+            allowNodeSelection={true}
+            embedded
+            onUploadComplete={() => refreshCurrentListing()}
+          />
+        </Dialog>
+      ) : null}
+
+      {newFolderOpen ? (
+        <NewFolderDialog
+          onClose={() => setNewFolderOpen(false)}
+          nodes={data.nodes}
+          nodeId={data.nodeIdFilter}
+          currentPath={data.currentPath}
+          onCreated={() => void refreshCurrentListing()}
+        />
+      ) : null}
+
+      {collection ? (
+        <FileCollectionsDialog key={collection.key} open initialMode={collection.mode} onClose={() => setCollection(null)} />
+      ) : null}
     </>
   );
 }
