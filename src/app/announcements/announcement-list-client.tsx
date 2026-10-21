@@ -16,6 +16,7 @@ import { PaginatedList } from "@/components/paginated-list";
 import { EmptyState } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { announcementLevelLabel, announcementLevelTone } from "@/lib/announcement/level";
+import { MarkdownText } from "@/components/markdown-text";
 
 interface Announcement {
   id: string;
@@ -61,7 +62,7 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
         </div>
       </div>
       <h2 className="ui-title-section mt-2 break-words">{a.title}</h2>
-      <p className="mt-3 text-sm text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">{a.body}</p>
+      <MarkdownText source={a.body} className="mt-3" />
       {a.expiresAt && (
         <p className="mt-3 text-xs text-[var(--text-muted)]">{t("common.validUntil")} {formatDateTime(a.expiresAt, locale as"zh" |"en")}</p>
       )}
