@@ -109,8 +109,6 @@ const CHROME_EXEMPT = new Set([
 	"app/ai/ai-attachments-preview.tsx",
 	"app/ai/ai-empty-state.tsx",
 	"app/api-docs/api-docs-page-client.tsx",
-	"app/files/files-browser-sidebar.tsx",
-	"app/files/file-list-details-view.tsx",
 	"app/media/media-item-cover.tsx",
 	"app/settings/settings-section.tsx",
 	"app/login/page.tsx",

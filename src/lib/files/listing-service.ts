@@ -1,5 +1,6 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import type { SessionPayload } from "@/lib/auth/session";
+import { prisma } from "@/lib/db";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { listStorageNodes } from "@/lib/storage/service-nodes";
@@ -169,7 +170,11 @@ export async function getFilesListing(
   const fileIds = rows
     .filter((row) => !row.directory && row.entryId)
     .map((row) => row.entryId!);
-  const [folderCounts, entries, capabilities] = await Promise.all([
+  const preferenceIds = [
+    ...fileIds,
+    ...folderRows.flatMap((row) => (row.entryId ? [row.entryId] : [])),
+  ];
+  const [folderCounts, entries, capabilities, favoriteIds] = await Promise.all([
     queryFolderCounts([...folderRows, ...ancestorFolders]),
     fileIds.length
       ? listFileEntries(
@@ -185,6 +190,15 @@ export async function getFilesListing(
         relativePath: row.relativePath,
       })),
     }),
+    // The viewer's stars on this page, so rows show them without a request each.
+    preferenceIds.length
+      ? prisma.filePreference
+          .findMany({
+            where: { userId: session.userId, fileEntryId: { in: preferenceIds }, favorite: true },
+            select: { fileEntryId: true },
+          })
+          .then((rows) => new Set(rows.map((row) => row.fileEntryId)))
+      : Promise.resolve(new Set<string>()),
   ]);
   const virtualPath = (row: { storageNodeId: string; relativePath: string }) =>
     selectedNode
@@ -215,6 +229,7 @@ export async function getFilesListing(
       capabilities: row.relativePath
         ? (capabilities.get(getStorageAccessCapabilityKey(row) ?? "") ?? null)
         : null,
+      favorite: row.entryId ? favoriteIds.has(row.entryId) : false,
     };
   });
   const entryMap = new Map(entries.map((entry) => [entry.id, entry]));
@@ -251,6 +266,7 @@ export async function getFilesListing(
             }) ?? "",
           ) ?? null,
         updatedAt: entry.updatedAt ? String(entry.updatedAt) : null,
+        favorite: favoriteIds.has(entry.id),
       },
     ];
   });
@@ -318,6 +334,8 @@ export async function getFilesListing(
         basePath: node.driver === "LOCAL" ? node.basePath : undefined,
         isDefault: node.isDefault,
         healthStatus: node.healthStatus,
+        teamName: node.teamName ?? null,
+        fileCount: node.fileCount,
       })),
     },
   };

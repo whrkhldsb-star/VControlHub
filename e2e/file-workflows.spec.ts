@@ -7,6 +7,7 @@ import { inspectDetailLayouts } from "./helpers/detail-layouts";
 const USER = process.env.E2E_USER ?? "admin";
 const PASS = process.env.E2E_PASS ?? "admin123";
 const folder = `qa-files-${Date.now()}`;
+const fileName = "vcontrolhub-e2e.txt";
 
 async function login(page: Page) {
 	if (process.env.E2E_DIRECT_SESSION === "1") {
@@ -17,65 +18,81 @@ async function login(page: Page) {
 	await loginWithCredentials(page, USER, PASS);
 }
 
+/** Open the entry's "more" menu (the same menu as its right-click). */
+async function openMore(page: Page, name: string) {
+	await page.getByRole("button", { name: new RegExp(`^(?:更多操作|More actions) ${name.replace(/\./g, "\\.")}$`) }).first().click();
+	const menu = page.getByRole("menu", { name: new RegExp(`(?:更多操作|More actions) ${name.replace(/\./g, "\\.")}`) });
+	await expect(menu).toBeVisible();
+	return menu;
+}
+
 test("local file lifecycle: folder, upload, search, preview, share and delete", async ({ page, context }, testInfo) => {
 	test.setTimeout(240_000);
 	await login(page);
 	await page.goto("/files?nodeId=node_local_default");
-	await page.getByRole("button", { name: /新建文件夹|New folder/i }).click();
-	await page.getByLabel(/文件夹名称|Folder name/i).fill(folder);
-	await page.getByRole("button", { name: /^创建$|^Create$/i }).click();
-	await expect(page.getByRole("button", { name: new RegExp(folder) }).first()).toBeVisible({ timeout: 15_000 });
+	const drive = page.locator("[data-file-browser]");
+	await expect(drive).toBeVisible({ timeout: 15_000 });
+
+	// New folder: a dialog, not an inline form in the toolbar.
+	await drive.getByRole("button", { name: /新建文件夹|New folder/i }).click();
+	const newFolder = page.getByRole("dialog", { name: /新建文件夹|New folder/i });
+	await newFolder.getByLabel(/文件夹名称|Folder name/i).fill(folder);
+	await newFolder.getByRole("button", { name: /^创建$|^Create$/i }).click();
+	await expect(newFolder).toBeHidden({ timeout: 15_000 });
+	await expect(drive.getByRole("link", { name: folder, exact: true })).toBeVisible({ timeout: 15_000 });
+
 	const tree = page.getByRole("heading", { name: /目录树|Directory tree/i }).locator("xpath=ancestor::aside[1]");
 	if (!(await tree.isVisible())) {
 		await page.getByRole("button", { name: /展开目录树|Expand directory tree/i }).click();
 	}
 	await tree.getByRole("button", { name: folder, exact: true }).click();
 	await expect(page).toHaveURL(new RegExp(`path=${folder}`), { timeout: 15_000 });
-	const uploadSection = page.locator("[data-file-browser]");
-	await expect(uploadSection).toBeVisible({ timeout: 15_000 });
-	await expect(uploadSection).toContainText(folder);
-	await uploadSection.getByRole("button", { name: /上传文件|Upload files/i }).click();
-	const uploadDialog = page.getByRole("dialog", { name: /上传到|Upload to/i });
-	await uploadDialog.locator('input[type="file"]').first().setInputFiles(path.join(process.cwd(), "e2e/fixtures/vcontrolhub-e2e.txt"));
-	await expect(page.getByText("vcontrolhub-e2e.txt", { exact: true }).first()).toBeVisible();
-	await uploadDialog.getByRole("button", { name: /关闭|Close/i }).click();
+	await expect(drive.getByRole("navigation", { name: /面包屑|Breadcrumb/i })).toContainText(folder);
 
-	await page.getByRole("checkbox", { name: /选择 vcontrolhub-e2e.txt|Select vcontrolhub-e2e.txt/i }).first().check();
-	await page.getByRole("button", { name: /批量移动|Batch move/i }).click();
-	await page.getByRole("button", { name: /选择目标文件夹|Choose destination folder/i }).click();
-	const destinationDialog = page.getByRole("dialog", { name: /选择目标文件夹|Choose destination folder/i });
-	await expect(destinationDialog).toBeVisible();
-	const useFolder = destinationDialog.getByRole("button", { name: /选择此文件夹|Use this folder/i });
-	await expect(useFolder).toBeEnabled({ timeout: 20_000 });
+	// Upload goes straight into the open folder through the file chooser.
+	await drive.getByRole("button", { name: /^(?:上传|Upload)$/i }).click();
+	const chooserPromise = page.waitForEvent("filechooser");
+	await page.getByRole("menuitem", { name: /^(?:上传文件|Upload files)$/i }).click();
+	const chooser = await chooserPromise;
+	await chooser.setFiles(path.join(process.cwd(), "e2e/fixtures/vcontrolhub-e2e.txt"));
+	await expect(page.getByRole("region", { name: /上传任务|Uploads/i })).toBeVisible();
+	await expect(drive.getByRole("link", { name: fileName, exact: true })).toBeVisible({ timeout: 30_000 });
+
+	// Selecting shows the selection bar; moving opens a folder browser.
+	await page.getByRole("checkbox", { name: new RegExp(`(?:选择|Select) ${fileName}`) }).check();
+	const bar = page.getByRole("region", { name: /文件批量操作|File batch actions/i });
+	await expect(bar).toContainText(/已选 1 项|1 selected/);
+	await bar.getByRole("button", { name: /移动到…|Move to…/i }).click();
+	const moveDialog = page.getByRole("dialog", { name: /^(?:移动到|Move to)$/i });
+	await expect(moveDialog).toBeVisible();
+	// The file already sits in the folder the browser opens on.
+	await expect(moveDialog.getByRole("button", { name: /移动到此处|Move here/i })).toBeDisabled({ timeout: 20_000 });
+	await moveDialog.getByRole("button", { name: /返回上一层|Go up one level/i }).click();
+	await expect(moveDialog.getByRole("button", { name: /移动到此处|Move here/i })).toBeEnabled({ timeout: 20_000 });
 	await page.screenshot({ path: testInfo.outputPath("destination-desktop.png") });
 	await page.setViewportSize({ width: 390, height: 844 });
-	const pickerBox = await destinationDialog.boundingBox();
+	const pickerBox = await moveDialog.boundingBox();
 	expect(pickerBox).not.toBeNull();
 	expect(pickerBox!.x).toBeGreaterThanOrEqual(0);
 	expect(pickerBox!.x + pickerBox!.width).toBeLessThanOrEqual(390);
 	await page.screenshot({ path: testInfo.outputPath("destination-mobile.png") });
-	await useFolder.click();
-	await expect(page.getByRole("textbox", { name: /批量移动目标路径|Batch move target path/i })).toHaveValue(".");
-	await page.getByRole("region", { name: /文件批量操作|File batch actions/i }).getByRole("button", { name: /取消|Cancel/i }).click();
-	await page.getByRole("button", { name: /取消选择|Clear selection/i }).click();
+	await moveDialog.getByRole("button", { name: /^(?:取消|Cancel)$/i }).click();
+	await bar.getByRole("button", { name: /取消选择|Clear selection/i }).click();
+	await expect(bar).toBeHidden();
 	await page.setViewportSize({ width: 1280, height: 720 });
 
 	const search = page.locator("#files-search-query");
 	await search.fill("vcontrolhub-e2e");
 	await search.press("Enter");
-	await expect(page.getByText("vcontrolhub-e2e.txt", { exact: true }).first()).toBeVisible();
-	await page.getByRole("button", { name: /图标视图|Grid view/i }).click();
-	await page.getByRole("button", { name: /详情视图|Details view/i }).click();
+	await expect(drive.getByRole("link", { name: fileName, exact: true })).toBeVisible();
+	await page.getByRole("button", { name: /图标视图|Grid view|Icon view/i }).click();
+	await expect(page.getByTestId("file-card").first()).toBeVisible();
 	await page.getByRole("button", { name: /列表视图|List view/i }).click();
+	await expect(page.getByTestId("file-table")).toBeVisible();
 
-	const detailButton = page.getByRole("button", {
-		name: /资料详情 vcontrolhub-e2e\.txt|File details vcontrolhub-e2e\.txt/i,
-	}).first();
-	await detailButton.hover();
-	await detailButton.click();
-	const detailDialog = page.getByRole("dialog", {
-		name: "vcontrolhub-e2e.txt",
-	});
+	// Details: a right-hand drawer that stays put, edge to edge on phones.
+	await (await openMore(page, fileName)).getByRole("menuitem", { name: /资料详情|File details/i }).click();
+	const detailDialog = page.getByRole("dialog", { name: fileName });
 	await expect(detailDialog).toBeVisible();
 	await expect(detailDialog).toHaveAttribute("data-motion", "drawer");
 	expect(await detailDialog.evaluate((dialog) => ({
@@ -87,9 +104,7 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	for (let index = 0; index < 12; index += 1) {
 		const box = await detailDialog.boundingBox();
 		expect(box).not.toBeNull();
-		detailPositions.push(
-			`${Math.round(box!.x)}:${Math.round(box!.y)}:${Math.round(box!.width)}:${Math.round(box!.height)}`,
-		);
+		detailPositions.push(`${Math.round(box!.x)}:${Math.round(box!.y)}:${Math.round(box!.width)}:${Math.round(box!.height)}`);
 		await page.waitForTimeout(100);
 	}
 	expect(new Set(detailPositions).size, `detail drawer moved: ${detailPositions.join(", ")}`).toBe(1);
@@ -97,7 +112,7 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	await expect(detailDialog).toBeHidden();
 
 	await page.setViewportSize({ width: 390, height: 844 });
-	await detailButton.click();
+	await (await openMore(page, fileName)).getByRole("menuitem", { name: /资料详情|File details/i }).click();
 	await expect(detailDialog).toBeVisible();
 	await page.waitForTimeout(250);
 	const mobileBox = await detailDialog.boundingBox();
@@ -110,21 +125,17 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	await detailDialog.getByRole("button", { name: /关闭|Close/i }).click();
 	await page.setViewportSize({ width: 1280, height: 720 });
 
-	const fileLink = page.getByRole("link", { name: "vcontrolhub-e2e.txt", exact: true });
-	await fileLink.click();
+	// Text files open on the preview page; its back button returns to this folder.
+	await drive.getByRole("link", { name: fileName, exact: true }).click();
 	await expect(page).toHaveURL(/\/files\/preview/);
 	await expect(page.locator("body")).toContainText("VControlHub browser E2E fixture");
 	await inspectDetailLayouts(page, testInfo, "file-preview");
-	await page.goto(`/files?nodeId=node_local_default&path=${encodeURIComponent(folder)}`);
+	await page.getByRole("link", { name: /返回文件|Back to files/i }).click();
+	await expect(page).toHaveURL(new RegExp(`path=${folder}`), { timeout: 15_000 });
 
-	const fileRow = page.getByRole("link", { name: "vcontrolhub-e2e.txt", exact: true }).locator("xpath=ancestor::div[contains(@class,'grid-cols')][1]");
-	await fileRow.getByRole("button", { name: /更多操作 vcontrolhub-e2e\.txt|More actions vcontrolhub-e2e\.txt/i }).click();
-	const moreActions = page.getByRole("group", { name: /更多操作 vcontrolhub-e2e\.txt|More actions vcontrolhub-e2e\.txt/i });
-	await expect(moreActions).toBeVisible();
 	const shareResponsePromise = page.waitForResponse((response) => response.url().endsWith("/api/share-links") && response.request().method() === "POST");
-	await moreActions.getByRole("button", { name: /^分享$|^Share$/i }).click();
-	// Quick share is destructive (creates a public link), so it asks for an
-	// explicit acknowledgement first. The dialog is portalled to <body>.
+	await (await openMore(page, fileName)).getByRole("menuitem", { name: /^分享$|^Share$/i }).click();
+	// Quick share creates a public link, so it asks for an explicit acknowledgement first.
 	const shareDialog = page.getByRole("dialog", { name: /创建临时公开分享|Create a temporary public share/i });
 	await expect(shareDialog).toBeVisible();
 	await shareDialog.getByRole("button", { name: /创建临时链接|Create temporary link/i }).click();
@@ -132,30 +143,25 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	expect(shareResponse.status()).toBe(201);
 	const { token } = await shareResponse.json() as { token: string };
 	const shareUrl = new URL(`/share/${token}`, page.url()).toString();
-	await expect(moreActions.locator("code")).toContainText(shareUrl);
+	await expect(shareDialog.locator("code")).toContainText(shareUrl);
 	const publicPage = await context.newPage();
 	await publicPage.goto(shareUrl);
-	await expect(publicPage.locator("body")).toContainText("vcontrolhub-e2e.txt");
+	await expect(publicPage.locator("body")).toContainText(fileName);
 	await inspectDetailLayouts(publicPage, testInfo, "public-share");
 	await expect(publicPage.locator("main")).not.toContainText(/[🔒📁📦⬇]/u);
 	await expect(publicPage.getByRole("link", { name: /下载文件|Download file/i })).toHaveAttribute("download", "");
 	const downloadPromise = publicPage.waitForEvent("download", { timeout: 15000 });
 	await publicPage.getByRole("link", { name: /下载文件|Download file/i }).click();
 	const download = await downloadPromise;
-	expect(download.suggestedFilename()).toBe("vcontrolhub-e2e.txt");
+	expect(download.suggestedFilename()).toBe(fileName);
 	expect(await publicPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 	await publicPage.close();
-	await moreActions.getByRole("button", { name: /关闭|Close/i }).click();
+	await shareDialog.getByRole("button", { name: /^完成$|^Done$/i }).click();
+	await expect(shareDialog).toBeHidden();
 
-	if (!(await moreActions.isVisible().catch(() => false))) {
-		await fileRow.getByRole("button", { name: /更多操作 vcontrolhub-e2e\.txt|More actions vcontrolhub-e2e\.txt/i }).click();
-	}
-	await moreActions.getByRole("button", { name: /删除|Delete/i }).click();
-	// Delete now confirms through the shared ConfirmDialog, which is portalled
-	// to <body> (exactly like the share dialog above) instead of expanding an
-	// inline confirm inside the row's action group.
+	await (await openMore(page, fileName)).getByRole("menuitem", { name: /^删除$|^Delete$/i }).click();
 	const deleteDialog = page.getByRole("dialog", { name: /删除|Delete/i });
 	await expect(deleteDialog).toBeVisible();
 	await deleteDialog.getByRole("button", { name: /^确认$|^Confirm$/i }).click();
-	await expect(page.getByRole("link", { name: "vcontrolhub-e2e.txt", exact: true })).toBeHidden();
+	await expect(drive.getByRole("link", { name: fileName, exact: true })).toBeHidden({ timeout: 15_000 });
 });

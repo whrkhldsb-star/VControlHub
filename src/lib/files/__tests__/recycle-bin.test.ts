@@ -31,7 +31,7 @@ const session: Parameters<typeof getRecycleBinPage>[0] = {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.count.mockResolvedValue(1208);
-  mocks.findMany.mockResolvedValue([{ id: "last-deleted-file" }]);
+  mocks.findMany.mockResolvedValue([{ id: "last-deleted-file", updatedAt: new Date("2026-10-20T06:31:00Z"), storageNode: { name: "本机存储" } }]);
   mocks.transaction.mockImplementation((callback) =>
     callback({ fileEntry: { count: mocks.count, findMany: mocks.findMany } }),
   );
@@ -67,6 +67,8 @@ describe("Recycle bin pagination", () => {
       }),
     );
     expect(result.pagination).toEqual({ page: 25, pageSize: 50, totalItems: 1208, totalPages: 25 });
+    // Each row says where it came from and when it was deleted.
+    expect(result.entries).toEqual([{ id: "last-deleted-file", deletedAt: new Date("2026-10-20T06:31:00Z"), storageNodeName: "本机存储" }]);
   });
   it("clamps a deleted last page using the count from the same snapshot", async () => {
     mocks.count.mockResolvedValue(50);

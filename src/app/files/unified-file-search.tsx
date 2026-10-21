@@ -24,18 +24,110 @@ type ContentSearchResponse = {
 	truncated: boolean;
 };
 
+export type ContentSearchState = {
+	results: ContentSearchHit[];
+	loading: boolean;
+	error: string;
+	truncated: boolean;
+	/** The query the shown results answer; "" before the first search. */
+	lastQuery: string;
+};
+
 /**
- * Unified search bar for the files browser.
- *
- * Replaces the old split between `SearchScopeToggle` + filename form +
- * `ContentSearchPanel` toggle. Users now see a single search input with
- * a clear mode selector: "文件名" (filename) vs "内容" (content), and for
- * filename mode a scope selector: "当前目录" vs "全部".
- *
- * - In **filename** mode, pressing Enter / Search delegates to the parent's
- *   `onFilenameSearch` callback (which calls `fetchFiles` with the query).
- * - In **content** mode, pressing Enter / Search fetches content results
- *   directly from `/api/files/search-content` and displays snippets.
+ * Full-text search requests. A newer search, `reset` and unmount each abort
+ * the request in flight, and an answer that arrives late is dropped, so the
+ * results always belong to the newest query.
+ */
+export function useContentSearch({ nodeId, searchPath }: { nodeId?: string; searchPath?: string }) {
+	const { t } = useI18n();
+	const [state, setState] = useState<ContentSearchState>({ results: [], loading: false, error: "", truncated: false, lastQuery: "" });
+	const abortRef = useRef<AbortController | null>(null);
+	const requestRef = useRef(0);
+
+	const reset = useCallback(() => {
+		abortRef.current?.abort();
+		requestRef.current += 1;
+		setState({ results: [], loading: false, error: "", truncated: false, lastQuery: "" });
+	}, []);
+
+	useEffect(() => () => {
+		abortRef.current?.abort();
+		requestRef.current += 1;
+	}, []);
+
+	const run = useCallback((query: string) => {
+		abortRef.current?.abort();
+		const controller = new AbortController();
+		abortRef.current = controller;
+		const requestId = ++requestRef.current;
+		setState({ results: [], loading: true, error: "", truncated: false, lastQuery: query });
+		void (async () => {
+			try {
+				const params = new URLSearchParams({ q: query });
+				if (nodeId) params.set("nodeId", nodeId);
+				if (searchPath) params.set("path", searchPath);
+				const data: ContentSearchResponse = await csrfFetch(`/api/files/search-content?${params}`, { signal: controller.signal });
+				if (requestId !== requestRef.current) return;
+				setState({ results: data.results, loading: false, error: "", truncated: data.truncated, lastQuery: query });
+			} catch (error) {
+				if (error instanceof Error && error.name === "AbortError") return;
+				if (requestId !== requestRef.current) return;
+				setState({ results: [], loading: false, error: t("filesBrowserSpa.contentSearchError"), truncated: false, lastQuery: query });
+			}
+		})();
+	}, [nodeId, searchPath, t]);
+
+	return { state, run, reset };
+}
+
+/** Matches of a content search, with their snippets. */
+export function ContentSearchResults({ state, onOpen }: {
+	state: ContentSearchState;
+	/** Open the folder of a hit; without it the hits are plain text. */
+	onOpen?: (hit: ContentSearchHit) => void;
+}) {
+	const { t } = useI18n();
+	if (state.error) return <Notice tone="danger" compact>{state.error}</Notice>;
+	if (!state.loading && state.lastQuery && state.results.length === 0) {
+		return <p className="text-xs text-[var(--text-muted)]">{t("filesBrowserSpa.contentSearchNoResults", { query: state.lastQuery })}</p>;
+	}
+	if (state.results.length === 0) return null;
+	return (
+		<div className="space-y-2">
+			<p className="text-xs text-[var(--text-secondary)]">
+				{t("filesBrowserSpa.contentSearchResults", { query: state.lastQuery, count: state.results.length })}
+				{state.truncated ? t("filesBrowserSpa.contentSearchTruncated") : ""}
+			</p>
+			{state.results.map((hit, idx) => (
+				<div key={`${hit.nodeId}-${hit.relativePath}-${idx}`} data-inset className="p-3">
+					<div className="mb-1.5 flex min-w-0 items-center gap-2">
+						<StatusBadge size="sm" tone="neutral">{hit.nodeName}</StatusBadge>
+						{onOpen ? (
+							<button type="button" onClick={() => onOpen(hit)} className="min-w-0 truncate text-left text-sm font-medium text-[var(--text-primary)] hover:text-[var(--accent)]">
+								{hit.relativePath || hit.filePath}
+							</button>
+						) : (
+							<span className="truncate text-sm font-medium text-[var(--text-primary)]">{hit.relativePath || hit.filePath}</span>
+						)}
+					</div>
+					<div className="space-y-1">
+						{hit.snippets.map((snippet, i) => (
+							<pre key={i} className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] p-2 font-mono text-xs text-[var(--text-secondary)]">
+								{snippet}
+							</pre>
+						))}
+					</div>
+				</div>
+			))}
+		</div>
+	);
+}
+
+/**
+ * Unified search bar for the search subpage: one input, a mode selector
+ * (filename / content) and, for filenames, a scope selector (current folder /
+ * everything). Filename searches go to `onFilenameSearch`; content searches
+ * run here and list their matches below.
  */
 export function UnifiedFileSearch({
 	searchInput,
@@ -58,84 +150,17 @@ export function UnifiedFileSearch({
 	const { t } = useI18n();
 	const [mode, setMode] = useState<"filename" | "content">("filename");
 	const [scope, setScope] = useState<"current" | "all">(initialScope);
-	const [contentResults, setContentResults] = useState<ContentSearchHit[]>([]);
-	const [contentLoading, setContentLoading] = useState(false);
-	const [contentError, setContentError] = useState("");
-	const [contentTruncated, setContentTruncated] = useState(false);
-	const [lastQuery, setLastQuery] = useState("");
-	const contentSearchAbortRef = useRef<AbortController | null>(null);
-	const contentSearchRequestRef = useRef(0);
+	const content = useContentSearch({ nodeId, searchPath });
 
 	const changeMode = (nextMode: "filename" | "content") => {
 		if (nextMode === mode) return;
-		contentSearchAbortRef.current?.abort();
-		contentSearchRequestRef.current += 1;
-		setContentLoading(false);
-		setContentError("");
-		setContentResults([]);
-		setLastQuery("");
+		content.reset();
 		setMode(nextMode);
 	};
 
-	useEffect(() => () => {
-		contentSearchAbortRef.current?.abort();
-		contentSearchRequestRef.current += 1;
-	}, []);
-
-	const handleSearch = useCallback(
-		(e: React.FormEvent) => {
-			e.preventDefault();
-			const query = searchInput.trim();
-			if (!query) return;
-
-			if (mode === "filename") {
-				onFilenameSearch(scope);
-				return;
-			}
-
-			// Content search: cancel the previous request so rapid searches cannot
-			// let an older result overwrite the latest query.
-			contentSearchAbortRef.current?.abort();
-			const controller = new AbortController();
-			contentSearchAbortRef.current = controller;
-			const requestId = ++contentSearchRequestRef.current;
-			setContentLoading(true);
-			setContentError("");
-			setContentResults([]);
-			setLastQuery(query);
-
-			(async () => {
-				try {
-					const params = new URLSearchParams({ q: query });
-					if (nodeId) params.set("nodeId", nodeId);
-					if (searchPath) params.set("path", searchPath);
-
-					const data: ContentSearchResponse = await csrfFetch(
-						`/api/files/search-content?${params}`,
-						{ signal: controller.signal },
-					);
-					if (requestId !== contentSearchRequestRef.current) return;
-					setContentResults(data.results);
-					setContentTruncated(data.truncated);
-				} catch (error) {
-					if (error instanceof Error && error.name === "AbortError") return;
-					if (requestId !== contentSearchRequestRef.current) return;
-					setContentError(t("filesBrowserSpa.contentSearchError"));
-				} finally {
-					if (requestId === contentSearchRequestRef.current) {
-						setContentLoading(false);
-					}
-				}
-			})();
-		},
-		[searchInput, mode, scope, onFilenameSearch, nodeId, searchPath, t],
-	);
-
 	return (
 		<div className="space-y-3">
-			{/* Mode + scope selector row */}
 			<div className="flex flex-wrap items-center gap-2">
-				{/* Mode toggle: filename vs content */}
 				<SegmentedControl
 					size="sm"
 					ariaLabel={t("filesBrowserSpa.searchModeLabel")}
@@ -146,8 +171,6 @@ export function UnifiedFileSearch({
 						{ value: "content", label: t("filesBrowserSpa.searchModeContent") },
 					]}
 				/>
-
-				{/* Scope toggle: only visible in filename mode */}
 				{mode === "filename" && (
 					<SegmentedControl
 						size="sm"
@@ -162,13 +185,19 @@ export function UnifiedFileSearch({
 				)}
 			</div>
 
-			{/* Search input + button */}
-			<form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+			<form
+				onSubmit={(event) => {
+					event.preventDefault();
+					const query = searchInput.trim();
+					if (!query) return;
+					if (mode === "filename") onFilenameSearch(scope);
+					else content.run(query);
+				}}
+				className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3"
+			>
 				<div className="flex flex-1 flex-col gap-1">
 					<label htmlFor="files-search-query" className={UI_LABEL}>
-						{mode === "filename"
-							? t("filesBrowserSpa.searchFileName")
-							: t("filesBrowserSpa.searchModeContent")}
+						{mode === "filename" ? t("filesBrowserSpa.searchFileName") : t("filesBrowserSpa.searchModeContent")}
 					</label>
 					<input
 						ref={inputRef}
@@ -187,63 +216,12 @@ export function UnifiedFileSearch({
 						className={cn(UI_INPUT, "px-4")}
 					/>
 				</div>
-				<ActionButton variant="primary"
-					type="submit"
-
-					
-					disabled={!searchInput.trim() || contentLoading}>
-					{contentLoading && mode === "content"
-						? t("filesBrowserSpa.contentSearching")
-						: t("filesBrowserSpa.searchLabel")}
+				<ActionButton variant="primary" type="submit" disabled={!searchInput.trim() || content.state.loading}>
+					{content.state.loading && mode === "content" ? t("filesBrowserSpa.contentSearching") : t("filesBrowserSpa.searchLabel")}
 				</ActionButton>
 			</form>
 
-			{/* Content search results */}
-			{mode === "content" && contentError && (
-				<Notice tone="danger" compact>
-					{contentError}
-				</Notice>
-			)}
-
-			{mode === "content" && contentResults.length > 0 && (
-				<div className="space-y-2">
-					<p className="text-xs text-[var(--text-secondary)]">
-						{t("filesBrowserSpa.contentSearchResults", { query: lastQuery, count: contentResults.length })}
-						{contentTruncated ? t("filesBrowserSpa.contentSearchTruncated") : ""}
-					</p>
-					{contentResults.map((hit, idx) => (
-						<div
-							key={`${hit.nodeId}-${hit.relativePath}-${idx}`}
-						 data-inset className="p-3"
-						>
-							<div className="mb-1.5 flex items-center gap-2">
-								<StatusBadge size="sm" tone="neutral">
-									{hit.nodeName}
-								</StatusBadge>
-								<span className="truncate text-sm font-medium text-[var(--text-primary)]">
-									{hit.relativePath || hit.filePath}
-								</span>
-							</div>
-							<div className="space-y-1">
-								{hit.snippets.map((snippet, i) => (
-									<pre
-										key={i}
-										className="overflow-x-auto rounded-lg bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] p-2 text-xs text-[var(--text-secondary)] font-mono whitespace-pre-wrap"
-									>
-										{snippet}
-									</pre>
-								))}
-							</div>
-						</div>
-					))}
-				</div>
-			)}
-
-			{mode === "content" && !contentLoading && contentResults.length === 0 && lastQuery && !contentError && (
-				<p className="text-xs text-[var(--text-muted)]">
-					{t("filesBrowserSpa.contentSearchNoResults", { query: lastQuery })}
-				</p>
-			)}
+			{mode === "content" ? <ContentSearchResults state={content.state} /> : null}
 		</div>
 	);
 }

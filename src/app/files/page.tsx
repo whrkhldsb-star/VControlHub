@@ -57,15 +57,14 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         title={t("filesPage.title", locale)}
         description={t("filesPage.description", locale)}
       >
-        <FilesMoreNav />
-      </PageHeader>
-      <FilesBrowserSpa key={browserSnapshotKey} initialData={initialData}>
         <StorageNodeManager
           nodes={nodes}
           servers={formOptions.servers}
           canManageNodes={canManageNodes}
         />
-      </FilesBrowserSpa>
+        <FilesMoreNav />
+      </PageHeader>
+      <FilesBrowserSpa key={browserSnapshotKey} initialData={initialData} />
     </PageShell>
   );
 }

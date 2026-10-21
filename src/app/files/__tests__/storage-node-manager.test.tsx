@@ -36,7 +36,8 @@ describe("StorageNodeManager", () => {
       { locale: "en" },
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Expand" }));
+    fireEvent.click(screen.getByRole("button", { name: "Storage nodes" }));
+    expect(screen.getByRole("dialog", { name: "Storage nodes" })).toBeVisible();
     fireEvent.change(screen.getByLabelText("Driver"), {
       target: { value: "SFTP" },
     });

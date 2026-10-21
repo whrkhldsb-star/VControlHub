@@ -98,7 +98,12 @@ describe("file-entry-utils", () => {
 			directAccessHref: "/api/storage/local?path=photo.jpg",
 			relativePath: "photo.jpg",
 		});
-		expect(getThumbnailUrl(imageEntry)).toBe("/api/storage/local?path=photo.jpg&nodeId=node_local");
+		// The grid asks the server for a small JPEG, never the original image.
+		// The modification time versions the URL, so an edited image is not served stale.
+		expect(getThumbnailUrl(imageEntry)).toBe("/api/files/file_1/thumbnail?v=2026-05-04T00%3A00%3A00.000Z");
+		expect(getThumbnailUrl({ ...imageEntry, updatedAt: undefined })).toBe("/api/files/file_1/thumbnail");
+		expect(getThumbnailUrl(entry)).toBeNull();
+		expect(getThumbnailUrl({ ...imageEntry, storageNode: { ...imageEntry.storageNode, driver: "WEBDAV" } })).toBeNull();
 	});
 
 	it("uses managed same-origin routes for previews and thumbnails even when downloads are direct", () => {
@@ -126,8 +131,6 @@ describe("file-entry-utils", () => {
 			directAccessHref: "https://cdn.example.com/photo.jpg",
 			relativePath: "photo.jpg",
 		});
-		expect(getThumbnailUrl(imageEntry)).toBe(
-			"/api/storage/sftp-download?nodeId=node_sftp&path=photo.jpg",
-		);
+		expect(getThumbnailUrl(imageEntry)).toBe("/api/files/file_1/thumbnail?v=2026-05-04T00%3A00%3A00.000Z");
 	});
 });

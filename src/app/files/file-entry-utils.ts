@@ -5,7 +5,7 @@ import {
   MARKDOWN_MIME_SET,
   OFFICE_MIME_SET,
 } from "@/lib/storage/mime-constants";
-import { formatDateTime } from "@/lib/datetime/format";
+import { formatDate as formatDay, formatDateTime, formatShortTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
 
 export type EntryCapabilities = {
@@ -49,6 +49,8 @@ export type FileProp = {
   storageNodeServerId?: string | null;
   capabilities?: EntryCapabilities | null;
   updatedAt?: string | null;
+  /** Starred by the viewer. */
+  favorite?: boolean;
 };
 
 const EXTENDED_PREVIEW_MIMES = new Set([
@@ -226,10 +228,32 @@ export function formatDate(date: Date | string | null | undefined, locale?: Loca
   return formatDateTime(date, locale ?? "zh");
 }
 
-export function getThumbnailUrl(entry: StorageEntry): string | null {
-  const mime = entry.mimeType ?? "";
+/**
+ * Modification time for drive rows: date and minutes, no seconds. It never
+ * depends on "now" ("today", "3 hours ago"), so the server render and the
+ * hydrating browser always print the same text.
+ */
+export function formatEntryTime(date: Date | string | null | undefined, locale: Locale = "zh"): string {
+  const day = formatDay(date, locale, "");
+  return day ? `${day} ${formatShortTime(date, locale, "")}`.trim() : "—";
+}
+
+/** Just the date, for grid tiles. */
+export function formatEntryDay(date: Date | string | null | undefined, locale: Locale = "zh"): string {
+  return formatDay(date, locale, "—");
+}
+
+/**
+ * A server-made thumbnail for images on nodes the server can read (local
+ * disk, SFTP). WebDAV images and every other type show their type icon: the
+ * grid must never pull full-size originals for each tile.
+ */
+export function getThumbnailUrl(entry: Pick<StorageEntry, "id" | "mimeType" | "storageNode" | "updatedAt">): string | null {
+  const mime = (entry.mimeType ?? "").toLowerCase();
   if (!mime.startsWith("image/")) return null;
-  return buildProxyDownloadHref(entry);
+  if (entry.storageNode.driver !== "LOCAL" && entry.storageNode.driver !== "SFTP") return null;
+  const version = entry.updatedAt ? `?v=${encodeURIComponent(String(entry.updatedAt))}` : "";
+  return `/api/files/${encodeURIComponent(entry.id)}/thumbnail${version}`;
 }
 
 /**

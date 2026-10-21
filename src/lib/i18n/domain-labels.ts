@@ -42,3 +42,23 @@ export function getStorageDriverLabel(t: Translator, driver: string): string {
   }[driver.trim().toUpperCase()];
   return key ? t(key) : driver;
 }
+
+/** How a file of this driver reaches the browser, in the viewer's language. */
+export function getStorageAccessLabel(t: Translator, driver: string, mode: string): string {
+  const key = driver === "LOCAL"
+    ? "common.storageAccess.local"
+    : driver === "WEBDAV"
+      ? "common.storageAccess.webdav"
+      : mode === "direct-url"
+        ? "common.storageAccess.sftpDirect"
+        : "common.storageAccess.sftpProxy";
+  return t(key);
+}
+
+/** Where a storage node keeps its files, in the viewer's language. */
+export function getStorageConnectionLabel(t: Translator, node: { driver: string; basePath: string; host?: string | null; port?: number | null; username?: string | null }): string {
+  if (node.driver === "LOCAL") return t("common.storageConnection.local", { path: node.basePath });
+  if (node.driver === "WEBDAV") return t("common.storageConnection.webdav", { path: node.basePath });
+  const remote = node.host ? `${node.username ?? "root"}@${node.host}:${node.port ?? 22}` : t("common.storageConnection.boundServer");
+  return t("common.storageConnection.sftp", { remote, path: node.basePath });
+}

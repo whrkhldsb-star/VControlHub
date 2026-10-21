@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/page-shell";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { StorageNodeEditForm } from "./storage-node-edit-form";
 import { StorageNodeDeleteButton } from "./storage-node-delete-button";
-import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
+import { getStorageAccessLabel, getStorageConnectionLabel, getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import type { StorageNodeFieldValues } from "./storage-node-fields";
 import { Badge } from "@/components/ui-primitives";
 
@@ -117,7 +117,7 @@ function StorageNodeCard({
 						<h3 className="ui-title-section">{node.name}</h3>
 						{node.teamName ? <Badge tone="neutral">{node.teamName}</Badge> : null}
 					</div>
-					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{node.connectionSummary}</p>
+					<p className="mt-2 break-all text-sm leading-7 text-[var(--text-secondary)]">{getStorageConnectionLabel(t, node)}</p>
 				</div>
 					<div className="flex items-center gap-2">
 						<StatusBadge tone="neutral" className="!rounded-lg px-3 py-1 !text-sm">
@@ -148,10 +148,10 @@ function StorageNodeCard({
 			<p className="mt-3 text-sm text-[var(--text-primary)]">
 				{node.directAccess.href ? (
 					<a href={node.directAccess.href} target="_blank" rel="noopener noreferrer" className="underline decoration-[var(--color-action)]/30 underline-offset-2 hover:text-[var(--text-primary)]">
-						{node.directAccess.description}
+						{getStorageAccessLabel(t, node.driver, node.directAccess.mode)}
 					</a>
 				) : (
-					node.directAccess.description
+					getStorageAccessLabel(t, node.driver, node.directAccess.mode)
 				)}
 			</p>
 			<div data-inset className="mt-4 p-4 text-sm text-[var(--text-secondary)]">
