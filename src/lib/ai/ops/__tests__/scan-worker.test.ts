@@ -63,6 +63,11 @@ vi.mock("@/lib/health/service-alerts", () => ({
   evaluateAlerts: vi.fn(async () => ({ evaluated: true })),
 }));
 
+const platformLocale = vi.hoisted(() => ({ value: "zh" as "zh" | "en" }));
+vi.mock("@/lib/settings/platform-defaults", () => ({
+  getPlatformDefaults: async () => ({ locale: platformLocale.value, theme: "dark" }),
+}));
+
 vi.mock("@/lib/settings/service", () => ({
   getSetting: getSettingMock,
 }));
@@ -345,6 +350,27 @@ describe("runAiOpsScanWorkerOnce", () => {
     );
     expect(jobMocks.failJob).not.toHaveBeenCalled();
   });
+  it("tells the provider which checks ran and answers in the platform language", async () => {
+    getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "recommendation");
+    providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "glm-5.3" });
+    sendChatRequestMock.mockResolvedValue({ providerType: "OPENAI_COMPATIBLE", response: { json: async () => ({ choices: [{ message: { content: "所有检查均通过。" } }] }) } });
+    await runAiOpsScanWorkerOnce("manual");
+    const request = sendChatRequestMock.mock.calls[0]![0] as { messages: Array<{ role: string; content: string }> };
+    const payload = JSON.parse(request.messages[1]!.content) as { checks: string[]; signals: unknown[] };
+    // A healthy scan sends no signals: the checks say what that silence means.
+    expect(payload.signals).toEqual([]);
+    expect(payload.checks.length).toBeGreaterThanOrEqual(7);
+    expect(payload.checks.some((check) => check.includes("Backups"))).toBe(true);
+    expect(request.messages[0]!.content).toContain("An empty `signals` list means every check passed");
+    expect(request.messages[0]!.content).toContain("Simplified Chinese");
+
+    platformLocale.value = "en";
+    sendChatRequestMock.mockClear();
+    await runAiOpsScanWorkerOnce("manual");
+    expect((sendChatRequestMock.mock.calls[0]![0] as { messages: Array<{ content: string }> }).messages[0]!.content).toContain("Write the answer in English.");
+    platformLocale.value = "zh";
+  });
+
   it("gives reasoning models room to answer and reports a budget spent on thinking", async () => {
     getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "recommendation");
     providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "glm-5.3" });
