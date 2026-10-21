@@ -28,7 +28,8 @@ describe("FolderBrowser", () => {
     renderWithI18n(<Harness onReady={onReady} />);
     await screen.findByRole("button", { name: "Documents" });
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/files/list?nodeId=node-1&page=1&pageSize=50");
-    expect(onReady).toHaveBeenLastCalledWith(true);
+    // Readiness is reported from an effect after that render.
+    await waitFor(() => expect(onReady).toHaveBeenLastCalledWith(true));
   });
 
   it("navigates down and back up without changing the storage node", async () => {
@@ -52,7 +53,8 @@ describe("FolderBrowser", () => {
     expect(onReady).toHaveBeenLastCalledWith(false);
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
     await screen.findByRole("button", { name: "Documents" });
-    expect(onReady).toHaveBeenLastCalledWith(true);
+    // Readiness is reported from an effect after that render.
+    await waitFor(() => expect(onReady).toHaveBeenLastCalledWith(true));
   });
 
   it("paginates folders without repeatedly syncing the remote node", async () => {
