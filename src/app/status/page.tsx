@@ -48,7 +48,8 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
 async function ClosedBoard({ signedIn, isAdmin, locale }: { signedIn: boolean; isAdmin: boolean; locale: Awaited<ReturnType<typeof getServerLocale>> }) {
   const status = await getPublicStatusSummary();
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    // Visitors get a centred reading column; inside the console it lines up with the sections below.
+    <div className={signedIn ? "w-full" : "mx-auto w-full max-w-3xl"}>
       <PageHeader eyebrow={t("statusPage.eyebrow", locale)} title={t("statusPage.title", locale)} description={t("statusPage.desc", locale)}>
         {isAdmin ? (
           <ButtonLink href="/public-status" variant="outline" size="sm">{t("statusPage.manageBoard", locale)}</ButtonLink>
@@ -56,7 +57,7 @@ async function ClosedBoard({ signedIn, isAdmin, locale }: { signedIn: boolean; i
           <ButtonLink href="/login?next=%2F" variant="primary" size="sm">{t("statusPage.signIn", locale)}</ButtonLink>
         ) : null}
       </PageHeader>
-      <div data-card className="mt-6 p-5">
+      <div data-card className="p-5">
         <div className="flex items-center gap-3">
           <span className={`inline-block h-3 w-3 rounded-full ${healthDotClass(status.summary.overall)}`} />
           <span className="text-lg font-medium text-[var(--text-primary)]">

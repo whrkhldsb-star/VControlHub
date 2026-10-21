@@ -15,6 +15,7 @@ import { formatDateTime } from "@/lib/datetime/format";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { PaginatedList } from "@/components/paginated-list";
 import { Disclosure } from "@/components/ui/disclosure";
+import { Notice } from "@/components/ui-primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -146,12 +147,11 @@ export default async function RequestsPage() {
 			eyebrow={t("requestsPage.eyebrow", locale)}
 			title={t("requestsPage.title", locale)}
 			description={t("requestsPage.desc", locale)}
-		>
-				<div className="max-w-sm text-left">
-					<div className="text-xs font-medium text-[var(--text-secondary)]">{t("requestsPage.workflowNote.title", locale)}</div>
-					<div className="mt-1 text-xs text-[var(--text-muted)]">{t("requestsPage.workflowNote.desc", locale)}</div>
-				</div>
-			</PageHeader>
+		/>
+			{/* How the two approval chains work: a note under the header, not text in the action slot. */}
+			<Notice tone="info" title={t("requestsPage.workflowNote.title", locale)} className="mb-5">
+				{t("requestsPage.workflowNote.desc", locale)}
+			</Notice>
 
 			<StatGrid cols={5}>
 				<StatCard label={t("requestsPage.stat.aiPending", locale)} value={String(aiActions.length)} accent={aiActions.length > 0} accentColor="cyan" />

@@ -12,6 +12,8 @@ import { useToast } from "@/components/toast-provider";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { CheckboxField } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { EmptyState } from "@/components/page-shell";
+import { Activity, LinkIcon } from "@/components/icons";
 
 const PROVIDERS: ItsmProvider[] = ["generic_webhook", "slack", "telegram", "dingtalk", "feishu"];
 const DIRECTIONS: ItsmDirection[] = ["bidirectional", "outbound", "inbound"];
@@ -274,7 +276,7 @@ export function ItsmPageClient({
 					</ActionButton>
 				</div>
 				{connections.length === 0 ? (
-					<p className="text-sm text-[var(--text-muted)]">{t("itsmPage.list.empty")}</p>
+					<EmptyState icon={<LinkIcon size={20} />} text={t("itsmPage.list.empty")} />
 				) : (
 					<ul className="space-y-3">
 						{connections.map((row) => (
@@ -337,7 +339,7 @@ export function ItsmPageClient({
 			<section data-card className="space-y-3">
 				<h2 className="ui-title-section">{t("itsmPage.events.title")}</h2>
 				{events.length === 0 ? (
-					<p className="text-sm text-[var(--text-muted)]">{t("itsmPage.events.empty")}</p>
+					<EmptyState icon={<Activity size={20} />} text={t("itsmPage.events.empty")} />
 				) : (
 					<ul className="space-y-2 max-h-96 overflow-auto text-sm">
 						{events.map((ev) => (

@@ -11,11 +11,9 @@ import { LinkPagination } from "@/components/link-pagination";
 import {
   PageShell,
   PageHeader,
-  StatGrid,
-  StatCard,
   EmptyState,
 } from "@/components/page-shell";
-import { ImageIcon } from "@/components/icons";
+import { ImageIcon, Search as SearchIcon, Server, Star } from "@/components/icons";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { MediaScanButton } from "./media-scan-button";
 import { MediaImageUploadPanel } from "./media-image-upload-panel";
@@ -110,233 +108,188 @@ export default async function Page({
   const modeDescriptionText = modeDescription(locale, mediaType);
   return (
     <PageShell>
-      <PageHeader eyebrow={t("mediaPage.eyebrow", locale)} title={t("mediaPage.title", locale)} />
-      <StatGrid cols={3}>
-        <StatCard label={t("mediaPage.stat.image", locale)} value={imageCount} />
-        <StatCard label={t("mediaPage.stat.video", locale)} value={videoCount} />
-        <StatCard label={t("mediaPage.stat.audio", locale)} value={audioCount} />
-      </StatGrid>
-      <section className="mb-5 min-w-0 border-b border-[var(--border)] pb-4">
-        <div className="min-w-0">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase text-[var(--accent)]">
-                {t("mediaPage.workspace.label", locale)}
-              </p>
-              <h2 className="ui-title-section mt-1">
-                {modeTitleText}
-              </h2>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">
-                {modeDescriptionText}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs">
-              {mediaType ==="image" ? (
-                <ButtonLink
-                  href="/image-bed"
-                  size="sm"
-                  variant="success"
-                >
-                  {t("mediaPage.linkHub.label", locale)}
-                </ButtonLink>
-              ) : null}
-              <span
-                data-tone="cyan"
-                className="inline-flex items-center rounded-lg border border-[var(--accent-border)] px-3 py-1.5 text-[var(--text-secondary)]"
-              >
-                {t("mediaPage.viewCount", locale, { count: matchingCount })}
-              </span>
-            </div>
+      <PageHeader eyebrow={t("mediaPage.eyebrow", locale)} title={t("mediaPage.title", locale)} description={t("mediaPage.description", locale)}>
+        {canManageMedia ? <MediaScanButton /> : null}
+      </PageHeader>
+      {/* One card for "what am I looking at": the mode, its count and the type filters (which carry the totals). */}
+      <section data-card className="mb-5 min-w-0 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <p className="ui-eyebrow">{t("mediaPage.workspace.label", locale)}</p>
+            <h2 className="ui-title-section mt-0.5">{modeTitleText}</h2>
+            <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">{modeDescriptionText}</p>
           </div>
-          <div
-            role="navigation"
-            aria-label={t("mediaPage.aria.mediaType", locale)}
-            className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4"
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {mediaType ==="image" ? (
+              <ButtonLink href="/image-bed" size="sm" variant="secondary">
+                {t("mediaPage.linkHub.label", locale)}
+              </ButtonLink>
+            ) : null}
+            <Badge tone="accent">{t("mediaPage.viewCount", locale, { count: matchingCount })}</Badge>
+          </div>
+        </div>
+        <div
+          role="navigation"
+          aria-label={t("mediaPage.aria.mediaType", locale)}
+          className="mt-4 grid grid-cols-2 gap-2 text-sm lg:grid-cols-4"
+        >
+          <FilterLink
+            href={mediaHref({ favorite, q, tag })}
+            active={!mediaType}
+            activeClassName="border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--text-primary)]"
+            inactiveClassName="border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            className="rounded-[calc(var(--radius-card)-2px)] border px-4 py-3 transition"
           >
-
-            <FilterLink
-              href={mediaHref({ favorite, q, tag })}
-              active={!mediaType}
-              activeClassName="border-[var(--color-action-border)]/45 bg-[var(--color-action-bg)]/20 text-[var(--text-primary)]"
-              inactiveClassName="border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-              className="rounded-2xl border px-4 py-3 transition"
-            >
-
-              <span className="block text-base">
-                {t("mediaPage.filter.allTab", locale)}
-              </span>
-              <span className="text-xs opacity-70">
-                {t("mediaPage.filter.allCount", locale, { count: totalCount })}
-              </span>
-            </FilterLink>
-            <FilterLink
-              href={toggleTypeHref(filters,"image")}
-              active={mediaType ==="image"}
-              activeClassName="border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)]"
-              inactiveClassName="border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-              className="rounded-2xl border px-4 py-3 transition"
-              title={
-                mediaType ==="image"
-                  ? t("mediaPage.filter.titleToggleOffType", locale, { type: typeLabel(locale,"image") })
-                  : t("mediaPage.filter.titleOnlyType", locale, { type: typeLabel(locale,"image") })
-              }
-            >
-
-              <span className="flex items-center justify-between">
-                <span>{t("mediaPage.filter.imageTab", locale)}</span>
-                <span>{imageCount}</span>
-              </span>
-              <span className="mt-1 block text-xs text-[var(--text-muted)]">
-                {t("mediaPage.filter.imageDesc", locale)}
-                {mediaType ==="image"
-                  ? t("mediaPage.filter.toggleOff", locale)
-                  :""}
-              </span>
-            </FilterLink>
-            <FilterLink
-              href={toggleTypeHref(filters,"video")}
-              active={mediaType ==="video"}
-              activeClassName="border-[var(--accent-border)] bg-[var(--accent-bg)]/80 text-[var(--accent)]"
-              inactiveClassName="border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-              className="rounded-2xl border px-4 py-3 transition"
-              title={
-                mediaType ==="video"
-                  ? t("mediaPage.filter.titleToggleOffType", locale, { type: typeLabel(locale,"video") })
-                  : t("mediaPage.filter.titleOnlyType", locale, { type: typeLabel(locale,"video") })
-              }
-            >
-
-              <span className="flex items-center justify-between">
-                <span>{t("mediaPage.filter.videoTab", locale)}</span>
-                <span>{videoCount}</span>
-              </span>
-              <span className="mt-1 block text-xs text-[var(--text-muted)]">
-                {t("mediaPage.filter.videoDesc", locale)}
-                {mediaType ==="video"
-                  ? t("mediaPage.filter.toggleOff", locale)
-                  :""}
-              </span>
-            </FilterLink>
-            <FilterLink
-              href={toggleTypeHref(filters,"audio")}
-              active={mediaType ==="audio"}
-              activeClassName="border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
-              inactiveClassName="border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-              className="rounded-2xl border px-4 py-3 transition"
-              title={
-                mediaType ==="audio"
-                  ? t("mediaPage.filter.titleToggleOffType", locale, { type: typeLabel(locale,"audio") })
-                  : t("mediaPage.filter.titleOnlyType", locale, { type: typeLabel(locale,"audio") })
-              }
-            >
-
-              <span className="flex items-center justify-between">
-                <span>{t("mediaPage.filter.audioTab", locale)}</span>
-                <span>{audioCount}</span>
-              </span>
-              <span className="mt-1 block text-xs text-[var(--text-muted)]">
-                {t("mediaPage.filter.audioDesc", locale)}
-                {mediaType ==="audio"
-                  ? t("mediaPage.filter.toggleOff", locale)
-                  :""}
-              </span>
-            </FilterLink>
-          </div>
+            <span className="block font-medium">{t("mediaPage.filter.allTab", locale)}</span>
+            <span className="mt-1 block text-xs text-[var(--text-muted)]">
+              {t("mediaPage.filter.allCount", locale, { count: totalCount })}
+            </span>
+          </FilterLink>
+          <FilterLink
+            href={toggleTypeHref(filters,"image")}
+            active={mediaType ==="image"}
+            activeClassName="border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--text-primary)]"
+            inactiveClassName="border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            className="rounded-[calc(var(--radius-card)-2px)] border px-4 py-3 transition"
+            title={
+              mediaType ==="image"
+                ? t("mediaPage.filter.titleToggleOffType", locale, { type: typeLabel(locale,"image") })
+                : t("mediaPage.filter.titleOnlyType", locale, { type: typeLabel(locale,"image") })
+            }
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="font-medium">{t("mediaPage.filter.imageTab", locale)}</span>
+              <span className="tabular-nums text-[var(--text-muted)]">{imageCount}</span>
+            </span>
+            <span className="mt-1 block text-xs text-[var(--text-muted)]">
+              {t("mediaPage.filter.imageDesc", locale)}
+              {mediaType ==="image"
+                ? t("mediaPage.filter.toggleOff", locale)
+                :""}
+            </span>
+          </FilterLink>
+          <FilterLink
+            href={toggleTypeHref(filters,"video")}
+            active={mediaType ==="video"}
+            activeClassName="border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--text-primary)]"
+            inactiveClassName="border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            className="rounded-[calc(var(--radius-card)-2px)] border px-4 py-3 transition"
+            title={
+              mediaType ==="video"
+                ? t("mediaPage.filter.titleToggleOffType", locale, { type: typeLabel(locale,"video") })
+                : t("mediaPage.filter.titleOnlyType", locale, { type: typeLabel(locale,"video") })
+            }
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="font-medium">{t("mediaPage.filter.videoTab", locale)}</span>
+              <span className="tabular-nums text-[var(--text-muted)]">{videoCount}</span>
+            </span>
+            <span className="mt-1 block text-xs text-[var(--text-muted)]">
+              {t("mediaPage.filter.videoDesc", locale)}
+              {mediaType ==="video"
+                ? t("mediaPage.filter.toggleOff", locale)
+                :""}
+            </span>
+          </FilterLink>
+          <FilterLink
+            href={toggleTypeHref(filters,"audio")}
+            active={mediaType ==="audio"}
+            activeClassName="border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--text-primary)]"
+            inactiveClassName="border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            className="rounded-[calc(var(--radius-card)-2px)] border px-4 py-3 transition"
+            title={
+              mediaType ==="audio"
+                ? t("mediaPage.filter.titleToggleOffType", locale, { type: typeLabel(locale,"audio") })
+                : t("mediaPage.filter.titleOnlyType", locale, { type: typeLabel(locale,"audio") })
+            }
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="font-medium">{t("mediaPage.filter.audioTab", locale)}</span>
+              <span className="tabular-nums text-[var(--text-muted)]">{audioCount}</span>
+            </span>
+            <span className="mt-1 block text-xs text-[var(--text-muted)]">
+              {t("mediaPage.filter.audioDesc", locale)}
+              {mediaType ==="audio"
+                ? t("mediaPage.filter.toggleOff", locale)
+                :""}
+            </span>
+          </FilterLink>
         </div>
       </section>
       <form
         method="GET"
         action="/media"
-        className="mb-4 flex flex-wrap items-end gap-2"
+        data-toolbar
+        className="mb-4 flex flex-wrap items-center gap-2"
       >
-
         {mediaType && (
           <input type="hidden" name="type" value={mediaType} />
         )}
         {favorite && <input type="hidden" name="favorite" value="1" />}
         {tag && <input type="hidden" name="tag" value={tag} />}
-        <div className="flex w-full max-w-sm flex-col gap-1">
-
-          <label
-            htmlFor="media-search"
-            className="ui-label"
-          >
-
-            {t("mediaPage.search.label", locale)}
-          </label>
-          <input
-            id="media-search"
-            type="search"
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder={t("mediaPage.search.placeholder", locale)}
-            className={UI_INPUT}
-          />
-        </div>
-        <ActionButton variant="primary"
-          type="submit">
+        <label htmlFor="media-search" className="sr-only">
+          {t("mediaPage.search.label", locale)}
+        </label>
+        <input
+          id="media-search"
+          type="search"
+          name="q"
+          defaultValue={q ?? ""}
+          placeholder={t("mediaPage.search.placeholder", locale)}
+          className={`${UI_INPUT} w-full sm:w-80`}
+        />
+        <ActionButton variant="secondary" type="submit" icon={<SearchIcon aria-hidden />}>
           {t("mediaPage.search.submit", locale)}
         </ActionButton>
-        {(q || tag || mediaType || favorite) && (
-          <FilterLink
-            href="/media"
-            active={false}
-            activeClassName=""
-            inactiveClassName="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--surface-subtle)]"
-          >
-
-            {t("mediaPage.search.clearFilters", locale)}
-          </FilterLink>
-        )}
-      </form>
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-
         <FilterLink
           href={toggleFavoriteHref(filters)}
           active={favorite === true}
           activeClassName="border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
-          inactiveClassName="border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-          className="rounded-full border px-3 py-1 transition"
+          inactiveClassName="border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          className="inline-flex min-h-[var(--control-height)] items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition"
           title={
             favorite
               ? t("mediaPage.filter.titleToggleOffFav", locale)
               : t("mediaPage.filter.titleOnlyFav", locale)
           }
         >
-
+          <Star size={14} aria-hidden fill={favorite ? "currentColor" : "none"} />
           {t("mediaPage.favoriteFilter", locale, { count: favCount })}
         </FilterLink>
-      </div>
+        {(q || tag || mediaType || favorite) && (
+          <FilterLink
+            href="/media"
+            active={false}
+            activeClassName=""
+            inactiveClassName="inline-flex min-h-[var(--control-height)] items-center rounded-[var(--radius-control)] px-3 text-sm text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+          >
+            {t("mediaPage.search.clearFilters", locale)}
+          </FilterLink>
+        )}
+      </form>
       {tagCloud.length > 0 && (
-        <div className="mb-5 border-b border-[var(--border)] py-3">
-
-          <div className="mb-2 text-xs font-semibold text-[var(--text-muted)]">
-            {t("mediaPage.tagFilter.title", locale)}
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-
-            {tagCloud.map((entry) => (
-              <FilterLink
-                key={entry.tag}
-                href={toggleTagHref(filters, entry.tag)}
-                active={tag === entry.tag}
-                activeClassName="border-[var(--color-action-border)]/40 bg-[var(--color-action-bg)]/20 text-[var(--text-primary)]"
-                inactiveClassName="border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-                className="rounded-full border px-2.5 py-1 transition"
-                title={
-                  tag === entry.tag
-                    ? t("mediaPage.tagFilter.titleToggleOff", locale, { tag: entry.tag })
-                    : t("mediaPage.tagFilter.titleApply", locale, { tag: entry.tag })
-                }
-              >
-
-                #{entry.tag} <span className="opacity-60">{entry.count}</span>
-                {tag === entry.tag ? (
-                  <span className="ml-1 opacity-70">×</span>
-                ) : null}
-              </FilterLink>
-            ))}
-          </div>
+        <div className="mb-5 flex flex-wrap items-center gap-2 text-xs">
+          <span className="ui-eyebrow mr-1">{t("mediaPage.tagFilter.title", locale)}</span>
+          {tagCloud.map((entry) => (
+            <FilterLink
+              key={entry.tag}
+              href={toggleTagHref(filters, entry.tag)}
+              active={tag === entry.tag}
+              activeClassName="border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
+              inactiveClassName="border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]"
+              className="rounded-full border px-2.5 py-1 transition"
+              title={
+                tag === entry.tag
+                  ? t("mediaPage.tagFilter.titleToggleOff", locale, { tag: entry.tag })
+                  : t("mediaPage.tagFilter.titleApply", locale, { tag: entry.tag })
+              }
+            >
+              #{entry.tag} <span className="opacity-60">{entry.count}</span>
+              {tag === entry.tag ? (
+                <span className="ml-1 opacity-70">×</span>
+              ) : null}
+            </FilterLink>
+          ))}
         </div>
       )}
       {canManageMedia && mediaType ==="image" && (
@@ -357,10 +310,8 @@ export default async function Page({
           <MediaImageUploadPanel />
         </section>
       )}
-      {canManageMedia && <MediaScanButton />}
       {grouped.size === 0 && (
-        <EmptyState icon={<ImageIcon size={48} className="text-[var(--text-muted)]" />} variant="boxed">
-
+        <EmptyState icon={<ImageIcon size={20} />} variant="boxed">
           {t("mediaPage.empty", locale)}
         </EmptyState>
       )}
@@ -368,8 +319,7 @@ export default async function Page({
         <section key={serverName} className="mb-6">
 
           <div className="mb-3 flex items-center gap-2">
-
-            <span className="text-lg">🖥️</span>
+            <Server size={16} className="text-[var(--text-muted)]" aria-hidden />
             <h2 className="ui-title-section">
               {serverName}
             </h2>

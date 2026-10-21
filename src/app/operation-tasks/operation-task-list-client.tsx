@@ -290,7 +290,8 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       }
       empty={visibleTasks.length === 0 ? <EmptyState text={needleNorm ? t("operationTasksPage.filter.noMatch") : t("operationTasks.tasks.empty")} /> : undefined}
     >
-      <PaginatedList pageSize={TASKS_PER_PAGE} resetKey={`${filterKey}:${refreshTick}:${needleNorm}`}>
+      {/* The panel body divides its children; the rows sit one level down inside the pager. */}
+      <PaginatedList pageSize={TASKS_PER_PAGE} resetKey={`${filterKey}:${refreshTick}:${needleNorm}`} className="divide-y divide-[var(--border-subtle)]">
         {visibleTasks.map((task) => <TaskRow key={task.id} task={task} t={t} locale={locale} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
       </PaginatedList>
     </ListPanel>

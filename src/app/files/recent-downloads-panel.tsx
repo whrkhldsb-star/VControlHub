@@ -8,6 +8,8 @@ import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
 import { formatDateTime } from "@/lib/datetime/format";
 import { api } from "@/lib/http/api-client";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
+import { EmptyState } from "@/components/page-shell";
+import { Download } from "@/components/icons";
 
 type RecentDownload = {
   id: string;
@@ -59,9 +61,7 @@ export function RecentDownloadsPanel({
         <Notice tone="danger" className="mt-4" action={{ label: t("filesPage.recentDownloads.retry"), onClick: () => void refresh() }}>{error}</Notice>
       ) : null}
       {!loading && !error && downloads.length === 0 ? (
-        <p className="mt-4 rounded-2xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--text-muted)]">
-          {t("filesPage.recentDownloads.empty")}
-        </p>
+        <EmptyState icon={<Download size={20} />} text={t("filesPage.recentDownloads.empty")} />
       ) : null}
       {!loading && !error && downloads.length > 0 ? (
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">

@@ -52,7 +52,7 @@ export function DashboardSetupChecklist({ items }: Props) {
 		<section
 			aria-label={t("dashboard.setup.title")}
 			data-card
-			className="mb-6 !p-0"
+			className="mb-6 overflow-hidden !p-0"
 		>
 			<div className="flex flex-wrap items-start justify-between gap-3 px-4 pb-3 pt-4 sm:px-5">
 				<div className="min-w-0">

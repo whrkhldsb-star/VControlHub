@@ -154,17 +154,15 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 	return (
 		<div className="space-y-6">
 			{actionError && <Notice tone="danger">{actionError}</Notice>}
-			<Toolbar className="flex-col gap-3 md:flex-row md:items-center md:justify-between">
-				<div className="space-y-1">
-					<label htmlFor="scheduled-task-log-search" className="ui-label">{t("scheduledTasksPage.search.label")}</label>
-					<input
-						id="scheduled-task-log-search"
-						type="search"
-						value={searchQuery}
-						onChange={(e) => setFilter("q", e.target.value)}
-						placeholder={t("scheduledTasks.searchPlaceholder")} className={cn(UI_INPUT, "w-full min-w-[18rem] text-sm")}
-					/>
-				</div>
+			<Toolbar className="justify-between">
+				<label htmlFor="scheduled-task-log-search" className="sr-only">{t("scheduledTasksPage.search.label")}</label>
+				<input
+					id="scheduled-task-log-search"
+					type="search"
+					value={searchQuery}
+					onChange={(e) => setFilter("q", e.target.value)}
+					placeholder={t("scheduledTasks.searchPlaceholder")} className={cn(UI_INPUT, "w-full sm:w-96")}
+				/>
 				{canCreate && !showCreate && (
 					<ActionButton icon={<Plus size={16} aria-hidden />} variant="primary"
 						onClick={() => setShowCreate(true)}
