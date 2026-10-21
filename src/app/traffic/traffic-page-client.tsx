@@ -9,7 +9,7 @@ import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
-import { TrafficSparkline, type TrafficSample } from "./traffic-sparkline";
+import { TrafficChart, type TrafficSample } from "./traffic-chart";
 
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
@@ -17,7 +17,9 @@ import { Chip, InlineLoading, Notice, SegmentedControl } from "@/components/ui-p
 import { getErrorMessage } from "@/lib/http/error-message";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
-const HISTORY_LIMIT = 60; // ≈ 30 min at 30s polling cadence
+/** The live tab polls the local counters on its own short cadence (cheap: /proc, no remote calls). */
+const LIVE_POLL_MS = 5_000;
+const HISTORY_LIMIT = 120; // 10 minutes at the 5 s live cadence
 
 type HistoryScope = "live" | "24h" | "7d";
 
@@ -224,12 +226,15 @@ export default function TrafficPage() {
       const prim = data.currentServer?.primaryInterface;
       if (prim) {
         const ifaceKey = prim.iface;
+        // Without an earlier counter reading the server reports a rate of 0
+        // over 0 seconds; plotting it drew a ramp up from a zero that never was.
+        const sample = prim.intervalSeconds > 0 ? [{ t: Date.now(), rx: prim.rxRateBytesPerSecond, tx: prim.txRateBytesPerSecond }] : [];
         if (lastIfaceRef.current !== ifaceKey) {
           lastIfaceRef.current = ifaceKey;
-          setLiveSamples([{ t: Date.now(), rx: prim.rxRateBytesPerSecond, tx: prim.txRateBytesPerSecond }]);
-        } else {
+          setLiveSamples(sample);
+        } else if (sample.length) {
           setLiveSamples((prev) => {
-            const next = [...prev, { t: Date.now(), rx: prim.rxRateBytesPerSecond, tx: prim.txRateBytesPerSecond }];
+            const next = [...prev, ...sample];
             return next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
           });
         }
@@ -285,11 +290,20 @@ export default function TrafficPage() {
     const timer = setTimeout(() => { void fetchRemote(); }, 0);
     return () => clearTimeout(timer);
   }, [fetchRemote]);
+  const autoRefreshing = autoRefresh && refreshIntervalSeconds > 0;
+  useVisibilityInterval(() => {
+    // The live tab refreshes the summary on its own cadence below.
+    if (historyScope !== "live") {
+      void fetchSummary();
+      void fetchHistory(historyScope);
+    }
+    void fetchRemote();
+  }, autoRefreshing ? refreshIntervalSeconds * 1000 : null);
+  // A "real-time" curve fed every 30 s took a minute to show a line and
+  // moved in steps; the live tab samples every 5 s while it is on screen.
   useVisibilityInterval(() => {
     void fetchSummary();
-    void fetchRemote();
-    if (historyScope !== "live") void fetchHistory(historyScope);
-  }, autoRefresh && refreshIntervalSeconds > 0 ? refreshIntervalSeconds * 1000 : null);
+  }, autoRefreshing && historyScope === "live" ? LIVE_POLL_MS : null);
 
   const primary = summary?.currentServer.primaryInterface ?? null;
   const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
@@ -350,38 +364,18 @@ export default function TrafficPage() {
                   </div>
                   <div className="mt-4">
                     {historyScope === "live" ? (
-                      <TrafficSparkline
-                        samples={liveSamples}
-                        labels={{
-                          rx: t("trafficPage.rxShort"),
-                          tx: t("trafficPage.txShort"),
-                          empty: t("trafficPage.chart.empty"),
-                          windowHint: t("trafficPage.chart.windowHint"),
-                        }}
-                      />
-                    ) : (
-                      <div data-inset="" className="p-3">
-                        {persistedTrend && persistedTrend.size > 0 ? (
-                          <div className="space-y-4">
-                            {Array.from(persistedTrend.entries()).map(([key, points]) => (
-                              <div key={key}>
-                                <div className="mb-2 text-xs text-[var(--text-muted)]">{key}</div>
-                                <TrafficSparkline
-                                  samples={points.map((point) => ({ t: new Date(point.t).getTime(), rx: point.rx, tx: point.tx }))}
-                                  labels={{
-                                    rx: t("trafficPage.rxShort"),
-                                    tx: t("trafficPage.txShort"),
-                                    empty: t("trafficPage.chart.empty"),
-                                    windowHint: t("trafficPage.chart.windowHint"),
-                                  }}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.chart.emptyHistory")}</div>
-                        )}
+                      <TrafficChart samples={liveSamples} live />
+                    ) : persistedTrend && persistedTrend.size > 0 ? (
+                      <div className="space-y-5">
+                        {Array.from(persistedTrend.entries()).map(([key, points]) => (
+                          <section key={key} aria-label={key}>
+                            <h3 className="ui-title-caption mb-2">{key}</h3>
+                            <TrafficChart samples={points.map((point) => ({ t: new Date(point.t).getTime(), rx: point.rx, tx: point.tx }))} />
+                          </section>
+                        ))}
                       </div>
+                    ) : (
+                      <div data-inset="" className="p-3 text-sm text-[var(--text-muted)]">{t("trafficPage.chart.emptyHistory")}</div>
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">

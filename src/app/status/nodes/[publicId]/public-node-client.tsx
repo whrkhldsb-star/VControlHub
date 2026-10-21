@@ -22,7 +22,7 @@ import { CountryFlag, ExpiryBadge, OsMark, PriceBadge, TagChip, UsageMeter } fro
 import { nodeQuotaPercent, quotaModeLabel, systemLine } from "../../board-nodes";
 import { getUptimeColorClass, MIN_SAMPLE_COVERAGE } from "../../uptime-presentation";
 import { NodeFreshness, StatusPill, accentStyle } from "../../public-board-parts";
-import { TimeSeriesChart, type ChartSeries } from "../../time-series-chart";
+import { TimeSeriesChart, type ChartSeries } from "@/components/charts/time-series-chart";
 import { usePublicPolling } from "../../use-public-polling";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;

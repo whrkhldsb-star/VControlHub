@@ -22,7 +22,7 @@ import type { PublicBoardSummary, PublicHistoryResponse, PublicNode } from "@/li
 import { cn } from "@/lib/ui/cn";
 import { CountryFlag, ExpiryBadge, LiveClock, OsMark, PriceBadge, StateStrip, StatusDot, TagChip, UsageMeter } from "./board-visuals";
 import { NodeFreshness, StatusPill } from "./public-board-parts";
-import { TimeSeriesChart } from "./time-series-chart";
+import { TimeSeriesChart } from "@/components/charts/time-series-chart";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 type Locale = "zh" | "en";
