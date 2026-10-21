@@ -9,7 +9,7 @@ import { CustomersClient, type Customer } from "../customers-client";
 
 const addToastMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }), usePathname: () => "/customers" }));
 vi.mock("@/components/toast-provider", () => ({
 	useToast: () => ({ addToast: addToastMock }),
 	ToastProvider: ({ children }: { children: ReactNode }) => children,

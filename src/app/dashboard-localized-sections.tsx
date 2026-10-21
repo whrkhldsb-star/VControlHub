@@ -18,6 +18,7 @@ import { announcementLevelLabel, announcementLevelTone } from "@/lib/announcemen
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { ButtonLink } from "@/components/action-button";
+import { markdownExcerpt } from "@/lib/markdown/render-markdown";
 
 const AUDIT_ACTOR_LABEL_KEYS: Record<string, string> = {
   USER: "dashboard.actor-user",
@@ -84,7 +85,7 @@ export function DashboardAnnouncements({ items, total }: { items: DashboardAnnou
             <span className="min-w-[8rem] flex-1 truncate text-sm font-medium text-[var(--text-primary)]" title={item.title}>{item.title}</span>
             <time className="ml-auto shrink-0 text-xs text-[var(--text-muted)]" dateTime={item.startsAt} suppressHydrationWarning>{item.formattedStartsAt}</time>
           </div>
-          <p className="mt-1 line-clamp-2 whitespace-pre-line text-[13px] leading-5 text-[var(--text-secondary)]">{item.body}</p>
+          <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[var(--text-secondary)]">{markdownExcerpt(item.body)}</p>
         </ListRow>
       ))}
     </ListPanel>

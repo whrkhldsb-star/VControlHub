@@ -42,7 +42,7 @@ export function MediaScanButton() {
     }
   }
   return (
-    <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       {" "}
       <ActionButton variant="outline"
         onClick={handleScan}

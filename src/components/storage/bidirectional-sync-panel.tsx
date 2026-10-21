@@ -13,6 +13,8 @@ import { api } from "@/lib/http/api-client";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { clearIfUnchanged } from "@/lib/ui/form-draft";
+import { EmptyState } from "@/components/page-shell";
+import { RefreshCw } from "@/components/icons";
 
 type ServerOption = { id: string; name: string; host: string | null };
 
@@ -296,7 +298,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         {loading ? (
           <p className="text-xs text-[var(--text-muted)]">{t("filesPage.syncJobs.loading")}</p>
         ) : jobs.length === 0 ? (
-          <p className="text-xs text-[var(--text-muted)]">{t("filesPage.syncJobs.empty")}</p>
+          <EmptyState icon={<RefreshCw size={20} />} text={t("filesPage.syncJobs.empty")} />
         ) : (
           jobs.map((job) => (
             <div

@@ -50,6 +50,7 @@ vi.mock("next/headers", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
+  usePathname: () => "/servers",
 }));
 
 vi.mock("@/lib/auth/require-session", () => ({

@@ -15,6 +15,7 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 }));
 vi.mock("next/navigation", () => ({
 	useRouter: () => ({ push: vi.fn() }),
+	usePathname: () => "/alert-rules",
 }));
 vi.mock("@/lib/alert/service", () => ({
 	listAlertRules: vi.fn(async () => [{

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderMarkdown } from "../markdown-preview-client";
+import { renderMarkdown } from "@/lib/markdown/render-markdown";
 import { sanitizeHtml } from "@/lib/sanitize/html-sanitizer";
 
 describe("markdown preview sanitization", () => {
@@ -27,10 +27,18 @@ describe("markdown preview sanitization", () => {
 	it("escapes markdown link text and attributes before sanitizer runs", () => {
 		const html = renderMarkdown('[<img src=x onerror=alert(1)>](https://example.com/" onclick="alert(1)) [rel](/files/readme.md) [bad](ftp://example.com)');
 
-		expect(html).toContain('href="https://example.com/&amp;quot;"');
+		// The quote stays encoded, so it cannot end the attribute.
+		expect(html).toContain('href="https://example.com/&quot;"');
 		expect(html).toContain('href="/files/readme.md"');
 		expect(html).not.toContain("<img");
 		expect(html).not.toContain('onclick="alert');
 		expect(html).not.toContain('href="ftp://example.com"');
+	});
+
+	it("escapes link URLs and text once, so query strings and ampersands survive", () => {
+		const html = renderMarkdown("[Q&A](https://example.com/search?a=1&b=2)");
+		expect(html).toContain('href="https://example.com/search?a=1&amp;b=2"');
+		expect(html).toContain(">Q&amp;A</a>");
+		expect(html).not.toContain("&amp;amp;");
 	});
 });

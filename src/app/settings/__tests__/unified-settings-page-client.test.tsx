@@ -15,6 +15,7 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: refreshMock }),
+  usePathname: () => "/settings",
 }));
 
 import { csrfFetch } from "@/lib/auth/csrf-client";

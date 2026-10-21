@@ -11,6 +11,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { LocalizedText } from "./localized-text";
 import { File as FileIcon } from "./icons";
 import { Chip } from "./ui-primitives";
+import { PageHeaderIcon } from "./page-header-icon";
 import { cn } from "@/lib/ui/cn";
 
 /* ── ToggleChip ────────────────────────────────────────────────────── */
@@ -81,21 +82,25 @@ export function PageHeader({ eyebrow, title, description, children, className = 
 	return (
 		<header className={`${className} relative overflow-visible`} data-page-header>
 			<div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
-				<div className="min-w-0 max-w-3xl overflow-visible">
-					{eyebrow ? (
-						<p
-							data-page-eyebrow
-							className="mb-2 text-xs font-medium text-[var(--accent)]"
-						>
-							{eyebrow}
-						</p>
-					) : null}
-					<h1 className="ui-title-page break-words">
-						{title}
-					</h1>
-					{description ? (
-						<p className="mt-1.5 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">{description}</p>
-					) : null}
+				{/* A one-line title centres on the icon tile; with a description they align at the top. */}
+				<div className={`flex min-w-0 max-w-3xl gap-3.5 overflow-visible sm:gap-4 ${description ? "items-start" : "items-center"}`}>
+					<PageHeaderIcon />
+					<div className="min-w-0">
+						{eyebrow ? (
+							<p
+								data-page-eyebrow
+								className="mb-2 text-xs font-medium text-[var(--accent)]"
+							>
+								{eyebrow}
+							</p>
+						) : null}
+						<h1 className="ui-title-page break-words">
+							{title}
+						</h1>
+						{description ? (
+							<p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">{description}</p>
+						) : null}
+					</div>
 				</div>
 				{children ? (
 					<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end lg:pt-0.5" data-page-actions>
@@ -272,16 +277,17 @@ export function StatCard({
 		<article
 			data-card
 			data-stat-card
-			className={`relative flex flex-col justify-between overflow-hidden bg-[var(--surface)] ${className ?? ""}`}
+			data-stat-tone={c ? accentColor : undefined}
+			className={`relative flex flex-col justify-between overflow-hidden ${className ?? ""}`}
 		>
 			<div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--text-muted)]">
 				{c ? <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`} /> : null}
 				<span className="min-w-0 truncate">{label}</span>
 			</div>
-			<div className={`mt-2 break-words text-2xl font-semibold leading-tight tracking-tight tabular-nums ${c ? c.value : "text-[var(--text-primary)]"}`}>
+			<div className={`mt-2.5 break-words text-[1.625rem] font-semibold leading-none tracking-tight tabular-nums ${c ? c.value : "text-[var(--text-primary)]"}`}>
 				{value}
 			</div>
-			{detail ? <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">{detail}</p> : null}
+			{detail ? <p className="mt-2 text-xs leading-4 text-[var(--text-muted)]">{detail}</p> : null}
 		</article>
 	);
 }

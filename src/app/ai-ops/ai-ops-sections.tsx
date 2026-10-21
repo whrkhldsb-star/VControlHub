@@ -14,6 +14,8 @@ import type { AiOpsSummary } from "@/lib/ai/ops/service";
 import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
+import { EmptyState, MetricPanel } from "@/components/page-shell";
+import { Sparkles } from "@/components/icons";
 
 export type AiOpsSettings = {
 	mode: AiOpsMode;
@@ -45,41 +47,31 @@ type T = (key: string, vars?: Record<string, string | number>) => string;
 
 export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: T }) {
 	const { locale } = useI18n();
+	const never = t("aiOpsPage.summary.never");
+	const count = (status: string) => (summary.byStatus as Record<string, number>)[status] ?? 0;
+	const byMode = Object.entries(summary.byMode).map(([k, v]) => `${t(`aiOpsPage.mode.${k}`)} ${v}`).join(" · ");
+	const provider = summary.provider;
 	return (
-		<section aria-label="ai-ops-summary" data-card className="p-5">
-			<h2 className="ui-title-section mb-4">{t("aiOpsPage.summary.title")}</h2>
-			{summary.provider && <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--text-secondary)]">
-				<span>{t("aiOpsPage.summary.providerSuccessRate")}: {summary.provider.successRate === null ? t("aiOpsPage.summary.never") : `${Math.round(summary.provider.successRate * 100)}% (${summary.provider.successes}/${summary.provider.attempts})`}</span>
-				<span>{t("aiOpsPage.summary.providerLastSuccess")}: {formatAiOpsTime(summary.provider.lastSuccessAt, t("aiOpsPage.summary.never"), locale)}</span>
-				{summary.provider.retryAt && <span>{t("aiOpsPage.summary.providerRetryAt")}: {formatAiOpsTime(summary.provider.retryAt, t("aiOpsPage.summary.never"), locale)}</span>}
-			</div>}
-			<div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 [&>div]:min-w-0 [&>div]:break-words">
-				<div>
-					<div className={labelClass}>{t("aiOpsPage.summary.total")}</div>
-					<div className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{summary.total}</div>
-				</div>
-				<div>
-					<div className={labelClass}>{t("aiOpsPage.summary.byStatus")}</div>
-					<div className="mt-1 text-sm text-[var(--text-primary)]">
-						{Object.entries(summary.byStatus).map(([k, v]) => `${t(`aiOpsPage.status.${k}`)}=${v}`).join(" · ") || "—"}
-					</div>
-				</div>
-				<div>
-					<div className={labelClass}>{t("aiOpsPage.summary.byMode")}</div>
-					<div className="mt-1 text-sm text-[var(--text-primary)]">
-						{Object.entries(summary.byMode).map(([k, v]) => `${t(`aiOpsPage.mode.${k}`)}=${v}`).join(" · ") || "—"}
-					</div>
-				</div>
-				<div>
-					<div className={labelClass}>{t("aiOpsPage.summary.lastScanAt")}</div>
-					<div className="mt-1 text-sm text-[var(--text-primary)]">{formatAiOpsTime(summary.lastScanAt, t("aiOpsPage.summary.never"), locale)}</div>
-				</div>
-				<div>
-					<div className={labelClass}>{t("aiOpsPage.summary.lastErrorAt")}</div>
-					<div className="mt-1 text-sm text-[var(--text-primary)]">{formatAiOpsTime(summary.lastErrorAt, t("aiOpsPage.summary.never"), locale)}</div>
-				</div>
-			</div>
-		</section>
+		<MetricPanel
+			aria-label="ai-ops-summary"
+			title={t("aiOpsPage.summary.title")}
+			description={provider ? (
+				<span className="flex flex-wrap gap-x-4 gap-y-1">
+					<span>{t("aiOpsPage.summary.providerSuccessRate")}: {provider.successRate === null ? never : `${Math.round(provider.successRate * 100)}% (${provider.successes}/${provider.attempts})`}</span>
+					<span>{t("aiOpsPage.summary.providerLastSuccess")}: {formatAiOpsTime(provider.lastSuccessAt, never, locale)}</span>
+					{provider.retryAt ? <span>{t("aiOpsPage.summary.providerRetryAt")}: {formatAiOpsTime(provider.retryAt, never, locale)}</span> : null}
+				</span>
+			) : undefined}
+			columns={6}
+			metrics={[
+				{ label: t("aiOpsPage.summary.total"), value: summary.total, detail: byMode || undefined },
+				{ label: t("aiOpsPage.status.ok"), value: count("ok"), tone: "emerald" },
+				{ label: t("aiOpsPage.status.warning"), value: count("warning"), tone: "amber" },
+				{ label: t("aiOpsPage.status.error"), value: count("error"), tone: "rose" },
+				{ label: t("aiOpsPage.summary.lastScanAt"), value: <span className="text-sm font-medium">{formatAiOpsTime(summary.lastScanAt, never, locale)}</span> },
+				{ label: t("aiOpsPage.summary.lastErrorAt"), value: <span className="text-sm font-medium">{formatAiOpsTime(summary.lastErrorAt, never, locale)}</span> },
+			]}
+		/>
 	);
 }
 
@@ -109,24 +101,24 @@ export function AiOpsActionsToolbar({
 	t: T;
 }) {
 	return (
-		<section aria-label="ai-ops-actions" data-card className="flex flex-wrap items-end gap-3 p-5">
+		<section aria-label="ai-ops-actions" data-toolbar className="flex flex-wrap items-center gap-2">
 			{canManage && (
 				<ActionButton variant="primary" disabled={scanning} onClick={onTriggerScan}>
 					{scanning ? t("aiOpsPage.actions.scanning") : t("aiOpsPage.actions.triggerScan")}
 				</ActionButton>
 			)}
 			<ActionButton variant="secondary" onClick={onReload}>{t("aiOpsPage.actions.refresh")}</ActionButton>
-			<label className={`${labelClass} flex min-w-0 flex-col items-start gap-2`}>
+			<label className="flex min-w-0 items-center gap-2 text-xs text-[var(--text-muted)]">
 				<span>{t("aiOpsPage.filter.mode")}</span>
-				<select className={selectClass} value={modeFilter} onChange={(e) => setModeFilter(e.target.value as "all" | AiOpsMode)}>
+				<select className={`${selectClass} w-auto`} value={modeFilter} onChange={(e) => setModeFilter(e.target.value as "all" | AiOpsMode)}>
 					<option value="all">{t("aiOpsPage.filter.all")}</option>
 					<option value="recommendation">{t("aiOpsPage.mode.recommendation")}</option>
 					<option value="autonomous">{t("aiOpsPage.mode.autonomous")}</option>
 				</select>
 			</label>
-			<label className={`${labelClass} flex min-w-0 flex-col items-start gap-2`}>
+			<label className="flex min-w-0 items-center gap-2 text-xs text-[var(--text-muted)]">
 				<span>{t("aiOpsPage.filter.status")}</span>
-				<select className={selectClass} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | AiOpsStatus)}>
+				<select className={`${selectClass} w-auto`} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | AiOpsStatus)}>
 					<option value="all">{t("aiOpsPage.filter.all")}</option>
 					<option value="ok">{t("aiOpsPage.status.ok")}</option>
 					<option value="warning">{t("aiOpsPage.status.warning")}</option>
@@ -135,9 +127,9 @@ export function AiOpsActionsToolbar({
 					<option value="running">{t("aiOpsPage.status.running")}</option>
 				</select>
 			</label>
-			<label className={`${labelClass} flex min-w-0 flex-col items-start gap-2`}>
+			<label className="flex min-w-0 items-center gap-2 text-xs text-[var(--text-muted)]">
 				<span>{t("aiOpsPage.filter.triggerType")}</span>
-				<select className={selectClass} value={triggerFilter} onChange={(e) => setTriggerFilter(e.target.value as "all" | AiOpsTriggerType)}>
+				<select className={`${selectClass} w-auto`} value={triggerFilter} onChange={(e) => setTriggerFilter(e.target.value as "all" | AiOpsTriggerType)}>
 					<option value="all">{t("aiOpsPage.filter.all")}</option>
 					<option value="scheduled">{t("aiOpsPage.trigger.scheduled")}</option>
 					<option value="manual">{t("aiOpsPage.trigger.manual")}</option>
@@ -253,7 +245,7 @@ export function AiOpsLogsSection({
 				) : null}
 			</div>
 			{logs.length === 0 ? (
-				<div className="text-sm text-[var(--text-primary)]/70">{t("aiOpsPage.actions.empty")}</div>
+				<EmptyState icon={<Sparkles size={20} />} text={t("aiOpsPage.actions.empty")} />
 			) : (
 				<div className="overflow-x-auto overscroll-x-contain" tabIndex={0}>
 					<table className="w-full min-w-[860px] table-fixed text-left text-sm text-[var(--text-primary)]">

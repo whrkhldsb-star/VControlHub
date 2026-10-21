@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { markdownExcerpt } from "@/lib/markdown/render-markdown";
 
 type ActiveAnnouncement = {
 	id: string;
@@ -74,7 +75,7 @@ export function ActiveIncidentsBanner() {
 								<span className="text-xs font-medium text-[var(--text-primary)]">{levelLabel(item.level)}</span>
 								<h3 className="ui-title-group truncate">{item.title}</h3>
 							</div>
-							<p className="mt-1.5 line-clamp-3 text-sm leading-6 text-[var(--text-secondary)]">{item.body}</p>
+							<p className="mt-1.5 line-clamp-3 text-sm leading-6 text-[var(--text-secondary)]">{markdownExcerpt(item.body)}</p>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">
 								{t("healthPage.incident.started", { time: formatDateTime(item.startsAt, locale) })}
 								{item.expiresAt ? ` · ${t("healthPage.incident.expectedEnd", { time: formatDateTime(item.expiresAt, locale) })}` : ""}

@@ -28,7 +28,7 @@ export function DeployButton({
 
 	if (!open) {
 		return (
-			<ActionButton size="sm" type="button" onClick={() => setOpen(true)}>
+			<ActionButton size="sm" type="button" variant="outline" onClick={() => setOpen(true)}>
 				{t("templatesPage.action.deploy")}
 			</ActionButton>
 		);

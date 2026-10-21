@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
+import { EmptyState, PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
@@ -17,6 +17,7 @@ import { Chip, InlineLoading, Notice, SegmentedControl } from "@/components/ui-p
 import { getErrorMessage } from "@/lib/http/error-message";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { Activity } from "@/components/icons";
 /** The live tab polls the local counters on its own short cadence (cheap: /proc, no remote calls). */
 const LIVE_POLL_MS = 5_000;
 const HISTORY_LIMIT = 120; // 10 minutes at the 5 s live cadence
@@ -375,7 +376,7 @@ export default function TrafficPage() {
                         ))}
                       </div>
                     ) : (
-                      <div data-inset="" className="p-3 text-sm text-[var(--text-muted)]">{t("trafficPage.chart.emptyHistory")}</div>
+                      <EmptyState icon={<Activity size={20} />} text={t("trafficPage.chart.emptyHistory")} />
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">

@@ -93,7 +93,7 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 
 	return (
 		<PageShell>
-			<PageHeader eyebrow={t("imageBedPage.hero.eyebrow")} title={t("imageBedPage.hero.title")}>
+			<PageHeader eyebrow={t("imageBedPage.hero.eyebrow")} title={t("imageBedPage.hero.title")} description={t("imageBedPage.hero.description")}>
 				<ButtonLink variant="secondary" href="/media?type=image"><ImageIcon size={16} aria-hidden />{t("imageBedPage.hero.openMedia")}</ButtonLink>
 				{canWrite && <ActionButton type="button" onClick={openPublishModal}><HardDrive size={16} aria-hidden />{t("imageBedPage.hero.publishFromStorage")}</ActionButton>}
 				{canWrite && <ActionButton type="button" variant="secondary" aria-expanded={showLegacyUpload} aria-controls="image-bed-upload" onClick={() => setShowLegacyUpload((value) => !value)}><Plus size={16} aria-hidden />{t("imageBedPage.legacy.title")}</ActionButton>}
@@ -200,24 +200,21 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 			<UploadProgressPanel uploadProgress={uploadProgress} uploading={uploading} t={t} />
 
 			{/* Search Filter */}
-			<div className="mt-4 flex flex-wrap items-end gap-2 sm:gap-3">
-				<label className="ui-label grid w-full gap-1.5 sm:w-auto">
-					{t("imageBedPage.search.label")}
-					<input
-						type="search"
-						placeholder={t("imageBedPage.search.placeholder")}
-						value={search}
-						onChange={(e) => setSearch(e.target.value)}
-						onKeyDown={(e) => {
-							
-							if (isImeComposition(e)) return;
-							if (e.key === "Enter") void refreshImages(1);
-						}}
-						className={cn(UI_INPUT, "min-h-11 sm:w-72")}
-					/>
-				</label>
-				<ActionButton type="button" variant="ghost" onClick={() => void refreshImages(1)}><Search size={16} aria-hidden />{t("imageBedPage.search.submit")}</ActionButton>
-				<ActionButton type="button" variant="ghost" onClick={() => { setSearch(""); void refreshImages(1, ""); }}><RefreshCw size={16} aria-hidden />{t("imageBedPage.search.reset")}</ActionButton>
+			<div data-toolbar className="mt-4 flex flex-wrap items-center gap-2">
+				<input
+					type="search"
+					aria-label={t("imageBedPage.search.label")}
+					placeholder={t("imageBedPage.search.placeholder")}
+					value={search}
+					onChange={(e) => setSearch(e.target.value)}
+					onKeyDown={(e) => {
+						if (isImeComposition(e)) return;
+						if (e.key === "Enter") void refreshImages(1);
+					}}
+					className={cn(UI_INPUT, "w-full sm:w-80")}
+				/>
+				<ActionButton type="button" variant="secondary" icon={<Search aria-hidden />} onClick={() => void refreshImages(1)}>{t("imageBedPage.search.submit")}</ActionButton>
+				<ActionButton type="button" variant="ghost" icon={<RefreshCw aria-hidden />} onClick={() => { setSearch(""); void refreshImages(1, ""); }}>{t("imageBedPage.search.reset")}</ActionButton>
 			</div>
 
 			{/* Image Grid */}
