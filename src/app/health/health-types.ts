@@ -34,6 +34,7 @@ export type ServerHealth = {
 	networkTxBytes?: number;
 	monthlyRxBytes?: number;
 	monthlyTxBytes?: number;
+	monthlyTrafficSince?: string;
 	swapUsagePercent?: number;
 	uptime?: string;
 	lastCheck: string;

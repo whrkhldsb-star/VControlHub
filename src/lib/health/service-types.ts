@@ -38,6 +38,8 @@ export type ServerHealth = {
 	networkTxBytes?: number;
 	monthlyRxBytes?: number;
 	monthlyTxBytes?: number;
+	/** ISO time of the first sample counted when that is well after the month started. */
+	monthlyTrafficSince?: string;
 	swapUsagePercent?: number;
 	uptime?: string;
 	/** RTT of the lightweight TCP probe that ran before the SSH pull.

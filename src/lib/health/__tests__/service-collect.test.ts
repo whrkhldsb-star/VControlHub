@@ -19,7 +19,7 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock } = vi.hoisted(() => 
 			findMany: vi.fn(),
 			create: vi.fn(),
 		},
-		$queryRaw: vi.fn(async (): Promise<Array<{ serverId: string; rx: string; tx: string }>> => []),
+		$queryRaw: vi.fn(async (): Promise<Array<{ serverId: string; rx: string; tx: string; first_sample_at: Date }>> => []),
 	},
 	collectServerMetricsMock: vi.fn(),
 	tcpProbeMock: vi.fn(),
@@ -31,6 +31,7 @@ vi.mock("@/lib/server/monitor", () => ({
 }));
 vi.mock("@/lib/server/connectivity", () => ({ tcpProbe: tcpProbeMock }));
 
+import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 import { collectAllHealth } from "../service-collect";
 
 function goodMetrics() {
@@ -286,13 +287,29 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		]);
 		tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 3 });
 		collectServerMetricsMock.mockResolvedValueOnce(goodMetrics());
-		prismaMock.$queryRaw.mockResolvedValueOnce([{ serverId: "s1", rx: "1000", tx: "500" }]);
+		prismaMock.$queryRaw.mockResolvedValueOnce([{ serverId: "s1", rx: "1000", tx: "500", first_sample_at: startOfMonthInAppTimeZone() }]);
 
 		const result = await collectAllHealth();
 
 		expect(result.servers[0]?.monthlyRxBytes).toBe(1_000);
 		expect(result.servers[0]?.monthlyTxBytes).toBe(500);
+		expect(result.servers[0]?.monthlyTrafficSince).toBeUndefined();
 		expect(prismaMock.trafficSnapshot.findMany).not.toHaveBeenCalled();
+	});
+
+	it("says when the month's traffic was only counted from part-way through the month", async () => {
+		prismaMock.server.findMany.mockResolvedValueOnce([
+			{ id: "s1", name: "Healthy", host: "10.0.0.1", port: 22, enabled: true },
+		]);
+		tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 3 });
+		collectServerMetricsMock.mockResolvedValueOnce(goodMetrics());
+		const firstSample = new Date(startOfMonthInAppTimeZone().getTime() + 5 * 24 * 60 * 60 * 1000);
+		prismaMock.$queryRaw.mockResolvedValueOnce([{ serverId: "s1", rx: "1000", tx: "500", first_sample_at: firstSample }]);
+
+		const result = await collectAllHealth();
+
+		expect(result.servers[0]?.monthlyRxBytes).toBe(1_000);
+		expect(result.servers[0]?.monthlyTrafficSince).toBe(firstSample.toISOString());
 	});
 
 	it("keeps an Agent's rates when its last report is read again", async () => {

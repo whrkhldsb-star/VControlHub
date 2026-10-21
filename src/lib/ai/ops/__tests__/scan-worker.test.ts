@@ -345,6 +345,23 @@ describe("runAiOpsScanWorkerOnce", () => {
     );
     expect(jobMocks.failJob).not.toHaveBeenCalled();
   });
+  it("gives reasoning models room to answer and reports a budget spent on thinking", async () => {
+    getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "recommendation");
+    providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "glm-5.3" });
+    sendChatRequestMock.mockResolvedValue({ providerType: "OPENAI_COMPATIBLE", response: { json: async () => ({ choices: [{ finish_reason: "length", message: { content: "" } }] }) } });
+    await runAiOpsScanWorkerOnce("manual");
+    expect(sendChatRequestMock.mock.calls[0]![0].max_tokens).toBeGreaterThanOrEqual(2000);
+    let data = vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data;
+    expect(data.providerHealth).toMatchObject({ state: "failed" });
+    expect(data.findings).toEqual(expect.arrayContaining([expect.objectContaining({ source: "ai.provider" })]));
+
+    sendChatRequestMock.mockResolvedValue({ providerType: "OPENAI_COMPATIBLE", response: { json: async () => ({ choices: [{ finish_reason: "length", message: { content: "Check the backup first" } }] }) } });
+    await runAiOpsScanWorkerOnce("manual");
+    data = vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data;
+    expect(data.providerHealth).toMatchObject({ state: "success" });
+    expect(data.notes).toContain("Check the backup first\n\n[…]");
+  });
+
   it("preserves deterministic findings and withholds autonomous actions when the provider rejects access", async () => {
     getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "autonomous");
     providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "ops-model" });

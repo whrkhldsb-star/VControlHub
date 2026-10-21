@@ -97,6 +97,11 @@ export function VpsStatusTable({
 								</td>
 								<td className="px-3 py-2.5 font-mono tabular-nums text-[var(--text-secondary)]">
 									↓{formatBytes(server.monthlyRxBytes)} / ↑{formatBytes(server.monthlyTxBytes)}
+									{server.monthlyTrafficSince ? (
+										<span className="block text-xs text-[var(--text-muted)]">
+											{t("vpsStatusPage.metric.monthTrafficSince", { time: `${formatShortDate(server.monthlyTrafficSince, locale)} ${formatShortTime(server.monthlyTrafficSince, locale)}` })}
+										</span>
+									) : null}
 								</td>
 								<td className="px-3 py-2.5 text-[var(--text-secondary)]">{server.uptime ?? "—"}</td>
 								<td className="px-3 py-2.5 text-[var(--text-muted)]">

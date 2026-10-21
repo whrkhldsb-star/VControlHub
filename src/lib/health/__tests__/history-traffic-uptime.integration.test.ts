@@ -47,7 +47,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("health hist
 			data: [0, 900, 1000].map((rx, i) => ({ source: "server", serverId: server("steady"), iface: "eth0", rxBytes: BigInt(rx * MiB), txBytes: BigInt(0), sampledAt: at(i + 1) })),
 		});
 		const totals = await sumTrafficSince([server("traffic"), server("steady")], since);
-		expect(totals.get(server("traffic"))).toEqual({ rx: 1000 * MiB, tx: 500 * MiB });
+		expect(totals.get(server("traffic"))).toEqual({ rx: 1000 * MiB, tx: 500 * MiB, firstSampleAt: at(1) });
 		expect(totals.get(server("steady"))?.rx).toBe(1000 * MiB);
 	});
 

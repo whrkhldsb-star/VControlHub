@@ -183,8 +183,13 @@ export function VpsNodeCard({
 				</div>
 				<div className="col-span-2 flex justify-between gap-2 border-t border-[var(--border-subtle)] pt-2">
 					<span className="text-[var(--text-muted)]">{t("vpsStatusPage.metric.monthTraffic")}</span>
-					<span className="font-mono tabular-nums text-[var(--text-secondary)]">
+					<span className="text-right font-mono tabular-nums text-[var(--text-secondary)]">
 						↓{formatBytes(server.monthlyRxBytes)} · ↑{formatBytes(server.monthlyTxBytes)}
+						{server.monthlyTrafficSince ? (
+							<span className="block text-xs text-[var(--text-muted)]">
+								{t("vpsStatusPage.metric.monthTrafficSince", { time: `${formatShortDate(server.monthlyTrafficSince, locale)} ${formatShortTime(server.monthlyTrafficSince, locale)}` })}
+							</span>
+						) : null}
 					</span>
 				</div>
 			</div>
