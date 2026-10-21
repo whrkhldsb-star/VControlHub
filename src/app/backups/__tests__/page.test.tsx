@@ -28,6 +28,7 @@ vi.mock("@/lib/auth/authorization", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
+  usePathname: () => "/backups",
 }));
 
 vi.mock("@/lib/server/service", () => ({

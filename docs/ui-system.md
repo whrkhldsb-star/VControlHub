@@ -39,7 +39,9 @@ back into pages.
 | Corner radius | `--radius-control` (8px), `--radius-card` (12px), `--radius-dialog` (14px) |
 | Control height / touch targets | `--control-height`, `--control-height-sm`, `--control-height-xs`; the `(pointer: coarse)` block raises them to `--touch-target` (44px) |
 | Every button of a variant | the `[data-action-button][data-variant="…"]` rule in `globals.css` |
-| Every card / well / tile | `[data-card]`, `[data-inset]`, `[data-tile]` in `globals.css` |
+| Every card / well / tile | `[data-card]`, `[data-inset]`, `[data-tile]` in `globals.css`; card depth from `--surface-sheen` and `--card-shadow` |
+| Page backdrop | `--canvas-glow`, `--canvas-glow-2` (the brand glow at the top of every page, on `body`) |
+| Page title icons | `[data-page-icon]` in `globals.css`; the glyph comes from the navigation catalogue |
 | Every dialog | `DIALOG_WIDTH`, `DIALOG_OVERLAY`, `dialogPanelClass` in `modal-shell.tsx`; motion in the Overlays section of `globals.css` |
 | Every menu or popover | `[data-popover]`, `[data-menu-item]` in `globals.css` |
 | Fields | `.ui-control` in `globals.css` (borders, background, padding, focus, disabled, placeholder) |
@@ -84,7 +86,14 @@ checks the token file; `npm run ui:check` runs axe on every component state.
   rows; pass `empty` for the empty state.
 - **`SurfacePanel`** — titled card for create forms and secondary blocks.
 - **`MetricPanel`** — a group of related figures in one card;
-  **`StatGrid` / `StatCard`** — headline numbers under a page header.
+  **`StatGrid` / `StatCard`** — headline numbers under a page header. A
+  `StatCard` with `accent` + `accentColor` colours its figure and carries
+  the tone as a corner glow (`data-stat-tone`, strength `--stat-glow`).
+- **`MarkdownText`** — Markdown written in the console (announcements):
+  rendered by `renderMarkdown` (`src/lib/markdown/render-markdown.ts`),
+  which escapes the source before adding its own tags, so it renders the
+  same on the server. For line-clamped previews use `markdownExcerpt`,
+  never the raw source.
 - **`EmptyState`** — `simple` inside a panel, `boxed` on its own.
 - **`Disclosure`** — a folded section (advanced settings, migration tools,
   raw commands): `variant="card"` for page-level blocks (its title is an
@@ -169,7 +178,9 @@ Field labels use `UI_LABEL` (= `ui-label`).
 `PageShell` (one frame for every page; `width="narrow"` caps reading-width
 pages but keeps them left-aligned) → `PageHeader` (title, description, page
 actions; link to another page only when it is the next step of this page's
-workflow — general navigation belongs to the sidebar and ⌘K) →
+workflow — general navigation belongs to the sidebar and ⌘K; the title
+carries the page's navigation glyph as an icon tile automatically, so pages
+never add their own) →
 `Toolbar` (filters and commands) → content. Inside the application shell the
 breadcrumb names the area, so page eyebrows are hidden.
 

@@ -100,6 +100,14 @@
 	--shadow-md: 0 6px 16px -4px #00000066, 0 2px 4px #00000033;
 	--shadow-lg: 0 24px 48px -12px #000000a6, 0 0 0 1px #ffffff0a;
 	--highlight-inset: inset 0 1px 0 #ffffff14;
+	/* Cards and panels: a faint top-lit sheen and a hairline highlight lift
+	   them off the canvas without heavier borders. */
+	--surface-sheen: linear-gradient(180deg, #ffffff07, #ffffff00 42%);
+	--card-shadow: inset 0 1px 0 #ffffff0a, 0 1px 2px #00000052, 0 4px 14px -8px #00000066;
+	/* Brand glow behind the top of every page. */
+	--canvas-glow: #5260e824;
+	--stat-glow: 16%;
+	--canvas-glow-2: #2f7fd814;
 	--overlay: #05070999;
 	--overlay-strong: #050709cc;
 	--on-accent: #ffffff;
@@ -245,6 +253,11 @@ html.light {
 	--shadow-md: 0 6px 16px -4px #1118271f, 0 2px 4px #1118270d;
 	--shadow-lg: 0 24px 48px -12px #11182740, 0 0 0 1px #1118270d;
 	--highlight-inset: inset 0 1px 0 #ffffff26;
+	--surface-sheen: linear-gradient(180deg, #ffffff, #ffffff00 40%);
+	--card-shadow: 0 1px 2px #1118270d, 0 2px 8px -4px #11182714;
+	--canvas-glow: #4450dd1a;
+	--stat-glow: 9%;
+	--canvas-glow-2: #2f7fd810;
 	--overlay: #0f131a59;
 	--overlay-strong: #0f131a99;
 	--on-accent: #ffffff;

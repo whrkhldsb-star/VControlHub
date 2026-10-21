@@ -30,6 +30,7 @@ vi.mock("@/lib/auth/authorization", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
+  usePathname: () => "/deployments",
 }));
 
 vi.mock("next/headers", () => ({

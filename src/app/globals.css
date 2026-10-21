@@ -71,6 +71,13 @@
 		text-rendering: optimizeLegibility;
 	}
 	body { font-size: var(--font-body); line-height: 1.55; }
+	/* A soft brand glow at the top of every page; it scrolls away with the content. */
+	body {
+		background-image:
+			radial-gradient(56rem 24rem at 78% -6rem, var(--canvas-glow), transparent 72%),
+			radial-gradient(40rem 20rem at 12% -8rem, var(--canvas-glow-2), transparent 70%);
+		background-repeat: no-repeat;
+	}
 	*, ::before, ::after { letter-spacing: 0; }
 	h1, h2, h3, h4 { color: var(--text-primary); letter-spacing: -0.01em; }
 	code, kbd, samp, pre { font-family: var(--app-font-mono); font-feature-settings: normal; }
@@ -88,6 +95,8 @@
 	::-webkit-scrollbar-track { background: transparent; }
 	::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border: 3px solid transparent; border-radius: 8px; background-clip: padding-box; }
 	::-webkit-scrollbar-thumb:hover { background-color: var(--scrollbar-thumb-hover); }
+	/* In-page anchors (#2fa, #personal-preferences) land below the sticky top bar. */
+	:where([id]) { scroll-margin-top: calc(var(--topbar-height) + 1rem); }
 	/* Tabular figures wherever numbers line up. */
 	table, [data-stat-card], [data-tabular] { font-variant-numeric: tabular-nums; }
 }
@@ -98,9 +107,10 @@
 		min-width: 0;
 		border: 1px solid var(--border);
 		border-radius: var(--radius-card);
-		background: var(--surface);
+		background-color: var(--surface);
+		background-image: var(--surface-sheen);
 		padding: var(--space-4);
-		box-shadow: var(--shadow-xs);
+		box-shadow: var(--card-shadow);
 	}
 	[data-card].cursor-pointer:hover { border-color: var(--border-strong); }
 	/* A well nested inside a card (grouped fields, previews, sub-sections). */
@@ -122,12 +132,40 @@
 	[data-server-card] { transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
 	[data-server-card]:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
 	[data-stat-card] { min-height: 5.25rem; }
+	/* A toned figure (running, failed, …) carries its colour as a corner glow. */
+	[data-stat-card][data-stat-tone] {
+		background-image: radial-gradient(16rem 8rem at 100% 0%, color-mix(in srgb, var(--stat-tone) var(--stat-glow), transparent), transparent 70%), var(--surface-sheen);
+	}
+	[data-stat-tone="cyan"] { --stat-tone: var(--accent); }
+	[data-stat-tone="emerald"] { --stat-tone: var(--success); }
+	[data-stat-tone="amber"] { --stat-tone: var(--warning); }
+	[data-stat-tone="rose"] { --stat-tone: var(--danger); }
 	[data-list-panel] {
 		min-width: 0;
 		border: 1px solid var(--border);
 		border-radius: var(--radius-card);
-		background: var(--surface);
-		box-shadow: var(--shadow-xs);
+		background-color: var(--surface);
+		background-image: var(--surface-sheen);
+		box-shadow: var(--card-shadow);
+	}
+	/* Page identity: the section's navigation glyph beside every page title. */
+	[data-page-icon] {
+		display: grid;
+		flex-shrink: 0;
+		place-items: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		border: 1px solid var(--accent-border);
+		border-radius: 0.875rem;
+		background: linear-gradient(150deg, color-mix(in srgb, var(--accent) 24%, var(--surface)), color-mix(in srgb, var(--accent) 7%, var(--surface)) 70%);
+		color: var(--accent);
+		box-shadow: var(--highlight-inset), var(--shadow-sm);
+	}
+	[data-page-icon] > svg { width: 1.375rem; height: 1.375rem; }
+	[data-page-shell][data-shell="public"] [data-page-icon] { display: none; }
+	@media (max-width: 39.99rem) {
+		[data-page-icon] { width: 2.375rem; height: 2.375rem; border-radius: 0.75rem; }
+		[data-page-icon] > svg { width: 1.25rem; height: 1.25rem; }
 	}
 	[data-list-panel-header] { background: transparent; border-radius: var(--radius-card) var(--radius-card) 0 0; }
 	[data-list-panel-body] { background: transparent; border-radius: 0 0 var(--radius-card) var(--radius-card); }
@@ -225,11 +263,13 @@
 	[data-action-button][data-square][data-size="lg"] { min-width: 2.5rem; }
 
 	[data-action-button][data-variant="primary"], [data-action-button]:not([data-variant]), [data-primary] {
-		background: var(--color-action);
+		background-color: var(--color-action);
+		/* A light sheen from the top gives the one solid command some depth. */
+		background-image: linear-gradient(180deg, #ffffff1f, #ffffff00 55%);
 		color: var(--color-action-fg);
-		box-shadow: var(--highlight-inset), var(--shadow-xs);
+		box-shadow: var(--highlight-inset), var(--shadow-xs), 0 2px 10px -4px var(--color-action-ring);
 	}
-	[data-action-button][data-variant="primary"]:hover:not(:disabled), [data-action-button]:not([data-variant]):hover:not(:disabled), [data-primary]:hover:not(:disabled) { background: var(--color-action-hover); }
+	[data-action-button][data-variant="primary"]:hover:not(:disabled), [data-action-button]:not([data-variant]):hover:not(:disabled), [data-primary]:hover:not(:disabled) { background-color: var(--color-action-hover); }
 
 	[data-action-button][data-variant="secondary"], [data-secondary] {
 		background: var(--surface);
