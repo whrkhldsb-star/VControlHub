@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-20T08:11:06.209Z",
+  "generatedAt": "2026-10-21T00:53:17.572Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
     "sidebarMobile": 4,
     "pages": 58,
-    "apiRoutes": 195,
+    "apiRoutes": 196,
     "permissionsDefined": 52
   },
   "sidebar": {
@@ -1709,6 +1709,17 @@
       ],
       "guardMode": "delegated",
       "declaredPermissions": []
+    },
+    {
+      "path": "/api/files/[id]/thumbnail",
+      "file": "src/app/api/files/[id]/thumbnail/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:read"
+      ]
     },
     {
       "path": "/api/files/[id]/versions/[versionId]/download",
