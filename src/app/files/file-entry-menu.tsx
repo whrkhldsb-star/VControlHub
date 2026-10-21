@@ -70,6 +70,8 @@ export type EntryMenuModel = {
 	onOpen?: () => void;
 	downloadHref?: string | null;
 	onDetails?: () => void;
+	/** A ZIP/tar archive on a LOCAL node that can be unpacked here. */
+	extractable?: boolean;
 };
 
 export function EntryMenuItems({ model }: { model: EntryMenuModel }) {
@@ -132,6 +134,13 @@ export function EntryMenuItems({ model }: { model: EntryMenuModel }) {
 			groups[2]!.push(
 				<MenuItem key="copy" icon={<Copy aria-hidden />} onSelect={() => actions.copy([target])}>
 					{t("filesPage.drive.copyToEllipsis")}
+				</MenuItem>,
+			);
+		}
+		if (canRead && model.extractable) {
+			groups[2]!.push(
+				<MenuItem key="extract" icon={<FolderOpen aria-hidden />} description={t("archivePreview.extractHint")} onSelect={() => void actions.extract(target)}>
+					{t("archivePreview.extract")}
 				</MenuItem>,
 			);
 		}

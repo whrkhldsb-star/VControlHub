@@ -8,7 +8,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { FilesBrowserSpa } from "./files-browser-spa";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { StorageNodeManager } from "./storage-node-manager";
-import { FilesMoreNav } from "./files-more-nav";
+import { FilesSubpageNav } from "./files-subpage-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -62,8 +62,8 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           servers={formOptions.servers}
           canManageNodes={canManageNodes}
         />
-        <FilesMoreNav />
       </PageHeader>
+      <FilesSubpageNav recycleBinCount={initialData.stats.deletedEntries} />
       <FilesBrowserSpa key={browserSnapshotKey} initialData={initialData} />
     </PageShell>
   );

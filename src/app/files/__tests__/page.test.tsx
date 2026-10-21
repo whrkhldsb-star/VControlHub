@@ -8,7 +8,7 @@ vi.mock("@/app/storage/actions",() => ({getStorageFormOptions:mocks.formOptions}
 vi.mock("@/lib/i18n/translations",() => ({getServerLocale:async () => "zh",t:(key:string) => key}));
 vi.mock("../files-browser-spa",() => ({FilesBrowserSpa:mocks.browser}));
 vi.mock("../storage-node-manager",() => ({StorageNodeManager:mocks.manager}));
-vi.mock("../files-more-nav",() => ({FilesMoreNav:() => null}));
+vi.mock("../files-subpage-nav",() => ({FilesSubpageNav:() => null}));
 import FilesPage from "../page";
 const session = {userId:"viewer",username:"viewer",roles:["viewer"]};
 const listing = {

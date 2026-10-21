@@ -1,5 +1,4 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 import { NextRequest, NextResponse } from "next/server";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -15,9 +14,11 @@ import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { archiveListQuerySchema } from "@/lib/files/schema";
+import { ArchiveExtractError, archiveKindOf, listArchive } from "@/lib/storage/archive-extract";
 
 import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { archiveErrorCopy } from "@/lib/storage/archive-error-copy";
 const execFileAsync = promisify(execFile);
 
 export const dynamic = "force-dynamic";
@@ -91,6 +92,9 @@ export async function GET(request: NextRequest) {
         );
         return NextResponse.json({ entries });
       } catch (err) {
+        if (err instanceof ArchiveExtractError) {
+          throw new ValidationError(archiveErrorCopy(err));
+        }
         const message = getErrorMessage(err, "Failed to read archive");
         throw new AppError({ code: "INTERNAL_ERROR", message: message, status: 500 });
       }
@@ -102,18 +106,13 @@ async function listArchiveContents(
   name: string,
   fullPath: string,
 ): Promise<ArchiveEntry[]> {
-  const lowerName = name.toLowerCase();
-  const ext = path.extname(lowerName);
+  const ext = path.extname(name.toLowerCase());
 
-  if (ext === ".zip" || ext === ".jar") {
-    return listZip(fullPath);
-  }
-  if (lowerName.endsWith(".tar.gz") || lowerName.endsWith(".tgz")) {
-    return listTarGz(fullPath);
-  }
-  if (ext === ".tar") {
-    return listTar(fullPath);
-  }
+  // ZIP and tar are read in-process: unzip/tar listings vary by build and
+  // locale (Ubuntu's unzip dates and GNU tar's escaped Chinese names broke
+  // the old parsers), and the Docker image has no unzip at all.
+  const kind = archiveKindOf(name);
+  if (kind) return listArchive(fullPath, kind);
   if (ext === ".gz") {
     return listGz(fullPath, name);
   }
@@ -124,117 +123,6 @@ async function listArchiveContents(
     return listRar(fullPath);
   }
   throw new Error(`Unsupported archive format: ${ext}`);
-}
-
-async function listZip(filePath: string): Promise<ArchiveEntry[]> {
-  // Windows has no unzip.exe; System32 bsdtar reads zip archives natively.
-  if (process.platform === "win32") {
-    const { stdout } = await execFileAsync(resolveLocalTarBinary(), ["-tvf", filePath], {
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: 15000,
-    });
-    return parseTarOutput(stdout);
-  }
-  const { stdout } = await execFileAsync("unzip", ["-l", filePath], {
-    maxBuffer: 10 * 1024 * 1024,
-    timeout: 15000,
-  });
-  return parseUnzipOutput(stdout);
-}
-
-function parseUnzipOutput(output: string): ArchiveEntry[] {
-  const lines = output.split("\n");
-  const entries: ArchiveEntry[] = [];
-  // unzip -l format:
-  //   Length  Date        Time    Name
-  //   ------  ----        ----    ----
-  //   12345   01-01-2024  12:00   some/file.txt
-  // End lines: "----" and summary
-  for (const line of lines) {
-    const match = line.match(
-      /^\s*(\d+)\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})\s+(.+)$/,
-    );
-    if (match) {
-      const size = parseInt(match[1]!, 10);
-      const name = match[4]!.trim();
-      if (!name) continue;
-      const isDirectory = name.endsWith("/");
-      entries.push({
-        name: isDirectory ? name.slice(0, -1) : name,
-        size,
-        isDirectory,
-        modified: `${match[2]!} ${match[3]!}`,
-      });
-    }
-  }
-  return entries;
-}
-
-async function listTarGz(filePath: string): Promise<ArchiveEntry[]> {
-  const { stdout } = await execFileAsync(resolveLocalTarBinary(), ["-tzvf", filePath], {
-    maxBuffer: 10 * 1024 * 1024,
-    timeout: 15000,
-  });
-  return parseTarOutput(stdout);
-}
-
-async function listTar(filePath: string): Promise<ArchiveEntry[]> {
-  const { stdout } = await execFileAsync("tar", ["-tvf", filePath], {
-    maxBuffer: 10 * 1024 * 1024,
-    timeout: 15000,
-  });
-  return parseTarOutput(stdout);
-}
-
-function parseTarOutput(output: string): ArchiveEntry[] {
-  const lines = output.split("\n");
-  const entries: ArchiveEntry[] = [];
-  for (const line of lines) {
-    const match = line.match(
-      /^([dlcbps-])(.{9})\s+\S+\s+(\d+)\s+((?:\w{3}\s+\d{1,2}\s+\d{1,2}:\d{2})|(?:\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}))\s+(.+)$/,
-    );
-    if (match) {
-      const typeChar = match[1]!;
-      const size = parseInt(match[3]!, 10);
-      const name = match[5]!.trim();
-      if (!name) continue;
-      const isDirectory = typeChar === "d" || name.endsWith("/");
-      entries.push({
-        name: isDirectory ? name.replace(/\/$/, "") : name,
-        size,
-        isDirectory,
-        modified: match[4]!,
-      });
-      continue;
-    }
-    // bsdtar (Windows tar.exe / macOS) columns: perms uid gid dev SIZE month day
-    // HH:MM name — month names are locale-dependent, so anchor on the HH:MM
-    // token and take the name as everything after it (names may contain
-    // spaces). tokens: [perms, uid, gid, dev, size, month, day, time, ...name]
-    const bsdtar = parseBsdtarLine(line);
-    if (bsdtar) entries.push(bsdtar);
-  }
-  return entries;
-}
-
-function parseBsdtarLine(line: string): ArchiveEntry | null {
-  const trimmed = line.trim();
-  if (!/^[dlcbps-][rwxsStT-]{9}\s/.test(trimmed)) return null;
-  const tokens = trimmed.split(/\s+/);
-  const timeIdx = tokens.findIndex((token, i) => i >= 5 && /^\d{1,2}:\d{2}$/.test(token));
-  if (timeIdx < 7 || timeIdx + 1 >= tokens.length) return null;
-  const size = Number.parseInt(tokens[timeIdx - 3]!, 10);
-  if (!Number.isFinite(size)) return null;
-  const typeChar = trimmed[0]!;
-  const name = tokens.slice(timeIdx + 1).join(" ").trim();
-  if (!name) return null;
-  const isDirectory = typeChar === "d" || name.endsWith("/");
-  return {
-    name: isDirectory ? name.replace(/\/$/, "") : name,
-    size,
-    isDirectory,
-    modified: `${tokens[timeIdx - 2]!} ${tokens[timeIdx - 1]!} ${tokens[timeIdx]!}`,
-  };
 }
 
 async function listGz(

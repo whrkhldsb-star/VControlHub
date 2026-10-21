@@ -24,6 +24,7 @@ import { FileActionsProvider, useFileActions, type FileActionTarget } from "../f
 
 const photo: FileActionTarget = { id: "f1", name: "屏幕截图 2026-10-01 14.31.png", entryType: "FILE", relativePath: "pics/屏幕截图 2026-10-01 14.31.png", storageNodeId: "n1", storageNodeName: "本机" };
 const report: FileActionTarget = { id: "f2", name: "report.pdf", entryType: "FILE", relativePath: "pics/report.pdf", storageNodeId: "n1" };
+const bundle: FileActionTarget = { id: "z1", name: "site.zip", entryType: "FILE", relativePath: "downloads/site.zip", storageNodeId: "n1" };
 const docs: FileActionTarget = { id: "d1", name: "docs", entryType: "DIRECTORY", relativePath: "docs", storageNodeId: "n1" };
 
 function Buttons() {
@@ -40,6 +41,7 @@ function Buttons() {
 			<button type="button" onClick={() => actions.share(photo)}>do-share</button>
 			<button type="button" onClick={() => actions.editTags(photo)}>do-tags</button>
 			<button type="button" onClick={() => void actions.toggleFavorite({ ...photo, favorite: true })}>do-unstar</button>
+			<button type="button" onClick={() => void actions.extract(bundle)}>do-extract</button>
 		</>
 	);
 }
@@ -189,6 +191,27 @@ describe("FileActionsProvider", () => {
 		expect(mocks.fetch).toHaveBeenCalledWith("/api/share-links", expect.objectContaining({ method: "POST", body: JSON.stringify({ fileEntryId: "f1", quick: true }) }));
 		expect(within(dialog).getByText(`${window.location.origin}/share/tok123`)).toBeVisible();
 		expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/share/tok123`);
+	});
+
+	it("extracts an archive into a new folder and refreshes, or says why it could not", async () => {
+		mocks.fetch.mockResolvedValueOnce({ message: "已解压 2 个文件到文件夹“site”", folder: "downloads/site" });
+		renderActions();
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "do-extract" }));
+		});
+		expect(mocks.fetch).toHaveBeenCalledWith("/api/files/extract", {
+			method: "POST",
+			body: JSON.stringify({ nodeId: "n1", relativePath: "downloads/site.zip", driver: "LOCAL", name: "site.zip" }),
+		});
+		expect(mocks.toast).toHaveBeenCalledWith("success", "已解压 2 个文件到文件夹“site”");
+		expect(onChanged).toHaveBeenCalledOnce();
+
+		mocks.fetch.mockRejectedValueOnce(new Error("压缩包内含不安全的路径（../x），未解压任何内容"));
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "do-extract" }));
+		});
+		expect(mocks.toast).toHaveBeenLastCalledWith("error", "压缩包内含不安全的路径（../x），未解压任何内容");
+		expect(onChanged).toHaveBeenCalledOnce();
 	});
 
 	it("stars and edits tags through the preferences API", async () => {

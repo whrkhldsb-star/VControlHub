@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { cn } from "@/lib/ui/cn";
 import type { StorageEntry } from "./file-entry-utils";
 
 export function PreviewIcon() {
@@ -106,23 +106,7 @@ export function getFileKind(entry: {
   return "file";
 }
 
-/** Chart hues: the palette validated for fills in both themes. */
-const KIND_HUE: Record<FileKind, string> = {
-  folder: "var(--chart-3)",
-  image: "var(--chart-5)",
-  video: "var(--chart-6)",
-  audio: "var(--chart-1)",
-  pdf: "var(--chart-6)",
-  doc: "var(--chart-4)",
-  sheet: "var(--chart-2)",
-  slides: "var(--chart-3)",
-  archive: "var(--chart-3)",
-  code: "var(--chart-4)",
-  text: "var(--text-muted)",
-  file: "var(--text-muted)",
-};
-
-/** Kinds whose large icon carries the extension as a badge. */
+/** Kinds whose large icon names the extension instead of drawing a glyph. */
 const LABELLED_KINDS = new Set<FileKind>(["pdf", "doc", "sheet", "slides", "archive", "code", "text"]);
 
 function badgeLabel(kind: FileKind, extension: string) {
@@ -131,62 +115,51 @@ function badgeLabel(kind: FileKind, extension: string) {
   return label.length > 4 ? label.slice(0, 4) : label;
 }
 
+/** The page outline every file icon shares (24-unit grid, like the app's line icons). */
+const PAGE = "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z";
+const PAGE_FOLD = "M14 2v4a2 2 0 0 0 2 2h4";
+const FOLDER = "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z";
+
 function KindGlyph({ kind }: { kind: FileKind }) {
-  const stroke = { stroke: "var(--file-hue)", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" } as const;
   switch (kind) {
     case "image":
       return (
         <>
-          <circle cx="16" cy="19" r="2.2" fill="var(--file-hue)" />
-          <path d="M11 30l6.2-6.5 3.8 3.8 3-3 5 5.7z" fill="var(--file-hue)" />
+          <circle cx="10" cy="12.5" r="1.5" />
+          <path d="m20 17-2.3-2.3a1.6 1.6 0 0 0-2.3 0L9.5 20.5" />
         </>
       );
     case "video":
-      return <path d="M17 18.5v11l9-5.5z" fill="var(--file-hue)" />;
+      return <path d="M10 11.5v6l5-3z" />;
     case "audio":
       return (
         <>
-          <path d="M23 17.5v9" {...stroke} />
-          <path d="M23 17.5l-6 1.6v9" {...stroke} />
-          <circle cx="15.2" cy="28.4" r="2.2" fill="var(--file-hue)" />
-          <circle cx="21.2" cy="26.8" r="2.2" fill="var(--file-hue)" />
+          <path d="M11 17.5V11l4.5-1v6" />
+          <circle cx="9.5" cy="17.5" r="1.5" />
+          <circle cx="14" cy="16" r="1.5" />
         </>
       );
     case "archive":
-      return (
-        <>
-          <path d="M19 15h2M21 18h2M19 21h2M21 24h2" {...stroke} />
-          <rect x="18" y="26" width="5" height="5" rx="1.2" fill="var(--file-hue)" />
-        </>
-      );
+      return <path d="M10 4h1M10 7h1M10 10h1M9.5 13h2v3h-2z" />;
     case "code":
-      return <path d="M16 20l-3.5 4 3.5 4M24 20l3.5 4-3.5 4M21.5 18.5l-3 11" {...stroke} />;
+      return <path d="m10 12.5-2 2 2 2M14 16.5l2-2-2-2" />;
     case "sheet":
-      return (
-        <>
-          <rect x="12" y="18" width="16" height="12" rx="1.5" {...stroke} strokeWidth={1.8} />
-          <path d="M12 22h16M12 26h16M18 18v12" {...stroke} strokeWidth={1.6} />
-        </>
-      );
+      return <path d="M8 13h2M14 13h2M8 17h2M14 17h2" />;
     case "slides":
-      return (
-        <>
-          <rect x="12" y="18" width="16" height="10" rx="1.5" {...stroke} strokeWidth={1.8} />
-          <path d="M20 28v3M16 31h8" {...stroke} strokeWidth={1.6} />
-        </>
-      );
+      return <rect x="8" y="12" width="8" height="5.5" rx="1" />;
     case "pdf":
     case "doc":
     case "text":
-      return <path d="M13 19h14M13 23h14M13 27h9" {...stroke} />;
+      return <path d="M10 9H8M16 13H8M16 17H8" />;
     default:
       return null;
   }
 }
 
 /**
- * Drive-style type icon: a folder, or a page tinted by kind. At 32px and
- * above the page carries a glyph and, for documents, its extension badge.
+ * Line icon for an entry, drawn like the app's other icons: folders in the
+ * accent colour, files in the secondary text colour with a glyph for their
+ * kind. At 40px and above documents name their extension instead.
  */
 export function FileTypeIcon({
   entry,
@@ -198,43 +171,38 @@ export function FileTypeIcon({
   className?: string;
 }) {
   const kind = getFileKind(entry);
-  const style = { "--file-hue": KIND_HUE[kind] } as CSSProperties;
+  // About 1.75px at list size, a little heavier when drawn large.
+  const strokePx = size <= 24 ? 1.75 : 1.75 + (size - 24) * 0.015;
+  const svgProps = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: (strokePx * 24) / size,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+    "data-file-kind": kind,
+    className: cn("shrink-0", kind === "folder" ? "text-[var(--accent)]" : "text-[var(--text-secondary)]", className),
+  };
   if (kind === "folder") {
     return (
-      <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" className={className} style={style} data-file-kind="folder">
-        <path d="M4 11a3 3 0 0 1 3-3h8.4a3 3 0 0 1 2.2 1L20 11.5h13a3 3 0 0 1 3 3V15H4z" fill="var(--file-hue)" opacity="0.55" />
-        <path d="M4 15.5h32V30a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3z" fill="var(--file-hue)" opacity="0.92" />
+      <svg {...svgProps}>
+        <path d={FOLDER} />
       </svg>
     );
   }
   const extension = getFileExtension(entry.name);
-  const showBadge = size >= 32 && LABELLED_KINDS.has(kind) && (kind === "pdf" || Boolean(extension));
-  const label = showBadge ? badgeLabel(kind, extension) : "";
-  const badgeWidth = Math.max(13, label.length * 5.4 + 5);
+  const label = size >= 40 && LABELLED_KINDS.has(kind) && (kind === "pdf" || Boolean(extension)) ? badgeLabel(kind, extension) : "";
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" className={className} style={style} data-file-kind={kind}>
-      <path
-        d="M11 4h13.2L33 12.8V33a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z"
-        fill="color-mix(in srgb, var(--file-hue) 14%, var(--surface))"
-        stroke="color-mix(in srgb, var(--file-hue) 60%, transparent)"
-        strokeWidth="1.4"
-      />
-      <path d="M24 4.4V10a3 3 0 0 0 3 3h5.6" fill="none" stroke="color-mix(in srgb, var(--file-hue) 60%, transparent)" strokeWidth="1.4" strokeLinejoin="round" />
-      {showBadge ? (
-        <>
-          <rect x="4.5" y="22" width={badgeWidth} height="11" rx="2.5" fill="var(--file-hue)" />
-          <text
-            x={4.5 + badgeWidth / 2}
-            y="30"
-            textAnchor="middle"
-            fontSize="7.4"
-            fontWeight="700"
-            fontFamily="var(--app-font-sans)"
-            fill="var(--surface)"
-          >
-            {label}
-          </text>
-        </>
+    <svg {...svgProps}>
+      <path d={PAGE} />
+      <path d={PAGE_FOLD} />
+      {label ? (
+        <text x="12" y="16.6" textAnchor="middle" fontSize={label.length > 3 ? 4 : 4.6} fontWeight="700" fontFamily="var(--app-font-sans)" fill="currentColor" stroke="none">
+          {label}
+        </text>
       ) : (
         <KindGlyph kind={kind} />
       )}

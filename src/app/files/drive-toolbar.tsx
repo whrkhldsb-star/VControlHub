@@ -55,7 +55,7 @@ export function DriveBreadcrumbs({ t, path, nodes, nodeIdFilter, onNavigate, onR
 	});
 	const folded = crumbs.length > 4 ? [crumbs[0]!, { key: "…", label: "…", onClick: crumbs[crumbs.length - 3]!.onClick, current: false }, ...crumbs.slice(-2)] : crumbs;
 	return (
-		<nav aria-label={t("filesBrowserSpa.breadcrumbAria")} className="min-w-0 flex-1">
+		<nav aria-label={t("filesBrowserSpa.breadcrumbAria")} className="min-w-0">
 			<ol className="flex min-w-0 items-center gap-0.5 text-sm">
 				<li className="shrink-0">
 					<button type="button" onClick={onRoot} aria-current={crumbs.length === 0 ? "page" : undefined}

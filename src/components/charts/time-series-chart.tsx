@@ -1,8 +1,11 @@
 "use client";
 
 /**
- * Small dependency-free SVG time-series chart for the status board.
+ * Small dependency-free SVG time-series chart (status board, traffic).
  *
+ * - Drawn at the width it is given on screen (measured), so text and strokes
+ *   keep their size and nothing is stretched; until the first measurement it
+ *   scales a 640-unit drawing proportionally.
  * - `null` values break the line (no sample, offline): gaps stay visible.
  * - Optional markers (e.g. failed probes) are drawn as ticks on the x axis
  *   instead of as values.
@@ -10,7 +13,7 @@
  *   collapsible data table carries the same numbers for screen readers.
  * - No animation, so `prefers-reduced-motion` needs no special case.
  */
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 export type ChartPoint = { t: number; v: number | null };
 export type ChartSeries = { key: string; label: string; color: string; points: ChartPoint[] };
@@ -33,7 +36,8 @@ type Props = {
 	height?: number;
 };
 
-const WIDTH = 640;
+/** Drawing width before the container has been measured (server render). */
+const DEFAULT_WIDTH = 640;
 const PAD_LEFT = 76;
 const PAD_RIGHT = 12;
 const PAD_TOP = 10;
@@ -54,6 +58,21 @@ export function TimeSeriesChart(props: Props) {
 	const titleId = useId();
 	const [cursor, setCursor] = useState<number | null>(null);
 	const [tableOpen, setTableOpen] = useState(false);
+	const frameRef = useRef<HTMLDivElement>(null);
+	const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
+	useEffect(() => {
+		const frame = frameRef.current;
+		if (!frame || typeof ResizeObserver === "undefined") return;
+		const update = () => {
+			const width = Math.round(frame.clientWidth);
+			if (width > 0) setMeasuredWidth(width);
+		};
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(frame);
+		return () => observer.disconnect();
+	}, []);
+	const drawWidth = measuredWidth ?? DEFAULT_WIDTH;
 
 	const times = useMemo(() => {
 		const set = new Set<number>();
@@ -63,7 +82,7 @@ export function TimeSeriesChart(props: Props) {
 	const hasValues = series.some((s) => s.points.some((p) => p.v !== null));
 	const dataMax = Math.max(0, ...series.flatMap((s) => s.points.map((p) => p.v ?? 0)));
 	const yMax = props.yMax ?? niceCeiling(dataMax * 1.1);
-	const plotW = WIDTH - PAD_LEFT - PAD_RIGHT;
+	const plotW = drawWidth - PAD_LEFT - PAD_RIGHT;
 	const plotH = height - PAD_TOP - PAD_BOTTOM;
 	const span = Math.max(1, to - from);
 	const x = (t: number) => PAD_LEFT + ((t - from) / span) * plotW;
@@ -105,7 +124,7 @@ export function TimeSeriesChart(props: Props) {
 	const onPointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
 		if (times.length === 0) return;
 		const rect = event.currentTarget.getBoundingClientRect();
-		const px = ((event.clientX - rect.left) / rect.width) * WIDTH;
+		const px = ((event.clientX - rect.left) / rect.width) * drawWidth;
 		const t = from + ((px - PAD_LEFT) / plotW) * span;
 		let best = 0;
 		for (let i = 1; i < times.length; i++) if (Math.abs(times[i]! - t) < Math.abs(times[best]! - t)) best = i;
@@ -117,10 +136,12 @@ export function TimeSeriesChart(props: Props) {
 
 	return (
 		<figure className="min-w-0">
-			<div className="relative">
+			<div ref={frameRef} className="relative">
 				<svg
-					viewBox={`0 0 ${WIDTH} ${height}`}
-					className="block h-auto w-full touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+					viewBox={`0 0 ${drawWidth} ${height}`}
+					width={measuredWidth ?? undefined}
+					height={measuredWidth ? height : undefined}
+					className={`block w-full touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${measuredWidth ? "" : "h-auto"}`}
 					role="img"
 					aria-labelledby={titleId}
 					tabIndex={0}
@@ -132,7 +153,7 @@ export function TimeSeriesChart(props: Props) {
 					<title id={titleId}>{ariaLabel}</title>
 					{ticks.map((tick) => (
 						<g key={tick}>
-							<line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={y(tick)} y2={y(tick)} stroke="var(--chart-grid, var(--border-subtle))" strokeWidth={1} />
+							<line x1={PAD_LEFT} x2={drawWidth - PAD_RIGHT} y1={y(tick)} y2={y(tick)} stroke="var(--chart-grid, var(--border-subtle))" strokeWidth={1} />
 							<text x={PAD_LEFT - 6} y={y(tick) + 4} textAnchor="end" fontSize={11} fill="var(--text-muted)">{formatY(tick)}</text>
 						</g>
 					))}

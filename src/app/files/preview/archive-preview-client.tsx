@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
-import { ActionButton } from "@/components/action-button";
-import { Notice } from "@/components/ui-primitives";
+import { ActionButton, ButtonLink } from "@/components/action-button";
+import { FolderOpen, RefreshCw } from "@/components/icons";
+import { InlineLoading, Notice } from "@/components/ui-primitives";
+import { FileTypeIcon } from "../file-entry-icons";
+import { buildSearchHref } from "../file-entry-utils";
 
 type ArchiveEntry = {
 	name: string;
@@ -14,6 +17,9 @@ type ArchiveEntry = {
 	isDirectory: boolean;
 	modified?: string;
 };
+
+/** Formats /api/files/extract can unpack on a LOCAL node; 7z and rar can only be listed. */
+const EXTRACTABLE = /\.(zip|jar|tar|tgz|tar\.gz|gz)$/i;
 
 export function ArchivePreviewClient({
 	name,
@@ -29,27 +35,42 @@ export function ArchivePreviewClient({
 	const { t } = useI18n();
 	const [entries, setEntries] = useState<ArchiveEntry[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [loading, setLoading] = useState(false);
+	// The listing loads as soon as the archive opens.
+	const [loading, setLoading] = useState(true);
 	const [extracting, startExtractTransition] = useTransition();
-	const [extractResult, setExtractResult] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+	const [extractResult, setExtractResult] = useState<{ tone: "ok" | "error"; text: string; folder?: string } | null>(null);
+	const requestRef = useRef(0);
 
-	async function loadArchiveContents() {
+	const requestContents = useCallback(() => {
+		const params = new URLSearchParams({ nodeId, relativePath, driver, name });
+		return csrfFetch(`/api/files/archive-list?${params.toString()}`) as Promise<{ entries?: ArchiveEntry[] }>;
+	}, [driver, name, nodeId, relativePath]);
+
+	/** Applies a listing request's outcome unless a newer request started meanwhile. */
+	const settle = useCallback((requestId: number, request: Promise<{ entries?: ArchiveEntry[] }>) => {
+		request.then(
+			(data) => {
+				if (requestId !== requestRef.current) return;
+				setEntries(data.entries ?? []);
+				setError(null);
+				setLoading(false);
+			},
+			(err: unknown) => {
+				if (requestId !== requestRef.current) return;
+				setError(getErrorMessage(err, t("archivePreview.unknownError")));
+				setLoading(false);
+			},
+		);
+	}, [t]);
+
+	useEffect(() => {
+		settle(++requestRef.current, requestContents());
+	}, [requestContents, settle]);
+
+	function loadArchiveContents() {
 		setLoading(true);
 		setError(null);
-		try {
-			const params = new URLSearchParams({
-				nodeId,
-				relativePath,
-				driver,
-				name,
-			});
-			const data = await csrfFetch(`/api/files/archive-list?${params.toString()}`);
-			setEntries(data.entries ?? []);
-		} catch (err) {
-			setError(getErrorMessage(err, t("archivePreview.unknownError")));
-		} finally {
-			setLoading(false);
-		}
+		settle(++requestRef.current, requestContents());
 	}
 
 	function handleExtract() {
@@ -62,7 +83,7 @@ export function ArchivePreviewClient({
 					body: JSON.stringify({ nodeId, relativePath, driver, name }),
 				});
 				if (data.error) throw new Error(data.error);
-				setExtractResult({ tone: "ok", text: data.message || t("archivePreview.extractDone") });
+				setExtractResult({ tone: "ok", text: data.message || t("archivePreview.extractDone"), folder: typeof data.folder === "string" ? data.folder : undefined });
 			} catch (err) {
 				setExtractResult({
 					tone: "error",
@@ -72,72 +93,67 @@ export function ArchivePreviewClient({
 		});
 	}
 
-	function formatSize(bytes: number) {
-		return formatBytesShared(bytes, { zero: "-" });
-	}
+	const canExtract = driver === "LOCAL" && EXTRACTABLE.test(name) && Boolean(entries?.length);
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-wrap items-center gap-3">
-				<ActionButton variant="outline"
-					onClick={loadArchiveContents}
-					disabled={loading}>
-					{loading ? t("archivePreview.loading") : entries ? t("archivePreview.refreshList") : t("archivePreview.title")}
-				</ActionButton>
-				{entries && entries.length > 0 && driver ==="LOCAL" ? (
-					<ActionButton variant="success"
-						onClick={handleExtract}
-						disabled={extracting}>
+			<div className="flex flex-wrap items-center gap-2">
+				{canExtract ? (
+					<ActionButton variant="primary" icon={<FolderOpen aria-hidden />} onClick={handleExtract} loading={extracting} disabled={extracting}>
 						{extracting ? t("archivePreview.extracting") : t("archivePreview.extract")}
 					</ActionButton>
 				) : null}
+				<ActionButton variant="secondary" icon={<RefreshCw aria-hidden />} onClick={loadArchiveContents} disabled={loading}>
+					{loading ? t("archivePreview.loading") : t("archivePreview.refreshList")}
+				</ActionButton>
+				{canExtract ? <span className="text-xs text-[var(--text-muted)]">{t("archivePreview.extractHint")}</span> : null}
 			</div>
 
-			{error ? (
-				<Notice tone="danger">
-					{error}
+			{error ? <Notice tone="danger">{error}</Notice> : null}
+
+			{extractResult ? (
+				<Notice tone={extractResult.tone === "ok" ? "success" : "danger"}>
+					<span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+						<span>{extractResult.text}</span>
+						{extractResult.folder ? (
+							<ButtonLink size="sm" variant="secondary" href={buildSearchHref(extractResult.folder, { nodeId })}>
+								{t("archivePreview.openFolder")}
+							</ButtonLink>
+						) : null}
+					</span>
 				</Notice>
 			) : null}
 
-			{extractResult ? (
-				<div
-					data-tone={extractResult.tone === "ok" ? "emerald" : "rose"}
-					className={
-						extractResult.tone === "ok"
-							? "rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]"
-							: "rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]"
-					}
-				>
-					{extractResult.text}
-				</div>
-			) : null}
+			{loading && !entries ? <InlineLoading label={t("archivePreview.loading")} /> : null}
 
 			{entries && entries.length > 0 ? (
 				<div data-inset="" className="overflow-hidden">
-					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-[var(--surface-subtle)] px-4 py-2.5 text-xs uppercase text-[var(--text-secondary)] font-medium">
-						<div />
-						<div>{t("archivePreview.table.name")}</div>
-						<div className="text-right">{t("archivePreview.table.size")}</div>
+					<div className="max-h-[60vh] overflow-auto">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">{t("archivePreview.table.name")}</th>
+									<th scope="col" className="w-28 text-right">{t("archivePreview.table.size")}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{entries.map((entry, index) => (
+									<tr key={`${entry.name}-${index}`}>
+										<td className="max-w-0">
+											<span className="flex min-w-0 items-center gap-2.5">
+												<FileTypeIcon entry={{ entryType: entry.isDirectory ? "DIRECTORY" : "FILE", mimeType: null, name: entry.name }} size={18} />
+												<span className="truncate text-[var(--text-primary)]" title={entry.name}>{entry.name}</span>
+											</span>
+										</td>
+										<td className="text-right text-xs tabular-nums text-[var(--text-secondary)]">
+											{entry.isDirectory ? t("archivePreview.entryType.directory") : formatBytesShared(entry.size, { zero: "-" })}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
 					</div>
-					<div className="divide-y divide-[var(--border-subtle)] light:divide-[var(--border)] max-h-[50vh] overflow-y-auto">
-						{entries.map((entry, i) => (
-							<div
-								key={`${entry.name}-${i}`}
-								className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 items-center px-4 py-2 text-sm hover:bg-[var(--surface-elevated)] transition"
-							>
-								<div className="text-[var(--text-muted)]">
-									{entry.isDirectory ? (
-										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-									) : (
-										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-									)}
-								</div>
-								<div className="truncate text-[var(--text-primary)]">{entry.name}</div>
-								<div className="text-right text-[var(--text-secondary)] text-xs">{entry.isDirectory ? t("archivePreview.entryType.directory") : formatSize(entry.size)}</div>
-							</div>
-						))}
-					</div>
-					<div className="px-4 py-2 text-xs text-[var(--text-muted)] border-t border-[var(--border)]">
+					<div className="border-t border-[var(--border-subtle)] px-4 py-2 text-xs text-[var(--text-muted)]">
 						{t("archivePreview.totalItems", { count: entries.length })}
 					</div>
 				</div>

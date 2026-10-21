@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import os from "node:os";
 import path from "node:path";
@@ -10,6 +10,7 @@ const {
   assertStorageAccessMock,
   prismaMock,
   createFileEntryMock,
+  syncLocalDirectoryEntriesMock,
 } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   assertStorageAccessMock: vi.fn(),
@@ -18,6 +19,7 @@ const {
     fileEntry: { findFirst: vi.fn() },
   },
   createFileEntryMock: vi.fn(),
+  syncLocalDirectoryEntriesMock: vi.fn(async (_input: { relativePath?: string }) => ({ synced: 0, created: 0, updated: 0, deleted: 0, errors: [] })),
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
@@ -31,12 +33,16 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/storage/service", () => ({
   createFileEntry: createFileEntryMock,
 }));
+vi.mock("@/lib/storage/local-sync", () => ({
+  syncLocalDirectoryEntries: syncLocalDirectoryEntriesMock,
+}));
 vi.mock("@/lib/http/rate-limit-presets", () => ({
   GENERAL_WRITE_LIMIT: { windowMs: 1, max: 5 },
   withRateLimit: () => ({ allowed: true }),
   rateLimitResponse: () => new Response(null, { status: 429 }),
 }));
 
+import { zipFixture } from "@/lib/storage/__tests__/archive-fixtures";
 import { POST } from "../route";
 
 let tempDir: string;
@@ -81,44 +87,87 @@ describe("POST /api/files/extract", () => {
     tempDir = "";
   });
 
-  it("recognizes .tar.gz archives and returns the tar safety message", async () => {
-    await createTarGz();
-    prismaMock.storageNode.findFirst.mockResolvedValue({
-      id: "node_1",
-      name: "local",
-      driver: "LOCAL",
-      basePath: tempDir,
+  function extractRequest(remotePath: string) {
+    return new NextRequest("https://app.example.test/api/files/extract", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ serverId: "node_1", remotePath, driver: "LOCAL", name: path.posix.basename(remotePath) }),
     });
+  }
 
-    const response = await POST(
-      new NextRequest("https://app.example.test/api/files/extract", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          serverId: "node_1",
-          remotePath: "backup.tar.gz",
-          driver: "LOCAL",
-          name: "backup.tar.gz",
-        }),
-      }),
-    );
+  function localNode() {
+    prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
+  }
 
-    expect(response.status).toBe(400);
+  it("extracts a .tar.gz into a new folder named after it and indexes it (it used to be refused)", async () => {
+    await createTarGz();
+    localNode();
+
+    const response = await POST(extractRequest("backup.tar.gz"));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ folder: "backup", files: 1, directories: 1, skipped: 0 });
+    expect(await readFile(path.join(tempDir, "backup", "hello.txt"), "utf8")).toBe("hello");
     expect(assertStorageAccessMock).toHaveBeenCalledWith({
       session: { userId: "u_1", username: "admin", roles: ["admin"] },
       storageNodeId: "node_1",
       relativePath: "backup.tar.gz",
       operation: "read",
     });
+    // Admitted against the grant and quota by its expanded size.
     expect(assertStorageAccessMock).toHaveBeenCalledWith({
       session: { userId: "u_1", username: "admin", roles: ["admin"] },
       storageNodeId: "node_1",
       relativePath: ".",
       operation: "write",
+      writeBytes: 5,
     });
-    await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("not supported"),
-    });
+    expect(syncLocalDirectoryEntriesMock.mock.calls.map(([input]) => input.relativePath)).toEqual([undefined, "backup"]);
+  });
+
+  it("extracts a ZIP whose single top folder becomes the new folder, inside the archive's folder", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-extract-zip-"));
+    await mkdir(path.join(tempDir, "downloads"));
+    await writeFile(path.join(tempDir, "downloads", "site.zip"), zipFixture([
+      { name: "site/", directory: true },
+      { name: "site/css/app.css", data: "body{}", deflate: true },
+      { name: "site/index.html", data: "<h1>hi</h1>" },
+      { name: "site/link", data: "/etc/passwd", symlink: true },
+    ]));
+    localNode();
+
+    const response = await POST(extractRequest("downloads/site.zip"));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({ folder: "downloads/site", files: 2, directories: 2, skipped: 1 });
+    expect(body.message).toContain("site");
+    expect(await readFile(path.join(tempDir, "downloads", "site", "css", "app.css"), "utf8")).toBe("body{}");
+    expect(syncLocalDirectoryEntriesMock.mock.calls.map(([input]) => input.relativePath)).toEqual(["downloads", "downloads/site", "downloads/site/css"]);
+  });
+
+  it("refuses an archive with a traversal path and writes nothing", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-extract-evil-"));
+    await writeFile(path.join(tempDir, "evil.zip"), zipFixture([{ name: "../outside.txt", data: "pwned" }]));
+    localNode();
+
+    const response = await POST(extractRequest("evil.zip"));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("../outside.txt") });
+    expect(await readdir(tempDir)).toEqual(["evil.zip"]);
+    expect(syncLocalDirectoryEntriesMock).not.toHaveBeenCalled();
+  });
+
+  it("names the formats it can extract when given another", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-extract-7z-"));
+    await writeFile(path.join(tempDir, "bundle.7z"), Buffer.from("7z"));
+    localNode();
+
+    const response = await POST(extractRequest("bundle.7z"));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining(".tar.gz") });
   });
 
   it("rejects an SFTP node even when the client claims it is local", async () => {

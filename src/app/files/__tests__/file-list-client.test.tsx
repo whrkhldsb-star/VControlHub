@@ -386,6 +386,16 @@ describe("FileListClient", () => {
 		expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 	});
 
+	it("offers extraction for ZIP/tar archives on local nodes only", async () => {
+		const sftpArchive: FileProp = { ...archiveFile, id: "file_sftp_zip", name: "remote.zip", relativePath: "photos/remote.zip", storageNodeDriver: "SFTP" };
+		renderFileList({ files: [archiveFile, sftpArchive, imageFile], folders: [] });
+		expect(within(await openMore("archive.zip")).getByRole("menuitem", { name: /解压到文件夹/ })).toBeInTheDocument();
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(within(await openMore("remote.zip")).queryByRole("menuitem", { name: /解压到文件夹/ })).not.toBeInTheDocument();
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(within(await openMore("cover.jpg")).queryByRole("menuitem", { name: /解压到文件夹/ })).not.toBeInTheDocument();
+	});
+
 	it("offers archive downloads for indexed folders only", async () => {
 		const downloads = captureDownloads();
 		const groupRoot: FolderProp = { ...folder, name: "local__node_1", displayName: "本机存储", path: "local__node_1", entryId: null, storageNodeId: null, relativePath: null };

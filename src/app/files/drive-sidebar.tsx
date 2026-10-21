@@ -1,14 +1,15 @@
 "use client";
 
 /**
- * Left rail of the drive: quick access (all files, favorites, recent, tags,
- * recycle bin, background tasks), the storage locations with their health,
- * and the folder tree of the selected location.
+ * Left column of the drive, as standard cards: quick access (all files,
+ * favorites, recent, tags, background tasks), the storage locations with
+ * their health, and the folder tree of the selected location. The recycle
+ * bin is a tab of the files section, like on its other pages.
  */
-import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
-import { ChevronRight, Clock, Folder, Globe, HardDrive, Home, ListIcon, Server, Star, Tag, Trash2 } from "@/components/icons";
+import { ChevronRight, Clock, Folder, Globe, HardDrive, Home, ListIcon, Server, Star, Tag } from "@/components/icons";
+import { Card } from "@/components/page-shell";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
@@ -20,7 +21,8 @@ type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 const ITEM_CLASS = "flex min-h-9 w-full min-w-0 items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 text-left text-sm transition-colors";
 const ITEM_IDLE = "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]";
-const ITEM_ACTIVE = "bg-[var(--sidebar-active)] font-medium text-[var(--sidebar-active-fg)]";
+// Selected like any chosen item on a page, not like the app navigation.
+const ITEM_ACTIVE = "bg-[var(--color-action-bg)] font-medium text-[var(--color-action-text)]";
 
 function NavCount({ children }: { children: ReactNode }) {
 	return <span className="ml-auto shrink-0 text-xs tabular-nums text-[var(--text-muted)]">{children}</span>;
@@ -70,13 +72,10 @@ export function DriveSidebar({
 		<aside
 			id="files-browser-sidebar"
 			aria-label={t("filesBrowserSpa.sidebarAria")}
-			className={cn(
-				"min-w-0 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-subtle)_55%,transparent)] lg:border-b-0 lg:border-r",
-				mobileOpen ? "block" : "hidden lg:block",
-			)}
+			className={cn("min-w-0 flex-col gap-4 lg:sticky lg:top-4", mobileOpen ? "flex" : "hidden lg:flex")}
 		>
-			<div className="flex flex-col gap-5 p-3 lg:sticky lg:top-0 lg:max-h-[calc(100dvh-var(--topbar-height))] lg:overflow-y-auto">
-				<nav aria-label={t("filesPage.drive.quickAccess")} className="flex flex-col gap-0.5">
+			<Card padding="sm" title={t("filesPage.drive.quickAccess")}>
+				<nav aria-label={t("filesPage.drive.quickAccess")} className="-mx-1 flex flex-col gap-0.5">
 					<button type="button" onClick={() => onSelectNode("")} aria-current={atRoot ? "page" : undefined} className={cn(ITEM_CLASS, atRoot ? ITEM_ACTIVE : ITEM_IDLE)}>
 						<Home size={16} className="shrink-0" aria-hidden />
 						<span className="truncate">{t("filesBrowserSpa.allFiles")}</span>
@@ -94,11 +93,6 @@ export function DriveSidebar({
 						<Tag size={16} className="shrink-0" aria-hidden />
 						<span className="truncate">{t("filePreferences.tags")}</span>
 					</button>
-					<Link href="/files/recycle-bin" className={cn(ITEM_CLASS, ITEM_IDLE)}>
-						<Trash2 size={16} className="shrink-0" aria-hidden />
-						<span className="truncate">{t("filesPage.statRecycleBin")}</span>
-						{data.stats.deletedEntries > 0 ? <NavCount>{data.stats.deletedEntries}</NavCount> : null}
-					</Link>
 					<FileOperationTasks
 						trigger={({ active, open }) => (
 							<button type="button" onClick={open} className={cn(ITEM_CLASS, ITEM_IDLE)}>
@@ -113,9 +107,10 @@ export function DriveSidebar({
 						)}
 					/>
 				</nav>
+			</Card>
 
-				<section aria-labelledby="files-drive-locations" className="flex flex-col gap-1.5">
-					<h2 id="files-drive-locations" className="ui-title-caption px-2.5">{t("filesPage.drive.locations")}</h2>
+			<Card as="section" aria-label={t("filesPage.drive.locations")} padding="sm" title={t("filesPage.drive.locations")}>
+				<div className="-mx-1 flex flex-col gap-1.5">
 					{data.nodes.length > 6 ? (
 						<input
 							type="search"
@@ -152,11 +147,12 @@ export function DriveSidebar({
 						})}
 						{nodes.length === 0 ? <li className="px-2.5 py-1 text-xs text-[var(--text-muted)]">{t("filesBrowserSpa.noMatchingNode")}</li> : null}
 					</ul>
-				</section>
+				</div>
+			</Card>
 
-				{showTree ? (
-					<section aria-labelledby="files-drive-tree" className="flex flex-col gap-1.5">
-						<h2 id="files-drive-tree" className="ui-title-caption px-2.5">{t("filesBrowserSpa.directoryTree")}</h2>
+			{showTree ? (
+				<Card as="section" aria-label={t("filesBrowserSpa.directoryTree")} padding="sm" title={t("filesBrowserSpa.directoryTree")}>
+					<div className="-mx-1 max-h-[50dvh] overflow-y-auto">
 						<FolderTree
 							t={t}
 							node={data.tree}
@@ -165,9 +161,9 @@ export function DriveSidebar({
 							expandedPaths={expandedTreePaths}
 							onToggle={onToggleTreePath}
 						/>
-					</section>
-				) : null}
-			</div>
+					</div>
+				</Card>
+			) : null}
 		</aside>
 	);
 }
@@ -212,7 +208,7 @@ function FolderTree({ t, node, currentPath, onNavigate, expandedPaths, onToggle,
 								title={name}
 								className="flex min-h-8 min-w-0 flex-1 items-center gap-2 pr-2 text-left text-sm"
 							>
-								<Folder size={15} className="shrink-0 text-[var(--chart-3)]" aria-hidden />
+								<Folder size={15} className="shrink-0 text-[var(--accent)]" aria-hidden />
 								<span className="truncate">{name}</span>
 							</button>
 						</div>

@@ -34,9 +34,9 @@ function renderPanel() {
 	return render(<ArchivePreviewClient {...props} />);
 }
 
-/** The list button is always present; the extract button appears once entries load. */
+/** The listing loads on open; the refresh button reloads it. */
 function clickList() {
-	fireEvent.click(screen.getByRole("button", { name: /archivePreview\.(title|refreshList|loading)/ }));
+	fireEvent.click(screen.getByRole("button", { name: /archivePreview\.(refreshList|loading)/ }));
 }
 
 async function clickExtract() {
@@ -83,6 +83,30 @@ describe("ArchivePreviewClient", () => {
 		await waitFor(() =>
 			expect(screen.getByText(/not a valid gzip stream/)).toBeInTheDocument(),
 		);
+	});
+
+	it("lists the archive as soon as it opens", async () => {
+		mocks.csrfFetch.mockResolvedValue({ entries: [{ name: "docs/readme.md", size: 12, isDirectory: false }] });
+		renderPanel();
+		expect(await screen.findByText("docs/readme.md")).toBeInTheDocument();
+		expect(mocks.csrfFetch).toHaveBeenCalledTimes(1);
+	});
+
+	it("links to the folder the archive was extracted into", async () => {
+		mocks.csrfFetch.mockImplementation(async (url: string) =>
+			String(url).includes("/api/files/extract")
+				? { message: "done", folder: "backups/bundle" }
+				: { entries: [{ name: "a.txt", size: 12 }] },
+		);
+		renderPanel();
+		await clickExtract();
+		expect(await screen.findByRole("link", { name: "archivePreview.openFolder" })).toHaveAttribute("href", "/files?path=backups%2Fbundle&nodeId=node_1");
+	});
+
+	it("offers extraction only for formats the server can unpack", async () => {
+		render(<ArchivePreviewClient {...props} name="bundle.7z" relativePath="bundle.7z" />);
+		await screen.findByText("a.txt");
+		expect(screen.queryByRole("button", { name: /archivePreview\.extract/ })).not.toBeInTheDocument();
 	});
 
 	it("treats an { error } payload on a 200 as an extraction failure", async () => {

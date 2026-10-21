@@ -292,7 +292,7 @@ describe("FilesBrowserSpa", () => {
 		expectTouchTarget(toggle);
 		expect(toggle.className).toMatch(/lg:hidden/);
 		const sidebar = document.getElementById("files-browser-sidebar")!;
-		expect(sidebar.className.split(/\s+/)).toEqual(expect.arrayContaining(["hidden", "lg:block"]));
+		expect(sidebar.className.split(/\s+/)).toEqual(expect.arrayContaining(["hidden", "lg:flex"]));
 		fireEvent.click(toggle);
 		expect(screen.getByRole("button", { name: "收起目录树" })).toHaveAttribute("aria-expanded", "true");
 		expect(sidebar.className.split(/\s+/)).not.toContain("hidden");
@@ -309,10 +309,11 @@ describe("FilesBrowserSpa", () => {
 		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?path=photos&nodeId=node_1", expect.any(Object)));
 	});
 
-	it("links quick access to the recycle bin and does not embed recent downloads", () => {
+	it("leaves the recycle bin to the section tabs and does not embed recent downloads", () => {
 		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
 		const quick = screen.getByRole("navigation", { name: "快速访问" });
-		expect(within(quick).getByRole("link", { name: /回收站\s*3/ })).toHaveAttribute("href", "/files/recycle-bin");
+		expect(within(quick).queryByRole("link", { name: /回收站/ })).not.toBeInTheDocument();
+		expect(within(quick).getByRole("button", { name: /全部文件/ })).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "打开最近下载" })).not.toBeInTheDocument();
 	});
 });

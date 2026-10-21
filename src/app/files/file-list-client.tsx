@@ -66,6 +66,9 @@ import { submitFileOperation } from "./file-operation-controls";
 export type { FileProp } from "./file-entry-utils";
 export type { FolderProp } from "./file-list-model";
 
+/** Archives /api/files/extract unpacks into a new folder (single-file .gz stays in the preview page). */
+const EXTRACTABLE_ARCHIVE = /\.(zip|jar|tar|tgz|tar\.gz)$/i;
+
 type FileListClientProps = {
   folders: FolderProp[];
   files: FileProp[];
@@ -374,6 +377,7 @@ function FileListBody({
         onOpen: open,
         downloadHref,
         onDetails: openDetails,
+        extractable: canWrite && file.storageNodeDriver === "LOCAL" && EXTRACTABLE_ARCHIVE.test(file.name),
       },
       downloadHref,
       onShare: canShare && canRead ? () => actions.share(target) : undefined,
