@@ -50,6 +50,7 @@ import {
 import { createAiOpsLog, completeScan } from "./service";
 import { executeAiOpsAction } from "./action-executor";
 import { failedProviderHealth, parseProviderHealth, type AiOpsProviderHealth } from "./provider-health";
+import { getPlatformDefaults } from "@/lib/settings/platform-defaults";
 
 /** The most completed runs any job type keeps on purpose (its prune's keepLatest). */
 const JOB_HISTORY_KEPT_PER_TYPE = 200;
@@ -114,10 +115,26 @@ async function readConfiguredProvider() {
 
 const AI_OPS_ANALYSIS_MAX_TOKENS = 3000;
 
+/**
+ * Every rule `collectSystemHealthSignals` runs; `signals` carries only the
+ * ones that tripped. Without this list a healthy scan sent `signals: []`
+ * alone, and the model read the silence as a broken collector.
+ */
+const AI_OPS_CHECKS = [
+  "Enabled alert rules: more than 20",
+  "Command executions: more than 5 failures in the last 24 hours",
+  "Playbook runs: any failure in the last 24 hours",
+  "Servers: any reported offline in the last 30 minutes",
+  "Backups: any failure in the last 24 hours",
+  "Job queue: more than 100 completed jobs beyond their type's retention",
+  "Server resources in the last 30 minutes: CPU above 85%, memory above 90%, disk above 85%",
+] as const;
+
 async function requestProviderAnalysis(
   provider: { id: string; createdBy: string; defaultModel: string },
   signals: SystemHealthSignal[],
 ): Promise<string> {
+  const { locale } = await getPlatformDefaults();
   const { response, providerType } = await sendChatRequest(
     {
       providerId: provider.id,
@@ -132,12 +149,15 @@ async function requestProviderAnalysis(
       messages: [
         {
           role: "system",
-          content:
+          content: [
             "You are an infrastructure operations reviewer. Analyze only the supplied health facts. Prioritize impact, explain likely relationships, and suggest verification steps. Do not invent measurements, credentials, hosts, or commands. Keep the response concise.",
+            "`checks` lists every check that ran; `signals` holds only the checks that found a problem. An empty `signals` list means every check passed: say so in one or two sentences and do not speculate about failed collection.",
+            `Write the answer in ${locale === "en" ? "English" : "Simplified Chinese"}.`,
+          ].join("\n"),
         },
         {
           role: "user",
-          content: JSON.stringify({ collectedAt: new Date().toISOString(), signals }),
+          content: JSON.stringify({ collectedAt: new Date().toISOString(), checks: AI_OPS_CHECKS, signals }),
         },
       ],
     },
