@@ -101,7 +101,7 @@ export function FolderBrowser({ nodeId, nodeName, path, onPathChange, disabledPa
 						<button key={folder.path} type="button" disabled={blocked}
 							className="flex min-h-11 w-full items-center gap-2.5 border-b border-[var(--border-subtle)] px-3 text-left text-sm last:border-b-0 hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
 							onClick={() => navigate(target)}>
-							<Folder size={18} className="shrink-0 text-[var(--chart-3)]" aria-hidden />
+							<Folder size={18} className="shrink-0 text-[var(--accent)]" aria-hidden />
 							<span className="min-w-0 flex-1 break-all">{folder.displayName ?? folder.name}</span>
 							<ChevronRight size={16} className="shrink-0 text-[var(--text-muted)]" aria-hidden />
 						</button>

@@ -200,7 +200,7 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
                     <td className="px-3 py-3 align-middle">{checkbox(entry)}</td>
                     <td className="px-3 py-3">
                       <div className="flex min-w-0 items-center gap-3">
-                        <FileTypeIcon entry={{ entryType: entry.entryType, mimeType: entry.mimeType, name: entry.name }} size={32} className="shrink-0" />
+                        <FileTypeIcon entry={{ entryType: entry.entryType, mimeType: entry.mimeType, name: entry.name }} size={24} className="shrink-0" />
                         <div className="min-w-0">
                           <p className="truncate font-medium text-[var(--text-primary)]" title={entry.name}>{entry.name}</p>
                           <p className="truncate text-xs text-[var(--text-muted)]" title={location(entry)}>{location(entry)}</p>
@@ -221,7 +221,7 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
                 <div className="pt-1">{checkbox(entry)}</div>
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <FileTypeIcon entry={{ entryType: entry.entryType, mimeType: entry.mimeType, name: entry.name }} size={28} className="shrink-0" />
+                    <FileTypeIcon entry={{ entryType: entry.entryType, mimeType: entry.mimeType, name: entry.name }} size={22} className="shrink-0" />
                     <p className="min-w-0 break-words font-medium text-[var(--text-primary)]">{entry.name}</p>
                   </div>
                   <p className="mt-1 break-all text-xs text-[var(--text-muted)]">{location(entry)}</p>

@@ -13,8 +13,11 @@ const ITEMS = [
   { href: "/files/recent-downloads", exact: false, labelKey: "filesPage.subNav.recentDownloads" },
 ] as const;
 
-/** Secondary nav strip shared by all /files/* subpages. */
-export function FilesSubpageNav() {
+/** Secondary nav strip shared by /files and all its subpages. */
+export function FilesSubpageNav({ recycleBinCount }: {
+  /** Entries in the recycle bin, shown on its tab when the page knows it. */
+  recycleBinCount?: number;
+} = {}) {
   const { t } = useI18n();
   const pathname = usePathname();
 
@@ -25,6 +28,7 @@ export function FilesSubpageNav() {
       items={ITEMS.map((item) => ({
         href: item.href,
         label: t(item.labelKey),
+        badge: item.href === "/files/recycle-bin" && recycleBinCount ? recycleBinCount : undefined,
         active: item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`),
       }))}
     />

@@ -98,7 +98,8 @@ export function EntryThumb({ row, size, cover = false, fit }: {
 			</span>
 		);
 	}
-	return <FileTypeIcon entry={row.icon} size={size} />;
+	// Line icons read at about three quarters of a thumbnail's box.
+	return <FileTypeIcon entry={row.icon} size={Math.round(size * 0.72)} />;
 }
 
 function EntryName({ row, className }: { row: DriveRow; className?: string }) {
@@ -223,7 +224,8 @@ export function FileListView({ rows, handlers, empty, showSource, header }: {
 	const columns = showSource ? LIST_COLUMNS_WITH_SOURCE : LIST_COLUMNS;
 	return (
 		<div data-testid="file-table" className="min-w-0">
-			<div className={cn("sticky top-0 z-10 grid min-h-11 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-medium text-[var(--text-muted)] sm:px-4", columns)}>
+			{/* Same header strip as the app's tables (globals.css, Tables). */}
+			<div className={cn("sticky top-0 z-10 grid min-h-10 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 text-[length:var(--font-label)] font-medium text-[var(--text-muted)] sm:px-5", columns)}>
 				<input
 					type="checkbox"
 					checked={header.allSelected}
@@ -263,7 +265,7 @@ export function FileListView({ rows, handlers, empty, showSource, header }: {
 							}}
 							onContextMenu={(event) => handlers.onContextMenu(row, event)}
 							className={cn(
-								"group grid min-h-14 items-center gap-3 px-3 py-1.5 text-sm transition-colors sm:px-4",
+								"group grid min-h-14 items-center gap-3 px-4 py-1.5 text-sm transition-colors sm:px-5",
 								columns,
 								row.selected ? "bg-[var(--accent-bg)]" : "hover:bg-[var(--surface-hover)]",
 							)}
@@ -310,10 +312,10 @@ export function FileGridView({ rows, handlers, empty, selectionBar }: {
 	return (
 		<div className="min-w-0">
 			{selectionBar ? (
-				<div className="sticky top-0 z-10 flex min-h-11 items-center border-b border-[var(--border)] bg-[var(--surface)] px-3 sm:px-4">{selectionBar}</div>
+				<div className="sticky top-0 z-10 flex min-h-10 items-center border-b border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 sm:px-5">{selectionBar}</div>
 			) : null}
 			{rows.length === 0 ? empty : (
-				<ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 p-3 sm:p-4">
+				<ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 p-4 sm:p-5">
 					{rows.map((row) => (
 						<li
 							key={row.key}

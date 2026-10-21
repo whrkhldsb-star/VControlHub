@@ -220,11 +220,9 @@ export function FilesBrowserSpa({
           void startUpload(() => files);
         }} />
 
-      <section
+      <div
         data-file-browser
-        data-list-panel
-        aria-busy={loading}
-        className="relative grid min-w-0 lg:grid-cols-[15.5rem_minmax(0,1fr)]"
+        className="relative grid min-w-0 gap-4 lg:grid-cols-[15.5rem_minmax(0,1fr)] lg:items-start"
         onDragEnter={(event) => {
           if (!isFileDrag(event) || !canEdit) return;
           event.preventDefault();
@@ -256,61 +254,53 @@ export function FilesBrowserSpa({
           onOpenCollection={(mode) => setCollection({ mode, key: Date.now() })}
         />
 
-        <div className="flex min-w-0 flex-col">
-          <header className="flex flex-col gap-2.5 border-b border-[var(--border)] px-3 py-3 sm:px-4">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                square
-                onClick={() => setMobileSidebarOpen((value) => !value)}
-                aria-expanded={mobileSidebarOpen}
-                aria-controls="files-browser-sidebar"
-                aria-label={mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}
-                title={mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}
-                className="lg:hidden"
-              >
-                <IconPanelLeft aria-hidden />
-              </ActionButton>
-              <DriveBreadcrumbs
-                t={t}
-                path={data.currentPath}
-                nodes={data.nodes}
-                nodeIdFilter={data.nodeIdFilter}
-                onNavigate={navigateToFolder}
-                onRoot={() => selectNode("")}
-              />
-              {loading ? <Spinner size="sm" label={t("filesBrowserSpa.loading")} /> : null}
-              <IconButton
-                label={loading ? t("filesBrowserSpa.refreshing") : refreshLabel}
-                onClick={() => void refreshCurrentListing()}
-                disabled={loading}
-                className="shrink-0 disabled:opacity-60"
-              >
-                <RefreshCw size={17} className={loading ? "animate-spin" : undefined} aria-hidden />
-              </IconButton>
+        <section data-list-panel aria-busy={loading} aria-label={t("filesPage.drive.listAria")} className="flex min-w-0 flex-col">
+          <header data-list-panel-header className="flex flex-col gap-3 border-b border-[var(--border-subtle)] px-4 py-3 sm:px-5">
+            {/* Wraps on phones: the location keeps the first line, the view controls move below it. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
+              <div className="flex min-w-0 flex-1 basis-[13rem] items-center gap-2">
+                <ActionButton
+                  variant="ghost"
+                  size="sm"
+                  square
+                  onClick={() => setMobileSidebarOpen((value) => !value)}
+                  aria-expanded={mobileSidebarOpen}
+                  aria-controls="files-browser-sidebar"
+                  aria-label={mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}
+                  title={mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}
+                  className="-ml-1.5 lg:hidden"
+                >
+                  <IconPanelLeft aria-hidden />
+                </ActionButton>
+                <DriveBreadcrumbs
+                  t={t}
+                  path={data.currentPath}
+                  nodes={data.nodes}
+                  nodeIdFilter={data.nodeIdFilter}
+                  onNavigate={navigateToFolder}
+                  onRoot={() => selectNode("")}
+                />
+                {!contentActive && data.pagination ? (
+                  <span className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 text-xs font-medium tabular-nums text-[var(--text-secondary)]">
+                    {data.pagination.totalItems}
+                  </span>
+                ) : null}
+                {loading ? <Spinner size="sm" label={t("filesBrowserSpa.loading")} /> : null}
+              </div>
+              <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                {viewMode === "grid" ? <SortMenu sortKey={sortKey} sortDir={sortDirection} onChange={changeSort} showSource={showSource} /> : null}
+                <ViewToggle />
+                <IconButton
+                  label={loading ? t("filesBrowserSpa.refreshing") : refreshLabel}
+                  onClick={() => void refreshCurrentListing()}
+                  disabled={loading}
+                  className="shrink-0 disabled:opacity-60"
+                >
+                  <RefreshCw size={17} className={loading ? "animate-spin" : undefined} aria-hidden />
+                </IconButton>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <UploadMenu
-                disabled={!canEdit || uploadNodes.length === 0 || loading}
-                onUploadFiles={() => {
-                  if (directUpload) fileInputRef.current?.click();
-                  else setUploadOpen(true);
-                }}
-                onUploadFolder={() => {
-                  if (directUpload) folderInputRef.current?.click();
-                  else setUploadOpen(true);
-                }}
-              />
-              <ActionButton
-                variant="secondary"
-                icon={<FolderPlus aria-hidden />}
-                disabled={!canEdit || uploadNodes.length === 0 || loading}
-                title={!canEdit ? t("filesBrowserSpa.cannotCreateFolderNoPermission") : uploadNodes.length === 0 ? t("filesBrowserSpa.cannotCreateFolderNoNode") : undefined}
-                onClick={() => setNewFolderOpen(true)}
-              >
-                {t("common.newFolder")}
-              </ActionButton>
+            <div data-toolbar className="flex flex-wrap items-center gap-2">
               <DriveSearchBar
                 value={searchInput}
                 onChange={setSearchInput}
@@ -323,15 +313,33 @@ export function FilesBrowserSpa({
                 inputRef={searchInputRef}
                 busy={contentSearch.state.loading}
               />
-              <div className="ml-auto flex items-center gap-1.5">
-                {viewMode === "grid" ? <SortMenu sortKey={sortKey} sortDir={sortDirection} onChange={changeSort} showSource={showSource} /> : null}
-                <ViewToggle />
+              <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+                <ActionButton
+                  variant="secondary"
+                  icon={<FolderPlus aria-hidden />}
+                  disabled={!canEdit || uploadNodes.length === 0 || loading}
+                  title={!canEdit ? t("filesBrowserSpa.cannotCreateFolderNoPermission") : uploadNodes.length === 0 ? t("filesBrowserSpa.cannotCreateFolderNoNode") : undefined}
+                  onClick={() => setNewFolderOpen(true)}
+                >
+                  {t("common.newFolder")}
+                </ActionButton>
+                <UploadMenu
+                  disabled={!canEdit || uploadNodes.length === 0 || loading}
+                  onUploadFiles={() => {
+                    if (directUpload) fileInputRef.current?.click();
+                    else setUploadOpen(true);
+                  }}
+                  onUploadFolder={() => {
+                    if (directUpload) folderInputRef.current?.click();
+                    else setUploadOpen(true);
+                  }}
+                />
               </div>
             </div>
           </header>
 
           {data.searchQuery || contentActive ? (
-            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)] sm:px-4">
+            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 py-2 text-xs text-[var(--text-secondary)] sm:px-5">
               {data.searchQuery && !contentActive ? (
                 <span>{t("filesBrowserSpa.searchResults", { query: data.searchQuery, scope: data.searchScope === "all" ? t("filesBrowserSpa.searchInAllFiles") : t("filesBrowserSpa.searchInCurrentFolder"), count: data.stats.totalItems })}</span>
               ) : (
@@ -342,14 +350,14 @@ export function FilesBrowserSpa({
           ) : null}
 
           {dropError || listError ? (
-            <div className="flex flex-col gap-2 px-3 pt-3 sm:px-4">
+            <div className="flex flex-col gap-2 px-4 pt-3 sm:px-5">
               {dropError ? <Notice tone="danger" onDismiss={() => setDropError("")} dismissLabel={t("common.close")}>{dropError}</Notice> : null}
               {listError ? <KnownErrorNotice tone={data.syncWarning === listError ? "warning" : "danger"} raw={listError} /> : null}
             </div>
           ) : null}
 
           {contentActive ? (
-            <div className="flex flex-col gap-3 p-3 sm:p-4">
+            <div className="flex flex-col gap-3 px-4 py-3 sm:px-5">
               {contentSearch.state.loading ? <Spinner size="sm" label={t("filesBrowserSpa.contentSearching")} /> : null}
               <ContentSearchResults
                 state={contentSearch.state}
@@ -381,19 +389,16 @@ export function FilesBrowserSpa({
             />
           )}
 
-          {!contentActive && data.pagination && data.pagination.totalItems > 0 ? (
-            <footer className="mt-auto border-t border-[var(--border-subtle)] px-3 py-2 sm:px-4">
-              {data.pagination.totalItems > data.pagination.pageSize || data.pagination.page > 1 ? (
-                <Pagination page={data.pagination.page} pageSize={data.pagination.pageSize} totalItems={data.pagination.totalItems} loading={loading}
-                  onPageChange={(page) => { void fetchFiles(data.currentPath, data.searchQuery, data.searchScope, data.nodeIdFilter, { page, history: "push" }); }}
-                  onPageSizeChange={(pageSize) => { void fetchFiles(data.currentPath, data.searchQuery, data.searchScope, data.nodeIdFilter, { page: 1, pageSize, resetSelection: true }); }}
-                />
-              ) : (
-                <p className="py-1 text-xs text-[var(--text-muted)]">{t("filesPage.list.itemCount", { count: data.pagination.totalItems })}</p>
-              )}
+          {/* The header counts the items; a footer only appears to page through them. */}
+          {!contentActive && data.pagination && (data.pagination.totalItems > data.pagination.pageSize || data.pagination.page > 1) ? (
+            <footer className="mt-auto border-t border-[var(--border-subtle)] px-4 py-2 sm:px-5">
+              <Pagination page={data.pagination.page} pageSize={data.pagination.pageSize} totalItems={data.pagination.totalItems} loading={loading}
+                onPageChange={(page) => { void fetchFiles(data.currentPath, data.searchQuery, data.searchScope, data.nodeIdFilter, { page, history: "push" }); }}
+                onPageSizeChange={(pageSize) => { void fetchFiles(data.currentPath, data.searchQuery, data.searchScope, data.nodeIdFilter, { page: 1, pageSize, resetSelection: true }); }}
+              />
             </footer>
           ) : null}
-        </div>
+        </section>
 
         {dragDepth > 0 ? (
           <div data-dropzone="" data-drag-over="" aria-hidden="true" className="pointer-events-none absolute inset-2 z-20 !min-h-0 shadow-[var(--shadow-lg)]">
@@ -405,7 +410,7 @@ export function FilesBrowserSpa({
             </span>
           </div>
         ) : null}
-      </section>
+      </div>
 
       {children}
 
