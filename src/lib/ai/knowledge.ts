@@ -162,21 +162,33 @@ export function scoreChunkAgainstQuery(searchText: string, query: string, tokens
   return score;
 }
 
+/**
+ * Every active knowledge base in scope. It used to stop at the 100 most
+ * recently updated, and the page has no other way to reach an older one:
+ * it could not be opened, filled or deleted any more. Read in pages.
+ */
 export async function listKnowledgeBases(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
-  return prisma.knowledgeBase.findMany({
-    where: {
-      isActive: true,
-      ...(session ? teamWhere(session) : {}),
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 100,
-    include: {
-      _count: { select: { documents: true, chunks: true } },
-      creator: { select: { username: true, displayName: true } },
-    },
-  });
+  const PAGE = 100;
+  const where = { isActive: true, ...(session ? teamWhere(session) : {}) };
+  const bases = [];
+  let cursor: { id: string } | undefined;
+  do {
+    const page = await prisma.knowledgeBase.findMany({
+      where,
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      take: PAGE,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+      include: {
+        _count: { select: { documents: true, chunks: true } },
+        creator: { select: { username: true, displayName: true } },
+      },
+    });
+    bases.push(...page);
+    cursor = page.length === PAGE ? { id: page[page.length - 1]!.id } : undefined;
+  } while (cursor);
+  return bases;
 }
 
 export async function createKnowledgeBase(input: {

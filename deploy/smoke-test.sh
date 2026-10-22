@@ -15,8 +15,6 @@ set -euo pipefail
 TARGET="${1:-}"
 APP_SLUG="${2:-${SERVICE_PREFIX:-vcontrolhub}}"
 SMOKE_SCOPE="${SMOKE_SCOPE:-full}"
-NEXT_PORT="${NEXT_PORT:-3000}"
-SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 
 case "${SMOKE_SCOPE}" in
   full|systemd|http) ;;
@@ -57,6 +55,20 @@ if [ -f "${ENV_FILE}" ]; then
     source "${ENV_FILE}"
     set +a
 fi
+# The runtime env file leaves the ports out (systemd sets them per unit), so a
+# custom port was checked as 3000. Take them from the install's .env.local
+# when they were not given to this run.
+port_from_env_local() {
+    local file="$1" name="$2" line
+    [ -f "${file}" ] || return 0
+    line="$(grep "^${name}=" "${file}" 2>/dev/null | tail -n 1)" || return 0
+    line="${line#*=}"
+    line="${line%\"}"; line="${line#\"}"
+    line="${line%\'}"; line="${line#\'}"
+    printf '%s' "${line}"
+}
+[ -n "${NEXT_PORT:-}" ] || NEXT_PORT="$(port_from_env_local "${SMOKE_APP_DIR}/.env.local" NEXT_PORT)"
+[ -n "${SSH_WS_PORT:-}" ] || SSH_WS_PORT="$(port_from_env_local "${SMOKE_APP_DIR}/.env.local" SSH_WS_PORT)"
 NEXT_PORT="${NEXT_PORT:-3000}"
 SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 

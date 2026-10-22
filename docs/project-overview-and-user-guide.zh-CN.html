@@ -1722,7 +1722,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </ul>
 <p><strong>检查的边界</strong>：以上都是时间点检查。检查之后才启动或连接的实例不会被拦住，例如另一台主机上的实例、未列入 <code>VCONTROLHUB_SERVICE_UNITS</code> 的自定义服务、手工启动的进程。导入事务的表锁只覆盖它已经处理到的表，文件复制阶段没有任何隔离。多主机或自定义部署时，请先在每台主机上停止实例，再执行恢复。</p>
 <p>非 systemd 部署（Windows、容器、其他进程管理器）：自行停止全部实例后，以 <code>VCONTROLHUB_SERVICE_UNITS=none</code> 运行恢复脚本，表示由运维人员确认已停止；数据库连接检查仍然生效。Windows 上平台给出的恢复命令已带此设置。</p>
-<p>文件恢复只覆盖数据（<code>storage</code>、<code>uploads</code>、<code>downloads</code>、<code>logs</code>，以及包里的环境配置文件）。完整备份里附带的当时代码（<code>public</code>、<code>prisma</code>、<code>package.json</code>、<code>package-lock.json</code>）只作为版本记录，不会覆盖当前安装。通过 <code>BACKUP_EXTRA_PATHS_JSON</code> 纳入的项目外数据也不会被写进安装目录：日志会列出它们在包里的位置，请按 <code>external-data.json</code> 自行解压到目标目录。</p>
+<p>文件恢复只覆盖数据（<code>storage</code>、<code>uploads</code>、<code>downloads</code>、<code>logs</code>，以及包里的环境配置文件）。完整备份里附带的当时代码（<code>public</code>、<code>prisma</code>、<code>package.json</code>、<code>package-lock.json</code>）只作为版本记录，不会覆盖当前安装。通过 <code>BACKUP_EXTRA_PATHS_JSON</code> 纳入的项目外数据也不会被写进安装目录：日志会列出它们在包里的位置，请按 <code>external-data.json</code> 自行解压到目标目录。文件历史的正文（<code>FILE_VERSION_DIR</code>，默认 <code>/var/lib/vcontrolhub/file-versions</code>）会随完整备份一起打包，恢复时放回该目录。</p>
 <p>恢复会改变实际数据库或文件。文件、配置、数据库和加密密钥需要配套；只有数据库而没有原密钥，可能无法解密原先保存的 SSH、RDP 或外部服务凭据。</p>
 <h3 id="section-13-5">13.5 跨环境迁移</h3>
 <p>迁移向导支持：选择完成备份 → 导出带 <code>manifest.json</code> 和 payload 的迁移包 → 将目录或归档复制到目标机器的备份目录 → 校验 SHA-256 → 导入登记为目标环境备份 → 演练／恢复。</p>
@@ -3290,7 +3290,7 @@ npm run docs:check
 </tr>
 <tr>
 <td>ZIP／TAR 通用在线解压</td>
-<td>未开放</td>
+<td>支持 ZIP／JAR、TAR、TAR.GZ／TGZ（限额内，见 6.10）</td>
 <td>未开放</td>
 <td>未开放</td>
 </tr>
@@ -3445,7 +3445,7 @@ npm run docs:check
 </tr>
 <tr>
 <td>压缩包可查看但不能解压</td>
-<td>目录查看与安全解压是不同能力，通用 ZIP／TAR 解压未开放</td>
+<td>LOCAL 节点上的 ZIP／JAR、TAR、TAR.GZ／TGZ 可以在线解压（见 6.10）；SFTP、WebDAV 节点和 7z、RAR 只能查看目录</td>
 </tr>
 <tr>
 <td>分享链接撤销后收件人仍有文件</td>
@@ -5320,7 +5320,7 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/api/files/extract/route.ts"><code>/api/files/extract</code></a></td>
 <td>POST</td>
-<td>执行有限额的本地单文件 GZ 解压</td>
+<td>执行有限额的本地解压：ZIP／JAR、TAR、TAR.GZ／TGZ 和单文件 GZ</td>
 <td><a href="#files">存储节点与文件管理</a></td>
 </tr>
 <tr>

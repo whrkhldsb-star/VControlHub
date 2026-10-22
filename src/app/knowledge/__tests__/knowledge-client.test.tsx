@@ -122,6 +122,23 @@ describe("KnowledgeClient", () => {
     });
   });
 
+  it("keeps the open base's documents when another base is deleted", async () => {
+    // They were cleared and never loaded again (the selection did not change).
+    renderClient();
+    await waitFor(() => expect(screen.getByText("restart nginx")).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText("knowledgePage.deleteBaseAria:policies"));
+    mocks.csrfFetch.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("?id=")) return {};
+      if (u.startsWith("/api/knowledge/")) return { knowledgeBase: { documents } };
+      return { knowledgeBases: [bases[0]] };
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /confirmDelete|common\.confirmDelete/ }));
+    await waitFor(() => expect(mocks.csrfFetch).toHaveBeenCalledWith("/api/knowledge?id=kb_2", { method: "DELETE" }));
+    await waitFor(() => expect(mocks.addToast).toHaveBeenCalledWith("success", "knowledgePage.baseDeleted"));
+    expect(screen.getByText("restart nginx")).toBeInTheDocument();
+  });
+
   it("hides the delete affordance from a caller who cannot manage", async () => {
     renderClient(false);
     await waitFor(() => expect(screen.getByText("runbooks")).toBeInTheDocument());

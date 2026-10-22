@@ -24,7 +24,7 @@ const NOT_EXPORTED: Record<string, { model: Record<string, string>; skip: string
 	// The session epoch and selected customer belong to the instance's sessions.
 	users: { model: Prisma.UserScalarFieldEnum, skip: ["sessionEpoch", "currentTeamId", "updatedAt"] },
 	// Deleted customers are not exported.
-	teams: { model: Prisma.TeamScalarFieldEnum, skip: ["deletedAt", "createdAt", "updatedAt"] },
+	teams: { model: Prisma.TeamScalarFieldEnum, skip: ["createdAt", "updatedAt"] },
 	identityTemplates: { model: Prisma.IdentityTemplateScalarFieldEnum, skip: ["createdBy", "createdAt", "updatedAt"] },
 	teamMembers: { model: Prisma.TeamMemberScalarFieldEnum, skip: [] },
 	userServerAccess: { model: Prisma.UserServerAccessScalarFieldEnum, skip: [] },

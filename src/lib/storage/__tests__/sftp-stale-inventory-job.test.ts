@@ -10,8 +10,10 @@ const {
   acquireAdvisoryLockMock,
   detectAndPruneSftpStaleInventoryMock,
   listSftpNodesForStaleInventoryMock,
+  findSftpNodeForStaleInventoryMock,
   loggerWarnMock,
 } = vi.hoisted(() => ({
+  findSftpNodeForStaleInventoryMock: vi.fn(),
   claimNextJobMock: vi.fn(),
   completeJobMock: vi.fn(),
   failJobMock: vi.fn(),
@@ -55,6 +57,7 @@ vi.mock("@/lib/concurrency/advisory-lock", () => ({
 vi.mock("../sftp-stale-inventory", () => ({
   detectAndPruneSftpStaleInventory: detectAndPruneSftpStaleInventoryMock,
   listSftpNodesForStaleInventory: listSftpNodesForStaleInventoryMock,
+  findSftpNodeForStaleInventory: findSftpNodeForStaleInventoryMock,
 }));
 
 import {
@@ -196,7 +199,8 @@ describe("SFTP stale inventory durable job worker", () => {
         healthStatus: "HEALTHY" as const,
         lastHealthError: null,
       };
-      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([node]);
+      // Looked up by id, not searched for in the first 500 nodes by name.
+      findSftpNodeForStaleInventoryMock.mockResolvedValueOnce(node);
       claimNextJobMock.mockResolvedValueOnce({
         id: "job_1",
         payload: { nodeId: "node_1", maxDepth: 4 },
@@ -306,16 +310,14 @@ describe("SFTP stale inventory durable job worker", () => {
     });
 
     it("fails the job with retryAfterMs when execution throws", async () => {
-      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([
-        {
-          id: "n1",
-          name: "x",
-          driver: "SFTP" as const,
-          basePath: "/",
-          healthStatus: "HEALTHY" as const,
-          lastHealthError: null,
-        },
-      ]);
+      findSftpNodeForStaleInventoryMock.mockResolvedValueOnce({
+        id: "n1",
+        name: "x",
+        driver: "SFTP" as const,
+        basePath: "/",
+        healthStatus: "HEALTHY" as const,
+        lastHealthError: null,
+      });
       claimNextJobMock.mockResolvedValueOnce({
         id: "job_4",
         payload: { nodeId: "n1" },
@@ -442,7 +444,7 @@ describe("SFTP stale inventory durable job worker", () => {
           lastHealthError: null,
         },
       ];
-      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
+      listSftpNodesForStaleInventoryMock.mockImplementationOnce(async (_session: unknown, ids?: string[]) => nodes.filter((node) => !ids || ids.includes(node.id)));
       claimNextJobMock.mockResolvedValueOnce({
         id: "job_scoped",
         payload: { nodeIds: ["n1", "n3"] },
@@ -465,7 +467,7 @@ describe("SFTP stale inventory durable job worker", () => {
     });
 
     it("does not widen empty nodeIds to all tenants", async () => {
-      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([
+      const all = [
         {
           id: "n1",
           name: "alpha",
@@ -474,7 +476,9 @@ describe("SFTP stale inventory durable job worker", () => {
           healthStatus: "HEALTHY" as const,
           lastHealthError: null,
         },
-      ]);
+      ];
+      // The scope is applied in the query: an empty list asks for no node.
+      listSftpNodesForStaleInventoryMock.mockImplementationOnce(async (_session: unknown, ids?: string[]) => all.filter((node) => !ids || ids.includes(node.id)));
       claimNextJobMock.mockResolvedValueOnce({
         id: "job_empty_scope",
         payload: { nodeIds: [] },

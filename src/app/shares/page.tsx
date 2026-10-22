@@ -57,9 +57,6 @@ export default async function SharesPage({ searchParams }: { searchParams?: Prom
 				className="mb-5"
 				title={t("shares.records")}
 				count={total}
-				empty={
-					shares.length === 0 ? <EmptyState text={t("shares.empty")} /> : undefined
-				}
 			>
 				{/* Every share stays reachable: filters run in the database, then pages. */}
 				<form method="get" action="/shares" className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] px-4 py-3 sm:px-5">
@@ -82,6 +79,9 @@ export default async function SharesPage({ searchParams }: { searchParams?: Prom
 						{t("shares.filter.apply")}
 					</button>
 				</form>
+				{/* Under the filters, not in place of them: a search with no
+				    result took the search box away with the list. */}
+				{shares.length === 0 ? <EmptyState text={t("shares.empty")} /> : null}
 				{shares.map((s) => (
 					<ListRow key={s.id}>
 						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

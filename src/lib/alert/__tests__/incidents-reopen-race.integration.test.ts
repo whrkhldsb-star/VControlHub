@@ -69,4 +69,22 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("reopening a
 		expect(webhookMock).toHaveBeenCalledTimes(1);
 		expect(await prisma.alertIncident.findUniqueOrThrow({ where: { fingerprint } })).toMatchObject({ status: "OPEN" });
 	});
+
+	it("records the condition that fired this time when it reopens", async () => {
+		// The rule went from "gte 90" to "gt 70"; the reopened incident kept
+		// "gte 90" beside a message saying "gt 70".
+		await prisma.alertIncident.update({ where: { fingerprint }, data: { status: "RESOLVED", resolvedAt: new Date(), lastNotifiedAt: new Date(Date.now() - 3_600_000) } });
+		await openOrRefreshAlertIncident({
+			ruleId, ruleName: "Reopen rule", serverId: null, serverName: "vps-reopen", metric: "disk_usage", operator: "gt", threshold: 70, value: 80,
+			notifyChannels: [], title: "Disk high", message: "disk 80 gt 70",
+		});
+		expect(await prisma.alertIncident.findUniqueOrThrow({ where: { fingerprint } })).toMatchObject({ status: "OPEN", operator: "gt", threshold: 70, value: 80 });
+
+		// And while it stays open.
+		await openOrRefreshAlertIncident({
+			ruleId, ruleName: "Reopen rule", serverId: null, serverName: "vps-reopen", metric: "disk_usage", operator: "gte", threshold: 75, value: 81,
+			notifyChannels: [], title: "Disk high", message: "disk 81 gte 75",
+		});
+		expect(await prisma.alertIncident.findUniqueOrThrow({ where: { fingerprint } })).toMatchObject({ operator: "gte", threshold: 75 });
+	});
 });

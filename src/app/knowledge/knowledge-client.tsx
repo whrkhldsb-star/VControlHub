@@ -228,7 +228,9 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         method: "DELETE",
       });
       setBasePendingDelete(null);
-      setDocuments([]);
+      // Only the open base's documents go: deleting another one emptied the
+      // list on screen, and nothing loaded it again.
+      if (target.id === selectedId) setDocuments([]);
       setHits((current) =>
         current.filter((hit) => hit.knowledgeBaseName !== target.name),
       );

@@ -112,12 +112,19 @@ export function renderMarkdown(md: string): string {
       !/^[\s]*[-*+]\s+/.test(lines[i]!) &&
       !/^[\s]*\d+\.\s+/.test(lines[i]!) &&
       !/^`{3,}/.test(lines[i]!) &&
-      !isTableRow(lines[i]!)
+      // Only a row that really starts a table (a separator follows) ends the
+      // paragraph. Any "| … |" line stopped it, and a lone one that was not a
+      // table either was consumed by nothing: the loop spun on it forever.
+      !(isTableRow(lines[i]!) && isTableSeparator(lines[i + 1] ?? ""))
     ) {
       paraLines.push(lines[i]!);
       i++;
     }
-    if (paraLines.length > 0) {
+    if (paraLines.length === 0) {
+      // Never leave a line unconsumed.
+      out.push(`<p>${inlineFormat(lines[i]!)}</p>`);
+      i++;
+    } else {
       // Format each line individually, then join with <br /> AFTER escaping
       // (escapeHtml in inlineFormat would escape <br /> into literal text)
       const formatted = paraLines.map((line) => inlineFormat(line));

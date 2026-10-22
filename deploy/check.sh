@@ -25,9 +25,7 @@ if [ -z "${ENV_FILE}" ]; then
   fi
 fi
 NEXT_HOST="${NEXT_HOST:-127.0.0.1}"
-NEXT_PORT="${NEXT_PORT:-3000}"
 SSH_WS_HOST="${SSH_WS_HOST:-127.0.0.1}"
-SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL:-}"
 RUN_NPM_CHECKS="${RUN_NPM_CHECKS:-0}"
 SKIP_LIVE_CHECKS="${SKIP_LIVE_CHECKS:-0}"
@@ -61,6 +59,23 @@ set -a
 # shellcheck disable=SC1090
 source "${ENV_FILE}"
 set +a
+
+# The runtime env file leaves the ports out (systemd sets them per unit), so a
+# custom port was checked as 3000. Take them from the install's .env.local
+# when they were not given to this run.
+port_from_env_local() {
+  local file="$1" name="$2" line
+  [ -f "${file}" ] || return 0
+  line="$(grep "^${name}=" "${file}" 2>/dev/null | tail -n 1)" || return 0
+  line="${line#*=}"
+  line="${line%\"}"; line="${line#\"}"
+  line="${line%\'}"; line="${line#\'}"
+  printf '%s' "${line}"
+}
+[ -n "${NEXT_PORT:-}" ] || NEXT_PORT="$(port_from_env_local "${APP_DIR}/.env.local" NEXT_PORT)"
+[ -n "${SSH_WS_PORT:-}" ] || SSH_WS_PORT="$(port_from_env_local "${APP_DIR}/.env.local" SSH_WS_PORT)"
+NEXT_PORT="${NEXT_PORT:-3000}"
+SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 
 for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET ENCRYPTION_KEY; do
 	[ -n "${!required:-}" ] || fail "${required} is missing"

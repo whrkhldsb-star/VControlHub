@@ -277,13 +277,16 @@ export async function exportServers(
 
 /** The customers the package's resources belong to (one in team scope). */
 export async function exportTeams(scope: ExportScope, teamId: string | null) {
+  // Deleted customers too, marked as such: their servers and other kept
+  // resources are in the package, and without their owner the package could
+  // not be imported anywhere new (missing customer, whole import rolled back).
   const rows = await readAllPages(async (page) => prisma.team.findMany({
-    where: scope === "team" && teamId ? { id: teamId } : { deletedAt: null },
+    where: scope === "team" && teamId ? { id: teamId } : {},
     orderBy: [{ slug: "asc" }, { id: "asc" }],
-    select: { id: true, slug: true, name: true, description: true },
+    select: { id: true, slug: true, name: true, description: true, deletedAt: true },
     ...page,
   }));
-  return rows.map((r) => ({ id: r.id, slug: r.slug, name: r.name, description: r.description }));
+  return rows.map((r) => ({ id: r.id, slug: r.slug, name: r.name, description: r.description, deletedAt: dateToISO(r.deletedAt) }));
 }
 
 /** Memberships of the exported users in the exported customers. */

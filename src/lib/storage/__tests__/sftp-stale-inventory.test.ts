@@ -261,7 +261,7 @@ describe("listSftpNodesForStaleInventory", () => {
         expect.objectContaining({
           // The system sweep skips a deleted customer's nodes.
           where: { driver: "SFTP", OR: [{ teamId: null }, { team: { deletedAt: null } }] },
-          orderBy: { name: "asc" },
+          orderBy: [{ name: "asc" }, { id: "asc" }],
         }),
       );
     } finally {
