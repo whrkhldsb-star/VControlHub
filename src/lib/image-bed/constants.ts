@@ -54,6 +54,10 @@ const EXTENSION_MIME_MAP: Record<string, string> = {
 	".zip": "application/zip",
 	".tar": "application/x-tar",
 	".gz": "application/gzip",
+	// Both read by the online archive viewer; without a type an indexed .tgz
+	// or .jar was not previewable and opened only its details.
+	".tgz": "application/gzip",
+	".jar": "application/java-archive",
 	".7z": "application/x-7z-compressed",
 	".rar": "application/vnd.rar",
 	// Video

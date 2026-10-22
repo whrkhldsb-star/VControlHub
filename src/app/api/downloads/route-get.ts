@@ -81,15 +81,18 @@ export async function GET(request: Request) {
         status?: "FAILED";
         progress?: string;
         errorMessage?: string;
-        completedBytes?: number | null;
-        totalBytes?: number | null;
-        downloadSpeed?: number | null;
+        completedBytes?: string | null;
+        totalBytes?: string | null;
+        downloadSpeed?: string | null;
       };
       const aria2FieldByTaskId = new Map<string, Aria2LiveFields>();
-      const toByteCount = (value: unknown): number | null => {
+      // The byte columns are strings (counts can pass 2^53). Numbers were
+      // refused by Prisma on every poll, so the live state never reached the
+      // database while the response showed it as if it had.
+      const toByteCount = (value: unknown): string | null => {
         if (value == null || value === "") return null;
         const n = typeof value === "number" ? value : Number(value);
-        return Number.isFinite(n) ? n : null;
+        return Number.isFinite(n) && n >= 0 ? String(Math.trunc(n)) : null;
       };
       let aria2Available = false;
       if (activeGids.size > 0) {
@@ -127,18 +130,17 @@ export async function GET(request: Request) {
                         totalBytes,
                         downloadSpeed,
                       };
-                aria2FieldByTaskId.set(taskId, terminalUpdate);
-                return prisma.downloadTask.update({
-                  where: { id: taskId },
-                  // Progress-only patch; cast avoids Prisma enum/input narrowing on partial fields.
-                  data: terminalUpdate as Parameters<
-                    typeof prisma.downloadTask.update
-                  >[0]["data"],
-                });
+                // Shown only once stored: the list must not report a state the
+                // database does not hold.
+                return prisma.downloadTask
+                  .update({ where: { id: taskId }, data: terminalUpdate })
+                  .then(() => { aria2FieldByTaskId.set(taskId, terminalUpdate); });
               }),
             );
           }
-          await Promise.all(updates);
+          for (const outcome of await Promise.allSettled(updates)) {
+            if (outcome.status === "rejected") logError("[DownloadAPI] aria2 status not stored:", outcome.reason);
+          }
         } catch (err) {
           logError("[DownloadAPI] aria2 refresh skipped:", err);
         }

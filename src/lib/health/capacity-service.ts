@@ -66,6 +66,10 @@ export async function getCapacityForecast(
     // servers out, as the fleet sweep does.
     ...(options.session ? serverTeamWhere(options.session) : liveCustomerRowsWhere()),
     ...(options.serverId ? { id: options.serverId } : {}),
+    // Disabling a server stops its monitoring: the background forecast that
+    // capacity alerts read must not open incidents from its old samples.
+    // (The capacity page, with a session, still shows its history.)
+    ...(options.session ? {} : { enabled: true }),
   };
 
   // Every server in scope: a fixed first page (it was the first 200 by name)

@@ -566,14 +566,18 @@ export async function createDeploymentRollbackRun(
         sourceRunId: sourceRun.id,
         status: { in: [...ACTIVE_ROLLBACK_STATUSES] },
       },
-      select: { id: true, status: true, commandRequestId: true },
+      select: { id: true, status: true, errorMessage: true, completedAt: true, commandRequestId: true, commandRequest: { select: { status: true } } },
       orderBy: { createdAt: "desc" },
     });
+    // A rollback's own status only catches up with its command when the list
+    // is read: a rollback whose command had finished still blocked a new one
+    // until someone reloaded the page. Settle it from the command first.
+    await refreshDeploymentRollbackStatuses(activeRollbacks.filter((active) => active.commandRequestId));
     for (const active of activeRollbacks) {
       // We hold the per-run lock, so no request is still creating this
       // rollback's command: an unlinked one was interrupted. Resolve it from
       // its command key instead of letting it block every future rollback.
-      const status = active.commandRequestId ? active.status : (await recoverUnlinkedRollback(active.id)).status;
+      const status = active.commandRequestId ? resolveRollbackRunStatus(active).status : (await recoverUnlinkedRollback(active.id)).status;
       if (ACTIVE_ROLLBACK_STATUSES.has(status)) {
         throw new ConflictError(t("backend.deployment.aRollbackTaskIsAlreadyInProgressPlease"));
       }

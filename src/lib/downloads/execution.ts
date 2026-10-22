@@ -255,8 +255,7 @@ export async function executeAria2RelayDownload(
 
   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { progress: "Download completed, transferring to target VPS..." } });
 
-  const downloadedFiles = await fs.readdir(tempDir);
-  const filesToTransfer = downloadedFiles.filter((f) => !f.endsWith(".aria2") && !f.startsWith("."));
+  const filesToTransfer = await listRelayFiles(tempDir);
 
   if (filesToTransfer.length === 0) {
    await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: apiCopy("apiCopy.download.completed.but.file.not.found.191e1079") } });
@@ -268,9 +267,9 @@ export async function executeAria2RelayDownload(
   const files: TransferManifest["files"] = [];
   for (const f of filesToTransfer) {
    signal?.throwIfAborted();
-   const stat = await fs.stat(path.join(tempDir, f));
-   if (!stat.isFile()) throw new Error("Relay output contains a non-file entry");
-   files.push({ name: f, size: stat.size, sha256: await hashTransferFile(path.join(tempDir, f), signal) });
+   const local = path.join(tempDir, ...f.split("/"));
+   const stat = await fs.stat(local);
+   files.push({ name: f, size: stat.size, sha256: await hashTransferFile(local, signal) });
   }
   // Sizes are known now, before anything reaches the VPS: hold them to the
   // creator's per-file limit and what the quota has left.
@@ -309,6 +308,25 @@ export async function executeAria2RelayDownload(
  }
 }
 
+/**
+ * Every file aria2 left in the relay folder, as "/"-separated paths. A
+ * multi-file torrent arrives as a folder of files; only the top level used to
+ * be read, so such a download failed after finishing and its files were
+ * deleted. aria2's control files and hidden entries are skipped; anything
+ * that is neither a file nor a folder (a link) is refused.
+ */
+export async function listRelayFiles(root: string, prefix = ""): Promise<string[]> {
+ const out: string[] = [];
+ for (const entry of await fs.readdir(path.join(root, ...prefix.split("/").filter(Boolean)), { withFileTypes: true })) {
+  if (entry.name.endsWith(".aria2") || entry.name.startsWith(".")) continue;
+  const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+  if (entry.isDirectory()) out.push(...await listRelayFiles(root, relative));
+  else if (entry.isFile()) out.push(relative);
+  else throw new Error("Relay output contains a non-file entry");
+ }
+ return out.sort();
+}
+
 /** Whether relayed files break the per-file limit, or together the quota left. */
 export function relayExceedsLimits(files: Array<{ size: number }>, limits: StorageWriteCapacity): boolean {
  const total = files.reduce((sum, file) => sum + BigInt(file.size), BigInt(0));
@@ -321,12 +339,16 @@ async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir
  targetPath: string, manifest: TransferManifest, signal?: AbortSignal) {
  const sshParams = await buildSshParamsFromServer(server, server.sshKey);
  signal?.throwIfAborted();
- await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000, signal });
+ // The target folder and every folder inside the download.
+ const folders = [...new Set([targetPath, ...manifest.files
+  .filter((file) => file.name.includes("/"))
+  .map((file) => toRemoteChildPath(targetPath, path.posix.dirname(file.name)))])];
+ await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${folders.map(shellQuote).join(" ")}`, timeout: 15000, signal });
  for (const file of manifest.files) {
   signal?.throwIfAborted();
   const task = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true } });
   if (task?.status !== "RUNNING") throw new Error("Relay task is no longer running");
-  await transferFileViaSsh2(server, path.join(tempDir, file.name), toRemoteChildPath(targetPath, file.name), taskId, signal, file.sha256);
+  await transferFileViaSsh2(server, path.join(tempDir, ...file.name.split("/")), toRemoteChildPath(targetPath, file.name), taskId, signal, file.sha256);
  }
  signal?.throwIfAborted();
  const totalSize = manifest.files.reduce((sum, file) => sum + BigInt(file.size), BigInt(0)).toString();
@@ -335,7 +357,13 @@ async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir
    data: { status: "COMPLETED", progress: "Download and transfer completed", fileSize: totalSize, totalBytes: totalSize, completedBytes: totalSize } });
   if (!completed.count) throw new Error("Relay task changed before finalization");
   for (const file of manifest.files) {
-   await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName: file.name, size: file.size }, tx);
+   const folder = path.posix.dirname(file.name);
+   await indexDownloadedFileEntry({
+    storageNode: server.storageNode,
+    targetPath: folder === "." ? targetPath : toRemoteChildPath(targetPath, folder),
+    fileName: path.posix.basename(file.name),
+    size: file.size,
+   }, tx);
   }
  });
 }

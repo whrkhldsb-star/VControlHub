@@ -272,4 +272,18 @@ describe("dispatchDueVpsBackupSchedules overlap guard", () => {
     expect(createVpsBackupRecordMock).toHaveBeenCalledTimes(1);
     expect(enqueueJobMock).toHaveBeenCalledTimes(1);
   });
+
+  it("records a custom schedule's paths on the run, so a retry still has them", async () => {
+    // The retry copies the failed record, not the schedule: without the
+    // paths it failed with "Custom backup requires at least one path".
+    prismaMock.vpsBackupRecord.count.mockResolvedValue(0);
+    prismaMock.vpsBackupSchedule.findMany.mockResolvedValue([{ ...dueSchedule, backupType: "custom", paths: ["/srv/app"] }]);
+
+    await dispatchDueVpsBackupSchedules();
+
+    expect(createVpsBackupRecordMock).toHaveBeenCalledWith(
+      expect.objectContaining({ backupType: "custom", scheduleId: "schedule-1", paths: ["/srv/app"] }),
+      expect.anything(),
+    );
+  });
 });

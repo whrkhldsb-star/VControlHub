@@ -54,4 +54,17 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("capacity fo
 		expect(full.metrics.find((metric) => metric.metric === "disk")!.dataSpanHours).toBeGreaterThan(6.5);
 		expect(result.summary.byRisk.critical).toBe(1);
 	}, 60_000);
+
+	it("leaves disabled servers out of the background forecast that capacity alerts use", async () => {
+		const disabled = `${prefix}-200`;
+		await prisma.server.update({ where: { id: disabled }, data: { enabled: false } });
+		try {
+			const background = await getCapacityForecast({ windowHours: 24, horizonDays: 30, nowMs, serverId: disabled });
+			expect(background.servers).toEqual([]);
+			const page = await getCapacityForecast({ session: session as never, windowHours: 24, horizonDays: 30, nowMs, serverId: disabled });
+			expect(page.servers.map((server) => server.serverId)).toEqual([disabled]);
+		} finally {
+			await prisma.server.update({ where: { id: disabled }, data: { enabled: true } });
+		}
+	}, 60_000);
 });

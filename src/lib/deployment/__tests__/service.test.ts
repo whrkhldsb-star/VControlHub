@@ -359,6 +359,28 @@ describe("deployment service", () => {
     expect(commandService.createCommandRequest).not.toHaveBeenCalled();
   });
 
+  it.each(["COMPLETED", "FAILED", "REJECTED"])("allows a new rollback once the previous one's command is %s, without a list read first", async (commandStatus) => {
+    // The previous rollback stayed PENDING until listDeploymentRuns synced it,
+    // so retrying right after it ended answered 409 until a page reload.
+    mockPrisma.deploymentRun.findFirst.mockResolvedValue({
+      id: "dep1",
+      template: { id: "tmpl1", name: "Nginx" },
+      snapshot: { id: "snap1", templateName: "Nginx", rollbackCommand: "apt remove nginx", serverIds: ["srv1"] },
+    });
+    mockPrisma.deploymentRollbackRun.findMany.mockResolvedValueOnce([
+      { id: "rb_old", status: "PENDING", errorMessage: null, completedAt: null, commandRequestId: "cmd_old", commandRequest: { status: commandStatus } },
+    ]);
+    mockPrisma.deploymentRollbackRun.create.mockResolvedValueOnce({ id: "rb_new", status: "PENDING", commandRequestId: null });
+
+    await createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM).catch(() => undefined);
+
+    expect(mockPrisma.deploymentRollbackRun.create).toHaveBeenCalled();
+    expect(mockPrisma.deploymentRollbackRun.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "rb_old" },
+      data: expect.objectContaining({ status: commandStatus }),
+    }));
+  });
+
   describe("rollback crash and bookkeeping windows (stateful store)", () => {
     type Row = { id: string; sourceRunId: string; status: string; commandRequestId: string | null; errorMessage?: string | null };
     let rollbacks: Map<string, Row>;

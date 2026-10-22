@@ -30,18 +30,30 @@ const WORKER_ID = `${config.app.hostname || "localhost"}:vps-backup:${process.pi
 const logger = createLogger("vps-backup-job-worker");
 
 /**
- * Retention must also cover manually triggered backups: without this, records
- * created through the "back up now" route are only ever pruned if a schedule
- * happens to run later for the same server. Applies the server's schedule
- * policy when one is configured; no schedule means the operator opted out of
- * automatic pruning entirely.
+ * Prune after a successful backup, by the retention of whoever owns it.
+ *
+ * A scheduled backup follows its own schedule: the server's first schedule
+ * (any, even a paused one with a 1-day window) used to set the cutoff for
+ * every backup of the server. Manual backups belong to no schedule; they
+ * follow the longest retention among the server's active schedules, and are
+ * kept when none sets one (the operator opted out of automatic pruning).
  */
-async function pruneAfterBackup(recordId: string): Promise<void> {
-  const record = await prisma.vpsBackupRecord.findUnique({ where: { id: recordId }, select: { serverId: true } });
+export async function pruneAfterBackup(recordId: string): Promise<void> {
+  const record = await prisma.vpsBackupRecord.findUnique({ where: { id: recordId }, select: { serverId: true, scheduleId: true } });
   if (!record) return;
-  const schedule = await prisma.vpsBackupSchedule.findFirst({ where: { serverId: record.serverId }, select: { retentionDays: true } });
-  if (schedule?.retentionDays && schedule.retentionDays > 0) {
-    await pruneOldVpsBackupRecords(record.serverId, schedule.retentionDays);
+  if (record.scheduleId) {
+    const schedule = await prisma.vpsBackupSchedule.findUnique({ where: { id: record.scheduleId }, select: { retentionDays: true } });
+    if (schedule?.retentionDays && schedule.retentionDays > 0) {
+      await pruneOldVpsBackupRecords(record.serverId, schedule.retentionDays, { scheduleId: record.scheduleId });
+    }
+    return;
+  }
+  const longest = await prisma.vpsBackupSchedule.aggregate({
+    where: { serverId: record.serverId, status: "ACTIVE", retentionDays: { gt: 0 } },
+    _max: { retentionDays: true },
+  });
+  if (longest._max.retentionDays) {
+    await pruneOldVpsBackupRecords(record.serverId, longest._max.retentionDays, { scheduleId: null });
   }
 }
 

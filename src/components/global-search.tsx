@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { requestNavigation } from "@/lib/forms/navigation-request";
 import { mainNavItems, systemNavItems } from "./nav-items";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { browserT as translate, type Locale } from "@/lib/i18n/browser-translations";
@@ -195,7 +196,7 @@ export function GlobalSearch({
 			setOpen(false);
 			setQuery("");
 			returnFocusRef.current = null;
-			router.push(item.href);
+			requestNavigation(item.href, (href) => router.push(href));
 		},
 		[router],
 	);

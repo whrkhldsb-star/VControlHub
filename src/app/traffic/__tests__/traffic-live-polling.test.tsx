@@ -78,3 +78,38 @@ describe("traffic live tab", () => {
 		expect(summaryCalls()).toBe(before);
 	});
 });
+
+describe("remote traffic sampling slower than the refresh interval", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		mocks.fetch.mockReset();
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("lets a 36 s read finish instead of cancelling it every 30 s", async () => {
+		const remoteSignals: AbortSignal[] = [];
+		mocks.fetch.mockImplementation((url: string, init?: { signal?: AbortSignal }) => {
+			if (url.startsWith("/api/traffic/summary?include=remote")) {
+				remoteSignals.push(init!.signal!);
+				return new Promise((resolve, reject) => {
+					const timer = setTimeout(() => resolve({ remoteServers: [{ serverId: "srv-1", serverName: "far-away", host: "203.0.113.9", primaryInterface: null, interfaces: [], sampledAt: new Date().toISOString(), error: null }] }), 36_000);
+					init!.signal!.addEventListener("abort", () => {
+						clearTimeout(timer);
+						reject(new DOMException("aborted", "AbortError"));
+					});
+				});
+			}
+			if (url.startsWith("/api/traffic/history")) return Promise.resolve({ history: [] });
+			const primary = iface(5);
+			return Promise.resolve({ timestamp: new Date().toISOString(), currentServer: { name: "hub", primaryInterface: primary, interfaces: [primary] }, storageNodes: [], servers: [] });
+		});
+		renderWithI18n(<TrafficPage />);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(40_000);
+		});
+		expect(remoteSignals.filter((signal) => signal.aborted)).toHaveLength(0);
+		expect(screen.getByText("far-away")).toBeInTheDocument();
+	});
+});
