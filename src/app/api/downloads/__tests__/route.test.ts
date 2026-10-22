@@ -810,6 +810,33 @@ describe("/api/downloads", () => {
     expect(getGlobalStatMock).toHaveBeenCalledOnce();
   });
 
+  it("stores aria2 byte counts as the strings the columns hold, and shows only what was stored", async () => {
+    // Numbers were refused by Prisma on every poll ("Expected String,
+    // provided Int"); the list still showed the new state as if stored.
+    const task = { id: "task_gone", createdBy: "u_1", targetPath: "/srv/cloud/downloads/file.iso", server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } }, status: "RUNNING", aria2Gid: "gid_2", pid: null, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null };
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([task]);
+    tellStatusMock.mockResolvedValueOnce({ gid: "gid_2", status: "removed", completedLength: "100", totalLength: "200", downloadSpeed: "0" });
+    getGlobalStatMock.mockResolvedValueOnce({ downloadSpeed: "0" });
+    prismaMock.downloadTask.update.mockResolvedValueOnce({});
+
+    const response = await GET(new Request("https://example.com/api/downloads"));
+
+    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith({
+      where: { id: "task_gone" },
+      data: expect.objectContaining({ status: "FAILED", completedBytes: "100", totalBytes: "200", downloadSpeed: "0" }),
+    });
+    const listed = ((await response.json()) as { tasks: Array<{ id: string; status: string; completedBytes: string | null }> }).tasks.find((row) => row.id === "task_gone");
+    expect(listed).toMatchObject({ status: "FAILED", completedBytes: "100" });
+
+    // A refused write leaves the list showing what the database still says.
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([task]);
+    tellStatusMock.mockResolvedValueOnce({ gid: "gid_2", status: "removed", completedLength: "100", totalLength: "200", downloadSpeed: "0" });
+    getGlobalStatMock.mockResolvedValueOnce({ downloadSpeed: "0" });
+    prismaMock.downloadTask.update.mockRejectedValueOnce(new Error("write refused"));
+    const again = await (await GET(new Request("https://example.com/api/downloads"))).json() as { tasks: Array<{ id: string; status: string }> };
+    expect(again.tasks.find((row) => row.id === "task_gone")?.status).toBe("RUNNING");
+  });
+
   it("refreshes a completed direct download from the remote process exit state", async () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_direct",

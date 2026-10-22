@@ -258,6 +258,30 @@ describe("runVpsBackupRecord false-success guards", () => {
     expect(completedCalls).toHaveLength(0);
   });
 
+  it("removes the partial archive when the transfer stops half-way", async () => {
+    // Only a finished transfer was cleaned up: 64 KiB of a cut-off download
+    // stayed on disk under a FAILED record that does not point at it.
+    const { readdirSync } = await import("node:fs");
+    let sent = false;
+    const cutOff = new Readable({
+      read() {
+        if (!sent) {
+          sent = true;
+          this.push(Buffer.alloc(65_536, 1));
+          return;
+        }
+        this.destroy(new Error("connection reset mid-transfer"));
+      },
+    });
+    mocks.downloadFile.mockResolvedValueOnce({ stream: cutOff, size: 131_072 });
+
+    const result = await runVpsBackupRecord("rec_1");
+
+    expect(result.success).toBe(false);
+    const leftovers = readdirSync(storageRoot, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile());
+    expect(leftovers).toEqual([]);
+  });
+
   it("fails when local archive is empty/too small even if remote command exited 0", async () => {
     mocks.execRemoteCommand
       .mockResolvedValueOnce({ stdout: "ok", stderr: "", exitCode: 0 })

@@ -57,7 +57,8 @@ const linuxServerSchema = z
     connectionType: z.enum(["SSH_KEY", "PASSWORD"]).default("SSH_KEY"),
     managementMode: z.enum(["DIRECT", "AGENT"]).default("DIRECT"),
     sshKeyId: z.string().trim().optional(),
-    password: z.string().trim().optional(),
+    // Kept byte for byte: leading and trailing spaces can be part of a password.
+    password: z.string().optional(),
     hostKeySha256: z.string().trim().max(128, "SSH host key fingerprint is too long").optional().or(z.literal("")),
     approvedHostKeySha256: z.string().trim().max(128, "SSH approved host key fingerprint is too long").optional().or(z.literal("")),
     /** UI onboarding may persist an unreachable node as disabled configuration. */
@@ -77,7 +78,8 @@ const linuxServerSchema = z
     costMonthlyAmount: z
       .string()
       .trim()
-      .regex(/^\d+(\.\d{1,2})?$/u, "Monthly fee must be a number with at most 2 decimal places")
+      // Decimal(12,2): at most ten digits before the point.
+      .regex(/^\d{1,10}(\.\d{1,2})?$/u, "Monthly fee must be a number below 10,000,000,000 with at most 2 decimal places")
       .optional()
       .or(z.literal(""))
       .transform((value) => value || undefined),
@@ -88,7 +90,7 @@ const linuxServerSchema = z
     (data) => {
       if (data.operatingSystem === "WINDOWS") return true;
       if (data.connectionType === "SSH_KEY" && !data.sshKeyId) return false;
-      if (data.connectionType === "PASSWORD" && !data.password) return false;
+      if (data.connectionType === "PASSWORD" && !data.password?.trim()) return false;
       return true;
     },
     { message: "SSH key connection requires selecting a key; password connection requires entering a password" },

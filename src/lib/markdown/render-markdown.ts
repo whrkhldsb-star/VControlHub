@@ -112,12 +112,19 @@ export function renderMarkdown(md: string): string {
       !/^[\s]*[-*+]\s+/.test(lines[i]!) &&
       !/^[\s]*\d+\.\s+/.test(lines[i]!) &&
       !/^`{3,}/.test(lines[i]!) &&
-      !isTableRow(lines[i]!)
+      // Only a row that really starts a table (a separator follows) ends the
+      // paragraph. Any "| … |" line stopped it, and a lone one that was not a
+      // table either was consumed by nothing: the loop spun on it forever.
+      !(isTableRow(lines[i]!) && isTableSeparator(lines[i + 1] ?? ""))
     ) {
       paraLines.push(lines[i]!);
       i++;
     }
-    if (paraLines.length > 0) {
+    if (paraLines.length === 0) {
+      // Never leave a line unconsumed.
+      out.push(`<p>${inlineFormat(lines[i]!)}</p>`);
+      i++;
+    } else {
       // Format each line individually, then join with <br /> AFTER escaping
       // (escapeHtml in inlineFormat would escape <br /> into literal text)
       const formatted = paraLines.map((line) => inlineFormat(line));
@@ -252,22 +259,45 @@ function parseTableAligns(line: string): string[] {
 
 /**
  * Plain text of a Markdown source, for one- or two-line excerpts where
- * markup would only show as stray symbols.
+ * markup would only show as stray symbols. Code is copied as written: the
+ * markup rules turned `__init__` into "init" and dropped a `---` line inside
+ * a fenced block, so the excerpt said something the body did not.
  */
 export function markdownToPlainText(md: string): string {
-  return md
-    .replace(/\r\n?/g, "\n")
-    .replace(/^```.*$/gm, "")
+  const out: string[] = [];
+  let prose: string[] = [];
+  let inFence = false;
+  const flushProse = () => {
+    if (prose.length) out.push(proseToPlainText(prose.join("\n")));
+    prose = [];
+  };
+  for (const line of md.replace(/\r\n?/g, "\n").split("\n")) {
+    if (/^[ \t]{0,3}```/.test(line)) {
+      flushProse();
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) out.push(line);
+    else prose.push(line);
+  }
+  flushProse();
+  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function proseToPlainText(text: string): string {
+  // Inline code spans are set aside first and put back verbatim.
+  const spans: string[] = [];
+  return text
+    .replace(/`([^`\n]+)`/g, (_, code: string) => `\u0000${spans.push(code) - 1}\u0000`)
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, "")
     .replace(/^[ \t]{0,3}>[ \t]?/gm, "")
     .replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+/gm, "")
     .replace(/^[ \t]*\|?[ \t]*:?-{3,}.*$/gm, "")
-    .replace(/(\*\*\*|\*\*|\*|__|_|`)(\S(?:.*?\S)?)\1/g, "$2")
+    .replace(/(\*\*\*|\*\*|\*|__|_)(\S(?:.*?\S)?)\1/g, "$2")
     .replace(/\|/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .replace(/\u0000(\d+)\u0000/g, (_, index: string) => spans[Number(index)] ?? "");
 }
 
 /** One paragraph of plain text, for line-clamped previews (dashboard, banners). */

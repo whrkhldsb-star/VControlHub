@@ -287,7 +287,9 @@ export function useQuickServiceActions({
           body: JSON.stringify({ action: "toggle", sourceId, enabled }),
         });
         fetchSources();
-        if (!enabled) fetchCatalog();
+        // Both ways: re-enabling a synced source brings its apps back to the
+        // catalog (only disabling used to refresh it, so they stayed hidden).
+        fetchCatalog();
       } catch {
         // API call failed — surface a generic error toast to the user.
         setMessage({ type: "err", text: t("qsActions.opFailed") });

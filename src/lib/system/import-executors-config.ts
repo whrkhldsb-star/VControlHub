@@ -44,8 +44,11 @@ export async function importSettings(
 
   if (options.overwriteExisting) {
     for (const r of toUpdate) {
-      // 敏感 key（空值）不覆盖
-      if (r.value !== "") {
+      // An empty sensitive value is what a standard export writes in place
+      // of the secret: not provided, keep ours. Any other empty value was
+      // cleared on the source and is restored as such (it used to be skipped,
+      // so a cleared alert recipient kept mailing the old address).
+      if (r.value !== "" || !isSensitiveSettingKey(r.key)) {
         await tx.setting.update({
           where: { key: r.key },
           // The import wrote this value, not the previous editor.

@@ -19,10 +19,10 @@ export async function importTeams(tx: Tx, t: ExportFile["tables"], options: Impo
       new Set((await tx.team.findMany({ where: { slug: { in: values } }, select: { slug: true } })).map((row) => row.slug)),
     secondaryValueOf: (r) => r.slug,
     createManySkipDuplicates: async (rows) =>
-      (await tx.team.createMany({ data: rows.map((r) => ({ id: r.id, slug: r.slug, name: r.name, description: r.description })), skipDuplicates: true })).count,
+      (await tx.team.createMany({ data: rows.map((r) => ({ id: r.id, slug: r.slug, name: r.name, description: r.description, deletedAt: r.deletedAt ? parseDate(r.deletedAt, "teams.deletedAt") : null })), skipDuplicates: true })).count,
     hasSecondaryClash: async (r) => Boolean(await tx.team.findFirst({ where: { slug: r.slug, NOT: { id: r.id } }, select: { id: true } })),
     updateById: async (r) => {
-      await tx.team.update({ where: { id: r.id }, data: { slug: r.slug, name: r.name, description: r.description } });
+      await tx.team.update({ where: { id: r.id }, data: { slug: r.slug, name: r.name, description: r.description, deletedAt: r.deletedAt ? parseDate(r.deletedAt, "teams.deletedAt") : null } });
     },
   });
 }

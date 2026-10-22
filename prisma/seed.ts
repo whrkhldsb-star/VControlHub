@@ -214,6 +214,11 @@ async function seedDefaultCustomer(): Promise<string | null> {
   const live = await prisma.team.findMany({ where: { deletedAt: null }, select: { id: true }, take: 2 });
   // With several customers there is no single default to preselect.
   if (live.length > 1) return null;
+  // No live customer on an instance that had some: the administrator
+  // deleted them. Respect that (a fresh install has no customer rows at
+  // all); creating "default" again also collided with the deleted row's
+  // slug and failed the seed, and with it every install and upgrade.
+  if (live.length === 0 && (await prisma.team.findFirst({ select: { id: true } }))) return null;
   const teamId = live[0]?.id ?? (await prisma.team.create({
     data: { slug: "default", name: "平台自用", description: "平台自己的服务器与存储" },
   })).id;

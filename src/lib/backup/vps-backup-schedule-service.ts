@@ -232,10 +232,14 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 					await tx.vpsBackupSchedule.update({ where: { id: schedule.id }, data: { lastResult: "SKIPPED_OVERLAP" } });
 					return { skipped: inFlight };
 				}
+				// The record carries what this run backs up: a retry is a new record
+				// without the schedule, and with no paths of its own a failed custom
+				// backup could only ever fail again ("requires at least one path").
 				const { id: recordId } = await createVpsBackupRecord({
 					serverId: schedule.serverId,
 					backupType: schedule.backupType,
 					scheduleId: schedule.id,
+					paths: schedule.paths,
 				}, tx);
 				await enqueueJob({
 					type: VPS_BACKUP_CREATE_JOB_TYPE,

@@ -47,6 +47,10 @@ services:
       # DOCKER_SOCKET_PATH may point to a rootless daemon on the host.
       DOCKER_HOST: unix:///var/run/docker.sock
       NEXT_PUBLIC_APP_PUBLIC_LABEL: ${NEXT_PUBLIC_APP_PUBLIC_LABEL:-VControlHub}
+      # File history bodies; the default (/var/lib/vcontrolhub/file-versions)
+      # is not on a volume, so a new container lost them while the database
+      # kept their history rows. Kept under /app so full backups include it.
+      FILE_VERSION_DIR: /app/file-versions
       RUN_MIGRATIONS_ON_START: ${RUN_MIGRATIONS_ON_START:-true}
       SEED_ON_START: ${SEED_ON_START:-true}
     ports:
@@ -57,6 +61,7 @@ services:
       - app_downloads:/app/downloads
       - app_backups:/app/backups
       - app_logs:/app/logs
+      - app_file_versions:/app/file-versions
       # :ro protects the socket file, not Docker API operations.
       - type: bind
         source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}
@@ -76,3 +81,4 @@ volumes:
   app_downloads:
   app_backups:
   app_logs:
+  app_file_versions:

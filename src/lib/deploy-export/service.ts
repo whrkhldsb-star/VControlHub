@@ -11,11 +11,24 @@ const DANGEROUS_ENV_FLAGS = [
 	"SEED_DEMO_DATA",
 ];
 
-import { getAppName } from "@/lib/branding";
+import { getAppSlug } from "@/lib/branding";
+
+const APP_IDENTIFIER = /^[a-z][a-z0-9-]{1,40}$/;
+
+/**
+ * The identifier used for service names, paths and cookies. Without an
+ * explicit one it comes from this instance's slug: the display name
+ * ("VControlHub") never passed the identifier rule, so the export failed
+ * unless a name was typed in.
+ */
+function defaultAppIdentifier() {
+	const slug = getAppSlug().toLowerCase();
+	return APP_IDENTIFIER.test(slug) ? slug : "vcontrolhub";
+}
 
 function sanitizeAppName(value?: string) {
-	const appName = (value ?? getAppName()).trim();
-	if (!/^[a-z][a-z0-9-]{1,40}$/.test(appName)) {
+	const appName = (value?.trim() || defaultAppIdentifier());
+	if (!APP_IDENTIFIER.test(appName)) {
 		throw new ValidationError(t("backend.deployExport.appNameInvalid"));
 	}
 	return appName;
@@ -133,6 +146,9 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		"npx prisma generate",
 		"npx prisma migrate deploy",
 		"npm run build",
+		// The units start dist/server.js, dist/worker.js and dist/ssh-ws-proxy.js,
+		// which only the runtime build produces (dist is not in Git).
+		"npm run build:runtime",
 		"",
 	].join("\n");
 	const files = {

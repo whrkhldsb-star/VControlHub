@@ -162,6 +162,37 @@ describeOrSkip("deploy/check.sh", () => {
     }
   });
 });
+describeOrSkip("deploy/check.sh ports", () => {
+  it("checks the port the install configured, not 3000", async () => {
+    // .env.runtime (preferred) leaves the ports out; NEXT_PORT lives in
+    // .env.local. A fresh shell's check went to 127.0.0.1:3000.
+    const repoRoot = path.resolve(__dirname, "../..");
+    const appDir = await makeAppDir();
+    const bin = path.join(appDir, "stub-bin");
+    try {
+      await writeValidEnv(path.join(appDir, ".env.runtime"));
+      await writeFile(path.join(appDir, ".env.local"), 'NEXT_PORT="39991"\nSSH_WS_PORT="39992"\n');
+      for (const dir of ["dist", "storage", "tmp", "uploads", "downloads", "backups", "logs"]) await mkdir(path.join(appDir, dir), { recursive: true });
+      for (const name of ["server.js", "worker.js", "ssh-ws-proxy.js"]) await writeFile(path.join(appDir, "dist", name), "\n");
+      await mkdir(bin, { recursive: true });
+      const urls = path.join(appDir, "urls.log");
+      await writeFile(path.join(bin, "curl"), `#!/bin/bash\necho "\${@: -1}" >> ${JSON.stringify(urls)}\nprintf 200\n`);
+      await writeFile(path.join(bin, "systemctl"), "#!/bin/bash\nexit 1\n");
+      await writeFile(path.join(bin, "node"), "#!/bin/bash\nexit 0\n");
+      for (const name of ["curl", "systemctl", "node"]) await chmod(path.join(bin, name), 0o755);
+
+      const result = await runScript(path.join(repoRoot, "deploy/check.sh"), {
+        cwd: repoRoot,
+        env: { ...process.env, APP_DIR: appDir, PATH: `${bin}:${process.env.PATH}`, SERVICE_PREFIX: "vch-check-test" },
+      });
+
+      expect(result.code, result.stdout + result.stderr).toBe(0);
+      expect(await readFile(urls, "utf8")).toContain("http://127.0.0.1:39991/login");
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
+  });
+});
 describeOrSkip("deploy/preflight.sh", () => {
   const dbUrlKey = "DATABASE_" + "URL";
   const sessionSecretKey = "AUTH_SESSION_" + "SECRET";

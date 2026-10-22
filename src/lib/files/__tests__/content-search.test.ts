@@ -109,18 +109,53 @@ describe("searchFileContents", () => {
 			// Regression: the tombstone lookup must be scoped to this search's
 			// (node, path) pairs — the old global scan pulled every tenant's
 			// tombstones with no node filter and silently truncated at 10k rows.
-			expect(entryFindManyMock).toHaveBeenCalledTimes(1);
+			// The LOCAL walk asks about exactly the paths it matched.
 			const tombstoneArg = entryFindManyMock.mock.calls[0]![0] as {
-				where: { isDeleted: boolean; OR: Array<{ storageNodeId: string; relativePath: { in: string[] } }> };
+				where: { isDeleted: boolean; storageNodeId: string; relativePath: { in: string[] } };
 			};
 			expect(tombstoneArg.where.isDeleted).toBe(true);
-			expect(tombstoneArg.where.OR).toHaveLength(1);
-			expect(tombstoneArg.where.OR[0]!.storageNodeId).toBe("node-a");
-			expect([...tombstoneArg.where.OR[0]!.relativePath.in].sort()).toEqual([
+			expect(tombstoneArg.where.storageNodeId).toBe("node-a");
+			expect([...tombstoneArg.where.relativePath.in].sort()).toEqual([
 				"live.txt",
 				"recycled.txt",
 			]);
 		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("searches dotfiles such as .env and .gitignore", async () => {
+		// Node gives ".env" no extension and the name list lacked the dot.
+		const dir = await mkdtemp(path.join(os.tmpdir(), "vch-content-dotfiles-"));
+		try {
+			for (const name of [".env", ".gitignore", ".npmrc", ".editorconfig", "notes.txt"]) await writeFile(path.join(dir, name), "needle\n");
+			findManyMock.mockResolvedValue([{ id: "node-a", name: "local", driver: "LOCAL", basePath: dir }]);
+			entryFindManyMock.mockResolvedValue([]);
+			const result = await searchFileContents({ query: "needle", nodeId: "node-a", session: { userId: "u1", roles: ["operator"], currentTeamId: "team-a" } });
+			expect(result.results.map((r) => r.relativePath).sort()).toEqual([".editorconfig", ".env", ".gitignore", ".npmrc", "notes.txt"]);
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("does not let recycle-bin matches use up the result cap", async () => {
+		// 101 deleted matches filled the 100 places before the live one was
+		// reached; filtered afterwards, nothing was left.
+		const dir = await mkdtemp(path.join(os.tmpdir(), "vch-content-recycle-"));
+		try {
+			const { mkdir } = await import("node:fs/promises");
+			await mkdir(path.join(dir, "a-retired"));
+			for (let i = 0; i < 101; i++) await writeFile(path.join(dir, "a-retired", `old-${i}.txt`), "needle\n");
+			await mkdir(path.join(dir, "z-active"));
+			await writeFile(path.join(dir, "z-active", "current.txt"), "needle\n");
+			findManyMock.mockResolvedValue([{ id: "node-a", name: "local", driver: "LOCAL", basePath: dir }]);
+			entryFindManyMock.mockImplementation(async ({ where }: { where: { relativePath?: { in?: string[] }; OR?: unknown } }) =>
+				(where.relativePath?.in ?? []).filter((p) => p.startsWith("a-retired/")).map((relativePath) => ({ storageNodeId: "node-a", relativePath })));
+			const result = await searchFileContents({ query: "needle", nodeId: "node-a", session: { userId: "u1", roles: ["operator"], currentTeamId: "team-a" } });
+			expect(result.results.map((r) => r.relativePath)).toEqual(["z-active/current.txt"]);
+		} finally {
+			entryFindManyMock.mockReset();
+			entryFindManyMock.mockResolvedValue([]);
 			await rm(dir, { recursive: true, force: true });
 		}
 	});

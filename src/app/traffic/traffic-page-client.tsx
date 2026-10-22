@@ -252,7 +252,11 @@ export default function TrafficPage() {
   }, [selectedIface, t]);
 
   const fetchRemote = useCallback(async () => {
-    remoteRequestRef.current?.abort();
+    // Remote sampling walks the servers five at a time and can take longer
+    // than the refresh interval. Cancelling the pending read on every tick
+    // meant none ever finished and the panel stayed "sampling"; let it
+    // finish and skip the tick instead.
+    if (remoteRequestRef.current) return;
     const controller = new AbortController();
     remoteRequestRef.current = controller;
     setRemoteLoading(true);

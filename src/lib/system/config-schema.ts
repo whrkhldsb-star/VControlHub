@@ -140,6 +140,8 @@ const teamExportSchema = z.object({
   slug: z.string(),
   name: z.string(),
   description: z.string().nullable(),
+  /** Set for a deleted customer, kept so its retained resources still have an owner. */
+  deletedAt: z.string().nullable().optional(),
 });
 
 const identityTemplateExportSchema = z.object({

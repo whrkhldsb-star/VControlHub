@@ -9,6 +9,7 @@
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 import { aiProviderTypeSchema, type AiProviderType } from "./schema";
@@ -136,6 +137,9 @@ export async function createProvider(input: CreateProviderInput) {
 	// default provider at all.
 	return withProviderNameCheck(() => prisma.$transaction(async (tx) => {
 		if (input.isDefault) {
+			// Two concurrent "new default" creates each clear the defaults they
+			// can see, then insert: both rows would stay default.
+			await lockForTransaction(tx, "ai-provider-default", input.createdBy);
 			await tx.aiProvider.updateMany({
 				where: { isDefault: true, createdBy: input.createdBy },
 				data: { isDefault: false },
@@ -207,6 +211,7 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 	// already has) must not have cleared their default provider first.
 	return withProviderNameCheck(() => prisma.$transaction(async (tx) => {
 		if (input.isDefault === true) {
+			await lockForTransaction(tx, "ai-provider-default", userId);
 			await tx.aiProvider.updateMany({
 				where: { isDefault: true, createdBy: userId, NOT: { id } },
 				data: { isDefault: false },

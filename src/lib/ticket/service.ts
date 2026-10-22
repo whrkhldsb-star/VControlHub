@@ -316,11 +316,11 @@ export async function updateTicketStatus(input: {
     const current = input.session
       ? await db.ticket.findFirst({
           where: { id: input.id, ...teamFilter },
-          select: { status: true, teamId: true, createdAt: true },
+          select: { status: true, teamId: true, createdAt: true, priority: true, assigneeId: true },
         })
       : await db.ticket.findUnique({
           where: { id: input.id },
-          select: { status: true, teamId: true, createdAt: true },
+          select: { status: true, teamId: true, createdAt: true, priority: true, assigneeId: true },
         });
     if (!current) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     const allowed = TRANSITIONS[current.status] ?? new Set<string>();
@@ -350,13 +350,32 @@ export async function updateTicketStatus(input: {
       }
     }
 
-    const claimed = await db.ticket.updateMany({
-      where: { id: input.id, status: current.status, ...teamFilter },
-      data,
-    });
-    if (claimed.count === 0) {
-      throw new ConflictError(t("backend.ticket.ticketStatusChangedConcurrentlyPleaseRetry"));
-    }
+    // The change and its line in the timeline commit together. Only SLA
+    // escalations used to be recorded: a ticket worked through to CLOSED and
+    // reopened showed nothing but "created".
+    const writeStatus = async (tx: Prisma.TransactionClient) => {
+      const claimed = await tx.ticket.updateMany({
+        where: { id: input.id, status: current.status, ...teamFilter },
+        data,
+      });
+      if (claimed.count === 0) {
+        throw new ConflictError(t("backend.ticket.ticketStatusChangedConcurrentlyPleaseRetry"));
+      }
+      await tx.ticketEscalation.create({
+        data: {
+          ticketId: input.id,
+          fromStatus: current.status,
+          toStatus: data.status,
+          fromPriority: current.priority,
+          toPriority: data.priority ?? current.priority,
+          fromAssignee: current.assigneeId,
+          toAssignee: data.assigneeId === undefined ? current.assigneeId : data.assigneeId,
+          escalatedBy: input.session?.userId ?? null,
+        },
+      });
+    };
+    if (input.db) await writeStatus(input.db);
+    else await prisma.$transaction(writeStatus);
     const updated = input.session
       ? await db.ticket.findFirst({ where: { id: input.id, ...teamFilter } })
       : await db.ticket.findUnique({ where: { id: input.id } });

@@ -222,5 +222,33 @@ describe("SnippetList", () => {
     const patch = vi.mocked(csrfFetch).mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")!;
     expect(JSON.parse(String((patch[1] as RequestInit).body))).toMatchObject({ id: "snip-1", description: "", tags: [] });
   });
-});
 
+  it("opens the editor for the last snippet clicked, even if an earlier one loads later", async () => {
+    // A's details arrived after B's editor opened and swapped the record
+    // under it: B's text was then saved into A.
+    const user = userEvent.setup();
+    const previews = [
+      { id: "snip-a", title: "Original A", language: "bash", description: "", tags: [], isPrivate: false },
+      { id: "snip-b", title: "Original B", language: "bash", description: "", tags: [], isPrivate: false },
+    ];
+    let releaseA: () => void = () => undefined;
+    vi.mocked(csrfFetch).mockImplementation(((url: string, init?: { method?: string }) => {
+      if (init?.method === "PATCH") return Promise.resolve({ snippet: { ...previews[1], content: "b body" } });
+      if (url.includes("snip-a")) return new Promise((resolve) => { releaseA = () => resolve({ snippet: { ...previews[0], content: "a body" } }); });
+      if (url.includes("snip-b")) return Promise.resolve({ snippet: { ...previews[1], content: "b body" } });
+      return Promise.resolve({});
+    }) as never);
+    render(<ToastProvider><SnippetList snippets={previews as never} /></ToastProvider>);
+
+    const [editA, editB] = screen.getAllByRole("button", { name: "编辑" });
+    await user.click(editA!);
+    await user.click(editB!);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByDisplayValue("Original B")).toBeInTheDocument();
+    releaseA();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "保存" }));
+    const patch = vi.mocked(csrfFetch).mock.calls.find(([, init]) => (init as { method?: string } | undefined)?.method === "PATCH");
+    expect(JSON.parse(String((patch![1] as { body: string }).body))).toMatchObject({ id: "snip-b", title: "Original B" });
+  });
+});

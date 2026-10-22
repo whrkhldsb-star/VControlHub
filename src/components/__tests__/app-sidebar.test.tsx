@@ -7,6 +7,7 @@ import { ToastProvider } from "../toast-provider";
 
 vi.mock("next/navigation", () => ({
 	usePathname: () => "/settings",
+	useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
 
 vi.mock("../sign-out-button", () => ({

@@ -50,6 +50,9 @@ export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: 
 	const never = t("aiOpsPage.summary.never");
 	const count = (status: string) => (summary.byStatus as Record<string, number>)[status] ?? 0;
 	const byMode = Object.entries(summary.byMode).map(([k, v]) => `${t(`aiOpsPage.mode.${k}`)} ${v}`).join(" · ");
+	// The two statuses without a card of their own: a scan in progress and a
+	// skipped one still count, and the status filter offers both.
+	const otherStatuses = (["running", "skipped"] as const).map((status) => `${t(`aiOpsPage.status.${status}`)} ${count(status)}`).join(" · ");
 	const provider = summary.provider;
 	return (
 		<MetricPanel
@@ -64,7 +67,7 @@ export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: 
 			) : undefined}
 			columns={6}
 			metrics={[
-				{ label: t("aiOpsPage.summary.total"), value: summary.total, detail: byMode || undefined },
+				{ label: t("aiOpsPage.summary.total"), value: summary.total, detail: <span className="grid gap-0.5">{byMode ? <span>{byMode}</span> : null}<span>{otherStatuses}</span></span> },
 				{ label: t("aiOpsPage.status.ok"), value: count("ok"), tone: "emerald" },
 				{ label: t("aiOpsPage.status.warning"), value: count("warning"), tone: "amber" },
 				{ label: t("aiOpsPage.status.error"), value: count("error"), tone: "rose" },

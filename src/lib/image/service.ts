@@ -28,9 +28,13 @@ const AVIF_QUALITY = 65;
  */
 export const MAX_IMAGE_PIXELS = 50_000_000;
 
-/** Open a buffer with the shared pixel-limit guard applied. */
+/**
+ * Open a buffer with the shared pixel-limit guard applied, upright: a phone
+ * photo stores its pixels sideways plus an EXIF orientation, and derivatives
+ * made from the raw pixels (thumbnail, WebP) lay on their side.
+ */
 function openImage(buffer: Buffer) {
-	return sharp(buffer, { limitInputPixels: MAX_IMAGE_PIXELS });
+	return sharp(buffer, { limitInputPixels: MAX_IMAGE_PIXELS, autoOrient: true });
 }
 
 /**
@@ -50,9 +54,10 @@ export function canonicalImageMime(format: string | undefined): string {
  */
 export async function extractMetadata(buffer: Buffer): Promise<ImageMetadata> {
 	const meta = await openImage(buffer).metadata();
+	// As displayed: width and height of the stored pixels ignore orientation.
 	return {
-		width: meta.width ?? 0,
-		height: meta.height ?? 0,
+		width: meta.autoOrient?.width ?? meta.width ?? 0,
+		height: meta.autoOrient?.height ?? meta.height ?? 0,
 		format: meta.format ?? undefined,
 		sizeBytes: buffer.length,
 	};

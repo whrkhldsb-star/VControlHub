@@ -16,12 +16,17 @@ export type KnownErrorCopy = {
 
 type TFn = (key: string) => string;
 
+// The error code decides; an operation name does not. "EACCES: permission
+// denied, scandir …" names the operation too, and a rule matching "scandir"
+// ahead of the code called a folder that exists but cannot be read missing.
 const RULES: ReadonlyArray<{ pattern: RegExp; summaryKey: string }> = [
-	{ pattern: /\bENOENT\b|no such file or directory|scandir/i, summaryKey: "commonError.pathMissing" },
 	{ pattern: /\bEACCES\b|\bEPERM\b|permission denied/i, summaryKey: "commonError.accessDenied" },
+	{ pattern: /\bENOENT\b|no such file or directory/i, summaryKey: "commonError.pathMissing" },
 	{ pattern: /\bECONNREFUSED\b/i, summaryKey: "commonError.connectionRefused" },
 	{ pattern: /\bETIMEDOUT\b|\bESOCKETTIMEDOUT\b|\btimeout\b/i, summaryKey: "commonError.timeout" },
 	{ pattern: /\bECONNRESET\b|socket hang up|\baborted\b/i, summaryKey: "commonError.connectionReset" },
+	// A directory scan that failed without a code.
+	{ pattern: /scandir/i, summaryKey: "commonError.pathMissing" },
 ];
 
 /** Map a raw error string to a localized summary; never throws, never empty. */

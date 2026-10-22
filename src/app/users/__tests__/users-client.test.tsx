@@ -90,4 +90,32 @@ describe("UserManagementClient", () => {
     expect(screen.queryByRole("button", { name: "权限配置" })).not.toBeInTheDocument();
     expect(screen.getByText("只读")).toBeInTheDocument();
   });
+
+  it("keeps a next user typed while the previous one was being created", async () => {
+    // The first create's success reset the form and closed it, losing B.
+    const actor = userEvent.setup();
+    let finish: (value: unknown) => void = () => undefined;
+    vi.mocked(csrfFetch).mockImplementation(((url: string, init?: { method?: string }) => {
+      if (init?.method === "POST") return new Promise((resolve) => { finish = resolve; });
+      if (url.startsWith("/api/teams")) return Promise.resolve({ teams: [{ id: "team_a", name: "Acme" }] });
+      if (url.startsWith("/api/identity-templates")) return Promise.resolve({ templates: [{ id: "identity:viewer", name: "客户只读", isBuiltin: true }] });
+      return Promise.resolve({ users: [] });
+    }) as never);
+    render(<UserManagementClient canManage />);
+
+    await actor.click(await screen.findByRole("button", { name: "创建用户" }));
+    const username = screen.getByLabelText("用户名 *");
+    await actor.type(username, "alice");
+    await actor.type(screen.getByLabelText(/密码/), "Correct-Horse-1");
+    await actor.click(screen.getByRole("button", { name: "确认创建" }));
+    await actor.clear(username);
+    await actor.type(username, "bob");
+
+    // The list reloads once the create has succeeded.
+    const listReads = () => vi.mocked(csrfFetch).mock.calls.filter(([url, init]) => String(url).startsWith("/api/users") && !(init as { method?: string } | undefined)?.method).length;
+    const before = listReads();
+    finish({ id: "u_alice" });
+    await vi.waitFor(() => expect(listReads()).toBeGreaterThan(before));
+    expect(screen.getByLabelText("用户名 *")).toHaveValue("bob");
+  });
 });

@@ -10,6 +10,8 @@ export const NETWORK_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Beautiful website/service monitoring tool, supports HTTP/TCP/DNS/Ping and more probes",
 		image: "louislam/uptime-kuma:latest",
 		defaultPort: 3003,
+		// The image listens on 3001; 3003 is only the host port.
+		internalPort: 3001,
 		path: "/uptime-kuma/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/uptime-kuma/data", container: "/app/data" }],

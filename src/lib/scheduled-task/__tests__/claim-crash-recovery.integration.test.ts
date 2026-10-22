@@ -89,7 +89,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-t
       `scheduled-task:${task.id}:${occurrence.toISOString()}`,
       `scheduled-task:${task.id}:${occurrence.toISOString()}`,
     ]);
-    expect(recordTaskDispatch).toHaveBeenLastCalledWith(task.id, "request-2");
+    expect(recordTaskDispatch).toHaveBeenLastCalledWith(task.id, "request-2", false, expect.objectContaining({ occurrence }));
   });
 
   it("a dispatch that cannot be linked is retried, not recorded as a failed run", async () => {
@@ -128,7 +128,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-t
     recordTaskDispatch.mockResolvedValue(undefined);
     await dispatchDueScheduledTasks("retry");
     expect(createCommandRequest).toHaveBeenLastCalledWith(expect.objectContaining({ idempotencyKey: `scheduled-task:${task.id}:${occurrence.toISOString()}` }));
-    expect(recordTaskDispatch).toHaveBeenLastCalledWith(task.id, "request-linked");
+    expect(recordTaskDispatch).toHaveBeenLastCalledWith(task.id, "request-linked", false, expect.objectContaining({ occurrence }));
   });
 });
 

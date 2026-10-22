@@ -33,7 +33,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       upsert: vi.fn(),
       updateMany: vi.fn(),
     },
-    team: { findMany: vi.fn(), create: vi.fn() },
+    team: { findMany: vi.fn(), create: vi.fn(), findFirst: vi.fn() },
     identityTemplate: { upsert: vi.fn() },
     commandRequest: {
       upsert: vi.fn(),
@@ -136,6 +136,7 @@ beforeEach(() => {
   mockPrisma.userRole.upsert.mockResolvedValue({});
   mockPrisma.team.findMany.mockResolvedValue([]);
   mockPrisma.team.create.mockResolvedValue({ id: "team_default", slug: "default" });
+  mockPrisma.team.findFirst.mockResolvedValue(null);
   mockPrisma.identityTemplate.upsert.mockResolvedValue({});
   mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
   mockPrisma.storageNode.updateMany.mockResolvedValue({ count: 1 });
@@ -200,6 +201,18 @@ describe("prisma seed", () => {
       }),
     });
     expect(mockPrisma.commandRequest.upsert).not.toHaveBeenCalled();
+  });
+
+  it("does not recreate the default customer the administrator deleted", async () => {
+    // The deleted row keeps slug "default": creating it again failed the
+    // seed (P2002), and with it every install and upgrade.
+    mockPrisma.team.findMany.mockResolvedValue([]);
+    mockPrisma.team.findFirst.mockResolvedValue({ id: "team_deleted" });
+    const { seedDatabase } = await loadSeedModule();
+
+    await seedDatabase();
+
+    expect(mockPrisma.team.create).not.toHaveBeenCalled();
   });
 
   it("seeds demo servers, storage nodes, and commands only when explicitly enabled", async () => {

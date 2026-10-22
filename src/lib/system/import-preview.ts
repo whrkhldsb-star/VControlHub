@@ -91,7 +91,8 @@ const W = {
 /**
  * A full export carries credentials as the source stored them, encrypted with
  * its ENCRYPTION_KEY. Imported where the key differs they cannot be decrypted,
- * and the servers, keys and providers using them fail only when first used.
+ * and the servers, keys, providers and WebDAV nodes using them fail only when
+ * first used.
  * One credential of each kind is tried with this instance's key.
  */
 function credentialsNeedSourceKey(t: ExportFile["tables"]): boolean {
@@ -104,6 +105,8 @@ function credentialsNeedSourceKey(t: ExportFile["tables"]): boolean {
   if (privateKey) probes.push(() => decryptSshPrivateKey(privateKey));
   const apiKey = t.aiProviders.find((row) => row.apiKey)?.apiKey;
   if (apiKey && isEncrypted(apiKey)) probes.push(() => decrypt(apiKey));
+  const webdavConfig = t.storageNodes.find((row) => row.webdavConfigEncrypted)?.webdavConfigEncrypted;
+  if (webdavConfig) probes.push(() => decrypt(webdavConfig));
   return probes.some((probe) => {
     try {
       probe();

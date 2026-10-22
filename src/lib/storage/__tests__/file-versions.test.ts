@@ -22,7 +22,9 @@ const {
   writeBufferMock,
   getNodeMock,
   statMock,
+  fileLockEvents,
 } = vi.hoisted(() => ({
+  fileLockEvents: [] as string[],
   assertAccessMock: vi.fn(),
   readBufferMock: vi.fn(),
   writeBufferMock: vi.fn(),
@@ -39,6 +41,13 @@ vi.mock("@/lib/storage/file-content", () => ({
   getStorageFileNode: getNodeMock,
   readStorageFileBuffer: readBufferMock,
   writeStorageFileBuffer: writeBufferMock,
+}));
+
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({
+  lockStorageFileOverwrite: vi.fn(async (nodeId: string, relativePath: string) => {
+    fileLockEvents.push(`lock ${nodeId}:${relativePath}`);
+    return async () => { fileLockEvents.push("unlock"); };
+  }),
 }));
 
 vi.mock("@/lib/storage/fs-backend", () => ({
@@ -222,6 +231,20 @@ describe("file-versions service", () => {
     expect(writeBufferMock).toHaveBeenCalled();
     // restore point for current body should exist when read succeeded
     expect(result.newRestorePoint?.reason).toBe("RESTORE_POINT");
+  });
+
+  it("holds the editor's per-file lock from the restore point to the index update", async () => {
+    // An editor save in between succeeded, then was overwritten by the
+    // restore, and the restore point (taken before it) did not hold it.
+    const mod = await import("@/lib/storage/file-versions");
+    const snap = await mod.snapshotFileVersionBeforeOverwrite({ fileEntryId: "fe_1", userId: "u1", reason: "MANUAL" });
+    readBufferMock.mockResolvedValue(Buffer.from("current body"));
+    fileLockEvents.length = 0;
+    readBufferMock.mockImplementation(async () => { fileLockEvents.push("snapshot read"); return Buffer.from("current body"); });
+    writeBufferMock.mockImplementation(async () => { fileLockEvents.push("write"); });
+    await mod.restoreFileVersion({ fileEntryId: "fe_1", versionId: snap!.id, session: { userId: "u1" } as never });
+    const entry = store.entries.get("fe_1");
+    expect(fileLockEvents).toEqual([`lock ${entry.storageNodeId}:${entry.relativePath}`, "snapshot read", "write", "unlock"]);
   });
 
   it("skips oversize automatic snapshots BEFORE reading the body", async () => {

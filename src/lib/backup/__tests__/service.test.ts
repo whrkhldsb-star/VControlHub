@@ -12,6 +12,7 @@ const platformPath = (posixPath: string) =>
 const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.hoisted(() => ({
   mockPrisma: {
     backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    job: { count: vi.fn(async () => 0) },
     $executeRaw: vi.fn().mockResolvedValue(undefined),
   },
   runBackupCommandMock: vi.fn(),
@@ -254,7 +255,7 @@ describe("backup service", () => {
       }),
     );
     expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
-      where: { id: "stale-1", status: "PENDING" },
+      where: { id: "stale-1", status: "PENDING", updatedAt: { lt: expect.any(Date) } },
       data: { status: "VOIDED", errorMessage: "Voided: timeout" },
     });
   });

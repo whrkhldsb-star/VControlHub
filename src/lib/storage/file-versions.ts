@@ -41,6 +41,7 @@ import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { defaultDataRoot } from "@/lib/runtime/platform-paths";
 import { t } from "@/lib/i18n/service-translations";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import { lockStorageFileOverwrite } from "./file-overwrite-lock";
 
 export const DEFAULT_FILE_VERSION_DIR =
   config.fileVersion.dir ||
@@ -523,7 +524,11 @@ export async function restoreFileVersion(input: {
   }
 
   let restorePoint: FileVersionView | null;
+  let releaseFileLock: (() => Promise<void>) | null = null;
   try {
+    // The editor's lock: a save between our restore point and our write
+    // would succeed, then vanish from both the file and its history.
+    releaseFileLock = await lockStorageFileOverwrite(entry.storageNodeId, entry.relativePath);
     const node = entry.storageNode as StorageFileNode;
     if (node.driver === "LOCAL") {
       node.basePath = expandStorageBasePath(node.basePath);
@@ -559,6 +564,7 @@ export async function restoreFileVersion(input: {
       },
     });
   } finally {
+    await releaseFileLock?.();
     await releaseStorageQuotaGuard(quota);
   }
 

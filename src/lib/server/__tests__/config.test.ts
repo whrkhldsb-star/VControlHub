@@ -36,6 +36,14 @@ describe("server config helpers", () => {
     });
   });
 
+  it("keeps a password exactly as entered", () => {
+    // Trimmed, a valid " pass phrase " became another credential and the
+    // connection failed after a successful test.
+    const base = { name: "pw-node", host: "10.0.0.6", connectionType: "PASSWORD" as const };
+    expect(normalizeServerInput({ ...base, password: "  pass phrase  " }).password).toBe("  pass phrase  ");
+    expect(normalizeServerInput({ ...base, password: "   " }).password).toBeNull();
+  });
+
   it("defaults blank usernames to root", () => {
     const result = normalizeServerInput({
       name: " node ",
@@ -86,4 +94,14 @@ describe("server config helpers", () => {
     ).not.toThrow();
   });
 
+});
+
+describe("server schema keeps passwords verbatim", () => {
+  it("does not trim a password and still requires a non-blank one", async () => {
+    const { createServerSchema } = await import("@/lib/server/schema");
+    const base = { name: "pw-node", host: "10.0.0.6", username: "root", connectionType: "PASSWORD" };
+    const parsed = createServerSchema.parse({ ...base, password: " secret " }) as { password?: string };
+    expect(parsed.password).toBe(" secret ");
+    expect(createServerSchema.safeParse({ ...base, password: "   " }).success).toBe(false);
+  });
 });

@@ -2372,6 +2372,53 @@ describe("server service", () => {
     expect(result.storageNode?.basePath).toBe("/data/vch-files");
   });
 
+  it("moves the direct gateway with the storage root, or stops direct links when it cannot", async () => {
+    // The gateway kept serving its install-time root: a direct link returned
+    // the old folder's file of the same name with a 200.
+    const current = {
+      id: "srv_gw",
+      teamId: "team-1",
+      name: "gw-node",
+      host: "203.0.113.78",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [] as string[],
+      enabled: true,
+      connectionType: "PASSWORD" as const,
+      sshKeyId: null,
+      password: "enc:v1:old",
+      hostKeySha256: "hk-gw",
+      costAutoSync: false,
+      costMonthlyAmount: null,
+      costCurrency: "CNY",
+      costProvider: null,
+      sshKey: null,
+      directGatewayDesiredEnabled: true,
+      directGatewayDesiredProtocol: "HTTP",
+      directGatewayDesiredDomain: null,
+      storageNode: { id: "sn_gw", name: "gw-node storage", driver: "SFTP", isDefault: true, basePath: "/root/drive", directAccessMode: "AUTO", publicBaseUrl: "http://203.0.113.78:31888" },
+      commandTargets: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    vi.mocked(prisma.server.findUnique)
+      .mockResolvedValueOnce(current as any)
+      // The gateway reinstall cannot load the node (unreachable here).
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ ...current, storageNode: { ...current.storageNode, basePath: "/data/new-root" } } as any);
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.server.update).mockResolvedValueOnce(current as any);
+    vi.mocked(prisma.storageNode.update).mockResolvedValue({ ...current.storageNode, basePath: "/data/new-root" } as any);
+    vi.mocked(createRemoteDirectory).mockResolvedValueOnce(undefined as any);
+
+    const result = await updateServerProfile("srv_gw", { storagePath: "/data/new-root" });
+
+    // The reinstall could not reach the node here: direct links stop.
+    expect(prisma.storageNode.update).toHaveBeenCalledWith({ where: { id: "sn_gw" }, data: { directAccessMode: "PROXY" } });
+    expect(result.onboardingWarnings.join(" ")).toMatch(/\/data\/new-root/);
+  });
+
   it("returns onboardingWarnings when repairStoragePath remote mkdir fails without rolling back the node update", async () => {
     const current = {
       id: "srv_repair",

@@ -171,6 +171,20 @@ describe("notification bus (redis mode)", () => {
 		expect(collected).toEqual([{ userId: "u4", message: { type: "unread_count", count: 1 } }]);
 	});
 
+	it("falls back to local delivery when the publisher cannot connect while subscribed", async () => {
+		// Subscribed, so nothing was delivered up front; the publisher's failed
+		// connection resolved to null and the message was dropped.
+		configMock.redis.url = "redis://127.0.0.1:6379";
+		const bus = getNotificationBus();
+		const subscriber = makeFakeRedis().client;
+		setNotificationBusClientsForTests(null, subscriber);
+		await bus.start(deliver);
+
+		bus.publish("u5", { type: "unread_count", count: 2 });
+		await new Promise((r) => setTimeout(r, 20));
+		expect(collected).toEqual([{ userId: "u5", message: { type: "unread_count", count: 2 } }]);
+	});
+
 	it("ignores malformed broker payloads instead of throwing", async () => {
 		configMock.redis.url = "redis://127.0.0.1:6379";
 		const bus = getNotificationBus();

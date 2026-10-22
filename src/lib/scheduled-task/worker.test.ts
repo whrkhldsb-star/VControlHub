@@ -190,7 +190,10 @@ describe("scheduled-task durable job worker", () => {
       approvalRequired: true,
       idempotencyKey: "scheduled-task:task-1:2026-01-01T00:00:00.000Z",
     });
-    expect(recordTaskDispatchMock).toHaveBeenCalledWith("task-1", "cmd-1");
+    expect(recordTaskDispatchMock).toHaveBeenCalledWith("task-1", "cmd-1", false, {
+      occurrence: new Date("2026-01-01T00:00:00.000Z"),
+      lease: expect.any(Date),
+    });
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.stringContaining(":scheduled-task:"),
@@ -314,7 +317,7 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
 
     expect(recordTaskRunMock).toHaveBeenCalledWith("bad", "Execution failed: boom", "failed");
-    expect(recordTaskDispatchMock).toHaveBeenCalledWith("good", "cmd-good");
+    expect(recordTaskDispatchMock).toHaveBeenCalledWith("good", "cmd-good", false, expect.objectContaining({ lease: expect.any(Date) }));
     // New-B (2026-06-15): only the `good` task actually went through
     // createCommandRequest; `bad` failed and was caught by the per-task
     // try/catch, so it doesn't count toward `dispatched`.
@@ -390,7 +393,7 @@ describe("scheduled-task durable job worker", () => {
     // First updateMany is the CAS claim (success). Second is the
     // rollback (also succeeds in the test seam).
     scheduledTaskUpdateManyMock.mockResolvedValueOnce({ count: 1 });
-    scheduledTaskUpdateMock.mockResolvedValueOnce({ id: "claim-rollback" });
+    scheduledTaskUpdateManyMock.mockResolvedValueOnce({ count: 1 });
     createCommandRequestMock.mockRejectedValueOnce(new Error("downstream API 503"));
 
     await startScheduledTaskWorker();
@@ -400,16 +403,14 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
 
     expect(createCommandRequestMock).toHaveBeenCalledOnce();
-    // The rollback `update` must restore the original nextRunAt so the
-    // next tick (or operator retry) can pick the row up again.
-    expect(scheduledTaskUpdateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "claim-rollback" },
-        data: expect.objectContaining({
-          nextRunAt: new Date("2026-01-01T00:00:00Z"),
-        }),
-      }),
-    );
+    // The rollback must restore the original nextRunAt so the next tick (or
+    // operator retry) can pick the row up again, but only while the row
+    // still holds this claim: an edit saved meanwhile is what the user wants.
+    const claimWrite = scheduledTaskUpdateManyMock.mock.calls[0]![0];
+    expect(scheduledTaskUpdateManyMock).toHaveBeenLastCalledWith({
+      where: { id: "claim-rollback", nextRunAt: claimWrite.data.nextRunAt, claimedOccurrenceAt: new Date("2026-01-01T00:00:00Z") },
+      data: { nextRunAt: new Date("2026-01-01T00:00:00Z"), claimedOccurrenceAt: null },
+    });
     expect(recordTaskRunMock).toHaveBeenCalledWith(
       "claim-rollback",
       "Execution failed: downstream API 503",

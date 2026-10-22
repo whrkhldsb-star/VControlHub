@@ -67,6 +67,16 @@ describe("/api/tickets", () => {
     }));
   });
 
+  it.each(["critical", "CRITICAL"])("files %s as URGENT, the level its SLA knows", async (priority) => {
+    // Stored as CRITICAL, no SLA rule matched and it got the 24 h default.
+    await route.POST(new Request("http://local/api/tickets", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ subject: "Outage", description: "Down", priority }),
+    }));
+    expect(mocks.createTicket).toHaveBeenLastCalledWith(expect.objectContaining({ priority: "URGENT" }));
+  });
+
   it("lists all tickets for ticket managers", async () => {
     mocks.requireApiPermission.mockResolvedValue({ session: managerSession });
 

@@ -93,5 +93,25 @@ describe("NotificationListClient", () => {
     expect(screen.getByText("只看未读 (1)")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "全部标记已读" })).toBeInTheDocument();
   });
-});
 
+  it("fetches the next batch after the last notification on screen is deleted", async () => {
+    // The page showed "no notifications" while the 51st still existed.
+    const first = Array.from({ length: 50 }, (_, i) => ({ ...unreadNotification, id: `n_${i}`, title: `通知 ${i}`, isRead: true }));
+    const next = { ...unreadNotification, id: "n_50", title: "第 51 条通知", isRead: true };
+    vi.mocked(csrfFetch).mockImplementation((async (_url: unknown, init?: { method?: string }) => {
+      if (init?.method === "DELETE") return {};
+      return { notifications: [next], hasMore: false };
+    }) as never);
+    const { fireEvent } = await import("@testing-library/react");
+    render(<NotificationListClient initialNotifications={first} initialUnreadCount={0} initialNow={INITIAL_NOW} />);
+
+    for (let i = 0; i < 50; i++) {
+      await act(async () => {
+        fireEvent.click(screen.getAllByRole("button", { name: "删除" })[0]!);
+      });
+    }
+
+    expect(await screen.findByText("第 51 条通知")).toBeInTheDocument();
+    expect(vi.mocked(csrfFetch)).toHaveBeenCalledWith("/api/notifications?limit=50&offset=0");
+  });
+});

@@ -17,6 +17,8 @@ export function archiveErrorCopy(error: ArchiveExtractError): string {
 			return apiCopy("apiCopy.archive.unsupportedMethod", { v0: error.detail });
 		case "empty":
 			return apiCopy("apiCopy.archive.empty");
+		case "duplicateName":
+			return apiCopy("apiCopy.archive.duplicateName", { v0: error.detail });
 		default:
 			return apiCopy("apiCopy.archive.corrupt");
 	}

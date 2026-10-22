@@ -14,8 +14,11 @@ const { mockPrisma } = vi.hoisted(() => ({
     commandRequest: { findFirst: vi.fn() },
     teamMember: { findUnique: vi.fn() },
     itsmConnection: { findMany: vi.fn().mockResolvedValue([]) },
+    ticketEscalation: { create: vi.fn() },
   },
 }));
+// Status changes commit with their timeline line; the mock runs the transaction on itself.
+Object.assign(mockPrisma, { $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(mockPrisma)) });
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/itsm/service", () => ({
   safeFanOutTicketEvent: vi.fn(async () => undefined),

@@ -111,10 +111,14 @@ DOWNLOAD_ROOT="$(safe_data_path "${DOWNLOAD_ROOT}")"
 BACKUP_DIR="$(safe_data_path "${BACKUP_DIR}")"
 ARIA2_RPC_DIR="$(safe_data_path "${ARIA2_RPC_DIR}")"
 
+# Every unit install.sh writes (next, worker, ssh-ws, aria2), plus the direct
+# gateway. aria2 was missing: its Restart=always relay kept running against
+# deleted paths and its unit stayed enabled.
 units=(
   "${SERVICE_PREFIX}-next.service"
   "${SERVICE_PREFIX}-worker.service"
   "${SERVICE_PREFIX}-ssh-ws.service"
+  "${SERVICE_PREFIX}-aria2.service"
   "${SERVICE_PREFIX}-direct.service"
 )
 

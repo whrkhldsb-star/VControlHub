@@ -55,6 +55,11 @@ vi.mock("@/lib/auth/authorization", () => ({
 
 const { snapshotMock } = vi.hoisted(() => ({ snapshotMock: vi.fn(async () => null) }));
 vi.mock("@/lib/storage/file-versions", () => ({ snapshotFileVersionBeforeOverwrite: snapshotMock }));
+const { fileLockMock, fileUnlockMock } = vi.hoisted(() => {
+  const fileUnlockMock = vi.fn(async () => undefined);
+  return { fileUnlockMock, fileLockMock: vi.fn(async () => fileUnlockMock) };
+});
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: fileLockMock }));
 
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
@@ -135,6 +140,12 @@ describe("/api/storage/sftp-ops", () => {
     expect(response.status).toBe(200);
     expect(snapshotMock).toHaveBeenCalledWith(expect.objectContaining({ fileEntryId: "entry_1", reason: "EDIT", userId: "u_1" }));
     expect(snapshotMock.mock.invocationCallOrder[0]).toBeLessThan(writeRemoteFileMock.mock.invocationCallOrder[0]!);
+    // Check, snapshot and write run under the file's overwrite lock, which
+    // version restore and the LOCAL editor take too: two saves that both
+    // passed the mtime check left the first in neither file nor history.
+    expect(fileLockMock).toHaveBeenCalledWith("node_1", "notes.txt");
+    expect(fileLockMock.mock.invocationCallOrder[0]).toBeLessThan(statRemoteEntryMock.mock.invocationCallOrder[0]!);
+    expect(fileUnlockMock.mock.invocationCallOrder[0]).toBeGreaterThan(writeRemoteFileMock.mock.invocationCallOrder[0]!);
   });
 
   it("allows writing a new file under a nested directory so users can create files from the file manager", async () => {

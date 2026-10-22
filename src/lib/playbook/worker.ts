@@ -165,6 +165,7 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
       playbook: {
         id: run.playbook.id,
         steps,
+        chainRetry: run.playbook.chainRetry,
       },
       runId,
       dryRun: latest.dryRun,

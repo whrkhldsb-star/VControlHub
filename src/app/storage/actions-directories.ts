@@ -248,8 +248,11 @@ export async function renameFileEntryAction(
         storageNodeId: true,
         storageNode: {
           select: {
+            id: true,
             driver: true,
             basePath: true,
+            // The WebDAV backend reads its connection from the node row.
+            webdavConfigEncrypted: true,
             host: true,
             port: true,
             username: true,

@@ -209,6 +209,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
     }
   }
 
+  const listingStartedAt = new Date();
   await walkDirectory(basePath, 0);
 
   // 跟 DB 端 diff: 找本节点下 isDeleted=false 但不在 expectedRelativePaths 的条目
@@ -224,6 +225,9 @@ export async function detectAndPruneSftpStaleInventory(input: {
         where: {
           storageNodeId: node.id,
           isDeleted: false,
+          // A row written after the listing began (upload, overwrite, move
+          // into place) is not something the listing could have seen.
+          updatedAt: { lt: listingStartedAt },
           ...(baseRelative
             ? { relativePath: { startsWith: escapeLikeLiteral(`${baseRelative}/`) } }
             : {}),
@@ -253,7 +257,8 @@ export async function detectAndPruneSftpStaleInventory(input: {
 
     if (staleIds.length > 0 && !dryRun) {
       const updateResult = await prisma.fileEntry.updateMany({
-        where: { id: { in: staleIds } },
+        // Re-checked at write time: a row rewritten while we compared is live.
+        where: { id: { in: staleIds }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
         data: { isDeleted: true },
       });
       logger.info("Pruned stale SFTP inventory", {
@@ -289,19 +294,33 @@ export async function detectAndPruneSftpStaleInventory(input: {
  */
 export async function listSftpNodesForStaleInventory(
   session?: TeamSession | null,
+  /** Only these nodes (a scoped sweep). */
+  nodeIds?: string[],
 ) {
-  // P2: take=500 上界,SFTP node 数本质有限。
-  return prisma.storageNode.findMany({
-    where: {
-      driver: "SFTP",
-      // The system sweep (no session) skips a deleted customer's nodes: it
-      // kept connecting to its servers over SSH after the customer was gone.
-      ...(session ? teamWhere(session) : liveCustomerRowsWhere()),
-    },
-    take: 500,
-    select: SFTP_STALE_INVENTORY_NODE_SELECT,
-    orderBy: { name: "asc" },
-  });
+  // Every node, read in pages: the first 500 by name used to be all a sweep
+  // ever saw, and a node past them was never scanned.
+  const PAGE = 500;
+  const where = {
+    driver: "SFTP" as const,
+    ...(nodeIds ? { id: { in: nodeIds } } : {}),
+    // The system sweep (no session) skips a deleted customer's nodes: it
+    // kept connecting to its servers over SSH after the customer was gone.
+    ...(session ? teamWhere(session) : liveCustomerRowsWhere()),
+  };
+  const nodes = [];
+  let cursor: { id: string } | undefined;
+  do {
+    const page = await prisma.storageNode.findMany({
+      where,
+      take: PAGE,
+      select: SFTP_STALE_INVENTORY_NODE_SELECT,
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      ...(cursor ? { cursor, skip: 1 } : {}),
+    });
+    nodes.push(...page);
+    cursor = page.length === PAGE ? { id: page[page.length - 1]!.id } : undefined;
+  } while (cursor);
+  return nodes;
 }
 
 /**

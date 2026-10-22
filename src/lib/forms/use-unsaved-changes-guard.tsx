@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { NAVIGATION_REQUEST_EVENT, type NavigationRequestDetail } from "./navigation-request";
+
+/** Marks the history entry pushed so that Back can be answered with a question. */
+const GUARD_ENTRY = "__vchUnsavedGuard";
 
 type PendingDiscard =
   | { kind: "navigate"; href: string }
+  | { kind: "back" }
   | { kind: "close" }
   | { kind: "action"; run: () => void }
   | null;
@@ -20,6 +25,8 @@ export function useUnsavedChangesGuard(input: {
   const { t } = useI18n();
   const router = useRouter();
   const [pending, setPending] = useState<PendingDiscard>(null);
+  // Set once the user agreed to leave, so the guard steps aside.
+  const leaving = useRef(false);
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -60,6 +67,41 @@ export function useUnsavedChangesGuard(input: {
     return () => document.removeEventListener("click", interceptNavigation, true);
   }, [dirty]);
 
+  // Keyboard shortcuts and global search navigate without a link click.
+  useEffect(() => {
+    if (!dirty) return;
+    const interceptRequest = (event: Event) => {
+      if (leaving.current) return;
+      event.preventDefault();
+      setPending({ kind: "navigate", href: (event as CustomEvent<NavigationRequestDetail>).detail.href });
+    };
+    window.addEventListener(NAVIGATION_REQUEST_EVENT, interceptRequest);
+    return () => window.removeEventListener(NAVIGATION_REQUEST_EVENT, interceptRequest);
+  }, [dirty]);
+
+  // Browser Back unmounted the form without a word. While there are unsaved
+  // changes an extra entry for this same page sits on top of the history:
+  // Back lands on this page again, and the guard asks before really leaving.
+  useEffect(() => {
+    if (!dirty) return;
+    const pushGuardEntry = () => {
+      window.history.pushState({ ...(window.history.state ?? {}), [GUARD_ENTRY]: true }, "", window.location.href);
+    };
+    if (!window.history.state?.[GUARD_ENTRY]) pushGuardEntry();
+    const onPopState = () => {
+      if (leaving.current) return;
+      pushGuardEntry();
+      setPending({ kind: "back" });
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      // Saved or reset while still on this page: drop the extra entry, or
+      // the next Back would seem to do nothing.
+      if (!leaving.current && window.history.state?.[GUARD_ENTRY]) window.history.back();
+    };
+  }, [dirty]);
+
   const requestDiscard = () => {
     if (!dirty) {
       onDiscard?.();
@@ -87,8 +129,14 @@ export function useUnsavedChangesGuard(input: {
       onConfirm={() => {
         const action = pending;
         setPending(null);
-        if (action?.kind === "navigate") router.push(action.href);
-        else if (action?.kind === "close") onDiscard?.();
+        if (action?.kind === "navigate") {
+          leaving.current = true;
+          router.push(action.href);
+        } else if (action?.kind === "back") {
+          // Past the guard entry and this page's own entry.
+          leaving.current = true;
+          window.history.go(-2);
+        } else if (action?.kind === "close") onDiscard?.();
         else if (action?.kind === "action") action.run();
       }}
       closeOnBackdrop={false}

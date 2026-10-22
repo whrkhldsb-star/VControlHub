@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -50,5 +50,25 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("directory s
 		expect(binned).toMatchObject({ isDeleted: true, size: BigInt(1) });
 		// The live entry's facts are refreshed from disk.
 		expect(files.find((file) => file.relativePath === "shared/kept.txt")?.size).toBe(BigInt(4));
+	});
+
+	it("drops files that were removed from disk, down to an empty folder", async () => {
+		const share = { entryType: "DIRECTORY", path: "shared", storageNodeId: id, storageNode: { basePath, driver: "LOCAL" } };
+		await unlink(path.join(basePath, "shared", "kept.txt"));
+		expect((await listShareDirectoryFiles(share)).map((file) => file.relativePath)).toEqual(["shared/new.txt"]);
+
+		await unlink(path.join(basePath, "shared", "new.txt"));
+		await unlink(path.join(basePath, "shared", "binned.txt"));
+		expect(await listShareDirectoryFiles(share)).toEqual([]);
+		// The folder itself and its siblings outside it are untouched.
+		const folder = await prisma.fileEntry.findUniqueOrThrow({ where: { storageNodeId_relativePath: { storageNodeId: id, relativePath: "shared" } } });
+		expect(folder.isDeleted).toBe(false);
+	});
+
+	it("keeps the index when the folder cannot be read", async () => {
+		await prisma.fileEntry.create({ data: { storageNodeId: id, relativePath: "missing/a.txt", name: "a.txt", entryType: "FILE", size: BigInt(1), updatedAt: new Date(Date.now() - 60_000) } });
+		await listShareDirectoryFiles({ entryType: "DIRECTORY", path: "missing", storageNodeId: id, storageNode: { basePath, driver: "LOCAL" } });
+		const row = await prisma.fileEntry.findUniqueOrThrow({ where: { storageNodeId_relativePath: { storageNodeId: id, relativePath: "missing/a.txt" } } });
+		expect(row.isDeleted).toBe(false);
 	});
 });

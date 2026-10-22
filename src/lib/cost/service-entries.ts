@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -163,7 +163,7 @@ export async function syncServerMonthlyCosts(month = appTimeZoneDateKey().slice(
 	// and the user has no way to learn WHICH server needs fixing.
 	const skippedDetails: ServerMonthlyCostSyncSkip[] = [];
 	do {
-		const servers = await prisma.server.findMany({ where: { enabled: true, costAutoSync: true, costMonthlyAmount: { not: null }, ...(session ? serverTeamWhere(session) : {}) }, select: { id: true, name: true, host: true, costMonthlyAmount: true, costCurrency: true, costProvider: true, teamId: true }, orderBy: { id: "asc" }, take: 1000, ...(cursor ? { cursor, skip: 1 } : {}) });
+		const servers = await prisma.server.findMany({ where: { enabled: true, costAutoSync: true, costMonthlyAmount: { not: null }, ...(session ? serverTeamWhere(session) : liveCustomerRowsWhere()) }, select: { id: true, name: true, host: true, costMonthlyAmount: true, costCurrency: true, costProvider: true, teamId: true }, orderBy: { id: "asc" }, take: 1000, ...(cursor ? { cursor, skip: 1 } : {}) });
 		for (const server of servers) {
 			const amount = server.costMonthlyAmount?.toFixed(2);
 			const reason: ServerMonthlyCostSyncSkip["reason"] | null =

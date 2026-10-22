@@ -59,6 +59,7 @@ export function CostCloudBillingPanel({
 
 	const create = async () => {
 		if (!form.name.trim()) return;
+		const submitted = form;
 		setBusy(true);
 		try {
 			const body: Record<string, unknown> = {
@@ -81,11 +82,13 @@ export function CostCloudBillingPanel({
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
 			});
+			// Clear only what was sent: the fields stay editable while saving,
+			// and a next account typed meanwhile used to be wiped here.
 			setForm((c) => ({
 				...c,
-				name: "",
-				sampleCsv: "",
-				billingCsvUrl: "",
+				name: c.name === submitted.name ? "" : c.name,
+				sampleCsv: c.sampleCsv === submitted.sampleCsv ? "" : c.sampleCsv,
+				billingCsvUrl: c.billingCsvUrl === submitted.billingCsvUrl ? "" : c.billingCsvUrl,
 			}));
 			await reload();
 			addToast("success", t("costPage.billing.created"));

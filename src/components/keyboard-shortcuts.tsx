@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { requestNavigation } from "@/lib/forms/navigation-request";
 
 import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
 import type { Permission } from "@/lib/auth/rbac";
@@ -81,7 +82,7 @@ export function KeyboardShortcuts({
 				const target = goToRef.current.find((entry) => entry.key === key);
 				if (target) {
 					event.preventDefault();
-					router.push(target.href);
+					requestNavigation(target.href, (href) => router.push(href));
 				}
 				return;
 			}

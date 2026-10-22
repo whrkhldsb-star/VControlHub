@@ -319,7 +319,10 @@ function FileListBody({
       selectable: Boolean(target) && (entryCanWrite(folder) || entryCanDelete(folder)),
       selected: Boolean(folder.entryId && effectiveSelectedIdSet.has(folder.entryId)),
       draggable: Boolean(target) && entryCanWrite(folder),
-      dropPath: target && entryCanWrite(folder) ? folder.path : undefined,
+      // The move runs on the node, so it needs the folder's path there. In
+      // the all-locations search `path` is the browsing path ("Node__id/dir"),
+      // and the move created that virtual prefix as a real folder.
+      dropPath: target && entryCanWrite(folder) ? folder.relativePath ?? folder.path : undefined,
       nodeId: folder.storageNodeId ?? folder.sourceKeys[0],
       menu: { kind: "folder", target, canRead, canWrite, canDelete: mayDelete, canShare: false, openLabel: t("fileListClient.open"), onOpen: open, downloadHref: canRead ? archiveHref : null },
       downloadHref: canRead ? archiveHref : null,

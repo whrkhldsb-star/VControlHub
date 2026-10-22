@@ -17,6 +17,7 @@ const navigationMocks = vi.hoisted(() => ({ pathname: "/dashboard" }));
 
 vi.mock("next/navigation", () => ({
 	usePathname: () => navigationMocks.pathname,
+	useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
 
 vi.mock("../sign-out-button", () => ({

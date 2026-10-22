@@ -28,6 +28,12 @@ describe("playbook createPlaybookSchema", () => {
 		expect(parsed.success).toBe(true);
 	});
 
+	it("rejects two steps with one id, on create and on update", () => {
+		const steps = [buildBaseStep(), { ...buildBaseStep(), name: "step two" }];
+		expect(createPlaybookSchema.safeParse({ name: "Dup", triggerType: "cron", triggerConfig: { expression: "0 3 * * *" }, steps }).success).toBe(false);
+		expect(updatePlaybookSchema.safeParse({ id: "pb1", steps }).success).toBe(false);
+	});
+
 	it("rejects a six-field Cron expression because the UI promises five fields", () => {
 		const parsed = createPlaybookSchema.safeParse({
 			name: "Too many Cron fields",

@@ -110,6 +110,7 @@ export function AiClient({
     handlePaste,
     handleDrop,
     handleDragOver,
+    clearAttachments,
   } = useFileAttachments({
     currentModelCaps,
     modelName: activeConv?.model,
@@ -160,13 +161,14 @@ export function AiClient({
     setInput("");
     setImageUrls([]);
     setImageUrlInput("");
-    setFileAttachments([]);
+    // Also drops reads still running for the conversation left behind.
+    clearAttachments();
     if (pendingDraftRef.current) {
       const draft = pendingDraftRef.current;
       pendingDraftRef.current = null;
       setInput(draft);
     }
-  }, [activeConvId, setFileAttachments]);
+  }, [activeConvId, clearAttachments]);
 
   // Auto-scroll
   useEffect(() => {

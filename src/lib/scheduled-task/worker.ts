@@ -180,7 +180,7 @@ async function dispatchDueTask(task: {
     });
 
     try {
-      await recordTaskDispatch(task.id, result.id);
+      await recordTaskDispatch(task.id, result.id, false, { occurrence, lease: claimLease });
     } catch (error) {
       // The request exists; only its link failed. Not an execution failure
       // (that disabled a ONCE task and lost the request's result): the claim
@@ -199,8 +199,10 @@ async function dispatchDueTask(task: {
       { taskId: task.id, error: error instanceof Error ? error.message : String(error) },
     );
     try {
-      await prisma.scheduledTask.update({
-        where: { id: task.id },
+      // Hand back only our own claim: an edit saved meanwhile set the
+      // schedule the user wants, and restoring the old occurrence undid it.
+      await prisma.scheduledTask.updateMany({
+        where: { id: task.id, nextRunAt: claimLease, claimedOccurrenceAt: occurrence },
         data: { nextRunAt: occurrence, claimedOccurrenceAt: null },
       });
     } catch (rollbackError) {

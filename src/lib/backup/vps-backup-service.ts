@@ -392,9 +392,12 @@ export async function runVpsBackupRecord(
         callback(null, chunk);
       },
     });
+    // The file exists from here on: a transfer cut off half-way must still
+    // be cleaned up (only a finished one used to be), or the failed record
+    // (localPath null) left a partial archive nothing could delete.
     const fileStream = createWriteStream(localAbsolutePath);
-    await pipeline(stream, hashTransform, fileStream);
     localWritten = true;
+    await pipeline(stream, hashTransform, fileStream);
 
     const sha256 = hash.digest("hex");
     let fileSize: string | null = null;
@@ -455,6 +458,13 @@ export async function runVpsBackupRecord(
         "VpsBackupRecord no longer RUNNING at completion; not resurrecting (reclaimed by stale reaper?)",
         { recordId },
       );
+      // The record that would own this archive is already terminal; keeping
+      // the file leaves an archive no record can delete.
+      try {
+        unlinkSync(localAbsolutePath);
+      } catch {
+        // Best effort.
+      }
       return {
         success: false,
         fileSize,
@@ -605,6 +615,19 @@ export async function abandonStaleRunningVpsBackupRecords(input?: {
   });
   const ids: string[] = [];
   for (const row of stale) {
+    // The record is only touched when the transfer starts and ends; a long
+    // transfer keeps its job's lease alive instead. While that lease holds,
+    // the backup is in progress, not stale: failing it made the finished
+    // transfer unable to complete (its CAS needs RUNNING).
+    const alive = await prisma.job.count({
+      where: {
+        type: VPS_BACKUP_CREATE_JOB_TYPE,
+        status: "RUNNING",
+        leaseExpiresAt: { gt: new Date() },
+        payload: { path: ["recordId"], equals: row.id },
+      },
+    });
+    if (alive > 0) continue;
     if (await forceFailVpsBackupRecordIfRunning(row.id, reason))
       ids.push(row.id);
   }
@@ -801,11 +824,14 @@ export function resolveVpsBackupFilePath(localPath: string): string {
 export async function pruneOldVpsBackupRecords(
   serverId: string,
   retentionDays: number,
+  /** Only one schedule's backups (null: manual ones). Omitted: the whole server. */
+  scope?: { scheduleId: string | null },
 ): Promise<number> {
   const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+  const owner = scope ? { scheduleId: scope.scheduleId } : {};
 
   const newestPerType = await prisma.vpsBackupRecord.findMany({
-    where: { serverId, status: "COMPLETED" },
+    where: { serverId, status: "COMPLETED", ...owner },
     orderBy: [{ backupType: "asc" }, { completedAt: "desc" }, { id: "desc" }],
     distinct: ["backupType"],
     select: { id: true },
@@ -814,6 +840,7 @@ export async function pruneOldVpsBackupRecords(
     where: {
       serverId,
       status: "COMPLETED",
+      ...owner,
       completedAt: { lt: cutoff },
       id: { notIn: newestPerType.map((record) => record.id) },
     },

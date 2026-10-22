@@ -9,6 +9,7 @@ import { Prisma } from "@prisma/client";
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 import { upsertById, type Tx, type Counts } from "./import-executors-helpers";
+import { computeNextPlaybookCronRun, isCronTriggerConfig } from "@/lib/playbook/trigger-utils";
 
 // 10. CommandTemplates
 export async function importCommandTemplates(
@@ -146,9 +147,36 @@ export async function importPlaybooks(
         })
       ).count,
     updateById: async (r) => {
-      await tx.playbook.update({ where: { id: r.id }, data: toData(r) });
+      const before = await tx.playbook.findUnique({
+        where: { id: r.id },
+        select: { triggerType: true, triggerConfig: true, enabled: true },
+      });
+      const triggerChanged = !before
+        || before.triggerType !== r.triggerType
+        || JSON.stringify(before.triggerConfig) !== JSON.stringify(r.triggerConfig);
+      // The schedule state derives from the trigger, as an edit recomputes it:
+      // an overwritten cron kept its old nextRunAt (months away) and the
+      // startup sweep only fills a missing one.
+      await tx.playbook.update({
+        where: { id: r.id },
+        data: {
+          ...toData(r),
+          ...(triggerChanged || before?.enabled !== r.enabled ? { nextRunAt: nextPlaybookRunAt(r) } : {}),
+          ...(triggerChanged ? { metricMatchState: Prisma.DbNull } : {}),
+        },
+      });
     },
   });
+}
+
+function nextPlaybookRunAt(r: { enabled: boolean; triggerType: string; triggerConfig: unknown }): Date | null {
+  if (!r.enabled || r.triggerType !== "cron" || !isCronTriggerConfig(r.triggerConfig)) return null;
+  try {
+    return computeNextPlaybookCronRun(r.triggerConfig.expression);
+  } catch {
+    // An invalid expression never runs; the trigger sweep reports it.
+    return null;
+  }
 }
 
 // 13. AlertRules

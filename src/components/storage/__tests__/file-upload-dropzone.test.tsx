@@ -59,6 +59,34 @@ describe("FileUploadDropzone", () => {
     expect(screen.getByText(/上传完成：docs\/report\.txt/)).toBeInTheDocument();
   });
 
+  it("uploads files dropped before a target was chosen once the user confirms", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ relativePath: "dropped.txt", size: 2 }),
+    } as Response);
+    const used = vi.fn();
+    const dropped = new File(["hi"], "dropped.txt", { type: "text/plain" });
+
+    render(
+      <FileUploadDropzone
+        nodes={[localNode]}
+        initialNodeId="node_local"
+        title="上传"
+        description="上传文件"
+        submitLabel="选择文件"
+        pathLabel="上传目录路径"
+        pendingFiles={[dropped]}
+        onPendingFilesUsed={used}
+      />,
+    );
+
+    expect(screen.getByTestId("pending-upload-files")).toHaveTextContent("dropped.txt");
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "上传这 1 个文件" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(used).toHaveBeenCalledOnce();
+  });
+
   it("enables folder selection and preserves browser-provided relative paths", async () => {
     const onUploadComplete = vi.fn();
     const fetchMock = vi

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -48,7 +48,12 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
     setOpen(true);
   };
 
+  // A plan answers the component it was asked for. Switching component while
+  // one is being prepared made the late answer show "all" steps under a
+  // "files" selection; only the latest request may set the plan.
+  const latestRequest = useRef(0);
   const prepare = async () => {
+    const request = ++latestRequest.current;
     setPending(true);
     setPlan(null);
     setError(null);
@@ -58,12 +63,14 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ component }),
       }) as { offlineRestore?: OfflineRestorePlan };
+      if (request !== latestRequest.current) return;
       if (!result.offlineRestore) throw new Error(t("backupsPage.restore.errorFallback"));
       setPlan(result.offlineRestore);
     } catch (prepareError) {
+      if (request !== latestRequest.current) return;
       setError(getErrorMessage(prepareError, t("backupsPage.restore.errorFallback")));
     } finally {
-      setPending(false);
+      if (request === latestRequest.current) setPending(false);
     }
   };
 
@@ -107,6 +114,8 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                   ariaLabel={t("backupsPage.restore.component.label")}
                   value={component}
                   onChange={(next) => {
+                    latestRequest.current += 1;
+                    setPending(false);
                     setComponent(next);
                     setPlan(null);
                   }}

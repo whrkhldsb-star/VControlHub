@@ -13,11 +13,12 @@ vi.mock("../../storage/actions", () => ({ createFolderAction: mocks.createFolder
 vi.mock("@/components/storage/storage-upload-provider", () => ({ useStorageUploads: () => ({ enqueue: mocks.enqueue }) }));
 
 vi.mock("@/components/storage/file-upload-dropzone", () => ({
-	FileUploadDropzone: (props: { initialNodeId?: string; onUploadComplete?: () => void }) =>
+	FileUploadDropzone: (props: { initialNodeId?: string; onUploadComplete?: () => void; pendingFiles?: File[] }) =>
 		React.createElement("button", {
 			type: "button",
 			onClick: () => props.onUploadComplete?.(),
 			"data-initial-node-id": props.initialNodeId ?? "",
+			"data-pending-files": (props.pendingFiles ?? []).map((file) => file.name).join(","),
 		}, "模拟上传完成"),
 }));
 
@@ -185,6 +186,20 @@ describe("FilesBrowserSpa", () => {
 		});
 		expect(mocks.enqueue).toHaveBeenCalledWith([{ file: dropped, path: "photos/dropped.png" }], "node_1");
 		expect(screen.queryByText("松开鼠标，上传到 /photos")).not.toBeInTheDocument();
+	});
+
+	it("hands files dropped at the all-locations root to the upload dialog", async () => {
+		// The dialog opened to pick a node, but the dropped files were gone.
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "", currentPath: "", nodes: twoNodes }} />);
+		const drive = document.querySelector("[data-file-browser]")!;
+		const dropped = new File(["x"], "dropped.png", { type: "image/png" });
+		const dataTransfer = { types: ["Files"], files: [dropped], items: [] };
+		fireEvent.dragEnter(drive, { dataTransfer });
+		await act(async () => {
+			fireEvent.drop(drive, { dataTransfer });
+		});
+		expect(await screen.findByRole("button", { name: "模拟上传完成" })).toHaveAttribute("data-pending-files", "dropped.png");
+		expect(mocks.enqueue).not.toHaveBeenCalled();
 	});
 
 	it("switches locations from the sidebar and names each node's customer", async () => {

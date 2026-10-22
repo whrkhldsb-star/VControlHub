@@ -25,6 +25,8 @@ export const MEDIA_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Free open-source media system, an open-source alternative to Emby/Plex",
 		image: "jellyfin/jellyfin:latest",
 		defaultPort: 8097,
+		// The image listens on 8096; 8097 is only the host port.
+		internalPort: 8096,
 		path: "/jellyfin/",
 		envJson: {},
 		volumesJson: [

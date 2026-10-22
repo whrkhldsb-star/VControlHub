@@ -29,3 +29,12 @@ describe("collapseAbsolutePaths", () => {
 		expect(collapseAbsolutePaths("/ is read-only")).toBe("/ is read-only");
 	});
 });
+
+describe("describeKnownError codes before operations", () => {
+	it("calls a folder that cannot be read a permission problem, not a missing path", () => {
+		// "scandir" is in both; the pathMissing rule matched it first.
+		const t = (key: string) => key;
+		expect(describeKnownError("EACCES: permission denied, scandir '/srv/data/private'", t).summary).toBe("commonError.accessDenied");
+		expect(describeKnownError("ENOENT: no such file or directory, scandir '/srv/data/gone'", t).summary).toBe("commonError.pathMissing");
+	});
+});

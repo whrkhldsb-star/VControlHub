@@ -284,7 +284,7 @@ vi.mock("@/lib/auth/authorization", () => ({
   }),
 }));
 
-import { parseBillingCsv } from "../adapters";
+import { parseBillingCsv, parseBillingCsvRows } from "../adapters";
 import {
   createCloudBillingAccount,
   deleteCloudBillingAccount,
@@ -391,15 +391,52 @@ describe("parseBillingCsv", () => {
     expect(items[0]?.currency).toBe("JPY");
   });
 
-  it("skips absurd/overflowing amounts (mirrors the manual 1e12 cap)", () => {
+  it("skips amounts the Decimal(12,2) amount column cannot hold (as manual entry does)", () => {
     const items = parseBillingCsv(
       `date,amount,currency,category,product
-2026-07-01,1000000000000,USD,vps,ec2
-2026-07-02,5,USD,vps,ec2`,
+2026-07-01,10000000000,USD,vps,ec2
+2026-07-02,9999999999.99,USD,vps,ec2`,
+      { currency: "USD", providerLabel: "CSV" },
+    );
+    expect(items.map((item) => item.amount)).toEqual(["9999999999.99"]);
+  });
+
+  it("reads a quoted field that spans lines as part of its record", () => {
+    // Split on newlines first, the record was cut after "first line": the
+    // charge was booked in the account default currency as "other".
+    const items = parseBillingCsv(
+      'date,amount,notes,currency,category,product,id\r\n2030-03-01,12.34,"first line\nsecond, line",EUR,storage,disk,charge-1\r\n',
       { currency: "USD", providerLabel: "CSV" },
     );
     expect(items).toHaveLength(1);
-    expect(items[0]?.amount).toBe("5.00");
+    expect(items[0]).toMatchObject({
+      amount: "12.34",
+      currency: "EUR",
+      category: "storage",
+      notes: "first line\nsecond, line",
+      externalId: "csv:id:charge-1",
+    });
+  });
+
+  it("refuses a CSV whose quote never closes instead of guessing the records", () => {
+    expect(() => parseBillingCsv('date,amount,notes\n2030-03-01,1,"open', { currency: "USD", providerLabel: "CSV" })).toThrow();
+  });
+
+  it("reports the rows it could not read", () => {
+    const { items, rejected } = parseBillingCsvRows(
+      `date,amount
+2026-10-01,5
+2026-10-02,not-a-number
+2026/10/03,7
+2026-10-04,`,
+      { currency: "USD", providerLabel: "CSV" },
+    );
+    expect(items).toHaveLength(1);
+    expect(rejected).toEqual([
+      { row: 2, reason: "amount", value: "not-a-number" },
+      { row: 3, reason: "date", value: "2026/10/03" },
+      { row: 4, reason: "amount", value: "" },
+    ]);
   });
 });
 
@@ -621,6 +658,23 @@ describe("cloud billing service", () => {
     expect(result).toMatchObject({ imported: 1, skipped: 1 });
     expect(result.warnings.join(" ")).toContain("2026-02-31");
     expect(Array.from(entryStore.values()).map((row) => (row.effectiveDate as Date).toISOString())).toEqual(["2026-02-28T00:00:00.000Z"]);
+  });
+
+  it("counts unreadable CSV rows as skipped and says which ones", async () => {
+    // They were dropped before the service saw them: "imported 1, skipped 0,
+    // ok" for a file with two charges.
+    const account = await createCloudBillingAccount(
+      { name: "bad-rows", provider: "generic_csv", credentials: {}, config: { sampleCsv: `date,amount
+2026-10-01,5
+2026-10-02,not-a-number
+` } },
+      null,
+    );
+
+    const result = await syncCloudBillingAccount(account.id, "2026-10");
+
+    expect(result).toMatchObject({ imported: 1, skipped: 1, run: { status: "partial" } });
+    expect(result.warnings.join(" ")).toContain("not-a-number");
   });
 
   it("keeps distinct long external ids on distinct sourceRefs", async () => {

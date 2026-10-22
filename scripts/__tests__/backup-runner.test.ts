@@ -32,6 +32,8 @@ describe.skipIf(process.platform === "win32")("backup runner recovery guarantees
     await writeFile(path.join(app, ".env.local"), "DATABASE_URL=postgresql://test:secret%21@127.0.0.1/fixture\n");
     env = { ...process.env, APP_DIR: app, ENV_FILE: path.join(app, ".env.local"), APP_NAME: "fixture", BACKUP_DIR: backups, BACKUP_RETENTION_DAYS: "30", PATH: `${bin}${path.delimiter}${process.env.PATH}` };
     delete env.BACKUP_EXTRA_PATHS_JSON;
+    // Never this host's real history directory.
+    env.FILE_VERSION_DIR = path.join(tmp, "no-file-versions");
     delete env.BACKUP_INCLUDE_ENV;
     delete env.BACKUP_MAX_BYTES;
     await fakeDump("process.stdout.write('SELECT 1;\\n');");
@@ -77,6 +79,26 @@ describe.skipIf(process.platform === "win32")("backup runner recovery guarantees
     await expect(runFile(entrypoint === "node" ? process.execPath : "bash", [entrypoint === "node" ? runner : path.resolve("deploy/backup.sh"), "--full", output], { env })).rejects.toThrow();
     expect(await readFile(output, "utf8")).toBe("keep existing backup");
     expect(await readdir(backups)).toEqual(["existing.tar.gz"]);
+  });
+
+  it("keeps the file history bodies the database dump refers to", async () => {
+    // The dump held the FileVersion rows; the bodies, outside the app
+    // directory, were left out of the archive.
+    const versions = path.join(tmp, "history");
+    await mkdir(path.join(versions, "node_1"), { recursive: true });
+    await writeFile(path.join(versions, "node_1", "v1.blob"), "old body");
+    const output = path.join(backups, "full-history.tar.gz");
+    await runFile(process.execPath, [runner, "--full", output], { env: { ...env, FILE_VERSION_DIR: versions } });
+    const manifest = JSON.parse((await runFile("tar", ["-xOzf", output, "file-versions.json"])).stdout);
+    expect((await runFile("tar", ["-xOzf", output, `${manifest.member}/node_1/v1.blob`])).stdout).toBe("old body");
+
+    // Inside the app directory (the Docker layout) it is an ordinary member.
+    const inside = path.join(app, "file-versions");
+    await mkdir(inside);
+    await writeFile(path.join(inside, "v2.blob"), "kept");
+    const second = path.join(backups, "full-inside.tar.gz");
+    await runFile(process.execPath, [runner, "--full", second], { env: { ...env, FILE_VERSION_DIR: inside } });
+    expect((await runFile("tar", ["-xOzf", second, "file-versions/v2.blob"])).stdout).toBe("kept");
   });
 
   it("prunes expired managed full/files/db backups while preserving unrelated files and symlinks", async () => {

@@ -192,7 +192,7 @@ describe("useQuickServiceActions", () => {
     expect(result.current.message?.text).toMatch(/同步完成/);
   });
 
-  it("doToggleSource disable triggers a catalog refresh, enable does not", async () => {
+  it("doToggleSource refreshes the catalog when disabling and when enabling", async () => {
     vi.mocked(csrfFetch).mockResolvedValue({ success: true });
     const { result } = renderHook(() =>
       useQuickServiceActions({ fetchCatalog, fetchSources }),
@@ -210,7 +210,8 @@ describe("useQuickServiceActions", () => {
       await result.current.doToggleSource("src_1", true);
     });
     expect(fetchSources).toHaveBeenCalledTimes(1);
-    expect(fetchCatalog).not.toHaveBeenCalled();
+    // A re-enabled source's apps come back into the catalog.
+    expect(fetchCatalog).toHaveBeenCalledTimes(1);
   });
 
   it("doToggleSource on error surfaces a friendly message", async () => {
@@ -284,5 +285,15 @@ describe("useQuickServiceActions", () => {
       }),
     );
     expect(result.current.message?.text).toBe("应用源已添加");
+  });
+
+  it("refreshes the catalog when a source is re-enabled, not only when disabled", async () => {
+    // Re-enabling a synced source left its apps out of the catalog until reload.
+    vi.mocked(csrfFetch).mockResolvedValue({});
+    const { result } = renderHook(() => useQuickServiceActions({ fetchCatalog, fetchSources }));
+    await act(async () => {
+      await result.current.doToggleSource("src-1", true);
+    });
+    expect(fetchCatalog).toHaveBeenCalledTimes(1);
   });
 });

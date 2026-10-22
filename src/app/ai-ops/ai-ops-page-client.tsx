@@ -80,7 +80,11 @@ export function AiOpsPageClient({
 		initialLogs[0]?.id ?? null,
 	);
 	const [executing, setExecuting] = useState<string | null>(null);
+	// Only the latest load may write the list: an earlier filter's answer
+	// arriving late replaced the list under the newer filter.
+	const latestLoad = useRef(0);
 	const loadLogsPage = useCallback(async (targetPage: number) => {
+		const load = ++latestLoad.current;
 		setLoadingLogs(true);
 		try {
 			const params = new URLSearchParams();
@@ -102,6 +106,7 @@ export function AiOpsPageClient({
 				hasMore: boolean;
 			};
 			const summaryBody = (await summaryRes.json()) as { summary: AiOpsSummary };
+			if (load !== latestLoad.current) return;
 			setLogs(logsBody.logs);
 			setLogsPage(targetPage);
 			setTotalLogs(logsBody.total);
@@ -113,12 +118,13 @@ export function AiOpsPageClient({
 					: (logsBody.logs[0]?.id ?? null),
 			);
 		} catch (error) {
+			if (load !== latestLoad.current) return;
 			addToast(
 				"error",
 				`${t("aiOpsPage.actions.loadFailed")}: ${String(error)}`,
 			);
 		} finally {
-			setLoadingLogs(false);
+			if (load === latestLoad.current) setLoadingLogs(false);
 		}
 	}, [modeFilter, statusFilter, triggerFilter, addToast, t]);
 

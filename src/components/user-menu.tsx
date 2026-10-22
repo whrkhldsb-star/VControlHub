@@ -9,6 +9,7 @@ import { useId, useRef, useState } from "react";
 import Link from "next/link";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useSwitchLocale } from "@/lib/i18n/use-switch-locale";
 import { useOptionalTheme } from "@/lib/theme/use-theme";
 import { cn } from "@/lib/ui/cn";
 import { ChangePasswordModal } from "./change-password-modal";
@@ -76,7 +77,8 @@ export function UserMenu({
 	compact?: boolean;
 	onNavigate?: () => void;
 }) {
-	const { t, locale, setLocale } = useI18n();
+	const { t, locale } = useI18n();
+	const setLocale = useSwitchLocale();
 	const { theme, setTheme } = useOptionalTheme();
 	const [open, setOpen] = useState(false);
 	const [passwordOpen, setPasswordOpen] = useState(false);

@@ -34,6 +34,27 @@ describe("deployment export service", () => {
 		}
 	});
 
+	it("names the package after this instance's slug when no name is given", () => {
+		// The display name "VControlHub" was the default and failed the
+		// identifier rule: GET /api/deploy-export and an empty form both 400'd.
+		vi.stubEnv("APP_NAME", "");
+		vi.stubEnv("APP_SLUG", "");
+		expect(buildPortableDeploymentPackage().manifest.appName).toBe("vcontrolhub");
+		expect(buildPortableDeploymentPackage({ domain: "ops.example.test", appName: "" }).manifest.appName).toBe("vcontrolhub");
+		vi.stubEnv("APP_NAME", "My Console");
+		expect(buildPortableDeploymentPackage().manifest.appName).toBe("my-console");
+		vi.stubEnv("APP_NAME", "运维平台");
+		expect(buildPortableDeploymentPackage().manifest.appName).toBe("vcontrolhub");
+		vi.unstubAllEnvs();
+	});
+
+	it("builds the runtime entry points its service units start", () => {
+		const script = buildPortableDeploymentPackage({ appName: "my-console" }).files["deploy.sh"];
+		const lines = script.split("\n");
+		expect(lines).toContain("npm run build:runtime");
+		expect(lines.indexOf("npm run build:runtime")).toBeGreaterThan(lines.indexOf("npm run build"));
+	});
+
 	it("rejects unsafe domain and app name before generating executable templates", () => {
 		expect(() => buildPortableDeploymentPackage({ domain: "good.com\nrespond hacked" })).toThrow(/域名/);
 		expect(() => buildPortableDeploymentPackage({ appName: "bad;rm-rf" })).toThrow(/应用名称/);

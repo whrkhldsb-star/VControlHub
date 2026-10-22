@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ProgressBar } from "@/components/ui-primitives";
@@ -17,10 +17,13 @@ export function CostBudgetPanel({
   initialBudgets,
   canManage,
   currencies,
+  refreshToken = 0,
 }: {
   initialBudgets: CostBudgetRecord[];
   canManage: boolean;
   currencies: CostCurrency[];
+  /** Changes when the page reloads its cost data; budgets reload with it. */
+  refreshToken?: number;
 }) {
   const { t } = useI18n();
   const { addToast } = useToast();
@@ -37,10 +40,18 @@ export function CostBudgetPanel({
   const [pendingDelete, setPendingDelete] = useState<CostBudgetRecord | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     const data = (await csrfFetch("/api/cost/budgets")) as { budgets?: CostBudgetRecord[] };
     if (Array.isArray(data.budgets)) setBudgets(data.budgets);
-  };
+  }, []);
+
+  // A cost added, edited or synced elsewhere on the page changes what the
+  // budgets have used; they kept showing the usage from page load.
+  useEffect(() => {
+    if (refreshToken === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refetch from the server when the page's costs change
+    reload().catch(() => undefined);
+  }, [refreshToken, reload]);
 
   const create = async () => {
     const name = form.name.trim();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, memo, type ReactNode } from "react";
+import { useState, useCallback, useEffect, memo, type ReactNode } from "react";
 import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
@@ -223,7 +223,14 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		}
 	}, [hasMore, loadingMore, notifications.length, setNotifications, t]);
 
-	if (notifications.length === 0) {
+	// Deleting the last notification on screen left "no notifications" with
+	// more waiting on the server and no way to reach them: fetch the next batch.
+	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- fetches the next page from the server
+		if (notifications.length === 0 && hasMore && !loadingMore && !error) void loadMore();
+	}, [notifications.length, hasMore, loadingMore, error, loadMore]);
+
+	if (notifications.length === 0 && !hasMore) {
 		return (
 			<EmptyState icon={<Bell size={36} className="text-[var(--text-muted)]" aria-hidden="true" />} variant="boxed">
 				{t("notificationsPage.empty")}

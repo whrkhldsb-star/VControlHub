@@ -1,4 +1,5 @@
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 
@@ -204,6 +205,11 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
   const fileName = path.posix.basename(normalizedRelativePath);
 
   let uploadedLocalPath: string | null = null;
+  // An overwrite of a LOCAL file is written beside it and moved into place
+  // once the index took it. Written in place, a failed index update was
+  // "compensated" by deleting the path: the previous file was gone too (and
+  // above the version size limit it had no copy in the history).
+  let stagedLocalPath: string | null = null;
   let uploadedRemotePath: string | null = null;
   let uploadedWebDav = false;
   let sftpCredentials: ReturnType<typeof resolveStorageSshCredentials> | null =
@@ -235,8 +241,13 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     }
     const parentDir = path.dirname(absolutePath);
     await mkdir(parentDir, { recursive: true });
-    await writeFile(absolutePath, fileBuffer);
-    uploadedLocalPath = absolutePath;
+    if (existingEntryForVersion) {
+      stagedLocalPath = path.join(parentDir, `.${path.basename(absolutePath)}.${randomBytes(6).toString("hex")}.upload`);
+      await writeFile(stagedLocalPath, fileBuffer);
+    } else {
+      await writeFile(absolutePath, fileBuffer);
+      uploadedLocalPath = absolutePath;
+    }
   } else if (storageNode.driver === "WEBDAV") {
     await writeStorageFileBuffer(storageNode, normalizedRelativePath, fileBuffer);
     uploadedWebDav = true;
@@ -341,6 +352,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
           logError("WebDAV upload cleanup failed", cleanupError);
         });
       }
+      if (stagedLocalPath) await unlink(stagedLocalPath).catch(() => undefined);
       if (uploadedLocalPath) {
         try {
           await unlink(uploadedLocalPath);
@@ -351,7 +363,9 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
           );
         }
       }
-      if (uploadedRemotePath && sftpCredentials) {
+      // Only a file this upload created: an overwritten remote file is the
+      // user's previous file, not a leftover.
+      if (uploadedRemotePath && sftpCredentials && !existingEntryForVersion) {
         try {
           await deleteRemoteFile({
             ...sftpCredentials,
@@ -365,12 +379,14 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
         }
       }
     }
+    if (stagedLocalPath && isUniqueViolation(error)) await unlink(stagedLocalPath).catch(() => undefined);
     const message = getErrorMessage(error, "Unknown error");
     return NextResponse.json(
       { error: t("api.storage.writeIndexFailed", locale, { message }) },
       { status: 500 },
     );
   }
+  if (stagedLocalPath && absolutePath) await rename(stagedLocalPath, absolutePath);
 
   return NextResponse.json({
     ok: true,

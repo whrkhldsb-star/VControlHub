@@ -123,6 +123,21 @@ export function requestDockerEngine(
 				}
 				chunks.push(chunk);
 			});
+			// A connection that drops after the headers never emits "end", and
+			// the idle timeout belongs to the request (already answered): the
+			// caller waited forever. Settle as a failed read instead.
+			response.on("aborted", () => {
+				if (oversized) return;
+				resolve({ ok: false, status: 502, data: { message: "Docker Engine response ended early" } });
+			});
+			response.on("error", () => {
+				if (oversized) return;
+				resolve({ ok: false, status: 502, data: { message: "Docker Engine response ended early" } });
+			});
+			response.on("close", () => {
+				if (oversized || response.complete) return;
+				resolve({ ok: false, status: 502, data: { message: "Docker Engine response ended early" } });
+			});
 			response.on("end", () => {
 				if (oversized) return;
 				const raw = Buffer.concat(chunks).toString("utf-8");

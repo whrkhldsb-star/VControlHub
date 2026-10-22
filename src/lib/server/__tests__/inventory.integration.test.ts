@@ -64,4 +64,14 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("server inve
     expect(filtered).toMatchObject({ total: 1, page: 1 });
     expect(filtered.rows[0]?.id).toBe(`${prefix}-0000`);
   });
+  it("lists every profile for the pickers, not the newest 500", async () => {
+    // Docker, tickets and schedules read this list; past 500 nodes the oldest
+    // ones were silently missing (and filtering enabled ones came after the cut).
+    const { listServerProfiles } = await import("@/lib/server/service-profiles");
+    const all = await listServerProfiles(session);
+    expect(new Set(all.map((server) => server.id)).size).toBe(525);
+    const enabled = await listServerProfiles(session, { enabledOnly: true });
+    expect(enabled).toHaveLength(263);
+    expect(enabled.every((server) => server.enabled)).toBe(true);
+  }, 30_000);
 });

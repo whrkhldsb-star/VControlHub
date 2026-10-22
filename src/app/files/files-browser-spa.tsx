@@ -49,6 +49,8 @@ export function FilesBrowserSpa({
   } = useFileBrowserListing({ initialData });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  // Files dropped where no target is set yet; the upload dialog holds them.
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([]);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [collection, setCollection] = useState<{ mode: FileCollectionMode; key: number } | null>(null);
   const [searchMode, setSearchMode] = useState<DriveSearchMode>(initialData.searchScope === "all" ? "all" : "current");
@@ -144,6 +146,7 @@ export function FilesBrowserSpa({
 
   const selectNode = useCallback((nodeId: string) => {
     setUploadOpen(false);
+    setPendingUploadFiles([]);
     setMobileSidebarOpen(false);
     setSearchInput("");
     contentSearch.reset();
@@ -161,6 +164,9 @@ export function FilesBrowserSpa({
     try {
       if (!canEdit) throw new Error(t("filesBrowserSpa.cannotCreateFolderNoPermission"));
       if (!nodeId || !directUpload) {
+        // Keep what was dropped for the dialog: it used to open empty and the
+        // user had to drop or pick the files a second time.
+        setPendingUploadFiles(await read());
         setUploadOpen(true);
         return;
       }
@@ -418,7 +424,10 @@ export function FilesBrowserSpa({
         <Dialog
           size="2xl"
           open={uploadOpen}
-          onClose={() => setUploadOpen(false)}
+          onClose={() => {
+            setUploadOpen(false);
+            setPendingUploadFiles([]);
+          }}
           title={t("filesBrowserSpa.uploadToPath", { path: currentPathDisplay.uploadPathLabel })}
           description={t("filesBrowserSpa.uploadDescription")}
         >
@@ -433,6 +442,8 @@ export function FilesBrowserSpa({
             pathLabel={t("filesBrowserSpa.uploadPathLabel")}
             allowNodeSelection={true}
             embedded
+            pendingFiles={pendingUploadFiles}
+            onPendingFilesUsed={() => setPendingUploadFiles([])}
             onUploadComplete={() => refreshCurrentListing()}
           />
         </Dialog>

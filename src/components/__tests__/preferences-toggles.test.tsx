@@ -1,6 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
 
 import { I18nProvider } from "@/lib/i18n/provider";
 import { ThemeProvider } from "@/lib/theme/provider";
@@ -38,6 +41,8 @@ describe("language and theme toggles", () => {
     expect(document.documentElement.lang).toBe("zh-CN");
     expect(localStorage.getItem("vps-locale")).toBe("zh");
     expect(document.cookie).toContain("vps-locale=zh");
+    // Server-rendered text (page titles) follows only when the page is fetched again.
+    expect(refresh).toHaveBeenCalled();
   });
 
   it("toggles light mode class globally and persists the theme choice", async () => {

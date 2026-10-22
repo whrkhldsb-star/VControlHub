@@ -10,6 +10,8 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Lightweight self-hosted Git service, similar to GitHub/GitLab",
 		image: "gitea/gitea:latest",
 		defaultPort: 3002,
+		// The image listens on 3000; 3002 is only the host port.
+		internalPort: 3000,
 		path: "/gitea/",
 		envJson: { USER_UID: "0", USER_GID: "0" },
 		volumesJson: [

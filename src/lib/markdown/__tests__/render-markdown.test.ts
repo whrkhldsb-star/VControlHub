@@ -30,3 +30,24 @@ describe("renderMarkdown for announcements", () => {
 		expect(html).not.toContain("**");
 	});
 });
+
+describe("markdownToPlainText keeps code as written", () => {
+	it("leaves fenced blocks and inline code alone", () => {
+		const source = "Run **this**:\n\n```python\nclass A:\n    def __init__(self):\n        pass\n---\n```\n\nThen call `__init__` and `a_b_c`.";
+		const text = markdownToPlainText(source);
+		expect(text).toContain("def __init__(self):");
+		expect(text).toContain("\n---");
+		expect(text).toContain("Run this:");
+		expect(text).toContain("Then call __init__ and a_b_c.");
+	});
+});
+
+describe("renderMarkdown with a lone table-like row", () => {
+	it("renders it as text instead of looping on it", () => {
+		// No separator row follows, so it is no table; the paragraph rule
+		// skipped it too, and the loop never moved past it.
+		expect(renderMarkdown("| ordinary note |")).toBe("<p>| ordinary note |</p>");
+		expect(renderMarkdown("Intro\n| a | b |\nmore")).toContain("| a | b |");
+		expect(renderMarkdown("| h |\n| --- |\n| v |")).toContain("<table");
+	}, 2_000);
+});

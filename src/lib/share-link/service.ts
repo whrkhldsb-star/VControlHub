@@ -471,11 +471,14 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
   if (!resolved.ok) return;
   const absoluteDir = resolved.path;
 
+  // Rows written after this point are newer than the listing below.
+  const listingStartedAt = new Date();
   let entries: Dirent[];
   try {
     entries = await readdir(absoluteDir, { withFileTypes: true });
   } catch {
-    // Directory unreadable (permission denied, missing, etc.) — nothing to list.
+    // Directory unreadable (permission denied, missing, etc.) — nothing to
+    // list, and no evidence that anything indexed is gone.
     return;
   }
 
@@ -504,6 +507,7 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
       size: entryType === "FILE" ? BigInt(fileStat.size) : null,
     });
   }
+  await retireVanishedShareEntries(share.storageNodeId, normalizedPrefix, new Set(entries.map((entry) => entry.name)), listingStartedAt);
   if (records.length === 0) return;
 
   // Query and mutate in bounded chunks so a large directory cannot exceed
@@ -559,6 +563,45 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
         });
       }),
     );
+  }
+}
+
+/**
+ * Mark direct children of a listed folder that are no longer on disk as
+ * deleted. The rescan only added and refreshed rows, so a file removed on
+ * the node itself (or by another program) stayed downloadable on the share
+ * page for good; an emptied folder skipped the sync entirely. Rows written
+ * after the listing began are left alone.
+ */
+async function retireVanishedShareEntries(storageNodeId: string, prefix: string, namesOnDisk: Set<string>, listingStartedAt: Date) {
+  const childPrefix = prefix ? `${prefix}/` : "";
+  const vanished: string[] = [];
+  let cursor: { id: string } | undefined;
+  for (;;) {
+    const rows = await prisma.fileEntry.findMany({
+      where: {
+        storageNodeId,
+        isDeleted: false,
+        updatedAt: { lt: listingStartedAt },
+        ...(childPrefix ? { relativePath: { startsWith: escapeLikeLiteral(childPrefix) } } : {}),
+      },
+      select: { id: true, relativePath: true },
+      orderBy: { id: "asc" },
+      take: 1000,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+    });
+    for (const row of rows) {
+      const name = row.relativePath.slice(childPrefix.length);
+      if (name && !name.includes("/") && !namesOnDisk.has(name)) vanished.push(row.id);
+    }
+    if (rows.length < 1000) break;
+    cursor = { id: rows[rows.length - 1]!.id };
+  }
+  for (let i = 0; i < vanished.length; i += 500) {
+    await prisma.fileEntry.updateMany({
+      where: { id: { in: vanished.slice(i, i + 500) }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
+      data: { isDeleted: true },
+    });
   }
 }
 

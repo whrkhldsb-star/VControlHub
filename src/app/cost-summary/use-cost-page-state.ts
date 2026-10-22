@@ -56,6 +56,9 @@ export function useCostPageState(options: {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [syncingSources, setSyncingSources] = useState(false);
+  // Bumped on every page refresh, so panels with their own data (budgets)
+  // reload too: a new entry changes their usage.
+  const [refreshCount, setRefreshCount] = useState(0);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{
     id: string;
@@ -134,6 +137,7 @@ export function useCostPageState(options: {
 
   const refreshAll = useCallback(async () => {
     const { month: m, currency: c } = filters.current;
+    setRefreshCount((count) => count + 1);
     await Promise.all([fetchSummary(m, c), fetchEntries(m), fetchSnapshots(c, m)]);
   }, [fetchSummary, fetchEntries, fetchSnapshots]);
 
@@ -334,6 +338,7 @@ export function useCostPageState(options: {
     setEditingId,
     setConfirmDelete,
     refreshAll,
+    refreshCount,
     syncServerCosts,
     onChangeMonth,
     onChangeCurrency,

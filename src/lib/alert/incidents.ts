@@ -496,6 +496,11 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
       where: { id: existing.id },
       data: {
         value: input.value,
+        // The condition this evaluation used, as the message states it: the
+        // incident kept the one from when it first opened, so an edited rule
+        // showed "now 80, fires when gte 90" beside a "gt 70" message.
+        operator: input.operator,
+        threshold: input.threshold,
         title: input.title,
         message: input.message,
         serverName: input.serverName,
@@ -536,6 +541,8 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
     status: "OPEN" as const,
     level: 1,
     value: input.value,
+    operator: input.operator,
+    threshold: input.threshold,
     title: input.title,
     message: input.message,
     serverName: input.serverName,
@@ -584,6 +591,8 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
           where: { id: raced.id },
           data: {
             value: input.value,
+            operator: input.operator,
+            threshold: input.threshold,
             title: input.title,
             message: input.message,
             serverName: input.serverName,

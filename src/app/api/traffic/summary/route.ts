@@ -169,6 +169,15 @@ export async function GET(req: NextRequest) {
         (q.include ?? "").split(",").map((token) => token.trim()).includes("remote");
 
       const interfaces = await readLocalNetworkDeviceStats();
+      // Summarize each local interface once per request. Calling summarize twice
+      // for the primary iface advanced the previousSamples cache mid-request and
+      // made primary rates nearly always 0 after the first poll. And do it now,
+      // with the counters just read: done after waiting for remote sampling,
+      // these older counters were stored under the later time over a newer
+      // poll's, giving a zero rate and then a spike.
+      const summarizedInterfaces = interfaces.map((item) =>
+        summarizeInterface(`local:${item.iface}`, item),
+      );
       const primary = selectedIface
         ? (interfaces.find((item) => item.iface === selectedIface) ?? selectPrimaryInterface(interfaces))
         : selectPrimaryInterface(interfaces);
@@ -224,12 +233,6 @@ export async function GET(req: NextRequest) {
           )
         : null;
 
-      // Summarize each local interface once per request. Calling summarize twice
-      // for the primary iface advanced the previousSamples cache mid-request and
-      // made primary rates nearly always 0 after the first poll.
-      const summarizedInterfaces = interfaces.map((item) =>
-        summarizeInterface(`local:${item.iface}`, item),
-      );
       const primarySummary =
         primary
           ? summarizedInterfaces.find((item) => item.iface === primary.iface) ?? null

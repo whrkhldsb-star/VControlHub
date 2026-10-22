@@ -133,24 +133,35 @@ export function parseQuickServiceJobPayload(payload: Prisma.JsonValue): QuickSer
 	throw new Error(`Unsupported QuickService action: ${action}`);
 }
 
+/**
+ * The active lifecycle job of one app on one host. Every active job of the
+ * app is examined: only the first 20 were, so with 20 other hosts queued a
+ * duplicate start (or a conflicting stop) for this host was queued again.
+ */
 async function findActiveQuickServiceJob(slug: string, instanceKey: string = HUB_HOST_INSTANCE_KEY) {
-	const candidates = await prisma.job.findMany({
-		where: {
-			type: QUICK_SERVICE_JOB_TYPE,
-			status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
-			payload: { path: ["slug"], equals: slug },
-		},
-		orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }],
-		take: 20,
-	});
-	for (const job of candidates) {
-		try {
-			const p = parseQuickServiceJobPayload(job.payload);
-			if ((p.instanceKey ?? HUB_HOST_INSTANCE_KEY) === instanceKey) return job;
-		} catch {
-			// ignore malformed
+	const PAGE = 200;
+	let cursor: { id: string } | undefined;
+	do {
+		const candidates = await prisma.job.findMany({
+			where: {
+				type: QUICK_SERVICE_JOB_TYPE,
+				status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
+				payload: { path: ["slug"], equals: slug },
+			},
+			orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+			take: PAGE,
+			...(cursor ? { cursor, skip: 1 } : {}),
+		});
+		for (const job of candidates) {
+			try {
+				const p = parseQuickServiceJobPayload(job.payload);
+				if ((p.instanceKey ?? HUB_HOST_INSTANCE_KEY) === instanceKey) return job;
+			} catch {
+				// ignore malformed
+			}
 		}
-	}
+		cursor = candidates.length === PAGE ? { id: candidates[candidates.length - 1]!.id } : undefined;
+	} while (cursor);
 	return null;
 }
 

@@ -71,6 +71,8 @@ export const zh: Record<string, string> = {
   "fileUploadDropzone.selectFolder": "选择文件夹",
   "fileUploadDropzone.pathPlaceholder": "docs 或 media/videos",
   "fileUploadDropzone.errorNoNode": "请先选择存储节点。",
+  "fileUploadDropzone.pendingFiles": "已拖入 {count} 个文件，确认上方的目标节点和目录后上传。",
+  "fileUploadDropzone.uploadPending": "上传这 {count} 个文件",
   "fileUploadDropzone.errorUnsupportedNode":
     "请选择 LOCAL 或 SFTP 存储节点后再上传。",
   "fileUploadDropzone.errorUpload": "上传失败",
@@ -225,6 +227,8 @@ export const en: Record<string, string> = {
   "fileUploadDropzone.selectFolder": "Select folder",
   "fileUploadDropzone.pathPlaceholder": "docs or media/videos",
   "fileUploadDropzone.errorNoNode": "Select a storage node first.",
+  "fileUploadDropzone.pendingFiles": "{count} dropped files are waiting. Check the target node and folder above, then upload.",
+  "fileUploadDropzone.uploadPending": "Upload these {count} files",
   "fileUploadDropzone.errorUnsupportedNode":
     "Select a LOCAL or SFTP storage node before uploading.",
   "fileUploadDropzone.errorUpload": "Upload failed",

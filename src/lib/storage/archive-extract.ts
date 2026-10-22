@@ -31,7 +31,7 @@ export type ArchiveListEntry = {
 	modified?: string;
 };
 
-export type ArchiveExtractErrorCode = "unsafePath" | "tooManyEntries" | "tooLarge" | "encrypted" | "unsupportedMethod" | "corrupt" | "empty";
+export type ArchiveExtractErrorCode = "unsafePath" | "tooManyEntries" | "tooLarge" | "encrypted" | "unsupportedMethod" | "corrupt" | "empty" | "duplicateName";
 
 export class ArchiveExtractError extends Error {
 	constructor(readonly code: ArchiveExtractErrorCode, readonly detail = "") {
@@ -155,9 +155,17 @@ export async function planExtraction(filePath: string, kind: ArchiveKind): Promi
 	const builder = planner();
 	try {
 		if (kind === "zip") {
+			// Two members under one name would leave only the second file, while
+			// extraction still reported both as written. Refuse instead.
+			const files = new Set<string>();
 			for (const entry of await readZipEntries(filePath, { maxEntries: MAX_EXTRACT_ENTRIES })) {
 				const memberKind = zipMemberKind(entry);
-				builder.add(memberKind === "skip" ? null : normalizeMemberPath(entry.name), memberKind, memberKind === "file" ? entry.size : 0);
+				const relative = memberKind === "skip" ? null : normalizeMemberPath(entry.name);
+				if (memberKind === "file" && relative) {
+					if (files.has(relative)) throw new ArchiveExtractError("duplicateName", relative);
+					files.add(relative);
+				}
+				builder.add(relative, memberKind, memberKind === "file" ? entry.size : 0);
 			}
 		} else {
 			await walkTar(filePath, kind === "tar.gz", async (member) => {

@@ -22,8 +22,9 @@ export type DirectAccessResult =
   | {
       mode: "direct-url";
       description: string;
-      href: string;
-      fallbackHref: string;
+      /** Null for a node-level description: there is no file to link to. */
+      href: string | null;
+      fallbackHref: string | null;
       publicBaseUrl: string;
       expiresSeconds: number;
     };
@@ -57,12 +58,15 @@ export function buildDirectAccessStrategy(input: {
     nodeId: input.nodeId,
     path: input.relativePath ?? "",
   });
-  const fallbackHref = `/api/storage/sftp-download?${params.toString()}`;
+  // Without a file the download endpoints answer 400; a node's own
+  // description (its card) has no link to give.
+  const fileLink = (href: string) => (input.relativePath ? href : null);
+  const fallbackHref = fileLink(`/api/storage/sftp-download?${params.toString()}`);
   const directParams = new URLSearchParams({
     nodeId: input.nodeId,
     path: input.relativePath ?? "",
   });
-  const directHref = `/api/storage/direct-access?${directParams.toString()}`;
+  const directHref = fileLink(`/api/storage/direct-access?${directParams.toString()}`);
   const mode = input.directAccessMode ?? "PROXY";
 
   if ((mode === "DIRECT" || mode === "AUTO") && input.publicBaseUrl) {

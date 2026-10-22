@@ -5,7 +5,9 @@ import { z } from "zod";
 const schema = z.object({
   version: z.literal(1),
   files: z.array(z.object({
-    name: z.string().min(1).refine((value) => !/[\/\\\0]/.test(value) && value !== "." && value !== ".."),
+    // A path inside the download, "/"-separated: a multi-file torrent is a
+    // folder of files. Every segment is a plain name.
+    name: z.string().min(1).refine((value) => value.split("/").every((segment) => segment !== "" && segment !== "." && segment !== ".." && !/[\\\0]/.test(segment))),
     size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
     sha256: z.string().regex(/^[a-f0-9]{64}$/),
   })).min(1),

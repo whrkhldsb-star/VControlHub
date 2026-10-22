@@ -151,7 +151,7 @@ async function requestProviderAnalysis(
           role: "system",
           content: [
             "You are an infrastructure operations reviewer. Analyze only the supplied health facts. Prioritize impact, explain likely relationships, and suggest verification steps. Do not invent measurements, credentials, hosts, or commands. Keep the response concise.",
-            "`checks` lists every check that ran; `signals` holds only the checks that found a problem. An empty `signals` list means every check passed: say so in one or two sentences and do not speculate about failed collection.",
+            "`checks` lists every check that ran; `signals` holds only the checks that found a problem. A check whose data could not be read appears as a `scan.incomplete` signal naming it: say that check's result is unknown. An empty `signals` list means every check ran and passed: say so in one or two sentences.",
             `Write the answer in ${locale === "en" ? "English" : "Simplified Chinese"}.`,
           ].join("\n"),
         },
@@ -201,6 +201,15 @@ interface SystemHealthSignal {
  */
 async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
   const signals: SystemHealthSignal[] = [];
+  // A check whose read failed is unknown, not clean. Each used to fall back
+  // to 0, and a scan that could not read half its data was saved as "ok".
+  const unreadChecks: string[] = [];
+  const counted = (check: string, read: Promise<number>) =>
+    read.catch((error: unknown) => {
+      unreadChecks.push(check);
+      logger.warn("AI ops check could not read its data", { check, error: error instanceof Error ? error.message : String(error) });
+      return 0;
+    });
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -213,40 +222,33 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
     staleJobs,
   ] = await Promise.all([
     prisma.alertRule.count({ where: { enabled: true } }),
-    prisma.commandRequest
-      .count({
-        where: {
-          status: "FAILED",
-          createdAt: { gte: since24h },
-        },
-      })
-      .catch(() => 0),
-    prisma.playbookRun
-      .count({
-        where: {
-          status: "failed",
-          createdAt: { gte: since24h },
-        },
-      })
-      .catch(() => 0),
+    counted("command.execution", prisma.commandRequest.count({
+      where: {
+        status: "FAILED",
+        createdAt: { gte: since24h },
+      },
+    })),
+    counted("playbook.run", prisma.playbookRun.count({
+      where: {
+        status: "failed",
+        createdAt: { gte: since24h },
+      },
+    })),
     // Servers whose latest sample in the last 30 minutes says offline.
-    latestSnapshotPerServer(new Date(Date.now() - 30 * 60 * 1000))
-      .then((rows) => rows.filter((row) => !row.isOnline).length)
-      .catch(() => 0),
+    counted("server.status", latestSnapshotPerServer(new Date(Date.now() - 30 * 60 * 1000))
+      .then((rows) => rows.filter((row) => !row.isOnline).length)),
     // Backup records that failed in the last 24h
-    prisma.backupRecord
-      .count({
-        where: {
-          status: "FAILED",
-          createdAt: { gte: since24h },
-        },
-      })
-      .catch(() => 0),
+    counted("backup.records", prisma.backupRecord.count({
+      where: {
+        status: "FAILED",
+        createdAt: { gte: since24h },
+      },
+    })),
     // Week-old completed jobs beyond what their type's retention keeps. Each
     // type keeps its latest runs on purpose (up to 200) as its history, so
     // counting every week-old completed job flagged that history on every
     // scan with advice to clean up; only an excess means pruning stopped.
-    prisma.job
+    counted("job.queue", prisma.job
       .groupBy({
         by: ["type"],
         where: {
@@ -255,8 +257,7 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
         },
         _count: { _all: true },
       })
-      .then((groups) => groups.reduce((sum, group) => sum + Math.max(0, group._count._all - JOB_HISTORY_KEPT_PER_TYPE), 0))
-      .catch(() => 0),
+      .then((groups) => groups.reduce((sum, group) => sum + Math.max(0, group._count._all - JOB_HISTORY_KEPT_PER_TYPE), 0))),
   ]);
 
   if (alertCount > 20) {
@@ -354,8 +355,19 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
         source: "metric.disk",
       });
     }
-  } catch {
-    // metricSnapshot table may not have recent data; skip silently
+  } catch (error) {
+    unreadChecks.push("server.resources");
+    logger.warn("AI ops check could not read its data", { check: "server.resources", error: error instanceof Error ? error.message : String(error) });
+  }
+
+  if (unreadChecks.length > 0) {
+    signals.push({
+      id: "scan.incomplete",
+      severity: "warning",
+      title: "Scan incomplete",
+      body: `${unreadChecks.length} check(s) could not read their data, so their result is unknown: ${unreadChecks.join(", ")}.`,
+      source: "ai-ops.scan",
+    });
   }
 
   return signals;
@@ -457,14 +469,19 @@ function buildScan(
  * Each server's latest sample since `since`. The newest 500 samples of the
  * whole fleet used to stand in for this: with frequent sampling they covered
  * only some servers, so pressure and offline signals missed the rest.
+ *
+ * Only servers in service: samples outlive a disabled server and a deleted
+ * customer (they are history), and counted them as current faults.
  */
-async function latestSnapshotPerServer(since: Date) {
+export async function latestSnapshotPerServer(since: Date) {
   // Values are null when the server was online with nothing measured.
   return prisma.$queryRaw<Array<{ serverId: string; cpuUsage: number | null; memUsage: number | null; diskUsage: number | null; isOnline: boolean }>>`
-    SELECT DISTINCT ON ("serverId") "serverId", "cpuUsage", "memUsage", "diskUsage", "isOnline"
-    FROM metric_snapshots
-    WHERE "createdAt" >= ${since}
-    ORDER BY "serverId", "createdAt" DESC
+    SELECT DISTINCT ON (m."serverId") m."serverId", m."cpuUsage", m."memUsage", m."diskUsage", m."isOnline"
+    FROM metric_snapshots m
+    JOIN servers s ON s.id = m."serverId"
+    LEFT JOIN teams t ON t.id = s."teamId"
+    WHERE m."createdAt" >= ${since} AND s.enabled AND t."deletedAt" IS NULL
+    ORDER BY m."serverId", m."createdAt" DESC
   `;
 }
 
@@ -532,8 +549,9 @@ export async function runAiOpsScanWorkerOnce(
           ]);
           const { provider, providerId } = configured;
           const log = await createAiOpsLog({
+            // The daily timer passes "scheduled"; it was filed as manual.
             triggerType:
-              payloadReason === "interval" || payloadReason === "startup"
+              payloadReason === "interval" || payloadReason === "startup" || payloadReason === "scheduled"
                 ? "scheduled"
                 : "manual",
             mode,

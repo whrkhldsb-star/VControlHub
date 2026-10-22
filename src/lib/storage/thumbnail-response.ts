@@ -443,7 +443,10 @@ export async function respondWithStorageThumbnail(input: {
       cacheFile,
       generate,
     );
-    if (result instanceof NextResponse) return result;
+    // Concurrent requests for one file share this result. A response body can
+    // be read once: handing the same placeholder to every caller left all
+    // but the first with "Body has already been read". Each gets a copy.
+    if (result instanceof NextResponse) return new NextResponse(result.clone().body, { status: result.status, headers: result.headers });
     thumbnail = result;
   } catch (error) {
     if (

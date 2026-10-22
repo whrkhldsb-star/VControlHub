@@ -27,6 +27,7 @@ export type DeletedEntryProp = {
   /** When it went to the recycle bin (the entry's last change). */
   deletedAt?: string | Date | null;
   storageNodeName?: string | null;
+  storageNodeId?: string;
 };
 
 type BulkState = { action: "restore" | "delete"; done: number; total: number } | null;
@@ -47,7 +48,10 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const visibleEntries = deletedEntries.filter((entry) => !dismissedEntryIds.has(entry.id));
-  const totalItems = Math.max(0, (pagination?.totalItems ?? deletedEntries.length) - dismissedEntryIds.size);
+  // Only entries the server still lists are subtracted: once a refresh drops
+  // them, its total already leaves them out.
+  const pendingDismissals = deletedEntries.length - visibleEntries.length;
+  const totalItems = Math.max(0, (pagination?.totalItems ?? deletedEntries.length) - pendingDismissals);
   const selectedEntries = visibleEntries.filter((entry) => selected.has(entry.id));
   const allSelected = visibleEntries.length > 0 && selectedEntries.length === visibleEntries.length;
 
@@ -82,11 +86,27 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
   async function runBulk(action: "restore" | "delete") {
     const targets = selectedEntries;
     if (!targets.length || bulk) return;
+    // A folder's restore brings back what was deleted with it, and its purge
+    // removes everything under it: an entry also selected under it then
+    // "failed" as no longer in the recycle bin. Folders go first; what they
+    // covered is only handled on its own if the folder itself failed.
+    const coveringFolder = (entry: DeletedEntryProp) => targets.find((folder) =>
+      folder.entryType === "DIRECTORY" && folder.id !== entry.id
+      && (folder.storageNodeId ?? folder.storageNodeName) === (entry.storageNodeId ?? entry.storageNodeName)
+      && entry.relativePath.startsWith(`${folder.relativePath}/`));
+    const ordered = [...targets].sort((a, b) => Number(Boolean(coveringFolder(a))) - Number(Boolean(coveringFolder(b))));
     setBulk({ action, done: 0, total: targets.length });
     setErrors([]);
     const failures: string[] = [];
     const finished = new Set<string>();
-    for (const [index, entry] of targets.entries()) {
+    const covered = new Set<string>();
+    for (const [index, entry] of ordered.entries()) {
+      const folder = coveringFolder(entry);
+      if (folder && finished.has(folder.id)) {
+        covered.add(entry.id);
+        setBulk({ action, done: index + 1, total: targets.length });
+        continue;
+      }
       const formData = new FormData();
       formData.set("fileEntryId", entry.id);
       try {
@@ -101,7 +121,7 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
       setBulk({ action, done: index + 1, total: targets.length });
     }
     setDismissedEntryIds((current) => new Set([...current, ...finished]));
-    setSelected(new Set(targets.filter((entry) => !finished.has(entry.id)).map((entry) => entry.id)));
+    setSelected(new Set(targets.filter((entry) => !finished.has(entry.id) && !covered.has(entry.id)).map((entry) => entry.id)));
     setErrors(failures);
     setBulk(null);
     if (finished.size) {

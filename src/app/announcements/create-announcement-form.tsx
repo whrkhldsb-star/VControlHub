@@ -47,7 +47,10 @@ export function CreateAnnouncementForm() {
 					expiresAt: toIsoOrUndefined(data.expiresAt),
 				}),
 			});
-			form.reset();
+			// The fields stay editable while saving. Reset only if they still
+			// hold what was sent: a next announcement typed meanwhile was wiped.
+			const current = Object.fromEntries(new FormData(form));
+			if (Object.keys(data).every((key) => current[key] === data[key])) form.reset();
 			router.refresh();
 		} catch (err) {
 			setError(getErrorMessage(err, t("announcementsPage.create.error")));

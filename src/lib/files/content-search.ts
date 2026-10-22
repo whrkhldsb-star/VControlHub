@@ -87,6 +87,10 @@ function isSearchableFile(filename: string): boolean {
 	const ext = path.extname(lower);
 	if (ext && SEARCHABLE_EXTENSIONS.has(ext)) return true;
 	if (!ext && SEARCHABLE_NO_EXT_NAMES.has(lower)) return true;
+	// ".env", ".gitignore", ".npmrc": Node gives a leading-dot name no
+	// extension, and the name list was written without the dot, so neither
+	// check matched and these files were never searched.
+	if (!ext && lower.startsWith(".") && SEARCHABLE_NO_EXT_NAMES.has(lower.slice(1))) return true;
 	return false;
 }
 
@@ -114,6 +118,8 @@ async function searchLocalNode(
 	basePath: string,
 	query: string,
 	searchPath: string,
+	/** Paths among these that are in the recycle bin. */
+	deletedAmong: (relativePaths: string[]) => Promise<Set<string>> = async () => new Set(),
 ): Promise<NodeSearchOutcome> {
 	const results: ContentSearchResult[] = [];
 	// Set when the walk stopped early (result cap, depth cap): the caller
@@ -129,8 +135,28 @@ async function searchLocalNode(
 
 	logger.debug("Local content search", { nodeId, searchRoot, query });
 
+	// Recycle-bin files keep their bytes on disk, so the walk finds them;
+	// they are dropped before they count against the result cap. Filtered
+	// only afterwards, 100 deleted matches used up the cap and every live
+	// match was missed.
+	let checked = 0;
+	async function dropDeletedMatches() {
+		const fresh = results.slice(checked);
+		const deleted = await deletedAmong(fresh.map((result) => result.relativePath));
+		if (deleted.size > 0) {
+			const kept = fresh.filter((result) => !deleted.has(result.relativePath));
+			results.splice(checked, fresh.length, ...kept);
+		}
+		checked = results.length;
+	}
+	const full = async () => {
+		if (results.length <= MAX_RESULTS) return false;
+		await dropDeletedMatches();
+		return results.length > MAX_RESULTS;
+	};
+
 	async function walk(dir: string, depth: number): Promise<void> {
-		if (results.length > MAX_RESULTS) return;
+		if (await full()) return;
 		if (depth > MAX_DEPTH) {
 			truncated = true;
 			return;
@@ -145,7 +171,7 @@ async function searchLocalNode(
 
 		for (const entry of entries) {
 			// One match past the cap tells that there were more.
-			if (results.length > MAX_RESULTS) return;
+			if (await full()) return;
 
 			const fullPath = path.join(dir, entry.name);
 
@@ -170,7 +196,7 @@ async function searchLocalNode(
 					}
 
 					if (snippets.length > 0) {
-						const relativePath = path.relative(nodeRoot, fullPath);
+						const relativePath = path.relative(nodeRoot, fullPath).split(path.sep).join("/");
 						results.push({
 							filePath: fullPath,
 							relativePath,
@@ -188,6 +214,7 @@ async function searchLocalNode(
 	}
 
 	await walk(searchRoot, 0);
+	await dropDeletedMatches();
 	return { results: results.slice(0, MAX_RESULTS), truncated: truncated || results.length > MAX_RESULTS };
 }
 
@@ -425,6 +452,14 @@ export async function searchFileContents(params: {
 					node.basePath,
 					query,
 					searchPath ?? "",
+					async (relativePaths) => {
+						if (relativePaths.length === 0) return new Set();
+						const rows = await prisma.fileEntry.findMany({
+							where: { storageNodeId: node.id, isDeleted: true, relativePath: { in: relativePaths } },
+							select: { relativePath: true },
+						});
+						return new Set(rows.map((row) => row.relativePath));
+					},
 				);
 				allResults.push(...local.results);
 				nodeTruncated ||= local.truncated;

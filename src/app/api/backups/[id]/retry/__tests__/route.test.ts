@@ -5,6 +5,7 @@ const { mocks } = vi.hoisted(() => ({
     prepareBackupRecordRetry: vi.fn(),
     enqueueJob: vi.fn(),
     jobFindFirst: vi.fn(),
+    backupUpdateMany: vi.fn(async () => ({ count: 1 })),
   },
 }));
 
@@ -14,6 +15,7 @@ vi.mock("@/lib/backup/job-worker", () => ({ BACKUP_CREATE_JOB_TYPE: "backup.crea
 vi.mock("@/lib/db", () => ({
   prisma: {
     job: { findFirst: mocks.jobFindFirst },
+    backupRecord: { updateMany: mocks.backupUpdateMany },
   },
 }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: vi.fn() }));
@@ -57,5 +59,17 @@ describe("/api/backups/[id]/retry", () => {
     expect(mocks.prepareBackupRecordRetry).not.toHaveBeenCalled();
     expect(mocks.enqueueJob).not.toHaveBeenCalled();
     await expect(res.json()).resolves.toMatchObject({ jobId: "job-existing", taskId: "job:job-existing", deduped: true });
+  });
+
+  it("puts the record back to FAILED when its job cannot be queued", async () => {
+    // It stayed PENDING with no job, and PENDING cannot be retried.
+    mocks.enqueueJob.mockRejectedValueOnce(new Error("connection reset"));
+
+    await expect(route.POST(new Request("http://local/api/backups/bak1/retry", { method: "POST" }), { params: Promise.resolve({ id: "bak1" }) })).rejects.toThrow("connection reset");
+
+    expect(mocks.backupUpdateMany).toHaveBeenCalledWith({
+      where: { id: "bak1", status: "PENDING" },
+      data: expect.objectContaining({ status: "FAILED" }),
+    });
   });
 });

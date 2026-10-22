@@ -1120,7 +1120,7 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 非 systemd 部署（Windows、容器、其他进程管理器）：自行停止全部实例后，以 `VCONTROLHUB_SERVICE_UNITS=none` 运行恢复脚本，表示由运维人员确认已停止；数据库连接检查仍然生效。Windows 上平台给出的恢复命令已带此设置。
 
-文件恢复只覆盖数据（`storage`、`uploads`、`downloads`、`logs`，以及包里的环境配置文件）。完整备份里附带的当时代码（`public`、`prisma`、`package.json`、`package-lock.json`）只作为版本记录，不会覆盖当前安装。通过 `BACKUP_EXTRA_PATHS_JSON` 纳入的项目外数据也不会被写进安装目录：日志会列出它们在包里的位置，请按 `external-data.json` 自行解压到目标目录。
+文件恢复只覆盖数据（`storage`、`uploads`、`downloads`、`logs`，以及包里的环境配置文件）。完整备份里附带的当时代码（`public`、`prisma`、`package.json`、`package-lock.json`）只作为版本记录，不会覆盖当前安装。通过 `BACKUP_EXTRA_PATHS_JSON` 纳入的项目外数据也不会被写进安装目录：日志会列出它们在包里的位置，请按 `external-data.json` 自行解压到目标目录。文件历史的正文（`FILE_VERSION_DIR`，默认 `/var/lib/vcontrolhub/file-versions`）会随完整备份一起打包，恢复时放回该目录。
 
 恢复会改变实际数据库或文件。文件、配置、数据库和加密密钥需要配套；只有数据库而没有原密钥，可能无法解密原先保存的 SSH、RDP 或外部服务凭据。
 
@@ -2023,7 +2023,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | 批量创建 tar.gz | 支持单节点选择 | 不支持该本地压缩入口 | 不支持 |
 | 压缩包在线列目录 | 支持的本地格式 | 当前接口不支持 | 当前接口不支持 |
 | 单文件 GZ 解压 | 支持限额内文件 | 不支持该本地解压入口 | 不支持 |
-| ZIP／TAR 通用在线解压 | 未开放 | 未开放 | 未开放 |
+| ZIP／TAR 通用在线解压 | 支持 ZIP／JAR、TAR、TAR.GZ／TGZ（限额内，见 6.10） | 未开放 | 未开放 |
 | SFTP 文件网关直连 | 不使用这一远端模式 | 配置并验证网关后可用 | 当前走代理 |
 | 作为对外 WebDAV 挂载源 | 支持 | 支持相应方法 | 接入界面当前不作为导出源 |
 
@@ -2062,7 +2062,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | 远端文件删了，列表仍有记录 | 可能尚未同步，或因版本／子项保护保留异常索引；查看同步告警 |
 | 大文件没有旧版本 | 快照有大小和数量上限，历史保护不是无限制的磁盘快照 |
 | Office 点开只显示下载提示 | 当前没有稳定的 Office 在线渲染服务 |
-| 压缩包可查看但不能解压 | 目录查看与安全解压是不同能力，通用 ZIP／TAR 解压未开放 |
+| 压缩包可查看但不能解压 | LOCAL 节点上的 ZIP／JAR、TAR、TAR.GZ／TGZ 可以在线解压（见 6.10）；SFTP、WebDAV 节点和 7z、RAR 只能查看目录 |
 | 分享链接撤销后收件人仍有文件 | 已下载副本无法通过撤销链接收回 |
 | WebDAV 挂载失败但网页正常 | 核对 Token、路径权限、自定义 Web 服务与代理是否允许 DAV 方法 |
 | 任务提交成功但一直等待 | 检查是否待审批、Worker 心跳、队列限制及目标依赖 |
@@ -2434,7 +2434,7 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 | [`/api/files/archive-list`](../src/app/api/files/archive-list/route.ts) | GET | 查看受支持 LOCAL 压缩包的目录 | [存储节点与文件管理](#files) |
 | [`/api/files/compress`](../src/app/api/files/compress/route.ts) | POST | 将本地选中条目打包为 tar.gz | [存储节点与文件管理](#files) |
 | [`/api/files/editable/[id]`](../src/app/api/files/editable/[id]/route.ts) | GET / PUT | 读取及保存本地文本草稿，校验并发修改 | [存储节点与文件管理](#files) |
-| [`/api/files/extract`](../src/app/api/files/extract/route.ts) | POST | 执行有限额的本地单文件 GZ 解压 | [存储节点与文件管理](#files) |
+| [`/api/files/extract`](../src/app/api/files/extract/route.ts) | POST | 执行有限额的本地解压：ZIP／JAR、TAR、TAR.GZ／TGZ 和单文件 GZ | [存储节点与文件管理](#files) |
 | [`/api/files/list`](../src/app/api/files/list/route.ts) | GET | 文件／目录列表、节点、分页及条目能力 | [存储节点与文件管理](#files) |
 | [`/api/files/operations`](../src/app/api/files/operations/route.ts) | GET / POST / PATCH | 批量复制／移动／删除任务、结果与取消请求 | [存储节点与文件管理](#files) |
 | [`/api/files/preferences`](../src/app/api/files/preferences/route.ts) | GET / PATCH | 个人文件收藏与标签的读取和修改 | [存储节点与文件管理](#files) |

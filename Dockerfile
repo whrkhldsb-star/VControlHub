@@ -58,7 +58,7 @@ COPY --from=builder /app/deploy/backup.sh ./deploy/backup.sh
 COPY --from=builder /app/scripts/backup.mjs /app/scripts/restore.mjs /app/scripts/restore-db.sh /app/scripts/restore-files.sh /app/scripts/restore-full.sh ./scripts/
 COPY --from=builder /app/scripts/lib/backup-common.mjs ./scripts/lib/backup-common.mjs
 
-RUN chmod +x ./docker-entrypoint.sh && mkdir -p storage tmp uploads downloads backups logs
+RUN chmod +x ./docker-entrypoint.sh && mkdir -p storage tmp uploads downloads backups logs file-versions
 
 EXPOSE 3000 3001
 

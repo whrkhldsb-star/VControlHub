@@ -17,3 +17,18 @@ it("maps web form fields to nested configuration without putting secrets in audi
   expect(update.mock.calls[0]?.[0]).toMatchObject({ driver: "WEBDAV", webdavConfig: { password: "" } });
   expect(JSON.stringify(audit.mock.calls)).not.toContain("secret");
 });
+it("reads a ticked default box from the edit form, which also sends a hidden off", async () => {
+  // The hidden "off" comes first, and formData.get returned it: the node
+  // was saved as not default and the save reported success.
+  update.mockClear();
+  const form = (...values: string[]) => {
+    const data = new FormData();
+    data.set("storageNodeId", "node-b");
+    data.set("name", "B");
+    for (const value of values) data.append("isDefault", value);
+    return data;
+  };
+  await updateStorageNodeAction(null, form("off", "on"));
+  await updateStorageNodeAction(null, form("off"));
+  expect(update.mock.calls.map((call) => call[0].isDefault)).toEqual([true, false]);
+});

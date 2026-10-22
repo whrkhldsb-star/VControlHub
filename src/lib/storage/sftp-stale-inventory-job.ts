@@ -32,6 +32,7 @@ import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-
 
 import {
   detectAndPruneSftpStaleInventory,
+  findSftpNodeForStaleInventory,
   listSftpNodesForStaleInventory,
   type SftpStaleInventoryResult,
 } from "./sftp-stale-inventory";
@@ -187,8 +188,9 @@ async function executeStaleInventoryJob(job: {
 
   if (payload.nodeId) {
     // System worker path: node id was validated at enqueue (API) or is system-scheduled.
-    const nodes = await listSftpNodesForStaleInventory();
-    const node = nodes.find((n) => n.id === payload.nodeId);
+    // Looked up directly: searched for in the first 500 nodes by name, a
+    // later one was reported missing although the API had just accepted it.
+    const node = await findSftpNodeForStaleInventory(payload.nodeId);
     if (!node) {
       throw new Error(`Storage node not found: ${payload.nodeId}`);
     }
@@ -203,11 +205,7 @@ async function executeStaleInventoryJob(job: {
   }
 
   // nodeIds present (including []) => team-scoped multi-node job; never widen to global.
-  let nodes = await listSftpNodesForStaleInventory();
-  if (payload.nodeIds !== undefined) {
-    const allowed = new Set(payload.nodeIds);
-    nodes = nodes.filter((n) => allowed.has(n.id));
-  }
+  const nodes = await listSftpNodesForStaleInventory(undefined, payload.nodeIds);
 
   if (nodes.length === 0) {
     await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, toJsonValue({

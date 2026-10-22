@@ -52,5 +52,20 @@ describe("CostPageClient budgets", () => {
 		expect(name).toHaveValue("Next draft");
 		expect(limit).toHaveValue("200");
 	});
-});
 
+	it("reloads the budgets when the page refreshes its costs", async () => {
+		// A new cost changed what the budget used, but the card kept the
+		// page-load figure; even the page's Refresh did not touch it.
+		const user = userEvent.setup();
+		const budget = { id: "budget-1", category: "vps", name: "Production VPS", limitAmount: "100.00", currency: "CNY", period: "monthly", alertThresholdPercent: 80, enabled: true, usageAmount: "0.00", usagePercent: 0, periodStart: "2026-06-01", periodEnd: "2026-06-30", otherCurrencyUsage: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+		csrfFetchMock.mockImplementation((url: string) => {
+			if (url === "/api/cost/budgets") return Promise.resolve({ budgets: [{ ...budget, usageAmount: "90.00", usagePercent: 90 }] });
+			return Promise.resolve(new Response(JSON.stringify({ summary: null, entries: [], snapshots: [] }), { status: 200 }));
+		});
+		render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null} initialEntries={[]} initialSnapshots={[]}
+			initialBudgets={[budget as never]} initialBillingAccounts={[]} canRead canManage availableCurrencies={["CNY"]} />);
+		expect(screen.getByText("0.0%")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "costPage.actions.refresh" }));
+		expect(await screen.findByText("90.0%")).toBeInTheDocument();
+	});
+});

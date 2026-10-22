@@ -131,6 +131,19 @@ set_env_var() {
  fi
 }
 
+# The value NAME has in the env file (last assignment, quotes removed), or
+# nothing when it is unset or still template syntax ("${...}").
+env_file_value() {
+ local name="$1" line value
+ [ -f "${ENV_FILE}" ] || return 0
+ line="$(grep "^${name}=" "${ENV_FILE}" 2>/dev/null | tail -n 1)" || return 0
+ value="${line#*=}"
+ value="${value%\"}"; value="${value#\"}"
+ value="${value%\'}"; value="${value#\'}"
+ case "${value}" in *'${'*) return 0 ;; esac
+ printf '%s' "${value}"
+}
+
 remove_env_var() {
  local name="$1"
  [ -f "${ENV_FILE}" ] || return 0
@@ -532,9 +545,16 @@ sync_installer_env_overrides() {
  if [ -n "${DATABASE_URL_OVERRIDE}" ] && ! is_placeholder_value "${DATABASE_URL_OVERRIDE}"; then
   set_env_var DATABASE_URL "${DATABASE_URL_OVERRIDE}"
  fi
- local effective_storage_root="${STORAGE_ROOT_OVERRIDE:-/var/lib/${APP_SLUG}/storage}"
- local effective_backup_dir="${BACKUP_DIR_OVERRIDE:-/var/backups/${APP_SLUG}}"
- local effective_aria2_rpc_dir="${ARIA2_RPC_DIR_OVERRIDE:-/var/lib/${APP_SLUG}/aria2}"
+ # A value given to this run wins; otherwise keep what the env file already
+ # says. Re-running the installer from a fresh shell (no overrides exported)
+ # used to reset custom data directories to the standard ones.
+ local saved_storage_root saved_backup_dir saved_aria2_rpc_dir
+ saved_storage_root="$(env_file_value STORAGE_ROOT)"
+ saved_backup_dir="$(env_file_value BACKUP_DIR)"
+ saved_aria2_rpc_dir="$(env_file_value ARIA2_RPC_DIR)"
+ local effective_storage_root="${STORAGE_ROOT_OVERRIDE:-${saved_storage_root:-/var/lib/${APP_SLUG}/storage}}"
+ local effective_backup_dir="${BACKUP_DIR_OVERRIDE:-${saved_backup_dir:-/var/backups/${APP_SLUG}}}"
+ local effective_aria2_rpc_dir="${ARIA2_RPC_DIR_OVERRIDE:-${saved_aria2_rpc_dir:-/var/lib/${APP_SLUG}/aria2}}"
  set_env_var STORAGE_ROOT "${effective_storage_root}"
  set_env_var BACKUP_DIR "${effective_backup_dir}"
  set_env_var ARIA2_RPC_DIR "${effective_aria2_rpc_dir}"

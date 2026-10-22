@@ -281,8 +281,13 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 		headers["x-api-key"] = rawApiKey;
 		headers["anthropic-version"] = "2023-06-01";
 
-		// Extract system prompt from messages (Anthropic sends it separately)
-		const systemMsg = req.messages.find((m) => m.role === "system");
+		// Anthropic takes the system prompt as one field. Join every system
+		// message in order: taking the first dropped the conversation's own
+		// prompt whenever plan mode put its instructions ahead of it.
+		const systemText = req.messages
+			.filter((m) => m.role === "system" && typeof m.content === "string" && m.content.trim())
+			.map((m) => m.content as string)
+			.join("\n\n");
 		const chatMessages = req.messages.filter((m) => m.role !== "system");
 
 		// Tool calls, tool results and PDFs in the Messages API's own shape.
@@ -291,7 +296,7 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 		body = {
 			model: req.model,
 			messages: anthropicMessages,
-			...(systemMsg && { system: typeof systemMsg.content === "string" ? systemMsg.content : "" }),
+			...(systemText && { system: systemText }),
 			max_tokens: req.max_tokens ?? 4096,
 			temperature: req.temperature ?? 0.7,
 			top_p: req.top_p ?? 1.0,

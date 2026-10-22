@@ -51,4 +51,21 @@ describe("CreateAnnouncementForm", () => {
     }));
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps a next announcement typed while the previous one was saving", async () => {
+    const user = userEvent.setup();
+    let finish: (value: unknown) => void = () => undefined;
+    vi.mocked(csrfFetch).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    render(<CreateAnnouncementForm />);
+
+    await user.type(screen.getByLabelText("标题"), "A");
+    await user.type(screen.getByLabelText("内容"), "A body");
+    await user.click(screen.getByRole("button", { name: "发布公告" }));
+    await user.clear(screen.getByLabelText("标题"));
+    await user.type(screen.getByLabelText("标题"), "B");
+    finish({ id: "a" });
+
+    await waitFor(() => expect(refreshMock).toHaveBeenCalled());
+    expect(screen.getByLabelText("标题")).toHaveValue("B");
+  });
 });

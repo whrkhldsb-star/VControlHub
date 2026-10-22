@@ -109,3 +109,41 @@ describe("image service — convertToAVIF", () => {
     expect(out.length).toBeGreaterThan(0);
   });
 });
+
+describe("EXIF orientation", () => {
+  // A 96×48 JPEG (left half red, right half blue) tagged orientation 6, as
+  // a phone stores a portrait photo: viewers show it 48 wide, 96 tall.
+  async function makeSidewaysJpeg(): Promise<Buffer> {
+    const sharp = (await import("sharp")).default;
+    const red = await sharp({ create: { width: 48, height: 48, channels: 3, background: { r: 255, g: 0, b: 0 } } }).png().toBuffer();
+    return sharp({ create: { width: 96, height: 48, channels: 3, background: { r: 0, g: 0, b: 255 } } })
+      .composite([{ input: red, left: 0, top: 0 }])
+      .withMetadata({ orientation: 6 })
+      .jpeg()
+      .toBuffer();
+  }
+
+  async function shape(buffer: Buffer) {
+    const sharp = (await import("sharp")).default;
+    const { data, info } = await sharp(buffer).raw().toBuffer({ resolveWithObject: true });
+    const meta = await sharp(buffer).metadata();
+    // Rotated 90° clockwise, the red (left) half ends up on top.
+    const top = data[0]!;
+    return { width: info.width, height: info.height, orientation: meta.orientation, topIsRed: top > 200 };
+  }
+
+  it("reports the size as displayed", async () => {
+    const meta = await extractMetadata(await makeSidewaysJpeg());
+    expect([meta.width, meta.height]).toEqual([48, 96]);
+  });
+
+  it("makes upright thumbnails and WebP copies", async () => {
+    const source = await makeSidewaysJpeg();
+    for (const derived of [await generateThumbnail(source), await convertToWebP(source), await convertToAVIF(source)]) {
+      const result = await shape(derived);
+      expect(result.width).toBeLessThan(result.height);
+      expect(result.topIsRed).toBe(true);
+      expect(result.orientation ?? 1).toBe(1);
+    }
+  });
+});

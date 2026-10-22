@@ -250,7 +250,7 @@ describe("getCapacityForecast service", () => {
     const { getCapacityForecast } = await import("../capacity-service");
     const result = await getCapacityForecast({ nowMs: Date.parse("2026-07-16T00:00:00Z") });
     // The background forecast leaves a deleted customer's servers out.
-    expect(findManyServers).toHaveBeenCalledWith(expect.objectContaining({ where: { OR: [{ teamId: null }, { team: { deletedAt: null } }] } }));
+    expect(findManyServers).toHaveBeenCalledWith(expect.objectContaining({ where: { OR: [{ teamId: null }, { team: { deletedAt: null } }], enabled: true } }));
     expect(result.servers).toEqual([]);
     expect(result.summary.serverCount).toBe(0);
     expect(findManySnapshots).not.toHaveBeenCalled();
