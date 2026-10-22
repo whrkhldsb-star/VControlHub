@@ -422,16 +422,22 @@ export async function listRecentPlaybookRunsForPlaybooks(
   const out: Record<string, PlaybookRunRecord[]> = {};
   for (const id of playbookIds) out[id] = [];
   if (playbookIds.length === 0) return out;
-  // Over-fetch then group so each playbook still gets up to `perPlaybook` rows
-  // without a correlated subquery per id.
-  const take = Math.min(Math.max(playbookIds.length * perPlaybook, perPlaybook), 500);
+  // The newest `perPlaybook` runs of EACH playbook, ranked in the database.
+  // One newest-first window over all of them (playbooks × perPlaybook rows)
+  // was filled by a busy playbook, and the others showed no history at all.
+  const ranked = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM (
+      SELECT id, ROW_NUMBER() OVER (PARTITION BY "playbookId" ORDER BY "createdAt" DESC, id DESC) AS position
+      FROM playbook_runs
+      WHERE "playbookId" = ANY(${playbookIds}::text[])
+    ) ranked
+    WHERE position <= ${perPlaybook}`;
   const rows = await prisma.playbookRun.findMany({
     where: {
-      playbookId: { in: playbookIds },
+      id: { in: ranked.map((row) => row.id) },
       ...(session ? playbookTeamWhere(session) : {}),
     },
-    orderBy: { createdAt: "desc" },
-    take,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
   for (const row of rows) {
     const list = out[row.playbookId] ?? (out[row.playbookId] = []);

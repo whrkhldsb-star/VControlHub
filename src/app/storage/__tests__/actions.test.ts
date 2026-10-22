@@ -531,6 +531,21 @@ describe("SFTP file entry actions", () => {
     });
   });
 
+  it("loads the node's WebDAV connection for permanent delete and rename", async () => {
+    // The projection lacked webdavConfigEncrypted: on a WebDAV node the
+    // backend failed reading its configuration and nothing was deleted.
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    await permanentDeleteFileEntryAction(null, entryForm("entry-1"));
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    const rename = new FormData();
+    rename.set("fileEntryId", "entry-1");
+    rename.set("newName", "renamed.txt");
+    await renameFileEntryAction(null, rename);
+    for (const call of prismaMock.fileEntry.findFirst.mock.calls.slice(-2)) {
+      expect(call[0].select.storageNode.select).toMatchObject({ id: true, driver: true, webdavConfigEncrypted: true });
+    }
+  });
+
   it("keeps the recycle-bin row when permanent backing deletion fails", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     deleteRemoteFileMock.mockRejectedValueOnce(new Error("permission denied"));

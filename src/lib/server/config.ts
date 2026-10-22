@@ -75,7 +75,9 @@ export function normalizeServerInput(
     connectionType: input.connectionType ?? "SSH_KEY",
     managementMode: input.managementMode ?? "DIRECT",
     sshKeyId: input.sshKeyId?.trim() || null,
-    password: input.password?.trim() || null,
+    // A password is not text to tidy: " secret " and "secret" are different
+    // credentials. Only an all-blank value means "none".
+    password: input.password?.trim() ? input.password : null,
     tags: Array.from(
       new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean)),
     ),

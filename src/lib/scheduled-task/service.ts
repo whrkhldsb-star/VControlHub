@@ -322,7 +322,16 @@ export async function retryScheduledTask(
 	return prisma.scheduledTask.findUniqueOrThrow({ where: { id } });
 }
 
-export async function recordTaskDispatch(id: string, commandRequestId: string, manual = false) {
+/**
+ * The worker's claim on one occurrence: `nextRunAt` holds the lease and
+ * `claimedOccurrenceAt` the occurrence. Editing the schedule replaces both.
+ */
+export interface ScheduledTaskClaim {
+	occurrence: Date | null;
+	lease: Date;
+}
+
+export async function recordTaskDispatch(id: string, commandRequestId: string, manual = false, claim?: ScheduledTaskClaim) {
 	return prisma.$transaction(async (tx) => {
 		const existing = await tx.scheduledTaskRun.findUnique({ where: { commandRequestId } });
 		const task = await tx.scheduledTask.findUnique({
@@ -341,13 +350,21 @@ export async function recordTaskDispatch(id: string, commandRequestId: string, m
 					lastRunAt: dispatchedAt,
 					lastResult: `${manual ? "Manual retry dispatched" : "Dispatched"} command request ${commandRequestId}; awaiting final result`,
 					runCount: { increment: 1 },
-					...(!manual ? {
+				},
+			});
+			if (!manual) {
+				// Advance only the schedule this dispatch claimed. An edit saved
+				// meanwhile (a ONCE task moved to next week) replaced the claim, and
+				// overwriting it disabled the task: the new run never happened.
+				await tx.scheduledTask.updateMany({
+					where: { id, ...(claim ? { nextRunAt: claim.lease, claimedOccurrenceAt: claim.occurrence } : {}) },
+					data: {
 						claimedOccurrenceAt: null,
 						nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
 						...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
-					} : {}),
-				},
-			});
+					},
+				});
+			}
 		}
 		return existing ?? { scheduledTaskId: id, commandRequestId, status: "DISPATCHED", manual };
 	});

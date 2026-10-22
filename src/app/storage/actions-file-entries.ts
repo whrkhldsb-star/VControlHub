@@ -141,8 +141,12 @@ export async function permanentDeleteFileEntryAction(
         storageNodeId: true,
         storageNode: {
           select: {
+            id: true,
             driver: true,
             basePath: true,
+            // The WebDAV backend reads its connection from here: without it a
+            // permanent delete on a WebDAV node failed before any request.
+            webdavConfigEncrypted: true,
             host: true,
             port: true,
             username: true,

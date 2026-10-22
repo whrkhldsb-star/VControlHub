@@ -110,14 +110,22 @@ for ($i = 0; $i -lt $roles.Count; $i++) {
   Start-ScheduledTask -TaskName $taskNames[$i]
 }
 
+# Check the address the web task listens on (PORT and NEXT_HOST from the env
+# file loaded above), not a fixed 3000: a custom port was reported as a failed
+# start, and whatever else answered on 3000 as a healthy one.
+$webPort = if ($env:PORT) { $env:PORT.Trim() } else { '3000' }
+$webHost = if ($env:NEXT_HOST) { $env:NEXT_HOST.Trim() } else { '' }
+if (!$webHost -or $webHost -eq '0.0.0.0' -or $webHost -eq '::') { $webHost = '127.0.0.1' }
+$sshWsPort = if ($env:SSH_WS_PORT) { $env:SSH_WS_PORT.Trim() } else { '3001' }
+$healthUrl = "http://${webHost}:${webPort}/login"
 $ready = $false
 for ($attempt = 0; $attempt -lt 30; $attempt++) {
   Start-Sleep -Seconds 2
   try {
-    $response = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri 'http://127.0.0.1:3000/login'
+    $response = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $healthUrl
     if ($response.StatusCode -eq 200) { $ready = $true; break }
   } catch { }
 }
-if (!$ready) { throw 'Web process did not become healthy on 127.0.0.1:3000; inspect logs/windows-web.log and Scheduled Tasks.' }
-Write-Host "VControlHub Windows runtime is ready at http://127.0.0.1:3000/login"
-if ($Domain) { Write-Host "Configure Caddy or IIS HTTPS for $Domain and proxy /ssh to 127.0.0.1:3001; see docs/windows-development.md." }
+if (!$ready) { throw "Web process did not become healthy at $healthUrl; inspect logs/windows-web.log and Scheduled Tasks." }
+Write-Host "VControlHub Windows runtime is ready at $healthUrl"
+if ($Domain) { Write-Host "Configure Caddy or IIS HTTPS for $Domain and proxy /ssh to 127.0.0.1:${sshWsPort}; see docs/windows-development.md." }
