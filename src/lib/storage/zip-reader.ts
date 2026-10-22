@@ -54,22 +54,37 @@ async function readAt(handle: FileHandle, position: number, length: number): Pro
 }
 
 const utf8 = new TextDecoder("utf-8", { fatal: true });
-const gb18030 = new TextDecoder("gb18030");
+const gb18030 = new TextDecoder("gb18030", { fatal: true });
+
+/** IBM code page 437, the ZIP format's default, for bytes 0x80–0xFF. */
+const CP437_HIGH =
+	"ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■\u00a0";
+
+function decodeCp437(raw: Buffer): string {
+	let out = "";
+	for (const byte of raw) out += byte < 0x80 ? String.fromCharCode(byte) : CP437_HIGH[byte - 0x80];
+	return out;
+}
 
 /**
  * Names without the UTF-8 flag are in the creator's code page. Many tools
- * write UTF-8 anyway, so try that first; otherwise assume GBK, what Windows
- * in Chinese writes (pure ASCII reads the same either way).
+ * write UTF-8 anyway, so try that first; then GBK, what Windows in Chinese
+ * writes (pure ASCII reads the same either way); then CP437, the format's
+ * own default. A lenient GBK decode turned every unreadable byte into "�",
+ * so "café.txt" and "cafü.txt" became one name and extraction kept one file.
  */
 function decodeName(raw: Buffer, flags: number, extra: Buffer): string {
 	const unicodePath = readUnicodePathExtra(extra, raw);
 	if (unicodePath !== null) return unicodePath;
 	if (flags & FLAG_UTF8) return raw.toString("utf8");
-	try {
-		return utf8.decode(raw);
-	} catch {
-		return gb18030.decode(raw);
+	for (const decoder of [utf8, gb18030]) {
+		try {
+			return decoder.decode(raw);
+		} catch {
+			// Not this encoding; try the next.
+		}
 	}
+	return decodeCp437(raw);
 }
 
 /** Info-ZIP Unicode Path extra field (0x7075), valid only if its CRC matches the raw name. */
@@ -106,20 +121,36 @@ async function readEndOfCentralDirectory(handle: FileHandle, fileSize: number) {
 		let directorySize = tail.readUInt32LE(offset + 12);
 		let directoryOffset = tail.readUInt32LE(offset + 16);
 		const eocdPosition = tailStart + offset;
+		// Where the central directory really ends: right before this record
+		// (or before the ZIP64 record that replaces it).
+		let directoryEnd = eocdPosition;
 		if (entries === 0xffff || directorySize === 0xffffffff || directoryOffset === 0xffffffff) {
 			const locator = eocdPosition >= 20 ? await readAt(handle, eocdPosition - 20, 20) : Buffer.alloc(0);
 			if (locator.length !== 20 || locator.readUInt32LE(0) !== ZIP64_LOCATOR_SIGNATURE) {
 				throw new ZipFormatError("ZIP64 locator missing");
 			}
-			const zip64 = await readAt(handle, Number(locator.readBigUInt64LE(8)), 56);
+			// The stated position counts from the archive's start; with a prefix
+			// the record sits right before the locator instead.
+			let zip64Position = Number(locator.readBigUInt64LE(8));
+			let zip64 = await readAt(handle, zip64Position, 56);
+			if ((zip64.length !== 56 || zip64.readUInt32LE(0) !== ZIP64_EOCD_SIGNATURE) && eocdPosition >= 76) {
+				zip64Position = eocdPosition - 20 - 56;
+				zip64 = await readAt(handle, zip64Position, 56);
+			}
 			if (zip64.length !== 56 || zip64.readUInt32LE(0) !== ZIP64_EOCD_SIGNATURE) {
 				throw new ZipFormatError("ZIP64 end of central directory missing");
 			}
 			entries = Number(zip64.readBigUInt64LE(32));
 			directorySize = Number(zip64.readBigUInt64LE(40));
 			directoryOffset = Number(zip64.readBigUInt64LE(48));
+			directoryEnd = zip64Position;
 		}
-		return { entries, directorySize, directoryOffset };
+		// Offsets count from the start of the ZIP data. An archive behind a
+		// prefix (a self-extracting stub, a launcher script before a JAR) has
+		// its data shifted by the prefix's length; every offset moves with it.
+		const prefix = directoryEnd - directorySize - directoryOffset;
+		if (prefix < 0) throw new ZipFormatError("Central directory lies outside the file");
+		return { entries, directorySize, directoryOffset: directoryOffset + prefix, prefix };
 	}
 	throw new ZipFormatError("Not a ZIP archive (no end of central directory)");
 }
@@ -129,7 +160,7 @@ export async function readZipEntries(source: string | FileHandle, limits: { maxE
 	const handle = typeof source === "string" ? await open(source, "r") : source;
 	try {
 		const { size: fileSize } = await handle.stat();
-		const { entries, directorySize, directoryOffset } = await readEndOfCentralDirectory(handle, fileSize);
+		const { entries, directorySize, directoryOffset, prefix } = await readEndOfCentralDirectory(handle, fileSize);
 		if (limits.maxEntries !== undefined && entries > limits.maxEntries) {
 			throw new ZipFormatError(`Archive has ${entries} entries (limit ${limits.maxEntries})`);
 		}
@@ -180,7 +211,7 @@ export async function readZipEntries(source: string | FileHandle, limits: { maxE
 				size,
 				crc32: crc,
 				modified: dosDate(date, time),
-				localHeaderOffset,
+				localHeaderOffset: localHeaderOffset + prefix,
 			});
 			offset += 46 + nameLength + extraLength + commentLength;
 		}

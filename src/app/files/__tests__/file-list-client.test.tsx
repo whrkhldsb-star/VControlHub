@@ -213,6 +213,14 @@ describe("FileListClient", () => {
 		expect(mocks.fetch).not.toHaveBeenCalledWith("/api/files/operations", expect.anything());
 	});
 
+	it("moves into the folder's path on its node, not the all-locations browsing path", async () => {
+		// Search results across all nodes are grouped under "Node__id/…"; the
+		// move used that path and created the virtual group as a real folder.
+		const { container } = renderFileList({ folders: [{ ...folder, path: "本机存储__node_1/photos" }] });
+		expect(container.querySelector('[data-file-drop-path="photos"]')).not.toBeNull();
+		expect(container.querySelector('[data-file-drop-path="本机存储__node_1/photos"]')).toBeNull();
+	});
+
 	it("keeps all entries selected when Ctrl+A is pressed twice inside the list", () => {
 		const { container } = renderFileList();
 		const list = container.querySelector("[data-file-list]")!;

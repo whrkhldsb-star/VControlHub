@@ -103,6 +103,33 @@ describe("listing", () => {
 		expect(names).toEqual(["站点", "站点/首页.html", long, `pax/${"长".repeat(50)}.txt`, "站点/link"]);
 	});
 
+	it("reads CP437 names, the ZIP default, without merging different ones", async () => {
+		// "café.txt" and "cafü.txt" in CP437 (é = 0x82, ü = 0x81) both decoded
+		// to "caf�.txt" and extraction kept only the second.
+		const cafe = Buffer.concat([Buffer.from("caf"), Buffer.from([0x82]), Buffer.from(".txt")]);
+		const cafu = Buffer.concat([Buffer.from("caf"), Buffer.from([0x81]), Buffer.from(".txt")]);
+		const file = await write("dos.zip", zipFixture([{ name: cafe, data: "e", utf8: false }, { name: cafu, data: "u", utf8: false }]));
+		expect((await readZipEntries(file)).map((entry) => entry.name)).toEqual(["café.txt", "cafü.txt"]);
+		const result = await extract("dos-x.zip", zipFixture([{ name: cafe, data: "e", utf8: false }, { name: cafu, data: "u", utf8: false }]), "zip");
+		expect(await readFile(path.join(dir, result.folderName, "café.txt"), "utf8")).toBe("e");
+		expect(await readFile(path.join(dir, result.folderName, "cafü.txt"), "utf8")).toBe("u");
+	});
+
+	it("reads an archive behind a prefix, like a JAR with a launcher script", async () => {
+		// Offsets in the central directory count from the ZIP data, not the
+		// file: the prefixed JAR was reported as corrupt.
+		const zip = zipFixture([{ name: "META-INF/MANIFEST.MF", data: "Manifest-Version: 1.0\n" }, { name: "readme.txt", data: "hello", deflate: true }]);
+		const file = await write("app.jar", Buffer.concat([Buffer.from("#!/bin/sh\nexec java -jar \"$0\" \"$@\"\n"), zip]));
+		expect((await readZipEntries(file)).map((entry) => entry.name)).toEqual(["META-INF/MANIFEST.MF", "readme.txt"]);
+		const result = await extract("app2.jar", Buffer.concat([Buffer.from("#!/bin/sh\n"), zip]), "zip");
+		expect(await readFile(path.join(dir, result.folderName, "readme.txt"), "utf8")).toBe("hello");
+	});
+
+	it("refuses two files under one name instead of keeping the last", async () => {
+		const file = await write("twice.zip", zipFixture([{ name: "a.txt", data: "first" }, { name: "a.txt", data: "second" }]));
+		await expect(planExtraction(file, "zip")).rejects.toMatchObject({ code: "duplicateName", detail: "a.txt" });
+	});
+
 	it("reports a damaged archive as corrupt", async () => {
 		const file = await write("broken.zip", Buffer.from("not a zip at all"));
 		await expect(listArchive(file, "zip")).rejects.toMatchObject({ code: "corrupt" });

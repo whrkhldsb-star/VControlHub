@@ -63,6 +63,52 @@ describe("RecycleBinSectionClient", () => {
 		expect(mocks.toast).toHaveBeenCalledWith("warning", "已恢复 1 项");
 	});
 
+	it("keeps the failures and their selection when the refreshed list arrives", async () => {
+		// The page keyed the list on its entries, so the refresh after a partly
+		// failed batch remounted it and the failure details were gone.
+		mocks.restore.mockImplementation(async (_prev: unknown, form: FormData) =>
+			form.get("fileEntryId") === "entry-2" ? { error: "原始文件已不存在" } : { success: "ok" });
+		const { rerender } = render(<RecycleBinSectionClient canDelete deletedEntries={entries} />);
+		const table = screen.getByRole("table");
+		fireEvent.click(within(table).getByRole("checkbox", { name: "选择 obsolete.txt" }));
+		fireEvent.click(within(table).getByRole("checkbox", { name: "选择 old-photos" }));
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole("region", { name: "回收站批量操作" })).getByRole("button", { name: "恢复所选" }));
+		});
+		rerender(<RecycleBinSectionClient canDelete deletedEntries={entries.slice(1)} />);
+		expect(screen.getByText("old-photos: 原始文件已不存在")).toBeInTheDocument();
+		expect(within(screen.getByRole("table")).getByRole("checkbox", { name: "选择 old-photos" })).toBeChecked();
+	});
+
+	it("does not report what a selected folder already took care of", async () => {
+		// Restoring the folder restores the file deleted with it; restoring the
+		// file afterwards failed as "not in the recycle bin" and the batch warned.
+		mocks.restore.mockResolvedValue({ success: "ok" });
+		const folder: DeletedEntryProp = { id: "dir", name: "reports", entryType: "DIRECTORY", relativePath: "reports", size: null, storageNodeId: "node-1" };
+		const child: DeletedEntryProp = { id: "child", name: "q3.txt", entryType: "FILE", relativePath: "reports/q3.txt", size: 3, storageNodeId: "node-1" };
+		render(<RecycleBinSectionClient canDelete deletedEntries={[child, folder]} />);
+		fireEvent.click(screen.getByRole("checkbox", { name: "全选回收站项目" }));
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole("region", { name: "回收站批量操作" })).getByRole("button", { name: "恢复所选" }));
+		});
+		expect(mocks.restore).toHaveBeenCalledOnce();
+		expect(mocks.restore.mock.calls[0]![1].get("fileEntryId")).toBe("dir");
+		expect(mocks.toast).toHaveBeenCalledWith("success", "已恢复 1 项");
+	});
+
+	it("still handles a covered entry itself when its folder failed", async () => {
+		mocks.restore.mockImplementation(async (_prev: unknown, form: FormData) =>
+			form.get("fileEntryId") === "dir" ? { error: "原位置已有同名项目" } : { success: "ok" });
+		const folder: DeletedEntryProp = { id: "dir", name: "reports", entryType: "DIRECTORY", relativePath: "reports", size: null, storageNodeId: "node-1" };
+		const child: DeletedEntryProp = { id: "child", name: "q3.txt", entryType: "FILE", relativePath: "reports/q3.txt", size: 3, storageNodeId: "node-1" };
+		render(<RecycleBinSectionClient canDelete deletedEntries={[child, folder]} />);
+		fireEvent.click(screen.getByRole("checkbox", { name: "全选回收站项目" }));
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole("region", { name: "回收站批量操作" })).getByRole("button", { name: "恢复所选" }));
+		});
+		expect(mocks.restore.mock.calls.map((call) => call[1].get("fileEntryId"))).toEqual(["dir", "child"]);
+	});
+
 	it("asks before purging the selection for good", async () => {
 		mocks.purge.mockResolvedValue({ success: "ok" });
 		render(<RecycleBinSectionClient canDelete deletedEntries={entries} />);

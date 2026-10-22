@@ -25,7 +25,9 @@ export default async function FilesRecycleBinPage({ searchParams }: {
       />
       <FilesSubpageNav />
       <RecycleBinSectionClient
-        key={`${pagination.page}:${pagination.pageSize}:${entries.map((entry) => entry.id).join(",")}`}
+        // Not keyed on the entries: a refresh after a partly failed batch
+        // remounted the list and threw away the failures and their selection.
+        key={`${pagination.page}:${pagination.pageSize}`}
         deletedEntries={entries}
         pagination={pagination}
         canDelete={canDelete}

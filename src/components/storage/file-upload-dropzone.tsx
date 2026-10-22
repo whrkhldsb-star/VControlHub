@@ -29,6 +29,8 @@ export function FileUploadDropzone({
   pathLabel,
   allowNodeSelection = true,
   embedded = false,
+  pendingFiles,
+  onPendingFilesUsed,
   onUploadComplete,
 }: {
   nodes: StorageUploadNode[];
@@ -41,6 +43,13 @@ export function FileUploadDropzone({
   pathLabel: string;
   allowNodeSelection?: boolean;
   embedded?: boolean;
+  /**
+   * Files dropped before a target was chosen (the all-locations root). They
+   * wait here until the user picks a node and confirms; they used to be
+   * dropped and the dialog opened empty.
+   */
+  pendingFiles?: File[];
+  onPendingFilesUsed?: () => void;
   onUploadComplete?: (payload: {
     relativePath?: string;
     size?: number;
@@ -285,6 +294,26 @@ export function FileUploadDropzone({
         <FolderUp size={16} />
         {t("fileUploadDropzone.selectFolder")}
       </ActionButton>
+      {pendingFiles?.length ? (
+        <Notice tone="info" className="mt-4" data-testid="pending-upload-files">
+          <p>{t("fileUploadDropzone.pendingFiles", { count: String(pendingFiles.length) })}</p>
+          <p className="mt-1 truncate text-xs text-[var(--text-muted)]">
+            {pendingFiles.slice(0, 5).map((file) => getBrowserRelativePath(file)).join(", ")}
+            {pendingFiles.length > 5 ? " …" : ""}
+          </p>
+          <ActionButton
+            className="mt-3"
+            disabled={!uploadEnabled}
+            onClick={() => {
+              uploadFiles(pendingFiles);
+              onPendingFilesUsed?.();
+            }}
+          >
+            <Upload size={16} />
+            {t("fileUploadDropzone.uploadPending", { count: String(pendingFiles.length) })}
+          </ActionButton>
+        </Notice>
+      ) : null}
       {message ? (
         <Notice
           tone={message.type === "success" ? "success" : "danger"}

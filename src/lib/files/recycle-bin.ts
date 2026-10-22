@@ -36,6 +36,7 @@ export async function getRecycleBinPage(
           mimeType: true,
           relativePath: true,
           size: true,
+          storageNodeId: true,
           // A recycled entry is not edited, so its last change is when it was deleted.
           updatedAt: true,
           storageNode: { select: { name: true } },

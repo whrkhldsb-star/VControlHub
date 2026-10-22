@@ -109,7 +109,7 @@ export function getResolvedDirectGatewayProtocol(input: {
   }
 }
 
-function pythonGatewaySource() {
+export function pythonGatewaySource() {
   return String.raw`#!/usr/bin/env python3
 import hmac
 import hashlib
@@ -134,6 +134,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(message.encode("utf-8"))
 
     def _validate(self):
+        self._vch_target = None
         if not SECRET:
             return None, (500, "direct secret missing")
         parsed = urlparse(self.path)
@@ -172,13 +173,20 @@ class Handler(SimpleHTTPRequestHandler):
             return self._reject(*error)
         if not os.path.isfile(target):
             return self._reject(404, "not found")
-        self.path = "/" + os.path.relpath(target, ROOT).replace(os.sep, "/")
+        # Serve exactly the file validated above. Writing its decoded name
+        # back into self.path had the base class parse it as a URL again:
+        # "a%20.txt" became "a .txt" and "a.txt#v2" lost "#v2", so a
+        # neighbouring file with that name was served instead.
+        self._vch_target = target
         return super().do_GET()
 
     def do_HEAD(self):
         return self.do_GET()
 
     def translate_path(self, path):
+        target = getattr(self, "_vch_target", None)
+        if target:
+            return target
         parsed = urlparse(path)
         normalized = posixpath.normpath("/" + unquote(parsed.path).lstrip("/"))
         return os.path.realpath(os.path.join(ROOT, normalized.lstrip("/")))

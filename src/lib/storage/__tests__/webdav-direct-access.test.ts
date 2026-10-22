@@ -14,3 +14,18 @@ describe("WebDAV direct access strategy", () => {
     expect(buildStorageConnectionSummary({ driver: "WEBDAV", basePath: "/docs" })).toBe("WebDAV: /docs");
   });
 });
+
+describe("node-level access descriptions", () => {
+  it("give no download link without a file", async () => {
+    // The node card linked "direct access" to /api/storage/direct-access?path=,
+    // which always answers 400.
+    const { buildDirectAccessStrategy } = await import("../service-direct-access");
+    const base = { driver: "SFTP" as const, nodeId: "node-1", host: "203.0.113.4", port: 22 };
+    for (const directAccessMode of ["DIRECT", "AUTO", "PROXY"] as const) {
+      const node = buildDirectAccessStrategy({ ...base, directAccessMode, publicBaseUrl: "https://files.example.test" });
+      expect(node.href).toBeNull();
+      const file = buildDirectAccessStrategy({ ...base, directAccessMode, publicBaseUrl: "https://files.example.test", relativePath: "a.txt" });
+      expect(file.href).toContain("path=a.txt");
+    }
+  });
+});

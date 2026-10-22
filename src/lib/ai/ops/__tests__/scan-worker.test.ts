@@ -284,7 +284,7 @@ describe("runAiOpsScanWorkerOnce", () => {
     // One full disk; the offline server's figures are not counted as pressure.
     expect(disk?.body).toMatch(/^1 server/);
     expect(findings.some((finding) => finding.source === "metric.cpu")).toBe(false);
-    expect(String((latestSamplesMock.mock.calls[0] as unknown as [TemplateStringsArray])[0].join(""))).toContain('DISTINCT ON ("serverId")');
+    expect(String((latestSamplesMock.mock.calls[0] as unknown as [TemplateStringsArray])[0].join(""))).toContain('DISTINCT ON (m."serverId")');
     latestSamplesMock.mockResolvedValue([]);
   });
 
@@ -299,6 +299,21 @@ describe("runAiOpsScanWorkerOnce", () => {
     expect((await findings()).some((finding) => finding.id === "job.stale-accumulation")).toBe(false);
     jobGroupByMock.mockResolvedValueOnce([{ type: "kept", _count: { _all: 200 } }, { type: "stuck", _count: { _all: 450 } }]);
     expect((await findings()).find((finding) => finding.id === "job.stale-accumulation")?.body).toMatch(/^250 /);
+  });
+
+  it("reports a check it could not read instead of passing it", async () => {
+    // Read errors fell back to 0: the scan was saved "ok" with no findings.
+    commandFailureCountMock.mockRejectedValueOnce(new Error("statement timeout"));
+    await runAiOpsScanWorkerOnce("manual");
+    const update = vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data as { status: string; findings: Array<{ id: string; body: string }> };
+    expect(update.status).toBe("warning");
+    expect(update.findings.find((finding) => finding.id === "scan.incomplete")?.body).toContain("command.execution");
+  });
+
+  it("files the daily timer's scan as scheduled", async () => {
+    jobMocks.claimNextJob.mockResolvedValueOnce({ id: "job_1", payload: { reason: "scheduled", requestedAt: new Date().toISOString() } });
+    await runAiOpsScanWorkerOnce("scheduled");
+    expect(vi.mocked(prisma.aiOpsLog.create).mock.calls.at(-1)![0].data).toMatchObject({ triggerType: "scheduled" });
   });
 
   it("calls failJob when an underlying signal collector throws", async () => {
@@ -361,7 +376,8 @@ describe("runAiOpsScanWorkerOnce", () => {
     expect(payload.signals).toEqual([]);
     expect(payload.checks.length).toBeGreaterThanOrEqual(7);
     expect(payload.checks.some((check) => check.includes("Backups"))).toBe(true);
-    expect(request.messages[0]!.content).toContain("An empty `signals` list means every check passed");
+    expect(request.messages[0]!.content).toContain("An empty `signals` list means every check ran and passed");
+    expect(request.messages[0]!.content).toContain("scan.incomplete");
     expect(request.messages[0]!.content).toContain("Simplified Chinese");
 
     platformLocale.value = "en";

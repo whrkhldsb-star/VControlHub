@@ -30,3 +30,14 @@ describe("renderMarkdown for announcements", () => {
 		expect(html).not.toContain("**");
 	});
 });
+
+describe("markdownToPlainText keeps code as written", () => {
+	it("leaves fenced blocks and inline code alone", () => {
+		const source = "Run **this**:\n\n```python\nclass A:\n    def __init__(self):\n        pass\n---\n```\n\nThen call `__init__` and `a_b_c`.";
+		const text = markdownToPlainText(source);
+		expect(text).toContain("def __init__(self):");
+		expect(text).toContain("\n---");
+		expect(text).toContain("Run this:");
+		expect(text).toContain("Then call __init__ and a_b_c.");
+	});
+});
