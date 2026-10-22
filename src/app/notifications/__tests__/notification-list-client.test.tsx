@@ -98,10 +98,10 @@ describe("NotificationListClient", () => {
     // The page showed "no notifications" while the 51st still existed.
     const first = Array.from({ length: 50 }, (_, i) => ({ ...unreadNotification, id: `n_${i}`, title: `通知 ${i}`, isRead: true }));
     const next = { ...unreadNotification, id: "n_50", title: "第 51 条通知", isRead: true };
-    vi.mocked(csrfFetch).mockImplementation(async (url: string, init?: { method?: string }) => {
-      if (init?.method === "DELETE") return {} as never;
-      return { notifications: [next], hasMore: false } as never;
-    });
+    vi.mocked(csrfFetch).mockImplementation((async (_url: unknown, init?: { method?: string }) => {
+      if (init?.method === "DELETE") return {};
+      return { notifications: [next], hasMore: false };
+    }) as never);
     const { fireEvent } = await import("@testing-library/react");
     render(<NotificationListClient initialNotifications={first} initialUnreadCount={0} initialNow={INITIAL_NOW} />);
 

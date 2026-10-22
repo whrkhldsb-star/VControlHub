@@ -1,10 +1,12 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useSwitchLocale } from "@/lib/i18n/use-switch-locale";
 import { IconLanguages } from "./nav-icons";
 
 export function LanguageToggle({ compact = false }: { compact?: boolean }) {
-	const { locale, setLocale, t } = useI18n();
+	const { locale, t } = useI18n();
+	const setLocale = useSwitchLocale();
 	const nextLocale = locale === "zh" ? "en" : "zh";
 	const label = t("languageToggle.switchLabel");
 

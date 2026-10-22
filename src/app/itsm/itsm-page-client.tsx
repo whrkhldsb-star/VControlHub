@@ -72,6 +72,7 @@ export function ItsmPageClient({
 
 	const create = async () => {
 		if (!form.name.trim()) return;
+		const submitted = form;
 		setBusy(true);
 		try {
 			const body: Record<string, unknown> = {
@@ -94,13 +95,16 @@ export function ItsmPageClient({
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
 			});
+			// Clear only what was sent: the fields stay editable while saving,
+			// and a next connection typed meanwhile used to be wiped here.
+			const sentOrKept = (current: string, sent: string) => (current === sent ? "" : current);
 			setForm((c) => ({
 				...c,
-				name: "",
-				webhookUrl: "",
-				chatId: "",
-				webhookSecret: "",
-				botToken: "",
+				name: sentOrKept(c.name, submitted.name),
+				webhookUrl: sentOrKept(c.webhookUrl, submitted.webhookUrl),
+				chatId: sentOrKept(c.chatId, submitted.chatId),
+				webhookSecret: sentOrKept(c.webhookSecret, submitted.webhookSecret),
+				botToken: sentOrKept(c.botToken, submitted.botToken),
 			}));
 			await reload();
 			addToast("success", t("itsmPage.toast.created"));

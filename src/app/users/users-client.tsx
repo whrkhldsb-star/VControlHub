@@ -115,7 +115,15 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
     }).catch(() => undefined);
   }, [canManage]);
 
+  // The form stays editable while a create is in flight; its success must
+  // not wipe another user typed meanwhile.
+  const latestCreateForm = useRef(createForm);
+  useEffect(() => {
+    latestCreateForm.current = createForm;
+  }, [createForm]);
+
   const handleCreate = async () => {
+    const submitted = createForm;
     setCreating(true);
     try {
       const { accountType, teamId, identityTemplateId, ...identity } = createForm;
@@ -127,9 +135,11 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
           account: accountType === "admin" ? { type: "admin" } : { type: "customer", teamId, identityTemplateId },
         }),
       });
-      addToast("success", t("usersPage.success.created", { name: createForm.username }));
-      setCreateForm({ ...EMPTY_CREATE_FORM, teamId: customers[0]?.id ?? "" });
-      setShowCreateForm(false);
+      addToast("success", t("usersPage.success.created", { name: submitted.username }));
+      if (latestCreateForm.current === submitted) {
+        setCreateForm({ ...EMPTY_CREATE_FORM, teamId: customers[0]?.id ?? "" });
+        setShowCreateForm(false);
+      }
       fetchUsers();
     } catch (err) {
       addToast("error", getErrorMessage(err, t("usersPage.error.createFailed")) );

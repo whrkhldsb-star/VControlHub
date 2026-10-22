@@ -10,7 +10,7 @@
  *
  * TR-017 (ai-client 拆分)
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { FileAttachment, ModelCapabilities } from "../ai-types";
 import {
   categorizeFile,
@@ -65,6 +65,10 @@ export function useFileAttachments({
     [t],
   );
   const [fileAttachments, setFileAttachments] = useState<FileAttachment[]>([]);
+  // Bumped when the attachments are cleared for another conversation. A file
+  // still being read for the previous one must not land in this one (it was
+  // sent with the next conversation's message).
+  const generation = useRef(0);
   const [fileRejectionMsg, setFileRejectionMsg] = useState<string | null>(null);
 
   const showRejection = useCallback(
@@ -78,6 +82,11 @@ export function useFileAttachments({
 
   const handleFileSelect = useCallback(
     async (files: FileList | File[]) => {
+      const startedIn = generation.current;
+      const attach = (attachment: FileAttachment) => {
+        if (generation.current !== startedIn) return;
+        setFileAttachments((prev) => [...prev, attachment]);
+      };
       const fileArr = Array.from(files);
       for (const file of fileArr) {
         try {
@@ -98,17 +107,14 @@ export function useFileAttachments({
               }
               const dataUrl = await readFileAsDataURL(file);
               const base64Data = dataUrl.split(",")[1];
-              setFileAttachments((prev) => [
-                ...prev,
-                {
-                  name: file.name,
-                  content: "",
-                  type: "image",
-                  mimeType: file.type || "image/png",
-                  base64Data,
-                  preview: dataUrl,
-                },
-              ]);
+              attach({
+                name: file.name,
+                content: "",
+                type: "image",
+                mimeType: file.type || "image/png",
+                base64Data,
+                preview: dataUrl,
+              });
               break;
             }
             case "video":
@@ -144,17 +150,14 @@ export function useFileAttachments({
               }
               const dataUrl = await readFileAsDataURL(file);
               const base64Data = dataUrl.split(",")[1];
-              setFileAttachments((prev) => [
-                ...prev,
-                {
-                  name: file.name,
-                  content: "",
-                  type: "document",
-                  mimeType: file.type || "application/pdf",
-                  base64Data,
-                  preview: undefined,
-                },
-              ]);
+              attach({
+                name: file.name,
+                content: "",
+                type: "document",
+                mimeType: file.type || "application/pdf",
+                base64Data,
+                preview: undefined,
+              });
               break;
             }
             case "text": {
@@ -163,15 +166,12 @@ export function useFileAttachments({
                 text.length > MAX_TEXT_FILE_LENGTH
                   ? text.slice(0, MAX_TEXT_FILE_LENGTH) + tr("aiPage.fileTruncatedSuffix")
                   : text;
-              setFileAttachments((prev) => [
-                ...prev,
-                {
-                  name: file.name,
-                  content: truncated,
-                  type: "text",
-                  mimeType: file.type || "text/plain",
-                },
-              ]);
+              attach({
+                name: file.name,
+                content: truncated,
+                type: "text",
+                mimeType: file.type || "text/plain",
+              });
               break;
             }
             default: {
@@ -225,6 +225,7 @@ export function useFileAttachments({
   }, []);
 
   const clearAttachments = useCallback(() => {
+    generation.current += 1;
     setFileAttachments([]);
   }, []);
 

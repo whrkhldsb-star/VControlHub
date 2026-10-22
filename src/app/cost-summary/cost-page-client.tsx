@@ -263,7 +263,7 @@ export function CostPageClient({
 				) : null}
 			</ListPanel>
 
-			<CostBudgetPanel initialBudgets={initialBudgets} canManage={canManage} currencies={availableCurrencies} />
+			<CostBudgetPanel initialBudgets={initialBudgets} canManage={canManage} currencies={availableCurrencies} refreshToken={state.refreshCount} />
 			<CostCloudBillingPanel
 				initialAccounts={initialBillingAccounts}
 				canManage={canManage}

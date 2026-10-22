@@ -68,6 +68,24 @@ describe("ItsmPageClient destructive UX", () => {
 		});
 	});
 
+	it("keeps a next connection typed while the previous one was saving", async () => {
+		const user = userEvent.setup();
+		let finish: (value: unknown) => void = () => undefined;
+		vi.mocked(csrfFetch).mockImplementation(((_url: string, init?: { method?: string }) =>
+			init?.method === "POST" ? new Promise((resolve) => { finish = resolve; }) : Promise.resolve({ connections: [], events: [] })) as never);
+		render(wrap(<ItsmPageClient initialConnections={[]} initialEvents={emptyEvents} canManage publicBaseUrl="https://example.test" />));
+
+		const name = screen.getByPlaceholderText("例如：值班 Slack");
+		await user.type(name, "A");
+		await user.click(screen.getByRole("button", { name: "创建连接" }));
+		await user.clear(name);
+		await user.type(name, "B");
+		finish({ id: "conn-a" });
+
+		await waitFor(() => expect(toastSpy).toHaveBeenCalledWith("success", expect.any(String)));
+		expect(name).toHaveValue("B");
+	});
+
 	it("requires confirmation before deleting a connection", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockImplementation(async (input, init) => {

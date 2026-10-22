@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { requestNavigation } from "@/lib/forms/navigation-request";
 import { mainNavItems, systemNavItems } from "./nav-items";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useSwitchLocale } from "@/lib/i18n/use-switch-locale";
 import { browserT as translate, type Locale } from "@/lib/i18n/browser-translations";
 import { type Permission } from "@/lib/auth/rbac";
 import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
@@ -162,7 +163,8 @@ export function GlobalSearch({
 	const inputRef = useRef<HTMLInputElement>(null);
 	const returnFocusRef = useRef<HTMLElement | null>(null);
 	const router = useRouter();
-	const { locale, t, setLocale } = useI18n();
+	const { locale, t } = useI18n();
+	const setLocale = useSwitchLocale();
 	const { theme, toggleTheme } = useOptionalTheme();
 	const recentHrefs = useRecentPages();
 	const { can, canAny } = useGateRoute();

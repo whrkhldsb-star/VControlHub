@@ -263,3 +263,27 @@ describe("useFileAttachments", () => {
     );
   });
 });
+
+describe("useFileAttachments across a conversation switch", () => {
+  it("drops a file still being read when the attachments are cleared for another conversation", async () => {
+    // The read for conversation A finished after the switch and the file
+    // was sent with B's message.
+    const { result } = renderHook(() =>
+      useFileAttachments({ currentModelCaps: ALL_CAPS, modelName: "gpt-4o", t: testT, onReject: vi.fn() }),
+    );
+    let reading!: Promise<void>;
+    act(() => {
+      reading = result.current.handleFileSelect([makeFile("a-notes.txt", "text/plain", 10)]);
+      result.current.clearAttachments();
+    });
+    await act(async () => {
+      await reading;
+    });
+    expect(result.current.fileAttachments).toEqual([]);
+
+    await act(async () => {
+      await result.current.handleFileSelect([makeFile("b-notes.txt", "text/plain", 10)]);
+    });
+    expect(result.current.fileAttachments.map((file) => file.name)).toEqual(["b-notes.txt"]);
+  });
+});
