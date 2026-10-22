@@ -246,7 +246,10 @@ export function getNotificationBus(): NotificationBus {
 			if (deliveredLocally) state.deliver?.(userId, message);
 			void ensurePublisher(url)
 				.then((publisher) => {
-					if (!publisher) return;
+					// No publisher (its connection failed) is a failed publish too:
+					// returning quietly skipped the local delivery below, and this
+					// instance's own sockets got nothing.
+					if (!publisher) throw new Error("Redis publisher unavailable");
 					return publisher.publish(NOTIFICATION_BUS_CHANNEL, JSON.stringify({ userId, message }));
 				})
 				.catch((error: unknown) => {

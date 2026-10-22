@@ -431,7 +431,7 @@ async function executeWithRetries<T>(
 }
 
 export async function executePlaybookChain(input: {
-  playbook: Pick<PlaybookRecord, "id" | "steps">;
+  playbook: Pick<PlaybookRecord, "id" | "steps"> & { chainRetry?: number };
   runId: string;
   dryRun: boolean;
   requesterId?: string;
@@ -442,6 +442,17 @@ export async function executePlaybookChain(input: {
 }): Promise<{ results: PlaybookStepResult[]; summary: string }> {
   const results = [...(input.resumeResults ?? [])];
   const totalSteps = input.playbook.steps.length;
+
+  // Saved before step ids had to be unique: the later step would be skipped
+  // as already done while the run reported success. Fail it plainly instead.
+  const seenIds = new Set<string>();
+  for (const step of input.playbook.steps) {
+    if (seenIds.has(step.id)) {
+      results.push(failedResult(step, new Error(`Step id "${step.id}" is used by more than one step; give each step its own id`), nowIso()));
+      return { results, summary: `failed: duplicate step id ${step.id}` };
+    }
+    seenIds.add(step.id);
+  }
 
   for (let index = 0; index < totalSteps; index += 1) {
     const step = input.playbook.steps[index]!;
@@ -462,8 +473,14 @@ export async function executePlaybookChain(input: {
     } else {
       try {
         let attemptIndex = 0;
+        // The chain's failure retries ("retry the whole chain N times") resume
+        // from the failed step, as completed steps are never run again: each
+        // round gives that step its own retries once more. They only became
+        // the job's attempt limit, which an ordinary step failure never
+        // reaches, so the setting did nothing.
+        const rounds = 1 + Math.max(0, input.playbook.chainRetry ?? 0);
         const summary = await executeWithRetries(
-          Math.max(1, step.retry + 1),
+          Math.max(1, step.retry + 1) * rounds,
           () => {
             const attempt = attemptIndex;
             attemptIndex += 1;

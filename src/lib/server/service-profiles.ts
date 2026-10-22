@@ -312,6 +312,9 @@ async function applyStoragePathChange(
           error: getErrorMessage(error),
         }));
       }
+      if (nextStoragePath && nextStoragePath !== storageNode.basePath && server.directGatewayDesiredEnabled) {
+        warnings.push(...await moveDirectGatewayRoot(server, storageNode.id, targetPath, session, t));
+      }
     } else {
       try {
         await mkdir(targetPath, { recursive: true });
@@ -324,6 +327,36 @@ async function applyStoragePathChange(
     }
   }
   return warnings;
+}
+
+/**
+ * The direct gateway serves the root it was installed with. After the
+ * storage root moves it would keep answering direct links from the old
+ * folder (a same-named file there returned old bytes with a 200, which the
+ * fallback cannot notice). Reinstall it on the new root; if that fails,
+ * stop handing out direct links until it is fixed.
+ */
+async function moveDirectGatewayRoot(
+  server: ServerProfileRecord,
+  storageNodeId: string,
+  targetPath: string,
+  session: TeamSession | null | undefined,
+  t: TFn,
+): Promise<string[]> {
+  try {
+    const { applyServerDirectGatewayState } = await import("./service-direct-gateway");
+    await applyServerDirectGatewayState({
+      serverId: server.id,
+      enabled: true,
+      session,
+      publicProtocol: server.directGatewayDesiredProtocol === "HTTPS" ? "https" : "http",
+      publicDomain: server.directGatewayDesiredDomain,
+    });
+    return [];
+  } catch (error) {
+    await prisma.storageNode.update({ where: { id: storageNodeId }, data: { directAccessMode: "PROXY" } }).catch(() => undefined);
+    return [t("backend.server.update.directGatewayRootFailed", { path: targetPath, error: getErrorMessage(error) })];
+  }
 }
 
 export async function createServerProfile(
@@ -865,17 +898,32 @@ function serverProfileListWhere(sessionOrTeamId?: TeamSession | string | null) {
   return where;
 }
 
+/**
+ * Every visible profile, for the pickers that list them all (Docker,
+ * tickets, schedules, templates…). It used to stop at the newest 500, with
+ * nothing saying so: a page that then kept only enabled ones could show none
+ * while an older enabled node existed. Read in pages; `enabledOnly` filters
+ * in the database rather than after a cut.
+ */
 export async function listServerProfiles(
   sessionOrTeamId?: TeamSession | string | null,
+  options: { enabledOnly?: boolean } = {},
 ) {
-  const where = serverProfileListWhere(sessionOrTeamId);
-
-  const servers = await prisma.server.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    include: SERVER_PROFILE_INCLUDE,
-    take: 500, // P2: server 总数有限
-  });
+  const where = { ...serverProfileListWhere(sessionOrTeamId), ...(options.enabledOnly ? { enabled: true } : {}) };
+  const PAGE = 500;
+  const servers: ServerProfileRow[] = [];
+  let cursor: { id: string } | undefined;
+  do {
+    const page = await prisma.server.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      include: SERVER_PROFILE_INCLUDE,
+      take: PAGE,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+    });
+    servers.push(...page);
+    cursor = page.length === PAGE ? { id: page[page.length - 1]!.id } : undefined;
+  } while (cursor);
 
   return servers.map((server: ServerProfileRow) => enrichServer(server));
 }

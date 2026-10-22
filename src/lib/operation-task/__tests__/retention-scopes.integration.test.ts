@@ -77,6 +77,31 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("operation h
 		await prisma.user.deleteMany({ where: { id: user.id } });
 	});
 
+	it("keeps a finished command until its scheduled run has taken the result", async () => {
+		// Deleting it cascaded to the DISPATCHED run, and the task kept
+		// "awaiting final result" for good.
+		const user = await prisma.user.create({ data: { username: `${prefix}-s`, passwordHash: "x" } });
+		const command = (day: number) => prisma.commandRequest.create({
+			data: { title: prefix, command: "uptime", requesterId: user.id, initiatedByType: "USER", status: "COMPLETED", teamId: prefix, createdAt: old(day) },
+		});
+		const awaited = await command(1);
+		const loose = await command(2);
+		await command(3);
+		const task = await prisma.scheduledTask.create({
+			data: { name: prefix, cronExpression: "0 * * * *", command: "uptime", serverIds: [], createdById: user.id, teamId: prefix },
+		});
+		await prisma.scheduledTaskRun.create({ data: { scheduledTaskId: task.id, commandRequestId: awaited.id, status: "DISPATCHED", dispatchedAt: old(1) } });
+
+		await pruneOperationTaskHistory({ olderThan: cutoff, keepLatest: 1 });
+
+		const left = (await prisma.commandRequest.findMany({ where: { teamId: prefix }, select: { id: true } })).map((row) => row.id);
+		expect(left).toContain(awaited.id);
+		expect(left).not.toContain(loose.id);
+		await prisma.scheduledTask.deleteMany({ where: { id: task.id } });
+		await prisma.commandRequest.deleteMany({ where: { teamId: prefix } });
+		await prisma.user.deleteMany({ where: { id: user.id } });
+	});
+
 	it("prunes every job over its event budget, not a first slice of jobs with old events", async () => {
 		// 600 quiet jobs with one old event each, then one crowded job.
 		await prisma.job.createMany({ data: Array.from({ length: 600 }, (_, i) => ({ id: `${prefix}-q${i}`, type: prefix, title: "quiet", payload: {}, createdAt: old(1) })) });

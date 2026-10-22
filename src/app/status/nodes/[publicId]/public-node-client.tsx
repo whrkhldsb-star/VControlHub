@@ -319,7 +319,9 @@ export function PublicNodeClient({ initial, initialRange, preview, signedIn }: {
 				{m.traffic && quota ? (
 					<MeterTile
 						label={t("publicStatus.quota.label")}
-						value={quotaPercent === null ? null : Math.min(100, quotaPercent)}
+						// The true share, as the card and table show it (150 % over the
+						// quota); the bar clamps its own width.
+						value={quotaPercent}
 						detail={`↓ ${formatIecBytes(m.traffic.periodRxBytes)} ↑ ${formatIecBytes(m.traffic.periodTxBytes)} / ${formatIecBytes(quota.limitBytes)}`}
 					/>
 				) : null}

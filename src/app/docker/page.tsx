@@ -7,11 +7,9 @@ import DockerPageClient from "./docker-page-client";
 export default async function DockerPage() {
   const session = await requirePagePermission("docker:manage");
   const servers = sessionHasPermission(session, "server:read")
-    ? await listServerProfiles(session)
+    ? await listServerProfiles(session, { enabledOnly: true })
     : [];
-  const serverOptions = servers
-    .filter((s) => s.enabled)
-    .map((s) => ({ id: s.id, name: s.name, host: s.host }));
+  const serverOptions = servers.map((s) => ({ id: s.id, name: s.name, host: s.host }));
   return (
     <DockerPageClient
       initialServers={serverOptions}

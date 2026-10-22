@@ -231,6 +231,33 @@ describe("executePlaybookChain", () => {
 		);
 	});
 
+	it("fails a saved playbook whose steps share an id instead of skipping the second", async () => {
+		// The second step was taken for done (same id) and never called; the
+		// run still completed.
+		mocks.fetchWebhookSafely.mockResolvedValue({ ok: true, response: { ok: true, status: 200, statusText: "OK" } });
+		const hook = (url: string) => ({ id: "same", name: url, type: "call_webhook" as const, config: { url, method: "POST" as const }, retry: 0, timeoutSec: 60 });
+		const { results } = await executePlaybookChain({
+			playbook: buildPlaybook([hook("https://example.com/a"), hook("https://example.com/b")]),
+			runId: "run-dup",
+			dryRun: false,
+		});
+		expect(results.some((result) => result.status === "failed" && /more than one step/.test(result.error ?? ""))).toBe(true);
+		expect(mocks.fetchWebhookSafely).not.toHaveBeenCalled();
+		mocks.fetchWebhookSafely.mockReset();
+	});
+
+	it("spends the chain's failure retries on an ordinary step failure", async () => {
+		// chainRetry only set the job's attempt limit, which a step failure
+		// never reaches: a 500 then 200 webhook failed for good.
+		mocks.fetchWebhookSafely
+			.mockResolvedValueOnce({ ok: true, response: { ok: false, status: 500, statusText: "Server Error" } })
+			.mockResolvedValueOnce({ ok: true, response: { ok: true, status: 200, statusText: "OK" } });
+		const playbook = { ...buildPlaybook([{ id: "s1", name: "hook", type: "call_webhook" as const, config: { url: "https://example.com/webhook", method: "POST" as const }, retry: 0, timeoutSec: 60 }]), chainRetry: 2 };
+		const { results } = await executePlaybookChain({ playbook, runId: "run-chain", dryRun: false });
+		expect(results[0]?.status).toBe("ok");
+		expect(mocks.fetchWebhookSafely).toHaveBeenCalledTimes(2);
+	});
+
 	it("fails the webhook step on non-2xx response (no silent success)", async () => {
 		mocks.fetchWebhookSafely.mockResolvedValueOnce({
 			ok: true,

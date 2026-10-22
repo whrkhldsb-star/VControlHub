@@ -251,6 +251,15 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
       });
   if (!ticket) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
 
+  // History lines store who acted by user id; show their name.
+  const actorIds = [...new Set(ticket.escalations.map((esc) => esc.escalatedBy).filter((id): id is string => Boolean(id)))];
+  const actors = new Map(
+    actorIds.length
+      ? (await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, username: true, displayName: true } }))
+          .map((user) => [user.id, actorName(user)] as const)
+      : [],
+  );
+
   const events: TimelineEvent[] = [];
 
   events.push({
@@ -292,7 +301,7 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
         ? esc.reason ?? "Link updated"
         : `Status ${esc.fromStatus}${esc.toStatus ? ` → ${esc.toStatus}` : ""}`,
       detail: esc.reason,
-      actor: esc.escalatedBy,
+      actor: esc.escalatedBy ? actors.get(esc.escalatedBy) ?? esc.escalatedBy : null,
       meta: {
         fromStatus: esc.fromStatus,
         toStatus: esc.toStatus,
@@ -315,7 +324,9 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
     });
   }
 
-  if (ticket.closedAt) {
+  // Closing is in the status history now; older tickets only have closedAt.
+  const closeRecorded = ticket.escalations.some((esc) => esc.toStatus === "CLOSED" && esc.fromStatus !== "CLOSED");
+  if (ticket.closedAt && !closeRecorded) {
     events.push({
       id: `ticket-closed-${ticket.id}`,
       at: ticket.closedAt.toISOString(),

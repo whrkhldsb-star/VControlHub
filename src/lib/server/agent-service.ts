@@ -109,6 +109,13 @@ export async function updateServerAgentHeartbeat(input: {
         : {}),
     },
   });
+  // A Windows node is created "needs attention" until its Agent is in place
+  // (there is no SSH check to run). Its first heartbeat is that proof; the
+  // node stayed unselectable as a command target without it.
+  await prisma.server.updateMany({
+    where: { id: input.serverId, operatingSystem: "WINDOWS", managementMode: "AGENT", onboardingStatus: "NEEDS_ATTENTION" },
+    data: { onboardingStatus: "READY", onboardingLastError: null },
+  });
   if (input.metricsRaw) await recordAgentLatestMetrics(input.serverId, input.metricsRaw.slice(0, 64_000), now);
 }
 

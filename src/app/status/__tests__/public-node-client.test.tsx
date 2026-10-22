@@ -69,3 +69,25 @@ describe("PublicNodeClient history", () => {
 		expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
 	});
 });
+
+describe("PublicNodeClient traffic quota", () => {
+	it("shows the true share of an exceeded quota, as the card and table do", () => {
+		// It was clamped to 100 % before the tile: 150 % read as exactly used up.
+		api.get.mockImplementation(async (url: string) => (url.includes("/history") ? history : detail));
+		const over = {
+			...detail,
+			node: {
+				...detail.node,
+				metrics: { ...detail.node.metrics, traffic: { periodRxBytes: 150, periodTxBytes: 0, periodStart: now, countedSince: now, quota: { limitBytes: 100, mode: "in" } } },
+			},
+		} as unknown as PublicNodeDetailResponse;
+		render(
+			<ThemeProvider initialTheme="dark">
+				<I18nProvider initialLocale="en">
+					<PublicNodeClient initial={over} initialRange="24h" preview={false} signedIn={false} />
+				</I18nProvider>
+			</ThemeProvider>,
+		);
+		expect(screen.getByText("150%")).toBeInTheDocument();
+	});
+});

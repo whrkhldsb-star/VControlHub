@@ -144,6 +144,9 @@ async function pruneCommand(keepLatest: number, olderThan: Date): Promise<Operat
           // "never created" once its link was cleared.
           deploymentRuns: { none: { status: { in: ["PENDING", "RUNNING"] } } },
           deploymentRollbackRuns: { none: { status: { in: ["PENDING", "APPROVED", "RUNNING"] } } },
+          // Same for a scheduled task's run: its cascade delete left the task
+          // "awaiting final result" for good. Kept until reconciled.
+          scheduledTaskRuns: { none: { status: "DISPATCHED" } },
         },
       });
       return result.count;

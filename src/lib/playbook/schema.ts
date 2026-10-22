@@ -117,7 +117,18 @@ const baseCreatePlaybookObject = z.object({
   steps: z
     .array(stepSchema)
     .min(1, "At least 1 step is required")
-    .max(32, "At most 32 steps are allowed"),
+    .max(32, "At most 32 steps are allowed")
+    // A run tracks its steps by id: a second step with a taken id was taken
+    // for done and skipped, and the run still reported success.
+    .superRefine((steps, ctx) => {
+      const seen = new Set<string>();
+      steps.forEach((step, index) => {
+        if (seen.has(step.id)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: [index, "id"], message: `Step id "${step.id}" is used by more than one step` });
+        }
+        seen.add(step.id);
+      });
+    }),
   chainRetry: z.number().int().min(0).max(5).default(0),
   enabled: z.boolean().default(true),
 });
