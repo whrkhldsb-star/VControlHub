@@ -67,4 +67,13 @@ describe("Docker deployment configuration", () => {
     // Only the app port is published; the gateway port must never be exposed.
     expect(compose).not.toContain(":3001:3001");
   });
+
+  it("keeps file history bodies on a volume", async () => {
+    // The default history directory was not mounted: a new container had the
+    // history rows (database volume) but none of the bodies.
+    const compose = await readRootFile("docker-compose.yml");
+    expect(compose).toContain("FILE_VERSION_DIR: /app/file-versions");
+    expect(compose).toContain("- app_file_versions:/app/file-versions");
+    expect(compose).toMatch(/^  app_file_versions:$/m);
+  });
 });

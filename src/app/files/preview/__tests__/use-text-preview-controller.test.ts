@@ -250,4 +250,21 @@ describe("useTextPreviewController", () => {
 			expect(result.current.saveStatus).toBe("idle");
 		});
 	});
+
+	it("keeps an unsaved draft when the interface language changes", async () => {
+		// The read depended on `t`: a language switch reloaded the file and
+		// put the saved text back over the draft.
+		const props = { href: "/api/files/raw/1", name: "nginx.conf", fileEntryId: "fe_1", editable: true, driver: "SFTP", nodeId: "node_1", relativePath: "etc/nginx.conf" };
+		const zh = ((key: string) => `zh:${key}`) as never;
+		const en = ((key: string) => `en:${key}`) as never;
+		const { result, rerender } = renderHook(({ t: translate }) => useTextPreviewController({ ...props, t: translate } as never), { initialProps: { t: zh } });
+		await loaded(result);
+		act(() => { result.current.setDraft("server { listen 8080; }"); });
+
+		rerender({ t: en });
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		expect(result.current.draft).toBe("server { listen 8080; }");
+		expect(mocks.csrfFetch).toHaveBeenCalledTimes(1);
+	});
 });

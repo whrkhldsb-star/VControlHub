@@ -132,7 +132,16 @@ export function useTextPreviewController(options: {
     setState({ loading: true });
   }, [href, fileEntryId, canEdit, setEditMode, setShowDiffReview, setSaveStatus, setSaveMessage]);
 
+  // Messages follow the current language without making the read depend on
+  // it: with `t` among its dependencies a language switch reloaded the file
+  // and replaced the unsaved draft with the saved text.
+  const tRef = useRef(t);
   useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
+  useEffect(() => {
+    const t = (key: string, vars?: Record<string, string | number>) => tRef.current(key, vars);
     let cancelled = false;
     // Abort obsolete reads: rapid file switching would otherwise keep the
     // previous href's SFTP read running server-side (the cancelled flag only
@@ -214,7 +223,7 @@ export function useTextPreviewController(options: {
       cancelled = true;
       controller.abort();
     };
-  }, [href, fileEntryId, canEdit, driver, nodeId, relativePath, loadVersion, t]);
+  }, [href, fileEntryId, canEdit, driver, nodeId, relativePath, loadVersion]);
 
   const handleJumpToLine = useCallback(() => {
     const num = parseInt(jumpLine, 10);

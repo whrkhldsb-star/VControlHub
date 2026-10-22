@@ -171,9 +171,15 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
     }
   }, [fetchFullSnippet, t, addToast]);
 
+  // Only the latest "edit" click may open the editor: an earlier one whose
+  // details arrive late used to swap the open editor's record underneath it,
+  // and B's content was saved into A.
+  const editRequestRef = useRef(0);
   const handleEdit = useCallback((snippet: Snippet) => {
+    const request = ++editRequestRef.current;
     void fetchFullSnippet(snippet)
       .then((full) => {
+        if (request !== editRequestRef.current) return;
         if (!full.content) {
           addToast("error", t("snippetsPage.toast.loadFailed"));
           return;
@@ -263,8 +269,10 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
       {editing && (
         <SnippetEditModal
+          // One editor per record: its fields and the id it saves to always match.
+          key={editing.id}
           snippet={editing}
-          onClose={() => setEditing(null)}
+          onClose={() => { editRequestRef.current += 1; setEditing(null); }}
           onSaved={handleSaved}
         />
       )}

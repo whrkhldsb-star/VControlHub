@@ -44,6 +44,8 @@ import { pipeline } from "node:stream/promises";
 
 import {
   acquireRestoreLock,
+  FILE_VERSIONS_MANIFEST,
+  fileVersionDir,
   findBinary,
   findTar,
   makeLogger,
@@ -327,6 +329,19 @@ async function removeStagedMember(staging, member) {
  * reads it and where it can fill the application's disk.
  */
 async function dropNonDataMembers(staging) {
+  // File history bodies kept outside the app directory go back to the
+  // history directory, not under appDir; set them aside until then.
+  const versionsManifest = path.join(staging, FILE_VERSIONS_MANIFEST);
+  if (await pathExists(versionsManifest)) {
+    let entry;
+    try { entry = JSON.parse(await fs.readFile(versionsManifest, "utf8")); } catch { fail(`${FILE_VERSIONS_MANIFEST} in the archive is not valid JSON`); }
+    const source = typeof entry?.member === "string" ? path.resolve(staging, entry.member) : null;
+    if (source && source.startsWith(`${staging}${path.sep}`) && (await pathExists(source))) {
+      await fs.rename(source, `${staging}-file-versions`);
+      await removeStagedMember(staging, entry.member);
+    }
+    await fs.rm(versionsManifest, { force: true });
+  }
   const manifestFile = path.join(staging, "external-data.json");
   if (await pathExists(manifestFile)) {
     let manifest;
@@ -372,6 +387,7 @@ async function stageFiles(archive, appDir, inspected = false) {
     await dropNonDataMembers(staging);
   } catch (error) {
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
+    await fs.rm(`${staging}-file-versions`, { recursive: true, force: true }).catch(() => undefined);
     throw error;
   }
   return staging;
@@ -382,10 +398,19 @@ async function stageFiles(archive, appDir, inspected = false) {
  * backup are kept, files in the backup overwrite their current versions.
  */
 async function applyStagedFiles(staging, appDir) {
+  const versions = `${staging}-file-versions`;
   try {
     await fs.cp(path.join(staging, "."), appDir, { recursive: true, force: true });
+    if (await pathExists(versions)) {
+      const envFile = (await readEnvFile(process.env.ENV_FILE?.trim() || path.join(appDir, ".env.local"))) ?? {};
+      const target = fileVersionDir({ ...envFile, ...process.env });
+      await fs.mkdir(target, { recursive: true });
+      await fs.cp(path.join(versions, "."), target, { recursive: true, force: true });
+      log(`File history restored to ${target}`);
+    }
   } finally {
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
+    await fs.rm(versions, { recursive: true, force: true }).catch(() => undefined);
   }
   log(`Files restored to ${appDir}`);
 }
@@ -397,6 +422,7 @@ async function restoreFiles(archive, appDir, databaseTarget, inspected = false) 
     await assertNoOtherDatabaseClients(databaseTarget);
   } catch (error) {
     await fs.rm(staged, { recursive: true, force: true }).catch(() => undefined);
+    await fs.rm(`${staged}-file-versions`, { recursive: true, force: true }).catch(() => undefined);
     throw error;
   }
   await applyStagedFiles(staged, appDir);
@@ -549,6 +575,7 @@ async function runRestore(component, archive, componentArg, appDirArg) {
       await upgradeRestoredDatabase(databaseTarget);
     } finally {
       if (stagedFiles) await fs.rm(stagedFiles, { recursive: true, force: true }).catch(() => undefined);
+      if (stagedFiles) await fs.rm(`${stagedFiles}-file-versions`, { recursive: true, force: true }).catch(() => undefined);
       await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
     }
   } else {

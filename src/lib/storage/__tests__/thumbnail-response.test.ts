@@ -51,4 +51,15 @@ describe("respondWithStorageThumbnail", () => {
 		const webdav = await respondWithStorageThumbnail({ id: "file_3", relativePath: "a.png", node: { ...noSsh, id: "node_2", driver: "WEBDAV", basePath: "/" }, placeholder: false });
 		expect(webdav.status).toBe(503);
 	});
+
+	it("gives concurrent requests for one missing file each a readable placeholder", async () => {
+		// They shared one response object, and only the first could read it.
+		const input = { id: "file_4", relativePath: "pics/gone.png", node: { ...noSsh, id: "node_1", driver: "LOCAL", basePath: tempRoot } };
+		const [a, b] = await Promise.all([respondWithStorageThumbnail(input), respondWithStorageThumbnail(input)]);
+		expect(a).not.toBe(b);
+		const [bodyA, bodyB] = await Promise.all([a.text(), b.text()]);
+		expect(bodyA).toContain("<svg");
+		expect(bodyB).toBe(bodyA);
+		expect(b.headers.get("X-Thumbnail-Placeholder")).toBe("offline");
+	});
 });

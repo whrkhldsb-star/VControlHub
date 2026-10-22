@@ -33,6 +33,8 @@ import {
   redactConnectionString,
   runBinary,
   timestamp,
+  fileVersionDir,
+  FILE_VERSIONS_MANIFEST,
 } from "./lib/backup-common.mjs";
 
 const { log, fail } = makeLogger("backup");
@@ -176,6 +178,25 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
     if (manifest.length) {
       await fs.writeFile(path.join(extraDir, "external-data.json"), JSON.stringify({ version: 1, paths: manifest }, null, 2), { mode: 0o600 });
       args.push("-C", extraDir, "external-data.json");
+    }
+    // File history: the database dump holds its rows, the bodies live on
+    // disk (by default outside the app directory). A full backup without
+    // them restored a history that could not be opened.
+    const versions = await fs.realpath(fileVersionDir({ ...envFile, ...process.env })).catch(() => null);
+    if (versions && !manifest.some((entry) => entry.source === versions)) {
+      const insideApp = path.relative(await fs.realpath(APP_DIR), versions);
+      if (insideApp && !insideApp.startsWith("..") && !path.isAbsolute(insideApp)) {
+        const member = insideApp.split(path.sep).join("/");
+        if (!existing.some((name) => member === name || member.startsWith(`${name}/`))) args.push("-C", APP_DIR, member);
+      } else {
+        const root = path.parse(versions).root;
+        const member = path.relative(root, versions).split(path.sep).join("/");
+        if (members.some((name) => member === name || member.startsWith(`${name}/`))) {
+          throw new Error("FILE_VERSION_DIR overlaps archive members");
+        }
+        await fs.writeFile(path.join(extraDir, FILE_VERSIONS_MANIFEST), JSON.stringify({ version: 1, source: versions, member }, null, 2), { mode: 0o600 });
+        args.push("-C", root, member, "-C", extraDir, FILE_VERSIONS_MANIFEST);
+      }
     }
     if ((process.env.BACKUP_INCLUDE_ENV || envFile.BACKUP_INCLUDE_ENV) === "true") {
       for (const name of [".env", ".env.local", ".env.runtime", ".env.production"]) {

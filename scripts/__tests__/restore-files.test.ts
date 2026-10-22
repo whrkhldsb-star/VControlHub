@@ -82,6 +82,23 @@ describe.skipIf(process.platform === "win32")("restore-files archive safety", ()
     expect(`${stdout}${stderr}`).toContain("srv/media");
   });
 
+  it("puts file history bodies back into the history directory", async () => {
+    const history = path.join(tmp, "history");
+    await mkdir(path.join(source, "var", "lib", "vch", "file-versions", "node_1"), { recursive: true });
+    await writeFile(path.join(source, "var", "lib", "vch", "file-versions", "node_1", "v1.blob"), "old body");
+    await writeFile(path.join(source, "file-versions.json"), JSON.stringify({ version: 1, source: "/var/lib/vch/file-versions", member: "var/lib/vch/file-versions" }));
+    await mkdir(path.join(source, "uploads"), { recursive: true });
+    await writeFile(path.join(source, "uploads", "u.txt"), "upload");
+    const archive = path.join(tmp, "history.tar.gz");
+    await runFile("tar", ["-czf", archive, "-C", source, "uploads", "var", "file-versions.json"]);
+
+    await runFile("bash", ["scripts/restore-files.sh", archive, target], { cwd: process.cwd(), env: { ...env, FILE_VERSION_DIR: history } });
+
+    await expect(readFile(path.join(history, "node_1", "v1.blob"), "utf8")).resolves.toBe("old body");
+    await expect(readFile(path.join(target, "var", "lib", "vch", "file-versions", "node_1", "v1.blob"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(path.join(target, "file-versions.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("rejects symbolic-link members before extraction", async () => {
     await symlink("/etc/passwd", path.join(source, "outside-link"));
     const archive = path.join(tmp, "symlink.tar.gz");

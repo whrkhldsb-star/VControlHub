@@ -9,6 +9,7 @@ const {
   mkdirMock,
   writeFileMock,
   unlinkMock,
+  renameMock,
   accessMock,
   statMock,
   createRemoteDirectoryMock,
@@ -31,6 +32,7 @@ const {
   mkdirMock: vi.fn(),
   writeFileMock: vi.fn(),
   unlinkMock: vi.fn(),
+  renameMock: vi.fn(async () => undefined),
   accessMock: vi.fn(),
   statMock: vi.fn(),
   createRemoteDirectoryMock: vi.fn(),
@@ -55,13 +57,16 @@ vi.mock("node:fs/promises", () => ({
     stat: statMock,
     writeFile: writeFileMock,
     unlink: unlinkMock,
+    rename: renameMock,
   },
   access: accessMock,
   mkdir: mkdirMock,
   stat: statMock,
   writeFile: writeFileMock,
   unlink: unlinkMock,
+  rename: renameMock,
 }));
+vi.mock("@/lib/storage/file-versions", () => ({ snapshotFileVersionBeforeOverwrite: vi.fn(async () => null) }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: requireApiPermissionMock,
@@ -460,6 +465,41 @@ describe("/api/storage/local", () => {
       error: expect.stringMatching(/写入上传索引失败|Failed to write upload index/),
     });
     expect(unlinkMock).toHaveBeenCalledWith(path.resolve("/tmp/storage/docs/notes.txt"));
+  });
+
+  it("keeps the previous LOCAL file when indexing an overwrite fails", async () => {
+    // The new body was written over the file, then "cleaned up" by deleting
+    // the path: the user's previous file was gone as well.
+    const node = { id: "node_1", name: "主控本机", driver: "LOCAL", basePath: "/tmp/storage" };
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "file_existing" });
+    prismaMock.fileEntry.update.mockRejectedValueOnce(new Error("db down"));
+
+    const response = await POST(uploadRequest("docs/notes.txt"));
+
+    expect(response.status).toBe(500);
+    const target = path.resolve("/tmp/storage/docs/notes.txt");
+    expect(writeFileMock).not.toHaveBeenCalledWith(target, expect.anything());
+    expect(unlinkMock).not.toHaveBeenCalledWith(target);
+    expect(renameMock).not.toHaveBeenCalled();
+    const staged = writeFileMock.mock.calls[0]![0] as string;
+    expect(path.dirname(staged)).toBe(path.dirname(target));
+    expect(unlinkMock).toHaveBeenCalledWith(staged);
+  });
+
+  it("moves a LOCAL overwrite into place once it is indexed", async () => {
+    const node = { id: "node_1", name: "主控本机", driver: "LOCAL", basePath: "/tmp/storage" };
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "file_existing" });
+    prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "file_existing" });
+
+    const response = await POST(uploadRequest("docs/notes.txt"));
+
+    expect(response.status).toBe(200);
+    const staged = writeFileMock.mock.calls[0]![0] as string;
+    expect(renameMock).toHaveBeenCalledWith(staged, path.resolve("/tmp/storage/docs/notes.txt"));
   });
 
   it("recovers concurrent first-time LOCAL upload index races without unlinking winner blob", async () => {

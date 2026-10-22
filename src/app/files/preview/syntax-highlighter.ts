@@ -60,9 +60,37 @@ export function highlightLine(line: string, lang: string): string {
 
 	const rules = getRules(lang);
 	for (const rule of rules) {
-		escaped = escaped.replace(rule.regex, rule.replace);
+		escaped = replaceInText(escaped, rule.regex, rule.replace, { outsideMarkup: true });
 	}
 	return escaped;
+}
+
+/**
+ * Apply a replacement to the text of an HTML fragment, never to its tags.
+ * Rules used to run over the whole fragment, so a later rule (the keyword
+ * "class") matched an earlier rule's `<span class=…>` and the attribute
+ * showed up as text. With `outsideMarkup`, text already highlighted by an
+ * earlier rule (a comment, a string) is left as it is.
+ */
+export function replaceInText(
+	html: string,
+	regex: RegExp,
+	replace: string,
+	options: { outsideMarkup?: boolean } = {},
+): string {
+	let depth = 0;
+	return html
+		.split(/(<[^>]*>)/)
+		.map((part) => {
+			if (part.startsWith("<")) {
+				if (/^<\//.test(part)) depth = Math.max(0, depth - 1);
+				else if (!/\/>$/.test(part)) depth += 1;
+				return part;
+			}
+			if (!part || (options.outsideMarkup && depth > 0)) return part;
+			return part.replace(regex, replace);
+		})
+		.join("");
 }
 
 export function getRules(lang: string): { regex: RegExp; replace: string }[] {

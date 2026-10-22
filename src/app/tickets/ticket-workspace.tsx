@@ -143,7 +143,12 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
   const setSearch = (value: string) => patchUrl({ q: value, page: "1" });
   const page = Math.max(1, Number.parseInt(urlState.page || "1", 10) || 1);
   const setPage = (value: number) => setUrlField("page", String(Math.max(1, value)));
-  const nowMs = useMemo(() => new Date(now).getTime(), [now]);
+  // SLA labels are judged at the time the list was read: the server's render
+  // time at first, then each reload's. Fixed at the first render, a ticket a
+  // later "breached" filter returned still showed as "due soon".
+  const [loadedAtMs, setLoadedAtMs] = useState<number | null>(null);
+  const serverNowMs = useMemo(() => new Date(now).getTime(), [now]);
+  const nowMs = loadedAtMs ?? serverNowMs;
 
   // Filtered and paged by the server: the counts above cover every ticket,
   // so the list must be able to reach every one of them too.
@@ -188,10 +193,12 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
             const data = await csrfFetch<{ columns: TicketWorkspaceBoard }>(request);
             if (id !== latestRequest.current) return;
             setBoard(data.columns);
+            setLoadedAtMs(Date.now());
           } else {
             const data = await csrfFetch<TicketWorkspacePage>(request);
             if (id !== latestRequest.current) return;
             setListPage(data);
+            setLoadedAtMs(Date.now());
           }
           setLoadError(null);
         } catch (error) {

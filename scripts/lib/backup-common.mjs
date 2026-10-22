@@ -93,6 +93,21 @@ export async function findTar() {
   return cachedTar;
 }
 
+/**
+ * Where file history bodies are kept: FILE_VERSION_DIR, else the data root's
+ * "file-versions" (as src/lib/storage/file-versions.ts resolves it).
+ */
+export function fileVersionDir(env) {
+  const configured = (env.FILE_VERSION_DIR ?? "").trim();
+  if (configured) return path.resolve(configured);
+  return process.platform === "win32"
+    ? path.join(env.PROGRAMDATA ?? path.join(os.homedir(), "AppData", "Local"), "VControlHub", "file-versions")
+    : "/var/lib/vcontrolhub/file-versions";
+}
+
+/** Manifest naming the archive member that holds file history bodies kept outside the app directory. */
+export const FILE_VERSIONS_MANIFEST = "file-versions.json";
+
 export function redactConnectionString(text) {
   return text.replace(/(postgres(ql)?:\/\/)[^@\s]+@/g, "$1[REDACTED]@");
 }

@@ -59,6 +59,21 @@ export function useConvSettingsForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only activeConvId
   }, [activeConvId]);
 
+  // The model can change outside this form (the header's quick switch).
+  // Follow it unless the model field here has its own unsaved edit.
+  const serverModel = activeConv?.model;
+  useEffect(() => {
+    if (!serverModel) return;
+    const timer = window.setTimeout(() => {
+      setBaseline((previous) => {
+        if (previous.model === serverModel) return previous;
+        setSettingsForm((form) => (form.model === previous.model ? { ...form, model: serverModel } : form));
+        return { ...previous, model: serverModel };
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [serverModel]);
+
   const dirty = useMemo(
     () => JSON.stringify(settingsForm) !== JSON.stringify(baseline),
     [baseline, settingsForm],
@@ -66,11 +81,19 @@ export function useConvSettingsForm({
 
   const handleSaveSettings = useCallback(async () => {
     if (!activeConvId) return;
+    // Send what was changed here, not the whole form: the form only loads
+    // when the conversation opens, so a model switched since from the header
+    // menu went back out as the old one and undid that switch.
+    const changes = Object.fromEntries(
+      (Object.keys(settingsForm) as Array<keyof typeof settingsForm>)
+        .filter((key) => JSON.stringify(settingsForm[key]) !== JSON.stringify(baseline[key]))
+        .map((key) => [key, settingsForm[key]]),
+    );
     try {
       await csrfFetch(`/api/ai/conversations/${activeConvId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settingsForm),
+        body: JSON.stringify(changes),
       });
       setBaseline(settingsForm);
       await refreshConversations();
@@ -82,6 +105,7 @@ export function useConvSettingsForm({
   }, [
     activeConvId,
     settingsForm,
+    baseline,
     refreshConversations,
     onSaved,
     addToast,

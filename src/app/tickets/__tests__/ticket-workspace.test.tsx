@@ -166,4 +166,30 @@ describe("TicketWorkspace", () => {
     expect(within(progressColumn).getByText("Add staging VPS")).toBeInTheDocument();
     expect(String(vi.mocked(csrfFetch).mock.calls.at(-1)![0])).toContain("view=board");
   });
+
+  it("judges SLA labels at the time the list was loaded, not at the first render", async () => {
+    // At 09:00 the ticket was due soon; an hour later the "breached" filter
+    // returned it, but its label still read "due soon".
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const due: TicketWorkspaceTicket = { ...tickets[0]!, id: "t-due", title: "Due at 09:30", slaDueAt: "2026-01-02T09:30:00.000Z" };
+      serve([due]);
+      vi.setSystemTime(new Date("2026-01-02T09:00:00.000Z"));
+      const user = userEvent.setup({ advanceTimers: () => undefined });
+      render(
+        <I18nProvider initialLocale="en">
+          <TicketWorkspace initialPage={firstPage([due])} initialBoard={null} canManage now="2026-01-02T09:00:00.000Z" />
+        </I18nProvider>,
+      );
+      const card = () => screen.getByText("Due at 09:30").closest("[data-ticket-card], article, li") ?? screen.getByText("Due at 09:30").parentElement!.parentElement!;
+      expect(within(card() as HTMLElement).getByText("Due soon")).toBeInTheDocument();
+
+      vi.setSystemTime(new Date("2026-01-02T10:00:00.000Z"));
+      await user.selectOptions(screen.getByLabelText("SLA status"), "breached");
+      await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith(expect.stringContaining("slaStatus=breached")));
+      await waitFor(() => expect(within(card() as HTMLElement).getByText("SLA breached")).toBeInTheDocument());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

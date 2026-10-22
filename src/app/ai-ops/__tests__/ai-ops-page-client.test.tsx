@@ -263,4 +263,30 @@ describe("AiOpsPageClient conditional render audit", () => {
 			expect(screen.getByText("显示 21–21，共 21 条")).toBeInTheDocument();
 		});
 	});
+
+	it("shows the logs of the latest filter even if an earlier filter's answer arrives later", async () => {
+		// The "ok" query answered after the "error" one and replaced the
+		// list, while the filter still read "error".
+		const okLog = { ...makeLogWithAction("log-ok"), status: "ok" as const };
+		const errorLog = { ...makeLogWithAction("log-error"), status: "error" as const };
+		let releaseOk: () => void = () => undefined;
+		const json = (body: unknown) => ({ ok: true, json: async () => body });
+		csrfFetch.mockImplementation((url: string) => {
+			if (url.startsWith("/api/ai/ops/summary")) return Promise.resolve(json({ summary: initialSummary }));
+			if (url.includes("status=ok")) return new Promise((resolve) => { releaseOk = () => resolve(json({ logs: [okLog], total: 1, hasMore: false })); });
+			return Promise.resolve(json({ logs: [errorLog], total: 1, hasMore: false }));
+		});
+		const user = userEvent.setup();
+		render(
+			<AiOpsPageClient initialSummary={initialSummary} initialLogs={[]} initialHasMore={false} initialTotal={0} initialSettings={initialSettings} canManage={false} canAutonomous={false} />,
+		);
+		const status = screen.getByRole("combobox", { name: "按状态筛选" });
+		await user.selectOptions(status, "ok");
+		await user.selectOptions(status, "error");
+		const rowStatuses = () => screen.queryAllByRole("row").slice(1).map((row) => row.querySelectorAll("td")[3]?.textContent);
+		await waitFor(() => expect(rowStatuses()).toEqual(["失败"]));
+		releaseOk();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(rowStatuses()).toEqual(["失败"]);
+	});
 });

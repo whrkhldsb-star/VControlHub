@@ -73,4 +73,18 @@ describe("RestoreBackupButton (offline restore)", () => {
     expect(footer.className).toMatch(/flex-col-reverse/);
     expect(footer.className).toMatch(/sm:flex-row/);
   });
+
+  it("never shows a plan for a component other than the one selected", async () => {
+    // "All" was requested, the selection changed to files while it was
+    // prepared, and the late "all" steps appeared under "files".
+    let finishAll: (value: unknown) => void = () => undefined;
+    vi.mocked(csrfFetch).mockImplementationOnce(() => new Promise((resolve) => { finishAll = resolve; }));
+    render(<RestoreBackupButton backupId="bak1" backupType="FULL" />);
+    await userEvent.click(screen.getByRole("button", { name: "恢复" }));
+    await userEvent.click(screen.getByRole("button", { name: "校验并生成步骤" }));
+    await userEvent.click(screen.getByRole("button", { name: "仅文件" }));
+    finishAll({ offlineRestore: plan });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByText(plan.commands.restore)).not.toBeInTheDocument();
+  });
 });
