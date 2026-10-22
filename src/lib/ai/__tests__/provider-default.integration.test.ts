@@ -56,4 +56,22 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("AI provider
       .rejects.toThrow(/providerNameTaken|already have a provider|同名/);
     expect(await currentDefault()).toEqual([defaultId]);
   });
+
+  it("leaves exactly one default when two new defaults are created at once", async () => {
+    for (let round = 0; round < 5; round++) {
+      await Promise.all([
+        createProvider({ name: `Race A${round}`, apiKey: "sk-a", isDefault: true, createdBy: userId }),
+        createProvider({ name: `Race B${round}`, apiKey: "sk-b", isDefault: true, createdBy: userId }),
+      ]);
+      expect(await currentDefault()).toHaveLength(1);
+    }
+  });
+
+  it("leaves exactly one default when two providers are made the default at once", async () => {
+    const rows = await prisma.aiProvider.findMany({ where: { createdBy: userId, isDefault: false }, select: { id: true }, take: 2 });
+    for (let round = 0; round < 5; round++) {
+      await Promise.all(rows.map((row) => updateProvider(row.id, userId, { isDefault: true })));
+      expect(await currentDefault()).toHaveLength(1);
+    }
+  });
 });

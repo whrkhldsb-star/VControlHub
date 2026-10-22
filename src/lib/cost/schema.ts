@@ -11,9 +11,11 @@ export const costDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "Date mus
 	{ message: "Date is not a valid date" },
 );
 
+// The amount and limit columns are Decimal(12,2): 9,999,999,999.99 at most.
+// Allowing up to 1e12 passed validation and then failed in the database.
 export const costAmountSchema = z.string().regex(/^\d+(\.\d{1,2})?$/u, "Amount must be a number with at most 2 decimal places").refine(
-	(s) => { const num = Number(s); return Number.isFinite(num) && num >= 0 && num < 1e12; },
-	{ message: "Amount must be between 0 and 1e12" },
+	(s) => { const num = Number(s); return Number.isFinite(num) && num >= 0 && num <= 9_999_999_999.99; },
+	{ message: "Amount must be between 0 and 9999999999.99" },
 );
 
 export const createCostEntrySchema = z.object({

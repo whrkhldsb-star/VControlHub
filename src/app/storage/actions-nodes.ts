@@ -165,7 +165,10 @@ export async function updateStorageNodeAction(
     const serverIdRaw = String(formData.get("serverId") ?? "").trim();
     const hostRaw = String(formData.get("host") ?? "").trim();
     const usernameRaw = String(formData.get("username") ?? "").trim();
-    const isDefaultRaw = String(formData.get("isDefault") ?? "").trim();
+    // The edit form sends a hidden "off" ahead of the checkbox so an
+    // unticked box still says something: a ticked one sends both values.
+    const isDefaultValues = formData.getAll("isDefault").map((value) => String(value).trim());
+    const isDefaultRaw = isDefaultValues.includes("on") ? "on" : isDefaultValues.includes("off") ? "off" : "";
 
     if (!storageNodeId) {
       return { error: t("storagePage.action.missingNodeParam") } satisfies StorageActionState;

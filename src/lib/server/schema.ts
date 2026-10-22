@@ -77,7 +77,8 @@ const linuxServerSchema = z
     costMonthlyAmount: z
       .string()
       .trim()
-      .regex(/^\d+(\.\d{1,2})?$/u, "Monthly fee must be a number with at most 2 decimal places")
+      // Decimal(12,2): at most ten digits before the point.
+      .regex(/^\d{1,10}(\.\d{1,2})?$/u, "Monthly fee must be a number below 10,000,000,000 with at most 2 decimal places")
       .optional()
       .or(z.literal(""))
       .transform((value) => value || undefined),

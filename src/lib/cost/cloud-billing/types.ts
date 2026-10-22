@@ -95,4 +95,6 @@ export interface CloudBillingLineItem {
 export interface CloudBillingFetchResult {
 	items: CloudBillingLineItem[];
 	warnings: string[];
+	/** Source rows that could not be read (CSV); counted as skipped. */
+	rejectedRows?: number;
 }

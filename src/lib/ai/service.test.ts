@@ -7,6 +7,7 @@ const { prismaMock } = vi.hoisted(() => ({
   // Array form returns the operations; callback form runs against the mock.
   $transaction: vi.fn(async (arg: unknown): Promise<unknown> =>
     typeof arg === "function" ? (arg as (tx: unknown) => Promise<unknown>)(prismaMockRef.current) : arg),
+    $executeRaw: vi.fn(async () => 0),
     aiProvider: {
       findMany: vi.fn(),
       create: vi.fn(),

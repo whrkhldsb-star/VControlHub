@@ -209,6 +209,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
     }
   }
 
+  const listingStartedAt = new Date();
   await walkDirectory(basePath, 0);
 
   // 跟 DB 端 diff: 找本节点下 isDeleted=false 但不在 expectedRelativePaths 的条目
@@ -224,6 +225,9 @@ export async function detectAndPruneSftpStaleInventory(input: {
         where: {
           storageNodeId: node.id,
           isDeleted: false,
+          // A row written after the listing began (upload, overwrite, move
+          // into place) is not something the listing could have seen.
+          updatedAt: { lt: listingStartedAt },
           ...(baseRelative
             ? { relativePath: { startsWith: escapeLikeLiteral(`${baseRelative}/`) } }
             : {}),
@@ -253,7 +257,8 @@ export async function detectAndPruneSftpStaleInventory(input: {
 
     if (staleIds.length > 0 && !dryRun) {
       const updateResult = await prisma.fileEntry.updateMany({
-        where: { id: { in: staleIds } },
+        // Re-checked at write time: a row rewritten while we compared is live.
+        where: { id: { in: staleIds }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
         data: { isDeleted: true },
       });
       logger.info("Pruned stale SFTP inventory", {

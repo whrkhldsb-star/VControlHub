@@ -21,7 +21,7 @@ import {
   resolveLocalAbsolutePath,
 } from "./service-entries";
 import { snapshotFileVersionBeforeOverwrite } from "./file-versions";
-import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { lockStorageFileOverwrite } from "./file-overwrite-lock";
 
 async function resolveLocalEditableFileEntry(input: {
   fileEntryId: string;
@@ -147,7 +147,7 @@ export async function saveLocalEditableFileDraft(input: {
     });
 
   try {
-    const releaseLock = await acquireAdvisoryLock("storage-editable", entry.id);
+    const releaseLock = await lockStorageFileOverwrite(entry.storageNode.id, entry.relativePath);
     try {
       // Compare against what is current now, under the lock: two saves that
       // both read the same version before locking must not both pass.

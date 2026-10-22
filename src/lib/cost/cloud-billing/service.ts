@@ -298,6 +298,7 @@ async function runCloudBillingSync(
 			currency: (account.currency as CostCurrency) || DEFAULT_CURRENCY,
 		});
 		warnings = fetched.warnings;
+		skipped += fetched.rejectedRows ?? 0;
 
 		for (const item of fetched.items) {
 			// An impossible day would roll into the next month once stored.
@@ -359,7 +360,8 @@ async function runCloudBillingSync(
 			imported += 1;
 		}
 
-		if (warnings.length > 0 && imported === 0) {
+		// Unreadable source rows mean the month is incomplete, whatever was imported.
+		if ((warnings.length > 0 && imported === 0) || (fetched.rejectedRows ?? 0) > 0) {
 			status = "partial";
 		}
 	} catch (err) {

@@ -3,7 +3,9 @@ import { access, stat } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { isGlobalTeamManager, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import type { Prisma } from "@prisma/client";
 import { isUniqueViolation, prisma } from "@/lib/db";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
 import { listRemoteDirectory } from "@/lib/ssh/client";
@@ -129,9 +131,10 @@ export async function ensureDefaultNodeState(
   isDefault?: boolean,
   teamId?: string | null,
   excludeId?: string,
+  db: Pick<Prisma.TransactionClient, "storageNode"> = prisma,
 ) {
   if (isDefault) {
-    await prisma.storageNode.updateMany({
+    await db.storageNode.updateMany({
       where: {
         teamId: teamId ?? null,
         ...(excludeId ? { id: { not: excludeId } } : {}),
@@ -273,24 +276,34 @@ export async function createStorageNode(
 
   let storageNode;
   try {
-    storageNode = await prisma.storageNode.create({
-      data: {
-        name: payload.name,
-        driver: payload.driver,
-        basePath: payload.basePath,
-        isDefault: payload.isDefault,
-        host: payload.driver === "SFTP" ? payload.host : null,
-        port: payload.driver === "SFTP" ? payload.port : null,
-        username: payload.driver === "SFTP" ? payload.username : null,
-        webdavConfigEncrypted: payload.driver === "WEBDAV" && payload.webdavConfig
-          ? encryptWebdavConfig(payload.webdavConfig) : null,
-        serverId: payload.serverId,
-        directAccessMode: payload.directAccessMode,
-        publicBaseUrl: normalizePublicBaseUrl(payload.publicBaseUrl),
-        directAccessExpiresSeconds: payload.directAccessExpiresSeconds,
-        ...teamData,
-      },
-      include: STORAGE_NODE_SERVER_INCLUDE,
+    // Create the replacement first so a failed create can never leave the team
+    // without a default node; the old default is retired in the same
+    // transaction. The lock makes "make me the default" one step per
+    // customer: two concurrent default creates each cleared the other and
+    // the customer was left with no default at all.
+    storageNode = await prisma.$transaction(async (tx) => {
+      if (payload.isDefault) await lockForTransaction(tx, "storage-node-default", teamData.teamId ?? "platform");
+      const created = await tx.storageNode.create({
+        data: {
+          name: payload.name,
+          driver: payload.driver,
+          basePath: payload.basePath,
+          isDefault: payload.isDefault,
+          host: payload.driver === "SFTP" ? payload.host : null,
+          port: payload.driver === "SFTP" ? payload.port : null,
+          username: payload.driver === "SFTP" ? payload.username : null,
+          webdavConfigEncrypted: payload.driver === "WEBDAV" && payload.webdavConfig
+            ? encryptWebdavConfig(payload.webdavConfig) : null,
+          serverId: payload.serverId,
+          directAccessMode: payload.directAccessMode,
+          publicBaseUrl: normalizePublicBaseUrl(payload.publicBaseUrl),
+          directAccessExpiresSeconds: payload.directAccessExpiresSeconds,
+          ...teamData,
+        },
+        include: STORAGE_NODE_SERVER_INCLUDE,
+      });
+      await ensureDefaultNodeState(payload.isDefault, created.teamId, created.id, tx);
+      return created;
     });
   } catch (error) {
     if (payload.serverId && isUniqueViolation(error)) {
@@ -298,10 +311,6 @@ export async function createStorageNode(
     }
     throw error;
   }
-
-  // Create the replacement first so a failed create can never leave the team
-  // without a default node. The old default is retired only after success.
-  await ensureDefaultNodeState(payload.isDefault, storageNode.teamId, storageNode.id);
 
   return {
     ...safeNodeDto(storageNode),
@@ -393,39 +402,42 @@ export async function updateStorageNode(
     await assertServerInTeamScope(payload.serverId, session);
   }
 
-  const claimed = await prisma.storageNode.updateMany({
-    where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
-    data: {
-      name: payload.name ?? current.name,
-      driver: nextDriver,
-      basePath: payload.basePath ?? current.basePath,
-      isDefault: payload.isDefault ?? current.isDefault,
-      host: nextDriver === "SFTP" ? nextHost ?? null : null,
-      port: nextDriver === "SFTP" ? nextPort : null,
-      username: nextDriver === "SFTP" ? nextUsername : null,
-      webdavConfigEncrypted,
-      serverId: nextDriver === "WEBDAV" ? null : nextServerId ?? null,
-      directAccessMode: nextAccessMode,
-      publicBaseUrl: nextPublicBaseUrl,
-      directAccessExpiresSeconds:
-        payload.directAccessExpiresSeconds ??
-        current.directAccessExpiresSeconds,
-    },
+  // Promote, then retire the previous default, in one transaction under the
+  // customer's default lock (see createStorageNode).
+  const updated = await prisma.$transaction(async (tx) => {
+    if (payload.isDefault) await lockForTransaction(tx, "storage-node-default", current.teamId ?? "platform");
+    const claimed = await tx.storageNode.updateMany({
+      where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
+      data: {
+        name: payload.name ?? current.name,
+        driver: nextDriver,
+        basePath: payload.basePath ?? current.basePath,
+        isDefault: payload.isDefault ?? current.isDefault,
+        host: nextDriver === "SFTP" ? nextHost ?? null : null,
+        port: nextDriver === "SFTP" ? nextPort : null,
+        username: nextDriver === "SFTP" ? nextUsername : null,
+        webdavConfigEncrypted,
+        serverId: nextDriver === "WEBDAV" ? null : nextServerId ?? null,
+        directAccessMode: nextAccessMode,
+        publicBaseUrl: nextPublicBaseUrl,
+        directAccessExpiresSeconds:
+          payload.directAccessExpiresSeconds ??
+          current.directAccessExpiresSeconds,
+      },
+    });
+    if (claimed.count === 0) {
+      throw new NotFoundError(t("backend.storage.nodeNotFound"));
+    }
+    const row = await tx.storageNode.findFirst({
+      where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
+      include: STORAGE_NODE_SERVER_INCLUDE,
+    });
+    if (!row) {
+      throw new NotFoundError(t("backend.storage.nodeNotFound"));
+    }
+    await ensureDefaultNodeState(payload.isDefault, row.teamId, payload.storageNodeId, tx);
+    return row;
   });
-  if (claimed.count === 0) {
-    throw new NotFoundError(t("backend.storage.nodeNotFound"));
-  }
-  const updated = await prisma.storageNode.findFirst({
-    where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
-    include: STORAGE_NODE_SERVER_INCLUDE,
-  });
-  if (!updated) {
-    throw new NotFoundError(t("backend.storage.nodeNotFound"));
-  }
-
-  // Promote first, then retire the previous default. This preserves a usable
-  // default even if the second database operation is interrupted.
-  await ensureDefaultNodeState(payload.isDefault, updated.teamId, payload.storageNodeId);
   return safeNodeDto(updated);
 }
 

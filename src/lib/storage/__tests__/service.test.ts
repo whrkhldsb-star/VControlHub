@@ -36,6 +36,8 @@ const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
     listRemoteDirectoryMock: vi.fn(),
     assertStorageAccessMock: vi.fn(),
   }));
+// Default-node changes run in a transaction; the mock runs it against itself.
+Object.assign(mockPrisma, { $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(mockPrisma)) });
 
 vi.mock("../service-statistics", () => ({
   getFileIndexStatistics: vi.fn(async () => ({totalEntries:1208,deletedEntries:0,previewableEntries:1,remoteDirectoryCount:2})),
@@ -57,6 +59,7 @@ vi.mock("@/lib/storage/access-control", () => ({
 }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
   acquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
+  lockForTransaction: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({
   decryptServerPassword: (value: string) => `decrypted:${value}`,

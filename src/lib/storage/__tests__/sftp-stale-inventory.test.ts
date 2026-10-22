@@ -118,9 +118,29 @@ describe("detectAndPruneSftpStaleInventory", () => {
 
     // updateMany 只标 isDeleted=true, 不动其它字段
     expect(prismaFileEntryMock.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["fe_stale_root", "fe_stale_inner"] } },
+      where: { id: { in: ["fe_stale_root", "fe_stale_inner"] }, isDeleted: false, updatedAt: { lt: expect.any(Date) } },
       data: { isDeleted: true },
     });
+  });
+
+  it("only treats rows written before the listing began as missing", async () => {
+    // A file uploaded after its directory was listed (but before the index
+    // was compared) is absent from the listing and present in the index; it
+    // was marked deleted while still on disk.
+    let listedAt = 0;
+    listRemoteDirectoryMock.mockImplementationOnce(async () => {
+      listedAt = Date.now();
+      return [];
+    });
+    prismaFileEntryMock.findMany.mockResolvedValueOnce([{ id: "fe_old", relativePath: "old.txt" }]);
+    prismaFileEntryMock.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    await detectAndPruneSftpStaleInventory({ node: baseNode, directoryTimeoutMs: 30_000 });
+
+    const candidates = prismaFileEntryMock.findMany.mock.calls[0]![0].where.updatedAt.lt as Date;
+    const pruned = prismaFileEntryMock.updateMany.mock.calls[0]![0].where.updatedAt.lt as Date;
+    expect(candidates.getTime()).toBeLessThanOrEqual(listedAt);
+    expect(pruned).toEqual(candidates);
   });
 
   it("respects maxDepth and does not descend beyond it", async () => {
@@ -161,7 +181,7 @@ describe("detectAndPruneSftpStaleInventory", () => {
 
     expect(result.stale).toBe(1);
     expect(prismaFileEntryMock.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["fe_ghost"] } },
+      where: { id: { in: ["fe_ghost"] }, isDeleted: false, updatedAt: { lt: expect.any(Date) } },
       data: { isDeleted: true },
     });
   });

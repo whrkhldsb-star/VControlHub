@@ -145,6 +145,7 @@ describe("previewImport", () => {
       { servers: [{ id: "s1", password: `enc:v1:${encryptWithKey("another instance", "pw")}` }] },
       { sshKeys: [{ id: "k1", privateKey: encryptWithKey("another instance", "key") }] },
       { aiProviders: [{ id: "p1", apiKey: encryptWithKey("another instance", "sk") }] },
+      { storageNodes: [{ id: "n1", webdavConfigEncrypted: encryptWithKey("another instance", "{}") }] },
     ]) {
       expect((await previewImport(file({ exportMode: "full", tables }), OPTIONS)).warnings).toContain(warning);
     }

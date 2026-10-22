@@ -37,6 +37,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { moveSharePaths } from "@/lib/share-link/follow-path";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 const logger = createLogger("api:storage:sftp-ops");
 
 async function upsertSftpFileIndex(params: {
@@ -501,6 +502,11 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         // but the editor always sends it. A 1 ms tolerance mirrors the LOCAL route
         // (SFTP mtimes are second-granular on some servers, so an exact compare
         // would false-positive).
+        // Check, snapshot, write and index as one unit per file, like the LOCAL
+        // editor and version restore: two saves that both pass the mtime check
+        // otherwise both "succeed" and the first is in neither file nor history.
+        const releaseFileLock = await lockStorageFileOverwrite(node.id, normalizedRelativePath);
+        try {
         if (typeof body.expectedLastModifiedMs === "number") {
           const remoteStat = await statBackingObject({
             storageNode: node,
@@ -582,6 +588,9 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           byteSize: writtenSize,
           lastModifiedMs: afterWriteStat?.lastModifiedMs ?? null,
         });
+        } finally {
+          await releaseFileLock();
+        }
       }
 
       default:

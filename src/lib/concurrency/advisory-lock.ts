@@ -75,6 +75,10 @@ const NAMESPACE_KEYS: Record<string, number> = {
   "itsm-inbound": 45083,
   /** Serialize cloud billing import per account+month (concurrent upserts collide). */
   "cloud-billing-sync": 45084,
+  /** Serialize moving a user's default AI provider (exactly one default). */
+  "ai-provider-default": 45089,
+  /** Serialize moving a customer's default storage node (exactly one default). */
+  "storage-node-default": 45090,
 };
 
 function connectionStringForPg() {
@@ -252,6 +256,21 @@ export function getLockKeys(
     k1: NAMESPACE_KEYS[namespace] ?? hashToInt32(namespace),
     k2: hashToInt32(resourceId),
   };
+}
+
+type RawExecutor = {
+  $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => PromiseLike<unknown>;
+};
+
+/**
+ * Transaction-scoped advisory lock, taken on the transaction's own
+ * connection and released when it commits or rolls back. Use it inside
+ * `prisma.$transaction(async (tx) => …)` to serialize a read-modify-write
+ * that row locks cannot cover (rows that do not exist yet).
+ */
+export async function lockForTransaction(tx: RawExecutor, namespace: string, resourceId: string) {
+  const { k1, k2 } = getLockKeys(namespace, resourceId);
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${k1}::int, ${k2}::int)`;
 }
 
 export async function closeAdvisoryLockPoolForTests() {

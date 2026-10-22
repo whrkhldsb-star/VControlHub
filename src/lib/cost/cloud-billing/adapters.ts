@@ -55,14 +55,27 @@ function monthBounds(month: string): { start: string; end: string } {
   return { start, end };
 }
 
-function parseCsvLine(line: string): string[] {
-  const out: string[] = [];
+/**
+ * Split CSV text into records. A quoted field may hold commas, doubled
+ * quotes and line breaks (RFC 4180); splitting on newlines first cut such a
+ * record in two, so the columns after a multi-line note fell back to their
+ * defaults (an EUR charge was booked as USD, "other").
+ */
+function parseCsvRecords(text: string): string[][] {
+  const records: string[][] = [];
+  let record: string[] = [];
   let cur = "";
   let inQuotes = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
+  const endRecord = () => {
+    record.push(cur.trim());
+    cur = "";
+    if (record.some((field) => field !== "")) records.push(record);
+    record = [];
+  };
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
+      if (inQuotes && text[i + 1] === '"') {
         cur += '"';
         i += 1;
       } else {
@@ -70,16 +83,30 @@ function parseCsvLine(line: string): string[] {
       }
       continue;
     }
-    if (ch === "," && !inQuotes) {
-      out.push(cur.trim());
+    if (!inQuotes && ch === ",") {
+      record.push(cur.trim());
       cur = "";
+      continue;
+    }
+    if (!inQuotes && (ch === "\n" || ch === "\r")) {
+      if (ch === "\r" && text[i + 1] === "\n") i += 1;
+      endRecord();
       continue;
     }
     cur += ch;
   }
-  out.push(cur.trim());
-  return out;
+  if (inQuotes) {
+    throw new ValidationError(t("backend.cost.csvUnterminatedQuote"));
+  }
+  if (cur !== "" || record.length > 0) endRecord();
+  return records;
 }
+
+/**
+ * Largest amount the cost tables hold: amount and limit columns are
+ * Decimal(12,2). A larger value passed validation and failed in the database.
+ */
+export const MAX_COST_AMOUNT = 9_999_999_999.99;
 
 /**
  * CSV columns (header required):
@@ -107,20 +134,35 @@ function resolveBillingCategory(
   return "other";
 }
 
-export function parseBillingCsv(
+type BillingCsvDefaults = {
+  currency: CostCurrency;
+  providerLabel: string;
+  categoryMap?: Record<string, CostCategory>;
+};
+
+export function parseBillingCsv(csv: string, defaults: BillingCsvDefaults): CloudBillingLineItem[] {
+  return parseBillingCsvRows(csv, defaults).items;
+}
+
+/** A data row the parser could not read; `row` is its 1-based record number after the header. */
+export interface RejectedBillingCsvRow {
+  row: number;
+  reason: "date" | "amount";
+  value: string;
+}
+
+/**
+ * Parse a billing CSV, keeping the rows it could not read. Dropping them
+ * silently reported "imported 1, skipped 0" for a file of two charges.
+ */
+export function parseBillingCsvRows(
   csv: string,
-  defaults: {
-    currency: CostCurrency;
-    providerLabel: string;
-    categoryMap?: Record<string, CostCategory>;
-  },
-): CloudBillingLineItem[] {
-  const lines = csv
-    .split(/\r?\n/u)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (lines.length < 2) return [];
-  const header = parseCsvLine(lines[0] ?? "").map((h) => h.toLowerCase());
+  defaults: BillingCsvDefaults,
+): { items: CloudBillingLineItem[]; rejected: RejectedBillingCsvRow[] } {
+  const records = parseCsvRecords(csv);
+  const rejected: RejectedBillingCsvRow[] = [];
+  if (records.length < 2) return { items: [], rejected };
+  const header = (records[0] ?? []).map((h) => h.toLowerCase());
   const idx = (name: string) => header.indexOf(name);
   const dateI = idx("date");
   const amountI = idx("amount");
@@ -136,17 +178,22 @@ export function parseBillingCsv(
   const externalIdI = Math.max(idx("external_id"), idx("id"));
   const duplicateCounts = new Map<string, number>();
   const items: CloudBillingLineItem[] = [];
-  for (let row = 1; row < lines.length; row += 1) {
-    const cols = parseCsvLine(lines[row] ?? "");
+  for (let row = 1; row < records.length; row += 1) {
+    const cols = records[row] ?? [];
     const date = cols[dateI] ?? "";
-    const amountRaw = cols[amountI] ?? "0";
-    if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) continue;
-    const amountNum = Number(amountRaw);
-    // Mirror the manual entry cap (costAmountSchema: amount < 1e12). An
-    // absurd/overflowing CSV amount is treated as a malformed row and skipped
-    // rather than persisted, so it cannot poison per-currency totals.
-    if (!Number.isFinite(amountNum) || amountNum < 0 || amountNum >= 1e12)
+    const amountRaw = cols[amountI] ?? "";
+    if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) {
+      rejected.push({ row, reason: "date", value: date.slice(0, 40) });
       continue;
+    }
+    const amountNum = amountRaw.trim() === "" ? Number.NaN : Number(amountRaw);
+    // Mirror the manual entry cap (costAmountSchema). An absurd/overflowing
+    // CSV amount is a malformed row, not a charge: it would poison
+    // per-currency totals, or fail in the database.
+    if (!Number.isFinite(amountNum) || amountNum < 0 || amountNum > MAX_COST_AMOUNT) {
+      rejected.push({ row, reason: "amount", value: amountRaw.slice(0, 40) });
+      continue;
+    }
     const amount = amountNum.toFixed(2);
     // The manual path validates currency against COST_CURRENCY_VALUES
     // (costCurrencySchema). The CSV path must too: an out-of-enum token
@@ -202,7 +249,27 @@ export function parseBillingCsv(
       productCode: product,
     });
   }
-  return items;
+  return { items, rejected };
+}
+
+/** The fetch result for a CSV: in-month items, plus a warning per unreadable row. */
+function billingCsvFetchResult(
+  csv: string,
+  defaults: BillingCsvDefaults,
+  month: string,
+  warnings: string[],
+): CloudBillingFetchResult {
+  const { items, rejected } = parseBillingCsvRows(csv, defaults);
+  return {
+    items: items.filter((i) => i.effectiveDate.startsWith(month)),
+    warnings: [
+      ...warnings,
+      ...rejected.slice(0, 20).map((r) =>
+        t(r.reason === "date" ? "backend.cost.csvRowInvalidDate" : "backend.cost.csvRowInvalidAmount", { row: String(r.row), value: r.value }),
+      ),
+    ],
+    rejectedRows: rejected.length,
+  };
 }
 
 function mockItemsForProvider(
@@ -213,14 +280,12 @@ function mockItemsForProvider(
 ): CloudBillingFetchResult {
   const { start } = monthBounds(month);
   if (config.sampleCsv?.trim()) {
-    return {
-      items: parseBillingCsv(config.sampleCsv, {
-        currency,
-        providerLabel: provider.toUpperCase(),
-        categoryMap: config.categoryMap,
-      }).filter((i) => i.effectiveDate.startsWith(month)),
-      warnings: ["Imported from sampleCsv config (probe mode)"],
-    };
+    return billingCsvFetchResult(
+      config.sampleCsv,
+      { currency, providerLabel: provider.toUpperCase(), categoryMap: config.categoryMap },
+      month,
+      ["Imported from sampleCsv config (probe mode)"],
+    );
   }
   // Deterministic synthetic line so sync path is testable without live APIs.
   const base: CloudBillingLineItem = {
@@ -308,14 +373,12 @@ async function fetchBillingCsvFromUrl(
       }
       throw error;
     }
-    return {
-      items: parseBillingCsv(text, {
-        currency,
-        providerLabel: provider.toUpperCase(),
-        categoryMap,
-      }).filter((i) => i.effectiveDate.startsWith(month)),
-      warnings: [`Imported from billingCsvUrl (${provider})`],
-    };
+    return billingCsvFetchResult(
+      text,
+      { currency, providerLabel: provider.toUpperCase(), categoryMap },
+      month,
+      [`Imported from billingCsvUrl (${provider})`],
+    );
   } catch (error) {
     if (error instanceof ValidationError) throw error;
     const msg = error instanceof Error ? error.message : String(error);
@@ -374,15 +437,16 @@ export async function fetchCloudBillingItems(input: {
       );
     }
     if (config.sampleCsv?.trim()) {
-      return {
-        items: parseBillingCsv(config.sampleCsv, {
+      return billingCsvFetchResult(
+        config.sampleCsv,
+        {
           currency,
-          providerLabel:
-            provider === "generic_csv" ? "CSV" : provider.toUpperCase(),
+          providerLabel: provider === "generic_csv" ? "CSV" : provider.toUpperCase(),
           categoryMap: config.categoryMap,
-        }).filter((i) => i.effectiveDate.startsWith(month)),
-        warnings: [],
-      };
+        },
+        month,
+        [],
+      );
     }
     return fetchLiveItems(provider, credentials, config, month, currency);
   }
