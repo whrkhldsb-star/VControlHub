@@ -49,6 +49,7 @@ export function CostBudgetPanel({
   // budgets have used; they kept showing the usage from page load.
   useEffect(() => {
     if (refreshToken === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refetch from the server when the page's costs change
     reload().catch(() => undefined);
   }, [refreshToken, reload]);
 

@@ -226,6 +226,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	// Deleting the last notification on screen left "no notifications" with
 	// more waiting on the server and no way to reach them: fetch the next batch.
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- fetches the next page from the server
 		if (notifications.length === 0 && hasMore && !loadingMore && !error) void loadMore();
 	}, [notifications.length, hasMore, loadingMore, error, loadMore]);
 
