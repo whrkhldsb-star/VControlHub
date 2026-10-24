@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
       if (logs) {
         const { result: logsResult, scope: logsScope } = await dockerRequest(
           `/containers/${logs}/logs?stdout=true&stderr=true&tail=${tail}`,
-          { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },
+          { serverId, unavailableData: {}, loggerScope: "api:docker:containers", decode: "docker-logs" },
         );
         return NextResponse.json({ ...logsResult, dockerScope: logsScope });
       }

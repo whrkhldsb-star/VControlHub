@@ -208,6 +208,7 @@ export async function checkStorageNodeHealth(
         hostKeySha256: credentials.hostKeySha256,
         agentServerId: credentials.agentServerId,
         privateKey: credentials.privateKey,
+        passphrase: credentials.passphrase,
         password: credentials.password,
         remotePath: normalizeRemotePath(node.basePath, ""),
       });
@@ -404,40 +405,50 @@ export async function updateStorageNode(
 
   // Promote, then retire the previous default, in one transaction under the
   // customer's default lock (see createStorageNode).
-  const updated = await prisma.$transaction(async (tx) => {
-    if (payload.isDefault) await lockForTransaction(tx, "storage-node-default", current.teamId ?? "platform");
-    const claimed = await tx.storageNode.updateMany({
-      where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
-      data: {
-        name: payload.name ?? current.name,
-        driver: nextDriver,
-        basePath: payload.basePath ?? current.basePath,
-        isDefault: payload.isDefault ?? current.isDefault,
-        host: nextDriver === "SFTP" ? nextHost ?? null : null,
-        port: nextDriver === "SFTP" ? nextPort : null,
-        username: nextDriver === "SFTP" ? nextUsername : null,
-        webdavConfigEncrypted,
-        serverId: nextDriver === "WEBDAV" ? null : nextServerId ?? null,
-        directAccessMode: nextAccessMode,
-        publicBaseUrl: nextPublicBaseUrl,
-        directAccessExpiresSeconds:
-          payload.directAccessExpiresSeconds ??
-          current.directAccessExpiresSeconds,
-      },
+  let updated;
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      if (payload.isDefault) await lockForTransaction(tx, "storage-node-default", current.teamId ?? "platform");
+      const claimed = await tx.storageNode.updateMany({
+        where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
+        data: {
+          name: payload.name ?? current.name,
+          driver: nextDriver,
+          basePath: payload.basePath ?? current.basePath,
+          isDefault: payload.isDefault ?? current.isDefault,
+          host: nextDriver === "SFTP" ? nextHost ?? null : null,
+          port: nextDriver === "SFTP" ? nextPort : null,
+          username: nextDriver === "SFTP" ? nextUsername : null,
+          webdavConfigEncrypted,
+          serverId: nextDriver === "WEBDAV" ? null : nextServerId ?? null,
+          directAccessMode: nextAccessMode,
+          publicBaseUrl: nextPublicBaseUrl,
+          directAccessExpiresSeconds:
+            payload.directAccessExpiresSeconds ??
+            current.directAccessExpiresSeconds,
+        },
+      });
+      if (claimed.count === 0) {
+        throw new NotFoundError(t("backend.storage.nodeNotFound"));
+      }
+      const row = await tx.storageNode.findFirst({
+        where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
+        include: STORAGE_NODE_SERVER_INCLUDE,
+      });
+      if (!row) {
+        throw new NotFoundError(t("backend.storage.nodeNotFound"));
+      }
+      await ensureDefaultNodeState(payload.isDefault, row.teamId, payload.storageNodeId, tx);
+      return row;
     });
-    if (claimed.count === 0) {
-      throw new NotFoundError(t("backend.storage.nodeNotFound"));
+  } catch (error) {
+    // A server carries one storage node: binding it to a second one is the
+    // administrator's mistake, said as such (as on create), not a 500.
+    if (nextServerId && isUniqueViolation(error)) {
+      throw new ValidationError(t("backend.storage.serverAlreadyHasStorageNode"));
     }
-    const row = await tx.storageNode.findFirst({
-      where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
-      include: STORAGE_NODE_SERVER_INCLUDE,
-    });
-    if (!row) {
-      throw new NotFoundError(t("backend.storage.nodeNotFound"));
-    }
-    await ensureDefaultNodeState(payload.isDefault, row.teamId, payload.storageNodeId, tx);
-    return row;
-  });
+    throw error;
+  }
   return safeNodeDto(updated);
 }
 

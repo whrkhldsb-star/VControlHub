@@ -75,6 +75,7 @@ async function handleGet(request: Request, session: SessionPayload) {
       port: connectionCredentials.port,
       username: connectionCredentials.username,
       privateKey: connectionCredentials.privateKey,
+      passphrase: connectionCredentials.passphrase,
       password: connectionCredentials.password,
       hostKeySha256: connectionCredentials.hostKeySha256,
       agentServerId: connectionCredentials.agentServerId,

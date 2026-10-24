@@ -20,7 +20,7 @@ const EMPTY_CAPS: ModelCapabilities = {
   audio: false,
 };
 
-const VISION_NAME_HINT = /gpt-4o|claude-3|gemini|qwen-vl/i;
+const VISION_NAME_HINT = /gpt-4o|claude-(?:3|opus|sonnet|haiku|fable|mythos)|gemini|qwen-vl/i;
 
 export function useModelCapabilities(
   modelId: string | null | undefined,

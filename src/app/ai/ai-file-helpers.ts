@@ -93,7 +93,10 @@ export function detectCapabilities(modelId: string): ModelCapabilities {
   const isO1Vision = v.includes("o1") && !v.includes("o1-mini") && !v.includes("o1-preview") && v.includes("o1-");
   const isO3Vision = v.includes("o3") && !v.includes("o3-mini");
   const isO4Vision = v.includes("o4");
+  // Same rule as the server (detectModelCapabilities): every Claude since 3.
+  const modernClaude = /claude-(?:3|opus|sonnet|haiku|fable|mythos)/.test(v);
   const vision =
+    modernClaude ||
     v.includes("vision") || v.includes("gpt-4o") || v.includes("gpt-4-turbo") ||
     v.includes("gpt4-turbo") || v.includes("gpt-4e") || v.includes("claude-3") ||
     v.includes("claude-3.5") || v.includes("claude-4") || v.includes("gemini") ||
@@ -103,6 +106,7 @@ export function detectCapabilities(modelId: string): ModelCapabilities {
     isO1Vision || isO3Vision || isO4Vision ||
     v.includes("deepseek-vl") || v.includes("yi-vision");
   const document =
+    (modernClaude && !/claude-3-(?:opus|sonnet|haiku)/.test(v)) ||
     v.includes("gemini-1.5") || v.includes("gemini-2") || v.includes("gemini-pro") ||
     v.includes("claude-3.5-sonnet") || v.includes("claude-3.5-haiku") ||
     v.includes("claude-4") || v.includes("gpt-4o") || isO1Vision ||

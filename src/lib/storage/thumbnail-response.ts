@@ -368,6 +368,7 @@ export async function respondWithStorageThumbnail(input: {
           enforceHostKeyPin: true,
           agentServerId: credentials.agentServerId,
           privateKey: credentials.privateKey,
+          passphrase: credentials.passphrase,
           password: credentials.password,
           readyTimeout: 5000,
           timeout: 5000,

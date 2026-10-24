@@ -182,8 +182,15 @@ export function detectModelCapabilities(modelId: string): ModelCapabilities {
 	const isO3Vision = v.includes("o3") && !v.includes("o3-mini");
 	const isO4Vision = v.includes("o4");
 
+	// Every Claude since Claude 3 reads images and PDFs, under either naming
+	// scheme ("claude-3-5-sonnet", "claude-sonnet-4-5", "claude-opus-5-5"): the
+	// list below only knew "claude-3"/"claude-4", so current models showed no
+	// image support and attachments were refused.
+	const modernClaude = /claude-(?:3|opus|sonnet|haiku|fable|mythos)/.test(v);
+
 	// Vision: models that can accept images
 	const vision =
+		modernClaude ||
 		v.includes("vision") ||
 		v.includes("gpt-4o") ||
 		v.includes("gpt-4-turbo") ||
@@ -210,6 +217,7 @@ export function detectModelCapabilities(modelId: string): ModelCapabilities {
 
 	// Document: models that can parse PDF/docs natively
 	const document =
+		(modernClaude && !/claude-3-(?:opus|sonnet|haiku)/.test(v)) ||
 		v.includes("gemini-1.5") ||
 		v.includes("gemini-2") ||
 		v.includes("gemini-pro") ||
@@ -242,6 +250,27 @@ export function detectModelCapabilities(modelId: string): ModelCapabilities {
 }
 
 /* ── Chat Proxy ─────────────────────────────────────────────── */
+
+/**
+ * The sampling fields an Anthropic model accepts. Claude 4.7 and later (the
+ * Claude 5 family included) answer any `temperature`/`top_p` with a 400, and
+ * Opus 4.1 and the 4.5/4.6 models refuse the two together: always sending
+ * both made every current Claude model fail. Claude 3 and 4.0 take both. A
+ * model that is not named Claude (an Anthropic-compatible endpoint of another
+ * vendor) keeps them as before.
+ */
+export function anthropicSamplingParams(model: string, temperature: number, topP: number): { temperature?: number; top_p?: number } {
+	const id = model.toLowerCase();
+	if (!id.includes("claude")) return { temperature, top_p: topP };
+	if (/claude-3/.test(id)) return { temperature, top_p: topP };
+	const named = /claude-(?:opus|sonnet|haiku)-(\d+)(?:-(\d{1,2})(?!\d))?/.exec(id);
+	if (named && Number(named[1]) === 4) {
+		const minor = Number(named[2] ?? 0);
+		if (minor === 0) return { temperature, top_p: topP };
+		if (minor <= 6) return { temperature };
+	}
+	return {};
+}
 
 export interface ChatCompletionRequest {
 	providerId: string;
@@ -300,8 +329,7 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 			messages: anthropicMessages,
 			...(systemText && { system: systemText }),
 			max_tokens: req.max_tokens ?? 4096,
-			temperature: req.temperature ?? 0.7,
-			top_p: req.top_p ?? 1.0,
+			...anthropicSamplingParams(req.model, req.temperature ?? 0.7, req.top_p ?? 1.0),
 			stream: req.stream ?? true,
 			...(req.tools && req.tools.length > 0 && {
 				tools: req.tools.map((t) => ({

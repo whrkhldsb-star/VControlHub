@@ -77,6 +77,35 @@ itGnuTar.each(["LOCAL", "SFTP"])(
   },
 );
 
+itGnuTar("passes Windows (bsdtar) exclusions as single quoted arguments", async () => {
+  // bsdtar takes exclusions on argv. Unquoted, "old notes.txt" became the
+  // exclusion "…/old" plus a member "notes.txt" that tar could not find, and
+  // the whole download failed. GNU tar reads the same argv here.
+  const root = await mkdtemp(path.join(os.tmpdir(), "archive-bsdtar-"));
+  const directory = path.join(root, "docs");
+  try {
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, "old notes.txt"), "deleted");
+    await writeFile(path.join(directory, "keep.txt"), "keep");
+    let command = "";
+    const client = {
+      exec(cmd: string, callback: (error: null, stream: unknown) => void) {
+        command = cmd;
+        const child = spawn("/bin/sh", ["-c", cmd], { stdio: "pipe" });
+        callback(null, Object.assign(child.stdout, { stderr: child.stderr, end: (input: string) => child.stdin.end(input) }));
+      },
+    } as unknown as Client;
+    const stream = await streamRemoteTarGz(client, directory, ["docs/old notes.txt"], { bsdtar: true });
+    const bytes = Buffer.from(await archiveStreamResponse(stream, "test.tar.gz").arrayBuffer());
+    const listing = execFileSync("tar", ["-tzf", "-"], { input: bytes, encoding: "utf8" });
+    expect(command).toContain("'--exclude=docs/old notes.txt'");
+    expect(listing).toContain("docs/keep.txt");
+    expect(listing).not.toContain("old notes.txt");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 it("rejects newline exclusions before spawning a process", () => {
   expect(() =>
     streamLocalTarGz("/unused", "unused", ["unused/one\nother"]),

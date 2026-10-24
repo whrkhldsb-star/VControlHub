@@ -301,6 +301,19 @@ describe("VPS backup routes", () => {
 			);
 		});
 
+		it("keeps a retried scheduled run with its schedule", async () => {
+			// Without it the retry counted as a manual backup and was pruned by
+			// the longest active retention instead of its own schedule's.
+			mocks.prisma.vpsBackupRecord.findFirst.mockResolvedValue({
+				id: "rec_1", status: "FAILED", backupType: "system", paths: [], scheduleId: "sched_daily",
+			});
+
+			const response = await recordRetry.POST(json("https://a.test/r", "POST"), recordParams);
+
+			expect(response.status).toBe(202);
+			expect(mocks.backup.createVpsBackupRecord).toHaveBeenCalledWith(expect.objectContaining({ scheduleId: "sched_daily" }));
+		});
+
 		it.each(["PENDING", "RUNNING", "COMPLETED"])("refuses to retry a %s record", async (status) => {
 			mocks.prisma.vpsBackupRecord.findFirst.mockResolvedValue({ id: "rec_1", status, backupType: "mysql", paths: [] });
 

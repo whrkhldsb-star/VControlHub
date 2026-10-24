@@ -85,17 +85,24 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
             return None, (400, "path outside serve root")
         return target, None
 
-    def do_GET(self):
+    def _serve(self, head):
         target, error = self._validate()
         if error:
             return self._send_plain(*error)
         if not os.path.isfile(target):
             return self._send_plain(404, "not found")
-        self.path = "/" + os.path.relpath(target, SERVE_DIR).replace(os.sep, "/")
-        return super().do_GET()
+        # Relative to the resolved root (a linked SERVE_DIR gave "../" paths
+        # that named another file) and quoted, since translate_path unquotes:
+        # a file literally named "a%20b" was looked up as "a b".
+        self.path = "/" + urllib.parse.quote(os.path.relpath(target, os.path.realpath(SERVE_DIR)).replace(os.sep, "/"))
+        return super().do_HEAD() if head else super().do_GET()
+
+    def do_GET(self):
+        return self._serve(False)
 
     def do_HEAD(self):
-        return self.do_GET()
+        # Headers only: answering HEAD through do_GET also sent the body.
+        return self._serve(True)
 
     def translate_path(self, path):
         parsed = urllib.parse.urlparse(path)

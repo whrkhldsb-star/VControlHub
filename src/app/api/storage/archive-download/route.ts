@@ -193,6 +193,7 @@ export async function GET(request: Request) {
         hostKeySha256: credentials.hostKeySha256,
         agentServerId: credentials.agentServerId,
         privateKey: credentials.privateKey,
+        passphrase: credentials.passphrase,
         password: credentials.password,
         readyTimeout: 15000,
         timeout: 10000,

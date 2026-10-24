@@ -200,7 +200,10 @@ export async function PATCH(request: Request) {
           data: {
             passwordHash,
             mustChangePassword: true,
-            status: "PENDING_PASSWORD_RESET",
+            // A new password does not re-enable an account: sign-in refuses
+            // only DISABLED, so setting the pending status here let a disabled
+            // user log in with the password an administrator had just set.
+            ...(targetUser.status === "DISABLED" ? {} : { status: "PENDING_PASSWORD_RESET" as const }),
           },
         });
         await auditUserAction(

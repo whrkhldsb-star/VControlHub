@@ -114,6 +114,24 @@ describe("AI hosted action approvals", () => {
 		expect(prismaMock.server.findFirst).not.toHaveBeenCalledWith(expect.objectContaining({ include: { sshKey: true } }));
 	});
 
+	it("creates no command when a rejection takes the action first", async () => {
+		// The command used to be created before the PENDING->APPROVED swap: a
+		// rejection that won the swap still left a command request that ran.
+		const { approveHostedAction } = await import("../hosted-service");
+		prismaMock.aiHostedAction.findFirst.mockResolvedValue({
+			id: "action_1", status: "PENDING_APPROVAL", actionType: "execute_command", actionName: "Execute command",
+			riskLevel: "high", autoApproved: false, requesterId: "user_a", teamId: "team_a", serverId: "srv_1",
+			params: JSON.stringify({ serverId: "srv_1", command: "systemctl restart nginx" }),
+		});
+		prismaMock.server.findFirst.mockResolvedValue({ osDialect: null, teamId: "team_a" });
+		prismaMock.aiHostedAction.updateMany.mockResolvedValue({ count: 0 });
+		commandServiceMock.createCommandRequest.mockResolvedValue({ id: "cmd_req", requiresApproval: false });
+
+		await expect(approveHostedAction("action_1", { userId: "admin_1", roles: ["admin"], currentTeamId: "team_a" }))
+			.rejects.toThrow();
+		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
+	});
+
 	it("does not let a team approver approve another team's hosted action by id", async () => {
 		const { approveHostedAction } = await import("../hosted-service");
 		prismaMock.aiHostedAction.findFirst.mockResolvedValue(null);

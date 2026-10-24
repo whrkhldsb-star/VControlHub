@@ -57,6 +57,40 @@ const DEFAULT_MUTATION_REMOTE_TIMEOUT_MS = 120_000;
  */
 const MAX_LOCAL_ENGINE_RESPONSE_BYTES = 32 * 1024 * 1024;
 
+/**
+ * Container logs as text. A container without a TTY answers in Docker's
+ * multiplexed format: each chunk carries an 8-byte header (stream, 0, 0, 0,
+ * big-endian length). Shown as is, every line began with stray characters.
+ * A TTY container's raw stream, or anything not framed, is returned as text.
+ */
+export function demuxDockerLogs(raw: Buffer): string {
+	const parts: Buffer[] = [];
+	let offset = 0;
+	while (offset + 8 <= raw.length) {
+		const stream = raw[offset]!;
+		if (stream > 2 || raw[offset + 1] !== 0 || raw[offset + 2] !== 0 || raw[offset + 3] !== 0) {
+			return raw.toString("utf-8");
+		}
+		const end = Math.min(raw.length, offset + 8 + raw.readUInt32BE(offset + 4));
+		parts.push(raw.subarray(offset + 8, end));
+		offset = end;
+	}
+	if (offset < raw.length) {
+		if (parts.length === 0) return raw.toString("utf-8");
+		parts.push(raw.subarray(offset));
+	}
+	return Buffer.concat(parts).toString("utf-8");
+}
+
+/** How a successful body is read: JSON (the default) or container log text. */
+type DockerResponseDecoding = "json" | "docker-logs";
+
+function decodeDockerBody(raw: Buffer, ok: boolean, decode: DockerResponseDecoding | undefined): unknown {
+	if (ok && decode === "docker-logs") return demuxDockerLogs(raw);
+	const text = raw.toString("utf-8");
+	try { return text ? JSON.parse(text) : null; } catch { return text || null; }
+}
+
 function isMutationMethod(method: string): boolean {
 	return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
 }
@@ -74,9 +108,10 @@ export function requestDockerEngine(
 		loggerScope: string;
 		/** Override HTTP socket timeout (ms). Defaults: 10s GET, 120s mutations. */
 		timeoutMs?: number;
+		decode?: DockerResponseDecoding;
 	},
 ): Promise<DockerEngineResult> {
-	const { method = "GET", body, unavailableData, loggerScope } = options;
+	const { method = "GET", body, unavailableData, loggerScope, decode } = options;
 	const timeoutMs =
 		options.timeoutMs ??
 		(isMutationMethod(method) ? DEFAULT_MUTATION_LOCAL_TIMEOUT_MS : DEFAULT_LOCAL_TIMEOUT_MS);
@@ -140,11 +175,9 @@ export function requestDockerEngine(
 			});
 			response.on("end", () => {
 				if (oversized) return;
-				const raw = Buffer.concat(chunks).toString("utf-8");
-				let data: unknown = raw || null;
-				try { data = raw ? JSON.parse(raw) : null; } catch { /* preserve raw daemon response */ }
 				const status = response.statusCode ?? 500;
-				resolve({ ok: status >= 200 && status < 300, status, data });
+				const ok = status >= 200 && status < 300;
+				resolve({ ok, status, data: decodeDockerBody(Buffer.concat(chunks), ok, decode) });
 			});
 		});
 		request.on("error", (error) => {
@@ -193,9 +226,10 @@ export async function requestRemoteDockerEngine(
 		loggerScope: string;
 		/** Override remote SSH/curl timeout (ms). Defaults: 30s GET, 120s mutations. */
 		timeoutMs?: number;
+		decode?: DockerResponseDecoding;
 	},
 ): Promise<DockerEngineResult> {
-	const { method = "GET", body, unavailableData, loggerScope } = options;
+	const { method = "GET", body, unavailableData, loggerScope, decode } = options;
 	const timeoutMs =
 		options.timeoutMs ??
 		(isMutationMethod(method) ? DEFAULT_MUTATION_REMOTE_TIMEOUT_MS : DEFAULT_REMOTE_TIMEOUT_MS);
@@ -237,14 +271,21 @@ export async function requestRemoteDockerEngine(
 	// For methods other than GET, add -X method. For body, pipe via heredoc-free approach.
 	// curl --unix-socket /var/run/docker.sock -s -w '\n%{http_code}' [-X METHOD] [-d @-] http://localhost{apiPath}
 	const methodFlag = method !== "GET" ? ` -X ${method}` : "";
-	const bodyFlag = body ? ` -d '${body.replace(/'/g, "'\\''")}'` : "";
+	// Docker refuses a JSON body sent as curl -d's default form encoding
+	// ("unsupported Content-Type header"): creating a volume or network on a
+	// remote server always failed.
+	const bodyFlag = body ? ` -H 'Content-Type: application/json' -d '${body.replace(/'/g, "'\\''")}'` : "";
 	// Use -s (silent), output body + HTTP status code separated by newline.
 	// The URL MUST be single-quoted: validateDockerApiPath permits `&` (needed
 	// for multi-param queries like logs?stdout=true&stderr=true&tail=N). Left
 	// unquoted, the remote shell reads `&` as a background operator and silently
 	// drops every param after the first (logs lose stderr + tail). The validator
 	// forbids single quotes, so wrapping in '...' cannot break out or inject.
-	const curlCmd = `curl --unix-socket /var/run/docker.sock -s -w '\\n%{http_code}'${methodFlag}${bodyFlag} 'http://localhost${apiPath}'`;
+	const curlCmd = decode === "docker-logs"
+		// Logs are binary frames, which SSH output (decoded as UTF-8) would
+		// mangle: fetch them to a file and return them base64-encoded.
+		? `f=$(mktemp) || exit 1; code=$(curl --unix-socket /var/run/docker.sock -s -o "$f" -w '%{http_code}'${methodFlag} 'http://localhost${apiPath}'); rc=$?; base64 < "$f" | tr -d '\\n'; rm -f -- "$f"; printf '\\n%s' "$code"; exit $rc`
+		: `curl --unix-socket /var/run/docker.sock -s -w '\\n%{http_code}'${methodFlag}${bodyFlag} 'http://localhost${apiPath}'`;
 
 	logger.debug("Remote Docker request", { serverId, serverName: server.name, apiPath, method });
 
@@ -277,16 +318,9 @@ export async function requestRemoteDockerEngine(
 
 		const httpStatus = parseInt(output.slice(lastNewline + 1).trim(), 10);
 		const responseBody = output.slice(0, lastNewline);
-
-		let data: unknown = responseBody || null;
-		try {
-			data = responseBody ? JSON.parse(responseBody) : null;
-		} catch {
-			// preserve raw response
-		}
-
 		const ok = httpStatus >= 200 && httpStatus < 300;
-		return { ok, status: httpStatus, data };
+		const raw = decode === "docker-logs" ? Buffer.from(responseBody.trim(), "base64") : Buffer.from(responseBody, "utf-8");
+		return { ok, status: httpStatus, data: decodeDockerBody(raw, ok, decode) };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "SSH connection failed";
 		logger.error("Remote Docker SSH error", err, { serverId });
@@ -307,6 +341,7 @@ export async function dockerRequest(
 		serverId?: string;
 		/** Override request timeout (ms); see requestDockerEngine / requestRemoteDockerEngine defaults. */
 		timeoutMs?: number;
+		decode?: DockerResponseDecoding;
 	},
 ): Promise<{ result: DockerEngineResult; scope: DockerScope }> {
 	const { serverId, ...rest } = options;

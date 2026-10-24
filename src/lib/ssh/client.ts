@@ -32,7 +32,10 @@ export type SshConnectionParams = {
 export type SftpListEntry = {
  name: string;
  longname: string;
+ /** The entry itself (lstat): a symbolic link is "other", never followed. */
  type: "file" | "directory" | "other";
+ /** The entry is a symbolic link; `type` still describes the link, not its target. */
+ symlink?: boolean;
  size: number;
  modifyTime: number;
  accessTime: number;
@@ -287,6 +290,7 @@ function sftpReaddir(client: Client, remotePath: string): Promise<SftpListEntry[
             name: entry.filename,
             longname: entry.longname,
             type: isDir ? "directory" : attrs.isFile() ? "file" : "other",
+            symlink: (attrs.mode! & 0o170000) === 0o120000,
             size: attrs.size,
             modifyTime: (attrs.mtime ?? 0) * 1000,
             accessTime: (attrs.atime ?? 0) * 1000,
@@ -299,7 +303,7 @@ function sftpReaddir(client: Client, remotePath: string): Promise<SftpListEntry[
 
 export async function listRemoteDirectory(input: SshConnectionParams & { remotePath: string; maxEntries?: number }): Promise<SftpListEntry[]> {
   if (usesAgentOnly(input)) {
-    const source = "import json,os,stat,sys\np=sys.argv[1]; limit=int(sys.argv[2]); out=[]\nfor name in os.listdir(p)[:limit]:\n q=os.path.join(p,name); s=os.lstat(q); mode=s.st_mode; kind='directory' if stat.S_ISDIR(mode) else ('file' if stat.S_ISREG(mode) else 'other'); out.append({'name':name,'longname':name,'type':kind,'size':s.st_size,'modifyTime':int(s.st_mtime*1000),'accessTime':int(s.st_atime*1000)})\nprint(json.dumps(out,ensure_ascii=False))";
+    const source = "import json,os,stat,sys\np=sys.argv[1]; limit=int(sys.argv[2]); out=[]\nfor name in os.listdir(p)[:limit]:\n q=os.path.join(p,name); s=os.lstat(q); mode=s.st_mode; kind='directory' if stat.S_ISDIR(mode) else ('file' if stat.S_ISREG(mode) else 'other'); out.append({'name':name,'longname':name,'type':kind,'symlink':stat.S_ISLNK(mode),'size':s.st_size,'modifyTime':int(s.st_mtime*1000),'accessTime':int(s.st_atime*1000)})\nprint(json.dumps(out,ensure_ascii=False))";
     const result = await execAgentOnly(input, pythonCommand(source, [input.remotePath, String(input.maxEntries ?? 10_000)]));
     return JSON.parse(result.stdout) as SftpListEntry[];
   }
@@ -332,6 +336,40 @@ export async function statRemoteEntry(input: SshConnectionParams & { remotePath:
         });
     }));
   });
+}
+
+export type RemoteTargetType = { type: "file" | "directory" | "other"; size: number } | null;
+
+/**
+ * What each path points at, following symbolic links (stat, not lstat); null
+ * where it does not resolve, as for a dangling link. One SFTP channel, one
+ * path at a time: a channel per path ran into the server's session limit.
+ */
+export async function statRemoteTargetTypes(input: SshConnectionParams & { remotePaths: string[] }): Promise<RemoteTargetType[]> {
+  if (input.remotePaths.length === 0) return [];
+  if (usesAgentOnly(input)) {
+    const source = "import json,os,stat,sys\nout=[]\nfor p in sys.argv[1:]:\n try:\n  s=os.stat(p)\n except OSError:\n  out.append(None); continue\n m=s.st_mode; out.append({'type':'directory' if stat.S_ISDIR(m) else ('file' if stat.S_ISREG(m) else 'other'),'size':s.st_size})\nprint(json.dumps(out))";
+    const result = await execAgentOnly(input, pythonCommand(source, input.remotePaths));
+    return JSON.parse(result.stdout) as RemoteTargetType[];
+  }
+  return withReusableSshClient(input, (client) =>
+    withSftpChannel(client, async (sftp) => {
+      const out: RemoteTargetType[] = [];
+      for (const remotePath of input.remotePaths) {
+        out.push(await new Promise<RemoteTargetType>((resolve, reject) => {
+          sftp.stat(remotePath, (error, attrs) => {
+            if (error) {
+              // Missing or unreadable target: an unusable link, not a failed listing.
+              if ([2, 3].includes((error as { code?: number }).code ?? -1)) return resolve(null);
+              return reject(error);
+            }
+            resolve({ type: attrs.isDirectory() ? "directory" : attrs.isFile() ? "file" : "other", size: attrs.size });
+          });
+        }));
+      }
+      return out;
+    }),
+  );
 }
 
 /**

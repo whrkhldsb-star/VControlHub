@@ -22,7 +22,7 @@ import {
 } from "@/lib/server/file-proxy-script";
 import {
   decryptServerPassword,
-  decryptSshPrivateKey,
+  decryptStoredSshKey,
 } from "@/lib/ssh/ssh-key-crypto";
 import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -39,10 +39,24 @@ type SshExecServer = {
   host: string;
   port: number;
   username: string;
+  connectionType: string;
   password: string | null;
-  sshKey: { privateKey: string | null } | null;
+  sshKey: { privateKey: string | null; passphrase: string | null } | null;
   hostKeySha256?: string | null;
 };
+
+/**
+ * The server's own login, as every other SSH path builds it: the key only for
+ * key login, unlocked when it has a passphrase. Decrypting the key alone left
+ * a passphrase-protected key encrypted, and the proxy could not start.
+ */
+function sshExecCredentials(server: SshExecServer) {
+  if (server.connectionType === "SSH_KEY") {
+    const key = decryptStoredSshKey(server.sshKey);
+    return key ? { privateKey: key.privateKey, ...(key.passphrase ? { passphrase: key.passphrase } : {}) } : {};
+  }
+  return server.password ? { password: decryptServerPassword(server.password) } : {};
+}
 
 const SSH_EXEC_TIMEOUT_MS = 15_000;
 
@@ -89,11 +103,7 @@ async function sshExec(
       // channels: this path decrypts and sends the stored login credential,
       // so a TOFU accept would leak it to an on-path impersonator.
       enforceHostKeyPin: true,
-      ...(server.sshKey?.privateKey
-        ? { privateKey: decryptSshPrivateKey(server.sshKey.privateKey) }
-        : server.password
-          ? { password: decryptServerPassword(server.password) }
-          : {}),
+      ...sshExecCredentials(server),
     });
     config.readyTimeout = 10000;
     config.timeout = 10000;
