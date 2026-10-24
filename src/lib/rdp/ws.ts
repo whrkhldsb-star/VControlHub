@@ -11,6 +11,9 @@ import { checkGuacd, consumeRdpTicket, getRdpServer, guacdPort, rdpEndpointHash,
 import { GuacParser, instruction, validateClientInstruction } from "./protocol";
 import { getRdpSessionRuntimeConfig } from "@/lib/runtime-settings/service";
 import { rdpAudioEnabled, rdpClipboardEnabled, RDP_AUDIO_MIMETYPES } from "./features";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("rdp-ws");
 
 function cookie(req: IncomingMessage) {
  const raw = req.headers.cookie?.split(";").map(v => v.trim()).find(v => v.startsWith(`${getSessionCookieName()}=`));
@@ -52,6 +55,30 @@ const RDP_STATUS_FORBIDDEN = "771";
 const RDP_SESSION_ENDED = new Set(["0", "521", "522", "523"]);
 /** How long guacd gets to close its side after the disconnect instruction. */
 const TUNNEL_CLOSE_GRACE_MS = 2_000;
+/**
+ * Malformed browser instructions are dropped, not fatal: one bad mouse
+ * position (switching tabs, resizing the window) used to end the whole
+ * desktop session. A browser sending this many a minute is not a desktop in use.
+ */
+const MAX_DROPPED_PER_MINUTE = 50;
+
+/**
+ * A mouse position the browser computed as negative or fractional — an
+ * off-pixel centred desktop gives -1 at its edge — is clamped onto the desktop.
+ */
+function normalizeMouse(row: string[]): string[] | null {
+ if (row[0] !== "mouse" || row.length !== 4) return null;
+ const [x, y, mask] = row.slice(1).map(Number);
+ if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isInteger(mask) || mask! < 0 || mask! > 31) return null;
+ const clamp = (n: number) => String(Math.min(8192, Math.max(0, Math.floor(n))));
+ return ["mouse", clamp(x!), clamp(y!), String(mask)];
+}
+
+/** What a dropped instruction looked like, for the log: its numbers, not what was typed. */
+function describeInstruction(row: string[]) {
+ const [op = "", ...args] = row;
+ return { op: op.slice(0, 32), args: op === "key" ? args.map(() => "<keysym>") : args.slice(0, 6).map((v) => (/^-?[\d.e+]{1,24}$/i.test(v) || v === "NaN" || v === "Infinity" || v === "-Infinity" ? v : `<${v.length} chars>`)) };
+}
 
 export function setupRdpWebSocket(server: HttpServer) {
  const wss = new WebSocketServer({ noServer: true, maxPayload: 16_384, perMessageDeflate: false,
@@ -157,9 +184,25 @@ export function setupRdpWebSocket(server: HttpServer) {
    if (started) audit("server.rdp.closed", { reason: endedBy.slice(0, 120), seconds: String(Math.round((Date.now() - openedAt) / 1000)) });
    else if (!failureAudited) audit("server.rdp.failed");
   });
-  const input = new GuacParser(row => {
+  let dropped = 0, droppedSince = 0, droppedTotal = 0;
+  const input = new GuacParser(parsed => {
    if (stopped) return;
-   if (!started || !validateClientInstruction(row, { clipboard: clipboardAllowed })) { close("Unsupported RDP input", 1008); return; }
+   if (!started) { close("Unsupported RDP input before the session started", 1008); return; }
+   let row = parsed;
+   if (!validateClientInstruction(row, { clipboard: clipboardAllowed })) {
+    const mouse = normalizeMouse(row);
+    if (mouse) row = mouse;
+    else {
+     // Never forwarded, so guacd stays safe; the session goes on.
+     const now = Date.now();
+     if (now - droppedSince > 60_000) { droppedSince = now; dropped = 0; }
+     dropped += 1;
+     droppedTotal += 1;
+     if (droppedTotal <= 5) logger.warn("dropped an invalid RDP instruction from the browser", { serverId, ...describeInstruction(parsed) });
+     if (dropped > MAX_DROPPED_PER_MINUTE) close(`Unsupported RDP input (${(parsed[0] ?? "").slice(0, 32)})`, 1008);
+     return;
+    }
+   }
    // Any validated traffic — keep-alive nops and ping echoes included — proves
    // the browser is still there and resets the idle limit.
    lastInput = Date.now();
@@ -176,7 +219,7 @@ export function setupRdpWebSocket(server: HttpServer) {
      if (clipboardStreams.has(index) || clipboardStreams.size >= MAX_CLIPBOARD_STREAMS) { close("RDP clipboard limit reached", 1008); return; }
      clipboardStreams.set(index, 0);
     }
-    else if (!clipboardStreams.has(index)) { close("Unsupported RDP input", 1008); return; }
+    else if (!clipboardStreams.has(index)) { close(`Unsupported RDP input (${row[0]} on an unknown stream)`, 1008); return; }
     if (row[0] === "blob") {
      const blobs = clipboardStreams.get(index)! + 1;
      if (blobs > MAX_CLIPBOARD_BLOBS) { close("RDP clipboard limit reached", 1008); return; }

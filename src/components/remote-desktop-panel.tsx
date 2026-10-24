@@ -299,7 +299,16 @@ export function RemoteDesktopPanel({
 					const { left, middle, right, up, down } = event.state;
 					// Shift+click and Shift+wheel need the Shift press; a mere move does not.
 					if (left || middle || right || up || down) flushShift();
-					client.sendMouseState(event.state, true);
+					// An off-pixel centred desktop reports -1 at its edge (Chromium, WebKit);
+					// keep the pointer on the desktop instead of sending what the gateway refuses.
+					const scale = display.getScale();
+					if (!(scale > 0)) return;
+					const clamp = (value: number, size: number) => Math.min(Math.max(0, value), Math.max(0, size * scale - 1));
+					// A copy: event.state is the mouse's own running state.
+					const state = Object.assign(Object.create(Object.getPrototypeOf(event.state)) as typeof event.state, event.state);
+					state.x = clamp(state.x, display.getWidth());
+					state.y = clamp(state.y, display.getHeight());
+					client.sendMouseState(state, true);
 				};
 				// Both touch handlers listen; the chosen mode decides which one is sent.
 				const sendTouchpad = (event: import("guacamole-common-js").Event) => { if (touchModeRef.current === "touchpad") sendMouse(event); };
@@ -394,7 +403,8 @@ export function RemoteDesktopPanel({
 				document.addEventListener("visibilitychange", visibility);
 				let resizeTimer: ReturnType<typeof setTimeout> | undefined;
 				const fit = () => {
-					if (display.getWidth() && display.getHeight()) display.scale(Math.min(1, host.clientWidth / display.getWidth(), host.clientHeight / display.getHeight()));
+					// A hidden tab measures 0 × 0: keep its scale rather than shrink it to nothing.
+					if (display.getWidth() && display.getHeight() && host.clientWidth && host.clientHeight) display.scale(Math.min(1, host.clientWidth / display.getWidth(), host.clientHeight / display.getHeight()));
 				};
 				const applyScaleNow = () => {
 					if (viewModeRef.current === "actual") display.scale(1);
