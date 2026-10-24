@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { ActionButton } from "@/components/action-button";
-import { ClipboardList, Folder, Hand, Keyboard, Maximize2, Minimize2, Monitor, MousePointer, Server, X } from "@/components/icons";
+import { ClipboardList, Folder, Hand, Keyboard, Languages, Maximize2, Minimize2, Monitor, MousePointer, Server, X } from "@/components/icons";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
@@ -166,6 +166,8 @@ export function SshTerminalToolbar({
 }
 
 export type RemoteDesktopTouchMode = "touchpad" | "touch";
+/** Remote: keys go to Windows and its input method composes. Local: the browser's input method composes and the text is sent. */
+export type RemoteDesktopInputMethod = "remote" | "local";
 
 /**
  * The remote desktop's bar, built like the SSH one: name and host, status,
@@ -181,10 +183,12 @@ export function RemoteDesktopToolbar({
 	fullscreen = false,
 	touch,
 	touchMode,
+	inputMethod,
 	viewMode,
 	elapsed,
 	onToggleTouchMode,
 	onKeyboard,
+	onToggleInputMethod,
 	onToggleView,
 	onCtrlAltDel,
 	onToggleFullscreen,
@@ -199,11 +203,14 @@ export function RemoteDesktopToolbar({
 	/** A touch screen: show the keyboard and pointer-mode chips. */
 	touch: boolean;
 	touchMode: RemoteDesktopTouchMode;
+	/** Which input method composes Chinese and other text (mouse and keyboard devices). */
+	inputMethod: RemoteDesktopInputMethod;
 	viewMode: "fit" | "actual";
 	/** Connected time, e.g. "03:12"; null while not connected. */
 	elapsed: string | null;
 	onToggleTouchMode: () => void;
 	onKeyboard: () => void;
+	onToggleInputMethod: () => void;
 	onToggleView: () => void;
 	onCtrlAltDel: () => void;
 	onToggleFullscreen?: () => void;
@@ -219,20 +226,27 @@ export function RemoteDesktopToolbar({
 		</ActionButton>
 	);
 	// Phones: icon-only chips, so the bar stays one row and the desktop keeps its height.
-	const chip = (label: string, icon: ReactNode, onClick: () => void, extra?: { pressed?: boolean; disabled?: boolean; testId?: string; iconOnly?: boolean }) => (
+	const chip = (label: string, icon: ReactNode, onClick: () => void, extra?: { pressed?: boolean; disabled?: boolean; testId?: string; iconOnly?: boolean; title?: string }) => (
 		<button
 			type="button"
 			onClick={onClick}
 			disabled={extra?.disabled}
 			aria-pressed={extra?.pressed}
 			aria-label={label}
-			title={label}
+			title={extra?.title ?? label}
 			data-testid={extra?.testId}
 			className={cn(chipBase, chipIcon, !extra?.iconOnly && "sm:min-w-0", extra?.pressed ? chipActive : chipIdle, "disabled:opacity-50")}
 		>
 			{icon}
 			{!extra?.iconOnly && <span className="hidden sm:ml-1 sm:inline">{label}</span>}
 		</button>
+	);
+	// A touch screen types with its own on-screen keyboard: always the local input method.
+	const inputMethodChip = !touch && chip(
+		t(inputMethod === "remote" ? "rdp.inputMethod.remote" : "rdp.inputMethod.local"),
+		<Languages size={14} aria-hidden="true" />,
+		onToggleInputMethod,
+		{ testId: "rdp-input-method", iconOnly: fullscreen, title: t(inputMethod === "remote" ? "rdp.inputMethod.remoteHint" : "rdp.inputMethod.localHint") },
 	);
 	const touchChips = touch && (
 		<>
@@ -251,6 +265,7 @@ export function RemoteDesktopToolbar({
 				<div className="ml-auto flex shrink-0 items-center gap-1">
 					{reconnectButton}
 					{touchChips}
+					{inputMethodChip}
 					{chip("Ctrl+Alt+Del", <span className="text-[10px] font-semibold">CAD</span>, onCtrlAltDel, { disabled: !connected, iconOnly: true })}
 					<button
 						type="button"
@@ -280,6 +295,7 @@ export function RemoteDesktopToolbar({
 				</StatusBadge>
 				{elapsed && <span className="hidden text-xs tabular-nums text-[var(--text-muted)] sm:inline" title={t("rdp.elapsed", { time: elapsed })}>{elapsed}</span>}
 				{touchChips}
+				{inputMethodChip}
 				{chip("Ctrl+Alt+Del", <span className="text-[10px] font-semibold sm:hidden">CAD</span>, onCtrlAltDel, { disabled: !connected })}
 				{/* A phone fits the desktop to the screen; actual size cannot be panned by touch. */}
 				{!touch && chip(t(viewMode === "fit" ? "rdp.view.actual" : "rdp.view.fit"), <span className="text-[10px] font-semibold sm:hidden">1:1</span>, onToggleView, { pressed: viewMode === "actual", disabled: !connected })}

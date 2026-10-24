@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 
 vi.mock("@/lib/i18n/use-locale", () => ({
 	useI18n: () => ({
@@ -147,6 +147,23 @@ describe("SshTerminalManager full screen", () => {
 		expect(region.parentElement).not.toHaveAttribute("data-fullscreen");
 		expect(screen.getByRole("tablist")).toBeInTheDocument();
 		expect(exitFullscreen).toHaveBeenCalledTimes(1);
+	});
+
+	it("keeps a compact session strip in full screen when several sessions are open", () => {
+		// Full screen hid the tab bar with the title bar, and there was no other
+		// way to switch sessions: browsers keep Ctrl+Tab for their own tabs.
+		const onTabSelect = vi.fn();
+		const two: SshTerminalTab[] = [...tabs, { id: "srv2-1", serverId: "srv2", serverName: "Beta", host: "2.2.2.2", status: "connected" }];
+		render(
+			<SshTerminalManager tabs={two} activeTabIndex={0} onTabSelect={onTabSelect} onTabClose={vi.fn()} onClose={vi.fn()} onStatusChange={vi.fn()} />,
+		);
+		fireEvent.click(screen.getByTestId("mock-fullscreen-srv1"));
+		expect(screen.getByRole("region").parentElement).toHaveAttribute("data-fullscreen", "true");
+		expect(screen.queryByTestId("ssh-terminal-minimize")).not.toBeInTheDocument();
+		const strip = screen.getByTestId("ssh-terminal-fullscreen-tabs");
+		expect(strip).toHaveAttribute("role", "tablist");
+		fireEvent.click(within(strip).getByText("Beta"));
+		expect(onTabSelect).toHaveBeenCalledWith(1);
 	});
 
 	it("stays usable where the browser has no Fullscreen API (iOS Safari)", () => {

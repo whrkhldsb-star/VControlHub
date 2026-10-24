@@ -32,7 +32,7 @@ beforeEach(() => {
     get: (_target, key) => key === "getImageData" ? () => ({ data: new Uint8ClampedArray(4) }) : vi.fn(),
   }) as CanvasRenderingContext2D);
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.localStorage.clear(); });
 it("opens WS after ticket HTTP 200 using the real csrfFetch and Guacamole APIs", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ token: "test-ticket", path: "/rdp" }), { status: 200 })));
   const handle = renderPanel();
@@ -88,6 +88,24 @@ it.each([[769, "rdp.error.credentials"], [771, "rdp.error.accountRefused"]])("st
   expect(overlay()).toHaveTextContent(message);
   expect(overlay()).toHaveAttribute("role", "alert");
   // No retry: each attempt counts towards Windows' account lockout.
+  await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+  expect(Socket.instances).toHaveLength(1);
+});
+
+it.each([[0x0209, "rdp.error.sessionConflict"], [0x020b, "rdp.error.sessionEnded"], [0, "rdp.error.sessionEnded"]])("stops and explains when Windows ends the session itself (status %i)", async (status, message) => {
+  // Taken over by another connection, ended by an administrator, or signed
+  // out inside Windows: reconnecting took the session back from whoever had
+  // it (who took it back again), or signed the account back in.
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ token: "test-ticket", path: "/rdp" }), { status: 200 }))));
+  renderPanel();
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const socket = Socket.instances[0]!;
+  act(() => { socket.onopen?.(); });
+  act(() => { socket.onmessage?.({ data: instruction("", "uuid") + instruction("sync", "1") }); });
+  act(() => { socket.onmessage?.({ data: instruction("error", "Windows ended the session", String(status)) }); });
+  act(() => { socket.onclose?.(); });
+  expect(overlay()).toHaveTextContent(message);
   await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
   expect(Socket.instances).toHaveLength(1);
 });
@@ -176,4 +194,74 @@ it("keeps the desktop chrome free of touch controls on a mouse device", async ()
   await connectedDesktop();
   expect(screen.queryByTestId("rdp-keyboard")).not.toBeInTheDocument();
   expect(screen.queryByTestId("rdp-pointer-mode")).not.toBeInTheDocument();
+});
+
+const flush = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+const sentKeys = (socket: Socket) => sentInstructions(socket).filter(row => row[0] === "key").map(row => row.slice(1));
+it("keeps the focus on the non-editable desktop for the remote input method, and pastes through the text field", async () => {
+  // A focused text field let the local input method compose as well as the
+  // remote one. Firefox and Safari fire no paste event on a non-editable
+  // element, so Ctrl+V moves the focus to the field and back.
+  const { socket, input } = await connectedDesktop();
+  const desktop = screen.getByRole("application");
+  expect(desktop).toHaveFocus();
+  expect(screen.getByTestId("rdp-input-method")).toHaveAccessibleName("rdp.inputMethod.remote");
+  fireEvent.keyDown(desktop, { key: "Control", keyCode: 17, ctrlKey: true });
+  fireEvent.keyDown(desktop, { key: "v", keyCode: 86, ctrlKey: true });
+  expect(input).toHaveFocus();
+  fireEvent.paste(input, { clipboardData: { types: ["text/plain"], getData: () => "pasted" } });
+  await flush();
+  expect(desktop).toHaveFocus();
+  expect(sentInstructions(socket).some(row => row[0] === "clipboard")).toBe(true);
+});
+it("types text the local input method composed whole, before and after a direct commit", async () => {
+  window.localStorage.setItem("vch.rdp.inputMethod", "local");
+  const { socket, input: field } = await connectedDesktop();
+  const input = field as HTMLTextAreaElement;
+  expect(input).toHaveFocus();
+  expect(screen.getByTestId("rdp-input-method")).toHaveAccessibleName("rdp.inputMethod.local");
+  fireEvent.compositionStart(input);
+  input.value = "ni";
+  fireEvent(input, new InputEvent("input", { bubbles: true, data: "ni", inputType: "insertCompositionText", isComposing: true }));
+  await flush();
+  // Clearing the field mid-composition cancelled it, and the letters typed
+  // next went to the remote input method.
+  expect(input).toHaveValue("ni");
+  input.value = "你";
+  fireEvent(input, new InputEvent("input", { bubbles: true, data: "你", inputType: "insertCompositionText", isComposing: true }));
+  fireEvent.compositionEnd(input, { data: "你" });
+  // Committed directly, as an input method does with punctuation.
+  input.value = "你，";
+  fireEvent(input, new InputEvent("input", { bubbles: true, data: "，", inputType: "insertText" }));
+  fireEvent.compositionStart(input);
+  fireEvent.compositionEnd(input, { data: "好" });
+  const typed = sentKeys(socket).filter(([, pressed]) => pressed === "1").map(([keysym]) => String.fromCodePoint(Number(keysym) & 0xffffff));
+  expect(typed).toEqual(["你", "，", "好"]);
+  await flush();
+  expect(input).toHaveValue("");
+});
+it("keeps a lone Shift tap, the local input method's own Chinese/English switch, from Windows", async () => {
+  window.localStorage.setItem("vch.rdp.inputMethod", "local");
+  const { socket, input } = await connectedDesktop();
+  fireEvent.keyDown(input, { key: "Shift", keyCode: 16, shiftKey: true });
+  fireEvent.keyUp(input, { key: "Shift", keyCode: 16 });
+  expect(sentKeys(socket)).toEqual([]);
+  // Shift still works with another key.
+  fireEvent.keyDown(input, { key: "Shift", keyCode: 16, shiftKey: true });
+  fireEvent.keyDown(input, { key: "A", keyCode: 65, shiftKey: true });
+  fireEvent.keyUp(input, { key: "A", keyCode: 65, shiftKey: true });
+  fireEvent.keyUp(input, { key: "Shift", keyCode: 16 });
+  expect(sentKeys(socket)).toEqual([["65505", "1"], ["65", "1"], ["65", "0"], ["65505", "0"]]);
+});
+it("switches the input method from the toolbar and remembers the choice", async () => {
+  const { input } = await connectedDesktop();
+  const desktop = screen.getByRole("application");
+  desktop.focus();
+  fireEvent.click(screen.getByTestId("rdp-input-method"));
+  expect(window.localStorage.getItem("vch.rdp.inputMethod")).toBe("local");
+  expect(screen.getByTestId("rdp-input-method")).toHaveAccessibleName("rdp.inputMethod.local");
+  expect(screen.getByTestId("rdp-input-method")).toHaveAttribute("title", "rdp.inputMethod.localHint");
+  input.focus();
+  fireEvent.click(screen.getByTestId("rdp-input-method"));
+  expect(window.localStorage.getItem("vch.rdp.inputMethod")).toBe("remote");
 });
