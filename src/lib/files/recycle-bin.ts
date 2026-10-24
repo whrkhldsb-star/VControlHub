@@ -37,6 +37,8 @@ export async function getRecycleBinPage(
           relativePath: true,
           size: true,
           storageNodeId: true,
+          // Restoring a folder brings back only what was deleted with it.
+          deleteBatchId: true,
           // A recycled entry is not edited, so its last change is when it was deleted.
           updatedAt: true,
           storageNode: { select: { name: true } },

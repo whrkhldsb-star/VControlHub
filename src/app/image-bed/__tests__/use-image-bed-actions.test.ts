@@ -248,6 +248,32 @@ describe("useImageBedActions", () => {
 			expect(result.current.selectedIds.size).toBe(0);
 		});
 
+		it("keeps the images a batch delete could not remove selected, and says so", async () => {
+			// 207: one of two deleted. The page said "succeeded", left batch
+			// mode and cleared the selection, so the failed one had to be found again.
+			mocks.csrfFetch.mockResolvedValueOnce({ success: false, partial: true, deleted: 1, failedFileIds: ["img_2"] });
+			const { args } = setup();
+			const { result } = renderHook(() => useImageBedActions(args as never));
+			act(() => { result.current.toggleBatchMode(); });
+			act(() => { result.current.toggleSelect("img_1"); });
+			act(() => { result.current.toggleSelect("img_2"); });
+			act(() => { result.current.requestBatchDelete(); });
+			await act(async () => { await result.current.confirmDelete(); });
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "imageBed.toast.batchPartial");
+			expect([...result.current.selectedIds]).toEqual(["img_2"]);
+			expect(result.current.batchMode).toBe(true);
+		});
+
+		it("warns when a deleted image left files behind", async () => {
+			mocks.csrfFetch.mockResolvedValueOnce({ success: false, deleted: true, cleanupPending: true, cleanupFailures: ["imageBed"] });
+			const { args } = setup();
+			const { result } = renderHook(() => useImageBedActions(args as never));
+			act(() => { result.current.requestDelete(args.images[0] as never); });
+			await act(async () => { await result.current.confirmDelete(); });
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "imageBed.toast.deletedCleanupPending");
+			expect(result.current.pendingDelete).toBeNull();
+		});
+
 		it("clears the selection and leaves batch mode after a batch action", async () => {
 			const { args } = setup();
 			const { result } = renderHook(() => useImageBedActions(args as never));

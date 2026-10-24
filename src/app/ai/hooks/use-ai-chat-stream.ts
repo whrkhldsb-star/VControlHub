@@ -191,6 +191,8 @@ export function useAiChatStream({
       let terminalError: string | null = null;
       let completedSuccessfully = false;
       let aborted = false;
+      // What arrived before a response that ended without "done" or "error".
+      let incomplete: { content: string; reasoning: string } | null = null;
       try {
         const response = await csrfFetch<Response>("/api/ai/chat", {
           method: "POST",
@@ -315,6 +317,12 @@ export function useAiChatStream({
             }
           }
         }
+        // The response ended without its "done" or "error": the answer is not
+        // complete. Ending quietly cleared the text already on screen.
+        if (!completedSuccessfully && !terminalError) {
+          incomplete = { content: finalContent, reasoning: finalReasoning };
+          terminalError = t("aiPage.streamIncomplete");
+        }
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === "AbortError") {
           aborted = true;
@@ -329,6 +337,22 @@ export function useAiChatStream({
         // Drop all transcript writes if the user switched conversations mid-stream.
         const stillOnSameConv = convIdAtSend === activeConvIdRef.current;
         if (terminalError) {
+          if (stillOnSameConv && incomplete && (incomplete.content || incomplete.reasoning)) {
+            const partial: Message = {
+              id: `stream-partial-${crypto.randomUUID()}`,
+              conversationId: convIdAtSend,
+              role: "assistant",
+              content: incomplete.content,
+              reasoningContent: incomplete.reasoning || null,
+              imageUrls: "[]",
+              model: activeConv?.model || null,
+              inputTokens: null,
+              outputTokens: null,
+              latencyMs: null,
+              createdAt: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, partial]);
+          }
           if (stillOnSameConv) {
             const errorText = terminalError.startsWith("❌")
               ? terminalError

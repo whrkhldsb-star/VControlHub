@@ -155,10 +155,12 @@ export async function fetchModelsFromProvider(providerId: string, userId: string
 		})
 		.sort((a, b) => a.id.localeCompare(b.id));
 
-	// Cache the model list back to provider
+	// Cache the model list back to provider — only over the configuration it
+	// came from: a list fetched from the old endpoint, arriving after the
+	// provider was saved with a new one, overwrote the new list.
 	if (models.length > 0) {
-		await prisma.aiProvider.update({
-			where: { id: providerId },
+		await prisma.aiProvider.updateMany({
+			where: { id: providerId, updatedAt: provider.updatedAt },
 			data: { availableModels: JSON.stringify(models.map((m) => m.id)) },
 		});
 	}

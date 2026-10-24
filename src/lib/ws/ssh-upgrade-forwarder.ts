@@ -54,9 +54,23 @@ export function isSshUpgradePath(rawUrl: string | undefined): boolean {
 }
 
 /**
- * Handle a `/ssh` upgrade by piping the raw socket to the gateway. Returns
- * true when the upgrade was forwarded; false lets the caller fall through
- * (disabled via SSH_GATEWAY_FORWARD=0, or a non-/ssh path).
+ * The remote desktop bridge (`/rdp`) runs in the same gateway process. With
+ * only the app port published (the Compose layout) its upgrade reached Next
+ * instead, and no Windows desktop could connect.
+ */
+export function isGatewayUpgradePath(rawUrl: string | undefined): boolean {
+	if (isSshUpgradePath(rawUrl)) return true;
+	try {
+		return new URL(rawUrl || "/", "http://localhost").pathname === "/rdp";
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Handle a `/ssh` or `/rdp` upgrade by piping the raw socket to the gateway.
+ * Returns true when the upgrade was forwarded; false lets the caller fall
+ * through (disabled via SSH_GATEWAY_FORWARD=0, or another path).
  */
 export function forwardSshUpgrade(
 	request: IncomingMessage,
@@ -64,7 +78,7 @@ export function forwardSshUpgrade(
 	head: Buffer,
 	env: EnvLike = process.env,
 ): boolean {
-	if (!isSshUpgradePath(request.url)) return false;
+	if (!isGatewayUpgradePath(request.url)) return false;
 	if (!isSshGatewayForwardingEnabled(env)) return false;
 
 	const port = sshGatewayPort(env);

@@ -308,9 +308,21 @@ async function tryComposeCli(
   options: { removeVolumes?: boolean; workingDir?: string | null; configFiles?: string | null },
 ): Promise<{ ok: boolean; stdout: string; stderr: string; mode: "compose-cli" }> {
   const { argv, remoteCommand, timeoutMs } = buildComposeCliArgs(project, action, options);
-  const result = serverId
-    ? await runRemoteDockerCommand(serverId, remoteCommand, timeoutMs)
-    : await runLocalCommand(argv, timeoutMs);
+  let result: Awaited<ReturnType<typeof runLocalCommand>>;
+  try {
+    result = serverId
+      ? await runRemoteDockerCommand(serverId, remoteCommand, timeoutMs)
+      : await runLocalCommand(argv, timeoutMs);
+  } catch (error) {
+    // No docker CLI on this host at all, only Engine access: as when the
+    // Compose plugin is missing, the Engine fallback can still act. The
+    // thrown ENOENT used to skip it, so status and start simply failed.
+    if (!serverId && (error as { code?: unknown }).code === "ENOENT") {
+      logger.info("docker CLI not found; will fall back to the Engine API", { project, action });
+      return { ok: false, stdout: "", stderr: "docker CLI not found", mode: "compose-cli" };
+    }
+    throw error;
+  }
 
   if (result.exitCode === 0) {
     return { ok: true, stdout: result.stdout, stderr: result.stderr, mode: "compose-cli" };

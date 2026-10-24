@@ -84,8 +84,8 @@ describe("RecycleBinSectionClient", () => {
 		// Restoring the folder restores the file deleted with it; restoring the
 		// file afterwards failed as "not in the recycle bin" and the batch warned.
 		mocks.restore.mockResolvedValue({ success: "ok" });
-		const folder: DeletedEntryProp = { id: "dir", name: "reports", entryType: "DIRECTORY", relativePath: "reports", size: null, storageNodeId: "node-1" };
-		const child: DeletedEntryProp = { id: "child", name: "q3.txt", entryType: "FILE", relativePath: "reports/q3.txt", size: 3, storageNodeId: "node-1" };
+		const folder: DeletedEntryProp = { id: "dir", name: "reports", entryType: "DIRECTORY", relativePath: "reports", size: null, storageNodeId: "node-1", deleteBatchId: "batch-1" };
+		const child: DeletedEntryProp = { id: "child", name: "q3.txt", entryType: "FILE", relativePath: "reports/q3.txt", size: 3, storageNodeId: "node-1", deleteBatchId: "batch-1" };
 		render(<RecycleBinSectionClient canDelete deletedEntries={[child, folder]} />);
 		fireEvent.click(screen.getByRole("checkbox", { name: "全选回收站项目" }));
 		await act(async () => {
@@ -96,11 +96,40 @@ describe("RecycleBinSectionClient", () => {
 		expect(mocks.toast).toHaveBeenCalledWith("success", "已恢复 1 项");
 	});
 
+	it("restores a file deleted before its folder on its own", async () => {
+		// Deleted first, then its folder: two operations. Restoring the folder
+		// leaves the file in the recycle bin, yet the batch skipped it, cleared
+		// its selection and reported success.
+		mocks.restore.mockResolvedValue({ success: "ok" });
+		const folder: DeletedEntryProp = { id: "dir", name: "reports", entryType: "DIRECTORY", relativePath: "reports", size: null, storageNodeId: "node-1", deleteBatchId: "batch-2" };
+		const child: DeletedEntryProp = { id: "child", name: "q3.txt", entryType: "FILE", relativePath: "reports/q3.txt", size: 3, storageNodeId: "node-1", deleteBatchId: "batch-1" };
+		render(<RecycleBinSectionClient canDelete deletedEntries={[child, folder]} />);
+		fireEvent.click(screen.getByRole("checkbox", { name: "全选回收站项目" }));
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole("region", { name: "回收站批量操作" })).getByRole("button", { name: "恢复所选" }));
+		});
+		expect(mocks.restore.mock.calls.map((call) => call[1].get("fileEntryId")).sort()).toEqual(["child", "dir"]);
+		expect(mocks.toast).toHaveBeenCalledWith("success", "已恢复 2 项");
+	});
+
+	it("still treats everything under a purged folder as covered, whatever its batch", async () => {
+		mocks.purge.mockResolvedValue({ success: "ok" });
+		const folder: DeletedEntryProp = { id: "dir", name: "reports", entryType: "DIRECTORY", relativePath: "reports", size: null, storageNodeId: "node-1", deleteBatchId: "batch-2" };
+		const child: DeletedEntryProp = { id: "child", name: "q3.txt", entryType: "FILE", relativePath: "reports/q3.txt", size: 3, storageNodeId: "node-1", deleteBatchId: "batch-1" };
+		render(<RecycleBinSectionClient canDelete deletedEntries={[child, folder]} />);
+		fireEvent.click(screen.getByRole("checkbox", { name: "全选回收站项目" }));
+		fireEvent.click(within(screen.getByRole("region", { name: "回收站批量操作" })).getByRole("button", { name: "永久删除所选" }));
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "永久删除" }));
+		});
+		expect(mocks.purge.mock.calls.map((call) => call[1].get("fileEntryId"))).toEqual(["dir"]);
+	});
+
 	it("still handles a covered entry itself when its folder failed", async () => {
 		mocks.restore.mockImplementation(async (_prev: unknown, form: FormData) =>
 			form.get("fileEntryId") === "dir" ? { error: "原位置已有同名项目" } : { success: "ok" });
-		const folder: DeletedEntryProp = { id: "dir", name: "reports", entryType: "DIRECTORY", relativePath: "reports", size: null, storageNodeId: "node-1" };
-		const child: DeletedEntryProp = { id: "child", name: "q3.txt", entryType: "FILE", relativePath: "reports/q3.txt", size: 3, storageNodeId: "node-1" };
+		const folder: DeletedEntryProp = { id: "dir", name: "reports", entryType: "DIRECTORY", relativePath: "reports", size: null, storageNodeId: "node-1", deleteBatchId: "batch-1" };
+		const child: DeletedEntryProp = { id: "child", name: "q3.txt", entryType: "FILE", relativePath: "reports/q3.txt", size: 3, storageNodeId: "node-1", deleteBatchId: "batch-1" };
 		render(<RecycleBinSectionClient canDelete deletedEntries={[child, folder]} />);
 		fireEvent.click(screen.getByRole("checkbox", { name: "全选回收站项目" }));
 		await act(async () => {

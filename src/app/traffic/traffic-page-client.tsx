@@ -310,6 +310,15 @@ export default function TrafficPage() {
     void fetchSummary();
   }, autoRefreshing && historyScope === "live" ? LIVE_POLL_MS : null);
 
+  // Everything the page shows: refreshing the summary alone left the remote
+  // readings and the history curve as they were (and with manual refresh
+  // nothing else would update them).
+  const refreshAll = () => {
+    void fetchSummary();
+    if (historyScope !== "live") void fetchHistory(historyScope);
+    void fetchRemote();
+  };
+
   const primary = summary?.currentServer.primaryInterface ?? null;
   const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
   const persistedTrend = useMemo(() => {
@@ -320,7 +329,7 @@ export default function TrafficPage() {
   return (
     <PageShell>
       <PageHeader eyebrow={t("trafficPage.eyebrow")} title={t("trafficPage.title")} description={t("trafficPage.desc")}>
-        <ActionButton size="sm" type="button" variant="ghost" onClick={() => fetchSummary()}>{t("trafficPage.refresh")}</ActionButton>
+        <ActionButton size="sm" type="button" variant="ghost" onClick={refreshAll}>{t("trafficPage.refresh")}</ActionButton>
         <Chip size="md" tone="success" selected={autoRefresh} onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0}>
           {autoRefresh
             ? t("trafficPage.autoRefreshOn", { label: refreshLabel })

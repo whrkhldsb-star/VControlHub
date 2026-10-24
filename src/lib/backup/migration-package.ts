@@ -533,34 +533,44 @@ export async function importMigrationPackage(input: {
       }
     }
 
-    const fileInfo = await stat(destAbsolute);
-    const checksum = await sha256File(destAbsolute);
-    if (checksum.toLowerCase() !== manifest.backup.checksumSha256.toLowerCase()) {
+    // The copy belongs to this import until a record names it: any failure
+    // before that (a mismatch, or the record write itself) removes it, or a
+    // retry left an unlisted full copy behind and made another.
+    let fileInfo: Awaited<ReturnType<typeof stat>>;
+    let checksum: string;
+    let record: Awaited<ReturnType<typeof prisma.backupRecord.create>>;
+    try {
+      fileInfo = await stat(destAbsolute);
+      checksum = await sha256File(destAbsolute);
+      if (checksum.toLowerCase() !== manifest.backup.checksumSha256.toLowerCase()) {
+        throw new BusinessError(t("backend.backup.importChecksumMismatch"));
+      }
+
+      const noteParts = [
+        `Imported migration package ${manifest.packageId}`,
+        `sourceHost=${manifest.source.hostname}`,
+        `sourceRecord=${manifest.source.recordId}`,
+        input.note?.trim() || "",
+        manifest.backup.note || "",
+      ].filter(Boolean);
+
+      record = await prisma.backupRecord.create({
+        data: {
+          type,
+          status: "COMPLETED",
+          filePath: portablePath,
+          fileSize: String(fileInfo.size),
+          checksumSha256: checksum,
+          note: noteParts.join(" | ").slice(0, 1000),
+          completedAt: new Date(),
+          createdBy: input.session?.userId ?? null,
+          teamId: input.session?.currentTeamId ?? null,
+        },
+      });
+    } catch (error) {
       await rm(destAbsolute, { force: true }).catch(() => undefined);
-      throw new BusinessError(t("backend.backup.importChecksumMismatch"));
+      throw error;
     }
-
-    const noteParts = [
-      `Imported migration package ${manifest.packageId}`,
-      `sourceHost=${manifest.source.hostname}`,
-      `sourceRecord=${manifest.source.recordId}`,
-      input.note?.trim() || "",
-      manifest.backup.note || "",
-    ].filter(Boolean);
-
-    const record = await prisma.backupRecord.create({
-      data: {
-        type,
-        status: "COMPLETED",
-        filePath: portablePath,
-        fileSize: String(fileInfo.size),
-        checksumSha256: checksum,
-        note: noteParts.join(" | ").slice(0, 1000),
-        completedAt: new Date(),
-        createdBy: input.session?.userId ?? null,
-        teamId: input.session?.currentTeamId ?? null,
-      },
-    });
 
     logger.info("migration package imported", {
       packageId: manifest.packageId,

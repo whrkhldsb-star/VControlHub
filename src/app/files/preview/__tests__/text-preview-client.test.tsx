@@ -310,6 +310,42 @@ describe("TextPreviewClient editable mode", () => {
     expect(status).toHaveTextContent("重载成功，无需 SSH 重连");
   });
 
+  it("offers save and update for a Compose file, which has no unit, and updates the whole project", async () => {
+    // The file list links compose.yaml with reloadKind=compose and no unit;
+    // the button needed a unit and never showed.
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({ draft: { content: "services: {}\n", byteSize: 13, updatedAt: "2026-06-15T01:00:00.000Z", lastModifiedMs: 1780999200000 } })
+      .mockResolvedValueOnce({ success: true, byteSize: 20 })
+      .mockResolvedValueOnce({ success: true, exitCode: 0, stdout: "", stderr: "" });
+
+    render(
+      <TextPreviewClient
+        href="/api/storage/sftp-download?nodeId=node_1&path=apps/web/compose.yaml"
+        name="compose.yaml"
+        fileEntryId="file_compose"
+        editable
+        driver="SFTP"
+        nodeId="node_1"
+        relativePath="apps/web/compose.yaml"
+        serverId="srv_1"
+        reloadKind="compose"
+      />,
+    );
+
+    await screen.findByText("可在线编辑 · 保存前可确认差异");
+    await actor.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), { target: { value: "services:\n  web: {}\n" } });
+    await actor.click(screen.getByRole("button", { name: "保存并更新 Compose 项目" }));
+
+    await waitFor(() =>
+      expect(csrfFetch).toHaveBeenCalledWith(
+        "/api/servers/srv_1/reload",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ kind: "compose", projectDir: "/apps/web" }) }),
+      ),
+    );
+  });
+
   it("save + reload flow: shows reload stderr without closing editor when systemctl exits non-zero", async () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch)

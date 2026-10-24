@@ -695,6 +695,9 @@ export async function runAiOpsScanWorkerOnce(
       await failJob(job.id, AI_OPS_SCAN_WORKER_ID, message.slice(0, 2000), {
         retryAfterMs: 60 * 60 * 1000, // 1h retry
       });
+      // Wake for that retry, whichever path ran this scan (startup, manual,
+      // scheduled): the timer otherwise slept until the next daily slot.
+      scheduleNextAiOpsScan();
       logger.error("AI ops scan failed", {
         reason: payloadReason,
         jobId: job.id,
@@ -832,10 +835,35 @@ export function millisecondsUntilNextLocalHour(
   return 24 * 60 * 60 * 1000;
 }
 
+/**
+ * When a scan waiting for a retry becomes due. A failed scan goes back to the
+ * queue for an hour later, but the worker only woke at the daily slot: the
+ * retry the failure promised waited for the next day.
+ */
+async function nextPendingScanDelayMs(): Promise<number | null> {
+  const pending = await prisma.job.findFirst({
+    where: { type: AI_OPS_SCAN_JOB_TYPE, status: "PENDING" },
+    orderBy: { availableAt: "asc" },
+    select: { availableAt: true },
+  });
+  const at = pending?.availableAt instanceof Date ? pending.availableAt.getTime() : null;
+  return at === null ? null : Math.max(1_000, at - Date.now());
+}
+
 function scheduleNextAiOpsScan() {
   const state = getWorkerState();
   if (!state.started) return;
-  const delayMs = millisecondsUntilNextLocalHour(AI_OPS_DEFAULT_SCHEDULE_HOUR);
+  void nextPendingScanDelayMs()
+    .catch(() => null)
+    .then((retryMs) => armAiOpsScanTimer(retryMs));
+}
+
+function armAiOpsScanTimer(retryMs: number | null) {
+  const state = getWorkerState();
+  if (!state.started) return;
+  if (state.timer) clearTimeout(state.timer);
+  const dailyMs = millisecondsUntilNextLocalHour(AI_OPS_DEFAULT_SCHEDULE_HOUR);
+  const delayMs = retryMs === null ? dailyMs : Math.min(dailyMs, retryMs);
   state.timer = setTimeout(() => {
     state.timer = null;
     void runAiOpsScanWorkerOnce("scheduled")

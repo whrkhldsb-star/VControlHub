@@ -1,5 +1,6 @@
 import type { RoleKey } from "@/lib/auth/rbac";
 import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
 
 import {
   abandonStalePendingBackupRecords,
@@ -60,6 +61,7 @@ type BackupCreatePayload = {
   projectRoot?: string;
   retentionDays?: number;
   teamId?: string | null;
+  scheduleId?: string;
 };
 
 type BackupRetentionPayload = {
@@ -67,6 +69,8 @@ type BackupRetentionPayload = {
   keepLatestPerType?: number;
   projectRoot?: string;
   teamId?: string | null;
+  /** After a scheduled backup: that schedule's retention, applied to its own backups. */
+  scheduleId?: string;
   /** The platform's daily tick: offsite objects only; local records are pruned per customer. */
   offsiteOnly?: boolean;
 };
@@ -98,7 +102,32 @@ function parseRetentionPayload(
     typeof payload.teamId === "string" && payload.teamId.trim()
       ? payload.teamId.trim()
       : null;
-  return { olderThanDays, keepLatestPerType, projectRoot, teamId, offsiteOnly: payload.offsiteOnly === true };
+  const scheduleId = typeof payload.scheduleId === "string" && payload.scheduleId.trim() ? payload.scheduleId.trim() : undefined;
+  return { olderThanDays, keepLatestPerType, projectRoot, teamId, scheduleId, offsiteOnly: payload.offsiteOnly === true };
+}
+
+/**
+ * A schedule's retention covers the backups that schedule made. Manual
+ * backups belong to no schedule; as for VPS backups they follow the longest
+ * retention among the customer's active schedules.
+ */
+async function pruneScheduledBackups(payload: BackupRetentionPayload) {
+  const base = { keepLatestPerType: payload.keepLatestPerType, projectRoot: payload.projectRoot, teamId: payload.teamId };
+  const own = await pruneOldBackupRecordsNow({ ...base, olderThanDays: payload.olderThanDays, scheduleId: payload.scheduleId });
+  const longest = await prisma.backupSchedule.aggregate({
+    where: { teamId: payload.teamId ?? undefined, status: "ACTIVE", retentionDays: { gt: 0 } },
+    _max: { retentionDays: true },
+  });
+  if (!payload.teamId || !longest._max.retentionDays) return own;
+  const manual = await pruneOldBackupRecordsNow({ ...base, olderThanDays: longest._max.retentionDays, scheduleId: null });
+  return {
+    ...own,
+    deletedRecords: own.deletedRecords + manual.deletedRecords,
+    filesDeleted: own.filesDeleted + manual.filesDeleted,
+    filesSkipped: own.filesSkipped + manual.filesSkipped,
+    fileErrors: [...own.fileErrors, ...manual.fileErrors],
+    candidateIds: [...own.candidateIds, ...manual.candidateIds],
+  };
 }
 
 let timer: NodeJS.Timeout | null = null;
@@ -136,6 +165,7 @@ function parseCreatePayload(payload: Prisma.JsonValue): BackupCreatePayload {
         : undefined,
     retentionDays,
     teamId,
+    scheduleId: typeof payload.scheduleId === "string" && payload.scheduleId.trim() ? payload.scheduleId.trim() : undefined,
   };
 }
 
@@ -225,6 +255,10 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
                 olderThanDays: payload.retentionDays,
                 teamId,
                 projectRoot: payload.projectRoot,
+                // The schedule the payload came from: its retention used to
+                // prune every backup of the customer, so a daily schedule
+                // keeping 1 day deleted a monthly schedule's archives.
+                scheduleId: payload.scheduleId,
               },
               createdBy: job.createdBy ?? null,
               teamId,
@@ -281,12 +315,14 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
           // refuse (fail-closed) and leave a warning plus an error in the result.
           const localSummary = payload.offsiteOnly
             ? null
-            : await pruneOldBackupRecordsNow({
-                olderThanDays: payload.olderThanDays,
-                keepLatestPerType: payload.keepLatestPerType,
-                projectRoot: payload.projectRoot,
-                teamId: payload.teamId,
-              });
+            : payload.scheduleId
+              ? await pruneScheduledBackups(payload)
+              : await pruneOldBackupRecordsNow({
+                  olderThanDays: payload.olderThanDays,
+                  keepLatestPerType: payload.keepLatestPerType,
+                  projectRoot: payload.projectRoot,
+                  teamId: payload.teamId,
+                });
           // Offsite retentionDays is platform-wide; run best-effort prune alongside local retention.
           let offsiteResult: Awaited<
             ReturnType<

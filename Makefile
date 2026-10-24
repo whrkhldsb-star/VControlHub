@@ -1,6 +1,10 @@
 APP_DIR ?= $(CURDIR)
 DOMAIN ?=
-SERVICE_PREFIX ?= $(notdir $(APP_DIR))
+# The installer names the services after APP_SLUG, kept in .env.local, a
+# lowercase slug: /opt/VControlHub runs vcontrolhub-next, not VControlHub-next.
+INSTALLED_SLUG := $(shell sed -n 's/^APP_SLUG=//p' "$(APP_DIR)/.env.local" 2>/dev/null | tail -n 1 | tr -d "\"'")
+DIR_SLUG := $(shell printf '%s' '$(notdir $(APP_DIR))' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$$//')
+SERVICE_PREFIX ?= $(or $(INSTALLED_SLUG),$(DIR_SLUG))
 SMOKE_PUBLIC_URL ?=
 
 .PHONY: help verify ci-local ci-local-full build runtime deploy-check drift-check smoke smoke-systemd smoke-http installer-fakeroot restart status logs package version-check

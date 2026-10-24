@@ -103,10 +103,10 @@ async function main() {
 	// rest — e.g. the dev HMR websocket — to Next's upgrade handler).
 	setupWebSocketServer(server, {
 		onForeignUpgrade: (req, socket, head) => {
-			// `/ssh` terminal upgrades belong to the standalone gateway (3001).
-			// Pipe them through so compose deployments without a reverse proxy
-			// get working terminals; systemd+Caddy deployments keep routing the
-			// same path at the proxy layer instead.
+			// `/ssh` terminal and `/rdp` desktop upgrades belong to the
+			// standalone gateway (3001). Pipe them through so compose deployments
+			// without a reverse proxy get working terminals and desktops;
+			// systemd+Caddy deployments keep routing these paths at the proxy.
 			if (forwardSshUpgrade(req, socket, head)) return;
 			Promise.resolve(nextUpgrade(req, socket, head)).catch(() => {
 				if (!socket.destroyed) socket.destroy();

@@ -120,6 +120,32 @@ describe("migration packages", () => {
     expect(listed.some((p) => p.packageId === exported.packageId)).toBe(true);
   });
 
+  it("removes its copy when the import cannot be recorded, so a retry leaves one", async () => {
+    // The copy was made, the record write failed: the copy stayed, unlisted,
+    // and the retry made a second full copy.
+    const { createHash } = await import("node:crypto");
+    const relative = "backups/database-retry.sql.gz";
+    const absolute = path.join(storage, relative);
+    await fs.mkdir(path.dirname(absolute), { recursive: true });
+    const payload = Buffer.from("SELECT 2; -- migration retry fixture\n");
+    await fs.writeFile(absolute, payload);
+    prismaMock.backupRecord.findUnique.mockResolvedValue({
+      id: "bak2", type: "DATABASE", status: "COMPLETED", filePath: relative, fileSize: String(payload.length),
+      checksumSha256: createHash("sha256").update(payload).digest("hex"), note: null, completedAt: new Date("2026-07-15T00:00:00.000Z"), teamId: "team1",
+    });
+    const mod = await import("../migration-package");
+    const exported = await mod.exportMigrationPackage({ backupId: "bak2", projectRoot: tmp });
+    const backupsNow = async () => (await fs.readdir(path.join(storage, "backups"))).filter((name) => name !== "database-retry.sql.gz");
+
+    prismaMock.backupRecord.create.mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(mod.importMigrationPackage({ packageRef: exported.packageRelativeDir, projectRoot: tmp })).rejects.toThrow("database unavailable");
+    expect(await backupsNow()).toEqual([]);
+
+    prismaMock.backupRecord.create.mockImplementationOnce(async ({ data }: { data: Record<string, unknown> }) => ({ id: "imported2", ...data }));
+    const imported = await mod.importMigrationPackage({ packageRef: exported.packageRelativeDir, projectRoot: tmp });
+    expect(await backupsNow()).toEqual([path.basename(imported.filePath)]);
+  });
+
   it("fails validation when payload is tampered", async () => {
     const { createHash } = await import("node:crypto");
     const relative = "backups/files-test.tar.gz";

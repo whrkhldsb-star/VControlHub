@@ -193,6 +193,18 @@ describe("useAiChatStream", () => {
 			expect(state.toasts).toEqual([{ kind: "error", message: "already marked" }]);
 		});
 
+		it("keeps the partial answer and says it is incomplete when the stream ends without done", async () => {
+			// The response closed normally but without a "done" or "error" frame:
+			// the text on screen vanished, with no error.
+			mocks.csrfFetch.mockResolvedValue(sseResponse([{ type: "reasoning", content: "thinking" }, { type: "content", content: "first half" }]));
+			const { state, args } = setup();
+			const { result } = renderHook(() => useAiChatStream(args));
+			await act(async () => { await result.current.sendMessage(sendArgs); });
+			expect(state.messages.map((message) => message.content)).toEqual(["first half", "❌ aiPage.streamIncomplete"]);
+			expect(state.messages[0]!.reasoningContent).toBe("thinking");
+			expect(state.toasts).toEqual([{ kind: "error", message: "aiPage.streamIncomplete" }]);
+		});
+
 		it("reports a thrown network error", async () => {
 			mocks.csrfFetch.mockRejectedValue(new TypeError("Failed to fetch"));
 			const { state, args } = setup();

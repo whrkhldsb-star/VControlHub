@@ -145,9 +145,9 @@ export async function updateItsmConnection(
   });
   if (updated.count === 0)
     throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
-  const row = await prisma.itsmConnection.findFirst({
-    where: { id, ...connectionScope(session) },
-  });
+  // By id: a connection just moved to another customer is outside the scope
+  // it was found in, and the committed move was reported as "not found".
+  const row = await prisma.itsmConnection.findUnique({ where: { id } });
   if (!row) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
   return toConnectionRecord(row);
 }

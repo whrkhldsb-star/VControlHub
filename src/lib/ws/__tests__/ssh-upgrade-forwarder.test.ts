@@ -6,6 +6,7 @@ import {
 	forwardSshUpgrade,
 	isSshGatewayForwardingEnabled,
 	isSshUpgradePath,
+	isGatewayUpgradePath,
 } from "../ssh-upgrade-forwarder";
 
 type FakeSocket = Duplex & { setNoDelay: (v: boolean) => void };
@@ -80,6 +81,19 @@ describe("ssh upgrade forwarder", () => {
 		expect(isSshUpgradePath("/ssh/extra")).toBe(true);
 		expect(isSshUpgradePath("/ws")).toBe(false);
 		expect(isSshUpgradePath("/sshx")).toBe(false);
+	});
+
+	it("also forwards the remote desktop bridge, which lives in the same gateway", async () => {
+		// Compose publishes only the app port: /rdp reached Next and every
+		// remote desktop failed to connect.
+		expect(isGatewayUpgradePath("/rdp")).toBe(true);
+		expect(isGatewayUpgradePath("/rdpx")).toBe(false);
+		expect(isGatewayUpgradePath("/ws")).toBe(false);
+		const { socket: client } = makeFakeSocket();
+		expect(forwardSshUpgrade(makeRequest("/rdp"), client, Buffer.alloc(0), { SSH_WS_PORT: String(gatewayPort) })).toBe(true);
+		await new Promise((r) => setTimeout(r, 50));
+		expect(gatewayReceived.some((chunk) => chunk.startsWith("GET /rdp HTTP/1.1"))).toBe(true);
+		client.destroy();
 	});
 
 	it("honors the SSH_GATEWAY_FORWARD=0 opt-out", () => {

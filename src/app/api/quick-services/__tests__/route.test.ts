@@ -51,7 +51,8 @@ vi.mock("@/lib/quick-service/docker-cli", () => ({
   getContainerHealth: vi.fn(),
   getContainerLogTail: vi.fn(),
 }));
-vi.mock("@/lib/quick-service/job-worker", () => ({
+vi.mock("@/lib/quick-service/job-worker", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/quick-service/job-worker")>()),
   enqueueQuickServiceJob: mocks.enqueueQuickServiceJob,
 }));
 vi.mock("@/lib/db", () => ({
@@ -360,6 +361,26 @@ describe("/api/quick-services routes", () => {
       { label: "Account", value: "admin" },
       { label: "Initial password", value: expect.any(String) },
     ]);
+  });
+
+  it("returns the reused task's own sign-in details, not ones it will not use", async () => {
+    // A repeated request reused the queued task, which installs with its own
+    // generated settings, yet answered with the new request's details.
+    const queuedCredentials = [{ label: "Account", value: "admin" }, { label: "Initial password", value: "the-queued-one" }];
+    const reusedJob = (createdBy: string) => ({
+      job: { id: "job_qs_1", status: "PENDING", createdBy, payload: { action: "install", slug: "alist", template: { slug: "alist" }, installNoticeCredentials: queuedCredentials, installNoticeNotes: ["note"] } },
+      taskId: "job:job_qs_1",
+      reused: true,
+    });
+    const post = () => rootRoute.POST(new Request("http://local/api/quick-services", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ slug: "alist", customPort: 5244 }) }));
+
+    mocks.enqueueQuickServiceJob.mockResolvedValueOnce(reusedJob("u1"));
+    const own = await body(await post()) as { reused: boolean; notice: { credentials: unknown } | null };
+    expect(own).toMatchObject({ reused: true, notice: { credentials: queuedCredentials, notes: ["note"] } });
+
+    // Someone else's queued task: no details, rather than the wrong ones.
+    mocks.enqueueQuickServiceJob.mockResolvedValueOnce(reusedJob("u_other"));
+    expect(await body(await post())).toMatchObject({ reused: true, notice: null });
   });
 
   it("returns 409 when a requested custom port is already used", async () => {

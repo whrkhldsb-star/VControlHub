@@ -288,6 +288,9 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 		await updateQuickServiceJobProgress(job.id, `Installing ${payload.slug} on ${instanceKey}: pulling image and creating container`);
 		const service = await installService({
 			template: payload.template,
+			// Who asked for it: the service's creator and the one told when
+			// it is ready (queued installs saved no creator and sent nothing).
+			userId: job.createdBy ?? undefined,
 			customPort: payload.customPort,
 			target,
 			installNoticeCredentials: payload.installNoticeCredentials,

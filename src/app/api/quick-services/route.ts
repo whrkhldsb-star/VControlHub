@@ -13,7 +13,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
 import { config } from "@/lib/config/env";
 import { prepareInstallSecrets } from "@/lib/quick-service/install-notice";
-import { enqueueQuickServiceJob } from "@/lib/quick-service/job-worker";
+import { enqueueQuickServiceJob, parseQuickServiceJobPayload } from "@/lib/quick-service/job-worker";
 import {
 	listQuickServices,
 	checkPort,
@@ -240,6 +240,17 @@ export async function POST(request: Request) {
 			instanceKey,
 			serverId: serverId || null,
 		}, undefined, session.currentTeamId);
+		// A reused task installs with its own generated settings: the ones made
+		// for this request are not used, and returning them handed the caller
+		// sign-in details the service will not have. The task's own are shown
+		// to whoever queued it, as long as it still holds them.
+		let notice: { credentials: unknown; notes: unknown } | null = { credentials: prepared.credentials, notes: prepared.notes };
+		if (reused) {
+			const queued = job.createdBy === session.userId ? parseQuickServiceJobPayload(job.payload) : null;
+			notice = queued?.action === "install" && queued.installNoticeCredentials
+				? { credentials: queued.installNoticeCredentials, notes: queued.installNoticeNotes ?? [] }
+				: null;
+		}
 		return NextResponse.json({
 			success: true,
 			queued: true,
@@ -247,7 +258,7 @@ export async function POST(request: Request) {
 			jobId: job.id,
 			taskId,
 			status: job.status,
-			notice: { credentials: prepared.credentials, notes: prepared.notes },
+			notice,
 			message: reused ? "The service already has a lifecycle task in progress, returning the existing task." : "Quick service installation has been added as a background task, you can check progress in the task center.",
 		}, { status: 202 });
 	});

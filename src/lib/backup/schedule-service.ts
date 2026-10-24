@@ -242,7 +242,7 @@ export async function dispatchDueSchedule(schedule: {
       data: { nextRunAt: computeNextRun(schedule.cronExpression), lastRunAt: now, runCount: { increment: 1 } },
     });
     if (claimed.count === 0) return null;
-    const backup = await createBackupRecord({ type: backupType, createdBy: createdById, teamId: schedule.teamId ?? null, note }, tx);
+    const backup = await createBackupRecord({ type: backupType, createdBy: createdById, teamId: schedule.teamId ?? null, scheduleId: schedule.id, note }, tx);
     const job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,
       title: `Scheduled backup: ${schedule.name}`,

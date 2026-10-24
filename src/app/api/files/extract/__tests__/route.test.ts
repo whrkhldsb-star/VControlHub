@@ -266,8 +266,10 @@ describe("POST /api/files/extract", () => {
     await expect(import("node:fs/promises").then((fs) => fs.access(path.join(tempDir, "notes.txt")))).rejects.toThrow();
   });
 
-  it("never writes more than was admitted when a multi-member .gz understates its size", async () => {
-    // Two members: the trailer (last member) says 4 bytes, the real output is 4 KiB + 4.
+  it("extracts a multi-member .gz admitted by its real size", async () => {
+    // Two members: the trailer (last member) says 4 bytes, the real output is
+    // 4 KiB + 4. The output used to be capped at the trailer and refused (413);
+    // it is admitted by the counted size and written whole.
     tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-extract-gz-multi-"));
     await writeFile(
       path.join(tempDir, "notes.txt.gz"),
@@ -283,10 +285,43 @@ describe("POST /api/files/extract", () => {
       }),
     );
 
-    expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({ operation: "write", writeBytes: 4 }));
-    expect(response.status).toBe(413);
-    expect(createFileEntryMock).not.toHaveBeenCalled();
-    await expect(import("node:fs/promises").then((fs) => fs.access(path.join(tempDir, "notes.txt")))).rejects.toThrow();
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({ operation: "write", writeBytes: 4100 }));
+    expect(response.status).toBe(200);
+    expect(createFileEntryMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "notes.txt", size: 4100 }));
+    expect((await import("node:fs/promises").then((fs) => fs.readFile(path.join(tempDir, "notes.txt")))).length).toBe(4100);
+  });
+
+  it("leaves another request's output alone when it got there first", async () => {
+    // Both passed the "not there yet" check; the other one finished first.
+    // The late one overwrote its file, failed to index and deleted it.
+    await createGz();
+    prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
+    const fsPromises = (await import("node:fs/promises")).default;
+    const output = path.join(tempDir, "notes.txt");
+    const realAccess = fsPromises.access.bind(fsPromises);
+    const access = vi.spyOn(fsPromises, "access").mockImplementation(async (target, mode) => {
+      if (String(target) === output) {
+        await writeFile(output, "the other request's output");
+        throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+      }
+      return realAccess(target, mode);
+    });
+    // What the late request met under the old code: the other one's index.
+    createFileEntryMock.mockRejectedValue(new Error("an active index already exists"));
+    try {
+      const response = await POST(
+        new NextRequest("https://app.example.test/api/files/extract", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ storageNodeId: "node_1", remotePath: "notes.txt.gz", driver: "LOCAL", name: "notes.txt.gz" }),
+        }),
+      );
+      expect(response.status).toBe(409);
+      expect(await fsPromises.readFile(output, "utf8")).toBe("the other request's output");
+    } finally {
+      access.mockRestore();
+      createFileEntryMock.mockReset();
+    }
   });
 
   it("refuses .gz extraction when the output path already has an active index", async () => {

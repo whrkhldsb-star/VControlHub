@@ -655,7 +655,9 @@ describe("cloud billing service", () => {
     const result = await syncCloudBillingAccount(account.id, "2026-02");
 
     // 2026-02-31 must not be stored as 2026-03-03 under a February import.
-    expect(result).toMatchObject({ imported: 1, skipped: 1 });
+    // The month is then incomplete: it was saved as "ok" with no reason, and
+    // after a reload the account card showed nothing wrong.
+    expect(result).toMatchObject({ imported: 1, skipped: 1, run: { status: "partial", errorMessage: expect.stringContaining("2026-02-31") } });
     expect(result.warnings.join(" ")).toContain("2026-02-31");
     expect(Array.from(entryStore.values()).map((row) => (row.effectiveDate as Date).toISOString())).toEqual(["2026-02-28T00:00:00.000Z"]);
   });

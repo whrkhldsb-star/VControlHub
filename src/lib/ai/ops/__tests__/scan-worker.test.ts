@@ -447,6 +447,33 @@ describe("runAiOpsScanWorkerOnce", () => {
 
 });
 
+describe("AI ops scan retry wake", () => {
+  it("wakes when a failed scan's retry is due, not at the next daily slot", async () => {
+    // A failed scan is queued again for an hour later; the worker only woke
+    // at the daily hour, so the retry waited for the next day.
+    vi.useFakeTimers();
+    try {
+      const aiOpsLogFindFirst = prisma.aiOpsLog.findFirst as ReturnType<typeof vi.fn>;
+      aiOpsLogFindFirst.mockReset();
+      aiOpsLogFindFirst.mockResolvedValue({ id: "log_recent", completedAt: new Date() }); // no startup scan
+      const dueAt = new Date(Date.now() + 60 * 60 * 1000);
+      jobMocks.findFirst.mockReset();
+      jobMocks.findFirst.mockImplementation(async (args: { select?: { availableAt?: boolean } }) => (args?.select?.availableAt ? { availableAt: dueAt } : { id: "job_retry" }));
+      jobMocks.claimNextJob.mockReset();
+      jobMocks.claimNextJob.mockResolvedValue(null);
+
+      await startAiOpsScanWorker();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(jobMocks.claimNextJob).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000 + 1_000);
+      expect(jobMocks.claimNextJob).toHaveBeenCalled();
+    } finally {
+      stopAiOpsScanWorkerForTests();
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("startAiOpsScanWorker / stopAiOpsScanWorkerForTests", () => {
   it("startAiOpsScanWorker is idempotent — calling twice doesn't double-start", async () => {
     const a = await startAiOpsScanWorker();
