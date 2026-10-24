@@ -174,7 +174,9 @@ export function streamRemoteTarGz(
 		if (options.bsdtar && excluded.length) {
 			excludeArgs = [];
 			for (const pattern of excluded) {
-				const arg = `--exclude=${pattern}`;
+				// Quoted like the other arguments: a name with a space was split
+				// into an exclusion and a separate member tar could not find.
+				const arg = shellQuote(`--exclude=${pattern}`);
 				if (excludeArgs.join(" ").length + arg.length > 30_000) {
 					return reject(new ValidationError(t("backend.storage.archiveExclusionTooLargeWindows")));
 				}

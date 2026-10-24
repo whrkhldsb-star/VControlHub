@@ -511,16 +511,9 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
     teamId: action.teamId ?? approver.currentTeamId ?? null,
   });
 
-  // Stable idempotency bridges retries/races to one durable CommandRequest.
-  const request = await createCommandRequest(
-    { ...commandRequestPayload, idempotencyKey: `ai-hosted-action:${actionId}` },
-    {
-      ...approver,
-      currentTeamId: approver.currentTeamId ?? null,
-    },
-  );
-
-  // Atomic compare-and-swap: only transition this customer's pending action.
+  // Atomic compare-and-swap first, as confirmHostedAction does: creating the
+  // command before it let a rejection that won the swap leave a command
+  // request behind that still ran.
   const claimed = await prisma.aiHostedAction.updateMany({
     where: { id: actionId, status: "PENDING_APPROVAL", ...actionScope },
     data: { status: "APPROVED", approverId: approver.userId, approvedAt: new Date() },
@@ -529,7 +522,48 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
     throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
   }
 
+  // Stable idempotency bridges retries/races to one durable CommandRequest.
+  let request: Awaited<ReturnType<typeof createCommandRequest>>;
+  try {
+    request = await createCommandRequest(
+      { ...commandRequestPayload, idempotencyKey: `ai-hosted-action:${actionId}` },
+      {
+        ...approver,
+        currentTeamId: approver.currentTeamId ?? null,
+      },
+    );
+  } catch (error) {
+    await recordCommandRequestCreationFailure(actionId, action, error);
+    throw error;
+  }
+
   await persistApprovedCommandRequestOutcome(actionId, action, request);
+}
+
+/**
+ * The command may exist although creating it failed (created, then its
+ * enqueue failed; the queue recovery still runs an approved one): record it
+ * rather than report the action failed while its command executes.
+ */
+async function recordCommandRequestCreationFailure(
+  actionId: string,
+  action: Parameters<typeof persistHostedToolOutcome>[0] & Parameters<typeof persistHostedActionFailure>[0],
+  error: unknown,
+) {
+  let created: { id: string; status: string } | null = null;
+  try {
+    created = await prisma.commandRequest.findUnique({
+      where: { idempotencyKey: `ai-hosted-action:${actionId}` },
+      select: { id: true, status: true },
+    });
+  } catch {
+    // The lookup must not mask the original error.
+  }
+  if (created) {
+    await persistApprovedCommandRequestOutcome(actionId, action, { id: created.id, requiresApproval: created.status === "PENDING_APPROVAL" });
+  } else {
+    await persistHostedActionFailure(action, error);
+  }
 }
 
 export async function confirmHostedAction(actionId: string, requester: HostedActionSession) {
@@ -661,23 +695,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
       { ...requester, currentTeamId: requester.currentTeamId ?? null },
     );
   } catch (error) {
-    // The command may exist although the call failed (created, then its
-    // enqueue failed; the queue recovery still runs an approved one): record
-    // it rather than reporting the action failed while its command executes.
-    let created: { id: string; status: string } | null = null;
-    try {
-      created = await prisma.commandRequest.findUnique({
-        where: { idempotencyKey: `ai-hosted-action:${actionId}` },
-        select: { id: true, status: true },
-      });
-    } catch {
-      // The lookup must not mask the original error.
-    }
-    if (created) {
-      await persistApprovedCommandRequestOutcome(actionId, action, { id: created.id, requiresApproval: created.status === "PENDING_APPROVAL" });
-    } else {
-      await persistHostedActionFailure(action, error);
-    }
+    await recordCommandRequestCreationFailure(actionId, action, error);
     throw error;
   }
 

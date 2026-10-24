@@ -50,7 +50,7 @@ export async function POST(
 
 			const original = await prisma.vpsBackupRecord.findFirst({
 				where: { id: recordId, serverId },
-				select: { id: true, status: true, backupType: true, paths: true },
+				select: { id: true, status: true, backupType: true, paths: true, scheduleId: true },
 			});
 			if (!original) {
 				throw new NotFoundError(t("vpsBackupApi.errorRecordNotFound", locale));
@@ -66,6 +66,9 @@ export async function POST(
 				backupType: original.backupType,
 				createdBy: session.userId,
 				...(original.paths?.length ? { paths: original.paths } : {}),
+				// A retried scheduled run stays that schedule's: its retention
+				// prunes it, not the manual-backup rule.
+				...(original.scheduleId ? { scheduleId: original.scheduleId } : {}),
 			});
 
 			try {

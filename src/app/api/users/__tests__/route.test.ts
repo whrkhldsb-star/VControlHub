@@ -269,6 +269,23 @@ describe("/api/users", () => {
     });
   });
 
+  it("keeps a disabled account disabled when its password is reset", async () => {
+    // Sign-in refuses only DISABLED: setting the pending status here let the
+    // user log in with the password an administrator had just set.
+    mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "DISABLED" });
+    mocks.prisma.user.update.mockResolvedValue({ id: "user1" });
+    const res = await route.PATCH(new Request("http://local/api/users", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId: "user1", action: "reset_password", newPassword: "Secret123" }),
+    }));
+    expect(res.status).toBe(200);
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user1" },
+      data: { passwordHash: "hashed-password", mustChangePassword: true },
+    });
+  });
+
   it("rejects legacy role assignment PATCHes before mutating roles", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "ACTIVE" });
     const res = await route.PATCH(new Request("http://local/api/users", {

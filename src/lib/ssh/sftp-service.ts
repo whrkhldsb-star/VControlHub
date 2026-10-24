@@ -17,7 +17,9 @@ import {
   readRemoteFile,
   renameRemoteFile,
   statRemoteEntry,
+  statRemoteTargetTypes,
   writeRemoteFile,
+  type RemoteTargetType,
   type SshConnectionParams,
 } from "@/lib/ssh/client";
 import type { Stats } from "ssh2";
@@ -270,19 +272,38 @@ export async function listDirectory(
 ): Promise<SftpDirEntry[]> {
   const path = sanitizeRemotePath(remotePath);
   const conn = await resolveServerConnection(serverId);
-  const entries = await listRemoteDirectory({ ...toConnectionParams(conn), remotePath: path });
-  const result: SftpDirEntry[] = entries.map((entry) => ({
-    name: entry.name,
-    longname: entry.longname,
-    isDirectory: entry.type === "directory",
-    isFile: entry.type === "file",
-    isSymlink: false,
-    size: entry.size,
-    modifyTime: Math.floor(entry.modifyTime / 1000),
-    accessTime: Math.floor(entry.accessTime / 1000),
-    owner: 0,
-    group: 0,
-  }));
+  const params = toConnectionParams(conn);
+  const entries = await listRemoteDirectory({ ...params, remotePath: path });
+  // readdir reports a link itself (lstat). The file manager opens what a link
+  // points at, as `ls` and every SFTP client do: a linked folder was neither
+  // enterable nor downloadable. Access to the target is still checked per
+  // request against its real path (assertSftpPathAccess).
+  const MAX_LINKS_RESOLVED = 200;
+  const links = entries.filter((entry) => entry.symlink).slice(0, MAX_LINKS_RESOLVED);
+  const targets = new Map<string, RemoteTargetType>();
+  if (links.length > 0) {
+    const resolved = await statRemoteTargetTypes({
+      ...params,
+      remotePaths: links.map((entry) => `${path.replace(/\/$/, "")}/${entry.name}`),
+    }).catch(() => [] as RemoteTargetType[]);
+    links.forEach((entry, index) => targets.set(entry.name, resolved[index] ?? null));
+  }
+  const result: SftpDirEntry[] = entries.map((entry) => {
+    const target = targets.get(entry.name);
+    const kind = target?.type ?? entry.type;
+    return {
+      name: entry.name,
+      longname: entry.longname,
+      isDirectory: kind === "directory",
+      isFile: kind === "file",
+      isSymlink: entry.symlink === true,
+      size: target?.size ?? entry.size,
+      modifyTime: Math.floor(entry.modifyTime / 1000),
+      accessTime: Math.floor(entry.accessTime / 1000),
+      owner: 0,
+      group: 0,
+    };
+  });
   result.sort((a, b) => {
       if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
       return a.name.localeCompare(b.name);

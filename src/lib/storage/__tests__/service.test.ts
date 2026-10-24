@@ -1199,6 +1199,21 @@ describe("storage service", () => {
     );
   });
 
+  it("says which server is already taken when a node is rebound to it", async () => {
+    // A server carries one storage node. Create said so; an edit surfaced the
+    // unique-constraint error as a 500.
+    vi.clearAllMocks();
+    vi.mocked(prisma.storageNode.findUnique).mockResolvedValueOnce({
+      id: "node_1", name: "旧远端", driver: "SFTP", basePath: "/old", isDefault: false,
+      host: "198.51.100.9", port: 22, username: "u", serverId: null, directAccessMode: "PROXY",
+      publicBaseUrl: null, directAccessExpiresSeconds: 300, server: null,
+    } as any);
+    vi.mocked(prisma.storageNode.updateMany).mockRejectedValueOnce(Object.assign(new Error("Unique constraint failed on the fields: (`serverId`)"), { code: "P2002" }));
+
+    await expect(updateStorageNode({ storageNodeId: "node_1", serverId: "srv_taken" }))
+      .rejects.toMatchObject({ name: "ValidationError" });
+  });
+
   it("restores a local deleted entry only when the real file still exists", async () => {
     vi.clearAllMocks();
     const tempRoot = await mkdtemp(path.join(tmpdir(), "storage-restore-"));

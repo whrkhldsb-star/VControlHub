@@ -306,6 +306,7 @@ export async function syncSftpDirectoryEntries(input: {
           port: credentials.port,
           username: credentials.username,
           privateKey: credentials.privateKey,
+          passphrase: credentials.passphrase,
           password: credentials.password,
           hostKeySha256: credentials.hostKeySha256,
           agentServerId: credentials.agentServerId,

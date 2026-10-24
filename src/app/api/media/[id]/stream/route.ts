@@ -259,6 +259,7 @@ export async function GET(
           // command channels — this path sends the stored credential.
           enforceHostKeyPin: true,
           privateKey: connectionCredentials.privateKey,
+          passphrase: connectionCredentials.passphrase,
           password: connectionCredentials.password,
           readyTimeout: 15000,
           timeout: 10000,

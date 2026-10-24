@@ -350,6 +350,7 @@ export async function GET(
 				enforceHostKeyPin: true,
 				agentServerId: credentials.agentServerId,
 				privateKey: credentials.privateKey,
+				passphrase: credentials.passphrase,
 				password: credentials.password,
 				readyTimeout: 15000,
 				timeout: 10000,
@@ -363,7 +364,10 @@ export async function GET(
 					storageNodeId: node.id,
 					relativePath: targetPath,
 					signal: request.signal,
-					open: (excluded) => streamRemoteTarGz(archiveClient, remotePath, excluded),
+					// Windows OpenSSH runs bsdtar, as for the signed-in folder download.
+					open: (excluded) => streamRemoteTarGz(archiveClient, remotePath, excluded, {
+						bsdtar: node.server?.operatingSystem === "WINDOWS",
+					}),
 				});
 				closeSshClientOnStreamEnd(stream, client);
 				client = null;
