@@ -128,6 +128,21 @@ function sentInstructions(socket: Socket) {
   for (const [data] of socket.send.mock.calls) parser.feed(data);
   return rows;
 }
+it("keeps the pointer on the desktop at its edge, where the browser reports -1", async () => {
+  // Guacamole measures from the rounded offsetLeft while the pointer is at a
+  // fractional clientX: on a desktop centred on a half pixel, entering it from
+  // the left or top gave -1, and the gateway ended the session over it.
+  const { socket } = await connectedDesktop();
+  act(() => { socket.onmessage?.({ data: instruction("size", "0", "1024", "768") + instruction("sync", "2") }); });
+  // The display applies the size on the next animation frame.
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+  socket.send.mockClear();
+  const desktop = screen.getByRole("application").firstElementChild!;
+  fireEvent.mouseMove(desktop, { clientX: -1, clientY: -2 });
+  fireEvent.mouseMove(desktop, { clientX: 5000, clientY: 300 });
+  const moves = sentInstructions(socket).filter(row => row[0] === "mouse");
+  expect(moves).toEqual([["mouse", "0", "0", "0"], ["mouse", "1023", "300", "0"]]);
+});
 it.each([
   { modifier: "Control", modifierCode: 17, key: "v", keyCode: 86, ctrlKey: true },
   { modifier: "Meta", modifierCode: 91, key: "v", keyCode: 86, metaKey: true },

@@ -165,6 +165,35 @@ describe("ending an RDP session", () => {
     expect(mocks.audit).toHaveBeenCalledWith("u", "server.rdp.closed", expect.objectContaining({ reason: "browser: disconnect" }), undefined, "t");
   });
 
+  it("keeps the session when the browser sends a pointer just off the desktop's edge", async () => {
+    // A desktop centred on a half pixel reports -1 at its edge in Chromium and
+    // WebKit; that one move used to end the session ("Unsupported RDP input").
+    const { ws, tunnel } = await live();
+    ws.emit("message", Buffer.from(instruction("mouse", "-1", "-2", "0") + instruction("mouse", "10.5", "20", "1")), false);
+    expect(ws.close).not.toHaveBeenCalled();
+    expect(tunnel.write).toHaveBeenCalledWith(instruction("mouse", "0", "0", "0"));
+    expect(tunnel.write).toHaveBeenCalledWith(instruction("mouse", "10", "20", "1"));
+  });
+
+  it("drops a stray malformed instruction without forwarding it, but closes on a flood", async () => {
+    const { ws, tunnel } = await live();
+    ws.emit("message", Buffer.from(instruction("mouse", "NaN", "1", "0") + instruction("size", "0", "0") + instruction("argv", "1", "x", "y")), false);
+    expect(ws.close).not.toHaveBeenCalled();
+    expect(tunnel.write).not.toHaveBeenCalledWith(expect.stringContaining("NaN"));
+    expect(tunnel.write).not.toHaveBeenCalledWith(instruction("size", "0", "0"));
+    expect(tunnel.write).not.toHaveBeenCalledWith(expect.stringContaining("argv"));
+    // Spread over minutes they never add up…
+    for (let minute = 0; minute < 3; minute++) {
+      await vi.advanceTimersByTimeAsync(61_000);
+      ws.emit("message", Buffer.from(instruction("size", "0", "0").repeat(40)), false);
+    }
+    expect(ws.close).not.toHaveBeenCalled();
+    // …but a browser sending little else is not a desktop in use.
+    ws.emit("message", Buffer.from(instruction("size", "0", "0").repeat(20)), false);
+    expect(ws.close).toHaveBeenCalledWith(1008);
+    expect(mocks.audit).toHaveBeenCalledWith("u", "server.rdp.closed", expect.objectContaining({ reason: "gateway: Unsupported RDP input (size)" }), undefined, "t");
+  });
+
   it("passes on when Windows ended the session itself, so the browser does not take it back", async () => {
     for (const [status, sent] of [["521", "3.521"], ["523", "3.523"], ["0", "1.0"], ["515", "3.512"]] as const) {
       const { ws, tunnel } = await live();
