@@ -30,6 +30,19 @@ describe("getPlatformDefaults", () => {
     expect(findMany).toHaveBeenCalledTimes(2);
   });
 
+  it("does not cache what a read started before a save found", async () => {
+    // Saved en/light while a read still held zh/dark: it cached zh/dark for
+    // another 15 s after the save had cleared the cache.
+    let finish!: () => void;
+    findMany.mockImplementationOnce(() => new Promise((resolve) => { finish = () => resolve([{ key: "platform.defaultLocale", value: "zh" }, { key: "platform.defaultTheme", value: "dark" }]); }) as never);
+    const late = getPlatformDefaults();
+    rows.push({ key: "platform.defaultLocale", value: "en" }, { key: "platform.defaultTheme", value: "light" });
+    invalidatePlatformDefaults();
+    finish();
+    await late;
+    expect(await getPlatformDefaults()).toEqual({ locale: "en", theme: "light" });
+  });
+
   it("survives a database failure", async () => {
     findMany.mockRejectedValueOnce(new Error("down"));
     expect(await getPlatformDefaults()).toEqual({ locale: "zh", theme: "dark" });

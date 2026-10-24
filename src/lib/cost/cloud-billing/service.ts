@@ -299,11 +299,13 @@ async function runCloudBillingSync(
 		});
 		warnings = fetched.warnings;
 		skipped += fetched.rejectedRows ?? 0;
+		let invalidDates = 0;
 
 		for (const item of fetched.items) {
 			// An impossible day would roll into the next month once stored.
 			if (!isCalendarDate(item.effectiveDate)) {
 				skipped += 1;
+				invalidDates += 1;
 				warnings = [...warnings, t("backend.cost.invalidBillingDate", { date: item.effectiveDate })];
 				continue;
 			}
@@ -360,9 +362,13 @@ async function runCloudBillingSync(
 			imported += 1;
 		}
 
-		// Unreadable source rows mean the month is incomplete, whatever was imported.
-		if ((warnings.length > 0 && imported === 0) || (fetched.rejectedRows ?? 0) > 0) {
+		// Unreadable source rows, or rows dated on a day that does not exist,
+		// mean the month is incomplete, whatever was imported. The reason is
+		// kept with the run and the account: after a reload the card said
+		// "ok" and showed no reason, once the one-time warning toast was gone.
+		if ((warnings.length > 0 && imported === 0) || (fetched.rejectedRows ?? 0) > 0 || invalidDates > 0) {
 			status = "partial";
+			errorMessage = warnings.join("; ").slice(0, 1000) || null;
 		}
 	} catch (err) {
 		errorMessage = err instanceof Error ? err.message : String(err);

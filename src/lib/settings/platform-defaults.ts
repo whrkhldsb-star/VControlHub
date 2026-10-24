@@ -7,6 +7,9 @@ export type PlatformDefaults = { locale: PlatformLocaleDefault; theme: PlatformT
 const FALLBACK: PlatformDefaults = { locale: "zh", theme: "dark" };
 const TTL_MS = 15_000;
 let cached: { value: PlatformDefaults; loadedAt: number } | null = null;
+// Bumped when a save invalidates the cache: a read started before the save
+// must not cache the old defaults again for another 15 s.
+let generation = 0;
 
 /**
  * Locale and theme for a visitor who has not chosen one yet (login page, first
@@ -15,6 +18,7 @@ let cached: { value: PlatformDefaults; loadedAt: number } | null = null;
  */
 export async function getPlatformDefaults(): Promise<PlatformDefaults> {
   if (cached && Date.now() - cached.loadedAt < TTL_MS) return cached.value;
+  const started = generation;
   let value = FALLBACK;
   try {
     const rows = await prisma.setting.findMany({
@@ -31,10 +35,11 @@ export async function getPlatformDefaults(): Promise<PlatformDefaults> {
   } catch {
     value = FALLBACK;
   }
-  cached = { value, loadedAt: Date.now() };
+  if (started === generation) cached = { value, loadedAt: Date.now() };
   return value;
 }
 
 export function invalidatePlatformDefaults() {
+  generation += 1;
   cached = null;
 }

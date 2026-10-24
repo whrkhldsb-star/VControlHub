@@ -33,6 +33,20 @@ describe("getRuntimeSettingNumberCached", () => {
     expect(getRuntimeSettingNumberCached("jobs.defaultMaxAttempts")).toBe(7);
   });
 
+  it("does not let a read started before a save put the old value back", async () => {
+    // The read held the old row (2) when the save remembered 5; finishing
+    // later, it cached 2 again for a minute, and new jobs took 2 attempts.
+    const { prisma } = await import("@/lib/db");
+    const findUnique = prisma.setting.findUnique as unknown as ReturnType<typeof vi.fn>;
+    let finish!: () => void;
+    findUnique.mockImplementationOnce(() => new Promise((resolve) => { finish = () => resolve({ value: "2" }); }));
+    getRuntimeSettingNumberCached("jobs.defaultMaxAttempts");
+    rememberRuntimeSettingNumber("jobs.defaultMaxAttempts", 5);
+    finish();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(getRuntimeSettingNumberCached("jobs.defaultMaxAttempts")).toBe(5);
+  });
+
   it("keeps following env when no row exists", async () => {
     process.env.JOB_DEFAULT_MAX_ATTEMPTS = "4";
     getRuntimeSettingNumberCached("jobs.defaultMaxAttempts");
