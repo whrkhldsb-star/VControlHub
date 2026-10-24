@@ -51,3 +51,16 @@ describe("renderMarkdown with a lone table-like row", () => {
 		expect(renderMarkdown("| h |\n| --- |\n| v |")).toContain("<table");
 	}, 2_000);
 });
+
+describe("inline code", () => {
+	it("keeps stars and link syntax inside backticks as written", () => {
+		// Emphasis and links ran over the code too: `**keep**` came out bold,
+		// `2 * 3 * 4` lost its stars, a literal link became a link.
+		const html = renderMarkdown("Use `**keep**`, `2 * 3 * 4` and `[manual](https://example.test/help)` here, then **bold**.");
+		expect(html).toContain("<code>**keep**</code>");
+		expect(html).toContain("<code>2 * 3 * 4</code>");
+		expect(html).toContain("<code>[manual](https://example.test/help)</code>");
+		expect(html).not.toContain("<a ");
+		expect(html).toContain("<strong>bold</strong>");
+	});
+});

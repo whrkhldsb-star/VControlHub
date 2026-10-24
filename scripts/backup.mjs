@@ -23,6 +23,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGzip } from "node:zlib";
 import { pipeline } from "node:stream/promises";
+import { createInterface } from "node:readline";
 
 import {
   findBinary,
@@ -150,14 +151,34 @@ async function pruneOldBackups(currentOutput) {
 const FILES_MODE_PATHS = ["storage", "uploads", "downloads", "logs"];
 const FULL_MODE_PATHS = [...FILES_MODE_PATHS, "public", "prisma", "package.json", "package-lock.json"];
 
+/**
+ * restore.mjs takes back plain files and directories only. An archive with
+ * anything else (a hard link GNU tar stored as a link, or a pipe or socket)
+ * was published as a good backup that its own restore then refused.
+ */
+async function assertRestorableMembers(tar, archive) {
+  const child = spawn(tar, ["-tvzf", archive], { stdio: ["ignore", "pipe", "ignore"] });
+  const closed = new Promise((resolve) => child.on("close", resolve));
+  let offending = null;
+  for await (const line of createInterface({ input: child.stdout })) {
+    // GNU tar and bsdtar listing lines both begin with the entry type.
+    if (!offending && line[0] !== "-" && line[0] !== "d") offending = line;
+  }
+  if ((await closed) !== 0) throw new Error("Could not list the new archive to check it");
+  if (offending) throw new Error(`The backup holds an entry the restore cannot take back (a link or special file): ${offending.slice(0, 300)}`);
+}
+
 async function archivePaths(outputPath, members, extraDir, envFile) {
   const tar = await findTar();
+  // GNU tar stores a second name of a hard-linked file as a link; store its
+  // content instead, as for any other file.
+  const gnuTar = /GNU tar/.test((await runBinary(tar, ["--version"]).catch(() => ({ stdout: "" }))).stdout);
   const existing = [];
   for (const member of members) {
     await fs.access(path.join(APP_DIR, member)).then(() => existing.push(member)).catch(() => undefined);
   }
   if (existing.length === 0) fail(`No files found for backup under ${APP_DIR}`);
-  const args = ["-czf", outputPath, "-C", APP_DIR, ...existing];
+  const args = [...(gnuTar ? ["--hard-dereference"] : []), "-czf", outputPath, "-C", APP_DIR, ...existing];
   if (extraDir) {
     args.push("-C", extraDir, "database.sql.gz");
     const extraPaths = JSON.parse(process.env.BACKUP_EXTRA_PATHS_JSON || envFile.BACKUP_EXTRA_PATHS_JSON || "[]");
@@ -211,6 +232,7 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
     }
   }
   await runBinary(tar, args);
+  await assertRestorableMembers(tar, outputPath);
   const size = (await fs.stat(outputPath)).size;
   log(`Completed backup: ${outputPath} (${size} bytes)`);
 }

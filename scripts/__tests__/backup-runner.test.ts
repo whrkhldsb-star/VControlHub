@@ -103,6 +103,34 @@ describe.skipIf(process.platform === "win32")("backup runner recovery guarantees
     expect((await runFile("tar", ["-xOzf", second, "file-versions/v2.blob"])).stdout).toBe("kept");
   });
 
+  it("stores hard-linked files as files, so the backup restores", async () => {
+    // Two names for one file in storage: GNU tar stored the second as a hard
+    // link, and the backup's own restore refused the archive.
+    const { link } = await import("node:fs/promises");
+    await writeFile(path.join(app, "storage", "report.txt"), "same body");
+    await link(path.join(app, "storage", "report.txt"), path.join(app, "storage", "report-copy.txt"));
+    const archive = path.join(backups, "files-links.tar.gz");
+    await runFile(process.execPath, [runner, "--files", archive], { env });
+
+    const target = path.join(tmp, "target");
+    await mkdir(target);
+    await writeFile(path.join(target, ".env.local"), "DATABASE_URL=postgresql://tester@127.0.0.1/audit_target\n");
+    const restoreBin = await installFakeRestoreTools(tmp);
+    await runFile("bash", ["scripts/restore-files.sh", archive, target], {
+      cwd: process.cwd(),
+      env: { ...env, PATH: `${restoreBin}${path.delimiter}${env.PATH}`, APP_DIR: target, ENV_FILE: path.join(target, ".env.local"), CONFIRM_RESTORE: "1", DEPLOY_LOCK: path.join(tmp, "no-deploy.lock") },
+    });
+    await expect(readFile(path.join(target, "storage", "report.txt"), "utf8")).resolves.toBe("same body");
+    await expect(readFile(path.join(target, "storage", "report-copy.txt"), "utf8")).resolves.toBe("same body");
+  });
+
+  it("fails, rather than publishing an archive the restore would refuse, on a special file", async () => {
+    await runFile("mkfifo", [path.join(app, "storage", "pipe")]);
+    const archive = path.join(backups, "files-fifo.tar.gz");
+    await expect(runFile(process.execPath, [runner, "--files", archive], { env })).rejects.toMatchObject({ stderr: expect.stringContaining("cannot take back") });
+    expect((await readdir(backups)).filter((name) => name.startsWith("files-fifo"))).toEqual([]);
+  });
+
   it("restores history kept inside the app directory into the target's own history directory", async () => {
     // Backed up from <app>/file-versions (the Docker layout), restored to an
     // instance whose FILE_VERSION_DIR is elsewhere: the bodies used to land

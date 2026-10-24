@@ -463,12 +463,15 @@ export function useTextPreviewController(options: {
     await performSave();
   }, [performSave]);
 
-  const canReloadAfterSave = Boolean(driver === "SFTP" && serverId && reloadUnit && reloadKind && editMode);
+  // systemd needs its unit; a Compose file without a service name updates
+  // the whole project. Requiring a unit for both hid the Compose button.
+  const reloadReady = reloadKind === "compose" || (reloadKind === "systemd" && Boolean(reloadUnit));
+  const canReloadAfterSave = Boolean(driver === "SFTP" && serverId && reloadReady && editMode);
 
   const handleSaveAndReload = useCallback(async () => {
     const bytes = await performSave();
     if (bytes === null) return;
-    if (!serverId || !reloadUnit || !reloadKind) return;
+    if (!serverId || !reloadReady) return;
     setSaveStatus("reloading");
     setReloadMessage("");
     try {
@@ -479,7 +482,7 @@ export function useTextPreviewController(options: {
               projectDir: relativePath
                 ? `/${relativePath.split("/").slice(0, -1).join("/") || "root"}`
                 : "/",
-              service: reloadUnit,
+              ...(reloadUnit ? { service: reloadUnit } : {}),
             }
           : { kind: "systemd" as const, unit: reloadUnit };
       const response = await csrfFetch<{
@@ -510,6 +513,7 @@ export function useTextPreviewController(options: {
   }, [
     performSave,
     serverId,
+    reloadReady,
     reloadUnit,
     reloadKind,
     relativePath,

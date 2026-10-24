@@ -53,7 +53,10 @@ type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 export async function POST(request: NextRequest) {
   return withApiRoute(
     request,
-    { permission: "storage:manage-node", rateLimit: GENERAL_WRITE_LIMIT },
+    // Declared, or the wrapper never reads the body: a dry run of one node
+    // ran for real over every node in reach, and queued jobs lost their
+    // node, depth and dry-run settings. An empty body still scans all.
+    { permission: "storage:manage-node", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: staleInventorySchema.optional() },
     async ({ session, body }) => {
       const input = (body ?? {}) as StaleInventoryInput;
       const parsed = staleInventorySchema.safeParse(input);

@@ -122,9 +122,12 @@ checkout_repo() {
   mkdir -p "$(dirname "${APP_DIR}")"
   if [ -d "${APP_DIR}/.git" ]; then
     log "Updating existing repository in ${APP_DIR}"
-    git -C "${APP_DIR}" fetch origin "${BRANCH}" --prune
-    git -C "${APP_DIR}" checkout "${BRANCH}"
-    git -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"
+    # The installer hands the checkout to the service user; run from root,
+    # plain git stopped here with "dubious ownership" before reinstalling
+    # (upgrade.sh and install.sh already pass the same exception).
+    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch origin "${BRANCH}" --prune
+    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout "${BRANCH}"
+    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"
   elif [ -e "${APP_DIR}" ] && [ "$(find "${APP_DIR}" -mindepth 1 -maxdepth 1 2>/dev/null | head -1)" ]; then
     fail "APP_DIR=${APP_DIR} exists and is not an empty git checkout. Set APP_DIR to an empty/new directory or run deploy/install.sh from an existing source tree."
   else

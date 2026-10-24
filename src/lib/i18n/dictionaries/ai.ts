@@ -31,6 +31,7 @@ export const zh: Record<string, string> = {
 	// client — stream / tool call
 	"aiPage.requestFailed": "请求失败",
 	"aiPage.networkError": "❌ 网络错误",
+	"aiPage.streamIncomplete": "回答没有完整返回，连接提前结束了。上面是已经收到的部分，可以重新发送。",
 	"aiPage.noResponse": "(无响应)",
 	"aiPage.toolCallStart": "⚡ 执行: {name}...",
 	"aiPage.toolCallApproval": "🔒 需要审批: {name}",
@@ -296,6 +297,7 @@ export const en: Record<string, string> = {
 	// client — stream / tool call
 	"aiPage.requestFailed": "Request failed",
 	"aiPage.networkError": "❌ Network error",
+	"aiPage.streamIncomplete": "The answer did not arrive in full: the connection ended early. What arrived is above; you can send again.",
 	"aiPage.noResponse": "(no response)",
 	"aiPage.toolCallStart": "⚡ Executing: {name}...",
 	"aiPage.toolCallApproval": "🔒 Approval required: {name}",

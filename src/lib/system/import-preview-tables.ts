@@ -419,8 +419,20 @@ export async function previewSnippets(
   }));
 }
 
+/**
+ * By id and by slug, as the import does: a customer whose slug another one
+ * already uses is skipped, not updated. Counted by id only, the preview
+ * promised an update the import then skipped.
+ */
 export async function previewTeams(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {
-  return previewById(t.teams, options, (ids) => prisma.team.findMany({ where: { id: { in: ids } }, select: { id: true } }));
+  return previewByIdAndSecondaryKey(
+    t.teams,
+    options,
+    (ids) => prisma.team.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+    (r) => r.slug,
+    (keys) => prisma.team.findMany({ where: { slug: { in: keys } }, select: { id: true, slug: true } })
+      .then((rows) => rows.map((row) => ({ id: row.id, key: row.slug }))),
+  );
 }
 
 export async function previewIdentityTemplates(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {

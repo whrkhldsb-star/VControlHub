@@ -72,13 +72,17 @@ export function DiffReviewDialog({
 							disabled={busy || diffRows.length === 0}
 							title={reloadKind === "systemd"
 								? t("textPreview.reloadHint.systemdConfirm", { unit: reloadUnit ?? "" })
-								: t("textPreview.reloadHint.dockerConfirm", { unit: reloadUnit ?? "" })}
+								: reloadUnit
+									? t("textPreview.reloadHint.dockerConfirm", { unit: reloadUnit })
+									: t("textPreview.reloadHint.dockerProject")}
 						>
 							{saveStatus === "saving"
 								? t("textPreview.button.saving")
 								: saveStatus === "reloading"
 									? t("textPreview.button.reloading")
-									: t("textPreview.button.saveAndReload", { unit: reloadUnit ?? "" })}
+									: reloadKind === "compose" && !reloadUnit
+										? t("textPreview.button.saveAndUpdateProject")
+										: t("textPreview.button.saveAndReload", { unit: reloadUnit ?? "" })}
 						</ActionButton>
 					) : null}
 				</div>

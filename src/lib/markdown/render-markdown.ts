@@ -156,9 +156,12 @@ function isAllowedMarkdownLink(rawUrl: string): boolean {
 
 /** Apply inline Markdown formatting (bold, italic, code, links) */
 function inlineFormat(text: string): string {
-  text = escapeHtml(stripDangerousText(text));
-  // Inline code (must be before bold/italic to avoid conflicts)
-  text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+  text = escapeHtml(stripDangerousText(text)).replace(/[\uE000\uE001]/g, "");
+  // Inline code is set aside while emphasis and links are applied, and put
+  // back last: run over it, `**keep**` turned bold, `2 * 3 * 4` lost its
+  // stars and a literal `[a](url)` became a link.
+  const codeSpans: string[] = [];
+  text = text.replace(/`([^`]+)`/g, (_match, code: string) => `\uE000${codeSpans.push(code) - 1}\uE001`);
   // Bold + italic
   text = text.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
   // Bold
@@ -175,7 +178,7 @@ function inlineFormat(text: string): string {
     // "a&b" into "a&amp;amp;b" and broke URLs with query strings.
     return `<a href="${trimmed}" target="_blank" rel="noopener noreferrer">${text}</a>`;
   });
-  return text;
+  return text.replace(/\uE000(\d+)\uE001/g, (_match, index: string) => `<code>${codeSpans[Number(index)]}</code>`);
 }
 
 /** Check if a line looks like a table row */

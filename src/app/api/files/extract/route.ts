@@ -17,7 +17,7 @@ import { prisma } from "@/lib/db";
 import { createFileEntry } from "@/lib/storage/service";
 // Next.js route modules may only export route handlers and route config —
 // the bomb-cap limiter lives in lib (unit-testable, importable).
-import { GunzipOutputLimiter, MAX_GUNZIP_OUTPUT_BYTES, readGzipDecompressedSize } from "@/lib/storage/gunzip-limiter";
+import { GunzipOutputLimiter, MAX_GUNZIP_OUTPUT_BYTES, countGunzipOutput } from "@/lib/storage/gunzip-limiter";
 import { ArchiveExtractError, archiveKindOf, extractArchive, planExtraction } from "@/lib/storage/archive-extract";
 import { archiveErrorCopy } from "@/lib/storage/archive-error-copy";
 import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
@@ -179,11 +179,13 @@ export async function POST(request: NextRequest) {
             // Expected: gunzip should create this file.
           }
 
-          // The gzip trailer states the decompressed size, so the output is
-          // admitted against the grant's per-file limit and quota before a
-          // byte is written, like an upload of that size. The limiter below
-          // still caps the real output (the trailer is advisory).
-          const declaredSize = await readGzipDecompressedSize(fullPath);
+          // The output is admitted against the grant's per-file limit and quota
+          // before a byte is written, like an upload of that size. Its size is
+          // counted by decompressing without writing (the gzip trailer names
+          // only the last member's size, so a multi-member file was refused);
+          // the limiter below then writes exactly that much.
+          const limitMessage = t("backend.storageHardening.extract.gzOutputTooLarge", locale);
+          const declaredSize = await countGunzipOutput(fullPath, MAX_GUNZIP_OUTPUT_BYTES, limitMessage);
           const admission = await assertStorageAccess({
             session,
             storageNodeId: node.id,
@@ -204,20 +206,29 @@ export async function POST(request: NextRequest) {
           // platform-specific executable (Windows/minimal images have no gzip).
           // The counting limiter aborts the pipeline mid-stream when the
           // decompressed size blows the cap; the partial file is removed below.
+          // Created exclusively, and removed on failure only if this request
+          // created it: two windows extracting the same file at once both
+          // passed the "not there yet" check, and the later one's cleanup
+          // deleted the output the other had already delivered.
+          let created = false;
+          const output = createWriteStream(outputPath.path, { flags: "wx" });
+          output.once("open", () => { created = true; });
           try {
             await pipeline(
               createReadStream(fullPath),
               createGunzip(),
-              // Never write more than was admitted: the trailer of a
-              // concatenated multi-member file describes its last member only.
-              new GunzipOutputLimiter(
-                declaredSize === null ? MAX_GUNZIP_OUTPUT_BYTES : Math.min(MAX_GUNZIP_OUTPUT_BYTES, declaredSize),
-                t("backend.storageHardening.extract.gzOutputTooLarge", locale),
-              ),
-              createWriteStream(outputPath.path),
+              // Never write more than was admitted (the file may have changed since).
+              new GunzipOutputLimiter(declaredSize, limitMessage),
+              output,
             );
           } catch (error) {
-            await fs.unlink(outputPath.path).catch(() => undefined);
+            if (created) await fs.unlink(outputPath.path).catch(() => undefined);
+            if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+              return NextResponse.json(
+                { error: apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: String(outputRelativePath) }) },
+                { status: 409 },
+              );
+            }
             throw error;
           }
 

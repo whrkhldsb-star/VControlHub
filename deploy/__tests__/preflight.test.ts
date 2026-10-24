@@ -1468,6 +1468,11 @@ describeOrSkip("compressed archive deployment entrypoints", () => {
     expect(bootstrap).toContain("SSH WebSocket service port");
     expect(bootstrap).toContain("Install directory");
     expect(bootstrap).toContain("git clone");
+    // A reinstall runs git, as root, in the checkout the installer gave to the
+    // service user: without the exception git stops with "dubious ownership".
+    const appGitCalls = bootstrap.split("\n").filter((line) => /\bgit\b.*-C "\$\{APP_DIR\}"/.test(line));
+    expect(appGitCalls.length).toBeGreaterThan(0);
+    for (const line of appGitCalls) expect(line).toContain('-c "safe.directory=${APP_DIR}"');
     expect(bootstrap).toContain("deploy/install.sh");
 
     const deployInstaller = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");

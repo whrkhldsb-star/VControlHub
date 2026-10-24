@@ -14,7 +14,7 @@ import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
-import { Badge } from "@/components/ui-primitives";
+import { Badge, Notice } from "@/components/ui-primitives";
 
 interface Snippet {
   id: string;
@@ -92,6 +92,11 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
   // from the server, so a word further down a long snippet is found too
   // (and the result no longer depends on whether it was opened before).
   const [bodyMatches, setBodyMatches] = useState<{ q: string; ids: Set<string> } | null>(null);
+  // The query whose whole-body search failed. Swallowed, the preview-only
+  // filter was shown as the full result ("no matches") and a snippet that
+  // matched further down was hidden, with no way to try again.
+  const [searchFailedFor, setSearchFailedFor] = useState<string | null>(null);
+  const [searchAttempt, setSearchAttempt] = useState(0);
   useEffect(() => {
     const q = search.trim();
     if (!q) return;
@@ -99,15 +104,20 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
     const timer = setTimeout(() => {
       csrfFetch<{ snippets: Snippet[] }>(`/api/snippets?q=${encodeURIComponent(q)}`)
         .then((data) => {
-          if (!cancelled) setBodyMatches({ q, ids: new Set((data.snippets ?? []).map((row) => row.id)) });
+          if (cancelled) return;
+          setBodyMatches({ q, ids: new Set((data.snippets ?? []).map((row) => row.id)) });
+          setSearchFailedFor(null);
         })
-        .catch(() => undefined);
+        .catch(() => {
+          if (!cancelled) setSearchFailedFor(q);
+        });
     }, 250);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [search]);
+  }, [search, searchAttempt]);
+  const fullTextFailed = Boolean(search.trim()) && searchFailedFor === search.trim();
 
   useEffect(
     () => () => {
@@ -236,13 +246,18 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         </ActionButton>
       </Toolbar>
 
+      {fullTextFailed ? (
+        <Notice tone="danger" className="mb-3" action={{ label: t("snippetsPage.searchRetry"), onClick: () => setSearchAttempt((n) => n + 1) }}>
+          {t("snippetsPage.searchFailed")}
+        </Notice>
+      ) : null}
       <ListPanel
         title={t("snippetsPage.pageTitle")}
         count={filtered.length}
         empty={
           filtered.length === 0 ? (
             <EmptyState>
-              {items.length === 0 ? t("snippetsPage.empty") : t("snippetsPage.noMatch")}
+              {items.length === 0 ? t("snippetsPage.empty") : fullTextFailed ? t("snippetsPage.searchFailedEmpty") : t("snippetsPage.noMatch")}
             </EmptyState>
           ) : undefined
         }

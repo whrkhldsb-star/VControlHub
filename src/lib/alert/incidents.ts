@@ -405,6 +405,8 @@ async function retryPendingIncidentDelivery(
     nextNotifyAt?: Date | null;
     /** Snapshot taken when the incident escalated; used for retry copy. */
     escalationMinutes?: number | null;
+    /** Stamped by each opening and escalation: which round this is. */
+    lastNotifiedAt?: Date | null;
   },
   input: AlertFireInput,
   now: Date,
@@ -436,9 +438,10 @@ async function retryPendingIncidentDelivery(
       }, pending)
     : await dispatchFiredNotice({ ...input, incidentId: existing.id }, pending);
   // Only for the round it sent: an escalation in the meantime replaced the
-  // pending state, and this late level-N result must not clear it.
+  // pending state, and this late level-N result must not clear it — nor the
+  // state of a later opening of the same incident (same id, OPEN, level 1).
   await prisma.alertIncident.updateMany({
-    where: { id: existing.id, status: "OPEN", level: existing.level },
+    where: { id: existing.id, status: "OPEN", level: existing.level, lastNotifiedAt: existing.lastNotifiedAt ?? null },
     data: deliveryState(now, attempts + 1, dispatch.failed, maxAttempts),
   });
   if (dispatch.failed.length > 0) {
@@ -618,8 +621,11 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
   // losing this bookkeeping must not turn a recorded fire into a failure — the
   // intent persisted with the incident then still has every channel pending.
   try {
+    // This opening only (stamped with `now` above). Resolved and opened again
+    // while this send ran, the incident has the same id, OPEN and level 1:
+    // the late result cleared the new round's failed channels and retry.
     await prisma.alertIncident.updateMany({
-      where: { id: incident.id, status: "OPEN", level: 1 },
+      where: { id: incident.id, status: "OPEN", level: 1, lastNotifiedAt: now },
       data: deliveryState(now, 1, dispatch.failed, await notifyMaxAttempts()),
     });
   } catch (error) {

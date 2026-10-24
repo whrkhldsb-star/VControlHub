@@ -208,6 +208,32 @@ describe("SnippetList", () => {
     expect(screen.queryByText("部署脚本")).not.toBeInTheDocument();
   });
 
+  it("says the full-text search failed instead of reporting no matches, and retries it", async () => {
+    // The failure was swallowed: the preview-only filter was shown as the
+    // result ("no matches"), hiding a snippet that matched further down.
+    const long = { id: "snip-long", title: "Long plain note", contentPreview: `${"A".repeat(240)}…`, contentLength: 400, language: "text", description: null, tags: [], isPrivate: false };
+    let fail = true;
+    vi.mocked(csrfFetch).mockImplementation(async (url: unknown) => {
+      if (!String(url).startsWith("/api/snippets?q=needle_after_preview")) return {} as never;
+      if (fail) throw new Error("search unavailable");
+      return { snippets: [{ id: "snip-long" }] } as never;
+    });
+    render(
+      <ToastProvider>
+        <SnippetList snippets={[...snippets, long] as never} />
+      </ToastProvider>,
+    );
+    await userEvent.type(screen.getByRole("searchbox", { name: "搜索代码片段" }), "needle_after_preview");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("全文搜索失败");
+    expect(screen.queryByText("无匹配结果")).not.toBeInTheDocument();
+
+    fail = false;
+    await userEvent.click(within(alert).getByRole("button", { name: "重试" }));
+    expect(await screen.findByText("Long plain note")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("an edit that clears the description and every tag sends the clears", async () => {
     // Left out of a PATCH, both kept their old values while the save "succeeded".
     vi.mocked(csrfFetch).mockImplementation(async (_url: unknown, init?: RequestInit) =>

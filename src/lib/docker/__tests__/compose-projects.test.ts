@@ -249,6 +249,22 @@ describe("compose project helpers", () => {
     expect(result.containers?.[0]?.state).toBe("running");
   });
 
+  it("falls back to the Engine API when there is no docker CLI at all", async () => {
+    // Only Engine access, no docker binary: the ENOENT was thrown past the
+    // fallback that a missing Compose plugin already reached.
+    const listed = (state: string) => ({ result: { ok: true, status: 200, data: [container({ id: "abc123", project: "site", state })] }, scope: hubScope });
+    dockerRequestMock
+      .mockResolvedValueOnce(listed("exited"))
+      .mockResolvedValueOnce(listed("exited"))
+      .mockResolvedValueOnce({ result: { ok: true, status: 204, data: null }, scope: hubScope })
+      .mockResolvedValueOnce(listed("running"));
+    runFileImpl.mockRejectedValue(Object.assign(new Error("spawn docker ENOENT"), { code: "ENOENT" }));
+
+    const result = await runComposeProjectAction({ project: "site", action: "start" });
+    expect(result.mode).toBe("engine-fallback");
+    expect(result.containers?.[0]?.state).toBe("running");
+  });
+
   it("falls back to Engine API remove with DELETE method", async () => {
     const listed = {
       result: {

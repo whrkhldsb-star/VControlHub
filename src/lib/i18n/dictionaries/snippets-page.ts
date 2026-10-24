@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `snippetsPage.*` (43 keys).
+ * i18n dictionary: `snippetsPage.*` (46 keys).
  *
  * Used by `src/app/snippets/snippet-list-client.tsx` and the two modals
  * (`create-snippet-modal.tsx`, `snippet-edit-modal.tsx`) — they share this
@@ -20,6 +20,9 @@ export const zh: Record<string, string> = {
 	"snippetsPage.eyebrow": "代码片段",
 	"snippetsPage.empty": "暂无代码片段",
 	"snippetsPage.noMatch": "无匹配结果",
+	"snippetsPage.searchFailed": "全文搜索失败，下面只按标题、标签和开头的预览筛选，可能漏掉正文后面的匹配。",
+	"snippetsPage.searchFailedEmpty": "全文搜索失败，标题、标签和预览中没有找到，请重试。",
+	"snippetsPage.searchRetry": "重试",
 	"snippetsPage.action.copy": "复制",
 	"snippetsPage.action.edit": "编辑",
 	"snippetsPage.action.delete": "删除",
@@ -69,6 +72,9 @@ export const en: Record<string, string> = {
 	"snippetsPage.eyebrow": "Snippets",
 	"snippetsPage.empty": "No snippets yet",
 	"snippetsPage.noMatch": "No matches",
+	"snippetsPage.searchFailed": "The full-text search failed. The list below only matches titles, tags and the opening preview, and may miss matches further down.",
+	"snippetsPage.searchFailedEmpty": "The full-text search failed, and nothing matched in titles, tags or previews. Try again.",
+	"snippetsPage.searchRetry": "Try again",
 	"snippetsPage.action.copy": "Copy",
 	"snippetsPage.action.edit": "Edit",
 	"snippetsPage.action.delete": "Delete",

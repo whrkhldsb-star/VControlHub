@@ -340,7 +340,8 @@ export function AiMessageList({
         );
       })}
 
-      {streaming && streamContent && (
+      {/* Reasoning can stream before any answer text: it is shown on its own. */}
+      {streaming && (streamContent || streamReasoning) && (
         <div className="flex gap-3">
           <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)]">
             <svg
@@ -368,7 +369,7 @@ export function AiMessageList({
                 </div>
               </details>
             )}
-            <div className="break-words">{renderContent(streamContent)}</div>
+            {streamContent ? <div className="break-words">{renderContent(streamContent)}</div> : null}
           </div>
         </div>
       )}
