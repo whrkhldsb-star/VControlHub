@@ -24,6 +24,13 @@ export const zh: Record<string, string> = {
   "rdp.error.connection": "远程桌面连接失败或已中断。请检查网关、服务器可达性、NLA 和证书配置后重试。",
   "rdp.error.credentials": "Windows 拒绝了登录：用户名或密码不对。如果刚改过节点的 Windows 用户名，请在“编辑节点”里同时填写这个账号的 RDP 密码。已停止自动重连，以免多次失败锁定账户。",
   "rdp.error.accountRefused": "Windows 拒绝了这个账户：可能已被锁定、停用、过期，或必须先修改密码。请在服务器上处理后再连接。已停止自动重连。",
+  "rdp.error.sessionConflict": "这个账户在别处登录了远程桌面（另一个浏览器窗口、设备或远程桌面客户端），会话已被那边接管。已停止自动重连，以免两边互相挤占；需要时点“重新连接”接回。",
+  "rdp.error.sessionEnded": "Windows 结束了这个远程会话：已注销、在 Windows 里断开，或被管理员结束。已停止自动重连；需要时点“重新连接”。",
+  "rdp.error.sessionIdle": "远程会话空闲时间超过 Windows 的限制，已被断开。需要时点“重新连接”。",
+  "rdp.inputMethod.remote": "远程输入法",
+  "rdp.inputMethod.local": "本机输入法",
+  "rdp.inputMethod.remoteHint": "当前用远程 Windows 的输入法打字：按键原样发给 Windows，本机输入法在桌面里不起作用（与微软远程桌面客户端相同）。点击改用本机输入法。",
+  "rdp.inputMethod.localHint": "当前用本机输入法打字：中文在本机组字，完成后发到 Windows。英文按键仍直接发送，请把 Windows 的输入法切到英文；单按 Shift 只切换本机输入法。点击改用远程输入法。",
 };
 export const en: Record<string, string> = {
   "rdp.title": "Windows Remote Desktop",
@@ -51,4 +58,11 @@ export const en: Record<string, string> = {
   "rdp.error.connection": "The remote desktop connection failed or was interrupted. Check the gateway, server connectivity, NLA and certificate settings, then retry.",
   "rdp.error.credentials": "Windows refused the login: the user name or password is wrong. If you just changed the node's Windows user name, enter that account's RDP password in Edit node as well. Automatic reconnection stopped so failed attempts do not lock the account.",
   "rdp.error.accountRefused": "Windows refused this account: it may be locked, disabled or expired, or must change its password first. Fix it on the server, then connect again. Automatic reconnection stopped.",
+  "rdp.error.sessionConflict": "This account signed in to the remote desktop elsewhere (another browser window, device or Remote Desktop client), which took the session over. Automatic reconnection stopped so the two do not keep taking it from each other; select Reconnect to take it back.",
+  "rdp.error.sessionEnded": "Windows ended this remote session: it was signed out, disconnected from inside Windows, or ended by an administrator. Automatic reconnection stopped; select Reconnect when needed.",
+  "rdp.error.sessionIdle": "The remote session was idle longer than Windows allows and was disconnected. Select Reconnect when needed.",
+  "rdp.inputMethod.remote": "Remote input method",
+  "rdp.inputMethod.local": "Local input method",
+  "rdp.inputMethod.remoteHint": "Typing with the remote Windows input method: keys go to Windows as they are, and this device's input method is off on the desktop (as in Microsoft's Remote Desktop client). Select to use this device's input method.",
+  "rdp.inputMethod.localHint": "Typing with this device's input method: Chinese and other text is composed here and sent when finished. Other keys still go to Windows directly, so switch the Windows input method to English; a lone Shift only switches this device's input method. Select to use the remote input method.",
 };

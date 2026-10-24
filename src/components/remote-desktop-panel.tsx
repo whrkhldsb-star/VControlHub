@@ -2,7 +2,7 @@
 
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 
-import { RemoteDesktopToolbar, type RemoteDesktopTouchMode } from "@/components/ssh-terminal-chrome";
+import { RemoteDesktopToolbar, type RemoteDesktopInputMethod, type RemoteDesktopTouchMode } from "@/components/ssh-terminal-chrome";
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -17,8 +17,20 @@ const MAX_RECONNECT_ATTEMPTS = 8;
  * each attempt counts towards the account lockout.
  */
 const LOGIN_REFUSED_ERRORS: Record<number, string> = { 0x0301: "rdp.error.credentials", 0x0303: "rdp.error.accountRefused" };
+/**
+ * Statuses for a session Windows ended itself: signed out or disconnected
+ * inside Windows (0), taken over by another connection to the same account
+ * (0x0209), the idle limit (0x020a), or ended by an administrator or the
+ * session time limit (0x020b). Reconnecting would sign the account back in,
+ * or take the session back from whoever has it now.
+ */
+const SESSION_ENDED_ERRORS: Record<number, string> = { 0x0000: "rdp.error.sessionEnded", 0x0209: "rdp.error.sessionConflict", 0x020a: "rdp.error.sessionIdle", 0x020b: "rdp.error.sessionEnded" };
 /** Guacamole keysyms for the SAS (secure attention sequence) shortcut. */
 const KEYSYM_CTRL = 0xffe3, KEYSYM_ALT = 0xffe9, KEYSYM_DELETE = 0xffff;
+/** Guacamole keysyms of the two Shift keys. */
+const KEYSYM_SHIFT_L = 0xffe1, KEYSYM_SHIFT_R = 0xffe2;
+/** Where this browser remembers which input method types into remote desktops. */
+const INPUT_METHOD_KEY = "vch.rdp.inputMethod";
 /** Base64 chunk size for outbound clipboard text (must stay well under the WS frame cap). */
 const CLIPBOARD_CHUNK = 3072;
 /** Text limit shared by both clipboard directions. */
@@ -34,6 +46,14 @@ function formatElapsed(seconds: number) {
 
 function isTouchScreen() {
 	return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+}
+
+function storedInputMethod(): RemoteDesktopInputMethod {
+	try {
+		return window.localStorage.getItem(INPUT_METHOD_KEY) === "local" ? "local" : "remote";
+	} catch {
+		return "remote";
+	}
 }
 
 type ViewMode = "fit" | "actual";
@@ -67,6 +87,15 @@ export type RemoteDesktopPanelProps = {
  * Remote Desktop app, touch input is a touchpad by default (drag moves a
  * visible pointer, tap clicks, two-finger tap right-clicks, two-finger drag
  * scrolls), or direct touch (the pointer goes where the finger is).
+ *
+ * Chinese and other composed text is typed with exactly one input method.
+ * With both active, letters went partly to the local one and partly to the
+ * remote one. By default the keys go to Windows as they are and its own
+ * input method composes, like Microsoft's client: the desktop keeps the
+ * focus on a non-editable element, where the browser turns the local input
+ * method off. The local mode (always on touch screens, whose on-screen
+ * keyboard needs a text field) lets the local input method compose and sends
+ * the finished text.
  */
 export function RemoteDesktopPanel({
 	ref,
@@ -87,6 +116,7 @@ export function RemoteDesktopPanel({
 	const applyScale = useRef<() => void>(() => {});
 	const focusInput = useRef<() => void>(() => {});
 	const applyTouchMode = useRef<() => void>(() => {});
+	const applyInputMethod = useRef<() => void>(() => {});
 	// An SSH tab connects when it opens; so does this one.
 	const [attempt, setAttempt] = useState(1);
 	const [phase, setPhase] = useState<Phase>("connecting");
@@ -99,6 +129,9 @@ export function RemoteDesktopPanel({
 	const [touchMode, setTouchMode] = useState<RemoteDesktopTouchMode>("touchpad");
 	const touchModeRef = useRef<RemoteDesktopTouchMode>(touchMode);
 	const [touchHint, setTouchHint] = useState(false);
+	// A touch screen has only the local input method: its on-screen keyboard.
+	const [inputMethod, setInputMethod] = useState<RemoteDesktopInputMethod>(() => (touch ? "local" : storedInputMethod()));
+	const inputMethodRef = useRef<RemoteDesktopInputMethod>(inputMethod);
 	const [connectedFor, setConnectedFor] = useState(0);
 	const visibleRef = useRef(visible);
 	const connected = phase === "connected";
@@ -125,7 +158,8 @@ export function RemoteDesktopPanel({
 		let everConnected = false;
 		let dropped = false;
 		let userStopped = false;
-		let loginRefused = false;
+		// Windows refused the account or ended the session: retrying cannot help.
+		let finalError = false;
 		const cleanup = () => {
 			// Closing a tab ends the session and then unmounts it: release once,
 			// never write to a tunnel that is already closed.
@@ -190,20 +224,82 @@ export function RemoteDesktopPanel({
 				const pasteKeys = new Set<number>();
 				// Mac Command shortcuts use the Windows Control modifier.
 				const remoteKeysym = (key: number) => key === 0xffe7 || key === 0xffe8 ? KEYSYM_CTRL : key;
+				const localInput = () => touch || inputMethodRef.current === "local";
+				// The remote input method mode keeps the focus on the non-editable
+				// desktop. A paste lands in the text field instead (Firefox and Safari
+				// fire no paste event elsewhere); the focus then comes straight back.
+				const returnFocus = () => setTimeout(() => {
+					if (!localInput() && document.activeElement === input) surface.focus({ preventScroll: true });
+				}, 0);
+				// With the local input method, a lone Shift tap is that input method
+				// switching between Chinese and English. Passed on, it switched the
+				// remote input method as well, and letters typed as English were
+				// composed by the remote one. A Shift press waits until a key or a
+				// click needs it; a lone tap never reaches Windows.
+				let heldShift: number | null = null;
+				const flushShift = () => {
+					if (heldShift === null) return;
+					const key = heldShift;
+					heldShift = null;
+					client.sendKeyEvent(1, key);
+				};
 				keyboard.onkeydown = key => {
 					const modifiers = keyboard.modifiers;
 					const nativePaste = !modifiers.alt && (
 						((modifiers.ctrl || modifiers.meta) && (key === 0x76 || key === 0x56)) ||
 						(modifiers.shift && key === 0xff63)
 					);
-					if (nativePaste) { pasteKeys.add(key); return true; }
+					if (nativePaste) {
+						pasteKeys.add(key);
+						if (!localInput()) input.focus({ preventScroll: true });
+						return true;
+					}
+					if (localInput() && heldShift === null && (key === KEYSYM_SHIFT_L || key === KEYSYM_SHIFT_R)) { heldShift = key; return false; }
+					flushShift();
 					client.sendKeyEvent(1, remoteKeysym(key));
 					return false;
 				};
-				keyboard.onkeyup = key => { if (!pasteKeys.delete(key)) client.sendKeyEvent(0, remoteKeysym(key)); };
+				keyboard.onkeyup = key => {
+					if (pasteKeys.delete(key)) { returnFocus(); return; }
+					if (key === heldShift) { heldShift = null; return; }
+					client.sendKeyEvent(0, remoteKeysym(key));
+				};
+				// Text composed by the local input method, or committed by it directly
+				// (a "，", an on-screen keyboard word), is typed here. Guacamole's own
+				// handling of these events stops typing direct input after the first
+				// composition, and compositions after the first direct input — they
+				// never reach it.
+				let composing = false;
+				let clearTimer: ReturnType<typeof setTimeout> | undefined;
+				const clearInput = () => {
+					clearTimeout(clearTimer);
+					// Never during a composition: clearing the field cancels it, and the
+					// letters typed after that went to the remote input method instead.
+					clearTimer = setTimeout(() => { if (!composing) input.value = ""; }, 0);
+				};
+				const typeText = (text: string) => { flushShift(); keyboard.type(text); };
+				input.addEventListener("compositionstart", () => { composing = true; });
+				input.addEventListener("compositionend", event => {
+					event.stopPropagation();
+					composing = false;
+					if (event.data) typeText(event.data);
+					clearInput();
+				});
+				input.addEventListener("input", event => {
+					event.stopPropagation();
+					const { data, inputType, isComposing } = event as InputEvent;
+					// Updates and the commit of a composition: compositionend types it.
+					if (composing || isComposing || /composition/i.test(inputType ?? "")) return;
+					if (data) typeText(data);
+					clearInput();
+				});
 				const mouseEvents = ["mousedown", "mouseup", "mousemove"];
 				const sendMouse = (event: import("guacamole-common-js").Event) => {
-					if (event instanceof G.Mouse.Event) client.sendMouseState(event.state, true);
+					if (!(event instanceof G.Mouse.Event)) return;
+					const { left, middle, right, up, down } = event.state;
+					// Shift+click and Shift+wheel need the Shift press; a mere move does not.
+					if (left || middle || right || up || down) flushShift();
+					client.sendMouseState(event.state, true);
 				};
 				// Both touch handlers listen; the chosen mode decides which one is sent.
 				const sendTouchpad = (event: import("guacamole-common-js").Event) => { if (touchModeRef.current === "touchpad") sendMouse(event); };
@@ -256,16 +352,17 @@ export function RemoteDesktopPanel({
 					stream.sendEnd();
 					// Clipboard data must precede the remote paste shortcut. Temporarily
 					// release physical modifiers, then restore them until their real keyup.
-					const modifiers = Object.keys(keyboard.pressed).map(Number).filter(key => key >= 0xffe1 && key <= 0xffee);
+					// A Shift press still held back is not down on the remote side.
+					const modifiers = Object.keys(keyboard.pressed).map(Number).filter(key => key >= 0xffe1 && key <= 0xffee && key !== heldShift);
 					for (const key of modifiers) client.sendKeyEvent(0, remoteKeysym(key));
 					client.sendKeyEvent(1, KEYSYM_CTRL);
 					client.sendKeyEvent(1, 0x76);
 					client.sendKeyEvent(0, 0x76);
 					client.sendKeyEvent(0, KEYSYM_CTRL);
 					for (const key of modifiers) client.sendKeyEvent(1, remoteKeysym(key));
+					returnFocus();
 				};
 				surface.addEventListener("paste", paste);
-				input.addEventListener("input", () => { input.value = ""; });
 				sendCtrlAltDel.current = () => {
 					client.sendKeyEvent(1, KEYSYM_CTRL);
 					client.sendKeyEvent(1, KEYSYM_ALT);
@@ -274,16 +371,24 @@ export function RemoteDesktopPanel({
 					client.sendKeyEvent(0, KEYSYM_ALT);
 					client.sendKeyEvent(0, KEYSYM_CTRL);
 				};
-				const focus = () => input.focus({ preventScroll: true });
+				// The text field for the local input method, the desktop itself for the
+				// remote one: a non-editable focus is what turns the local one off.
+				const focus = () => (localInput() ? input : surface).focus({ preventScroll: true });
 				focusInput.current = focus;
+				applyInputMethod.current = () => {
+					if (document.activeElement === input || document.activeElement === surface) focus();
+				};
 				// A mouse click focuses the keyboard input; a tap must not, or every
 				// tap would pop the on-screen keyboard over the desktop.
 				const pointerFocus = (event: PointerEvent) => { if (event.pointerType === "mouse") focus(); };
-				const surfaceFocus = () => { if (!touch) focus(); };
+				const surfaceFocus = () => { if (!touch && localInput()) input.focus({ preventScroll: true }); };
 				const reset = () => { keyboard.reset(); mouse.reset(); };
+				// Moving between the desktop and its text field is not leaving it.
+				const leave = (event: FocusEvent) => { if (event.relatedTarget !== input && event.relatedTarget !== surface) reset(); };
 				surface.addEventListener("pointerdown", pointerFocus);
 				surface.addEventListener("focus", surfaceFocus);
-				input.addEventListener("blur", reset);
+				input.addEventListener("blur", leave);
+				surface.addEventListener("blur", leave);
 				window.addEventListener("blur", reset);
 				const visibility = () => { if (document.hidden) reset(); };
 				document.addEventListener("visibilitychange", visibility);
@@ -330,14 +435,17 @@ export function RemoteDesktopPanel({
 					surface.removeEventListener("paste", paste);
 					surface.removeEventListener("pointerdown", pointerFocus);
 					surface.removeEventListener("focus", surfaceFocus);
-					input.removeEventListener("blur", reset);
+					input.removeEventListener("blur", leave);
+					surface.removeEventListener("blur", leave);
 					window.removeEventListener("blur", reset);
+					clearTimeout(clearTimer);
 					document.removeEventListener("visibilitychange", visibility);
 					observer.disconnect(); clearTimeout(resizeTimer);
 					client.onerror = client.onstatechange = client.onclipboard = null;
 					display.onresize = null;
 					focusInput.current = () => {};
 					applyTouchMode.current = () => {};
+					applyInputMethod.current = () => {};
 					client.disconnect();
 				};
 				const drop = () => {
@@ -347,7 +455,7 @@ export function RemoteDesktopPanel({
 					host.replaceChildren();
 					// Only an established session auto-reconnects — a failed first
 					// connect must leave its error message on screen, not loop.
-					if (everConnected && !userStopped && !loginRefused && reconnects < MAX_RECONNECT_ATTEMPTS) {
+					if (everConnected && !userStopped && !finalError && reconnects < MAX_RECONNECT_ATTEMPTS) {
 						reconnects += 1;
 						setReconnectAttempt(reconnects);
 						setPhase("reconnecting");
@@ -359,14 +467,15 @@ export function RemoteDesktopPanel({
 				};
 				const failed = (status?: { code?: number }) => {
 					if (disposed) return;
-					const refused = status?.code === undefined ? undefined : LOGIN_REFUSED_ERRORS[status.code];
-					if (refused) {
+					const code = status?.code;
+					const final = code === undefined ? undefined : LOGIN_REFUSED_ERRORS[code] ?? SESSION_ENDED_ERRORS[code];
+					if (final) {
 						// Windows answered (the session is "ready" first): say why, do not retry.
-						loginRefused = true;
-						setError(refused);
+						finalError = true;
+						setError(final);
 					}
 					if (everConnected) drop();
-					else { setError(refused ?? "rdp.error.connection"); setPhase("disconnected"); cleanup(); }
+					else { setError(final ?? "rdp.error.connection"); setPhase("disconnected"); cleanup(); }
 				};
 				client.onerror = failed;
 				tunnel.onerror = failed;
@@ -417,6 +526,21 @@ export function RemoteDesktopPanel({
 		applyTouchMode.current();
 	}, [touchMode]);
 
+	useEffect(() => {
+		inputMethodRef.current = inputMethod;
+		applyInputMethod.current();
+	}, [inputMethod]);
+
+	const toggleInputMethod = () => {
+		const next: RemoteDesktopInputMethod = inputMethod === "remote" ? "local" : "remote";
+		setInputMethod(next);
+		try {
+			window.localStorage.setItem(INPUT_METHOD_KEY, next);
+		} catch {
+			// Not remembered (private window or blocked storage); this tab still switches.
+		}
+	};
+
 	// A tab shown again (or the window resized while it was hidden) is fitted now.
 	useEffect(() => {
 		visibleRef.current = visible;
@@ -466,10 +590,12 @@ export function RemoteDesktopPanel({
 				fullscreen={fullscreen}
 				touch={touch}
 				touchMode={touchMode}
+				inputMethod={inputMethod}
 				viewMode={viewMode}
 				elapsed={connected ? formatElapsed(connectedFor) : null}
 				onToggleTouchMode={() => { setTouchMode(mode => mode === "touchpad" ? "touch" : "touchpad"); setTouchHint(true); }}
 				onKeyboard={() => focusInput.current()}
+				onToggleInputMethod={toggleInputMethod}
 				onToggleView={() => setViewMode(mode => mode === "fit" ? "actual" : "fit")}
 				onCtrlAltDel={() => sendCtrlAltDel.current()}
 				onToggleFullscreen={onToggleFullscreen}

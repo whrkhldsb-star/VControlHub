@@ -87,6 +87,7 @@ test("RDP native text paste and Linux/Windows connection control dimensions", as
     // substitute only the remote transport, so no test types into a real desktop.
     await page.route("**/api/auth/rdp-ticket", route => route.fulfill({ json: { token: "fixture-ticket", path: "/rdp" } }));
     const pasted: string[] = [];
+    const pressed: number[] = [];
     let clipboard = "", chunks: Buffer[] = [], control = false;
     await page.routeWebSocket(/\/rdp$/, ws => {
       const parser = new GuacParser(row => {
@@ -95,6 +96,7 @@ test("RDP native text paste and Linux/Windows connection control dimensions", as
         if (row[0] === "end") clipboard = Buffer.concat(chunks).toString("utf8");
         if (row[0] === "key" && row[1] === "65507") control = row[2] === "1";
         if (row[0] === "key" && row[1] === "118" && row[2] === "1" && control) pasted.push(clipboard);
+        if (row[0] === "key" && row[2] === "1") pressed.push(Number(row[1]));
         if (row[0] === "") ws.send(instruction(...row));
       });
       ws.onMessage(data => {
@@ -124,8 +126,67 @@ test("RDP native text paste and Linux/Windows connection control dimensions", as
       await expect.poll(() => pasted.at(-1)).toBe(text);
     }
     expect(pasted).toHaveLength(2);
+    const field = page.getByRole("textbox", { name: /远程桌面键盘输入|Remote desktop keyboard input/ });
+    await expect(field).toHaveValue("");
+    // The remote input method (the default) keeps the focus on the desktop
+    // itself: a focused text field let the local input method compose too.
+    await page.getByRole("application").click({ position: { x: 20, y: 20 } });
+    await expect(page.getByRole("application")).toBeFocused();
+
+    if (testInfo.project.name === "chromium") {
+      // Chromium can drive an input method (CDP). The local one composes the
+      // whole word and only the finished text reaches Windows: clearing the
+      // field mid-composition used to leak the later letters to Windows' own
+      // input method, and a directly committed "，" after a word was lost.
+      await desktop.getByTestId("rdp-input-method").click();
+      await page.getByRole("application").click({ position: { x: 20, y: 20 } });
+      await expect(field).toBeFocused();
+      const cdp = await context.newCDPSession(page);
+      pressed.length = 0;
+      let composition = "";
+      for (const letter of "nihao") {
+        composition += letter;
+        const code = `Key${letter.toUpperCase()}`;
+        await cdp.send("Input.dispatchKeyEvent", { type: "rawKeyDown", windowsVirtualKeyCode: 229, key: "Process", code });
+        await cdp.send("Input.imeSetComposition", { text: composition, selectionStart: composition.length, selectionEnd: composition.length });
+        await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", windowsVirtualKeyCode: letter.toUpperCase().charCodeAt(0), key: letter, code });
+      }
+      await expect(field).toHaveValue("nihao");
+      await cdp.send("Input.insertText", { text: "你好" });
+      await cdp.send("Input.insertText", { text: "，" });
+      await expect.poll(() => pressed.map(key => String.fromCodePoint(key & 0xffffff)).join("")).toBe("你好，");
+      await expect(field).toHaveValue("");
+      await desktop.getByTestId("rdp-input-method").click();
+    }
+
+    // Several sessions stay switchable, in the window and in full screen
+    // (full screen hid the tab bar, and browsers keep Ctrl+Tab for their own tabs).
+    await page.getByTestId("ssh-terminal-minimize").click();
+    await cards.filter({ hasText: prefix + "LINUX" }).locator('[data-server-connection="ssh"]').click();
+    const pill = page.getByTestId("ssh-terminal-minimized-pill");
+    if (await pill.isVisible()) await pill.click();
+    const terminalPanel = page.getByTestId(`ssh-terminal-panel-${prefix}LINUX`);
+    const sessions = page.getByRole("tablist", { name: /远程会话|Remote sessions/ });
+    await expect(sessions.getByRole("tab")).toHaveCount(2);
+    await sessions.getByRole("tab", { name: new RegExp(prefix + "WINDOWS") }).click();
+    await expect(desktop).toBeVisible();
+    await expect(terminalPanel).toBeHidden();
+    await sessions.getByRole("tab", { name: new RegExp(prefix + "LINUX") }).click();
+    await expect(terminalPanel).toBeVisible();
+    await expect(desktop).toBeHidden();
+    await sessions.getByRole("tab", { name: new RegExp(prefix + "WINDOWS") }).click();
+    await desktop.getByTestId("rdp-fullscreen-enter").click();
+    const strip = page.getByTestId("ssh-terminal-fullscreen-tabs");
+    await expect(strip).toBeVisible();
+    await strip.getByRole("tab", { name: new RegExp(prefix + "LINUX") }).click();
+    await expect(terminalPanel).toBeVisible();
+    await expect(desktop).toBeHidden();
+    await strip.getByRole("tab", { name: new RegExp(prefix + "WINDOWS") }).click();
+    await expect(desktop).toBeVisible();
+    await desktop.getByTestId("rdp-fullscreen-exit").click();
+    await expect(strip).toHaveCount(0);
+
     expect(pageErrors).toEqual([]);
-    await expect(page.getByRole("textbox", { name: /远程桌面键盘输入|Remote desktop keyboard input/ })).toHaveValue("");
     await desktop.getByRole("button", { name: /关闭远程桌面|Close remote desktop/ }).click();
     await expect(desktop).toHaveCount(0);
   } finally {

@@ -36,7 +36,7 @@ describe("established RDP authorization", () => {
   afterEach(() => { stop?.(); vi.useRealTimers(); });
 
   async function connect(handshake = instruction("args") + instruction("ready", "tunnel")) {
-    const tunnel = Object.assign(new EventEmitter(), { write: vi.fn(), destroy: vi.fn(), pause: vi.fn(), resume: vi.fn() });
+    const tunnel = Object.assign(new EventEmitter(), { write: vi.fn(), end: vi.fn(), destroy: vi.fn(), pause: vi.fn(), resume: vi.fn(), writable: true, connecting: false, destroyed: false });
     mocks.tunnel.mockReturnValue(tunnel);
     const wss = Object.assign(new EventEmitter(), { clients: new Set(), close: vi.fn() });
     mocks.webSocketServer.mockReturnValue(wss);
@@ -105,6 +105,8 @@ describe("established RDP authorization", () => {
     mocks.verify.mockImplementation(() => new Promise<never>(() => undefined));
     await vi.advanceTimersByTimeAsync(10_001);
     expect(ws.close).toHaveBeenCalledWith(1008);
+    expect(tunnel.end).toHaveBeenCalledWith(instruction("disconnect"));
+    await vi.advanceTimersByTimeAsync(2_000);
     expect(tunnel.destroy).toHaveBeenCalled();
     expect(mocks.verify).toHaveBeenCalledTimes(2);
   });
@@ -114,5 +116,62 @@ describe("established RDP authorization", () => {
     await vi.advanceTimersByTimeAsync(20_000);
     expect(ws.close).not.toHaveBeenCalled();
     expect(mocks.verify).toHaveBeenCalledTimes(5);
+  });
+});
+
+describe("ending an RDP session", () => {
+  let stop: (() => void) | undefined;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    mocks.clipboard.mockReturnValue(false);
+    mocks.verify.mockResolvedValue({ userId: "u", roles: ["admin"], currentTeamId: "t", mustChangePassword: false });
+    mocks.getServer.mockResolvedValue({ id: "s", teamId: "t", host: "192.0.2.1", port: 3389, username: "test", rdpPassword: "sealed" });
+  });
+  afterEach(() => { stop?.(); vi.useRealTimers(); });
+
+  async function live() {
+    const tunnel = Object.assign(new EventEmitter(), { write: vi.fn(), end: vi.fn(), destroy: vi.fn(), pause: vi.fn(), resume: vi.fn(), writable: true, connecting: false, destroyed: false });
+    mocks.tunnel.mockReturnValue(tunnel);
+    const wss = Object.assign(new EventEmitter(), { clients: new Set(), close: vi.fn() });
+    mocks.webSocketServer.mockReturnValue(wss);
+    const ws = Object.assign(new EventEmitter(), { readyState: 1, bufferedAmount: 0, send: vi.fn(), close: vi.fn(() => { ws.readyState = 3; ws.emit("close", 1000); }), terminate: () => ws.close() });
+    stop = setupRdpWebSocket(new EventEmitter() as Server);
+    wss.emit("connection", ws, { headers: { cookie: "session=authenticated", origin: "https://hub.test" } });
+    await ws.listeners("message")[0]!(Buffer.from("single-use-ticket"), false);
+    tunnel.emit("data", Buffer.from(instruction("args") + instruction("ready", "tunnel")));
+    return { ws, tunnel };
+  }
+
+  it("tells guacd the user left, so Windows releases the session at once", async () => {
+    // guacd behind the rootless Docker port proxy did not always see a closed
+    // socket and stayed signed in to Windows for 15 s; a reconnect then had
+    // to take the session over from it.
+    const { ws, tunnel } = await live();
+    ws.readyState = 3;
+    ws.emit("close", 1006);
+    expect(tunnel.end).toHaveBeenCalledWith(instruction("disconnect"));
+    expect(tunnel.destroy).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(tunnel.destroy).toHaveBeenCalled();
+    // Why it ended goes into the audit: here the connection was lost.
+    expect(mocks.audit).toHaveBeenCalledWith("u", "server.rdp.closed", { serverId: "s", reason: "browser: 1006", seconds: "0" }, undefined, "t");
+  });
+
+  it("forwards the browser's own disconnect to guacd", async () => {
+    const { ws, tunnel } = await live();
+    ws.emit("message", Buffer.from(instruction("disconnect")), false);
+    expect(tunnel.end).toHaveBeenCalledWith(instruction("disconnect"));
+    expect(mocks.audit).toHaveBeenCalledWith("u", "server.rdp.closed", expect.objectContaining({ reason: "browser: disconnect" }), undefined, "t");
+  });
+
+  it("passes on when Windows ended the session itself, so the browser does not take it back", async () => {
+    for (const [status, sent] of [["521", "3.521"], ["523", "3.523"], ["0", "1.0"], ["515", "3.512"]] as const) {
+      const { ws, tunnel } = await live();
+      tunnel.emit("data", Buffer.from(instruction("error", "Disconnected by other connection.", status)));
+      expect(ws.send).toHaveBeenLastCalledWith(expect.stringMatching(new RegExp(`,${sent.replace(".", "\\.")};$`)));
+      expect(mocks.audit).toHaveBeenLastCalledWith("u", "server.rdp.closed", expect.objectContaining({ reason: `guacd: ${status} Disconnected by other connection.` }), undefined, "t");
+      stop?.();
+    }
   });
 });

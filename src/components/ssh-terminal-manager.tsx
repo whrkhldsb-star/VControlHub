@@ -236,6 +236,83 @@ export function SshTerminalManager({
 		}
 		: { height: !fullscreen && mobileHeight ? `${mobileHeight}px` : undefined };
 
+	const tabBar = (compact: boolean) => (
+		<div
+			className={cn(
+				"flex shrink-0 items-stretch gap-0.5 overflow-x-auto border-b border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-2",
+				compact ? "py-0.5" : "py-1",
+			)}
+			role="tablist"
+			aria-label={t("sshTerminalManager.title")}
+			data-testid={compact ? "ssh-terminal-fullscreen-tabs" : undefined}
+		>
+			{tabs.map((tab, i) => {
+				const isActive = i === activeTabIndex;
+				const statusColor =
+					tab.status === "connected"
+						? "bg-[var(--success)]"
+						: tab.status === "connecting"
+							? "bg-[var(--warning)]"
+							: "bg-[var(--danger)]";
+				return (
+					<div
+						key={tab.id}
+						role="tab"
+						aria-selected={isActive}
+						tabIndex={isActive ? 0 : -1}
+						onClick={() => onTabSelect(i)}
+						onKeyDown={(e) => {
+							// Only act when the tab itself has focus — the close
+							// button inside handles its own activation.
+							if (e.target !== e.currentTarget) return;
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								onTabSelect(i);
+								return;
+							}
+							// Roving focus: arrows move between adjacent tabs.
+							if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+								e.preventDefault();
+								const tablist = e.currentTarget.parentElement;
+								if (!tablist) return;
+								const tabEls = Array.from(tablist.querySelectorAll<HTMLElement>('[role="tab"]'));
+								const current = tabEls.indexOf(e.currentTarget);
+								if (current === -1 || tabEls.length === 0) return;
+								const delta = e.key === "ArrowRight" ? 1 : -1;
+								tabEls[(current + delta + tabEls.length) % tabEls.length]?.focus();
+							}
+						}}
+						className={cn(
+							"group flex shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3 text-xs transition",
+							compact ? "py-1" : "py-2",
+							isActive
+								? "bg-[var(--surface-elevated)] light:bg-[var(--surface-hover)] text-[var(--text-primary)]"
+								: "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]",
+						)}
+					>
+						<span className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} aria-hidden="true" />
+						{tab.kind === "rdp" && <span className="shrink-0 text-[10px] font-semibold text-[var(--text-muted)]">RDP</span>}
+						<span className="max-w-[160px] truncate font-medium">{tab.serverName}</span>
+						<button
+							type="button"
+							onClick={(e) => {
+								e.stopPropagation();
+								closeTab(i);
+							}}
+							aria-label={t("sshTerminalManager.closeTab", { serverName: tab.serverName })}
+							className={cn(
+								"ml-1 shrink-0 rounded text-[var(--text-muted)] opacity-100 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)] hover:text-[var(--danger)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100",
+								compact ? "min-h-8 min-w-8 p-1" : "min-h-11 min-w-11 p-1.5",
+							)}
+						>
+							<X size={16} aria-hidden />
+						</button>
+					</div>
+				);
+			})}
+		</div>
+	);
+
 	return (
 		<div
 			className={cn(
@@ -350,73 +427,10 @@ export function SshTerminalManager({
 
 				)}
 
-				{/* Tab bar */}
-				{!fullscreen && (
-					<div
-						className="flex items-stretch gap-0.5 overflow-x-auto border-b border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-2 py-1"
-						role="tablist"
-					>
-						{tabs.map((tab, i) => {
-							const isActive = i === activeTabIndex;
-							const statusColor =
-								tab.status === "connected"
-									? "bg-[var(--success)]"
-									: tab.status === "connecting"
-										? "bg-[var(--warning)]"
-										: "bg-[var(--danger)]";
-							return (
-								<div
-									key={tab.id}
-									role="tab"
-									aria-selected={isActive}
-									tabIndex={isActive ? 0 : -1}
-									onClick={() => onTabSelect(i)}
-									onKeyDown={(e) => {
-										// Only act when the tab itself has focus — the close
-										// button inside handles its own activation.
-										if (e.target !== e.currentTarget) return;
-										if (e.key === "Enter" || e.key === " ") {
-											e.preventDefault();
-											onTabSelect(i);
-											return;
-										}
-										// Roving focus: arrows move between adjacent tabs.
-										if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-											e.preventDefault();
-											const tablist = e.currentTarget.parentElement;
-											if (!tablist) return;
-											const tabEls = Array.from(tablist.querySelectorAll<HTMLElement>('[role="tab"]'));
-											const current = tabEls.indexOf(e.currentTarget);
-											if (current === -1 || tabEls.length === 0) return;
-											const delta = e.key === "ArrowRight" ? 1 : -1;
-											tabEls[(current + delta + tabEls.length) % tabEls.length]?.focus();
-										}
-									}}
-									className={`group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${
-										isActive
-											? "bg-[var(--surface-elevated)] light:bg-[var(--surface-hover)] text-[var(--text-primary)]"
-											: "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
-									}`}
-								>
-									<span className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} aria-hidden="true" />
-									{tab.kind === "rdp" && <span className="shrink-0 text-[10px] font-semibold text-[var(--text-muted)]">RDP</span>}
-									<span className="max-w-[160px] truncate font-medium">{tab.serverName}</span>
-									<button
-										type="button"
-										onClick={(e) => {
-											e.stopPropagation();
-											closeTab(i);
-										}}
-										aria-label={t("sshTerminalManager.closeTab", { serverName: tab.serverName })}
-										className="ml-1 shrink-0 rounded p-1.5 min-h-11 min-w-11 text-[var(--text-muted)] opacity-100 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)] hover:text-[var(--danger)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-									>
-										<X size={16} aria-hidden />
-									</button>
-								</div>
-							);
-						})}
-					</div>
-				)}
+				{/* Tab bar. Full screen hides it with the title bar — it then left no
+				    way to switch sessions (browsers keep Ctrl+Tab for their own tabs),
+				    so with several sessions a compact strip stays. */}
+				{fullscreen ? tabs.length > 1 && tabBar(true) : tabBar(false)}
 
 				{/* Terminal panels — always mounted; only active tab is visible.
 				    Minimize does NOT unmount these (keeps WebSocket + xterm alive). */}

@@ -41,6 +41,17 @@ const AUTHORIZATION_TIMEOUT_MS = 5_000;
 /** Guacamole status codes guacd reports when Windows refuses the account. */
 const RDP_STATUS_UNAUTHORIZED = "769";
 const RDP_STATUS_FORBIDDEN = "771";
+/**
+ * Statuses for a session Windows itself ended: signed out or disconnected
+ * from inside Windows (0), taken over by another connection to the same
+ * account (521), the idle limit (522), or ended by an administrator or the
+ * session time limit (523). The browser shows why and does not reconnect:
+ * reconnecting would log the account back in, or take the session back from
+ * whoever has it now — who would take it back again.
+ */
+const RDP_SESSION_ENDED = new Set(["0", "521", "522", "523"]);
+/** How long guacd gets to close its side after the disconnect instruction. */
+const TUNNEL_CLOSE_GRACE_MS = 2_000;
 
 export function setupRdpWebSocket(server: HttpServer) {
  const wss = new WebSocketServer({ noServer: true, maxPayload: 16_384, perMessageDeflate: false,
@@ -81,13 +92,33 @@ export function setupRdpWebSocket(server: HttpServer) {
   // One "failed" per attempt: guacd's error already recorded why, so the
   // close that follows a failed handshake must not record it a second time.
   let failureAudited = false;
+  // Why the session ended, for the "closed" audit: the gateway's own reason,
+  // guacd's, or the browser leaving (with its WebSocket close code: 1006 is
+  // a connection lost without a goodbye).
+  let endedBy: string | undefined;
+  let tunnelEnding = false;
   const audit = (event: string, detail: Record<string, string> = {}) => {
    if (userId && serverId) void auditUserAction(userId, event, { serverId, ...detail }, undefined, teamId).catch(() => {});
   };
+  // guacd sits behind the rootless Docker port proxy, which does not always
+  // pass a closed socket on: guacd then kept the RDP connection logged in to
+  // Windows until its own 15 s input timeout. A reconnect inside that window
+  // had to take the session over from the leftover connection: the sign-in
+  // screen showed "Other user", and the leftover was kicked off ("Disconnected
+  // by other connection"). Tell guacd the user is leaving, then close.
+  const endTunnel = () => {
+   const socket = tunnel;
+   if (!socket || socket.destroyed || tunnelEnding) return;
+   tunnelEnding = true;
+   if (socket.connecting || !socket.writable) { socket.destroy(); return; }
+   socket.end(instruction("disconnect"));
+   setTimeout(() => socket.destroy(), TUNNEL_CLOSE_GRACE_MS).unref?.();
+  };
   const close = (reason: string, code = 1011, status = "512") => {
    stopped = true;
+   endedBy ??= `gateway: ${reason}`;
    if (ws.readyState === WebSocket.OPEN) { ws.send(instruction("error", reason, status)); ws.close(code); }
-   tunnel?.destroy();
+   endTunnel();
   };
   const handshakeTimeout = setTimeout(() => close("RDP handshake timed out"), 30_000);
   const timer = setInterval(() => {
@@ -117,12 +148,13 @@ export function setupRdpWebSocket(server: HttpServer) {
    if (tunnelPaused && ws.bufferedAmount < 1_000_000) { tunnelPaused = false; tunnel?.resume(); }
    if (ws.bufferedAmount > 64_000_000) close("RDP backpressure limit reached");
   }, 5000);
-  ws.on("error", () => { tunnel?.destroy(); });
-  ws.on("close", () => {
+  ws.on("error", () => { endTunnel(); });
+  ws.on("close", (code: number) => {
    stopped = true;
-   clearTimeout(handshakeTimeout); clearInterval(timer); tunnel?.destroy();
+   endedBy ??= `browser: ${code}`;
+   clearTimeout(handshakeTimeout); clearInterval(timer); endTunnel();
    if (userId && authenticated) { authedSessions--; const count = (users.get(userId) ?? 1) - 1; if (count) users.set(userId, count); else users.delete(userId); }
-   if (started) audit("server.rdp.closed");
+   if (started) audit("server.rdp.closed", { reason: endedBy.slice(0, 120), seconds: String(Math.round((Date.now() - openedAt) / 1000)) });
    else if (!failureAudited) audit("server.rdp.failed");
   });
   const input = new GuacParser(row => {
@@ -132,7 +164,7 @@ export function setupRdpWebSocket(server: HttpServer) {
    // the browser is still there and resets the idle limit.
    lastInput = Date.now();
    if (row[0] === "") { if (ws.readyState === WebSocket.OPEN) ws.send(instruction(...row)); return; }
-   if (row[0] === "disconnect") { ws.close(1000); tunnel?.destroy(); return; }
+   if (row[0] === "disconnect") { endedBy ??= "browser: disconnect"; ws.close(1000); endTunnel(); return; }
    // Clipboard is the only client-created stream type; blobs and end must
    // stay on an index a clipboard instruction allocated this session.
    if (clipboardAllowed && (row[0] === "clipboard" || row[0] === "blob" || row[0] === "end")) {
@@ -201,9 +233,9 @@ export function setupRdpWebSocket(server: HttpServer) {
     };
     const decoder = new StringDecoder("utf8");
     tunnel = createConnection({ host: "127.0.0.1", port: guacdPort() });
-    tunnel.once("connect", () => tunnel?.write(instruction("select", "rdp")));
+    tunnel.once("connect", () => { if (!tunnelEnding) tunnel?.write(instruction("select", "rdp")); });
     tunnel.on("error", () => close("RDP gateway connection failed"));
-    tunnel.on("close", () => { if (ws.readyState === WebSocket.OPEN) ws.close(1000); });
+    tunnel.on("close", () => { endedBy ??= "guacd closed the connection"; if (ws.readyState === WebSocket.OPEN) ws.close(1000); });
     const output = new GuacParser(row => {
      if (stopped) return;
      if (row[0] === "error") {
@@ -211,6 +243,7 @@ export function setupRdpWebSocket(server: HttpServer) {
       // could not be told from a refused account (769), a locked one (771)
       // or an unreachable host without guacd's own log.
       failureAudited = true;
+      endedBy ??= `guacd: ${row[2] ?? ""} ${(row[1] ?? "").slice(0, 80)}`;
       audit("server.rdp.failed", { status: row[2] ?? "", message: (row[1] ?? "").slice(0, 200) });
       // Windows refusing the login arrives after "ready". Keep guacd's
       // status for it: the browser must tell a wrong account or password
@@ -219,6 +252,7 @@ export function setupRdpWebSocket(server: HttpServer) {
       // attempts count towards the account lockout.
       const status = row[2] ?? "";
       if (status === RDP_STATUS_UNAUTHORIZED || status === RDP_STATUS_FORBIDDEN) { close("Windows refused the login", 1000, status); return; }
+      if (RDP_SESSION_ENDED.has(status)) { close("Windows ended the session", 1000, status); return; }
       close("Windows RDP connection failed (check credentials, NLA and certificate)"); return;
      }
      if (phase === "args") {
