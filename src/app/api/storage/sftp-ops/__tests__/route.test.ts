@@ -11,7 +11,11 @@ const {
   readRemoteFileMock,
   writeRemoteFileMock,
   statRemoteEntryMock,
+  releaseQuotaGuardMock,
+  resolveRemoteRealPathMock,
 } = vi.hoisted(() => ({
+  releaseQuotaGuardMock: vi.fn(async () => undefined),
+  resolveRemoteRealPathMock: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
   assertStorageAccessMock: vi.fn<
@@ -63,7 +67,7 @@ vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: 
 
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
-  releaseStorageQuotaGuard: vi.fn(async () => undefined),
+  releaseStorageQuotaGuard: releaseQuotaGuardMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -76,7 +80,7 @@ vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-cr
 }));
 
 vi.mock("@/lib/ssh/client", () => ({
-  resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
+  resolveRemoteRealPath: resolveRemoteRealPathMock,
   createRemoteDirectory: createRemoteDirectoryMock,
   deleteRemoteFile: deleteRemoteFileMock,
   renameRemoteFile: renameRemoteFileMock,
@@ -875,6 +879,45 @@ describe("/api/storage/sftp-ops", () => {
 
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toMatchObject({ content: "hello", lastModifiedMs: 4_242 });
+    });
+  });
+
+  describe("the quota lock a write's grant check takes", () => {
+    // assertStorageAccess holds a write's quota lock — a connection of the
+    // small advisory-lock pool — until it is released. A containment failure
+    // returned before the release and kept the lock until the process
+    // restarted: every later write under that grant waited for it, then failed.
+    it("is released when the path leads out of the node through a link", async () => {
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      const decision = { allowed: true };
+      assertStorageAccessMock.mockResolvedValueOnce(decision);
+      mockSftpNode();
+      resolveRemoteRealPathMock
+        .mockImplementationOnce(async ({ remotePath }) => remotePath) // the node root
+        .mockImplementationOnce(async () => "/etc/notes.txt"); // notes.txt links out of it
+
+      const response = await POST(request({ nodeId: "node_1", action: "write", path: "notes.txt", content: "v2" }));
+
+      expect(response.status).toBe(400);
+      expect(writeRemoteFileMock).not.toHaveBeenCalled();
+      expect(releaseQuotaGuardMock).toHaveBeenCalledWith(decision);
+    });
+
+    it("is released when the check cannot reach the server", async () => {
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      const decision = { allowed: true };
+      assertStorageAccessMock.mockResolvedValueOnce(decision);
+      mockSftpNode();
+      resolveRemoteRealPathMock.mockRejectedValueOnce(new Error("connect ECONNREFUSED 203.0.113.10:22"));
+
+      const response = await POST(request({ nodeId: "node_1", action: "write", path: "notes.txt", content: "v2" }));
+
+      expect(response.status).toBeGreaterThanOrEqual(500);
+      expect(releaseQuotaGuardMock).toHaveBeenCalledWith(decision);
     });
   });
 });

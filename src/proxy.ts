@@ -289,7 +289,11 @@ export function proxy(request: NextRequest) {
     }
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", pathname);
+    // Back to the same view after signing in: a folder link such as
+    // /files?nodeId=…&path=… used to land on the page root (and its query
+    // was left dangling on /login itself).
+    loginUrl.search = "";
+    loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return addSecurityHeaders(NextResponse.redirect(loginUrl), request, nonce);
   }
 

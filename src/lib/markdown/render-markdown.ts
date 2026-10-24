@@ -135,13 +135,6 @@ export function renderMarkdown(md: string): string {
   return out.join("\n");
 }
 
-/** Escape HTML special characters */
-function stripDangerousText(text: string): string {
-  return text
-    .replace(/on\w+\s*=\s*[^\s)]+/gi, "")
-    .replace(/\b(?:javascript|data|vbscript):/gi, "");
-}
-
 function isAllowedMarkdownLink(rawUrl: string): boolean {
   const trimmed = rawUrl.trim();
   const lower = trimmed.toLowerCase();
@@ -156,7 +149,11 @@ function isAllowedMarkdownLink(rawUrl: string): boolean {
 
 /** Apply inline Markdown formatting (bold, italic, code, links) */
 function inlineFormat(text: string): string {
-  text = escapeHtml(stripDangerousText(text)).replace(/[\uE000\uE001]/g, "");
+  // Escaping the whole text is what keeps it inert: no tag or attribute can
+  // form, and links are allowed only to http(s)/mailto/relative URLs. A filter
+  // that deleted "on…=" and "data:" substrings first only mangled prose and
+  // inline code — "max_connections=200" rendered as "max_c".
+  text = escapeHtml(text).replace(/[\uE000\uE001]/g, "");
   // Inline code is set aside while emphasis and links are applied, and put
   // back last: run over it, `**keep**` turned bold, `2 * 3 * 4` lost its
   // stars and a literal `[a](url)` became a link.

@@ -64,3 +64,26 @@ describe("inline code", () => {
 		expect(html).toContain("<strong>bold</strong>");
 	});
 });
+
+describe("renderMarkdown keeps prose and inline code as written", () => {
+	it("does not delete words that end in an assignment", () => {
+		// A filter removed every "on…=" token before escaping: the preview of a
+		// README showed "Set `max_c in postgresql.conf".
+		const html = renderMarkdown("Set `max_connections=200` in postgresql.conf; notification_level=high, monitoring=on");
+		expect(html).toContain("<code>max_connections=200</code>");
+		expect(html).toContain("notification_level=high, monitoring=on");
+	});
+
+	it("keeps data: and javascript: when they are text, but never as a link", () => {
+		const html = renderMarkdown("Inline images use data:image/png URLs; see [x](javascript:alert(1)) and `button.onclick = run`");
+		expect(html).toContain("data:image/png URLs");
+		expect(html).toContain("<code>button.onclick = run</code>");
+		expect(html).not.toContain('href="javascript');
+	});
+
+	it("still renders markup in the text inert", () => {
+		const html = renderMarkdown('<img src=x onerror="alert(1)"> and <script>alert(1)</script>');
+		expect(html).not.toMatch(/<img|<script/i);
+		expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+	});
+});

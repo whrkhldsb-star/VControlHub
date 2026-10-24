@@ -458,7 +458,7 @@ export async function exportMigrationPackage(input: {
       import:
         "On the target VControlHub host: place this package under BACKUP_DIR/migration-packages/ (or upload), then use Migration Wizard → Import & Register. Validation checks sha256 before creating a COMPLETED BackupRecord.",
       restore:
-        "After import, use the normal Restore flow with confirmation text RESTORE. Prefer restore drill first for non-destructive verification.",
+        "After import, run a restore drill first (non-destructive). Restore is offline: Restore on the imported record verifies its checksum and gives the runbook — stop the platform services, take the safety snapshot, run the restore command, start the services.",
     },
   };
 

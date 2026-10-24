@@ -25,6 +25,7 @@ import {
   directAccessInputSchema,
 } from "@/lib/storage/schema";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -192,6 +193,15 @@ async function resolveDirectAccessPayload(input: {
   });
   if (!access.allowed) {
     throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
+  }
+  // A recycle-bin file keeps its bytes at its path (delete is index-only):
+  // the managed download refuses it, and a signed direct link served it.
+  const indexed = await prisma.fileEntry.findFirst({
+    where: { storageNodeId: nodeId, relativePath: normalizedRelativePath },
+    select: { isDeleted: true },
+  });
+  if (indexed?.isDeleted) {
+    throw new NotFoundError(t("api.storage.fileUnavailable", await getServerLocale()));
   }
 
   if (node.driver !== "SFTP") {

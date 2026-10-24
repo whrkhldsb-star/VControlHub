@@ -161,13 +161,14 @@ class Handler(SimpleHTTPRequestHandler):
             return None, (400, "path outside root")
         return fs_path, None
 
-    def do_GET(self):
+    def _serve(self, head):
         target, error = self._validate()
         if target == "__health__":
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
-            self.wfile.write(b"ok")
+            if not head:
+                self.wfile.write(b"ok")
             return
         if error:
             return self._reject(*error)
@@ -178,10 +179,15 @@ class Handler(SimpleHTTPRequestHandler):
         # "a%20.txt" became "a .txt" and "a.txt#v2" lost "#v2", so a
         # neighbouring file with that name was served instead.
         self._vch_target = target
-        return super().do_GET()
+        return super().do_HEAD() if head else super().do_GET()
+
+    def do_GET(self):
+        return self._serve(False)
 
     def do_HEAD(self):
-        return self.do_GET()
+        # Headers only: answering HEAD through do_GET also sent the whole
+        # file, and downloaders ask HEAD first.
+        return self._serve(True)
 
     def translate_path(self, path):
         target = getattr(self, "_vch_target", None)

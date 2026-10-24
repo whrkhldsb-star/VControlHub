@@ -12,7 +12,10 @@ const { prismaMock, withApiRouteMock } = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/http/api-guard", () => ({ withApiRoute: withApiRouteMock }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: () => false }));
-vi.mock("@/lib/downloads/route-helpers", () => ({ canAccessDownloadTask: async () => true }));
+vi.mock("@/lib/downloads/route-helpers", () => ({
+  // Tasks under a path the account has no grant on are hidden from it.
+  canAccessDownloadTask: async ({ task }: { task: { id: string } }) => !task.id.startsWith("hidden"),
+}));
 
 import { GET } from "../route";
 
@@ -48,7 +51,6 @@ describe("GET /api/downloads/recent", () => {
         server: { storageNode: { isNot: null } },
       },
       orderBy: { updatedAt: "desc" },
-      take: 8,
     }));
     await expect(response.json()).resolves.toEqual({
       downloads: [{
@@ -75,5 +77,28 @@ describe("GET /api/downloads/recent", () => {
 
     const response = await GET(new Request("https://example.com/api/downloads/recent"));
     await expect(response.json()).resolves.toEqual({ downloads: [] });
+  });
+
+  it("still lists the account's own recent downloads when newer ones elsewhere are hidden from it", async () => {
+    // Only the newest 8 were read, then filtered: an account with narrow
+    // grants saw an empty list while others downloaded more recently.
+    const task = (id: string, minute: number) => ({
+      id,
+      url: `https://example.com/${id}.zip`,
+      fileName: `${id}.zip`,
+      targetPath: "/srv/cloud/releases",
+      updatedAt: new Date(Date.UTC(2026, 6, 14, 10, 59 - minute)),
+      server: { storageNode: { id: "node_1", name: "Storage", driver: "SFTP", basePath: "/srv/cloud" } },
+    });
+    const rows = [
+      ...Array.from({ length: 10 }, (_, i) => task(`hidden_${i}`, i)),
+      ...Array.from({ length: 9 }, (_, i) => task(`mine_${i}`, 10 + i)),
+    ];
+    prismaMock.downloadTask.findMany.mockImplementationOnce(async ({ take }: { take: number }) => rows.slice(0, take));
+
+    const response = await GET(new Request("https://example.com/api/downloads/recent"));
+    const { downloads } = (await response.json()) as { downloads: Array<{ id: string }> };
+
+    expect(downloads.map((download) => download.id)).toEqual(Array.from({ length: 8 }, (_, i) => `mine_${i}`));
   });
 });

@@ -35,7 +35,7 @@ import {
 import {
   createFileEntry,
 } from "@/lib/storage/service-entries";
-import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
+import { purgeFileEntryVersionDirectories, snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { guessContentType } from "@/lib/http/mime-types";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import {
@@ -456,29 +456,18 @@ export async function handleWebDavDelete(
     newRelativePath: stagedPath,
   });
 
+  // WebDAV DELETE is permanent, as clients present it ("permanently delete"),
+  // and its bytes are removed below. Its rows used to go to the recycle bin
+  // with a batch id, where they could never be restored (the bytes were gone)
+  // — and a folder's earlier recycle-bin files lost their bytes too. Like the
+  // file manager's permanent delete, the subtree's rows (recycle-bin ones
+  // included) and their version history go with it.
+  const withVersions = await versionOwnersAt(ctx.storageNodeId, entry.relativePath);
+
   try {
-    // Tag every soft-deleted row with this operation's batch id so a later
-    // recycle-bin restore can revive exactly this batch — same contract as
-    // the file-manager delete (delete-operation.ts).
-    const deleteBatchId = randomUUID();
     await prisma.$transaction(async (tx) => {
-      if (entry.entryType === "DIRECTORY") {
-        // One statement for the whole subtree: a per-row update loop kept the
-        // transaction open for one round-trip per child, serializing with every
-        // other index write on the node (the staged bytes also stayed locked).
-        await tx.fileEntry.updateMany({
-          where: {
-            storageNodeId: ctx.storageNodeId,
-            relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) },
-            isDeleted: false,
-          },
-          data: { isDeleted: true, deleteBatchId },
-        });
-      }
-      await tx.fileEntry.update({
-        where: { id: entry.id },
-        data: { isDeleted: true, deleteBatchId },
-      });
+      await dropRowsAt(tx, ctx.storageNodeId, entry.relativePath);
+      await revokeSharesAt(tx, ctx.storageNodeId, entry.relativePath);
     });
   } catch (databaseError) {
     await renameBackingObject({
@@ -506,6 +495,9 @@ export async function handleWebDavDelete(
       error,
     });
   });
+  // Only once the rows are gone: a failed transaction above put the bytes back
+  // and must find their history intact.
+  await purgeFileEntryVersionDirectories(ctx.storageNodeId, withVersions);
 
   return new Response(null, { status: 204 });
 }
@@ -600,32 +592,62 @@ async function assertRecycledBytesSafe(
   }
 }
 
+/** Index rows at `relativePath` and below it. */
+function rowsAtOrBelow(relativePath: string) {
+  return { OR: [{ relativePath }, { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) } }] };
+}
+
 /**
- * Move every index row at `relativePath` or below it — live rows being
- * overwritten and recycle-bin rows whose bytes are already gone — under a
- * unique tombstone prefix, soft-deleted. That frees the unique slot for the
- * incoming entry while keeping the old rows' history (versions, audit).
+ * Entries at or below `relativePath` that have version blobs, listed before
+ * their rows are dropped: the blobs are removed once the drop has committed.
  */
-async function retireRowsAt(
-  tx: Pick<typeof prisma, "$executeRaw">,
+async function versionOwnersAt(storageNodeId: string, relativePath: string, except?: string): Promise<string[]> {
+  const rows = await prisma.fileVersion.findMany({
+    where: { fileEntry: { storageNodeId, ...rowsAtOrBelow(relativePath), ...(except ? { id: { not: except } } : {}) } },
+    select: { fileEntryId: true },
+    distinct: ["fileEntryId"],
+  });
+  return rows.map((row) => row.fileEntryId);
+}
+
+/**
+ * Drop every index row at `relativePath` or below it: what a DELETE removes,
+ * or what an overwrite replaces (recycle-bin rows whose bytes are already gone
+ * included), in one statement. Overwritten rows used to be soft-deleted under
+ * a tombstone prefix: in the recycle bin they could never be restored (their
+ * bytes were gone), their history was unreachable (a deleted entry lists no
+ * versions), and their version blobs stayed on disk. `except` keeps the row of
+ * a file replaced in place.
+ */
+async function dropRowsAt(
+  tx: Pick<typeof prisma, "fileEntry">,
+  storageNodeId: string,
+  relativePath: string,
+  except?: string,
+) {
+  await tx.fileEntry.deleteMany({
+    where: { storageNodeId, ...rowsAtOrBelow(relativePath), ...(except ? { id: { not: except } } : {}) },
+  });
+}
+
+/**
+ * Revoke the live shares of what was at `relativePath` or below it, so that
+ * none serves whatever is later put there. A share of an enclosing folder
+ * stays: unlike a recycle-bin delete, the bytes are gone, not hidden.
+ */
+async function revokeSharesAt(
+  tx: Pick<typeof prisma, "shareLink">,
   storageNodeId: string,
   relativePath: string,
 ) {
-  const tombstone = `.vcontrolhub-webdav-retired-${randomUUID()}`;
-  const batch = randomUUID();
-  // Timestamp columns hold UTC wall time. A bare now() is converted with the
-  // session time zone: on a PostgreSQL whose zone is not UTC (initdb takes
-  // the host's) the rows would read as updated hours away from now.
-  await tx.$executeRaw`
-    UPDATE file_entries
-    SET "relativePath" = ${tombstone} || '/' || "relativePath",
-        "isDeleted" = true,
-        "deleteBatchId" = COALESCE("deleteBatchId", ${batch}),
-        "updatedAt" = (now() AT TIME ZONE 'UTC')
-    WHERE "storageNodeId" = ${storageNodeId}
-      AND ("relativePath" = ${relativePath}
-        OR "relativePath" LIKE ${`${escapeLikePrefix(`${relativePath}/`)}%`} ESCAPE '\\')
-  `;
+  await tx.shareLink.updateMany({
+    where: {
+      storageNodeId,
+      revokedAt: null,
+      OR: [{ path: relativePath }, { path: { startsWith: escapeLikeLiteral(`${relativePath}/`) } }],
+    },
+    data: { revokedAt: new Date() },
+  });
 }
 
 export async function handleWebDavMove(
@@ -666,8 +688,26 @@ export async function handleWebDavMove(
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   // Refuse before any byte moves if a recycled file still lives at (or under)
-  // the destination; recycle-bin rows without bytes are retired below.
+  // the destination; recycle-bin rows without bytes are dropped below.
   await assertRecycledBytesSafe(node, await recycledRowsAt(ctx.storageNodeId, destPath));
+  // A file moved onto a file replaces its content, as PUT and COPY do (and as
+  // an editor's atomic save means it): the destination keeps its entry — its
+  // versions, the replaced content now one of them, favourites and links —
+  // and the moved file's own row goes.
+  const replacedFile = existingDest?.entryType === "FILE" && entry.entryType === "FILE" ? existingDest : null;
+  if (replacedFile) {
+    await snapshotFileVersionBeforeOverwrite({
+      fileEntryId: replacedFile.id,
+      userId: ctx.session.userId,
+      reason: "UPLOAD",
+      note: "WebDAV MOVE overwrite",
+    }).catch(() => undefined);
+  }
+  // Listed before anything changes; the blobs go once the rows have.
+  const droppedVersionOwners = [
+    ...(await versionOwnersAt(ctx.storageNodeId, destPath, replacedFile?.id)),
+    ...(replacedFile ? [entry.id] : []),
+  ];
   const destParent = parentRelativePath(destPath);
   const stagedDestPath = existingDest
     ? `${destParent ? `${destParent}/` : ""}.vcontrolhub-webdav-${randomUUID()}.staged`
@@ -702,15 +742,23 @@ export async function handleWebDavMove(
   const newPrefix = destPath;
   try {
     await prisma.$transaction(async (tx) => {
-      // The overwritten destination (and stale recycle rows there) used to be
-      // marked deleted in place, keeping its relativePath — which collided
-      // with the moved entry on the unique index, so every Overwrite:T MOVE
-      // onto an existing resource failed.
-      await retireRowsAt(tx, ctx.storageNodeId, destPath);
-      await tx.fileEntry.update({
-        where: { id: entry.id },
-        data: { relativePath: destPath, name: entryName(destPath) },
-      });
+      // Whatever held the destination goes first: it holds the unique
+      // (storageNodeId, relativePath) slot the moved entry takes.
+      await dropRowsAt(tx, ctx.storageNodeId, destPath, replacedFile?.id);
+      if (replacedFile) {
+        await tx.fileEntry.delete({ where: { id: entry.id } });
+        await tx.fileEntry.update({
+          where: { id: replacedFile.id },
+          data: { mimeType: entry.mimeType, size: entry.size },
+        });
+      } else {
+        // Links to a replaced resource must not serve what moves in.
+        await revokeSharesAt(tx, ctx.storageNodeId, destPath);
+        await tx.fileEntry.update({
+          where: { id: entry.id },
+          data: { relativePath: destPath, name: entryName(destPath) },
+        });
+      }
       // Shares follow the moved entry, as they do in the file manager.
       await moveSharePaths(tx, {
         storageNodeId: ctx.storageNodeId,
@@ -777,6 +825,7 @@ export async function handleWebDavMove(
       }),
     );
   }
+  await purgeFileEntryVersionDirectories(ctx.storageNodeId, droppedVersionOwners);
 
   return new Response(null, {
     status: existingDest ? 204 : 201,
@@ -872,6 +921,7 @@ async function performWebDavCopy(input: {
   let copiedSize = 0;
   let stagedDestPath: string | null = null;
   let promoted = false;
+  let droppedVersionOwners: string[] = [];
 
   try {
     if (existingDest) {
@@ -922,7 +972,11 @@ async function performWebDavCopy(input: {
       });
     } else {
       // Recycle rows without bytes still hold the unique slot.
-      if (recycledAtDest.length) await retireRowsAt(prisma, ctx.storageNodeId, destPath);
+      if (recycledAtDest.length) {
+        droppedVersionOwners = await versionOwnersAt(ctx.storageNodeId, destPath);
+        await dropRowsAt(prisma, ctx.storageNodeId, destPath);
+        await revokeSharesAt(prisma, ctx.storageNodeId, destPath);
+      }
       await createFileEntry({
         storageNodeId: ctx.storageNodeId,
         name: destName,
@@ -959,6 +1013,7 @@ async function performWebDavCopy(input: {
       }),
     );
   }
+  await purgeFileEntryVersionDirectories(ctx.storageNodeId, droppedVersionOwners);
 
   return new Response(null, {
     status: existingDest ? 204 : 201,

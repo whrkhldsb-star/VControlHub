@@ -113,6 +113,14 @@ describe("POST /api/itsm/inbound/[connectionId]", () => {
     expect(mocks.handleInboundWebhook).not.toHaveBeenCalled();
   });
 
+  it.each(["null", "[]", "[{\"title\":\"x\"}]", "42", "\"text\""])("refuses %s, valid JSON but not an event object, without invoking the handler", async (body) => {
+    // The field mapping read properties of it and failed with a 500.
+    const response = await POST(inbound(body), CONTEXT);
+
+    expect(response.status).toBe(400);
+    expect(mocks.handleInboundWebhook).not.toHaveBeenCalled();
+  });
+
   it("forwards the raw body and signature header so HMAC covers the exact bytes", async () => {
     const raw = JSON.stringify({ title: "disk full", external_id: "EXT-1" });
     await POST(inbound(raw, { "x-hub-signature-256": "sha256=abc" }), CONTEXT);

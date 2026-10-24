@@ -111,3 +111,134 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 	});
 });
 
+
+/** Entries of the live LinuxServer catalogue (api.linuxserver.io, 2026-10-24), trimmed to the fields read. */
+const LSIO_IMAGES = [
+	{
+		"name": "heimdall",
+		"description": "",
+		"category": "Dashboard",
+		"project_logo": "",
+		"project_url": "",
+		"github_url": "",
+		"version": "v2.8.3-ls369",
+		"stable": true,
+		"deprecated": false,
+		"stars": 0,
+		"monthly_pulls": 0,
+		"tags": [],
+		"config": {
+			"ports": [
+				{
+					"external": "80",
+					"internal": "80"
+				},
+				{
+					"external": "443",
+					"internal": "443"
+				}
+			]
+		}
+	},
+	{
+		"name": "luanti",
+		"description": "",
+		"category": "Games",
+		"project_logo": "",
+		"project_url": "",
+		"github_url": "",
+		"version": "5.18.0-rc1-ls50",
+		"stable": true,
+		"deprecated": false,
+		"stars": 0,
+		"monthly_pulls": 0,
+		"tags": [],
+		"config": {
+			"ports": [
+				{
+					"external": "30000",
+					"internal": "30000/udp"
+				}
+			]
+		}
+	},
+	{
+		"name": "syslog-ng",
+		"description": "",
+		"category": "Monitoring",
+		"project_logo": "",
+		"project_url": "",
+		"github_url": "",
+		"version": "4.11.0-r0-ls212",
+		"stable": true,
+		"deprecated": false,
+		"stars": 0,
+		"monthly_pulls": 0,
+		"tags": [],
+		"config": {
+			"ports": [
+				{
+					"external": "514",
+					"internal": "5514/udp"
+				},
+				{
+					"external": "601",
+					"internal": "6601/tcp"
+				},
+				{
+					"external": "6514",
+					"internal": "6514/tcp"
+				}
+			]
+		}
+	},
+	{
+		"name": "wireguard",
+		"description": "",
+		"category": "Network,VPN",
+		"project_logo": "",
+		"project_url": "",
+		"github_url": "",
+		"version": "1.0.20260223-r0-ls127",
+		"stable": true,
+		"deprecated": false,
+		"stars": 0,
+		"monthly_pulls": 0,
+		"tags": [],
+		"config": {
+			"ports": [
+				{
+					"external": "51820",
+					"internal": "51820/udp"
+				}
+			]
+		}
+	}
+];
+
+describe("LinuxServer catalogue with UDP ports", () => {
+	const originalFetch = globalThis.fetch;
+	beforeEach(() => {
+		lookupMock.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
+	});
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	it("skips UDP-only images instead of failing the whole sync, and keeps \"/tcp\" ports", async () => {
+		// WireGuard declares only "51820/udp": read as a number it left no port,
+		// the mapping threw, and not one app of the source was synced.
+		globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ status: "OK", data: { repositories: { linuxserver: LSIO_IMAGES } } }), {
+			status: 200,
+			headers: { "content-type": "application/json" },
+		})) as unknown as typeof fetch;
+
+		const apps = await fetchSourceApps("linuxserver", "linuxserver", "https://api.linuxserver.io/api/v1/images?include_config=true");
+		const bySlug = Object.fromEntries(apps.map((app) => [app.slug, app]));
+
+		expect(Object.keys(bySlug).sort()).toEqual(["linuxserver-heimdall", "linuxserver-syslog-ng"]);
+		// syslog-ng's TCP ports are written "6601/tcp"; its UDP one is left out.
+		expect(bySlug["linuxserver-syslog-ng"]).toMatchObject({ defaultPort: 601, internalPort: 6601, extraPorts: [{ host: 6514, container: 6514 }] });
+		expect(bySlug["linuxserver-heimdall"]).toMatchObject({ defaultPort: 80, internalPort: 80 });
+	});
+});

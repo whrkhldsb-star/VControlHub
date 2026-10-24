@@ -114,6 +114,20 @@ async function writeEphemeralPrivateKey(sourceSsh: SshConnectionParams, keyPath:
 	});
 }
 
+/**
+ * The command's own trap removes its key and known_hosts files, but only once
+ * it runs: a failed write, or an SSH session that dropped before the command
+ * started, left the target's private key in the source host's /tmp.
+ */
+async function removeEphemeralFiles(sourceSsh: SshConnectionParams, paths: string[]): Promise<void> {
+	if (paths.length === 0) return;
+	await execRemoteCommand({
+		...sourceSsh,
+		command: `rm -f -- ${paths.map(shellQuote).join(" ")}`,
+		timeout: 15000,
+	}).catch((error) => logError("[Sync] Could not remove temporary SSH credential files:", error));
+}
+
 async function writePinnedKnownHosts(sourceSsh: SshConnectionParams, jobId: string, targetHost: string, targetPort: number, expectedFingerprint?: string | null): Promise<void> {
 	const pin = expectedFingerprint?.trim();
 	if (!pin) return;
@@ -222,10 +236,16 @@ async function executeTarSync(
 		hostKeySha256: targetHostKeySha256,
 		jobId,
 	});
-	if (targetKey && keyPath) {
-		await writeEphemeralPrivateKey(sourceSsh, keyPath, targetKey.privateKey);
+	let result: Awaited<ReturnType<typeof execRemoteCommand>>;
+	try {
+		if (targetKey && keyPath) {
+			await writeEphemeralPrivateKey(sourceSsh, keyPath, targetKey.privateKey);
+		}
+		result = await execRemoteCommand({ ...sourceSsh, command: cmd, timeout: 600_000 });
+	} catch (error) {
+		await removeEphemeralFiles(sourceSsh, [keyPath, targetHostKeySha256?.trim() ? getSyncTempKeyPath(jobId, "known_hosts") : undefined].filter((path): path is string => Boolean(path)));
+		throw error;
 	}
-	const result = await execRemoteCommand({ ...sourceSsh, command: cmd, timeout: 600_000 });
 	assertSyncRemoteSucceeded(result, "tar sync");
 	return result.stdout;
 }
@@ -306,14 +326,20 @@ async function runOneWayRsync(input: {
 			input.targetServer.hostKeySha256,
 		);
 	} else {
-		if (targetCredentials.privateKey && targetKeyPath) {
-			await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, targetCredentials.privateKey);
+		let result: Awaited<ReturnType<typeof execRemoteCommand>>;
+		try {
+			if (targetCredentials.privateKey && targetKeyPath) {
+				await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, targetCredentials.privateKey);
+			}
+			result = await execRemoteCommand({
+				...sourceSsh,
+				command: rsyncCmd,
+				timeout: 600_000,
+			});
+		} catch (error) {
+			await removeEphemeralFiles(sourceSsh, [targetKeyPath, input.targetServer.hostKeySha256?.trim() ? getSyncTempKeyPath(legJobId, "known_hosts") : undefined].filter((path): path is string => Boolean(path)));
+			throw error;
 		}
-		const result = await execRemoteCommand({
-			...sourceSsh,
-			command: rsyncCmd,
-			timeout: 600_000,
-		});
 		assertSyncRemoteSucceeded(result, "rsync");
 		output = result.stdout;
 	}

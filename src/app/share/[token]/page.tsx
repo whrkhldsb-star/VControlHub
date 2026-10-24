@@ -10,7 +10,7 @@ import { getShareDownloadTicketCookieName, verifyShareDownloadTicket } from "@/l
 import { hashShareToken } from "@/lib/share-link/service";
 import { SharePasswordGate } from "./share-password-gate";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { checkRateLimitAsync } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { Notice } from "@/components/ui-primitives";
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 
@@ -40,7 +40,12 @@ export default async function SharePage({
 
   // Extract client IP and user-agent for access logging.
   const hdrs = await headers();
-  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("cf-connecting-ip") || null;
+  // The same trusted-proxy rule as every other route (and the download API):
+  // the first X-Forwarded-For entry is whatever the client wrote, so the
+  // access log recorded a forged address and a rotating header slipped past
+  // the per-IP render limit.
+  const clientIp = getClientIp(new Request("http://share.invalid/", { headers: new Headers(hdrs) }));
+  const ip = clientIp === "unknown" ? null : clientIp;
   const userAgent = hdrs.get("user-agent") || null;
 
   let share: Awaited<ReturnType<typeof peekShareToken>> | null = null;

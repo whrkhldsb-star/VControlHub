@@ -29,6 +29,7 @@ import {
  toRemoteChildPath,
 } from "@/lib/downloads/remote-command";
 import {
+ deriveDownloadFileNameFromUrl,
  indexDownloadedFileEntry,
  getPublicDownloadError,
  buildProgressText,
@@ -404,15 +405,25 @@ limits?: StorageWriteCapacity,
    return;
   }
 
+  // curl on the target follows no redirect (--max-redirs 0): a redirect target
+  // has not passed the public-address checks. Resolve the chain here first,
+  // every hop validated, as relay downloads do. Every redirecting link — a
+  // GitHub release asset answers 302 to a signed CDN URL — failed with curl
+  // error 47 ("Maximum (0) redirects followed").
+  const resolved = await resolveDownloadRedirects(url);
+  if (!resolved.ok) throw new DownloadSourceRejectedError(resolved.reason);
+
   sshParams = await buildSshParamsFromServer(server, server.sshKey);
   await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
 
   const downloadCmd = buildDirectDownloadCommand({
    taskId,
-   url,
+   url: resolved.url,
    targetPath,
-   fileName,
-   sourceResolution,
+   // Named after the link the user gave, as the task list, the refresh probe
+   // and reconciliation name it — not the CDN object the chain ended at.
+   fileName: fileName || deriveDownloadFileNameFromUrl(url),
+   sourceResolution: resolved.resolution ?? sourceResolution,
    maxBytes: limits ? largestAllowedWrite(limits) : null,
   });
   const { stdout: pidOutput, exitCode } = await execRemoteCommand({ ...sshParams, command: downloadCmd, timeout: 30000 });
@@ -449,11 +460,13 @@ limits?: StorageWriteCapacity,
    await stopRemoteDirectDownload(sshParams, taskId, targetPath);
   }
   try {
+   // A rejected redirect target says why (as for relay downloads).
+   const publicError = error instanceof DownloadSourceRejectedError ? error.message : getPublicDownloadError(error);
    await prisma.downloadTask.updateMany({
     where: { id: taskId, status: "RUNNING" },
-    data: { status: "FAILED", errorMessage: getPublicDownloadError(error) },
+    data: { status: "FAILED", errorMessage: publicError },
    });
-   if (userId) notifyDownloadResult(userId, url, "failed", getPublicDownloadError(error), teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+   if (userId) notifyDownloadResult(userId, url, "failed", publicError, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } catch (err) { logError("[DownloadAPI] Failed to update task status after direct download failure:", err); }
  }
 }

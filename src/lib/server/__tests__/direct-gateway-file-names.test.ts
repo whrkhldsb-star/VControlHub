@@ -2,7 +2,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHmac } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
+import { connect, createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -59,6 +59,36 @@ describe.skipIf(!runnable)("direct gateway file names", () => {
 		const response = await fetch(`http://127.0.0.1:${port}/${encodeURIComponent(name)}?expires=${expires}&signature=${signature}`);
 		return { status: response.status, body: await response.text() };
 	}
+
+	function signedPath(name: string) {
+		const expires = String(Math.floor(Date.now() / 1000) + 300);
+		const signature = createHmac("sha256", secret).update(`/${name}.${expires}`).digest("hex");
+		return `/${encodeURIComponent(name)}?expires=${expires}&signature=${signature}`;
+	}
+
+	/** The raw reply to a request, as written on the wire: fetch drops a HEAD body unseen. */
+	function rawReply(method: string, target: string) {
+		return new Promise<string>((resolve, reject) => {
+			const socket = connect(port, "127.0.0.1", () => socket.write(`${method} ${target} HTTP/1.0\r\nHost: gateway\r\n\r\n`));
+			const chunks: Buffer[] = [];
+			socket.on("data", (chunk: Buffer) => chunks.push(chunk));
+			socket.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+			socket.on("error", reject);
+		});
+	}
+
+	it("answers HEAD with the headers alone", async () => {
+		// do_HEAD ran do_GET, which wrote the whole file after the headers:
+		// a downloader's HEAD transferred it once before the real download.
+		const reply = await rawReply("HEAD", signedPath("report.txt"));
+		const [head, body] = reply.split("\r\n\r\n");
+		expect(head).toMatch(/^HTTP\/1\.[01] 200/);
+		expect(head).toMatch(/Content-Length: 5/i);
+		expect(body).toBe("");
+
+		const health = await rawReply("HEAD", "/__vch_health");
+		expect(health.split("\r\n\r\n")[1]).toBe("");
+	});
 
 	it.each([
 		["report%20.txt", "percent"],
