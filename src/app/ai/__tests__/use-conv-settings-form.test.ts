@@ -35,3 +35,35 @@ describe("useConvSettingsForm after a quick model switch", () => {
 		expect(fetchMock).toHaveBeenCalledWith("/api/ai/conversations/conv-1", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ systemPrompt: "Be brief." }) }));
 	});
 });
+
+describe("useConvSettingsForm when a save returns after a conversation switch", () => {
+	it("keeps the late response out of the other conversation's form", async () => {
+		// Saved in A; before the response came back, B was opened and edited
+		// to the same temperature. The late response made A's snapshot B's
+		// baseline, B no longer looked changed, and its PATCH was empty.
+		let release: () => void = () => undefined;
+		fetchMock.mockReset();
+		fetchMock.mockImplementationOnce(() => new Promise((resolve) => { release = () => resolve({}); }));
+		fetchMock.mockImplementation(async () => ({}));
+		const onSaved = vi.fn();
+		const props = { refreshConversations: vi.fn(), onSaved, addToast: vi.fn() };
+		const a = { ...conversation("m"), id: "conv-a", temperature: 0.4 };
+		const b = { ...conversation("m"), id: "conv-b", temperature: 0.5 };
+		const { result, rerender } = renderHook(({ conv }) => useConvSettingsForm({ ...props, activeConv: conv, activeConvId: conv.id }), { initialProps: { conv: a } });
+		await waitFor(() => expect(result.current.settingsForm.temperature).toBe(0.4));
+		act(() => result.current.setSettingsForm((form) => ({ ...form, temperature: 0.8 })));
+		let saving!: Promise<void>;
+		act(() => { saving = result.current.handleSaveSettings(); });
+
+		rerender({ conv: b });
+		await waitFor(() => expect(result.current.settingsForm.temperature).toBe(0.5));
+		act(() => result.current.setSettingsForm((form) => ({ ...form, temperature: 0.8 })));
+		await act(async () => { release(); await saving; });
+
+		expect(result.current.dirty).toBe(true);
+		expect(onSaved).not.toHaveBeenCalled();
+		await act(async () => { await result.current.handleSaveSettings(); });
+		expect(fetchMock).toHaveBeenLastCalledWith("/api/ai/conversations/conv-b", expect.objectContaining({ body: JSON.stringify({ temperature: 0.8 }) }));
+		expect(onSaved).toHaveBeenCalledTimes(1);
+	});
+});

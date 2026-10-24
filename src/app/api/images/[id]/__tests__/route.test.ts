@@ -66,6 +66,8 @@ vi.mock("@/lib/db", () => ({
     $transaction: transactionMock,
   },
 }));
+const deleteBackingObjectMock = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("@/lib/storage/fs-backend", () => ({ deleteBackingObject: deleteBackingObjectMock }));
 vi.mock("@/lib/image-bed/constants", () => ({
   UPLOAD_DIR: "/tmp/vcontrolhub-image-delete-test",
 }));
@@ -206,6 +208,25 @@ describe("/api/images/[id]", () => {
     expect(transactionMock.mock.invocationCallOrder[0]).toBeLessThan(
       unlinkMock.mock.invocationCallOrder[0]!,
     );
+  });
+
+  it("deletes the copy an upload wrote to an SFTP folder", async () => {
+    // Only LOCAL copies were removed: the SFTP one stayed on the server and
+    // the next sync put it back into the file index.
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation((_session: unknown, permission: string) => permission === "image:write");
+    imageFindUniqueMock.mockResolvedValueOnce({ id: "img_s", userId: "u_1", teamId: "team_1", storageKey: "img.png", storageNodeId: "node_s", relativePath: "album/img.png" });
+    const node = { id: "node_s", driver: "SFTP", basePath: "/data" };
+    storageFindFirstMock.mockResolvedValueOnce(node);
+    unlinkMock.mockResolvedValue(undefined);
+    imageDeleteMock.mockResolvedValueOnce({ id: "img_s" });
+
+    const response = await DELETE(new Request("https://example.com/api/images/img_s", { method: "DELETE" }), { params: Promise.resolve({ id: "img_s" }) });
+
+    expect(response.status).toBe(200);
+    expect(deleteBackingObjectMock).toHaveBeenCalledWith({ storageNode: node, relativePath: "album/img.png", isDirectory: false, tolerateMissing: true });
+    expect(fileDeleteManyMock).toHaveBeenCalledWith({ where: { storageNodeId: "node_s", relativePath: "album/img.png" } });
   });
 
   it("leaves the user's own source file alone for an image published from storage", async () => {

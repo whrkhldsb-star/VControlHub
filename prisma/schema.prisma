@@ -1329,9 +1329,15 @@ model BackupRecord {
   teamId String? // TR-030: 多租户资源隔离
   team   Team?   @relation("TeamBackupRecords", fields: [teamId], references: [id], onDelete: SetNull)
 
+  // The schedule that produced it; null for a manual backup. A schedule's
+  // retention prunes only its own records.
+  scheduleId String?
+  schedule   BackupSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
   @@index([status, createdAt])
   @@index([offsiteUploadedAt])
   @@index([teamId])
+  @@index([scheduleId])
   @@map("backup_records")
 }
 
@@ -1371,6 +1377,8 @@ model BackupSchedule {
 
   teamId String?
   team   Team?   @relation("TeamBackupSchedules", fields: [teamId], references: [id], onDelete: SetNull)
+
+  records BackupRecord[]
 
   @@index([status, nextRunAt])
   @@index([teamId])

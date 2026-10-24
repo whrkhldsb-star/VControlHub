@@ -86,6 +86,8 @@ export async function GET(request: Request) {
         downloadSpeed?: string | null;
       };
       const aria2FieldByTaskId = new Map<string, Aria2LiveFields>();
+      // Rows that changed while aria2 was asked (cancelled, say): shown as stored.
+      const storedTaskById = new Map<string, Awaited<ReturnType<typeof prisma.downloadTask.findUnique>>>();
       // The byte columns are strings (counts can pass 2^53). Numbers were
       // refused by Prisma on every poll, so the live state never reached the
       // database while the response showed it as if it had.
@@ -131,10 +133,19 @@ export async function GET(request: Request) {
                         downloadSpeed,
                       };
                 // Shown only once stored: the list must not report a state the
-                // database does not hold.
+                // database does not hold. Only over a task still active: one
+                // cancelled while aria2 answered was turned back into FAILED
+                // (aria2 reports a cancelled download as "removed").
                 return prisma.downloadTask
-                  .update({ where: { id: taskId }, data: terminalUpdate })
-                  .then(() => { aria2FieldByTaskId.set(taskId, terminalUpdate); });
+                  .updateMany({ where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } }, data: terminalUpdate })
+                  .then(async ({ count }) => {
+                    if (count) {
+                      aria2FieldByTaskId.set(taskId, terminalUpdate);
+                      return;
+                    }
+                    const stored = await prisma.downloadTask.findUnique({ where: { id: taskId } });
+                    if (stored) storedTaskById.set(taskId, stored);
+                  });
               }),
             );
           }
@@ -147,7 +158,7 @@ export async function GET(request: Request) {
       }
 
       const safe = visibleTasks.map((task) => {
-        const merged = { ...task, ...(aria2FieldByTaskId.get(task.id) ?? {}) };
+        const merged = { ...task, ...(storedTaskById.get(task.id) ?? {}), ...(aria2FieldByTaskId.get(task.id) ?? {}) };
         return {
           ...merged,
           pid: merged.pid ?? null,

@@ -416,6 +416,11 @@ export async function pruneOldBackupRecordsNow(input: {
 	keepLatestPerType?: number;
 	projectRoot?: string;
 	teamId?: string | null;
+	/**
+	 * Only the backups of this schedule (null: only manual backups). Left out,
+	 * every backup of the customer counts — the explicit cleanup action.
+	 */
+	scheduleId?: string | null;
 } = {}): Promise<PruneOldBackupRecordsResult> {
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	// Fail closed: without an explicit teamId, never list/delete all tenants'
@@ -445,6 +450,7 @@ export async function pruneOldBackupRecordsNow(input: {
 	const records = await prisma.backupRecord.findMany({
 		where: {
 			teamId,
+			...(input.scheduleId !== undefined ? { scheduleId: input.scheduleId } : {}),
 			OR: [
 				{ status: { in: ["COMPLETED", "FAILED", "VOIDED"] }, createdAt: { lt: cutoffForQuery } },
 				// still load recent completed so keepLatestPerType can protect newest

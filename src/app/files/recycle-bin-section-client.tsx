@@ -28,6 +28,8 @@ export type DeletedEntryProp = {
   deletedAt?: string | Date | null;
   storageNodeName?: string | null;
   storageNodeId?: string;
+  /** The delete operation it went to the recycle bin with. */
+  deleteBatchId?: string | null;
 };
 
 type BulkState = { action: "restore" | "delete"; done: number; total: number } | null;
@@ -86,14 +88,17 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
   async function runBulk(action: "restore" | "delete") {
     const targets = selectedEntries;
     if (!targets.length || bulk) return;
-    // A folder's restore brings back what was deleted with it, and its purge
-    // removes everything under it: an entry also selected under it then
+    // A folder's purge removes everything under it, and its restore brings
+    // back what was deleted with it: an entry also selected under it then
     // "failed" as no longer in the recycle bin. Folders go first; what they
-    // covered is only handled on its own if the folder itself failed.
+    // covered is only handled on its own if the folder itself failed. A file
+    // deleted before its folder, in another operation, stays in the recycle
+    // bin when the folder is restored: it is not covered.
     const coveringFolder = (entry: DeletedEntryProp) => targets.find((folder) =>
       folder.entryType === "DIRECTORY" && folder.id !== entry.id
       && (folder.storageNodeId ?? folder.storageNodeName) === (entry.storageNodeId ?? entry.storageNodeName)
-      && entry.relativePath.startsWith(`${folder.relativePath}/`));
+      && entry.relativePath.startsWith(`${folder.relativePath}/`)
+      && (action === "delete" || (Boolean(folder.deleteBatchId) && folder.deleteBatchId === entry.deleteBatchId)));
     const ordered = [...targets].sort((a, b) => Number(Boolean(coveringFolder(a))) - Number(Boolean(coveringFolder(b))));
     setBulk({ action, done: 0, total: targets.length });
     setErrors([]);

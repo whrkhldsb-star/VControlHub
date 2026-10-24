@@ -21,7 +21,7 @@ import { t } from "@/lib/i18n/service-translations";
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 
 export async function createBackupRecord(
-	input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string | null; note?: string; teamId?: string | null },
+	input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string | null; note?: string; teamId?: string | null; scheduleId?: string | null },
 	client: Pick<typeof prisma, "backupRecord"> = prisma,
 ) {
 	return client.backupRecord.create({
@@ -31,6 +31,7 @@ export async function createBackupRecord(
 			filePath: buildBackupFilePath(input.type),
 			createdBy: input.createdBy ?? null,
 			teamId: input.teamId ?? null,
+			scheduleId: input.scheduleId ?? null,
 			note: input.note?.trim() || undefined,
 		},
 	});

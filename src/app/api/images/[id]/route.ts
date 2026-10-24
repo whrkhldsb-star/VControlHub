@@ -14,6 +14,8 @@ import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { logError } from "@/lib/logging";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { storageFileNodeSelect } from "@/lib/storage/file-content";
+import { deleteBackingObject, type StorageNodeWithCredentials } from "@/lib/storage/fs-backend";
 import { deleteImageVariants } from "@/lib/image/service";
 
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -102,13 +104,19 @@ export async function DELETE(
       // Cross-team node ids are ignored for physical delete + index cascade.
       let linkedStorageInTeam = false;
       let linkedFilePath: string | null = null;
+      // The copy an upload wrote to an SFTP folder: it stayed on the server
+      // and came back into the file index on the next sync.
+      let linkedRemoteCopy: { storageNode: StorageNodeWithCredentials; relativePath: string } | null = null;
       if (image.storageNodeId && image.relativePath) {
         const storageNode = await prisma.storageNode.findFirst({
           where: { id: image.storageNodeId, ...teamWhere(session) },
-          select: { basePath: true, driver: true },
+          select: storageFileNodeSelect,
         });
         if (storageNode) {
           linkedStorageInTeam = true;
+          if (storageNode.driver === "SFTP" && path.basename(image.relativePath) === image.storageKey) {
+            linkedRemoteCopy = { storageNode, relativePath: image.relativePath };
+          }
           if (storageNode.driver === "LOCAL") {
             const resolvedDir = resolveStoragePathWithinBase(
               storageNode.basePath,
@@ -170,6 +178,12 @@ export async function DELETE(
         },
         ...(linkedFilePath
           ? [{ target: "linkedStorage", promise: unlinkIfPresent(linkedFilePath) }]
+          : []),
+        ...(linkedRemoteCopy
+          ? [{
+              target: "linkedStorage",
+              promise: deleteBackingObject({ ...linkedRemoteCopy, isDirectory: false, tolerateMissing: true }),
+            }]
           : []),
       ];
       const cleanupResults = await Promise.allSettled(

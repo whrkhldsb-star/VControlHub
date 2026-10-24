@@ -9,7 +9,7 @@
  * Extracted from ai-client.tsx in R31. The form hydrates from
  * `activeConv` whenever the active conversation changes.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -33,6 +33,15 @@ export function useConvSettingsForm({
   const { t } = useI18n();
   const [settingsForm, setSettingsForm] = useState(DEFAULT_SETTINGS_FORM);
   const [baseline, setBaseline] = useState(DEFAULT_SETTINGS_FORM);
+  // The conversation the form shows now, and the latest save. A save that
+  // returns after a switch to another conversation (or after a newer save)
+  // must not touch this form: its snapshot became the other conversation's
+  // baseline, and edits there that matched it were then never sent.
+  const shownConvId = useRef(activeConvId);
+  const saveGeneration = useRef(0);
+  useEffect(() => {
+    shownConvId.current = activeConvId;
+  }, [activeConvId]);
 
   // Rehydrate only when the active conversation identity changes — not on every
   // refreshConversations() object replacement (which would clobber dirty edits).
@@ -89,15 +98,18 @@ export function useConvSettingsForm({
         .filter((key) => JSON.stringify(settingsForm[key]) !== JSON.stringify(baseline[key]))
         .map((key) => [key, settingsForm[key]]),
     );
+    const convId = activeConvId;
+    const generation = ++saveGeneration.current;
+    const current = () => shownConvId.current === convId && saveGeneration.current === generation;
     try {
-      await csrfFetch(`/api/ai/conversations/${activeConvId}`, {
+      await csrfFetch(`/api/ai/conversations/${convId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(changes),
       });
-      setBaseline(settingsForm);
+      if (current()) setBaseline(settingsForm);
       await refreshConversations();
-      onSaved();
+      if (current()) onSaved();
     } catch {
       // Failed to persist conversation settings — notify the user via toast.
       addToast("error", t("aiPage.saveFailed"));

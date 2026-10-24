@@ -111,6 +111,18 @@ describe("QuickService lifecycle job worker observability", () => {
 		mocks.failJob.mockResolvedValue({ count: 1 });
 	});
 
+	it("installs as the user who queued the install", async () => {
+		// The worker left the user out: the service was saved without a
+		// creator and its "installed" notification had nobody to go to.
+		const { SERVICE_CATALOG } = await import("./catalog");
+		const template = SERVICE_CATALOG.find((item) => item.slug === "alist")!;
+		mocks.claimNextJob.mockResolvedValueOnce({ id: "job_install", createdBy: "u_owner", payload: { action: "install", slug: "alist", template, customPort: 5244, instanceKey: "hub-host" } });
+		vi.mocked(quickService.installService).mockResolvedValueOnce({ id: "svc_1", status: "running" } as never);
+
+		await runQuickServiceJobWorkerOnce(undefined, "test");
+		expect(quickService.installService).toHaveBeenCalledWith(expect.objectContaining({ userId: "u_owner" }));
+	});
+
 	it("records update progress and a log preview result for task-center triage", async () => {
 		mocks.claimNextJob.mockResolvedValueOnce({ id: "job_update", payload: { action: "update", slug: "alist" } });
 		vi.mocked(quickService.updateService).mockResolvedValueOnce({ status: "running", health: "healthy", logTail: "old line\nservice ready" });

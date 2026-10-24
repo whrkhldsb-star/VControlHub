@@ -803,11 +803,29 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(200);
     expect(ensureAria2DaemonMock).toHaveBeenCalledOnce();
     expect(tellStatusMock).toHaveBeenCalledWith("gid_1");
-    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay" },
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay", status: { in: ["PENDING", "RUNNING"] } },
       data: expect.not.objectContaining({ status: "COMPLETED" }),
     }));
     expect(getGlobalStatMock).toHaveBeenCalledOnce();
+  });
+
+  it("leaves a download cancelled while aria2 answered as cancelled", async () => {
+    // Listed as RUNNING, cancelled before aria2 replied "removed": the list
+    // wrote FAILED over the committed cancel and showed it.
+    const task = { id: "task_cancelled", createdBy: "u_1", targetPath: "/srv/cloud/downloads/file.iso", server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } }, status: "RUNNING", aria2Gid: "gid_3", pid: null, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null };
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([task]);
+    tellStatusMock.mockResolvedValueOnce({ gid: "gid_3", status: "removed", completedLength: "10", totalLength: "200", downloadSpeed: "0" });
+    getGlobalStatMock.mockResolvedValueOnce({ downloadSpeed: "0" });
+    // The guarded write finds the task no longer active.
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({ ...task, status: "CANCELLED", errorMessage: null });
+
+    const response = await GET(new Request("https://example.com/api/downloads"));
+
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
+    const listed = ((await response.json()) as { tasks: Array<{ id: string; status: string }> }).tasks.find((row) => row.id === "task_cancelled");
+    expect(listed).toMatchObject({ status: "CANCELLED" });
   });
 
   it("stores aria2 byte counts as the strings the columns hold, and shows only what was stored", async () => {
@@ -817,12 +835,12 @@ describe("/api/downloads", () => {
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([task]);
     tellStatusMock.mockResolvedValueOnce({ gid: "gid_2", status: "removed", completedLength: "100", totalLength: "200", downloadSpeed: "0" });
     getGlobalStatMock.mockResolvedValueOnce({ downloadSpeed: "0" });
-    prismaMock.downloadTask.update.mockResolvedValueOnce({});
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
     const response = await GET(new Request("https://example.com/api/downloads"));
 
-    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith({
-      where: { id: "task_gone" },
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({
+      where: { id: "task_gone", status: { in: ["PENDING", "RUNNING"] } },
       data: expect.objectContaining({ status: "FAILED", completedBytes: "100", totalBytes: "200", downloadSpeed: "0" }),
     });
     const listed = ((await response.json()) as { tasks: Array<{ id: string; status: string; completedBytes: string | null }> }).tasks.find((row) => row.id === "task_gone");
@@ -832,7 +850,7 @@ describe("/api/downloads", () => {
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([task]);
     tellStatusMock.mockResolvedValueOnce({ gid: "gid_2", status: "removed", completedLength: "100", totalLength: "200", downloadSpeed: "0" });
     getGlobalStatMock.mockResolvedValueOnce({ downloadSpeed: "0" });
-    prismaMock.downloadTask.update.mockRejectedValueOnce(new Error("write refused"));
+    prismaMock.downloadTask.updateMany.mockRejectedValueOnce(new Error("write refused"));
     const again = await (await GET(new Request("https://example.com/api/downloads"))).json() as { tasks: Array<{ id: string; status: string }> };
     expect(again.tasks.find((row) => row.id === "task_gone")?.status).toBe("RUNNING");
   });

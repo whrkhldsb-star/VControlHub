@@ -9,6 +9,8 @@ import { gunzipSync } from "node:zlib";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { installFakeRestoreTools } from "./helpers/fake-restore-tools";
+
 const runFile = promisify(execFile);
 const runner = path.resolve("scripts/backup.mjs");
 const common = path.resolve("scripts/lib/backup-common.mjs");
@@ -99,6 +101,31 @@ describe.skipIf(process.platform === "win32")("backup runner recovery guarantees
     const second = path.join(backups, "full-inside.tar.gz");
     await runFile(process.execPath, [runner, "--full", second], { env: { ...env, FILE_VERSION_DIR: inside } });
     expect((await runFile("tar", ["-xOzf", second, "file-versions/v2.blob"])).stdout).toBe("kept");
+  });
+
+  it("restores history kept inside the app directory into the target's own history directory", async () => {
+    // Backed up from <app>/file-versions (the Docker layout), restored to an
+    // instance whose FILE_VERSION_DIR is elsewhere: the bodies used to land
+    // in <target>/file-versions, and the configured directory stayed empty.
+    const inside = path.join(app, "file-versions");
+    await mkdir(path.join(inside, "node_1"), { recursive: true });
+    await writeFile(path.join(inside, "node_1", "v1.blob"), "body");
+    const archive = path.join(backups, "full-inside.tar.gz");
+    await runFile(process.execPath, [runner, "--full", archive], { env: { ...env, FILE_VERSION_DIR: inside } });
+
+    const target = path.join(tmp, "target");
+    const history = path.join(tmp, "target-history");
+    await mkdir(target);
+    await writeFile(path.join(target, ".env.local"), "DATABASE_URL=postgresql://tester@127.0.0.1/audit_target\n");
+    const restoreBin = await installFakeRestoreTools(tmp);
+    await runFile("bash", ["scripts/restore-files.sh", archive, target], {
+      cwd: process.cwd(),
+      env: { ...env, PATH: `${restoreBin}${path.delimiter}${env.PATH}`, APP_DIR: target, ENV_FILE: path.join(target, ".env.local"), FILE_VERSION_DIR: history, CONFIRM_RESTORE: "1", DEPLOY_LOCK: path.join(tmp, "no-deploy.lock") },
+    });
+
+    await expect(readFile(path.join(history, "node_1", "v1.blob"), "utf8")).resolves.toBe("body");
+    await expect(readFile(path.join(target, "file-versions", "node_1", "v1.blob"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(path.join(target, "storage", "local.txt"), "utf8")).resolves.toBe("local fixture");
   });
 
   it("prunes expired managed full/files/db backups while preserving unrelated files and symlinks", async () => {

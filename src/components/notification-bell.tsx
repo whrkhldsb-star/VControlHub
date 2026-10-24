@@ -148,8 +148,11 @@ export function NotificationBell() {
 	}, []);
 
 	const togglePanel = async () => {
-		let willOpen = false;
-		setIsOpen((prev) => { willOpen = !prev; return willOpen; });
+		// Decided from what is shown, not inside the state updater: React may
+		// run that later, and a panel opened again then showed the list from
+		// the first opening without asking for a new one.
+		const willOpen = !isOpen;
+		setIsOpen(willOpen);
 		if (willOpen) await fetchList();
 	};
 

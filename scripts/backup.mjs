@@ -188,6 +188,12 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
       if (insideApp && !insideApp.startsWith("..") && !path.isAbsolute(insideApp)) {
         const member = insideApp.split(path.sep).join("/");
         if (!existing.some((name) => member === name || member.startsWith(`${name}/`))) args.push("-C", APP_DIR, member);
+        // Named as file history here too: a restore puts it into the target's
+        // own FILE_VERSION_DIR. Without the note it was copied to the same
+        // place under the target's app directory, where a differently
+        // configured instance never looks.
+        await fs.writeFile(path.join(extraDir, FILE_VERSIONS_MANIFEST), JSON.stringify({ version: 1, source: versions, member }, null, 2), { mode: 0o600 });
+        args.push("-C", extraDir, FILE_VERSIONS_MANIFEST);
       } else {
         const root = path.parse(versions).root;
         const member = path.relative(root, versions).split(path.sep).join("/");

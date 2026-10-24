@@ -127,6 +127,28 @@ describe("NotificationBell", () => {
     expect(csrfFetch).not.toHaveBeenCalled();
   });
 
+  it("loads the list again each time the panel opens", async () => {
+    // Opened, closed and opened again: the second opening showed the first
+    // list without a request, so with no live connection and manual refresh
+    // a read, deleted or new notification never appeared.
+    const user = userEvent.setup();
+    // Manual refresh: nothing polls, so every request is the panel's.
+    window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 0 }));
+    const lists: string[] = [];
+    vi.mocked(csrfFetch).mockImplementation(async (url) => {
+      lists.push(String(url));
+      return { unreadCount: 1, notifications: [{ id: `n${lists.length}`, title: `Title ${lists.length}`, message: "m", type: "info", isRead: false, createdAt: new Date().toISOString() }] };
+    });
+    render(<NotificationBell />, { locale: "en" });
+    const trigger = screen.getByRole("button", { name: "Notifications" });
+    for (let round = 1; round <= 3; round++) {
+      await user.click(trigger);
+      expect(await screen.findByText(`Title ${round}`)).toBeInTheDocument();
+      await user.click(trigger);
+    }
+    expect(lists).toHaveLength(3);
+  });
+
   it("renders the dropdown as an accessible popover and closes it with Escape", async () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch)

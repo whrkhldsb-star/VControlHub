@@ -291,6 +291,16 @@ export function useImageBedActions({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(body),
 				});
+				// A partly failed delete answers 207: the images whose files could
+				// not be removed are still there. Say so and keep them selected for
+				// another try, instead of reporting success and clearing the choice.
+				const failedIds: string[] = Array.isArray(data.failedFileIds) ? data.failedFileIds : [];
+				if (action === "delete" && failedIds.length > 0) {
+					showToast(t("imageBed.toast.batchPartial", { deleted: data.deleted ?? 0, failed: failedIds.length }), "alert");
+					setSelectedIds(new Set(failedIds));
+					void fetchImages(page);
+					return true;
+				}
 				showToast(
 					t("imageBedPage.batchSuccess").replace(
 						"{count}",
@@ -327,8 +337,10 @@ export function useImageBedActions({
 		// can show the busy label and block backdrop dismiss while in-flight.
 		if (target.type === "single") {
 			try {
-				await csrfFetch(`/api/images/${target.id}`, { method: "DELETE" });
-				showToast(t("imageBed.toast.deleted"));
+				const data = await csrfFetch(`/api/images/${target.id}`, { method: "DELETE" });
+				// Deleted, but some of its files are still on disk (207).
+				if (data?.cleanupPending) showToast(t("imageBed.toast.deletedCleanupPending"), "alert");
+				else showToast(t("imageBed.toast.deleted"));
 				setPreviewImage(null);
 				setPendingDelete(null);
 				void fetchImages(page);
