@@ -197,6 +197,27 @@ interface LSIOResponse {
 	};
 }
 
+/**
+ * A TCP port from LinuxServer's port fields: "8080" or "8080/tcp". UDP ports
+ * ("51820/udp") are not a web entry. Images such as WireGuard, Luanti and
+ * syslog-ng declare them, and reading the suffix as a number left them with
+ * no port at all: the mapping below crashed and the whole catalogue sync failed.
+ */
+function lsioTcpPort(raw: unknown): number | null {
+	const match = /^(\d+)(?:\/(tcp|udp))?$/i.exec(String(raw ?? "").trim());
+	if (!match || (match[2] && match[2].toLowerCase() !== "tcp")) return null;
+	const port = Number(match[1]);
+	return isValidTcpPort(port) ? port : null;
+}
+
+function lsioTcpPorts(img: LSIOImage): Array<{ host: number; container: number }> {
+	return (img.config?.ports ?? []).flatMap((port) => {
+		const host = lsioTcpPort(port.external);
+		const container = lsioTcpPort(port.internal);
+		return host !== null && container !== null ? [{ host, container }] : [];
+	});
+}
+
 async function fetchLinuxServer(url: string, sourceName: string): Promise<NormalizedApp[]> {
 	const data = (await fetchCatalogJson(url)) as LSIOResponse;
 	// Not a catalogue (an error body with HTTP 200, a changed format) is a
@@ -214,8 +235,9 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
 		.slice(0, APP_SOURCE_MAX_APPS)
 		.filter((img) => img.stable && !img.deprecated)
 		// Quick services need a declared TCP web port. Images without one are
-		// CLI/base images and cannot provide a useful one-click browser entry.
-		.filter((img) => img.config?.ports?.some((port) => /^\d+$/.test(port.external)))
+		// CLI/base images (or UDP services) and cannot provide a useful
+		// one-click browser entry.
+		.filter((img) => lsioTcpPorts(img).length > 0)
 		.filter((img) => {
 			// Skip if we already have this locally
 			if (localSlugs.has(img.name)) return false;
@@ -229,9 +251,7 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
 		})
 		.map((img): NormalizedApp => {
 			const category = mapCategory(img.category);
-			const ports = (img.config?.ports ?? [])
-				.map((port) => ({ host: Number(port.external), container: Number(port.internal) }))
-				.filter((port) => isValidTcpPort(port.host) && isValidTcpPort(port.container));
+			const ports = lsioTcpPorts(img);
 			const primaryPort = ports[0]!;
 			const extraPorts = ports.slice(1);
 			const volumes = (img.config?.volumes ?? [])

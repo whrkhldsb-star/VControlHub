@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   shareLink: {
     findMany: vi.fn(async (): Promise<Array<{ id: string; path: string }>> => []),
     update: vi.fn(async () => ({})),
+    updateMany: vi.fn(async () => ({ count: 0 })),
   },
   assertStorageAccess: vi.fn(),
   releaseStorageQuotaGuard: vi.fn(),
@@ -23,6 +24,11 @@ const mocks = vi.hoisted(() => ({
   fileEntryFindFirst: vi.fn(),
   fileEntryUpdate: vi.fn(),
   fileEntryUpdateMany: vi.fn(),
+  fileEntryFindMany: vi.fn(async (): Promise<Array<{ id: string; relativePath: string; entryType: string }>> => []),
+  fileEntryDeleteMany: vi.fn(async () => ({ count: 0 })),
+  fileEntryDelete: vi.fn(async () => ({})),
+  fileVersionFindMany: vi.fn(async (): Promise<Array<{ fileEntryId: string }>> => []),
+  purgeFileEntryVersionDirectories: vi.fn(async () => undefined),
   executeRaw: vi.fn(),
   queryRaw: vi.fn(),
   transaction: vi.fn(),
@@ -43,7 +49,14 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     storageNode: { findFirst: mocks.storageNodeFindFirst },
     // No recycle-bin rows at the destination unless a test says otherwise.
-    fileEntry: { findFirst: mocks.fileEntryFindFirst, findMany: vi.fn(async () => []), update: mocks.fileEntryUpdate },
+    fileEntry: {
+      findFirst: mocks.fileEntryFindFirst,
+      findMany: mocks.fileEntryFindMany,
+      update: mocks.fileEntryUpdate,
+      deleteMany: mocks.fileEntryDeleteMany,
+    },
+    fileVersion: { findMany: mocks.fileVersionFindMany },
+    shareLink: mocks.shareLink,
     $queryRaw: mocks.queryRaw,
     $transaction: mocks.transaction,
   },
@@ -75,6 +88,7 @@ vi.mock("@/lib/storage/fs-backend", () => ({
 vi.mock("@/lib/storage/service-entries", () => ({ createFileEntry: mocks.createFileEntry }));
 vi.mock("@/lib/storage/file-versions", () => ({
   snapshotFileVersionBeforeOverwrite: mocks.snapshotFileVersionBeforeOverwrite,
+  purgeFileEntryVersionDirectories: mocks.purgeFileEntryVersionDirectories,
 }));
 vi.mock("@/lib/http/request-body", async () => {
   const actual = await import("@/lib/http/request-body");
@@ -108,6 +122,25 @@ function context(relativePath: string) {
     requestUrl: new URL(`https://hub.example/api/webdav/n1/${relativePath}`),
     rangeHeader: null,
   };
+}
+
+/** The transaction client the handlers see. */
+function txClient() {
+  return {
+    fileEntry: {
+      update: mocks.fileEntryUpdate,
+      updateMany: mocks.fileEntryUpdateMany,
+      deleteMany: mocks.fileEntryDeleteMany,
+      delete: mocks.fileEntryDelete,
+    },
+    shareLink: mocks.shareLink,
+    $executeRaw: mocks.executeRaw,
+  };
+}
+
+/** The index rows at a path and below it, as the handlers select them. */
+function atOrBelow(relativePath: string) {
+  return { OR: [{ relativePath }, { relativePath: { startsWith: `${relativePath}/` } }] };
 }
 
 function accessCalls() {
@@ -373,7 +406,7 @@ describe("webdav handlers", () => {
         relativePath: "a.txt",
       });
       mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
-        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() } }),
+        fn(txClient()),
       );
 
       const response = await handleWebDavDelete(context("a.txt"));
@@ -382,35 +415,40 @@ describe("webdav handlers", () => {
       expect(accessCalls()[0]?.operation).toBe("delete");
     });
 
-    it("soft-deletes a directory subtree with ONE batched updateMany", async () => {
+    it("deletes a directory for good: its rows in ONE statement, its links, then its version blobs", async () => {
       mocks.fileEntryFindFirst.mockResolvedValue({
         id: "d1",
         entryType: "DIRECTORY",
         relativePath: "docs",
       });
+      mocks.fileVersionFindMany.mockResolvedValueOnce([{ fileEntryId: "f9" }]);
       mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
-        fn({ fileEntry: { update: mocks.fileEntryUpdate, updateMany: mocks.fileEntryUpdateMany } }),
+        fn(txClient()),
       );
 
       const response = await handleWebDavDelete(context("docs"));
 
       expect(response.status).toBe(204);
-      // Regression: the subtree used to be tombstoned with one UPDATE per
-      // child inside the transaction; it must be a single batched statement
-      // tagged with the recycle-batch id (same contract as the file manager).
-      expect(mocks.fileEntryUpdateMany).toHaveBeenCalledTimes(1);
-      expect(mocks.fileEntryUpdateMany).toHaveBeenCalledWith({
-        where: {
-          storageNodeId: "n1",
-          relativePath: { startsWith: "docs/" },
-          isDeleted: false,
-        },
-        data: { isDeleted: true, deleteBatchId: expect.any(String) },
+      // Regression: the rows went to the recycle bin with a batch id, though
+      // the bytes are deleted right after — entries that could never be
+      // restored. They go like a permanent delete in the file manager, the
+      // recycle-bin rows below the folder (whose bytes go too) included.
+      expect(mocks.fileEntryUpdate).not.toHaveBeenCalled();
+      expect(mocks.fileEntryUpdateMany).not.toHaveBeenCalled();
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledTimes(1);
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("docs") } });
+      // A link to the folder, or into it, must not serve what is put there later.
+      expect(mocks.shareLink.updateMany).toHaveBeenCalledWith({
+        where: { storageNodeId: "n1", revokedAt: null, OR: [{ path: "docs" }, { path: { startsWith: "docs/" } }] },
+        data: { revokedAt: expect.any(Date) },
       });
-      expect(mocks.fileEntryUpdate).toHaveBeenCalledWith({
-        where: { id: "d1" },
-        data: { isDeleted: true, deleteBatchId: expect.any(String) },
-      });
+      expect(mocks.fileVersionFindMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { fileEntry: { storageNodeId: "n1", ...atOrBelow("docs") } },
+      }));
+      expect(mocks.purgeFileEntryVersionDirectories).toHaveBeenCalledWith("n1", ["f9"]);
+      expect(mocks.purgeFileEntryVersionDirectories.mock.invocationCallOrder[0]!).toBeGreaterThan(
+        mocks.transaction.mock.invocationCallOrder[0]!,
+      );
     });
 
     it("restores the staged bytes when the index transaction fails", async () => {
@@ -430,6 +468,8 @@ describe("webdav handlers", () => {
       expect(renames[0]?.oldRelativePath).toBe("a.txt");
       expect(renames[1]?.newRelativePath).toBe("a.txt");
       expect(mocks.deleteBackingObject).not.toHaveBeenCalled();
+      // The file is back, and so is its history.
+      expect(mocks.purgeFileEntryVersionDirectories).not.toHaveBeenCalled();
     });
 
     it("refuses to delete the collection root", async () => {
@@ -504,7 +544,7 @@ describe("webdav handlers", () => {
           : null,
       );
       mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
-        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() }, shareLink: mocks.shareLink, $executeRaw: mocks.executeRaw }),
+        fn(txClient()),
       );
 
       const response = await moveWith(destination);
@@ -514,10 +554,10 @@ describe("webdav handlers", () => {
         "write:a.txt",
         "write:moved/b.txt",
       ]);
-      // File moves rewrite no descendants; the one statement retires whatever
-      // held the destination path.
-      expect(mocks.executeRaw).toHaveBeenCalledTimes(1);
-      expect(String(mocks.executeRaw.mock.calls[0]![0])).toContain(`"isDeleted" = true`);
+      // File moves rewrite no descendants; whatever held the destination path
+      // (stale recycle-bin rows) is dropped, not kept as a tombstone.
+      expect(mocks.executeRaw).not.toHaveBeenCalled();
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("moved/b.txt") } });
     });
 
     it("moves the live shares of a moved file with it", async () => {
@@ -529,7 +569,7 @@ describe("webdav handlers", () => {
           : null,
       );
       mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
-        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() }, shareLink: mocks.shareLink, $executeRaw: mocks.executeRaw }),
+        fn(txClient()),
       );
       mocks.shareLink.findMany.mockResolvedValueOnce([{ id: "s1", path: "a.txt" }]);
 
@@ -546,7 +586,7 @@ describe("webdav handlers", () => {
           : null,
       );
       mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
-        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() }, shareLink: mocks.shareLink, $executeRaw: mocks.executeRaw }),
+        fn(txClient()),
       );
       mocks.executeRaw.mockResolvedValue(3);
 
@@ -560,16 +600,87 @@ describe("webdav handlers", () => {
 
       expect(response.status).toBe(201);
       // Regression: descendant rewrites used to be one UPDATE round-trip per
-      // child inside the transaction; they must now be one statement. The
-      // other statement retires whatever held the destination path.
-      expect(mocks.executeRaw).toHaveBeenCalledTimes(2);
+      // child inside the transaction; they must now be one statement.
+      expect(mocks.executeRaw).toHaveBeenCalledTimes(1);
       const statements = mocks.executeRaw.mock.calls.map((call) => String(call[0]));
-      expect(statements[0]).toContain(`"isDeleted" = true`);
-      expect(statements[1]).toContain("UPDATE file_entries");
-      expect(statements[1]).toContain("regexp_replace");
+      expect(statements[0]).toContain("UPDATE file_entries");
+      expect(statements[0]).toContain("regexp_replace");
       // UTC wall time, as every column holds: a bare now() follows the
       // session time zone of a PostgreSQL not set to UTC.
       for (const statement of statements) expect(statement).toContain(`"updatedAt" = (now() AT TIME ZONE 'UTC')`);
+    });
+
+    it("keeps the destination's entry when a file replaces a file, as an editor's atomic save does", async () => {
+      mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
+        args.where.relativePath === ".~report.docx.tmp"
+          ? { id: "tmp1", entryType: "FILE", relativePath: ".~report.docx.tmp", mimeType: "application/msword", size: BigInt(42) }
+          : args.where.relativePath === "report.docx"
+            ? { id: "doc1", entryType: "FILE", relativePath: "report.docx", mimeType: "application/msword", size: BigInt(40) }
+            : null,
+      );
+      mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => fn(txClient()));
+      mocks.snapshotFileVersionBeforeOverwrite.mockResolvedValue({ id: "v1" });
+
+      const response = await handleWebDavMove(
+        context(".~report.docx.tmp"),
+        new Request("https://hub.example/api/webdav/n1/.~report.docx.tmp", {
+          method: "POST",
+          headers: { destination: "/api/webdav/n1/report.docx" },
+        }),
+      );
+
+      expect(response.status).toBe(204);
+      // Regression: every such save sent report.docx's row to the recycle bin
+      // under a tombstone path — an entry that could never be restored, its
+      // versions out of reach — and kept the replaced content nowhere.
+      expect(mocks.snapshotFileVersionBeforeOverwrite).toHaveBeenCalledWith(expect.objectContaining({ fileEntryId: "doc1" }));
+      expect(mocks.snapshotFileVersionBeforeOverwrite.mock.invocationCallOrder[0]!).toBeLessThan(
+        mocks.renameBackingObject.mock.invocationCallOrder[0]!,
+      );
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({
+        where: { storageNodeId: "n1", ...atOrBelow("report.docx"), id: { not: "doc1" } },
+      });
+      expect(mocks.fileEntryDelete).toHaveBeenCalledWith({ where: { id: "tmp1" } });
+      expect(mocks.fileEntryUpdate).toHaveBeenCalledWith({
+        where: { id: "doc1" },
+        data: { mimeType: "application/msword", size: BigInt(42) },
+      });
+      expect(mocks.fileEntryUpdate).toHaveBeenCalledTimes(1);
+      // Its links keep working; the temporary file's own versions go.
+      expect(mocks.shareLink.updateMany).not.toHaveBeenCalled();
+      expect(mocks.purgeFileEntryVersionDirectories).toHaveBeenCalledWith("n1", ["tmp1"]);
+    });
+
+    it("drops a replaced folder's rows and revokes its links before the moved folder takes its place", async () => {
+      mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
+        args.where.relativePath === "docs"
+          ? { id: "d1", entryType: "DIRECTORY", relativePath: "docs" }
+          : args.where.relativePath === "manuals"
+            ? { id: "d2", entryType: "DIRECTORY", relativePath: "manuals" }
+            : null,
+      );
+      mocks.fileVersionFindMany.mockResolvedValueOnce([{ fileEntryId: "m7" }]);
+      mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => fn(txClient()));
+
+      const response = await handleWebDavMove(
+        context("docs"),
+        new Request("https://hub.example/api/webdav/n1/docs", {
+          method: "POST",
+          headers: { destination: "/api/webdav/n1/manuals" },
+        }),
+      );
+
+      expect(response.status).toBe(204);
+      expect(mocks.snapshotFileVersionBeforeOverwrite).not.toHaveBeenCalled();
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("manuals") } });
+      expect(mocks.shareLink.updateMany).toHaveBeenCalledWith({
+        where: { storageNodeId: "n1", revokedAt: null, OR: [{ path: "manuals" }, { path: { startsWith: "manuals/" } }] },
+        data: { revokedAt: expect.any(Date) },
+      });
+      // The moved folder keeps its own row.
+      expect(mocks.fileEntryDelete).not.toHaveBeenCalled();
+      expect(mocks.fileEntryUpdate).toHaveBeenCalledWith({ where: { id: "d1" }, data: { relativePath: "manuals", name: "manuals" } });
+      expect(mocks.purgeFileEntryVersionDirectories).toHaveBeenCalledWith("n1", ["m7"]);
     });
   });
 
@@ -604,6 +715,23 @@ describe("webdav handlers", () => {
         expect.objectContaining({ relativePath: "a.bin", operation: "read" }),
         expect.objectContaining({ relativePath: "b.bin", operation: "write", writeBytes: 900 }),
       ]);
+    });
+
+    it("drops recycle-bin rows whose bytes are gone instead of keeping them as tombstones", async () => {
+      mocks.fileEntryFindMany.mockResolvedValueOnce([{ id: "old1", relativePath: "b.bin", entryType: "FILE" }]);
+      mocks.fileVersionFindMany.mockResolvedValueOnce([{ fileEntryId: "old1" }]);
+
+      const response = await copyWith("/api/webdav/n1/b.bin");
+
+      expect(response.status).toBe(201);
+      expect(mocks.executeRaw).not.toHaveBeenCalled();
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("b.bin") } });
+      expect(mocks.shareLink.updateMany).toHaveBeenCalledWith({
+        where: { storageNodeId: "n1", revokedAt: null, OR: [{ path: "b.bin" }, { path: { startsWith: "b.bin/" } }] },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(mocks.createFileEntry).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "b.bin" }));
+      expect(mocks.purgeFileEntryVersionDirectories).toHaveBeenCalledWith("n1", ["old1"]);
     });
 
     it("probes the backend for a size the index does not have", async () => {

@@ -244,6 +244,10 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       { status: 403 },
     );
   }
+  // Everything after the access check runs inside the try that releases the
+  // grant's quota lock: a containment failure returned (or threw) here and
+  // kept that lock — and its pooled connection — until the process restarted.
+  try {
   // Physical containment before anything changes (delete soft-deletes the
   // index first). fs-backend checks again right before each remote call.
   try {
@@ -255,7 +259,6 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
     throw error;
   }
 
-  try {
   try {
     switch (action) {
       case "delete": {

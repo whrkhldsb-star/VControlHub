@@ -58,12 +58,15 @@ vi.mock("@/lib/downloads/remote-command", () => ({
   toRemoteChildPath: (base: string, f: string) => `${base}/${f}`,
 }));
 vi.mock("@/lib/downloads/helpers", () => ({
+  deriveDownloadFileNameFromUrl: (url: string) => new URL(url).pathname.split("/").filter(Boolean).pop() ?? null,
   indexDownloadedFileEntry: vi.fn(async () => undefined),
   getPublicDownloadError: vi.fn(() => "dl error"),
   buildProgressText: vi.fn(() => "progress"),
 }));
 
 const { executeAria2RelayDownload, executeDirectDownload } = await import("../execution");
+const { resolveDownloadRedirects } = await import("@/lib/downloads/redirect-chain");
+const { buildDirectDownloadCommand } = await import("@/lib/downloads/remote-command");
 
 const server = {
   id: "srv-1",
@@ -224,5 +227,40 @@ describe("relayExceedsLimits", () => {
     expect(relayExceedsLimits(files, { maxFileBytes: BigInt(50), remainingBytes: BigInt(90) })).toBe(false);
     expect(relayExceedsLimits(files, { maxFileBytes: BigInt(45), remainingBytes: null })).toBe(true);
     expect(relayExceedsLimits(files, { maxFileBytes: null, remainingBytes: BigInt(89) })).toBe(true);
+  });
+});
+
+describe("executeDirectDownload with a redirecting link", () => {
+  const resolution = { hostname: "github.com", address: "140.82.112.3", port: 443 as const };
+
+  it("hands curl the end of the checked redirect chain, named after the link the user gave", async () => {
+    // curl runs with --max-redirs 0: a GitHub release asset (302 to a signed
+    // CDN URL) failed with curl error 47 before the chain was resolved here.
+    vi.mocked(resolveDownloadRedirects).mockResolvedValueOnce({
+      ok: true,
+      url: "https://release-assets.githubusercontent.com/github-production-release-asset/1/abc?sig=x",
+      resolution: { hostname: "release-assets.githubusercontent.com", address: "185.199.108.133", port: 443 },
+    });
+
+    await executeDirectDownload("task-r1", server, "https://github.com/cli/cli/releases/download/v2.62.0/gh_2.62.0_checksums.txt", "/target", null, undefined, resolution);
+
+    expect(buildDirectDownloadCommand).toHaveBeenCalledWith(expect.objectContaining({
+      url: "https://release-assets.githubusercontent.com/github-production-release-asset/1/abc?sig=x",
+      fileName: "gh_2.62.0_checksums.txt",
+      sourceResolution: { hostname: "release-assets.githubusercontent.com", address: "185.199.108.133", port: 443 },
+    }));
+  });
+
+  it("fails the task with the reason when a redirect target is refused, without a remote process", async () => {
+    vi.mocked(resolveDownloadRedirects).mockResolvedValueOnce({ ok: false, reason: "Redirect target rejected: private address" });
+    vi.mocked(buildDirectDownloadCommand).mockClear();
+
+    await executeDirectDownload("task-r2", server, "https://example.com/file.zip", "/target", null, undefined, resolution);
+
+    expect(buildDirectDownloadCommand).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({
+      where: { id: "task-r2", status: "RUNNING" },
+      data: { status: "FAILED", errorMessage: "Redirect target rejected: private address" },
+    });
   });
 });

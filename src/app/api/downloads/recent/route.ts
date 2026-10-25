@@ -10,6 +10,9 @@ import { withApiRoute } from "@/lib/http/api-guard";
 
 export const dynamic = "force-dynamic";
 
+const RECENT_DOWNLOADS_SHOWN = 8;
+const RECENT_DOWNLOADS_SCAN = 50;
+
 export async function GET(request: Request) {
   return withApiRoute(
     request,
@@ -37,13 +40,15 @@ export async function GET(request: Request) {
           },
         },
         orderBy: { updatedAt: "desc" },
-        take: 8,
+        // Filtered by per-path access below: reading only the newest 8 showed
+        // an account with narrow grants fewer (or none) of its own downloads.
+        take: RECENT_DOWNLOADS_SCAN,
       });
 
       const accessFlags = await Promise.all(
         tasks.map((task) => canAccessDownloadTask({ session, task, operation: "read" })),
       );
-      const visibleTasks = tasks.filter((_, i) => accessFlags[i]);
+      const visibleTasks = tasks.filter((_, i) => accessFlags[i]).slice(0, RECENT_DOWNLOADS_SHOWN);
 
       const downloads = visibleTasks.flatMap((task) => {
         const storageNode = task.server.storageNode;

@@ -32,6 +32,7 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  ValidationError,
   isAppError,
 } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -273,7 +274,9 @@ export async function listDirectory(
   const path = sanitizeRemotePath(remotePath);
   const conn = await resolveServerConnection(serverId);
   const params = toConnectionParams(conn);
-  const entries = await listRemoteDirectory({ ...params, remotePath: path });
+  // Mapped like delete/mkdir/rename: a folder the account may not read used
+  // to come back as the generic 500 "list failed", not "permission denied".
+  const entries = await listRemoteDirectory({ ...params, remotePath: path }).catch(mapSftpError);
   // readdir reports a link itself (lstat). The file manager opens what a link
   // points at, as `ls` and every SFTP client do: a linked folder was neither
   // enterable nor downloadable. Access to the target is still checked per
@@ -445,12 +448,12 @@ export async function downloadFile(
     });
   } catch (err) {
     session.close();
-    throw err;
+    mapSftpError(err);
   }
 
   if (stats.isDirectory()) {
     session.close();
-    throw new Error("Cannot download a directory");
+    throw new ValidationError(t("backend.sftp.cannotDownloadDirectory"));
   }
 
   const readStream = session.sftp.createReadStream(path, {

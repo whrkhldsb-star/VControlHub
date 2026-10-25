@@ -106,6 +106,11 @@ async function probeRedirect(url: string, resolution: DownloadSourceResolution):
 				headers: method === "GET" ? { range: "bytes=0-0" } : undefined,
 				signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
 			});
+			// Only the status and Location are wanted. An unread undici body
+			// destroyed without a reason reports RequestAbortedError ("Request
+			// aborted") on its 'error' event; unheard, that was an uncaught
+			// exception that took the whole process down.
+			response.body.on("error", () => undefined);
 			response.body.destroy();
 			// Some servers refuse HEAD; ask again with a one-byte GET.
 			if (method === "HEAD" && (response.statusCode === 405 || response.statusCode === 501)) continue;

@@ -71,6 +71,17 @@ describe("proxy auth guard", () => {
     expect(response.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
   });
 
+  it("brings the signed-in user back to the same view, query included", () => {
+    // A shared folder link landed on the files root after signing in, and its
+    // query was left dangling on /login itself.
+    const response = syncProxy(makeRequest("/files?nodeId=n1&path=docs%2Freports"));
+
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/login");
+    expect([...location.searchParams.keys()]).toEqual(["next"]);
+    expect(location.searchParams.get("next")).toBe("/files?nodeId=n1&path=docs%2Freports");
+  });
+
   it("uses the same app slug session cookie name as login and server components", () => {
     vi.stubEnv("APP_SLUG", "my-console");
     vi.stubEnv("AUTH_SESSION_COOKIE_NAME", "");

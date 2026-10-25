@@ -307,6 +307,25 @@ describe("downloadFile session lifecycle", () => {
     });
   });
 
+  it("refuses a folder as a 400 the user can read, closing the session", async () => {
+    statMock.mockImplementation((_path: string, cb: (err: Error | null, stats: unknown) => void) => {
+      cb(null, { isDirectory: () => true, size: 4096 });
+    });
+
+    await expect(downloadFile("srv1", "/home/alice/projects")).rejects.toMatchObject({ status: 400 });
+    expect(createReadStreamMock).not.toHaveBeenCalled();
+    expect(clientEndMock).toHaveBeenCalled();
+  });
+
+  it("reports a file that is gone as not found, not a server failure", async () => {
+    statMock.mockImplementation((_path: string, cb: (err: Error | null, stats: unknown) => void) => {
+      cb(Object.assign(new Error("No such file"), { code: 2 }), undefined);
+    });
+
+    await expect(downloadFile("srv1", "/home/alice/gone.txt")).rejects.toMatchObject({ status: 404 });
+    expect(clientEndMock).toHaveBeenCalled();
+  });
+
   it("closes the session when the read stream errors", async () => {
     const readStream = new PassThrough();
     readStream.on("error", () => {

@@ -36,7 +36,10 @@ vi.mock("ssh2", async () => {
     sftp(callback: (error: Error | undefined, sftp: unknown) => void) {
       state.sftpOpenCount += 1;
       callback(undefined, {
-        readdir: (_path: string, done: (error: Error | undefined, entries: unknown[]) => void) => done(undefined, listing),
+        readdir: (path: string, done: (error: Error | undefined, entries: unknown[]) => void) =>
+          path === "/home/alice/private"
+            ? done(Object.assign(new Error("Permission denied"), { code: 3 }), [])
+            : done(undefined, listing),
         stat: (path: string, done: (error: (Error & { code?: number }) | undefined, value?: Attrs) => void) => {
           const target = targets[path];
           if (target) done(undefined, target);
@@ -85,5 +88,11 @@ describe("SFTP file manager listing with symbolic links", () => {
     // One channel lists, one stats all 33 links: a channel per link ran into
     // OpenSSH's default limit of ten sessions per connection.
     expect(state.sftpOpenCount).toBe(2);
+  });
+
+  it("says a folder the account may not read is forbidden, not a server failure", async () => {
+    // A 500 "list failed" told the user nothing; delete/mkdir/rename already
+    // mapped the same SFTP status to "permission denied".
+    await expect(listDirectory("srv", "/home/alice/private")).rejects.toMatchObject({ status: 403 });
   });
 });

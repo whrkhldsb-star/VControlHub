@@ -328,5 +328,20 @@ describe("file-versions service", () => {
     const row = store.versions.get(snap!.id);
     await expect(fs.readFile(path.join(tmpDir, row.blobRelativePath), "utf8")).resolves.toBe("hello v1");
   });
+
+  it("removes the version blobs of entries whose rows are gone, and nothing else", async () => {
+    const mod = await import("@/lib/storage/file-versions");
+    const snap = await mod.snapshotFileVersionBeforeOverwrite({ fileEntryId: "fe_1", userId: "u1", reason: "MANUAL" });
+    const kept = path.join(tmpDir, "node_1", "fe_2", "v1.bin");
+    await fs.mkdir(path.dirname(kept), { recursive: true });
+    await fs.writeFile(kept, "other file");
+
+    // Ids reach a path: one that is not a plain id is skipped, never resolved.
+    await mod.purgeFileEntryVersionDirectories("node_1", ["fe_1", "../node_1", "missing"]);
+
+    await expect(fs.access(path.join(tmpDir, store.versions.get(snap!.id).blobRelativePath))).rejects.toThrow();
+    await expect(fs.access(path.join(tmpDir, "node_1", "fe_1"))).rejects.toThrow();
+    await expect(fs.readFile(kept, "utf8")).resolves.toBe("other file");
+  });
 });
 

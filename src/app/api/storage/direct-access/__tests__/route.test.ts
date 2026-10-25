@@ -10,6 +10,10 @@ const { requireApiPermissionMock, assertStorageAccessMock, prismaMock } =
         findUnique: vi.fn(),
         findFirst: vi.fn(),
       },
+      // Not in the recycle bin unless a test says otherwise.
+      fileEntry: {
+        findFirst: vi.fn(async (): Promise<{ isDeleted: boolean } | null> => null),
+      },
     },
   }));
 
@@ -234,6 +238,32 @@ describe("/api/storage/direct-access", () => {
     expect(payload.fallbackUrl).toBe(
       "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo+file.mp4",
     );
+  });
+
+  it("signs no link to a file in the recycle bin, whose bytes are still at its path", async () => {
+    // The managed download refuses a deleted file; a signed direct link served it.
+    vi.clearAllMocks();
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "admin", roles: ["admin"], currentTeamId: null },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    const node = directNode({ directAccessMode: "DIRECT", publicBaseUrl: "https://cdn.example.com/media/" });
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ isDeleted: true });
+
+    const response = await POST(
+      new Request("https://example.com/api/storage/direct-access", {
+        method: "POST",
+        body: JSON.stringify({ nodeId: "node_1", relativePath: "movies/deleted.mp4" }),
+      }),
+    );
+
+    expect(response.status).toBe(404);
+    expect(JSON.stringify(await response.json())).not.toContain("signature=");
+    expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { storageNodeId: "node_1", relativePath: "movies/deleted.mp4" },
+    }));
   });
 
   it("fails closed instead of redirecting when stored direct base URL is private", async () => {

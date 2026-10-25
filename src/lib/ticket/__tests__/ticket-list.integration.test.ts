@@ -24,7 +24,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ticket list
 		const now = Date.now();
 		await prisma.ticket.create({ data: { id: `${prefix}-open`, title: "old open", description: "x", status: "OPEN", priority: "HIGH", createdBy: prefix, teamId: prefix,
 			slaDueAt: new Date(now + 30 * 60_000), createdAt: new Date(now - 2 * 86_400_000) } });
-		await prisma.$executeRaw`UPDATE tickets SET "updatedAt" = now() - interval '1 day' WHERE id = ${`${prefix}-open`}`;
+		await prisma.$executeRaw`UPDATE tickets SET "updatedAt" = (now() AT TIME ZONE 'UTC') - interval '1 day' WHERE id = ${`${prefix}-open`}`;
 		await prisma.ticket.createMany({ data: Array.from({ length: 200 }, (_, i) => ({ id: `${prefix}-closed-${i}`, title: `closed ${i}`, description: "x", status: "CLOSED", createdBy: prefix, teamId: prefix })) });
 	});
 	afterAll(async () => {

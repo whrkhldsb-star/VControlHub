@@ -401,12 +401,13 @@ export type PruneOldBackupRecordsResult = {
  *   1. Resolve the file path through `resolveBackupPath` — that function
  *      rejects non-portable paths and absolute / `..` traversal, so we
  *      can only delete artifacts that are within the configured backup
- *      root. If resolution fails, the file is left in place but the DB
- *      row is still deleted (we never want an orphan DB row pointing at
- *      a path we cannot unlink).
- *   2. Best-effort `rm()` — missing files are recorded as `filesSkipped`
- *      (not errors). Real errors (e.g. EACCES) go into `fileErrors`.
- *   3. The DB row is deleted via prisma — this is the source of truth.
+ *      root.
+ *   2. Remove the artifact. A missing file counts as removed
+ *      (`filesSkipped`); real errors (e.g. EACCES) and paths that do not
+ *      resolve go into `fileErrors`.
+ *   3. Delete the DB row only once its artifact is gone. A row whose file
+ *      could not be removed stays listed and is retried by the next run:
+ *      deleting it would leave a backup on disk that nothing lists.
  *
  * Returns a small summary suitable for the durable-job completion
  * payload and the UI toast.

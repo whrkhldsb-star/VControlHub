@@ -226,6 +226,21 @@ export async function purgeAllFileVersionBlobs(fileEntryId: string): Promise<num
 }
 
 /**
+ * Remove the version blobs of entries whose rows are already gone (their
+ * FileVersion rows went with them by cascade): each entry's blobs live in
+ * `<storageNodeId>/<fileEntryId>/`. Best-effort per entry.
+ */
+export async function purgeFileEntryVersionDirectories(storageNodeId: string, fileEntryIds: string[]): Promise<void> {
+  if (!/^[A-Za-z0-9_-]+$/.test(storageNodeId)) return;
+  for (const fileEntryId of fileEntryIds) {
+    if (!/^[A-Za-z0-9_-]+$/.test(fileEntryId)) continue;
+    await rm(blobAbsolutePath(path.posix.join(storageNodeId, fileEntryId)), { recursive: true, force: true }).catch((err) => {
+      logError("file-version:blob-purge-on-delete-failed", err);
+    });
+  }
+}
+
+/**
  * Remove every version blob kept for a storage node: the node's directory
  * under FILE_VERSION_DIR (blobs live at `<storageNodeId>/<fileEntryId>/…`).
  * For a deleted node, whose version rows went with it by cascade.

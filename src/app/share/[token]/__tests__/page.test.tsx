@@ -5,10 +5,12 @@ const mocks = vi.hoisted(() => ({
 	peekShareToken: vi.fn(),
 	listShareDirectoryFiles: vi.fn(),
 	verifyShareDownloadTicket: vi.fn(),
+	checkRateLimitAsync: vi.fn(async () => ({ allowed: true })),
+	requestHeaders: { "x-forwarded-for": "203.0.113.9" } as Record<string, string>,
 }));
 
 vi.mock("next/headers", () => ({
-	headers: vi.fn(async () => new Headers({ "x-forwarded-for": "203.0.113.9" })),
+	headers: vi.fn(async () => new Headers(mocks.requestHeaders)),
 	cookies: vi.fn(async () => ({ get: () => ({ value: "ticket" }) })),
 }));
 vi.mock("@/lib/share-link/service", () => ({
@@ -20,7 +22,11 @@ vi.mock("@/lib/share-link/download-ticket", () => ({
 	getShareDownloadTicketCookieName: () => "share_ticket",
 	verifyShareDownloadTicket: mocks.verifyShareDownloadTicket,
 }));
-vi.mock("@/lib/rate-limit", () => ({ checkRateLimitAsync: vi.fn(async () => ({ allowed: true })) }));
+// The real client-IP rule (TRUSTED_PROXY_HOPS, default 1); only the store is stubbed.
+vi.mock("@/lib/rate-limit", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/lib/rate-limit")>()),
+	checkRateLimitAsync: mocks.checkRateLimitAsync,
+}));
 vi.mock("@/lib/i18n/translations", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@/lib/i18n/translations")>()),
 	getServerLocale: async () => "zh",
@@ -44,6 +50,7 @@ const directoryShare = {
 describe("share page", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mocks.requestHeaders = { "x-forwarded-for": "203.0.113.9" };
 		mocks.listShareDirectoryFiles.mockResolvedValue([
 			{ id: "f-1", name: "a.jpg", relativePath: "team/photos/a.jpg", size: BigInt(10), mimeType: "image/jpeg", updatedAt: new Date("2026-10-18T00:00:00Z") },
 		]);
@@ -58,6 +65,19 @@ describe("share page", () => {
 		expect(mocks.peekShareToken).toHaveBeenCalledWith("tok", expect.objectContaining({ authorizedShareId: "share-1" }));
 		expect(screen.queryByTestId("password-gate")).toBeNull();
 		expect(screen.getByText("a.jpg")).toBeInTheDocument();
+	});
+
+	it("counts and logs a visitor by the address the proxy saw, not the one the visitor wrote", async () => {
+		// The first X-Forwarded-For entry is whatever the client sent: a new
+		// value per request slipped past the per-IP limit and forged the log.
+		mocks.requestHeaders = { "x-forwarded-for": "198.51.100.77, 203.0.113.9" };
+		mocks.verifyShareDownloadTicket.mockReturnValue("share-1");
+		mocks.peekShareToken.mockResolvedValue({ ...directoryShare, locked: false });
+
+		render(await SharePage({ params: Promise.resolve({ token: "tok" }) }));
+
+		expect(mocks.checkRateLimitAsync).toHaveBeenCalledWith("share-page:203.0.113.9", expect.anything());
+		expect(mocks.peekShareToken).toHaveBeenCalledWith("tok", expect.objectContaining({ ip: "203.0.113.9" }));
 	});
 
 	it("keeps it behind the password gate without one", async () => {

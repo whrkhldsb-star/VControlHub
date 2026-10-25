@@ -77,7 +77,11 @@ export async function POST(request: Request, context: RouteContext) {
 
 	let json: Record<string, unknown> = {};
 	try {
-		json = rawBody.length > 0 ? (JSON.parse(rawBody.toString("utf8")) as Record<string, unknown>) : {};
+		const parsed: unknown = rawBody.length > 0 ? JSON.parse(rawBody.toString("utf8")) : {};
+		// A ticket event is an object: `null`, an array or a number crashed the
+		// field mapping with a TypeError (500) instead of being refused.
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
+		json = parsed as Record<string, unknown>;
 	} catch {
 		return NextResponse.json({ error: apiCopy("apiCopy.invalid.json.body.7ea5df57") }, { status: 400 });
 	}
