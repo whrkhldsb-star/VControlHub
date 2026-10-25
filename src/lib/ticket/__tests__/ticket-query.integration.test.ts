@@ -23,7 +23,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ticket work
 		await prisma.team.create({ data: { id: prefix, slug: prefix, name: prefix } });
 		await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "unused" } });
 		await prisma.ticket.create({ data: { id: `${prefix}-needle`, title: "old needle", description: "x", status: "RESOLVED", category: "incident", createdBy: prefix, teamId: prefix } });
-		await prisma.$executeRaw`UPDATE tickets SET "updatedAt" = now() - interval '30 days' WHERE id = ${`${prefix}-needle`}`;
+		await prisma.$executeRaw`UPDATE tickets SET "updatedAt" = (now() AT TIME ZONE 'UTC') - interval '30 days' WHERE id = ${`${prefix}-needle`}`;
 		await prisma.ticket.createMany({ data: Array.from({ length: 205 }, (_, i) => ({ id: `${prefix}-done-${i}`, title: `done ${i}`, description: "x", status: "RESOLVED", category: "request", createdBy: prefix, teamId: prefix })) });
 	});
 	afterAll(async () => {

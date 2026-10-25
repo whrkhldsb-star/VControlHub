@@ -1,13 +1,13 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
 
-import { handleWebDavCopy, handleWebDavMove, handleWebDavPut } from "../handler";
+import { handleWebDavCopy, handleWebDavDelete, handleWebDavMove, handleWebDavPut } from "../handler";
 import { buildWebDavHref } from "../handler-internals";
 
 /**
@@ -35,6 +35,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("WebDAV MOVE
     await prisma.storageNode.create({ data: { id: prefix, name: prefix, driver: "LOCAL", basePath: root } });
   });
   afterEach(async () => {
+    await prisma.shareLink.deleteMany({ where: { storageNodeId: prefix } }).catch(() => undefined);
     await prisma.fileVersion.deleteMany({ where: { fileEntry: { storageNodeId: prefix } } }).catch(() => undefined);
     await prisma.fileEntry.deleteMany({ where: { storageNodeId: prefix } });
     await prisma.storageNode.deleteMany({ where: { id: prefix } });
@@ -63,15 +64,21 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("WebDAV MOVE
   const read = (relativePath: string) => readFileSync(join(root, relativePath), "utf8");
   const status = async (promise: Promise<Response>) => promise.then((response) => response.status, (error: { status?: number }) => error.status ?? 500);
 
-  it("MOVE with Overwrite:T replaces a live destination and keeps one live index row", async () => {
+  it("MOVE with Overwrite:T of a file onto a file keeps the destination's entry, the replaced content as a version", async () => {
+    // An editor's atomic save (write a temporary file, MOVE it over the
+    // original), as PUT and COPY treat an overwrite: the original keeps its
+    // entry — versions, favourites, links. Its row used to go to the recycle
+    // bin under a tombstone path, never restorable, with its history.
     const source = await file("a.txt", "source bytes");
     const old = await file("b.txt", "old destination bytes");
     expect(await status(handleWebDavMove(ctx("a.txt"), request("MOVE", "b.txt")))).toBe(204);
     expect(read("b.txt")).toBe("source bytes");
     expect(existsSync(join(root, "a.txt"))).toBe(false);
-    const live = await prisma.fileEntry.findMany({ where: { storageNodeId: prefix, isDeleted: false } });
-    expect(live.map((row) => [row.id, row.relativePath])).toEqual([[source.id, "b.txt"]]);
-    expect(await prisma.fileEntry.findUniqueOrThrow({ where: { id: old.id } })).toMatchObject({ isDeleted: true });
+    const rows = await prisma.fileEntry.findMany({ where: { storageNodeId: prefix } });
+    expect(rows.map((row) => [row.id, row.relativePath, row.isDeleted, row.size])).toEqual([[old.id, "b.txt", false, BigInt("source bytes".length)]]);
+    expect(await prisma.fileEntry.findUnique({ where: { id: source.id } })).toBeNull();
+    const versions = await prisma.fileVersion.findMany({ where: { fileEntryId: old.id } });
+    expect(versions.map((version) => version.sizeBytes)).toEqual([BigInt("old destination bytes".length)]);
   });
 
   it("MOVE with Overwrite:F onto a live destination changes nothing", async () => {
@@ -124,7 +131,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("WebDAV MOVE
     expect(rows.map((row) => [row.relativePath, row.name])).toEqual([["docs", "docs"], ["docs/example.txt", "example.txt"], ["docs/子目录/深.txt", "深.txt"]]);
   });
 
-  it("MOVE of a directory over a live directory moves every child and retires the old tree", async () => {
+  it("MOVE of a directory over a live directory moves every child and drops the old tree", async () => {
     const source = await dir("src");
     await file("src/one.txt", "one");
     await file("src/sub/two.txt", "two");
@@ -137,6 +144,30 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("WebDAV MOVE
     const live = await prisma.fileEntry.findMany({ where: { storageNodeId: prefix, isDeleted: false }, orderBy: { relativePath: "asc" } });
     expect(live.map((row) => row.relativePath)).toEqual(["dst", "dst/one.txt", "dst/sub/two.txt"]);
     expect(live[0]!.id).toBe(source.id);
+    // No tombstones of the replaced tree left in the recycle bin.
+    expect(await prisma.fileEntry.count({ where: { storageNodeId: prefix, isDeleted: true } })).toBe(0);
+  });
+
+  it("DELETE of a directory removes it for good: its rows (recycle-bin ones too), bytes and links", async () => {
+    await dir("docs");
+    await file("docs/live.txt", "live");
+    await file("docs/recycled.txt", "recycled bytes", true);
+    await file("other.txt", "untouched");
+    const share = (path: string) =>
+      prisma.shareLink.create({ data: { tokenHash: `${prefix}-${randomUUID()}`, storageNodeId: prefix, path, entryType: "FILE" } });
+    const inside = await share("docs/live.txt");
+    const outside = await share("other.txt");
+
+    expect(await status(handleWebDavDelete(ctx("docs")))).toBe(204);
+
+    expect(existsSync(join(root, "docs"))).toBe(false);
+    // They used to go to the recycle bin, where nothing could restore them.
+    const rows = await prisma.fileEntry.findMany({ where: { storageNodeId: prefix }, select: { relativePath: true } });
+    expect(rows.map((row) => row.relativePath)).toEqual(["other.txt"]);
+    expect((await prisma.shareLink.findUniqueOrThrow({ where: { id: inside.id } })).revokedAt).not.toBeNull();
+    expect((await prisma.shareLink.findUniqueOrThrow({ where: { id: outside.id } })).revokedAt).toBeNull();
+    // Nothing is left on disk beside the untouched file (the staged copy is gone too).
+    expect(readdirSync(root)).toEqual(["other.txt"]);
   });
 
   it("COPY onto a recycle-bin file refuses and keeps the recycled bytes", async () => {
