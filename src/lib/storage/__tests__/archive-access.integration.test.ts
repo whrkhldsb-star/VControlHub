@@ -62,7 +62,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")(
       await prisma.$disconnect();
     });
 
-    it("reads real deletion rows while excluding concurrent mutation lock holders", async () => {
+    it("reads real deletion rows and leaves the node's file operations free while it streams", async () => {
       const controller = new AbortController();
       const stream = new PassThrough();
       const open = vi.fn(() => stream);
@@ -74,30 +74,20 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")(
           open,
         });
         expect(open).toHaveBeenCalledWith(["docs/trash"]);
+        // A delete or move on the node takes this lock; a running download
+        // used to hold it and fail them as busy.
         const concurrent = await tryAcquireAdvisoryLock(
           "storage-file-operation",
           nodeId,
         );
+        expect(concurrent).not.toBeNull();
         await concurrent?.();
-        expect(concurrent).toBeNull();
       } finally {
         controller.abort();
       }
-      let released: (() => Promise<void>) | null = null;
-      try {
-        await vi.waitFor(async () => {
-          released = await tryAcquireAdvisoryLock(
-            "storage-file-operation",
-            nodeId,
-          );
-          expect(released).not.toBeNull();
-        });
-      } finally {
-        await (released as (() => Promise<void>) | null)?.();
-      }
     });
 
-    it("refuses a root which entered the recycle bin before its download acquired the lock", async () => {
+    it("refuses a root which is in the recycle bin", async () => {
       await prisma.fileEntry.update({
         where: {
           storageNodeId_relativePath: {

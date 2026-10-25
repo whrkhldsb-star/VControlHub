@@ -181,6 +181,13 @@ describe("storage chunked upload routes", () => {
 			expect("chunkSize" in args).toBe(false);
 		});
 
+		it("accepts an SVG file, as WebDAV and SFTP already do", async () => {
+			// Stored files are served sandboxed; only the image bed keeps SVG out.
+			const res = await init.POST(post(INIT_URL, initBody({ filename: "logo.svg", mimeType: "image/svg+xml", relativePath: "docs/logo.svg" })));
+			expect(res.status).toBeLessThan(300);
+			expect(mocks.initMediaUploadSession).toHaveBeenCalledWith(expect.objectContaining({ filename: "logo.svg" }));
+		});
+
 		it("forwards an explicit chunkSize", async () => {
 			await init.POST(post(INIT_URL, initBody({ chunkSize: MIN_CHUNK_SIZE })));
 			expect(mocks.initMediaUploadSession).toHaveBeenCalledWith(
@@ -219,7 +226,6 @@ describe("storage chunked upload routes", () => {
 
 		it.each([
 			["a filename with a path separator", { filename: "a/b.pdf" }],
-			["an SVG filename", { filename: "logo.svg" }],
 			["a malformed mimeType", { mimeType: "not-a-mime" }],
 			["totalSize 0", { totalSize: 0 }],
 			["a fractional totalSize", { totalSize: 10.5 }],

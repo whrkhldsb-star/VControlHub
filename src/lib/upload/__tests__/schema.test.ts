@@ -54,6 +54,20 @@ describe("upload init schemas relativePath guards", () => {
 		).toBe(false);
 	});
 
+	it("keeps SVG out of the image bed but not out of the file manager", () => {
+		expect(initMediaUploadSchema.safeParse({ filename: "logo.svg", mimeType: "image/png", totalSize: 12 }).success).toBe(false);
+		expect(initMediaUploadSchema.safeParse({ filename: "logo.png", mimeType: "image/svg+xml", totalSize: 12 }).success).toBe(false);
+		expect(
+			initStorageUploadSchema.safeParse({
+				filename: "logo.svg",
+				mimeType: "image/svg+xml",
+				totalSize: 12,
+				storageNodeId: "node_1",
+				relativePath: "docs/logo.svg",
+			}).success,
+		).toBe(true);
+	});
+
 	it("caps decoded image uploads below ordinary storage uploads", () => {
 		expect(
 			initMediaUploadSchema.safeParse({

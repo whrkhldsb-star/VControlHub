@@ -46,4 +46,15 @@ describe("remote path normalization", () => {
     expect(normalizeRemotePath("/", "/")).toBe("/");
     expect(() => normalizeRemotePath("/", "../etc/passwd")).toThrow();
   });
+
+  it("allows : ? * | in names on a Linux host and refuses them on a Windows one", () => {
+    expect(normalizeRemotePath("/data/file", "notes: v2?.txt")).toBe("/data/file/notes: v2?.txt");
+    // On Windows they are invalid, and "a.txt:hidden" would write into an
+    // alternate data stream of a.txt.
+    for (const base of ["C:/data", "/C:/data"]) {
+      expect(() => normalizeRemotePath(base, "a.txt:hidden")).toThrow(/Windows/);
+      expect(() => normalizeRemoteTargetPath(base, "docs/what?.txt")).toThrow(/Windows/);
+      expect(normalizeRemotePath(base, "docs/a b.txt")).toBe("/C:/data/docs/a b.txt");
+    }
+  });
 });

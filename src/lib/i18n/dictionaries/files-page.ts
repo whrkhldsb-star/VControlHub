@@ -169,7 +169,7 @@ export const zh: Record<string, string> = {
 	"filesPage.drive.taskDone": "{action} {count} 项已完成",
 	"filesPage.drive.taskIncomplete": "{action} {count} 项未全部完成，可在“文件任务”中查看并重试",
 	"filesPage.drive.nameError.required": "请输入名称",
-	"filesPage.drive.nameError.invalidChars": "名称不能包含 \\ / : * ? \" < > | 或控制字符",
+	"filesPage.drive.nameError.invalidChars": "名称不能包含 \\ / 或控制字符",
 	"filesPage.drive.nameError.dots": "名称不能是 . 或 ..",
 	"filesPage.drive.nameError.tooLong": "名称不能超过 255 个字符",
 };
@@ -343,7 +343,7 @@ export const en: Record<string, string> = {
 	"filesPage.drive.taskDone": "{action} of {count} items finished",
 	"filesPage.drive.taskIncomplete": "{action} of {count} items did not fully finish; see File tasks to review and retry",
 	"filesPage.drive.nameError.required": "Enter a name",
-	"filesPage.drive.nameError.invalidChars": "Names cannot contain \\ / : * ? \" < > | or control characters",
+	"filesPage.drive.nameError.invalidChars": "Names cannot contain \\ / or control characters",
 	"filesPage.drive.nameError.dots": "A name cannot be . or ..",
 	"filesPage.drive.nameError.tooLong": "Names cannot be longer than 255 characters",
 };

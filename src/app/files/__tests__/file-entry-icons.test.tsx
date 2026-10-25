@@ -74,7 +74,9 @@ describe("validateEntryName", () => {
 		expect(validateEntryName("..")).toBe("dots");
 		expect(validateEntryName("a/b")).toBe("invalidChars");
 		expect(validateEntryName("a\\b")).toBe("invalidChars");
-		expect(validateEntryName("what?")).toBe("invalidChars");
+		// Ordinary on Linux; a node on Windows refuses them itself.
+		expect(validateEntryName("what?")).toBeNull();
+		expect(validateEntryName("v2: draft|final")).toBeNull();
 		expect(validateEntryName("tab\there")).toBe("invalidChars");
 		expect(validateEntryName("x".repeat(256))).toBe("tooLong");
 	});
