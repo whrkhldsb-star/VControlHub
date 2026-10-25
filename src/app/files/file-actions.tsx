@@ -67,8 +67,12 @@ export function useFileActions(): FileActionsApi {
 	return api;
 }
 
-/** Names the server accepts (path-utils `normalizeStorageEntryName`): spaces are fine. */
-const INVALID_NAME_CHARS = /[\u0000-\u001f\u007f\\/:*?"<>|]/;
+/**
+ * Names the server accepts (path-utils `normalizeStorageEntryName`): spaces
+ * and : * ? " < > | are fine. A node on Windows refuses those six itself, with
+ * its own message.
+ */
+const INVALID_NAME_CHARS = /[\u0000-\u001f\u007f\\/]/;
 
 export function validateEntryName(name: string): "required" | "invalidChars" | "dots" | "tooLong" | null {
 	const value = name.trim();

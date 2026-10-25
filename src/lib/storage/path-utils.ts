@@ -38,7 +38,24 @@ export type StoragePathResult =
   | { ok: true; path: string }
   | { ok: false; reason: string };
 
-const INVALID_SEGMENT_CHARS = /[\u0000-\u001f\u007f\\:*?"<>|]/;
+const INVALID_SEGMENT_CHARS = /[\u0000-\u001f\u007f\\]/;
+/**
+ * What Windows filesystems refuse in a name — ":" would also address an NTFS
+ * alternate data stream of another file. Refused only where the files live on
+ * Windows: a Linux name such as "notes: v2.txt" or "a|b" is an ordinary file,
+ * and refusing it everywhere left such files out of local sync and unopenable.
+ */
+const WINDOWS_INVALID_SEGMENT_CHARS = /[:*?"<>|]/;
+
+/** A storage root on a Windows host: "C:/data", "/C:/data" or "C:\\data". */
+export function isWindowsStorageBasePath(basePath: string): boolean {
+  return /^\/?[A-Za-z]:(?:[\\/]|$)/.test(basePath.trim());
+}
+
+/** True when a name or relative path holds a character Windows does not allow in names. */
+export function hasWindowsInvalidNameChars(relativePath: string): boolean {
+  return WINDOWS_INVALID_SEGMENT_CHARS.test(relativePath);
+}
 const INVALID_ARCHIVE_ENTRY_CHARS = /[\u0000-\u001f\u007f]/;
 const MAX_PATH_LENGTH = 4096;
 const MAX_SEGMENT_LENGTH = 255;
@@ -84,6 +101,10 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
     }
     if (INVALID_SEGMENT_CHARS.test(segment)) {
       return { ok: false, reason: "Path contains illegal characters" };
+    }
+    // This process's own files (LOCAL nodes) live on Windows.
+    if (process.platform === "win32" && hasWindowsInvalidNameChars(segment)) {
+      return { ok: false, reason: 'Windows does not allow : * ? " < > | in names' };
     }
   }
 

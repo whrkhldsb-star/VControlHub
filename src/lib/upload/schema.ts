@@ -74,8 +74,15 @@ const filenameSchema = z
 	.max(256, "filename cannot exceed 256 characters")
 	.refine((f) => !f.includes("/") && !f.includes("\\"), {
 		message: "filename must not contain path separators",
-	})
-	.refine((f) => !/\.svgz?$/i.test(f), { message: "SVG uploads are not allowed" });
+	});
+
+/**
+ * The image bed serves its files as images on public pages, so SVG (which can
+ * carry script) stays out of it. The file manager keeps any file: it serves
+ * stored files sandboxed (CSP sandbox + nosniff), and WebDAV, SFTP and
+ * downloads already stored SVG — only the web upload refused it.
+ */
+const mediaFilenameSchema = filenameSchema.refine((f) => !/\.svgz?$/i.test(f), { message: "SVG uploads are not allowed" });
 
 const baseTotalSizeSchema = z
 	.number()
@@ -101,7 +108,7 @@ const chunkSizeSchema = z
 
 /** Body for POST /api/images/upload/init. */
 export const initMediaUploadSchema = z.object({
-	filename: filenameSchema,
+	filename: mediaFilenameSchema,
 	mimeType: allowedMimePrefixSchema,
 	totalSize: mediaTotalSizeSchema,
 	chunkSize: chunkSizeSchema,

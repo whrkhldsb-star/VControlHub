@@ -115,7 +115,7 @@ describe("local storage directory sync", () => {
   // The fixture needs a ":" in a file name, which NTFS cannot represent
   // (it becomes an alternate data stream); the guard is exercised on Linux CI.
   it.skipIf(process.platform === "win32")("does not prune indexed rows when the disk inventory is incomplete", async () => {
-    await writeFile(path.join(root, "unsupported:name.txt"), "keep");
+    await writeFile(path.join(root, "unsupported\u0001name.txt"), "keep");
 
     const result = await syncLocalDirectoryEntries({
       node: {
@@ -129,6 +129,20 @@ describe("local storage directory sync", () => {
     expect(result.errors[0]).toContain("Skipped unsupported entry");
     expect(prismaMock.fileEntry.findMany).not.toHaveBeenCalled();
     expect(prismaMock.fileEntry.updateMany).not.toHaveBeenCalled();
+  });
+
+  it.skipIf(process.platform === "win32")("indexes Linux names with : ? * | instead of skipping them", async () => {
+    await writeFile(path.join(root, "notes: v2?.txt"), "kept");
+
+    const result = await syncLocalDirectoryEntries({
+      node: { id: "node_local", name: "Local", driver: "LOCAL", basePath: root },
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.created).toBe(1);
+    expect(prismaMock.fileEntry.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({ name: "notes: v2?.txt", relativePath: "notes: v2?.txt" })],
+    }));
   });
 
   const indexed = (overrides: Record<string, unknown> = {}) => ({

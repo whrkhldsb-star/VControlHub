@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { hasWindowsInvalidNameChars, isWindowsStorageBasePath } from "@/lib/storage/path-utils";
 
 /**
  * Normalize a user-supplied remote path so it is always rooted under the
@@ -15,6 +16,11 @@ export function normalizeRemotePath(
 ): string {
   const base = normalizeAbsoluteBasePath(basePath);
   const normalizedRelative = normalizeRemoteRelativePath(requestedPath);
+  // The general rules allow : * ? " < > | (ordinary on Linux). On a Windows
+  // host they are invalid, and ":" would write into an alternate data stream.
+  if (isWindowsStorageBasePath(basePath) && hasWindowsInvalidNameChars(normalizedRelative)) {
+    throw new ValidationError(t("backend.storage.windowsNameCharacters"));
+  }
 
   if (!normalizedRelative) {
     return base;

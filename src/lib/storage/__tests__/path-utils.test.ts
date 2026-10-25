@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   getPathName,
   isSafeArchiveEntryPath,
+  isWindowsStorageBasePath,
   joinStoragePath,
   normalizeStorageRelativePath,
   normalizeStorageTargetDirectory,
@@ -35,17 +36,32 @@ describe("storage path utils", () => {
     expect(normalizeStorageTargetDirectory(" /team-a//docs ").ok).toBe(false);
   });
 
-  it("rejects traversal, absolute-looking roots, control chars, and shell-hostile path chars", () => {
+  it("rejects traversal, absolute-looking roots and control chars", () => {
     for (const value of [
       "../secret.txt",
       "team/../../secret.txt",
       "/etc/passwd",
       "team\u0000/a.txt",
-      "team/a:name.txt",
-      "team/a?.txt",
+      "team/a\u001fb.txt",
     ]) {
       expect(normalizeStorageRelativePath(value).ok).toBe(false);
     }
+  });
+
+  it("allows the characters Windows refuses, except where this process's files are on Windows", () => {
+    // Ordinary Linux names: refusing them left such files out of local sync
+    // and out of reach. Every shell use quotes the path as one word.
+    const names = ["team/notes: v2.txt", "team/a?.txt", "team/a*b", 'team/"quoted"', "team/<tag>", "team/a|b"];
+    for (const value of names) {
+      expect(normalizeStorageRelativePath(value)).toEqual(
+        process.platform === "win32" ? { ok: false, reason: expect.stringContaining("Windows") } : { ok: true, path: value },
+      );
+    }
+  });
+
+  it("knows a storage root on a Windows host", () => {
+    for (const base of ["C:/data", "/C:/data", "c:\\data", "D:"]) expect(isWindowsStorageBasePath(base)).toBe(true);
+    for (const base of ["/data", "/srv/C:/data", "data", "/"]) expect(isWindowsStorageBasePath(base)).toBe(false);
   });
 
   it("rejects empty target file path but allows empty target directory", () => {
@@ -57,7 +73,8 @@ describe("storage path utils", () => {
     expect(joinStoragePath("team-a/docs", "a.txt")).toEqual({ ok: true, path: "team-a/docs/a.txt" });
     expect(joinStoragePath("", "a.txt")).toEqual({ ok: true, path: "a.txt" });
     expect(joinStoragePath("team-a", "../a.txt").ok).toBe(false);
-    expect(joinStoragePath("team-a", "bad:name.txt").ok).toBe(false);
+    expect(joinStoragePath("team-a", "a/b.txt").ok).toBe(false);
+    expect(joinStoragePath("team-a", "v2: draft.txt").ok).toBe(process.platform !== "win32");
   });
 
   it("extracts safe names from normalized paths", () => {
