@@ -12,7 +12,9 @@ import { isRuntimeSettingKey, normalizeRuntimeSettingValue } from "@/lib/runtime
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { auditUserAction } from "@/lib/audit/service";
-import { t } from "@/lib/i18n/translations";
+// The request-aware translator: translations#t answers in Chinese whenever it
+// is given vars or no locale, so an English settings page got Chinese errors.
+import { t } from "@/lib/i18n/service-translations";
 import { ValidationError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";

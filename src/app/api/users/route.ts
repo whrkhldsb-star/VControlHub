@@ -13,7 +13,7 @@ import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
 import { DEFAULT_IDENTITY_TEMPLATE_ID } from "@/lib/auth/identity-templates";
 
 import { NotFoundError, ValidationError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { z } from "zod";
 import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "@/lib/user/admin-invariant";
 export const dynamic = "force-dynamic";

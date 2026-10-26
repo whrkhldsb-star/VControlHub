@@ -203,6 +203,17 @@ describe("prisma seed", () => {
     expect(mockPrisma.commandRequest.upsert).not.toHaveBeenCalled();
   });
 
+  it("replaces the built-in roles' permissions in one transaction (H-4)", async () => {
+    const recreate = Promise.resolve({ count: 0 });
+    mockPrisma.rolePermission.createMany.mockReturnValue(recreate);
+    const { seedDatabase } = await loadSeedModule();
+    await seedDatabase();
+    const batches = mockPrisma.$transaction.mock.calls.map(([operations]) => operations as unknown[]);
+    const replacing = batches.find((operations) => Array.isArray(operations) && operations.includes(recreate));
+    expect(replacing).toBeDefined();
+    expect(replacing!.length).toBe(mockPrisma.rolePermission.deleteMany.mock.calls.length + 1);
+  });
+
   it("does not recreate the default customer the administrator deleted", async () => {
     // The deleted row keeps slug "default": creating it again failed the
     // seed (P2002), and with it every install and upgrade.

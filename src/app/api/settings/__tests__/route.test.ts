@@ -167,6 +167,18 @@ describe("/api/settings audit coverage", () => {
     ], "u1");
   });
 
+  it("explains an invalid value in the language of the request (H-3)", async () => {
+    const save = (language: string) => route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json", "accept-language": language, cookie: `vps-locale=${language}` },
+      body: JSON.stringify({ "platform.name": "" }),
+    }));
+    const english = await (await save("en")).json();
+    expect(String(english.error)).toBe("Platform name is required");
+    const chinese = await (await save("zh")).json();
+    expect(String(chinese.error)).toBe("平台名称不能为空");
+  });
+
   it("rejects invalid system setting values before persisting", async () => {
     const response = await route.PATCH(new Request("http://local/api/settings", {
       method: "PATCH",

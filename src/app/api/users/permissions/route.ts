@@ -11,7 +11,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { getStorageAccessUsage } from "@/lib/storage/access-control";
 import { setAccountType } from "@/lib/user/account-type";
 import { applyResourceNarrowing } from "./route-patch";

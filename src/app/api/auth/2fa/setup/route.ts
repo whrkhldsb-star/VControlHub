@@ -41,10 +41,13 @@ export async function POST(request: Request) {
     async ({ session }) => {
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
-        select: { twoFactorEnabled: true },
+        select: { twoFactorEnabled: true, twoFactorSecret: true },
       });
 
-      if (user?.twoFactorEnabled) {
+      // Enabled means a secret too (as login and enable read it): an account
+      // flagged without one — imported from a standard export — must be able
+      // to enrol again rather than be told it already has 2FA.
+      if (user?.twoFactorEnabled && user.twoFactorSecret) {
         return NextResponse.json(
           { error: t("api.auth.twoFactor.alreadyEnabled", locale) },
           { status: 400 },

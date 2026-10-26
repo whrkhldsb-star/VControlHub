@@ -15,7 +15,7 @@ import { apiError } from "@/lib/http/api-error";
 import { CachePresets, withCacheHeaders } from "@/lib/cache";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import type { SessionPayload } from "@/lib/auth/session";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 
 export const dynamic = "force-dynamic";

@@ -19,7 +19,7 @@ import {
 import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
 import { sampleRemoteServersTraffic, type RemoteServerInput } from "@/lib/monitoring/remote-traffic";
 import { SSH_CONNECTION_SERVER_SELECT } from "@/lib/ssh/server-connection-select";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 /**
  * TR-037 R5+: the route used to inline `req.nextUrl.searchParams.get(...)`

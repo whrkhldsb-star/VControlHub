@@ -126,8 +126,6 @@ async function seedRoles() {
   const permissionIdByKey = new Map(permissions.map((permission) => [permission.key, permission.id]));
   const roleIdByKey = new Map(roles.map((role, index) => [roleEntries[index]![0], role.id]));
 
-  await prisma.$transaction(roles.map((role) => prisma.rolePermission.deleteMany({ where: { roleId: role.id } })));
-
   const rolePermissionRows = roleEntries.flatMap(([roleKey, rolePermissions]) => {
     const roleId = roleIdByKey.get(roleKey);
     if (!roleId) {
@@ -142,9 +140,13 @@ async function seedRoles() {
     });
   });
 
-  if (rolePermissionRows.length > 0) {
-    await prisma.rolePermission.createMany({ data: rolePermissionRows, skipDuplicates: true });
-  }
+  // One transaction: deleted and recreated as two steps, every built-in role
+  // had no permission in between (every deploy and container start runs the
+  // seed), and a failure there left them so until the next seed.
+  await prisma.$transaction([
+    ...roles.map((role) => prisma.rolePermission.deleteMany({ where: { roleId: role.id } })),
+    ...(rolePermissionRows.length > 0 ? [prisma.rolePermission.createMany({ data: rolePermissionRows, skipDuplicates: true })] : []),
+  ]);
   seedLog("seedRoles:done");
 }
 

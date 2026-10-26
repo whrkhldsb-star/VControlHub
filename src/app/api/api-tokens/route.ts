@@ -15,7 +15,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
 import { ForbiddenError, ValidationError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   MAX_NON_FILE_FORM_BYTES,

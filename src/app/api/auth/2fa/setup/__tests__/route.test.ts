@@ -60,12 +60,21 @@ describe("/api/auth/2fa/setup", () => {
 		});
 
 		it("returns 400 when 2FA is already enabled", async () => {
-			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true });
+			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true, twoFactorSecret: "enc:seed" });
 			const res = await route.POST(new Request("http://local/api/auth/2fa/setup", { method: "POST" }));
 			expect(res.status).toBe(400);
 			const json = await res.json();
 			expect(json.error).toMatch(/双因素认证已启用|Two-factor authentication is already enabled/);
 			expect(mocks.createEnrollmentToken).not.toHaveBeenCalled();
+		});
+
+		it("lets an account flagged enabled without a secret enrol again", async () => {
+			// A standard config export leaves the secret out: the flag alone is no
+			// second factor (login skips it), and setup refused to replace it.
+			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true, twoFactorSecret: null });
+			const res = await route.POST(new Request("http://local/api/auth/2fa/setup", { method: "POST" }));
+			expect(res.status).toBe(200);
+			expect((await res.json()).enrollmentToken).toBe("ticket.signature");
 		});
 
 		it("returns 401 when not authenticated", async () => {

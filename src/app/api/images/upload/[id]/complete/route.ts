@@ -46,7 +46,8 @@ import {
 import { auditUserAction } from "@/lib/audit/service";
 import { beginUploadFinalization, recordFinalizationFailure } from "@/lib/upload/finalization-lease";
 import { UploadOutcomeUnknownError, ForbiddenError, ValidationError } from "@/lib/errors";
-import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getServerLocale } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/upload/types";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
