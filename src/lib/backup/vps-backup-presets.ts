@@ -171,7 +171,12 @@ export function buildRemoteBackupCommand(
 	if (!preset) {
 		throw new Error(`Unknown backup preset type: ${type}`);
 	}
-	return preset.buildCommand(remoteFilePath, customPaths);
+	// The archive (a whole database dump, say) waits in /tmp until it is
+	// downloaded: created under the usual umask 022 it was readable by every
+	// local user of the VPS. It is created private first; tar and the dump
+	// redirections keep the mode of the file they truncate, also when the
+	// docker-volumes container writes it.
+	return `umask 077; : > '${remoteFilePath}'; ${preset.buildCommand(remoteFilePath, customPaths)}`;
 }
 
 /**

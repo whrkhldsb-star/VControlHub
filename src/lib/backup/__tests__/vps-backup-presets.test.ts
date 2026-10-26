@@ -1,6 +1,9 @@
 /**
  * Unit tests for VPS backup presets + cron parser (TR-043)
  */
+import { execFileSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it, expect } from "vitest";
 
@@ -86,6 +89,48 @@ describe("buildRemoteBackupCommand", () => {
 		expect(() => buildRemoteBackupCommand("custom", "/tmp/x.tar.gz", ["/etc/nginx", "/srv/../etc/shadow"])).toThrow(/invalid/i);
 		expect(invalidCustomBackupPaths(["/etc/nginx", "/srv/a\nb", "/", "/srv/file..bak", "../x"])).toEqual(["/srv/a\nb", "/", "../x"]);
 	});
+});
+
+describe.skipIf(process.platform === "win32")("remote archive privacy", () => {
+	// Stand-ins write the way the real tools do under an SSH login's umask 022;
+	// the docker one as the container would, into the bind-mounted directory.
+	const tools: Record<string, string> = {
+		mysqldump: "#!/bin/sh\nprintf 'INSERT INTO users VALUES (1, \"secret\");'\n",
+		pg_dumpall: "#!/bin/sh\nprintf 'CREATE ROLE app PASSWORD \"secret\";'\n",
+		docker: [
+			"#!/bin/sh",
+			"for arg in \"$@\"; do case \"$arg\" in *:/backup) host=\"${arg%:/backup}\";; /backup/*) base=\"${arg#/backup/}\";; esac; done",
+			"umask 022",
+			"printf 'volume data' > \"$host/$base\"",
+			"",
+		].join("\n"),
+	};
+
+	it.each(["mysql", "postgres", "docker-volumes", "custom"])(
+		"writes the %s archive readable by its owner only, not by every user of the VPS",
+		(type) => {
+			const dir = mkdtempSync(path.join(tmpdir(), "vch-preset-"));
+			try {
+				const bin = path.join(dir, "bin");
+				mkdirSync(bin);
+				for (const [name, body] of Object.entries(tools)) {
+					writeFileSync(path.join(bin, name), body);
+					chmodSync(path.join(bin, name), 0o755);
+				}
+				writeFileSync(path.join(dir, "index.html"), "<h1>site</h1>");
+				const archive = path.join(dir, "vch-backup-1-abc.tar.gz");
+				const command = buildRemoteBackupCommand(type, archive, [path.join(dir, "index.html")]);
+				execFileSync("bash", ["-c", `umask 022; ${command}`], {
+					env: { PATH: `${bin}:${process.env.PATH ?? "/usr/bin:/bin"}` },
+					stdio: "pipe",
+				});
+				expect(statSync(archive).size).toBeGreaterThan(0);
+				expect((statSync(archive).mode & 0o777).toString(8)).toBe("600");
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		},
+	);
 });
 
 describe("buildRemoteCleanupCommand", () => {
