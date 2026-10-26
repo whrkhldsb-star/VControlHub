@@ -125,12 +125,21 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		"WantedBy=multi-user.target",
 		"",
 	].join("\n");
+	// Ports are literal, as in the env template: {env.PORT} is Caddy's own
+	// environment, which never holds the app's, so every request went to
+	// "127.0.0.1:" (502). Remote desktop shares the WebSocket gateway.
 	const caddyfile = [
+		"{",
+		"\t# A reload waits for open connections at most this long, then closes them.",
+		"\tgrace_period 10s",
+		"}",
+		"",
 		`${domain} {`,
-		"  encode gzip zstd",
-		" reverse_proxy /ssh 127.0.0.1:{env.SSH_WS_PORT}",
-		" reverse_proxy /ssh/* 127.0.0.1:{env.SSH_WS_PORT}",
-		" reverse_proxy 127.0.0.1:{env.PORT}",
+		"\tencode gzip zstd",
+		"\treverse_proxy /ssh 127.0.0.1:3001",
+		"\treverse_proxy /ssh/* 127.0.0.1:3001",
+		"\treverse_proxy /rdp 127.0.0.1:3001",
+		"\treverse_proxy 127.0.0.1:3000",
 		"}",
 		"",
 	].join("\n");
@@ -142,6 +151,9 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		'SERVICE_PREFIX="${SERVICE_PREFIX:-$APP_SLUG}"',
 		'APP_DIR="${APP_DIR:-/opt/$APP_SLUG}"',
 		'mkdir -p "$APP_DIR"/{storage,uploads,downloads,logs,backups,tmp}',
+		// The units run the build in $APP_DIR; building wherever the script
+		// was started left them without dist/.
+		'cd "$APP_DIR"',
 		"npm ci",
 		"npx prisma generate",
 		"npx prisma migrate deploy",
