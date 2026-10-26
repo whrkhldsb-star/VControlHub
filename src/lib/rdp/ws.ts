@@ -35,9 +35,10 @@ const DEAD_TRANSPORT_MS = 10 * 60_000;
  *
  * Silence alone does not end a session: a browser that stops reading for a
  * while looks the same from here. Chrome freezes a background tab that keeps
- * using CPU (an RDP stream decoding images) after about five minutes hidden;
- * ending those after 60 s without a pong cut a desktop every 6–8 minutes in
- * production (10-26), which reconnected when its tab was shown again.
+ * using CPU (a desktop decoding frames), and a page that cannot keep up stops
+ * reading its busiest stream first — each WebSocket is flow-controlled on its
+ * own. Ending those after 60 s without a pong cut the busiest of two desktops
+ * every 6–8 minutes in production (10-26), while the other kept answering.
  */
 const PING_INTERVAL_MS = 15_000;
 const PONG_TOLERANCE_MS = 60_000;
