@@ -76,6 +76,11 @@ pull_latest_code() {
   log "Fetching latest code for ${UPGRADE_REF}"
   git_app fetch --prune origin
 
+  # The build regenerates the route catalog in place (prebuild): a checkout
+  # built by the installer is not locally changed for that, and the build
+  # after this pull regenerates it again. It used to stop every update of a
+  # one-click install here.
+  git_app checkout -q -- docs/route-catalog.json 2>/dev/null || true
   if [ -n "$(git_app status --porcelain)" ]; then
     fail "Working tree has local changes. Commit/stash them or run with SKIP_PULL=1."
   fi

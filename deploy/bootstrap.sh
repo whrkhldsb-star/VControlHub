@@ -125,6 +125,8 @@ checkout_repo() {
     # The installer hands the checkout to the service user; run from root,
     # plain git stopped here with "dubious ownership" before reinstalling
     # (upgrade.sh and install.sh already pass the same exception).
+    # The build regenerates the route catalog in place; it must not stop the pull.
+    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
     git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch origin "${BRANCH}" --prune
     git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout "${BRANCH}"
     git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"

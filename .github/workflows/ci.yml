@@ -170,6 +170,14 @@ jobs:
       - name: Build runtime bundle
         run: npm run build:runtime
 
+      # The build regenerates docs/route-catalog.json (prebuild). A committed
+      # copy behind the source left every one-click install with a changed
+      # file, and its first update stopped at "Working tree has local changes".
+      - name: Route catalog matches the source
+        run: |
+          npm run route:verify
+          git diff --exit-code -- docs/route-catalog.json
+
   # Windows compatibility gate: the same unit/type/lint/build chain on
   # windows-latest so cross-platform regressions (path handling, native
   # spawns, shell-only scripts) fail PRs instead of only Windows users.
