@@ -83,11 +83,12 @@ export async function fetchModelsFromCredentials(input: {
 	apiKey: string;
 	baseUrl?: string;
 	defaultModel?: string;
+	type?: string;
 }): Promise<AiModelInfo[]> {
 	if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyCannotBeEmpty"));
 	const baseUrl = trimProviderBaseUrl(input.baseUrl, DEFAULT_AI_BASE_URL);
 
-	const rawModels = await fetchProviderModels({ apiKey: input.apiKey, baseUrl });
+	const rawModels = await fetchProviderModels({ apiKey: input.apiKey, baseUrl, type: input.type });
 	const models = rawModels
 		.map((m) => {
 			const caps = detectModelCapabilities(m.id);
@@ -117,7 +118,7 @@ export async function fetchModelsFromProvider(providerId: string, userId: string
 	const rawApiKey = safeDecryptApiKey(provider.apiKey);
 	const rawModels: Array<{ id: string; name?: string; owned_by?: string; context_length?: number }> = [];
 	try {
-		rawModels.push(...(await fetchProviderModels({ apiKey: rawApiKey, baseUrl })));
+		rawModels.push(...(await fetchProviderModels({ apiKey: rawApiKey, baseUrl, type: provider.type })));
 	} catch {
 		// Fallback: return saved availableModels (tolerate corrupt JSON)
 		let saved: string[] = [];

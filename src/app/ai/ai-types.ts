@@ -147,7 +147,7 @@ export const PROVIDER_PRESETS: Array<{
     type: "ANTHROPIC",
     name: "Anthropic",
     baseUrl: "https://api.anthropic.com/v1",
-    models: ["claude-sonnet-4-5", "claude-opus-4-1"],
+    models: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
     apiKeyUrl: "https://console.anthropic.com/settings/keys",
   },
   {

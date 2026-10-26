@@ -170,6 +170,13 @@ describe("probeModelsSchema", () => {
     expect(probeModelsSchema.safeParse({ apiKey: "" }).success).toBe(false);
   });
 
+  it("keeps the provider type the panel sends", () => {
+    // Stripped, the probe could not tell an Anthropic key from an OpenAI one.
+    const parsed = probeModelsSchema.parse({ type: "ANTHROPIC", apiKey: "sk-ant" });
+    expect(parsed.type).toBe("ANTHROPIC");
+    expect(probeModelsSchema.safeParse({ type: "NOPE", apiKey: "k" }).success).toBe(false);
+  });
+
   it("accepts baseUrl + defaultModel", () => {
     expect(
       probeModelsSchema.parse({

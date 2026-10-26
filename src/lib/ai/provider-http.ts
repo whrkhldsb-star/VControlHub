@@ -32,6 +32,8 @@ export interface ProviderModelRow {
 export interface ProviderModelsRequest {
 	apiKey: string;
 	baseUrl: string;
+	/** Provider type: Anthropic authenticates and pages its model list its own way. */
+	type?: string;
 }
 
 export interface ProviderChatRequest {
@@ -152,10 +154,16 @@ export async function fetchProviderModels(
 	}
 	const baseUrl = trimTrailingSlash(input.baseUrl);
 	await assertProviderUrlSafe(baseUrl);
-	const response = await fetchProviderResponse(`${baseUrl}${MODELS_PATH}`, {
+	// Anthropic reads an API key from x-api-key (Bearer is for OAuth tokens
+	// there) and returns 20 models a page: with Bearer the key was refused as
+	// invalid, so an Anthropic provider could never fetch its models.
+	const anthropic = input.type === "ANTHROPIC";
+	const response = await fetchProviderResponse(`${baseUrl}${MODELS_PATH}${anthropic ? "?limit=1000" : ""}`, {
 		method: "GET",
 		redirect: "error",
-		headers: { Authorization: `Bearer ${input.apiKey.trim()}` },
+		headers: anthropic
+			? { "x-api-key": input.apiKey.trim(), "anthropic-version": "2023-06-01" }
+			: { Authorization: `Bearer ${input.apiKey.trim()}` },
 		signal: AbortSignal.timeout(AI_PROVIDER_MODELS_TIMEOUT_MS),
 	}, "models", AI_PROVIDER_MODELS_TIMEOUT_MS);
 	if (!response.ok) {
