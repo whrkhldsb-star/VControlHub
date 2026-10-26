@@ -1,6 +1,9 @@
 # Managed by VControlHub installer: {{APP_SLUG}}
 {
 	auto_https disable_redirects
+	# A reload waits for open connections at most this long, then closes them:
+	# without it a WebSocket whose browser stopped reading held it forever.
+	grace_period 10s
 }
 
 (vcontrolhub_routes) {
