@@ -121,7 +121,7 @@ describe.skipIf(process.platform === "win32")("remote archive privacy", () => {
 				const archive = path.join(dir, "vch-backup-1-abc.tar.gz");
 				const command = buildRemoteBackupCommand(type, archive, [path.join(dir, "index.html")]);
 				execFileSync("bash", ["-c", `umask 022; ${command}`], {
-					env: { PATH: `${bin}:${process.env.PATH ?? "/usr/bin:/bin"}` },
+					env: { ...process.env, PATH: `${bin}:${process.env.PATH ?? "/usr/bin:/bin"}` },
 					stdio: "pipe",
 				});
 				expect(statSync(archive).size).toBeGreaterThan(0);

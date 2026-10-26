@@ -302,7 +302,9 @@ describe.skipIf(!hasPython)("Linux Agent (agent.py) against a fake hub", () => {
     const dir = mkdtempSync(join(tmpdir(), "vch-agent-"));
     const script = join(dir, "agent.py");
     writeFileSync(script, buildAgentPython(hub.url, TOKEN));
-    const agent = spawn("python3", [script], { stdio: "ignore", cwd: dir, env: { PATH: process.env.PATH ?? "/usr/bin:/bin" } });
+    const env = { ...process.env };
+    for (const key of ["HOME", "USER", "LOGNAME", "SHELL"]) delete env[key];
+    const agent = spawn("python3", [script], { stdio: "ignore", cwd: dir, env });
     try {
       await expect.poll(() => resultOf(hub.polls), { timeout: 15_000 }).toBeTruthy();
       const account = userInfo();
