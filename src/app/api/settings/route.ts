@@ -1,3 +1,4 @@
+import { checkTurnstileSecret } from "@/lib/auth/turnstile";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -131,6 +132,12 @@ function normalizeSettingValue(key: string, value: string) {
 			if (trimmed && trimmed !== "dark" && trimmed !== "light") throw new ValidationError(t("backend.settings.platformDefaultThemeInvalid"));
 			return { key, value: trimmed };
 		}
+		case "security.turnstileSiteKey":
+		case "security.turnstileSecretKey": {
+			const trimmed = value.trim();
+			if (trimmed.length > 200 || /\s/.test(trimmed)) throw new ValidationError(t("backend.settings.turnstileKeyInvalid"));
+			return { key, value: trimmed };
+		}
 		case "telegram.botToken":
 			// Bot Token 形如 "123456:ABC-DEF..." — 拒绝空白和明显非 token 字符; 不强校验格式以兼容老 Bot API
 			return { key, value: value.trim() };
@@ -227,6 +234,14 @@ export async function PATCH(request: Request) {
 				success: true,
 				message: t("backend.settings.noValidUpdates"),
 			});
+		}
+
+		// A secret Cloudflare does not know would refuse every login, the
+		// administrator's included: check it before it is stored.
+		const turnstileSecret = entries.find((entry) => entry.key === "security.turnstileSecretKey" && entry.value);
+		if (turnstileSecret && (await checkTurnstileSecret(turnstileSecret.value))) {
+			const message = t("backend.settings.turnstileSecretRejected");
+			return NextResponse.json({ error: message, details: [message] }, { status: 400 });
 		}
 
 		await setManySettings(entries, session.userId);

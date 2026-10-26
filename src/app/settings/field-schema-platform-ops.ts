@@ -36,6 +36,22 @@ export const SECURITY_POLICY_SETTINGS_SECTIONS: SectionDef[] = [
 				helperTextKey: "settingsClient.field.security.sshEnforceHostKeyPin.helper",
 				riskLevel: "high",
 			},
+			{
+				key: "security.turnstileSiteKey",
+				labelKey: "settingsClient.field.security.turnstileSiteKey.label",
+				type: "text",
+				defaultValue: "",
+				helperTextKey: "settingsClient.field.security.turnstileSiteKey.helper",
+				riskLevel: "high",
+			},
+			{
+				key: "security.turnstileSecretKey",
+				labelKey: "settingsClient.field.security.turnstileSecretKey.label",
+				type: "password",
+				defaultValue: "",
+				helperTextKey: "settingsClient.field.security.turnstileSecretKey.helper",
+				riskLevel: "high",
+			},
 		],
 	},
 ];

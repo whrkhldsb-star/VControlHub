@@ -17,6 +17,7 @@ import {
 } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
 import { normalizeUserPreferencesForSession } from "@/lib/preferences/user-preferences";
+import { getTurnstileConfig, TURNSTILE_RESPONSE_FIELD, verifyTurnstileToken } from "@/lib/auth/turnstile";
 
 const logger = createLogger("api:login");
 // guardMode: login
@@ -111,6 +112,19 @@ export async function POST(request: Request) {
 		const rememberSession = parsed.data.remember === "on" || parsed.data.remember === "true" || parsed.data.remember === "1";
 		const sessionMaxAge = await getConfiguredSessionTtlSeconds(rememberSession);
 		const requestedNextPath = safeNextPath(formData.get("next"));
+
+		// Human verification first: a bot then never reaches the password
+		// check, nor counts towards the account's lockout.
+		const turnstile = await getTurnstileConfig();
+		if (turnstile) {
+			const verdict = await verifyTurnstileToken(turnstile, formData.get(TURNSTILE_RESPONSE_FIELD), clientIp === "unknown" ? undefined : clientIp);
+			if (!verdict.ok) {
+				await auditSystemAction("auth.login_captcha_failed", { username, ip: clientIp, reason: verdict.reason.slice(0, 120) }, "WARNING");
+				const params = new URLSearchParams(requestedNextPath === "/" ? { error: "captcha" } : { error: "captcha", next: requestedNextPath });
+				return redirectWithRelativeLocation(`/login?${params.toString()}`);
+			}
+			if (verdict.unverified) await auditSystemAction("auth.login_captcha_unverified", { username, ip: clientIp }, "WARNING");
+		}
 
 		// Check account lockout before attempting authentication
 		const lockCheck = await isAccountLockedAsync(username, clientIp);

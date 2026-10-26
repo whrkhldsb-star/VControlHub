@@ -1408,6 +1408,8 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 密码最小长度、是否要求大写／数字／特殊字符由平台设置约束，作用于新建、重置和改密。登录限流与账号锁定状态用于限制持续错误尝试，配置 Redis 后可在多实例间共享相关状态。
 
+登录页可启用 Cloudflare Turnstile 人机验证：在 Cloudflare 控制台 → Turnstile 为本站主机名添加小组件，把 Site Key 和 Secret Key 填入设置页“安全策略”。两项都填写时登录表单显示验证组件，验证通过后才校验密码，未通过的尝试不计入账号锁定，并以 `auth.login_captcha_failed` 记入审计；任一项留空即关闭。Secret Key 加密保存，保存前先向 Cloudflare 核对，Cloudflare 不认识的密钥不予保存。控制中心暂时连不上 Cloudflare 时登录照常进行（仍有密码校验与失败锁定），记为 `auth.login_captcha_unverified`。若密钥填错导致无法登录，在服务器 `.env.runtime` 中加入 `TURNSTILE_DISABLED=true` 并重启服务即可临时关闭。
+
 ### 17.2 双因素认证
 
 用户在账户安全中发起设置，使用自己的认证器扫描二维码或手工录入密钥，输入当前验证码完成启用。

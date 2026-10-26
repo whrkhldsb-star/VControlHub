@@ -1,16 +1,21 @@
 import { t, type Locale } from "@/lib/i18n/translations";
 import { Input, Notice } from "@/components/ui-primitives";
 import { SubmitButton } from "@/components/submit-button";
+import { TURNSTILE_SCRIPT_URL } from "@/lib/auth/turnstile";
 
 type LoginFormProps = {
 	nextPath: string;
 	error?: string;
 	locale: Locale;
+	/** Cloudflare Turnstile's site key when the login asks for human verification. */
+	turnstileSiteKey?: string;
+	/** The page's CSP nonce, for Turnstile's script. */
+	nonce?: string;
 };
 
 
 
-export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
+export function LoginForm({ nextPath, error, locale, turnstileSiteKey, nonce }: LoginFormProps) {
 	return (
 		<form action="/api/login" method="post" className="space-y-4">
 			<input type="hidden" name="next" value={nextPath} />
@@ -47,6 +52,15 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 				/>
 				<span>{t("login.form.remember", locale)}</span>
 			</label>
+
+			{turnstileSiteKey ? (
+				<div className="space-y-1.5">
+					<span className="ui-label">{t("login.form.captcha", locale)}</span>
+					{/* The widget adds the cf-turnstile-response field to this form. */}
+					<div className="cf-turnstile" data-sitekey={turnstileSiteKey} data-theme="auto" data-size="flexible" data-language={locale === "zh" ? "zh-cn" : "en"} data-testid="login-turnstile" />
+					<script src={TURNSTILE_SCRIPT_URL} async defer nonce={nonce} />
+				</div>
+			) : null}
 
 			{error ? (
 				<Notice tone="danger" className="mb-4">{error}</Notice>

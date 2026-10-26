@@ -64,6 +64,9 @@ const DEFAULTS: Record<string, string> = {
 	"security.sshEnforceHostKeyPin": "",
 	// RDP frames that change often as WebP (env RDP_WEBP_IMAGES is the fallback); see rdp/features.
 	"rdp.webpImages": "",
+	// Cloudflare Turnstile on the login form: on when both are set (see auth/turnstile).
+	"security.turnstileSiteKey": "",
+	"security.turnstileSecretKey": "",
 	...Object.fromEntries(
 		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])
 	),
