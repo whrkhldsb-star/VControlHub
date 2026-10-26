@@ -89,7 +89,7 @@ test("RDP native text paste and Linux/Windows connection control dimensions", as
     const pasted: string[] = [];
     const pressed: number[] = [];
     let clipboard = "", chunks: Buffer[] = [], control = false;
-    await page.routeWebSocket(/\/rdp$/, ws => {
+    await page.routeWebSocket(/\/rdp(?:\?|$)/, ws => {
       const parser = new GuacParser(row => {
         if (row[0] === "clipboard") chunks = [];
         if (row[0] === "blob") chunks.push(Buffer.from(row[2]!, "base64"));

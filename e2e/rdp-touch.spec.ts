@@ -29,7 +29,7 @@ test("a finger moves, clicks and right-clicks the remote pointer on a phone", as
     page.on("pageerror", error => pageErrors.push(error.message));
     await page.route("**/api/auth/rdp-ticket", route => route.fulfill({ json: { token: "fixture-ticket", path: "/rdp" } }));
     const mice: Array<{ x: number; y: number; mask: number }> = [];
-    await page.routeWebSocket(/\/rdp$/, ws => {
+    await page.routeWebSocket(/\/rdp(?:\?|$)/, ws => {
       const parser = new GuacParser(row => {
         if (row[0] === "mouse") mice.push({ x: Number(row[1]), y: Number(row[2]), mask: Number(row[3]) });
         if (row[0] === "") ws.send(instruction(...row));
