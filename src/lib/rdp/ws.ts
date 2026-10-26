@@ -10,7 +10,7 @@ import { decrypt } from "@/lib/crypto/service";
 import { checkGuacd, consumeRdpTicket, getRdpServer, guacdPort, rdpEndpointHash, rdpOriginAllowed } from "./tickets";
 import { GuacParser, instruction, validateClientInstruction } from "./protocol";
 import { getRdpSessionRuntimeConfig } from "@/lib/runtime-settings/service";
-import { rdpAudioEnabled, rdpClipboardEnabled, RDP_AUDIO_MIMETYPES } from "./features";
+import { rdpAudioEnabled, rdpClipboardEnabled, rdpImageMimetypes, RDP_AUDIO_MIMETYPES } from "./features";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("rdp-ws");
@@ -244,6 +244,7 @@ export function setupRdpWebSocket(server: HttpServer) {
   let maxSessionMs = 0;
   let clipboardAllowed = false;
   let audioAllowed = false;
+  let imageMimetypes = ["image/png", "image/jpeg"];
   const clipboardStreams = new Map<number, number>();
   // One "failed" per attempt: guacd's error already recorded why, so the
   // close that follows a failed handshake must not record it a second time.
@@ -409,7 +410,7 @@ export function setupRdpWebSocket(server: HttpServer) {
     await checkGuacd();
     const { idleTimeoutMs: idleMs, maxSessionMs: maxMs } = await getRdpSessionRuntimeConfig();
     idleTimeoutMs = idleMs; maxSessionMs = maxMs;
-    clipboardAllowed = rdpClipboardEnabled(); audioAllowed = rdpAudioEnabled();
+    clipboardAllowed = rdpClipboardEnabled(); audioAllowed = rdpAudioEnabled(); imageMimetypes = await rdpImageMimetypes();
     if (stopped || ws.readyState !== WebSocket.OPEN) return;
     const endpointHash = rdpEndpointHash(target);
     revalidate = async () => {
@@ -478,7 +479,7 @@ export function setupRdpWebSocket(server: HttpServer) {
       if (row[0] !== "args") throw new Error("Expected args");
       const args = row.slice(1);
       rdpCertificateOptions(target, args);
-      tunnel?.write(instruction("size", String(desktop.width), String(desktop.height), "96") + instruction("audio", ...(audioAllowed ? RDP_AUDIO_MIMETYPES : [])) + instruction("video") + instruction("image", "image/png", "image/jpeg") +
+      tunnel?.write(instruction("size", String(desktop.width), String(desktop.height), "96") + instruction("audio", ...(audioAllowed ? RDP_AUDIO_MIMETYPES : [])) + instruction("video") + instruction("image", ...imageMimetypes) +
        instruction("connect", ...args.map(key => key.startsWith("VERSION_") ? "VERSION_1_5_0" : options[key] ?? "")));
       delete options.password;
       phase = "ready"; return;

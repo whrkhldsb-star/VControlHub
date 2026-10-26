@@ -393,6 +393,8 @@ export const en: Record<string, string> = {
 	"settingsClient.field.security.loginLockoutMinutes.helper": "Length of the lockout and of the failure counting window (1–1440).",
 	"settingsClient.field.security.rememberSessionTtlSeconds.label": "\"Remember me\" session lifetime (seconds)",
 	"settingsClient.field.security.rememberSessionTtlSeconds.helper": "How long a session lasts when \"remember me\" was ticked (1 hour to 365 days); ordinary logins follow the session timeout above. AUTH_REMEMBER_SESSION_TTL_SECONDS wins when set.",
+	"settingsClient.field.rdp.webpImages.label": "Remote desktop frames as WebP",
+	"settingsClient.field.rdp.webpImages.helper": "When on, regions of a remote desktop that change often (video, scrolling, animation) are sent as WebP instead of JPEG: fewer bytes at the same quality, for limited bandwidth or detours through Cloudflare, at the cost of more CPU on the hub to encode them. Still pictures stay lossless PNG. Applies from the next connection.",
 	"settingsClient.field.security.sshEnforceHostKeyPin.label": "SSH requires a pinned host key",
 	"settingsClient.field.security.sshEnforceHostKeyPin.helper": "When on, a server without a recorded host-key fingerprint is refused until the fingerprint is confirmed on its detail page; when off, the first connection records it. Unset follows SSH_ENFORCE_HOST_KEY_PIN.",
 	"settingsClient.field.jobs.defaultMaxAttempts.label": "Default job attempts",

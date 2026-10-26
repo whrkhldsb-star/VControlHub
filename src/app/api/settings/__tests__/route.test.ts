@@ -50,6 +50,7 @@ describe("/api/settings audit coverage", () => {
       "runtime.aiConversationListLimit",
       "security.loginLockoutMinutes",
       "security.sshEnforceHostKeyPin",
+      "rdp.webpImages",
       "telegram.enabled",
       "telegram.chatId",
     ].includes(key));
@@ -212,6 +213,24 @@ describe("/api/settings audit coverage", () => {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ "security.sshEnforceHostKeyPin": "yes" }),
+    }));
+    expect(invalid.status).toBe(400);
+  });
+
+  it("stores the RDP WebP switch as on, off or empty (the environment decides)", async () => {
+    for (const value of ["true", "false", ""]) {
+      const response = await route.PATCH(new Request("http://local/api/settings", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ "rdp.webpImages": value }),
+      }));
+      expect(response.status).toBe(200);
+      expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "rdp.webpImages", value }], "u1");
+    }
+    const invalid = await route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ "rdp.webpImages": "webp" }),
     }));
     expect(invalid.status).toBe(400);
   });

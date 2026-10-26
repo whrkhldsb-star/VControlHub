@@ -62,6 +62,8 @@ const DEFAULTS: Record<string, string> = {
 	"platform.defaultLocale": "zh",
 	"platform.defaultTheme": "dark",
 	"security.sshEnforceHostKeyPin": "",
+	// RDP frames that change often as WebP (env RDP_WEBP_IMAGES is the fallback); see rdp/features.
+	"rdp.webpImages": "",
 	...Object.fromEntries(
 		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])
 	),

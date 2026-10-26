@@ -117,7 +117,8 @@ function normalizeSettingValue(key: string, value: string) {
 		case "telegram.enabled":
 			return normalizeBooleanSetting(key, value);
 		case "security.sshEnforceHostKeyPin":
-			// Empty keeps SSH_ENFORCE_HOST_KEY_PIN in force (the stored default).
+		case "rdp.webpImages":
+			// Empty keeps the environment's value in force (the stored default).
 			return value.trim() === "" ? { key, value: "" } : normalizeBooleanSetting(key, value);
 		case "platform.defaultLocale": {
 			const trimmed = value.trim().toLowerCase();

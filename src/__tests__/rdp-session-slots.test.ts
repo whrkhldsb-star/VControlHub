@@ -4,7 +4,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { instruction } from "@/lib/rdp/protocol";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), audit: vi.fn(async () => undefined) }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), audit: vi.fn(async () => undefined), images: vi.fn(async () => ["image/png", "image/jpeg"]) }));
 vi.mock("ws", () => ({
   WebSocket: { OPEN: 1 },
   WebSocketServer: class { constructor() { return mocks.webSocketServer(); } },
@@ -20,7 +20,7 @@ vi.mock("@/lib/rdp/tickets", () => ({
   guacdPort: () => 4822, rdpEndpointHash: () => "endpoint", rdpOriginAllowed: () => true,
 }));
 vi.mock("@/lib/runtime-settings/service", () => ({ getRdpSessionRuntimeConfig: async () => ({ idleTimeoutMs: 0, maxSessionMs: 0 }) }));
-vi.mock("@/lib/rdp/features", () => ({ rdpAudioEnabled: () => false, rdpClipboardEnabled: () => false, RDP_AUDIO_MIMETYPES: [] }));
+vi.mock("@/lib/rdp/features", () => ({ rdpAudioEnabled: () => false, rdpClipboardEnabled: () => false, rdpImageMimetypes: mocks.images, RDP_AUDIO_MIMETYPES: [] }));
 
 import { initialDesktopSize, setupRdpWebSocket } from "@/lib/rdp/ws";
 
@@ -70,6 +70,15 @@ describe("RDP session slots", () => {
     const { tunnel } = await open("a", "/rdp?width=1600&height=900", instruction("args", "VERSION_1_5_0", "hostname", "disable-gfx", "color-depth", "resize-method"));
     const connect = tunnel.write.mock.calls.map(([data]) => String(data)).find((data) => data.includes("7.connect,"));
     expect(connect).toContain(instruction("connect", "VERSION_1_5_0", "192.0.2.1", "true", "24", "display-update"));
+  });
+
+  it("tells guacd the browser takes WebP only when the setting says so", async () => {
+    // guacd then sends often-changing regions as WebP instead of JPEG.
+    const plain = await open("a");
+    expect(plain.tunnel.write.mock.calls.map(([data]) => String(data)).join("")).toContain(instruction("image", "image/png", "image/jpeg") + instruction("connect"));
+    mocks.images.mockResolvedValueOnce(["image/png", "image/jpeg", "image/webp"]);
+    const webp = await open("b");
+    expect(webp.tunnel.write.mock.calls.map(([data]) => String(data)).join("")).toContain(instruction("image", "image/png", "image/jpeg", "image/webp"));
   });
 
   it("falls back to 1280 x 800 without a usable size", () => {

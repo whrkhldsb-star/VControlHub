@@ -134,6 +134,7 @@ describe("SettingsClient", () => {
           "runtime.sftpSyncDirectoryTimeoutMs": "60000",
           "runtime.sshWsHeartbeatIntervalMs": "25000",
           "runtime.sshIdleTimeoutSec": "600",
+          "rdp.webpImages": "",
           "runtime.operationTaskListLimit": "100",
           "runtime.aiProviderListLimit": "100",
           "runtime.aiConversationListLimit": "200",

@@ -4,7 +4,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { instruction } from "@/lib/rdp/protocol";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), clipboard: vi.fn(), audit: vi.fn(async () => undefined) }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), clipboard: vi.fn(), audit: vi.fn(async () => undefined), images: vi.fn(async () => ["image/png", "image/jpeg"]) }));
 vi.mock("ws", () => ({
   WebSocket: { OPEN: 1 },
   WebSocketServer: class { constructor() { return mocks.webSocketServer(); } },
@@ -20,7 +20,7 @@ vi.mock("@/lib/rdp/tickets", () => ({
   guacdPort: () => 4822, rdpEndpointHash: () => "endpoint", rdpOriginAllowed: () => true,
 }));
 vi.mock("@/lib/runtime-settings/service", () => ({ getRdpSessionRuntimeConfig: async () => ({ idleTimeoutMs: 0, maxSessionMs: 0 }) }));
-vi.mock("@/lib/rdp/features", () => ({ rdpAudioEnabled: () => false, rdpClipboardEnabled: mocks.clipboard, RDP_AUDIO_MIMETYPES: [] }));
+vi.mock("@/lib/rdp/features", () => ({ rdpAudioEnabled: () => false, rdpClipboardEnabled: mocks.clipboard, rdpImageMimetypes: mocks.images, RDP_AUDIO_MIMETYPES: [] }));
 
 import { setupRdpWebSocket } from "@/lib/rdp/ws";
 
