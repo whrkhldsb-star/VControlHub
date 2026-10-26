@@ -162,6 +162,11 @@ run_install() {
 
 run_update() {
   require_installed_script deploy/upgrade.sh
+  # Installs whose upgrade.sh predates the fix refuse the update over the
+  # route catalog their own build rewrote; this script is fetched fresh.
+  if [ -d "${APP_DIR}/.git" ]; then
+    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
+  fi
   log "Starting backup-first update"
   APP_NAME="${APP_NAME}" APP_SLUG="${APP_SLUG}" SERVICE_PREFIX="${SERVICE_PREFIX}" \
     APP_DIR="${APP_DIR}" UPGRADE_REF="${BRANCH}" "${APP_DIR}/deploy/upgrade.sh" "$@"
