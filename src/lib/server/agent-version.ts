@@ -4,7 +4,7 @@
  * idle (agentSelfUpdateFor); older ones keep theirs until they are installed
  * again over SSH, and Windows Agents until a new install command is run.
  */
-export const AGENT_VERSION = "1.5.0";
+export const AGENT_VERSION = "1.5.1";
 
 /** An Agent that reported a version other than the current build. */
 export function isAgentOutdated(version: string | null | undefined): boolean {

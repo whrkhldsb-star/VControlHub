@@ -3,7 +3,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
-import { tmpdir } from "node:os";
+import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
@@ -276,4 +276,41 @@ describe.skipIf(!hasPython)("Linux Agent (agent.py) against a fake hub", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }, 60_000);
+
+  it.skipIf(!existsSync("/bin/bash"))("runs a job in bash, as SSH does, where /bin/sh is a smaller shell", async () => {
+    // Through /bin/sh (dash on Debian/Ubuntu) "set -o pipefail" failed every
+    // VPS backup preset, and {1..3} printed itself.
+    const hub = await startHub([{ status: 200, body: { pollAfterMs: 0, job: { id: "bash", command: "set -euo pipefail; for i in {1..3}; do printf %s $i; done; [[ -n x ]] && printf ' ok'", timeoutMs: 10_000 } } }]);
+    const dir = mkdtempSync(join(tmpdir(), "vch-agent-"));
+    const script = join(dir, "agent.py");
+    writeFileSync(script, buildAgentPython(hub.url, TOKEN));
+    const agent = spawn("python3", [script], { stdio: "ignore" });
+    try {
+      await expect.poll(() => resultOf(hub.polls), { timeout: 15_000 }).toBeTruthy();
+      expect(resultOf(hub.polls)).toMatchObject({ jobId: "bash", stdout: "123 ok", exitCode: 0 });
+    } finally {
+      agent.kill("SIGKILL");
+      await hub.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it("gives a job the account's home, name and directory, as SSH does, under systemd's bare environment", async () => {
+    // systemd starts a root service without HOME: the key install template's
+    // "$HOME/.ssh" was "/.ssh", and jobs ran in / rather than the home directory.
+    const hub = await startHub([{ status: 200, body: { pollAfterMs: 0, job: { id: "env", command: 'printf "%s|%s|%s" "$HOME" "$(pwd)" "$USER"', timeoutMs: 10_000 } } }]);
+    const dir = mkdtempSync(join(tmpdir(), "vch-agent-"));
+    const script = join(dir, "agent.py");
+    writeFileSync(script, buildAgentPython(hub.url, TOKEN));
+    const agent = spawn("python3", [script], { stdio: "ignore", cwd: dir, env: { PATH: process.env.PATH ?? "/usr/bin:/bin" } });
+    try {
+      await expect.poll(() => resultOf(hub.polls), { timeout: 15_000 }).toBeTruthy();
+      const account = userInfo();
+      expect(resultOf(hub.polls)).toMatchObject({ jobId: "env", stdout: `${account.homedir}|${account.homedir}|${account.username}`, exitCode: 0 });
+    } finally {
+      agent.kill("SIGKILL");
+      await hub.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
 });

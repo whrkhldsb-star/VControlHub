@@ -335,7 +335,7 @@ async function withAgentCancellationDeadline<T>(query: PromiseLike<T>): Promise<
 export function buildAgentPython(hubUrl: string, token: string) {
   const endpoint = new URL("/api/agent/v1/poll", hubUrl).toString();
   return `#!/usr/bin/env python3
-import base64, http.client, json, os, signal, subprocess, sys, threading, time, urllib.parse
+import base64, http.client, json, os, pwd, signal, subprocess, sys, threading, time, urllib.parse
 ENDPOINT=${JSON.stringify(endpoint)}
 TOKEN=${JSON.stringify(token)}
 MONITOR=${JSON.stringify(MONITOR_SCRIPT)}
@@ -352,6 +352,23 @@ REJECTED="Agent result rejected by the hub"
 # Split so that the only line holding the joined text is a template's TOKEN line.
 PLACEHOLDER="__VCH_"+"AGENT_TOKEN__"
 SCRIPT=os.path.realpath(sys.argv[0])
+# Jobs run in bash where there is one, as they do over SSH (root's login shell
+# on most systems): through /bin/sh (dash on Debian/Ubuntu) "set -o pipefail"
+# failed outright and bash syntax ({1..3}, [[ ]]) gave other results.
+SHELL="/bin/bash" if os.access("/bin/bash", os.X_OK) else "/bin/sh"
+def job_environment():
+    # A login's environment and directory, as SSH gives a command: systemd
+    # starts a root service with no HOME, so "$HOME/.ssh" (the key install
+    # template) was "/.ssh", and jobs ran in / instead of the home directory.
+    env=dict(os.environ)
+    try:
+        account=pwd.getpwuid(os.getuid())
+        for key, value in (("HOME", account.pw_dir), ("USER", account.pw_name), ("LOGNAME", account.pw_name)):
+            if not env.get(key): env[key]=value
+    except KeyError: pass
+    if not env.get("SHELL"): env["SHELL"]=SHELL
+    return env, (env["HOME"] if os.path.isdir(env.get("HOME") or "") else "/")
+JOB_ENV, JOB_DIR = job_environment()
 pending=None
 last_metrics=None
 metrics_error=None
@@ -463,7 +480,7 @@ def job_heartbeat(job):
 def run(job):
     timeout_seconds=max(1,min(int(job.get("timeoutMs",60000))/1000,3600))
     try:
-        proc=subprocess.Popen(["/bin/sh","-c",job["command"]],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
+        proc=subprocess.Popen([SHELL,"-c",job["command"]],env=JOB_ENV,cwd=JOB_DIR,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
     except OSError as exc:
         # A command that cannot start (one argument over 128 KiB: E2BIG) is
         # reported as failed. Unreported, the hub waited out the job's timeout.
