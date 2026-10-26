@@ -20,6 +20,8 @@ describe("RDP browser tunnel", () => {
     vi.stubGlobal("WebSocket", Socket);
     const url = rdpWebSocketUrl({ protocol: "https:", host: "example.test" });
     expect(url).toBe("wss://example.test/rdp");
+    // The start size may ride in the URL; the ticket never does.
+    expect(rdpWebSocketUrl({ protocol: "http:", host: "example.test" }, { width: 1600, height: 900 })).toBe("ws://example.test/rdp?width=1600&height=900");
     const tunnel = createRdpTunnel(Guacamole, url);
     const instruction = vi.fn(); tunnel.oninstruction = instruction;
     tunnel.connect("short-lived-ticket");
@@ -70,20 +72,42 @@ describe("RDP browser tunnel", () => {
     expect(instruction).toHaveBeenCalledWith("sync", ["1"]);
     tunnel.disconnect();
   });
-  it("pings the bridge every 5s once the tunnel is open", () => {
+  it("pings the bridge as the tunnel opens and every 5s after", () => {
     vi.useFakeTimers(); vi.stubGlobal("WebSocket", Socket);
     const tunnel = createRdpTunnel(Guacamole, "ws://localhost/rdp");
     tunnel.connect("ticket");
     const socket = Socket.current;
     socket.onopen?.();
     socket.onmessage?.({ data: "0.,4.uuid;" });
+    const pings = () => socket.send.mock.calls.filter(call => /^0\.,4\.ping,\d+\.\d+;$/.test(String(call[0])));
+    expect(pings()).toHaveLength(1);
     vi.advanceTimersByTime(5_000);
-    expect(socket.send).toHaveBeenCalledWith(expect.stringMatching(/^0\.,4\.ping,\d+\.\d+;$/));
+    expect(pings()).toHaveLength(2);
     vi.advanceTimersByTime(5_000);
-    expect(socket.send.mock.calls.filter(call => /^0\.,4\.ping,\d+\.\d+;$/.test(String(call[0])))).toHaveLength(2);
+    expect(pings()).toHaveLength(3);
     tunnel.disconnect();
     vi.advanceTimersByTime(10_000);
-    expect(socket.send.mock.calls.filter(call => /^0\.,4\.ping,\d+\.\d+;$/.test(String(call[0])))).toHaveLength(2);
+    expect(pings()).toHaveLength(3);
+  });
+  it("reports the round trip of its own pings, not the bridge's", () => {
+    // A latency figure tells a slow network path from a slow desktop.
+    vi.useFakeTimers(); vi.stubGlobal("WebSocket", Socket);
+    const latencies: number[] = [];
+    const tunnel = createRdpTunnel(Guacamole, "ws://localhost/rdp", ms => latencies.push(ms));
+    tunnel.connect("ticket");
+    const socket = Socket.current;
+    socket.onopen?.();
+    socket.onmessage?.({ data: "0.,4.uuid;" });
+    const sent = String(socket.send.mock.calls.at(-1)![0]);
+    // The bridge's own keep-alive carries its clock's time: not an echo.
+    socket.onmessage?.({ data: "0.,4.ping,13.1000000000000;" });
+    expect(latencies).toEqual([]);
+    vi.advanceTimersByTime(80);
+    socket.onmessage?.({ data: sent });
+    expect(latencies).toEqual([80]);
+    // An echo counts once.
+    socket.onmessage?.({ data: sent });
+    expect(latencies).toEqual([80]);
   });
   it("fails a bridge that goes silent after the session opened", () => {
     vi.useFakeTimers(); vi.stubGlobal("WebSocket", Socket);

@@ -1,7 +1,12 @@
 import type * as Guacamole from "guacamole-common-js";
 
-/** The bridge authenticates with a first-frame ticket, NOT URL query data. */
-export function createRdpTunnel(G: typeof Guacamole, url: string): Guacamole.Tunnel {
+/**
+ * The bridge authenticates with a first-frame ticket, NOT URL query data.
+ * `onLatency` gets the round trip to the bridge, in ms, each time it echoes one
+ * of this tunnel's keep-alive pings: queueing included, so it shows a slow or
+ * congested path, not the hub-to-Windows leg.
+ */
+export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (ms: number) => void): Guacamole.Tunnel {
   class TicketTunnel extends G.Tunnel {
     constructor() {
       super();
@@ -9,6 +14,15 @@ export function createRdpTunnel(G: typeof Guacamole, url: string): Guacamole.Tun
       let timeout: ReturnType<typeof setTimeout> | undefined;
       let pingInterval: ReturnType<typeof setInterval> | undefined;
       let handshaken = false;
+      // The pings this tunnel sent (each carries its send time): the bridge's
+      // own pings carry its clock's time and must not be read as echoes.
+      const pings = new Set<string>();
+      const ping = () => {
+        const id = String(Date.now());
+        pings.add(id);
+        for (const old of [...pings].slice(0, -8)) pings.delete(old);
+        this.sendMessage("", "ping", id);
+      };
       const state = (next: Guacamole.Tunnel.State) => {
         this.state = next;
         this.onstatechange?.(next);
@@ -48,8 +62,11 @@ export function createRdpTunnel(G: typeof Guacamole, url: string): Guacamole.Tun
             handshaken = true;
             state(G.Tunnel.State.OPEN);
             armTimeout();
-            pingInterval = setInterval(() => this.sendMessage("", "ping", Date.now()), 5_000);
+            ping();
+            pingInterval = setInterval(ping, 5_000);
           } else {
+            const echo = opcode === "" && args[0] === "ping" ? String(args[1]) : "";
+            if (pings.delete(echo)) onLatency?.(Math.max(0, Date.now() - Number(echo)));
             // Ping echoes still reach the Guacamole client: it reschedules its
             // own guacd nop keep-alive on network activity, which keeps
             // background tabs (throttled timers) from going silent.
@@ -79,8 +96,13 @@ export function createRdpTunnel(G: typeof Guacamole, url: string): Guacamole.Tun
   return new TicketTunnel();
 }
 
-export function rdpWebSocketUrl(location: Pick<Location, "protocol" | "host">): string {
-  return `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/rdp`;
+/**
+ * The bridge address. `size` is the desktop area the session should start
+ * at (not a secret, unlike the ticket, which travels in the first frame).
+ */
+export function rdpWebSocketUrl(location: Pick<Location, "protocol" | "host">, size?: { width: number; height: number } | null): string {
+  const base = `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/rdp`;
+  return size ? `${base}?width=${size.width}&height=${size.height}` : base;
 }
 
 export function rdpTicketError(status: number): string {

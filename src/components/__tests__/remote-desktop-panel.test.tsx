@@ -280,3 +280,139 @@ it("switches the input method from the toolbar and remembers the choice", async 
   fireEvent.click(screen.getByTestId("rdp-input-method"));
   expect(window.localStorage.getItem("vch.rdp.inputMethod")).toBe("remote");
 });
+
+function areaOf(width: number, height: number) {
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(width);
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(height);
+}
+const ticketResponse = () => Promise.resolve(new Response(JSON.stringify({ token: "test-ticket", path: "/rdp" }), { status: 200 }));
+
+it("starts the desktop at the panel's size, and asks again once Windows' display channel is up", async () => {
+  // guacd replaced a size asked for before the display channel was up with
+  // the current size: the desktop stayed 1280 x 800 in a larger panel, with
+  // black bands right and below.
+  vi.useFakeTimers();
+  areaOf(1601, 903);
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  renderPanel();
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const socket = Socket.instances[0]!;
+  // guacd rounds the starting width down to a multiple of 4; asking for that
+  // width keeps the later requests from resizing it by a pixel or two.
+  expect(socket.url).toMatch(/\/rdp\?width=1600&height=903$/);
+  act(() => {
+    socket.onopen?.();
+    socket.onmessage?.({ data: instruction("", "uuid") + instruction("sync", "1") });
+  });
+  // The ticket frame is not a Guacamole instruction.
+  socket.send.mockClear();
+  const sizes = () => sentInstructions(socket).filter(([op]) => op === "size");
+  await act(async () => { await vi.advanceTimersByTimeAsync(400); });
+  expect(sizes()).toEqual([["size", "1600", "903"]]);
+  await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+  expect(sizes()).toHaveLength(3);
+  expect(sizes().every(([, w, h]) => w === "1600" && h === "903")).toBe(true);
+});
+
+it("starts a desktop that connects behind another tab at the last size a panel measured", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  areaOf(1500, 800);
+  renderPanel();
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(Socket.instances[0]!.url).toMatch(/\?width=1500&height=800$/);
+  // A hidden tab measures 0 x 0.
+  areaOf(0, 0);
+  render(<RemoteDesktopPanel serverId="other-server" serverName="win2" host="192.0.2.2" visible={false} onClose={vi.fn()} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(Socket.instances[1]!.url).toMatch(/\?width=1500&height=800$/);
+});
+
+it("stops and explains when the per-user session cap refuses the desktop", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  renderPanel();
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const socket = Socket.instances[0]!;
+  act(() => { socket.onopen?.(); });
+  act(() => { socket.onmessage?.({ data: instruction("error", "Too many RDP sessions for this user", "797") }); });
+  act(() => { socket.onclose?.(); });
+  expect(overlay()).toHaveTextContent("rdp.error.tooMany");
+  await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+  expect(Socket.instances).toHaveLength(1);
+});
+
+/** The picture element Guacamole sizes to the desktop times its scale. */
+const picture = () => screen.getByRole("application").firstElementChild as HTMLElement;
+async function openWithDesktop(width: number, height: number) {
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const socket = Socket.instances.at(-1)!;
+  act(() => {
+    socket.onopen?.();
+    socket.onmessage?.({ data: instruction("", "uuid") + instruction("size", "0", String(width), String(height)) + instruction("sync", "1") });
+  });
+  return socket;
+}
+
+it("fills the panel with a desktop smaller than it, then shows the resized desktop pixel for pixel", async () => {
+  // Capped at 1, a desktop smaller than the panel (on entering full screen,
+  // until Windows took the new size) stayed in the top-left corner.
+  vi.useFakeTimers();
+  areaOf(1601, 903);
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  renderPanel();
+  const socket = await openWithDesktop(800, 450);
+  expect(parseFloat(picture().style.width)).toBeCloseTo(1601, 3);
+  // Windows took the panel's size (its width a multiple of 4): no blur for a pixel.
+  act(() => { socket.onmessage?.({ data: instruction("size", "0", "1600", "903") + instruction("sync", "2") }); });
+  // Later frames are drawn on the display's own timer.
+  await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+  expect(picture().style.width).toBe("1600px");
+  expect(picture().style.height).toBe("903px");
+});
+
+it("keeps a chosen fixed resolution, scaled into the panel, and remembers it per server", async () => {
+  vi.useFakeTimers();
+  areaOf(960, 540);
+  window.localStorage.setItem("vch.rdp.resolution.test-server", "1920x1080");
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  renderPanel();
+  const socket = await openWithDesktop(1920, 1080);
+  // It starts at the chosen size, not the panel's, and is scaled into the panel.
+  expect(socket.url).toMatch(/\?width=1920&height=1080$/);
+  expect(picture().style.width).toBe("960px");
+  expect(picture().style.height).toBe("540px");
+  socket.send.mockClear();
+  const sizes = () => sentInstructions(socket).filter(([op]) => op === "size");
+  await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+  expect(sizes().length).toBeGreaterThan(0);
+  expect(sizes().every(([, w, h]) => w === "1920" && h === "1080")).toBe(true);
+  // Back to following the window: the desktop is asked for the panel's size.
+  fireEvent.change(screen.getByTestId("rdp-resolution"), { target: { value: "auto" } });
+  expect(sizes().at(-1)).toEqual(["size", "960", "540"]);
+  expect(window.localStorage.getItem("vch.rdp.resolution.test-server")).toBe("auto");
+});
+
+it("shows keyboard focus on the panel frame, not as a line around the picture", async () => {
+  // A ring around the picture showed as a blue line along its edge whenever
+  // the picture was smaller than the panel.
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  renderPanel();
+  await openWithDesktop(1280, 720);
+  expect(screen.getByRole("application").className).not.toMatch(/ring/);
+  expect(screen.getByRole("group", { name: "rdp.display" }).parentElement!.className).toMatch(/focus-within:ring-/);
+});
+
+it("shows the round trip to the hub once the bridge echoes the panel's ping", async () => {
+  // A latency figure in the bar tells a slow network path from a slow desktop.
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  renderPanel();
+  const socket = await openWithDesktop(1280, 720);
+  const ping = socket.send.mock.calls.map(([data]) => String(data)).find((data) => data.startsWith("0.,4.ping,"))!;
+  expect(screen.queryByTestId("rdp-latency")).not.toBeInTheDocument();
+  await act(async () => { await vi.advanceTimersByTimeAsync(40); });
+  act(() => { socket.onmessage?.({ data: ping }); });
+  expect(screen.getByTestId("rdp-latency")).toHaveTextContent("rdp.latency");
+});

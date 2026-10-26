@@ -170,6 +170,14 @@ export type RemoteDesktopTouchMode = "touchpad" | "touch";
 export type RemoteDesktopInputMethod = "remote" | "local";
 
 /**
+ * The remote desktop's resolution: "auto" follows the panel (a desktop the size
+ * of the window, shown pixel for pixel); the others keep the desktop at that
+ * size and scale it into the panel, a phone or a small window included.
+ */
+export const REMOTE_DESKTOP_RESOLUTIONS = ["auto", "1280x720", "1600x900", "1920x1080", "2560x1440"] as const;
+export type RemoteDesktopResolution = (typeof REMOTE_DESKTOP_RESOLUTIONS)[number];
+
+/**
  * The remote desktop's bar, built like the SSH one: name and host, status,
  * then chips. On touch screens it adds the two things a phone needs and a
  * desktop does not — the on-screen keyboard and the pointer mode (a touchpad
@@ -184,12 +192,13 @@ export function RemoteDesktopToolbar({
 	touch,
 	touchMode,
 	inputMethod,
-	viewMode,
+	resolution,
 	elapsed,
+	latency,
 	onToggleTouchMode,
 	onKeyboard,
 	onToggleInputMethod,
-	onToggleView,
+	onResolutionChange,
 	onCtrlAltDel,
 	onToggleFullscreen,
 	onReconnect,
@@ -205,13 +214,15 @@ export function RemoteDesktopToolbar({
 	touchMode: RemoteDesktopTouchMode;
 	/** Which input method composes Chinese and other text (mouse and keyboard devices). */
 	inputMethod: RemoteDesktopInputMethod;
-	viewMode: "fit" | "actual";
+	resolution: RemoteDesktopResolution;
 	/** Connected time, e.g. "03:12"; null while not connected. */
 	elapsed: string | null;
+	/** Round trip between the browser and the hub in ms; null until measured. */
+	latency?: number | null;
 	onToggleTouchMode: () => void;
 	onKeyboard: () => void;
 	onToggleInputMethod: () => void;
-	onToggleView: () => void;
+	onResolutionChange: (resolution: RemoteDesktopResolution) => void;
 	onCtrlAltDel: () => void;
 	onToggleFullscreen?: () => void;
 	onReconnect: () => void;
@@ -248,6 +259,33 @@ export function RemoteDesktopToolbar({
 		onToggleInputMethod,
 		{ testId: "rdp-input-method", iconOnly: fullscreen, title: t(inputMethod === "remote" ? "rdp.inputMethod.remoteHint" : "rdp.inputMethod.localHint") },
 	);
+	// In both bars and on every device: a fixed desktop scaled into the panel
+	// is what a phone or a small window needs, and full screen too can choose.
+	const resolutionSelect = (
+		<select
+			value={resolution}
+			onChange={(event) => onResolutionChange(event.target.value as RemoteDesktopResolution)}
+			aria-label={t("rdp.resolution.label")}
+			title={t("rdp.resolution.hint")}
+			className={cn(chipBase, chipIdle, "cursor-pointer tabular-nums")}
+			data-testid="rdp-resolution"
+		>
+			{REMOTE_DESKTOP_RESOLUTIONS.map((value) => (
+				<option key={value} value={value}>{value === "auto" ? t("rdp.resolution.auto") : value.replace("x", " × ")}</option>
+			))}
+		</select>
+	);
+	// Tells a slow network path (high and rising) from a slow desktop (low here,
+	// laggy picture): queueing on the way counts, the hub-to-Windows leg does not.
+	const latencyNote = latency != null && (
+		<span
+			className={cn("shrink-0 text-xs tabular-nums", latency >= 300 ? "text-[var(--danger)]" : latency >= 120 ? "text-[var(--warning)]" : "text-[var(--text-muted)]")}
+			title={t("rdp.latencyHint")}
+			data-testid="rdp-latency"
+		>
+			{t("rdp.latency", { ms: latency })}
+		</span>
+	);
 	const touchChips = touch && (
 		<>
 			{chip(t("rdp.keyboard"), <Keyboard size={14} aria-hidden="true" />, onKeyboard, { disabled: !connected, iconOnly: fullscreen, testId: "rdp-keyboard" })}
@@ -262,10 +300,12 @@ export function RemoteDesktopToolbar({
 					{statusLabel}
 				</StatusBadge>
 				<span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">{serverName}</span>
+				{latencyNote}
 				<div className="ml-auto flex shrink-0 items-center gap-1">
 					{reconnectButton}
 					{touchChips}
 					{inputMethodChip}
+					{resolutionSelect}
 					{chip("Ctrl+Alt+Del", <span className="text-[10px] font-semibold">CAD</span>, onCtrlAltDel, { disabled: !connected, iconOnly: true })}
 					<button
 						type="button"
@@ -294,11 +334,11 @@ export function RemoteDesktopToolbar({
 					{statusLabel}
 				</StatusBadge>
 				{elapsed && <span className="hidden text-xs tabular-nums text-[var(--text-muted)] sm:inline" title={t("rdp.elapsed", { time: elapsed })}>{elapsed}</span>}
+				{latencyNote}
 				{touchChips}
 				{inputMethodChip}
 				{chip("Ctrl+Alt+Del", <span className="text-[10px] font-semibold sm:hidden">CAD</span>, onCtrlAltDel, { disabled: !connected })}
-				{/* A phone fits the desktop to the screen; actual size cannot be panned by touch. */}
-				{!touch && chip(t(viewMode === "fit" ? "rdp.view.actual" : "rdp.view.fit"), <span className="text-[10px] font-semibold sm:hidden">1:1</span>, onToggleView, { pressed: viewMode === "actual", disabled: !connected })}
+				{resolutionSelect}
 				{onToggleFullscreen && (
 					<button
 						type="button"

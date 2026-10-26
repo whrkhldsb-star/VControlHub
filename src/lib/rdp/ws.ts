@@ -25,6 +25,39 @@ function cookie(req: IncomingMessage) {
  * connection. This floor is independent of the configurable idle timeout.
  */
 const DEAD_TRANSPORT_MS = 10 * 60_000;
+/**
+ * WebSocket-level heartbeat. The browser answers pings in its network stack
+ * (background tabs too), and they pass Caddy and Cloudflare, as the SSH
+ * proxy's heartbeat shows. When the browser's path dies without a close —
+ * a network or proxy switch behind Cloudflare, which keeps the origin
+ * connection open — the session used to stay counted until the 10 minute
+ * floor above, holding one of the user's two RDP slots: reconnecting was
+ * refused for those minutes.
+ */
+const PING_INTERVAL_MS = 15_000;
+const PONG_TOLERANCE_MS = 60_000;
+
+/**
+ * Bytes queued to the browser before guacd's output is held back, and the
+ * level at which it flows again. Everything queued here plays out before the
+ * browser sees the result of a click: 4 MB used to sit in front of it (10 s
+ * and more on a few-Mbit path through Cloudflare), and a held stream resumed
+ * only on the 5-second housekeeping tick.
+ */
+const RDP_PAUSE_BYTES = 1_000_000;
+const RDP_RESUME_BYTES = 256_000;
+const RDP_RESUME_POLL_MS = 100;
+/** One WebSocket message carries at most this much of a guacd chunk. */
+const RDP_BATCH_BYTES = 256_000;
+/**
+ * Concurrent RDP sessions per user (a reconnect to the same server replaces
+ * its old one). Three, so an operator can keep three Windows desktops open.
+ */
+const MAX_RDP_SESSIONS_PER_USER = 3;
+/** Guacamole status for "too many sessions for this user" (CLIENT_TOO_MANY). */
+const RDP_STATUS_TOO_MANY = "797";
+/** Guacamole status for a session taken over by another connection; the browser does not retry it. */
+const RDP_STATUS_TAKEN_OVER = "521";
 /** Bounds clipboard sync abuse: ~256 base64 chunks per clipboard transfer. */
 const MAX_CLIPBOARD_BLOBS = 256;
 /** Concurrently open client→guacd clipboard streams; the protocol uses one. */
@@ -74,6 +107,31 @@ function normalizeMouse(row: string[]): string[] | null {
  return ["mouse", clamp(x!), clamp(y!), String(mask)];
 }
 
+/** The desktop size a session starts at when the browser does not say. */
+const DEFAULT_DESKTOP = { width: 1280, height: 800 };
+
+/**
+ * The size the browser's desktop area has, from the WebSocket URL
+ * (`/rdp?width=…&height=…`; not a secret, unlike the ticket). Starting the
+ * session at that size matters: guacd overwrites a resize request that
+ * arrives before Windows' display channel is up with the current size, so the
+ * old fixed 1280×800 start often stayed — a desktop smaller than the window,
+ * with black bands right and below. Every resize is also a chance for guacd
+ * 1.6.0 with FreeRDP 2 to abort the session (GUAC_ASSERT in
+ * guac_rdp_gdi_desktop_resize) when it lands mid-paint. guacd rounds the
+ * starting width down to a multiple of 4 (and later resize requests to an even
+ * width): asking for such a width keeps the browser's later requests equal to
+ * it, so they resize nothing.
+ */
+export function initialDesktopSize(url: string | undefined): { width: number; height: number } {
+ let params: URLSearchParams;
+ try { params = new URL(url ?? "/", "http://localhost").searchParams; } catch { return DEFAULT_DESKTOP; }
+ const width = Number(params.get("width")), height = Number(params.get("height"));
+ const valid = (n: number) => Number.isInteger(n) && n >= 200 && n <= 4096;
+ if (!valid(width) || !valid(height)) return DEFAULT_DESKTOP;
+ return { width: width - (width % 4), height };
+}
+
 /** What a dropped instruction looked like, for the log: its numbers, not what was typed. */
 function describeInstruction(row: string[]) {
  const [op = "", ...args] = row;
@@ -85,6 +143,14 @@ export function setupRdpWebSocket(server: HttpServer) {
   handleProtocols: protocols => protocols.has("guacamole") ? "guacamole" : false });
  const users = new Map<string, number>();
  let authedSessions = 0;
+ /**
+  * The live session of each user on each server. A new connection of the
+  * same user to the same server replaces it: that is a reconnect after the
+  * old browser connection died unseen (the workbench opens one desktop per
+  * server), or a second window — which Windows would take the account's
+  * session over for anyway.
+  */
+ const liveSessions = new Map<string, () => void>();
  server.on("upgrade", (req, socket, head) => {
   let path: string;
   try { path = new URL(req.url ?? "/", "http://localhost").pathname; } catch { socket.destroy(); return; }
@@ -97,6 +163,12 @@ export function setupRdpWebSocket(server: HttpServer) {
  });
  wss.on("connection", (ws, req) => {
   let tunnel: ReturnType<typeof createConnection> | undefined;
+  const desktop = initialDesktopSize(req.url);
+  let lastPongAt = Date.now();
+  let lastPingAt = Date.now();
+  ws.on("pong", () => { lastPongAt = Date.now(); });
+  // Set while this connection holds one of the user's session slots.
+  let slotKey: string | undefined;
   let userId: string | undefined;
   let serverId: string | undefined;
   let teamId: string | null = null;
@@ -107,6 +179,28 @@ export function setupRdpWebSocket(server: HttpServer) {
   let authorizationDeadline = 0;
   let started = false;
   let tunnelPaused = false;
+  let resumePoll: ReturnType<typeof setInterval> | undefined;
+  // Instructions of one guacd chunk, sent as one WebSocket message: one
+  // message per instruction (thousands a second while the screen changes)
+  // cost a frame header and Cloudflare's per-message handling each.
+  let outbox: string[] = [];
+  let outboxBytes = 0;
+  const flushOutbox = () => {
+   if (!outbox.length) return;
+   const payload = outbox.join("");
+   outbox = []; outboxBytes = 0;
+   if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+   if (!tunnelPaused && ws.bufferedAmount > RDP_PAUSE_BYTES) {
+    // A slow browser holds guacd back instead of queueing seconds of frames;
+    // guacd then paces itself and Windows sends fewer, newer updates.
+    tunnelPaused = true; tunnel?.pause();
+    resumePoll = setInterval(() => {
+     if (ws.bufferedAmount >= RDP_RESUME_BYTES && ws.readyState === WebSocket.OPEN) return;
+     clearInterval(resumePoll); resumePoll = undefined;
+     tunnelPaused = false; tunnel?.resume();
+    }, RDP_RESUME_POLL_MS);
+   }
+  };
   let lastInput = Date.now();
   const openedAt = Date.now();
   // Session policy (runtime.sshIdleTimeoutSec-style settings, 0 = unlimited)
@@ -127,6 +221,24 @@ export function setupRdpWebSocket(server: HttpServer) {
   const audit = (event: string, detail: Record<string, string> = {}) => {
    if (userId && serverId) void auditUserAction(userId, event, { serverId, ...detail }, undefined, teamId).catch(() => {});
   };
+  // Gives the session slot back once: when the browser goes, or at once when
+  // a new connection replaces this one (its close handshake with a dead
+  // browser can take another 30 s).
+  const releaseSlot = () => {
+   if (!userId || !authenticated || slotKey === undefined) return;
+   if (liveSessions.get(slotKey) === supersede) liveSessions.delete(slotKey);
+   slotKey = undefined;
+   authedSessions--;
+   const count = (users.get(userId) ?? 1) - 1;
+   if (count) users.set(userId, count); else users.delete(userId);
+  };
+  function supersede() {
+   releaseSlot();
+   // Status 521 (taken over): a browser still showing this session explains
+   // it and does not reconnect — two windows would otherwise keep taking the
+   // desktop from each other.
+   close("RDP session taken over by a new connection", 1000, RDP_STATUS_TAKEN_OVER);
+  }
   // guacd sits behind the rootless Docker port proxy, which does not always
   // pass a closed socket on: guacd then kept the RDP connection logged in to
   // Windows until its own 15 s input timeout. A reconnect inside that window
@@ -144,6 +256,8 @@ export function setupRdpWebSocket(server: HttpServer) {
   const close = (reason: string, code = 1011, status = "512") => {
    stopped = true;
    endedBy ??= `gateway: ${reason}`;
+   flushOutbox();
+   clearInterval(resumePoll);
    if (ws.readyState === WebSocket.OPEN) { ws.send(instruction("error", reason, status)); ws.close(code); }
    endTunnel();
   };
@@ -164,6 +278,15 @@ export function setupRdpWebSocket(server: HttpServer) {
    if (Date.now() - lastInput > DEAD_TRANSPORT_MS ||
     (idleTimeoutMs > 0 && Date.now() - lastInput > idleTimeoutMs) ||
     (maxSessionMs > 0 && Date.now() - openedAt > maxSessionMs)) { close("RDP session limit reached", 1000); return; }
+   if (Date.now() - lastPongAt > PONG_TOLERANCE_MS) {
+    endedBy ??= "gateway: browser stopped answering";
+    releaseSlot();
+    stopped = true;
+    ws.terminate();
+    endTunnel();
+    return;
+   }
+   if (Date.now() - lastPingAt >= PING_INTERVAL_MS && ws.readyState === WebSocket.OPEN) { lastPingAt = Date.now(); ws.ping(); }
    if (started) {
     // guacd drops clients that stay silent for ~20s, and background tabs get
     // their JS timers throttled, so the browser cannot always keep the
@@ -172,15 +295,14 @@ export function setupRdpWebSocket(server: HttpServer) {
     tunnel?.write(instruction("nop"));
     if (ws.readyState === WebSocket.OPEN) ws.send(instruction("", "ping", String(Date.now())));
    }
-   if (tunnelPaused && ws.bufferedAmount < 1_000_000) { tunnelPaused = false; tunnel?.resume(); }
    if (ws.bufferedAmount > 64_000_000) close("RDP backpressure limit reached");
   }, 5000);
   ws.on("error", () => { endTunnel(); });
   ws.on("close", (code: number) => {
    stopped = true;
    endedBy ??= `browser: ${code}`;
-   clearTimeout(handshakeTimeout); clearInterval(timer); endTunnel();
-   if (userId && authenticated) { authedSessions--; const count = (users.get(userId) ?? 1) - 1; if (count) users.set(userId, count); else users.delete(userId); }
+   clearTimeout(handshakeTimeout); clearInterval(timer); clearInterval(resumePoll); endTunnel();
+   releaseSlot();
    if (started) audit("server.rdp.closed", { reason: endedBy.slice(0, 120), seconds: String(Math.round((Date.now() - openedAt) / 1000)) });
    else if (!failureAudited) audit("server.rdp.failed");
   });
@@ -239,12 +361,15 @@ export function setupRdpWebSocket(server: HttpServer) {
    if (authenticated) { try { input.feed(raw.toString()); } catch { close("Invalid RDP input", 1008); } return; }
    if (claiming) { close("Authentication pending", 1008); return; }
    claiming = true;
+   let tooMany = false;
    try {
     // Ticket travels in first WS frame, never URLs / access logs.
     const token = raw.toString();
     const sessionCookie = cookie(req);
     const session = await verifySessionToken(sessionCookie);
-    if (session.mustChangePassword || !sessionHasPermission(session, "server:ssh") || (users.get(session.userId) ?? 0) >= 2) throw new Error("Denied");
+    if (session.mustChangePassword || !sessionHasPermission(session, "server:ssh")) throw new Error("Denied");
+    // The per-user cap is checked once the ticket names the server: a
+    // reconnect to the same server replaces its old session instead.
     const target = await consumeRdpTicket(token, session, sessionCookie, req.headers.origin ?? "");
     await checkGuacd();
     const { idleTimeoutMs: idleMs, maxSessionMs: maxMs } = await getRdpSessionRuntimeConfig();
@@ -257,10 +382,14 @@ export function setupRdpWebSocket(server: HttpServer) {
      if (current.mustChangePassword || !sessionHasPermission(current, "server:ssh") || current.userId !== session.userId || current.currentTeamId !== session.currentTeamId) throw new Error("Denied");
      if (rdpEndpointHash(await getRdpServer(target.id, current)) !== endpointHash) throw new Error("Changed");
     };
-    // Recheck after async authentication to make the process-local caps atomic.
-    if ((users.get(session.userId) ?? 0) >= 2 || authedSessions >= MAX_RDP_SESSIONS) throw new Error("Denied");
+    // After async authentication, so the process-local caps stay atomic.
+    const key = `${session.userId}:${target.id}`;
+    liveSessions.get(key)?.();
+    if ((users.get(session.userId) ?? 0) >= MAX_RDP_SESSIONS_PER_USER) { tooMany = true; throw new Error("Too many sessions"); }
+    if (authedSessions >= MAX_RDP_SESSIONS) throw new Error("Denied");
     userId = session.userId; serverId = target.id; teamId = target.teamId;
     users.set(userId, (users.get(userId) ?? 0) + 1); authedSessions++; authenticated = true;
+    slotKey = key; liveSessions.set(key, supersede);
     audit("server.rdp.connecting");
     let phase: "args" | "ready" | "stream" = "args";
     const options: Record<string, string> = {
@@ -272,6 +401,14 @@ export function setupRdpWebSocket(server: HttpServer) {
      "enable-printing": "false", "enable-audio-input": "false",
      ...(audioAllowed ? {} : { "disable-audio": "true" }),
      "resize-method": "display-update", "server-layout": "en-us-qwerty",
+     // With the graphics pipeline (GFX), FreeRDP 2 applies a resize from the
+     // GFX channel's thread while a frame may be mid-paint, and guacd 1.6.0
+     // aborts the whole session on that (GUAC_ASSERT in
+     // guac_rdp_gdi_desktop_resize; five times in production 10-20..10-26,
+     // each when a desktop was resized). Without it Windows resizes through
+     // deactivate/reactivate on guacd's main thread, in order with painting.
+     // guacd's colour depth without GFX defaults to 16 bits: ask for 24.
+     "disable-gfx": "true", "color-depth": "24",
      "enable-wallpaper": "false", "enable-theming": "false",
     };
     const decoder = new StringDecoder("utf8");
@@ -302,7 +439,7 @@ export function setupRdpWebSocket(server: HttpServer) {
       if (row[0] !== "args") throw new Error("Expected args");
       const args = row.slice(1);
       rdpCertificateOptions(target, args);
-      tunnel?.write(instruction("size", "1280", "800", "96") + instruction("audio", ...(audioAllowed ? RDP_AUDIO_MIMETYPES : [])) + instruction("video") + instruction("image", "image/png", "image/jpeg") +
+      tunnel?.write(instruction("size", String(desktop.width), String(desktop.height), "96") + instruction("audio", ...(audioAllowed ? RDP_AUDIO_MIMETYPES : [])) + instruction("video") + instruction("image", "image/png", "image/jpeg") +
        instruction("connect", ...args.map(key => key.startsWith("VERSION_") ? "VERSION_1_5_0" : options[key] ?? "")));
       delete options.password;
       phase = "ready"; return;
@@ -320,13 +457,19 @@ export function setupRdpWebSocket(server: HttpServer) {
      const allowed = (op === "clipboard" && clipboardAllowed) || (op === "audio" && audioAllowed);
      if (["clipboard", "file", "pipe", "filesystem", "audio", "video"].includes(op) && !allowed) { close("Unsupported RDP stream", 1008); return; }
      if (ws.bufferedAmount > 64_000_000) { close("RDP backpressure limit reached"); return; }
-     if (ws.readyState === WebSocket.OPEN) ws.send(instruction(...row));
-     // A slow browser pauses guacd reads instead of losing the session; the
-     // interval above resumes once the socket has drained.
-     if (!tunnelPaused && ws.bufferedAmount > 4_000_000) { tunnelPaused = true; tunnel?.pause(); }
+     const text = instruction(...row);
+     outbox.push(text); outboxBytes += text.length;
+     if (outboxBytes >= RDP_BATCH_BYTES) flushOutbox();
     });
-    tunnel.on("data", data => { try { output.feed(decoder.write(data)); } catch { close("Invalid RDP gateway response"); } });
-   } catch { close("RDP authorization or gateway unavailable", 1008); }
+    tunnel.on("data", data => {
+     try { output.feed(decoder.write(data)); } catch { close("Invalid RDP gateway response"); return; }
+     flushOutbox();
+    });
+   } catch {
+    // The browser tells the user why and does not retry the cap.
+    if (tooMany) close("Too many RDP sessions for this user", 1008, RDP_STATUS_TOO_MANY);
+    else close("RDP authorization or gateway unavailable", 1008);
+   }
   });
  });
  return () => { for (const ws of wss.clients) ws.terminate(); wss.close(); };

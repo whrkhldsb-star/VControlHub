@@ -2,7 +2,7 @@
 
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 
-import { RemoteDesktopToolbar, type RemoteDesktopInputMethod, type RemoteDesktopTouchMode } from "@/components/ssh-terminal-chrome";
+import { REMOTE_DESKTOP_RESOLUTIONS, RemoteDesktopToolbar, type RemoteDesktopInputMethod, type RemoteDesktopResolution, type RemoteDesktopTouchMode } from "@/components/ssh-terminal-chrome";
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -16,7 +16,7 @@ const MAX_RECONNECT_ATTEMPTS = 8;
  * password; locked, disabled or expired account). Retrying cannot help and
  * each attempt counts towards the account lockout.
  */
-const LOGIN_REFUSED_ERRORS: Record<number, string> = { 0x0301: "rdp.error.credentials", 0x0303: "rdp.error.accountRefused" };
+const LOGIN_REFUSED_ERRORS: Record<number, string> = { 0x0301: "rdp.error.credentials", 0x0303: "rdp.error.accountRefused", 0x031d: "rdp.error.tooMany" };
 /**
  * Statuses for a session Windows ended itself: signed out or disconnected
  * inside Windows (0), taken over by another connection to the same account
@@ -31,12 +31,61 @@ const KEYSYM_CTRL = 0xffe3, KEYSYM_ALT = 0xffe9, KEYSYM_DELETE = 0xffff;
 const KEYSYM_SHIFT_L = 0xffe1, KEYSYM_SHIFT_R = 0xffe2;
 /** Where this browser remembers which input method types into remote desktops. */
 const INPUT_METHOD_KEY = "vch.rdp.inputMethod";
+/** Per server: `vch.rdp.resolution.<serverId>`. */
+const RESOLUTION_KEY = "vch.rdp.resolution";
 /** Base64 chunk size for outbound clipboard text (must stay well under the WS frame cap). */
 const CLIPBOARD_CHUNK = 3072;
 /** Text limit shared by both clipboard directions. */
 const MAX_CLIPBOARD_CHARS = 262_144;
 /** How long the touch gesture hint stays up. */
 const TOUCH_HINT_MS = 6000;
+/** Quiet time after the last layout change before the desktop is resized. */
+const RESIZE_SETTLE_MS = 400;
+/**
+ * When the desktop size is asked for again after the session opened. guacd
+ * replaces a size request that arrives before Windows' display channel is up
+ * with the current size, so the first request can be lost; asking again only
+ * resizes when the desktop still differs.
+ */
+const RESIZE_CONFIRM_MS = [2_500, 6_000];
+/** Desktop sizes guacd and the bridge accept. */
+const MIN_DESKTOP = 200, MAX_DESKTOP = 4096;
+/**
+ * The last desktop area a visible panel measured. A tab that connects while
+ * hidden (a reconnect behind another tab) measures 0 × 0; it starts at this
+ * size, which is the area it gets when shown, instead of the bridge default
+ * that then needs a resize.
+ */
+let lastDesktopArea: { width: number; height: number } | null = null;
+
+/**
+ * The desktop size for an element's area, or null while it is hidden. The
+ * width is a multiple of 4, as guacd rounds the starting width: a request for
+ * any other width would resize the desktop by a few pixels right after it
+ * opened, and every resize is a moment a session can be lost.
+ */
+function desktopArea(element: HTMLElement): { width: number; height: number } | null {
+	const width = Math.floor(element.clientWidth), height = Math.floor(element.clientHeight);
+	if (!width || !height) return null;
+	const clamp = (n: number) => Math.max(MIN_DESKTOP, Math.min(MAX_DESKTOP, n));
+	return { width: clamp(width) & ~3, height: clamp(height) };
+}
+
+/** The fixed desktop size a resolution names, or null for one that follows the panel. */
+function fixedDesktop(resolution: RemoteDesktopResolution): { width: number; height: number } | null {
+	if (resolution === "auto") return null;
+	const [width, height] = resolution.split("x").map(Number);
+	return { width: width!, height: height! };
+}
+
+function storedResolution(serverId: string): RemoteDesktopResolution {
+	try {
+		const value = window.localStorage.getItem(`${RESOLUTION_KEY}.${serverId}`) ?? "";
+		return (REMOTE_DESKTOP_RESOLUTIONS as readonly string[]).includes(value) ? (value as RemoteDesktopResolution) : "auto";
+	} catch {
+		return "auto";
+	}
+}
 
 function formatElapsed(seconds: number) {
 	const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
@@ -56,7 +105,6 @@ function storedInputMethod(): RemoteDesktopInputMethod {
 	}
 }
 
-type ViewMode = "fit" | "actual";
 type Phase = "connecting" | "connected" | "reconnecting" | "disconnected";
 
 export type RemoteDesktopPanelHandle = {
@@ -113,7 +161,7 @@ export function RemoteDesktopPanel({
 	const stop = useRef<() => void>(() => {});
 	const sendCtrlAltDel = useRef<() => void>(() => {});
 	const refit = useRef<() => void>(() => {});
-	const applyScale = useRef<() => void>(() => {});
+	const applyResolution = useRef<() => void>(() => {});
 	const focusInput = useRef<() => void>(() => {});
 	const applyTouchMode = useRef<() => void>(() => {});
 	const applyInputMethod = useRef<() => void>(() => {});
@@ -123,8 +171,8 @@ export function RemoteDesktopPanel({
 	const [reconnectAttempt, setReconnectAttempt] = useState(0);
 	const [error, setError] = useState<string | null>(null);
 	const [clipboardError, setClipboardError] = useState<string | null>(null);
-	const [viewMode, setViewMode] = useState<ViewMode>("fit");
-	const viewModeRef = useRef<ViewMode>(viewMode);
+	const [resolution, setResolution] = useState<RemoteDesktopResolution>(() => storedResolution(serverId));
+	const resolutionRef = useRef<RemoteDesktopResolution>(resolution);
 	const [touch] = useState(isTouchScreen);
 	const [touchMode, setTouchMode] = useState<RemoteDesktopTouchMode>("touchpad");
 	const touchModeRef = useRef<RemoteDesktopTouchMode>(touchMode);
@@ -133,6 +181,8 @@ export function RemoteDesktopPanel({
 	const [inputMethod, setInputMethod] = useState<RemoteDesktopInputMethod>(() => (touch ? "local" : storedInputMethod()));
 	const inputMethodRef = useRef<RemoteDesktopInputMethod>(inputMethod);
 	const [connectedFor, setConnectedFor] = useState(0);
+	// Browser-to-hub round trip, from the tunnel's own keep-alive pings.
+	const [latency, setLatency] = useState<number | null>(null);
 	const visibleRef = useRef(visible);
 	const connected = phase === "connected";
 
@@ -191,7 +241,10 @@ export function RemoteDesktopPanel({
 				const G = (await import("guacamole-common-js")).default;
 				if (disposed) return;
 				dropped = false;
-				const tunnel = createRdpTunnel(G, rdpWebSocketUrl(window.location));
+				const measured = desktopArea(host);
+				if (measured) lastDesktopArea = measured;
+				const startArea = fixedDesktop(resolutionRef.current) ?? measured ?? lastDesktopArea;
+				const tunnel = createRdpTunnel(G, rdpWebSocketUrl(window.location, startArea), ms => { if (!disposed) setLatency(ms); });
 				const client = new G.Client(tunnel);
 				const display = client.getDisplay();
 				const displayElement = display.getElement();
@@ -202,7 +255,11 @@ export function RemoteDesktopPanel({
 				surface.tabIndex = 0;
 				surface.setAttribute("role", "application");
 				surface.setAttribute("aria-label", host.getAttribute("aria-label") ?? "");
-				surface.className = "relative outline-none focus-within:ring-2 focus-within:ring-[var(--accent)]";
+				// Centred: a desktop that does not fill the panel (a fixed resolution, or
+				// the moment before Windows takes a new size) sits in the middle. The
+				// focus ring is the panel frame's: drawn around the picture, it showed
+				// as a blue line along its edge whenever the picture was smaller.
+				surface.className = "relative m-auto outline-none";
 				surface.style.touchAction = "none";
 				surface.appendChild(displayElement);
 				// An editable focus target gives native paste, IME and the on-screen
@@ -402,25 +459,38 @@ export function RemoteDesktopPanel({
 				const visibility = () => { if (document.hidden) reset(); };
 				document.addEventListener("visibilitychange", visibility);
 				let resizeTimer: ReturnType<typeof setTimeout> | undefined;
-				const fit = () => {
-					// A hidden tab measures 0 × 0: keep its scale rather than shrink it to nothing.
-					if (display.getWidth() && display.getHeight() && host.clientWidth && host.clientHeight) display.scale(Math.min(1, host.clientWidth / display.getWidth(), host.clientHeight / display.getHeight()));
+				let confirmTimers: ReturnType<typeof setTimeout>[] = [];
+				// Asks for the desktop to match the panel, or the chosen fixed size.
+				// guacd only resizes when the size differs, so asking again costs nothing.
+				const sendArea = () => {
+					const fixed = fixedDesktop(resolutionRef.current);
+					const area = fixed ?? desktopArea(host);
+					if (!area) return;
+					if (!fixed) lastDesktopArea = area;
+					client.sendSize(area.width, area.height);
 				};
 				const applyScaleNow = () => {
-					if (viewModeRef.current === "actual") display.scale(1);
-					else fit();
+					const width = display.getWidth(), height = display.getHeight();
+					// A hidden tab measures 0 × 0: keep its scale rather than shrink it to nothing.
+					if (!width || !height || !host.clientWidth || !host.clientHeight) return;
+					// Fitted both ways: capped at 1, a desktop smaller than the panel (on
+					// entering full screen, until Windows takes the new size) stayed in
+					// the top-left corner at its own size.
+					const scale = Math.min(host.clientWidth / width, host.clientHeight / height);
+					// Following the panel, the desktop is the panel's size once Windows has
+					// resized it: a few pixels' difference stays pixel for pixel, unblurred.
+					display.scale(!fixedDesktop(resolutionRef.current) && scale > 1 && scale < 1.05 ? 1 : scale);
 				};
 				const resize = () => {
 					// A hidden tab measures 0 × 0; it is fitted again when shown.
 					if (!host.clientWidth || !host.clientHeight) return;
 					applyScaleNow();
 					clearTimeout(resizeTimer);
-					resizeTimer = setTimeout(() => {
-						if (viewModeRef.current !== "fit" || !host.clientWidth || !host.clientHeight) return;
-						client.sendSize(Math.max(200, Math.min(4096, Math.floor(host.clientWidth))), Math.max(200, Math.min(4096, Math.floor(host.clientHeight))));
-					}, 150);
+					// Each resize Windows performs is a moment guacd can lose the session
+					// (see the bridge), so wait for the layout to settle.
+					resizeTimer = setTimeout(sendArea, RESIZE_SETTLE_MS);
 				};
-				applyScale.current = applyScaleNow;
+				applyResolution.current = () => { applyScaleNow(); sendArea(); };
 				refit.current = resize;
 				// Start the touchpad pointer in the middle, where a thumb finds it —
 				// once the desktop has a size (it arrives just after the session opens).
@@ -450,10 +520,11 @@ export function RemoteDesktopPanel({
 					window.removeEventListener("blur", reset);
 					clearTimeout(clearTimer);
 					document.removeEventListener("visibilitychange", visibility);
-					observer.disconnect(); clearTimeout(resizeTimer);
+					observer.disconnect(); clearTimeout(resizeTimer); confirmTimers.forEach(clearTimeout); confirmTimers = [];
 					client.onerror = client.onstatechange = client.onclipboard = null;
 					display.onresize = null;
 					focusInput.current = () => {};
+					applyResolution.current = () => {};
 					applyTouchMode.current = () => {};
 					applyInputMethod.current = () => {};
 					client.disconnect();
@@ -501,6 +572,8 @@ export function RemoteDesktopPanel({
 					if (state === 3) {
 						setPhase("connected"); setError(null); reconnects = 0; setReconnectAttempt(0);
 						resize();
+						confirmTimers.forEach(clearTimeout);
+						confirmTimers = RESIZE_CONFIRM_MS.map(delay => setTimeout(sendArea, delay));
 						if (touch) {
 							centerTouchpadPointer();
 							setTouchHint(true);
@@ -524,12 +597,11 @@ export function RemoteDesktopPanel({
 		return cleanup;
 	}, [attempt, serverId, touch]);
 
-	// The view mode never reconnects; the live session just rescales.
+	// A resolution change never reconnects: the live desktop is resized and fitted.
 	useEffect(() => {
-		viewModeRef.current = viewMode;
-		if (container.current) container.current.style.overflow = viewMode === "actual" ? "auto" : "hidden";
-		applyScale.current();
-	}, [viewMode]);
+		resolutionRef.current = resolution;
+		applyResolution.current();
+	}, [resolution]);
 
 	useEffect(() => {
 		touchModeRef.current = touchMode;
@@ -540,6 +612,15 @@ export function RemoteDesktopPanel({
 		inputMethodRef.current = inputMethod;
 		applyInputMethod.current();
 	}, [inputMethod]);
+
+	const changeResolution = (next: RemoteDesktopResolution) => {
+		setResolution(next);
+		try {
+			window.localStorage.setItem(`${RESOLUTION_KEY}.${serverId}`, next);
+		} catch {
+			// Not remembered (private window or blocked storage); this tab still switches.
+		}
+	};
 
 	const toggleInputMethod = () => {
 		const next: RemoteDesktopInputMethod = inputMethod === "remote" ? "local" : "remote";
@@ -601,12 +682,13 @@ export function RemoteDesktopPanel({
 				touch={touch}
 				touchMode={touchMode}
 				inputMethod={inputMethod}
-				viewMode={viewMode}
+				resolution={resolution}
 				elapsed={connected ? formatElapsed(connectedFor) : null}
+				latency={connected ? latency : null}
 				onToggleTouchMode={() => { setTouchMode(mode => mode === "touchpad" ? "touch" : "touchpad"); setTouchHint(true); }}
 				onKeyboard={() => focusInput.current()}
 				onToggleInputMethod={toggleInputMethod}
-				onToggleView={() => setViewMode(mode => mode === "fit" ? "actual" : "fit")}
+				onResolutionChange={changeResolution}
 				onCtrlAltDel={() => sendCtrlAltDel.current()}
 				onToggleFullscreen={onToggleFullscreen}
 				onReconnect={reconnect}
@@ -615,8 +697,8 @@ export function RemoteDesktopPanel({
 			<div className={cn("flex min-h-0 flex-1 flex-col", fullscreen ? "p-1" : "p-3")}>
 				<div
 					className={cn(
-						"relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-black",
-						fullscreen ? "rounded-lg" : "rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)]",
+						"relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-black focus-within:ring-[var(--accent)]",
+						fullscreen ? "rounded-lg focus-within:ring-1" : "rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] focus-within:ring-2",
 					)}
 				>
 					<div
@@ -624,7 +706,7 @@ export function RemoteDesktopPanel({
 						role="group"
 						data-input-label={t("rdp.input")}
 						aria-label={t("rdp.display")}
-						className="min-h-0 min-w-0 flex-1 overflow-hidden"
+						className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
 					/>
 					{overlay ? (
 						<p
