@@ -91,7 +91,8 @@ describe("Agent-only file fallback", () => {
     expect(mocks.executeCommandWithAgent).toHaveBeenCalledTimes(2);
   });
 
-  it("writes a file larger than one shell argument allows, keeping the target's mode (C-1)", async () => {
+  // A POSIX shell, python3 and file modes: the Linux Agent's environment.
+  it.skipIf(process.platform === "win32")("writes a file larger than one shell argument allows, keeping the target's mode (C-1)", async () => {
     // The Agent runs `sh -c <command>`; Linux caps one argument at 128 KiB.
     // Run every command as the Agent would, through a real shell.
     mocks.executeCommandWithAgent.mockImplementation(({ command }: { command: string }) => new Promise((resolve) => {
