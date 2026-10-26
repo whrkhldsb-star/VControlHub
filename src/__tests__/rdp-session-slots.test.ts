@@ -81,10 +81,11 @@ describe("RDP session slots", () => {
   });
 
   it("replaces the old session when the same user reconnects to the same server", async () => {
-    // Two desktops fill the per-user cap; the browser's path to the first
+    // Three desktops fill the per-user cap; the browser's path to the first
     // died without a close, as behind Cloudflare.
     const first = await open("a");
     await open("b");
+    await open("c");
     const again = await open("a");
     // The reconnect is accepted, not refused for the cap.
     expect(errorStatus(again.ws)).toBeUndefined();
@@ -95,18 +96,21 @@ describe("RDP session slots", () => {
     expect(mocks.audit).toHaveBeenCalledWith("u", "server.rdp.closed", expect.objectContaining({ serverId: "a", reason: "gateway: RDP session taken over by a new connection" }), undefined, "t");
   });
 
-  it("says when the per-user cap refuses a desktop on another server", async () => {
+  it("allows three desktops per user and says when the cap refuses a fourth", async () => {
     await open("a");
     await open("b");
     const third = await open("c");
-    expect(errorStatus(third.ws)).toContain(instruction("error", "Too many RDP sessions for this user", "797"));
-    expect(third.ws.close).toHaveBeenCalledWith(1008);
-    expect(handshakeSize(third.tunnel)).toBeUndefined();
+    expect(errorStatus(third.ws)).toBeUndefined();
+    const fourth = await open("d");
+    expect(errorStatus(fourth.ws)).toContain(instruction("error", "Too many RDP sessions for this user", "797"));
+    expect(fourth.ws.close).toHaveBeenCalledWith(1008);
+    expect(handshakeSize(fourth.tunnel)).toBeUndefined();
   });
 
   it("ends a session whose browser stopped answering pings, and frees its slot", async () => {
     const dead = await open("a");
     const alive = await open("b");
+    await open("c");
     dead.ws.answersPings = false;
     await vi.advanceTimersByTimeAsync(80_000);
     expect(dead.ws.terminate).toHaveBeenCalled();
@@ -114,8 +118,8 @@ describe("RDP session slots", () => {
     expect(alive.ws.terminate).not.toHaveBeenCalled();
     expect(alive.ws.close).not.toHaveBeenCalled();
     expect(mocks.audit).toHaveBeenCalledWith("u", "server.rdp.closed", expect.objectContaining({ serverId: "a", reason: "gateway: browser stopped answering" }), undefined, "t");
-    // The slot is free: a desktop on a third server is accepted.
-    const third = await open("c");
-    expect(errorStatus(third.ws)).toBeUndefined();
+    // The slot is free: a desktop on a fourth server is accepted.
+    const fourth = await open("d");
+    expect(errorStatus(fourth.ws)).toBeUndefined();
   });
 });

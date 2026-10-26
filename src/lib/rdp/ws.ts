@@ -36,8 +36,11 @@ const DEAD_TRANSPORT_MS = 10 * 60_000;
  */
 const PING_INTERVAL_MS = 15_000;
 const PONG_TOLERANCE_MS = 60_000;
-/** Concurrent RDP sessions per user (a reconnect to the same server replaces its old one). */
-const MAX_RDP_SESSIONS_PER_USER = 2;
+/**
+ * Concurrent RDP sessions per user (a reconnect to the same server replaces
+ * its old one). Three, so an operator can keep three Windows desktops open.
+ */
+const MAX_RDP_SESSIONS_PER_USER = 3;
 /** Guacamole status for "too many sessions for this user" (CLIENT_TOO_MANY). */
 const RDP_STATUS_TOO_MANY = "797";
 /** Guacamole status for a session taken over by another connection; the browser does not retry it. */
