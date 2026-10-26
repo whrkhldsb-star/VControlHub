@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -69,4 +69,63 @@ describeLinux("deploy/upgrade.sh domain recovery", () => {
 		expect(script).toMatch(/git_app\(\) \{ git -c "safe\.directory=\$\{APP_DIR\}" -C "\$\{APP_DIR\}" "\$@"; \}/);
 		expect(script.match(/\bgit -C /g)).toBeNull();
 	});
+
+describeLinux("deploy/upgrade.sh pulling a one-click install", () => {
+	const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "init.defaultBranch=main", ...args], { cwd, encoding: "utf8" }).trim();
+
+	/** An origin, an installed clone of it, and a newer commit on the origin. */
+	async function installedClone() {
+		const root = await mkdtemp(path.join(tmpdir(), "vch-upgrade-pull-"));
+		roots.push(root);
+		const origin = path.join(root, "origin");
+		await mkdir(path.join(origin, "docs"), { recursive: true });
+		git(origin, "init", "-q");
+		await writeFile(path.join(origin, "docs/route-catalog.json"), '{"generatedAt":"2026-10-21T00:00:00Z"}\n');
+		await writeFile(path.join(origin, "README.md"), "v1\n");
+		git(origin, "add", "-A");
+		git(origin, "commit", "-q", "-m", "v1");
+		const app = path.join(root, "app");
+		git(root, "clone", "-q", origin, app);
+		await writeFile(path.join(origin, "README.md"), "v2\n");
+		await writeFile(path.join(origin, "docs/route-catalog.json"), '{"generatedAt":"2026-10-26T00:00:00Z","new":true}\n');
+		git(origin, "commit", "-q", "-am", "v2");
+		await mkdir(path.join(root, "deploy"));
+		await writeFile(path.join(root, "deploy", "upgrade.sh"), await readFile(path.join(process.cwd(), "deploy/upgrade.sh"), "utf8"), { mode: 0o755 });
+		await writeFile(path.join(root, "deploy", "install.sh"), "#!/bin/bash\nexit 0\n", { mode: 0o755 });
+		await writeFile(path.join(app, ".env.local"), 'SSH_WS_ALLOWED_ORIGINS="https://console.example.com"\n', { mode: 0o600 });
+		await writeFile(path.join(app, ".git/info/exclude"), ".env.local\n");
+		return { root, app, head: git(origin, "rev-parse", "HEAD") };
+	}
+
+	async function upgrade(root: string, app: string) {
+		return new Promise<{ code: number | null; text: string }>((resolve) => {
+			const child = spawn("bash", [path.join(root, "deploy", "upgrade.sh")], {
+				env: { ...process.env, APP_DIR: app, UPGRADE_REF: "main", SKIP_PRE_BACKUP: "1", SKIP_POST_CHECK: "1", DOMAIN: "", CHECK_PUBLIC_URL: "", CADDY_FILE: path.join(root, "no-caddyfile") },
+			});
+			let text = "";
+			child.stdout.on("data", (chunk) => { text += chunk; });
+			child.stderr.on("data", (chunk) => { text += chunk; });
+			child.on("close", (code) => resolve({ code, text }));
+		});
+	}
+
+	it("updates a checkout whose route catalog the installer's build rewrote", async () => {
+		// The build regenerates docs/route-catalog.json; every update of a
+		// one-click install stopped at "Working tree has local changes".
+		const { root, app, head } = await installedClone();
+		await writeFile(path.join(app, "docs/route-catalog.json"), '{"generatedAt":"2026-10-26T09:15:12Z"}\n');
+		const result = await upgrade(root, app);
+		expect(result.text).not.toContain("Working tree has local changes");
+		expect(result.code).toBe(0);
+		expect(git(app, "rev-parse", "HEAD")).toBe(head);
+	});
+
+	it("still refuses to update over a change someone made", async () => {
+		const { root, app } = await installedClone();
+		await writeFile(path.join(app, "README.md"), "edited on the server\n");
+		const result = await upgrade(root, app);
+		expect(result.code).not.toBe(0);
+		expect(result.text).toContain("Working tree has local changes");
+	});
+});
 });

@@ -55,6 +55,9 @@ export const SettingKey = z.union([
 	z.literal("platform.defaultLocale"),
 	z.literal("platform.defaultTheme"),
 	z.literal("security.sshEnforceHostKeyPin"),
+	z.literal("rdp.webpImages"),
+	z.literal("security.turnstileSiteKey"),
+	z.literal("security.turnstileSecretKey"),
 	z.literal("security.loginLockoutClientFailures"),
 	z.literal("security.loginLockoutAccountFailures"),
 	z.literal("security.loginLockoutMinutes"),
@@ -133,6 +136,9 @@ export const VALID_SETTING_KEYS: string[] = [
 	"platform.defaultLocale",
 	"platform.defaultTheme",
 	"security.sshEnforceHostKeyPin",
+	"rdp.webpImages",
+	"security.turnstileSiteKey",
+	"security.turnstileSecretKey",
 	"security.loginLockoutClientFailures",
 	"security.loginLockoutAccountFailures",
 	"security.loginLockoutMinutes",
@@ -166,6 +172,7 @@ const SENSITIVE_KEYS = new Set([
 	"telegram.botToken",
 	"offsite.accessKeyId",
 	"offsite.secretAccessKey",
+	"security.turnstileSecretKey",
 ]);
 
 /**

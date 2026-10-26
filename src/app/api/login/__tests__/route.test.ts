@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-const { authenticateUserMock, createSessionTokenMock, createPending2faTokenMock } = vi.hoisted(() => ({
+const { authenticateUserMock, createSessionTokenMock, createPending2faTokenMock, turnstileConfigMock } = vi.hoisted(() => ({
+  turnstileConfigMock: vi.fn<() => Promise<{ siteKey: string; secretKey: string } | null>>(async () => null),
   authenticateUserMock: vi.fn(),
   createSessionTokenMock: vi.fn(async () => "session-token"),
   createPending2faTokenMock: vi.fn(async () => "pending-token"),
@@ -29,6 +30,10 @@ vi.mock("@/lib/rate-limit", () => ({
   isAccountLockedAsync: vi.fn(async () => ({ locked: false })),
   recordLoginFailureAsync: vi.fn(async () => ({ locked: false, failCount: 1 })),
   clearLoginFailureAsync: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/auth/turnstile", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth/turnstile")>()),
+  getTurnstileConfig: turnstileConfigMock,
 }));
 vi.mock("@/lib/auth/csrf", () => ({
   generateCsrfToken: () => "csrf-token",
@@ -67,6 +72,45 @@ describe("POST /api/login", () => {
 
   afterEach(() => {
     process.env = oldEnv;
+  });
+
+  describe("with Cloudflare Turnstile on", () => {
+    const siteverify = vi.fn();
+    beforeEach(() => {
+      turnstileConfigMock.mockResolvedValue({ siteKey: "site", secretKey: "secret" });
+      vi.stubGlobal("fetch", siteverify);
+    });
+    afterEach(() => { vi.unstubAllGlobals(); turnstileConfigMock.mockResolvedValue(null); });
+
+    it("refuses a login without the widget's token before checking the password", async () => {
+      const response = await POST(makeLoginRequest({ username: "admin", password: "secret", next: "/servers" }));
+      expect(response.status).toBe(303);
+      expect(response.headers.get("location")).toBe("/login?error=captcha&next=%2Fservers");
+      expect(authenticateUserMock).not.toHaveBeenCalled();
+      expect(siteverify).not.toHaveBeenCalled();
+    });
+
+    it("refuses a token Cloudflare rejects, and lets one it accepts through to the password", async () => {
+      siteverify.mockResolvedValueOnce(new Response(JSON.stringify({ success: false, "error-codes": ["timeout-or-duplicate"] })));
+      const refused = await POST(makeLoginRequest({ username: "admin", password: "secret", "cf-turnstile-response": "spent" }));
+      expect(refused.headers.get("location")).toBe("/login?error=captcha");
+      expect(authenticateUserMock).not.toHaveBeenCalled();
+
+      siteverify.mockResolvedValueOnce(new Response(JSON.stringify({ success: true })));
+      const accepted = await POST(makeLoginRequest({ username: "admin", password: "secret", "cf-turnstile-response": "fresh" }));
+      expect(accepted.headers.get("location")).toBe("/");
+      expect(authenticateUserMock).toHaveBeenCalledTimes(1);
+      const [url, init] = siteverify.mock.calls.at(-1)!;
+      expect(url).toBe("https://challenges.cloudflare.com/turnstile/v0/siteverify");
+      expect(Object.fromEntries(new URLSearchParams(String(init.body)))).toEqual({ secret: "secret", response: "fresh", remoteip: "127.0.0.1" });
+    });
+
+    it("keeps signing in with the password checks while Cloudflare cannot be reached", async () => {
+      siteverify.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
+      const response = await POST(makeLoginRequest({ username: "admin", password: "secret", "cf-turnstile-response": "token" }));
+      expect(response.headers.get("location")).toBe("/");
+      expect(authenticateUserMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("uses the normal session TTL when remember login is not checked", async () => {

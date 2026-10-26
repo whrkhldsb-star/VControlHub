@@ -8,6 +8,7 @@ const { mocks } = vi.hoisted(() => ({
     isValidSettingKey: vi.fn(),
     getSetting: vi.fn(),
     auditUserAction: vi.fn(),
+    checkTurnstileSecret: vi.fn(async () => null as "invalid-secret" | null),
   },
 }));
 
@@ -26,6 +27,7 @@ vi.mock("@/lib/settings/schema", async (importOriginal) => {
   };
 });
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
+vi.mock("@/lib/auth/turnstile", () => ({ checkTurnstileSecret: mocks.checkTurnstileSecret }));
 
 const route = await import("../route");
 
@@ -50,6 +52,9 @@ describe("/api/settings audit coverage", () => {
       "runtime.aiConversationListLimit",
       "security.loginLockoutMinutes",
       "security.sshEnforceHostKeyPin",
+      "rdp.webpImages",
+      "security.turnstileSiteKey",
+      "security.turnstileSecretKey",
       "telegram.enabled",
       "telegram.chatId",
     ].includes(key));
@@ -214,6 +219,46 @@ describe("/api/settings audit coverage", () => {
       body: JSON.stringify({ "security.sshEnforceHostKeyPin": "yes" }),
     }));
     expect(invalid.status).toBe(400);
+  });
+
+  it("stores the RDP WebP switch as on, off or empty (the environment decides)", async () => {
+    for (const value of ["true", "false", ""]) {
+      const response = await route.PATCH(new Request("http://local/api/settings", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ "rdp.webpImages": value }),
+      }));
+      expect(response.status).toBe(200);
+      expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "rdp.webpImages", value }], "u1");
+    }
+    const invalid = await route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ "rdp.webpImages": "webp" }),
+    }));
+    expect(invalid.status).toBe(400);
+  });
+
+  it("does not store a Turnstile secret Cloudflare does not know: it would refuse every login", async () => {
+    const save = (body: Record<string, string>) => route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }));
+    mocks.checkTurnstileSecret.mockResolvedValueOnce("invalid-secret");
+    const refused = await save({ "security.turnstileSiteKey": "0xSITE", "security.turnstileSecretKey": " 0xWRONG " });
+    expect(refused.status).toBe(400);
+    expect(mocks.checkTurnstileSecret).toHaveBeenCalledWith("0xWRONG");
+    expect(mocks.setManySettings).not.toHaveBeenCalled();
+
+    const saved = await save({ "security.turnstileSiteKey": "0xSITE", "security.turnstileSecretKey": "0xRIGHT" });
+    expect(saved.status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenCalledWith([{ key: "security.turnstileSiteKey", value: "0xSITE" }, { key: "security.turnstileSecretKey", value: "0xRIGHT" }], "u1");
+
+    // Clearing turns it off without asking Cloudflare.
+    mocks.checkTurnstileSecret.mockClear();
+    expect((await save({ "security.turnstileSecretKey": "" })).status).toBe(200);
+    expect(mocks.checkTurnstileSecret).not.toHaveBeenCalled();
   });
 
   it("accepts bounded SSH idle timeout runtime settings", async () => {

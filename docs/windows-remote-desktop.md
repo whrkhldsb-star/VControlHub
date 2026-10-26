@@ -1,6 +1,6 @@
 # Windows remote desktop gateway
 
-Windows nodes use RDP, not SSH. The browser connects through the application's authenticated `/rdp` WebSocket endpoint. Windows credentials remain encrypted on the server. Text clipboard sync is enabled by default (`RDP_ENABLE_CLIPBOARD=false` to disable); drive sharing and printing stay disabled, and remote audio is opt-in via `RDP_AUDIO_ENABLED=true`.
+Windows nodes use RDP, not SSH. The browser connects through the application's authenticated `/rdp` WebSocket endpoint. Windows credentials remain encrypted on the server. Text clipboard sync is enabled by default (`RDP_ENABLE_CLIPBOARD=false` to disable); drive sharing and printing stay disabled, and remote audio is opt-in via `RDP_AUDIO_ENABLED=true`. Frequently changing regions can be sent as WebP instead of JPEG (fewer bytes, more hub CPU): Settings → runtime → "Remote desktop frames as WebP", or `RDP_WEBP_IMAGES=true` while that setting is empty.
 
 ## Gateway
 

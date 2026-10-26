@@ -1,10 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+const turnstileConfig = vi.hoisted(() => vi.fn<() => Promise<{ siteKey: string; secretKey: string } | null>>(async () => null));
 vi.mock("next/headers", () => ({
 	cookies: vi.fn(async () => ({
 		get: () => undefined,
 	})),
+	headers: vi.fn(async () => new Headers({ "x-nonce": "page-nonce" })),
+}));
+vi.mock("@/lib/auth/turnstile", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/lib/auth/turnstile")>()),
+	getTurnstileConfig: turnstileConfig,
 }));
 
 import LoginPage from "@/app/login/page";
@@ -47,5 +53,23 @@ describe("LoginPage", () => {
 		render(await LoginPage({ searchParams: Promise.resolve({ error: "invalid" }) }));
 
 		expect(screen.getByRole("alert")).toHaveTextContent("用户名或密码错误");
+	});
+
+	it("shows Cloudflare's human verification in the form when Turnstile is on, and why a login it refused failed", async () => {
+		turnstileConfig.mockResolvedValueOnce({ siteKey: "0xSITE", secretKey: "0xSECRET" });
+		const { container } = render(await LoginPage({ searchParams: Promise.resolve({ error: "captcha" }) }));
+		const widget = screen.getByTestId("login-turnstile");
+		expect(widget).toHaveAttribute("data-sitekey", "0xSITE");
+		expect(widget.closest("form")).toHaveAttribute("action", "/api/login");
+		// React hoists an async script into the document head.
+		const script = document.querySelector('script[src="https://challenges.cloudflare.com/turnstile/v0/api.js"]');
+		expect(script).toHaveAttribute("nonce", "page-nonce");
+		expect(container.innerHTML).not.toContain("0xSECRET");
+		expect(screen.getByText("人机验证未通过，请完成验证后重新登录")).toBeInTheDocument();
+	});
+
+	it("shows no verification while Turnstile is off", async () => {
+		render(await LoginPage({ searchParams: Promise.resolve({}) }));
+		expect(screen.queryByTestId("login-turnstile")).not.toBeInTheDocument();
 	});
 })

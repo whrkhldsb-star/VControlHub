@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T00:53:17.572Z",
+  "generatedAt": "2026-10-26T09:25:11.091Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -2640,6 +2640,7 @@
       "file": "src/app/api/share/[token]/route.ts",
       "methods": [
         "GET",
+        "HEAD",
         "POST"
       ],
       "guardMode": "public",

@@ -125,6 +125,8 @@ checkout_repo() {
     # The installer hands the checkout to the service user; run from root,
     # plain git stopped here with "dubious ownership" before reinstalling
     # (upgrade.sh and install.sh already pass the same exception).
+    # The build regenerates the route catalog in place; it must not stop the pull.
+    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
     git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch origin "${BRANCH}" --prune
     git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout "${BRANCH}"
     git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"
@@ -160,6 +162,11 @@ run_install() {
 
 run_update() {
   require_installed_script deploy/upgrade.sh
+  # Installs whose upgrade.sh predates the fix refuse the update over the
+  # route catalog their own build rewrote; this script is fetched fresh.
+  if [ -d "${APP_DIR}/.git" ]; then
+    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
+  fi
   log "Starting backup-first update"
   APP_NAME="${APP_NAME}" APP_SLUG="${APP_SLUG}" SERVICE_PREFIX="${SERVICE_PREFIX}" \
     APP_DIR="${APP_DIR}" UPGRADE_REF="${BRANCH}" "${APP_DIR}/deploy/upgrade.sh" "$@"

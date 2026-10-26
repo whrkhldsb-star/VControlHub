@@ -1,13 +1,24 @@
 import type * as Guacamole from "guacamole-common-js";
 
+/** How the bridge is pinged, and how much later than due a timer means the page itself stood still. */
+const PING_INTERVAL_MS = 5_000;
+const LATE_TIMER_MS = 5_000;
+
+export type RdpTunnel = Guacamole.Tunnel & {
+  /** Sends the frame answer held while the desktop was not shown; call it once it is. */
+  releaseSync(): void;
+};
+
 /**
  * The bridge authenticates with a first-frame ticket, NOT URL query data.
  * `onLatency` gets the round trip to the bridge, in ms, each time it echoes one
  * of this tunnel's keep-alive pings: queueing included, so it shows a slow or
- * congested path, not the hub-to-Windows leg.
+ * congested path, not the hub-to-Windows leg. `shown` says whether the desktop
+ * is on screen (a workbench tab not selected, or minimized, is not).
  */
-export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (ms: number) => void): Guacamole.Tunnel {
+export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (ms: number) => void, shown: () => boolean = () => true): RdpTunnel {
   class TicketTunnel extends G.Tunnel {
+    releaseSync = () => {};
     constructor() {
       super();
       let socket: WebSocket | undefined;
@@ -17,11 +28,32 @@ export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (m
       // The pings this tunnel sent (each carries its send time): the bridge's
       // own pings carry its clock's time and must not be read as echoes.
       const pings = new Set<string>();
+      let lastPingAt = 0;
       const ping = () => {
-        const id = String(Date.now());
+        const now = Date.now();
+        // The page was frozen or asleep since the last ping: echoes of the
+        // pings sent before would report that pause as latency.
+        if (lastPingAt && now - lastPingAt > PING_INTERVAL_MS + LATE_TIMER_MS) pings.clear();
+        lastPingAt = now;
+        const id = String(now);
         pings.add(id);
         for (const old of [...pings].slice(0, -8)) pings.delete(old);
         this.sendMessage("", "ping", id);
+      };
+      // While the desktop is not on screen (its tab hidden, or another
+      // workbench tab selected), the browser's answers that it drew a frame
+      // ("sync") wait here: the gateway stops sending once frames go
+      // unanswered for 1.5 s, so a desktop nobody can see neither decodes
+      // images in the background — which gets the tab frozen — nor takes the
+      // downlink from the desktop on screen. Shown again, the latest answer
+      // goes out and the desktop catches up at once.
+      let heldSync: string | undefined;
+      const hidden = () => !shown() || (typeof document !== "undefined" && document.visibilityState === "hidden");
+      const releaseSync = () => {
+        if (hidden() || heldSync === undefined) return;
+        const timestamp = heldSync;
+        heldSync = undefined;
+        this.sendMessage("sync", timestamp);
       };
       const state = (next: Guacamole.Tunnel.State) => {
         this.state = next;
@@ -30,6 +62,7 @@ export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (m
       const close = () => {
         clearTimeout(timeout);
         clearInterval(pingInterval);
+        if (typeof document !== "undefined") document.removeEventListener("visibilitychange", releaseSync);
         if (socket) {
           socket.onopen = socket.onmessage = socket.onerror = socket.onclose = null;
           socket.close();
@@ -45,11 +78,21 @@ export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (m
       // (NLA against a slow domain controller can take a while), then a 30s
       // receive timeout that only a dead gateway can let expire — the bridge
       // pings every 5s even while the desktop is idle.
+      //
+      // A timer that fires well after it was due means this page stood still:
+      // Chrome freezes a background tab that keeps decoding a desktop after
+      // about five minutes hidden, and a laptop sleeps. The silence was then
+      // the page's own, the gateway kept the session, and what it sent
+      // meanwhile is still queued in the socket: one more window for it,
+      // instead of dropping the desktop and reconnecting.
       const armTimeout = () => {
         clearTimeout(timeout);
-        timeout = setTimeout(fail, this.state === G.Tunnel.State.OPEN ? 30_000 : 35_000);
+        const limit = this.state === G.Tunnel.State.OPEN ? 30_000 : 35_000;
+        const due = Date.now() + limit;
+        timeout = setTimeout(() => (Date.now() - due > LATE_TIMER_MS ? armTimeout() : fail()), limit);
       };
       this.disconnect = close;
+      this.releaseSync = releaseSync;
       this.connect = (ticket = "") => {
         state(G.Tunnel.State.CONNECTING);
         const parser = new G.Parser();
@@ -63,7 +106,7 @@ export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (m
             state(G.Tunnel.State.OPEN);
             armTimeout();
             ping();
-            pingInterval = setInterval(ping, 5_000);
+            pingInterval = setInterval(ping, PING_INTERVAL_MS);
           } else {
             const echo = opcode === "" && args[0] === "ping" ? String(args[1]) : "";
             if (pings.delete(echo)) onLatency?.(Math.max(0, Date.now() - Number(echo)));
@@ -73,6 +116,7 @@ export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (m
             this.oninstruction?.(opcode, [...args]);
           }
         };
+        if (typeof document !== "undefined") document.addEventListener("visibilitychange", releaseSync);
         socket = new WebSocket(url, "guacamole");
         socket.onopen = () => { socket?.send(ticket); ticket = ""; };
         socket.onmessage = event => {
@@ -86,6 +130,7 @@ export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (m
       };
       this.sendMessage = (...elements: (string | number)[]) => {
         if (this.state !== G.Tunnel.State.OPEN || socket?.readyState !== WebSocket.OPEN) return;
+        if (elements[0] === "sync" && hidden()) { heldSync = String(elements[1]); return; }
         socket.send(elements.map(value => {
           const text = String(value);
           return `${Array.from(text).length}.${text}`;

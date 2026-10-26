@@ -72,6 +72,77 @@ describe("RDP browser tunnel", () => {
     expect(instruction).toHaveBeenCalledWith("sync", ["1"]);
     tunnel.disconnect();
   });
+  it("gives the bridge another window after the page itself was frozen, instead of dropping the desktop", () => {
+    vi.useFakeTimers(); vi.stubGlobal("WebSocket", Socket);
+    const latency = vi.fn();
+    const tunnel = createRdpTunnel(Guacamole, "ws://localhost/rdp", latency);
+    tunnel.onerror = vi.fn(); tunnel.connect("ticket");
+    const socket = Socket.current;
+    socket.onopen?.();
+    socket.onmessage?.({ data: "0.,4.uuid;" });
+    const beforeFreeze = String(Date.now());
+    // Frozen for three minutes (a hidden tab Chrome froze): the clock moves
+    // on, the timers wait and then fire late.
+    vi.setSystemTime(Date.now() + 180_000);
+    vi.advanceTimersByTime(30_000);
+    expect(tunnel.onerror).not.toHaveBeenCalled();
+    expect(tunnel.state).toBe(Guacamole.Tunnel.State.OPEN);
+    // What the gateway sent meanwhile arrives: the echo of a ping from before
+    // the freeze is no latency figure; one from after it is.
+    socket.onmessage?.({ data: `0.,4.ping,${beforeFreeze.length}.${beforeFreeze};4.sync,1.1;` });
+    expect(latency).not.toHaveBeenCalled();
+    const fresh = String(Date.now() - 5_000);
+    socket.onmessage?.({ data: `0.,4.ping,${fresh.length}.${fresh};` });
+    expect(latency).toHaveBeenCalledExactlyOnceWith(5_000);
+    // A bridge that then stays silent, on time, is still dropped.
+    vi.advanceTimersByTime(29_999);
+    expect(tunnel.onerror).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(tunnel.onerror).toHaveBeenCalled();
+    expect(tunnel.state).toBe(Guacamole.Tunnel.State.CLOSED);
+  });
+  it("holds frame answers while the tab is hidden and sends the latest when it is shown", () => {
+    // Unanswered frames stop the gateway after 1.5 s: a hidden desktop then
+    // neither decodes images in the background (which gets the tab frozen)
+    // nor takes the downlink from the one on screen.
+    vi.stubGlobal("WebSocket", Socket);
+    let visibility: DocumentVisibilityState = "visible";
+    const descriptor = Object.getOwnPropertyDescriptor(Document.prototype, "visibilityState");
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibility });
+    try {
+      const tunnel = createRdpTunnel(Guacamole, "ws://localhost/rdp");
+      tunnel.connect("ticket");
+      const socket = Socket.current;
+      socket.onopen?.();
+      socket.onmessage?.({ data: "0.,4.uuid;" });
+      tunnel.sendMessage("sync", 100);
+      expect(socket.send).toHaveBeenLastCalledWith("4.sync,3.100;");
+      visibility = "hidden";
+      document.dispatchEvent(new Event("visibilitychange"));
+      socket.send.mockClear();
+      tunnel.sendMessage("sync", 200);
+      tunnel.sendMessage("sync", 300);
+      // Input and keep-alives still go out; only the answers wait.
+      tunnel.sendMessage("nop");
+      expect(socket.send.mock.calls).toEqual([["3.nop;"]]);
+      visibility = "visible";
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(socket.send).toHaveBeenLastCalledWith("4.sync,3.300;");
+      expect(socket.send).toHaveBeenCalledTimes(2);
+      tunnel.sendMessage("sync", 400);
+      expect(socket.send).toHaveBeenLastCalledWith("4.sync,3.400;");
+      tunnel.disconnect();
+      // A closed tunnel no longer listens.
+      visibility = "hidden";
+      document.dispatchEvent(new Event("visibilitychange"));
+      visibility = "visible";
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(socket.send).toHaveBeenCalledTimes(3);
+    } finally {
+      delete (document as { visibilityState?: unknown }).visibilityState;
+      if (descriptor && !Object.getOwnPropertyDescriptor(Document.prototype, "visibilityState")) Object.defineProperty(Document.prototype, "visibilityState", descriptor);
+    }
+  });
   it("pings the bridge as the tunnel opens and every 5s after", () => {
     vi.useFakeTimers(); vi.stubGlobal("WebSocket", Socket);
     const tunnel = createRdpTunnel(Guacamole, "ws://localhost/rdp");

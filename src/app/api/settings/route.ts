@@ -1,3 +1,4 @@
+import { checkTurnstileSecret } from "@/lib/auth/turnstile";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -117,7 +118,8 @@ function normalizeSettingValue(key: string, value: string) {
 		case "telegram.enabled":
 			return normalizeBooleanSetting(key, value);
 		case "security.sshEnforceHostKeyPin":
-			// Empty keeps SSH_ENFORCE_HOST_KEY_PIN in force (the stored default).
+		case "rdp.webpImages":
+			// Empty keeps the environment's value in force (the stored default).
 			return value.trim() === "" ? { key, value: "" } : normalizeBooleanSetting(key, value);
 		case "platform.defaultLocale": {
 			const trimmed = value.trim().toLowerCase();
@@ -128,6 +130,12 @@ function normalizeSettingValue(key: string, value: string) {
 		case "platform.defaultTheme": {
 			const trimmed = value.trim().toLowerCase();
 			if (trimmed && trimmed !== "dark" && trimmed !== "light") throw new ValidationError(t("backend.settings.platformDefaultThemeInvalid"));
+			return { key, value: trimmed };
+		}
+		case "security.turnstileSiteKey":
+		case "security.turnstileSecretKey": {
+			const trimmed = value.trim();
+			if (trimmed.length > 200 || /\s/.test(trimmed)) throw new ValidationError(t("backend.settings.turnstileKeyInvalid"));
 			return { key, value: trimmed };
 		}
 		case "telegram.botToken":
@@ -226,6 +234,14 @@ export async function PATCH(request: Request) {
 				success: true,
 				message: t("backend.settings.noValidUpdates"),
 			});
+		}
+
+		// A secret Cloudflare does not know would refuse every login, the
+		// administrator's included: check it before it is stored.
+		const turnstileSecret = entries.find((entry) => entry.key === "security.turnstileSecretKey" && entry.value);
+		if (turnstileSecret && (await checkTurnstileSecret(turnstileSecret.value))) {
+			const message = t("backend.settings.turnstileSecretRejected");
+			return NextResponse.json({ error: message, details: [message] }, { status: 400 });
 		}
 
 		await setManySettings(entries, session.userId);

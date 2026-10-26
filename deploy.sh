@@ -123,6 +123,8 @@ tar -C "$APP_DIR" --exclude='./.git' --exclude='./node_modules*' --exclude='./.n
 	--exclude='./coverage' --exclude='./test-results' --exclude='./playwright-report' -cf - . | tar -C "$stage_dir" -xf -
 # Older installs lack secrets added since; generate them before the copy below.
 source "$DEPLOY_SCRIPT_DIR/deploy/lib/runtime-secrets.sh"
+# shellcheck source=deploy/lib/caddy-grace-period.sh
+source "$DEPLOY_SCRIPT_DIR/deploy/lib/caddy-grace-period.sh"
 ensure_runtime_secrets "$APP_DIR/.env.runtime"
 for secret in .env .env.local .env.runtime .env.production; do
 	if [ -f "$APP_DIR/$secret" ]; then install -m 600 "$APP_DIR/$secret" "$stage_dir/$secret"; fi
@@ -255,6 +257,22 @@ if [ -f "$CADDY_FILE" ]; then
 	else
 		echo "  /direct 反代已存在, 跳过"
 	fi
+	# Older installs have no grace_period: a stuck connection then held the
+	# reload below forever (see deploy/lib/caddy-grace-period.sh).
+	if ! caddyfile_has_grace_period "$CADDY_FILE"; then
+		BACKUP="${CADDY_FILE}.bak.$(date +%Y%m%d%H%M%S)"
+		cp "$CADDY_FILE" "$BACKUP"
+		ls -1t "${CADDY_FILE}".bak.* 2>/dev/null | tail -n +6 | xargs -r rm -f
+		NEW_FILE="${CADDY_FILE}.new.$$"
+		caddyfile_with_grace_period "$BACKUP" > "$NEW_FILE"
+		if caddy validate --config "$NEW_FILE" --adapter caddyfile >/dev/null 2>&1; then
+			mv "$NEW_FILE" "$CADDY_FILE"
+			echo "  加入 grace_period ${CADDY_GRACE_PERIOD}（重载最多等这么久，backup: $BACKUP）"
+		else
+			rm -f "$NEW_FILE"
+			echo "  WARNING: 加入 grace_period 后 caddy validate 未通过，保持原配置"
+		fi
+	fi
 	# Final validation prevents a concurrent edit from reaching the later restart.
 	if caddy validate --config "$CADDY_FILE" --adapter caddyfile >/dev/null 2>&1; then
 		echo "  caddy validate OK（将在服务启动阶段统一 restart）"
@@ -297,7 +315,9 @@ if [ "$aria2_unit_ready" -eq 1 ]; then
 	systemctl restart "$ARIA2_SERVICE_NAME" || echo "  WARNING: $ARIA2_SERVICE_NAME 未能启动，磁力/BT 中继在它恢复前不可用：journalctl -u $ARIA2_SERVICE_NAME"
 fi
 systemctl start "$SERVICE_NAME" "$WORKER_SERVICE_NAME" "$SSH_SERVICE_NAME"
-if [ -f "$CADDY_FILE" ]; then systemctl reload caddy; fi
+# Bounded even where grace_period could not be added: a reload stuck behind
+# a dead connection is replaced by a restart instead of failing the deploy.
+if [ -f "$CADDY_FILE" ]; then timeout 120 systemctl reload caddy || systemctl restart caddy; fi
 
 echo "==> [8/8] 验证服务及 SSH 协议，再执行 smoke test"
 for svc in "$SERVICE_NAME" "$WORKER_SERVICE_NAME" "$SSH_SERVICE_NAME"; do

@@ -4,7 +4,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { instruction } from "@/lib/rdp/protocol";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), clipboard: vi.fn(), audit: vi.fn(async () => undefined) }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), clipboard: vi.fn(), audit: vi.fn(async () => undefined), images: vi.fn(async () => ["image/png", "image/jpeg"]) }));
 vi.mock("ws", () => ({
   WebSocket: { OPEN: 1 },
   WebSocketServer: class { constructor() { return mocks.webSocketServer(); } },
@@ -20,7 +20,7 @@ vi.mock("@/lib/rdp/tickets", () => ({
   guacdPort: () => 4822, rdpEndpointHash: () => "endpoint", rdpOriginAllowed: () => true,
 }));
 vi.mock("@/lib/runtime-settings/service", () => ({ getRdpSessionRuntimeConfig: async () => ({ idleTimeoutMs: 0, maxSessionMs: 0 }) }));
-vi.mock("@/lib/rdp/features", () => ({ rdpAudioEnabled: () => false, rdpClipboardEnabled: mocks.clipboard, RDP_AUDIO_MIMETYPES: [] }));
+vi.mock("@/lib/rdp/features", () => ({ rdpAudioEnabled: () => false, rdpClipboardEnabled: mocks.clipboard, rdpImageMimetypes: mocks.images, RDP_AUDIO_MIMETYPES: [] }));
 
 import { setupRdpWebSocket } from "@/lib/rdp/ws";
 
@@ -132,6 +132,58 @@ describe("established RDP authorization", () => {
     await vi.advanceTimersByTimeAsync(150);
     expect(tunnel.resume).toHaveBeenCalledTimes(1);
     expect(ws.close).not.toHaveBeenCalled();
+  });
+
+  it("holds guacd back while a frame left 1.5 s ago is undrawn, until the browser is within 0.5 s", async () => {
+    // guacd paced itself only by how much the browser's answers slowed from
+    // frame to frame: a queue growing in the kernel, Caddy and Cloudflare
+    // read to it as a longer path, and the desktop fell ever further behind.
+    const { ws, tunnel } = await connect();
+    const rect = instruction("rect", "0", "0", "0", "10", "10");
+    tunnel.emit("data", Buffer.from(rect + instruction("sync", "1000")));
+    await vi.advanceTimersByTimeAsync(1_000);
+    tunnel.emit("data", Buffer.from(rect + instruction("sync", "2000")));
+    expect(tunnel.pause).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(600);
+    tunnel.emit("data", Buffer.from(rect));
+    expect(tunnel.pause).toHaveBeenCalledTimes(1);
+    // The older frame drawn, the newer one has waited 600 ms: still held.
+    ws.emit("message", Buffer.from(instruction("sync", "1000")), false);
+    await vi.advanceTimersByTimeAsync(150);
+    expect(tunnel.resume).not.toHaveBeenCalled();
+    // Caught up: guacd goes on at once, and the answers still reach it.
+    ws.emit("message", Buffer.from(instruction("sync", "2000")), false);
+    expect(tunnel.resume).toHaveBeenCalledTimes(1);
+    expect(tunnel.write).toHaveBeenCalledWith(instruction("sync", "2000"));
+    expect(ws.close).not.toHaveBeenCalled();
+  });
+
+  it("keeps guacd flowing for a browser that draws each frame in time", async () => {
+    const { ws, tunnel } = await connect();
+    for (let frame = 1; frame <= 20; frame += 1) {
+      tunnel.emit("data", Buffer.from(instruction("sync", String(frame * 1000))));
+      await vi.advanceTimersByTimeAsync(400);
+      ws.emit("message", Buffer.from(instruction("sync", String(frame * 1000))), false);
+    }
+    expect(tunnel.pause).not.toHaveBeenCalled();
+  });
+
+  it("never waits for a frame the browser will not answer", async () => {
+    const { ws, tunnel } = await connect();
+    // The browser answers each timestamp once; guacd may end two frames with one.
+    tunnel.emit("data", Buffer.from(instruction("sync", "5")));
+    ws.emit("message", Buffer.from(instruction("sync", "5")), false);
+    tunnel.emit("data", Buffer.from(instruction("sync", "5")));
+    await vi.advanceTimersByTimeAsync(2_000);
+    tunnel.emit("data", Buffer.from(instruction("rect", "0", "0", "0", "10", "10")));
+    expect(tunnel.pause).not.toHaveBeenCalled();
+    // A frame left unanswered for 30 s is given up on, so guacd is not held forever.
+    tunnel.emit("data", Buffer.from(instruction("sync", "9")));
+    await vi.advanceTimersByTimeAsync(1_600);
+    tunnel.emit("data", Buffer.from(instruction("rect", "0", "0", "0", "10", "10")));
+    expect(tunnel.pause).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(tunnel.resume).toHaveBeenCalledTimes(1);
   });
 
   it("retains a healthy session across repeated authorization checks", async () => {

@@ -122,7 +122,8 @@ function addSecurityHeaders(
 function buildContentSecurityPolicy(nonce: string) {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://cdn.jsdelivr.net https://static.cloudflareinsights.com`,
+    // challenges.cloudflare.com: the login form's Turnstile widget (script and iframe).
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://cdn.jsdelivr.net https://static.cloudflareinsights.com https://challenges.cloudflare.com`,
     // Tailwind and several existing components still use inline style attributes.
     "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
     // 2FA QR is a same-origin data: URL from /api/auth/2fa/setup (no third-party QR hosts).
@@ -131,7 +132,7 @@ function buildContentSecurityPolicy(nonce: string) {
     "connect-src 'self' ws: wss:",
     "worker-src 'self' blob:",
     "media-src 'self' blob:",
-    "frame-src 'self'",
+    "frame-src 'self' https://challenges.cloudflare.com",
     "frame-ancestors 'self'",
     "object-src 'none'",
     "base-uri 'self'",

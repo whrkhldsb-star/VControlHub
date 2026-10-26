@@ -62,6 +62,7 @@ describe("getSectionSaveKeys", () => {
 			"runtime.sftpSyncDirectoryTimeoutMs",
 			"runtime.sshWsHeartbeatIntervalMs",
 			"runtime.sshIdleTimeoutSec",
+			"rdp.webpImages",
 			"runtime.operationTaskListLimit",
 			"runtime.aiProviderListLimit",
 			"runtime.aiConversationListLimit",
@@ -167,11 +168,12 @@ describe("SMTP dynamic schema", () => {
 describe("Runtime schema", () => {
 	const runtime = SETTINGS_SCHEMA.find((s) => s.id === "runtime")!;
 
-	it("declares 11 runtime fields (10 number + 1 select)", () => {
-		expect(runtime.fields).toHaveLength(11);
+	it("declares 12 runtime fields (10 number + 1 select + 1 switch)", () => {
+		expect(runtime.fields).toHaveLength(12);
 		const selectFields = runtime.fields.filter((f) => f.type === "select");
 		expect(selectFields).toHaveLength(1);
 		expect(selectFields[0]?.key).toBe("runtime.sshIdleTimeoutSec");
+		expect(runtime.fields.filter((f) => f.type === "switch").map((f) => f.key)).toEqual(["rdp.webpImages"]);
 	});
 
 	it("validates command execution timeout bounds (5000–3600000)", () => {

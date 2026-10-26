@@ -2,6 +2,8 @@ import { getPublicLabel, getSiteName } from "@/lib/branding";
 import { BrandTile } from "@/components/nav-icons";
 import { LoginForm } from "./login-form";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
+import { headers } from "next/headers";
+import { getTurnstileConfig } from "@/lib/auth/turnstile";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,9 @@ function resolveErrorMessage(locale: Locale, error?: string, minutes?: string) {
 	}
 	if (error === "system") {
 		return t("login.error.system", locale);
+	}
+	if (error === "captcha") {
+		return t("login.error.captcha", locale);
 	}
 	if (error === "rate_limited") {
 		return t("login.error.rateLimited", locale);
@@ -34,6 +39,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 	// Server component: read the live environment so tests and runtime config
 	// changes are reflected. Client components use the inlined public value.
 	const publicLabel = getPublicLabel(process.env);
+	const turnstile = await getTurnstileConfig().catch(() => null);
+	const nonce = (await headers()).get("x-nonce") ?? undefined;
 	const siteName = getSiteName();
 
 	return (
@@ -99,7 +106,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 							<h2 className="ui-title-page mt-2.5">{t("login.branding.welcome", locale)}</h2>
 							<p className="mt-2 text-sm text-[var(--text-secondary)]">{t("login.branding.subtitle", locale)}</p>
 						</div>
-						<LoginForm nextPath={nextPath} error={error} locale={locale} />
+						<LoginForm nextPath={nextPath} error={error} locale={locale} turnstileSiteKey={turnstile?.siteKey} nonce={nonce} />
 					</section>
 				</div>
 			</div>
