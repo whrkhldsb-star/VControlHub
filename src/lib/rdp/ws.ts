@@ -55,6 +55,20 @@ const RDP_RESUME_POLL_MS = 100;
 /** One WebSocket message carries at most this much of a guacd chunk. */
 const RDP_BATCH_BYTES = 256_000;
 /**
+ * guacd ends every frame with "sync", and the browser answers with the same
+ * timestamp once it has drawn the frame. guacd paces itself only by how much
+ * that answer's delay grows from one frame to the next, so a queue building
+ * up past this process — the kernel's socket buffers, Caddy and Cloudflare,
+ * several MB together, where the byte limit above cannot see it — read to it
+ * as a longer path, and the desktop fell further and further behind the
+ * mouse. A frame still undrawn this long after it left holds guacd back
+ * until no frame older than the resume level waits.
+ */
+const RDP_FRAME_LAG_PAUSE_MS = 1_500;
+const RDP_FRAME_LAG_RESUME_MS = 500;
+/** A frame unanswered this long is not waited for any more. */
+const RDP_FRAME_ANSWER_GIVE_UP_MS = 30_000;
+/**
  * Concurrent RDP sessions per user (a reconnect to the same server replaces
  * its old one). Three, so an operator can keep three Windows desktops open.
  */
@@ -187,6 +201,23 @@ export function setupRdpWebSocket(server: HttpServer) {
   let started = false;
   let tunnelPaused = false;
   let resumePoll: ReturnType<typeof setInterval> | undefined;
+  // Frames sent to the browser and not yet answered as drawn, oldest first,
+  // and the latest timestamp it answered: it answers each timestamp once, so
+  // a frame guacd ends with an answered timestamp is never waited for.
+  const undrawn: { timestamp: number; sentAt: number }[] = [];
+  let drawnUpTo = -Infinity;
+  const frameLagMs = () => {
+   const now = Date.now();
+   while (undrawn.length && now - undrawn[0]!.sentAt > RDP_FRAME_ANSWER_GIVE_UP_MS) undrawn.shift();
+   return undrawn.length ? now - undrawn[0]!.sentAt : 0;
+  };
+  const holdBack = (paused: boolean) => ws.readyState === WebSocket.OPEN &&
+   (ws.bufferedAmount > (paused ? RDP_RESUME_BYTES : RDP_PAUSE_BYTES) || frameLagMs() > (paused ? RDP_FRAME_LAG_RESUME_MS : RDP_FRAME_LAG_PAUSE_MS));
+  const resumeIfCaughtUp = () => {
+   if (!tunnelPaused || holdBack(true)) return;
+   clearInterval(resumePoll); resumePoll = undefined;
+   tunnelPaused = false; tunnel?.resume();
+  };
   // Instructions of one guacd chunk, sent as one WebSocket message: one
   // message per instruction (thousands a second while the screen changes)
   // cost a frame header and Cloudflare's per-message handling each.
@@ -197,15 +228,11 @@ export function setupRdpWebSocket(server: HttpServer) {
    const payload = outbox.join("");
    outbox = []; outboxBytes = 0;
    if (ws.readyState === WebSocket.OPEN) ws.send(payload);
-   if (!tunnelPaused && ws.bufferedAmount > RDP_PAUSE_BYTES) {
+   if (!tunnelPaused && holdBack(false)) {
     // A slow browser holds guacd back instead of queueing seconds of frames;
     // guacd then paces itself and Windows sends fewer, newer updates.
     tunnelPaused = true; tunnel?.pause();
-    resumePoll = setInterval(() => {
-     if (ws.bufferedAmount >= RDP_RESUME_BYTES && ws.readyState === WebSocket.OPEN) return;
-     clearInterval(resumePoll); resumePoll = undefined;
-     tunnelPaused = false; tunnel?.resume();
-    }, RDP_RESUME_POLL_MS);
+    resumePoll = setInterval(resumeIfCaughtUp, RDP_RESUME_POLL_MS);
    }
   };
   let lastInput = Date.now();
@@ -329,6 +356,12 @@ export function setupRdpWebSocket(server: HttpServer) {
    // Any validated traffic — keep-alive nops and ping echoes included — proves
    // the browser is still there and resets the idle limit.
    lastInput = Date.now();
+   if (row[0] === "sync") {
+    const timestamp = Number(row[1]);
+    if (timestamp > drawnUpTo) drawnUpTo = timestamp;
+    while (undrawn.length && undrawn[0]!.timestamp <= drawnUpTo) undrawn.shift();
+    resumeIfCaughtUp();
+   }
    if (row[0] === "") { if (ws.readyState === WebSocket.OPEN) ws.send(instruction(...row)); return; }
    if (row[0] === "disconnect") { endedBy ??= "browser: disconnect"; ws.close(1000); endTunnel(); return; }
    // Clipboard is the only client-created stream type; blobs and end must
@@ -462,6 +495,10 @@ export function setupRdpWebSocket(server: HttpServer) {
      const allowed = (op === "clipboard" && clipboardAllowed) || (op === "audio" && audioAllowed);
      if (["clipboard", "file", "pipe", "filesystem", "audio", "video"].includes(op) && !allowed) { close("Unsupported RDP stream", 1008); return; }
      if (ws.bufferedAmount > 64_000_000) { close("RDP backpressure limit reached"); return; }
+     if (op === "sync") {
+      const timestamp = Number(row[1]);
+      if (timestamp > drawnUpTo) { undrawn.push({ timestamp, sentAt: Date.now() }); if (undrawn.length > 1_000) undrawn.shift(); }
+     }
      const text = instruction(...row);
      outbox.push(text); outboxBytes += text.length;
      if (outboxBytes >= RDP_BATCH_BYTES) flushOutbox();
