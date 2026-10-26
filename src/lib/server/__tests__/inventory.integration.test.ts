@@ -26,6 +26,24 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("server inve
     await prisma.user.deleteMany({ where: { id: prefix } });
     await prisma.$disconnect();
   });
+  it("loads a page without queueing queries on one connection (pg's concurrent-query warning)", async () => {
+    // Prisma loads an include's relations in parallel; inside the snapshot
+    // transaction they queued on its single connection, and pg printed
+    // "Calling client.query() when the client is already executing a query"
+    // in production each time the servers page was first opened.
+    const warnings: string[] = [];
+    const onWarning = (warning: Error) => warnings.push(warning.message);
+    process.on("warning", onWarning);
+    try {
+      const result = await getServerInventory(session);
+      expect(result.servers.length).toBeGreaterThan(0);
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      process.off("warning", onWarning);
+    }
+    expect(warnings.filter((message) => message.includes("already executing a query"))).toEqual([]);
+  });
+
   it("paginates all 525 scoped nodes without omissions, duplicates or the old cap", async () => {
     const seen = new Set<string>();
     for (let page = 1; page <= 44; page++) {

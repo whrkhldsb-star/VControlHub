@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 
 const mocks = vi.hoisted(() => ({ raw: vi.fn(), findMany: vi.fn(), transaction: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction } }));
+vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction, server: { findMany: mocks.findMany } } }));
 vi.mock("@/lib/auth/team-scope", () => ({
   isGlobalTeamManager: () => false,
   seesAllCustomers: () => false,
@@ -18,7 +18,10 @@ const session = { userId: "user-a", roles: ["viewer"] as ["viewer"], currentTeam
 describe("inventory operating-system filtering before pagination", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.transaction.mockImplementation(async (callback) => callback({ $queryRaw: mocks.raw, server: { findMany: mocks.findMany } }));
+    // The transaction client has no server delegate: relations are loaded
+    // outside it (Prisma loads them in parallel on the transaction's single
+    // connection otherwise, which pg warns about).
+    mocks.transaction.mockImplementation(async (callback) => callback({ $queryRaw: mocks.raw }));
     mocks.findMany.mockResolvedValue([]);
   });
   it("normalizes only supported operating systems", () => {
