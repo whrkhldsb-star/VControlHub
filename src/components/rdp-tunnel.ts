@@ -1,5 +1,9 @@
 import type * as Guacamole from "guacamole-common-js";
 
+/** How the bridge is pinged, and how much later than due a timer means the page itself stood still. */
+const PING_INTERVAL_MS = 5_000;
+const LATE_TIMER_MS = 5_000;
+
 /**
  * The bridge authenticates with a first-frame ticket, NOT URL query data.
  * `onLatency` gets the round trip to the bridge, in ms, each time it echoes one
@@ -17,8 +21,14 @@ export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (m
       // The pings this tunnel sent (each carries its send time): the bridge's
       // own pings carry its clock's time and must not be read as echoes.
       const pings = new Set<string>();
+      let lastPingAt = 0;
       const ping = () => {
-        const id = String(Date.now());
+        const now = Date.now();
+        // The page was frozen or asleep since the last ping: echoes of the
+        // pings sent before would report that pause as latency.
+        if (lastPingAt && now - lastPingAt > PING_INTERVAL_MS + LATE_TIMER_MS) pings.clear();
+        lastPingAt = now;
+        const id = String(now);
         pings.add(id);
         for (const old of [...pings].slice(0, -8)) pings.delete(old);
         this.sendMessage("", "ping", id);
@@ -45,9 +55,18 @@ export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (m
       // (NLA against a slow domain controller can take a while), then a 30s
       // receive timeout that only a dead gateway can let expire — the bridge
       // pings every 5s even while the desktop is idle.
+      //
+      // A timer that fires well after it was due means this page stood still:
+      // Chrome freezes a background tab that keeps decoding a desktop after
+      // about five minutes hidden, and a laptop sleeps. The silence was then
+      // the page's own, the gateway kept the session, and what it sent
+      // meanwhile is still queued in the socket: one more window for it,
+      // instead of dropping the desktop and reconnecting.
       const armTimeout = () => {
         clearTimeout(timeout);
-        timeout = setTimeout(fail, this.state === G.Tunnel.State.OPEN ? 30_000 : 35_000);
+        const limit = this.state === G.Tunnel.State.OPEN ? 30_000 : 35_000;
+        const due = Date.now() + limit;
+        timeout = setTimeout(() => (Date.now() - due > LATE_TIMER_MS ? armTimeout() : fail()), limit);
       };
       this.disconnect = close;
       this.connect = (ticket = "") => {
@@ -63,7 +82,7 @@ export function createRdpTunnel(G: typeof Guacamole, url: string, onLatency?: (m
             state(G.Tunnel.State.OPEN);
             armTimeout();
             ping();
-            pingInterval = setInterval(ping, 5_000);
+            pingInterval = setInterval(ping, PING_INTERVAL_MS);
           } else {
             const echo = opcode === "" && args[0] === "ping" ? String(args[1]) : "";
             if (pings.delete(echo)) onLatency?.(Math.max(0, Date.now() - Number(echo)));

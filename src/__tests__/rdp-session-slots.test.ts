@@ -107,19 +107,48 @@ describe("RDP session slots", () => {
     expect(handshakeSize(fourth.tunnel)).toBeUndefined();
   });
 
-  it("ends a session whose browser stopped answering pings, and frees its slot", async () => {
-    const dead = await open("a");
-    const alive = await open("b");
-    await open("c");
-    dead.ws.answersPings = false;
-    await vi.advanceTimersByTimeAsync(80_000);
-    expect(dead.ws.terminate).toHaveBeenCalled();
-    expect(dead.tunnel.end).toHaveBeenCalledWith(instruction("disconnect"));
-    expect(alive.ws.terminate).not.toHaveBeenCalled();
-    expect(alive.ws.close).not.toHaveBeenCalled();
-    expect(mocks.audit).toHaveBeenCalledWith("u", "server.rdp.closed", expect.objectContaining({ serverId: "a", reason: "gateway: browser stopped answering" }), undefined, "t");
-    // The slot is free: a desktop on a fourth server is accepted.
+  it("keeps a desktop whose browser stops answering for a while, as Chrome's frozen background tabs do", async () => {
+    // Ending it after 60 s without a pong cut such a desktop every 6-8
+    // minutes in production; it reconnected when its tab was shown again.
+    const frozen = await open("a");
+    frozen.ws.answersPings = false;
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(frozen.ws.terminate).not.toHaveBeenCalled();
+    expect(frozen.ws.close).not.toHaveBeenCalled();
+    expect(frozen.tunnel.end).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalledWith("u", "server.rdp.closed", expect.anything(), undefined, "t");
+  });
+
+  it("gives the slot of the desktop silent longest to a new one once the cap is reached", async () => {
+    const first = await open("a");
+    const answering = await open("b");
+    const later = await open("c");
+    first.ws.answersPings = false;
+    await vi.advanceTimersByTimeAsync(30_000);
+    later.ws.answersPings = false;
+    await vi.advanceTimersByTimeAsync(70_000);
     const fourth = await open("d");
     expect(errorStatus(fourth.ws)).toBeUndefined();
+    expect(handshakeSize(fourth.tunnel)).toBeDefined();
+    // Only the one silent longest goes, told why, and leaves guacd at once.
+    expect(errorStatus(first.ws)).toContain(instruction("error", "RDP session given up for a new desktop: its browser had stopped answering", "521"));
+    expect(first.tunnel.end).toHaveBeenCalledWith(instruction("disconnect"));
+    expect(later.ws.close).not.toHaveBeenCalled();
+    expect(answering.ws.close).not.toHaveBeenCalled();
+    expect(mocks.audit).toHaveBeenCalledWith("u", "server.rdp.closed", expect.objectContaining({ serverId: "a", reason: "gateway: RDP session given up for a new desktop: its browser had stopped answering" }), undefined, "t");
+  });
+
+  it("does not give up a desktop whose browser still sends, though its pongs are late behind a full downlink", async () => {
+    const busy = await open("a");
+    await open("b");
+    await open("c");
+    busy.ws.answersPings = false;
+    for (let i = 0; i < 10; i += 1) {
+      await vi.advanceTimersByTimeAsync(10_000);
+      await busy.ws.listeners("message")[0]!(Buffer.from(instruction("nop")), false);
+    }
+    const fourth = await open("d");
+    expect(errorStatus(fourth.ws)).toContain(instruction("error", "Too many RDP sessions for this user", "797"));
+    expect(busy.ws.close).not.toHaveBeenCalled();
   });
 });

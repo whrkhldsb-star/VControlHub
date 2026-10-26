@@ -26,13 +26,18 @@ function cookie(req: IncomingMessage) {
  */
 const DEAD_TRANSPORT_MS = 10 * 60_000;
 /**
- * WebSocket-level heartbeat. The browser answers pings in its network stack
- * (background tabs too), and they pass Caddy and Cloudflare, as the SSH
- * proxy's heartbeat shows. When the browser's path dies without a close —
- * a network or proxy switch behind Cloudflare, which keeps the origin
- * connection open — the session used to stay counted until the 10 minute
- * floor above, holding one of the user's two RDP slots: reconnecting was
- * refused for those minutes.
+ * WebSocket-level heartbeat. The browser answers pings in its network stack,
+ * and they pass Caddy and Cloudflare. When the browser's path dies without a
+ * close — a network or proxy switch behind Cloudflare, which keeps the origin
+ * connection open — the session stays counted until the 10 minute floor
+ * above; a browser silent this long (no pong, nothing sent) gives its slot up
+ * to a new desktop once the user's cap is reached (see `liveSessions`).
+ *
+ * Silence alone does not end a session: a browser that stops reading for a
+ * while looks the same from here. Chrome freezes a background tab that keeps
+ * using CPU (an RDP stream decoding images) after about five minutes hidden;
+ * ending those after 60 s without a pong cut a desktop every 6–8 minutes in
+ * production (10-26), which reconnected when its tab was shown again.
  */
 const PING_INTERVAL_MS = 15_000;
 const PONG_TOLERANCE_MS = 60_000;
@@ -148,9 +153,11 @@ export function setupRdpWebSocket(server: HttpServer) {
   * same user to the same server replaces it: that is a reconnect after the
   * old browser connection died unseen (the workbench opens one desktop per
   * server), or a second window — which Windows would take the account's
-  * session over for anyway.
+  * session over for anyway. A desktop on another server, once the user's cap
+  * is reached, takes the place of the session whose browser has been silent
+  * longest, if one has been silent past PONG_TOLERANCE_MS.
   */
- const liveSessions = new Map<string, () => void>();
+ const liveSessions = new Map<string, { userId: string; silentMs: () => number; supersede: (reason?: string) => void }>();
  server.on("upgrade", (req, socket, head) => {
   let path: string;
   try { path = new URL(req.url ?? "/", "http://localhost").pathname; } catch { socket.destroy(); return; }
@@ -226,19 +233,21 @@ export function setupRdpWebSocket(server: HttpServer) {
   // browser can take another 30 s).
   const releaseSlot = () => {
    if (!userId || !authenticated || slotKey === undefined) return;
-   if (liveSessions.get(slotKey) === supersede) liveSessions.delete(slotKey);
+   if (liveSessions.get(slotKey)?.supersede === supersede) liveSessions.delete(slotKey);
    slotKey = undefined;
    authedSessions--;
    const count = (users.get(userId) ?? 1) - 1;
    if (count) users.set(userId, count); else users.delete(userId);
   };
-  function supersede() {
+  function supersede(reason = "RDP session taken over by a new connection") {
    releaseSlot();
    // Status 521 (taken over): a browser still showing this session explains
    // it and does not reconnect — two windows would otherwise keep taking the
    // desktop from each other.
-   close("RDP session taken over by a new connection", 1000, RDP_STATUS_TAKEN_OVER);
+   close(reason, 1000, RDP_STATUS_TAKEN_OVER);
   }
+  // Since the browser last answered a ping or sent anything.
+  const silentMs = () => Date.now() - Math.max(lastPongAt, lastInput);
   // guacd sits behind the rootless Docker port proxy, which does not always
   // pass a closed socket on: guacd then kept the RDP connection logged in to
   // Windows until its own 15 s input timeout. A reconnect inside that window
@@ -278,14 +287,6 @@ export function setupRdpWebSocket(server: HttpServer) {
    if (Date.now() - lastInput > DEAD_TRANSPORT_MS ||
     (idleTimeoutMs > 0 && Date.now() - lastInput > idleTimeoutMs) ||
     (maxSessionMs > 0 && Date.now() - openedAt > maxSessionMs)) { close("RDP session limit reached", 1000); return; }
-   if (Date.now() - lastPongAt > PONG_TOLERANCE_MS) {
-    endedBy ??= "gateway: browser stopped answering";
-    releaseSlot();
-    stopped = true;
-    ws.terminate();
-    endTunnel();
-    return;
-   }
    if (Date.now() - lastPingAt >= PING_INTERVAL_MS && ws.readyState === WebSocket.OPEN) { lastPingAt = Date.now(); ws.ping(); }
    if (started) {
     // guacd drops clients that stay silent for ~20s, and background tabs get
@@ -384,12 +385,16 @@ export function setupRdpWebSocket(server: HttpServer) {
     };
     // After async authentication, so the process-local caps stay atomic.
     const key = `${session.userId}:${target.id}`;
-    liveSessions.get(key)?.();
+    liveSessions.get(key)?.supersede();
+    if ((users.get(session.userId) ?? 0) >= MAX_RDP_SESSIONS_PER_USER) {
+     const silent = [...liveSessions.values()].filter((live) => live.userId === session.userId && live.silentMs() > PONG_TOLERANCE_MS);
+     silent.sort((a, b) => b.silentMs() - a.silentMs())[0]?.supersede("RDP session given up for a new desktop: its browser had stopped answering");
+    }
     if ((users.get(session.userId) ?? 0) >= MAX_RDP_SESSIONS_PER_USER) { tooMany = true; throw new Error("Too many sessions"); }
     if (authedSessions >= MAX_RDP_SESSIONS) throw new Error("Denied");
     userId = session.userId; serverId = target.id; teamId = target.teamId;
     users.set(userId, (users.get(userId) ?? 0) + 1); authedSessions++; authenticated = true;
-    slotKey = key; liveSessions.set(key, supersede);
+    slotKey = key; liveSessions.set(key, { userId, silentMs, supersede });
     audit("server.rdp.connecting");
     let phase: "args" | "ready" | "stream" = "args";
     const options: Record<string, string> = {

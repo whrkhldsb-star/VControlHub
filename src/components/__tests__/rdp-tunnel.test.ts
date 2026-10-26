@@ -72,6 +72,35 @@ describe("RDP browser tunnel", () => {
     expect(instruction).toHaveBeenCalledWith("sync", ["1"]);
     tunnel.disconnect();
   });
+  it("gives the bridge another window after the page itself was frozen, instead of dropping the desktop", () => {
+    vi.useFakeTimers(); vi.stubGlobal("WebSocket", Socket);
+    const latency = vi.fn();
+    const tunnel = createRdpTunnel(Guacamole, "ws://localhost/rdp", latency);
+    tunnel.onerror = vi.fn(); tunnel.connect("ticket");
+    const socket = Socket.current;
+    socket.onopen?.();
+    socket.onmessage?.({ data: "0.,4.uuid;" });
+    const beforeFreeze = String(Date.now());
+    // Frozen for three minutes (a hidden tab Chrome froze): the clock moves
+    // on, the timers wait and then fire late.
+    vi.setSystemTime(Date.now() + 180_000);
+    vi.advanceTimersByTime(30_000);
+    expect(tunnel.onerror).not.toHaveBeenCalled();
+    expect(tunnel.state).toBe(Guacamole.Tunnel.State.OPEN);
+    // What the gateway sent meanwhile arrives: the echo of a ping from before
+    // the freeze is no latency figure; one from after it is.
+    socket.onmessage?.({ data: `0.,4.ping,${beforeFreeze.length}.${beforeFreeze};4.sync,1.1;` });
+    expect(latency).not.toHaveBeenCalled();
+    const fresh = String(Date.now() - 5_000);
+    socket.onmessage?.({ data: `0.,4.ping,${fresh.length}.${fresh};` });
+    expect(latency).toHaveBeenCalledExactlyOnceWith(5_000);
+    // A bridge that then stays silent, on time, is still dropped.
+    vi.advanceTimersByTime(29_999);
+    expect(tunnel.onerror).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(tunnel.onerror).toHaveBeenCalled();
+    expect(tunnel.state).toBe(Guacamole.Tunnel.State.CLOSED);
+  });
   it("pings the bridge as the tunnel opens and every 5s after", () => {
     vi.useFakeTimers(); vi.stubGlobal("WebSocket", Socket);
     const tunnel = createRdpTunnel(Guacamole, "ws://localhost/rdp");
