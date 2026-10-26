@@ -161,6 +161,8 @@ export function RemoteDesktopPanel({
 	const stop = useRef<() => void>(() => {});
 	const sendCtrlAltDel = useRef<() => void>(() => {});
 	const refit = useRef<() => void>(() => {});
+	// Lets a desktop shown again receive frames at once (see createRdpTunnel's `shown`).
+	const showFrames = useRef<() => void>(() => {});
 	const applyResolution = useRef<() => void>(() => {});
 	const focusInput = useRef<() => void>(() => {});
 	const applyTouchMode = useRef<() => void>(() => {});
@@ -244,7 +246,8 @@ export function RemoteDesktopPanel({
 				const measured = desktopArea(host);
 				if (measured) lastDesktopArea = measured;
 				const startArea = fixedDesktop(resolutionRef.current) ?? measured ?? lastDesktopArea;
-				const tunnel = createRdpTunnel(G, rdpWebSocketUrl(window.location, startArea), ms => { if (!disposed) setLatency(ms); });
+				const tunnel = createRdpTunnel(G, rdpWebSocketUrl(window.location, startArea), ms => { if (!disposed) setLatency(ms); }, () => visibleRef.current);
+				showFrames.current = () => tunnel.releaseSync();
 				const client = new G.Client(tunnel);
 				const display = client.getDisplay();
 				const displayElement = display.getElement();
@@ -635,7 +638,9 @@ export function RemoteDesktopPanel({
 	// A tab shown again (or the window resized while it was hidden) is fitted now.
 	useEffect(() => {
 		visibleRef.current = visible;
-		if (visible) refit.current();
+		if (!visible) return;
+		refit.current();
+		showFrames.current();
 	}, [visible, fullscreen]);
 
 	useEffect(() => {

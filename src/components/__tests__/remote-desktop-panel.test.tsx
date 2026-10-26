@@ -416,3 +416,22 @@ it("shows the round trip to the hub once the bridge echoes the panel's ping", as
   act(() => { socket.onmessage?.({ data: ping }); });
   expect(screen.getByTestId("rdp-latency")).toHaveTextContent("rdp.latency");
 });
+
+it("holds a desktop's frame answers while another workbench tab is shown, and answers at once when it is shown again", async () => {
+  // Unanswered frames stop the gateway after 1.5 s: a desktop not on screen
+  // then neither decodes images nor takes the downlink from the one that is.
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ token: "test-ticket", path: "/rdp" }), { status: 200 }))));
+  const view = render(<RemoteDesktopPanel serverId="test-server" serverName="win" host="192.0.2.1" visible onClose={vi.fn()} />);
+  await waitFor(() => expect(Socket.instances).toHaveLength(1));
+  const socket = Socket.instances[0]!;
+  act(() => { socket.onopen?.(); socket.onmessage?.({ data: "0.,4.uuid;" }); });
+  const answers = () => socket.send.mock.calls.map(([data]) => String(data)).filter((data) => data.startsWith("4.sync,"));
+  act(() => { socket.onmessage?.({ data: instruction("sync", "1000") }); });
+  await waitFor(() => expect(answers()).toEqual([instruction("sync", "1000")]));
+  view.rerender(<RemoteDesktopPanel serverId="test-server" serverName="win" host="192.0.2.1" visible={false} onClose={vi.fn()} />);
+  act(() => { socket.onmessage?.({ data: instruction("sync", "2000") + instruction("sync", "3000") }); });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(answers()).toEqual([instruction("sync", "1000")]);
+  view.rerender(<RemoteDesktopPanel serverId="test-server" serverName="win" host="192.0.2.1" visible onClose={vi.fn()} />);
+  await waitFor(() => expect(answers()).toEqual([instruction("sync", "1000"), instruction("sync", "3000")]));
+});
