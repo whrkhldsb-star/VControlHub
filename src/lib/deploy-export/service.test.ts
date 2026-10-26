@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { deploymentExport: { create: vi.fn() } } }));
@@ -58,5 +62,38 @@ describe("deployment export service", () => {
 	it("rejects unsafe domain and app name before generating executable templates", () => {
 		expect(() => buildPortableDeploymentPackage({ domain: "good.com\nrespond hacked" })).toThrow(/域名/);
 		expect(() => buildPortableDeploymentPackage({ appName: "bad;rm-rf" })).toThrow(/应用名称/);
+	});
+
+	it("proxies SSH and remote desktop to the gateway and the rest to the app, on the ports its env template sets", () => {
+		// {env.PORT} is Caddy's own environment: every request went to "127.0.0.1:" (502),
+		// and /rdp, missing, reached Next.js instead of the gateway.
+		const pkg = buildPortableDeploymentPackage({ domain: "console.example.com", appName: "my-console" });
+		const caddyfile = pkg.files["Caddyfile.example"];
+		expect(caddyfile).not.toMatch(/\{env\.|\{\$/);
+		for (const route of ["/ssh", "/ssh/*", "/rdp"]) expect(caddyfile).toContain(`reverse_proxy ${route} 127.0.0.1:3001`);
+		expect(caddyfile).toContain("reverse_proxy 127.0.0.1:3000");
+		expect(pkg.files["env.production.example"]).toContain('SSH_WS_PORT="3001"');
+		expect(pkg.files["env.production.example"]).toContain('PORT="3000"');
+	});
+
+	it("builds in the directory its service units run from", () => {
+		const lines = buildPortableDeploymentPackage({ appName: "my-console" }).files["deploy.sh"].split("\n");
+		expect(lines.indexOf('cd "$APP_DIR"')).toBeGreaterThan(-1);
+		expect(lines.indexOf('cd "$APP_DIR"')).toBeLessThan(lines.indexOf("npm ci"));
+	});
+
+	let caddy = "";
+	try { caddy = execFileSync("sh", ["-c", "command -v caddy"], { encoding: "utf8" }).trim(); } catch { caddy = ""; }
+	it.skipIf(!caddy)("is a Caddyfile Caddy accepts, with those upstreams", () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "vch-export-caddy-"));
+		try {
+			const file = path.join(dir, "Caddyfile");
+			writeFileSync(file, buildPortableDeploymentPackage({ domain: "console.example.com" }).files["Caddyfile.example"]);
+			const json = execFileSync(caddy, ["adapt", "--config", file, "--adapter", "caddyfile"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+			const dials = [...json.matchAll(/"dial":"([^"]+)"/g)].map((match) => match[1]);
+			expect(new Set(dials)).toEqual(new Set(["127.0.0.1:3001", "127.0.0.1:3000"]));
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
 	});
 });

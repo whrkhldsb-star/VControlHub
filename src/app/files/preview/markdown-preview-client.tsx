@@ -22,12 +22,16 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
   const [sanitizeFn, setSanitizeFn] = useState<
     ((html: string) => string) | null
   >(null);
+  const [rendererFailed, setRendererFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    import("@/lib/sanitize/html-sanitizer").then((m) => {
-      if (!cancelled) setSanitizeFn(() => m.sanitizeHtml);
-    });
+    // A page opened before a deploy asks for a chunk the new build no longer
+    // has: without the catch it showed "loading" for ever.
+    import("@/lib/sanitize/html-sanitizer").then(
+      (m) => { if (!cancelled) setSanitizeFn(() => m.sanitizeHtml); },
+      () => { if (!cancelled) setRendererFailed(true); },
+    );
     return () => {
       cancelled = true;
     };
@@ -47,11 +51,11 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
     return <InlineLoading label={t("markdownPreview.loading")} className="py-16" />;
   }
 
-  if (state.error) {
+  if (state.error || rendererFailed) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-[var(--danger)]">
         <AlertTriangle size={32} aria-hidden="true" />
-        <p className="text-sm">{state.error}</p>
+        <p className="text-sm">{state.error || t("markdownPreview.rendererLoadFailed")}</p>
       </div>
     );
   }

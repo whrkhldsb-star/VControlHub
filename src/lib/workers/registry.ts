@@ -291,9 +291,8 @@ const COST_SNAPSHOT: WorkerSpec = {
   // TR-031 E01: 每日 01:00 跑 cost_entries → cost_snapshots 聚合
   label: "Cost daily aggregation snapshot",
   jobType: "cost.snapshot",
-  start: () => {
-    startCostSnapshotWorker();
-    return Promise.resolve();
+  start: async () => {
+    await startCostSnapshotWorker();
   },
   stop: () => stopCostSnapshotWorkerForTests(),
 };
@@ -303,9 +302,8 @@ const AI_OPS_SCAN: WorkerSpec = {
   // TR-032 E02: 每日 02:00 跑 ai_ops_logs → 系统健康信号 surface
   label: "AI ops daily scan",
   jobType: "ai.ops.scan",
-  start: () => {
-    startAiOpsScanWorker();
-    return Promise.resolve();
+  start: async () => {
+    await startAiOpsScanWorker();
   },
   stop: () => stopAiOpsScanWorkerForTests(),
 };

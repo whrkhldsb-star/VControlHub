@@ -59,6 +59,10 @@ export function TextPreviewClient({
 		return <TextPreviewError message={ctrl.state.error} />;
 	}
 
+	if (ctrl.rendererFailed) {
+		return <TextPreviewError message={t("textPreview.rendererLoadFailed")} />;
+	}
+
 	if (!ctrl.sanitizeHighlight) {
 		return <TextPreviewLoading label={t("textPreview.loading")} />;
 	}

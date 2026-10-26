@@ -58,6 +58,7 @@ export function useTextPreviewController(options: {
 
   const [state, setState] = useState<PreviewState>({ loading: true });
   const [sanitizeHighlight, setSanitizeHighlight] = useState<((html: string) => string) | null>(null);
+  const [rendererFailed, setRendererFailed] = useState(false);
   const [loadVersion, resetForLoad] = useReducer((value: number) => value + 1, 0);
   const [searchQuery, setSearchQuery] = useState("");
   const [jumpLine, setJumpLine] = useState("");
@@ -110,9 +111,12 @@ export function useTextPreviewController(options: {
 
   useEffect(() => {
     let cancelled = false;
-    import("@/lib/sanitize/html-sanitizer").then((m) => {
-      if (!cancelled) setSanitizeHighlight(() => m.sanitizeHighlightHtml);
-    });
+    // A page opened before a deploy asks for a chunk the new build no longer
+    // has: without the catch it showed "loading" for ever.
+    import("@/lib/sanitize/html-sanitizer").then(
+      (m) => { if (!cancelled) setSanitizeHighlight(() => m.sanitizeHighlightHtml); },
+      () => { if (!cancelled) setRendererFailed(true); },
+    );
     return () => {
       cancelled = true;
     };
@@ -535,6 +539,7 @@ export function useTextPreviewController(options: {
   return {
     state,
     sanitizeHighlight,
+    rendererFailed,
     searchQuery,
     setSearchQuery,
     jumpLine,
