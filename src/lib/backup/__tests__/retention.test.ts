@@ -123,6 +123,28 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     expect(mockPrisma.backupRecord.delete).not.toHaveBeenCalled();
   });
 
+  it("prunes a schedule's own backups even when the schedule has no customer", async () => {
+    // A platform schedule made in the all-customers view carries no teamId:
+    // its retention was refused on every run and its backups piled up.
+    mockPrisma.backupRecord.findMany.mockResolvedValueOnce([
+      baseRecord({ id: "bak_sched_old", completedAt: new Date("2026-04-01T00:00:00Z") }),
+    ]);
+    statMock.mockResolvedValueOnce({ size: 1024 });
+    rmMock.mockResolvedValueOnce(undefined);
+    mockPrisma.backupRecord.delete.mockResolvedValueOnce({ id: "bak_sched_old" });
+    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", scheduleId: "sch_1", keepLatestPerType: 0 });
+    expect(result.deletedRecords).toBe(1);
+    const where = mockPrisma.backupRecord.findMany.mock.calls[0]?.[0]?.where;
+    expect(where).toMatchObject({ scheduleId: "sch_1" });
+    expect(where).not.toHaveProperty("teamId");
+  });
+
+  it("still refuses manual backups (no schedule) without a customer", async () => {
+    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", scheduleId: null });
+    expect(result.deletedRecords).toBe(0);
+    expect(mockPrisma.backupRecord.findMany).not.toHaveBeenCalled();
+  });
+
   it("returns zero counts when no records match retention", async () => {
     mockPrisma.backupRecord.findMany.mockResolvedValueOnce([
       baseRecord({ id: "bak_recent", completedAt: new Date() }),
