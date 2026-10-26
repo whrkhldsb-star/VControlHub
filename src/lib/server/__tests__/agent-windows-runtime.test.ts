@@ -64,4 +64,21 @@ describe.skipIf(process.platform !== "win32")("Windows Agent scripts in Windows 
     expect(metrics.system?.arch).toMatch(/^(x86_64|aarch64|i686)$/);
     expect(metrics.system?.processes).toBeGreaterThan(0);
   }, 60_000);
+
+  it("reports a job when cmd ends, not when a process it left running does", () => {
+    // The process holds the output pipes; reading to their end waited for it.
+    const script = buildAgentPowerShell(HUB, TOKEN);
+    const file = join(dir, "job.ps1");
+    writeFileSync(file, [
+      script.slice(0, script.indexOf("$pending = $null")),
+      "$watch = [Diagnostics.Stopwatch]::StartNew()",
+      "$result = Invoke-AgentJob ([pscustomobject]@{ id = 'bg'; command = 'start /b ping -n 25 127.0.0.1 & echo started'; timeoutMs = 60000 })",
+      "[pscustomobject]@{ seconds = $watch.Elapsed.TotalSeconds; exitCode = $result.exitCode } | ConvertTo-Json -Compress",
+    ].join("\n"), "utf8");
+    const result = powershell(["-File", file]);
+    expect(result.status, result.stderr).toBe(0);
+    const report = JSON.parse(result.stdout.trim().split(/\r?\n/).at(-1)!) as { seconds: number; exitCode: number };
+    expect(report.exitCode).toBe(0);
+    expect(report.seconds).toBeLessThan(20);
+  }, 60_000);
 });

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { AGENT_POLL_LIMIT, withRateLimit } from "@/lib/http/rate-limit-presets";
 import { readRequestBodyBuffer } from "@/lib/http/request-body";
 import {
+  agentSelfUpdateFor,
   authenticateServerAgent,
   claimNextServerAgentJob,
   completeServerAgentJob,
@@ -19,6 +20,10 @@ const bodySchema = z.object({
   metricsRaw: z.string().max(64_000).optional(),
   error: z.string().max(1000).nullable().optional(),
   heartbeatJobId: z.string().min(1).max(128).optional(),
+  /** The Agent is shutting down: it hands in a result and takes no new job. */
+  stopping: z.boolean().optional(),
+  /** A self-update version the Agent failed to install and is not retrying yet. */
+  updateFailed: z.string().max(64).optional(),
   result: z.object({
     jobId: z.string().min(1).max(128),
     stdout: z.string().max(8 * 1_048_576).optional(),
@@ -73,9 +78,16 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ pollAfterMs: 5_000, cancelled, job: null });
   }
+  // A job claimed now would never run: its Agent is about to exit.
+  if (parsed.data.stopping) return NextResponse.json({ pollAfterMs: 5_000, job: null });
   const job = await claimNextServerAgentJob(agent.id);
-  return NextResponse.json({
-    pollAfterMs: job ? 0 : 5_000,
-    job: job ? { id: job.id, command: job.command, timeoutMs: job.timeoutMs } : null,
+  if (job) {
+    return NextResponse.json({ pollAfterMs: 0, job: { id: job.id, command: job.command, timeoutMs: job.timeoutMs } });
+  }
+  // Only an idle poll carries an update, so queued work is never held up by it.
+  const update = agentSelfUpdateFor({
+    ...parsed.data,
+    requestHost: request.headers.get("x-forwarded-host") ?? request.headers.get("host"),
   });
+  return NextResponse.json({ pollAfterMs: update ? 0 : 5_000, job: null, ...(update ? { update } : {}) });
 }

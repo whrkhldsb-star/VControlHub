@@ -22,6 +22,8 @@ const AGENT_LEGACY_CLAIMED_STALE_MS = AGENT_FRESH_MS;
 const AGENT_OUTPUT_LIMIT = 8 * 1_048_576;
 /** Capabilities actually implemented by both the Linux (Python) and Windows (PowerShell) agents. */
 const AGENT_CAPABILITIES = ["metrics", "command"] as const;
+/** The Linux Agent also installs the hub's build itself (see agentSelfUpdateFor). */
+const LINUX_AGENT_CAPABILITIES = [...AGENT_CAPABILITIES, "self-update"] as const;
 export const AGENT_WINDOWS_TASK_NAME = "VControlHubAgent";
 export const AGENT_CLEANUP_COMMAND = "nohup sh -c 'sleep 2; systemctl disable vcontrolhub-agent.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/vcontrolhub-agent.service; rm -rf /opt/vcontrolhub-agent; systemctl daemon-reload >/dev/null 2>&1 || true; systemctl stop vcontrolhub-agent.service >/dev/null 2>&1 || true' >/dev/null 2>&1 &";
 /**
@@ -333,40 +335,58 @@ async function withAgentCancellationDeadline<T>(query: PromiseLike<T>): Promise<
 export function buildAgentPython(hubUrl: string, token: string) {
   const endpoint = new URL("/api/agent/v1/poll", hubUrl).toString();
   return `#!/usr/bin/env python3
-import http.client, json, os, signal, subprocess, time, urllib.parse
+import base64, http.client, json, os, signal, subprocess, sys, threading, time, urllib.parse
 ENDPOINT=${JSON.stringify(endpoint)}
 TOKEN=${JSON.stringify(token)}
 MONITOR=${JSON.stringify(MONITOR_SCRIPT)}
 VERSION=${JSON.stringify(AGENT_VERSION)}
-CAPABILITIES=${JSON.stringify([...AGENT_CAPABILITIES])}
+CAPABILITIES=${JSON.stringify([...LINUX_AGENT_CAPABILITIES])}
 HEARTBEAT_SECONDS=20
 OUTPUT_LIMIT=8388608
 ERROR_LIMIT=1048576
+# After the shell ends, how long a process it left in the background may keep
+# the output pipes before the job is reported without waiting for it.
+OUTPUT_GRACE_SECONDS=10
+UPDATE_RETRY_SECONDS=600
 REJECTED="Agent result rejected by the hub"
+# Split so that the only line holding the joined text is a template's TOKEN line.
+PLACEHOLDER="__VCH_"+"AGENT_TOKEN__"
+SCRIPT=os.path.realpath(sys.argv[0])
 pending=None
-last_metrics=0
+last_metrics=None
 metrics_error=None
+update_error=None
+update_failed={}
+stopping=False
 parts=urllib.parse.urlsplit(ENDPOINT)
 conn=None
 class HubStatus(Exception):
     def __init__(self, status):
         Exception.__init__(self, "hub returned %s" % status)
         self.status=status
-def connect():
+class AgentStop(BaseException):
+    pass
+def on_stop(signum, frame):
+    # systemd stops or restarts the service: stop the job, report it, leave.
+    global stopping
+    if stopping: return
+    stopping=True
+    raise AgentStop()
+def connect(timeout=35):
     cls=http.client.HTTPSConnection if parts.scheme == "https" else http.client.HTTPConnection
-    return cls(parts.hostname, parts.port, timeout=35)
+    return cls(parts.hostname, parts.port, timeout=timeout)
 def text(value):
     if value is None: return ""
     return value.decode(errors="replace") if isinstance(value, bytes) else value
-def post(payload):
+def post(payload, timeout=35):
     global conn
     body=json.dumps(payload).encode()
-    if conn is None: conn=connect()
+    if conn is None: conn=connect(timeout)
     try:
         # Named explicitly: edge networks block some library defaults (Python-urllib).
         conn.request("POST", parts.path, body, {"Authorization":"Bearer "+TOKEN,"Content-Type":"application/json","Content-Length":str(len(body)),"User-Agent":"VControlHub-Agent/"+VERSION+" (linux)"})
         response=conn.getresponse(); data=response.read()
-    except Exception:
+    except BaseException:
         # http.client resets itself only on ConnectionError: after a read
         # timeout every later request raised CannotSendRequest, and a job's
         # heartbeats (cancellation, metrics) failed until the job ended.
@@ -382,6 +402,8 @@ def fit(value, limit):
     value=text(value)[:limit]
     while value and len(json.dumps(value)) > limit+2: value=value[:len(value)*4//5]
     return value
+def metrics_due():
+    return last_metrics is None or time.monotonic()-last_metrics >= 60
 def collect_metrics():
     # A slow or failing collection must not cost the heartbeat.
     global metrics_error
@@ -392,88 +414,227 @@ def collect_metrics():
     except Exception as exc:
         metrics_error=("metrics collection failed: %s" % exc)[:1000]
         return None
-def terminate(proc):
-    # The shell may have exited while children still own its pipes.
-    try: os.killpg(proc.pid, signal.SIGTERM)
-    except ProcessLookupError: pass
-    try: proc.communicate(timeout=5)
-    except subprocess.TimeoutExpired:
-        try: os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError: pass
-        proc.communicate(timeout=5)
+class Capture(object):
+    # One pipe read on its own thread, keeping at most \`limit\` bytes: a command
+    # that floods its output cannot exhaust the agent's memory.
+    def __init__(self, stream, limit):
+        self.limit=limit
+        self.data=bytearray()
+        self.thread=threading.Thread(target=self.pump, args=(stream,))
+        self.thread.daemon=True
+        self.thread.start()
+    def pump(self, stream):
+        try:
+            while True:
+                chunk=stream.read1(65536)
+                if not chunk: break
+                room=self.limit-len(self.data)
+                if room > 0: self.data+=chunk[:room]
+        except Exception: pass
+        finally:
+            try: stream.close()
+            except Exception: pass
+    def wait(self, seconds):
+        self.thread.join(max(0, seconds))
+        return not self.thread.is_alive()
+    def release(self):
+        # Reported: keep draining a pipe a background process still holds, store nothing.
+        self.limit=0
+        self.data=bytearray()
+def terminate(proc, captures):
+    # The whole group: the shell may have exited while children still own its pipes.
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try: os.killpg(proc.pid, sig)
+        except OSError: pass
+        end=time.monotonic()+5
+        try: proc.wait(timeout=5)
+        except subprocess.TimeoutExpired: continue
+        if all(capture.wait(end-time.monotonic()) for capture in captures): return
 def job_heartbeat(job):
     # A long job keeps the hub's metrics fresh too: without them the node read
     # as offline (metrics older than 3 minutes) while its heartbeat arrived.
     global last_metrics
     payload={"version":VERSION,"heartbeatJobId":job["id"]}
-    now=time.time()
-    if now-last_metrics >= 60:
-        last_metrics=now
+    if metrics_due():
+        last_metrics=time.monotonic()
         raw=collect_metrics()
         if raw is not None: payload["metricsRaw"]=raw
     return payload
 def run(job):
     timeout_seconds=max(1,min(int(job.get("timeoutMs",60000))/1000,3600))
-    # Bytes, not text: output that is not valid UTF-8 must not abort the job.
     try:
-        proc=subprocess.Popen(["/bin/sh","-c",job["command"]],stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
+        proc=subprocess.Popen(["/bin/sh","-c",job["command"]],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
     except OSError as exc:
         # A command that cannot start (one argument over 128 KiB: E2BIG) is
         # reported as failed. Unreported, the hub waited out the job's timeout.
         return {"jobId":job["id"],"stdout":"","stderr":fit("Agent could not start the command: %s" % exc,ERROR_LIMIT),"exitCode":126}
-    deadline=time.time()+timeout_seconds
-    while True:
-        remaining=max(0,deadline-time.time())
-        try:
-            stdout,stderr=proc.communicate(timeout=min(HEARTBEAT_SECONDS,remaining or 0.001))
-            # A signal shows as a negative code; the hub takes 0-255, as a shell reports it.
-            code=proc.returncode if proc.returncode >= 0 else min(255,128-proc.returncode)
-            return {"jobId":job["id"],"stdout":fit(stdout,OUTPUT_LIMIT),"stderr":fit(stderr,ERROR_LIMIT),"exitCode":code}
-        except subprocess.TimeoutExpired as exc:
+    out=Capture(proc.stdout,OUTPUT_LIMIT)
+    err=Capture(proc.stderr,ERROR_LIMIT)
+    # Monotonic: a clock step during the job must not stretch or cut its time.
+    deadline=time.monotonic()+timeout_seconds
+    outcome=None
+    held=False
+    try:
+        while True:
+            remaining=deadline-time.monotonic()
+            if remaining <= 0:
+                outcome="timed out"
+                break
+            try:
+                proc.wait(timeout=min(HEARTBEAT_SECONDS,remaining))
+                break
+            except subprocess.TimeoutExpired:
+                pass
+            if time.monotonic() >= deadline:
+                outcome="timed out"
+                break
             try:
                 heartbeat=post(job_heartbeat(job))
             except Exception:
                 heartbeat={}
             if heartbeat.get("cancelled"):
-                terminate(proc)
-                stdout,stderr=proc.communicate()
-                return {"jobId":job["id"],"stdout":fit(stdout or exc.stdout,OUTPUT_LIMIT),"stderr":"Agent command cancelled","exitCode":130}
-            if time.time() >= deadline:
-                terminate(proc)
-                stdout,stderr=proc.communicate()
-                return {"jobId":job["id"],"stdout":fit(stdout or exc.stdout,OUTPUT_LIMIT),"stderr":"Agent command timed out","exitCode":124}
+                outcome="cancelled"
+                break
+        if outcome is None:
+            # The shell has ended. A process it left in the background may hold
+            # the output pipes for as long as it runs: reading to their end
+            # waited for it, until the job's timeout killed it.
+            grace_end=time.monotonic()+min(OUTPUT_GRACE_SECONDS,max(0,deadline-time.monotonic()))
+            held=not (out.wait(grace_end-time.monotonic()) and err.wait(grace_end-time.monotonic()))
+    except AgentStop:
+        outcome="stopped"
+    if outcome is not None: terminate(proc,(out,err))
+    code=proc.poll()
+    # A signal shows as a negative code; the hub takes 0-255, as a shell reports it.
+    if code is None: code=137
+    elif code < 0: code=min(255,128-code)
+    result={"jobId":job["id"],"stdout":fit(bytes(out.data),OUTPUT_LIMIT),"stderr":fit(bytes(err.data),ERROR_LIMIT),"exitCode":code}
+    if outcome == "cancelled": result.update(stderr="Agent command cancelled",exitCode=130)
+    elif outcome == "timed out": result.update(stderr="Agent command timed out",exitCode=124)
+    elif outcome == "stopped": result.update(stderr="Agent stopped (service stop or restart) while the command ran",exitCode=143)
+    elif held: result["stderr"]=fit(result["stderr"]+("\\n" if result["stderr"] else "")+"[agent] output written after the command ended was not collected: a process it left in the background kept the output open",ERROR_LIMIT)
+    out.release()
+    err.release()
+    return result
+def apply_update(update):
+    # The hub's build with this agent's own token, swapped in place: the
+    # process restarts itself (same PID), so the service is not restarted and
+    # processes that jobs left running are not killed with it.
+    global update_error
+    version=str(update.get("version") or "")
+    if not version or version == VERSION: return
+    if time.monotonic()-update_failed.get(version,-UPDATE_RETRY_SECONDS) < UPDATE_RETRY_SECONDS: return
+    temp=SCRIPT+".new"
+    try:
+        lines=base64.b64decode(update["script"]).decode("utf-8").split("\\n")
+        marks=[i for i, line in enumerate(lines) if line.startswith("TOKEN=")]
+        if len(marks) != 1 or lines[marks[0]] != "TOKEN="+json.dumps(PLACEHOLDER): raise ValueError("no token placeholder")
+        if "VERSION="+json.dumps(version) not in lines: raise ValueError("version mismatch")
+        lines[marks[0]]="TOKEN="+json.dumps(TOKEN)
+        source="\\n".join(lines)
+        compile(source, SCRIPT, "exec")
+        fd=os.open(temp, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o700)
+        with os.fdopen(fd, "w") as handle:
+            handle.write(source)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temp, 0o700)
+        os.replace(temp, SCRIPT)
+    except Exception as exc:
+        update_error=("self-update to %s failed: %s" % (version, exc))[:1000]
+        update_failed[version]=time.monotonic()
+        try: os.unlink(temp)
+        except OSError: pass
+        return
+    try:
+        if conn: conn.close()
+    except Exception: pass
+    try:
+        os.execv(sys.executable, [sys.executable, SCRIPT])
+    except OSError as exc:
+        update_error=("self-update to %s installed; restart failed: %s" % (version, exc))[:1000]
+        update_failed[version]=time.monotonic()
+def shutdown():
+    # Hand in a finished job's result without taking a new job, then leave.
+    global conn
+    if pending is not None:
+        try:
+            conn=None
+            post({"version":VERSION,"capabilities":CAPABILITIES,"result":pending,"stopping":True}, timeout=10)
+        except BaseException: pass
+    sys.exit(0)
+try: signal.signal(signal.SIGTERM, on_stop)
+except ValueError: pass
 while True:
     try:
-        payload={"version":VERSION,"capabilities":CAPABILITIES}
-        if pending is not None: payload["result"]=pending
-        now=time.time()
-        if now-last_metrics >= 60:
-            last_metrics=now
-            raw=collect_metrics()
-            if raw is not None: payload["metricsRaw"]=raw
-        if metrics_error: payload["error"]=metrics_error
         try:
-            message=post(payload)
-        except HubStatus as exc:
-            if exc.status == 400 and pending is not None:
-                # Resending a result the hub refuses would block every later
-                # job: report the job as failed instead, once.
-                pending=None if pending["stderr"] == REJECTED else {"jobId":pending["jobId"],"stdout":"","stderr":REJECTED,"exitCode":1}
-            raise
-        pending=None
-        job=message.get("job")
-        if job: pending=run(job)
-        else: time.sleep(max(1,min(int(message.get("pollAfterMs",5000))/1000,30)))
-    except Exception as exc:
-        try:
-            if conn: conn.close()
-        except Exception: pass
-        conn=None
-        status=getattr(exc,"status",None)
-        # 401: the token was revoked (reinstalled or removed); 403: an edge
-        # proxy refuses. Neither changes within seconds, so ask again rarely.
-        time.sleep(60 if status in (401,403) else 30 if status == 429 else 5)
+            payload={"version":VERSION,"capabilities":CAPABILITIES}
+            if pending is not None: payload["result"]=pending
+            if metrics_due():
+                last_metrics=time.monotonic()
+                raw=collect_metrics()
+                if raw is not None: payload["metricsRaw"]=raw
+            problems=[problem for problem in (metrics_error, update_error) if problem]
+            if problems: payload["error"]="; ".join(problems)[:1000]
+            recent=[version for version, at in update_failed.items() if time.monotonic()-at < UPDATE_RETRY_SECONDS]
+            if recent: payload["updateFailed"]=recent[-1]
+            try:
+                message=post(payload)
+            except HubStatus as exc:
+                if exc.status == 400 and pending is not None:
+                    # Resending a result the hub refuses would block every later
+                    # job: report the job as failed instead, once.
+                    pending=None if pending["stderr"] == REJECTED else {"jobId":pending["jobId"],"stdout":"","stderr":REJECTED,"exitCode":1}
+                raise
+            pending=None
+            job=message.get("job")
+            if job: pending=run(job)
+            elif message.get("update"): apply_update(message["update"])
+            else: time.sleep(max(1,min(int(message.get("pollAfterMs",5000))/1000,30)))
+            if stopping: shutdown()
+        except Exception as exc:
+            try:
+                if conn: conn.close()
+            except Exception: pass
+            conn=None
+            status=getattr(exc,"status",None)
+            # 401: the token was revoked (reinstalled or removed); 403: an edge
+            # proxy refuses. Neither changes within seconds, so ask again rarely.
+            time.sleep(60 if status in (401,403) else 30 if status == 429 else 5)
+    except AgentStop:
+        shutdown()
 `;
+}
+
+/** Stands in for the token in a self-update template; the Agent puts its own back. */
+export const AGENT_TOKEN_PLACEHOLDER = "__VCH_AGENT_TOKEN__";
+
+/**
+ * The hub's Linux Agent build for an Agent that runs another one and can
+ * install it (1.5.0 on), or null. Offered only on an idle poll, so no job is
+ * running, and only when the Agent reached this hub at the address the build
+ * would point it to: a changed hub address must not move every Agent at once
+ * to an address their networks may not reach. An Agent that failed to install
+ * this version says so and is left alone until it asks again.
+ */
+export function agentSelfUpdateFor(report: {
+  version?: string;
+  capabilities?: string[];
+  updateFailed?: string;
+  requestHost?: string | null;
+}): { version: string; script: string } | null {
+  if (!report.capabilities?.includes("self-update")) return null;
+  if (!report.version || report.version === AGENT_VERSION || report.updateFailed === AGENT_VERSION) return null;
+  const hubUrl = config.app.baseUrl;
+  if (!hubUrl) return null;
+  const parsed = new URL(hubUrl);
+  if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") return null;
+  const requestHostname = report.requestHost?.split(",")[0]?.trim().toLowerCase().replace(/:\d+$/, "");
+  if (!requestHostname || requestHostname !== parsed.hostname.toLowerCase()) return null;
+  return {
+    version: AGENT_VERSION,
+    script: Buffer.from(buildAgentPython(hubUrl, AGENT_TOKEN_PLACEHOLDER)).toString("base64"),
+  };
 }
 
 /**
@@ -647,13 +808,20 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "  }",
     "  $stdout = ''",
     "  $stderr = ''",
-    "  try { $stdout = $stdoutTask.Result } catch { }",
-    "  try { $stderr = $stderrTask.Result } catch { }",
+    "  # A process the command left in the background holds the output pipes as long",
+    "  # as it runs, and reading to their end waited for it (forever for a server).",
+    "  $held = $false",
+    "  try { if ($stdoutTask.Wait(10000)) { $stdout = $stdoutTask.Result } else { $held = $true } } catch { }",
+    "  try { if ($stderrTask.Wait(10000)) { $stderr = $stderrTask.Result } else { $held = $true } } catch { }",
     "  # Hub protocol caps exitCode at 255; Windows exit codes are 32-bit.",
     "  $exitCode = $process.ExitCode",
     "  if ($cancelled) { $exitCode = 130; $stderr = 'Agent command cancelled' }",
     "  elseif ($timedOut) { $exitCode = 124; $stderr = 'Agent command timed out' }",
     "  elseif ($exitCode -lt 0 -or $exitCode -gt 255) { $exitCode = 1 }",
+    "  if ($held -and -not $cancelled -and -not $timedOut) {",
+    "    if ($stderr) { $stderr = $stderr + [string][char]10 }",
+    "    $stderr = $stderr + '[agent] the output was not collected: a process the command left in the background kept it open'",
+    "  }",
     "  return [ordered]@{ jobId = [string]$Job.id; stdout = (Limit-Text $stdout $OUTPUT_LIMIT); stderr = (Limit-Text $stderr $ERROR_LIMIT); exitCode = $exitCode }",
     "}",
     "",
