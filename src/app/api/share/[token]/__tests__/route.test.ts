@@ -84,6 +84,28 @@ describe("share token file route", () => {
     await expect(response.text()).resolves.toBe("hello share");
   });
 
+  it("answers HEAD with headers only, without claiming a download", async () => {
+    // Next answers HEAD with GET when a route has no HEAD: a download
+    // manager's HEAD used up a one-download link before the download.
+    const { releaseShareQuotaClaim } = await import("@/lib/share-link/service");
+    await writeFile(path.join(tempRoot, "report.pdf"), "%PDF-1.7");
+    vi.mocked(resolveShareToken).mockClear();
+    vi.mocked(resolveShareToken).mockResolvedValueOnce({
+      id: "share_head", storageNodeId: "node_1",
+      storageNode: { id: "node_1", driver: "LOCAL", basePath: tempRoot },
+      entryType: "FILE", path: "report.pdf", name: "report.pdf",
+    } as never);
+    const response = await route.HEAD(new Request("http://local/api/share/token", { method: "HEAD" }), {
+      params: Promise.resolve({ token: "share-token-12345" }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.body).toBeNull();
+    expect(response.headers.get("content-disposition")).toContain("report.pdf");
+    expect(response.headers.get("content-security-policy")).toContain("sandbox");
+    expect(vi.mocked(resolveShareToken).mock.calls[0]?.[3]).toMatchObject({ claimDownload: false });
+    expect(releaseShareQuotaClaim).not.toHaveBeenCalled();
+  });
+
   it.each<[string, string]>([['hello.txt', 'inline'], ['attack.html', 'attachment'], ['attack.svg', 'attachment']])("restricts inline content for %s", async (name: string, disposition: string) => {
     await writeFile(path.join(tempRoot, name), '<script>alert(1)</script>');
     vi.mocked(resolveShareToken).mockResolvedValueOnce({
@@ -190,7 +212,7 @@ describe("share token file route", () => {
       token,
       undefined,
       expect.any(Object),
-      { authorizedShareId: "share-password" },
+      { authorizedShareId: "share-password", claimDownload: true },
     );
   });
 

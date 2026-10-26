@@ -146,6 +146,18 @@ describe("share link service", () => {
     );
   });
 
+  it("checks a download without counting or logging it when asked not to claim (HEAD)", async () => {
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share-head", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: 1, accessCount: 0, passwordHash: null, permissionLevel: "download" });
+    const result = await resolveShareToken("abc", undefined, undefined, { claimDownload: false });
+    expect(result.id).toBe("share-head");
+    expect(mockPrisma.shareLink.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.shareLink.update).not.toHaveBeenCalled();
+    expect(mockPrisma.shareAccessLog.create).not.toHaveBeenCalled();
+    // A used-up link still says so.
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share-head", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: 1, accessCount: 1, passwordHash: null, permissionLevel: "download" });
+    await expect(resolveShareToken("abc", undefined, undefined, { claimDownload: false })).rejects.toThrow();
+  });
+
   it("records view access logs for peekShareToken without incrementing download count", async () => {
     const { peekShareToken } = await import("../service");
     mockPrisma.shareLink.findUnique.mockResolvedValue({

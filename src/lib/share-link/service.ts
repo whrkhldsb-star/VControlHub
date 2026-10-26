@@ -359,7 +359,12 @@ export async function resolveShareToken(
   token: string,
   password?: string,
   context?: { ip?: string; userAgent?: string },
-  options?: { authorizedShareId?: string | null },
+  /**
+   * `claimDownload: false` checks everything a download would (password,
+   * expiry, the download limit) without counting or logging a download: a
+   * HEAD request only asks about the file.
+   */
+  options?: { authorizedShareId?: string | null; claimDownload?: boolean },
 ) {
   const t = await serviceT();
   const share = await loadActiveShare(token);
@@ -374,6 +379,10 @@ export async function resolveShareToken(
       await recordShareAccess({ shareLinkId: share.id, action: "password_attempt", ip: context?.ip, userAgent: context?.userAgent });
       throw new ValidationError(t("backend.shareLink.passwordIncorrect"));
     }
+  }
+  if (options?.claimDownload === false) {
+    if (share.maxDownloads != null && share.accessCount >= share.maxDownloads) throw new ValidationError(t("backend.shareLink.maxDownloadsExceeded"));
+    return share;
   }
   // Atomic quota claim: only increment when still under maxDownloads (or unlimited).
   // Prevents concurrent downloads from exceeding the cap, and avoids a separate
@@ -512,7 +521,8 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
 
   // Query and mutate in bounded chunks so a large directory cannot exceed
   // PostgreSQL parameter limits or create an unbounded Promise.all fan-out.
-  const existingByPath = new Map<string, { id: string; relativePath: string; isDeleted: boolean }>();
+  type IndexedRow = { id: string; relativePath: string; isDeleted: boolean; name: string; entryType: string; mimeType: string | null; size: bigint | null };
+  const existingByPath = new Map<string, IndexedRow>();
   const batchSize = 500;
   for (let i = 0; i < records.length; i += batchSize) {
     const batch = records.slice(i, i + batchSize);
@@ -521,7 +531,7 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
         storageNodeId: share.storageNodeId,
         relativePath: { in: batch.map((r) => r.relativePath) },
       },
-      select: { id: true, relativePath: true, isDeleted: true },
+      select: { id: true, relativePath: true, isDeleted: true, name: true, entryType: true, mimeType: true, size: true },
     });
     for (const row of existingRows) existingByPath.set(row.relativePath, row);
   }
@@ -530,7 +540,14 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
   // Soft delete is index-only, so a recycle-bin file is still on disk: a
   // rescan must leave it deleted (as the SFTP and WebDAV syncs do), or a new
   // share of its folder would hand it to visitors.
-  const toUpdate = records.filter((r) => existingByPath.get(r.relativePath)?.isDeleted === false);
+  // Only rows whose facts changed: every share-page view (anonymous visitors
+  // included) rewrote each live row, which moved its updatedAt to the visit —
+  // the file list's modified time, and the WebDAV Last-Modified and ETag that
+  // sync clients compare, so they downloaded the whole folder again.
+  const toUpdate = records.filter((r) => {
+    const row = existingByPath.get(r.relativePath);
+    return row?.isDeleted === false && (row.name !== r.name || row.entryType !== r.entryType || row.mimeType !== r.mimeType || row.size !== r.size);
+  });
 
   for (let i = 0; i < toCreate.length; i += batchSize) {
     const batch = toCreate.slice(i, i + batchSize);

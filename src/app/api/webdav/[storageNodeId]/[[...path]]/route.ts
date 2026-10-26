@@ -74,17 +74,18 @@ async function dispatch(
     throw error;
   }
 
-  const relativePath = normalizeWebDavRelativePath(params.path);
-  const requestUrl = new URL(request.url);
-  const ctx: WebDavContext = {
-    session: auth.session,
-    storageNodeId: params.storageNodeId,
-    relativePath,
-    requestUrl,
-    rangeHeader: request.headers.get("range"),
-  };
-
+  // Inside the try: a path it refuses (.., control characters, too long) is
+  // the client's 400, not an unhandled 500.
+  let relativePath = "";
   try {
+    relativePath = normalizeWebDavRelativePath(params.path);
+    const ctx: WebDavContext = {
+      session: auth.session,
+      storageNodeId: params.storageNodeId,
+      relativePath,
+      requestUrl: new URL(request.url),
+      rangeHeader: request.headers.get("range"),
+    };
     switch (method) {
       case "PROPFIND":
         return await handleWebDavPropFind(ctx, request.headers.get("depth"));

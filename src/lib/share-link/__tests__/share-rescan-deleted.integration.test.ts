@@ -65,6 +65,26 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("directory s
 		expect(folder.isDeleted).toBe(false);
 	});
 
+	it("leaves an unchanged file's modified time alone when the share page is opened (B2-1)", async () => {
+		// Every view used to rewrite each live row, moving updatedAt (the
+		// listing's modified time, WebDAV Last-Modified/ETag) to the visit.
+		await mkdir(path.join(basePath, "steady"));
+		await writeFile(path.join(basePath, "steady", "same.txt"), "same");
+		const share = { entryType: "DIRECTORY", path: "steady", storageNodeId: id, storageNode: { basePath, driver: "LOCAL" } };
+		await listShareDirectoryFiles(share);
+		const where = { storageNodeId_relativePath: { storageNodeId: id, relativePath: "steady/same.txt" } };
+		const earlier = new Date("2026-01-01T00:00:00Z");
+		await prisma.fileEntry.update({ where, data: { updatedAt: earlier } });
+		await listShareDirectoryFiles(share);
+		expect((await prisma.fileEntry.findUniqueOrThrow({ where })).updatedAt).toEqual(earlier);
+		// A real change is still picked up.
+		await writeFile(path.join(basePath, "steady", "same.txt"), "now longer");
+		await listShareDirectoryFiles(share);
+		const changed = await prisma.fileEntry.findUniqueOrThrow({ where });
+		expect(changed.size).toBe(BigInt(10));
+		expect(changed.updatedAt.getTime()).toBeGreaterThan(earlier.getTime());
+	});
+
 	it("keeps the index when the folder cannot be read", async () => {
 		await prisma.fileEntry.create({ data: { storageNodeId: id, relativePath: "missing/a.txt", name: "a.txt", entryType: "FILE", size: BigInt(1), updatedAt: new Date(Date.now() - 60_000) } });
 		await listShareDirectoryFiles({ entryType: "DIRECTORY", path: "missing", storageNodeId: id, storageNode: { basePath, driver: "LOCAL" } });

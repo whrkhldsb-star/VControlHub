@@ -164,6 +164,13 @@ describe("webdav route dispatch", () => {
     expect(response.headers.get("Allow")).toContain("PROPFIND");
   });
 
+  it("answers 400 for a path the normalizer refuses, without reaching a handler", async () => {
+    // Thrown outside the try, it escaped as an unhandled 500.
+    const response = await GET(req("GET", {}, "..%2Fetc"), params(["..", "etc"]));
+    expect(response.status).toBe(400);
+    expect(mocks.getHead).not.toHaveBeenCalled();
+  });
+
   it("maps a typed AppError to its own status", async () => {
     const { NotFoundError } = await import("@/lib/errors");
     mocks.getHead.mockRejectedValue(new NotFoundError("backend.webdav.resourceNotFound"));
