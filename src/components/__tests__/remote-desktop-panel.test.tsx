@@ -280,3 +280,64 @@ it("switches the input method from the toolbar and remembers the choice", async 
   fireEvent.click(screen.getByTestId("rdp-input-method"));
   expect(window.localStorage.getItem("vch.rdp.inputMethod")).toBe("remote");
 });
+
+function areaOf(width: number, height: number) {
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(width);
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(height);
+}
+const ticketResponse = () => Promise.resolve(new Response(JSON.stringify({ token: "test-ticket", path: "/rdp" }), { status: 200 }));
+
+it("starts the desktop at the panel's size, and asks again once Windows' display channel is up", async () => {
+  // guacd replaced a size asked for before the display channel was up with
+  // the current size: the desktop stayed 1280 x 800 in a larger panel, with
+  // black bands right and below.
+  vi.useFakeTimers();
+  areaOf(1601, 903);
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  renderPanel();
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const socket = Socket.instances[0]!;
+  // guacd rounds the starting width down to a multiple of 4; asking for that
+  // width keeps the later requests from resizing it by a pixel or two.
+  expect(socket.url).toMatch(/\/rdp\?width=1600&height=903$/);
+  act(() => {
+    socket.onopen?.();
+    socket.onmessage?.({ data: instruction("", "uuid") + instruction("sync", "1") });
+  });
+  // The ticket frame is not a Guacamole instruction.
+  socket.send.mockClear();
+  const sizes = () => sentInstructions(socket).filter(([op]) => op === "size");
+  await act(async () => { await vi.advanceTimersByTimeAsync(400); });
+  expect(sizes()).toEqual([["size", "1600", "903"]]);
+  await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+  expect(sizes()).toHaveLength(3);
+  expect(sizes().every(([, w, h]) => w === "1600" && h === "903")).toBe(true);
+});
+
+it("starts a desktop that connects behind another tab at the last size a panel measured", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  areaOf(1500, 800);
+  renderPanel();
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(Socket.instances[0]!.url).toMatch(/\?width=1500&height=800$/);
+  // A hidden tab measures 0 x 0.
+  areaOf(0, 0);
+  render(<RemoteDesktopPanel serverId="other-server" serverName="win2" host="192.0.2.2" visible={false} onClose={vi.fn()} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(Socket.instances[1]!.url).toMatch(/\?width=1500&height=800$/);
+});
+
+it("stops and explains when the per-user session cap refuses the desktop", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  renderPanel();
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const socket = Socket.instances[0]!;
+  act(() => { socket.onopen?.(); });
+  act(() => { socket.onmessage?.({ data: instruction("error", "Too many RDP sessions for this user", "797") }); });
+  act(() => { socket.onclose?.(); });
+  expect(overlay()).toHaveTextContent("rdp.error.tooMany");
+  await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+  expect(Socket.instances).toHaveLength(1);
+});

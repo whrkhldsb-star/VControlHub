@@ -20,6 +20,8 @@ describe("RDP browser tunnel", () => {
     vi.stubGlobal("WebSocket", Socket);
     const url = rdpWebSocketUrl({ protocol: "https:", host: "example.test" });
     expect(url).toBe("wss://example.test/rdp");
+    // The start size may ride in the URL; the ticket never does.
+    expect(rdpWebSocketUrl({ protocol: "http:", host: "example.test" }, { width: 1600, height: 900 })).toBe("ws://example.test/rdp?width=1600&height=900");
     const tunnel = createRdpTunnel(Guacamole, url);
     const instruction = vi.fn(); tunnel.oninstruction = instruction;
     tunnel.connect("short-lived-ticket");

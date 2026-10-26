@@ -16,7 +16,7 @@ const MAX_RECONNECT_ATTEMPTS = 8;
  * password; locked, disabled or expired account). Retrying cannot help and
  * each attempt counts towards the account lockout.
  */
-const LOGIN_REFUSED_ERRORS: Record<number, string> = { 0x0301: "rdp.error.credentials", 0x0303: "rdp.error.accountRefused" };
+const LOGIN_REFUSED_ERRORS: Record<number, string> = { 0x0301: "rdp.error.credentials", 0x0303: "rdp.error.accountRefused", 0x031d: "rdp.error.tooMany" };
 /**
  * Statuses for a session Windows ended itself: signed out or disconnected
  * inside Windows (0), taken over by another connection to the same account
@@ -37,6 +37,37 @@ const CLIPBOARD_CHUNK = 3072;
 const MAX_CLIPBOARD_CHARS = 262_144;
 /** How long the touch gesture hint stays up. */
 const TOUCH_HINT_MS = 6000;
+/** Quiet time after the last layout change before the desktop is resized. */
+const RESIZE_SETTLE_MS = 400;
+/**
+ * When the desktop size is asked for again after the session opened. guacd
+ * replaces a size request that arrives before Windows' display channel is up
+ * with the current size, so the first request can be lost; asking again only
+ * resizes when the desktop still differs.
+ */
+const RESIZE_CONFIRM_MS = [2_500, 6_000];
+/** Desktop sizes guacd and the bridge accept. */
+const MIN_DESKTOP = 200, MAX_DESKTOP = 4096;
+/**
+ * The last desktop area a visible panel measured. A tab that connects while
+ * hidden (a reconnect behind another tab) measures 0 × 0; it starts at this
+ * size, which is the area it gets when shown, instead of the bridge default
+ * that then needs a resize.
+ */
+let lastDesktopArea: { width: number; height: number } | null = null;
+
+/**
+ * The desktop size for an element's area, or null while it is hidden. The
+ * width is a multiple of 4, as guacd rounds the starting width: a request for
+ * any other width would resize the desktop by a few pixels right after it
+ * opened, and every resize is a moment a session can be lost.
+ */
+function desktopArea(element: HTMLElement): { width: number; height: number } | null {
+	const width = Math.floor(element.clientWidth), height = Math.floor(element.clientHeight);
+	if (!width || !height) return null;
+	const clamp = (n: number) => Math.max(MIN_DESKTOP, Math.min(MAX_DESKTOP, n));
+	return { width: clamp(width) & ~3, height: clamp(height) };
+}
 
 function formatElapsed(seconds: number) {
 	const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
@@ -191,7 +222,10 @@ export function RemoteDesktopPanel({
 				const G = (await import("guacamole-common-js")).default;
 				if (disposed) return;
 				dropped = false;
-				const tunnel = createRdpTunnel(G, rdpWebSocketUrl(window.location));
+				const measured = desktopArea(host);
+				if (measured) lastDesktopArea = measured;
+				const startArea = viewModeRef.current === "fit" ? measured ?? lastDesktopArea : null;
+				const tunnel = createRdpTunnel(G, rdpWebSocketUrl(window.location, startArea));
 				const client = new G.Client(tunnel);
 				const display = client.getDisplay();
 				const displayElement = display.getElement();
@@ -402,6 +436,16 @@ export function RemoteDesktopPanel({
 				const visibility = () => { if (document.hidden) reset(); };
 				document.addEventListener("visibilitychange", visibility);
 				let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+				let confirmTimers: ReturnType<typeof setTimeout>[] = [];
+				// Asks for the desktop to match the panel. guacd only resizes when the
+				// size differs, so asking again costs nothing.
+				const sendArea = () => {
+					if (viewModeRef.current !== "fit") return;
+					const area = desktopArea(host);
+					if (!area) return;
+					lastDesktopArea = area;
+					client.sendSize(area.width, area.height);
+				};
 				const fit = () => {
 					// A hidden tab measures 0 × 0: keep its scale rather than shrink it to nothing.
 					if (display.getWidth() && display.getHeight() && host.clientWidth && host.clientHeight) display.scale(Math.min(1, host.clientWidth / display.getWidth(), host.clientHeight / display.getHeight()));
@@ -415,10 +459,9 @@ export function RemoteDesktopPanel({
 					if (!host.clientWidth || !host.clientHeight) return;
 					applyScaleNow();
 					clearTimeout(resizeTimer);
-					resizeTimer = setTimeout(() => {
-						if (viewModeRef.current !== "fit" || !host.clientWidth || !host.clientHeight) return;
-						client.sendSize(Math.max(200, Math.min(4096, Math.floor(host.clientWidth))), Math.max(200, Math.min(4096, Math.floor(host.clientHeight))));
-					}, 150);
+					// Each resize Windows performs is a moment guacd can lose the session
+					// (see the bridge), so wait for the layout to settle.
+					resizeTimer = setTimeout(sendArea, RESIZE_SETTLE_MS);
 				};
 				applyScale.current = applyScaleNow;
 				refit.current = resize;
@@ -450,7 +493,7 @@ export function RemoteDesktopPanel({
 					window.removeEventListener("blur", reset);
 					clearTimeout(clearTimer);
 					document.removeEventListener("visibilitychange", visibility);
-					observer.disconnect(); clearTimeout(resizeTimer);
+					observer.disconnect(); clearTimeout(resizeTimer); confirmTimers.forEach(clearTimeout); confirmTimers = [];
 					client.onerror = client.onstatechange = client.onclipboard = null;
 					display.onresize = null;
 					focusInput.current = () => {};
@@ -501,6 +544,8 @@ export function RemoteDesktopPanel({
 					if (state === 3) {
 						setPhase("connected"); setError(null); reconnects = 0; setReconnectAttempt(0);
 						resize();
+						confirmTimers.forEach(clearTimeout);
+						confirmTimers = RESIZE_CONFIRM_MS.map(delay => setTimeout(sendArea, delay));
 						if (touch) {
 							centerTouchpadPointer();
 							setTouchHint(true);

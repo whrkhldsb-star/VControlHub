@@ -79,8 +79,13 @@ export function createRdpTunnel(G: typeof Guacamole, url: string): Guacamole.Tun
   return new TicketTunnel();
 }
 
-export function rdpWebSocketUrl(location: Pick<Location, "protocol" | "host">): string {
-  return `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/rdp`;
+/**
+ * The bridge address. `size` is the desktop area the session should start
+ * at (not a secret, unlike the ticket, which travels in the first frame).
+ */
+export function rdpWebSocketUrl(location: Pick<Location, "protocol" | "host">, size?: { width: number; height: number } | null): string {
+  const base = `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/rdp`;
+  return size ? `${base}?width=${size.width}&height=${size.height}` : base;
 }
 
 export function rdpTicketError(status: number): string {

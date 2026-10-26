@@ -41,7 +41,7 @@ describe("established RDP authorization", () => {
     const wss = Object.assign(new EventEmitter(), { clients: new Set(), close: vi.fn() });
     mocks.webSocketServer.mockReturnValue(wss);
     const ws = Object.assign(new EventEmitter(), {
-      readyState: 1, bufferedAmount: 0, send: vi.fn(),
+      readyState: 1, bufferedAmount: 0, send: vi.fn(), ping: vi.fn(() => { ws.emit("pong"); }),
       close: vi.fn(() => { ws.readyState = 3; ws.emit("close"); }),
       terminate: () => { ws.close(); },
     });
@@ -135,7 +135,7 @@ describe("ending an RDP session", () => {
     mocks.tunnel.mockReturnValue(tunnel);
     const wss = Object.assign(new EventEmitter(), { clients: new Set(), close: vi.fn() });
     mocks.webSocketServer.mockReturnValue(wss);
-    const ws = Object.assign(new EventEmitter(), { readyState: 1, bufferedAmount: 0, send: vi.fn(), close: vi.fn(() => { ws.readyState = 3; ws.emit("close", 1000); }), terminate: () => ws.close() });
+    const ws = Object.assign(new EventEmitter(), { readyState: 1, bufferedAmount: 0, send: vi.fn(), ping: vi.fn(() => { ws.emit("pong"); }), close: vi.fn(() => { ws.readyState = 3; ws.emit("close", 1000); }), terminate: () => ws.close() });
     stop = setupRdpWebSocket(new EventEmitter() as Server);
     wss.emit("connection", ws, { headers: { cookie: "session=authenticated", origin: "https://hub.test" } });
     await ws.listeners("message")[0]!(Buffer.from("single-use-ticket"), false);
