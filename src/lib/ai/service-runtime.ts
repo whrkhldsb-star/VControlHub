@@ -322,7 +322,7 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 		const chatMessages = req.messages.filter((m) => m.role !== "system");
 
 		// Tool calls, tool results and PDFs in the Messages API's own shape.
-		const anthropicMessages = toAnthropicMessages(chatMessages);
+		const anthropicMessages = toAnthropicMessages(chatMessages, { nativeTools: Boolean(req.tools && req.tools.length > 0) });
 
 		body = {
 			model: req.model,
