@@ -96,6 +96,18 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		clearLoginFailureMock.mockResolvedValue(undefined);
 	});
 
+	it("counts second-factor attempts in their own rate-limit bucket", async () => {
+		// Keyed by the bare IP it shared one window with the AI chat (20 a
+		// minute): five chat messages locked every 2FA check from that address out.
+		const request = new Request("http://localhost/api/auth/2fa/verify-login", {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: "http://localhost" },
+			body: JSON.stringify({ code: "123456" }),
+		});
+		await POST(request);
+		expect(checkRateLimitMock).toHaveBeenCalledWith("login:2fa:127.0.0.1", expect.anything());
+	});
+
 	it("sets session, csrf and pending-clear cookies as separate Set-Cookie headers", async () => {
 		const response = await POST(new Request("https://app.example.test/api/auth/2fa/verify-login", {
 			method: "POST",

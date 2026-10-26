@@ -36,9 +36,11 @@ export async function POST(request: Request) {
 			});
 		}
 
-		// Rate limit 2FA attempts
+		// Rate limit 2FA attempts. A bucket of its own: keyed by the bare IP it
+		// shared one with the AI chat, so five chat messages from the same
+		// address locked every second-factor check behind it out (429).
 		const clientIp = getClientIp(request);
-		const rateCheck = await checkRateLimitAsync(clientIp, LOGIN_RATE_LIMIT);
+		const rateCheck = await checkRateLimitAsync(`login:2fa:${clientIp}`, LOGIN_RATE_LIMIT);
 		if (!rateCheck.allowed) {
 			return apiError({
 				code: "RATE_LIMITED",
