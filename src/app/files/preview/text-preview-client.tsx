@@ -1,10 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import { DiffReviewDialog } from "./diff-review-dialog";
 import { highlightLine } from "./syntax-highlighter";
 import { TextPreviewBody, TextPreviewToolbar } from "./text-preview-renderers";
 import { TextPreviewError, TextPreviewLoading } from "./text-preview-states";
-import { highlightSearchTerm } from "./text-preview-highlight";
 import { useTextPreviewController } from "./use-text-preview-controller";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { Notice } from "@/components/ui-primitives";
@@ -48,6 +48,9 @@ export function TextPreviewClient({
 		t,
 	});
 
+	// Stable between renders, so the body's per-line highlighting is reused.
+	const lines = useMemo(() => ctrl.currentContent.split("\n"), [ctrl.currentContent]);
+
 	if (ctrl.state.loading) {
 		return <TextPreviewLoading label={t("textPreview.loading")} />;
 	}
@@ -60,10 +63,8 @@ export function TextPreviewClient({
 		return <TextPreviewLoading label={t("textPreview.loading")} />;
 	}
 
-	const lines = ctrl.currentContent.split("\n");
 	const totalLines = lines.length;
 	const hasUnsavedChanges = ctrl.draft !== ctrl.currentContent;
-	const highlightSearch = (html: string): string => highlightSearchTerm(html, ctrl.searchQuery);
 
 	return (
 		<div className="space-y-3">
@@ -132,7 +133,7 @@ export function TextPreviewClient({
 				onEditorScroll={ctrl.handleEditorScroll}
 				onEditorKeyDown={ctrl.handleEditorKeyDown}
 				highlightLine={highlightLine}
-				highlightSearch={highlightSearch}
+				searchQuery={ctrl.searchQuery}
 				sanitizeHighlight={ctrl.sanitizeHighlight}
 			/>
 		</div>

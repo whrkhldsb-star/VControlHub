@@ -219,6 +219,9 @@ describe("TextPreviewClient editable mode", () => {
     await actor.click(screen.getByRole("button", { name: "跳转" }));
 
     expect(searchInput).toHaveValue("beta");
+    // The match is marked: the sanitizer used to strip every <mark>.
+    await waitFor(() => expect(document.querySelector("pre mark")).toHaveTextContent("beta"));
+    expect(document.querySelectorAll("pre mark")).toHaveLength(1);
     expect(jumpInput).toHaveValue("2");
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
   });

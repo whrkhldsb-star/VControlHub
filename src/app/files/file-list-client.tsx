@@ -265,7 +265,8 @@ function FileListBody({
     router,
     clearSelection,
     onRefresh,
-    currentPath,
+    // Only a node's own view has a node path; the all-locations path is virtual.
+    currentPath: nodeIdFilter ? currentPath : undefined,
     currentSelectionScopeKey,
     showToast,
     t,

@@ -33,7 +33,9 @@ const MARKDOWN_SANITIZE_CONFIG: Config = {
 };
 
 const HIGHLIGHT_SANITIZE_CONFIG: Config = {
-  ALLOWED_TAGS: ["span", "br"],
+  // <mark> is the text preview's search highlight: without it every match was
+  // stripped here, and searching a file highlighted nothing.
+  ALLOWED_TAGS: ["span", "br", "mark"],
   ALLOWED_ATTR: ["class"],
   ALLOW_DATA_ATTR: false,
 };

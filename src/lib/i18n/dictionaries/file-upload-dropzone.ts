@@ -77,7 +77,6 @@ export const zh: Record<string, string> = {
     "请选择 LOCAL 或 SFTP 存储节点后再上传。",
   "fileUploadDropzone.errorUpload": "上传失败",
   "fileUploadDropzone.pathError.controlChars": "路径包含控制字符",
-  "fileUploadDropzone.pathError.dangerousChars": "路径包含非法字符",
   "fileUploadDropzone.pathError.absolutePath": "路径必须是相对路径",
   "fileUploadDropzone.pathError.dotSegments": "路径不能包含 . 或 ..",
   "fileUploadDropzone.pathError.segmentTooLong": "路径段过长",
@@ -234,8 +233,6 @@ export const en: Record<string, string> = {
   "fileUploadDropzone.errorUpload": "Upload failed",
   "fileUploadDropzone.pathError.controlChars":
     "Path contains control characters",
-  "fileUploadDropzone.pathError.dangerousChars":
-    "Path contains unsupported characters",
   "fileUploadDropzone.pathError.absolutePath": "Path must be relative",
   "fileUploadDropzone.pathError.dotSegments": "Path cannot contain . or ..",
   "fileUploadDropzone.pathError.segmentTooLong": "Path segment is too long",

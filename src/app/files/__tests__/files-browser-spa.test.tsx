@@ -188,6 +188,22 @@ describe("FilesBrowserSpa", () => {
 		expect(screen.queryByText("松开鼠标，上传到 /photos")).not.toBeInTheDocument();
 	});
 
+	it("queues names Linux allows, and skips only a file whose path cannot be used (I1-1)", async () => {
+		// ": * ? \" < > |" were refused although the server accepts them, and one
+		// unusable path discarded the whole dropped batch.
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		const drive = document.querySelector("[data-file-browser]")!;
+		const linux = new File(["x"], "会议纪要: v2?.md");
+		const broken = new File(["x"], "bad\u0001name.txt");
+		const dataTransfer = { types: ["Files"], files: [linux, broken], items: [] };
+		fireEvent.dragEnter(drive, { dataTransfer });
+		await act(async () => {
+			fireEvent.drop(drive, { dataTransfer });
+		});
+		expect(mocks.enqueue).toHaveBeenCalledWith([{ file: linux, path: "photos/会议纪要: v2?.md" }], "node_1");
+		expect(screen.getByText(/bad\u0001name\.txt/)).toBeInTheDocument();
+	});
+
 	it("hands files dropped at the all-locations root to the upload dialog", async () => {
 		// The dialog opened to pick a node, but the dropped files were gone.
 		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "", currentPath: "", nodes: twoNodes }} />);
