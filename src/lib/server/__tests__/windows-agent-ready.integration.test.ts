@@ -29,7 +29,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("Windows Age
 	});
 
 	it("becomes a command target once its Agent reports in", async () => {
-		await updateServerAgentHeartbeat({ serverId: id, version: "1.4.1", capabilities: ["command"] });
+		await updateServerAgentHeartbeat({ serverId: id, version: "1.4.2", capabilities: ["command"] });
 		const server = await prisma.server.findUniqueOrThrow({ where: { id }, select: { onboardingStatus: true, managementMode: true, agentLastSeenAt: true } });
 		expect(server.onboardingStatus).toBe("READY");
 		expect(getServerTargetAvailability({ ...server, hasSshCredential: false })).toEqual({ available: true, reason: null });

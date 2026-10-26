@@ -63,4 +63,69 @@ describe.skipIf(!hasPython)("Linux Agent (agent.py) against a fake hub", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }, 30_000);
+
+  it("reports a command too long to start instead of leaving its job unanswered", async () => {
+    // `sh -c <command>` is one argument, capped at 128 KiB by Linux: Popen
+    // raised E2BIG, the job was never reported and the hub waited out its timeout.
+    const polls: Poll[] = [];
+    const replies: Array<{ status: number; body: unknown }> = [
+      { status: 200, body: { pollAfterMs: 0, job: { id: "huge", command: `printf %s ${"x".repeat(200 * 1024)}`, timeoutMs: 5000 } } },
+    ];
+    const hub = createServer((request, response) => {
+      const chunks: Buffer[] = [];
+      request.on("data", (chunk: Buffer) => chunks.push(chunk));
+      request.on("end", () => {
+        polls.push({ headers: request.headers, body: JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown> });
+        const reply = replies.shift() ?? { status: 200, body: { pollAfterMs: 5000, job: null } };
+        response.writeHead(reply.status, { "Content-Type": "application/json" });
+        response.end(JSON.stringify(reply.body));
+      });
+    });
+    await new Promise<void>((resolve) => hub.listen(0, "127.0.0.1", resolve));
+    const dir = mkdtempSync(join(tmpdir(), "vch-agent-"));
+    const script = join(dir, "agent.py");
+    writeFileSync(script, buildAgentPython(`http://127.0.0.1:${(hub.address() as AddressInfo).port}`, TOKEN));
+    const agent = spawn("python3", [script], { stdio: "ignore" });
+    try {
+      await expect.poll(() => polls.length, { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
+      expect(polls[1]!.body.result).toMatchObject({ jobId: "huge", exitCode: 126 });
+      expect(String((polls[1]!.body.result as { stderr: string }).stderr)).toContain("could not start");
+    } finally {
+      agent.kill("SIGKILL");
+      await new Promise<void>((resolve) => hub.close(() => resolve()));
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it("drops a connection whose request failed, so the next heartbeat reconnects", () => {
+    // http.client resets only on ConnectionError: after a read timeout every
+    // later request raised CannotSendRequest until the job ended.
+    const dir = mkdtempSync(join(tmpdir(), "vch-agent-"));
+    try {
+      const script = join(dir, "agent.py");
+      writeFileSync(script, buildAgentPython("http://127.0.0.1:9", TOKEN));
+      const harness = join(dir, "harness.py");
+      writeFileSync(harness, [
+        "import sys",
+        "src = open(sys.argv[1]).read().split('\\nwhile True:\\n')[0]",
+        "g = {}",
+        "exec(src, g)",
+        "class TimedOut:",
+        "    closed = False",
+        "    def request(self, *args, **kwargs): raise TimeoutError('timed out')",
+        "    def close(self): TimedOut.closed = True",
+        "g['conn'] = TimedOut()",
+        "try:",
+        "    g['post']({'version': 'x'})",
+        "except TimeoutError:",
+        "    pass",
+        "print('reset' if g['conn'] is None and TimedOut.closed else 'kept')",
+      ].join("\n"));
+      const result = spawnSync("python3", [harness, script], { encoding: "utf8" });
+      expect(result.stderr).toBe("");
+      expect(result.stdout.trim()).toBe("reset");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

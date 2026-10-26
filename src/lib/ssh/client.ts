@@ -74,6 +74,13 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
   username: input.username,
   readyTimeout: 15000,
   timeout: 10000,
+  // Pooled connections idle up to the pool timeout. Without keepalives one
+  // that a NAT or firewall dropped silently was found dead only by the next
+  // request, which stalled until TCP gave up (often 15 minutes or more): the
+  // file manager or a health sample looked hung. ssh2 closes a connection
+  // that misses this many keepalives, and the pool then replaces it.
+  keepaliveInterval: appConfig.ssh.keepaliveIntervalMs,
+  keepaliveCountMax: appConfig.ssh.keepaliveCountMax,
  };
 
  if (input.privateKey) {

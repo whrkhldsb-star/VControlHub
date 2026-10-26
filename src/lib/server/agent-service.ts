@@ -362,9 +362,18 @@ def post(payload):
     global conn
     body=json.dumps(payload).encode()
     if conn is None: conn=connect()
-    # Named explicitly: edge networks block some library defaults (Python-urllib).
-    conn.request("POST", parts.path, body, {"Authorization":"Bearer "+TOKEN,"Content-Type":"application/json","Content-Length":str(len(body)),"User-Agent":"VControlHub-Agent/"+VERSION+" (linux)"})
-    response=conn.getresponse(); data=response.read()
+    try:
+        # Named explicitly: edge networks block some library defaults (Python-urllib).
+        conn.request("POST", parts.path, body, {"Authorization":"Bearer "+TOKEN,"Content-Type":"application/json","Content-Length":str(len(body)),"User-Agent":"VControlHub-Agent/"+VERSION+" (linux)"})
+        response=conn.getresponse(); data=response.read()
+    except Exception:
+        # http.client resets itself only on ConnectionError: after a read
+        # timeout every later request raised CannotSendRequest, and a job's
+        # heartbeats (cancellation, metrics) failed until the job ended.
+        try: conn.close()
+        except Exception: pass
+        conn=None
+        raise
     if response.status != 200: raise HubStatus(response.status)
     return json.loads(text(data) or "{}")
 def fit(value, limit):
@@ -406,7 +415,12 @@ def job_heartbeat(job):
 def run(job):
     timeout_seconds=max(1,min(int(job.get("timeoutMs",60000))/1000,3600))
     # Bytes, not text: output that is not valid UTF-8 must not abort the job.
-    proc=subprocess.Popen(["/bin/sh","-c",job["command"]],stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
+    try:
+        proc=subprocess.Popen(["/bin/sh","-c",job["command"]],stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
+    except OSError as exc:
+        # A command that cannot start (one argument over 128 KiB: E2BIG) is
+        # reported as failed. Unreported, the hub waited out the job's timeout.
+        return {"jobId":job["id"],"stdout":"","stderr":fit("Agent could not start the command: %s" % exc,ERROR_LIMIT),"exitCode":126}
     deadline=time.time()+timeout_seconds
     while True:
         remaining=max(0,deadline-time.time())

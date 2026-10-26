@@ -2,13 +2,14 @@
 import type { EventEmitter as EventEmitterType } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ connectCount: 0, endCount: 0, sftpOpenCount: 0, sftpEndCount: 0 }));
+const state = vi.hoisted(() => ({ connectCount: 0, endCount: 0, sftpOpenCount: 0, sftpEndCount: 0, lastConfig: null as Record<string, unknown> | null }));
 
 vi.mock("ssh2", async () => {
   const { EventEmitter } = await import("node:events");
   class FakeClient extends EventEmitter {
-    connect() {
+    connect(config: Record<string, unknown>) {
       state.connectCount += 1;
+      state.lastConfig = config;
       queueMicrotask(() => this.emit("ready"));
       return this;
     }
@@ -48,6 +49,14 @@ describe("SSH connection pool", () => {
     state.endCount = 0;
     state.sftpOpenCount = 0;
     state.sftpEndCount = 0;
+  });
+
+  it("keeps pooled connections alive, so one dropped silently is closed and replaced (C-2)", async () => {
+    // A pooled connection idles up to ten minutes. Without keepalives one that
+    // a NAT or firewall dropped silently was found dead only by the next
+    // request, which stalled until TCP gave up (often 15 minutes or more).
+    await execRemoteCommand({ host: "203.0.113.10", port: 22, username: "root", password: "secret", command: "uptime" });
+    expect(state.lastConfig).toMatchObject({ keepaliveInterval: 15_000, keepaliveCountMax: 4 });
   });
 
   it("reuses a ready SSH connection for commands with identical credentials", async () => {
