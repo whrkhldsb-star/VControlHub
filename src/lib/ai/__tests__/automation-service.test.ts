@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { HostedActionSession } from "../hosted-helpers";
+
 const { commandTemplateFindFirst, serverFindMany } = vi.hoisted(() => ({
   commandTemplateFindFirst: vi.fn(),
   serverFindMany: vi.fn(),
@@ -59,7 +61,7 @@ describe("generic AI automation proposals", () => {
   describe("runs only what was confirmed", () => {
     // The card shows the command and targets rendered when the plan was made;
     // execution renders them again from the current template and servers.
-    const actor = { userId: "u1", roles: ["operator"], currentTeamId: "team_1" };
+    const actor: HostedActionSession = { userId: "u1", roles: ["operator"], currentTeamId: "team_1" };
     const plan = {
       name: "Install key fleet-wide", plan: "Add the key.", reason: "Access rotation",
       executionMode: "now", targetScope: "all", templateId: "template_key",
