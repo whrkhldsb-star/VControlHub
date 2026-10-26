@@ -111,6 +111,29 @@ describe("established RDP authorization", () => {
     expect(mocks.verify).toHaveBeenCalledTimes(2);
   });
 
+  it("sends one guacd chunk to the browser as one message", async () => {
+    // One message per instruction meant thousands a second while the screen
+    // changed, each with its own frame and Cloudflare handling.
+    const { ws, tunnel } = await connect();
+    ws.send.mockClear();
+    const chunk = instruction("size", "0", "1280", "720") + instruction("rect", "0", "0", "0", "10", "10") + instruction("sync", "1");
+    tunnel.emit("data", Buffer.from(chunk));
+    expect(ws.send.mock.calls).toEqual([[chunk]]);
+  });
+
+  it("holds guacd back once 1 MB waits for the browser, and lets it go as soon as that drains", async () => {
+    // 4 MB used to queue in front of every click (10 s and more on a slow
+    // path), and a held stream resumed only on the 5-second tick.
+    const { ws, tunnel } = await connect();
+    ws.bufferedAmount = 1_500_000;
+    tunnel.emit("data", Buffer.from(instruction("sync", "1")));
+    expect(tunnel.pause).toHaveBeenCalledTimes(1);
+    ws.bufferedAmount = 100_000;
+    await vi.advanceTimersByTimeAsync(150);
+    expect(tunnel.resume).toHaveBeenCalledTimes(1);
+    expect(ws.close).not.toHaveBeenCalled();
+  });
+
   it("retains a healthy session across repeated authorization checks", async () => {
     const { ws } = await connect();
     await vi.advanceTimersByTimeAsync(20_000);

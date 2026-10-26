@@ -181,6 +181,8 @@ export function RemoteDesktopPanel({
 	const [inputMethod, setInputMethod] = useState<RemoteDesktopInputMethod>(() => (touch ? "local" : storedInputMethod()));
 	const inputMethodRef = useRef<RemoteDesktopInputMethod>(inputMethod);
 	const [connectedFor, setConnectedFor] = useState(0);
+	// Browser-to-hub round trip, from the tunnel's own keep-alive pings.
+	const [latency, setLatency] = useState<number | null>(null);
 	const visibleRef = useRef(visible);
 	const connected = phase === "connected";
 
@@ -242,7 +244,7 @@ export function RemoteDesktopPanel({
 				const measured = desktopArea(host);
 				if (measured) lastDesktopArea = measured;
 				const startArea = fixedDesktop(resolutionRef.current) ?? measured ?? lastDesktopArea;
-				const tunnel = createRdpTunnel(G, rdpWebSocketUrl(window.location, startArea));
+				const tunnel = createRdpTunnel(G, rdpWebSocketUrl(window.location, startArea), ms => { if (!disposed) setLatency(ms); });
 				const client = new G.Client(tunnel);
 				const display = client.getDisplay();
 				const displayElement = display.getElement();
@@ -682,6 +684,7 @@ export function RemoteDesktopPanel({
 				inputMethod={inputMethod}
 				resolution={resolution}
 				elapsed={connected ? formatElapsed(connectedFor) : null}
+				latency={connected ? latency : null}
 				onToggleTouchMode={() => { setTouchMode(mode => mode === "touchpad" ? "touch" : "touchpad"); setTouchHint(true); }}
 				onKeyboard={() => focusInput.current()}
 				onToggleInputMethod={toggleInputMethod}

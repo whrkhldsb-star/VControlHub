@@ -36,6 +36,19 @@ const DEAD_TRANSPORT_MS = 10 * 60_000;
  */
 const PING_INTERVAL_MS = 15_000;
 const PONG_TOLERANCE_MS = 60_000;
+
+/**
+ * Bytes queued to the browser before guacd's output is held back, and the
+ * level at which it flows again. Everything queued here plays out before the
+ * browser sees the result of a click: 4 MB used to sit in front of it (10 s
+ * and more on a few-Mbit path through Cloudflare), and a held stream resumed
+ * only on the 5-second housekeeping tick.
+ */
+const RDP_PAUSE_BYTES = 1_000_000;
+const RDP_RESUME_BYTES = 256_000;
+const RDP_RESUME_POLL_MS = 100;
+/** One WebSocket message carries at most this much of a guacd chunk. */
+const RDP_BATCH_BYTES = 256_000;
 /**
  * Concurrent RDP sessions per user (a reconnect to the same server replaces
  * its old one). Three, so an operator can keep three Windows desktops open.
@@ -166,6 +179,28 @@ export function setupRdpWebSocket(server: HttpServer) {
   let authorizationDeadline = 0;
   let started = false;
   let tunnelPaused = false;
+  let resumePoll: ReturnType<typeof setInterval> | undefined;
+  // Instructions of one guacd chunk, sent as one WebSocket message: one
+  // message per instruction (thousands a second while the screen changes)
+  // cost a frame header and Cloudflare's per-message handling each.
+  let outbox: string[] = [];
+  let outboxBytes = 0;
+  const flushOutbox = () => {
+   if (!outbox.length) return;
+   const payload = outbox.join("");
+   outbox = []; outboxBytes = 0;
+   if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+   if (!tunnelPaused && ws.bufferedAmount > RDP_PAUSE_BYTES) {
+    // A slow browser holds guacd back instead of queueing seconds of frames;
+    // guacd then paces itself and Windows sends fewer, newer updates.
+    tunnelPaused = true; tunnel?.pause();
+    resumePoll = setInterval(() => {
+     if (ws.bufferedAmount >= RDP_RESUME_BYTES && ws.readyState === WebSocket.OPEN) return;
+     clearInterval(resumePoll); resumePoll = undefined;
+     tunnelPaused = false; tunnel?.resume();
+    }, RDP_RESUME_POLL_MS);
+   }
+  };
   let lastInput = Date.now();
   const openedAt = Date.now();
   // Session policy (runtime.sshIdleTimeoutSec-style settings, 0 = unlimited)
@@ -221,6 +256,8 @@ export function setupRdpWebSocket(server: HttpServer) {
   const close = (reason: string, code = 1011, status = "512") => {
    stopped = true;
    endedBy ??= `gateway: ${reason}`;
+   flushOutbox();
+   clearInterval(resumePoll);
    if (ws.readyState === WebSocket.OPEN) { ws.send(instruction("error", reason, status)); ws.close(code); }
    endTunnel();
   };
@@ -258,14 +295,13 @@ export function setupRdpWebSocket(server: HttpServer) {
     tunnel?.write(instruction("nop"));
     if (ws.readyState === WebSocket.OPEN) ws.send(instruction("", "ping", String(Date.now())));
    }
-   if (tunnelPaused && ws.bufferedAmount < 1_000_000) { tunnelPaused = false; tunnel?.resume(); }
    if (ws.bufferedAmount > 64_000_000) close("RDP backpressure limit reached");
   }, 5000);
   ws.on("error", () => { endTunnel(); });
   ws.on("close", (code: number) => {
    stopped = true;
    endedBy ??= `browser: ${code}`;
-   clearTimeout(handshakeTimeout); clearInterval(timer); endTunnel();
+   clearTimeout(handshakeTimeout); clearInterval(timer); clearInterval(resumePoll); endTunnel();
    releaseSlot();
    if (started) audit("server.rdp.closed", { reason: endedBy.slice(0, 120), seconds: String(Math.round((Date.now() - openedAt) / 1000)) });
    else if (!failureAudited) audit("server.rdp.failed");
@@ -421,12 +457,14 @@ export function setupRdpWebSocket(server: HttpServer) {
      const allowed = (op === "clipboard" && clipboardAllowed) || (op === "audio" && audioAllowed);
      if (["clipboard", "file", "pipe", "filesystem", "audio", "video"].includes(op) && !allowed) { close("Unsupported RDP stream", 1008); return; }
      if (ws.bufferedAmount > 64_000_000) { close("RDP backpressure limit reached"); return; }
-     if (ws.readyState === WebSocket.OPEN) ws.send(instruction(...row));
-     // A slow browser pauses guacd reads instead of losing the session; the
-     // interval above resumes once the socket has drained.
-     if (!tunnelPaused && ws.bufferedAmount > 4_000_000) { tunnelPaused = true; tunnel?.pause(); }
+     const text = instruction(...row);
+     outbox.push(text); outboxBytes += text.length;
+     if (outboxBytes >= RDP_BATCH_BYTES) flushOutbox();
     });
-    tunnel.on("data", data => { try { output.feed(decoder.write(data)); } catch { close("Invalid RDP gateway response"); } });
+    tunnel.on("data", data => {
+     try { output.feed(decoder.write(data)); } catch { close("Invalid RDP gateway response"); return; }
+     flushOutbox();
+    });
    } catch {
     // The browser tells the user why and does not retry the cap.
     if (tooMany) close("Too many RDP sessions for this user", 1008, RDP_STATUS_TOO_MANY);

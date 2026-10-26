@@ -194,6 +194,7 @@ export function RemoteDesktopToolbar({
 	inputMethod,
 	resolution,
 	elapsed,
+	latency,
 	onToggleTouchMode,
 	onKeyboard,
 	onToggleInputMethod,
@@ -216,6 +217,8 @@ export function RemoteDesktopToolbar({
 	resolution: RemoteDesktopResolution;
 	/** Connected time, e.g. "03:12"; null while not connected. */
 	elapsed: string | null;
+	/** Round trip between the browser and the hub in ms; null until measured. */
+	latency?: number | null;
 	onToggleTouchMode: () => void;
 	onKeyboard: () => void;
 	onToggleInputMethod: () => void;
@@ -272,6 +275,17 @@ export function RemoteDesktopToolbar({
 			))}
 		</select>
 	);
+	// Tells a slow network path (high and rising) from a slow desktop (low here,
+	// laggy picture): queueing on the way counts, the hub-to-Windows leg does not.
+	const latencyNote = latency != null && (
+		<span
+			className={cn("shrink-0 text-xs tabular-nums", latency >= 300 ? "text-[var(--danger)]" : latency >= 120 ? "text-[var(--warning)]" : "text-[var(--text-muted)]")}
+			title={t("rdp.latencyHint")}
+			data-testid="rdp-latency"
+		>
+			{t("rdp.latency", { ms: latency })}
+		</span>
+	);
 	const touchChips = touch && (
 		<>
 			{chip(t("rdp.keyboard"), <Keyboard size={14} aria-hidden="true" />, onKeyboard, { disabled: !connected, iconOnly: fullscreen, testId: "rdp-keyboard" })}
@@ -286,6 +300,7 @@ export function RemoteDesktopToolbar({
 					{statusLabel}
 				</StatusBadge>
 				<span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">{serverName}</span>
+				{latencyNote}
 				<div className="ml-auto flex shrink-0 items-center gap-1">
 					{reconnectButton}
 					{touchChips}
@@ -319,6 +334,7 @@ export function RemoteDesktopToolbar({
 					{statusLabel}
 				</StatusBadge>
 				{elapsed && <span className="hidden text-xs tabular-nums text-[var(--text-muted)] sm:inline" title={t("rdp.elapsed", { time: elapsed })}>{elapsed}</span>}
+				{latencyNote}
 				{touchChips}
 				{inputMethodChip}
 				{chip("Ctrl+Alt+Del", <span className="text-[10px] font-semibold sm:hidden">CAD</span>, onCtrlAltDel, { disabled: !connected })}

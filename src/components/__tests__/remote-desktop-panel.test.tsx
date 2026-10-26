@@ -403,3 +403,16 @@ it("shows keyboard focus on the panel frame, not as a line around the picture", 
   expect(screen.getByRole("application").className).not.toMatch(/ring/);
   expect(screen.getByRole("group", { name: "rdp.display" }).parentElement!.className).toMatch(/focus-within:ring-/);
 });
+
+it("shows the round trip to the hub once the bridge echoes the panel's ping", async () => {
+  // A latency figure in the bar tells a slow network path from a slow desktop.
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(ticketResponse));
+  renderPanel();
+  const socket = await openWithDesktop(1280, 720);
+  const ping = socket.send.mock.calls.map(([data]) => String(data)).find((data) => data.startsWith("0.,4.ping,"))!;
+  expect(screen.queryByTestId("rdp-latency")).not.toBeInTheDocument();
+  await act(async () => { await vi.advanceTimersByTimeAsync(40); });
+  act(() => { socket.onmessage?.({ data: ping }); });
+  expect(screen.getByTestId("rdp-latency")).toHaveTextContent("rdp.latency");
+});
