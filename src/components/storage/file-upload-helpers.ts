@@ -3,7 +3,6 @@ export type UploadMessage = { type: "success" | "error"; text: string } | null;
 export type BrowserFileWithRelativePath = File & { webkitRelativePath?: string };
 export type PathValidationError =
   | "controlChars"
-  | "dangerousChars"
   | "absolutePath"
   | "dotSegments"
   | "segmentTooLong"
@@ -14,7 +13,6 @@ export type PathResult =
 
 export const DEFAULT_NODE = "";
 export const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
-export const DANGEROUS_CHAR_PATTERN = /[<>:"|?*]/;
 export const MAX_SEGMENT_LENGTH = 255;
 export const MAX_PATH_LENGTH = 4096;
 
@@ -26,9 +24,9 @@ export function normalizeRelativePath(input: string): PathResult {
   if (CONTROL_CHAR_PATTERN.test(value)) {
     return { ok: false, reason: "controlChars" };
   }
-  if (DANGEROUS_CHAR_PATTERN.test(value)) {
-    return { ok: false, reason: "dangerousChars" };
-  }
+  // : * ? " < > | are ordinary in Linux names, as the server, rename and new
+  // folder accept them; a node on Windows refuses them itself. Refused here,
+  // such a file could be renamed into place but never uploaded.
   if (value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value)) {
     return { ok: false, reason: "absolutePath" };
   }

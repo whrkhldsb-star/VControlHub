@@ -87,7 +87,7 @@ export const en: Record<string, string> = {
 	"serversPage.agent.reinstall": "Reinstall Agent",
 	"serversPage.agent.upgrade": "Upgrade Agent to {latest}",
 	"serversPage.agent.reinstalling": "Installing…",
-	"serversPage.agent.reinstallHint": "Installs the current build over SSH and restarts the Agent; a login other than root needs passwordless sudo.",
+	"serversPage.agent.reinstallHint": "Agents from 1.5.0 install the hub's build themselves when idle. For an older one, or to repair it, this installs the current build over SSH and restarts the Agent (a login other than root needs passwordless sudo).",
 	"serversPage.agent.reinstalled": "The Agent was reinstalled and restarted; it reconnects with the new version within seconds.",
 	"serversPage.agent.reinstallFailed": "Reinstalling the Agent failed",
 	"serversPage.agent.reinstallUnavailable": "Only Linux servers managed through the node Agent can reinstall it over SSH",

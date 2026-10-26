@@ -41,7 +41,8 @@ export async function getServerInventory(session: TeamSession, input: Record<str
   const status = query.status === "all" ? Prisma.sql`TRUE` : Prisma.sql`s.enabled = ${query.status === "enabled"}`;
   const mode = query.mode === "all" ? Prisma.sql`TRUE` : Prisma.sql`s."managementMode"::text = ${query.mode}`;
   const os = query.operatingSystem === "all" ? Prisma.sql`TRUE` : Prisma.sql`s."operatingSystem"::text = ${query.operatingSystem}`;
-  return prisma.$transaction(async (tx) => {
+  // The snapshot covers what must agree: the counts and the page of ids.
+  const { stats, page, ids } = await prisma.$transaction(async (tx) => {
     const [counts] = await tx.$queryRaw<{ total: number; enabled: number; storage: number; matching: number }[]>(Prisma.sql`
       SELECT count(*)::int AS total, count(*) FILTER (WHERE s.enabled)::int AS enabled,
         count(*) FILTER (WHERE EXISTS (SELECT 1 FROM "StorageNode" n WHERE n."serverId" = s.id))::int AS storage,
@@ -52,24 +53,30 @@ export async function getServerInventory(session: TeamSession, input: Record<str
     const ids = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT s.id FROM servers s
       WHERE ${scope} AND ${search} AND ${status} AND ${mode} AND ${os}
       ORDER BY s."createdAt" DESC, s.id DESC LIMIT ${SERVER_PAGE_SIZE} OFFSET ${(page - 1) * SERVER_PAGE_SIZE}`);
-    const rows = ids.length ? await tx.server.findMany({
-      where: { AND: [serverTeamWhere(session), { id: { in: ids.map(({ id }) => id) } }] },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }], include: SERVER_PROFILE_INCLUDE,
-    }) : [];
-    // Customer accounts may not edit servers the platform assigned to them.
-    const customerAccount = !isGlobalTeamManager(session);
-    const servers = rows.map((row) => {
-      const server = enrichServer(row);
-      return {
-        ...server,
-        // Customer accounts only ever see their own customer; name it for administrators.
-        teamName: customerAccount ? null : server.teamName,
-        profileLocked: customerAccount && server.origin === "PLATFORM",
-        canTransfer: !customerAccount,
-      };
-    });
-    return { servers, stats, query: { ...query, page }, pageSize: SERVER_PAGE_SIZE, loadedAt: Date.now() };
+    return { stats, page, ids };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  // Hydrated after the snapshot: Prisma loads an include's relations in
+  // parallel, and inside an interactive transaction they all queue on its one
+  // connection — pg warns "Calling client.query() when the client is already
+  // executing a query" (pg 9 will refuse it). A server deleted in between is
+  // simply not shown.
+  const rows = ids.length ? await prisma.server.findMany({
+    where: { AND: [serverTeamWhere(session), { id: { in: ids.map(({ id }) => id) } }] },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }], include: SERVER_PROFILE_INCLUDE,
+  }) : [];
+  // Customer accounts may not edit servers the platform assigned to them.
+  const customerAccount = !isGlobalTeamManager(session);
+  const servers = rows.map((row) => {
+    const server = enrichServer(row);
+    return {
+      ...server,
+      // Customer accounts only ever see their own customer; name it for administrators.
+      teamName: customerAccount ? null : server.teamName,
+      profileLocked: customerAccount && server.origin === "PLATFORM",
+      canTransfer: !customerAccount,
+    };
+  });
+  return { servers, stats, query: { ...query, page }, pageSize: SERVER_PAGE_SIZE, loadedAt: Date.now() };
 }
 export type ServerInventoryData = Awaited<ReturnType<typeof getServerInventory>>;
 

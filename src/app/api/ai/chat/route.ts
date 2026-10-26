@@ -13,7 +13,8 @@ const AI_CHAT_LIMIT = { maxRequests: 20, windowMs: 60_000 };
 
 export async function POST(request: Request) {
   const locale = await getServerLocale();
-  const rateLimit = await checkRateLimitAsync(getClientIp(request), AI_CHAT_LIMIT);
+  // Its own bucket: the bare IP was also the 2FA check's key.
+  const rateLimit = await checkRateLimitAsync(`ai-chat:${getClientIp(request)}`, AI_CHAT_LIMIT);
   if (!rateLimit.allowed) {
     const message = t("apiAiChat.rateLimited", locale);
     return NextResponse.json(

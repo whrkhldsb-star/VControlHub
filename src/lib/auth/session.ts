@@ -220,9 +220,17 @@ function getSessionIdentity() {
 export async function createSessionToken(payload: SessionPayload, options: {
   remember?: boolean;
   credentialBinding?: SessionCredentialBinding;
+  /**
+   * Keep this expiry (epoch ms) instead of starting a new lifetime: a cookie
+   * re-minted after a password or 2FA change belongs to the same sign-in.
+   * Never later than a remember-me lifetime from now.
+   */
+  expiresAt?: number | null;
 } = {}) {
   const now = Date.now();
-  const ttlMs = (await getConfiguredSessionTtlSeconds(options.remember === true)) * 1000;
+  const ttlMs = options.expiresAt
+    ? Math.max(1_000, Math.min(options.expiresAt - now, (await getConfiguredSessionTtlSeconds(true)) * 1000))
+    : (await getConfiguredSessionTtlSeconds(options.remember === true)) * 1000;
   const { issuer, audience } = getSessionIdentity();
   // Read here rather than taking it as a parameter so every existing call site
   // keeps working unchanged. This runs once per login, not per request.
@@ -246,6 +254,21 @@ export async function createSessionToken(payload: SessionPayload, options: {
   };
 
   return signHmacToken(envelope, getSessionSecret());
+}
+
+/**
+ * When a session cookie expires (epoch ms), read without verifying it — for
+ * callers that already authenticated this very cookie and re-mint it.
+ */
+export function sessionTokenExpiresAt(token: string | null | undefined): number | null {
+  const [encodedPayload] = (token ?? "").split(".");
+  if (!encodedPayload) return null;
+  try {
+    const exp = (JSON.parse(decodeBase64Url(encodedPayload)) as { exp?: unknown }).exp;
+    return typeof exp === "number" && Number.isFinite(exp) && exp > Date.now() ? exp : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Change only this cookie's customer while preserving its original expiry. */

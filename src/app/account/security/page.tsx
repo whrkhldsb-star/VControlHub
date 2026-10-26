@@ -15,7 +15,8 @@ export default async function AccountSecurityPage() {
   const locale = await getServerLocale();
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { twoFactorEnabled: true },
+    // The secret only to tell a real second factor from a bare flag; it stays here.
+    select: { twoFactorEnabled: true, twoFactorSecret: true },
   });
 
   return (
@@ -39,7 +40,7 @@ export default async function AccountSecurityPage() {
             </ButtonLink>
           </div>
         </div>
-        <TwoFactorSettings enabled={user?.twoFactorEnabled ?? false} />
+        <TwoFactorSettings enabled={Boolean(user?.twoFactorEnabled && user.twoFactorSecret)} />
         <SignOutAllDevices />
       </div>
     </PageShell>

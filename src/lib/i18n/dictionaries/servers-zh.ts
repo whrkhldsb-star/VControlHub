@@ -99,7 +99,7 @@ export const zh: Record<string, string> = {
 	"serversPage.agent.reinstall": "重新安装 Agent",
 	"serversPage.agent.upgrade": "升级 Agent 到 {latest}",
 	"serversPage.agent.reinstalling": "正在安装…",
-	"serversPage.agent.reinstallHint": "通过 SSH 安装当前版本并重启 Agent；登录用户不是 root 时需要免密 sudo。",
+	"serversPage.agent.reinstallHint": "1.5.0 起的 Agent 会在空闲时自动升级到中心的版本；更早的版本或需要修复时，用它通过 SSH 安装当前版本并重启 Agent（登录用户不是 root 时需要免密 sudo）。",
 	"serversPage.agent.reinstalled": "Agent 已重新安装并重启，几秒内会以新版本上线。",
 	"serversPage.agent.reinstallFailed": "Agent 重新安装失败",
 	"serversPage.agent.reinstallUnavailable": "只有使用节点 Agent 的 Linux 服务器可以通过 SSH 重新安装 Agent",

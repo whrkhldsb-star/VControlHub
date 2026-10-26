@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   completeServerAgentJob: vi.fn(),
   heartbeatServerAgentJob: vi.fn(),
   updateServerAgentHeartbeat: vi.fn(),
+  agentSelfUpdateFor: vi.fn(),
 }));
 
 vi.mock("@/lib/http/rate-limit-presets", () => ({
@@ -26,6 +27,7 @@ vi.mock("@/lib/server/agent-service", () => ({
   completeServerAgentJob: mocks.completeServerAgentJob,
   heartbeatServerAgentJob: mocks.heartbeatServerAgentJob,
   updateServerAgentHeartbeat: mocks.updateServerAgentHeartbeat,
+  agentSelfUpdateFor: mocks.agentSelfUpdateFor,
 }));
 
 const { POST } = await import("../route");
@@ -47,6 +49,7 @@ describe("POST /api/agent/v1/poll", () => {
     mocks.claimNextServerAgentJob.mockResolvedValue(null);
     mocks.completeServerAgentJob.mockResolvedValue(undefined);
     mocks.heartbeatServerAgentJob.mockResolvedValue(false);
+    mocks.agentSelfUpdateFor.mockReturnValue(null);
   });
 
   it("rate-limits before the token lookup, so an anonymous flood costs no query", async () => {
@@ -111,6 +114,37 @@ describe("POST /api/agent/v1/poll", () => {
     expect(json.pollAfterMs).toBe(0);
     // Only the protocol fields are exposed — no internal columns leak.
     expect(Object.keys(json.job).sort()).toEqual(["command", "id", "timeoutMs"]);
+  });
+
+  it("offers the hub's Agent build on an idle poll only", async () => {
+    mocks.agentSelfUpdateFor.mockReturnValue({ version: "9.9.9", script: "c2NyaXB0" });
+    const request = poll({ version: "1.5.0", capabilities: ["metrics", "command", "self-update"] });
+    request.headers.set("host", "hub.example");
+
+    const json = await (await POST(request)).json();
+
+    expect(json).toMatchObject({ pollAfterMs: 0, job: null, update: { version: "9.9.9", script: "c2NyaXB0" } });
+    expect(mocks.agentSelfUpdateFor).toHaveBeenCalledWith(expect.objectContaining({ version: "1.5.0", requestHost: "hub.example" }));
+  });
+
+  it("never holds queued work back for an update", async () => {
+    mocks.agentSelfUpdateFor.mockReturnValue({ version: "9.9.9", script: "c2NyaXB0" });
+    mocks.claimNextServerAgentJob.mockResolvedValue({ id: "job-3", command: "uptime", timeoutMs: 30_000, serverId: "srv1" });
+
+    const json = await (await POST(poll({ version: "1.5.0", capabilities: ["self-update"] }))).json();
+
+    expect(json.job).toMatchObject({ id: "job-3" });
+    expect(json.update).toBeUndefined();
+  });
+
+  it("takes the result of an Agent that is stopping but hands it no new job", async () => {
+    // A job claimed now would never run: the Agent exits after this request.
+    const json = await (await POST(poll({ stopping: true, result: { jobId: "job-4", exitCode: 143 } }))).json();
+
+    expect(mocks.completeServerAgentJob).toHaveBeenCalledWith(expect.objectContaining({ jobId: "job-4", exitCode: 143 }));
+    expect(mocks.claimNextServerAgentJob).not.toHaveBeenCalled();
+    expect(json).toMatchObject({ job: null });
+    expect(json.update).toBeUndefined();
   });
 
   it("idles at 5s when the queue is empty", async () => {

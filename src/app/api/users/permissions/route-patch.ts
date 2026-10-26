@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { parseNullableBigIntInput } from "@/lib/storage/access-control";
 import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 

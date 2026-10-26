@@ -34,10 +34,18 @@ export function recordFileOpen(fileEntryId: string) {
   }).catch(() => undefined);
 }
 
-export function FilePreferenceButton({ fileEntryId }: { fileEntryId: string }) {
+/**
+ * `favorite` is what the list already knows: the star showed every row of
+ * the favorites list as not favorite until its dialog had been opened.
+ */
+export function FilePreferenceButton({ fileEntryId, favorite: knownFavorite = false }: { fileEntryId: string; favorite?: boolean }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [favorite, setFavorite] = useState(false);
+  // The dialog's draft; the star shows the saved state, so a change that was
+  // cancelled does not stay on it.
+  const [favorite, setFavorite] = useState(knownFavorite);
+  const [savedFavorite, setSavedFavorite] = useState<boolean | null>(null);
+  const starred = savedFavorite ?? knownFavorite;
   const formId = useId();
   const [tags, setTags] = useState("");
   const [busy, setBusy] = useState(false);
@@ -53,6 +61,7 @@ export function FilePreferenceButton({ fileEntryId }: { fileEntryId: string }) {
     })
       .then((page) => {
         setFavorite(page.items[0]?.favorite ?? false);
+        setSavedFavorite(page.items[0]?.favorite ?? false);
         setTags(page.items[0]?.tags.join(", ") ?? "");
         setLoaded(true);
         setError("");
@@ -66,14 +75,14 @@ export function FilePreferenceButton({ fileEntryId }: { fileEntryId: string }) {
     <>
       <IconButton
         label={t("filePreferences.edit")}
-        tone={favorite ? "accent" : "neutral"}
+        tone={starred ? "accent" : "neutral"}
         className="h-8 w-8"
         onClick={() => {
           setLoaded(false);
           setOpen(true);
         }}
       >
-        <Star size={15} fill={favorite ? "currentColor" : "none"} aria-hidden />
+        <Star size={15} fill={starred ? "currentColor" : "none"} aria-hidden />
       </IconButton>
       <Dialog
         open={open}
@@ -114,6 +123,7 @@ export function FilePreferenceButton({ fileEntryId }: { fileEntryId: string }) {
                     .filter(Boolean),
                 }),
               });
+              setSavedFavorite(favorite);
               setOpen(false);
               window.dispatchEvent(new Event("file-preferences-changed"));
             } catch (error) {
@@ -309,7 +319,7 @@ export function FileCollectionsDialog({ open, initialMode = "favorites", onClose
                     {item.tags.join(" · ")}
                   </p>
                 </Link>
-                <FilePreferenceButton fileEntryId={item.fileEntryId} />
+                <FilePreferenceButton fileEntryId={item.fileEntryId} favorite={item.favorite} />
               </li>
             ))}
           </ul>

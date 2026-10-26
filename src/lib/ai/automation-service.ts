@@ -181,6 +181,18 @@ export async function executeAutomationProposal(
   hostedActionId: string,
 ) {
   const proposal = await materializeAutomationProposal(raw, actor);
+  // What runs must be what was confirmed. Materializing again re-reads the
+  // template and resolves an "all servers" scope again, so a template edited
+  // or a server added after the plan was shown changed the command or its
+  // targets without anyone seeing it.
+  const confirmedIds = Array.isArray(raw.serverIds) ? unique(raw.serverIds.map(String)).sort() : null;
+  if (
+    (typeof raw.command === "string" && raw.command !== proposal.command) ||
+    (confirmedIds && confirmedIds.join("\n") !== unique(proposal.serverIds).sort().join("\n"))
+  ) {
+    const t = await serviceT();
+    throw new BusinessError(t("backend.ai.automationProposalChanged"));
+  }
   const session = { ...actor, currentTeamId: actor.currentTeamId ?? null };
   if (proposal.executionMode === "now") {
     const request = await createCommandRequest({

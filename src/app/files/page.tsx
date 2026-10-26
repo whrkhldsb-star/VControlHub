@@ -4,6 +4,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getFilesListing } from "@/lib/files/listing-service";
 import { listFilesQuerySchema } from "@/lib/files/schema";
 import { getStorageFormOptions } from "@/app/storage/actions";
+import { scheduleStorageNodeHealthProbe } from "@/lib/storage/health";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { FilesBrowserSpa } from "./files-browser-spa";
 import { PageShell, PageHeader } from "@/components/page-shell";
@@ -24,6 +25,11 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   const canManageNodes = sessionHasPermission(session, "storage:manage-node");
   const canEditLocalFiles = sessionHasPermission(session, "storage:write");
   const query = listFilesQuerySchema.parse((await searchParams) ?? {});
+  // The node cards show each node's health. Its only automatic refresh was
+  // the signed-in /status page: production nodes still read "checked
+  // 10-04" weeks later, so a node that went down kept showing healthy.
+  // Fire-and-forget; only nodes not checked in five minutes are probed.
+  scheduleStorageNodeHealthProbe();
   const [{ listing: initialData, nodes }, formOptions] = await Promise.all([
     getFilesListing(session, query),
     canManageNodes || canEditLocalFiles

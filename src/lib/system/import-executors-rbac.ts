@@ -168,7 +168,10 @@ export async function importUsers(
             passwordHash: r.passwordHash ?? "DISABLED_IMPORT_RESET",
             status: (r.passwordHash ? r.status : "PENDING_PASSWORD_RESET") as never,
             mustChangePassword: r.passwordHash ? r.mustChangePassword : true,
-            twoFactorEnabled: r.twoFactorEnabled,
+            // A standard export leaves the secret out. "Enabled" without a
+            // secret is no second factor at all: login skips it, yet the
+            // account page shows it on and setup refused to enrol again.
+            twoFactorEnabled: r.twoFactorEnabled && Boolean(r.twoFactorSecret),
             twoFactorSecret: r.twoFactorSecret,
             twoFactorRecoveryCodes: (r.twoFactorRecoveryCodes ?? undefined) as Prisma.InputJsonValue | undefined,
             preferences: r.preferences as Prisma.InputJsonValue | undefined,
@@ -193,9 +196,10 @@ export async function importUsers(
           ...(r.passwordHash ? { passwordHash: r.passwordHash } : {}),
           status: r.status as never,
           mustChangePassword: r.mustChangePassword,
-          twoFactorEnabled: r.twoFactorEnabled,
-          // In full mode, restore 2FA secret; otherwise keep existing
-          ...(r.twoFactorSecret !== null ? { twoFactorSecret: r.twoFactorSecret } : {}),
+          // In full mode, restore the 2FA state with its secret; otherwise
+          // keep this account's own (a flag without its secret would claim a
+          // second factor that is not there).
+          ...(r.twoFactorSecret !== null ? { twoFactorEnabled: r.twoFactorEnabled, twoFactorSecret: r.twoFactorSecret } : {}),
           ...(r.twoFactorRecoveryCodes != null ? { twoFactorRecoveryCodes: r.twoFactorRecoveryCodes as Prisma.InputJsonValue } : {}),
           // Mirror createMany: restore UI prefs / locale / layout on overwrite
           ...(r.preferences !== undefined

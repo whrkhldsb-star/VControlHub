@@ -9,6 +9,8 @@ vi.mock("@/lib/i18n/translations",() => ({getServerLocale:async () => "zh",t:(ke
 vi.mock("../files-browser-spa",() => ({FilesBrowserSpa:mocks.browser}));
 vi.mock("../storage-node-manager",() => ({StorageNodeManager:mocks.manager}));
 vi.mock("../files-subpage-nav",() => ({FilesSubpageNav:() => null}));
+const probe = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/storage/health",() => ({scheduleStorageNodeHealthProbe:probe}));
 import FilesPage from "../page";
 const session = {userId:"viewer",username:"viewer",roles:["viewer"]};
 const listing = {
@@ -40,5 +42,11 @@ describe("FilesPage",() => {
   it("stops before reading any data when the page guard rejects",async () => {
     mocks.guard.mockRejectedValue(new Error("Forbidden"));
     await expect(FilesPage({})).rejects.toThrow("Forbidden");expect(mocks.listing).not.toHaveBeenCalled();
+    expect(probe).not.toHaveBeenCalled();
+  });
+  it("refreshes stale storage node health in the background (M-1)",async () => {
+    // Its only trigger was the signed-in /status page: nodes read "checked 10-04" for weeks.
+    await FilesPage({});
+    expect(probe).toHaveBeenCalledOnce();
   });
 });

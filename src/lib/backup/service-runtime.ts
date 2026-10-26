@@ -427,7 +427,12 @@ export async function pruneOldBackupRecordsNow(input: {
 	// Fail closed: without an explicit teamId, never list/delete all tenants'
 	// backups (listBackupRecords() with no session uses where:{}).
 	const teamId = typeof input.teamId === "string" && input.teamId.trim() ? input.teamId.trim() : null;
-	if (!teamId) {
+	// One schedule's own backups are a boundary of their own. A platform
+	// schedule made in the all-customers view has no customer: its retention
+	// was refused here on every run and its backups piled up until the disk
+	// filled.
+	const scheduleOnly = typeof input.scheduleId === "string" && input.scheduleId.trim() !== "";
+	if (!teamId && !scheduleOnly) {
 		retentionLogger.warn("backup retention skipped: teamId required to avoid cross-tenant prune", {
 			hasTeamId: Boolean(input.teamId),
 		});
@@ -450,7 +455,7 @@ export async function pruneOldBackupRecordsNow(input: {
 	const cutoffForQuery = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
 	const records = await prisma.backupRecord.findMany({
 		where: {
-			teamId,
+			...(teamId ? { teamId } : {}),
 			...(input.scheduleId !== undefined ? { scheduleId: input.scheduleId } : {}),
 			OR: [
 				{ status: { in: ["COMPLETED", "FAILED", "VOIDED"] }, createdAt: { lt: cutoffForQuery } },

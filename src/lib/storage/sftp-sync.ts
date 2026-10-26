@@ -200,11 +200,20 @@ async function loadIndexedEntries(nodeId: string, paths: string[]) {
   return new Map(rows.map((row) => [row.relativePath, row]));
 }
 
+/**
+ * Soft-delete the indexed direct children of `dirPath` the listing did not
+ * return. Only rows last written before the listing started: a file uploaded
+ * or moved in while the directory (or, recursively, its subtree) was being
+ * scanned is missing from the listing but not gone, and was sent to the
+ * recycle bin — where a later sync skips it, so it vanished from the folder.
+ * Same rule as the stale-inventory sweep.
+ */
 async function pruneStaleEntries(
   nodeId: string,
   basePath: string,
   dirPath: string,
   remoteRelativePaths: Set<string>,
+  listingStartedAt: Date,
 ) {
   const relativeDir = computeDirectoryRelativePath(basePath, dirPath);
   if (relativeDir === null) return 0;
@@ -217,6 +226,7 @@ async function pruneStaleEntries(
       where: {
         storageNodeId: nodeId,
         isDeleted: false,
+        updatedAt: { lt: listingStartedAt },
         ...(relativeDir
           ? { relativePath: { startsWith: escapeLikeLiteral(`${relativeDir}/`) } }
           : {}),
@@ -240,7 +250,8 @@ async function pruneStaleEntries(
   if (staleIds.length === 0) return 0;
 
   const result = await prisma.fileEntry.updateMany({
-    where: { id: { in: staleIds } },
+    // Rechecked here: a row rewritten since it was read is not stale either.
+    where: { id: { in: staleIds }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
     data: { isDeleted: true },
   });
   return result.count;
@@ -299,6 +310,7 @@ export async function syncSftpDirectoryEntries(input: {
     currentDepth: number,
   ): Promise<void> {
     let entries: SftpListEntry[];
+    const listingStartedAt = new Date();
     try {
       entries = await withDirectoryTimeout(
         listRemoteDirectory({
@@ -369,6 +381,7 @@ export async function syncSftpDirectoryEntries(input: {
       basePath,
       dirPath,
       remoteRelativePaths,
+      listingStartedAt,
     );
   }
 

@@ -274,6 +274,17 @@ describe("useBatchCompress", () => {
 		expect(body.targetDir).toBe("dir");
 	});
 
+	it("lets the server use the files' own folder in the all-locations view", async () => {
+		// The all-locations path is virtual ("Node__id/dir"); sent as the
+		// target, the server created it as a real folder on the node.
+		const { input } = harness({ currentPath: undefined });
+		const { result } = renderHook(() => useBatchCompress(input as never));
+		await act(async () => { result.current(); });
+		const body = JSON.parse((mocks.csrfFetch.mock.calls[0]![1] as { body: string }).body);
+		expect(body).not.toHaveProperty("targetDir");
+		expect(body.relativePaths).toEqual(["dir/a.txt", "dir/b.txt"]);
+	});
+
 	it("refuses a selection spanning two storage nodes", async () => {
 		// The API writes the archive into one mount; a cross-node request is a
 		// guaranteed 400.

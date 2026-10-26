@@ -155,6 +155,11 @@ describe("sanitizeHighlightHtml (highlight config)", () => {
 		expect(result).toContain("function");
 	});
 
+	it("keeps the text preview's <mark> search highlight with its class", () => {
+		const result = sanitizeHighlightHtml('const <mark class="hit">health</mark> = 1;');
+		expect(result).toContain('<mark class="hit">health</mark>');
+	});
+
 	it("allows <br> tags", () => {
 		const result = sanitizeHighlightHtml("line1<br>line2");
 		expect(result).toContain("<br>");

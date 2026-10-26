@@ -8,7 +8,7 @@
 import { Prisma } from "@prisma/client";
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
-import { upsertById, type Tx, type Counts } from "./import-executors-helpers";
+import { creatorResolver, upsertById, type Tx, type Counts } from "./import-executors-helpers";
 import { computeNextPlaybookCronRun, isCronTriggerConfig } from "@/lib/playbook/trigger-utils";
 
 // 10. CommandTemplates
@@ -18,6 +18,7 @@ export async function importCommandTemplates(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
+  const creator = await creatorResolver(tx, t.commandTemplates.map((r) => r.createdById));
   const toData = (r: ExportFile["tables"]["commandTemplates"][number]) => ({
     name: r.name,
     description: r.description,
@@ -26,7 +27,7 @@ export async function importCommandTemplates(
     variables: r.variables,
     tags: r.tags,
     isBuiltin: r.isBuiltin,
-    createdById: r.createdById,
+    createdById: creator(r.createdById),
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
     teamId: r.teamId ?? null,
   });
@@ -122,6 +123,7 @@ export async function importPlaybooks(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
+  const creator = await creatorResolver(tx, t.playbooks.map((r) => r.createdById));
   const toData = (r: ExportFile["tables"]["playbooks"][number]) => ({
     name: r.name,
     description: r.description,
@@ -130,7 +132,7 @@ export async function importPlaybooks(
     steps: r.steps as Prisma.InputJsonValue,
     chainRetry: r.chainRetry,
     enabled: r.enabled,
-    createdById: r.createdById,
+    createdById: creator(r.createdById),
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
     teamId: r.teamId ?? null,
   });

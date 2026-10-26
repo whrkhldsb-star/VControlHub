@@ -328,6 +328,7 @@ describe("sftp sync service", () => {
       where: {
         storageNodeId: "node_1",
         isDeleted: false,
+        updatedAt: { lt: expect.any(Date) },
         relativePath: { startsWith: "team-a/" },
       },
       select: { id: true, relativePath: true },
@@ -335,7 +336,7 @@ describe("sftp sync service", () => {
       take: 2_000,
     });
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["stale_1"] } },
+      where: { id: { in: ["stale_1"] }, isDeleted: false, updatedAt: { lt: expect.any(Date) } },
       data: { isDeleted: true },
     });
   });
@@ -383,4 +384,43 @@ describe("sftp sync service", () => {
     expect(prismaMock.fileEntry.updateMany).not.toHaveBeenCalled();
   });
 
+});
+
+describe("sftp sync pruning", () => {
+  it("keeps a file indexed while its directory was being listed (B1-1)", async () => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-26T01:00:00Z"));
+      const node = {
+        id: "node_race", name: "remote", driver: "SFTP", basePath: "/data/files", host: null, port: null, username: null, hostKeySha256: null,
+        server: { id: "srv", host: "203.0.113.20", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX" as const, password: "ENCRYPTED PASSWORD", hostKeySha256: null, sshKey: null },
+      } as const;
+      type Row = { id: string; relativePath: string; isDeleted: boolean; updatedAt: Date };
+      const rows: Row[] = [{ id: "gone", relativePath: "old.txt", isDeleted: false, updatedAt: new Date("2026-10-25T00:00:00Z") }];
+      // The listing is read, then another user uploads "new.txt" before the
+      // prune reads the index: the listing does not have it.
+      listRemoteDirectoryMock.mockImplementationOnce(async () => {
+        vi.setSystemTime(new Date("2026-10-26T01:00:05Z"));
+        rows.push({ id: "fresh", relativePath: "new.txt", isDeleted: false, updatedAt: new Date() });
+        return [];
+      });
+      const matches = (row: Row, where: { id?: { in: string[] }; isDeleted?: boolean; updatedAt?: { lt: Date } }) =>
+        (where.id === undefined || where.id.in.includes(row.id)) &&
+        (where.isDeleted === undefined || row.isDeleted === where.isDeleted) &&
+        (where.updatedAt === undefined || row.updatedAt < where.updatedAt.lt);
+      prismaMock.fileEntry.findMany.mockImplementation(async ({ where }: { where: Parameters<typeof matches>[1] }) => rows.filter((row) => matches(row, where)).map(({ id, relativePath }) => ({ id, relativePath })));
+      prismaMock.fileEntry.updateMany.mockImplementation(async ({ where }: { where: Parameters<typeof matches>[1] }) => {
+        const hit = rows.filter((row) => matches(row, where));
+        for (const row of hit) row.isDeleted = true;
+        return { count: hit.length };
+      });
+      const result = await syncSftpDirectoryEntries({ node, recursive: false });
+      expect(rows.find((row) => row.id === "gone")!.isDeleted).toBe(true);
+      expect(rows.find((row) => row.id === "fresh")!.isDeleted).toBe(false);
+      expect(result.deleted).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

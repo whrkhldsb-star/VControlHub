@@ -124,6 +124,8 @@ export const aiModelsQuerySchema = z.object({
 // before saving it, so `apiKey` is required and `baseUrl`/`defaultModel`
 // are optional.
 export const probeModelsSchema = z.object({
+  // The provider panel sends it; dropping it made every probe use Bearer auth.
+  type: aiProviderTypeSchema.optional(),
   apiKey: z.string().min(1, "Missing API Key"),
   baseUrl: z.string().trim().max(2048, "Base URL is too long").optional(),
   defaultModel: z.string().trim().min(1).max(128).optional(),

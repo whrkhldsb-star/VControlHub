@@ -15,6 +15,8 @@
 
 import { z } from "zod";
 
+import { isSensitiveKey } from "@/lib/settings/schema";
+
 // ── 导出文件顶层结构 ──────────────────────────────────────
 
 export const EXPORT_SCHEMA_VERSION = 1;
@@ -29,8 +31,15 @@ export const CONFIG_IMPORT_MAX_BODY_BYTES = 32 * 1024 * 1024;
 const SENSITIVE_SETTING_PATTERN =
   /(_key|_secret|_token|_password|_url|\.(password|secret|token|api_key|apikey|botToken|s3SecretKey|s3AccessKey))$/i;
 
+/**
+ * Also every key the settings service treats as a secret (and stores
+ * encrypted): smtp.pass, offsite.accessKeyId and offsite.secretAccessKey
+ * matched neither suffix, so a "sanitized" export carried their ciphertext —
+ * which another instance cannot decrypt and used as the SMTP password and S3
+ * keys, while the settings page showed them as configured.
+ */
 export function isSensitiveSettingKey(key: string): boolean {
-  return SENSITIVE_SETTING_PATTERN.test(key);
+  return isSensitiveKey(key) || SENSITIVE_SETTING_PATTERN.test(key);
 }
 
 // ── 各表导出 schema ──────────────────────────────────────

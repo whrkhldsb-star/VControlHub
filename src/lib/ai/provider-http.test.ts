@@ -115,6 +115,25 @@ describe("ai provider-http adapter", () => {
       ]);
     });
 
+    it("authenticates an Anthropic model list with x-api-key and asks for every page entry", async () => {
+      // Anthropic takes Bearer only for OAuth tokens: an API key sent that way
+      // was refused, so an Anthropic provider could never list its models.
+      const fetchMock = vi.fn(async () =>
+        new Response(JSON.stringify({ data: [{ type: "model", id: "claude-opus-5-5", display_name: "Claude Opus 5.5" }], has_more: false }), { status: 200 }),
+      );
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      const models = await fetchProviderModels({ apiKey: " sk-ant ", baseUrl: "https://api.anthropic.com/v1", type: "ANTHROPIC" });
+
+      const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe("https://api.anthropic.com/v1/models?limit=1000");
+      const headers = init.headers as Record<string, string>;
+      expect(headers["x-api-key"]).toBe("sk-ant");
+      expect(headers["anthropic-version"]).toBe("2023-06-01");
+      expect(headers.Authorization).toBeUndefined();
+      expect(models.map((m) => m.id)).toEqual(["claude-opus-5-5"]);
+    });
+
     it("falls back to data.models when data.data is absent", async () => {
       const fetchMock = vi.fn(async () =>
         new Response(JSON.stringify({ models: [{ id: "claude-3.5" }] }), { status: 200 }),

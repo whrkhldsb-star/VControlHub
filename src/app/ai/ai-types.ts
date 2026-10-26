@@ -90,7 +90,10 @@ export const PROVIDER_TYPES: Record<string, string> = {
 export const COMMON_BASE_URLS: Record<string, string> = {
   OPENAI: "https://api.openai.com/v1",
   ANTHROPIC: "https://api.anthropic.com/v1",
-  GOOGLE: "https://generativelanguage.googleapis.com/v1beta",
+  // Gemini's OpenAI-compatible surface, which the GOOGLE branch speaks
+  // (/chat/completions, /models with a Bearer key): the bare /v1beta root
+  // answered both with 404.
+  GOOGLE: "https://generativelanguage.googleapis.com/v1beta/openai",
 };
 
 /**
@@ -147,7 +150,7 @@ export const PROVIDER_PRESETS: Array<{
     type: "ANTHROPIC",
     name: "Anthropic",
     baseUrl: "https://api.anthropic.com/v1",
-    models: ["claude-sonnet-4-5", "claude-opus-4-1"],
+    models: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
     apiKeyUrl: "https://console.anthropic.com/settings/keys",
   },
   {

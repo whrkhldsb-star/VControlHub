@@ -6,7 +6,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { csvCell } from "@/lib/http/csv";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { z } from "zod";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export const dynamic = "force-dynamic";
 

@@ -84,6 +84,24 @@ export function parseBigInt(s: string | null, field = "size"): bigint | null {
  * closures so each model keeps its own delegate typing and payload shape —
  * same contract as `upsertByIdWithSecondaryUnique` below.
  */
+/**
+ * A creator reference that resolves here, or null. Creator relations are
+ * optional (onDelete SetNull), but an insert still needs the user to exist:
+ * a package whose creators are not on this instance — a customer-scoped
+ * export leaves out the administrator who made the customer's templates, or
+ * users are not imported — failed the whole import on one foreign key.
+ * Users are imported earlier in the same transaction, so imported creators
+ * resolve.
+ */
+export async function creatorResolver(tx: Tx, ids: Array<string | null | undefined>): Promise<(id: string | null | undefined) => string | null> {
+  const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  const present = new Set<string>();
+  for (let i = 0; i < wanted.length; i += 1_000) {
+    for (const row of await tx.user.findMany({ where: { id: { in: wanted.slice(i, i + 1_000) } }, select: { id: true } })) present.add(row.id);
+  }
+  return (id) => (id && present.has(id) ? id : null);
+}
+
 export async function upsertById<TRecord extends { id: string }>(
   records: TRecord[],
   options: { overwriteExisting: boolean },

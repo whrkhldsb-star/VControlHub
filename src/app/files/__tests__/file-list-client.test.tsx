@@ -552,6 +552,19 @@ describe("FileListClient", () => {
 		expect(screen.queryByText("已选 2 项")).not.toBeInTheDocument();
 	});
 
+	it("writes the archive next to the files in the all-locations view, not under its virtual path", async () => {
+		// "本机存储__node_1/photos" is the browsing path of all locations; sent
+		// as the target, the server created that folder on the node.
+		renderFileList({ files: [imageFile, docFile], nodeIdFilter: "", currentPath: "本机存储__node_1/photos" });
+		fireEvent.click(checkbox("cover.jpg"));
+		fireEvent.click(checkbox("report.pdf"));
+		fireEvent.click(screen.getByRole("button", { name: "压缩" }));
+		await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(1));
+		const body = JSON.parse(mocks.fetch.mock.calls[0]![1].body);
+		expect(body).not.toHaveProperty("targetDir");
+		expect(body.relativePaths).toEqual(["photos/cover.jpg", "photos/report.pdf"]);
+	});
+
 	it.each(["delete", "move"] as const)("keeps the selection when a background %s cannot be queued", async (action) => {
 		mocks.fetch.mockImplementation(async (url: string) => {
 			if (url.startsWith("/api/files/list")) return { folders: [{ name: "archive", path: "archive", relativePath: "archive", fileCount: 0, folderCount: 0, sourceKeys: ["node_1"], sourceValues: ["本机存储"] }], pagination: { page: 1, pageSize: 50, totalItems: 1, totalPages: 1 } };

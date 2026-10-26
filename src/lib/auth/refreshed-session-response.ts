@@ -11,6 +11,7 @@ import {
   createSessionToken,
   getConfiguredSessionTtlSeconds,
   getSessionCookieName,
+  sessionTokenExpiresAt,
   type SessionPayload,
   type SessionCredentialBinding,
 } from "@/lib/auth/session";
@@ -22,20 +23,35 @@ export async function refreshedSessionResponse(
   body: Record<string, unknown>,
   credentialBinding: SessionCredentialBinding,
 ): Promise<NextResponse> {
+  // Same sign-in, same lifetime: re-minting with the default TTL cut a
+  // 30-day "remember me" session to 7 days on every 2FA change.
+  const expiresAt = sessionTokenExpiresAt(readCookie(request, getSessionCookieName()));
   const refreshedToken = await createSessionToken({
     userId: session.userId,
     username: session.username,
     roles: session.roles,
     mustChangePassword: session.mustChangePassword,
     currentTeamId: session.currentTeamId,
-  }, { credentialBinding });
+  }, { credentialBinding, expiresAt });
   const response = NextResponse.json(body);
   response.cookies.set(getSessionCookieName(), refreshedToken, {
     httpOnly: true,
     sameSite: "lax",
     secure: isRequestHttps(request),
     path: "/",
-    maxAge: await getConfiguredSessionTtlSeconds(false),
+    maxAge: expiresAt
+      ? Math.max(1, Math.min(Math.ceil((expiresAt - Date.now()) / 1000), await getConfiguredSessionTtlSeconds(true)))
+      : await getConfiguredSessionTtlSeconds(false),
   });
   return response;
+}
+
+function readCookie(request: Request, name: string): string | null {
+  for (const part of (request.headers.get("cookie") ?? "").split(";")) {
+    const separator = part.indexOf("=");
+    if (separator > 0 && part.slice(0, separator).trim() === name) {
+      try { return decodeURIComponent(part.slice(separator + 1).trim()); } catch { return null; }
+    }
+  }
+  return null;
 }

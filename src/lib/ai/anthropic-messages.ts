@@ -71,8 +71,15 @@ function parseToolInput(argumentsJson: string): unknown {
  * `tool_result` block in a user turn (Anthropic has no tool role), PDFs
  * `document` blocks. Consecutive turns of one role are merged, as the API
  * requires alternation (several tool results answer one assistant turn).
+ *
+ * `nativeTools: false` (a request that defines no tools) writes the calls
+ * and results as text instead: the API refuses tool_use and tool_result
+ * blocks in a request without tool definitions, which failed the answer
+ * after hosted tools ran and every later turn once hosting was switched off.
  */
-export function toAnthropicMessages(messages: ChatMessage[]): AnthropicMessage[] {
+export function toAnthropicMessages(messages: ChatMessage[], options: { nativeTools?: boolean } = {}): AnthropicMessage[] {
+	const nativeTools = options.nativeTools ?? true;
+	const toolNames = new Map<string, string>();
 	const out: AnthropicMessage[] = [];
 	const push = (role: AnthropicMessage["role"], blocks: AnthropicBlock[]) => {
 		if (blocks.length === 0) return;
@@ -83,6 +90,13 @@ export function toAnthropicMessages(messages: ChatMessage[]): AnthropicMessage[]
 	for (const message of messages) {
 		if (message.role === "system") continue;
 		if (message.role === "tool") {
+			if (!nativeTools) {
+				const label = `[Result of ${toolNames.get(message.tool_call_id ?? "") ?? "tool"}]`;
+				push("user", typeof message.content === "string"
+					? [{ type: "text", text: `${label}\n${message.content}` }]
+					: [{ type: "text", text: label }, ...contentBlocks(message.content)]);
+				continue;
+			}
 			push("user", [{
 				type: "tool_result",
 				tool_use_id: message.tool_call_id ?? "",
@@ -91,12 +105,16 @@ export function toAnthropicMessages(messages: ChatMessage[]): AnthropicMessage[]
 			continue;
 		}
 		if (message.role === "assistant") {
-			const toolUses = (message.tool_calls ?? []).map((call) => ({
-				type: "tool_use",
-				id: call.id,
-				name: call.function.name,
-				input: parseToolInput(call.function.arguments),
-			}));
+			const calls = message.tool_calls ?? [];
+			for (const call of calls) toolNames.set(call.id, call.function.name);
+			const toolUses = nativeTools
+				? calls.map((call) => ({
+					type: "tool_use",
+					id: call.id,
+					name: call.function.name,
+					input: parseToolInput(call.function.arguments),
+				}))
+				: calls.map((call) => ({ type: "text", text: `[Called ${call.function.name} ${call.function.arguments || "{}"}]` }));
 			push("assistant", [...contentBlocks(message.content), ...toolUses]);
 			continue;
 		}

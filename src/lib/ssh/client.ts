@@ -74,6 +74,13 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
   username: input.username,
   readyTimeout: 15000,
   timeout: 10000,
+  // Pooled connections idle up to the pool timeout. Without keepalives one
+  // that a NAT or firewall dropped silently was found dead only by the next
+  // request, which stalled until TCP gave up (often 15 minutes or more): the
+  // file manager or a health sample looked hung. ssh2 closes a connection
+  // that misses this many keepalives, and the pool then replaces it.
+  keepaliveInterval: appConfig.ssh.keepaliveIntervalMs,
+  keepaliveCountMax: appConfig.ssh.keepaliveCountMax,
  };
 
  if (input.privateKey) {
@@ -733,11 +740,38 @@ readStream.on("error", (readErr: Error) => {
   });
 }
 
+/**
+ * Base64 characters per Agent write command (a multiple of 4, so each chunk
+ * decodes alone). The Agent runs a job as `sh -c <command>`: one argument,
+ * which Linux caps at 128 KiB (MAX_ARG_STRLEN). A file sent in one command
+ * failed to start beyond about 96 KB — and the Agent never reported that job,
+ * so the write hung until its timeout.
+ */
+const AGENT_WRITE_CHUNK = 64 * 1024;
+
 export async function writeRemoteFile(input: SshConnectionParams & { remotePath: string; content: string | Buffer }): Promise<void> {
   if (usesAgentOnly(input)) {
     const encoded = Buffer.from(input.content).toString("base64");
     if (encoded.length > 8_000_000) throw new BusinessError(t("backend.server.agentWriteLimit"));
-    await execAgentOnly(input, pythonCommand("import base64,sys\nopen(sys.argv[1],'wb').write(base64.b64decode(sys.argv[2]))", [input.remotePath, encoded]));
+    if (encoded.length <= AGENT_WRITE_CHUNK) {
+      await execAgentOnly(input, pythonCommand("import base64,sys\nopen(sys.argv[1],'wb').write(base64.b64decode(sys.argv[2]))", [input.remotePath, encoded]));
+      return;
+    }
+    // Larger files go to a private temp file in chunks, then are copied over
+    // the target: copyfile truncates it in place, keeping its mode and owner
+    // as the single write did.
+    const created = await execAgentOnly(input, pythonCommand("import base64,os,sys,tempfile\nfd,p=tempfile.mkstemp(prefix='vch-write-')\nos.write(fd,base64.b64decode(sys.argv[1]))\nos.close(fd)\nprint(p)", [encoded.slice(0, AGENT_WRITE_CHUNK)]));
+    const temp = created.stdout.trim();
+    if (!temp.startsWith("/")) throw new BusinessError(t("backend.server.agentCommandFailed", { code: 1 }));
+    try {
+      for (let offset = AGENT_WRITE_CHUNK; offset < encoded.length; offset += AGENT_WRITE_CHUNK) {
+        await execAgentOnly(input, pythonCommand("import base64,sys\nopen(sys.argv[1],'ab').write(base64.b64decode(sys.argv[2]))", [temp, encoded.slice(offset, offset + AGENT_WRITE_CHUNK)]));
+      }
+      await execAgentOnly(input, pythonCommand("import os,shutil,sys\nshutil.copyfile(sys.argv[1],sys.argv[2])\nos.remove(sys.argv[1])", [temp, input.remotePath]));
+    } catch (error) {
+      await execAgentOnly(input, pythonCommand("import os,sys\ntry:\n  os.remove(sys.argv[1])\nexcept FileNotFoundError:\n  pass", [temp])).catch(() => undefined);
+      throw error;
+    }
     return;
   }
   await withReusableSshClient(input, async (client) => {

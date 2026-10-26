@@ -58,7 +58,13 @@ export type UseBatchMoveInput = CommonInput & {
 };
 
 export type UseBatchCompressInput = CommonInput & {
-  currentPath: string;
+  /**
+   * The folder on the node to write the archive to, or undefined for the
+   * selected files' own folder. In the all-locations view the browsing path
+   * is virtual ("Node__id/dir"): sent as the target, the server created that
+   * path as a real folder on the node and put the archive in it.
+   */
+  currentPath: string | undefined;
   setProgress: Setter<BatchProgress>;
 };
 

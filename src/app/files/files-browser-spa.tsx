@@ -171,13 +171,18 @@ export function FilesBrowserSpa({
         return;
       }
       const files = await read();
-      const entries = files.map((file) => {
-        const path = normalizeRelativePath([data.currentPath, getBrowserRelativePath(file)].filter(Boolean).join("/"));
-        if (!path.ok) throw new Error(t(`fileUploadDropzone.pathError.${path.reason}`));
-        return { file, path: path.path };
-      });
+      // One unusable path skips that file, as the upload dialog does: it
+      // used to discard the whole dropped folder.
+      const entries: Array<{ file: File; path: string }> = [];
+      const errors: string[] = [];
+      for (const file of files) {
+        const name = getBrowserRelativePath(file);
+        const path = normalizeRelativePath([data.currentPath, name].filter(Boolean).join("/"));
+        if (path.ok) entries.push({ file, path: path.path });
+        else errors.push(`${name}: ${t(`fileUploadDropzone.pathError.${path.reason}`)}`);
+      }
       if (entries.length) uploads.enqueue(entries, nodeId);
-      setDropError("");
+      setDropError(errors.join("; "));
     } catch (error) {
       const message = error instanceof Error ? error.message : t("fileUploadDropzone.errorUpload");
       setDropError(message.startsWith("storageUpload.") ? t(message) : message);

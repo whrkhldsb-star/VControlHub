@@ -112,6 +112,15 @@ describe("config-schema", () => {
       expect(isSensitiveSettingKey("offsite.s3SecretKey")).toBe(true);
     });
 
+    it("clears every secret the settings service stores encrypted (H-2)", () => {
+      // The real keys: "smtp.pass", not "smtp.password", and the offsite S3 pair.
+      for (const key of ["smtp.pass", "offsite.accessKeyId", "offsite.secretAccessKey", "telegram.botToken"]) {
+        expect(isSensitiveSettingKey(key)).toBe(true);
+      }
+      // Policy settings named after passwords are not secrets.
+      expect(isSensitiveSettingKey("password.minLength")).toBe(false);
+    });
+
     it("should not flag non-sensitive keys", () => {
       expect(isSensitiveSettingKey("platform.name")).toBe(false);
       expect(isSensitiveSettingKey("smtp.host")).toBe(false);

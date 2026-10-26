@@ -41,6 +41,31 @@ describe("toAnthropicMessages", () => {
 		]);
 	});
 
+	it("writes tool calls and results as text when the request defines no tools", () => {
+		// The API refuses tool_use / tool_result blocks without tool definitions:
+		// the answer after hosted tools ran is sent without tools.
+		const out = toAnthropicMessages([
+			{ role: "user", content: "list servers" },
+			{
+				role: "assistant",
+				content: "Checking.",
+				tool_calls: [{ id: "c1", type: "function", function: { name: "list_servers", arguments: '{"limit":2}' } }],
+			},
+			{ role: "tool", content: "[a,b]", tool_call_id: "c1" },
+		] as never, { nativeTools: false });
+		expect(out).toEqual([
+			{ role: "user", content: [{ type: "text", text: "list servers" }] },
+			{
+				role: "assistant",
+				content: [
+					{ type: "text", text: "Checking." },
+					{ type: "text", text: '[Called list_servers {"limit":2}]' },
+				],
+			},
+			{ role: "user", content: [{ type: "text", text: "[Result of list_servers]\n[a,b]" }] },
+		]);
+	});
+
 	it("sends a PDF as a document block and images as image blocks", () => {
 		const out = toAnthropicMessages([
 			{

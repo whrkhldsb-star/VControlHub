@@ -10,6 +10,7 @@ import { z } from "zod";
 import { connectSsh, readRemoteFile } from "@/lib/ssh/client";
 import {
 	archiveStreamResponse,
+	buildArchiveHeaders,
 	closeSshClientOnStreamEnd,
 	safeArchiveName,
 	streamLocalTarGz,
@@ -148,10 +149,10 @@ async function openSftpFile(client: Client, remotePath: string) {
 	});
 }
 
-function fileResponse(stream: import("stream").Readable, input: { size: number; fileName: string; inline?: boolean }) {
+function fileHeaders(input: { size?: number; fileName: string; inline?: boolean }) {
 	const headers = new Headers();
 	headers.set("content-type", guessContentType(input.fileName));
-	headers.set("content-length", String(input.size));
+	if (input.size !== undefined) headers.set("content-length", String(input.size));
 	headers.set("cache-control", "private, no-store");
 	// Never execute shared HTML/SVG/other active documents on the application's origin.
 	const safeInline = input.inline && /^(?:image\/(?:png|jpeg|gif|webp|avif)|audio\/[\w.+-]+|video\/[\w.+-]+|text\/plain|application\/pdf)$/.test(guessContentType(input.fileName).split(';')[0]!.trim());
@@ -159,7 +160,11 @@ function fileResponse(stream: import("stream").Readable, input: { size: number; 
 	headers.set("content-security-policy", "sandbox; default-src 'none'; frame-ancestors 'none'");
 	headers.set("referrer-policy", "no-referrer");
 	headers.set("content-disposition", buildContentDisposition(safeInline ? "inline" : "attachment", input.fileName));
-	return new Response(nodeStreamToWeb(stream), { status: 200, headers });
+	return headers;
+}
+
+function fileResponse(stream: import("stream").Readable, input: { size: number; fileName: string; inline?: boolean }) {
+	return new Response(nodeStreamToWeb(stream), { status: 200, headers: fileHeaders(input) });
 }
 
 /**
@@ -168,7 +173,28 @@ function fileResponse(stream: import("stream").Readable, input: { size: number; 
  */
 export async function GET(
 	request: Request,
+	context: { params: Promise<{ token: string }> },
+) {
+	return serveShare(request, context, false);
+}
+
+/**
+ * Headers only. Without this export Next answers HEAD with the GET handler:
+ * a download manager's or link checker's HEAD counted (and logged) a
+ * download and opened the file, so a one-download link was used up before
+ * the real download started.
+ */
+export async function HEAD(
+	request: Request,
+	context: { params: Promise<{ token: string }> },
+) {
+	return serveShare(request, context, true);
+}
+
+async function serveShare(
+	request: Request,
 	{ params }: { params: Promise<{ token: string }> },
+	head: boolean,
 ) {
 	const { token } = await params;
 	const locale = await getServerLocale();
@@ -198,16 +224,17 @@ export async function GET(
 			token,
 			password,
 			{ ip: clientIp ?? undefined, userAgent: request.headers.get("user-agent") ?? undefined },
-			{ authorizedShareId },
+			{ authorizedShareId, claimDownload: !head },
 		);
 	} catch (err) {
 		const message = getErrorMessage(err, t("apiShareToken.invalidToken", locale));
 		return apiError({ code: err instanceof ForbiddenError ? "FORBIDDEN" : "NOT_FOUND", message, status: err instanceof ForbiddenError ? 403 : 404 });
 	}
 
-	// Quota was claimed in resolveShareToken; refund if we never open a delivery stream.
+	// Quota was claimed in resolveShareToken (not for HEAD); refund if we never
+	// open a delivery stream.
 	const denyAfterClaim = async (response: Response) => {
-		await releaseShareQuotaClaim(share.id);
+		if (!head) await releaseShareQuotaClaim(share.id);
 		return response;
 	};
 
@@ -253,6 +280,10 @@ export async function GET(
 
 	const node = share.storageNode;
 	const fileName = targetPath.split("/").pop() || share.name || targetPath;
+	if (head) {
+		const headers = wantsArchive ? buildArchiveHeaders(safeArchiveName(share.name || fileName)) : fileHeaders({ fileName, inline });
+		return new Response(null, { status: 200, headers });
+	}
 
 	if (node.driver === "WEBDAV") {
 		if (wantsArchive) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.unsupportedDriver", locale), status: 400 }));

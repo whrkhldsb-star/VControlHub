@@ -1,6 +1,7 @@
 "use client";
 
-import type { Dispatch, KeyboardEvent, RefObject, SetStateAction } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type KeyboardEvent, type RefObject, type SetStateAction } from "react";
+import { highlightSearchTerm } from "./text-preview-highlight";
 import { FindBarLazy } from "./find-bar-lazy";
 import { EditorFindBar } from "./editor-find-bar";
 import type { EditorFindState, PreviewMetaState } from "./text-preview-types";
@@ -80,12 +81,39 @@ type BodyProps = {
 	onEditorScroll: () => void;
 	onEditorKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
 	highlightLine: (line: string, lang: string) => string;
-	highlightSearch: (html: string) => string;
+	/** The read-only view's search; its matches are marked. */
+	searchQuery: string;
 	sanitizeHighlight: (html: string) => string;
 };
 
+/** How long the search box waits for typing to pause before marking matches. */
+const SEARCH_MARK_DELAY_MS = 200;
+
 export function TextPreviewBody(props: BodyProps) {
-	const { t, editMode, editorFind, draft, lines, lang, showDiffReview, editorFindInputRef, gutterRef, editorRef, containerRef, lineRef, setDraft, setSaveStatus, setSaveMessage, setShowDiffReview, onQueryChange, onMove, onCloseFind, onEditorScroll, onEditorKeyDown, highlightLine, highlightSearch, sanitizeHighlight } = props;
+	const { t, editMode, editorFind, draft, lines, lang, showDiffReview, editorFindInputRef, gutterRef, editorRef, containerRef, lineRef, setDraft, setSaveStatus, setSaveMessage, setShowDiffReview, onQueryChange, onMove, onCloseFind, onEditorScroll, onEditorKeyDown, highlightLine, searchQuery, sanitizeHighlight } = props;
+	// Highlighted once per text and language; a search revisits only the lines
+	// containing it. Every keystroke in the search box used to run the
+	// highlighter and the sanitizer over every line: seconds per letter for a
+	// file near the 2 MiB preview limit.
+	const baseHtml = useMemo(
+		() => (editMode ? [] : lines.map((line) => sanitizeHighlight(highlightLine(line, lang)))),
+		[editMode, lines, lang, highlightLine, sanitizeHighlight],
+	);
+	// Marked once typing pauses: sanitizing a marked line parses it, so each
+	// letter of a common term would revisit most of a large file.
+	const [query, setQuery] = useState(searchQuery);
+	useEffect(() => {
+		if (query === searchQuery) return;
+		const timer = setTimeout(() => setQuery(searchQuery), SEARCH_MARK_DELAY_MS);
+		return () => clearTimeout(timer);
+	}, [query, searchQuery]);
+	const needle = query.trim().toLowerCase();
+	const lineHtml = useMemo(
+		() => (needle
+			? baseHtml.map((html, i) => (lines[i]!.toLowerCase().includes(needle) ? sanitizeHighlight(highlightSearchTerm(highlightLine(lines[i]!, lang), query)) : html))
+			: baseHtml),
+		[needle, query, baseHtml, lines, lang, highlightLine, sanitizeHighlight],
+	);
 	if (editMode) {
 		return (
 			<div className="space-y-2">
@@ -99,7 +127,7 @@ export function TextPreviewBody(props: BodyProps) {
 	}
 	return (
 		<div ref={containerRef} className="max-h-[75vh] overflow-auto rounded-xl bg-[var(--surface)] p-3 text-sm leading-relaxed sm:p-4">
-			<pre className="font-mono text-[var(--text-secondary)]"><code>{lines.map((line, i) => { let html = highlightLine(line, lang); html = highlightSearch(html); html = sanitizeHighlight(html); return <div key={i} ref={(el) => { if (el) lineRef.current.set(i, el); else lineRef.current.delete(i); }} className="flex transition-colors duration-500"><span className="mr-3 inline-block w-6 shrink-0 select-none text-right text-[var(--text-muted)] sm:mr-4 sm:w-12">{i + 1}</span><span className="whitespace-pre-wrap break-all" dangerouslySetInnerHTML={{ __html: html }} /></div>; })}</code></pre>
+			<pre className="font-mono text-[var(--text-secondary)]"><code>{lines.map((_line, i) => { const html = lineHtml[i] ?? ""; return <div key={i} ref={(el) => { if (el) lineRef.current.set(i, el); else lineRef.current.delete(i); }} className="flex transition-colors duration-500"><span className="mr-3 inline-block w-6 shrink-0 select-none text-right text-[var(--text-muted)] sm:mr-4 sm:w-12">{i + 1}</span><span className="whitespace-pre-wrap break-all" dangerouslySetInnerHTML={{ __html: html }} /></div>; })}</code></pre>
 		</div>
 	);
 }

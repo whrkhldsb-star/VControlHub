@@ -55,6 +55,18 @@ describe("AiProviderPanel", () => {
     expect(signal?.aborted).toBe(true);
   });
 
+  it("fills Gemini's OpenAI-compatible base URL for the Google type", async () => {
+    // The Google branch posts to {baseUrl}/chat/completions; the bare /v1beta
+    // root has no such route.
+    const setProvForm = vi.fn();
+    render(<AiProviderPanel show providers={[]} provForm={DEFAULT_PROV_FORM}
+      onClose={vi.fn()} onCreateProvider={vi.fn()} onDeleteProvider={vi.fn()}
+      onRefreshProviders={vi.fn()} setProvForm={setProvForm} />);
+    await userEvent.selectOptions(screen.getByLabelText("类型"), "GOOGLE");
+    const update = setProvForm.mock.calls.at(-1)?.[0] as (form: typeof DEFAULT_PROV_FORM) => typeof DEFAULT_PROV_FORM;
+    expect(update(DEFAULT_PROV_FORM).baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta/openai");
+  });
+
   it("locks editing and dismissal until a save finishes and prevents repeated PATCH requests", async () => {
     let resolve!: (value: unknown) => void;
     vi.mocked(csrfFetch).mockReturnValueOnce(new Promise((done) => { resolve = done; }));

@@ -22,6 +22,10 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 	let file: ExportFile;
 
 	const cleanup = async () => {
+		await prisma.commandTemplate.deleteMany({ where: { id: { startsWith: p } } });
+		await prisma.playbook.deleteMany({ where: { id: { startsWith: p } } });
+		await prisma.announcement.deleteMany({ where: { id: { startsWith: p } } });
+		await prisma.snippet.deleteMany({ where: { id: { startsWith: p } } });
 		await prisma.userServerAccess.deleteMany({ where: { userId: { startsWith: p } } });
 		await prisma.storageNode.deleteMany({ where: { id: { startsWith: p } } });
 		await prisma.server.deleteMany({ where: { id: { startsWith: p } } });
@@ -53,6 +57,13 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 		await prisma.userServerAccess.create({ data: { userId: `${p}-user`, serverId: `${p}-linux`, canRead: true, canConnect: true } });
 		await prisma.storageNode.create({ data: { id: `${p}-dav`, name: `${p}-dav`, driver: "WEBDAV", basePath: "/", teamId: `${p}-team-src`, webdavConfigEncrypted: "enc:dav" } });
 		await prisma.storageNode.create({ data: { id: `${p}-sftp`, name: `${p}-sftp`, driver: "SFTP", basePath: "/srv", host: "sftp.test", teamId: `${p}-team-src`, hostKeySha256: "SHA256:sftp" } });
+
+		// Made by an administrator who is not part of the customer.
+		await prisma.user.create({ data: { id: `${p}-maker`, username: `${p}-maker`, passwordHash: "hash" } });
+		await prisma.commandTemplate.create({ data: { id: `${p}-tpl`, name: `${p}-restart`, command: "systemctl restart app", teamId: `${p}-team-src`, createdById: `${p}-maker` } });
+		await prisma.playbook.create({ data: { id: `${p}-pb`, name: `${p}-heal`, triggerType: "manual", triggerConfig: {}, steps: [], teamId: `${p}-team-src`, createdById: `${p}-maker` } });
+		await prisma.announcement.create({ data: { id: `${p}-ann`, title: `${p}-notice`, body: "maintenance", createdBy: `${p}-maker` } });
+		await prisma.snippet.create({ data: { id: `${p}-snip`, title: `${p}-snippet`, content: "echo ok", createdBy: `${p}-maker` } });
 
 		const exported = await buildExportFile({ session: admin as never, mode: "full", scope: "global", sourceDomain: "source.test" });
 		// As uploaded: JSON, validated by the import schema; only this test's rows.
@@ -102,6 +113,35 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 		// Nothing duplicated under the source ids.
 		expect(await prisma.team.count({ where: { id: `${p}-team-src` } })).toBe(0);
 		expect(await prisma.role.count({ where: { id: `${p}-role-src` } })).toBe(0);
+	});
+
+	it("imports templates, playbooks, announcements and snippets whose creator is not on this instance (H-1)", async () => {
+		// A customer-scoped export leaves out the administrator who made the
+		// customer's templates: one missing creator rolled the whole import back.
+		const ghost = `${p}-ghost`;
+		const tables = file.tables;
+		expect(tables.commandTemplates.length + tables.playbooks.length + tables.announcements.length + tables.snippets.length).toBe(4);
+		const variant: ExportFile = { ...file, tables: { ...tables,
+			commandTemplates: tables.commandTemplates.map((row) => ({ ...row, id: `${row.id}-y`, name: `${row.name}-y`, createdById: ghost })),
+			playbooks: tables.playbooks.map((row) => ({ ...row, id: `${row.id}-y`, name: `${row.name}-y`, createdById: ghost })),
+			announcements: tables.announcements.map((row) => ({ ...row, id: `${row.id}-y`, createdBy: ghost })),
+			snippets: tables.snippets.map((row) => ({ ...row, id: `${row.id}-y`, createdBy: ghost })),
+		} };
+		const result = await executeImport(variant, { dryRun: false, overwriteExisting: false, importUsers: true, importSettings: false });
+		expect(result.errors).toEqual([]);
+		expect(result.rolledBack).toBeUndefined();
+		expect(await prisma.commandTemplate.findUniqueOrThrow({ where: { id: `${p}-tpl-y` } })).toMatchObject({ createdById: null });
+		expect(await prisma.playbook.findUniqueOrThrow({ where: { id: `${p}-pb-y` } })).toMatchObject({ createdById: null });
+		expect(await prisma.announcement.findUniqueOrThrow({ where: { id: `${p}-ann-y` } })).toMatchObject({ createdBy: null });
+		expect(await prisma.snippet.findUniqueOrThrow({ where: { id: `${p}-snip-y` } })).toMatchObject({ createdBy: null });
+	});
+
+	it("does not import a two-factor flag without its secret (standard export)", async () => {
+		const standardUser = { ...file.tables.users.find((user) => user.id === `${p}-user`)!, id: `${p}-std`, username: `${p}-std`, passwordHash: null, twoFactorSecret: null, twoFactorRecoveryCodes: null };
+		expect(standardUser.twoFactorEnabled).toBe(true);
+		const result = await executeImport({ ...file, tables: { ...file.tables, users: [standardUser], userRoles: [], teamMembers: [], userServerAccess: [], userStorageAccess: [] } }, { dryRun: false, overwriteExisting: false, importUsers: true, importSettings: false });
+		expect(result.errors).toEqual([]);
+		expect(await prisma.user.findUniqueOrThrow({ where: { id: `${p}-std` } })).toMatchObject({ twoFactorEnabled: false, twoFactorSecret: null });
 	});
 
 	it("refuses, with a clear error, a package whose resources name customers that exist nowhere", async () => {

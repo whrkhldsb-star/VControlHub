@@ -8,7 +8,7 @@
 import { Prisma } from "@prisma/client";
 
 import { isSensitiveSettingKey, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
-import { parseDate, upsertById, type Tx, type Counts } from "./import-executors-helpers";
+import { creatorResolver, parseDate, upsertById, type Tx, type Counts } from "./import-executors-helpers";
 
 // 14. Settings (可选，key-based where，敏感 key 空值不覆盖)
 export async function importSettings(
@@ -147,6 +147,7 @@ export async function importAnnouncements(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
+  const creator = await creatorResolver(tx, t.announcements.map((r) => r.createdBy));
   await upsertById(t.announcements, options, counts, {
     listExistingIds: async (ids) =>
       new Set(
@@ -164,7 +165,7 @@ export async function importAnnouncements(
             published: r.published,
             startsAt: r.startsAt ? parseDate(r.startsAt, "announcements.startsAt") : new Date(),
             expiresAt: r.expiresAt ? parseDate(r.expiresAt, "announcements.expiresAt") : null,
-            createdBy: r.createdBy,
+            createdBy: creator(r.createdBy),
           })),
           skipDuplicates: true,
         })
@@ -180,7 +181,7 @@ export async function importAnnouncements(
           published: r.published,
           startsAt: r.startsAt ? parseDate(r.startsAt, "announcements.startsAt") : undefined,
           expiresAt: r.expiresAt ? parseDate(r.expiresAt, "announcements.expiresAt") : null,
-          createdBy: r.createdBy,
+          createdBy: creator(r.createdBy),
         },
       });
     },
@@ -194,6 +195,7 @@ export async function importSnippets(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
+  const creator = await creatorResolver(tx, t.snippets.map((r) => r.createdBy));
   const toData = (r: ExportFile["tables"]["snippets"][number]) => ({
     title: r.title,
     description: r.description,
@@ -201,7 +203,7 @@ export async function importSnippets(
     content: r.content,
     tags: r.tags,
     isPrivate: r.isPrivate,
-    createdBy: r.createdBy,
+    createdBy: creator(r.createdBy),
   });
   await upsertById(t.snippets, options, counts, {
     listExistingIds: async (ids) =>
