@@ -610,6 +610,35 @@ describe("webdav handlers", () => {
       for (const statement of statements) expect(statement).toContain(`"updatedAt" = (now() AT TIME ZONE 'UTC')`);
     });
 
+    it("needs delete permission, not just write, to replace a folder by MOVE (Overwrite:T deletes it)", async () => {
+      mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
+        args.where.relativePath === "draft.txt"
+          ? { id: "f1", entryType: "FILE", relativePath: "draft.txt", mimeType: "text/plain", size: BigInt(3) }
+          : args.where.relativePath === "photos"
+            ? { id: "d1", entryType: "DIRECTORY", relativePath: "photos", mimeType: null, size: BigInt(0) }
+            : null,
+      );
+      mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => fn(txClient()));
+      // The caller may write but not delete (once for each of the two attempts below, so nothing leaks into other tests).
+      const writeOnly = async (input: { operation: string }) =>
+        input.operation === "delete" ? { allowed: false, reason: "no_access" } : { allowed: true };
+      mocks.assertStorageAccess.mockImplementationOnce(writeOnly).mockImplementationOnce(writeOnly).mockImplementationOnce(writeOnly);
+
+      await expect(
+        handleWebDavMove(
+          context("draft.txt"),
+          new Request("https://hub.example/api/webdav/n1/draft.txt", {
+            method: "POST",
+            headers: { destination: "/api/webdav/n1/photos" },
+          }),
+        ),
+      ).rejects.toThrow();
+
+      expect(accessCalls()).toContainEqual(expect.objectContaining({ relativePath: "photos", operation: "delete" }));
+      expect(mocks.renameBackingObject).not.toHaveBeenCalled();
+      expect(mocks.fileEntryDeleteMany).not.toHaveBeenCalled();
+    });
+
     it("keeps the destination's entry when a file replaces a file, as an editor's atomic save does", async () => {
       mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
         args.where.relativePath === ".~report.docx.tmp"

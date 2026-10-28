@@ -695,6 +695,11 @@ export async function handleWebDavMove(
   // versions, the replaced content now one of them, favourites and links —
   // and the moved file's own row goes.
   const replacedFile = existingDest?.entryType === "FILE" && entry.entryType === "FILE" ? existingDest : null;
+  // Anything else at the destination (a folder, or a file under a moved folder) is deleted outright,
+  // versions included: that is a delete, and a client that may only write must not do it by way of Overwrite.
+  if (existingDest && !replacedFile) {
+    await requireAccess(ctx.session, ctx.storageNodeId, destPath, "delete");
+  }
   if (replacedFile) {
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: replacedFile.id,
