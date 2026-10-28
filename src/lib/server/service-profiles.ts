@@ -48,8 +48,8 @@ type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
  * could would pick any hub directory as the node's root (the environment file,
  * database dumps, other customers' storage). System callers (no session) pass.
  */
-function assertLocalHostAllowed(session: TeamSession | null | undefined, t: TFn) {
-  if (session && !isGlobalTeamManager(session)) {
+function assertLocalHostAllowed(session: Pick<ProfileSession, "roles"> | null | undefined, t: TFn) {
+  if (session && !isGlobalTeamManager({ roles: session.roles ?? [] } as TeamSession)) {
     throw new ForbiddenError(t("backend.server.localHostPlatformOnly"));
   }
 }

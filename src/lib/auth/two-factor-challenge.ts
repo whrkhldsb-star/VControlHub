@@ -67,7 +67,7 @@ export async function verifyTwoFactorChallenge(input: {
       afterTimeStep: lastAcceptedTotpStep.get(input.userId),
     });
     if (totp.valid) {
-      if (typeof totp.timeStep === "number") rememberAcceptedStep(input.userId, totp.timeStep);
+      if ("timeStep" in totp && typeof totp.timeStep === "number") rememberAcceptedStep(input.userId, totp.timeStep);
       return { valid: true, usedRecoveryCode: false };
     }
   }

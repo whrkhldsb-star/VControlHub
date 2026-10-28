@@ -372,7 +372,7 @@ describe("server service", () => {
   it.each(["127.0.0.1", "localhost", "::1", "0.0.0.0"])(
     "refuses a customer account registering the hub's own address (%s) as a node",
     async (host) => {
-      const customer = { userId: "u_cust", roles: ["operator"], currentTeamId: "team_a" };
+      const customer = { userId: "u_cust", roles: ["operator" as const], currentTeamId: "team_a" };
       await expect(
         createServerProfile(
           {
@@ -395,7 +395,7 @@ describe("server service", () => {
   );
 
   it("refuses a customer account re-pointing a server at the hub's own address", async () => {
-    const customer = { userId: "u_cust", roles: ["operator"], currentTeamId: "team_a" };
+    const customer = { userId: "u_cust", roles: ["operator" as const], currentTeamId: "team_a" };
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
       id: "srv_cust", name: "cust-node", host: "203.0.113.5", port: 22, username: "root",
       connectionType: "PASSWORD", managementMode: "DIRECT", password: "cipher", sshKeyId: null, tags: [],

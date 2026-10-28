@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 
-const { serverFindUnique, writeAuditLogMock } = vi.hoisted(() => ({ serverFindUnique: vi.fn(), writeAuditLogMock: vi.fn(async () => undefined) }));
+const { serverFindUnique, writeAuditLogMock } = vi.hoisted(() => ({ serverFindUnique: vi.fn(), writeAuditLogMock: vi.fn(async (_entry: Record<string, unknown>) => undefined) }));
 vi.mock("@/lib/db", () => ({ prisma: { server: { findUnique: serverFindUnique } } }));
 vi.mock("@/lib/audit/service", () => ({ writeAuditLog: writeAuditLogMock }));
 

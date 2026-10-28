@@ -175,7 +175,7 @@ describe("serviceCommand", () => {
         ].join("\n"));
         chmodSync(join(dir, "systemctl"), 0o755);
         const result = spawnSync("sh", ["-c", serviceCommand("systemd", "reload", "ssh", "")], {
-          env: { PATH: `${dir}:/usr/bin:/bin`, },
+          env: { ...process.env, PATH: `${dir}:/usr/bin:/bin` },
           encoding: "utf8",
         });
         const calls = spawnSync("sh", ["-c", `cat "${log}"`], { encoding: "utf8" }).stdout;
