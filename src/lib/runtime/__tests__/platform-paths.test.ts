@@ -27,7 +27,8 @@ describe("platform-paths", () => {
     it("lives under ARIA2_RPC_DIR when it is set, because the daemon and the worker have separate /tmp", () => {
       vi.spyOn(process, "platform", "get").mockReturnValue("linux");
       vi.stubEnv("ARIA2_RPC_DIR", "/var/lib/vcontrolhub/aria2");
-      expect(relayTempDir("job_1")).toBe("/var/lib/vcontrolhub/aria2/relay/app-relay-job_1");
+      // path.join keeps the assertion independent of the host's separator (the Windows CI job runs this too).
+      expect(relayTempDir("job_1")).toBe(path.join("/var/lib/vcontrolhub/aria2", "relay", "app-relay-job_1"));
       vi.unstubAllEnvs();
     });
 
