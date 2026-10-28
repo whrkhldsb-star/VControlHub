@@ -61,6 +61,26 @@ describe("proxy auth guard", () => {
     else vi.stubEnv("NODE_ENV", originalNodeEnv);
   });
 
+  it("lets the page open WebSockets to its own host only, not to any host", () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    vi.stubEnv("NODE_ENV", "production");
+
+    const csp = syncProxy(
+      makeRequest("/api-docs", { headers: { cookie: sessionCookie(), host: "hub.example.test:8443" } }),
+    ).headers.get("Content-Security-Policy")!;
+    expect(csp).toContain("connect-src 'self' ws://hub.example.test:8443 wss://hub.example.test:8443;");
+    expect(csp).not.toMatch(/connect-src[^;]*\bwss?:(?!\/\/)/);
+
+    // A malformed Host header must not be echoed into the policy.
+    const odd = syncProxy(
+      makeRequest("/api-docs", { headers: { cookie: sessionCookie(), host: "evil.test; script-src *" } }),
+    ).headers.get("Content-Security-Policy")!;
+    expect(odd).toContain("connect-src 'self';");
+
+    if (originalNodeEnv === undefined) vi.unstubAllEnvs();
+    else vi.stubEnv("NODE_ENV", originalNodeEnv);
+  });
+
   it("redirects anonymous page requests to login with the original path", () => {
     const response = syncProxy(makeRequest("/servers"));
 

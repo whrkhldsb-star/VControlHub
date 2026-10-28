@@ -19,6 +19,12 @@ describe("safeRelativeRedirectPath", () => {
 		expect(safeRelativeRedirectPath(undefined)).toBe("/");
 	});
 
+	it("takes the first value of a repeated parameter instead of throwing", () => {
+		expect(safeRelativeRedirectPath(["/servers", "/files"])).toBe("/servers");
+		expect(safeRelativeRedirectPath(["//evil.example.com", "/files"])).toBe("/");
+		expect(safeRelativeRedirectPath([])).toBe("/");
+	});
+
 	it("rejects the backslash protocol-relative form", () => {
 		// WHATWG URL normalizes `\` to `/`: a Location of /\evil.com is parsed
 		// by browsers as //evil.com — an open redirect despite passing the

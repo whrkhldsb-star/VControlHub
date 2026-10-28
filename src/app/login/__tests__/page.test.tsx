@@ -32,6 +32,15 @@ describe("LoginPage", () => {
 		vi.unstubAllEnvs();
 	});
 
+	it("prints only a number as the lockout minutes, never text taken from the URL", async () => {
+		render(await LoginPage({ searchParams: Promise.resolve({ error: "locked", minutes: "5 — call +1-555-0100 to unlock" }) }));
+		expect(screen.queryByText(/555/)).not.toBeInTheDocument();
+	});
+
+	it("survives a repeated next parameter", async () => {
+		await expect(LoginPage({ searchParams: Promise.resolve({ next: ["/files", "/servers"] }) })).resolves.toBeTruthy();
+	});
+
 	it("uses light-theme readable surfaces while preserving the dark default", async () => {
 		const { container } = render(await LoginPage({ searchParams: Promise.resolve({}) }));
 

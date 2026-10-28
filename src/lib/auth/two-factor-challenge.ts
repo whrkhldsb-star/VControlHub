@@ -24,6 +24,22 @@ import { openTwoFactorSecret } from "./two-factor-secret";
 
 export { isAcceptableTwoFactorCodeShape } from "./two-factor-challenge-shape";
 
+/**
+ * The newest 30-second step each account has already spent. A code is valid for its own step (and a
+ * neighbour for clock drift), so without this a code seen once — over a shoulder, in a proxy log — could be
+ * presented again within the window. In memory: login runs in the web process and the window is 30 s.
+ */
+const lastAcceptedTotpStep = new Map<string, number>();
+const MAX_TRACKED_ACCOUNTS = 10_000;
+
+function rememberAcceptedStep(userId: string, timeStep: number) {
+  if (!lastAcceptedTotpStep.has(userId) && lastAcceptedTotpStep.size >= MAX_TRACKED_ACCOUNTS) {
+    const oldest = lastAcceptedTotpStep.keys().next().value;
+    if (oldest !== undefined) lastAcceptedTotpStep.delete(oldest);
+  }
+  lastAcceptedTotpStep.set(userId, timeStep);
+}
+
 export type TwoFactorChallengeResult = {
   valid: boolean;
   /** True only when a one-use recovery code was consumed to pass the challenge. */
@@ -44,14 +60,16 @@ export async function verifyTwoFactorChallenge(input: {
   /** `user.twoFactorRecoveryCodes` as stored — an array of HMAC fingerprints. */
   storedRecoveryCodes: unknown;
 }): Promise<TwoFactorChallengeResult> {
-  if (
-    isTotpCodeShape(input.code) &&
-    (await verifyTOTP({
+  if (isTotpCodeShape(input.code)) {
+    const totp = await verifyTOTP({
       token: input.code.trim(),
       secret: openTwoFactorSecret(input.sealedSecret),
-    })).valid
-  ) {
-    return { valid: true, usedRecoveryCode: false };
+      afterTimeStep: lastAcceptedTotpStep.get(input.userId),
+    });
+    if (totp.valid) {
+      if (typeof totp.timeStep === "number") rememberAcceptedStep(input.userId, totp.timeStep);
+      return { valid: true, usedRecoveryCode: false };
+    }
   }
 
   if (!isRecoveryCodeShape(input.code)) return { valid: false, usedRecoveryCode: false };

@@ -114,12 +114,22 @@ function addSecurityHeaders(
     );
   }
 
-  if (nonce) headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+  if (nonce) headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce, request.headers.get("host")));
 
   return response;
 }
 
-function buildContentSecurityPolicy(nonce: string) {
+/**
+ * WebSockets the page may open: its own host only. A bare `ws:`/`wss:` lets any script that runs open a
+ * socket to any host (a ready exfiltration channel); `'self'` already covers the same origin in current
+ * browsers, and the explicit origin keeps older Safari working.
+ */
+function webSocketSources(host: string | null): string {
+  if (!host || !/^(?:[a-z0-9.-]+|\[[0-9a-f:]+\])(?::\d{1,5})?$/i.test(host)) return "";
+  return ` ws://${host} wss://${host}`;
+}
+
+function buildContentSecurityPolicy(nonce: string, host: string | null) {
   return [
     "default-src 'self'",
     // challenges.cloudflare.com: the login form's Turnstile widget (script and iframe).
@@ -129,7 +139,7 @@ function buildContentSecurityPolicy(nonce: string) {
     // 2FA QR is a same-origin data: URL from /api/auth/2fa/setup (no third-party QR hosts).
     "img-src 'self' data: blob:",
     "font-src 'self' data: https://fonts.scalar.com",
-    "connect-src 'self' ws: wss:",
+    `connect-src 'self'${webSocketSources(host)}`,
     "worker-src 'self' blob:",
     "media-src 'self' blob:",
     "frame-src 'self' https://challenges.cloudflare.com",
@@ -233,7 +243,7 @@ export function proxy(request: NextRequest) {
   const forwardedHeaders = new Headers(request.headers);
   if (nonce) {
     forwardedHeaders.set("x-nonce", nonce);
-    forwardedHeaders.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+    forwardedHeaders.set("Content-Security-Policy", buildContentSecurityPolicy(nonce, request.headers.get("host")));
   }
   const hasBearerToken =
     request.headers
