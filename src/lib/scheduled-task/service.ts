@@ -55,6 +55,10 @@ function resolveSchedule(input: Pick<CreateScheduledTaskInput, "scheduleType" | 
 		return { scheduleType, cronExpression: input.cronExpression ?? ONCE_CRON_PLACEHOLDER, runAt, nextRunAt: runAt } as const;
 	}
 	if (!input.cronExpression?.trim()) throw new ValidationError(t("backend.scheduled-task.invalidCronExpression"));
+	// The documented format has five fields. cron-parser also takes six (seconds) and macros such as "@daily"; the
+	// minute tick turned a per-second expression into "every minute", and only the form checked this. Rows saved
+	// earlier are not touched: computeNextRun still accepts whatever they hold.
+	if (input.cronExpression.trim().split(/\s+/).length !== 5) throw new ValidationError(t("backend.scheduled-task.invalidCronExpression"));
 	return {
 		scheduleType,
 		cronExpression: input.cronExpression.trim(),

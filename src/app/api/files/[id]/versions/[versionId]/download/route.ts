@@ -8,14 +8,9 @@ import { Readable } from "node:stream";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { getFileVersionForDownload } from "@/lib/storage/file-versions";
 import { guessContentType } from "@/lib/http/mime-types";
+import { buildContentDisposition } from "@/lib/http/content-disposition";
 
 export const dynamic = "force-dynamic";
-
-function contentDisposition(filename: string) {
-  const ascii = filename.replace(/[^\x20-\x7E]/g, "_");
-  const encoded = encodeURIComponent(filename);
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
-}
 
 export async function GET(
   request: Request,
@@ -42,7 +37,9 @@ export async function GET(
         headers: {
           "Content-Type": contentType,
           "Content-Length": String(version.sizeBytes),
-          "Content-Disposition": contentDisposition(
+          // The shared builder: the hand-written one left quotes and backslashes of the name in the header.
+          "Content-Disposition": buildContentDisposition(
+            "attachment",
             `v${version.versionNumber}-${version.name}`,
           ),
           "X-Content-Type-Options": "nosniff",

@@ -239,20 +239,29 @@ async function serveShare(
 	};
 
 	let targetPath = share.path;
-	const { path: childPath, archive, inline } = parseSearchParams(
-		request,
-		z.object({
-			path: z.string().trim().min(1).optional(),
-			archive: z
-				.string()
-				.optional()
-				.transform((value) => value === "1"),
-			inline: z
-				.string()
-				.optional()
-				.transform((value) => value === "1"),
-		}),
-	);
+	let query: { path?: string; archive: boolean; inline: boolean };
+	try {
+		query = parseSearchParams(
+			request,
+			z.object({
+				path: z.string().trim().min(1).optional(),
+				archive: z
+					.string()
+					.optional()
+					.transform((value) => value === "1"),
+				inline: z
+					.string()
+					.optional()
+					.transform((value) => value === "1"),
+			}),
+		);
+	} catch (err) {
+		// A malformed query ("?path=", "?path=a&path=b") escaped as a 500 after the download had been counted: a
+		// one-time link was used up by it. It is a 400, and the claim is given back.
+		if (!(err instanceof ValidationError)) throw err;
+		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: err.message, status: 400 }));
+	}
+	const { path: childPath, archive, inline } = query;
 	const wantsArchive = archive;
 	if (share.entryType === "DIRECTORY") {
 		if (wantsArchive) {
