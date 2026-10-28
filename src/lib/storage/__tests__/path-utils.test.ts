@@ -183,3 +183,14 @@ describe("storage path utils", () => {
     expect(entries).toEqual([{ name: "folder/photo.png", size: 1 }]);
   });
 });
+
+describe("name length is counted in UTF-8 bytes", () => {
+  it("allows 255 bytes and refuses 256, however many characters that is", () => {
+    // The filesystem limit is 255 bytes: 85 Chinese characters fit, 86 do not, though both are well under 255 characters.
+    expect(normalizeStorageRelativePath(`${"长".repeat(85)}`).ok).toBe(true);
+    expect(normalizeStorageRelativePath(`${"长".repeat(86)}`).ok).toBe(false);
+    expect(normalizeStorageRelativePath("a".repeat(255)).ok).toBe(true);
+    expect(normalizeStorageRelativePath("a".repeat(256)).ok).toBe(false);
+    expect(normalizeStorageRelativePath(`docs/${"长".repeat(86)}/x.txt`).ok).toBe(false);
+  });
+});

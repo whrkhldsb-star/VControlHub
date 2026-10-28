@@ -65,6 +65,11 @@ export async function beginUploadFinalization(sessionId: string, userId: string)
       await assertActive();
       writing = true;
     },
+    /**
+     * The write was refused by the local filesystem before it changed the target (name too long, no space,
+     * no permission): nothing may have landed, so the upload is a plain failure to retry, not one to review.
+     */
+    writeRefused() { if (!lost) writing = false; },
     async fail() {
       // Once a write was attempted, even a transport error may hide success.
       // Retain recovery material and do not silently encourage a second write.

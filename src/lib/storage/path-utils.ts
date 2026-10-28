@@ -58,7 +58,12 @@ export function hasWindowsInvalidNameChars(relativePath: string): boolean {
 }
 const INVALID_ARCHIVE_ENTRY_CHARS = /[\u0000-\u001f\u007f]/;
 const MAX_PATH_LENGTH = 4096;
-const MAX_SEGMENT_LENGTH = 255;
+// Filesystems limit a name in bytes (255 on ext4/xfs), not in UTF-16 units: 86 Chinese characters are 258 bytes.
+const MAX_SEGMENT_BYTES = 255;
+const utf8 = new TextEncoder();
+function segmentTooLong(segment: string): boolean {
+  return segment.length > MAX_SEGMENT_BYTES || utf8.encode(segment).length > MAX_SEGMENT_BYTES;
+}
 
 function normalizePathInput(value: string | null | undefined) {
   return (value ?? "").replace(/\\/g, "/").trim();
@@ -96,7 +101,7 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
     if (segment === "." || segment === "..") {
       return { ok: false, reason: "Path must not contain . or .." };
     }
-    if (segment.length > MAX_SEGMENT_LENGTH) {
+    if (segmentTooLong(segment)) {
       return { ok: false, reason: "Path segment is too long" };
     }
     if (INVALID_SEGMENT_CHARS.test(segment)) {
@@ -259,7 +264,7 @@ export function isSafeArchiveEntryPath(value: string | null | undefined): boolea
   return segments.every((segment) => (
     segment !== "." &&
     segment !== ".." &&
-    segment.length <= MAX_SEGMENT_LENGTH &&
+    !segmentTooLong(segment) &&
     !INVALID_ARCHIVE_ENTRY_CHARS.test(segment)
   ));
 }
