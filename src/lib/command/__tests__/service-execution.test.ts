@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
     // Fire-and-forget in cancelActiveCommandChild: must stay thenable.
     serverAgentJob: { updateMany: vi.fn(() => Promise.resolve({ count: 0 })) },
   },
+  assertRequesterMayExecuteCommand: vi.fn(async (..._args: unknown[]): Promise<{ ok: boolean; reason?: string }> => ({ ok: true })),
   executeCommandOverSsh: vi.fn(),
   getCommandRuntimeConfigValues: vi.fn(),
   executeCommandWithAgent: vi.fn(),
@@ -36,7 +37,7 @@ vi.mock("../service-ssh", () => ({
   shouldUseSsh2PasswordExecutor: vi.fn(() => false),
 }));
 vi.mock("@/lib/server/agent-service", () => ({ executeCommandWithAgent: mocks.executeCommandWithAgent }));
-vi.mock("@/lib/auth/command-execution-authz", () => ({ assertRequesterMayExecuteCommand: vi.fn(async () => ({ ok: true })) }));
+vi.mock("@/lib/auth/command-execution-authz", () => ({ assertRequesterMayExecuteCommand: mocks.assertRequesterMayExecuteCommand }));
 vi.mock("../cancellation", () => ({ monitorCommandCancellation: vi.fn(async () => () => {}) }));
 vi.mock("../execution-queue", () => ({ enqueueCommandExecutionJob: mocks.enqueueCommandExecutionJob }));
 vi.mock("../ssh-executor", () => ({
@@ -146,7 +147,7 @@ describe("executeTarget", () => {
     const page = (from: number, count: number) => Array.from({ length: count }, (_, i) => ({ ...buildTarget(), id: `t-${String(from + i).padStart(4, "0")}` }));
     mocks.prisma.commandTarget.findMany.mockResolvedValueOnce(page(0, 500)).mockResolvedValueOnce(page(500, 500)).mockResolvedValueOnce(page(1000, 1));
     // Each target is already terminal: no remote work, just the bookkeeping.
-    mocks.prisma.commandTarget.findUnique.mockResolvedValue({ id: "t", status: "CANCELLED", commandRequest: { status: "RUNNING" } });
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue({ id: "t", status: "CANCELLED", commandRequest: { status: "RUNNING", approvals: [] } });
     mocks.prisma.executionLog.create.mockResolvedValue({});
 
     const result = await executeTargets("req-1");
@@ -161,7 +162,7 @@ describe("executeTarget", () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "CANCELLED",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     });
     mocks.prisma.executionLog.create.mockResolvedValue({});
 
@@ -174,11 +175,41 @@ describe("executeTarget", () => {
     });
   });
 
+  it("asks for the requester's execute permission only when no reviewer approved the request", async () => {
+    // Refuse both times so neither run goes on to SSH; Once, so the default (allowed) stays for other tests.
+    mocks.assertRequesterMayExecuteCommand
+      .mockResolvedValueOnce({ ok: false, reason: "stop here" })
+      .mockResolvedValueOnce({ ok: false, reason: "stop here" });
+    mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    mocks.prisma.executionLog.create.mockResolvedValue({});
+    const live = (approvals: Array<{ id: string }>) => ({
+      id: "target-1",
+      status: "RUNNING",
+      commandRequest: { status: "RUNNING", requesterId: "user-1", teamId: "team-1", approvals },
+    });
+
+    // A request someone approved runs on that decision: a member who may only create requests is not refused.
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue(live([{ id: "approval-1" }]));
+    await executeTarget("req-1", buildTarget());
+    expect(mocks.assertRequesterMayExecuteCommand).toHaveBeenLastCalledWith("user-1", "team-1", "srv-1", { requireExecutePermission: false });
+
+    // Nobody approved it (an unattended run): the requester's own authority is checked as before.
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue(live([]));
+    await executeTarget("req-1", buildTarget());
+    expect(mocks.assertRequesterMayExecuteCommand).toHaveBeenLastCalledWith("user-1", "team-1", "srv-1", { requireExecutePermission: true });
+    // The lookup only counts approvals that said yes.
+    expect(mocks.prisma.commandTarget.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        commandRequest: { select: expect.objectContaining({ approvals: { where: { approved: true }, select: { id: true }, take: 1 } }) },
+      }),
+    }));
+  });
+
   it("skips remote work when the whole request is terminal", async () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
-      commandRequest: { status: "CANCELLED" },
+      commandRequest: { status: "CANCELLED", approvals: [] },
     });
     const result = await executeTarget("req-1", buildTarget());
     expect(result).toBe(false);
@@ -189,7 +220,7 @@ describe("executeTarget", () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     });
     mocks.executeCommandWithAgent.mockResolvedValue({ stdout: "ok", stderr: "", exitCode: 0 });
     mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
@@ -217,7 +248,7 @@ describe("executeTarget", () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     });
     const { CommandCancellationUnconfirmedError } = await import("@/lib/command/cancellation-error");
     mocks.executeCommandWithAgent.mockRejectedValue(new CommandCancellationUnconfirmedError());
@@ -239,7 +270,7 @@ describe("executeTarget", () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     });
     mocks.executeCommandWithAgent.mockResolvedValue(null);
     mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
@@ -264,7 +295,7 @@ describe("executeTarget", () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     });
     mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
     mocks.prisma.executionLog.create.mockResolvedValue({});
@@ -287,7 +318,7 @@ describe("executeTarget", () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     });
     mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
     mocks.prisma.executionLog.create.mockResolvedValue({});
@@ -310,7 +341,7 @@ describe("executeTarget", () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     });
     mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
     mocks.prisma.executionLog.create.mockResolvedValue({});
@@ -333,7 +364,7 @@ describe("executeTarget", () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     });
     mocks.executeCommandOverSsh.mockResolvedValue({ stdout: "up 1 day", stderr: "", exitCode: 0, cancelled: false });
     mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
@@ -361,7 +392,7 @@ describe("executeTarget", () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     });
     mocks.executeCommandOverSsh.mockResolvedValue({ stdout: "", stderr: "", exitCode: 143, cancelled: true });
     mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
@@ -379,7 +410,7 @@ describe("executeTarget", () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     });
     mocks.executeCommandOverSsh.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0, cancelled: false });
     // Late CAS loses: cancel/recovery already terminalized the row.

@@ -161,7 +161,7 @@ describe("command service execution flow", () => {
     mockPrisma.commandTarget.findUnique.mockImplementation(async (args: { where?: { id?: string } }) => ({
       id: args?.where?.id ?? "target_unknown",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     }));
     // enqueueApprovedCommandExecution re-checks request is still RUNNING after claim.
     mockPrisma.commandRequest.findUnique.mockImplementation(async (args: { where?: { id?: string } }) => ({
@@ -1789,7 +1789,7 @@ describe("command service execution flow", () => {
     mockPrisma.commandTarget.findUnique.mockResolvedValue({
       id: "target_skip_cancel",
       status: "CANCELLED",
-      commandRequest: { status: "CANCELLED" },
+      commandRequest: { status: "CANCELLED", approvals: [] },
     });
     // enqueue re-check: still RUNNING so job is scheduled; finalize then sees cancel.
     mockPrisma.commandRequest.findUnique.mockImplementation(async (args: { where?: { id?: string }; include?: unknown }) => ({

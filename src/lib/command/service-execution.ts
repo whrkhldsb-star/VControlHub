@@ -120,7 +120,13 @@ export async function executeTarget(
     select: {
       id: true,
       status: true,
-      commandRequest: { select: { status: true, requesterId: true, teamId: true } },
+      commandRequest: {
+        select: {
+          status: true, requesterId: true, teamId: true,
+          // A request someone approved runs on that decision, not on the requester's own execute permission.
+          approvals: { where: { approved: true }, select: { id: true }, take: 1 },
+        },
+      },
     },
   });
   if (
@@ -148,6 +154,7 @@ export async function executeTarget(
 
   const authorization = await assertRequesterMayExecuteCommand(
     live.commandRequest.requesterId, live.commandRequest.teamId, target.server.id,
+    { requireExecutePermission: live.commandRequest.approvals.length === 0 },
   );
   if (!authorization.ok) {
     return failTarget(commandRequestId, target, `Command dispatch denied: ${authorization.reason}`);
