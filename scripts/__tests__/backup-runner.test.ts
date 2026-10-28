@@ -49,6 +49,33 @@ describe.skipIf(process.platform === "win32")("backup runner recovery guarantees
     await chmod(file, 0o755);
   }
 
+  it("keeps a file backup when tar only warns that a file changed while it was read, and fails on a real error", async () => {
+    // Anything written under storage/, downloads/ or logs/ during the minutes a backup takes (a download, an upload,
+    // a VPS backup) made GNU tar exit 1, and the whole backup failed with no archive published.
+    async function fakeTar(createExit: number) {
+      const file = path.join(bin, "tar");
+      await writeFile(file, `#!${process.execPath}
+const { spawnSync } = require("node:child_process");
+const args = process.argv.slice(2);
+const real = ["/usr/bin/tar", "/bin/tar"].find((candidate) => require("node:fs").existsSync(candidate));
+const result = spawnSync(real, args, { stdio: ["ignore", "inherit", "inherit"] });
+if (args.includes("-czf") && result.status === 0) { process.stderr.write("tar: storage/big.bin: file changed as we read it\\n"); process.exit(${createExit}); }
+process.exit(result.status ?? 2);
+`);
+      await chmod(file, 0o755);
+    }
+    const output = path.join(backups, "files.tar.gz");
+    await fakeTar(1);
+    const withFakeTar = { ...env, TAR_BIN: path.join(bin, "tar") };
+    await runFile(process.execPath, [runner, "--files", output], { env: withFakeTar });
+    expect((await runFile("tar", ["-tzf", output])).stdout).toContain("storage/local.txt");
+
+    await rm(output, { force: true });
+    await fakeTar(2);
+    await expect(runFile(process.execPath, [runner, "--files", output], { env: withFakeTar })).rejects.toMatchObject({ stderr: expect.stringContaining("exited with code 2") });
+    await expect(stat(output)).rejects.toThrow();
+  });
+
   it("archives configured external data and recovery keys with a restrictive mode", async () => {
     const external = path.join(tmp, "external");
     await mkdir(external);

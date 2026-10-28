@@ -116,10 +116,14 @@ export function redactConnectionString(text) {
  * Run a child process to completion with bounded stdout/stderr capture and
  * connection-string redaction. Rejects on nonzero exit or spawn error with a
  * `<basename> exited with code N: <stderr>` message.
+ *
+ * `okExitCodes`: nonzero exit codes that still count as success (resolved with
+ * the `code`), for tools whose exit status distinguishes a warning from a failure.
  */
 export function runBinary(binary, args, options = {}) {
+  const { okExitCodes = [], ...spawnOptions } = options;
   return new Promise((resolve, reject) => {
-    const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"], ...options });
+    const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"], ...spawnOptions });
     let stdout = "";
     let stderr = "";
     child.stdout?.on?.("data", (chunk) => {
@@ -130,7 +134,7 @@ export function runBinary(binary, args, options = {}) {
     });
     child.on("error", reject);
     child.on("close", (code) => {
-      if (code === 0) resolve({ stdout, stderr: redactConnectionString(stderr) });
+      if (code === 0 || okExitCodes.includes(code)) resolve({ stdout, stderr: redactConnectionString(stderr), code });
       else reject(new Error(`${path.basename(binary)} exited with code ${code}: ${redactConnectionString(stderr).trim()}`));
     });
   });

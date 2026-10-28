@@ -231,7 +231,12 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
       }
     }
   }
-  await runBinary(tar, args);
+  // GNU tar exits 1 when a file changed (or vanished) while it was being read: the archive is written and the
+  // rest is intact. The backup used to fail whole whenever anything was written under storage/, downloads/
+  // or logs/ during the minutes it took (a download, an upload, a VPS backup), publishing nothing. Only 2 and
+  // above are failures; the archive's members are verified right after either way.
+  const created = await runBinary(tar, args, process.platform === "win32" ? {} : { okExitCodes: [1] });
+  if (created.code === 1) log(`tar reported files changing while they were archived (exit 1): ${created.stderr.trim().slice(0, 500)}`);
   await assertRestorableMembers(tar, outputPath);
   const size = (await fs.stat(outputPath)).size;
   log(`Completed backup: ${outputPath} (${size} bytes)`);
