@@ -170,7 +170,10 @@ export async function POST(request: Request) {
 			: requestedNextPath;
 
 		// Log successful password stage
-		await auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp }, undefined, user.currentTeamId);
+		// A platform administrator's sign-in is a platform event: filing it under whichever customer
+		// they last selected put their address and times into that customer's audit log.
+		const auditTeamId = user.roles.includes("admin") ? null : user.currentTeamId;
+		await auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp }, undefined, auditTeamId);
 
 		// ── 2FA Check ──
 		// If the user has 2FA enabled, redirect to the verification page

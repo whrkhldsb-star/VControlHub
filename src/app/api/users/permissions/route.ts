@@ -204,8 +204,12 @@ export async function PATCH(request: Request) {
       if (body.userId === session.userId) {
         return NextResponse.json({ error: apiCopy("apiCopy.cannot.modify.your.own.permissions.4a69d473") }, { status: 403 });
       }
-      const target = await prisma.user.findUnique({ where: { id: body.userId }, select: { id: true, username: true } });
+      const target = await prisma.user.findUnique({
+        where: { id: body.userId },
+        select: { id: true, username: true, teamMembership: { select: { teamId: true } } },
+      });
       if (!target) throw new NotFoundError(apiCopy("apiCopy.user.not.found.4a1793e9"));
+      const targetTeamIdBefore = target.teamMembership?.teamId ?? null;
 
       if (body.account) await setAccountType(target.id, body.account, session);
 
@@ -232,7 +236,8 @@ export async function PATCH(request: Request) {
           serverAccessCount: body.serverAccess?.length ?? null,
         },
         "WARNING",
-        session.currentTeamId,
+        // Recorded in the customer the account now belongs to (a change of customer moves it).
+        (await prisma.teamMember.findUnique({ where: { userId: target.id }, select: { teamId: true } }))?.teamId ?? targetTeamIdBefore,
       );
       return NextResponse.json({ success: true });
     },

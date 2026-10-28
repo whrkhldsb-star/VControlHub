@@ -156,10 +156,15 @@ export async function PATCH(request: Request) {
 
       const targetUser = await prisma.user.findUnique({
         where: { id: userId },
+        include: { teamMembership: { select: { teamId: true } } },
       });
       if (!targetUser) {
         throw new NotFoundError(t("backend.user.notFound"));
       }
+      // The audit row belongs to the customer the account lives in (none for a platform
+      // administrator) — not to whichever customer the acting administrator has selected,
+      // which showed another customer's staff changes in the wrong customer's audit log.
+      const targetTeamId = targetUser.teamMembership?.teamId ?? null;
 
       if (userId === session.userId && userAction === "disable") {
         throw new ValidationError(t("backend.user.cannotDisableSelf"));
@@ -170,12 +175,14 @@ export async function PATCH(request: Request) {
           await assertAdminAccessMayBeRemoved(userId);
           await prisma.user.update({
             where: { id: userId },
-            data: { status: "DISABLED" },
+            // Disabling ends the sessions the account already has: advancing the epoch is what
+            // stops them from coming back to life when the account is enabled again.
+            data: { status: "DISABLED", sessionEpoch: { increment: 1 } },
           });
         });
         await auditUserAction(session.userId, "user.disable", {
           targetUsername: targetUser.username,
-        }, undefined, session.currentTeamId);
+        }, undefined, targetTeamId);
       } else if (userAction === "enable") {
         await prisma.user.update({
           where: { id: userId },
@@ -183,7 +190,7 @@ export async function PATCH(request: Request) {
         });
         await auditUserAction(session.userId, "user.enable", {
           targetUsername: targetUser.username,
-        }, undefined, session.currentTeamId);
+        }, undefined, targetTeamId);
       } else if (userAction === "reset_password") {
         // The schema refines reset_password ⇒ newPassword, but narrow it here too
         // so a future schema change cannot turn this into a silent no-op.
@@ -211,7 +218,7 @@ export async function PATCH(request: Request) {
           "user.password_reset",
           { targetUsername: targetUser.username },
           "WARNING",
-          session.currentTeamId,
+          targetTeamId,
         );
       } else {
         // `action` is optional in the schema (it also accepts newPassword only).

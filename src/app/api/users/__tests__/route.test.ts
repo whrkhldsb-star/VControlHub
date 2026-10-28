@@ -215,10 +215,33 @@ describe("/api/users", () => {
     const res = await route.PATCH(req);
     expect(res.status).toBe(200);
     expect(mocks.assertUserInActorScope).toHaveBeenCalledWith(session, "user1");
+    // Disabling also advances the session epoch so the account's old sessions stay dead after re-enabling.
     expect(mocks.prisma.user.update).toHaveBeenCalledWith({
       where: { id: "user1" },
-      data: { status: "DISABLED" },
+      data: { status: "DISABLED", sessionEpoch: { increment: 1 } },
     });
+  });
+
+  it("files user-management audit rows under the target's customer, not the acting administrator's selected one", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user1",
+      username: "alice",
+      status: "ACTIVE",
+      teamMembership: { teamId: "team_of_alice" },
+    });
+    mocks.prisma.user.update.mockResolvedValue({ id: "user1" });
+
+    for (const action of ["disable", "enable"]) {
+      const res = await route.PATCH(new Request("http://local/api/users", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: "user1", action }),
+      }));
+      expect(res.status).toBe(200);
+    }
+    const calls = mocks.auditUserAction.mock.calls.filter((call) => String(call[1]).startsWith("user.") && /disable|enable/.test(String(call[1])));
+    expect(calls).toHaveLength(2);
+    for (const call of calls) expect(call[4]).toBe("team_of_alice");
   });
 
   it("returns 404 when PATCH target is outside actor team scope", async () => {

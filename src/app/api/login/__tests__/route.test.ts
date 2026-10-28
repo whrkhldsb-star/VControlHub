@@ -139,6 +139,17 @@ describe("POST /api/login", () => {
     });
   });
 
+  it("files a platform administrator's sign-in outside any customer's audit log, but a customer account's inside its own", async () => {
+    const audit = await import("@/lib/audit/service");
+    const preferences = { defaultPage: "/", dashboardWidgets: ["server-status"], notificationsEnabled: true, notificationSound: true, autoRefreshInterval: 30 };
+    authenticateUserMock.mockResolvedValueOnce({ id: "u_a", username: "admin", roles: ["admin"], currentTeamId: "team_last_selected", mustChangePassword: false, preferences, twoFactorEnabled: false, hasTwoFactorSecret: false, credentialBinding });
+    await POST(makeLoginRequest({ username: "admin", password: "right-pass-1" }));
+    authenticateUserMock.mockResolvedValueOnce({ id: "u_c", username: "carol", roles: [], currentTeamId: "team_carol", mustChangePassword: false, preferences, twoFactorEnabled: false, hasTwoFactorSecret: false, credentialBinding });
+    await POST(makeLoginRequest({ username: "carol", password: "right-pass-1" }));
+    const okCalls = vi.mocked(audit.auditUserAction).mock.calls.filter((call) => call[1] === "auth.login_password_ok");
+    expect(okCalls.map((call) => call[4])).toEqual([null, "team_carol"]);
+  });
+
   it("uses the normal session TTL when remember login is not checked", async () => {
     process.env.AUTH_SESSION_TTL_SECONDS = "1234";
 

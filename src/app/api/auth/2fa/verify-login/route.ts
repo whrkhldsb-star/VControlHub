@@ -213,7 +213,8 @@ export async function POST(request: Request) {
 			usedRecoveryCode ? "auth.login_2fa_recovery_ok" : "auth.login_2fa_ok",
 			{ username: user.username, ip: clientIp },
 			undefined,
-			user?.currentTeamId,
+			// Platform administrators' sign-ins are platform events (see /api/login).
+			liveRoles.includes("admin") ? null : user?.currentTeamId,
 		);
 
 		const response = NextResponse.json({ success: true });
