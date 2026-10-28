@@ -17,6 +17,9 @@ import { auditUserAction } from "@/lib/audit/service";
 import { config } from "@/lib/config/env";
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 import { createVerifiedSshConfig } from "@/lib/ssh/client";
+import { isHostKeyRejection } from "@/lib/ssh/host-key-error";
+import { closeSocket } from "@/lib/ws/close-socket";
+import { PreAuthLimiter, upgradeClientAddress } from "@/lib/ws/pre-auth-limiter";
 
 import { type RoleKey } from "./lib/auth/rbac";
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
@@ -195,6 +198,7 @@ type TerminalConnParams = Awaited<ReturnType<typeof resolveServerConnection>>;
 export function buildTerminalSshConfig(
 	connParams: NonNullable<TerminalConnParams>,
 	terminalRuntimeConfig: { sshKeepaliveIntervalMs: number; sshKeepaliveCountMax: number },
+	onHostKeySha256?: (fingerprint: string) => void,
 ) {
 	const sshConfig = createVerifiedSshConfig({
 		host: connParams.host,
@@ -202,6 +206,7 @@ export function buildTerminalSshConfig(
 		username: connParams.username,
 		hostKeySha256: connParams.hostKeySha256,
 		enforceHostKeyPin: true,
+		...(onHostKeySha256 ? { onHostKeySha256 } : {}),
 		...(connParams.connectionType === "SSH_KEY" ? { privateKey: connParams.privateKey, ...(connParams.passphrase ? { passphrase: connParams.passphrase } : {}) } : { password: connParams.password }),
 	});
 	sshConfig.readyTimeout = 15000;
@@ -217,8 +222,13 @@ export function buildTerminalSshConfig(
  * enforced pin) get an actionable message that tells the operator to pin the
  * fingerprint first; anything else keeps the raw ssh2 detail.
  */
-export function describeTerminalSshError(err: Error): string {
-	if (/host key verification|host verifier/i.test(err.message)) {
+export function describeTerminalSshError(err: Error, hostKey?: { pinned?: string | null; presented?: string | null }): string {
+	if (isHostKeyRejection(err)) {
+		// A pinned key that differs is something else than one never pinned: the host was reinstalled, or
+		// someone is in the middle.
+		if (hostKey?.pinned && hostKey.presented) {
+			return t("backend.ssh.hostKeyChanged", { expected: hostKey.pinned, actual: hostKey.presented });
+		}
 		return t("backend.ssh.hostKeyNotPinned");
 	}
 	return `SSH connection error: ${err.message}`;
@@ -235,7 +245,7 @@ class TerminalAccessRefused extends Error {
 }
 
 export function isPermanentTerminalSshError(err: Error): boolean {
-	return /host key verification|host verifier|all configured authentication methods failed|authentication failed/i.test(err.message);
+	return isHostKeyRejection(err) || /all configured authentication methods failed|authentication failed/i.test(err.message);
 }
 
 // ── WebSocket server ────────────────────────────────────────────────
@@ -338,6 +348,21 @@ const SSH_MAX_QUEUED_BYTES = 4 * 1024 * 1024;
 const SSH_MAX_TOTAL_QUEUED_BYTES = 32 * 1024 * 1024;
 let pendingSshInputBytes = 0;
 const activeSshConnectionsByUser = new Map<string, number>();
+/**
+ * Sockets whose session has been verified: only these count against the terminal limits. A socket that has
+ * not authenticated yet (every upgrade starts as one) is bounded apart, so anyone able to open sockets can
+ * fill that small pool for a few seconds but never the terminals' places.
+ */
+const authenticatedSockets = new Set<WebSocket>();
+const MAX_PRE_AUTH_SOCKETS = 32;
+const MAX_PRE_AUTH_PER_ADDRESS = 6;
+const preAuthSockets = new PreAuthLimiter(MAX_PRE_AUTH_SOCKETS, MAX_PRE_AUTH_PER_ADDRESS);
+/** A socket still unauthenticated after this long is dropped. */
+const PRE_AUTH_WINDOW_MS = 10_000;
+/** Terminals open at once in this process (all users). */
+const TERMINAL_CAPACITY = 64;
+/** The browser probes once per heartbeat interval; a client pinging faster than this is not a browser. */
+const SSH_MAX_PINGS_PER_SECOND = 20;
 async function withAuthorizationDeadline<T>(operation: PromiseLike<T>): Promise<T> {
 	let timer: NodeJS.Timeout | undefined;
 	try {
@@ -357,8 +382,9 @@ const wss = new WebSocketServer({
 			callback(false, 403, "Origin not allowed");
 			return;
 		}
-		// Connection limit — prevent resource exhaustion
-		if (wss.clients.size >= MAX_WS_CONNECTIONS) {
+		// Connection limits — prevent resource exhaustion. Unauthenticated sockets are counted apart: sharing the
+		// terminal limit, they would let anyone who can open sockets lock every user out of new terminals.
+		if (authenticatedSockets.size >= MAX_WS_CONNECTIONS || preAuthSockets.size >= MAX_PRE_AUTH_SOCKETS) {
 			recordWsEvent("ssh", "reject");
 			callback(false, 503, "Too many connections");
 			return;
@@ -704,10 +730,15 @@ function endAllDetachedSessions() {
 }
 
 wss.on("connection", async (ws, req) => {
-	if (wss.clients.size > 64) {
-		ws.close(1013, "Terminal capacity reached");
+	// Until the session is verified this socket holds one of the few unauthenticated places.
+	const releasePreAuth = preAuthSockets.acquire(upgradeClientAddress(req));
+	if (!releasePreAuth) {
+		closeSocket(ws, 1013, "Too many connections");
 		return;
 	}
+	const preAuthTimer = setTimeout(() => ws.terminate(), PRE_AUTH_WINDOW_MS);
+	preAuthTimer.unref?.();
+	ws.once("close", () => { clearTimeout(preAuthTimer); releasePreAuth(); authenticatedSockets.delete(ws); });
 	recordWsEvent("ssh", "open");
 	setWsActive("ssh", wss.clients.size);
 	wsLastPongAt.set(ws, Date.now());
@@ -726,7 +757,7 @@ wss.on("connection", async (ws, req) => {
 	if (!isOriginAllowed(req)) {
 		recordWsEvent("ssh", "reject");
 		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.originNotAllowed"), fatal: true }));
-		ws.close();
+		closeSocket(ws);
 		return;
 	}
 
@@ -739,7 +770,7 @@ wss.on("connection", async (ws, req) => {
 
 	if (!serverId || !token || !handshake) {
 		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.missingParams"), fatal: true }));
-		ws.close();
+		closeSocket(ws);
 		return;
 	}
 
@@ -748,19 +779,26 @@ wss.on("connection", async (ws, req) => {
 		session = await withAuthorizationDeadline(verifySessionToken(token));
 	} catch {
 		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.authFailed"), fatal: true }));
-		ws.close();
+		closeSocket(ws);
 		return;
 	}
 
 	if (!canUseSshTerminal(session)) {
 		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.permissionDenied"), fatal: true }));
-		ws.close();
+		closeSocket(ws);
 		return;
 	}
 
 	if (ws.readyState !== WebSocket.OPEN) return;
+	if (authenticatedSockets.size >= TERMINAL_CAPACITY) {
+		closeSocket(ws, 1013, "Terminal capacity reached");
+		return;
+	}
+	authenticatedSockets.add(ws);
+	clearTimeout(preAuthTimer);
+	releasePreAuth();
 	const userConnections = activeSshConnectionsByUser.get(session.userId) ?? 0;
-	if (userConnections >= 8) { ws.close(1013, "User terminal capacity reached"); return; }
+	if (userConnections >= 8) { closeSocket(ws, 1013, "User terminal capacity reached"); return; }
 	activeSshConnectionsByUser.set(session.userId, userConnections + 1);
 	ws.once("close", () => {
 		const count = (activeSshConnectionsByUser.get(session.userId) ?? 1) - 1;
@@ -778,7 +816,7 @@ wss.on("connection", async (ws, req) => {
 		});
 		if (!handshakePayload || handshakePayload.userId !== session.userId) {
 			ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.handshakeTokenInvalid") }));
-			ws.close();
+			closeSocket(ws);
 			return;
 		}
 	}
@@ -789,12 +827,12 @@ wss.on("connection", async (ws, req) => {
 	} catch (error) {
 		logger.error("failed to resolve SSH connection", error, { serverId, userId: session.userId });
 		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoDecryptFailed"), fatal: true }));
-		ws.close();
+		closeSocket(ws);
 		return;
 	}
 	if (!connParams) {
 		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoMissing"), fatal: true }));
-		ws.close();
+		closeSocket(ws);
 		return;
 	}
 
@@ -831,6 +869,8 @@ wss.on("connection", async (ws, req) => {
 	};
 	const resumed = resumedShell !== null;
 
+	// The fingerprint the server presented, when it was refused: the pin may be missing or may differ.
+	let presentedHostKey: string | null = null;
 	let stopped = false;
 	let lastAuthorizedAt = Date.now();
 	let authorizationCheck: Promise<boolean> | null = null;
@@ -852,7 +892,7 @@ wss.on("connection", async (ws, req) => {
 		releaseAttachment();
 		if (ws.readyState === WebSocket.OPEN) {
 			if (ws.bufferedAmount < SSH_MAX_QUEUED_BYTES) ws.send(JSON.stringify({ type: "error", data: message, ...(fatal ? { fatal: true } : {}) }));
-			ws.close(code, "SSH terminal closed");
+			closeSocket(ws, code, "SSH terminal closed");
 		}
 		// Refusals (revoked access, abuse of the wire protocol) end the shell
 		// outright: it must not linger as a resumable session.
@@ -865,7 +905,7 @@ wss.on("connection", async (ws, req) => {
 	const dropConnection = (code: number) => {
 		if (stopped) return;
 		releaseAttachment();
-		if (ws.readyState === WebSocket.OPEN) ws.close(code, "SSH terminal connection dropped");
+		if (ws.readyState === WebSocket.OPEN) closeSocket(ws, code, "SSH terminal connection dropped");
 		if (shell.keepAlive) detachShellSession(shell);
 		else endShellSession(shell);
 	};
@@ -921,6 +961,17 @@ wss.on("connection", async (ws, req) => {
 		ws.send(message);
 		if (ws.bufferedAmount > SSH_PAUSE_QUEUED_BYTES) setShellPaused(shell, true);
 	};
+	// Replies to ping and input go straight to the socket. A client that sends but never reads would grow
+	// this queue without bound, so past the ceiling output has it is dropped as well.
+	const reply = (message: Record<string, unknown>) => {
+		if (stopped || ws.readyState !== WebSocket.OPEN) return;
+		const text = JSON.stringify(message);
+		if (ws.bufferedAmount + Buffer.byteLength(text) > SSH_MAX_QUEUED_BYTES) {
+			dropConnection(1013);
+			return;
+		}
+		ws.send(text);
+	};
 	const attachment: ShellAttachment = {
 		ws,
 		sendOutput,
@@ -928,22 +979,22 @@ wss.on("connection", async (ws, req) => {
 			releaseAttachment();
 			if (ws.readyState === WebSocket.OPEN) {
 				ws.send(JSON.stringify({ type: "closed", data: message, reason }));
-				ws.close();
+				closeSocket(ws);
 			}
 		},
 		fail: (message, options) => {
 			releaseAttachment();
 			if (ws.readyState === WebSocket.OPEN) {
 				ws.send(JSON.stringify({ type: "error", data: message, ...(options?.fatal ? { fatal: true } : {}) }));
-				if (options?.code !== undefined) ws.close(options.code, "SSH terminal closed");
-				else ws.close();
+				if (options?.code !== undefined) closeSocket(ws, options.code, "SSH terminal closed");
+				else closeSocket(ws);
 			}
 		},
 		replace: () => {
 			releaseAttachment();
 			if (ws.readyState === WebSocket.OPEN) {
 				ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.sessionReplaced"), reason: "replaced" }));
-				ws.close(SSH_CLOSE_REPLACED, "SSH shell continued by another connection");
+				closeSocket(ws, SSH_CLOSE_REPLACED, "SSH shell continued by another connection");
 			}
 			// A half-open socket never answers the close: cut it so it stops counting.
 			const cut = setTimeout(() => ws.terminate(), SSH_REPLACED_SOCKET_GRACE_MS);
@@ -1003,8 +1054,9 @@ wss.on("connection", async (ws, req) => {
 			});
 		});
 		shell.sshClient.on("error", (err) => {
-			shell.attachment?.fail(describeTerminalSshError(err), { fatal: isPermanentTerminalSshError(err) });
-			auditTerminalFailure(shell, describeTerminalSshError(err));
+			const message = describeTerminalSshError(err, { pinned: connParams.hostKeySha256, presented: presentedHostKey });
+			shell.attachment?.fail(message, { fatal: isPermanentTerminalSshError(err) });
+			auditTerminalFailure(shell, message);
 			endShellSession(shell);
 		});
 		// The SSH connection itself went away (server restart, network): the
@@ -1013,6 +1065,8 @@ wss.on("connection", async (ws, req) => {
 		shell.sshClient.on("close", () => endShellSession(shell, t("backend.sshTerminal.connectionLost"), "lost"));
 	}
 
+	let pingWindowStart = 0;
+	let pingsInWindow = 0;
 	ws.on("message", (raw, binary) => {
 		if (stopped) return;
 		try {
@@ -1025,14 +1079,17 @@ wss.on("connection", async (ws, req) => {
 				// The browser checks that this socket still reaches the gateway
 				// (browsers cannot see WebSocket pings). Not shell activity.
 				if (msg.id !== undefined && (!Number.isSafeInteger(msg.id) || msg.id < 0)) throw new Error("Invalid ping");
-				if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "pong", ...(msg.id !== undefined ? { id: msg.id } : {}) }));
+				const now = Date.now();
+				if (now - pingWindowStart >= 1_000) { pingWindowStart = now; pingsInWindow = 0; }
+				if (++pingsInWindow > SSH_MAX_PINGS_PER_SECOND) throw new Error("Too many pings");
+				reply({ type: "pong", ...(msg.id !== undefined ? { id: msg.id } : {}) });
 				return;
 			}
 			if (msg.type === "end") {
 				// The user closed this terminal: end the shell rather than keep it for a reconnect.
 				releaseAttachment();
 				endShellSession(shell);
-				if (ws.readyState === WebSocket.OPEN) ws.close(1000, "SSH terminal closed");
+				if (ws.readyState === WebSocket.OPEN) closeSocket(ws, 1000, "SSH terminal closed");
 				return;
 			}
 			if (pendingInputMessages >= 64 || pendingInputBytes + messageBytes > 256 * 1024 || pendingSshInputBytes + messageBytes > 8 * 1024 * 1024) throw new Error("Input queue full");
@@ -1060,7 +1117,7 @@ wss.on("connection", async (ws, req) => {
 						await new Promise<void>((resolve, reject) => {
 							sshStream.write(Buffer.from(msg.data, "base64"), (error?: Error | null) => error ? reject(error) : resolve());
 						});
-						if (!stopped && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input-ack", id: msg.id }));
+						reply({ type: "input-ack", id: msg.id });
 					}
 				} else sshStream.setWindow(msg.rows, msg.cols, 0, 0);
 			}).catch(() => stopTerminal(t("backend.sshTerminal.connectionClosed"))).finally(() => {
@@ -1095,7 +1152,7 @@ wss.on("connection", async (ws, req) => {
 	if (shell.ended) {
 		// The shell ended while this connection was being authorized.
 		ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.connectionLost"), reason: "lost" }));
-		ws.close();
+		closeSocket(ws);
 		return;
 	}
 	// What this browser has not seen yet; planned before attaching resets the detach point.
@@ -1119,7 +1176,17 @@ wss.on("connection", async (ws, req) => {
 		setShellPaused(shell, false);
 		return;
 	}
-	shell.sshClient.connect(buildTerminalSshConfig(connParams, terminalRuntimeConfig));
+	try {
+		shell.sshClient.connect(buildTerminalSshConfig(connParams, terminalRuntimeConfig, (fingerprint) => { presentedHostKey = fingerprint; }));
+	} catch (error) {
+		// ssh2 throws, rather than emitting 'error', for a private key it cannot parse. Uncaught, this left the
+		// browser on "connecting" for ever with nothing logged or audited.
+		const failure = error instanceof Error ? error : new Error(String(error));
+		const message = describeTerminalSshError(failure);
+		shell.attachment?.fail(message, { fatal: true });
+		auditTerminalFailure(shell, message);
+		endShellSession(shell);
+	}
 });
 
 const shouldStartServer = process.env.NODE_ENV !== "test";

@@ -10,6 +10,8 @@ const state = vi.hoisted(() => ({
   verify: vi.fn(), server: vi.fn(),
   handshakeUserId: "audit-user",
   deferReady: null as null | (() => void),
+  connectThrows: null as null | Error,
+  connectConfig: undefined as unknown,
   shellOptions: [] as unknown[],
   client: undefined as unknown as import("node:events").EventEmitter,
   audit: vi.fn(async () => undefined),
@@ -34,8 +36,10 @@ vi.mock("ws", async () => {
 vi.mock("ssh2", async () => {
   const { EventEmitter: Emitter } = await import("node:events");
   return { Client: class extends Emitter {
-    connect() {
+    connect(config?: unknown) {
       state.client = this;
+      state.connectConfig = config;
+      if (state.connectThrows) throw state.connectThrows;
       if (state.deferReady === null) this.emit("ready");
       else state.deferReady = () => this.emit("ready");
     }
@@ -63,6 +67,7 @@ beforeEach(() => {
   vi.resetModules(); vi.useFakeTimers(); state.clients.clear(); state.verify.mockReset(); state.server.mockReset(); state.audit.mockClear();
   state.handshakeUserId = "audit-user";
   state.deferReady = null;
+  state.connectThrows = null;
   state.shellOptions = [];
   vi.stubEnv("SSH_WS_SECRET", "fixture-only"); vi.stubEnv("SSH_WS_ALLOWED_ORIGINS", "http://127.0.0.1:15430");
   state.verify.mockResolvedValue({ userId: "audit-user", username: "audit", roles: ["operator"], permissions: ["server:ssh"], currentTeamId: "audit-team", mustChangePassword: false });
@@ -534,4 +539,83 @@ it("plans replays from the reported offset, the detach point, or the oldest kept
   expect(planShellReplay(history, null, 450)).toEqual({ from: 450, truncated: false });
   expect(planShellReplay(history, null, 20)).toEqual({ from: 100, truncated: true });
   expect(planShellReplay(history, null, null)).toEqual({ from: 500, truncated: false });
+});
+
+it("cuts off a client that pings faster than any browser, and never queues replies for one that does not read", async () => {
+  const socket = await connect();
+  const ping = (id: number) => socket.emit("message", Buffer.from(JSON.stringify({ type: "ping", id })), false);
+  for (let id = 1; id <= 20; id++) ping(id);
+  expect(socket.close).not.toHaveBeenCalled();
+  ping(21);
+  expect(socket.close).toHaveBeenCalled();
+
+  // A second per second is plenty: the next window starts clean.
+  const patient = await connect();
+  for (let id = 1; id <= 20; id++) patient.emit("message", Buffer.from(JSON.stringify({ type: "ping", id })), false);
+  await vi.advanceTimersByTimeAsync(1_000);
+  for (let id = 21; id <= 40; id++) patient.emit("message", Buffer.from(JSON.stringify({ type: "ping", id })), false);
+  expect(patient.close).not.toHaveBeenCalled();
+
+  // The client has stopped reading: the replies already queued are past the ceiling, so none is added.
+  const stalled = await connect();
+  stalled.bufferedAmount = 5 * 1024 * 1024;
+  const sent = stalled.send.mock.calls.length;
+  stalled.emit("message", Buffer.from(JSON.stringify({ type: "ping", id: 1 })), false);
+  expect(stalled.send.mock.calls.length).toBe(sent);
+  expect(stalled.close).toHaveBeenCalledWith(1013, expect.any(String));
+});
+
+it("drops an unauthenticated socket that never answers the close handshake, and keeps such sockets off the terminals' places", async () => {
+  state.verify.mockRejectedValue(new Error("no such session"));
+  const refused = await connect(false);
+  expect(refused.close).toHaveBeenCalled();
+  expect(refused.terminate).not.toHaveBeenCalled();
+  // ws waits 30 s for the peer's close frame; the gateway gives up after a few seconds.
+  await vi.advanceTimersByTimeAsync(3_000);
+  expect(refused.terminate).toHaveBeenCalled();
+
+  // 80 sockets that never authenticated do not take a terminal's place (they used to count towards the 64).
+  state.verify.mockResolvedValue({ userId: "audit-user", username: "audit", roles: ["operator"], permissions: ["server:ssh"], currentTeamId: "audit-team", mustChangePassword: false });
+  for (let i = 0; i < 80; i++) state.clients.add({ bufferedAmount: 0 });
+  const legitimate = await connect();
+  expect(legitimate.close).not.toHaveBeenCalled();
+});
+
+it("drops a socket whose authentication hangs", async () => {
+  state.verify.mockImplementation(() => new Promise(() => undefined));
+  const stuck = Object.assign(new EventEmitter(), { readyState: 1, bufferedAmount: 0, send: vi.fn(), close: vi.fn(), ping: vi.fn(), terminate: vi.fn() });
+  state.clients.add(stuck);
+  await import("../ssh-ws-proxy");
+  void state.connection(stuck, { url: "/ssh?serverId=audit-server&handshake=fixture", headers: { origin: "http://127.0.0.1:15430", cookie: "audit_session=fixture-cookie" } });
+  await vi.advanceTimersByTimeAsync(9_000);
+  expect(stuck.terminate).toHaveBeenCalled();
+});
+
+it("recognises ssh2's real host key refusal: fatal, naming the pin to set or the fingerprint that changed", async () => {
+  // ssh2 words a host key its verifier refused as "Host denied (verification failed)".
+  state.deferReady = () => undefined;
+  state.server.mockResolvedValue({ ...(await state.server()), hostKeySha256: null });
+  const unpinned = await connect(false);
+  state.client.emit("error", new Error("Host denied (verification failed)"));
+  expect(frames(unpinned).find((frame) => frame.type === "error")).toMatchObject({ fatal: true, data: expect.stringContaining("尚未固定") });
+
+  // A pinned key that no longer matches: the browser is shown both fingerprints.
+  state.server.mockResolvedValue({ ...(await state.server()), hostKeySha256: "SHA256:pinned-before" });
+  const changed = await connect(false);
+  (state.connectConfig as { onHostKeySha256: (fingerprint: string) => void }).onHostKeySha256("SHA256:presented-now");
+  state.client.emit("error", new Error("Host denied (verification failed)"));
+  const refusal = frames(changed).find((frame) => frame.type === "error");
+  expect(refusal).toMatchObject({ fatal: true });
+  expect(String(refusal?.data)).toContain("SHA256:pinned-before");
+  expect(String(refusal?.data)).toContain("SHA256:presented-now");
+});
+
+it("reports a private key ssh2 cannot parse instead of leaving the browser connecting for ever", async () => {
+  state.connectThrows = new Error("Cannot parse privateKey: Malformed OpenSSH private key");
+  const socket = await connect(false);
+  expect(frames(socket).find((frame) => frame.type === "error")).toMatchObject({
+    fatal: true,
+    data: expect.stringContaining("Cannot parse privateKey"),
+  });
+  expect(state.audit).toHaveBeenCalled();
 });

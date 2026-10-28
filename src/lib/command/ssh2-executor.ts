@@ -12,6 +12,7 @@ import { Client } from "ssh2";
 import { createLogger } from "@/lib/logging";
 import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import { SshHostKeyChangedError } from "@/lib/ssh/host-key";
+import { isHostKeyRejection } from "@/lib/ssh/host-key-error";
 
 import {
   BoundedOutputCollector,
@@ -36,7 +37,7 @@ export type Ssh2ExecutionInput = {
 };
 
 function mapConnectError(error: unknown): Error {
-  if (error instanceof Error && /Host key verification|host verifier/i.test(error.message)) {
+  if (isHostKeyRejection(error)) {
     return new SshHostKeyChangedError("pinned host key", "mismatched host key presented");
   }
   return error instanceof Error ? error : new Error(String(error));

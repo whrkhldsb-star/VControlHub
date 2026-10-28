@@ -12,6 +12,8 @@ import { GuacParser, instruction, validateClientInstruction } from "./protocol";
 import { getRdpSessionRuntimeConfig } from "@/lib/runtime-settings/service";
 import { rdpAudioEnabled, rdpClipboardEnabled, rdpImageMimetypes, RDP_AUDIO_MIMETYPES } from "./features";
 import { createLogger } from "@/lib/logging";
+import { closeSocket } from "@/lib/ws/close-socket";
+import { PreAuthLimiter, upgradeClientAddress } from "@/lib/ws/pre-auth-limiter";
 
 const logger = createLogger("rdp-ws");
 
@@ -92,6 +94,11 @@ const MAX_RDP_SESSIONS = 20;
  * ticket TTL — a healthy browser connects immediately after minting).
  */
 const PRE_AUTH_WINDOW_MS = 10_000;
+/** Sockets that have not presented a ticket yet, in all and from one address; kept apart from the session cap. */
+const MAX_PRE_AUTH_SOCKETS = 32;
+const MAX_PRE_AUTH_PER_ADDRESS = 6;
+/** The browser echoes the gateway's ping every few seconds; more than this per second is a flood. */
+const MAX_PING_ECHOES_PER_SECOND = 20;
 const AUTHORIZATION_TIMEOUT_MS = 5_000;
 /** Shares the existing loopback SSH service, but never its protocol or credentials. */
 /** Guacamole status codes guacd reports when Windows refuses the account. */
@@ -162,6 +169,7 @@ export function setupRdpWebSocket(server: HttpServer) {
  const wss = new WebSocketServer({ noServer: true, maxPayload: 16_384, perMessageDeflate: false,
   handleProtocols: protocols => protocols.has("guacamole") ? "guacamole" : false });
  const users = new Map<string, number>();
+ const preAuthSockets = new PreAuthLimiter(MAX_PRE_AUTH_SOCKETS, MAX_PRE_AUTH_PER_ADDRESS);
  let authedSessions = 0;
  /**
   * The live session of each user on each server. A new connection of the
@@ -180,10 +188,14 @@ export function setupRdpWebSocket(server: HttpServer) {
   if (!req.headers["sec-websocket-protocol"]?.split(",").some(v => v.trim() === "guacamole")) { socket.destroy(); return; }
   // Headroom backstop only (MAX_RDP_SESSIONS authed sessions + handshakes in
   // flight); the session cap itself is enforced once the ticket is claimed.
-  if (process.env.RDP_ENABLED !== "true" || !rdpOriginAllowed(req.headers.origin ?? "") || wss.clients.size >= MAX_RDP_SESSIONS * 3) { socket.destroy(); return; }
+  // Sockets still without a ticket are counted apart, so they cannot crowd out a session.
+  if (process.env.RDP_ENABLED !== "true" || !rdpOriginAllowed(req.headers.origin ?? "") || wss.clients.size >= MAX_RDP_SESSIONS * 3 || preAuthSockets.size >= MAX_PRE_AUTH_SOCKETS) { socket.destroy(); return; }
   wss.handleUpgrade(req, socket, head, ws => { wss.emit("connection", ws, req); });
  });
  wss.on("connection", (ws, req) => {
+  const releasePreAuth = preAuthSockets.acquire(upgradeClientAddress(req));
+  if (!releasePreAuth) { ws.terminate(); return; }
+  ws.once("close", releasePreAuth);
   let tunnel: ReturnType<typeof createConnection> | undefined;
   const desktop = initialDesktopSize(req.url);
   let lastPongAt = Date.now();
@@ -237,6 +249,8 @@ export function setupRdpWebSocket(server: HttpServer) {
    }
   };
   let lastInput = Date.now();
+  let echoWindowStart = 0;
+  let echoes = 0;
   const openedAt = Date.now();
   // Session policy (runtime.sshIdleTimeoutSec-style settings, 0 = unlimited)
   // plus channel feature flags, resolved per connection at authentication.
@@ -296,7 +310,7 @@ export function setupRdpWebSocket(server: HttpServer) {
    endedBy ??= `gateway: ${reason}`;
    flushOutbox();
    clearInterval(resumePoll);
-   if (ws.readyState === WebSocket.OPEN) { ws.send(instruction("error", reason, status)); ws.close(code); }
+   if (ws.readyState === WebSocket.OPEN) { ws.send(instruction("error", reason, status)); closeSocket(ws, code); }
    endTunnel();
   };
   const handshakeTimeout = setTimeout(() => close("RDP handshake timed out"), 30_000);
@@ -364,8 +378,15 @@ export function setupRdpWebSocket(server: HttpServer) {
     while (undrawn.length && undrawn[0]!.timestamp <= drawnUpTo) undrawn.shift();
     resumeIfCaughtUp();
    }
-   if (row[0] === "") { if (ws.readyState === WebSocket.OPEN) ws.send(instruction(...row)); return; }
-   if (row[0] === "disconnect") { endedBy ??= "browser: disconnect"; ws.close(1000); endTunnel(); return; }
+   if (row[0] === "") {
+    // Each echo is tiny, but a client that never reads would queue them without limit.
+    const now = Date.now();
+    if (now - echoWindowStart >= 1000) { echoWindowStart = now; echoes = 0; }
+    if (++echoes > MAX_PING_ECHOES_PER_SECOND) { close("RDP ping flood", 1008); return; }
+    if (ws.readyState === WebSocket.OPEN) ws.send(instruction(...row));
+    return;
+   }
+   if (row[0] === "disconnect") { endedBy ??= "browser: disconnect"; closeSocket(ws, 1000); endTunnel(); return; }
    // Clipboard is the only client-created stream type; blobs and end must
    // stay on an index a clipboard instruction allocated this session.
    if (clipboardAllowed && (row[0] === "clipboard" || row[0] === "blob" || row[0] === "end")) {
@@ -428,7 +449,7 @@ export function setupRdpWebSocket(server: HttpServer) {
     if ((users.get(session.userId) ?? 0) >= MAX_RDP_SESSIONS_PER_USER) { tooMany = true; throw new Error("Too many sessions"); }
     if (authedSessions >= MAX_RDP_SESSIONS) throw new Error("Denied");
     userId = session.userId; serverId = target.id; teamId = target.teamId;
-    users.set(userId, (users.get(userId) ?? 0) + 1); authedSessions++; authenticated = true;
+    users.set(userId, (users.get(userId) ?? 0) + 1); authedSessions++; authenticated = true; releasePreAuth();
     slotKey = key; liveSessions.set(key, { userId, silentMs, supersede });
     audit("server.rdp.connecting");
     let phase: "args" | "ready" | "stream" = "args";
@@ -455,7 +476,7 @@ export function setupRdpWebSocket(server: HttpServer) {
     tunnel = createConnection({ host: "127.0.0.1", port: guacdPort() });
     tunnel.once("connect", () => { if (!tunnelEnding) tunnel?.write(instruction("select", "rdp")); });
     tunnel.on("error", () => close("RDP gateway connection failed"));
-    tunnel.on("close", () => { endedBy ??= "guacd closed the connection"; if (ws.readyState === WebSocket.OPEN) ws.close(1000); });
+    tunnel.on("close", () => { endedBy ??= "guacd closed the connection"; if (ws.readyState === WebSocket.OPEN) closeSocket(ws, 1000); });
     const output = new GuacParser(row => {
      if (stopped) return;
      if (row[0] === "error") {

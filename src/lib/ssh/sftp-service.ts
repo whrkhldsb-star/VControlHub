@@ -36,6 +36,7 @@ import {
   isAppError,
 } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { isHostKeyRejection } from "@/lib/ssh/host-key-error";
 
 const logger = createLogger("sftp-service");
 
@@ -197,7 +198,7 @@ function isAgentOnly(conn: ResolvedConnection) {
  */
 function mapSshConnectError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
-  if (/host key verification|host verifier/i.test(message)) {
+  if (isHostKeyRejection(error)) {
     return new BusinessError(t("backend.ssh.hostKeyNotPinned"));
   }
   return new Error(`SSH connection error: ${message}`);
