@@ -74,12 +74,20 @@ export function tempRoot(): string {
  * Local aria2 relay scratch directory: a relay download lands here before it
  * is uploaded to the target server over SFTP.
  *
- * POSIX keeps the historical `/tmp` path. Windows cannot use it literally —
+ * When ARIA2_RPC_DIR is configured (every installer-made setup) the scratch directory lives under
+ * it, shared by the daemon and the app. Without it POSIX keeps the historical `/tmp` path (one
+ * process tree, one /tmp). Windows cannot use that literally —
  * both Node and aria2c resolve a leading `/` against the current drive
  * (`E:\tmp\...`), which drifts with whatever drive the process happens to
  * start from — so the per-user temp directory is used instead.
  */
 export function relayTempDir(taskId: string): string {
+  // The aria2 daemon and the worker/web processes are separate systemd units, each with
+  // its own PrivateTmp: a download written under /tmp by one is invisible to the others
+  // (the relay then reported "file not found" and the bytes stayed in aria2's private
+  // /tmp). The daemon's own state directory is the one place all of them can reach.
+  const shared = process.env.ARIA2_RPC_DIR?.trim();
+  if (shared) return path.join(shared, "relay", `app-relay-${taskId}`);
   return isWindows()
     ? path.join(os.tmpdir(), `app-relay-${taskId}`)
     : `/tmp/app-relay-${taskId}`;
