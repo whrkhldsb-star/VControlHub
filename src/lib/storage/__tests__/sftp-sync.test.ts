@@ -36,7 +36,8 @@ vi.mock("@/lib/ssh/client", () => ({
 import { syncSftpDirectoryEntries } from "../sftp-sync";
 
 describe("sftp sync service", () => {
-  it("forwards hostKeySha256 pin into listRemoteDirectory", async () => {
+  it("forwards the server's hostKeySha256 pin into listRemoteDirectory for a node that borrows the server's endpoint", async () => {
+    // The node's own copy (NODEPIN) was taken when the node was created; the server's pin is the current one.
     vi.clearAllMocks();
     const node = {
       id: "node_pin",
@@ -70,7 +71,7 @@ describe("sftp sync service", () => {
     expect(listRemoteDirectoryMock).toHaveBeenCalledWith(
       expect.objectContaining({
         host: "203.0.113.20",
-        hostKeySha256: "NODEPIN",
+        hostKeySha256: "SERVERPIN",
         remotePath: "/data/files",
       }),
     );

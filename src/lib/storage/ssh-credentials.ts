@@ -87,5 +87,13 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
     throw new ValidationError(t("backend.storage.missingPassword"));
   }
 
-  return { host, port, username, connectionType, privateKey, ...(key?.passphrase ? { passphrase: key.passphrase } : {}), password, hostKeySha256: node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null, ...(agentServerId ? { agentServerId } : {}) };
+  // A node that takes its host from a Linux server talks to that server's own SSH endpoint, so the server's pin
+  // is the one that counts: the copy the node got when it was created went stale when the server's key was
+  // approved again (reinstall, new machine) and every SFTP operation was then refused as a changed key.
+  const followsServerEndpoint = node.host == null && node.server != null && node.server.operatingSystem !== "WINDOWS";
+  const hostKeySha256 = followsServerEndpoint
+    ? node.server?.hostKeySha256 ?? node.hostKeySha256 ?? null
+    : node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null;
+
+  return { host, port, username, connectionType, privateKey, ...(key?.passphrase ? { passphrase: key.passphrase } : {}), password, hostKeySha256, ...(agentServerId ? { agentServerId } : {}) };
 }

@@ -298,3 +298,55 @@ describe("S3Client — object keys outside plain ASCII", () => {
 		expect(xmlText("&amp;lt; stays &amp;lt;")).toBe("&lt; stays &lt;");
 	});
 });
+
+describe("S3Client — download deadline", () => {
+	const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+	/** A body that delivers `chunks` pieces, `gapMs` apart. */
+	const slowBody = (chunks: number, gapMs: number) => {
+		let sent = 0;
+		return new ReadableStream<Uint8Array>({
+			async pull(controller) {
+				await sleep(gapMs);
+				if (sent >= chunks) controller.close();
+				else { sent += 1; controller.enqueue(new Uint8Array([sent])); }
+			},
+		});
+	};
+	const drain = async (stream: ReadableStream<Uint8Array>) => {
+		const reader = stream.getReader();
+		let total = 0;
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) return total;
+			total += value.length;
+		}
+	};
+
+	it("lets a download that keeps moving run past the budget (it used to be cut off after timeoutMs in all)", async () => {
+		let signal: AbortSignal | undefined;
+		const fetchImpl = (async (_url: string, init: RequestInit = {}) => {
+			signal = init.signal ?? undefined;
+			return new Response(slowBody(6, 40), { status: 200, headers: { "content-length": "6" } });
+		}) as unknown as typeof fetch;
+		const client = new S3Client(basicConfig({ fetchImpl, timeoutMs: 120 }));
+		const object = await client.getObject("backups/a.tar.gz");
+		// 6 chunks 40 ms apart: ~250 ms in all, more than the 120 ms budget, but never silent for 120 ms.
+		expect(await drain(object!.body)).toBe(6);
+		expect(signal?.aborted).toBe(false);
+	});
+
+	it("still gives up on a download that goes silent", async () => {
+		let signal: AbortSignal | undefined;
+		const fetchImpl = (async (_url: string, init: RequestInit = {}) => {
+			signal = init.signal ?? undefined;
+			return new Response(slowBody(3, 300), { status: 200 });
+		}) as unknown as typeof fetch;
+		const client = new S3Client(basicConfig({ fetchImpl, timeoutMs: 100 }));
+		const object = await client.getObject("backups/a.tar.gz");
+		const reading = drain(object!.body);
+		await sleep(250);
+		expect(signal?.aborted).toBe(true);
+		void reading.catch(() => undefined);
+		await object!.body.cancel().catch(() => undefined);
+	});
+});

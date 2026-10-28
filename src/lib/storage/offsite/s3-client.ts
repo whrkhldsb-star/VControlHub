@@ -236,6 +236,7 @@ function createIdleTimeoutSignal(timeoutMs: number): {
 	const arm = () => {
 		disarm();
 		timer = setTimeout(() => controller.abort(), timeoutMs);
+		timer.unref?.();
 	};
 	arm();
 	return {
@@ -364,17 +365,44 @@ export class S3Client {
 		const url = this.buildUrl(key, new URLSearchParams());
 		const headers: Record<string, string> = {};
 		const signed = this.sign("GET", url, headers, Buffer.alloc(0));
-		const res = await this.fetchImpl(url.toString(), {
-			method: "GET",
-			redirect: "error",
-			headers: signed.headers,
-			signal: AbortSignal.timeout(this.timeoutMs),
+		// A total deadline would cut a download that is still moving (a few hundred MB takes longer than the
+		// 30 s default): the budget is for connecting and for silence, and every chunk restarts it.
+		const { signal, noteActivity, dispose } = createIdleTimeoutSignal(this.timeoutMs);
+		let res: Response;
+		try {
+			res = await this.fetchImpl(url.toString(), {
+				method: "GET",
+				redirect: "error",
+				headers: signed.headers,
+				signal,
+			});
+			if (res.status === 404) { dispose(); return null; }
+			await this.assertOk(res, "GET", key);
+			if (!res.body) throw new S3Error("GET returned an empty body", res.status, "EmptyBody");
+		} catch (error) {
+			dispose();
+			throw error;
+		}
+		const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+		const body = new ReadableStream<Uint8Array>({
+			async pull(controller) {
+				try {
+					const { done, value } = await reader.read();
+					if (done) { dispose(); controller.close(); return; }
+					noteActivity();
+					controller.enqueue(value);
+				} catch (error) {
+					dispose();
+					controller.error(error);
+				}
+			},
+			async cancel(reason) {
+				dispose();
+				await reader.cancel(reason);
+			},
 		});
-		if (res.status === 404) return null;
-		await this.assertOk(res, "GET", key);
-		if (!res.body) throw new S3Error("GET returned an empty body", res.status, "EmptyBody");
 		return {
-			body: res.body as ReadableStream<Uint8Array>,
+			body,
 			size: Number(res.headers.get("content-length") ?? 0),
 			contentType: res.headers.get("content-type") ?? "application/octet-stream",
 		};
