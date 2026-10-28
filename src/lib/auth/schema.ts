@@ -4,8 +4,10 @@ export const loginSchema = z.object({
   username: z
     .string()
     .trim()
-    .min(3, "Username must be at least 3 characters")
-    .max(32, "Username must be at most 32 characters"),
+    // Same range as account creation (src/lib/user/schema.ts): accounts created with 2 or 33–40
+    // characters used to be impossible to log in to.
+    .min(2, "Username must be at least 2 characters")
+    .max(40, "Username must be at most 40 characters"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")

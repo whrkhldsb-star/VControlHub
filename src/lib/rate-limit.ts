@@ -138,7 +138,11 @@ const ACCOUNT_FAILURE_RETENTION_MS = 15 * 60 * 1000;
 export type LockoutScope = "client" | "account";
 
 function lockoutKey(username: string) {
-	return username.toLowerCase();
+	// The account lookup trims the name, so " admin" and "admin" are one account and must
+	// share one failure counter (a counter per spelling made the lockout trivially avoidable).
+	// NFKC folds look-alike forms into the same bucket; the length bound keeps a hostile
+	// multi-megabyte "username" from being stored as a map key.
+	return username.trim().normalize("NFKC").toLowerCase().slice(0, 64);
 }
 
 function clientLockoutKey(username: string, clientIp: string | null | undefined) {

@@ -113,6 +113,32 @@ describe("POST /api/login", () => {
     });
   });
 
+  describe("account name handling", () => {
+    it("answers an over-long name like any wrong login without keeping state for it", async () => {
+      const rate = await import("@/lib/rate-limit");
+      const audit = await import("@/lib/audit/service");
+      for (const length of [41, 300_000]) {
+        const response = await POST(makeLoginRequest({ username: "x".repeat(length), password: "secret-pass" }));
+        expect(response.status).toBe(303);
+        expect(response.headers.get("location")).toMatch(/^\/login\?error=invalid/);
+      }
+      expect(authenticateUserMock).not.toHaveBeenCalled();
+      expect(rate.isAccountLockedAsync).not.toHaveBeenCalled();
+      expect(rate.recordLoginFailureAsync).not.toHaveBeenCalled();
+      expect(audit.auditSystemAction).not.toHaveBeenCalled();
+    });
+
+    it("keys the lockout and the audit row on the trimmed name while authenticating the typed one", async () => {
+      const rate = await import("@/lib/rate-limit");
+      const audit = await import("@/lib/audit/service");
+      authenticateUserMock.mockResolvedValueOnce(null);
+      await POST(makeLoginRequest({ username: "  admin ", password: "wrong-pass" }));
+      expect(rate.isAccountLockedAsync).toHaveBeenCalledWith("admin", "127.0.0.1");
+      expect(rate.recordLoginFailureAsync).toHaveBeenCalledWith("admin", "127.0.0.1");
+      expect(vi.mocked(audit.auditSystemAction).mock.calls.at(-1)?.[1]).toMatchObject({ username: "admin" });
+    });
+  });
+
   it("uses the normal session TTL when remember login is not checked", async () => {
     process.env.AUTH_SESSION_TTL_SECONDS = "1234";
 
