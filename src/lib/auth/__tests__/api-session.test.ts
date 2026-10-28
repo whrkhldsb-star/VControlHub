@@ -16,6 +16,7 @@ vi.mock("@/lib/auth/session", () => ({
 }));
 
 import { getApiSession, isSessionPayload, requireApiSession } from "@/lib/auth/api-session";
+import { AuthError } from "@/lib/errors";
 import { NextResponse } from "next/server";
 
 const baseSession = {
@@ -41,6 +42,18 @@ describe("api-session", () => {
       delete: deleteCookieMock,
     });
     await expect(getApiSession()).resolves.toBeNull();
+  });
+
+  it("getApiSession drops the cookie and answers null for a token that is really invalid", async () => {
+    verifySessionTokenMock.mockRejectedValueOnce(new AuthError("Session token expired"));
+    await expect(getApiSession()).resolves.toBeNull();
+    expect(deleteCookieMock).toHaveBeenCalledWith("vch_session");
+  });
+
+  it("getApiSession keeps the cookie and surfaces a database failure instead of signing everyone out", async () => {
+    verifySessionTokenMock.mockRejectedValueOnce(Object.assign(new Error("Can't reach database server"), { code: "P1001" }));
+    await expect(getApiSession()).rejects.toThrow(/database/);
+    expect(deleteCookieMock).not.toHaveBeenCalled();
   });
 
   it("getApiSession returns verified payload even when mustChangePassword", async () => {
