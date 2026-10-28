@@ -102,6 +102,16 @@ describe("parseMonitorScriptOutput", () => {
 	});
 });
 
+describe("parseMonitorScriptOutput with hostile uptime text", () => {
+	it("stays fast on a long repeated 'up' run and keeps the reported uptime short", () => {
+		const output = `===CPU===\n===LOAD===\n${"up ".repeat(21_000)}\n`;
+		const started = Date.now();
+		const result = parseMonitorScriptOutput(output);
+		expect(Date.now() - started).toBeLessThan(500);
+		expect(result.uptime.length).toBeLessThanOrEqual(300);
+	});
+});
+
 describe("collectServerMetrics", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();

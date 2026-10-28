@@ -67,7 +67,9 @@ export function parseDfSizeLabel(label: string | undefined | null): number | nul
  */
 export function parseUptimeSeconds(text: string | undefined | null): number | null {
 	if (!text) return null;
-	let fragment = text;
+	// Same bound as the monitor parser: the split below backtracks quadratically
+	// on a long whitespace run, and the text is reported by the managed host.
+	let fragment = text.slice(0, 300);
 	const up = /\bup\s+(.+)/i.exec(fragment);
 	if (up) fragment = up[1]!;
 	// Drop everything from the user count / load average on.

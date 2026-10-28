@@ -101,9 +101,18 @@ function parseNetSection(lines: string[]): ServerMetrics["network"] {
 		.filter(Boolean) as ServerMetrics["network"];
 }
 
+/**
+ * A real `uptime` line is under 100 characters. The text comes from the managed
+ * host (or a customer's own Agent), so it is cut before it meets a pattern that
+ * rescans from every "up": a 64 000-character "up up up …" took over a second
+ * and a 16 MB SSH output never finished.
+ */
+const UPTIME_TEXT_MAX_CHARS = 300;
+
 function parseUptime(line: string): string {
-	const match = line.match(/up\s+(.+?),\s*\d+\s*user/);
-	return match ? match[1]!.trim() : line.trim();
+	const text = line.trim().slice(0, UPTIME_TEXT_MAX_CHARS);
+	const match = text.match(/up\s+(.+?),\s*\d+\s*user/);
+	return match ? match[1]!.trim() : text;
 }
 
 /* ── Main collect function ────────────────────────────────── */
