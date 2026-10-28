@@ -36,6 +36,12 @@ export type Ssh2ExecutionInput = {
   runtimeConfig: { executionTimeoutMs: number; outputLimitBytes: number };
 };
 
+/**
+ * Closing the SSH connection does not stop the command on the server (no terminal: sshd only closes the pipes), so a
+ * cancelled or timed-out command is of unknown outcome; a playbook must not run it again beside the one still going.
+ */
+const STOPPED_LOCALLY_NOTICE = "\nThe local SSH connection was closed; the remote process may still be running — check it before running the command again.";
+
 function mapConnectError(error: unknown): Error {
   if (isHostKeyRejection(error)) {
     return new SshHostKeyChangedError("pinned host key", "mismatched host key presented");
@@ -111,27 +117,33 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
       const cancelled = input.signal?.aborted || marked;
       if (cancelled) {
         stderrCollector.push("\nCommand has been cancelled; SSH subprocess terminated.");
+        stderrCollector.push(STOPPED_LOCALLY_NOTICE);
         finish({
           stdout: stdoutCollector.finish(),
           stderr: stderrCollector.finish(),
           exitCode: 130,
           timedOut,
           cancelled: true,
+          outcomeUnknown: true,
         });
       } else if (timedOut) {
+        stderrCollector.push(STOPPED_LOCALLY_NOTICE);
         finish({
           stdout: stdoutCollector.finish(),
           stderr: stderrCollector.finish(),
           exitCode: 124,
           timedOut: true,
+          outcomeUnknown: true,
         });
       } else {
         // External cancel (not via markCommandTargetCancelled): terminate like SIGKILL.
+        stderrCollector.push(STOPPED_LOCALLY_NOTICE);
         finish({
           stdout: stdoutCollector.finish(),
           stderr: stderrCollector.finish(),
           exitCode: 137,
           cancelled: true,
+          outcomeUnknown: true,
         });
       }
       return true;
@@ -175,12 +187,14 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
             stderrCollector.push("\nCommand has been cancelled; SSH subprocess terminated.");
           }
           const exitCode = cancelled ? 130 : timedOut ? 124 : (code ?? 255);
+          if (cancelled || timedOut) stderrCollector.push(STOPPED_LOCALLY_NOTICE);
           finish({
             stdout: stdoutCollector.finish(),
             stderr: stderrCollector.finish(),
             exitCode,
             timedOut,
             cancelled,
+            ...(cancelled || timedOut ? { outcomeUnknown: true } : {}),
           });
         });
         stream.on("error", () => {

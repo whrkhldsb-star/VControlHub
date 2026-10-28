@@ -337,7 +337,8 @@ describe("quick service docker lifecycle", () => {
 			detail: expect.objectContaining({
 				rollback: "running",
 				diff: expect.objectContaining({
-					before: expect.objectContaining({ image: "example/demo:old", envJson: before.envJson }),
+					// The audit entry names the variables but never carries their values (generated admin passwords).
+					before: expect.objectContaining({ image: "example/demo:old", envJson: JSON.stringify({ OLD: "***" }) }),
 					after: expect.objectContaining({ image: "example/demo:old", rollbackReason: "restore-previous-service-row" }),
 				}),
 			}),

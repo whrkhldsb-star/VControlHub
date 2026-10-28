@@ -219,12 +219,19 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
       if (cancelled) {
         stderrCollector.push("\nCommand has been cancelled; SSH subprocess terminated.");
       }
+      // Ending the local ssh client does not stop the command on the server: without a terminal, sshd only closes the
+      // pipes and the remote process runs on (measured: a `sleep` still alive, its follow-up still executed). A
+      // cancelled or timed-out command is therefore of unknown outcome, so a playbook does not run it again beside the
+      // one that may still be going.
+      const stoppedLocallyOnly = cancelled || timedOut;
       resolve({
         stdout: stdoutCollector.finish(),
-        stderr: stderrCollector.finish(),
+        // After the collector: its output limit must not cut the one sentence a person needs here.
+        stderr: stderrCollector.finish() + (stoppedLocallyOnly ? "\nThe local SSH connection was closed; the remote process may still be running — check it before running the command again." : ""),
         exitCode: cancelled ? 130 : timedOut ? 124 : (code ?? 255),
         timedOut,
         cancelled,
+        ...(stoppedLocallyOnly ? { outcomeUnknown: true } : {}),
       });
     });
   });

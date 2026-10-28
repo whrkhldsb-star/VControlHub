@@ -206,7 +206,8 @@ async function installServiceUnlocked(opts: InstallOptions) {
 				image: template.image,
 				port: hostPort,
 				path: template.path,
-				internalPort: template.internalPort ?? null,
+				// The port inside the container, whichever host port was chosen (see templateFromStoredService).
+				internalPort: template.internalPort ?? template.defaultPort,
 				extraPortsJson: extraPortsStr,
 				command: template.command ?? null,
 				envJson: envStr,
@@ -225,7 +226,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 				image: template.image,
 				port: hostPort,
 				path: template.path,
-				internalPort: template.internalPort ?? null,
+				internalPort: template.internalPort ?? template.defaultPort,
 				extraPortsJson: extraPortsStr,
 				command: template.command ?? null,
 				envJson: envStr,

@@ -164,6 +164,9 @@ describe("command ssh-executor adapter", () => {
     expect(result.timedOut).toBe(true);
     expect(result.cancelled).toBe(false);
     expect(result.stderr).toContain("Command execution exceeded 200ms");
+    // Ending the local ssh client leaves the command running on the server (no terminal: sshd only closes the pipes).
+    expect(result.outcomeUnknown).toBe(true);
+    expect(result.stderr).toContain("remote process may still be running");
   });
 
   it("escalates to SIGKILL when the child survives SIGTERM past the grace window", async () => {
@@ -236,6 +239,7 @@ describe("command ssh-executor adapter", () => {
     expect(result.exitCode).toBe(130);
     expect(result.cancelled).toBe(true);
     expect(result.stderr).toContain("cancelled");
+    expect(result.outcomeUnknown).toBe(true);
   });
 
   it("rejects with the sshpass-missing message when spawn emits an ENOENT error", async () => {
