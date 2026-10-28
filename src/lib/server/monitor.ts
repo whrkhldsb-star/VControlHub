@@ -96,7 +96,14 @@ function parseNetSection(lines: string[]): ServerMetrics["network"] {
 		.map((line) => {
 			const parts = line.trim().split(/\s+/);
 			if (parts.length < 3) return null;
-			return { iface: parts[0]!, rxBytes: parseFloatOr(parts[1]!, 0), txBytes: parseFloatOr(parts[2]!, 0) };
+			// The two counters are the last fields; the adapter name is whatever comes before them. Windows
+			// names have spaces ("Ethernet 2", "以太网 2", "vEthernet (WSL)"): reading the name as the first word
+			// took part of it for the received bytes and merged adapters that share a first word.
+			return {
+				iface: parts.slice(0, -2).join(" "),
+				rxBytes: parseFloatOr(parts[parts.length - 2]!, 0),
+				txBytes: parseFloatOr(parts[parts.length - 1]!, 0),
+			};
 		})
 		.filter(Boolean) as ServerMetrics["network"];
 }

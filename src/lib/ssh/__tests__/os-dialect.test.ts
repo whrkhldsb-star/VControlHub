@@ -1,6 +1,10 @@
 /**
  * Unit tests for OS Dialect abstraction layer (TR-041)
  */
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 
 import {
@@ -148,9 +152,54 @@ describe("serviceCommand", () => {
     expect(cmd).toBe("systemctl status nginx --no-pager -l");
   });
 
-  it("generates systemd reload with restart fallback", () => {
+  it("generates systemd reload that restarts only a unit that cannot reload", () => {
     const cmd = serviceCommand("systemd", "reload", "nginx", "sudo -n");
-    expect(cmd).toBe("sudo -n systemctl reload nginx || sudo -n systemctl restart nginx");
+    expect(cmd).toContain("sudo -n systemctl reload nginx ||");
+    expect(cmd).toContain("systemctl show -p CanReload --value nginx");
+    expect(cmd).toContain("sudo -n systemctl restart nginx");
+  });
+
+  describe.skipIf(process.platform === "win32")("the reload command, run against a stand-in systemctl", () => {
+    const run = (reloadExit: number, canReload: string) => {
+      const dir = mkdtempSync(join(tmpdir(), "reload-"));
+      try {
+        const log = join(dir, "calls.log");
+        writeFileSync(join(dir, "systemctl"), [
+          "#!/bin/sh",
+          `echo "$*" >> "${log}"`,
+          'case "$1" in',
+          `  reload) exit ${reloadExit} ;;`,
+          `  show) echo ${canReload} ;;`,
+          "esac",
+          "",
+        ].join("\n"));
+        chmodSync(join(dir, "systemctl"), 0o755);
+        const result = spawnSync("sh", ["-c", serviceCommand("systemd", "reload", "ssh", "")], {
+          env: { PATH: `${dir}:/usr/bin:/bin`, },
+          encoding: "utf8",
+        });
+        const calls = spawnSync("sh", ["-c", `cat "${log}"`], { encoding: "utf8" }).stdout;
+        return { status: result.status, calls: calls.trim().split("\n") };
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    };
+
+    it("does nothing more when the reload worked", () => {
+      expect(run(0, "yes")).toEqual({ status: 0, calls: ["reload ssh"] });
+    });
+
+    it("keeps the old process running and reports the failure when a unit that can reload refuses the config", () => {
+      const { status, calls } = run(1, "yes");
+      expect(status).toBe(1);
+      expect(calls.some((call) => call.startsWith("restart"))).toBe(false);
+    });
+
+    it("restarts a unit that has no reload", () => {
+      const { status, calls } = run(1, "no");
+      expect(status).toBe(0);
+      expect(calls).toContain("restart ssh");
+    });
   });
 
   it("generates openrc restart", () => {

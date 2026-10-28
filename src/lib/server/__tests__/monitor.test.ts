@@ -23,6 +23,20 @@ vi.mock("@/lib/i18n/server-locale-cookie", () => ({
 
 import { collectServerMetrics, parseMonitorScriptOutput } from "../monitor";
 
+describe("parseMonitorScriptOutput network section", () => {
+  it("reads the two counters from the end of the line, so an adapter name with spaces stays whole", () => {
+    // Windows names: "Ethernet 2", "以太网 2", "vEthernet (WSL)". The first word was taken as the name and the
+    // next as the received bytes, merging adapters that share a first word.
+    const result = parseMonitorScriptOutput(["===NET===", "Ethernet 2 1234567890 987654321", "以太网 2 5 6", "vEthernet (WSL) 7 8", "eth0 100 200"].join("\n"));
+    expect(result.network).toEqual([
+      { iface: "Ethernet 2", rxBytes: 1234567890, txBytes: 987654321 },
+      { iface: "以太网 2", rxBytes: 5, txBytes: 6 },
+      { iface: "vEthernet (WSL)", rxBytes: 7, txBytes: 8 },
+      { iface: "eth0", rxBytes: 100, txBytes: 200 },
+    ]);
+  });
+});
+
 describe("parseMonitorScriptOutput", () => {
 	it("parses compact agentless SSH monitor output", () => {
 		const output = [
