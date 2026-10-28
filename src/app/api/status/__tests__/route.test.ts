@@ -54,6 +54,8 @@ describe("GET /api/status", () => {
     const body = await res.json();
     expect(body).toEqual(fullPayload);
     expect(body.checks).toHaveLength(3);
+    // The signed-in variant depends on who asks: the browser must not keep it for the next user.
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
   it("propagates service errors as 500", async () => {

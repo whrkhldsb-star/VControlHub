@@ -6,4 +6,14 @@ describe("Next.js production config", () => {
   it("does not enable standalone output while the custom server owns production startup", () => {
     expect(nextConfig).not.toHaveProperty("output", "standalone");
   });
+
+  it("does not announce the framework in every response", () => {
+    expect(nextConfig.poweredByHeader).toBe(false);
+  });
+
+  it("does not give API responses a max-age: the browser cache is keyed on the URL, not the user or customer", async () => {
+    const rules = await nextConfig.headers!();
+    const apiRules = rules.filter((rule) => rule.source.startsWith("/api"));
+    expect(apiRules).toEqual([]);
+  });
 });

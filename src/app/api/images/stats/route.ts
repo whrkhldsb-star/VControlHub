@@ -76,7 +76,7 @@ export async function GET(request: Request) {
           albums,
           uploadTrend,
         }),
-        CachePresets.shortLived,
+        CachePresets.noStore,
       );
     },
   );

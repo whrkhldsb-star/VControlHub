@@ -74,7 +74,7 @@ export async function GET(request: Request) {
     async ({ session }) => {
       return withCacheHeaders(
         NextResponse.json({ tokens: await listApiTokens(session.userId) }),
-        CachePresets.shortLived,
+        CachePresets.noStore,
       );
     },
   );

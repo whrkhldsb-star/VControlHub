@@ -273,6 +273,6 @@ export async function GET(request: Request) {
       );
     }
 
-    return withCacheHeaders(NextResponse.json(results), CachePresets.shortLived);
+    return withCacheHeaders(NextResponse.json(results), CachePresets.noStore);
   });
 }
