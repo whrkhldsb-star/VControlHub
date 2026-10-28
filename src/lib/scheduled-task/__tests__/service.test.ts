@@ -102,6 +102,17 @@ describe("scheduled task service", () => {
     });
   });
 
+  it("accepts only the documented five-field cron on create (no seconds, no @macros)", async () => {
+    mockPrisma.scheduledTask.create.mockResolvedValue({ id: "task1" });
+    const base = { name: "Clean logs", command: "df -h", serverIds: ["srv1"], createdById: "u1" };
+    for (const cronExpression of ["*/1 * * * * *", "@daily", "0 0", "* * * * * * *"]) {
+      await expect(service.createScheduledTask({ ...base, cronExpression }, PLATFORM)).rejects.toThrow();
+    }
+    expect(mockPrisma.scheduledTask.create).not.toHaveBeenCalled();
+    await service.createScheduledTask({ ...base, cronExpression: "  0   2 * * *  " }, PLATFORM);
+    expect(mockPrisma.scheduledTask.create).toHaveBeenCalledTimes(1);
+  });
+
   it("assigns teamId from session on create when present", async () => {
     mockPrisma.scheduledTask.create.mockResolvedValue({ id: "task1", teamId: "team_a" });
 

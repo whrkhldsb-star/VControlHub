@@ -18,6 +18,11 @@ describe("buildContentDisposition", () => {
  expect(result).toBe('attachment; filename="file_name__.pdf"');
  });
 
+ it("does not leave a backslash in the quoted name (it would escape the next character for the parser)", () => {
+ const result = buildContentDisposition("attachment", "a\\\"b.txt");
+ expect(result).toBe('attachment; filename="a__b.txt"');
+ });
+
  it("uses RFC 5987 encoding for Chinese filenames", () => {
  const result = buildContentDisposition("attachment", "新建文档.docx");
  // Should contain: ASCII fallback filename (non-ASCII replaced with _) + filename*=UTF-8''...

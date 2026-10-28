@@ -4,7 +4,7 @@
  * parameter for legacy browsers.
  */
 export function buildContentDisposition(disposition: "attachment" | "inline", fileName: string) {
- const safeName = fileName.replace(/[\r\n"]/g, "_");
+ const safeName = fileName.replace(/[\r\n"\\]/g, "_");
 
  // If the name is pure ASCII, use the simple form
  if (/^[\x20-\x7e]*$/.test(safeName)) {

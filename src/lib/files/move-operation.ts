@@ -1,4 +1,5 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
+import { rebaseDescendantPath } from "./rebase-path";
 import type { SessionPayload } from "@/lib/auth/session";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
@@ -254,7 +255,7 @@ export async function executeMoveFile(
           for (const child of children) {
             await tx.fileEntry.update({
               where: { id: child.id },
-              data: { relativePath: child.relativePath.replace(oldPrefix, newPrefix) },
+              data: { relativePath: rebaseDescendantPath(child.relativePath, oldPrefix, newPrefix) },
             });
           }
         }

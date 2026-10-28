@@ -17,11 +17,14 @@ import { liveCustomerRowsWhere, serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { persistServerTrafficFromMetrics } from "@/lib/monitoring/server-traffic-snapshot";
 import { fullestDisk } from "@/lib/public-status/normalize";
+import { createLimiter } from "@/lib/concurrency/limiter";
 
 /** Default TCP probe deadline; tight enough to keep the health rollup snappy
  *  even when dozens of servers are probed in parallel. */
 const TCP_PROBE_TIMEOUT_MS = 2_000;
 const SERVER_PAGE_SIZE = 200;
+/** At most this many servers are probed and collected at once (the sibling fan-outs cap at 5). */
+const HEALTH_CHECK_CONCURRENCY = 8;
 
 /**
  * Process-local last-sample cache so network_in/out can be expressed as
@@ -123,8 +126,9 @@ export async function collectAllHealth(
     cursorId = page[page.length - 1]!.id;
   }
 
-  // Parallel health checks — SSH connections can take seconds each
-  const checks = servers.map(async (server) => {
+  // Health checks run in parallel up to a cap — SSH connections can take seconds each
+  const limited = createLimiter(HEALTH_CHECK_CONCURRENCY);
+  const checks = servers.map((server) => limited(async () => {
     if (!server.enabled) {
       return {
         serverId: server.id,
@@ -260,7 +264,7 @@ export async function collectAllHealth(
         error: `Collection failed (host online, RTT ${rtt ?? "?"}ms): ${err instanceof Error ? err.message : String(err)}`,
       };
     }
-  });
+  }));
   const results = (await Promise.allSettled(checks))
     .map((r) => (r.status === "fulfilled" ? r.value : null))
     .filter(Boolean) as ServerHealth[];
