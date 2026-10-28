@@ -314,6 +314,45 @@ describe("server service", () => {
     expect(prisma.storageNode.create).not.toHaveBeenCalled();
   });
 
+  it.each(["127.0.0.1", "localhost", "::1", "0.0.0.0"])(
+    "refuses a customer account registering the hub's own address (%s) as a node",
+    async (host) => {
+      const customer = { userId: "u_cust", roles: ["operator"], currentTeamId: "team_a" };
+      await expect(
+        createServerProfile(
+          {
+            name: "own-hub",
+            host,
+            port: 22,
+            username: "root",
+            connectionType: "PASSWORD",
+            password: "secret123",
+            storagePath: "/etc",
+            approvedHostKeySha256: "SHA256:x",
+          },
+          customer,
+        ),
+      ).rejects.toThrow(t("backend.server.localHostPlatformOnly"));
+
+      expect(prisma.server.create).not.toHaveBeenCalled();
+      expect(prisma.storageNode.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses a customer account re-pointing a server at the hub's own address", async () => {
+    const customer = { userId: "u_cust", roles: ["operator"], currentTeamId: "team_a" };
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
+      id: "srv_cust", name: "cust-node", host: "203.0.113.5", port: 22, username: "root",
+      connectionType: "PASSWORD", managementMode: "DIRECT", password: "cipher", sshKeyId: null, tags: [],
+      teamId: "team_a", origin: "CUSTOMER", operatingSystem: "LINUX", enabled: true, storageNode: null,
+    } as any);
+
+    await expect(updateServerProfile("srv_cust", { host: "127.0.0.1" }, customer)).rejects.toThrow(
+      t("backend.server.localHostPlatformOnly"),
+    );
+    expect(prisma.server.update).not.toHaveBeenCalled();
+  });
+
   it("verifies SSH connectivity before creating a remote VPS record", async () => {
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
     execRemoteCommandMock.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));

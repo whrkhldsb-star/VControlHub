@@ -102,6 +102,7 @@ export const zh: Record<string, string> = {
 
 	// server/service-profiles.ts, server/service-direct-gateway.ts
 	"backend.server.nodeNotFound": "VPS 节点不存在或已删除",
+	"backend.server.localHostPlatformOnly": "本机地址（127.0.0.1 / localhost / ::1 / 0.0.0.0）只有平台管理员可以登记为节点",
 	"backend.server.deleteBlockedByDependencies": "该 VPS 仍被业务数据引用，暂不能删除：{dependencies}",
 	"backend.server.onboarding.sshDraft": "SSH 连接尚未就绪：{reason}。节点已保存为停用草稿，未执行远端初始化。修正地址、端口或凭据后，再启用节点完成验证。",
 	"backend.server.duplicateHost": "已存在使用相同 IP／主机名的 VPS 节点：{name}（{endpoint}）。为避免重复管理同一台服务器或端口填错，请编辑现有节点，或先删除旧节点再添加。",
@@ -765,6 +766,7 @@ export const en: Record<string, string> = {
 
 	// server/service-profiles.ts, server/service-direct-gateway.ts
 	"backend.server.nodeNotFound": "VPS node not found or has been deleted",
+	"backend.server.localHostPlatformOnly": "Only platform administrators can register a local address (127.0.0.1 / localhost / ::1 / 0.0.0.0) as a node",
 	"backend.server.deleteBlockedByDependencies": "This VPS is still referenced by business data and cannot be deleted: {dependencies}",
 	"backend.server.onboarding.sshDraft": "SSH connection is not ready: {reason}. The node was saved as a disabled draft and no remote setup was attempted. Fix the endpoint, port, or credentials, then enable the node to finish verification.",
 	"backend.server.duplicateHost": "A VPS node with the same IP/host already exists: {name} ({endpoint}). To avoid managing the same server twice or a mistyped port, edit the existing node or delete the old one before adding a new one.",
