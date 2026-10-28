@@ -348,6 +348,11 @@ export function isRuntimeSettingKey(key: string): key is RuntimeSettingKey {
 
 export function normalizeRuntimeSettingValue(key: RuntimeSettingKey, value: string | number | undefined | null): string {
   const definition = RUNTIME_SETTING_DEFINITIONS[key];
+  // A cleared box means "the default" (the form says so): Number("") is 0, which for a retention such as the audit
+  // log's meant "keep everything for ever".
+  if (value === undefined || value === null || (typeof value === "string" && value.trim() === "")) {
+    return String(definition.defaultValue);
+  }
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
     throw new ValidationError(apiCopy("apiCopy.must.be.a.number.ab7c6a3d", { v0: String(definition.label) }));

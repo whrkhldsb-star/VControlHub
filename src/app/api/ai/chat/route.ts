@@ -32,6 +32,9 @@ export async function POST(request: Request) {
       permission: "ai:chat",
       errorMessage: t("apiAiChat.errorMessage", locale),
       bodySchema: chatRequestSchema,
+      // Images and PDFs travel in the request as base64 (up to 8,000,000 characters each by the schema). The default
+      // 1 MiB refused every real screenshot with "request body too large" and the composer had already cleared itself.
+      maxBodyBytes: 32 * 1024 * 1024,
     },
     async ({ session, body }) => {
       const content = (body.content ?? body.message ?? "").trim();

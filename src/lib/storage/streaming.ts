@@ -65,7 +65,11 @@ export function buildStorageStreamHeaders(input: StorageStreamHeadersInput): Hea
 	// bare `sandbox` rather than `default-src 'none'` so a directly-opened video
 	// or image still renders (default-src 'none' blocks the MediaDocument fetch).
 	headers.set("x-content-type-options", "nosniff");
-	if (!input.download) {
+	// Not for a PDF: the browser's own PDF viewer is blocked in a sandboxed document ("This page has been blocked by
+	// Chrome"), which left the preview page's PDF frame empty. A PDF is not HTML, so it carries no markup for the sandbox
+	// to neutralise; `nosniff` and the exact type above keep it from being read as anything else.
+	const isPdf = /^application\/pdf\b/i.test(input.contentType ?? "");
+	if (!input.download && !isPdf) {
 		headers.set("content-security-policy", "sandbox");
 	}
 	if (input.range.status === 206) {

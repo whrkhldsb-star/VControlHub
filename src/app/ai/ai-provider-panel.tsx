@@ -10,6 +10,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Badge, IconButton } from "@/components/ui-primitives";
 import { Pencil, Trash2 } from "@/components/icons";
 import { AiProviderFields } from "./ai-provider-fields";
+import { modelsForEditing, parseStoredModels } from "./provider-models";
 
 import { ActionButton } from "@/components/action-button";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -124,7 +125,7 @@ export function AiProviderPanel({
       apiKey: "",
       baseUrl: provider.baseUrl,
       defaultModel: provider.defaultModel,
-      availableModels: provider.availableModels,
+      availableModels: modelsForEditing(provider.availableModels),
       isDefault: provider.isDefault,
     });
   };
@@ -138,10 +139,7 @@ export function AiProviderPanel({
     if (!editingProviderId || !editForm || mutationRef.current) return;
     mutationRef.current = true;
     setSaving(true);
-    const availableModels = editForm.availableModels
-      .split(",")
-      .map((model) => model.trim())
-      .filter(Boolean);
+    const availableModels = parseStoredModels(editForm.availableModels);
     const patchBody: Record<string, string | boolean | string[]> = {
       name: editForm.name.trim(),
       type: editForm.type,

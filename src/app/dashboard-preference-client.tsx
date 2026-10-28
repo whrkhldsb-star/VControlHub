@@ -324,6 +324,9 @@ export function DashboardPreferenceClient({
 					// child clicks too.
 					if (isEditing) return;
 					const target = e.target as HTMLElement | null;
+					// A link or control inside a widget does its own job (open a page, press a button); the detail
+					// dialog used to open over it as well, and stayed behind after a new-tab click.
+					if (e.defaultPrevented || target?.closest("a, button, input, select, textarea, summary, [role='button'], [role='link']")) return;
 					const widgetEl = target?.closest<HTMLElement>("[data-dashboard-widget]");
 					if (!widgetEl) return;
 					const id = widgetEl.getAttribute("data-dashboard-widget") as DashboardWidgetId | null;

@@ -102,6 +102,24 @@ describe("QuickServicesClient", () => {
 		vi.mocked(csrfFetch).mockReset();
 	});
 
+	it("keeps the target node selectable when the chosen node cannot be loaded", async () => {
+		// A Windows machine, or one that is offline: the whole page used to be replaced by the error, and "retry" asked the
+		// same node again, so only a reload (back to the hub host) got out.
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce({ ...availableCatalogResponse, servers: [{ id: "srv_win", name: "win-box", host: "10.0.0.9" }] })
+			.mockResolvedValueOnce(sourcesResponse)
+			.mockRejectedValueOnce(new Error("Quick services need a Linux node"));
+
+		render(<QuickServicesClient canManage canManageHubHost />);
+		const user = userEvent.setup();
+		await user.selectOptions(await screen.findByLabelText("部署节点"), "srv_win");
+
+		expect(await screen.findByText("Quick services need a Linux node")).toBeInTheDocument();
+		const select = screen.getByLabelText("部署节点");
+		await user.selectOptions(select, "");
+		await waitFor(() => expect(select).toHaveValue(""));
+	});
+
 	it("opens on local picks so the built-in catalog is immediately useful", async () => {
 		vi.mocked(csrfFetch)
 			.mockResolvedValueOnce(availableCatalogResponse)

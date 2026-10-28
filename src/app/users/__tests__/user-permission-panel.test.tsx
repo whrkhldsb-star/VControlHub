@@ -76,6 +76,22 @@ describe("UserPermissionPanel", () => {
 		expect(body).not.toHaveProperty("serverAccess");
 	});
 
+	it("sends the change back to the original template too: what was saved is the baseline", async () => {
+		// The panel compared with what it first loaded, so after saving a change, changing it back counted as "no
+		// change", sent no account, and still answered "saved": a demotion silently not applied.
+		const actor = userEvent.setup();
+		renderPanel();
+		const template = await screen.findByLabelText("身份模板");
+		await actor.selectOptions(template, "identity:operator");
+		await actor.click(screen.getByRole("button", { name: "保存权限" }));
+		await actor.selectOptions(screen.getByLabelText("身份模板"), "identity:viewer");
+		await actor.click(screen.getByRole("button", { name: "保存权限" }));
+
+		const patches = vi.mocked(csrfFetch).mock.calls.filter(([, init]) => init?.method === "PATCH").map(([, init]) => JSON.parse(String(init?.body)));
+		expect(patches).toHaveLength(2);
+		expect(patches[1].account).toEqual({ type: "customer", teamId: "team_a", identityTemplateId: "identity:viewer" });
+	});
+
 	it("turns an account into a platform administrator without resource narrowing", async () => {
 		const actor = userEvent.setup();
 		renderPanel();

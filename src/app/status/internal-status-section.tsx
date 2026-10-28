@@ -5,6 +5,7 @@ import { getPublicStatus } from "@/lib/status/service";
 import { createLogger } from "@/lib/logging";
 import { getAllUptimeDataInternal, type UptimeDay } from "@/lib/uptime/internal";
 import type { SessionPayload } from "@/lib/auth/session";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import type { SystemHealthCheck } from "@/lib/system-health/service";
 import {
   calculateWeightedSla,
@@ -124,13 +125,24 @@ function UptimeHeatmaps({ servers, locale }: { servers: Array<{ id: string; name
  */
 export async function InternalStatusSection({ session }: { session: SessionPayload }) {
   const locale = await getServerLocale();
+  // The component checks count every customer's servers and storage nodes ("N VPS instances enabled"): they are for
+  // the platform's administrators. A customer account sees its own uptime below.
+  const showPlatformChecks = isGlobalTeamManager(session);
   const [uptimeData, status] = await Promise.all([
     getAllUptimeDataInternal({ session }).catch((err) => {
       logger.error("Failed to fetch uptime data", err);
       return null;
     }),
-    getPublicStatus(),
+    showPlatformChecks ? getPublicStatus() : Promise.resolve(null),
   ]);
+  if (!status) {
+    return (
+      <section aria-labelledby="internal-status-title" className="mt-10 border-t border-[var(--border)] pt-6">
+        <h2 id="internal-status-title" className="ui-title-section">{t("statusPage.internal.title", locale)}</h2>
+        <UptimeHeatmaps servers={uptimeData?.servers ?? []} locale={locale} />
+      </section>
+    );
+  }
   return (
     <section aria-labelledby="internal-status-title" className="mt-10 border-t border-[var(--border)] pt-6">
       <h2 id="internal-status-title" className="ui-title-section">{t("statusPage.internal.title", locale)}</h2>

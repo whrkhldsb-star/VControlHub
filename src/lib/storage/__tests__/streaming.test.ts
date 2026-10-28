@@ -42,6 +42,18 @@ describe("storage streaming helpers", () => {
 		expect(headers.get("content-security-policy")).toBeNull();
 	});
 
+	it("lets an inline PDF through without the sandbox CSP, so the browser's PDF viewer can show it", () => {
+		// A sandboxed document blocks the PDF viewer: the preview page's frame stayed empty.
+		const range = parseStorageRange(null, 2048);
+		if (range instanceof Response) throw new Error("expected range spec");
+		const pdf = buildStorageStreamHeaders({ fileName: "report.pdf", fileSize: 2048, contentType: "application/pdf", download: false, range });
+		expect(pdf.get("content-security-policy")).toBeNull();
+		expect(pdf.get("x-content-type-options")).toBe("nosniff");
+		// Anything else inline keeps it, including an HTML page that merely has a PDF name.
+		const html = buildStorageStreamHeaders({ fileName: "report.pdf", fileSize: 2048, contentType: "text/html", download: false, range });
+		expect(html.get("content-security-policy")).toBe("sandbox");
+	});
+
 	it("parses explicit and suffix byte ranges", () => {
 		expect(parseStorageRange("bytes=10-19", 100)).toEqual({ start: 10, end: 19, status: 206 });
 		expect(parseStorageRange("bytes=95-", 100)).toEqual({ start: 95, end: 99, status: 206 });

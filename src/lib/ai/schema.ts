@@ -48,13 +48,20 @@ export const aiProviderTypeSchema = z.enum([
 // inline form omitted it and tests rely on the default. `models` is the
 // legacy comma-separated text input; new code should prefer
 // `availableModels` (array).
+// A provider's model list. The server itself writes up to 10,000 discovered ids into availableModels (an aggregating
+// gateway such as OpenRouter lists hundreds), so the limits here match that: at 256 entries / 8,192 characters the
+// provider could not be created, nor edited afterwards (rotating its key or changing its URL), without deleting it
+// and, with it, every conversation.
+const MAX_PROVIDER_MODELS = 10_000;
+const MAX_PROVIDER_MODELS_TEXT = 400_000;
+
 export const createProviderSchema = z.object({
   name: z.string().min(1, "Provider name is required").max(128, "Provider name is too long"),
   type: aiProviderTypeSchema.optional(),
   apiKey: z.string().min(1, "API Key is required"),
   baseUrl: z.string().trim().max(2048, "Base URL is too long").optional(),
-  models: z.string().trim().max(8192, "Model list is too long").optional(),
-  availableModels: z.array(z.string().trim().min(1)).max(256, "Too many models").optional(),
+  models: z.string().trim().max(MAX_PROVIDER_MODELS_TEXT, "Model list is too long").optional(),
+  availableModels: z.array(z.string().trim().min(1).max(256)).max(MAX_PROVIDER_MODELS, "Too many models").optional(),
   defaultModel: z.string().trim().min(1).max(128).optional(),
   isDefault: z.boolean().optional(),
   enabled: z.boolean().optional(),
@@ -67,8 +74,8 @@ export const updateProviderSchema = z.object({
   type: aiProviderTypeSchema.optional(),
   apiKey: z.string().min(1).optional(),
   baseUrl: z.string().trim().max(2048).optional(),
-  models: z.string().trim().max(8192).optional(),
-  availableModels: z.array(z.string().trim().min(1)).max(256).optional(),
+  models: z.string().trim().max(MAX_PROVIDER_MODELS_TEXT).optional(),
+  availableModels: z.array(z.string().trim().min(1).max(256)).max(MAX_PROVIDER_MODELS).optional(),
   defaultModel: z.string().trim().min(1).max(128).optional(),
   isDefault: z.boolean().optional(),
   enabled: z.boolean().optional(),

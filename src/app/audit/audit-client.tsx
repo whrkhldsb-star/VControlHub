@@ -45,6 +45,8 @@ type AuditLogClientProps = {
  * against users — per keystroke. Same window the image-bed list uses.
  */
 const SEARCH_DEBOUNCE_MS = 350;
+/** The actions the type filter lists; any other value in the URL gets an option of its own. */
+const KNOWN_ACTION_OPTIONS = ["auth.login", "auth.login_failed", "auth.password_change", "storage.file_delete", "server.create", "command.execute", "download.create"];
 
 function severityTone(severity: string):"accent" |"warning" |"danger" {
   const tones: Record<string,"accent" |"warning" |"danger"> = {
@@ -201,6 +203,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             <option value="server.create">{t("audit.create-node")}</option>
             <option value="command.execute">{t("audit.action.command.execute")}</option>
             <option value="download.create">{t("audit.action.download.create")}</option>
+            {/* An action from a link or the chips below that the list above lacks: show it, not "all types". */}
+            {actionFilter && !KNOWN_ACTION_OPTIONS.includes(actionFilter) ? <option value={actionFilter}>{formatAction(actionFilter, t)}</option> : null}
           </select>
           <ActionButton variant="secondary"
             onClick={fetchLogs}>

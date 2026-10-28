@@ -93,6 +93,9 @@ function toBool(v: string): boolean {
 }
 
 function toInt(v: string, fallback: number): number {
+	// An emptied field means the default: Number("") is 0, which made the retention invalid (every use of the
+	// off-site config then threw) and moved the daily window to midnight.
+	if (v.trim() === "") return fallback;
 	const n = Number(v);
 	return Number.isFinite(n) && Number.isInteger(n) ? n : fallback;
 }

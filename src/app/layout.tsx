@@ -110,12 +110,11 @@ export default async function RootLayout({
 							<StorageUploadProvider key={`${session?.userId ?? "anonymous"}:${session?.currentTeamId ?? "personal"}`} scope={`${session?.userId ?? "anonymous"}:${session?.currentTeamId ?? "personal"}`}>
 							<SshTerminalProvider>
 							{shouldRenderAuthenticatedChrome ? <SkipLink /> : null}
+							{/* One gate for the whole shell: the topbar's notification bell and the pages read it too (outside any
+							    provider they saw an empty gate, which switched off opening another customer's notification). */}
+							<SessionGateProvider value={sessionGate}>
 							<div className="flex min-h-dvh min-w-0">
-								{shouldRenderAuthenticatedChrome && (
-									<SessionGateProvider value={sessionGate}>
-										<SidebarLoader />
-									</SessionGateProvider>
-								)}
+								{shouldRenderAuthenticatedChrome && <SidebarLoader />}
 								<div className="flex min-w-0 flex-1 flex-col">
 									{shouldRenderAuthenticatedChrome ? <AppTopbar appName={getAppName()} /> : null}
 									<PwaRegister />
@@ -130,12 +129,13 @@ export default async function RootLayout({
 								</div>
 							</div>
 							{shouldRenderAuthenticatedChrome && (
-								<SessionGateProvider value={sessionGate}>
+								<>
 									<MobileNav declaredPermissionsByHref={declaredPermissionsByHref} />
 									<GlobalSearch declaredPermissionsByHref={declaredPermissionsByHref} />
 									<KeyboardShortcuts declaredPermissionsByHref={declaredPermissionsByHref} />
-								</SessionGateProvider>
+								</>
 							)}
+							</SessionGateProvider>
 							</SshTerminalProvider>
 							</StorageUploadProvider>
 						</ToastProvider>

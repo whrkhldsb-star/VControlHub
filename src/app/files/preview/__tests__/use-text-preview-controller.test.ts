@@ -204,7 +204,7 @@ describe("useTextPreviewController", () => {
 			expect(result.current.reloadMessage).not.toContain("more");
 		});
 
-		it("derives the compose project directory from the file's own path", async () => {
+		it("names the compose file by its node, so the server finds the project directory under the node's root", async () => {
 			const { result } = setup({
 				serverId: "srv_1",
 				reloadUnit: "web",
@@ -220,9 +220,11 @@ describe("useTextPreviewController", () => {
 			act(() => { result.current.setDraft("ok"); });
 			await act(async () => { await result.current.handleSaveAndReload(); });
 			const reload = mocks.csrfFetch.mock.calls.find((c) => String(c[0]).includes("/reload"));
+			// The browser used to send "/stacks/blog", the node-relative folder as an absolute path: not a directory on a
+			// server whose node is rooted at /root/drive, or another project's.
 			expect(JSON.parse(reload![1].body as string)).toEqual({
 				kind: "compose",
-				projectDir: "/stacks/blog",
+				composeFile: { storageNodeId: "node_1", relativePath: "stacks/blog/docker-compose.yml" },
 				service: "web",
 			});
 		});

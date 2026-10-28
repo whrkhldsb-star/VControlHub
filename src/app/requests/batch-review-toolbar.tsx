@@ -175,6 +175,9 @@ export function BatchReviewToolbar({
 						name="comment"
 						value={comment}
 						onChange={(e) => setComment(e.target.value)}
+						// Enter in a text box submits the form with its first button, which is "approve": a comment typed
+						// and confirmed with Enter approved every selected command.
+						onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
 						placeholder={t("requestsPage.batch.commentPlaceholder")}
 						className={cn(UI_INPUT, "flex-1")}
 					/>

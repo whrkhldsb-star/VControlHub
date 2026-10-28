@@ -71,6 +71,14 @@ describe("parseConfigFromMap", () => {
 		expect(config.pathPrefix).toBe("vcontrolhub-backups/");
 	});
 
+	it("reads an emptied retention or window field as its default instead of 0", () => {
+		// The settings form calls an empty box "the default" and sent "" to the server, which stored it; Number("") is
+		// 0, so the retention failed validation (every use of the off-site config threw) and the window moved to 00:00.
+		const config = parseConfigFromMap({ "offsite.retentionDays": "", "offsite.dailyWindowHour": " " });
+		expect(config.retentionDays).toBe(30);
+		expect(config.dailyWindowHour).toBe(3);
+	});
+
 	it("enables offsite when enabled=true and credentials provided", () => {
 		const config = parseConfigFromMap({
 			"offsite.enabled": "true",

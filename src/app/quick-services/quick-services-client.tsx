@@ -155,8 +155,33 @@ export function QuickServicesClient({
 	);
 	const categoryCounts = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, grouped[category]?.length ?? 0]));
 
+	const targetSelect = (
+		<select
+			value={selectedServerId}
+			onChange={(e) => setSelectedServerId(e.target.value)}
+			className={`${CONTROL_CLASS} sm:max-w-sm`}
+			aria-label={t("qsPage.targetNode")}
+		>
+			{canManageHubHost && <option value="">{t("qsPage.targetHubHost")}</option>}
+			{servers.map((server) => (
+				<option key={server.id} value={server.id}>
+					{server.name} ({server.host})
+				</option>
+			))}
+		</select>
+	);
+
 	if (loading) return <InlineLoading label={t("qsPage.loading")} className="py-12" />;
-	if (error) return <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchCatalog() }}>{error}</Notice>;
+	if (error) {
+		// The node that failed (a Windows machine, one that is offline) stays selectable: with the whole page replaced by
+		// the error, "retry" asked the same node again and only a reload (to the hub host) got out.
+		return (
+			<div className="grid gap-3">
+				{targetSelect}
+				<Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchCatalog() }}>{error}</Notice>
+			</div>
+		);
+	}
 
 	if (!canManage) {
 		return <EmptyState text={t("qsPage.permissionDenied")} variant="boxed" icon={<IconShield />} />;
@@ -234,19 +259,7 @@ export function QuickServicesClient({
 						{selectedServerId ? t("qsPage.targetNodeRemoteHint") : t("qsPage.targetNodeHubHint")}
 					</p>
 				</div>
-				<select
-					value={selectedServerId}
-					onChange={(e) => setSelectedServerId(e.target.value)}
-					className={`${CONTROL_CLASS} sm:max-w-sm`}
-					aria-label={t("qsPage.targetNode")}
-				>
-					{canManageHubHost && <option value="">{t("qsPage.targetHubHost")}</option>}
-					{servers.map((server) => (
-						<option key={server.id} value={server.id}>
-							{server.name} ({server.host})
-						</option>
-					))}
-				</select>
+				{targetSelect}
 			</div>
 
 			<section className="grid gap-3 lg:grid-cols-3">

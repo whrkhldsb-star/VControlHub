@@ -26,7 +26,13 @@ export async function reviewCommandAction(_prevState: ReviewActionState | null, 
   const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 
   try {
-    const approved = String(formData.get("decision") ?? "approve") === "approve";
+    // An absent decision used to count as approval: a form submitted some other way (Enter in a text box takes the
+    // first submit button's value, and so does anything that omits the field) approved commands that run on servers.
+    const decision = String(formData.get("decision") ?? "");
+    if (decision !== "approve" && decision !== "reject") {
+      return { error: tr("requestsPage.action.decisionMissing") } satisfies ReviewActionState;
+    }
+    const approved = decision === "approve";
     const commandRequestId = String(formData.get("commandRequestId") ?? "");
     const comment = String(formData.get("comment") ?? "");
 
@@ -83,7 +89,11 @@ export async function batchReviewCommandAction(
   const locale = await getServerLocale();
   const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 
-  const approved = String(formData.get("decision") ?? "approve") === "approve";
+  const decision = String(formData.get("decision") ?? "");
+  if (decision !== "approve" && decision !== "reject") {
+    return { error: tr("requestsPage.action.decisionMissing") } satisfies BatchReviewActionState;
+  }
+  const approved = decision === "approve";
   const comment = String(formData.get("comment") ?? "");
   const rawIds = formData.getAll("commandRequestId");
   const ids = Array.from(

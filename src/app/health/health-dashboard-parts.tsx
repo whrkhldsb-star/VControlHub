@@ -2,6 +2,7 @@ import { StatCard } from "@/components/page-shell";
 import type { HealthOverview } from "./health-types";
 import { usageBarTone, usageColor, type TFunc } from "./health-dashboard-helpers";
 import { ProgressBar } from "@/components/ui-primitives";
+import { formatKibPerSecond } from "@/app/vps-status/vps-node-card";
 
 export function SummaryCard({
 	label,
@@ -73,11 +74,6 @@ export function FleetResourceSummary({
 	const netInTotal = onlineServers.reduce((sum, s) => sum + (s.networkInKbps ?? 0), 0);
 	const netOutTotal = onlineServers.reduce((sum, s) => sum + (s.networkOutKbps ?? 0), 0);
 
-	const fmtKbps = (kbps: number) => {
-		if (kbps >= 1_000_000) return `${(kbps / 1_000_000).toFixed(1)} Gbps`;
-		if (kbps >= 1_000) return `${(kbps / 1_000).toFixed(1)} Mbps`;
-		return `${Math.round(kbps)} Kbps`;
-	};
 
 	return (
 		<section data-card className="space-y-3 p-4">
@@ -108,11 +104,11 @@ export function FleetResourceSummary({
 			<div className="flex flex-wrap gap-4 text-xs text-[var(--text-secondary)]">
 				<span>
 					{t("healthPage.fleet.netIn")}:{" "}
-					<strong className="text-[var(--text-primary)]">{fmtKbps(netInTotal)}</strong>
+					<strong className="text-[var(--text-primary)]">{formatKibPerSecond(netInTotal)}</strong>
 				</span>
 				<span>
 					{t("healthPage.fleet.netOut")}:{" "}
-					<strong className="text-[var(--text-primary)]">{fmtKbps(netOutTotal)}</strong>
+					<strong className="text-[var(--text-primary)]">{formatKibPerSecond(netOutTotal)}</strong>
 				</span>
 			</div>
 			{top5.length > 0 && (

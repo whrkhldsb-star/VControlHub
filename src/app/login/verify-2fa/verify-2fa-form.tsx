@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from "react";
-import { useRouter } from "next/navigation";
 import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ApiError } from "@/lib/http/api-client-error";
@@ -23,7 +22,6 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 	const [submitting, setSubmitting] = useState(false);
 	const [errorMsg, setErrorMsg] = useState(error);
 	const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-	const router = useRouter();
 
 	function setDigit(index: number, value: string) {
 		const newDigits = [...digits];
@@ -77,7 +75,10 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 				body: JSON.stringify({ code }),
 			});
 			if (data.success) {
-				router.push(safeRelativeRedirectPath(nextPath));
+				// A full navigation, not router.push: the root layout decides on the server whether to draw the signed-in
+				// shell, and this page was rendered without it. A client-side push kept that layout, so the landing page
+				// had no sidebar, top bar or mobile navigation until the user reloaded.
+				window.location.assign(safeRelativeRedirectPath(nextPath));
 				return;
 			}
 

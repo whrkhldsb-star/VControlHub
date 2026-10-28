@@ -201,6 +201,17 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
           } : {}),
         }),
       });
+      // What is saved is now the baseline the next save compares with. Left as first loaded, changing the account back
+      // to its original value counted as "no change", sent nothing, and still said "saved".
+      setPayload((current) => current && {
+        ...current,
+        user: {
+          ...current.user,
+          accountType,
+          teamId: accountType === "customer" ? teamId : null,
+          identityTemplateId: accountType === "customer" ? identityTemplateId : null,
+        },
+      });
       setMessage({ type: "success", text: t("usersPerm.success.saved") });
       onSaved();
     } catch (error) {

@@ -4,6 +4,8 @@ import { I18nProvider } from "@/lib/i18n/provider";
 import { ApiError } from "@/lib/http/api-client-error";
 
 const { fetchMock, pushMock } = vi.hoisted(() => ({ fetchMock: vi.fn(), pushMock: vi.fn() }));
+// The page navigates with a full load (window.location.assign): the root layout has to render the signed-in shell.
+const assignMock = vi.fn();
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: fetchMock }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
 
@@ -17,7 +19,10 @@ function enterCode(code: string) {
 }
 
 describe("two-factor verification feedback", () => {
-	beforeEach(() => { vi.resetAllMocks(); });
+	beforeEach(() => {
+		vi.resetAllMocks();
+		Object.defineProperty(window, "location", { configurable: true, value: { ...window.location, assign: assignMock } });
+	});
 
 	it("shows a rejected challenge's API message and allows a successful retry", async () => {
 		fetchMock.mockRejectedValueOnce(new ApiError(400, { error: "Invalid verification code" }));
@@ -27,7 +32,8 @@ describe("two-factor verification feedback", () => {
 		expect(await screen.findByRole("alert")).toHaveTextContent("Invalid verification code");
 		expect(pushMock).not.toHaveBeenCalled();
 		enterCode("654321");
-		await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/servers"));
+		await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/servers"));
+		expect(pushMock).not.toHaveBeenCalled();
 		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	});
 

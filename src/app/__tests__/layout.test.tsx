@@ -38,9 +38,13 @@ vi.mock("@/components/global-search", () => ({
 	GlobalSearch: () => <div data-testid="global-search" />,
 }));
 
-vi.mock("@/components/app-topbar", () => ({
-	AppTopbar: () => <header data-testid="app-topbar" />,
-}));
+vi.mock("@/components/app-topbar", async () => {
+	const { useSessionGate } = await import("@/lib/auth/session-context");
+	return {
+		// The real top bar holds the notification bell, which reads the session gate.
+		AppTopbar: () => <header data-testid="app-topbar" data-gate-roles={useSessionGate().roles.join(",")} />,
+	};
+});
 
 vi.mock("@/components/keyboard-shortcuts", () => ({
 	KeyboardShortcuts: () => <div data-testid="keyboard-shortcuts" />,
@@ -115,6 +119,21 @@ describe("RootLayout", () => {
 		expect(screen.getByRole("navigation", { name: "移动端底部导航" })).toBeInTheDocument();
 		expect(screen.getByTestId("global-search")).toBeInTheDocument();
 		expect(screen.getByTestId("web-vitals-reporter")).toBeInTheDocument();
+	});
+
+	it("lets the top bar and the pages read the session gate, not only the sidebar", async () => {
+		// Outside the provider they got an empty gate, which switched off an administrator's "open this customer's
+		// notification" and the customer name on the notifications page.
+		cookieGetMock.mockReturnValue({ value: "session-token" });
+		const { useSessionGate } = await import("@/lib/auth/session-context");
+		function Page() {
+			return <p data-testid="page-gate">{useSessionGate().roles.join(",")}</p>;
+		}
+
+		await renderLayoutBody(<Page />);
+
+		expect(screen.getByTestId("app-topbar")).toHaveAttribute("data-gate-roles", "admin");
+		expect(screen.getByTestId("page-gate")).toHaveTextContent("admin");
 	});
 
 	it("hides authenticated chrome on public login pages even when a session cookie still exists", async () => {

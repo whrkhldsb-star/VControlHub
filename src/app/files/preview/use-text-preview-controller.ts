@@ -483,9 +483,8 @@ export function useTextPreviewController(options: {
         reloadKind === "compose"
           ? {
               kind: "compose" as const,
-              projectDir: relativePath
-                ? `/${relativePath.split("/").slice(0, -1).join("/") || "root"}`
-                : "/",
+              // The server resolves the file against the node's root (see the reload route).
+              ...(nodeId && relativePath ? { composeFile: { storageNodeId: nodeId, relativePath } } : { projectDir: "/" }),
               ...(reloadUnit ? { service: reloadUnit } : {}),
             }
           : { kind: "systemd" as const, unit: reloadUnit };

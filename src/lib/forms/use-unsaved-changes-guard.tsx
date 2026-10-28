@@ -87,6 +87,9 @@ export function useUnsavedChangesGuard(input: {
     const pushGuardEntry = () => {
       window.history.pushState({ ...(window.history.state ?? {}), [GUARD_ENTRY]: true }, "", window.location.href);
     };
+    // The address of the entry this guard pushed: a tab switch that rewrites the entry in place (replaceState)
+    // makes it something else, and stepping back from it would land on the previous tab.
+    const guardHref = window.location.href;
     if (!window.history.state?.[GUARD_ENTRY]) pushGuardEntry();
     const onPopState = () => {
       if (leaving.current) return;
@@ -98,7 +101,15 @@ export function useUnsavedChangesGuard(input: {
       window.removeEventListener("popstate", onPopState);
       // Saved or reset while still on this page: drop the extra entry, or
       // the next Back would seem to do nothing.
-      if (!leaving.current && window.history.state?.[GUARD_ENTRY]) window.history.back();
+      if (!leaving.current && window.history.state?.[GUARD_ENTRY]) {
+        if (window.location.href === guardHref) {
+          window.history.back();
+        } else {
+          // The entry was repurposed by an in-page switch (a tab): keep it, drop only the marker.
+          const { [GUARD_ENTRY]: _marker, ...rest } = window.history.state as Record<string, unknown>;
+          window.history.replaceState(rest, "", window.location.href);
+        }
+      }
     };
   }, [dirty]);
 

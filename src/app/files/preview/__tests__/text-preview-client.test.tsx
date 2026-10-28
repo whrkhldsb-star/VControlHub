@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { TextPreviewClient } from "../text-preview-client";
 
+// The editor asks before losing an unsaved draft, which needs the router (it navigates once the user agrees).
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
 }));
@@ -64,6 +66,27 @@ describe("TextPreviewClient editable mode", () => {
     })));
     expect(await screen.findByRole("status")).toHaveTextContent("已保存 17 B");
     expect(screen.queryByRole("dialog", { name: "保存前差异预览" })).not.toBeInTheDocument();
+  });
+
+  it("asks before throwing an unsaved draft away: cancelling the edit, then leaving by a link", async () => {
+    // The editor had no guard at all: Cancel, a link, Back or a reload discarded the draft silently.
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ draft: { content: "alpha\nbeta\n", byteSize: 11, updatedAt: "2026-06-08T01:02:03.000Z", lastModifiedMs: 1 } });
+    render(<><a href="/files">返回文件</a><TextPreviewClient href="/download/readme.txt" name="readme.txt" fileEntryId="file_1" editable /></>);
+    await screen.findByText("可在线编辑 · 保存前可确认差异");
+
+    // Nothing changed yet: no question.
+    await actor.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.click(screen.getByRole("link", { name: "返回文件" }));
+    expect(screen.queryByRole("dialog", { name: "当前内容尚未保存" })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), { target: { value: "alpha\nchanged\n" } });
+    fireEvent.click(screen.getByRole("link", { name: "返回文件" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("当前内容尚未保存");
+    await actor.click(screen.getByRole("button", { name: "继续编辑" }));
+
+    await actor.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("当前内容尚未保存");
   });
 
   it("surfaces stale draft conflicts without closing the editor", async () => {
@@ -344,7 +367,9 @@ describe("TextPreviewClient editable mode", () => {
     await waitFor(() =>
       expect(csrfFetch).toHaveBeenCalledWith(
         "/api/servers/srv_1/reload",
-        expect.objectContaining({ method: "POST", body: JSON.stringify({ kind: "compose", projectDir: "/apps/web" }) }),
+        // The node's own path travels; the server resolves it against the node's root (/apps/web was never a directory
+        // on a server whose node is rooted at /root/drive).
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ kind: "compose", composeFile: { storageNodeId: "node_1", relativePath: "apps/web/compose.yaml" } }) }),
       ),
     );
   });

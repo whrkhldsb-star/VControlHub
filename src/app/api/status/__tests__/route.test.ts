@@ -36,8 +36,18 @@ describe("GET /api/status", () => {
     expect(body).not.toHaveProperty("checks");
   });
 
+  it("a customer account gets the summary, not the platform-wide component counts", async () => {
+    // The detail counts every customer's servers and storage nodes ("5 VPS enabled"): for the platform's administrators.
+    getApiSessionMock.mockResolvedValueOnce({ userId: "u2", roles: ["operator"], currentTeamId: "team_1" });
+    getPublicStatusSummaryMock.mockResolvedValueOnce({ generatedAt: "2026-06-12T00:00:00.000Z", service: "vcontrolhub", summary: { overall: "healthy" } });
+    getPublicStatusMock.mockClear();
+    const res = await route.GET(new Request("http://localhost/api/status"));
+    expect(await res.json()).not.toHaveProperty("checks");
+    expect(getPublicStatusMock).not.toHaveBeenCalled();
+  });
+
   it("已登录时返完整 status（含 checks）", async () => {
-    getApiSessionMock.mockResolvedValueOnce({ userId: "u1" });
+    getApiSessionMock.mockResolvedValueOnce({ userId: "u1", roles: ["admin"], currentTeamId: null });
     const fullPayload = {
       generatedAt: "2026-06-12T00:00:00.000Z",
       service: "vcontrolhub",
