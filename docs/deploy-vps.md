@@ -73,7 +73,7 @@ npm run prisma:seed
 ```bash
 npm run build
 npm run build:runtime
-HOSTNAME=127.0.0.1 PORT=3000 npm run start
+NODE_ENV=production NEXT_HOST=127.0.0.1 PORT=3000 npm run start
 ```
 
 SSH WebSocket 代理另启一个进程：

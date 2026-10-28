@@ -148,6 +148,22 @@ export function timestamp() {
 }
 
 /**
+ * Connection parameters libpq accepts in a URI. libpq refuses any other key outright ("invalid URI query
+ * parameter"), including the ones the application itself reads from DATABASE_URL (pool_max, connection_limit,
+ * pool_idle_timeout; Prisma's schema, pgbouncer ...), which made pg_dump and psql, so every backup and restore,
+ * fail for such a URL.
+ */
+const LIBPQ_URI_PARAMETERS = new Set([
+  "host", "hostaddr", "port", "dbname", "user", "password", "passfile", "channel_binding", "connect_timeout",
+  "client_encoding", "options", "application_name", "fallback_application_name", "keepalives", "keepalives_idle",
+  "keepalives_interval", "keepalives_count", "tcp_user_timeout", "replication", "gssencmode", "sslmode",
+  "requiressl", "sslcompression", "sslcert", "sslkey", "sslpassword", "sslcertmode", "sslrootcert", "sslcrl",
+  "sslcrldir", "sslsni", "requirepeer", "ssl_min_protocol_version", "ssl_max_protocol_version", "krbsrvname",
+  "gsslib", "gssdelegation", "service", "target_session_attrs", "load_balance_hosts", "sslnegotiation",
+  "min_protocol_version", "max_protocol_version", "require_auth",
+]);
+
+/**
  * Resolve PostgreSQL connection argv from the merged environment:
  * DATABASE_URL wins; otherwise discrete host/port/user/name (+PGPASSWORD).
  */
@@ -164,6 +180,9 @@ export function pgConnection(env) {
         url.searchParams.delete("password");
       }
       url.password = "";
+      for (const key of [...url.searchParams.keys()]) {
+        if (!LIBPQ_URI_PARAMETERS.has(key)) url.searchParams.delete(key);
+      }
     } catch {
       throw new Error("Invalid PostgreSQL connection URL");
     }

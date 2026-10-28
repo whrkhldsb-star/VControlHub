@@ -1,6 +1,12 @@
 # Managed by VControlHub installer: {{APP_SLUG}}
 {
 	auto_https disable_redirects
+	# Behind a CDN (Cloudflare, ...) with TRUSTED_PROXY_HOPS=2: trust the CDN's ranges, or Caddy ignores the
+	# X-Forwarded-For it receives and the application sees only the CDN's address for every visitor (one shared
+	# login rate-limit and lockout bucket). Uncomment and list the ranges; keep it when this file is regenerated.
+	# servers {
+	# 	trusted_proxies static 173.245.48.0/20 103.21.244.0/22 ...
+	# }
 	# A reload waits for open connections at most this long, then closes them:
 	# without it a WebSocket whose browser stopped reading held it forever.
 	grace_period 10s

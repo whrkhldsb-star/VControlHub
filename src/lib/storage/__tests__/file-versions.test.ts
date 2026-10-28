@@ -194,6 +194,17 @@ describe("file-versions service", () => {
     expect(rows[1]!.versionNumber).toBe(2);
   });
 
+  it("lets the save go on when the history directory cannot be written", async () => {
+    // A directory the service cannot create things in (EACCES on a fresh install, a full disk) used to throw out
+    // of the snapshot and fail the edit or upload that asked for it with a 500.
+    const blocker = path.join(tmpDir, "history-is-a-file");
+    await fs.writeFile(blocker, "not a directory");
+    process.env.FILE_VERSION_DIR = path.join(blocker, "file-versions");
+    vi.resetModules();
+    const mod = await import("@/lib/storage/file-versions");
+    await expect(mod.snapshotFileVersionBeforeOverwrite({ fileEntryId: "fe_1", userId: "u1", reason: "EDIT" })).resolves.toBeNull();
+  });
+
   it("two concurrent snapshots of the same content each keep their own blob", async () => {
     // Both took version 1 and wrote the same path; the one that lost the
     // version race deleted that path, under the winner's row.
