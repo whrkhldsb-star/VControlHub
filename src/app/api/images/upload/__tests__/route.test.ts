@@ -282,6 +282,21 @@ describe("POST /api/images/upload", () => {
     );
   });
 
+  it("stores the original and a thumbnail only: no WebP/AVIF copies encoded inside the web process", async () => {
+    // Nothing served those copies, and decoding a 24 MP photo three times at once with a minute-long AVIF encode
+    // could get the whole web process killed by its memory limit.
+    const service = await import("@/lib/image/service");
+    const response = await POST(uploadRequest());
+
+    expect(response.status).toBe(201);
+    const files = await listFiles(uploadRoot);
+    expect(files).toHaveLength(2);
+    expect(files.some((file) => file.endsWith("_thumb.webp"))).toBe(true);
+    expect(files.some((file) => file.endsWith(".avif"))).toBe(false);
+    expect(service.convertToAVIF).not.toHaveBeenCalled();
+    expect(service.convertToWebP).not.toHaveBeenCalled();
+  });
+
   it.each(["photo.webp", "photo.avif"])("preserves original bytes when a PNG is named %s", async (filename) => {
     const response = await POST(uploadRequest(undefined, undefined, filename));
 

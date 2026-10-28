@@ -482,6 +482,14 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		expect(mocks.completeMediaUploadSession).not.toHaveBeenCalled();
 	});
 
+	it("does not encode WebP/AVIF copies when a chunked upload completes", async () => {
+		await setStoredFile("photo.png");
+		expect((await complete()).status).toBe(200);
+		expect(mocks.generateThumbnail).toHaveBeenCalledTimes(1);
+		expect(mocks.convertToWebP).not.toHaveBeenCalled();
+		expect(mocks.convertToAVIF).not.toHaveBeenCalled();
+	});
+
 	it.each(["photo.webp", "photo.avif"])("keeps assembled PNG bytes when the filename is %s", async (filename) => {
 		await setStoredFile(filename);
 		expect((await complete()).status).toBe(200);

@@ -21,9 +21,9 @@ const AVIF_QUALITY = 65;
 /**
  * Hard pixel-count ceiling for any image we decode. Guards against
  * decompression bombs: a tiny, highly-compressed file (well under the 20 MB
- * byte cap) can still decode to a gigapixel bitmap, and we run sharp on it up
- * to four times (metadata + thumb + webp + avif). sharp's built-in default is
- * ~268 MP — far too high once multiplied by four in-flight decodes. 50 MP
+ * byte cap) can still decode to a gigapixel bitmap, and we run sharp on it
+ * (metadata + thumbnail). sharp's built-in default is
+ * ~268 MP — far too high for a process limited to a few hundred MB. 50 MP
  * still admits legitimate high-resolution photography (e.g. 8000×6000 ≈ 48 MP).
  */
 export const MAX_IMAGE_PIXELS = 50_000_000;

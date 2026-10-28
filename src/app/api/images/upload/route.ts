@@ -14,8 +14,6 @@ import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { indexLinkedStorageImage } from "@/lib/image-bed/linked-storage";
 import {
   canonicalImageMime,
-  convertToAVIF,
-  convertToWebP,
   extractMetadata,
   generateThumbnail,
   MAX_IMAGE_PIXELS,
@@ -157,16 +155,16 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
 
     const writtenPaths: string[] = [];
 
-    // Save original + generate thumbnail + WebP/AVIF variants
+    // Save original + generate the thumbnail. No WebP/AVIF copies: nothing ever served them (the file route sends the
+    // original), and decoding a 24 MP photo three times at once with an AVIF encode of ~1 GiB / 60 s inside the web
+    // process (memory limit 768 MB) could get the whole process killed by one upload.
     const ext = path.extname(storageKey).toLowerCase();
     const base = path.basename(storageKey, ext);
     const thumbName = `${base}_thumb.webp`;
     const originalPath = path.join(uploadDir, storageKey);
     const thumbPath = path.join(uploadDir, thumbName);
-    const webpPath = path.join(uploadDir, `${base}.webp`);
-    const avifPath = path.join(uploadDir, `${base}.avif`);
 
-    // The original write is the record of truth; the three variants are
+    // The original write is the record of truth; the thumbnail is
     // best-effort. Use allSettled so a failed variant never rejects the whole
     // batch, then check the original explicitly: if IT failed, any variants
     // that did land are orphans (no DB row will point at them) — remove them
@@ -181,30 +179,6 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
           const thumb = await generateThumbnail(buffer);
           await writeFile(thumbPath, thumb);
           writtenPaths.push(thumbPath);
-        } catch {
-          /* best-effort */
-        }
-      })(),
-      // Generate WebP variant (best-effort)
-      (async () => {
-        try {
-          if (!detectedMime.includes("webp")) {
-            const webp = await convertToWebP(buffer);
-            await writeFile(webpPath, webp);
-            writtenPaths.push(webpPath);
-          }
-        } catch {
-          /* best-effort */
-        }
-      })(),
-      // Generate AVIF variant (best-effort)
-      (async () => {
-        try {
-          if (!detectedMime.includes("avif")) {
-            const avif = await convertToAVIF(buffer);
-            await writeFile(avifPath, avif);
-            writtenPaths.push(avifPath);
-          }
         } catch {
           /* best-effort */
         }
