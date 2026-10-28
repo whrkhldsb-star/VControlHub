@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { createSingleFlight } from "@/lib/concurrency/single-flight";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { serverTeamWhere, storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
@@ -157,10 +159,22 @@ function describeStorageTrafficSource(node: {
   };
 }
 
+/**
+ * One remote sampling opens an SSH session (or queues an Agent job) per visible server. Every request used to do its
+ * own, so any account with server:read could multiply them by polling, several open /traffic tabs did the same, and
+ * the rates were computed against samples other callers had just taken. Callers asking about the same servers share
+ * one sampling for a few seconds; the sample only concerns the servers they may see, so sharing leaks nothing.
+ */
+const REMOTE_TRAFFIC_SHARE_MS = 10_000;
+const remoteTrafficFlight = createSingleFlight<Awaited<ReturnType<typeof sampleRemoteServersTraffic>>>({
+  ttlMs: REMOTE_TRAFFIC_SHARE_MS,
+  maxKeys: 64,
+});
+
 export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
-    { permission: "server:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.traffic.summary.0ac2f2fb") },
+    { permission: "server:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.fetch.traffic.summary.0ac2f2fb") },
     async (ctx) => {
       const session = ctx.session;
       const q = parseSearchParams(req, trafficSummaryQuerySchema);
@@ -228,8 +242,9 @@ export async function GET(req: NextRequest) {
           });
 
       const remoteServers = includeRemote
-        ? await sampleRemoteServersTraffic(
-            servers as RemoteServerInput[],
+        ? await remoteTrafficFlight.run(
+            servers.map((server) => server.id).sort().join(","),
+            () => sampleRemoteServersTraffic(servers as RemoteServerInput[]),
           )
         : null;
 

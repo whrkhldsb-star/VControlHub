@@ -76,7 +76,7 @@ describe("scoped read routes", () => {
 	});
 
 	it("passes the caller's session to every tenant-scoped reader", async () => {
-		routeSession.current = customerSession(["audit:read", "server:read", "command:read", "share:read"]);
+		routeSession.current = customerSession(["audit:read", "server:read", "command:read", "ticket:read", "share:read"]);
 		expect(await (await backlog.GET(get("http://local/api/jobs/backlog"))).json()).toEqual({ metrics: { pending: 3 } });
 		expect(mocks.getJobBacklogMetrics).toHaveBeenCalledWith(expect.objectContaining({ currentTeamId: "team_1" }));
 		await uptime.GET(get("http://local/api/system/uptime/all") as never);

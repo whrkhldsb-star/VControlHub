@@ -15,7 +15,7 @@ const { prismaMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
-import { getTicketTimeline, linkTicketCommand } from "../timeline";
+import { getTicketTimeline, linkTicketCommand, listTicketsForCommand } from "../timeline";
 
 describe("ticket timeline", () => {
   beforeEach(() => {
@@ -116,5 +116,25 @@ describe("ticket timeline", () => {
       data: { relatedCommandId: "cmd9" },
     });
     expect(prismaMock.ticketEscalation.create).toHaveBeenCalled();
+  });
+});
+
+describe("tickets linked to a command respect who may see them", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.ticket.findMany.mockResolvedValue([]);
+  });
+
+  it("lists only the caller's own tickets unless they may manage tickets", async () => {
+    // The customer boundary alone let a viewer read other people's ticket titles through a command.
+    const viewer = { userId: "u_viewer", roles: ["viewer" as const], currentTeamId: "team_1", permissions: ["ticket:read" as const, "command:read" as const] };
+    await listTicketsForCommand("cmd_1", viewer);
+    const where = prismaMock.ticket.findMany.mock.calls[0]![0].where;
+    expect(JSON.stringify(where)).toContain('"createdBy":"u_viewer"');
+    expect(JSON.stringify(where)).toContain('"assigneeId":"u_viewer"');
+
+    prismaMock.ticket.findMany.mockClear();
+    await listTicketsForCommand("cmd_1", { ...viewer, userId: "u_manager", permissions: ["ticket:read" as const, "ticket:manage" as const] });
+    expect(JSON.stringify(prismaMock.ticket.findMany.mock.calls[0]![0].where)).not.toContain("u_manager");
   });
 });

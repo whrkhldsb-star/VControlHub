@@ -627,6 +627,8 @@ model FilePreference {
   @@id([userId, fileEntryId])
   @@index([userId, favorite, updatedAt])
   @@index([userId, lastOpenedAt])
+  /// The cascade from file_entries: without it every deleted entry scanned this whole table.
+  @@index([fileEntryId])
   @@map("file_preferences")
 }
 
