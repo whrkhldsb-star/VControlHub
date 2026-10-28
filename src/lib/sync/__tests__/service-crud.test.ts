@@ -250,4 +250,27 @@ describe("sync job CRUD scoping", () => {
 			await expect(updateSyncJob("job_1", { name: "x" }, operator)).rejects.toThrow();
 		});
 	});
+
+	describe("system directories as the target of a deleting sync", () => {
+		// MIRROR deletes what the source lacks; pointed at "/" or "/etc" it emptied the machine's system directory
+		// (the source only had to be non-empty).
+		it.each(["/", "/etc", "/etc/", "/usr", "/var", "/etc/../etc", "/root"])("refuses %s for a MIRROR job", async (targetPath) => {
+			await expect(createSyncJob({ ...baseInput, targetPath })).rejects.toThrow("backend.sync.deleteTargetIsSystemDirectory");
+			expect(mocks.prisma.syncJob.create).not.toHaveBeenCalled();
+		});
+
+		it("refuses the same target for a job that opts into deleting, but not for one that does not", async () => {
+			await expect(createSyncJob({ ...baseInput, syncType: "BACKUP", deleteOrphans: true, targetPath: "/etc" })).rejects.toThrow("backend.sync.deleteTargetIsSystemDirectory");
+			await expect(createSyncJob({ ...baseInput, syncType: "BACKUP", deleteOrphans: false, targetPath: "/etc" })).resolves.toBeDefined();
+		});
+
+		it("allows a directory below a system one, and refuses an update that points a deleting job at one", async () => {
+			await expect(createSyncJob({ ...baseInput, targetPath: "/etc/nginx/conf.d" })).resolves.toBeDefined();
+			await expect(updateSyncJob("job_1", { targetPath: "/usr" }, operator)).rejects.toThrow("backend.sync.deleteTargetIsSystemDirectory");
+			expect(mocks.prisma.syncJob.updateMany).not.toHaveBeenCalled();
+			// Turning deletion on for a job already aimed there is refused as well.
+			mocks.prisma.syncJob.findFirst.mockResolvedValue({ ...jobRow, syncType: "BACKUP", targetPath: "/var" });
+			await expect(updateSyncJob("job_1", { deleteOrphans: true }, operator)).rejects.toThrow("backend.sync.deleteTargetIsSystemDirectory");
+		});
+	});
 });

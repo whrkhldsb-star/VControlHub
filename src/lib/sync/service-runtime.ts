@@ -35,6 +35,7 @@ import {
 	rsyncFlagsForJob,
 	type OneWaySyncStats,
 } from "./bidirectional";
+import { isProtectedDeleteTarget } from "./bidirectional";
 import { assertDisjointSyncEndpoints, getSyncJobForExecution } from "./service-crud";
 
 /* ── remote command result ─────────────────────────────────── */
@@ -167,6 +168,10 @@ async function assertSyncSourceUsable(input: {
 	deleteOrphans: boolean;
 	createMissingSource: boolean;
 }): Promise<void> {
+	// Jobs saved before the same check existed at creation are stopped here too.
+	if (input.deleteOrphans && isProtectedDeleteTarget(input.targetPath)) {
+		throw new Error(`Refusing to delete everything in ${input.targetPath} that the source does not hold: it is a system directory.`);
+	}
 	const probe = await execRemoteCommand({
 		...input.sourceSsh,
 		command: buildSyncSourceProbeCommand(input.sourcePath),

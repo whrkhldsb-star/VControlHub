@@ -90,6 +90,17 @@ describe.skipIf(!runnable)("direct gateway file names", () => {
 		expect(health.split("\r\n\r\n")[1]).toBe("");
 	});
 
+	it("refuses a link whose expiry is further away than the hub ever signs", async () => {
+		// A signature that never expires can only come from someone who holds the secret.
+		const expires = String(Math.floor(Date.now() / 1000) + 10 * 86400);
+		const signature = createHmac("sha256", secret).update(`/report.txt.${expires}`).digest("hex");
+		const response = await fetch(`http://127.0.0.1:${port}/report.txt?expires=${expires}&signature=${signature}`);
+		expect(response.status).toBe(403);
+		const day = String(Math.floor(Date.now() / 1000) + 86400);
+		const ok = createHmac("sha256", secret).update(`/report.txt.${day}`).digest("hex");
+		expect((await fetch(`http://127.0.0.1:${port}/report.txt?expires=${day}&signature=${ok}`)).status).toBe(200);
+	});
+
 	it.each([
 		["report%20.txt", "percent"],
 		["report.txt#v2", "hash"],

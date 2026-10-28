@@ -325,6 +325,22 @@ describe("sync service command helpers", () => {
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");
   });
 
+  it("ends the rsync options before the paths, and keeps a relative source from being read as an option or a host", () => {
+    // A source such as "--rsync-path=..." or "evil.example:/data" made the source host run a command or connect out.
+    const build = (sourcePath: string) => buildRsyncCommand({
+      flags: ["-av"],
+      sourcePath,
+      targetPath: "/srv/target",
+      targetUser: "deploy",
+      targetHost: "example.com",
+      targetPort: 22,
+      keyPath: "/tmp/app-sync-rsync-job_1",
+    });
+    expect(build("/srv/source")).toContain(" -- '/srv/source/' 'deploy@example.com:/srv/target/'");
+    expect(build("--rsync-path=/bin/sh -c id")).toContain(" -- './--rsync-path=/bin/sh -c id/' ");
+    expect(build("evil.example:/data")).toContain(" -- './evil.example:/data/' ");
+  });
+
   it("keeps a hostile target path out of the target host's shell", () => {
     const command = buildRsyncCommand({
       flags: ["-av"],
