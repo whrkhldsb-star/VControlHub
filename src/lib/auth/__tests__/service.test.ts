@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n/service-translations";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { authenticateUser, changePassword } from "@/lib/auth/service";
@@ -130,7 +131,7 @@ describe("changePassword", () => {
  newPassword: "Newpass123",
  confirmPassword: "Newpass123",
  }),
- ).resolves.toEqual({ success: false, error: "Current password is incorrect" });
+ ).resolves.toEqual({ success: false, error: t("backend.auth.currentPasswordIncorrect") });
  expect(prisma.user.update).not.toHaveBeenCalled();
  expect(prisma.user.updateMany).not.toHaveBeenCalled();
  }, 15_000);

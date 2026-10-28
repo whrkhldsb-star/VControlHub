@@ -127,12 +127,12 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
   });
 
   if (!user) {
-    return { success: false, error: "User does not exist" };
+    return { success: false, error: t("backend.auth.userNotFound") };
   }
 
   const passwordMatches = await verifyPassword(payload.currentPassword, user.passwordHash);
   if (!passwordMatches) {
-    return { success: false, error: "Current password is incorrect" };
+    return { success: false, error: t("backend.auth.currentPasswordIncorrect") };
   }
 
   const policyError = await validatePasswordPolicy(payload.newPassword);

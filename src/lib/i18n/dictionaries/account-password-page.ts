@@ -35,6 +35,9 @@ export const zh: Record<string, string> = {
 	"accountPasswordPage.redirectNow": "立即跳到仪表盘",
 	"accountPasswordPage.action.success": "密码已更新。下次登录请使用新密码。",
 	"accountPasswordPage.action.errorFallback": "修改密码失败",
+	"accountPasswordPage.action.invalidInput": "新密码需为 8–128 位，且当前密码不能为空",
+	"accountPasswordPage.action.mismatch": "两次输入的新密码不一致",
+	"accountPasswordPage.action.tooManyAttempts": "尝试次数过多，请 15 分钟后再试",
 };
 
 export const en: Record<string, string> = {
@@ -59,4 +62,7 @@ export const en: Record<string, string> = {
 	"accountPasswordPage.redirectNow": "Go to dashboard now",
 	"accountPasswordPage.action.success": "Password updated. Use the new password next time you sign in.",
 	"accountPasswordPage.action.errorFallback": "Failed to change password",
+	"accountPasswordPage.action.invalidInput": "The new password must be 8–128 characters, and the current password is required",
+	"accountPasswordPage.action.mismatch": "The two new passwords do not match",
+	"accountPasswordPage.action.tooManyAttempts": "Too many attempts — try again in 15 minutes",
 };

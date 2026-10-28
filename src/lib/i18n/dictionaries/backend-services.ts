@@ -42,6 +42,8 @@ export const zh: Record<string, string> = {
 	"backend.rdp.publicHost": "RDP 仅支持公网 IPv4 地址，不支持私网、本机和域名",
 	"backend.common.unknownError": "未知错误",
 	"backend.auth.sessionCredentialsChanged": "会话凭据已变更，请重新登录",
+	"backend.auth.currentPasswordIncorrect": "当前密码不正确",
+	"backend.auth.userNotFound": "账号不存在",
 	// deploy-export/service.ts
 	"backend.deployExport.appNameInvalid": "应用名称只能包含小写字母、数字和连字符，且必须以字母开头",
 	"backend.deployExport.domainInvalid": "域名格式不合法",
@@ -707,6 +709,8 @@ export const en: Record<string, string> = {
 	"backend.rdp.publicHost": "RDP requires a public IPv4 address; private, local and DNS targets are unsupported",
 	"backend.common.unknownError": "Unknown error",
 	"backend.auth.sessionCredentialsChanged": "Session credentials have changed; please sign in again",
+	"backend.auth.currentPasswordIncorrect": "The current password is incorrect",
+	"backend.auth.userNotFound": "Account not found",
 	// deploy-export/service.ts
 	"backend.deployExport.appNameInvalid": "App name must contain only lowercase letters, digits, and hyphens, and must start with a letter",
 	"backend.deployExport.domainInvalid": "Invalid domain format",
