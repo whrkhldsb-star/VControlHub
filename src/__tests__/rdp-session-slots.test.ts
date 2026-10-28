@@ -199,7 +199,7 @@ describe("RDP session slots", () => {
     };
     // An authenticated session is not in the pool, however full it gets.
     const session = await open("a");
-    const held = Array.from({ length: 32 }, idle);
+    const held = Array.from({ length: 40 }, idle);
     const refused = idle();
     expect(refused.terminate).toHaveBeenCalled();
     expect(held.some((socket) => socket.terminate.mock.calls.length > 0)).toBe(false);

@@ -25,6 +25,7 @@ vi.mock("@/lib/i18n/use-locale", () => ({
 	useI18n: () => ({ t: (key: string) => key }),
 }));
 
+import { ApiError } from "@/lib/http/api-client-error";
 import { useAiChatStream } from "../hooks/use-ai-chat-stream";
 
 /** Build a streaming Response whose body emits the given SSE frames. */
@@ -459,6 +460,19 @@ describe("useAiChatStream", () => {
 			const patchCalls = mocks.csrfFetch.mock.calls.filter((c) => String(c[0]).includes("hosted-actions"));
 			expect(patchCalls).toHaveLength(1);
 			await act(async () => { release?.(); await first; });
+		});
+
+		it("re-reads the transcript when the server says the action is no longer pending", async () => {
+			// Decided in another tab, or timed out: the streamed card stayed on screen for good.
+			mocks.csrfFetch.mockImplementation(async (url: string) => {
+				if (url.startsWith("/api/ai/hosted-actions/")) throw new ApiError(422, { message: "not pending" });
+				return { conversation: { messages: [{ id: "settled", hostedActions: [{ id: "act_1", status: "COMPLETED" }] }] } };
+			});
+			const { state, args } = setup();
+			const { result } = renderHook(() => useAiChatStream(args));
+			await act(async () => { await result.current.decideApproval(approval, "confirm"); });
+			expect(state.messages).toEqual([{ id: "settled", hostedActions: [{ id: "act_1", status: "COMPLETED" }] }]);
+			expect(state.toasts.at(-1)).toMatchObject({ kind: "error" });
 		});
 
 		it("clears the busy flag and toasts on failure so the button is not stuck", async () => {

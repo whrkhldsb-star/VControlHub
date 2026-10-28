@@ -228,8 +228,7 @@ export const HOSTED_TOOLS: HostedTool[] = [
       type: "object",
       properties: {
         playbookId: { type: "string", description: "Playbook ID" },
-        playbookName: { type: "string", description: "Optional: look up Playbook by name" },
-        serverId: { type: "string", description: "Optional: specify the target server ID for execution" },
+        playbookName: { type: "string", description: "Optional: look up Playbook by its exact name (the Playbook's own saved targets are used)" },
       },
       required: [],
     },

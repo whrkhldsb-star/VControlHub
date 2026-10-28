@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { ApiError } from "@/lib/http/api-client-error";
 import { TextPreviewClient } from "../text-preview-client";
 
 // The editor asks before losing an unsaved draft, which needs the router (it navigates once the user agrees).
@@ -541,5 +542,40 @@ describe("TextPreviewClient editable mode", () => {
 
     fireEvent.keyDown(editor, { key: "Tab", shiftKey: true });
     await waitFor(() => expect(editor).toHaveValue("alpha\nbeta\n"));
+  });
+
+  it("shows a file the edit API refuses as too large read-only, instead of an error (a log could only be downloaded)", async () => {
+    vi.mocked(csrfFetch)
+      .mockRejectedValueOnce(new ApiError(400, { code: "VALIDATION_FAILED", message: "too large" }))
+      .mockResolvedValueOnce(new Response("first line\nsecond line\n"));
+
+    render(<TextPreviewClient href="/download/big.log" name="big.log" fileEntryId="file_9" editable />);
+
+    expect(await screen.findByText("first line")).toBeInTheDocument();
+    expect(screen.getByText("文件超过在线编辑的大小上限，已改为只读预览；需要修改请下载后编辑。")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+    expect(screen.queryByText("可在线编辑 · 保存前可确认差异")).not.toBeInTheDocument();
+    expect(csrfFetch).toHaveBeenNthCalledWith(1, "/api/files/editable/file_9", expect.anything());
+    expect(csrfFetch).toHaveBeenNthCalledWith(2, "/download/big.log", expect.objectContaining({ raw: true }));
+  });
+
+  it("falls back the same way for a remote file over the SFTP read limit (413)", async () => {
+    vi.mocked(csrfFetch)
+      .mockRejectedValueOnce(new ApiError(413, { error: "too large" }))
+      .mockResolvedValueOnce(new Response("remote line\n"));
+
+    render(<TextPreviewClient href="/download/app.log" name="app.log" fileEntryId="file_8" editable driver="SFTP" nodeId="node_1" relativePath="logs/app.log" />);
+
+    expect(await screen.findByText("remote line")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+  });
+
+  it("still reports a real failure (no permission, server error) instead of quietly showing a read-only copy", async () => {
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new ApiError(403, { code: "FORBIDDEN", message: "no access" }));
+
+    render(<TextPreviewClient href="/download/secret.txt" name="secret.txt" fileEntryId="file_7" editable />);
+
+    expect(await screen.findByText("no access")).toBeInTheDocument();
+    expect(csrfFetch).toHaveBeenCalledTimes(1);
   });
 });

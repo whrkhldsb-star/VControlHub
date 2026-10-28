@@ -77,6 +77,7 @@ export function TextPreviewClient({
 
 	return (
 		<div className="space-y-3">
+			{ctrl.editRefused ? <Notice tone="warning">{t("textPreview.editRefusedReadOnly")}</Notice> : null}
 			{ctrl.state.truncated ? (
 				<Notice tone="warning">{t("textPreview.prefixOnly", { size: TEXT_PREVIEW_MAX_BYTES / 1024 / 1024 })}</Notice>
 			) : null}

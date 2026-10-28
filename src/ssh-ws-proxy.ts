@@ -354,8 +354,10 @@ const activeSshConnectionsByUser = new Map<string, number>();
  * fill that small pool for a few seconds but never the terminals' places.
  */
 const authenticatedSockets = new Set<WebSocket>();
-const MAX_PRE_AUTH_SOCKETS = 32;
-const MAX_PRE_AUTH_PER_ADDRESS = 6;
+// Generous: a person restoring a dozen terminals after a network blip opens them all at once, and each is unauthenticated
+// for a few milliseconds. The pool only has to be small compared with what a script can hold for ten seconds.
+const MAX_PRE_AUTH_SOCKETS = 64;
+const MAX_PRE_AUTH_PER_ADDRESS = 16;
 const preAuthSockets = new PreAuthLimiter(MAX_PRE_AUTH_SOCKETS, MAX_PRE_AUTH_PER_ADDRESS);
 /** A socket still unauthenticated after this long is dropped. */
 const PRE_AUTH_WINDOW_MS = 10_000;

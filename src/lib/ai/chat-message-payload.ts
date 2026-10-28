@@ -20,6 +20,41 @@ export type AiToolCall = {
   function: { name: string; arguments: string };
 };
 
+/**
+ * What the replayed history may weigh, in characters (about 25,000-100,000 tokens, depending on the language). A thread
+ * had only a row-count window (500 rows), far beyond any model's context: after enough turns, or one large text
+ * attachment (each is stored whole and resent every turn), the provider answered "context length exceeded" to every
+ * later message, and the only way out was a new conversation.
+ */
+export const AI_HISTORY_CHAR_BUDGET = 100_000;
+/** What an image in the history counts for, whatever its address (its bytes are not text). */
+const IMAGE_CHAR_COST = 2_000;
+
+function messageWeight(message: HistoryMessage): number {
+  const content = typeof message.content === "string"
+    ? message.content.length
+    : message.content.reduce((sum, part) => sum + (part.type === "text" ? (part.text?.length ?? 0) : IMAGE_CHAR_COST), 0);
+  const calls = message.tool_calls?.reduce((sum, call) => sum + call.function.name.length + call.function.arguments.length, 0) ?? 0;
+  return content + calls;
+}
+
+/**
+ * The oldest whole turns (a user message and what followed it, tool calls with their results) are left out until the rest
+ * fits the budget; the newest turn always stays, and so does the system prompt.
+ */
+export function fitHistoryToBudget(messages: HistoryMessage[], budget = AI_HISTORY_CHAR_BUDGET): HistoryMessage[] {
+  const system = messages.filter((message) => message.role === "system");
+  let rest = messages.filter((message) => message.role !== "system");
+  const weight = (list: HistoryMessage[]) => list.reduce((sum, message) => sum + messageWeight(message), 0);
+  const systemWeight = weight(system);
+  while (rest.length > 0 && systemWeight + weight(rest) > budget) {
+    const nextTurn = rest.findIndex((message, index) => index > 0 && message.role === "user");
+    if (nextTurn === -1) break; // one turn left: it is the one being asked
+    rest = rest.slice(nextTurn);
+  }
+  return [...system, ...rest];
+}
+
 type AiChatBody = {
   content?: string;
   imageUrls?: string[];
@@ -103,6 +138,11 @@ export function buildAiChatMessagePayload(input: {
 
     historyMessages.push({ role: msg.role as "user" | "assistant", content: msg.content });
   }
+
+  // The question being asked now is added below; the replayed history keeps within the budget.
+  const replayed = fitHistoryToBudget(historyMessages);
+  historyMessages.length = 0;
+  historyMessages.push(...replayed);
 
   const userText = (body.content ?? "").trim();
   const imageUrls = body.imageUrls ?? [];

@@ -95,8 +95,8 @@ const MAX_RDP_SESSIONS = 20;
  */
 const PRE_AUTH_WINDOW_MS = 10_000;
 /** Sockets that have not presented a ticket yet, in all and from one address; kept apart from the session cap. */
-const MAX_PRE_AUTH_SOCKETS = 32;
-const MAX_PRE_AUTH_PER_ADDRESS = 6;
+const MAX_PRE_AUTH_SOCKETS = 40;
+const MAX_PRE_AUTH_PER_ADDRESS = 12;
 /** The browser echoes the gateway's ping every few seconds; more than this per second is a flood. */
 const MAX_PING_ECHOES_PER_SECOND = 20;
 const AUTHORIZATION_TIMEOUT_MS = 5_000;
