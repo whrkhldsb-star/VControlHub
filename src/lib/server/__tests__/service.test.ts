@@ -286,6 +286,61 @@ describe("server service", () => {
     expect(prisma.sshKey.create).not.toHaveBeenCalled();
   });
 
+  describe("imported key derivation cost", () => {
+    const ppk = (memory: number, passes: number) =>
+      [
+        "PuTTY-User-Key-File-3: ssh-ed25519",
+        "Encryption: aes256-cbc",
+        "Comment: crafted",
+        "Public-Lines: 2",
+        "AAAA",
+        "Key-Derivation: Argon2id",
+        `Argon2-Memory: ${memory}`,
+        `Argon2-Passes: ${passes}`,
+        "Argon2-Parallelism: 1",
+        "Argon2-Salt: 00",
+        "Private-Lines: 1",
+        "AAAA",
+        "Private-MAC: 00",
+      ].join("\n");
+    const opensshWithRounds = (rounds: number) => {
+      const str = (b: Buffer) => Buffer.concat([Buffer.from([0, 0, 0, b.length]), b]);
+      const kdfOptions = Buffer.concat([str(Buffer.alloc(16, 1)), Buffer.from([(rounds >>> 24) & 255, (rounds >>> 16) & 255, (rounds >>> 8) & 255, rounds & 255])]);
+      const blob = Buffer.concat([Buffer.from("openssh-key-v1\0"), str(Buffer.from("aes256-ctr")), str(Buffer.from("bcrypt")), str(kdfOptions), Buffer.from([0, 0, 0, 1])]);
+      return `-----BEGIN OPENSSH PRIVATE KEY-----\n${blob.toString("base64")}\n-----END OPENSSH PRIVATE KEY-----`;
+    };
+
+    it("refuses a PPK asking for gigabytes of Argon2 memory without deriving anything", async () => {
+      parseFromStringMock.mockClear();
+      await expect(createSshKey({ name: "dos", privateKey: ppk(2_097_152, 5000), passphrase: "x" })).rejects.toThrow(
+        t("backend.server.sshKeyKdfTooHeavy"),
+      );
+      expect(parseFromStringMock).not.toHaveBeenCalled();
+      expect(prisma.sshKey.create).not.toHaveBeenCalled();
+    });
+
+    it("refuses a PPK whose memory × passes is too high even when each is moderate", async () => {
+      await expect(createSshKey({ name: "dos", privateKey: ppk(262_144, 60), passphrase: "x" })).rejects.toThrow(
+        t("backend.server.sshKeyKdfTooHeavy"),
+      );
+    });
+
+    it("hands a PPK with PuTTY's default parameters to the parser", async () => {
+      parseFromStringMock.mockClear();
+      await createSshKey({ name: "ok", privateKey: ppk(8192, 13), passphrase: "x" }).catch(() => undefined);
+      expect(parseFromStringMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("refuses an OpenSSH key with an absurd bcrypt round count but not the ssh-keygen default", async () => {
+      await expect(createSshKey({ name: "dos", privateKey: opensshWithRounds(4_000_000), passphrase: "x" })).rejects.toThrow(
+        t("backend.server.sshKeyKdfTooHeavy"),
+      );
+      await expect(createSshKey({ name: "ok", privateKey: opensshWithRounds(16), passphrase: "x" })).rejects.not.toThrow(
+        t("backend.server.sshKeyKdfTooHeavy"),
+      );
+    });
+  });
+
   it("rejects adding the same host for a different port before creating records", async () => {
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
       id: "srv_existing",
