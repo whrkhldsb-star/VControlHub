@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
@@ -24,6 +24,12 @@ export type RunBackupCommandOptions = {
   env?: NodeJS.ProcessEnv;
   timeout?: number;
   maxBuffer?: number;
+  /**
+   * The caller needs only the exit status (a listing that is checked, not read, such as `tar -tzf` of a backup):
+   * stdout is dropped as it arrives instead of being held in memory, where more than `maxBuffer` of it (about
+   * 15,000 members) used to fail the command.
+   */
+  discardStdout?: boolean;
 };
 
 export type RunBackupCommandInput = {
@@ -37,8 +43,31 @@ export type RunBackupCommandResult = {
   stderr: string;
 };
 
+const STDERR_KEEP_BYTES = 64 * 1024;
+
+function runDiscardingStdout(file: string, args: string[], options: RunBackupCommandOptions): Promise<RunBackupCommandResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(file, args, {
+      stdio: ["ignore", "ignore", "pipe"],
+      timeout: options.timeout ?? BACKUP_DEFAULT_TIMEOUT_MS,
+      ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
+      ...(options.env !== undefined ? { env: options.env } : {}),
+    });
+    let stderr = "";
+    child.stderr?.on("data", (chunk: Buffer) => {
+      if (stderr.length < STDERR_KEEP_BYTES) stderr += chunk.toString("utf8").slice(0, STDERR_KEEP_BYTES - stderr.length);
+    });
+    child.once("error", reject);
+    child.once("close", (code, signal) => {
+      if (code === 0) resolve({ stdout: "", stderr });
+      else reject(Object.assign(new Error(`Command failed: ${file} ${args.join(" ")}\n${stderr}`.trim()), { code: code ?? signal, stderr, killed: signal !== null }));
+    });
+  });
+}
+
 export async function runBackupCommand(input: RunBackupCommandInput): Promise<RunBackupCommandResult> {
   const { file, args, options = {} } = input;
+  if (options.discardStdout) return runDiscardingStdout(file, args, options);
   return runFile(file, args, {
     timeout: options.timeout ?? BACKUP_DEFAULT_TIMEOUT_MS,
     maxBuffer: options.maxBuffer ?? BACKUP_DEFAULT_MAX_BUFFER_BYTES,

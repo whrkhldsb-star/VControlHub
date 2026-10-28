@@ -11,6 +11,7 @@ const { mocks } = vi.hoisted(() => ({
     runExistingBackupRecord: vi.fn(),
     drillBackupRecord: vi.fn(),
     pruneOldBackupRecordsNow: vi.fn(),
+    enqueueJob: vi.fn(),
     runWithLeaseHeartbeat: vi.fn(),
     retryPendingOffsiteUploads: vi.fn(),
     sendOffsiteFailureAlert: vi.fn(async () => true),
@@ -24,6 +25,7 @@ vi.mock("@/lib/job/service", () => ({
   failJob: mocks.failJob,
   failJobTerminal: mocks.failJobTerminal,
   heartbeatJob: mocks.heartbeatJob,
+  enqueueJob: mocks.enqueueJob,
 }));
 
 vi.mock("@/lib/job/heartbeat-runner", () => ({
@@ -97,6 +99,28 @@ describe("backup job worker create path", () => {
     expect(mocks.failJob).not.toHaveBeenCalled();
     expect(mocks.completeJob).not.toHaveBeenCalled();
     expect(mocks.runWithLeaseHeartbeat).not.toHaveBeenCalled();
+  });
+
+  it("queues the retention of a schedule made in the all-customers view, which has no customer", async () => {
+    // Only the consumer was fixed before: the create branch skipped the retention job when there was no teamId,
+    // so such a schedule's "keep N days" never ran and its backups piled up until the disk filled.
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_platform",
+      type: BACKUP_CREATE_JOB_TYPE,
+      createdBy: "admin",
+      payload: { backupId: "bak_platform", retentionDays: 7, scheduleId: "sched_platform" },
+    });
+    mocks.getBackupRecord.mockResolvedValueOnce({ id: "bak_platform", type: "FULL", status: "PENDING", teamId: null });
+    mocks.runExistingBackupRecord.mockResolvedValueOnce({ id: "bak_platform", status: "COMPLETED", filePath: "backups/full.tar.gz", fileSize: 10 });
+    mocks.enqueueJob.mockResolvedValue({ id: "job_retention" });
+
+    await runBackupJobWorkerOnce();
+
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({
+      type: BACKUP_RETENTION_JOB_TYPE,
+      payload: expect.objectContaining({ olderThanDays: 7, scheduleId: "sched_platform", platformScope: true }),
+    }));
+    expect(mocks.enqueueJob.mock.calls[0]![0].payload).not.toHaveProperty("teamId");
   });
 
   it("fails the durable job when runExistingBackupRecord returns FAILED (no throw)", async () => {

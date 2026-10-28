@@ -354,7 +354,9 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 		// GNU tar treats the next token after -f as the archive name, so
 		// `tar -tzf -- "$path"` opens an archive literally named `--`.
 		// Path is already constrained by resolveBackupPath (portable under backups/).
-			await runBackupCommand({ file: resolveLocalTarBinary(), args: ["-tzf", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000 } });
+			// Only the exit status matters: the listing is thrown away as it arrives, not held up to a buffer limit
+			// that a backup of ~15,000 files exceeds.
+			await runBackupCommand({ file: resolveLocalTarBinary(), args: ["-tzf", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000, discardStdout: true } });
 			checks.push({ name: "archive-index", status: "passed", detail: "tar archive index parsed without extraction" });
 			if (record.type === "FULL") {
 				// Extract the embedded dump to a staging file and verify it with Node
@@ -422,6 +424,12 @@ export async function pruneOldBackupRecordsNow(input: {
 	 * every backup of the customer counts — the explicit cleanup action.
 	 */
 	scheduleId?: string | null;
+	/**
+	 * The platform's own backups: those no customer owns (made in the all-customers view). Only for a caller
+	 * that acts for the platform; without a customer the call otherwise refuses, so it can never reach
+	 * every customer's backups.
+	 */
+	platformScope?: boolean;
 } = {}): Promise<PruneOldBackupRecordsResult> {
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	// Fail closed: without an explicit teamId, never list/delete all tenants'
@@ -432,7 +440,7 @@ export async function pruneOldBackupRecordsNow(input: {
 	// was refused here on every run and its backups piled up until the disk
 	// filled.
 	const scheduleOnly = typeof input.scheduleId === "string" && input.scheduleId.trim() !== "";
-	if (!teamId && !scheduleOnly) {
+	if (!teamId && !scheduleOnly && !input.platformScope) {
 		retentionLogger.warn("backup retention skipped: teamId required to avoid cross-tenant prune", {
 			hasTeamId: Boolean(input.teamId),
 		});
@@ -455,7 +463,7 @@ export async function pruneOldBackupRecordsNow(input: {
 	const cutoffForQuery = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
 	const records = await prisma.backupRecord.findMany({
 		where: {
-			...(teamId ? { teamId } : {}),
+			...(teamId ? { teamId } : input.platformScope ? { teamId: null } : {}),
 			...(input.scheduleId !== undefined ? { scheduleId: input.scheduleId } : {}),
 			OR: [
 				{ status: { in: ["COMPLETED", "FAILED", "VOIDED"] }, createdAt: { lt: cutoffForQuery } },
