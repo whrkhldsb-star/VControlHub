@@ -6,6 +6,38 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { apiCopy } from "@/lib/i18n/api-copy";
 
 /**
+ * The recycle bin's part of `relativePath`: whether the path itself, or a folder above it, is in the bin
+ * (`onPath`), and the binned entries below it (`below`). Soft delete only changes the index; the bytes stay on
+ * disk, so every operation that reads the disk for the user has to ask.
+ */
+export async function recycledAround(storageNodeId: string, relativePath: string): Promise<{ onPath: boolean; below: string[] }> {
+  const parts = relativePath.split("/");
+  const ancestors = parts.map((_, index) => parts.slice(0, index + 1).join("/"));
+  const deleted = await prisma.fileEntry.findMany({
+    where: {
+      storageNodeId,
+      isDeleted: true,
+      OR: [
+        { relativePath: { in: ancestors } },
+        { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) } },
+      ],
+    },
+    select: { relativePath: true },
+    take: 10001,
+  });
+  if (deleted.length > 10000) throw new ValidationError(apiCopy("apiCopy.files.op.entries"));
+  return {
+    onPath: deleted.some((entry) => ancestors.includes(entry.relativePath)),
+    below: deleted.filter((entry) => entry.relativePath.startsWith(`${relativePath}/`)).map((entry) => entry.relativePath),
+  };
+}
+
+/** NotFound when the path, or a folder above it, is in the recycle bin. */
+export async function assertNotRecycled(storageNodeId: string, relativePath: string): Promise<void> {
+  if ((await recycledAround(storageNodeId, relativePath)).onPath) throw new NotFoundError(apiCopy("apiCopy.files.op.missing"));
+}
+
+/**
  * Open a folder archive without the recycle bin's contents. Both public shares
  * and authenticated downloads must use this gate. Exclusions are literal
  * archive member paths; a deleted directory excludes its subtree.

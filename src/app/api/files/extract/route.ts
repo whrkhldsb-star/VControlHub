@@ -10,6 +10,7 @@ import { createGunzip } from "node:zlib";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -93,6 +94,9 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
+
+      // A deleted archive is still on disk; it must not be listed or unpacked into visible files.
+      await assertNotRecycled(node.id, relativePath);
 
       const accessDecision = await assertStorageAccess({
         session,

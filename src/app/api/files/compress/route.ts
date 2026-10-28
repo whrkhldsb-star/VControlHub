@@ -16,6 +16,8 @@ import { compressFilesBodySchema } from "@/lib/files/schema";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
+import { recycledAround } from "@/lib/storage/archive-access";
+import { localTarExclusion } from "@/lib/storage/archive-stream";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { getErrorMessage } from "@/lib/http/error-message";
 
@@ -69,6 +71,7 @@ export async function POST(request: NextRequest) {
       }
 
       const inputs: string[] = [];
+      const excluded: string[] = [];
       for (const rawRelativePath of relativePaths) {
         const relativePath = rawRelativePath.replace(/^\/+/, "");
         if (relativePath === outputRelativePath) {
@@ -86,16 +89,23 @@ export async function POST(request: NextRequest) {
         const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
         if (!resolved.ok) return NextResponse.json({ error: resolved.reason }, { status: 400 });
         if (!await pathExists(resolved.path)) throw new NotFoundError(apiCopy("apiCopy.file.not.found.c7066170", { v0: String(relativePath) }));
+        // Deleting only marks the index; the bytes are still on disk. An archive made from the folder would
+        // bring deleted files back as new, visible, shareable ones.
+        const recycled = await recycledAround(node.id, relativePath);
+        if (recycled.onPath) throw new NotFoundError(apiCopy("apiCopy.file.not.found.c7066170", { v0: String(relativePath) }));
+        excluded.push(...recycled.below);
         inputs.push(relativePath);
       }
 
       await fs.mkdir(path.dirname(outputResolved.path), { recursive: true });
       const { listPath, tempDir } = await writeTarList(inputs);
       try {
+        const exclusion = localTarExclusion(excluded, path.join(tempDir, "exclude.txt"));
+        if (exclusion.fileContent !== null) await fs.writeFile(path.join(tempDir, "exclude.txt"), exclusion.fileContent);
         // --force-local (GNU tar): the -T list entries come from user-named
         // files, and GNU tar would otherwise parse `name:colon` members as
         // remote-tape specs and attempt an outbound connection.
-        await execFileAsync(resolveLocalTarBinary(), ["-czf", outputResolved.path, "-C", node.basePath, ...localTarForceLocalArgs(), "--null", "-T", listPath], {
+        await execFileAsync(resolveLocalTarBinary(), ["-czf", outputResolved.path, "-C", node.basePath, ...localTarForceLocalArgs(), ...exclusion.options, "--null", "-T", listPath], {
           maxBuffer: 10 * 1024 * 1024,
           timeout: 120_000,
         });
