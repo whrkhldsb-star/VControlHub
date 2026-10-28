@@ -28,6 +28,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const [enrollmentToken, setEnrollmentToken] = useState("");
 	const [qrDataUrl, setQrDataUrl] = useState("");
 	const [code, setCode] = useState("");
+	const [currentPassword, setCurrentPassword] = useState("");
 	const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
@@ -42,7 +43,11 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 		setLoading(true);
 		setError("");
 		try {
-			const data = await csrfFetch("/api/auth/2fa/setup", { method: "POST" });
+			const data = await csrfFetch("/api/auth/2fa/setup", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ currentPassword }),
+			});
 			if (data.error) { setError(data.error); return; }
 			if (
 				typeof data.secret !== "string" ||
@@ -55,6 +60,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			setSecret(data.secret);
 			setQrDataUrl(data.qrDataUrl);
 			setEnrollmentToken(data.enrollmentToken);
+			setCurrentPassword("");
 			setStep("setup");
 		} catch (err) { setError(messageFromError(err, t("auth.2fa-error-request-failed"))); }
 		finally { setLoading(false); }
@@ -152,7 +158,18 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<p className="text-xs text-[var(--text-secondary)] mb-3">
 						{t("auth.2fa-setup-description")}
 					</p>
-					<ActionButton size="sm" variant="primary" onClick={handleSetup} loading={loading}>
+					<label htmlFor="two-factor-current-password" className="ui-label block">
+						{t("auth.2fa-current-password-label")}
+					</label>
+					<input
+						id="two-factor-current-password"
+						type="password"
+						autoComplete="current-password"
+						value={currentPassword}
+						onChange={(event) => setCurrentPassword(event.target.value)}
+						className={cn(UI_INPUT, "mb-3 max-w-xs")}
+					/>
+					<ActionButton size="sm" variant="primary" onClick={handleSetup} loading={loading} disabled={!currentPassword}>
 						{loading ? t("auth.2fa-generating") : t("auth.2fa-enable")}
 					</ActionButton>
 				</div>

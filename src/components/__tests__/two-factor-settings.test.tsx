@@ -37,12 +37,22 @@ describe("TwoFactorSettings", () => {
 		});
 	});
 
+	it("asks for the current password before starting setup", async () => {
+		const user = userEvent.setup();
+		render(<TwoFactorSettings enabled={false} />);
+		expect(screen.getByRole("button", { name: "开启两步验证" })).toBeDisabled();
+		await user.type(screen.getByLabelText("当前密码（用于确认是你本人）"), "x");
+		expect(screen.getByRole("button", { name: "开启两步验证" })).toBeEnabled();
+		expect(csrfFetch).not.toHaveBeenCalled();
+	});
+
 	it("surfaces setup API failures with the backend message", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("二维码生成失败"));
 
 		render(<TwoFactorSettings enabled={false} />);
 
+		await user.type(screen.getByLabelText("当前密码（用于确认是你本人）"), "pw-123456");
 		await user.click(screen.getByRole("button", { name: "开启两步验证" }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("二维码生成失败");
@@ -57,6 +67,7 @@ describe("TwoFactorSettings", () => {
 
 		render(<TwoFactorSettings enabled={false} />);
 
+		await user.type(screen.getByLabelText("当前密码（用于确认是你本人）"), "pw-123456");
 		await user.click(screen.getByRole("button", { name: "开启两步验证" }));
 		expect(await screen.findByText("密钥（手动输入）：")).toBeInTheDocument();
 		await user.type(screen.getByLabelText("6位验证码"), "123456");
@@ -77,6 +88,7 @@ describe("TwoFactorSettings", () => {
 
 		render(<TwoFactorSettings enabled={false} />);
 
+		await user.type(screen.getByLabelText("当前密码（用于确认是你本人）"), "pw-123456");
 		await user.click(screen.getByRole("button", { name: "开启两步验证" }));
 		await user.type(await screen.findByLabelText("6位验证码"), "123456");
 		await user.click(screen.getByRole("button", { name: "确认启用" }));
@@ -85,6 +97,10 @@ describe("TwoFactorSettings", () => {
 		// Exactly two calls: setup then enable. The seed is never posted back — the
 		// signed enrollment ticket is what authorises the enable.
 		expect(csrfFetch).toHaveBeenCalledTimes(2);
+		expect(csrfFetch).toHaveBeenNthCalledWith(1, "/api/auth/2fa/setup", expect.objectContaining({
+			method: "POST",
+			body: JSON.stringify({ currentPassword: "pw-123456" }),
+		}));
 		expect(csrfFetch).toHaveBeenLastCalledWith("/api/auth/2fa/enable", expect.objectContaining({
 			method: "POST",
 			body: JSON.stringify({ code: "123456", enrollmentToken: "ticket.sig" }),
@@ -106,6 +122,7 @@ describe("TwoFactorSettings", () => {
 
 		render(<TwoFactorSettings enabled={false} />);
 
+		await user.type(screen.getByLabelText("当前密码（用于确认是你本人）"), "pw-123456");
 		await user.click(screen.getByRole("button", { name: "开启两步验证" }));
 
 		// Without a ticket there is nothing that could authorise `enable`, so the
@@ -158,7 +175,8 @@ describe("TwoFactorSettings", () => {
 		await user.click(screen.getByRole("button", { name: "确认关闭" }));
 
 		expect(await screen.findByText("未启用")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "开启两步验证" })).toBeEnabled();
+		// Turning it on again starts with the password prompt.
+		expect(screen.getByRole("button", { name: "开启两步验证" })).toBeDisabled();
 		expect(refreshMock).toHaveBeenCalledTimes(1);
 		expect(window.location.reload).not.toHaveBeenCalled();
 	});
@@ -220,7 +238,8 @@ describe("TwoFactorSettings", () => {
 		// Heading and badge are translated.
 		expect(screen.getByRole("heading", { name: /Two-factor authentication/ })).toBeInTheDocument();
 		expect(screen.getByText("Disabled")).toBeInTheDocument();
-		// Idle CTA uses the translated "Enable 2FA" copy.
-		expect(screen.getByRole("button", { name: "Enable 2FA" })).toBeEnabled();
+		// Idle CTA uses the translated "Enable 2FA" copy; it waits for the password prompt.
+		expect(screen.getByLabelText("Current password (to confirm it is you)")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Enable 2FA" })).toBeDisabled();
 	});
 });
