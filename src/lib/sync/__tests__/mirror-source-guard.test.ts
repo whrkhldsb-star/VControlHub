@@ -43,6 +43,14 @@ vi.mock("@/lib/ssh/client", () => ({
       state.ran.push(command);
       return { stdout: "", stderr: "no command may run in this test", exitCode: 1 };
     }
+    // These commands really run on this machine. Never let them near anything outside the test's own temp directory
+    // (a test aimed at "/etc" once emptied the real /etc when the guard it exercises had been reverted).
+    const job = state.job as { sourcePath?: string; targetPath?: string } | null;
+    for (const endpoint of [job?.sourcePath, job?.targetPath]) {
+      if (endpoint && !endpoint.startsWith(tmpdir())) {
+        throw new Error(`refusing to run a sync command for ${endpoint}: outside the temp directory`);
+      }
+    }
     if (command.startsWith("which rsync")) return { stdout: "MISSING\n", stderr: "", exitCode: 1 };
     const result = spawnSync("/bin/sh", ["-c", command], {
       encoding: "utf8",
