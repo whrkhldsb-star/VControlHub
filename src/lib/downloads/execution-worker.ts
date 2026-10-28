@@ -407,6 +407,7 @@ async function handleClaimedJob(
             payload.userId ?? task.createdBy ?? undefined,
             payload.sourceResolution,
             limits,
+            task.maxSpeedKb,
           );
         }
       },
@@ -483,14 +484,25 @@ async function handleClaimedJob(
   }
 }
 
+/**
+ * Downloads handled at once. One place meant a magnet link with no seeders (up to two hours) queued every
+ * other download behind it, for every customer, though a direct download needs only a few seconds.
+ */
+const MAX_CONCURRENT_DOWNLOAD_JOBS = 3;
+let activeDownloadJobs = 0;
+
 export async function runDownloadExecutionJobWorkerOnce() {
   const state = getWorkerState();
+  // `running` guards the claim only (two ticks must not claim at the same moment); the job itself then runs
+  // beside the others.
   if (state.running) {
     logger.warn("Skipping download execution tick because a previous tick is still running");
     return false;
   }
+  if (activeDownloadJobs >= MAX_CONCURRENT_DOWNLOAD_JOBS) return false;
 
   state.running = true;
+  let counted = false;
   try {
     const job = await claimNextJob({
       workerId: DOWNLOAD_EXECUTION_WORKER_ID,
@@ -498,6 +510,9 @@ export async function runDownloadExecutionJobWorkerOnce() {
       leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
     });
     if (!job) return false;
+    activeDownloadJobs += 1;
+    counted = true;
+    state.running = false;
     const handled = await handleClaimedJob(job);
     // Runs on both the success and the failure path (handleClaimedJob always
     // resolves the job to a terminal state); best-effort so a prune hiccup
@@ -523,6 +538,7 @@ export async function runDownloadExecutionJobWorkerOnce() {
     return false;
   } finally {
     state.running = false;
+    if (counted) activeDownloadJobs -= 1;
   }
 }
 
@@ -531,6 +547,7 @@ export async function startDownloadJobWorker(options: { intervalMs?: number } = 
 }
 
 export function stopDownloadJobWorkerForTests() {
+  activeDownloadJobs = 0;
   downloadExecutionWorker.stopForTests();
 }
 

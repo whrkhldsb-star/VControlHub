@@ -22,7 +22,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { AppError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
-import { teamAccessFilter } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, teamAccessFilter } from "@/lib/auth/team-scope";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route-helpers";
 
@@ -50,7 +50,9 @@ export async function PATCH(request: Request) {
 
       // Global speed limit
       if (globalMaxSpeedKb !== undefined) {
-        if (!sessionHasPermission(session, "storage:manage-node")) {
+        // One aria2 daemon serves every customer, and this option is process-wide: a customer's administrator
+        // (storage:manage-node) could otherwise throttle everyone else's downloads or lift the platform's limit.
+        if (!isGlobalTeamManager(session) || !sessionHasPermission(session, "storage:manage-node")) {
           throw new ForbiddenError(t("apiDownloads.missingGlobalSpeedPermission", locale));
         }
         try {

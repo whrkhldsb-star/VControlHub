@@ -46,6 +46,15 @@ describe("download remote command helpers", () => {
     expect(command).not.toContain("wget ");
   });
 
+  it("applies the task's speed limit to curl, and no limit when there is none", () => {
+    // The form offers "KB/s" for every download; only magnet (aria2) downloads used to honour it.
+    const base = { taskId: "task-3", url: "https://example.com/a.iso", targetPath: "/srv/cloud", fileName: null, sourceResolution };
+    expect(buildDirectDownloadCommand({ ...base, maxSpeedKb: 512 })).toContain("limit_rate=512k");
+    expect(buildDirectDownloadCommand({ ...base, maxSpeedKb: 512 })).toContain('${limit_rate:+--limit-rate \"$limit_rate\"}');
+    expect(buildDirectDownloadCommand(base)).toContain("limit_rate=\n");
+    expect(buildDirectDownloadCommand({ ...base, maxSpeedKb: 0 })).toContain("limit_rate=\n");
+  });
+
   it("builds an scp target with brackets for IPv6 hosts", () => {
     expect(toScpTarget("root", "2001:db8::1", "/srv/a file.txt")).toBe(
       "root@[2001:db8::1]:/srv/a file.txt",

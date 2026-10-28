@@ -10,6 +10,7 @@ import { ValidationError } from "@/lib/errors";
 import { resolveDownloadTargetPath } from "@/lib/downloads/target-path";
 import { toRemoteChildPath } from "@/lib/downloads/remote-command";
 import path from "path";
+import { isPlainDownloadName } from "@/lib/downloads/file-name";
 import { t } from "@/lib/i18n/service-translations";
 
 /* File name sanitization */
@@ -20,10 +21,10 @@ export function normalizeDownloadFileName(fileName: string | null | undefined): 
  if (value.includes("\0") || value.includes("/") || value.includes("\\")) {
   throw new ValidationError(t("backend.downloads.downloadFilenameCannotContainPathSeparators"));
  }
- if (value === "." || value === ".." || value.includes("..")) {
+ if (value === "." || value === "..") {
   throw new ValidationError(t("backend.downloads.downloadFilenameCannotContain"));
  }
- if (/^[A-Za-z]:/.test(value) || /[\r\n]/.test(value)) {
+ if (!isPlainDownloadName(value)) {
   throw new ValidationError(t("backend.downloads.downloadFilenameInvalid"));
  }
  return value;

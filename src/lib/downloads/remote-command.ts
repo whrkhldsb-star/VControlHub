@@ -27,6 +27,8 @@ type DirectDownloadCommandInput = {
   sourceResolution: DownloadSourceResolution;
   /** The creator's storage limit for this file (per-file limit or what the quota has left); null: none. */
   maxBytes?: bigint | null;
+  /** The task's speed limit in KB/s (the form offers it for every download); null: none. */
+  maxSpeedKb?: number | null;
 };
 
 export function buildDirectDownloadCommand({
@@ -36,6 +38,7 @@ export function buildDirectDownloadCommand({
   fileName,
   sourceResolution,
   maxBytes = null,
+  maxSpeedKb = null,
 }: DirectDownloadCommandInput): string {
   const safeTaskId = safeTaskFileStem(taskId);
   const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
@@ -57,6 +60,7 @@ export function buildDirectDownloadCommand({
     `exit_file=${shellQuote(exitFile)}`,
     `resolve_entry=${shellQuote(resolveEntry)}`,
     `max_bytes=${maxBytes === null ? "" : maxBytes.toString()}`,
+    `limit_rate=${maxSpeedKb && Number.isInteger(maxSpeedKb) && maxSpeedKb > 0 ? `${maxSpeedKb}k` : ""}`,
     // The detached process persists its own identity, even if the controller
     // dies before it can store the SSH response in PostgreSQL.
     'echo $$ >"$pid_file"',
@@ -76,7 +80,7 @@ export function buildDirectDownloadCommand({
     // Pin the public DNS result and fail on any redirect. A redirect target
     // has not passed the controller's DNS allowlist and may be an intranet IP.
     // --max-filesize stops a too-large file early when its size is announced.
-    "  curl --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http ${max_bytes:+--max-filesize \"$max_bytes\"} --resolve \"$resolve_entry\" -o \"$partial_path\" \"$download_url\" >\"$log_file\" 2>&1",
+    "  curl --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http ${max_bytes:+--max-filesize \"$max_bytes\"} ${limit_rate:+--limit-rate \"$limit_rate\"} --resolve \"$resolve_entry\" -o \"$partial_path\" \"$download_url\" >\"$log_file\" 2>&1",
     "else",
     "  echo \"ERROR: curl is required for DNS-pinned downloads\" >\"$log_file\"",
     "  false",

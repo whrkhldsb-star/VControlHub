@@ -1102,6 +1102,29 @@ describe("/api/downloads", () => {
     expect(changeGlobalOptionMock).not.toHaveBeenCalled();
   });
 
+  it("leaves the process-wide aria2 limit and totals to the platform administrator", async () => {
+    // One daemon serves every customer: a customer's administrator holds storage:manage-node (every permission
+    // here is granted) but is not the platform administrator.
+    session.roles = ["operator"];
+
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH",
+      body: JSON.stringify({ globalMaxSpeedKb: 1 }),
+    }));
+    expect(response.status).toBe(403);
+    expect(changeGlobalOptionMock).not.toHaveBeenCalled();
+
+    prismaMock.downloadTask.findMany.mockReset();
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([
+      { id: "task_relay", createdBy: "u_1", targetPath: "/srv/cloud/downloads/file.iso", server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } }, status: "RUNNING", aria2Gid: "gid_1", pid: null, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null },
+    ]);
+    tellStatusMock.mockResolvedValueOnce({ gid: "gid_1", status: "active", completedLength: "10", totalLength: "100", downloadSpeed: "5" });
+    const listed = await GET(new Request("https://example.com/api/downloads"));
+    expect(listed.status).toBe(200);
+    await expect(listed.json()).resolves.toMatchObject({ globalStat: null });
+    expect(getGlobalStatMock).not.toHaveBeenCalled();
+  });
+
   it("does not mark an aria2 task paused when the real pause operation fails", async () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",

@@ -282,6 +282,8 @@ describe("download execution durable job worker", () => {
           port: 443,
         },
         LIMITS,
+        // The task's speed limit travels to curl on the VPS (the form offered it for direct downloads too).
+        null,
       );
       expect(executeAria2RelayDownloadMock).not.toHaveBeenCalled();
       expect(completeJobMock).toHaveBeenCalledWith(
@@ -385,6 +387,7 @@ describe("download execution durable job worker", () => {
         "u-fallback",
         undefined,
         LIMITS,
+        null,
       );
     });
 
@@ -465,6 +468,28 @@ describe("download execution durable job worker", () => {
         "Download execution lost its lease mid-transfer; not retrying from this worker",
         expect.objectContaining({ jobId: "job-dl-1", taskId: "task-1" }),
       );
+    });
+
+    it("handles a second download while a slow one is still running, up to three at a time", async () => {
+      // A magnet link without seeders used to hold the only place for up to two hours, and every other
+      // customer's downloads waited behind it.
+      let finishSlow!: () => void;
+      claimNextJobMock
+        .mockResolvedValueOnce(makeJob({ id: "slow" }))
+        .mockResolvedValueOnce(makeJob({ id: "fast" }))
+        .mockResolvedValue(null);
+      executeDirectDownloadMock
+        .mockImplementationOnce(() => new Promise<void>((resolve) => { finishSlow = resolve; }))
+        .mockResolvedValueOnce(undefined);
+
+      const slow = runDownloadExecutionJobWorkerOnce();
+      await vi.waitFor(() => expect(executeDirectDownloadMock).toHaveBeenCalledTimes(1));
+      const fast = await runDownloadExecutionJobWorkerOnce();
+      expect(fast).toBe(true);
+      expect(executeDirectDownloadMock).toHaveBeenCalledTimes(2);
+
+      finishSlow();
+      await slow;
     });
 
     it("does not overlap concurrent ticks", async () => {
