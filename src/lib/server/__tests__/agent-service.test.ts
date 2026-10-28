@@ -110,6 +110,15 @@ describe("server Agent authentication and routing", () => {
     await expect(authenticateServerAgent("vca_srv1_abcdefghijklmnopqrstuvwxyz0123456789")).resolves.toBeNull();
   });
 
+  it("replaces NUL in Agent output, which made every resend of the result fail and silenced the node", async () => {
+    mocks.agentJobUpdateMany.mockResolvedValue({ count: 1 });
+    await completeServerAgentJob({ serverId: "srv1", jobId: "job1", stdout: "a\0b", stderr: "\0", exitCode: 0 });
+    for (const call of mocks.agentJobUpdateMany.mock.calls) {
+      expect(call[0].data.stdout).toBe("a\uFFFDb");
+      expect(call[0].data.stderr).toBe("\uFFFD");
+    }
+  });
+
   it("caps Agent command output before persisting it", async () => {
     mocks.agentJobUpdateMany.mockResolvedValueOnce({ count: 1 });
     await completeServerAgentJob({

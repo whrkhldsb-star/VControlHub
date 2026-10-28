@@ -4,6 +4,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
+import { stripNulDeep } from "@/lib/text/strip-nul";
 
 const ACTOR_TYPE_VALUES = new Set<ActorType>(["USER", "ASSISTANT", "SYSTEM"]);
 const logger = createLogger("audit");
@@ -39,7 +40,8 @@ export async function writeAuditLog(input: WriteAuditLogInput): Promise<void> {
 			actorId: input.actorId,
 			action: input.action,
 			severity: input.severity ?? "INFO",
-			detail: input.detail as Prisma.InputJsonValue,
+			// Details carry user-typed text (a failed login's account name): jsonb cannot hold U+0000.
+			detail: stripNulDeep(input.detail) as Prisma.InputJsonValue,
 			...(input.teamId !== undefined ? { teamId: input.teamId } : {}),
 		},
 	});

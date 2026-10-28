@@ -281,6 +281,13 @@ describe("command ssh-executor adapter", () => {
 });
 
 describe("command ssh-executor BoundedOutputCollector", () => {
+  it("replaces NUL bytes in the output, which PostgreSQL text cannot store", () => {
+    // cat /proc/1/environ, find -print0 and the like: the command succeeded, the write must too.
+    const collector = new BoundedOutputCollector(80);
+    collector.push(Buffer.from("PATH=/bin\0HOME=/root\0"));
+    expect(collector.finish()).toBe("PATH=/bin\uFFFDHOME=/root\uFFFD");
+  });
+
   it("keeps output exactly at the limit verbatim (no marker)", () => {
     const collector = new BoundedOutputCollector(80);
     collector.push("A".repeat(80));

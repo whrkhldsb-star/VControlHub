@@ -2,6 +2,7 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 
 import { t } from "@/lib/i18n/service-translations";
+import { stripNul } from "@/lib/text/strip-nul";
 
 export type SshExecutionResult = {
   stdout: string;
@@ -75,7 +76,7 @@ export class BoundedOutputCollector {
   /** Concat + decode once; the collector is sealed afterwards. */
   finish(): string {
     if (this.settled !== null) return this.settled;
-    const whole = Buffer.concat(this.chunks).subarray(0, this.limitBytes).toString("utf8");
+    const whole = stripNul(Buffer.concat(this.chunks).subarray(0, this.limitBytes).toString("utf8"));
     this.settled = this.truncated
       ? `${whole}\n[output truncated, exceeded ${this.limitBytes} bytes limit]`
       : whole;

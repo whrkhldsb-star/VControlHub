@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     auditLog: {
+      create: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
       groupBy: vi.fn(),
@@ -20,12 +21,20 @@ vi.mock("@/lib/auth/authorization", () => ({
   }),
 }));
 
-const { listAuditLogs, getAuditStats, exportAuditLogs } = await import("./service");
+const { listAuditLogs, getAuditStats, exportAuditLogs, writeAuditLog } = await import("./service");
 
 import type { RoleKey } from "@/lib/auth/rbac";
 
 const teamUser = { userId: "u1", roles: ["operator"] as RoleKey[], currentTeamId: "team_a" };
 const adminUser = { userId: "admin", roles: ["admin"] as RoleKey[], currentTeamId: "team_a" };
+
+describe("writeAuditLog", () => {
+  it("stores user-typed text that holds U+0000, which jsonb cannot", async () => {
+    mockPrisma.auditLog.create.mockResolvedValue({});
+    await writeAuditLog({ actorType: "USER", action: "login.failed", detail: { username: "ab\u0000cd", nested: { note: ["x\u0000"] } } });
+    expect(mockPrisma.auditLog.create.mock.calls[0]![0].data.detail).toEqual({ username: "ab\uFFFDcd", nested: { note: ["x\uFFFD"] } });
+  });
+});
 
 describe("listAuditLogs", () => {
   beforeEach(() => {

@@ -128,6 +128,12 @@ describe("POST /api/login", () => {
       expect(audit.auditSystemAction).not.toHaveBeenCalled();
     });
 
+    it("answers a name holding U+0000 like any wrong login instead of failing in the database", async () => {
+      const response = await POST(makeLoginRequest({ username: "adm\u0000in", password: "secret-pass" }));
+      expect(response.headers.get("location")).toMatch(/^\/login\?error=invalid/);
+      expect(authenticateUserMock).not.toHaveBeenCalled();
+    });
+
     it("keys the lockout and the audit row on the trimmed name while authenticating the typed one", async () => {
       const rate = await import("@/lib/rate-limit");
       const audit = await import("@/lib/audit/service");

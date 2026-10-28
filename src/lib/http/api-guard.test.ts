@@ -192,6 +192,24 @@ describe("api guard", () => {
 
   /* ── TR-037: zod request validation ─────────────────────────── */
 
+  it("rejects a body or query holding U+0000 with a 400 instead of failing later in the database", async () => {
+    const { z } = await import("zod");
+    const handler = vi.fn(async () => Response.json({ ok: true }));
+    const bodyResponse = await withApiRoute(
+      new Request("https://example.test/api/demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "a\u0000b" }) }),
+      { bodySchema: z.object({ name: z.string() }) },
+      handler,
+    );
+    expect(bodyResponse.status).toBe(400);
+    const queryResponse = await withApiRoute(
+      new Request("https://example.test/api/demo?name=a%00b"),
+      { querySchema: z.object({ name: z.string() }) },
+      handler,
+    );
+    expect(queryResponse.status).toBe(400);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("TR-037: rejects POST body that fails the bodySchema with a 400 ValidationError envelope", async () => {
     const { z } = await import("zod");
     const bodySchema = z.object({ name: z.string().min(1), count: z.number().int().positive() });

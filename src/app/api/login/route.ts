@@ -113,7 +113,7 @@ export async function POST(request: Request) {
 		const { password } = parsed.data;
 		// A name longer than any account's can match nothing: answer like any other wrong login without
 		// keeping any state for it (failure counters, audit rows) keyed on attacker-sized text.
-		if (parsed.data.username.trim().length > MAX_ACCOUNT_USERNAME_LENGTH) {
+		if (parsed.data.username.trim().length > MAX_ACCOUNT_USERNAME_LENGTH || parsed.data.username.includes("\u0000")) {
 			return redirectWithRelativeLocation("/login?error=invalid");
 		}
 		// What lockout counters and audit rows record: the account name as the lookup reads it.

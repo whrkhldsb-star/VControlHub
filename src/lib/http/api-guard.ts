@@ -16,6 +16,7 @@ import { apiCatch, apiError } from "@/lib/http/api-error";
 import { searchParamsToObject, zodIssueDetails } from "@/lib/http/parse-search-params";
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
+import { containsNul } from "@/lib/text/strip-nul";
 import { t } from "@/lib/i18n/service-translations";
 import { localizeApiCopy, withApiCopyLocale, type Locale } from "@/lib/i18n/api-copy";
 import {
@@ -266,6 +267,7 @@ async function runApiRoute<TBody = unknown, TQuery = unknown>(
           // chunked requests that do not declare Content-Length.
           const text = (await readRequestBodyBuffer(request, maxBodyBytes)).toString("utf8");
           raw = text.length === 0 ? undefined : JSON.parse(text);
+          if (containsNul(raw)) throw new ValidationError(t("backend.http.requestContainsNul"), { field: "body" });
         } catch (err) {
           if (err instanceof RequestBodyTooLargeError) {
             throw new ValidationError(apiCopy("apiCopy.request.body.too.large.c49c1143"), {
@@ -289,6 +291,7 @@ async function runApiRoute<TBody = unknown, TQuery = unknown>(
     if (options.querySchema) {
       const url = new URL(request.url);
       const obj = searchParamsToObject(url.searchParams);
+      if (containsNul(obj)) throw new ValidationError(t("backend.http.requestContainsNul"), { field: "query" });
       const parsed = options.querySchema.safeParse(obj);
       if (!parsed.success) {
         const { summary, issues } = zodIssueDetails(parsed.error, "query");
