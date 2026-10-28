@@ -183,7 +183,10 @@ export function buildRsyncCommand(input: RsyncCommandInput): string {
 	// than 3.2.4 on the source host hands `user@host:/path` to the remote shell
 	// unescaped, so a job's targetPath could carry `;`/`$()` and run commands on
 	// the target as the sync user. shellQuote only protects the source shell.
-	const command = `${envPrefix}rsync ${input.flags.join(" ")} -s -e ${shellDoubleQuote(transport)} ${shellQuote(`${input.sourcePath.replace(/\/$/, "")}/`)} ${shellQuote(target)} 2>&1`;
+	// `--` ends the options, and a relative source gets "./": otherwise a path that begins with "-" is an option and one
+	// holding "host:" is another machine (jobs stored before the path check existed could still carry such a value).
+	const source = input.sourcePath.replace(/\/$/, "");
+	const command = `${envPrefix}rsync ${input.flags.join(" ")} -s -e ${shellDoubleQuote(transport)} -- ${shellQuote(`${source.startsWith("/") ? source : `./${source}`}/`)} ${shellQuote(target)} 2>&1`;
 	return withCredentialCleanup(command, input);
 }
 

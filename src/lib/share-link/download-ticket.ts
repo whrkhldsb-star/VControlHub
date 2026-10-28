@@ -20,8 +20,17 @@ function getTicketSecret(): string {
   return "dev-only-share-download-ticket-secret";
 }
 
+/**
+ * The ticket key is derived from the configured secret with a label of its own. That secret is the one every managed
+ * server's direct-download gateway holds (it signs the gateway's links), so a ticket signed with it directly could be
+ * forged by anyone with root on such a server for any password-protected share whose id and link they knew.
+ */
+function ticketKey(): Buffer {
+  return createHmac("sha256", getTicketSecret()).update("share-download-ticket:v1").digest();
+}
+
 function sign(payload: string): string {
-  return createHmac("sha256", getTicketSecret()).update(payload).digest("base64url");
+  return createHmac("sha256", ticketKey()).update(payload).digest("base64url");
 }
 
 export function getShareDownloadTicketCookieName(): string {
