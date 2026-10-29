@@ -328,6 +328,29 @@ describe("/api/quick-services routes", () => {
     expect(mocks.getUsedPorts).not.toHaveBeenCalled();
   });
 
+  it("does not send the installed services' environment (generated admin passwords) to the page", async () => {
+    mocks.listQuickServices.mockResolvedValueOnce([{ id: "svc1", slug: "alist", status: "running", containerId: "c1", port: 5244, error: null, envJson: { ADMIN_PASSWORD: "s3cret-generated", TZ: "UTC" } }]);
+
+    const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
+    const json = await body(response);
+
+    expect(response.status).toBe(200);
+    expect(JSON.stringify(json)).not.toContain("s3cret-generated");
+    expect(json.installed[0]).toMatchObject({ slug: "alist", envKeyCount: 2 });
+    expect(json.installed[0]).not.toHaveProperty("envJson");
+  });
+
+  it("still lists the services when the selected VPS cannot be probed for its listening ports", async () => {
+    // getRemoteUsedPorts throws for an unreachable host, a changed host key or a Windows server: the whole page was a 500.
+    mocks.getRemoteUsedPorts.mockRejectedValueOnce(new Error("SSH unreachable"));
+
+    const response = await rootRoute.GET(new Request("http://local/api/quick-services?serverId=srv_remote"));
+    const json = await body(response);
+
+    expect(response.status).toBe(200);
+    expect(json.usedPorts).toEqual([]);
+  });
+
   it("queues local service installation for the authorized user", async () => {
     const response = await rootRoute.POST(new Request("http://local/api/quick-services", {
       method: "POST",
