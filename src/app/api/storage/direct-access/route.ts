@@ -25,6 +25,7 @@ import {
   directAccessInputSchema,
 } from "@/lib/storage/schema";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { directGatewaySigningKey } from "@/lib/server/direct-gateway-key";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +94,8 @@ function buildSignedDirectUrl(input: {
   publicBaseUrl: string;
   relativePath: string;
   expiresSeconds: number;
+  /** The server whose gateway serves the node, and which key that gateway holds. */
+  gateway: { serverId: string | null; keyVersion: number };
 }) {
   const base = input.publicBaseUrl.endsWith("/")
     ? input.publicBaseUrl
@@ -108,13 +111,15 @@ function buildSignedDirectUrl(input: {
   if (!secret) {
     throw new Error("Direct access signing key is not configured STORAGE_DIRECT_ACCESS_SECRET");
   }
+  // Each gateway installed since the per-server keys verifies with its own key (see direct-gateway-key.ts).
+  const signingKey = directGatewaySigningKey(secret, input.gateway);
 
   const signedPath = normalizeDirectGatewaySignedPath({
     publicBaseUrl: input.publicBaseUrl,
     relativePath: input.relativePath,
   });
   const signature = crypto
-    .createHmac("sha256", secret)
+    .createHmac("sha256", signingKey)
     .update(`${signedPath}.${expires}`)
     .digest("hex");
   url.searchParams.set("expires", String(expires));
@@ -166,6 +171,8 @@ async function resolveDirectAccessPayload(input: {
       directAccessMode: true,
       publicBaseUrl: true,
       directAccessExpiresSeconds: true,
+      serverId: true,
+      server: { select: { directGatewayKeyVersion: true } },
     },
   });
 
@@ -225,6 +232,7 @@ async function resolveDirectAccessPayload(input: {
               publicBaseUrl,
               relativePath: normalizedRelativePath,
               expiresSeconds: node.directAccessExpiresSeconds ?? 300,
+              gateway: { serverId: node.serverId ?? null, keyVersion: node.server?.directGatewayKeyVersion ?? 1 },
             }),
             fallbackUrl: fallback,
             expiresSeconds: node.directAccessExpiresSeconds ?? 300,

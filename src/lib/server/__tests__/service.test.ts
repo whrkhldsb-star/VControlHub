@@ -17,6 +17,7 @@ import {
   updateServerProfile,
 } from "@/lib/server/service";
 import { loadServerForDirectGateway } from "../service-direct-gateway";
+import { deriveDirectGatewayServerKey } from "../direct-gateway-key";
 import { prisma } from "@/lib/db";
 import { t } from "@/lib/i18n/service-translations";
 import { createRemoteDirectory, listRemoteDirectory, writeRemoteFile } from "@/lib/ssh/client";
@@ -1158,10 +1159,15 @@ describe("server service", () => {
       }),
     );
     vi.unstubAllGlobals();
+    // The gateway receives a key derived for this server, never the hub's shared secret, which root on
+    // any one managed server could otherwise use to sign links for every other server's gateway.
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        command: expect.stringContaining("DIRECT_SECRET='test-direct-secret'"),
+        command: expect.stringContaining(`DIRECT_SECRET='${deriveDirectGatewayServerKey("test-direct-secret", "srv_direct")}'`),
       }),
+    );
+    expect(execRemoteCommandMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ command: expect.stringContaining("test-direct-secret") }),
     );
     expect(prisma.server.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1169,6 +1175,7 @@ describe("server service", () => {
         data: expect.objectContaining({
           fileProxyPort: 31888,
           publicUrl: "http://203.0.113.10:31888",
+          directGatewayKeyVersion: 2,
         }),
       }),
     );
@@ -1684,6 +1691,7 @@ describe("server service", () => {
         data: {
           fileProxyPort: 31888,
           publicUrl: "http://203.0.113.10:31888",
+          directGatewayKeyVersion: 2,
         },
       }),
     );
@@ -1712,6 +1720,9 @@ describe("server service", () => {
       host: "8.8.8.8", port: 2222, username: "storage-user", password: "sftp-password",
       remotePath: "/C:/ProgramData/VControlHub/direct-gateway/gateway.ps1",
     }));
+    const uploadedScript = (vi.mocked(writeRemoteFile).mock.calls.at(-1)?.[0] as { content: Buffer }).content.toString("utf8");
+    expect(uploadedScript).toContain(deriveDirectGatewayServerKey("test-direct-secret", "win-direct"));
+    expect(uploadedScript).not.toContain("'test-direct-secret'");
     expect(execRemoteCommandMock).toHaveBeenCalledTimes(2);
     const installCommand = execRemoteCommandMock.mock.calls[1]?.[0]?.command as string;
     expect(Buffer.from(installCommand.split(" ").at(-1)!, "base64").toString("utf16le")).toContain("Register-ScheduledTask");
