@@ -335,3 +335,25 @@ describe("cost routes", () => {
 		});
 	});
 });
+
+describe("billing account config for readers", () => {
+	it("leaves out the CSV sample and the feed URL for a session that may only read costs", async () => {
+		// The feed URL often carries a signed token and the sample is whatever was pasted in: inputs of the manager.
+		const stored = { ...accountView, config: { region: "ap-southeast-1", sampleCsv: "date,amount\n2026-10-01,3.5", billingCsvUrl: "https://billing.example.com/export.csv?sig=secret" } };
+		mocks.billing.listCloudBillingAccounts.mockResolvedValueOnce([stored]);
+		mocks.billing.getCloudBillingAccount.mockResolvedValueOnce(stored);
+		const reader = session as { permissions?: string[] };
+		reader.permissions = ["cost:read"];
+		try {
+			const list = await accounts.GET(req("GET"));
+			expect(await list.json()).toEqual({ accounts: [{ ...accountView, config: { region: "ap-southeast-1" } }] });
+			const one = await accountItem.GET(req("GET"), idParams);
+			expect(await one.json()).toEqual({ account: { ...accountView, config: { region: "ap-southeast-1" } } });
+		} finally {
+			delete reader.permissions;
+		}
+		mocks.billing.listCloudBillingAccounts.mockResolvedValueOnce([stored]);
+		const manager = await accounts.GET(req("GET"));
+		expect(await manager.json()).toEqual({ accounts: [stored] });
+	});
+});
