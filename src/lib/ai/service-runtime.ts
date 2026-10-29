@@ -362,15 +362,25 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 		url = `${baseUrl}/chat/completions`;
 		headers["Authorization"] = `Bearer ${rawApiKey}`;
 		assertImageOnlyAttachments(req.messages);
+		const streaming = req.stream ?? true;
+		// OpenAI's own endpoint: the o-series and GPT-5 refuse `max_tokens` (they take `max_completion_tokens`) and the
+		// sampling parameters (the o-series only accepts the default temperature), so every chat with the recommended
+		// o3-mini was an HTTP 400; and a streamed reply carries no `usage` unless asked for, which recorded 0 tokens.
+		const officialReasoningModel = provider.type === "OPENAI" && /^(o\d|gpt-5)/i.test(req.model);
 		body = {
 			model: req.model,
 			messages: req.messages,
-			temperature: req.temperature ?? 0.7,
-			max_tokens: req.max_tokens ?? 4096,
-			top_p: req.top_p ?? 1.0,
-			frequency_penalty: req.frequency_penalty ?? 0.0,
-			presence_penalty: req.presence_penalty ?? 0.0,
-			stream: req.stream ?? true,
+			...(officialReasoningModel
+				? { max_completion_tokens: req.max_tokens ?? 4096 }
+				: {
+						temperature: req.temperature ?? 0.7,
+						max_tokens: req.max_tokens ?? 4096,
+						top_p: req.top_p ?? 1.0,
+						frequency_penalty: req.frequency_penalty ?? 0.0,
+						presence_penalty: req.presence_penalty ?? 0.0,
+					}),
+			stream: streaming,
+			...(streaming && provider.type === "OPENAI" ? { stream_options: { include_usage: true } } : {}),
 			...(req.tools && req.tools.length > 0 && { tools: req.tools }),
 			...(req.extraBody || {}),
 		};

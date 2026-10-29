@@ -3,6 +3,8 @@
  * Defaults to in-memory Map storage (single instance).
  * Automatically switches to Redis when REDIS_URL is configured (multi-instance).
  */
+import { createHash } from "node:crypto";
+
 import { config } from "@/lib/config/env";
 import { createLogger } from "@/lib/logging";
 
@@ -32,6 +34,22 @@ export interface RateLimitStore {
 }
 
 // ── In-memory implementation ────────────────────────────────────
+// Keys embed request-controlled text (user names, paths): bound each key and the number of keys
+// so unauthenticated traffic cannot grow the maps without limit between cleanup passes.
+const MEMORY_STORE_MAX_KEY_CHARS = 256;
+const MEMORY_STORE_MAX_KEYS = 50_000;
+
+function boundedKey(key: string): string {
+  if (key.length <= MEMORY_STORE_MAX_KEY_CHARS) return key;
+  return `${key.slice(0, 128)}#${createHash("sha256").update(key).digest("hex").slice(0, 32)}`;
+}
+
+function evictOldestIfFull<V>(map: Map<string, V>, incomingKey: string) {
+  if (map.has(incomingKey) || map.size < MEMORY_STORE_MAX_KEYS) return;
+  const oldest = map.keys().next().value;
+  if (oldest !== undefined) map.delete(oldest);
+}
+
 class MemoryRateLimitStore implements RateLimitStore {
   private timestamps = new Map<
     string,
@@ -54,15 +72,18 @@ class MemoryRateLimitStore implements RateLimitStore {
     timestamp: number,
     windowMs: number,
   ): Promise<number[]> {
+    key = boundedKey(key);
     let entries = this.timestamps.get(key)?.entries ?? [];
     const cutoff = timestamp - windowMs;
     entries = entries.filter((t) => t > cutoff);
     entries.push(timestamp);
+    evictOldestIfFull(this.timestamps, key);
     this.timestamps.set(key, { entries, windowMs });
     return entries;
   }
 
   async getLockout(key: string): Promise<AccountLockoutState | null> {
+    key = boundedKey(key);
     const row = this.lockouts.get(key);
     if (!row) return null;
     if (row.expiresAt <= Date.now()) {
@@ -77,6 +98,8 @@ class MemoryRateLimitStore implements RateLimitStore {
     state: AccountLockoutState,
     ttlMs: number,
   ): Promise<void> {
+    key = boundedKey(key);
+    evictOldestIfFull(this.lockouts, key);
     this.lockouts.set(key, {
       state: { ...state },
       expiresAt: Date.now() + Math.max(1, ttlMs),
@@ -84,7 +107,7 @@ class MemoryRateLimitStore implements RateLimitStore {
   }
 
   async deleteLockout(key: string): Promise<void> {
-    this.lockouts.delete(key);
+    this.lockouts.delete(boundedKey(key));
   }
 
   private cleanup() {

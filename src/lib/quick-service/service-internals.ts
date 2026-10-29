@@ -237,7 +237,25 @@ export type QuickServiceSnapshot = {
 	error?: string;
 };
 
+/**
+ * What an audit entry may keep of a service's configuration: the environment is stored with its generated
+ * administrator passwords and tokens (MinIO, n8n, Pi-hole, code-server ...), and every start, stop, refresh and
+ * uninstall copied the whole of it into audit_logs, which are viewed, exported, backed up and kept. Only the names
+ * of the variables are kept.
+ */
+export function redactSnapshotForAudit(snapshot: Record<string, unknown> | null | undefined): Record<string, unknown> | null | undefined {
+	if (!snapshot || typeof snapshot.envJson !== "string") return snapshot;
+	let names: string[] = [];
+	try {
+		const parsed: unknown = JSON.parse(snapshot.envJson);
+		if (parsed && typeof parsed === "object") names = Object.keys(parsed as Record<string, unknown>);
+	} catch { /* unreadable: nothing to name */ }
+	return { ...snapshot, envJson: JSON.stringify(Object.fromEntries(names.map((name) => [name, "***"]))) };
+}
+
 export async function writeQuickServiceAudit(input: {
+	/** The server the service runs on (its id), or the hub host: the entry belongs to that server's customer. */
+	instanceKey?: string;
 	userId?: string | null;
 	action: "install" | "start" | "stop" | "sync" | "update" | "uninstall";
 	slug: string;
@@ -252,14 +270,19 @@ export async function writeQuickServiceAudit(input: {
 			...input.detail,
 		};
 		if (input.diff && (input.diff.before || input.diff.after)) {
-			detail.diff = input.diff as unknown as PrismaJsonValue;
+			detail.diff = { before: redactSnapshotForAudit(input.diff.before), after: redactSnapshotForAudit(input.diff.after) } as unknown as PrismaJsonValue;
 		}
+		// The customer's own audit page lists entries by team; these used to carry none, so only the platform saw them.
+		const teamId = input.instanceKey && input.instanceKey !== "hub-host"
+			? (await prisma.server.findUnique({ where: { id: input.instanceKey }, select: { teamId: true } }))?.teamId ?? null
+			: undefined;
 		await writeAuditLog({
 			actorType: input.userId ? "USER" : "SYSTEM",
 			actorId: input.userId ?? undefined,
 			action: `quick_service.${input.action}.${input.status}`,
 			severity: input.status === "failed" ? "WARNING" : "INFO",
 			detail,
+			...(teamId !== undefined ? { teamId } : {}),
 		});
 	} catch {
 		// Audit log failures must not flip an otherwise successful operation

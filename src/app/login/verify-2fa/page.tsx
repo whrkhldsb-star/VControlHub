@@ -7,7 +7,7 @@ import { Verify2faForm } from "./verify-2fa-form";
 import { ArrowLeft } from "@/components/icons";
 
 type Verify2faPageProps = {
-	searchParams?: Promise<{ next?: string; error?: string }>;
+	searchParams?: Promise<{ next?: string | string[]; error?: string | string[] }>;
 };
 
 function resolveErrorMessage(locale: Locale, error?: string) {
@@ -32,7 +32,7 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 	// Same guard as /api/login: only same-origin relative paths (block open
 	// redirects, including the backslash `/\host` form).
 	const nextPath = safeRelativeRedirectPath(rawNext);
-	const error = resolveErrorMessage(locale, resolvedSearchParams.error);
+	const error = resolveErrorMessage(locale, Array.isArray(resolvedSearchParams.error) ? resolvedSearchParams.error[0] : resolvedSearchParams.error);
 
 	return (
 		<div className="relative flex min-h-screen items-center justify-center overflow-hidden text-[var(--text-primary)]">

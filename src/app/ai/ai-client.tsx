@@ -33,6 +33,7 @@ import { AiInputAreaLazy } from "./ai-input-area-lazy";
 import {
   mergePendingApprovals,
   pendingApprovalsFromMessages,
+  settledActionIds,
 } from "./ai-hosted-action-utils";
 import { AiMessageList } from "./ai-message-list";
 import { AiProviderPanelLazy } from "./ai-provider-panel-lazy";
@@ -139,7 +140,8 @@ export function AiClient({
   const pendingApprovals = useMemo(
     () =>
       mergePendingApprovals(
-        streamedPendingApprovals,
+        // A card that arrived in the stream is dropped once the transcript shows its action settled.
+        streamedPendingApprovals.filter((approval) => !settledActionIds(messages).has(approval.actionId)),
         pendingApprovalsFromMessages(messages),
       ),
     [messages, streamedPendingApprovals],

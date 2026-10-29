@@ -202,6 +202,30 @@ describe("SshTerminalManager full screen", () => {
 		expect(onTabClose).toHaveBeenCalledWith(0);
 	});
 
+	it("does not close the tab when Escape was meant for a dialog", () => {
+		// Cancelling "delete this file" or "close all tabs" with Escape also ended the shell behind the dialog.
+		const { onTabClose } = renderManager();
+		const dialog = document.createElement("div");
+		dialog.setAttribute("aria-modal", "true");
+		document.body.appendChild(dialog);
+		try {
+			fireEvent.keyDown(window, { key: "Escape" });
+			expect(onTabClose).not.toHaveBeenCalled();
+
+			// A key the dialog already handled is left alone too, whatever the DOM looks like.
+			dialog.remove();
+			const handled = new KeyboardEvent("keydown", { key: "Escape", cancelable: true });
+			handled.preventDefault();
+			window.dispatchEvent(handled);
+			expect(onTabClose).not.toHaveBeenCalled();
+
+			fireEvent.keyDown(window, { key: "Escape" });
+			expect(onTabClose).toHaveBeenCalledWith(0);
+		} finally {
+			dialog.remove();
+		}
+	});
+
 	it("keeps the minimized pill in its corner while full screen is on", () => {
 		renderManager();
 		fireEvent.click(screen.getByTestId("mock-fullscreen-srv1"));

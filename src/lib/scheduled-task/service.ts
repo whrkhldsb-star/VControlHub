@@ -3,10 +3,11 @@ import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
 import type { CommandRequestStatus } from "@prisma/client";
 import { createCommandRequest } from "@/lib/command/service";
-import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { serverTeamWhere, isGlobalTeamManager, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { t } from "@/lib/i18n/service-translations";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
@@ -15,7 +16,9 @@ const taskLogger = createLogger("scheduled-task");
 
 /* ── Types ────────────────────────────────────────────────── */
 
-export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+// `permissions` is what the identity template grants; without it the role defaults apply, so callers that hold a
+// full session should pass it on.
+export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> & Partial<Pick<SessionPayload, "permissions">>;
 
 export type CreateScheduledTaskInput = {
 	name: string;
@@ -179,6 +182,17 @@ export async function updateScheduledTask(
 	const existing = await getScheduledTaskForSession(id, session);
 	if (!existing) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 
+	// An unattended task (approvalRequired=false) runs, as its creator and with nobody approving each run, what an
+	// approver signed off on. Changing the command or its targets is that same decision, so it takes the same
+	// permission: creating one and switching approval off already do. Without this a member who may only create
+	// requests could rewrite the command of a task an approver set up and have it run unreviewed.
+	if (!existing.approvalRequired && changesWhatRuns(existing, input) && !sessionHasPermission(session, "command:approve")) {
+		throw new ForbiddenError(t("backend.scheduled-task.editUnattendedRequiresApprover"));
+	}
+	if (input.approvalRequired === false && existing.approvalRequired && !sessionHasPermission(session, "command:approve")) {
+		throw new ForbiddenError(t("backend.scheduled-task.disableApprovalRequiresApprover"));
+	}
+
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
 	if (input.scheduleType !== undefined || input.cronExpression !== undefined || input.runAt !== undefined) {
@@ -239,6 +253,18 @@ export async function updateScheduledTask(
 		throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	}
 	return getScheduledTask(id, session);
+}
+
+/** Whether an edit changes what an unattended task runs, or where: the command and its target servers. */
+function changesWhatRuns(
+	existing: { command: string; serverIds: string[] },
+	input: Pick<UpdateScheduledTaskInput, "command" | "serverIds">,
+) {
+	if (input.command !== undefined && input.command !== existing.command) return true;
+	if (input.serverIds === undefined) return false;
+	const next = normalizeServerIds(input.serverIds).sort();
+	const current = [...existing.serverIds].sort();
+	return next.length !== current.length || next.some((serverId, index) => serverId !== current[index]);
 }
 
 export async function deleteScheduledTask(
@@ -304,6 +330,10 @@ export async function retryScheduledTask(
 	if (task.serverIds.length === 0 || !task.createdById) {
 		await recordTaskRun(task.id, t("backend.scheduled-task.manualRetryMissingTargetOrCreator"), "failed");
 		throw new BusinessError(t("backend.scheduled-task.scheduledTaskMissingTargetServerOrCreatorCannot"));
+	}
+	// A retry of an unattended task runs at once, nobody approving it: starting that is executing a command.
+	if (!task.approvalRequired && !sessionHasPermission(session, "command:execute")) {
+		throw new ForbiddenError(t("backend.scheduled-task.retryUnattendedRequiresExecutor"));
 	}
 
 	// System path (no session on createCommandRequest): stamp teamId from the parent task.

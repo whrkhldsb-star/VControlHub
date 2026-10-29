@@ -26,7 +26,7 @@ vi.mock("next/cache", () => ({
 	revalidatePath: vi.fn(),
 }));
 
-import { batchReviewCommandAction } from "../actions";
+import { batchReviewCommandAction, reviewCommandAction } from "../actions";
 
 function buildFormData(ids: string[], decision = "approve", comment = "") {
 	const fd = new FormData();
@@ -47,6 +47,19 @@ describe("batchReviewCommandAction", () => {
 		const result = await batchReviewCommandAction(null, buildFormData([]));
 		expect(result.error).toBe("未选中任何待审批请求");
 		expect(reviewCommandRequest).not.toHaveBeenCalled();
+	});
+
+	it("does nothing without an explicit decision: an absent one used to count as approval", async () => {
+		const noDecision = new FormData();
+		noDecision.append("commandRequestId", "req_1");
+		const result = await batchReviewCommandAction(null, noDecision);
+		expect(result.error).toBe("没有收到审批决定（批准或拒绝），未做任何操作");
+		expect(reviewCommandRequest).not.toHaveBeenCalled();
+
+		const single = await reviewCommandAction(null, noDecision);
+		expect(single.error).toContain("没有收到审批决定");
+		expect(reviewCommandRequest).not.toHaveBeenCalled();
+		expect((await batchReviewCommandAction(null, buildFormData(["req_1"], "maybe"))).error).toContain("没有收到审批决定");
 	});
 
 	it("approves all selected requests and returns aggregate success", async () => {

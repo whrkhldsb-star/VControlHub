@@ -115,6 +115,8 @@ describe("ssh2-executor (Windows password transport)", () => {
     expect(result.timedOut).toBe(true);
     expect(result.stderr).toContain("Command execution exceeded 200ms");
     expect(client.ended).toBe(true);
+    // Closing the connection does not stop the remote command: its outcome is unknown, so nothing retries it beside it.
+    expect(result.outcomeUnknown).toBe(true);
     vi.useRealTimers();
   });
 

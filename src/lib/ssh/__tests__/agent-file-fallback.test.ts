@@ -18,7 +18,7 @@ describe("Agent-only file fallback", () => {
 
   it("lists files through an Agent job without SSH credentials", async () => {
     mocks.executeCommandWithAgent.mockResolvedValueOnce({
-      stdout: JSON.stringify([{ name: "report.txt", longname: "report.txt", type: "file", size: 12, modifyTime: 1, accessTime: 1 }]),
+      stdout: JSON.stringify({ total: 1, entries: [{ name: "report.txt", longname: "report.txt", type: "file", size: 12, modifyTime: 1, accessTime: 1 }] }),
       stderr: "",
       exitCode: 0,
     });
@@ -31,6 +31,17 @@ describe("Agent-only file fallback", () => {
       remotePath: "/data",
     })).resolves.toEqual([expect.objectContaining({ name: "report.txt", type: "file" })]);
     expect(mocks.executeCommandWithAgent).toHaveBeenCalledWith(expect.objectContaining({ serverId: "srv_agent" }));
+  });
+
+  it("fails a listing the Agent had to cut short when the caller acts on what is missing, and returns it otherwise", async () => {
+    const cut = { stdout: JSON.stringify({ total: 25_000, entries: [{ name: "a", longname: "a", type: "file", size: 1, modifyTime: 1, accessTime: 1 }] }), stderr: "", exitCode: 0 };
+    const target = { host: "203.0.113.10", port: 22, username: "root", agentServerId: "srv_agent", remotePath: "/data" };
+    // A sync or stale-entry check soft-deletes every indexed entry missing from the list.
+    mocks.executeCommandWithAgent.mockResolvedValueOnce(cut);
+    await expect(listRemoteDirectory({ ...target, requireComplete: true })).rejects.toThrow(/10000|10,000/);
+    // Browsing may show the first page.
+    mocks.executeCommandWithAgent.mockResolvedValueOnce(cut);
+    await expect(listRemoteDirectory(target)).resolves.toHaveLength(1);
   });
 
   it("reads a small file through Agent only after checking its size", async () => {

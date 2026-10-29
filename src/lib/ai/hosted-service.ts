@@ -70,6 +70,20 @@ export function parseToolCall(tc: ToolCall): ParsedToolCall | null {
   return { toolCallId: tc.id, tool, args };
 }
 
+/**
+ * The playbook is chosen when the action is proposed, not when it is confirmed: the card names the playbook that will
+ * run (it used to carry whatever name the model wrote, matched loosely at confirm time to the most recently updated
+ * one), and a name that fits none or several comes back to the model as an error to correct.
+ */
+async function materializePlaybookProposal(
+  args: Record<string, unknown>,
+  session: HostedActionSession,
+): Promise<Record<string, unknown>> {
+  const playbook = await resolvePlaybookId(args, session);
+  if (!playbook) throw new BusinessError(t("backend.ai.playbookNotFoundOrOutsideTeamScope"));
+  return { ...args, playbookId: playbook.id, playbookName: playbook.name };
+}
+
 // ── 创建托管操作记录 ──────────────────────────────────────
 
 export async function createHostedAction(input: {
@@ -92,7 +106,9 @@ export async function createHostedAction(input: {
     } satisfies HostedActionSession);
   const args = tool.actionType === "create_automation_task"
     ? await materializeAutomationProposal(input.args, session)
-    : input.args;
+    : tool.actionType === "run_playbook"
+      ? await materializePlaybookProposal(input.args, session)
+      : input.args;
   const serverId = await resolveServerId(args, session);
   const resolvedServer = serverId
     ? await prisma.server.findUnique({ where: { id: serverId }, select: { teamId: true } })

@@ -8,17 +8,28 @@
  * - linked command request lifecycle (created, approvals, execution logs, target finish)
  * - reverse: other tickets that point at the same command
  */
-import type { RoleKey } from "@/lib/auth/rbac";
+import type { Permission, RoleKey } from "@/lib/auth/rbac";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { Prisma } from "@prisma/client";
 import { commandRequestTeamWhere, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
-type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
+type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null; permissions?: Permission[] };
 
 function ticketTeamFilter(session?: TeamSession | null): Record<string, unknown> {
   return session ? teamWhere(session) : {};
+}
+
+/**
+ * Which tickets the caller may see besides the customer boundary: everyone's with ticket:manage, otherwise only
+ * those they created or are assigned (the rule of the ticket list and of a single ticket). The reverse links used
+ * the customer boundary alone, so a viewer could read other people's ticket titles through a command.
+ */
+function ticketParticipantFilter(session?: TeamSession | null): Record<string, unknown> {
+  if (!session || sessionHasPermission(session, "ticket:manage")) return {};
+  return { OR: [{ createdBy: session.userId }, { assigneeId: session.userId }] };
 }
 
 /**
@@ -454,7 +465,7 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
         where: {
           relatedCommandId: ticket.relatedCommandId,
           NOT: { id: ticket.id },
-          ...teamFilter,
+          AND: [teamFilter, ticketParticipantFilter(session)],
         },
         select: { id: true, title: true, status: true },
         take: 20,
@@ -482,7 +493,7 @@ export async function listTicketsForCommand(
 ) {
   const teamFilter = ticketTeamFilter(session);
   return prisma.ticket.findMany({
-    where: { relatedCommandId: commandRequestId, ...teamFilter },
+    where: { relatedCommandId: commandRequestId, AND: [teamFilter, ticketParticipantFilter(session)] },
     select: {
       id: true,
       title: true,

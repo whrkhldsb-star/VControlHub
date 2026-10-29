@@ -27,8 +27,6 @@ import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { indexLinkedStorageImage } from "@/lib/image-bed/linked-storage";
 import {
   canonicalImageMime,
-  convertToAVIF,
-  convertToWebP,
   extractMetadata,
   generateThumbnail,
   MAX_IMAGE_PIXELS,
@@ -174,8 +172,6 @@ export async function POST(
       const thumbName = `${base}_thumb.webp`;
       const originalPath = path.join(UPLOAD_DIR, storageKey);
       const thumbPath = path.join(UPLOAD_DIR, thumbName);
-      const webpPath = path.join(UPLOAD_DIR, `${base}.webp`);
-      const avifPath = path.join(UPLOAD_DIR, `${base}.avif`);
 
       let linkedStorageRelativePath: string | null = null;
       let linkedStorageNode: StorageFileNode | null = null;
@@ -187,7 +183,7 @@ export async function POST(
         linkedStorageNode = node;
         linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
       }
-      await lease.beforeWrite({ kind: "image", storageKey, checksum, paths: [originalPath, thumbPath, webpPath, avifPath], storageNodeId: existing.storageNodeId, relativePath: linkedStorageRelativePath });
+      await lease.beforeWrite({ kind: "image", storageKey, checksum, paths: [originalPath, thumbPath], storageNodeId: existing.storageNodeId, relativePath: linkedStorageRelativePath });
       await mkdir(UPLOAD_DIR, { recursive: true });
 
       {
@@ -199,26 +195,6 @@ export async function POST(
               await writeFile(thumbPath, thumb);
             } catch (err) {
               logError("media-upload:thumbnail-failed", err);
-            }
-          })(),
-          (async () => {
-            try {
-              if (!detectedMime.includes("webp")) {
-                const webp = await convertToWebP(assembled);
-                await writeFile(webpPath, webp);
-              }
-            } catch (err) {
-              logError("media-upload:webp-failed", err);
-            }
-          })(),
-          (async () => {
-            try {
-              if (!detectedMime.includes("avif")) {
-                const avif = await convertToAVIF(assembled);
-                await writeFile(avifPath, avif);
-              }
-            } catch (err) {
-              logError("media-upload:avif-failed", err);
             }
           })(),
         ]);

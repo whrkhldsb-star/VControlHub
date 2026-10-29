@@ -488,6 +488,50 @@ describe("/api/storage/local", () => {
     expect(unlinkMock).toHaveBeenCalledWith(staged);
   });
 
+  it("refuses a file whose name is a folder's, before writing or touching its row", async () => {
+    // The row of the folder used to be rewritten as a file's and the move into place failed on the real folder.
+    const node = { id: "node_1", name: "主控本机", driver: "LOCAL", basePath: "/tmp/storage" };
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "folder_1", entryType: "DIRECTORY" });
+
+    const response = await POST(uploadRequest("photos"));
+
+    expect(response.status).toBe(409);
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
+    expect(renameMock).not.toHaveBeenCalled();
+  });
+
+  it("removes the staged file when the move into place fails", async () => {
+    const node = { id: "node_1", name: "主控本机", driver: "LOCAL", basePath: "/tmp/storage" };
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "file_existing", entryType: "FILE" });
+    prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "file_existing" });
+    renameMock.mockRejectedValueOnce(Object.assign(new Error("EXDEV"), { code: "EXDEV" }));
+    unlinkMock.mockResolvedValueOnce(undefined);
+
+    const response = await POST(uploadRequest("docs/notes.txt"));
+
+    expect(response.status).toBe(500);
+    const staged = writeFileMock.mock.calls[0]![0] as string;
+    expect(unlinkMock).toHaveBeenCalledWith(staged);
+  });
+
+  it("names the staged file independently of the target, so a long name still fits", async () => {
+    const node = { id: "node_1", name: "主控本机", driver: "LOCAL", basePath: "/tmp/storage" };
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "file_existing", entryType: "FILE" });
+    prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "file_existing" });
+    const longName = `${"长".repeat(80)}.pdf`;
+
+    await POST(uploadRequest(`docs/${longName}`));
+
+    expect(path.basename(writeFileMock.mock.calls[0]![0] as string)).toMatch(/^\.vch-upload-[0-9a-f]{12}\.tmp$/);
+  });
+
   it("moves a LOCAL overwrite into place once it is indexed", async () => {
     const node = { id: "node_1", name: "主控本机", driver: "LOCAL", basePath: "/tmp/storage" };
     prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);

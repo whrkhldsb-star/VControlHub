@@ -22,6 +22,11 @@ export function getInitialAdminPassword(): string {
 		logger.warn("using default development admin password; set ADMIN_INITIAL_PASSWORD for production");
 		return "changeme";
 	}
+	if (envPassword.length < 8 || envPassword.length > 128) {
+		// The sign-in form refuses passwords outside 8–128 characters, so an administrator seeded with such a
+		// value could never log in.
+		logger.warn("ADMIN_INITIAL_PASSWORD must be 8-128 characters; the administrator could not sign in with it");
+	}
 	return envPassword;
 }
 

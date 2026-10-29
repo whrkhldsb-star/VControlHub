@@ -11,10 +11,13 @@
  * could smuggle header/parser tricks into the emitted location value.
  */
 export function safeRelativeRedirectPath(
-	value: string | null | undefined,
+	value: string | string[] | null | undefined,
 	fallback = "/",
 ): string {
-	const next = (value ?? "").trim();
+	// A repeated query parameter (`?next=a&next=b`) arrives as an array: use the first value
+	// instead of failing on `.trim()` and answering 500.
+	const raw = Array.isArray(value) ? value[0] : value;
+	const next = (raw ?? "").trim();
 	if (!next.startsWith("/")) return fallback;
 	if (next.length >= 2 && (next[1] === "/" || next[1] === "\\")) return fallback;
 	if (/[\u0000-\u001F\u007F]/.test(next)) return fallback;

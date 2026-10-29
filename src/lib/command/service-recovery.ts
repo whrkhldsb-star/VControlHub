@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { CommandRequestStatus } from "@prisma/client";
+import { COMMAND_EXECUTION_JOB_TYPE } from "./execution-queue";
 import {
   COMMAND_WORKER_ID,
   enqueueApprovedCommandExecution,
@@ -41,19 +42,43 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
     take: 50,
   });
 
+  // An approved request is marked RUNNING when its execution job is queued, but its heartbeat is renewed only once
+  // the worker starts it, and the worker runs one command at a time. A request still waiting its turn behind slow
+  // ones was failed here after ten minutes ("executor lost, outcome unknown") without ever having been tried.
+  const waiting = await idsWithWaitingExecutionJob(staleRequests.map((request) => request.id));
+  const lost = staleRequests.filter((request) => !waiting.has(request.id));
+
   let recovered = 0;
   // Process stale requests in bounded-concurrency chunks. Each request's
   // own 3 writes (updateMany targets + update request + create log) stay
   // sequential because they all share the same request id, but different
   // requests fan out in parallel to remove the O(N) sequential round-trip
   // cost that previously dominated the recovery sweep.
-  for (let i = 0; i < staleRequests.length; i += RECOVER_STALE_CONCURRENCY) {
-    const chunk = staleRequests.slice(i, i + RECOVER_STALE_CONCURRENCY);
+  for (let i = 0; i < lost.length; i += RECOVER_STALE_CONCURRENCY) {
+    const chunk = lost.slice(i, i + RECOVER_STALE_CONCURRENCY);
     const outcomes = await Promise.all(chunk.map((request) => recoverOne(request, now)));
     for (const ok of outcomes) if (ok) recovered += 1;
   }
 
   return { recovered };
+}
+
+async function idsWithWaitingExecutionJob(requestIds: string[]): Promise<Set<string>> {
+  if (requestIds.length === 0) return new Set();
+  const jobs = await prisma.job.findMany({
+    where: {
+      type: COMMAND_EXECUTION_JOB_TYPE,
+      status: "PENDING",
+      OR: requestIds.map((id) => ({ payload: { path: ["commandRequestId"], equals: id } })),
+    },
+    select: { payload: true },
+  });
+  const ids = new Set<string>();
+  for (const job of jobs) {
+    const id = (job.payload as { commandRequestId?: unknown } | null)?.commandRequestId;
+    if (typeof id === "string") ids.add(id);
+  }
+  return ids;
 }
 
 /**

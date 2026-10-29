@@ -11,7 +11,15 @@ import { invalidatePlatformDefaults } from "@/lib/settings/platform-defaults";
 import { invalidateCachedFlags } from "@/lib/settings/cached-flags";
 
 /* ── Safe decrypt helper ──────────────────────────────────── */
+/**
+ * What `encrypt("")` used to store for a secret left empty: salt:iv:tag with nothing after the last colon.
+ * It reads back as an unset secret; otherwise it was handed out as a 75-character "password", shown on the
+ * settings page as a configured "***", and sent to SMTP/Telegram/S3/Turnstile as if it were one.
+ */
+const LEGACY_EMPTY_SECRET = /^[^:]+:[^:]+:[^:]+:$/;
+
 function safeDecrypt(value: string): string {
+	if (LEGACY_EMPTY_SECRET.test(value)) return "";
 	try {
 		return isEncrypted(value) ? decrypt(value) : value;
 	} catch {
@@ -204,9 +212,14 @@ export async function getAllSettingsMasked(): Promise<Record<string, string>> {
 }
 
 /** `actorId`: the user making the change (null for system writes). */
+/** A secret is stored encrypted; an empty one is stored empty (it means "not set"). */
+function toStoredValue(key: string, value: string): string {
+	return isSensitiveKey(key) && value !== "" ? encrypt(value) : value;
+}
+
 export async function setSetting(key: string, value: string, actorId: string | null = null): Promise<void> {
 	const normalizedValue = isRuntimeSettingKey(key) ? normalizeRuntimeSettingValue(key, value) : value;
-	const storedValue = isSensitiveKey(key) ? encrypt(normalizedValue) : normalizedValue;
+	const storedValue = toStoredValue(key, normalizedValue);
 	await prisma.setting.upsert({
 		where: { key },
 		update: { value: storedValue, updatedBy: actorId },
@@ -232,7 +245,7 @@ export async function setManySettings(
 	await prisma.$transaction(
 		entries.map(({ key, value }) => {
 			const normalizedValue = isRuntimeSettingKey(key) ? normalizeRuntimeSettingValue(key, value) : value;
-			const storedValue = isSensitiveKey(key) ? encrypt(normalizedValue) : normalizedValue;
+			const storedValue = toStoredValue(key, normalizedValue);
 			return prisma.setting.upsert({
 				where: { key },
 				update: { value: storedValue, updatedBy: actorId },

@@ -6,6 +6,7 @@ const { mocks } = vi.hoisted(() => ({
 		userFindUnique: vi.fn(),
 		generateSecret: vi.fn(),
 		createEnrollmentToken: vi.fn(),
+		verifyPassword: vi.fn(),
 	},
 }));
 
@@ -20,6 +21,9 @@ vi.mock("@/lib/db", () => ({
 vi.mock("otplib", () => ({
 	generateSecret: mocks.generateSecret,
 }));
+vi.mock("@/lib/auth/password", () => ({
+	verifyPassword: mocks.verifyPassword,
+}));
 vi.mock("@/lib/auth/two-factor-enrollment", () => ({
 	createTwoFactorEnrollmentToken: mocks.createEnrollmentToken,
 }));
@@ -27,19 +31,26 @@ vi.mock("@/lib/auth/two-factor-enrollment", () => ({
 const route = await import("../route");
 
 const session = { userId: "u1", username: "alice" };
+const setupRequest = (body: unknown = { currentPassword: "correct horse" }) =>
+	new Request("http://local/api/auth/2fa/setup", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(body),
+	});
 
 describe("/api/auth/2fa/setup", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.requireApiSession.mockResolvedValue(session);
-		mocks.userFindUnique.mockResolvedValue({ twoFactorEnabled: false });
+		mocks.userFindUnique.mockResolvedValue({ twoFactorEnabled: false, passwordHash: "hash" });
+		mocks.verifyPassword.mockResolvedValue(true);
 		mocks.generateSecret.mockReturnValue("SECRETABC123");
 		mocks.createEnrollmentToken.mockReturnValue("ticket.signature");
 	});
 
 	describe("POST", () => {
 		it("generates a new TOTP secret, otpauth URL and enrollment ticket", async () => {
-			const res = await route.POST(new Request("http://local/api/auth/2fa/setup", { method: "POST" }));
+			const res = await route.POST(setupRequest());
 			const json = await res.json();
 			expect(res.status).toBe(200);
 			expect(mocks.userFindUnique).toHaveBeenCalledWith(
@@ -59,9 +70,20 @@ describe("/api/auth/2fa/setup", () => {
 			expect(json.enrollmentToken).toBe("ticket.signature");
 		});
 
+		it("refuses to start setup without the right current password: a session alone must not bind an authenticator", async () => {
+			mocks.verifyPassword.mockResolvedValueOnce(false);
+			const wrong = await route.POST(setupRequest({ currentPassword: "not it" }));
+			expect(wrong.status).toBe(403);
+			expect(mocks.verifyPassword).toHaveBeenCalledWith("not it", "hash");
+			const missing = await route.POST(setupRequest({}));
+			expect(missing.status).toBe(400);
+			expect(mocks.generateSecret).not.toHaveBeenCalled();
+			expect(mocks.createEnrollmentToken).not.toHaveBeenCalled();
+		});
+
 		it("returns 400 when 2FA is already enabled", async () => {
-			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true, twoFactorSecret: "enc:seed" });
-			const res = await route.POST(new Request("http://local/api/auth/2fa/setup", { method: "POST" }));
+			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true, twoFactorSecret: "enc:seed", passwordHash: "hash" });
+			const res = await route.POST(setupRequest());
 			expect(res.status).toBe(400);
 			const json = await res.json();
 			expect(json.error).toMatch(/双因素认证已启用|Two-factor authentication is already enabled/);
@@ -71,8 +93,8 @@ describe("/api/auth/2fa/setup", () => {
 		it("lets an account flagged enabled without a secret enrol again", async () => {
 			// A standard config export leaves the secret out: the flag alone is no
 			// second factor (login skips it), and setup refused to replace it.
-			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true, twoFactorSecret: null });
-			const res = await route.POST(new Request("http://local/api/auth/2fa/setup", { method: "POST" }));
+			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true, twoFactorSecret: null, passwordHash: "hash" });
+			const res = await route.POST(setupRequest());
 			expect(res.status).toBe(200);
 			expect((await res.json()).enrollmentToken).toBe("ticket.signature");
 		});
@@ -81,7 +103,7 @@ describe("/api/auth/2fa/setup", () => {
 			mocks.requireApiSession.mockResolvedValueOnce(
 				new Response(JSON.stringify({ error: "未登录" }), { status: 401 }),
 			);
-			const res = await route.POST(new Request("http://local/api/auth/2fa/setup", { method: "POST" }));
+			const res = await route.POST(setupRequest());
 			expect(res.status).toBe(401);
 			expect(mocks.generateSecret).not.toHaveBeenCalled();
 		});

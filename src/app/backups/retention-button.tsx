@@ -29,6 +29,9 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [olderThanDays, setOlderThanDays] = useState(MIN_OLDER_THAN_DAYS);
   const [keepLatestPerType, setKeepLatestPerType] = useState(DEFAULT_KEEP_LATEST_PER_TYPE);
+  // Deleting backup files cannot be undone (they are the way back from every other failure), so the first press only
+  // says what will be deleted; a second press on the same settings does it.
+  const [confirming, setConfirming] = useState(false);
 
   // Allow submit even when the 30-day summary is 0 — operator may choose a
   // shorter olderThanDays (1–3650). Only block while a request is in flight or
@@ -38,6 +41,13 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (disabled) return;
+    if (!confirming) {
+      setTaskId(null);
+      setError(null);
+      setConfirming(true);
+      return;
+    }
+    setConfirming(false);
     setPending(true);
     setTaskId(null);
     setError(null);
@@ -69,7 +79,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
             min={1}
             max={3650}
             value={olderThanDays}
-            onChange={(event) => setOlderThanDays(Math.max(1, Math.min(3650, Number(event.target.value) || MIN_OLDER_THAN_DAYS)))}
+            onChange={(event) => { setConfirming(false); setOlderThanDays(Math.max(1, Math.min(3650, Number(event.target.value) || MIN_OLDER_THAN_DAYS))); }}
             className={cn(UI_INPUT, "w-24 text-sm")}
             disabled={pending}
           />
@@ -81,17 +91,27 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
             min={0}
             max={1000}
             value={keepLatestPerType}
-            onChange={(event) => setKeepLatestPerType(Math.max(0, Math.min(1000, Number(event.target.value) || 0)))}
+            onChange={(event) => { setConfirming(false); setKeepLatestPerType(Math.max(0, Math.min(1000, Number(event.target.value) || 0))); }}
             className={cn(UI_INPUT, "w-24 text-sm")}
             disabled={pending}
           />
         </label>
-        <ActionButton size="sm" variant="outline"
+        <ActionButton size="sm" variant={confirming ? "warning" : "outline"}
           type="submit"
           disabled={disabled}>
-          {pending ? t("backupsPage.retention.pending") : t("backupsPage.retention.submit")}
+          {pending ? t("backupsPage.retention.pending") : confirming ? t("backupsPage.retention.confirmSubmit") : t("backupsPage.retention.submit")}
         </ActionButton>
+        {confirming ? (
+          <ActionButton size="sm" variant="secondary" type="button" onClick={() => setConfirming(false)}>
+            {t("common.cancel")}
+          </ActionButton>
+        ) : null}
       </div>
+      {confirming ? (
+        <p role="alert" className="text-xs text-[var(--warning)]">
+          {t("backupsPage.retention.confirmWarning", { days: olderThanDays, keep: keepLatestPerType })}
+        </p>
+      ) : null}
       <p className="text-xs text-[var(--text-muted)]">
         {t("backupsPage.retention.matchInfo", { total: totalRecords, older: olderThan30Days })}
       </p>

@@ -12,6 +12,7 @@ import { writeLatestMetrics } from "@/lib/public-status/latest-writer";
 import { createLogger } from "@/lib/logging";
 import { CommandCancellationUnconfirmedError } from "@/lib/command/cancellation-error";
 import { AGENT_VERSION } from "./agent-version";
+import { stripNul } from "@/lib/text/strip-nul";
 
 export const AGENT_FRESH_MS = 90_000;
 export const AGENT_JOB_HEARTBEAT_MS = 30_000;
@@ -154,8 +155,10 @@ export async function completeServerAgentJob(input: {
   exitCode?: number;
 }) {
   const resultData = {
-    stdout: input.stdout?.slice(0, AGENT_OUTPUT_LIMIT) || null,
-    stderr: input.stderr?.slice(0, AGENT_OUTPUT_LIMIT) || null,
+    // PostgreSQL refuses U+0000: one such byte in the output (cat /proc/*/environ) made this write fail for
+    // ever, since the agent resends the same result until it is accepted.
+    stdout: stripNul(input.stdout?.slice(0, AGENT_OUTPUT_LIMIT) ?? "") || null,
+    stderr: stripNul(input.stderr?.slice(0, AGENT_OUTPUT_LIMIT) ?? "") || null,
     exitCode: Number.isInteger(input.exitCode) ? input.exitCode : 255,
     completedAt: new Date(),
     leaseExpiresAt: null,

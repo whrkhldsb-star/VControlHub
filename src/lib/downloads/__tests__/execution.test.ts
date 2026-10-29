@@ -43,6 +43,8 @@ const fsMock = {
   rm: vi.fn(async () => undefined),
   readdir: vi.fn(async () => [] as string[]),
   stat: vi.fn(async () => ({ size: 0 })),
+  // 4 TB free: the relay only keeps clear of what the disk cannot hold.
+  statfs: vi.fn(async () => ({ bavail: 1e9, bsize: 4096 })),
 };
 vi.mock("fs/promises", () => ({ default: fsMock, ...fsMock }));
 vi.mock("fs", () => ({ default: { createReadStream: vi.fn() }, createReadStream: vi.fn() }));
@@ -227,6 +229,21 @@ describe("relayExceedsLimits", () => {
     expect(relayExceedsLimits(files, { maxFileBytes: BigInt(50), remainingBytes: BigInt(90) })).toBe(false);
     expect(relayExceedsLimits(files, { maxFileBytes: BigInt(45), remainingBytes: null })).toBe(true);
     expect(relayExceedsLimits(files, { maxFileBytes: null, remainingBytes: BigInt(89) })).toBe(true);
+  });
+});
+
+describe("relayCapacityProblem", () => {
+  it("stops a torrent that exceeds the creator's limits, or the disk it is written to, before it is downloaded", async () => {
+    const { relayCapacityProblem } = await import("@/lib/downloads/execution");
+    const os = await import("node:os");
+    const dir = os.tmpdir();
+    expect(await relayCapacityProblem(10, 0, { maxFileBytes: null, remainingBytes: null }, dir)).toBeNull();
+    // The announced size is held to the creator's per-file limit and the quota left, as the finished files were.
+    expect(await relayCapacityProblem(100, 0, { maxFileBytes: BigInt(50), remainingBytes: null }, dir)).toEqual(expect.any(String));
+    // More than the disk has free (a petabyte): refused whatever the limits say.
+    expect(await relayCapacityProblem(1e15, 0, undefined, dir)).toEqual(expect.any(String));
+    // What has been downloaded already is on the disk, so only the rest counts.
+    expect(await relayCapacityProblem(1e15, 1e15 - 1, undefined, dir)).toBeNull();
   });
 });
 

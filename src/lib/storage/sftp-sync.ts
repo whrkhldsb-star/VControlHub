@@ -323,6 +323,8 @@ export async function syncSftpDirectoryEntries(input: {
           hostKeySha256: credentials.hostKeySha256,
           agentServerId: credentials.agentServerId,
           remotePath: dirPath,
+          // What is missing from this list gets marked deleted, so an Agent listing cut at 10,000 must fail.
+          requireComplete: true,
         }),
         dirPath,
         directoryTimeoutMs,

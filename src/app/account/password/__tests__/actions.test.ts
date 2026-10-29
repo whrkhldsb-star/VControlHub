@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => ({
   createSessionToken: vi.fn(),
   getConfiguredSessionTtlSeconds: vi.fn(),
   cookieSet: vi.fn(),
+  cookieGet: vi.fn(),
+  sessionTokenExpiresAt: vi.fn(),
+  checkRateLimit: vi.fn(),
   headerGet: vi.fn(),
   revalidatePath: vi.fn(),
 }));
@@ -23,7 +26,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("next/headers", () => ({
-  cookies: async () => ({ set: mocks.cookieSet }),
+  cookies: async () => ({ set: mocks.cookieSet, get: mocks.cookieGet }),
   headers: async () => ({ get: mocks.headerGet }),
 }));
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: mocks.requireSession }));
@@ -35,7 +38,9 @@ vi.mock("@/lib/auth/session", () => ({
   createSessionToken: mocks.createSessionToken,
   getConfiguredSessionTtlSeconds: mocks.getConfiguredSessionTtlSeconds,
   getSessionCookieName: () => "vch_session",
+  sessionTokenExpiresAt: mocks.sessionTokenExpiresAt,
 }));
+vi.mock("@/lib/rate-limit", () => ({ checkRateLimitAsync: mocks.checkRateLimit }));
 vi.mock("@/lib/i18n/translations", () => ({
   getServerLocale: async () => "en",
   t: (key: string) => key,
@@ -71,6 +76,9 @@ describe("changePasswordAction", () => {
     mocks.changePassword.mockResolvedValue({ success: true, credentialBinding: { fingerprint: "new-password-proof", epoch: 2 } });
     mocks.createSessionToken.mockResolvedValue("fresh.token");
     mocks.getConfiguredSessionTtlSeconds.mockResolvedValue(604_800);
+    mocks.cookieGet.mockReturnValue({ value: "old.cookie" });
+    mocks.sessionTokenExpiresAt.mockReturnValue(null);
+    mocks.checkRateLimit.mockResolvedValue({ allowed: true, retryAfterMs: 0 });
     mocks.headerGet.mockReturnValue("https");
   });
 
@@ -97,8 +105,42 @@ describe("changePasswordAction", () => {
         mustChangePassword: false,
         currentTeamId: "team_a",
       }),
-      { credentialBinding: { fingerprint: "new-password-proof", epoch: 2 } },
+      { credentialBinding: { fingerprint: "new-password-proof", epoch: 2 }, expiresAt: null },
     );
+  });
+
+  it("keeps a remember-me session's original expiry instead of cutting it to the default lifetime", async () => {
+    const thirtyDaysAhead = Date.now() + 29 * 86_400_000;
+    mocks.sessionTokenExpiresAt.mockReturnValue(thirtyDaysAhead);
+    mocks.getConfiguredSessionTtlSeconds.mockImplementation(async (remember?: boolean) => (remember ? 2_592_000 : 604_800));
+
+    await changePasswordAction(null, formData(GOOD_INPUT));
+
+    expect(mocks.createSessionToken).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ expiresAt: thirtyDaysAhead }));
+    const maxAge = mocks.cookieSet.mock.calls[0]![2].maxAge as number;
+    expect(maxAge).toBeGreaterThan(28 * 86_400);
+    expect(maxAge).toBeLessThanOrEqual(29 * 86_400);
+  });
+
+  it("tells the user what is wrong with the new password instead of showing validator JSON", async () => {
+    const { ZodError } = await import("zod");
+    mocks.changePassword.mockRejectedValueOnce(new ZodError([{ code: "custom", path: ["confirmPassword"], message: "Passwords do not match" }]));
+    const mismatch = await changePasswordAction(null, formData(GOOD_INPUT));
+    expect(mismatch.error).toBe("accountPasswordPage.action.mismatch");
+
+    mocks.changePassword.mockRejectedValueOnce(new ZodError([{ code: "too_small", minimum: 8, origin: "string", inclusive: true, path: ["newPassword"], message: "Too short" }]));
+    const tooShort = await changePasswordAction(null, formData(GOOD_INPUT));
+    expect(tooShort.error).toBe("accountPasswordPage.action.invalidInput");
+  });
+
+  it("limits how often the current password can be tried from one session", async () => {
+    mocks.checkRateLimit.mockResolvedValueOnce({ allowed: false, retryAfterMs: 60_000 });
+
+    const result = await changePasswordAction(null, formData(GOOD_INPUT));
+
+    expect(result.error).toBe("accountPasswordPage.action.tooManyAttempts");
+    expect(mocks.changePassword).not.toHaveBeenCalled();
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith("password-change:u1", expect.objectContaining({ maxRequests: 5 }));
   });
 
   it("marks the cookie Secure behind an https proxy hop", async () => {

@@ -71,6 +71,8 @@ type BackupRetentionPayload = {
   teamId?: string | null;
   /** After a scheduled backup: that schedule's retention, applied to its own backups. */
   scheduleId?: string;
+  /** Retention of the platform's own backups (no customer), made in the all-customers view. */
+  platformScope?: boolean;
   /** The platform's daily tick: offsite objects only; local records are pruned per customer. */
   offsiteOnly?: boolean;
 };
@@ -103,7 +105,7 @@ function parseRetentionPayload(
       ? payload.teamId.trim()
       : null;
   const scheduleId = typeof payload.scheduleId === "string" && payload.scheduleId.trim() ? payload.scheduleId.trim() : undefined;
-  return { olderThanDays, keepLatestPerType, projectRoot, teamId, scheduleId, offsiteOnly: payload.offsiteOnly === true };
+  return { olderThanDays, keepLatestPerType, projectRoot, teamId, scheduleId, platformScope: payload.platformScope === true && !teamId, offsiteOnly: payload.offsiteOnly === true };
 }
 
 /**
@@ -112,13 +114,16 @@ function parseRetentionPayload(
  * retention among the customer's active schedules.
  */
 async function pruneScheduledBackups(payload: BackupRetentionPayload) {
-  const base = { keepLatestPerType: payload.keepLatestPerType, projectRoot: payload.projectRoot, teamId: payload.teamId };
+  const base = { keepLatestPerType: payload.keepLatestPerType, projectRoot: payload.projectRoot, teamId: payload.teamId, platformScope: payload.platformScope };
   const own = await pruneOldBackupRecordsNow({ ...base, olderThanDays: payload.olderThanDays, scheduleId: payload.scheduleId });
+  // Manual backups follow the longest retention among the owner's active schedules: the customer's, or for the
+  // platform's own backups the platform's (schedules made in the all-customers view have no customer).
+  if (!payload.teamId && !payload.platformScope) return own;
   const longest = await prisma.backupSchedule.aggregate({
-    where: { teamId: payload.teamId ?? undefined, status: "ACTIVE", retentionDays: { gt: 0 } },
+    where: { teamId: payload.teamId ?? null, status: "ACTIVE", retentionDays: { gt: 0 } },
     _max: { retentionDays: true },
   });
-  if (!payload.teamId || !longest._max.retentionDays) return own;
+  if (!longest._max.retentionDays) return own;
   const manual = await pruneOldBackupRecordsNow({ ...base, olderThanDays: longest._max.retentionDays, scheduleId: null });
   return {
     ...own,
@@ -245,7 +250,9 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       // B1: schedule retention when create payload carries retentionDays
       if (payload.retentionDays && payload.retentionDays > 0) {
         const teamId = payload.teamId ?? job.teamId ?? backup.teamId ?? null;
-        if (teamId) {
+        // A schedule made in the all-customers view has no customer, but its retention still has to run (the
+        // schedule bounds it): the backups piled up until the disk filled.
+        if (teamId || payload.scheduleId) {
           try {
             const { enqueueJob } = await import("@/lib/job/service");
             await enqueueJob({
@@ -253,7 +260,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
               title: `Backup retention (${payload.retentionDays}d)`,
               payload: {
                 olderThanDays: payload.retentionDays,
-                teamId,
+                ...(teamId ? { teamId } : { platformScope: true }),
                 projectRoot: payload.projectRoot,
                 // The schedule the payload came from: its retention used to
                 // prune every backup of the customer, so a daily schedule
@@ -261,7 +268,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
                 scheduleId: payload.scheduleId,
               },
               createdBy: job.createdBy ?? null,
-              teamId,
+              teamId: teamId ?? null,
               maxAttempts: 1,
             });
           } catch (retentionErr) {
@@ -322,6 +329,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
                   keepLatestPerType: payload.keepLatestPerType,
                   projectRoot: payload.projectRoot,
                   teamId: payload.teamId,
+                  platformScope: payload.platformScope,
                 });
           // Offsite retentionDays is platform-wide; run best-effort prune alongside local retention.
           let offsiteResult: Awaited<

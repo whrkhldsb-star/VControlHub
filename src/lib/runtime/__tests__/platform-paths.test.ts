@@ -17,16 +17,28 @@ describe("platform-paths", () => {
   });
 
   describe("relayTempDir", () => {
-    it("keeps the historical /tmp layout on POSIX", () => {
+    it("keeps the historical /tmp layout on POSIX without ARIA2_RPC_DIR", () => {
       vi.spyOn(process, "platform", "get").mockReturnValue("linux");
+      vi.stubEnv("ARIA2_RPC_DIR", "");
       expect(relayTempDir("job_1")).toBe("/tmp/app-relay-job_1");
+      vi.unstubAllEnvs();
+    });
+
+    it("lives under ARIA2_RPC_DIR when it is set, because the daemon and the worker have separate /tmp", () => {
+      vi.spyOn(process, "platform", "get").mockReturnValue("linux");
+      vi.stubEnv("ARIA2_RPC_DIR", "/var/lib/vcontrolhub/aria2");
+      // path.join keeps the assertion independent of the host's separator (the Windows CI job runs this too).
+      expect(relayTempDir("job_1")).toBe(path.join("/var/lib/vcontrolhub/aria2", "relay", "app-relay-job_1"));
+      vi.unstubAllEnvs();
     });
 
     it("uses the OS temp dir on Windows", () => {
       vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+      vi.stubEnv("ARIA2_RPC_DIR", "");
       // os.tmpdir() is the host's own temp dir, so assert the join rather
       // than separator properties that only hold on a real Windows host.
       expect(relayTempDir("job_1")).toBe(path.join(os.tmpdir(), "app-relay-job_1"));
+      vi.unstubAllEnvs();
     });
   });
 

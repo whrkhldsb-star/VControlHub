@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+	// Do not announce the framework in every response ("X-Powered-By: Next.js").
+	poweredByHeader: false,
 	// Disable streaming metadata for this SSR-heavy admin console
 	htmlLimitedBots: /.*/,
 	// Keep native SSH-related packages outside Next's server bundles.
@@ -29,14 +31,12 @@ const nextConfig: NextConfig = {
 	// servers call next({ dev: false }) with standalone output enabled.
 	// Add cache headers that differ from Next.js defaults. Hashed files under
 	// /_next/static already receive immutable caching from Next.js itself.
+	// API responses are per user and per customer: the browser's HTTP cache is keyed on the URL
+	// alone, so a "private, max-age" copy outlives a customer switch or a sign-in as someone else
+	// (a platform administrator switching customer kept seeing the previous customer's tickets and
+	// notifications for up to 30 s). They get no max-age here; routes set their own headers.
 	async headers() {
 		return [
-			{
-				source: "/api/(status|system-health|tickets|notifications)",
-				headers: [
-					{ key: "Cache-Control", value: "private, max-age=10, stale-while-revalidate=20" },
-				],
-			},
 			{
 				// Service worker (TR-033 PWA) must be served with the correct
 				// Content-Type and Cache-Control so the browser can pick it up

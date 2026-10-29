@@ -139,6 +139,20 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     expect(where).not.toHaveProperty("teamId");
   });
 
+  it("prunes the platform's own backups, and only those, when the caller acts for the platform", async () => {
+    // "Clean up now" in the all-customers view was refused for lack of a customer while the job reported success.
+    mockPrisma.backupRecord.findMany.mockResolvedValueOnce([
+      baseRecord({ id: "bak_platform_old", completedAt: new Date("2026-04-01T00:00:00Z") }),
+    ]);
+    statMock.mockResolvedValueOnce({ size: 1024 });
+    rmMock.mockResolvedValueOnce(undefined);
+    mockPrisma.backupRecord.delete.mockResolvedValueOnce({ id: "bak_platform_old" });
+    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", platformScope: true, keepLatestPerType: 0 });
+    expect(result.deletedRecords).toBe(1);
+    // Backups no customer owns: never a customer's.
+    expect(mockPrisma.backupRecord.findMany.mock.calls[0]?.[0]?.where).toMatchObject({ teamId: null });
+  });
+
   it("still refuses manual backups (no schedule) without a customer", async () => {
     const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", scheduleId: null });
     expect(result.deletedRecords).toBe(0);

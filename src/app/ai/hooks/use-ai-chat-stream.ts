@@ -26,6 +26,7 @@ import {
 } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { ApiError } from "@/lib/http/api-client-error";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type {
@@ -151,6 +152,11 @@ export function useAiChatStream({
         );
       } catch (error) {
         addToast("error", getErrorMessage(error, t("aiPage.opFailed")));
+        // "Not found" / "no longer pending" (decided in another tab, or by the time limit): the card of a streamed
+        // approval stayed for good. The transcript says what became of the action, and the card follows it.
+        if (error instanceof ApiError && (error.status === 404 || error.status === 409 || error.status === 422)) {
+          await refreshActiveMessages().catch(() => undefined);
+        }
       } finally {
         approvalBusyRef.current.delete(approval.actionId);
         setApprovalBusyById((prev) => {

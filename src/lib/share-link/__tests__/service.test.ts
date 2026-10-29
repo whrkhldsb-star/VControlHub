@@ -38,7 +38,7 @@ vi.mock("@/lib/storage/access-control", () => ({
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 
-const { createShareLink, createShareLinkFromFileEntry, listShareLinkPage, normalizeSharePath, releaseShareQuotaClaim, resolveShareToken, revokeShareLink } = await import("../service");
+const { assertShareTargetNotDeleted, createShareLink, createShareLinkFromFileEntry, listShareLinkPage, normalizeSharePath, releaseShareQuotaClaim, resolveShareToken, revokeShareLink } = await import("../service");
 
 describe("share link service", () => {
   beforeEach(() => {
@@ -60,6 +60,17 @@ describe("share link service", () => {
     expect(result.token).toHaveLength(48);
     expect(mockPrisma.shareLink.create.mock.calls[0]![0]!.data.tokenHash).not.toBe(result.token);
     expect(mockPrisma.shareLink.create.mock.calls[0]![0]!.data.path).toBe("docs/report.pdf");
+  });
+
+  it("treats a file as deleted when it or any folder above it is in the trash", async () => {
+    mockPrisma.fileEntry.findFirst.mockResolvedValueOnce({ id: "trashed-folder" });
+    await expect(assertShareTargetNotDeleted("node1", "docs/old/report.pdf")).rejects.toThrow();
+    expect(mockPrisma.fileEntry.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { storageNodeId: "node1", relativePath: { in: ["docs", "docs/old", "docs/old/report.pdf"] }, isDeleted: true },
+    }));
+
+    mockPrisma.fileEntry.findFirst.mockResolvedValueOnce(null);
+    await expect(assertShareTargetNotDeleted("node1", "docs/report.pdf")).resolves.toBeUndefined();
   });
 
   it("rejects download-only controls on metadata-only shares", async () => {
@@ -93,6 +104,12 @@ describe("share link service", () => {
   it("normalizes share paths and rejects traversal or unsafe absolute paths", () => {
     expect(normalizeSharePath("/docs//report.pdf")).toBe("docs/report.pdf");
     expect(normalizeSharePath("docs\\nested\\report.pdf")).toBe("docs/nested/report.pdf");
+    // Storage trims segments when it resolves a path, so a padded spelling is the same file: it must
+    // normalize to the same string the trash and prefix checks see.
+    expect(normalizeSharePath("docs/ secret.txt")).toBe("docs/secret.txt");
+    expect(normalizeSharePath("docs/ /secret.txt")).toBe("docs/secret.txt");
+    expect(normalizeSharePath("docs / sub /x.txt")).toBe("docs/sub/x.txt");
+    expect(() => normalizeSharePath("docs/ ../secret.txt")).toThrow(/安全相对路径/);
     expect(() => normalizeSharePath("../secret.txt")).toThrow(/安全相对路径/);
     expect(() => normalizeSharePath("docs/../../secret.txt")).toThrow(/安全相对路径/);
     expect(() => normalizeSharePath("C:\\secret.txt")).toThrow(/安全相对路径/);

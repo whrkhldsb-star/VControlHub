@@ -28,6 +28,25 @@ describe("useUnsavedChangesGuard", () => {
     vi.spyOn(window.history, "back").mockImplementation(() => undefined);
   });
 
+  it("steps back over its entry when the form is saved in place, but not when a tab switch rewrote that entry", async () => {
+    const back = vi.mocked(window.history.back);
+    // Saved while still on the page: the extra entry is dropped.
+    window.history.replaceState({}, "", "/servers#servers-create");
+    const saved = render(<Harness dirty />);
+    saved.rerender(<Harness dirty={false} />);
+    expect(back).toHaveBeenCalledTimes(1);
+
+    // The form is unmounted by an in-page switch (replaceState to another tab) while dirty: the entry now belongs to
+    // the other tab, and stepping back landed on the form's own tab again with the form emptied.
+    back.mockClear();
+    window.history.replaceState({}, "", "/servers#servers-create");
+    const switched = render(<Harness dirty />);
+    window.history.replaceState(window.history.state, "", "/servers#servers-sshkeys");
+    switched.unmount();
+    expect(back).not.toHaveBeenCalled();
+    expect(window.history.state?.__vchUnsavedGuard).toBeUndefined();
+  });
+
   it("intercepts internal navigation until the user confirms", async () => {
     const user = userEvent.setup();
     render(<Harness dirty />);

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import { chmod, chown, mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -48,6 +48,33 @@ describe.skipIf(process.platform === "win32")("backup runner recovery guarantees
     await writeFile(file, `#!${process.execPath}\n${code}\n`);
     await chmod(file, 0o755);
   }
+
+  it("keeps a file backup when tar only warns that a file changed while it was read, and fails on a real error", async () => {
+    // Anything written under storage/, downloads/ or logs/ during the minutes a backup takes (a download, an upload,
+    // a VPS backup) made GNU tar exit 1, and the whole backup failed with no archive published.
+    async function fakeTar(createExit: number) {
+      const file = path.join(bin, "tar");
+      await writeFile(file, `#!${process.execPath}
+const { spawnSync } = require("node:child_process");
+const args = process.argv.slice(2);
+const real = ["/usr/bin/tar", "/bin/tar"].find((candidate) => require("node:fs").existsSync(candidate));
+const result = spawnSync(real, args, { stdio: ["ignore", "inherit", "inherit"] });
+if (args.includes("-czf") && result.status === 0) { process.stderr.write("tar: storage/big.bin: file changed as we read it\\n"); process.exit(${createExit}); }
+process.exit(result.status ?? 2);
+`);
+      await chmod(file, 0o755);
+    }
+    const output = path.join(backups, "files.tar.gz");
+    await fakeTar(1);
+    const withFakeTar = { ...env, TAR_BIN: path.join(bin, "tar") };
+    await runFile(process.execPath, [runner, "--files", output], { env: withFakeTar });
+    expect((await runFile("tar", ["-tzf", output])).stdout).toContain("storage/local.txt");
+
+    await rm(output, { force: true });
+    await fakeTar(2);
+    await expect(runFile(process.execPath, [runner, "--files", output], { env: withFakeTar })).rejects.toMatchObject({ stderr: expect.stringContaining("exited with code 2") });
+    await expect(stat(output)).rejects.toThrow();
+  });
 
   it("archives configured external data and recovery keys with a restrictive mode", async () => {
     const external = path.join(tmp, "external");
@@ -131,6 +158,26 @@ describe.skipIf(process.platform === "win32")("backup runner recovery guarantees
     expect((await readdir(backups)).filter((name) => name.startsWith("files-fifo"))).toEqual([]);
   });
 
+  it.skipIf(typeof process.getuid !== "function" || process.getuid() !== 0)("gives files restored by root to the owner of the installation, so the service can write them", async () => {
+    // The documented offline restore runs as root; its files stayed root's and uploads then failed with EACCES.
+    const archive = path.join(backups, "files-owner.tar.gz");
+    await runFile(process.execPath, [runner, "--files", archive], { env });
+
+    const target = path.join(tmp, "owned-target");
+    await mkdir(target);
+    await writeFile(path.join(target, ".env.local"), "DATABASE_URL=postgresql://tester@127.0.0.1/audit_target\n");
+    await chown(target, 23456, 23456);
+    const restoreBin = await installFakeRestoreTools(tmp);
+    await runFile("bash", ["scripts/restore-files.sh", archive, target], {
+      cwd: process.cwd(),
+      env: { ...env, PATH: `${restoreBin}${path.delimiter}${env.PATH}`, APP_DIR: target, ENV_FILE: path.join(target, ".env.local"), CONFIRM_RESTORE: "1", DEPLOY_LOCK: path.join(tmp, "no-deploy.lock") },
+    });
+
+    const restored = await stat(path.join(target, "storage", "local.txt"));
+    expect([restored.uid, restored.gid]).toEqual([23456, 23456]);
+    expect((await stat(path.join(target, "storage"))).uid).toBe(23456);
+  });
+
   it("restores history kept inside the app directory into the target's own history directory", async () => {
     // Backed up from <app>/file-versions (the Docker layout), restored to an
     // instance whose FILE_VERSION_DIR is elsewhere: the bodies used to land
@@ -196,4 +243,16 @@ it("passes PostgreSQL credentials through the environment instead of argv on eve
   const result = JSON.parse((await runFile(process.execPath, ["--input-type=module", "-e", program])).stdout);
   expect(result.connArgs.join(" ")).not.toContain("secret");
   expect(result.childEnv.PGPASSWORD).toBe("secret!");
+});
+
+it("hands pg_dump and psql only parameters libpq knows, dropping the pool settings the application reads", async () => {
+  // libpq refuses unknown URI parameters ("invalid URI query parameter"), so every backup and restore failed for a
+  // DATABASE_URL carrying pool_max / connection_limit / pool_idle_timeout / schema.
+  const url = "postgresql://test:secret@db.example/app?sslmode=require&pool_max=5&connection_limit=10&pool_idle_timeout=30&schema=public&application_name=vch&pgbouncer=true";
+  const program = `import {pgConnection} from ${JSON.stringify(pathToFileURL(common).href)}; console.log(JSON.stringify(pgConnection({DATABASE_URL:${JSON.stringify(url)}})));`;
+  const result = JSON.parse((await runFile(process.execPath, ["--input-type=module", "-e", program])).stdout);
+  const connection = new URL(result.connArgs[0]);
+  expect([...connection.searchParams.keys()].sort()).toEqual(["application_name", "sslmode"]);
+  expect(connection.searchParams.get("sslmode")).toBe("require");
+  expect(result.childEnv.PGPASSWORD).toBe("secret");
 });

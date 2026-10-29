@@ -269,6 +269,24 @@ describe("scheduled-task durable job worker", () => {
     );
   });
 
+  it("asks for the creator's execute permission only for a task that runs without approval", async () => {
+    scheduledTaskFindManyMock.mockResolvedValueOnce([
+      makeTask({ id: "needs-approval", approvalRequired: true }),
+      makeTask({ id: "unattended", approvalRequired: false }),
+    ]);
+    claimNextJobMock.mockResolvedValueOnce(makeJob());
+
+    await startScheduledTaskWorker();
+    await vi.runOnlyPendingTimersAsync();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // The first only files a request for an approver; it runs on that approval. The second runs on the
+    // creator's own authority, so the creator must still hold the permission to execute.
+    expect(assertRequesterMayExecuteCommandMock).toHaveBeenNthCalledWith(1, "user-1", undefined, undefined, { requireExecutePermission: false });
+    expect(assertRequesterMayExecuteCommandMock).toHaveBeenNthCalledWith(2, "user-1", undefined, undefined, { requireExecutePermission: true });
+  });
+
   it("skips dispatch when the creator is no longer authorized, without claiming the row", async () => {
     claimNextJobMock.mockResolvedValueOnce(makeJob());
     scheduledTaskFindManyMock.mockResolvedValueOnce([makeTask({ id: "revoked" })]);

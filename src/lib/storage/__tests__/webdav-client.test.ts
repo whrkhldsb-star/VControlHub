@@ -118,3 +118,42 @@ it("streams an upload with a fixed content length and atomically replaces an obj
   expect((await dav.read("replacement.bin", 11)).toString()).toBe("new content");
   expect(await dav.stat("replacement.tmp")).toBeNull();
 });
+
+describe("WebDAV upload deadline", () => {
+  const slowNode = () => ({ basePath: "/root", webdavConfigEncrypted: encryptWebDavConfig(config) });
+
+  it("lets an upload run past the 120 s request budget while it keeps moving, and cuts one that stalls", async () => {
+    vi.useFakeTimers();
+    try {
+      let aborted = false;
+      // The server takes each chunk 100 s: 300 s in all, but never silent for 120 s.
+      const moving: WebDavTransport = async (_url, init) => {
+        init.signal?.addEventListener("abort", () => { aborted = true; });
+        const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+        for (;;) {
+          const { done } = await reader.read();
+          if (done) break;
+          await vi.advanceTimersByTimeAsync(100_000);
+        }
+        return new Response(null, { status: 201 });
+      };
+      const body = () => new ReadableStream<Uint8Array>({ start(controller) { for (let i = 0; i < 3; i += 1) controller.enqueue(new Uint8Array(4)); controller.close(); } });
+      await createWebDavClient(slowNode(), { transport: moving }).writeStream("big.bin", body(), 12);
+      expect(aborted).toBe(false);
+
+      // Silent for 130 s after the first chunk: the signal fires.
+      let stalledAborted = false;
+      const stalled: WebDavTransport = async (_url, init) => {
+        init.signal?.addEventListener("abort", () => { stalledAborted = true; });
+        const reader = (init.body as ReadableStream<Uint8Array>).getReader();
+        await reader.read();
+        await vi.advanceTimersByTimeAsync(130_000);
+        return new Response(null, { status: 201 });
+      };
+      await createWebDavClient(slowNode(), { transport: stalled }).writeStream("big.bin", body(), 12);
+      expect(stalledAborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

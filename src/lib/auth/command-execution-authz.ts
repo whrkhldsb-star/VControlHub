@@ -19,11 +19,19 @@ import { prisma } from "@/lib/db";
  *
  * Kept as the single source of truth so the playbook and scheduled-task paths
  * cannot drift apart (they previously had only one of the two guarded).
+ *
+ * `command:execute` is the permission to run commands without anyone's approval.
+ * A request a reviewer has approved runs on the reviewer's decision (the requester
+ * cannot review their own request), so it passes `requireExecutePermission: false`:
+ * a member who may only create requests can still have a command approved and run,
+ * which is what the submit → approve → run flow is for. Everything else above still
+ * applies to them.
  */
 export async function assertRequesterMayExecuteCommand(
   requesterId: string,
   teamId: string | null,
   serverId?: string,
+  options: { requireExecutePermission?: boolean } = {},
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   const accountSession = await loadApiTokenOwnerSession(requesterId);
   if (!accountSession) {
@@ -38,7 +46,7 @@ export async function assertRequesterMayExecuteCommand(
   if (!teamSession) {
     return { ok: false, reason: "command requester is no longer a member of the target team" };
   }
-  if (!sessionHasPermission(teamSession, "command:execute")) {
+  if (options.requireExecutePermission !== false && !sessionHasPermission(teamSession, "command:execute")) {
     return { ok: false, reason: platformAdmin ? "command requester lacks command:execute permission" : "command requester lacks command:execute permission in the target team" };
   }
   if (serverId && !await prisma.server.findFirst({

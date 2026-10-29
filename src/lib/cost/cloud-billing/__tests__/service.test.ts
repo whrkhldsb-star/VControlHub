@@ -440,6 +440,38 @@ describe("parseBillingCsv", () => {
   });
 });
 
+describe("billing CSV amounts", () => {
+  const defaults = { currency: "USD" as const, providerLabel: "CSV" };
+  const amounts = (csv: string) => parseBillingCsvRows(csv, defaults).items.map((item) => item.amount);
+
+  it("rounds a decimal the way it is written, not the way a binary float stores it", () => {
+    // Number(1.005).toFixed(2) is "1.00" and Number(1.255).toFixed(2) "1.25". The cents carry from line to line
+    // (2.675 follows 1.005 as 2.67), so the stored lines add up to the file's total rounded half up: 4.935 -> 4.94.
+    const stored = amounts("date,amount,product\n2026-10-01,1.005,a\n2026-10-02,2.675,b\n2026-10-03,1.255,c");
+    expect(stored).toEqual(["1.01", "2.67", "1.26"]);
+    expect(stored.reduce((sum, amount) => sum + Math.round(Number(amount) * 100), 0)).toBe(494);
+  });
+
+  it("stores amounts with at most two decimals exactly as written", () => {
+    expect(amounts("date,amount,product\n2026-10-01,12.30,a\n2026-10-02,0.07,b\n2026-10-03,100,c")).toEqual(["12.30", "0.07", "100.00"]);
+  });
+
+  it("keeps the month's total when a usage-based bill is made of fractions of a cent", () => {
+    // 100 lines of 0.0042 used to be 100 lines of 0.00: a bill of 0.42 stored as nothing.
+    const lines = Array.from({ length: 100 }, (_, i) => `2026-10-${String((i % 28) + 1).padStart(2, "0")},0.0042,usage`).join("\n");
+    const stored = amounts(`date,amount,product\n${lines}`);
+    const total = stored.reduce((sum, amount) => sum + Number(amount), 0);
+    expect(total).toBeCloseTo(0.42, 2);
+    expect(stored.every((amount) => Number(amount) >= 0)).toBe(true);
+  });
+
+  it("carries the remainder per currency, so one currency's cents never move into another's", () => {
+    const stored = parseBillingCsvRows("date,amount,currency\n2026-10-01,0.004,USD\n2026-10-01,0.004,CNY\n2026-10-02,0.004,USD\n2026-10-02,0.004,CNY\n2026-10-03,0.004,USD", defaults).items;
+    expect(stored.filter((item) => item.currency === "USD").map((item) => item.amount)).toEqual(["0.00", "0.01", "0.00"]);
+    expect(stored.filter((item) => item.currency === "CNY").map((item) => item.amount)).toEqual(["0.00", "0.01"]);
+  });
+});
+
 describe("cloud billing service", () => {
   beforeEach(() => {
     reset();

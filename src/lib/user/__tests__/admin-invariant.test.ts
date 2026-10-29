@@ -134,9 +134,9 @@ describe("user schemas", () => {
     const { createUserSchema } = await import("../schema");
 
     for (const username of ["a/b", "a b", "a;b", "../etc", "a$b", ""]) {
-      expect(createUserSchema.safeParse({ username, password: "secret1", account: ADMIN }).success).toBe(false);
+      expect(createUserSchema.safeParse({ username, password: "secret12", account: ADMIN }).success).toBe(false);
     }
-    expect(createUserSchema.safeParse({ username: "a.b-c_1", password: "secret1", account: ADMIN }).success).toBe(
+    expect(createUserSchema.safeParse({ username: "a.b-c_1", password: "secret12", account: ADMIN }).success).toBe(
       true,
     );
   });
@@ -144,7 +144,7 @@ describe("user schemas", () => {
   it("trims the username before length validation", async () => {
     const { createUserSchema } = await import("../schema");
 
-    const parsed = createUserSchema.safeParse({ username: "  bob  ", password: "secret1", account: ADMIN });
+    const parsed = createUserSchema.safeParse({ username: "  bob  ", password: "secret12", account: ADMIN });
 
     expect(parsed.success).toBe(true);
     expect(parsed.success && parsed.data.username).toBe("bob");
@@ -179,16 +179,18 @@ describe("user schemas", () => {
   it("requires an account type, and a customer for customer accounts", async () => {
     const { createUserSchema } = await import("../schema");
 
-    expect(createUserSchema.safeParse({ username: "bob", password: "secret1" }).success).toBe(false);
-    expect(createUserSchema.safeParse({ username: "bob", password: "secret1", account: { type: "customer" } }).success).toBe(false);
-    expect(createUserSchema.safeParse({ username: "bob", password: "secret1", account: { type: "customer", teamId: "t1" } }).success).toBe(true);
+    expect(createUserSchema.safeParse({ username: "bob", password: "secret12" }).success).toBe(false);
+    expect(createUserSchema.safeParse({ username: "bob", password: "secret12", account: { type: "customer" } }).success).toBe(false);
+    expect(createUserSchema.safeParse({ username: "bob", password: "secret12", account: { type: "customer", teamId: "t1" } }).success).toBe(true);
   });
 
   it("enforces the password length bounds on both ends", async () => {
     const { createUserSchema } = await import("../schema");
 
-    expect(createUserSchema.safeParse({ username: "bob", password: "12345", account: ADMIN }).success).toBe(false);
-    expect(createUserSchema.safeParse({ username: "bob", password: "123456", account: ADMIN }).success).toBe(true);
+    // Same floor as the sign-in form and the password policy: a 6–7 character password could be set here
+    // but never typed into the login form.
+    expect(createUserSchema.safeParse({ username: "bob", password: "1234567", account: ADMIN }).success).toBe(false);
+    expect(createUserSchema.safeParse({ username: "bob", password: "12345678", account: ADMIN }).success).toBe(true);
     expect(
       createUserSchema.safeParse({ username: "bob", password: "x".repeat(129), account: ADMIN }).success,
     ).toBe(false);

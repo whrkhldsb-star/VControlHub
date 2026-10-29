@@ -17,9 +17,11 @@ vi.mock("@/lib/notification/service", () => ({
 	readUnreadCount: vi.fn(async () => ({ count: 0, asOfUs: 0 })),
 }));
 
+import { AuthError } from "@/lib/errors";
 import {
 	closeWebSocketServer,
 	getWsServer,
+	recheckSocketSessions,
 	setupWebSocketServer,
 	broadcastToUser,
 } from "../notification-ws";
@@ -129,6 +131,33 @@ describe("notification WebSocket lifecycle", () => {
 		client.close();
 		await closed;
 		await vi.waitFor(() => expect(getWsServer()!.clients.size).toBe(0));
+	});
+
+	it("cuts a socket off at the next re-check once its session is no longer valid, but not when the check itself fails", async () => {
+		const { port } = await listen();
+		const client = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { cookie: "test_session=valid" } });
+		await once(client, "message");
+		verifySessionTokenMock.mockRejectedValueOnce(new Error("database restarting"));
+		await recheckSocketSessions(0);
+		expect(client.readyState).toBe(WebSocket.OPEN);
+		verifySessionTokenMock.mockRejectedValueOnce(new AuthError("Session token expired"));
+		const closed = once(client, "close");
+		await recheckSocketSessions(0);
+		await closed;
+		await vi.waitFor(() => expect(getWsServer()!.clients.size).toBe(0));
+	});
+
+	it("keeps one user to ten sockets by dropping the oldest", async () => {
+		const { port } = await listen();
+		const clients: WebSocket[] = [];
+		for (let i = 0; i < 11; i += 1) {
+			const client = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { cookie: "test_session=valid" } });
+			clients.push(client);
+			await once(client, "message");
+		}
+		await vi.waitFor(() => expect(clients[0]!.readyState).toBe(WebSocket.CLOSED));
+		expect(clients.slice(1).every((client) => client.readyState === WebSocket.OPEN)).toBe(true);
+		clients.forEach((client) => client.terminate());
 	});
 
 	it("closes an oversized incoming message with code 1009", async () => {

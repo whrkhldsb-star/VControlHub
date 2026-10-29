@@ -25,6 +25,7 @@ import type {
 import { INITIAL_EDITOR_FIND, INITIAL_PREVIEW_META } from "./text-preview-types";
 import { countMatches, TAB_INDENT } from "./text-preview-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { ApiError } from "@/lib/http/api-client-error";
 import { readTextPrefix, TEXT_PREVIEW_MAX_BYTES } from "@/lib/http/read-text-prefix";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
@@ -66,6 +67,8 @@ export function useTextPreviewController(options: {
   const [draft, setDraft] = useState("");
   const [draftVersion, setDraftVersion] = useState<{ updatedAt?: string | null; lastModifiedMs?: number | null }>({});
   const [editorFind, setEditorFind] = useState<EditorFindState>(INITIAL_EDITOR_FIND);
+  // The edit API refused the file (too large, or not editable text): it is shown read-only instead of not at all.
+  const [editRefused, setEditRefused] = useState(false);
 
   const lineRef = useRef<Map<number, HTMLDivElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
@@ -97,7 +100,8 @@ export function useTextPreviewController(options: {
   }, []);
 
   const lang = useMemo(() => getLangFromName(name), [name]);
-  const canEdit = editable && Boolean(fileEntryId);
+  const editRequested = editable && Boolean(fileEntryId);
+  const canEdit = editRequested && !editRefused;
   const currentContent = state.loading ? "" : state.content ?? "";
   const diffRows = useMemo(() => buildLineDiff(currentContent, draft), [currentContent, draft]);
   const diffSummary = useMemo(
@@ -133,8 +137,9 @@ export function useTextPreviewController(options: {
     setShowDiffReview(false);
     setSaveStatus("idle");
     setSaveMessage("");
+    setEditRefused(false);
     setState({ loading: true });
-  }, [href, fileEntryId, canEdit, setEditMode, setShowDiffReview, setSaveStatus, setSaveMessage]);
+  }, [href, fileEntryId, editRequested, setEditMode, setShowDiffReview, setSaveStatus, setSaveMessage]);
 
   // Messages follow the current language without making the read depend on
   // it: with `t` among its dependencies a language switch reloaded the file
@@ -152,60 +157,79 @@ export function useTextPreviewController(options: {
     // suppresses stale setState). Every sibling hook aborts properly — this
     // one was the outlier.
     const controller = new AbortController();
+    const readPrefix = async () => {
+      const res = await csrfFetch<Response>(href, { raw: true, signal: controller.signal });
+      if (!res.ok) {
+        throw new Error(
+          t("textPreview.error.loadFailedStatus", { status: res.status }),
+        );
+      }
+      return readTextPrefix(res, TEXT_PREVIEW_MAX_BYTES);
+    };
+    type Loaded = {
+      content: string;
+      truncated: boolean;
+      draftVersion: { updatedAt?: string | null; lastModifiedMs?: number | null };
+    };
+    const readEditable = async (): Promise<Loaded> => {
+      if (driver === "SFTP" && nodeId && relativePath) {
+        const data = await csrfFetch<{
+          content?: string;
+          encoding?: "text" | "base64";
+          lastModifiedMs?: number | null;
+          draft?: EditableDraft;
+        }>("/api/storage/sftp-ops", {
+          method: "POST",
+          signal: controller.signal,
+          body: JSON.stringify({
+            action: "read",
+            nodeId,
+            path: relativePath,
+          }),
+        });
+        if (data.encoding === "base64") {
+          throw new Error(t("textPreview.error.binaryEditable"));
+        }
+        const remoteContent = data.content ?? data.draft?.content;
+        if (typeof remoteContent !== "string") {
+          throw new Error(t("textPreview.error.loadFailed"));
+        }
+        // Optimistic-lock token for the save below. Without it a second
+        // editor's save would silently overwrite this one's work.
+        return { content: remoteContent, truncated: false, draftVersion: { lastModifiedMs: data.lastModifiedMs ?? null } };
+      }
+      const data = await csrfFetch<{ draft: EditableDraft }>(`/api/files/editable/${fileEntryId}`, {
+        signal: controller.signal,
+      });
+      return {
+        content: data.draft.content,
+        truncated: false,
+        draftVersion: { updatedAt: data.draft.updatedAt, lastModifiedMs: data.draft.lastModifiedMs },
+      };
+    };
     const load = async () => {
       try {
-        let content: string;
-        let truncated = false;
-        let nextDraftVersion: { updatedAt?: string | null; lastModifiedMs?: number | null } = {};
-        if (canEdit && fileEntryId) {
-          if (driver === "SFTP" && nodeId && relativePath) {
-            const data = await csrfFetch<{
-              content?: string;
-              encoding?: "text" | "base64";
-              lastModifiedMs?: number | null;
-              draft?: EditableDraft;
-            }>("/api/storage/sftp-ops", {
-              method: "POST",
-              signal: controller.signal,
-              body: JSON.stringify({
-                action: "read",
-                nodeId,
-                path: relativePath,
-              }),
-            });
-            if (data.encoding === "base64") {
-              throw new Error(t("textPreview.error.binaryEditable"));
-            }
-            const remoteContent = data.content ?? data.draft?.content;
-            if (typeof remoteContent !== "string") {
-              throw new Error(t("textPreview.error.loadFailed"));
-            }
-            content = remoteContent;
-            // Optimistic-lock token for the save below. Without it a second
-            // editor's save would silently overwrite this one's work.
-            nextDraftVersion = { lastModifiedMs: data.lastModifiedMs ?? null };
-          } else {
-            const data = await csrfFetch<{ draft: EditableDraft }>(`/api/files/editable/${fileEntryId}`, {
-              signal: controller.signal,
-            });
-            content = data.draft.content;
-            nextDraftVersion = {
-              updatedAt: data.draft.updatedAt,
-              lastModifiedMs: data.draft.lastModifiedMs,
-            };
+        let loaded: Loaded;
+        let refused = false;
+        if (editRequested && fileEntryId) {
+          try {
+            loaded = await readEditable();
+          } catch (err) {
+            // Every text file on a local or SFTP node is "editable", but the edit API only takes small ones (512 KiB,
+            // 1 MiB over SFTP): a log or a SQL dump could not be opened at all, only downloaded. A refusal for size
+            // or type falls back to the read-only preview, which shows the first MiB.
+            if (!(err instanceof ApiError && (err.status === 400 || err.status === 413))) throw err;
+            refused = true;
+            const prefix = await readPrefix();
+            loaded = { content: prefix.text, truncated: prefix.truncated, draftVersion: {} };
           }
         } else {
-          const res = await csrfFetch<Response>(href, { raw: true, signal: controller.signal });
-          if (!res.ok) {
-            throw new Error(
-              t("textPreview.error.loadFailedStatus", { status: res.status }),
-            );
-          }
-          const prefix = await readTextPrefix(res, TEXT_PREVIEW_MAX_BYTES);
-          content = prefix.text;
-          truncated = prefix.truncated;
+          const prefix = await readPrefix();
+          loaded = { content: prefix.text, truncated: prefix.truncated, draftVersion: {} };
         }
+        const { content, truncated, draftVersion: nextDraftVersion } = loaded;
         if (!cancelled) {
+          setEditRefused(refused);
           setState({ loading: false, content, error: null, truncated });
           setDraft(content);
           setDraftVersion(nextDraftVersion);
@@ -227,7 +251,7 @@ export function useTextPreviewController(options: {
       cancelled = true;
       controller.abort();
     };
-  }, [href, fileEntryId, canEdit, driver, nodeId, relativePath, loadVersion]);
+  }, [href, fileEntryId, editRequested, driver, nodeId, relativePath, loadVersion]);
 
   const handleJumpToLine = useCallback(() => {
     const num = parseInt(jumpLine, 10);
@@ -483,9 +507,8 @@ export function useTextPreviewController(options: {
         reloadKind === "compose"
           ? {
               kind: "compose" as const,
-              projectDir: relativePath
-                ? `/${relativePath.split("/").slice(0, -1).join("/") || "root"}`
-                : "/",
+              // The server resolves the file against the node's root (see the reload route).
+              ...(nodeId && relativePath ? { composeFile: { storageNodeId: nodeId, relativePath } } : { projectDir: "/" }),
               ...(reloadUnit ? { service: reloadUnit } : {}),
             }
           : { kind: "systemd" as const, unit: reloadUnit };
@@ -517,6 +540,7 @@ export function useTextPreviewController(options: {
   }, [
     performSave,
     serverId,
+    nodeId,
     reloadReady,
     reloadUnit,
     reloadKind,
@@ -559,6 +583,7 @@ export function useTextPreviewController(options: {
     setSaveMessage,
     lang,
     canEdit,
+    editRefused,
     currentContent,
     diffRows,
     diffSummary,

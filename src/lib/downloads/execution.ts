@@ -185,6 +185,9 @@ export async function executeAria2RelayDownload(
   let done = false;
   let elapsed = 0;
   const maxWait = 7200;
+  // Seconds the user has kept the task paused: not part of the two-hour budget, but not for ever either
+  // (a paused task holds one of the worker's places).
+  let pausedFor = 0;
 
   while (!done && elapsed < maxWait) {
    await new Promise((r) => setTimeout(r, 5000));
@@ -215,12 +218,40 @@ export async function executeAria2RelayDownload(
      return;
     }
 
+    // Paused by the user (the row goes back to PENDING): the download is stopped in aria2, the wait does not
+    // count against the two-hour budget, and a task left paused for a day is given up.
+    if (current.status === "PENDING") {
+     elapsed -= 5;
+     pausedFor += 5;
+     if (pausedFor >= RELAY_MAX_PAUSED_SECONDS) {
+      try { await removeDownload(gid, true); } catch { /* best-effort */ }
+      await prisma.downloadTask.updateMany({ where: { id: taskId, status: "PENDING" }, data: { status: "FAILED", errorMessage: t("backend.downloads.relayPausedTooLong") } });
+      await cleanupTemp(tempDir);
+      return;
+     }
+     continue;
+    }
+    pausedFor = 0;
+
     const st = await tellStatus(gid);
     const progress = buildProgressText(st);
     await prisma.downloadTask.updateMany({
      where: { id: taskId, status: "RUNNING" },
      data: { progress, completedBytes: st.completedLength, totalBytes: st.totalLength, downloadSpeed: st.downloadSpeed },
     });
+
+    // A torrent announces its size early. Hold it to the creator's limits and to the disk it is written to now,
+    // not after hours of downloading (the limits used to be checked only once everything had arrived).
+    if (st.status !== "complete" && st.status !== "error" && st.status !== "removed" && Number(st.totalLength) > 0) {
+     const problem = await relayCapacityProblem(Number(st.totalLength), Number(st.completedLength) || 0, limits, tempDir);
+     if (problem) {
+      try { await removeDownload(gid, true); } catch { /* best-effort */ }
+      await prisma.downloadTask.updateMany({ where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } }, data: { status: "FAILED", errorMessage: problem } });
+      if (userId) notifyDownloadResult(userId, urls[0]!, "failed", problem, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+      await cleanupTemp(tempDir);
+      return;
+     }
+    }
 
     if (st.status === "complete") {
      done = true;
@@ -248,7 +279,7 @@ export async function executeAria2RelayDownload(
 
   if (!done) {
    try { await removeDownload(gid, true); } catch (err) { logError("[DownloadAPI] Failed to remove aria2 download on timeout:", err); }
-   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: apiCopy("apiCopy.download.timed.out.2.hour.limit.1edecc2e") } });
+   await prisma.downloadTask.updateMany({ where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } }, data: { status: "FAILED", errorMessage: apiCopy("apiCopy.download.timed.out.2.hour.limit.1edecc2e") } });
    if (userId) notifyDownloadResult(userId, urls[0]!, "failed", { key: "notification.reason.downloadTimedOut" }, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
@@ -329,6 +360,22 @@ export async function listRelayFiles(root: string, prefix = ""): Promise<string[
 }
 
 /** Whether relayed files break the per-file limit, or together the quota left. */
+/** Free space on the control plane that a relay download leaves alone, for the system and everything else on it. */
+const RELAY_DISK_RESERVE_BYTES = 5 * 1024 ** 3;
+/** A paused relay download is given up after this long. */
+const RELAY_MAX_PAUSED_SECONDS = 24 * 3600;
+
+/** Why a torrent of this size must not go on, or null: the creator's limits, or the disk the relay writes to. */
+export async function relayCapacityProblem(totalBytes: number, completedBytes: number, limits: StorageWriteCapacity | undefined, dir: string): Promise<string | null> {
+ if (limits && relayExceedsLimits([{ size: totalBytes }], limits)) return t("backend.downloads.storageLimitExceeded");
+ const stats = await fs.statfs(dir).catch(() => null);
+ if (stats) {
+  const free = Number(stats.bavail) * Number(stats.bsize);
+  if (totalBytes - completedBytes > free - RELAY_DISK_RESERVE_BYTES) return t("backend.downloads.relayDiskInsufficient");
+ }
+ return null;
+}
+
 export function relayExceedsLimits(files: Array<{ size: number }>, limits: StorageWriteCapacity): boolean {
  const total = files.reduce((sum, file) => sum + BigInt(file.size), BigInt(0));
  const largest = files.reduce((max, file) => (BigInt(file.size) > max ? BigInt(file.size) : max), BigInt(0));
@@ -381,6 +428,8 @@ userId?: string,
 sourceResolution?: DownloadSourceResolution,
 /** The creator's storage limits; the remote script enforces the largest allowed size. */
 limits?: StorageWriteCapacity,
+/** The task's speed limit in KB/s, applied by curl on the VPS. */
+maxSpeedKb?: number | null,
 ) {
  const teamId = await loadDownloadTeamId(taskId);
  let sshParams: Awaited<ReturnType<typeof buildSshParamsFromServer>> | null = null;
@@ -425,6 +474,7 @@ limits?: StorageWriteCapacity,
    fileName: fileName || deriveDownloadFileNameFromUrl(url),
    sourceResolution: resolved.resolution ?? sourceResolution,
    maxBytes: limits ? largestAllowedWrite(limits) : null,
+   maxSpeedKb: maxSpeedKb ?? null,
   });
   const { stdout: pidOutput, exitCode } = await execRemoteCommand({ ...sshParams, command: downloadCmd, timeout: 30000 });
   const pid = parseInt(pidOutput.trim(), 10);

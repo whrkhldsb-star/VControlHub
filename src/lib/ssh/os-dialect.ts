@@ -288,7 +288,12 @@ export function serviceCommand(
   switch (manager) {
     case "systemd":
       if (action === "status") return `systemctl status ${unit} --no-pager -l`;
-      if (action === "reload") return `${sudoPattern} systemctl reload ${unit} || ${sudoPattern} systemctl restart ${unit}`;
+      // Restart only a unit that has no reload at all ("Job type reload is not applicable"). When reload fails
+      // on one that has it, the usual cause is a config the unit's own check refused: the old process is still
+      // serving, and a restart would stop it and fail to start the new one. The failure is reported instead.
+      if (action === "reload") {
+        return `${sudoPattern} systemctl reload ${unit} || { rc=$?; if [ "$(systemctl show -p CanReload --value ${unit} 2>/dev/null)" = "no" ]; then ${sudoPattern} systemctl restart ${unit}; else (exit $rc); fi; }`;
+      }
       return `${sudoPattern} systemctl ${action} ${unit}`;
 
     case "openrc":

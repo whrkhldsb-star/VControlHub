@@ -33,7 +33,9 @@ export async function POST(request: Request) {
     const job = await enqueueJob({
       type: BACKUP_RETENTION_JOB_TYPE,
       title: "Clean up old backups (automatic retention policy)",
-      payload: { ...body, teamId: session.currentTeamId ?? null },
+      // In the all-customers view the cleanup is the platform's own backups (those no customer owns); it used to
+      // be refused for lack of a customer while the job still reported success with nothing deleted.
+      payload: { ...body, teamId: session.currentTeamId ?? null, ...(session.currentTeamId ? {} : { platformScope: true }) },
       createdBy: session.userId,
       teamId: session.currentTeamId ?? null,
       maxAttempts: 1,

@@ -18,6 +18,9 @@ describe("normalize", () => {
 		expect(parseUptimeSeconds("3 days, 4:05")).toBe(3 * 86_400 + 4 * 3_600 + 5 * 60);
 		expect(parseUptimeSeconds("1 day, 12 min")).toBe(86_400 + 12 * 60);
 		expect(parseUptimeSeconds("45 min")).toBe(45 * 60);
+		const started = Date.now();
+		parseUptimeSeconds(`up 1 day ${" ".repeat(63_000)}x`);
+		expect(Date.now() - started).toBeLessThan(500);
 		expect(parseUptimeSeconds("4:05")).toBe(4 * 3_600 + 5 * 60);
 		expect(parseUptimeSeconds(" 16:54:33 up 1 day, 23:48,  4 users,  load average: 3.68, 3.26, 2.93")).toBe(86_400 + 23 * 3_600 + 48 * 60);
 		expect(parseUptimeSeconds("unknown")).toBeNull();

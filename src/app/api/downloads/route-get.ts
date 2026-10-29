@@ -7,7 +7,7 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { buildProgressText } from "@/lib/downloads/helpers";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, teamWhere } from "@/lib/auth/team-scope";
 import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route-helpers";
 
 const DOWNLOAD_PAGE_SIZE = 100;
@@ -175,8 +175,9 @@ export async function GET(request: Request) {
         };
       });
 
+      // The daemon's totals cover every customer's downloads: only the platform sees them.
       let globalStat = null;
-      if (aria2Available) {
+      if (aria2Available && isGlobalTeamManager(session)) {
         try {
           globalStat = await getGlobalStat();
         } catch (err) {

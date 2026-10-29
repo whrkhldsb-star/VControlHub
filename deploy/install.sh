@@ -317,8 +317,13 @@ prepare_quick_service_storage() {
 	local path
 	while IFS= read -r path; do
 		[ -n "${path}" ] || continue
+		# A directory that already exists is left alone. It may hold data that is not ours to re-own (the whole
+		# of /srv, terabytes of media for Jellyfin or Immich): a recursive chown on every install and upgrade took
+		# long, changed the owner of what other services and containers rely on, and broke images that run as a
+		# fixed uid. Only a directory made now is given to the application user.
+		[ -d "${path}" ] && continue
 		mkdir -p "${path}"
-		chown -R "${APP_USER}:${APP_USER}" "${path}" 2>/dev/null || true
+		chown "${APP_USER}:${APP_USER}" "${path}" 2>/dev/null || true
 	done <<EOF
 $(quick_service_host_paths)
 EOF
@@ -548,7 +553,8 @@ sync_installer_env_overrides() {
  # A value given to this run wins; otherwise keep what the env file already
  # says. Re-running the installer from a fresh shell (no overrides exported)
  # used to reset custom data directories to the standard ones.
- local saved_storage_root saved_backup_dir saved_aria2_rpc_dir
+ local saved_storage_root saved_backup_dir saved_aria2_rpc_dir saved_file_version_dir
+ saved_file_version_dir="$(env_file_value FILE_VERSION_DIR)"
  saved_storage_root="$(env_file_value STORAGE_ROOT)"
  saved_backup_dir="$(env_file_value BACKUP_DIR)"
  saved_aria2_rpc_dir="$(env_file_value ARIA2_RPC_DIR)"
@@ -558,6 +564,11 @@ sync_installer_env_overrides() {
  set_env_var STORAGE_ROOT "${effective_storage_root}"
  set_env_var BACKUP_DIR "${effective_backup_dir}"
  set_env_var ARIA2_RPC_DIR "${effective_aria2_rpc_dir}"
+ # File history: the unit's ReadWritePaths is /var/lib/<slug>, but the application's own default is under the
+ # fixed /var/lib/vcontrolhub, which a custom APP_SLUG cannot write. Name the directory explicitly.
+ local effective_file_version_dir="${FILE_VERSION_DIR:-${saved_file_version_dir:-/var/lib/${APP_SLUG}/file-versions}}"
+ set_env_var FILE_VERSION_DIR "${effective_file_version_dir}"
+ export FILE_VERSION_DIR="${effective_file_version_dir}"
  export STORAGE_ROOT="${effective_storage_root}"
  export BACKUP_DIR="${effective_backup_dir}"
  export ARIA2_RPC_DIR="${effective_aria2_rpc_dir}"
@@ -810,6 +821,17 @@ create_runtime_dirs() {
     backup_root="${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
     aria2_root="${ARIA2_RPC_DIR:-/var/lib/${APP_SLUG}/aria2}"
   fi
+  # The service user must be able to create things directly under /var/lib/<slug> (the file history lives in
+  # file-versions beside storage): made by root alone, the directory was root's and saving over an existing file
+  # failed with EACCES.
+  local data_root file_versions_root
+  if [ -n "${DESTDIR}" ]; then
+    data_root="${DESTDIR}/var/lib/${APP_SLUG}"
+    file_versions_root="${DESTDIR}/var/lib/${APP_SLUG}/file-versions"
+  else
+    data_root="/var/lib/${APP_SLUG}"
+    file_versions_root="${FILE_VERSION_DIR:-${data_root}/file-versions}"
+  fi
   mkdir -p \
     "${APP_DIR}/storage" \
     "${APP_DIR}/tmp" \
@@ -819,7 +841,9 @@ create_runtime_dirs() {
     "${APP_DIR}/logs" \
     "${storage_root}" \
     "${backup_root}" \
-    "${aria2_root}"
+    "${aria2_root}" \
+    "${file_versions_root}"
+  chown "${APP_USER}:${APP_USER}" "${data_root}" 2>/dev/null || true
   chown -R "${APP_USER}:${APP_USER}" \
     "${APP_DIR}/storage" \
     "${APP_DIR}/tmp" \
@@ -829,7 +853,8 @@ create_runtime_dirs() {
     "${APP_DIR}/logs" \
     "${storage_root}" \
     "${backup_root}" \
-    "${aria2_root}"
+    "${aria2_root}" \
+    "${file_versions_root}"
 }
 
 setup_postgres() {
@@ -993,7 +1018,9 @@ import sys
 source = Path(sys.argv[1])
 dest = Path(sys.argv[2])
 skip = {"PORT", "NEXT_PORT", "SSH_WS_PORT", "HOSTNAME"}
-preserve = {"DATABASE_URL", "AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "SSH_WS_SECRET", "STORAGE_DIRECT_ACCESS_SECRET", "ADMIN_INITIAL_PASSWORD"}
+# DATABASE_URL is not kept: the migrations and the seed run against the one in the env file, so a runtime copy
+# that outlived an edit sent the service to the old database while the new one was migrated and seeded.
+preserve = {"AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "SSH_WS_SECRET", "STORAGE_DIRECT_ACCESS_SECRET", "ADMIN_INITIAL_PASSWORD"}
 existing = {}
 if dest.exists():
     for line in dest.read_text().splitlines():
@@ -1016,6 +1043,10 @@ for line in source.read_text().splitlines():
     if key in skip:
         continue
     if key in existing:
+        wanted = line.split("=", 1)[1].strip().strip("\"'")
+        if wanted and wanted != existing[key].strip("\"'"):
+            print(f"WARNING: {key} in {source.name} differs from {dest.name}; the running service keeps the {dest.name} value. "
+                  f"Delete the {key} line from {dest.name} to use the new one.", file=sys.stderr)
         lines.append(f"{key}={existing[key]}")
     else:
         lines.append(line)

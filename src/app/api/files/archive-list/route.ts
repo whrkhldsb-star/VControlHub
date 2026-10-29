@@ -9,6 +9,7 @@ import {
 } from "@/lib/storage/path-utils";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -68,6 +69,9 @@ export async function GET(request: NextRequest) {
           { status: 400 },
         );
       }
+
+      // A deleted archive is still on disk; it must not be listed or unpacked into visible files.
+      await assertNotRecycled(node.id, relativePath);
 
       const accessDecision = await assertStorageAccess({
         session,

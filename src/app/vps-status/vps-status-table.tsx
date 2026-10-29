@@ -16,7 +16,7 @@ import type { ServerHealth } from "@/app/health/health-types";
 import { StatusBadge } from "@/components/status-badge";
 import { formatShortDate, formatShortTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/core";
-import { formatDisk, formatKbps, formatMem } from "./vps-node-card";
+import { formatDisk, formatKibPerSecond, formatMem } from "./vps-node-card";
 
 export function VpsStatusTable({
 	servers,
@@ -93,7 +93,7 @@ export function VpsStatusTable({
 									{server.loadAvg1m !== undefined ? server.loadAvg1m.toFixed(2) : "—"}
 								</td>
 								<td className="px-3 py-2.5 font-mono tabular-nums text-[var(--text-secondary)]">
-									{formatKbps(server.networkInKbps)} / {formatKbps(server.networkOutKbps)}
+									{formatKibPerSecond(server.networkInKbps)} / {formatKibPerSecond(server.networkOutKbps)}
 								</td>
 								<td className="px-3 py-2.5 font-mono tabular-nums text-[var(--text-secondary)]">
 									↓{formatBytes(server.monthlyRxBytes)} / ↑{formatBytes(server.monthlyTxBytes)}

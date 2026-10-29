@@ -18,6 +18,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { copyToClipboard, renderContent } from "./ai-markdown-renderer";
 import type { Message, ModelCapabilities, ToolApprovalNeeded } from "./ai-types";
 import { formatAllowedTypes } from "./ai-file-helpers";
+import { approvalDetails } from "./ai-hosted-action-utils";
 import { ActionButton } from "@/components/action-button";
 
 const EMPTY_TOOL_CONTENT = new Set([
@@ -432,6 +433,22 @@ export function AiMessageList({
                       </span>
                     )}
                   </div>
+                  {approval.actionType !== "create_automation_task" && (
+                    <dl className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
+                      {approvalDetails(approval.actionType, approval.params).map((row) => (
+                        <div key={row.labelKey}>
+                          <dt className="inline text-[var(--text-muted)]">{t(row.labelKey)}: </dt>
+                          {row.block ? (
+                            <dd>
+                              <pre data-inset="" className="max-h-40 overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-xs text-[var(--text-primary)]">{row.value}</pre>
+                            </dd>
+                          ) : (
+                            <dd className="inline break-all text-[var(--text-primary)]">{row.value}</dd>
+                          )}
+                        </div>
+                      ))}
+                    </dl>
+                  )}
                   {approval.actionType === "create_automation_task" && (
                     <div className="mt-2 space-y-2 text-xs text-[var(--text-secondary)]">
                       <div className="flex flex-wrap gap-x-4 gap-y-1">

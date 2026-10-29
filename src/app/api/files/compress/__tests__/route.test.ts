@@ -16,7 +16,7 @@ const {
   assertStorageAccessMock: vi.fn(),
   prismaMock: {
     storageNode: { findFirst: vi.fn() },
-    fileEntry: { findFirst: vi.fn() },
+    fileEntry: { findFirst: vi.fn(), findMany: vi.fn() },
   },
   createFileEntryMock: vi.fn(),
 }));
@@ -71,12 +71,33 @@ describe("POST /api/files/compress", () => {
     requireApiPermissionMock.mockResolvedValue({ session });
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
     prismaMock.fileEntry.findFirst.mockResolvedValue(null);
+    prismaMock.fileEntry.findMany.mockResolvedValue([]);
     createFileEntryMock.mockResolvedValue({ id: "entry_1" });
   });
 
   afterEach(async () => {
     if (tempDir) await rm(tempDir, { recursive: true, force: true });
     tempDir = "";
+  });
+
+  it("leaves files in the recycle bin out of the archive, and refuses a deleted input", async () => {
+    // Deleting only marks the index; b.txt is still on disk and used to come back inside the new archive.
+    await setupLocalNode();
+    prismaMock.fileEntry.findMany.mockResolvedValue([{ relativePath: "docs/b.txt" }]);
+
+    const response = await request({ storageNodeId: "node_1", relativePaths: ["docs"], targetDir: ".", outputName: "folder" });
+
+    expect(response.status).toBe(200);
+    const listing = await new Promise<string>((resolve, reject) => {
+      execFile(resolveLocalTarBinary(), ["-tzf", path.join(tempDir, "folder.tar.gz")], (error, stdout) => (error ? reject(error) : resolve(stdout)));
+    });
+    expect(listing).toContain("docs/a.txt");
+    expect(listing).not.toContain("docs/b.txt");
+
+    // The input itself is in the bin.
+    prismaMock.fileEntry.findMany.mockResolvedValue([{ relativePath: "docs/a.txt" }]);
+    const denied = await request({ storageNodeId: "node_1", relativePaths: ["docs/a.txt"], targetDir: ".", outputName: "gone" });
+    expect(denied.status).toBe(404);
   });
 
   it("creates a tar.gz archive from selected local files and indexes it", async () => {

@@ -11,6 +11,7 @@ vi.mock("redis", () => ({ createClient: createClientMock }));
 
 import {
 	getNotificationBus,
+	pgPayload,
 	resetNotificationBusForTests,
 	setNotificationBusClientsForTests,
 	NOTIFICATION_BUS_CHANNEL,
@@ -203,5 +204,29 @@ describe("notification bus (redis mode)", () => {
 		// A well-formed payload still delivers after the malformed ones.
 		listener(JSON.stringify({ userId: "u5", message: { type: "unread_count", count: 5 } }), NOTIFICATION_BUS_CHANNEL);
 		expect(collected).toEqual([{ userId: "u5", message: { type: "unread_count", count: 5 } }]);
+	});
+});
+
+describe("NOTIFY payloads", () => {
+	const notification = (data: Record<string, unknown>) => ({ type: "notification", data });
+
+	it("fits a long title or long parameters, not only a long message", () => {
+		// Only data.message used to be cut, so a very long ticket title dropped the push without a trace.
+		const payload = pgPayload("u1", notification({ id: "n1", title: "t".repeat(20_000), message: "m".repeat(20_000), messageParams: { name: "p".repeat(20_000) } }));
+		expect(payload).not.toBeNull();
+		expect(Buffer.byteLength(payload!)).toBeLessThanOrEqual(7_900);
+		const parsed = JSON.parse(payload!);
+		expect(parsed.message.data.id).toBe("n1");
+		expect(parsed.message.data.title.length).toBeGreaterThan(0);
+	});
+
+	it("leaves a normal message untouched", () => {
+		const message = notification({ id: "n2", title: "Backup finished", message: "ok" });
+		expect(JSON.parse(pgPayload("u1", message)!)).toEqual({ userId: "u1", message });
+	});
+
+	it("gives up only when even trimmed strings do not fit", () => {
+		const huge = notification({ id: "n3", items: Array.from({ length: 2_000 }, (_, i) => `entry-${i}`) });
+		expect(pgPayload("u1", huge)).toBeNull();
 	});
 });

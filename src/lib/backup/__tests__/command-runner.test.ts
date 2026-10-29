@@ -25,6 +25,24 @@ describe("backup command-runner adapter", () => {
     vi.clearAllMocks();
   });
 
+  describe("runBackupCommand with discardStdout", () => {
+    it("runs a command whose output is far beyond maxBuffer, keeping none of it, and reports a failing exit", async () => {
+      // `tar -tzf` of a backup lists every member; held in a 1 MiB buffer, ~15,000 files failed the drill.
+      const big = await runBackupCommand({
+        file: process.execPath,
+        args: ["-e", "process.stdout.write('x'.repeat(3 * 1024 * 1024))"],
+        options: { discardStdout: true },
+      });
+      expect(big).toEqual({ stdout: "", stderr: "" });
+
+      await expect(runBackupCommand({
+        file: process.execPath,
+        args: ["-e", "console.error('archive damaged'); process.exit(2)"],
+        options: { discardStdout: true },
+      })).rejects.toMatchObject({ code: 2, stderr: expect.stringContaining("archive damaged") });
+    });
+  });
+
   describe("runBackupCommand", () => {
     it("forwards file, args, and merged options to execFile and resolves with stdout/stderr", async () => {
       execFileMock.mockImplementation((_file: unknown, _args: unknown, _opts: unknown, cb: (err: Error | null, result: { stdout: string; stderr: string }) => void) => {

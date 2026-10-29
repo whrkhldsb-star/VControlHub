@@ -20,6 +20,11 @@ import {
 } from "../ai-file-helpers";
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+/**
+ * An image or PDF travels inside the chat request as base64 (4/3 of its size); the request schema takes 8,000,000
+ * characters of it per attachment and the route 32 MiB in all. The 20 MB the page offered never got through.
+ */
+const MAX_BINARY_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_FILE_LENGTH = 100000;
 const REJECTION_TIMEOUT_MS = 4000;
 
@@ -96,6 +101,10 @@ export function useFileAttachments({
           }
 
           const category = categorizeFile(file);
+          if ((category === "image" || category === "document") && file.size > MAX_BINARY_ATTACHMENT_BYTES) {
+            showRejection(tr("aiPage.attachmentTooLarge", { name: file.name, limit: 5 }));
+            continue;
+          }
 
           switch (category) {
             case "image": {

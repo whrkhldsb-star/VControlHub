@@ -127,15 +127,27 @@ function databaseUrl(): string | undefined {
 	}
 }
 
-/** A notification body cut to fit NOTIFY; null when nothing useful fits. */
-function pgPayload(userId: string, message: unknown): string | null {
-	const payload = JSON.stringify({ userId, message });
-	if (Buffer.byteLength(payload) <= PG_PAYLOAD_LIMIT) return payload;
-	const data = (message as { type?: string; data?: { message?: unknown } })?.data;
-	if (data && typeof data.message === "string") {
-		const shorter = JSON.stringify({ userId, message: { ...(message as object), data: { ...data, message: data.message.slice(0, 1_000) } } });
-		if (Buffer.byteLength(shorter) <= PG_PAYLOAD_LIMIT) return shorter;
+/** Every string in a JSON-like value cut to `max` characters. */
+function shrinkStrings(value: unknown, max: number): unknown {
+	if (typeof value === "string") return value.length > max ? value.slice(0, max) : value;
+	if (Array.isArray(value)) return value.map((item) => shrinkStrings(item, max));
+	if (value && typeof value === "object") {
+		return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, shrinkStrings(item, max)]));
 	}
+	return value;
+}
+
+/**
+ * A notification body cut to fit NOTIFY (8,000 bytes); null when nothing useful fits. Only the message used to be
+ * cut, so a long title or long message parameters (an unbounded ticket title) dropped the push without a trace.
+ */
+export function pgPayload(userId: string, message: unknown): string | null {
+	for (const max of [Number.POSITIVE_INFINITY, 1_000, 200, 60]) {
+		const candidate = Number.isFinite(max) ? shrinkStrings(message, max) : message;
+		const payload = JSON.stringify({ userId, message: candidate });
+		if (Buffer.byteLength(payload) <= PG_PAYLOAD_LIMIT) return payload;
+	}
+	logger.warn("notification bus message too large for NOTIFY; not pushed", { userId, type: (message as { type?: string } | null)?.type });
 	return null;
 }
 

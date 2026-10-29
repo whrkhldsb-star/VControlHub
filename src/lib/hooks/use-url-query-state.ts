@@ -39,8 +39,8 @@ function readFromLocation(keys: string[], defaults: UrlQueryDefaults): Record<st
   return readFromParams(keys, defaults, new URLSearchParams(window.location.search));
 }
 
-function writeToLocation(state: Record<string, string>, defaults: UrlQueryDefaults) {
-  if (typeof window === "undefined") return;
+function writeToLocation(state: Record<string, string>, defaults: UrlQueryDefaults): string | null {
+  if (typeof window === "undefined") return null;
   const url = new URL(window.location.href);
   for (const [key, value] of Object.entries(state)) {
     const def = defaults[key] ?? "";
@@ -55,6 +55,7 @@ function writeToLocation(state: Record<string, string>, defaults: UrlQueryDefaul
   if (next !== current) {
     replaceBrowserUrl(next);
   }
+  return url.searchParams.toString();
 }
 
 /**
@@ -86,6 +87,20 @@ export function useUrlQueryState<T extends UrlQueryDefaults>(defaults: T, initia
     defaultsRef.current = defaults;
   }, [defaults]);
 
+  // A link to the same page with another query (Next keeps the page mounted: "search params do not remount") changes
+  // the request's search params but not this state, which only knew its first render, the address bar's popstate and
+  // its own writes. The filter shown stayed as it was while the address bar said otherwise. Adopt a query this hook did
+  // not write itself.
+  const searchString = searchParams?.toString() ?? null;
+  const lastSeenQuery = useRef<string | null>(searchString);
+  useEffect(() => {
+    if (searchParams === null || searchString === lastSeenQuery.current) return;
+    lastSeenQuery.current = searchString;
+    const next = readFromParams(keys, defaultsRef.current, searchParams) as T;
+    setState((current) => (keys.every((key) => current[key] === next[key]) ? current : next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the query string only
+  }, [searchString]);
+
   useEffect(() => {
     const onPop = () => {
       setState(readFromLocation(keys, defaultsRef.current) as T);
@@ -95,7 +110,9 @@ export function useUrlQueryState<T extends UrlQueryDefaults>(defaults: T, initia
   }, [keys]);
 
   useEffect(() => {
-    writeToLocation(state, defaultsRef.current);
+    const written = writeToLocation(state, defaultsRef.current);
+    // What this hook wrote is not a change to adopt when the router reports it back.
+    if (written !== null) lastSeenQuery.current = written;
   }, [state]);
 
   const setField = useCallback(<K extends keyof T & string>(key: K, value: T[K]) => {

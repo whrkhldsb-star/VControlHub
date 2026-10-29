@@ -160,4 +160,52 @@ describe("RDP session slots", () => {
     expect(errorStatus(fourth.ws)).toContain(instruction("error", "Too many RDP sessions for this user", "797"));
     expect(busy.ws.close).not.toHaveBeenCalled();
   });
+
+  it("closes a session whose browser floods ping echoes, and keeps the echoes of a normal one", async () => {
+    const { ws } = await open("a");
+    const echo = (n: number) => ws.listeners("message")[0]!(Buffer.from(instruction("", "ping", String(n))), false);
+    for (let n = 1; n <= 20; n += 1) await echo(n);
+    expect(ws.close).not.toHaveBeenCalled();
+    expect(ws.send).toHaveBeenCalledWith(instruction("", "ping", "20"));
+    await echo(21);
+    expect(errorStatus(ws)).toContain(instruction("error", "RDP ping flood", "512"));
+
+    // A second later the count starts again.
+    const calm = await open("b");
+    for (let n = 1; n <= 20; n += 1) await calm.ws.listeners("message")[0]!(Buffer.from(instruction("", "ping", String(n))), false);
+    await vi.advanceTimersByTimeAsync(1_000);
+    for (let n = 21; n <= 40; n += 1) await calm.ws.listeners("message")[0]!(Buffer.from(instruction("", "ping", String(n))), false);
+    expect(calm.ws.close).not.toHaveBeenCalled();
+  });
+
+  it("drops a socket that never answers the close handshake instead of letting it hold its slot", async () => {
+    const { ws } = await open("a");
+    // The gateway closes it (here: the browser flooded); ws alone would wait 30 s for the peer's answer.
+    ws.close.mockImplementation(() => undefined);
+    await ws.listeners("message")[0]!(Buffer.from(instruction("", "ping", "1")), false);
+    for (let n = 2; n <= 21; n += 1) await ws.listeners("message")[0]!(Buffer.from(instruction("", "ping", String(n))), false);
+    expect(ws.close).toHaveBeenCalled();
+    expect(ws.terminate).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(ws.terminate).toHaveBeenCalled();
+  });
+
+  it("bounds sockets that have not presented a ticket, apart from the sessions", async () => {
+    const idle = () => {
+      const socket = Object.assign(new EventEmitter(), { readyState: 1, bufferedAmount: 0, send: vi.fn(), close: vi.fn(), terminate: vi.fn(() => socket.emit("close", 1006)), ping: vi.fn() });
+      wss.clients.add(socket);
+      wss.emit("connection", socket, { url: "/rdp", headers: { cookie: "session=authenticated", origin: "https://hub.test" } });
+      return socket;
+    };
+    // An authenticated session is not in the pool, however full it gets.
+    const session = await open("a");
+    const held = Array.from({ length: 40 }, idle);
+    const refused = idle();
+    expect(refused.terminate).toHaveBeenCalled();
+    expect(held.some((socket) => socket.terminate.mock.calls.length > 0)).toBe(false);
+    expect(session.ws.terminate).not.toHaveBeenCalled();
+    // And the pool frees up as sockets go.
+    held[0]!.emit("close", 1006);
+    expect(idle().terminate).not.toHaveBeenCalled();
+  });
 });

@@ -221,8 +221,13 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       storageNodeId,
       relativePath: normalizedRelativePath,
     },
-    select: { id: true },
+    select: { id: true, entryType: true },
   });
+  // A folder (or one in the recycle bin) of that name is in the way: writing would turn its row into a file's
+  // and the move into place fail on the real folder.
+  if (existingEntryForVersion?.entryType === "DIRECTORY") {
+    return NextResponse.json({ error: t("api.storage.targetIsDirectory", locale) }, { status: 409 });
+  }
   if (existingEntryForVersion) {
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingEntryForVersion.id,
@@ -242,7 +247,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     const parentDir = path.dirname(absolutePath);
     await mkdir(parentDir, { recursive: true });
     if (existingEntryForVersion) {
-      stagedLocalPath = path.join(parentDir, `.${path.basename(absolutePath)}.${randomBytes(6).toString("hex")}.upload`);
+      stagedLocalPath = path.join(parentDir, `.vch-upload-${randomBytes(6).toString("hex")}.tmp`);
       await writeFile(stagedLocalPath, fileBuffer);
     } else {
       await writeFile(absolutePath, fileBuffer);
@@ -386,7 +391,14 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       { status: 500 },
     );
   }
-  if (stagedLocalPath && absolutePath) await rename(stagedLocalPath, absolutePath);
+  if (stagedLocalPath && absolutePath) {
+    try {
+      await rename(stagedLocalPath, absolutePath);
+    } catch (error) {
+      await unlink(stagedLocalPath).catch(() => undefined);
+      throw error;
+    }
+  }
 
   return NextResponse.json({
     ok: true,

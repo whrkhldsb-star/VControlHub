@@ -12,6 +12,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { getSessionCookieName, verifySessionToken, type SessionPayload } from "@/lib/auth/session";
+import { AuthError } from "@/lib/errors";
 
 /**
  * Verify session for API routes. Returns SessionPayload or null.
@@ -20,19 +21,29 @@ import { getSessionCookieName, verifySessionToken, type SessionPayload } from "@
  * {@link requireApiSession}).
  */
 export async function getApiSession(): Promise<SessionPayload | null> {
+	let cookieStore: Awaited<ReturnType<typeof cookies>>;
 	try {
-		const cookieStore = await cookies();
-		const sessionCookie = cookieStore.get(getSessionCookieName());
-
-		if (!sessionCookie?.value) return null;
-
-		try {
-			return await verifySessionToken(sessionCookie.value);
-		} catch {
-			cookieStore.delete(getSessionCookieName());
-			return null;
-		}
+		cookieStore = await cookies();
 	} catch {
+		// Outside a request (no cookie store): there is no session to find.
+		return null;
+	}
+	const sessionCookie = cookieStore.get(getSessionCookieName());
+	if (!sessionCookie?.value) return null;
+
+	try {
+		return await verifySessionToken(sessionCookie.value);
+	} catch (error) {
+		// Only a token that is really not valid (bad signature, expired, account disabled or its
+		// credentials changed) ends the session. A database error while checking it says nothing
+		// about the token: dropping the cookie signed every user out whenever the database
+		// restarted, and the 401 hid the outage from clients and monitoring. Let it surface as a 5xx.
+		if (!(error instanceof AuthError)) throw error;
+		try {
+			cookieStore.delete(getSessionCookieName());
+		} catch {
+			// Read-only cookie store (server component): the token is rejected all the same.
+		}
 		return null;
 	}
 }

@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -11,6 +14,7 @@ const {
   fileEntryCreateMock,
   sessionFindFirstMock,
   sessionUpdateManyMock,
+  webdavStatMock,
 } = vi.hoisted(() => ({
   assembleMock: vi.fn(),
   completeMock: vi.fn(),
@@ -22,7 +26,10 @@ const {
   fileEntryCreateMock: vi.fn(),
   sessionFindFirstMock: vi.fn(),
   sessionUpdateManyMock: vi.fn(),
+  webdavStatMock: vi.fn(),
 }));
+
+vi.mock("@/lib/storage/webdav-client", () => ({ createWebDavClient: () => ({ stat: webdavStatMock }) }));
 
 vi.mock("@/lib/upload/service", () => ({
   assembleMediaUploadToFile: assembleMock,
@@ -154,6 +161,51 @@ describe("completeStorageFileUpload", () => {
       }),
     }));
     expect(fileEntryCreateMock).not.toHaveBeenCalled();
+  });
+
+  describe("a folder in the way", () => {
+    const lastFailure = () => sessionUpdateManyMock.mock.calls.at(-1)?.[0];
+
+    it("refuses to replace an indexed folder, as a failure to fix and retry rather than one to review", async () => {
+      fileEntryFindFirstMock.mockResolvedValue({ id: "folder_1", entryType: "DIRECTORY" });
+      await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never })).rejects.toMatchObject({ status: 409 });
+      expect(writeBufferMock).not.toHaveBeenCalled();
+      expect(lastFailure().data).toMatchObject({ status: "FAILED", recoveryRequired: false });
+    });
+
+    it("asks a WebDAV server first: a MOVE with Overwrite would delete the whole collection", async () => {
+      getNodeMock.mockResolvedValue({ id: "node_dav", driver: "WEBDAV", basePath: "" });
+      webdavStatMock.mockResolvedValue({ isDirectory: true });
+      await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never })).rejects.toMatchObject({ status: 409 });
+      expect(webdavStatMock).toHaveBeenCalledWith("docs/report.bin");
+      expect(writeBufferMock).not.toHaveBeenCalled();
+    });
+
+    it("sees a real folder on a LOCAL disk that the index does not know", async () => {
+      const root = mkdtempSync(path.join(tmpdir(), "resumable-"));
+      try {
+        mkdirSync(path.join(root, "docs", "report.bin"), { recursive: true });
+        getNodeMock.mockResolvedValue({ id: "node_local", driver: "LOCAL", basePath: root });
+        await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never })).rejects.toMatchObject({ status: 409 });
+        expect(writeBufferMock).not.toHaveBeenCalled();
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
+  it("does not send a LOCAL upload to manual review when the filesystem refused it before changing anything", async () => {
+    // The write is a copy and a rename on this machine: an errno means the target is as it was.
+    writeBufferMock.mockRejectedValue(Object.assign(new Error("ENAMETOOLONG: name too long"), { code: "ENAMETOOLONG" }));
+    await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never })).rejects.toMatchObject({ code: "ENAMETOOLONG" });
+    expect(sessionUpdateManyMock.mock.calls.at(-1)?.[0].data).toMatchObject({ status: "FAILED", recoveryRequired: false });
+  });
+
+  it("still reviews a remote write that failed, since it may have landed", async () => {
+    getNodeMock.mockResolvedValue({ id: "node_sftp", driver: "SFTP", basePath: "/srv" });
+    writeBufferMock.mockRejectedValue(Object.assign(new Error("ENOSPC"), { code: "ENOSPC" }));
+    await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never })).rejects.toMatchObject({ code: "UPLOAD_OUTCOME_UNKNOWN" });
+    expect(sessionUpdateManyMock.mock.calls.at(-1)?.[0].data).toMatchObject({ recoveryRequired: true });
   });
 
   it("claims the active session before writing storage side effects", async () => {

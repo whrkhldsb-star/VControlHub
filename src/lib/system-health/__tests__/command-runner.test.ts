@@ -28,6 +28,29 @@ describe("lib/system-health/command-runner", () => {
     execFileMock.mockReset();
   });
 
+  it("returns what a command printed when it exited non-zero by itself (systemctl is-active exits 3 for a stopped unit)", async () => {
+    // The mock used to hand back `cb(null, "inactive")`, which the real systemctl never does: it exits 3 and
+    // Node reports that as an error, so a stopped service read as "status temporarily unreadable".
+    execFileMock.mockImplementationOnce(
+      ((_file: string, _args: string[], _options: unknown, cb: ExecFileCallback) => {
+        cb(Object.assign(new Error("Command failed"), { code: 3, killed: false }), "inactive\n", "");
+      }) as never,
+    );
+    expect(await runHealthCheckCommand({ file: "systemctl", args: ["is-active", "x.service"] })).toBe("inactive");
+  });
+
+  it("still returns null when the command never answered: it failed silently, was killed, or is missing", async () => {
+    const failWith = (error: Error, stdout: string) => execFileMock.mockImplementationOnce(
+      ((_f: string, _a: string[], _o: unknown, cb: ExecFileCallback) => { cb(error, stdout, ""); }) as never,
+    );
+    failWith(Object.assign(new Error("exit 128"), { code: 128, killed: false }), "");
+    expect(await runHealthCheckCommand({ file: "git", args: ["rev-parse", "HEAD"] })).toBeNull();
+    failWith(Object.assign(new Error("timeout"), { code: null, killed: true, signal: "SIGKILL" }), "partial output");
+    expect(await runHealthCheckCommand({ file: "git", args: ["ls-remote"] })).toBeNull();
+    failWith(Object.assign(new Error("spawn systemctl ENOENT"), { code: "ENOENT" }), "");
+    expect(await runHealthCheckCommand({ file: "systemctl", args: ["is-active", "x"] })).toBeNull();
+  });
+
   it("returns trimmed stdout on success", async () => {
     execFileMock.mockImplementationOnce(
       ((_file: string, _args: string[], _options: unknown, cb: ExecFileCallback) => {

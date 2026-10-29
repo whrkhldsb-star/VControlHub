@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Response as PlaywrightResponse } from "@playwright/test";
 import { generate as generateTotp } from "otplib";
 import { setTimeout as delay } from "node:timers/promises";
 import { installDirectSession } from "./helpers/direct-session";
@@ -9,11 +9,20 @@ import { inspectDetailLayouts } from "./helpers/detail-layouts";
 const USER = process.env.E2E_USER ?? "admin";
 const PASS = process.env.E2E_PASS ?? "admin123";
 
-async function freshTotp(secret: string) {
+/**
+ * The server spends a 30-second step once it accepts a code from it (sign-in, turning 2FA off): the next code it
+ * is shown must come from a later step, so a flow that signs in and then disables 2FA within seconds waits for one.
+ */
+let spentTotpStep = 0;
+async function freshTotp(secret: string, options: { spends?: boolean } = {}) {
+	const currentStep = () => Math.floor(Date.now() / 30_000);
+	while (currentStep() <= spentTotpStep) await delay(500);
 	// Leave enough of the real server's 30-second window for browser input.
 	const remaining = 30 - (Math.floor(Date.now() / 1000) % 30);
 	if (remaining < 10) await delay((remaining + 1) * 1000);
-	return generateTotp({ secret });
+	const code = generateTotp({ secret });
+	if (options.spends) spentTotpStep = currentStep();
+	return code;
 }
 
 async function login(page: Page) {
@@ -92,6 +101,16 @@ test("settings tabs and personal preference persistence", async ({ page }) => {
 	await expect(notificationSwitch).toHaveAttribute("aria-checked", original ?? "false");
 });
 
+/**
+ * A message built from `await response.text()` was evaluated even when the status was 200, and a response whose
+ * page has navigated away no longer has a body: the lifecycle failed with "No resource with given identifier".
+ */
+async function expectOk(response: PlaywrightResponse, what: string) {
+	if (response.status() === 200) return;
+	const body = await response.text().catch(() => "(no body)");
+	expect(response.status(), `${what} failed: ${body}`).toBe(200);
+}
+
 test("two-factor setup, password login, TOTP verification and disable lifecycle", async ({ page, context }, testInfo) => {
 	test.setTimeout(240_000);
 	await login(page);
@@ -102,6 +121,8 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 
 	const section = page.locator('[id="2fa"]');
 	await expect(section).toBeVisible();
+	// Setting up a second factor asks for the current password first (the button stays disabled until it is typed).
+	await section.getByLabel(/当前密码|Current password/i).fill(PASS);
 	await section.getByRole("button", { name: /开启两步验证|Enable 2FA/i }).click();
 
 	const secret = (await section.locator("code").first().textContent())?.trim();
@@ -113,7 +134,7 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	);
 	await section.getByRole("button", { name: /确认启用|Confirm enable/i }).click();
 	const enabled = await enableResponse;
-	expect(enabled.status(), `2FA enable failed: ${await enabled.text()}`).toBe(200);
+	await expectOk(enabled, "2FA enable");
 	await expect(section.locator("code")).toHaveCount(10);
 	await section.getByRole("button", { name: /我已安全保存|I saved them securely/i }).click();
 	await expect(section.getByRole("button", { name: /关闭两步验证|Disable 2FA/i })).toBeVisible();
@@ -126,7 +147,7 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	await page.waitForURL((url) => url.pathname === "/login/verify-2fa");
 	await inspectDetailLayouts(page, testInfo, "two-factor-login");
 
-	const loginCode = await freshTotp(secret!);
+	const loginCode = await freshTotp(secret!, { spends: true });
 	const verificationResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/verify-login" && response.request().method() === "POST",
 	);
@@ -134,20 +155,21 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 		await page.getByLabel(new RegExp(`(?:验证码第 ${index + 1} 位|Verification code digit ${index + 1})`, "i")).fill(loginCode[index]!);
 	}
 	const verified = await verificationResponse;
-	expect(verified.status(), `2FA verification failed: ${await verified.text()}`).toBe(200);
+	// The page navigates away at once on success: the body is gone by then, so it is read only for a failure.
+	await expectOk(verified, "2FA verification");
 	await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 
 	await page.goto("/account/security");
 	await expect(section).toBeVisible();
 	await section.getByRole("button", { name: /关闭两步验证|Disable 2FA/i }).click();
-	const disableCode = await freshTotp(secret!);
+	const disableCode = await freshTotp(secret!, { spends: true });
 	await section.getByLabel(/验证码或恢复码|Authenticator or recovery code/i).fill(disableCode);
 	const disableResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/disable" && response.request().method() === "POST",
 	);
 	await section.getByRole("button", { name: /确认关闭|Confirm disable/i }).click();
 	const disabled = await disableResponse;
-	expect(disabled.status(), `2FA disable failed: ${await disabled.text()}`).toBe(200);
+	await expectOk(disabled, "2FA disable");
 	await expect(section.getByRole("button", { name: /开启两步验证|Enable 2FA/i })).toBeVisible();
 });
 

@@ -308,11 +308,27 @@ function sftpReaddir(client: Client, remotePath: string): Promise<SftpListEntry[
   }));
 }
 
-export async function listRemoteDirectory(input: SshConnectionParams & { remotePath: string; maxEntries?: number }): Promise<SftpListEntry[]> {
+/** Entries an Agent-only listing returns when the caller names no limit (its output has to fit one job result). */
+const AGENT_LIST_LIMIT = 10_000;
+
+export async function listRemoteDirectory(input: SshConnectionParams & {
+  remotePath: string;
+  maxEntries?: number;
+  /**
+   * The caller acts on what is NOT in the list (sync and stale-entry checks soft-delete the rest), so a list the
+   * Agent had to cut short is an error rather than a smaller directory.
+   */
+  requireComplete?: boolean;
+}): Promise<SftpListEntry[]> {
   if (usesAgentOnly(input)) {
-    const source = "import json,os,stat,sys\np=sys.argv[1]; limit=int(sys.argv[2]); out=[]\nfor name in os.listdir(p)[:limit]:\n q=os.path.join(p,name); s=os.lstat(q); mode=s.st_mode; kind='directory' if stat.S_ISDIR(mode) else ('file' if stat.S_ISREG(mode) else 'other'); out.append({'name':name,'longname':name,'type':kind,'symlink':stat.S_ISLNK(mode),'size':s.st_size,'modifyTime':int(s.st_mtime*1000),'accessTime':int(s.st_atime*1000)})\nprint(json.dumps(out,ensure_ascii=False))";
-    const result = await execAgentOnly(input, pythonCommand(source, [input.remotePath, String(input.maxEntries ?? 10_000)]));
-    return JSON.parse(result.stdout) as SftpListEntry[];
+    const source = "import json,os,stat,sys\np=sys.argv[1]; limit=int(sys.argv[2]); out=[]\nnames=os.listdir(p)\nfor name in names[:limit]:\n q=os.path.join(p,name); s=os.lstat(q); mode=s.st_mode; kind='directory' if stat.S_ISDIR(mode) else ('file' if stat.S_ISREG(mode) else 'other'); out.append({'name':name,'longname':name,'type':kind,'symlink':stat.S_ISLNK(mode),'size':s.st_size,'modifyTime':int(s.st_mtime*1000),'accessTime':int(s.st_atime*1000)})\nprint(json.dumps({'total':len(names),'entries':out},ensure_ascii=False))";
+    const limit = input.maxEntries ?? AGENT_LIST_LIMIT;
+    const result = await execAgentOnly(input, pythonCommand(source, [input.remotePath, String(limit)]));
+    const listing = JSON.parse(result.stdout) as { total: number; entries: SftpListEntry[] };
+    if (input.requireComplete && listing.total > listing.entries.length) {
+      throw new BusinessError(t("backend.sftp.directoryListingTruncated", { limit: String(limit) }));
+    }
+    return listing.entries;
   }
   return withReusableSshClient(input, async (client) => {
     const entries = await sftpReaddir(client, input.remotePath);

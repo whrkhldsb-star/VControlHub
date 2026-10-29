@@ -4,14 +4,23 @@ import { LoginForm } from "./login-form";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { headers } from "next/headers";
 import { getTurnstileConfig } from "@/lib/auth/turnstile";
+import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 
 export const dynamic = "force-dynamic";
 
 type LoginPageProps = {
-	searchParams?: Promise<{ next?: string; error?: string; minutes?: string }>;
+	searchParams?: Promise<{ next?: string | string[]; error?: string | string[]; minutes?: string | string[] }>;
 };
 
-function resolveErrorMessage(locale: Locale, error?: string, minutes?: string) {
+/** Query parameters repeat into arrays; only the first value is meaningful. */
+function firstParam(value: string | string[] | undefined): string | undefined {
+	return Array.isArray(value) ? value[0] : value;
+}
+
+function resolveErrorMessage(locale: Locale, error?: string, rawMinutes?: string) {
+	// Shown inside the message: a number or nothing. Any other text in the URL would be printed as
+	// if the application said it.
+	const minutes = rawMinutes && /^\d{1,4}$/.test(rawMinutes) ? rawMinutes : undefined;
 	if (error === "invalid") {
 		return t("login.error.invalid", locale);
 	}
@@ -33,9 +42,9 @@ function resolveErrorMessage(locale: Locale, error?: string, minutes?: string) {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
 	const resolvedSearchParams = (await searchParams) ?? {};
-	const nextPath = resolvedSearchParams.next ?? "/";
+	const nextPath = safeRelativeRedirectPath(resolvedSearchParams.next);
 	const locale = await getServerLocale();
-	const error = resolveErrorMessage(locale, resolvedSearchParams.error, resolvedSearchParams.minutes);
+	const error = resolveErrorMessage(locale, firstParam(resolvedSearchParams.error), firstParam(resolvedSearchParams.minutes));
 	// Server component: read the live environment so tests and runtime config
 	// changes are reflected. Client components use the inlined public value.
 	const publicLabel = getPublicLabel(process.env);

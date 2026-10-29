@@ -13,6 +13,7 @@ import type { IncomingMessage } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { SessionPayload } from "@/lib/auth/session";
 import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
+import { AuthError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { recordWsEvent, setWsActive } from "@/lib/monitoring/runtime-metrics";
 import { getNotificationBus } from "./notification-bus";
@@ -35,12 +36,28 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
  * instead of buffering every future broadcast in memory for it. */
 const MAX_BUFFERED_BYTES = 1_000_000;
 
+/** One user (tabs, devices, a reconnect loop) may hold this many sockets; the oldest makes room. */
+const MAX_CONNECTIONS_PER_USER = 10;
+
+/** A socket is authenticated once at the upgrade. It is re-checked against the session store this
+ * often (on the heartbeat sweep), so signing out everywhere, disabling the account, changing the
+ * password or an expired session cuts the push instead of leaving it on for as long as the page stays open. */
+const SESSION_RECHECK_INTERVAL_MS = 60_000;
+const socketAuth = new WeakMap<WebSocket, { token: string; checkedAt: number }>();
+
 const heartbeatState = new WeakMap<WebSocket, boolean>();
 let heartbeatTimer: NodeJS.Timeout | null = null;
 
 function addConnection(userId: string, ws: WebSocket) {
 	if (!userConnections.has(userId)) userConnections.set(userId, new Set());
-	userConnections.get(userId)!.add(ws);
+	const own = userConnections.get(userId)!;
+	while (own.size >= MAX_CONNECTIONS_PER_USER) {
+		const oldest = own.values().next().value as WebSocket | undefined;
+		if (!oldest) break;
+		own.delete(oldest);
+		oldest.terminate();
+	}
+	own.add(ws);
 	recordWsEvent("notification", "open");
 	setWsActive("notification", countActiveConnections());
 }
@@ -173,6 +190,33 @@ function isCrossOriginUpgrade(request: IncomingMessage): boolean {
 	return originHost !== expected;
 }
 
+let rechecking = false;
+
+/** Drop the sockets whose session is no longer valid. A failure of the check itself (the database
+ * restarting) keeps the socket: nothing says its session ended, and the next sweep asks again. */
+export async function recheckSocketSessions(minAgeMs = SESSION_RECHECK_INTERVAL_MS): Promise<void> {
+	const instance = wss;
+	if (!instance || rechecking) return;
+	rechecking = true;
+	try {
+		for (const client of instance.clients) {
+			const auth = socketAuth.get(client);
+			if (!auth || client.readyState !== WebSocket.OPEN || Date.now() - auth.checkedAt < minAgeMs) continue;
+			try {
+				await verifySessionToken(auth.token);
+				auth.checkedAt = Date.now();
+			} catch (error) {
+				if (error instanceof AuthError) {
+					recordWsEvent("notification", "reject");
+					client.terminate();
+				}
+			}
+		}
+	} finally {
+		rechecking = false;
+	}
+}
+
 export function setupWebSocketServer(
 	server: import("node:http").Server,
 	options: {
@@ -244,7 +288,7 @@ export function setupWebSocketServer(
 				}
 
 				instance.handleUpgrade(request, socket, head, (ws) => {
-					instance.emit("connection", ws, request, session);
+					instance.emit("connection", ws, request, session, token);
 				});
 			} catch {
 				// Upgrade failed (bad session, protocol error, etc.) — drop the socket.
@@ -256,8 +300,9 @@ export function setupWebSocketServer(
 	server.on("upgrade", handleUpgrade);
 	detachUpgradeHandler = () => server.off("upgrade", handleUpgrade);
 
-	instance.on("connection", (ws: WebSocket, _req: IncomingMessage, session: SessionPayload) => {
+	instance.on("connection", (ws: WebSocket, _req: IncomingMessage, session: SessionPayload, token: string) => {
 		const userId = session.userId;
+		socketAuth.set(ws, { token, checkedAt: Date.now() });
 		addConnection(userId, ws);
 		heartbeatState.set(ws, true);
 		ws.on("pong", () => {
@@ -307,6 +352,7 @@ export function setupWebSocketServer(
 			heartbeatState.set(client, false);
 			client.ping();
 		}
+		void recheckSocketSessions();
 	}, HEARTBEAT_INTERVAL_MS);
 	heartbeatTimer.unref?.();
 

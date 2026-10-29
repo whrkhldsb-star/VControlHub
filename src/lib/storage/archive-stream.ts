@@ -107,6 +107,17 @@ function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: s
 	return [...base, ...EXCLUDE_OPTIONS, "--", entryName];
 }
 
+/**
+ * Exclusions for a tar that reads its members from a list: the options to add, and what the exclusion file
+ * must contain (POSIX GNU tar reads it from a file; Windows bsdtar takes each name as an argument).
+ */
+export function localTarExclusion(excluded: string[], excludeFilePath: string): { options: string[]; fileContent: string | null } {
+	if (!excluded.length) return { options: [], fileContent: null };
+	const content = archiveExclusionInput(excluded);
+	if (IS_WINDOWS) return { options: excluded.map((name) => `--exclude=${name}`), fileContent: null };
+	return { options: ["--no-wildcards", "--anchored", `--exclude-from=${excludeFilePath}`], fileContent: content };
+}
+
 export function streamLocalTarGz(directoryPath: string, entryName: string, excluded: string[] = []) {
 	const input = archiveExclusionInput(excluded);
 	// POSIX GNU tar reads the exclusion list from stdin; Windows bsdtar gets it

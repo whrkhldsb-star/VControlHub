@@ -136,6 +136,26 @@ describe("DashboardPreferenceClient", () => {
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("dashboard.widget.serverStatus");
   });
 
+  it("does not open the detail dialog over a link or a button inside a widget", async () => {
+    // Clicking a quick link navigates; the dialog used to open on top of it as well (and stayed after a new-tab click).
+    render(
+      <DashboardPreferenceClient>
+        <section data-dashboard-widget="quick-links">
+          快捷入口 <a href="/servers" onClick={(event) => event.preventDefault()}>服务器</a> <button type="button">刷新</button>
+        </section>
+      </DashboardPreferenceClient>,
+    );
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
+
+    fireEvent.click(screen.getByRole("link", { name: "服务器" }));
+    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+    expect(screen.queryByTestId("dashboard-widget-detail-dialog")).not.toBeInTheDocument();
+
+    // The widget itself still opens it.
+    fireEvent.click(screen.getByText(/快捷入口/));
+    expect(screen.getByTestId("dashboard-widget-detail-dialog")).toBeInTheDocument();
+  });
+
   it("reset restores the default widget order in edit mode", async () => {
     csrfFetchMock.mockResolvedValue({
       defaultPage: "/",

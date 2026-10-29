@@ -7,6 +7,7 @@ import { TextPreviewBody, TextPreviewToolbar } from "./text-preview-renderers";
 import { TextPreviewError, TextPreviewLoading } from "./text-preview-states";
 import { useTextPreviewController } from "./use-text-preview-controller";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 import { Notice } from "@/components/ui-primitives";
 import { TEXT_PREVIEW_MAX_BYTES } from "@/lib/http/read-text-prefix";
 
@@ -51,6 +52,10 @@ export function TextPreviewClient({
 	// Stable between renders, so the body's per-line highlighting is reused.
 	const lines = useMemo(() => ctrl.currentContent.split("\n"), [ctrl.currentContent]);
 
+	// Editing nginx.conf or a compose file: a stray click on a link, Back or a reload used to throw the draft away
+	// without a word. The same guard as the other editors asks first.
+	const unsavedGuard = useUnsavedChangesGuard({ dirty: ctrl.editMode && ctrl.draft !== ctrl.currentContent });
+
 	if (ctrl.state.loading) {
 		return <TextPreviewLoading label={t("textPreview.loading")} />;
 	}
@@ -72,6 +77,7 @@ export function TextPreviewClient({
 
 	return (
 		<div className="space-y-3">
+			{ctrl.editRefused ? <Notice tone="warning">{t("textPreview.editRefusedReadOnly")}</Notice> : null}
 			{ctrl.state.truncated ? (
 				<Notice tone="warning">{t("textPreview.prefixOnly", { size: TEXT_PREVIEW_MAX_BYTES / 1024 / 1024 })}</Notice>
 			) : null}
@@ -95,7 +101,7 @@ export function TextPreviewClient({
 				onJumpToLine={ctrl.handleJumpToLine}
 				onPreviewSave={() => ctrl.setShowDiffReview(true)}
 				onSaveAndReload={ctrl.handleSaveAndReload}
-				onCancelEdit={ctrl.cancelEdit}
+				onCancelEdit={() => unsavedGuard.requestAction(ctrl.cancelEdit)}
 				onOpenEditorFind={() => ctrl.setEditorFind({ open: true, query: "", total: 0, current: 0 })}
 				onEnterEditMode={() => ctrl.setEditMode(true)}
 			/>
@@ -140,6 +146,7 @@ export function TextPreviewClient({
 				searchQuery={ctrl.searchQuery}
 				sanitizeHighlight={ctrl.sanitizeHighlight}
 			/>
+			{unsavedGuard.discardDialog}
 		</div>
 	);
 }

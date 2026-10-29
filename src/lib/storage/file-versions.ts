@@ -401,8 +401,16 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
       `v${versionNumber}-${checksum.slice(0, 12)}-${crypto.randomUUID().slice(0, 8)}.bin`,
     );
     const abs = blobAbsolutePath(blobRelativePath);
-    await mkdir(path.dirname(abs), { recursive: true });
-    await writeFile(abs, buffer, { flag: "wx" });
+    try {
+      await mkdir(path.dirname(abs), { recursive: true });
+      await writeFile(abs, buffer, { flag: "wx" });
+    } catch (err) {
+      // The history is a safety net, not a condition of saving: a directory the service cannot write (EACCES, a
+      // full disk) used to turn the edit or upload that triggered the snapshot into a 500.
+      await rm(abs, { force: true }).catch(() => undefined);
+      logError("file-version:blob-write-failed", err);
+      return null;
+    }
 
     let row;
     try {

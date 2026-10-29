@@ -318,7 +318,8 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
     if (!resolved.ok) throw new ValidationError(resolved.reason);
-    const temporaryPath = `${resolved.path}.vch-upload-${randomUUID()}.tmp`;
+    // Beside the target but not named after it: a name close to the 255-byte limit plus a suffix cannot be created.
+    const temporaryPath = path.join(path.dirname(resolved.path), `.vch-upload-${randomUUID()}.tmp`);
     try {
       await mkdir(path.dirname(resolved.path), { recursive: true });
       await copyFile(sourcePath, temporaryPath);
@@ -326,7 +327,7 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
       return resolved.path;
     } finally { await rm(temporaryPath, { force: true }).catch(() => undefined); }
   }
-  const temporaryRelativePath = `${relativePath}.vch-upload-${randomUUID()}.tmp`;
+  const temporaryRelativePath = path.posix.join(path.posix.dirname(relativePath), `.vch-upload-${randomUUID()}.tmp`);
   if (node.driver === "WEBDAV") {
     const client = createWebDavClient(node);
     const parent = path.posix.dirname(relativePath);

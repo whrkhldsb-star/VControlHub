@@ -11,6 +11,7 @@ type MockChildProcess = EventEmitter & {
 
 const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
   mockPrisma: {
+    job: { findMany: vi.fn(async (): Promise<Array<{ payload: unknown }>> => []) },
     commandRequest: {
       updateMany: vi.fn(),
       create: vi.fn(),
@@ -161,7 +162,7 @@ describe("command service execution flow", () => {
     mockPrisma.commandTarget.findUnique.mockImplementation(async (args: { where?: { id?: string } }) => ({
       id: args?.where?.id ?? "target_unknown",
       status: "RUNNING",
-      commandRequest: { status: "RUNNING" },
+      commandRequest: { status: "RUNNING", approvals: [] },
     }));
     // enqueueApprovedCommandExecution re-checks request is still RUNNING after claim.
     mockPrisma.commandRequest.findUnique.mockImplementation(async (args: { where?: { id?: string } }) => ({
@@ -1572,6 +1573,47 @@ describe("command service execution flow", () => {
     ).rejects.toThrow("命令请求不存在");
   });
 
+  it("leaves a stale-looking request alone while its execution job is still waiting in the queue", async () => {
+    // Queued behind slow commands, it never started, so its heartbeat never moved; it was failed as "lost".
+    process.env.COMMAND_STALE_RUNNING_AFTER_MS = "30000";
+    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "5000";
+    mockPrisma.commandRequest.findMany.mockResolvedValueOnce([
+      { id: "req_waiting", workerId: "w", workerHeartbeatAt: new Date("2026-05-30T07:00:00Z"), targets: [{ id: "t1", status: "RUNNING" }] },
+      { id: "req_lost", workerId: "w", workerHeartbeatAt: new Date("2026-05-30T07:00:00Z"), targets: [{ id: "t2", status: "RUNNING" }] },
+    ]);
+    mockPrisma.job.findMany.mockResolvedValueOnce([{ payload: { commandRequestId: "req_waiting" } }]);
+    mockPrisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
+
+    const { recoverStaleRunningCommandRequests } = await import("../service");
+    const result = await recoverStaleRunningCommandRequests(new Date("2026-05-30T08:00:00Z"));
+
+    expect(result).toEqual({ recovered: 1 });
+    const failedRequestIds = mockPrisma.commandRequest.updateMany.mock.calls.map(([args]) => (args as { where: { id: string } }).where.id);
+    expect(failedRequestIds).toEqual(["req_lost"]);
+  });
+
+  it("puts a request back to APPROVED when its job could not be queued, so the sweep queues it instead of failing it later", async () => {
+    const queue = await import("@/lib/command/execution-queue");
+    vi.mocked(queue.enqueueCommandExecutionJob).mockRejectedValueOnce(new Error("jobs table unavailable"));
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_unqueued", status: "RUNNING" });
+    mockPrisma.executionLog.create.mockResolvedValue({});
+
+    const { enqueueApprovedCommandExecution } = await import("../service-execution");
+    await expect(enqueueApprovedCommandExecution("req_unqueued", "queued")).rejects.toThrow("jobs table unavailable");
+
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "req_unqueued", status: "RUNNING" },
+      data: { status: "APPROVED", workerId: null, workerHeartbeatAt: null },
+    });
+    expect(mockPrisma.commandTarget.updateMany).toHaveBeenLastCalledWith({
+      where: { commandRequestId: "req_unqueued", status: "RUNNING" },
+      data: { status: "APPROVED" },
+    });
+  });
+
   it("recovers stale running command requests that lost their in-process worker", async () => {
     // Both keys clamp up to their declared min (30_000 / 5_000), and the
     // effective window is max(stale, timeout) — so the cutoff below is
@@ -1789,7 +1831,7 @@ describe("command service execution flow", () => {
     mockPrisma.commandTarget.findUnique.mockResolvedValue({
       id: "target_skip_cancel",
       status: "CANCELLED",
-      commandRequest: { status: "CANCELLED" },
+      commandRequest: { status: "CANCELLED", approvals: [] },
     });
     // enqueue re-check: still RUNNING so job is scheduled; finalize then sees cancel.
     mockPrisma.commandRequest.findUnique.mockImplementation(async (args: { where?: { id?: string }; include?: unknown }) => ({
@@ -1829,6 +1871,30 @@ describe("command service execution flow", () => {
       }),
     );
   }, 15_000);
+
+  it("lists every open request beside the newest history, so an old pending approval is not pushed out of the list", async () => {
+    // The newest 100 requests of any status were the whole list: a scheduled task that needs approval fills that in
+    // a day, and the older requests still waiting vanished from the page, the pending count and the batch tools.
+    const row = (id: string, status: string, iso: string) => ({
+      id, status, title: id, command: "uptime", reason: null, initiatedByType: "USER", requesterId: "u_1",
+      createdAt: new Date(iso), updatedAt: new Date(iso), requester: { id: "u_1", username: "alice", displayName: null },
+      approvals: [], targets: [], executionLogs: [],
+    });
+    const oldPending = row("old-pending", "PENDING_APPROVAL", "2026-10-01T00:00:00Z");
+    const newestDone = row("newest-done", "COMPLETED", "2026-10-28T00:00:00Z");
+    mockPrisma.commandRequest.findMany.mockReset();
+    mockPrisma.commandRequest.findMany
+      .mockResolvedValueOnce([oldPending, row("also-open", "RUNNING", "2026-10-27T00:00:00Z")])
+      .mockResolvedValueOnce([newestDone, row("also-open", "RUNNING", "2026-10-27T00:00:00Z")]);
+
+    const listed = await listCommandRequests();
+
+    expect(listed.map((request) => request.id)).toEqual(["newest-done", "also-open", "old-pending"]);
+    const openQuery = mockPrisma.commandRequest.findMany.mock.calls[0]![0];
+    expect(JSON.stringify(openQuery.where)).toContain("PENDING_APPROVAL");
+    expect(openQuery.take).toBeGreaterThan(100);
+    expect(mockPrisma.commandRequest.findMany.mock.calls[1]![0].take).toBe(100);
+  });
 
   it("does not fall back to demo command data when database is unavailable", async () => {
     const dbError = new Error("Can't reach database server");

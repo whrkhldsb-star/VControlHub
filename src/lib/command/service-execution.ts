@@ -120,7 +120,13 @@ export async function executeTarget(
     select: {
       id: true,
       status: true,
-      commandRequest: { select: { status: true, requesterId: true, teamId: true } },
+      commandRequest: {
+        select: {
+          status: true, requesterId: true, teamId: true,
+          // A request someone approved runs on that decision, not on the requester's own execute permission.
+          approvals: { where: { approved: true }, select: { id: true }, take: 1 },
+        },
+      },
     },
   });
   if (
@@ -148,6 +154,7 @@ export async function executeTarget(
 
   const authorization = await assertRequesterMayExecuteCommand(
     live.commandRequest.requesterId, live.commandRequest.teamId, target.server.id,
+    { requireExecutePermission: live.commandRequest.approvals.length === 0 },
   );
   if (!authorization.ok) {
     return failTarget(commandRequestId, target, `Command dispatch denied: ${authorization.reason}`);
@@ -707,6 +714,21 @@ export async function enqueueApprovedCommandExecution(
   // command.execution job in the durable jobs table. The actual SSH dispatch
   // is performed by startCommandExecutionWorker() when the job worker claims
   // the row; the original fire-and-forget void path is gone.
-  await scheduleCommandExecution(commandRequestId);
+  try {
+    await scheduleCommandExecution(commandRequestId);
+  } catch (error) {
+    // Nothing is queued. Left RUNNING, the request would be failed as "executor lost, outcome unknown" ten minutes
+    // later for a command that never ran, while the caller was told the approval worked (the failure is only logged
+    // there). Put back to APPROVED, where the maintenance sweep finds it and queues it again.
+    await prisma.commandRequest.updateMany({
+      where: { id: commandRequestId, status: "RUNNING" },
+      data: { status: "APPROVED", workerId: null, workerHeartbeatAt: null },
+    }).catch(() => undefined);
+    await prisma.commandTarget.updateMany({
+      where: { commandRequestId, status: "RUNNING" },
+      data: { status: "APPROVED" },
+    }).catch(() => undefined);
+    throw error;
+  }
   return true;
 }

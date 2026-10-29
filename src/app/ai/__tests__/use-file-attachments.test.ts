@@ -88,6 +88,20 @@ describe("useFileAttachments", () => {
     expect(result.current.fileAttachments).toHaveLength(0);
   });
 
+  it("refuses an image or PDF above 5MB at once: it travels inside the chat request and larger ones never got through", async () => {
+    // The page offered 20MB per file, but a screenshot above ~770KB broke the request body limit and the composer
+    // had already cleared itself by then.
+    const onReject = vi.fn();
+    const { result } = renderHook(() =>
+      useFileAttachments({ currentModelCaps: ALL_CAPS, modelName: "gpt-4o", t: (key, vars) => (key === "aiPage.attachmentTooLarge" ? `too large ${vars?.name} ${vars?.limit}MB` : testT(key)), onReject })
+    );
+    await act(async () => {
+      await result.current.handleFileSelect([makeFile("photo.png", "image/png", 6 * 1024 * 1024)]);
+    });
+    expect(onReject).toHaveBeenCalledWith("too large photo.png 5MB");
+    expect(result.current.fileAttachments).toHaveLength(0);
+  });
+
   it("rejects image when vision is not supported and enableVision is false", async () => {
     const onReject = vi.fn();
     const { result } = renderHook(() =>

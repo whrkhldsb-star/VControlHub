@@ -29,6 +29,7 @@ import { createWebDavClient } from "@/lib/storage/webdav-client";
 import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import {
+  expandStorageBasePath,
   normalizeStorageRelativePath,
   normalizeStorageTargetDirectory,
 } from "@/lib/storage/path-utils";
@@ -64,10 +65,15 @@ class LocalExistenceIndex {
   }
 
   private async loadDir(relativeDir: string): Promise<Set<string>> {
-    const resolved = await resolveManagedLocalEntryPath({
-      basePath: this.node.basePath,
-      relativePath: relativeDir,
-    });
+    // The storage root is the parent of a top-level name ("." or ""), and it is not a "relative path" to the
+    // containment check: asking it to resolve "." failed every copy to the top level of a LOCAL node.
+    const isRoot = relativeDir === "." || relativeDir === "";
+    const resolved = isRoot
+      ? { absolutePath: path.resolve(expandStorageBasePath(this.node.basePath)) }
+      : await resolveManagedLocalEntryPath({
+          basePath: this.node.basePath,
+          relativePath: relativeDir,
+        });
     try {
       return new Set(await readdir(resolved.absolutePath));
     } catch (error) {

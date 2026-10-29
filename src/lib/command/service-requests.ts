@@ -1,3 +1,4 @@
+import type { CommandRequestStatus, Prisma } from "@prisma/client";
 import { isProtectedByApproval } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
@@ -566,32 +567,55 @@ export async function reviewCommandRequest(
   });
 }
 
+const COMMAND_LIST_INCLUDE = {
+  requester: { select: { id: true, username: true, displayName: true } },
+  approvals: {
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    include: {
+      approver: { select: { id: true, username: true, displayName: true } },
+    },
+  },
+  targets: {
+    take: 50,
+    include: {
+      server: { select: { id: true, name: true, host: true, port: true } },
+    },
+  },
+  executionLogs: { orderBy: { createdAt: "desc" }, take: 3 },
+} satisfies Prisma.CommandRequestInclude;
+
+/** Requests still waiting for a decision or an execution: the ones people act on. */
+const OPEN_COMMAND_STATUSES: CommandRequestStatus[] = ["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"];
+const COMMAND_HISTORY_LIMIT = 100;
+const OPEN_COMMAND_LIMIT = 500;
+
 export async function listCommandRequests(session?: CommandSessionScope | null) {
   // Quarantine null-team requests from team-user lists (command text + targets
   // are a security root); global managers still see all via commandRequestTeamWhere.
   const where = session ? { ...commandRequestTeamWhere(session) } : {};
-  const requests = await prisma.commandRequest.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    include: {
-      requester: { select: { id: true, username: true, displayName: true } },
-      approvals: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        include: {
-          approver: { select: { id: true, username: true, displayName: true } },
-        },
-      },
-      targets: {
-        take: 50,
-        include: {
-          server: { select: { id: true, name: true, host: true, port: true } },
-        },
-      },
-      executionLogs: { orderBy: { createdAt: "desc" }, take: 3 },
-    },
-  });
+  // The newest 100 of every status used to be the whole list, so a stream of automatic requests (a scheduled task
+  // that needs approval, a playbook step per attempt) pushed older requests still waiting for approval out of the
+  // page, the pending count and the batch tools, with no way left to approve them. Everything still open is
+  // listed, with the newest history beside it.
+  const [open, recent] = await Promise.all([
+    prisma.commandRequest.findMany({
+      where: { AND: [where, { status: { in: OPEN_COMMAND_STATUSES } }] },
+      orderBy: { createdAt: "desc" },
+      take: OPEN_COMMAND_LIMIT,
+      include: COMMAND_LIST_INCLUDE,
+    }),
+    prisma.commandRequest.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: COMMAND_HISTORY_LIMIT,
+      include: COMMAND_LIST_INCLUDE,
+    }),
+  ]);
+  const seen = new Set<string>();
+  const requests = [...open, ...recent]
+    .filter((request) => !seen.has(request.id) && seen.add(request.id))
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   return requests.map(mapCommandRequest);
 }

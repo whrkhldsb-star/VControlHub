@@ -45,7 +45,10 @@ export function normalizeSharePath(path: string) {
     .replace(/^\/+/, "")
     .replace(/\/+/g, "/");
 
-  const segments = normalizedPath.split("/").filter(Boolean);
+  // Storage resolution trims every segment (see validateSegments in storage/path-utils), so "docs/ a.txt"
+  // and "docs/a.txt" are the same file on disk. The checks made on this string (inside the shared folder,
+  // not in the trash) must see the same path, or a padded spelling slips past them.
+  const segments = normalizedPath.split("/").map((segment) => segment.trim()).filter(Boolean);
   if (segments.length === 0 || segments.some((segment) => segment === "." || segment === "..")) {
     throw new ValidationError(t("backend.shareLink.invalidSharePath"));
   }
@@ -83,11 +86,14 @@ export async function assertShareTargetNotDeleted(
   storageNodeId: string,
   relativePath: string,
 ): Promise<void> {
-  const entry = await prisma.fileEntry.findFirst({
-    where: { storageNodeId, relativePath },
-    select: { isDeleted: true },
+  // The file itself or any folder above it may be in the trash: the bytes of a trashed folder's files stay on disk.
+  const segments = typeof relativePath === "string" ? relativePath.split("/").filter(Boolean) : [];
+  const paths = segments.map((_, index) => segments.slice(0, index + 1).join("/"));
+  const trashed = await prisma.fileEntry.findFirst({
+    where: { storageNodeId, relativePath: { in: paths.length ? paths : [relativePath] }, isDeleted: true },
+    select: { id: true },
   });
-  if (entry?.isDeleted) {
+  if (trashed) {
     throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   }
 }

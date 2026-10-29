@@ -12,6 +12,7 @@
 
 export const zh: Record<string, string> = {
 	"auth.2fa-cancel": "取消",
+	"auth.2fa-current-password-label": "当前密码（用于确认是你本人）",
 	"auth.2fa-code-label": "6位验证码",
 	"auth.2fa-confirm-disable": "确认关闭",
 	"auth.2fa-confirm-enable": "确认启用",
@@ -57,6 +58,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"auth.2fa-cancel": "Cancel",
+	"auth.2fa-current-password-label": "Current password (to confirm it is you)",
 	"auth.2fa-code-label": "6-digit code",
 	"auth.2fa-confirm-disable": "Confirm disable",
 	"auth.2fa-confirm-enable": "Confirm enable",

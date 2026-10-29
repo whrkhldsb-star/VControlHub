@@ -113,6 +113,49 @@ describe("POST /api/login", () => {
     });
   });
 
+  describe("account name handling", () => {
+    it("answers an over-long name like any wrong login without keeping state for it", async () => {
+      const rate = await import("@/lib/rate-limit");
+      const audit = await import("@/lib/audit/service");
+      for (const length of [41, 300_000]) {
+        const response = await POST(makeLoginRequest({ username: "x".repeat(length), password: "secret-pass" }));
+        expect(response.status).toBe(303);
+        expect(response.headers.get("location")).toMatch(/^\/login\?error=invalid/);
+      }
+      expect(authenticateUserMock).not.toHaveBeenCalled();
+      expect(rate.isAccountLockedAsync).not.toHaveBeenCalled();
+      expect(rate.recordLoginFailureAsync).not.toHaveBeenCalled();
+      expect(audit.auditSystemAction).not.toHaveBeenCalled();
+    });
+
+    it("answers a name holding U+0000 like any wrong login instead of failing in the database", async () => {
+      const response = await POST(makeLoginRequest({ username: "adm\u0000in", password: "secret-pass" }));
+      expect(response.headers.get("location")).toMatch(/^\/login\?error=invalid/);
+      expect(authenticateUserMock).not.toHaveBeenCalled();
+    });
+
+    it("keys the lockout and the audit row on the trimmed name while authenticating the typed one", async () => {
+      const rate = await import("@/lib/rate-limit");
+      const audit = await import("@/lib/audit/service");
+      authenticateUserMock.mockResolvedValueOnce(null);
+      await POST(makeLoginRequest({ username: "  admin ", password: "wrong-pass" }));
+      expect(rate.isAccountLockedAsync).toHaveBeenCalledWith("admin", "127.0.0.1");
+      expect(rate.recordLoginFailureAsync).toHaveBeenCalledWith("admin", "127.0.0.1");
+      expect(vi.mocked(audit.auditSystemAction).mock.calls.at(-1)?.[1]).toMatchObject({ username: "admin" });
+    });
+  });
+
+  it("files a platform administrator's sign-in outside any customer's audit log, but a customer account's inside its own", async () => {
+    const audit = await import("@/lib/audit/service");
+    const preferences = { defaultPage: "/", dashboardWidgets: ["server-status"], notificationsEnabled: true, notificationSound: true, autoRefreshInterval: 30 };
+    authenticateUserMock.mockResolvedValueOnce({ id: "u_a", username: "admin", roles: ["admin"], currentTeamId: "team_last_selected", mustChangePassword: false, preferences, twoFactorEnabled: false, hasTwoFactorSecret: false, credentialBinding });
+    await POST(makeLoginRequest({ username: "admin", password: "right-pass-1" }));
+    authenticateUserMock.mockResolvedValueOnce({ id: "u_c", username: "carol", roles: [], currentTeamId: "team_carol", mustChangePassword: false, preferences, twoFactorEnabled: false, hasTwoFactorSecret: false, credentialBinding });
+    await POST(makeLoginRequest({ username: "carol", password: "right-pass-1" }));
+    const okCalls = vi.mocked(audit.auditUserAction).mock.calls.filter((call) => call[1] === "auth.login_password_ok");
+    expect(okCalls.map((call) => call[4])).toEqual([null, "team_carol"]);
+  });
+
   it("uses the normal session TTL when remember login is not checked", async () => {
     process.env.AUTH_SESSION_TTL_SECONDS = "1234";
 

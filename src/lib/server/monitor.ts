@@ -96,14 +96,30 @@ function parseNetSection(lines: string[]): ServerMetrics["network"] {
 		.map((line) => {
 			const parts = line.trim().split(/\s+/);
 			if (parts.length < 3) return null;
-			return { iface: parts[0]!, rxBytes: parseFloatOr(parts[1]!, 0), txBytes: parseFloatOr(parts[2]!, 0) };
+			// The two counters are the last fields; the adapter name is whatever comes before them. Windows
+			// names have spaces ("Ethernet 2", "以太网 2", "vEthernet (WSL)"): reading the name as the first word
+			// took part of it for the received bytes and merged adapters that share a first word.
+			return {
+				iface: parts.slice(0, -2).join(" "),
+				rxBytes: parseFloatOr(parts[parts.length - 2]!, 0),
+				txBytes: parseFloatOr(parts[parts.length - 1]!, 0),
+			};
 		})
 		.filter(Boolean) as ServerMetrics["network"];
 }
 
+/**
+ * A real `uptime` line is under 100 characters. The text comes from the managed
+ * host (or a customer's own Agent), so it is cut before it meets a pattern that
+ * rescans from every "up": a 64 000-character "up up up …" took over a second
+ * and a 16 MB SSH output never finished.
+ */
+const UPTIME_TEXT_MAX_CHARS = 300;
+
 function parseUptime(line: string): string {
-	const match = line.match(/up\s+(.+?),\s*\d+\s*user/);
-	return match ? match[1]!.trim() : line.trim();
+	const text = line.trim().slice(0, UPTIME_TEXT_MAX_CHARS);
+	const match = text.match(/up\s+(.+?),\s*\d+\s*user/);
+	return match ? match[1]!.trim() : text;
 }
 
 /* ── Main collect function ────────────────────────────────── */

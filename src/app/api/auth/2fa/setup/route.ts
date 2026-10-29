@@ -6,6 +6,10 @@
  * binding this seed to this user. `POST /api/auth/2fa/enable` accepts only that
  * ticket, never a raw seed from the request body.
  *
+ * The caller must also send their current password. A session alone (a stolen cookie, an unattended
+ * browser) must not be able to bind its own authenticator to the account: that locked the owner out and
+ * no administrator could undo it.
+ *
  * There is deliberately no "verify a code against a secret" endpoint here. The
  * PUT that used to live at this path took both the code and the secret from the
  * caller and answered `{ valid }`, which proved nothing (whoever chose the seed
@@ -16,11 +20,12 @@
 import { NextResponse } from "next/server";
 import { generateSecret } from "otplib";
 import QRCode from "qrcode";
+import { z } from "zod";
 
+import { verifyPassword } from "@/lib/auth/password";
 import { createTwoFactorEnrollmentToken } from "@/lib/auth/two-factor-enrollment";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 function buildOtpauthUrl(secret: string, username: string): string {
@@ -29,20 +34,30 @@ function buildOtpauthUrl(secret: string, username: string): string {
   return `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
 }
 
+const setupBodySchema = z.object({ currentPassword: z.string().min(1).max(128) });
+
 export async function POST(request: Request) {
   const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       requireAuth: true,
-      rateLimit: GENERAL_WRITE_LIMIT,
+      // A password prompt: bound the guesses an open session can make here.
+      rateLimit: { maxRequests: 10, windowMs: 15 * 60 * 1000 },
+      bodySchema: setupBodySchema,
       errorMessage: t("api.auth.twoFactor.setupFailed", locale),
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
-        select: { twoFactorEnabled: true, twoFactorSecret: true },
+        select: { twoFactorEnabled: true, twoFactorSecret: true, passwordHash: true },
       });
+      if (!user || !(await verifyPassword(body.currentPassword, user.passwordHash))) {
+        return NextResponse.json(
+          { error: t("api.auth.twoFactor.passwordIncorrect", locale) },
+          { status: 403 },
+        );
+      }
 
       // Enabled means a secret too (as login and enable read it): an account
       // flagged without one — imported from a standard export — must be able

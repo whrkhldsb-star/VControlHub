@@ -63,6 +63,20 @@ describe("GET /api/commands/[id]/tickets", () => {
 		});
 	});
 
+	it("refuses an account that may read commands but not tickets", async () => {
+		const { req, ctx } = get("cmd_9");
+		const original = session.roles;
+		(session as { permissions?: string[] }).permissions = ["command:read"];
+		try {
+			const response = await route.GET(req, ctx);
+			expect(response.status).toBe(403);
+			expect(mocks.listTicketsForCommand).not.toHaveBeenCalled();
+		} finally {
+			delete (session as { permissions?: string[] }).permissions;
+			session.roles = original;
+		}
+	});
+
 	it("passes the id and session to the scoped query", async () => {
 		const { req, ctx } = get("cmd_42");
 		await route.GET(req, ctx);

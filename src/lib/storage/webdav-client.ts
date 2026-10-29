@@ -122,11 +122,18 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     // Deadline only for DNS/connection/response headers; a progressing download
     // must not be aborted after a fixed wall-clock duration. The pinned Agent
     // separately enforces connect and body inactivity timeouts.
+    // A PUT's response headers come after the whole body is sent, so an upload is judged by progress instead:
+    // every chunk handed to the connection restarts the clock (a buffered body gets time for its size).
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 120_000);
-    timer.unref?.();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const arm = (ms = 120_000) => { clearTimeout(timer); timer = setTimeout(() => controller.abort(), ms); timer.unref?.(); };
+    arm(typeof body === "string" || Buffer.isBuffer(body) ? 120_000 + Math.ceil(Buffer.byteLength(body) / 32_768) * 1000 : 120_000);
+    const streamed = body instanceof ReadableStream;
+    const requestBody = streamed
+      ? body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({ transform(chunk, stream) { arm(); stream.enqueue(chunk); } }))
+      : body;
     try {
-      const init: RequestInit & { duplex?: "half" } = { method, headers: { Authorization: authorization, ...headers }, ...(body !== undefined ? { body: body as BodyInit } : {}), ...(body instanceof ReadableStream ? { duplex: "half" as const } : {}), redirect: "manual", signal: controller.signal };
+      const init: RequestInit & { duplex?: "half" } = { method, headers: { Authorization: authorization, ...headers }, ...(requestBody !== undefined ? { body: requestBody as BodyInit } : {}), ...(streamed ? { duplex: "half" as const } : {}), redirect: "manual", signal: controller.signal };
       response = await transport(url, init);
     } catch { throw new BusinessError(apiCopy("apiCopy.webdav.connection.dns.policy.or.tls.verification.failed.a9bf97a9")); }
     finally { clearTimeout(timer); }

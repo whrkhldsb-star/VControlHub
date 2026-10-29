@@ -6,6 +6,7 @@ const prismaMock = vi.hoisted(() => ({
 		findUnique: vi.fn(),
 		upsert: vi.fn(),
 	},
+	$transaction: vi.fn(),
 	auditLog: {
 		findMany: vi.fn(),
 	},
@@ -21,7 +22,36 @@ vi.mock("@/lib/crypto/service", () => ({
 	isEncrypted: (value: string) => value.startsWith("encrypted:"),
 }));
 
-const { getSettingUpdateMetadata } = await import("./service");
+const { getAllSettingsMasked, getSettingUpdateMetadata, setManySettings, setSetting } = await import("./service");
+
+describe("empty secrets", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		prismaMock.$transaction.mockImplementation(async (operations: Array<Promise<unknown>>) => Promise.all(operations));
+	});
+
+	it("stores an empty secret as empty, not as the encryption of nothing", async () => {
+		// encrypt("") gave a value like salt:iv:tag: that read back as a 75-character "password": the settings page
+		// showed "***" for a secret nobody set, and an empty Turnstile secret refused every login.
+		await setSetting("smtp.pass", "");
+		await setManySettings([{ key: "telegram.botToken", value: "" }, { key: "smtp.user", value: "mailer" }]);
+		const stored = prismaMock.setting.upsert.mock.calls.map((call) => call[0].update.value);
+		expect(stored).toEqual(["", "", "mailer"]);
+
+		await setSetting("smtp.pass", "s3cret");
+		expect(prismaMock.setting.upsert.mock.calls.at(-1)![0].update.value).toBe("encrypted:s3cret");
+	});
+
+	it("reads a row an older version stored for an empty secret as unset", async () => {
+		prismaMock.setting.findMany.mockResolvedValue([
+			{ key: "smtp.pass", value: "c2FsdA==:aXY=:dGFn:" },
+			{ key: "telegram.botToken", value: "encrypted:123:abc" },
+		]);
+		const masked = await getAllSettingsMasked();
+		expect(masked["smtp.pass"]).toBe("");
+		expect(masked["telegram.botToken"]).toBe("***");
+	});
+});
 
 describe("settings service audit metadata", () => {
 	beforeEach(() => {

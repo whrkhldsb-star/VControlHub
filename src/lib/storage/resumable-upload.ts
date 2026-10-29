@@ -5,6 +5,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * Reuses MediaUploadSession + chunk pipeline, then writes the assembled
  * file to LOCAL/SFTP/WebDAV storage and upserts the FileEntry index.
  */
+import { lstat } from "node:fs/promises";
 import path from "node:path";
 
 import { prisma } from "@/lib/db";
@@ -15,7 +16,8 @@ import {
   getStorageFileNode,
   writeStorageFileFromLocalPath,
 } from "@/lib/storage/file-content";
-import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
+import { normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { createWebDavClient } from "@/lib/storage/webdav-client";
 import {
   assembleMediaUploadToFile,
   completeMediaUploadSession,
@@ -55,6 +57,29 @@ function acquireFinalizationSlot(userId: string, nodeId: string): () => void {
     const count = (finalizationsByNode.get(nodeId) ?? 1) - 1;
     if (count === 0) finalizationsByNode.delete(nodeId); else finalizationsByNode.set(nodeId, count);
   };
+}
+
+const REFUSED_LOCAL_WRITE_CODES = new Set(["ENAMETOOLONG", "ENOSPC", "EDQUOT", "EACCES", "EPERM", "EISDIR", "ENOTDIR", "EROFS", "ENOENT", "EMFILE"]);
+
+/** An errno from the local copy/rename: the target is as it was. */
+function isRefusedLocalWrite(error: unknown): boolean {
+  const code = error && typeof error === "object" && "code" in error ? (error as NodeJS.ErrnoException).code : undefined;
+  return typeof code === "string" && REFUSED_LOCAL_WRITE_CODES.has(code);
+}
+
+async function assertUploadTargetIsNotFolder(
+  node: { driver: string; basePath?: string | null } & Parameters<typeof createWebDavClient>[0],
+  relativePath: string,
+  indexedAsFolder: boolean,
+): Promise<void> {
+  const conflict = () => new ConflictError(t("backend.storage.targetIsDirectory"));
+  if (indexedAsFolder) throw conflict();
+  if (node.driver === "LOCAL" && node.basePath) {
+    const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
+    if (resolved.ok && (await lstat(resolved.path).catch(() => null))?.isDirectory()) throw conflict();
+  } else if (node.driver === "WEBDAV") {
+    if ((await createWebDavClient(node).stat(relativePath))?.isDirectory) throw conflict();
+  }
 }
 
 export async function completeStorageFileUpload(params: {
@@ -133,8 +158,11 @@ export async function completeStorageFileUpload(params: {
       storageNodeId: existing.storageNodeId,
       relativePath: normalizedRelativePath,
     },
-    select: { id: true },
+    select: { id: true, entryType: true },
   });
+  // The upload would replace a folder, and for WebDAV (MOVE with Overwrite) that deletes everything in it.
+  // Refused before anything is written, so the session stays a plain failure the user can fix and retry.
+  await assertUploadTargetIsNotFolder(storageNode, normalizedRelativePath, existingEntry?.entryType === "DIRECTORY");
   if (existingEntry) {
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingEntry.id,
@@ -145,7 +173,13 @@ export async function completeStorageFileUpload(params: {
   }
 
   await lease.beforeWrite({ kind: "storage", storageNodeId: existing.storageNodeId, relativePath: normalizedRelativePath, checksum: assembled.checksum, size: assembled.size });
-  await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path);
+  try {
+    await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path);
+  } catch (error) {
+    // A local filesystem answers with an errno before it changes anything; only a remote write can succeed unseen.
+    if (storageNode.driver === "LOCAL" && isRefusedLocalWrite(error)) lease.writeRefused();
+    throw error;
+  }
 
   const fileName = path.posix.basename(normalizedRelativePath);
   const mimeType = existing.mimeType || null;

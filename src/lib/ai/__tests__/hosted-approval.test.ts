@@ -14,7 +14,7 @@ const prismaMock = vi.hoisted(() => ({
 	server: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
 	backupRecord: { findMany: vi.fn() },
 	trafficSnapshot: { findMany: vi.fn() },
-	playbook: { findFirst: vi.fn() },
+	playbook: { findFirst: vi.fn(), findMany: vi.fn() },
 	commandRequest: { findUnique: vi.fn() },
 	aiMessage: { updateMany: vi.fn(async () => ({ count: 1 })) },
 }));
@@ -283,6 +283,34 @@ describe("AI hosted action approvals", () => {
 			}),
 		});
 		expect(action).toEqual({ id: "action_1", serverId: "srv_prod", status: "PENDING_APPROVAL" });
+	});
+
+	it("resolves the playbook when a run is proposed, so the card names the one that will run", async () => {
+		// The name used to be matched at confirm time against everything containing it, taking the most recently updated.
+		const { createHostedAction } = await import("../hosted-service");
+		const tool = {
+			name: "run_playbook",
+			description: "",
+			parameters: {},
+			riskLevel: "medium" as const,
+			autoApproved: false,
+			actionType: "run_playbook" as const,
+			actionName: "Execute Playbook",
+		};
+		const session = { userId: "user_1", roles: ["operator"] as RoleKey[], currentTeamId: "team_a" };
+		prismaMock.playbook.findMany.mockResolvedValueOnce([{ id: "pb_9", name: "Nightly cleanup" }]);
+		prismaMock.aiHostedAction.create.mockResolvedValue({ id: "action_1" });
+
+		await createHostedAction({ conversationId: "c", messageId: "m", toolCallId: "t", tool, args: { playbookName: "Nightly cleanup" }, userId: "user_1", session });
+		expect(prismaMock.aiHostedAction.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({ params: JSON.stringify({ playbookName: "Nightly cleanup", playbookId: "pb_9" }) }),
+		});
+
+		// A name that fits no playbook (or several) is an error for the model to correct, not a card.
+		prismaMock.aiHostedAction.create.mockClear();
+		prismaMock.playbook.findMany.mockResolvedValue([]);
+		await expect(createHostedAction({ conversationId: "c", messageId: "m", toolCallId: "t2", tool, args: { playbookName: "nothing like it" }, userId: "user_1", session })).rejects.toThrow();
+		expect(prismaMock.aiHostedAction.create).not.toHaveBeenCalled();
 	});
 
 	it("creates an assistant command request only after the requester confirms the AI action", async () => {

@@ -24,12 +24,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	serverFindFirst: vi.fn(),
 	playbookFindFirst: vi.fn(),
+	playbookFindMany: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		server: { findFirst: mocks.serverFindFirst },
-		playbook: { findFirst: mocks.playbookFindFirst },
+		playbook: { findFirst: mocks.playbookFindFirst, findMany: mocks.playbookFindMany },
 	},
 }));
 
@@ -216,12 +217,26 @@ describe("resolvePlaybookId", () => {
 		});
 	});
 
-	it("scopes the fuzzy name search and takes the most recently updated match", async () => {
-		mocks.playbookFindFirst.mockResolvedValue({ id: "pb_1", name: "deploy web" });
-		await resolvePlaybookId({ playbookName: "deploy" }, operator);
-		const call = mocks.playbookFindFirst.mock.calls[0]![0] as { where: { AND: unknown[] }; orderBy: unknown };
-		expect(call.where.AND[0]).toEqual({ teamId: "team_1" });
-		expect(call.orderBy).toEqual({ updatedAt: "desc" });
+	it("resolves a name to one playbook or none, never to the newest of several", async () => {
+		// A name used to take the most recently updated of everything containing the text, so the confirmed card could
+		// name one playbook and run another (and "%" matched them all).
+		mocks.playbookFindMany.mockReset();
+		mocks.playbookFindMany.mockResolvedValueOnce([{ id: "pb_1", name: "deploy web" }]);
+		await expect(resolvePlaybookId({ playbookName: "deploy web" }, operator)).resolves.toEqual({ id: "pb_1", name: "deploy web" });
+		expect(mocks.playbookFindMany.mock.calls[0]![0].where.AND[0]).toEqual({ teamId: "team_1" });
+
+		// Two playbooks with that exact name: ask, do not pick.
+		mocks.playbookFindMany.mockResolvedValueOnce([{ id: "a", name: "deploy" }, { id: "b", name: "deploy" }]);
+		await expect(resolvePlaybookId({ playbookName: "deploy" }, operator)).resolves.toBeNull();
+
+		// No exact name: one partial match is used, several are refused, and wildcards are literal.
+		mocks.playbookFindMany.mockReset();
+		mocks.playbookFindMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "x", name: "deploy web" }]);
+		await expect(resolvePlaybookId({ playbookName: "web" }, operator)).resolves.toEqual({ id: "x", name: "deploy web" });
+		mocks.playbookFindMany.mockReset();
+		mocks.playbookFindMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "x", name: "a" }, { id: "y", name: "b" }]);
+		await expect(resolvePlaybookId({ playbookName: "%" }, operator)).resolves.toBeNull();
+		expect(mocks.playbookFindMany.mock.calls[1]![0].where.AND[1]).toEqual({ name: { contains: "\\%" } });
 	});
 
 	it("returns null without querying when no identifier is given", async () => {

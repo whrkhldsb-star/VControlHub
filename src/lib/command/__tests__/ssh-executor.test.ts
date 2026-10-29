@@ -164,6 +164,9 @@ describe("command ssh-executor adapter", () => {
     expect(result.timedOut).toBe(true);
     expect(result.cancelled).toBe(false);
     expect(result.stderr).toContain("Command execution exceeded 200ms");
+    // Ending the local ssh client leaves the command running on the server (no terminal: sshd only closes the pipes).
+    expect(result.outcomeUnknown).toBe(true);
+    expect(result.stderr).toContain("remote process may still be running");
   });
 
   it("escalates to SIGKILL when the child survives SIGTERM past the grace window", async () => {
@@ -236,6 +239,7 @@ describe("command ssh-executor adapter", () => {
     expect(result.exitCode).toBe(130);
     expect(result.cancelled).toBe(true);
     expect(result.stderr).toContain("cancelled");
+    expect(result.outcomeUnknown).toBe(true);
   });
 
   it("rejects with the sshpass-missing message when spawn emits an ENOENT error", async () => {
@@ -281,6 +285,13 @@ describe("command ssh-executor adapter", () => {
 });
 
 describe("command ssh-executor BoundedOutputCollector", () => {
+  it("replaces NUL bytes in the output, which PostgreSQL text cannot store", () => {
+    // cat /proc/1/environ, find -print0 and the like: the command succeeded, the write must too.
+    const collector = new BoundedOutputCollector(80);
+    collector.push(Buffer.from("PATH=/bin\0HOME=/root\0"));
+    expect(collector.finish()).toBe("PATH=/bin\uFFFDHOME=/root\uFFFD");
+  });
+
   it("keeps output exactly at the limit verbatim (no marker)", () => {
     const collector = new BoundedOutputCollector(80);
     collector.push("A".repeat(80));

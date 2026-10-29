@@ -36,6 +36,20 @@ describe("background command authorization", () => {
     expect(loadApiTokenOwnerSession).toHaveBeenNthCalledWith(2, "user-1", "team-b");
   });
 
+  it("lets a member who may only create requests run a command a reviewer approved, but not an unreviewed one", async () => {
+    loadApiTokenOwnerSession.mockResolvedValue(session(["command:create", "command:read"]));
+
+    // Unattended: nobody approved it, so the requester's own authority is what runs it.
+    expect(await assertRequesterMayExecuteCommand("user-1", "team-a")).toEqual({
+      ok: false,
+      reason: "command requester lacks command:execute permission in the target team",
+    });
+    // Approved: the reviewer's decision authorizes it. Account validity and membership still apply.
+    expect(await assertRequesterMayExecuteCommand("user-1", "team-a", undefined, { requireExecutePermission: false })).toEqual({ ok: true });
+    loadApiTokenOwnerSession.mockResolvedValueOnce(session(["command:create"])).mockResolvedValueOnce(null);
+    expect((await assertRequesterMayExecuteCommand("user-1", "team-a", undefined, { requireExecutePermission: false })).ok).toBe(false);
+  });
+
   it("rejects removed membership and unassigned jobs", async () => {
     loadApiTokenOwnerSession.mockResolvedValueOnce(session(["command:execute"])).mockResolvedValueOnce(null);
     expect((await assertRequesterMayExecuteCommand("user-1", "team-b")).ok).toBe(false);

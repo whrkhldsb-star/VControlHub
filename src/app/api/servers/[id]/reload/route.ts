@@ -19,6 +19,8 @@
  * 5. **超时**：systemd 30s / compose 120s。远端进程在 SSH 内 client.end() 强制断开。
  */
 
+import path from "node:path";
+
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
@@ -31,6 +33,9 @@ import { deserializeDialect, serviceCommand, type OsDialect } from "@/lib/ssh/os
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { getStorageFileNode } from "@/lib/storage/file-content";
+import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
+import { shellQuote } from "@/lib/shell-quote";
 import { SSH_CONNECTION_SERVER_SELECT } from "@/lib/ssh/server-connection-select";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +60,16 @@ const reloadBodySchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("compose"),
-    projectDir: z.string().regex(PROJECT_DIR_PATTERN, t("apiServersReload.projectDirPatternError", "zh")),
+    projectDir: z.string().regex(PROJECT_DIR_PATTERN, t("apiServersReload.projectDirPatternError", "zh")).optional(),
+    /**
+     * The compose file, as the storage node knows it. A node's paths are relative to its root (/root/drive for the
+     * node of a server), not to the server's: the browser used to send "/" + that relative folder as the project
+     * directory, which does not exist, or is another project's. The server resolves it against the node's root.
+     */
+    composeFile: z.object({
+      storageNodeId: z.string().min(1).max(128),
+      relativePath: z.string().min(1).max(2048),
+    }).optional(),
     /** 可选的 compose 服务名，缺省则 up 整个项目 */
     service: z.string().regex(UNIT_NAME_PATTERN).optional(),
   }),
@@ -63,7 +77,7 @@ const reloadBodySchema = z.discriminatedUnion("kind", [
 
 type ReloadBody = z.infer<typeof reloadBodySchema>;
 
-function buildCommand(body: ReloadBody, dialect: OsDialect): string {
+function buildCommand(body: ReloadBody, dialect: OsDialect, composeProjectDir = ""): string {
   if (body.kind === "systemd") {
     // TR-041: 使用方言感知的 serviceCommand 替代硬编码 systemctl
     // systemd kind 始终用 reload → fallback restart 语义
@@ -73,7 +87,8 @@ function buildCommand(body: ReloadBody, dialect: OsDialect): string {
     // 非 systemd（openrc/sysvinit）不支持 reload 语义，直接 restart
     return serviceCommand(dialect.serviceManager, "restart", body.unit, dialect.sudoPattern);
   }
-  const cd = `cd ${body.projectDir}`;
+  // A resolved directory may hold spaces or other characters a shell reads: quoted unless it is plainly safe.
+  const cd = `cd ${/^[A-Za-z0-9._/-]+$/.test(composeProjectDir) ? composeProjectDir : `-- ${shellQuote(composeProjectDir)}`}`;
   const up = body.service
     ? `docker compose up -d ${body.service.replace(/'/g, "'\\''")}`
     : "docker compose up -d";
@@ -134,8 +149,31 @@ export async function POST(
         return Response.json({ error: t("apiServersReload.serverNotFound", locale) }, { status: 404 });
       }
 
+      let composeProjectDir = "";
+      if (body.kind === "compose") {
+        if (body.composeFile) {
+          const node = await getStorageFileNode(body.composeFile.storageNodeId, session);
+          if (!node || node.serverId !== id || node.driver !== "SFTP") {
+            return Response.json({ error: t("apiServersReload.serverNotFound", locale) }, { status: 404 });
+          }
+          try {
+            const file = normalizeRemoteTargetPath(node.basePath, body.composeFile.relativePath);
+            composeProjectDir = path.posix.dirname(file);
+          } catch {
+            return Response.json({ error: t("apiServersReload.projectDirPatternError", locale) }, { status: 400 });
+          }
+          if (/[\u0000-\u001f\u007f]/.test(composeProjectDir)) {
+            return Response.json({ error: t("apiServersReload.projectDirPatternError", locale) }, { status: 400 });
+          }
+        } else if (body.projectDir) {
+          composeProjectDir = body.projectDir;
+        } else {
+          return Response.json({ error: t("apiServersReload.projectDirPatternError", locale) }, { status: 400 });
+        }
+      }
+
       const dialect = deserializeDialect(server.osDialect);
-      const command = buildCommand(body, dialect);
+      const command = buildCommand(body, dialect, composeProjectDir);
       const commandTimeout = timeoutFor(body);
 
       // audit 前置记录 (input 摘要，不含密码 / 完整密钥)
@@ -144,7 +182,7 @@ export async function POST(
         kind: body.kind,
         ...(body.kind === "systemd"
           ? { unit: body.unit }
-          : { projectDir: body.projectDir, service: body.service ?? null }),
+          : { projectDir: composeProjectDir, service: body.service ?? null }),
       };
 
       try {

@@ -9,6 +9,7 @@ import type { Permission } from "@/lib/auth/rbac";
 import type { SessionPayload } from "@/lib/auth/session";
 import { playbookTeamWhere, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { t, type Locale } from "@/lib/i18n/service-translations";
 import { deserializeDialect } from "@/lib/ssh/os-dialect";
 
@@ -104,7 +105,18 @@ export async function resolvePlaybookId(args: Record<string, unknown>, session?:
   }
   const name = typeof args.playbookName === "string" ? args.playbookName.trim() : "";
   if (!name) return null;
-  return prisma.playbook.findFirst({ where: { AND: [teamFilter, { OR: [{ id: name }, { name: { contains: name } }] }] }, select: { id: true, name: true }, orderBy: { updatedAt: "desc" } });
+  // A name picks one playbook or none. It used to take the most recently updated of everything that contained the
+  // text (and "%" matched them all), so what the user confirmed by name could be another playbook than the one run.
+  const select = { id: true, name: true } as const;
+  const named = await prisma.playbook.findMany({ where: { AND: [teamFilter, { OR: [{ id: name }, { name }] }] }, select, take: 2 });
+  if (named.length > 0) return named.length === 1 ? named[0]! : null;
+  const similar = await prisma.playbook.findMany({
+    where: { AND: [teamFilter, { name: { contains: escapeLikeLiteral(name) } }] },
+    select,
+    orderBy: { updatedAt: "desc" },
+    take: 2,
+  });
+  return similar.length === 1 ? similar[0]! : null;
 }
 
 export async function buildAssistantCommandRequestPayload(input: {

@@ -205,6 +205,14 @@ describe("copyFileEntry with real local files", () => {
     expect(mocks.releaseLock).toHaveBeenCalledOnce();
     expect(mocks.releaseQuota).toHaveBeenCalledOnce();
   });
+  it("copies to the top level of the node: the root is the parent of a top-level name", async () => {
+    // targetDir "." (or "") is what "copy here" sends for an entry that lives at the root; resolving "." as a
+    // relative path failed every such copy before it began.
+    const result = await copyFileEntry({ session, fileEntryId: "source", targetDir: ".", policy: "rename" });
+    expect(result).toMatchObject({ path: "source (1).txt", copied: 1 });
+    expect(await readFile(path.join(root, "source (1).txt"), "utf8")).toBe("source bytes");
+    expect(await readFile(path.join(root, "source.txt"), "utf8")).toBe("source bytes");
+  });
   it.each(["skip", "rename"] as const)(
     "honors %s for an unindexed physical conflict",
     async (policy) => {

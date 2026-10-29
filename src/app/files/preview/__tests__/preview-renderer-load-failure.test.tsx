@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/sanitize/html-sanitizer", () => {
 	throw new Error("Loading chunk 4821 failed");
 });
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: vi.fn(async () => ({ ok: true, text: async () => "alpha\nbeta\n" })) }));
 
 import { MarkdownPreviewClient } from "../markdown-preview-client";

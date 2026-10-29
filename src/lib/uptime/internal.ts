@@ -1,6 +1,6 @@
 import { type ServerUptimeSnapshot } from "@prisma/client";
 
-import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { appTimeZoneDateKey, shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
 
@@ -44,7 +44,9 @@ export async function getAllUptimeDataInternal(options: UptimeListOptions = {}) 
   if (!options.session) return { servers: [] };
   const ninetyDaysAgo = shiftAppTimeZoneDay(new Date(), -89);
 
-  const teamFilter = teamWhere(options.session);
+  // Servers are a security root: a customer account limited to some servers sees only those here too, as in health,
+  // traffic and search (the plain customer filter listed every server of the customer).
+  const teamFilter = serverTeamWhere(options.session, "read");
 
   const servers: Array<{ id: string; name: string }> = [];
   let serverCursor: { id: string } | undefined;

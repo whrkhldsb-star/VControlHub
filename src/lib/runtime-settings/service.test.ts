@@ -79,6 +79,15 @@ describe("runtime settings", () => {
     expect(prismaMock.setting.findMany.mock.calls[0]?.[0]?.where?.key?.in).toHaveLength(4);
   });
 
+  it("reads a cleared box as the default, not as 0", () => {
+    // The form says an empty box means the default; Number("") is 0, which for a retention such as the audit log's
+    // meant "keep everything for ever".
+    const key = "retention.auditLogDays" as keyof typeof RUNTIME_SETTING_DEFINITIONS;
+    expect(normalizeRuntimeSettingValue(key, "")).toBe(String(RUNTIME_SETTING_DEFINITIONS[key].defaultValue));
+    expect(normalizeRuntimeSettingValue(key, "  ")).toBe(String(RUNTIME_SETTING_DEFINITIONS[key].defaultValue));
+    expect(normalizeRuntimeSettingValue(key, "0")).toBe("0");
+  });
+
   it("rejects out-of-range runtime values", () => {
     expect(() => normalizeRuntimeSettingValue("runtime.commandExecutionTimeoutMs", "1")).toThrow(/must be between/);
   });

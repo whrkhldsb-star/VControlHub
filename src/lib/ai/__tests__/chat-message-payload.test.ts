@@ -21,7 +21,7 @@ vi.mock("@/lib/i18n/service-translations", () => ({
 	t: (key: string) => (key === "apiAiChat.attachmentPrefix" ? "\n\n[attachments]\n\n" : key),
 }));
 
-import { buildAiChatMessagePayload } from "../chat-message-payload";
+import { AI_HISTORY_CHAR_BUDGET, buildAiChatMessagePayload, fitHistoryToBudget, type HistoryMessage } from "../chat-message-payload";
 
 type Conv = Parameters<typeof buildAiChatMessagePayload>[0]["conv"];
 
@@ -233,5 +233,53 @@ describe("buildAiChatMessagePayload", () => {
 		});
 		expect(userText).toBe("summarise");
 		expect(persistedText).toBe("summarise\n\n[attachments]\n\n--- File: a.log ---\nline 1\n--- End of a.log ---");
+	});
+});
+
+describe("history budget", () => {
+	const turn = (n: number, size: number): HistoryMessage[] => [
+		{ role: "user", content: `question ${n} ${"q".repeat(size)}` },
+		{ role: "assistant", content: `answer ${n} ${"a".repeat(size)}` },
+	];
+
+	it("leaves a history that fits untouched", () => {
+		const messages: HistoryMessage[] = [{ role: "system", content: "sys" }, ...turn(1, 100), ...turn(2, 100)];
+		expect(fitHistoryToBudget(messages)).toEqual(messages);
+	});
+
+	it("drops the oldest whole turns until it fits, keeping the system prompt and the newest turn", () => {
+		// After enough turns, or one large attachment, every later message failed with "context length exceeded".
+		const messages: HistoryMessage[] = [{ role: "system", content: "sys" }, ...turn(1, 20_000), ...turn(2, 20_000), ...turn(3, 20_000)];
+		const fitted = fitHistoryToBudget(messages, 100_000);
+		expect(fitted[0]).toEqual({ role: "system", content: "sys" });
+		expect(fitted[1]!.content).toContain("question 2");
+		expect(fitted.at(-1)!.content).toContain("answer 3");
+		expect(fitted.some((message) => String(message.content).includes("question 1"))).toBe(false);
+	});
+
+	it("never splits a tool call from its result, and keeps a single oversized turn", () => {
+		const call = { id: "c1", type: "function" as const, function: { name: "list_servers", arguments: "{}" } };
+		const messages: HistoryMessage[] = [
+			...turn(1, 60_000),
+			{ role: "user", content: "restart nginx" },
+			{ role: "assistant", content: "", tool_calls: [call] },
+			{ role: "tool", content: "ok", tool_call_id: "c1" },
+			{ role: "assistant", content: "done" },
+		];
+		const fitted = fitHistoryToBudget(messages, 50_000);
+		expect(fitted.map((message) => message.role)).toEqual(["user", "assistant", "tool", "assistant"]);
+		expect(fitHistoryToBudget(turn(1, 200_000), 1_000)).toHaveLength(2);
+	});
+
+	it("applies to the history built for a request, not to the question being asked", () => {
+		const rows = Array.from({ length: 6 }, (_, i) => [
+			{ role: "user", content: `u${i} ${"x".repeat(30_000)}` },
+			{ role: "assistant", content: `a${i}` },
+		]).flat();
+		const { historyMessages } = build({ conv: conv(rows), body: { content: "latest question" } });
+		expect(historyMessages.at(-1)).toEqual({ role: "user", content: "latest question" });
+		const weight = historyMessages.slice(0, -1).reduce((sum, message) => sum + String(message.content).length, 0);
+		expect(weight).toBeLessThanOrEqual(AI_HISTORY_CHAR_BUDGET);
+		expect(JSON.stringify(historyMessages)).not.toContain("u0 ");
 	});
 });

@@ -2,9 +2,9 @@ import { Prisma } from "@prisma/client";
 import { mkdir } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverOriginData, serverProfileTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverOriginData, serverProfileTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
 import {
   buildSshParamsFromServer,
@@ -17,6 +17,7 @@ import {
 } from "@/lib/ssh/os-dialect";
 import { encryptServerPasswordIfPlain, SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 import type { TFn } from "@/lib/i18n/core";
+import { localBasePathBelongsToTenant } from "@/lib/storage/path-utils";
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 import { normalizeServerInput } from "./config";
 import { defaultStoragePath } from "./default-storage-path";
@@ -40,6 +41,18 @@ import {
 } from "./service-internals";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+/**
+ * A "local host" node (127.0.0.1, localhost, ::1, 0.0.0.0) is the hub's own
+ * filesystem. Only platform administrators may register one: a customer who
+ * could would pick any hub directory as the node's root (the environment file,
+ * database dumps, other customers' storage). System callers (no session) pass.
+ */
+function assertLocalHostAllowed(session: Pick<ProfileSession, "roles"> | null | undefined, t: TFn) {
+  if (session && !isGlobalTeamManager({ roles: session.roles ?? [] } as TeamSession)) {
+    throw new ForbiddenError(t("backend.server.localHostPlatformOnly"));
+  }
+}
 
 export type UpdateServerInput = Partial<CreateServerInput> & {
   enabled?: boolean;
@@ -292,6 +305,12 @@ async function applyStoragePathChange(
   const warnings: string[] = [];
   if (storageNode && (nextStoragePath || repairStoragePath)) {
     const targetPath = nextStoragePath || storageNode.basePath;
+    const remoteNode = storageNode.driver === "SFTP" || (!storageNode.driver && !isLocalHostLiteral(server.host));
+    // A local root stays inside the customer's own storage namespace.
+    if (!remoteNode && session && !isGlobalTeamManager(session)
+      && (!session.currentTeamId || !localBasePathBelongsToTenant(targetPath, session.currentTeamId))) {
+      throw new ForbiddenError(t("backend.server.localHostPlatformOnly"));
+    }
     if (nextStoragePath && nextStoragePath !== storageNode.basePath) {
       await prisma.storageNode.update({
         where: { id: storageNode.id },
@@ -367,6 +386,7 @@ export async function createServerProfile(
   const payload = createServerSchema.parse(input);
   if (payload.operatingSystem === "WINDOWS") return createWindowsServerProfile(payload, session, t);
   const normalized = normalizeServerInput(payload);
+  if (isLocalHostLiteral(normalized.host)) assertLocalHostAllowed(session, t);
   const onboardingWarnings: string[] = [];
   let draftReason: string | null = null;
   const teamData = session ? teamCreateData(session) : {};
@@ -575,6 +595,7 @@ export async function updateServerProfile(
     costCurrency: input.costCurrency ?? (current.costCurrency as "CNY" | "USD" | "EUR" | "JPY" | "HKD"),
     costProvider: input.costProvider ?? current.costProvider,
   });
+  if (isLocalHostLiteral(normalized.host)) assertLocalHostAllowed(session, t);
 
   let updateSshKey: PreflightSshKey | null = current.sshKey ?? null;
   if (

@@ -16,7 +16,7 @@ const {
   assertStorageAccessMock: vi.fn(),
   prismaMock: {
     storageNode: { findFirst: vi.fn() },
-    fileEntry: { findFirst: vi.fn() },
+    fileEntry: { findFirst: vi.fn(), findMany: vi.fn() },
   },
   createFileEntryMock: vi.fn(),
   syncLocalDirectoryEntriesMock: vi.fn(async (_input: { relativePath?: string }) => ({ synced: 0, created: 0, updated: 0, deleted: 0, errors: [] })),
@@ -79,6 +79,7 @@ describe("POST /api/files/extract", () => {
     });
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
     prismaMock.fileEntry.findFirst.mockResolvedValue(null);
+    prismaMock.fileEntry.findMany.mockResolvedValue([]);
     createFileEntryMock.mockResolvedValue({ id: "entry_1" });
   });
 
@@ -98,6 +99,18 @@ describe("POST /api/files/extract", () => {
   function localNode() {
     prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
   }
+
+  it("does not unpack an archive that is in the recycle bin into visible files", async () => {
+    await createTarGz();
+    localNode();
+    // The archive itself, or the folder it sits in, was deleted; the bytes are still on disk.
+    prismaMock.fileEntry.findMany.mockResolvedValue([{ relativePath: "backup.tar.gz" }]);
+
+    const response = await POST(extractRequest("backup.tar.gz"));
+
+    expect(response.status).toBe(404);
+    await expect(readFile(path.join(tempDir, "backup", "hello.txt"), "utf8")).rejects.toThrow();
+  });
 
   it("extracts a .tar.gz into a new folder named after it and indexes it (it used to be refused)", async () => {
     await createTarGz();

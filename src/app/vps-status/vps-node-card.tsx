@@ -21,11 +21,16 @@ import { SparklineChartLazy } from "@/app/health/sparkline-chart-lazy";
 import { Notice, ProgressBar } from "@/components/ui-primitives";
 import { StatusBadge } from "@/components/status-badge";
 
-export function formatKbps(kbps: number | undefined): string {
-	if (kbps === undefined || !Number.isFinite(kbps)) return "—";
-	if (kbps >= 1_000_000) return `${(kbps / 1_000_000).toFixed(1)} Gbps`;
-	if (kbps >= 1_000) return `${(kbps / 1_000).toFixed(1)} Mbps`;
-	return `${Math.round(kbps)} Kbps`;
+/**
+ * A transfer rate the health sweep measured in KiB per second (`networkInKbps` is a historical name: the value is
+ * bytes / 1024 / seconds, and the alert rule form calls the same field KB/s). It was shown as kilobits with decimal
+ * steps, so 10 MiB/s read as "10.2 Mbps" when it is about 84 Mbit/s.
+ */
+export function formatKibPerSecond(kibPerSecond: number | undefined): string {
+	if (kibPerSecond === undefined || !Number.isFinite(kibPerSecond)) return "—";
+	if (kibPerSecond >= 1024 * 1024) return `${(kibPerSecond / (1024 * 1024)).toFixed(1)} GB/s`;
+	if (kibPerSecond >= 1024) return `${(kibPerSecond / 1024).toFixed(1)} MB/s`;
+	return `${Math.round(kibPerSecond)} KB/s`;
 }
 
 export function formatMem(usedMb?: number, totalMb?: number): string {
@@ -172,13 +177,13 @@ export function VpsNodeCard({
 				<div className="flex justify-between gap-2">
 					<span className="text-[var(--text-muted)]">{t("vpsStatusPage.metric.netIn")}</span>
 					<span className="font-mono tabular-nums text-[var(--text-secondary)]">
-						{formatKbps(server.networkInKbps)}
+						{formatKibPerSecond(server.networkInKbps)}
 					</span>
 				</div>
 				<div className="flex justify-between gap-2">
 					<span className="text-[var(--text-muted)]">{t("vpsStatusPage.metric.netOut")}</span>
 					<span className="font-mono tabular-nums text-[var(--text-secondary)]">
-						{formatKbps(server.networkOutKbps)}
+						{formatKibPerSecond(server.networkOutKbps)}
 					</span>
 				</div>
 				<div className="col-span-2 flex justify-between gap-2 border-t border-[var(--border-subtle)] pt-2">

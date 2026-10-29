@@ -124,15 +124,16 @@ describe("backup retention + offsite dry-run routes", () => {
 			});
 		});
 
-		it("passes a null teamId through rather than inventing one", async () => {
-			// `pruneOldBackupRecordsNow` fails closed on a null teamId; the route must
-			// not substitute a default that would widen the prune.
+		it("passes a null teamId through rather than inventing one, as a cleanup of the platform's own backups", async () => {
+			// `pruneOldBackupRecordsNow` fails closed on a null teamId; the route must not substitute a
+			// default that would widen the prune. In the all-customers view the cleanup is for the backups no
+			// customer owns, said explicitly (it used to be refused there while the job reported success).
 			currentSession = { ...session, currentTeamId: null };
 
 			await retention.POST(post(RETENTION_URL, {}));
 
 			expect(mocks.enqueueJob).toHaveBeenCalledWith(
-				expect.objectContaining({ payload: { teamId: null }, teamId: null }),
+				expect.objectContaining({ payload: { teamId: null, platformScope: true }, teamId: null }),
 			);
 		});
 

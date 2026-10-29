@@ -7,6 +7,7 @@ const {
   decryptServerPasswordMock,
   decryptSshPrivateKeyMock,
   serverFindUniqueMock,
+  getStorageFileNodeMock,
 } = vi.hoisted(() => ({
   auditUserActionMock: vi.fn(),
   execRemoteCommandMock: vi.fn(),
@@ -14,6 +15,7 @@ const {
   decryptServerPasswordMock: vi.fn((value: string) => `decrypted-password:${value}`),
   decryptSshPrivateKeyMock: vi.fn((value: string) => `decrypted-key:${value}`),
   serverFindUniqueMock: vi.fn(),
+  getStorageFileNodeMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
@@ -35,6 +37,8 @@ vi.mock("@/lib/db", () => ({
     server: { findUnique: serverFindUniqueMock },
   },
 }));
+
+vi.mock("@/lib/storage/file-content", () => ({ getStorageFileNode: getStorageFileNodeMock }));
 
 vi.mock("@/lib/ssh/client", () => ({
   execRemoteCommand: execRemoteCommandMock,
@@ -231,5 +235,34 @@ describe("POST /api/servers/[id]/reload", () => {
         timeout: 120_000,
       }),
     );
+  });
+  it("runs compose in the folder of the compose file as the storage node sees it, not in a path made from the relative one", async () => {
+    // A node's paths are relative to its root (/root/drive for the node of a server): "stack/compose.yaml" is
+    // /root/drive/stack/compose.yaml, never /stack.
+    mockServer();
+    getStorageFileNodeMock.mockResolvedValue({ id: "node_1", serverId: "srv_1", driver: "SFTP", basePath: "/root/drive" });
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
+
+    const response = await POST(request({ kind: "compose", composeFile: { storageNodeId: "node_1", relativePath: "stack/compose.yaml" } }), params);
+
+    expect(response.status).toBe(200);
+    expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({ command: "cd /root/drive/stack && docker compose up -d" }));
+  });
+
+  it("quotes a folder with spaces, and refuses a node that is not this server's", async () => {
+    mockServer();
+    getStorageFileNodeMock.mockResolvedValueOnce({ id: "node_1", serverId: "srv_1", driver: "SFTP", basePath: "/root/my drive" });
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
+    await POST(request({ kind: "compose", composeFile: { storageNodeId: "node_1", relativePath: "a b/compose.yaml" } }), params);
+    expect(execRemoteCommandMock).toHaveBeenLastCalledWith(expect.objectContaining({ command: "cd -- '/root/my drive/a b' && docker compose up -d" }));
+
+    execRemoteCommandMock.mockClear();
+    getStorageFileNodeMock.mockResolvedValueOnce({ id: "node_2", serverId: "another_server", driver: "SFTP", basePath: "/root/drive" });
+    const refused = await POST(request({ kind: "compose", composeFile: { storageNodeId: "node_2", relativePath: "x/compose.yaml" } }), params);
+    expect(refused.status).toBe(404);
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+
+    const missing = await POST(request({ kind: "compose" }), params);
+    expect(missing.status).toBe(400);
   });
 });

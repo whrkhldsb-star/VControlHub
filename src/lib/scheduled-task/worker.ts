@@ -115,7 +115,11 @@ async function dispatchDueTask(task: {
   // background execution paths now share assertRequesterMayExecuteCommand.
   // Skip-and-record (leave the task ACTIVE) rather than dispatch; the state is
   // durable, so recordTaskRun advancing nextRunAt avoids a tight retry loop.
-  const authz = await assertRequesterMayExecuteCommand(task.createdById, task.teamId);
+  // A task that needs approval only files a request here; it runs after someone approves it, and that
+  // dispatch checks the creator again. Only an unattended task executes on the creator's own authority.
+  const authz = await assertRequesterMayExecuteCommand(task.createdById, task.teamId, undefined, {
+    requireExecutePermission: !task.approvalRequired,
+  });
   if (!authz.ok) {
     await recordTaskRun(
       task.id,

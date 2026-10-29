@@ -51,12 +51,70 @@ function readDerKey(key: Buffer, passphrase?: string): KeyObject {
   throw new ValidationError(t("backend.server.sshPrivateKeyImportFailed"));
 }
 
+// The KDF cost of an imported key is read from the uploaded file and derived
+// synchronously on the request thread: an unchecked value freezes the whole hub
+// (a PPK asking for 2 GiB of Argon2 memory blocks the event loop for minutes).
+// PuTTY's default is 8 MiB × 13 passes and `ssh-keygen -a` defaults to 16 rounds.
+const PPK_ARGON2_MAX_MEMORY_KIB = 262_144;
+const PPK_ARGON2_MAX_PASSES = 64;
+const PPK_ARGON2_MAX_PARALLELISM = 16;
+const PPK_ARGON2_MAX_COST = 1_024; // MiB × passes
+const OPENSSH_BCRYPT_MAX_ROUNDS = 128;
+
+/** bcrypt_pbkdf rounds of an encrypted OpenSSH private key, or null when not stated. */
+function openSshBcryptRounds(pem: string): number | null {
+  const body = pem.replace(/-----(?:BEGIN|END) OPENSSH PRIVATE KEY-----/g, "").replace(/\s+/g, "");
+  let raw: Buffer;
+  try { raw = Buffer.from(body, "base64"); } catch { return null; }
+  const magic = Buffer.from("openssh-key-v1\0");
+  if (raw.length < magic.length + 12 || !raw.subarray(0, magic.length).equals(magic)) return null;
+  let offset = magic.length;
+  const readString = (): Buffer | null => {
+    if (offset + 4 > raw.length) return null;
+    const length = raw.readUInt32BE(offset);
+    if (offset + 4 + length > raw.length) return null;
+    const value = raw.subarray(offset + 4, offset + 4 + length);
+    offset += 4 + length;
+    return value;
+  };
+  readString(); // cipher name
+  const kdfName = readString();
+  const kdfOptions = readString();
+  if (!kdfName || !kdfOptions || kdfName.toString() !== "bcrypt") return null;
+  // kdfoptions = string salt + uint32 rounds
+  if (kdfOptions.length < 8) return null;
+  const saltLength = kdfOptions.readUInt32BE(0);
+  if (4 + saltLength + 4 > kdfOptions.length) return null;
+  return kdfOptions.readUInt32BE(4 + saltLength);
+}
+
+function assertImportedKdfCost(content: string) {
+  const tooHeavy = () => new ValidationError(t("backend.server.sshKeyKdfTooHeavy"));
+  if (content.startsWith("PuTTY-User-Key-File-")) {
+    const header = (name: string) => {
+      const match = new RegExp(`^${name}:\\s*(\\d+)\\s*$`, "im").exec(content);
+      return match ? Number(match[1]) : null;
+    };
+    const memory = header("Argon2-Memory");
+    const passes = header("Argon2-Passes");
+    const parallelism = header("Argon2-Parallelism");
+    if (memory !== null && memory > PPK_ARGON2_MAX_MEMORY_KIB) throw tooHeavy();
+    if (passes !== null && passes > PPK_ARGON2_MAX_PASSES) throw tooHeavy();
+    if (parallelism !== null && parallelism > PPK_ARGON2_MAX_PARALLELISM) throw tooHeavy();
+    if (memory !== null && passes !== null && (memory / 1024) * passes > PPK_ARGON2_MAX_COST) throw tooHeavy();
+  } else if (content.startsWith("-----BEGIN OPENSSH PRIVATE KEY-----")) {
+    const rounds = openSshBcryptRounds(content);
+    if (rounds !== null && rounds > OPENSSH_BCRYPT_MAX_ROUNDS) throw tooHeavy();
+  }
+}
+
 export async function normalizeImportedSshKey(input: ImportedKey) {
   const source = input.keyFile?.length ? input.keyFile : input.privateKey?.trim();
   if (!source) throw new ValidationError(t("backend.server.sshPrivateKeyRequired"));
   const passphrase = input.passphrase || undefined; // Spaces are part of a password.
   let content = typeof source === "string" ? source : source.toString("utf8").trim();
   try {
+    assertImportedKdfCost(content);
     if (content.startsWith("PuTTY-User-Key-File-")) {
       content = (await parseFromString(content, passphrase ?? "")).privateKey;
     } else if (Buffer.isBuffer(source) && source[0] === 0x30) {

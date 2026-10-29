@@ -20,10 +20,12 @@ import { normalizeUserPreferencesForSession } from "@/lib/preferences/user-prefe
 import { getTurnstileConfig, TURNSTILE_RESPONSE_FIELD, verifyTurnstileToken } from "@/lib/auth/turnstile";
 
 const logger = createLogger("api:login");
+/** Longest account name the user-management API accepts (src/lib/user/schema.ts). */
+const MAX_ACCOUNT_USERNAME_LENGTH = 40;
 // guardMode: login
 
 const loginFormSchema = z.object({
-	username: z.string().min(1, "Username is required"),
+	username: z.string().min(1, "Username is required").max(256, "Username is too long"),
 	password: z.string().min(1, "Password is required"),
 	next: z.string().optional(),
 	remember: z.string().optional(),
@@ -108,7 +110,14 @@ export async function POST(request: Request) {
 			const params = new URLSearchParams({ error: "invalid", detail: firstError });
 			return redirectWithRelativeLocation(`/login?${params.toString()}`);
 		}
-		const { username, password } = parsed.data;
+		const { password } = parsed.data;
+		// A name longer than any account's can match nothing: answer like any other wrong login without
+		// keeping any state for it (failure counters, audit rows) keyed on attacker-sized text.
+		if (parsed.data.username.trim().length > MAX_ACCOUNT_USERNAME_LENGTH || parsed.data.username.includes("\u0000")) {
+			return redirectWithRelativeLocation("/login?error=invalid");
+		}
+		// What lockout counters and audit rows record: the account name as the lookup reads it.
+		const username = parsed.data.username.trim();
 		const rememberSession = parsed.data.remember === "on" || parsed.data.remember === "true" || parsed.data.remember === "1";
 		const sessionMaxAge = await getConfiguredSessionTtlSeconds(rememberSession);
 		const requestedNextPath = safeNextPath(formData.get("next"));
@@ -134,7 +143,7 @@ export async function POST(request: Request) {
 			return redirectWithRelativeLocation(`/login?${params.toString()}`);
 		}
 
-		const user = await authenticateUser({ username, password });
+		const user = await authenticateUser({ username: parsed.data.username, password });
 		if (!user) {
 			// Account lockout: record failure and check
 			const lockResult = await recordLoginFailureAsync(username, clientIp);
@@ -161,7 +170,10 @@ export async function POST(request: Request) {
 			: requestedNextPath;
 
 		// Log successful password stage
-		await auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp }, undefined, user.currentTeamId);
+		// A platform administrator's sign-in is a platform event: filing it under whichever customer
+		// they last selected put their address and times into that customer's audit log.
+		const auditTeamId = user.roles.includes("admin") ? null : user.currentTeamId;
+		await auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp }, undefined, auditTeamId);
 
 		// ── 2FA Check ──
 		// If the user has 2FA enabled, redirect to the verification page

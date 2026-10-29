@@ -93,11 +93,19 @@ export const renderInline = (text: string): React.ReactNode[] => {
 /* ── Render Message Content (full markdown: headings, lists, links, code, tables) ─ */
 export const renderContent = (content: string, options?: { copyLabel?: string }) => {
  const copyLabel = options?.copyLabel ?? "Copy";
- // 1. Extract fenced code blocks first (they must not be processed)
+ // 1. Extract fenced code blocks first (they must not be processed). A placeholder is only recognised alone on a
+ // line, so it is put on one: a fence indented under a list item ("1. Install:\n   ```bash ... ```") or following
+ // text on its line used to leave "CODE0" in the page and the code out of it. The indent the fence has is taken off
+ // the code lines, and the text on either side of the fence is a line of its own.
+ // NUL is the placeholder's frame: text carrying its own (an attached file can) must not be able to forge one.
+ const source = content.replaceAll("\x00", "");
  const codeBlocks: string[] = [];
- const withoutCode = content.replace(/(```[\s\S]*?```)/g, (m) => {
- codeBlocks.push(m);
- return `\x00CODE${codeBlocks.length - 1}\x00`;
+ const withoutCode = source.replace(/```[\s\S]*?```/g, (m, offset: number) => {
+ const lineStart = source.lastIndexOf("\n", offset - 1) + 1;
+ const before = source.slice(lineStart, offset);
+ const indent = /^[ \t]+$/.test(before) ? before : "";
+ codeBlocks.push(indent ? m.split("\n").map((codeLine, n) => (n > 0 && codeLine.startsWith(indent) ? codeLine.slice(indent.length) : codeLine)).join("\n") : m);
+ return `\n\x00CODE${codeBlocks.length - 1}\x00\n`;
  });
 
  // 2. Split into lines for block-level processing
@@ -106,13 +114,16 @@ export const renderContent = (content: string, options?: { copyLabel?: string })
  let i = 0;
  let listItems: string[] = [];
  let listType: "ul" | "ol" | null = null;
+ // An ordered list goes on from the number it starts at, as Markdown does: a code block between two steps splits
+ // the list, and the second half used to count from 1 again.
+ let listStart = 1;
   let tableRows: string[][] = [];
 
  const flushList = () => {
  if (listItems.length > 0) {
  const Tag = listType === "ol" ? "ol" : "ul";
  elements.push(
- <Tag key={`list-${elements.length}`} className={`ml-4 my-1.5 ${listType === "ol" ? "list-decimal" : "list-disc"} text-xs text-[var(--text-secondary)] space-y-0.5`}>
+ <Tag key={`list-${elements.length}`} {...(listType === "ol" && listStart > 1 ? { start: listStart } : {})} className={`ml-4 my-1.5 ${listType === "ol" ? "list-decimal" : "list-disc"} text-xs text-[var(--text-secondary)] space-y-0.5`}>
  {listItems.map((li, liIdx) => (
  <li key={liIdx}>{renderInline(li)}</li>
  ))}
@@ -160,9 +171,12 @@ export const renderContent = (content: string, options?: { copyLabel?: string })
  flushList();
  flushTable();
  const block = codeBlocks[parseInt(codeMatch[1]!)];
- const blockLines = block!.slice(3, -3).split("\n");
- const lang = blockLines[0]?.trim() || "";
- const code = lang ? blockLines.slice(1).join("\n") : blockLines.join("\n");
+ const body = (block ?? "").slice(3, -3);
+ const blockLines = body.split("\n");
+ // The first line is the language when it is one word ("```bash"); a fence on one line ("```ls -la```") is all code.
+ const hasInfoLine = blockLines.length > 1 && /^[\w+#.-]*$/.test(blockLines[0]!.trim());
+ const lang = hasInfoLine ? blockLines[0]!.trim() : "";
+ const code = hasInfoLine ? blockLines.slice(1).join("\n") : body;
  elements.push(
  <div key={`cb-${elements.length}`} className="relative group/code bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] rounded-lg my-2 overflow-hidden">
  <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border)]/10">
@@ -216,11 +230,11 @@ export const renderContent = (content: string, options?: { copyLabel?: string })
  }
 
  // Ordered list: 1. 2. etc.
- const olMatch = line.match(/^[\s]*\d+\.\s+(.+)$/);
+ const olMatch = line.match(/^[\s]*(\d+)\.\s+(.+)$/);
  if (olMatch) {
  flushTable();
- if (listType !== "ol") { flushList(); listType = "ol"; }
- listItems.push(olMatch[1]!);
+ if (listType !== "ol") { flushList(); listType = "ol"; listStart = Number(olMatch[1]); }
+ listItems.push(olMatch[2]!);
  i++;
  continue;
  }

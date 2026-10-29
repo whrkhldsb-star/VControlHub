@@ -239,3 +239,15 @@ describe("hostedActionDecisionSchema", () => {
     ).toBe(false);
   });
 });
+
+describe("provider model lists", () => {
+  it("accept as many models as the server itself caches (a gateway lists hundreds)", async () => {
+    // At 256 entries a gateway's provider could not be created, and could not be edited afterwards either (the server
+    // had cached its whole list), short of deleting it with every conversation.
+    const { createProviderSchema, updateProviderSchema } = await import("../schema");
+    const models = Array.from({ length: 1_200 }, (_, index) => `vendor/model-${index}`);
+    expect(createProviderSchema.safeParse({ name: "Gateway", apiKey: "k", availableModels: models, models: models.join(",") }).success).toBe(true);
+    expect(updateProviderSchema.safeParse({ availableModels: models }).success).toBe(true);
+    expect(updateProviderSchema.safeParse({ availableModels: Array.from({ length: 10_001 }, (_, i) => `m${i}`) }).success).toBe(false);
+  });
+});

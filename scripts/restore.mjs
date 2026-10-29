@@ -394,18 +394,40 @@ async function stageFiles(archive, appDir, inspected = false) {
 }
 
 /**
+ * The documented offline restore is run as root (the services are stopped first). Files unpacked and copied by
+ * root belong to root, and the service user could then read but not write the restored customer files: uploads,
+ * edits, thumbnails and versions failed with EACCES, and a disaster recovery into an empty tree was entirely root's.
+ * What was restored goes to the owner of the installation directory; only entries root owns are changed, so nothing
+ * given to someone on purpose is touched.
+ */
+async function giveToInstallationOwner(appDir, paths) {
+  if (typeof process.getuid !== "function" || process.getuid() !== 0 || paths.length === 0) return;
+  const owner = await fs.stat(appDir);
+  if (owner.uid === 0) return;
+  try {
+    await runBinary("chown", ["-R", "-h", "--from=0", `${owner.uid}:${owner.gid}`, ...paths]);
+    log(`Owner of the restored files set to ${owner.uid}:${owner.gid}`);
+  } catch (error) {
+    log(`Could not set the owner of the restored files (${error instanceof Error ? error.message : error}); run scripts/fix-ownership.sh`);
+  }
+}
+
+/**
  * Overlay the staged files onto appDir. This merges: files created after the
  * backup are kept, files in the backup overwrite their current versions.
  */
 async function applyStagedFiles(staging, appDir) {
   const versions = `${staging}-file-versions`;
   try {
+    const topLevel = (await fs.readdir(staging)).map((name) => path.join(appDir, name));
     await fs.cp(path.join(staging, "."), appDir, { recursive: true, force: true });
+    await giveToInstallationOwner(appDir, topLevel);
     if (await pathExists(versions)) {
       const envFile = (await readEnvFile(process.env.ENV_FILE?.trim() || path.join(appDir, ".env.local"))) ?? {};
       const target = fileVersionDir({ ...envFile, ...process.env });
       await fs.mkdir(target, { recursive: true });
       await fs.cp(path.join(versions, "."), target, { recursive: true, force: true });
+      await giveToInstallationOwner(appDir, [target]);
       log(`File history restored to ${target}`);
     }
   } finally {
