@@ -14,10 +14,12 @@ const NOT_EXPORTED: Record<string, { model: Record<string, string>; skip: string
 	servers: {
 		model: Prisma.ServerScalarFieldEnum,
 		// Agent identity and runtime state (the Agent is reinstalled), onboarding
-		// and gateway state (re-derived on the target), bookkeeping.
+		// and gateway state (re-derived on the target: its per-server key comes
+		// from the target's own secret, so the gateway is enabled again there),
+		// bookkeeping.
 		skip: ["agentTokenHash", "agentLastSeenAt", "agentMetricsAt", "agentMetricsRaw", "agentVersion", "agentCapabilities", "agentLastError",
 			"onboardingStatus", "onboardingLastError", "directGatewayDesiredEnabled", "directGatewayDesiredProtocol", "directGatewayDesiredDomain",
-			"costLastSyncedAt", "addedById", "updatedAt"],
+			"directGatewayKeyVersion", "costLastSyncedAt", "addedById", "updatedAt"],
 	},
 	storageNodes: { model: Prisma.StorageNodeScalarFieldEnum, skip: ["lastHealthCheckAt", "lastHealthError", "lastHealthLatencyMs", "updatedAt"] },
 	sshKeys: { model: Prisma.SshKeyScalarFieldEnum, skip: ["updatedAt"] },
