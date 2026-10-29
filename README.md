@@ -176,7 +176,7 @@ python3 scripts/webdav-http-smoke.py http://127.0.0.1:3000
 | 功能页面            | 58                                               |
 | API 路由文件        | 196                                              |
 | 数据模型            | 82                                               |
-| UI 组件           | 78                                               |
+| UI 组件           | 81                                               |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
 | i18n            | 92 字典文件                                          |
 <!-- README_METRICS_END -->
