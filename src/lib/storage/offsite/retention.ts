@@ -69,6 +69,30 @@ export async function pruneOffsiteObjects(options?: {
   let deleted = 0;
   const errors: string[] = [];
   let token: string | undefined;
+  // Disaster-recovery bundles (recovery/) are uploaded by a script and have no database row, so they were pruned by
+  // age alone - the last one included. The newest of them is kept like the newest copy of every other kind.
+  const recoveryPrefix = `${prefix}recovery/`;
+  const recovery: Array<{ key: string; at: number }> = [];
+
+  const remove = async (key: string): Promise<boolean> => {
+    try {
+      await client.deleteObject(key);
+      deleted += 1;
+      // The records still said "offsite": the list kept the badge and the download fallback answered 404.
+      await Promise.all([
+        prisma.backupRecord.updateMany({ where: { offsiteKey: key }, data: { offsiteKey: null, offsiteUploadedAt: null } }),
+        prisma.vpsBackupRecord.updateMany({ where: { offsiteKey: key }, data: { offsiteKey: null, offsiteUploadedAt: null } }),
+      ]).catch((err) => logger.warn("offsite prune could not clear a record", { key, error: err instanceof Error ? err.message : String(err) }));
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${key}: ${msg.slice(0, 200)}`);
+      logger.warn("offsite prune delete failed", { key, error: msg });
+      return false;
+    }
+  };
+
+  let newestRecovery: { key: string; at: number } | null = null;
 
   do {
     const page = await client.listObjects(prefix, 1000, token);
@@ -78,20 +102,27 @@ export async function pruneOffsiteObjects(options?: {
       if (deleted >= maxDeletes) break;
       const lastModified = obj.lastModified ? new Date(obj.lastModified) : null;
       if (!lastModified || Number.isNaN(lastModified.getTime())) continue;
-      if (lastModified >= cutoff) continue;
       if (!obj.key) continue;
-      if (protectedKeys.has(obj.key)) continue;
-      try {
-        await client.deleteObject(obj.key);
-        deleted += 1;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        errors.push(`${obj.key}: ${msg.slice(0, 200)}`);
-        logger.warn("offsite prune delete failed", { key: obj.key, error: msg });
+      const isRecovery = obj.key.startsWith(recoveryPrefix);
+      if (isRecovery && (!newestRecovery || lastModified.getTime() > newestRecovery.at)) {
+        newestRecovery = { key: obj.key, at: lastModified.getTime() };
       }
+      if (lastModified >= cutoff) continue;
+      if (protectedKeys.has(obj.key)) continue;
+      if (isRecovery) {
+        recovery.push({ key: obj.key, at: lastModified.getTime() }); // decided below, once the newest bundle is known
+        continue;
+      }
+      await remove(obj.key);
     }
     if (deleted >= maxDeletes) break;
   } while (token);
+
+  for (const bundle of recovery) {
+    if (deleted >= maxDeletes) break;
+    if (bundle.key === newestRecovery?.key) continue;
+    await remove(bundle.key);
+  }
 
   logger.info("offsite prune finished", {
     listed,
