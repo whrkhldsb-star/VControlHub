@@ -8,6 +8,7 @@ import { guessMimeType } from "@/lib/image-bed/constants";
 import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { assertRemotePathContained } from "@/lib/storage/remote-containment";
+import { MAX_STORAGE_PATH_BYTES } from "@/lib/storage/path-utils";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { getSftpSyncDirectoryTimeoutMs } from "@/lib/runtime-settings/service";
 import { t } from "@/lib/i18n/service-translations";
@@ -105,8 +106,16 @@ function describeError(error: unknown) {
  * one indexed lookup per batch, `createMany` for new paths, and no write at all
  * for entries that have not changed.
  */
-async function syncRemoteEntries(nodeId: string, payloads: RemoteEntryPayload[]) {
+async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload[]) {
   const counts = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
+
+  // A path the unique index cannot hold (2704 bytes per entry) failed the whole createMany batch it was in, every
+  // run, taking the other new files of that batch with it. It is left out and reported on its own.
+  const payloads = allPayloads.filter((payload) => Buffer.byteLength(payload.relativePath) <= MAX_STORAGE_PATH_BYTES);
+  if (payloads.length < allPayloads.length) {
+    counts.skipped += allPayloads.length - payloads.length;
+    counts.errors.push(`${allPayloads.length - payloads.length} entries were not indexed: their path is longer than ${MAX_STORAGE_PATH_BYTES} bytes`);
+  }
 
   for (let offset = 0; offset < payloads.length; offset += SFTP_SYNC_BATCH_SIZE) {
     const batch = payloads.slice(offset, offset + SFTP_SYNC_BATCH_SIZE);

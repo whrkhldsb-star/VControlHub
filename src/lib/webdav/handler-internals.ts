@@ -62,20 +62,29 @@ export function buildWebDavHref(
   return isCollection ? `${href}/` : href;
 }
 
+/**
+ * `raw` is a path as the client sent it (a Destination header: still percent-encoded, so each segment is decoded
+ * here) or, with `alreadyDecoded`, the segments of a Next.js catch-all route, which Next has decoded once already:
+ * decoding those again turned a file called `report%201.pdf` into `report 1.pdf` (a PUT then overwrote that other
+ * file) and `a%252Fb` into a folder `a` holding `b`.
+ */
 export function normalizeWebDavRelativePath(
   raw: string | string[] | undefined,
+  options: { alreadyDecoded?: boolean } = {},
 ): string {
   const joined = Array.isArray(raw) ? raw.join("/") : (raw ?? "");
-  const decoded = joined
-    .split("/")
-    .map((part) => {
-      try {
-        return decodeURIComponent(part);
-      } catch {
-        return part;
-      }
-    })
-    .join("/");
+  const decoded = options.alreadyDecoded
+    ? joined
+    : joined
+        .split("/")
+        .map((part) => {
+          try {
+            return decodeURIComponent(part);
+          } catch {
+            return part;
+          }
+        })
+        .join("/");
   if (!decoded || decoded === "/") return "";
   const normalized = normalizeStorageRelativePath(decoded);
   if (!normalized.ok) throw new ValidationError(normalized.reason);

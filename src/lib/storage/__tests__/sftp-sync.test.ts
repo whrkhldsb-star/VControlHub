@@ -151,6 +151,40 @@ describe("sftp sync service", () => {
     });
   });
 
+  it("leaves a path the unique index cannot hold out of the batch instead of failing it", async () => {
+    vi.clearAllMocks();
+    const node = {
+      id: "node_1", name: "remote", driver: "SFTP", basePath: "/data/files", host: "203.0.113.20", port: 22, username: "deploy",
+      hostKeySha256: null,
+      server: { id: "srv_1", host: "203.0.113.20", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX" as const, password: "ENCRYPTED PASSWORD", hostKeySha256: null, sshKey: null },
+    } as const;
+    // Nine nested folders of 240 characters make a path of about 2200 bytes: under every name limit, over what the
+    // (storageNodeId, relativePath) btree entry can take. One bad entry used to fail the createMany of its whole batch.
+    const folder = "d".repeat(240);
+    listRemoteDirectoryMock.mockImplementation(async ({ remotePath }: { remotePath: string }) => {
+      const depth = remotePath === "/data/files" ? 0 : remotePath.split(folder).length - 1;
+      if (depth === 0) {
+        return [
+          { name: "ok.txt", longname: "-rw-r--r-- ok.txt", type: "file", size: 1, modifyTime: 1, accessTime: 1 },
+          { name: folder, longname: `drwxr-xr-x ${folder}`, type: "directory", size: 0, modifyTime: 1, accessTime: 1 },
+        ];
+      }
+      if (depth < 9) return [{ name: folder, longname: `drwxr-xr-x ${folder}`, type: "directory", size: 0, modifyTime: 1, accessTime: 1 }];
+      return [];
+    });
+    prismaMock.fileEntry.findMany.mockResolvedValue([]);
+    prismaMock.fileEntry.createMany.mockImplementation(async ({ data }: { data: Array<{ relativePath: string }> }) => ({ count: data.length }));
+    prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await syncSftpDirectoryEntries({ node, recursive: true, maxDepth: 12 });
+
+    const indexed = prismaMock.fileEntry.createMany.mock.calls.flatMap(([arg]) => (arg as { data: Array<{ relativePath: string }> }).data.map((row) => row.relativePath));
+    expect(indexed).toContain("ok.txt");
+    expect(indexed.every((path) => Buffer.byteLength(path) <= 2000)).toBe(true);
+    expect(result.errors.join(" ")).toContain("not indexed");
+    expect(result.errors.join(" ")).toContain("2000 bytes");
+  });
+
   it("indexes a whole listing with one lookup per batch and writes nothing when unchanged", async () => {
     vi.clearAllMocks();
     const node = {
