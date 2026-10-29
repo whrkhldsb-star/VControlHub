@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { listObjects, deleteObject, appRows, vpsRows, appUpdate, vpsUpdate } = vi.hoisted(() => ({
 	listObjects: vi.fn(),
-	deleteObject: vi.fn(async () => undefined),
+	deleteObject: vi.fn(async (_key: string) => undefined),
 	appRows: vi.fn(),
 	vpsRows: vi.fn(),
 	appUpdate: vi.fn(async () => ({ count: 1 })),

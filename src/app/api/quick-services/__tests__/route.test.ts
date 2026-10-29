@@ -336,8 +336,9 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(200);
     expect(JSON.stringify(json)).not.toContain("s3cret-generated");
-    expect(json.installed[0]).toMatchObject({ slug: "alist", envKeyCount: 2 });
-    expect(json.installed[0]).not.toHaveProperty("envJson");
+    const installed = (json as { installed: Array<Record<string, unknown>> }).installed;
+    expect(installed[0]).toMatchObject({ slug: "alist", envKeyCount: 2 });
+    expect(installed[0]).not.toHaveProperty("envJson");
   });
 
   it("still lists the services when the selected VPS cannot be probed for its listening ports", async () => {
