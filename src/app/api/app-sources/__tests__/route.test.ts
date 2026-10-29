@@ -20,7 +20,7 @@ const { prismaMock, syncMock, listMock } = vi.hoisted(() => ({
   getRemoteAppsMock: vi.fn(),
 }));
 
-vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/db", () => ({ prisma: prismaMock, isUniqueViolation: (error: unknown) => (error as { code?: string } | null)?.code === "P2002" }));
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: vi.fn(async (request, options, handler) => {
     let body: unknown = undefined;
@@ -68,9 +68,15 @@ vi.mock("@/lib/quick-service/catalog", () => ({
     },
   ],
 }));
-vi.mock("@/lib/storage/direct-access-url", () => ({
-  normalizePublicHttpUrl: (url: string) => url,
-}));
+vi.mock("@/lib/storage/direct-access-url", async () => {
+  const { ValidationError } = await import("@/lib/errors");
+  return {
+    normalizePublicHttpUrl: (url: string) => {
+      if (url.includes("127.0.0.1")) throw new ValidationError("private address");
+      return url;
+    },
+  };
+});
 
 import { DELETE, GET, PATCH, POST } from "../route";
 
@@ -177,6 +183,23 @@ describe("/api/app-sources", () => {
       const body = await response.json();
       expect(response.status).toBe(201);
       expect(body.source).toMatchObject({ id: "src_new", name: "extra" });
+    });
+
+    it("answers 409 for a name that exists and 400 for a private address, not an unhandled 500", async () => {
+      // The route's onError threw instead of returning a Response, so every failure escaped the guard.
+      const post = (url: string) => POST(
+        new Request("http://local/api/app-sources", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: "extra", displayName: "Extra", url, type: "json" }),
+        }),
+      );
+      prismaMock.appSource.create.mockRejectedValueOnce(Object.assign(new Error("Unique constraint failed on the fields: (`name`)"), { code: "P2002" }));
+      expect((await post("https://example.com/sources.json")).status).toBe(409);
+
+      prismaMock.appSource.create.mockClear();
+      expect((await post("http://127.0.0.1/sources.json")).status).toBe(400);
+      expect(prismaMock.appSource.create).not.toHaveBeenCalled();
     });
 
     it("rejects invalid name (uppercase letters)", async () => {

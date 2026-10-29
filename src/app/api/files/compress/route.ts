@@ -18,7 +18,7 @@ import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
 import { recycledAround } from "@/lib/storage/archive-access";
 import { localTarExclusion } from "@/lib/storage/archive-stream";
-import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { expandStorageBasePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 const execFileAsync = promisify(execFile);
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
         // --force-local (GNU tar): the -T list entries come from user-named
         // files, and GNU tar would otherwise parse `name:colon` members as
         // remote-tape specs and attempt an outbound connection.
-        await execFileAsync(resolveLocalTarBinary(), ["-czf", outputResolved.path, "-C", node.basePath, ...localTarForceLocalArgs(), ...exclusion.options, "--null", "-T", listPath], {
+        await execFileAsync(resolveLocalTarBinary(), ["-czf", outputResolved.path, "-C", path.resolve(expandStorageBasePath(node.basePath)), ...localTarForceLocalArgs(), ...exclusion.options, "--null", "-T", listPath], {
           maxBuffer: 10 * 1024 * 1024,
           timeout: 120_000,
         });

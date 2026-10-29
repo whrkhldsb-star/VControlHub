@@ -100,6 +100,23 @@ describe("POST /api/files/compress", () => {
     expect(denied.status).toBe(404);
   });
 
+  it("compresses on a node whose stored base path still holds the ${APP_SLUG:-...} placeholder", async () => {
+    // Every other path of the route expands the placeholder; tar's -C used the stored text and failed with "Cannot chdir".
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-compress-"));
+    const real = path.join(tempDir, "vcontrolhub");
+    await mkdir(path.join(real, "docs"), { recursive: true });
+    await writeFile(path.join(real, "docs", "a.txt"), "alpha");
+    prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", driver: "LOCAL", basePath: `${tempDir}/\${APP_SLUG:-vcontrolhub}` });
+
+    const response = await request({ storageNodeId: "node_1", relativePaths: ["docs/a.txt"], targetDir: ".", outputName: "slug" });
+
+    expect(response.status).toBe(200);
+    const listing = await new Promise<string>((resolve, reject) => {
+      execFile(resolveLocalTarBinary(), ["-tzf", path.join(real, "slug.tar.gz")], (error, stdout) => (error ? reject(error) : resolve(stdout)));
+    });
+    expect(listing).toContain("docs/a.txt");
+  });
+
   it("creates a tar.gz archive from selected local files and indexes it", async () => {
     await setupLocalNode();
 
