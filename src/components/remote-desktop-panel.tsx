@@ -2,10 +2,16 @@
 
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 
+import { RdpExtraKeys } from "@/components/rdp-extra-keys";
+import { RdpPanControl } from "@/components/rdp-pan-control";
+import { createSoftKeyboard, type SoftKeyboard } from "@/components/rdp-soft-keyboard";
 import { REMOTE_DESKTOP_RESOLUTIONS, RemoteDesktopToolbar, type RemoteDesktopInputMethod, type RemoteDesktopResolution, type RemoteDesktopTouchMode } from "@/components/ssh-terminal-chrome";
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { createStickyModifiers, type KeyAction, type Modifier, type ModifierStates } from "@/lib/rdp/sticky-modifiers";
+import { createTouchGestures, type GestureOutput, type TouchPoint } from "@/lib/rdp/touch-gestures";
+import { clampView, panBy as panViewBy, revealPoint, viewTransform, zoomAround, type ViewState } from "@/lib/rdp/view-transform";
 import { cn } from "@/lib/ui/cn";
 import { createRdpTunnel, rdpTicketError, rdpWebSocketUrl } from "./rdp-tunnel";
 
@@ -29,6 +35,12 @@ const SESSION_ENDED_ERRORS: Record<number, string> = { 0x0000: "rdp.error.sessio
 const KEYSYM_CTRL = 0xffe3, KEYSYM_ALT = 0xffe9, KEYSYM_DELETE = 0xffff;
 /** Guacamole keysyms of the two Shift keys. */
 const KEYSYM_SHIFT_L = 0xffe1, KEYSYM_SHIFT_R = 0xffe2;
+/** The Windows key, tapped on its own for the Start menu. */
+const KEYSYM_WIN = 0xffeb;
+/** How far the pointer stays from the edge of a zoomed or half-covered picture, in pixels. */
+const POINTER_MARGIN = 28;
+/** How long the long-press ring stays on screen. */
+const HOLD_RING_MS = 600;
 /** Where this browser remembers which input method types into remote desktops. */
 const INPUT_METHOD_KEY = "vch.rdp.inputMethod";
 /** Per server: `vch.rdp.resolution.<serverId>`. */
@@ -107,6 +119,17 @@ function storedInputMethod(): RemoteDesktopInputMethod {
 
 type Phase = "connecting" | "connected" | "reconnecting" | "disconnected";
 
+/** What the row of extra keys above the on-screen keyboard asks of the open session. */
+type ExtraKeyActions = {
+	down(keysym: number): void;
+	repeat(keysym: number): void;
+	up(keysym: number): void;
+	modifier(modifier: Modifier): void;
+	start(): void;
+};
+const NO_EXTRA_KEYS: ExtraKeyActions = { down() {}, repeat() {}, up() {}, modifier() {}, start() {} };
+const NO_MODIFIERS: ModifierStates = { ctrl: "off", alt: "off", shift: "off", win: "off" };
+
 export type RemoteDesktopPanelHandle = {
 	/** The user closed this tab: end the RDP session. */
 	endSession(): void;
@@ -164,7 +187,11 @@ export function RemoteDesktopPanel({
 	// Lets a desktop shown again receive frames at once (see createRdpTunnel's `shown`).
 	const showFrames = useRef<() => void>(() => {});
 	const applyResolution = useRef<() => void>(() => {});
-	const focusInput = useRef<() => void>(() => {});
+	const toggleKeyboard = useRef<() => void>(() => {});
+	const hideKeyboard = useRef<() => void>(() => {});
+	const extraKeys = useRef<ExtraKeyActions>(NO_EXTRA_KEYS);
+	const panView = useRef<(dx: number, dy: number) => void>(() => {});
+	const cancelTouch = useRef<() => void>(() => {});
 	const applyTouchMode = useRef<() => void>(() => {});
 	const applyInputMethod = useRef<() => void>(() => {});
 	// An SSH tab connects when it opens; so does this one.
@@ -179,6 +206,13 @@ export function RemoteDesktopPanel({
 	const [touchMode, setTouchMode] = useState<RemoteDesktopTouchMode>("touchpad");
 	const touchModeRef = useRef<RemoteDesktopTouchMode>(touchMode);
 	const [touchHint, setTouchHint] = useState(false);
+	// The on-screen keyboard, raised and lowered by its button only, and the sticky Ctrl/Alt/Shift/Win above it.
+	const [keyboardOpen, setKeyboardOpen] = useState(false);
+	const [modifierStates, setModifierStates] = useState<ModifierStates>(NO_MODIFIERS);
+	// The picture is zoomed in (pinch) or part of it is covered by the keyboard: the pan control appears.
+	const [canPan, setCanPan] = useState(false);
+	// A long press registered: a ring grows where the finger is.
+	const [holdRing, setHoldRing] = useState<{ x: number; y: number; id: number } | null>(null);
 	// A touch screen has only the local input method: its on-screen keyboard.
 	const [inputMethod, setInputMethod] = useState<RemoteDesktopInputMethod>(() => (touch ? "local" : storedInputMethod()));
 	const inputMethodRef = useRef<RemoteDesktopInputMethod>(inputMethod);
@@ -279,9 +313,23 @@ export function RemoteDesktopPanel({
 				host.replaceChildren(surface);
 				const keyboard = new G.Keyboard(surface);
 				const mouse = new G.Mouse(displayElement);
-				const touchpad = new G.Mouse.Touchpad(displayElement);
-				const touchscreen = new G.Mouse.Touchscreen(displayElement);
 				const pasteKeys = new Set<number>();
+				// The Ctrl/Alt/Shift/Win buttons above the on-screen keyboard are sticky: armed, they wrap the next key.
+				const mods = createStickyModifiers(setModifierStates);
+				const applyActions = (actions: KeyAction[]) => { for (const action of actions) client.sendKeyEvent(action.pressed ? 1 : 0, action.keysym); };
+				/** What to release after a key that was pressed inside armed modifiers. */
+				const releaseAfter = new Map<number, KeyAction[]>();
+				// The on-screen keyboard of a touch screen: raised and lowered by its button only, never by a tap on the desktop.
+				// While it is up the desktop keeps its size (the panel is half covered, and showing part of it is the way
+				// Microsoft's app copes) and the extra keys above it are shown. When it goes, everything held is released.
+				const softKeyboard: SoftKeyboard | null = touch ? createSoftKeyboard({
+					input,
+					surface,
+					onChange: open => {
+						setKeyboardOpen(open);
+						if (!open) { applyActions(mods.reset()); resize(); }
+					},
+				}) : null;
 				// Mac Command shortcuts use the Windows Control modifier.
 				const remoteKeysym = (key: number) => key === 0xffe7 || key === 0xffe8 ? KEYSYM_CTRL : key;
 				const localInput = () => touch || inputMethodRef.current === "local";
@@ -316,13 +364,18 @@ export function RemoteDesktopPanel({
 					}
 					if (localInput() && heldShift === null && (key === KEYSYM_SHIFT_L || key === KEYSYM_SHIFT_R)) { heldShift = key; return false; }
 					flushShift();
+					const { before, after } = mods.wrap();
+					applyActions(before);
 					client.sendKeyEvent(1, remoteKeysym(key));
+					if (after.length > 0) releaseAfter.set(key, after);
 					return false;
 				};
 				keyboard.onkeyup = key => {
 					if (pasteKeys.delete(key)) { returnFocus(); return; }
 					if (key === heldShift) { heldShift = null; return; }
 					client.sendKeyEvent(0, remoteKeysym(key));
+					const after = releaseAfter.get(key);
+					if (after) { releaseAfter.delete(key); applyActions(after); }
 				};
 				// Text composed by the local input method, or committed by it directly
 				// (a "，", an on-screen keyboard word), is typed here. Guacamole's own
@@ -353,12 +406,58 @@ export function RemoteDesktopPanel({
 					if (data) typeText(data);
 					clearInput();
 				});
+				// Where the picture sits in the panel: fitted, zoomed (pinch) or moved (the pan control, a pointer pushed
+				// against the edge, the on-screen keyboard covering half of it). See lib/rdp/view-transform.
+				let view: ViewState = { zoom: 1, x: 0, y: 0 };
+				let transformed = false;
+				let panning = false;
+				const hostSize = () => ({ width: host.clientWidth, height: host.clientHeight });
+				const pictureSize = () => ({ width: surface.offsetWidth, height: surface.offsetHeight });
+				const applyView = () => {
+					// A hidden tab measures 0 × 0: the view is kept until it is shown again.
+					if (!host.clientWidth || !host.clientHeight || !surface.offsetWidth || !surface.offsetHeight) return;
+					const viewport = hostSize(), picture = pictureSize();
+					view = clampView(view, picture, viewport);
+					// The centring margins already put an unzoomed picture that fits in the middle of the panel.
+					const transform = viewTransform(view, Math.max(0, (viewport.width - picture.width) / 2), Math.max(0, (viewport.height - picture.height) / 2));
+					surface.style.transformOrigin = "0 0";
+					surface.style.transform = transform;
+					transformed = transform !== "";
+					panning = view.zoom > 1 || picture.width > viewport.width + 1 || picture.height > viewport.height + 1;
+					setCanPan(panning);
+				};
+				// The remote pointer, in the desktop's own pixels, and which of its buttons are down.
+				const pointer = { x: 0, y: 0, left: false, right: false };
+				const sendPointer = (wheel?: "up" | "down") => {
+					client.sendMouseState(new G.Mouse.State(pointer.x, pointer.y, pointer.left, false, pointer.right, wheel === "up", wheel === "down"), false);
+				};
 				const mouseEvents = ["mousedown", "mouseup", "mousemove"];
+				// Where the mouse is on screen: Guacamole reports it against the element's layout box, which a
+				// zoomed or moved picture no longer matches (see sendMouse). Seen before Guacamole sees it.
+				const mouseAt = { x: 0, y: 0 };
+				const recordMouse = (event: MouseEvent) => { mouseAt.x = event.clientX; mouseAt.y = event.clientY; };
+				for (const type of mouseEvents) document.addEventListener(type, recordMouse as EventListener, true);
 				const sendMouse = (event: import("guacamole-common-js").Event) => {
 					if (!(event instanceof G.Mouse.Event)) return;
 					const { left, middle, right, up, down } = event.state;
 					// Shift+click and Shift+wheel need the Shift press; a mere move does not.
 					if (left || middle || right || up || down) flushShift();
+					if (transformed) {
+						// Guacamole measures from the element's layout offset, which the CSS transform of a zoomed or moved picture
+						// does not follow: a mouse on a tablet whose picture was pinched wider would point somewhere else.
+						const rect = displayElement.getBoundingClientRect();
+						const factor = rect.width / (display.getWidth() || 1);
+						if (!(factor > 0)) return;
+						const zoomedState = Object.assign(Object.create(Object.getPrototypeOf(event.state)) as typeof event.state, event.state);
+						zoomedState.x = Math.min(Math.max(0, (mouseAt.x - rect.left) / factor), Math.max(0, display.getWidth() - 1));
+						zoomedState.y = Math.min(Math.max(0, (mouseAt.y - rect.top) / factor), Math.max(0, display.getHeight() - 1));
+						pointer.x = zoomedState.x;
+						pointer.y = zoomedState.y;
+						pointer.left = zoomedState.left;
+						pointer.right = zoomedState.right;
+						client.sendMouseState(zoomedState, false);
+						return;
+					}
 					// An off-pixel centred desktop reports -1 at its edge (Chromium, WebKit);
 					// keep the pointer on the desktop instead of sending what the gateway refuses.
 					const scale = display.getScale();
@@ -368,14 +467,14 @@ export function RemoteDesktopPanel({
 					const state = Object.assign(Object.create(Object.getPrototypeOf(event.state)) as typeof event.state, event.state);
 					state.x = clamp(state.x, display.getWidth());
 					state.y = clamp(state.y, display.getHeight());
+					// A finger that moves the pointer next starts from where the mouse left it.
+					pointer.x = state.x / scale;
+					pointer.y = state.y / scale;
+					pointer.left = state.left;
+					pointer.right = state.right;
 					client.sendMouseState(state, true);
 				};
-				// Both touch handlers listen; the chosen mode decides which one is sent.
-				const sendTouchpad = (event: import("guacamole-common-js").Event) => { if (touchModeRef.current === "touchpad") sendMouse(event); };
-				const sendTouchscreen = (event: import("guacamole-common-js").Event) => { if (touchModeRef.current === "touch") sendMouse(event); };
 				mouse.onEach(mouseEvents, sendMouse);
-				touchpad.onEach(mouseEvents, sendTouchpad);
-				touchscreen.onEach(mouseEvents, sendTouchscreen);
 				// A touchpad needs a pointer to look at; a mouse or a finger already shows where it is.
 				applyTouchMode.current = () => display.showCursor(touch && touchModeRef.current === "touchpad");
 				applyTouchMode.current();
@@ -442,8 +541,11 @@ export function RemoteDesktopPanel({
 				};
 				// The text field for the local input method, the desktop itself for the
 				// remote one: a non-editable focus is what turns the local one off.
-				const focus = () => (localInput() ? input : surface).focus({ preventScroll: true });
-				focusInput.current = focus;
+				// A touch screen's text field has the focus only while its keyboard is up; otherwise the desktop does
+				// (a hardware keyboard still types into it, and no keyboard rises).
+				const focus = () => (localInput() && (!softKeyboard || softKeyboard.isOpen()) ? input : surface).focus({ preventScroll: true });
+				toggleKeyboard.current = () => softKeyboard?.toggle();
+				hideKeyboard.current = () => softKeyboard?.close();
 				applyInputMethod.current = () => {
 					if (document.activeElement === input || document.activeElement === surface) focus();
 				};
@@ -451,7 +553,8 @@ export function RemoteDesktopPanel({
 				// tap would pop the on-screen keyboard over the desktop.
 				const pointerFocus = (event: PointerEvent) => { if (event.pointerType === "mouse") focus(); };
 				const surfaceFocus = () => { if (!touch && localInput()) input.focus({ preventScroll: true }); };
-				const reset = () => { keyboard.reset(); mouse.reset(); };
+				// Leaving the page or the desktop lets go of everything held — keys, mouse buttons, and the buttons a finger holds.
+				const reset = () => { keyboard.reset(); mouse.reset(); cancelTouch.current(); };
 				// Moving between the desktop and its text field is not leaving it.
 				const leave = (event: FocusEvent) => { if (event.relatedTarget !== input && event.relatedTarget !== surface) reset(); };
 				surface.addEventListener("pointerdown", pointerFocus);
@@ -466,6 +569,8 @@ export function RemoteDesktopPanel({
 				// Asks for the desktop to match the panel, or the chosen fixed size.
 				// guacd only resizes when the size differs, so asking again costs nothing.
 				const sendArea = () => {
+					// The keyboard covers part of the panel: the desktop keeps the size it had and is asked again once it is gone.
+					if (softKeyboard?.isOpen()) return;
 					const fixed = fixedDesktop(resolutionRef.current);
 					const area = fixed ?? desktopArea(host);
 					if (!area) return;
@@ -476,6 +581,7 @@ export function RemoteDesktopPanel({
 					const width = display.getWidth(), height = display.getHeight();
 					// A hidden tab measures 0 × 0: keep its scale rather than shrink it to nothing.
 					if (!width || !height || !host.clientWidth || !host.clientHeight) return;
+					if (softKeyboard?.isOpen()) { applyView(); return; }
 					// Fitted both ways: capped at 1, a desktop smaller than the panel (on
 					// entering full screen, until Windows takes the new size) stayed in
 					// the top-left corner at its own size.
@@ -483,11 +589,17 @@ export function RemoteDesktopPanel({
 					// Following the panel, the desktop is the panel's size once Windows has
 					// resized it: a few pixels' difference stays pixel for pixel, unblurred.
 					display.scale(!fixedDesktop(resolutionRef.current) && scale > 1 && scale < 1.05 ? 1 : scale);
+					applyView();
 				};
 				const resize = () => {
 					// A hidden tab measures 0 × 0; it is fitted again when shown.
 					if (!host.clientWidth || !host.clientHeight) return;
 					applyScaleNow();
+					if (softKeyboard?.isOpen()) {
+						// What is left of the panel shows the part of the desktop the pointer is in.
+						revealPointer();
+						return;
+					}
 					clearTimeout(resizeTimer);
 					// Each resize Windows performs is a moment guacd can lose the session
 					// (see the bridge), so wait for the layout to settle.
@@ -495,26 +607,144 @@ export function RemoteDesktopPanel({
 				};
 				applyResolution.current = () => { applyScaleNow(); sendArea(); };
 				refit.current = resize;
-				// Start the touchpad pointer in the middle, where a thumb finds it —
-				// once the desktop has a size (it arrives just after the session opens).
-				// Touchpad coordinates are on the scaled display.
+				// A finger drives the remote mouse as Microsoft's Remote Desktop app does (see lib/rdp/touch-gestures).
+				const revealPointer = () => {
+					if (!panning) return;
+					const scale = display.getScale();
+					const next = revealPoint(view, pointer.x * scale, pointer.y * scale, POINTER_MARGIN, pictureSize(), hostSize());
+					if (next !== view) { view = next; applyView(); }
+				};
+				const movePointer = (x: number, y: number, reveal: boolean) => {
+					const width = display.getWidth(), height = display.getHeight();
+					if (!width || !height) return;
+					pointer.x = Math.min(Math.max(0, x), width - 1);
+					pointer.y = Math.min(Math.max(0, y), height - 1);
+					sendPointer();
+					if (reveal) revealPointer();
+				};
+				/** Desktop pixels per screen pixel: the picture may be scaled down to the panel or zoomed in on. */
+				const desktopPerScreen = () => {
+					const width = displayElement.getBoundingClientRect().width;
+					return width > 0 && display.getWidth() ? display.getWidth() / width : 0;
+				};
+				let afterClick: KeyAction[] = [];
+				const gestureOutput: GestureOutput = {
+					pointerMoveBy(dx, dy) {
+						const k = desktopPerScreen();
+						if (k) movePointer(pointer.x + dx * k, pointer.y + dy * k, true);
+					},
+					pointerMoveTo(x, y) {
+						const k = desktopPerScreen();
+						if (!k) return;
+						const rect = displayElement.getBoundingClientRect();
+						movePointer((x - rect.left) * k, (y - rect.top) * k, false);
+					},
+					button(which, pressed) {
+						if (pressed) {
+							flushShift();
+							// Ctrl-click and the like: a modifier armed among the extra keys goes down with the click.
+							const wrapped = mods.wrap();
+							applyActions(wrapped.before);
+							afterClick = wrapped.after;
+							// A hardware keyboard types into the desktop, unless the on-screen keyboard has the focus.
+							if (!softKeyboard?.isOpen() && document.activeElement !== surface) surface.focus({ preventScroll: true });
+						}
+						pointer[which] = pressed;
+						sendPointer();
+						if (!pressed && !pointer.left && !pointer.right && afterClick.length > 0) { applyActions(afterClick); afterClick = []; }
+					},
+					wheel(notches) {
+						flushShift();
+						for (let i = 0; i < Math.abs(notches); i += 1) { sendPointer(notches > 0 ? "down" : "up"); sendPointer(); }
+					},
+					zoomBy(factor, x, y) {
+						const box = host.getBoundingClientRect();
+						view = zoomAround(view, factor, x - box.left, y - box.top, pictureSize(), hostSize());
+						applyView();
+					},
+					panBy(dx, dy) {
+						view = panViewBy(view, dx, dy, pictureSize(), hostSize());
+						applyView();
+					},
+					holdRegistered(x, y) {
+						const box = host.getBoundingClientRect();
+						setHoldRing(ring => ({ x: x - box.left, y: y - box.top, id: (ring?.id ?? 0) + 1 }));
+						navigator.vibrate?.(12);
+					},
+				};
+				const gestures = createTouchGestures(gestureOutput, () => (touchModeRef.current === "touch" ? "direct" : "pointer"));
+				cancelTouch.current = () => gestures.cancel();
+				panView.current = (dx, dy) => { view = panViewBy(view, dx, dy, pictureSize(), hostSize()); applyView(); };
+				// Only fingers that came down on the desktop are its gestures; the keyboard buttons and the pan control are theirs.
+				const fingers = (list: TouchList) => {
+					const points: TouchPoint[] = [];
+					for (let i = 0; i < list.length; i += 1) {
+						const finger = list[i]!;
+						if (finger.target instanceof Node && host.contains(finger.target)) points.push({ id: finger.identifier, x: finger.clientX, y: finger.clientY });
+					}
+					return points;
+				};
+				// Every touch on the desktop is ours: no scrolling, page zoom, long-press menu, focus change (which would
+				// lower the keyboard) or emulated mouse events under a finger.
+				const touchStep = (step: (points: TouchPoint[]) => void) => (event: TouchEvent) => {
+					if (event.cancelable) event.preventDefault();
+					step(fingers(event.touches));
+				};
+				const onTouchStart = touchStep(points => gestures.start(points));
+				const onTouchMove = touchStep(points => gestures.move(points));
+				const onTouchEnd = touchStep(points => gestures.end(points));
+				const onTouchCancel = () => gestures.cancel();
+				const noDefault = (event: Event) => event.preventDefault();
+				host.addEventListener("touchstart", onTouchStart, { passive: false });
+				host.addEventListener("touchmove", onTouchMove, { passive: false });
+				host.addEventListener("touchend", onTouchEnd, { passive: false });
+				host.addEventListener("touchcancel", onTouchCancel);
+				host.addEventListener("gesturestart", noDefault);
+				if (touch) host.addEventListener("contextmenu", noDefault);
+				// The extra keys above the keyboard: Esc, Tab, arrows, F-keys and the sticky Ctrl/Alt/Shift/Win.
+				const extraAfter = new Map<number, KeyAction[]>();
+				extraKeys.current = {
+					down(keysym) {
+						flushShift();
+						const wrapped = mods.wrap();
+						applyActions(wrapped.before);
+						client.sendKeyEvent(1, keysym);
+						if (wrapped.after.length > 0) extraAfter.set(keysym, wrapped.after);
+					},
+					// A held key repeats as a physical keyboard's does: Windows does not repeat what a remote client presses.
+					repeat(keysym) { client.sendKeyEvent(1, keysym); },
+					up(keysym) {
+						client.sendKeyEvent(0, keysym);
+						const after = extraAfter.get(keysym);
+						if (after) { extraAfter.delete(keysym); applyActions(after); }
+					},
+					modifier(modifier) { flushShift(); applyActions(mods.tap(modifier)); },
+					start() { client.sendKeyEvent(1, KEYSYM_WIN); client.sendKeyEvent(0, KEYSYM_WIN); },
+				};
+				// The pointer starts in the middle of the desktop, where a thumb finds it — once the desktop has
+				// a size (it arrives just after the session opens).
 				let pointerCentered = false;
-				const centerTouchpadPointer = () => {
+				const centerPointer = () => {
 					if (pointerCentered || !touch || !display.getWidth() || !display.getHeight()) return;
 					pointerCentered = true;
-					touchpad.currentState.x = (display.getWidth() * display.getScale()) / 2;
-					touchpad.currentState.y = (display.getHeight() * display.getScale()) / 2;
-					if (touchModeRef.current === "touchpad") client.sendMouseState(touchpad.currentState, true);
+					pointer.x = display.getWidth() / 2;
+					pointer.y = display.getHeight() / 2;
+					if (touchModeRef.current === "touchpad") sendPointer();
 				};
 				const observer = new ResizeObserver(resize);
 				observer.observe(host);
-				display.onresize = () => { applyScaleNow(); centerTouchpadPointer(); };
+				display.onresize = () => {
+					applyScaleNow();
+					centerPointer();
+					// The desktop may have become smaller than where the pointer was.
+					pointer.x = Math.min(pointer.x, Math.max(0, display.getWidth() - 1));
+					pointer.y = Math.min(pointer.y, Math.max(0, display.getHeight() - 1));
+				};
 				release = () => {
 					reset();
 					keyboard.onkeydown = keyboard.onkeyup = null;
 					mouse.offEach(mouseEvents, sendMouse);
-					touchpad.offEach(mouseEvents, sendTouchpad);
-					touchscreen.offEach(mouseEvents, sendTouchscreen);
+					for (const type of mouseEvents) document.removeEventListener(type, recordMouse as EventListener, true);
 					surface.removeEventListener("paste", paste);
 					surface.removeEventListener("pointerdown", pointerFocus);
 					surface.removeEventListener("focus", surfaceFocus);
@@ -526,7 +756,22 @@ export function RemoteDesktopPanel({
 					observer.disconnect(); clearTimeout(resizeTimer); confirmTimers.forEach(clearTimeout); confirmTimers = [];
 					client.onerror = client.onstatechange = client.onclipboard = null;
 					display.onresize = null;
-					focusInput.current = () => {};
+					host.removeEventListener("touchstart", onTouchStart);
+					host.removeEventListener("touchmove", onTouchMove);
+					host.removeEventListener("touchend", onTouchEnd);
+					host.removeEventListener("touchcancel", onTouchCancel);
+					host.removeEventListener("gesturestart", noDefault);
+					host.removeEventListener("contextmenu", noDefault);
+					gestures.dispose();
+					softKeyboard?.dispose();
+					mods.reset();
+					setKeyboardOpen(false);
+					setCanPan(false);
+					toggleKeyboard.current = () => {};
+					hideKeyboard.current = () => {};
+					extraKeys.current = NO_EXTRA_KEYS;
+					panView.current = () => {};
+					cancelTouch.current = () => {};
 					applyResolution.current = () => {};
 					applyTouchMode.current = () => {};
 					applyInputMethod.current = () => {};
@@ -578,7 +823,9 @@ export function RemoteDesktopPanel({
 						confirmTimers.forEach(clearTimeout);
 						confirmTimers = RESIZE_CONFIRM_MS.map(delay => setTimeout(sendArea, delay));
 						if (touch) {
-							centerTouchpadPointer();
+							centerPointer();
+							// The desktop has the focus (a hardware keyboard types into it); the on-screen keyboard is the button's.
+							if (visibleRef.current) surface.focus({ preventScroll: true });
 							setTouchHint(true);
 						} else if (visibleRef.current) {
 							focus();
@@ -609,6 +856,8 @@ export function RemoteDesktopPanel({
 	useEffect(() => {
 		touchModeRef.current = touchMode;
 		applyTouchMode.current();
+		// A drag begun in the other mode must not go on in this one.
+		cancelTouch.current();
 	}, [touchMode]);
 
 	useEffect(() => {
@@ -642,6 +891,12 @@ export function RemoteDesktopPanel({
 		refit.current();
 		showFrames.current();
 	}, [visible, fullscreen]);
+
+	useEffect(() => {
+		if (!holdRing) return;
+		const timer = setTimeout(() => setHoldRing(null), HOLD_RING_MS);
+		return () => clearTimeout(timer);
+	}, [holdRing]);
 
 	useEffect(() => {
 		if (!touchHint) return;
@@ -686,12 +941,13 @@ export function RemoteDesktopPanel({
 				fullscreen={fullscreen}
 				touch={touch}
 				touchMode={touchMode}
+				keyboardOpen={keyboardOpen}
 				inputMethod={inputMethod}
 				resolution={resolution}
 				elapsed={connected ? formatElapsed(connectedFor) : null}
 				latency={connected ? latency : null}
 				onToggleTouchMode={() => { setTouchMode(mode => mode === "touchpad" ? "touch" : "touchpad"); setTouchHint(true); }}
-				onKeyboard={() => focusInput.current()}
+				onKeyboard={() => toggleKeyboard.current()}
 				onToggleInputMethod={toggleInputMethod}
 				onResolutionChange={changeResolution}
 				onCtrlAltDel={() => sendCtrlAltDel.current()}
@@ -712,6 +968,7 @@ export function RemoteDesktopPanel({
 						data-input-label={t("rdp.input")}
 						aria-label={t("rdp.display")}
 						className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+						style={{ touchAction: "none" }}
 					/>
 					{overlay ? (
 						<p
@@ -725,18 +982,40 @@ export function RemoteDesktopPanel({
 							{overlay}
 						</p>
 					) : null}
+					{canPan && connected ? <RdpPanControl label={t("rdp.pan.label")} onPan={(dx, dy) => panView.current(dx, dy)} /> : null}
+					{holdRing ? (
+						<span
+							key={holdRing.id}
+							aria-hidden="true"
+							data-testid="rdp-hold-ring"
+							className="pointer-events-none absolute h-14 w-14 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full border-2 border-[var(--accent)]"
+							style={{ left: holdRing.x, top: holdRing.y }}
+						/>
+					) : null}
 					{/* Floating notes: a bar above the desktop would resize the remote session. */}
 					{clipboardError ? (
 						<p role="alert" data-popover className="pointer-events-none absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] px-3 py-2 text-xs text-[var(--warning)] sm:max-w-sm">
 							{t(clipboardError)}
 						</p>
 					) : touchHint && connected ? (
-						<p role="status" data-popover className="pointer-events-none absolute bottom-3 right-3 max-w-[calc(100%-1.5rem)] px-3 py-2 text-xs text-[var(--text-secondary)] sm:max-w-sm" data-testid="rdp-touch-hint">
+						<p role="status" data-popover className="pointer-events-none absolute bottom-3 left-3 max-w-[calc(100%-6rem)] px-3 py-2 text-xs text-[var(--text-secondary)] sm:max-w-sm" data-testid="rdp-touch-hint">
 							{t(touchMode === "touchpad" ? "rdp.pointer.touchpadHint" : "rdp.pointer.touchHint")}
 						</p>
 					) : null}
 				</div>
 			</div>
+			{touch && keyboardOpen && connected ? (
+				<RdpExtraKeys
+					t={t}
+					modifiers={modifierStates}
+					onModifier={modifier => extraKeys.current.modifier(modifier)}
+					onKeyDown={keysym => extraKeys.current.down(keysym)}
+					onKeyRepeat={keysym => extraKeys.current.repeat(keysym)}
+					onKeyUp={keysym => extraKeys.current.up(keysym)}
+					onStart={() => extraKeys.current.start()}
+					onHideKeyboard={() => hideKeyboard.current()}
+				/>
+			) : null}
 		</div>
 	);
 }

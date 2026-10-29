@@ -12,11 +12,11 @@ import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
-const chipBase = "min-h-9 rounded-full border px-3 py-1 text-xs transition";
-const chipIdle = "border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50";
-const chipActive = "border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action-text)]";
+export const chipBase = "min-h-9 rounded-full border px-3 py-1 text-xs transition";
+export const chipIdle = "border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50";
+export const chipActive = "border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action-text)]";
 /** Chip whose icon stands alone (phones, the full-screen strip): a square touch target. */
-const chipIcon = "inline-flex min-h-9 min-w-9 items-center justify-center";
+export const chipIcon = "inline-flex min-h-9 min-w-9 items-center justify-center";
 
 /** Status badge tone and label shared by the SSH and remote desktop toolbars. */
 function sessionStatus(status: TerminalStatus, t: TFn): { tone: StatusTone; label: string } {
@@ -191,6 +191,7 @@ export function RemoteDesktopToolbar({
 	fullscreen = false,
 	touch,
 	touchMode,
+	keyboardOpen = false,
 	inputMethod,
 	resolution,
 	elapsed,
@@ -212,6 +213,8 @@ export function RemoteDesktopToolbar({
 	/** A touch screen: show the keyboard and pointer-mode chips. */
 	touch: boolean;
 	touchMode: RemoteDesktopTouchMode;
+	/** The on-screen keyboard is up: its chip is pressed, and tapping it again lowers the keyboard. */
+	keyboardOpen?: boolean;
 	/** Which input method composes Chinese and other text (mouse and keyboard devices). */
 	inputMethod: RemoteDesktopInputMethod;
 	resolution: RemoteDesktopResolution;
@@ -237,10 +240,13 @@ export function RemoteDesktopToolbar({
 		</ActionButton>
 	);
 	// Phones: icon-only chips, so the bar stays one row and the desktop keeps its height.
-	const chip = (label: string, icon: ReactNode, onClick: () => void, extra?: { pressed?: boolean; disabled?: boolean; testId?: string; iconOnly?: boolean; title?: string }) => (
+	const chip = (label: string, icon: ReactNode, onClick: () => void, extra?: { pressed?: boolean; disabled?: boolean; testId?: string; iconOnly?: boolean; title?: string; keepFocus?: boolean }) => (
 		<button
 			type="button"
 			onClick={onClick}
+			// The press must not move the focus off the keyboard's text field: that would lower the
+			// keyboard before the click, and the click would raise it again.
+			onMouseDown={extra?.keepFocus ? event => event.preventDefault() : undefined}
 			disabled={extra?.disabled}
 			aria-pressed={extra?.pressed}
 			aria-label={label}
@@ -288,7 +294,7 @@ export function RemoteDesktopToolbar({
 	);
 	const touchChips = touch && (
 		<>
-			{chip(t("rdp.keyboard"), <Keyboard size={14} aria-hidden="true" />, onKeyboard, { disabled: !connected, iconOnly: fullscreen, testId: "rdp-keyboard" })}
+			{chip(t("rdp.keyboard"), <Keyboard size={14} aria-hidden="true" />, onKeyboard, { disabled: !connected, iconOnly: fullscreen, testId: "rdp-keyboard", pressed: keyboardOpen, keepFocus: true, title: t(keyboardOpen ? "rdp.keyboard.hide" : "rdp.keyboard.show") })}
 			{chip(pointerLabel, touchMode === "touchpad" ? <MousePointer size={14} aria-hidden="true" /> : <Hand size={14} aria-hidden="true" />, onToggleTouchMode, { iconOnly: fullscreen, testId: "rdp-pointer-mode" })}
 		</>
 	);
