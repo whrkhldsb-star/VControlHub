@@ -218,7 +218,9 @@ test("the keyboard button raises and lowers the on-screen keyboard, with the ext
 	});
 });
 
-test("the keyboard button and taps behave the same in the WebKit engine (iOS Safari)", async ({ playwright, baseURL }) => {
+test("the keyboard button and taps behave the same in the WebKit engine (iOS Safari)", async ({ playwright, browserName, baseURL }) => {
+	// It starts WebKit itself; run once, not once per project.
+	test.skip(browserName !== "chromium", "runs once, from the Chromium project");
 	test.setTimeout(150_000);
 	const webkit = await playwright.webkit.launch();
 	try {
