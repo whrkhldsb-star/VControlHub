@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	prisma: {
 		server: { findMany: vi.fn() },
+		storageNode: { findMany: vi.fn() },
 		syncJob: {
 			create: vi.fn(),
 			findMany: vi.fn(),
@@ -29,13 +30,15 @@ vi.mock("@/lib/logging", () => ({
 	createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
-const { createSyncJob, deleteSyncJob, getSyncJob, listSyncJobs, updateSyncJob } = await import(
+const { createSyncJob, deleteSyncJob, getSyncJob, listSyncJobs, syncPathWithinRoot, updateSyncJob } = await import(
 	"../service-crud"
 );
 
 const operator = { userId: "u_1", roles: ["operator"] as never, currentTeamId: "team_1" };
 const teamless = { userId: "u_2", roles: ["operator"] as never, currentTeamId: null };
 const admin = { userId: "u_3", roles: ["admin"] as never, currentTeamId: "team_1" };
+// Files, not terminals: may read and write the storage root, may not open a shell.
+const storageManager = { userId: "u_4", roles: ["storage_manager"] as never, currentTeamId: "team_1" };
 
 const baseInput = {
 	name: "nightly",
@@ -61,6 +64,7 @@ describe("sync job CRUD scoping", () => {
 	beforeEach(() => {
 		for (const stub of [
 			mocks.prisma.server.findMany,
+			mocks.prisma.storageNode.findMany,
 			mocks.prisma.syncJob.create,
 			mocks.prisma.syncJob.findMany,
 			mocks.prisma.syncJob.findFirst,
@@ -70,6 +74,10 @@ describe("sync job CRUD scoping", () => {
 			stub.mockReset();
 		}
 		mocks.prisma.server.findMany.mockResolvedValue([{ id: "srv_a" }, { id: "srv_b" }]);
+		mocks.prisma.storageNode.findMany.mockResolvedValue([
+			{ serverId: "srv_a", basePath: "/srv/storage" },
+			{ serverId: "srv_b", basePath: "/srv/storage" },
+		]);
 		mocks.prisma.syncJob.create.mockResolvedValue({ ...jobRow });
 		mocks.prisma.syncJob.findFirst.mockResolvedValue({ ...jobRow });
 		mocks.prisma.syncJob.deleteMany.mockResolvedValue({ count: 1 });
@@ -156,6 +164,75 @@ describe("sync job CRUD scoping", () => {
 			expect(mocks.prisma.syncJob.create).toHaveBeenCalledWith(
 				expect.objectContaining({ data: expect.objectContaining({ deleteOrphans: false }) }),
 			);
+		});
+	});
+
+	describe("endpoints of a caller without server:ssh", () => {
+		// rsync runs as the server's SSH user anywhere on the machine, the reach of a terminal: a caller who may not
+		// open one there is confined to the storage root its storage:write already covers.
+		it("lets a caller with server:ssh sync any path, without consulting the storage nodes", async () => {
+			await createSyncJob({ ...baseInput, sourcePath: "/etc", targetPath: "/var/backups/etc", session: operator });
+			expect(mocks.prisma.storageNode.findMany).not.toHaveBeenCalled();
+			expect(mocks.prisma.syncJob.create).toHaveBeenCalled();
+		});
+
+		it("lets a storage manager sync paths inside both servers' storage roots", async () => {
+			await createSyncJob({ ...baseInput, sourcePath: "/srv/storage/photos", targetPath: "/srv/storage/", session: storageManager });
+			expect(mocks.prisma.storageNode.findMany).toHaveBeenCalledWith({
+				where: { serverId: { in: ["srv_a", "srv_b"] } },
+				select: { serverId: true, basePath: true },
+			});
+			expect(mocks.prisma.syncJob.create).toHaveBeenCalled();
+		});
+
+		it("refuses a storage manager an endpoint outside the storage root, or one it cannot place", async () => {
+			for (const targetPath of ["/opt/elsewhere", "/srv/storage-other", "/srv/storage/../secrets", "photos"]) {
+				await expect(createSyncJob({ ...baseInput, sourcePath: "/srv/storage/photos", targetPath, session: storageManager }))
+					.rejects.toThrow(/backend\.sync\.endpointOutsideStorageRoot/);
+			}
+			expect(mocks.prisma.syncJob.create).not.toHaveBeenCalled();
+		});
+
+		it("refuses a storage manager a server that has no storage root", async () => {
+			mocks.prisma.storageNode.findMany.mockResolvedValue([{ serverId: "srv_a", basePath: "/srv/storage" }]);
+			await expect(createSyncJob({ ...baseInput, sourcePath: "/srv/storage/photos", targetPath: "/srv/storage", session: storageManager }))
+				.rejects.toThrow(/backend\.sync\.endpointNeedsSshPermission/);
+		});
+
+		it("goes by the session's effective permissions when it carries them", async () => {
+			const confined = { ...operator, permissions: ["storage:write"] as never };
+			await expect(createSyncJob({ ...baseInput, sourcePath: "/home/app", session: confined })).rejects.toThrow(/endpointOutsideStorageRoot/);
+			const unconfined = { ...storageManager, permissions: ["storage:write", "server:ssh"] as never };
+			await createSyncJob({ ...baseInput, sourcePath: "/home/app", session: unconfined });
+			expect(mocks.prisma.syncJob.create).toHaveBeenCalledTimes(1);
+		});
+
+		it("expands the deployment placeholder in a storage root", async () => {
+			mocks.prisma.storageNode.findMany.mockResolvedValue([
+				{ serverId: "srv_a", basePath: "/srv/${APP_SLUG:-vcontrolhub}/files" },
+				{ serverId: "srv_b", basePath: "/srv/${APP_SLUG:-vcontrolhub}/files" },
+			]);
+			await createSyncJob({ ...baseInput, sourcePath: "/srv/vcontrolhub/files/a", targetPath: "/srv/vcontrolhub/files/b", session: storageManager });
+			expect(mocks.prisma.syncJob.create).toHaveBeenCalled();
+		});
+
+		it("applies the same rule when a path of an existing job is changed, and not to other edits", async () => {
+			await expect(updateSyncJob("job_1", { targetPath: "/opt/elsewhere" }, storageManager)).rejects.toThrow(/endpointOutsideStorageRoot/);
+			expect(mocks.prisma.syncJob.updateMany).not.toHaveBeenCalled();
+			// The job's own paths lie outside the root (an administrator made it): renaming it is still allowed.
+			mocks.prisma.storageNode.findMany.mockClear();
+			await updateSyncJob("job_1", { name: "renamed" }, storageManager);
+			expect(mocks.prisma.storageNode.findMany).not.toHaveBeenCalled();
+			expect(mocks.prisma.syncJob.updateMany).toHaveBeenCalledTimes(1);
+		});
+
+		it("decides containment on normalized absolute paths only", () => {
+			expect(syncPathWithinRoot("/srv/storage", "/srv/storage/")).toBe(true);
+			expect(syncPathWithinRoot("/srv/storage/a/../b", "/srv/storage")).toBe(true);
+			expect(syncPathWithinRoot("/srv/storage2", "/srv/storage")).toBe(false);
+			expect(syncPathWithinRoot("/srv/storage/../etc", "/srv/storage")).toBe(false);
+			expect(syncPathWithinRoot("storage/a", "/srv/storage")).toBe(false);
+			expect(syncPathWithinRoot("/anything", "/")).toBe(true);
 		});
 	});
 
