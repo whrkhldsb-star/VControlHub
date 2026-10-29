@@ -102,6 +102,8 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 
 	const section = page.locator('[id="2fa"]');
 	await expect(section).toBeVisible();
+	// Setting up a second factor asks for the current password first (the button stays disabled until it is typed).
+	await section.getByLabel(/当前密码|Current password/i).fill(PASS);
 	await section.getByRole("button", { name: /开启两步验证|Enable 2FA/i }).click();
 
 	const secret = (await section.locator("code").first().textContent())?.trim();
