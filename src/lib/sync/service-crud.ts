@@ -10,7 +10,7 @@ import { prisma } from "@/lib/db";
 import { serverTeamWhere, syncJobTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
-import { effectiveDeleteOrphans, syncEndpointsOverlap } from "./bidirectional";
+import { effectiveDeleteOrphans, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
 import { t } from "@/lib/i18n/service-translations";
 
 export type SyncSessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
@@ -60,8 +60,16 @@ async function assertSyncServersInScope(
 	}
 }
 
+/** A job that deletes what the source lacks may not target a system directory. */
+export function assertSafeDeleteTarget(syncType: string | null | undefined, deleteOrphans: boolean, targetPath: string) {
+	if (effectiveDeleteOrphans(syncType, deleteOrphans) && isProtectedDeleteTarget(targetPath)) {
+		throw new ValidationError(t("backend.sync.deleteTargetIsSystemDirectory"));
+	}
+}
+
 export async function createSyncJob(input: SyncJobInput) {
 	assertDisjointSyncEndpoints(input);
+	assertSafeDeleteTarget(input.syncType ?? "MIRROR", input.deleteOrphans ?? false, input.targetPath);
 	await assertSyncServersInScope(
 		[input.sourceServerId, input.targetServerId],
 		input.session ?? null,
@@ -188,6 +196,11 @@ export async function updateSyncJob(
 		sourcePath: data.sourcePath ?? existing.sourcePath,
 		targetPath: data.targetPath ?? existing.targetPath,
 	});
+	assertSafeDeleteTarget(
+		data.syncType ?? existing.syncType,
+		Boolean(data.deleteOrphans ?? existing.deleteOrphans),
+		data.targetPath ?? existing.targetPath,
+	);
 	const patch: Record<string, unknown> = {};
 	if (data.name !== undefined) patch.name = data.name;
 	if (data.sourcePath !== undefined) patch.sourcePath = data.sourcePath;

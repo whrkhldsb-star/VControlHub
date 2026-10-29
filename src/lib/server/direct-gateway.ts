@@ -149,6 +149,10 @@ class Handler(SimpleHTTPRequestHandler):
             return None, (403, "invalid expires")
         if expires_int < int(time.time()):
             return None, (403, "link expired")
+        # The hub signs links for 24 hours at most (a day plus an hour for clock skew); a longer or endless expiry can
+        # only come from someone who holds the signing secret.
+        if expires_int > int(time.time()) + 90000:
+            return None, (403, "invalid expires")
         normalized = posixpath.normpath("/" + unquote(parsed.path).lstrip("/"))
         if normalized.startswith("/../") or normalized == "/..":
             return None, (400, "invalid path")

@@ -78,7 +78,8 @@ async function dispatch(
   // the client's 400, not an unhandled 500.
   let relativePath = "";
   try {
-    relativePath = normalizeWebDavRelativePath(params.path);
+    // Next has percent-decoded the catch-all segments already.
+    relativePath = normalizeWebDavRelativePath(params.path, { alreadyDecoded: true });
     const ctx: WebDavContext = {
       session: auth.session,
       storageNodeId: params.storageNodeId,

@@ -78,6 +78,16 @@ describe("normalizeWebDavRelativePath", () => {
     expect(normalizeWebDavRelativePath(["dir", "a%20b.txt"])).toBe("dir/a b.txt");
   });
 
+  it("takes route segments that Next already decoded as they are, so a name holding %XX round-trips", () => {
+    // Next decodes the catch-all once: "report%201.pdf" on disk arrives as ["report%201.pdf"] (the client sent
+    // report%25201.pdf). Decoding again made it "report 1.pdf" - another file, overwritten by a PUT.
+    expect(normalizeWebDavRelativePath(["dir", "report%201.pdf"], { alreadyDecoded: true })).toBe("dir/report%201.pdf");
+    expect(normalizeWebDavRelativePath(["a%2Fb.txt"], { alreadyDecoded: true })).toBe("a%2Fb.txt");
+    // Traversal is still refused.
+    expect(() => normalizeWebDavRelativePath(["a", "..", "b"], { alreadyDecoded: true })).toThrow();
+    expect(() => normalizeWebDavRelativePath(["a/../etc"], { alreadyDecoded: true })).toThrow();
+  });
+
   it("rejects an encoded separator instead of turning it into a path boundary", () => {
     // %2F decoded before the split would create a segment boundary the storage
     // validator never sees; decoding per segment keeps it a literal character,

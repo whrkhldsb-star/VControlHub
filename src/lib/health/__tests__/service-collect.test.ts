@@ -97,6 +97,27 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		expect((await collectAllHealth()).servers[0]).toMatchObject({ status: "offline", probeStatus: "failed" });
 	});
 
+	it("probes a large fleet a few at a time, not all at once", async () => {
+		// Every server got its TCP probe and SSH collection at the same moment: hundreds of sockets in one burst.
+		const fleet = Array.from({ length: 40 }, (_, n) => ({ id: `s${n}`, name: `Server ${n}`, host: `10.0.0.${n}`, port: 22, enabled: true, managementMode: "DIRECT", operatingSystem: "LINUX" }));
+		prismaMock.server.findMany.mockResolvedValueOnce(fleet);
+		let active = 0;
+		let peak = 0;
+		tcpProbeMock.mockImplementation(async () => {
+			active += 1;
+			peak = Math.max(peak, active);
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			active -= 1;
+			return { ok: false, error: "timeout" };
+		});
+
+		const result = await collectAllHealth();
+
+		expect(result.total).toBe(40);
+		expect(peak).toBeGreaterThan(1);
+		expect(peak).toBeLessThanOrEqual(8);
+	});
+
 	it("marks a server offline with 网络不可达 reason when the TCP probe fails", async () => {
 		prismaMock.server.findMany.mockResolvedValueOnce([
 			{ id: "s1", name: "Unreachable", host: "10.0.0.1", port: 22, enabled: true },

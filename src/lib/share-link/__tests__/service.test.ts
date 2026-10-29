@@ -101,6 +101,18 @@ describe("share link service", () => {
     expect(mockPrisma.shareLink.count).toHaveBeenCalledWith({ where: query.where });
   });
 
+  it("searches the share list for the text typed, not for its LIKE wildcards", async () => {
+    // contains does not escape % and _: a search for "100%" matched everything and "a_b" matched "axb".
+    mockPrisma.shareLink.findMany.mockResolvedValueOnce([]);
+    mockPrisma.shareLink.count.mockResolvedValueOnce(0);
+
+    await listShareLinkPage({ userId: "u1", roles: ["operator"], currentTeamId: "team-1" }, { q: "100%_a" });
+
+    const where = JSON.stringify(mockPrisma.shareLink.findMany.mock.calls[0]![0].where);
+    expect(where).toContain('"contains":"100\\\\%\\\\_a"');
+    expect(where).not.toContain('"contains":"100%_a"');
+  });
+
   it("normalizes share paths and rejects traversal or unsafe absolute paths", () => {
     expect(normalizeSharePath("/docs//report.pdf")).toBe("docs/report.pdf");
     expect(normalizeSharePath("docs\\nested\\report.pdf")).toBe("docs/nested/report.pdf");

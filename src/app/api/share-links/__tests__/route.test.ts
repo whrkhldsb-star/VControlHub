@@ -142,6 +142,18 @@ describe("/api/share-links", () => {
     );
   });
 
+  it("answers 400, not 500, for numbers and names the database cannot hold", async () => {
+    for (const body of [
+      { fileEntryId: "file_1", expiresInHours: 1e12 },
+      { fileEntryId: "file_1", maxDownloads: 3_000_000_000 },
+      { fileEntryId: "file_1", name: "n".repeat(300) },
+    ]) {
+      expect((await POST(postShare(body))).status).toBe(400);
+    }
+    expect(createShareLinkFromFileEntryMock).not.toHaveBeenCalled();
+    expect(createShareLinkMock).not.toHaveBeenCalled();
+  });
+
   it("rejects password and download limits for metadata-only shares", async () => {
     for (const conflicting of [{ password: "secret" }, { maxDownloads: 2 }]) {
       const response = await POST(

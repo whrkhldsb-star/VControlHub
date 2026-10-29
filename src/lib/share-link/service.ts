@@ -302,7 +302,8 @@ function shareLinkFilterWhere(options: ShareLinkListOptions, now: Date) {
   if (options.status === "revoked") clauses.push({ revokedAt: { not: null } });
   const q = options.q?.trim();
   if (q) {
-    const contains = { contains: q, mode: "insensitive" as const };
+    // % and _ are wildcards inside contains; escaped, a search for "100%" finds "100%" and not everything.
+    const contains = { contains: escapeLikeLiteral(q), mode: "insensitive" as const };
     clauses.push({
       OR: [
         { name: contains },

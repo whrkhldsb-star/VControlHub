@@ -53,7 +53,9 @@ export async function GET(request: Request) {
 		const serverId = url.searchParams.get("serverId")?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
 		if (serverId) {
-			const access = await assertServerTeamAccess(session, serverId, "read");
+			// "connect", like the same probe in check-port: the platform SSHes to the server with its own credentials to list
+			// its listening ports and Docker state, which "read" alone (a member narrowed to read-only) must not trigger.
+			const access = await assertServerTeamAccess(session, serverId, "connect");
 			if (!access.ok) return access.response;
 		} else {
 			// No serverId means the hub host's own daemon — shared platform
@@ -78,7 +80,10 @@ export async function GET(request: Request) {
 				});
 			}
 		}
-		const installed = await listQuickServices(instanceKey);
+		const installedRows = await listQuickServices(instanceKey);
+		// The page never read envJson, and it holds the generated administrator passwords of every installed service
+		// (MinIO, n8n, Pi-hole ...): only how many variables there are leaves the server.
+		const installed = installedRows.map(({ envJson, ...row }) => ({ ...row, envKeyCount: Object.keys(envJson ?? {}).length }));
 		const installedMap = new Map(installed.map((s) => [s.slug, s]));
 
 		// Local catalog
@@ -132,7 +137,8 @@ export async function GET(request: Request) {
 		// install target picker. Admins (team:manage) still see everything via
 		// serverTeamWhere(); unassigned legacy hosts are manager-only.
 		const [usedPorts, docker, servers] = await Promise.all([
-			serverId ? getRemoteUsedPorts(serverId) : getUsedPorts(),
+			// An unreachable or Windows server answers the probe with an error; the list of services must still load.
+			serverId ? getRemoteUsedPorts(serverId).catch(() => []) : getUsedPorts(),
 			getDockerEnvironmentStatusFor(serverId ? { kind: "remote", serverId } : { kind: "local" }),
 			listInstallTargets(session),
 		]);

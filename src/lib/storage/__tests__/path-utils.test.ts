@@ -64,6 +64,14 @@ describe("storage path utils", () => {
     for (const base of ["/data", "/srv/C:/data", "data", "/"]) expect(isWindowsStorageBasePath(base)).toBe(false);
   });
 
+  it("limits a path by its bytes, since the unique index entry holds 2704 at most", () => {
+    // 900 Chinese characters are 2700 bytes: far under the 4096-character limit, but the index write failed.
+    const folder = "长".repeat(80);
+    const long = [folder, folder, folder, folder, folder, folder, folder, folder, folder, folder].join("/");
+    expect(normalizeStorageRelativePath(long)).toEqual({ ok: false, reason: "Path is too long" });
+    expect(normalizeStorageRelativePath([folder, folder, folder].join("/")).ok).toBe(true);
+  });
+
   it("rejects empty target file path but allows empty target directory", () => {
     expect(normalizeStorageRelativePath(" ").ok).toBe(false);
     expect(normalizeStorageTargetDirectory(" ")).toEqual({ ok: true, path: "" });

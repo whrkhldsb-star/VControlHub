@@ -2,7 +2,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { prisma } from "@/lib/db";
+import { isUniqueViolation, prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
@@ -16,9 +16,8 @@ import {
 import { listQuickServices } from "@/lib/quick-service/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 
-import { AppError, ConflictError, NotFoundError } from "@/lib/errors";
+import { ConflictError, NotFoundError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
-import { getErrorMessage } from "@/lib/http/error-message";
 import { t as serviceT } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
@@ -125,23 +124,22 @@ export async function POST(request: Request) {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: addSourceSchema,
-      onError: (error) => {
-        const msg = getErrorMessage(error, "Failed to add source");
-        if (msg.includes("Unique")) {
-          throw new ConflictError(apiCopy("apiCopy.source.name.already.exists.69c17e32"));
-        }
-        throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
-      },
+      // No onError: the guard expects it to return a Response, and this one threw, so every failure (a name that
+      // exists, a private URL, a bad body) escaped as an unhandled 500 with no message. apiCatch maps an AppError
+      // to its own status.
+      errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
     },
     async ({ body, session }) => {
-      const source = await prisma.appSource.create({
-        data: {
-          name: body.name,
-          displayName: body.displayName,
-          url: normalizePublicHttpUrl(body.url),
-          type: body.type,
-        },
-      });
+      const url = normalizePublicHttpUrl(body.url);
+      let source;
+      try {
+        source = await prisma.appSource.create({
+          data: { name: body.name, displayName: body.displayName, url, type: body.type },
+        });
+      } catch (error) {
+        if (isUniqueViolation(error)) throw new ConflictError(apiCopy("apiCopy.source.name.already.exists.69c17e32"));
+        throw error;
+      }
 
       await auditUserAction(session.userId, "app-source.create", { sourceId: source.id }, undefined, session.currentTeamId);
       return NextResponse.json({ source }, { status: 201 });

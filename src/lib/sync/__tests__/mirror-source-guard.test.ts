@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 const posix = process.platform !== "win32";
 
-const state = vi.hoisted(() => ({ bin: "", job: null as Record<string, unknown> | null }));
+const state = vi.hoisted(() => ({ bin: "", job: null as Record<string, unknown> | null, runNothing: false, ran: [] as string[] }));
 
 // Execution-time authorisation has its own tests (execution-actor).
 vi.mock("@/lib/auth/execution-actor", () => ({ executionRefusal: vi.fn(async () => null), loadExecutionActor: vi.fn() }));
@@ -39,6 +39,18 @@ vi.mock("@/lib/ssh/client", () => ({
     writeFileSync(remotePath, content);
   }),
   execRemoteCommand: vi.fn(async ({ command }: { command: string }) => {
+    if (state.runNothing) {
+      state.ran.push(command);
+      return { stdout: "", stderr: "no command may run in this test", exitCode: 1 };
+    }
+    // These commands really run on this machine. Never let them near anything outside the test's own temp directory
+    // (a test aimed at "/etc" once emptied the real /etc when the guard it exercises had been reverted).
+    const job = state.job as { sourcePath?: string; targetPath?: string } | null;
+    for (const endpoint of [job?.sourcePath, job?.targetPath]) {
+      if (endpoint && !endpoint.startsWith(tmpdir())) {
+        throw new Error(`refusing to run a sync command for ${endpoint}: outside the temp directory`);
+      }
+    }
     if (command.startsWith("which rsync")) return { stdout: "MISSING\n", stderr: "", exitCode: 1 };
     const result = spawnSync("/bin/sh", ["-c", command], {
       encoding: "utf8",
@@ -112,6 +124,26 @@ describe.skipIf(!posix)("executeSyncJob — mirror source guard on real director
     expect(result.ok).toBe(false);
     expect(result.errorMessage).toMatch(/is empty; refusing/);
     expect(readdirSync(target)).toEqual(["valuable.txt"]);
+  });
+
+  it("refuses a deleting run aimed at a system directory before it runs anything", async () => {
+    // A job saved before creation refused such targets: the source only had to be non-empty to empty /etc.
+    // The SSH layer is replaced here by a stub that runs NOTHING: this test must never execute a command, so it
+    // cannot touch the real system directory it names even if the guard were missing.
+    mkdirSync(source);
+    writeFileSync(join(source, "fresh.txt"), "new data");
+    useJob("MIRROR");
+    (state.job as { targetPath: string }).targetPath = "/etc";
+    state.runNothing = true;
+    try {
+      const result = await executeSyncJob("job-1");
+      expect(result.ok).toBe(false);
+      expect(result.errorMessage).toMatch(/system directory/);
+      expect(state.ran).toEqual([]);
+    } finally {
+      state.runNothing = false;
+    }
+    expect(readdirSync(source)).toEqual(["fresh.txt"]);
   });
 
   it("mirrors a populated source", async () => {

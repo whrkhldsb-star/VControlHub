@@ -201,6 +201,13 @@ describe("file version routes", () => {
 			expect(disposition).toContain(`filename*=UTF-8''${encodeURIComponent("v3-报告.txt")}`);
 		});
 
+		it("keeps quotes and backslashes of the stored name out of the header", async () => {
+			// The route had its own header builder that left both in the quoted filename.
+			mocks.getFileVersionForDownload.mockResolvedValue(await blobResult({ name: 'a"b\\c.txt' }));
+			const res = await download.GET(req("GET", DOWNLOAD_URL), versionParams);
+			expect(res.headers.get("Content-Disposition")).toBe('attachment; filename="v3-a_b_c.txt"');
+		});
+
 		it("passes a missing-version 404 through unchanged", async () => {
 			const { NotFoundError } = await import("@/lib/errors");
 			mocks.getFileVersionForDownload.mockRejectedValue(new NotFoundError("version not found"));

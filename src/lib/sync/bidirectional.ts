@@ -13,6 +13,16 @@ export function effectiveDeleteOrphans(
   return deleteOrphans;
 }
 
+/** Directories a run that deletes what the source lacks must never be pointed at (the directory itself, not below it). */
+const PROTECTED_DELETE_TARGETS = new Set([
+  "/", "/bin", "/boot", "/dev", "/etc", "/lib", "/lib32", "/lib64", "/proc", "/root", "/run", "/sbin", "/sys", "/usr", "/var",
+]);
+
+/** An orphan-deleting sync into one of these would empty the system directory of everything the source does not hold. */
+export function isProtectedDeleteTarget(targetPath: string): boolean {
+  return PROTECTED_DELETE_TARGETS.has(normalizeSyncEndpointPath(targetPath));
+}
+
 /** Lexical normalization shared by the browser and server endpoint policy. */
 export function normalizeSyncEndpointPath(raw: string): string {
   const path = raw.trim().replace(/\\/g, "/") || "/";

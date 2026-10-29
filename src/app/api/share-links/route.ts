@@ -21,10 +21,11 @@ const shareLinkPostSchema = z.object({
   storageNodeId: z.string().min(1).optional(),
   path: z.string().min(1).optional(),
   entryType: z.enum(["FILE", "DIRECTORY"]).optional(),
-  name: z.string().optional(),
-  expiresInHours: z.number().positive().optional(),
-  expiresIn: z.number().positive().optional(),
-  maxDownloads: z.number().int().positive().optional().nullable(),
+  // The bounds the database can hold: 1e12 hours made an Invalid Date and 3e9 downloads overflowed int4, both 500s.
+  name: z.string().max(255).optional(),
+  expiresInHours: z.number().positive().max(24 * 3650).optional(),
+  expiresIn: z.number().positive().max(24 * 3650).optional(),
+  maxDownloads: z.number().int().positive().max(2_147_483_647).optional().nullable(),
   password: z.string().min(1).max(128).optional(),
   permissionLevel: z.enum(["preview", "download"]).optional(),
   quick: z.boolean().optional(),
@@ -40,7 +41,7 @@ const shareLinkPostSchema = z.object({
 // Without parameters the response is the newest 200 shares, as before; `total`
 // tells the caller whether more pages exist.
 const shareLinkListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).optional(),
+  page: z.coerce.number().int().min(1).max(1_000_000).optional(),
   pageSize: z.coerce.number().int().min(1).max(SHARE_LINK_MAX_PAGE_SIZE).default(SHARE_LINK_MAX_PAGE_SIZE),
   status: z.enum(SHARE_LINK_STATUS_FILTERS).optional(),
   q: z.string().trim().max(200).optional(),

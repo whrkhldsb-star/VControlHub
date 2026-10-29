@@ -187,6 +187,33 @@ describe("/api/docker/containers audit coverage", () => {
     );
   });
 
+  it("reports Docker's 304 (already started / already stopped) as success instead of a 500", async () => {
+    // NextResponse.json cannot take a 304: the TypeError became "Docker operation failed" for an idempotent no-op.
+    httpRequestMock.mockImplementationOnce((_options, callback) => {
+      const responseHandlers: Record<string, (chunk?: Buffer) => void> = {};
+      const response = {
+        statusCode: 304,
+        on: vi.fn((event: string, handler: (chunk?: Buffer) => void) => {
+          responseHandlers[event] = handler;
+        }),
+      };
+      callback(response);
+      responseHandlers.end?.();
+      return { on: vi.fn(), write: vi.fn(), end: vi.fn(), destroy: vi.fn() };
+    });
+
+    const response = await route.POST(
+      new NextRequest("http://local/api/docker/containers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: "app_1", action: "start" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, unchanged: true });
+  });
+
   it("rejects remote serverId outside team scope before touching Docker", async () => {
     const { NextResponse } = await import("next/server");
     mocks.assertServerTeamAccess.mockResolvedValueOnce({

@@ -149,6 +149,28 @@ describe("/api/scheduled-tasks audit coverage", () => {
     );
   });
 
+  it("refuses at once what every later run would be refused for (name, command and reason limits of the command request)", async () => {
+    const base = { name: "Clean logs", cronExpression: "0 2 * * *", command: "uptime", serverIds: ["srv1"] };
+    const post = (body: Record<string, unknown>) => route.POST(new Request("http://local/api/scheduled-tasks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }));
+    for (const bad of [{ name: "n".repeat(101) }, { command: "c".repeat(10_001) }, { reason: "r".repeat(501) }]) {
+      expect((await post({ ...base, ...bad })).status).toBe(400);
+    }
+    expect(mocks.createScheduledTask).not.toHaveBeenCalled();
+    const patch = (body: Record<string, unknown>) => route.PATCH(new Request("http://local/api/scheduled-tasks", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: "t1", ...body }),
+    }));
+    for (const bad of [{ name: "" }, { command: "" }, { name: "n".repeat(101) }]) {
+      expect((await patch(bad)).status).toBe(400);
+    }
+    expect(mocks.updateScheduledTask).not.toHaveBeenCalled();
+  });
+
   it("maps update aliases to scheduled task service fields", async () => {
     const res = await route.PATCH(
       new Request("http://local/api/scheduled-tasks", {

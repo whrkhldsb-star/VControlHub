@@ -58,6 +58,9 @@ export function hasWindowsInvalidNameChars(relativePath: string): boolean {
 }
 const INVALID_ARCHIVE_ENTRY_CHARS = /[\u0000-\u001f\u007f]/;
 const MAX_PATH_LENGTH = 4096;
+// A btree index entry holds 2704 bytes at most, and (storageNodeId, relativePath) is unique: a longer path (900 Chinese
+// characters are 2700 bytes) made the index write fail, and one such entry failed a whole SFTP sync batch.
+export const MAX_STORAGE_PATH_BYTES = 2000;
 // Filesystems limit a name in bytes (255 on ext4/xfs), not in UTF-16 units: 86 Chinese characters are 258 bytes.
 const MAX_SEGMENT_BYTES = 255;
 const utf8 = new TextEncoder();
@@ -82,7 +85,7 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
     return { ok: false, reason: "Path must be a relative path" };
   }
 
-  if (normalizedInput.length > MAX_PATH_LENGTH) {
+  if (normalizedInput.length > MAX_PATH_LENGTH || utf8.encode(normalizedInput).length > MAX_STORAGE_PATH_BYTES) {
     return { ok: false, reason: "Path is too long" };
   }
 

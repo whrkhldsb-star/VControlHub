@@ -135,7 +135,8 @@ describe("webdav route dispatch", () => {
   });
 
   it("builds the context from the route params and Range header", async () => {
-    await GET(req("GET", { range: "bytes=0-9" }, "dir/a%20b.txt"), params(["dir", "a%20b.txt"]));
+    // Next.js has decoded the catch-all segments already ("a%20b.txt" in the URL arrives as "a b.txt").
+    await GET(req("GET", { range: "bytes=0-9" }, "dir/a%20b.txt"), params(["dir", "a b.txt"]));
 
     expect(mocks.getHead).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -144,6 +145,16 @@ describe("webdav route dispatch", () => {
         relativePath: "dir/a b.txt",
         rangeHeader: "bytes=0-9",
       }),
+      "GET",
+    );
+  });
+
+  it("does not decode the segments a second time: a file name holding %XX stays itself", async () => {
+    // report%201.pdf on disk is requested as report%25201.pdf; Next hands the route "report%201.pdf".
+    await GET(req("GET", {}, "dir/report%25201.pdf"), params(["dir", "report%201.pdf"]));
+
+    expect(mocks.getHead).toHaveBeenCalledWith(
+      expect.objectContaining({ relativePath: "dir/report%201.pdf" }),
       "GET",
     );
   });

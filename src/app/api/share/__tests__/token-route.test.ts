@@ -70,6 +70,16 @@ describe("/api/share/[token]", () => {
 		expect(mocks.streamStorageFile).not.toHaveBeenCalled();
 	});
 
+	it("answers a malformed query with 400 and gives the claimed download back, instead of a 500 that used the link up", async () => {
+		mocks.resolveShareToken.mockResolvedValue(fileShare);
+		for (const query of ["?path=", "?path=%20", "?path=a&path=b"]) {
+			mocks.releaseShareQuotaClaim.mockClear();
+			expect((await get(query)).status).toBe(400);
+			expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledWith("sh_1");
+		}
+		expect(mocks.streamStorageFile).not.toHaveBeenCalled();
+	});
+
 	it("serves a child of a directory share and 404s a target that was since deleted", async () => {
 		mocks.resolveShareToken.mockResolvedValue(dirShare);
 		const res = await get("?path=docs/b.txt");
