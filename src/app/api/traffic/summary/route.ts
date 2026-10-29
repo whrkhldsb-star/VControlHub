@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { createSingleFlight } from "@/lib/concurrency/single-flight";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
-import { serverTeamWhere, storageNodeTeamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverTeamWhere, storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
@@ -260,14 +260,16 @@ export async function GET(req: NextRequest) {
       }
 
       const visibleServerIds = new Set(servers.map((server) => server.id));
+      // The hub host's own interfaces belong to the platform, like /api/monitoring/stats: a customer sees its servers.
+      const hubVisible = isGlobalTeamManager(session);
       return NextResponse.json({
         timestamp: new Date().toISOString(),
         currentServer: {
           type: "LOCAL_SERVER",
           id: "local",
           name: t("backend.traffic.currentServerName"),
-          primaryInterface: primarySummary,
-          interfaces: summarizedInterfaces,
+          primaryInterface: hubVisible ? primarySummary : null,
+          interfaces: hubVisible ? summarizedInterfaces : [],
         },
         storageNodes: storageNodes.map((node) => {
           const visibleNode = { ...node, server: node.server && visibleServerIds.has(node.server.id) ? node.server : null };

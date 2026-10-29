@@ -379,9 +379,13 @@ export function getToolByName(name: string): HostedTool | undefined {
 
 // ── OpenAI Function Calling 格式 ──────────────────────────
 
+/** Plan-only conversations may inspect and schedule, never change anything themselves. */
+export function toolAvailableInMode(tool: HostedTool, mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED"): boolean {
+  return mode === "ASSISTED" || tool.autoApproved || tool.actionType === "create_automation_task";
+}
+
 function toolsForMode(mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED") {
-  if (mode === "ASSISTED") return HOSTED_TOOLS;
-  return HOSTED_TOOLS.filter((tool) => tool.autoApproved || tool.actionType === "create_automation_task");
+  return HOSTED_TOOLS.filter((tool) => toolAvailableInMode(tool, mode));
 }
 
 export function getOpenAIToolsFormat(mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED"): Array<{

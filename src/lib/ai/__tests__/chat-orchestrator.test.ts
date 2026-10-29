@@ -28,6 +28,9 @@ vi.mock("@/lib/ai/knowledge", () => ({
 }));
 vi.mock("@/lib/ai/hosted-tools", () => ({
   getOpenAIToolsFormat: mocks.getOpenAIToolsFormat,
+  // The real rule: plan-only conversations may run the auto-approved tools and schedule, nothing that changes.
+  toolAvailableInMode: (tool: { autoApproved: boolean; actionType: string }, mode: string) =>
+    mode !== "PLAN_ONLY" || tool.autoApproved || tool.actionType === "create_automation_task",
 }));
 vi.mock("@/lib/ai/hosted-service", () => ({
   createHostedAction: mocks.createHostedAction,
@@ -542,5 +545,37 @@ describe("insertKnowledgeContext", () => {
     const none = [{ role: "system", content: "sys" }];
     insertKnowledgeContext(none, "ctx");
     expect(none.at(-1)).toEqual({ role: "user", content: "ctx" });
+  });
+});
+
+describe("plan-only conversations", () => {
+  it("answers a change tool the model calls anyway with an error instead of creating the action", async () => {
+    // The shorter tool list shown to the model was the only enforcement: a model that called restart_service by
+    // name had its action created. The mode is decided where the calls run.
+    mocks.getConversationById.mockResolvedValueOnce({ ...conversation, hostingEnabled: true, automationMode: "PLAN_ONLY" });
+    mocks.sendChatRequest.mockResolvedValueOnce({
+      response: new Response(
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tool-7","function":{"name":"restart_service","arguments":"{\\"serviceName\\":\\"nginx\\"}"}}]}}]}\n' + 'data: [DONE]\n',
+      ),
+      providerType: "OPENAI",
+      startTime: Date.now(),
+    });
+    mocks.parseToolCall.mockReturnValueOnce({
+      toolCallId: "tool-7",
+      args: { serviceName: "nginx" },
+      tool: { name: "restart_service", actionName: "Restart service", actionType: "restart_service", riskLevel: "medium", autoApproved: false },
+    });
+
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "restart nginx" }, session, locale: "en" });
+    const body = await response.text();
+    expect(mocks.createHostedAction).not.toHaveBeenCalled();
+    expect(mocks.executeSafeAction).not.toHaveBeenCalled();
+    expect(body).toContain('"type":"tool_result"');
+    expect(body).not.toContain('"type":"tool_call"');
+    expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ role: "tool", toolCallId: "tool-7", content: expect.stringContaining("plan-only mode") }),
+      }),
+    );
   });
 });

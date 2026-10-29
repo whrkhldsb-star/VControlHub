@@ -8,23 +8,28 @@
  */
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 import { aiProviderTypeSchema, type AiProviderType } from "./schema";
 import { defaultAiBaseUrl } from "./provider-http";
-import { t } from "@/lib/i18n/service-translations";
 
 const DEFAULT_AI_BASE_URL = defaultAiBaseUrl();
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 
+/**
+ * The provider's API key as it is sent to the provider. A stored key that cannot be decrypted (the encryption key
+ * changed, the row was damaged) is reported, not sent as it is: the ciphertext went out as the API key before.
+ */
 export function safeDecryptApiKey(stored: string): string {
+	if (!isEncrypted(stored)) return stored;
 	try {
-		return isEncrypted(stored) ? decrypt(stored) : stored;
+		return decrypt(stored);
 	} catch {
-		return stored;
+		throw new BusinessError(t("backend.ai.providerKeyUnreadable"));
 	}
 }
 

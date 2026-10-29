@@ -5,7 +5,13 @@ import { escapeHtml } from "@/lib/sanitize/escape-html";
  * Supports: headings, bold, italic, fenced code blocks, inline code,
  * links, ordered/unordered lists, blockquotes, tables, horizontal rules.
  */
+/** Above this size the document is shown as plain text: the inline regexes' backtracking grows with the input. */
+export const MAX_RENDERED_MARKDOWN_CHARS = 512_000;
+/** What a fenced block's language may be: it becomes part of a class name. */
+const FENCE_LANGUAGE = /^[A-Za-z0-9_+#.-]{1,32}$/;
+
 export function renderMarkdown(md: string): string {
+  if (md.length > MAX_RENDERED_MARKDOWN_CHARS) return `<pre>${escapeHtml(md)}</pre>`;
   // Normalize line endings
   const src = md.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
@@ -28,7 +34,7 @@ export function renderMarkdown(md: string): string {
         i++;
       }
       i++; // skip closing fence
-      const langClass = lang ? ` class="language-${escapeHtml(lang)}"` : "";
+      const langClass = FENCE_LANGUAGE.test(lang) ? ` class="language-${lang}"` : "";
       out.push(
         `<pre><code${langClass}>${escapeHtml(codeLines.join("\n"))}</code></pre>`,
       );

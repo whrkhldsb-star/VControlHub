@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 const auditQuerySchema = paginationQuerySchema.extend({
   action: z.string().trim().min(1).optional(),
-  severity: z.string().trim().min(1).optional(),
+  severity: z.enum(["INFO", "WARNING", "CRITICAL"]).optional(),
   search: z.string().trim().min(1).optional(),
   sort: z.enum(["time", "actor", "action"]).optional(),
   direction: z.enum(["asc", "desc"]).optional(),

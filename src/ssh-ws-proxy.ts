@@ -360,6 +360,8 @@ const MAX_PRE_AUTH_SOCKETS = 64;
 const MAX_PRE_AUTH_PER_ADDRESS = 16;
 const preAuthSockets = new PreAuthLimiter(MAX_PRE_AUTH_SOCKETS, MAX_PRE_AUTH_PER_ADDRESS);
 /** A socket still unauthenticated after this long is dropped. */
+/** Messages kept for a socket whose session is still being verified; more than this is not a browser opening a shell. */
+const EARLY_MESSAGE_BUFFER = 16;
 const PRE_AUTH_WINDOW_MS = 10_000;
 /** Terminals open at once in this process (all users). */
 const TERMINAL_CAPACITY = 64;
@@ -744,6 +746,14 @@ wss.on("connection", async (ws, req) => {
 	recordWsEvent("ssh", "open");
 	setWsActive("ssh", wss.clients.size);
 	wsLastPongAt.set(ws, Date.now());
+	// What the browser sends as soon as its socket opens (its first resize) arrives while the session is still being
+	// verified below; with no listener yet it was lost, and the shell opened at 80×24. Held until the listener is in
+	// place; a few messages are all a client has reason to send before the shell is announced.
+	const earlyMessages: Array<[Buffer | ArrayBuffer | Buffer[], boolean]> = [];
+	const bufferEarlyMessage = (raw: Buffer | ArrayBuffer | Buffer[], binary: boolean) => {
+		if (earlyMessages.length < EARLY_MESSAGE_BUFFER) earlyMessages.push([raw, binary]);
+	};
+	ws.on("message", bufferEarlyMessage);
 	ws.on("pong", () => {
 		wsLastPongAt.set(ws, Date.now());
 	});
@@ -1189,6 +1199,9 @@ wss.on("connection", async (ws, req) => {
 		auditTerminalFailure(shell, message);
 		endShellSession(shell);
 	}
+	// The listener above is in place: hand it what arrived while the session was being verified.
+	ws.off("message", bufferEarlyMessage);
+	for (const [raw, binary] of earlyMessages.splice(0)) ws.emit("message", raw, binary);
 });
 
 const shouldStartServer = process.env.NODE_ENV !== "test";

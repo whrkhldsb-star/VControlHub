@@ -20,6 +20,10 @@ export const AGENT_JOB_HEARTBEAT_MS = 30_000;
 export const AGENT_METRICS_INTERVAL_SECONDS = 60;
 const logger = createLogger("server-agent");
 const AGENT_LEGACY_CLAIMED_STALE_MS = AGENT_FRESH_MS;
+/** How long past its own timeout a PENDING job may still be claimed (the caller's own grace is 10 s). */
+const AGENT_PENDING_GRACE_MS = 60_000;
+/** Expired jobs retired per claim, so one claim never has to sweep a long backlog. */
+const AGENT_STALE_PENDING_SWEEP = 20;
 const AGENT_OUTPUT_LIMIT = 8 * 1_048_576;
 /** Capabilities actually implemented by both the Linux (Python) and Windows (PowerShell) agents. */
 const AGENT_CAPABILITIES = ["metrics", "command"] as const;
@@ -222,10 +226,23 @@ export async function claimNextServerAgentJob(serverId: string) {
         leaseExpiresAt: null,
       },
     });
-    const next = await tx.serverAgentJob.findFirst({
+    // The caller waits for its job for the job's own timeout and a little grace, then cancels it; a PENDING job older
+    // than that outlived a caller that could not (the hub restarted, the database was away). An Agent back from a
+    // long outage must not run such a job hours later with nobody waiting for the result.
+    let next = await tx.serverAgentJob.findFirst({
       where: { serverId, status: "PENDING" },
       orderBy: { createdAt: "asc" },
     });
+    for (let skipped = 0; next && now.getTime() - next.createdAt.getTime() > next.timeoutMs + AGENT_PENDING_GRACE_MS && skipped < AGENT_STALE_PENDING_SWEEP; skipped += 1) {
+      await tx.serverAgentJob.updateMany({
+        where: { id: next.id, status: "PENDING" },
+        data: { status: "CANCELLED", stderr: "Agent job expired before an Agent claimed it", exitCode: 124, completedAt: now, leaseExpiresAt: null },
+      });
+      next = await tx.serverAgentJob.findFirst({
+        where: { serverId, status: "PENDING" },
+        orderBy: { createdAt: "asc" },
+      });
+    }
     if (!next) return null;
     const claimed = await tx.serverAgentJob.updateMany({
       where: { id: next.id, status: "PENDING" },
@@ -948,6 +965,9 @@ export async function installServerAgent(serverId: string) {
   if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") {
     throw new Error("Agent hub URL must use HTTPS");
   }
+  // The new token is issued before the install (the script carries it); if the install fails, the Agent already
+  // running keeps the token it has, which was revoked by the issue and is put back below.
+  const previousTokenHash = server.agentTokenHash ?? null;
   const token = await issueServerAgentToken(serverId);
   const python = Buffer.from(buildAgentPython(hubUrl, token)).toString("base64");
   const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=always\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
@@ -968,7 +988,7 @@ export async function installServerAgent(serverId: string) {
   const ssh = await buildSshParamsFromServer(server, server.sshKey);
   const result = await execRemoteCommand({ ...ssh, command: asRoot(script), timeout: 60_000 });
   if (result.exitCode !== 0) {
-    await prisma.server.update({ where: { id: serverId }, data: { agentLastError: (result.stderr || result.stdout || "Agent installation failed").slice(0, 1000) } });
+    await prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: previousTokenHash, agentLastError: (result.stderr || result.stdout || "Agent installation failed").slice(0, 1000) } });
     throw new Error(result.stderr || result.stdout || "Agent installation failed");
   }
   return { installed: true };

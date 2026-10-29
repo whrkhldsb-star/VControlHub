@@ -32,7 +32,7 @@ const sampleLogs = [
 		actorType: "SYSTEM",
 		actorId: null,
 		action: "deploy.rollback",
-		severity: "WARN",
+		severity: "WARNING",
 		detail: {},
 		createdAt: new Date("2025-01-02T12:00:00Z"),
 		actor: null,
@@ -109,11 +109,11 @@ describe("/api/audit/export GET", () => {
 
 	it("passes action/severity/search filters to the service", async () => {
 		await route.GET(
-			new Request("http://local/api/audit/export?action=user.login&severity=WARN&search=alice"),
+			new Request("http://local/api/audit/export?action=user.login&severity=WARNING&search=alice"),
 		);
 		expect(mocks.exportAuditLogs).toHaveBeenCalledWith({
 			action: "user.login",
-			severity: "WARN",
+			severity: "WARNING",
 			search: "alice",
 			session,
 		});

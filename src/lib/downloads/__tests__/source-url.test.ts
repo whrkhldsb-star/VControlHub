@@ -4,7 +4,7 @@ const { lookupMock } = vi.hoisted(() => ({
   lookupMock: vi.fn(),
 }));
 
-import { assertDownloadSourceUrlSafe, validateDownloadSourceUrl } from "@/lib/downloads/source-url";
+import { assertDownloadSourceUrlSafe, sanitizeMagnetLink, validateDownloadSourceUrl } from "@/lib/downloads/source-url";
 
 vi.mock("node:dns/promises", () => ({
   default: { lookup: lookupMock },
@@ -96,7 +96,32 @@ describe("assertDownloadSourceUrlSafe", () => {
         port: 443,
       },
     });
-    await expect(assertDownloadSourceUrlSafe("magnet:?xt=urn:btih:abcdef")).resolves.toEqual({ ok: true });
+    await expect(assertDownloadSourceUrlSafe("magnet:?xt=urn:btih:abcdef")).resolves.toEqual({ ok: true, url: "magnet:?xt=urn:btih:abcdef" });
     expect(lookupMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("sanitizeMagnetLink", () => {
+  it("keeps public trackers over tracker protocols and drops the rest, byte for byte otherwise", () => {
+    // aria2 announces to every tracker with a GET or a UDP packet: a tracker on the hub's own network, a local name
+    // or a non-tracker scheme is dropped, and the hash and names are not re-encoded on the way.
+    const link = "magnet:?xt=urn:btih:ABCDEF0123&dn=Some%20Name%20%5B1080p%5D"
+      + "&tr=udp%3A%2F%2Ftracker.example.org%3A6969%2Fannounce"
+      + "&tr=http%3A%2F%2F127.0.0.1%3A8080%2Fannounce"
+      + "&tr=https%3A%2F%2F10.0.0.5%2Fannounce"
+      + "&tr=http%3A%2F%2Ftracker.lan%2Fannounce"
+      + "&tr=file%3A%2F%2F%2Fetc%2Fpasswd"
+      + "&tr=http%3A%2F%2Fuser%3Apass%40tracker.example.net%2Fannounce"
+      + "&tr=wss%3A%2F%2Ftracker.example.com%2F"
+      + "&tr=%ZZ";
+    expect(sanitizeMagnetLink(link)).toEqual({
+      url: "magnet:?xt=urn:btih:ABCDEF0123&dn=Some%20Name%20%5B1080p%5D&tr=udp%3A%2F%2Ftracker.example.org%3A6969%2Fannounce&tr=wss%3A%2F%2Ftracker.example.com%2F",
+      droppedTrackers: 6,
+    });
+  });
+
+  it("leaves a link without trackers alone and reports what the safe form is", async () => {
+    expect(sanitizeMagnetLink("magnet:?xt=urn:btih:abcdef&dn=x")).toEqual({ url: "magnet:?xt=urn:btih:abcdef&dn=x", droppedTrackers: 0 });
+    await expect(assertDownloadSourceUrlSafe("magnet:?xt=urn:btih:abcdef&tr=http%3A%2F%2Flocalhost%2Fa")).resolves.toEqual({ ok: true, url: "magnet:?xt=urn:btih:abcdef" });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { markdownExcerpt, markdownToPlainText, renderMarkdown } from "../render-markdown";
+import { MAX_RENDERED_MARKDOWN_CHARS, markdownExcerpt, markdownToPlainText, renderMarkdown } from "../render-markdown";
 
 describe("markdownToPlainText", () => {
 	it("drops markup for one-line excerpts", () => {
@@ -85,5 +85,21 @@ describe("renderMarkdown keeps prose and inline code as written", () => {
 		const html = renderMarkdown('<img src=x onerror="alert(1)"> and <script>alert(1)</script>');
 		expect(html).not.toMatch(/<img|<script/i);
 		expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+	});
+});
+
+describe("renderMarkdown hardening", () => {
+	it("lets a fence name a language, not inject class names", () => {
+		expect(renderMarkdown("```js\nlet a = 1;\n```")).toBe('<pre><code class="language-js">let a = 1;</code></pre>');
+		expect(renderMarkdown("```c++\nint a;\n```")).toContain('class="language-c++"');
+		expect(renderMarkdown('```js foo bar\nx\n```')).toBe("<pre><code>x</code></pre>");
+		expect(renderMarkdown('```" onmouseover="x\nx\n```')).toBe("<pre><code>x</code></pre>");
+	});
+
+	it("shows an oversized document as plain text instead of running it through the inline regexes", () => {
+		const huge = "*".repeat(MAX_RENDERED_MARKDOWN_CHARS + 1);
+		const started = Date.now();
+		expect(renderMarkdown(huge)).toBe(`<pre>${huge}</pre>`);
+		expect(Date.now() - started).toBeLessThan(2_000);
 	});
 });

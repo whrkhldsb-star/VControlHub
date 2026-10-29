@@ -121,3 +121,20 @@ describe("Agent job lease expiry", () => {
     expect(jobs.get("job9")).toMatchObject({ status: "COMPLETED", stdout: "done", completedAt: expect.any(Date) });
   });
 });
+
+describe("PENDING jobs nobody claimed", () => {
+  it("retires a job that outlived its own timeout and claims the next one", async () => {
+    // The caller waits for the job's timeout and then cancels it; a job still PENDING long after that outlived a
+    // caller that could not (the hub restarted). An Agent back from an outage must not run it with nobody waiting.
+    jobs.clear();
+    const base = { serverId: "srv1", status: "PENDING", completedAt: null, exitCode: null, stdout: null, stderr: null, leaseExpiresAt: null, claimedAt: null };
+    jobs.set("stale", { ...base, id: "stale", command: "old", createdAt: new Date(Date.now() - 10 * 60_000), timeoutMs: 60_000 } as Job);
+    jobs.set("fresh", { ...base, id: "fresh", command: "new", createdAt: new Date(), timeoutMs: 60_000 } as Job);
+
+    const claimed = await claimNextServerAgentJob("srv1");
+    expect(claimed?.id).toBe("fresh");
+    expect(jobs.get("stale")).toMatchObject({ status: "CANCELLED", exitCode: 124 });
+    expect(jobs.get("stale")?.completedAt).toBeInstanceOf(Date);
+    expect(jobs.get("fresh")?.status).toBe("CLAIMED");
+  });
+});

@@ -2,7 +2,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { serverTeamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverTeamWhere } from "@/lib/auth/team-scope";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { prisma } from "@/lib/db";
@@ -45,6 +45,8 @@ export async function GET(request: Request) {
         take: 5000,
       });
       const visibleServerIds = visibleServers.map((s) => s.id);
+      // The hub host's own interfaces belong to the platform, like /api/monitoring/stats: a customer sees its servers.
+      const hubVisible = isGlobalTeamManager(session);
       const rows = await prisma.trafficSnapshot.findMany({
         where: {
           sampledAt: { gte: since },
@@ -53,7 +55,7 @@ export async function GET(request: Request) {
           ...(session
             ? {
                 OR: [
-                  { serverId: null }, // local hub NIC samples
+                  ...(hubVisible ? [{ serverId: null }] : []), // local hub NIC samples
                   ...(visibleServerIds.length > 0
                     ? [{ serverId: { in: visibleServerIds } }]
                     : []),
