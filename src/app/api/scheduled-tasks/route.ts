@@ -18,17 +18,19 @@ import {
 } from "@/lib/scheduled-task/service";
 import { describeCron } from "@/lib/scheduled-task/describe-cron";
 
+// The limits of the command request each run creates (createCommandSchema): a name over 106 characters (the title is
+// "Scheduled task retry: <name>"), a reason over 500 or a command over 10,000 was accepted here and failed at every run.
 const scheduledTaskPostSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1).max(100),
   scheduleType: z.enum(["CRON", "ONCE"]).optional(),
   runAt: z.coerce.date().optional(),
   cron: z.string().min(1).optional(),
-  command: z.string().min(1),
+  command: z.string().min(1).max(10000),
   serverId: z.string().min(1).optional(),
   description: z.string().optional(),
   enabled: z.boolean().optional(),
   cronExpression: z.string().min(1).optional(),
-  reason: z.string().optional(),
+  reason: z.string().max(500).optional(),
   serverIds: z.array(z.string()).optional(),
   plan: z.string().max(10000).optional(),
   verificationCommand: z.string().max(10000).optional(),
@@ -47,13 +49,13 @@ const scheduledTaskPatchSchema = z.object({
   id: z.string().optional(),
   toggleId: z.string().optional(),
   retryId: z.string().optional(),
-  name: z.string().optional(),
+  name: z.string().min(1).max(100).optional(),
   cron: z.string().optional(),
   cronExpression: z.string().optional(),
-  command: z.string().optional(),
+  command: z.string().min(1).max(10000).optional(),
   serverId: z.string().optional(),
   serverIds: z.array(z.string()).optional(),
-  reason: z.string().optional(),
+  reason: z.string().max(500).optional(),
   description: z.string().optional(),
   enabled: z.boolean().optional(),
   status: z.enum(["ACTIVE", "PAUSED", "DISABLED"]).optional(),
