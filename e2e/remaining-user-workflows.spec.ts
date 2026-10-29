@@ -9,11 +9,20 @@ import { inspectDetailLayouts } from "./helpers/detail-layouts";
 const USER = process.env.E2E_USER ?? "admin";
 const PASS = process.env.E2E_PASS ?? "admin123";
 
-async function freshTotp(secret: string) {
+/**
+ * The server spends a 30-second step once it accepts a code from it (sign-in, turning 2FA off): the next code it
+ * is shown must come from a later step, so a flow that signs in and then disables 2FA within seconds waits for one.
+ */
+let spentTotpStep = 0;
+async function freshTotp(secret: string, options: { spends?: boolean } = {}) {
+	const currentStep = () => Math.floor(Date.now() / 30_000);
+	while (currentStep() <= spentTotpStep) await delay(500);
 	// Leave enough of the real server's 30-second window for browser input.
 	const remaining = 30 - (Math.floor(Date.now() / 1000) % 30);
 	if (remaining < 10) await delay((remaining + 1) * 1000);
-	return generateTotp({ secret });
+	const code = generateTotp({ secret });
+	if (options.spends) spentTotpStep = currentStep();
+	return code;
 }
 
 async function login(page: Page) {
@@ -138,7 +147,7 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	await page.waitForURL((url) => url.pathname === "/login/verify-2fa");
 	await inspectDetailLayouts(page, testInfo, "two-factor-login");
 
-	const loginCode = await freshTotp(secret!);
+	const loginCode = await freshTotp(secret!, { spends: true });
 	const verificationResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/verify-login" && response.request().method() === "POST",
 	);
@@ -153,7 +162,7 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	await page.goto("/account/security");
 	await expect(section).toBeVisible();
 	await section.getByRole("button", { name: /关闭两步验证|Disable 2FA/i }).click();
-	const disableCode = await freshTotp(secret!);
+	const disableCode = await freshTotp(secret!, { spends: true });
 	await section.getByLabel(/验证码或恢复码|Authenticator or recovery code/i).fill(disableCode);
 	const disableResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/disable" && response.request().method() === "POST",
