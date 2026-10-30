@@ -12,6 +12,7 @@ const prismaMock = {
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/auth/team-scope", () => ({
+  isGlobalTeamManager: (session: { roles?: string[] }) => session.roles?.includes("admin") === true,
   serverTeamWhere: (session: { currentTeamId?: string | null }) =>
     session.currentTeamId
       ? { teamId: session.currentTeamId }
@@ -56,7 +57,7 @@ describe("/api/traffic/history", () => {
     expect(prismaMock.trafficSnapshot.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: [{ serverId: null }, { serverId: { in: ["srv_a"] } }],
+          OR: [{ serverId: { in: ["srv_a"] } }],
         }),
       }),
     );

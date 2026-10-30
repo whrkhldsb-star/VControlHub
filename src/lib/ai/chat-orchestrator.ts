@@ -14,7 +14,7 @@ import {
   executeSafeAction,
   parseToolCall,
 } from "./hosted-service";
-import { getOpenAIToolsFormat } from "./hosted-tools";
+import { getOpenAIToolsFormat, toolAvailableInMode } from "./hosted-tools";
 import { buildKnowledgeContextForPrompt } from "./knowledge";
 import type { ChatRequestBody } from "./schema";
 import { createMessage, getConversationById, sendChatRequest } from "./service";
@@ -105,14 +105,19 @@ async function processHostedTools(input: {
   assistantMessageId: string;
   session: SessionPayload;
   locale: Locale;
+  automationMode: "ASSISTED" | "PLAN_ONLY";
   send: (payload: unknown) => void;
 }): Promise<ToolResult[]> {
   const parsedCalls = input.toolCalls.flatMap((toolCall) => {
     const parsed = parseToolCall(toolCall);
     return parsed ? [{ toolCall, parsed }] : [];
   });
+  // Plan-only mode used to be no more than a shorter tool list shown to the model; a model that called a change
+  // tool by name anyway got its action created. The mode is decided here, where the calls are run.
+  const blockedCalls = parsedCalls.filter(({ parsed }) => !toolAvailableInMode(parsed.tool, input.automationMode));
+  const runnableCalls = parsedCalls.filter((call) => !blockedCalls.includes(call));
 
-  for (const { toolCall, parsed } of parsedCalls) {
+  for (const { toolCall, parsed } of runnableCalls) {
     input.send({
       type: "tool_call",
       toolCall: {
@@ -147,9 +152,12 @@ async function processHostedTools(input: {
     if (parsedIds.has(toolCall.id)) continue;
     await answerWithError(toolCall.id, toolCall.function.name, t("apiAiChat.unknownTool", input.locale, { name: toolCall.function.name }));
   }
+  for (const { toolCall, parsed } of blockedCalls) {
+    await answerWithError(toolCall.id, parsed.tool.name, t("apiAiChat.toolUnavailableInPlanMode", input.locale, { name: parsed.tool.name }));
+  }
   // Each action has dependent create/execute/update writes, so this loop is
   // intentionally sequential rather than a batch or Promise.all.
-  for (const { parsed } of parsedCalls) {
+  for (const { parsed } of runnableCalls) {
     const { tool, args, toolCallId } = parsed;
     let answered = false;
     let actionId: string | null = null;
@@ -269,6 +277,7 @@ function createStreamingResponse(input: {
   conversationId: string;
   model: string;
   hostingEnabled: boolean;
+  automationMode: "ASSISTED" | "PLAN_ONLY";
   session: SessionPayload;
   locale: Locale;
   userMessageId: string;
@@ -389,6 +398,7 @@ function createStreamingResponse(input: {
               assistantMessageId: assistant.id,
               session: input.session,
               locale: input.locale,
+              automationMode: input.automationMode,
               send,
             })
           : [];
@@ -676,6 +686,7 @@ export async function createAiChatResponse(input: {
       conversationId: conversation.id,
       model: conversation.model,
       hostingEnabled: conversation.hostingEnabled,
+      automationMode: conversation.automationMode,
       session: input.session,
       locale: input.locale,
       userMessageId: userMessage.id,

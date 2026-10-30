@@ -45,11 +45,11 @@ describe("/api/audit GET", () => {
 	it("passes action and severity filters to the service", async () => {
 		mocks.listAuditLogs.mockResolvedValueOnce({ ...auditResult, logs: [] });
 		const res = await route.GET(
-			new Request("http://local/api/audit?action=user.login&severity=WARN&page=2&pageSize=5"),
+			new Request("http://local/api/audit?action=user.login&severity=WARNING&page=2&pageSize=5"),
 		);
 		expect(res.status).toBe(200);
 		expect(mocks.listAuditLogs).toHaveBeenCalledWith(
-			expect.objectContaining({ action: "user.login", severity: "WARN", page: 2, pageSize: 5 }),
+			expect.objectContaining({ action: "user.login", severity: "WARNING", page: 2, pageSize: 5 }),
 		);
 	});
 
@@ -75,4 +75,10 @@ describe("/api/audit GET", () => {
 		expect(res.status).toBe(403);
 		expect(mocks.listAuditLogs).not.toHaveBeenCalled();
 	});
+});
+
+it("rejects a severity the audit log never stores with 400 instead of a database error", async () => {
+	const { GET } = await import("../route");
+	const response = await GET(new Request("http://local/api/audit?severity=bogus"));
+	expect(response.status).toBe(400);
 });

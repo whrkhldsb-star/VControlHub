@@ -133,6 +133,8 @@ describe("/api/storage/direct-access", () => {
         directAccessMode: true,
         publicBaseUrl: true,
         directAccessExpiresSeconds: true,
+        serverId: true,
+        server: { select: { directGatewayKeyVersion: true } },
       },
     });
     await expect(response.json()).resolves.toMatchObject({
@@ -372,6 +374,40 @@ describe("/api/storage/direct-access", () => {
     expect(redirectedUrl.searchParams.get("signature")).toBe(expectedSignature);
     expect(fetchMock).toHaveBeenCalledWith(new URL("https://cdn.example.com/__vch_health"), expect.objectContaining({ method: "GET" }));
     expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("signs with the server's own key once its gateway was installed with one, and with the shared secret before", async () => {
+    // A gateway installed since the per-server keys holds HMAC(secret, server id), so a link signed with the shared
+    // secret (which root on another managed server knows) must not verify there; an older gateway still holds the
+    // shared secret and must keep working until it is enabled again. GET: the POST route is rate limited.
+    const { deriveDirectGatewayServerKey } = await import("@/lib/server/direct-gateway-key");
+    const sign = async (server: { directGatewayKeyVersion: number } | null) => {
+      vi.clearAllMocks();
+      requireApiPermissionMock.mockResolvedValueOnce({
+        session: { userId: "u_1", username: "admin", roles: ["admin"], currentTeamId: null },
+      });
+      assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+      const node = directNode({ directAccessMode: "DIRECT", publicBaseUrl: "https://cdn.example.com/media", serverId: server ? "srv_1" : null, server });
+      prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
+      prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+      const response = await GET(
+        new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=movies%2Fdemo.mp4"),
+      );
+      expect(response.status).toBe(302);
+      const url = new URL(response.headers.get("location") ?? "");
+      return { expires: url.searchParams.get("expires") ?? "", signature: url.searchParams.get("signature") };
+    };
+    const signedWith = (key: string, expires: string) =>
+      crypto.createHmac("sha256", key).update(`/media/movies/demo.mp4.${expires}`).digest("hex");
+
+    const perServer = await sign({ directGatewayKeyVersion: 2 });
+    expect(perServer.signature).toBe(signedWith(deriveDirectGatewayServerKey("test-secret", "srv_1"), perServer.expires));
+    expect(perServer.signature).not.toBe(signedWith("test-secret", perServer.expires));
+
+    const older = await sign({ directGatewayKeyVersion: 1 });
+    expect(older.signature).toBe(signedWith("test-secret", older.expires));
+    const noServer = await sign(null);
+    expect(noServer.signature).toBe(signedWith("test-secret", noServer.expires));
   });
 
   it("falls back to managed SFTP when AUTO direct gateway health is unavailable", async () => {

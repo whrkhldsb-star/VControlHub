@@ -13,6 +13,9 @@ const { prismaMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEma
 		user: {
 			findMany: vi.fn(),
 		},
+		playbook: {
+			findMany: vi.fn(),
+		},
 	},
 	createNotificationMock: vi.fn(),
 	fetchWebhookSafelyMock: vi.fn(),
@@ -324,4 +327,25 @@ describe("alert service", () => {
 		);
 	});
 
+});
+
+describe("binding playbooks to a rule", () => {
+	// The rule starts the playbook with nobody approving it: the caller must be allowed to run playbooks by hand.
+	const rule = { name: "Disk full", metric: "disk_usage", operator: "gte" as const, threshold: 95, playbookIds: ["pb_1"] };
+
+	it("refuses a caller who may manage notifications but not run playbooks", async () => {
+		prismaMock.alertRule.create.mockResolvedValue({ id: "rule_pb" });
+		const notifier = { userId: "u_9", roles: ["operator" as const], currentTeamId: "team_1", permissions: ["notification:manage" as const] };
+		await expect(createAlertRule(rule, notifier)).rejects.toThrow(/playbook:run/);
+		expect(prismaMock.alertRule.create).not.toHaveBeenCalled();
+	});
+
+	it("lets a caller with playbook:run bind playbooks of their own team", async () => {
+		prismaMock.alertRule.create.mockResolvedValue({ id: "rule_pb" });
+		prismaMock.playbook.findMany.mockResolvedValue([{ id: "pb_1" }]);
+		const runner = { userId: "u_9", roles: ["operator" as const], currentTeamId: "team_1", permissions: ["notification:manage" as const, "playbook:run" as const] };
+		await createAlertRule(rule, runner);
+		expect(prismaMock.playbook.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: { in: ["pb_1"] } }) }));
+		expect(prismaMock.alertRule.create).toHaveBeenCalled();
+	});
 });

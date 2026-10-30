@@ -64,6 +64,31 @@ function normalizeAbsolutePath(value: unknown): string | null {
   return path;
 }
 
+/** Directories whose contents are credentials, wherever they sit. */
+const SENSITIVE_PATH_SEGMENTS = new Set([".ssh", ".gnupg", ".aws", ".kube", ".docker", ".config/gcloud", ".azure"]);
+/** Files that hold secrets or shell history. */
+const SENSITIVE_FILE_NAMES = /^(?:\.netrc|\.pgpass|\.my\.cnf|\.git-credentials|\.npmrc|\.pypirc|\.env(?:\..+)?|\.(?:bash|zsh|mysql|psql|python)_history|id_(?:rsa|dsa|ecdsa|ed25519)(?:\..*)?|.*\.(?:pem|key|p12|pfx|jks|keystore))$/i;
+/** System files that hold password hashes or private keys, and device/process nodes that are not files to read. */
+const SENSITIVE_SYSTEM_PATHS = /^\/(?:etc\/(?:shadow|gshadow|shadow-|gshadow-|sudoers(?:\.d(?:\/.*)?)?|ssh\/ssh_host_[^/]*_key|master\.passwd)|dev(?:\/.*)?|proc\/\d+\/(?:mem|environ|maps))$/;
+
+/**
+ * The read tools run without anyone approving them and their output goes to the AI provider and into the
+ * conversation: password hashes, private keys and credential stores are not for them (the terminal is).
+ */
+export function isSensitiveRemotePath(path: string): boolean {
+  const normalized = path.replace(/\/+$/, "") || "/";
+  if (SENSITIVE_SYSTEM_PATHS.test(normalized)) return true;
+  const segments = normalized.split("/").filter(Boolean);
+  if (segments.some((segment, index) => SENSITIVE_PATH_SEGMENTS.has(segment) || SENSITIVE_PATH_SEGMENTS.has(`${segment}/${segments[index + 1] ?? ""}`))) return true;
+  const name = segments.at(-1) ?? "";
+  return SENSITIVE_FILE_NAMES.test(name);
+}
+
+function normalizeReadablePath(value: unknown): string | null {
+  const path = normalizeAbsolutePath(value);
+  return path && !isSensitiveRemotePath(path) ? path : null;
+}
+
 function normalizeLiteralQuery(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const query = value.trim();
@@ -150,13 +175,13 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
       return "docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'";
 
     case "list_files": {
-      const path = normalizeAbsolutePath(params.path);
+      const path = normalizeReadablePath(params.path);
       if (!path) return null;
       return `find ${shellQuote(path)} -mindepth 1 -maxdepth 1 -printf '%y\t%s\t%f\n' 2>/dev/null | head -200`;
     }
 
     case "search_files": {
-      const path = normalizeAbsolutePath(params.path);
+      const path = normalizeReadablePath(params.path);
       const query = normalizeLiteralQuery(params.query);
       const pattern = normalizeFilePattern(params.filePattern);
       if (!path || !query || !pattern) return null;
@@ -164,7 +189,7 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
     }
 
     case "read_file": {
-      const filePath = normalizeAbsolutePath(params.filePath);
+      const filePath = normalizeReadablePath(params.filePath);
       const tail = normalizeTail(params.tail ?? 100);
       if (!filePath || !tail) return null;
       return `tail -n ${tail} -- ${shellQuote(filePath)}`;

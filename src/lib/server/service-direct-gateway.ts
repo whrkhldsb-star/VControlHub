@@ -14,6 +14,7 @@ import {
   DIRECT_GATEWAY_DEFAULT_PORT,
   DIRECT_GATEWAY_HTTPS_PUBLIC_PORT,
 } from "./direct-gateway";
+import { DIRECT_GATEWAY_KEY_PER_SERVER, deriveDirectGatewayServerKey } from "./direct-gateway-key";
 import { buildInstallWindowsDirectGatewayCommand, buildPrepareWindowsDirectGatewayCommand, buildUninstallWindowsDirectGatewayCommand, buildWindowsDirectGatewaySource, WINDOWS_GATEWAY_SCRIPT_NAME } from "./windows-direct-gateway";
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 import { t } from "@/lib/i18n/service-translations";
@@ -191,6 +192,8 @@ async function markDirectGatewayEnabledDb(input: {
     data: {
       fileProxyPort: DIRECT_GATEWAY_DEFAULT_PORT,
       publicUrl: input.publicBaseUrl,
+      // The gateway just installed verifies with this server's own key: sign its links with that key from now on.
+      directGatewayKeyVersion: DIRECT_GATEWAY_KEY_PER_SERVER,
     },
   });
   await prisma.storageNode.updateMany({
@@ -325,7 +328,8 @@ export async function applyServerDirectGatewayState(input: {
       command = input.enabled
         ? buildInstallDirectGatewayCommand({
           rootPath: basePath,
-          secret: getConfiguredDirectAccessSecret(),
+          // The gateway gets a key of its own, never the hub's shared secret (see direct-gateway-key.ts).
+          secret: deriveDirectGatewayServerKey(getConfiguredDirectAccessSecret(), input.serverId),
           port: DIRECT_GATEWAY_DEFAULT_PORT,
           bindAddress,
           autoReverseProxy,
@@ -356,7 +360,7 @@ export async function applyServerDirectGatewayState(input: {
         }
         const remoteScriptPath = `/${nativeDir.replaceAll("\\", "/")}/${WINDOWS_GATEWAY_SCRIPT_NAME}`;
         const gatewaySource = buildWindowsDirectGatewaySource({
-          rootPath: basePath, secret: getConfiguredDirectAccessSecret(), publicListen: bindAddress !== "127.0.0.1",
+          rootPath: basePath, secret: deriveDirectGatewayServerKey(getConfiguredDirectAccessSecret(), input.serverId), publicListen: bindAddress !== "127.0.0.1",
         });
         await writeRemoteFile({ ...ssh, remotePath: remoteScriptPath, content: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(gatewaySource, "utf8")]) });
       }

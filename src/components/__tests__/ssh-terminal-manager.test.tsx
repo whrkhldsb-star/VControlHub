@@ -238,3 +238,31 @@ describe("SshTerminalManager full screen", () => {
 		expect(screen.getByRole("region").parentElement).toHaveAttribute("data-fullscreen", "true");
 	});
 });
+
+describe("SshTerminalManager shortcuts", () => {
+	it("leaves Ctrl+Tab to a remote desktop that has the focus", () => {
+		// A Windows desktop with the focus gets every key; the workbench used to switch tabs on Ctrl+Tab regardless.
+		const onTabSelect = vi.fn();
+		render(
+			<SshTerminalManager
+				tabs={[tabs[0]!, { ...tabs[0]!, id: "srv1-2", serverName: "Beta" }]}
+				activeTabIndex={0}
+				onTabSelect={onTabSelect}
+				onTabClose={vi.fn()}
+				onClose={vi.fn()}
+				onStatusChange={vi.fn()}
+			/>,
+		);
+		const desktop = document.createElement("div");
+		desktop.setAttribute("data-rdp-panel", "");
+		document.body.appendChild(desktop);
+		try {
+			fireEvent.keyDown(desktop, { key: "Tab", ctrlKey: true });
+			expect(onTabSelect).not.toHaveBeenCalled();
+			fireEvent.keyDown(document.body, { key: "Tab", ctrlKey: true });
+			expect(onTabSelect).toHaveBeenCalledWith(1);
+		} finally {
+			desktop.remove();
+		}
+	});
+});

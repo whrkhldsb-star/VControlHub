@@ -162,4 +162,14 @@ describe("POST /api/images/publish-from-storage", () => {
     expect(assertStorageAccessMock).not.toHaveBeenCalled();
     expect(imageCreateMock).not.toHaveBeenCalled();
   });
+
+  it("looks for a duplicate among the caller's own and the public images of the customer only", async () => {
+    // A private image of another member matched by checksum came back as the "existing" one, row and all.
+    requireApiPermissionMock.mockResolvedValueOnce({ session: { ...session, currentTeamId: "team_1" } });
+    const response = await POST(publishRequest());
+    expect(response.status).toBe(201);
+    expect(imageFindFirstMock).toHaveBeenCalledWith({
+      where: { checksum: expect.any(String), teamId: "team_1", OR: [{ userId: "u_1" }, { isPublic: true }] },
+    });
+  });
 });

@@ -12,6 +12,7 @@ import {
 } from "@/lib/cost/cloud-billing/service";
 import { createCloudBillingAccountSchema } from "@/lib/cost/cloud-billing/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { redactCloudBillingAccountForReader } from "@/lib/cost/cloud-billing/redact";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
 			errorMessage: apiCopy("apiCopy.failed.to.list.cloud.billing.accounts.8331aa1c"),
 		},
 		async ({ session }) => {
-			const accounts = await listCloudBillingAccounts(session);
+			const accounts = (await listCloudBillingAccounts(session)).map((account) => redactCloudBillingAccountForReader(account, session));
 			return NextResponse.json({ accounts });
 		},
 	);

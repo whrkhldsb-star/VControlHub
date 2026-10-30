@@ -3,7 +3,7 @@ import type { RoleKey } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { playbookTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 
 import { sendAlertEmail } from "@/lib/notification/email";
 import { sendAlertTelegram } from "@/lib/notification/telegram";
@@ -31,6 +31,9 @@ async function assertServerIdsInTeam(serverIds: string[], session?: TeamSession 
 
 async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSession | null) {
 	if (!session || playbookIds.length === 0) return;
+	// The rule fires the playbook with nobody approving it: notification:manage alone must not start what the
+	// caller could not run by hand.
+	if (!sessionHasPermission(session, "playbook:run")) throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
 	if (sessionHasPermission(session, "team:manage")) return;
 	const allowed = await prisma.playbook.findMany({
 		// Strict: an alert rule binds a playbook that later fires unattended, so a

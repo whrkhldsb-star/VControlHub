@@ -92,6 +92,8 @@ export async function POST(request: Request) {
       // single-task request (one HTTP link or one magnet relay).
       const isHttpBatch = isBatch && allUrls.length > 1 && !hasMagnet;
       const sourceResolutions = new Map<string, DownloadSourceResolution>();
+      // A link stored differently from how it was pasted: a magnet with its unsafe trackers dropped.
+      const storedUrls = new Map<string, string>();
       for (const u of allUrls) {
         const validation = await assertDownloadSourceUrlSafe(u);
         if (!validation.ok) {
@@ -103,6 +105,7 @@ export async function POST(request: Request) {
         if (validation.resolution) {
           sourceResolutions.set(u, validation.resolution);
         }
+        if (validation.url && validation.url !== u) storedUrls.set(u, validation.url);
       }
 
       const teamAccess = await assertServerTeamAccess(session, serverId, "connect");
@@ -209,7 +212,7 @@ export async function POST(request: Request) {
 
         const task = await prisma.downloadTask.create({
           data: {
-            url: taskUrl,
+            url: storedUrls.get(taskUrl) ?? taskUrl,
             serverId,
             targetPath: resolvedTargetPath,
             fileName: taskFileName,
@@ -268,7 +271,7 @@ export async function POST(request: Request) {
         }
 
         await auditUserAction(session.userId, "download.create", {
-          url: taskUrl!,
+          url: storedUrls.get(taskUrl!) ?? taskUrl!,
           serverId,
           targetPath: resolvedTargetPath,
           taskId: task.id,

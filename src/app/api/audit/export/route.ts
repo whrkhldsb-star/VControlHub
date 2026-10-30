@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 const exportQuerySchema = z.object({
   format: z.enum(["csv", "json"]).default("csv"),
   action: z.string().trim().min(1).optional(),
-  severity: z.string().trim().min(1).optional(),
+  severity: z.enum(["INFO", "WARNING", "CRITICAL"]).optional(),
   search: z.string().trim().min(1).optional(),
 });
 
@@ -66,7 +66,8 @@ export async function GET(request: Request) {
     }
 
     const csv = toCsv(logs);
-    return new Response(csv, {
+    // The byte-order mark makes Excel (Windows) read the UTF-8 text as UTF-8 instead of the system code page.
+    return new Response(`\ufeff${csv}`, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

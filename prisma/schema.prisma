@@ -343,6 +343,7 @@ model Server {
   directGatewayDesiredEnabled  Boolean                @default(false)
   directGatewayDesiredProtocol DirectGatewayProtocol  @default(HTTP)
   directGatewayDesiredDomain   String?
+  directGatewayKeyVersion      Int                    @default(1) // 1 = shared hub secret (older installs), 2 = key derived for this server
   costAutoSync                 Boolean                @default(false) // TR-031: 是否自动同步 VPS 月费到成本条目
   costMonthlyAmount            Decimal?               @db.Decimal(12, 2) // TR-031: VPS 月费
   costCurrency                 String                 @default("CNY") // TR-031: VPS 月费币种

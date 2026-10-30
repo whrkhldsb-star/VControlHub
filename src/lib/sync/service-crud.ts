@@ -6,14 +6,19 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * lives in `./service-runtime`; the command strings it produces live in
  * `./service-commands`.
  */
+import posixPath from "node:path/posix";
+
 import { prisma } from "@/lib/db";
+import { getPermissionsFromRoles, type Permission } from "@/lib/auth/rbac";
 import { serverTeamWhere, syncJobTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { effectiveDeleteOrphans, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
 import { t } from "@/lib/i18n/service-translations";
 
-export type SyncSessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+/** The caller's scope and, when known, its effective permissions (an identity template or API token may grant fewer than its roles). */
+export type SyncSessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> & { permissions?: Permission[] };
 
 export type SyncJobInput = {
 	name: string;
@@ -60,6 +65,42 @@ async function assertSyncServersInScope(
 	}
 }
 
+/** Whether `path` (absolute) is `root` or lies below it; a relative path is resolved by the SSH user's shell, so it is never provably inside. */
+export function syncPathWithinRoot(path: string, root: string): boolean {
+	if (!path.startsWith("/")) return false;
+	const normalizedRoot = posixPath.normalize(root).replace(/\/+$/, "") || "/";
+	const normalizedPath = posixPath.normalize(path).replace(/\/+$/, "") || "/";
+	if (normalizedRoot === "/") return true;
+	return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
+}
+
+/**
+ * A sync job reads and writes as the server's SSH user, anywhere on the machine — the reach of a terminal. A caller
+ * who may not open a terminal there (no `server:ssh`) is therefore confined to the server's storage root, where
+ * `storage:write` already lets it read and write through the file pages; a server without a storage node has no such
+ * root to confine it to.
+ */
+async function assertSyncEndpointsWithinReach(
+	endpoints: Array<{ serverId: string; path: string }>,
+	session: SyncSessionScope | null | undefined,
+): Promise<void> {
+	if (!session) return;
+	const permissions = session.permissions ?? getPermissionsFromRoles(session.roles);
+	if (permissions.includes("server:ssh")) return;
+	const nodes = await prisma.storageNode.findMany({
+		where: { serverId: { in: Array.from(new Set(endpoints.map((endpoint) => endpoint.serverId))) } },
+		select: { serverId: true, basePath: true },
+	});
+	const roots = new Map(nodes.map((node) => [node.serverId, expandStorageBasePath(node.basePath)]));
+	for (const endpoint of endpoints) {
+		const root = roots.get(endpoint.serverId);
+		if (!root) throw new ForbiddenError(t("backend.sync.endpointNeedsSshPermission", { path: endpoint.path }));
+		if (!syncPathWithinRoot(endpoint.path, root)) {
+			throw new ForbiddenError(t("backend.sync.endpointOutsideStorageRoot", { path: endpoint.path, root }));
+		}
+	}
+}
+
 /** A job that deletes what the source lacks may not target a system directory. */
 export function assertSafeDeleteTarget(syncType: string | null | undefined, deleteOrphans: boolean, targetPath: string) {
 	if (effectiveDeleteOrphans(syncType, deleteOrphans) && isProtectedDeleteTarget(targetPath)) {
@@ -73,6 +114,13 @@ export async function createSyncJob(input: SyncJobInput) {
 	await assertSyncServersInScope(
 		[input.sourceServerId, input.targetServerId],
 		input.session ?? null,
+	);
+	await assertSyncEndpointsWithinReach(
+		[
+			{ serverId: input.sourceServerId, path: input.sourcePath },
+			{ serverId: input.targetServerId, path: input.targetPath },
+		],
+		input.session,
 	);
 	const teamData = input.session ? teamCreateData(input.session) : {};
 	const deleteOrphans = effectiveDeleteOrphans(input.syncType ?? "MIRROR", input.deleteOrphans ?? false);
@@ -201,6 +249,15 @@ export async function updateSyncJob(
 		Boolean(data.deleteOrphans ?? existing.deleteOrphans),
 		data.targetPath ?? existing.targetPath,
 	);
+	if (data.sourcePath !== undefined || data.targetPath !== undefined) {
+		await assertSyncEndpointsWithinReach(
+			[
+				{ serverId: existing.sourceServerId, path: data.sourcePath ?? existing.sourcePath },
+				{ serverId: existing.targetServerId, path: data.targetPath ?? existing.targetPath },
+			],
+			session,
+		);
+	}
 	const patch: Record<string, unknown> = {};
 	if (data.name !== undefined) patch.name = data.name;
 	if (data.sourcePath !== undefined) patch.sourcePath = data.sourcePath;

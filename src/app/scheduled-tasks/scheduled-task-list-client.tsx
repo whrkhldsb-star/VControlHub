@@ -276,12 +276,12 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 	const selectedTemplate = templates.find((template) => template.id === templateId) ?? null;
 	const renderedCommand = useMemo(() => {
 		let result = selectedTemplate?.command ?? command;
-		for (const [key, value] of Object.entries(variables)) result = result.replaceAll(`{{${key}}}`, value);
+		for (const [key, value] of Object.entries(variables)) result = result.replaceAll(`{{${key}}}`, () => value);
 		return result;
 	}, [command, selectedTemplate, variables]);
 	const renderedRollback = useMemo(() => {
 		let result = rollbackCommand || selectedTemplate?.rollbackCommand || "";
-		for (const [key, value] of Object.entries(variables)) result = result.replaceAll(`{{${key}}}`, value);
+		for (const [key, value] of Object.entries(variables)) result = result.replaceAll(`{{${key}}}`, () => value);
 		return result;
 	}, [rollbackCommand, selectedTemplate, variables]);
 

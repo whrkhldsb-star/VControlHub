@@ -153,7 +153,14 @@ export function AiInputArea({
             if (isImeComposition(e)) return;
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              if (slashOpen) return; // palette open: Enter closes without sending
+              if (slashOpen) {
+                // "/" + a command id runs the command; any other message that starts with "/" (a path, a command
+                // line) is sent as it is — the open palette used to keep it from being sent at all.
+                const id = input.trim().slice(1);
+                const command = SLASH_COMMAND_IDS.find((candidate) => candidate === id);
+                setSlashOpen(false);
+                if (command) { applySlashCommand(command); return; }
+              }
               handleSend();
             }
             if (e.key === "Escape" && slashOpen) {

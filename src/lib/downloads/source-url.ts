@@ -19,8 +19,52 @@ type ValidateDownloadSourceUrlOptions = {
 };
 
 export type DownloadSourceUrlValidationResult =
-  | { ok: true; resolution?: DownloadSourceResolution }
+  | { ok: true; resolution?: DownloadSourceResolution; /** The link as it should be stored, when it was cleaned (a magnet's trackers). */ url?: string }
   | { ok: false; reason: string };
+
+/** Protocols a BitTorrent tracker is reached over. */
+const MAGNET_TRACKER_PROTOCOLS = new Set(["http:", "https:", "udp:", "ws:", "wss:"]);
+
+function trackerAllowed(value: string, blockedSuffixes: string[]): boolean {
+  let tracker: URL;
+  try {
+    tracker = new URL(value);
+  } catch {
+    return false;
+  }
+  if (!MAGNET_TRACKER_PROTOCOLS.has(tracker.protocol) || tracker.username || tracker.password) return false;
+  const hostname = tracker.hostname.toLowerCase();
+  if (!hostname || hostnameMatchesBlockedSuffix(hostname, blockedSuffixes)) return false;
+  const ipLiteral = hostname.replace(/^\[(.*)\]$/u, "$1");
+  return !(isIP(ipLiteral) && isBlockedIpAddress(ipLiteral));
+}
+
+/**
+ * A magnet link's `tr=` entries are addresses aria2 announces to with a GET or a UDP packet. Those naming the hub's
+ * own network, a local name or a non-tracker scheme are dropped; the rest of the link is kept byte for byte (the
+ * info hash and names are not re-encoded). Returns the link to store and how many trackers were dropped.
+ */
+export function sanitizeMagnetLink(value: string, options: ValidateDownloadSourceUrlOptions = {}): { url: string; droppedTrackers: number } {
+  const blockedSuffixes = options.blockedHostnameSuffixes ?? DEFAULT_BLOCKED_HOSTNAME_SUFFIXES;
+  const query = value.slice("magnet:?".length);
+  const kept: string[] = [];
+  let droppedTrackers = 0;
+  for (const segment of query.split("&")) {
+    const [rawKey = "", ...rest] = segment.split("=");
+    const key = rawKey.split(".")[0];
+    if (key !== "tr") { kept.push(segment); continue; }
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(rest.join("=").replace(/\+/g, "%20"));
+    } catch {
+      droppedTrackers += 1;
+      continue;
+    }
+    if (trackerAllowed(decoded, blockedSuffixes)) kept.push(segment);
+    else droppedTrackers += 1;
+  }
+  return { url: `magnet:?${kept.join("&")}`, droppedTrackers };
+}
 
 export type DownloadSourceResolution = {
   hostname: string;
@@ -101,7 +145,7 @@ export async function assertDownloadSourceUrlSafe(
 ): Promise<DownloadSourceUrlValidationResult> {
   const syntax = validateDownloadSourceUrlSyntax(rawUrl, options);
   if (!syntax.ok) return { ok: false, reason: syntax.reason };
-  if (syntax.magnet) return { ok: true };
+  if (syntax.magnet) return { ok: true, url: sanitizeMagnetLink(rawUrl.trim(), options).url };
 
   const hostname = syntax.url.hostname.toLowerCase();
   try {

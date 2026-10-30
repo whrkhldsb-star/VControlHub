@@ -192,6 +192,9 @@ export function RemoteDesktopPanel({
 	const extraKeys = useRef<ExtraKeyActions>(NO_EXTRA_KEYS);
 	const panView = useRef<(dx: number, dy: number) => void>(() => {});
 	const cancelTouch = useRef<() => void>(() => {});
+	// Lets go of every key and button the session holds (the tab was hidden), and gives the desktop the focus back.
+	const releaseInput = useRef<() => void>(() => {});
+	const focusDesktop = useRef<() => void>(() => {});
 	const applyTouchMode = useRef<() => void>(() => {});
 	const applyInputMethod = useRef<() => void>(() => {});
 	// An SSH tab connects when it opens; so does this one.
@@ -244,6 +247,9 @@ export function RemoteDesktopPanel({
 		let everConnected = false;
 		let dropped = false;
 		let userStopped = false;
+		// The desktop takes the focus when it first connects; an automatic reconnect must not pull it away from
+		// whatever the user is typing into meanwhile.
+		let focusedOnce = false;
 		// Windows refused the account or ended the session: retrying cannot help.
 		let finalError = false;
 		const cleanup = () => {
@@ -555,6 +561,8 @@ export function RemoteDesktopPanel({
 				const surfaceFocus = () => { if (!touch && localInput()) input.focus({ preventScroll: true }); };
 				// Leaving the page or the desktop lets go of everything held — keys, mouse buttons, and the buttons a finger holds.
 				const reset = () => { keyboard.reset(); mouse.reset(); cancelTouch.current(); };
+				releaseInput.current = reset;
+				focusDesktop.current = focus;
 				// Moving between the desktop and its text field is not leaving it.
 				const leave = (event: FocusEvent) => { if (event.relatedTarget !== input && event.relatedTarget !== surface) reset(); };
 				surface.addEventListener("pointerdown", pointerFocus);
@@ -775,6 +783,8 @@ export function RemoteDesktopPanel({
 					applyResolution.current = () => {};
 					applyTouchMode.current = () => {};
 					applyInputMethod.current = () => {};
+					releaseInput.current = () => {};
+					focusDesktop.current = () => {};
 					client.disconnect();
 				};
 				const drop = () => {
@@ -825,11 +835,12 @@ export function RemoteDesktopPanel({
 						if (touch) {
 							centerPointer();
 							// The desktop has the focus (a hardware keyboard types into it); the on-screen keyboard is the button's.
-							if (visibleRef.current) surface.focus({ preventScroll: true });
+							if (visibleRef.current && !focusedOnce) surface.focus({ preventScroll: true });
 							setTouchHint(true);
-						} else if (visibleRef.current) {
+						} else if (visibleRef.current && !focusedOnce) {
 							focus();
 						}
+						focusedOnce = true;
 					}
 					if (state === 5) drop();
 				};
@@ -887,7 +898,8 @@ export function RemoteDesktopPanel({
 	// A tab shown again (or the window resized while it was hidden) is fitted now.
 	useEffect(() => {
 		visibleRef.current = visible;
-		if (!visible) return;
+		// A hidden tab lets go of what it holds: a modifier held while switching tabs stayed down on the remote side.
+		if (!visible) { releaseInput.current(); return; }
 		refit.current();
 		showFrames.current();
 	}, [visible, fullscreen]);
@@ -932,6 +944,7 @@ export function RemoteDesktopPanel({
 			className="flex min-h-0 flex-1 flex-col"
 			style={{ display: visible ? "flex" : "none" }}
 			data-testid={`rdp-panel-${serverId}`}
+			data-rdp-panel=""
 		>
 			<RemoteDesktopToolbar
 				serverName={serverName}
@@ -950,7 +963,7 @@ export function RemoteDesktopPanel({
 				onKeyboard={() => toggleKeyboard.current()}
 				onToggleInputMethod={toggleInputMethod}
 				onResolutionChange={changeResolution}
-				onCtrlAltDel={() => sendCtrlAltDel.current()}
+				onCtrlAltDel={() => { sendCtrlAltDel.current(); focusDesktop.current(); }}
 				onToggleFullscreen={onToggleFullscreen}
 				onReconnect={reconnect}
 				onClose={onClose}

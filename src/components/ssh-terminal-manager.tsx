@@ -174,6 +174,8 @@ export function SshTerminalManager({
 	// Ctrl/Cmd+M → toggle minimize
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent) => {
+			// A remote desktop with the focus gets every key: Ctrl+Tab and Ctrl+M belong to Windows there.
+			if (e.target instanceof Element && e.target.closest("[data-rdp-panel]")) return;
 			// Ctrl/Cmd+Tab to cycle tabs
 			if ((e.ctrlKey || e.metaKey) && e.key === "Tab") {
 				e.preventDefault();

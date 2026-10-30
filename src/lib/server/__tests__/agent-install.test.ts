@@ -65,7 +65,22 @@ describe("Linux Agent install over SSH", () => {
     await expect(installServerAgent("srv1")).rejects.toThrow("sudo: a password is required");
     expect(mocks.serverUpdate).toHaveBeenLastCalledWith({
       where: { id: "srv1" },
-      data: { agentLastError: "sudo: a password is required" },
+      data: { agentTokenHash: null, agentLastError: "sudo: a password is required" },
+    });
+  });
+
+  it("gives a running Agent its token back when the reinstall fails", async () => {
+    // The token is rotated before the install script runs; a failed install used to leave the Agent that was still
+    // running with a revoked token, so the node went offline (401) until someone reinstalled by hand.
+    mocks.serverFindUnique.mockResolvedValueOnce({ ...linuxServer, agentTokenHash: "hash-of-the-running-agent" }).mockResolvedValueOnce({ id: "srv1" });
+    mocks.execRemoteCommand.mockResolvedValueOnce({ stdout: "", stderr: "python3: not found", exitCode: 127 });
+
+    await expect(installServerAgent("srv1")).rejects.toThrow("python3: not found");
+    const rotated = mocks.serverUpdate.mock.calls.find(([call]) => typeof call.data.agentTokenHash === "string" && call.data.agentTokenHash !== "hash-of-the-running-agent");
+    expect(rotated).toBeDefined();
+    expect(mocks.serverUpdate).toHaveBeenLastCalledWith({
+      where: { id: "srv1" },
+      data: { agentTokenHash: "hash-of-the-running-agent", agentLastError: "python3: not found" },
     });
   });
 });

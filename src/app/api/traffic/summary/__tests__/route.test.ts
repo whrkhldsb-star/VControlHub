@@ -67,6 +67,8 @@ import { GET } from "../route";
 
 describe("traffic summary route", () => {
   it("summarizes primary interface once per request (no mid-request cache advance)", async () => {
+    // The hub host's own interfaces are shown to the platform administrator (customers see their servers).
+    requireApiPermissionMock.mockImplementation(async () => ({ session: { userId: "u1", roles: ["admin"] } }));
     const req = new Request(
       "http://localhost/api/traffic/summary",
     ) as Parameters<typeof GET>[0];
@@ -80,6 +82,8 @@ describe("traffic summary route", () => {
   });
 
   it("returns current server traffic and storage node sources", async () => {
+    // The hub host's own interfaces are shown to the platform administrator (customers see their servers).
+    requireApiPermissionMock.mockImplementation(async () => ({ session: { userId: "u1", roles: ["admin"] } }));
     const req = new Request(
       "http://localhost/api/traffic/summary",
     ) as Parameters<typeof GET>[0];
@@ -109,6 +113,7 @@ describe("traffic summary route", () => {
   });
 
   it("quarantines servers and storage nodes without an active workspace", async () => {
+    requireApiPermissionMock.mockImplementation(async () => ({ session: { userId: "u1", roles: ["viewer"] } }));
     // A viewer with no current team must not reach null-team servers: they are
     // quarantined legacy data, and with `include=remote` this route would load
     // their SSH credentials and dial out.

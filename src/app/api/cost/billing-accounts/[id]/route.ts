@@ -14,6 +14,7 @@ import {
 } from "@/lib/cost/cloud-billing/service";
 import { updateCloudBillingAccountSchema } from "@/lib/cost/cloud-billing/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { redactCloudBillingAccountForReader } from "@/lib/cost/cloud-billing/redact";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export async function GET(request: Request, context: RouteContext) {
 			errorMessage: apiCopy("apiCopy.failed.to.load.cloud.billing.account.5c00eddf"),
 		},
 		async ({ session }) => {
-			const account = await getCloudBillingAccount(id, session);
+			const account = redactCloudBillingAccountForReader(await getCloudBillingAccount(id, session), session);
 			return NextResponse.json({ account });
 		},
 	);

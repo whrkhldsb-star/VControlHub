@@ -19,7 +19,7 @@ vi.mock("@/lib/monitoring/remote-traffic", () => ({
 	sampleRemoteServersTraffic: () => new Promise((resolve) => { remote.release = () => resolve([]); }),
 }));
 vi.mock("@/lib/auth/require-api-permission", () => ({
-	requireApiPermission: vi.fn(async () => ({ session: { userId: "u1", roles: ["viewer"] } })),
+	requireApiPermission: vi.fn(async () => ({ session: { userId: "u1", roles: ["admin"] } })),
 }));
 vi.mock("@/lib/db", () => ({
 	prisma: {
