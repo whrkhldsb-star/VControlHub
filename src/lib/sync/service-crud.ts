@@ -13,6 +13,9 @@ import { getPermissionsFromRoles, type Permission } from "@/lib/auth/rbac";
 import { serverTeamWhere, syncJobTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
+import { storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { effectiveDeleteOrphans, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
 import { t } from "@/lib/i18n/service-translations";
@@ -80,23 +83,29 @@ export function syncPathWithinRoot(path: string, root: string): boolean {
  * `storage:write` already lets it read and write through the file pages; a server without a storage node has no such
  * root to confine it to.
  */
-async function assertSyncEndpointsWithinReach(
-	endpoints: Array<{ serverId: string; path: string }>,
+export async function assertSyncEndpointsWithinReach(
+	endpoints: Array<{ serverId: string; path: string; operations?: Array<"read" | "write" | "delete"> }>,
 	session: SyncSessionScope | null | undefined,
 ): Promise<void> {
 	if (!session) return;
 	const permissions = session.permissions ?? getPermissionsFromRoles(session.roles);
 	if (permissions.includes("server:ssh")) return;
 	const nodes = await prisma.storageNode.findMany({
-		where: { serverId: { in: Array.from(new Set(endpoints.map((endpoint) => endpoint.serverId))) } },
-		select: { serverId: true, basePath: true },
+		where: { serverId: { in: Array.from(new Set(endpoints.map((endpoint) => endpoint.serverId))) }, ...storageNodeTeamWhere(session) },
+		select: { id: true, serverId: true, basePath: true },
 	});
-	const roots = new Map(nodes.map((node) => [node.serverId, expandStorageBasePath(node.basePath)]));
 	for (const endpoint of endpoints) {
-		const root = roots.get(endpoint.serverId);
-		if (!root) throw new ForbiddenError(t("backend.sync.endpointNeedsSshPermission", { path: endpoint.path }));
-		if (!syncPathWithinRoot(endpoint.path, root)) {
-			throw new ForbiddenError(t("backend.sync.endpointOutsideStorageRoot", { path: endpoint.path, root }));
+		const node = nodes.find((node) => node.serverId === endpoint.serverId && syncPathWithinRoot(endpoint.path, expandStorageBasePath(node.basePath)));
+		if (!node) {
+			const other = nodes.find((node) => node.serverId === endpoint.serverId);
+			throw new ForbiddenError(other
+				? t("backend.sync.endpointOutsideStorageRoot", { path: endpoint.path, root: expandStorageBasePath(other.basePath) })
+				: t("backend.sync.endpointNeedsSshPermission", { path: endpoint.path }));
+		}
+		const relativePath = posixPath.relative(expandStorageBasePath(node.basePath), posixPath.normalize(endpoint.path));
+		for (const operation of endpoint.operations ?? ["read", "write"]) {
+			const access = await assertStorageAccess({ session: { ...session, username: "", mustChangePassword: false }, storageNodeId: node.id, relativePath, operation });
+			if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
 		}
 	}
 }

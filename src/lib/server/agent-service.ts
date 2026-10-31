@@ -243,9 +243,11 @@ export async function claimNextServerAgentJob(serverId: string) {
         orderBy: { createdAt: "asc" },
       });
     }
-    if (!next) return null;
+    // A bounded sweep may leave another expired row at its head. Never
+    // claim it merely because the sweep budget ran out; next poll resumes.
+    if (!next || Date.now() - next.createdAt.getTime() > next.timeoutMs + AGENT_PENDING_GRACE_MS) return null;
     const claimed = await tx.serverAgentJob.updateMany({
-      where: { id: next.id, status: "PENDING" },
+      where: { id: next.id, status: "PENDING", createdAt: { gte: new Date(Date.now() - next.timeoutMs - AGENT_PENDING_GRACE_MS) }, timeoutMs: next.timeoutMs },
       data: {
         status: "CLAIMED",
         claimedAt: now,

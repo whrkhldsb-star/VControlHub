@@ -53,7 +53,7 @@ export async function GET(
 
     // A deleted customer is hidden with its data until restored: its public
     // links stop serving its images too.
-    if (!image || (image.isPublic && image.team?.deletedAt)) {
+    if (!image || image.team?.deletedAt) {
       return NextResponse.json(
         { error: apiCopy("apiCopy.image.not.found.or.inaccessible.034fcf62") },
         { status: 404 },
@@ -74,10 +74,8 @@ export async function GET(
           (image.teamId !== null && image.teamId === session.currentTeamId));
       const canReadPrivateImage =
         !!session &&
-        (session.userId === image.userId ||
-          (isInManagedTeam &&
-            (sessionHasPermission(session, "media:manage") ||
-              sessionHasPermission(session, "team:manage"))));
+        isInManagedTeam &&
+        (session.userId === image.userId || sessionHasPermission(session, "media:manage") || sessionHasPermission(session, "team:manage"));
 
       if (!canReadPrivateImage) {
         return NextResponse.json(

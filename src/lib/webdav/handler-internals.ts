@@ -115,7 +115,8 @@ export async function requireAccess(
   storageNodeId: string,
   relativePath: string,
   operation: "read" | "write" | "delete",
-  writeBytes?: number,
+  writeBytes?: number | bigint,
+  capacity?: { largestFileBytes?: number | bigint; movedFrom?: string },
 ) {
   const decision = await assertStorageAccess({
     session,
@@ -123,6 +124,7 @@ export async function requireAccess(
     relativePath: relativePath || "",
     operation,
     writeBytes,
+    ...capacity,
   });
   if (!decision.allowed) {
     throw new BusinessError(

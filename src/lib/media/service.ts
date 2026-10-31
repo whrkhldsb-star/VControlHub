@@ -118,6 +118,7 @@ const mediaStreamItemSelect = {
       publicBaseUrl: true,
       serverId: true,
       hostKeySha256: true,
+      webdavConfigEncrypted: true,
       // The node's own endpoint overrides and the server's OS decide the
       // target and transport (resolveStorageSshCredentials), as for file
       // operations (sftp-node.ts): without them playback used the server's

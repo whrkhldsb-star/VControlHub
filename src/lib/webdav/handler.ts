@@ -10,6 +10,7 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { createLogger } from "@/lib/logging";
 import { config } from "@/lib/config/env";
 import {
@@ -260,7 +261,9 @@ export async function handleWebDavPut(
     body.byteLength,
   );
 
+  let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
+    releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, ctx.relativePath);
     const node = await loadNode(ctx.storageNodeId, ctx.session);
     const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
     if (existing?.entryType === "DIRECTORY") {
@@ -386,6 +389,7 @@ export async function handleWebDavPut(
       },
     });
   } finally {
+    await releaseOverwrite?.();
     await releaseStorageQuotaGuard(putAccess);
   }
 }
@@ -669,10 +673,19 @@ export async function handleWebDavMove(
   );
   if (!destPath)
     throw new ValidationError(t("backend.webdav.invalidDestination"));
-  await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write");
-
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
+  const moved = entry.entryType === "DIRECTORY" ? await prisma.fileEntry.aggregate({
+    where: { storageNodeId: ctx.storageNodeId, isDeleted: false, entryType: "FILE", relativePath: { startsWith: escapeLikePrefix(ctx.relativePath + "/") } },
+    _sum: { size: true }, _max: { size: true },
+  }) : null;
+  const movedBytes = moved ? moved._sum.size ?? BigInt(0) : BigInt(entry.size ?? 0);
+  const destinationAccess = await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write", movedBytes, {
+    largestFileBytes: moved ? moved._max.size ?? BigInt(0) : movedBytes, movedFrom: ctx.relativePath,
+  });
+  let releaseOverwrite: (() => Promise<void>) | undefined;
+  try {
+  releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, destPath);
   const existingDest = await findEntry(ctx.storageNodeId, destPath);
   const overwrite =
     (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
@@ -842,6 +855,7 @@ export async function handleWebDavMove(
       ),
     },
   });
+  } finally { await releaseOverwrite?.(); await releaseStorageQuotaGuard(destinationAccess); }
 }
 
 export async function handleWebDavCopy(
@@ -883,7 +897,9 @@ export async function handleWebDavCopy(
     "write",
     sourceBytes,
   );
+  let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
+    releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, destPath);
     return await performWebDavCopy({
       ctx,
       request,
@@ -892,6 +908,7 @@ export async function handleWebDavCopy(
       destPath,
     });
   } finally {
+    await releaseOverwrite?.();
     await releaseStorageQuotaGuard(copyAccess);
   }
 }

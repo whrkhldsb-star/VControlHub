@@ -9,7 +9,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * Pure command building lives in `./service-commands`, credential
  * decryption in `./service-credentials`, prisma CRUD in `./service-crud`.
  */
-import { executionRefusal } from "@/lib/auth/execution-actor";
+import { loadExecutionActor, executionRefusal } from "@/lib/auth/execution-actor";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { ForbiddenError } from "@/lib/errors";
@@ -36,7 +36,7 @@ import {
 	type OneWaySyncStats,
 } from "./bidirectional";
 import { isProtectedDeleteTarget } from "./bidirectional";
-import { assertDisjointSyncEndpoints, getSyncJobForExecution } from "./service-crud";
+import { assertDisjointSyncEndpoints, assertSyncEndpointsWithinReach, getSyncJobForExecution } from "./service-crud";
 
 /* ── remote command result ─────────────────────────────────── */
 
@@ -417,8 +417,9 @@ export async function executeSyncJob(
 		if (options?.onClaimed) await options.onClaimed();
 		// Authorised when created is not authorised now: the runner (or the
 		// creator, for a scheduled run) must still reach both enabled servers.
+		const actor = options?.actor ?? await loadExecutionActor(job.createdBy, job.teamId);
 		const refusal = await executionRefusal({
-			actor: options?.actor,
+			actor,
 			createdBy: job.createdBy,
 			teamId: job.teamId,
 			permission: "storage:write",
@@ -430,6 +431,10 @@ export async function executeSyncJob(
 
 		const bidirectional = isBidirectionalSyncType(job.syncType);
 		const deleteOrphans = effectiveDeleteOrphans(job.syncType, job.deleteOrphans);
+		await assertSyncEndpointsWithinReach([
+			{ serverId: job.sourceServerId, path: job.sourcePath, operations: bidirectional ? ["read", "write"] : ["read"] },
+			{ serverId: job.targetServerId, path: job.targetPath, operations: [...(bidirectional ? ["read" as const] : []), "write", ...(deleteOrphans ? ["delete" as const] : [])] },
+		], actor);
 		const flags = rsyncFlagsForJob({
 			syncType: job.syncType,
 			deleteOrphans: job.deleteOrphans,

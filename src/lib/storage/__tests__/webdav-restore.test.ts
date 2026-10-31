@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ findFirst: vi.fn(), update: vi.fn(), stat: vi.fn(), ssh: vi.fn() }));
+vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: async () => ({ allowed: true }), releaseStorageQuotaGuard: async () => {} }));
 vi.mock("@/lib/db", () => ({ prisma: { fileEntry: { findFirst: mocks.findFirst, update: mocks.update } }, isUniqueViolation: () => false }));
 vi.mock("@/lib/storage/webdav-client", () => ({ createWebDavClient: () => ({ stat: mocks.stat }) }));
 vi.mock("@/lib/ssh/client", () => ({ listRemoteDirectory: mocks.ssh }));

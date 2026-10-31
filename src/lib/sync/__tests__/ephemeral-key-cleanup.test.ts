@@ -25,7 +25,7 @@ vi.mock("../service-crud", () => ({
     deleteOrphans: false,
     compress: false,
   })),
-  assertDisjointSyncEndpoints: vi.fn(),
+  assertSyncEndpointsWithinReach: vi.fn(async () => {}), assertDisjointSyncEndpoints: vi.fn(),
 }));
 vi.mock("../service-credentials", () => ({ decryptSyncTargetCredentials: () => ({ privateKey: "TARGET PRIVATE KEY" }) }));
 vi.mock("@/lib/logging", () => ({

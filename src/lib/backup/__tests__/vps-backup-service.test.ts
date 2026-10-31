@@ -62,8 +62,10 @@ vi.mock("@/lib/storage/offsite/s3-client", () => ({
   },
 }));
 
+vi.mock("@/lib/api-token/authorization", () => ({ loadJobOwnerSession: async () => ({ userId: "owner", roles: ["admin"], currentTeamId: null }) }));
 vi.mock("@/lib/db", () => ({
   prisma: {
+    server: { count: async () => 1 },
     vpsBackupRecord: {
       findUnique: mocks.findUnique,
       updateMany: mocks.updateMany,
@@ -105,6 +107,7 @@ const storageRoot = join(tmpdir(), `vch-vps-backup-test-${process.pid}`);
 function baseRecord() {
   return {
     id: "rec_1",
+    createdBy: "owner",
     serverId: "srv_1",
     backupType: "nginx-config",
     status: "PENDING",

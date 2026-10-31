@@ -46,6 +46,7 @@ vi.mock("@/lib/storage/access-control", () => ({
     `${input.storageNodeId}:${input.relativePath ?? ""}`,
 }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: async () => async () => {},
   tryAcquireAdvisoryLock: mocks.lock,
 }));
 vi.mock("@/lib/storage/file-versions", () => ({

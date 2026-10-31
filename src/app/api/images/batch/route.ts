@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         sessionHasPermission(session, "role:manage");
       const whereClause = canManageImages
         ? { id: { in: ids }, ...imageTeamWhere(session) }
-        : { id: { in: ids }, userId: session.userId };
+        : { id: { in: ids }, userId: session.userId, ...imageTeamWhere(session) };
 
       switch (action) {
         case "delete": {

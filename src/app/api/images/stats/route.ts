@@ -26,7 +26,7 @@ export async function GET(request: Request) {
         sessionHasPermission(session, "media:manage");
       const where: Record<string, unknown> = canListAll
         ? { ...imageTeamWhere(session) }
-        : { userId: session.userId };
+        : { userId: session.userId, ...imageTeamWhere(session) };
 
       // Total count and size
       const [totalCount, totalSizeResult, albumBreakdown] = await Promise.all([

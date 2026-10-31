@@ -8,6 +8,7 @@
 
 import { prisma } from "@/lib/db";
 import { createCommandRequest, cancelCommandRequest } from "@/lib/command/service";
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { recordJobEvent } from "@/lib/job/events";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
@@ -83,10 +84,11 @@ function failedResult(step: PlaybookStep, error: unknown, startedAt: string): Pl
 }
 
 async function persistProgress(runId: string, results: PlaybookStepResult[]): Promise<void> {
-  await prisma.playbookRun.updateMany({
+  const persisted = await prisma.playbookRun.updateMany({
     where: { id: runId, status: "running" },
     data: { stepResults: toJsonValue(results) },
   });
+  if (persisted.count !== 1) throw new NonRetryableStepError("Playbook run is no longer running");
 }
 
 function substituteVariables(command: string, variables: Record<string, string>): string {
@@ -255,7 +257,10 @@ async function dispatchStep(input: {
   /** 0-based attempt within step.retry+1; each attempt gets a distinct command + idempotency key. */
   attempt: number;
   onProgress?: (progress: string) => Promise<unknown>;
+  signal?: AbortSignal;
+  beforeDispatch?: () => Promise<void>;
 }): Promise<string> {
+  input.signal?.throwIfAborted();
   const { step } = input;
   switch (step.type) {
     case "run_command": {
@@ -371,7 +376,7 @@ async function dispatchStep(input: {
           method: step.config.method,
           headers: step.config.headers ?? { "Content-Type": "application/json" },
           body: step.config.method === "GET" ? undefined : step.config.body,
-          signal: controller.signal,
+          signal: input.signal ? AbortSignal.any([input.signal, controller.signal]) : controller.signal,
         });
         if (!result.ok) throw new Error(result.error ?? `webhook URL blocked: ${step.config.url}`);
         if (!result.response.ok) {
@@ -392,7 +397,7 @@ async function dispatchStep(input: {
  * silently double-sending a webhook/notification.
  */
 async function markSideEffectDispatched(
-  input: { runId: string; results: PlaybookStepResult[]; existing?: PlaybookStepResult },
+  input: { runId: string; results: PlaybookStepResult[]; existing?: PlaybookStepResult; signal?: AbortSignal; beforeDispatch?: () => Promise<void> },
   stepId: string,
 ): Promise<void> {
   const marker: PlaybookStepResult = {
@@ -406,7 +411,10 @@ async function markSideEffectDispatched(
   const index = input.results.findIndex((result) => result.stepId === stepId);
   if (index >= 0) input.results[index] = marker;
   else input.results.push(marker);
+  input.signal?.throwIfAborted();
   await persistProgress(input.runId, input.results);
+  await input.beforeDispatch?.();
+  input.signal?.throwIfAborted();
 }
 
 async function executeWithRetries<T>(
@@ -423,7 +431,7 @@ async function executeWithRetries<T>(
       // A refusal to replay a dispatched side effect must not be retried (the
       // retry would undo the marker and fire it anyway), nor may a command whose
       // cancellation was never confirmed (it may still be running).
-      if (error instanceof NonRetryableStepError) throw error;
+      if (error instanceof NonRetryableStepError || error instanceof LeaseLostError) throw error;
       if (attempt + 1 < attempts) await onRetry?.(error);
     }
   }
@@ -439,6 +447,8 @@ export async function executePlaybookChain(input: {
   resumeResults?: PlaybookStepResult[];
   onProgress?: (progress: string) => Promise<unknown>;
   eventJobId?: string;
+  signal?: AbortSignal;
+  beforeDispatch?: () => Promise<void>;
 }): Promise<{ results: PlaybookStepResult[]; summary: string }> {
   const results = [...(input.resumeResults ?? [])];
   const totalSteps = input.playbook.steps.length;
@@ -481,7 +491,10 @@ export async function executePlaybookChain(input: {
         const rounds = 1 + Math.max(0, input.playbook.chainRetry ?? 0);
         const summary = await executeWithRetries(
           Math.max(1, step.retry + 1) * rounds,
-          () => {
+          async () => {
+            input.signal?.throwIfAborted();
+            await input.beforeDispatch?.();
+            input.signal?.throwIfAborted();
             const attempt = attemptIndex;
             attemptIndex += 1;
             return dispatchStep({
@@ -494,6 +507,8 @@ export async function executePlaybookChain(input: {
               existing,
               attempt,
               onProgress: input.onProgress,
+              signal: input.signal,
+              beforeDispatch: input.beforeDispatch,
             });
           },
           async (error) => {
@@ -540,6 +555,8 @@ export async function executePlaybookChain(input: {
         const live = results.find((item) => item.stepId === step.id);
         if (live?.commandRequestId) result.commandRequestId = live.commandRequestId;
       } catch (error) {
+        if (error instanceof LeaseLostError) throw error;
+        input.signal?.throwIfAborted();
         result = failedResult(step, error, startedAt);
         const live = results.find((item) => item.stepId === step.id);
         if (live?.commandRequestId) result.commandRequestId = live.commandRequestId;
@@ -557,6 +574,7 @@ export async function executePlaybookChain(input: {
       if (liveIndex >= 0) results[liveIndex] = result;
       else results.push(result);
     }
+    input.signal?.throwIfAborted();
     await persistProgress(input.runId, results);
     await input.onProgress?.(`step ${index + 1}/${totalSteps}: ${step.name || step.id} ${result.status}`);
     await recordJobEvent({

@@ -74,7 +74,7 @@ describe("/api/images/stats", () => {
 
     expect(response.status).toBe(200);
     expect(requireApiSessionMock).toHaveBeenCalled();
-    expect(imageCountMock).toHaveBeenCalledWith({ where: { userId: "u_1" } });
+    expect(imageCountMock).toHaveBeenCalledWith({ where: { userId: "u_1", teamId: "team_a" } });
     expect(body).toMatchObject({
       totalCount: 2,
       totalSizeBytes: 1024 * 1024,
@@ -98,7 +98,7 @@ describe("/api/images/stats", () => {
       new Request("https://example.com/api/images/stats"),
     );
     expect(response.status).toBe(200);
-    expect(imageCountMock).toHaveBeenCalledWith({ where: { userId: "u_1" } });
+    expect(imageCountMock).toHaveBeenCalledWith({ where: { userId: "u_1", teamId: "team_a" } });
   });
 
   it("allows administrators viewing all customers to read fleet-wide image stats", async () => {
@@ -142,7 +142,7 @@ describe("/api/images/stats", () => {
   });
 
   it.each([
-    { permission: "image:read", scope: { userId: "u_1" } },
+    { permission: "image:read", scope: { userId: "u_1", teamId: "team_a" } },
     { permission: "media:manage", scope: { teamId: "team_a" } },
     { permission: "team:manage", scope: {}, roles: ["admin"] },
   ])("counts more than 5000 uploads without truncation in the $permission scope", async ({ permission, scope }) => {

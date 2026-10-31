@@ -63,9 +63,8 @@ async function listImages(
   // Own images only unless showAll + elevated role.
   if (!showAll || !canListAll) {
     where.userId = userId;
-  } else if (session) {
-    Object.assign(where, imageTeamWhere(session));
   }
+  if (session) Object.assign(where, imageTeamWhere(session));
 
   const result = await prisma.$transaction(async (tx) => {
     const total = await tx.imageUpload.count({ where });

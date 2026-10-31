@@ -56,11 +56,13 @@ vi.mock("@/lib/job/service", () => ({
   failJobTerminal: mocks.failJobTerminal,
   heartbeatJob: mocks.heartbeatJob,
 }));
-vi.mock("@/lib/job/heartbeat-runner", () => ({
+vi.mock("@/lib/job/heartbeat-runner", async (original) => ({
+  ...await original<typeof import("@/lib/job/heartbeat-runner")>(),
   runWithLeaseHeartbeat: vi.fn(async ({ run }: { run: () => Promise<unknown> }) => run()),
 }));
 vi.mock("@/lib/api-token/authorization", () => ({
   loadApiTokenOwnerSession: mocks.loadApiTokenOwnerSession,
+  loadJobOwnerSession: mocks.loadApiTokenOwnerSession,
 }));
 vi.mock("@/lib/job/lease", () => ({ computeLeaseMs: () => 30 * 60 * 1000 }));
 vi.mock("@/lib/config/env", () => ({

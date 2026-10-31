@@ -13,7 +13,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	prisma: {
 		server: { findMany: vi.fn() },
-		storageNode: { findMany: vi.fn() },
+		storageNode: { findMany: vi.fn(), findFirst: vi.fn(async () => ({ id: "node" })) },
+		userStorageAccess: { findMany: vi.fn(async () => []) },
 		syncJob: {
 			create: vi.fn(),
 			findMany: vi.fn(),
@@ -179,8 +180,8 @@ describe("sync job CRUD scoping", () => {
 		it("lets a storage manager sync paths inside both servers' storage roots", async () => {
 			await createSyncJob({ ...baseInput, sourcePath: "/srv/storage/photos", targetPath: "/srv/storage/", session: storageManager });
 			expect(mocks.prisma.storageNode.findMany).toHaveBeenCalledWith({
-				where: { serverId: { in: ["srv_a", "srv_b"] } },
-				select: { serverId: true, basePath: true },
+				where: { serverId: { in: ["srv_a", "srv_b"] }, teamId: "team_1" },
+				select: { id: true, serverId: true, basePath: true },
 			});
 			expect(mocks.prisma.syncJob.create).toHaveBeenCalled();
 		});

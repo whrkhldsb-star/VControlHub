@@ -25,6 +25,7 @@ import {
   storageStreamResponse,
   type StorageByteRange,
 } from "@/lib/storage/streaming";
+import { createWebDavClient } from "@/lib/storage/webdav-client";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -182,6 +183,16 @@ export async function GET(
             status: 404,
           });
         }
+      }
+
+      if (node.driver === "WEBDAV") {
+        const client = createWebDavClient(node);
+        const entry = await client.stat(normalizedRelative.path);
+        if (!entry || entry.isDirectory) return apiError({ code: "NOT_FOUND", message: apiCopy("apiCopy.file.not.found.or.temporarily.cannot.be.read.3cc644d2"), status: 404 });
+        const range = parseStorageRange(request.headers.get("range"), entry.size);
+        if (range instanceof Response) return range;
+        const stream = Readable.fromWeb(await client.stream(normalizedRelative.path, range.status === 206 ? range : undefined, entry.size) as import("node:stream/web").ReadableStream);
+        return storageStreamResponse({ stream, range, contentType: item.mimeType, fileName: item.name, fileSize: entry.size, download });
       }
 
       if (node.driver !== "SFTP") {
