@@ -19,6 +19,9 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import { prisma } from "@/lib/db";
+import { loadJobOwnerSession } from "@/lib/api-token/authorization";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import {
@@ -247,6 +250,8 @@ export async function runVpsBackupRecord(
       server: {
         select: {
           id: true,
+          teamId: true,
+          team: { select: { deletedAt: true } },
           operatingSystem: true,
           host: true,
           port: true,
@@ -291,6 +296,15 @@ export async function runVpsBackupRecord(
     preClaimError = t("backend.server.linuxOnly");
   } else if (!getPreset(record.backupType)) {
     preClaimError = `Unknown backup type: ${record.backupType}`;
+  }
+
+  if (!preClaimError) {
+    const actor = record.createdBy ? await loadJobOwnerSession(record.createdBy, record.server?.teamId) : null;
+    if (!actor || record.server?.team?.deletedAt || !sessionHasPermission(actor, "server:write")) {
+      preClaimError = t("backend.execution.ownerInactive");
+    } else if (!await prisma.server.count({ where: { id: record.serverId, enabled: true, ...serverTeamWhere(actor, "manage") } })) {
+      preClaimError = t("backend.execution.serverUnavailable");
+    }
   }
 
   // Mark as RUNNING via CAS — only PENDING. FAILED is re-run by creating a new

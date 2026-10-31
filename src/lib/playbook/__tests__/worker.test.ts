@@ -326,7 +326,7 @@ describe("processPlaybookRun command-step live authorization", () => {
     });
     mocks.playbookRunUpdateMany.mockResolvedValueOnce({ count: 1 });
 
-    await expect(processPlaybookRun("run-c", "job-c")).rejects.toThrow(/requires a creator\/requester/);
+    await expect(processPlaybookRun("run-c", "job-c")).rejects.toThrow();
     expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
   });
 });

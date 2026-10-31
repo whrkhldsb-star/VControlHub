@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -23,6 +24,7 @@ vi.mock("@/lib/http/rate-limit-presets", () => ({
 const base = mkdtempSync(path.join(tmpdir(), "media-"));
 writeFileSync(path.join(base, "clip.mp4"), "0123456789");
 const mocks = vi.hoisted(() => ({ getMediaItem: vi.fn(), assertStorageAccess: vi.fn() }));
+vi.mock("@/lib/storage/webdav-client", () => ({ createWebDavClient: () => ({ stat: async () => ({ size: 10, isDirectory: false }), stream: async (_path: string, range?: { start: number; end: number }) => Readable.toWeb(Readable.from([range ? "0123456789".slice(range.start, range.end + 1) : "0123456789"])) }) }));
 vi.mock("@/lib/media/service", () => ({ getMediaItem: mocks.getMediaItem }));
 vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: mocks.assertStorageAccess }));
 
@@ -31,6 +33,13 @@ const get = (headers: Record<string, string> = {}, query = "") => route.GET(new 
 const item = { id: "m_1", name: "clip.mp4", mimeType: "video/mp4", relativePath: "clip.mp4", storageNode: { id: "node_1", driver: "LOCAL", basePath: base } };
 
 describe("GET /api/media/[id]/stream", () => {
+	it("streams WebDAV media with full, range, invalid-range and download responses", async () => {
+		mocks.getMediaItem.mockResolvedValue({ ...item, storageNode: { ...item.storageNode, driver: "WEBDAV", webdavConfigEncrypted: "fixture" } });
+		const full = await get(); expect(full.status).toBe(200); expect(await full.text()).toBe("0123456789");
+		const range = await get({ range: "bytes=2-4" }); expect(range.status).toBe(206); expect(range.headers.get("content-range")).toBe("bytes 2-4/10"); expect(await range.text()).toBe("234");
+		expect((await get({ range: "bytes=99-100" })).status).toBe(416);
+		expect((await get({}, "?download=1")).headers.get("content-disposition")).toContain("attachment");
+	});
 	beforeEach(() => {
 		vi.clearAllMocks();
 		routeSession.current = customerSession(["storage:read"]);
@@ -69,7 +78,7 @@ describe("GET /api/media/[id]/stream", () => {
 		expect((await get()).status).toBe(400);
 		mocks.getMediaItem.mockResolvedValueOnce({ ...item, relativePath: "missing.mp4" });
 		expect((await get()).status).toBe(404);
-		mocks.getMediaItem.mockResolvedValueOnce({ ...item, storageNode: { ...item.storageNode, driver: "WEBDAV" } });
+		mocks.getMediaItem.mockResolvedValueOnce({ ...item, storageNode: { ...item.storageNode, driver: "UNSUPPORTED" } });
 		expect((await get()).status).toBe(400);
 	});
 });

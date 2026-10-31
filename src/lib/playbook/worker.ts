@@ -2,7 +2,7 @@ import { JobStatus, Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
-import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, failJobTerminal, heartbeatJob, pruneTerminalJobsByType } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
@@ -10,6 +10,9 @@ import { auditSystemAction } from "@/lib/audit/service";
 import { createSingletonIntervalWorker, type SingletonIntervalWorkerState } from "@/lib/workers/singleton-interval-worker";
 
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { loadJobOwnerSession } from "@/lib/api-token/authorization";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { t } from "@/lib/i18n/service-translations";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { executePlaybookChain } from "./executor";
 import type { PlaybookStep, PlaybookStepResult } from "./types";
@@ -80,7 +83,7 @@ function terminalJobResult(status: string, errorMessage: string | null | undefin
   };
 }
 
-export async function processPlaybookRun(runId: string, jobId: string): Promise<{ status: "completed" | "failed"; summary: string }> {
+export async function processPlaybookRun(runId: string, jobId: string, signal?: AbortSignal): Promise<{ status: "completed" | "failed"; summary: string }> {
   const run = await prisma.playbookRun.findUnique({
     where: { id: runId },
     include: { playbook: true },
@@ -106,7 +109,12 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
     throw new Error(`playbook run is not claimable: ${runId}`);
   }
 
+  signal?.throwIfAborted();
   const requesterId = run.createdById ?? run.playbook.createdById;
+  const actor = requesterId ? await loadJobOwnerSession(requesterId, run.teamId) : null;
+  if (!actor || !sessionHasPermission(actor, "playbook:run")) {
+    throw new PlaybookAuthorizationError(t("backend.execution.ownerInactive"));
+  }
   const executionState = run.executionState as unknown as ExecutionState | null;
   const steps = executionState?.schemaVersion === 1 && Array.isArray(executionState.stepsSnapshot)
     ? executionState.stepsSnapshot
@@ -161,7 +169,17 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
       throw new Error(`playbook run is not claimable after lock: ${runId}`);
     }
 
+    signal?.throwIfAborted();
     const chain = await executePlaybookChain({
+      signal,
+      beforeDispatch: async () => {
+        signal?.throwIfAborted();
+        const owner = requesterId ? await loadJobOwnerSession(requesterId, run.teamId) : null;
+        if (!owner || !sessionHasPermission(owner, "playbook:run")) throw new PlaybookAuthorizationError(t("backend.execution.ownerInactive"));
+        const lease = await heartbeatJob(jobId, WORKER_ID, { leaseMs: LEASE_MS });
+        if (lease.count !== 1) throw new LeaseLostError(jobId);
+        signal?.throwIfAborted();
+      },
       playbook: {
         id: run.playbook.id,
         steps,
@@ -230,7 +248,7 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
       jobId: job.id,
       leaseMs: LEASE_MS,
       heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS }),
-      run: () => processPlaybookRun(runId, job.id),
+      run: (signal) => processPlaybookRun(runId, job.id, signal),
     });
     // Logical step failure already wrote PlaybookRun status=failed. Do NOT use
     // failJob() (requeues while attempts < maxAttempts). Terminal-fail the job
@@ -247,6 +265,7 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
     await completeJob(job.id, WORKER_ID, result);
     return true;
   } catch (error) {
+    if (error instanceof LeaseLostError) return true; // The new lease owner resolves it.
     const message = error instanceof Error ? error.message : String(error);
     const payload = (() => { try { return parsePayload(job.payload); } catch { return null; } })();
     // Authorization failures are terminal: retrying under the same revoked

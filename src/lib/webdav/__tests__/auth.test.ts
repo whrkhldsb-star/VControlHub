@@ -101,7 +101,7 @@ describe("authenticateWebDavRequest", () => {
     );
 
     expect(mocks.verifyApiToken).toHaveBeenCalledWith("vch_secret_token");
-    expect(auth.session).toMatchObject({ currentTeamId: "team_a", roles: [], permissions: ["storage:write"] });
+    expect(auth.session).toMatchObject({ currentTeamId: "team_a", roles: [], permissions: ["storage:read", "storage:write"] });
     expect(mocks.loadApiTokenOwnerSession).toHaveBeenCalledWith("u1", "team_a");
     expect(auth.tokenId).toBe("tok_1");
   });
@@ -117,7 +117,7 @@ describe("authenticateWebDavRequest", () => {
     // The username is a display field for WebDAV clients; only the password is a
     // credential, so a caller cannot select whose session they act as.
     expect(mocks.verifyApiToken).toHaveBeenCalledWith("vch_secret_token");
-    expect(auth.session).toMatchObject({ currentTeamId: "team_a", roles: [], permissions: ["storage:read"] });
+    expect(auth.session).toMatchObject({ currentTeamId: "team_a", roles: [], permissions: ["storage:read", "storage:write"] });
   });
 
   it("keeps a colon inside the token when splitting Basic credentials", async () => {

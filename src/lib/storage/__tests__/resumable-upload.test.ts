@@ -45,6 +45,7 @@ vi.mock("@/lib/upload/service", () => ({
   },
 }));
 
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertAccessMock,
   releaseStorageQuotaGuard: vi.fn(async () => undefined),

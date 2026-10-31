@@ -204,7 +204,8 @@ export async function assertStorageAccess(input: {
       ? input.writeBytes
       : BigInt(Math.max(0, Math.floor(input.writeBytes)));
 
-  if (input.operation === "write" && writeBytes !== null) {
+  // Restore retains delete authorization but must admit the revived bytes.
+  if ((input.operation === "write" || input.operation === "delete") && writeBytes !== null) {
     const largestFileBytes = input.largestFileBytes === null || input.largestFileBytes === undefined
       ? writeBytes
       : BigInt(input.largestFileBytes);
@@ -215,12 +216,12 @@ export async function assertStorageAccess(input: {
     const movedFrom = input.movedFrom === null || input.movedFrom === undefined ? null : normalizeAccessPath(input.movedFrom);
     const alreadyCounted = movedFrom !== null && pathMatchesGrant(movedFrom, operationGrant.pathPrefix);
     if (operationGrant.quotaBytes !== null && !alreadyCounted) {
-      // Serialize concurrent quota checks for the same grant so two writers
-      // cannot both observe usedBytes under quota and then both commit.
+      // Grants on overlapping paths (including different users) count the
+      // same files. Serialize by node, never by grant id.
       // Lock is held until the caller releases after FileEntry create/update.
       const releaseQuotaGuard = await acquireAdvisoryLock(
         "storage-quota",
-        operationGrant.id,
+        input.storageNodeId,
       );
       try {
         const usedBytes = await getGrantUsageBytes({

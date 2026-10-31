@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,8 +25,8 @@ vi.mock("@/lib/db", () => ({
     imageUpload: { findUnique: imageFindUniqueMock },
   },
 }));
-vi.mock("@/lib/image-bed/constants", () => ({
-  UPLOAD_DIR: "/tmp/vcontrolhub-image-file-test",
+vi.mock("@/lib/image-bed/constants", async () => ({
+  UPLOAD_DIR: (await import("node:path")).join((await import("node:os")).tmpdir(), "vcontrolhub-image-file-test"),
 }));
 
 import { GET } from "../route";
@@ -58,7 +60,7 @@ const otherSession = {
   currentTeamId: "team_2",
 };
 const params = { params: Promise.resolve({ id: "img_1" }) };
-const uploadRoot = "/tmp/vcontrolhub-image-file-test";
+const uploadRoot = path.join(tmpdir(), "vcontrolhub-image-file-test");
 
 function image(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -74,6 +76,14 @@ function image(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 describe("GET /api/images/[id]/file", () => {
+  it("revokes owner reads after customer transfer or customer deletion", async () => {
+    imageFindUniqueMock.mockResolvedValue(image({ isPublic: false }));
+    getApiSessionMock.mockResolvedValue({ ...ownerSession, currentTeamId: "team_2" });
+    expect((await GET(new Request("http://local/api/images/img_1/file"), params)).status).toBe(404);
+    getApiSessionMock.mockResolvedValue(ownerSession);
+    imageFindUniqueMock.mockResolvedValue(image({ isPublic: false, team: { deletedAt: new Date() } }));
+    expect((await GET(new Request("http://local/api/images/img_1/file"), params)).status).toBe(404);
+  });
   beforeEach(async () => {
     vi.clearAllMocks();
     getApiSessionMock.mockResolvedValue(null);

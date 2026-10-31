@@ -4,6 +4,8 @@ import path from "node:path";
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "./access-control";
+import { storageAccessDeniedCopy } from "./access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -30,7 +32,7 @@ import { buildDirectAccessStrategy } from "./service-direct-access";
 import { createWebDavClient } from "./webdav-client";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
-type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> & Partial<Pick<SessionPayload, "permissions">>;
 
 function storageNodeTeamFilter(session?: TeamSession | null): Record<string, unknown> {
   if (!session) return {};
@@ -449,15 +451,36 @@ export async function restoreFileEntry(
     throw new BusinessError(t("backend.storage.fileEntryNotInRecycleBin"));
   }
 
+  const actor: SessionPayload = { ...session, username: "", mustChangePassword: false };
+  const children = current.entryType === "DIRECTORY" && current.deleteBatchId ? await prisma.fileEntry.findMany({
+    where: { storageNodeId: current.storageNodeId, deleteBatchId: current.deleteBatchId, isDeleted: true, id: { not: current.id } },
+    select: { id: true, relativePath: true, entryType: true, size: true },
+  }) : [];
+  for (const child of children) {
+    const access = await assertStorageAccess({ session: actor, storageNodeId: current.storageNodeId, relativePath: child.relativePath, operation: "delete" });
+    if (!access.allowed) throw new BusinessError(storageAccessDeniedCopy(access.reason));
+  }
+  const files = [current, ...children].filter((row) => row.entryType === "FILE");
+  const bytes = files.reduce((sum, row) => sum + (row.size ?? BigInt(0)), BigInt(0));
+  const largest = files.reduce((max, row) => (row.size ?? BigInt(0)) > max ? row.size! : max, BigInt(0));
+  const capacity = await assertStorageAccess({ session: actor, storageNodeId: current.storageNodeId, relativePath: current.relativePath, operation: "delete", writeBytes: bytes, largestFileBytes: largest });
+  if (!capacity.allowed) throw new BusinessError(storageAccessDeniedCopy(capacity.reason));
+  try {
   await assertDeletedEntryStillExists(current);
-
-  return prisma.fileEntry.update({
+  if (children.length) {
+    return await prisma.$transaction(async (tx) => {
+      await tx.fileEntry.updateMany({ where: { id: { in: [current.id, ...children.map((row) => row.id)] }, storageNodeId: current.storageNodeId, isDeleted: true, deleteBatchId: current.deleteBatchId }, data: { isDeleted: false, deleteBatchId: null } });
+      return tx.fileEntry.findUniqueOrThrow({ where: { id: current.id } });
+    });
+  }
+  return await prisma.fileEntry.update({
     where: {
       id: payload.fileEntryId,
       storageNode: { teamId: current.storageNode.teamId ?? null },
     },
     data: { isDeleted: false, deleteBatchId: null },
   });
+  } finally { await releaseStorageQuotaGuard(capacity); }
 }
 
 export async function listFileEntries(

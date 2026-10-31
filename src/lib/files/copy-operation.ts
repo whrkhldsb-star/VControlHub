@@ -1,5 +1,6 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { randomUUID } from "node:crypto";
 import { readdir, link, unlink, lstat, rmdir } from "node:fs/promises";
 import path from "node:path";
@@ -371,14 +372,14 @@ export async function copyFileEntry(input: {
     for (const item of items) {
       input.signal?.throwIfAborted();
       const destination = root + item.path.slice(source.path.length);
-      const occupant = occupantsByPath.get(destination);
+      let occupant = occupantsByPath.get(destination);
       if (occupant?.isDeleted)
         throw new Error(
           apiCopy("apiCopy.files.op.trashPath", { v0: destination }),
         );
       if (occupant && (occupant.entryType === "DIRECTORY") !== item.directory)
         throw new Error(apiCopy("apiCopy.files.op.type", { v0: destination }));
-      const physical = await physicalExists(destination);
+      let physical = await physicalExists(destination);
       if (item.directory) {
         let createdIdentity: { dev: number; ino: number } | undefined;
         let creationAttempted = false;
@@ -468,7 +469,14 @@ export async function copyFileEntry(input: {
         let backedUp = false;
         let promoted = false;
         let remotePromotionAttempted = false;
+        let releaseOverwrite: (() => Promise<void>) | undefined;
         try {
+          releaseOverwrite = await lockStorageFileOverwrite(node.id, destination);
+          occupant = await prisma.fileEntry.findUnique({ where: { storageNodeId_relativePath: { storageNodeId: node.id, relativePath: destination } }, select: { id: true, relativePath: true, entryType: true, isDeleted: true } }) ?? undefined;
+          physical = await physicalExists(destination);
+          if (occupant?.isDeleted) throw new Error(apiCopy("apiCopy.files.op.trashPath", { v0: destination }));
+          if (occupant?.entryType === "DIRECTORY") throw new Error(apiCopy("apiCopy.files.op.type", { v0: destination }));
+          if ((occupant || physical) && input.policy !== "overwrite") throw new Error(apiCopy("apiCopy.files.op.exists", { v0: destination }));
           const result = await copyStorageFile(node, item.path, stage);
           const afterCopy = await statBackingObject({
             storageNode: node,
@@ -600,6 +608,7 @@ export async function copyFileEntry(input: {
           }
           throw error;
         } finally {
+          await releaseOverwrite?.();
           await releaseStorageQuotaGuard(access);
           await deleteBackingObject({
             storageNode: node,

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { isGlobalTeamManager, storageNodeTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
@@ -68,6 +69,28 @@ export async function getReadableStorageScope(
  * entries, media items) matching rows visible under at least one grant rule.
  * It carries its own OR (or id): compose it with AND where the query has its own.
  */
+/** SQL equivalent for raw listing/count queries. Identifiers are fixed here,
+ * never interpolated from a request. Filter entries before deriving folders. */
+export function readableStorageScopeSql(scope?: ReadableStorageScope | null): Prisma.Sql {
+  if (!scope) return Prisma.sql`TRUE`;
+  const predicates = [
+    ...scope.nodesWithoutGrants.map((nodeId) => Prisma.sql`"storageNodeId" = ${nodeId}`),
+    ...scope.grantRules.map((rule) => rule.pathPrefix
+      ? Prisma.sql`("storageNodeId" = ${rule.storageNodeId} AND ("relativePath" = ${rule.pathPrefix} OR starts_with("relativePath", ${rule.pathPrefix + "/"})))`
+      : Prisma.sql`"storageNodeId" = ${rule.storageNodeId}`),
+  ];
+  return predicates.length ? Prisma.sql`(${Prisma.join(predicates, " OR ")})` : Prisma.sql`FALSE`;
+}
+
+/** Ancestors may be traversed to reach a grant, but may not be synchronized. */
+export function readableStoragePath(scope: ReadableStorageScope | null, nodeId: string, path: string, allowAncestor = false): boolean {
+  if (!scope || scope.nodesWithoutGrants.includes(nodeId)) return true;
+  return scope.grantRules.some((rule) => rule.storageNodeId === nodeId && (
+    !rule.pathPrefix || path === rule.pathPrefix || path.startsWith(rule.pathPrefix + "/")
+    || (allowAncestor && (!path || rule.pathPrefix.startsWith(path + "/")))
+  ));
+}
+
 export function readableStorageScopeWhere(scope: ReadableStorageScope) {
   if (scope.nodesWithoutGrants.length === 0 && scope.grantRules.length === 0) {
     // Nothing readable — match no rows.

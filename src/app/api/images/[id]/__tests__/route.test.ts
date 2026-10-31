@@ -92,6 +92,16 @@ const session = {
 };
 
 describe("/api/images/[id]", () => {
+  it("refuses deletion by the original uploader after transfer to another customer", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({ ...session, currentTeamId: "team_2" });
+    sessionHasPermissionMock.mockImplementation((_s: unknown, permission: string) => permission === "image:write");
+    imageFindUniqueMock.mockResolvedValueOnce({ id: "img_1", userId: session.userId, teamId: "team_1", storageKey: "img.png", storageNodeId: null, relativePath: null });
+    const result = await DELETE(new Request("http://local/api/images/img_1", { method: "DELETE" }), { params: Promise.resolve({ id: "img_1" }) });
+    expect(result.status).toBe(403);
+    expect(imageDeleteMock).not.toHaveBeenCalled();
+    expect(unlinkMock).not.toHaveBeenCalled();
+  });
   it("revokes the image record before removing backing files", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);

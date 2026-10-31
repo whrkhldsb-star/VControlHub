@@ -214,17 +214,17 @@ describe("executeServerlessQuery", () => {
 				expect.objectContaining({ where: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_1" }]) }) }),
 			);
 			const where = mocks.trafficFindMany.mock.calls[0]![0].where as { OR: unknown[] };
-			expect(where.OR).toEqual([{ serverId: null }, { serverId: { in: ["srv_1", "srv_2"] } }]);
+			expect(where).toMatchObject({ serverId: { in: ["srv_1", "srv_2"] } });
 		});
 
-		it("keeps only the fleet-wide rows when the caller has no visible servers", async () => {
+		it("returns no Hub rows when a customer has no visible servers", async () => {
 			// The `in: []` branch is omitted deliberately — Prisma would match
 			// nothing, but building `{ in: [] }` alongside `serverId: null` is the
 			// kind of thing a later edit turns into an unfiltered OR.
 			mocks.serverFindMany.mockResolvedValue([]);
 			await call("query_traffic");
 			const where = mocks.trafficFindMany.mock.calls[0]![0].where as { OR: unknown[] };
-			expect(where.OR).toEqual([{ serverId: null }]);
+			expect(where).toMatchObject({ serverId: { in: [] } });
 		});
 
 		it("averages the samples and reports the latest one", async () => {

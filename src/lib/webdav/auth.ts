@@ -54,10 +54,13 @@ async function authFromToken(
   if (!session) return null;
   const requiredPermission = `storage:${needed}` as Permission;
   if (!sessionHasPermission(session, requiredPermission)) return null;
-  // WebDAV only needs the one storage permission. Carrying the owner's full
-  // platform role here would let an admin token bypass teamWhere entirely.
+  // Compound verbs need more than their primary permission. Carry only the
+  // token/owner intersection, never platform roles or node-manager bypasses.
+  const permissions = (["read", "write", "delete"] as const)
+    .filter((operation) => webDavTokenAllows(result.scopes, operation) && sessionHasPermission(session, `storage:${operation}`))
+    .map((operation) => `storage:${operation}` as Permission);
   return {
-    session: { ...session, roles: [], permissions: [requiredPermission] },
+    session: { ...session, roles: [], permissions },
     tokenId: result.tokenId,
     scopes: result.scopes,
   };

@@ -62,7 +62,7 @@ describe("GET /api/images/list", () => {
     expect(response.status).toBe(200);
     expect(requireApiSessionMock).toHaveBeenCalled();
     expect(imageFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: "u1" }, take: 10 }),
+      expect.objectContaining({ where: { userId: "u1", teamId: "team_a" }, take: 10 }),
     );
   });
 
@@ -88,7 +88,7 @@ describe("GET /api/images/list", () => {
     expect(response.status).toBe(200);
     expect(requireApiSessionMock).not.toHaveBeenCalled();
     expect(imageFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: "api_user" } }),
+      expect.objectContaining({ where: { userId: "api_user", teamId: "team_token" } }),
     );
   });
 
@@ -152,7 +152,7 @@ describe("GET /api/images/list", () => {
     );
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: "u1" } }),
+      expect.objectContaining({ where: { userId: "u1", teamId: "team_a" } }),
     );
   });
 
@@ -201,7 +201,7 @@ describe("GET /api/images/list", () => {
       headers: { authorization: "Bearer valid-token" },
     }));
     expect(response.status).toBe(200);
-    expect(imageFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "u1" } }));
+    expect(imageFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "u1", teamId: "team_a" } }));
   });
 
   it("preserves an insufficient-scope rejection without cookie fallback", async () => {

@@ -74,7 +74,8 @@ export async function runVpsBackupJobWorkerOnce(): Promise<void> {
 
   try {
     // Heartbeat to extend lease before starting
-    await heartbeatJob(job.id, WORKER_ID);
+    const renewed = await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS });
+    if (renewed.count !== 1) throw new LeaseLostError(job.id);
 
     const payload = job.payload as { recordId?: string; paths?: string[] };
     if (!payload?.recordId) {

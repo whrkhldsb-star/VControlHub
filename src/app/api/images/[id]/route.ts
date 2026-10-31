@@ -49,11 +49,9 @@ function canDeleteImage(input: {
     seesAllCustomers(input.session) ||
     (input.teamId !== null && input.teamId === input.session.currentTeamId);
   return (
-    input.ownerId === input.session.userId ||
-    (canManageTeamImages &&
-      (sessionHasPermission(input.session, "media:manage") ||
-        sessionHasPermission(input.session, "team:manage") ||
-        sessionHasPermission(input.session, "role:manage")))
+    canManageTeamImages &&
+    (input.ownerId === input.session.userId || sessionHasPermission(input.session, "media:manage") ||
+      sessionHasPermission(input.session, "team:manage") || sessionHasPermission(input.session, "role:manage"))
   );
 }
 

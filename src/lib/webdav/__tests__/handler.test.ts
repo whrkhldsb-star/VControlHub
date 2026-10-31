@@ -45,11 +45,13 @@ const mocks = vi.hoisted(() => ({
   readRequestBodyBuffer: vi.fn(),
 }));
 
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     storageNode: { findFirst: mocks.storageNodeFindFirst },
     // No recycle-bin rows at the destination unless a test says otherwise.
     fileEntry: {
+      aggregate: vi.fn(async () => ({ _sum: { size: BigInt(0) }, _max: { size: BigInt(0) } })),
       findFirst: mocks.fileEntryFindFirst,
       findMany: mocks.fileEntryFindMany,
       update: mocks.fileEntryUpdate,

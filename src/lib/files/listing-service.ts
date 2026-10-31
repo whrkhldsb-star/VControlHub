@@ -2,7 +2,9 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { getReadableStorageScope, readableStoragePath } from "@/lib/storage/readable-scope";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { listStorageNodes } from "@/lib/storage/service-nodes";
 import { listFileEntries } from "@/lib/storage/service-entries";
 import { getFileIndexStatistics } from "@/lib/storage/service-statistics";
@@ -84,7 +86,8 @@ export async function getFilesListing(
   session: SessionPayload,
   query: ListFilesQuery,
 ) {
-  const nodes = await listStorageNodes(session);
+  const [visibleNodes, readable] = await Promise.all([listStorageNodes(session), getReadableStorageScope(session)]);
+  const nodes = visibleNodes.filter((node) => readableStoragePath(readable, node.id, "", true));
   const rawPath = normalizeFilePath(query.path);
   const grouped = resolveStorageNodeGroupedPath(rawPath, nodes);
   const nodeId = query.nodeId || grouped?.node.id || "";
@@ -104,8 +107,11 @@ export async function getFilesListing(
   if (nodeId && !selectedNode)
     throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
   if (!nodeId && currentPath) throw new NotFoundError(apiCopy("apiCopy.directory.not.found.33df1f77"));
+  if (selectedNode && !readableStoragePath(readable, nodeId, currentPath, true)) {
+    throw new ForbiddenError(storageAccessDeniedCopy("no_access"));
+  }
   const syncWarning =
-    selectedNode && query.sync === "1"
+    selectedNode && query.sync === "1" && readableStoragePath(readable, nodeId, currentPath)
       ? await synchronizeDirectory(selectedNode, currentPath, session)
       : null;
   const scopedNodes = selectedNode ? [selectedNode] : nodes;
@@ -113,11 +119,12 @@ export async function getFilesListing(
   const searchQuery = query.q ?? "";
   const recursive = query.scope === "all" && Boolean(searchQuery);
   const [indexStats, page] = await Promise.all([
-    getFileIndexStatistics(nodes.map((node) => node.id)),
+    getFileIndexStatistics(nodes.map((node) => node.id), readable),
     !selectedNode && !recursive
       ? Promise.resolve(null)
       : queryFileListing({
           nodeIds: scopedNodes.map((node) => node.id),
+          readable,
           path: currentPath,
           query: searchQuery,
           recursive,
@@ -175,7 +182,7 @@ export async function getFilesListing(
     ...folderRows.flatMap((row) => (row.entryId ? [row.entryId] : [])),
   ];
   const [folderCounts, entries, capabilities, favoriteIds] = await Promise.all([
-    queryFolderCounts([...folderRows, ...ancestorFolders]),
+    queryFolderCounts([...folderRows, ...ancestorFolders, ...nodes.map((node) => ({ storageNodeId: node.id, relativePath: "" }))], readable),
     fileIds.length
       ? listFileEntries(
           undefined,
@@ -200,6 +207,9 @@ export async function getFilesListing(
           .then((rows) => new Set(rows.map((row) => row.fileEntryId)))
       : Promise.resolve(new Set<string>()),
   ]);
+  if (readable) {
+    for (const node of nodes) node.fileCount = folderCounts.get(`${node.id}:`)?.fileCount ?? 0;
+  }
   const virtualPath = (row: { storageNodeId: string; relativePath: string }) =>
     selectedNode
       ? row.relativePath

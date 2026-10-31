@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { readableStorageScopeSql, type ReadableStorageScope } from "./readable-scope";
 import {
   ARCHIVE_MIME_TYPES,
   OFFICE_MIME_TYPES,
@@ -24,7 +25,7 @@ const documentMimes = [
 const mediaExtensionPattern = `[^/\\\\]\\.(${[...new Set([...IMAGE_EXTENSIONS, ...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS])].map((extension) => extension.slice(1)).join("|")})$`;
 
 /** Aggregate the authorized index without hydrating file bodies or truncating totals. */
-export async function getFileIndexStatistics(nodeIds: string[]) {
+export async function getFileIndexStatistics(nodeIds: string[], readable?: ReadableStorageScope | null) {
   const empty = {
     totalEntries: 0,
     deletedEntries: 0,
@@ -38,7 +39,7 @@ export async function getFileIndexStatistics(nodeIds: string[]) {
     WITH entries AS MATERIALIZED (
       SELECT "storageNodeId", "relativePath", "isDeleted", name, "mimeType",
         ("entryType" = 'DIRECTORY' OR "mimeType" = 'inode/directory') IS TRUE AS directory
-      FROM file_entries WHERE "storageNodeId" IN (${Prisma.join(nodeIds)})
+      FROM file_entries WHERE "storageNodeId" IN (${Prisma.join(nodeIds)}) AND ${readableStorageScopeSql(readable)}
     ), directories AS (
       SELECT DISTINCT e."storageNodeId", array_to_string((string_to_array(e."relativePath", '/'))[1:d.depth], '/') AS path
       FROM entries e CROSS JOIN LATERAL generate_series(1,

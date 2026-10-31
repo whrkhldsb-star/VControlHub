@@ -9,7 +9,7 @@
  */
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { t, type Locale } from "@/lib/i18n/service-translations";
 
@@ -157,10 +157,9 @@ export async function executeServerlessQuery(
         sampledAt: { gte: since },
         ...(scope
           ? {
-              OR: [
-                { serverId: null },
-                ...(visibleServerIds.length > 0 ? [{ serverId: { in: visibleServerIds } }] : []),
-              ],
+              ...(isGlobalTeamManager(scope)
+                ? { OR: [{ serverId: null }, { serverId: { in: visibleServerIds } }] }
+                : { serverId: { in: visibleServerIds } }),
             }
           : {}),
       },

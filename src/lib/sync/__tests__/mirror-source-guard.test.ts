@@ -24,7 +24,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("../service-crud", () => ({
   getSyncJobForExecution: vi.fn(async () => state.job),
-  assertDisjointSyncEndpoints: vi.fn(),
+  assertSyncEndpointsWithinReach: vi.fn(async () => {}), assertDisjointSyncEndpoints: vi.fn(),
 }));
 vi.mock("../service-credentials", () => ({
   decryptSyncTargetCredentials: vi.fn(() => ({ password: "fixture-password" })),

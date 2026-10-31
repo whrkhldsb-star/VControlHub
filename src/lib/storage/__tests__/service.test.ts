@@ -34,7 +34,7 @@ const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
       },
     },
     listRemoteDirectoryMock: vi.fn(),
-    assertStorageAccessMock: vi.fn(),
+    assertStorageAccessMock: vi.fn(async (): Promise<{ allowed: boolean; reason?: string; releaseQuotaGuard?: () => Promise<void> }> => ({ allowed: true })),
   }));
 // Default-node changes run in a transaction; the mock runs it against itself.
 Object.assign(mockPrisma, { $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(mockPrisma)) });

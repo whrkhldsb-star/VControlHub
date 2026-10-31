@@ -13,6 +13,7 @@ vi.mock("@/lib/storage/access-control",() => ({getStorageAccessCapabilities:mock
 vi.mock("@/lib/storage/local-sync",() => ({getLocalSyncNode:mocks.localNode,syncLocalDirectoryEntries:mocks.localSync}));
 vi.mock("@/lib/storage/sftp-sync",() => ({getSftpSyncNode:mocks.sftpNode,syncSftpDirectoryEntries:mocks.sftpSync}));
 vi.mock("@/lib/storage/webdav-sync",() => ({getWebDavSyncNode:mocks.webdavNode,syncWebDavDirectoryEntries:mocks.webdavSync}));
+vi.mock("@/lib/storage/readable-scope", () => ({ getReadableStorageScope: async () => null, readableStoragePath: () => true }));
 import { getFilesListing } from "../listing-service";
 import { listFilesQuerySchema } from "../schema";
 const session = {userId:"viewer",username:"viewer",roles:["viewer"],mustChangePassword:false} as SessionPayload;

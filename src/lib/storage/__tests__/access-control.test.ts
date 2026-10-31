@@ -241,7 +241,7 @@ describe("storage access control", () => {
     });
     expect(decision).toMatchObject({ allowed: true, matchedGrantId: "grant-1" });
     expect(typeof decision.releaseQuotaGuard).toBe("function");
-    expect(acquireAdvisoryLock).toHaveBeenCalledWith("storage-quota", "grant-1");
+    expect(acquireAdvisoryLock).toHaveBeenCalledWith("storage-quota", "node-1");
     await decision.releaseQuotaGuard?.();
   });
 

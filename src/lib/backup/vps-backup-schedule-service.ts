@@ -240,6 +240,7 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 					backupType: schedule.backupType,
 					scheduleId: schedule.id,
 					paths: schedule.paths,
+					createdBy: schedule.createdById,
 				}, tx);
 				await enqueueJob({
 					type: VPS_BACKUP_CREATE_JOB_TYPE,
@@ -251,6 +252,7 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 						scheduleId: schedule.id,
 					},
 					teamId: schedule.server?.teamId ?? null,
+					createdBy: schedule.createdById,
 					maxAttempts: 1,
 				}, tx);
 				await tx.vpsBackupSchedule.update({

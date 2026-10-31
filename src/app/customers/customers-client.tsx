@@ -62,7 +62,7 @@ export function CustomersClient() {
 	}, [load]);
 
 	async function createCustomer() {
-		if (!form.name.trim()) return;
+		if (creating || !form.name.trim()) return;
 		setCreating(true);
 		try {
 			await csrfFetch("/api/teams", {
@@ -123,6 +123,7 @@ export function CustomersClient() {
 					variant={showCreate ? "secondary" : "primary"}
 					icon={showCreate ? undefined : <Plus size={16} aria-hidden />}
 					onClick={() => setShowCreate((open) => !open)}
+					disabled={creating}
 				>
 					{showCreate ? t("common.cancel") : t("customersPage.create")}
 				</ActionButton>
@@ -132,13 +133,13 @@ export function CustomersClient() {
 				<SurfacePanel title={t("customersPage.create")} description={t("customersPage.createHint")}>
 					<FormGrid>
 						<FormField label={t("customersPage.field.name")} htmlFor="customer-name">
-							<input id="customer-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={UI_INPUT} maxLength={80} />
+							<input disabled={creating} id="customer-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={UI_INPUT} maxLength={80} />
 						</FormField>
 						<FormField label={t("customersPage.field.slug")} htmlFor="customer-slug">
-							<input id="customer-slug" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} placeholder={t("customersPage.field.slugPlaceholder")} className={UI_INPUT} maxLength={64} />
+							<input disabled={creating} id="customer-slug" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} placeholder={t("customersPage.field.slugPlaceholder")} className={UI_INPUT} maxLength={64} />
 						</FormField>
 						<FormField label={t("customersPage.field.description")} htmlFor="customer-description" className="md:col-span-2">
-							<input id="customer-description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className={UI_INPUT} maxLength={300} />
+							<input disabled={creating} id="customer-description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className={UI_INPUT} maxLength={300} />
 						</FormField>
 					</FormGrid>
 					<ActionButton variant="primary" onClick={createCustomer} disabled={creating || !form.name.trim()} loading={creating}>

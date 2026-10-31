@@ -23,6 +23,7 @@ import {
   completeMediaUploadSession,
   cleanupMediaUploadTempDir,
 } from "@/lib/upload/service";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import type { MediaUploadSessionView } from "@/lib/upload/types";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -142,6 +143,7 @@ export async function completeStorageFileUpload(params: {
   }
 
   let releaseFinalization: (() => void) | undefined;
+  let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
   const storageNode = await getStorageFileNode(existing.storageNodeId, session);
   if (!storageNode || !["LOCAL", "SFTP", "WEBDAV"].includes(storageNode.driver)) {
@@ -152,17 +154,20 @@ export async function completeStorageFileUpload(params: {
   lease = await beginUploadFinalization(sessionId, session.userId);
   const assembled = await assembleMediaUploadToFile(sessionId, session.userId);
 
+  // Same ordering as editor/version restore: quota first, content lock second.
+  releaseOverwrite = await lockStorageFileOverwrite(existing.storageNodeId, normalizedRelativePath);
   // Snapshot existing body before overwrite when index already exists.
   const existingEntry = await prisma.fileEntry.findFirst({
     where: {
       storageNodeId: existing.storageNodeId,
       relativePath: normalizedRelativePath,
     },
-    select: { id: true, entryType: true },
+    select: { id: true, entryType: true, isDeleted: true },
   });
   // The upload would replace a folder, and for WebDAV (MOVE with Overwrite) that deletes everything in it.
   // Refused before anything is written, so the session stays a plain failure the user can fix and retry.
   await assertUploadTargetIsNotFolder(storageNode, normalizedRelativePath, existingEntry?.entryType === "DIRECTORY");
+  if (existingEntry?.isDeleted) throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${normalizedRelativePath}` }));
   if (existingEntry) {
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingEntry.id,
@@ -225,6 +230,7 @@ export async function completeStorageFileUpload(params: {
   } finally {
     lease?.stop();
     releaseFinalization?.();
+    await releaseOverwrite?.();
     await releaseStorageQuotaGuard(access);
   }
 }

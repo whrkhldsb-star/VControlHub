@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { readableStorageScopeSql, type ReadableStorageScope } from "@/lib/storage/readable-scope";
 
 export type FileListingRow = {
   storageNodeId: string;
@@ -12,6 +13,7 @@ export type FileListingRow = {
 /** IDs have already been authorized by listStorageNodes(session). */
 export async function queryFileListing(input: {
   nodeIds: string[];
+  readable?: ReadableStorageScope | null;
   path: string;
   query: string;
   recursive: boolean;
@@ -51,7 +53,7 @@ export async function queryFileListing(input: {
         ("entryType" = 'DIRECTORY' OR "mimeType" = 'inode/directory') IS TRUE AS directory,
         substring("relativePath" from length(${prefix}::text) + 1) AS remainder
       FROM file_entries
-      WHERE "storageNodeId" IN (${Prisma.join(input.nodeIds)}) AND "isDeleted" = false
+      WHERE "storageNodeId" IN (${Prisma.join(input.nodeIds)}) AND "isDeleted" = false AND ${readableStorageScopeSql(input.readable)}
         AND starts_with("relativePath", ${prefix}) AND "relativePath" <> ${input.path}
     ), directory_paths AS (${directoryPaths}), indexed_directories AS MATERIALIZED (
       SELECT * FROM entries WHERE directory
@@ -85,6 +87,7 @@ export async function queryFileListing(input: {
 
 export async function queryFolderCounts(
   folders: Array<{ storageNodeId: string; relativePath: string }>,
+  readable?: ReadableStorageScope | null,
 ) {
   if (!folders.length)
     return new Map<string, { fileCount: number; folderCount: number }>();
@@ -105,7 +108,7 @@ export async function queryFolderCounts(
     ), entries AS MATERIALIZED (
       SELECT "storageNodeId", string_to_array("relativePath", '/') AS parts,
         ("entryType" = 'DIRECTORY' OR "mimeType" = 'inode/directory') IS TRUE AS directory
-      FROM file_entries WHERE "storageNodeId" IN (${Prisma.join(nodeIds)}) AND NOT "isDeleted" AND "relativePath" <> ''
+      FROM file_entries WHERE "storageNodeId" IN (${Prisma.join(nodeIds)}) AND NOT "isDeleted" AND "relativePath" <> '' AND ${readableStorageScopeSql(readable)}
     ), counts AS MATERIALIZED (
       SELECT e."storageNodeId", array_to_string(e.parts[1:d.depth], '/') AS "relativePath",
         count(*) FILTER (WHERE NOT e.directory) AS "fileCount",

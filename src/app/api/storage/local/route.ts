@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { logError } from "@/lib/logging";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { resolveManagedLocalPath } from "@/lib/storage/managed-path";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
@@ -28,9 +29,10 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
 import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
 
-import { ValidationError } from "@/lib/errors";
+import { ConflictError, ValidationError } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/db";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { t as serviceTranslate } from "@/lib/i18n/service-translations";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { handleLocalStorageGet } from "./route-get";
 import { writeStorageFileBuffer, deleteStorageFileBuffer } from "@/lib/storage/file-content";
@@ -200,7 +202,9 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       { status: 403 },
     );
   }
+  let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
+  releaseOverwrite = await lockStorageFileOverwrite(storageNodeId, normalizedRelativePath);
   const mimeType = file.type || null;
   const fileName = path.posix.basename(normalizedRelativePath);
 
@@ -221,13 +225,14 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       storageNodeId,
       relativePath: normalizedRelativePath,
     },
-    select: { id: true, entryType: true },
+    select: { id: true, entryType: true, isDeleted: true },
   });
   // A folder (or one in the recycle bin) of that name is in the way: writing would turn its row into a file's
   // and the move into place fail on the real folder.
   if (existingEntryForVersion?.entryType === "DIRECTORY") {
     return NextResponse.json({ error: t("api.storage.targetIsDirectory", locale) }, { status: 409 });
   }
+  if (existingEntryForVersion?.isDeleted) throw new ConflictError(serviceTranslate("backend.webdav.destinationHeldByRecycleBin", { path: `/${normalizedRelativePath}` }));
   if (existingEntryForVersion) {
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingEntryForVersion.id,
@@ -407,6 +412,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     size: byteSize,
   });
   } finally {
+    await releaseOverwrite?.();
     await releaseStorageQuotaGuard(accessDecision);
   }
 }
