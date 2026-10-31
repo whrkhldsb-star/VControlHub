@@ -76,6 +76,16 @@ jobs:
       - name: Verify project documentation
         run: npm run docs:check
 
+      # Match pg_dump to the PostgreSQL 16 service: newer clients emit SET
+      # transaction_timeout, which PG16 rejects on restore. Keep the real
+      # restore integration assertions; do not filter SQL or skip the suite.
+      - name: Match PostgreSQL client to the database service
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
+          printf '%s\n' /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          /usr/lib/postgresql/16/bin/pg_dump --version
+
       - name: Generate Prisma client
         run: npx prisma generate
 
