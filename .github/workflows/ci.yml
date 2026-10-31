@@ -31,7 +31,9 @@ jobs:
         run: node scripts/docker-smoke.mjs vcontrolhub:ci
 
   test:
-    runs-on: ubuntu-latest
+    # Pin the OS as well as pg_dump: ubuntu-latest can move to a release
+    # whose repositories no longer carry the PostgreSQL 16 client.
+    runs-on: ubuntu-24.04
     # Green runs take 18.5-19.5 minutes (integration tests, gates, unit tests,
     # build); at 20 a slower runner cancelled a passing run mid-build.
     timeout-minutes: 30
