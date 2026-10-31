@@ -26,11 +26,11 @@ vi.mock("@/lib/auth/session", async (importOriginal) => {
 });
 
 describe("getCurrentSession", () => {
-  it("propagates database failures instead of pretending the cookie is invalid", async () => {
-    cookieGetMock.mockReturnValue({ value: "db-offline" });
-    const { getCurrentSession } = await import("../server-session");
-    await expect(getCurrentSession()).rejects.toThrow("database offline");
-  });
+	it("propagates database failures instead of pretending the cookie is invalid", async () => {
+		cookieGetMock.mockReturnValue({ value: "db-offline" });
+		const { getCurrentSession } = await import("../server-session");
+		await expect(getCurrentSession()).rejects.toThrow("database offline");
+	});
 	beforeEach(() => {
 		cookieGetMock.mockReset();
 		// Bypass auth gate so verifySessionToken mock runs (dev default falls back

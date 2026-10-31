@@ -12,11 +12,11 @@ const BCRYPTJS_COST_10 = "$2b$10$ZAk5O217C6lIUnIMqL4ziOWPuJ5vaN..6E03YQfAsRK6QzD
 const LEGACY_2A = BCRYPTJS_COST_10.replace("$2b$", "$2a$");
 
 describe("password hashing", () => {
-  it.each(["a".repeat(72), "密".repeat(24)])("verifies the suffix beyond bcrypt's byte limit: %s", async (prefix) => {
-    const hash = await hashPassword(prefix + "-original");
-    expect(await verifyPassword(prefix + "-original", hash)).toBe(true);
-    expect(await verifyPassword(prefix + "-different", hash)).toBe(false);
-  });
+	it.each(["a".repeat(72), "密".repeat(24)])("verifies the suffix beyond bcrypt's byte limit: %s", async (prefix) => {
+		const hash = await hashPassword(prefix + "-original");
+		expect(await verifyPassword(prefix + "-original", hash)).toBe(true);
+		expect(await verifyPassword(prefix + "-different", hash)).toBe(false);
+	});
 	it("verifies hashes written by the previous bcryptjs implementation", async () => {
 		await expect(verifyPassword(PASSWORD, BCRYPTJS_COST_12)).resolves.toBe(true);
 		await expect(verifyPassword(PASSWORD, BCRYPTJS_COST_10)).resolves.toBe(true);
