@@ -15,7 +15,7 @@ import { POST as regenerate } from "@/app/api/auth/2fa/recovery-codes/route";
 const state = vi.hoisted(() => ({ session: null as SessionPayload | null }));
 // The route guard and clock-dependent TOTP verification are covered separately.
 // Exercise the actual route mutations, cookie minting and PostgreSQL locks here.
-vi.mock("otplib", () => ({ verify: async () => ({ valid: true }) }));
+vi.mock("otplib", () => ({ verify: async () => ({ valid: true, timeStep: 12345678 }) }));
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: async (
     request: Request,
@@ -52,7 +52,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("two-factor 
   });
   beforeEach(async () => {
     await prisma.user.update({ where: { id }, data: {
-      passwordHash: originalHash, sessionEpoch: 4, status: "ACTIVE",
+      passwordHash: originalHash, sessionEpoch: 4, status: "ACTIVE", lastAcceptedTotpStep: null,
       twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: Prisma.DbNull,
     } });
     const token = await createSessionToken({ userId: id, username: id, roles: [], mustChangePassword: false, currentTeamId: null });

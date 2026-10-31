@@ -111,6 +111,8 @@ model User {
   // events (2FA enable/disable, sign-out-everywhere) so previously issued
   // cookies stop working immediately instead of living out their TTL.
   sessionEpoch               Int                     @default(0)
+  // Durable monotonic TOTP consumption, shared by every web process.
+  lastAcceptedTotpStep       Int?
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
   roles                      UserRole[]

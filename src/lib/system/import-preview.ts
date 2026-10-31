@@ -86,6 +86,7 @@ const W = {
   missingCustomers: "systemConfig.import.preview.warning.missingCustomers",
   agentReinstall: "systemConfig.import.preview.warning.agentReinstall",
   credentialsNeedSourceKey: "systemConfig.import.preview.warning.credentialsNeedSourceKey",
+  legacyRecoveryCodes: "systemConfig.import.preview.warning.legacyRecoveryCodes",
 } as const;
 
 /**
@@ -107,6 +108,17 @@ function credentialsNeedSourceKey(t: ExportFile["tables"]): boolean {
   if (apiKey && isEncrypted(apiKey)) probes.push(() => decrypt(apiKey));
   const webdavConfig = t.storageNodes.find((row) => row.webdavConfigEncrypted)?.webdavConfigEncrypted;
   if (webdavConfig) probes.push(() => decrypt(webdavConfig));
+  for (const user of t.users) {
+    if (user.twoFactorSecret && isEncrypted(user.twoFactorSecret)) probes.push(() => decrypt(user.twoFactorSecret!));
+    if (Array.isArray(user.twoFactorRecoveryCodes)) {
+      for (const hash of user.twoFactorRecoveryCodes) {
+        if (typeof hash === "string" && hash.startsWith("v2:")) probes.push(() => decrypt(hash.slice(3)));
+      }
+    }
+  }
+  for (const setting of t.settings) {
+    if (isEncrypted(setting.value)) probes.push(() => decrypt(setting.value));
+  }
   return probes.some((probe) => {
     try {
       probe();
@@ -309,6 +321,9 @@ export async function previewImport(
     }
   } else {
     warnings.push(W.fullModeSensitive);
+    if (options.importUsers && t.users.some((user) => Array.isArray(user.twoFactorRecoveryCodes) && user.twoFactorRecoveryCodes.some((hash) => typeof hash === "string" && !hash.startsWith("v2:")))) {
+      warnings.push(W.legacyRecoveryCodes);
+    }
     if (credentialsNeedSourceKey(t)) warnings.push(W.credentialsNeedSourceKey);
   }
 

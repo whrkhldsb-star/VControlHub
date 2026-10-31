@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { generate, generateSecret } from "otplib";
 
-vi.mock("@/lib/db", () => ({ prisma: { user: { updateMany: vi.fn() } } }));
+vi.mock("@/lib/db", () => {
+  const spent = new Map<string, number>();
+  return { prisma: { user: { updateMany: vi.fn(async ({ where, data }: { where: { id: string }; data: { lastAcceptedTotpStep: number } }) => {
+    if ((spent.get(where.id) ?? -1) >= data.lastAcceptedTotpStep) return { count: 0 };
+    spent.set(where.id, data.lastAcceptedTotpStep);
+    return { count: 1 };
+  }) } } };
+});
 vi.mock("../two-factor-secret", () => ({ openTwoFactorSecret: (sealed: string) => sealed }));
 
 const { verifyTwoFactorChallenge } = await import("../two-factor-challenge");

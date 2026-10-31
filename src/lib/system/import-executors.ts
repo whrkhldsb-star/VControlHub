@@ -103,7 +103,7 @@ export async function executeImport(
     await importTeams(tx, t, options, counts);
     await importIdentityTemplates(tx, t, options, counts);
     // 4. Users (可选)
-    await importUsers(tx, t, options, counts);
+    await importUsers(tx, t, options, counts, file.exportMode);
     // 5. UserRoles
     await importUserRoles(tx, t, options, counts);
     // 5a. Customer memberships

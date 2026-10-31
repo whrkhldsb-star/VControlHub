@@ -18,12 +18,19 @@ vi.mock("@/lib/auth/session", async (importOriginal) => {
 			if (token === "valid-viewer") {
 				return { userId: "u2", username: "viewer", roles: ["viewer"], mustChangePassword: false };
 			}
-			throw new Error("invalid token");
+			if (token === "db-offline") throw new Error("database offline");
+			const { AuthError } = await import("@/lib/errors");
+			throw new AuthError("invalid token");
 		}),
 	};
 });
 
 describe("getCurrentSession", () => {
+	it("propagates database failures instead of pretending the cookie is invalid", async () => {
+		cookieGetMock.mockReturnValue({ value: "db-offline" });
+		const { getCurrentSession } = await import("../server-session");
+		await expect(getCurrentSession()).rejects.toThrow("database offline");
+	});
 	beforeEach(() => {
 		cookieGetMock.mockReset();
 		// Bypass auth gate so verifySessionToken mock runs (dev default falls back

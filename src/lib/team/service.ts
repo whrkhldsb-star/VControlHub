@@ -50,7 +50,20 @@ const CUSTOMER_SUMMARY_SELECT = {
  */
 export async function listTeamsForSession(session: SessionPayload) {
   if (isGlobalTeamManager(session)) {
-    const all = await prisma.team.findMany({ orderBy: [{ createdAt: "asc" }], take: 500, select: CUSTOMER_SUMMARY_SELECT });
+    // Keep the existing complete-list API for both the manager and switcher,
+    // but read bounded pages instead of silently returning only the first 500.
+    const all: Array<Prisma.TeamGetPayload<{ select: typeof CUSTOMER_SUMMARY_SELECT }>> = [];
+    let cursor: string | undefined;
+    for (;;) {
+      const page = await prisma.team.findMany({
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 500,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: CUSTOMER_SUMMARY_SELECT,
+      });
+      all.push(...page);
+      if (page.length < 500) break;
+      cursor = page[page.length - 1]!.id;
+    }
     return {
       teams: all.filter((team) => !team.deletedAt),
       deletedTeams: all.filter((team) => team.deletedAt),

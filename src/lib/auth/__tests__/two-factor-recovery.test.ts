@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { createHmac } from "node:crypto";
 
 import {
   createTwoFactorRecoveryCodes,
@@ -7,6 +8,19 @@ import {
 } from "@/lib/auth/two-factor-recovery";
 
 describe("two-factor recovery codes", () => {
+  it("retains legacy HMAC verification without rewriting or exposing codes", () => {
+    vi.stubEnv("AUTH_SESSION_SECRET", "legacy-test-key");
+    const hash = createHmac("sha256", "legacy-test-key").update("vcontrolhub:2fa-recovery:ABCDEFGHJKLM").digest("base64url");
+    try { expect(findMatchingTwoFactorRecoveryCode("ABCD-EFGH-JKLM", [hash])).toBe(hash); }
+    finally { vi.unstubAllEnvs(); }
+  });
+  it("keeps new recovery codes valid after migrating to another session signing secret", () => {
+    vi.stubEnv("AUTH_SESSION_SECRET", "source-test-signing-key");
+    const generated = createTwoFactorRecoveryCodes(1);
+    vi.stubEnv("AUTH_SESSION_SECRET", "target-test-signing-key");
+    try { expect(findMatchingTwoFactorRecoveryCode(generated.codes[0]!, generated.hashes)).toBe(generated.hashes[0]); }
+    finally { vi.unstubAllEnvs(); }
+  });
   it("generates formatted, unique, one-way recovery codes", () => {
     const generated = createTwoFactorRecoveryCodes();
 

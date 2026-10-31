@@ -24,22 +24,6 @@ import { openTwoFactorSecret } from "./two-factor-secret";
 
 export { isAcceptableTwoFactorCodeShape } from "./two-factor-challenge-shape";
 
-/**
- * The newest 30-second step each account has already spent. A code is valid for its own step (and a
- * neighbour for clock drift), so without this a code seen once — over a shoulder, in a proxy log — could be
- * presented again within the window. In memory: login runs in the web process and the window is 30 s.
- */
-const lastAcceptedTotpStep = new Map<string, number>();
-const MAX_TRACKED_ACCOUNTS = 10_000;
-
-function rememberAcceptedStep(userId: string, timeStep: number) {
-  if (!lastAcceptedTotpStep.has(userId) && lastAcceptedTotpStep.size >= MAX_TRACKED_ACCOUNTS) {
-    const oldest = lastAcceptedTotpStep.keys().next().value;
-    if (oldest !== undefined) lastAcceptedTotpStep.delete(oldest);
-  }
-  lastAcceptedTotpStep.set(userId, timeStep);
-}
-
 export type TwoFactorChallengeResult = {
   valid: boolean;
   /** True only when a one-use recovery code was consumed to pass the challenge. */
@@ -64,11 +48,22 @@ export async function verifyTwoFactorChallenge(input: {
     const totp = await verifyTOTP({
       token: input.code.trim(),
       secret: openTwoFactorSecret(input.sealedSecret),
-      afterTimeStep: lastAcceptedTotpStep.get(input.userId),
     });
-    if (totp.valid) {
-      if ("timeStep" in totp && typeof totp.timeStep === "number") rememberAcceptedStep(input.userId, totp.timeStep);
-      return { valid: true, usedRecoveryCode: false };
+    if (totp.valid && "timeStep" in totp && Number.isSafeInteger(totp.timeStep)) {
+      // Verify cryptographically first, then consume with one database CAS.
+      // A concurrent attempt, another process, or an old credential snapshot
+      // cannot spend the same step twice (nor authenticate after rotation).
+      const consumed = await prisma.user.updateMany({
+        where: {
+          id: input.userId,
+          status: { not: "DISABLED" },
+          twoFactorEnabled: true,
+          twoFactorSecret: input.sealedSecret,
+          OR: [{ lastAcceptedTotpStep: null }, { lastAcceptedTotpStep: { lt: totp.timeStep } }],
+        },
+        data: { lastAcceptedTotpStep: totp.timeStep },
+      });
+      return { valid: consumed.count === 1, usedRecoveryCode: false };
     }
   }
 
@@ -87,6 +82,9 @@ export async function verifyTwoFactorChallenge(input: {
   const consumed = await prisma.user.updateMany({
     where: {
       id: input.userId,
+      twoFactorEnabled: true,
+      twoFactorSecret: input.sealedSecret,
+      status: { not: "DISABLED" },
       twoFactorRecoveryCodes: { equals: input.storedRecoveryCodes },
     },
     data: { twoFactorRecoveryCodes: remainingHashes },

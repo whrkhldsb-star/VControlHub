@@ -1,6 +1,10 @@
-import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomInt, timingSafeEqual } from "node:crypto";
 
 import { config } from "@/lib/config/env";
+import { decrypt, encrypt } from "@/lib/crypto/service";
+
+const RECOVERY_V2 = "v2:";
+const portableDigest = (value: string) => createHash("sha256").update(`vcontrolhub:2fa-recovery:v2:${value}`).digest("base64url");
 
 import {
   normalizeTwoFactorRecoveryCode,
@@ -47,7 +51,9 @@ export function createTwoFactorRecoveryCodes(count = RECOVERY_CODE_COUNT): {
     rawCodes.add(raw);
   }
   const codes = [...rawCodes].map(formatRecoveryCode);
-  return { codes, hashes: codes.map((code) => hashNormalizedRecoveryCode(code.replaceAll("-", ""))) };
+  // Encrypt the one-way fingerprint, never the display code. Migrating the
+  // encryption key already required by TOTP now also preserves recovery codes.
+  return { codes, hashes: codes.map((code) => RECOVERY_V2 + encrypt(portableDigest(code.replaceAll("-", "")))) };
 }
 
 /**
@@ -60,13 +66,21 @@ export function findMatchingTwoFactorRecoveryCode(
 ): string | null {
   const normalized = normalizeTwoFactorRecoveryCode(code);
   if (!normalized || !Array.isArray(storedHashes)) return null;
-  const candidate = Buffer.from(hashNormalizedRecoveryCode(normalized), "utf8");
+  let legacyCandidate: Buffer | undefined;
   for (const stored of storedHashes) {
     if (typeof stored !== "string") continue;
-    const expected = Buffer.from(stored, "utf8");
-    if (candidate.length === expected.length && timingSafeEqual(candidate, expected)) {
-      return stored;
+    let expected: Buffer;
+    let candidate: Buffer;
+    if (stored.startsWith(RECOVERY_V2)) {
+      try { expected = Buffer.from(decrypt(stored.slice(RECOVERY_V2.length)), "utf8"); }
+      catch { continue; } // Imported under a different encryption key.
+      candidate = Buffer.from(portableDigest(normalized), "utf8");
+    } else {
+      legacyCandidate ??= Buffer.from(hashNormalizedRecoveryCode(normalized), "utf8");
+      candidate = legacyCandidate;
+      expected = Buffer.from(stored, "utf8");
     }
+    if (candidate.length === expected.length && timingSafeEqual(candidate, expected)) return stored;
   }
   return null;
 }

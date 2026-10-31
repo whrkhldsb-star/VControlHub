@@ -81,6 +81,20 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  return null;
  }
 
+ // Upgrade only the credential we proved. A concurrent reset/disable wins;
+ // never mint a session bound to a newer password we have not verified.
+ if (/^\$2[aby]\$/.test(user.passwordHash)) {
+   const nextHash = await hashPassword(payload.password);
+   const mustChangePassword = user.mustChangePassword || Buffer.byteLength(payload.password, "utf8") >= 72;
+   const upgraded = await prisma.user.updateMany({
+     where: { id: user.id, passwordHash: user.passwordHash, sessionEpoch: user.sessionEpoch ?? 0, status: { not: "DISABLED" } },
+     data: { passwordHash: nextHash, mustChangePassword },
+   });
+   if (upgraded.count !== 1) return null;
+   user.passwordHash = nextHash;
+   user.mustChangePassword = mustChangePassword;
+ }
+
  const assignedRoleKeys = user.roles.map((entry) => entry.role.key);
  const roleKeys = deriveRoleKeys(assignedRoleKeys);
  // Same resolution as the session, so the login redirect matches the guards.

@@ -27,6 +27,35 @@ beforeEach(() => {
 });
 
 describe("authenticateUser", () => {
+ it("upgrades a legacy bcrypt hash with CAS and binds the login to the installed hash", async () => {
+   const bcrypt = await import("bcrypt");
+   const password = "Legacy-Audit-Password-2026!";
+   const oldHash = await bcrypt.hash(password, 4);
+   vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ id: "legacy", username: "legacy", passwordHash: oldHash, sessionEpoch: 3, status: "ACTIVE", mustChangePassword: false, roles: [], teamMembership: null } as never);
+   vi.mocked(prisma.user.updateMany).mockResolvedValueOnce({ count: 1 });
+   const result = await authenticateUser({ username: "legacy", password });
+   const call = vi.mocked(prisma.user.updateMany).mock.calls[0]?.[0];
+   expect(call?.where).toMatchObject({ id: "legacy", passwordHash: oldHash, sessionEpoch: 3, status: { not: "DISABLED" } });
+   const newHash = call?.data.passwordHash as string;
+   expect(newHash).toMatch(/^vch-bcrypt-sha256-v1:/);
+   expect(await verifyPassword(password, newHash)).toBe(true);
+   expect(result).not.toBeNull();
+ });
+ it.each(["a".repeat(72), "密".repeat(24), "b".repeat(80)])("requires reset when the legacy hash cannot establish the suffix", async (password) => {
+   const bcrypt = await import("bcrypt");
+   const oldHash = await bcrypt.hash(password, 4);
+   vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ id: "legacy", username: "legacy", passwordHash: oldHash, sessionEpoch: 3, status: "ACTIVE", mustChangePassword: false, roles: [] } as never);
+   vi.mocked(prisma.user.updateMany).mockResolvedValueOnce({ count: 1 });
+   expect((await authenticateUser({ username: "legacy", password }))?.mustChangePassword).toBe(true);
+ });
+ it("does not mint a login if disable/reset wins a legacy hash upgrade", async () => {
+   const bcrypt = await import("bcrypt");
+   const password = "Legacy-Audit-Password-2026!";
+   const oldHash = await bcrypt.hash(password, 4);
+   vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ id: "legacy", username: "legacy", passwordHash: oldHash, sessionEpoch: 3, status: "ACTIVE", roles: [] } as never);
+   vi.mocked(prisma.user.updateMany).mockResolvedValueOnce({ count: 0 });
+   expect(await authenticateUser({ username: "legacy", password })).toBeNull();
+ });
  it("returns null when the user does not exist", async () => {
  vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null);
 

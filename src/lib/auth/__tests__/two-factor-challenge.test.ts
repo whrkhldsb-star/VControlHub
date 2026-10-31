@@ -34,7 +34,7 @@ describe("verifyTwoFactorChallenge", () => {
   });
 
   it("accepts an authenticator code without touching recovery codes", async () => {
-    mocks.verifyTOTP.mockResolvedValue({ valid: true });
+    mocks.verifyTOTP.mockResolvedValue({ valid: true, timeStep: 12345678 });
     const generated = createTwoFactorRecoveryCodes(3);
 
     const result = await verifyTwoFactorChallenge({
@@ -45,7 +45,7 @@ describe("verifyTwoFactorChallenge", () => {
     });
 
     expect(result).toEqual({ valid: true, usedRecoveryCode: false });
-    expect(mocks.userUpdateMany).not.toHaveBeenCalled();
+    expect(mocks.userUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { lastAcceptedTotpStep: 12345678 } }));
   });
 
   it("consumes exactly the matching recovery code when no authenticator code is given", async () => {
@@ -62,7 +62,7 @@ describe("verifyTwoFactorChallenge", () => {
     expect(result).toEqual({ valid: true, usedRecoveryCode: true });
     // CAS on the whole array: two concurrent uses of one code cannot both win.
     expect(mocks.userUpdateMany).toHaveBeenCalledWith({
-      where: { id: "u1", twoFactorRecoveryCodes: { equals: generated.hashes } },
+      where: { id: "u1", twoFactorEnabled: true, twoFactorSecret: "SEED", status: { not: "DISABLED" }, twoFactorRecoveryCodes: { equals: generated.hashes } },
       data: {
         twoFactorRecoveryCodes: [generated.hashes[0], generated.hashes[2]],
       },
@@ -100,7 +100,7 @@ describe("verifyTwoFactorChallenge", () => {
   });
 
   it("never asks otplib to verify a code that is not 6 digits", async () => {
-    mocks.verifyTOTP.mockResolvedValue({ valid: true });
+    mocks.verifyTOTP.mockResolvedValue({ valid: true, timeStep: 12345678 });
     const generated = createTwoFactorRecoveryCodes(1);
 
     await verifyTwoFactorChallenge({

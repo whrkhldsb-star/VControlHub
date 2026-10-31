@@ -31,7 +31,9 @@ jobs:
         run: node scripts/docker-smoke.mjs vcontrolhub:ci
 
   test:
-    runs-on: ubuntu-latest
+    # Pin the OS as well as pg_dump: ubuntu-latest can move to a release
+    # whose repositories no longer carry the PostgreSQL 16 client.
+    runs-on: ubuntu-24.04
     # Green runs take 18.5-19.5 minutes (integration tests, gates, unit tests,
     # build); at 20 a slower runner cancelled a passing run mid-build.
     timeout-minutes: 30
@@ -75,6 +77,16 @@ jobs:
 
       - name: Verify project documentation
         run: npm run docs:check
+
+      # Match pg_dump to the PostgreSQL 16 service: newer clients emit SET
+      # transaction_timeout, which PG16 rejects on restore. Keep the real
+      # restore integration assertions; do not filter SQL or skip the suite.
+      - name: Match PostgreSQL client to the database service
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
+          printf '%s\n' /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          /usr/lib/postgresql/16/bin/pg_dump --version
 
       - name: Generate Prisma client
         run: npx prisma generate

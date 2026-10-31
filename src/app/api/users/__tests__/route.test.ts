@@ -287,7 +287,7 @@ describe("/api/users", () => {
       data: {
         passwordHash: "hashed-password",
         mustChangePassword: true,
-        status: "PENDING_PASSWORD_RESET",
+        sessionEpoch: { increment: 1 },
       },
     });
   });
@@ -305,7 +305,7 @@ describe("/api/users", () => {
     expect(res.status).toBe(200);
     expect(mocks.prisma.user.update).toHaveBeenCalledWith({
       where: { id: "user1" },
-      data: { passwordHash: "hashed-password", mustChangePassword: true },
+      data: { passwordHash: "hashed-password", mustChangePassword: true, sessionEpoch: { increment: 1 } },
     });
   });
 
