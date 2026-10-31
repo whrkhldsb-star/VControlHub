@@ -140,6 +140,7 @@ export async function importUsers(
   t: ExportFile["tables"],
   options: ImportOptions,
   counts: Counts,
+  exportMode?: ExportFile["exportMode"],
 ): Promise<void> {
   if (!options.importUsers) {
     counts.skipped += t.users.length;
@@ -196,11 +197,21 @@ export async function importUsers(
           ...(r.passwordHash ? { passwordHash: r.passwordHash } : {}),
           status: r.status as never,
           mustChangePassword: r.mustChangePassword,
-          // In full mode, restore the 2FA state with its secret; otherwise
-          // keep this account's own (a flag without its secret would claim a
-          // second factor that is not there).
-          ...(r.twoFactorSecret !== null ? { twoFactorEnabled: r.twoFactorEnabled, twoFactorSecret: r.twoFactorSecret } : {}),
-          ...(r.twoFactorRecoveryCodes != null ? { twoFactorRecoveryCodes: r.twoFactorRecoveryCodes as Prisma.InputJsonValue } : {}),
+          // Full mode's null means explicitly cleared, not redacted. Old
+          // packages without a mode retain their historical null semantics.
+          ...(exportMode === "full" || r.twoFactorSecret !== null ? {
+            twoFactorEnabled: r.twoFactorEnabled && Boolean(r.twoFactorSecret),
+            twoFactorSecret: r.twoFactorEnabled ? r.twoFactorSecret : null,
+          } : {}),
+          ...(exportMode === "full" || r.twoFactorRecoveryCodes != null ? {
+            twoFactorRecoveryCodes: exportMode === "full" && (!r.twoFactorEnabled || !r.twoFactorSecret)
+              ? Prisma.DbNull
+              : r.twoFactorRecoveryCodes == null ? Prisma.DbNull : r.twoFactorRecoveryCodes as Prisma.InputJsonValue,
+          } : {}),
+          // Credential-bearing restores retire every existing/pending session.
+          // Do this in the same write even when the restored hash is identical.
+          ...(r.passwordHash || exportMode === "full" || r.twoFactorSecret !== null || r.twoFactorRecoveryCodes != null
+            ? { sessionEpoch: { increment: 1 } } : {}),
           // Mirror createMany: restore UI prefs / locale / layout on overwrite
           ...(r.preferences !== undefined
             ? { preferences: r.preferences as Prisma.InputJsonValue }

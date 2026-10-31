@@ -109,6 +109,19 @@ beforeEach(() => {
 });
 
 describe("previewImport", () => {
+  it("warns that unversioned recovery fingerprints need the source session secret", async () => {
+    const preview = await previewImport(file({ exportMode: "full", tables: { users: [{ twoFactorRecoveryCodes: ["legacy-hmac-fingerprint"] }] } }), OPTIONS);
+    expect(preview.warnings).toContain("systemConfig.import.preview.warning.legacyRecoveryCodes");
+  });
+  it("probes encrypted TOTP secrets and settings before migration", async () => {
+    for (const tables of [
+      { users: [{ twoFactorSecret: encryptWithKey("foreign key", "seed") }] },
+      { settings: [{ key: "smtp.pass", value: encryptWithKey("foreign key", "password") }] },
+    ]) {
+      const preview = await previewImport(file({ exportMode: "full", tables }), OPTIONS);
+      expect(preview.warnings).toContain("systemConfig.import.preview.warning.credentialsNeedSourceKey");
+    }
+  });
   it("reports one summary row per table, and only i18n keys", async () => {
     const preview = await previewImport(file(), OPTIONS);
 

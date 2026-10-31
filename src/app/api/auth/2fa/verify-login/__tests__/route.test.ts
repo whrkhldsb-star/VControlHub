@@ -86,7 +86,7 @@ describe("POST /api/auth/2fa/verify-login", () => {
 			twoFactorRecoveryCodes: ["recovery-hash"],
 			roles: [{ role: { key: "admin" } }],
 		});
-		verifyTotpMock.mockReturnValue({ valid: true });
+		verifyTotpMock.mockReturnValue({ valid: true, timeStep: 12345678 });
 		prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
 		createSessionTokenMock.mockResolvedValue("session-token");
 		getConfiguredSessionTtlSecondsMock.mockResolvedValue(7 * 24 * 60 * 60);
@@ -236,7 +236,7 @@ describe("POST /api/auth/2fa/verify-login", () => {
 
 		expect(response.status).toBe(200);
 		expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
-			where: { id: "u_1", twoFactorRecoveryCodes: { equals: ["recovery-hash"] } },
+			where: { id: "u_1", twoFactorEnabled: true, twoFactorSecret: "secret", status: { not: "DISABLED" }, twoFactorRecoveryCodes: { equals: ["recovery-hash"] } },
 			data: { twoFactorRecoveryCodes: [] },
 		});
 		expect(auditUserActionMock).toHaveBeenCalledWith(

@@ -11,6 +11,7 @@
  */
 import { cache } from "react";
 import { cookies } from "next/headers";
+import { AuthError } from "@/lib/errors";
 
 import {
 	getSessionCookieName,
@@ -24,7 +25,8 @@ export const getCurrentSession = cache(async (): Promise<SessionPayload | null> 
 	if (!sessionCookie?.value) return null;
 	try {
 		return await verifySessionToken(sessionCookie.value);
-	} catch {
+	} catch (error) {
+		if (!(error instanceof AuthError)) throw error;
 		return null;
 	}
 });

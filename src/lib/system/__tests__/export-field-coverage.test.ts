@@ -23,8 +23,8 @@ const NOT_EXPORTED: Record<string, { model: Record<string, string>; skip: string
 	},
 	storageNodes: { model: Prisma.StorageNodeScalarFieldEnum, skip: ["lastHealthCheckAt", "lastHealthError", "lastHealthLatencyMs", "updatedAt"] },
 	sshKeys: { model: Prisma.SshKeyScalarFieldEnum, skip: ["updatedAt"] },
-	// The session epoch and selected customer belong to the instance's sessions.
-	users: { model: Prisma.UserScalarFieldEnum, skip: ["sessionEpoch", "currentTeamId", "updatedAt"] },
+	// Session epoch, consumed TOTP step and selected customer are local runtime state.
+	users: { model: Prisma.UserScalarFieldEnum, skip: ["sessionEpoch", "lastAcceptedTotpStep", "currentTeamId", "updatedAt"] },
 	// Deleted customers are not exported.
 	teams: { model: Prisma.TeamScalarFieldEnum, skip: ["createdAt", "updatedAt"] },
 	identityTemplates: { model: Prisma.IdentityTemplateScalarFieldEnum, skip: ["createdBy", "createdAt", "updatedAt"] },

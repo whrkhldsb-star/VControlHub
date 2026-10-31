@@ -166,7 +166,7 @@ describe("POST /api/auth/2fa/enable", () => {
       twoFactorEnabled: true,
       twoFactorSecret: "EXISTING_SECRET",
     });
-    verifyTotpMock.mockReturnValueOnce({ valid: true });
+    verifyTotpMock.mockReturnValueOnce({ valid: true, timeStep: 12345678 });
     const res = await enableRoute.POST(
       jsonRequest({ code: "123456", enrollmentToken: "ticket:u1:NEW_SECRET" }),
     );
@@ -178,7 +178,7 @@ describe("POST /api/auth/2fa/enable", () => {
   });
 
   it("persists the seed carried by the enrollment ticket, sealed", async () => {
-    verifyTotpMock.mockReturnValueOnce({ valid: true });
+    verifyTotpMock.mockReturnValueOnce({ valid: true, timeStep: 12345678 });
     prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
     const res = await enableRoute.POST(
       jsonRequest({ code: "123456", enrollmentToken: "ticket:u1:JBSWY3DPEHPK3PXP" }),
@@ -204,7 +204,7 @@ describe("POST /api/auth/2fa/enable", () => {
   });
 
   it("refuses a raw secret in the body — the seed must come from a ticket", async () => {
-    verifyTotpMock.mockReturnValue({ valid: true });
+    verifyTotpMock.mockReturnValue({ valid: true, timeStep: 12345678 });
     const res = await enableRoute.POST(
       jsonRequest({ code: "123456", secret: "ATTACKER_CHOSEN_SEED" }),
     );
@@ -215,7 +215,7 @@ describe("POST /api/auth/2fa/enable", () => {
   });
 
   it("refuses a ticket minted for another account", async () => {
-    verifyTotpMock.mockReturnValue({ valid: true });
+    verifyTotpMock.mockReturnValue({ valid: true, timeStep: 12345678 });
     const res = await enableRoute.POST(
       jsonRequest({ code: "123456", enrollmentToken: "ticket:u2:VICTIM_SEED" }),
     );
@@ -226,7 +226,7 @@ describe("POST /api/auth/2fa/enable", () => {
   });
 
   it("refuses a forged or expired ticket", async () => {
-    verifyTotpMock.mockReturnValue({ valid: true });
+    verifyTotpMock.mockReturnValue({ valid: true, timeStep: 12345678 });
     const res = await enableRoute.POST(
       jsonRequest({ code: "123456", enrollmentToken: "not-a-ticket" }),
     );
@@ -287,7 +287,7 @@ describe("POST /api/auth/2fa/disable", () => {
       twoFactorEnabled: true,
       twoFactorSecret: "sealed:EXISTING_SECRET",
     });
-    verifyTotpMock.mockReturnValueOnce({ valid: true });
+    verifyTotpMock.mockReturnValueOnce({ valid: true, timeStep: 12345678 });
     prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
     const res = await disableRoute.POST(jsonRequest({ code: "654321" }));
     expect(res.status).toBe(200);
@@ -321,7 +321,7 @@ describe("POST /api/auth/2fa/disable", () => {
     expect(res.status).toBe(200);
     // The code is burned on the way through, even though 2FA is being turned off.
     expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
-      where: { id: "u1", twoFactorRecoveryCodes: { equals: generated.hashes } },
+      where: { id: "u1", twoFactorEnabled: true, twoFactorSecret: "sealed:EXISTING_SECRET", status: { not: "DISABLED" }, twoFactorRecoveryCodes: { equals: generated.hashes } },
       data: { twoFactorRecoveryCodes: [generated.hashes[1], generated.hashes[2]] },
     });
     expect(prismaMock.user.updateMany).toHaveBeenCalled();
@@ -351,7 +351,7 @@ describe("POST /api/auth/2fa/recovery-codes", () => {
   });
 
   it("requires a current authenticator code before replacing recovery codes", async () => {
-    verifyTotpMock.mockReturnValueOnce({ valid: true });
+    verifyTotpMock.mockReturnValueOnce({ valid: true, timeStep: 12345678 });
     prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
 
     const response = await recoveryCodesRoute.POST(jsonRequest({ code: "123456" }));

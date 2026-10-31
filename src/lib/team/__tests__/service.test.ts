@@ -56,6 +56,12 @@ describe("customer service", () => {
 	});
 
 	describe("listTeamsForSession", () => {
+    it("keeps customers beyond the first page even when older customers are deleted", async () => {
+      prismaMock.team.findMany.mockResolvedValueOnce(Array.from({ length: 500 }, (_, i) => ({ ...live(`deleted-${i}`), deletedAt: new Date() }))).mockResolvedValueOnce([live("active-later")]);
+      const result = await listTeamsForSession(admin);
+      expect(result.teams.map((row) => row.id)).toEqual(["active-later"]);
+      expect(result.deletedTeams).toHaveLength(500);
+    });
 		it("gives administrators every customer with counts, deleted ones apart", async () => {
 			prismaMock.team.findMany.mockResolvedValue([
 				{ ...live("team_a"), _count: { members: 1, servers: 2, storageNodes: 1 } },
