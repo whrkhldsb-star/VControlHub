@@ -77,7 +77,7 @@ vi.mock("@/lib/quick-service/app-source-sync", () => ({
 }));
 
 const rootRoute = await import("../route");
-const { resetQuickServiceRouteCachesForTests } = rootRoute;
+const { resetQuickServiceRouteCachesForTests } = await import("@/lib/quick-service/route-probe-cache");
 const slugRoute = await import("../[slug]/route");
 const checkPortRoute = await import("../check-port/route");
 

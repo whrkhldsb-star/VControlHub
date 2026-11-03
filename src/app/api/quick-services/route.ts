@@ -1,3 +1,4 @@
+import { cachedProbe, dockerStatusCache, usedPortsCache } from "@/lib/quick-service/route-probe-cache";
 import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
@@ -50,25 +51,6 @@ function listInstallTargets(session: Parameters<typeof serverTeamWhere>[0]) {
 /** GET /api/quick-services — list catalog + installed + remote services */
 const USED_PORTS_TTL_MS = 15_000;
 const DOCKER_STATUS_TTL_MS = 45_000;
-const usedPortsCache = new Map<string, { at: number; value: Promise<number[]> }>();
-const dockerStatusCache = new Map<string, { at: number; value: Promise<Awaited<ReturnType<typeof getDockerEnvironmentStatusFor>>> }>();
-
-/** Test hook: forget cached probes between cases. */
-export function resetQuickServiceRouteCachesForTests() {
-	usedPortsCache.clear();
-	dockerStatusCache.clear();
-}
-
-function cachedProbe<T>(cache: Map<string, { at: number; value: Promise<T> }>, key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
-	const now = Date.now();
-	const hit = cache.get(key);
-	if (hit && now - hit.at < ttlMs) return hit.value;
-	const value = Promise.resolve().then(load);
-	cache.set(key, { at: now, value });
-	value.catch(() => cache.delete(key));
-	if (cache.size > 200) cache.delete(cache.keys().next().value!);
-	return value;
-}
 
 export async function GET(request: Request) {
 	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_READ_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
