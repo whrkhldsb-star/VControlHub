@@ -77,7 +77,7 @@ port_from_env_local() {
 NEXT_PORT="${NEXT_PORT:-3000}"
 SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 
-for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET ENCRYPTION_KEY; do
+for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET ENCRYPTION_KEY STORAGE_DIRECT_ACCESS_SECRET; do
 	[ -n "${!required:-}" ] || fail "${required} is missing"
 done
 [ "${#AUTH_SESSION_SECRET}" -ge 32 ] || fail "AUTH_SESSION_SECRET is shorter than 32 characters"

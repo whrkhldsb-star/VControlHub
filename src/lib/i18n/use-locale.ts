@@ -43,7 +43,8 @@ function persistLocale(locale: Locale) {
 	} catch {
 		// Ignore storage failures.
 	}
-	document.cookie = `${STORAGE_KEY}=${locale}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
+	// `secure` on https like the theme and sidebar cookies (A11-04).
+	document.cookie = `${STORAGE_KEY}=${locale}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax${window.location.protocol === "https:" ? "; secure" : ""}`;
 }
 
 /**

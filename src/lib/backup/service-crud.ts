@@ -37,11 +37,11 @@ export async function createBackupRecord(
 	});
 }
 
-export async function listBackupRecords(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
+export async function listBackupRecords(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">, take = 500) {
 	return prisma.backupRecord.findMany({
 		where: session ? teamWhere(session) : {},
 		orderBy: { createdAt: "desc" },
-		take: 200,
+		take,
 		include: { creator: { select: { username: true, displayName: true } } },
 	});
 }

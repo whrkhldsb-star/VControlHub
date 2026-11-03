@@ -16,6 +16,7 @@ import { executionRefusal, loadExecutionActor } from "@/lib/auth/execution-actor
 import { getStorageWriteCapacity } from "@/lib/storage/access-control";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
+import { prisma } from "@/lib/db";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 import { decryptServerPassword, decryptStoredSshKey, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 
@@ -217,6 +218,14 @@ function buildServerForExec(server: {
   };
 }
 
+/** A task that can never start fails visibly instead of staying queued. */
+async function failTaskBeforeStart(taskId: string, errorMessage: string) {
+  await prisma.downloadTask.updateMany({
+    where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } },
+    data: { status: "FAILED", errorMessage },
+  }).catch((error: unknown) => logger.warn("Could not fail a download task that cannot start", { taskId, error: String(error) }));
+}
+
 function decryptServerPasswordField(server: { password: string | null }) {
   if (!server.password) return null;
   return decryptServerPassword(server.password);
@@ -250,11 +259,16 @@ async function handleClaimedJob(
       await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} does not exist`);
       return true;
     }
+    // The task itself fails with the reason (A5-03): only the job did before,
+    // and the task sat in "queued" for ever since reconciliation only looks at
+    // RUNNING rows.
     if (!task.server) {
+      await failTaskBeforeStart(payload.taskId, t("backend.downloads.taskServerMissing"));
       await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} is missing a VPS node`);
       return true;
     }
     if (!task.server.storageNode) {
+      await failTaskBeforeStart(payload.taskId, t("backend.downloads.taskStorageMissing"));
       await failJobTerminal(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,

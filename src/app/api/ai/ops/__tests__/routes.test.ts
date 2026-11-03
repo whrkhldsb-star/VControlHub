@@ -29,6 +29,7 @@ const { mocks } = vi.hoisted(() => ({
 		executeRecommendation: vi.fn(),
 		approveRecommendation: vi.fn(),
 		runAiOpsScanWorkerOnce: vi.fn(),
+		requestAiOpsScan: vi.fn(),
 		auditUserAction: vi.fn(),
 		sessionHasPermission: vi.fn(),
 		getSetting: vi.fn(),
@@ -60,6 +61,7 @@ vi.mock("@/lib/ai/ops/service", async (importOriginal) => {
 
 vi.mock("@/lib/ai/ops/scan-worker", () => ({
 	runAiOpsScanWorkerOnce: mocks.runAiOpsScanWorkerOnce,
+	requestAiOpsScan: mocks.requestAiOpsScan,
 }));
 
 vi.mock("@/lib/audit/service", () => ({
@@ -214,29 +216,31 @@ describe("/api/ai/ops/* routes", () => {
 
 	// ── POST /api/ai/ops/scan ───────────────────────────────────────────
 	describe("POST /api/ai/ops/scan", () => {
-		it("triggers a manual scan, audits the action, and returns the latest log", async () => {
+		it("queues a manual scan, audits the action, and returns the latest log", async () => {
+			// A7-04: the scan runs in the worker; the request only queues it.
+			mocks.requestAiOpsScan.mockResolvedValueOnce({ id: "job-1" });
 			const res = await scanRoute.POST(
 				new Request("http://local/api/ai/ops/scan", {
 					method: "POST",
 					body: JSON.stringify({ notes: "investigate" }),
 				}),
 			);
-			expect(res.status).toBe(200);
-			expect(mocks.runAiOpsScanWorkerOnce).toHaveBeenCalledWith("manual", {
-				notes: "investigate",
-			});
+			expect(res.status).toBe(202);
+			expect(mocks.requestAiOpsScan).toHaveBeenCalledWith("manual", "investigate");
+			expect(mocks.runAiOpsScanWorkerOnce).not.toHaveBeenCalled();
 			expect(mocks.auditUserAction).toHaveBeenCalledWith(
 				"u-admin",
 				"ai.ops.scan.manual",
-				expect.objectContaining({ triggered: true, logId: "log-1", notes: "investigate" }),
+				expect.objectContaining({ triggered: true, jobId: "job-1", notes: "investigate" }),
 			undefined, null);
 			const body = await res.json();
 			expect(body.triggered).toBe(true);
+			expect(body.queued).toBe(true);
 			expect(body.latestLog).toEqual(SAMPLE_LOG);
 		});
 
-		it("returns triggered=false when the worker skipped the run", async () => {
-			mocks.runAiOpsScanWorkerOnce.mockResolvedValueOnce(false);
+		it("returns triggered=false when a scan is already queued", async () => {
+			mocks.requestAiOpsScan.mockResolvedValueOnce(null);
 			const res = await scanRoute.POST(
 				new Request("http://local/api/ai/ops/scan", { method: "POST", body: "{}" }),
 			);
@@ -253,7 +257,7 @@ describe("/api/ai/ops/* routes", () => {
 				}),
 			);
 			expect(res.status).toBe(400);
-			expect(mocks.runAiOpsScanWorkerOnce).not.toHaveBeenCalled();
+			expect(mocks.requestAiOpsScan).not.toHaveBeenCalled();
 		});
 	});
 

@@ -133,14 +133,25 @@ async function handleClaimedJob(
   }
 }
 
+/**
+ * Commands handled at once per process (A6-08). One at a time meant a single
+ * long command held every other command, playbook step and deployment behind
+ * it for up to its whole execution timeout; downloads already run three-wide.
+ */
+const MAX_CONCURRENT_COMMAND_JOBS = 3;
+let activeCommandJobs = 0;
+
 export async function runCommandExecutionJobWorkerOnce() {
   const state = getWorkerState();
+  // `running` guards the claim only (two ticks must not claim at the same moment); the job then runs beside the others.
   if (state.running) {
     logger.warn("Skipping command execution tick because a previous tick is still running");
     return false;
   }
+  if (activeCommandJobs >= MAX_CONCURRENT_COMMAND_JOBS) return false;
 
   state.running = true;
+  let counted = false;
   try {
     const job = await claimNextJob({
       workerId: COMMAND_EXECUTION_WORKER_ID,
@@ -148,6 +159,9 @@ export async function runCommandExecutionJobWorkerOnce() {
       leaseMs: COMMAND_EXECUTION_LEASE_MS,
     });
     if (!job) return false;
+    activeCommandJobs += 1;
+    counted = true;
+    state.running = false;
     return await handleClaimedJob(job);
   } catch (error) {
     logger.error("Command execution worker tick failed", {
@@ -155,6 +169,7 @@ export async function runCommandExecutionJobWorkerOnce() {
     });
     return false;
   } finally {
+    if (counted) activeCommandJobs -= 1;
     state.running = false;
   }
 }

@@ -37,6 +37,10 @@ vi.mock("@/lib/webdav/handler", async () => {
   return {
     normalizeWebDavRelativePath: actual.normalizeWebDavRelativePath,
     handleWebDavOptions: actual.handleWebDavOptions,
+    handleWebDavLock: actual.handleWebDavLock,
+    handleWebDavUnlock: actual.handleWebDavUnlock,
+    handleWebDavPropPatch: actual.handleWebDavPropPatch,
+    WEBDAV_ALLOW_HEADER: actual.WEBDAV_ALLOW_HEADER,
     handleWebDavPropFind: mocks.propFind,
     handleWebDavGetHead: mocks.getHead,
     handleWebDavPut: mocks.put,
@@ -169,7 +173,8 @@ describe("webdav route dispatch", () => {
   });
 
   it("answers 405 with an Allow header for an unsupported verb", async () => {
-    const response = await POST(req("POST", { "x-http-method-override": "LOCK" }), params(["a.txt"]));
+    // LOCK is served now (A4-16); REPORT is still not.
+    const response = await POST(req("POST", { "x-http-method-override": "REPORT" }), params(["a.txt"]));
 
     expect(response.status).toBe(405);
     expect(response.headers.get("Allow")).toContain("PROPFIND");

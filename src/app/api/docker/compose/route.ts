@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     async ({ session }) => {
       const { serverId } = parseSearchParams(request, listQuerySchema);
       if (serverId) {
-        const teamAccess = await assertServerTeamAccess(session, serverId, "read");
+        const teamAccess = await assertServerTeamAccess(session, serverId, "connect");
         if (!teamAccess.ok) return teamAccess.response;
       } else {
         // No serverId means the hub host's own daemon — shared platform
@@ -80,12 +80,30 @@ export async function POST(request: Request) {
         const hubAccess = assertHubHostDockerAccess(session);
         if (!hubAccess.ok) return hubAccess.response;
       }
-      const result = await runComposeProjectAction({
-        project: body.project,
-        action: body.action,
-        serverId,
-        removeVolumes: body.removeVolumes === true,
-      });
+      let result: Awaited<ReturnType<typeof runComposeProjectAction>>;
+      try {
+        result = await runComposeProjectAction({
+          project: body.project,
+          action: body.action,
+          serverId,
+          removeVolumes: body.removeVolumes === true,
+        });
+      } catch (error) {
+        // A failed or timed-out `down --volumes` left no trace at all (A6-07).
+        if (body.action !== "ps") {
+          try {
+            await auditUserAction(session.userId, `docker.compose.${body.action}.failed`, {
+              project: body.project,
+              serverId: serverId ?? "hub-host",
+              removeVolumes: body.removeVolumes === true,
+              error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+            }, undefined, session.currentTeamId);
+          } catch {
+            // The original failure is what the caller must see.
+          }
+        }
+        throw error;
+      }
 
       if (body.action !== "ps") {
         await auditUserAction(session.userId, `docker.compose.${body.action}`, {

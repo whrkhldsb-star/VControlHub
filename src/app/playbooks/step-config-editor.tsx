@@ -1,6 +1,7 @@
 "use client";
 
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { fieldInputClass, monoFieldInputClass } from "./playbook-types";
 import type { SerializedStep, ServerOption } from "./playbook-types";
@@ -17,6 +18,26 @@ export function StepConfigEditor({
 	const { t } = useI18n();
 	const fieldId = useId();
 	const cfg = step.config;
+	// Recipients are picked from the directory instead of typed as raw user ids
+	// (A6-10). A directory the viewer may not read leaves the plain input.
+	const [recipients, setRecipients] = useState<Array<{ id: string; label: string }> | null>(null);
+	useEffect(() => {
+		if (step.type !== "send_notification") return;
+		let cancelled = false;
+		csrfFetch<{ users?: Array<{ id: string; username: string; displayName?: string | null }> }>("/api/users?pageSize=100")
+			.then((data) => {
+				if (cancelled) return;
+				setRecipients((data.users ?? []).map((user) => ({ id: user.id, label: user.displayName ? `${user.displayName} (@${user.username})` : `@${user.username}` })));
+			})
+			.catch(() => { if (!cancelled) setRecipients([]); });
+		return () => { cancelled = true; };
+	}, [step.type]);
+	const webhookBodyInvalid = (() => {
+		if (step.type !== "call_webhook") return false;
+		const raw = String(cfg.body ?? "").trim();
+		if (!raw) return false;
+		try { JSON.parse(raw); return false; } catch { return true; }
+	})();
 	if (step.type === "run_command") {
 		const selected = Array.isArray(cfg.serverIds)
 			? (cfg.serverIds as string[]).filter((id) => typeof id === "string" && id.length > 0)
@@ -121,17 +142,33 @@ export function StepConfigEditor({
 		return (
 			<div className="space-y-1.5">
 				<label htmlFor={`${fieldId}-recipient`} className="ui-label">
-					recipientUserId
+					{t("playbooksPage.step.recipient")}
 				</label>
-				<input
-					id={`${fieldId}-recipient`}
-					value={String(cfg.recipientUserId ?? "")}
-					aria-label={t("playbooksPage.step.recipientAria")}
-					onChange={(e) => onConfigChange({ recipientUserId: e.target.value })}
-					className={fieldInputClass}
-				/>
+				{recipients && recipients.length > 0 ? (
+					<select
+						id={`${fieldId}-recipient`}
+						value={String(cfg.recipientUserId ?? "")}
+						aria-label={t("playbooksPage.step.recipientAria")}
+						onChange={(e) => onConfigChange({ recipientUserId: e.target.value })}
+						className={fieldInputClass}
+					>
+						<option value="">{t("playbooksPage.step.recipientPlaceholder")}</option>
+						{Boolean(cfg.recipientUserId) && !recipients.some((user) => user.id === String(cfg.recipientUserId)) && (
+							<option value={String(cfg.recipientUserId)}>{String(cfg.recipientUserId)}</option>
+						)}
+						{recipients.map((user) => <option key={user.id} value={user.id}>{user.label}</option>)}
+					</select>
+				) : (
+					<input
+						id={`${fieldId}-recipient`}
+						value={String(cfg.recipientUserId ?? "")}
+						aria-label={t("playbooksPage.step.recipientAria")}
+						onChange={(e) => onConfigChange({ recipientUserId: e.target.value })}
+						className={fieldInputClass}
+					/>
+				)}
 				<label htmlFor={`${fieldId}-subject`} className="ui-label">
-					subject
+					{t("playbooksPage.step.subject")}
 				</label>
 				<input
 					id={`${fieldId}-subject`}
@@ -141,7 +178,7 @@ export function StepConfigEditor({
 					className={fieldInputClass}
 				/>
 				<label htmlFor={`${fieldId}-body`} className="ui-label">
-					body
+					{t("playbooksPage.step.body")}
 				</label>
 				<textarea
 					id={`${fieldId}-body`}
@@ -156,7 +193,7 @@ export function StepConfigEditor({
 	return (
 		<div className="space-y-1.5">
 			<label htmlFor={`${fieldId}-url`} className="ui-label">
-				url
+				{t("playbooksPage.step.url")}
 			</label>
 			<input
 				id={`${fieldId}-url`}
@@ -167,7 +204,7 @@ export function StepConfigEditor({
 				className={fieldInputClass}
 			/>
 			<label htmlFor={`${fieldId}-method`} className="ui-label">
-				method
+				{t("playbooksPage.step.method")}
 			</label>
 			<select
 				id={`${fieldId}-method`}
@@ -182,15 +219,17 @@ export function StepConfigEditor({
 				))}
 			</select>
 			<label htmlFor={`${fieldId}-webhook-body`} className="ui-label">
-				body (JSON, optional)
+				{t("playbooksPage.step.webhookBody")}
 			</label>
 			<textarea
 				id={`${fieldId}-webhook-body`}
 				value={String(cfg.body ?? "")}
 				onChange={(e) => onConfigChange({ body: e.target.value })}
 				rows={2}
+				aria-invalid={webhookBodyInvalid || undefined}
 				className={`${monoFieldInputClass} resize-y`}
 			/>
+			{webhookBodyInvalid && <p className="text-xs text-[var(--danger)]">{t("playbooksPage.step.webhookBodyInvalid")}</p>}
 		</div>
 	);
 }

@@ -157,7 +157,15 @@ function fileHeaders(input: { size?: number; fileName: string; inline?: boolean 
 	// Never execute shared HTML/SVG/other active documents on the application's origin.
 	const safeInline = input.inline && /^(?:image\/(?:png|jpeg|gif|webp|avif)|audio\/[\w.+-]+|video\/[\w.+-]+|text\/plain|application\/pdf)$/.test(guessContentType(input.fileName).split(';')[0]!.trim());
 	headers.set("x-content-type-options", "nosniff");
-	headers.set("content-security-policy", "sandbox; default-src 'none'; frame-ancestors 'none'");
+	// Same rule as storage/streaming.ts (A4-24): `default-src 'none'` blanks a
+	// directly opened image/video (the MediaDocument's own fetch is blocked), and a
+	// sandboxed document blocks the browser's PDF viewer. Inline media keeps the
+	// bare sandbox; a PDF keeps only the framing rule; everything else stays locked.
+	const inlinePdf = safeInline && /^application\/pdf\b/i.test(guessContentType(input.fileName));
+	headers.set(
+		"content-security-policy",
+		!safeInline ? "sandbox; default-src 'none'; frame-ancestors 'none'" : inlinePdf ? "frame-ancestors 'none'" : "sandbox; frame-ancestors 'none'",
+	);
 	headers.set("referrer-policy", "no-referrer");
 	headers.set("content-disposition", buildContentDisposition(safeInline ? "inline" : "attachment", input.fileName));
 	return headers;

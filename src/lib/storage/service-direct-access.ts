@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { t } from "@/lib/i18n/service-translations";
 
 /**
  * Direct-access strategy builder for both LOCAL and SFTP storage nodes.
@@ -42,7 +43,7 @@ export function buildDirectAccessStrategy(input: {
   if (input.driver === "LOCAL") {
     return {
       mode: "managed-download" as const,
-      description: "Local files are provided directly by the management side for controlled download and preview.",
+      description: t("backend.storage.directAccess.local"),
       href: input.relativePath
         ? `/api/storage/local?nodeId=${encodeURIComponent(input.nodeId)}&path=${encodeURIComponent(input.relativePath)}`
         : null,
@@ -50,7 +51,7 @@ export function buildDirectAccessStrategy(input: {
   }
 
   if (input.driver === "WEBDAV") {
-    return { mode: "managed-download", description: "WebDAV proxy", href: input.relativePath ? `/api/storage/webdav-download?${new URLSearchParams({ nodeId: input.nodeId, path: input.relativePath })}` : null };
+    return { mode: "managed-download", description: t("backend.storage.directAccess.webdavProxy"), href: input.relativePath ? `/api/storage/webdav-download?${new URLSearchParams({ nodeId: input.nodeId, path: input.relativePath })}` : null };
   }
   const host = input.host ?? "unknown";
   const port = input.port ?? 22;
@@ -72,7 +73,7 @@ export function buildDirectAccessStrategy(input: {
   if ((mode === "DIRECT" || mode === "AUTO") && input.publicBaseUrl) {
     return {
       mode: "direct-url" as const,
-      description: `Remote files can switch to storage server direct access (${mode === "AUTO" ? "auto prefer direct" : "direct mode"}), falling back to hub SFTP relay when unavailable (from ${host}:${port}).`,
+      description: t("backend.storage.directAccess.directUrl", { mode: t(mode === "AUTO" ? "backend.storage.directAccess.modeAuto" : "backend.storage.directAccess.modeDirect"), host, port }),
       href: directHref,
       fallbackHref,
       publicBaseUrl: input.publicBaseUrl,
@@ -82,7 +83,7 @@ export function buildDirectAccessStrategy(input: {
 
   return {
     mode: "managed-download" as const,
-    description: `Remote files are downloaded via management-side SFTP proxy relay (from ${host}:${port}).`,
+    description: t("backend.storage.directAccess.proxyRelay", { host, port }),
     href: fallbackHref,
   };
 }
@@ -96,13 +97,13 @@ export function buildStorageConnectionSummary(input: {
   serverName?: string | null;
 }) {
   if (input.driver === "LOCAL") {
-    return `Local storage: ${input.basePath}`;
+    return t("backend.storage.connection.local", { basePath: input.basePath });
   }
 
-  if (input.driver === "WEBDAV") return `WebDAV: ${input.basePath}`;
+  if (input.driver === "WEBDAV") return t("backend.storage.connection.webdav", { basePath: input.basePath });
   const remote = `${input.username ?? "root"}@${input.host ?? "unknown"}:${input.port ?? 22}`;
-  const serverHint = input.serverName ? ` (bound node ${input.serverName})` : "";
-  return `SFTP storage: ${remote}${serverHint}, root directory ${input.basePath}`;
+  const serverHint = input.serverName ? t("backend.storage.connection.boundNode", { name: input.serverName }) : "";
+  return t("backend.storage.connection.sftp", { remote, serverHint, basePath: input.basePath });
 }
 
 export type StorageNodeListRow = Prisma.StorageNodeGetPayload<{

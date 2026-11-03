@@ -19,6 +19,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
 
 const containerActionSchema = z.object({
@@ -83,7 +84,7 @@ export async function GET(req: NextRequest) {
       // Remote VPS Docker must stay inside the caller's team (same as SFTP/SSH);
       // the hub host belongs to no team, so it needs platform-manager rights.
       if (serverId) {
-        const teamAccess = await assertServerTeamAccess(session, serverId, "read");
+        const teamAccess = await assertServerTeamAccess(session, serverId, "connect");
         if (!teamAccess.ok) return teamAccess.response;
       } else {
         const hubAccess = assertHubHostDockerAccess(session);
@@ -143,6 +144,19 @@ export async function GET(req: NextRequest) {
           `/containers/${id}/json`,
           { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },
         );
+        // Config.Env carries database passwords and generated admin credentials
+        // (A6-04): only a caller who may manage the target sees it, as the quick
+        // service list already hides env values from everyone else.
+        const canManage = serverId
+          ? (await assertServerTeamAccess(session, serverId, "manage")).ok
+          : sessionHasPermission(session, "docker:manage");
+        const data = inspectResult.data;
+        if (!canManage && data && typeof data === "object" && "Config" in data) {
+          const config = (data as { Config?: { Env?: unknown } }).Config;
+          if (config && typeof config === "object" && Array.isArray(config.Env)) {
+            (data as { Config: { Env: unknown } }).Config = { ...config, Env: config.Env.map((entry) => String(entry).replace(/=.*$/, "=[redacted]")) };
+          }
+        }
         return NextResponse.json({ ...inspectResult, dockerScope: inspectScope });
       }
 

@@ -412,6 +412,7 @@ model RdpTicket {
   server       Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
+  @@index([serverId])
   @@map("rdp_tickets")
 }
 
@@ -2200,6 +2201,8 @@ model MediaUploadSession {
   @@index([userId, createdAt])
   @@index([status, expiresAt])
   @@index([status, finalizationLeaseUntil])
+  @@index([storageNodeId])
+  @@index([resultImageId])
   @@map("media_upload_sessions")
 }
 

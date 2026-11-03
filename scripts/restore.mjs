@@ -97,7 +97,9 @@ async function assertNoDeploymentRunning() {
   if (alive) fail(`a deployment is running (deploy.sh pid ${pid} holds ${DEPLOY_LOCK}); wait for it to finish before restoring`);
 }
 
-const DEFAULT_SERVICE_UNITS = "vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws";
+// Units follow APP_SLUG, as the installer names them (A10-08).
+const SERVICE_UNIT_PREFIX = process.env.APP_SLUG || "vcontrolhub";
+const DEFAULT_SERVICE_UNITS = ["next", "worker", "ssh-ws"].map((unit) => `${SERVICE_UNIT_PREFIX}-${unit}`).join(" ");
 const NON_SYSTEMD_HINT = "If the platform does not run under systemd on this host, stop every instance yourself and re-run with VCONTROLHUB_SERVICE_UNITS=none.";
 // Only these mean "not running". Running and transitional states, "unknown",
 // errors and missing output all mean the stop cannot be confirmed.

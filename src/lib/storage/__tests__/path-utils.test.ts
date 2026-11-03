@@ -173,7 +173,9 @@ describe("storage path utils", () => {
     expect(isSafeArchiveEntryPath("/absolute.txt")).toBe(false);
     expect(isSafeArchiveEntryPath("C:/Windows/system.ini")).toBe(false);
     expect(isSafeArchiveEntryPath("folder\\..\\secret.txt")).toBe(false);
-    expect(isSafeArchiveEntryPath("folder/file:ads.txt")).toBe(false);
+    // A colon is an ordinary character on POSIX ("10:30.log"), as extraction treats it (A4-20).
+    expect(isSafeArchiveEntryPath("folder/file:ads.txt")).toBe(true);
+    expect(isSafeArchiveEntryPath("D:\\secret.txt")).toBe(false);
     expect(isSafeArchiveEntryPath("folder/./photo.png")).toBe(true);
     expect(isSafeArchiveEntryPath("folder/../../secret.txt")).toBe(false);
     expect(isSafeArchiveEntryPath(`folder/${"a".repeat(256)}.txt`)).toBe(false);

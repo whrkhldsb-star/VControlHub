@@ -10,7 +10,7 @@ import { CheckboxField, FormField, IconButton, InlineLoading, Notice, SegmentedT
 import { UI_INPUT } from "@/lib/ui/classes";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { buildSearchHref } from "./file-entry-utils";
+import { buildSearchHref, parseTagInput } from "./file-entry-utils";
 
 type Preference = {
   fileEntryId: string;
@@ -27,7 +27,21 @@ type Preference = {
 };
 type Page = { items: Preference[]; nextCursor: string | null };
 
+/** Opens reported per entry within this window are the same visit (A4-39). */
+const OPEN_REPORT_WINDOW_MS = 5 * 60_000;
+const recentOpens = new Map<string, number>();
+
 export function recordFileOpen(fileEntryId: string) {
+  // "Recently opened" shares the write budget with favourites and tags; a
+  // click through thirty folders used to spend it and leave the next star
+  // click with a 429. One report per entry per five minutes is all it needs.
+  const now = Date.now();
+  const last = recentOpens.get(fileEntryId);
+  if (last !== undefined && now - last < OPEN_REPORT_WINDOW_MS) return;
+  recentOpens.set(fileEntryId, now);
+  if (recentOpens.size > 500) {
+    for (const [id, at] of recentOpens) if (now - at >= OPEN_REPORT_WINDOW_MS) recentOpens.delete(id);
+  }
   void csrfFetch("/api/files/preferences", {
     method: "PATCH",
     body: JSON.stringify({ fileEntryId, opened: true }),
@@ -117,10 +131,7 @@ export function FilePreferenceButton({ fileEntryId, favorite: knownFavorite = fa
                 body: JSON.stringify({
                   fileEntryId,
                   favorite,
-                  tags: tags
-                    .split(",")
-                    .map((tag) => tag.trim())
-                    .filter(Boolean),
+                  tags: parseTagInput(tags),
                 }),
               });
               setSavedFavorite(favorite);

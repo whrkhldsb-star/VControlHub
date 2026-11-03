@@ -152,7 +152,6 @@ async function seedRoles() {
 
 async function seedAdmin() {
  seedLog("seedAdmin:start");
- const passwordHash = await hashPassword(getInitialAdminPassword());
  const existingAdmin = await prisma.user.findUnique({
  where: { username: ADMIN_BOOTSTRAP.username },
  });
@@ -160,6 +159,8 @@ async function seedAdmin() {
  const shouldRefreshInitialPassword = !existingAdmin || (
    existingAdmin.status === UserStatus.PENDING_PASSWORD_RESET && existingAdmin.mustChangePassword === true
  );
+ // Hash only when it is written (A10-10): every deploy paid a bcrypt round for nothing.
+ const passwordHash = shouldRefreshInitialPassword ? await hashPassword(getInitialAdminPassword()) : "";
 
  const admin = await prisma.user.upsert({
  where: { username: ADMIN_BOOTSTRAP.username },
@@ -244,17 +245,12 @@ async function seedDefaultLocalStorageNode(teamId: string | null) {
   seedLog("seedDefaultLocalStorageNode:start");
   await prisma.storageNode.upsert({
     where: { id: "node_local_default" },
+    // Create-time defaults only (A10-04): every deploy re-ran this seed and
+    // reset the node's name, direct-access mode, public URL and TTL that an
+    // operator had configured, and re-marked it default.
     update: {
-      name: "本机默认存储",
       driver: "LOCAL",
-      isDefault: shouldBecomeDefault,
-      serverId: null,
-      host: null,
-      port: null,
-      username: null,
-      directAccessMode: "PROXY",
-      publicBaseUrl: null,
-      directAccessExpiresSeconds: 300,
+      ...(existingDefaultNode ? {} : { isDefault: true }),
     },
     create: {
       id: "node_local_default",

@@ -173,18 +173,9 @@ describe("prisma seed", () => {
     expect(mockPrisma.server.upsert).not.toHaveBeenCalled();
     expect(mockPrisma.storageNode.upsert).toHaveBeenCalledWith({
       where: { id: "node_local_default" },
-      update: expect.objectContaining({
-        name: "本机默认存储",
-        driver: "LOCAL",
-        isDefault: true,
-        serverId: null,
-        host: null,
-        port: null,
-        username: null,
-        publicBaseUrl: null,
-        directAccessMode: "PROXY",
-        directAccessExpiresSeconds: 300,
-      }),
+      // Re-seeding no longer resets the node's name, direct-access mode, public URL or TTL (A10-04);
+      // it only becomes the default when no node is.
+      update: { driver: "LOCAL", isDefault: true },
       create: expect.objectContaining({
         id: "node_local_default",
         name: "本机默认存储",
@@ -245,7 +236,7 @@ describe("prisma seed", () => {
 
     expect(mockPrisma.storageNode.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        update: expect.objectContaining({ isDefault: false }),
+        update: expect.not.objectContaining({ isDefault: expect.anything() }),
         create: expect.objectContaining({ isDefault: false }),
       }),
     );

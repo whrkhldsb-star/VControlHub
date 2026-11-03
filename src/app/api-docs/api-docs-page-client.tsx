@@ -65,7 +65,7 @@ export default function ApiDocsPage() {
 	useEffect(() => {
 		let cancelled = false;
 		const controller = new AbortController();
-		api.get<OpenApiSpec>("/api/docs/openapi.json", { credentials: "same-origin", signal: controller.signal })
+		api.get<OpenApiSpec>("/api/docs/openapi.json", { signal: controller.signal })
 			.then((data) => {
 				if (!cancelled) setSpec(data);
 			})

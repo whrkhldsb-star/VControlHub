@@ -14,10 +14,10 @@
  */
 
 import {
-	Children,
-	type ReactElement,
+	createContext,
 	type ReactNode,
 	useActionState,
+	useContext,
 	useEffect,
 	useId,
 	useMemo,
@@ -38,6 +38,33 @@ type BatchReviewToolbarProps = {
 	pendingIds: string[];
 	children: ReactNode;
 };
+
+/**
+ * Selection shared with the cards. The toolbar used to look for `data-id` on
+ * its direct children, but the cards sit inside <PaginatedList>, so no row ever
+ * got a checkbox and only "select all" worked (A6-02). Cards render
+ * <BatchSelectCheckbox id>, which draws nothing outside a toolbar.
+ */
+const BatchSelectionContext = createContext<{ selected: Set<string>; toggle: (id: string) => void; pendingIds: string[] } | null>(null);
+
+export function BatchSelectCheckbox({ id }: { id: string }) {
+	const { t } = useI18n();
+	const selection = useContext(BatchSelectionContext);
+	if (!selection || !selection.pendingIds.includes(id)) return null;
+	return (
+		<label
+			className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded border border-[var(--border)] bg-[var(--modal-bg)] hover:bg-[var(--surface-elevated)]"
+			aria-label={t("requestsPage.batch.selectOneAria")}
+		>
+			<input
+				type="checkbox"
+				className="h-3.5 w-3.5 accent-[var(--color-action)]"
+				checked={selection.selected.has(id)}
+				onChange={() => selection.toggle(id)}
+			/>
+		</label>
+	);
+}
 
 const initialState: BatchReviewActionState = {};
 
@@ -95,30 +122,7 @@ export function BatchReviewToolbar({
 		});
 	}
 
-	// Inject a checkbox at the top-left of each child card. Children must be
-	// ReactElement with a `data-id` prop (set by the page server component).
-	const decoratedChildren = Children.map(children, (child) => {
-		if (!child || typeof child !== "object" || !("props" in child)) return child;
-		const el = child as ReactElement<{ "data-id"?: string }>;
-		const id = el.props["data-id"];
-		if (!id || !pendingIds.includes(id)) return child;
-		return (
-			<div key={id} className="relative">
-				<label
-					className="absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-[var(--border)] bg-[var(--modal-bg)] hover:bg-[var(--surface)]"
-					aria-label={`Select ${id}`}
-				>
-					<input
-						type="checkbox"
-						className="h-3.5 w-3.5 accent-[var(--color-action)]"
-						checked={selected.has(id)}
-						onChange={() => toggleOne(id)}
-					/>
-				</label>
-				<div className="pl-10">{el}</div>
-			</div>
-		);
-	});
+	const selectionContext = useMemo(() => ({ selected, toggle: toggleOne, pendingIds }), [selected, pendingIds]);
 
 	if (pendingIds.length === 0) {
 		return <>{children}</>;
@@ -154,7 +158,7 @@ export function BatchReviewToolbar({
 				)}
 			</div>
 
-			{decoratedChildren}
+			<BatchSelectionContext.Provider value={selectionContext}>{children}</BatchSelectionContext.Provider>
 
 			{someSelected && (
 				<form

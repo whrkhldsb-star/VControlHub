@@ -1,3 +1,4 @@
+import { ConflictError } from "@/lib/errors";
 import {
   mkdir,
   mkdtemp,
@@ -135,7 +136,7 @@ describe("storage service", () => {
       data: { isDefault: false },
     });
     expect(result.connectionSummary).toContain(
-      "Local storage: /srv/whrkhldsb/storage",
+      "本地存储：/srv/whrkhldsb/storage",
     );
     expect(result.directAccess.mode).toBe("managed-download");
   });
@@ -199,11 +200,11 @@ describe("storage service", () => {
     });
 
     expect(result.connectionSummary).toContain(
-      "SFTP storage: root@203.0.113.11:22 (bound node hk-media-1), root directory /data/media",
+      "SFTP 存储：root@203.0.113.11:22（绑定节点 hk-media-1），根目录 /data/media",
     );
     expect(result.directAccess.mode).toBe("direct-url");
     expect(result.directAccess.description).toContain(
-      "storage server direct access",
+      "存储服务器直连",
     );
   });
 
@@ -744,38 +745,24 @@ describe("storage service", () => {
     expect(prisma.fileEntry.create).toHaveBeenCalled();
   });
 
-  it("revives a soft-deleted file metadata entry instead of creating a duplicate path", async () => {
+  it("refuses to revive a soft-deleted file metadata entry: the recycle bin holds that path", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce({
       id: "deleted-folder",
       isDeleted: true,
     } as any);
-    vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({
-      id: "deleted-folder",
-      name: "docs",
-      entryType: "DIRECTORY",
-      relativePath: "docs",
-      isDeleted: false,
-    } as any);
 
-    await createFileEntry({
+    // Reviving silently made the recycle-bin entry vanish (A4-05); uploads and moves already answer 409 here.
+    await expect(createFileEntry({
       storageNodeId: "node_1",
       name: "docs",
       entryType: "DIRECTORY",
       mimeType: "inode/directory",
       relativePath: "docs",
-    });
+    })).rejects.toBeInstanceOf(ConflictError);
 
     expect(prisma.fileEntry.create).not.toHaveBeenCalled();
-    expect(prisma.fileEntry.update).toHaveBeenCalledWith({
-      where: { id: "deleted-folder" },
-      data: expect.objectContaining({
-        name: "docs",
-        entryType: "DIRECTORY",
-        relativePath: "docs",
-        isDeleted: false,
-      }),
-    });
+    expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate active file metadata entries", async () => {

@@ -28,9 +28,10 @@ import { StatusBadge } from "@/components/status-badge";
  */
 export function formatKibPerSecond(kibPerSecond: number | undefined): string {
 	if (kibPerSecond === undefined || !Number.isFinite(kibPerSecond)) return "—";
-	if (kibPerSecond >= 1024 * 1024) return `${(kibPerSecond / (1024 * 1024)).toFixed(1)} GB/s`;
-	if (kibPerSecond >= 1024) return `${(kibPerSecond / 1024).toFixed(1)} MB/s`;
-	return `${Math.round(kibPerSecond)} KB/s`;
+	// Binary multiples get binary labels (A12-03): the value is bytes/1024.
+	if (kibPerSecond >= 1024 * 1024) return `${(kibPerSecond / (1024 * 1024)).toFixed(1)} GiB/s`;
+	if (kibPerSecond >= 1024) return `${(kibPerSecond / 1024).toFixed(1)} MiB/s`;
+	return `${Math.round(kibPerSecond)} KiB/s`;
 }
 
 export function formatMem(usedMb?: number, totalMb?: number): string {

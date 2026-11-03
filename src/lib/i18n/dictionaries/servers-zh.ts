@@ -470,6 +470,7 @@ export const zh: Record<string, string> = {
 	"vpsBackup.deleteScheduleTitle": "删除备份计划",
 	"vpsBackup.deleteScheduleConfirm": "确定删除备份计划 {name} 吗？此操作无法撤销。",
 	"vpsBackup.deleteRecord": "删除备份记录",
+	"vpsBackup.deleteRecordConfirm": "将删除这条备份记录及本机保存的归档文件；异地副本不受影响。此操作不可撤销。",
 	"vpsBackup.retryRecord": "重试备份",
 	"vpsBackup.downloadRecord": "下载备份记录",
 	"vpsBackup.confirmDelete": "确认删除",

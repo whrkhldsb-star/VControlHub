@@ -1,3 +1,4 @@
+import { parseConfigFromMap } from "@/lib/storage/offsite/schema";
 import { checkTurnstileSecret } from "@/lib/auth/turnstile";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
@@ -7,6 +8,7 @@ import {
 	getSetting,
 	setManySettings,
 	isValidSettingKey,
+	getAllSettings,
 } from "@/lib/settings/service";
 import { SettingKey, MASKED_VALUE, isSensitiveKey } from "@/lib/settings/schema";
 import { isRuntimeSettingKey, normalizeRuntimeSettingValue } from "@/lib/runtime-settings/service";
@@ -212,6 +214,22 @@ export async function PATCH(request: Request) {
 				entries.push(normalizeSettingValue(key, value));
 			} catch (error) {
 				validationErrors.push(error instanceof Error ? error.message : `${key} ValidateFailed`);
+			}
+		}
+
+		// offsite.* used to be stored unchecked (A9-06); one bad endpoint or provider
+		// then failed every offsite path with a ConfigError and no field named.
+		const offsiteEntries = entries.filter((entry) => entry.key.startsWith("offsite."));
+		if (offsiteEntries.length > 0) {
+			try {
+				const current = await getAllSettings();
+				parseConfigFromMap({ ...current, ...Object.fromEntries(offsiteEntries.map((entry) => [entry.key, entry.value])) });
+			} catch (error) {
+				validationErrors.push(
+					error instanceof z.ZodError
+						? error.issues.map((issue) => `offsite.${issue.path.join(".")}: ${issue.message}`).join("; ")
+						: error instanceof Error ? error.message : String(error),
+				);
 			}
 		}
 

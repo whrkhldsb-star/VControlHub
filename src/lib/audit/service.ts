@@ -203,8 +203,40 @@ export async function exportAuditLogs(
 	})) as unknown as AuditLogEntry[];
 }
 
+export const AUDIT_EXPORT_MAX_ROWS = 50_000;
+
+/**
+ * The export in batches (A8-05): the route streams them out instead of
+ * holding up to 50 000 joined rows and one giant string in memory. Ordered by
+ * (createdAt, id) so a page boundary never repeats or skips a row.
+ */
+export async function* iterateAuditLogsForExport(
+	input: Omit<ListAuditLogsInput, "page" | "pageSize">,
+	batchSize = 1_000,
+): AsyncGenerator<AuditLogEntry[]> {
+	const where = buildAuditWhere(input);
+	let cursor: { createdAt: Date; id: string } | null = null;
+	let sent = 0;
+	while (sent < AUDIT_EXPORT_MAX_ROWS) {
+		const rows = (await prisma.auditLog.findMany({
+			where: cursor
+				? { AND: [where, { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }] }
+				: where,
+			include: { actor: { select: { username: true, displayName: true } } },
+			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+			take: Math.min(batchSize, AUDIT_EXPORT_MAX_ROWS - sent),
+		})) as unknown as AuditLogEntry[];
+		if (rows.length === 0) return;
+		sent += rows.length;
+		yield rows;
+		if (rows.length < batchSize) return;
+		const last = rows[rows.length - 1]!;
+		cursor = { createdAt: new Date(last.createdAt), id: last.id };
+	}
+}
+
 /** Actions the audit overview counts as high-risk. */
-export const HIGH_RISK_AUDIT_ACTIONS = ["command.execute", "storage.file_delete", "server.delete", "user.permission_update", "docker.container_restart", "api_token.create"] as const;
+export const HIGH_RISK_AUDIT_ACTIONS = ["command.execute", "storage.file_delete", "server.delete", "user.permission_update", "docker.container.restart", "docker.container.remove", "docker.container.stop", "api_token.create"] as const;
 
 export async function getAuditStats(
 	session?: SessionScope | null,
@@ -217,6 +249,21 @@ export async function getAuditStats(
 	total: number;
 }> {
 	const baseWhere = buildAuditWhere({ session });
+	// Three groupBys and two counts over the whole retention window per page view
+	// (A8-05): one answer serves a scope for a minute.
+	const cacheKey = JSON.stringify(baseWhere);
+	const cached = auditStatsCache.get(cacheKey);
+	if (cached && Date.now() - cached.at < AUDIT_STATS_CACHE_MS) return cached.value;
+	const value = await computeAuditStats(baseWhere, session);
+	if (auditStatsCache.size >= 100) auditStatsCache.delete(auditStatsCache.keys().next().value!);
+	auditStatsCache.set(cacheKey, { at: Date.now(), value });
+	return value;
+}
+
+const AUDIT_STATS_CACHE_MS = 60_000;
+const auditStatsCache = new Map<string, { at: number; value: Awaited<ReturnType<typeof getAuditStats>> }>();
+
+async function computeAuditStats(baseWhere: Record<string, unknown>, session?: SessionScope | null): Promise<Awaited<ReturnType<typeof getAuditStats>>> {
 	const recentWhere = buildAuditWhere({
 		session,
 		extra: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },

@@ -25,17 +25,25 @@ vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: vi.fn().mockReturnValue(false),
 }));
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    fileEntry: fileEntryMock,
-    shareLink: shareLinkMock,
-    $transaction: vi.fn(async (callback) => callback({ fileEntry: fileEntryMock, shareLink: shareLinkMock })),
-  },
-}));
+vi.mock("@/lib/db", () => {
+  // Descendant paths are rewritten by one UPDATE (A4-09); the same spy serves the root and the transaction client.
+  const executeRaw = vi.fn(async () => 2);
+  return {
+    prisma: {
+      fileEntry: fileEntryMock,
+      shareLink: shareLinkMock,
+      $executeRaw: executeRaw,
+      $transaction: vi.fn(async (callback) => callback({ fileEntry: fileEntryMock, shareLink: shareLinkMock, $executeRaw: executeRaw })),
+    },
+  };
+});
 
-vi.mock("@/lib/storage/access-control", () => ({
+vi.mock("@/lib/storage/access-control", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/storage/access-control")>()),
   assertStorageAccess: vi.fn().mockResolvedValue({ allowed: true }),
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
+  // Descendants are authorized in one batch (A4-08); every target is writable here.
+  getStorageAccessCapabilities: vi.fn(async () => ({ get: () => ({ canRead: true, canWrite: true, canDelete: true }) }) as never),
 }));
 
 vi.mock("@/lib/storage/fs-backend", () => ({
@@ -332,7 +340,7 @@ describe("moveFileAction", () => {
     expect(prisma.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "file-1" },
-        data: { relativePath: "team-b/a.txt" },
+        data: expect.objectContaining({ relativePath: "team-b/a.txt" }),
       }),
     );
   });
@@ -359,7 +367,7 @@ describe("moveFileAction", () => {
     expect(prisma.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "file-1" },
-        data: { relativePath: "team-b/a.txt" },
+        data: expect.objectContaining({ relativePath: "team-b/a.txt" }),
       }),
     );
   });
@@ -414,7 +422,7 @@ describe("moveFileAction", () => {
     expect(prisma.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "file-1" },
-        data: { relativePath: "team-b/nested/a.txt" },
+        data: expect.objectContaining({ relativePath: "team-b/nested/a.txt" }),
       }),
     );
   });
@@ -465,11 +473,10 @@ describe("moveFileAction", () => {
       select: { id: true, relativePath: true },
       take: 10_001,
     });
-    expect(fileEntryMock.update).toHaveBeenCalledWith({
-      where: { id: "child-live" },
-      data: { relativePath: "archive/team-a/live.txt" },
-    });
-    expect(fileEntryMock.update).toHaveBeenCalledWith({ where: { id: "child-trash" }, data: { relativePath: "archive/team-a/deleted.txt" } });
+    // One UPDATE rewrites every descendant (live and recycled) instead of a round trip per row (A4-09).
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(fileEntryMock.update).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: "child-live" } }));
+    expect(fileEntryMock.update).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: "child-trash" } }));
   });
 
 });

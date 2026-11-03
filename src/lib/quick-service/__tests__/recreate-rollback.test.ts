@@ -88,7 +88,12 @@ vi.mock("child_process", () => {
 			cb(null, { stdout: "newcontainer1234\n", stderr: "" });
 			return {};
 		}
-		cb(null, { stdout: "", stderr: "" });
+		// Every other verb goes through the async path now (A6-01); same fake daemon.
+		try {
+			cb(null, { stdout: dockerSync(args), stderr: "" });
+		} catch (error) {
+			cb(error as Error);
+		}
 		return {};
 	});
 	return { default: { execFileSync, execFile, spawnSync }, execFileSync, execFile, spawnSync };

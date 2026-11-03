@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { JobStatus, Prisma } from "@prisma/client";
 
@@ -187,6 +188,10 @@ export async function enqueueQuickServiceJob(input: {
 				&& (activePayload.action !== "uninstall"
 					|| input.payload.action !== "uninstall"
 					|| Boolean(activePayload.deleteVolumes) === Boolean(input.payload.deleteVolumes));
+			if (sameOperation && activePayload.action === "install" && input.payload.action === "install" && (activePayload.customPort ?? null) !== (input.payload.customPort ?? null)) {
+				// The queued install keeps its own port; silently reusing it dropped the one just chosen (A6-14).
+				throw new ConflictError(t("backend.quick-service.installQueuedWithOtherPort", { port: activePayload.customPort ?? "auto" }));
+			}
 			if (sameOperation) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
 			throw new ConflictError(apiCopy("apiCopy.service.already.has.a.different.lifecycle.task.in.progress.8f008320", { v0: String(input.payload.slug) }));
 		}

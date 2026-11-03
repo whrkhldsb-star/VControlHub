@@ -45,6 +45,7 @@ vi.mock("@/lib/image-bed/constants", () => ({
   mimeTypeFromExt: (ext: string) => ext === ".png" ? "image/png" : "image/jpeg",
 }));
 vi.mock("@/lib/image/service", () => ({
+  canonicalImageMime: (format: string) => `image/${format === "jpg" ? "jpeg" : format}`,
   extractMetadata: vi.fn(async () => ({ width: 2, height: 2, format: "png", sizeBytes: 3 })),
 }));
 

@@ -32,11 +32,11 @@ export async function listAnnouncements() {
 	return prisma.announcement.findMany({
 		orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
 		take: 200,
-		select: { id: true, title: true, body: true, level: true, pinned: true, createdAt: true, startsAt: true, expiresAt: true },
+		select: { id: true, title: true, body: true, level: true, pinned: true, published: true, createdAt: true, startsAt: true, expiresAt: true },
 	});
 }
 
-export async function updateAnnouncement(id: string, input: { title?: string; body?: string; level?: string; pinned?: boolean; published?: boolean; expiresAt?: Date | null }) {
+export async function updateAnnouncement(id: string, input: { startsAt?: Date; title?: string; body?: string; level?: string; pinned?: boolean; published?: boolean; expiresAt?: Date | null }) {
 	const existing = await prisma.announcement.findUnique({ where: { id } });
 	if (!existing) throw new NotFoundError(t("backend.announcement.announcementNotFound"));
 	const data: Record<string, unknown> = {};
@@ -46,10 +46,12 @@ export async function updateAnnouncement(id: string, input: { title?: string; bo
 	if (input.pinned !== undefined) data.pinned = input.pinned;
 	if (input.published !== undefined) data.published = input.published;
 	if (input.expiresAt !== undefined) data.expiresAt = input.expiresAt;
+	if (input.startsAt !== undefined) data.startsAt = input.startsAt;
 	if (Object.keys(data).length === 0) return existing;
 	const nextExpiresAt =
 		input.expiresAt !== undefined ? input.expiresAt : existing.expiresAt;
-	if (nextExpiresAt && nextExpiresAt.getTime() <= existing.startsAt.getTime()) {
+	const nextStartsAt = input.startsAt ?? existing.startsAt;
+	if (nextExpiresAt && nextExpiresAt.getTime() <= nextStartsAt.getTime()) {
 		throw new ValidationError(t("backend.announcement.expiresAtMustBeAfterStartsAt"));
 	}
 	return prisma.announcement.update({ where: { id }, data });

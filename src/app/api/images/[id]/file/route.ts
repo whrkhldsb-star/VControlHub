@@ -42,6 +42,8 @@ export async function GET(
       select: {
         id: true,
         storageKey: true,
+        checksum: true,
+        createdAt: true,
         mimeType: true,
         filename: true,
         isPublic: true,
@@ -94,27 +96,63 @@ export async function GET(
       });
     }
 
+    // `?thumb=1` serves the WebP thumbnail the upload routes write beside the
+    // original (A5-07); the grid used to load every original. Missing thumbnail
+    // (older uploads, failed generation) falls back to the original.
+    const wantsThumb = new URL(request.url).searchParams.get("thumb") === "1";
+    const thumbPath = wantsThumb ? resolveUploadPath(`${image.storageKey.replace(/\.[^./]+$/, "")}_thumb.webp`) : null;
+    let servedPath = filePath;
+    let contentType = image.mimeType;
+    let variant = "";
     let fileStat;
-    try {
-      fileStat = await stat(filePath);
-    } catch {
-      return apiError({
-        code: "NOT_FOUND",
-        message: apiCopy("apiCopy.file.is.missing.35456012"),
-        status: 404,
-      });
+    if (thumbPath) {
+      try {
+        fileStat = await stat(thumbPath);
+        servedPath = thumbPath;
+        contentType = "image/webp";
+        variant = "-thumb";
+      } catch {
+        fileStat = undefined;
+      }
+    }
+    if (!fileStat) {
+      try {
+        fileStat = await stat(filePath);
+      } catch {
+        return apiError({
+          code: "NOT_FOUND",
+          message: apiCopy("apiCopy.file.is.missing.35456012"),
+          status: 404,
+        });
+      }
     }
 
-    const webStream = nodeStreamToWeb(createReadStream(filePath));
+    // Validators (A5-09): a public image linked from a blog revalidates with
+    // 304 instead of re-downloading on every visit.
+    const etag = image.checksum ? `"${image.checksum}${variant}"` : `"${image.id}-${fileStat.size}${variant}"`;
+    const createdAt = image.createdAt instanceof Date ? image.createdAt : null;
+    const cacheHeaders: Record<string, string> = {
+      "Cache-Control": image.isPublic ? "public, no-cache, must-revalidate" : "private, no-store",
+      ETag: etag,
+      ...(createdAt ? { "Last-Modified": createdAt.toUTCString() } : {}),
+      Vary: "Authorization, Cookie",
+    };
+    const ifNoneMatch = request.headers.get("if-none-match");
+    const ifModifiedSince = request.headers.get("if-modified-since");
+    const etagMatches = ifNoneMatch !== null && ifNoneMatch.split(",").map((value) => value.trim().replace(/^W\//, "")).includes(etag);
+    const notModifiedSince = !ifNoneMatch && createdAt !== null && ifModifiedSince !== null && Number.isFinite(Date.parse(ifModifiedSince)) && createdAt.getTime() <= Date.parse(ifModifiedSince) + 1000;
+    if (etagMatches || notModifiedSince) {
+      return new NextResponse(null, { status: 304, headers: cacheHeaders });
+    }
+
+    const webStream = nodeStreamToWeb(createReadStream(servedPath));
 
     return new NextResponse(webStream, {
       status: 200,
       headers: {
-        "Content-Type": image.mimeType,
+        "Content-Type": contentType,
         "Content-Length": String(fileStat.size),
-        "Cache-Control": image.isPublic
-          ? "public, no-cache, must-revalidate"
-          : "private, no-store",
+        ...cacheHeaders,
         "Content-Disposition": buildContentDisposition("inline", image.filename),
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'none'; sandbox",

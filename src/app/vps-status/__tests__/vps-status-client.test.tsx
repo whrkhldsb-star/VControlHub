@@ -171,9 +171,9 @@ describe("transfer rate units", () => {
 	it("shows the measured KiB/s as bytes per second, not as bits", async () => {
 		// networkInKbps is bytes / 1024 / second: 10 MiB/s used to read "10.2 Mbps" (it is about 84 Mbit/s).
 		const { formatKibPerSecond } = await import("../vps-node-card");
-		expect(formatKibPerSecond(10 * 1024)).toBe("10.0 MB/s");
-		expect(formatKibPerSecond(512)).toBe("512 KB/s");
-		expect(formatKibPerSecond(2 * 1024 * 1024)).toBe("2.0 GB/s");
+		expect(formatKibPerSecond(10 * 1024)).toBe("10.0 MiB/s");
+		expect(formatKibPerSecond(512)).toBe("512 KiB/s");
+		expect(formatKibPerSecond(2 * 1024 * 1024)).toBe("2.0 GiB/s");
 		expect(formatKibPerSecond(undefined)).toBe("—");
 	});
 });

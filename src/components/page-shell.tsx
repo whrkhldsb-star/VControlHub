@@ -7,6 +7,7 @@
  * provides <main>, so PageShell uses a <div> instead).
  */
 
+import Link from "next/link";
 import type { HTMLAttributes, ReactNode } from "react";
 import { LocalizedText } from "./localized-text";
 import { File as FileIcon } from "./icons";
@@ -356,7 +357,7 @@ export function MetricPanel({
 						</>
 					);
 					return metric.href ? (
-						<a key={metric.label} href={metric.href} className={`block bg-[var(--surface)] px-4 py-3.5 transition hover:bg-[var(--surface-hover)] sm:px-5${fill}`}>{body}</a>
+						<Link key={metric.label} href={metric.href} className={`block bg-[var(--surface)] px-4 py-3.5 transition hover:bg-[var(--surface-hover)] sm:px-5${fill}`}>{body}</Link>
 					) : (
 						<div key={metric.label} className={`bg-[var(--surface)] px-4 py-3.5 sm:px-5${fill}`}>{body}</div>
 					);

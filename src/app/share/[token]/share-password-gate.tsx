@@ -50,7 +50,8 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel, fail
         credentials: "same-origin",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: pw }),
+        // The create form trims the passphrase before saving (A4-33); verify the same way.
+        body: JSON.stringify({ password: pw.trim() }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };

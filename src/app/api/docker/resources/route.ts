@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   return withApiRoute(req, { permission: "docker:manage", errorMessage: apiCopy("apiCopy.failed.to.fetch.docker.resources.60665bd6") }, async ({ session }) => {
     const { type, name, serverId } = parseSearchParams(req, getQuerySchema);
     if (serverId) {
-      const teamAccess = await assertServerTeamAccess(session, serverId, "read");
+      const teamAccess = await assertServerTeamAccess(session, serverId, "connect");
       if (!teamAccess.ok) return teamAccess.response;
     } else {
       // The hub host's networks/volumes describe shared platform plumbing.

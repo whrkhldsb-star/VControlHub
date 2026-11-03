@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -21,7 +22,7 @@ import {
 } from "@/lib/quick-service/service";
 import { AppError, ConflictError, ValidationError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_WRITE_LIMIT, GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getRemoteApps, normalizedAppToTemplate } from "@/lib/quick-service/app-source-sync";
 import { HUB_HOST_INSTANCE_KEY, getDockerEnvironmentStatusFor, getRemoteUsedPorts } from "@/lib/quick-service/docker-cli";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
@@ -47,8 +48,30 @@ function listInstallTargets(session: Parameters<typeof serverTeamWhere>[0]) {
 }
 
 /** GET /api/quick-services — list catalog + installed + remote services */
+const USED_PORTS_TTL_MS = 15_000;
+const DOCKER_STATUS_TTL_MS = 45_000;
+const usedPortsCache = new Map<string, { at: number; value: Promise<number[]> }>();
+const dockerStatusCache = new Map<string, { at: number; value: Promise<Awaited<ReturnType<typeof getDockerEnvironmentStatusFor>>> }>();
+
+/** Test hook: forget cached probes between cases. */
+export function resetQuickServiceRouteCachesForTests() {
+	usedPortsCache.clear();
+	dockerStatusCache.clear();
+}
+
+function cachedProbe<T>(cache: Map<string, { at: number; value: Promise<T> }>, key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
+	const now = Date.now();
+	const hit = cache.get(key);
+	if (hit && now - hit.at < ttlMs) return hit.value;
+	const value = Promise.resolve().then(load);
+	cache.set(key, { at: now, value });
+	value.catch(() => cache.delete(key));
+	if (cache.size > 200) cache.delete(cache.keys().next().value!);
+	return value;
+}
+
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
+	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_READ_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
 		const url = new URL(request.url);
 		const serverId = url.searchParams.get("serverId")?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
@@ -136,10 +159,13 @@ export async function GET(request: Request) {
 		// Multi-tenant: never return other teams' server id/name/host in the
 		// install target picker. Admins (team:manage) still see everything via
 		// serverTeamWhere(); unassigned legacy hosts are manager-only.
+		// While a service installs, every open tab polls this route every 3 s;
+		// the port inventory and the Docker environment probe (an SSH session
+		// each on a remote target) are reused for a short while (A6-06).
 		const [usedPorts, docker, servers] = await Promise.all([
 			// An unreachable or Windows server answers the probe with an error; the list of services must still load.
-			serverId ? getRemoteUsedPorts(serverId).catch(() => []) : getUsedPorts(),
-			getDockerEnvironmentStatusFor(serverId ? { kind: "remote", serverId } : { kind: "local" }),
+			cachedProbe(usedPortsCache, serverId || "hub-host", USED_PORTS_TTL_MS, () => (serverId ? getRemoteUsedPorts(serverId).catch(() => []) : getUsedPorts())),
+			cachedProbe(dockerStatusCache, serverId || "hub-host", DOCKER_STATUS_TTL_MS, () => getDockerEnvironmentStatusFor(serverId ? { kind: "remote", serverId } : { kind: "local" })),
 			listInstallTargets(session),
 		]);
 		return NextResponse.json({
@@ -226,8 +252,10 @@ export async function POST(request: Request) {
 
 		const prepared = prepareInstallSecrets(template);
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
-			title: `Installed quick service: ${template.name}`,
-				teamId: session.currentTeamId ?? null,
+			title: t("backend.quick-service.job.install", { name: template.name }),
+			// A hub-host install is platform work (A6-05): booking it under whichever
+			// customer the administrator happened to be viewing misfiled the audit.
+			teamId: serverId ? session.currentTeamId ?? null : null,
 				createdBy: session.userId,
 			payload: {
 				action: "install",
@@ -245,7 +273,7 @@ export async function POST(request: Request) {
 			templateName: template.name,
 			instanceKey,
 			serverId: serverId || null,
-		}, undefined, session.currentTeamId);
+		}, undefined, serverId ? session.currentTeamId : null);
 		// A reused task installs with its own generated settings: the ones made
 		// for this request are not used, and returning them handed the caller
 		// sign-in details the service will not have. The task's own are shown
@@ -265,7 +293,7 @@ export async function POST(request: Request) {
 			taskId,
 			status: job.status,
 			notice,
-			message: reused ? "The service already has a lifecycle task in progress, returning the existing task." : "Quick service installation has been added as a background task, you can check progress in the task center.",
+			message: reused ? t("backend.quick-service.job.reused") : t("backend.quick-service.job.installQueued"),
 		}, { status: 202 });
 	});
 }

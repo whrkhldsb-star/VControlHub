@@ -32,7 +32,7 @@ export function PlaybookRunHistory({ runs, t }: PlaybookRunHistoryProps) {
           runs.map((r) => (
             <div key={r.id} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
               <StatusBadge tone={r.status === "failed" ? "danger" : r.status === "completed" ? "success" : "neutral"} size="sm">
-                {statusLabelFor(t, r.status)}{r.dryRun ? " · dry-run" : ""}
+                {statusLabelFor(t, r.status)}{r.dryRun ? ` · ${t("playbooksPage.runHistory.dryRun")}` : ""}
               </StatusBadge>
               <span className="text-[var(--text-muted)]">{formatTime(r.startedAt, locale)}</span>
               {r.stepResults && r.stepResults.length > 0 && (

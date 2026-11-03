@@ -15,7 +15,7 @@ export function effectiveDeleteOrphans(
 
 /** Directories a run that deletes what the source lacks must never be pointed at (the directory itself, not below it). */
 const PROTECTED_DELETE_TARGETS = new Set([
-  "/", "/bin", "/boot", "/dev", "/etc", "/lib", "/lib32", "/lib64", "/proc", "/root", "/run", "/sbin", "/sys", "/usr", "/var",
+  "/", "/bin", "/boot", "/dev", "/etc", "/home", "/lib", "/lib32", "/lib64", "/opt", "/proc", "/root", "/run", "/sbin", "/srv", "/sys", "/usr", "/var",
 ]);
 
 /** An orphan-deleting sync into one of these would empty the system directory of everything the source does not hold. */
@@ -89,7 +89,10 @@ export function rsyncFlagsForJob(input: {
 }): string[] {
   // Base archive+verbose only; compression is controlled solely by input.compress
   // (do not bake "z" into the short flags — that made the UI toggle a no-op).
-  const flags = ["-av", "--stats"];
+  // --partial keeps an interrupted file's bytes for the next run; --timeout is
+  // rsync's own idle limit, so a stalled link fails instead of hanging while a
+  // slow-but-moving transfer is left alone (A4-03).
+  const flags = ["-av", "--stats", "--partial", "--timeout=300"];
   if (isBidirectionalSyncType(input.syncType)) {
     flags.push("--update"); // skip files that are newer on the receiver
   }

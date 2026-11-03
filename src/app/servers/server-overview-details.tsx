@@ -213,7 +213,7 @@ export function ServerOverviewDetails({
 					{t("serverOverviewDetails.banner.description")}
 				</p>
 				{server.sshKey?.fingerprint ? (
-					<p className="mt-2 truncate text-xs text-[var(--text-muted)]">
+					<p className="mt-2 truncate text-xs text-[var(--text-muted)]" title={server.sshKey.fingerprint}>
 						{t("serverOverviewDetails.fingerprintPrefix")}{server.sshKey.fingerprint}
 					</p>
 				) : null}

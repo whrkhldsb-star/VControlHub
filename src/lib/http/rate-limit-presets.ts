@@ -44,6 +44,9 @@ export const GENERAL_WRITE_LIMIT: RateLimitConfig = { maxRequests: 30, windowMs:
  */
 export const WS_TOKEN_LIMIT: RateLimitConfig = { maxRequests: 120, windowMs: 60_000 };
 
+/** File favourites, tags and "recently opened" reports: many small writes per browsing session (A4-39). */
+export const FILE_PREFERENCE_LIMIT: RateLimitConfig = { maxRequests: 120, windowMs: 60_000 };
+
 /**
  * Chunk PUTs of a resumable upload. Each chunk is up to 5 MiB by default, so
  * GENERAL_WRITE_LIMIT (30/min) capped one user's upload at ~2.5 MiB/s; 240/min

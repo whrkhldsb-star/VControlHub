@@ -131,9 +131,14 @@ describe("POST /api/itsm/inbound/[connectionId]", () => {
         // Re-serializing the parsed JSON would change the bytes and break HMAC.
         rawBody: raw,
         signatureHeader: "sha256=abc",
-        systemUserId: "u_admin",
+        headers: expect.any(Headers),
+        resolveSystemUserId: expect.any(Function),
       }),
     );
+    // Resolved by the service after verification (A8-08), not before.
+    expect(mocks.userFindFirst).not.toHaveBeenCalled();
+    const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: () => Promise<string | null> };
+    await expect(call.resolveSystemUserId()).resolves.toBe("u_admin");
   });
 
   it("maps a rejected signature to its typed status instead of 200", async () => {
@@ -145,13 +150,13 @@ describe("POST /api/itsm/inbound/[connectionId]", () => {
     expect(response.status).toBe(403);
   });
 
-  it("returns 503 rather than attributing tickets to nobody when no user exists", async () => {
+  it("resolves no system user when no account exists; the service answers 503 instead of attributing tickets to nobody", async () => {
     mocks.roleFindFirst.mockResolvedValue(null);
     mocks.userFindFirst.mockResolvedValue(null);
 
-    const response = await POST(inbound(JSON.stringify({ title: "x" })), CONTEXT);
+    await POST(inbound(JSON.stringify({ title: "x" })), CONTEXT);
 
-    expect(response.status).toBe(503);
-    expect(mocks.handleInboundWebhook).not.toHaveBeenCalled();
+    const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: () => Promise<string | null> };
+    await expect(call.resolveSystemUserId()).resolves.toBeNull();
   });
 });

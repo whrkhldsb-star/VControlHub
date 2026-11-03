@@ -56,13 +56,22 @@ function normalizeConfigPath(value: unknown): string | null {
   return path;
 }
 
+/**
+ * Canonical absolute path (A7-01): `//etc/shadow`, `/./etc/shadow` and
+ * `/etc//shadow` all become `/etc/shadow` so the sensitive-path rules below
+ * see the same string the kernel resolves. `..` stays refused outright.
+ */
 function normalizeAbsolutePath(value: unknown): string | null {
   const path = typeof value === "string" ? value.trim() : "";
   if (!path.startsWith("/") || /[\0\n\r]/.test(path)) return null;
-  if (path.split("/").some((segment) => segment === "..")) return null;
+  const segments = path.split("/").filter((segment) => segment !== "" && segment !== ".");
+  if (segments.some((segment) => segment === "..")) return null;
   if (!/^[/A-Za-z0-9._+@:\- ]+$/.test(path)) return null;
-  return path;
+  return `/${segments.join("/")}`;
 }
+
+/** Pseudo-filesystems: `/proc/<pid>/root/…` is any path on the host, `/dev` and `/sys` are not files to read. */
+const PSEUDO_FILESYSTEM_ROOTS = /^\/(?:proc\/(?:\d+|self|thread-self)(?:\/|$)|sys(?:\/|$)|dev(?:\/|$))/;
 
 /** Directories whose contents are credentials, wherever they sit. */
 const SENSITIVE_PATH_SEGMENTS = new Set([".ssh", ".gnupg", ".aws", ".kube", ".docker", ".config/gcloud", ".azure"]);
@@ -76,7 +85,8 @@ const SENSITIVE_SYSTEM_PATHS = /^\/(?:etc\/(?:shadow|gshadow|shadow-|gshadow-|su
  * conversation: password hashes, private keys and credential stores are not for them (the terminal is).
  */
 export function isSensitiveRemotePath(path: string): boolean {
-  const normalized = path.replace(/\/+$/, "") || "/";
+  const normalized = `/${path.split("/").filter((segment) => segment !== "" && segment !== ".").join("/")}`;
+  if (PSEUDO_FILESYSTEM_ROOTS.test(normalized)) return true;
   if (SENSITIVE_SYSTEM_PATHS.test(normalized)) return true;
   const segments = normalized.split("/").filter(Boolean);
   if (segments.some((segment, index) => SENSITIVE_PATH_SEGMENTS.has(segment) || SENSITIVE_PATH_SEGMENTS.has(`${segment}/${segments[index + 1] ?? ""}`))) return true;
@@ -88,6 +98,12 @@ function normalizeReadablePath(value: unknown): string | null {
   const path = normalizeAbsolutePath(value);
   return path && !isSensitiveRemotePath(path) ? path : null;
 }
+
+/** grep flags that keep a recursive search out of credential files and directories. */
+const SEARCH_EXCLUDE_FLAGS = [
+  ...[".ssh", ".gnupg", ".aws", ".kube", ".docker", ".azure", "gcloud", "sudoers.d", "proc", "sys", "dev"].map((dir) => `--exclude-dir=${shellQuote(dir)}`),
+  ...["shadow", "gshadow", "shadow-", "gshadow-", "sudoers", "master.passwd", "ssh_host_*_key", "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", ".netrc", ".pgpass", ".my.cnf", ".git-credentials", ".npmrc", ".pypirc", ".env", ".env.*", "*_history", "*.pem", "*.key", "*.p12", "*.pfx", "*.kdbx"].map((name) => `--exclude=${shellQuote(name)}`),
+].join(" ");
 
 function normalizeLiteralQuery(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -157,7 +173,8 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
       return "echo '=== UPTIME ===' && uptime && echo '=== MEMORY ===' && free -h && echo '=== DISK ===' && df -h / && echo '=== CPU ===' && top -bn1 | head -5";
 
     case "read_logs": {
-      const logPath = normalizeLogPath(params.logPath);
+      // The same rules as the other read tools (A7-01): `tail /etc/shadow` used to pass as a "log".
+      const logPath = normalizeReadablePath(normalizeLogPath(params.logPath));
       const tail = normalizeTail(params.tail);
       const filter = normalizeFilter(params.filter);
       if (!logPath || !tail || filter === null) return null;
@@ -185,7 +202,9 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
       const query = normalizeLiteralQuery(params.query);
       const pattern = normalizeFilePattern(params.filePattern);
       if (!path || !query || !pattern) return null;
-      return `grep -rFInI --include=${shellQuote(pattern)} -- ${shellQuote(query)} ${shellQuote(path)} 2>/dev/null | head -200`;
+      // A recursive grep reads every file below the directory; the credential
+      // files the read tools refuse by name are skipped here too (A7-01).
+      return `grep -rFInI ${SEARCH_EXCLUDE_FLAGS} --include=${shellQuote(pattern)} -- ${shellQuote(query)} ${shellQuote(path)} 2>/dev/null | head -200`;
     }
 
     case "read_file": {

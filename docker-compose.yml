@@ -17,6 +17,8 @@ services:
   app:
     build: .
     restart: unless-stopped
+    # src/server.ts drains for 15 s; Docker's default 10 s would SIGKILL mid-drain (A10-09).
+    stop_grace_period: 25s
     depends_on:
       postgres:
         condition: service_healthy

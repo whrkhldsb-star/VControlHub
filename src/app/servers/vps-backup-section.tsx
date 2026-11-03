@@ -698,7 +698,7 @@ export function VpsBackupSection({
 			<ConfirmDialog
 				open={deleteTarget !== null}
 				title={deleteTarget?.kind === "schedule" ? t("vpsBackup.deleteScheduleTitle") : t("vpsBackup.deleteRecord")}
-				description={deleteTarget?.kind === "schedule" ? t("vpsBackup.deleteScheduleConfirm", { name: deleteTarget.name }) : t("vpsBackup.deleteRecord")}
+				description={deleteTarget?.kind === "schedule" ? t("vpsBackup.deleteScheduleConfirm", { name: deleteTarget.name }) : t("vpsBackup.deleteRecordConfirm")}
 				cancelLabel={t("common.cancel")}
 				confirmLabel={t("vpsBackup.confirmDelete")}
 				busy={deleting}

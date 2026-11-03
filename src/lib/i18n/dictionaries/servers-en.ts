@@ -459,6 +459,7 @@ export const en: Record<string, string> = {
 	"vpsBackup.deleteScheduleTitle": "Delete backup schedule",
 	"vpsBackup.deleteScheduleConfirm": "Delete backup schedule {name}? This cannot be undone.",
 	"vpsBackup.deleteRecord": "Delete backup record",
+	"vpsBackup.deleteRecordConfirm": "This removes the record and the archive stored on the hub; an offsite copy is not touched. This cannot be undone.",
 	"vpsBackup.retryRecord": "Retry backup",
 	"vpsBackup.downloadRecord": "Download backup record",
 	"vpsBackup.confirmDelete": "Confirm delete",

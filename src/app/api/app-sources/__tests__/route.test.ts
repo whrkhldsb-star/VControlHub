@@ -45,6 +45,11 @@ vi.mock("@/lib/http/api-guard", () => ({
     }
   }),
 }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  // A6: sync holds an advisory lock; the test does not have a database.
+  tryAcquireAdvisoryLock: vi.fn(async () => async () => undefined),
+  acquireAdvisoryLock: vi.fn(async () => async () => undefined),
+}));
 vi.mock("@/lib/quick-service/app-source-sync", () => ({
   getRemoteApps: syncMock.getRemoteApps,
   syncAllSources: syncMock.syncAllSources,

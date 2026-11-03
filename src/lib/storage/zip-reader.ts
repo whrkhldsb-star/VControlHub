@@ -165,6 +165,13 @@ export async function readZipEntries(source: string | FileHandle, limits: { maxE
 			throw new ZipFormatError(`Archive has ${entries} entries (limit ${limits.maxEntries})`);
 		}
 		if (directoryOffset + directorySize > fileSize) throw new ZipFormatError("Central directory lies outside the file");
+		// A central directory entry is 46 bytes plus three ≤ 65 535-byte fields:
+		// anything larger than the declared entry count allows is forged, and
+		// allocating it (up to the file size) was a cheap way to take 2 GiB (A4-06).
+		const MAX_DIRECTORY_BYTES = 256 * 1024 * 1024;
+		if (directorySize > Math.min(MAX_DIRECTORY_BYTES, entries * (46 + 3 * 0xffff))) {
+			throw new ZipFormatError("Central directory larger than its entries allow");
+		}
 		const directory = await readAt(handle, directoryOffset, directorySize);
 		const result: ZipEntry[] = [];
 		let offset = 0;

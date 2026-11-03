@@ -388,11 +388,19 @@ function toolsForMode(mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED") {
   return HOSTED_TOOLS.filter((tool) => toolAvailableInMode(tool, mode));
 }
 
-export function getOpenAIToolsFormat(mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED"): Array<{
+/** The action type behind a tool name, for permission checks at the call site. */
+export function hostedToolActionType(name: string): HostedActionType | null {
+  return HOSTED_TOOLS.find((tool) => tool.name === name)?.actionType ?? null;
+}
+
+export function getOpenAIToolsFormat(
+  mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED",
+  allow?: (tool: HostedTool) => boolean,
+): Array<{
   type: "function";
   function: { name: string; description: string; parameters: Record<string, unknown> };
 }> {
-  return toolsForMode(mode).map((tool) => ({
+  return toolsForMode(mode).filter((tool) => !allow || allow(tool)).map((tool) => ({
     type: "function" as const,
     function: {
       name: tool.name,

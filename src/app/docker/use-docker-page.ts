@@ -95,6 +95,13 @@ export function useDockerPage(
 		const controller = new AbortController();
 		fetchAbortRef.current = controller;
 		const gen = ++fetchGenRef.current;
+		// A tenant account with no manageable server fell back to the hub host,
+		// got 403 and saw "cannot connect to Docker" (A6-14): say what is missing.
+		if (!selectedServerId && !canManageHubHost) {
+			setContainers([]);
+			setError(t("dockerPage.error.noTargets"));
+			return;
+		}
 		try {
 			const url = selectedServerId
 				? `/api/docker/containers?serverId=${encodeURIComponent(selectedServerId)}`
@@ -130,7 +137,7 @@ export function useDockerPage(
 		} finally {
 			if (gen === fetchGenRef.current) setLoading(false);
 		}
-	}, [t, selectedServerId]);
+	}, [t, selectedServerId, canManageHubHost]);
 
 	useEffect(() => () => {
 		fetchAbortRef.current?.abort();

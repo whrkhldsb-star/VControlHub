@@ -164,6 +164,8 @@ export async function GET(request: Request) {
           password: connectionCredentials.password,
           hostKeySha256: connectionCredentials.hostKeySha256,
           agentServerId: connectionCredentials.agentServerId,
+          // Fail closed on an unpinned node like every other credential-sending path (A4-07).
+          enforceHostKeyPin: true,
         };
 
         client = await connectSsh(config);

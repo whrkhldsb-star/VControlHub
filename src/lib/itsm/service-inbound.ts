@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError, ValidationError, BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { addTicketComment, createTicket, updateTicketStatus } from "@/lib/ticket/service";
@@ -102,12 +102,20 @@ async function markApplied(db: Prisma.TransactionClient, claim: InboundClaim | n
   });
 }
 
+/** security.rejected events per connection are throttled to one per this interval. */
+const REJECTED_EVENT_INTERVAL_MS = 60_000;
+const rejectedEventAt = new Map<string, number>();
+
 export async function handleInboundWebhook(input: {
   connectionId: string;
   rawBody: string;
   signatureHeader: string | null;
+  /** The request headers, for the provider-specific schemes (A8-02). */
+  headers?: { get(name: string): string | null } | null;
   json: Record<string, unknown>;
-  systemUserId: string;
+  systemUserId?: string;
+  /** Looked up only once the call has verified (A8-08): a forged request cost 2–3 user queries before. */
+  resolveSystemUserId?: () => Promise<string | null>;
 }): Promise<{ event: ItsmEventRecord; ticketId: string | null; action: string }> {
   const row = await prisma.itsmConnection.findUnique({ where: { id: input.connectionId } });
   // A deleted customer's connection takes no events until it is restored:
@@ -125,19 +133,32 @@ export async function handleInboundWebhook(input: {
     rawBody: input.rawBody,
     headerSignature: input.signatureHeader,
     secret: credentials.webhookSecret ?? credentials.signingSecret,
+    provider: row.provider,
+    headers: input.headers ?? null,
   });
   if (!verified.ok) {
-    await recordEvent({
-      connectionId: row.id,
-      direction: "inbound",
-      eventType: "security.rejected",
-      status: "error",
-      payload: { reason: verified.error },
-      errorMessage: verified.error,
-    });
-    await prisma.itsmConnection.update({ where: { id: row.id }, data: { lastError: verified.error } });
+    // The connection id is printed on the ITSM page as the inbound address, so
+    // anyone holding it can send junk: one rejected-event row per connection
+    // per minute, and the operator's lastError keeps the real sender's last
+    // problem instead of the forger's (A8-08).
+    const now = Date.now();
+    const last = rejectedEventAt.get(row.id) ?? 0;
+    if (now - last >= REJECTED_EVENT_INTERVAL_MS) {
+      rejectedEventAt.set(row.id, now);
+      await recordEvent({
+        connectionId: row.id,
+        direction: "inbound",
+        eventType: "security.rejected",
+        status: "error",
+        payload: { reason: verified.error },
+        errorMessage: verified.error,
+      });
+    }
     throw new ForbiddenError(verified.error);
   }
+
+  const systemUserId = input.systemUserId ?? (await input.resolveSystemUserId?.()) ?? null;
+  if (!systemUserId) throw new BusinessError(t("backend.itsm.noSystemUserForInbound"), undefined, 503);
 
   const normalized = normalizeInboundTicket(input.json);
   const eventType = normalized.eventType;
@@ -180,7 +201,7 @@ export async function handleInboundWebhook(input: {
       await prisma.$transaction(async (tx) => {
         await addTicketComment({
           ticketId: commentTicketId,
-          authorId: input.systemUserId,
+          authorId: systemUserId,
           body: `[ITSM inbound] ${normalized.commentBody}`,
           skipItsmFanOut: true,
           db: tx,
@@ -200,7 +221,7 @@ export async function handleInboundWebhook(input: {
           description: normalized.description || title,
           priority: normalizePriority(normalized.priority ?? config.defaultPriority),
           category: normalized.category ?? config.defaultCategory,
-          createdBy: input.systemUserId,
+          createdBy: systemUserId,
           skipItsmFanOut: true,
           session: row.teamId ? { currentTeamId: row.teamId } : undefined,
           db: tx,

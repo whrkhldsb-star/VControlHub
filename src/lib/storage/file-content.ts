@@ -1,5 +1,6 @@
 import { createReadStream } from "node:fs";
 import {
+  chmod,
   copyFile,
   mkdir,
   readFile,
@@ -272,7 +273,14 @@ export async function writeStorageFileBuffer(
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
     if (!resolved.ok) throw new ValidationError(resolved.reason);
     await mkdir(path.dirname(resolved.path), { recursive: true });
-    await writeFile(resolved.path, buffer);
+    // Write beside the target and rename: a crash mid-write must not leave a
+    // truncated file under the real name (A4-26).
+    const temporaryPath = path.join(path.dirname(resolved.path), `.vch-write-${randomUUID()}.tmp`);
+    try {
+      await writeFile(temporaryPath, buffer);
+      await matchDirectoryMode(temporaryPath, path.dirname(resolved.path));
+      await rename(temporaryPath, resolved.path);
+    } finally { await rm(temporaryPath, { force: true }).catch(() => undefined); }
     return resolved.path;
   }
 
@@ -314,6 +322,40 @@ export async function writeStorageFileBuffer(
  * Best-effort delete of a previously written storage object (LOCAL or SFTP).
  * Used for compensating cleanup when DB indexing fails after a successful write.
  */
+/**
+ * Files a user puts on a node should be readable like their neighbours: take
+ * the directory's permission bits without execute, 0644 when that fails.
+ */
+async function matchDirectoryMode(filePath: string, directory: string): Promise<void> {
+  try {
+    const mode = (await statFile(directory)).mode & 0o666;
+    await chmod(filePath, mode || 0o644);
+  } catch {
+    await chmod(filePath, 0o644).catch(() => undefined);
+  }
+}
+
+/**
+ * `posix-rename@openssh.com` where the server offers it; other SFTP servers
+ * (ProFTPD mod_sftp, NAS gateways) answer OP_UNSUPPORTED, which used to fail
+ * every resumable upload while plain uploads worked (A4-04). The fallback is
+ * unlink + rename: not atomic, but the target is a temp file of our own.
+ */
+function sftpAtomicRename(sftp: import("ssh2").SFTPWrapper, from: string, to: string): Promise<void> {
+  const unsupported = (error: unknown) =>
+    (error as { code?: number }).code === 8 || /unsupported|not supported|extension/i.test(error instanceof Error ? error.message : String(error));
+  return new Promise<void>((resolve, reject) => {
+    sftp.ext_openssh_rename(from, to, (error) => {
+      if (!error) return resolve();
+      if (!unsupported(error)) return reject(error);
+      sftp.unlink(to, (unlinkError) => {
+        if (unlinkError && (unlinkError as { code?: number }).code !== 2) return reject(unlinkError);
+        sftp.rename(from, to, (renameError) => (renameError ? reject(renameError) : resolve()));
+      });
+    });
+  });
+}
+
 export async function writeStorageFileFromLocalPath(node: StorageFileNode, relativePath: string, sourcePath: string) {
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
@@ -323,6 +365,9 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
     try {
       await mkdir(path.dirname(resolved.path), { recursive: true });
       await copyFile(sourcePath, temporaryPath);
+      // The assembled upload is 0600 in the temp dir; copyFile keeps that, and a
+      // web root served by another account then answered 403 (A4-01).
+      await matchDirectoryMode(temporaryPath, path.dirname(resolved.path));
       await rename(temporaryPath, resolved.path);
       return resolved.path;
     } finally { await rm(temporaryPath, { force: true }).catch(() => undefined); }
@@ -369,8 +414,9 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
       await sftpMkdir(client, path.posix.dirname(destination));
       await new Promise<void>((resolve, reject) => client.sftp((error, sftp) => {
         if (error) return reject(error);
-        pipeline(createReadStream(sourcePath, { highWaterMark: 64 * 1024 }), sftp.createWriteStream(temporaryPath, { flags: "wx", mode: 0o600 }))
-          .then(() => new Promise<void>((done, fail) => sftp.ext_openssh_rename(temporaryPath, destination, (renameError) => renameError ? fail(renameError) : done())))
+        // 0644 like a plain upload or editor save; the server's umask still applies (A4-01).
+        pipeline(createReadStream(sourcePath, { highWaterMark: 64 * 1024 }), sftp.createWriteStream(temporaryPath, { flags: "wx", mode: 0o644 }))
+          .then(() => sftpAtomicRename(sftp, temporaryPath, destination))
           .then(resolve, reject);
       }));
       return destination;

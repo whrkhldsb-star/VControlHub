@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
 import { CheckboxField, Chip, FormField, Notice } from "@/components/ui-primitives";
@@ -9,7 +9,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 
-import type { PlaybookOption, ServerOption } from "./alert-rule-types";
+import type { PlaybookOption, ServerOption, AlertRule } from "./alert-rule-types";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
@@ -19,17 +19,20 @@ export function CreateRuleForm({
 	servers,
 	playbooks,
 	onClose,
+	initialRule,
 }: {
 	servers: ServerOption[];
 	playbooks: PlaybookOption[];
 	onClose: () => void;
+	/** Editing an existing rule (A8-04): the same form, saved through PATCH so incidents keep their rule. */
+	initialRule?: AlertRule;
 }) {
 	const { t } = useI18n();
-	const [name, setName] = useState("");
-	const [metric, setMetric] = useState("cpu_usage");
-	const [operator, setOperator] = useState("gte");
-	const [threshold, setThreshold] = useState(85);
-	const [durationSeconds, setDurationSeconds] = useState(0);
+	const [name, setName] = useState(initialRule?.name ?? "");
+	const [metric, setMetric] = useState(initialRule?.metric ?? "cpu_usage");
+	const [operator, setOperator] = useState(initialRule?.operator ?? "gte");
+	const [threshold, setThreshold] = useState(initialRule?.threshold ?? 85);
+	const [durationSeconds, setDurationSeconds] = useState(initialRule?.durationSeconds ?? 0);
 	// Percent metrics stay 0–100 in the UI; network/load/capacity use the API max (100000).
 	const percentMetrics = new Set([
 		"cpu_usage",
@@ -38,13 +41,27 @@ export function CreateRuleForm({
 		"swap_usage",
 	]);
 	const thresholdMax = percentMetrics.has(metric) ? 100 : 100_000;
-	const [selectedServerIds, setSelectedServerIds] = useState<string[]>([]);
-	const [selectedPlaybookIds, setSelectedPlaybookIds] = useState<string[]>([]);
-	const [cooldown, setCooldown] = useState(30);
-	const [escalationMinutes, setEscalationMinutes] = useState(30);
-	const [onCallUserIdsText, setOnCallUserIdsText] = useState("");
-	const [silenceWindowsText, setSilenceWindowsText] = useState("");
-	const [channels, setChannels] = useState<string[]>(["in_app"]);
+	const [selectedServerIds, setSelectedServerIds] = useState<string[]>(initialRule?.serverIds ?? []);
+	const [selectedPlaybookIds, setSelectedPlaybookIds] = useState<string[]>(initialRule?.playbookIds ?? []);
+	const [cooldown, setCooldown] = useState(initialRule?.cooldownMinutes ?? 30);
+	const [escalationMinutes, setEscalationMinutes] = useState(initialRule?.escalationMinutes ?? 30);
+	const [onCallUserIdsText, setOnCallUserIdsText] = useState((initialRule?.onCallUserIds ?? []).join("\n"));
+	const [silenceWindowsText, setSilenceWindowsText] = useState((initialRule?.silenceWindows ?? []).join("\n"));
+	const [channels, setChannels] = useState<string[]>(initialRule?.notifyChannels ?? ["in_app"]);
+	// On-call people are picked from the directory instead of pasted as ids (A8-04);
+	// a directory the viewer may not read keeps the text area.
+	const [directory, setDirectory] = useState<Array<{ id: string; label: string }> | null>(null);
+	useEffect(() => {
+		let cancelled = false;
+		csrfFetch<{ users?: Array<{ id: string; username: string; displayName?: string | null }> }>("/api/users?pageSize=100")
+			.then((data) => {
+				if (cancelled) return;
+				setDirectory((data.users ?? []).map((user) => ({ id: user.id, label: user.displayName ? `${user.displayName} (@${user.username})` : `@${user.username}` })));
+			})
+			.catch(() => { if (!cancelled) setDirectory([]); });
+		return () => { cancelled = true; };
+	}, []);
+	const onCallUserIds = onCallUserIdsText.split(/[\n,，]+/).map((s) => s.trim()).filter(Boolean);
 	const [webhookUrl, setWebhookUrl] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -99,9 +116,10 @@ export function CreateRuleForm({
 			const resolvedOperator = isOfflineMetric ? "eq" : operator;
 			const resolvedThreshold = isOfflineMetric ? 1 : Math.min(threshold, thresholdMax);
 			await csrfFetch("/api/alert-rules", {
-				method: "POST",
+				method: initialRule ? "PATCH" : "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
+					...(initialRule ? { id: initialRule.id } : {}),
 					name,
 					metric,
 					operator: resolvedOperator,
@@ -133,7 +151,7 @@ export function CreateRuleForm({
 		<form onSubmit={handleSubmit}
 			onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
 			<h3 className="ui-title-section">
-				{t("alertRulesPage.createForm.title")}
+				{t(initialRule ? "alertRulesPage.editForm.title" : "alertRulesPage.createForm.title")}
 			</h3>
 			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
 
@@ -342,14 +360,27 @@ export function CreateRuleForm({
 			</FormField>
 
 			<FormField label={t("alertRulesPage.createForm.onCall")} htmlFor="alertRuleOnCall">
-				<textarea
-					id="alertRuleOnCall"
-					value={onCallUserIdsText}
-					onChange={(e) => setOnCallUserIdsText(e.target.value)}
-					placeholder={t("alertRulesPage.createForm.onCallPlaceholder")}
-					rows={2}
-					className={UI_INPUT}
-				/>
+				{directory && directory.length > 0 ? (
+					<select
+						id="alertRuleOnCall"
+						multiple
+						value={onCallUserIds}
+						onChange={(e) => setOnCallUserIdsText(Array.from(e.target.selectedOptions, (option) => option.value).join("\n"))}
+						className={`${UI_INPUT} min-h-28`}
+					>
+						{onCallUserIds.filter((id) => !directory.some((user) => user.id === id)).map((id) => <option key={id} value={id}>{id}</option>)}
+						{directory.map((user) => <option key={user.id} value={user.id}>{user.label}</option>)}
+					</select>
+				) : (
+					<textarea
+						id="alertRuleOnCall"
+						value={onCallUserIdsText}
+						onChange={(e) => setOnCallUserIdsText(e.target.value)}
+						placeholder={t("alertRulesPage.createForm.onCallPlaceholder")}
+						rows={2}
+						className={UI_INPUT}
+					/>
+				)}
 				<p className="mt-1 text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.onCallHint")}</p>
 			</FormField>
 

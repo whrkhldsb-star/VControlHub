@@ -60,11 +60,12 @@ export async function PATCH(request: Request) {
       bodySchema: updateAnnouncementSchema,
     },
     async ({ session, body }) => {
-      const { id, content, type, expiresAt, ...rest } = body;
+      const { id, content, type, expiresAt, startsAt, ...rest } = body;
       const result = await updateAnnouncement(id, {
         ...rest,
         body: content,
         level: type,
+        startsAt: startsAt === undefined ? undefined : new Date(startsAt),
         expiresAt: expiresAt === undefined ? undefined : expiresAt === null ? null : new Date(expiresAt),
       });
       await auditUserAction(

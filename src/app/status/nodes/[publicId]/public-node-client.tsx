@@ -5,6 +5,7 @@
  * current numbers with colour-graded meters, availability, history charts
  * and the 90-day strip. Polls only `/api/status/nodes/<id>` and its `/history`.
  */
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
@@ -140,7 +141,7 @@ function BasicInfo({ node, nowMs, locale, t }: { node: PublicNode; nowMs: number
 		items.push({
 			key: "expires",
 			label: t("publicStatus.billing.expires"),
-			value: new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Shanghai" }).format(Date.parse(node.billing.expiresAt)),
+			value: new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: APP_TIME_ZONE }).format(Date.parse(node.billing.expiresAt)),
 		});
 	}
 	items.push({ key: "updated", label: t("publicStatus.system.updated"), value: node.metricsAt ? formatAge(node.metricsAt, nowMs, locale) : t("publicStatus.node.neverSampled"), title: node.metricsAt ?? undefined });
@@ -210,10 +211,10 @@ export function PublicNodeClient({ initial, initialRange, preview, signedIn }: {
 	const formatTime = useCallback(
 		(time: number) => {
 			const options: Intl.DateTimeFormatOptions = range === "30d"
-				? { month: "2-digit", day: "2-digit", timeZone: "Asia/Shanghai" }
+				? { month: "2-digit", day: "2-digit", timeZone: APP_TIME_ZONE }
 				: range === "7d"
-					? { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" }
-					: { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" };
+					? { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: APP_TIME_ZONE }
+					: { hour: "2-digit", minute: "2-digit", timeZone: APP_TIME_ZONE };
 			return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-GB", options).format(time);
 		},
 		[locale, range],
@@ -339,7 +340,7 @@ export function PublicNodeClient({ initial, initialRange, preview, signedIn }: {
 					<Tile
 						label={t("publicStatus.metric.monthTraffic")}
 						value={`↓ ${formatIecBytes(m.traffic.periodRxBytes)}`}
-						detail={`↑ ${formatIecBytes(m.traffic.periodTxBytes)}${m.traffic.countedSince ? ` · ${t("publicStatus.metric.countedSince", { date: new Date(m.traffic.countedSince).toLocaleDateString(locale === "zh" ? "zh-CN" : "en-GB", { timeZone: "Asia/Shanghai" }) })}` : ""}`}
+						detail={`↑ ${formatIecBytes(m.traffic.periodTxBytes)}${m.traffic.countedSince ? ` · ${t("publicStatus.metric.countedSince", { date: new Date(m.traffic.countedSince).toLocaleDateString(locale === "zh" ? "zh-CN" : "en-GB", { timeZone: APP_TIME_ZONE }) })}` : ""}`}
 					/>
 				) : null}
 				{m.uptime ? <Tile label={t("publicStatus.metric.uptime")} value={node.status === "offline" ? "—" : formatDuration(m.uptime.seconds, locale)} /> : null}

@@ -275,8 +275,9 @@ describe("ticket timeline + SLA escalation routes", () => {
 			expect(mocks.escalateBreachedTickets).toHaveBeenCalledWith({ teamId: "team_1" });
 		});
 
-		it("sweeps every team for a platform manager", async () => {
-			currentSession = platformManager;
+		it("sweeps every team for a platform manager with no active customer", async () => {
+			// A8-06: the same seesAllCustomers rule as every other list route.
+			currentSession = { ...platformManager, currentTeamId: null };
 
 			await escalate.POST(req("POST"));
 
@@ -284,12 +285,21 @@ describe("ticket timeline + SLA escalation routes", () => {
 			expect(mocks.escalateBreachedTickets).toHaveBeenCalledWith({ teamId: undefined });
 		});
 
-		it("passes null for a teamless caller so only unassigned tickets are swept", async () => {
-			currentSession = { ...ticketManager, currentTeamId: null };
+		it("sweeps only the active customer for a platform manager who selected one", async () => {
+			currentSession = platformManager;
 
 			await escalate.POST(req("POST"));
 
-			expect(mocks.escalateBreachedTickets).toHaveBeenCalledWith({ teamId: null });
+			expect(mocks.escalateBreachedTickets).toHaveBeenCalledWith({ teamId: platformManager.currentTeamId });
+		});
+
+		it("refuses a teamless caller instead of sweeping the platform's unassigned tickets", async () => {
+			currentSession = { ...ticketManager, currentTeamId: null };
+
+			const res = await escalate.POST(req("POST"));
+
+			expect(res.status).toBeGreaterThanOrEqual(400);
+			expect(mocks.escalateBreachedTickets).not.toHaveBeenCalled();
 		});
 
 		it("audits the escalation count", async () => {

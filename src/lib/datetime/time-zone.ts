@@ -6,7 +6,28 @@
  * and date formatting so a deployment host's local timezone cannot alter a
  * saved schedule.
  */
-export const APP_TIME_ZONE = "Asia/Shanghai";
+const DEFAULT_APP_TIME_ZONE = "Asia/Shanghai";
+
+function isSupportedTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Configurable (A11-02): `APP_TIME_ZONE` for the server, `NEXT_PUBLIC_APP_TIME_ZONE`
+ * for the browser bundle (inlined at build time; set both to the same value).
+ * An unknown zone falls back to the default rather than breaking every date.
+ */
+function resolveAppTimeZone(): string {
+  const candidate = (process.env.NEXT_PUBLIC_APP_TIME_ZONE || process.env.APP_TIME_ZONE || "").trim();
+  return candidate && isSupportedTimeZone(candidate) ? candidate : DEFAULT_APP_TIME_ZONE;
+}
+
+export const APP_TIME_ZONE = resolveAppTimeZone();
 
 const LOCAL_DATE_TIME_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/;
 

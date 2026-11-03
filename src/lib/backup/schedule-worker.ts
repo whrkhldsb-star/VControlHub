@@ -13,6 +13,7 @@
  * this tick only does lightweight DB writes. This separation keeps the
  * tick fast and survives process restarts.
  */
+import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { appTimeZoneDateKey, startOfDayInAppTimeZone, wallClockInAppTimeZone } from "@/lib/datetime/time-zone";
 import { JobStatus } from "@prisma/client";
 
@@ -190,6 +191,9 @@ async function dispatchDueBackupSchedules(reason: string) {
     where: {
       status: "ACTIVE",
       nextRunAt: { not: null, lte: new Date() },
+      // A soft-deleted customer's schedules kept producing (and uploading)
+      // backups every period (A9-02); VPS schedules already filtered this.
+      AND: [liveCustomerRowsWhere()],
     },
     take: 500, // >500 due schedules in one tick is anomalous
   });

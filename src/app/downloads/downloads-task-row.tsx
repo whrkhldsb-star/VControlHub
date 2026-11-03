@@ -72,12 +72,18 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 				</StatusBadge>
 				<span className="text-xs text-[var(--text-muted)]">{urlTypeLabel(task.url, t)}</span>
 				{task.relayMode && <Badge tone="warning">{t("downloadsPage.badge.relay")}</Badge>}
+				{task.status === "PENDING" && task.aria2Gid && <Badge tone="neutral">{t("downloadsPage.badge.paused")}</Badge>}
 				{task.category && <span className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)]"><CategoryIcon size={14} aria-hidden />{task.category}</span>}
 				{task.isBatch && <Badge tone="accent">{t("downloadsPage.badge.batch")}</Badge>}
 			</div>
 
 			{/* URL */}
 			<div className="text-sm text-[var(--text-primary)] font-mono break-all leading-relaxed">{task.url.length > 120 ? task.url.slice(0, 117) + "…" : task.url}</div>
+			{task.fileName && <div className="mt-0.5 text-xs text-[var(--text-secondary)] break-all">{task.fileName}</div>}
+			{/* Stage text: "transferring to the target", "paused", aria2's own line… (A5-06) */}
+			{task.progress && (task.status === "RUNNING" || task.status === "PENDING") && (
+				<div className="mt-1 text-xs text-[var(--text-muted)] break-all">{task.progress}</div>
+			)}
 
 			{/* Progress bar */}
 			{task.status === "RUNNING" && task.totalBytes && parseInt(task.totalBytes) > 0 && (
@@ -117,7 +123,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 						<label htmlFor={`limit-${task.id}`}>{t("downloadsPage.action.limit")}</label>
 						<input id={`limit-${task.id}`} type="number" min={0} step={1024} placeholder="KB/s"
 							defaultValue={task.maxSpeedKb ?? ""}
-							onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) onAction(task.id, `limit:${v}`); }}
+							onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0 && v !== (task.maxSpeedKb ?? 0)) onAction(task.id, `limit:${v}`); }}
 							className={cn(UI_INPUT, "w-16 px-1.5 py-0.5 text-xs text-[var(--text-secondary)]")}
 						/>
 					</span>
@@ -182,6 +188,8 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 		p.id === n.id &&
 		p.status === n.status &&
 		p.url === n.url &&
+		p.progress === n.progress &&
+		p.fileName === n.fileName &&
 		p.completedBytes === n.completedBytes &&
 		p.totalBytes === n.totalBytes &&
 		p.downloadSpeed === n.downloadSpeed &&

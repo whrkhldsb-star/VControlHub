@@ -27,22 +27,26 @@ import {
   renameBackingObject,
   statBackingObject,
 } from "@/lib/storage/fs-backend";
+import { createWriteStream } from "node:fs";
+import { mkdir, rm } from "node:fs/promises";
+import path from "node:path";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import {
   copyStorageFile,
   deleteStorageFileBuffer,
   streamStorageFile,
-  writeStorageFileBuffer,
+  writeStorageFileFromLocalPath,
 } from "@/lib/storage/file-content";
+import { readStorageUploadMaxBytes } from "@/lib/upload/limits";
+import { UPLOAD_TMP_DIR } from "@/lib/upload/service";
 import {
   createFileEntry,
 } from "@/lib/storage/service-entries";
 import { purgeFileEntryVersionDirectories, snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { guessContentType } from "@/lib/http/mime-types";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
-import {
-  readRequestBodyBuffer,
-  RequestBodyTooLargeError,
-} from "@/lib/http/request-body";
+import { RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { parseStorageRange } from "@/lib/storage/streaming";
 
 import { buildPropFindMultistatus, parseDepth, type PropFindItem } from "./xml";
@@ -67,8 +71,64 @@ import { moveSharePaths } from "@/lib/share-link/follow-path";
 
 export { normalizeWebDavRelativePath, type WebDavContext } from "./handler-internals";
 
-const MAX_WEBDAV_PUT_BYTES = 100 * 1024 * 1024;
+export const WEBDAV_ALLOW_HEADER = "OPTIONS, PROPFIND, PROPPATCH, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK";
 
+export async function handleWebDavOptions(): Promise<Response> {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      Allow: WEBDAV_ALLOW_HEADER,
+      // Class 2 (A4-16): macOS Finder mounts a class 1 server read-only and
+      // Windows Explorer edits through LOCK. The locks are advisory tokens
+      // (nothing is enforced server-side), which is what those clients need.
+      DAV: "1, 2",
+      "MS-Author-Via": "DAV",
+      "Accept-Ranges": "bytes",
+    },
+  });
+}
+
+const LOCK_TIMEOUT_SECONDS = 3600;
+
+function lockToken() {
+  return `opaquelocktoken:${randomUUID()}`;
+}
+
+/**
+ * Pseudo LOCK: hands out a token and reports it as an exclusive write lock,
+ * so clients that insist on locking before a PUT (Finder, Explorer, Office)
+ * can work. Nothing is enforced: the file manager and other clients keep
+ * writing, exactly as before class 2 was advertised.
+ */
+export async function handleWebDavLock(ctx: WebDavContext, request: Request): Promise<Response> {
+  const token = request.headers.get("if")?.match(/<(opaquelocktoken:[^>]+)>/)?.[1] ?? lockToken();
+  const requestedTimeout = request.headers.get("timeout")?.match(/Second-(\d+)/i)?.[1];
+  const timeout = Math.min(LOCK_TIMEOUT_SECONDS, Number(requestedTimeout) || LOCK_TIMEOUT_SECONDS);
+  const href = buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false);
+  const body = `<?xml version="1.0" encoding="utf-8"?>
+<D:prop xmlns:D="DAV:"><D:lockdiscovery><D:activelock>
+<D:locktype><D:write/></D:locktype><D:lockscope><D:exclusive/></D:lockscope>
+<D:depth>0</D:depth><D:timeout>Second-${timeout}</D:timeout>
+<D:locktoken><D:href>${token}</D:href></D:locktoken>
+<D:lockroot><D:href>${href.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</D:href></D:lockroot>
+</D:activelock></D:lockdiscovery></D:prop>`;
+  return new Response(body, {
+    status: 200,
+    headers: { "Content-Type": "application/xml; charset=utf-8", "Lock-Token": `<${token}>` },
+  });
+}
+
+export async function handleWebDavUnlock(): Promise<Response> {
+  return new Response(null, { status: 204 });
+}
+
+/** PROPPATCH: dead properties are not stored; report the request as accepted so clients proceed. */
+export async function handleWebDavPropPatch(ctx: WebDavContext): Promise<Response> {
+  const href = buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const body = `<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:"><D:response><D:href>${href}</D:href><D:propstat><D:prop/><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>`;
+  return new Response(body, { status: 207, headers: { "Content-Type": "application/xml; charset=utf-8" } });
+}
 /**
  * Size of a stored object whose FileEntry has no `size` recorded.
  *
@@ -87,17 +147,6 @@ async function probeStorageFileSize(
   const stat = await statBackingObject({ storageNode: node, relativePath });
   if (!stat) throw new ValidationError(t("backend.webdav.fileNotFound"));
   return stat.size;
-}
-export async function handleWebDavOptions(): Promise<Response> {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      Allow: "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY",
-      DAV: "1",
-      "MS-Author-Via": "DAV",
-      "Accept-Ranges": "bytes",
-    },
-  });
 }
 
 export async function handleWebDavPropFind(
@@ -238,31 +287,47 @@ export async function handleWebDavPut(
   if (!ctx.relativePath) {
     throw new ValidationError(t("backend.webdav.cannotPutToCollectionRoot"));
   }
-  let body: Buffer;
+  // The body streams to a temp file (A4-16): buffering it capped PUT at 100 MiB
+  // and cost that much memory per concurrent upload. The limit is the storage
+  // upload setting, the same as every other upload path.
+  const maxBytes = await readStorageUploadMaxBytes();
+  await mkdir(UPLOAD_TMP_DIR, { recursive: true });
+  const temporaryPath = path.join(UPLOAD_TMP_DIR, `webdav-put-${randomUUID()}.tmp`);
+  let size = 0;
+  const tooLarge = () => new Response(
+    t("backend.storageHardening.webdav.payloadTooLarge", { max: `${Math.round(maxBytes / (1024 * 1024))}MB` }),
+    { status: 413 },
+  );
   try {
-    body = await readRequestBodyBuffer(request, MAX_WEBDAV_PUT_BYTES);
+    const declared = Number(request.headers.get("content-length") ?? "");
+    if (Number.isFinite(declared) && declared > maxBytes) throw new RequestBodyTooLargeError(maxBytes);
+    const guard = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        size += chunk.length;
+        if (size > maxBytes) callback(new RequestBodyTooLargeError(maxBytes));
+        else callback(null, chunk);
+      },
+    });
+    const source = request.body
+      ? Readable.fromWeb(request.body as import("node:stream/web").ReadableStream<Uint8Array>)
+      : Readable.from([]);
+    await pipeline(source, guard, createWriteStream(temporaryPath, { flags: "wx", mode: 0o600 }));
   } catch (error) {
-    if (error instanceof RequestBodyTooLargeError) {
-      return new Response(
-        t("backend.storageHardening.webdav.payloadTooLarge", {
-          max: `${Math.round(MAX_WEBDAV_PUT_BYTES / (1024 * 1024))}MB`,
-        }),
-        { status: 413 },
-      );
-    }
+    await rm(temporaryPath, { force: true }).catch(() => undefined);
+    if (error instanceof RequestBodyTooLargeError) return tooLarge();
     throw error;
   }
 
-  const putAccess = await requireAccess(
-    ctx.session,
-    ctx.storageNodeId,
-    ctx.relativePath,
-    "write",
-    body.byteLength,
-  );
-
+  let putAccess: Awaited<ReturnType<typeof requireAccess>> | undefined;
   let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
+    putAccess = await requireAccess(
+      ctx.session,
+      ctx.storageNodeId,
+      ctx.relativePath,
+      "write",
+      size,
+    );
     releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, ctx.relativePath);
     const node = await loadNode(ctx.storageNodeId, ctx.session);
     const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
@@ -312,14 +377,14 @@ export async function handleWebDavPut(
       }
     }
 
-    await writeStorageFileBuffer(node, ctx.relativePath, body);
+    await writeStorageFileFromLocalPath(node, ctx.relativePath, temporaryPath);
     const name = entryName(ctx.relativePath);
     const mimeType =
       request.headers.get("content-type") || guessContentType(name);
     const indexData = {
       name,
       mimeType: mimeType || null,
-      size: BigInt(body.byteLength),
+      size: BigInt(size),
       entryType: "FILE" as const,
       isDeleted: false as const,
       // A revived recycle-bin row must leave its delete batch, or a later
@@ -351,7 +416,7 @@ export async function handleWebDavPut(
           entryType: "FILE",
           relativePath: ctx.relativePath,
           mimeType: mimeType || undefined,
-          size: body.byteLength,
+          size,
         });
       } catch (error) {
         // Concurrent first-time PUT: createFileEntry may ConflictError on unique key.
@@ -389,8 +454,9 @@ export async function handleWebDavPut(
       },
     });
   } finally {
+    await rm(temporaryPath, { force: true }).catch(() => undefined);
     await releaseOverwrite?.();
-    await releaseStorageQuotaGuard(putAccess);
+    if (putAccess) await releaseStorageQuotaGuard(putAccess);
   }
 }
 

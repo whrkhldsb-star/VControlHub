@@ -229,19 +229,11 @@ export async function createFileEntry(input: CreateFileEntryInput) {
     throw new ConflictError(t("backend.storage.pathAlreadyExists", { path: payload.relativePath }));
   }
   if (existing?.isDeleted) {
-    return prisma.fileEntry.update({
-      where: { id: existing.id },
-      data: {
-        name: payload.name,
-        entryType: payload.entryType,
-        mimeType: payload.mimeType,
-        size: payload.size == null ? null : BigInt(payload.size),
-        checksumSha256: payload.checksumSha256,
-        relativePath: payload.relativePath,
-        parentId: payload.parentId,
-        isDeleted: false,
-      },
-    });
+    // The path is held by a recycle-bin entry. Reviving it silently made that
+    // entry vanish from the bin with its versions hanging off the reused row,
+    // while uploads and moves refuse the same situation (A4-05): refuse too.
+    const t = await serviceT();
+    throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${payload.relativePath}` }));
   }
 
   try {
@@ -272,19 +264,8 @@ export async function createFileEntry(input: CreateFileEntryInput) {
         throw new ConflictError(t("backend.storage.pathAlreadyExists", { path: payload.relativePath }));
       }
       if (raced?.isDeleted) {
-        return prisma.fileEntry.update({
-          where: { id: raced.id },
-          data: {
-            name: payload.name,
-            entryType: payload.entryType,
-            mimeType: payload.mimeType,
-            size: payload.size == null ? null : BigInt(payload.size),
-            checksumSha256: payload.checksumSha256,
-            relativePath: payload.relativePath,
-            parentId: payload.parentId,
-            isDeleted: false,
-          },
-        });
+        const t = await serviceT();
+        throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${payload.relativePath}` }));
       }
     }
     throw error;

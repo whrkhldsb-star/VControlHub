@@ -46,7 +46,8 @@ type AuditLogClientProps = {
  */
 const SEARCH_DEBOUNCE_MS = 350;
 /** The actions the type filter lists; any other value in the URL gets an option of its own. */
-const KNOWN_ACTION_OPTIONS = ["auth.login", "auth.login_failed", "auth.password_change", "storage.file_delete", "server.create", "command.execute", "download.create"];
+// Values are the action names the system writes (A8-01): "auth.login" was never written, so that filter was always empty.
+const KNOWN_ACTION_OPTIONS = ["auth.login_password_ok", "auth.login_failed", "auth.password_change", "storage.file_delete", "server.create", "command.execute", "download.create"];
 
 function severityTone(severity: string):"accent" |"warning" |"danger" {
   const tones: Record<string,"accent" |"warning" |"danger"> = {
@@ -196,7 +197,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             className={`${CONTROL_CLASS} !w-auto min-w-[10rem]`}
           >
             <option value="">{t("audit.all-types")}</option>
-            <option value="auth.login">{t("audit.action.auth.login")}</option>
+            <option value="auth.login_password_ok">{t("audit.action.auth.login")}</option>
             <option value="auth.login_failed">{t("audit.action.auth.login_failed")}</option>
             <option value="auth.password_change">{t("audit.action.auth.password_change")}</option>
             <option value="storage.file_delete">{t("audit.action.storage.file_delete")}</option>
@@ -227,7 +228,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           </ActionButton>
         </div>
         <div className="flex flex-wrap gap-2">
-          {["auth.login","command.execute","storage.file_delete","server.delete","api_token.create"].map((action) => (
+          {["auth.login_password_ok","command.execute","storage.file_delete","server.delete","api_token.create"].map((action) => (
             <Chip
               key={action}
               selected={actionFilter === action}

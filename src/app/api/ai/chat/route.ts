@@ -10,11 +10,13 @@ import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 export const dynamic = "force-dynamic";
 
 const AI_CHAT_LIMIT = { maxRequests: 20, windowMs: 60_000 };
+// Per address: several users behind one egress used to share the 20/min above (A7-07).
+const AI_CHAT_IP_LIMIT = { maxRequests: 120, windowMs: 60_000 };
 
 export async function POST(request: Request) {
   const locale = await getServerLocale();
   // Its own bucket: the bare IP was also the 2FA check's key.
-  const rateLimit = await checkRateLimitAsync(`ai-chat:${getClientIp(request)}`, AI_CHAT_LIMIT);
+  const rateLimit = await checkRateLimitAsync(`ai-chat:${getClientIp(request)}`, AI_CHAT_IP_LIMIT);
   if (!rateLimit.allowed) {
     const message = t("apiAiChat.rateLimited", locale);
     return NextResponse.json(
@@ -37,6 +39,14 @@ export async function POST(request: Request) {
       maxBodyBytes: 32 * 1024 * 1024,
     },
     async ({ session, body }) => {
+      const userLimit = await checkRateLimitAsync(`ai-chat-user:${session.userId}`, AI_CHAT_LIMIT);
+      if (!userLimit.allowed) {
+        const message = t("apiAiChat.rateLimited", locale);
+        return NextResponse.json(
+          { code: "RATE_LIMITED", message, error: message },
+          { status: 429, headers: { "Retry-After": String(Math.ceil(userLimit.retryAfterMs / 1000)) } },
+        );
+      }
       const content = (body.content ?? body.message ?? "").trim();
       if (!body.conversationId || !content) {
         throw new ValidationError(t("apiAiChat.missingParams", locale));

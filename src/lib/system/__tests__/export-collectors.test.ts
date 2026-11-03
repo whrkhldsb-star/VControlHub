@@ -191,12 +191,12 @@ describe("team scope leaves platform-wide tables out entirely", () => {
     expect(model("snippet").findMany).not.toHaveBeenCalled();
   });
 
-  it("keeps hub-host services but only this team's remote services", async () => {
+  it("exports only this team's remote services; hub-host services are platform-wide (A9-07)", async () => {
     await exportQuickServices("standard", "team", "team_a");
 
     expect(model("quickService").findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { OR: [{ serverId: null }, { server: { teamId: "team_a" } }] },
+        where: { server: { teamId: "team_a" } },
       }),
     );
   });

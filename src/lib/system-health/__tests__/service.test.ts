@@ -16,13 +16,14 @@ vi.mock("node:child_process", () => ({
   default: { execFile: mockExecFile },
 }));
 
-const { collectSystemHealthChecks, summarizeSystemHealth } = await import("../service");
+const { collectSystemHealthChecks, summarizeSystemHealth, resetSystemHealthCachesForTests } = await import("../service");
 
 type ExecFileCallback = (error: Error | null, stdout?: string, stderr?: string) => void;
 
 describe("system health service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetSystemHealthCachesForTests();
     mockPrisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
     mockPrisma.server.count.mockResolvedValue(2);
     mockPrisma.storageNode.count.mockResolvedValue(1);

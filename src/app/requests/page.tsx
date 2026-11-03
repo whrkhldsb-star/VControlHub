@@ -6,7 +6,7 @@ import { listCommandRequests } from "@/lib/command/service";
 import { ReviewCommandForm } from "./review-command-form";
 import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
-import { BatchReviewToolbar } from "./batch-review-toolbar";
+import { BatchReviewToolbar, BatchSelectCheckbox } from "./batch-review-toolbar";
 import { PageShell, PageHeader, StatCard, StatGrid, EmptyState, ListPanel } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, type BadgeTone } from "@/components/ui-primitives";
@@ -64,6 +64,7 @@ export default async function RequestsPage() {
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
+											<BatchSelectCheckbox id={request.id} />
 											<h3 className="ui-title-section">{request.title}</h3>
 											<ApprovalBadge status={request.status} label={getRequestStatusLabel(request.status, locale)} />
 											<InitiatorBadge assistant={request.isAssistantInitiated} label={t(request.isAssistantInitiated ? "requestsPage.initiator.assistant" : "requestsPage.initiator.user", locale)} />

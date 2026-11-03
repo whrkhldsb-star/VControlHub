@@ -60,7 +60,8 @@ describe("app source catalog bounds", () => {
 		]);
 		expect(prismaMock.appSourceApp.findMany).toHaveBeenCalledWith(expect.objectContaining({
 			where: { source: { enabled: true } },
-			orderBy: [{ category: "asc" }, { name: "asc" }],
+			// Read in pages of 500 by a stable cursor (A6-11); the first page is this call.
+			orderBy: [{ category: "asc" }, { name: "asc" }, { id: "asc" }],
 			take: 500,
 		}));
 	});

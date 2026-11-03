@@ -195,6 +195,7 @@ export async function GET(request: Request) {
         privateKey: credentials.privateKey,
         passphrase: credentials.passphrase,
         password: credentials.password,
+        enforceHostKeyPin: true,
         readyTimeout: 15000,
         timeout: 10000,
       });

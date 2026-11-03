@@ -113,9 +113,9 @@ for d in public scripts prisma e2e deploy docs; do
   fi
 done
 if [ -d "$APP_DIR/storage" ]; then
-  run find "$APP_DIR/storage" -type d -exec chmod 755 {} +
-  # keep archives readable by app user/group only is fine; 644 is simpler and safe here
-  run find "$APP_DIR/storage" -type f -exec chmod 644 {} +
+  # Customer uploads and VPS backups are for the app user and its group only (A10-07).
+  run find "$APP_DIR/storage" -type d -exec chmod 750 {} +
+  run find "$APP_DIR/storage" -type f -exec chmod 640 {} +
 fi
 for f in deploy.sh install.sh; do
   if [ -f "$APP_DIR/$f" ]; then

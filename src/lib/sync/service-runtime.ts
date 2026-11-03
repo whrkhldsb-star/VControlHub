@@ -228,6 +228,7 @@ async function executeTarSync(
 	if (!targetKey && !targetPassword) {
 		throw new Error("No SSH credentials for target");
 	}
+	const passwordEnvPath = !keyPath && targetPassword ? getSyncTempKeyPath(jobId, "env") : undefined;
 
 	const cmd = buildTarSyncCommand({
 		sourcePath,
@@ -236,7 +237,7 @@ async function executeTarSync(
 		targetHost,
 		targetPort,
 		keyPath,
-		password: keyPath ? undefined : (targetPassword ?? undefined),
+		passwordEnvPath,
 		deleteOrphans: _deleteOrphans,
 		hostKeySha256: targetHostKeySha256,
 		jobId,
@@ -246,9 +247,12 @@ async function executeTarSync(
 		if (targetKey && keyPath) {
 			await writeEphemeralPrivateKey(sourceSsh, keyPath, targetKey.privateKey);
 		}
-		result = await execRemoteCommand({ ...sourceSsh, command: cmd, timeout: 600_000 });
+		if (passwordEnvPath && targetPassword) {
+			await writeEphemeralPrivateKey(sourceSsh, passwordEnvPath, `SSHPASS=${shellQuote(targetPassword)}\n`);
+		}
+		result = await runWithSyncHeartbeat(jobId, () => execRemoteCommand({ ...sourceSsh, command: cmd, timeout: SYNC_COMMAND_TIMEOUT_MS }));
 	} catch (error) {
-		await removeEphemeralFiles(sourceSsh, [keyPath, targetHostKeySha256?.trim() ? getSyncTempKeyPath(jobId, "known_hosts") : undefined].filter((path): path is string => Boolean(path)));
+		await removeEphemeralFiles(sourceSsh, [keyPath, passwordEnvPath, targetHostKeySha256?.trim() ? getSyncTempKeyPath(jobId, "known_hosts") : undefined].filter((path): path is string => Boolean(path)));
 		throw error;
 	}
 	assertSyncRemoteSucceeded(result, "tar sync");
@@ -280,6 +284,7 @@ async function runOneWayRsync(input: {
 		throw new Error("Target server has no SSH key or password configured");
 	}
 	const legJobId = `${input.jobId}-leg`;
+	const passwordEnvPath = !targetKeyPath && targetCredentials.password ? getSyncTempKeyPath(legJobId, "env") : undefined;
 	const rsyncCmd = buildRsyncCommand({
 		flags: input.flags,
 		sourcePath: input.sourcePath,
@@ -288,7 +293,7 @@ async function runOneWayRsync(input: {
 		targetHost,
 		targetPort,
 		keyPath: targetKeyPath,
-		password: targetKeyPath ? undefined : targetCredentials.password,
+		passwordEnvPath,
 		hostKeySha256: input.targetServer.hostKeySha256,
 		jobId: legJobId,
 	});
@@ -336,13 +341,16 @@ async function runOneWayRsync(input: {
 			if (targetCredentials.privateKey && targetKeyPath) {
 				await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, targetCredentials.privateKey);
 			}
-			result = await execRemoteCommand({
+			if (passwordEnvPath && targetCredentials.password) {
+				await writeEphemeralPrivateKey(sourceSsh, passwordEnvPath, `SSHPASS=${shellQuote(targetCredentials.password)}\n`);
+			}
+			result = await runWithSyncHeartbeat(input.jobId, () => execRemoteCommand({
 				...sourceSsh,
 				command: rsyncCmd,
-				timeout: 600_000,
-			});
+				timeout: SYNC_COMMAND_TIMEOUT_MS,
+			}));
 		} catch (error) {
-			await removeEphemeralFiles(sourceSsh, [targetKeyPath, input.targetServer.hostKeySha256?.trim() ? getSyncTempKeyPath(legJobId, "known_hosts") : undefined].filter((path): path is string => Boolean(path)));
+			await removeEphemeralFiles(sourceSsh, [targetKeyPath, passwordEnvPath, input.targetServer.hostKeySha256?.trim() ? getSyncTempKeyPath(legJobId, "known_hosts") : undefined].filter((path): path is string => Boolean(path)));
 			throw error;
 		}
 		assertSyncRemoteSucceeded(result, "rsync");
@@ -560,6 +568,31 @@ export async function executeSyncJob(
 
 /** RUNNING without completion after this age is treated as abandoned (OOM/kill). */
 const STALE_SYNC_RUNNING_MS = 30 * 60 * 1000;
+
+/**
+ * A sync may legitimately run for hours (first full copy, one huge file). The
+ * old 10-minute hard timeout killed those every time (A4-03); rsync's own
+ * `--timeout` now catches a dead link. While the command runs, the job row is
+ * touched so the 30-minute stale-RUNNING reclaim keeps meaning "worker died".
+ */
+const SYNC_COMMAND_TIMEOUT_MS = 12 * 60 * 60 * 1000;
+const SYNC_HEARTBEAT_MS = 5 * 60 * 1000;
+
+async function runWithSyncHeartbeat<T>(jobId: string | undefined, run: () => Promise<T>): Promise<T> {
+	if (!jobId) return run();
+	const beat = () => {
+		try {
+			void Promise.resolve(prisma.syncJob.updateMany({ where: { id: jobId, status: "RUNNING" }, data: { updatedAt: new Date() } })).catch(() => undefined);
+		} catch { /* a mocked or closed client must not break the transfer */ }
+	};
+	const timer = setInterval(beat, SYNC_HEARTBEAT_MS);
+	timer.unref?.();
+	try {
+		return await run();
+	} finally {
+		clearInterval(timer);
+	}
+}
 
 /**
  * Reclaim SyncJob rows stuck in RUNNING after process death.

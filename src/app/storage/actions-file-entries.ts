@@ -172,6 +172,19 @@ export async function permanentDeleteFileEntryAction(
     isDirectory: entry.entryType === "DIRECTORY",
   });
 
+  // A recycled directory's bytes stay in place and nothing stops live entries
+  // from being created under it later (an upload to "docs/new.txt" while "docs"
+  // sits in the bin). Removing the directory from disk would take those live
+  // files with it (A4-27): refuse until they are moved or deleted themselves.
+  if (entry.entryType === "DIRECTORY") {
+    const live = await prisma.fileEntry.count({
+      where: { storageNodeId: entry.storageNodeId, isDeleted: false, relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) } },
+    });
+    if (live > 0) {
+      const t = await serverT();
+      return { error: t("storagePage.action.liveEntriesUnderRecycledDirectory", { count: live }) } satisfies StorageActionState;
+    }
+  }
   // Delete backing first. If this fails, keep the tombstone and share records
   // intact so the user can retry and the operation cannot report false success.
   await deleteBackingObject({
@@ -201,6 +214,7 @@ export async function permanentDeleteFileEntryAction(
         prisma.fileEntry.deleteMany({
           where: {
             storageNodeId: entry.storageNodeId,
+            isDeleted: true,
             relativePath: { startsWith: escapeLikeLiteral(prefix) },
           },
         }),

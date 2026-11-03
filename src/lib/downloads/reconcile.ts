@@ -21,7 +21,10 @@ import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { shellQuote } from "@/lib/downloads/remote-command";
-import { ensureAria2Daemon, tellStatus } from "@/lib/aria2/service";
+import { ensureAria2Daemon, removeDownload, tellStatus } from "@/lib/aria2/service";
+import { t } from "@/lib/i18n/service-translations";
+import { rm } from "node:fs/promises";
+import { relayTempDir } from "@/lib/runtime/platform-paths";
 import { deriveDownloadFileNameFromUrl, indexDownloadedFileEntry } from "@/lib/downloads/helpers";
 
 // Don't touch a row an open UI is actively refreshing (route-patch bumps
@@ -103,6 +106,19 @@ export async function probeDirectDownloadRemote(input: {
   return { state: "UNKNOWN" };
 }
 
+/**
+ * A relay task given up on takes its aria2 entry and the control-plane temp
+ * directory (tens of GB for a torrent) with it (A5-04); only the executor's
+ * own failure paths cleaned up before, and a crashed worker left both behind.
+ */
+async function failRelayTask(task: { id: string; aria2Gid: string }, errorMessage: string): Promise<boolean> {
+  const failed = await failRunningTask(task.id, errorMessage);
+  if (!failed) return false;
+  try { await removeDownload(task.aria2Gid, true); } catch { /* best-effort: aria2 may not know the gid any more */ }
+  await rm(relayTempDir(task.id), { recursive: true, force: true }).catch(() => undefined);
+  return true;
+}
+
 async function failRunningTask(taskId: string, errorMessage: string): Promise<boolean> {
   const res = await prisma.downloadTask.updateMany({
     where: { id: taskId, status: "RUNNING" },
@@ -130,18 +146,24 @@ async function reconcileDirectTask(
     // Remote unreachable — only give up after a generous window so a transient
     // SSH blip never fails an in-flight download.
     if (Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS) {
-      return (await failRunningTask(task.id, "Download server unreachable; abandoned")) ? "failed" : "skipped";
+      return (await failRunningTask(task.id, t("backend.downloads.reconcile.serverUnreachable"))) ? "failed" : "skipped";
     }
     return "skipped";
   }
 
-  if (probe.state === "RUNNING") return "running";
+  if (probe.state === "RUNNING") {
+    // Seen alive: move the row out of the stale window so the next passes do not
+    // open one SSH session per pass for the whole download (A5-05). The
+    // unreachable deadline restarts from a confirmed-live probe, which is right.
+    await prisma.downloadTask.updateMany({ where: { id: task.id, status: "RUNNING" }, data: { updatedAt: new Date() } });
+    return "running";
+  }
   if (probe.state === "FAILED") {
-    return (await failRunningTask(task.id, "Remote download process failed")) ? "failed" : "skipped";
+    return (await failRunningTask(task.id, t("backend.downloads.reconcile.remoteProcessFailed"))) ? "failed" : "skipped";
   }
   if (probe.state === "UNKNOWN") {
     if (Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS) {
-      return (await failRunningTask(task.id, "Download state indeterminate; abandoned")) ? "failed" : "skipped";
+      return (await failRunningTask(task.id, t("backend.downloads.reconcile.indeterminate"))) ? "failed" : "skipped";
     }
     return "skipped";
   }
@@ -152,7 +174,7 @@ async function reconcileDirectTask(
     where: { id: task.id, status: "RUNNING" },
     data: {
       status: "COMPLETED",
-      progress: "Download completed",
+      progress: t("backend.downloads.progress.completed"),
       ...(probe.resolvedFileName && !task.fileName ? { fileName: probe.resolvedFileName } : {}),
       ...(size != null ? { fileSize: size, totalBytes: size, completedBytes: size } : {}),
     },
@@ -187,18 +209,18 @@ async function reconcileRelayTask(
     logError("[DownloadReconcile] relay tellStatus failed:", err);
     // aria2 no longer knows this gid (daemon restarted) — the download is gone.
     if (Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS) {
-      return (await failRunningTask(task.id, "Relay download lost (aria2 no longer tracking); retry")) ? "failed" : "skipped";
+      return (await failRelayTask(task, t("backend.downloads.reconcile.relayLost"))) ? "failed" : "skipped";
     }
     return "skipped";
   }
   if (status === "error" || status === "removed") {
-    return (await failRunningTask(task.id, `Relay download failed: ${status}`)) ? "failed" : "skipped";
+    return (await failRelayTask(task, t("backend.downloads.reconcile.relayFailed", { status }))) ? "failed" : "skipped";
   }
   if (status === "complete") {
     // aria2 finished but the worker died before/during the target-VPS transfer;
     // the transfer cannot be confirmed, so fail for a clean retry rather than
     // reporting a completion that never landed on the target.
-    return (await failRunningTask(task.id, "Relay worker interrupted after download; retry")) ? "failed" : "skipped";
+    return (await failRelayTask(task, t("backend.downloads.reconcile.relayInterrupted"))) ? "failed" : "skipped";
   }
   // Still actively downloading in aria2 — leave it; killing wastes real progress.
   return "running";
@@ -216,6 +238,39 @@ let reconcileCursor: { updatedAt: Date; id: string } | null = null;
 /** Test hook: start the next pass from the oldest stale task. */
 export function resetReconcileCursorForTests() {
   reconcileCursor = null;
+}
+
+// A task still "queued" this long with no job that could start it is orphaned
+// (A5-03): its job failed before claiming it (bad payload, server deleted) and
+// the pruner later took the job row, so nothing would ever touch the task.
+const PENDING_ORPHAN_MS = 60 * 60_000;
+
+async function failOrphanedPendingTasks(): Promise<number> {
+  let failed = 0;
+  try {
+    const cutoff = new Date(Date.now() - PENDING_ORPHAN_MS);
+    // Paused relays are PENDING with a gid and are not orphans.
+    const rows = await prisma.downloadTask.findMany({
+      where: { status: "PENDING", aria2Gid: null, updatedAt: { lt: cutoff } },
+      select: { id: true },
+      orderBy: { updatedAt: "asc" },
+      take: 50,
+    });
+    for (const row of rows) {
+      const inFlight = await prisma.job.count({
+        where: { type: "download.execute", status: { in: ["PENDING", "RUNNING"] }, payload: { path: ["taskId"], equals: row.id } },
+      });
+      if (inFlight > 0) continue;
+      const res = await prisma.downloadTask.updateMany({
+        where: { id: row.id, status: "PENDING", aria2Gid: null },
+        data: { status: "FAILED", errorMessage: t("backend.downloads.reconcile.queuedWithoutJob") },
+      });
+      failed += res.count;
+    }
+  } catch (err) {
+    logError("[DownloadReconcile] orphaned PENDING sweep failed:", err);
+  }
+  return failed;
 }
 
 export async function reconcileStaleRunningDownloadTasks(input?: {
@@ -258,7 +313,7 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
     try {
       if (!task.server) {
         if (Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS) {
-          if (await failRunningTask(task.id, "Download server missing; abandoned")) { failed++; ids.push(task.id); }
+          if (await failRunningTask(task.id, t("backend.downloads.reconcile.serverMissing"))) { failed++; ids.push(task.id); }
         }
         continue;
       }
@@ -275,7 +330,7 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
         // A relay without a durable gid cannot be assumed never to have started.
         // Direct tasks always inspect remote markers, including a missing DB pid.
         outcome = Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS
-          ? ((await failRunningTask(task.id, "Download never started (worker lost); retry")) ? "failed" : "skipped")
+          ? ((await failRunningTask(task.id, t("backend.downloads.reconcile.neverStarted"))) ? "failed" : "skipped")
           : "skipped";
       }
       if (outcome === "completed") { completed++; ids.push(task.id); }
@@ -284,5 +339,8 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
       logError("[DownloadReconcile] task reconcile failed:", err);
     }
   }
-  return { completed, failed, ids };
+  // The background pass also retires queued tasks nothing will ever start (after
+  // the RUNNING scan, so the two reads never compete for the same page).
+  const orphaned = input?.taskIds ? 0 : await failOrphanedPendingTasks();
+  return { completed, failed: failed + orphaned, ids };
 }

@@ -166,17 +166,22 @@ export async function saveOffsiteConfig(update: OffsiteConfigUpdate, actorId: st
 	// GET masks credentials as "***"; ignore masked/empty secrets on partial updates so
 	// clients can round-trip non-secret fields without clobbering real keys.
 	const safeUpdate: OffsiteConfigUpdate = { ...update };
+	// Both credentials sent empty together means "forget them" (A4-26); one
+	// empty field alone is the usual round-trip of a form that masks secrets.
+	const clearingCredentials = safeUpdate.accessKeyId === "" && safeUpdate.secretAccessKey === "";
 	if (
+		!clearingCredentials && (
 		safeUpdate.secretAccessKey === undefined ||
 		safeUpdate.secretAccessKey === "" ||
-		safeUpdate.secretAccessKey === MASKED_VALUE
+		safeUpdate.secretAccessKey === MASKED_VALUE)
 	) {
 		delete safeUpdate.secretAccessKey;
 	}
 	if (
+		!clearingCredentials && (
 		safeUpdate.accessKeyId === undefined ||
 		safeUpdate.accessKeyId === "" ||
-		safeUpdate.accessKeyId === MASKED_VALUE
+		safeUpdate.accessKeyId === MASKED_VALUE)
 	) {
 		delete safeUpdate.accessKeyId;
 	}

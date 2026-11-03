@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { checkPort, allocatePort, getUsedPorts } from "@/lib/quick-service/service";
+import { releasePortReservation } from "@/lib/quick-service/service-internals";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getRemoteUsedPorts, isRemotePortAvailable } from "@/lib/quick-service/docker-cli";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
@@ -29,7 +31,7 @@ const checkPortQuerySchema = z
 
 /** GET /api/quick-services/check-port?port=XXX — real-time port availability check */
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
+	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_READ_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
 		const { action, port, preferred, serverId } = parseSearchParams(request, checkPortQuerySchema);
 		if (serverId) {
 			const access = await assertServerTeamAccess(session, serverId, "connect");
@@ -54,7 +56,10 @@ export async function GET(request: Request) {
 					}
 					throw new Error("No available remote port found");
 				}
+				// Suggest only (A6-14): the install runs in the worker process, so a
+				// reservation held here protected nothing and only shrank the pool.
 				const port = await allocatePort(preferred);
+				releasePortReservation(port);
 				return NextResponse.json({ port, available: true });
 			} catch (err) {
 				const msg = getErrorMessage(err, "Configuration check failed");

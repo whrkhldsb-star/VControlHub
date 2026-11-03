@@ -69,6 +69,8 @@ export async function GET(
 	const { id: serverId, recordId } = await params;
 	return withApiRoute(
 		request,
+		// server:ssh, the permission that already lets the user read this VPS's files. backup:read
+		// is platform-only (Hub database backups), so it would lock every customer out (A9-08).
 		{ permission: "server:ssh", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
 			const locale = await getServerLocale();

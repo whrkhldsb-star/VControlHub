@@ -86,7 +86,7 @@ export type BackupRetentionCandidate = {
 	type: string;
 	filePath: string | null;
 	completedAt: Date;
-	reason: "older-than-cutoff" | "exceeds-keep-latest";
+	reason: "older-than-cutoff" | "exceeds-keep-latest" | "failed-expired";
 };
 
 export type BackupRetentionPlan = {

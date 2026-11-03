@@ -699,10 +699,14 @@ export async function listShareDirectoryFiles(share: DirectoryShareForList) {
       ],
     },
     orderBy: [{ relativePath: "asc" }],
-    take: 200,
+    // One past the cap: the landing page tells the visitor when files were left out (A4-22).
+    take: SHARE_DIRECTORY_LIST_LIMIT + 1,
     select: { id: true, name: true, relativePath: true, size: true, mimeType: true, updatedAt: true },
   });
 }
+
+/** Files a directory share lists; the page shows a notice beyond this many. */
+export const SHARE_DIRECTORY_LIST_LIMIT = 1000;
 
 export async function listShareAccessLogs(
   shareLinkId: string,

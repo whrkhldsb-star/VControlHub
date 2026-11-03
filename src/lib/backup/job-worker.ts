@@ -22,6 +22,10 @@ import {
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
 
+/** The offsite prune is platform-wide; keep it to one run per day across retention tasks. */
+const OFFSITE_PRUNE_INTERVAL_MS = 24 * 60 * 60_000;
+let lastOffsitePruneAt = 0;
+
 const logger = createLogger("backup-job-worker");
 
 /**
@@ -338,9 +342,13 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
             >
           > | null = null;
           try {
-            const { pruneOffsiteObjects } =
-              await import("@/lib/storage/offsite/retention");
-            offsiteResult = await pruneOffsiteObjects();
+            // Platform-wide, so once a day is plenty (A9-09): it used to run after every schedule's retention task.
+            if (Date.now() - lastOffsitePruneAt >= OFFSITE_PRUNE_INTERVAL_MS) {
+              lastOffsitePruneAt = Date.now();
+              const { pruneOffsiteObjects } =
+                await import("@/lib/storage/offsite/retention");
+              offsiteResult = await pruneOffsiteObjects();
+            }
           } catch (offsiteErr) {
             logger.warn("offsite retention prune failed (non-fatal)", {
               error:

@@ -118,7 +118,8 @@ export function AiSettingsModelSelector({
                     setSettingsForm((f) => ({
                       ...f,
                       model: m.id,
-                      enableVision: m.vision ? true : f.enableVision,
+                      // Follows the model both ways (A7-06): a non-vision model used to keep images on.
+                      enableVision: m.vision === undefined ? f.enableVision : m.vision,
                     }));
                     setModelDropdownOpen(false);
                     setModelSearch("");

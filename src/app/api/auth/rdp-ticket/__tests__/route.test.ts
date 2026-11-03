@@ -14,7 +14,7 @@ vi.mock("@/lib/auth/api-session", async () => {
 });
 vi.mock("@/lib/http/rate-limit-presets", () => ({
 	GENERAL_WRITE_LIMIT: { maxRequests: 1000, windowMs: 60_000 },
-  WS_TOKEN_LIMIT: { maxRequests: 120, windowMs: 60_000 },
+	WS_TOKEN_LIMIT: { maxRequests: 120, windowMs: 60_000 },
 	GENERAL_READ_LIMIT: { maxRequests: 1000, windowMs: 60_000 },
 	UPLOAD_CHUNK_LIMIT: { maxRequests: 1000, windowMs: 60_000 },
 	AGENT_POLL_LIMIT: { maxRequests: 1000, windowMs: 60_000 },

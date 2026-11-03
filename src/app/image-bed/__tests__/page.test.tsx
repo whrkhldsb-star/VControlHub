@@ -487,7 +487,8 @@ describe("ImageBedPage", () => {
     expect(screen.getByText("来源： 本机图片库 · 主节点 / image-bed/2026/private-cat.png")).toBeInTheDocument();
     expect(screen.getByText("私有")).toBeInTheDocument();
     const images = screen.getAllByTestId("mock-next-image");
-    expect(images[0]).toHaveAttribute("src", "/api/images/img_private/file");
+    // The grid asks for the thumbnail variant (A5-07); the preview below opens the original.
+    expect(images[0]).toHaveAttribute("src", "/api/images/img_private/file?thumb=1");
 
     await user.click(images[0]!);
 

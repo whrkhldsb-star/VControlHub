@@ -113,7 +113,9 @@ export async function createHostedAction(input: {
   const resolvedServer = serverId
     ? await prisma.server.findUnique({ where: { id: serverId }, select: { teamId: true } })
     : null;
-  const teamId = session.currentTeamId ?? resolvedServer?.teamId ?? null;
+  // The server decides the customer (A7-03): an administrator viewing customer A
+  // who asks about customer B's server created an action B could never confirm.
+  const teamId = resolvedServer?.teamId ?? session.currentTeamId ?? null;
   const params = { ...args, ...(serverId ? { serverId } : {}) };
   return prisma.aiHostedAction.create({
     data: {
@@ -206,7 +208,7 @@ export async function executeSafeAction(
         return {
           success: false,
           data: null,
-          error: "Agent is offline and no SSH fallback credential is configured",
+          error: t("backend.ai.agentOfflineNoSshFallback"),
         };
       }
       const ssh = await buildSshParamsFromServer(server, server.sshKey);
@@ -512,6 +514,10 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
     await executeConfirmedServerlessAction(action, approver, actionScope);
     return;
   }
+  if (action.actionType === "run_playbook") {
+    await runPlaybookHostedAction(action, approver, actionScope, JSON.parse(action.params) as Record<string, unknown>);
+    return;
+  }
   if (SERVERLESS_ACTION_TYPES.has(action.actionType)) {
     throw new BusinessError(t("backend.ai.listQueryToolsDoNotRequireCreatingA"));
   }
@@ -616,66 +622,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
 
   // Cross-module: run_playbook queues a real Playbook run (not an SSH CommandRequest).
   if (action.actionType === "run_playbook") {
-    if (!sessionHasPermission(requester, "playbook:run")) {
-      throw new ForbiddenError(t("backend.ai.missingPermissionPlaybookRun"));
-    }
-    const playbook = await resolvePlaybookId(params, requester);
-    if (!playbook) throw new BusinessError(t("backend.ai.playbookNotFoundOrOutsideTeamScope"));
-
-    const claimed = await prisma.aiHostedAction.updateMany({
-      where: { id: actionId, status: "PENDING_APPROVAL", ...actionScope },
-      data: {
-        status: "APPROVED",
-        approverId: requester.userId,
-        approvedAt: new Date(),
-      },
-    });
-    if (claimed.count === 0) {
-      throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
-    }
-
-    const { runPlaybook } = await import("@/lib/playbook/service");
-    let run: Awaited<ReturnType<typeof runPlaybook>>;
-    try {
-      run = await runPlaybook({
-        playbookId: playbook.id,
-        dryRun: false,
-        createdById: requester.userId,
-        session: {
-          ...requester,
-          currentTeamId: requester.currentTeamId ?? null,
-        },
-        triggerContext: {
-          source: "ai_hosted_action",
-          hostedActionId: actionId,
-          serverId: typeof params.serverId === "string" ? params.serverId : action.serverId,
-        },
-      });
-    } catch (error) {
-      await persistHostedActionFailure(action, error);
-      throw error;
-    }
-
-    await prisma.aiHostedAction.update({
-      where: { id: actionId },
-      data: {
-        status: "COMPLETED",
-        completedAt: new Date(),
-        result: JSON.stringify({
-          playbookId: playbook.id,
-          playbookName: playbook.name,
-          runId: run.id,
-          status: run.status,
-        }),
-      },
-    });
-    await persistHostedToolOutcome(action, {
-      success: true,
-      status: "COMPLETED",
-      playbookId: playbook.id,
-      runId: run.id,
-      runStatus: run.status,
-    });
+    await runPlaybookHostedAction(action, requester, actionScope, params);
     return;
   }
 
@@ -773,4 +720,79 @@ export async function getPendingActions(session: HostedActionSession) {
     orderBy: { createdAt: "desc" },
     take: 200, // P2: 单用户 PENDING 操作数有限
   });
+}
+
+/**
+ * Queue the Playbook run a `run_playbook` action asks for. Shared by the
+ * requester's confirmation and an approver's approval (A7-03): approval used
+ * to refuse the action as a "query tool", so Playbook actions could only ever
+ * be self-confirmed.
+ */
+async function runPlaybookHostedAction(
+  action: Awaited<ReturnType<typeof prisma.aiHostedAction.findFirstOrThrow>>,
+  actor: HostedActionSession,
+  actionScope: Record<string, unknown>,
+  params: Record<string, unknown>,
+) {
+  if (!sessionHasPermission(actor, "playbook:run")) {
+    throw new ForbiddenError(t("backend.ai.missingPermissionPlaybookRun"));
+  }
+  const playbook = await resolvePlaybookId(params, actor);
+  if (!playbook) throw new BusinessError(t("backend.ai.playbookNotFoundOrOutsideTeamScope"));
+
+  const claimed = await prisma.aiHostedAction.updateMany({
+    where: { id: action.id, status: "PENDING_APPROVAL", ...actionScope },
+    data: {
+      status: "APPROVED",
+      approverId: actor.userId,
+      approvedAt: new Date(),
+    },
+  });
+  if (claimed.count === 0) {
+    throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
+  }
+
+  const { runPlaybook } = await import("@/lib/playbook/service");
+  let run: Awaited<ReturnType<typeof runPlaybook>>;
+  try {
+    run = await runPlaybook({
+      playbookId: playbook.id,
+      dryRun: false,
+      createdById: actor.userId,
+      session: {
+        ...actor,
+        currentTeamId: actor.currentTeamId ?? null,
+      },
+      triggerContext: {
+        source: "ai_hosted_action",
+        hostedActionId: action.id,
+        serverId: typeof params.serverId === "string" ? params.serverId : action.serverId,
+      },
+    });
+  } catch (error) {
+    await persistHostedActionFailure(action, error);
+    throw error;
+  }
+
+  await prisma.aiHostedAction.update({
+    where: { id: action.id },
+    data: {
+      status: "COMPLETED",
+      completedAt: new Date(),
+      result: JSON.stringify({
+        playbookId: playbook.id,
+        playbookName: playbook.name,
+        runId: run.id,
+        status: run.status,
+      }),
+    },
+  });
+  await persistHostedToolOutcome(action, {
+    success: true,
+    status: "COMPLETED",
+    playbookId: playbook.id,
+    runId: run.id,
+    runStatus: run.status,
+  });
+  return;
 }

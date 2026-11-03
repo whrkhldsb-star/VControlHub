@@ -4,13 +4,18 @@ const { mocks } = vi.hoisted(() => ({
 	mocks: {
 		requireApiPermission: vi.fn(),
 		exportAuditLogs: vi.fn(),
+		iterateAuditLogsForExport: vi.fn(),
 	},
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
 	requireApiPermission: mocks.requireApiPermission,
 }));
-vi.mock("@/lib/audit/service", () => ({ exportAuditLogs: mocks.exportAuditLogs }));
+vi.mock("@/lib/audit/service", () => ({
+	exportAuditLogs: mocks.exportAuditLogs,
+	iterateAuditLogsForExport: mocks.iterateAuditLogsForExport,
+	AUDIT_EXPORT_MAX_ROWS: 100_000,
+}));
 
 const route = await import("../route");
 
@@ -44,6 +49,10 @@ describe("/api/audit/export GET", () => {
 		vi.clearAllMocks();
 		mocks.requireApiPermission.mockResolvedValue({ session });
 		mocks.exportAuditLogs.mockResolvedValue(sampleLogs);
+		// CSV streams in batches (A8-09); the batches come from the same fixture the JSON export returns.
+		mocks.iterateAuditLogsForExport.mockImplementation(async function* (filter: unknown) {
+			yield await mocks.exportAuditLogs(filter);
+		});
 	});
 
 	it("requires audit:read and returns CSV by default", async () => {

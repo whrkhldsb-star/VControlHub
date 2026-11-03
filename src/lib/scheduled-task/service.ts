@@ -277,6 +277,12 @@ export async function deleteScheduledTask(
 ) {
 	const existing = await getScheduledTaskForSession(id, session);
 	if (!existing) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
+	// Stopping or removing a task that runs without per-run approval is as much
+	// a decision about what runs unreviewed as retrying it (A6-09); the page
+	// shows these controls by the same rule.
+	if (!existing.approvalRequired && !sessionHasPermission(session, "command:execute")) {
+		throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
+	}
 	const deleted = await prisma.scheduledTask.deleteMany({
 		where: { id, ...teamWhere(session) },
 	});
@@ -314,6 +320,12 @@ export async function toggleScheduledTask(
 ) {
 	const current = await getScheduledTaskForSession(id, session);
 	if (!current) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
+	// Stopping or removing a task that runs without per-run approval is as much
+	// a decision about what runs unreviewed as retrying it (A6-09); the page
+	// shows these controls by the same rule.
+	if (!current.approvalRequired && !sessionHasPermission(session, "command:execute")) {
+		throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
+	}
 	const newStatus = current.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
 	const updated = await prisma.scheduledTask.updateMany({
 		where: { id, ...teamWhere(session) },
@@ -382,7 +394,7 @@ export async function recordTaskDispatch(id: string, commandRequestId: string, m
 				where: { id },
 				data: {
 					lastRunAt: dispatchedAt,
-					lastResult: `${manual ? "Manual retry dispatched" : "Dispatched"} command request ${commandRequestId}; awaiting final result`,
+					lastResult: t(manual ? "backend.scheduled-task.manualRetryDispatched" : "backend.scheduled-task.dispatched", { id: commandRequestId }),
 					runCount: { increment: 1 },
 				},
 			});

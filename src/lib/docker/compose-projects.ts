@@ -528,8 +528,9 @@ export async function runComposeProjectAction(input: {
         action,
         mode: "compose-cli",
         scope,
-        stdout: cli.stdout,
-        stderr: cli.stderr,
+        // Bounded (A6-07): `ps` output went to the browser unclipped.
+        stdout: cli.stdout.slice(0, 64 * 1024),
+        stderr: cli.stderr.slice(0, 16 * 1024),
         containers: summarizeContainers(projectContainers),
         message: `Compose project "${project}" status loaded via docker compose`,
       };

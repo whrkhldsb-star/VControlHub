@@ -238,6 +238,11 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
 const REMOTE_MAIN_CACHE_MS = 10 * 60_000;
 let remoteMainCache: { projectRoot: string; at: number; value: Promise<string | null> } | null = null;
 
+/** Test hook: forget the cached origin/main lookup. */
+export function resetSystemHealthCachesForTests() {
+  remoteMainCache = null;
+}
+
 function readRemoteMainCached(projectRoot: string): Promise<string | null> {
   const now = Date.now();
   if (remoteMainCache && remoteMainCache.projectRoot === projectRoot && now - remoteMainCache.at < REMOTE_MAIN_CACHE_MS) {

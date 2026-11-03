@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { Card, EmptyState, Section } from "@/components/page-shell";
@@ -28,6 +29,7 @@ export function AlertRuleListClient({
 	canManage,
 }: Props) {
 	const { t } = useI18n();
+	const [editingRule, setEditingRule] = useState<AlertRule | null>(null);
 	const {
 		rules,
 		incidents,
@@ -83,6 +85,21 @@ export function AlertRuleListClient({
 				</Card>
 			)}
 
+			{editingRule && (
+				<Card title={t("alertRulesPage.editForm.title")} padding="lg">
+					<CreateRuleForm
+						key={editingRule.id}
+						servers={servers}
+						playbooks={playbooks}
+						initialRule={editingRule}
+						onClose={() => {
+							setEditingRule(null);
+							void refresh();
+						}}
+					/>
+				</Card>
+			)}
+
 			<AlertIncidentsSection
 				incidents={incidents}
 				incidentsLoading={incidentsLoading}
@@ -122,6 +139,7 @@ export function AlertRuleListClient({
 							toggleRule={toggleRule}
 							testRule={testRule}
 							setRulePendingDelete={setRulePendingDelete}
+							onEdit={canManage ? setEditingRule : undefined}
 						/>
 					))}
 				</Section>

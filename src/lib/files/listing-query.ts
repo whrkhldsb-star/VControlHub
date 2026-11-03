@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { readableStorageScopeSql, type ReadableStorageScope } from "@/lib/storage/readable-scope";
@@ -89,44 +90,51 @@ export async function queryFolderCounts(
   folders: Array<{ storageNodeId: string; relativePath: string }>,
   readable?: ReadableStorageScope | null,
 ) {
-  if (!folders.length)
-    return new Map<string, { fileCount: number; folderCount: number }>();
+  const counts = new Map<string, { fileCount: number; folderCount: number }>();
+  if (!folders.length) return counts;
   const uniqueFolders = [...new Map(folders.map((folder) => [`${folder.storageNodeId}:${folder.relativePath}`, folder])).values()];
-  const nodeIds = [...new Set(uniqueFolders.map((folder) => folder.storageNodeId))];
-  // Generate ancestors once per indexed entry, then equijoin the requested paths.
-  // A correlated prefix scan for every folder scales as folders * all node entries.
-  const rows = await prisma.$queryRaw<
-    Array<{
-      storageNodeId: string;
-      relativePath: string;
-      fileCount: bigint;
-      folderCount: bigint;
-    }>
-  >(Prisma.sql`
-    WITH folders ("storageNodeId", "relativePath") AS (VALUES
-      ${Prisma.join(uniqueFolders.map((folder) => Prisma.sql`(${folder.storageNodeId}::text, ${folder.relativePath}::text)`))}
-    ), entries AS MATERIALIZED (
-      SELECT "storageNodeId", string_to_array("relativePath", '/') AS parts,
-        ("entryType" = 'DIRECTORY' OR "mimeType" = 'inode/directory') IS TRUE AS directory
-      FROM file_entries WHERE "storageNodeId" IN (${Prisma.join(nodeIds)}) AND NOT "isDeleted" AND "relativePath" <> '' AND ${readableStorageScopeSql(readable)}
-    ), counts AS MATERIALIZED (
-      SELECT e."storageNodeId", array_to_string(e.parts[1:d.depth], '/') AS "relativePath",
+  // The folders of one listing share a parent: one pass over that parent's
+  // subtree answers all of them. The old query expanded every entry of the
+  // node into all of its ancestors on every page (A4-10): O(entries × depth)
+  // per request, seconds on a node with a few hundred thousand files.
+  const groups = new Map<string, { storageNodeId: string; parent: string; children: Set<string> }>();
+  for (const folder of uniqueFolders) {
+    const cut = folder.relativePath.lastIndexOf("/");
+    const parent = cut >= 0 ? folder.relativePath.slice(0, cut) : "";
+    const child = cut >= 0 ? folder.relativePath.slice(cut + 1) : folder.relativePath;
+    const key = `${folder.storageNodeId}:${parent}`;
+    const group = groups.get(key) ?? { storageNodeId: folder.storageNodeId, parent, children: new Set<string>() };
+    group.children.add(child);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    const depth = group.parent ? group.parent.split("/").length : 0;
+    const rows = await prisma.$queryRaw<Array<{ child: string; fileCount: bigint; folderCount: bigint }>>(Prisma.sql`
+      SELECT e.child,
         count(*) FILTER (WHERE NOT e.directory) AS "fileCount",
-        count(DISTINCT e.parts[d.depth + 1]) FILTER (
-          WHERE e.directory OR cardinality(e.parts) > d.depth + 1) AS "folderCount"
-      FROM entries e CROSS JOIN LATERAL generate_series(0, cardinality(e.parts) - 1) d(depth)
-      GROUP BY e."storageNodeId", array_to_string(e.parts[1:d.depth], '/')
-    ) SELECT f."storageNodeId", f."relativePath", coalesce(c."fileCount", 0) AS "fileCount",
-      coalesce(c."folderCount", 0) AS "folderCount"
-      FROM folders f LEFT JOIN counts c USING ("storageNodeId", "relativePath")
-  `);
-  return new Map(
-    rows.map((row) => [
-      `${row.storageNodeId}:${row.relativePath}`,
-      {
-        fileCount: Number(row.fileCount),
-        folderCount: Number(row.folderCount),
-      },
-    ]),
-  );
+        count(DISTINCT e.grandchild) FILTER (WHERE e.directory OR e.depth > ${depth + 2}) AS "folderCount"
+      FROM (
+        SELECT split_part("relativePath", '/', ${depth + 1}) AS child,
+          split_part("relativePath", '/', ${depth + 2}) AS grandchild,
+          cardinality(string_to_array("relativePath", '/')) AS depth,
+          ("entryType" = 'DIRECTORY' OR "mimeType" = 'inode/directory') IS TRUE AS directory
+        FROM file_entries
+        WHERE "storageNodeId" = ${group.storageNodeId} AND NOT "isDeleted" AND "relativePath" <> ''
+          AND ${group.parent ? Prisma.sql`"relativePath" LIKE ${`${escapeLikeLiteral(group.parent)}/%`} ESCAPE '\\'` : Prisma.sql`TRUE`}
+          AND cardinality(string_to_array("relativePath", '/')) > ${depth + 1}
+          AND ${readableStorageScopeSql(readable)}
+      ) e
+      WHERE e.child IN (${Prisma.join([...group.children])})
+      GROUP BY e.child
+    `);
+    for (const row of rows) {
+      const relativePath = group.parent ? `${group.parent}/${row.child}` : row.child;
+      counts.set(`${group.storageNodeId}:${relativePath}`, { fileCount: Number(row.fileCount), folderCount: Number(row.folderCount) });
+    }
+  }
+  for (const folder of uniqueFolders) {
+    const key = `${folder.storageNodeId}:${folder.relativePath}`;
+    if (!counts.has(key)) counts.set(key, { fileCount: 0, folderCount: 0 });
+  }
+  return counts;
 }

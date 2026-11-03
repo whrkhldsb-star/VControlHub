@@ -463,8 +463,8 @@ export default function TrafficPage() {
                         </div>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-[var(--text-secondary)]">
-                        <div>{t("trafficPage.rxTotal", { value: node.primaryInterface.rxLabel })}<span className="font-mono text-[var(--text-secondary)]"> </span></div>
-                        <div>{t("trafficPage.txTotal", { value: node.primaryInterface.txLabel })}<span className="font-mono text-[var(--text-secondary)]"> </span></div>
+                        <div>{t("trafficPage.rxTotal", { value: node.primaryInterface.rxLabel })}</div>
+                        <div>{t("trafficPage.txTotal", { value: node.primaryInterface.txLabel })}</div>
                       </div>
                     </>
                   ) : (

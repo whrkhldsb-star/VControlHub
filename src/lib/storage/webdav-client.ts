@@ -13,11 +13,15 @@ export type WebDavEntry = { name: string; relativePath: string; isDirectory: boo
 /** Trusted code injection for fixtures only; never derived from node config or request input. */
 export type WebDavTransport = (url: URL, init: RequestInit) => Promise<Response>;
 const READ_LIMIT = 32 * 1024 * 1024;
-const XML_LIMIT = 4 * 1024 * 1024;
+/** A PROPFIND of a large directory: 50 000 rows at a few hundred bytes each (A4-17). */
+const XML_LIMIT = 32 * 1024 * 1024;
+const MAX_PROPFIND_ROWS = 50_000;
 export class WebDavHttpError extends BusinessError {
   constructor(readonly status: number) {
-    const reason = ({ 401: "authentication rejected", 403: "access denied", 404: "not found", 409: "parent missing or conflict", 412: "destination exists", 423: "resource locked", 429: "rate limited", 507: "insufficient storage" } as Record<number, string>)[status] ?? "request failed";
-    super(`WebDAV HTTP ${status}: ${reason}`);
+    // The reason reaches the operator's screen (A4-25): translated per status.
+    const known = [401, 403, 404, 409, 412, 423, 429, 507];
+    const reason = t(known.includes(status) ? `backend.webdav.http.${status}` : "backend.webdav.http.failed");
+    super(t("backend.webdav.httpError", { status, reason }));
   }
 }
 
@@ -147,7 +151,7 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     const parsed = object(new XMLParser({ removeNSPrefix: true, parseTagValue: false, processEntities: true }).parse(xml));
     if (!parsed.multistatus) throw new BusinessError(apiCopy("apiCopy.invalid.webdav.multistatus.response.d057cca7"));
     const rows = array(object(parsed.multistatus).response);
-    if (rows.length > 5000) throw new BusinessError(apiCopy("apiCopy.webdav.directory.too.large.f2d6a62f"));
+    if (rows.length > MAX_PROPFIND_ROWS) throw new BusinessError(t("backend.webdav.directoryTooLarge", { max: MAX_PROPFIND_ROWS }));
     const entries: WebDavEntry[] = [];
     for (const raw of rows) {
       const row = object(raw);

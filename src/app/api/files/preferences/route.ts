@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { FILE_PREFERENCE_LIMIT } from "@/lib/http/rate-limit-presets";
 import {
   filePreferenceSchema,
   listFilePreferences,
@@ -38,7 +38,7 @@ export async function PATCH(request: Request) {
     request,
     {
       permission: "storage:read",
-      rateLimit: GENERAL_WRITE_LIMIT,
+      rateLimit: FILE_PREFERENCE_LIMIT,
       bodySchema: filePreferenceSchema,
       errorMessage: apiCopy("apiCopy.failed.to.save.preferences.7cb9dce5"),
     },

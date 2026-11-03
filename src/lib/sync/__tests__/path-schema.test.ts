@@ -22,11 +22,11 @@ describe("syncEndpointPathSchema", () => {
 });
 
 describe("isProtectedDeleteTarget", () => {
-	it.each(["/", "/etc", "/etc/", "//usr", "/var/.", "/srv/../etc"])("protects %s", (value) => {
+	it.each(["/", "/etc", "/etc/", "//usr", "/var/.", "/srv/../etc", "/opt", "/srv", "/home"])("protects %s", (value) => {
 		expect(isProtectedDeleteTarget(value)).toBe(true);
 	});
 
-	it.each(["/etc/nginx", "/var/www", "/opt", "/srv/data", "/home/app"])("lets %s through", (value) => {
+	it.each(["/etc/nginx", "/var/www", "/opt/app", "/srv/data", "/home/app"])("lets %s through", (value) => {
 		expect(isProtectedDeleteTarget(value)).toBe(false);
 	});
 });

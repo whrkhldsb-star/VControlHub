@@ -232,7 +232,8 @@ async function logOffsiteUploadResult(backupId: string, projectRoot: string) {
 }
 
 /** systemd units that must be stopped for an offline restore (see deploy.sh). */
-const PLATFORM_SERVICE_UNITS = ["vcontrolhub-next", "vcontrolhub-worker", "vcontrolhub-ssh-ws"];
+// Named after APP_SLUG like the installer renders them (A10-08); a custom slug used to get the wrong units.
+const PLATFORM_SERVICE_UNITS = ["next", "worker", "ssh-ws"].map((unit) => `${config.app.appSlug || "vcontrolhub"}-${unit}`);
 
 export type OfflineRestorePlan = {
 	id: string;
@@ -290,7 +291,8 @@ export async function prepareOfflineRestore(input: {
 		throw new BusinessError(t("backend.backup.checksumMismatch"));
 	}
 	const snapshotType = type === "FULL" ? (component === "database" ? "DATABASE" : component === "files" ? "FILES" : "FULL") : type;
-	const snapshotPath = `backups/pre-restore-${record.id}-${Date.now()}${snapshotType === "DATABASE" ? ".sql.gz" : ".tar.gz"}`;
+	// Relative to the backup root; buildPortableBackupCommand makes it absolute (A9-04).
+	const snapshotPath = `pre-restore-${record.id}-${Date.now()}${snapshotType === "DATABASE" ? ".sql.gz" : ".tar.gz"}`;
 	const systemd = !IS_WINDOWS;
 	return {
 		id: record.id,
@@ -477,6 +479,20 @@ export async function pruneOldBackupRecordsNow(input: {
 		olderThanDays: input.olderThanDays,
 		keepLatestPerType: input.keepLatestPerType,
 	});
+	// FAILED/VOIDED rows older than the cutoff go too (A9-03): the policy only
+	// nominates COMPLETED ones, so failures and their partial files piled up and
+	// pushed real backups out of the page's 200-row window.
+	for (const record of records) {
+		if (record.status !== "FAILED" && record.status !== "VOIDED") continue;
+		if (record.createdAt >= plan.cutoff || plan.candidates.some((candidate) => candidate.id === record.id)) continue;
+		plan.candidates.push({
+			id: record.id,
+			type: record.type,
+			filePath: record.filePath ?? null,
+			completedAt: record.completedAt ?? record.createdAt,
+			reason: "failed-expired",
+		});
+	}
 
 	let filesDeleted = 0;
 	let filesSkipped = 0;

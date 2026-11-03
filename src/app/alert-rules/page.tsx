@@ -22,7 +22,8 @@ export default async function AlertRulesPage() {
 	}
 
 	const [rules, servers, playbooks] = await Promise.all([
-		canManage ? listAlertRules(session) : Promise.resolve([]),
+		// requirePagePermission("notification:manage") above makes canManage always true (A8-04).
+		listAlertRules(session),
 		canReadServers ? listServerProfiles(session) : Promise.resolve([]),
 		canReadPlaybooks ? listPlaybooks(session) : Promise.resolve([]),
 	]);

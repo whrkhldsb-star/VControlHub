@@ -38,15 +38,15 @@
 	# Windows remote desktop (Guacamole over WebSocket) uses the same gateway.
 	reverse_proxy /rdp 127.0.0.1:3001
 
-	# Optional AList
-	reverse_proxy /files-proxy 127.0.0.1:5244
-	reverse_proxy /files-proxy/* 127.0.0.1:5244
-
-	# Optional Emby
-	reverse_proxy /emby 127.0.0.1:8096
-	reverse_proxy /emby/* 127.0.0.1:8096
-	reverse_proxy /web/* 127.0.0.1:8096
-	reverse_proxy /Startup/* 127.0.0.1:8096
+	# Optional AList / Emby. Off by default (A10-09): enabled, they answered 502
+	# on a plain install and would expose whatever later listens on 5244/8096
+	# (any quick service) under the main domain without authentication.
+	# reverse_proxy /files-proxy 127.0.0.1:5244
+	# reverse_proxy /files-proxy/* 127.0.0.1:5244
+	# reverse_proxy /emby 127.0.0.1:8096
+	# reverse_proxy /emby/* 127.0.0.1:8096
+	# reverse_proxy /web/* 127.0.0.1:8096
+	# reverse_proxy /Startup/* 127.0.0.1:8096
 
 	# Direct gateway for local SFTP storage (vcontrolhub-direct, loopback only).
 	# deploy.sh adds the same route to older Caddyfiles.

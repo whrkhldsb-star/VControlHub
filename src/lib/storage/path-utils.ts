@@ -248,14 +248,19 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
 }
 
 export function isSafeArchiveEntryPath(value: string | null | undefined): boolean {
-  const rawInput = (value ?? "").trim();
-  if (rawInput.includes("\\") || rawInput.includes(":")) return false;
+  // Backslashes read as separators, as extraction treats them (A4-20): the
+  // listing and the extraction must agree on which members exist. A colon is
+  // an ordinary character on POSIX ("10:30.log"); only a drive letter is refused.
+  const rawInput = (value ?? "").trim().replace(/\\/g, "/");
+  if (/^[A-Za-z]:/.test(rawInput)) return false;
   const normalizedInput = normalizePathInput(rawInput);
   if (
     !normalizedInput ||
     normalizedInput.length > MAX_PATH_LENGTH ||
     normalizedInput.startsWith("/") ||
-    path.win32.isAbsolute(normalizedInput)
+    path.win32.isAbsolute(normalizedInput) ||
+    // Checked before normalize collapses it: "folder/../x" is an escape attempt, not "x".
+    normalizedInput.split("/").includes("..")
   ) return false;
 
   const normalized = path.posix.normalize(normalizedInput);

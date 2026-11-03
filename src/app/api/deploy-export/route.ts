@@ -6,7 +6,7 @@ import {
   createDeploymentExport,
 } from "@/lib/deploy-export/service";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_WRITE_LIMIT, GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 
 const deployExportPostSchema = z.object({
   // Legacy clients may still send these fields; the current export service only
@@ -25,7 +25,7 @@ const deployExportQuerySchema = z.object({
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "deploy:export", querySchema: deployExportQuerySchema }, async ({ query }) => {
+  return withApiRoute(request, { permission: "deploy:export", rateLimit: GENERAL_READ_LIMIT, querySchema: deployExportQuerySchema }, async ({ query }) => {
     return NextResponse.json(buildPortableDeploymentPackage({ domain: query.domain }));
   });
 }

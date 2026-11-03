@@ -67,11 +67,11 @@ type BodyProps = {
 	lang: string;
 	showDiffReview: boolean;
 	editorFindInputRef: RefObject<HTMLInputElement | null>;
-	gutterRef: RefObject<HTMLDivElement | null>;
+	gutterRef: RefObject<HTMLPreElement | null>;
 	editorRef: RefObject<HTMLTextAreaElement | null>;
 	containerRef: RefObject<HTMLDivElement | null>;
 	lineRef: RefObject<Map<number, HTMLDivElement>>;
-	setDraft: Dispatch<SetStateAction<string>>;
+	setDraft: (next: string) => void;
 	setSaveStatus: (status: PreviewMetaState["saveStatus"]) => void;
 	setSaveMessage: (message: string) => void;
 	setShowDiffReview: (open: boolean) => void;
@@ -108,6 +108,13 @@ export function TextPreviewBody(props: BodyProps) {
 		return () => clearTimeout(timer);
 	}, [query, searchQuery]);
 	const needle = query.trim().toLowerCase();
+	// One text node for the gutter instead of a <div> per line (A4-37): the
+	// editor re-rendered 20 000 elements on every keystroke.
+	const gutterText = useMemo(() => {
+		let count = 1;
+		for (let i = 0; i < draft.length; i++) if (draft.charCodeAt(i) === 10) count++;
+		return Array.from({ length: count }, (_, i) => i + 1).join("\n");
+	}, [draft]);
 	const lineHtml = useMemo(
 		() => (needle
 			? baseHtml.map((html, i) => (lines[i]!.toLowerCase().includes(needle) ? sanitizeHighlight(highlightSearchTerm(highlightLine(lines[i]!, lang), query)) : html))
@@ -119,7 +126,7 @@ export function TextPreviewBody(props: BodyProps) {
 			<div className="space-y-2">
 				{editorFind.open ? <EditorFindBar inputRef={editorFindInputRef} find={editorFind} onQueryChange={onQueryChange} onMove={onMove} onClose={onCloseFind} /> : null}
 				<div data-card="" title={t("textPreview.editor.indentHint")} className="flex min-h-[70vh] overflow-hidden p-0 font-mono text-sm leading-relaxed text-[var(--text-primary)] focus-within:border-[var(--color-action-border)]">
-					<div ref={gutterRef} aria-hidden data-testid="editor-line-gutter" className="select-none overflow-hidden border-r border-[var(--border)]/[0.10] bg-[var(--surface)]/70 px-2 py-4 text-right text-[var(--text-muted)]" style={{ minWidth: "3rem" }}>{Array.from({ length: draft.split("\n").length }, (_, i) => <div key={i} className="leading-relaxed">{i + 1}</div>)}</div>
+					<pre ref={gutterRef} aria-hidden data-testid="editor-line-gutter" className="m-0 select-none overflow-hidden border-r border-[var(--border)]/[0.10] bg-[var(--surface)]/70 px-2 py-4 text-right font-mono text-sm leading-relaxed text-[var(--text-muted)]" style={{ minWidth: "3rem" }}>{gutterText}</pre>
 					<textarea ref={editorRef} aria-label={t("textPreview.editAria")} value={draft} onChange={(event) => { setDraft(event.currentTarget.value); setSaveStatus("idle"); setSaveMessage(""); }} onClick={() => showDiffReview && setShowDiffReview(false)} onScroll={onEditorScroll} onKeyDown={onEditorKeyDown} className="min-h-[70vh] w-full resize-none bg-[var(--surface)] p-4 font-mono text-sm leading-relaxed text-[var(--text-primary)] outline-none" spellCheck={false} />
 				</div>
 			</div>

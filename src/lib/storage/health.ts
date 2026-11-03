@@ -27,6 +27,7 @@ import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 
 import { checkStorageNodeHealth } from "./service-nodes";
+import { createLimiter } from "@/lib/concurrency/limiter";
 
 const log = createLogger("storage:health");
 
@@ -71,10 +72,8 @@ export async function probeAllStaleStorageNodes(): Promise<{
 			AND: [
 				// Deleted customers retain data but no longer have live storage.
 				liveCustomerRowsWhere(),
-				// Only drivers with a probe: WebDAV always answers UNKNOWN, and
-				// "UNKNOWN is a candidate" kept fifty of them in every batch while
-				// LOCAL/SFTP nodes behind them were never checked.
-				{ driver: { in: ["LOCAL", "SFTP"] } },
+				// Every driver has a probe now (WebDAV: a PROPFIND of the root, A4-15).
+				{ driver: { in: ["LOCAL", "SFTP", "WEBDAV"] } },
 				{ OR: [{ lastHealthCheckAt: null }, { lastHealthCheckAt: { lt: cutoff } }] },
 			],
 		},
@@ -93,9 +92,12 @@ export async function probeAllStaleStorageNodes(): Promise<{
 	// hold up the others, and we don't want to block the test runner on
 	// a long-running probe when the test only cares that the schedule
 	// function kicked the work off.
+	// Bounded like collectAllHealth: fifty SSH handshakes at once from one
+	// page load is a burst the hub and the nodes both feel (A4-13).
+	const limit = createLimiter(5);
 	await Promise.allSettled(
 		candidates.map((node) =>
-			checkStorageNodeHealth(node.id).catch((err: unknown) => {
+			limit(() => checkStorageNodeHealth(node.id)).catch((err: unknown) => {
 				const message = err instanceof Error ? err.message : String(err);
 				log.warn("storage node probe failed", {
 					id: node.id,

@@ -9,6 +9,9 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { countMediaItems, listMediaItems, MEDIA_MAX_PAGE_SIZE, scanMediaFromFileEntries } from "@/lib/media/service";
 
 import { auditUserAction } from "@/lib/audit/service";
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { BusinessError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -50,14 +53,21 @@ export async function POST(request: Request) {
       errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
     },
     async ({ session }) => {
-      const result = await scanMediaFromFileEntries(session.userId, session);
+      // One scan per customer at a time (A5-11): a second click used to start a
+      // concurrent full scan that overwrote the first one's results.
+      const release = await tryAcquireAdvisoryLock("media-scan", session.currentTeamId ?? "platform");
+      if (!release) throw new BusinessError(t("backend.media.scanInProgress"), undefined, 409);
+      let result: Awaited<ReturnType<typeof scanMediaFromFileEntries>>;
+      try {
+        result = await scanMediaFromFileEntries(session.userId, session);
+      } finally {
+        await release();
+      }
+      // The scan reports `upserted`/`removed`; the old `created` field never existed and audited as null.
       await auditUserAction(session.userId, "media.scan", {
-        scanned: typeof result === "object" && result !== null && "scanned" in result
-          ? Number((result as { scanned?: unknown }).scanned ?? 0)
-          : null,
-        created: typeof result === "object" && result !== null && "created" in result
-          ? Number((result as { created?: unknown }).created ?? 0)
-          : null,
+        scanned: result.scanned,
+        upserted: result.upserted,
+        removed: result.removed,
       }, undefined, session.currentTeamId);
       return NextResponse.json(result);
     },

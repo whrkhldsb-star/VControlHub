@@ -54,14 +54,28 @@ export function dockerExecSync(args: string[], timeout = 30_000): string {
   });
 }
 
-/** Target-aware docker exec (local sync path or remote SSH). */
+/**
+ * Local docker exec without blocking the event loop (A6-01): the sync variant
+ * froze the whole worker process (commands, playbooks, schedules, heartbeats)
+ * for the length of a `docker pull`.
+ */
+async function dockerExecLocal(args: string[], timeoutMs: number): Promise<string> {
+  const { stdout } = await runFile("docker", args, {
+    timeout: timeoutMs,
+    encoding: "utf8",
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  return String(stdout);
+}
+
+/** Target-aware docker exec (local async path or remote SSH). */
 export async function dockerExec(
   target: DockerTarget,
   args: string[],
   timeoutMs = 30_000,
 ): Promise<string> {
   if (target.kind === "local") {
-    return dockerExecSync(args, timeoutMs);
+    return dockerExecLocal(args, timeoutMs);
   }
   const { server, ssh } = await loadEnabledServerForSsh(target.serverId);
   const command = buildDockerCommand(args);
@@ -325,7 +339,15 @@ export async function getContainerLogTailFor(
 ): Promise<string | null> {
   try {
     if (target.kind === "local") {
-      return getContainerLogTail(containerName, timeoutMs);
+      // Asynchronous for the same reason as dockerExecLocal (A6-01).
+      const result = await runFile("docker", ["logs", "--tail", "20", containerName], {
+        encoding: "utf8",
+        timeout: timeoutMs,
+        maxBuffer: 2 * 1024 * 1024,
+      }).catch(() => null);
+      if (!result) return null;
+      const logs = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
+      return logs ? logs.slice(-2000) : null;
     }
     // Remote path: dockerExec only returns stdout; append 2>&1 so stderr is captured.
     const { ssh } = await loadEnabledServerForSsh(target.serverId);

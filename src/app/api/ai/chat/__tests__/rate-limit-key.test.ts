@@ -13,6 +13,7 @@ describe("AI chat rate limit", () => {
     mocks.check.mockResolvedValue({ allowed: false, retryAfterMs: 1_000, remaining: 0 });
     const response = await POST(new Request("https://hub.test/api/ai/chat", { method: "POST", body: "{}" }));
     expect(response.status).toBe(429);
-    expect(mocks.check).toHaveBeenCalledWith("ai-chat:198.51.100.7", expect.objectContaining({ maxRequests: 20 }));
+    // Per address 120/min (A7-07); the 20/min bucket is per user, inside the route.
+    expect(mocks.check).toHaveBeenCalledWith("ai-chat:198.51.100.7", expect.objectContaining({ maxRequests: 120 }));
   });
 });

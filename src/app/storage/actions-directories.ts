@@ -1,6 +1,7 @@
 "use server";
 
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
+import { guessContentType } from "@/lib/http/mime-types";
 import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -393,24 +394,28 @@ export async function renameFileEntryAction(
       // old one while the physical tree is rolled back below — a permanent
       // index/disk mismatch. This mirrors moveFileAction's atomic DB update.
       await prisma.$transaction(async (tx) => {
-        if (entry.entryType === "DIRECTORY") {
+        if (entry.entryType === "DIRECTORY" && directoryChildren.length > 0) {
           const oldPrefix = entry.relativePath + "/";
           const newPrefix = newRelativePath + "/";
-          // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
-          for (const child of directoryChildren) {
-            await tx.fileEntry.update({
-              where: { id: child.id },
-              data: {
-                relativePath:
-                  newPrefix + child.relativePath.slice(oldPrefix.length),
-              },
-            });
-          }
+          // One UPDATE for the subtree (A4-28): a row per child inside the
+          // interactive transaction tripped the 5 s transaction timeout on big
+          // directories and the rename rolled back every time.
+          const replacementPrefix = newPrefix.replace(/\\/g, "\\\\");
+          await tx.$executeRaw`
+            UPDATE file_entries
+            SET "relativePath" = ${replacementPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
+                "updatedAt" = (now() AT TIME ZONE 'UTC')
+            WHERE "storageNodeId" = ${entry.storageNodeId} AND NOT "isDeleted"
+              AND "relativePath" LIKE ${`${escapeLikeLiteral(oldPrefix)}%`} ESCAPE '\\'
+          `;
         }
 
+        // A changed extension changes the type the previews and icons go by (A4-29).
+        const extensionOf = (name: string) => { const i = name.lastIndexOf("."); return i > 0 ? name.slice(i + 1).toLowerCase() : ""; };
+        const retype = entry.entryType === "FILE" && extensionOf(entry.name) !== extensionOf(normalizedNewName);
         await tx.fileEntry.update({
           where: { id: fileEntryId },
-          data: { name: normalizedNewName, relativePath: newRelativePath },
+          data: { name: normalizedNewName, relativePath: newRelativePath, ...(retype ? { mimeType: guessContentType(normalizedNewName) } : {}) },
         });
         // Shares follow the renamed entry, as they follow a move.
         await moveSharePaths(tx, {
@@ -419,7 +424,7 @@ export async function renameFileEntryAction(
           newPath: newRelativePath,
           isDirectory: entry.entryType === "DIRECTORY",
         });
-      });
+      }, { timeout: 60_000 });
     } catch (databaseError) {
       // Physical rename already succeeded — roll back so disk and index stay aligned.
       try {
@@ -430,7 +435,7 @@ export async function renameFileEntryAction(
         });
       } catch (compensationError) {
         return {
-          error: `Database rename failed and physical rollback also failed: ${getErrorMessage(databaseError, String(databaseError))}; rollback: ${getErrorMessage(compensationError, String(compensationError))}`,
+          error: t("storagePage.action.renameRollbackFailed", { error: getErrorMessage(databaseError, String(databaseError)), rollback: getErrorMessage(compensationError, String(compensationError)) }),
         } satisfies StorageActionState;
       }
       return {

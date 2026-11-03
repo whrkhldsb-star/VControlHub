@@ -20,6 +20,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 	type ReactNode,
 } from "react";
@@ -56,6 +57,13 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 	const [intervalSec, setIntervalSecState] = useState<number>(DEFAULT_AUTO_PROBE_INTERVAL_SEC);
 	const [rdpEnabled, setRdpEnabledState] = useState<boolean>(DEFAULT_RDP_ENABLED);
 	const [hydrated, setHydrated] = useState(false);
+	// Latest values for the optimistic setters' rollback (they no longer read `prev` inside an updater).
+	const enabledRef = useRef(enabled);
+	const intervalSecRef = useRef(intervalSec);
+	const rdpEnabledRef = useRef(rdpEnabled);
+	useEffect(() => { enabledRef.current = enabled; }, [enabled]);
+	useEffect(() => { intervalSecRef.current = intervalSec; }, [intervalSec]);
+	useEffect(() => { rdpEnabledRef.current = rdpEnabled; }, [rdpEnabled]);
 	const { addToast } = useToast();
 	const { t } = useI18n();
 
@@ -91,21 +99,22 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 		(next: boolean) => {
 			// Optimistic UI + rollback on persist failure so session state
 			// cannot drift from /api/preferences across tabs/reloads.
-			setEnabledState((prev) => {
-				void (async () => {
-					try {
-						await csrfFetch("/api/preferences", {
-							method: "PUT",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({ autoProbeEnabled: next }),
-						});
-					} catch {
-						setEnabledState(prev);
-						addToast("error", t("serversPage.autoProbe.saveFailed"));
-					}
-				})();
-				return next;
-			});
+			// Optimistic update, persisted outside the updater (A12-02): a request inside a setState
+			// updater ran twice under StrictMode. The previous value for rollback comes from a ref.
+			const prev = enabledRef.current;
+			setEnabledState(next);
+			void (async () => {
+				try {
+					await csrfFetch("/api/preferences", {
+						method: "PUT",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ autoProbeEnabled: next }),
+					});
+				} catch {
+					setEnabledState(prev);
+					addToast("error", t("serversPage.autoProbe.saveFailed"));
+				}
+			})();
 		},
 		[addToast, t],
 	);
@@ -113,42 +122,44 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 	const setIntervalSec = useCallback(
 		(next: number) => {
 			const normalized = normalizeAutoProbeIntervalSec(next, DEFAULT_AUTO_PROBE_INTERVAL_SEC);
-			setIntervalSecState((prev) => {
-				void (async () => {
-					try {
-						await csrfFetch("/api/preferences", {
-							method: "PUT",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({ autoProbeIntervalSec: normalized }),
-						});
-					} catch {
-						setIntervalSecState(prev);
-						addToast("error", t("serversPage.autoProbe.saveFailed"));
-					}
-				})();
-				return normalized;
-			});
+			// Optimistic update, persisted outside the updater (A12-02): a request inside a setState
+			// updater ran twice under StrictMode. The previous value for rollback comes from a ref.
+			const prev = intervalSecRef.current;
+			setIntervalSecState(normalized);
+			void (async () => {
+				try {
+					await csrfFetch("/api/preferences", {
+						method: "PUT",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ autoProbeIntervalSec: normalized }),
+					});
+				} catch {
+					setIntervalSecState(prev);
+					addToast("error", t("serversPage.autoProbe.saveFailed"));
+				}
+			})();
 		},
 		[addToast, t],
 	);
 
 	const setRdpEnabled = useCallback(
 		(next: boolean) => {
-			setRdpEnabledState((prev) => {
-				void (async () => {
-					try {
-						await csrfFetch("/api/preferences", {
-							method: "PUT",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({ rdpAutoProbe: next }),
-						});
-					} catch {
-						setRdpEnabledState(prev);
-						addToast("error", t("serversPage.autoProbe.saveFailed"));
-					}
-				})();
-				return next;
-			});
+			// Optimistic update, persisted outside the updater (A12-02): a request inside a setState
+			// updater ran twice under StrictMode. The previous value for rollback comes from a ref.
+			const prev = rdpEnabledRef.current;
+			setRdpEnabledState(next);
+			void (async () => {
+				try {
+					await csrfFetch("/api/preferences", {
+						method: "PUT",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ rdpAutoProbe: next }),
+					});
+				} catch {
+					setRdpEnabledState(prev);
+					addToast("error", t("serversPage.autoProbe.saveFailed"));
+				}
+			})();
 		},
 		[addToast, t],
 	);

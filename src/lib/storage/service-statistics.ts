@@ -64,3 +64,26 @@ export async function getFileIndexStatistics(nodeIds: string[], readable?: Reada
       }
     : empty;
 }
+
+/**
+ * The node-wide statistics for a listing page, at most once a minute per
+ * (nodes, scope): every page turn ran the full-table lateral query (A4-10).
+ */
+const STATISTICS_CACHE_MS = 60_000;
+const STATISTICS_CACHE_MAX = 200;
+const statisticsCache = new Map<string, { at: number; value: ReturnType<typeof getFileIndexStatistics> }>();
+
+export function getFileIndexStatisticsCached(
+  nodeIds: string[],
+  readable?: Parameters<typeof getFileIndexStatistics>[1],
+): ReturnType<typeof getFileIndexStatistics> {
+  const key = `${[...nodeIds].sort().join(",")}|${JSON.stringify(readable ?? null)}`;
+  const now = Date.now();
+  const cached = statisticsCache.get(key);
+  if (cached && now - cached.at < STATISTICS_CACHE_MS) return cached.value;
+  const value = getFileIndexStatistics(nodeIds, readable);
+  if (statisticsCache.size >= STATISTICS_CACHE_MAX) statisticsCache.delete(statisticsCache.keys().next().value!);
+  statisticsCache.set(key, { at: now, value });
+  value.catch(() => { statisticsCache.delete(key); });
+  return value;
+}

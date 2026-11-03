@@ -25,7 +25,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS } from "@/lib/share-link/policy";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { deleteFileEntryAction, renameFileEntryAction } from "../storage/actions";
-import { containingFolderPath } from "./file-entry-utils";
+import { containingFolderPath, parseTagInput } from "./file-entry-utils";
 import { FolderBrowser } from "./folder-destination-picker";
 import { moveFileAction } from "./move-file-action";
 import { submitFileOperation } from "./file-operation-controls";
@@ -536,7 +536,7 @@ function TagsDialog({ target, onClose, onDone }: { target: FileActionTarget; onC
 							body: JSON.stringify({
 								fileEntryId: target.id,
 								favorite,
-								tags: tags.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean),
+								tags: parseTagInput(tags),
 							}),
 						});
 						window.dispatchEvent(new Event("file-preferences-changed"));

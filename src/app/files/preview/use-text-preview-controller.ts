@@ -64,16 +64,26 @@ export function useTextPreviewController(options: {
   const [searchQuery, setSearchQuery] = useState("");
   const [jumpLine, setJumpLine] = useState("");
   const [previewMeta, setPreviewMeta] = useState<PreviewMetaState>(INITIAL_PREVIEW_META);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraftState] = useState("");
   const [draftVersion, setDraftVersion] = useState<{ updatedAt?: string | null; lastModifiedMs?: number | null }>({});
   const [editorFind, setEditorFind] = useState<EditorFindState>(INITIAL_EDITOR_FIND);
+  // Every draft change recounts the open find bar's matches (A4-37): the n/m
+  // display used to go stale as soon as the user kept typing.
+  const setDraft = useCallback((next: string) => {
+    setDraftState(next);
+    setEditorFind((current) => {
+      if (!current.open || !current.query) return current;
+      const total = countMatches(next, current.query);
+      return total === current.total ? current : { ...current, total, current: Math.min(current.current, Math.max(0, total - 1)) };
+    });
+  }, []);
   // The edit API refused the file (too large, or not editable text): it is shown read-only instead of not at all.
   const [editRefused, setEditRefused] = useState(false);
 
   const lineRef = useRef<Map<number, HTMLDivElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
-  const gutterRef = useRef<HTMLDivElement>(null);
+  const gutterRef = useRef<HTMLPreElement>(null);
   const editorFindInputRef = useRef<HTMLInputElement>(null);
   const didMountRef = useRef(false);
   const loadVersionRef = useRef(0);
@@ -103,7 +113,9 @@ export function useTextPreviewController(options: {
   const editRequested = editable && Boolean(fileEntryId);
   const canEdit = editRequested && !editRefused;
   const currentContent = state.loading ? "" : state.content ?? "";
-  const diffRows = useMemo(() => buildLineDiff(currentContent, draft), [currentContent, draft]);
+  // The line diff is only looked at in the review dialog; computing it on every
+  // keystroke of a 20 000-line file froze the editor (A4-37).
+  const diffRows = useMemo(() => (showDiffReview ? buildLineDiff(currentContent, draft) : []), [currentContent, draft, showDiffReview]);
   const diffSummary = useMemo(
     () => ({
       added: diffRows.filter((row) => row.kind === "added").length,
@@ -139,7 +151,7 @@ export function useTextPreviewController(options: {
     setSaveMessage("");
     setEditRefused(false);
     setState({ loading: true });
-  }, [href, fileEntryId, editRequested, setEditMode, setShowDiffReview, setSaveStatus, setSaveMessage]);
+  }, [href, fileEntryId, editRequested, setEditMode, setShowDiffReview, setSaveStatus, setSaveMessage, setDraft]);
 
   // Messages follow the current language without making the read depend on
   // it: with `t` among its dependencies a language switch reloaded the file
@@ -251,7 +263,7 @@ export function useTextPreviewController(options: {
       cancelled = true;
       controller.abort();
     };
-  }, [href, fileEntryId, editRequested, driver, nodeId, relativePath, loadVersion]);
+  }, [href, fileEntryId, editRequested, driver, nodeId, relativePath, loadVersion, setDraft]);
 
   const handleJumpToLine = useCallback(() => {
     const num = parseInt(jumpLine, 10);
@@ -327,7 +339,7 @@ export function useTextPreviewController(options: {
         textarea.setSelectionRange(newSelectionStart, newSelectionEnd);
       });
     }
-  }, []);
+  }, [setDraft]);
 
   const handleEditorKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -558,7 +570,7 @@ export function useTextPreviewController(options: {
     setSaveStatus("idle");
     setSaveMessage("");
     setReloadMessage("");
-  }, [currentContent, setEditMode, setReloadMessage, setSaveMessage, setSaveStatus, setShowDiffReview]);
+  }, [currentContent, setEditMode, setReloadMessage, setSaveMessage, setSaveStatus, setShowDiffReview, setDraft]);
 
   return {
     state,

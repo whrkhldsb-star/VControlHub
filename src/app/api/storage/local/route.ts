@@ -26,7 +26,7 @@ import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
+import { getStorageUploadMaxBytes } from "@/lib/upload/limits";
 import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
 
 import { ConflictError, ValidationError } from "@/lib/errors";
@@ -59,12 +59,15 @@ const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
 async function handlePost(request: Request, session: SessionPayload, locale: Locale) {
   // formData() buffers the whole body before the per-file size checks below,
   // so refuse an oversized / length-undeclared (chunked) body up front.
+  // The same runtime limit as chunked uploads (A4-26); the old 100 MiB constant
+  // refused files the settings page said were allowed.
+  const maxUploadBytes = getStorageUploadMaxBytes();
   const rejected = rejectOversizedFormBody(
     request,
-    MAX_STORAGE_UPLOAD_BYTES + MAX_MULTIPART_OVERHEAD_BYTES,
+    maxUploadBytes + MAX_MULTIPART_OVERHEAD_BYTES,
     {
       tooLargeMessage: t("api.storage.uploadTooLarge", locale),
-      fields: { maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES },
+      fields: { maxUploadBytes: maxUploadBytes },
     },
   );
   if (rejected) return rejected;
@@ -103,11 +106,11 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     typeof file.size === "number" && Number.isFinite(file.size) && file.size >= 0
       ? file.size
       : null;
-  if (declaredFileSize !== null && declaredFileSize > MAX_STORAGE_UPLOAD_BYTES) {
+  if (declaredFileSize !== null && declaredFileSize > maxUploadBytes) {
     return NextResponse.json(
       {
         error: t("api.storage.uploadTooLarge", locale),
-        maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
+        maxUploadBytes: maxUploadBytes,
         size: declaredFileSize,
       },
       { status: 413 },
@@ -177,11 +180,11 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
   }
 
   const fileBuffer = Buffer.from(await file.arrayBuffer());
-  if (fileBuffer.byteLength > MAX_STORAGE_UPLOAD_BYTES) {
+  if (fileBuffer.byteLength > maxUploadBytes) {
     return NextResponse.json(
       {
         error: t("api.storage.uploadTooLarge", locale),
-        maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
+        maxUploadBytes: maxUploadBytes,
         size: fileBuffer.byteLength,
       },
       { status: 413 },

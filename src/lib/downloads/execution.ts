@@ -112,9 +112,11 @@ export async function executeAria2RelayDownload(
   // tempDir and (2) on the CAS miss call cleanupTemp() — wiping the tempDir out
   // from under the still-active first download. Claiming first makes the side
   // effect exclusive to the winner; a loser resumes by the stored gid instead.
+  // A paused task is PENDING too, but carries its gid (A5-01): a reclaim must
+  // continue it, not start a second aria2 download into the same tempDir.
   const claimed = await prisma.downloadTask.updateMany({
-   where: { id: taskId, status: "PENDING" },
-   data: { status: "RUNNING", progress: "Relay download starting (aria2 RPC)..." },
+   where: { id: taskId, status: "PENDING", aria2Gid: null },
+   data: { status: "RUNNING", progress: t("backend.downloads.progress.relayStarting") },
   });
 
   if (claimed.count > 0) {
@@ -154,7 +156,7 @@ export async function executeAria2RelayDownload(
 
    await prisma.downloadTask.updateMany({
     where: { id: taskId, status: "RUNNING" },
-    data: { aria2Gid: gid, progress: "Relay download in progress (aria2 RPC)..." },
+    data: { aria2Gid: gid, progress: t("backend.downloads.progress.relayInProgress") },
    });
   } else {
    // Not PENDING — a retry or concurrent tick. Resume the download already
@@ -171,7 +173,9 @@ export async function executeAria2RelayDownload(
     await cleanupTemp(tempDir);
     return;
    }
-   if (!current || current.status !== "RUNNING" || !current.aria2Gid) {
+   // RUNNING with a gid resumes; PENDING with a gid is paused by the user and
+   // waits in the loop below until it is resumed or given up on.
+   if (!current || (current.status !== "RUNNING" && current.status !== "PENDING") || !current.aria2Gid) {
     logError(
      `[DownloadAPI] Relay task ${taskId} not resumable (status=${current?.status ?? "missing"}, gid=${current?.aria2Gid ?? "none"}); skipping without touching tempDir`,
     );
@@ -256,11 +260,14 @@ export async function executeAria2RelayDownload(
     if (st.status === "complete") {
      done = true;
     } else if (st.status === "error" || st.status === "removed") {
-     await prisma.downloadTask.updateMany({
+     // "removed" is also what a user cancel looks like from here: the row is
+     // already CANCELLED then, and the miss below keeps the failure notice
+     // from being sent on top of the cancellation (A5-02).
+     const failed = await prisma.downloadTask.updateMany({
       where: { id: taskId, status: "RUNNING" },
       data: { status: "FAILED", errorMessage: apiCopy("apiCopy.aria2.download.failed.3098e047", { v0: String(st.status) }) },
      });
-     if (userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 download failed: ${st.status}`, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+     if (failed.count > 0 && userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 download failed: ${st.status}`, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
      await cleanupTemp(tempDir);
      return;
      }
@@ -285,7 +292,7 @@ export async function executeAria2RelayDownload(
    return;
   }
 
-  await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { progress: "Download completed, transferring to target VPS..." } });
+  await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { progress: t("backend.downloads.progress.transferring") } });
 
   const filesToTransfer = await listRelayFiles(tempDir);
 
@@ -402,7 +409,7 @@ async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir
  const totalSize = manifest.files.reduce((sum, file) => sum + BigInt(file.size), BigInt(0)).toString();
  await prisma.$transaction(async (tx) => {
   const completed = await tx.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" },
-   data: { status: "COMPLETED", progress: "Download and transfer completed", fileSize: totalSize, totalBytes: totalSize, completedBytes: totalSize } });
+   data: { status: "COMPLETED", progress: t("backend.downloads.progress.completedAndTransferred"), fileSize: totalSize, totalBytes: totalSize, completedBytes: totalSize } });
   if (!completed.count) throw new Error("Relay task changed before finalization");
   for (const file of manifest.files) {
    const folder = path.posix.dirname(file.name);
@@ -484,7 +491,7 @@ maxSpeedKb?: number | null,
    // Record the pid on the row we already claimed to RUNNING above.
    const recorded = await prisma.downloadTask.updateMany({
     where: { id: taskId, status: "RUNNING" },
-    data: { pid, progress: "Downloading..." },
+    data: { pid, progress: t("backend.downloads.progress.downloading") },
    });
    if (recorded.count === 0) {
     // Cancelled while the remote process was being started: the cancel could
@@ -496,7 +503,8 @@ maxSpeedKb?: number | null,
    await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName, size: null });
   } else {
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
-   const errMsg = logContent.trim() || "Failed to start download process";
+   // 127 is the launcher's own "no bash on this host" (remote-command.ts); the log is empty then.
+   const errMsg = exitCode === 127 && !logContent.trim() ? t("backend.downloads.remoteBashMissing") : (logContent.trim() || t("backend.downloads.startFailed"));
    await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: errMsg } });
    if (userId) notifyDownloadResult(userId, url, "failed", errMsg, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   }

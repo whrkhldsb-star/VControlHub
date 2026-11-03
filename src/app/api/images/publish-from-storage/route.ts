@@ -1,3 +1,4 @@
+import { canonicalImageMime } from "@/lib/image/service";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Publish a file from storage node to image bed.
@@ -15,7 +16,7 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
-import { mimeTypeFromExt, UPLOAD_DIR } from "@/lib/image-bed/constants";
+import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { statBackingObject } from "@/lib/storage/fs-backend";
@@ -35,6 +36,17 @@ const publishSchema = z.object({
   album: z.string().optional(),
 });
 
+
+const IMAGE_EXTENSION_BY_MIME: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+  "image/avif": ".avif",
+  "image/tiff": ".tiff",
+  "image/bmp": ".bmp",
+  "image/heif": ".heif",
+};
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -114,7 +126,11 @@ export async function POST(request: Request) {
         throw new ValidationError(t("api.image.invalidImage", locale));
       }
       const originalName = filename || path.basename(relativePath);
-      const storageKey = `${crypto.randomUUID()}${ext}`;
+      // The sniffed format decides the type and the key, as the upload routes do
+      // (A5-10): a misnamed JPEG was served as image/png by its extension.
+      const detectedMime = canonicalImageMime(metadata.format);
+      const detectedExt = IMAGE_EXTENSION_BY_MIME[detectedMime] ?? ext;
+      const storageKey = `${crypto.randomUUID()}${detectedExt}`;
       const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
 
       // Check for duplicate within the caller's tenant only (never leak other teams' rows), and only among images
@@ -149,7 +165,7 @@ export async function POST(request: Request) {
           data: {
             filename: originalName,
             storageKey,
-            mimeType: mimeTypeFromExt(ext),
+            mimeType: detectedMime,
             sizeBytes: buffer.byteLength,
             width: metadata.width,
             height: metadata.height,

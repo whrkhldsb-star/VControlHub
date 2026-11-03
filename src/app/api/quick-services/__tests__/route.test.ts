@@ -34,6 +34,7 @@ vi.mock("@/lib/quick-service/service", () => ({
   checkPort: mocks.checkPort,
   getUsedPorts: mocks.getUsedPorts,
   allocatePort: mocks.allocatePort,
+  releasePortReservation: vi.fn(),
   startService: mocks.startService,
   stopService: mocks.stopService,
   uninstallService: mocks.uninstallService,
@@ -76,6 +77,7 @@ vi.mock("@/lib/quick-service/app-source-sync", () => ({
 }));
 
 const rootRoute = await import("../route");
+const { resetQuickServiceRouteCachesForTests } = rootRoute;
 const slugRoute = await import("../[slug]/route");
 const checkPortRoute = await import("../check-port/route");
 
@@ -89,6 +91,8 @@ describe("/api/quick-services routes", () => {
     mocks.requireApiPermission.mockResolvedValue({
       session: { userId: "u1", username: "alice", roles: ["admin"], mustChangePassword: false, currentTeamId: null },
     });
+    // The route caches used ports (15 s) and docker status (45 s) per target (A6-10).
+    resetQuickServiceRouteCachesForTests();
     mocks.listQuickServices.mockResolvedValue([]);
     mocks.installService.mockResolvedValue({ id: "svc1", slug: "alist", status: "installing", port: 5244 });
     mocks.checkPort.mockReturnValue({ available: true });
@@ -361,7 +365,7 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(202);
     expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith({
-      title: "Installed quick service: AList",
+      title: "Install quick service: AList",
       teamId: null,
       createdBy: "u1",
       payload: expect.objectContaining({
