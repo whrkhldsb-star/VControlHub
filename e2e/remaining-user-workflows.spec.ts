@@ -127,7 +127,8 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 
 	const secret = (await section.locator("code").first().textContent())?.trim();
 	expect(secret).toBeTruthy();
-	const setupCode = await freshTotp(secret!);
+	// Enrolment consumes its code's 30 s step like a login does (R0-04): the login below needs the next step.
+	const setupCode = await freshTotp(secret!, { spends: true });
 	await section.getByLabel(/6位验证码|6-digit code/i).fill(setupCode);
 	const enableResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/enable" && response.request().method() === "POST",
