@@ -180,7 +180,8 @@ describe("backup service", () => {
     expect(filesCommand).toContain("--files");
     expect(fullCommand).toContain("--full");
     for (const command of [databaseCommand, filesCommand, fullCommand]) {
-      expect(command).toContain("backups/");
+      // Absolute under BACKUP_DIR (A9-04); the separator is the platform's (Windows CI runs this too).
+      expect(command).toMatch(/backups[\\/]/);
       expect(command).not.toMatch(/PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
     }
   });
