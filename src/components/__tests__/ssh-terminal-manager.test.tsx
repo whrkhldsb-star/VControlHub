@@ -190,7 +190,7 @@ describe("SshTerminalManager full screen", () => {
 		expect(screen.getByRole("tablist")).toBeInTheDocument();
 	});
 
-	it("makes Escape leave full screen before it closes the tab", () => {
+	it("makes Escape leave full screen, then fold the workbench away without ending the shell", () => {
 		const { onTabClose } = renderManager();
 		fireEvent.click(screen.getByTestId("mock-fullscreen-srv1"));
 
@@ -198,12 +198,14 @@ describe("SshTerminalManager full screen", () => {
 		expect(screen.getByRole("region").parentElement).not.toHaveAttribute("data-fullscreen");
 		expect(onTabClose).not.toHaveBeenCalled();
 
+		// A second Escape minimizes; closing a tab (which ends its shell) is an explicit click (A3-05).
 		fireEvent.keyDown(window, { key: "Escape" });
-		expect(onTabClose).toHaveBeenCalledWith(0);
+		expect(onTabClose).not.toHaveBeenCalled();
+		expect(screen.getByTestId("ssh-terminal-minimized-pill")).toBeInTheDocument();
 	});
 
-	it("does not close the tab when Escape was meant for a dialog", () => {
-		// Cancelling "delete this file" or "close all tabs" with Escape also ended the shell behind the dialog.
+	it("leaves the workbench alone when Escape was meant for a dialog", () => {
+		// Cancelling "delete this file" or "close all tabs" with Escape used to end the shell behind the dialog.
 		const { onTabClose } = renderManager();
 		const dialog = document.createElement("div");
 		dialog.setAttribute("aria-modal", "true");
@@ -211,6 +213,7 @@ describe("SshTerminalManager full screen", () => {
 		try {
 			fireEvent.keyDown(window, { key: "Escape" });
 			expect(onTabClose).not.toHaveBeenCalled();
+			expect(screen.queryByTestId("ssh-terminal-minimized-pill")).not.toBeInTheDocument();
 
 			// A key the dialog already handled is left alone too, whatever the DOM looks like.
 			dialog.remove();
@@ -218,9 +221,11 @@ describe("SshTerminalManager full screen", () => {
 			handled.preventDefault();
 			window.dispatchEvent(handled);
 			expect(onTabClose).not.toHaveBeenCalled();
+			expect(screen.queryByTestId("ssh-terminal-minimized-pill")).not.toBeInTheDocument();
 
 			fireEvent.keyDown(window, { key: "Escape" });
-			expect(onTabClose).toHaveBeenCalledWith(0);
+			expect(onTabClose).not.toHaveBeenCalled();
+			expect(screen.getByTestId("ssh-terminal-minimized-pill")).toBeInTheDocument();
 		} finally {
 			dialog.remove();
 		}

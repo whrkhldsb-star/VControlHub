@@ -24,11 +24,11 @@ type UnassignedAccount = { id: string; username: string; displayName: string | n
 type DirectoryUser = UnassignedAccount & { accountType: string; customer: unknown };
 type DirectoryPage = { users: DirectoryUser[]; totalPages: number };
 
-/** The directory pages at 100 accounts; walk every page so no account is missing from the picker. */
+/** Accounts without a customer, filtered server-side; paged at 100 only for the rare huge directory. */
 async function loadDirectory(): Promise<DirectoryUser[]> {
 	const users: DirectoryUser[] = [];
 	for (let page = 1, totalPages = 1; page <= totalPages && page <= 50; page++) {
-		const data = await csrfFetch<DirectoryPage>(`/api/users?page=${page}&pageSize=100`);
+		const data = await csrfFetch<DirectoryPage>(`/api/users?unassigned=1&page=${page}&pageSize=100`);
 		users.push(...data.users);
 		totalPages = data.totalPages ?? 1;
 	}

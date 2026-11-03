@@ -186,42 +186,45 @@ export function SshTerminalManager({
 				return;
 			}
 
+			// Whether the key was typed into something that consumes it: the
+			// terminal, an editor, a search box (A3-04: Ctrl+M used to steal the
+			// carriage return from the shell's own Ctrl+M).
+			const typing = (() => {
+				const target = e.target;
+				if (!(target instanceof HTMLElement)) return false;
+				const tag = target.tagName;
+				return target.isContentEditable ||
+					tag === "INPUT" ||
+					tag === "TEXTAREA" ||
+					tag === "SELECT" ||
+					target.closest(".xterm, .xterm-helper-textarea, [role='textbox'], [role='application']") !== null;
+			})();
+
 			// Ctrl/Cmd+M to toggle minimize
-			if ((e.ctrlKey || e.metaKey) && e.key === "m") {
+			if ((e.ctrlKey || e.metaKey) && e.key === "m" && !typing) {
 				e.preventDefault();
 				setMinimized((m) => !m);
 				return;
 			}
 
-			// Escape: leave full screen, else close the active tab — only if
+			// Escape: leave full screen, else fold the workbench away — only if
 			// expanded AND the user is not typing into an editable field
-			// (terminal xterm textarea, search boxes, etc.).
+			// (terminal xterm textarea, search boxes, etc.). It never ends a
+			// shell: closing a tab is an explicit click (A3-05).
 			if (e.key === "Escape" && !minimized) {
 				// A dialog (delete a file, close all tabs) closes itself on Escape and marks the event handled; the key must not
-				// also close the shell behind it.
+				// also fold the shell behind it.
 				if (e.defaultPrevented || document.querySelector("[aria-modal='true']")) return;
-				const target = e.target;
-				if (target instanceof HTMLElement) {
-					const tag = target.tagName;
-					const editable =
-						target.isContentEditable ||
-						tag === "INPUT" ||
-						tag === "TEXTAREA" ||
-						tag === "SELECT" ||
-						target.closest(".xterm, .xterm-helper-textarea, [role='textbox'], [role='application']") !== null;
-					if (editable) return;
-				}
+				if (typing) return;
 				e.preventDefault();
 				if (fullscreen) {
 					exitFullscreen();
 					return;
 				}
-				if (tabs.length > 0) {
-					closeTab(activeTabIndex);
-				}
+				setMinimized(true);
 			}
 		},
-		[activeTabIndex, tabs.length, onTabSelect, closeTab, minimized, fullscreen, exitFullscreen],
+		[activeTabIndex, tabs.length, onTabSelect, minimized, fullscreen, exitFullscreen],
 	);
 
 	useEffect(() => {

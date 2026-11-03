@@ -4,7 +4,7 @@ import path from "node:path";
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { assertStorageAccess, releaseStorageQuotaGuard } from "./access-control";
+import { assertStorageAccess, getStorageAccessCapabilities, getStorageAccessCapabilityKey, releaseStorageQuotaGuard, STORAGE_ACCESS_DENIED_REASONS } from "./access-control";
 import { storageAccessDeniedCopy } from "./access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma, isUniqueViolation } from "@/lib/db";
@@ -456,9 +456,19 @@ export async function restoreFileEntry(
     where: { storageNodeId: current.storageNodeId, deleteBatchId: current.deleteBatchId, isDeleted: true, id: { not: current.id } },
     select: { id: true, relativePath: true, entryType: true, size: true },
   }) : [];
-  for (const child of children) {
-    const access = await assertStorageAccess({ session: actor, storageNodeId: current.storageNodeId, relativePath: child.relativePath, operation: "delete" });
-    if (!access.allowed) throw new BusinessError(storageAccessDeniedCopy(access.reason));
+  if (children.length > 0) {
+    // One batched capability lookup for the whole batch instead of 2–3
+    // queries per child inside the operation lock (R0-06).
+    const capabilities = await getStorageAccessCapabilities({
+      session: actor,
+      targets: children.map((child) => ({ storageNodeId: current.storageNodeId, relativePath: child.relativePath })),
+    });
+    for (const child of children) {
+      const key = getStorageAccessCapabilityKey({ storageNodeId: current.storageNodeId, relativePath: child.relativePath });
+      if (!key || capabilities.get(key)?.canDelete !== true) {
+        throw new BusinessError(storageAccessDeniedCopy(STORAGE_ACCESS_DENIED_REASONS.noAccess));
+      }
+    }
   }
   const files = [current, ...children].filter((row) => row.entryType === "FILE");
   const bytes = files.reduce((sum, row) => sum + (row.size ?? BigInt(0)), BigInt(0));

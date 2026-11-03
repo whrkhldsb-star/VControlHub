@@ -61,6 +61,7 @@ export function SshTerminalSidePanel({
 	addFavorite,
 	removeFavorite,
 	commandHistory,
+	onClearHistory,
 	sendCommand,
 	sendKeys,
 	customQuickKeys,
@@ -82,6 +83,7 @@ export function SshTerminalSidePanel({
 	addFavorite: () => void;
 	removeFavorite: (cmd: string) => void;
 	commandHistory: string[];
+	onClearHistory: () => void;
 	sendCommand: (cmd: string) => void;
 	sendKeys: (data: string) => void;
 	/** User-composable presets; null/undefined → show the fixed defaults. */
@@ -251,9 +253,20 @@ export function SshTerminalSidePanel({
 				<QuickKeyBuilder t={t} onAdd={onAddQuickKey} />
 			</section>
 			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
-				<h4 className="ui-title-caption mb-2">
-					{t("sshTerminalModal.historyTitle")}
-				</h4>
+				<div className="mb-2 flex items-center justify-between gap-2">
+					<h4 className="ui-title-caption">
+						{t("sshTerminalModal.historyTitle")}
+					</h4>
+					{commandHistory.length > 0 && (
+						<button
+							type="button"
+							onClick={onClearHistory}
+							className="text-[11px] text-[var(--text-muted)] underline underline-offset-2 hover:text-[var(--text-secondary)]"
+						>
+							{t("sshTerminalModal.historyClear")}
+						</button>
+					)}
+				</div>
 				{commandHistory.length === 0 ? (
 					<p className="text-xs text-[var(--text-muted)]">
 						{t("sshTerminalModal.historyEmpty")}

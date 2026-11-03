@@ -55,6 +55,7 @@ export const zh: Record<string, string> = {
 	// Side panel — history (📜 命令历史)
 	"sshTerminalModal.historyTitle": "命令历史",
 	"sshTerminalModal.historyEmpty": "暂无历史命令",
+	"sshTerminalModal.historyClear": "清空",
 
 	// Side panel — quick commands (⚡ 快捷命令)
 	"sshTerminalModal.quickCommandsTitle": "快捷命令",
@@ -168,6 +169,7 @@ export const en: Record<string, string> = {
 	// Side panel — history (📜 Command history)
 	"sshTerminalModal.historyTitle": "Command history",
 	"sshTerminalModal.historyEmpty": "No history commands yet",
+	"sshTerminalModal.historyClear": "Clear",
 
 	// Side panel — quick commands (⚡ Quick commands)
 	"sshTerminalModal.quickCommandsTitle": "Quick commands",

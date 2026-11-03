@@ -18,6 +18,30 @@ import {
 } from "@/lib/alert/incidents";
 import { createLogger } from "@/lib/logging";
 import { runPlaybook } from "@/lib/playbook/service";
+import { t } from "@/lib/i18n/service-translations";
+
+/**
+ * The 7-day × 720-bucket fleet forecast is far too heavy to recompute on the
+ * alert worker's one-minute tick (A2-11); a forecast serves 15 minutes. Tests
+ * and callers that pin `nowMs` bypass the cache.
+ */
+const CAPACITY_FORECAST_CACHE_MS = 15 * 60_000;
+let capacityForecastCache: { at: number; value: ReturnType<typeof getCapacityForecast> } | null = null;
+
+/** Tests evaluate several fleets in one process; production never needs this. */
+export function resetCapacityForecastCache() {
+  capacityForecastCache = null;
+}
+
+function readCapacityForecastCached(nowMs?: number) {
+  if (nowMs !== undefined) return getCapacityForecast({ windowHours: 168, horizonDays: 90, nowMs });
+  const now = Date.now();
+  if (capacityForecastCache && now - capacityForecastCache.at < CAPACITY_FORECAST_CACHE_MS) return capacityForecastCache.value;
+  const value = getCapacityForecast({ windowHours: 168, horizonDays: 90 });
+  capacityForecastCache = { at: now, value };
+  value.catch(() => { capacityForecastCache = null; });
+  return value;
+}
 
 import {
   getCapacityForecast,
@@ -127,11 +151,7 @@ export async function evaluateCapacityLinkedAlerts(
 
   const forecast =
     options?.forecast ??
-    (await getCapacityForecast({
-      windowHours: 168,
-      horizonDays: 90,
-      nowMs: options?.nowMs,
-    }));
+    (await readCapacityForecastCached(options?.nowMs));
 
   let fired = 0;
   let resolved = 0;
@@ -194,8 +214,8 @@ export async function evaluateCapacityLinkedAlerts(
           ruleName: rule.name,
           serverId: server.serverId,
           metric: rule.metric,
-          title: `Capacity forecast clear: ${server.serverName} ${key}`,
-          message: `${rule.name}: ${rule.metric} no longer projects a breach (${reason})`,
+          title: t("backend.alert.capacity.clearTitle", { server: server.serverName, key }),
+          message: t("backend.alert.capacity.clearMessage", { rule: rule.name, metric: rule.metric, reason }),
           notifyChannels: rule.notifyChannels,
           webhookUrl: rule.webhookUrl,
           onCallUserIds: rule.onCallUserIds ?? [],
@@ -212,8 +232,8 @@ export async function evaluateCapacityLinkedAlerts(
           ruleName: rule.name,
           serverId: server.serverId,
           metric: rule.metric,
-          title: `Capacity forecast clear: ${server.serverName} ${key}`,
-          message: `${rule.name}: days-to-85=${value} is outside ${rule.operator} ${rule.threshold}`,
+          title: t("backend.alert.capacity.clearTitle", { server: server.serverName, key }),
+          message: t("backend.alert.capacity.clearMessageOutside", { rule: rule.name, value, operator: rule.operator, threshold: rule.threshold }),
           notifyChannels: rule.notifyChannels,
           webhookUrl: rule.webhookUrl,
           onCallUserIds: rule.onCallUserIds ?? [],
@@ -223,8 +243,8 @@ export async function evaluateCapacityLinkedAlerts(
         continue;
       }
 
-      const title = `Capacity risk: ${server.serverName} ${key} → 85%`;
-      const message = `${rule.name}: projected ${value.toFixed(1)} day(s) until 85% ${key} usage (${rule.operator} ${rule.threshold})`;
+      const title = t("backend.alert.capacity.riskTitle", { server: server.serverName, key });
+      const message = t("backend.alert.capacity.riskMessage", { rule: rule.name, value: value.toFixed(1), key, operator: rule.operator, threshold: rule.threshold });
 
       const fire = await openOrRefreshAlertIncident({
         ruleId: rule.id,

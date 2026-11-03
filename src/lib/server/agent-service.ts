@@ -22,6 +22,8 @@ const logger = createLogger("server-agent");
 const AGENT_LEGACY_CLAIMED_STALE_MS = AGENT_FRESH_MS;
 /** How long past its own timeout a PENDING job may still be claimed (the caller's own grace is 10 s). */
 const AGENT_PENDING_GRACE_MS = 60_000;
+/** An unchanged idle heartbeat touches the servers row at most this often. */
+const AGENT_HEARTBEAT_WRITE_INTERVAL_MS = 30_000;
 /** Expired jobs retired per claim, so one claim never has to sweep a long backlog. */
 const AGENT_STALE_PENDING_SWEEP = 20;
 const AGENT_OUTPUT_LIMIT = 8 * 1_048_576;
@@ -104,18 +106,37 @@ export async function updateServerAgentHeartbeat(input: {
   error?: string | null;
 }) {
   const now = new Date();
-  await prisma.server.update({
+  const version = input.version?.slice(0, 64);
+  const capabilities = (input.capabilities ?? [...AGENT_CAPABILITIES]).slice(0, 20);
+  const lastError = input.error?.slice(0, 1000) || null;
+  // An idle Agent polls every 5 s; rewriting the wide servers row (credential
+  // columns included) on each poll bloated the table (A2-04). Only a changed
+  // fact, a metrics report, or a 30 s old heartbeat touches the row.
+  const current = await prisma.server.findUnique({
     where: { id: input.serverId },
-    data: {
-      agentLastSeenAt: now,
-      agentVersion: input.version?.slice(0, 64),
-      agentCapabilities: (input.capabilities ?? [...AGENT_CAPABILITIES]).slice(0, 20),
-      agentLastError: input.error?.slice(0, 1000) || null,
-      ...(input.metricsRaw
-        ? { agentMetricsRaw: input.metricsRaw.slice(0, 64_000), agentMetricsAt: now }
-        : {}),
-    },
+    select: { agentLastSeenAt: true, agentVersion: true, agentCapabilities: true, agentLastError: true },
   });
+  const heartbeatFresh = current?.agentLastSeenAt ? now.getTime() - current.agentLastSeenAt.getTime() < AGENT_HEARTBEAT_WRITE_INTERVAL_MS : false;
+  const unchanged = current
+    && heartbeatFresh
+    && (version === undefined || current.agentVersion === version)
+    && current.agentLastError === lastError
+    && current.agentCapabilities.length === capabilities.length
+    && current.agentCapabilities.every((item, index) => item === capabilities[index]);
+  if (!unchanged || input.metricsRaw) {
+    await prisma.server.update({
+      where: { id: input.serverId },
+      data: {
+        agentLastSeenAt: now,
+        agentVersion: version,
+        agentCapabilities: capabilities,
+        agentLastError: lastError,
+        ...(input.metricsRaw
+          ? { agentMetricsRaw: input.metricsRaw.slice(0, 64_000), agentMetricsAt: now }
+          : {}),
+      },
+    });
+  }
   // A Windows node is created "needs attention" until its Agent is in place
   // (there is no SSH check to run). Its first heartbeat is that proof; the
   // node stayed unselectable as a command target without it.
@@ -243,8 +264,20 @@ export async function claimNextServerAgentJob(serverId: string) {
         orderBy: { createdAt: "asc" },
       });
     }
-    // A bounded sweep may leave another expired row at its head. Never
-    // claim it merely because the sweep budget ran out; next poll resumes.
+    // A bounded sweep may leave another expired row at its head. Never claim
+    // it merely because the sweep budget ran out — but do not make a fresh job
+    // wait one poll per stale row either: skip past the backlog to the first
+    // job that can still run; the next polls keep sweeping the rest.
+    if (next && Date.now() - next.createdAt.getTime() > next.timeoutMs + AGENT_PENDING_GRACE_MS) {
+      const live = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM "server_agent_jobs"
+        WHERE "serverId" = ${serverId} AND status = 'PENDING'
+          AND "createdAt" + ("timeoutMs" + ${AGENT_PENDING_GRACE_MS}) * interval '1 millisecond' > now()
+        ORDER BY "createdAt" ASC
+        LIMIT 1`;
+      const liveId = live[0]?.id;
+      next = liveId ? await tx.serverAgentJob.findFirst({ where: { id: liveId, status: "PENDING" } }) : null;
+    }
     if (!next || Date.now() - next.createdAt.getTime() > next.timeoutMs + AGENT_PENDING_GRACE_MS) return null;
     const claimed = await tx.serverAgentJob.updateMany({
       where: { id: next.id, status: "PENDING", createdAt: { gte: new Date(Date.now() - next.timeoutMs - AGENT_PENDING_GRACE_MS) }, timeoutMs: next.timeoutMs },
@@ -283,6 +316,9 @@ export async function executeCommandWithAgent(input: {
   });
   try {
   const deadline = Date.now() + input.timeoutMs + 10_000;
+  // Quick commands still answer within half a second; a long one no longer
+  // costs two row reads per second for an hour (A2-04).
+  let pollMs = 250;
   while (Date.now() < deadline) {
     input.signal?.throwIfAborted();
     const current = await prisma.serverAgentJob.findUnique({ where: { id: job.id } });
@@ -291,7 +327,9 @@ export async function executeCommandWithAgent(input: {
       return { stdout: current.stdout ?? "", stderr: current.stderr ?? "", exitCode: current.exitCode ?? 255 };
     }
     if (current.status === "CANCELLED" && current.completedAt) return { stdout: "", stderr: current.stderr ?? "Agent job cancelled", exitCode: current.exitCode ?? 130, cancelled: current.exitCode === 130 };
-    await delay(500, input.signal);
+    // Never sleep past the deadline: the timeout fires when it says, not up to one poll later.
+    await delay(Math.max(50, Math.min(pollMs, deadline - Date.now())), input.signal);
+    pollMs = Math.min(5_000, Math.round(pollMs * 1.5));
   }
   // Deadline passed. Only a job that provably never left PENDING may fall
   // back to SSH; the PENDING check and the cancel are one atomic update, so an

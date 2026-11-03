@@ -555,7 +555,7 @@ describe("VPS backup routes", () => {
 			const response = await scheduleItem.PATCH(json("https://a.test/s", "PATCH", { status: "PAUSED" }), scheduleParams);
 
 			expect(response.status).toBe(200);
-			expect(mocks.schedule.updateVpsBackupSchedule).toHaveBeenCalledWith("sch_1", "srv_1", { status: "PAUSED" });
+			expect(mocks.schedule.updateVpsBackupSchedule).toHaveBeenCalledWith("sch_1", "srv_1", { status: "PAUSED" }, "u_1");
 		});
 
 		it.each([

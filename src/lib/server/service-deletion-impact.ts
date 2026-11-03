@@ -63,7 +63,10 @@ export async function getServerDeletionImpact(serverId: string): Promise<ServerD
     storageScope ? prisma.mediaItem.count({ where: storageScope }) : 0,
     prisma.scheduledTask.count({ where: { serverIds: { has: serverId } } }),
     prisma.alertRule.count({ where: { serverIds: { has: serverId } } }),
-    prisma.playbook.findMany({ select: { steps: true } }),
+    // Pre-filter in SQL: loading every playbook's step JSON into memory to
+    // look for one id scanned the whole table per confirmation dialog (A2-12).
+    // The exact JSON check below still decides.
+    prisma.$queryRaw<Array<{ steps: unknown }>>`SELECT steps FROM playbooks WHERE steps::text LIKE ${`%${serverId.replace(/[\\%_]/g, "\\$&")}%`}`,
     prisma.syncJob.count({
       where: { OR: [{ sourceServerId: serverId }, { targetServerId: serverId }] },
     }),

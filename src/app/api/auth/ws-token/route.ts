@@ -6,7 +6,7 @@ import { createSshWsHandshakeToken } from "@/lib/auth/ssh-ws-token";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { config } from "@/lib/config/env";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { WS_TOKEN_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 const HANDSHAKE_TTL_MS = 60_000;
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     request,
     {
       permission: "server:ssh",
-      rateLimit: GENERAL_WRITE_LIMIT,
+      rateLimit: WS_TOKEN_LIMIT,
       bodySchema: requestSchema,
     },
     async ({ session, body }) => {

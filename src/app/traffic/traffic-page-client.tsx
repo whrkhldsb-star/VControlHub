@@ -87,6 +87,8 @@ type TrafficSummary = {
   }>;
   remoteServers?: RemoteServerTraffic[];
   servers: Array<{ id: string; name: string; host: string; port: number }>;
+  /** Set when the fleet exceeds the sampling caps (200 servers / 100 storage nodes). */
+  truncated?: { servers: boolean; storageNodes: boolean };
 };
 
 /**
@@ -341,6 +343,7 @@ export default function TrafficPage() {
 
       {error && <Notice tone="danger">{error}</Notice>}
       {historyError && <Notice tone="danger">{historyError}</Notice>}
+      {summary?.truncated && (summary.truncated.servers || summary.truncated.storageNodes) ? <Notice tone="warning">{t("trafficPage.truncated")}</Notice> : null}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <SegmentedControl

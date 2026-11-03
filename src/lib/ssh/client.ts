@@ -377,21 +377,52 @@ export async function statRemoteTargetTypes(input: SshConnectionParams & { remot
   }
   return withReusableSshClient(input, (client) =>
     withSftpChannel(client, async (sftp) => {
-      const out: RemoteTargetType[] = [];
-      for (const remotePath of input.remotePaths) {
-        out.push(await new Promise<RemoteTargetType>((resolve, reject) => {
-          sftp.stat(remotePath, (error, attrs) => {
-            if (error) {
-              // Missing or unreadable target: an unusable link, not a failed listing.
-              if ([2, 3].includes((error as { code?: number }).code ?? -1)) return resolve(null);
-              return reject(error);
-            }
-            resolve({ type: attrs.isDirectory() ? "directory" : attrs.isFile() ? "file" : "other", size: attrs.size });
+      // SFTP pipelines requests: a directory of hundreds of links used to cost
+      // one round trip each, in series (A3-02). Keep a bounded window in flight.
+      const out: RemoteTargetType[] = new Array(input.remotePaths.length).fill(null);
+      let next = 0;
+      const worker = async () => {
+        while (next < input.remotePaths.length) {
+          const index = next++;
+          out[index] = await new Promise<RemoteTargetType>((resolve, reject) => {
+            sftp.stat(input.remotePaths[index]!, (error, attrs) => {
+              if (error) {
+                // Missing or unreadable target: an unusable link, not a failed listing.
+                if ([2, 3].includes((error as { code?: number }).code ?? -1)) return resolve(null);
+                return reject(error);
+              }
+              resolve({ type: attrs.isDirectory() ? "directory" : attrs.isFile() ? "file" : "other", size: attrs.size });
+            });
           });
-        }));
-      }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(16, input.remotePaths.length) }, worker));
       return out;
     }),
+  );
+}
+
+/**
+ * The login account's home directory as the host reports it (A3-10): the
+ * restricted file manager used to guess `/home/<user>`, which left accounts
+ * with a home under /var/lib, /srv or an LDAP mount without any file access.
+ */
+export async function resolveRemoteHomeDirectory(input: SshConnectionParams): Promise<string> {
+  if (usesAgentOnly(input)) {
+    const source = "import os\nprint(os.path.realpath(os.path.expanduser('~')))";
+    const result = await execAgentOnly(input, pythonCommand(source, []));
+    const resolved = result.stdout.trim();
+    if (result.exitCode !== 0 || !/^(\/|[A-Za-z]:[\\/])/.test(resolved)) throw new Error("Unable to resolve remote home directory");
+    return resolved;
+  }
+  return withReusableSshClient(input, (client) =>
+    withSftpChannel(client, (sftp) => new Promise<string>((resolve, reject) => {
+      sftp.realpath(".", (error, value) => {
+        if (error) return reject(error);
+        if (!value.startsWith("/")) return reject(new Error("Unable to resolve remote home directory"));
+        resolve(value);
+      });
+    })),
   );
 }
 

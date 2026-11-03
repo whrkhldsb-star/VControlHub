@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Plus } from "@/components/icons";
 import { EmptyState, ListPanel, ListRow } from "@/components/page-shell";
 import { Dialog } from "@/components/ui/dialog";
@@ -33,6 +34,8 @@ export function IdentityTemplatesSection() {
 	const [draft, setDraft] = useState<Draft | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	// Deleting a template is irreversible; ask first, like the customer delete does (A1-05).
+	const [pendingDelete, setPendingDelete] = useState<IdentityTemplate | null>(null);
 
 	const load = useCallback(async () => {
 		try {
@@ -79,6 +82,7 @@ export function IdentityTemplatesSection() {
 		setError(null);
 		try {
 			await csrfFetch(`/api/identity-templates/${encodeURIComponent(template.id)}`, { method: "DELETE" });
+			setPendingDelete(null);
 			await load();
 		} catch (err) {
 			setError(getErrorMessage(err, t("identityTemplatesPage.error.delete")));
@@ -120,7 +124,7 @@ export function IdentityTemplatesSection() {
 								{template.isBuiltin ? t("identityTemplatesPage.view") : t("identityTemplatesPage.edit")}
 							</ActionButton>
 							{!template.isBuiltin && (
-								<ActionButton size="sm" variant="danger" disabled={busy || template._count.members > 0} onClick={() => void remove(template)}
+								<ActionButton size="sm" variant="danger" disabled={busy || template._count.members > 0} onClick={() => setPendingDelete(template)}
 									title={template._count.members > 0 ? t("identityTemplatesPage.inUse") : undefined}>
 									{t("identityTemplatesPage.delete")}
 								</ActionButton>
@@ -129,6 +133,18 @@ export function IdentityTemplatesSection() {
 					</ListRow>
 				))}
 			</ListPanel>
+
+			<ConfirmDialog
+				open={pendingDelete !== null}
+				title={t("identityTemplatesPage.deleteConfirmTitle")}
+				description={pendingDelete ? t("identityTemplatesPage.deleteConfirmDesc", { name: identityTemplateName(pendingDelete, t) }) : null}
+				cancelLabel={t("common.cancel")}
+				confirmLabel={t("identityTemplatesPage.delete")}
+				busy={busy}
+				closeOnBackdrop={false}
+				onCancel={() => setPendingDelete(null)}
+				onConfirm={() => { if (pendingDelete) void remove(pendingDelete); }}
+			/>
 
 			{draft && (
 				<Dialog

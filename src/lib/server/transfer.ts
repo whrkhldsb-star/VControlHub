@@ -66,6 +66,12 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
       prisma.userServerAccess.deleteMany({ where: { serverId } }),
       prisma.userStorageAccess.deleteMany({ where: { storageNodeId: { in: storageNodeIds } } }),
       prisma.rdpTicket.deleteMany({ where: { serverId } }),
+      // VPS backup schedules and records run as their creator, who is a member
+      // of the old customer: in the new one that account resolves to nobody and
+      // every run failed as "owner inactive" (A2-03). The transferring platform
+      // administrator takes them over.
+      prisma.vpsBackupSchedule.updateMany({ where: { serverId }, data: { createdById: session.userId } }),
+      prisma.vpsBackupRecord.updateMany({ where: { serverId }, data: { createdBy: session.userId } }),
     ]);
     await auditUserAction(
       session.userId,

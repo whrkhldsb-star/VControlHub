@@ -45,6 +45,7 @@ export async function listVpsBackupSchedules(serverId?: string) {
 		take: 500,
 		include: {
 			server: { select: { id: true, name: true, host: true } },
+			creator: { select: { status: true, mustChangePassword: true } },
 			_count: { select: { records: true } },
 		},
 	});
@@ -110,7 +111,10 @@ export async function updateVpsBackupSchedule(
 		note: string;
 		retentionDays: number | null;
 		status: VpsBackupScheduleStatus;
+		/** Make `actorUserId` the owner whose permissions runs use (A9-05). */
+		claimOwnership: true;
 	}>,
+	actorUserId?: string,
 ) {
 	// Read once before calculating the resulting schedule. Besides giving a
 	// friendly not-found error, this avoids the old resume bug where ACTIVE was
@@ -163,6 +167,8 @@ export async function updateVpsBackupSchedule(
 		throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired"));
 	}
 	if (nextType === "custom") assertCustomBackupPaths(nextPaths);
+
+	if (input.claimOwnership && actorUserId) data.createdById = actorUserId;
 
 	const nextStatus = (data.status as VpsBackupScheduleStatus | undefined) ?? (existing.status as VpsBackupScheduleStatus);
 	if (nextStatus !== "ACTIVE") {

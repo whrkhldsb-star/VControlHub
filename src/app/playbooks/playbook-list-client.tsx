@@ -163,6 +163,28 @@ export function PlaybookListClient({
     [addToast, startRunPolling, t],
   );
 
+  const handleClaim = useCallback(
+    async (playbook: SerializedPlaybook) => {
+      setActionError(null);
+      const actionKey = `claim:${playbook.id}`;
+      setBusyAction(actionKey);
+      try {
+        await csrfFetch(`/api/playbooks/${playbook.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: playbook.id, claimOwnership: true }),
+        });
+        addToast("success", t("playbooksPage.toast.claimed"));
+        void refresh();
+      } catch (err) {
+        setActionError(getErrorMessage(err, t("playbooksPage.error.claim")));
+      } finally {
+        setBusyAction((prev) => (prev === actionKey ? null : prev));
+      }
+    },
+    [addToast, refresh, t],
+  );
+
   const handleToggle = useCallback(
     async (playbook: SerializedPlaybook) => {
       setActionError(null);
@@ -260,6 +282,7 @@ export function PlaybookListClient({
                 busyAction={busyAction}
                 onTrigger={handleTrigger}
                 onToggle={handleToggle}
+                onClaim={handleClaim}
                 onDelete={setPendingDelete}
               />
             </div>

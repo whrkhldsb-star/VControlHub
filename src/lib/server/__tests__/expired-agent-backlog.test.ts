@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 const s = vi.hoisted(() => ({ cursor: 0, writes: [] as Array<{ where: Record<string, unknown>; data: Record<string, unknown> }>, now: Date.now() }));
-vi.mock("@/lib/db", () => ({ prisma: { $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({ serverAgentJob: {
+vi.mock("@/lib/db", () => ({ prisma: { $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({ $queryRaw: async () => [], serverAgentJob: {
   findFirst: async () => s.cursor < 21 ? { id: `stale-${s.cursor}`, serverId: "s", status: "PENDING", command: "audit-fixture-only", timeoutMs: 1000, createdAt: new Date(s.now - 600000) } : null,
   updateMany: async (args: { where: Record<string, unknown>; data: Record<string, unknown> }) => { s.writes.push(args); if (args.where.id && args.data.status === "CANCELLED") s.cursor++; return { count: args.where.id ? 1 : 0 }; },
 } }) } }));

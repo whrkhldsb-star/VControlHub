@@ -35,7 +35,10 @@ export const BUILTIN_IDENTITY_TEMPLATES = [
 	{ id: "identity:customer_admin", key: "customer_admin", permissions: CUSTOMER_PERMISSIONS },
 	{ id: "identity:operator", key: "operator", permissions: fromRole("operator") },
 	{ id: "identity:viewer", key: "viewer", permissions: fromRole("viewer") },
-	{ id: "identity:files", key: "files", permissions: fromRole("storage_manager") },
+	// Node management is a customer-administrator concern: `storage:manage-node`
+	// also exempts an account from every path grant and quota, so the file
+	// template must not carry it (A1-01).
+	{ id: "identity:files", key: "files", permissions: fromRole("storage_manager").filter((permission) => permission !== "storage:manage-node") },
 ] as const;
 
 /** Identity template assigned when none is chosen. */

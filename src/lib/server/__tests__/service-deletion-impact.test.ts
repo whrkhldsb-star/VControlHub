@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const count = vi.hoisted(() => vi.fn(async (_model: string, _args?: unknown) => 0));
 vi.mock("@/lib/db", () => ({
 	prisma: new Proxy({}, {
-		get: (_target, model) => model === "storageNode"
+		get: (_target, model) => model === "$queryRaw"
+			? (async () => [])
+			: model === "storageNode"
 			? { findMany: vi.fn(async () => []) }
 			: model === "playbook"
 				? { findMany: vi.fn(async () => []) }

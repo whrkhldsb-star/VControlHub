@@ -5,9 +5,9 @@ import { hashPassword } from "@/lib/auth/password";
 import { validatePasswordPolicy } from "@/lib/auth/password-policy";
 import { assertUserInActorScope, userDirectoryWhere } from "@/lib/auth/team-scope";
 import { auditUserAction } from "@/lib/audit/service";
-import { prisma } from "@/lib/db";
+import { isUniqueViolation, prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { paginationQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
+import { booleanFlagSchema, paginationQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
 import { DEFAULT_IDENTITY_TEMPLATE_ID } from "@/lib/auth/identity-templates";
@@ -26,14 +26,20 @@ const usersListQuerySchema = paginationQuerySchema
   .omit({ limit: true })
   .extend({
     pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    /** Only customer accounts that belong to no customer yet (the member picker). */
+    unassigned: booleanFlagSchema.optional(),
   });
 
 /** GET: administrators list every account; customer accounts their colleagues. */
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
-    const { page, pageSize } = parseSearchParams(request, usersListQuerySchema);
+    const { page, pageSize, unassigned } = parseSearchParams(request, usersListQuerySchema);
     const skip = (page - 1) * pageSize;
-    const where = userDirectoryWhere(session);
+    // The member picker used to page through the whole directory (up to 5000
+    // accounts) to find the unassigned ones (A1-04); filter server-side.
+    const where = unassigned === true
+      ? { AND: [userDirectoryWhere(session), { teamMembership: null, roles: { none: { role: { key: "admin" } } } }] }
+      : userDirectoryWhere(session);
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
@@ -90,6 +96,8 @@ export async function POST(request: Request) {
 
       // Hash before the transaction: scrypt is slow and must not hold a connection.
       const passwordHash = await hashPassword(body.password);
+      // Check-then-create races with a concurrent creation of the same name: the
+      // unique index decides, and that must read as 400, not 500 (A1-07).
       const user = await prisma.$transaction(async (tx) => {
         if (await tx.user.findUnique({ where: { username: body.username }, select: { id: true } })) {
           throw new ValidationError(t("backend.user.usernameAlreadyExists"));
@@ -125,6 +133,9 @@ export async function POST(request: Request) {
           },
           select: { id: true },
         });
+      }).then((row) => row, (error: unknown) => {
+        if (isUniqueViolation(error)) throw new ValidationError(t("backend.user.usernameAlreadyExists"));
+        throw error;
       });
 
       await auditUserAction(session.userId, "user.create", {

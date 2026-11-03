@@ -38,6 +38,13 @@ export const GENERAL_READ_LIMIT: RateLimitConfig = { maxRequests: 120, windowMs:
 export const GENERAL_WRITE_LIMIT: RateLimitConfig = { maxRequests: 30, windowMs: 60_000 };
 
 /**
+ * Handshake tokens for the SSH/RDP WebSocket gateway (A3-11). Every open tab,
+ * reconnect and resumed shell mints one; a workbench with a few tabs riding out
+ * a flaky link hit the 30/min general write cap and could no longer reconnect.
+ */
+export const WS_TOKEN_LIMIT: RateLimitConfig = { maxRequests: 120, windowMs: 60_000 };
+
+/**
  * Chunk PUTs of a resumable upload. Each chunk is up to 5 MiB by default, so
  * GENERAL_WRITE_LIMIT (30/min) capped one user's upload at ~2.5 MiB/s; 240/min
  * sustains ~20 MiB/s while still bounding request floods.

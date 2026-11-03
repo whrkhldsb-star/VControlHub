@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   userServerAccessDeleteMany: vi.fn((args: unknown) => ({ op: "userServerAccess.deleteMany", args })),
   userStorageAccessDeleteMany: vi.fn((args: unknown) => ({ op: "userStorageAccess.deleteMany", args })),
   rdpTicketDeleteMany: vi.fn((args: unknown) => ({ op: "rdpTicket.deleteMany", args })),
+  vpsBackupScheduleUpdateMany: vi.fn((args: unknown) => ({ op: "vpsBackupSchedule.updateMany", args })),
+  vpsBackupRecordUpdateMany: vi.fn((args: unknown) => ({ op: "vpsBackupRecord.updateMany", args })),
   impact: vi.fn(),
   audit: vi.fn(),
 }));
@@ -32,6 +34,8 @@ vi.mock("@/lib/db", () => ({
     userServerAccess: { deleteMany: mocks.userServerAccessDeleteMany },
     userStorageAccess: { deleteMany: mocks.userStorageAccessDeleteMany },
     rdpTicket: { deleteMany: mocks.rdpTicketDeleteMany },
+    vpsBackupSchedule: { updateMany: mocks.vpsBackupScheduleUpdateMany },
+    vpsBackupRecord: { updateMany: mocks.vpsBackupRecordUpdateMany },
     $transaction: mocks.transaction,
   },
 }));
@@ -75,7 +79,11 @@ describe("transferServerToCustomer", () => {
       "userServerAccess.deleteMany",
       "userStorageAccess.deleteMany",
       "rdpTicket.deleteMany",
+      "vpsBackupSchedule.updateMany",
+      "vpsBackupRecord.updateMany",
     ]);
+    // Backup ownership follows the transfer (A2-03): the old customer's creator can no longer run them.
+    expect(mocks.vpsBackupScheduleUpdateMany).toHaveBeenCalledWith({ where: { serverId: "srv_1" }, data: { createdById: "u_admin" } });
     expect(mocks.serverUpdate).toHaveBeenCalledWith({ where: { id: "srv_1" }, data: { teamId: "team_b" } });
     expect(mocks.userStorageAccessDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: { in: ["node_1"] } } });
     expect(mocks.audit).toHaveBeenCalledWith("u_admin", "server.transfer", expect.objectContaining({ fromTeamId: "team_a", toTeamId: "team_b" }), undefined, "team_b");

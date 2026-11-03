@@ -217,8 +217,11 @@ export async function GET(req: NextRequest) {
           },
         },
         orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-        take: 100,
+        take: 101,
       }) : [];
+      // One row past the cap tells the page that nodes were left out (A2-09).
+      const storageNodesTruncated = storageNodes.length > 100;
+      if (storageNodesTruncated) storageNodes.length = 100;
 
       // Only materialize SSH secrets when remote sampling is requested.
       // List/metadata polls return id/name/host/port only and must not load credentials.
@@ -227,7 +230,7 @@ export async function GET(req: NextRequest) {
             where: { enabled: true, ...serverFilter },
             select: { ...SSH_CONNECTION_SERVER_SELECT, name: true },
             orderBy: { name: "asc" },
-            take: 200,
+            take: 201,
           })
         : await prisma.server.findMany({
             where: { enabled: true, ...serverFilter },
@@ -238,8 +241,10 @@ export async function GET(req: NextRequest) {
               port: true,
             },
             orderBy: { name: "asc" },
-            take: 200,
+            take: 201,
           });
+      const serversTruncated = servers.length > 200;
+      if (serversTruncated) servers.length = 200;
 
       const remoteServers = includeRemote
         ? await remoteTrafficFlight.run(
@@ -264,6 +269,7 @@ export async function GET(req: NextRequest) {
       const hubVisible = isGlobalTeamManager(session);
       return NextResponse.json({
         timestamp: new Date().toISOString(),
+        truncated: { servers: serversTruncated, storageNodes: storageNodesTruncated },
         currentServer: {
           type: "LOCAL_SERVER",
           id: "local",

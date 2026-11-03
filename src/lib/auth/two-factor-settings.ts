@@ -16,7 +16,7 @@ type TwoFactorCredentialSnapshot = {
 export async function updateTwoFactorCredentials(
   session: SessionPayload,
   verified: TwoFactorCredentialSnapshot,
-  data: Pick<Prisma.UserUpdateManyMutationInput, "twoFactorEnabled" | "twoFactorSecret" | "twoFactorRecoveryCodes">,
+  data: Pick<Prisma.UserUpdateManyMutationInput, "twoFactorEnabled" | "twoFactorSecret" | "twoFactorRecoveryCodes" | "lastAcceptedTotpStep">,
 ) {
   // A revocation can land after the API guard but before the credential read.
   // That newer database snapshot must not refresh the revoked caller's cookie.

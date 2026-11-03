@@ -70,6 +70,7 @@ export default async function PlaybooksPage() {
 		enabled: p.enabled,
 		nextRunAt: p.nextRunAt ? p.nextRunAt.toISOString() : null,
 		lastTriggeredAt: p.lastTriggeredAt ? p.lastTriggeredAt.toISOString() : null,
+		ownerActive: p.ownerActive,
 		createdAt: p.createdAt.toISOString(),
 	}));
 

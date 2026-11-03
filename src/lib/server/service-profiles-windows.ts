@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
 import type { TFn } from "@/lib/i18n/core";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { rdpCertificatePinSupported } from "@/lib/rdp/certificate";
 import { rdpProfileSchema } from "@/lib/rdp/protocol";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { requireApprovedSshHostKey } from "@/lib/ssh/host-key";
@@ -45,6 +46,9 @@ export async function createWindowsServerProfile(
     });
     await listRemoteDirectory({ ...ssh, hostKeySha256: sftpHostKey, remotePath: payload.windowsSftpPath! });
   }
+  // A pin this gateway cannot enforce would make the node unreachable (A3-01):
+  // refuse it at save time with the reason, not at the first connection.
+  if (payload.rdpCertificateSha256 && !rdpCertificatePinSupported()) throw new ValidationError(t("backend.server.rdpPinUnsupported"));
   const release = await acquireAdvisoryLock("server-host", payload.host);
   try {
     await assertNoDuplicateServerHost(payload, { session: sessionForTeamWhere(session) });
@@ -110,7 +114,7 @@ export async function updateWindowsServerProfile(
     certificateSha256: rdpInput.rdpCertificateSha256 ?? current.rdpCertificateSha256 ?? "",
     description: input.description ?? current.description ?? "",
   });
-  if (rdpInput.rdpPassword === undefined && !current.rdpPassword) throw new ValidationError();
+  if (rdpInput.rdpPassword === undefined && !current.rdpPassword) throw new ValidationError(t("backend.server.windowsPasswordRequiredOnUpdate"));
   // The stored password belongs to the account the node used so far: keeping
   // it for another user name or domain makes every login fail (and repeated
   // failures lock the new account), so another account needs its password.
@@ -165,6 +169,7 @@ export async function updateWindowsServerProfile(
   }
   const nextManagementMode = input.managementMode ?? current.managementMode;
   const release = await acquireAdvisoryLock("server-host", payload.host);
+  if (payload.certificateSha256 && !rdpCertificatePinSupported()) throw new ValidationError(t("backend.server.rdpPinUnsupported"));
   try {
     await assertNoDuplicateServerHost(payload, { excludeId: serverId, session: sessionForTeamWhere(session) });
     const updated = await prisma.$transaction(async (tx) => {

@@ -91,7 +91,7 @@ describe("VPS backup record and schedule routes", () => {
 		expect((await schedule.PATCH(req("PATCH", "http://local/x", { retentionDays: 0 }), { params: scheduleParams })).status).toBe(400);
 		const updated = await schedule.PATCH(req("PATCH", "http://local/x", { name: "nightly", status: "PAUSED" }), { params: scheduleParams });
 		expect(updated.status).toBe(200);
-		expect(mocks.updateVpsBackupSchedule).toHaveBeenCalledWith("sch_1", "srv_1", { name: "nightly", status: "PAUSED" });
+		expect(mocks.updateVpsBackupSchedule).toHaveBeenCalledWith("sch_1", "srv_1", { name: "nightly", status: "PAUSED" }, "u_cust");
 		mocks.updateVpsBackupSchedule.mockRejectedValueOnce(new ValidationError("bad cron"));
 		expect((await schedule.PATCH(req("PATCH", "http://local/x", { cronExpression: "nope" }), { params: scheduleParams })).status).toBe(400);
 		expect((await schedule.DELETE(req("DELETE", "http://local/x"), { params: scheduleParams })).status).toBe(200);

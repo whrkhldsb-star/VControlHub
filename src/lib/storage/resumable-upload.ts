@@ -131,17 +131,20 @@ export async function completeStorageFileUpload(params: {
   }
   const normalizedRelativePath = normalized.path;
 
-  const access = await assertStorageAccess({
+  // Permission first, without the quota guard: the node-wide quota lock must
+  // not be held while the chunks are being assembled (R0-01). The quota check
+  // itself (which takes the lock) runs once the body is ready to be written.
+  const permitted = await assertStorageAccess({
     session,
     storageNodeId: existing.storageNodeId,
     relativePath: normalizedRelativePath,
     operation: "write",
-    writeBytes: byteSize,
   });
-  if (!access.allowed) {
-    throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
+  if (!permitted.allowed) {
+    throw new ForbiddenError(storageAccessDeniedCopy(permitted.reason));
   }
 
+  let access: Awaited<ReturnType<typeof assertStorageAccess>> | null = null;
   let releaseFinalization: (() => void) | undefined;
   let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
@@ -153,6 +156,19 @@ export async function completeStorageFileUpload(params: {
   releaseFinalization = acquireFinalizationSlot(session.userId, existing.storageNodeId);
   lease = await beginUploadFinalization(sessionId, session.userId);
   const assembled = await assembleMediaUploadToFile(sessionId, session.userId);
+
+  // Quota admission with the body assembled: the guard is now held only across
+  // the write and the index update, not the chunk assembly.
+  access = await assertStorageAccess({
+    session,
+    storageNodeId: existing.storageNodeId,
+    relativePath: normalizedRelativePath,
+    operation: "write",
+    writeBytes: byteSize,
+  });
+  if (!access.allowed) {
+    throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
+  }
 
   // Same ordering as editor/version restore: quota first, content lock second.
   releaseOverwrite = await lockStorageFileOverwrite(existing.storageNodeId, normalizedRelativePath);
@@ -231,6 +247,6 @@ export async function completeStorageFileUpload(params: {
     lease?.stop();
     releaseFinalization?.();
     await releaseOverwrite?.();
-    await releaseStorageQuotaGuard(access);
+    if (access) await releaseStorageQuotaGuard(access);
   }
 }

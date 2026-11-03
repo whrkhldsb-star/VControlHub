@@ -32,6 +32,8 @@ export type SerializedPlaybook = {
 	enabled: boolean;
 	nextRunAt: string | null;
 	lastTriggeredAt: string | null;
+	/** False when the creator was deleted/disabled: scheduled runs fail until someone claims it. */
+	ownerActive: boolean;
 	createdAt: string;
 };
 

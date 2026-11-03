@@ -116,6 +116,7 @@ import hashlib
 import mimetypes
 import os
 import posixpath
+import re
 import time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import unquote, urlparse, parse_qs
@@ -178,12 +179,58 @@ class Handler(SimpleHTTPRequestHandler):
             return self._reject(*error)
         if not os.path.isfile(target):
             return self._reject(404, "not found")
-        # Serve exactly the file validated above. Writing its decoded name
-        # back into self.path had the base class parse it as a URL again:
-        # "a%20.txt" became "a .txt" and "a.txt#v2" lost "#v2", so a
-        # neighbouring file with that name was served instead.
+        # Serve exactly the file validated above (never re-parse self.path:
+        # "a%20.txt" became "a .txt" and "a.txt#v2" lost "#v2" that way), with
+        # Range support so media players can seek and downloads can resume.
         self._vch_target = target
-        return super().do_HEAD() if head else super().do_GET()
+        return self._send_file(target, head)
+
+    def _range_not_satisfiable(self, size):
+        self.send_response(416)
+        self.send_header("Content-Range", "bytes */" + str(size))
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _send_file(self, target, head):
+        size = os.path.getsize(target)
+        start, end, status = 0, size - 1, 200
+        range_header = self.headers.get("Range")
+        if range_header:
+            match = re.match(r"^bytes=(\d*)-(\d*)$", range_header.strip())
+            if not match or (match.group(1) == "" and match.group(2) == ""):
+                return self._range_not_satisfiable(size)
+            if match.group(1) == "":
+                suffix = int(match.group(2))
+                if suffix == 0 or size == 0:
+                    return self._range_not_satisfiable(size)
+                start = max(0, size - suffix)
+            else:
+                start = int(match.group(1))
+                if match.group(2) != "":
+                    end = min(int(match.group(2)), size - 1)
+            if size == 0 or start > end or start >= size:
+                return self._range_not_satisfiable(size)
+            status = 206
+        length = end - start + 1 if size > 0 else 0
+        self.send_response(status)
+        self.send_header("Content-Type", self.guess_type(target))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(length))
+        if status == 206:
+            self.send_header("Content-Range", "bytes " + str(start) + "-" + str(end) + "/" + str(size))
+        self.send_header("Last-Modified", self.date_time_string(os.path.getmtime(target)))
+        self.end_headers()
+        if head or length == 0:
+            return
+        with open(target, "rb") as handle:
+            handle.seek(start)
+            remaining = length
+            while remaining > 0:
+                chunk = handle.read(min(65536, remaining))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                remaining -= len(chunk)
 
     def do_GET(self):
         return self._serve(False)
@@ -332,7 +379,6 @@ function buildAutoHttpsReverseProxySnippet(input: {
 install -d -m 0755 ${shellQuote(tlsDir)}
 ${caddyInstallBlock()}${writeAndValidateCaddyfile(`{
   admin off
-  email vcontrolhub-direct@localhost
 }
 ${hostLiteral} {
   reverse_proxy 127.0.0.1:${backendPort}

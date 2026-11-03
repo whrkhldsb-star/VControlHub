@@ -39,6 +39,7 @@ export type CreateBackupScheduleInput = {
 
 export type UpdateBackupScheduleInput = Partial<Omit<CreateBackupScheduleInput, "createdById">> & {
   status?: BackupScheduleStatus;
+  claimOwnership?: true;
 };
 
 /* ── Validation ───────────────────────────────────────────── */
@@ -104,7 +105,7 @@ export async function listBackupSchedules(limit = 200, session?: Pick<SessionPay
     where: session ? teamWhere(session) : {},
     orderBy: { createdAt: "desc" },
     take: limit,
-    include: { creator: { select: { username: true, displayName: true } } },
+    include: { creator: { select: { username: true, displayName: true, status: true, mustChangePassword: true } } },
   });
 }
 
@@ -150,6 +151,9 @@ export async function updateBackupSchedule(id: string, input: UpdateBackupSchedu
       data.nextRunAt = computeNextRun(existing.cronExpression);
     }
   }
+  // A schedule whose creator was deleted/disabled is skipped every minute; the
+  // caller takes it over so it runs with a live account again (A9-05).
+  if (input.claimOwnership && session?.userId) data.createdById = session.userId;
   return prisma.backupSchedule.update({
     where: { id, teamId: existing.teamId ?? null },
     data,
@@ -221,7 +225,7 @@ export async function dispatchDueSchedule(schedule: {
   nextRunAt: Date | null;
 }): Promise<DispatchedBackupSchedule | null> {
   if (!schedule.createdById) {
-    await recordScheduleRun(schedule.id, "Skipped: backup schedule has no creator");
+    await recordScheduleRun(schedule.id, t("backend.backup.scheduleSkippedNoCreator"));
     return null;
   }
   if (!isBackupType(schedule.backupType)) {

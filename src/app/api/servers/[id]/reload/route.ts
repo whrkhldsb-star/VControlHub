@@ -30,7 +30,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import { deserializeDialect, serviceCommand, type OsDialect } from "@/lib/ssh/os-dialect";
-import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { getStorageFileNode } from "@/lib/storage/file-content";
@@ -53,14 +53,15 @@ const UNIT_NAME_PATTERN = /^[A-Za-z0-9._@-]{1,128}$/;
  */
 const PROJECT_DIR_PATTERN = /^\/[A-Za-z0-9._\-/]{0,255}$/;
 
-const reloadBodySchema = z.discriminatedUnion("kind", [
+// Built per request: the validation copy follows the caller's language (A2-08).
+const buildReloadBodySchema = (locale: Locale) => z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("systemd"),
-    unit: z.string().regex(UNIT_NAME_PATTERN, t("apiServersReload.unitNamePatternError", "zh")),
+    unit: z.string().regex(UNIT_NAME_PATTERN, t("apiServersReload.unitNamePatternError", locale)),
   }),
   z.object({
     kind: z.literal("compose"),
-    projectDir: z.string().regex(PROJECT_DIR_PATTERN, t("apiServersReload.projectDirPatternError", "zh")).optional(),
+    projectDir: z.string().regex(PROJECT_DIR_PATTERN, t("apiServersReload.projectDirPatternError", locale)).optional(),
     /**
      * The compose file, as the storage node knows it. A node's paths are relative to its root (/root/drive for the
      * node of a server), not to the server's: the browser used to send "/" + that relative folder as the project
@@ -75,7 +76,7 @@ const reloadBodySchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-type ReloadBody = z.infer<typeof reloadBodySchema>;
+type ReloadBody = z.infer<ReturnType<typeof buildReloadBodySchema>>;
 
 function buildCommand(body: ReloadBody, dialect: OsDialect, composeProjectDir = ""): string {
   if (body.kind === "systemd") {
@@ -128,19 +129,17 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       // Reload/compose requires SSH on the target host — gate on server:ssh (not write-only).
       permission: "server:ssh",
       rateLimit: GENERAL_WRITE_LIMIT,
-      bodySchema: reloadBodySchema,
-      // errorMessage is filled inside the route callback after getServerLocale resolves.
-      errorMessage: t("apiServersReload.errorMessage", "zh"),
+      bodySchema: buildReloadBodySchema(locale),
+      errorMessage: t("apiServersReload.errorMessage", locale),
     },
     async ({ session, body }) => {
-      const locale = await getServerLocale();
-
       const teamAccess = await assertServerTeamAccess(session, id, "manage");
       if (!teamAccess.ok) return teamAccess.response;
 

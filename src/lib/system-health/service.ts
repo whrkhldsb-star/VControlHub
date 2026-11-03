@@ -191,7 +191,7 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
   // remote hash reported "differs" for identical commits.
   const [gitHeadFull, remoteLine] = await Promise.all([
     safeExecFile("git", ["-C", projectRoot, "rev-parse", "HEAD"]),
-    safeExecFile("git", ["-C", projectRoot, "ls-remote", "origin", "refs/heads/main"]),
+    readRemoteMainCached(projectRoot),
   ]);
   const gitHeadRaw = gitHeadFull?.trim() || null;
   const gitRemoteRaw = remoteLine?.split(/\s+/)[0]?.trim() || null;
@@ -228,4 +228,26 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
   }
 
   return { generatedAt: new Date().toISOString(), summary: summarizeSystemHealth(checks), checks };
+}
+
+/**
+ * `git ls-remote` reaches GitHub on every self-check request (A2-13): with no
+ * route to the internet every refresh of the page stalled for the whole
+ * 5 s timeout. The remote head changes rarely, so one lookup serves 10 minutes.
+ */
+const REMOTE_MAIN_CACHE_MS = 10 * 60_000;
+let remoteMainCache: { projectRoot: string; at: number; value: Promise<string | null> } | null = null;
+
+function readRemoteMainCached(projectRoot: string): Promise<string | null> {
+  const now = Date.now();
+  if (remoteMainCache && remoteMainCache.projectRoot === projectRoot && now - remoteMainCache.at < REMOTE_MAIN_CACHE_MS) {
+    return remoteMainCache.value;
+  }
+  const value = safeExecFile("git", ["-C", projectRoot, "ls-remote", "origin", "refs/heads/main"]).then((line) => {
+    // A failed lookup is not worth caching for ten minutes: the next request retries.
+    if (!line) remoteMainCache = null;
+    return line;
+  });
+  remoteMainCache = { projectRoot, at: now, value };
+  return value;
 }

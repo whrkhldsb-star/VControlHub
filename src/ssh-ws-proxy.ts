@@ -480,6 +480,8 @@ export const SSH_CLOSE_REPLACED = 4001;
 /** The attached socket is backed up: pause the shell's output until it drains. */
 const SSH_PAUSE_QUEUED_BYTES = 1024 * 1024;
 const SSH_RESUME_QUEUED_BYTES = 256 * 1024;
+/** No `output-ack` for this long while paused: assume the acks are lost and let the shell go on. */
+const SSH_OUTPUT_ACK_STALL_MS = 30_000;
 
 type ShellAttachment = {
 	ws: WebSocket;
@@ -961,6 +963,15 @@ wss.on("connection", async (ws, req) => {
 		})();
 		return authorizationCheck;
 	};
+	// End-to-end output flow control (A3-06). `ws.bufferedAmount` only sees the
+	// kernel queue; on a fast link xterm's parser, not the network, is the slow
+	// part and its write buffer grew without bound. A browser that acknowledges
+	// what it has rendered (`output-ack`, announced by a first ack of 0 bytes)
+	// has the shell paused once a megabyte is outstanding; older clients keep
+	// the socket-queue rule alone.
+	let outputAckEnabled = false;
+	let unackedOutputBytes = 0;
+	let lastOutputAckAt = 0;
 	const sendOutput = (data: Buffer) => {
 		if (stopped || ws.readyState !== WebSocket.OPEN) return;
 		const message = JSON.stringify({ type: "output", data: data.toString("base64") });
@@ -971,7 +982,8 @@ wss.on("connection", async (ws, req) => {
 			return;
 		}
 		ws.send(message);
-		if (ws.bufferedAmount > SSH_PAUSE_QUEUED_BYTES) setShellPaused(shell, true);
+		if (outputAckEnabled) unackedOutputBytes += data.length;
+		if (ws.bufferedAmount > SSH_PAUSE_QUEUED_BYTES || (outputAckEnabled && unackedOutputBytes > SSH_PAUSE_QUEUED_BYTES)) setShellPaused(shell, true);
 	};
 	// Replies to ping and input go straight to the socket. A client that sends but never reads would grow
 	// this queue without bound, so past the ceiling output has it is dropped as well.
@@ -1097,6 +1109,14 @@ wss.on("connection", async (ws, req) => {
 				reply({ type: "pong", ...(msg.id !== undefined ? { id: msg.id } : {}) });
 				return;
 			}
+			if (msg.type === "output-ack") {
+				// Bytes the browser has rendered. Not shell activity, and never queued behind input.
+				if (!Number.isSafeInteger(msg.bytes) || msg.bytes < 0) throw new Error("Invalid output ack");
+				outputAckEnabled = true;
+				lastOutputAckAt = Date.now();
+				unackedOutputBytes = Math.max(0, unackedOutputBytes - msg.bytes);
+				return;
+			}
 			if (msg.type === "end") {
 				// The user closed this terminal: end the shell rather than keep it for a reconnect.
 				releaseAttachment();
@@ -1176,9 +1196,19 @@ wss.on("connection", async (ws, req) => {
 	authorizationTimer = setInterval(() => { void ensureAuthorized(true); }, SSH_AUTH_REVALIDATION_MS);
 	authorizationTimer.unref?.();
 	drainTimer = setInterval(() => {
-		if (shell.paused && !stopped && shell.attachment === attachment && ws.bufferedAmount < SSH_RESUME_QUEUED_BYTES) setShellPaused(shell, false);
+		if (!shell.paused || stopped || shell.attachment !== attachment || ws.bufferedAmount >= SSH_RESUME_QUEUED_BYTES) return;
+		if (outputAckEnabled && unackedOutputBytes >= SSH_RESUME_QUEUED_BYTES) {
+			// A browser that stopped acknowledging (frozen tab, old client) must not wedge the shell for ever.
+			if (Date.now() - lastOutputAckAt < SSH_OUTPUT_ACK_STALL_MS) return;
+			unackedOutputBytes = 0;
+		}
+		setShellPaused(shell, false);
 	}, 125);
 	drainTimer.unref?.();
+	// The listener above is in place: hand it what arrived while the session was being verified. This used to happen
+	// only on the connect path, so a resumed shell lost the browser's first resize (A3-09).
+	ws.off("message", bufferEarlyMessage);
+	for (const [raw, binary] of earlyMessages.splice(0)) ws.emit("message", raw, binary);
 	if (replay) {
 		// The shell is live: hand over what this browser has not seen yet.
 		announceShell(replay.from, replay.truncated);
@@ -1199,9 +1229,6 @@ wss.on("connection", async (ws, req) => {
 		auditTerminalFailure(shell, message);
 		endShellSession(shell);
 	}
-	// The listener above is in place: hand it what arrived while the session was being verified.
-	ws.off("message", bufferEarlyMessage);
-	for (const [raw, binary] of earlyMessages.splice(0)) ws.emit("message", raw, binary);
 });
 
 const shouldStartServer = process.env.NODE_ENV !== "test";

@@ -187,8 +187,8 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
       addToast("success", t("usersPage.success.passwordReset", { name: resetPasswordUser.username }));
       setResetPasswordUser(null);
       setResetPasswordValue("");
-      // The reset flips status to PENDING_PASSWORD_RESET; without a refetch the
-      // row keeps showing the stale status until the page is reloaded.
+      // The reset sets mustChangePassword; without a refetch the row keeps
+      // showing the stale badge until the page is reloaded.
       await fetchUsers();
     } catch (err) {
       addToast("error", messageFromError(err, t("usersPage.error.resetFailed", { name: resetPasswordUser.username })));
@@ -248,6 +248,7 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
                     <StatusBadge tone={statusTone(user.status)}>
                       {statusLabel(user.status, t)}
                     </StatusBadge>
+                    {user.mustChangePassword && user.status === "ACTIVE" ? <StatusBadge tone="warning">{t("usersPage.status.mustChange")}</StatusBadge> : null}
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                     <span>@{user.username}</span>
