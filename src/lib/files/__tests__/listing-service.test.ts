@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({nodes:vi.fn(),entries:vi.fn(),stats:vi.fn(),que
 vi.mock("@/lib/db",() => ({prisma:{filePreference:{findMany:mocks.preferences}}}));
 vi.mock("@/lib/storage/service-nodes",() => ({listStorageNodes:mocks.nodes}));
 vi.mock("@/lib/storage/service-entries",() => ({listFileEntries:mocks.entries}));
-vi.mock("@/lib/storage/service-statistics",() => ({getFileIndexStatistics:mocks.stats}));
+vi.mock("@/lib/storage/service-statistics",() => ({getFileIndexStatistics:mocks.stats,getFileIndexStatisticsCached:mocks.stats}));
 vi.mock("../listing-query",() => ({queryFileListing:mocks.query,queryFolderCounts:mocks.counts}));
 vi.mock("@/lib/auth/authorization",() => ({sessionHasPermission:mocks.permission}));
 vi.mock("@/lib/storage/access-control",() => ({getStorageAccessCapabilities:mocks.capabilities,

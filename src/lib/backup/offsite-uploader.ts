@@ -17,6 +17,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { config as appConfig } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { getSetting } from "@/lib/settings/service";
@@ -91,7 +92,7 @@ export async function uploadBackupToOffsite(input: {
 	 */
 	alert?: boolean;
 }): Promise<OffsiteUploadResult> {
-	const projectRoot = input.projectRoot || process.cwd();
+	const projectRoot = input.projectRoot || appConfig.app.appDir || process.cwd();
 	const alertOn = input.alert !== false;
 	// Load the record first so every actionable failure can be persisted.
 	const record = await prisma.backupRecord.findUnique({ where: { id: input.backupId } });

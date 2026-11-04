@@ -179,7 +179,11 @@ function inlineFormat(text: string): string {
     }
     // Both were escaped with the rest of the line above; escaping again turned
     // "a&b" into "a&amp;amp;b" and broke URLs with query strings.
-    return `<a href="${trimmed}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    // Only external links open a new tab (A11-04); in-app and anchor links stay in this one.
+    const external = /^(?:https?:)?\/\//i.test(trimmed) || /^mailto:/i.test(trimmed);
+    return external
+      ? `<a href="${trimmed}" target="_blank" rel="noopener noreferrer">${text}</a>`
+      : `<a href="${trimmed}">${text}</a>`;
   });
   return text.replace(/\uE000(\d+)\uE001/g, (_match, index: string) => `<code>${codeSpans[Number(index)]}</code>`);
 }

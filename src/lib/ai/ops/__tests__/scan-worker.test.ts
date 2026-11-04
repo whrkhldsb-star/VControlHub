@@ -316,8 +316,20 @@ describe("runAiOpsScanWorkerOnce", () => {
     expect(vi.mocked(prisma.aiOpsLog.create).mock.calls.at(-1)![0].data).toMatchObject({ triggerType: "scheduled" });
   });
 
-  it("calls failJob when an underlying signal collector throws", async () => {
+  it("reports the alert-rule count as unread instead of failing the scan when it throws", async () => {
+    // alert.rules was the one collector outside the "counted" wrapper (A7): its
+    // failure failed the whole job while every other read was reported as unread.
     alertCountMock.mockRejectedValue(new Error("db down"));
+    const ok = await runAiOpsScanWorkerOnce("manual");
+    expect(ok).toBe(true);
+    expect(jobMocks.failJob).not.toHaveBeenCalled();
+    const update = vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data as { status: string; findings: Array<{ id: string; body: string }> };
+    expect(update.status).toBe("warning");
+    expect(update.findings.find((finding) => finding.id === "scan.incomplete")?.body).toContain("alert.rules");
+  });
+
+  it("calls failJob when the scan log cannot be written", async () => {
+    vi.mocked(prisma.aiOpsLog.create).mockRejectedValueOnce(new Error("db down"));
     const ok = await runAiOpsScanWorkerOnce("manual");
     expect(ok).toBe(true);
     expect(jobMocks.failJob).toHaveBeenCalledTimes(1);

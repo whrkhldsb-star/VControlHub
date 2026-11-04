@@ -11,7 +11,7 @@ describe("WebDAV direct access strategy", () => {
     expect(result.description).not.toContain("SFTP");
   });
   it("does not invent SSH credentials in the connection summary", () => {
-    expect(buildStorageConnectionSummary({ driver: "WEBDAV", basePath: "/docs" })).toBe("WebDAV: /docs");
+    expect(buildStorageConnectionSummary({ driver: "WEBDAV", basePath: "/docs" })).toBe("WebDAV：/docs");
   });
 });
 

@@ -92,7 +92,8 @@ export function ImageGrid({
               className="h-full w-full"
             >
               <Image
-                src={img.publicUrl}
+                // The grid shows the WebP thumbnail (A5-07); the preview dialog loads the original.
+                src={`${img.publicUrl}${img.publicUrl.includes("?") ? "&" : "?"}thumb=1`}
                 alt={img.filename}
                 fill
                 sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"

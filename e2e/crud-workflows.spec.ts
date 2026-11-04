@@ -158,7 +158,8 @@ test("playbook dry-run completes safely and can then be deleted", async ({ page 
 	await card.getByRole("button", { name: /Dry-run/i }).click();
 	await expect(card.getByText(/dry-run/i).last()).toBeVisible();
 	await card.locator("summary").click();
-	await expect(card.getByText(/(?:已完成|Completed) · dry-run/i)).toBeVisible({ timeout: 15_000 });
+	// The run-history label is translated now (A6): "演练" in Chinese, "dry run" in English.
+	await expect(card.getByText(/(?:已完成 · 演练|Completed · dry[- ]?run)/i)).toBeVisible({ timeout: 15_000 });
 	await card.getByRole("button", { name: /删除|Delete/i }).click();
 	await page.getByRole("dialog", { name: /删除 Playbook|Delete Playbook/i }).getByRole("button", { name: /确认删除|Confirm Delete/i }).click();
 	await expect(page.getByText(name, { exact: true })).toBeHidden();

@@ -7,6 +7,7 @@
  * (live clock, online share, countries, traffic, live throughput) with a
  * per-visitor choice of which tiles to show.
  */
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -117,7 +118,7 @@ function TrendDialog({ node, preview, locale, t, onClose }: { node: PublicNode; 
 	const from = data ? Date.parse(data.from) : 0;
 	const to = data ? Date.parse(data.to) : 0;
 	const formatX = (time: number) =>
-		new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" }).format(time);
+		new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-GB", { hour: "2-digit", minute: "2-digit", timeZone: APP_TIME_ZONE }).format(time);
 	const resources = data?.resources ?? null;
 	const cpuPoints = resources?.map((point) => ({ t: Date.parse(point.t), v: point.cpu ?? null })) ?? [];
 	const memoryPoints = resources?.map((point) => ({ t: Date.parse(point.t), v: point.memory ?? null })) ?? [];

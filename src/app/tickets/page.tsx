@@ -7,14 +7,9 @@ import { CreateTicketForm } from "./create-ticket-form";
 import { TicketWorkspace } from "./ticket-workspace";
 import { toWorkspaceBoard, toWorkspaceTicket } from "@/lib/ticket/workspace-dto";
 import { listServerProfiles } from "@/lib/server/service-profiles";
-import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
-
-function priorityLabel(locale: Locale, key: string): string {
-  const translated = t(`ticketsPage.priority.${key}`, locale);
-  return translated !== `ticketsPage.priority.${key}` ? translated : key;
-}
 
 const SLA_FILTERS = new Set(["ok", "warning", "breached", "none"]);
 
@@ -58,7 +53,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <StatCard label={t("ticketsPage.status.OPEN", locale)} value={String(openCount)} accent={openCount > 0} accentColor="cyan" />
         <StatCard label={t("ticketsPage.status.IN_PROGRESS", locale)} value={String(progressCount)} accent={progressCount > 0} accentColor="amber" />
         <StatCard label={t("ticketsPage.status.RESOLVED", locale)} value={String(resolvedCount)} accent={resolvedCount > 0} accentColor="emerald" />
-        <StatCard label={priorityLabel(locale, "HIGH")} value={String(urgentCount)} accent={urgentCount > 0} accentColor="rose" />
+        <StatCard label={t("ticketsPage.stats.highOrUrgent", locale)} value={String(urgentCount)} accent={urgentCount > 0} accentColor="rose" />
       </StatGrid>
 
       {canCreate && (

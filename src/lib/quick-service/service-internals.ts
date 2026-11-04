@@ -76,6 +76,24 @@ const SAFE_VOLUME_OPTION_RE = /^(?:ro|rw|z|Z|cached|delegated|consistent|rshared
 const HOST_VOLUME_ROOTS = ["/opt/", "/srv/"];
 const TRUSTED_HOST_MOUNTS = new Set(["/etc/timezone", "/etc/localtime"]);
 const DOCKER_SOCKET = "/var/run/docker.sock";
+/**
+ * Under the allowed roots, the platform's own directories are still off limits
+ * (A6-03): a third-party template could mount /opt/VControlHub read-write into
+ * a container, and an uninstall with "delete data" would rm -rf it.
+ */
+const PROTECTED_HOST_PREFIXES = [
+	...new Set([
+		process.cwd(),
+		"/opt/VControlHub",
+		"/opt/vcontrolhub",
+		"/srv/VControlHub",
+		"/srv/vcontrolhub",
+	].map((entry) => entry.replace(/\/+$/, ""))),
+];
+
+function isProtectedHostPath(hostPath: string) {
+	return PROTECTED_HOST_PREFIXES.some((prefix) => prefix.startsWith("/") && (hostPath === prefix || hostPath.startsWith(`${prefix}/`)));
+}
 
 export function safeContainerName(slug: string): string {
 	if (!SAFE_CONTAINER_RE.test(slug)) throw new ValidationError(t("backend.quick-service.serviceIdentifierIsInvalid"));
@@ -92,8 +110,11 @@ export function assertImage(image: string) {
 	if (!SAFE_IMAGE_RE.test(image)) throw new ValidationError(t("backend.quick-service.imageNameIsInvalid"));
 }
 
-function normalizeVolumeEndpoint(value: string, label: string) {
-	const trimmed = value.trim();
+function normalizeVolumeEndpoint(value: unknown, label: string) {
+	// A template from a third-party source may carry any JSON shape here; a
+	// non-string used to surface as a TypeError (internal error) instead of a
+	// validation message.
+	const trimmed = typeof value === "string" ? value.trim() : "";
 	if (!trimmed.startsWith("/") || trimmed.includes("\0") || trimmed.includes("..")) {
 		throw new ValidationError(apiCopy("apiCopy.path.is.invalid.fd173ea1", { v0: String(label) }));
 	}
@@ -115,6 +136,9 @@ function assertHostVolumeAllowed(hostPath: string, template: ServiceTemplate) {
 		throw new BusinessError(t("backend.quick-service.remoteApplicationsAreNotAllowedToMountThe"));
 	}
 	if (TRUSTED_HOST_MOUNTS.has(hostPath)) return;
+	if (isProtectedHostPath(hostPath)) {
+		throw new BusinessError(t("backend.quick-service.hostMountIsPlatformDirectory", { path: hostPath }));
+	}
 	if (HOST_VOLUME_ROOTS.some((root) => hostPath === root.slice(0, -1) || hostPath.startsWith(root))) return;
 	throw new BusinessError(
 		t("backend.quick-service.hostMountOutsideAllowedRoots", { path: hostPath }),
@@ -124,6 +148,7 @@ function assertHostVolumeAllowed(hostPath: string, template: ServiceTemplate) {
 function isRemovableHostVolume(hostPath: string) {
 	if (hostPath === DOCKER_SOCKET || TRUSTED_HOST_MOUNTS.has(hostPath)) return false;
 	if (hostPath === "/opt" || hostPath === "/srv") return false;
+	if (isProtectedHostPath(hostPath)) return false;
 	return HOST_VOLUME_ROOTS.some((root) => hostPath.startsWith(root));
 }
 

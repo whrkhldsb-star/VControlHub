@@ -169,6 +169,8 @@ export const updatePlaybookSchema = z
     steps: baseCreatePlaybookObject.shape.steps.optional(),
     chainRetry: baseCreatePlaybookObject.shape.chainRetry.optional(),
     enabled: baseCreatePlaybookObject.shape.enabled.optional(),
+    /** Make the caller the owner whose permissions scheduled runs use. */
+    claimOwnership: z.literal(true).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.triggerType !== undefined && value.triggerConfig !== undefined) {

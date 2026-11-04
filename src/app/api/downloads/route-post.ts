@@ -91,6 +91,12 @@ export async function POST(request: Request) {
       // For an HTTP/HTTPS batch we iterate over every URL; otherwise this is a
       // single-task request (one HTTP link or one magnet relay).
       const isHttpBatch = isBatch && allUrls.length > 1 && !hasMagnet;
+      // Whether the caller may use this server is settled before any DNS work on
+      // their links (A5-14): up to fifty lookups used to run for a server the
+      // caller could not even see.
+      const teamAccess = await assertServerTeamAccess(session, serverId, "connect");
+      if (!teamAccess.ok) return teamAccess.response;
+
       const sourceResolutions = new Map<string, DownloadSourceResolution>();
       // A link stored differently from how it was pasted: a magnet with its unsafe trackers dropped.
       const storedUrls = new Map<string, string>();
@@ -108,9 +114,6 @@ export async function POST(request: Request) {
         if (validation.url && validation.url !== u) storedUrls.set(u, validation.url);
       }
 
-      const teamAccess = await assertServerTeamAccess(session, serverId, "connect");
-      if (!teamAccess.ok) return teamAccess.response;
-
       const server = await prisma.server.findUnique({
         where: { id: serverId },
         include: { sshKey: true, storageNode: true },
@@ -123,7 +126,9 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
-      if (!server.sshKey && !server.password)
+      // A direct download only runs a command, which an Agent-managed node does
+      // over the Agent (A5-13); the relay's SFTP transfer still needs SSH.
+      if (!server.sshKey && !server.password && (server.managementMode !== "AGENT" || hasMagnet))
         return NextResponse.json(
           { error: t("apiDownloads.serverMissingCredentials", locale) },
           { status: 400 },

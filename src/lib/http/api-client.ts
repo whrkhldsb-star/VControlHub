@@ -89,6 +89,9 @@ export async function apiRequest<T>(input: RequestInfo | URL, init: ApiRequestIn
 		throw new ApiError(response.status, errorBody);
 	}
 	if (response.status === 204) return undefined as T;
+	// A 200 with an empty body used to surface as "Unexpected end of JSON input" (A11-03).
+	const contentLength = response.headers instanceof Headers ? response.headers.get("content-length") : null;
+	if (contentLength === "0") return undefined as T;
 	return response.json() as Promise<T>;
 }
 

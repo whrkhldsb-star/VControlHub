@@ -21,7 +21,12 @@ type SyncTargetCommandInput = {
 	targetHost: string;
 	targetPort: number;
 	keyPath?: string;
-	password?: string;
+	/**
+	 * A 0600 file on the source host holding `SSHPASS='…'` (written by the
+	 * runtime, A4-08). The script sources it instead of carrying the password
+	 * in its own text, which `ps` showed to every local user for the whole run.
+	 */
+	passwordEnvPath?: string;
 	hostKeySha256?: string | null; // OPEN-2: SSH host key pin for rsync/tar sync
 	jobId?: string; // For generating temp known_hosts path
 };
@@ -109,7 +114,7 @@ function safeFileStem(value: string): string {
 	return value.replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
-export function getSyncTempKeyPath(jobId: string, purpose: "rsync" | "tar" | "known_hosts"): string {
+export function getSyncTempKeyPath(jobId: string, purpose: "rsync" | "tar" | "known_hosts" | "env"): string {
 	return `/tmp/app-sync-${purpose}-${safeFileStem(jobId)}`;
 }
 
@@ -153,30 +158,31 @@ function assertUnquotedTransportPath(value: string): string {
 function buildSshTransport(
 	input: SyncTargetCommandInput,
 	quote: TransportQuote,
-): { transport: string; envPrefix: string } {
+): { transport: string; envSetup: string } {
 	const knownHostsPath = input.hostKeySha256?.trim()
 		? getSyncTempKeyPath(input.jobId ?? "sync", "known_hosts")
 		: undefined;
 	const sshCommand = ["ssh", buildSshOptions(input.targetPort, input.hostKeySha256, knownHostsPath, quote)];
 	if (input.keyPath) sshCommand.push("-i", quote(input.keyPath));
 	const base = sshCommand.join(" ");
-	if (input.password) {
+	if (input.passwordEnvPath) {
 		// SSHPASS keeps the password out of /proc/cmdline. It has to ride on the
 		// outer command: rsync would exec a program literally named `SSHPASS=…`
-		// ("Failed to exec"), so only the caller's shell can honour it.
-		return { transport: `sshpass -e ${base}`, envPrefix: `SSHPASS=${shellQuote(input.password)} ` };
+		// ("Failed to exec"), so only the caller's shell can honour it. The value
+		// comes from the env file, never from this script's text.
+		return { transport: `sshpass -e ${base}`, envSetup: `. ${shellQuote(input.passwordEnvPath)} && export SSHPASS` };
 	}
-	return { transport: base, envPrefix: "" };
+	return { transport: base, envSetup: "" };
 }
 
 function withCredentialCleanup(command: string, input: SyncTargetCommandInput): string {
-	const paths = [input.keyPath, input.hostKeySha256?.trim() ? getSyncTempKeyPath(input.jobId ?? "sync", "known_hosts") : undefined].filter((value): value is string => Boolean(value));
+	const paths = [input.keyPath, input.passwordEnvPath, input.hostKeySha256?.trim() ? getSyncTempKeyPath(input.jobId ?? "sync", "known_hosts") : undefined].filter((value): value is string => Boolean(value));
 	if (paths.length === 0) return command;
 	return `trap 'rm -f -- ${paths.map(shellQuote).join(" ")}' EXIT\n${command}`;
 }
 
 export function buildRsyncCommand(input: RsyncCommandInput): string {
-	const { transport, envPrefix } = buildSshTransport(input, assertUnquotedTransportPath);
+	const { transport, envSetup } = buildSshTransport(input, assertUnquotedTransportPath);
 	const target = `${buildRsyncTargetAddress(input.targetUser, input.targetHost)}:${input.targetPath.replace(/\/$/, "")}/`;
 	// `-s` (--protect-args) sends the remote path through rsync's own protocol
 	// stream instead of the target host's login shell. Without it an rsync older
@@ -186,7 +192,7 @@ export function buildRsyncCommand(input: RsyncCommandInput): string {
 	// `--` ends the options, and a relative source gets "./": otherwise a path that begins with "-" is an option and one
 	// holding "host:" is another machine (jobs stored before the path check existed could still carry such a value).
 	const source = input.sourcePath.replace(/\/$/, "");
-	const command = `${envPrefix}rsync ${input.flags.join(" ")} -s -e ${shellDoubleQuote(transport)} -- ${shellQuote(`${source.startsWith("/") ? source : `./${source}`}/`)} ${shellQuote(target)} 2>&1`;
+	const command = `${envSetup ? `${envSetup} && ` : ""}rsync ${input.flags.join(" ")} -s -e ${shellDoubleQuote(transport)} -- ${shellQuote(`${source.startsWith("/") ? source : `./${source}`}/`)} ${shellQuote(target)} 2>&1`;
 	return withCredentialCleanup(command, input);
 }
 
@@ -234,7 +240,7 @@ function buildMirrorCommitScript(target: string, stage: string, prev: string): s
  * removes anything.
  */
 export function buildTarSyncCommand(input: TarSyncCommandInput): string {
-	const { transport, envPrefix } = buildSshTransport(input, shellQuote);
+	const { transport, envSetup } = buildSshTransport(input, shellQuote);
 	const remote = `${transport} ${shellQuote(buildSshTargetAddress(input.targetUser, input.targetHost))}`;
 	const target = shellQuote(input.targetPath);
 	const stem = safeFileStem(input.jobId ?? "sync");
@@ -249,7 +255,7 @@ export function buildTarSyncCommand(input: TarSyncCommandInput): string {
 	const command = [
 		// The password must reach every ssh below, so export it once instead of
 		// prefixing one command.
-		...(envPrefix ? [`${envPrefix.trim()}; export SSHPASS`] : []),
+		...(envSetup ? [envSetup] : []),
 		`vch_tar_status=$(mktemp "\${TMPDIR:-/tmp}/vch-sync-tar.XXXXXX") || exit 1`,
 		`{ tar cf - -C ${shellQuote(input.sourcePath)} .; echo "$?" > "$vch_tar_status"; } | ${remote} ${shellQuote(receive)} 2>&1`,
 		`vch_receive_status=$?`,

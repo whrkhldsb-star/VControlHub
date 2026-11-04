@@ -15,12 +15,16 @@ import {
   handleWebDavCopy,
   handleWebDavDelete,
   handleWebDavGetHead,
+  handleWebDavLock,
   handleWebDavMkcol,
   handleWebDavMove,
   handleWebDavOptions,
   handleWebDavPropFind,
+  handleWebDavPropPatch,
   handleWebDavPut,
+  handleWebDavUnlock,
   normalizeWebDavRelativePath,
+  WEBDAV_ALLOW_HEADER,
   type WebDavContext,
 } from "@/lib/webdav/handler";
 import { createLogger } from "@/lib/logging";
@@ -104,13 +108,16 @@ async function dispatch(
         return await handleWebDavMove(ctx, request);
       case "COPY":
         return await handleWebDavCopy(ctx, request);
+      case "LOCK":
+        return await handleWebDavLock(ctx, request);
+      case "UNLOCK":
+        return await handleWebDavUnlock();
+      case "PROPPATCH":
+        return await handleWebDavPropPatch(ctx);
       default:
         return new Response("Method Not Allowed", {
           status: 405,
-          headers: {
-            Allow:
-              "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY",
-          },
+          headers: { Allow: WEBDAV_ALLOW_HEADER },
         });
     }
   } catch (error) {

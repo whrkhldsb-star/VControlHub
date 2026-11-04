@@ -212,6 +212,8 @@ export function CreateDownloadForm({
 						value={form.maxSpeedKb}
 						onChange={(e) => onFormChange({ ...form, maxSpeedKb: e.target.value })}
 						type="number"
+						min={0}
+						step={1}
 						placeholder={t("downloadsPage.form.speedLimitPlaceholder")}
 						className={UI_INPUT}
 					/>

@@ -94,6 +94,8 @@ describe("AnnouncementEditModal (R10G drive-by: edit title i18n)", () => {
           content: "新内容",
           type: "info",
           pinned: false,
+          published: true,
+          expiresAt: null,
         }),
       });
     });

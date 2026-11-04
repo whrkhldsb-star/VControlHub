@@ -105,9 +105,19 @@ function isStateInspect(args: string[]) {
 /** execFile routing helper: default success, with per-argv overrides. */
 function routeExecFile(overrides: Record<string, (cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => void>) {
 	execFileMock.mockImplementation(
-		(file: string, args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
+		(file: string, args: string[], opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
 			if (file === "docker" && args[0] && overrides[args[0]]) {
 				overrides[args[0]]!(cb);
+				return {};
+			}
+			if (file === "docker" && args[0] !== "run") {
+				// Every other docker verb goes through execFile now (A6-01): answer from the same fixture the
+				// sync mock serves, with the real options so timeouts stay assertable.
+				try {
+					cb(null, { stdout: String(execFileSyncMock(file, args, { ...(opts && typeof opts === "object" ? opts : {}), encoding: "utf8" }) ?? ""), stderr: "" });
+				} catch (error) {
+					cb(error as Error);
+				}
 				return {};
 			}
 			cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
@@ -119,6 +129,10 @@ function routeExecFile(overrides: Record<string, (cb: (error: Error | null, resu
 describe("quick service docker lifecycle", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// clearAllMocks keeps queued mockImplementationOnce answers: one a test
+		// did not consume used to leak into the next test's first docker call.
+		execFileSyncMock.mockReset();
+		execFileMock.mockReset();
 		resetQuickServiceProcessStateForTests();
 		busyPorts.clear();
 		containerHealthGate.settleMs = 0;
@@ -127,6 +141,7 @@ describe("quick service docker lifecycle", () => {
 		// Every container reports "running, no healthcheck, no restarts" to the
 		// post-start acceptance check unless a test says otherwise.
 		execFileSyncMock.mockImplementation((_file: string, args: string[]) => isStateInspect(args) ? "running||0\n" : "");
+		routeExecFile({});
 		spawnSyncMock.mockImplementation((file: string, args: string[]) => {
 			// Route docker logs through the same fixture surface as execFileSync
 			// so tests that mock docker CLI output keep working after the
@@ -137,10 +152,6 @@ describe("quick service docker lifecycle", () => {
 			} catch (error) {
 				return { error, stdout: "", stderr: "", status: 1 };
 			}
-		});
-		execFileMock.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
-			cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
-			return {};
 		});
 	});
 
@@ -164,7 +175,7 @@ describe("quick service docker lifecycle", () => {
 		expect(dockerArgs.join(" ")).not.toContain("'qs-demo'");
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { id: "svc-1" },
-			data: { status: "running", containerId: "abcdef123456", error: null },
+			data: { status: "running", containerId: "abcdef1234567890", error: null },
 		});
 	});
 
@@ -541,11 +552,11 @@ describe("quick service docker lifecycle", () => {
 		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["pull", "example/demo:latest"], expect.objectContaining({ timeout: 300_000, encoding: "utf8" }));
 		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["stop", "qs-demo__prev"], expect.objectContaining({ timeout: 30_000, encoding: "utf8" }));
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } }, data: { status: "installing", error: null } });
-		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
+		const dockerArgs = dockerRunArgs();
 		expect(dockerArgs).toEqual(expect.arrayContaining(["run", "-d", "--name", "qs-demo", "-p", "18080:8080", "example/demo:latest"]));
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { id: "svc-update" },
-			data: { status: "running", containerId: "abcdef123456", error: null },
+			data: { status: "running", containerId: "abcdef1234567890", error: null },
 		});
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.update.started" }));
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -716,7 +727,7 @@ describe("quick service docker lifecycle", () => {
 		expect(execFileSyncMock).toHaveBeenCalledWith(
 			"docker",
 			["inspect", "--format={{.State.Status}}|{{.Id}}", "qs-demo"],
-			expect.objectContaining({ timeout: 10_000, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }),
+			expect.objectContaining({ timeout: 10_000, encoding: "utf8" }),
 		);
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } }, data: { status: "stopped" } });
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.sync.started" }));
@@ -761,7 +772,7 @@ describe("quick service docker lifecycle", () => {
 				action: "quick_service.install.succeeded",
 				detail: expect.objectContaining({
 					diff: expect.objectContaining({
-						after: expect.objectContaining({ status: "running", port: 12345, containerId: "abcdef123456" }),
+						after: expect.objectContaining({ status: "running", port: 12345, containerId: "abcdef1234567890" }),
 					}),
 				}),
 			}));
@@ -868,10 +879,7 @@ describe("quick service docker lifecycle", () => {
 		// update: a successful image pull should diff the new image in after.
 		vi.clearAllMocks();
 		execFileSyncMock.mockReturnValue("");
-		execFileMock.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
-			cb(null, { stdout: "newcontainer12\n", stderr: "" });
-			return {};
-		});
+		routeExecFile({ run: (cb) => cb(null, { stdout: "newcontainer12\n", stderr: "" }) });
 		writeAuditLogMock.mockResolvedValue(undefined);
 		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-upd", slug: "demo", name: "Demo", category: "other", icon: "pkg", description: "Demo", image: "example/demo:new", port: 18080, path: "/demo/", envJson: "{}", volumesJson: "[]", internalPort: null, extraPortsJson: "[]", command: null, status: "running" });
 		prismaMock.quickService.update.mockResolvedValue({});

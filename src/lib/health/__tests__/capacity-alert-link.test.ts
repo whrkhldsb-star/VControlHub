@@ -42,6 +42,7 @@ import {
   daysValueFromServerForecast,
   evaluateCapacityLinkedAlerts,
   isCapacityAlertMetric,
+  resetCapacityForecastCache,
 } from "../capacity-alert-link";
 import type { ServerCapacityForecast } from "../capacity-predict";
 
@@ -92,6 +93,8 @@ describe("capacity alert metric helpers", () => {
 describe("evaluateCapacityLinkedAlerts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The forecast is cached for 15 min in production (A2-11); each case here brings its own.
+    resetCapacityForecastCache();
     openOrRefreshMock.mockResolvedValue({
       incidentId: "inc1",
       created: true,

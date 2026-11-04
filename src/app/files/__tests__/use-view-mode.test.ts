@@ -31,9 +31,9 @@ describe("useViewMode", () => {
 
 	it("setter updates both state and localStorage", () => {
 		const { result } = renderHook(() => useViewMode());
-		act(() => result.current[1]("details"));
-		expect(result.current[0]).toBe("details");
-		expect(localStorage.getItem(VIEW_MODE_KEY)).toBe("details");
+		act(() => result.current[1]("grid"));
+		expect(result.current[0]).toBe("grid");
+		expect(localStorage.getItem(VIEW_MODE_KEY)).toBe("grid");
 	});
 
 	it("setter is stable across renders", () => {

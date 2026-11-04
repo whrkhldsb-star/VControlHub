@@ -536,12 +536,13 @@ describe("/api/downloads", () => {
     // This ordering prevents a retry/concurrent tick from launching a duplicate
     // remote downloader before the CAS could reject it.
     await vi.waitFor(() => expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_direct", status: "PENDING" },
+      where: expect.objectContaining({ id: "task_direct", status: "PENDING" }),
       data: expect.objectContaining({ status: "RUNNING" }),
     })));
     await vi.waitFor(() => expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "task_direct", status: "RUNNING" },
-      data: expect.objectContaining({ pid: 12345, progress: "Downloading..." }),
+      // The progress text is translated now (A5); the pid is what this step records.
+      data: expect.objectContaining({ pid: 12345, progress: expect.any(String) }),
     })));
     expect(prismaMock.fileEntry.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
@@ -861,7 +862,7 @@ describe("/api/downloads", () => {
       createdBy: "u_1",
       url: "https://example.com/file.iso",
       status: "RUNNING",
-      progress: "Downloading...",
+      progress: "下载中…",
       pid: 12345,
       aria2Gid: null,
       relayMode: false,
@@ -916,7 +917,7 @@ describe("/api/downloads", () => {
       createdBy: "u_1",
       url: "https://example.com/file.iso",
       status: "RUNNING",
-      progress: "Downloading...",
+      progress: "下载中…",
       pid: 12345,
       aria2Gid: null,
       relayMode: false,
@@ -1200,7 +1201,10 @@ describe("/api/downloads", () => {
     }));
   });
 
-  it("does not mark an aria2 task cancelled when removeDownload fails", async () => {
+  it("cancels an aria2 task before removing it and tolerates a failing removeDownload", async () => {
+    // The CAS to CANCELLED runs first (A5-02): the relay worker polls aria2 every
+    // 5 s and used to see "removed" before the row changed, fail the task and
+    // notify, while this request answered 409.
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
       createdBy: "u_1",
@@ -1212,17 +1216,18 @@ describe("/api/downloads", () => {
       relayMode: true,
       server: serverFixture(),
     });
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 1 });
     removeDownloadMock.mockRejectedValueOnce(new Error("aria2 unavailable"));
 
     const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_relay", { method: "DELETE" }));
 
-    expect(response.status).toBe(502);
-    await expect(response.json()).resolves.toMatchObject({ error: "取消 aria2 下载失败，任务状态未改变" });
-    expect(rmMock).not.toHaveBeenCalled();
-    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay" },
+    expect(response.status).toBe(200);
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay", status: { in: ["PENDING", "RUNNING"] } },
       data: expect.objectContaining({ status: "CANCELLED" }),
     }));
+    expect(removeDownloadMock).toHaveBeenCalledWith("gid_1", true);
+    expect(rmMock).toHaveBeenCalled();
   });
 
   it("purges terminal download task records without touching remote processes", async () => {

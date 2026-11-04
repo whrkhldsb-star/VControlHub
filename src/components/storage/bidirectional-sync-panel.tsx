@@ -12,6 +12,7 @@ import { Notice } from "@/components/ui-primitives";
 import { api } from "@/lib/http/api-client";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { formatDateTime } from "@/lib/datetime/format";
 import { clearIfUnchanged } from "@/lib/ui/form-draft";
 import { EmptyState } from "@/components/page-shell";
 import { RefreshCw } from "@/components/icons";
@@ -27,6 +28,7 @@ type SyncJobRow = {
   targetPath: string;
   schedule: string | null;
   deleteOrphans: boolean;
+  compress?: boolean;
   lastSyncAt: string | null;
   lastSyncResult: string | null;
   sourceServer: { id: string; name: string; host: string | null };
@@ -72,7 +74,7 @@ function scheduleLabel(t: (key: string) => string, value: string): string {
 }
 
 export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; label: string } | null>(null);
@@ -83,12 +85,19 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
   const [targetPath, setTargetPath] = useState("/data/share");
   const [syncType, setSyncType] = useState<"MIRROR" | "BIDIRECTIONAL">("BIDIRECTIONAL");
   const [schedule, setSchedule] = useState("manual");
+  // Both were sent as false with no control (A4-34): a MIRROR job never removed orphans.
+  const [deleteOrphans, setDeleteOrphans] = useState(false);
+  const [compress, setCompress] = useState(false);
+  // Poll while a run is in progress so its result appears without a reload.
+  const [hasRunning, setHasRunning] = useState(false);
   const [reportJobId, setReportJobId] = useState<string | null>(null);
   const [report, setReport] = useState<ReportPayload["report"] | null>(null);
 
   const fetchJobs = useCallback(async () => {
     const data = await api.get<{ jobs?: SyncJobRow[] }>("/api/sync-jobs");
-    return data.jobs ?? [];
+    const jobs = data.jobs ?? [];
+    setHasRunning(jobs.some((job) => job.status === "RUNNING"));
+    return jobs;
   }, []);
   const getLoadError = useCallback(
     (cause: unknown) => getErrorMessage(cause, t("filesPage.syncJobs.loadFailed")),
@@ -96,7 +105,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
   );
   const { data, loading, error: loadError, refresh: load } = useResourcePolling({
     fetcher: fetchJobs,
-    intervalSeconds: 0,
+    intervalSeconds: hasRunning ? 5 : 0,
     getErrorMessage: getLoadError,
   });
   const jobs = data ?? [];
@@ -122,8 +131,8 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         targetPath,
         syncType,
         schedule: schedule === "manual" ? null : schedule,
-        deleteOrphans: false,
-        compress: false,
+        deleteOrphans: syncType === "MIRROR" && deleteOrphans,
+        compress,
       });
       clearIfUnchanged(setName, name, "");
       await load();
@@ -229,6 +238,16 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
             ))}
           </select>
         </label>
+        <div className="flex min-w-0 flex-col justify-end gap-1 text-xs text-[var(--text-secondary)]">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={compress} onChange={(e) => setCompress(e.target.checked)} />
+            {t("filesPage.syncJobs.compress")}
+          </label>
+          <label className="flex items-center gap-2" title={t("filesPage.syncJobs.deleteOrphansHint")}>
+            <input type="checkbox" checked={syncType === "MIRROR" && deleteOrphans} disabled={syncType !== "MIRROR"} onChange={(e) => setDeleteOrphans(e.target.checked)} />
+            {t("filesPage.syncJobs.deleteOrphans")}
+          </label>
+        </div>
         <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
           {t("filesPage.syncJobs.source")}
           <select
@@ -287,6 +306,9 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         onClick={() => void createJob()}>
         {busyId === "create" ? t("filesPage.syncJobs.creating") : t("filesPage.syncJobs.create")}
       </ActionButton>
+      <ActionButton size="sm" variant="secondary" disabled={loading} onClick={() => void load()}>
+        {t("filesPage.syncJobs.refresh")}
+      </ActionButton>
       {sameEndpoint ? (
         <p className="text-xs text-[var(--warning)]">{t("filesPage.syncJobs.sameEndpoint")}</p>
       ) : null}
@@ -310,6 +332,8 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                   <span className="font-medium text-[var(--text-primary)]">{job.name}</span>
                   <span className="ml-2 text-[var(--text-muted)]">
                     {syncTypeLabel(t, job.syncType)} · {getDomainStatusLabel(t, job.status)} · {scheduleLabel(t, job.schedule || "manual")}
+                    {job.deleteOrphans ? ` · ${t("filesPage.syncJobs.deleteOrphansOn")}` : ""}
+                    {job.compress ? ` · ${t("filesPage.syncJobs.compressOn")}` : ""}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -356,8 +380,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                   </p>
                   {report.summary ? (
                     <p className="mt-1 text-[var(--text-secondary)]">
-                      {report.summary.mode}: {report.summary.transferredFiles} files /{" "}
-                      {report.summary.durationSec}s
+                      {t("filesPage.syncJobs.summaryLine", { mode: report.summary.mode, files: report.summary.transferredFiles, seconds: report.summary.durationSec })}
                     </p>
                   ) : null}
                   {report.summary && report.summary.notes.length > 0 ? (
@@ -384,8 +407,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                       <p className="text-[var(--text-muted)]">{t("filesPage.syncJobs.history")}</p>
                       {report.history.slice(0, 5).map((h) => (
                         <p key={h.id} className="text-[var(--text-secondary)]">
-                          {h.startedAt.slice(0, 19)} · {getDomainStatusLabel(t, h.status)} · xfer {h.filesTransferred} ·{" "}
-                          {Math.round(h.durationMs / 1000)}s
+                          {formatDateTime(h.startedAt, locale)} · {getDomainStatusLabel(t, h.status)} · {t("filesPage.syncJobs.historyLine", { files: h.filesTransferred, seconds: Math.round(h.durationMs / 1000) })}
                           {h.errorMessage ? ` · ${h.errorMessage}` : ""}
                         </p>
                       ))}

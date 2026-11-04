@@ -122,6 +122,11 @@ export type PlaybookRecord = {
   nextRunAt: Date | null;
   lastTriggeredAt: Date | null;
   createdById: string | null;
+  /**
+   * Whether the owner account (whose permissions scheduled/alert runs use) can
+   * still run it; false once the creator was deleted or disabled (R0-07).
+   */
+  ownerActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

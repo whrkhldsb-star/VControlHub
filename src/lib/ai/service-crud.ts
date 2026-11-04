@@ -204,7 +204,9 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 	if (input.type !== undefined) data.type = resolveProviderType(input.type);
 	if (input.apiKey !== undefined) data.apiKey = encrypt(input.apiKey.trim());
 	if (input.baseUrl !== undefined) data.baseUrl = normalizeProviderBaseUrl(input.baseUrl);
-	if (input.defaultModel !== undefined) data.defaultModel = input.defaultModel.trim() || null;
+	// An empty model is not a choice: switching the provider type cleared it and
+	// every new conversation then failed with 400 (A7-06).
+	if (input.defaultModel !== undefined && input.defaultModel.trim()) data.defaultModel = input.defaultModel.trim();
 	if (input.availableModels !== undefined) {
 		data.availableModels = JSON.stringify(normalizeProviderModels(input.availableModels));
 	}

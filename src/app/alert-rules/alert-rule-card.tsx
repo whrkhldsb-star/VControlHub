@@ -21,6 +21,8 @@ type Props = {
 	toggleRule: (id: string) => Promise<void>;
 	testRule: (rule: AlertRule) => Promise<void>;
 	setRulePendingDelete: (rule: AlertRule | null) => void;
+	/** Opens the rule in the form (A8-04); without it there was only delete-and-recreate. */
+	onEdit?: (rule: AlertRule) => void;
 };
 
 const PERCENT_METRICS = new Set(["cpu_usage", "mem_usage", "disk_usage", "swap_usage"]);
@@ -32,6 +34,7 @@ export function AlertRuleCard({
 	toggleRule,
 	testRule,
 	setRulePendingDelete,
+	onEdit,
 }: Props) {
 	const { t, locale } = useI18n();
 	const silenceWindows = rule.silenceWindows ?? [];
@@ -105,6 +108,11 @@ export function AlertRuleCard({
 
 				{canManage ? (
 					<div className="flex shrink-0 flex-wrap items-center gap-2">
+						{onEdit && (
+							<ActionButton size="sm" variant="secondary" onClick={() => onEdit(rule)}>
+								{t("alertRulesPage.action.edit")}
+							</ActionButton>
+						)}
 						<ActionButton
 							size="sm"
 							variant="secondary"

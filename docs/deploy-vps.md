@@ -116,3 +116,10 @@ curl -I http://127.0.0.1:3000/login
 - 每台 VPS 的本地存储目录需提前创建并授权给运行用户。
 - 远端文件下载/流式访问优先从目标 VPS 直连用户；控制节点只保存必要元数据。
 - 生产禁用 demo fallback；数据库不可用时应失败并告警，而不是回落到演示数据。
+
+## 10. 安全边界：应用用户与 Docker
+
+- 安装器把应用用户加入 `docker` 组（`deploy/install.sh` 的 `usermod -aG docker`），快捷服务、Docker 页和 Compose 项目都靠它调用本机 dockerd。**能访问 `/var/run/docker.sock` 就等价于宿主 root**：一旦 Web/worker 进程被远程执行代码，`docker run --privileged -v /:/host` 可以读写整台宿主（含 `.env.runtime`、PostgreSQL 数据目录和所有客户的存储）。systemd 单元上的 `ProtectSystem=strict`、`NoNewPrivileges`、`SystemCallFilter` 等只约束进程本身，拦不住与守护进程的 API 对话。
+- 不需要快捷服务/Docker 功能的部署，请用 `SKIP_DOCKER=1` 安装，并把应用用户移出 `docker` 组（`gpasswd -d <APP_USER> docker`）；需要的部署请把这台主机视为"应用进程可取得 root"的单租户主机，不要与其他敏感服务共用。
+- 更严格的做法（尚未内置）：在应用与 dockerd 之间放一个只放行白名单端点、校验 `HostConfig`（拒绝 `Privileged`、`PidMode=host`、`CapAdd`、`/opt/<服务>` 以外的 `Binds`）的套接字代理，或改用 rootless Docker。
+- 安装器会渲染并启用 `<APP_SLUG>-backup.timer`（每日 03:30 全量恢复备份，写入 `BACKUP_DIR`），保留天数与异地上传开关来自环境文件。

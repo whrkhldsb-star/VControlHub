@@ -22,6 +22,8 @@ export const updateBackupScheduleSchema = createBackupScheduleSchema
   .extend({
     id: z.string().trim().min(1),
     status: z.enum(["ACTIVE", "PAUSED", "DISABLED"]).optional(),
+    /** Make the caller the creator whose permissions the dispatcher uses (A9-05). */
+    claimOwnership: z.literal(true).optional(),
   });
 
 export const toggleBackupScheduleSchema = z.object({

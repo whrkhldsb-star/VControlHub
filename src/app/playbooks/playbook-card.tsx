@@ -32,7 +32,7 @@ export function PlaybookRunHistory({ runs, t }: PlaybookRunHistoryProps) {
           runs.map((r) => (
             <div key={r.id} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
               <StatusBadge tone={r.status === "failed" ? "danger" : r.status === "completed" ? "success" : "neutral"} size="sm">
-                {statusLabelFor(t, r.status)}{r.dryRun ? " · dry-run" : ""}
+                {statusLabelFor(t, r.status)}{r.dryRun ? ` · ${t("playbooksPage.runHistory.dryRun")}` : ""}
               </StatusBadge>
               <span className="text-[var(--text-muted)]">{formatTime(r.startedAt, locale)}</span>
               {r.stepResults && r.stepResults.length > 0 && (
@@ -63,6 +63,7 @@ type PlaybookCardProps = {
   busyAction: string | null;
   onTrigger: (id: string, kind: "run" | "dry-run") => void;
   onToggle: (playbook: SerializedPlaybook) => void;
+  onClaim: (playbook: SerializedPlaybook) => void;
   onDelete: (playbook: SerializedPlaybook) => void;
 };
 
@@ -74,12 +75,14 @@ export const PlaybookCard = memo(function PlaybookCard({
   busyAction,
   onTrigger,
   onToggle,
+  onClaim,
   onDelete,
 }: PlaybookCardProps) {
   const { t, locale } = useI18n();
   const isRunning = busyAction === `run:${playbook.id}`;
   const isDryRunning = busyAction === `dry-run:${playbook.id}`;
   const isToggling = busyAction === `toggle:${playbook.id}`;
+  const isClaiming = busyAction === `claim:${playbook.id}`;
   const isDeleting = busyAction === `delete:${playbook.id}`;
   const playbookRuns = runs ?? [];
 
@@ -95,6 +98,11 @@ export const PlaybookCard = memo(function PlaybookCard({
             <StatusBadge tone="accent" size="sm">
               {playbook.triggerType === "cron" ? t("playbooksPage.triggerType.cron") : t("playbooksPage.triggerType.metric")}
             </StatusBadge>
+            {!playbook.ownerActive && (
+              <StatusBadge tone="warning" size="sm" title={t("playbooksPage.ownerInvalid.hint")}>
+                {t("playbooksPage.ownerInvalid")}
+              </StatusBadge>
+            )}
           </div>
           {playbook.description && (
             <p className="mt-1 text-xs text-[var(--text-secondary)]">{playbook.description}</p>
@@ -135,6 +143,13 @@ export const PlaybookCard = memo(function PlaybookCard({
               {isToggling ? t("playbooksPage.action.toggling") : t("playbooksPage.action.toggle")}
             </ActionButton>
           )}
+          {canManage && !playbook.ownerActive && (
+            <ActionButton variant="secondary"
+              onClick={() => onClaim(playbook)}
+              disabled={isClaiming}>
+              {isClaiming ? t("playbooksPage.action.claiming") : t("playbooksPage.action.claim")}
+            </ActionButton>
+          )}
           {canManage && (
             <ActionButton variant="danger"
               onClick={() => onDelete(playbook)}
@@ -154,5 +169,6 @@ export const PlaybookCard = memo(function PlaybookCard({
   && prev.busyAction === next.busyAction
   && prev.onTrigger === next.onTrigger
   && prev.onToggle === next.onToggle
+  && prev.onClaim === next.onClaim
   && prev.onDelete === next.onDelete
 );

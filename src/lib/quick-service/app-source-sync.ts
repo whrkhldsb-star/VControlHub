@@ -18,7 +18,10 @@ import { t } from "@/lib/i18n/service-translations";
 const logger = createLogger("app-source:sync");
 
 const MAX_ENABLED_APP_SOURCES = 50;
-const MAX_REMOTE_APPS = 500;
+// The adapters keep up to 5000 apps per source (APP_SOURCE_MAX_APPS); this
+// module used to stop at 500, so the community tab silently lost the rest and
+// the stale-row cleanup compared against the wrong cap (A6-11).
+const MAX_REMOTE_APPS = 5000;
 const SOURCE_APP_CLEANUP_PAGE_SIZE = 500;
 
 type AppSourceAppSlugRow = Prisma.AppSourceAppGetPayload<{ select: { id: true; slug: true } }>;
@@ -207,12 +210,20 @@ export async function syncAllSources(): Promise<Array<{ name: string; synced: nu
  * Get all remote apps from the database, grouped by category.
  */
 export async function getRemoteApps(): Promise<NormalizedApp[]> {
-	const apps = await prisma.appSourceApp.findMany({
-		where: { source: { enabled: true } },
-		orderBy: [{ category: "asc" }, { name: "asc" }],
-		take: MAX_REMOTE_APPS,
-		include: { source: { select: { name: true } } },
-	});
+	const apps: RemoteAppRow[] = [];
+	let cursor: string | undefined;
+	while (apps.length < MAX_REMOTE_APPS) {
+		const page = await prisma.appSourceApp.findMany({
+			where: { source: { enabled: true } },
+			orderBy: [{ category: "asc" }, { name: "asc" }, { id: "asc" }],
+			take: Math.min(500, MAX_REMOTE_APPS - apps.length),
+			...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+			include: { source: { select: { name: true } } },
+		});
+		apps.push(...page);
+		if (page.length < 500) break;
+		cursor = page[page.length - 1]!.id;
+	}
 
 	return apps.flatMap((app: RemoteAppRow): NormalizedApp[] => {
 		try {

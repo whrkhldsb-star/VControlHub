@@ -20,6 +20,14 @@ import {
   resolveAlertIncident,
 } from "@/lib/alert/incidents";
 import { runPlaybook } from "@/lib/playbook/service";
+import { t } from "@/lib/i18n/service-translations";
+
+/** Metric name as copy (A2-10): alert titles and bodies used to be built in English and stored that way. */
+function alertMetricLabel(metric: string): string {
+  const key = `backend.metric.${metric}`;
+  const label = t(key);
+  return label === key ? metric.replace("_", " ") : label;
+}
 
 const logger = createLogger("health:service-alerts");
 
@@ -281,11 +289,13 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
           Boolean(matchState[server.serverId]) ||
           Boolean(matchState[LEGACY_MATCH_KEY]);
         if (hadMatch) {
-          const resolvedTitle = `Alert resolved: ${server.serverName} ${rule.metric === "server_offline" ? "back online" : rule.metric.replace("_", " ")}`;
+          const resolvedTitle = rule.metric === "server_offline"
+            ? t("backend.alert.resolvedTitle.offline", { server: server.serverName })
+            : t("backend.alert.resolvedTitle.metric", { server: server.serverName, metric: alertMetricLabel(rule.metric) });
           const resolvedMessage =
             rule.metric === "server_offline"
-              ? `${rule.name}: ${server.serverName} is reachable again`
-              : `${rule.name}: ${rule.metric} has returned to normal range (threshold ${rule.operator} ${rule.threshold})`;
+              ? t("backend.alert.resolvedMessage.offline", { rule: rule.name, server: server.serverName })
+              : t("backend.alert.resolvedMessage.metric", { rule: rule.name, metric: alertMetricLabel(rule.metric), operator: rule.operator, threshold: rule.threshold });
           await resolveAlertIncident({
             ruleId: rule.id,
             ruleName: rule.name,
@@ -329,8 +339,10 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
       // spam control lives in openOrRefreshAlertIncident (notified=false while
       // OPEN/ACKNOWLEDGED). Escalation of open incidents is handled separately.
 
-      const title = `Alert: ${server.serverName} ${rule.metric === "server_offline" ? "offline" : rule.metric.replace("_", " ")}`;
-      const message = `${rule.name}: ${rule.metric} ${rule.operator} ${rule.threshold} (current: ${value})`;
+      const title = rule.metric === "server_offline"
+        ? t("backend.alert.title.offline", { server: server.serverName })
+        : t("backend.alert.title.metric", { server: server.serverName, metric: alertMetricLabel(rule.metric) });
+      const message = t("backend.alert.message.metric", { rule: rule.name, metric: alertMetricLabel(rule.metric), operator: rule.operator, threshold: rule.threshold, value });
 
       const fire = await openOrRefreshAlertIncident({
         ruleId: rule.id,

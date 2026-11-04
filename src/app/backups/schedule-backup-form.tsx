@@ -30,8 +30,14 @@ type BackupSchedule = {
 	lastResult: string | null;
 	runCount: number;
 	createdAt: string;
-	creator?: { username: string | null; displayName: string | null } | null;
+	creator?: { username: string | null; displayName: string | null; status?: string; mustChangePassword?: boolean } | null;
 };
+
+/** The dispatcher runs a schedule with its creator's permissions; no live creator means it is skipped every minute (A9-05). */
+function scheduleOwnerActive(schedule: BackupSchedule): boolean {
+	if (schedule.creator === undefined) return true;
+	return Boolean(schedule.creator) && schedule.creator!.status !== "DISABLED" && schedule.creator!.mustChangePassword !== true;
+}
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -150,6 +156,24 @@ export function ScheduleBackupForm() {
 		}
 	};
 
+	const claimSchedule = async (id: string) => {
+		if (rowActionId) return;
+		setRowActionId(id);
+		setMessage(null);
+		try {
+			await csrfFetch("/api/backup-schedules", {
+				method:"PATCH",
+				headers: {"Content-Type":"application/json" },
+				body: JSON.stringify({ id, claimOwnership: true }),
+			});
+			await fetchSchedules();
+		} catch (error) {
+			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.failFallback")) });
+		} finally {
+			setRowActionId(null);
+		}
+	};
+
 	const deleteSchedule = async (id: string) => {
 		if (rowActionId) return;
 		setRowActionId(id);
@@ -237,9 +261,10 @@ export function ScheduleBackupForm() {
 							<div key={s.id} className="px-4 py-3">
 								<div className="flex flex-wrap items-start justify-between gap-3">
 									<div className="min-w-0 flex-1">
-										<div className="flex items-center gap-2">
+										<div className="flex flex-wrap items-center gap-2">
 											<span className="text-sm font-medium text-[var(--text-primary)]">{s.name}</span>
 											<Badge tone={statusBadgeTone(s.status)}>{statusLabel(t, s.status)}</Badge>
+											{!scheduleOwnerActive(s) && <Badge tone="warning">{t("backupsPage.schedule.ownerInvalid")}</Badge>}
 										</div>
 										<div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 											<span className="font-mono">{s.cronExpression}</span>
@@ -261,6 +286,16 @@ export function ScheduleBackupForm() {
 										{s.note && <p className="mt-1 text-xs text-[var(--text-muted)]">{s.note}</p>}
 									</div>
 									<div className="flex shrink-0 gap-2">
+										{!scheduleOwnerActive(s) && (
+											<ActionButton
+												size="xs"
+												variant="primary"
+												disabled={rowActionId !== null}
+												onClick={() => void claimSchedule(s.id)}
+											>
+												{t("backupsPage.schedule.claim")}
+											</ActionButton>
+										)}
 										<ActionButton
 											size="xs"
 											variant="secondary"

@@ -195,6 +195,16 @@ export function CostBudgetPanel({
             <option value="quarterly">{t("costPage.budget.quarterly")}</option>
             <option value="yearly">{t("costPage.budget.yearly")}</option>
           </select>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            className={inputClass}
+            aria-label={t("costPage.budget.alertThreshold")}
+            title={t("costPage.budget.alertThreshold")}
+            value={form.alertThresholdPercent}
+            onChange={(e) => setForm({ ...form, alertThresholdPercent: Math.min(100, Math.max(1, Number(e.target.value) || 80)) })}
+          />
           <ActionButton type="button" disabled={busy} onClick={create}>
             {t("costPage.budget.create")}
           </ActionButton>

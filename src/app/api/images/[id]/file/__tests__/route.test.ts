@@ -117,6 +117,8 @@ describe("GET /api/images/[id]/file", () => {
       select: {
         id: true,
         storageKey: true,
+        checksum: true,
+        createdAt: true,
         mimeType: true,
         filename: true,
         isPublic: true,

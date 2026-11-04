@@ -43,6 +43,7 @@ const mocks = vi.hoisted(() => ({
   renameBackingObject: vi.fn(),
   snapshotFileVersionBeforeOverwrite: vi.fn(),
   readRequestBodyBuffer: vi.fn(),
+  readStorageUploadMaxBytes: vi.fn(async () => 100 * 1024 * 1024),
 }));
 
 vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
@@ -78,9 +79,12 @@ vi.mock("@/lib/storage/file-content", async () => {
     streamStorageFile: mocks.streamStorageFile,
     copyStorageFile: mocks.copyStorageFile,
     writeStorageFileBuffer: mocks.writeStorageFileBuffer,
+    // The PUT body streams to a temp file and lands through this (A4-16); the tests keep one fake for both.
+    writeStorageFileFromLocalPath: mocks.writeStorageFileBuffer,
     deleteStorageFileBuffer: mocks.deleteStorageFileBuffer,
   };
 });
+vi.mock("@/lib/upload/limits", () => ({ readStorageUploadMaxBytes: mocks.readStorageUploadMaxBytes }));
 vi.mock("@/lib/storage/fs-backend", () => ({
   createManagedFolder: mocks.createManagedFolder,
   deleteBackingObject: mocks.deleteBackingObject,
@@ -330,13 +334,12 @@ describe("webdav handlers", () => {
     it("charges the body size to the write grant and always releases the guard", async () => {
       const guard = { allowed: true, releaseQuotaGuard: vi.fn() };
       mocks.assertStorageAccess.mockResolvedValue(guard);
-      mocks.readRequestBodyBuffer.mockResolvedValue(Buffer.alloc(1234));
       mocks.fileEntryFindFirst.mockResolvedValue(null);
       mocks.createFileEntry.mockResolvedValue({ id: "f_new" });
 
       const response = await handleWebDavPut(
         context("dir/a.bin"),
-        new Request("https://hub.example/api/webdav/n1/dir/a.bin", { method: "PUT" }),
+        new Request("https://hub.example/api/webdav/n1/dir/a.bin", { method: "PUT", body: Buffer.alloc(1234) }),
       );
 
       expect(response.status).toBe(201);
@@ -351,26 +354,25 @@ describe("webdav handlers", () => {
     it("releases the guard even when the write fails", async () => {
       const guard = { allowed: true, releaseQuotaGuard: vi.fn() };
       mocks.assertStorageAccess.mockResolvedValue(guard);
-      mocks.readRequestBodyBuffer.mockResolvedValue(Buffer.alloc(4));
       mocks.fileEntryFindFirst.mockResolvedValue(null);
       mocks.writeStorageFileBuffer.mockRejectedValue(new Error("disk full"));
 
       await expect(
         handleWebDavPut(
           context("a.bin"),
-          new Request("https://hub.example/api/webdav/n1/a.bin", { method: "PUT" }),
+          new Request("https://hub.example/api/webdav/n1/a.bin", { method: "PUT", body: Buffer.alloc(4) }),
         ),
       ).rejects.toThrow("disk full");
       expect(mocks.releaseStorageQuotaGuard).toHaveBeenCalledWith(guard);
     });
 
     it("answers 413 for an oversized body without consuming a grant", async () => {
-      const { RequestBodyTooLargeError } = await import("@/lib/http/request-body");
-      mocks.readRequestBodyBuffer.mockRejectedValue(new RequestBodyTooLargeError(1));
+      // The limit is the storage upload setting (A4-16): one byte here, two in the body.
+      mocks.readStorageUploadMaxBytes.mockResolvedValueOnce(1);
 
       const response = await handleWebDavPut(
         context("a.bin"),
-        new Request("https://hub.example/api/webdav/n1/a.bin", { method: "PUT" }),
+        new Request("https://hub.example/api/webdav/n1/a.bin", { method: "PUT", body: "xx" }),
       );
 
       expect(response.status).toBe(413);
@@ -837,7 +839,8 @@ describe("webdav handlers", () => {
       const response = await handleWebDavOptions();
 
       expect(response.status).toBe(204);
-      expect(response.headers.get("DAV")).toBe("1");
+      // Class 2 (advisory LOCK/UNLOCK) so Finder and Explorer mount read-write (A4-16).
+      expect(response.headers.get("DAV")).toBe("1, 2");
       for (const verb of ["PROPFIND", "PUT", "DELETE", "MKCOL", "MOVE", "COPY"]) {
         expect(response.headers.get("Allow")).toContain(verb);
       }

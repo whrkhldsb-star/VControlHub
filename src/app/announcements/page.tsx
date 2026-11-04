@@ -9,12 +9,18 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 // minute-old cached list immediately after create/edit/delete.
 export const dynamic = "force-dynamic";
 
+/** The list and the clock it was read at: the client computes the visibility badges against that instant. */
+async function loadAnnouncements(canManage: boolean) {
+	const items = canManage ? await listAnnouncements() : await listActiveAnnouncements();
+	return { items, now: Date.now() };
+}
+
 /** Every signed-in account reads active announcements; platform administrators publish them. */
 export default async function AnnouncementsPage() {
 	const session = await requireSession("/announcements");
 	const canManage = canManageAnnouncements(session);
 	const locale = await getServerLocale();
-	const items = canManage ? await listAnnouncements() : await listActiveAnnouncements();
+	const { items, now } = await loadAnnouncements(canManage);
 
 	const serialized = items.map((a) => ({
 		id: a.id,
@@ -22,6 +28,7 @@ export default async function AnnouncementsPage() {
 		body: a.body,
 		level: a.level,
 		pinned: a.pinned,
+		published: "published" in a ? Boolean(a.published) : true,
 		startsAt: a.startsAt.toISOString(),
 		expiresAt: a.expiresAt ? a.expiresAt.toISOString() : null,
 	}));
@@ -40,6 +47,7 @@ export default async function AnnouncementsPage() {
 				key={serialized.map((item) => item.id).join("|")}
 				items={serialized}
 				canManage={canManage}
+				now={now}
 			/>
 		</PageShell>
 	);

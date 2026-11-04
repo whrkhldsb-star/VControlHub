@@ -23,6 +23,7 @@ Group={{APP_USER}}-gateway
 
 # Security hardening
 NoNewPrivileges=true
+UMask=0027
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/tmp

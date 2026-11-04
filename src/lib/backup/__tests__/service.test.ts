@@ -100,7 +100,7 @@ describe("backup service", () => {
     expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith({
       where: {},
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: 500,
       include: { creator: { select: { username: true, displayName: true } } },
     });
   });
@@ -180,7 +180,8 @@ describe("backup service", () => {
     expect(filesCommand).toContain("--files");
     expect(fullCommand).toContain("--full");
     for (const command of [databaseCommand, filesCommand, fullCommand]) {
-      expect(command).toContain("backups/");
+      // Absolute under BACKUP_DIR (A9-04); the separator is the platform's (Windows CI runs this too).
+      expect(command).toMatch(/backups[\\/]/);
       expect(command).not.toMatch(/PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
     }
   });
@@ -376,7 +377,8 @@ describe("backup service", () => {
       // The file the plan just verified, under BACKUP_DIR — not a path
       // relative to the app directory the command runs in.
       expect(plan.commands.restore).toBe("cd '/opt/app' && CONFIRM_RESTORE=1 bash scripts/restore-db.sh '/var/backups/vcontrolhub/backups/database.sql.gz'");
-      expect(plan.commands.safetySnapshot).toMatch(/^cd '\/opt\/app' && bash deploy\/backup\.sh 'backups\/pre-restore-bak1-\d+\.sql\.gz'$/);
+      // Under BACKUP_DIR too (A9-04): a relative path was written under the app directory, where nothing lists or retains it.
+      expect(plan.commands.safetySnapshot).toMatch(/^cd '\/opt\/app' && bash deploy\/backup\.sh '\/var\/backups\/vcontrolhub\/pre-restore-bak1-\d+\.sql\.gz'$/);
       expect(plan.commands.startServices).toBe("sudo systemctl start vcontrolhub-ssh-ws vcontrolhub-worker vcontrolhub-next");
     }
   });
@@ -387,7 +389,7 @@ describe("backup service", () => {
     expect(plan.component).toBe("files");
     if (process.platform !== "win32") {
       expect(plan.commands.restore).toBe("cd '/opt/app' && CONFIRM_RESTORE=1 bash scripts/restore-full.sh '/var/backups/vcontrolhub/backups/full.tar.gz' 'files' '/opt/app'");
-      expect(plan.commands.safetySnapshot).toContain("--files 'backups/pre-restore-bak-full-");
+      expect(plan.commands.safetySnapshot).toContain("--files '/var/backups/vcontrolhub/pre-restore-bak-full-");
     }
   });
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { formatDateTime } from "@/lib/datetime/format";
 import type { ServerActionState } from "./actions";
 
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -69,7 +70,7 @@ export function ServerCardEditForm({
   editAction,
   editState,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const windows = operatingSystem === "WINDOWS";
   const [observedHostKeySha256, setObservedHostKeySha256] = useState(
     () => editState.hostKeySha256 ?? "",
@@ -365,7 +366,7 @@ export function ServerCardEditForm({
         />
         {costLastSyncedAt ? (
           <p className="text-xs text-[var(--text-muted)]">
-            {t("serverCardActions.edit.costLastSynced", { time: costLastSyncedAt })}
+            {t("serverCardActions.edit.costLastSynced", { time: formatDateTime(costLastSyncedAt, locale) })}
           </p>
         ) : null}
         <ServerBillingFields compact defaults={billingFormValues(billing)} />

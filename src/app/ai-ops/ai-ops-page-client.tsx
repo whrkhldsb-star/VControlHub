@@ -152,21 +152,24 @@ export function AiOpsPageClient({
 			const res = await csrfFetch<Response>("/api/ai/ops/scan", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ notes: "manual-trigger-ui" }),
+				body: JSON.stringify({}),
 				raw: true,
 			});
 			if (!res.ok) throw new Error(`status=${res.status}`);
 			const body = (await res.json()) as {
 				triggered: boolean;
+				queued?: boolean;
 				latestLog: AiOpsLogRecord | null;
 			};
+			// The scan is queued for the worker (A7-04); the log row appears once it has run.
 			addToast(
 				"success",
 				body.triggered
-					? t("aiOpsPage.actions.triggerScan")
+					? t("aiOpsPage.actions.scanQueued")
 					: t("aiOpsPage.actions.scanning"),
 			);
 			await reload();
+			if (body.triggered) window.setTimeout(() => { void reload(); }, 15_000);
 		} catch (error) {
 			addToast(
 				"error",

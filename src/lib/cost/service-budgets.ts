@@ -29,27 +29,44 @@ export function getBudgetPeriodRange(period: CostBudgetPeriod, now = new Date())
 	return { start: new Date(Date.UTC(year, 0, 1)), endExclusive: new Date(Date.UTC(year + 1, 0, 1)) };
 }
 
-async function budgetToRecord(row: BudgetRow & { teamId?: string | null }, now = new Date()): Promise<CostBudgetRecord> {
+type BudgetUsage = { amount: string; others: CostCurrencyBucket[] };
+
+/**
+ * Usage of every budget in one grouped query per distinct period (A8-07): the
+ * list and the daily check used to run two aggregates per budget.
+ */
+async function loadBudgetUsage(rows: Array<BudgetRow & { teamId?: string | null }>, now: Date): Promise<Map<string, BudgetUsage>> {
+	const usage = new Map<string, BudgetUsage>();
+	const byPeriod = new Map<string, Array<BudgetRow & { teamId?: string | null }>>();
+	for (const row of rows) byPeriod.set(row.period, [...(byPeriod.get(row.period) ?? []), row]);
+	for (const [period, group] of byPeriod) {
+		const range = getBudgetPeriodRange(period as CostBudgetPeriod, now);
+		const grouped = await prisma.costEntry.groupBy({
+			by: ["category", "currency", "teamId"],
+			where: { category: { in: [...new Set(group.map((row) => row.category))] }, effectiveDate: { gte: range.start, lt: range.endExclusive } },
+			_sum: { amount: true },
+			_count: { _all: true },
+		});
+		for (const row of group) {
+			const mine = grouped.filter((entry) => entry.category === row.category && (entry.teamId ?? null) === (row.teamId ?? null));
+			const own = mine.find((entry) => entry.currency === row.currency);
+			usage.set(row.id, {
+				amount: (Number(own?._sum.amount?.toString() ?? "0") || 0).toFixed(2),
+				others: mine
+					.filter((entry) => entry.currency !== row.currency)
+					.map((entry) => ({ currency: entry.currency as CostCurrency, totalAmount: (Number(entry._sum.amount?.toString() ?? "0") || 0).toFixed(2), entryCount: entry._count._all }))
+					.sort((a, b) => a.currency.localeCompare(b.currency)),
+			});
+		}
+	}
+	return usage;
+}
+
+async function budgetToRecord(row: BudgetRow & { teamId?: string | null }, now = new Date(), preloaded?: BudgetUsage): Promise<CostBudgetRecord> {
 	const range = getBudgetPeriodRange(row.period as CostBudgetPeriod, now);
-	// Usage belongs to the budget's tenant, not to the viewer's current scope.
-	const periodWhere = { category: row.category, effectiveDate: { gte: range.start, lt: range.endExclusive }, teamId: row.teamId ?? null };
-	const aggregate = await prisma.costEntry.aggregate({ where: { ...periodWhere, currency: row.currency }, _sum: { amount: true } });
-	// Spend in other currencies cannot be converted (no FX source) but must not
-	// vanish: a CNY budget that silently ignores USD spend never alerts.
-	const otherRows = await prisma.costEntry.groupBy({
-		by: ["currency"],
-		where: { ...periodWhere, currency: { not: row.currency } },
-		_sum: { amount: true },
-		_count: { _all: true },
-	});
-	const otherCurrencyUsage: CostCurrencyBucket[] = otherRows
-		.map((other) => ({
-			currency: other.currency as CostCurrency,
-			totalAmount: (Number(other._sum.amount?.toString() ?? "0") || 0).toFixed(2),
-			entryCount: other._count._all,
-		}))
-		.sort((a, b) => a.currency.localeCompare(b.currency));
-	const usageAmount = aggregate._sum.amount?.toFixed(2) ?? "0.00"; const limitAmount = row.limitAmount.toFixed(2);
+	const usage = preloaded ?? (await loadBudgetUsage([row], now)).get(row.id) ?? { amount: "0.00", others: [] };
+	const otherCurrencyUsage = usage.others;
+	const usageAmount = usage.amount; const limitAmount = row.limitAmount.toFixed(2);
 	return { id: row.id, category: row.category as CostCategory, name: row.name, limitAmount, currency: row.currency as CostCurrency, period: row.period as CostBudgetPeriod, alertThresholdPercent: row.alertThresholdPercent, enabled: row.enabled, usageAmount, usagePercent: Number(((Number(usageAmount) / Number(limitAmount)) * 100).toFixed(1)), periodStart: isoDateOnly(range.start), periodEnd: isoDateOnly(new Date(range.endExclusive.getTime() - 1)), otherCurrencyUsage, teamId: row.teamId ?? null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
 }
 
@@ -62,7 +79,8 @@ export async function listCostBudgets(now = new Date(), session?: TeamSession | 
 	// Without a session (the daily alert check): live customers' budgets only,
 	// so a deleted customer's do not keep alerting.
 	const rows = await prisma.costBudget.findMany({ where: session ? teamWhere(session) : liveCustomerRowsWhere(), orderBy: { createdAt: "desc" } });
-	return Promise.all(rows.map((row) => budgetToRecord(row, now)));
+	const usage = await loadBudgetUsage(rows, now);
+	return Promise.all(rows.map((row) => budgetToRecord(row, now, usage.get(row.id))));
 }
 export async function updateCostBudget(id: string, input: unknown, session?: TeamSession | null): Promise<CostBudgetRecord> {
 	const parsed = updateCostBudgetSchema.parse(input); const data: Prisma.CostBudgetUpdateInput = { ...parsed };

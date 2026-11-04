@@ -25,6 +25,7 @@ type ServerCommandTarget = {
     initiatedByType: string;
     status: string;
     createdAt: Date | string;
+    teamId?: string | null;
   };
 };
 
@@ -365,7 +366,9 @@ export function enrichServer(server: ServerWithRelations) {
     pendingCommandCount: (server.commandTargets ?? []).filter(
       (target) => target.status === "PENDING_APPROVAL",
     ).length,
-    latestCommands: (server.commandTargets ?? []).map((target) => ({
+    // Commands issued while the server belonged to another customer stay with
+    // that customer's history; the card must not carry their titles across (A2-03).
+    latestCommands: (server.commandTargets ?? []).filter((target) => (target.commandRequest.teamId ?? null) === (server.teamId ?? null)).map((target) => ({
       id: target.commandRequest.id,
       title: target.commandRequest.title,
       initiatedByType: target.commandRequest.initiatedByType,

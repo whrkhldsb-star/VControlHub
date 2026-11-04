@@ -422,14 +422,20 @@ install_packages() {
 	elif have_cmd caddy; then
 		log " ✓ Caddy already installed: $(caddy version 2>/dev/null || echo 'present')"
 	else
-		# Stop Apache/Nginx if they are occupying port 80/443 — Caddy needs them.
+		# Caddy needs ports 80/443. Another server on port 80 may be serving other
+		# sites: stopping and disabling it silently was a surprise (A10-05). Fail
+		# with the owner's name unless TAKE_OVER_PORT_80=1 says to take it over.
 		if ss -tlnp 2>/dev/null | grep -q ':80\b'; then
 			local port80_owner
 			port80_owner="$(ss -tlnp 2>/dev/null | grep ':80\b' | head -1 | grep -oP 'users=\(\("\K[^"]+' || true)"
 			if [ -n "${port80_owner}" ]; then
-				log "Stopping ${port80_owner} on port 80 to make room for Caddy"
-				systemctl stop "${port80_owner}" 2>/dev/null || true
-				systemctl disable "${port80_owner}" 2>/dev/null || true
+				if [ "${TAKE_OVER_PORT_80:-0}" = "1" ]; then
+					log "Stopping ${port80_owner} on port 80 to make room for Caddy (TAKE_OVER_PORT_80=1)"
+					systemctl stop "${port80_owner}" 2>/dev/null || true
+					systemctl disable "${port80_owner}" 2>/dev/null || true
+				else
+					fail "Port 80 is used by ${port80_owner}. Stop it yourself, run with TAKE_OVER_PORT_80=1 to let the installer stop and disable it, or install without DOMAIN to use the IP reverse proxy."
+				fi
 			fi
 		fi
 		log " ✗ Caddy missing — installing"
@@ -1133,10 +1139,38 @@ sed \
 			-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
 			-e "s|{{QUICK_SERVICE_READ_WRITE_PATHS}}|${quick_service_read_write_paths}|g" \
 			-e "s|{{SERVICE_PREFIX}}|${SERVICE_PREFIX}|g" \
+			-e "s|{{BACKUP_DIR}}|${BACKUP_DIR:-/var/backups/${APP_SLUG}}|g" \
 			"${src}" > "${dst}"
 		chmod 0644 "${dst}"
 		systemd-analyze verify "${dst}" >/dev/null 2>&1 || warn "systemd-analyze verify reported warnings for ${dst}"
 	done
+	# Nightly recovery backup (A10-02): the service and timer templates shipped
+	# for a year without anything rendering them.
+	local backup_kind
+	for backup_kind in service timer; do
+		local backup_src="${APP_DIR}/deploy/systemd/${APP_SLUG}-backup.${backup_kind}.example"
+		[ -f "${backup_src}" ] || backup_src="${APP_DIR}/deploy/systemd/vcontrolhub-backup.${backup_kind}.example"
+		[ -f "${backup_src}" ] || { warn "backup ${backup_kind} template not found; nightly backups stay unscheduled"; continue; }
+		local backup_dst="${DESTDIR}/etc/systemd/system/${SERVICE_PREFIX}-backup.${backup_kind}"
+		chattr -i "${backup_dst}" 2>/dev/null || true
+		sed \
+			-e "s|{{SITE_NAME}}|${SITE_NAME}|g" \
+			-e "s|{{APP_DIR}}|${APP_DIR}|g" \
+			-e "s|{{ENV_FILE}}|${ENV_FILE}|g" \
+			-e "s|{{RUNTIME_ENV_FILE}}|${RUNTIME_ENV_FILE}|g" \
+			-e "s|{{NODE_BIN}}|${node_bin}|g" \
+			-e "s|{{APP_USER}}|${APP_USER}|g" \
+			-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
+			-e "s|{{SERVICE_PREFIX}}|${SERVICE_PREFIX}|g" \
+			-e "s|{{BACKUP_DIR}}|${BACKUP_DIR:-/var/backups/${APP_SLUG}}|g" \
+			"${backup_src}" > "${backup_dst}"
+		chmod 0644 "${backup_dst}"
+	done
+	if [ -z "${DESTDIR}" ]; then
+		mkdir -p "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
+		chown "${APP_USER}:${APP_USER}" "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
+		chmod 750 "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
+	fi
 	# Older deployments used a drop-in to disable the in-process worker. The
 	# setting now lives in the canonical next unit, so remove only that exact
 	# legacy file and leave operator-owned drop-ins untouched.
@@ -1158,6 +1192,8 @@ sed \
 		local enable_units=("${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service")
 		[ ! -f "/etc/systemd/system/${SERVICE_PREFIX}-aria2.service" ] || enable_units+=("${SERVICE_PREFIX}-aria2.service")
 		systemctl enable "${enable_units[@]}"
+		# The nightly backup timer rendered above (A10-02).
+		[ ! -f "/etc/systemd/system/${SERVICE_PREFIX}-backup.timer" ] || systemctl enable --now "${SERVICE_PREFIX}-backup.timer" || warn "could not enable ${SERVICE_PREFIX}-backup.timer"
 	fi
 }
 install_caddy() {
@@ -1193,17 +1229,21 @@ sed -i \
   return 0
  fi
  systemctl enable caddy
- # Ensure Apache/Nginx is not stealing port 80/443 from Caddy.
- if systemctl is-active --quiet apache2 2>/dev/null; then
- log "Stopping Apache2 (Caddy will handle ports 80/443)"
- systemctl stop apache2
- systemctl disable apache2
+ # Apache/Nginx on 80/443 would keep Caddy from binding. They are only
+ # stopped (and disabled) when TAKE_OVER_PORT_80=1 (A10-05); otherwise the
+ # installer says what is in the way and stops.
+ local other_web
+ for other_web in apache2 nginx; do
+ if systemctl is-active --quiet "${other_web}" 2>/dev/null; then
+ if [ "${TAKE_OVER_PORT_80:-0}" = "1" ]; then
+ log "Stopping ${other_web} (Caddy will handle ports 80/443; TAKE_OVER_PORT_80=1)"
+ systemctl stop "${other_web}"
+ systemctl disable "${other_web}"
+ else
+ fail "${other_web} is running and would hold ports 80/443. Stop it yourself or re-run with TAKE_OVER_PORT_80=1."
  fi
- if systemctl is-active --quiet nginx 2>/dev/null; then
- log "Stopping Nginx (Caddy will handle ports 80/443)"
- systemctl stop nginx
- systemctl disable nginx
  fi
+ done
 }
 
 install_apache() {

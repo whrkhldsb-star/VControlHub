@@ -10,6 +10,7 @@ const {
   scanMediaFromFileEntriesMock: vi.fn(),
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ tryAcquireAdvisoryLock: vi.fn(async () => async () => undefined) }));
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: requireApiPermissionMock,
 }));

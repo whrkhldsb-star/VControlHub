@@ -120,6 +120,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	validateTemplate(template);
 	const before = await captureQuickServiceSnapshot(template.slug, instanceKey);
 	await writeQuickServiceAudit({
+		instanceKey: instanceKey,
 		userId,
 		action: "install",
 		slug: template.slug,
@@ -242,6 +243,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		// operators can see what state was supposed to be transitioned to.
 		const msg = err instanceof Error ? err.message.slice(0, 500) : String(err);
 		await writeQuickServiceAudit({
+			instanceKey: instanceKey,
 			userId,
 			action: "install",
 			slug: template.slug,
@@ -281,6 +283,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		const msg = dockerErrorMessage(err);
 		const rollback = await rollbackInstallToSnapshot(template.slug, before, msg.slice(0, 500), instanceKey);
 		await writeQuickServiceAudit({
+			instanceKey: instanceKey,
 			userId,
 			action: "install",
 			slug: template.slug,
@@ -308,7 +311,7 @@ export async function recreateDockerContainer(
 	serviceId: string,
 	tmpl: ServiceTemplate,
 	hostPort: number,
-	notice?: { userId?: string; credentials?: QuickServiceCredential[]; notes?: string[]; target?: DockerTarget },
+	notice?: { userId?: string; credentials?: QuickServiceCredential[]; notes?: string[]; target?: DockerTarget; auditAction?: "install" | "start" | "update" },
 ) {
 	validateTemplate(tmpl);
 	const target: DockerTarget = notice?.target ?? { kind: "local" };
@@ -397,7 +400,7 @@ export async function recreateDockerContainer(
 	let health: string;
 	try {
 		const { stdout } = await dockerRun(target, args, 300_000);
-		containerId = stdout.trim().substring(0, 12);
+		containerId = stdout.trim().slice(0, 64);
 		await applyPostInstallSetup(target, tmpl, containerName);
 		// `docker run -d` succeeds once the container exists. Accept the new
 		// container only if it is actually up (and healthy when it has a
@@ -449,8 +452,9 @@ export async function recreateDockerContainer(
 		throw new ContainerCommittedError(containerId, error);
 	}
 	await writeQuickServiceAudit({
+		instanceKey: instanceKeyForTarget(target),
 		userId: notice?.userId,
-		action: "install",
+		action: notice?.auditAction ?? "install",
 		slug: tmpl.slug,
 		status: "succeeded",
 		detail: { image: tmpl.image, port: hostPort, containerId, health },

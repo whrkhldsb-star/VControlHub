@@ -240,3 +240,22 @@ export async function switchCurrentTeam(teamId: string | null, session: SessionP
   await auditUserAction(session.userId, "team.switch", { teamId: team?.id ?? null, slug: team?.slug ?? null }, undefined, team?.id ?? null);
   return team;
 }
+
+/** Every live customer as `{ id, name }`, read in pages: pickers must not stop at 500 (A1-06). */
+export async function listLiveCustomerOptions(): Promise<Array<{ id: string; name: string }>> {
+  const all: Array<{ id: string; name: string }> = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await prisma.team.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: 500,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    all.push(...page);
+    if (page.length < 500) break;
+    cursor = page[page.length - 1]!.id;
+  }
+  return all;
+}

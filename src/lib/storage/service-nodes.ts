@@ -1,4 +1,5 @@
 import { constants as fsConstants } from "node:fs";
+import { createWebDavClient } from "./webdav-client";
 import { access, stat } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -212,9 +213,13 @@ export async function checkStorageNodeHealth(
         password: credentials.password,
         remotePath: normalizeRemotePath(node.basePath, ""),
       });
+    } else if (node.driver === "WEBDAV") {
+      // A PROPFIND of the root: reachable, authenticated, and a collection (A4-15).
+      const root = await createWebDavClient(node as Parameters<typeof createWebDavClient>[0]).stat("");
+      if (!root) throw new BusinessError(t("backend.storage.webdavRootMissing"));
     } else {
       healthStatus = "UNKNOWN";
-      lastHealthError = "WebDAV health probe is not available yet";
+      lastHealthError = null;
     }
   } catch (error) {
     healthStatus = "UNHEALTHY";

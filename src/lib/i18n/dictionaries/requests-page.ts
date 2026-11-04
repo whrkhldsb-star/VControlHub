@@ -117,6 +117,7 @@ export const zh: Record<string, string> = {
 	"aiHostedApproval.rejected": "已拒绝",
 	"aiHostedApproval.reject": "拒绝",
 	"requestsPage.batch.selectAllAria": "全选待审批请求",
+	"requestsPage.batch.selectOneAria": "选择此请求",
 	"requestsPage.batch.toolbarAria": "批量审批工具栏",
 };
 
@@ -223,5 +224,6 @@ export const en: Record<string, string> = {
 	"aiHostedApproval.rejected": "Rejected",
 	"aiHostedApproval.reject": "Reject",
 	"requestsPage.batch.selectAllAria": "Select all pending approvals",
+	"requestsPage.batch.selectOneAria": "Select this request",
 	"requestsPage.batch.toolbarAria": "Batch approval toolbar",
 };

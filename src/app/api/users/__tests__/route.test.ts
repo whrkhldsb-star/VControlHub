@@ -63,6 +63,7 @@ vi.mock("@/lib/auth/team-scope", () => ({
 }));
 vi.mock("@/lib/db", () => ({
   prisma: mocks.prisma,
+  isUniqueViolation: () => false,
 }));
 
 const route = await import("../route");

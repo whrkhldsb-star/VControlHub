@@ -43,7 +43,7 @@ export function ImageBedStatsPanel({
       <StatGrid>
         {[
           [t("imageBedPage.stats.totalCount"), stats.totalCount],
-          [t("imageBedPage.stats.totalSize"), formatBytes(stats.totalSizeMB * 1024 * 1024)],
+          [t("imageBedPage.stats.totalSize"), formatBytes(stats.totalSizeBytes)],
           [t("imageBedPage.stats.albumCount"), stats.albums.length],
           [
             t("imageBedPage.stats.recent7d"),

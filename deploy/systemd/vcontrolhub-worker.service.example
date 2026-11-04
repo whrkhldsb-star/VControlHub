@@ -19,6 +19,7 @@ Group={{APP_USER}}
 
 # Security hardening
 NoNewPrivileges=true
+UMask=0027
 ProtectSystem=strict
 ProtectHome=true
 PrivateDevices=true

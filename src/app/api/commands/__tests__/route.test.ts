@@ -62,7 +62,8 @@ describe("/api/commands audit coverage", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ requests: [{ id: "cmd1", title: "Restart nginx" }] });
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("command:read");
-    expect(mocks.recoverStaleRunningCommandRequests).toHaveBeenCalledBefore(mocks.listCommandRequests);
+    // The stale sweep belongs to the command worker (A6-11): a list request no longer runs it.
+    expect(mocks.recoverStaleRunningCommandRequests).not.toHaveBeenCalled();
   });
 
   it("does not recover stale command tasks without read permission", async () => {

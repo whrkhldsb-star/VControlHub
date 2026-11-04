@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { WS_TOKEN_LIMIT } from "@/lib/http/rate-limit-presets";
 import { AuthError, ForbiddenError } from "@/lib/errors";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { mintRdpTicket, rdpOriginAllowed } from "@/lib/rdp/tickets";
@@ -11,7 +11,7 @@ import { auditUserAction } from "@/lib/audit/service";
 /** Cookie-authenticated only. Send the ticket as the first /rdp WS frame, never a URL. */
 export async function POST(request: NextRequest) {
  return withApiRoute(request, {
-  permission: "server:ssh", rateLimit: GENERAL_WRITE_LIMIT,
+  permission: "server:ssh", rateLimit: WS_TOKEN_LIMIT,
   bodySchema: z.object({ serverId: z.string().min(1).max(128) }).strict(),
  }, async ({session, body}) => {
   const origin = request.headers.get("origin") ?? "";

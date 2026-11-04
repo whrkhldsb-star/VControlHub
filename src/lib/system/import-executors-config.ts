@@ -8,6 +8,7 @@
 import { Prisma } from "@prisma/client";
 
 import { isSensitiveSettingKey, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
+import { isValidSettingKey } from "@/lib/settings/service";
 import { creatorResolver, parseDate, upsertById, type Tx, type Counts } from "./import-executors-helpers";
 
 // 14. Settings (可选，key-based where，敏感 key 空值不覆盖)
@@ -21,7 +22,9 @@ export async function importSettings(
     counts.skipped += t.settings.length;
     return;
   }
-  const records = t.settings;
+  // Only keys the settings API knows (A9-06): a package could carry any key/value.
+  const records = t.settings.filter((r) => isValidSettingKey(r.key));
+  counts.skipped += t.settings.length - records.length;
   if (records.length === 0) return;
   const keys = records.map((r) => r.key);
   const existing = await tx.setting.findMany({

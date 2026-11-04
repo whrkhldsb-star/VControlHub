@@ -129,6 +129,7 @@ export function tt(
 	vars?: Record<string, string | number>,
 ): string {
 	let s = t(key);
-	if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
+	// Every occurrence (A12-03): replace() stopped at the first "{n}".
+	if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
 	return s;
 }

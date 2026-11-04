@@ -17,7 +17,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { triggerAiOpsScanSchema } from "@/lib/ai/ops/schema";
 import { listAiOpsLogs } from "@/lib/ai/ops/service";
-import { runAiOpsScanWorkerOnce } from "@/lib/ai/ops/scan-worker";
+import { requestAiOpsScan } from "@/lib/ai/ops/scan-worker";
 import { auditUserAction } from "@/lib/audit/service";
 import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 
@@ -35,20 +35,21 @@ export async function POST(request: Request) {
 		},
 		async ({ session, body }) => {
 			assertAiOpsPlatformReader(session);
-			const triggered = await runAiOpsScanWorkerOnce("manual", {
-				notes: body.notes ?? null,
-			});
+			// Queued, not run here (A7-04): the scan calls the provider (up to 90 s)
+			// and aggregates the fleet; inside the web request it outlived the proxy
+			// timeout and ran in a process whose workers are switched off.
+			const job = await requestAiOpsScan("manual", body.notes ?? null);
 			const latest = await listAiOpsLogs({ limit: 1 });
 			await auditUserAction(
 				session.userId,
 				"ai.ops.scan.manual",
 				{
-					triggered,
-					logId: latest[0]?.id ?? null,
+					triggered: job !== null,
+					jobId: job?.id ?? null,
 					notes: body.notes ?? null,
 				},
 			undefined, session.currentTeamId);
-			return NextResponse.json({ triggered, latestLog: latest[0] ?? null });
+			return NextResponse.json({ triggered: job !== null, queued: job !== null, jobId: job?.id ?? null, latestLog: latest[0] ?? null }, { status: job ? 202 : 200 });
 		},
 	);
 }

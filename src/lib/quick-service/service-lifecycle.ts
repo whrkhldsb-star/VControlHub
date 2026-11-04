@@ -266,7 +266,7 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 			// The container is gone — re-create it from the stored template.
 			const tmpl = templateFromStoredService(svc);
 			try {
-				await recreateDockerContainer(svc.id, tmpl, svc.port, { target });
+				await recreateDockerContainer(svc.id, tmpl, svc.port, { target, auditAction: "start" });
 				await writeQuickServiceAudit({
 					instanceKey,
 					action: "start",
@@ -348,7 +348,7 @@ export async function updateService(slug: string, instanceKey: string = HUB_HOST
 		try {
 			await dockerExec(target, ["pull", svc.image], 300_000);
 			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "installing", error: null } });
-			await recreateDockerContainer(svc.id, tmpl, svc.port, { target });
+			await recreateDockerContainer(svc.id, tmpl, svc.port, { target, auditAction: "update" });
 			const health = await getContainerHealthFor(target, containerName);
 			const logTail = await getContainerLogTailFor(target, containerName);
 			await writeQuickServiceAudit({

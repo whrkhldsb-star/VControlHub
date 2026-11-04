@@ -51,6 +51,22 @@ export const LOG_RETENTION_TABLES = {
 		}),
 		remove: (ids) => prisma.mediaUploadSession.deleteMany({ where: { id: { in: ids }, recoveryRequired: false } }),
 	},
+	mediaUploadRecovery: {
+		// Uploads whose outcome stayed unknown kept their ≤ 2 GiB assembled file
+		// for ever (A4-19). Ninety days is long past any recovery; the temp dir
+		// goes with the row.
+		days: 90,
+		find: (before, take) => prisma.mediaUploadSession.findMany({
+			where: { recoveryRequired: true, updatedAt: { lt: before } },
+			orderBy: { updatedAt: "asc" }, take, select: { id: true },
+		}),
+		remove: async (ids) => {
+			// Loaded on demand: the upload module reads the media config at import time.
+			const { cleanupMediaUploadTempDir } = await import("@/lib/upload/service");
+			for (const id of ids) await cleanupMediaUploadTempDir(id).catch(() => undefined);
+			return prisma.mediaUploadSession.deleteMany({ where: { id: { in: ids }, recoveryRequired: true } });
+		},
+	},
 	playbookRun: {
 		days: 90,
 		find: (before, take) => prisma.playbookRun.findMany({
@@ -70,7 +86,16 @@ export const LOG_RETENTION_TABLES = {
 	itsmEvent: {
 		days: 90,
 		find: (before, take) => prisma.itsmEvent.findMany({
-			where: { createdAt: { lt: before } },
+			where: { createdAt: { lt: before }, eventType: { not: "security.rejected" } },
+			orderBy: { createdAt: "asc" }, take, select: { id: true },
+		}),
+		remove: (ids) => prisma.itsmEvent.deleteMany({ where: { id: { in: ids } } }),
+	},
+	itsmRejectedEvent: {
+		// Forged or misconfigured callbacks (A8-08/A8-10): a week is enough to notice a pattern.
+		days: 7,
+		find: (before, take) => prisma.itsmEvent.findMany({
+			where: { createdAt: { lt: before }, eventType: "security.rejected" },
 			orderBy: { createdAt: "asc" }, take, select: { id: true },
 		}),
 		remove: (ids) => prisma.itsmEvent.deleteMany({ where: { id: { in: ids } } }),

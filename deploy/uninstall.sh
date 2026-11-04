@@ -12,6 +12,7 @@ APP_USER="${APP_USER:-${APP_SLUG}}"
 ENV_FILE="${ENV_FILE:-${APP_DIR}/.env.local}"
 ASSUME_YES=0
 DRY_RUN=0
+FORCE_PATHS=0
 
 log() { printf '\033[1;32m[uninstall]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[uninstall]\033[0m %s\n' "$*" >&2; }
@@ -19,7 +20,7 @@ fail() { printf '\033[1;31m[uninstall]\033[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<'EOF'
-Usage: sudo deploy/uninstall.sh [--yes] [--dry-run]
+Usage: sudo deploy/uninstall.sh [--yes] [--dry-run] [--force-paths]
 
 This is always a complete uninstall. It removes application services, source,
 configuration/secrets, PostgreSQL database and role, runtime data, the app
@@ -30,6 +31,9 @@ resources.
 Options:
   --yes       Skip the interactive confirmation (for explicit automation).
   --dry-run   Print the resolved removal scope without changing the host.
+  --force-paths  Also delete data paths whose name does not contain the APP_SLUG
+              (refused otherwise: a typo in the env file must not remove another
+              application's directory).
   -h, --help  Show this help.
 EOF
 }
@@ -38,6 +42,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --yes) ASSUME_YES=1 ;;
     --dry-run) DRY_RUN=1 ;;
+    --force-paths) FORCE_PATHS=1 ;;
     -h|--help) usage; exit 0 ;;
     *) fail "Unknown argument: $1. Use --help for usage." ;;
   esac
@@ -101,9 +106,21 @@ safe_data_path() {
   local value
   value="$(normalize_path "$1")"
   case "${value}" in
-    /var/lib/*|/var/backups/*|/opt/*/*|/srv/*/*|/home/*/*/*|/root/*/*) printf '%s' "${value}" ;;
+    /var/lib/*|/var/backups/*|/opt/*/*|/srv/*/*|/home/*/*/*|/root/*/*) ;;
     *) fail "Refusing unsafe data path: ${value}" ;;
   esac
+  # Well-known system and other-application directories are never ours (A10-06),
+  # whatever the env file says.
+  case "${value}" in
+    /var/lib/docker|/var/lib/docker/*|/var/lib/containerd|/var/lib/containerd/*|/var/lib/postgresql|/var/lib/postgresql/*|/var/lib/mysql|/var/lib/mysql/*|/var/lib/apt|/var/lib/apt/*|/var/lib/dpkg|/var/lib/dpkg/*|/var/lib/systemd|/var/lib/systemd/*|/opt/containerd/*|/home/*/.ssh/*)
+      fail "Refusing to delete system/third-party data path: ${value}" ;;
+  esac
+  # A path that does not even mention the application slug needs --force-paths.
+  case "${value}" in
+    *"${APP_SLUG}"*) ;;
+    *) [ "${FORCE_PATHS}" = "1" ] || fail "Data path ${value} does not contain the APP_SLUG '${APP_SLUG}'. Check the env file; pass --force-paths if it really belongs to this instance." ;;
+  esac
+  printf '%s' "${value}"
 }
 
 STORAGE_ROOT="$(safe_data_path "${STORAGE_ROOT}")"
@@ -128,6 +145,18 @@ log "Services: ${units[*]}"
 log "Database: ${PG_DB_NAME}; role: ${PG_DB_USER}; user: ${APP_USER}"
 log "Runtime paths: ${STORAGE_ROOT}, ${DOWNLOAD_ROOT}, ${BACKUP_DIR}, ${ARIA2_RPC_DIR}"
 log "Local Quick Service containers and catalog data paths will be removed."
+# The exact directories that will be deleted, before any confirmation (A10-06).
+log "Directories that will be deleted:"
+while IFS= read -r planned_path; do
+  [ -n "${planned_path}" ] && log "  - $(normalize_path "${planned_path}")"
+done <<EOF
+${APP_DIR}
+${STORAGE_ROOT}
+${DOWNLOAD_ROOT}
+${BACKUP_DIR}
+${ARIA2_RPC_DIR}
+$(quick_service_removable_data_paths)
+EOF
 warn "Shared OS packages and unrelated Docker resources will remain installed."
 
 if [ "${DRY_RUN}" = "1" ]; then

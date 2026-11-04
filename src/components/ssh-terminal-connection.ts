@@ -36,6 +36,10 @@ import { ApiError } from "@/lib/http/api-client-error";
  * - Input is ordered and bounded by createSshTerminalInputSender and never
  *   carried over into another connection.
  */
+/** Rendered output is acknowledged in batches: at this many bytes, or after this long. */
+const OUTPUT_ACK_FLUSH_BYTES = 32 * 1024;
+const OUTPUT_ACK_FLUSH_MS = 50;
+
 export const SSH_RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000] as const;
 export const SSH_RECONNECT_WINDOW_MS = 3 * 60_000;
 export const SSH_HEARTBEAT_INTERVAL_MS = 15_000;
@@ -48,7 +52,7 @@ type ConnectionTerminal = {
 	readonly rows: number;
 	readonly buffer: { readonly active: { readonly type: TerminalBufferType } };
 	readonly modes?: { readonly mouseTrackingMode: string };
-	write(data: string | Uint8Array): void;
+	write(data: string | Uint8Array, callback?: () => void): void;
 };
 
 export type SshSessionInfo = {
@@ -287,6 +291,22 @@ export function createSshTerminalConnection(options: SshTerminalConnectionOption
 		socket = ws;
 		const wsSender = createSshTerminalInputSender(ws, options.onInputOverflow);
 		sender = wsSender;
+		// Output flow control (A3-06): tell the gateway what xterm has actually
+		// rendered, coalesced, so it pauses the shell instead of letting the
+		// write buffer grow when a command floods the terminal.
+		let pendingOutputAck = 0;
+		let outputAckTimer: ReturnType<typeof setTimeout> | null = null;
+		const flushOutputAck = () => {
+			if (outputAckTimer) { clearTimeout(outputAckTimer); outputAckTimer = null; }
+			if (ws.readyState !== WebSocket.OPEN) { pendingOutputAck = 0; return; }
+			ws.send(JSON.stringify({ type: "output-ack", bytes: pendingOutputAck }));
+			pendingOutputAck = 0;
+		};
+		const acknowledgeOutput = (bytes: number) => {
+			pendingOutputAck += bytes;
+			if (pendingOutputAck >= OUTPUT_ACK_FLUSH_BYTES) flushOutputAck();
+			else outputAckTimer ??= setTimeout(flushOutputAck, OUTPUT_ACK_FLUSH_MS);
+		};
 		let opened = false;
 		/** What the gateway said before closing, if anything. */
 		let ending: { status: TerminalStatus; message: string } | null = null;
@@ -309,7 +329,7 @@ export function createSshTerminalConnection(options: SshTerminalConnectionOption
 					if (typeof msg.data === "string" && msg.data) {
 						const bytes = decodeBase64Bytes(msg.data);
 						receivedBytes += bytes.length;
-						terminal.write(bytes);
+						terminal.write(bytes, () => acknowledgeOutput(bytes.length));
 						if ((terminal.modes?.mouseTrackingMode ?? "none") !== "none" && mouseEcho.echoed(bytes)) {
 							terminal.write(MOUSE_TRACKING_OFF);
 							options.onStrayMouseTracking?.();
@@ -320,6 +340,8 @@ export function createSshTerminalConnection(options: SshTerminalConnectionOption
 					break;
 				case "connected":
 					wsSender.connected(msg.inputAck === true);
+					// Announce output acknowledgements before any output arrives.
+					flushOutputAck();
 					// The shell exists now: make the PTY match the grid on screen.
 					options.fitGrid();
 					sendResize(ws);
@@ -377,6 +399,7 @@ export function createSshTerminalConnection(options: SshTerminalConnectionOption
 		ws.onclose = (event?: CloseEvent) => {
 			if (id !== attemptId) return;
 			stopHeartbeat();
+			if (outputAckTimer) { clearTimeout(outputAckTimer); outputAckTimer = null; }
 			wsSender.dispose();
 			if (sender === wsSender) sender = null;
 			if (socket === ws) socket = null;

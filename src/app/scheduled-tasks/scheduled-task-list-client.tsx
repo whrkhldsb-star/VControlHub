@@ -80,6 +80,8 @@ function describeCronPreview(expr: string, t: (key: string, vars?: Record<string
 }
 
 export function ScheduledTaskListClient({ tasks: initialTasks, servers, templates = [], canCreate, canManage, canApprove = false }: Props) {
+	// Retry/pause/delete: executors always; a creator only for tasks whose every run is approved (matches the API, A6-09).
+	const canOperate = (task: { approvalRequired?: boolean }) => canManage || (canCreate && task.approvalRequired !== false);
 	const { t, locale } = useI18n();
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
@@ -224,19 +226,19 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 									</div>
 								</div>
 								<div className="flex flex-col gap-2 shrink-0">
-									{canManage && (
+									{canOperate(task) && (
 										<ActionButton size="sm" variant="secondary"
 											onClick={() => retryTask(task.id)} disabled={busyId !== null}>
 											{t("scheduledTasksPage.retry")}
 										</ActionButton>
 									)}
-									{canManage && (
+									{canOperate(task) && (
 										<ActionButton size="sm" variant={task.status === "ACTIVE" ? "secondary" : "success"}
 											onClick={() => toggleTask(task.id)} disabled={busyId !== null}>
 											{task.status === "ACTIVE" ? t("scheduledTasks.pause") : t("scheduledTasks.resume")}
 										</ActionButton>
 									)}
-									{canManage && (
+									{canOperate(task) && (
 										<ActionButton size="sm" variant="danger"
 											onClick={() => setTaskPendingDelete(task)} disabled={busyId !== null}>
 											{t("scheduledTasksPage.delete")}

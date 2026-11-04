@@ -78,6 +78,11 @@ async function hasActiveScanJob(): Promise<boolean> {
   return row !== null;
 }
 
+/** Queue a scan for the worker (A7-04); null when one is already pending or running. */
+export async function requestAiOpsScan(reason: string, notes?: string | null) {
+  return enqueueScanJob(reason, notes);
+}
+
 async function enqueueScanJob(reason: string, notes?: string | null) {
   const release = await acquireAdvisoryLock("ai-ops-scan-enqueue", "global");
   try {
@@ -221,7 +226,7 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
     backupFailures,
     staleJobs,
   ] = await Promise.all([
-    prisma.alertRule.count({ where: { enabled: true } }),
+    counted("alert.rules", prisma.alertRule.count({ where: { enabled: true } })),
     counted("command.execution", prisma.commandRequest.count({
       where: {
         status: "FAILED",

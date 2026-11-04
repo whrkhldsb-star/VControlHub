@@ -37,6 +37,7 @@ const playbook = {
 	enabled: true,
 	nextRunAt: "2026-01-02T03:00:00.000Z",
 	lastTriggeredAt: null,
+		ownerActive: true,
 	createdAt: "2026-01-01T00:00:00.000Z",
 };
 

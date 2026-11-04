@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -57,6 +58,11 @@ export function WindowsAgentInstallPanel({
   const { t, locale } = useI18n();
   const [state, formAction] = useActionState(getWindowsAgentInstallCommandAction, null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  // Fetching the command re-issues the token and disconnects a running Agent:
+  // an online node asks first instead of dropping on a stray click (A2-07).
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmedRef = useRef(false);
   const outdated = isAgentOutdated(agentVersion);
 
   return (
@@ -125,7 +131,19 @@ export function WindowsAgentInstallPanel({
           {copyState === "failed" ? <p role="alert" className="text-xs text-[var(--danger)]">{t("serversPage.windows.copyFailed")}</p> : null}
         </div>
       ) : canManageServers ? (
-        <form action={formAction} className="flex flex-wrap items-center gap-2">
+        <form
+          ref={formRef}
+          action={formAction}
+          className="flex flex-wrap items-center gap-2"
+          onSubmit={(event) => {
+            if (agentOnline && !confirmedRef.current) {
+              event.preventDefault();
+              setConfirmOpen(true);
+              return;
+            }
+            confirmedRef.current = false;
+          }}
+        >
           {agentOnline ? <p className="w-full text-xs text-[var(--warning)]">{t("serversPage.windows.reissueWarning")}</p> : null}
           <input type="hidden" name="serverId" value={serverId} />
           <SubmitButton variant="secondary" pendingLabel={t("serversPage.create.submitting")} className="!px-3 !py-1.5 !text-sm">
@@ -133,6 +151,19 @@ export function WindowsAgentInstallPanel({
           </SubmitButton>
         </form>
       ) : null}
+      <ConfirmDialog
+        open={confirmOpen}
+        title={t("serversPage.windows.reissueConfirmTitle")}
+        description={t("serversPage.windows.reissueWarning")}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("serversPage.windows.reissueConfirmAction")}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          confirmedRef.current = true;
+          formRef.current?.requestSubmit();
+        }}
+      />
     </div>
   );
 }

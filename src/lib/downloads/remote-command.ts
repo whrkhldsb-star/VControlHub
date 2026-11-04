@@ -98,6 +98,9 @@ export function buildDirectDownloadCommand({
   ].join("\n");
 
   return [
+    // The script is bash; a host without it (Alpine) answered with an empty log
+    // and a generic failure. Exit 127 names the cause (A5-14).
+    "command -v bash >/dev/null 2>&1 || exit 127",
     `nohup bash -lc ${shellQuote(script)} >/dev/null 2>&1 &`,
     `echo $! > ${shellQuote(pidFile)}`,
     `cat ${shellQuote(pidFile)}`,

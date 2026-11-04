@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { exportAuditLogs, type AuditLogEntry } from "@/lib/audit/service";
+import { AUDIT_EXPORT_MAX_ROWS, exportAuditLogs, iterateAuditLogsForExport, type AuditLogEntry } from "@/lib/audit/service";
 import { formatAuditDetail } from "@/lib/audit/detail-format";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { csvCell } from "@/lib/http/csv";
@@ -17,8 +17,8 @@ const exportQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
 });
 
-function toCsv(logs: AuditLogEntry[]): string {
-  const header = [
+function csvHeader(): string {
+  return [
     t("backend.audit.export.timestamp"),
     t("backend.audit.export.action"),
     t("backend.audit.export.severity"),
@@ -26,7 +26,10 @@ function toCsv(logs: AuditLogEntry[]): string {
     t("backend.audit.export.actorType"),
     t("backend.audit.export.details"),
   ].map(csvCell).join(",");
-  const rows = logs.map((log) =>
+}
+
+function csvRows(logs: AuditLogEntry[]): string[] {
+  return logs.map((log) =>
     [
       new Date(log.createdAt).toISOString(),
       log.action,
@@ -38,7 +41,6 @@ function toCsv(logs: AuditLogEntry[]): string {
       .map(csvCell)
       .join(","),
   );
-  return [header, ...rows].join("\n");
 }
 
 export async function GET(request: Request) {
@@ -54,20 +56,39 @@ export async function GET(request: Request) {
       querySchema: exportQuerySchema,
     },
     async ({ session, query: params }) => {
-    const logs = await exportAuditLogs({
+    const filter = {
       action: params.action,
       severity: params.severity,
       search: params.search,
       session,
-    });
+    };
 
     if (params.format === "json") {
-      return NextResponse.json(logs);
+      return NextResponse.json(await exportAuditLogs(filter));
     }
 
-    const csv = toCsv(logs);
-    // The byte-order mark makes Excel (Windows) read the UTF-8 text as UTF-8 instead of the system code page.
-    return new Response(`\ufeff${csv}`, {
+    // Streamed in batches (A8-05); the last line says so when the cap cut the export short.
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        try {
+          // The byte-order mark makes Excel (Windows) read the UTF-8 text as UTF-8 instead of the system code page.
+          controller.enqueue(encoder.encode(`\ufeff${csvHeader()}`));
+          let count = 0;
+          for await (const batch of iterateAuditLogsForExport(filter)) {
+            count += batch.length;
+            controller.enqueue(encoder.encode(`\n${csvRows(batch).join("\n")}`));
+          }
+          if (count >= AUDIT_EXPORT_MAX_ROWS) {
+            controller.enqueue(encoder.encode(`\n${csvCell(t("backend.audit.export.truncated", { max: AUDIT_EXPORT_MAX_ROWS }))}`));
+          }
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
+    return new Response(stream, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

@@ -31,6 +31,7 @@ const updateSchema = z.object({
 	note: z.string().max(500).optional(),
 	retentionDays: z.number().int().min(1).max(365).nullable().optional(),
 	status: z.enum(["ACTIVE", "PAUSED"]).optional(),
+	claimOwnership: z.literal(true).optional(),
 });
 
 export async function PATCH(
@@ -51,7 +52,7 @@ export async function PATCH(
 			const locale = await getServerLocale();
 			let updated: Awaited<ReturnType<typeof updateVpsBackupSchedule>>;
 			try {
-				updated = await updateVpsBackupSchedule(scheduleId, serverId, body);
+				updated = await updateVpsBackupSchedule(scheduleId, serverId, body, session.userId);
 			} catch (error) {
 				if (isAppError(error)) throw error;
 				throw new AppError({ code: "INTERNAL_ERROR", message: t("vpsBackupApi.errorUpdateFailed", locale), status: 500, cause: error });

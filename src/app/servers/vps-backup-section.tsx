@@ -25,7 +25,15 @@ type BackupSchedule = {
 	retentionDays: number | null;
 	lastRunAt: string | null;
 	nextRunAt: string | null;
+	/** Null once the creator was deleted; runs then fail until someone claims the schedule. */
+	creator?: { status: string; mustChangePassword: boolean } | null;
 };
+
+/** Scheduled runs use the creator's permissions; a deleted or disabled creator means every run fails (A9-05). */
+function scheduleOwnerActive(schedule: BackupSchedule): boolean {
+	if (schedule.creator === undefined) return true;
+	return Boolean(schedule.creator) && schedule.creator!.status !== "DISABLED" && !schedule.creator!.mustChangePassword;
+}
 
 type BackupRecord = {
 	id: string;
@@ -365,6 +373,10 @@ export function VpsBackupSection({
 		if (updated) setEditingScheduleId(null);
 	};
 
+	const claimSchedule = async (schedule: BackupSchedule) => {
+		await updateSchedule(schedule.id, { claimOwnership: true }, t("vpsBackup.error.update"));
+	};
+
 	const toggleScheduleStatus = async (schedule: BackupSchedule) => {
 		await updateSchedule(
 			schedule.id,
@@ -569,6 +581,16 @@ export function VpsBackupSection({
 													<span>{t("vpsBackup.lastRun", { time: formatDateTime(s.lastRunAt, locale) })}</span>
 													<span>{t("vpsBackup.nextRun", { time: s.status === "ACTIVE" ? formatDateTime(s.nextRunAt, locale) : t("vpsBackup.noNextRun") })}</span>
 												</div>
+												{!scheduleOwnerActive(s) && (
+													<p className="mt-1 text-xs text-[var(--warning)]">
+														{t("vpsBackup.ownerInvalid")}
+														{canManage && (
+															<button type="button" className="ml-2 underline underline-offset-2" disabled={isSaving} onClick={() => void claimSchedule(s)}>
+																{t("vpsBackup.claimOwner")}
+															</button>
+														)}
+													</p>
+												)}
 											</div>
 											{canManage ? (
 												<div className="flex shrink-0 items-center gap-1">
@@ -676,7 +698,7 @@ export function VpsBackupSection({
 			<ConfirmDialog
 				open={deleteTarget !== null}
 				title={deleteTarget?.kind === "schedule" ? t("vpsBackup.deleteScheduleTitle") : t("vpsBackup.deleteRecord")}
-				description={deleteTarget?.kind === "schedule" ? t("vpsBackup.deleteScheduleConfirm", { name: deleteTarget.name }) : t("vpsBackup.deleteRecord")}
+				description={deleteTarget?.kind === "schedule" ? t("vpsBackup.deleteScheduleConfirm", { name: deleteTarget.name }) : t("vpsBackup.deleteRecordConfirm")}
 				cancelLabel={t("common.cancel")}
 				confirmLabel={t("vpsBackup.confirmDelete")}
 				busy={deleting}

@@ -145,10 +145,13 @@ export function buildProgressText(st: Aria2Status): string {
   return `${pct}% · ${speed} · ${completed}/${total}${name ? ` · ${name}` : ""}`;
  }
  if (st.status === "complete") {
-  return `Completed · ${total}${name ? ` · ${name}` : ""}`;
+  return `${t("backend.downloads.progress.completed")} · ${total}${name ? ` · ${name}` : ""}`;
  }
  if (st.status === "error") {
-  return `Failed · ${completed}/${total}`;
+  return `${t("backend.downloads.progress.failed")} · ${completed}/${total}`;
+ }
+ if (st.status === "paused") {
+  return `${t("backend.downloads.progress.paused")} · ${pct}% · ${completed}/${total}`;
  }
  return `${pct}% · ${completed}/${total}`;
 }
@@ -157,9 +160,9 @@ export function buildProgressText(st: Aria2Status): string {
 
 export function getPublicDownloadError(error: unknown): string {
  if (error instanceof Error && error.message.includes("No SSH key or password")) {
-  return "Target VPS has no valid SSH credentials configured";
+  return t("backend.downloads.error.noCredentials");
  }
- return "Download task execution failed, please check server logs";
+ return t("backend.downloads.error.executionFailed");
 }
 
 /* ── Misc helpers ──────────────────────────────────────── */

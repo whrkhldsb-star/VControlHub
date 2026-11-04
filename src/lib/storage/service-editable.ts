@@ -1,4 +1,6 @@
-import { access, readFile, stat, writeFile } from "node:fs/promises";
+import { access, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
@@ -186,7 +188,12 @@ export async function saveLocalEditableFileDraft(input: {
         note: "Before text editor save",
       });
 
-      await writeFile(absolutePath, content, "utf8");
+      // Temp file + rename: a crash mid-save must not leave a truncated file (A4-26).
+      const temporaryPath = path.join(path.dirname(absolutePath), `.vch-edit-${randomUUID()}.tmp`);
+      try {
+        await writeFile(temporaryPath, content, "utf8");
+        await rename(temporaryPath, absolutePath);
+      } finally { await rm(temporaryPath, { force: true }).catch(() => undefined); }
       const nextStat = await stat(absolutePath);
       const updated = await prisma.fileEntry.update({
         where: { id: entry.id },

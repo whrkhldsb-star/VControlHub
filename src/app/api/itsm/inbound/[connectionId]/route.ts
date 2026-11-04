@@ -86,38 +86,25 @@ export async function POST(request: Request, context: RouteContext) {
 		return NextResponse.json({ error: apiCopy("apiCopy.invalid.json.body.7ea5df57") }, { status: 400 });
 	}
 
-	// Prefer earliest admin-linked user, else first user for system-authored inbound tickets
-	const adminRole = await prisma.role.findFirst({
-		where: { key: "admin" },
-		select: { id: true },
-	});
-	const systemUser =
-		(adminRole
-			? await prisma.user.findFirst({
-					where: { roles: { some: { roleId: adminRole.id } } },
-					select: { id: true },
-					orderBy: { createdAt: "asc" },
-				})
-			: null) ??
-		(await prisma.user.findFirst({
-			select: { id: true },
-			orderBy: { createdAt: "asc" },
-		}));
-
-	if (!systemUser) {
-		return NextResponse.json(
-			{ error: apiCopy("apiCopy.no.system.user.available.for.inbound.tickets.42bc58a7") },
-			{ status: 503 },
-		);
-	}
+	// System-authored inbound tickets are created as the earliest administrator,
+	// else the first user; resolved by the service only after the call verified (A8-08).
+	const resolveSystemUserId = async () => {
+		const adminRole = await prisma.role.findFirst({ where: { key: "admin" }, select: { id: true } });
+		const systemUser =
+			(adminRole
+				? await prisma.user.findFirst({ where: { roles: { some: { roleId: adminRole.id } } }, select: { id: true }, orderBy: { createdAt: "asc" } })
+				: null) ?? (await prisma.user.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } }));
+		return systemUser?.id ?? null;
+	};
 
 	try {
 		const result = await handleInboundWebhook({
 			connectionId,
 			rawBody: rawBody.toString("utf8"),
 			signatureHeader: pickSignature(request.headers),
+			headers: request.headers,
 			json,
-			systemUserId: systemUser.id,
+			resolveSystemUserId,
 		});
 		return NextResponse.json({
 			ok: result.event.status === "ok" || result.event.status === "ignored",

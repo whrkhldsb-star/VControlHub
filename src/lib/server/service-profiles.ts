@@ -727,7 +727,7 @@ export async function toggleServerEnabled(
 
   if (!current.enabled) {
     if (current.operatingSystem === "WINDOWS") {
-      if (!current.rdpPassword) throw new ValidationError();
+      if (!current.rdpPassword) throw new ValidationError(t("backend.server.windowsPasswordRequiredToEnable"));
       const updated = await prisma.server.update({ where: { id: serverId, teamId: current.teamId }, data: { enabled: true }, include: SERVER_PROFILE_INCLUDE });
       return { ...enrichServer(updated), onboardingWarnings: [] as string[] };
     }

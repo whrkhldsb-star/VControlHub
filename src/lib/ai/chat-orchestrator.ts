@@ -1,3 +1,5 @@
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { permissionDeniedMessage, requiredPermissionForAction } from "./hosted-helpers";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { AppError, NotFoundError } from "@/lib/errors";
@@ -29,6 +31,8 @@ const encoder = new TextEncoder();
  * bounded — 10 minutes comfortably exceeds any provider's max generation time.
  */
 const PRIMARY_STREAM_IDLE_TIMEOUT_MS = 90_000;
+/** Tool rounds per message (A7-02); the final round answers in text. */
+const MAX_TOOL_ROUNDS = 5;
 const TOOL_FOLLOW_UP_IDLE_TIMEOUT_MS = 60_000;
 const STREAM_TOTAL_TIMEOUT_MS = 10 * 60_000;
 
@@ -159,6 +163,12 @@ async function processHostedTools(input: {
   // intentionally sequential rather than a batch or Promise.all.
   for (const { parsed } of runnableCalls) {
     const { tool, args, toolCallId } = parsed;
+    // Permission before any row exists (A7-07): an unauthorised call used to
+    // leave an APPROVED→FAILED action behind.
+    if (!sessionHasPermission(input.session, requiredPermissionForAction(tool.actionType))) {
+      await answerWithError(toolCallId, tool.name, permissionDeniedMessage(tool.actionType, input.locale));
+      continue;
+    }
     let answered = false;
     let actionId: string | null = null;
     try {
@@ -405,36 +415,50 @@ function createStreamingResponse(input: {
 
         let finalInputTokens = result.inputTokens;
         let finalOutputTokens = result.outputTokens;
-        if (
-          result.toolCalls.length > 0 &&
-          toolResults.length > 0 &&
-          toolResults.every((toolResult) => !toolResult.needsApproval)
+        // Tool rounds (A7-02): the follow-up keeps the tool definitions so the
+        // model can chain calls (list the servers, then check one) instead of
+        // stopping after a single round with "next I would look at…". Bounded
+        // by MAX_TOOL_ROUNDS; the last round carries no tools so it must answer
+        // in text, and a call that needs approval ends the chain.
+        const allToolResults = [...toolResults];
+        const toolMessage = (toolResult: (typeof toolResults)[number]) => ({
+          role: "tool" as const,
+          content: JSON.stringify(toolResult.result),
+          tool_call_id: toolResult.toolCallId,
+        });
+        let roundMessages = [
+          ...input.messages,
+          { role: "assistant" as const, content: result.content || "", tool_calls: result.toolCalls },
+          ...toolResults.map(toolMessage),
+        ];
+        let pendingCalls = result.toolCalls;
+        let pendingResults = toolResults;
+        let rounds = 0;
+        while (
+          pendingCalls.length > 0 &&
+          pendingResults.length > 0 &&
+          pendingResults.every((toolResult) => !toolResult.needsApproval)
         ) {
+          rounds += 1;
+          const lastRound = rounds >= MAX_TOOL_ROUNDS;
           let followUpPersisted = false;
+          let nextCalls: typeof result.toolCalls = [];
+          let nextResults: typeof toolResults = [];
           try {
             const followUp = await sendChatRequest(
               {
                 providerId: input.providerId,
                 model: input.model,
-                messages: [
-                  ...input.messages,
-                  {
-                    role: "assistant",
-                    content: result.content || "",
-                    tool_calls: result.toolCalls,
-                  },
-                  ...toolResults.map((toolResult) => ({
-                    role: "tool" as const,
-                    content: JSON.stringify(toolResult.result),
-                    tool_call_id: toolResult.toolCallId,
-                  })),
-                ],
+                messages: roundMessages,
                 temperature: input.temperature,
                 max_tokens: input.maxTokens,
                 top_p: input.topP,
                 frequency_penalty: input.frequencyPenalty,
                 presence_penalty: input.presencePenalty,
                 stream: true,
+                tools: lastRound || !input.hostingEnabled
+                  ? undefined
+                  : getOpenAIToolsFormat(input.automationMode, (tool) => sessionHasPermission(input.session, requiredPermissionForAction(tool.actionType))),
               },
               input.session.userId,
               abortController.signal,
@@ -448,22 +472,44 @@ function createStreamingResponse(input: {
                 idleTimeoutMs: TOOL_FOLLOW_UP_IDLE_TIMEOUT_MS,
                 totalTimeoutMs: STREAM_TOTAL_TIMEOUT_MS,
               });
-              if (followUpResult.content || followUpResult.reasoning) {
-                await prisma.aiMessage.create({
+              const calls = followUpResult.readError ? [] : followUpResult.toolCalls;
+              if (followUpResult.content || followUpResult.reasoning || calls.length > 0) {
+                const row = await prisma.aiMessage.create({
                   data: {
                     conversationId: input.conversationId,
                     role: "assistant",
                     content:
                       followUpResult.content ||
-                      t("apiAiChat.emptyContent", input.locale),
+                      (calls.length > 0 ? "" : t("apiAiChat.emptyContent", input.locale)),
                     reasoningContent: followUpResult.reasoning || undefined,
+                    toolCalls: JSON.stringify(calls),
                     model: input.model,
                     inputTokens: followUpResult.inputTokens,
                     outputTokens: followUpResult.outputTokens,
                     latencyMs: Date.now() - followUp.startTime,
                   },
                 });
-                followUpPersisted = true;
+                followUpPersisted = Boolean(followUpResult.content || followUpResult.reasoning);
+                if (calls.length > 0) {
+                  nextCalls = calls;
+                  nextResults = await processHostedTools({
+                    toolCalls: calls,
+                    conversationId: input.conversationId,
+                    assistantMessageId: row.id,
+                    session: input.session,
+                    locale: input.locale,
+                    automationMode: input.automationMode,
+                    send,
+                  });
+                  allToolResults.push(...nextResults);
+                  roundMessages = [
+                    ...roundMessages,
+                    { role: "assistant" as const, content: followUpResult.content || "", tool_calls: calls },
+                    ...nextResults.map(toolMessage),
+                  ];
+                  // Another round (or an approval card) speaks for this one.
+                  followUpPersisted = true;
+                }
               }
               if (followUpResult.readError) throw followUpResult.readError;
               finalInputTokens =
@@ -477,11 +523,12 @@ function createStreamingResponse(input: {
               error,
               {
                 conversationId: input.conversationId,
+                round: rounds,
               },
             );
           }
           if (!followUpPersisted) {
-            const fallback = toolResultFallback(toolResults, input.locale);
+            const fallback = toolResultFallback(pendingResults, input.locale);
             send({ type: "content", content: fallback });
             await prisma.aiMessage.create({
               data: {
@@ -493,6 +540,8 @@ function createStreamingResponse(input: {
               },
             });
           }
+          pendingCalls = nextCalls;
+          pendingResults = nextResults;
         }
 
         send({
@@ -500,7 +549,7 @@ function createStreamingResponse(input: {
           inputTokens: finalInputTokens,
           outputTokens: finalOutputTokens,
           latencyMs: Date.now() - input.startTime,
-          toolResults,
+          toolResults: allToolResults,
         });
       } catch (error) {
         if (cancelled) {
@@ -671,8 +720,10 @@ export async function createAiChatResponse(input: {
         frequency_penalty: conversation.frequencyPenalty,
         presence_penalty: conversation.presencePenalty,
         stream: true,
+        // Only tools this account may use are offered (A7-07): a viewer without
+        // server:ssh was otherwise sent read tools, called them, and got "no permission".
         tools: conversation.hostingEnabled
-          ? getOpenAIToolsFormat(conversation.automationMode)
+          ? getOpenAIToolsFormat(conversation.automationMode, (tool) => sessionHasPermission(input.session, requiredPermissionForAction(tool.actionType)))
           : undefined,
       },
       input.session.userId,

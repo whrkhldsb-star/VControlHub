@@ -103,7 +103,8 @@ describe("established RDP authorization", () => {
   it("closes the tunnel when an authorization lookup stalls, even with unlimited idle policy", async () => {
     const { ws, tunnel } = await connect();
     mocks.verify.mockImplementation(() => new Promise<never>(() => undefined));
-    await vi.advanceTimersByTimeAsync(10_001);
+    // The first revalidation runs 30 s after the handshake (A3-08); its 5 s watchdog then closes the stalled check.
+    await vi.advanceTimersByTimeAsync(35_001);
     expect(ws.close).toHaveBeenCalledWith(1008);
     expect(tunnel.end).toHaveBeenCalledWith(instruction("disconnect"));
     await vi.advanceTimersByTimeAsync(2_000);
@@ -188,9 +189,12 @@ describe("established RDP authorization", () => {
 
   it("retains a healthy session across repeated authorization checks", async () => {
     const { ws } = await connect();
+    // Revalidation runs every 30 s (A3-08), not on every 5 s tick: the handshake, then 30 s and 60 s.
     await vi.advanceTimersByTimeAsync(20_000);
+    expect(mocks.verify).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(45_000);
     expect(ws.close).not.toHaveBeenCalled();
-    expect(mocks.verify).toHaveBeenCalledTimes(5);
+    expect(mocks.verify).toHaveBeenCalledTimes(3);
   });
 });
 

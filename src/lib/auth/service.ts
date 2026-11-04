@@ -83,7 +83,12 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
 
  // Upgrade only the credential we proved. A concurrent reset/disable wins;
  // never mint a session bound to a newer password we have not verified.
- if (/^\$2[aby]\$/.test(user.passwordHash)) {
+ // Sessions are bound to the hash, so the rewrite signs the account out
+ // everywhere else. For a 2FA account that would let anyone holding only the
+ // password trigger that before the second factor: those accounts keep the
+ // legacy hash until their next password change (R0-02).
+ const twoFactorGuarded = user.twoFactorEnabled && Boolean(user.twoFactorSecret);
+ if (/^\$2[aby]\$/.test(user.passwordHash) && !twoFactorGuarded) {
    const nextHash = await hashPassword(payload.password);
    const mustChangePassword = user.mustChangePassword || Buffer.byteLength(payload.password, "utf8") >= 72;
    const upgraded = await prisma.user.updateMany({

@@ -53,6 +53,9 @@ const SFTP_STALE_INVENTORY_WORKER_ID = `${
 }:sftp-stale-inventory:${process.pid}`;
 
 const DEFAULT_MAX_DEPTH = 5;
+/** Nodes one periodic sweep scans; the rest wait for the next run (A4-18). */
+const PERIODIC_SWEEP_NODES_PER_RUN = 4;
+const lastSweepAt = new Map<string, number>();
 
 type SftpStaleInventoryJobPayload = {
   nodeId?: string;
@@ -205,7 +208,15 @@ async function executeStaleInventoryJob(job: {
   }
 
   // nodeIds present (including []) => team-scoped multi-node job; never widen to global.
-  const nodes = await listSftpNodesForStaleInventory(undefined, payload.nodeIds);
+  const allNodes = await listSftpNodesForStaleInventory(undefined, payload.nodeIds);
+  // The periodic sweep (no explicit node set) walks a few nodes per run, least
+  // recently scanned first (A4-18): every healthy node five levels deep every
+  // 30 minutes was a constant SSH load on a fleet, and one slow node held the
+  // whole sweep. A scoped or on-demand sweep still covers what it was given.
+  const nodes = payload.nodeIds === undefined
+    ? [...allNodes].sort((a, b) => (lastSweepAt.get(a.id) ?? 0) - (lastSweepAt.get(b.id) ?? 0)).slice(0, PERIODIC_SWEEP_NODES_PER_RUN)
+    : allNodes;
+  for (const node of nodes) lastSweepAt.set(node.id, Date.now());
 
   if (nodes.length === 0) {
     await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, toJsonValue({

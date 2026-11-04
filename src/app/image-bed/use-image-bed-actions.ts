@@ -90,7 +90,7 @@ export function useImageBedActions({
 			setStats(data);
 			setShowStats(true);
 		} catch {
-			showToast(t("imageBed.toast.fetchStatsFailed"));
+			showToast(t("imageBed.toast.fetchStatsFailed"), "alert");
 		}
 	}, [showToast, t]);
 
@@ -103,10 +103,10 @@ export function useImageBedActions({
 					name: n.serverName ? `${n.name} · ${n.serverName}` : n.name,
 				}),
 			);
-			if (nodes.length === 0) showToast(t("imageBed.toast.noPublishNodes"));
+			if (nodes.length === 0) showToast(t("imageBed.toast.noPublishNodes"), "alert");
 			else setStorageNodes(nodes);
 		} catch (err) {
-			showToast(getErrorMessage(err, t("imageBed.toast.fetchNodesFailed")));
+			showToast(getErrorMessage(err, t("imageBed.toast.fetchNodesFailed")), "alert");
 		}
 	}, [showToast, t]);
 
@@ -268,7 +268,7 @@ export function useImageBedActions({
 
 	const requestBatchDelete = useCallback(() => {
 		if (selectedIds.size === 0) {
-			showToast(t("imageBed.toast.selectFirst"));
+			showToast(t("imageBed.toast.selectFirst"), "alert");
 			return;
 		}
 		setPendingDelete({ type: "batch", count: selectedIds.size });
@@ -277,7 +277,7 @@ export function useImageBedActions({
 	const runBatchAction = useCallback(
 		async (action: "delete" | "moveAlbum" | "togglePublic") => {
 			if (selectedIds.size === 0) {
-				showToast(t("imageBed.toast.selectFirst"));
+				showToast(t("imageBed.toast.selectFirst"), "alert");
 				return false;
 			}
 			if (batchBusyRef.current) return false;
@@ -345,7 +345,7 @@ export function useImageBedActions({
 				setPendingDelete(null);
 				void fetchImages(page);
 			} catch {
-				showToast(t("imageBed.toast.deleteError"));
+				showToast(t("imageBed.toast.deleteError"), "alert");
 			} finally {
 				deletingRef.current = false;
 				setDeleting(false);
@@ -375,7 +375,7 @@ export function useImageBedActions({
 			setPublishForm(EMPTY_PUBLISH_FORM);
 			void fetchImages(1);
 		} catch (err) {
-			showToast(getErrorMessage(err, t("imageBed.toast.publishError")));
+			showToast(getErrorMessage(err, t("imageBed.toast.publishError")), "alert");
 		} finally {
 			publishingRef.current = false;
 			setPublishing(false);
@@ -422,7 +422,8 @@ export function useImageBedActions({
 	const copyMarkdown = useCallback(
 		(img: ImageItem) => {
 			const fullUrl = `${window.location.origin}${img.publicUrl}`;
-			const label = escapeHtml(img.filename).replace(/[[\]\\]/g, "\\$&").replace(/[\r\n]/g, " ");
+			// Markdown, not HTML: escaping "&" here put "&amp;" into the alt text (A5-14).
+			const label = img.filename.replace(/[[\]\\]/g, "\\$&").replace(/[\r\n]/g, " ");
 			return copyText(`![${label}](${fullUrl})`, "imageBed.toast.markdownCopied");
 		},
 		[copyText],

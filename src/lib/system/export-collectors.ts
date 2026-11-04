@@ -440,12 +440,11 @@ export async function exportQuickServices(
   teamId: string | null,
 ) {
   if (scope === "team" && teamId) {
-    // Team scope: hub-host (serverId null) + remote services on this team's servers only.
-    // Do NOT pull server.teamId==null remotes (cross-tenant leak).
+    // Team scope: this customer's remote services only. Hub-host services
+    // (serverId null) are platform definitions and belong to the global
+    // package (A9-07); server.teamId==null remotes stay out (cross-tenant leak).
     const rows = await readAllPages(async (page) => prisma.quickService.findMany({
-      where: {
-        OR: [{ serverId: null }, { server: { teamId } }],
-      },
+      where: { server: { teamId } },
       orderBy: [{ name: "asc" }, { id: "asc" }],
       ...page,
     }));

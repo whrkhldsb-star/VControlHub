@@ -22,7 +22,11 @@ describe("POST /api/itsm/inbound/[connectionId]", () => {
 		const res = await post(JSON.stringify({ title: "Disk full" }), { "x-hub-signature-256": "sha256=abc" });
 		expect(res.status).toBe(200);
 		expect(await res.json()).toMatchObject({ ok: true, action: "created", ticketId: "t_1", eventId: "ev_1" });
-		expect(mocks.handleInboundWebhook).toHaveBeenCalledWith({ connectionId: "conn_1", rawBody: '{"title":"Disk full"}', signatureHeader: "sha256=abc", json: { title: "Disk full" }, systemUserId: "u_admin" });
+		// The system user is looked up by the service only after the signature verified (A8-08).
+		expect(mocks.handleInboundWebhook).toHaveBeenCalledWith(expect.objectContaining({ connectionId: "conn_1", rawBody: '{"title":"Disk full"}', signatureHeader: "sha256=abc", json: { title: "Disk full" }, headers: expect.any(Headers), resolveSystemUserId: expect.any(Function) }));
+		expect(mocks.userFindFirst).not.toHaveBeenCalled();
+		const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: () => Promise<string | null> };
+		await expect(call.resolveSystemUserId()).resolves.toBe("u_admin");
 		expect(mocks.userFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { roles: { some: { roleId: "role_admin" } } } }));
 	});
 
@@ -36,9 +40,11 @@ describe("POST /api/itsm/inbound/[connectionId]", () => {
 		expect(mocks.handleInboundWebhook).not.toHaveBeenCalled();
 	});
 
-	it("answers 503 when no user exists to own inbound tickets", async () => {
+	it("resolves no system user when no account exists (the service then answers 503)", async () => {
 		mocks.roleFindFirst.mockResolvedValueOnce(null);
 		mocks.userFindFirst.mockResolvedValueOnce(null);
-		expect((await post("{}")).status).toBe(503);
+		await post("{}");
+		const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: () => Promise<string | null> };
+		await expect(call.resolveSystemUserId()).resolves.toBeNull();
 	});
 });

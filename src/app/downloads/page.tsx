@@ -1,6 +1,6 @@
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { serverTeamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import { DownloadsClient } from "./downloads-client";
@@ -13,7 +13,8 @@ export default async function DownloadsPage() {
 	const session = await requirePagePermission("storage:read", { redirectTo: "/downloads" });
 	const locale = await getServerLocale();
 	const canManage = sessionHasPermission(session, "storage:write");
-	const canManageNode = sessionHasPermission(session, "storage:manage-node");
+	// The global aria2 limit is platform-wide; PATCH requires a platform-level manager (A5-12).
+	const canManageNode = isGlobalTeamManager(session) && sessionHasPermission(session, "storage:manage-node");
 
 	// Strict server scope (null teamId is quarantined legacy data); AND-compose so
 	// the credential OR below is not overwritten.
@@ -24,7 +25,8 @@ export default async function DownloadsPage() {
 				{
 					enabled: true,
 					storageNode: { isNot: null },
-					OR: [{ sshKeyId: { not: null } }, { password: { not: null } }],
+					// Direct downloads only need to run a command, which Agent-managed nodes do over the Agent (A5-13).
+					OR: [{ sshKeyId: { not: null } }, { password: { not: null } }, { managementMode: "AGENT" }],
 				},
 			],
 		},

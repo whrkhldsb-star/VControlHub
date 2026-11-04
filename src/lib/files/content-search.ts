@@ -57,6 +57,9 @@ export type ContentSearchResponse = {
 const MAX_RESULTS = 100;
 /** Directory levels a LOCAL search descends; deeper ones count as not searched. */
 const MAX_DEPTH = 10;
+/** Budgets for a LOCAL content search: a tree walk per request stops here (A4-11). */
+const LOCAL_SEARCH_TIME_BUDGET_MS = 10_000;
+const LOCAL_SEARCH_FILE_BUDGET = 5_000;
 
 /** One node's matches, and whether it stopped before finding them all. */
 type NodeSearchOutcome = { results: ContentSearchResult[]; truncated: boolean };
@@ -155,8 +158,19 @@ async function searchLocalNode(
 		return results.length > MAX_RESULTS;
 	};
 
+	// A query with no hit used to read the whole tree on every keystroke (A4-11):
+	// stop after a time or file budget and say the result is partial.
+	const startedAt = Date.now();
+	let filesRead = 0;
+	const overBudget = () => {
+		if (Date.now() - startedAt > LOCAL_SEARCH_TIME_BUDGET_MS || filesRead >= LOCAL_SEARCH_FILE_BUDGET) {
+			truncated = true;
+			return true;
+		}
+		return false;
+	};
 	async function walk(dir: string, depth: number): Promise<void> {
-		if (await full()) return;
+		if (await full() || overBudget()) return;
 		if (depth > MAX_DEPTH) {
 			truncated = true;
 			return;
@@ -171,7 +185,7 @@ async function searchLocalNode(
 
 		for (const entry of entries) {
 			// One match past the cap tells that there were more.
-			if (await full()) return;
+			if (await full() || overBudget()) return;
 
 			const fullPath = path.join(dir, entry.name);
 
@@ -184,6 +198,7 @@ async function searchLocalNode(
 					const stat = await fs.stat(fullPath);
 					if (stat.size > maxFileSizeBytes()) continue;
 
+					filesRead += 1;
 					const content = await fs.readFile(fullPath, "utf-8");
 					const lines: string[] = content.split("\n");
 					const snippets: string[] = [];
@@ -282,7 +297,8 @@ async function searchSftpNode(
 
 	// Build the remote search path — validate against path traversal
 	const sanitizedSearchPath = (searchPath || "").replace(/^\/+/, "");
-	if (sanitizedSearchPath.includes("..")) {
+	// A `..` segment is traversal; "v1..v2" is a directory name (A4-11).
+	if (sanitizedSearchPath.split("/").includes("..")) {
 		logger.warn("SFTP content search rejected: path traversal detected", { nodeId, searchPath });
 		return none;
 	}

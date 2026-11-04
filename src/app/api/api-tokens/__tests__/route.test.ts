@@ -160,7 +160,7 @@ describe("/api/api-tokens", () => {
     );
   });
 
-  it("accepts browser form token creation and redirects back to the token page", async () => {
+  it("accepts browser form token creation but answers with the JSON body, never a redirect", async () => {
     const req = new Request("http://local/api/api-tokens", {
       method: "POST",
       headers: {
@@ -174,10 +174,9 @@ describe("/api/api-tokens", () => {
       ]),
     });
     const res = await route.POST(req);
-    expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe(
-      "http://local/api-tokens?created=1",
-    );
+    // The HTML redirect branch is gone (A1-03): the token is only ever returned once, as JSON.
+    expect(res.status).toBe(201);
+    expect(res.headers.get("location")).toBeNull();
     expect(mocks.createApiToken).toHaveBeenCalledWith({
       userId: "u1",
       teamId: "team_1",

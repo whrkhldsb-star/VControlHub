@@ -69,10 +69,13 @@ export async function POST(request: Request) {
         throw new ValidationError(t("api.auth.twoFactor.enrollmentExpired", locale));
       }
 
-      const valid = (await verifyTOTP({ token: code, secret })).valid;
-      if (!valid) {
+      const totp = await verifyTOTP({ token: code, secret });
+      if (!totp.valid) {
         throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
+      // The enrolment code is spent like every later one: without recording its
+      // step the same code could disable 2FA again within the 30 s window (R0-04).
+      const acceptedStep = "timeStep" in totp && Number.isSafeInteger(totp.timeStep) ? totp.timeStep : null;
 
       const recovery = createTwoFactorRecoveryCodes();
 
@@ -81,6 +84,7 @@ export async function POST(request: Request) {
           twoFactorEnabled: true,
           twoFactorSecret: sealTwoFactorSecret(secret),
           twoFactorRecoveryCodes: recovery.hashes,
+          lastAcceptedTotpStep: acceptedStep,
       });
 
       // Sessions minted before this upgrade never passed a second factor.

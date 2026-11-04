@@ -23,7 +23,7 @@ import { getStorageUploadMaxBytes } from "./limits";
 /** Media init stores a target *directory* (filename is joined later). */
 const mediaRelativePathSchema = z
 	.string()
-	.max(512, "relativePath cannot exceed 512 characters")
+	.max(2000, "relativePath cannot exceed 2000 characters")
 	.transform((value, ctx) => {
 		const normalized = normalizeStorageTargetDirectory(value);
 		if (!normalized.ok) {
@@ -37,7 +37,7 @@ const mediaRelativePathSchema = z
 const storageRelativePathSchema = z
 	.string()
 	.min(1, "relativePath is required")
-	.max(512, "relativePath cannot exceed 512 characters")
+	.max(2000, "relativePath cannot exceed 2000 characters")
 	.transform((value, ctx) => {
 		const normalized = normalizeStorageRelativePath(value);
 		if (!normalized.ok) {

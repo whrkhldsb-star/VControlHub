@@ -310,6 +310,27 @@ async function fetchGenericJSON(url: string, sourceName: string): Promise<Normal
 		const row = item as Record<string, unknown>;
 		if (typeof row.name !== "string" || typeof row.image !== "string") continue;
 		const slug = sourceSlug(typeof row.slug === "string" ? row.slug : row.name);
+		// Shapes are checked here, not trusted (A6-03): a volume entry must be
+		// {host, container} strings with the host under the service's own data
+		// directory; anything else is rewritten to /opt/<slug>/… as the LinuxServer
+		// adapter already does. Env values are strings; ports are TCP ports.
+		const rawVolumes = Array.isArray(row.volumesJson) ? row.volumesJson : Array.isArray(row.volumes) ? row.volumes : [];
+		const volumesJson = rawVolumes.flatMap((entry): NormalizedApp["volumesJson"] => {
+			if (!entry || typeof entry !== "object") return [];
+			const { host, container } = entry as { host?: unknown; container?: unknown };
+			if (typeof container !== "string" || !container.startsWith("/") || container.includes("..")) return [];
+			const declaredHost = typeof host === "string" && host.startsWith("/") && !host.includes("..") ? host.replace(/\/+$/, "") : "";
+			const ownRoot = new RegExp(`^/(opt|srv)/${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(/|$)`);
+			const safeHost = ownRoot.test(declaredHost) ? declaredHost : `/opt/${slug}${container.replace(/\/+$/, "") || ""}`;
+			return [{ host: safeHost, container }];
+		});
+		const rawEnv = row.envJson && typeof row.envJson === "object" && !Array.isArray(row.envJson) ? row.envJson : row.env && typeof row.env === "object" && !Array.isArray(row.env) ? row.env : {};
+		const envJson = Object.fromEntries(
+			Object.entries(rawEnv as Record<string, unknown>)
+				.filter(([key, value]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) && (typeof value === "string" || typeof value === "number" || typeof value === "boolean"))
+				.map(([key, value]) => [key, String(value)]),
+		);
+		const tcpPort = (value: unknown) => (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 65_535 ? value : undefined);
 		apps.push({
 			slug: `${prefix}-${slug}`,
 			name: typeof row.displayName === "string" ? row.displayName : row.name,
@@ -317,12 +338,12 @@ async function fetchGenericJSON(url: string, sourceName: string): Promise<Normal
 			icon: typeof row.icon === "string" ? row.icon : CATEGORY_ICONS[mapCategory(typeof row.category === "string" ? row.category : "other")] || "📦",
 			description: typeof row.description === "string" ? row.description.slice(0, 500) : "",
 			image: row.image,
-			defaultPort: typeof row.defaultPort === "number" ? row.defaultPort : typeof row.port === "number" ? row.port : 8080,
-			internalPort: typeof row.internalPort === "number" ? row.internalPort : undefined,
-			path: typeof row.path === "string" ? row.path : "/",
-			envJson: row.envJson && typeof row.envJson === "object" && !Array.isArray(row.envJson) ? row.envJson as Record<string, string> : row.env && typeof row.env === "object" && !Array.isArray(row.env) ? row.env as Record<string, string> : {},
-			volumesJson: Array.isArray(row.volumesJson) ? row.volumesJson as NormalizedApp["volumesJson"] : Array.isArray(row.volumes) ? row.volumes as NormalizedApp["volumesJson"] : [],
-			command: typeof row.command === "string" ? row.command : undefined,
+			defaultPort: tcpPort(row.defaultPort) ?? tcpPort(row.port) ?? 8080,
+			internalPort: tcpPort(row.internalPort),
+			path: typeof row.path === "string" && row.path.startsWith("/") ? row.path.slice(0, 200) : "/",
+			envJson,
+			volumesJson,
+			command: typeof row.command === "string" && row.command.length <= 2000 ? row.command : undefined,
 			sourceName,
 			rawJson: JSON.stringify(row).substring(0, 4000),
 		});

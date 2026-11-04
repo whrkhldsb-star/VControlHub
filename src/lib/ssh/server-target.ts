@@ -11,7 +11,10 @@ import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
-import { buildSshParamsFromServer, type SshConnectionParams } from "./client";
+import { buildSshParamsFromServer, resolveRemoteHomeDirectory, type SshConnectionParams } from "./client";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("ssh-server-target");
 
 /** The prisma projection every SSH-target consumer needs. */
 const SSH_SERVER_SELECT = {
@@ -97,14 +100,39 @@ async function buildServerSshTarget(server: SshServerRow): Promise<SshServerTarg
   return { server, ssh };
 }
 
+/**
+ * The real home of the SSH account, asked of the host once per ten minutes
+ * (A3-10). The old `/home/<user>` guess remains the fallback when the host
+ * cannot answer, so a transient failure degrades to the previous behaviour.
+ */
+const HOME_CACHE_MS = 10 * 60_000;
+const HOME_CACHE_MAX = 500;
+const homeCache = new Map<string, { home: string; at: number }>();
+
+async function resolveLinuxHomeRoot(serverId: string, ssh: SshServerTarget["ssh"], fallback: string): Promise<string> {
+  const key = `${serverId}:${ssh.username}`;
+  const cached = homeCache.get(key);
+  if (cached && Date.now() - cached.at < HOME_CACHE_MS) return cached.home;
+  try {
+    const home = await resolveRemoteHomeDirectory(ssh);
+    if (homeCache.size >= HOME_CACHE_MAX) homeCache.delete(homeCache.keys().next().value!);
+    homeCache.set(key, { home, at: Date.now() });
+    return home;
+  } catch (error) {
+    logger.warn("sftp home directory lookup failed; using the conventional path", error, { serverId });
+    return fallback;
+  }
+}
+
 /** Windows file access uses OpenSSH credentials, never the RDP endpoint. */
 export async function loadEnabledServerForSftp(serverId: string): Promise<SshServerTarget & { rootPath: string }> {
   const { server } = await loadEnabledServerRef(serverId);
   if (server.operatingSystem !== "WINDOWS") {
     assertDirectCredentialsConfigured(server);
+    const target = await buildServerSshTarget(server);
     return {
-      ...await buildServerSshTarget(server),
-      rootPath: server.username === "root" ? "/root" : `/home/${server.username}`,
+      ...target,
+      rootPath: await resolveLinuxHomeRoot(server.id, target.ssh, server.username === "root" ? "/root" : `/home/${server.username}`),
     };
   }
 

@@ -30,6 +30,7 @@ export const zh: Record<string, string> = {
 	// Toolbar
 	"aiOpsPage.actions.refresh": "刷新",
 	"aiOpsPage.actions.triggerScan": "立即扫描",
+	"aiOpsPage.actions.scanQueued": "扫描已加入队列，由后台执行，完成后列表会更新",
 	"aiOpsPage.actions.scanning": "扫描中…",
 	"aiOpsPage.actions.saving": "保存中…",
 	"aiOpsPage.actions.execute": "执行",
@@ -117,6 +118,7 @@ export const en: Record<string, string> = {
 	// Toolbar
 	"aiOpsPage.actions.refresh": "Refresh",
 	"aiOpsPage.actions.triggerScan": "Trigger scan",
+	"aiOpsPage.actions.scanQueued": "Scan queued; the worker runs it and the list updates when it is done",
 	"aiOpsPage.actions.scanning": "Scanning…",
 	"aiOpsPage.actions.saving": "Saving…",
 	"aiOpsPage.actions.execute": "Execute",

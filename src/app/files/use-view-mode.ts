@@ -1,5 +1,5 @@
 /**
- * View mode (list/grid/details) for the file browser, persisted to
+ * View mode (list/grid) for the file browser, persisted to
  * localStorage so the user's choice survives page reloads.  Pure hook
  * — no JSX, fully unit-testable via renderHook.
  */
@@ -9,10 +9,11 @@ import { useCallback } from "react";
 import { writeLocalStorageValue } from "@/lib/browser-storage";
 import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 
-export type ViewMode = "list" | "grid" | "details";
+export type ViewMode = "list" | "grid";
 
 export const VIEW_MODE_KEY = "app-file-view-mode";
-const VALID: ReadonlySet<ViewMode> = new Set(["list", "grid", "details"]);
+// "details" had no view behind it (A4-35); a stored value falls back to the default.
+const VALID: ReadonlySet<ViewMode> = new Set(["list", "grid"]);
 const DEFAULT_VIEW_MODE: ViewMode = "list";
 
 function readPersistedViewMode(storage: Storage): ViewMode {

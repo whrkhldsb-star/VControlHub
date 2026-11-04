@@ -6,6 +6,7 @@
  * 32 MiB), resizes it with sharp and answers with a JPEG or a placeholder.
  */
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { t } from "@/lib/i18n/service-translations";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
@@ -83,9 +84,9 @@ function placeholderResponse(
           bg: "#1e293b",
           fg: "#64748b",
           icon: "📡",
-          label: "Temporarily unavailable",
+          label: t("backend.thumbnail.unavailable"),
         }
-      : { bg: "#1e293b", fg: "#64748b", icon: "📄", label: "No preview" };
+      : { bg: "#1e293b", fg: "#64748b", icon: "📄", label: t("backend.thumbnail.noPreview") };
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320">
 	<rect width="320" height="320" fill="${palette.bg}"/>

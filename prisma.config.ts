@@ -4,7 +4,10 @@ import { resolve } from "node:path";
 import { config as loadDotenv } from "dotenv";
 import { defineConfig, env } from "prisma/config";
 
-const envFiles = [resolve(process.cwd(), ".env"), resolve(process.cwd(), ".env.local")].filter((path) => existsSync(path));
+// dotenv keeps the first value it sees, so the most specific file comes first:
+// the service's own .env.runtime, then .env.local (the installer's file), then
+// .env. The old order let .env override .env.local (A10-03).
+const envFiles = [".env.runtime", ".env.local", ".env"].map((name) => resolve(process.cwd(), name)).filter((path) => existsSync(path));
 
 if (envFiles.length > 0) {
   loadDotenv({ path: envFiles, quiet: true });

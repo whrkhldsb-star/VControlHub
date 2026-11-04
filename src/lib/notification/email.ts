@@ -49,8 +49,8 @@ function isTruthySetting(value: string | undefined) {
 	return ["true", "1", "yes", "on"].includes(String(value ?? "").trim().toLowerCase());
 }
 
-export async function getSmtpConfig(): Promise<SmtpConfig> {
-	const settings = await getAllSettings();
+export async function getSmtpConfig(preloaded?: Awaited<ReturnType<typeof getAllSettings>>): Promise<SmtpConfig> {
+	const settings = preloaded ?? (await getAllSettings());
 	return {
 		enabled: isTruthySetting(settings["smtp.enabled"]),
 		host: settings["smtp.host"]?.trim() ?? "",
@@ -67,9 +67,9 @@ export function assertSmtpReady(config: SmtpConfig) {
 	if (!config.from) throw new ValidationError(t("backend.notification.smtpSenderIsNotConfigured"));
 }
 
-export async function sendEmail(input: EmailDeliveryInput): Promise<EmailDeliveryResult> {
+export async function sendEmail(input: EmailDeliveryInput, preset?: SmtpConfig): Promise<EmailDeliveryResult> {
 	return timeDelivery("email", async () => {
-		const config = await getSmtpConfig();
+		const config = preset ?? (await getSmtpConfig());
 		assertSmtpReady(config);
 
 		const recipients = normalizeRecipients(input.to);
@@ -113,9 +113,10 @@ export async function sendAlertEmail(input: {
 	const body = [input.message, ...(input.contextLines ?? [])]
 		.filter(Boolean)
 		.join("\n");
+	// The settings just read serve the SMTP config too (A8-10): one read per alert instead of two.
 	return sendEmail({
 		to: recipients,
 		subject: input.title,
 		text: body,
-	});
+	}, await getSmtpConfig(settings));
 }

@@ -162,3 +162,20 @@ export function getNodeLabel(t: (k: string, vars?: Record<string, string | numbe
   if (!node) return t("filesBrowserSpa.allNodes");
   return `${node.name} (${node.driver})`;
 }
+
+/**
+ * Where a new folder or upload goes from the current view (A4-31). Inside a
+ * node the answer is the node and the path; in the "all locations" view a
+ * drilled-into path like `Node__ab12/docs` names the node by its group
+ * segment, and the remainder is the directory on it. Without either, the
+ * caller asks the user for a node and starts at its root.
+ */
+export function resolveBrowserLocation(nodes: NodeOption[], path: string, nodeIdFilter: string): { nodeId: string; relativePath: string } {
+  if (nodeIdFilter) return { nodeId: nodeIdFilter, relativePath: path };
+  const segments = splitPath(path);
+  const groupIndex = segments.findIndex(isNodeGroupSegment);
+  if (groupIndex < 0) return { nodeId: "", relativePath: "" };
+  const node = getNodeFromGroupSegment(nodes, segments[groupIndex]!);
+  if (!node) return { nodeId: "", relativePath: "" };
+  return { nodeId: node.id, relativePath: segments.slice(groupIndex + 1).join("/") };
+}

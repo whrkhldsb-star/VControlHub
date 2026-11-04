@@ -21,6 +21,7 @@ const {
 } = vi.hoisted(() => {
   const prismaMock: any = {
     fileEntry: {
+      count: vi.fn().mockResolvedValue(0),
       findFirst: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -48,6 +49,7 @@ const {
   // Support both Prisma transaction forms: the array form ($transaction([...]))
   // and the interactive/callback form ($transaction(async (tx) => ...)). The
   // callback receives the same mock as the tx client (single in-memory store).
+  prismaMock.$executeRaw = vi.fn().mockResolvedValue(1);
   prismaMock.$transaction = vi.fn(
     async (
       arg: Array<Promise<unknown>> | ((tx: unknown) => Promise<unknown>),
@@ -643,10 +645,8 @@ describe("SFTP file entry actions", () => {
       select: { id: true, relativePath: true },
       take: 10_001,
     });
-    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
-      where: { id: "child-live" },
-      data: { relativePath: "docs-renamed/live.txt" },
-    });
+    // Descendants are rewritten by one UPDATE over the live subtree (A4-28), not a row at a time.
+    expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1);
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
       where: { id: "entry-1" },
       data: { name: "docs-renamed", relativePath: "docs-renamed" },

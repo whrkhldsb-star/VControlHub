@@ -7,7 +7,7 @@ import { getReadableStorageScope, readableStoragePath } from "@/lib/storage/read
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { listStorageNodes } from "@/lib/storage/service-nodes";
 import { listFileEntries } from "@/lib/storage/service-entries";
-import { getFileIndexStatistics } from "@/lib/storage/service-statistics";
+import { getFileIndexStatisticsCached } from "@/lib/storage/service-statistics";
 import {
   getStorageAccessCapabilities,
   getStorageAccessCapabilityKey,
@@ -119,7 +119,7 @@ export async function getFilesListing(
   const searchQuery = query.q ?? "";
   const recursive = query.scope === "all" && Boolean(searchQuery);
   const [indexStats, page] = await Promise.all([
-    getFileIndexStatistics(nodes.map((node) => node.id), readable),
+    getFileIndexStatisticsCached(nodes.map((node) => node.id), readable),
     !selectedNode && !recursive
       ? Promise.resolve(null)
       : queryFileListing({

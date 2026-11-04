@@ -80,18 +80,6 @@ export async function DELETE(request: Request) {
         );
       }
 
-      if (task.aria2Gid) {
-        try {
-          await removeDownload(task.aria2Gid, true);
-        } catch (err) {
-          logError("[DownloadAPI] Failed to remove aria2 download:", err);
-          return NextResponse.json(
-            { error: t("apiDownloads.aria2CancelFailed", locale) },
-            { status: 502 },
-          );
-        }
-      }
-
       const cancelledData = { status: "CANCELLED" as const, errorMessage: t("apiDownloads.userCancelled", locale) };
       const finishCancel = async () => {
         await auditUserAction(session.userId, "download.cancel", {
@@ -100,6 +88,33 @@ export async function DELETE(request: Request) {
         }, undefined, session.currentTeamId);
         return NextResponse.json({ success: true });
       };
+
+      if (task.aria2Gid) {
+        // Mark first, then remove (A5-02): the relay worker polls aria2 every
+        // 5 s and used to see "removed" before this CAS ran, fail the task, send
+        // a failure notice, and leave this request with a 409.
+        const marked = await prisma.downloadTask.updateMany({
+          where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } },
+          data: cancelledData,
+        });
+        if (marked.count === 0) {
+          return NextResponse.json(
+            { error: t("apiDownloads.taskNoLongerActive", locale) },
+            { status: 409 },
+          );
+        }
+        try {
+          await removeDownload(task.aria2Gid, true);
+        } catch (err) {
+          // The worker loop sees CANCELLED on its next tick and removes the download itself.
+          logError("[DownloadAPI] Failed to remove aria2 download after cancelling the task:", err);
+        }
+        if (task.relayMode && task.pid) {
+          try { process.kill(task.pid, "SIGTERM"); } catch (err) { logError("[DownloadAPI] Failed to kill process:", err); }
+        }
+        await cleanupTemp(relayTempDir(taskId));
+        return finishCancel();
+      }
 
       let status = task.status;
       if (status === "PENDING") {

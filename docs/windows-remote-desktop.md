@@ -23,6 +23,10 @@ reverse_proxy /rdp 127.0.0.1:3001
 
 Do not route `/rdp` directly to guacd. The application bridge verifies the authenticated session, node/team access and single-use ticket before opening a gateway connection.
 
+### Certificate pinning
+
+A Windows node may store a SHA-256 fingerprint of its RDP certificate. Stock guacd does **not** enforce the `cert-fingerprints` parameter, so the gateway refuses to connect a pinned node unless the deployment attests to a guacd build that does, with `RDP_EXCLUSIVE_PIN_GATEWAY=true` in the SSH WebSocket service environment. Without that flag the node form rejects a fingerprint at save time; existing pinned nodes fail to connect with an explanatory error instead of connecting unverified. Never set the flag for stock guacd.
+
 ## Session lifetime
 
 guacd disconnects clients that stay silent for roughly 20 seconds, so keep-alive is handled at three layers:

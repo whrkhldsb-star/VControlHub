@@ -34,10 +34,6 @@ const createTokenSchema = z.object({
   expiresAt: z.string().trim().optional().nullable(),
 });
 
-function wantsHtml(request: Request) {
-  return request.headers.get("accept")?.includes("text/html") ?? false;
-}
-
 async function parseCreateBody(request: Request) {
   const form = await request.formData();
   const scopes = form
@@ -125,12 +121,9 @@ export async function POST(request: Request) {
           : null,
       }, undefined, session.currentTeamId);
 
-      if (wantsHtml(request)) {
-        return NextResponse.redirect(
-          new URL("/api-tokens?created=1", request.url),
-          { status: 303 },
-        );
-      }
+      // The plaintext token exists only in this response: a form post that
+      // redirected to the page could never show it (A1-03), so every caller
+      // gets the JSON body.
       return NextResponse.json(
         { token: result.token, apiToken: result.apiToken },
         { status: 201 },

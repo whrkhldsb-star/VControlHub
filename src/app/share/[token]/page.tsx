@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, Download, File, Folder, LinkIcon } from "@/components/icons";
 
-import { listShareDirectoryFiles, peekShareToken } from "@/lib/share-link/service";
+import { listShareDirectoryFiles, peekShareToken, SHARE_DIRECTORY_LIST_LIMIT } from "@/lib/share-link/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { formatDateTime } from "@/lib/datetime/format";
 import { formatBytes } from "@/lib/format/bytes";
@@ -220,13 +220,18 @@ export default async function SharePage({
                     {t("sharePage.previewOnly", locale)}
                   </Notice>
                 )}
+                {files.length > SHARE_DIRECTORY_LIST_LIMIT && (
+                  <Notice tone="warning" compact className="mb-3 text-center">
+                    {t("sharePage.listTruncated", locale, { max: SHARE_DIRECTORY_LIST_LIMIT })}
+                  </Notice>
+                )}
                 {files.length === 0 ? (
                   <Notice tone="warning" compact className="text-center">
                     {t("sharePage.noFiles", locale)}
                   </Notice>
                 ) : (
                   <div className="divide-y divide-[var(--border)] light:divide-[var(--border)]">
-                    {files.map((file) => (
+                    {files.slice(0, SHARE_DIRECTORY_LIST_LIMIT).map((file) => (
                       <div key={file.id} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium text-[var(--text-primary)]">{file.name}</div>

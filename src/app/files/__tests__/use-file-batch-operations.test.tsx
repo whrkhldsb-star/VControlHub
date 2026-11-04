@@ -2,7 +2,8 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Tests for the three batch-operation hooks behind the file list toolbar.
+ * Tests for the batch-compress hook behind the file list toolbar (the batch
+ * delete/move hooks were dead code and are gone, A4-35).
  *
  * The move flow had no tests of its own. The property worth pinning is what
  * happens on a *partial* failure: all three hooks return `batchAction` to
@@ -26,7 +27,7 @@ vi.mock("../../storage/actions", () => ({ deleteFileEntryAction: mocks.deleteFil
 vi.mock("../move-file-action", () => ({ moveFileAction: mocks.moveFileAction }));
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: mocks.csrfFetch }));
 
-import { useBatchCompress, useBatchDelete, useBatchMove } from "../use-file-batch-operations";
+import { useBatchCompress } from "../use-file-batch-operations";
 
 type Progress = { done: number; total: number; errors: string[] };
 
@@ -64,198 +65,6 @@ function harness(overrides: Record<string, unknown> = {}) {
 	};
 	return { state, input };
 }
-
-/** The toolbar's own disable expression, kept in sync with file-batch-toolbar.tsx. */
-function confirmMoveDisabled(moveTargetDir: string, isPending: boolean, moveProgress: Progress) {
-	return !moveTargetDir.trim() || isPending || moveProgress.done > 0;
-}
-
-describe("useBatchMove", () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		mocks.moveFileAction.mockReset();
-		mocks.moveFileAction.mockResolvedValue(null);
-	});
-
-	it("moves every selected file with its own path and node", async () => {
-		const { state, input } = harness();
-		const { result } = renderHook(() => useBatchMove(input as never));
-		await act(async () => { result.current(); });
-		expect(mocks.moveFileAction).toHaveBeenCalledTimes(2);
-		const first = mocks.moveFileAction.mock.calls[0]![1] as FormData;
-		expect(first.get("fileEntryId")).toBe("f1");
-		expect(first.get("targetDir")).toBe("target");
-		expect(first.get("currentRelativePath")).toBe("dir/a.txt");
-		expect(first.get("storageNodeId")).toBe("n1");
-		expect(state.toasts.at(-1)).toMatchObject({ type: "success" });
-	});
-
-	it("is a no-op without a target directory", async () => {
-		const { input } = harness({ moveTargetDir: "   " });
-		const { result } = renderHook(() => useBatchMove(input as never));
-		await act(async () => { result.current(); });
-		expect(mocks.moveFileAction).not.toHaveBeenCalled();
-	});
-
-	it("is a no-op with an empty selection", async () => {
-		const { input } = harness({ effectiveSelectedIds: [] });
-		const { result } = renderHook(() => useBatchMove(input as never));
-		await act(async () => { result.current(); });
-		expect(mocks.moveFileAction).not.toHaveBeenCalled();
-	});
-
-	it("returns to the selection toolbar after a partial failure, selecting only failures", async () => {
-		// Closing the panel is intentional: the errors are rendered by the toolbar's
-		// own summary, and the files stay selected so the user can retry.
-		mocks.moveFileAction
-			.mockResolvedValueOnce(null)
-			.mockResolvedValueOnce({ error: "target is in the recycle bin" });
-		const { state, input } = harness();
-		state.batchAction = "moving";
-		const { result } = renderHook(() => useBatchMove(input as never));
-		await act(async () => { result.current(); });
-		expect(state.batchAction).toBe("none");
-		expect(state.moveProgress.errors).toHaveLength(1);
-		// `done` counts *attempts*, not successes — 2/2 with one error listed. The
-		// error list, not the counter, is what reports the failures.
-		expect(state.moveProgress).toMatchObject({ done: 2, total: 2 });
-		expect([...state.selectedIds]).toEqual(["f2"]);
-		expect(state.scopeKey).toBe("scope-1");
-	});
-
-	it("does not select uncertain moves for the next retry", async () => {
-		mocks.moveFileAction.mockResolvedValueOnce({error:"inspect both paths", needsReconcile:true}).mockResolvedValueOnce({error:"ordinary failure"});
-		const { state, input } = harness();
-		const { result } = renderHook(() => useBatchMove(input as never));
-		await act(async () => { result.current(); });
-		expect([...state.selectedIds]).toEqual(["f2"]);
-		expect(state.moveProgress.errors).toHaveLength(2);
-	});
-
-	it("stays retryable after a partial failure once the panel is reopened", async () => {
-		// Reopening resets moveProgress (see the "batch move" button in
-		// file-batch-toolbar.tsx), which is what keeps the confirm button live.
-		// Without that reset the `done > 0` guard would be a permanent dead end.
-		mocks.moveFileAction
-			.mockResolvedValueOnce(null)
-			.mockResolvedValueOnce({ error: "boom" });
-		const { state, input } = harness();
-		const { result } = renderHook(() => useBatchMove(input as never));
-		await act(async () => { result.current(); });
-		// Inside the still-open panel a duplicate submit is blocked...
-		expect(confirmMoveDisabled("target", false, state.moveProgress)).toBe(true);
-		// ...and reopening the panel clears the counter, so retry is available.
-		const reopened = { done: 0, total: 0, errors: [] };
-		expect(confirmMoveDisabled("target", false, reopened)).toBe(false);
-	});
-
-	it("still disables confirm after a fully successful move", async () => {
-		// A clean run must not invite an immediate duplicate submit.
-		const { state, input } = harness();
-		const { result } = renderHook(() => useBatchMove(input as never));
-		await act(async () => { result.current(); });
-		// clearSelection() ran, so progress is what the hook last reported.
-		expect(confirmMoveDisabled("target", false, { done: 2, total: 2, errors: [] })).toBe(true);
-		expect(state.toasts.at(-1)).toMatchObject({ type: "success" });
-	});
-
-	it("reports accurate progress rather than resetting the counter", async () => {
-		mocks.moveFileAction
-			.mockResolvedValueOnce(null)
-			.mockResolvedValueOnce({ error: "boom" });
-		const { state, input } = harness();
-		const { result } = renderHook(() => useBatchMove(input as never));
-		await act(async () => { result.current(); });
-		expect(state.moveProgress.done).toBe(2);
-		expect(state.moveProgress.total).toBe(2);
-	});
-
-	it("records a missing file as an error instead of silently skipping it", async () => {
-		const { state, input } = harness({ effectiveSelectedIds: ["f1", "ghost"] });
-		const { result } = renderHook(() => useBatchMove(input as never));
-		await act(async () => { result.current(); });
-		expect(mocks.moveFileAction).toHaveBeenCalledTimes(1);
-		expect(state.moveProgress.errors).toHaveLength(1);
-	});
-
-	it("refreshes the listing even when some moves failed", async () => {
-		mocks.moveFileAction.mockResolvedValue({ error: "boom" });
-		const { state, input } = harness();
-		const { result } = renderHook(() => useBatchMove(input as never));
-		await act(async () => { result.current(); });
-		// The successful ones have already left the directory; a stale list would
-		// still show them.
-		expect(state.refreshed).toBe(1);
-	});
-});
-
-describe("useBatchDelete", () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		mocks.deleteFileEntryAction.mockReset();
-		mocks.deleteFileEntryAction.mockResolvedValue(null);
-	});
-
-	it("deletes each selected id and clears the selection on success", async () => {
-		const { state, input } = harness();
-		const { result } = renderHook(() => useBatchDelete(input as never));
-		await act(async () => { result.current(); });
-		expect(mocks.deleteFileEntryAction).toHaveBeenCalledTimes(2);
-		expect(state.selectedIds.size).toBe(0);
-		expect(state.toasts.at(-1)).toMatchObject({ type: "success" });
-	});
-
-	it("returns to the selection toolbar on partial failure, which is its retry path", async () => {
-		// Unlike move, delete owns no panel — "none" *is* where retry lives.
-		mocks.deleteFileEntryAction
-			.mockResolvedValueOnce(null)
-			.mockResolvedValueOnce({ error: "permission denied" });
-		const { state, input } = harness();
-		const { result } = renderHook(() => useBatchDelete(input as never));
-		await act(async () => { result.current(); });
-		expect(state.batchAction).toBe("none");
-		expect([...state.selectedIds]).toEqual(["f2"]);
-		expect(state.progress.errors).toHaveLength(1);
-	});
-
-	it("names the failing file in the error rather than only its id", async () => {
-		mocks.deleteFileEntryAction.mockResolvedValueOnce({ error: "locked" });
-		const { state, input } = harness({ effectiveSelectedIds: ["f1"] });
-		const { result } = renderHook(() => useBatchDelete(input as never));
-		await act(async () => { result.current(); });
-		expect(state.progress.errors[0]).toContain("a.txt");
-	});
-});
-
-describe.each([
-	["move", useBatchMove, mocks.moveFileAction, "moveProgress"],
-	["delete", useBatchDelete, mocks.deleteFileEntryAction, "progress"],
-] as const)("%s transport failures", (_name, hook, action, progressKey) => {
-	beforeEach(() => action.mockReset());
-
-	it("continues after a rejected request and retains only the failed item", async () => {
-		action.mockRejectedValueOnce(new Error("network unavailable")).mockResolvedValueOnce(null);
-		const { input, state } = harness();
-		const { result } = renderHook(() => hook(input as never));
-		await act(async () => { result.current(); });
-		expect(action).toHaveBeenCalledTimes(2);
-		expect(state[progressKey]).toMatchObject({ done: 2, total: 2 });
-		expect(state[progressKey].errors).toEqual(["a.txt: network unavailable"]);
-		expect([...state.selectedIds]).toEqual(["f1"]);
-		expect(state.batchAction).toBe("none");
-	});
-
-	it("ignores rapid duplicate submissions until the batch settles", async () => {
-		let resolve!: () => void;
-		action.mockImplementationOnce(() => new Promise<void>((done) => { resolve = done; })).mockResolvedValue(null);
-		const { input } = harness();
-		const { result } = renderHook(() => hook(input as never));
-		act(() => { result.current(); result.current(); });
-		expect(action).toHaveBeenCalledTimes(1);
-		await act(async () => { resolve(); });
-		expect(action).toHaveBeenCalledTimes(2);
-	});
-});
 
 describe("useBatchCompress", () => {
 	beforeEach(() => {

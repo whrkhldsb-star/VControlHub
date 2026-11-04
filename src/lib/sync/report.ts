@@ -1,3 +1,5 @@
+import { t } from "@/lib/i18n/service-translations";
+
 /**
  * Parse / build human + structured sync run reports for the UI panel.
  */
@@ -54,9 +56,9 @@ export function parseSyncResultMessage(raw: string | null | undefined): SyncRunR
       transferredFiles: total,
       durationSec: sec,
       notes: [
-        "newer-wins (rsync --update)",
-        "no automatic orphan delete on either side",
-        "same path on both sides with concurrent edits may keep both versions by mtime",
+        t("backend.sync.report.note.newerWins"),
+        t("backend.sync.report.note.noOrphanDelete"),
+        t("backend.sync.report.note.concurrentEdits"),
       ],
       raw: text,
     };
@@ -153,9 +155,9 @@ export function buildSyncReportView(input: {
     conflictHints:
       input.syncType.toUpperCase() === "BIDIRECTIONAL"
         ? [
-            "Bidirectional uses mtime newer-wins; concurrent edits of the same file keep the newer copy only.",
-            "Deletes are never propagated automatically — remove files on both sides manually if needed.",
-            "If both sides change the same file offline, the later mtime wins after the next two-leg run.",
+            t("backend.sync.report.hint.newerWins"),
+            t("backend.sync.report.hint.noDeletes"),
+            t("backend.sync.report.hint.offline"),
           ]
         : [],
   };

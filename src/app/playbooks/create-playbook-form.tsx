@@ -97,6 +97,12 @@ export function CreatePlaybookForm({
 				setSubmitting(false);
 				return;
 			}
+			// An empty threshold used to become 0 and submit silently (A6-10).
+			if (triggerType !== "cron" && String(metricThreshold).trim() === "") {
+				setError(t("playbooksPage.error.thresholdRequired"));
+				setSubmitting(false);
+				return;
+			}
 			const triggerConfig =
 				triggerType === "cron"
 					? { expression: cronExpression }

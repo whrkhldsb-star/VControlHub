@@ -6,6 +6,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { getPermissionsFromRoles, type RoleKey } from "@/lib/auth/rbac";
 import { resolveSessionPermissions } from "@/lib/auth/identity-templates";
 import { listIdentityTemplates } from "@/lib/auth/identity-template-service";
+import { listLiveCustomerOptions } from "@/lib/team/service";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -153,7 +154,7 @@ export async function GET(request: Request) {
     const teamId = membership && !membership.team.deletedAt ? membership.teamId : null;
     const [templates, customers, storageNodes, servers] = await Promise.all([
       listIdentityTemplates(),
-      prisma.team.findMany({ where: { deletedAt: null }, select: { id: true, name: true }, orderBy: { createdAt: "asc" }, take: 500 }),
+      listLiveCustomerOptions(),
       teamId
         ? prisma.storageNode.findMany({ where: { teamId }, select: { id: true, name: true, driver: true, basePath: true }, orderBy: { name: "asc" }, take: 5000 })
         : [],

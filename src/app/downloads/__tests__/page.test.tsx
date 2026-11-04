@@ -71,7 +71,7 @@ describe("DownloadsPage", () => {
           {
             enabled: true,
             storageNode: { isNot: null },
-            OR: [{ sshKeyId: { not: null } }, { password: { not: null } }],
+            OR: [{ sshKeyId: { not: null } }, { password: { not: null } }, { managementMode: "AGENT" }],
           },
         ],
       },

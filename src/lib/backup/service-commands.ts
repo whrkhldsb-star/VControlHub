@@ -7,13 +7,13 @@
  * Restore policy lives in `planBackupRestoreSteps` so the UI/docs shell
  * formatter and the runtime argv executor cannot drift.
  */
-import { isAbsolute } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import { shellQuote } from "@/lib/shell-quote";
 import type { BackupType } from "./service-types";
-import { assertPortableBackupPath } from "./service-types";
+import { assertPortableBackupPath, getBackupStorageRoot } from "./service-types";
 import { backupRunnerSpec, restoreRunnerSpec } from "./platform-runner";
 
 export type BackupRestoreStep = { file: string; args: string[] };
@@ -80,7 +80,10 @@ export function buildPortableBackupCommand(input: { projectRoot: string; outputP
 	const modeFlag = input.type === "FILES" ? " --files" : input.type === "FULL" ? " --full" : "";
 	const { file, script } = backupRunnerSpec();
 	const quotedScript = IS_WINDOWS ? [file, script].map(shellQuote).join(" ") : `${file} ${script}`;
-	return `cd ${shellQuote(input.projectRoot)} && ${quotedScript}${modeFlag} ${shellQuote(outputPath)}`;
+	// Absolute, under BACKUP_DIR (A9-04): a relative path is resolved by
+	// scripts/backup.mjs against the app directory, which is not where the
+	// application lists, retains or uploads backups from.
+	return `cd ${shellQuote(input.projectRoot)} && ${quotedScript}${modeFlag} ${shellQuote(join(getBackupStorageRoot(input.projectRoot), outputPath))}`;
 }
 
 export function buildBackupRestoreCommand(input: {

@@ -25,6 +25,7 @@ const PatchBodySchema = z
     status: TicketStatusSchema.optional(),
     // assigneeId may be set to null to unassign — keep nullable.
     assigneeId: z.string().nullable().optional(),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
   })
   .strict();
 
@@ -56,12 +57,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: PatchBodySchema },
     async ({ body, session }) => {
       const { id } = await params;
-      const updates: { id: string; status?: string; assigneeId?: string | null; session?: typeof session } = {
+      const updates: { id: string; status?: string; assigneeId?: string | null; priority?: string; session?: typeof session } = {
         id,
         session,
       };
       if (body.status) updates.status = body.status;
       if (body.assigneeId !== undefined) updates.assigneeId = body.assigneeId;
+      if (body.priority) updates.priority = body.priority;
       const ticket = await updateTicketStatus(updates);
       await auditUserAction(session.userId, "ticket.update", { ticketId: id }, undefined, session.currentTeamId);
       return NextResponse.json({ ticket });

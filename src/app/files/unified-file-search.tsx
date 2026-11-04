@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { buildSearchHref } from "./file-entry-utils";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
@@ -147,6 +149,7 @@ export function UnifiedFileSearch({
 	/** Allows the browser shell to implement the familiar `/` shortcut. */
 	inputRef?: RefObject<HTMLInputElement | null>;
 }) {
+	const router = useRouter();
 	const { t } = useI18n();
 	const [mode, setMode] = useState<"filename" | "content">("filename");
 	const [scope, setScope] = useState<"current" | "all">(initialScope);
@@ -221,7 +224,13 @@ export function UnifiedFileSearch({
 				</ActionButton>
 			</form>
 
-			{mode === "content" ? <ContentSearchResults state={content.state} /> : null}
+			{mode === "content" ? (
+				<ContentSearchResults
+					state={content.state}
+					// A hit opens its folder in the drive, filtered to the file (A4-32); it used to be plain text here.
+					onOpen={(hit) => router.push(buildSearchHref(hit.relativePath.split("/").slice(0, -1).join("/"), { nodeId: hit.nodeId, q: hit.relativePath.split("/").pop() ?? "" }))}
+				/>
+			) : null}
 		</div>
 	);
 }

@@ -11,7 +11,7 @@ import { z } from "zod";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_WRITE_LIMIT, GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import {
 	listVpsBackupSchedules,
 	createVpsBackupSchedule,
@@ -39,7 +39,7 @@ export async function GET(
 	const { id: serverId } = await params;
 	return withApiRoute(
 		request,
-		{ permission: "server:read", rateLimit: GENERAL_WRITE_LIMIT },
+		{ permission: "server:read", rateLimit: GENERAL_READ_LIMIT },
 		async ({ session }) => {
 			const teamAccess = await assertServerTeamAccess(session, serverId, "read");
 			if (!teamAccess.ok) return teamAccess.response;

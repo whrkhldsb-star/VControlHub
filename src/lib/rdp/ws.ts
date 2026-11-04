@@ -100,6 +100,7 @@ const MAX_PRE_AUTH_PER_ADDRESS = 12;
 /** The browser echoes the gateway's ping every few seconds; more than this per second is a flood. */
 const MAX_PING_ECHOES_PER_SECOND = 20;
 const AUTHORIZATION_TIMEOUT_MS = 5_000;
+const REVALIDATE_INTERVAL_MS = 30_000;
 /** Shares the existing loopback SSH service, but never its protocol or credentials. */
 /** Guacamole status codes guacd reports when Windows refuses the account. */
 const RDP_STATUS_UNAUTHORIZED = "769";
@@ -210,6 +211,7 @@ export function setupRdpWebSocket(server: HttpServer) {
   let stopped = false;
   let revalidate: (() => Promise<void>) | undefined;
   let validating = false;
+  let lastRevalidatedAt = 0;
   let authorizationDeadline = 0;
   let started = false;
   let tunnelPaused = false;
@@ -320,7 +322,10 @@ export function setupRdpWebSocket(server: HttpServer) {
    // A stalled database query must not suspend revocation checks forever.
    // This watchdog runs independently of the pending authorization promise.
    if (validating && Date.now() >= authorizationDeadline) { close("RDP session authorization expired", 1008); return; }
-   if (revalidate && !validating) {
+   // Session/permission revocation is re-checked every 30 s, not on every 5 s
+   // tick (A3-08): three queries per tick per open desktop added up.
+   if (revalidate && !validating && Date.now() - lastRevalidatedAt >= REVALIDATE_INTERVAL_MS) {
+    lastRevalidatedAt = Date.now();
     validating = true;
     authorizationDeadline = Date.now() + AUTHORIZATION_TIMEOUT_MS;
     void revalidate().catch(() => close("RDP session authorization expired", 1008)).finally(() => { validating = false; });
@@ -439,6 +444,7 @@ export function setupRdpWebSocket(server: HttpServer) {
      if (current.mustChangePassword || !sessionHasPermission(current, "server:ssh") || current.userId !== session.userId || current.currentTeamId !== session.currentTeamId) throw new Error("Denied");
      if (rdpEndpointHash(await getRdpServer(target.id, current)) !== endpointHash) throw new Error("Changed");
     };
+    lastRevalidatedAt = Date.now();
     // After async authentication, so the process-local caps stay atomic.
     const key = `${session.userId}:${target.id}`;
     liveSessions.get(key)?.supersede();

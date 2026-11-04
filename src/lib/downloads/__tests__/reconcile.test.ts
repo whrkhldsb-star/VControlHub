@@ -115,7 +115,9 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
 
     expect(res.completed).toBe(0);
     expect(res.failed).toBe(0);
-    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
+    // Seen alive: only the stale-window timestamp moves (A5-05); status and errors stay.
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({ where: { id: "t-direct", status: "RUNNING" }, data: { updatedAt: expect.any(Date) } });
   });
 
   it("fails a direct download whose remote process failed", async () => {

@@ -1,4 +1,5 @@
 import { getSetting } from "@/lib/settings/service";
+import { t } from "@/lib/i18n/service-translations";
 
 export type PasswordPolicy = {
   minLength: number;
@@ -36,28 +37,39 @@ export async function loadPasswordPolicy(): Promise<PasswordPolicy> {
   };
 }
 
+export type PasswordPolicyViolation = {
+  key: "backend.password.minLength" | "backend.password.uppercase" | "backend.password.digit" | "backend.password.special";
+  vars?: Record<string, number>;
+};
+
 /**
  * Validate a candidate password against a policy.
- * Returns a Chinese error message describing the first violation, or null when
- * the password satisfies the policy.
+ * Returns the first violation as a translation key (plus its variables), or
+ * null when the password satisfies the policy (A1-02: the message is rendered
+ * in the caller's language, not in hard-coded English).
  */
 export function checkPasswordAgainstPolicy(
   password: string,
   policy: PasswordPolicy,
-): string | null {
+): PasswordPolicyViolation | null {
   if (password.length < policy.minLength) {
-    return `Password must be at least ${policy.minLength} characters`;
+    return { key: "backend.password.minLength", vars: { min: policy.minLength } };
   }
   if (policy.requireUppercase && !/[A-Z]/.test(password)) {
-    return "Password must contain at least one uppercase letter";
+    return { key: "backend.password.uppercase" };
   }
   if (policy.requireNumber && !/[0-9]/.test(password)) {
-    return "Password must contain at least one digit";
+    return { key: "backend.password.digit" };
   }
   if (policy.requireSpecial && !SPECIAL_CHARS.test(password)) {
-    return "Password must contain at least one special character";
+    return { key: "backend.password.special" };
   }
   return null;
+}
+
+/** The violation in the request's language (zh outside a request). */
+export function describePasswordPolicyViolation(violation: PasswordPolicyViolation): string {
+  return t(violation.key, violation.vars);
 }
 
 /**
@@ -68,5 +80,6 @@ export async function validatePasswordPolicy(
   password: string,
 ): Promise<string | null> {
   const policy = await loadPasswordPolicy();
-  return checkPasswordAgainstPolicy(password, policy);
+  const violation = checkPasswordAgainstPolicy(password, policy);
+  return violation ? describePasswordPolicyViolation(violation) : null;
 }

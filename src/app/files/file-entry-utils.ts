@@ -183,6 +183,8 @@ export function getPreviewHref(entry: StorageEntry) {
       driver: entry.storageNode.driver,
       ...(entry.storageNode.id ? { nodeId: entry.storageNode.id } : {}),
       ...(entry.relativePath ? { relativePath: entry.relativePath } : {}),
+      // The preview page warns before loading a large text file by this (A4-35).
+      ...(entry.size != null ? { size: String(entry.size) } : {}),
       ...(entry.localEditable ? { fileEntryId: entry.id, editable: "1" } : {}),
       ...(entry.storageNode.serverId
         ? { serverId: entry.storageNode.serverId }
@@ -314,4 +316,9 @@ export function toStorageEntry(file: FileProp): StorageEntry {
     capabilities: file.capabilities,
     updatedAt: file.updatedAt ?? undefined,
   };
+}
+
+/** Tags typed by hand: comma or Chinese comma separated, trimmed, empties dropped (A4-36). */
+export function parseTagInput(value: string): string[] {
+  return value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean);
 }

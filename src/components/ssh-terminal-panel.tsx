@@ -37,6 +37,12 @@ import { AlertTriangle } from "@/components/icons";
 import { cn } from "@/lib/ui/cn";
 export type { TerminalStatus } from "@/components/ssh-terminal-types";
 
+/**
+ * Commands that carry or prompt for a secret are not kept in the visible
+ * history: password changes, `su`, inline `-p`/`--password`, env assignments of
+ * keys/tokens, URLs with embedded credentials, Authorization headers.
+ */
+const SENSITIVE_COMMAND_PATTERN = /(^|[\s;&|(])(sudo\s+(?:-\S+\s+)*)?(passwd|chpasswd|su|sshpass|htpasswd|mysqladmin\s+password)(\s|$)|(^|\s)(-p\S+|--password(=|\s)|-P\s|--token(=|\s)|--secret(=|\s))|\b(PASS(WORD)?|TOKEN|SECRET|API_KEY|PRIVATE_KEY|AWS_[A-Z_]*KEY)\s*=|:\/\/[^\s/@]+:[^\s/@]+@|Authorization:\s*\S+/i;
 const FAVORITE_COMMANDS_KEY = "ssh-favorite-commands";
 const QUICK_KEY_PRESETS_KEY = "ssh-quick-key-presets";
 
@@ -126,6 +132,7 @@ export function SshTerminalPanel({
 	const [showFileManager, setShowFileManager] = useState(false);
 	const [terminalSearch, setTerminalSearch] = useState("");
 	const [commandHistory, setCommandHistory] = useState<string[]>([]);
+	const clearCommandHistory = useCallback(() => setCommandHistory([]), []);
 	const storedFavoriteCommands = useBrowserStorageSnapshot(FAVORITE_COMMANDS_KEY, readFavoriteCommands, null);
 	const favoriteCommands = useMemo(() => parseFavoriteCommands(storedFavoriteCommands), [storedFavoriteCommands]);
 	const [newFavorite, setNewFavorite] = useState("");
@@ -266,9 +273,13 @@ export function SshTerminalPanel({
 				if (!connectionRef.current?.send(data)) return;
 				setInputError("");
 				if (data === "\r" || data === "\n") {
-					const cmd = currentCommandRef.current.trim();
+					const typed = currentCommandRef.current;
+					const cmd = typed.trim();
 					currentCommandRef.current = "";
-					if (cmd) {
+					// The side panel shows this list in clear text; keep secrets out of
+					// it (A3-03): a leading space (the shell's own HISTCONTROL idiom),
+					// password prompts and inline credentials are not recorded.
+					if (cmd && !typed.startsWith(" ") && !SENSITIVE_COMMAND_PATTERN.test(cmd)) {
 						setCommandHistory((prev) => [cmd, ...prev.filter((c) => c !== cmd)].slice(0, 50));
 					}
 				} else if (data === "\u007f" || data === "\b") {
@@ -597,6 +608,7 @@ export function SshTerminalPanel({
 						addFavorite={addFavorite}
 						removeFavorite={removeFavorite}
 						commandHistory={commandHistory}
+						onClearHistory={clearCommandHistory}
 						sendCommand={sendCommand}
 						sendKeys={sendKeys}
 						customQuickKeys={customQuickKeys}

@@ -77,15 +77,15 @@ describe("checkPasswordAgainstPolicy", () => {
 	});
 
 	it("reports the length violation first and names the configured minimum", () => {
-		const message = checkPasswordAgainstPolicy("short", strict);
-		expect(message).toContain("12");
+		const violation = checkPasswordAgainstPolicy("short", strict);
+		expect(violation).toEqual({ key: "backend.password.minLength", vars: { min: 12 } });
 	});
 
 	it("counts characters, not bytes, so a multi-byte password is not over-credited", () => {
 		// "密码" is 2 characters but 6 UTF-8 bytes; a byte-length check would let a
 		// 4-character password through a minLength of 12.
-		const message = checkPasswordAgainstPolicy("密码密码密码", { ...strict, requireUppercase: false, requireNumber: false, requireSpecial: false });
-		expect(message).toContain("12");
+		const violation = checkPasswordAgainstPolicy("密码密码密码", { ...strict, requireUppercase: false, requireNumber: false, requireSpecial: false });
+		expect(violation).toEqual({ key: "backend.password.minLength", vars: { min: 12 } });
 	});
 
 	it.each([
@@ -93,7 +93,7 @@ describe("checkPasswordAgainstPolicy", () => {
 		["NoDigitsHere!x", "digit"],
 		["NoSpecialChar1x", "special"],
 	])("rejects %s for the missing %s class", (password, expected) => {
-		expect(checkPasswordAgainstPolicy(password, strict)).toContain(expected);
+		expect(checkPasswordAgainstPolicy(password, strict)?.key).toBe(`backend.password.${expected}`);
 	});
 
 	it("skips a class check the policy has turned off", () => {
@@ -118,8 +118,8 @@ describe("checkPasswordAgainstPolicy", () => {
 
 	it("does not accept a space as a special character", () => {
 		expect(
-			checkPasswordAgainstPolicy("Abcdefg1 x", { minLength: 8, requireUppercase: true, requireNumber: true, requireSpecial: true }),
-		).toContain("special");
+			checkPasswordAgainstPolicy("Abcdefg1 x", { minLength: 8, requireUppercase: true, requireNumber: true, requireSpecial: true })?.key,
+		).toBe("backend.password.special");
 	});
 });
 

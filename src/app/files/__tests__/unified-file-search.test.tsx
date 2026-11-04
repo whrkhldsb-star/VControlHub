@@ -3,6 +3,14 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
+
+// Content hits open their folder through the router (A4-30); the test renders outside the app router.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => "/files",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 import { UnifiedFileSearch } from "../unified-file-search";
 
 function deferred<T>() {

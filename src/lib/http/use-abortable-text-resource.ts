@@ -38,6 +38,7 @@ export function useAbortableTextResource({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const loadedHrefRef = useRef<string | null>(null);
   const requestRef = useRef(0);
   const fetcherRef = useRef(fetcher);
   const errorMessageRef = useRef(errorMessage);
@@ -56,6 +57,11 @@ export function useAbortableTextResource({
     const requestId = ++requestRef.current;
     setLoading(true);
     setError(null);
+    // A different file: the previous content stayed on screen while this one loaded (A11-03).
+    if (loadedHrefRef.current !== null && loadedHrefRef.current !== href) {
+      setContent(null);
+      setTruncated(false);
+    }
     try {
       const currentFetcher = fetcherRef.current;
       const response = await currentFetcher(href, { signal: controller.signal });
@@ -64,6 +70,7 @@ export function useAbortableTextResource({
         ? { text: await response.text(), truncated: false }
         : await readTextPrefix(response, maxBytes);
       if (requestId !== requestRef.current) return;
+      loadedHrefRef.current = href;
       setContent(next.text);
       setTruncated(next.truncated);
     } catch (cause) {

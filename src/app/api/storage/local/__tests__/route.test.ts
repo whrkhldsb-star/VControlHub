@@ -67,6 +67,8 @@ vi.mock("node:fs/promises", () => ({
   rename: renameMock,
 }));
 vi.mock("@/lib/storage/file-versions", () => ({ snapshotFileVersionBeforeOverwrite: vi.fn(async () => null) }));
+// The single-upload limit is the runtime setting (A4-26); pin it to the 100 MiB these cases were written for.
+vi.mock("@/lib/upload/limits", () => ({ getStorageUploadMaxBytes: () => 100 * 1024 * 1024 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: requireApiPermissionMock,

@@ -44,6 +44,7 @@ describe("GET /api/servers/[id]/vps-backup/records/[recordId]/download", () => {
 	});
 
 	it("needs server:ssh and file-read access to that server", async () => {
+		// Not backup:read: that one is platform-only, a customer could never download its VPS backups (A9-08).
 		routeSession.current = customerSession(["server:read"]);
 		expect((await get()).status).toBe(403);
 		routeSession.current = customerSession(["server:ssh"]);

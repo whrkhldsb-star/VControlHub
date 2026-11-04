@@ -250,7 +250,7 @@ describe("scheduled task service", () => {
     });
     mockPrisma.scheduledTask.findUniqueOrThrow.mockResolvedValue({
       id: "task1",
-      lastResult: "Manual retry dispatched command request cmd1; awaiting final result",
+      lastResult: "手动重试已派发命令请求 cmd1，等待最终结果",
     });
 
     const result = await service.retryScheduledTask("task1", PLATFORM);
@@ -267,7 +267,7 @@ describe("scheduled task service", () => {
     expect(mockPrisma.scheduledTask.update).toHaveBeenCalledWith({
       where: { id: "task1" },
       data: expect.objectContaining({
-        lastResult: "Manual retry dispatched command request cmd1; awaiting final result",
+        lastResult: expect.stringContaining("cmd1"),
         runCount: { increment: 1 },
       }),
     });
@@ -279,7 +279,7 @@ describe("scheduled task service", () => {
         dispatchedAt: expect.any(Date),
       },
     });
-    expect(result).toEqual({ id: "task1", lastResult: "Manual retry dispatched command request cmd1; awaiting final result" });
+    expect(result).toEqual({ id: "task1", lastResult: expect.stringContaining("cmd1") });
   });
 
   it("reconciles a completed command into the latest task result", async () => {

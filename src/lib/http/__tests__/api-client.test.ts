@@ -10,6 +10,7 @@ function mockFetchOnce(status: number, body: unknown): typeof fetch {
 		statusText: `Status ${status}`,
 		headers: new Headers({ "content-type": "application/json" }),
 		json: async () => body,
+		text: async () => JSON.stringify(body),
 	} as unknown as Response);
 	return fn as unknown as typeof fetch;
 }

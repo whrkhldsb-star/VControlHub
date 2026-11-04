@@ -16,6 +16,7 @@ vi.mock("next/headers", () => ({
 vi.mock("@/lib/share-link/service", () => ({
 	peekShareToken: mocks.peekShareToken,
 	listShareDirectoryFiles: mocks.listShareDirectoryFiles,
+	SHARE_DIRECTORY_LIST_LIMIT: 1000,
 	hashShareToken: (token: string) => `hash:${token}`,
 }));
 vi.mock("@/lib/share-link/download-ticket", () => ({

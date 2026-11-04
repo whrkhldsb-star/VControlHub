@@ -71,7 +71,8 @@ describe("/api/servers/monitor", () => {
 
     expect(response.status).toBe(200);
     expect(requireApiPermissionMock).toHaveBeenCalledWith("server:read");
-    expect(collectServerMetricsMock).toHaveBeenCalledWith("srv_1", expect.any(AbortSignal));
+    // Not bound to the request signal (A12-01): one probe serves every caller for 30 s.
+    expect(collectServerMetricsMock).toHaveBeenCalledWith("srv_1");
     await expect(response.json()).resolves.toMatchObject({ ok: true });
   });
 });

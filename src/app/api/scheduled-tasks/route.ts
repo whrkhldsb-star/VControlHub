@@ -93,7 +93,7 @@ export async function GET(request: Request) {
     request,
     {
       permission: "command:read",
-      errorMessage: t("api.serverError", "zh"),
+      errorMessage: t("api.serverError", requestLocale(request)),
     },
     async ({ session }) => {
       const locale = requestLocale(request);
@@ -137,7 +137,7 @@ export async function POST(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPostSchema,
       errorStatus: 400,
-      errorMessage: t("api.creationFailed", "zh"),
+      errorMessage: t("api.creationFailed", requestLocale(request)),
     },
     async ({ session, body: data }) => {
       const locale = await getServerLocale();
@@ -182,7 +182,7 @@ export async function PATCH(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPatchSchema,
       errorStatus: 400,
-      errorMessage: t("api.updateFailed", "zh"),
+      errorMessage: t("api.updateFailed", requestLocale(request)),
     },
     async ({ session, body: data }) => {
       const locale = await getServerLocale();
@@ -242,7 +242,7 @@ export async function DELETE(request: Request) {
       permission: "command:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: t("api.deleteFailed", "zh"),
+      errorMessage: t("api.deleteFailed", requestLocale(request)),
     },
     async ({ session }) => {
       const { id } = parseSearchParams(request, idQuerySchema);

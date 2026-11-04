@@ -38,6 +38,7 @@ export const SERVER_PROFILE_INCLUDE = {
           initiatedByType: true,
           status: true,
           createdAt: true,
+          teamId: true,
         },
       },
     },

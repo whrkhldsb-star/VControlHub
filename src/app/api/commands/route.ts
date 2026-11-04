@@ -2,7 +2,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { cancelCommandRequest, createCommandRequest, listCommandRequests, recoverStaleRunningCommandRequests } from "@/lib/command/service";
+import { cancelCommandRequest, createCommandRequest, listCommandRequests } from "@/lib/command/service";
 import { createCommandSchema } from "@/lib/command/schema";
 import { ForbiddenError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -26,8 +26,9 @@ const cancelCommandRequestBodySchema = z.object({
 });
 
 export async function GET(request: Request) {
+  // The stale-RUNNING sweep belongs to the maintenance worker (A6-08): running
+  // it on every list load made each refresh of the approval page a write path.
   return withApiRoute(request, { permission: "command:read" }, async (ctx) => {
-    await recoverStaleRunningCommandRequests();
     return NextResponse.json({ requests: await listCommandRequests(ctx.session) });
   });
 }

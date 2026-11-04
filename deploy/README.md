@@ -292,6 +292,8 @@ Cron 示例：
 0 3 * * * APP_DIR=/opt/VControlHub BACKUP_DIR=/var/backups/vcontrolhub /opt/VControlHub/scripts/backup-db.sh >> /var/log/vcontrolhub-backup.log 2>&1
 ```
 
+`deploy/install.sh` 已会渲染并启用 `<APP_SLUG>-backup.service/.timer`（每日 03:30 运行 `scripts/backup.mjs --full`，产物写入环境文件里的 `BACKUP_DIR`，随后由 `dist/upload-recovery-backup.js` 按设置做异地上传）；只有不用安装器的部署才需要上面的 cron。查看：`systemctl list-timers '<APP_SLUG>-backup*'`。
+
 ## 服务结构
 
 - `${SERVICE_PREFIX:-vcontrolhub}-next.service`：Next.js 应用，默认监听 `127.0.0.1:3000`

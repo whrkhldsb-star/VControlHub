@@ -92,8 +92,12 @@ export async function importQuickServices(
     internalPort: r.internalPort,
     extraPortsJson: r.extraPortsJson,
     command: r.command,
-    envJson: r.envJson,
-    volumesJson: r.volumesJson,
+    // A standard (redacted) package writes "{}"/"[]" in place of the secrets
+    // and mounts (export-collectors); importing it over a live instance wiped
+    // every service's tokens and volumes (A9-01). Like server passwords and AI
+    // keys: not in the package means keep ours.
+    ...(r.envJson && r.envJson !== "{}" ? { envJson: r.envJson } : {}),
+    ...(r.volumesJson && r.volumesJson !== "[]" ? { volumesJson: r.volumesJson } : {}),
     instanceKey:
       (r as { instanceKey?: string | null }).instanceKey ?? "hub-host",
     serverId: (r as { serverId?: string | null }).serverId ?? null,

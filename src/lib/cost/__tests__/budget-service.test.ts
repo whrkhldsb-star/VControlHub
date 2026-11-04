@@ -37,9 +37,9 @@ describe("cost budget service", () => {
 		prismaMock.costBudget.update.mockResolvedValue({ ...budgetRow, name: "更新预算" });
 		prismaMock.costBudget.delete.mockResolvedValue(budgetRow);
 		prismaMock.costBudget.findMany.mockResolvedValue([budgetRow]);
-		prismaMock.costEntry.aggregate.mockResolvedValue({ _sum: { amount: decimal("85.00") } });
-		// Multi-currency spend aggregation; default to no other-currency rows.
-		prismaMock.costEntry.groupBy.mockResolvedValue([]);
+		// One groupBy per period serves every budget's own-currency usage and
+		// other-currency spend (A8); default: 85 CNY on the shared vps budget.
+		prismaMock.costEntry.groupBy.mockResolvedValue([{ category: "vps", currency: "CNY", teamId: null, _sum: { amount: decimal("85.00") }, _count: { _all: 2 } }]);
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin-1" }, { id: "admin-2" }]);
 		prismaMock.notification.findFirst.mockResolvedValue(null);
 		createNotificationMock.mockResolvedValue({ id: "notification-1" });
@@ -50,10 +50,11 @@ describe("cost budget service", () => {
 		expect(created.limitAmount).toBe("100.00");
 		const listed = await listCostBudgets(new Date("2026-06-15T10:00:00.000Z"));
 		expect(listed[0]).toMatchObject({ usageAmount: "85.00", usagePercent: 85 });
-		expect(prismaMock.costEntry.aggregate).toHaveBeenCalledWith({
-			where: { category: "vps", currency: "CNY", effectiveDate: { gte: new Date("2026-06-01T00:00:00.000Z"), lt: new Date("2026-07-01T00:00:00.000Z") },
-				teamId: null, },
+		expect(prismaMock.costEntry.groupBy).toHaveBeenCalledWith({
+			by: ["category", "currency", "teamId"],
+			where: { category: { in: ["vps"] }, effectiveDate: { gte: new Date("2026-06-01T00:00:00.000Z"), lt: new Date("2026-07-01T00:00:00.000Z") } },
 			_sum: { amount: true },
+			_count: { _all: true },
 		});
 		await updateCostBudget("budget-1", { name: "更新预算" });
 		expect(prismaMock.costBudget.update).toHaveBeenCalled();
@@ -83,8 +84,7 @@ describe("cost budget service", () => {
 
 		vi.clearAllMocks();
 		prismaMock.costBudget.findMany.mockResolvedValue([budgetRow]);
-		prismaMock.costEntry.aggregate.mockResolvedValue({ _sum: { amount: decimal("85.00") } });
-		prismaMock.costEntry.groupBy.mockResolvedValue([]);
+		prismaMock.costEntry.groupBy.mockResolvedValue([{ category: "vps", currency: "CNY", teamId: null, _sum: { amount: decimal("85.00") }, _count: { _all: 2 } }]);
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin-1" }, { id: "admin-2" }]);
 		prismaMock.notification.findFirst.mockResolvedValue({ id: "existing" });
 		const second = await checkBudgetAlerts(new Date("2026-06-16T10:00:00.000Z"));
@@ -97,7 +97,7 @@ describe("cost budget service", () => {
 	it("scopes budget alert recipients to the budget team (not all cost:manage users)", async () => {
 		const teamBudget = { ...budgetRow, id: "budget-team", teamId: "team-a" };
 		prismaMock.costBudget.findMany.mockResolvedValue([teamBudget]);
-		prismaMock.costEntry.aggregate.mockResolvedValue({ _sum: { amount: decimal("90.00") } });
+		prismaMock.costEntry.groupBy.mockResolvedValue([{ category: "vps", currency: "CNY", teamId: "team-a", _sum: { amount: decimal("90.00") }, _count: { _all: 1 } }]);
 		prismaMock.user.findMany.mockResolvedValue([{ id: "team-a-manager" }]);
 		prismaMock.notification.findFirst.mockResolvedValue(null);
 
@@ -122,7 +122,7 @@ describe("cost budget service", () => {
 	it("restricts null-team (shared) budget alerts to platform administrators, not every customer's cost managers", async () => {
 		const sharedBudget = { ...budgetRow, id: "budget-shared", teamId: null };
 		prismaMock.costBudget.findMany.mockResolvedValue([sharedBudget]);
-		prismaMock.costEntry.aggregate.mockResolvedValue({ _sum: { amount: decimal("90.00") } });
+		prismaMock.costEntry.groupBy.mockResolvedValue([{ category: "vps", currency: "CNY", teamId: null, _sum: { amount: decimal("90.00") }, _count: { _all: 1 } }]);
 		prismaMock.user.findMany.mockResolvedValue([{ id: "global-admin" }]);
 		prismaMock.notification.findFirst.mockResolvedValue(null);
 
@@ -144,12 +144,14 @@ describe("cost budget service", () => {
 			currentTeamId: null,
 		};
 
-		await listCostBudgets(new Date("2026-06-15T10:00:00.000Z"), adminSession);
+		// Spend of another team and of the shared pool under the same category must not count.
+		prismaMock.costEntry.groupBy.mockResolvedValue([
+			{ category: "vps", currency: "CNY", teamId: "team-a", _sum: { amount: decimal("40.00") }, _count: { _all: 1 } },
+			{ category: "vps", currency: "CNY", teamId: "team-b", _sum: { amount: decimal("30.00") }, _count: { _all: 1 } },
+			{ category: "vps", currency: "CNY", teamId: null, _sum: { amount: decimal("85.00") }, _count: { _all: 2 } },
+		]);
+		const listed = await listCostBudgets(new Date("2026-06-15T10:00:00.000Z"), adminSession);
 
-		expect(prismaMock.costEntry.aggregate).toHaveBeenCalledWith(
-			expect.objectContaining({
-				where: expect.objectContaining({ teamId: "team-a" }),
-			}),
-		);
+		expect(listed[0]).toMatchObject({ usageAmount: "40.00", usagePercent: 40 });
 	});
 });

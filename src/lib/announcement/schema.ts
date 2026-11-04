@@ -49,6 +49,7 @@ export const updateAnnouncementSchema = z
     type: z.enum(ANNOUNCEMENT_LEVELS).optional(),
     pinned: z.boolean().optional(),
     published: z.boolean().optional(),
+    startsAt: z.string().datetime({ message: "startsAt must be an ISO datetime" }).optional(),
     expiresAt: z
       .union([
         z.string().datetime({ message: "expiresAt must be an ISO datetime" }),

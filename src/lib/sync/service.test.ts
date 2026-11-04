@@ -266,13 +266,15 @@ describe("sync service command helpers", () => {
       targetUser: "deploy",
       targetHost: "example.com",
       targetPort: 22,
-      password: "p@ss word",
+      passwordEnvPath: "/tmp/app-sync-env-job1",
     });
 
-    // Inside -e it would be exec'd as a program name ("Failed to exec SSHPASS=…").
-    expect(command).toContain("SSHPASS='p@ss word' rsync -avz");
+    // The password is sourced from a 0600 file (A4-08), never written into the
+    // script, and inside -e it would be exec'd as a program name.
+    expect(command).toContain(". '/tmp/app-sync-env-job1' && export SSHPASS && rsync -avz");
     expect(command).toContain('-e "sshpass -e ssh -o StrictHostKeyChecking=accept-new');
-    expect(command).not.toContain('-e "SSHPASS=');
+    expect(command).not.toContain("SSHPASS=");
+    expect(command).toContain("rm -f -- '/tmp/app-sync-env-job1'");
   });
 
   it("exports the sshpass password once for every ssh leg of the tar fallback", () => {
@@ -282,13 +284,14 @@ describe("sync service command helpers", () => {
       targetUser: "deploy",
       targetHost: "example.com",
       targetPort: 22,
-      password: "p@ss word",
+      passwordEnvPath: "/tmp/app-sync-env-job1",
       deleteOrphans: false,
     });
 
-    expect(command).toContain("SSHPASS='p@ss word'; export SSHPASS\n");
+    expect(command).toContain(". '/tmp/app-sync-env-job1' && export SSHPASS\n");
     expect(command).toContain("| sshpass -e ssh ");
-    expect(command.match(/SSHPASS=/g)).toHaveLength(1);
+    expect(command).not.toContain("SSHPASS=");
+    expect(command.match(/export SSHPASS/g)).toHaveLength(1);
   });
 
   it("refuses a transport path that rsync could not carry unquoted", () => {

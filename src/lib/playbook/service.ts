@@ -171,7 +171,12 @@ type RawPlaybookRun = {
   updatedAt: Date;
 };
 
-function narrowPlaybook(row: RawPlaybook): PlaybookRecord {
+/** The owner can still act for scheduled and alert-triggered runs (see loadJobOwnerSession). */
+function ownerIsActive(creator: { status: string; mustChangePassword: boolean } | null | undefined): boolean {
+  return Boolean(creator) && creator!.status !== "DISABLED" && !creator!.mustChangePassword;
+}
+
+function narrowPlaybook(row: RawPlaybook & { creator?: { status: string; mustChangePassword: boolean } | null }): PlaybookRecord {
   return {
     id: row.id,
     name: row.name,
@@ -184,6 +189,8 @@ function narrowPlaybook(row: RawPlaybook): PlaybookRecord {
     nextRunAt: row.nextRunAt,
     lastTriggeredAt: row.lastTriggeredAt,
     createdById: row.createdById,
+    // Rows loaded without the creator (run paths) are not judged here.
+    ownerActive: row.creator === undefined ? true : ownerIsActive(row.creator),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -213,8 +220,9 @@ export async function listPlaybooks(session?: TeamSession): Promise<PlaybookReco
     where,
     orderBy: { createdAt: "desc" },
     take: 500, // P2: playbook 总数有限
+    include: { creator: { select: { status: true, mustChangePassword: true } } },
   });
-  return rows.map(narrowPlaybook);
+  return rows.map((row) => narrowPlaybook(row));
 }
 
 export async function getPlaybook(
@@ -309,8 +317,10 @@ export async function updatePlaybook(
       : effectiveTriggerConfig;
     const effectiveEnabled = rest.enabled ?? existing.enabled;
 
-    const data: Prisma.PlaybookUpdateInput = {};
+    const data: Prisma.PlaybookUncheckedUpdateManyInput = {};
     if (rest.name !== undefined) data.name = rest.name;
+    // A playbook whose creator is gone runs as nobody; an administrator takes it over (R0-07).
+    if (rest.claimOwnership) data.createdById = updatedById;
     if (rest.description !== undefined) data.description = rest.description;
     if (rest.triggerType !== undefined) data.triggerType = rest.triggerType;
     if (rest.triggerConfig !== undefined) {

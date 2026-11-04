@@ -23,6 +23,7 @@ vi.mock("@/lib/server/team-access", () => ({
 
 vi.mock("@/lib/http/rate-limit-presets", () => ({
   GENERAL_WRITE_LIMIT: { maxRequests: 30, windowMs: 60_000 },
+  WS_TOKEN_LIMIT: { maxRequests: 120, windowMs: 60_000 },
   withRateLimit: withRateLimitMock,
   rateLimitResponse: rateLimitResponseMock,
 }));

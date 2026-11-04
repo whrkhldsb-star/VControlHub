@@ -217,7 +217,7 @@ describe("/api/docker/compose", () => {
 		it("scopes the listing to the checked server", async () => {
 			currentSession = tenantOperator;
 			await route.GET(get("?serverId=srv_1"));
-			expect(mocks.teamAccess).toHaveBeenCalledWith(tenantOperator, "srv_1", "read");
+			expect(mocks.teamAccess).toHaveBeenCalledWith(tenantOperator, "srv_1", "connect");
 			expect(mocks.listComposeProjects).toHaveBeenCalledWith("srv_1");
 		});
 	});
@@ -264,7 +264,9 @@ describe("/api/docker/compose", () => {
 			const res = await route.POST(post({ project: "app", action: "up" }));
 
 			expect(res.status).toBe(422);
-			expect(mocks.auditUserAction).not.toHaveBeenCalled();
+			// The failure itself is audited (A6-07); no success row is written.
+			expect(mocks.auditUserAction).toHaveBeenCalledWith("u_1", "docker.compose.up.failed", expect.objectContaining({ project: "app" }), undefined, expect.anything());
+			expect(mocks.auditUserAction).not.toHaveBeenCalledWith("u_1", "docker.compose.up", expect.anything(), undefined, expect.anything());
 		});
 	});
 });

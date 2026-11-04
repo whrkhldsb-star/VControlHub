@@ -333,7 +333,7 @@ export async function uploadFile(
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       size += buffer.length;
       if (size > 5 * 1_048_576) {
-        throw new Error("Agent-only uploads are limited to 5 MB; enable target direct access for larger files");
+        throw new BusinessError(t("backend.sftp.agentOnlyUploadLimit"));
       }
       chunks.push(buffer);
     }

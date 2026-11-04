@@ -24,14 +24,24 @@ interface Announcement {
   body: string;
   level: string;
   pinned: boolean;
+  published?: boolean;
   startsAt: string;
   expiresAt: string | null;
 }
 
 const levelLabel = announcementLevelLabel;
 
+/** What a visitor sees right now: live, or why not (A8-03). */
+function visibilityState(a: Announcement, nowMs: number): "live" | "unpublished" | "scheduled" | "expired" {
+  if (a.published === false) return "unpublished";
+  if (new Date(a.startsAt).getTime() > nowMs) return "scheduled";
+  if (a.expiresAt && new Date(a.expiresAt).getTime() <= nowMs) return "expired";
+  return "live";
+}
+
 type AnnouncementCardProps = {
   announcement: Announcement;
+  now: number;
   t: (k: string, vars?: Record<string, string | number>) => string;
   locale: string;
   canManage: boolean;
@@ -39,13 +49,16 @@ type AnnouncementCardProps = {
   onDelete: (a: Announcement) => void;
 };
 
-const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, locale, canManage, onEdit, onDelete }: AnnouncementCardProps) {
+const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, now, t, locale, canManage, onEdit, onDelete }: AnnouncementCardProps) {
   return (
     <div data-card className="group relative p-5">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge tone={announcementLevelTone(a.level)}>{levelLabel(t, a.level)}</StatusBadge>
           {a.pinned && <Badge tone="accent">{t("common.pinned")}</Badge>}
+          {canManage && visibilityState(a, now) !== "live" && (
+            <Badge tone="warning">{t(`announcementsPage.visibility.${visibilityState(a, now)}`)}</Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as"zh" |"en")}</span>
@@ -68,18 +81,22 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
       )}
     </div>
   );
-}, (prev, next) => prev.announcement === next.announcement && prev.t === next.t && prev.locale === next.locale && prev.canManage === next.canManage && prev.onEdit === next.onEdit && prev.onDelete === next.onDelete);
+}, (prev, next) => prev.announcement === next.announcement && prev.now === next.now && prev.t === next.t && prev.locale === next.locale && prev.canManage === next.canManage && prev.onEdit === next.onEdit && prev.onDelete === next.onDelete);
 
 export function AnnouncementList({
   items: initial,
   canManage,
+  now: initialNow,
 }: {
   items: Announcement[];
   canManage: boolean;
+  /** Server clock at render; the visibility badges are computed against it and it moves on each edit. */
+  now?: number;
 }) {
   const { t, locale } = useI18n();
   const { addToast } = useToast();
   const [items, setItems] = useState(initial);
+  const [now, setNow] = useState(() => initialNow ?? 0);
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Announcement | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -126,6 +143,7 @@ export function AnnouncementList({
   const handleDeleteClick = useCallback((a: Announcement) => { setPendingDelete(a); setDeleteError(null); }, []);
 
   const handleSaved = (updated: Announcement) => {
+    setNow(Date.now());
     setItems((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
   };
 
@@ -175,7 +193,7 @@ export function AnnouncementList({
         ) : (
           <PaginatedList pageSize={20} resetKey={`${search}\u0000${levelFilter}`} className="grid gap-4">
             {filtered.map((a) => (
-              <AnnouncementCard key={a.id} announcement={a} t={t} locale={locale} canManage={canManage} onEdit={handleEdit} onDelete={handleDeleteClick} />
+              <AnnouncementCard key={a.id} announcement={a} now={now} t={t} locale={locale} canManage={canManage} onEdit={handleEdit} onDelete={handleDeleteClick} />
             ))}
           </PaginatedList>
         )}

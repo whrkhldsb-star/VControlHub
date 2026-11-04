@@ -123,6 +123,7 @@ vi.mock("@/lib/db", () => ({
     scheduledTask: { count: vi.fn() },
     alertRule: { count: vi.fn() },
     playbook: { findMany: vi.fn() },
+    $queryRaw: vi.fn(),
     syncJob: { count: vi.fn() },
     quickService: { count: vi.fn() },
     vpsBackupSchedule: { count: vi.fn() },
@@ -172,6 +173,7 @@ describe("server service", () => {
     vi.mocked(prisma.scheduledTask.count).mockResolvedValue(0);
     vi.mocked(prisma.alertRule.count).mockResolvedValue(0);
     vi.mocked(prisma.playbook.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([] as any);
     vi.mocked(prisma.syncJob.count).mockResolvedValue(0);
     vi.mocked(prisma.quickService.count).mockResolvedValue(0);
     vi.mocked(prisma.vpsBackupSchedule.count).mockResolvedValue(0);
@@ -1904,7 +1906,7 @@ describe("server service", () => {
     vi.mocked(prisma.fileEntry.count).mockResolvedValueOnce(3);
     vi.mocked(prisma.fileVersion.count).mockResolvedValueOnce(2);
     vi.mocked(prisma.scheduledTask.count).mockResolvedValueOnce(1);
-    vi.mocked(prisma.playbook.findMany).mockResolvedValueOnce([
+    vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([
       { steps: [{ type: "run_command", config: { serverIds: ["srv_1"] } }] },
       {
         steps: [{ type: "run_command", config: { serverIds: ["srv_other"] } }],

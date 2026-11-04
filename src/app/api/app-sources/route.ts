@@ -1,3 +1,6 @@
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { BusinessError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -173,6 +176,10 @@ export async function PATCH(request: Request) {
     },
     async ({ session, body }) => {
       if (body.action === "sync") {
+        // Two overlapping syncs upserted the same rows against each other (A6-11).
+        const release = await tryAcquireAdvisoryLock("app-source-sync", body.sourceId ?? "all");
+        if (!release) throw new BusinessError(t("backend.appSource.syncInProgress"), undefined, 409);
+        try {
         if (body.sourceId) {
           const result = await syncSource(body.sourceId);
           await auditUserAction(session.userId, "app-source.sync", {
@@ -187,6 +194,9 @@ export async function PATCH(request: Request) {
           resultCount: Array.isArray(results) ? results.length : null,
         }, undefined, session.currentTeamId);
         return NextResponse.json({ results });
+        } finally {
+          await release();
+        }
       }
 
       // A nonexistent sourceId yields Prisma P2025 on a bare `update`, which the

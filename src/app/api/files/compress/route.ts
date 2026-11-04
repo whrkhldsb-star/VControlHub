@@ -107,7 +107,9 @@ export async function POST(request: NextRequest) {
         // remote-tape specs and attempt an outbound connection.
         await execFileAsync(resolveLocalTarBinary(), ["-czf", outputResolved.path, "-C", path.resolve(expandStorageBasePath(node.basePath)), ...localTarForceLocalArgs(), ...exclusion.options, "--null", "-T", listPath], {
           maxBuffer: 10 * 1024 * 1024,
-          timeout: 120_000,
+          // Two minutes killed any sizeable archive half-written (A4-21); the request
+          // itself is bounded by the proxy, so the limit mainly guards a stuck tar.
+          timeout: 600_000,
         });
       } catch (error) {
         await fs.rm(outputResolved.path, { force: true });

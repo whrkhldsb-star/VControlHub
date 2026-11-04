@@ -7,7 +7,7 @@
  * Live vendor SDKs are intentionally not required: failures surface as explicit
  * errors (no fake success). Tests inject fetch via __setItsmFetch.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, createHash } from "node:crypto";
 
 import { ValidationError } from "@/lib/errors";
 import { fetchWebhookSafely, validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
@@ -233,16 +233,83 @@ export async function deliverOutbound(input: {
 	}
 }
 
+type HeaderReader = { get(name: string): string | null };
+
+function hexEquals(providedHex: string, expectedHex: string): boolean {
+	try {
+		const a = Buffer.from(providedHex, "hex");
+		const b = Buffer.from(expectedHex, "hex");
+		return a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
+	} catch {
+		return false;
+	}
+}
+
+function textEquals(provided: string, expected: string): boolean {
+	const a = Buffer.from(provided);
+	const b = Buffer.from(expected);
+	return a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Within five minutes of now: replayed callbacks are refused by the providers that sign a timestamp. */
+function freshTimestamp(value: string | null, unit: "s" | "ms"): boolean {
+	const n = Number(value);
+	if (!Number.isFinite(n)) return false;
+	const ms = unit === "s" ? n * 1000 : n;
+	return Math.abs(Date.now() - ms) <= 5 * 60_000;
+}
+
+/**
+ * Each provider signs its callbacks its own way (A8-02); the page shows an
+ * inbound address for all of them, and only the generic `sha256=HMAC(body)`
+ * form was ever accepted, so none of the native callbacks could verify:
+ * Telegram sends a secret token header, Slack `v0=HMAC("v0:ts:body")`,
+ * DingTalk `base64(HMAC("ts\nsecret"))`, Feishu/Lark `sha256(ts+nonce+key+body)`.
+ */
 export function verifyInboundSignature(input: {
 	rawBody: string;
 	headerSignature: string | null | undefined;
 	secret: string | undefined;
+	provider?: string | null;
+	headers?: HeaderReader | null;
 }): { ok: true } | { ok: false; error: string } {
 	const secret = input.secret?.trim();
 	if (!secret) {
 		// Open inbound without secret is rejected at service layer for pure inbound;
 		// when secret missing here treat as soft pass only if explicitly allowed by caller.
 		return { ok: false, error: "Inbound webhook secret is not configured" };
+	}
+	const headers = input.headers ?? null;
+	const provider = (input.provider ?? "").toLowerCase();
+	if (provider === "telegram") {
+		const token = (headers?.get("x-telegram-bot-api-secret-token") ?? "").trim();
+		if (!token) return { ok: false, error: "Missing X-Telegram-Bot-Api-Secret-Token header" };
+		return textEquals(token, secret) ? { ok: true } : { ok: false, error: "Telegram secret token mismatch" };
+	}
+	if (provider === "slack") {
+		const timestamp = headers?.get("x-slack-request-timestamp") ?? null;
+		const signature = (headers?.get("x-slack-signature") ?? input.headerSignature ?? "").trim();
+		if (!timestamp || !signature) return { ok: false, error: "Missing Slack signature headers" };
+		if (!freshTimestamp(timestamp, "s")) return { ok: false, error: "Slack request timestamp is too old" };
+		const expected = createHmac("sha256", secret).update(`v0:${timestamp}:${input.rawBody}`).digest("hex");
+		return hexEquals(signature.replace(/^v0=/, ""), expected) ? { ok: true } : { ok: false, error: "Slack signature mismatch" };
+	}
+	if (provider === "dingtalk") {
+		const timestamp = headers?.get("timestamp") ?? null;
+		const sign = (headers?.get("sign") ?? "").trim();
+		if (!timestamp || !sign) return { ok: false, error: "Missing DingTalk timestamp/sign headers" };
+		if (!freshTimestamp(timestamp, "ms")) return { ok: false, error: "DingTalk timestamp is too old" };
+		const expected = createHmac("sha256", secret).update(`${timestamp}\n${secret}`).digest("base64");
+		return textEquals(sign, expected) ? { ok: true } : { ok: false, error: "DingTalk signature mismatch" };
+	}
+	if (provider === "feishu" || provider === "lark") {
+		const timestamp = headers?.get("x-lark-request-timestamp") ?? null;
+		const nonce = headers?.get("x-lark-request-nonce") ?? null;
+		const signature = (headers?.get("x-lark-signature") ?? "").trim();
+		if (!timestamp || nonce === null || !signature) return { ok: false, error: "Missing Lark signature headers" };
+		if (!freshTimestamp(timestamp, "s")) return { ok: false, error: "Lark request timestamp is too old" };
+		const expected = createHash("sha256").update(`${timestamp}${nonce}${secret}${input.rawBody}`).digest("hex");
+		return hexEquals(signature, expected) ? { ok: true } : { ok: false, error: "Lark signature mismatch" };
 	}
 	const header = (input.headerSignature ?? "").trim();
 	if (!header) return { ok: false, error: "Missing signature header" };

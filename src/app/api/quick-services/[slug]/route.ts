@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -36,8 +37,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 			if (!hubAccess.ok) return hubAccess.response;
 		}
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
-			title: `QuickService ${action}: ${slug} @ ${instanceKey}`,
-			teamId: session.currentTeamId ?? null,
+			title: t("backend.quick-service.job.action", { action, slug, instance: instanceKey }),
+			teamId: serverId ? session.currentTeamId ?? null : null,
 			createdBy: session.userId,
 			payload: { action, slug, instanceKey, serverId: serverId || null },
 		});
@@ -48,7 +49,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 			jobId: job.id,
 			taskId,
 			status: job.status,
-			message: reused ? "The service already has a lifecycle task in progress, returning the existing task." : "Quick service operation already added as a background task, you can check progress in the task center.",
+			message: reused ? t("backend.quick-service.job.reused") : t("backend.quick-service.job.actionQueued"),
 		}, { status: 202 });
 	});
 }
@@ -75,12 +76,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 			}
 		}
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
-			title: `Uninstall quick service: ${slug} @ ${instanceKey}`,
-			teamId: session.currentTeamId ?? null,
+			title: t("backend.quick-service.job.uninstall", { slug, instance: instanceKey }),
+			teamId: serverId ? session.currentTeamId ?? null : null,
 			createdBy: session.userId,
 			payload: { action: "uninstall", slug, deleteVolumes, instanceKey, serverId: serverId || null },
 		});
-		await auditUserAction(session.userId, "quick_service.uninstall", { slug, instanceKey, serverId: serverId || null }, undefined, session.currentTeamId);
+		await auditUserAction(session.userId, "quick_service.uninstall", { slug, instanceKey, serverId: serverId || null }, undefined, serverId ? session.currentTeamId : null);
 		return NextResponse.json({
 			success: true,
 			queued: true,
@@ -89,7 +90,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 			taskId,
 			status: job.status,
 			deleteVolumes,
-			message: reused ? "The service already has a lifecycle task in progress, returning the existing task." : "Quick service uninstall has been added as a background task, you can check progress in the task center.",
+			message: reused ? t("backend.quick-service.job.reused") : t("backend.quick-service.job.uninstallQueued"),
 		}, { status: 202 });
 	});
 }

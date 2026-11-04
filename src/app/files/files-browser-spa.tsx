@@ -11,6 +11,7 @@ import {
   type FilesApiResponse,
   getInitialExpandedTreePaths,
   getCurrentPathDisplay,
+  resolveBrowserLocation,
 } from "./files-browser-helpers";
 import { DriveSidebar } from "./drive-sidebar";
 import { DriveBreadcrumbs, DriveSearchBar, NewFolderDialog, SortMenu, UploadMenu, ViewToggle, type DriveSearchMode } from "./drive-toolbar";
@@ -91,6 +92,9 @@ export function FilesBrowserSpa({
     ? data.nodeIdFilter
     : pickPreferredStorageNode(uploadNodes)?.id ?? pickPreferredStorageNode(data.nodes)?.id;
   const currentPathDisplay = getCurrentPathDisplay(t, data.currentPath, data.nodes, data.nodeIdFilter);
+  // The node and directory a new folder or upload lands in, also when the user
+  // drilled into a node from the "all locations" view (A4-31).
+  const location = resolveBrowserLocation(data.nodes, data.currentPath, data.nodeIdFilter);
   const directUpload = Boolean(selectedNode && UPLOAD_DRIVERS.has(selectedNode.driver));
   const refreshLabel = selectedNode?.driver === "SFTP" ? t("filesBrowserSpa.refreshRemoteFiles") : t("filesBrowserSpa.refreshList");
 
@@ -129,8 +133,11 @@ export function FilesBrowserSpa({
   );
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // Also while the upload dialog is open (A4-30): the dropzone used to refresh
+    // once per finished file instead, which for a dropped folder meant hundreds
+    // of listings (each a remote readdir on an SFTP node).
     const onCompleted = (event: Event) => {
-      if (uploadOpen || (data.nodeIdFilter && (event as CustomEvent<{ nodeId: string }>).detail.nodeId !== data.nodeIdFilter)) return;
+      if (data.nodeIdFilter && (event as CustomEvent<{ nodeId: string }>).detail.nodeId !== data.nodeIdFilter) return;
       clearTimeout(timer);
       timer = setTimeout(() => { void refreshCurrentListing(); }, 350);
     };
@@ -138,7 +145,7 @@ export function FilesBrowserSpa({
     const onOperationCompleted = () => { clearTimeout(timer); timer = setTimeout(() => { void refreshCurrentListing(); }, 350); };
     window.addEventListener("file-operation-completed", onOperationCompleted);
     return () => { clearTimeout(timer); window.removeEventListener("storage-upload-completed", onCompleted); window.removeEventListener("file-operation-completed", onOperationCompleted); };
-  }, [data.nodeIdFilter, refreshCurrentListing, uploadOpen]);
+  }, [data.nodeIdFilter, refreshCurrentListing]);
 
   const navigateToFolder = useCallback((path: string) => {
     void fetchFiles(path, undefined, undefined, undefined, { resetSelection: true, history: "push" });
@@ -438,9 +445,9 @@ export function FilesBrowserSpa({
         >
           <FileUploadDropzoneLazy
             nodes={data.nodes}
-            initialNodeId={preferredUploadNode}
-            initialRelativeDir={data.nodeIdFilter ? data.currentPath : ""}
-            uploadDir={data.nodeIdFilter ? data.currentPath : undefined}
+            initialNodeId={location.nodeId && uploadNodes.some((node) => node.id === location.nodeId) ? location.nodeId : preferredUploadNode}
+            initialRelativeDir={location.nodeId ? location.relativePath : ""}
+            uploadDir={location.nodeId ? location.relativePath : undefined}
             title={t("filesBrowserSpa.uploadToPath", { path: currentPathDisplay.uploadPathLabel })}
             description={t("filesBrowserSpa.uploadDescription")}
             submitLabel={t("filesBrowserSpa.uploadSubmitLabel")}
@@ -449,7 +456,7 @@ export function FilesBrowserSpa({
             embedded
             pendingFiles={pendingUploadFiles}
             onPendingFilesUsed={() => setPendingUploadFiles([])}
-            onUploadComplete={() => refreshCurrentListing()}
+            onUploadComplete={() => undefined}
           />
         </Dialog>
       ) : null}
@@ -458,8 +465,8 @@ export function FilesBrowserSpa({
         <NewFolderDialog
           onClose={() => setNewFolderOpen(false)}
           nodes={data.nodes}
-          nodeId={data.nodeIdFilter}
-          currentPath={data.currentPath}
+          nodeId={location.nodeId}
+          currentPath={location.relativePath}
           onCreated={() => void refreshCurrentListing()}
         />
       ) : null}

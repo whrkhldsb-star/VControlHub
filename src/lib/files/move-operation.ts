@@ -1,11 +1,11 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
-import { rebaseDescendantPath } from "./rebase-path";
 import type { SessionPayload } from "@/lib/auth/session";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { assertStorageAccess, releaseStorageQuotaGuard, type StorageAccessDecision } from "@/lib/storage/access-control";
+import { assertStorageAccess, getStorageAccessCapabilities, getStorageAccessCapabilityKey, releaseStorageQuotaGuard, type StorageAccessDecision } from "@/lib/storage/access-control";
+import { guessContentType } from "@/lib/http/mime-types";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { BusinessError, ForbiddenError } from "@/lib/errors";
 import { moveBackingObject, statBackingObject } from "@/lib/storage/fs-backend";
@@ -22,6 +22,12 @@ import { STORAGE_SSH_SERVER_SELECT } from "@/lib/storage/ssh-credentials";
 import { moveSharePaths } from "@/lib/share-link/follow-path";
 
 export type MoveFileActionState = { error?: string; success?: string; needsReconcile?: boolean };
+
+/** Lower-cased extension of a file name, "" when there is none. */
+function fileExtension(name: string): string {
+  const index = name.lastIndexOf(".");
+  return index > 0 ? name.slice(index + 1).toLowerCase() : "";
+}
 
 export async function executeMoveFile(
   session: SessionPayload,
@@ -187,10 +193,17 @@ export async function executeMoveFile(
     if (descendants.length > 10000) {
       throw new BusinessError(tr("backend.storageHardening.files.tooManyChildren"));
     }
-    for (const child of descendants) {
-      for (const relativePath of [child.relativePath, newRelativePath + child.relativePath.slice(entry.relativePath.length)]) {
-        const access = await assertStorageAccess({ session, storageNodeId: entry.storageNodeId, relativePath, operation: "write" });
-        if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason, locale));
+    if (descendants.length > 0) {
+      // Source and destination of every descendant in ONE batched check, as the
+      // delete path does: this loop was up to 20 000 round trips (A4-09).
+      const targets = descendants.flatMap((child) => [
+        { storageNodeId: entry.storageNodeId, relativePath: child.relativePath },
+        { storageNodeId: entry.storageNodeId, relativePath: newRelativePath + child.relativePath.slice(entry.relativePath.length) },
+      ]);
+      const capabilities = await getStorageAccessCapabilities({ session, targets });
+      for (const target of targets) {
+        const key = getStorageAccessCapabilityKey(target);
+        if (!key || capabilities.get(key)?.canWrite !== true) throw new ForbiddenError(storageAccessDeniedCopy("no_access", locale));
       }
     }
 
@@ -220,10 +233,15 @@ export async function executeMoveFile(
     try {
       await prisma.$transaction(async (tx) => {
         // Update the root first so the unique constraint reserves the target
-        // path before any descendant rows are changed.
+        // path before any descendant rows are changed. A file whose extension
+        // changed gets its type from the new name (A4-29): previews and icons
+        // judge by mime, and the old one said "octet-stream" for `data.zip`.
+        const newName = newRelativePath.split("/").pop() ?? newRelativePath;
+        const oldName = entry.relativePath.split("/").pop() ?? entry.relativePath;
+        const extensionChanged = entry.entryType === "FILE" && fileExtension(oldName) !== fileExtension(newName);
         await tx.fileEntry.update({
           where: { id: fileEntryId },
-          data: { relativePath: newRelativePath },
+          data: { relativePath: newRelativePath, name: newName, ...(extensionChanged ? { mimeType: guessContentType(newName) } : {}) },
         });
 
         await moveSharePaths(tx, {
@@ -237,29 +255,20 @@ export async function executeMoveFile(
           const oldPrefix = entry.relativePath + "/";
           const newPrefix = newRelativePath + "/";
           // Their bytes move with the parent, including recycle-bin entries.
-          const CHILD_CAP = 10_000;
-          const children = await tx.fileEntry.findMany({
-            where: {
-              storageNodeId: entry.storageNodeId,
-              relativePath: { startsWith: escapeLikeLiteral(oldPrefix) },
-            },
-            select: { id: true, relativePath: true },
-            take: CHILD_CAP + 1,
-          });
-          if (children.length > CHILD_CAP) {
-            throw new BusinessError(
-              tr("backend.storageHardening.files.tooManyChildren"),
-            );
-          }
-
-          for (const child of children) {
-            await tx.fileEntry.update({
-              where: { id: child.id },
-              data: { relativePath: rebaseDescendantPath(child.relativePath, oldPrefix, newPrefix) },
-            });
-          }
+          // One UPDATE for the whole subtree, as the WebDAV MOVE does: a row per
+          // descendant inside the interactive transaction hit Prisma's 5 s
+          // transaction timeout from a few thousand entries (A4-02). The prefix
+          // length is counted by PostgreSQL (code points, not UTF-16 units).
+          const replacementPrefix = newPrefix.replace(/\\/g, "\\\\");
+          await tx.$executeRaw`
+            UPDATE file_entries
+            SET "relativePath" = ${replacementPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
+                "updatedAt" = (now() AT TIME ZONE 'UTC')
+            WHERE "storageNodeId" = ${entry.storageNodeId}
+              AND "relativePath" LIKE ${`${escapeLikeLiteral(oldPrefix)}%`} ESCAPE '\\'
+          `;
         }
-      });
+      }, { timeout: 60_000 });
     } catch (databaseError) {
       // The backing move already succeeded. Compensate it if the atomic DB
       // update fails so storage and metadata do not remain permanently split.

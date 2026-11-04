@@ -284,6 +284,7 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
 
             {accountType === "admin" && <Notice tone="info">{t("usersPerm.adminResourceAccess")}</Notice>}
             {accountType === "customer" && !narrowingEditable && <Notice tone="info">{t("usersPerm.narrowAfterSave")}</Notice>}
+            {narrowingEditable && selectedTemplate?.permissions.includes("storage:manage-node") && <Notice tone="warning">{t("usersPerm.grants.bypassedByTemplate", { template: identityTemplateName(selectedTemplate, t) })}</Notice>}
 
             {narrowingEditable && <section data-inset className="p-4">
               <h4 className="ui-title-group">{t("usersPerm.section.servers")}</h4>
@@ -322,7 +323,7 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
               </div>
             </section>}
 
-            {narrowingEditable && <section data-inset className="p-4">
+            {narrowingEditable && !selectedTemplate?.permissions.includes("storage:manage-node") && <section data-inset className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h4 className="ui-title-group">{t("usersPerm.section.grants")}</h4>

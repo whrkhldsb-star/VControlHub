@@ -512,8 +512,8 @@ export async function setServerDirectGatewayEnabled(
         enabled && options.publicProtocol === "https"
           ? options.publicDomain?.trim() || null
           : null,
-      onboardingStatus: "READY",
-      onboardingLastError: null,
+      // Onboarding state belongs to the SSH/Agent checks: a gateway toggle
+      // must not erase an unrelated "needs attention" warning (A2-06).
     },
   });
   return result;
