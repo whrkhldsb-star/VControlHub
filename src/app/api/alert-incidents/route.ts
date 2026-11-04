@@ -10,6 +10,7 @@ import {
   acknowledgeAlertIncident,
   listAlertIncidents,
 } from "@/lib/alert/incidents";
+import { canSeeIncidentDelivery } from "@/lib/alert/incident-visibility";
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -35,39 +36,43 @@ export async function GET(request: Request) {
       const { status } = parseSearchParams(request, listQuerySchema);
       const incidents = await listAlertIncidents({ status, session });
       return NextResponse.json({
-        incidents: incidents.map((i) => ({
-          id: i.id,
-          fingerprint: i.fingerprint,
-          ruleId: i.ruleId,
-          ruleName: i.rule?.name ?? null,
-          serverId: i.serverId,
-          serverName: i.serverName,
-          metric: i.metric,
-          operator: i.operator,
-          threshold: i.threshold,
-          value: i.value,
-          status: i.status,
-          level: i.level,
-          title: i.title,
-          message: i.message,
-          acknowledgedAt: i.acknowledgedAt?.toISOString() ?? null,
-          acknowledgedBy: i.acknowledgedBy
-            ? {
-                id: i.acknowledgedBy.id,
-                username: i.acknowledgedBy.username,
-                displayName: i.acknowledgedBy.displayName,
-              }
-            : null,
-          escalatedAt: i.escalatedAt?.toISOString() ?? null,
-          lastNotifiedAt: i.lastNotifiedAt?.toISOString() ?? null,
-          pendingNotifyChannels: i.pendingNotifyChannels ?? [],
-          nextNotifyAt: i.nextNotifyAt?.toISOString() ?? null,
-          lastNotifyError: i.lastNotifyError ?? null,
-          resolvedAt: i.resolvedAt?.toISOString() ?? null,
-          createdAt: i.createdAt.toISOString(),
-          escalationMinutes: i.rule?.escalationMinutes ?? 30,
-          onCallUserIds: i.rule?.onCallUserIds ?? [],
-        })),
+        incidents: incidents.map((i) => {
+          // Delivery state of a platform rule (its mail/bot errors, on-call admins) is the owner's, not the customer's.
+          const delivery = canSeeIncidentDelivery(session, i.rule);
+          return {
+            id: i.id,
+            fingerprint: i.fingerprint,
+            ruleId: i.ruleId,
+            ruleName: i.rule?.name ?? null,
+            serverId: i.serverId,
+            serverName: i.serverName,
+            metric: i.metric,
+            operator: i.operator,
+            threshold: i.threshold,
+            value: i.value,
+            status: i.status,
+            level: i.level,
+            title: i.title,
+            message: i.message,
+            acknowledgedAt: i.acknowledgedAt?.toISOString() ?? null,
+            acknowledgedBy: i.acknowledgedBy
+              ? {
+                  id: i.acknowledgedBy.id,
+                  username: i.acknowledgedBy.username,
+                  displayName: i.acknowledgedBy.displayName,
+                }
+              : null,
+            escalatedAt: i.escalatedAt?.toISOString() ?? null,
+            lastNotifiedAt: i.lastNotifiedAt?.toISOString() ?? null,
+            pendingNotifyChannels: delivery ? i.pendingNotifyChannels ?? [] : [],
+            nextNotifyAt: delivery ? i.nextNotifyAt?.toISOString() ?? null : null,
+            lastNotifyError: delivery ? i.lastNotifyError ?? null : null,
+            resolvedAt: i.resolvedAt?.toISOString() ?? null,
+            createdAt: i.createdAt.toISOString(),
+            escalationMinutes: i.rule?.escalationMinutes ?? 30,
+            onCallUserIds: delivery ? i.rule?.onCallUserIds ?? [] : [],
+          };
+        }),
       });
     },
   );

@@ -1061,7 +1061,7 @@ export async function listAlertIncidents(options?: {
     orderBy: [{ status: "asc" }, { level: "desc" }, { createdAt: "desc" }],
     take: options?.take ?? 100,
     include: {
-      rule: { select: { id: true, name: true, escalationMinutes: true, onCallUserIds: true } },
+      rule: { select: { id: true, name: true, escalationMinutes: true, onCallUserIds: true, teamId: true } },
       acknowledgedBy: { select: { id: true, username: true, displayName: true } },
     },
   });

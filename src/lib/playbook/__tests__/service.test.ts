@@ -21,6 +21,7 @@ const { mocks } = vi.hoisted(() => ({
     auditUserAction: vi.fn(),
     serverFindMany: vi.fn(),
     teamMemberFindUnique: vi.fn(),
+    userFindUnique: vi.fn(),
     acquireAdvisoryLock: vi.fn(),
     releaseAdvisoryLock: vi.fn(),
   },
@@ -41,6 +42,7 @@ vi.mock("@/lib/db", () => ({
     playbookRun: { findMany: mocks.runFindMany, findFirst: mocks.runFindFirst },
     server: { findMany: mocks.serverFindMany },
     teamMember: { findUnique: mocks.teamMemberFindUnique },
+    user: { findUnique: mocks.userFindUnique },
     $transaction: mocks.transaction,
   },
 }));
@@ -170,6 +172,34 @@ describe("playbook service", () => {
       updatePlaybook({ id: "pb1", triggerType: "metric" }, "u1", session),
     ).rejects.toThrow(/metric trigger requires/i);
     expect(mocks.playbookUpdate).not.toHaveBeenCalled();
+  });
+
+  it("needs playbook:run, and command:execute for command steps, to change when a playbook runs", async () => {
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
+    type Session = { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string; permissions: import("@/lib/auth/rbac").Permission[] };
+    const manageOnly: Session = { userId: "u9", roles: ["operator"], currentTeamId: "team1", permissions: ["playbook:read", "playbook:manage"] };
+    for (const change of [{ enabled: false }, { triggerType: "cron" as const, triggerConfig: { expression: "* * * * *" } }, { chainRetry: 5 }]) {
+      await expect(updatePlaybook({ id: "pb1", ...change }, "u9", manageOnly)).rejects.toMatchObject({ name: "ForbiddenError" });
+    }
+    const runWithoutExecute: Session = { ...manageOnly, permissions: ["playbook:read", "playbook:manage", "playbook:run"] };
+    await expect(updatePlaybook({ id: "pb1", enabled: false }, "u9", runWithoutExecute)).rejects.toMatchObject({ name: "ForbiddenError" });
+    expect(mocks.playbookUpdateMany).not.toHaveBeenCalled();
+    // Renaming changes nothing about when it runs.
+    mocks.playbookFindUnique.mockResolvedValue(baseRow);
+    await updatePlaybook({ id: "pb1", name: "Renamed" }, "u9", manageOnly);
+    expect(mocks.playbookUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets a non-administrator take over a playbook only once its owner is deactivated", async () => {
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
+    mocks.playbookFindUnique.mockResolvedValue(baseRow);
+    const member = { userId: "u9", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    mocks.userFindUnique.mockResolvedValueOnce({ status: "ACTIVE" });
+    await expect(updatePlaybook({ id: "pb1", claimOwnership: true }, "u9", member)).rejects.toMatchObject({ name: "ForbiddenError" });
+    expect(mocks.playbookUpdateMany).not.toHaveBeenCalled();
+    mocks.userFindUnique.mockResolvedValueOnce({ status: "DISABLED" });
+    await updatePlaybook({ id: "pb1", claimOwnership: true }, "u9", member);
+    expect(mocks.playbookUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ createdById: "u9" }) }));
   });
 
   it("rejects create when run_command targets servers outside team scope", async () => {

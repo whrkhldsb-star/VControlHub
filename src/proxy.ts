@@ -129,6 +129,20 @@ function webSocketSources(host: string | null): string {
   return ` ws://${host} wss://${host}`;
 }
 
+/**
+ * The browser Sentry SDK posts errors to its DSN's host. With connect-src limited to the page's own origin every
+ * report was blocked once NEXT_PUBLIC_SENTRY_DSN was set, so front-end errors silently never arrived.
+ */
+export function sentryConnectSource(dsn: string | undefined = process.env.NEXT_PUBLIC_SENTRY_DSN): string {
+  if (!dsn) return "";
+  try {
+    const url = new URL(dsn);
+    return url.protocol === "https:" ? ` ${url.origin}` : "";
+  } catch {
+    return "";
+  }
+}
+
 function buildContentSecurityPolicy(nonce: string, host: string | null) {
   return [
     "default-src 'self'",
@@ -139,7 +153,7 @@ function buildContentSecurityPolicy(nonce: string, host: string | null) {
     // 2FA QR is a same-origin data: URL from /api/auth/2fa/setup (no third-party QR hosts).
     "img-src 'self' data: blob:",
     "font-src 'self' data: https://fonts.scalar.com",
-    `connect-src 'self'${webSocketSources(host)}`,
+    `connect-src 'self'${webSocketSources(host)}${sentryConnectSource()}`,
     "worker-src 'self' blob:",
     "media-src 'self' blob:",
     "frame-src 'self' https://challenges.cloudflare.com",
@@ -268,7 +282,9 @@ export function proxy(request: NextRequest) {
   // (for example after changing default-page preferences) and should not see
   // the protected shell/sidebar behind the sign-in form. Server layouts read
   // request headers, so forward the marker on the request, not only the response.
-  if (pathname === "/login" || pathname === "/login/verify-2fa") {
+  // /offline too: the service worker stores it for every later visitor of the browser, so it must never
+  // carry one user's shell (name, roles, quick-service links).
+  if (pathname === "/login" || pathname === "/login/verify-2fa" || pathname === "/offline") {
     forwardedHeaders.set("x-vcontrolhub-public-auth-page", "1");
     const response = NextResponse.next({
       request: { headers: forwardedHeaders },

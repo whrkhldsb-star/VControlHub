@@ -127,9 +127,10 @@ export async function createScheduledTask(
 	session: SessionScope,
 ) {
 	const schedule = resolveSchedule(input);
-	const teamFromSession = session ? teamCreateData(session).teamId : undefined;
+	// An explicit teamId (the AI automation passes the target server's) wins; only without one does the caller
+	// need a selected customer. teamCreateData throws in "all customers" mode, which failed those confirmations.
 	const teamId =
-		input.teamId !== undefined ? input.teamId : (teamFromSession ?? null);
+		input.teamId !== undefined ? input.teamId : ((session ? teamCreateData(session).teamId : undefined) ?? null);
 	const serverIds = normalizeServerIds(input.serverIds);
 	if (serverIds.length === 0) {
 		throw new ValidationError(t("backend.scheduled-task.atLeastOneTargetServer"));
@@ -196,8 +197,19 @@ export async function updateScheduledTask(
 	if (input.approvalRequired === false && existing.approvalRequired && !sessionHasPermission(session, "command:approve")) {
 		throw new ForbiddenError(t("backend.scheduled-task.disableApprovalRequiresApprover"));
 	}
+	// Resuming, pausing or rescheduling an unattended task decides when it runs unreviewed: the toggle and delete
+	// paths already require command:execute for that (A6-09), and this path must not be the way around them.
+	if (!existing.approvalRequired && changesWhenItRuns(existing, input) && !sessionHasPermission(session, "command:execute")) {
+		throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
+	}
 
 	const data: Record<string, unknown> = {};
+	// Every run files its request as the task's creator. Whoever rewrites the command must reach the servers it
+	// runs on and becomes that creator: approvers then see who wrote it, and the self-review rule applies to them.
+	if (input.command !== undefined && input.command !== existing.command) {
+		if (input.serverIds === undefined) await assertScheduledTaskServersInScope(existing.serverIds, session);
+		if (session?.userId && session.userId !== existing.createdById) data.createdById = session.userId;
+	}
 	if (input.name !== undefined) data.name = input.name;
 	if (input.scheduleType !== undefined || input.cronExpression !== undefined || input.runAt !== undefined) {
 		const schedule = resolveSchedule({
@@ -257,6 +269,22 @@ export async function updateScheduledTask(
 		throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	}
 	return getScheduledTask(id, session);
+}
+
+/** Whether an edit changes when a task runs: its status or any schedule field. */
+function changesWhenItRuns(
+	existing: { status: string; scheduleType: string; cronExpression: string; runAt: Date | null },
+	input: Pick<UpdateScheduledTaskInput, "status" | "scheduleType" | "cronExpression" | "runAt">,
+) {
+	if (input.status !== undefined && input.status !== existing.status) return true;
+	if (input.scheduleType !== undefined && input.scheduleType !== existing.scheduleType) return true;
+	if (input.cronExpression !== undefined && input.cronExpression !== existing.cronExpression) return true;
+	if (input.runAt !== undefined) {
+		const next = input.runAt === null ? null : new Date(input.runAt).getTime();
+		const current = existing.runAt ? existing.runAt.getTime() : null;
+		if (next !== current) return true;
+	}
+	return false;
 }
 
 /** Whether an edit changes what an unattended task runs, or where: the command and its target servers. */

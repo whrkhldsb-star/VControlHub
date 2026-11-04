@@ -9,7 +9,7 @@ import {
 } from "@/lib/storage/path-utils";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { assertNotRecycled, normalizeIndexedPath } from "@/lib/storage/archive-access";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -36,10 +36,12 @@ export async function GET(request: NextRequest) {
     request,
     { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.read.archive.27c0af4a") },
     async ({ session }) => {
-      const { nodeId, relativePath, name } = parseSearchParams(
+      const { nodeId, relativePath: rawRelativePath, name } = parseSearchParams(
         request,
         archiveListQuerySchema,
       );
+      // The recycle-bin and access checks compare against indexed (normalized) paths.
+      const relativePath = rawRelativePath ? normalizeIndexedPath(rawRelativePath) : rawRelativePath;
 
       if (!relativePath) {
         throw new ValidationError(apiCopy("apiCopy.missing.file.path.76fdb830"));

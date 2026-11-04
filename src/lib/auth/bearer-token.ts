@@ -24,6 +24,8 @@ export type BearerTokenResult = {
 	session: SessionPayload;
 };
 
+const SAFE_TOKEN_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
 export function hasBearerAuthorization(request: Request): boolean {
 	return /^Bearer\s+/i.test(request.headers.get("authorization") ?? "");
 }
@@ -54,8 +56,14 @@ export async function authenticateBearerForPermissions(
 			{ status: 401 },
 		);
 	}
+	// A read permission never authorises a state-changing request made with a token. Some handlers that write
+	// (a ticket comment, cancelling one's own file job) accept a read permission for signed-in users, and the
+	// proxy's "tokens are GET-only" rule only checks that a session cookie looks plausible, which a script can fake.
+	// Without this, a leaked default read-only token could post and cancel as its owner.
+	const readOnlyRequest = SAFE_TOKEN_METHODS.has(request.method.toUpperCase());
 	const grantedPermissions = requiredPermissions.filter(
 		(permission) =>
+			(readOnlyRequest || !permission.endsWith(":read")) &&
 			tokenAllowsPermission(verified.scopes, permission) &&
 			sessionHasPermission(ownerSession, permission),
 	);

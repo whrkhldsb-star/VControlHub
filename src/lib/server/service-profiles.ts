@@ -621,6 +621,16 @@ export async function updateServerProfile(
   try {
   await assertNoDuplicateServerHost(normalized, { excludeId: serverId, session: sessionForTeamWhere(session) });
 
+  // The preflight below logs in to the new endpoint. With the stored password that hands it to whatever now
+  // answers there: someone allowed to edit a server, but never told its root password, could point it at their
+  // own sshd and read the password from its log. A new endpoint therefore needs the password typed again.
+  // (A key is safe to keep: the server only ever sees a signature.)
+  const endpointChanged =
+    normalized.host !== current.host || normalized.port !== current.port || normalized.username !== current.username;
+  if (normalized.connectionType === "PASSWORD" && endpointChanged && !input.password) {
+    throw new ValidationError(t("backend.server.endpointChangeNeedsPassword"));
+  }
+
   const connectionChanged =
     normalized.host !== current.host ||
     normalized.port !== current.port ||

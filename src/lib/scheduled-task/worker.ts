@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { config } from "@/lib/config/env";
+import { AppError } from "@/lib/errors";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
@@ -225,6 +226,20 @@ async function dispatchDueTask(task: {
   }
 }
 
+/**
+ * A failure that says nothing about the task itself: the database or the network was briefly unavailable.
+ * Refusals (a disabled server, a missing permission, invalid input) are AppErrors and stay the task's outcome.
+ */
+export function isTransientDispatchError(error: unknown): boolean {
+  if (error instanceof AppError) return false;
+  const code = (error as { code?: unknown } | null)?.code;
+  // P1xxx: cannot reach / authenticate to the database; P2024: pool timeout; P2034: transaction conflict.
+  if (typeof code === "string" && (/^P1\d{3}$/.test(code) || code === "P2024" || code === "P2034")) return true;
+  if ((error as { name?: unknown } | null)?.name === "PrismaClientInitializationError") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /\b(ECONNREFUSED|ECONNRESET|ETIMEDOUT|EPIPE)\b|Can't reach database server|Connection terminated/i.test(message);
+}
+
 /** The command request was created but linking it to its task failed. */
 export class DispatchLinkError extends Error {
   constructor(readonly commandRequestId: string, cause: unknown) {
@@ -259,6 +274,9 @@ export async function dispatchDueScheduledTasks(reason: string) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error("Scheduled task execution failed", { reason, taskId: task.id, error: message });
       if (error instanceof DispatchLinkError) continue;
+      // The claim was handed back, so the next tick replays this occurrence under the same idempotency key.
+      // Recording a failure here advanced nextRunAt and disabled a ONCE task for good over a database blip.
+      if (isTransientDispatchError(error)) continue;
       try {
         // Structured "failed" outcome — the prefix on this string is display
         // copy only; failure detection must never parse it (see recordTaskRun).

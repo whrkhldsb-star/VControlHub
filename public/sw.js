@@ -10,7 +10,9 @@
  * - API/cross-origin/non-GET: never cache.
  */
 
-const CACHE_VERSION = "vch-shell-v4";
+// v5: earlier versions could hold an /offline page rendered with the signed-in shell (user name, roles,
+// quick-service links); bumping the version makes activate delete those caches.
+const CACHE_VERSION = "vch-shell-v5";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -25,7 +27,9 @@ self.addEventListener("install", (event) => {
 	event.waitUntil(
 		caches
 			.open(SHELL_CACHE)
-			.then((cache) => cache.addAll(PRECACHE_URLS).catch(() => undefined))
+			// Without cookies: a worker installed while someone is signed in stored the page with their shell,
+			// and any later visitor of that browser saw it offline.
+			.then((cache) => cache.addAll(PRECACHE_URLS.map((url) => new Request(url, { credentials: "omit" }))).catch(() => undefined))
 			.then(() => self.skipWaiting()),
 	);
 });

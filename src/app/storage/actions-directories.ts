@@ -400,12 +400,14 @@ export async function renameFileEntryAction(
           // One UPDATE for the subtree (A4-28): a row per child inside the
           // interactive transaction tripped the 5 s transaction timeout on big
           // directories and the rename rolled back every time.
+          // Recycle-bin rows move too (see the preload above): their bytes moved with the rename. Leaving them at
+          // the old prefix resurrected trashed files under the new name and made "delete permanently" a no-op.
           const replacementPrefix = newPrefix.replace(/\\/g, "\\\\");
           await tx.$executeRaw`
             UPDATE file_entries
             SET "relativePath" = ${replacementPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
                 "updatedAt" = (now() AT TIME ZONE 'UTC')
-            WHERE "storageNodeId" = ${entry.storageNodeId} AND NOT "isDeleted"
+            WHERE "storageNodeId" = ${entry.storageNodeId}
               AND "relativePath" LIKE ${`${escapeLikeLiteral(oldPrefix)}%`} ESCAPE '\\'
           `;
         }

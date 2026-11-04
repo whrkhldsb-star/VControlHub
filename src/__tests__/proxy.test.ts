@@ -169,6 +169,20 @@ describe("proxy auth guard", () => {
     );
   });
 
+  it("lets the browser Sentry SDK reach its DSN host and nothing else", async () => {
+    const { sentryConnectSource } = await import("../proxy");
+    expect(sentryConnectSource("https://abc123@o42.ingest.sentry.io/7")).toBe(" https://o42.ingest.sentry.io");
+    expect(sentryConnectSource(undefined)).toBe("");
+    expect(sentryConnectSource("http://abc@insecure.example/1")).toBe("");
+    expect(sentryConnectSource("not a url")).toBe("");
+  });
+
+  it("renders /offline without the signed-in shell, since the service worker keeps it for later visitors", () => {
+    const response = syncProxy(makeRequest("/offline"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-override-headers")).toContain("x-vcontrolhub-public-auth-page");
+  });
+
   it("lets anonymous browsers reach app icon assets", () => {
     for (const pathname of ["/favicon.ico", "/icon.png", "/apple-icon.png"]) {
       const response = syncProxy(makeRequest(pathname));

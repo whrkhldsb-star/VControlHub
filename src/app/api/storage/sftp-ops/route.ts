@@ -139,22 +139,23 @@ async function resolveIndexedIsDirectory(
 }
 
 async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, newRelativePath: string, isDirectory = false) {
+  const oldPrefix = oldRelativePath.endsWith("/")
+    ? oldRelativePath
+    : `${oldRelativePath}/`;
+  const newPrefix = newRelativePath.endsWith("/")
+    ? newRelativePath
+    : `${newRelativePath}/`;
+  let children: Array<{ id: string; relativePath: string }> = [];
   if (isDirectory) {
-    const oldPrefix = oldRelativePath.endsWith("/")
-      ? oldRelativePath
-      : `${oldRelativePath}/`;
-    const newPrefix = newRelativePath.endsWith("/")
-      ? newRelativePath
-      : `${newRelativePath}/`;
-    // Only rewrite live descendants. Soft-deleted children must stay in the
-    // recycle-bin inventory; rewriting them with isDeleted:false would resurrect trash.
-    // Fail closed if the directory has more live children than we can rewrite
+    // Every descendant moves, recycle-bin rows included: the physical rename moves their bytes too. Left at the old
+    // prefix they resurrected trashed files under the new name (a sync indexed them again) and "delete permanently"
+    // removed nothing (isDeleted stays as it is; only the path changes).
+    // Fail closed if the directory has more children than we can rewrite
     // in one pass — silent truncation would leave stale relativePath rows.
-    const children = await prisma.fileEntry.findMany({
+    children = await prisma.fileEntry.findMany({
       where: {
         storageNodeId,
         relativePath: { startsWith: escapeLikeLiteral(oldPrefix) },
-        isDeleted: false,
       },
       select: { id: true, relativePath: true },
       take: DIRECTORY_CHILD_REWRITE_LIMIT + 1,
@@ -164,26 +165,45 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
         apiCopy("apiCopy.directory.has.too.many.indexed.children.to.rename.safely.limit.r.a9701b8f", { v0: String(DIRECTORY_CHILD_REWRITE_LIMIT) }),
       );
     }
+  }
+
+  // One transaction: a failure part-way (a duplicate path, a dropped connection) left some children at the new
+  // prefix and the rest at the old one, with nothing rolled back.
+  await prisma.$transaction(async (tx) => {
     // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
     for (const child of children) {
-      await prisma.fileEntry.update({
+      await tx.fileEntry.update({
         where: { id: child.id },
         data: {
           relativePath: newPrefix + child.relativePath.slice(oldPrefix.length),
         },
       });
     }
-  }
+    await tx.fileEntry.updateMany({
+      where: { storageNodeId, relativePath: oldRelativePath },
+      data: {
+        relativePath: newRelativePath,
+        name: path.posix.basename(newRelativePath),
+      },
+    });
+    // Shares follow the renamed entry (and back, when this rolls a rename back).
+    await moveSharePaths(tx, { storageNodeId, oldPath: oldRelativePath, newPath: newRelativePath, isDirectory });
+  }, { timeout: 60_000 });
+}
 
-  await prisma.fileEntry.updateMany({
-    where: { storageNodeId, relativePath: oldRelativePath },
-    data: {
-      relativePath: newRelativePath,
-      name: path.posix.basename(newRelativePath),
+/** Whether the index holds anything, recycle bin included, at `relativePath` or below it. */
+async function sftpIndexHasPath(storageNodeId: string, relativePath: string): Promise<boolean> {
+  const taken = await prisma.fileEntry.findFirst({
+    where: {
+      storageNodeId,
+      OR: [
+        { relativePath },
+        { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) } },
+      ],
     },
+    select: { id: true },
   });
-  // Shares follow the renamed entry (and back, when this rolls a rename back).
-  await moveSharePaths(prisma, { storageNodeId, oldPath: oldRelativePath, newPath: newRelativePath, isDirectory });
+  return Boolean(taken);
 }
 
 export const dynamic = "force-dynamic";
@@ -349,6 +369,13 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           normalizedRelativePath,
           body.isDirectory,
         );
+
+        // The destination must be free in the index, recycle bin included. Otherwise the rewrite below put this
+        // entry's rows among the destination's, the physical rename then failed (the target exists), and the
+        // rollback moved the destination's own rows back here as well.
+        if (await sftpIndexHasPath(node.id, normalizedNewRelativePath)) {
+          throw new ConflictError(apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: normalizedNewRelativePath }));
+        }
 
         // Index-first: update DB entries before renaming the physical file.
         // If the physical rename fails, the index can be rolled back by the
@@ -532,6 +559,11 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           },
           select: { id: true, isDeleted: true },
         });
+        // A recycle-bin file keeps its bytes at its path. Writing over it destroyed what a restore would bring back,
+        // and the upsert revived the row half-way; every other upload path refuses this.
+        if (indexed?.isDeleted) {
+          throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${normalizedRelativePath}` }));
+        }
         const hadIndex = Boolean(indexed);
         // The editor saves SFTP files here: like the LOCAL editor (and the
         // version panel's promise), keep the previous body as a version first.

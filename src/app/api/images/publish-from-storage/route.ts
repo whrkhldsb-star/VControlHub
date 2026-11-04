@@ -19,6 +19,7 @@ import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { statBackingObject } from "@/lib/storage/fs-backend";
 import { readStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 import { IMAGE_EXTENSIONS } from "@/lib/storage/mime-constants";
@@ -99,6 +100,9 @@ export async function POST(request: Request) {
       if (!readAccess.allowed) {
         throw new ForbiddenError(readAccess.reason);
       }
+      // A file in the recycle bin keeps its bytes at its path: publishing it handed a teammate's deleted image
+      // a new, possibly public, life on the image bed.
+      await assertNotRecycled(storageNodeId, relativePath);
 
       // Size pre-check BEFORE buffering the file: reading a multi-GB storage
       // object into memory only to reject it over the cap would OOM the route.

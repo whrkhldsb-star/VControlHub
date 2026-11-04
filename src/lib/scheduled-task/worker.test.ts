@@ -445,6 +445,34 @@ describe("scheduled-task durable job worker", () => {
     );
   });
 
+  it("hands a database blip's claim back without recording a failure, so a ONCE task is not disabled by it", async () => {
+    claimNextJobMock.mockResolvedValueOnce(makeJob());
+    scheduledTaskFindManyMock.mockResolvedValueOnce([makeTask({ id: "db-blip" })]);
+    scheduledTaskUpdateManyMock.mockResolvedValueOnce({ count: 1 });
+    scheduledTaskUpdateManyMock.mockResolvedValueOnce({ count: 1 });
+    createCommandRequestMock.mockRejectedValueOnce(Object.assign(new Error("Can't reach database server at 127.0.0.1:5432"), { code: "P1001" }));
+
+    await startScheduledTaskWorker();
+    await vi.runOnlyPendingTimersAsync();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(scheduledTaskUpdateManyMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: { nextRunAt: new Date("2026-01-01T00:00:00Z"), claimedOccurrenceAt: null },
+    }));
+    expect(recordTaskRunMock).not.toHaveBeenCalled();
+  });
+
+  it("tells transient infrastructure errors from refusals", async () => {
+    const { isTransientDispatchError } = await import("./worker");
+    const { ForbiddenError } = await import("@/lib/errors");
+    expect(isTransientDispatchError(Object.assign(new Error("pool"), { code: "P2024" }))).toBe(true);
+    expect(isTransientDispatchError(new Error("connect ECONNREFUSED 127.0.0.1:5432"))).toBe(true);
+    expect(isTransientDispatchError(new ForbiddenError("server disabled"))).toBe(false);
+    expect(isTransientDispatchError(new Error("downstream API 503"))).toBe(false);
+  });
+
   it("serialises the tick existence check and enqueue with an advisory lock", async () => {
     jobFindFirstMock.mockResolvedValue({ id: "active-forever" });
     claimNextJobMock.mockResolvedValue(makeJob());

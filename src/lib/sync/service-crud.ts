@@ -242,6 +242,9 @@ export async function updateSyncJob(
 ) {
 	const existing = await getSyncJob(id, session);
 	if (!existing) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
+	// Being in the job's team is not enough to edit it: the editor must reach both servers itself, the same check
+	// createSyncJob makes. Otherwise a member barred from a server could repoint a teammate's job at it.
+	if (session) await assertSyncServersInScope([existing.sourceServerId, existing.targetServerId], session);
 	// createSyncJob refuses an endpoint that syncs a path onto itself; a PATCH of
 	// sourcePath/targetPath must not be able to reach that state either. On one
 	// server with the same path and deleteOrphans, the tar fallback pipes
@@ -279,6 +282,11 @@ export async function updateSyncJob(
 		patch.deleteOrphans = effectiveDeleteOrphans(syncType, Boolean(deleteOrphans));
 		if (data.syncType !== undefined) patch.syncType = data.syncType;
 	}
+	// A scheduled run acts as the job's creator. Whoever changes what it copies, where, or when becomes that
+	// creator, so the run is authorised against the editor's own rights and not a teammate's.
+	const changesWhatRuns = data.sourcePath !== undefined || data.targetPath !== undefined || data.schedule !== undefined
+		|| data.syncType !== undefined || data.deleteOrphans !== undefined;
+	if (session?.userId && changesWhatRuns && session.userId !== existing.createdBy) patch.createdBy = session.userId;
 	const updated = await prisma.syncJob.updateMany({
 		where: { id, teamId: existing.teamId ?? null },
 		data: patch,

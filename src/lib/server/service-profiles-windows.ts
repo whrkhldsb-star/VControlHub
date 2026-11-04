@@ -130,12 +130,25 @@ export async function updateWindowsServerProfile(
   if (existingSftp && payload.host !== current.host && !configureSftp) {
     throw new ValidationError(t("backend.server.windowsSftpReverify"));
   }
+  // An RDP login sends the password to whatever answers at the address: a new endpoint needs it typed again,
+  // or an editor who was never told it could point the node at their own host and collect it.
+  if (rdpInput.rdpPassword === undefined && current.rdpPassword && (payload.host !== current.host || payload.port !== current.port)) {
+    throw new ValidationError(t("backend.server.endpointChangeNeedsPassword"));
+  }
   const nextSftp = configureSftp ? {
     port: input.windowsSftpPort ?? existingSftp?.port ?? 22,
     username: input.windowsSftpUsername?.trim() || existingSftp?.username || "",
     password: input.windowsSftpPassword || (current.password ? decryptServerPassword(current.password) : ""),
     basePath: input.windowsSftpPath?.trim() || existingSftp?.basePath || "",
   } : null;
+  // The SFTP check below logs in with this password; the stored one may only go back to the endpoint it was set for.
+  if (nextSftp && !input.windowsSftpPassword && current.password && (
+    payload.host !== current.host ||
+    nextSftp.port !== (existingSftp?.port ?? 22) ||
+    nextSftp.username !== (existingSftp?.username ?? "")
+  )) {
+    throw new ValidationError(t("backend.server.endpointChangeNeedsPassword"));
+  }
   if (current.fileProxyPort && current.fileProxyPort > 0 && (
     payload.host !== current.host ||
     (nextSftp && (nextSftp.port !== (existingSftp?.port ?? 22) ||

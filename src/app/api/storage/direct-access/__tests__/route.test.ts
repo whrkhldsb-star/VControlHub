@@ -410,6 +410,35 @@ describe("/api/storage/direct-access", () => {
     expect(noServer.signature).toBe(signedWith("test-secret", noServer.expires));
   });
 
+  it("never signs a customer's link with the shared secret, and still signs it with a gateway's own key", async () => {
+    // A customer picks the signed path through its node's publicBaseUrl and the relative path; with the shared
+    // secret that signature would open any older gateway's files.
+    const { deriveDirectGatewayServerKey } = await import("@/lib/server/direct-gateway-key");
+    const request = async (server: { directGatewayKeyVersion: number } | null) => {
+      vi.clearAllMocks();
+      requireApiPermissionMock.mockResolvedValueOnce({
+        session: { userId: "u_2", username: "tenant", roles: ["operator"], currentTeamId: "team_b" },
+      });
+      assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+      const node = directNode({ directAccessMode: "DIRECT", publicBaseUrl: "https://attacker.example/media", serverId: server ? "srv_9" : null, server });
+      prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+      return GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_9&path=backups%2Fdb.sql.gz"));
+    };
+
+    for (const legacy of [null, { directGatewayKeyVersion: 1 }]) {
+      const response = await request(legacy);
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe("/api/storage/sftp-download?nodeId=node_9&path=backups%2Fdb.sql.gz");
+    }
+
+    const own = await request({ directGatewayKeyVersion: 2 });
+    const url = new URL(own.headers.get("location") ?? "");
+    const expires = url.searchParams.get("expires") ?? "";
+    expect(url.searchParams.get("signature")).toBe(
+      crypto.createHmac("sha256", deriveDirectGatewayServerKey("test-secret", "srv_9")).update(`/media/backups/db.sql.gz.${expires}`).digest("hex"),
+    );
+  });
+
   it("falls back to managed SFTP when AUTO direct gateway health is unavailable", async () => {
     vi.clearAllMocks();
     const cancel = vi.fn();

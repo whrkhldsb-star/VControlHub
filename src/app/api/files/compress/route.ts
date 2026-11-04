@@ -16,7 +16,7 @@ import { compressFilesBodySchema } from "@/lib/files/schema";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
-import { recycledAround } from "@/lib/storage/archive-access";
+import { normalizeIndexedPath, recycledAround } from "@/lib/storage/archive-access";
 import { localTarExclusion } from "@/lib/storage/archive-stream";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -73,7 +73,9 @@ export async function POST(request: NextRequest) {
       const inputs: string[] = [];
       const excluded: string[] = [];
       for (const rawRelativePath of relativePaths) {
-        const relativePath = rawRelativePath.replace(/^\/+/, "");
+        // Normalized as the index stores it, so the recycle-bin check and the tar member list name the same paths.
+        const relativePath = normalizeIndexedPath(rawRelativePath);
+        if (!relativePath) return NextResponse.json({ error: apiCopy("apiCopy.files.op.invalid") }, { status: 400 });
         if (relativePath === outputRelativePath) {
           return NextResponse.json({ error: apiCopy("apiCopy.cannot.include.the.target.archive.in.itself.42093cb4") }, { status: 400 });
         }

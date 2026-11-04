@@ -7,6 +7,7 @@ const { prismaMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEma
 			count: vi.fn(),
 			findMany: vi.fn(),
 			findUnique: vi.fn(),
+			findFirst: vi.fn(),
 			update: vi.fn(),
 			delete: vi.fn(),
 		},
@@ -30,9 +31,11 @@ vi.mock("@/lib/notification/service", () => ({ createNotification: createNotific
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
 vi.mock("@/lib/settings/service", () => ({
 	getSetting: vi.fn(async () => "false"),
+	setSetting: vi.fn(async () => undefined),
 }));
 
 const { createAlertRule, updateAlertRule, testAlertRule, ensureDefaultAlertRules } = await import("../service");
+const settings = await import("@/lib/settings/service");
 
 describe("alert service", () => {
 	beforeEach(() => {
@@ -291,6 +294,37 @@ describe("alert service", () => {
 		});
 		expect(skipped).toEqual({ created: 0, skipped: true });
 		expect(prismaMock.alertRule.create).toHaveBeenCalledTimes(4);
+		// Both outcomes record that the starter pack was offered to this customer.
+		expect(settings.setSetting).toHaveBeenCalledWith("alerts.defaultRulesSeeded:team-a", "true");
+	});
+
+	it("does not bring the starter rules back after every rule was deleted", async () => {
+		vi.mocked(settings.getSetting).mockResolvedValueOnce("true");
+		const result = await ensureDefaultAlertRules();
+		expect(result).toEqual({ created: 0, skipped: true });
+		expect(settings.getSetting).toHaveBeenCalledWith("alerts.defaultRulesSeeded");
+		expect(prismaMock.alertRule.count).not.toHaveBeenCalled();
+		expect(prismaMock.alertRule.create).not.toHaveBeenCalled();
+	});
+
+	it("keeps customer rules off the platform's own email and Telegram recipients", async () => {
+		const customer = { userId: "u_c", roles: ["operator" as const], currentTeamId: "team_c" };
+		await expect(createAlertRule({ name: "URGENT: verify at https://evil.example", metric: "cpu_usage", operator: "gte", threshold: 90, notifyChannels: ["in_app", "email"] }, customer))
+			.rejects.toThrow(/platformChannelsAdminOnly|平台管理员|platform administrator/);
+		await expect(updateAlertRule("rule1", { notifyChannels: ["telegram"] }, customer)).rejects.toThrow(/platformChannelsAdminOnly|平台管理员|platform administrator/);
+		expect(prismaMock.alertRule.create).not.toHaveBeenCalled();
+
+		// A rule saved earlier with those channels: the customer's test skips them.
+		prismaMock.alertRule.findFirst.mockResolvedValueOnce({
+			id: "rule_c", name: "Old rule", metric: "cpu_usage", threshold: 90, notifyChannels: ["email", "telegram"], webhookUrl: null, teamId: "team_c",
+		});
+		const result = await testAlertRule("rule_c", customer);
+		expect(sendAlertEmailMock).not.toHaveBeenCalled();
+		expect(sendAlertTelegramMock).not.toHaveBeenCalled();
+		expect(result.deliveries).toEqual([
+			expect.objectContaining({ channel: "email", status: "skipped" }),
+			expect.objectContaining({ channel: "telegram", status: "skipped" }),
+		]);
 	});
 
 	it("scopes test in-app recipients to the rule team when teamId is set", async () => {

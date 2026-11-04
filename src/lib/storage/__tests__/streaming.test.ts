@@ -5,6 +5,17 @@ import { describe, expect, it } from "vitest";
 import { buildStorageStreamHeaders, parseStorageRange, storageStreamResponse } from "../streaming";
 
 describe("storage streaming helpers", () => {
+	it("keeps the sandbox on a type that only starts like a PDF", () => {
+		// Browsers go by the last type in a list: "application/pdf, text/html" renders as HTML.
+		const range = { start: 0, end: 9, status: 200 as const };
+		for (const contentType of ["application/pdf, text/html", "application/pdfx", "application/pdf,text/html;charset=utf-8"]) {
+			const headers = buildStorageStreamHeaders({ fileName: "x.pdf", fileSize: 10, contentType, download: false, range });
+			expect(headers.get("content-security-policy")).toBe("sandbox");
+		}
+		const parameterised = buildStorageStreamHeaders({ fileName: "x.pdf", fileSize: 10, contentType: "Application/PDF; name=x.pdf", download: false, range });
+		expect(parameterised.get("content-security-policy")).toBeNull();
+	});
+
 	it("keeps full downloads as 200 responses with byte support headers", () => {
 		const range = parseStorageRange(null, 1024);
 		expect(range).toEqual({ start: 0, end: 1023, status: 200 });

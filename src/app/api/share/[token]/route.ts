@@ -52,6 +52,8 @@ export const dynamic = "force-dynamic";
 
 const SHARE_TOKEN_LIMIT: RateLimitConfig = { maxRequests: 60, windowMs: 60_000 };
 const SHARE_PASSWORD_LIMIT: RateLimitConfig = { maxRequests: 8, windowMs: 15 * 60_000 };
+/** Guesses one client may make across every share: made-up tokens count too, so they cannot buy fresh per-share budgets. */
+const SHARE_PASSWORD_CLIENT_LIMIT: RateLimitConfig = { maxRequests: 40, windowMs: 15 * 60_000 };
 const SHARE_PASSWORD_MAX_BODY_BYTES = 1024;
 
 function readCookie(request: Request, name: string): string | undefined {
@@ -72,6 +74,10 @@ function readCookie(request: Request, name: string): string | undefined {
  * wrong guesses from anyone locked that share for everybody for 15 minutes.
  */
 async function checkSharePasswordRateLimit(clientIp: string | null, token: string) {
+	// The per-client budget is checked first and in its own namespace: its keys grow only with the number of
+	// clients, so requests for made-up tokens cannot evict it, and they spend it like any other guess.
+	const client = await checkRateLimitAsync(`share-password-client:${clientIp ?? "unknown"}`, SHARE_PASSWORD_CLIENT_LIMIT);
+	if (!client.allowed) return client;
 	return checkRateLimitAsync(`share-password:${token}:${clientIp ?? "unknown"}`, SHARE_PASSWORD_LIMIT);
 }
 

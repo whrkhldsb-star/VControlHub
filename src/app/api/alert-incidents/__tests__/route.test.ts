@@ -88,7 +88,8 @@ function incidentRow(overrides: Record<string, unknown> = {}) {
 		lastNotifiedAt: null as Date | null,
 		resolvedAt: null as Date | null,
 		createdAt: new Date("2026-08-31T10:00:00.000Z"),
-		rule: { id: "rule_1", name: "cpu guard", escalationMinutes: 15, onCallUserIds: ["u_2"] },
+		// The caller's own rule; a platform rule (teamId null) is covered separately.
+		rule: { id: "rule_1", name: "cpu guard", escalationMinutes: 15, onCallUserIds: ["u_2"], teamId: "team_1" },
 		...overrides,
 	};
 }
@@ -223,6 +224,25 @@ describe("/api/alert-incidents", () => {
 			expect(payload.incidents[0]!.ruleName).toBeNull();
 			expect(payload.incidents[0]!.escalationMinutes).toBe(30);
 			expect(payload.incidents[0]!.onCallUserIds).toEqual([]);
+		});
+
+		it("hides a platform rule's delivery state and on-call users from a customer", async () => {
+			// Raw mail/bot errors and the platform admins' ids describe the owner's setup, not the customer's.
+			mocks.listAlertIncidents.mockResolvedValue([incidentRow({
+				rule: { id: "rule_fleet", name: "fleet cpu", escalationMinutes: 15, onCallUserIds: ["u_admin"], teamId: null },
+				pendingNotifyChannels: ["email"],
+				lastNotifyError: "email: connect ECONNREFUSED 10.0.0.5:587",
+				nextNotifyAt: new Date("2026-08-31T10:05:00.000Z"),
+			})]);
+			const res = await route.GET(req("GET"));
+			const payload = (await res.json()) as { incidents: Array<Record<string, unknown>> };
+			expect(payload.incidents[0]).toMatchObject({
+				ruleName: "fleet cpu",
+				pendingNotifyChannels: [],
+				lastNotifyError: null,
+				nextNotifyAt: null,
+				onCallUserIds: [],
+			});
 		});
 
 		it("returns an empty list rather than 404 when nothing is open", async () => {

@@ -5,7 +5,7 @@ import posixPath from "node:path/posix";
 import { NextResponse } from "next/server";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, teamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -25,7 +25,7 @@ import {
   directAccessInputSchema,
 } from "@/lib/storage/schema";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { directGatewaySigningKey } from "@/lib/server/direct-gateway-key";
+import { DIRECT_GATEWAY_KEY_PER_SERVER, directGatewaySigningKey } from "@/lib/server/direct-gateway-key";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
@@ -215,6 +215,17 @@ async function resolveDirectAccessPayload(input: {
     return { mode: "managed-download", fallbackUrl: fallback };
   }
 
+  // Without a gateway key of its own (no server, or a gateway installed before per-server keys) the link would be
+  // signed with the hub's shared secret, over a path the caller picks through the node's publicBaseUrl and the
+  // relative path. Every older gateway accepts that secret, so a customer with its own storage node could mint links
+  // to files on gateways it has no access to. Only the platform administrator, who holds that secret anyway, still
+  // gets such links; everyone else is served through the hub until the gateway is enabled again.
+  const gateway = { serverId: node.serverId ?? null, keyVersion: node.server?.directGatewayKeyVersion ?? 1 };
+  const gatewayHasOwnKey = Boolean(gateway.serverId) && gateway.keyVersion >= DIRECT_GATEWAY_KEY_PER_SERVER;
+  if (!gatewayHasOwnKey && !isGlobalTeamManager(session)) {
+    return { mode: "managed-download", fallbackUrl: fallback };
+  }
+
   if (node.directAccessMode === "DIRECT" || node.directAccessMode === "AUTO") {
     if (node.publicBaseUrl) {
       try {
@@ -232,7 +243,7 @@ async function resolveDirectAccessPayload(input: {
               publicBaseUrl,
               relativePath: normalizedRelativePath,
               expiresSeconds: node.directAccessExpiresSeconds ?? 300,
-              gateway: { serverId: node.serverId ?? null, keyVersion: node.server?.directGatewayKeyVersion ?? 1 },
+              gateway,
             }),
             fallbackUrl: fallback,
             expiresSeconds: node.directAccessExpiresSeconds ?? 300,
