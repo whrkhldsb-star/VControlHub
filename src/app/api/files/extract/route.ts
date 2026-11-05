@@ -10,7 +10,7 @@ import { createGunzip } from "node:zlib";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { assertNotRecycled, normalizeIndexedPath } from "@/lib/storage/archive-access";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -64,7 +64,8 @@ export async function POST(request: NextRequest) {
 
       const name = body.name ?? "archive";
       const nodeId = body.storageNodeId ?? body.nodeId ?? body.serverId;
-      const relativePath = (body.remotePath ?? body.relativePath ?? "").replace(/^\/+/, "");
+      // Normalized as the index stores it: "dir//a.zip" otherwise slipped past the recycle-bin check below.
+      const relativePath = normalizeIndexedPath(body.remotePath ?? body.relativePath ?? "");
 
       if (!nodeId || !relativePath) {
         throw new ValidationError(apiCopy("apiCopy.missing.required.parameters.656b8ae6"));

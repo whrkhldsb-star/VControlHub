@@ -9,7 +9,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  */
 
 import { Prisma } from "@prisma/client";
-import { assertUserInActorScope, playbookTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
+import { assertUserInActorScope, isGlobalTeamManager, playbookTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
@@ -305,6 +305,23 @@ export async function updatePlaybook(
     const effectiveTriggerType = rest.triggerType ?? existing.triggerType;
     const effectiveTriggerConfig = (rest.triggerConfig ?? existing.triggerConfig) as TriggerConfig;
     const triggerChanged = rest.triggerType !== undefined || rest.triggerConfig !== undefined;
+    // Trigger, enabled and retries decide when the playbook runs unattended, as its owner. Changing them is the
+    // decision to run it: it takes playbook:run, and command steps keep needing command:execute (the authoring
+    // rule above), so playbook:manage alone cannot put another member's command playbook on a cron.
+    if (session && (triggerChanged || rest.enabled !== undefined || rest.chainRetry !== undefined)) {
+      if (!sessionHasPermission(session, "playbook:run")) {
+        throw new ForbiddenError(t("backend.playbook.triggerChangeRequiresRun"));
+      }
+      if (rest.steps === undefined) assertPlaybookCommandAuthoring(existing.steps, session);
+    }
+    // Taking a playbook over makes its runs act as the claimer. It is meant for an orphaned one (R0-07); a live
+    // owner's playbook only changes hands through a platform administrator.
+    if (rest.claimOwnership && session && !isGlobalTeamManager(session) && existing.createdById !== session.userId) {
+      const owner = existing.createdById
+        ? await prisma.user.findUnique({ where: { id: existing.createdById }, select: { status: true } })
+        : null;
+      if (owner && owner.status !== "DISABLED") throw new ForbiddenError(t("backend.playbook.claimRequiresAdmin"));
+    }
     if (triggerChanged) {
       try {
         assertValidPlaybookTriggerConfig(effectiveTriggerType, effectiveTriggerConfig);

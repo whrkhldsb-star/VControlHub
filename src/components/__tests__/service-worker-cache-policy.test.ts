@@ -18,6 +18,14 @@ describe("public/sw.js PWA cache policy", () => {
 		expect(precacheBlock).not.toContain('"/settings"');
 	});
 
+	it("pre-caches without the visitor's cookies, so the offline page never holds someone's signed-in shell", () => {
+		const installBlock = swSource.slice(
+			swSource.indexOf('self.addEventListener("install"'),
+			swSource.indexOf('self.addEventListener("activate"'),
+		);
+		expect(installBlock).toContain('credentials: "omit"');
+	});
+
 	it("never stores authenticated navigation responses", () => {
 		const navigationBlock = swSource.slice(
 			swSource.indexOf('if (request.mode === "navigate")'),

@@ -162,7 +162,9 @@ export async function POST(request: Request) {
 			storedRecoveryCodes: user.twoFactorRecoveryCodes,
 		});
 		if (!valid) {
-			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING", user.currentTeamId);
+			// A platform administrator's failed code is a platform event too (see /api/login), not the selected customer's.
+			const failedAuditTeamId = (user.roles ?? []).some((entry) => entry.role.key === "admin") ? null : user.currentTeamId;
+			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING", failedAuditTeamId);
 			// Count 2FA misses against the account lockout (same counter the
 			// password stage uses). Without this, a leaked password plus IP
 			// rotation reduces 2FA to an offline guess of a 6-digit space.

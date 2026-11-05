@@ -6,6 +6,7 @@ import { createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/serv
 import { listTicketsAdvanced, getTicketKanban } from "@/lib/ticket/sla";
 import { listTicketBoard, listTicketPage, type TicketQuery, type TicketSlaFilter } from "@/lib/ticket/query";
 import { toWorkspaceBoard, toWorkspaceTicket } from "@/lib/ticket/workspace-dto";
+import { normalizeTicketPriority } from "@/lib/ticket/priority";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -35,15 +36,7 @@ const ticketPatchSchema = z.object({
   priority: z.enum(["low", "medium", "high", "critical", "normal", "LOW", "MEDIUM", "HIGH", "CRITICAL", "NORMAL"]).optional(),
 });
 
-function normalizePriority(priority?: string) {
-  if (!priority) return undefined;
-  const upper = priority.toUpperCase();
-  if (upper === "MEDIUM" || upper === "NORMAL") return "NORMAL";
-  // The API accepts "critical" (common in ticketing tools); the product's
-  // highest level is URGENT. Stored as CRITICAL it got the 24 h default SLA.
-  if (upper === "CRITICAL") return "URGENT";
-  return upper;
-}
+const normalizePriority = normalizeTicketPriority;
 
 function normalizeStatus(status: string) {
   return status.toUpperCase();

@@ -165,6 +165,8 @@ describe("updateSyncJob ownership CAS", () => {
     prismaMock.syncJob.findFirst
       .mockResolvedValueOnce(existing)
       .mockResolvedValueOnce({ ...existing, name: "renamed" });
+    // The editor reaches both of the job's servers.
+    prismaMock.server.findMany.mockResolvedValueOnce([{ id: "srv-a" }, { id: "srv-b" }]);
     prismaMock.syncJob.updateMany.mockResolvedValueOnce({ count: 1 });
 
     await updateSyncJob(
@@ -192,6 +194,7 @@ describe("updateSyncJob ownership CAS", () => {
       sourcePath: "/data/source",
       targetPath: "/data/target",
     });
+    prismaMock.server.findMany.mockResolvedValueOnce([{ id: "srv-a" }, { id: "srv-b" }]);
     prismaMock.syncJob.updateMany.mockResolvedValueOnce({ count: 0 });
 
     await expect(updateSyncJob(
@@ -215,6 +218,7 @@ describe("updateSyncJob ownership CAS", () => {
       sourcePath: "/data/source",
       targetPath: "/data/target",
     });
+    prismaMock.server.findMany.mockResolvedValueOnce([{ id: "srv-a" }]);
 
     await expect(updateSyncJob(
       "job-1",

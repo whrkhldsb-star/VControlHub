@@ -5,12 +5,20 @@ import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { apiCopy } from "@/lib/i18n/api-copy";
 
+/** A relative path in the form the file index stores: no leading, trailing or doubled slashes, no "." segments. */
+export function normalizeIndexedPath(relativePath: string): string {
+  return path.posix.normalize(relativePath).replace(/^\/+|\/+$/g, "").replace(/^\.$/, "");
+}
+
 /**
  * The recycle bin's part of `relativePath`: whether the path itself, or a folder above it, is in the bin
  * (`onPath`), and the binned entries below it (`below`). Soft delete only changes the index; the bytes stay on
  * disk, so every operation that reads the disk for the user has to ask.
  */
-export async function recycledAround(storageNodeId: string, relativePath: string): Promise<{ onPath: boolean; below: string[] }> {
+export async function recycledAround(storageNodeId: string, rawRelativePath: string): Promise<{ onPath: boolean; below: string[] }> {
+  // The index stores normalized paths, while the disk and tar accept "photos/" or "dir//a.zip": compared raw,
+  // those spellings matched no bin entry and brought deleted files back through compress, extract and preview.
+  const relativePath = normalizeIndexedPath(rawRelativePath);
   const parts = relativePath.split("/");
   const ancestors = parts.map((_, index) => parts.slice(0, index + 1).join("/"));
   const deleted = await prisma.fileEntry.findMany({

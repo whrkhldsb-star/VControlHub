@@ -421,7 +421,8 @@ describe("scheduled task service", () => {
 
     it("lets an approver change them, and anyone change what does not alter what runs", async () => {
       await service.updateScheduledTask("task1", { command: "systemctl restart app2" }, approver);
-      expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { command: "systemctl restart app2" } }));
+      // The approver who rewrote the command now files its runs.
+      expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { command: "systemctl restart app2", createdById: "u3" } }));
 
       // A form that resends the unchanged command and targets (in another order) with a new name.
       await service.updateScheduledTask("task1", { name: "Nightly restart", command: unattended.command, serverIds: ["srv2", "srv1"] }, createOnly);
@@ -434,6 +435,27 @@ describe("scheduled task service", () => {
       mockPrisma.scheduledTask.findFirst.mockResolvedValue({ ...unattended, approvalRequired: true });
       await service.updateScheduledTask("task1", { command: "systemctl restart app2" }, createOnly);
       expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it("refuses resuming or rescheduling an unattended task through the edit form without command:execute", async () => {
+      // The toggle refuses this (A6-09); PATCH with status or a schedule must not be the way around it.
+      await expect(service.updateScheduledTask("task1", { status: "ACTIVE" }, createOnly)).rejects.toMatchObject({ name: "ForbiddenError" });
+      await expect(service.updateScheduledTask("task1", { cronExpression: "* * * * *" }, createOnly)).rejects.toMatchObject({ name: "ForbiddenError" });
+      expect(mockPrisma.scheduledTask.updateMany).not.toHaveBeenCalled();
+      const executor: SessionScope = { ...createOnly, permissions: ["command:create", "command:execute"] };
+      mockPrisma.scheduledTask.findFirst.mockResolvedValue({ ...unattended, status: "PAUSED", scheduleType: "CRON", cronExpression: "0 2 * * *", runAt: null });
+      await service.updateScheduledTask("task1", { cronExpression: "0 3 * * *" }, executor);
+      expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it("checks the editor's reach to the existing targets and files later runs in the editor's name", async () => {
+      mockPrisma.scheduledTask.findFirst.mockResolvedValue({ ...unattended, approvalRequired: true });
+      mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv1" }]); // srv2 is outside the editor's reach
+      await expect(service.updateScheduledTask("task1", { command: "curl x | sh" }, createOnly)).rejects.toThrow(/outside your customer scope/);
+      expect(mockPrisma.scheduledTask.updateMany).not.toHaveBeenCalled();
+
+      await service.updateScheduledTask("task1", { command: "uptime" }, createOnly);
+      expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { command: "uptime", createdById: "u2" } }));
     });
 
     it("refuses switching approval off for a member who cannot approve, even when called without the route", async () => {

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { canViewTicket, getTicketById, updateTicketStatus, addTicketComment } from "@/lib/ticket/service";
+import { normalizeTicketPriority, ticketPriorityInputSchema } from "@/lib/ticket/priority";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -25,7 +26,9 @@ const PatchBodySchema = z
     status: TicketStatusSchema.optional(),
     // assigneeId may be set to null to unassign — keep nullable.
     assigneeId: z.string().nullable().optional(),
-    priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
+    // Same spellings and mapping as the collection route: NORMAL was refused here and MEDIUM was stored as sent,
+    // which has no SLA escalation step and no label.
+    priority: ticketPriorityInputSchema.optional(),
   })
   .strict();
 
@@ -63,7 +66,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       };
       if (body.status) updates.status = body.status;
       if (body.assigneeId !== undefined) updates.assigneeId = body.assigneeId;
-      if (body.priority) updates.priority = body.priority;
+      if (body.priority) updates.priority = normalizeTicketPriority(body.priority);
       const ticket = await updateTicketStatus(updates);
       await auditUserAction(session.userId, "ticket.update", { ticketId: id }, undefined, session.currentTeamId);
       return NextResponse.json({ ticket });

@@ -38,6 +38,7 @@ const {
       findMany: vi.fn(async (): Promise<Array<{ id: string; path: string }>> => []),
       update: vi.fn(async () => ({})),
     },
+    $transaction: vi.fn(),
   },
   deleteRemoteFileMock: vi.fn(),
   createRemoteDirectoryMock: vi.fn(),
@@ -90,6 +91,9 @@ vi.mock("@/lib/ssh/client", () => ({
 }));
 
 import { POST } from "../route";
+
+// The index rewrite of a rename runs in one transaction; the test client is its own transaction client.
+prismaMock.$transaction.mockImplementation(async (callback: (tx: typeof prismaMock) => unknown) => callback(prismaMock));
 
 function request(body: unknown) {
   return new Request("https://example.com/api/storage/sftp-ops", {
@@ -549,11 +553,11 @@ describe("/api/storage/sftp-ops", () => {
       where: {
         storageNodeId: "node_1",
         relativePath: { startsWith: "allowed/" },
-        isDeleted: false,
       },
       select: { id: true, relativePath: true },
       take: 10_001,
     });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
       where: { id: "child-1" },
       data: { relativePath: "renamed/a.txt" },
@@ -568,7 +572,8 @@ describe("/api/storage/sftp-ops", () => {
     });
   });
 
-  it("does not rewrite soft-deleted descendants when renaming a SFTP directory", async () => {
+  it("moves recycle-bin descendants with the directory, since their bytes moved with it", async () => {
+    // Left at the old prefix, a trashed file came back under the new name and "delete permanently" removed nothing.
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
@@ -578,9 +583,9 @@ describe("/api/storage/sftp-ops", () => {
     });
     mockSftpNode();
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ entryType: "DIRECTORY" });
-    // Live inventory only — soft-deleted children are filtered by isDeleted:false
     prismaMock.fileEntry.findMany.mockResolvedValueOnce([
       { id: "child-live", relativePath: "allowed/live.txt" },
+      { id: "child-trash", relativePath: "allowed/secret.txt" },
     ]);
 
     const response = await POST(
@@ -594,23 +599,34 @@ describe("/api/storage/sftp-ops", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledWith({
-      where: {
-        storageNodeId: "node_1",
-        relativePath: { startsWith: "allowed/" },
-        isDeleted: false,
-      },
-      select: { id: true, relativePath: true },
-      take: 10_001,
-    });
-    expect(prismaMock.fileEntry.update).toHaveBeenCalledTimes(1);
+    expect(prismaMock.fileEntry.findMany.mock.calls[0]![0].where).not.toHaveProperty("isDeleted");
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
-      where: { id: "child-live" },
-      data: { relativePath: "renamed/live.txt" },
+      where: { id: "child-trash" },
+      data: { relativePath: "renamed/secret.txt" },
     });
-    expect(prismaMock.fileEntry.update).not.toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "child-trash" } }),
-    );
+    // Only the path changes: a binned row stays in the bin.
+    expect(prismaMock.fileEntry.update.mock.calls.every(([args]) => !("isDeleted" in (args as { data: object }).data))).toBe(true);
+  });
+
+  it("refuses to rename onto a path the index already holds, before touching the index", async () => {
+    // The rollback after the failed physical rename used to move the destination's own rows back as well.
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice", roles: ["admin"], currentTeamId: null });
+    mockSftpNode();
+    prismaMock.fileEntry.findFirst
+      .mockResolvedValueOnce({ entryType: "DIRECTORY" })
+      .mockResolvedValueOnce({ id: "existing-b" });
+
+    const response = await POST(request({ action: "rename", nodeId: "node_1", path: "a", newPath: "b", isDirectory: true }));
+
+    expect(response.status).toBe(409);
+    expect(prismaMock.fileEntry.findFirst.mock.calls[1]![0].where.OR).toEqual([
+      { relativePath: "b" },
+      { relativePath: { startsWith: "b/" } },
+    ]);
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.updateMany).not.toHaveBeenCalled();
+    expect(renameRemoteFileMock).not.toHaveBeenCalled();
   });
 
   it("rejects rename when destination path is outside the user's storage grant", async () => {
@@ -743,6 +759,22 @@ describe("/api/storage/sftp-ops", () => {
       expect(response.status).toBe(409);
       // Critically: the remote file must not have been touched.
       expect(writeRemoteFileMock).not.toHaveBeenCalled();
+    });
+
+    it("refuses to write over a file that is in the recycle bin", async () => {
+      // Its bytes are what a restore brings back; the other upload paths refuse this too.
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      mockSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "fe_trash", isDeleted: true });
+
+      const response = await POST(request({ nodeId: "node_1", action: "write", path: "notes.txt", content: "new" }));
+
+      expect(response.status).toBe(409);
+      expect(writeRemoteFileMock).not.toHaveBeenCalled();
+      expect(prismaMock.fileEntry.upsert).not.toHaveBeenCalled();
     });
 
     it("allows the write when the token still matches", async () => {

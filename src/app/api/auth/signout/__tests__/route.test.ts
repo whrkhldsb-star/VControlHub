@@ -110,6 +110,12 @@ describe("POST /api/auth/signout", () => {
 		);
 	});
 
+	it("files a platform administrator's signout under no customer, like their sign-in", async () => {
+		mocks.getApiSession.mockResolvedValue({ userId: "u_admin", username: "admin", roles: ["admin"], currentTeamId: "team_a" });
+		await route.POST(new Request("https://hub.example/api/auth/signout", { method: "POST" }));
+		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_admin", "auth.signout", expect.any(Object), undefined, null);
+	});
+
 	it("still clears cookies when there is no resolvable session", async () => {
 		mocks.getApiSession.mockResolvedValue(null);
 

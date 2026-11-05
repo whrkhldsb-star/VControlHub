@@ -258,6 +258,23 @@ describe("server service", () => {
     expect(prisma.server.update).not.toHaveBeenCalled();
   });
 
+  it("asks for the RDP and SFTP passwords again when a Windows node moves to another endpoint", async () => {
+    const current = { id:"win", operatingSystem:"WINDOWS", host:"8.8.8.8", port:3389, name:"Windows", username:"Admin", rdpPassword:"ciphertext", rdpDomain:null, rdpIgnoreCertificate:false, tags:[], teamId:null, commandTargets:[], createdAt:new Date(), updatedAt:new Date(), enabled:true };
+    for (const change of [{ host: "8.8.4.4" }, { port: 3390 }]) {
+      vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current as any);
+      await expect(updateServerProfile("win", { operatingSystem:"WINDOWS", ...change })).rejects.toThrow(t("backend.server.endpointChangeNeedsPassword"));
+    }
+    // Re-checking SFTP on a new host with the stored password is refused too.
+    const { encryptServerPasswordIfPlain } = await import("@/lib/ssh/ssh-key-crypto");
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      ...current, password: encryptServerPasswordIfPlain("sftp-secret"),
+      storageNode: { id: "storage", driver: "SFTP", basePath: "/C:/Files", port: 22, username: "files" },
+    } as any);
+    await expect(updateServerProfile("win", { operatingSystem:"WINDOWS", host: "8.8.4.4", rdpPassword: "rdp-new", windowsSftpEnabled: true })).rejects.toThrow(t("backend.server.endpointChangeNeedsPassword"));
+    expect(listRemoteDirectory).not.toHaveBeenCalled();
+    expect(prisma.server.update).not.toHaveBeenCalled();
+  });
+
   it("stores a validated private key encrypted and derives its public identity", async () => {
     const generated = generateKeyPairSync("ed25519");
     const privateKey = generated.privateKey.export({ format: "pem", type: "pkcs8" }).toString();
@@ -829,6 +846,22 @@ describe("server service", () => {
       t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@45.207.216.45:22" }),
     );
 
+    expect(prisma.server.update).not.toHaveBeenCalled();
+  });
+
+  it("never logs in to a new endpoint with the stored password", async () => {
+    // Someone who may edit a server but was never told its password could otherwise point it at their own sshd.
+    const passwordServer = {
+      id: "srv_pw", name: "pw", host: "198.51.100.10", port: 22, username: "root", description: null, tags: [],
+      enabled: true, connectionType: "PASSWORD", sshKeyId: null, password: "enc:v1:old", sshKey: null,
+      storageNode: null, commandTargets: [], createdAt: new Date(), updatedAt: new Date(),
+    };
+    for (const change of [{ host: "203.0.113.66" }, { port: 2222 }, { username: "admin" }]) {
+      vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(passwordServer as any);
+      vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+      await expect(updateServerProfile("srv_pw", change)).rejects.toThrow(t("backend.server.endpointChangeNeedsPassword"));
+    }
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
   });
 

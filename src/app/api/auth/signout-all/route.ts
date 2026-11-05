@@ -40,7 +40,8 @@ export async function POST(request: Request) {
         "auth.signout_all",
         { username: session.username ?? null, ip: getClientIp(request) },
         "WARNING",
-        session.currentTeamId,
+        // Platform event for an administrator, as sign-in is: not filed under the customer they had selected.
+        session.roles?.includes("admin") ? null : session.currentTeamId,
       );
 
       // Clear this browser's cookies too (same attributes as /api/auth/signout)

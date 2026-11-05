@@ -15,6 +15,13 @@ export type StorageStreamHeadersInput = {
 	range: StorageByteRange;
 };
 
+/** Whether a stored content type is exactly application/pdf: one media type, parameters allowed, nothing else. */
+export function isExactlyPdf(contentType: string | null | undefined): boolean {
+	const value = contentType ?? "";
+	if (value.includes(",")) return false;
+	return value.split(";", 1)[0]!.trim().toLowerCase() === "application/pdf";
+}
+
 export function parseStorageRange(rangeHeader: string | null, fileSize: number): StorageByteRange | Response {
 	if (!rangeHeader) {
 		return { start: 0, end: Math.max(fileSize - 1, 0), status: 200 };
@@ -68,7 +75,9 @@ export function buildStorageStreamHeaders(input: StorageStreamHeadersInput): Hea
 	// Not for a PDF: the browser's own PDF viewer is blocked in a sandboxed document ("This page has been blocked by
 	// Chrome"), which left the preview page's PDF frame empty. A PDF is not HTML, so it carries no markup for the sandbox
 	// to neutralise; `nosniff` and the exact type above keep it from being read as anything else.
-	const isPdf = /^application\/pdf\b/i.test(input.contentType ?? "");
+	// Exactly application/pdf (parameters aside). A prefix match also took "application/pdf, text/html", a type a
+	// WebDAV PUT or an upload can store: the browser goes by the last type listed and rendered the HTML unsandboxed.
+	const isPdf = isExactlyPdf(input.contentType);
 	if (!input.download && !isPdf) {
 		headers.set("content-security-policy", "sandbox");
 	}

@@ -40,7 +40,9 @@ export async function POST(request: Request) {
             ip: getClientIp(request),
           },
           undefined,
-          session.currentTeamId,
+          // A platform administrator's sign-out is a platform event, as their sign-in is (login route): filed under
+          // the customer they had selected, it showed their address and times in that customer's audit log.
+          session.roles?.includes("admin") ? null : session.currentTeamId,
         );
       }
 

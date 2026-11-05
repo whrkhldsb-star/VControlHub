@@ -20,6 +20,12 @@ export function SignOutButton() {
 				// fall through to redirect anyway — server clears cookie on success,
 				// and on failure we still want the user to leave the authed surface.
 			}
+			// Drop the service worker's caches too, so nothing from this session outlives it on a shared browser.
+			try {
+				navigator.serviceWorker?.controller?.postMessage({ type: "VCH_PWA_CLEAR_CACHES" });
+			} catch {
+				// No service worker (unsupported or not registered): nothing cached to clear.
+			}
 			// A full navigation clears in-memory authenticated UI and router caches.
 			// eslint-disable-next-line @next/next/no-location-assign-relative-destination
 			window.location.href = "/login";

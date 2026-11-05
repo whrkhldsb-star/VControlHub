@@ -1,7 +1,7 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { playbookTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, playbookTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 
@@ -46,6 +46,23 @@ async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSess
 	}
 }
 
+/**
+ * Email and Telegram deliver to the platform's own recipients (smtp.alertRecipients, telegram.chatId), never to a
+ * customer's. A customer rule on them sent the owner whatever its name said, on demand through the test button,
+ * so only a platform administrator may route a rule there.
+ */
+const PLATFORM_ONLY_CHANNELS = ["email", "telegram"];
+
+function mayUsePlatformChannels(session?: TeamSession | null): boolean {
+	return !session || isGlobalTeamManager(session);
+}
+
+function assertChannelsAllowed(channels: string[] | undefined, session?: TeamSession | null) {
+	if (!channels || mayUsePlatformChannels(session)) return;
+	if (channels.some((channel) => PLATFORM_ONLY_CHANNELS.includes(channel))) {
+		throw new ValidationError(t("backend.alert.platformChannelsAdminOnly"));
+	}
+}
 
 export type CreateAlertRuleInput = {
 	name: string;
@@ -77,6 +94,7 @@ export async function listAlertRules(session?: TeamSession | null) {
 export async function createAlertRule(input: CreateAlertRuleInput, session?: TeamSession | null) {
 	const serverIds = input.serverIds ?? [];
 	const playbookIds = input.playbookIds ?? [];
+	assertChannelsAllowed(input.notifyChannels, session);
 	await assertServerIdsInTeam(serverIds, session);
 	await assertPlaybookIdsInTeam(playbookIds, session);
 	await assertOnCallUserIdsInTeam(input.onCallUserIds ?? [], session);
@@ -107,6 +125,7 @@ export async function updateAlertRule(
 	input: Partial<CreateAlertRuleInput> & { enabled?: boolean },
 	session?: TeamSession | null,
 ) {
+	assertChannelsAllowed(input.notifyChannels, session);
 	if (session) {
 		const existing = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select: { id: true } });
 		if (!existing) throw new NotFoundError(t("backend.alert.ruleNotFound"));
@@ -237,7 +256,16 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 		}
 	}
 
-	if (rule.notifyChannels.includes("email")) {
+	// A customer's test never reaches the platform's own mailbox or bot (see PLATFORM_ONLY_CHANNELS); rules saved
+	// before that rule may still list them.
+	const platformChannelsAllowed = mayUsePlatformChannels(session);
+	for (const channel of PLATFORM_ONLY_CHANNELS) {
+		if (!platformChannelsAllowed && rule.notifyChannels.includes(channel)) {
+			deliveries.push({ channel, status: "skipped", message: t("backend.alert.platformChannelsAdminOnly") });
+		}
+	}
+
+	if (platformChannelsAllowed && rule.notifyChannels.includes("email")) {
 		try {
 			const result = await sendAlertEmail({
 				title,
@@ -264,7 +292,7 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 		}
 	}
 
-	if (rule.notifyChannels.includes("telegram")) {
+	if (platformChannelsAllowed && rule.notifyChannels.includes("telegram")) {
 		try {
 			const result = await sendAlertTelegram({
 				title,
@@ -328,14 +356,23 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
  * install does not silently stay in-app-only after ops configured delivery.
  */
 export async function ensureDefaultAlertRules(session?: TeamSession | null) {
-	const existing = await prisma.alertRule.count({
-		where: session ? teamWhere(session) : {},
-	});
+	const where = session ? teamWhere(session) : {};
+	// "No rules" cannot tell a fresh install from an owner who deleted every rule to silence alerting: the worker
+	// recreated the four fleet rules within a minute. A marker per scope records that the starter pack was offered.
+	const markerKey = Object.keys(where).length === 0
+		? DEFAULT_RULES_MARKER
+		: `${DEFAULT_RULES_MARKER}:${session?.currentTeamId ?? "none"}`;
+	if (await readDefaultRulesMarker(markerKey)) {
+		return { created: 0, skipped: true as const };
+	}
+	const existing = await prisma.alertRule.count({ where });
 	if (existing > 0) {
+		// An install from before the marker: its rules are the owner's choice from here on.
+		await writeDefaultRulesMarker(markerKey);
 		return { created: 0, skipped: true as const };
 	}
 
-	const notifyChannels = await resolveDefaultNotifyChannels();
+	const notifyChannels = await resolveDefaultNotifyChannels(session);
 
 	const defaults: CreateAlertRuleInput[] = [
 		{
@@ -384,7 +421,28 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 	for (const rule of defaults) {
 		created.push(await createAlertRule(rule, session));
 	}
+	await writeDefaultRulesMarker(markerKey);
 	return { created: created.length, skipped: false as const, rules: created };
+}
+
+const DEFAULT_RULES_MARKER = "alerts.defaultRulesSeeded";
+
+async function readDefaultRulesMarker(key: string): Promise<boolean> {
+	try {
+		const { getSetting } = await import("@/lib/settings/service");
+		return (await getSetting(key)) === "true";
+	} catch {
+		return false;
+	}
+}
+
+async function writeDefaultRulesMarker(key: string): Promise<void> {
+	try {
+		const { setSetting } = await import("@/lib/settings/service");
+		await setSetting(key, "true");
+	} catch {
+		// Best effort: without the marker the next call falls back to counting rules, the old behaviour.
+	}
 }
 
 async function assertOnCallUserIdsInTeam(userIds: string[], session?: TeamSession | null) {
@@ -404,8 +462,10 @@ async function assertOnCallUserIdsInTeam(userIds: string[], session?: TeamSessio
 }
 
 
-async function resolveDefaultNotifyChannels(): Promise<string[]> {
+async function resolveDefaultNotifyChannels(session?: TeamSession | null): Promise<string[]> {
 	const channels = new Set<string>(["in_app"]);
+	// A customer's starter rules stay off the platform's own mailbox and bot.
+	if (!mayUsePlatformChannels(session)) return [...channels];
 	try {
 		const { getSetting } = await import("@/lib/settings/service");
 		const isOn = (v: string) => ["true", "1", "yes", "on"].includes(v.trim().toLowerCase());

@@ -38,27 +38,38 @@ export interface RateLimitStore {
 // so unauthenticated traffic cannot grow the maps without limit between cleanup passes.
 const MEMORY_STORE_MAX_KEY_CHARS = 256;
 const MEMORY_STORE_MAX_KEYS = 50_000;
+/** A full namespace drops expired buckets before evicting a live one, at most this often. */
+const MEMORY_STORE_SWEEP_INTERVAL_MS = 1_000;
 
 function boundedKey(key: string): string {
   if (key.length <= MEMORY_STORE_MAX_KEY_CHARS) return key;
   return `${key.slice(0, 128)}#${createHash("sha256").update(key).digest("hex").slice(0, 32)}`;
 }
 
-function evictOldestIfFull<V>(map: Map<string, V>, incomingKey: string) {
-  if (map.has(incomingKey) || map.size < MEMORY_STORE_MAX_KEYS) return;
-  const oldest = map.keys().next().value;
-  if (oldest !== undefined) map.delete(oldest);
+/**
+ * The namespace a bucket is capped in. Path-derived buckets from `withRateLimit` ("/api/…:ip") share
+ * one namespace; every other identifier is "<prefix>:…" with a prefix fixed in code (login, share-password, …).
+ *
+ * One shared cap let anonymous requests to made-up paths push the login and share-password counters out
+ * (the oldest key went first, live or not), handing an attacker fresh guesses after every flood. With a
+ * cap per namespace a flood can only evict buckets of its own kind.
+ */
+export function rateLimitNamespace(key: string): string {
+  if (key.startsWith("/")) return "path";
+  const colon = key.indexOf(":");
+  return colon > 0 ? key.slice(0, Math.min(colon, 64)) : "other";
 }
 
+type WindowBucket = { entries: number[]; windowMs: number };
+
 class MemoryRateLimitStore implements RateLimitStore {
-  private timestamps = new Map<
-    string,
-    { entries: number[]; windowMs: number }
-  >();
+  private timestamps = new Map<string, Map<string, WindowBucket>>();
+  private lastSweepAt = new Map<string, number>();
   private lockouts = new Map<
     string,
     { state: AccountLockoutState; expiresAt: number }
   >();
+  private lastLockoutSweepAt = 0;
 
   constructor() {
     // Periodic cleanup — unref'd so the timer never keeps a process (tests,
@@ -67,18 +78,43 @@ class MemoryRateLimitStore implements RateLimitStore {
     timer.unref?.();
   }
 
+  private namespaceMap(key: string): { name: string; map: Map<string, WindowBucket> } {
+    const name = rateLimitNamespace(key);
+    let map = this.timestamps.get(name);
+    if (!map) {
+      map = new Map();
+      this.timestamps.set(name, map);
+    }
+    return { name, map };
+  }
+
+  /** Make room for `incomingKey`: expired buckets go first, a live one only when none has expired. */
+  private makeRoom(name: string, map: Map<string, WindowBucket>, incomingKey: string, now: number) {
+    if (map.has(incomingKey) || map.size < MEMORY_STORE_MAX_KEYS) return;
+    if (now - (this.lastSweepAt.get(name) ?? 0) >= MEMORY_STORE_SWEEP_INTERVAL_MS) {
+      this.lastSweepAt.set(name, now);
+      for (const [key, bucket] of map) {
+        if (!bucket.entries.some((t) => now - t < bucket.windowMs)) map.delete(key);
+      }
+      if (map.size < MEMORY_STORE_MAX_KEYS) return;
+    }
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) map.delete(oldest);
+  }
+
   async addAndGetWindow(
     key: string,
     timestamp: number,
     windowMs: number,
   ): Promise<number[]> {
     key = boundedKey(key);
-    let entries = this.timestamps.get(key)?.entries ?? [];
+    const { name, map } = this.namespaceMap(key);
+    let entries = map.get(key)?.entries ?? [];
     const cutoff = timestamp - windowMs;
     entries = entries.filter((t) => t > cutoff);
     entries.push(timestamp);
-    evictOldestIfFull(this.timestamps, key);
-    this.timestamps.set(key, { entries, windowMs });
+    this.makeRoom(name, map, key, timestamp);
+    map.set(key, { entries, windowMs });
     return entries;
   }
 
@@ -99,10 +135,23 @@ class MemoryRateLimitStore implements RateLimitStore {
     ttlMs: number,
   ): Promise<void> {
     key = boundedKey(key);
-    evictOldestIfFull(this.lockouts, key);
+    const now = Date.now();
+    if (!this.lockouts.has(key) && this.lockouts.size >= MEMORY_STORE_MAX_KEYS) {
+      // Expired lockouts make room first, so a burst of failures cannot push out a live lock.
+      if (now - this.lastLockoutSweepAt >= MEMORY_STORE_SWEEP_INTERVAL_MS) {
+        this.lastLockoutSweepAt = now;
+        for (const [existing, row] of this.lockouts) {
+          if (row.expiresAt <= now) this.lockouts.delete(existing);
+        }
+      }
+      if (this.lockouts.size >= MEMORY_STORE_MAX_KEYS) {
+        const oldest = this.lockouts.keys().next().value;
+        if (oldest !== undefined) this.lockouts.delete(oldest);
+      }
+    }
     this.lockouts.set(key, {
       state: { ...state },
-      expiresAt: Date.now() + Math.max(1, ttlMs),
+      expiresAt: now + Math.max(1, ttlMs),
     });
   }
 
@@ -112,15 +161,18 @@ class MemoryRateLimitStore implements RateLimitStore {
 
   private cleanup() {
     const now = Date.now();
-    const tsKeys = Array.from(this.timestamps.keys());
-    for (const key of tsKeys) {
-      const state = this.timestamps.get(key);
-      if (!state) continue;
-      const recent = state.entries.filter((t) => now - t < state.windowMs);
-      if (recent.length === 0) {
-        this.timestamps.delete(key);
-      } else {
-        this.timestamps.set(key, { ...state, entries: recent });
+    for (const [name, map] of this.timestamps) {
+      for (const [key, state] of map) {
+        const recent = state.entries.filter((t) => now - t < state.windowMs);
+        if (recent.length === 0) {
+          map.delete(key);
+        } else {
+          map.set(key, { ...state, entries: recent });
+        }
+      }
+      if (map.size === 0) {
+        this.timestamps.delete(name);
+        this.lastSweepAt.delete(name);
       }
     }
     for (const [key, row] of this.lockouts) {

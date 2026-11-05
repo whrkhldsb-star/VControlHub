@@ -309,11 +309,29 @@ describe("sync job CRUD scoping", () => {
 		});
 
 		it("writes only the provided fields and clears the schedule on null", async () => {
+			mocks.prisma.syncJob.findFirst.mockResolvedValue({ ...jobRow, createdBy: "u_1" });
 			await updateSyncJob("job_1", { schedule: null, name: "renamed" }, operator);
 			expect(mocks.prisma.syncJob.updateMany).toHaveBeenCalledWith({
 				where: { id: "job_1", teamId: "team_1" },
 				data: { name: "renamed", schedule: null },
 			});
+		});
+
+		it("refuses an editor who cannot reach both of the job's servers", async () => {
+			// The editor's own server scope, not the job's team, decides: a member barred from srv_b sees only srv_a.
+			mocks.prisma.server.findMany.mockResolvedValue([{ id: "srv_a" }]);
+			await expect(updateSyncJob("job_1", { sourcePath: "/home/u/keys" }, operator)).rejects.toThrow();
+			await expect(updateSyncJob("job_1", { name: "renamed" }, operator)).rejects.toThrow();
+			expect(mocks.prisma.syncJob.updateMany).not.toHaveBeenCalled();
+		});
+
+		it("makes whoever changes what or when a job copies its creator, so scheduled runs act with the editor's rights", async () => {
+			mocks.prisma.syncJob.findFirst.mockResolvedValue({ ...jobRow, createdBy: "u_owner" });
+			await updateSyncJob("job_1", { targetPath: "/backup/other", schedule: "every 15m" }, operator);
+			expect(mocks.prisma.syncJob.updateMany.mock.calls[0]?.[0]?.data).toMatchObject({ createdBy: "u_1" });
+			mocks.prisma.syncJob.updateMany.mockClear();
+			await updateSyncJob("job_1", { name: "renamed" }, operator);
+			expect(mocks.prisma.syncJob.updateMany.mock.calls[0]?.[0]?.data).not.toHaveProperty("createdBy");
 		});
 
 		it("recomputes deleteOrphans when the sync type changes", async () => {
