@@ -6,6 +6,7 @@ import { createServerAction, type ServerActionState } from "./actions";
 import { ConnectionTypeFields } from "./server-connection-type-fields";
 import { ServerManagementModeFields } from "./server-management-mode-fields";
 import { ServerCostFields } from "./server-cost-fields";
+import { ServerSyncTargetAuthField } from "./server-sync-target-auth-field";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { RdpCredentialFields } from "./rdp-credential-fields";
@@ -247,6 +248,7 @@ export function ServerCreateForm({
           {t("serversPage.create.storagePathDesc")}
         </p>{" "}
       </div>{" "}
+      <ServerSyncTargetAuthField id="serverSyncTargetAuth" />
       <label
         data-tone="cyan"
         data-inset className="ui-label p-4"

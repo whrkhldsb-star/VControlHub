@@ -21,6 +21,7 @@ import { ActionButton, type ButtonSize } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { ServerConnectionAction } from "./server-connection-action";
 import type { ServerBillingDto } from "@/lib/server/billing-form";
+import type { ServerSyncTargetAuth } from "@/lib/sync/target-auth";
 
 const initialState: ServerActionState = {
 	error: undefined,
@@ -55,6 +56,7 @@ type ServerCardActionsProps = {
 	billing?: ServerBillingDto | null;
 	storagePath?: string | null;
 	storageNodeId?: string | null;
+	syncTargetAuth?: ServerSyncTargetAuth;
 	windowsSftpPort?: number;
 	windowsSftpUsername?: string;
 	canManageServers?: boolean;
@@ -95,6 +97,7 @@ export function ServerCardActions({
 	billing = null,
 	storagePath = null,
 	storageNodeId = null,
+	syncTargetAuth = "inherit",
 	windowsSftpPort = 22,
 	windowsSftpUsername = "",
 	canManageServers = true,
@@ -187,6 +190,7 @@ export function ServerCardActions({
 					billing={billing}
 					storagePath={storagePath}
 					storageNodeId={storageNodeId}
+					syncTargetAuth={syncTargetAuth}
 					windowsSftpPort={windowsSftpPort}
 					windowsSftpUsername={windowsSftpUsername}
 					editAction={editAction}

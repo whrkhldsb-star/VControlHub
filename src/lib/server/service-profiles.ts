@@ -23,6 +23,7 @@ import { normalizeServerInput } from "./config";
 import { defaultStoragePath } from "./default-storage-path";
 import { SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
+import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
 import { installServerAgent, uninstallServerAgent } from "./agent-service";
 import { createWindowsServerProfile, updateWindowsServerProfile } from "./service-profiles-windows";
@@ -469,6 +470,7 @@ export async function createServerProfile(
         costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
         costCurrency: normalized.costCurrency,
         costProvider: normalized.costProvider,
+        syncTargetAuth: payload.syncTargetAuth ?? "inherit",
         enabled: connectivityVerified,
         onboardingStatus: connectivityVerified ? "READY" : "DRAFT",
         onboardingLastError: draftReason,
@@ -697,6 +699,8 @@ export async function updateServerProfile(
       costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
       costCurrency: normalized.costCurrency,
       costProvider: normalized.costProvider,
+      // Only an explicit choice changes it: a caller that does not send it keeps the server's own.
+      ...(input.syncTargetAuth ? { syncTargetAuth: parseServerSyncTargetAuth(input.syncTargetAuth) } : {}),
       enabled:
         typeof input.enabled === "boolean" ? input.enabled : current.enabled,
     },

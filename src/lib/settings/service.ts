@@ -75,6 +75,8 @@ const DEFAULTS: Record<string, string> = {
 	// Cloudflare Turnstile on the login form: on when both are set (see auth/turnstile).
 	"security.turnstileSiteKey": "",
 	"security.turnstileSecretKey": "",
+	// Sync login to target servers that follow the platform setting: the way it always worked unless changed.
+	"sync.targetAuthDefault": "credential",
 	...Object.fromEntries(
 		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])
 	),

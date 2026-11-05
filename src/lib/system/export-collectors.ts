@@ -10,6 +10,7 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { isSensitiveSettingKey } from "@/lib/system/config-schema";
+import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
 
 import type { ExportMode, ExportScope } from "./export-types";
 
@@ -236,6 +237,7 @@ export async function exportServers(
       expiresAt: true,
       trafficQuotaBytes: true,
       trafficQuotaMode: true,
+      syncTargetAuth: true,
     },
     ...page,
   }));
@@ -272,6 +274,7 @@ export async function exportServers(
     expiresAt: dateToISO(r.expiresAt),
     trafficQuotaBytes: r.trafficQuotaBytes?.toString() ?? null,
     trafficQuotaMode: r.trafficQuotaMode,
+    syncTargetAuth: parseServerSyncTargetAuth(r.syncTargetAuth),
   }));
 }
 

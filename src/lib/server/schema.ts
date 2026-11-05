@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { rdpProfileSchema } from "@/lib/rdp/protocol";
+import { SERVER_SYNC_TARGET_AUTH_VALUES } from "@/lib/sync/target-auth";
 
 const serverTagSchema = z
   .string()
@@ -74,6 +75,8 @@ const linuxServerSchema = z
     directGatewayProtocol: z.enum(["http", "https"]).optional().default("http"),
     directGatewayDomain: z.string().trim().max(253).optional(),
     storagePath: storagePathSchema,
+    /** How sync logs in to this server as a target; omitted → follow the platform setting. */
+    syncTargetAuth: z.enum(SERVER_SYNC_TARGET_AUTH_VALUES).optional(),
     costAutoSync: z.boolean().optional().default(false),
     costMonthlyAmount: z
       .string()

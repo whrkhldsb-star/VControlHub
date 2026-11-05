@@ -4,11 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { buildTarSyncCommand } from "@/lib/sync/service-commands";
+import { buildSyncGateScript, buildTarSyncCommand } from "@/lib/sync/service-commands";
 
 /**
- * Executes the real tar fallback command in a scratch directory. A fake `ssh`
- * runs the remote script locally, and a fake `tar` can be told to fail on the
+ * Executes the real tar fallback command in a scratch directory, in both login
+ * modes. A fake `ssh` runs what the source sends on the "target" locally: the
+ * script itself in credential mode, the one-time key's gate (its forced
+ * command) in one-time key mode. A fake `tar` can be told to fail on the
  * archiving side (after emitting a valid partial archive) or on the receiving
  * side (disk full). The assertions are about files on disk, not command text.
  */
@@ -16,6 +18,7 @@ const posix = process.platform !== "win32";
 const realTar = spawnSync("sh", ["-c", "command -v tar"], { encoding: "utf8" }).stdout.trim();
 const realMv = spawnSync("sh", ["-c", "command -v mv"], { encoding: "utf8" }).stdout.trim();
 
+let auth: "credential" | "one-time-key";
 let root: string;
 let bin: string;
 let source: string;
@@ -27,20 +30,23 @@ function writeExecutable(path: string, body: string) {
 }
 
 function runTarSync(options: { deleteOrphans: boolean; failArchive?: boolean; failExtract?: boolean; failCommit?: boolean }) {
-  const command = buildTarSyncCommand({
-    sourcePath: source,
-    targetPath: target,
-    targetUser: "audit",
-    targetHost: "fixture.invalid",
-    targetPort: 22,
-    deleteOrphans: options.deleteOrphans,
-    jobId: "fault-injection",
-  });
+  const jobId = "fault-injection";
+  const transport = { targetUser: "audit", targetHost: "fixture.invalid", targetPort: 22, jobId };
+  let gate = "";
+  let command: string;
+  if (auth === "one-time-key") {
+    gate = join(root, "gate.sh");
+    writeFileSync(gate, buildSyncGateScript({ mode: "tar", targetPath: target, allowDelete: options.deleteOrphans, jobId }));
+    command = buildTarSyncCommand({ ...transport, auth, sourcePath: source });
+  } else {
+    command = buildTarSyncCommand({ ...transport, auth, sourcePath: source, targetPath: target, deleteOrphans: options.deleteOrphans });
+  }
   return spawnSync("/bin/sh", ["-c", command], {
     encoding: "utf8",
     env: {
       ...process.env,
       PATH: `${bin}:${process.env.PATH}`,
+      VCH_TEST_GATE: gate,
       VCH_TEST_REAL_TAR: realTar,
       VCH_TEST_FAIL_ARCHIVE: options.failArchive ? "1" : "",
       VCH_TEST_FAIL_EXTRACT: options.failExtract ? "1" : "",
@@ -54,8 +60,9 @@ function listTree(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" }).map((entry) => entry.replace(/\\/g, "/")).sort();
 }
 
-describe.skipIf(!posix || !realTar)("tar fallback sync — fault injection on real files", () => {
+for (const mode of ["credential", "one-time-key"] as const) describe.skipIf(!posix || !realTar)(`tar fallback sync (${mode}) — fault injection on real files`, () => {
   beforeEach(() => {
+    auth = mode;
     root = mkdtempSync(join(tmpdir(), "vch-tar-sync-"));
     bin = join(root, "bin");
     source = join(root, "source");
@@ -63,8 +70,9 @@ describe.skipIf(!posix || !realTar)("tar fallback sync — fault injection on re
     mkdirSync(bin);
     mkdirSync(source);
     mkdirSync(target);
-    // `ssh [opts] addr 'script'` → run the script locally.
-    writeExecutable(join(bin, "ssh"), '#!/bin/sh\nfor last; do :; done\nexec /bin/sh -c "$last"\n');
+    // `ssh [opts] addr 'script'` → run the script locally; with a gate (one-time
+    // key) → the gate, as sshd runs a forced command.
+    writeExecutable(join(bin, "ssh"), '#!/bin/sh\nfor last; do :; done\nif [ -n "$VCH_TEST_GATE" ]; then export SSH_ORIGINAL_COMMAND="$last"; exec /bin/sh "$VCH_TEST_GATE"; fi\nexec /bin/sh -c "$last"\n');
     writeExecutable(
       join(bin, "tar"),
       [

@@ -57,6 +57,7 @@ describe("/api/settings audit coverage", () => {
       "security.turnstileSecretKey",
       "telegram.enabled",
       "telegram.chatId",
+      "sync.targetAuthDefault",
     ].includes(key));
     mocks.getSetting.mockResolvedValue("");
     mocks.setManySettings.mockResolvedValue(undefined);
@@ -219,6 +220,28 @@ describe("/api/settings audit coverage", () => {
       body: JSON.stringify({ "security.sshEnforceHostKeyPin": "yes" }),
     }));
     expect(invalid.status).toBe(400);
+  });
+
+  it("stores the default sync login only as credential or one-time-key", async () => {
+    // Its own URL path is its own rate-limit bucket, so these requests leave the other tests' budget alone.
+    const url = "http://local/api/settings/__sync-target-auth-test";
+    for (const value of ["credential", "one-time-key"]) {
+      const response = await route.PATCH(new Request(url, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ "sync.targetAuthDefault": value }),
+      }));
+      expect(response.status).toBe(200);
+      expect(mocks.setManySettings).toHaveBeenLastCalledWith([{ key: "sync.targetAuthDefault", value }], "u1");
+    }
+    for (const value of ["", "inherit", "password"]) {
+      const invalid = await route.PATCH(new Request(url, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ "sync.targetAuthDefault": value }),
+      }));
+      expect(invalid.status).toBe(400);
+    }
   });
 
   it("stores the RDP WebP switch as on, off or empty (the environment decides)", async () => {

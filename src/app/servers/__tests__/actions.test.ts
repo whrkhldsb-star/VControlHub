@@ -213,6 +213,29 @@ describe("server actions", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/servers");
   });
 
+  it("passes the sync login choice through on create and edit, and leaves it alone when the form has none", async () => {
+    createServerProfileMock.mockResolvedValue({ onboardingWarnings: [] });
+    updateServerProfileMock.mockResolvedValue({ id: "srv_1" });
+    const { createServerAction, updateServerAction } = await import("../actions");
+    const form = (fields: Record<string, string>) => {
+      const formData = new FormData();
+      for (const [key, value] of Object.entries({ name: "node", host: "203.0.113.30", port: "22", username: "root", connectionType: "SSH_KEY", sshKeyId: "key_1", ...fields })) formData.set(key, value);
+      return formData;
+    };
+
+    await createServerAction(null, form({ syncTargetAuth: "one-time-key" }));
+    expect(createServerProfileMock).toHaveBeenLastCalledWith(expect.objectContaining({ syncTargetAuth: "one-time-key" }), expect.anything());
+
+    await updateServerAction(null, form({ serverId: "srv_1", syncTargetAuth: "credential" }));
+    expect(updateServerProfileMock).toHaveBeenLastCalledWith("srv_1", expect.objectContaining({ syncTargetAuth: "credential" }), expect.anything());
+
+    // A missing or unknown value never changes what the server has.
+    await updateServerAction(null, form({ serverId: "srv_1", syncTargetAuth: "always" }));
+    expect(updateServerProfileMock.mock.calls.at(-1)![1]).not.toHaveProperty("syncTargetAuth");
+    await createServerAction(null, form({}));
+    expect(createServerProfileMock.mock.calls.at(-1)![0]).not.toHaveProperty("syncTargetAuth");
+  });
+
   it("refuses to delete a VPS until the current node name is typed", async () => {
     const { deleteServerAction } = await import("../actions");
     const formData = new FormData();
