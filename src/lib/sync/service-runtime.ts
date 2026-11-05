@@ -6,9 +6,13 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * transports, runs rsync (or tar fallback when rsync is missing),
  * parses the output, and writes the result to `syncLog` + `syncJob`.
  *
- * Pure command building lives in `./service-commands`, credential
- * decryption in `./service-credentials`, prisma CRUD in `./service-crud`.
+ * Pure command building lives in `./service-commands`, the run's one-time
+ * target key in `./one-time-key`, prisma CRUD in `./service-crud`. The target
+ * server's own password or key never leaves the hub: the hub uses it for its
+ * own connection to the target, and the source gets a one-time key.
  */
+import { randomBytes } from "node:crypto";
+
 import { loadExecutionActor, executionRefusal } from "@/lib/auth/execution-actor";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
@@ -20,13 +24,22 @@ import { shellQuote } from "@/lib/shell-quote";
 
 import {
 	buildRsyncCommand,
+	buildSyncGateScript,
+	buildSyncPeerProbeCommand,
 	buildSyncSourceProbeCommand,
 	buildSyncTargetPrepareCommand,
 	buildTarSyncCommand,
 	getSyncTempKeyPath,
+	parseSyncPeerProbe,
 	parseSyncSourceProbe,
 } from "./service-commands";
-import { decryptSyncTargetCredentials } from "./service-credentials";
+import {
+	buildAuthorizedKeysGateOption,
+	buildOneTimeKeyInstallCommand,
+	buildOneTimeKeyRevokeCommand,
+	generateOneTimeKeyPair,
+	oneTimeKeyMarker,
+} from "./one-time-key";
 import {
 	effectiveDeleteOrphans,
 	formatBidirectionalResult,
@@ -56,7 +69,7 @@ export function assertSyncRemoteSucceeded(
 ): void {
 	if (result.exitCode === 0) return;
 	// rsync/tar builders often merge stderr into stdout via `2>&1`
-	const detail = (result.stderr || result.stdout || "").trim().slice(0, 500);
+	const detail = remoteDetail(result);
 	if (result.exitCode == null) {
 		throw new Error(
 			detail
@@ -69,6 +82,10 @@ export function assertSyncRemoteSucceeded(
 			? `${label} failed (exit ${result.exitCode}): ${detail}`
 			: `${label} failed (exit ${result.exitCode})`,
 	);
+}
+
+function remoteDetail(result: { stdout: string; stderr: string }): string {
+	return (result.stderr || result.stdout || "").trim().slice(0, 500);
 }
 
 /* ── rsync output parsing ─────────────────────────────────── */
@@ -99,14 +116,16 @@ export function parseRsyncOutput(output: string) {
 	return { totalFiles, transferredFiles, totalSize };
 }
 
-/* ── Ephemeral private key ────────────────────────────────── */
+/* ── One-time private key on the source ───────────────────── */
 
 async function writeEphemeralPrivateKey(sourceSsh: SshConnectionParams, keyPath: string, privateKey: string): Promise<void> {
-	await execRemoteCommand({
+	const created = await execRemoteCommand({
 		...sourceSsh,
 		command: `rm -f -- ${shellQuote(keyPath)} && umask 077 && : > ${shellQuote(keyPath)} && chmod 600 -- ${shellQuote(keyPath)}`,
 		timeout: 15000,
 	});
+	// Otherwise the write below would create the file with the default mode.
+	assertSyncRemoteSucceeded(created, "creating the one-time key file on the source");
 	await writeRemoteFile({ ...sourceSsh, remotePath: keyPath, content: privateKey });
 	await execRemoteCommand({
 		...sourceSsh,
@@ -118,7 +137,8 @@ async function writeEphemeralPrivateKey(sourceSsh: SshConnectionParams, keyPath:
 /**
  * The command's own trap removes its key and known_hosts files, but only once
  * it runs: a failed write, or an SSH session that dropped before the command
- * started, left the target's private key in the source host's /tmp.
+ * started, left the key in the source host's /tmp. The runtime removes them
+ * after every run as well.
  */
 async function removeEphemeralFiles(sourceSsh: SshConnectionParams, paths: string[]): Promise<void> {
 	if (paths.length === 0) return;
@@ -147,6 +167,90 @@ async function writePinnedKnownHosts(sourceSsh: SshConnectionParams, jobId: stri
 	if (!matchedLine) throw new Error(`SSH host key mismatch for target ${targetHost}: expected ${pin}, got ${observed.join(", ") || "none"}. Sync aborted to prevent MITM.`);
 	await execRemoteCommand({ ...sourceSsh, command: `rm -f -- ${shellQuote(knownHostsPath)} && umask 077 && : > ${shellQuote(knownHostsPath)} && chmod 600 -- ${shellQuote(knownHostsPath)}`, timeout: 15000 });
 	await writeRemoteFile({ ...sourceSsh, remotePath: knownHostsPath, content: `${matchedLine}\n` });
+}
+
+/* ── One-time access to the target ────────────────────────── */
+
+/**
+ * A one-time key line stays valid on the target, even if nobody removes it,
+ * for the longest a transfer may run (the tar commit connects again at its
+ * end) plus this margin for clock differences between hub and target.
+ */
+const ONE_TIME_KEY_GRACE_MS = 60 * 60 * 1000;
+
+type OneTimeAccess = { revoke: () => Promise<void> };
+
+/**
+ * Give the source a one-time key to the target for this leg (see
+ * `./one-time-key`): install the key, pinned to `gateScript`, on the target
+ * over the hub's own connection; write the private half on the source; let the
+ * source connect once to prove the target accepts it and learn the address it
+ * connects from; re-add the line with `from=` that address. Any failure
+ * removes the line again before the error propagates.
+ *
+ * There is deliberately no fallback to the target's own password or key: a
+ * target that cannot take a key fails here with a message that says why.
+ */
+async function grantOneTimeTargetAccess(input: {
+	sourceSsh: SshConnectionParams;
+	targetSsh: SshConnectionParams;
+	jobId: string;
+	leg: SyncLeg;
+	transport: Parameters<typeof buildSyncPeerProbeCommand>[0] & { keyPath: string };
+	gateScript: string;
+	targetLabel: string;
+	targetUsesPassword: boolean;
+}): Promise<OneTimeAccess> {
+	const run = `${input.leg}-${randomBytes(6).toString("hex")}`;
+	const expiresAt = new Date(Date.now() + SYNC_COMMAND_TIMEOUT_MS + ONE_TIME_KEY_GRACE_MS);
+	const keys = generateOneTimeKeyPair(oneTimeKeyMarker({ jobId: input.jobId, run, expiresAt }));
+	const commandOption = buildAuthorizedKeysGateOption(input.gateScript);
+	const install = async (from: string | null) => {
+		const result = await execRemoteCommand({
+			...input.targetSsh,
+			command: buildOneTimeKeyInstallCommand({ user: input.transport.targetUser, publicKey: keys.publicKey, commandOption, jobId: input.jobId, expiresAt, from }),
+			timeout: 60000,
+		});
+		if (result.exitCode !== 0 || !result.stdout.includes("VCH_SYNC_KEY_INSTALLED")) {
+			throw new Error(`Could not add the one-time sync key to ${input.targetLabel}'s authorized_keys: ${remoteDetail(result) || `exit ${result.exitCode ?? "unknown"}`}`);
+		}
+	};
+	const revoke = async () => {
+		try {
+			const result = await execRemoteCommand({
+				...input.targetSsh,
+				command: buildOneTimeKeyRevokeCommand({ jobId: input.jobId, run }),
+				timeout: 60000,
+			});
+			assertSyncRemoteSucceeded(result, "removing the one-time sync key");
+		} catch (error) {
+			// It stops working at its expiry time, and the next install on this
+			// host or the stale-run reclaim removes it.
+			logError(`[Sync] Could not remove the one-time sync key ${run} from ${input.targetLabel}:`, error);
+		}
+	};
+	try {
+		await install(null);
+		await writeEphemeralPrivateKey(input.sourceSsh, input.transport.keyPath, keys.privateKey);
+		const probe = await execRemoteCommand({ ...input.sourceSsh, command: buildSyncPeerProbeCommand(input.transport), timeout: 60000 });
+		const peer = probe.exitCode === 0 ? parseSyncPeerProbe(probe.stdout) : undefined;
+		if (peer === undefined) {
+			throw new Error(oneTimeKeyRefusedMessage(input.targetLabel, remoteDetail(probe) || `exit ${probe.exitCode ?? "unknown"}`, input.targetUsesPassword));
+		}
+		if (peer) await install(peer);
+		else logError(`[Sync] ${input.targetLabel} did not report a usable source address; the one-time key stays without from=.`);
+		return { revoke };
+	} catch (error) {
+		await revoke();
+		throw error;
+	}
+}
+
+function oneTimeKeyRefusedMessage(targetLabel: string, detail: string, targetUsesPassword: boolean): string {
+	const why = targetUsesPassword
+		? "VControlHub logs in to this target with a password, and sync no longer hands that password to the source server"
+		: "Sync no longer copies the target's own key or password to the source server";
+	return `${targetLabel} did not accept the one-time sync key from the source server (${detail}). ${why}: the source logs in with a key made for this run, so the target's sshd must allow public-key login for this user through ~/.ssh/authorized_keys.`;
 }
 
 /* ── endpoint preflight ───────────────────────────────────── */
@@ -206,65 +310,24 @@ async function assertSyncSourceUsable(input: {
 	}
 }
 
-/* ── tar fallback ──────────────────────────────────────────── */
+/* ── one leg ──────────────────────────────────────────────── */
 
-/** Fallback tar-based sync when rsync is not available */
-async function executeTarSync(
-	sourceSsh: SshConnectionParams,
-	jobId: string,
-	sourcePath: string,
-	_targetSsh: SshConnectionParams,
-	targetHost: string,
-	targetPort: number,
-	targetUser: string,
-	targetKey: { privateKey: string } | null,
-	targetPassword: string | null,
-	targetPath: string,
-	_deleteOrphans: boolean,
-	targetHostKeySha256?: string | null,
-): Promise<string> {
-	// Use tar over SSH pipe — portable fallback when rsync is unavailable.
-	const keyPath = targetKey ? getSyncTempKeyPath(jobId, "tar") : undefined;
-	if (!targetKey && !targetPassword) {
-		throw new Error("No SSH credentials for target");
-	}
-	const passwordEnvPath = !keyPath && targetPassword ? getSyncTempKeyPath(jobId, "env") : undefined;
+/** Forward (job source → job target) or, for bidirectional jobs, reverse. */
+type SyncLeg = "fwd" | "rev";
 
-	const cmd = buildTarSyncCommand({
-		sourcePath,
-		targetPath,
-		targetUser,
-		targetHost,
-		targetPort,
-		keyPath,
-		passwordEnvPath,
-		deleteOrphans: _deleteOrphans,
-		hostKeySha256: targetHostKeySha256,
-		jobId,
-	});
-	let result: Awaited<ReturnType<typeof execRemoteCommand>>;
-	try {
-		if (targetKey && keyPath) {
-			await writeEphemeralPrivateKey(sourceSsh, keyPath, targetKey.privateKey);
-		}
-		if (passwordEnvPath && targetPassword) {
-			await writeEphemeralPrivateKey(sourceSsh, passwordEnvPath, `SSHPASS=${shellQuote(targetPassword)}\n`);
-		}
-		result = await runWithSyncHeartbeat(jobId, () => execRemoteCommand({ ...sourceSsh, command: cmd, timeout: SYNC_COMMAND_TIMEOUT_MS }));
-	} catch (error) {
-		await removeEphemeralFiles(sourceSsh, [keyPath, passwordEnvPath, targetHostKeySha256?.trim() ? getSyncTempKeyPath(jobId, "known_hosts") : undefined].filter((path): path is string => Boolean(path)));
-		throw error;
-	}
-	assertSyncRemoteSucceeded(result, "tar sync");
-	return result.stdout;
+/** Names the leg's temp files on its source host. */
+function legFileStem(jobId: string, leg: SyncLeg): string {
+	return `${jobId}-${leg}-leg`;
 }
 
+type SyncEndpointServer = NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["sourceServer"];
 
 /** Push sourcePath → targetPath once (rsync or tar). Returns parsed stats + raw output. */
 async function runOneWayRsync(input: {
 	jobId: string;
-	sourceServer: NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["sourceServer"];
-	targetServer: NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["targetServer"];
+	leg: SyncLeg;
+	sourceServer: SyncEndpointServer;
+	targetServer: SyncEndpointServer;
 	sourcePath: string;
 	targetPath: string;
 	flags: string[];
@@ -278,93 +341,70 @@ async function runOneWayRsync(input: {
 	const targetHost = input.targetServer.host;
 	const targetPort = input.targetServer.port || 22;
 	const targetUser = input.targetServer.username || "root";
-	const targetCredentials = decryptSyncTargetCredentials(input.targetServer);
-	const targetKeyPath = targetCredentials.privateKey ? getSyncTempKeyPath(input.jobId, "rsync") : undefined;
-	if (!targetCredentials.privateKey && !targetCredentials.password) {
-		throw new Error("Target server has no SSH key or password configured");
-	}
-	const legJobId = `${input.jobId}-leg`;
-	const passwordEnvPath = !targetKeyPath && targetCredentials.password ? getSyncTempKeyPath(legJobId, "env") : undefined;
-	const rsyncCmd = buildRsyncCommand({
-		flags: input.flags,
-		sourcePath: input.sourcePath,
-		targetPath: input.targetPath,
-		targetUser,
-		targetHost,
-		targetPort,
-		keyPath: targetKeyPath,
-		passwordEnvPath,
-		hostKeySha256: input.targetServer.hostKeySha256,
-		jobId: legJobId,
-	});
-	await writePinnedKnownHosts(sourceSsh, legJobId, targetHost, targetPort, input.targetServer.hostKeySha256);
-	await assertSyncSourceUsable({
-		sourceSsh,
-		targetSsh,
-		sourcePath: input.sourcePath,
-		targetPath: input.targetPath,
-		deleteOrphans: input.deleteOrphans,
-		createMissingSource: input.createMissingSource,
-	});
-	const whichResult = await execRemoteCommand({
-		...sourceSsh,
-		command: "which rsync 2>/dev/null || echo MISSING",
-		timeout: 8000,
-	});
-	// which may exit non-zero when missing; we still read stdout for MISSING
-	const whichRsync = whichResult.stdout;
-	let output: string;
-	if (whichRsync.trim() === "MISSING") {
-	if (!input.allowTarFallback) {
-		throw new Error(
-		"Bidirectional sync requires rsync on both VPS nodes; install rsync and retry. Tar fallback is disabled because it cannot preserve newer-wins semantics.",
-		);
-	}
-		const targetSshKey = targetCredentials.privateKey ? { privateKey: targetCredentials.privateKey } : null;
-		output = await executeTarSync(
+	const hostKeySha256 = input.targetServer.hostKeySha256;
+	const legJobId = legFileStem(input.jobId, input.leg);
+	// Everything this leg leaves in the source host's /tmp, removed when it ends.
+	const sourceFiles = hostKeySha256?.trim() ? [getSyncTempKeyPath(legJobId, "known_hosts")] : [];
+	let access: OneTimeAccess | null = null;
+	try {
+		await writePinnedKnownHosts(sourceSsh, legJobId, targetHost, targetPort, hostKeySha256);
+		await assertSyncSourceUsable({
 			sourceSsh,
-			legJobId,
-			input.sourcePath,
 			targetSsh,
-			targetHost,
-			targetPort,
-			targetUser,
-			targetSshKey,
-			targetCredentials.password ?? null,
-			input.targetPath,
-			input.deleteOrphans,
-			input.targetServer.hostKeySha256,
-		);
-	} else {
-		let result: Awaited<ReturnType<typeof execRemoteCommand>>;
-		try {
-			if (targetCredentials.privateKey && targetKeyPath) {
-				await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, targetCredentials.privateKey);
-			}
-			if (passwordEnvPath && targetCredentials.password) {
-				await writeEphemeralPrivateKey(sourceSsh, passwordEnvPath, `SSHPASS=${shellQuote(targetCredentials.password)}\n`);
-			}
-			result = await runWithSyncHeartbeat(input.jobId, () => execRemoteCommand({
-				...sourceSsh,
-				command: rsyncCmd,
-				timeout: SYNC_COMMAND_TIMEOUT_MS,
-			}));
-		} catch (error) {
-			await removeEphemeralFiles(sourceSsh, [targetKeyPath, passwordEnvPath, input.targetServer.hostKeySha256?.trim() ? getSyncTempKeyPath(legJobId, "known_hosts") : undefined].filter((path): path is string => Boolean(path)));
-			throw error;
+			sourcePath: input.sourcePath,
+			targetPath: input.targetPath,
+			deleteOrphans: input.deleteOrphans,
+			createMissingSource: input.createMissingSource,
+		});
+		const whichResult = await execRemoteCommand({
+			...sourceSsh,
+			command: "which rsync 2>/dev/null || echo MISSING",
+			timeout: 8000,
+		});
+		// which may exit non-zero when missing; we still read stdout for MISSING
+		const useTar = whichResult.stdout.trim() === "MISSING";
+		if (useTar && !input.allowTarFallback) {
+			throw new Error(
+				"Bidirectional sync requires rsync on both VPS nodes; install rsync and retry. Tar fallback is disabled because it cannot preserve newer-wins semantics.",
+			);
 		}
-		assertSyncRemoteSucceeded(result, "rsync");
-		output = result.stdout;
+		const keyPath = getSyncTempKeyPath(legJobId, useTar ? "tar" : "rsync");
+		sourceFiles.push(keyPath);
+		const transport = { targetUser, targetHost, targetPort, keyPath, hostKeySha256, jobId: legJobId };
+		access = await grantOneTimeTargetAccess({
+			sourceSsh,
+			targetSsh,
+			jobId: input.jobId,
+			leg: input.leg,
+			transport,
+			gateScript: buildSyncGateScript({ mode: useTar ? "tar" : "rsync", targetPath: input.targetPath, allowDelete: input.deleteOrphans, jobId: legJobId }),
+			targetLabel: `${input.targetServer.name ? `${input.targetServer.name} ` : ""}(${targetUser}@${targetHost}:${targetPort})`,
+			targetUsesPassword: input.targetServer.connectionType === "PASSWORD",
+		});
+		const command = useTar
+			? buildTarSyncCommand({ ...transport, sourcePath: input.sourcePath })
+			: buildRsyncCommand({ ...transport, sourcePath: input.sourcePath, flags: input.flags });
+		// The heartbeat touches the job's own row: the leg's file stem matched no row,
+		// so the stale-RUNNING reclaim took every run longer than 30 minutes for dead.
+		const result = await runWithSyncHeartbeat(input.jobId, () => execRemoteCommand({
+			...sourceSsh,
+			command,
+			timeout: SYNC_COMMAND_TIMEOUT_MS,
+		}));
+		assertSyncRemoteSucceeded(result, useTar ? "tar sync" : "rsync");
+		const stats = parseRsyncOutput(result.stdout);
+		return {
+			output: result.stdout,
+			stats: {
+				totalFiles: stats.totalFiles,
+				transferredFiles: stats.transferredFiles,
+				totalSize: stats.totalSize,
+			},
+		};
+	} finally {
+		await access?.revoke();
+		await removeEphemeralFiles(sourceSsh, sourceFiles);
 	}
-	const stats = parseRsyncOutput(output);
-	return {
-		output,
-		stats: {
-			totalFiles: stats.totalFiles,
-			transferredFiles: stats.transferredFiles,
-			totalSize: stats.totalSize,
-		},
-	};
 }
 
 /* ── Main entry point ─────────────────────────────────────── */
@@ -451,7 +491,8 @@ export async function executeSyncJob(
 
 		// Forward: source → target
 		const forward = await runOneWayRsync({
-			jobId: `${jobId}-fwd`,
+			jobId,
+			leg: "fwd",
 			sourceServer: job.sourceServer,
 			targetServer: job.targetServer,
 			sourcePath: job.sourcePath,
@@ -472,7 +513,8 @@ export async function executeSyncJob(
 			// record PARTIAL so operators see "forward done, reverse failed".
 			try {
 				reverse = await runOneWayRsync({
-					jobId: `${jobId}-rev`,
+					jobId,
+					leg: "rev",
 					sourceServer: job.targetServer,
 					targetServer: job.sourceServer,
 					sourcePath: job.targetPath,
@@ -634,5 +676,40 @@ export async function reclaimStaleRunningSyncJobs(options?: {
 		});
 		reclaimed.push(job.id);
 	}
+	for (const jobId of reclaimed) await sweepOneTimeSyncAccess(jobId);
 	return reclaimed;
+}
+
+/**
+ * A run that died (worker killed, hub restarted) never reached its finally:
+ * its one-time key line can still be in authorized_keys on either server (the
+ * reverse leg installs on the job's source), and its private key and
+ * known_hosts files in the other server's /tmp. Remove both on both servers,
+ * best effort: the line also stops working at its expiry time, and the next
+ * install on that host removes it too.
+ */
+export async function sweepOneTimeSyncAccess(jobId: string): Promise<void> {
+	let job: Awaited<ReturnType<typeof getSyncJobForExecution>>;
+	try {
+		job = await getSyncJobForExecution(jobId);
+	} catch (error) {
+		logError(`[Sync] Could not load job ${jobId} to remove its one-time keys:`, error);
+		return;
+	}
+	if (!job) return;
+	const servers = [job.sourceServer, job.targetServer].filter((server, index, all) => all.findIndex((other) => other.id === server.id) === index);
+	const files = (["fwd", "rev"] as const).flatMap((leg) => (["rsync", "tar", "known_hosts"] as const).map((purpose) => getSyncTempKeyPath(legFileStem(jobId, leg), purpose)));
+	await Promise.all(servers.map(async (server) => {
+		try {
+			const ssh = await buildSshParamsFromServer(server, server.sshKey);
+			const result = await execRemoteCommand({
+				...ssh,
+				command: `rm -f -- ${files.map(shellQuote).join(" ")}\n${buildOneTimeKeyRevokeCommand({ jobId })}`,
+				timeout: 60000,
+			});
+			assertSyncRemoteSucceeded(result, "removing one-time sync keys");
+		} catch (error) {
+			logError(`[Sync] Could not remove one-time sync keys of job ${jobId} on server ${server.id}:`, error);
+		}
+	}));
 }

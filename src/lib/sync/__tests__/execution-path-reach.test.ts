@@ -17,7 +17,6 @@ vi.mock("@/lib/ssh/client", () => ({
     return { stdout: "", stderr: "", exitCode: 0 };
   },
 }));
-vi.mock("../service-credentials", () => ({ decryptSyncTargetCredentials: () => ({ password: "fixture" }) }));
 const { executeSyncJob } = await import("../service-runtime");
 it("refuses existing sync endpoints outside the current file-only actor reach", async () => {
   const actor: SessionPayload = { userId: "file-only", username: "file-only", roles: [], permissions: ["storage:write"], currentTeamId: "team", mustChangePassword: false };

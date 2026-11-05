@@ -1417,6 +1417,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tbody>
 </table></div>
 <p>这套同步依赖目标机器与 SSH／同步工具链的实际能力，主要面向 Linux VPS 路径。同一节点上的源与目标不能是相同目录，也不能互为父子目录；例如 <code>/data</code> 与 <code>/data/archive</code> 不可互相同步。路径比较会整理重复分隔符、<code>.</code> 和 <code>..</code>；创建、编辑与执行时都应用这项规则。它按节点记录和路径判断，不替代对符号链接或多个节点记录实际指向同一主机的核对。</p>
+<p>传输由源服务器发起，但源服务器拿不到目标服务器的密码或私钥。每次运行（双向任务的每个方向各一次）由平台临时生成一把只用于本次运行的密钥，经平台自己的 SSH 连接写入目标用户的 <code>~/.ssh/authorized_keys</code>，并限定为：只能把数据写进该任务的目标目录（rsync 接收端，或 tar 回退的固定步骤）、只接受源服务器的地址、到期自动失效；源服务器只拿到这把临时私钥。运行结束（无论成败）即删除这一行，异常中断留下的行由过期运行回收和下次运行清理。因此目标服务器必须允许该用户用公钥登录；不允许时任务会报错说明原因，不会改用密码。平台登录目标服务器所用的用户须与同步使用的用户一致（即服务器记录中的用户名）。</p>
 <p>依据：<a href="../src/lib/share-link/service.ts">分享服务</a>、<a href="webdav-compatibility.md">WebDAV 兼容说明</a>、<a href="../src/lib/sync/">同步业务层</a>。</p>
 <h2 id="media-downloads">8. 远程下载、媒体库与图片外链</h2>
 <h3 id="section-8-1">8.1 远程下载</h3>

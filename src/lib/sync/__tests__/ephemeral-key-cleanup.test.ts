@@ -1,111 +1,331 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { utils } from "ssh2";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The target's private key is written to the source host for the ssh client
- * that rsync (or the tar fallback) runs there; the command's own trap removes
- * it once the command runs. A sync that failed before that — the session
- * dropped while the command was being started — left the key in the source
- * host's /tmp.
+ * A sync run's source host used to receive the target's own private key (or
+ * its password as SSHPASS='…') in /tmp for the whole run. It now gets a key
+ * made for the run, whose authorized_keys line on the target is removed
+ * however the run ends. SSH is mocked here and answers like a working pair of
+ * servers; the scripts themselves run for real in one-time-key.test.ts and
+ * one-time-key-e2e.test.ts.
  */
 
-const prismaMock = {
-  syncJob: { updateMany: vi.fn(async () => ({ count: 1 })), update: vi.fn(async () => ({})) },
-  syncLog: { create: vi.fn(async () => ({ id: "log-1" })), update: vi.fn(async () => ({})) },
-};
+const TARGET_PASSWORD = "target-own-password-5b1d";
+const TARGET_KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\nTARGET-OWN-KEY-9c2e\n-----END OPENSSH PRIVATE KEY-----\n";
+
+const { prismaMock, jobState } = vi.hoisted(() => ({
+  prismaMock: {
+    syncJob: { updateMany: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    syncLog: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+  },
+  jobState: { job: null as Record<string, unknown> | null },
+}));
 vi.mock("@/lib/auth/execution-actor", () => ({ executionRefusal: vi.fn(async () => null), loadExecutionActor: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("../service-crud", () => ({
-  getSyncJobForExecution: vi.fn(async () => ({
-    id: "job-1",
-    syncType: "one-way",
-    sourceServer: { sshKey: null },
-    targetServer: { host: "203.0.113.20", port: 22, username: "backup", sshKey: { privateKey: "stored" }, hostKeySha256: null },
-    sourcePath: "/data/a",
-    targetPath: "/data/b",
-    deleteOrphans: false,
-    compress: false,
-  })),
-  assertSyncEndpointsWithinReach: vi.fn(async () => {}), assertDisjointSyncEndpoints: vi.fn(),
+  getSyncJobForExecution: vi.fn(async () => jobState.job),
+  assertSyncEndpointsWithinReach: vi.fn(async () => {}),
+  assertDisjointSyncEndpoints: vi.fn(),
 }));
-vi.mock("../service-credentials", () => ({ decryptSyncTargetCredentials: () => ({ privateKey: "TARGET PRIVATE KEY" }) }));
 vi.mock("@/lib/logging", () => ({
   logError: vi.fn(),
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
-const remote = { commands: [] as string[], rsyncInstalled: true, dropOn: null as RegExp | null };
-const execRemoteCommand = vi.fn(async ({ command }: { command: string }) => {
-  remote.commands.push(command);
-  if (remote.dropOn?.test(command)) throw new Error("Connection lost before the command started");
+type Call = { host: string; command: string };
+type Failure = { host: "source" | "target"; pattern: RegExp; nth?: number; drop?: boolean; stderr?: string; exitCode?: number };
+const remote = {
+  calls: [] as Call[],
+  writes: [] as { host: string; remotePath: string; content: string }[],
+  failures: [] as Failure[],
+  failWrite: false,
+  rsyncInstalled: true,
+  onTransfer: null as null | (() => void),
+};
+
+const execRemoteCommand = vi.fn(async ({ host, command }: { host: string; command: string }) => {
+  remote.calls.push({ host, command });
+  for (const failure of remote.failures) {
+    if (failure.host !== host || !failure.pattern.test(command)) continue;
+    const seen = remote.calls.filter((call) => call.host === host && failure.pattern.test(call.command)).length;
+    if (failure.nth && seen !== failure.nth) continue;
+    if (failure.drop) throw new Error("Connection lost");
+    return { stdout: "", stderr: failure.stderr ?? "injected failure", exitCode: failure.exitCode ?? 1 };
+  }
   if (command.startsWith("which rsync")) return { stdout: remote.rsyncInstalled ? "/usr/bin/rsync\n" : "MISSING\n", stderr: "", exitCode: 0 };
   if (command.includes("VCH_SYNC_SOURCE=")) return { stdout: "VCH_SYNC_SOURCE=ready\n", stderr: "", exitCode: 0 };
   if (command.includes("VCH_SYNC_TARGET=")) return { stdout: "VCH_SYNC_TARGET=empty\n", stderr: "", exitCode: 0 };
+  if (command.includes("echo VCH_SYNC_KEY_INSTALLED")) return { stdout: "VCH_SYNC_KEY_INSTALLED\n", stderr: "", exitCode: 0 };
+  if (command.includes("echo VCH_SYNC_KEY_REVOKED")) return { stdout: "VCH_SYNC_KEY_REVOKED\n", stderr: "", exitCode: 0 };
+  if (command.includes("'vch-sync hello'")) return { stdout: `VCH_SYNC_PEER=${host === "source" ? "203.0.113.10" : "203.0.113.20"}\n`, stderr: "", exitCode: 0 };
+  if (command.startsWith("trap ")) {
+    remote.onTransfer?.();
+    return { stdout: "Number of regular files transferred: 3\n", stderr: "", exitCode: 0 };
+  }
   return { stdout: "", stderr: "", exitCode: 0 };
 });
-const writeRemoteFile = vi.fn(async (_input: { remotePath: string; content: string }) => undefined);
+const writeRemoteFile = vi.fn(async (input: { host: string; remotePath: string; content: string }) => {
+  if (remote.failWrite) throw new Error("SFTP write failed");
+  remote.writes.push({ host: input.host, remotePath: input.remotePath, content: String(input.content) });
+});
 vi.mock("@/lib/ssh/client", () => ({
-  buildSshParamsFromServer: vi.fn(async () => ({ host: "203.0.113.10", port: 22, username: "root", password: "source" })),
+  // The hub's own connections. The target's stored credential is used here,
+  // for the hub's session to the target, and must go nowhere else.
+  buildSshParamsFromServer: vi.fn(async (server: { id: string }) => server.id === "dst"
+    ? { host: "target", port: 22, username: "backup", privateKey: TARGET_KEY, password: TARGET_PASSWORD }
+    : { host: "source", port: 22, username: "root", password: "source-own-password" }),
   execRemoteCommand,
   writeRemoteFile,
 }));
 
-const { executeSyncJob } = await import("../service-runtime");
+const { executeSyncJob, reclaimStaleRunningSyncJobs } = await import("../service-runtime");
 
-/** Where the target key was written on the source host. */
-function writtenKeyPath(): string {
-  const path = writeRemoteFile.mock.calls.find(([input]) => input.content === "TARGET PRIVATE KEY")?.[0].remotePath;
-  if (!path) throw new Error("the key was never written");
-  return path;
+function useJob(overrides: { syncType?: string; targetConnection?: "SSH_KEY" | "PASSWORD" } = {}) {
+  jobState.job = {
+    id: "job-1",
+    status: "IDLE",
+    syncType: overrides.syncType ?? "ONE_WAY",
+    createdBy: "u1",
+    teamId: "team-1",
+    sourceServerId: "src",
+    targetServerId: "dst",
+    sourceServer: { id: "src", name: "web", host: "203.0.113.10", port: 22, username: "root", connectionType: "PASSWORD", sshKey: null, hostKeySha256: null },
+    targetServer: {
+      id: "dst",
+      name: "backup",
+      host: "203.0.113.20",
+      port: 22,
+      username: "backup",
+      connectionType: overrides.targetConnection ?? "SSH_KEY",
+      sshKey: overrides.targetConnection === "PASSWORD" ? null : { privateKey: "stored-ciphertext" },
+      hostKeySha256: null,
+    },
+    sourcePath: "/data/a",
+    targetPath: "/data/b",
+    deleteOrphans: false,
+    compress: false,
+  };
 }
 
-/** Removals of `path` that are not part of writing it (which also starts with rm -f). */
-function removalsOf(path: string) {
-  return remote.commands.filter((command) => command.startsWith("rm -f -- ") && !command.includes("umask") && command.includes(path));
+const installs = (host = "target") => remote.calls.filter((call) => call.host === host && call.command.includes("echo VCH_SYNC_KEY_INSTALLED"));
+const revocations = (host = "target") => remote.calls.filter((call) => call.host === host && call.command.includes("echo VCH_SYNC_KEY_REVOKED"));
+const transfers = () => remote.calls.filter((call) => call.command.startsWith("trap "));
+const indexOf = (call: Call | undefined) => (call ? remote.calls.indexOf(call) : -1);
+
+/** The run id in the key line the hub installed (`vch-sync-ephemeral:job-1:<run>:<expiry>`). */
+function installedRun(host = "target"): string {
+  const match = /vch-sync-ephemeral:job-1:((?:fwd|rev)-[0-9a-f]+):\d+/.exec(installs(host)[0]?.command ?? "");
+  if (!match) throw new Error(`no one-time key was installed on ${host}`);
+  return match[1]!;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  remote.commands.length = 0;
+  prismaMock.syncJob.updateMany.mockResolvedValue({ count: 1 });
+  prismaMock.syncJob.update.mockResolvedValue({});
+  prismaMock.syncJob.findMany.mockResolvedValue([]);
+  prismaMock.syncLog.create.mockResolvedValue({ id: "log-1" });
+  prismaMock.syncLog.update.mockResolvedValue({});
+  prismaMock.syncLog.updateMany.mockResolvedValue({ count: 1 });
+  remote.calls.length = 0;
+  remote.writes.length = 0;
+  remote.failures = [];
+  remote.failWrite = false;
   remote.rsyncInstalled = true;
-  remote.dropOn = null;
+  remote.onTransfer = null;
+  useJob();
 });
 
-describe("the target key written to the source host", () => {
-  it("is removed when the rsync command never ran", async () => {
-    remote.dropOn = /^trap /;
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("what the source host receives", () => {
+  it.each([
+    ["a key-based target, rsync", "SSH_KEY", true],
+    ["a key-based target, tar fallback", "SSH_KEY", false],
+    ["a password-only target, rsync", "PASSWORD", true],
+  ] as const)("never includes the target's own credential: %s", async (_label, targetConnection, rsyncInstalled) => {
+    useJob({ targetConnection });
+    remote.rsyncInstalled = rsyncInstalled;
 
     const result = await executeSyncJob("job-1");
 
-    expect(result.ok).toBe(false);
-    expect(writtenKeyPath()).toMatch(/^\/tmp\/app-sync-rsync-/);
-    expect(removalsOf(writtenKeyPath())).toHaveLength(1);
+    expect(result.ok, result.errorMessage).toBe(true);
+    const toSource = [
+      ...remote.calls.filter((call) => call.host === "source").map((call) => call.command),
+      ...remote.writes.filter((write) => write.host === "source").map((write) => write.content),
+    ].join("\n");
+    expect(toSource).not.toContain(TARGET_PASSWORD);
+    expect(toSource).not.toContain("TARGET-OWN-KEY");
+    expect(toSource).not.toMatch(/sshpass|SSHPASS/);
+    // Neither does any file written anywhere.
+    for (const write of remote.writes) {
+      expect(write.content).not.toContain(TARGET_PASSWORD);
+      expect(write.content).not.toContain("TARGET-OWN-KEY");
+    }
   });
 
-  it("is removed when the tar fallback never ran", async () => {
-    remote.rsyncInstalled = false;
-    remote.dropOn = /^trap /;
-
-    const result = await executeSyncJob("job-1");
-
-    expect(result.ok).toBe(false);
-    expect(writtenKeyPath()).toMatch(/^\/tmp\/app-sync-tar-/);
-    expect(removalsOf(writtenKeyPath())).toHaveLength(1);
-  });
-
-  it("is removed when writing it failed part-way", async () => {
-    remote.dropOn = /^chmod 600 -- /;
-
-    const result = await executeSyncJob("job-1");
-
-    expect(result.ok).toBe(false);
-    expect(removalsOf(writtenKeyPath())).toHaveLength(1);
-  });
-
-  it("is left to the command's own trap once the command ran", async () => {
+  it("is a key made for the run, whose public half is the line installed on the target", async () => {
     await executeSyncJob("job-1");
 
-    const keyPath = writtenKeyPath();
-    expect(removalsOf(keyPath)).toHaveLength(0);
-    expect(remote.commands.some((command) => command.startsWith("trap ") && command.includes(keyPath))).toBe(true);
+    const keyFile = remote.writes.find((write) => write.host === "source" && write.remotePath === "/tmp/app-sync-rsync-job-1-fwd-leg");
+    expect(keyFile).toBeDefined();
+    const parsed = utils.parseKey(keyFile!.content);
+    if (parsed instanceof Error) throw parsed;
+    const blob = (Array.isArray(parsed) ? parsed[0]! : parsed).getPublicSSH().toString("base64");
+    const [first, pinned] = installs();
+    expect(first!.command).toContain(`ssh-ed25519 ${blob} vch-sync-ephemeral:job-1:`);
+    expect(first!.command).toContain("vch-sync-gate");
+    // Re-added with from= the address the target saw the source connect from.
+    expect(pinned!.command).toContain(`ssh-ed25519 ${blob} `);
+    expect(pinned!.command).toContain('from=\\"203.0.113.10\\"');
+    // A second run gets a different key.
+    remote.writes.length = 0;
+    await executeSyncJob("job-1");
+    expect(remote.writes.find((write) => write.remotePath === "/tmp/app-sync-rsync-job-1-fwd-leg")!.content).not.toBe(keyFile!.content);
+  });
+});
+
+describe("the key line on the target", () => {
+  it("is removed after a successful run, once the transfer is over", async () => {
+    const result = await executeSyncJob("job-1");
+
+    expect(result.ok, result.errorMessage).toBe(true);
+    const run = installedRun();
+    expect(revocations()).toHaveLength(1);
+    expect(revocations()[0]!.command).toContain(`vch_filter 'job-1' '${run}'`);
+    expect(indexOf(revocations()[0])).toBeGreaterThan(indexOf(transfers()[0]));
+    // And the private half is removed from the source by the hub too, not only by the command's trap.
+    const cleanup = remote.calls.filter((call) => call.host === "source" && call.command.startsWith("rm -f -- ") && call.command.includes("/tmp/app-sync-rsync-job-1-fwd-leg") && !call.command.includes("umask"));
+    expect(cleanup).toHaveLength(1);
+  });
+
+  it.each<[string, () => void, { transferRan: boolean; message?: RegExp }]>([
+    ["adding it fails", () => { remote.failures = [{ host: "target", pattern: /VCH_SYNC_KEY_INSTALLED/, nth: 1 }]; }, { transferRan: false, message: /Could not add the one-time sync key/ }],
+    ["the session drops while adding it", () => { remote.failures = [{ host: "target", pattern: /VCH_SYNC_KEY_INSTALLED/, nth: 1, drop: true }]; }, { transferRan: false }],
+    ["writing the private half to the source fails", () => { remote.failWrite = true; }, { transferRan: false }],
+    ["the target refuses the key", () => { remote.failures = [{ host: "source", pattern: /'vch-sync hello'/, stderr: "Permission denied (publickey).", exitCode: 255 }]; }, { transferRan: false, message: /did not accept the one-time sync key[\s\S]*public-key login/ }],
+    ["something other than the gate answers", () => { remote.failures = [{ host: "source", pattern: /'vch-sync hello'/, stderr: "", exitCode: 0 }]; }, { transferRan: false, message: /did not accept the one-time sync key/ }],
+    ["pinning the source address fails", () => { remote.failures = [{ host: "target", pattern: /VCH_SYNC_KEY_INSTALLED/, nth: 2 }]; }, { transferRan: false }],
+    ["the transfer fails", () => { remote.failures = [{ host: "source", pattern: /^trap /, stderr: "rsync error: some files could not be transferred", exitCode: 23 }]; }, { transferRan: true, message: /rsync failed \(exit 23\)/ }],
+    ["the transfer's session drops", () => { remote.failures = [{ host: "source", pattern: /^trap /, drop: true }]; }, { transferRan: true }],
+  ])("is removed when %s", async (_label, arrange, expected) => {
+    arrange();
+
+    const result = await executeSyncJob("job-1");
+
+    expect(result.ok).toBe(false);
+    if (expected.message) expect(result.errorMessage).toMatch(expected.message);
+    expect(transfers().length > 0).toBe(expected.transferRan);
+    const run = installedRun();
+    expect(revocations()).toHaveLength(1);
+    expect(revocations()[0]!.command).toContain(`vch_filter 'job-1' '${run}'`);
+    expect(indexOf(revocations()[0])).toBeGreaterThan(indexOf(installs().at(-1)));
+  });
+
+  it("is not installed at all when the run stops before choosing a transport", async () => {
+    remote.failures = [{ host: "source", pattern: /VCH_SYNC_SOURCE=/, stderr: "no such directory" }];
+
+    const result = await executeSyncJob("job-1");
+
+    expect(result.ok).toBe(false);
+    expect(installs()).toHaveLength(0);
+    expect(remote.writes).toHaveLength(0);
+  });
+
+  it("is still removed when the source host cannot be reached for its own cleanup", async () => {
+    // The hub's own removal of the key file (not its creation, which also starts with rm -f).
+    remote.failures = [{ host: "source", pattern: /^trap /, drop: true }, { host: "source", pattern: /^rm -f -- '\/tmp\/app-sync-rsync[^&]*$/, drop: true }];
+
+    const result = await executeSyncJob("job-1");
+
+    expect(result.ok).toBe(false);
+    expect(revocations()).toHaveLength(1);
+  });
+});
+
+describe("a target that only takes a password", () => {
+  it("fails with an error that says why, instead of copying the password to the source", async () => {
+    useJob({ targetConnection: "PASSWORD" });
+    remote.failures = [{ host: "source", pattern: /'vch-sync hello'/, stderr: "Permission denied (password).", exitCode: 255 }];
+
+    const result = await executeSyncJob("job-1");
+
+    expect(result.ok).toBe(false);
+    expect(result.errorMessage).toMatch(/backup \(backup@203\.0\.113\.20:22\) did not accept the one-time sync key/);
+    expect(result.errorMessage).toMatch(/logs in to this target with a password, and sync no longer hands that password to the source server/);
+    expect(result.errorMessage).toMatch(/must allow public-key login/);
+    expect(transfers()).toHaveLength(0);
+    expect(revocations()).toHaveLength(1);
+    const toSource = remote.calls.filter((call) => call.host === "source").map((call) => call.command).join("\n");
+    expect(toSource).not.toContain(TARGET_PASSWORD);
+    expect(toSource).not.toMatch(/sshpass|SSHPASS/);
+  });
+});
+
+describe("bidirectional jobs", () => {
+  it("give each leg its own key on the host it writes to, and remove both", async () => {
+    useJob({ syncType: "BIDIRECTIONAL" });
+
+    const result = await executeSyncJob("job-1");
+
+    expect(result.ok, result.errorMessage).toBe(true);
+    // Forward leg: key on the target, private half on the source; reverse: the other way round.
+    expect(installedRun("target")).toMatch(/^fwd-/);
+    expect(installedRun("source")).toMatch(/^rev-/);
+    expect(remote.writes.map((write) => `${write.host}:${write.remotePath}`)).toEqual([
+      "source:/tmp/app-sync-rsync-job-1-fwd-leg",
+      "target:/tmp/app-sync-rsync-job-1-rev-leg",
+    ]);
+    expect(revocations("target")).toHaveLength(1);
+    expect(revocations("source")).toHaveLength(1);
+    // The reverse leg starts only after the forward key is gone.
+    expect(indexOf(revocations("target")[0])).toBeLessThan(indexOf(installs("source")[0]));
+    // The source's own password never travels to the target either.
+    const toTarget = remote.calls.filter((call) => call.host === "target").map((call) => call.command).join("\n");
+    expect(toTarget).not.toContain("source-own-password");
+  });
+});
+
+describe("runs that died", () => {
+  it("have their keys and key files removed on both servers by the stale-run reclaim", async () => {
+    prismaMock.syncJob.findMany.mockResolvedValueOnce([{ id: "job-1" }]);
+
+    const reclaimed = await reclaimStaleRunningSyncJobs();
+
+    expect(reclaimed).toEqual(["job-1"]);
+    for (const host of ["source", "target"]) {
+      const [sweep] = revocations(host);
+      expect(sweep, host).toBeDefined();
+      expect(sweep!.command).toContain("vch_filter 'job-1' ''");
+      for (const leg of ["fwd", "rev"]) {
+        for (const purpose of ["rsync", "tar", "known_hosts"]) {
+          expect(sweep!.command).toContain(`'/tmp/app-sync-${purpose}-job-1-${leg}-leg'`);
+        }
+      }
+    }
+  });
+
+  it("does not stop the reclaim when a server cannot be reached", async () => {
+    prismaMock.syncJob.findMany.mockResolvedValueOnce([{ id: "job-1" }]);
+    remote.failures = [{ host: "target", pattern: /VCH_SYNC_KEY_REVOKED/, drop: true }];
+
+    await expect(reclaimStaleRunningSyncJobs()).resolves.toEqual(["job-1"]);
+    expect(revocations("source")).toHaveLength(1);
+  });
+
+  it("are not mistaken for live ones: a long transfer keeps the job's own row fresh", async () => {
+    // The heartbeat used to touch "<job>-fwd", which matched no row, so the
+    // reclaim took every run over 30 minutes for dead (and would now revoke its key).
+    vi.useFakeTimers();
+    remote.onTransfer = () => vi.advanceTimersByTime(5 * 60 * 1000);
+
+    await executeSyncJob("job-1");
+
+    expect(prismaMock.syncJob.updateMany).toHaveBeenCalledWith({
+      where: { id: "job-1", status: "RUNNING" },
+      data: { updatedAt: expect.any(Date) },
+    });
   });
 });

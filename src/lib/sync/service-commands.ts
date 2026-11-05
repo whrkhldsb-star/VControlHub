@@ -1,10 +1,14 @@
 /**
  * Sync service — pure command construction (R28 god-file split).
  *
- * Builds the rsync / tar over SSH command strings. No I/O, no prisma, no
- * decryption — those live in `./service-runtime` and `./service-credentials`.
+ * Builds the rsync / tar over SSH command strings that run on the SOURCE host,
+ * and the gate script a run's one-time key is pinned to on the TARGET host
+ * (see `./one-time-key`). No I/O, no prisma — the runtime lives in
+ * `./service-runtime`.
  * Re-exports `shellQuote` for callers that need a stable import path.
  */
+import { isIP } from "node:net";
+
 import { ValidationError } from "@/lib/errors";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { shellQuote } from "@/lib/shell-quote";
@@ -14,29 +18,27 @@ export { shellQuote };
 
 /* ── Types ────────────────────────────────────────────────── */
 
-type SyncTargetCommandInput = {
-	sourcePath: string;
-	targetPath: string;
+/** How the source host reaches the target: always with the run's one-time key. */
+type SyncTransportInput = {
 	targetUser: string;
 	targetHost: string;
 	targetPort: number;
-	keyPath?: string;
 	/**
-	 * A 0600 file on the source host holding `SSHPASS='…'` (written by the
-	 * runtime, A4-08). The script sources it instead of carrying the password
-	 * in its own text, which `ps` showed to every local user for the whole run.
+	 * The run's one-time private key on the source host (`./one-time-key`).
+	 * Never the target's own key or password: those stay on the hub.
 	 */
-	passwordEnvPath?: string;
+	keyPath?: string;
 	hostKeySha256?: string | null; // OPEN-2: SSH host key pin for rsync/tar sync
 	jobId?: string; // For generating temp known_hosts path
 };
 
-type RsyncCommandInput = SyncTargetCommandInput & {
+type RsyncCommandInput = SyncTransportInput & {
+	sourcePath: string;
 	flags: string[];
 };
 
-type TarSyncCommandInput = SyncTargetCommandInput & {
-	deleteOrphans: boolean;
+type TarSyncCommandInput = SyncTransportInput & {
+	sourcePath: string;
 };
 
 /* ── Patterns ─────────────────────────────────────────────── */
@@ -104,17 +106,19 @@ function buildSshOptions(targetPort: number, hostKeySha256: string | null | unde
 	return [
 		`-o StrictHostKeyChecking=${pinned ? "yes" : "accept-new"}`,
 		`-o UserKnownHostsFile=${quote(pinned ? knownHostsPath! : REMOTE_NULL_DEVICE)}`,
+		// Nobody can answer a prompt on the source host.
+		"-o BatchMode=yes",
 		`-p ${targetPort}`,
 	].join(" ");
 }
 
 /* ── Temp-key path ────────────────────────────────────────── */
 
-function safeFileStem(value: string): string {
+export function safeFileStem(value: string): string {
 	return value.replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
-export function getSyncTempKeyPath(jobId: string, purpose: "rsync" | "tar" | "known_hosts" | "env"): string {
+export function getSyncTempKeyPath(jobId: string, purpose: "rsync" | "tar" | "known_hosts"): string {
 	return `/tmp/app-sync-${purpose}-${safeFileStem(jobId)}`;
 }
 
@@ -150,49 +154,41 @@ function assertUnquotedTransportPath(value: string): string {
 	return value;
 }
 
-/**
- * Build the ssh command that carries the transfer, plus any environment
- * assignment that must be applied to the *outer* command instead of the
- * transport itself.
- */
-function buildSshTransport(
-	input: SyncTargetCommandInput,
-	quote: TransportQuote,
-): { transport: string; envSetup: string } {
+/** The ssh command that carries the transfer from the source host. */
+function buildSshTransport(input: SyncTransportInput, quote: TransportQuote): string {
 	const knownHostsPath = input.hostKeySha256?.trim()
 		? getSyncTempKeyPath(input.jobId ?? "sync", "known_hosts")
 		: undefined;
 	const sshCommand = ["ssh", buildSshOptions(input.targetPort, input.hostKeySha256, knownHostsPath, quote)];
-	if (input.keyPath) sshCommand.push("-i", quote(input.keyPath));
-	const base = sshCommand.join(" ");
-	if (input.passwordEnvPath) {
-		// SSHPASS keeps the password out of /proc/cmdline. It has to ride on the
-		// outer command: rsync would exec a program literally named `SSHPASS=…`
-		// ("Failed to exec"), so only the caller's shell can honour it. The value
-		// comes from the env file, never from this script's text.
-		return { transport: `sshpass -e ${base}`, envSetup: `. ${shellQuote(input.passwordEnvPath)} && export SSHPASS` };
-	}
-	return { transport: base, envSetup: "" };
+	// Offer only the one-time key. Otherwise ssh also tries the source user's
+	// own keys and agent, and one the target accepts without the gate would
+	// carry the transfer past it.
+	if (input.keyPath) sshCommand.push("-o IdentitiesOnly=yes", "-i", quote(input.keyPath));
+	return sshCommand.join(" ");
 }
 
-function withCredentialCleanup(command: string, input: SyncTargetCommandInput): string {
-	const paths = [input.keyPath, input.passwordEnvPath, input.hostKeySha256?.trim() ? getSyncTempKeyPath(input.jobId ?? "sync", "known_hosts") : undefined].filter((value): value is string => Boolean(value));
+function withCredentialCleanup(command: string, input: SyncTransportInput): string {
+	const paths = [input.keyPath, input.hostKeySha256?.trim() ? getSyncTempKeyPath(input.jobId ?? "sync", "known_hosts") : undefined].filter((value): value is string => Boolean(value));
 	if (paths.length === 0) return command;
 	return `trap 'rm -f -- ${paths.map(shellQuote).join(" ")}' EXIT\n${command}`;
 }
 
+/**
+ * The remote side is always the gate ({@link buildSyncGateScript}): it runs
+ * `rsync --server` into the directory the hub fixed when it installed the key
+ * and ignores whatever path the source names, so only a placeholder is sent.
+ * Without `-s` the remote command line is the only place rsync puts its
+ * options, which is where the gate checks them (with `-s` they would arrive
+ * through the data stream instead, so the gate refuses it); unsetting
+ * RSYNC_PROTECT_ARGS keeps the source host's environment from turning it on.
+ */
 export function buildRsyncCommand(input: RsyncCommandInput): string {
-	const { transport, envSetup } = buildSshTransport(input, assertUnquotedTransportPath);
-	const target = `${buildRsyncTargetAddress(input.targetUser, input.targetHost)}:${input.targetPath.replace(/\/$/, "")}/`;
-	// `-s` (--protect-args) sends the remote path through rsync's own protocol
-	// stream instead of the target host's login shell. Without it an rsync older
-	// than 3.2.4 on the source host hands `user@host:/path` to the remote shell
-	// unescaped, so a job's targetPath could carry `;`/`$()` and run commands on
-	// the target as the sync user. shellQuote only protects the source shell.
+	const transport = buildSshTransport(input, assertUnquotedTransportPath);
+	const target = `${buildRsyncTargetAddress(input.targetUser, input.targetHost)}:.`;
 	// `--` ends the options, and a relative source gets "./": otherwise a path that begins with "-" is an option and one
 	// holding "host:" is another machine (jobs stored before the path check existed could still carry such a value).
 	const source = input.sourcePath.replace(/\/$/, "");
-	const command = `${envSetup ? `${envSetup} && ` : ""}rsync ${input.flags.join(" ")} -s -e ${shellDoubleQuote(transport)} -- ${shellQuote(`${source.startsWith("/") ? source : `./${source}`}/`)} ${shellQuote(target)} 2>&1`;
+	const command = `unset RSYNC_PROTECT_ARGS; rsync ${input.flags.join(" ")} -e ${shellDoubleQuote(transport)} -- ${shellQuote(`${source.startsWith("/") ? source : `./${source}`}/`)} ${shellQuote(target)} 2>&1`;
 	return withCredentialCleanup(command, input);
 }
 
@@ -223,51 +219,180 @@ function buildMirrorCommitScript(target: string, stage: string, prev: string): s
 }
 
 /**
- * tar fallback, in three checked phases so a failure can never be reported as
- * success or leave the target half-replaced:
+ * The target half of the tar fallback, in three checked phases so a failure
+ * can never be reported as success or leave the target half-replaced:
  *
- *   1. stream `tar cf` into a staging directory inside the target;
- *   2. only when BOTH the source tar and the receiving tar exited 0 (a shell
- *      pipeline reports only its last command, so the source status is carried
- *      out through a temp file) commit the stage into the target — mirror mode
- *      replaces the target's entries, merge mode overlays them;
- *   3. otherwise drop the stage and fail, target untouched.
+ *   1. `receive`: extract the source's `tar cf` stream into a staging
+ *      directory inside the target;
+ *   2. `commit`, only when BOTH the source tar and the receiving tar exited 0:
+ *      mirror mode replaces the target's entries, merge mode overlays them;
+ *   3. `abort` otherwise: drop the stage, target untouched.
  *
  * The stage lives inside the target so the commit is a same-filesystem move.
  * It costs up to one extra copy of the data on the target until committed.
  * Merge mode overlays with `cp -a`; an interrupted overlay can leave the file
  * being copied incomplete (as the former direct extraction could), but never
- * removes anything.
+ * removes anything. These scripts are fixed by the hub inside the gate; the
+ * source only names the phase.
  */
-export function buildTarSyncCommand(input: TarSyncCommandInput): string {
-	const { transport, envSetup } = buildSshTransport(input, shellQuote);
-	const remote = `${transport} ${shellQuote(buildSshTargetAddress(input.targetUser, input.targetHost))}`;
+function buildTarTargetScripts(input: { targetPath: string; deleteOrphans: boolean; jobId?: string }) {
 	const target = shellQuote(input.targetPath);
 	const stem = safeFileStem(input.jobId ?? "sync");
 	const stageName = `${TAR_STAGE_PREFIX}${stem}`;
 	const prevName = `${TAR_PREV_PREFIX}${stem}`;
 	const stage = shellQuote(`${input.targetPath.replace(/\/+$/, "")}/${stageName}`);
-	const receive = `rm -rf -- ${stage} && mkdir -p -- ${stage} && tar xf - -C ${stage}`;
-	const commit = input.deleteOrphans
-		? buildMirrorCommitScript(target, shellQuote(stageName), shellQuote(prevName))
-		: `cp -a -- ${stage}/. ${target}/ && rm -rf -- ${stage}`;
-	const abort = `rm -rf -- ${stage}`;
+	return {
+		receive: `rm -rf -- ${stage} && mkdir -p -- ${stage} && tar xf - -C ${stage}`,
+		commit: input.deleteOrphans
+			? buildMirrorCommitScript(target, shellQuote(stageName), shellQuote(prevName))
+			: `cp -a -- ${stage}/. ${target}/ && rm -rf -- ${stage}`,
+		abort: `rm -rf -- ${stage}`,
+	};
+}
+
+/** What the source sends; the gate maps each to a fixed script or check. */
+export const SYNC_GATE_HELLO = "vch-sync hello";
+const SYNC_GATE_TAR_RECEIVE = "vch-sync tar-receive";
+const SYNC_GATE_TAR_COMMIT = "vch-sync tar-commit";
+const SYNC_GATE_TAR_ABORT = "vch-sync tar-abort";
+
+/**
+ * tar fallback, source side. The source tar's status is carried out of the
+ * pipeline through a temp file (a pipeline reports only its last command);
+ * see {@link buildTarTargetScripts} for what each phase does on the target.
+ */
+export function buildTarSyncCommand(input: TarSyncCommandInput): string {
+	const transport = buildSshTransport(input, shellQuote);
+	const address = shellQuote(buildSshTargetAddress(input.targetUser, input.targetHost));
+	const remote = (phase: string) => `${transport} ${address} ${shellQuote(phase)}`;
 	const command = [
-		// The password must reach every ssh below, so export it once instead of
-		// prefixing one command.
-		...(envSetup ? [envSetup] : []),
 		`vch_tar_status=$(mktemp "\${TMPDIR:-/tmp}/vch-sync-tar.XXXXXX") || exit 1`,
-		`{ tar cf - -C ${shellQuote(input.sourcePath)} .; echo "$?" > "$vch_tar_status"; } | ${remote} ${shellQuote(receive)} 2>&1`,
+		`{ tar cf - -C ${shellQuote(input.sourcePath)} .; echo "$?" > "$vch_tar_status"; } | ${remote(SYNC_GATE_TAR_RECEIVE)} 2>&1`,
 		`vch_receive_status=$?`,
 		`vch_source_status=$(cat "$vch_tar_status" 2>/dev/null); rm -f -- "$vch_tar_status"`,
 		`if [ "$vch_source_status" != 0 ] || [ "$vch_receive_status" -ne 0 ]; then`,
 		`  echo "tar sync aborted: source tar exit \${vch_source_status:-unknown}, target receive exit $vch_receive_status; target left unchanged" >&2`,
-		`  ${remote} ${shellQuote(abort)} >/dev/null 2>&1`,
+		`  ${remote(SYNC_GATE_TAR_ABORT)} >/dev/null 2>&1`,
 		`  exit 1`,
 		`fi`,
-		`${remote} ${shellQuote(commit)} 2>&1`,
+		`${remote(SYNC_GATE_TAR_COMMIT)} 2>&1`,
 	].join("\n");
 	return withCredentialCleanup(command, input);
+}
+
+/**
+ * Run from the source with the one-time key before the transfer: proves the
+ * target accepts the key and runs the gate, and reports the address the
+ * target sees the source connect from (pinned with `from=` afterwards).
+ */
+export function buildSyncPeerProbeCommand(input: SyncTransportInput): string {
+	const transport = buildSshTransport(input, shellQuote);
+	return `${transport} -o ConnectTimeout=20 ${shellQuote(buildSshTargetAddress(input.targetUser, input.targetHost))} ${shellQuote(SYNC_GATE_HELLO)} 2>&1`;
+}
+
+/**
+ * `undefined`: the gate did not answer (the key was refused, or something
+ * other than the gate ran). `null`: it answered without a usable address.
+ */
+export function parseSyncPeerProbe(output: string): string | null | undefined {
+	const match = /^VCH_SYNC_PEER=(\S*)\s*$/m.exec(output);
+	if (!match) return undefined;
+	return isIP(match[1]!) ? match[1]! : null;
+}
+
+/* ── Gate on the target ───────────────────────────────────── */
+
+export type SyncGateInput = {
+	/** rsync receiver, or the tar fallback's receive/commit/abort phases. */
+	mode: "rsync" | "tar";
+	/** The only directory the key may write into. */
+	targetPath: string;
+	/** MIRROR / delete-orphans: whether rsync may be asked to delete on the target. */
+	allowDelete: boolean;
+	/** Names the tar fallback's stage/prev directories. */
+	jobId?: string;
+};
+
+/**
+ * The letters `rsync --server` may get in its short-option cluster: exactly
+ * what rsyncFlagsForJob can produce (-a → rlptgoD, -v, -u for bidirectional,
+ * -z for compression). Everything after an `e` in the cluster is rsync's
+ * capability string, not options. Notably absent: `s` (protect-args, which
+ * would bring further options through the data stream) and `K` (follow
+ * symlinked directories on the receiver).
+ */
+const GATE_RSYNC_SHORT_FLAGS = "vrlptgoDuz";
+
+/**
+ * The forced command of a run's one-time key on the target (`./one-time-key`
+ * embeds it in the authorized_keys line). It allows:
+ *
+ *   - `vch-sync hello`: prints the address the connection came from;
+ *   - rsync mode: `rsync --server` as a receiver only (no `--sender`), with
+ *     each option checked against the set the job's flags produce, `--delete*`
+ *     only for a deleting job, and the destination replaced by the job's target
+ *     directory whatever the source sent;
+ *   - tar mode: the three fixed phases of {@link buildTarTargetScripts}.
+ *
+ * Anything else, an interactive login included, exits 126. The command line
+ * the source sent is split into words but never evaluated.
+ */
+export function buildSyncGateScript(input: SyncGateInput): string {
+	const lines = [
+		"# VControlHub one-time sync key: the only commands this key may run here.",
+		"set -f",
+		`vch_refuse() { printf 'vch-sync gate: refused %s\\n' "$1" >&2; exit 126; }`,
+	];
+	const cases = [`  ${shellQuote(SYNC_GATE_HELLO)}) printf 'VCH_SYNC_PEER=%s\\n' "\${SSH_CLIENT%% *}"; exit 0 ;;`];
+	if (input.mode === "tar") {
+		const scripts = buildTarTargetScripts({ targetPath: input.targetPath, deleteOrphans: input.allowDelete, jobId: input.jobId });
+		for (const [name, phase, body] of [
+			["vch_tar_receive", SYNC_GATE_TAR_RECEIVE, scripts.receive],
+			["vch_tar_commit", SYNC_GATE_TAR_COMMIT, scripts.commit],
+			["vch_tar_abort", SYNC_GATE_TAR_ABORT, scripts.abort],
+		] as const) {
+			lines.push(`${name}() {`, body, "}");
+			cases.push(`  ${shellQuote(phase)}) ${name}; exit ;;`);
+		}
+	} else {
+		cases.push("  'rsync --server '*) ;;");
+	}
+	lines.push(
+		"case ${SSH_ORIGINAL_COMMAND-} in",
+		...cases,
+		`  *) vch_refuse "\${SSH_ORIGINAL_COMMAND:-an interactive login}" ;;`,
+		"esac",
+	);
+	if (input.mode === "rsync") lines.push(...buildRsyncReceiverGate(input));
+	return `${lines.join("\n")}\n`;
+}
+
+function buildRsyncReceiverGate(input: SyncGateInput): string[] {
+	const target = input.targetPath.replace(/\/+$/, "");
+	return [
+		"set -- $SSH_ORIGINAL_COMMAND",
+		"shift 2",
+		"vch_opts=",
+		"vch_dot=",
+		`for vch_arg in "$@"; do`,
+		"  case $vch_arg in",
+		"    .) vch_dot=1; break ;;",
+		`    --timeout=*) case \${vch_arg#--timeout=} in ''|*[!0-9]*) vch_refuse "$vch_arg" ;; esac ;;`,
+		"    --stats|--partial) ;;",
+		`    --delete|--delete-before|--delete-during|--delete-delay|--delete-after) ${input.allowDelete ? ";;" : `vch_refuse "$vch_arg" ;;`}`,
+		`    --*) vch_refuse "$vch_arg" ;;`,
+		"    -*)",
+		"      vch_flags=${vch_arg%%e*}",
+		`      vch_caps=\${vch_arg#"$vch_flags"}`,
+		`      case \${vch_flags#-} in ''|*[!${GATE_RSYNC_SHORT_FLAGS}]*) vch_refuse "$vch_arg" ;; esac`,
+		`      case \${vch_caps#e} in *[!A-Za-z0-9.]*) vch_refuse "$vch_arg" ;; esac ;;`,
+		`    *) vch_refuse "$vch_arg" ;;`,
+		"  esac",
+		`  vch_opts="$vch_opts $vch_arg"`,
+		"done",
+		`[ -n "$vch_dot" ] || vch_refuse 'an rsync command without its "." argument'`,
+		`exec rsync --server $vch_opts . ${shellQuote(`${target}/`)}`,
+	];
 }
 
 export type SyncSourceState = "ready" | "empty" | "missing" | "unreadable";

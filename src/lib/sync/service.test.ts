@@ -18,15 +18,11 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 import {
   buildRsyncCommand,
+  buildSyncGateScript,
   buildTarSyncCommand,
   getSyncTempKeyPath,
   shellQuote,
 } from "@/lib/sync/service-commands";
-import { utils } from "ssh2";
-
-import { generateEd25519KeyPair } from "@/test/helpers/ssh-keygen";
-import { encryptSshKeyPassphrase, encryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
-import { decryptSyncTargetCredentials } from "@/lib/sync/service-credentials";
 import {
   createSyncJob,
   getSyncJob,
@@ -243,7 +239,6 @@ describe("sync service command helpers", () => {
     const command = buildRsyncCommand({
       flags: ["-avz", "--stats"],
       sourcePath: "/srv/source path/it's ok",
-      targetPath: "/srv/target path",
       targetUser: "deploy",
       targetHost: "2001:db8::10",
       targetPort: 2222,
@@ -251,51 +246,26 @@ describe("sync service command helpers", () => {
     });
 
     expect(command).toContain("trap 'rm -f -- ");
-    expect(command).toContain("rsync -avz --stats -s -e ");
+    expect(command).toContain("unset RSYNC_PROTECT_ARGS; rsync -avz --stats -e ");
     // rsync splits -e on whitespace and execs it, so nothing inside may be
     // shell-quoted: `-i '/tmp/k'` would reach ssh with the quotes attached and
-    // the key would be ignored ("Identity file not accessible").
+    // the key would be ignored ("Identity file not accessible"). Only that key
+    // is offered, never the source user's own keys or agent.
     expect(command).toContain(
-      '-e "ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p 2222 -i /tmp/app-sync-rsync-job_1"',
+      '-e "ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -o BatchMode=yes -p 2222 -o IdentitiesOnly=yes -i /tmp/app-sync-rsync-job_1"',
     );
-    expect(command).toContain("deploy@[2001:db8::10]:");
+    expect(command).toContain("'deploy@[2001:db8::10]:.'");
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");
   });
 
-  it("passes the sshpass password through the environment of rsync itself", () => {
-    const command = buildRsyncCommand({
-      flags: ["-avz"],
-      sourcePath: "/src",
-      targetPath: "/dst",
-      targetUser: "deploy",
-      targetHost: "example.com",
-      targetPort: 22,
-      passwordEnvPath: "/tmp/app-sync-env-job1",
-    });
-
-    // The password is sourced from a 0600 file (A4-08), never written into the
-    // script, and inside -e it would be exec'd as a program name.
-    expect(command).toContain(". '/tmp/app-sync-env-job1' && export SSHPASS && rsync -avz");
-    expect(command).toContain('-e "sshpass -e ssh -o StrictHostKeyChecking=accept-new');
-    expect(command).not.toContain("SSHPASS=");
-    expect(command).toContain("rm -f -- '/tmp/app-sync-env-job1'");
-  });
-
-  it("exports the sshpass password once for every ssh leg of the tar fallback", () => {
-    const command = buildTarSyncCommand({
-      sourcePath: "/src",
-      targetPath: "/dst",
-      targetUser: "deploy",
-      targetHost: "example.com",
-      targetPort: 22,
-      passwordEnvPath: "/tmp/app-sync-env-job1",
-      deleteOrphans: false,
-    });
-
-    expect(command).toContain(". '/tmp/app-sync-env-job1' && export SSHPASS\n");
-    expect(command).toContain("| sshpass -e ssh ");
-    expect(command).not.toContain("SSHPASS=");
-    expect(command.match(/export SSHPASS/g)).toHaveLength(1);
+  it("never carries a password to the source host", () => {
+    // Sync used to write the target's password to the source as SSHPASS='…'
+    // and run sshpass there; the source now only ever gets a one-time key.
+    const rsync = buildRsyncCommand({ flags: ["-avz"], sourcePath: "/src", targetUser: "deploy", targetHost: "example.com", targetPort: 22, keyPath: "/tmp/app-sync-rsync-job1" });
+    const tar = buildTarSyncCommand({ sourcePath: "/src", targetUser: "deploy", targetHost: "example.com", targetPort: 22, keyPath: "/tmp/app-sync-tar-job1" });
+    for (const command of [rsync, tar]) {
+      expect(command).not.toMatch(/sshpass|SSHPASS/);
+    }
   });
 
   it("refuses a transport path that rsync could not carry unquoted", () => {
@@ -303,7 +273,6 @@ describe("sync service command helpers", () => {
       buildRsyncCommand({
         flags: ["-avz"],
         sourcePath: "/src",
-        targetPath: "/dst",
         targetUser: "deploy",
         targetHost: "example.com",
         targetPort: 22,
@@ -312,23 +281,24 @@ describe("sync service command helpers", () => {
     ).toThrow("不安全的 SSH 传输路径");
   });
 
-  it("builds tar fallback commands with key cleanup and a staged target replacement", () => {
+  it("builds tar fallback commands with key cleanup that only name the gate's phases on the target", () => {
     const command = buildTarSyncCommand({
       sourcePath: "/srv/source; nope",
-      targetPath: "/srv/target path",
       targetUser: "root",
       targetHost: "example.com",
       targetPort: 22,
       keyPath: "/tmp/app-sync-tar-job_2",
-      deleteOrphans: true,
     });
 
     expect(command).toContain("trap 'rm -f -- ");
     // Behaviour (staging, status propagation, untouched target on failure) is
     // exercised on real files in __tests__/tar-sync-fault-injection.test.ts.
-    expect(command).toContain(".vch-sync-prev-sync");
-    expect(command).toContain("tar cf - -C ");
-    expect(command).toContain("root@example.com");
+    expect(command).toContain("tar cf - -C '/srv/source; nope' .");
+    expect(command).toContain("'root@example.com' 'vch-sync tar-receive'");
+    expect(command).toContain("'root@example.com' 'vch-sync tar-commit'");
+    expect(command).toContain("'root@example.com' 'vch-sync tar-abort'");
+    // What happens on the target is fixed in the key's gate, not sent from here.
+    expect(command).not.toContain(".vch-sync-");
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");
   });
 
@@ -337,41 +307,34 @@ describe("sync service command helpers", () => {
     const build = (sourcePath: string) => buildRsyncCommand({
       flags: ["-av"],
       sourcePath,
-      targetPath: "/srv/target",
       targetUser: "deploy",
       targetHost: "example.com",
       targetPort: 22,
       keyPath: "/tmp/app-sync-rsync-job_1",
     });
-    expect(build("/srv/source")).toContain(" -- '/srv/source/' 'deploy@example.com:/srv/target/'");
+    expect(build("/srv/source")).toContain(" -- '/srv/source/' 'deploy@example.com:.'");
     expect(build("--rsync-path=/bin/sh -c id")).toContain(" -- './--rsync-path=/bin/sh -c id/' ");
     expect(build("evil.example:/data")).toContain(" -- './evil.example:/data/' ");
   });
 
-  it("keeps a hostile target path out of the target host's shell", () => {
-    const command = buildRsyncCommand({
-      flags: ["-av"],
-      sourcePath: "/srv/source",
-      targetPath: "/tmp/x;id>/tmp/pwned;$(touch /tmp/pwned)",
-      targetUser: "deploy",
-      targetHost: "example.com",
-      targetPort: 22,
-      keyPath: "/tmp/app-sync-rsync-job_1",
-    });
-    // --protect-args: rsync sends the remote path over its own protocol instead
-    // of the target's login shell (older rsync passed it unescaped).
-    expect(command).toContain(" -s -e ");
-    // The source shell sees the whole user@host:path inside one single-quoted word.
-    expect(command).toContain("'deploy@example.com:/tmp/x;id>/tmp/pwned;$(touch /tmp/pwned)/'");
+  it("keeps a hostile target path out of every shell: the gate holds it as one quoted word", () => {
+    const hostile = "/tmp/x;id>/tmp/pwned;$(touch /tmp/pwned)";
+    // The source never names the target path; the gate fixes the destination.
+    // Its behaviour is exercised in __tests__/one-time-key.test.ts.
+    const gate = buildSyncGateScript({ mode: "rsync", targetPath: hostile, allowDelete: false });
+    expect(gate).toContain(`exec rsync --server $vch_opts . ${shellQuote(`${hostile}/`)}`);
+    const tarGate = buildSyncGateScript({ mode: "tar", targetPath: hostile, allowDelete: true, jobId: "job-1" });
+    expect(tarGate).toContain(shellQuote(hostile));
+    expect(tarGate).toContain(".vch-sync-prev-job-1");
   });
 
   it("uses the exact pinned known_hosts file for the real rsync and tar SSH connection", () => {
     const common = {
-      sourcePath: "/src", targetPath: "/dst", targetUser: "deploy", targetHost: "example.com", targetPort: 2222,
+      sourcePath: "/src", targetUser: "deploy", targetHost: "example.com", targetPort: 2222,
       hostKeySha256: "SHA256:abc", jobId: "job-1",
     };
     const rsync = buildRsyncCommand({ ...common, flags: ["-avz"] });
-    const tar = buildTarSyncCommand({ ...common, deleteOrphans: false });
+    const tar = buildTarSyncCommand(common);
     for (const command of [rsync, tar]) {
       expect(command).toContain("StrictHostKeyChecking=yes");
       expect(command).not.toContain("StrictHostKeyChecking=accept-new");
@@ -385,36 +348,11 @@ describe("sync service command helpers", () => {
     expect(tar).toContain("UserKnownHostsFile='/tmp/app-sync-known_hosts-job-1'");
   });
 
-  it("decrypts target credentials once before building remote sync commands", () => {
-    const credentials = decryptSyncTargetCredentials({
-      password: "enc:v1:password-ciphertext",
-      sshKey: { privateKey: "enc:v1:key-ciphertext" },
-    }, {
-      decryptPassword: (value) => (value === "enc:v1:password-ciphertext" ? "plain-password" : value),
-      decryptPrivateKey: (value) => (value === "enc:v1:key-ciphertext" ? "PRIVATE KEY" : value),
-    });
-
-    expect(credentials.password).toBe("plain-password");
-    expect(credentials.privateKey).toBe("PRIVATE KEY");
-  });
-  it("unlocks a legacy passphrase-protected target key, since rsync on the source VPS runs without a prompt", () => {
-    const passphrase = "legacy pass";
-    const key = generateEd25519KeyPair({ passphrase, cipher: "aes256-cbc", rounds: 4 });
-    const credentials = decryptSyncTargetCredentials({
-      sshKey: { privateKey: encryptSshPrivateKey(key.private), passphrase: encryptSshKeyPassphrase(passphrase) },
-    });
-
-    const parsed = utils.parseKey(credentials.privateKey!);
-    expect(parsed).not.toBeInstanceOf(Error);
-    expect((parsed as { getPublicSSH(): Buffer }).getPublicSSH().equals((utils.parseKey(key.public) as { getPublicSSH(): Buffer }).getPublicSSH())).toBe(true);
-  });
-
   it("rejects unsafe SSH users and hosts before building commands", () => {
     expect(() =>
       buildRsyncCommand({
         flags: ["-avz"],
         sourcePath: "/src",
-        targetPath: "/dst",
         targetUser: "deploy;rm -rf /",
         targetHost: "example.com",
         targetPort: 22,
@@ -424,11 +362,9 @@ describe("sync service command helpers", () => {
     expect(() =>
       buildTarSyncCommand({
         sourcePath: "/src",
-        targetPath: "/dst",
         targetUser: "root",
         targetHost: "-oProxyCommand=sh",
         targetPort: 22,
-        deleteOrphans: false,
       }),
     ).toThrow("不安全的 SSH 主机");
   });
@@ -436,11 +372,9 @@ describe("sync service command helpers", () => {
   it("uses unbracketed IPv6 addresses for raw ssh tar fallback targets", () => {
     const command = buildTarSyncCommand({
       sourcePath: "/src",
-      targetPath: "/dst",
       targetUser: "root",
       targetHost: "2001:db8::10",
       targetPort: 22,
-      deleteOrphans: false,
     });
 
     expect(command).toContain("'root@2001:db8::10'");
@@ -451,7 +385,6 @@ describe("sync service command helpers", () => {
       buildRsyncCommand({
         flags: ["-avz"],
         sourcePath: "/src",
-        targetPath: "/dst",
         targetUser: "deploy",
         targetHost: "example.com",
         targetPort: 0,
@@ -461,11 +394,9 @@ describe("sync service command helpers", () => {
     expect(() =>
       buildTarSyncCommand({
         sourcePath: "/src",
-        targetPath: "/dst",
         targetUser: "deploy",
         targetHost: "example.com",
         targetPort: 65536,
-        deleteOrphans: false,
       }),
     ).toThrow("不安全的 SSH 端口");
   });

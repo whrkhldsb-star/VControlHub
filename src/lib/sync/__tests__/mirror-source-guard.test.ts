@@ -1,18 +1,21 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { installFakeSsh } from "./helpers/fake-sshd";
 
 /**
  * executeSyncJob end to end against real directories: the SSH layer is
  * replaced by a local /bin/sh, so every remote command the job builds actually
- * runs. rsync is reported missing to drive the tar fallback (the guard under
- * test runs before the transport is chosen).
+ * runs (with HOME in the test's temp directory, whose authorized_keys takes the
+ * run's one-time key). rsync is reported missing to drive the tar fallback (the
+ * guard under test runs before the transport is chosen).
  */
 const posix = process.platform !== "win32";
 
-const state = vi.hoisted(() => ({ bin: "", job: null as Record<string, unknown> | null, runNothing: false, ran: [] as string[] }));
+const state = vi.hoisted(() => ({ bin: "", home: "", job: null as Record<string, unknown> | null, runNothing: false, ran: [] as string[] }));
 
 // Execution-time authorisation has its own tests (execution-actor).
 vi.mock("@/lib/auth/execution-actor", () => ({ executionRefusal: vi.fn(async () => null), loadExecutionActor: vi.fn() }));
@@ -25,9 +28,6 @@ vi.mock("@/lib/db", () => ({
 vi.mock("../service-crud", () => ({
   getSyncJobForExecution: vi.fn(async () => state.job),
   assertSyncEndpointsWithinReach: vi.fn(async () => {}), assertDisjointSyncEndpoints: vi.fn(),
-}));
-vi.mock("../service-credentials", () => ({
-  decryptSyncTargetCredentials: vi.fn(() => ({ password: "fixture-password" })),
 }));
 vi.mock("@/lib/logging", () => ({
   logError: vi.fn(),
@@ -44,17 +44,19 @@ vi.mock("@/lib/ssh/client", () => ({
       return { stdout: "", stderr: "no command may run in this test", exitCode: 1 };
     }
     // These commands really run on this machine. Never let them near anything outside the test's own temp directory
-    // (a test aimed at "/etc" once emptied the real /etc when the guard it exercises had been reverted).
+    // (a test aimed at "/etc" once emptied the real /etc when the guard it exercises had been reverted). The key
+    // scripts edit $HOME/.ssh/authorized_keys, so HOME must be the test's own too.
     const job = state.job as { sourcePath?: string; targetPath?: string } | null;
-    for (const endpoint of [job?.sourcePath, job?.targetPath]) {
+    for (const endpoint of [job?.sourcePath, job?.targetPath, state.home]) {
       if (endpoint && !endpoint.startsWith(tmpdir())) {
         throw new Error(`refusing to run a sync command for ${endpoint}: outside the temp directory`);
       }
     }
+    if (!state.home) throw new Error("refusing to run a sync command without a test HOME");
     if (command.startsWith("which rsync")) return { stdout: "MISSING\n", stderr: "", exitCode: 1 };
     const result = spawnSync("/bin/sh", ["-c", command], {
       encoding: "utf8",
-      env: { ...process.env, PATH: `${state.bin}:${process.env.PATH}` },
+      env: { ...process.env, HOME: state.home, PATH: `${state.bin}:${process.env.PATH}` },
     });
     return { stdout: result.stdout, stderr: result.stderr, exitCode: result.status };
   }),
@@ -66,11 +68,6 @@ let root: string;
 let source: string;
 let target: string;
 
-function writeExecutable(path: string, body: string) {
-  writeFileSync(path, body);
-  chmodSync(path, 0o755);
-}
-
 function useJob(syncType: string, deleteOrphans = false) {
   state.job = {
     id: "job-1",
@@ -79,8 +76,9 @@ function useJob(syncType: string, deleteOrphans = false) {
     compress: false,
     sourcePath: source,
     targetPath: target,
-    sourceServer: { id: "src", host: "source.invalid", port: 22, username: "audit", sshKey: null },
-    targetServer: { id: "dst", host: "target.invalid", port: 22, username: "audit", sshKey: null, hostKeySha256: null },
+    // The one-time key is installed for the user the hub runs as: here, whoever runs the tests.
+    sourceServer: { id: "src", host: "source.invalid", port: 22, username: userInfo().username, sshKey: null },
+    targetServer: { id: "dst", host: "target.invalid", port: 22, username: userInfo().username, sshKey: null, hostKeySha256: null },
   };
 }
 
@@ -88,17 +86,19 @@ describe.skipIf(!posix)("executeSyncJob — mirror source guard on real director
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), "vch-mirror-guard-"));
     state.bin = join(root, "bin");
+    state.home = join(root, "home");
     source = join(root, "source");
     target = join(root, "target");
     mkdirSync(state.bin);
+    mkdirSync(state.home);
     mkdirSync(target);
-    writeExecutable(join(state.bin, "ssh"), '#!/bin/sh\nfor last; do :; done\nexec /bin/sh -c "$last"\n');
-    writeExecutable(join(state.bin, "sshpass"), '#!/bin/sh\nshift\nexec "$@"\n');
+    installFakeSsh(state.bin);
     writeFileSync(join(target, "valuable.txt"), "existing data");
   });
 
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
+    state.home = "";
   });
 
   it("refuses a MIRROR whose source directory does not exist and does not create it", async () => {
