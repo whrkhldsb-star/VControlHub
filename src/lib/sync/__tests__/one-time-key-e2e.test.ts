@@ -100,8 +100,8 @@ function useJob(syncType: string, overrides: { targetConnection?: string } = {})
     targetServerId: "dst",
     sourcePath: source,
     targetPath: target,
-    sourceServer: { id: "src", name: "web", host: "source.invalid", port: 22, username: me, connectionType: "SSH_KEY", sshKey: null, hostKeySha256: null },
-    targetServer: { id: "dst", name: "backup", host: "target.invalid", port: 22, username: me, connectionType: overrides.targetConnection ?? "SSH_KEY", sshKey: null, hostKeySha256: null },
+    sourceServer: { id: "src", name: "web", host: "source.invalid", port: 22, username: me, connectionType: "SSH_KEY", sshKey: null, hostKeySha256: null, syncTargetAuth: "one-time-key" },
+    targetServer: { id: "dst", name: "backup", host: "target.invalid", port: 22, username: me, connectionType: overrides.targetConnection ?? "SSH_KEY", sshKey: null, hostKeySha256: null, syncTargetAuth: "one-time-key" },
   };
 }
 
@@ -214,7 +214,7 @@ describe.skipIf(!posix)("one-time target key, end to end", () => {
 
     expect(result.ok).toBe(false);
     expect(result.errorMessage).toMatch(/did not accept the one-time sync key from the source server \(Permission denied \(publickey\)\.\)/);
-    expect(result.errorMessage).toMatch(/with a password, and sync no longer hands that password to the source server/);
+    expect(result.errorMessage).toMatch(/VControlHub itself logs in to this target with a password/);
     expect(readdirSync(target).sort()).toEqual(["old.txt"]);
     expectNothingLeftBehind();
   });

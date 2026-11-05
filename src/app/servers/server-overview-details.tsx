@@ -29,6 +29,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Badge, Notice } from "@/components/ui-primitives";
 import { serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "./server-labels";
 import type { ServerBillingDto } from "@/lib/server/billing-form";
+import type { ServerSyncTargetAuth } from "@/lib/sync/target-auth";
 import { ServerBillingRows } from "./server-billing-rows";
 import { ServerAgentReinstall } from "./server-agent-reinstall";
 import { formatDateTime } from "@/lib/datetime/format";
@@ -73,6 +74,8 @@ export type ServerOverviewDetailsServer = {
 	// TR-041: OS dialect + info for display and dialect-aware operations
 	osDialect?: string | null;
 	osInfo?: string | null;
+	/** How sync logs in to this server as a target. */
+	syncTargetAuth?: ServerSyncTargetAuth;
 	// TR-031: monthly VPS cost auto-sync settings
 	costAutoSync?: boolean;
 	costMonthlyAmount?: string | null;
@@ -310,6 +313,7 @@ export function ServerOverviewDetails({
 							billing={server.billing}
 							storagePath={server.storageNode?.basePath ?? null}
 							storageNodeId={server.storageNode?.id ?? null}
+							syncTargetAuth={server.syncTargetAuth}
 							directGateway={server.directGateway ?? undefined}
 						/>
 					</div>

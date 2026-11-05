@@ -340,6 +340,11 @@ model Server {
   osDialect                    String? // TR-041: JSON 序列化的 OsDialect（包管理器/服务管理器/路径等）
   osInfo                       String? // TR-041: /etc/os-release 原始摘要（distro name + version）
   hostKeySha256                String? // SHA256 SSH host key fingerprint used for strict host verification
+  /// How a sync job's source logs in to this server when it is the target: "credential" (this server's own
+  /// key or password is copied to the source for the run), "one-time-key" (a key made for the run, limited to
+  /// the transfer, installed by the hub and removed afterwards) or "inherit" (the setting sync.targetAuthDefault).
+  /// Servers that existed before the choice was added were set to "credential".
+  syncTargetAuth               String                 @default("inherit")
   onboardingStatus             ServerOnboardingStatus @default(READY)
   onboardingLastError          String?
   directGatewayDesiredEnabled  Boolean                @default(false)

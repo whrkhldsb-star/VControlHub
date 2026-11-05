@@ -140,6 +140,11 @@ function normalizeSettingValue(key: string, value: string) {
 			if (trimmed.length > 200 || /\s/.test(trimmed)) throw new ValidationError(t("backend.settings.turnstileKeyInvalid"));
 			return { key, value: trimmed };
 		}
+		case "sync.targetAuthDefault": {
+			const trimmed = value.trim();
+			if (trimmed !== "credential" && trimmed !== "one-time-key") throw new ValidationError(t("backend.settings.syncTargetAuthInvalid"));
+			return { key, value: trimmed };
+		}
 		case "telegram.botToken":
 			// Bot Token 形如 "123456:ABC-DEF..." — 拒绝空白和明显非 token 字符; 不强校验格式以兼容老 Bot API
 			return { key, value: value.trim() };

@@ -15,6 +15,8 @@ import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { useSshKeyOptions } from "./ssh-key-options";
 import { billingFormValues, type ServerBillingDto } from "@/lib/server/billing-form";
 import { ServerBillingFields } from "./server-billing-fields";
+import { ServerSyncTargetAuthField } from "./server-sync-target-auth-field";
+import type { ServerSyncTargetAuth } from "@/lib/sync/target-auth";
 type Props = {
   operatingSystem?: string; rdpDomain?: string; rdpIgnoreCertificate?: boolean; rdpCertificateSha256?: string;
   serverId: string;
@@ -37,6 +39,8 @@ type Props = {
   billing?: ServerBillingDto | null;
   storagePath?: string | null;
   storageNodeId?: string | null;
+  /** How sync logs in to this server as a target. */
+  syncTargetAuth?: ServerSyncTargetAuth;
   windowsSftpPort?: number;
   windowsSftpUsername?: string;
   // form action from useActionState
@@ -65,6 +69,7 @@ export function ServerCardEditForm({
   billing,
   storagePath = null,
   storageNodeId = null,
+  syncTargetAuth = "inherit",
   windowsSftpPort = 22,
   windowsSftpUsername = "",
   editAction,
@@ -316,6 +321,7 @@ export function ServerCardEditForm({
           </label>
         </div>
       ) : null}
+      {!windows ? <ServerSyncTargetAuthField id={`edit-sync-target-auth-${serverId}`} defaultValue={syncTargetAuth} /> : null}
       <div data-inset className="space-y-2 p-3">
         <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
           <input

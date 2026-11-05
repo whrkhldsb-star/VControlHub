@@ -140,6 +140,7 @@ const serverExportSchema = z.object({
   expiresAt: z.string().nullable().optional(),
   trafficQuotaBytes: z.string().nullable().optional(),
   trafficQuotaMode: z.string().optional(),
+  syncTargetAuth: z.enum(["inherit", "credential", "one-time-key"]).optional(),
 });
 
 // Customers and who belongs to them: resources carry their teamId, so a

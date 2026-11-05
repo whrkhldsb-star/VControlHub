@@ -37,6 +37,18 @@ export const SECURITY_POLICY_SETTINGS_SECTIONS: SectionDef[] = [
 				riskLevel: "high",
 			},
 			{
+				key: "sync.targetAuthDefault",
+				labelKey: "settingsClient.field.sync.targetAuthDefault.label",
+				type: "select",
+				defaultValue: "credential",
+				options: [
+					{ value: "credential", labelKey: "settingsClient.option.syncTargetAuth.credential" },
+					{ value: "one-time-key", labelKey: "settingsClient.option.syncTargetAuth.oneTimeKey" },
+				],
+				helperTextKey: "settingsClient.field.sync.targetAuthDefault.helper",
+				riskLevel: "high",
+			},
+			{
 				key: "security.turnstileSiteKey",
 				labelKey: "settingsClient.field.security.turnstileSiteKey.label",
 				type: "text",

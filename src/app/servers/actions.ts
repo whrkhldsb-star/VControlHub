@@ -16,6 +16,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { billingInputFromForm, normalizeServerBilling, saveNewServerBilling, updateServerBilling } from "@/lib/server/billing";
 import { SshHostKeyApprovalRequiredError } from "@/lib/ssh/host-key";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { SERVER_SYNC_TARGET_AUTH_VALUES, type ServerSyncTargetAuth } from "@/lib/sync/target-auth";
 
 export type ServerActionState = {
   error?: string;
@@ -26,6 +27,14 @@ export type ServerActionState = {
   /** Windows agent bootstrap one-liner, shown once after issuing a token. */
   installCommand?: string;
 };
+
+/** The sync login choice from the form; undefined when the form has no such field (Windows, older clients). */
+function syncTargetAuthFromForm(formData: FormData): ServerSyncTargetAuth | undefined {
+  const value = formData.get("syncTargetAuth");
+  return typeof value === "string" && (SERVER_SYNC_TARGET_AUTH_VALUES as readonly string[]).includes(value)
+    ? (value as ServerSyncTargetAuth)
+    : undefined;
+}
 
 function parseTags(raw: string) {
   return raw
@@ -66,6 +75,7 @@ export async function createServerAction(
     // Blank → the login user's own folder, chosen server-side.
     const storagePath = String(formData.get("storagePath") ?? "").trim() || undefined;
     const costAutoSync = formData.get("costAutoSync") === "on";
+    const syncTargetAuth = syncTargetAuthFromForm(formData);
     const costMonthlyAmount = String(formData.get("costMonthlyAmount") ?? "");
     const costCurrency = String(formData.get("costCurrency") ?? "CNY") as "CNY" | "USD" | "EUR" | "JPY" | "HKD";
     const costProvider = String(formData.get("costProvider") ?? "");
@@ -107,6 +117,7 @@ export async function createServerAction(
       directGatewayProtocol,
       directGatewayDomain: directGatewayDomain || undefined,
       storagePath,
+      ...(syncTargetAuth ? { syncTargetAuth } : {}),
       costAutoSync,
       costMonthlyAmount,
       costCurrency,
@@ -166,6 +177,7 @@ export async function updateServerAction(
 
     const storagePathRaw = String(formData.get("storagePath") ?? "").trim();
     const repairStoragePath = formData.get("repairStoragePath") === "on";
+    const updatedSyncTargetAuth = syncTargetAuthFromForm(formData);
     const billingInput = billingInputFromForm(formData);
     const billing = billingInput ? normalizeServerBilling(billingInput) : null;
     const changes = formData.get("operatingSystem") === "WINDOWS" ? {
@@ -207,6 +219,7 @@ export async function updateServerAction(
       costProvider: String(formData.get("costProvider") ?? ""),
       approvedHostKeySha256,
       ...(storagePathRaw ? { storagePath: storagePathRaw } : {}),
+      ...(updatedSyncTargetAuth ? { syncTargetAuth: updatedSyncTargetAuth } : {}),
       repairStoragePath,
       removeSshCredential: formData.get("removeSshCredential") === "on",
     };

@@ -15,6 +15,7 @@ import { config } from "@/lib/config/env";
 import { getResolvedDirectGatewayProtocol } from "./direct-gateway";
 import { t } from "@/lib/i18n/service-translations";
 import { toServerBillingDto } from "./billing-form";
+import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
 
 type ServerCommandTarget = {
   id: string;
@@ -83,6 +84,8 @@ export type ServerWithRelations = {
   osDialect?: string | null;
   osInfo?: string | null;
   hostKeySha256?: string | null;
+  /** How sync logs in to this server as a target (see sync/target-auth). */
+  syncTargetAuth?: string | null;
   // TR-031: monthly VPS cost auto-sync settings
   costAutoSync?: boolean;
   costMonthlyAmount?: Prisma.Decimal | null;
@@ -387,6 +390,7 @@ export function enrichServer(server: ServerWithRelations) {
     osInfo: server.osInfo ?? null,
     onboardingStatus: server.onboardingStatus ?? "READY",
     onboardingLastError: server.onboardingLastError ?? null,
+    syncTargetAuth: parseServerSyncTargetAuth(server.syncTargetAuth),
     costAutoSync: server.costAutoSync ?? false,
     costMonthlyAmount: server.costMonthlyAmount?.toFixed(2) ?? null,
     costCurrency: normalizeServerCostCurrency(server.costCurrency),

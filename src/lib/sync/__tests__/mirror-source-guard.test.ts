@@ -77,8 +77,8 @@ function useJob(syncType: string, deleteOrphans = false) {
     sourcePath: source,
     targetPath: target,
     // The one-time key is installed for the user the hub runs as: here, whoever runs the tests.
-    sourceServer: { id: "src", host: "source.invalid", port: 22, username: userInfo().username, sshKey: null },
-    targetServer: { id: "dst", host: "target.invalid", port: 22, username: userInfo().username, sshKey: null, hostKeySha256: null },
+    sourceServer: { id: "src", host: "source.invalid", port: 22, username: userInfo().username, sshKey: null, syncTargetAuth: "one-time-key" },
+    targetServer: { id: "dst", host: "target.invalid", port: 22, username: userInfo().username, sshKey: null, hostKeySha256: null, syncTargetAuth: "one-time-key" },
   };
 }
 

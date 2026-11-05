@@ -7,9 +7,10 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * parses the output, and writes the result to `syncLog` + `syncJob`.
  *
  * Pure command building lives in `./service-commands`, the run's one-time
- * target key in `./one-time-key`, prisma CRUD in `./service-crud`. The target
- * server's own password or key never leaves the hub: the hub uses it for its
- * own connection to the target, and the source gets a one-time key.
+ * target key in `./one-time-key`, credential decryption in
+ * `./service-credentials`, prisma CRUD in `./service-crud`. Which of the two
+ * ways the source logs in to the target ("credential" or "one-time-key") is
+ * chosen per target server, see `./target-auth`.
  */
 import { randomBytes } from "node:crypto";
 
@@ -40,6 +41,8 @@ import {
 	generateOneTimeKeyPair,
 	oneTimeKeyMarker,
 } from "./one-time-key";
+import { decryptSyncTargetCredentials } from "./service-credentials";
+import { resolveSyncTargetAuth, SYNC_TARGET_AUTH_SETTING, type SyncTargetAuth } from "./target-auth";
 import {
 	effectiveDeleteOrphans,
 	formatBidirectionalResult,
@@ -247,10 +250,8 @@ async function grantOneTimeTargetAccess(input: {
 }
 
 function oneTimeKeyRefusedMessage(targetLabel: string, detail: string, targetUsesPassword: boolean): string {
-	const why = targetUsesPassword
-		? "VControlHub logs in to this target with a password, and sync no longer hands that password to the source server"
-		: "Sync no longer copies the target's own key or password to the source server";
-	return `${targetLabel} did not accept the one-time sync key from the source server (${detail}). ${why}: the source logs in with a key made for this run, so the target's sshd must allow public-key login for this user through ~/.ssh/authorized_keys.`;
+	const credential = targetUsesPassword ? "password" : "key";
+	return `${targetLabel} did not accept the one-time sync key from the source server (${detail}). With a one-time key the source logs in with a key made for this run, so the target's sshd must allow public-key login for this user through ~/.ssh/authorized_keys${targetUsesPassword ? " (VControlHub itself logs in to this target with a password)" : ""}. To hand the target's own ${credential} to the source for the run instead, the original way, set this server's sync login to "Original".`;
 }
 
 /* ── endpoint preflight ───────────────────────────────────── */
@@ -326,6 +327,8 @@ type SyncEndpointServer = NonNullable<Awaited<ReturnType<typeof getSyncJobForExe
 async function runOneWayRsync(input: {
 	jobId: string;
 	leg: SyncLeg;
+	/** How the source logs in to the target (resolved from the target server's choice). */
+	auth: SyncTargetAuth;
 	sourceServer: SyncEndpointServer;
 	targetServer: SyncEndpointServer;
 	sourcePath: string;
@@ -343,6 +346,11 @@ async function runOneWayRsync(input: {
 	const targetUser = input.targetServer.username || "root";
 	const hostKeySha256 = input.targetServer.hostKeySha256;
 	const legJobId = legFileStem(input.jobId, input.leg);
+	// Credential mode hands the target's own key or password to the source: without one there is nothing to run with.
+	const targetCredentials = input.auth === "credential" ? decryptSyncTargetCredentials(input.targetServer) : null;
+	if (targetCredentials && !targetCredentials.privateKey && !targetCredentials.password) {
+		throw new Error("Target server has no SSH key or password configured");
+	}
 	// Everything this leg leaves in the source host's /tmp, removed when it ends.
 	const sourceFiles = hostKeySha256?.trim() ? [getSyncTempKeyPath(legJobId, "known_hosts")] : [];
 	let access: OneTimeAccess | null = null;
@@ -368,22 +376,42 @@ async function runOneWayRsync(input: {
 				"Bidirectional sync requires rsync on both VPS nodes; install rsync and retry. Tar fallback is disabled because it cannot preserve newer-wins semantics.",
 			);
 		}
-		const keyPath = getSyncTempKeyPath(legJobId, useTar ? "tar" : "rsync");
-		sourceFiles.push(keyPath);
-		const transport = { targetUser, targetHost, targetPort, keyPath, hostKeySha256, jobId: legJobId };
-		access = await grantOneTimeTargetAccess({
-			sourceSsh,
-			targetSsh,
-			jobId: input.jobId,
-			leg: input.leg,
-			transport,
-			gateScript: buildSyncGateScript({ mode: useTar ? "tar" : "rsync", targetPath: input.targetPath, allowDelete: input.deleteOrphans, jobId: legJobId }),
-			targetLabel: `${input.targetServer.name ? `${input.targetServer.name} ` : ""}(${targetUser}@${targetHost}:${targetPort})`,
-			targetUsesPassword: input.targetServer.connectionType === "PASSWORD",
-		});
-		const command = useTar
-			? buildTarSyncCommand({ ...transport, sourcePath: input.sourcePath })
-			: buildRsyncCommand({ ...transport, sourcePath: input.sourcePath, flags: input.flags });
+		let command: string;
+		if (!targetCredentials) {
+			const keyPath = getSyncTempKeyPath(legJobId, useTar ? "tar" : "rsync");
+			sourceFiles.push(keyPath);
+			const transport = { auth: "one-time-key" as const, targetUser, targetHost, targetPort, keyPath, hostKeySha256, jobId: legJobId };
+			command = useTar
+				? buildTarSyncCommand({ ...transport, sourcePath: input.sourcePath })
+				: buildRsyncCommand({ ...transport, sourcePath: input.sourcePath, flags: input.flags });
+			access = await grantOneTimeTargetAccess({
+				sourceSsh,
+				targetSsh,
+				jobId: input.jobId,
+				leg: input.leg,
+				transport,
+				gateScript: buildSyncGateScript({ mode: useTar ? "tar" : "rsync", targetPath: input.targetPath, allowDelete: input.deleteOrphans, jobId: legJobId }),
+				targetLabel: `${input.targetServer.name ? `${input.targetServer.name} ` : ""}(${targetUser}@${targetHost}:${targetPort})`,
+				targetUsesPassword: input.targetServer.connectionType === "PASSWORD",
+			});
+		} else {
+			// The original way: the target's own key, or else its password for sshpass, in the source's /tmp for the run.
+			const keyPath = targetCredentials.privateKey ? getSyncTempKeyPath(legJobId, useTar ? "tar" : "rsync") : undefined;
+			const passwordEnvPath = !keyPath && targetCredentials.password ? getSyncTempKeyPath(legJobId, "env") : undefined;
+			const transport = { auth: "credential" as const, targetUser, targetHost, targetPort, keyPath, passwordEnvPath, hostKeySha256, jobId: legJobId };
+			// Built before anything secret is written, so a refused value never leaves a file behind.
+			command = useTar
+				? buildTarSyncCommand({ ...transport, sourcePath: input.sourcePath, targetPath: input.targetPath, deleteOrphans: input.deleteOrphans })
+				: buildRsyncCommand({ ...transport, sourcePath: input.sourcePath, targetPath: input.targetPath, flags: input.flags });
+			if (keyPath) {
+				sourceFiles.push(keyPath);
+				await writeEphemeralPrivateKey(sourceSsh, keyPath, targetCredentials.privateKey!);
+			}
+			if (passwordEnvPath) {
+				sourceFiles.push(passwordEnvPath);
+				await writeEphemeralPrivateKey(sourceSsh, passwordEnvPath, `SSHPASS=${shellQuote(targetCredentials.password!)}\n`);
+			}
+		}
 		// The heartbeat touches the job's own row: the leg's file stem matched no row,
 		// so the stale-RUNNING reclaim took every run longer than 30 minutes for dead.
 		const result = await runWithSyncHeartbeat(input.jobId, () => execRemoteCommand({
@@ -489,10 +517,17 @@ export async function executeSyncJob(
 			compress: job.compress,
 		});
 
+		// Each leg's login follows the server it writes to; the platform default is
+		// read once, and only when one of them follows it.
+		let platformDefault: Promise<string> | null = null;
+		const readPlatformDefault = () =>
+			(platformDefault ??= import("@/lib/settings/service").then(({ getSetting }) => getSetting(SYNC_TARGET_AUTH_SETTING)));
+
 		// Forward: source → target
 		const forward = await runOneWayRsync({
 			jobId,
 			leg: "fwd",
+			auth: await resolveSyncTargetAuth(job.targetServer, readPlatformDefault),
 			sourceServer: job.sourceServer,
 			targetServer: job.targetServer,
 			sourcePath: job.sourcePath,
@@ -515,6 +550,7 @@ export async function executeSyncJob(
 				reverse = await runOneWayRsync({
 					jobId,
 					leg: "rev",
+					auth: await resolveSyncTargetAuth(job.sourceServer, readPlatformDefault),
 					sourceServer: job.targetServer,
 					targetServer: job.sourceServer,
 					sourcePath: job.targetPath,
@@ -682,13 +718,13 @@ export async function reclaimStaleRunningSyncJobs(options?: {
 
 /**
  * A run that died (worker killed, hub restarted) never reached its finally:
- * its one-time key line can still be in authorized_keys on either server (the
- * reverse leg installs on the job's source), and its private key and
- * known_hosts files in the other server's /tmp. Remove both on both servers,
- * best effort: the line also stops working at its expiry time, and the next
- * install on that host removes it too.
+ * a one-time key line can still be in authorized_keys on either server (the
+ * reverse leg installs on the job's source), and the private key, SSHPASS env
+ * file (credential mode) and known_hosts files in the other server's /tmp.
+ * Remove them on both servers, best effort: a one-time key line also stops
+ * working at its expiry time, and the next install on that host removes it too.
  */
-export async function sweepOneTimeSyncAccess(jobId: string): Promise<void> {
+async function sweepOneTimeSyncAccess(jobId: string): Promise<void> {
 	let job: Awaited<ReturnType<typeof getSyncJobForExecution>>;
 	try {
 		job = await getSyncJobForExecution(jobId);
@@ -698,7 +734,7 @@ export async function sweepOneTimeSyncAccess(jobId: string): Promise<void> {
 	}
 	if (!job) return;
 	const servers = [job.sourceServer, job.targetServer].filter((server, index, all) => all.findIndex((other) => other.id === server.id) === index);
-	const files = (["fwd", "rev"] as const).flatMap((leg) => (["rsync", "tar", "known_hosts"] as const).map((purpose) => getSyncTempKeyPath(legFileStem(jobId, leg), purpose)));
+	const files = (["fwd", "rev"] as const).flatMap((leg) => (["rsync", "tar", "env", "known_hosts"] as const).map((purpose) => getSyncTempKeyPath(legFileStem(jobId, leg), purpose)));
 	await Promise.all(servers.map(async (server) => {
 		try {
 			const ssh = await buildSshParamsFromServer(server, server.sshKey);

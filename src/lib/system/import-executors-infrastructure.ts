@@ -98,6 +98,7 @@ function serverProfileFields(r: ExportFile["tables"]["servers"][number]) {
     expiresAt: r.expiresAt === undefined ? undefined : r.expiresAt === null ? null : parseDate(r.expiresAt, "servers.expiresAt"),
     trafficQuotaBytes: r.trafficQuotaBytes === undefined ? undefined : parseBigInt(r.trafficQuotaBytes, "servers.trafficQuotaBytes"),
     trafficQuotaMode: r.trafficQuotaMode,
+    syncTargetAuth: r.syncTargetAuth,
   };
 }
 

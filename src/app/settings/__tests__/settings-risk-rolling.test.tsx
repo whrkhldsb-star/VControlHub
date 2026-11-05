@@ -182,6 +182,8 @@ describe("SETTINGS_SCHEMA risk classification (TR-014 schema audit)", () => {
       "security.loginLockoutMinutes",
       "security.rememberSessionTtlSeconds",
       "security.sshEnforceHostKeyPin",
+      // Decides whether sync hands target servers' own credentials to source servers.
+      "sync.targetAuthDefault",
       // A wrong Turnstile key can keep every administrator out of the console.
       "security.turnstileSiteKey",
       "security.turnstileSecretKey",

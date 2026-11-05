@@ -78,6 +78,8 @@ export const SettingKey = z.union([
 	z.literal("retention.trafficSnapshotsDays"),
 	z.literal("retention.terminalJobsDays"),
 	z.literal("ai.knowledgeMaxResults"),
+	// How sync logs in to target servers that follow the platform setting (see sync/target-auth).
+	z.literal("sync.targetAuthDefault"),
 ]);
 
 export type SettingKey = z.infer<typeof SettingKey>;
@@ -159,6 +161,7 @@ export const VALID_SETTING_KEYS: string[] = [
 	"retention.trafficSnapshotsDays",
 	"retention.terminalJobsDays",
 	"ai.knowledgeMaxResults",
+	"sync.targetAuthDefault",
 ];
 
 /* ── Sensitive key detection ──────────────────────────────── */
