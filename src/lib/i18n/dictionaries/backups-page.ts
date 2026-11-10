@@ -96,6 +96,11 @@ export const zh: Record<string, string> = {
 	"backupsPage.migration.noPermission": "需要 backup:create 权限才能使用迁移向导。",
 	"backupsPage.migration.restoreNote": "导入不会自动恢复生产数据；恢复仍走原有 RESTORE 确认与 worker。",
 	"backupsPage.create.description": "提交后会创建可审计备份记录并排入后台队列；页面可刷新查看等待中、执行中、已完成或失败状态。",
+	"backupsPage.coverage.uncoveredTitle": "平台备份不包含本地存储中的文件",
+	"backupsPage.coverage.uncovered": "本地存储目录 {paths} 位于安装目录之外：“文件备份”和“完整备份”都不会包含其中的文件，数据库备份只保存文件的记录。如需由完整备份一并保存，请在环境配置中用 BACKUP_EXTRA_PATHS_JSON 列出这些目录（JSON 数组，绝对路径）后重启服务；否则请用其他方式单独备份这些目录。",
+	"backupsPage.coverage.fullOnlyTitle": "本地存储中的文件只进入完整备份",
+	"backupsPage.coverage.fullOnly": "本地存储目录 {paths} 位于安装目录之外，已由 BACKUP_EXTRA_PATHS_JSON 列出：“完整备份”包含其中的文件，“文件备份”不包含。恢复时这些目录不会自动写回，需按备份包内的 external-data.json 手动解压。",
+	"backupsPage.coverage.more": "{paths} 等 {count} 个目录",
 
 	"backupsPage.schedule.title": "创建定时备份",
 	"backupsPage.schedule.description": "选择备份类型和 Cron 时间后保存为备份计划。系统每分钟检查到期的计划，自动创建备份并交给后台任务执行。平台备份在 VControlHub 所在主机上运行，无需选择 VPS；VPS 自身的备份请在 VPS 管理中设置。",
@@ -309,6 +314,11 @@ export const en: Record<string, string> = {
 	"backupsPage.section.offsite": "Offsite backup",
 	"backupsPage.section.schedule": "Scheduled backups",
 	"backupsPage.create.description": "Submitting creates an auditable backup record and queues it for background execution. Refresh the page to track waiting, running, completed, or failed status.",
+	"backupsPage.coverage.uncoveredTitle": "Platform backups do not hold the files in local storage",
+	"backupsPage.coverage.uncovered": "The local storage directory {paths} is outside the installation directory: neither a files backup nor a full backup holds its files, and a database backup keeps only their records. To have full backups include them, list these directories in BACKUP_EXTRA_PATHS_JSON (a JSON array of absolute paths) in the environment configuration and restart the services; otherwise back these directories up by other means.",
+	"backupsPage.coverage.fullOnlyTitle": "Files in local storage are held by full backups only",
+	"backupsPage.coverage.fullOnly": "The local storage directory {paths} is outside the installation directory and listed in BACKUP_EXTRA_PATHS_JSON: a full backup holds its files, a files backup does not. A restore does not write these directories back; extract them by hand as external-data.json in the archive describes.",
+	"backupsPage.coverage.more": "{paths} and others, {count} directories in all",
 
 	"backupsPage.schedule.title": "Create scheduled backup",
 	"backupsPage.schedule.description": "Pick a backup type and a cron time to save a backup schedule. Due schedules are checked every minute and run as background tasks on the machine hosting VControlHub, so no server is selected here; back up a VPS itself from Servers.",

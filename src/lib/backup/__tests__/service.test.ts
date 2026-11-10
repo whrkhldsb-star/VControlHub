@@ -408,6 +408,19 @@ describe("backup service", () => {
     expect(runBackupCommandMock).not.toHaveBeenCalled();
   });
 
+  it("says that the backup file is gone instead of failing with a raw ENOENT", async () => {
+    // Removed from the backup directory by hand: the page showed a 500.
+    statMock.mockRejectedValueOnce(Object.assign(new Error("ENOENT: no such file or directory, stat '/var/backups/x'"), { code: "ENOENT" }));
+    await expect(prepareOfflineRestore({ id: "bak1", projectRoot: "/opt/app" })).rejects.toMatchObject({
+      message: "磁盘上找不到备份产物文件",
+      status: 422,
+    });
+
+    // Anything else about the file (EACCES, EIO) is not "missing" and stays as it is.
+    statMock.mockRejectedValueOnce(Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" }));
+    await expect(prepareOfflineRestore({ id: "bak1", projectRoot: "/opt/app" })).rejects.toThrow("EACCES");
+  });
+
   it("summarizes backup policy capacity, type mix, retention hints, and failure reasons", () => {
     const summary = summarizeBackupPolicy([
       { id: "bak_summary_1", type: "DATABASE", status: "COMPLETED", filePath: "backups/db.sql.gz", fileSize: "1048576", createdAt: new Date("2026-04-01T00:00:00Z"), completedAt: new Date("2026-04-01T00:00:00Z") },

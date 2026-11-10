@@ -112,7 +112,7 @@ export const zh: Record<string, string> = {
 	// Repair: services
 	"healthPage.repair.services.label": "核对核心服务",
 	"healthPage.repair.services.descriptionCritical": "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。",
-	"healthPage.repair.services.action": "验证 vcontrolhub-next.service / vcontrolhub-worker.service / vcontrolhub-ssh-ws.service / caddy.service",
+	"healthPage.repair.services.action": "验证 {units}",
 
 	// Repair: git
 	"healthPage.repair.inventory.label": "纳管资源",
@@ -284,7 +284,7 @@ export const en: Record<string, string> = {
 	// Repair: services
 	"healthPage.repair.services.label": "Verify core services",
 	"healthPage.repair.services.descriptionCritical": "First confirm Next.js, SSH WS, and Caddy are all running.",
-	"healthPage.repair.services.action": "Verify vcontrolhub-next.service / vcontrolhub-worker.service / vcontrolhub-ssh-ws.service / caddy.service",
+	"healthPage.repair.services.action": "Verify {units}",
 
 	// Repair: git
 	"healthPage.repair.inventory.label": "Add resources",

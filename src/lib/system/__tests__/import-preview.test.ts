@@ -11,7 +11,7 @@ import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
  * server would pin every operator to zh.
  */
 
-const table = vi.hoisted(() => ({ counts: { create: 1, update: 2, skip: 3 } }));
+const table = vi.hoisted(() => ({ counts: { create: 1, update: 2, skip: 3 }, serverKeysMissing: false, storageServersMissing: false }));
 
 function stub() {
   return vi.fn(async () => table.counts);
@@ -39,6 +39,8 @@ const stubs = {
   previewIdentityTemplates: stub(),
   previewTeamMembers: stub(),
   previewUserServerAccess: stub(),
+  previewServerKeysMissing: vi.fn(async () => table.serverKeysMissing),
+  previewStorageServersMissing: vi.fn(async () => table.storageServersMissing),
 };
 
 vi.mock("../import-preview-tables", () => stubs);
@@ -106,6 +108,8 @@ function file(over: Record<string, unknown> = {}): ExportFile {
 beforeEach(() => {
   vi.clearAllMocks();
   alignment.missing = [];
+  table.serverKeysMissing = false;
+  table.storageServersMissing = false;
 });
 
 describe("previewImport", () => {
@@ -141,6 +145,25 @@ describe("previewImport", () => {
       "systemConfig.import.preview.warning.missingCustomers",
       "systemConfig.import.preview.warning.agentReinstall",
     ]));
+  });
+
+  it("warns about servers and storage nodes that will arrive without the key or server they name", async () => {
+    // A customer's package leaves out another customer's key: the import no
+    // longer fails on it, so the preview has to say what is left out.
+    const quiet = await previewImport(file({ tables: { servers: [{ id: "s1" }] } }), OPTIONS);
+    expect(quiet.warnings.join(" ")).not.toMatch(/serverKeysMissing|storageServersMissing/);
+
+    table.serverKeysMissing = true;
+    table.storageServersMissing = true;
+    const preview = await previewImport(file({ tables: { servers: [{ id: "s1", sshKeyId: "k-other" }] } }), OPTIONS);
+    for (const warning of [
+      "systemConfig.import.preview.warning.serverKeysMissing",
+      "systemConfig.import.preview.warning.storageServersMissing",
+    ]) {
+      expect(preview.warnings).toContain(warning);
+      expect(zh[warning]).toBeTypeOf("string");
+      expect(en[warning]).toBeTypeOf("string");
+    }
   });
 
   it("warns when a full export's credentials were encrypted with another key", async () => {

@@ -352,10 +352,11 @@ describe("retryPendingOffsiteUploads", () => {
 	it("paginates past a full batch even when every old record is skipped", async () => {
 		const firstPage = Array.from({ length: 100 }, (_, index) => ({
 			id: `rec-${String(index).padStart(3, "0")}`,
+			createdAt: new Date(1_700_000_000_000 + index),
 		}));
 		mockPrisma.backupRecord.findMany
 			.mockResolvedValueOnce(firstPage)
-			.mockResolvedValueOnce([{ id: "rec-100" }]);
+			.mockResolvedValueOnce([{ id: "rec-100", createdAt: new Date(1_700_000_000_100) }]);
 		mockPrisma.backupRecord.findUnique.mockImplementation(async ({ where }) => ({
 			...baseRecord,
 			id: where.id,
@@ -365,10 +366,18 @@ describe("retryPendingOffsiteUploads", () => {
 		const result = await retryPendingOffsiteUploads();
 
 		expect(result).toEqual({ observed: 101, uploaded: 0, failed: 0, skipped: 101, errors: [] });
-		expect(mockPrisma.backupRecord.findMany).toHaveBeenNthCalledWith(
-			2,
-			expect.objectContaining({ cursor: { id: "rec-099" }, skip: 1 }),
-		);
+		// The next page is everything after the last row seen, by (createdAt, id).
+		// Not `cursor` + `skip: 1`: an uploaded row leaves the filter, and the
+		// skip then dropped the first row still waiting.
+		const last = firstPage.at(-1)!;
+		const secondCall = mockPrisma.backupRecord.findMany.mock.calls[1]![0];
+		expect(secondCall).not.toHaveProperty("cursor");
+		expect(secondCall).not.toHaveProperty("skip");
+		expect(secondCall.where).toEqual({
+			status: "COMPLETED",
+			offsiteKey: null,
+			OR: [{ createdAt: { gt: last.createdAt } }, { createdAt: last.createdAt, id: { gt: last.id } }],
+		});
 	});
 
 	it("does not email one alert per pending backup; it reports the failures for one summary", async () => {

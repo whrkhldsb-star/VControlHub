@@ -33,7 +33,7 @@ import {
 import { downloadFile } from "@/lib/ssh/sftp-service";
 import { createLogger } from "@/lib/logging";
 import { config } from "@/lib/config/env";
-import { sendOffsiteFailureAlert } from "./offsite-uploader";
+import { pendingOffsiteAfter, sendOffsiteFailureAlert, type PendingOffsiteKey } from "./offsite-uploader";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 const vpsBackupLogger = createLogger("vps-backup");
@@ -191,19 +191,20 @@ export async function retryPendingVpsOffsiteUploads(
   let skipped = 0;
   let observed = 0;
   const errors: string[] = [];
-  let cursorId: string | undefined;
+  let after: PendingOffsiteKey | null = null;
   while (observed < maxRecords) {
     const take = Math.min(100, maxRecords - observed);
-    const records = await prisma.vpsBackupRecord.findMany({
+    // Keyset pagination: an uploaded record leaves this filter (see pendingOffsiteAfter).
+    const records: PendingOffsiteKey[] = await prisma.vpsBackupRecord.findMany({
       where: {
         status: "COMPLETED",
         offsiteKey: null,
         localPath: { not: null },
+        ...pendingOffsiteAfter(after),
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take,
-      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
-      select: { id: true },
+      select: { id: true, createdAt: true },
     });
     if (records.length === 0) break;
     for (const record of records) {
@@ -216,9 +217,8 @@ export async function retryPendingVpsOffsiteUploads(
       }
     }
     observed += records.length;
-    const nextCursor = records.at(-1)?.id;
-    if (!nextCursor || nextCursor === cursorId || records.length < take) break;
-    cursorId = nextCursor;
+    if (records.length < take) break;
+    after = records.at(-1)!;
   }
   return { observed, uploaded, failed, skipped, errors };
 }

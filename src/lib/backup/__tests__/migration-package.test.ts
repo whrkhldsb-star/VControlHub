@@ -146,6 +146,35 @@ describe("migration packages", () => {
     expect(await backupsNow()).toEqual([path.basename(imported.filePath)]);
   });
 
+  it("leaves no partial tarball behind when tar fails part-way", async () => {
+    // tar stopped by its time limit (a large backup) had written the start of
+    // the archive; the package was then listed as having a tarball, and that
+    // truncated file is what got copied to the other host.
+    const { createHash } = await import("node:crypto");
+    const relative = "backups/database-big.sql.gz";
+    const absolute = path.join(storage, relative);
+    await fs.mkdir(path.dirname(absolute), { recursive: true });
+    const payload = Buffer.from("SELECT 3; -- migration tar fixture\n");
+    await fs.writeFile(absolute, payload);
+    prismaMock.backupRecord.findUnique.mockResolvedValue({
+      id: "bak3", type: "DATABASE", status: "COMPLETED", filePath: relative, fileSize: String(payload.length),
+      checksumSha256: createHash("sha256").update(payload).digest("hex"), note: null, completedAt: new Date("2026-07-15T00:00:00.000Z"), teamId: "team1",
+    });
+    // Stands in for tar: writes the beginning of the output file, then fails.
+    const failingTar = path.join(tmp, "failing-tar.sh");
+    await fs.writeFile(failingTar, '#!/bin/sh\nprintf "partial" > "$2"\nexit 2\n', { mode: 0o755 });
+    vi.doMock("@/lib/runtime/tar-binary", () => ({ resolveLocalTarBinary: () => failingTar }));
+
+    const mod = await import("../migration-package");
+    const exported = await mod.exportMigrationPackage({ backupId: "bak3", projectRoot: tmp });
+
+    await expect(fs.access(path.join(storage, `${exported.packageRelativeDir}.tar.gz`))).rejects.toMatchObject({ code: "ENOENT" });
+    // The directory package is complete and is what the list offers.
+    const listed = (await mod.listMigrationPackages(tmp)).find((entry) => entry.packageId === exported.packageId);
+    expect(listed).toMatchObject({ hasTarball: false, type: "DATABASE" });
+    vi.doUnmock("@/lib/runtime/tar-binary");
+  });
+
   it("fails validation when payload is tampered", async () => {
     const { createHash } = await import("node:crypto");
     const relative = "backups/files-test.tar.gz";

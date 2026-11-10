@@ -1,6 +1,7 @@
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
+import { getLocalStorageBackupCoverage, type LocalStorageBackupCoverage } from "@/lib/backup/coverage";
 import { config } from "@/lib/config/env";
 import { getServerLocale, t as translate, type TFn } from "@/lib/i18n/translations";
 import { PageShell, EmptyState, PageHeader, StatCard, StatGrid, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
@@ -34,7 +35,7 @@ export default async function BackupsPage() {
 	const session = await requirePagePermission("backup:read", { redirectTo: "/backups" });
 	const canCreate = sessionHasPermission(session, "backup:create");
 	const canRestore = sessionHasPermission(session, "backup:restore");
-	const [backups, offsiteState] = await Promise.all([
+	const [backups, offsiteState, coverage] = await Promise.all([
 		listBackupRecords(session),
 		loadOffsiteConfig()
 			.then((value) => ({ value, failed: false }))
@@ -42,7 +43,14 @@ export default async function BackupsPage() {
 				logger.warn("Failed to load offsite backup config", error);
 				return { value: null, failed: true };
 			}),
+		getLocalStorageBackupCoverage().catch((error): LocalStorageBackupCoverage => {
+			logger.warn("Failed to work out which storage directories backups hold", error);
+			return { uncovered: [], fullOnly: [] };
+		}),
 	]);
+	// At most three paths are spelled out; the count says how many there are.
+	const listDirectories = (directories: string[]) =>
+		directories.length > 3 ? t("backupsPage.coverage.more", { paths: directories.slice(0, 3).join(", "), count: directories.length }) : directories.join(", ");
 	const offsite = offsiteState.value;
 	const summary = summarizeBackupPolicy(backups);
 	return (
@@ -55,6 +63,17 @@ export default async function BackupsPage() {
 				<StatCard label={t("backupsPage.summary.retentionNote")} value={String(summary.recordsOlderThan30Days)} detail={t("backupsPage.summary.retentionHint")} accent={summary.recordsOlderThan30Days > 0} accentColor="amber" />
 				<StatCard label={t("backupsPage.summary.exceptions")} value={`${summary.failedRecords} / ${summary.runningRecords}`} detail={t("backupsPage.summary.exceptionsHint")} accent={summary.failedRecords > 0} accentColor="rose" />
 			</StatGrid>
+
+			{coverage.uncovered.length > 0 && (
+				<Notice tone="warning" className="mb-5" title={t("backupsPage.coverage.uncoveredTitle")} data-backup-coverage="uncovered">
+					{t("backupsPage.coverage.uncovered", { paths: listDirectories(coverage.uncovered) })}
+				</Notice>
+			)}
+			{coverage.fullOnly.length > 0 && (
+				<Notice tone="info" className="mb-5" title={t("backupsPage.coverage.fullOnlyTitle")} data-backup-coverage="full-only">
+					{t("backupsPage.coverage.fullOnly", { paths: listDirectories(coverage.fullOnly) })}
+				</Notice>
+			)}
 
 			{canCreate && (
 				<div className="mb-5">

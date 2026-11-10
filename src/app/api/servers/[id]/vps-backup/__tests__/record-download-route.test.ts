@@ -63,6 +63,24 @@ describe("GET /api/servers/[id]/vps-backup/records/[recordId]/download", () => {
 		expect(mocks.recordFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "rec_1", serverId: "srv_1" } }));
 	});
 
+	it("names a database dump .sql.gz and every other preset .tar.gz", async () => {
+		// The mysql and postgres presets pipe a dump through gzip; saved as
+		// .tar.gz the download would not open as the archive its name promises.
+		for (const [backupType, name] of [
+			["mysql", "mysql-rec_1.sql.gz"],
+			["postgres", "postgres-rec_1.sql.gz"],
+			["nginx-config", "nginx-config-rec_1.tar.gz"],
+			["docker-volumes", "docker-volumes-rec_1.tar.gz"],
+			["website-files", "website-files-rec_1.tar.gz"],
+			["custom", "custom-rec_1.tar.gz"],
+		]) {
+			mocks.recordFindFirst.mockResolvedValueOnce({ id: "rec_1", localPath: "full.tar.gz", backupType, status: "COMPLETED", offsiteKey: null });
+			const res = await get();
+			expect(res.headers.get("content-disposition")).toBe(`attachment; filename="${name}"`);
+			await res.body?.cancel();
+		}
+	});
+
 	it("refuses records that are missing, unfinished or whose file is gone with no offsite copy", async () => {
 		mocks.recordFindFirst.mockResolvedValueOnce(null);
 		expect((await get()).status).toBe(404);

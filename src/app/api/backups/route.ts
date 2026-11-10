@@ -73,10 +73,12 @@ export async function POST(request: Request) {
       if (backup.status !== "COMPLETED") {
         throw new BusinessError(backup.errorMessage?.slice(0, 500) || `Backup finished with status ${backup.status}`);
       }
+      // Before the redirect: a form submission (Accept: text/html) used to
+      // return here first and left no audit entry for the backup it made.
+      await auditUserAction(session.userId, "backup.create", { backupId: backup.id }, undefined, session.currentTeamId);
       if ((request.headers.get("accept") || "").includes("text/html")) {
         return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
       }
-      await auditUserAction(session.userId, "backup.create", { backupId: backup.id }, undefined, session.currentTeamId);
       return NextResponse.json({ backup }, { status: 201 });
     }
 

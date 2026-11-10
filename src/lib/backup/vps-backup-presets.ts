@@ -72,8 +72,26 @@ const POSTGRES_PRESET: BackupPreset = {
 	type: "postgres",
 	requiresPaths: false,
 	description: "Dumps all PostgreSQL databases via pg_dumpall",
-	buildCommand: (remoteFilePath) =>
-		`set -euo pipefail; pg_dumpall | gzip > '${remoteFilePath}'; test -s '${remoteFilePath}'`,
+	// The login user dumps first (a role of its own, PGUSER, ~/.pgpass). A
+	// stock PostgreSQL lets only the "postgres" system user in over the local
+	// socket, so for root (what most servers are managed as) that attempt ends
+	// in `role "root" does not exist` and the preset never produced a backup;
+	// root then dumps as that user. Any other login keeps its own error.
+	buildCommand: (remoteFilePath) => {
+		const compress = `gzip > '${remoteFilePath}'`;
+		const asPostgres = [
+			"if command -v runuser >/dev/null 2>&1;",
+			`then (cd / && runuser -u postgres -- pg_dumpall) | ${compress};`,
+			`else (cd / && su -s /bin/sh postgres -c pg_dumpall) | ${compress}; fi`,
+		].join(" ");
+		return [
+			"set -euo pipefail;",
+			`if ! first_error=$( { pg_dumpall | ${compress}; } 2>&1 ); then`,
+			`if [ "$(id -u)" = 0 ] && id -u postgres >/dev/null 2>&1; then ${asPostgres};`,
+			`else printf '%s\\n' "$first_error" >&2; exit 1; fi;`,
+			`fi; test -s '${remoteFilePath}'`,
+		].join(" ");
+	},
 };
 
 const DOCKER_VOLUMES_PRESET: BackupPreset = {
@@ -131,6 +149,15 @@ export function invalidCustomBackupPaths(paths: string[]): string[] {
 		if ([...trimmed].some((ch) => ch.charCodeAt(0) < 0x20 || ch.charCodeAt(0) === 0x7f)) return true;
 		return trimmed.split("/").includes("..");
 	});
+}
+
+/**
+ * What a preset's artifact is. The mysql and postgres presets write a gzipped
+ * SQL dump, not a tar archive; every backup used to be handed out as
+ * `<type>-<id>.tar.gz`, and `tar xzf` on a database backup failed.
+ */
+export function vpsBackupArtifactExtension(backupType: string): "sql.gz" | "tar.gz" {
+	return backupType === "mysql" || backupType === "postgres" ? "sql.gz" : "tar.gz";
 }
 
 /* ── Registry ────────────────────────────────────────────── */

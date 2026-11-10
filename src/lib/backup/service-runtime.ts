@@ -136,6 +136,20 @@ function probeGunzipHead(filePath: string, maxBytes: number, timeoutMs: number):
 	});
 }
 
+/**
+ * The backup file of a record, which has to be there. A file removed from the
+ * backup directory by hand used to surface as a raw ENOENT: a 500 "restore
+ * failed" in the page, with the reason only in the server log.
+ */
+async function statBackupArtifact(backupPath: string) {
+	try {
+		return await stat(backupPath);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new BusinessError(t("backend.backup.artifactMissing"));
+		throw error;
+	}
+}
+
 export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string | null; note?: string; projectRoot?: string; teamId?: string | null }) {
 	const record = await createBackupRecord(input);
 	return runExistingBackupRecord({ id: record.id, projectRoot: input.projectRoot });
@@ -282,7 +296,7 @@ export async function prepareOfflineRestore(input: {
 	const type = record.type;
 	const component = type === "FULL" ? (input.component ?? "all") : type === "FILES" ? "files" : "database";
 	const backupPath = resolveBackupPath(projectRoot, record.filePath);
-	await stat(backupPath);
+	await statBackupArtifact(backupPath);
 	if (!record.checksumSha256) {
 		throw new BusinessError(t("backend.backup.checksumMissing"));
 	}
@@ -336,7 +350,7 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 	if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	const backupPath = resolveBackupPath(projectRoot, record.filePath);
-	const info = await stat(backupPath);
+	const info = await statBackupArtifact(backupPath);
 	if (!info.isFile() || info.size <= 0) throw new BusinessError(t("backend.backup.artifactEmpty"));
 	const actualChecksum = await calculateFileSha256(backupPath);
 	if (actualChecksum !== record.checksumSha256) throw new BusinessError(t("backend.backup.checksumMismatch"));

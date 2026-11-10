@@ -2,9 +2,10 @@
  * Unit tests for VPS backup presets + cron parser (TR-043)
  */
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { gunzipSync } from "node:zlib";
 import { describe, it, expect } from "vitest";
 
 import {
@@ -131,6 +132,74 @@ describe.skipIf(process.platform === "win32")("remote archive privacy", () => {
 			}
 		},
 	);
+});
+
+describe.skipIf(process.platform === "win32")("postgres preset: who runs pg_dumpall", () => {
+	// A stock PostgreSQL only lets the "postgres" system user in over the local
+	// socket. The stand-ins behave that way: the dump works for a login that
+	// has a role (HAS_ROLE=1) or when it is run through runuser/su as postgres.
+	const tools: Record<string, string> = {
+		pg_dumpall: [
+			"#!/bin/sh",
+			"if [ \"${AS_POSTGRES:-0}\" = 1 ]; then printf 'dump by postgres'; exit 0; fi",
+			"if [ \"${HAS_ROLE:-0}\" = 1 ]; then printf 'dump by login'; exit 0; fi",
+			"echo 'pg_dumpall: error: FATAL:  role \"root\" does not exist' >&2; exit 1",
+			"",
+		].join("\n"),
+		id: [
+			"#!/bin/sh",
+			"if [ \"$#\" = 1 ]; then echo \"${FAKE_UID:-0}\"; exit 0; fi",
+			"[ \"${POSTGRES_USER_EXISTS:-1}\" = 1 ] && echo 110 && exit 0",
+			"echo 'id: postgres: no such user' >&2; exit 1",
+			"",
+		].join("\n"),
+		runuser: "#!/bin/sh\n[ \"$1 $2 $3\" = '-u postgres --' ] || exit 64\nshift 3\nAS_POSTGRES=1 exec \"$@\"\n",
+	};
+
+	function run(env: Record<string, string>) {
+		const dir = mkdtempSync(path.join(tmpdir(), "vch-pg-preset-"));
+		try {
+			const bin = path.join(dir, "bin");
+			mkdirSync(bin);
+			for (const [name, body] of Object.entries(tools)) {
+				writeFileSync(path.join(bin, name), body);
+				chmodSync(path.join(bin, name), 0o755);
+			}
+			const archive = path.join(dir, "vch-backup-1-abc.tar.gz");
+			const command = buildRemoteBackupCommand("postgres", archive);
+			try {
+				execFileSync("bash", ["-c", command], {
+					env: { ...process.env, ...env, PATH: `${bin}:${process.env.PATH ?? "/usr/bin:/bin"}` },
+					stdio: "pipe",
+				});
+			} catch (error) {
+				const failure = error as { status: number; stderr: Buffer };
+				return { status: failure.status, stderr: failure.stderr.toString(), dump: "" };
+			}
+			return { status: 0, stderr: "", dump: gunzipSync(readFileSync(archive)).toString() };
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	}
+
+	it("dumps as the login user when that user can connect", () => {
+		expect(run({ FAKE_UID: "0", HAS_ROLE: "1" })).toMatchObject({ status: 0, dump: "dump by login" });
+		expect(run({ FAKE_UID: "1000", HAS_ROLE: "1" })).toMatchObject({ status: 0, dump: "dump by login" });
+	});
+
+	it("dumps as the postgres system user when root has no database role", () => {
+		// The usual managed server: root over SSH, PostgreSQL as installed.
+		expect(run({ FAKE_UID: "0" })).toMatchObject({ status: 0, dump: "dump by postgres" });
+	});
+
+	it("fails with the database's own error for a login that cannot switch user", () => {
+		const unprivileged = run({ FAKE_UID: "1000" });
+		expect(unprivileged.status).not.toBe(0);
+		expect(unprivileged.stderr).toContain('role "root" does not exist');
+		const noPostgresUser = run({ FAKE_UID: "0", POSTGRES_USER_EXISTS: "0" });
+		expect(noPostgresUser.status).not.toBe(0);
+		expect(noPostgresUser.stderr).toContain('role "root" does not exist');
+	});
 });
 
 describe("buildRemoteCleanupCommand", () => {

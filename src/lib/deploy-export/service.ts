@@ -150,10 +150,35 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		`APP_SLUG="\${APP_SLUG:-${appName}}"`,
 		'SERVICE_PREFIX="${SERVICE_PREFIX:-$APP_SLUG}"',
 		'APP_DIR="${APP_DIR:-/opt/$APP_SLUG}"',
+		'ENV_FILE="${ENV_FILE:-$APP_DIR/.env.production}"',
 		'mkdir -p "$APP_DIR"/{storage,uploads,downloads,logs,backups,tmp}',
 		// The units run the build in $APP_DIR; building wherever the script
 		// was started left them without dist/.
 		'cd "$APP_DIR"',
+		// Prisma takes DATABASE_URL from the environment: its config reads .env,
+		// .env.local and .env.runtime, not the file the units use, so "prisma
+		// generate" stopped on "Cannot resolve environment variable". The file is
+		// read as systemd's EnvironmentFile reads it (no shell expansion: a "$" in
+		// a password stays one).
+		'if [ ! -f "$ENV_FILE" ]; then',
+		'\techo "Missing $ENV_FILE: copy env.production.example there and fill it in first." >&2',
+		"\texit 1",
+		"fi",
+		'while IFS= read -r line || [ -n "$line" ]; do',
+		"\tline=\"${line%$'\\r'}\"",
+		'\tcase "$line" in "" | "#"*) continue ;; *=*) ;; *) continue ;; esac',
+		'\tvalue="${line#*=}"',
+		'\tcase "$value" in',
+		'\t\t\\"*\\") value="${value#\\"}"; value="${value%\\"}" ;;',
+		"\t\t\\'*\\') value=\"${value#\\'}\"; value=\"${value%\\'}\" ;;",
+		"\tesac",
+		'\texport "${line%%=*}=$value"',
+		'done < "$ENV_FILE"',
+		// "npm run build" refuses to run unless it is told this is a deployment
+		// (scripts/guard-live-next-build.mjs), and then only while the service
+		// is stopped: a build under a running server replaces the .next it serves.
+		'export NEXT_SYSTEMD_SERVICE="$SERVICE_PREFIX-next.service"',
+		"export VCONTROLHUB_DEPLOY_BUILD=1",
 		"npm ci",
 		"npx prisma generate",
 		"npx prisma migrate deploy",

@@ -42,6 +42,8 @@ import {
   previewIdentityTemplates,
   previewTeamMembers,
   previewUserServerAccess,
+  previewServerKeysMissing,
+  previewStorageServersMissing,
 } from "./import-preview-tables";
 
 /**
@@ -87,6 +89,8 @@ const W = {
   agentReinstall: "systemConfig.import.preview.warning.agentReinstall",
   credentialsNeedSourceKey: "systemConfig.import.preview.warning.credentialsNeedSourceKey",
   legacyRecoveryCodes: "systemConfig.import.preview.warning.legacyRecoveryCodes",
+  serverKeysMissing: "systemConfig.import.preview.warning.serverKeysMissing",
+  storageServersMissing: "systemConfig.import.preview.warning.storageServersMissing",
 } as const;
 
 /**
@@ -148,6 +152,9 @@ export async function previewImport(
   // The import refuses a package whose resources name customers it cannot find.
   if ((await findMissingTeamIds(prisma, t)).length > 0) warnings.push(W.missingCustomers);
   if (t.servers.some((server) => server.managementMode === "AGENT")) warnings.push(W.agentReinstall);
+  // What the import leaves out instead of failing on (import-executors-infrastructure).
+  if (await previewServerKeysMissing(t)) warnings.push(W.serverKeysMissing);
+  if (await previewStorageServersMissing(t)) warnings.push(W.storageServersMissing);
 
   // ── Permissions ──
   {

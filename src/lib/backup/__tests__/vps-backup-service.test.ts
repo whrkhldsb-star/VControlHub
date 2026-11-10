@@ -384,10 +384,11 @@ describe("retryPendingVpsOffsiteUploads", () => {
   it("paginates beyond the oldest full batch", async () => {
     const firstPage = Array.from({ length: 100 }, (_, index) => ({
       id: `vps-${String(index).padStart(3, "0")}`,
+      createdAt: new Date(1_700_000_000_000 + index),
     }));
     mocks.findMany
       .mockResolvedValueOnce(firstPage)
-      .mockResolvedValueOnce([{ id: "vps-100" }]);
+      .mockResolvedValueOnce([{ id: "vps-100", createdAt: new Date(1_700_000_000_100) }]);
     mocks.findUnique.mockResolvedValue({
       id: "pending",
       status: "PENDING",
@@ -398,10 +399,15 @@ describe("retryPendingVpsOffsiteUploads", () => {
     const result = await retryPendingVpsOffsiteUploads();
 
     expect(result).toEqual({ observed: 101, uploaded: 0, failed: 0, skipped: 101, errors: [] });
-    expect(mocks.findMany).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ cursor: { id: "vps-099" }, skip: 1 }),
-    );
+    // Keyset on (createdAt, id), not `cursor` + `skip: 1` (see pendingOffsiteAfter).
+    const last = firstPage.at(-1)!;
+    const secondCall = mocks.findMany.mock.calls[1]![0];
+    expect(secondCall).not.toHaveProperty("cursor");
+    expect(secondCall).not.toHaveProperty("skip");
+    expect(secondCall.where.OR).toEqual([
+      { createdAt: { gt: last.createdAt } },
+      { createdAt: last.createdAt, id: { gt: last.id } },
+    ]);
   });
 });
 

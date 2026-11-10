@@ -475,6 +475,10 @@ export async function exportMigrationPackage(input: {
       { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 },
     );
   } catch (error) {
+    // A tar stopped by the time limit (or a full disk) leaves the beginning of
+    // an archive behind. Listed as the package's tarball, it was what an
+    // operator copied to the other host, where it failed to extract.
+    await rm(tarAbsolute, { force: true }).catch(() => undefined);
     logger.warn("migration package tarball creation failed (directory package still valid)", {
       packageId,
       error: error instanceof Error ? error.message : String(error),

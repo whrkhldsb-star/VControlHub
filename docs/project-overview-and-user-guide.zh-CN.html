@@ -1462,7 +1462,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>部署记录关联命令请求、目标节点、渲染后的配置快照和回滚信息。用户可以查看最近部署、状态和执行记录，在允许时重新提交部署或发起真实回滚。</p>
 <p>“重新部署”再次执行部署模板；“真实回滚”执行原部署快照中保存的回滚命令并进入审批执行链路。模板没有有效回滚命令时，不能宣称平台可自动恢复任意旧环境。数据库业务变更和应用数据是否可回退由具体脚本负责。</p>
 <h3 id="section-9-3">9.3 部署模板导出</h3>
-<p>部署页可以生成便携的部署说明／模板包，包含环境变量示例、systemd 单元、Caddy 示例、部署及回滚脚本等。此类导出使用占位符，不把生产密钥和连接串写入普通部署模板。</p>
+<p>部署页可以生成便携的部署说明／模板包，包含环境变量示例、systemd 单元、Caddy 示例和部署脚本。此类导出使用占位符，不把生产密钥和连接串写入普通部署模板。部署脚本从 <code>/opt/&lt;应用标识&gt;/.env.production</code> 读取配置（先由 <code>env.production.example</code> 复制并填写，缺少时脚本会直接提示并退出），然后安装依赖、执行数据库迁移并构建；重新执行前需先停止 <code>&lt;应用标识&gt;-next</code> 服务，否则构建会被拒绝，以免覆盖正在提供服务的构建产物。</p>
 <p>它与“完整平台备份”和“含密钥配置导出”是不同产物。拿到模板包后仍需填入目标环境配置、准备依赖、迁移所需数据并执行验收。</p>
 <h3 id="section-9-4">9.4 Docker 容器管理</h3>
 <p>入口：<code>/docker</code>。也可从相关应用或配置入口进入。</p>
@@ -1799,7 +1799,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <tr>
 <td>PostgreSQL</td>
 <td><code>pg_dumpall</code> 并压缩</td>
-<td>客户端可用，具备数据库访问权限</td>
+<td>客户端可用；登录账号具备数据库访问权限，或以 root 登录且目标机存在 <code>postgres</code> 系统用户（此时改由该用户导出）</td>
 </tr>
 <tr>
 <td>Docker Volumes</td>
@@ -1818,7 +1818,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 </tbody>
 </table></div>
-<p>任务在目标机生成产物，再回传到平台侧并清理临时文件。这不是所有服务的一致性快照系统；运行中的数据库、Docker 数据和业务文件应采用适合应用的一致性方案。自定义 Docker 数据根目录、rootless Docker 与默认卷路径不同，不能直接套用预设假设。</p>
+<p>任务在目标机生成产物，再回传到平台侧并清理临时文件。MySQL 与 PostgreSQL 预设的产物是压缩的 SQL 导出，下载时文件名为 <code>.sql.gz</code>；其余预设为 <code>.tar.gz</code>。这不是所有服务的一致性快照系统；运行中的数据库、Docker 数据和业务文件应采用适合应用的一致性方案。自定义 Docker 数据根目录、rootless Docker 与默认卷路径不同，不能直接套用预设假设。</p>
 <p>依据：<a href="../src/lib/backup/service.ts">备份服务</a>、<a href="../src/lib/backup/service-runtime.ts">恢复及演练实现</a>、<a href="../src/lib/backup/vps-backup-presets.ts">VPS 备份预设</a>、<a href="../src/lib/backup/recovery-offsite.ts">系统恢复归档异地上传</a>。</p>
 <h2 id="ai">14. AI 助手、知识库与 AI 运维</h2>
 <h3 id="section-14-1">14.1 AI 提供商管理</h3>

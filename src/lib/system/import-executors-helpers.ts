@@ -94,12 +94,28 @@ export function parseBigInt(s: string | null, field = "size"): bigint | null {
  * resolve.
  */
 export async function creatorResolver(tx: Tx, ids: Array<string | null | undefined>): Promise<(id: string | null | undefined) => string | null> {
+  const present = await idsPresent(ids, (chunk) => tx.user.findMany({ where: { id: { in: chunk } }, select: { id: true } }));
+  return (id) => (id && present.has(id) ? id : null);
+}
+
+/**
+ * Which of the referenced ids exist once the tables before this one are
+ * imported. An optional relation (a server's SSH key, a storage node's
+ * server) still fails the insert on its foreign key when the row it names is
+ * neither in the package nor here, and one such row rolled the whole import
+ * back: a customer's package leaves out the key of a server that was
+ * transferred from another customer.
+ */
+export async function idsPresent(
+  ids: Array<string | null | undefined>,
+  find: (chunk: string[]) => Promise<Array<{ id: string }>>,
+): Promise<Set<string>> {
   const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
   const present = new Set<string>();
   for (let i = 0; i < wanted.length; i += 1_000) {
-    for (const row of await tx.user.findMany({ where: { id: { in: wanted.slice(i, i + 1_000) } }, select: { id: true } })) present.add(row.id);
+    for (const row of await find(wanted.slice(i, i + 1_000))) present.add(row.id);
   }
-  return (id) => (id && present.has(id) ? id : null);
+  return present;
 }
 
 export async function upsertById<TRecord extends { id: string }>(

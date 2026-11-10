@@ -408,7 +408,7 @@ describe("VPS backup routes", () => {
 
 			expect(response.status).toBe(200);
 			expect(response.headers.get("content-length")).toBe("7");
-			expect(response.headers.get("content-disposition")).toBe('attachment; filename="mysql-rec_1.tar.gz"');
+			expect(response.headers.get("content-disposition")).toBe('attachment; filename="mysql-rec_1.sql.gz"');
 			expect(response.headers.get("x-vch-backup-source")).toBeNull();
 			await expect(response.text()).resolves.toBe("payload");
 		});

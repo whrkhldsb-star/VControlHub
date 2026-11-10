@@ -42,6 +42,25 @@ describe("repairSuggestions", () => {
 	});
 });
 
+describe("the service advice", () => {
+	it("names the units that are not running, as this install calls them", async () => {
+		// The hint listed "vcontrolhub-…" units whatever the install's slug was.
+		const { zh, en } = await import("@/lib/i18n/dictionaries/health-page");
+		const translate = (dictionary: Record<string, string>) => (key: string, vars?: Record<string, string | number>) =>
+			Object.entries(vars ?? {}).reduce((text, [name, value]) => text.split(`{${name}}`).join(String(value)), dictionary[key] ?? key);
+		const failing = report([
+			{ id: "next-service", status: "healthy" },
+			{ id: "worker-service", status: "critical" },
+			{ id: "caddy-service", status: "warning" },
+		]);
+		failing.checks[0]!.params = { unit: "my-console-next.service" };
+		failing.checks[1]!.params = { unit: "my-console-worker.service", state: "failed" };
+		failing.checks[2]!.params = { unit: "caddy.service" };
+		expect(repairSuggestions(failing, translate(zh))[0]).toMatchObject({ id: "services", action: "验证 my-console-worker.service / caddy.service" });
+		expect(repairSuggestions(failing, translate(en))[0]).toMatchObject({ action: "Verify my-console-worker.service / caddy.service" });
+	});
+});
+
 describe("formatProjectedPercent", () => {
 	it("caps projections at full instead of printing impossible usage", async () => {
 		const { formatProjectedPercent } = await import("../capacity-forecast-panel");
