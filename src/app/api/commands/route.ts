@@ -17,9 +17,9 @@ const submitCommandRequestBodySchema = createCommandSchema
 
 const cancelCommandRequestBodySchema = z.object({
   action: z.literal("cancel"),
-  commandRequestId: z.string().trim().min(1, "CommandRequestis required").optional(),
-  id: z.string().trim().min(1, "CommandRequestis required").optional(),
-  reason: z.string().trim().max(500, "CancelReasonAt most 500 characters").optional(),
+  commandRequestId: z.string().trim().min(1, "Command request is required").optional(),
+  id: z.string().trim().min(1, "Command request is required").optional(),
+  reason: z.string().trim().max(500, "Cancellation reason must be at most 500 characters").optional(),
 }).refine((body) => Boolean(body.commandRequestId ?? body.id), {
   message: "Command request is required",
   path: ["commandRequestId"],

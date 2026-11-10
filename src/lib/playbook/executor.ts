@@ -8,6 +8,7 @@
 
 import { prisma } from "@/lib/db";
 import { createCommandRequest, cancelCommandRequest } from "@/lib/command/service";
+import { commandRequestTitle } from "@/lib/command/schema";
 import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { recordJobEvent } from "@/lib/job/events";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
@@ -283,7 +284,7 @@ async function dispatchStep(input: {
       }
       if (!commandRequestId) {
         const request = await createCommandRequest({
-          title: `Playbook ${input.playbookId}: ${step.name || step.id}`,
+          title: commandRequestTitle(`Playbook ${input.playbookId}: `, step.name || step.id),
           command: substituteVariables(step.config.command, step.config.variables ?? {}),
           reason: `Playbook run ${input.runId}, step ${step.id}, attempt ${input.attempt + 1}`,
           submissionMode: "user",

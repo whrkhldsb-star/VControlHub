@@ -24,6 +24,12 @@ const ACTIVE_REQUEST_STATUSES = new Set(["PENDING_APPROVAL", "APPROVED", "RUNNIN
 export default async function RequestsPage() {
 	const session = await requirePagePermission("command:read", { redirectTo: "/requests" });
 	const canApprove = sessionHasPermission(session, "command:approve");
+	// Who a cancel request is accepted from (PATCH /api/commands, cancelCommandRequest): a member who may execute
+	// commands, for a request of their own, and for anyone's when they may also approve. The button followed
+	// "may approve" alone: an operator could not stop the command they had just started, and a reviewer without
+	// the execute permission was shown a button the server refuses.
+	const canExecute = sessionHasPermission(session, "command:execute");
+	const canCancelOthers = canExecute && (canApprove || sessionHasPermission(session, "team:manage"));
 	const locale = await getServerLocale();
 	const [requests, aiActions] = await Promise.all([
 		listCommandRequests(session),
@@ -130,7 +136,7 @@ export default async function RequestsPage() {
 								</div>
 
 								{canApprove && request.status === "PENDING_APPROVAL" && <ReviewCommandForm commandRequestId={request.id} />}
-								{canApprove && ["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status) && (
+								{(canCancelOthers || (canExecute && request.requester.id === session.userId)) && ["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status) && (
 									<CancelCommandButton commandRequestId={request.id} commandTitle={request.title} />
 								)}
 								</article>

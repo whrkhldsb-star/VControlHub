@@ -2,6 +2,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { prisma } from "@/lib/db";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { createCommandRequest } from "@/lib/command/service";
+import { commandRequestTitle } from "@/lib/command/schema";
 import { commandTemplateScopeWhere, renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
 import type { SessionPayload } from "@/lib/auth/session";
 import { deploymentRunTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
@@ -196,7 +197,7 @@ async function createDeploymentRunFromTemplateUnlocked(
     if (existing) {
       if (existing.commandRequestId) return existing;
       const command = await createCommandRequest({
-        title: `Deployment: ${template.name}`,
+        title: commandRequestTitle("Deployment: ", template.name),
         command: existing.renderedCommand,
         reason: normalized.reason || "Recovered deployment request",
         submissionMode: "assistant",
@@ -259,7 +260,7 @@ async function createDeploymentRunFromTemplateUnlocked(
     // No session on createCommandRequest: stamp teamId from the DeploymentRun so the
     // spawned CommandRequest is not null-team (shared across all tenants in list views).
     const command = await createCommandRequest({
-      title: `Deployment: ${template.name}`,
+      title: commandRequestTitle("Deployment: ", template.name),
       command: renderedCommand,
       reason: normalized.reason || "Deployment template triggered",
       submissionMode: "assistant",
@@ -600,7 +601,7 @@ export async function createDeploymentRollbackRun(
     try {
       // Propagate parent DeploymentRun.teamId onto the CommandRequest (system path, no session).
       const command = await createCommandRequest({
-        title: `Rollback deployment: ${snapshot.templateName}`,
+        title: commandRequestTitle("Rollback deployment: ", snapshot.templateName),
         command: snapshot.rollbackCommand,
         reason,
         submissionMode: "assistant",

@@ -137,21 +137,25 @@ export function dockerErrorMessage(error: unknown): string {
 export async function isRemotePortAvailable(serverId: string, port: number): Promise<boolean> {
   if (!isValidTcpPort(port)) return false;
   const { server, ssh } = await loadEnabledServerForSsh(serverId);
+  // The answer is printed, not returned as an exit status: a server reached
+  // through its Agent alone reports every non-zero exit as a failed command,
+  // so "in use" (exit 1) surfaced as an error and installs there stopped at
+  // the first taken port instead of trying the next one.
   const command =
     `PORT=${port}; ` +
     `if command -v ss >/dev/null 2>&1; then ` +
-    `ss -tlnH 2>/dev/null | awk '{print $4}' | grep -E "[:.]$PORT$" >/dev/null && exit 1 || exit 0; ` +
+    `ss -tlnH 2>/dev/null | awk '{print $4}' | grep -E "[:.]$PORT$" >/dev/null && echo in-use || echo free; ` +
     `elif command -v bash >/dev/null 2>&1; then ` +
-    `bash -c "echo >/dev/tcp/127.0.0.1/$PORT" >/dev/null 2>&1 && exit 1 || exit 0; ` +
-    `else exit 0; fi`;
+    `bash -c "echo >/dev/tcp/127.0.0.1/$PORT" >/dev/null 2>&1 && echo in-use || echo free; ` +
+    `else echo unknown; fi`;
   const result = await execRemoteCommand({
     ...ssh,
     command,
     timeout: 10_000,
   });
-  // exit 0 = free, exit 1 = in use
-  if (result.exitCode === 1) return false;
-  if (result.exitCode === 0) return true;
+  const answer = result.stdout.trim().split(/\r?\n/).pop()?.trim();
+  if (answer === "in-use") return false;
+  if (answer === "free") return true;
   // Ambiguous remote tooling failure — do not block install; docker bind will fail closed.
   logger.warn("remote port probe inconclusive", {
     serverId: server.id,

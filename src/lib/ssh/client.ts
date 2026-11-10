@@ -255,13 +255,18 @@ function usesAgentOnly(input: SshConnectionParams) {
   return Boolean(input.agentServerId && !input.privateKey && !input.password);
 }
 
-async function execAgentOnly(input: SshConnectionParams, command: string, timeoutMs = 60_000, signal?: AbortSignal) {
+/**
+ * Run a command through the server's Agent. The file helpers below treat a
+ * non-zero exit as a failed operation (thrown); `returnNonZeroExit` hands the
+ * exit status back instead, for callers that read it themselves.
+ */
+async function execAgentOnly(input: SshConnectionParams, command: string, timeoutMs = 60_000, signal?: AbortSignal, options: { returnNonZeroExit?: boolean } = {}) {
   signal?.throwIfAborted();
   if (!input.agentServerId) throw new BusinessError(t("backend.server.agentIdentityMissing"));
   const { executeCommandWithAgent } = await import("@/lib/server/agent-service");
   const result = await executeCommandWithAgent({ serverId: input.agentServerId, command, timeoutMs, signal });
   if (!result) throw new BusinessError(t("backend.server.agentOfflineNoFallback"));
-  if (result.exitCode !== 0) {
+  if (result.exitCode !== 0 && !options.returnNonZeroExit) {
     throw new BusinessError(result.stderr || result.stdout || t("backend.server.agentCommandFailed", { code: result.exitCode }));
   }
   return result;
@@ -852,7 +857,15 @@ export async function execRemoteCommand(
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
  input.signal?.throwIfAborted();
  if (usesAgentOnly(input)) {
-   return execAgentOnly(input, input.command, input.timeout ?? 120_000, input.signal);
+   // The exit status is the caller's to read, as over SSH. Thrown instead, a
+   // status that is an answer (grep's 1 for "no match", a probe's "in use",
+   // "compose is not a docker command") reached the caller as a failure: on a
+   // server managed through its Agent alone a content search without matches
+   // failed, and Compose never fell back to the Engine API.
+   const result = await execAgentOnly(input, input.command, input.timeout ?? 120_000, input.signal, { returnNonZeroExit: true });
+   // A cancelled command is an abort, as it is over SSH, not exit status 130.
+   input.signal?.throwIfAborted();
+   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
  }
  if (!shouldPoolSsh(input)) {
    const client = await waitForSshResource(connectSsh(createSshConfig(input)), input.signal, (client) => { client.end(); });

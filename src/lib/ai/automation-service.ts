@@ -3,6 +3,7 @@ import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { createCommandRequest } from "@/lib/command/service";
+import { commandRequestTitle } from "@/lib/command/schema";
 import {
   commandTemplateScopeWhere,
   extractTemplateVariables,
@@ -196,7 +197,7 @@ export async function executeAutomationProposal(
   const session = { ...actor, currentTeamId: actor.currentTeamId ?? null };
   if (proposal.executionMode === "now") {
     const request = await createCommandRequest({
-      title: `AI automation: ${proposal.name}`,
+      title: commandRequestTitle("AI automation: ", proposal.name),
       command: proposal.command,
       reason: proposal.reason,
       requesterId: actor.userId,

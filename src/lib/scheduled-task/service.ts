@@ -3,6 +3,7 @@ import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
 import type { CommandRequestStatus } from "@prisma/client";
 import { createCommandRequest } from "@/lib/command/service";
+import { commandRequestTitle } from "@/lib/command/schema";
 import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
@@ -371,18 +372,25 @@ export async function retryScheduledTask(
 ) {
 	const task = await getScheduledTaskForSession(id, session);
 	if (!task) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
-	if (task.serverIds.length === 0 || !task.createdById) {
-		await recordTaskRun(task.id, t("backend.scheduled-task.manualRetryMissingTargetOrCreator"), "failed");
-		throw new BusinessError(t("backend.scheduled-task.scheduledTaskMissingTargetServerOrCreatorCannot"));
-	}
 	// A retry of an unattended task runs at once, nobody approving it: starting that is executing a command.
+	// Checked before anything is written about the task.
 	if (!task.approvalRequired && !sessionHasPermission(session, "command:execute")) {
 		throw new ForbiddenError(t("backend.scheduled-task.retryUnattendedRequiresExecutor"));
+	}
+	if (task.serverIds.length === 0 || !task.createdById) {
+		// Only the outcome is written. recordTaskRun closes a scheduled occurrence (it sets the next run, and
+		// disables a one-time task): called for a retry, it gave a paused task a next run it would not keep and
+		// cancelled a one-time task that was still to come.
+		await prisma.scheduledTask.updateMany({
+			where: { id: task.id },
+			data: { lastRunAt: new Date(), lastResult: t("backend.scheduled-task.manualRetryMissingTargetOrCreator") },
+		});
+		throw new BusinessError(t("backend.scheduled-task.scheduledTaskMissingTargetServerOrCreatorCannot"));
 	}
 
 	// System path (no session on createCommandRequest): stamp teamId from the parent task.
 	const result = await createCommandRequest({
-		title: `Scheduled task retry: ${task.name}`,
+		title: commandRequestTitle("Scheduled task retry: ", task.name),
 		command: task.command,
 		reason: task.reason ?? `Manually retry scheduled task ${task.name}`,
 		submissionMode: "user",

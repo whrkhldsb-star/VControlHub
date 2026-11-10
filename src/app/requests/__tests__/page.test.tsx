@@ -98,6 +98,8 @@ vi.mock("@/lib/ai/hosted-service", () => ({
 
 import RequestsPage from "../page";
 import { listCommandRequests } from "@/lib/command/service";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 
 describe("RequestsPage", () => {
   it("renders separate assistant authorization and user command approval flows", async () => {
@@ -122,6 +124,35 @@ describe("RequestsPage", () => {
     expect(screen.getByText(/后台执行器 worker-old/)).toBeInTheDocument();
     expect(screen.getAllByTestId("review-command-form")).toHaveLength(2);
     expect(screen.getAllByTestId("cancel-command-button")).toHaveLength(2);
+  });
+
+  it("offers the cancel button to whoever the server accepts a cancel request from", async () => {
+    // cmd_1 was filed by u_1, cmd_2 by u_2. The button followed "may approve" alone.
+    const as = (userId: string, held: string[]) => {
+      vi.mocked(requirePagePermission).mockResolvedValueOnce({ userId, username: userId, roles: ["operator"], mustChangePassword: false } as never);
+      vi.mocked(sessionHasPermission).mockImplementation(((_session: unknown, permission: string) => held.includes(permission)) as never);
+    };
+    const cancelButtons = () => screen.queryAllByTestId("cancel-command-button").map((node) => node.textContent);
+
+    // An operator (may execute, may not approve) can stop their own command, and only theirs.
+    as("u_2", ["command:read", "command:create", "command:execute"]);
+    const operator = render(await RequestsPage());
+    expect(cancelButtons()).toEqual(["取消按钮：cmd_2"]);
+    expect(screen.queryAllByTestId("review-command-form")).toHaveLength(0);
+    operator.unmount();
+
+    // A reviewer without the execute permission: the server refuses their cancel request, so no button.
+    as("u_9", ["command:read", "command:approve"]);
+    const reviewer = render(await RequestsPage());
+    expect(cancelButtons()).toEqual([]);
+    expect(screen.getAllByTestId("review-command-form")).toHaveLength(2);
+    reviewer.unmount();
+
+    // Execute and approve: anyone's request.
+    as("u_9", ["command:read", "command:approve", "command:execute"]);
+    render(await RequestsPage());
+    expect(cancelButtons()).toHaveLength(2);
+    vi.mocked(sessionHasPermission).mockReturnValue(true);
   });
 
   it("keeps finished requests out of the queue, in a folded history", async () => {

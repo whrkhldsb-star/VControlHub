@@ -214,6 +214,33 @@ describe("/api/docker/containers audit coverage", () => {
     expect(await response.json()).toMatchObject({ ok: true, unchanged: true });
   });
 
+  it("answers 502 when the engine's status cannot be read, instead of failing on it", async () => {
+    // A failed result with no usable status was passed to NextResponse.json as the status: a RangeError, shown as a 500.
+    httpRequestMock.mockImplementationOnce((_options, callback) => {
+      const responseHandlers: Record<string, (chunk?: Buffer) => void> = {};
+      const response = {
+        statusCode: Number.NaN,
+        on: vi.fn((event: string, handler: (chunk?: Buffer) => void) => {
+          responseHandlers[event] = handler;
+        }),
+      };
+      callback(response);
+      responseHandlers.end?.();
+      return { on: vi.fn(), write: vi.fn(), end: vi.fn(), destroy: vi.fn() };
+    });
+
+    const response = await route.POST(
+      new NextRequest("http://local/api/docker/containers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: "app_1", action: "stop" }),
+      }),
+    );
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({ ok: false });
+  });
+
   it("rejects remote serverId outside team scope before touching Docker", async () => {
     const { NextResponse } = await import("next/server");
     mocks.assertServerTeamAccess.mockResolvedValueOnce({

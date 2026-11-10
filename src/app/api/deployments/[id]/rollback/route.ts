@@ -11,7 +11,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 export const dynamic = "force-dynamic";
 
 const rollbackSchema = z.object({
-  reason: z.string().trim().max(500, "ReasonAt most 500 characters").optional(),
+  reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional(),
 });
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {

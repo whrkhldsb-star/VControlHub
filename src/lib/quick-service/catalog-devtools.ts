@@ -40,6 +40,8 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Lightweight Bitwarden-compatible password manager, written in Rust",
 		image: "vaultwarden/server:latest",
 		defaultPort: 8081,
+		// The image listens on 80; 8081 is only the host port.
+		internalPort: 80,
 		path: "/vaultwarden/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/vaultwarden/data", container: "/data" }],
@@ -52,6 +54,9 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Docker container visual management panel, supports Swarm/K8s",
 		image: "portainer/portainer-ce:latest",
 		defaultPort: 9443,
+		// The access link is plain HTTP, which Portainer serves on 9000 (--http-enabled
+		// below); 9443 inside the container is its HTTPS port and refuses plain HTTP.
+		internalPort: 9000,
 		path: "/portainer/",
 		envJson: {},
 		volumesJson: [
@@ -69,6 +74,8 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Powerful self-hosted PDF toolbox, supports merge/split/convert/compress and more",
 		image: "frooodle/s-pdf:latest",
 		defaultPort: 8082,
+		// The image listens on 8080; 8082 is only the host port.
+		internalPort: 8080,
 		path: "/stirling-pdf/",
 		envJson: { DOCKER_ENABLE_SECURITY: "false" },
 		volumesJson: [{ host: "/opt/stirling-pdf/data", container: "/usr/share/tessdata" }],
@@ -81,6 +88,8 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Developer online toolbox: encryption/decoding/conversion/regex/UUID and dozens of tools",
 		image: "corentinth/it-tools:latest",
 		defaultPort: 8112,
+		// The image listens on 80; 8112 is only the host port.
+		internalPort: 80,
 		path: "/it-tools/",
 		envJson: {},
 		volumesJson: [],
@@ -105,8 +114,10 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Open-source smart home platform, supports MQTT/Zigbee/HomeKit",
 		image: "gladysassistant/gladys:latest",
 		defaultPort: 8113,
+		// The documented install runs it on port 80 (SERVER_PORT); 8113 is only the host port.
+		internalPort: 80,
 		path: "/gladys/",
-		envJson: {},
+		envJson: { SERVER_PORT: "80" },
 		volumesJson: [
 			{ host: "/opt/gladys/data", container: "/var/lib/gladysassistant" },
 			{ host: "/var/run/docker.sock", container: "/var/run/docker.sock" },

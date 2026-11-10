@@ -48,6 +48,8 @@ export const zh: Record<string, string> = {
 		"节点 {name} 配置为密码连接但未配置密码，无法执行真实 SSH 命令。",
 	"backend.command.hostKeyNotPinnedRefused":
 		"节点 {name} 未固定 SSH 主机密钥指纹，已拒绝在未校验主机密钥的情况下执行命令。请先在节点设置中验证并固定主机指纹后重试。",
+	"backend.command.agentOfflineNoSshFallback":
+		"节点 {name} 的 Agent 当前不在线，且该节点没有可回退的 SSH 凭据，命令未执行。请先恢复 Agent 后重试。",
 };
 
 export const en: Record<string, string> = {
@@ -92,4 +94,6 @@ export const en: Record<string, string> = {
 		"Node {name} is configured for password connection but lacks a password; cannot execute real SSH command.",
 	"backend.command.hostKeyNotPinnedRefused":
 		"Node {name} has no pinned SSH host key; refusing to execute without host-key verification. Please verify and pin the host fingerprint in the server settings first.",
+	"backend.command.agentOfflineNoSshFallback":
+		"The Agent on node {name} is offline and the node has no SSH credentials to fall back on; the command was not run. Bring the Agent back and try again.",
 };

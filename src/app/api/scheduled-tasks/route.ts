@@ -18,8 +18,9 @@ import {
 } from "@/lib/scheduled-task/service";
 import { describeCron } from "@/lib/scheduled-task/describe-cron";
 
-// The limits of the command request each run creates (createCommandSchema): a name over 106 characters (the title is
-// "Scheduled task retry: <name>"), a reason over 500 or a command over 10,000 was accepted here and failed at every run.
+// The limits of the command request each run creates (createCommandSchema): a reason over 500 or a command over
+// 10,000 characters was accepted here and failed at every run. The title ("Scheduled task retry: <name>") is cut
+// to fit where it is built (commandRequestTitle), so a name of any accepted length runs.
 const scheduledTaskPostSchema = z.object({
   name: z.string().min(1).max(100),
   scheduleType: z.enum(["CRON", "ONCE"]).optional(),
@@ -28,7 +29,6 @@ const scheduledTaskPostSchema = z.object({
   command: z.string().min(1).max(10000),
   serverId: z.string().min(1).optional(),
   description: z.string().optional(),
-  enabled: z.boolean().optional(),
   cronExpression: z.string().min(1).optional(),
   reason: z.string().max(500).optional(),
   serverIds: z.array(z.string()).optional(),
@@ -37,12 +37,6 @@ const scheduledTaskPostSchema = z.object({
   rollbackCommand: z.string().max(10000).optional(),
   approvalRequired: z.boolean().optional(),
   templateId: z.string().min(1).nullable().optional(),
-}).refine((data) => data.scheduleType === "ONCE" ? Boolean(data.runAt) : Boolean(data.cronExpression ?? data.cron), {
-  message: "请填写 Cron 表达式",
-  path: ["cronExpression"],
-}).refine((data) => (data.serverIds?.length ?? 0) > 0 || Boolean(data.serverId), {
-  message: "请至少选择一台目标 VPS",
-  path: ["serverIds"],
 });
 
 const scheduledTaskPatchSchema = z.object({
@@ -57,7 +51,6 @@ const scheduledTaskPatchSchema = z.object({
   serverIds: z.array(z.string()).optional(),
   reason: z.string().max(500).optional(),
   description: z.string().optional(),
-  enabled: z.boolean().optional(),
   status: z.enum(["ACTIVE", "PAUSED", "DISABLED"]).optional(),
   scheduleType: z.enum(["CRON", "ONCE"]).optional(),
   runAt: z.coerce.date().nullable().optional(),
@@ -142,8 +135,14 @@ export async function POST(request: Request) {
     async ({ session, body: data }) => {
       const locale = await getServerLocale();
     const cronExpression = data.cronExpression ?? data.cron;
-    if (data.scheduleType !== "ONCE" && !cronExpression)
-        throw new ValidationError(t("api.cronRequired", locale));
+    // What is missing is said here, in the caller's language and about the field it concerns. As refinements of
+    // the schema these were fixed Chinese text for every caller, and a one-time task without a run time was told
+    // to fill in the Cron expression.
+    if (data.scheduleType === "ONCE" ? !data.runAt : !cronExpression)
+        throw new ValidationError(t(data.scheduleType === "ONCE" ? "backend.scheduled-task.futureOnce" : "api.cronRequired", locale));
+    const serverIds = data.serverIds?.length ? data.serverIds : data.serverId ? [data.serverId] : [];
+    if (serverIds.length === 0)
+        throw new ValidationError(t("backend.scheduled-task.atLeastOneTargetServer", locale));
     if (data.approvalRequired === false && !sessionHasPermission(session, "command:approve")) {
       throw new ValidationError(t("backend.scheduled-task.unattendedRequiresApprover", locale));
     }
@@ -155,7 +154,7 @@ export async function POST(request: Request) {
       runAt: data.runAt,
           command: data.command,
           reason: data.reason ?? data.description,
-          serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : []),
+          serverIds,
           createdById: session.userId,
       plan: data.plan,
       verificationCommand: data.verificationCommand,
