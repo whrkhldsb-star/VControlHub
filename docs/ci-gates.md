@@ -77,6 +77,9 @@ must match the Actions job names exactly.
 | Bare `npm run build` on the live host | Blocked by `guard-live-next-build.mjs`; use `deploy.sh` |
 | Counting pure re-export barrels in coverage | Drags global thresholds — already excluded in `vitest.config.ts` |
 | Dual health UIs | Deleted; use `/health` + `/vps-status` only |
+| Loading the bcrypt addon only inside test worker threads | Once the last worker holding it has exited, every later worker fails with `Module did not self-register`, so which files fail depends on the order they run in (a warm Vitest cache reorders them). `src/test/global-setup.ts` holds the addon in the main process for the whole run — keep it |
+| A route that reads a large body behind `src/proxy.ts` | Next passes the route only the first `proxyClientMaxBodySize` bytes (34 MiB, `next.config.ts`) and does not fail the request. Keep the route's limit under it (`src/__tests__/next-config.test.ts` compares them), or leave the route out of the proxy's matcher and have it make the CSRF check and add the response headers itself |
+| A response header set in `src/proxy.ts` | Next keeps the proxy's value and drops the route's own for the same name, so a policy set there replaces what the route chose (this is how the `sandbox` policy on user files was lost) |
 
 ## E2E / DAST build strategy
 

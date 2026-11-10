@@ -7,6 +7,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    // Main-process setup: keeps the bcrypt addon loaded for the whole run.
+    globalSetup: ["./src/test/global-setup.ts"],
     globals: true,
     // Exclude Playwright e2e specs — they run via `npx playwright test`, not vitest.
     // Glob `node_modules**`/`dist**` (not bare names) so upgrade/rollback copies

@@ -154,8 +154,12 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
             uploadFailed: (status) => t("sshFileManager.uploadFailed", { status }),
             networkError: t("sshFileManager.networkError"),
           });
-        } catch {
-          // Error state is already reflected in the upload row.
+        } catch (error) {
+          // The upload row already shows a refused or failed request. A failure
+          // before the request was sent left the row "uploading" for ever.
+          setUploads((prev) => prev.map((item) => item.id === uploadId && item.status === "uploading"
+            ? { ...item, status: "error", error: getErrorMessage(error, t("sshFileManager.networkError")) }
+            : item));
         }
       }
 
@@ -254,6 +258,18 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
   );
 }
 
+/** The reason in the server's JSON error, when it gives one beyond the generic "Upload failed". */
+function uploadFailureReason(xhr: XMLHttpRequest): string | null {
+  try {
+    const body = JSON.parse(xhr.responseText) as { message?: unknown; error?: unknown };
+    const reason = typeof body.message === "string" ? body.message : typeof body.error === "string" ? body.error : "";
+    const trimmed = reason.trim().slice(0, 200);
+    return trimmed && trimmed !== "Upload failed" ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
+
 function uploadViaXhr(
   serverId: string,
   formData: FormData,
@@ -277,7 +293,10 @@ function uploadViaXhr(
         resolve();
         return;
       }
-      const msg = errorMsgs.uploadFailed(xhr.status);
+      // The status alone ("Upload failed (403)") does not say whether the
+      // folder is read-only, gone, or the file too large; the server does.
+      const reason = uploadFailureReason(xhr);
+      const msg = reason ? `${errorMsgs.uploadFailed(xhr.status)}: ${reason}` : errorMsgs.uploadFailed(xhr.status);
       onUpdate({ status: "error", error: msg });
       reject(new Error(msg));
     };

@@ -1,6 +1,23 @@
 import type { NextConfig } from "next";
 
+/**
+ * Next buffers every request body the proxy (src/proxy.ts) runs on and hands
+ * the route only this many bytes of it — 10 MB when unset — while the request
+ * carries on as if nothing happened. Routes behind the proxy read up to
+ * 32 MiB (AI chat with attachments, configuration import) and 21 MiB (image
+ * upload), so with the default their own limits were never reached: a larger
+ * body arrived cut short and failed as "not valid JSON" or "Failed to parse
+ * body as FormData". Keep this equal to PROXY_CLIENT_MAX_BODY_BYTES in
+ * src/lib/http/proxy-body-limit.ts (this file is compiled on its own and
+ * cannot import it; a test compares the two). Bodies that may be larger are
+ * left out of the proxy instead, see `config.matcher` there.
+ */
+const PROXY_CLIENT_MAX_BODY_BYTES = 34 * 1024 * 1024;
+
 const nextConfig: NextConfig = {
+	experimental: {
+		proxyClientMaxBodySize: PROXY_CLIENT_MAX_BODY_BYTES,
+	},
 	// Do not announce the framework in every response ("X-Powered-By: Next.js").
 	poweredByHeader: false,
 	// Disable streaming metadata for this SSR-heavy admin console

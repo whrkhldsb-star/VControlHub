@@ -3,7 +3,7 @@ import { NextRequest, type NextResponse } from "next/server";
 
 type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
 
-import { PUBLIC_NODE_NOT_FOUND_PATH, proxy } from "../proxy";
+import { config, PUBLIC_NODE_NOT_FOUND_PATH, proxy } from "../proxy";
 
 const gate = vi.hoisted(() => ({ isPublicBoardOpen: vi.fn(), isPublicNodeVisible: vi.fn() }));
 vi.mock("@/lib/public-status/gate", () => gate);
@@ -394,6 +394,76 @@ describe("proxy auth guard", () => {
       const response = syncProxy(makeRequest(pathname));
       expect(response.status, pathname).toBe(200);
       expect(response.headers.get("location"), pathname).toBeNull();
+    }
+  });
+
+  // Next keeps a response header the proxy set and drops the route's own value
+  // for it. With the page policy on every response, the `sandbox` policy that
+  // the file routes put on user-uploaded HTML/SVG never reached the browser in
+  // production: the document rendered on the application's origin instead.
+  it("leaves the Content-Security-Policy of API responses to their route", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      for (const pathname of [
+        "/api/storage/local?nodeId=n1&path=report.html",
+        "/api/media/m1/stream",
+        "/api/share/public-token",
+        "/api/images/img_1/file",
+        "/api/servers",
+      ]) {
+        const response = syncProxy(makeRequest(pathname, { headers: { cookie: sessionCookie() } }));
+        expect(response.status, pathname).toBe(200);
+        expect(response.headers.get("Content-Security-Policy"), pathname).toBeNull();
+        // The rest of the baseline is still added.
+        expect(response.headers.get("X-Content-Type-Options"), pathname).toBe("nosniff");
+        expect(response.headers.get("X-Frame-Options"), pathname).toBe("SAMEORIGIN");
+      }
+      // Pages keep the nonce policy, lookalike paths included.
+      for (const pathname of ["/files", "/api-docs", "/share/public-token"]) {
+        const response = syncProxy(makeRequest(pathname, { headers: { cookie: sessionCookie() } }));
+        expect(response.headers.get("Content-Security-Policy"), pathname).toMatch(/script-src 'self' 'nonce-/);
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
+describe("proxy matcher", () => {
+  // As Next compiles it: the matcher source anchored at both ends.
+  const matches = (pathname: string) => config.matcher.some((source) => new RegExp(`^${source}$`).test(pathname));
+
+  // Next buffers the body of every request the proxy runs on and hands the
+  // route only the first megabytes of it, without failing the request: a
+  // WebDAV PUT over 10 MB was stored cut short and answered 201, and a larger
+  // upload from the SSH file panel always failed. Both routes authenticate
+  // (and, for the cookie session, check the CSRF token) themselves.
+  it("leaves the two routes that take large bodies out of the proxy", () => {
+    expect(matches("/api/webdav/node-1")).toBe(false);
+    expect(matches("/api/webdav/node-1/videos/film.mkv")).toBe(false);
+    expect(matches("/api/webdav")).toBe(false);
+    expect(matches("/api/servers/srv_1/sftp/upload")).toBe(false);
+  });
+
+  it("still runs on everything else, lookalikes included", () => {
+    for (const pathname of [
+      "/",
+      "/files",
+      "/api/login",
+      "/api/servers",
+      "/api/servers/srv_1/sftp/list",
+      "/api/servers/srv_1/sftp/delete",
+      "/api/servers/srv_1/sftp/upload/extra",
+      "/api/servers/a/b/sftp/upload",
+      "/api/servers/sftp/upload",
+      "/api/webdav-download",
+      "/api/webdavx/node-1",
+      "/api/storage/webdav-download",
+      "/api/storage/local",
+      "/api/images/upload",
+      "/x/api/webdav/node-1",
+    ]) {
+      expect(matches(pathname), pathname).toBe(true);
     }
   });
 });

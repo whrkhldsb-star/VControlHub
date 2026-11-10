@@ -17,11 +17,20 @@ export type AccountLockoutState = {
 };
 
 export interface RateLimitStore {
-  /** Add a timestamp for the given key. Returns all timestamps in window. */
+  /**
+   * Add a timestamp for the given key. Returns the timestamps in the window,
+   * oldest first. With `keepNewest`, only that many of the newest are kept
+   * and returned: a limiter of N needs N + 1 of them to decide and to compute
+   * the retry delay, however many requests arrived. Without it every attempt
+   * of the window stayed in the bucket, rejected ones included, so each check
+   * of a client that kept sending cost as much as it had already sent (in
+   * Redis the whole window came back over the wire on every request).
+   */
   addAndGetWindow(
     _key: string,
     _timestamp: number,
     _windowMs: number,
+    _keepNewest?: number,
   ): Promise<number[]>;
   /** Shared account-lockout state (multi-instance when Redis is configured). */
   getLockout(_key: string): Promise<AccountLockoutState | null>;
@@ -106,6 +115,7 @@ class MemoryRateLimitStore implements RateLimitStore {
     key: string,
     timestamp: number,
     windowMs: number,
+    keepNewest?: number,
   ): Promise<number[]> {
     key = boundedKey(key);
     const { name, map } = this.namespaceMap(key);
@@ -113,6 +123,9 @@ class MemoryRateLimitStore implements RateLimitStore {
     const cutoff = timestamp - windowMs;
     entries = entries.filter((t) => t > cutoff);
     entries.push(timestamp);
+    if (keepNewest !== undefined && keepNewest >= 1 && entries.length > keepNewest) {
+      entries = entries.slice(-keepNewest);
+    }
     this.makeRoom(name, map, key, timestamp);
     map.set(key, { entries, windowMs });
     return entries;
@@ -204,6 +217,7 @@ interface RedisClientLike {
   multi(): {
     zAdd(key: string, entry: { score: number; value: string }): unknown;
     zRemRangeByScore(key: string, min: number, max: number): unknown;
+    zRemRangeByRank(key: string, start: number, stop: number): unknown;
     zRange(key: string, start: number, stop: number): unknown;
     pExpire(key: string, ms: number): unknown;
     execAsPipeline(): Promise<RedisExecResult>;
@@ -266,6 +280,7 @@ class RedisRateLimitStore implements RateLimitStore {
     key: string,
     timestamp: number,
     windowMs: number,
+    keepNewest?: number,
   ): Promise<number[]> {
     const client = await this.getClient();
     const k = `${this.prefix}ts:${key}`;
@@ -275,11 +290,17 @@ class RedisRateLimitStore implements RateLimitStore {
       value: `${timestamp}:${crypto.randomUUID()}`,
     });
     pipeline.zRemRangeByScore(k, 0, timestamp - windowMs);
+    let rangeIndex = 2;
+    if (keepNewest !== undefined && keepNewest >= 1) {
+      // Everything below the newest `keepNewest` members: nothing when there are no more than that.
+      pipeline.zRemRangeByRank(k, 0, -(keepNewest + 1));
+      rangeIndex = 3;
+    }
     pipeline.zRange(k, 0, -1);
     pipeline.pExpire(k, windowMs);
     const results = await pipeline.execAsPipeline();
-    const members: string[] = Array.isArray(results[2])
-      ? (results[2] as string[])
+    const members: string[] = Array.isArray(results[rangeIndex])
+      ? (results[rangeIndex] as string[])
       : [];
     return members
       .map((member) => Number(member.split(":", 1)[0]))

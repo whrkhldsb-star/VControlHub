@@ -241,7 +241,39 @@ describe("uploadFile session lifecycle", () => {
       expect(createWriteStreamMock).toHaveBeenCalled();
     });
     writeStream.destroy(new Error("disk full"));
-    await expect(uploadPromise).rejects.toThrow("Upload write error");
+    await expect(uploadPromise).rejects.toThrow("disk full");
+    expect(sftpEndMock).toHaveBeenCalled();
+    expect(clientEndMock).toHaveBeenCalled();
+  });
+
+  it.each([
+    ["No such file", 2, 404],
+    ["Permission denied", 3, 403],
+    ["No space left on device", 4, 422],
+    ["Failure", 4, 502],
+  ])("reports a refused write (%s) with its own status instead of a plain Error", async (message, code, status) => {
+    const writeStream = new PassThrough();
+    writeStream.on("error", () => {
+      /* swallowed by uploadFile handler */
+    });
+    createWriteStreamMock.mockReturnValue(writeStream);
+    const source = new Readable({
+      read() {
+        this.push(Buffer.from("chunk"));
+      },
+    });
+    source.on("error", () => {
+      /* expected after fail() */
+    });
+
+    const uploadPromise = uploadFile("srv1", "/home/alice/missing/out.txt", source);
+    await vi.waitFor(() => {
+      expect(createWriteStreamMock).toHaveBeenCalled();
+    });
+    writeStream.destroy(Object.assign(new Error(message), { code }));
+
+    // The route passes a typed error through; a plain Error became a blank "Upload failed" 500.
+    await expect(uploadPromise).rejects.toMatchObject({ message, status });
     expect(sftpEndMock).toHaveBeenCalled();
     expect(clientEndMock).toHaveBeenCalled();
   });

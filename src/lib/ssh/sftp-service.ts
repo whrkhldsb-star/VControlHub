@@ -393,7 +393,14 @@ export async function uploadFile(
       });
 
       writeStream.on("error", (err: Error) => {
-        fail(new Error(`Upload write error: ${err.message}`));
+        // Typed like every other SFTP operation here: a missing directory, a
+        // refused write or a full disk used to reach the route as a plain
+        // Error, which it can only answer with a blank "Upload failed" 500.
+        try {
+          mapSftpError(err);
+        } catch (mapped) {
+          fail(mapped instanceof Error ? mapped : new Error(`Upload write error: ${err.message}`));
+        }
       });
 
       // ssh2 WriteStream emits "close" after autoClose; Node Writable also

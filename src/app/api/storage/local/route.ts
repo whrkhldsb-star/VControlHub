@@ -28,6 +28,8 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { getStorageUploadMaxBytes } from "@/lib/upload/limits";
 import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
+import { PROXY_CLIENT_MAX_BODY_BYTES } from "@/lib/http/proxy-body-limit";
+import { requestContentLengthExceeds } from "@/lib/http/request-body";
 
 import { ConflictError, ValidationError } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/db";
@@ -62,6 +64,22 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
   // The same runtime limit as chunked uploads (A4-26); the old 100 MiB constant
   // refused files the settings page said were allowed.
   const maxUploadBytes = getStorageUploadMaxBytes();
+  // This route reads its whole body into memory, behind the proxy, which
+  // passes on no more than PROXY_CLIENT_MAX_BODY_BYTES of it. A larger body
+  // arrived cut short and failed as "Failed to parse body as FormData"; the
+  // chunked upload (/api/storage/upload/init) takes files up to the storage
+  // limit and is what the file manager uses from 5 MiB.
+  if (requestContentLengthExceeds(request, PROXY_CLIENT_MAX_BODY_BYTES)) {
+    return NextResponse.json(
+      {
+        error: t("api.storage.singleRequestUploadTooLarge", locale, {
+          max: Math.floor((PROXY_CLIENT_MAX_BODY_BYTES - MAX_MULTIPART_OVERHEAD_BYTES) / (1024 * 1024)),
+        }),
+        maxUploadBytes: Math.min(maxUploadBytes, PROXY_CLIENT_MAX_BODY_BYTES - MAX_MULTIPART_OVERHEAD_BYTES),
+      },
+      { status: 413 },
+    );
+  }
   const rejected = rejectOversizedFormBody(
     request,
     maxUploadBytes + MAX_MULTIPART_OVERHEAD_BYTES,

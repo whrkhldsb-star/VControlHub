@@ -29,7 +29,9 @@ export async function checkRateLimitAsync(
 	config: RateLimitConfig = DEFAULT_CONFIG,
 ): Promise<{ allowed: boolean; retryAfterMs: number; remaining: number }> {
 	const now = Date.now();
-	const timestamps = await getRateLimitStore().addAndGetWindow(identifier, now, config.windowMs);
+	// maxRequests + 1 newest timestamps decide the verdict and the retry delay below; attempts older than those
+	// (a client hammering a limit it already hit) need not be kept, counted or fetched again on every check.
+	const timestamps = await getRateLimitStore().addAndGetWindow(identifier, now, config.windowMs, config.maxRequests + 1);
 
 	if (timestamps.length > config.maxRequests) {
 		// Rejected attempts also occupy the shared window. Leave room for the

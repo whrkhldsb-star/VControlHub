@@ -12,6 +12,8 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: mocks.csrfFetch,
+	// The upload sends the token itself (XMLHttpRequest, for its progress events).
+	getCsrfTokenFromCookie: () => "csrf-token-from-cookie",
 }));
 
 const fileEntries = [
@@ -137,6 +139,42 @@ describe("SshFileManager", () => {
 			expect(xhrInstances.length).toBeGreaterThan(0);
 		});
 		expect(xhrInstances[0]!.open).toHaveBeenCalledWith("POST", expect.stringContaining("/sftp/upload"));
+		// The upload route checks the CSRF token itself (the proxy does not run on it).
+		expect(xhrInstances[0]!.setRequestHeader).toHaveBeenCalledWith("X-CSRF-Token", "csrf-token-from-cookie");
+		expect(xhrInstances[0]!.send).toHaveBeenCalledTimes(1);
+
+		vi.unstubAllGlobals();
+	});
+
+	it("shows the server's reason for a refused upload, not only its status", async () => {
+		class MockXHR {
+			upload = { onprogress: null };
+			status = 0;
+			responseText = "";
+			onload: (() => void) | null = null;
+			onerror: (() => void) | null = null;
+			open = vi.fn();
+			setRequestHeader = vi.fn();
+			send = vi.fn(function (this: MockXHR) {
+				queueMicrotask(() => {
+					this.status = 403;
+					this.responseText = JSON.stringify({ code: "FORBIDDEN", message: "Permission denied", error: "Permission denied" });
+					this.onload?.();
+				});
+			});
+		}
+		vi.stubGlobal("XMLHttpRequest", MockXHR);
+
+		render(<SshFileManager serverId="srv1" visible={true} />);
+		await waitFor(() => screen.getByText("report.txt"));
+		const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+		await act(async () => {
+			fireEvent.change(input, { target: { files: [new File(["content"], "upload.txt", { type: "text/plain" })] } });
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText(/403.*Permission denied/)).toBeTruthy();
+		});
 
 		vi.unstubAllGlobals();
 	});

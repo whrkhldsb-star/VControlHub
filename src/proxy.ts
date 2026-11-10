@@ -1,5 +1,6 @@
 import { getSessionCookieName as getRuntimeSessionCookieName } from "@/lib/auth/session";
-import { timingSafeEqualString } from "@/lib/security/timing-safe-equal";
+import { CSRF_COOKIE_NAME, CSRF_FAILURE_MESSAGE, CSRF_HEADER_NAME, csrfTokensMatch } from "@/lib/auth/csrf-request";
+import { BASE_SECURITY_HEADERS, STRICT_TRANSPORT_SECURITY } from "@/lib/http/security-headers";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -88,35 +89,31 @@ function addSecurityHeaders(
 ): NextResponse {
   const headers = response.headers;
 
-  // Prevent clickjacking
-  headers.set("X-Frame-Options", "SAMEORIGIN");
-
-  // Prevent MIME type sniffing
-  headers.set("X-Content-Type-Options", "nosniff");
-
-  // Enable XSS filter in older browsers
-  headers.set("X-XSS-Protection", "1; mode=block");
-
-  // Referrer policy
-  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-
-  // Permissions policy — deny unnecessary features
-  headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=()",
-  );
+  // Clickjacking, MIME sniffing, referrer and permissions policy. The routes
+  // outside this proxy's matcher add the same list themselves.
+  for (const [name, value] of BASE_SECURITY_HEADERS) headers.set(name, value);
 
   // HSTS — only add when the request is already HTTPS
   if (requestUrlIsHttps(request)) {
-    headers.set(
-      "Strict-Transport-Security",
-      "max-age=31536000; includeSubDomains; preload",
-    );
+    headers.set("Strict-Transport-Security", STRICT_TRANSPORT_SECURITY);
   }
 
-  if (nonce) headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce, request.headers.get("host")));
+  // The page policy is for pages only. Next keeps a response header set here
+  // and drops the route's own value for the same name, so on an API response
+  // it replaced the `sandbox` policy the file routes put on user-uploaded
+  // HTML and SVG (file preview, media, image bed, public shares): in
+  // production those documents rendered on the application's own origin under
+  // the page policy instead of in a sandbox. API routes that return user
+  // content set their own policy; JSON and attachments need none.
+  if (nonce && !isApiPath(request.nextUrl.pathname)) {
+    headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce, request.headers.get("host")));
+  }
 
   return response;
+}
+
+function isApiPath(pathname: string): boolean {
+  return pathname === "/api" || pathname.startsWith("/api/");
 }
 
 /**
@@ -329,8 +326,8 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/api/") &&
     !SAFE_METHODS.has(request.method.toUpperCase())
   ) {
-    const csrfCookie = request.cookies.get("csrf_token")?.value;
-    const csrfHeader = request.headers.get("x-csrf-token");
+    const csrfCookie = request.cookies.get(CSRF_COOKIE_NAME)?.value;
+    const csrfHeader = request.headers.get(CSRF_HEADER_NAME);
     // Skip CSRF only for endpoints that issue the csrf cookie or run
     // pre-session (e.g. the login flow). /api/auth/signout intentionally
     // requires CSRF — the SignOutButton uses csrfFetch() so the header is
@@ -343,10 +340,10 @@ export function proxy(request: NextRequest) {
       !routeCanValidateBearerToken
     ) {
       // Constant-time compare — tokens are fixed-length hex from generateCsrfToken().
-      if (!csrfCookie || !csrfHeader || !timingSafeEqualString(csrfCookie, csrfHeader)) {
+      if (!csrfTokensMatch(csrfCookie, csrfHeader)) {
         return addSecurityHeaders(
           NextResponse.json(
-            { error: "CSRF token validation failed" },
+            { error: CSRF_FAILURE_MESSAGE },
             { status: 403 },
           ),
           request,
@@ -369,7 +366,18 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - public folder assets (favicon, etc.)
+     * - the two upload routes whose bodies are larger than Next lets through
+     *   a proxy. For every request this proxy runs on, Next first buffers the
+     *   body in memory and then hands the route only its first
+     *   `proxyClientMaxBodySize` bytes (next.config.ts), without an error: a
+     *   WebDAV PUT of a larger file was stored cut short and answered 201,
+     *   and a larger upload from the SSH file panel failed. Both routes
+     *   authenticate by themselves: WebDAV with its API token, the SFTP
+     *   upload with the session and its own CSRF check
+     *   (`requestPassesCsrfCheck`). A route added here must do the same.
+     *
+     * Next reads this value at build time, so it has to stay a literal.
      */
-    "/((?!_next/static|_next/image).*)",
+    "/((?!_next/static|_next/image|api/webdav(?:/|$)|api/servers/[^/]+/sftp/upload$).*)",
   ],
 };

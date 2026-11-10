@@ -29,6 +29,8 @@ import {
 } from "@/lib/webdav/handler";
 import { createLogger } from "@/lib/logging";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { isRequestHttps } from "@/lib/http/request-https";
+import { withBaseSecurityHeaders } from "@/lib/http/security-headers";
 import { WEBDAV_LIMIT, withRateLimit } from "@/lib/http/rate-limit-presets";
 
 const logger = createLogger("webdav:route");
@@ -142,11 +144,19 @@ async function dispatch(
   }
 }
 
+/**
+ * The proxy does not run on this route (its matcher leaves `/api/webdav` out:
+ * Next would buffer every PUT body and pass on only its first megabytes), so
+ * the response headers it adds everywhere else are added here. A handler's own
+ * value is kept, and a file GET carries its own `sandbox` policy.
+ */
 async function withParams(
   request: Request,
   context: { params: Promise<RouteParams> },
 ) {
-  return dispatch(request, await context.params);
+  return withBaseSecurityHeaders(await dispatch(request, await context.params), {
+    https: isRequestHttps(request),
+  });
 }
 
 export const GET = withParams;

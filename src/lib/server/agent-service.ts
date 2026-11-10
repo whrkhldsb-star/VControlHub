@@ -219,6 +219,30 @@ export async function heartbeatServerAgentJob(input: {
   return current?.serverId === input.serverId && current.status === "CANCELLED";
 }
 
+/**
+ * The oldest PENDING job of a server that an Agent may still run: created less
+ * than its own timeout and the grace ago.
+ *
+ * The columns hold UTC wall time, so the clock they are compared with is UTC
+ * wall time too. A bare `now()` is a timestamptz, and PostgreSQL then reads
+ * "createdAt" in the session's zone — hours off on a database not set to UTC:
+ * in Asia/Shanghai every job with less than eight hours to live counted as
+ * expired, so behind a backlog of expired jobs a fresh one waited until the
+ * whole backlog was swept; west of UTC an expired job counted as live.
+ */
+export async function findLivePendingAgentJobId(
+  tx: { $queryRaw: typeof prisma.$queryRaw },
+  serverId: string,
+): Promise<string | undefined> {
+  const live = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM "server_agent_jobs"
+    WHERE "serverId" = ${serverId} AND status = 'PENDING'
+      AND "createdAt" + ("timeoutMs" + ${AGENT_PENDING_GRACE_MS}) * interval '1 millisecond' > (now() AT TIME ZONE 'UTC')
+    ORDER BY "createdAt" ASC
+    LIMIT 1`;
+  return live[0]?.id;
+}
+
 export async function claimNextServerAgentJob(serverId: string) {
   return prisma.$transaction(async (tx) => {
     const now = new Date();
@@ -269,13 +293,7 @@ export async function claimNextServerAgentJob(serverId: string) {
     // wait one poll per stale row either: skip past the backlog to the first
     // job that can still run; the next polls keep sweeping the rest.
     if (next && Date.now() - next.createdAt.getTime() > next.timeoutMs + AGENT_PENDING_GRACE_MS) {
-      const live = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM "server_agent_jobs"
-        WHERE "serverId" = ${serverId} AND status = 'PENDING'
-          AND "createdAt" + ("timeoutMs" + ${AGENT_PENDING_GRACE_MS}) * interval '1 millisecond' > now()
-        ORDER BY "createdAt" ASC
-        LIMIT 1`;
-      const liveId = live[0]?.id;
+      const liveId = await findLivePendingAgentJobId(tx, serverId);
       next = liveId ? await tx.serverAgentJob.findFirst({ where: { id: liveId, status: "PENDING" } }) : null;
     }
     if (!next || Date.now() - next.createdAt.getTime() > next.timeoutMs + AGENT_PENDING_GRACE_MS) return null;

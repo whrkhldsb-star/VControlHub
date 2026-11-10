@@ -150,6 +150,14 @@ export const probeModelsSchema = z.object({
 // layer. The migrated schema accepts either field; the route's manual
 // check (`!body.conversationId || !body.content?.trim()`) is the
 // authoritative gate.
+/**
+ * Images and PDFs travel in the chat request as base64 (up to 8,000,000
+ * characters each, below). The default 1 MiB refused every real screenshot.
+ * Must stay within PROXY_CLIENT_MAX_BODY_BYTES: Next passes a route behind the
+ * proxy no more than that of a body, and the rest is dropped without an error.
+ */
+export const CHAT_REQUEST_MAX_BODY_BYTES = 32 * 1024 * 1024;
+
 export const chatRequestSchema = z
   .object({
     conversationId: z.string().trim().min(1).optional(),

@@ -18,6 +18,7 @@
 import { createServer } from "node:http";
 import next from "next";
 
+import { isWebDavRequestTarget, stripWebDavTrailingSlash, WEBDAV_OVERRIDE_METHODS } from "@/lib/webdav/request-rewrite";
 import { closeWebSocketServer, setupWebSocketServer } from "@/lib/ws/notification-ws";
 import { forwardSshUpgrade } from "@/lib/ws/ssh-upgrade-forwarder";
 import { createLogger } from "@/lib/logging";
@@ -70,25 +71,20 @@ async function main() {
 	// which made the production server exit(1) before it ever bound a port.
 	const nextUpgrade = app.getUpgradeHandler();
 
-	// Next.js App Router only dispatches standard HTTP methods. Map WebDAV
-	// verbs to POST + X-HTTP-Method-Override so /api/webdav/* can handle them.
-	const WEBDAV_OVERRIDE_METHODS = new Set([
-		"PROPFIND",
-		"PROPPATCH",
-		"MKCOL",
-		"COPY",
-		"MOVE",
-		"LOCK",
-		"UNLOCK",
-	]);
-
 	const server = createServer(async (req, res) => {
-		const url = req.url ?? "";
 		const method = (req.method ?? "GET").toUpperCase();
-		if (url.startsWith("/api/webdav") && WEBDAV_OVERRIDE_METHODS.has(method)) {
-			req.headers["x-http-method-override"] = method;
-			req.method = "POST";
+		if (isWebDavRequestTarget(req.url)) {
+			// Collections are addressed with a trailing slash, which Next would
+			// answer with a 308 no WebDAV client follows.
+			req.url = stripWebDavTrailingSlash(req.url ?? "");
+			// Next.js App Router only dispatches standard HTTP methods. Map WebDAV
+			// verbs to POST + X-HTTP-Method-Override so /api/webdav/* can handle them.
+			if (WEBDAV_OVERRIDE_METHODS.has(method)) {
+				req.headers["x-http-method-override"] = method;
+				req.method = "POST";
+			}
 		}
+		const url = req.url ?? "";
 		// A rejection inside Next's handler is otherwise only logged (the
 		// unhandledRejection handler is log-only) and the socket is left
 		// dangling until the client times out — destroy it so the connection

@@ -231,6 +231,7 @@ describe("/api/servers/[id]/sftp/download", () => {
  */
 const UPLOAD_URL = "http://local/api/servers/srv1/sftp/upload";
 const BOUNDARY = "----vchUploadBoundary";
+const CSRF_TOKEN = "5f".repeat(32);
 
 // The route validates the multipart entry with `file instanceof File` against the
 // global. Under this suite's jsdom environment that global is jsdom's File, which
@@ -247,7 +248,7 @@ globalThis.File = NodeFile as unknown as typeof globalThis.File;
  */
 function multipartRequest(
   fields: { file?: { name: string; content: string }; path?: string },
-  overrides: { contentLength?: string | null } = {},
+  overrides: { contentLength?: string | null; csrf?: { cookie?: string; header?: string } } = {},
 ) {
   const parts: string[] = [];
   if (fields.file) {
@@ -278,6 +279,11 @@ function multipartRequest(
       ? String(body.byteLength)
       : overrides.contentLength;
   if (declared !== null) headers.set("content-length", declared);
+  // The proxy does not run on this route, so it compares the CSRF cookie and
+  // header itself; a browser upload carries both.
+  const csrf = overrides.csrf ?? { cookie: CSRF_TOKEN, header: CSRF_TOKEN };
+  if (csrf.cookie !== undefined) headers.set("cookie", `vcontrolhub_session=a.b; csrf_token=${csrf.cookie}`);
+  if (csrf.header !== undefined) headers.set("x-csrf-token", csrf.header);
 
   return new Request(UPLOAD_URL, { method: "POST", headers, body });
 }
@@ -320,6 +326,44 @@ describe("/api/servers/[id]/sftp/upload", () => {
       undefined,
       "team_1",
     );
+  });
+
+  it.each([
+    ["no CSRF cookie or header", {}],
+    ["a CSRF cookie without the header", { cookie: CSRF_TOKEN }],
+    ["a CSRF header without the cookie", { header: CSRF_TOKEN }],
+    ["a header that differs from the cookie", { cookie: CSRF_TOKEN, header: "6a".repeat(32) }],
+  ])("refuses an upload with %s, since the proxy's CSRF check does not run here", async (_case, csrf) => {
+    const res = await uploadRoute.POST(
+      multipartRequest({ file: { name: "a.txt", content: "content" }, path: "/root" }, { csrf }),
+      { params: params() },
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.message).toBe("CSRF token validation failed");
+    expect(mocks.assertSftpPathAccess).not.toHaveBeenCalled();
+    expect(mocks.uploadFile).not.toHaveBeenCalled();
+  });
+
+  it("adds the response headers the proxy adds everywhere else, to answers and refusals alike", async () => {
+    const stored = await uploadRoute.POST(
+      multipartRequest({ file: { name: "a.txt", content: "content" }, path: "/root" }),
+      { params: params() },
+    );
+    const refused = await uploadRoute.POST(
+      multipartRequest({ file: { name: "a.txt", content: "content" }, path: "/root" }, { csrf: {} }),
+      { params: params() },
+    );
+
+    expect(stored.status).toBe(200);
+    expect(refused.status).toBe(403);
+    for (const res of [stored, refused]) {
+      expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+      expect(res.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
+      expect(res.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
+      expect(res.headers.get("Permissions-Policy")).toContain("camera=()");
+    }
   });
 
   it("collapses a trailing slash on the target directory", async () => {
