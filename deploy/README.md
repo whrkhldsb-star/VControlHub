@@ -103,9 +103,10 @@ sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" 
 
 ```bash
 # 在旧服务器或本地机器执行；按实际新服务器地址替换 root@new-server。
+# 排除项都以 / 开头，只匹配安装目录顶层的运行数据；不带 / 会连同 src/lib/storage、src/lib/downloads 等同名源码目录一起排除。
 rsync -a --delete \
-  --exclude .git --exclude node_modules --exclude .next --exclude .env.local \
-  --exclude storage --exclude tmp --exclude uploads --exclude downloads --exclude backups --exclude logs \
+  --exclude /.git --exclude /node_modules --exclude /.next --exclude /.env.local --exclude /.env.runtime \
+  --exclude /storage --exclude /tmp --exclude /uploads --exclude /downloads --exclude /backups --exclude /logs \
   /opt/VControlHub/ root@new-server:/root/vcontrolhub-src/
 
 # 在新服务器执行。
@@ -201,7 +202,7 @@ sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your
 
 `deploy/upgrade.sh` 默认会：
 
-1. 在 `$BACKUP_DIR`（默认 `$APP_DIR/backups`）创建 `pre-upgrade-*.dump` 数据库备份；
+1. 在 `$BACKUP_DIR`（取环境文件里的值，未设置时为 `$APP_DIR/backups`）创建 `pre-upgrade-*.sql.gz` 数据库备份；
 2. 以 `SKIP_PACKAGES=1` 调用 `deploy/install.sh`，重新同步源码、执行 `npm ci`、`prisma generate`、`prisma migrate deploy`、`npm run build` 与 `npm run build:runtime`（缺一会导致后台 worker 仍跑旧代码）并重启服务；
 3. 调用 `deploy/check.sh` 做本地 `/login`、systemd、运行目录和危险开关检查。
 

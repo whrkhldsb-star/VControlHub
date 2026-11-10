@@ -83,6 +83,29 @@ describe("Linux Agent install over SSH", () => {
       data: { agentTokenHash: "hash-of-the-running-agent", agentLastError: "python3: not found" },
     });
   });
+
+  it("gives a running Agent its token back when the server cannot be reached at all", async () => {
+    // A node is usually moved to Agent mode because SSH does not reach it: the install then throws instead of
+    // returning an exit status, and the token stayed replaced.
+    mocks.serverFindUnique.mockResolvedValueOnce({ ...linuxServer, agentTokenHash: "hash-of-the-running-agent" }).mockResolvedValueOnce({ id: "srv1" });
+    mocks.execRemoteCommand.mockRejectedValueOnce(new Error("connect ETIMEDOUT 203.0.113.5:22"));
+
+    await expect(installServerAgent("srv1")).rejects.toThrow("connect ETIMEDOUT");
+    expect(mocks.serverUpdate).toHaveBeenLastCalledWith({
+      where: { id: "srv1" },
+      data: { agentTokenHash: "hash-of-the-running-agent", agentLastError: "connect ETIMEDOUT 203.0.113.5:22" },
+    });
+  });
+
+  it("refuses a node without an SSH credential before its token is replaced", async () => {
+    // The install script travels over SSH. Without a credential it was handed to the running Agent, whose token had
+    // just been revoked: the Agent could not fetch the job and stayed locked out.
+    mocks.serverFindUnique.mockResolvedValueOnce({ ...linuxServer, password: null, managementMode: "AGENT", agentTokenHash: "hash-of-the-running-agent" });
+
+    await expect(installServerAgent("srv1")).rejects.toThrow(/SSH/);
+    expect(mocks.serverUpdate).not.toHaveBeenCalled();
+    expect(mocks.execRemoteCommand).not.toHaveBeenCalled();
+  });
 });
 
 describe("Linux Agent removal over SSH", () => {

@@ -25,8 +25,14 @@ export type ServerMetrics = {
 
 export type MonitorError = { error: string; serverId: string };
 
-const BASE_MONITOR_SCRIPT = `echo "===CPU==="; nproc 2>/dev/null || echo 1; cat /proc/loadavg 2>/dev/null || echo "0 0 0"; cpu1=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null); sleep 0.5 2>/dev/null || sleep 1; cpu2=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null); echo "\${cpu1:-0 0} \${cpu2:-0 0}" | awk '{di=$3-$1; dt=$4-$2; if(dt>0) print di,dt; else print $3,$4}'; echo "===MEM==="; awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"; echo "===SWAP==="; awk '/SwapTotal:/{t=$2} /SwapFree:/{f=$2} END{if(t>0){printf "%d %d\\n", t/1024, (t-f)/1024}else{print "0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0"; echo "===DISK==="; df -h --output=size,used,pcent,target -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2 || df -h 2>/dev/null | tail -n +2; echo "===LOAD==="; uptime 2>/dev/null || echo "unknown"; echo "===NET==="; awk 'NR>2 && $1!="lo:" {gsub(/:/,"",$1); print $1,$2,$10}' /proc/net/dev 2>/dev/null | head -5 || echo ""`;
-/** Metric sections, then host facts (an Agent embeds this script when it is installed). */
+const BASE_MONITOR_SCRIPT = `echo "===CPU==="; nproc 2>/dev/null || echo 1; cat /proc/loadavg 2>/dev/null || echo "0 0 0"; cpu1=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null); sleep 0.5 2>/dev/null || sleep 1; cpu2=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null); echo "\${cpu1:-0 0} \${cpu2:-0 0}" | awk '{di=$3-$1; dt=$4-$2; if(dt>0) print di,dt; else print $3,$4}'; echo "===MEM==="; awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"; echo "===SWAP==="; awk '/SwapTotal:/{t=$2} /SwapFree:/{f=$2} END{if(t>0){printf "%d %d\\n", t/1024, (t-f)/1024}else{print "0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0"; echo "===DISK==="; vch_df=$(df -h --output=size,used,pcent,target -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2); if [ -n "$vch_df" ]; then echo "$vch_df"; else df -h -P 2>/dev/null | awk 'NR>1 && $1!="tmpfs" && $1!="devtmpfs" && $1!="squashfs" && $1!="shm" {print $2,$3,$5,$6}'; fi; echo "===LOAD==="; uptime 2>/dev/null || echo "unknown"; echo "===NET==="; awk 'NR>2 && $1!="lo:" {gsub(/:/,"",$1); print $1,$2,$10}' /proc/net/dev 2>/dev/null | head -5 || echo ""`;
+/**
+ * Metric sections, then host facts (an Agent embeds this script when it is installed).
+ *
+ * The disk rows are "size used percent mount". A df without --output (BusyBox, old coreutils) prints nothing for the
+ * first form, so the POSIX form is reshaped to the same four columns; a `cmd | tail || fallback` never reaches its
+ * fallback, because the pipeline's status is tail's.
+ */
 export const MONITOR_SCRIPT = `${BASE_MONITOR_SCRIPT}; ${HOST_FACTS_SCRIPT}`;
 
 /* ── Parse helpers ────────────────────────────────────────── */

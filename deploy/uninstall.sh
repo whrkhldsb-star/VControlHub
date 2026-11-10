@@ -115,11 +115,16 @@ safe_data_path() {
     /var/lib/docker|/var/lib/docker/*|/var/lib/containerd|/var/lib/containerd/*|/var/lib/postgresql|/var/lib/postgresql/*|/var/lib/mysql|/var/lib/mysql/*|/var/lib/apt|/var/lib/apt/*|/var/lib/dpkg|/var/lib/dpkg/*|/var/lib/systemd|/var/lib/systemd/*|/opt/containerd/*|/home/*/.ssh/*)
       fail "Refusing to delete system/third-party data path: ${value}" ;;
   esac
-  # A path that does not even mention the application slug needs --force-paths.
-  case "${value}" in
-    *"${APP_SLUG}"*) ;;
-    *) [ "${FORCE_PATHS}" = "1" ] || fail "Data path ${value} does not contain the APP_SLUG '${APP_SLUG}'. Check the env file; pass --force-paths if it really belongs to this instance." ;;
-  esac
+  # A path from the environment file that does not even mention the application slug needs --force-paths. The
+  # installer's own inventory of Quick Service directories ("inventory" as second argument) is a fixed list whose
+  # names never contain the slug: held to this rule, every complete uninstall stopped at its first entry, after
+  # the database and the data were gone and before the application directory and its user were removed.
+  if [ "${2:-}" != "inventory" ]; then
+    case "${value}" in
+      *"${APP_SLUG}"*) ;;
+      *) [ "${FORCE_PATHS}" = "1" ] || fail "Data path ${value} does not contain the APP_SLUG '${APP_SLUG}'. Check the env file; pass --force-paths if it really belongs to this instance." ;;
+    esac
+  fi
   printf '%s' "${value}"
 }
 
@@ -128,10 +133,13 @@ DOWNLOAD_ROOT="$(safe_data_path "${DOWNLOAD_ROOT}")"
 BACKUP_DIR="$(safe_data_path "${BACKUP_DIR}")"
 ARIA2_RPC_DIR="$(safe_data_path "${ARIA2_RPC_DIR}")"
 
-# Every unit install.sh writes (next, worker, ssh-ws, aria2), plus the direct
-# gateway. aria2 was missing: its Restart=always relay kept running against
-# deleted paths and its unit stayed enabled.
+# Every unit install.sh writes (next, worker, ssh-ws, aria2, the nightly backup
+# timer and its service), plus the direct gateway. aria2 was missing: its
+# Restart=always relay kept running against deleted paths and its unit stayed
+# enabled. The backup timer was missing too and went on firing every night.
 units=(
+  "${SERVICE_PREFIX}-backup.timer"
+  "${SERVICE_PREFIX}-backup.service"
   "${SERVICE_PREFIX}-next.service"
   "${SERVICE_PREFIX}-worker.service"
   "${SERVICE_PREFIX}-ssh-ws.service"
@@ -257,13 +265,20 @@ sudo -u postgres dropdb --if-exists "${PG_DB_NAME}"
 sudo -u postgres dropuser --if-exists "${PG_DB_USER}"
 
 declare -A seen_paths=()
-while IFS= read -r data_path; do
-  data_path="$(safe_data_path "${data_path}")"
-  [ -z "${seen_paths[${data_path}]+x}" ] || continue
+remove_checked_data_path() {
+  local data_path="$1" parent_path
+  [ -n "${data_path}" ] || return 0
+  [ -z "${seen_paths[${data_path}]+x}" ] || return 0
   seen_paths["${data_path}"]=1
   [ ! -e "${data_path}" ] || find "${data_path}" -xdev -depth -delete
   parent_path="$(dirname "${data_path}")"
   case "${parent_path}" in /opt/*|/srv/*) rmdir "${parent_path}" 2>/dev/null || true ;; esac
+}
+# The assignment stays on its own line: a path the check refuses must stop the script (errexit), and a failing
+# command substitution passed as an argument would not.
+while IFS= read -r data_path; do
+  data_path="$(safe_data_path "${data_path}")"
+  remove_checked_data_path "${data_path}"
 done <<EOF
 ${STORAGE_ROOT}
 ${DOWNLOAD_ROOT}
@@ -271,6 +286,12 @@ ${BACKUP_DIR}
 ${ARIA2_RPC_DIR}
 /var/lib/${APP_SLUG}
 /var/backups/${APP_SLUG}
+EOF
+while IFS= read -r data_path; do
+  [ -n "${data_path}" ] || continue
+  data_path="$(safe_data_path "${data_path}" inventory)"
+  remove_checked_data_path "${data_path}"
+done <<EOF
 $(quick_service_removable_data_paths)
 EOF
 

@@ -1023,9 +1023,18 @@ export async function installServerAgent(serverId: string) {
   if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") {
     throw new Error("Agent hub URL must use HTTPS");
   }
+  // The script travels over SSH. Without a credential it would be handed to the Agent that is running, whose token
+  // the issue below revokes: that Agent could not fetch the job, and the node stayed locked out until someone
+  // reinstalled it by hand.
+  const hasSshCredential = server.connectionType === "SSH_KEY"
+    ? Boolean(server.sshKeyId && server.sshKey?.privateKey)
+    : Boolean(server.password);
+  if (!hasSshCredential) throw new BusinessError(t("backend.server.agentInstallNeedsSsh"));
   // The new token is issued before the install (the script carries it); if the install fails, the Agent already
   // running keeps the token it has, which was revoked by the issue and is put back below.
   const previousTokenHash = server.agentTokenHash ?? null;
+  const restorePreviousToken = (reason: string) =>
+    prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: previousTokenHash, agentLastError: reason.slice(0, 1000) } });
   const token = await issueServerAgentToken(serverId);
   const python = Buffer.from(buildAgentPython(hubUrl, token)).toString("base64");
   const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=always\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
@@ -1043,10 +1052,17 @@ export async function installServerAgent(serverId: string) {
     // An installed Agent keeps its previous token in memory: restart, not just start.
     "systemctl restart vcontrolhub-agent.service",
   ].join("\n");
-  const ssh = await buildSshParamsFromServer(server, server.sshKey);
-  const result = await execRemoteCommand({ ...ssh, command: asRoot(script), timeout: 60_000 });
+  let result: Awaited<ReturnType<typeof execRemoteCommand>>;
+  try {
+    const ssh = await buildSshParamsFromServer(server, server.sshKey);
+    result = await execRemoteCommand({ ...ssh, command: asRoot(script), timeout: 60_000 });
+  } catch (error) {
+    // A server SSH does not reach (often why it is in Agent mode) throws here instead of returning a status.
+    await restorePreviousToken(error instanceof Error ? error.message : String(error)).catch(() => undefined);
+    throw error;
+  }
   if (result.exitCode !== 0) {
-    await prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: previousTokenHash, agentLastError: (result.stderr || result.stdout || "Agent installation failed").slice(0, 1000) } });
+    await restorePreviousToken(result.stderr || result.stdout || "Agent installation failed");
     throw new Error(result.stderr || result.stdout || "Agent installation failed");
   }
   return { installed: true };

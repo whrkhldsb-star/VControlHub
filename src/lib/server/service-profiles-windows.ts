@@ -181,8 +181,10 @@ export async function updateWindowsServerProfile(
     await listRemoteDirectory({ ...ssh, hostKeySha256: nextSftpHostKey, remotePath: nextSftp.basePath });
   }
   const nextManagementMode = input.managementMode ?? current.managementMode;
-  const release = await acquireAdvisoryLock("server-host", payload.host);
+  // Before the lock, not between taking it and the block that releases it: thrown there, each refusal kept the
+  // host lock and one of the lock pool's few connections until the process restarted.
   if (payload.certificateSha256 && !rdpCertificatePinSupported()) throw new ValidationError(t("backend.server.rdpPinUnsupported"));
+  const release = await acquireAdvisoryLock("server-host", payload.host);
   try {
     await assertNoDuplicateServerHost(payload, { excludeId: serverId, session: sessionForTeamWhere(session) });
     const updated = await prisma.$transaction(async (tx) => {

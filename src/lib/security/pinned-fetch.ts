@@ -33,6 +33,12 @@ export type PinnedFetchOptions = {
 	headersTimeoutMs?: number;
 	bodyTimeoutMs?: number;
 	connectTimeoutMs?: number;
+	/**
+	 * Accept a certificate that does not verify (self-signed, another name). Only for a probe that sends nothing
+	 * secret and reads no more than a status: a direct gateway on a bare IP serves a self-signed certificate by
+	 * design. The address is validated and pinned as for every other call.
+	 */
+	allowUntrustedCertificate?: boolean;
 };
 
 /**
@@ -68,6 +74,7 @@ export async function fetchWithPinnedDns(
 		bodyTimeout: options.bodyTimeoutMs ?? 300_000,
 		connect: {
 			timeout: options.connectTimeoutMs ?? 15_000,
+			...(options.allowUntrustedCertificate ? { rejectUnauthorized: false } : {}),
 			lookup(name, opts, callback) {
 				// A redirect (or anything re-resolving a different host) must not
 				 // silently bypass the pin — fail the connection instead.

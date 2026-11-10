@@ -2087,6 +2087,14 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>用户在账户安全中发起设置，使用自己的认证器扫描二维码或手工录入密钥，输入当前验证码完成启用。</p>
 <p>启用后提供恢复码，用于无法使用认证器时登录；恢复码应由本人保存，重新生成需要再次验证当前 TOTP 或有效恢复码，并使旧恢复码失效。启用、关闭 MFA 或重新生成恢复码会原子撤销旧会话，正常情况下刷新当前浏览器会话，其他设备需重新登录。密码变更、全端退出等凭据撤销也会使旧的待二次验证登录失效；发生并发凭据变更时，当前浏览器可能需要重新登录。关闭 MFA 需要按界面要求完成身份验证。</p>
 <p>“部署支持 MFA”与“每个账号已绑定 MFA”是两个状态；管理员不能仅通过安装平台替每位用户完成认证器绑定。</p>
+<p>平台管理员自己无法登录时（忘记密码，或认证器与恢复码都已丢失），界面里没有别的入口，需要在控制面所在主机的安装目录下用命令行恢复：</p>
+<pre><code class="language-bash">cd /opt/VControlHub
+# 重置 admin 账号的密码（8–128 个字符）。该账号的已有会话全部失效，下次登录后必须先改密。
+sudo ADMIN_NEW_PASSWORD='新的临时密码' npm run admin:reset-password
+# 关闭某个账号的双因素认证。该账号的已有会话全部失效，并写入一条审计记录（auth.2fa_reset_cli）。
+sudo npm run admin:reset-2fa -- 账号名
+</code></pre>
+<p>两条命令直接读写数据库，使用安装目录中的环境文件。密码建议按上面的方式通过环境变量传入，写成命令行参数会留在进程列表和 shell 历史里。容器镜像不包含这两个脚本，容器部署需要在带有源码和开发依赖的环境中、用同一个 <code>DATABASE_URL</code> 执行。</p>
 <h3 id="section-17-3">17.3 账号类型与用户管理</h3>
 <p>入口：<code>/users</code>。</p>
 <p>账号只有两类：</p>
@@ -3450,6 +3458,10 @@ npm run docs:check
 <tr>
 <td>SSH 收藏命令为什么立即执行</td>
 <td>点击命令会附带回车，需要先确认当前 shell 输入状态和目标节点</td>
+</tr>
+<tr>
+<td>平台管理员忘记密码，或认证器和恢复码都丢了</td>
+<td>界面内没有入口；在控制面主机的安装目录执行 <code>npm run admin:reset-password</code> 或 <code>npm run admin:reset-2fa -- 账号名</code>，见 <a href="#permissions">17.2 双因素认证</a> 末尾</td>
 </tr>
 <tr>
 <td><code>.key</code> 文件提示无法导入</td>

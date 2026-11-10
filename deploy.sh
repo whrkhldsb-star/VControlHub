@@ -198,7 +198,16 @@ if [ -f "$ARIA2_TEMPLATE" ] && command -v aria2c >/dev/null 2>&1; then
 	site_name="$(unit_value Description | sed 's/ Next\.js.*$//; s/ application.*$//')"
 	[ -n "$site_name" ] || site_name="VControlHub"
 	service_prefix="${SERVICE_NAME%-next}"
+	# A custom ARIA2_RPC_DIR lies outside what the template lists; the confined daemon could not write there.
+	aria2_rpc_dir="$(sed -n 's/^ARIA2_RPC_DIR=//p' "$runtime_env_file" 2>/dev/null | tail -n1 | tr -d "\"'")"
+	aria2_data_paths=""
+	case "$aria2_rpc_dir" in
+		*'$'*|*[[:space:]]*|"") ;;
+		"/var/lib/$service_prefix/"*|"$APP_DIR/tmp/"*) ;;
+		/*) aria2_data_paths=" -${aria2_rpc_dir%/}" ;;
+	esac
 	sed \
+		-e "s|{{ARIA2_DATA_READ_WRITE_PATHS}}|$aria2_data_paths|g" \
 		-e "s|{{SITE_NAME}}|$site_name|g" \
 		-e "s|{{APP_DIR}}|$APP_DIR|g" \
 		-e "s|{{RUNTIME_ENV_FILE}}|$runtime_env_file|g" \

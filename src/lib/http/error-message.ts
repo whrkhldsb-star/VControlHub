@@ -9,7 +9,25 @@
  */
 export function getErrorMessage(error: unknown, fallback: string): string {
 	if (isDatabaseError(error)) return fallback;
+	const refused = schemaIssueMessages(error);
+	if (refused !== null) return refused || fallback;
 	return error instanceof Error && error.message ? error.message : fallback;
+}
+
+/**
+ * A schema error's own message is the JSON dump of its issues, which is what the server form showed for a host
+ * typed as a URL. The issues carry the sentences a person can read. Told apart by shape: this module is shared
+ * with the browser, where `instanceof` against another copy of the library would miss.
+ */
+function schemaIssueMessages(error: unknown): string | null {
+	if (!(error instanceof Error) || error.name !== "ZodError") return null;
+	const issues: unknown = (error as { issues?: unknown }).issues;
+	if (!Array.isArray(issues)) return null;
+	const messages = issues
+		.map((issue: unknown) => (issue && typeof issue === "object" ? (issue as { message?: unknown }).message : undefined))
+		.filter((message): message is string => typeof message === "string" && message.trim() !== "")
+		.map((message) => message.trim());
+	return [...new Set(messages)].slice(0, 3).join("; ");
 }
 
 function isDatabaseError(error: unknown): boolean {

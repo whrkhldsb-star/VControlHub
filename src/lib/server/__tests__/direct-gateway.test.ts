@@ -186,6 +186,11 @@ describe("TR-002 direct gateway TLS hardening", () => {
     expect(command).toContain("direct.example.com {");
     expect(command).toContain("reverse_proxy 127.0.0.1:31888");
     expect(command).not.toContain("auto_https off");
+    // systemd refuses to start a unit whose ReadWritePaths names a missing path unless the path is marked optional
+    // with "-" (status 226/NAMESPACE): a fresh VPS has no /root/.local/share/caddy. A root service gets no HOME
+    // either, so Caddy kept its certificates under the working directory ("/") instead of the path listed here.
+    expect(command).toContain("ReadWritePaths=/opt/vcontrolhub-direct -/var/lib/caddy -/root/.local/share/caddy");
+    expect(command).toContain("Environment=HOME=/root");
   });
 
   it("buildUninstallDirectGatewayCommand removes caddy reverse-proxy unit", () => {

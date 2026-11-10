@@ -328,6 +328,11 @@ caddy validate --config ${shellQuote(caddyfile)} --adapter caddyfile
  * Caddy systemd unit heredoc + enable/restart (shared by both auto-HTTPS
  * branches; only ReadWritePaths differs — ACME needs caddy's data dirs for
  * certificate storage, local TLS only the gateway root).
+ *
+ * Two things systemd.exec(5) says and the unit has to follow. A path in ReadWritePaths that does not exist stops
+ * the unit from starting (226/NAMESPACE) unless it is prefixed with "-"; a fresh VPS has no
+ * /root/.local/share/caddy. And a system service without User= is given no HOME, so Caddy kept its data under the
+ * working directory ("/.local/share/caddy") instead of the directory listed here.
  */
 function caddyUnitAndStartBlock(readWritePaths: string): string {
   const caddyfile = DIRECT_GATEWAY_CADDY_CONFIG;
@@ -341,6 +346,7 @@ Requires=${DIRECT_GATEWAY_SERVICE_NAME}
 
 [Service]
 Type=simple
+Environment=HOME=/root
 ExecStart=/usr/bin/env caddy run --config ${caddyfile} --adapter caddyfile
 Restart=always
 RestartSec=3
@@ -383,7 +389,7 @@ ${caddyInstallBlock()}${writeAndValidateCaddyfile(`{
 ${hostLiteral} {
   reverse_proxy 127.0.0.1:${backendPort}
   encode zstd gzip
-}`)}${caddyUnitAndStartBlock("/opt/vcontrolhub-direct /var/lib/caddy /root/.local/share/caddy")}python3 - <<'VCH_DIRECT_PROXY_HEALTH'
+}`)}${caddyUnitAndStartBlock("/opt/vcontrolhub-direct -/var/lib/caddy -/root/.local/share/caddy")}python3 - <<'VCH_DIRECT_PROXY_HEALTH'
 import ssl, time
 from urllib.request import urlopen
 last_error = None

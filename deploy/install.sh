@@ -270,6 +270,32 @@ build_systemd_path() {
   printf '%s\n' "${path_value}"
 }
 
+# Optional ReadWritePaths entries for the data directories named in the environment file, when they lie outside
+# what the unit templates already list. The units run with ProtectSystem=strict: a custom STORAGE_ROOT, BACKUP_DIR,
+# ARIA2_RPC_DIR or FILE_VERSION_DIR was created and saved by this installer, and the services could not write there.
+# Each entry carries "-": systemd refuses to start a unit whose ReadWritePaths names a path that does not exist.
+custom_data_read_write_paths() {
+	local data_path listed=""
+	for data_path in "$@"; do
+		case "${data_path}" in
+			/*) ;;
+			*) continue ;;
+		esac
+		data_path="${data_path%/}"
+		case "${data_path}" in
+			""|*[[:space:]]*) continue ;;
+		esac
+		case "${data_path}/" in
+			"/var/lib/${APP_SLUG}/"*|"/var/backups/${APP_SLUG}/"*|"${APP_DIR}/storage/"*|"${APP_DIR}/backups/"*|"${APP_DIR}/uploads/"*|"${APP_DIR}/downloads/"*|/tmp/*) continue ;;
+		esac
+		case " ${listed} " in
+			*" -${data_path} "*) continue ;;
+		esac
+		listed="${listed:+${listed} }-${data_path}"
+	done
+	printf '%s' "${listed}"
+}
+
 is_placeholder_value() {
   local value="${1:-}"
   case "${value}" in
@@ -494,6 +520,9 @@ sync_source() {
     if [ -d "${APP_DIR}/.git" ]; then
       # The checkout belongs to ${APP_USER} after the first install while this
       # script runs as root; without the exception git refuses it as "dubious".
+      # The build rewrites the route catalog in place; left modified it stops the pull (bootstrap.sh and
+      # upgrade.sh restore it the same way).
+      git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
       git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch --all --prune
       git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" pull --ff-only
     else
@@ -502,8 +531,11 @@ sync_source() {
     fi
   else
  if have_cmd rsync; then
+		# Every pattern starts with "/": it names runtime data at the top of the install. Without it rsync matches the
+		# name at any depth, and "downloads", "backups" and "logs" left out src/lib/downloads, the downloads and
+		# backups pages with their routes and the AI operations log route (the tar branch below was always anchored).
 		rsync -a --delete \
---exclude .git --exclude 'node_modules*' --exclude '.next*' --exclude 'dist*' --exclude backups --exclude /storage --exclude tmp --exclude uploads --exclude downloads --exclude logs --exclude .env.local \
+--exclude /.git --exclude '/node_modules*' --exclude '/.next*' --exclude '/dist*' --exclude /backups --exclude /storage --exclude /tmp --exclude /uploads --exclude /downloads --exclude /logs --exclude /.env.local \
 --exclude /.cache --exclude /.npm --exclude /coverage --exclude /.playwright-output --exclude /.dast-output --exclude /tsconfig.tsbuildinfo --exclude /.env.runtime \
  "${SOURCE_DIR}/" "${APP_DIR}/"
     else
@@ -1091,8 +1123,21 @@ install_systemd() {
 	npx_bin="$(resolve_node_tool npx)"
 	systemd_path="$(build_systemd_path "${node_bin}" "${npm_bin}" "${npx_bin}")"
 	if [ "${SKIP_DOCKER}" != "1" ]; then
-		quick_service_read_write_paths=" $(quick_service_host_paths | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+		# Optional ("-"): the installer makes some fifty directories under /opt for services that may never be
+		# installed; one removed by hand must not keep the application from starting.
+		quick_service_read_write_paths=" $(quick_service_host_paths | sed 's|^|-|' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
 	fi
+	local custom_data_paths aria2_data_paths
+	custom_data_paths="$(custom_data_read_write_paths "${STORAGE_ROOT:-}" "${BACKUP_DIR:-}" "${ARIA2_RPC_DIR:-}" "${FILE_VERSION_DIR:-}")"
+	[ -z "${custom_data_paths}" ] || quick_service_read_write_paths="${quick_service_read_write_paths} ${custom_data_paths}"
+	aria2_data_paths="$(custom_data_read_write_paths "${ARIA2_RPC_DIR:-}")"
+	[ -z "${aria2_data_paths}" ] || aria2_data_paths=" ${aria2_data_paths}"
+	local escaped_site_name escaped_read_write_paths escaped_aria2_data_paths
+	# A site name may hold "&" or "|" ("R&D"): raw in a sed replacement, the first printed the placeholder back and
+	# the second stopped the installer after the build.
+	escaped_site_name="$(shell_escape_sed_replacement "${SITE_NAME}")"
+	escaped_read_write_paths="$(shell_escape_sed_replacement "${quick_service_read_write_paths}")"
+	escaped_aria2_data_paths="$(shell_escape_sed_replacement "${aria2_data_paths}")"
 	local svc
 	for svc in next worker ssh-ws aria2; do
 		local src="${APP_DIR}/deploy/systemd/${APP_SLUG}-${svc}.service.example"
@@ -1125,7 +1170,7 @@ install_systemd() {
 		# Remove immutable flag if present (from hardening or previous deployment)
 		chattr -i "${dst}" 2>/dev/null || true
 sed \
-			-e "s|{{SITE_NAME}}|${SITE_NAME}|g" \
+			-e "s|{{SITE_NAME}}|${escaped_site_name}|g" \
 			-e "s|{{APP_DIR}}|${APP_DIR}|g" \
 			-e "s|{{ENV_FILE}}|${ENV_FILE}|g" \
 			-e "s|{{RUNTIME_ENV_FILE}}|${RUNTIME_ENV_FILE}|g" \
@@ -1137,7 +1182,8 @@ sed \
 			-e "s|{{SSH_WS_PORT}}|${SSH_WS_PORT}|g" \
 			-e "s|{{APP_USER}}|${APP_USER}|g" \
 			-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
-			-e "s|{{QUICK_SERVICE_READ_WRITE_PATHS}}|${quick_service_read_write_paths}|g" \
+			-e "s|{{QUICK_SERVICE_READ_WRITE_PATHS}}|${escaped_read_write_paths}|g" \
+			-e "s|{{ARIA2_DATA_READ_WRITE_PATHS}}|${escaped_aria2_data_paths}|g" \
 			-e "s|{{SERVICE_PREFIX}}|${SERVICE_PREFIX}|g" \
 			-e "s|{{BACKUP_DIR}}|${BACKUP_DIR:-/var/backups/${APP_SLUG}}|g" \
 			"${src}" > "${dst}"
@@ -1154,7 +1200,7 @@ sed \
 		local backup_dst="${DESTDIR}/etc/systemd/system/${SERVICE_PREFIX}-backup.${backup_kind}"
 		chattr -i "${backup_dst}" 2>/dev/null || true
 		sed \
-			-e "s|{{SITE_NAME}}|${SITE_NAME}|g" \
+			-e "s|{{SITE_NAME}}|${escaped_site_name}|g" \
 			-e "s|{{APP_DIR}}|${APP_DIR}|g" \
 			-e "s|{{ENV_FILE}}|${ENV_FILE}|g" \
 			-e "s|{{RUNTIME_ENV_FILE}}|${RUNTIME_ENV_FILE}|g" \

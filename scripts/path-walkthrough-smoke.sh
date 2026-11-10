@@ -45,7 +45,7 @@ expect_redirect_to_login() {
   location="$(tr -d '\r' <"${headers}" | awk 'tolower($1)=="location:"{print $2; exit}')"
   rm -f "${headers}"
   [ "${code}" = "307" ] || [ "${code}" = "302" ] || [ "${code}" = "303" ] || return 1
-  printf '%s' "${location}" | grep -qE '/login(\\?|$)' || return 1
+  printf '%s' "${location}" | grep -qE '/login(\?|$)' || return 1
   printf '%s' "${location}" | grep -q "next=" || return 1
 }
 
