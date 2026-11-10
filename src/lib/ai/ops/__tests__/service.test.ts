@@ -378,7 +378,8 @@ describe("executeRecommendation — mode-aware action gating", () => {
 		]);
 
 		expect(results.filter((result) => result.executed)).toHaveLength(1);
-		expect(results.filter((result) => result.errorMessage?.includes("already being executed"))).toHaveLength(1);
+		// Said in the service's language (Chinese outside a request), as the other refusals are.
+		expect(results.filter((result) => result.errorMessage?.includes("正在执行"))).toHaveLength(1);
 	});
 
 	it("preserves both results when different recommendations execute concurrently", async () => {

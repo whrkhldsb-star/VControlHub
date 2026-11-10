@@ -863,14 +863,27 @@ function scheduleNextAiOpsScan() {
     .then((retryMs) => armAiOpsScanTimer(retryMs));
 }
 
+/**
+ * How often the worker looks at the queue. "Scan now" queues its job from the
+ * web process, which cannot wake this timer: armed once for the daily hour,
+ * the worker ran a scan asked for in the morning at 02:00 the next day.
+ */
+const AI_OPS_SCAN_QUEUE_POLL_MS = 15_000;
+
 function armAiOpsScanTimer(retryMs: number | null) {
   const state = getWorkerState();
   if (!state.started) return;
   if (state.timer) clearTimeout(state.timer);
   const dailyMs = millisecondsUntilNextLocalHour(AI_OPS_DEFAULT_SCHEDULE_HOUR);
-  const delayMs = retryMs === null ? dailyMs : Math.min(dailyMs, retryMs);
+  const dueMs = retryMs === null ? dailyMs : Math.min(dailyMs, retryMs);
+  const delayMs = Math.min(dueMs, AI_OPS_SCAN_QUEUE_POLL_MS);
   state.timer = setTimeout(() => {
     state.timer = null;
+    // Nothing is due yet: this wake only looks at the queue again.
+    if (delayMs < dueMs) {
+      scheduleNextAiOpsScan();
+      return;
+    }
     void runAiOpsScanWorkerOnce("scheduled")
       .catch((error) => {
         logger.error("AI ops scan worker tick failed", {

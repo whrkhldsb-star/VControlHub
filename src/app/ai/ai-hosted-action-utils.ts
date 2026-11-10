@@ -24,6 +24,7 @@ export function pendingApprovalsFromMessages(
         actionType: action.actionType,
         riskLevel: action.riskLevel,
         params: parseParams(action.params),
+        server: action.server ? { name: action.server.name, host: action.server.host } : null,
       })),
   );
 }
@@ -102,6 +103,53 @@ export function approvalDetails(actionType: string, params: Record<string, unkno
   }
   add("aiPage.approvalReason", text(params, "reason"));
   return rows;
+}
+
+/** Server names listed on an automation card before the rest are counted. */
+const AUTOMATION_TARGET_NAMES = 8;
+
+/**
+ * When an automation plan runs, on which servers and under which approval, in words. The card showed the raw
+ * values ("once", "every_run") and a server count: neither the time of a scheduled run nor the names of its
+ * targets, which is what the person is asked to confirm.
+ */
+export function automationSummary(
+  params: Record<string, unknown>,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  formatTime: (value: string) => string,
+): { execution: string; targets: string; approval: string } {
+  const mode = text(params, "executionMode");
+  const zone = text(params, "timeZone") ?? "";
+  const runAt = text(params, "runAt");
+  const dailyTime = text(params, "dailyTime");
+  const execution = mode === "now"
+    ? t("aiPage.automationSchedule.now")
+    : mode === "once" && runAt
+      ? t("aiPage.automationSchedule.once", { time: formatTime(runAt), zone })
+      : mode === "daily" && dailyTime
+        ? t("aiPage.automationSchedule.daily", { time: dailyTime, zone })
+        : (mode ?? "-");
+
+  const names = Array.isArray(params.servers)
+    ? params.servers.flatMap((server) => {
+        const name = server && typeof server === "object" ? (server as { name?: unknown }).name : null;
+        return typeof name === "string" && name.trim() ? [name] : [];
+      })
+    : [];
+  const count = Array.isArray(params.serverIds) ? params.serverIds.length : names.length;
+  const shown = names.slice(0, AUTOMATION_TARGET_NAMES);
+  const targets = shown.length === 0
+    ? String(count)
+    : t("aiPage.automationTargetNames", { count, names: shown.join(", ") })
+      + (count > shown.length ? t("aiPage.automationTargetMore", { more: count - shown.length }) : "");
+
+  const approvalMode = text(params, "approvalMode");
+  const approval = approvalMode === "approve_once"
+    ? t("aiPage.automationApproval.approveOnce")
+    : approvalMode === "every_run"
+      ? t("aiPage.automationApproval.everyRun")
+      : (approvalMode ?? "-");
+  return { execution, targets, approval };
 }
 
 export function mergePendingApprovals(

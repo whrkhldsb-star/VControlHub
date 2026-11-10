@@ -23,13 +23,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 const mocks = vi.hoisted(() => ({
 	serverFindFirst: vi.fn(),
+	serverFindMany: vi.fn(),
 	playbookFindFirst: vi.fn(),
 	playbookFindMany: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
 	prisma: {
-		server: { findFirst: mocks.serverFindFirst },
+		server: { findFirst: mocks.serverFindFirst, findMany: mocks.serverFindMany },
 		playbook: { findFirst: mocks.playbookFindFirst, findMany: mocks.playbookFindMany },
 	},
 }));
@@ -138,6 +139,8 @@ describe("resolveServerId", () => {
 		vi.clearAllMocks();
 		mocks.serverFindFirst.mockReset();
 		mocks.serverFindFirst.mockResolvedValue(null);
+		mocks.serverFindMany.mockReset();
+		mocks.serverFindMany.mockResolvedValue([]);
 	});
 
 	it("checks an explicit id against the caller's team", async () => {
@@ -159,14 +162,37 @@ describe("resolveServerId", () => {
 		await expect(resolveServerId({ serverId: "srv_other_team" }, operator)).resolves.toBeNull();
 	});
 
-	it("applies the team filter to the fuzzy name/host search too", async () => {
-		mocks.serverFindFirst.mockResolvedValue({ id: "srv_1", name: "web", host: "h" });
-		await resolveServerId({ serverQuery: "web" }, operator);
-		const where = mocks.serverFindFirst.mock.calls[0]![0].where as { AND: unknown[] };
-		expect(where.AND[0]).toMatchObject({ AND: [{ teamId: "team_1" }, expect.anything()] });
-		expect(where.AND[1]).toEqual({
-			OR: [{ id: "web" }, { name: { contains: "web" } }, { host: { contains: "web" } }],
+	it("applies the team filter to the name/host search too", async () => {
+		mocks.serverFindMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "srv_1", name: "web-1", host: "h" }]);
+		await expect(resolveServerId({ serverQuery: "web" }, operator)).resolves.toBe("srv_1");
+		const [exact, partial] = mocks.serverFindMany.mock.calls.map((call) => call[0].where as { AND: unknown[] });
+		expect(exact!.AND[0]).toMatchObject({ AND: [{ teamId: "team_1" }, expect.anything()] });
+		expect(exact!.AND[1]).toEqual({ OR: [{ id: "web" }, { name: "web" }, { host: "web" }] });
+		expect(partial!.AND[0]).toMatchObject({ AND: [{ teamId: "team_1" }, expect.anything()] });
+		expect(partial!.AND[1]).toEqual({
+			OR: [{ name: { contains: "web", mode: "insensitive" } }, { host: { contains: "web", mode: "insensitive" } }],
 		});
+	});
+
+	it("takes a name or address for one server or none, never the first of several", async () => {
+		// findFirst over "contains" returned whichever of web-1 and web-2 the database listed first: a status was
+		// read from, or a restart proposed for, a server nobody had named. "%" fitted every server.
+		const web1 = { id: "srv_1", name: "web-1", host: "10.0.0.1" };
+		const web2 = { id: "srv_2", name: "web-2", host: "10.0.0.2" };
+		mocks.serverFindMany.mockResolvedValueOnce([]).mockResolvedValueOnce([web1, web2]);
+		await expect(resolveServerId({ serverQuery: "web" }, operator)).rejects.toThrow(/web-1 \(10\.0\.0\.1, id srv_1\); web-2 \(10\.0\.0\.2, id srv_2\)/);
+
+		// The exact name wins over servers that merely contain it.
+		mocks.serverFindMany.mockReset();
+		mocks.serverFindMany.mockResolvedValueOnce([{ id: "srv_web", name: "web", host: "10.0.0.9" }]);
+		await expect(resolveServerId({ serverQuery: "web" }, operator)).resolves.toBe("srv_web");
+		expect(mocks.serverFindMany).toHaveBeenCalledTimes(1);
+
+		// Wildcards are text, not patterns.
+		mocks.serverFindMany.mockReset();
+		mocks.serverFindMany.mockResolvedValue([]);
+		await expect(resolveServerId({ serverQuery: "%" }, operator)).resolves.toBeNull();
+		expect((mocks.serverFindMany.mock.calls[1]![0].where as { AND: [unknown, { OR: Array<{ name?: { contains: string } }> }] }).AND[1].OR[0]!.name!.contains).toBe("\\%");
 	});
 
 	it("quarantines legacy rows for a sessionless caller", async () => {
@@ -189,6 +215,7 @@ describe("resolveServerId", () => {
 		await expect(resolveServerId({ serverQuery: "   " }, operator)).resolves.toBeNull();
 		await expect(resolveServerId({ serverId: 42 as unknown as string }, operator)).resolves.toBeNull();
 		expect(mocks.serverFindFirst).not.toHaveBeenCalled();
+		expect(mocks.serverFindMany).not.toHaveBeenCalled();
 	});
 
 	it("prefers an explicit id over a query and does not fall back on a miss", async () => {
@@ -198,6 +225,7 @@ describe("resolveServerId", () => {
 		mocks.serverFindFirst.mockResolvedValue(null);
 		await expect(resolveServerId({ serverId: "srv_other", serverQuery: "web" }, operator)).resolves.toBeNull();
 		expect(mocks.serverFindFirst).toHaveBeenCalledTimes(1);
+		expect(mocks.serverFindMany).not.toHaveBeenCalled();
 	});
 });
 

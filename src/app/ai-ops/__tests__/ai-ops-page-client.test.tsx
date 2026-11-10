@@ -10,7 +10,7 @@
  * 2026-06-16: hide UI entirely when the user lacks permission so there
  * is no half-render, no placeholder, and no leaky click target.
  */
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -119,6 +119,49 @@ describe("AiOpsPageClient conditional render audit", () => {
 				screen.queryByRole("button", { name: /立即扫描|触发扫描/i }),
 			).toBeNull();
 		});
+	});
+
+	it("keeps reading the list after a scan was queued, until that scan's log has finished", async () => {
+		// The worker runs a queued scan some seconds later and a provider's analysis can take a minute or two.
+		// The page read the list once more after 15 seconds, usually before the log existed.
+		vi.useFakeTimers();
+		try {
+			const finished = makeLogWithAction("log-new");
+			const running: AiOpsLogRecord = { ...finished, status: "running" };
+			let listReads = 0;
+			csrfFetch.mockImplementation(async (url: string) => {
+				if (url === "/api/ai/ops/scan") return { ok: true, json: async () => ({ triggered: true, queued: true, latestLog: null }) };
+				if (url.startsWith("/api/ai/ops/logs")) {
+					listReads += 1;
+					const logs = listReads === 1 ? [] : listReads === 2 ? [running] : [finished];
+					return { ok: true, json: async () => ({ logs, total: logs.length, hasMore: false }) };
+				}
+				return { ok: true, json: async () => ({ summary: initialSummary }) };
+			});
+			render(
+				<AiOpsPageClient
+					initialSummary={initialSummary}
+					initialLogs={initialLogs}
+					initialHasMore={false}
+					initialTotal={0}
+					initialSettings={initialSettings}
+					canManage={true}
+					canAutonomous={false}
+				/>,
+			);
+
+			fireEvent.click(screen.getByRole("button", { name: /立即扫描|触发扫描/i }));
+			await vi.advanceTimersByTimeAsync(0);
+			expect(listReads).toBe(1); // right after the request: nothing yet
+			await vi.advanceTimersByTimeAsync(5_000);
+			expect(listReads).toBe(2); // the scan's log, still running
+			await vi.advanceTimersByTimeAsync(5_000);
+			expect(listReads).toBe(3); // finished
+			await vi.advanceTimersByTimeAsync(60_000);
+			expect(listReads).toBe(3); // and the page stops asking
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("renders the trigger scan button when canManage is true", async () => {

@@ -233,9 +233,46 @@ describe("AI hosted action approvals", () => {
 		expect(sshClientMock.execRemoteCommand).not.toHaveBeenCalled();
 	});
 
+	it("refuses, when it is proposed, a change that could never become a command request", async () => {
+		// Parameters the command builder refuses and a file too long for one request were only found out when
+		// the person confirmed: the action then failed with a validation dump. The model gets the answer now.
+		const { createHostedAction } = await import("../hosted-service");
+		prismaMock.server.findFirst.mockResolvedValue({ id: "srv_prod", name: "prod-web", host: "10.0.0.8", teamId: "team_a" });
+		prismaMock.server.findUnique.mockResolvedValue({ teamId: "team_a" });
+		prismaMock.aiHostedAction.create.mockResolvedValue({ id: "action_1", serverId: "srv_prod", status: "PENDING_APPROVAL" });
+		const tool = { name: "modify_config", description: "", parameters: {}, riskLevel: "high" as const, autoApproved: false, actionType: "modify_config" as const, actionName: "Modify config file" };
+		const propose = (args: Record<string, unknown>) => createHostedAction({
+			conversationId: "conv_1", messageId: "msg_1", toolCallId: "tool_1", tool, args: { serverId: "srv_prod", ...args },
+			userId: "user_1", session: { userId: "user_1", roles: ["operator"], currentTeamId: "team_a" },
+		});
+
+		// 10,000 characters of content pass the builder; with the heredoc around them the command is too long.
+		await expect(propose({ configPath: "/etc/app.conf", content: "x".repeat(10_000), reason: "tune" })).rejects.toThrow(/too long/i);
+		await expect(propose({ configPath: "../etc/app.conf", content: "x", reason: "tune" })).rejects.toThrow();
+		expect(prismaMock.aiHostedAction.create).not.toHaveBeenCalled();
+
+		await propose({ configPath: "/etc/app.conf", content: "listen 8080;", reason: "tune" });
+		expect(prismaMock.aiHostedAction.create).toHaveBeenCalledTimes(1);
+	});
+
+	it("cuts the assistant's reason to what a command request takes", async () => {
+		const { buildAssistantCommandRequestPayload } = await import("../hosted-helpers");
+		const { createCommandSchema } = await import("@/lib/command/schema");
+		prismaMock.server.findFirst.mockResolvedValue({ osDialect: null, teamId: "team_a" });
+		const payload = await buildAssistantCommandRequestPayload({
+			tool: { name: "execute_command", description: "", parameters: {}, riskLevel: "medium", autoApproved: false, actionType: "execute_command", actionName: "Execute command" },
+			args: { command: "uptime", reason: "because ".repeat(200) },
+			userId: "user_1", serverId: "srv_prod", teamId: "team_a",
+		});
+		expect(payload.reason).toHaveLength(500);
+		expect(createCommandSchema.safeParse(payload).success).toBe(true);
+	});
+
 	it("binds a natural-language VPS target but does not create a command request before user confirmation", async () => {
 		const { createHostedAction } = await import("../hosted-service");
 		prismaMock.server.findFirst.mockResolvedValue({ id: "srv_prod", name: "prod-web", host: "10.0.0.8" });
+		// No server is called exactly "prod"; one contains it.
+		prismaMock.server.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "srv_prod", name: "prod-web", host: "10.0.0.8" }]);
 		prismaMock.aiHostedAction.create.mockResolvedValue({ id: "action_1", serverId: "srv_prod", status: "PENDING_APPROVAL" });
 
 		const action = await createHostedAction({
@@ -256,7 +293,7 @@ describe("AI hosted action approvals", () => {
 			session: { userId: "user_1", roles: ["operator"], currentTeamId: "team_a" },
 		});
 
-		expect(prismaMock.server.findFirst).toHaveBeenCalledWith({
+		expect(prismaMock.server.findMany).toHaveBeenLastCalledWith({
 			where: {
 				AND: [
 					{ AND: [{ teamId: "team_a" }, { OR: [
@@ -264,17 +301,20 @@ describe("AI hosted action approvals", () => {
 						{ userAccess: { some: { userId: "user_1", canRead: true } } },
 					] }] }, {
 						OR: [
-							{ id: "prod" },
-							{ name: { contains: "prod" } },
-							{ host: { contains: "prod" } },
+							{ name: { contains: "prod", mode: "insensitive" } },
+							{ host: { contains: "prod", mode: "insensitive" } },
 						],
 					},
 				],
 			},
 			select: { id: true, name: true, host: true },
+			orderBy: { name: "asc" },
+			take: 6,
 		});
 		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
 		expect(prismaMock.aiHostedAction.create).toHaveBeenCalledWith({
+			// The card names the server it is bound to.
+			include: { server: { select: { id: true, name: true, host: true } } },
 			data: expect.objectContaining({
 				serverId: "srv_prod",
 				teamId: "team_a",
@@ -302,9 +342,9 @@ describe("AI hosted action approvals", () => {
 		prismaMock.aiHostedAction.create.mockResolvedValue({ id: "action_1" });
 
 		await createHostedAction({ conversationId: "c", messageId: "m", toolCallId: "t", tool, args: { playbookName: "Nightly cleanup" }, userId: "user_1", session });
-		expect(prismaMock.aiHostedAction.create).toHaveBeenCalledWith({
+		expect(prismaMock.aiHostedAction.create).toHaveBeenCalledWith(expect.objectContaining({
 			data: expect.objectContaining({ params: JSON.stringify({ playbookName: "Nightly cleanup", playbookId: "pb_9" }) }),
-		});
+		}));
 
 		// A name that fits no playbook (or several) is an error for the model to correct, not a card.
 		prismaMock.aiHostedAction.create.mockClear();

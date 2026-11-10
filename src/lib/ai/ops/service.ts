@@ -333,9 +333,7 @@ export async function executeRecommendation(
 			return {
 				ok: true,
 				executed: false,
-				errorMessage: inProgress
-					? "Recommendation is already being executed; refresh to view the latest result"
-					: "Recommendation has already been executed",
+				errorMessage: t(inProgress ? "backend.ai.recommendationInProgress" : "backend.ai.recommendationAlreadyExecuted"),
 			};
 		}
 	}
@@ -404,9 +402,7 @@ export async function executeRecommendation(
 				return {
 					ok: true,
 					executed: false,
-					errorMessage: inProgress
-						? "Recommendation is already being executed; refresh to view the latest result"
-						: "Recommendation has already been executed",
+					errorMessage: t(inProgress ? "backend.ai.recommendationInProgress" : "backend.ai.recommendationAlreadyExecuted"),
 				};
 			}
 		}

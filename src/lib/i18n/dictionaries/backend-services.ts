@@ -581,6 +581,8 @@ export const zh: Record<string, string> = {
 	"backend.ai.documentTitleIsRequired": "文档标题不能为空",
 	"backend.ai.documentContentIsRequired": "文档内容不能为空",
 	"backend.ai.recommendationChangedConcurrently": "建议刚被其他请求修改，请刷新后重试",
+	"backend.ai.recommendationInProgress": "该建议正在执行，请刷新查看最新结果",
+	"backend.ai.recommendationAlreadyExecuted": "该建议已经执行过",
 	"backend.ai.serverNotFoundOrOutsideTeamScope":
 		"目标服务器不存在或不属于当前客户",
 	"backend.ai.permissionDenied.serverRead": "你没有服务器读取权限",
@@ -603,6 +605,7 @@ export const zh: Record<string, string> = {
 	"backend.ai.runPlaybookRequiresConfirmation":
 		"运行 Playbook 需要用户确认，请使用托管动作确认流程",
 	"backend.ai.noServerSpecified": "未指定服务器",
+	"backend.ai.serverQueryAmbiguous": "“{query}”对应多台服务器：{servers}。请向用户确认是哪一台，或改用其中一台的 serverId。",
 	"backend.ai.serverNotFound": "服务器不存在或无权访问",
 	"backend.ai.commandExecutionFailed": "命令执行失败（退出码 {code}）",
 	"backend.ai.executionFailed": "执行失败：{error}",
@@ -1369,6 +1372,8 @@ export const en: Record<string, string> = {
 	"backend.ai.documentTitleIsRequired": "Document title is required",
 	"backend.ai.documentContentIsRequired": "Document content is required",
 	"backend.ai.recommendationChangedConcurrently": "The recommendation changed concurrently; refresh and try again",
+	"backend.ai.recommendationInProgress": "Recommendation is already being executed; refresh to view the latest result",
+	"backend.ai.recommendationAlreadyExecuted": "Recommendation has already been executed",
 	"backend.ai.serverNotFoundOrOutsideTeamScope":
 		"The target server was not found or is outside the current customer",
 	"backend.ai.permissionDenied.serverRead":
@@ -1400,6 +1405,7 @@ export const en: Record<string, string> = {
 	"backend.ai.runPlaybookRequiresConfirmation":
 		"Running a playbook requires user confirmation; use the hosted-action confirmation flow",
 	"backend.ai.noServerSpecified": "No server was specified",
+	"backend.ai.serverQueryAmbiguous": "\"{query}\" fits several servers: {servers}. Ask the user which one is meant, or pass the serverId of one of them.",
 	"backend.ai.serverNotFound": "The server was not found or is not accessible",
 	"backend.ai.commandExecutionFailed":
 		"Command execution failed (exit code {code})",

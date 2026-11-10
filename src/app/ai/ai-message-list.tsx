@@ -18,7 +18,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { copyToClipboard, renderContent } from "./ai-markdown-renderer";
 import type { Message, ModelCapabilities, ToolApprovalNeeded } from "./ai-types";
 import { formatAllowedTypes } from "./ai-file-helpers";
-import { approvalDetails } from "./ai-hosted-action-utils";
+import { approvalDetails, automationSummary } from "./ai-hosted-action-utils";
+import { formatDateTime } from "@/lib/datetime/format";
 import { ActionButton } from "@/components/action-button";
 
 const EMPTY_TOOL_CONTENT = new Set([
@@ -83,7 +84,7 @@ export function AiMessageList({
   onDragOver,
   onRegenerate,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const actionDisplayName = (actionType: string, fallback: string) => {
     const key = `aiPage.actionType.${actionType}`;
     const translated = t(key);
@@ -424,7 +425,11 @@ export function AiMessageList({
                     >
                       {riskDisplayName(approval.riskLevel)}
                     </span>
-                    {typeof approval.params.serverId === "string" && (
+                    {approval.server ? (
+                      <span className="ml-2">
+                        {t("aiPage.serverNamed", { name: approval.server.name, host: approval.server.host })}
+                      </span>
+                    ) : typeof approval.params.serverId === "string" && (
                       <span className="ml-2">
                         {t("aiPage.serverLabel").replace(
                           "{id}",
@@ -449,19 +454,22 @@ export function AiMessageList({
                       ))}
                     </dl>
                   )}
-                  {approval.actionType === "create_automation_task" && (
+                  {approval.actionType === "create_automation_task" && (() => {
+                    const summary = automationSummary(approval.params, t, (value) => formatDateTime(value, locale));
+                    return (
                     <div className="mt-2 space-y-2 text-xs text-[var(--text-secondary)]">
-                      <div className="flex flex-wrap gap-x-4 gap-y-1">
-                        <span>{t("aiPage.automationExecution")}: {String(approval.params.executionMode ?? "-")}</span>
-                        <span>{t("aiPage.automationTargets")}: {Array.isArray(approval.params.serverIds) ? approval.params.serverIds.length : 0}</span>
-                        <span>{t("aiPage.automationApproval")}: {String(approval.params.approvalMode ?? "-")}</span>
-                        {typeof approval.params.templateName === "string" && <span>{t("aiPage.automationTemplate")}: {approval.params.templateName}</span>}
-                      </div>
+                      <dl className="space-y-1">
+                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationExecution")}: </dt><dd className="inline text-[var(--text-primary)]">{summary.execution}</dd></div>
+                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationTargets")}: </dt><dd className="inline break-words text-[var(--text-primary)]">{summary.targets}</dd></div>
+                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationApproval")}: </dt><dd className="inline text-[var(--text-primary)]">{summary.approval}</dd></div>
+                        {typeof approval.params.templateName === "string" && <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationTemplate")}: </dt><dd className="inline text-[var(--text-primary)]">{approval.params.templateName}</dd></div>}
+                      </dl>
                       {typeof approval.params.plan === "string" && <p className="whitespace-pre-wrap break-words leading-5">{approval.params.plan}</p>}
                       {typeof approval.params.command === "string" && <pre data-inset="" className="max-h-40 overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-xs text-[var(--text-primary)]">{approval.params.command}</pre>}
                       {(typeof approval.params.verificationCommand === "string" || typeof approval.params.rollbackCommand === "string") && <div className="space-y-1 font-mono text-xs">{typeof approval.params.verificationCommand === "string" && <p>{t("aiPage.automationVerify")}: {approval.params.verificationCommand}</p>}{typeof approval.params.rollbackCommand === "string" && <p>{t("aiPage.automationRollback")}: {approval.params.rollbackCommand}</p>}</div>}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
                 <div className="flex w-full gap-2 sm:ml-3 sm:w-auto">
                   <ActionButton size="sm" variant="danger-solid" className="flex-1 sm:flex-none"

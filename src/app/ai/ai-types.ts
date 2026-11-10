@@ -233,4 +233,6 @@ export interface ToolApprovalNeeded {
   actionType: string;
  riskLevel: string;
  params: Record<string, unknown>;
+ /** The server the action is bound to, by name: the card showed only its internal id. */
+ server?: { name: string; host: string } | null;
 }

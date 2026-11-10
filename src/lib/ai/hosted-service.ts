@@ -11,6 +11,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { createCommandRequest } from "@/lib/command/service";
+import { createCommandSchema } from "@/lib/command/schema";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
@@ -117,6 +118,16 @@ export async function createHostedAction(input: {
   // who asks about customer B's server created an action B could never confirm.
   const teamId = resolvedServer?.teamId ?? session.currentTeamId ?? null;
   const params = { ...args, ...(serverId ? { serverId } : {}) };
+  // A change that could never become a command request (parameters the command builder refuses, a config file
+  // too long for one request) was only found out when the person confirmed it. Refused here, it is an answer the
+  // model can correct, and nobody is asked to confirm something that cannot run.
+  if (serverId && !tool.autoApproved && !SERVERLESS_ACTION_TYPES.has(tool.actionType)) {
+    const payload = await buildAssistantCommandRequestPayload({ tool, args: params, userId, serverId, teamId: resolvedServer?.teamId ?? null });
+    const parsed = createCommandSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new BusinessError(parsed.error.issues[0]?.message ?? t("backend.ai.invalidActionParameters"));
+    }
+  }
   return prisma.aiHostedAction.create({
     data: {
       conversationId,
@@ -133,6 +144,8 @@ export async function createHostedAction(input: {
       requesterId: userId,
       approvedAt: tool.autoApproved ? new Date() : null,
     },
+    // The confirmation card names the server; without this it had only the id.
+    include: { server: { select: { id: true, name: true, host: true } } },
   });
 }
 

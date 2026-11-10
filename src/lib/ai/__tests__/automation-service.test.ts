@@ -122,6 +122,48 @@ describe("generic AI automation proposals", () => {
     expect(proposal.approvalRequired).toBe(true);
   });
 
+  it("reads a one-time run given without an offset in the application time zone", async () => {
+    // `new Date("2030-01-15T03:00")` is 03:00 in the zone of the process: on a UTC host the task was set
+    // for 11:00 Shanghai time, eight hours after the time the plan showed.
+    const { APP_TIME_ZONE, zonedDateTimeToDate } = await import("@/lib/datetime/time-zone");
+    const actor: HostedActionSession = { userId: "u1", roles: ["operator"], currentTeamId: "team_1" };
+    const base = { name: "Rotate logs", plan: "Rotate.", reason: "Disk", executionMode: "once", targetScope: "all", command: "logrotate -f /etc/logrotate.conf", approvalMode: "every_run" };
+
+    const wall = await materializeAutomationProposal({ ...base, runAt: "2030-01-15T03:00" }, actor);
+    expect(wall.runAt).toBe(zonedDateTimeToDate("2030-01-15T03:00", APP_TIME_ZONE).toISOString());
+    expect((await materializeAutomationProposal({ ...base, runAt: "2030-01-15 03:00:00" }, actor)).runAt).toBe(wall.runAt);
+    // With an offset it is that instant, whatever the application's zone.
+    expect((await materializeAutomationProposal({ ...base, runAt: "2030-01-15T03:00:00+02:00" }, actor)).runAt).toBe("2030-01-15T01:00:00.000Z");
+    // What was confirmed is what is created: materializing the stored plan again changes nothing.
+    expect((await materializeAutomationProposal(wall, actor)).runAt).toBe(wall.runAt);
+
+    const { createScheduledTask } = await import("@/lib/scheduled-task/service");
+    vi.mocked(createScheduledTask).mockResolvedValue({ id: "task_1", scheduleType: "ONCE", nextRunAt: null } as Awaited<ReturnType<typeof createScheduledTask>>);
+    await executeAutomationProposal(wall, actor, "hosted_once");
+    expect(createScheduledTask).toHaveBeenCalledWith(expect.objectContaining({ scheduleType: "ONCE", runAt: wall.runAt }), expect.anything());
+
+    // A time that has passed, or that is not a time, is refused when the plan is made.
+    await expect(materializeAutomationProposal({ ...base, runAt: "2020-01-01T03:00" }, actor)).rejects.toThrow(/单次任务|future/i);
+    await expect(materializeAutomationProposal({ ...base, runAt: "tomorrow morning" }, actor)).rejects.toThrow(/单次任务|future/i);
+  });
+
+  it("refuses a reason longer than a command request takes", async () => {
+    // 2,000 characters were accepted; the request each run files takes 500, so the plan failed on confirmation
+    // (or the task it created failed at every run).
+    const actor: HostedActionSession = { userId: "u1", roles: ["operator"], currentTeamId: "team_1" };
+    const base = { name: "Check", plan: "Read uptime.", executionMode: "now", targetScope: "all", command: "uptime", approvalMode: "every_run" };
+    await expect(materializeAutomationProposal({ ...base, reason: "r".repeat(501) }, actor)).rejects.toThrow();
+    await expect(materializeAutomationProposal({ ...base, reason: "r".repeat(500) }, actor)).resolves.toMatchObject({ command: "uptime" });
+  });
+
+  it("names this installation's time zone to the model, not a fixed one", async () => {
+    const { APP_TIME_ZONE } = await import("@/lib/datetime/time-zone");
+    const { getToolByName } = await import("../hosted-tools");
+    const properties = (getToolByName("create_automation_task")!.parameters as { properties: Record<string, { description: string }> }).properties;
+    expect(properties.dailyTime!.description).toContain(APP_TIME_ZONE);
+    expect(properties.runAt!.description).toContain(APP_TIME_ZONE);
+  });
+
   it("requires command approval permission for unattended runs", async () => {
     await expect(materializeAutomationProposal({
       name: "Unattended update",

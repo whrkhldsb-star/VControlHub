@@ -16,6 +16,8 @@ export type ChatStreamState = {
 
 type MutableChatStreamState = Omit<ChatStreamState, "toolCalls"> & {
   toolCalls: Array<AiToolCall | undefined>;
+  /** Where the call a provider numbers `index` is kept, when that is not `index` itself (see applyOpenAiEvent). */
+  openAiSlots: Map<number, number>;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -145,15 +147,34 @@ function applyOpenAiEvent(
     emit({ type: "content", content });
   }
 
+  // OpenAI starts a call with its id and index, then sends fragments under that index. Compatible providers
+  // differ: Gemini sends no index, some number every call 0, some repeat the id on each fragment. Read by the
+  // index alone, a second call replaced the first, a repeated id threw away what had been collected, and a
+  // fragment without an index was dropped. A call is therefore known by its id, and a fragment without one
+  // belongs to the call last started under its index (or to the last call, when there is no index).
   const deltas = Array.isArray(delta?.tool_calls) ? delta.tool_calls : [];
   for (const value of deltas) {
     const toolCall = record(value);
     if (!toolCall) continue;
-    const index = toolIndex(toolCall.index, state.toolCalls.length);
     const fn = record(toolCall.function);
     const id = stringValue(toolCall.id);
+    const numbered = numberValue(toolCall.index);
+    const providerIndex = numbered !== undefined && Number.isInteger(numbered) && numbered >= 0 ? numbered : undefined;
+    if ((providerIndex ?? state.toolCalls.length) > MAX_TOOL_INDEX) {
+      throw new Error("AI provider returned too many tool calls");
+    }
+
     if (id) {
-      state.toolCalls[index] = {
+      const known = state.toolCalls.find((call) => call?.id === id);
+      if (known) {
+        if (!known.function.name) known.function.name = stringValue(fn?.name);
+        known.function.arguments += stringValue(fn?.arguments);
+        continue;
+      }
+      const wanted = providerIndex ?? state.toolCalls.length;
+      // The index already holds another call: keep both.
+      const slot = state.toolCalls[wanted] ? state.toolCalls.length : wanted;
+      state.toolCalls[slot] = {
         id,
         type: "function",
         function: {
@@ -161,9 +182,14 @@ function applyOpenAiEvent(
           arguments: stringValue(fn?.arguments),
         },
       };
+      if (providerIndex !== undefined) state.openAiSlots.set(providerIndex, slot);
       continue;
     }
-    const current = state.toolCalls[index];
+
+    const slot = providerIndex === undefined
+      ? state.toolCalls.length - 1
+      : (state.openAiSlots.get(providerIndex) ?? providerIndex);
+    const current = state.toolCalls[slot];
     if (current) {
       current.function.name += stringValue(fn?.name);
       current.function.arguments += stringValue(fn?.arguments);
@@ -202,6 +228,7 @@ export async function consumeProviderChatStream(input: {
     inputTokens: 0,
     outputTokens: 0,
     toolCalls: [],
+    openAiSlots: new Map(),
   };
   const reader = input.body.getReader();
   let timedOut = false;
@@ -337,7 +364,10 @@ export async function consumeProviderChatStream(input: {
   }
 
   return {
-    ...state,
+    content: state.content,
+    reasoning: state.reasoning,
+    inputTokens: state.inputTokens,
+    outputTokens: state.outputTokens,
     toolCalls: state.toolCalls.filter((call): call is AiToolCall =>
       Boolean(call),
     ),

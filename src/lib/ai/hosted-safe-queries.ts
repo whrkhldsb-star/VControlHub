@@ -152,45 +152,34 @@ export async function executeServerlessQuery(
       } while (serverCursor);
     }
     const visibleServerIds = visibleServers.map((s) => s.id);
-    const rows = await prisma.trafficSnapshot.findMany({
-      where: {
-        sampledAt: { gte: since },
-        ...(scope
-          ? {
-              ...(isGlobalTeamManager(scope)
-                ? { OR: [{ serverId: null }, { serverId: { in: visibleServerIds } }] }
-                : { serverId: { in: visibleServerIds } }),
-            }
-          : {}),
-      },
-      orderBy: { sampledAt: "desc" },
-      take: 2000,
-      select: {
-        source: true,
-        serverId: true,
-        iface: true,
-        rxRateBps: true,
-        txRateBps: true,
-        sampledAt: true,
-      },
-    });
-    let totalRxRate = 0;
-    let totalTxRate = 0;
-    for (const row of rows) {
-      totalRxRate += row.rxRateBps ?? 0;
-      totalTxRate += row.txRateBps ?? 0;
-    }
-    const sampleCount = rows.length;
-    const avgRx = sampleCount ? totalRxRate / sampleCount : 0;
-    const avgTx = sampleCount ? totalTxRate / sampleCount : 0;
-    const latest = rows[0] ?? null;
+    const where = {
+      sampledAt: { gte: since },
+      ...(scope
+        ? {
+            ...(isGlobalTeamManager(scope)
+              ? { OR: [{ serverId: null }, { serverId: { in: visibleServerIds } }] }
+              : { serverId: { in: visibleServerIds } }),
+          }
+        : {}),
+    };
+    // The whole period, computed by the database. The average used to be taken over the newest 2,000 samples:
+    // on a fleet that writes that many in an hour or two, "7d" and "30d" answered with the last hour's average.
+    const [aggregate, latest] = await Promise.all([
+      prisma.trafficSnapshot.aggregate({ where, _avg: { rxRateBps: true, txRateBps: true }, _count: { _all: true } }),
+      prisma.trafficSnapshot.findFirst({
+        where,
+        orderBy: { sampledAt: "desc" },
+        select: { source: true, serverId: true, iface: true, rxRateBps: true, txRateBps: true, sampledAt: true },
+      }),
+    ]);
+    const sampleCount = aggregate._count._all;
     return {
       success: true,
       data: {
         period,
         sampleCount,
-        averageRxBps: Math.round(avgRx),
-        averageTxBps: Math.round(avgTx),
+        averageRxBps: Math.round(aggregate._avg.rxRateBps ?? 0),
+        averageTxBps: Math.round(aggregate._avg.txRateBps ?? 0),
         latest: latest
           ? {
               source: latest.source,

@@ -5,6 +5,8 @@
  * 危险操作需要审批
  */
 
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
+
 // ── 工具类型定义 ──────────────────────────────────────────────
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
@@ -239,7 +241,7 @@ export const HOSTED_TOOLS: HostedTool[] = [
   },
   {
     name: "query_traffic",
-    description: "Query the system traffic overview, including total inbound/outbound traffic and recent trend data. Not specific to any server; returns a global summary.",
+    description: "Query the network traffic overview of the servers the user can see: the average inbound and outbound rate over the period (bytes per second, averaged over every sample of every interface), the number of samples and the latest sample. Not specific to any server; it does not return byte totals.",
     parameters: {
       type: "object",
       properties: {
@@ -305,7 +307,7 @@ export const HOSTED_TOOLS: HostedTool[] = [
       properties: {
         name: { type: "string", description: "Short task name" },
         plan: { type: "string", description: "Detailed implementation and risk plan shown before confirmation" },
-        reason: { type: "string", description: "Business reason for the operation" },
+        reason: { type: "string", description: "Business reason for the operation, at most 500 characters" },
         executionMode: { type: "string", enum: ["now", "once", "daily"], description: "Run immediately, once at runAt, or every day at dailyTime" },
         targetScope: { type: "string", enum: ["all", "selected"], description: "All enabled visible servers or selected server IDs" },
         serverIds: { type: "array", items: { type: "string" }, description: "Required when targetScope is selected" },
@@ -315,8 +317,10 @@ export const HOSTED_TOOLS: HostedTool[] = [
         command: { type: "string", description: "Explicit command only when no suitable template exists" },
         verificationCommand: { type: "string", description: "Optional read-only command used by the operator to verify success" },
         rollbackCommand: { type: "string", description: "Optional recovery command shown with the plan" },
-        runAt: { type: "string", description: "ISO-8601 future timestamp when executionMode is once" },
-        dailyTime: { type: "string", description: "Application timezone Asia/Shanghai wall-clock time in HH:mm format when executionMode is daily" },
+        // The zone is this installation's (APP_TIME_ZONE), which schedules are evaluated in: the text named
+        // Asia/Shanghai on every installation, so elsewhere the model converted the user's time to the wrong zone.
+        runAt: { type: "string", description: `Future time when executionMode is once: ISO-8601 with a UTC offset (for example 2026-12-01T03:00:00+08:00); a time without an offset is read as ${APP_TIME_ZONE} wall-clock time` },
+        dailyTime: { type: "string", description: `${APP_TIME_ZONE} (the application time zone) wall-clock time in HH:mm format when executionMode is daily` },
         approvalMode: { type: "string", enum: ["approve_once", "every_run"], description: "approve_once allows unattended runs after this confirmation and requires command approval permission; every_run creates an approval request on every run" },
       },
       required: ["name", "plan", "reason", "executionMode", "targetScope", "approvalMode"],

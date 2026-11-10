@@ -35,6 +35,10 @@ import {
 	type AiOpsSettings,
 } from "./ai-ops-sections";
 
+/** How often, and for how long, the list is read again after a scan was queued. */
+const SCAN_RESULT_POLL_MS = 5_000;
+const SCAN_RESULT_WATCH_MS = 3 * 60_000;
+
 type Props = {
 	initialSummary: AiOpsSummary;
 	initialLogs: AiOpsLogRecord[];
@@ -83,7 +87,7 @@ export function AiOpsPageClient({
 	// Only the latest load may write the list: an earlier filter's answer
 	// arriving late replaced the list under the newer filter.
 	const latestLoad = useRef(0);
-	const loadLogsPage = useCallback(async (targetPage: number) => {
+	const loadLogsPage = useCallback(async (targetPage: number): Promise<AiOpsLogRecord[] | null> => {
 		const load = ++latestLoad.current;
 		setLoadingLogs(true);
 		try {
@@ -106,7 +110,7 @@ export function AiOpsPageClient({
 				hasMore: boolean;
 			};
 			const summaryBody = (await summaryRes.json()) as { summary: AiOpsSummary };
-			if (load !== latestLoad.current) return;
+			if (load !== latestLoad.current) return null;
 			setLogs(logsBody.logs);
 			setLogsPage(targetPage);
 			setTotalLogs(logsBody.total);
@@ -117,12 +121,14 @@ export function AiOpsPageClient({
 					? prev
 					: (logsBody.logs[0]?.id ?? null),
 			);
+			return logsBody.logs;
 		} catch (error) {
-			if (load !== latestLoad.current) return;
+			if (load !== latestLoad.current) return null;
 			addToast(
 				"error",
 				`${t("aiOpsPage.actions.loadFailed")}: ${String(error)}`,
 			);
+			return null;
 		} finally {
 			if (load === latestLoad.current) setLoadingLogs(false);
 		}
@@ -144,6 +150,32 @@ export function AiOpsPageClient({
 		}
 		void loadLogsPage(0);
 	}, [loadLogsPage]);
+
+	// A queued scan is picked up by the worker within seconds and, with a provider's analysis, takes up to a
+	// couple of minutes. One reload after 15 seconds usually came before its log existed: the list is read
+	// again until a log newer than the one before the request has finished.
+	const scanWatch = useRef<number | null>(null);
+	// The list as it is filtered and paged now, not as it was when the scan was requested.
+	const reloadNow = useRef(reload);
+	useEffect(() => {
+		reloadNow.current = reload;
+	}, [reload]);
+	useEffect(() => () => {
+		if (scanWatch.current !== null) window.clearTimeout(scanWatch.current);
+	}, []);
+	const watchForScanResult = useCallback((newestBefore: string | null) => {
+		const startedAt = Date.now();
+		if (scanWatch.current !== null) window.clearTimeout(scanWatch.current);
+		const look = async () => {
+			scanWatch.current = null;
+			const newest = (await reloadNow.current())?.[0];
+			const finished = Boolean(newest && newest.id !== newestBefore && newest.status !== "running");
+			if (!finished && Date.now() - startedAt < SCAN_RESULT_WATCH_MS) {
+				scanWatch.current = window.setTimeout(() => { void look(); }, SCAN_RESULT_POLL_MS);
+			}
+		};
+		scanWatch.current = window.setTimeout(() => { void look(); }, SCAN_RESULT_POLL_MS);
+	}, []);
 
 	const triggerScan = useCallback(async () => {
 		if (!canManage) return;
@@ -169,7 +201,7 @@ export function AiOpsPageClient({
 					: t("aiOpsPage.actions.scanning"),
 			);
 			await reload();
-			if (body.triggered) window.setTimeout(() => { void reload(); }, 15_000);
+			if (body.triggered) watchForScanResult(body.latestLog?.id ?? null);
 		} catch (error) {
 			addToast(
 				"error",
@@ -178,7 +210,7 @@ export function AiOpsPageClient({
 		} finally {
 			setScanning(false);
 		}
-	}, [canManage, addToast, t, reload]);
+	}, [canManage, addToast, t, reload, watchForScanResult]);
 
 	const saveSettings = useCallback(async () => {
 		if (!canManage) return;

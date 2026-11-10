@@ -486,6 +486,45 @@ describe("AI ops scan retry wake", () => {
   });
 });
 
+describe("AI ops scan requested from the page", () => {
+  it("is picked up within the queue poll, not at the next daily slot", async () => {
+    // "Scan now" queues a job from the web process (A7-04). The worker's timer was armed once for the daily
+    // hour and looked at the queue only when it was armed, so the scan ran at 02:00 the next day.
+    vi.useFakeTimers();
+    try {
+      const aiOpsLogFindFirst = prisma.aiOpsLog.findFirst as ReturnType<typeof vi.fn>;
+      aiOpsLogFindFirst.mockReset();
+      aiOpsLogFindFirst.mockResolvedValue({ id: "log_recent", completedAt: new Date() }); // no startup scan
+      let queuedAt: Date | null = null;
+      jobMocks.findFirst.mockReset();
+      jobMocks.findFirst.mockImplementation(async (args: { select?: { availableAt?: boolean } }) =>
+        queuedAt ? (args?.select?.availableAt ? { availableAt: queuedAt } : { id: "job_manual" }) : null);
+      jobMocks.claimNextJob.mockReset();
+      jobMocks.claimNextJob.mockImplementation(async () => {
+        if (!queuedAt) return null;
+        queuedAt = null;
+        return { id: "job_manual", payload: { reason: "manual", requestedAt: new Date().toISOString() } };
+      });
+
+      await startAiOpsScanWorker();
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      // Nothing queued and not the daily hour: looking at the queue starts no scan.
+      expect(jobMocks.enqueueJob).not.toHaveBeenCalled();
+      expect(jobMocks.claimNextJob).not.toHaveBeenCalled();
+
+      queuedAt = new Date(); // POST /api/ai/ops/scan
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(jobMocks.claimNextJob).toHaveBeenCalledTimes(1);
+      expect(jobMocks.completeJob).toHaveBeenCalledWith("job_manual", expect.any(String), expect.objectContaining({ reason: "manual" }));
+      // The job that ran is the queued one: the poll adds none of its own.
+      expect(jobMocks.enqueueJob).not.toHaveBeenCalled();
+    } finally {
+      stopAiOpsScanWorkerForTests();
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("startAiOpsScanWorker / stopAiOpsScanWorkerForTests", () => {
   it("startAiOpsScanWorker is idempotent — calling twice doesn't double-start", async () => {
     const a = await startAiOpsScanWorker();
