@@ -3,6 +3,8 @@
  */
 import { z } from "zod";
 
+import { t } from "@/lib/i18n/service-translations";
+
 import { ITSM_DIRECTION_VALUES, ITSM_PROVIDER_VALUES } from "./types";
 
 export const itsmProviderSchema = z.enum(ITSM_PROVIDER_VALUES);
@@ -54,6 +56,8 @@ export const createItsmConnectionSchema = z
 		config: itsmConfigSchema.optional(),
 		teamId: z.string().trim().min(1).max(64).optional().nullable(),
 	})
+	// Said in the request's language (the translator reads it when the schema runs): these sentences are what the
+	// form's toast shows for a field left empty.
 	.superRefine((val, ctx) => {
 		const direction = val.direction ?? "bidirectional";
 		const needsOutbound = direction === "outbound" || direction === "bidirectional";
@@ -62,21 +66,21 @@ export const createItsmConnectionSchema = z
 		if (needsOutbound && val.provider !== "telegram" && !url) {
 			ctx.addIssue({
 				code: "custom",
-				message: "webhookUrl is required for outbound-capable connections",
+				message: t("backend.itsm.webhookurlIsRequired"),
 				path: ["config", "webhookUrl"],
 			});
 		}
 		if (val.provider === "telegram" && needsOutbound && !val.credentials?.botToken) {
 			ctx.addIssue({
 				code: "custom",
-				message: "telegram outbound requires credentials.botToken",
+				message: t("backend.itsm.telegramBottokenIsRequired"),
 				path: ["credentials", "botToken"],
 			});
 		}
 		if (val.provider === "telegram" && needsOutbound && !val.config?.chatId?.trim()) {
 			ctx.addIssue({
 				code: "custom",
-				message: "telegram outbound requires config.chatId",
+				message: t("backend.itsm.telegramChatidIsRequired"),
 				path: ["config", "chatId"],
 			});
 		}
@@ -86,7 +90,7 @@ export const createItsmConnectionSchema = z
 			if (direction === "inbound") {
 				ctx.addIssue({
 					code: "custom",
-					message: "inbound connections should set credentials.webhookSecret",
+					message: t("backend.itsm.inboundSecretIsRequired"),
 					path: ["credentials", "webhookSecret"],
 				});
 			}

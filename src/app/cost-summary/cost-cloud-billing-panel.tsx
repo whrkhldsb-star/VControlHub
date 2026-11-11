@@ -146,10 +146,7 @@ export function CostCloudBillingPanel({
 			<ConfirmDialog
 				open={pendingDelete !== null}
 				title={t("costPage.billing.deleteTitle")}
-				description={t("costPage.billing.deleteConfirm").replace(
-					"{name}",
-					pendingDelete?.name ?? "",
-				)}
+				description={t("costPage.billing.deleteConfirm", { name: pendingDelete?.name ?? "" })}
 				cancelLabel={t("costPage.billing.deleteCancel")}
 				confirmLabel={t("costPage.billing.deleteConfirmBtn")}
 				onCancel={() => setPendingDelete(null)}

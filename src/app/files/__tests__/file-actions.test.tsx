@@ -179,6 +179,70 @@ describe("FileActionsProvider", () => {
 		expect(onCleared).toHaveBeenCalledOnce();
 	});
 
+	it("says what failed when a server action throws instead of answering", async () => {
+		// What a production build hands the browser for anything thrown on the server: a sentence of React's and a digest.
+		const redacted = (digest: string) =>
+			Object.assign(new Error("Minified React error #441; visit https://react.dev/errors/441 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."), { digest });
+		// The second one is the refusal of a permission taken away while the page was open.
+		mocks.rename.mockRejectedValueOnce(redacted("2574922165")).mockRejectedValueOnce(redacted("FORBIDDEN"));
+		renderActions();
+		fireEvent.click(screen.getByRole("button", { name: "do-rename" }));
+		let dialog = screen.getByRole("dialog", { name: "重命名" });
+		fireEvent.change(within(dialog).getByLabelText("新名称"), { target: { value: "新的.png" } });
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+		});
+		expect(within(dialog).getByRole("alert")).toHaveTextContent("重命名文件条目失败");
+		expect(dialog).not.toHaveTextContent("Minified React error");
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+		});
+		expect(within(dialog).getByRole("alert")).toHaveTextContent("缺少权限");
+		expect(dialog).not.toHaveTextContent("Minified React error");
+		fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+
+		mocks.remove.mockRejectedValueOnce(redacted("2574922165"));
+		fireEvent.click(screen.getByRole("button", { name: "do-delete-one" }));
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "确认" }));
+		});
+		dialog = screen.getByRole("dialog");
+		expect(dialog).toHaveTextContent("删除文件条目失败");
+		expect(dialog).not.toHaveTextContent("Minified React error");
+		fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+
+		mocks.move.mockRejectedValueOnce(redacted("FORBIDDEN")).mockRejectedValueOnce(redacted("2574922165"));
+		fireEvent.click(screen.getByRole("button", { name: "do-move-one" }));
+		dialog = screen.getByRole("dialog", { name: "移动到" });
+		fireEvent.click(within(dialog).getByRole("button", { name: /本机/ }));
+		fireEvent.click(await within(dialog).findByRole("button", { name: "docs" }));
+		const confirm = within(dialog).getByRole("button", { name: "移动到此处" });
+		await waitFor(() => expect(confirm).toBeEnabled());
+		await act(async () => {
+			fireEvent.click(confirm);
+		});
+		expect(dialog).toHaveTextContent("缺少权限");
+		await act(async () => {
+			fireEvent.click(confirm);
+		});
+		expect(dialog).toHaveTextContent("移动文件失败");
+		expect(dialog).not.toHaveTextContent("Minified React error");
+	});
+
+	it("shows nothing of the router's signal when the session ran out under a dialog", async () => {
+		// The action redirected to the sign-in page; the router is already going there.
+		mocks.rename.mockRejectedValueOnce(Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;push;/login?next=%2F;307;" }));
+		renderActions();
+		fireEvent.click(screen.getByRole("button", { name: "do-rename" }));
+		const dialog = screen.getByRole("dialog", { name: "重命名" });
+		fireEvent.change(within(dialog).getByLabelText("新名称"), { target: { value: "新的.png" } });
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+		});
+		expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+		expect(dialog).not.toHaveTextContent("NEXT_REDIRECT");
+	});
+
 	it("creates a quick share only after confirmation and shows the link", async () => {
 		mocks.fetch.mockImplementation(async (url: string) => (url === "/api/share-links" ? { token: "tok123" } : {}));
 		const writeText = vi.fn(async () => undefined);

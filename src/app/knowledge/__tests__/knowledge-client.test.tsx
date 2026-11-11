@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -120,6 +120,34 @@ describe("KnowledgeClient", () => {
         expect(mocks.csrfFetch).toHaveBeenCalledWith("/api/knowledge/kb_2"),
       );
     });
+  });
+
+  it("shows a failed deletion in the confirmation dialog, where the person is looking", async () => {
+    // The reason was written into a notice at the foot of the page, behind the dialog, which stayed open as if
+    // nothing had happened.
+    renderClient();
+    await waitFor(() => expect(screen.getByText("runbooks")).toBeInTheDocument());
+    mocks.csrfFetch.mockImplementation(async (url: string, init?: { method?: string }) => {
+      if (init?.method === "DELETE") throw new Error("知识库正在被 AI 会话使用");
+      if (String(url).startsWith("/api/knowledge/")) return { knowledgeBase: { documents } };
+      return { knowledgeBases: bases };
+    });
+    fireEvent.click(screen.getByLabelText("knowledgePage.deleteBaseAria:runbooks"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "common.confirmDelete" }));
+    expect(await within(dialog).findByText("知识库正在被 AI 会话使用")).toBeInTheDocument();
+
+    // Cancelling leaves nothing of it behind, on the page or in the next dialog.
+    fireEvent.click(within(dialog).getByRole("button", { name: "common.cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.queryByText("知识库正在被 AI 会话使用")).not.toBeInTheDocument();
+
+    // The same for a document.
+    fireEvent.click(screen.getByRole("button", { name: "knowledgePage.delete" }));
+    const documentDialog = await screen.findByRole("dialog");
+    expect(within(documentDialog).queryByText("知识库正在被 AI 会话使用")).not.toBeInTheDocument();
+    fireEvent.click(within(documentDialog).getByRole("button", { name: "common.confirmDelete" }));
+    expect(await within(documentDialog).findByText("知识库正在被 AI 会话使用")).toBeInTheDocument();
   });
 
   it("keeps the open base's documents when another base is deleted", async () => {

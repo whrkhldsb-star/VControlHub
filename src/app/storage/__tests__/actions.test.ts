@@ -794,6 +794,32 @@ describe("SFTP file entry actions", () => {
     );
   });
 
+  it("names a failed index write without the query when the rollback fails too", async () => {
+    // The file is renamed on disk, the index write fails and so does renaming it back: the one path that showed
+    // "PrismaClientKnownRequestError: Invalid `prisma.fileEntry.update()` invocation…" in the rename dialog.
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
+      id: "local-file",
+      name: "old.txt",
+      entryType: "FILE",
+      relativePath: "docs/old.txt",
+      storageNodeId: "node-local",
+      storageNode: { driver: "LOCAL", basePath: "/srv/storage", host: null, port: null, username: null, server: null },
+    });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    renameFsMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("EACCES: permission denied, rename"));
+    prismaMock.fileEntry.update.mockRejectedValueOnce(
+      Object.assign(new Error("\nInvalid `prisma.fileEntry.update()` invocation:\n\n\nUnique constraint failed on the fields: (`storageNodeId`,`relativePath`)"), {
+        name: "PrismaClientKnownRequestError",
+        code: "P2002",
+        clientVersion: "7.9.0",
+      }),
+    );
+
+    const result = await renameFileEntryAction(null, entryForm("local-file", { newName: "new.txt" }));
+
+    expect(result.error).toBe("索引重命名失败，且磁盘回滚也失败：文件索引写入失败；回滚：EACCES: permission denied, rename。请人工核对该目录。");
+  });
+
   it("rejects rename names that normalizeStorageEntryName would block (.. / . / controls)", async () => {
     const result = await renameFileEntryAction(
       null,

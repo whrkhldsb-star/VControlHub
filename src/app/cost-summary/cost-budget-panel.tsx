@@ -118,10 +118,7 @@ export function CostBudgetPanel({
       <ConfirmDialog
         open={pendingDelete !== null}
         title={t("costPage.budget.deleteTitle")}
-        description={t("costPage.budget.deleteConfirm").replace(
-          "{name}",
-          pendingDelete?.name ?? "",
-        )}
+        description={t("costPage.budget.deleteConfirm", { name: pendingDelete?.name ?? "" })}
         cancelLabel={t("costPage.budget.deleteCancel")}
         confirmLabel={t("costPage.budget.deleteConfirmBtn")}
         onCancel={() => setPendingDelete(null)}

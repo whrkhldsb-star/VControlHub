@@ -147,7 +147,7 @@ export const zh: Record<string, string> = {
   "filesBrowserSpa.loading": "加载中…",
   "filesBrowserSpa.searchFileName": "搜索文件名",
   "filesBrowserSpa.searchResults":
-    '搜索 "{query}" - 在{scope}找到 {count} 个结果',
+    '搜索 "{query}" - {scope}找到 {count} 个结果',
   "filesBrowserSpa.searchModeFilename": "文件名",
   "filesBrowserSpa.searchModeLabel": "搜索方式",
   "filesBrowserSpa.searchScopeLabel": "搜索范围",
@@ -255,7 +255,7 @@ export const en: Record<string, string> = {
   "filesBrowserSpa.searchAllFiles": "Search all files…",
   "filesBrowserSpa.searchCurrentFolder": "Search in current folder…",
   "filesBrowserSpa.searchInAllFiles": "in all files",
-  "filesBrowserSpa.searchInCurrentFolder": "in current folder",
+  "filesBrowserSpa.searchInCurrentFolder": "in the current folder",
   "filesBrowserSpa.refreshing": "Refreshing…",
   "filesBrowserSpa.fileListRefreshFailed": "Failed to refresh file list",
   "filesBrowserSpa.directoryTree": "Directory tree",
@@ -305,7 +305,7 @@ export const en: Record<string, string> = {
   "filesBrowserSpa.loading": "Loading…",
   "filesBrowserSpa.searchFileName": "Search file name",
   "filesBrowserSpa.searchResults":
-    'Searched "{query}" - found {count} results in {scope}',
+    'Searched "{query}" - found {count} results {scope}',
   "filesBrowserSpa.searchModeFilename": "Filename",
   "filesBrowserSpa.searchModeLabel": "Search by",
   "filesBrowserSpa.searchScopeLabel": "Search scope",

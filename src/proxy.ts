@@ -18,6 +18,9 @@ import type { NextRequest } from "next/server";
 
 // ── Public paths that skip auth ──────────────────────────────────
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+/** How the App Router marks a Server Function call, and where it reads a redirect answered to one. */
+const SERVER_FUNCTION_HEADER = "next-action";
+const SERVER_FUNCTION_REDIRECT_HEADER = "x-action-redirect";
 
 const PUBLIC_PATHS_EXACT = new Set([
   "/login",
@@ -200,6 +203,22 @@ function formRequestNeedsDeclaredLength(request: NextRequest): boolean {
   return !contentLength || !/^\d+$/.test(contentLength);
 }
 
+// ── The ended session, in words ─────────────────────────────────
+const SESSION_ENDED_COPY = "apiCopy.not.authenticated.or.session.expired.b1714d99";
+const SESSION_ENDED_FALLBACK = "Not authenticated or session expired";
+
+/**
+ * What a route says when it finds the session revoked (requireApiSession), in the language the request is
+ * answered in. The proxy had an English sentence of its own, and it is the proxy that answers the usual case — the
+ * cookie ran out while a page stayed open — so every button's toast on a Chinese page read "Not logged in or
+ * session expired". Imported lazily, only for this answer; without the lookup the answer is still a 401.
+ */
+function sessionEndedMessage(request: NextRequest): Promise<string> {
+  return Promise.all([import("@/lib/http/request-locale"), import("@/lib/i18n/dictionaries/api-copy")])
+    .then(async ([{ requestLocale }, copy]) => copy[await requestLocale(request)][SESSION_ENDED_COPY] ?? SESSION_ENDED_FALLBACK)
+    .catch(() => SESSION_ENDED_FALLBACK);
+}
+
 // ── Public status board gate ────────────────────────────────────
 // Pages stream a 200 shell before they render (root loading.tsx), so a page
 // can no longer set the status code. These two entry points are decided
@@ -302,13 +321,8 @@ export function proxy(request: NextRequest) {
   if (!hasValidSessionCookie(request) && !routeCanValidateBearerToken) {
     // API routes get 401, pages get redirected to login
     if (pathname.startsWith("/api/")) {
-      return addSecurityHeaders(
-        NextResponse.json(
-          { error: "Not logged in or session expired" },
-          { status: 401 },
-        ),
-        request,
-        nonce,
+      return sessionEndedMessage(request).then((error) =>
+        addSecurityHeaders(NextResponse.json({ error }, { status: 401 }), request, nonce),
       );
     }
     const loginUrl = request.nextUrl.clone();
@@ -318,6 +332,16 @@ export function proxy(request: NextRequest) {
     // was left dangling on /login itself).
     loginUrl.search = "";
     loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+    // A Server Function call is a fetch to the page it was made from. It followed the 307, received the sign-in
+    // page's HTML, and the router reported "An unexpected response was received from the server." inside the
+    // dialog that had made the call — the session had ended and nothing said so. Answer as a redirect thrown
+    // inside a Server Function is answered (next/dist/server/app-render/action-handler.js): not an HTTP
+    // redirect, the target in this header. With no payload beside it the router loads the target as a page.
+    if (request.method === "POST" && request.headers.has(SERVER_FUNCTION_HEADER)) {
+      const answer = new NextResponse(null, { status: 200 });
+      answer.headers.set(SERVER_FUNCTION_REDIRECT_HEADER, `${loginUrl.basePath}${loginUrl.pathname}${loginUrl.search};push`);
+      return addSecurityHeaders(answer, request, nonce);
+    }
     return addSecurityHeaders(NextResponse.redirect(loginUrl), request, nonce);
   }
 

@@ -282,7 +282,8 @@ export async function executeMoveFile(
       } catch (compensationError) {
         throw new FileOperationUncertainError(apiCopy("apiCopy.files.op.moveUnconfirmed", {
           v0: normalizedCurrentPath.path, v1: newRelativePath,
-          v2: `${getErrorMessage(databaseError, String(databaseError))}; ${getErrorMessage(compensationError, String(compensationError))}`,
+          // A database error has no message for people (its own is the query): it is named instead.
+          v2: `${getErrorMessage(databaseError, tr("storagePage.action.indexWriteFailed"))}; ${getErrorMessage(compensationError, String(compensationError))}`,
         }));
       }
       throw databaseError;

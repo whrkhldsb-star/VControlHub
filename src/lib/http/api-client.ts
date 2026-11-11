@@ -1,9 +1,10 @@
 /** Unified browser API client with CSRF protection and typed JSON responses. */
 
 import { getCsrfTokenFromCookie } from "@/lib/auth/csrf-token";
-import { ApiError } from "@/lib/http/api-client-error";
+import { ApiError, NetworkError } from "@/lib/http/api-client-error";
+import { browserT, pageLocale } from "@/lib/i18n/browser-translations";
 
-export { ApiError } from "@/lib/http/api-client-error";
+export { ApiError, NetworkError } from "@/lib/http/api-client-error";
 
 const CSRF_HEADER_NAME = "x-csrf-token";
 
@@ -76,7 +77,12 @@ export async function apiRequest<T>(input: RequestInfo | URL, init: ApiRequestIn
 
 	// A redirect must not forward a custom CSRF header to another origin.
 	const redirect = headers.has(CSRF_HEADER_NAME) ? "error" : fetchInit.redirect;
-	const response = await fetch(target, { ...fetchInit, method, headers, ...(redirect ? { redirect } : {}) });
+	let response: Response;
+	try {
+		response = await fetch(target, { ...fetchInit, method, headers, ...(redirect ? { redirect } : {}) });
+	} catch (error) {
+		throw unanswered(error, fetchInit.signal ?? request?.signal);
+	}
 	if (raw) return response as T;
 
 	if (!response.ok) {
@@ -84,7 +90,9 @@ export async function apiRequest<T>(input: RequestInfo | URL, init: ApiRequestIn
 		try {
 			errorBody = (await response.json()) as Record<string, unknown>;
 		} catch {
-			errorBody = { error: response.statusText || `Request failed (${response.status})` };
+			// Not the app's answer — a proxy in front of it while it restarts, say. Its page is not a sentence, and its
+			// status text ("Bad Gateway") is missing over HTTP/2: the status is named in the page's language.
+			errorBody = { error: browserT("common.requestFailedStatus", pageLocale(), { status: response.status }) };
 		}
 		throw new ApiError(response.status, errorBody);
 	}
@@ -93,6 +101,17 @@ export async function apiRequest<T>(input: RequestInfo | URL, init: ApiRequestIn
 	const contentLength = response.headers instanceof Headers ? response.headers.get("content-length") : null;
 	if (contentLength === "0") return undefined as T;
 	return response.json() as Promise<T>;
+}
+
+/**
+ * `fetch` rejects when no answer came at all: the server is restarting, the network is down, the connection was
+ * cut. Browsers word that in their own English — "Failed to fetch", "Load failed", "NetworkError when attempting
+ * to fetch resource." — and every toast and notice showed it. An abort is the caller's own doing and passes as it
+ * is, whatever the engine rejects it with.
+ */
+function unanswered(error: unknown, signal?: AbortSignal | null): unknown {
+	if (signal?.aborted || !(error instanceof TypeError)) return error;
+	return new NetworkError(browserT("common.networkError", pageLocale()), { cause: error });
 }
 
 function encodeRequestBody(body: unknown | undefined, initBody: BodyInit | null | undefined): BodyInit | undefined {

@@ -160,10 +160,7 @@ export function FileVersionHistoryPanel({
       <ConfirmDialog
         open={pendingRestore !== null}
         title={t("fileVersionHistory.restoreTitle")}
-        description={t("fileVersionHistory.restoreConfirm").replace(
-          "{n}",
-          String(pendingRestore?.versionNumber ?? ""),
-        )}
+        description={t("fileVersionHistory.restoreConfirm", { n: pendingRestore?.versionNumber ?? "" })}
         cancelLabel={t("common.cancel")}
         confirmLabel={t("fileVersionHistory.restoreConfirmBtn")}
         onCancel={() => setPendingRestore(null)}

@@ -8,6 +8,9 @@ import { config, PUBLIC_NODE_NOT_FOUND_PATH, proxy } from "../proxy";
 const gate = vi.hoisted(() => ({ isPublicBoardOpen: vi.fn(), isPublicNodeVisible: vi.fn() }));
 vi.mock("@/lib/public-status/gate", () => gate);
 
+const platform = vi.hoisted(() => ({ getPlatformDefaults: vi.fn(async () => ({ locale: "zh" })) }));
+vi.mock("@/lib/settings/platform-defaults", () => platform);
+
 vi.mock("@/lib/auth/session", () => ({
   getSessionCookieName: () =>
     process.env.AUTH_SESSION_COOKIE_NAME?.trim() ||
@@ -102,6 +105,53 @@ describe("proxy auth guard", () => {
     expect(location.searchParams.get("next")).toBe("/files?nodeId=n1&path=docs%2Freports");
   });
 
+  it("answers a Server Function call without a session in the router's own terms, not with a page redirect", () => {
+    // The call is a fetch: it followed the 307, received the sign-in page's HTML and the router reported
+    // "An unexpected response was received from the server." inside whatever dialog had made the call.
+    const response = syncProxy(
+      makeRequest("/files?nodeId=n1&path=docs%2Freports", {
+        method: "POST",
+        headers: { "next-action": "40c0ffee", "content-type": "text/plain;charset=UTF-8" },
+        body: "[]",
+      }),
+    );
+
+    // Not an HTTP redirect (the fetch must not follow anything): the router reads the header.
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-action-redirect")).toBe(
+      `/login?next=${encodeURIComponent("/files?nodeId=n1&path=docs%2Freports")};push`,
+    );
+    expect(response.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
+  });
+
+  it("speaks the redirect convention of the installed Next.js", async () => {
+    // The two header names are Next's own, and the second one is not exported: when an upgrade changes how its
+    // router reads a redirect answered to a Server Function, this fails and the proxy's answer must follow.
+    const { ACTION_HEADER } = await import("next/dist/client/components/app-router-headers");
+    expect(ACTION_HEADER).toBe("next-action");
+    const { readFileSync } = await import("node:fs");
+    const { createRequire } = await import("node:module");
+    const reducer = createRequire(import.meta.url).resolve("next/dist/client/components/router-reducer/reducers/server-action-reducer.js");
+    expect(readFileSync(reducer, "utf8")).toContain("res.headers.get('x-action-redirect')");
+  });
+
+  it("keeps the page redirect for any other anonymous POST, and lets a signed-in call through", () => {
+    const plain = syncProxy(makeRequest("/files", { method: "POST", headers: { "content-type": "text/plain" }, body: "x" }));
+    expect(plain.status).toBe(307);
+    expect(plain.headers.get("x-action-redirect")).toBeNull();
+
+    const signedIn = syncProxy(
+      makeRequest("/files", {
+        method: "POST",
+        headers: { "next-action": "40c0ffee", "content-type": "text/plain;charset=UTF-8", cookie: sessionCookie() },
+        body: "[]",
+      }),
+    );
+    expect(signedIn.status).toBe(200);
+    expect(signedIn.headers.get("x-action-redirect")).toBeNull();
+  });
+
   it("uses the same app slug session cookie name as login and server components", () => {
     vi.stubEnv("APP_SLUG", "my-console");
     vi.stubEnv("AUTH_SESSION_COOKIE_NAME", "");
@@ -121,12 +171,37 @@ describe("proxy auth guard", () => {
   });
 
   it("returns 401 for anonymous protected API requests", async () => {
-    const response = syncProxy(makeRequest("/api/servers/monitor"));
+    const response = await proxy(makeRequest("/api/servers/monitor"));
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: "Not logged in or session expired",
+      error: "Not authenticated or session expired",
     });
+    expect(response.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
+  });
+
+  it("words the ended session in the language the request is answered in, as a route does", async () => {
+    // A toast on a Chinese page read "Not logged in or session expired": the proxy had its own English sentence,
+    // while a route that finds the session revoked answers in the page's language.
+    const ended = async (headers: Record<string, string>) =>
+      ((await (await proxy(makeRequest("/api/servers", { headers }))).json()) as { error: string }).error;
+
+    // The language chosen on a page.
+    expect(await ended({ cookie: "vps-locale=zh" })).toBe("未登录或会话已过期");
+    expect(await ended({ cookie: "vps-locale=en", "accept-language": "zh-CN" })).toBe("Not authenticated or session expired");
+    // A browser of this app that never chose: the platform default, which its pages are shown in.
+    expect(await ended({ "sec-fetch-site": "same-origin", "accept-language": "en-US" })).toBe("未登录或会话已过期");
+    // A script: its Accept-Language, then English.
+    expect(await ended({ "accept-language": "zh-CN,zh;q=0.9" })).toBe("未登录或会话已过期");
+    expect(await ended({})).toBe("Not authenticated or session expired");
+  });
+
+  it("still answers 401 when the language cannot be determined", async () => {
+    platform.getPlatformDefaults.mockRejectedValueOnce(new Error("database is down"));
+    const response = await proxy(makeRequest("/api/servers", { headers: { "sec-fetch-site": "same-origin" } }));
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Not authenticated or session expired" });
   });
 
   it("rejects form requests without a valid declared content length", async () => {
@@ -200,9 +275,9 @@ describe("proxy auth guard", () => {
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
 
-  it("delegates WebDAV auth to its Basic/Bearer route without opening lookalike paths", () => {
+  it("delegates WebDAV auth to its Basic/Bearer route without opening lookalike paths", async () => {
     expect(syncProxy(makeRequest("/api/webdav/node-1")).status).toBe(200);
-    expect(syncProxy(makeRequest("/api/webdav-admin/node-1")).status).toBe(401);
+    expect((await proxy(makeRequest("/api/webdav-admin/node-1"))).status).toBe(401);
   });
 
   it("lets anonymous browsers reach public share pages and share download APIs", () => {
@@ -277,13 +352,13 @@ describe("proxy auth guard", () => {
   });
 
   it("keeps state-changing image API routes protected by auth and CSRF", async () => {
-    const response = syncProxy(
+    const response = await proxy(
       makeRequest("/api/images/img_1/file", { method: "POST" }),
     );
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: "Not logged in or session expired",
+      error: "Not authenticated or session expired",
     });
   });
 
@@ -330,8 +405,8 @@ describe("proxy auth guard", () => {
     expect(response.status).toBe(200);
   });
 
-  it("does not let arbitrary bearer headers bypass protected API auth", () => {
-    const response = syncProxy(
+  it("does not let arbitrary bearer headers bypass protected API auth", async () => {
+    const response = await proxy(
       makeRequest("/api/backups/record_1/void", {
         method: "POST",
         headers: { authorization: "Bearer invalid" },

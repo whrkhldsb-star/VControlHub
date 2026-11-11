@@ -10,7 +10,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { RotateCcw, Trash2, X } from "@/components/icons";
 import { InlineLoading, Notice } from "@/components/ui-primitives";
 import { useToast } from "@/components/toast-provider";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { thrownActionMessage } from "@/lib/http/error-message";
 import { permanentDeleteFileEntryAction, restoreFileEntryAction } from "../storage/actions";
 import { FileTypeIcon } from "./file-entry-icons";
 import { formatEntryTime } from "./file-entry-utils";
@@ -121,7 +121,13 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
         if (result?.error) failures.push(`${entry.name}: ${result.error}`);
         else finished.add(entry.id);
       } catch (error) {
-        failures.push(`${entry.name}: ${getErrorMessage(error, t("filePreferences.failed"))}`);
+        const why = thrownActionMessage(error, t, t(action === "restore" ? "storagePage.action.fileRestoreFailed" : "storagePage.action.filePermanentlyDeleteFailed"));
+        // Nothing to say means the action sent the browser to the sign-in page: every later entry would get the same.
+        if (!why) {
+          setBulk(null);
+          return;
+        }
+        failures.push(`${entry.name}: ${why}`);
       }
       setBulk({ action, done: index + 1, total: targets.length });
     }

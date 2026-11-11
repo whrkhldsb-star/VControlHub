@@ -126,4 +126,16 @@ export function browserT(
 	return interpolate(browserTranslations[locale]?.[key] || key, vars);
 }
 
+/**
+ * The language of the page for code that runs outside React (a request helper, a default label): what the
+ * language switch last applied, else what the root layout rendered from the locale cookie.
+ */
+export function pageLocale(): Locale {
+	if (typeof document === "undefined") return "zh";
+	const root = document.documentElement;
+	const applied = root.dataset.locale;
+	if (applied === "zh" || applied === "en") return applied;
+	return root.lang.toLowerCase().startsWith("en") ? "en" : "zh";
+}
+
 export type { Locale } from "./core";

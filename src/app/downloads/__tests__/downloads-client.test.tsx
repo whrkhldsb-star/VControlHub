@@ -245,6 +245,36 @@ describe("DownloadsClient", () => {
     await act(async () => { resolveRetry({ success: true }); });
   });
 
+  it("reloads the list under the filter on screen after an action on a row that was there before the filter changed", async () => {
+    // The rows are memoized without regard to their callbacks. With a network answer they are unmounted while the
+    // new filter loads and come back with the current handlers; with an answer in the same tick (as here) they
+    // stay, and their buttons reloaded the list under the filter they were first shown with.
+    const actor = userEvent.setup();
+    const failedTask = { ...runningTask, id: "dl_f", url: "https://example.com/failed.iso", status: "FAILED", aria2Gid: null };
+    const getCalls = () => vi.mocked(csrfFetch).mock.calls.filter((call) => !(call[1] as RequestInit | undefined)?.method).map((call) => String(call[0]));
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      if ((init as RequestInit | undefined)?.method === "POST") return { task: { id: "dl_new" } };
+      return String(input).includes("status=FAILED")
+        ? { tasks: [failedTask], globalStat: null, nextCursor: null }
+        : { tasks: [runningTask, failedTask], globalStat: null, nextCursor: null };
+    });
+
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
+    await screen.findByText("https://example.com/failed.iso");
+    await actor.click(screen.getByRole("button", { name: "失败" }));
+    await vi.waitFor(() => expect(getCalls()).toContain("/api/downloads?status=FAILED"));
+    await screen.findByText("https://example.com/failed.iso");
+    expect(screen.queryByText("https://example.com/a.iso")).not.toBeInTheDocument();
+
+    const before = getCalls().length;
+    await actor.click(screen.getByRole("button", { name: "重试" }));
+    await vi.waitFor(() => expect(getCalls().length).toBeGreaterThan(before));
+    // The reload asks for what the filter shows, and the list comes back.
+    expect(getCalls().at(-1)).toBe("/api/downloads?status=FAILED");
+    expect(await screen.findByText("https://example.com/failed.iso")).toBeInTheDocument();
+    expect(screen.queryByText("加载中...")).not.toBeInTheDocument();
+  });
+
   it("shows immediate download feedback and suppresses duplicate download clicks", async () => {
     const actor = userEvent.setup();
     const completedTask = {

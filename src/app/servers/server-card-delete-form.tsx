@@ -50,10 +50,7 @@ export function ServerCardDeleteForm({
             <div id={`delete-server-description-${serverId}`}>
               {relatedStorageCount > 0 ? (
                 <p className="mt-1 text-xs text-[var(--danger)]">
-                  {t("serverCardActions.delete.relatedStorageHint").replace(
-                    "{count}",
-                    String(relatedStorageCount),
-                  )}
+                  {t("serverCardActions.delete.relatedStorageHint", { count: relatedStorageCount })}
                 </p>
               ) : null}
               <p className="mt-1 text-xs text-[var(--danger)]">

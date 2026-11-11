@@ -61,15 +61,9 @@ export function FieldRollbackButton({
       title={
         isAtDefault
           ? t("settingsClient.fieldIsDefault")
-          : t("settingsClient.fieldRestoreDefault").replace(
-              "{value}",
-              field.defaultValue ?? "",
-            )
+          : t("settingsClient.fieldRestoreDefault", { value: field.defaultValue ?? "" })
       }
-      aria-label={t("settingsClient.fieldRestoreAria").replace(
-        "{label}",
-        t(field.labelKey),
-      )}
+      aria-label={t("settingsClient.fieldRestoreAria", { label: t(field.labelKey) })}
     >
       <span aria-hidden>↺</span>
       <span className="sr-only">{t("settingsClient.fieldDefaultSr")}</span>

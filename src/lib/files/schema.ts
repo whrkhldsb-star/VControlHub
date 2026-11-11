@@ -56,6 +56,22 @@ export const listFilesQuerySchema = z.object({
 export type ListFilesQuery = z.infer<typeof listFilesQuerySchema>;
 
 /**
+ * The address of the /files page, read leniently: a parameter that does not parse (a hand-edited or outdated
+ * link — ?page=0, ?sort=newest, an empty ?path=) is dropped and the rest still applies; of one given twice the
+ * first counts. The API keeps refusing such a request. A page that answers with its error screen instead of the
+ * drive is another matter.
+ */
+export function readListFilesAddress(params: Record<string, string | string[] | undefined>): ListFilesQuery {
+  const accepted: Record<string, string> = {};
+  for (const [key, field] of Object.entries(listFilesQuerySchema.shape)) {
+    const given = params[key];
+    const value = Array.isArray(given) ? given[0] : given;
+    if (value !== undefined && field.safeParse(value).success) accepted[key] = value;
+  }
+  return listFilesQuerySchema.parse(accepted);
+}
+
+/**
  * POST /api/files/compress
  *
  * Creates a local .tar.gz archive from selected file/folder paths under a

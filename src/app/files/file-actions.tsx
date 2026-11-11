@@ -20,7 +20,7 @@ import { useToast } from "@/components/toast-provider";
 import { Dialog } from "@/components/ui/dialog";
 import { CheckboxField, FormField, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { getErrorMessage, thrownActionMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { copyText } from "@/lib/ui/clipboard";
 import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS, SHARE_BATCH_MAX } from "@/lib/share-link/policy";
@@ -76,13 +76,15 @@ export function useFileActions(): FileActionsApi {
  * its own message.
  */
 const INVALID_NAME_CHARS = /[\u0000-\u001f\u007f\\/]/;
+const MAX_NAME_BYTES = 255;
 
 export function validateEntryName(name: string): "required" | "invalidChars" | "dots" | "tooLong" | null {
 	const value = name.trim();
 	if (!value) return "required";
 	if (value === "." || value === "..") return "dots";
 	if (INVALID_NAME_CHARS.test(value)) return "invalidChars";
-	if (value.length > 255) return "tooLong";
+	// In bytes, as the server and the filesystem measure a name: 86 Chinese characters are 258 of them.
+	if (value.length > MAX_NAME_BYTES || new TextEncoder().encode(value).length > MAX_NAME_BYTES) return "tooLong";
 	return null;
 }
 
@@ -216,7 +218,7 @@ function RenameDialog({ target, onClose, onDone }: { target: FileActionTarget; o
 						onClose();
 						onDone();
 					} catch (cause) {
-						setError(getErrorMessage(cause, t("filePreferences.failed")));
+						setError(thrownActionMessage(cause, t, t("storagePage.action.fileRenameFailed")));
 					} finally {
 						setBusy(false);
 					}
@@ -296,7 +298,8 @@ function TransferDialog({ mode, targets, onClose, onDone, onQueued }: {
 			onClose();
 			onQueued();
 		} catch (cause) {
-			setError(getErrorMessage(cause, t("filePreferences.failed")));
+			// Moving one entry is a server action, which throws only a refusal or something unforeseen.
+			setError(thrownActionMessage(cause, t, t(mode === "move" ? "filesPage.move.errorMoveFailed" : "common.requestFailed")));
 		} finally {
 			setBusy(false);
 		}
@@ -388,7 +391,7 @@ function DeleteDialog({ targets, onClose, onDone, onQueued }: {
 			onClose();
 			onQueued();
 		} catch (cause) {
-			setError(getErrorMessage(cause, t("filePreferences.failed")));
+			setError(thrownActionMessage(cause, t, t("storagePage.action.fileDeleteFailed")));
 		} finally {
 			setBusy(false);
 		}

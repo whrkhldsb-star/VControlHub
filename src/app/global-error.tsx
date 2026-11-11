@@ -46,9 +46,16 @@ const copy = {
 export default function GlobalError({
 	error,
 	reset,
+	retry,
 }: {
 	error: Error & { digest?: string };
+	/** Clears the boundary and renders what it already has. */
 	reset: () => void;
+	/**
+	 * Fetches the page again first. After a failure in the root layout, what the boundary already has is that
+	 * failure: `reset` alone brought this screen straight back.
+	 */
+	retry?: () => void;
 }) {
 	const [locale] = useState<Locale>(detectLocale);
 
@@ -89,7 +96,7 @@ export default function GlobalError({
 						</p>
 					)}
 					<ActionButton size="lg" type="button" variant="primary"
-						onClick={reset}
+						onClick={retry ?? reset}
 
 						
 						style={{

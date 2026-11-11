@@ -47,3 +47,15 @@ export class ApiError extends Error {
 				: undefined;
 	}
 }
+
+/**
+ * Thrown when a request got no answer at all — the server is restarting, the network is down, the connection
+ * was cut. Not an ApiError: there is neither a status nor a body. Its message is a sentence in the page's
+ * language (see apiRequest); what the browser itself said is kept as `cause`.
+ */
+export class NetworkError extends Error {
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "NetworkError";
+	}
+}

@@ -82,14 +82,9 @@ export function SettingsClient({
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
-  // Schema now holds i18n keys directly — rendering components call t()/tt()
+  // Schema now holds i18n keys directly — rendering components call t()
   // to resolve them. No bridge layer needed.
   const schema = SETTINGS_SCHEMA;
-  const tt = useCallback((key: string, vars?: Record<string, string | number>) => {
-    let s = t(key);
-    if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
-    return s;
-  }, [t]);
   const tocItems = useMemo(() =>
     SETTINGS_SCHEMA.map((s) => {
       const subtitleKey = TOC_SUBTITLE_KEYS[s.id] ?? `settingsClient.toc.fieldsCount.suffix`;
@@ -308,7 +303,7 @@ export function SettingsClient({
           const error = field.validate(settings[key] ?? "", settings);
           if (!error) return null;
           const label = t(field.labelKey);
-          return tt(error.key, { ...error.params, label });
+          return t(error.key, { ...error.params, label });
         })
         .filter((message): message is string => Boolean(message));
       if (validationErrors.length > 0) {
@@ -401,7 +396,7 @@ export function SettingsClient({
       }
       await performSave();
     },
-    [settings, baselineSettings, runtimeSummaryByKey, router, t, tt],
+    [settings, baselineSettings, runtimeSummaryByKey, router, t],
   );
 
   if (!canManage) {

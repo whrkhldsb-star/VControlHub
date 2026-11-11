@@ -1,4 +1,7 @@
-import { screen } from "@testing-library/react";
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
+
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { UnrecognizedActionError } from "next/dist/client/components/unrecognized-action-error";
@@ -119,5 +122,40 @@ describe("RouteError", () => {
 
 		screen.getByRole("button", { name: "重试" }).click();
 		expect(reset).toHaveBeenCalledTimes(1);
+	});
+	it("asks the server again when the person retries, instead of rendering the failed answer once more", () => {
+		// The framework hands an error screen two functions: `reset` only clears the boundary and renders what it
+		// already has — for a failure on the server that is the same failed answer, so "重试" brought the error
+		// screen straight back — and `retry` fetches the page again first.
+		const reset = vi.fn();
+		const retry = vi.fn();
+		renderI18n(<RouteError error={makeError("", "2574922165")} reset={reset} retry={retry} />, { locale: "zh" });
+		fireEvent.click(screen.getByRole("button", { name: "重试" }));
+		expect(retry).toHaveBeenCalledOnce();
+		expect(reset).not.toHaveBeenCalled();
+	});
+
+	it("still clears the boundary where no retry is handed over", () => {
+		const reset = vi.fn();
+		renderI18n(<RouteError error={makeError("渲染失败")} reset={reset} />, { locale: "zh" });
+		fireEvent.click(screen.getByRole("button", { name: "重试" }));
+		expect(reset).toHaveBeenCalledOnce();
+	});
+
+	it("is what every route's error file exports, so the framework's retry reaches it", () => {
+		// A wrapper that names its props passes on only what it names: the two that existed dropped `retry`.
+		const root = "src/app";
+		const files: string[] = [];
+		const walk = (dir: string) => {
+			for (const entry of readdirSync(dir, { withFileTypes: true })) {
+				const file = path.join(dir, entry.name);
+				if (entry.isDirectory()) walk(file);
+				else if (entry.name === "error.tsx") files.push(file);
+			}
+		};
+		walk(root);
+		expect(files.length).toBeGreaterThan(40);
+		const wrappers = files.filter((file) => !readFileSync(file, "utf8").includes('export { RouteError as default } from "@/components/route-error";'));
+		expect(wrappers).toEqual([]);
 	});
 });

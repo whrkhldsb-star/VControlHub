@@ -8,7 +8,7 @@ import { useState, useTransition } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { getErrorMessage, refusalSentence } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 
@@ -85,11 +85,8 @@ export function OffsiteDryRunButton() {
 }
 
 /** The sentence of an error answer, or its status when the body has none. */
-function refusalText(body: { message?: unknown; error?: unknown } | null, status: number): string {
-	for (const text of [body?.message, body?.error]) {
-		if (typeof text === "string" && text.trim()) return text;
-	}
-	return `HTTP ${status}`;
+function refusalText(body: unknown, status: number): string {
+	return refusalSentence(body) || `HTTP ${status}`;
 }
 
 function StateView({

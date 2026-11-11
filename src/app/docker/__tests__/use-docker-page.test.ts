@@ -106,6 +106,22 @@ describe("useDockerPage", () => {
 		});
 	});
 
+	describe("failures", () => {
+		it("says why the logs could not be read", async () => {
+			// "获取日志失败" alone, whatever the server answered.
+			const { result } = await setup();
+			mocks.csrfFetch.mockRejectedValueOnce(new Error("容器 c1 不存在"));
+			await act(async () => { await result.current.fetchLogs("c1"); });
+			expect(result.current.logs).toBe("dockerPage.error.logs: 容器 c1 不存在");
+		});
+
+		it("stops loading when there is no target to ask", async () => {
+			const { result } = await setup([], false);
+			expect(result.current.error).toBe("dockerPage.error.noTargets");
+			expect(mocks.csrfFetch).not.toHaveBeenCalled();
+		});
+	});
+
 	describe("server pin", () => {
 		it("omits serverId for the hub host and includes it for a remote node", async () => {
 			const servers = [{ id: "srv_1", name: "web", host: "10.0.0.1" }];

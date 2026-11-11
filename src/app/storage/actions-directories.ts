@@ -387,10 +387,7 @@ async function renameFileEntryActionImpl(
       });
       if (directoryChildren.length > DIRECTORY_CHILD_REWRITE_LIMIT) {
         return {
-          error: t("storagePage.action.directoryTooLargeToRename").replace(
-            "{limit}",
-            String(DIRECTORY_CHILD_REWRITE_LIMIT),
-          ),
+          error: t("storagePage.action.directoryTooLargeToRename", { limit: DIRECTORY_CHILD_REWRITE_LIMIT }),
         } satisfies StorageActionState;
       }
     }
@@ -451,7 +448,11 @@ async function renameFileEntryActionImpl(
         });
       } catch (compensationError) {
         return {
-          error: t("storagePage.action.renameRollbackFailed", { error: getErrorMessage(databaseError, String(databaseError)), rollback: getErrorMessage(compensationError, String(compensationError)) }),
+          // A database error has no message for people (its own is the query): it is named instead.
+          error: t("storagePage.action.renameRollbackFailed", {
+            error: getErrorMessage(databaseError, t("storagePage.action.indexWriteFailed")),
+            rollback: getErrorMessage(compensationError, String(compensationError)),
+          }),
         } satisfies StorageActionState;
       }
       return {

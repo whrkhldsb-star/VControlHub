@@ -201,6 +201,37 @@ describe("DeploymentsPage deploy-export panel", () => {
     expect(screen.getAllByText("等待审批").every((pill) => pill.hasAttribute("data-status-badge"))).toBe(true);
   });
 
+  it("puts a template's name into the resend reason as it is written", async () => {
+    // The sentence was filled in with String.replaceAll, which reads "$&" and "$'" in the inserted text as
+    // instructions: the stored reason of a resend read "回退重发：备份 {name} 库 …".
+    const user = userEvent.setup();
+    const name = "备份 $& 库 $' $$";
+    listDeploymentRunsMock.mockResolvedValue([{
+      id: "run-1",
+      templateId: "tmpl1",
+      template: { name },
+      serverIds: ["srv1"],
+      createdAt: new Date("2026-08-09T01:00:00.000Z"),
+      status: "FAILED",
+      commandRequestId: "req-1",
+      snapshotId: "snap-1",
+      snapshot: { rollbackCommand: "docker compose down" },
+      variables: { project_dir: "/srv/app" },
+      renderedCommand: "cd /srv/app && docker compose up -d",
+      rollbackAttempts: [],
+      errorMessage: null,
+    }] as unknown as Awaited<ReturnType<typeof listDeploymentRuns>>);
+    csrfFetchMock.mockResolvedValue({});
+
+    wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
+
+    await user.click(screen.getByRole("button", { name: "按此记录重发" }));
+    await user.click(screen.getByRole("button", { name: "确认重发" }));
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/deployments", expect.anything()));
+    const body = JSON.parse(String(csrfFetchMock.mock.calls.find((call) => call[0] === "/api/deployments")![1]!.body)) as { reason: string };
+    expect(body.reason).toBe(`回退重发：${name}`);
+  });
+
   it("bounds the ?error= flash so a crafted link cannot fill the danger banner", async () => {
     const crafted = "假".repeat(900);
     wrap(await DeploymentsPage({ searchParams: Promise.resolve({ error: crafted }) }));

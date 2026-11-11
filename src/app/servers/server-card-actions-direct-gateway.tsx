@@ -145,15 +145,9 @@ export function ServerCardDirectGatewayForm({
               {t("serverCardActions.directGateway.enabledTitle")}
             </p>
             <p>
-              {t("serverCardActions.directGateway.enabledDetail").replace(
-                "{port}",
-                String(
-                  directGateway.port ||
-                    t(
-                      "serverCardActions.directGateway.enabledDetailPortFallback",
-                    ),
-                ),
-              )}
+              {t("serverCardActions.directGateway.enabledDetail", {
+                port: directGateway.port || t("serverCardActions.directGateway.enabledDetailPortFallback"),
+              })}
             </p>
           </>
         ) : (

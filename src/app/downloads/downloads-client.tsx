@@ -332,6 +332,17 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		}
 	};
 
+	// The rows are memoized without regard to their callbacks (see the comparator in downloads-task-row), so what
+	// they are handed must not change and must always reach the handlers of the latest render: a row that outlives
+	// a filter change otherwise keeps reloading the list under the filter it was first shown with.
+	const handleActionRef = useRef(handleAction);
+	useEffect(() => {
+		handleActionRef.current = handleAction;
+	});
+	const onRowAction = useCallback((taskId: string, action: string) => {
+		void handleActionRef.current(taskId, action);
+	}, []);
+
 	const categories = getCategories(t);
 	const handleDownloadClick = (taskId: string) => (event: MouseEvent<HTMLAnchorElement>) => {
 		if (downloadingIds[taskId]) {
@@ -465,7 +476,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 							canManage={canManage}
 							busyActions={busyActions}
 							downloadingIds={downloadingIds}
-							onAction={handleAction}
+							onAction={onRowAction}
 							onDownloadClick={handleDownloadClick}
 							onPendingPurge={setPendingPurgeTaskId}
 						/>

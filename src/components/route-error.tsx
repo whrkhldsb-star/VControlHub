@@ -23,7 +23,14 @@ function isStaleDeploymentError(error: unknown): boolean {
 type RouteErrorProps = {
 	/** What was thrown: an Error for a failure on the server, anything at all for one in a client component. */
 	error: unknown;
+	/** Clears the boundary and renders what it already has. */
 	reset: () => void;
+	/**
+	 * Fetches the page again, then clears the boundary. This is what "retry" has to mean: after a failure on the
+	 * server, what the boundary already has is that failed answer, and `reset` alone brought this screen straight
+	 * back. Handed over by the framework to an `error.tsx` that exports this component as it is.
+	 */
+	retry?: () => void;
 	title?: string;
 	description?: string;
 };
@@ -43,6 +50,7 @@ function describeThrown(error: unknown): { name?: string; message: string; diges
 export function RouteError({
 	error,
 	reset,
+	retry,
 	title,
 	description,
 }: RouteErrorProps) {
@@ -115,7 +123,7 @@ export function RouteError({
 			}
 			actions={
 				<>
-					<ActionButton icon={<RefreshCw />} onClick={reset}>
+					<ActionButton icon={<RefreshCw />} onClick={retry ?? reset}>
 						{t("common.retry")}
 					</ActionButton>
 					<ActionButton variant="secondary" onClick={() => window.location.reload()}>

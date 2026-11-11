@@ -15,7 +15,7 @@ import {
 import { DeploymentExportTree } from "./deployment-export-tree";
 import { DeploymentFilePreview } from "./deployment-export-preview";
 import { UI_INPUT } from "@/lib/ui/classes";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { getErrorMessage, readRefusal } from "@/lib/http/error-message";
 import { copyText } from "@/lib/ui/clipboard";
 import { ActionButton } from "@/components/action-button";
 
@@ -90,9 +90,9 @@ export function DeploymentExportPanel() {
         raw: true,
       });
       if (!response.ok) {
-        const text = await response.text().catch(() =>"");
+        // The body of a refusal is the error envelope, not a sentence: only its message is for the page.
         throw new Error(
-          text || t("deploymentsPage.export.downloadHttpError", { status: response.status }),
+          (await readRefusal(response)) || t("deploymentsPage.export.downloadHttpError", { status: response.status }),
         );
       }
       const blob = await response.blob();

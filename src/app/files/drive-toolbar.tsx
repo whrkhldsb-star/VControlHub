@@ -13,13 +13,14 @@ import { useToast } from "@/components/toast-provider";
 import { Dialog } from "@/components/ui/dialog";
 import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { FormField, Notice, SegmentedControl } from "@/components/ui-primitives";
+import { thrownActionMessage } from "@/lib/http/error-message";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { createFolderAction } from "../storage/actions";
 import { validateEntryName } from "./file-actions";
-import { getDisplaySegment, isNodeGroupSegment, splitPath, type FilesApiResponse } from "./files-browser-helpers";
+import { getPathGroupNode, splitPath, type FilesApiResponse } from "./files-browser-helpers";
 import type { FileListSortDir, FileListSortKey } from "./file-list-model";
 import { useViewMode } from "./use-view-mode";
 
@@ -39,6 +40,8 @@ export function DriveBreadcrumbs({ t, path, nodes, nodeIdFilter, onNavigate, onR
 	onRoot: () => void;
 }) {
 	const node = nodes.find((item) => item.id === nodeIdFilter);
+	// In the view of all locations the first segment names a node; every other segment is a folder as it is called.
+	const groupNode = getPathGroupNode(nodes, path, nodeIdFilter);
 	const segments = splitPath(path);
 	type Crumb = { key: string; label: string; onClick?: () => void; current: boolean };
 	const crumbs: Crumb[] = [];
@@ -48,7 +51,7 @@ export function DriveBreadcrumbs({ t, path, nodes, nodeIdFilter, onNavigate, onR
 		const last = index === segments.length - 1;
 		crumbs.push({
 			key: target,
-			label: (isNodeGroupSegment(segment) ? getDisplaySegment(segment, nodes) : segment) ?? segment,
+			label: index === 0 && groupNode ? groupNode.name : segment,
 			onClick: last ? undefined : () => onNavigate(target),
 			current: last,
 		});
@@ -216,7 +219,7 @@ export function NewFolderDialog({ onClose, nodes, nodeId, currentPath, onCreated
 						onClose();
 						onCreated();
 					} catch (cause) {
-						setError(cause instanceof Error ? cause.message : t("filePreferences.failed"));
+						setError(thrownActionMessage(cause, t, t("storagePage.action.folderCreateFailed")));
 					} finally {
 						setBusy(false);
 					}

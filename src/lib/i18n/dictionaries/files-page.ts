@@ -179,7 +179,7 @@ export const zh: Record<string, string> = {
 	"filesPage.drive.nameError.required": "请输入名称",
 	"filesPage.drive.nameError.invalidChars": "名称不能包含 \\ / 或控制字符",
 	"filesPage.drive.nameError.dots": "名称不能是 . 或 ..",
-	"filesPage.drive.nameError.tooLong": "名称不能超过 255 个字符",
+	"filesPage.drive.nameError.tooLong": "名称过长：最多 255 字节（一个汉字占 3 字节）",
 };
 
 export const en: Record<string, string> = {
@@ -361,5 +361,5 @@ export const en: Record<string, string> = {
 	"filesPage.drive.nameError.required": "Enter a name",
 	"filesPage.drive.nameError.invalidChars": "Names cannot contain \\ / or control characters",
 	"filesPage.drive.nameError.dots": "A name cannot be . or ..",
-	"filesPage.drive.nameError.tooLong": "Names cannot be longer than 255 characters",
+	"filesPage.drive.nameError.tooLong": "The name is too long: 255 bytes at most (a non-Latin character takes 2 to 4)",
 };

@@ -153,7 +153,7 @@ describe("storage chunk transport", () => {
         storageNodeId: "node",
         relativePath: file.name,
       }),
-    ).rejects.toThrow("response lost");
+    ).rejects.toMatchObject({ name: "NetworkError", cause: expect.objectContaining({ message: "response lost" }) });
     await expect(
       uploadStorageFileChunked({
         file,
@@ -218,14 +218,14 @@ describe("storage chunk transport", () => {
         storageNodeId: "node",
         relativePath: file.name,
       }),
-    ).rejects.toThrow("offline");
+    ).rejects.toMatchObject({ name: "NetworkError", cause: expect.objectContaining({ message: "offline" }) });
     await expect(
       uploadStorageFileChunked({
         file,
         storageNodeId: "node",
         relativePath: file.name,
       }),
-    ).rejects.toThrow("offline");
+    ).rejects.toMatchObject({ name: "NetworkError", cause: expect.objectContaining({ message: "offline" }) });
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[2]![0]).toBe("/api/images/upload/recover");
     expect(localStorage.length).toBe(1);

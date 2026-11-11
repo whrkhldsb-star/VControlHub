@@ -22,10 +22,7 @@ export function MediaScanButton() {
         method: "POST",
       });
       const removedText = result.removed
-        ? t("mediaScanButton.removed").replace(
-            "{removed}",
-            String(result.removed),
-          )
+        ? t("mediaScanButton.removed", { removed: result.removed })
         : "";
       setMessage(
         t("mediaScanButton.summary", { scanned: result.scanned, upserted: result.upserted, removedText }),

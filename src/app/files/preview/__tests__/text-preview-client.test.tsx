@@ -544,6 +544,29 @@ describe("TextPreviewClient editable mode", () => {
     await waitFor(() => expect(editor).toHaveValue("alpha\nbeta\n"));
   });
 
+  it("leaves Tab and Escape to the input method while a candidate is being composed", async () => {
+    // Tab moves between candidates and Escape drops them: the editor indented the line under the composition and
+    // closed its find bar instead.
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ draft: { content: "alpha\nbeta\n", updatedAt: "2026-05-06T00:00:00.000Z", lastModifiedMs: 1 } });
+    render(<TextPreviewClient href="/download/notes.txt" name="notes.txt" fileEntryId="file_1" editable />);
+    await actor.click(await screen.findByRole("button", { name: "编辑" }));
+    const editor = await screen.findByRole("textbox", { name: "在线编辑文件内容" }) as HTMLTextAreaElement;
+    editor.focus();
+    editor.setSelectionRange(0, 0);
+
+    fireEvent.keyDown(editor, { key: "Tab", isComposing: true });
+    fireEvent.keyDown(editor, { key: "Tab", keyCode: 229 });
+    expect(editor).toHaveValue("alpha\nbeta\n");
+
+    fireEvent.keyDown(editor, { key: "f", ctrlKey: true });
+    const find = await screen.findByRole("search");
+    fireEvent.keyDown(editor, { key: "Escape", isComposing: true });
+    expect(find).toBeInTheDocument();
+    fireEvent.keyDown(editor, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("search")).not.toBeInTheDocument());
+  });
+
   it("shows a file the edit API refuses as too large read-only, instead of an error (a log could only be downloaded)", async () => {
     vi.mocked(csrfFetch)
       .mockRejectedValueOnce(new ApiError(400, { code: "VALIDATION_FAILED", message: "too large" }))
@@ -568,6 +591,19 @@ describe("TextPreviewClient editable mode", () => {
 
     expect(await screen.findByText("remote line")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+  });
+
+  it("says why the server refused a read-only preview, and falls back to the status when it said nothing", async () => {
+    // The download is read as it comes, so its refusal was shown as "加载失败: 403" whatever the server answered.
+    vi.mocked(csrfFetch).mockResolvedValueOnce(new Response(JSON.stringify({ code: "FORBIDDEN", error: "Forbidden", message: "没有此存储节点或路径的访问授权" }), { status: 403 }));
+    const first = render(<TextPreviewClient href="/download/notes.txt" name="notes.txt" />);
+    expect(await screen.findByText("没有此存储节点或路径的访问授权")).toBeInTheDocument();
+    first.unmount();
+
+    vi.mocked(csrfFetch).mockResolvedValueOnce(new Response("<html>502 Bad Gateway</html>", { status: 502 }));
+    render(<TextPreviewClient href="/download/notes.txt" name="notes.txt" />);
+    expect(await screen.findByText("加载失败: 502")).toBeInTheDocument();
+    expect(screen.queryByText(/Bad Gateway/)).not.toBeInTheDocument();
   });
 
   it("still reports a real failure (no permission, server error) instead of quietly showing a read-only copy", async () => {

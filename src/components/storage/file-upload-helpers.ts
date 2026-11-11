@@ -53,12 +53,3 @@ export function getBrowserRelativePath(file: File) {
   return browserFile.webkitRelativePath?.trim() || file.name;
 }
 
-export function formatUploadMessage(
-  template: string,
-  values: Record<string, string | number>,
-) {
-  return Object.entries(values).reduce(
-    (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
-    template,
-  );
-}

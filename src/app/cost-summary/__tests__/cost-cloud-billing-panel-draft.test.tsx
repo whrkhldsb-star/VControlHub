@@ -51,3 +51,18 @@ describe("CostCloudBillingPanel last sync", () => {
 		expect(screen.getByText("Last sync: Failed · 11/11/2026, 00:30:00 · imported 3")).toBeInTheDocument();
 	});
 });
+
+/** The sentence was filled in with String.replace, which reads "$&" and "$'" in the inserted name as instructions. */
+describe("CostCloudBillingPanel delete confirmation", () => {
+	it("names the account as it is written", async () => {
+		const user = userEvent.setup();
+		const account = {
+			id: "acc-1", name: "AWS $& 主账户 $'", provider: "aws" as const, currency: "USD" as const, enabled: true, config: {}, hasCredentials: false,
+			teamId: null, lastSyncAt: null, lastSyncStatus: null, lastSyncError: null,
+			lastSyncImported: 0, lastSyncSkipped: 0, createdById: null, createdAt: "2026-11-01T00:00:00.000Z", updatedAt: "2026-11-10T16:30:00.000Z",
+		};
+		render(<CostCloudBillingPanel initialAccounts={[account as never]} canManage currencies={["USD"]} month="2026-11" />);
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		expect(screen.getByText("确认删除账单账户「AWS $& 主账户 $'」？凭证与导入配置将一并移除。")).toBeInTheDocument();
+	});
+});

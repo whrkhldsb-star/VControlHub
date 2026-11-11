@@ -8,8 +8,8 @@
  * available as `detail` for ops diagnosis — only the headline is localized.
  */
 export type KnownErrorCopy = {
-	/** Localized one-line summary for the notice headline. */
-	summary: string;
+	/** Localized one-line summary for the notice headline; null when no rule fits and the message is shown as it is. */
+	summary: string | null;
 	/** The original raw message, kept for diagnosis. */
 	detail: string;
 };
@@ -29,11 +29,18 @@ const RULES: ReadonlyArray<{ pattern: RegExp; summaryKey: string }> = [
 	{ pattern: /scandir/i, summaryKey: "commonError.pathMissing" },
 ];
 
-/** Map a raw error string to a localized summary; never throws, never empty. */
+/**
+ * Map a raw error string to a localized summary; never throws, never empty.
+ *
+ * Without a rule the message stands for itself. The callers pass what a request failed with as well, and that is
+ * a sentence in the page's language — a refusal, "could not reach the server", "session expired": the generic
+ * summary put "an unexpected error occurred" above each of them, with the sentence set as code under it.
+ */
 export function describeKnownError(raw: string, t: TFn): KnownErrorCopy {
 	const trimmed = raw.trim();
 	const rule = RULES.find(({ pattern }) => pattern.test(trimmed));
-	return { summary: rule ? t(rule.summaryKey) : t("commonError.generic"), detail: collapseAbsolutePaths(trimmed) };
+	if (rule) return { summary: t(rule.summaryKey), detail: collapseAbsolutePaths(trimmed) };
+	return trimmed ? { summary: null, detail: collapseAbsolutePaths(trimmed) } : { summary: t("commonError.generic"), detail: "" };
 }
 
 /**

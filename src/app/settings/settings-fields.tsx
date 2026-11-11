@@ -331,7 +331,7 @@ export function InputField({
               onChange("");
             }}
             disabled={disabled}
-            aria-label={t("settingsClient.secretClearAria").replace("{label}", t(field.labelKey))}
+            aria-label={t("settingsClient.secretClearAria", { label: t(field.labelKey) })}
           >
             {t("settingsClient.secretClear")}
           </ActionButton>

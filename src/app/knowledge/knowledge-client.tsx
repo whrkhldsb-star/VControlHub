@@ -65,6 +65,8 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
     useState<KnowledgeBase | null>(null);
   const [documentPendingDelete, setDocumentPendingDelete] = useState<DocumentRow | null>(null);
   const { run, busyKey: busy, error, setError } = useAsyncAction();
+  /** A failed deletion, shown in its confirmation dialog: the page's own notice is behind it. */
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadBases = useCallback(async () => {
     const data = await csrfFetch<{ knowledgeBases: KnowledgeBase[] }>("/api/knowledge");
@@ -209,6 +211,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
 
   async function removeDoc(documentId: string) {
     if (!canManage) return;
+    setDeleteError(null);
     await run(`del-${documentId}`, async () => {
       await csrfFetch(`/api/knowledge?documentId=${encodeURIComponent(documentId)}`, {
         method: "DELETE",
@@ -217,12 +220,13 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       await loadBases();
       setDocumentPendingDelete(null);
       addToast("success", t("knowledgePage.documentDeleted"));
-    }, { fallback: t("knowledgePage.error") });
+    }, { fallback: t("knowledgePage.error"), onError: setDeleteError });
   }
 
   async function removeBase() {
     if (!canManage || !basePendingDelete) return;
     const target = basePendingDelete;
+    setDeleteError(null);
     await run(`del-base-${target.id}`, async () => {
       await csrfFetch(`/api/knowledge?id=${encodeURIComponent(target.id)}`, {
         method: "DELETE",
@@ -236,7 +240,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       );
       await loadBases();
       addToast("success", t("knowledgePage.baseDeleted"));
-    }, { fallback: t("knowledgePage.error") });
+    }, { fallback: t("knowledgePage.error"), onError: setDeleteError });
   }
 
   return (
@@ -300,7 +304,10 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                         variant="danger"
                         aria-label={t("knowledgePage.deleteBaseAria", { name: b.name })}
                         disabled={busy !== null}
-                        onClick={() => setBasePendingDelete(b)}>
+                        onClick={() => {
+                          setDeleteError(null);
+                          setBasePendingDelete(b);
+                        }}>
                         {t("knowledgePage.delete")}
                       </ActionButton>
                     )}
@@ -352,7 +359,10 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                   {canManage && (
                     <ActionButton size="sm" variant="danger" 
                       disabled={busy !== null}
-                      onClick={() => setDocumentPendingDelete(d)}>
+                      onClick={() => {
+                        setDeleteError(null);
+                        setDocumentPendingDelete(d);
+                      }}>
                       {t("knowledgePage.delete")}
                     </ActionButton>
                   )}
@@ -410,6 +420,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         description={t("knowledgePage.deleteDocumentConfirm", { name: documentPendingDelete?.title ?? "" })}
         cancelLabel={t("common.cancel")}
         confirmLabel={t("common.confirmDelete")}
+        error={deleteError ?? undefined}
         onCancel={() => setDocumentPendingDelete(null)}
         onConfirm={() => documentPendingDelete && void removeDoc(documentPendingDelete.id)}
         busy={Boolean(documentPendingDelete && busy === `del-${documentPendingDelete.id}`)}
@@ -423,6 +434,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         })}
         cancelLabel={t("common.cancel")}
         confirmLabel={t("common.confirmDelete")}
+        error={deleteError ?? undefined}
         onCancel={() => setBasePendingDelete(null)}
         onConfirm={() => void removeBase()}
         busy={Boolean(basePendingDelete && busy === `del-base-${basePendingDelete.id}`)}

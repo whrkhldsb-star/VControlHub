@@ -28,8 +28,8 @@ export function KnownErrorNotice({
   const noticeTone = tone === "rose" ? "danger" : tone === "amber" ? "warning" : tone;
   return (
     <Notice tone={noticeTone} className={className}>
-      {summary}
-      <code className="mt-1 block break-all font-mono text-xs">{detail}</code>
+      {summary ?? detail}
+      {summary && detail ? <code className="mt-1 block break-all font-mono text-xs">{detail}</code> : null}
     </Notice>
   );
 }

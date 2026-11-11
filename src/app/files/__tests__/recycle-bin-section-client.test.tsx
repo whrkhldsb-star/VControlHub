@@ -138,6 +138,36 @@ describe("RecycleBinSectionClient", () => {
 		expect(mocks.restore.mock.calls.map((call) => call[1].get("fileEntryId"))).toEqual(["dir", "child"]);
 	});
 
+	it("says what failed for each entry when the action throws instead of answering", async () => {
+		// What a production build hands the browser for anything thrown on the server: a sentence of React's and a digest.
+		const redacted = (digest: string) =>
+			Object.assign(new Error("Minified React error #441; visit https://react.dev/errors/441 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."), { digest });
+		mocks.restore.mockRejectedValueOnce(redacted("2574922165")).mockRejectedValueOnce(redacted("FORBIDDEN"));
+		render(<RecycleBinSectionClient canDelete deletedEntries={entries.slice(0, 2)} />);
+		fireEvent.click(screen.getByRole("checkbox", { name: "全选回收站项目" }));
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole("region", { name: "回收站批量操作" })).getByRole("button", { name: "恢复所选" }));
+		});
+		expect(screen.getByText("obsolete.txt: 恢复文件条目失败")).toBeInTheDocument();
+		expect(screen.getByText("old-photos: 缺少权限")).toBeInTheDocument();
+		expect(document.body).not.toHaveTextContent("Minified React error");
+	});
+
+	it("stops without a word when the session ran out during a batch", async () => {
+		// The action redirected to the sign-in page: the router is already going there, and every later entry would
+		// only be told the same.
+		mocks.purge.mockRejectedValue(Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;push;/login?next=%2F;307;" }));
+		render(<RecycleBinSectionClient canDelete deletedEntries={entries} />);
+		fireEvent.click(screen.getByRole("checkbox", { name: "全选回收站项目" }));
+		fireEvent.click(within(screen.getByRole("region", { name: "回收站批量操作" })).getByRole("button", { name: "永久删除所选" }));
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "永久删除" }));
+		});
+		expect(mocks.purge).toHaveBeenCalledOnce();
+		expect(document.body).not.toHaveTextContent("NEXT_REDIRECT");
+		expect(mocks.toast).not.toHaveBeenCalled();
+	});
+
 	it("asks before purging the selection for good", async () => {
 		mocks.purge.mockResolvedValue({ success: "ok" });
 		render(<RecycleBinSectionClient canDelete deletedEntries={entries} />);

@@ -80,4 +80,12 @@ describe("validateEntryName", () => {
 		expect(validateEntryName("tab\there")).toBe("invalidChars");
 		expect(validateEntryName("x".repeat(256))).toBe("tooLong");
 	});
+
+	it("measures a name in bytes, as the server and the filesystem do", () => {
+		// 86 Chinese characters are 258 bytes: the dialog let them through and the server refused the name.
+		expect(validateEntryName("文".repeat(85))).toBeNull();
+		expect(validateEntryName("文".repeat(86))).toBe("tooLong");
+		expect(validateEntryName(`${"文".repeat(84)}.txt`)).toBe("tooLong");
+		expect(validateEntryName("x".repeat(255))).toBeNull();
+	});
 });

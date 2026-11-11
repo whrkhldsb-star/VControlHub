@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { escapeHtml } from "@/lib/sanitize/escape-html";
+import { describeFailure } from "@/lib/http/error-message";
 import { copyText as copyToClipboard } from "@/lib/ui/clipboard";
 
 import {
@@ -90,8 +91,8 @@ export function useImageBedActions({
 			const data = (await csrfFetch("/api/images/stats")) as ImageStats;
 			setStats(data);
 			setShowStats(true);
-		} catch {
-			showToast(t("imageBed.toast.fetchStatsFailed"), "alert");
+		} catch (error) {
+			showToast(describeFailure(t("imageBed.toast.fetchStatsFailed"), error), "alert");
 		}
 	}, [showToast, t]);
 
@@ -228,10 +229,7 @@ export function useImageBedActions({
 											? {
 													...item,
 													status: "error",
-													message: t("imageBedPage.queue.failedPrefix").replace(
-														"{message}",
-														errorMessage,
-													),
+													message: t("imageBedPage.queue.failedPrefix", { message: errorMessage }),
 												}
 											: item,
 									),
@@ -306,19 +304,14 @@ export function useImageBedActions({
 				if (action === "delete" && data.cleanupPending) {
 					showToast(t("imageBed.toast.deletedCleanupPending"), "alert");
 				} else {
-					showToast(
-						t("imageBedPage.batchSuccess").replace(
-							"{count}",
-							String(data.deleted || data.updated || 0),
-						),
-					);
+					showToast(t("imageBedPage.batchSuccess", { count: data.deleted || data.updated || 0 }));
 				}
 				setSelectedIds(new Set());
 				setBatchMode(false);
 				void fetchImages(page);
 				return true;
-			} catch {
-				showToast(t("imageBed.toast.batchError"), "alert");
+			} catch (error) {
+				showToast(describeFailure(t("imageBed.toast.batchError"), error), "alert");
 				return false;
 			} finally {
 				batchBusyRef.current = false;
@@ -350,8 +343,8 @@ export function useImageBedActions({
 				setPreviewImage(null);
 				setPendingDelete(null);
 				void fetchImages(page);
-			} catch {
-				showToast(t("imageBed.toast.deleteError"), "alert");
+			} catch (error) {
+				showToast(describeFailure(t("imageBed.toast.deleteError"), error), "alert");
 			} finally {
 				deletingRef.current = false;
 				setDeleting(false);

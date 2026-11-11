@@ -65,3 +65,19 @@ describe("computePct", () => {
     expect(computePct("5", "0")).toBe(0);
   });
 });
+
+describe("DownloadTaskRow category", () => {
+  it("shows a category by its name, as the filter chips and the form do, not by its stored value", () => {
+    // The row printed "video" on a Chinese page whose chip reads "视频".
+    const t = (key: string) => (key === "downloadsPage.form.category.video" ? "视频" : key);
+    const props = { t, canManage: false, busyActions: {}, downloadingIds: {}, onAction: vi.fn(), onDownloadClick: () => vi.fn(), onPendingPurge: vi.fn() };
+    const view = render(<DownloadTaskRow task={{ ...task, category: "video" }} {...props} />);
+    expect(screen.getByText("视频")).toBeInTheDocument();
+    expect(screen.queryByText("video")).not.toBeInTheDocument();
+    view.unmount();
+
+    // A value from before the list of categories was fixed is shown as it is.
+    render(<DownloadTaskRow task={{ ...task, category: "isos" }} {...props} />);
+    expect(screen.getByText("isos")).toBeInTheDocument();
+  });
+});

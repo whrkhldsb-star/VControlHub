@@ -38,15 +38,6 @@ function resourceMeta(item: DockerNetwork | DockerVolume) {
   );
   return parts.join(" · ") || "local";
 }
-function formatCopy(
-  template: string,
-  replacements: Record<string, string | number>,
-) {
-  return Object.entries(replacements).reduce(
-    (text, [key, value]) => text.replaceAll(`{${key}}`, String(value)),
-    template,
-  );
-}
 export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
   const { t } = useI18n();
   const [networks, setNetworks] = useState<DockerNetwork[]>([]);
@@ -59,6 +50,8 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
   const [error, setError] = useState("");
   const [detail, setDetail] = useState<DetailState>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
+  /** Shown in the confirmation dialog: the card's own notice is behind it. */
+  const [deleteError, setDeleteError] = useState("");
 
   const fetchGenRef = useRef(0);
   const fetchAbortRef = useRef<AbortController | null>(null);
@@ -175,10 +168,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       // same resource name) what this one returned.
       if (currentServerIdRef.current !== requestedServerId) return;
       setDetail({
-        title: formatCopy(t("dockerResources.inspect.title"), {
-          kind: resourceKind(type),
-          name: itemName,
-        }),
+        title: t("dockerResources.inspect.title", { kind: resourceKind(type), name: itemName }),
         json: JSON.stringify(data.data, null, 2),
       });
     } catch (err) {
@@ -195,6 +185,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
     const { type, name: itemName } = pendingDelete;
     setBusyKey(`delete:${type}:${itemName}`);
     setError("");
+    setDeleteError("");
     try {
       const data = await csrfFetch("/api/docker/resources", {
         method: "POST",
@@ -214,9 +205,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         await fetchResources();
       }
     } catch (err) {
-      setError(
-        getErrorMessage(err, t("dockerResources.error.delete")),
-      );
+      setDeleteError(getErrorMessage(err, t("dockerResources.error.delete")));
     } finally {
       setBusyKey(null);
     }
@@ -263,10 +252,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                   <ActionButton size="sm"
                     type="button"
                     variant="ghost"
-                    aria-label={formatCopy(t("dockerResources.inspectAria"), {
-                      kind,
-                      name: itemName,
-                    })}
+                    aria-label={t("dockerResources.inspectAria", { kind, name: itemName })}
                     onClick={() => inspectResource(type, itemName)}
                     disabled={busyKey === `inspect:${key}`}>
                     {t("dockerResources.inspect")}
@@ -275,11 +261,11 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                   <ActionButton size="sm"
                     type="button"
                     variant="danger"
-                    aria-label={formatCopy(t("dockerResources.deleteAria"), {
-                      kind,
-                      name: itemName,
-                    })}
-                    onClick={() => setPendingDelete({ type, name: itemName })}
+                    aria-label={t("dockerResources.deleteAria", { kind, name: itemName })}
+                    onClick={() => {
+                      setDeleteError("");
+                      setPendingDelete({ type, name: itemName });
+                    }}
                     disabled={busyKey === `delete:${key}`}>
                     {t("dockerResources.delete")}
                   </ActionButton>
@@ -321,13 +307,13 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="min-w-0">
           <h3 className="ui-title-caption mb-2">
-            {formatCopy(t("dockerResources.group.networks"), { count: networks.length })}
+            {t("dockerResources.group.networks", { count: networks.length })}
           </h3>
           {renderList("networks", networks)}
         </div>
         <div className="min-w-0">
           <h3 className="ui-title-caption mb-2">
-            {formatCopy(t("dockerResources.group.volumes"), { count: volumes.length })}
+            {t("dockerResources.group.volumes", { count: volumes.length })}
           </h3>
           {renderList("volumes", volumes)}
         </div>
@@ -374,10 +360,11 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       </div>
       <ConfirmDialog
         open={pendingDelete !== null}
-        title={pendingDelete ? formatCopy(t("dockerResources.confirm.delete"), { kind: resourceKind(pendingDelete.type), name: pendingDelete.name }) : ""}
+        title={pendingDelete ? t("dockerResources.confirm.delete", { kind: resourceKind(pendingDelete.type), name: pendingDelete.name }) : ""}
         cancelLabel={t("dockerResources.cancel")}
         confirmLabel={t("dockerResources.confirm")}
         busy={pendingDelete ? busyKey === `delete:${pendingDelete.type}:${pendingDelete.name}` : false}
+        error={deleteError || undefined}
         onCancel={() => setPendingDelete(null)}
         onConfirm={() => void confirmDeleteResource()}
         closeOnBackdrop={false}
