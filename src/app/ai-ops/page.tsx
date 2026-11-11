@@ -39,7 +39,7 @@ async function loadInitialSettings() {
 }
 
 export default async function AiOpsPage() {
-	const session = await requirePagePermission("ai:ops:read");
+	const session = await requirePagePermission("ai:ops:read", { redirectTo: "/ai-ops" });
 	// The API routes gate on platform-admin because AI-ops aggregates are
 	// cross-tenant; the SSR page renders the same data, so it must gate too.
 	// Without this a custom role granted `ai:ops:read` reads other teams'

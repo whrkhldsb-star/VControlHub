@@ -2,6 +2,7 @@
 import { useActionState, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { createSshKeyAction, type ServerActionState } from "./actions";
+import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { Notice } from "@/components/ui-primitives";
@@ -13,8 +14,11 @@ export function SshKeyCreateForm() {
   const { t } = useI18n();
   const [state, formAction] = useActionState(createSshKeyAction, initialState);
   const [hasFile, setHasFile] = useState(false);
+  // React clears the fields of a form whose action has answered, a refusal included: a name that was taken
+  // cost the pasted key and its passphrase. A chosen file cannot be put back, and has to be picked again.
+  const { formRef, captureBeforeSubmit } = usePreservedActionForm(state, Boolean(state.error));
   return (
-    <form action={formAction} data-card className="grid gap-4" onReset={() => setHasFile(false)}>
+    <form ref={formRef} action={formAction} onSubmit={captureBeforeSubmit} data-card className="grid gap-4" onReset={() => setHasFile(false)}>
       <h2 className="ui-title-section">{t("serversPage.sshKeyCreate.title")}</h2>
       {state.error && <Notice tone="danger">{state.error}</Notice>}
       {state.success && <Notice tone="success">{state.success}</Notice>}

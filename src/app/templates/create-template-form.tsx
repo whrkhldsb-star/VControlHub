@@ -10,7 +10,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
 
-export function CreateTemplateForm({ onClose }: { onClose: () => void }) {
+export function CreateTemplateForm({ onClose }: { /** `created`: the template was saved, as opposed to the form being cancelled. */ onClose: (created: boolean) => void }) {
 	const { t } = useI18n();
 	const createFormId = useId();
 	const [name, setName] = useState("");
@@ -40,7 +40,7 @@ export function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 						.filter(Boolean),
 				}),
 			});
-			onClose();
+			onClose(true);
 		} catch (err) {
 			setError(getErrorMessage(err, t("templatesPage.error.createFailed")));
 		} finally {
@@ -126,7 +126,7 @@ export function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 					disabled={submitting}>
 					{submitting ? t("templatesPage.create.submitting") : t("templatesPage.create.submit")}
 				</ActionButton>
-				<ActionButton type="button" variant="secondary" onClick={onClose}>
+				<ActionButton type="button" variant="secondary" onClick={() => onClose(false)}>
 					{t("templatesPage.action.cancel")}
 				</ActionButton>
 			</div>

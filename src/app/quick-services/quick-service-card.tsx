@@ -28,6 +28,11 @@ const statusLabelKeys: Record<string, string> = {
 	error: "qsPage.statusError",
 };
 
+/** 3400000 → "340万" / "3.4M": a count for reading, in the page's language. */
+function compactCount(value: number, locale: "zh" | "en"): string {
+	return new Intl.NumberFormat(locale === "zh" ? "zh-CN" : "en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
 type CatalogItemLike = {
 	slug: string;
 	name: string;
@@ -70,7 +75,7 @@ export function ServiceCard({
 	accessHost: string;
 	accessProtocol?: string;
 }) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const displayPort = item.port ?? item.defaultPort;
 	const access = buildQuickServiceAccessDescriptor({
 		port: item.port,
@@ -112,7 +117,7 @@ export function ServiceCard({
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
 				<span>{t("qsPage.portLabel", { port: displayPort })}</span>
 				{item.path && <span>{t("qsPage.pathLabel", { path: item.path })}</span>}
-				{item.monthlyPulls != null && <span>{t("qsPage.monthlyPulls", { pulls: (item.monthlyPulls / 1000).toFixed(0) })}</span>}
+				{item.monthlyPulls != null && <span>{t("qsPage.monthlyPulls", { pulls: compactCount(item.monthlyPulls, locale) })}</span>}
 				{item.stars != null && <span>⭐ {item.stars}</span>}
 			</div>
 

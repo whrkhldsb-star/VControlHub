@@ -2118,7 +2118,7 @@ describe("server service", () => {
     vi.mocked(prisma.scheduledTask.count).mockResolvedValueOnce(2);
 
     await expect(deleteServerProfile("srv_1")).rejects.toThrow(
-      "scheduledTasks=2",
+      "定时任务 2 个",
     );
 
     expect(prisma.storageNode.delete).not.toHaveBeenCalled();

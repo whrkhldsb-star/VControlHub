@@ -90,6 +90,9 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 			volumesJson: [{ host: "/opt/demo-web/config", container: "/config" }],
 			extraPorts: [{ host: 9898, container: 9898 }],
 		});
+		// What is stored of the source must carry the popularity: the table has no column for it, and without it
+		// the card's stars and monthly pulls (and the ordering by them) never had anything to show.
+		expect(JSON.parse(apps[0]!.rawJson!)).toMatchObject({ stars: 1, monthly_pulls: 2 });
 	});
 
 	it("refuses a 200 response that is not a catalogue instead of reading it as empty", async () => {

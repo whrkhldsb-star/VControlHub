@@ -9,6 +9,18 @@ vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
 }));
 
+// Results are toasts: they show where the click was, however far down the page that is.
+const addToast = vi.hoisted(() => vi.fn());
+vi.mock("@/components/toast-provider", () => ({
+  useToast: () => ({ addToast }),
+  ToastProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+/** The latest result, in the terms the hook's callers use. */
+function lastMessage(): { type: "ok" | "err"; text: string; options?: { duration?: number; action?: { label: string; href: string } } } | null {
+  const call = addToast.mock.calls.at(-1);
+  return call ? { type: call[0] === "success" ? "ok" : "err", text: call[1], options: call[2] } : null;
+}
+
 const okResp = (extra: Record<string, unknown> = {}) =>
   ({ success: true, queued: true, taskId: "job:test", ...extra });
 
@@ -19,6 +31,7 @@ describe("useQuickServiceActions", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.mocked(csrfFetch).mockReset();
+    addToast.mockReset();
     fetchCatalog.mockReset();
     fetchSources.mockReset();
     fetchCatalog.mockResolvedValue(undefined);
@@ -32,7 +45,7 @@ describe("useQuickServiceActions", () => {
     const { result } = renderHook(() =>
       useQuickServiceActions({ fetchCatalog, fetchSources }),
     );
-    expect(result.current.message).toBeNull();
+    expect(lastMessage()).toBeNull();
     expect(result.current.actionSlug).toBeNull();
     expect(result.current.syncing).toBeNull();
     expect(typeof result.current.showMessage).toBe("function");
@@ -45,18 +58,20 @@ describe("useQuickServiceActions", () => {
     expect(typeof result.current.doAddSource).toBe("function");
   });
 
-  it("auto-dismisses a message after 4 seconds", async () => {
+  it("says the result in a toast: a failure stays longer, a queued task links to the task centre", async () => {
+    // It was a notice at the top of the page that went away after four seconds: after "stop", "update" or
+    // "uninstall" on a card further down, nothing changed where the click was — least of all the reason of a failure.
     const { result } = renderHook(() =>
       useQuickServiceActions({ fetchCatalog, fetchSources }),
     );
     act(() => {
       result.current.showMessage({ type: "ok", text: "hello" });
     });
-    expect(result.current.message?.text).toBe("hello");
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(4100);
+    expect(addToast).toHaveBeenLastCalledWith("success", "hello", { duration: undefined, action: undefined });
+    act(() => {
+      result.current.showMessage({ type: "err", text: "镜像拉取失败", taskId: "job:1" });
     });
-    expect(result.current.message).toBeNull();
+    expect(addToast).toHaveBeenLastCalledWith("error", "镜像拉取失败", { duration: 10_000, action: { label: "查看任务中心", href: "/operation-tasks" } });
   });
 
   it("doInstall sets actionSlug during the call and clears it on success", async () => {
@@ -78,8 +93,8 @@ describe("useQuickServiceActions", () => {
       await promise;
     });
     expect(result.current.actionSlug).toBeNull();
-    expect(result.current.message?.type).toBe("ok");
-    expect(result.current.message?.text).toMatch(/安装已排队/);
+    expect(lastMessage()?.type).toBe("ok");
+    expect(lastMessage()?.text).toMatch(/安装已排队/);
     expect(csrfFetch).toHaveBeenCalledWith(
       "/api/quick-services",
       expect.objectContaining({
@@ -102,8 +117,8 @@ describe("useQuickServiceActions", () => {
       });
     });
     expect(result.current.actionSlug).toBeNull();
-    expect(result.current.message?.type).toBe("err");
-    expect(result.current.message?.text).toBe("镜像拉取失败");
+    expect(lastMessage()?.type).toBe("err");
+    expect(lastMessage()?.text).toBe("镜像拉取失败");
   });
 
   it("doAction 'start' queued produces a queued message and polls catalog until the worker settles", async () => {
@@ -114,7 +129,7 @@ describe("useQuickServiceActions", () => {
     await act(async () => {
       await result.current.doAction("alist", "start");
     });
-    expect(result.current.message?.text).toMatch(/启动已排队/);
+    expect(lastMessage()?.text).toMatch(/启动已排队/);
     expect(fetchCatalog).not.toHaveBeenCalled();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(8_100);
@@ -135,9 +150,9 @@ describe("useQuickServiceActions", () => {
     await act(async () => {
       await result.current.doAction("alist", "update");
     });
-    expect(result.current.message?.text).toMatch(/更新完成/);
-    expect(result.current.message?.text).toMatch(/健康状态：healthy/);
-    expect(result.current.message?.text).toMatch(/最近日志：line2 \/ line3/);
+    expect(lastMessage()?.text).toMatch(/更新完成/);
+    expect(lastMessage()?.text).toMatch(/健康状态：healthy/);
+    expect(lastMessage()?.text).toMatch(/最近日志：line2 \/ line3/);
   });
 
   it("doUninstall with deleteVolumes true surfaces the right queued text", async () => {
@@ -155,7 +170,7 @@ describe("useQuickServiceActions", () => {
         body: JSON.stringify({ deleteVolumes: true, serverId: null }),
       }),
     );
-    expect(result.current.message?.text).toMatch(/卸载并删除数据目录已排队/);
+    expect(lastMessage()?.text).toMatch(/卸载并删除数据目录已排队/);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(8_100);
     });
@@ -170,7 +185,7 @@ describe("useQuickServiceActions", () => {
     await act(async () => {
       await result.current.doUninstall({ slug: "alist", deleteVolumes: false });
     });
-    expect(result.current.message?.text).toBe("已卸载，数据目录已保留");
+    expect(lastMessage()?.text).toBe("已卸载，数据目录已保留");
   });
 
   it("doSync flips syncing state and refreshes both sources and catalog", async () => {
@@ -189,7 +204,7 @@ describe("useQuickServiceActions", () => {
     expect(result.current.syncing).toBeNull();
     expect(fetchSources).toHaveBeenCalledTimes(1);
     expect(fetchCatalog).toHaveBeenCalledTimes(1);
-    expect(result.current.message?.text).toMatch(/同步完成/);
+    expect(lastMessage()?.text).toMatch(/同步完成/);
   });
 
   it("doToggleSource refreshes the catalog when disabling and when enabling", async () => {
@@ -214,16 +229,41 @@ describe("useQuickServiceActions", () => {
     expect(fetchCatalog).toHaveBeenCalledTimes(1);
   });
 
-  it("doToggleSource on error surfaces a friendly message", async () => {
-    vi.mocked(csrfFetch).mockRejectedValue(new Error("network"));
+  it("doToggleSource on error says why", async () => {
+    vi.mocked(csrfFetch).mockRejectedValue(new Error("应用源不存在"));
     const { result } = renderHook(() =>
       useQuickServiceActions({ fetchCatalog, fetchSources }),
     );
     await act(async () => {
       await result.current.doToggleSource("src_1", true);
     });
-    expect(result.current.message?.type).toBe("err");
-    expect(result.current.message?.text).toBe("操作失败");
+    expect(lastMessage()?.type).toBe("err");
+    expect(lastMessage()?.text).toBe("应用源不存在");
+
+    vi.mocked(csrfFetch).mockRejectedValue({ status: 500 });
+    await act(async () => {
+      await result.current.doToggleSource("src_1", true);
+    });
+    expect(lastMessage()?.text).toBe("操作失败");
+  });
+
+  it("puts a slug and a source id into the address as one segment", async () => {
+    // Slugs come from third-party catalogs: "a/b?x" asked another route.
+    vi.mocked(csrfFetch).mockResolvedValue({ success: true });
+    const { result } = renderHook(() =>
+      useQuickServiceActions({ fetchCatalog, fetchSources }),
+    );
+    await act(async () => {
+      await result.current.doAction("feed-a/b?x", "stop");
+      await result.current.doUninstall({ slug: "feed-a/b?x", deleteVolumes: false });
+      await result.current.doDeleteSource("src 1&x");
+    });
+    const addresses = vi.mocked(csrfFetch).mock.calls.map(([address]) => address);
+    expect(addresses).toEqual([
+      "/api/quick-services/feed-a%2Fb%3Fx",
+      "/api/quick-services/feed-a%2Fb%3Fx",
+      "/api/app-sources?sourceId=src%201%26x",
+    ]);
   });
 
   it("doDeleteSource refreshes both sources and catalog on success", async () => {
@@ -240,7 +280,7 @@ describe("useQuickServiceActions", () => {
     );
     expect(fetchSources).toHaveBeenCalledTimes(1);
     expect(fetchCatalog).toHaveBeenCalledTimes(1);
-    expect(result.current.message?.text).toBe("源已删除");
+    expect(lastMessage()?.text).toBe("源已删除");
   });
 
   it("doAddSource rejects an empty form and skips the network call", async () => {
@@ -256,7 +296,7 @@ describe("useQuickServiceActions", () => {
       });
     });
     expect(csrfFetch).not.toHaveBeenCalled();
-    expect(result.current.message?.text).toMatch(/请先填写完整的源信息/);
+    expect(lastMessage()?.text).toMatch(/请先填写完整的源信息/);
   });
 
   it("doAddSource happy path trims and posts", async () => {
@@ -284,7 +324,7 @@ describe("useQuickServiceActions", () => {
         }),
       }),
     );
-    expect(result.current.message?.text).toBe("应用源已添加");
+    expect(lastMessage()?.text).toBe("应用源已添加");
   });
 
   it("refreshes the catalog when a source is re-enabled, not only when disabled", async () => {

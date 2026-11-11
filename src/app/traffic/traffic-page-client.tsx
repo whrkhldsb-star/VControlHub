@@ -8,6 +8,7 @@ import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
+import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { TrafficChart, type TrafficSample } from "./traffic-chart";
 
@@ -129,7 +130,7 @@ function RateBadge({ label, value, color }: { label: string; value: string; colo
 }
 
 /**
- * One curve per interface (24h) or per interface and local calendar day (7d).
+ * One curve per interface (24h) or per interface and calendar day (7d).
  * The interface has to be part of the key: two interfaces interleaved into one
  * sparkline read as a saw-tooth that belongs to neither.
  */
@@ -138,11 +139,10 @@ export function groupHistory(points: TrafficHistoryPoint[], scope: "24h" | "7d")
   for (const point of points) {
     let key = point.iface;
     if (scope === "7d") {
-      const d = new Date(point.t);
-      // Group by LOCAL calendar date (not UTC) so day boundaries match the
-      // viewer's timezone — otherwise points after 16:00 UTC land on the wrong day for UTC+8.
-      const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      key = `${point.iface} · ${day}`;
+      // The day of the application's zone, the one the times under each curve are written in. With the
+      // browser's own day, a curve named for one day ran across midnight on its own axis when seen from
+      // another zone.
+      key = `${point.iface} · ${appTimeZoneDateKey(new Date(point.t))}`;
     }
     const list = grouped.get(key) ?? [];
     list.push(point);
@@ -156,6 +156,7 @@ export default function TrafficPage() {
   const [summary, setSummary] = useState<TrafficSummary | null>(null);
   const [remoteServers, setRemoteServers] = useState<RemoteServerTraffic[] | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState("");
   const [selectedIface, setSelectedIface] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -242,9 +243,10 @@ export default function TrafficPage() {
           });
         }
       }
-    } catch {
+    } catch (cause) {
       if (controller.signal.aborted) return;
-      setError(t("trafficPage.error.fetch"));
+      // With the reason: a permission taken away read the same as a server that did not answer.
+      setError(getErrorMessage(cause, t("trafficPage.error.fetch")));
     } finally {
       if (summaryRequestRef.current === controller) {
         summaryRequestRef.current = null;
@@ -266,18 +268,24 @@ export default function TrafficPage() {
       const data = (await csrfFetch(`/api/traffic/summary?include=remote`, {
         signal: controller.signal,
       })) as TrafficSummary & { error?: string };
-      if (data.error) return;
+      if (data.error) {
+        setRemoteError(data.error);
+        return;
+      }
+      setRemoteError("");
       setRemoteServers(data.remoteServers ?? []);
-    } catch {
+    } catch (cause) {
       if (controller.signal.aborted) return;
-      // soft-fail
+      // Said in the card. Kept quiet, a first read that failed left the list empty and the card reporting
+      // that no server was enabled; a later one leaves the last readings in place under the reason.
+      setRemoteError(getErrorMessage(cause, t("trafficPage.remoteFailed")));
     } finally {
       if (remoteRequestRef.current === controller) {
         remoteRequestRef.current = null;
         setRemoteLoading(false);
       }
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => () => {
       historyRequestRef.current?.abort();
@@ -396,8 +404,8 @@ export default function TrafficPage() {
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
-                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.rxTotal", { value: primary.rxLabel })}<span className="font-mono text-[var(--text-primary)]"> </span></div>
-                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.txTotal", { value: primary.txLabel })}<span className="font-mono text-[var(--text-primary)]"> </span></div>
+                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.rxTotal", { value: primary.rxLabel })}</div>
+                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.txTotal", { value: primary.txLabel })}</div>
                   </div>
                 </>
               ) : <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.noIface")}</div>}
@@ -421,12 +429,13 @@ export default function TrafficPage() {
         </Card>
 
         <Card title={t("trafficPage.card.remote")}>
+          {remoteError ? <Notice tone="danger" compact className="mb-3">{remoteError}</Notice> : null}
           {remoteLoading && !remoteServers ? (
             <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
               <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--color-action-bg)]" />
               {t("trafficPage.remoteSampling")}
             </div>
-          ) : (remoteServers ?? []).length === 0 ? (
+          ) : !remoteServers ? null : remoteServers.length === 0 ? (
             <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.noRemote")}</div>
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

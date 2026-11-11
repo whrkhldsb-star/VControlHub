@@ -9,6 +9,7 @@ export const en: Record<string, string> = {
 	"settingsPage.unified.title": "Settings",
 	"settingsClient.saveSuccess": "Settings saved.",
 	"settingsClient.saveFailed": "Save failed",
+	"settingsClient.fixFieldsFirst": "{count} field(s) need correcting before this can be saved",
 	"settingsClient.categoryNav": "Settings category navigation",
 	"settingsClient.tabsAria": "Settings tabs",
 	"settingsClient.collapse": "Collapse",

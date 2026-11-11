@@ -11,6 +11,7 @@ import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
+import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 type Props = { locale?: Locale; servers?: { id: string; name: string; host: string }[] };
@@ -41,16 +42,17 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 		}
 	}, null);
 
+	// A refusal is shown in the form (below); it was also sent as a toast with the same words.
 	useEffect(() => {
-		if (state?.success) {
-			addToast("success", t("ticketsPage.form.success.created"));
-		} else if (state?.error) {
-			addToast("error", state.error);
-		}
+		if (state?.success) addToast("success", t("ticketsPage.form.success.created"));
 	}, [state, addToast, t]);
 
+	// React clears the fields of a form whose action has answered, a refusal included: the ticket as written
+	// was gone with it.
+	const { formRef, captureBeforeSubmit } = usePreservedActionForm(state, Boolean(state?.error));
+
 	return (
-		<form action={formAction}
+		<form ref={formRef} action={formAction} onSubmit={captureBeforeSubmit}
 			onChange={() => setDirty(true)} data-card className="space-y-4 p-5">
 			<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 				<h2 className="ui-title-section">{t("ticketsPage.form.title")}</h2>

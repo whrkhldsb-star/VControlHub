@@ -98,4 +98,16 @@ describe("/api/search", () => {
     const where = mocks.prisma.server.findMany.mock.calls[0]?.[0].where;
     expect(where).toMatchObject({ AND: expect.arrayContaining([{ teamId: "team_a" }]) });
   });
+
+  it("links a server hit to a list that shows that server", async () => {
+    // The link was /servers?highlight=<id>, a parameter the server list never read: the hit opened the first
+    // page of all servers, with the one searched for somewhere on a later page.
+    mocks.sessionHasPermission.mockImplementation((_session, permission: string) => permission === "server:read");
+    mocks.prisma.server.findMany.mockResolvedValueOnce([{ id: "srv_9", name: "web 01 (prod)", host: "203.0.113.9", description: null }]);
+
+    const response = await route.GET(new Request("http://local/api/search?q=web"));
+    const body = await response.json();
+    const hit = (body.results as Array<{ id: string; href: string }>).find((result) => result.id === "server:srv_9");
+    expect(hit?.href).toBe("/servers?query=web%2001%20(prod)");
+  });
 });

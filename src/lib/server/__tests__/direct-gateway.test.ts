@@ -79,21 +79,16 @@ describe("TR-002 direct gateway TLS hardening", () => {
       bindAddress: "127.0.0.1",
       publicProtocol: "http",
     });
-    expect(result.level).toBe("safe");
-    expect(result.reasons[0]).toContain("127.0.0.1");
-    expect(result.recommendations).toHaveLength(0);
+    expect(result).toEqual({ level: "safe" });
   });
 
-  it("风险评估: bind 0.0.0.0 + http = danger, 推荐 Caddy/VPN/防火墙", () => {
+  it("风险评估: bind 0.0.0.0 + http = danger", () => {
     const result = getDirectGatewayRiskAssessment({
       bindAddress: "0.0.0.0",
       publicProtocol: "http",
     });
-    expect(result.level).toBe("danger");
-    expect(result.reasons.length).toBeGreaterThanOrEqual(2);
-    expect(result.recommendations.length).toBeGreaterThanOrEqual(3);
-    expect(result.recommendations.some((r) => r.includes("Caddy"))).toBe(true);
-    expect(result.recommendations.some((r) => r.includes("VPN"))).toBe(true);
+    // Only the level: what to say about it is the page's, in the page's language (directGatewayAdvice.*).
+    expect(result).toEqual({ level: "danger" });
   });
 
   it("风险评估: bind 0.0.0.0 + https/Caddy = warning", () => {
@@ -101,8 +96,7 @@ describe("TR-002 direct gateway TLS hardening", () => {
       bindAddress: "0.0.0.0",
       publicProtocol: "https",
     });
-    expect(result.level).toBe("warning");
-    expect(result.recommendations[0]).toContain("Caddy");
+    expect(result).toEqual({ level: "warning" });
   });
 
   it("风险评估: bind IPv6 :: = 公网暴露", () => {

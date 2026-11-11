@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { useToast } from "@/components/toast-provider";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
@@ -80,7 +81,12 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
   const [ticket, setTicket] = useState(initial);
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const { addToast } = useToast();
+  // What an action was refused for is a toast, in view wherever on the page it was started: the one notice
+  // these shared sat between the status buttons and the comments, two cards below the assignee it spoke of.
+  const reportFailure = useCallback((message: string) => addToast("error", message), [addToast]);
+  // Why the related objects and the timeline, which come from one request, could not be read.
+  const [timelineError, setTimelineError] = useState<string | null>(null);
   const [assigneeId, setAssigneeId] = useState(initial.assigneeId ?? "");
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null);
   const [timelineLoading, setTimelineLoading] = useState(true);
@@ -95,6 +101,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
     const version = ++timelineVersion.current;
     const stale = () => Boolean(opts?.isStale?.()) || version !== timelineVersion.current;
     setTimelineLoading(true);
+    setTimelineError(null);
     try {
       const data = await csrfFetch<TimelineResponse>(`/api/tickets/${ticket.id}/timeline`);
       if (stale()) return;
@@ -103,7 +110,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       if (data.related.server) setServerIdInput(data.related.server.id);
     } catch (e: unknown) {
       if (stale()) return;
-      setError(getErrorMessage(e, t("ticketsDetail.error.timelineFailed")));
+      setTimelineError(getErrorMessage(e, t("ticketsDetail.error.timelineFailed")));
     } finally {
       if (!stale()) setTimelineLoading(false);
     }
@@ -121,7 +128,6 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
     const previousAssigneeId = assigneeId;
     setAssigneeId(newAssigneeId);
     setSaving(true);
-    setError("");
     try {
       const data = await csrfFetch<{ ticket: Ticket }>(`/api/tickets/${ticket.id}`, {
         method: "PATCH",
@@ -132,14 +138,13 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       setAssigneeId(data.ticket.assigneeId ?? "");
     } catch (e: unknown) {
       setAssigneeId(previousAssigneeId);
-      setError(getErrorMessage(e, t("ticketsDetail.error.assignFailed")));
+      reportFailure(getErrorMessage(e, t("ticketsDetail.error.assignFailed")));
     }
     finally { setSaving(false); }
   };
 
   const updateStatus = async (newStatus: string) => {
     setSaving(true);
-    setError("");
     try {
       const data = await csrfFetch<{ ticket: Ticket }>(`/api/tickets/${ticket.id}`, {
         method: "PATCH",
@@ -148,7 +153,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       });
       setTicket((prev) => ({ ...prev, ...data.ticket }));
       await loadTimeline();
-    } catch (e: unknown) { setError(getErrorMessage(e, t("ticketsDetail.error.updateFailed"))); }
+    } catch (e: unknown) { reportFailure(getErrorMessage(e, t("ticketsDetail.error.updateFailed"))); }
     finally { setSaving(false); }
   };
 
@@ -156,7 +161,6 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
     const submitted = comment.trim();
     if (!submitted) return;
     setSaving(true);
-    setError("");
     try {
       const data = await csrfFetch<{ comment: TicketComment }>(`/api/tickets/${ticket.id}`, {
         method: "POST",
@@ -172,13 +176,12 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       // draft typed meanwhile is the user's, not part of this comment.
       setComment((current) => (current.trim() === submitted ? "" : current));
       await loadTimeline();
-    } catch (e: unknown) { setError(getErrorMessage(e, t("ticketsDetail.error.replyFailed"))); }
+    } catch (e: unknown) { reportFailure(getErrorMessage(e, t("ticketsDetail.error.replyFailed"))); }
     finally { setSaving(false); }
   };
 
   const runLink = async (body: Record<string, unknown>) => {
     setSaving(true);
-    setError("");
     try {
       const data = await csrfFetch<TimelineResponse>(`/api/tickets/${ticket.id}/timeline`, {
         method: "POST",
@@ -188,13 +191,14 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       timelineVersion.current += 1;
       setTimeline(data);
       setTimelineLoading(false);
+      setTimelineError(null);
       setTicket((prev) => ({
         ...prev,
         relatedCommandId: data.related.command?.id ?? null,
         relatedServerId: data.related.server?.id ?? null,
       }));
     } catch (e: unknown) {
-      setError(getErrorMessage(e, t("ticketsDetail.error.linkFailed")));
+      reportFailure(getErrorMessage(e, t("ticketsDetail.error.linkFailed")));
     } finally {
       setSaving(false);
     }
@@ -324,6 +328,12 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
         )}
       </div>
 
+      {/* Nothing is known about the related objects or the events: say why, where both would be, instead of
+          "not linked" twice and "no events" over a reason three cards further down. */}
+      {timelineError ? (
+        <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void loadTimeline() }}>{timelineError}</Notice>
+      ) : null}
+
       {/* Related objects + link controls */}
       <div data-card className="p-5">
         <h3 className="ui-title-group mb-1">{t("ticketsDetail.relatedTitle")}</h3>
@@ -335,13 +345,14 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
               <div className="mt-1 space-y-1 text-[var(--text-secondary)]">
                 <div>{timeline.related.command.title} · {getDomainStatusLabel(t, timeline.related.command.status)}</div>
                 <code className="block break-all text-xs opacity-80">{timeline.related.command.command}</code>
-                <Link href={`/commands?highlight=${timeline.related.command.id}`} className="text-[var(--accent)] underline-offset-2 hover:underline">
+                {/* The approvals page lists command requests, each under this anchor; there is no /commands page. */}
+                <Link href={`/requests#command-${encodeURIComponent(timeline.related.command.id)}`} className="text-[var(--accent)] underline-offset-2 hover:underline">
                   {t("ticketsDetail.openCommand")}
                 </Link>
               </div>
-            ) : (
+            ) : timeline ? (
               <div className="mt-1 text-[var(--text-muted)]">{t("ticketsDetail.relatedNone")}</div>
-            )}
+            ) : null}
             {canManage && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <input
@@ -369,13 +380,14 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             {timeline?.related.server ? (
               <div className="mt-1 space-y-1 text-[var(--text-secondary)]">
                 <div>{timeline.related.server.name} ({timeline.related.server.host})</div>
-                <Link href={`/servers?highlight=${timeline.related.server.id}`} className="text-[var(--accent)] underline-offset-2 hover:underline">
+                {/* The server list filtered to this server: it reads `query`, and never read `highlight`. */}
+                <Link href={`/servers?query=${encodeURIComponent(timeline.related.server.name)}`} className="text-[var(--accent)] underline-offset-2 hover:underline">
                   {t("ticketsDetail.openServer")}
                 </Link>
               </div>
-            ) : (
+            ) : timeline ? (
               <div className="mt-1 text-[var(--text-muted)]">{t("ticketsDetail.relatedNone")}</div>
-            )}
+            ) : null}
             {canManage && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <input
@@ -420,7 +432,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
         <h3 className="ui-title-group mb-3">{t("ticketsDetail.timelineTitle")}</h3>
         {timelineLoading ? (
           <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.timelineLoading")}</p>
-        ) : !timeline || timeline.events.length === 0 ? (
+        ) : !timeline ? null : timeline.events.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.timelineEmpty")}</p>
         ) : (
           <ol className="relative space-y-0 border-l border-[var(--border-subtle)] pl-4">
@@ -435,7 +447,9 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
                   {ev.actor && <span>{ev.actor}</span>}
                 </div>
                 {(() => {
-                  const title = eventTitle(ev);
+                  // Not the words of the chip beside it over again ("工单关闭" · "工单关闭").
+                  const headline = eventTitle(ev);
+                  const title = headline === eventTypeLabel(ev.type) ? null : headline;
                   const detail = eventDetail(ev);
                   return (
                     <>
@@ -464,8 +478,6 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           </div>
         </div>
       )}
-
-      {error && <Notice tone="danger" onDismiss={() => setError("")} dismissLabel={t("common.close")}>{error}</Notice>}
 
       <div data-card className="p-5">
         <h3 className="ui-title-group mb-4">{t("ticketsDetail.commentsTitle", { count: ticket.comments.length })}</h3>

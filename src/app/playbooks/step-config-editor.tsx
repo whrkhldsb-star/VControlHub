@@ -131,7 +131,7 @@ export function StepConfigEditor({
 						</div>
 					)}
 					{selected.length === 0 && servers.length > 0 && (
-						<p className="text-xs text-[var(--warn)]">{t("playbooksPage.step.serversRequired")}</p>
+						<p className="text-xs text-[var(--warning)]">{t("playbooksPage.step.serversRequired")}</p>
 					)}
 					<p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.createForm.runCommandHint")}</p>
 				</div>

@@ -1,3 +1,4 @@
+import { firstSearchParams } from "@/lib/http/first-search-param";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import {
@@ -69,7 +70,7 @@ export default async function Page({
   const session = await requirePagePermission("storage:read", { redirectTo: "/media" });
   const canManageMedia = sessionHasPermission(session,"media:manage");
   const locale = await getServerLocale();
-  const params = await searchParams;
+  const params = firstSearchParams(await searchParams);
   const mediaType =
     params?.type ==="image" ||
     params?.type ==="video" ||

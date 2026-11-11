@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from "react";
+import { ActionButton } from "@/components/action-button";
 import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ApiError } from "@/lib/http/api-client-error";
@@ -171,13 +172,14 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 				<Notice tone="danger">{errorMsg}</Notice>
 			) : null}
 
-			<button
+			<ActionButton
 				type="submit"
+				block
 				disabled={submitting || (mode === "totp" ? digits.some((d) => !d) : recoveryCode.trim().length === 0)}
-				data-variant="primary" className="w-full py-2.5 text-sm font-semibold"
+				className="py-2.5 text-sm font-semibold"
 			>
 				{submitting ? t("login.verify2faSubmitting") : t("login.verify2faSubmit")}
-			</button>
+			</ActionButton>
 		</form>
 	);
 }

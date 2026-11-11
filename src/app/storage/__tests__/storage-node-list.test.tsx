@@ -60,6 +60,26 @@ describe("StorageNodeList health UI", () => {
     await waitFor(() => expect(screen.getByText("节点健康检查完成：健康")).toBeInTheDocument());
   });
 
+  it("says why a check could not be made instead of taking the page down", async () => {
+    // The action was awaited inside a transition with nothing to catch what it throws: a permission taken
+    // away while the page was open, or no answer from the server, replaced the whole page with the error screen.
+    checkStorageNodeHealthActionMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    render(
+      <StorageNodeList
+        canManageNodes={true}
+        servers={[]}
+        nodes={[{ id: "node-1", name: "远端素材库", driver: "SFTP", basePath: "/data/root", isDefault: false, connectionSummary: "", directAccess: { mode: "managed-download", description: "受控下载", href: null }, fileCount: 3 }]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "立即检测" }));
+    expect(await screen.findByText("无法连接到服务器，请检查网络后重试")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "立即检测" })).toBeEnabled();
+
+    checkStorageNodeHealthActionMock.mockRejectedValueOnce(Object.assign(new Error("Minified React error #441"), { digest: "FORBIDDEN" }));
+    fireEvent.click(screen.getByRole("button", { name: "立即检测" }));
+    expect(await screen.findByText("缺少权限")).toBeInTheDocument();
+  });
+
   it("identifies a remote default as server-bound and hides its delete action", () => {
     render(
       <StorageNodeList

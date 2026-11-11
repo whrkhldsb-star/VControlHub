@@ -36,6 +36,7 @@ export const zh: Record<string, string> = {
 	"storagePage.list.registeredFiles": "已注册 {count} 个文件",
 	"storagePage.list.checking": "检测中...",
 	"storagePage.list.checkNow": "立即检测",
+	"storagePage.list.checkFailed": "健康检测失败",
 
 	"storagePage.action.healthCheckCompleted": "节点健康检查完成：{status}",
 	"storagePage.action.healthCheckCompletedHealthy": "健康",
@@ -145,6 +146,7 @@ export const en: Record<string, string> = {
 	"storagePage.list.registeredFiles": "{count} registered files",
 	"storagePage.list.checking": "Checking...",
 	"storagePage.list.checkNow": "Check now",
+	"storagePage.list.checkFailed": "Health check failed",
 
 	"storagePage.action.healthCheckCompleted": "Health check complete: {status}",
 	"storagePage.action.healthCheckCompletedHealthy": "Healthy",

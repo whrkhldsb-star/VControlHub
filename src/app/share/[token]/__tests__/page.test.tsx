@@ -32,7 +32,11 @@ vi.mock("@/lib/i18n/translations", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@/lib/i18n/translations")>()),
 	getServerLocale: async () => "zh",
 }));
-vi.mock("../share-password-gate", () => ({ SharePasswordGate: () => <div data-testid="password-gate" /> }));
+vi.mock("../share-password-gate", () => ({
+	SharePasswordGate: (props: Record<string, string>) => (
+		<div data-testid="password-gate" data-label={props.label} data-submit={props.submitLabel} data-failed={props.failedLabel} data-network={props.networkLabel} />
+	),
+}));
 
 const { default: SharePage } = await import("../page");
 
@@ -90,5 +94,24 @@ describe("share page", () => {
 		expect(screen.getByTestId("password-gate")).toBeInTheDocument();
 		expect(mocks.listShareDirectoryFiles).not.toHaveBeenCalled();
 		expect(screen.queryByText("a.jpg")).toBeNull();
+	});
+
+	it("words the gate for what the password opens", async () => {
+		// For a folder the password opens the list of its files; the gate said "Download file" and, when the
+		// password was wrong, "Download failed".
+		mocks.verifyShareDownloadTicket.mockReturnValue(null);
+		mocks.peekShareToken.mockResolvedValue({ id: "share-1", entryType: "DIRECTORY", name: "photos", permissionLevel: "download", expiresAt: null, hasPassword: true, locked: true });
+		const folder = render(await SharePage({ params: Promise.resolve({ token: "tok" }) }));
+		const gate = screen.getByTestId("password-gate");
+		expect(gate.dataset.submit).toBe("解锁");
+		expect(gate.dataset.label).toBe("此分享链接需要密码访问，请输入密码查看文件列表");
+		expect(gate.dataset.failed).toBe("解锁失败");
+		// What to say when nothing answers comes from the page, in its language: the gate has no dictionary.
+		expect(gate.dataset.network).toBe("无法连接到服务器，请检查网络后重试");
+		folder.unmount();
+
+		mocks.peekShareToken.mockResolvedValue({ id: "share-2", entryType: "FILE", name: "a.zip", permissionLevel: "download", expiresAt: null, hasPassword: true, locked: true });
+		render(await SharePage({ params: Promise.resolve({ token: "tok" }) }));
+		expect(screen.getByTestId("password-gate").dataset.submit).toBe("下载文件");
 	});
 });

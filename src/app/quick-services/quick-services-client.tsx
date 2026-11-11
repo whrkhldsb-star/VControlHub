@@ -2,7 +2,6 @@
 
 import { X } from "@/components/icons";
 
-import Link from "next/link";
 import { useState, useMemo } from "react";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { EmptyState, Toolbar, StatCard, StatGrid } from "@/components/page-shell";
@@ -231,18 +230,6 @@ export function QuickServicesClient({
 					{dockerStatus.installHint ? <p data-code-surface="true" className="ui-mono mt-2 rounded-md bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]">{dockerStatus.installHint}</p> : null}
 				</Notice>
 			) : null}
-
-			{/* Message */}
-			{actions.message && (
-				<Notice tone={actions.message.type === "ok" ? "success" : "danger"}>
-					<span>{actions.message.text}</span>
-					{actions.message.taskId ? (
-						<Link href="/operation-tasks" className="ml-3 font-semibold underline underline-offset-2">
-							{t("qsPage.viewTaskCenter")}
-						</Link>
-					) : null}
-				</Notice>
-			)}
 
 			<StatGrid cols={4}>
 				<StatCard label={t("qsPage.summaryRunning")} value={String(summary.running)} accent={summary.running > 0} accentColor="emerald" />

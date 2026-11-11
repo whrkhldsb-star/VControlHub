@@ -156,6 +156,7 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
   const [board, setBoard] = useState<TicketWorkspaceBoard | null>(initialBoard);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const loadFailed = loadError !== null;
   const [reloadKey, setReloadKey] = useState(0);
   // router.refresh() (after a ticket is created) renders the page again with
   // new first-page data. The lists are state, so the new ticket stayed out of
@@ -202,7 +203,8 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
           }
           setLoadError(null);
         } catch (error) {
-          if (id === latestRequest.current) setLoadError(getErrorMessage(error, "HTTP error"));
+          // "" when there is no reason for people: the sentence then says only that it failed.
+          if (id === latestRequest.current) setLoadError(getErrorMessage(error, ""));
         } finally {
           if (id === latestRequest.current) setLoading(false);
         }
@@ -215,6 +217,7 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
     patchUrl({ status: "", priority: "", category: "", sla: "", q: "", page: "1" });
   };
 
+  const filtersActive = Boolean(status || priority || category || slaStatus || search.trim());
   const listTickets = listPage?.tickets ?? [];
   const total = view === "board"
     ? STATUSES.reduce((sum, columnStatus) => sum + (board?.[columnStatus]?.total ?? 0), 0)
@@ -257,9 +260,9 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
         </div>
       </div>
 
-      {loadError ? (
+      {loadFailed ? (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-5 py-3 text-xs text-[var(--danger)]">
-          <span>{t("ticketsPage.loadFailed", { error: loadError })}</span>
+          <span>{loadError ? t("ticketsPage.loadFailed", { error: loadError }) : t("ticketsPage.loadFailedPlain")}</span>
           <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="rounded-lg px-3 py-1.5 font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
             {t("common.retry")}
           </button>
@@ -267,8 +270,9 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
       ) : null}
       <div aria-busy={loading || undefined}>
       {view === "list" ? (
+        // Nothing under a failed load: what this view holds is not known.
         listTickets.length === 0 ? (
-          <EmptyState text={loading ? t("common.loading") : t("ticketsPage.emptyFiltered")} />
+          loadFailed && !loading ? null : <EmptyState text={loading ? t("common.loading") : t(filtersActive ? "ticketsPage.emptyFiltered" : "ticketsPage.emptyNone")} />
         ) : (
           <>
             <div className="divide-y divide-[var(--border-subtle)]">{listTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} nowMs={nowMs} />)}</div>
@@ -278,7 +282,7 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
           </>
         )
       ) : !board || total === 0 ? (
-        <EmptyState text={loading || !board ? t("common.loading") : t("ticketsPage.emptyFiltered")} />
+        loadFailed && !loading ? null : <EmptyState text={loading || !board ? t("common.loading") : t(filtersActive ? "ticketsPage.emptyFiltered" : "ticketsPage.emptyNone")} />
       ) : (
         <div className="grid gap-4 overflow-x-auto p-4 lg:grid-cols-4">
           {STATUSES.map((columnStatus) => {

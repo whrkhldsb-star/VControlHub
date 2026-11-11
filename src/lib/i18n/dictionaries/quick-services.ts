@@ -24,7 +24,7 @@ export const zh: Record<string, string> = {
 	"qsPage.statusError": "异常",
 	"qsPage.portLabel": "端口 {port}",
 	"qsPage.pathLabel": "路径 {path}",
-	"qsPage.monthlyPulls": "{pulls}k 次拉取",
+	"qsPage.monthlyPulls": "每月 {pulls} 次拉取",
 	"qsPage.installingLabel": "安装中…",
 	"qsPage.installNow": "一键安装",
 	"qsPage.accessAria": "访问 {name}（{label}）",
@@ -39,6 +39,8 @@ export const zh: Record<string, string> = {
 
 	// install-dialog
 	"qsPage.checkFailed": "检查失败",
+	"qsPage.portCheckFailedDetail": "无法检查端口：{reason}",
+	"qsPage.recheckPort": "重新检查",
 	"qsPage.installTitle": "安装 {name}",
 	"qsPage.installSubtitle": "选择服务监听的端口，安装后可通过该端口访问服务。",
 	"qsPage.portNumberLabel": "端口号",
@@ -331,7 +333,7 @@ export const en: Record<string, string> = {
 	"qsPage.statusError": "Error",
 	"qsPage.portLabel": "Port {port}",
 	"qsPage.pathLabel": "Path {path}",
-	"qsPage.monthlyPulls": "{pulls}k pulls",
+	"qsPage.monthlyPulls": "{pulls} pulls a month",
 	"qsPage.installingLabel": "Installing…",
 	"qsPage.installNow": "Install",
 	"qsPage.accessAria": "Open {name} ({label})",
@@ -346,6 +348,8 @@ export const en: Record<string, string> = {
 
 	// install-dialog
 	"qsPage.checkFailed": "Check failed",
+	"qsPage.portCheckFailedDetail": "The port could not be checked: {reason}",
+	"qsPage.recheckPort": "Check again",
 	"qsPage.installTitle": "Install {name}",
 	"qsPage.installSubtitle": "Choose a host port for the service. After install, the service is reachable on that port.",
 	"qsPage.portNumberLabel": "Port",

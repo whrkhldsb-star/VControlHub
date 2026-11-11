@@ -153,13 +153,13 @@ export function AuditSummary({
 }: {
   metadata: SettingUpdateMetadata | null;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (
     <div data-inset className="px-3 py-2 text-xs text-[var(--text-muted)]">
       <p className="font-medium text-[var(--text-secondary)]">{t("settingsClient.recentlyUpdated")}</p>
       <p>
         {t("settingsClient.metadataTime")}
-        {formatMetadataDate(metadata?.updatedAt ?? null, t)}
+        {formatMetadataDate(metadata?.updatedAt ?? null, t, locale)}
       </p>
       <p>
         {t("settingsClient.metadataActor")}
@@ -179,6 +179,12 @@ type SchemaDrivenSectionProps = {
   runtimeSummaryByKey: Map<string, RuntimeSettingSummary>;
   auditMetadata: SettingUpdateMetadata | null;
   saving: boolean;
+  /** Another section is being saved: this one's button waits without saying "saving". */
+  saveDisabled?: boolean;
+  /** Why this section's last save was refused; shown by its Save button. */
+  saveError?: string | null;
+  /** The same, for each field that was refused. */
+  fieldErrors?: Record<string, string>;
   onSave: () => void;
   twoFactorEnabled: boolean;
   diffExpanded: boolean;
@@ -199,6 +205,9 @@ export function SchemaDrivenSection({
   runtimeSummaryByKey,
   auditMetadata,
   saving,
+  saveDisabled = false,
+  saveError,
+  fieldErrors,
   onSave,
   twoFactorEnabled,
   diffExpanded,
@@ -304,6 +313,7 @@ export function SchemaDrivenSection({
                       value={value}
                       disabled={disabled}
                       helperText={helperText}
+                      error={fieldErrors?.[field.key]}
                       onChange={(v) => {
                         updateField(field.key, v);
                         onHighRiskChange(field);
@@ -330,6 +340,8 @@ export function SchemaDrivenSection({
               expanded={diffExpanded}
               onToggleExpand={onToggleDiff}
               saving={saving}
+              disabled={saveDisabled}
+              error={saveError}
               onClick={onSave}
             />
           )}

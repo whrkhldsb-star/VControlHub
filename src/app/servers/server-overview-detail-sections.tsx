@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getDirectGatewayHealthyNote } from "./direct-gateway-advice";
 import { ActionButton } from "@/components/action-button";
@@ -36,15 +37,12 @@ export function OsDialectSection({
 		setDetecting(true);
 		setError(null);
 		try {
-			const res = await csrfFetch<Response>(`/api/servers/${encodeURIComponent(serverId)}/detect-os`, { method: "POST", raw: true });
-			const data = await res.json();
-			if (!res.ok) {
-				setError(data.error || t("serverOverviewDetails.detectionFailed"));
-				return;
-			}
+			// A plain request: it throws the server's sentence for a refusal and a worded one when nothing answers.
+			// Read by hand, an answer that was not JSON (a gateway's error page) was reported as a network error.
+			const data = await csrfFetch<NonNullable<typeof result>>(`/api/servers/${encodeURIComponent(serverId)}/detect-os`, { method: "POST" });
 			setResult({ osInfo: data.osInfo, dialect: data.dialect });
-		} catch {
-			setError(t("serverOverviewDetails.networkError"));
+		} catch (cause) {
+			setError(getErrorMessage(cause, t("serverOverviewDetails.detectionFailed")));
 		} finally {
 			setDetecting(false);
 		}

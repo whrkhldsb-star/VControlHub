@@ -1,3 +1,4 @@
+import { firstSearchParam } from "@/lib/http/first-search-param";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { listOperationTaskResult } from "@/lib/operation-task/service";
 import { OperationTaskListClient } from "./operation-task-list-client";
@@ -5,11 +6,6 @@ import { PageShell, PageHeader } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
-
-function firstParam(value: string | string[] | undefined): string | undefined {
-	if (Array.isArray(value)) return value[0];
-	return value;
-}
 
 export default async function OperationTasksPage({
 	searchParams,
@@ -20,9 +16,9 @@ export default async function OperationTasksPage({
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const resolved = (await searchParams) ?? {};
-	const statusRaw = firstParam(resolved.status) ?? "all";
-	const taskTypeRaw = firstParam(resolved.type) ?? firstParam(resolved.taskType) ?? "all";
-	const sortRaw = firstParam(resolved.sort) ?? "recent";
+	const statusRaw = firstSearchParam(resolved.status) ?? "all";
+	const taskTypeRaw = firstSearchParam(resolved.type) ?? firstSearchParam(resolved.taskType) ?? "all";
+	const sortRaw = firstSearchParam(resolved.sort) ?? "recent";
 	const statusFilter =
 		statusRaw === "attention"
 			? (["failed", "running", "pending"] as const)

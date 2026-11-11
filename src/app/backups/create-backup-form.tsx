@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { createBackupAction, type BackupActionState } from "./actions";
@@ -15,9 +16,11 @@ const backupNoteInputId ="create-backup-note";
 export function CreateBackupForm() {
   const { t } = useI18n();
   const router = useRouter();
-  const formRef = useRef<HTMLFormElement | null>(null);
   const wasPendingRef = useRef(false);
   const [state, formAction, pending] = useActionState(createBackupAction, initialState);
+  // React clears the fields of a form whose action has answered, a refusal included: the type went back to
+  // "database", and pressing the button again started a backup of another kind than the one chosen.
+  const { formRef, captureBeforeSubmit } = usePreservedActionForm(state, Boolean(state.error));
 
   // Reset/refresh on the pending→settled edge so a second success (state.success stays true) still runs.
   useEffect(() => {
@@ -26,10 +29,10 @@ export function CreateBackupForm() {
       router.refresh();
     }
     wasPendingRef.current = pending;
-  }, [pending, router, state.success]);
+  }, [formRef, pending, router, state.success]);
 
   return (
-    <form ref={formRef} action={formAction} className="mt-4 grid gap-3 md:grid-cols-[180px_1fr_auto] md:items-end">
+    <form ref={formRef} action={formAction} onSubmit={captureBeforeSubmit} className="mt-4 grid gap-3 md:grid-cols-[180px_1fr_auto] md:items-end">
       <div className="grid gap-1.5">
         <label htmlFor={backupTypeSelectId} className="ui-label">{t("common.backupType")}</label>
         <select id={backupTypeSelectId} name="type" defaultValue="DATABASE" className={UI_INPUT}>

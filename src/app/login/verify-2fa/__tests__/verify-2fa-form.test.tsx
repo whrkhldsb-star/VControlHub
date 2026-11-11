@@ -45,6 +45,15 @@ describe("two-factor verification feedback", () => {
 		expect(screen.getByRole("button", { name: /^Verify$/i })).toBeEnabled();
 	});
 
+	it("draws the verify button as a button", () => {
+		// It carried a variant without the marker every button style hangs on, so it was bare text under the boxes.
+		render(<I18nProvider initialLocale="en"><Verify2faForm nextPath="/" /></I18nProvider>);
+		const verify = screen.getByRole("button", { name: /^Verify$/i });
+		expect(verify).toHaveAttribute("data-action-button");
+		expect(verify).toHaveAttribute("data-variant", "primary");
+		expect(verify).toHaveAttribute("type", "submit");
+	});
+
 	it("starts over after a refused code: empty boxes, the first one focused", async () => {
 		// The wrong digits stayed in the boxes and the focus was gone (the boxes are switched off while the code is
 		// checked, which drops it): the next code had to be clicked into place and typed over the old one.

@@ -5,7 +5,7 @@ import { listServerProfiles } from "@/lib/server/service-profiles";
 import DockerPageClient from "./docker-page-client";
 
 export default async function DockerPage() {
-  const session = await requirePagePermission("docker:manage");
+  const session = await requirePagePermission("docker:manage", { redirectTo: "/docker" });
   const servers = sessionHasPermission(session, "server:read")
     ? await listServerProfiles(session, { enabledOnly: true })
     : [];

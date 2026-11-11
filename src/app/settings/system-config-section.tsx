@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { CONFIG_IMPORT_MAX_BODY_BYTES, EXPORT_SCHEMA_VERSION, type ExportFile, type ImportPreview } from "@/lib/system/config-schema";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { getErrorMessage, readRefusal } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 
@@ -77,8 +77,9 @@ export function SystemConfigSection({
     setExportError(null);
     try {
       // Export returns a file body — use raw Response mode (default csrfFetch auto-parses JSON).
-      const res = await csrfFetch(`/api/system/export?mode=${exportMode}&scope=${exportScope}`, { method: "GET", raw: true });
-      if (!res.ok) throw new Error(t("systemConfig.export.error"));
+      const res = await csrfFetch<Response>(`/api/system/export?mode=${exportMode}&scope=${exportScope}`, { method: "GET", raw: true });
+      // Taken as it comes, a refusal is not thrown: quote its sentence, which used to be dropped.
+      if (!res.ok) throw new Error((await readRefusal(res)) || t("systemConfig.export.error"));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

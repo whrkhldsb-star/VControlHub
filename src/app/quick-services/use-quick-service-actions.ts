@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useToast } from "@/components/toast-provider";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -59,7 +60,6 @@ export type UseQuickServiceActionsInput = {
 };
 
 export type UseQuickServiceActionsResult = {
-  message: QuickServiceMessage | null;
   actionSlug: string | null;
   syncing: string | null;
   showMessage: (msg: QuickServiceMessage) => void;
@@ -81,8 +81,10 @@ export type UseQuickServiceActionsResult = {
  * that talks to `/api/quick-services` and `/api/app-sources` and the
  * "current action in flight" indicators (`actionSlug`, `syncing`).
  *
- * The `message` state is auto-dismissed after 4s, matching the original
- * inline behaviour.
+ * Results are said in a toast (`showMessage`). They used to be a notice at
+ * the top of the page that went away after four seconds: with the cards and
+ * the sources tab further down, a failed stop, update or uninstall — and its
+ * reason — never came into view.
  */
 export function useQuickServiceActions({
   fetchCatalog,
@@ -90,7 +92,7 @@ export function useQuickServiceActions({
   selectedServerId = "",
 }: UseQuickServiceActionsInput): UseQuickServiceActionsResult {
   const { t } = useI18n();
-  const [message, setMessage] = useState<QuickServiceMessage | null>(null);
+  const { addToast } = useToast();
   const [actionSlug, setActionSlug] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
   const catalogRefreshTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -107,13 +109,6 @@ export function useQuickServiceActions({
     }
   }, [fetchCatalog]);
 
-  // Auto-dismiss message after 4s, matching the original inline behaviour.
-  useEffect(() => {
-    if (!message) return;
-    const t = setTimeout(() => setMessage(null), 4000);
-    return () => clearTimeout(t);
-  }, [message]);
-
   useEffect(
     () => () => {
       for (const timer of catalogRefreshTimersRef.current) clearTimeout(timer);
@@ -123,8 +118,12 @@ export function useQuickServiceActions({
   );
 
   const showMessage = useCallback((msg: QuickServiceMessage) => {
-    setMessage(msg);
-  }, []);
+    addToast(msg.type === "ok" ? "success" : "error", msg.text, {
+      // A failure carries its reason (a Docker error can be long): time to read it.
+      duration: msg.type === "err" ? 10_000 : undefined,
+      action: msg.taskId ? { label: t("qsPage.viewTaskCenter"), href: "/operation-tasks" } : undefined,
+    });
+  }, [addToast, t]);
 
   const doInstall = useCallback(
     async (preview: ConfigPreview) => {
@@ -138,7 +137,7 @@ export function useQuickServiceActions({
             body: JSON.stringify({ slug: preview.item.slug, customPort: preview.port, serverId: selectedServerId || null }),
           },
         );
-        setMessage({
+        showMessage({
           type: "ok",
           text: data.taskId
             ? t("qsActions.queued", { name: preview.item.name, taskId: data.taskId })
@@ -147,7 +146,7 @@ export function useQuickServiceActions({
         });
         scheduleQueuedCatalogRefresh();
       } catch (err) {
-        setMessage({
+        showMessage({
           type: "err",
           text: getErrorMessage(err, t("qsActions.installFailed")),
         });
@@ -155,7 +154,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [scheduleQueuedCatalogRefresh, selectedServerId, t],
+    [scheduleQueuedCatalogRefresh, selectedServerId, t, showMessage],
   );
 
   const doAction = useCallback(
@@ -163,7 +162,7 @@ export function useQuickServiceActions({
       setActionSlug(slug);
       try {
         const data = await csrfFetch<QuickServiceActionResult>(
-          `/api/quick-services/${slug}`,
+          `/api/quick-services/${encodeURIComponent(slug)}`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -197,7 +196,7 @@ export function useQuickServiceActions({
                 ? t("qsActions.updateDetails", { details: updateDetails })
                 : t("qsActions.updateSimple"),
             };
-        setMessage({
+        showMessage({
           type: "ok",
           text: actionMessages[action] ?? t("qsActions.opComplete"),
           taskId: data.taskId,
@@ -205,7 +204,7 @@ export function useQuickServiceActions({
         if (data.queued) scheduleQueuedCatalogRefresh();
         else void fetchCatalog();
       } catch (err) {
-        setMessage({
+        showMessage({
           type: "err",
           text: getErrorMessage(err, t("qsActions.opFailed")),
         });
@@ -213,7 +212,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog, scheduleQueuedCatalogRefresh, selectedServerId, t],
+    [fetchCatalog, scheduleQueuedCatalogRefresh, selectedServerId, t, showMessage],
   );
 
   const doUninstall = useCallback(
@@ -221,7 +220,7 @@ export function useQuickServiceActions({
       setActionSlug(target.slug);
       try {
         const data = await csrfFetch<QuickServiceActionResult>(
-          `/api/quick-services/${target.slug}`,
+          `/api/quick-services/${encodeURIComponent(target.slug)}`,
           {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
@@ -229,7 +228,7 @@ export function useQuickServiceActions({
           },
         );
         const taskLabel = data.taskId ? t("qsActions.taskSuffix", { id: data.taskId }) : "";
-        setMessage({
+        showMessage({
           type: "ok",
           text: data.queued
             ? target.deleteVolumes
@@ -243,7 +242,7 @@ export function useQuickServiceActions({
         if (data.queued) scheduleQueuedCatalogRefresh();
         else void fetchCatalog();
       } catch (err) {
-        setMessage({
+        showMessage({
           type: "err",
           text: getErrorMessage(err, t("qsActions.uninstallFailed")),
         });
@@ -251,7 +250,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog, scheduleQueuedCatalogRefresh, selectedServerId, t],
+    [fetchCatalog, scheduleQueuedCatalogRefresh, selectedServerId, t, showMessage],
   );
 
   const doSync = useCallback(
@@ -263,11 +262,11 @@ export function useQuickServiceActions({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "sync", sourceId }),
         });
-        setMessage({ type: "ok", text: t("qsActions.syncDone") });
+        showMessage({ type: "ok", text: t("qsActions.syncDone") });
         await fetchSources();
         await fetchCatalog();
       } catch (err) {
-        setMessage({
+        showMessage({
           type: "err",
           text: getErrorMessage(err, t("qsActions.syncFailed")),
         });
@@ -275,7 +274,7 @@ export function useQuickServiceActions({
         setSyncing(null);
       }
     },
-    [fetchCatalog, fetchSources, t],
+    [fetchCatalog, fetchSources, t, showMessage],
   );
 
   const doToggleSource = useCallback(
@@ -290,35 +289,34 @@ export function useQuickServiceActions({
         // Both ways: re-enabling a synced source brings its apps back to the
         // catalog (only disabling used to refresh it, so they stayed hidden).
         fetchCatalog();
-      } catch {
-        // API call failed — surface a generic error toast to the user.
-        setMessage({ type: "err", text: t("qsActions.opFailed") });
+      } catch (err) {
+        showMessage({ type: "err", text: getErrorMessage(err, t("qsActions.opFailed")) });
       }
     },
-    [fetchCatalog, fetchSources, t],
+    [fetchCatalog, fetchSources, t, showMessage],
   );
 
   const doDeleteSource = useCallback(
     async (id: string) => {
       try {
-        await csrfFetch(`/api/app-sources?sourceId=${id}`, { method: "DELETE" });
-        setMessage({ type: "ok", text: t("qsActions.sourceDeleted") });
+        await csrfFetch(`/api/app-sources?sourceId=${encodeURIComponent(id)}`, { method: "DELETE" });
+        showMessage({ type: "ok", text: t("qsActions.sourceDeleted") });
         await fetchSources();
         await fetchCatalog();
       } catch (err) {
-        setMessage({
+        showMessage({
           type: "err",
           text: getErrorMessage(err, t("qsActions.deleteFailed")),
         });
       }
     },
-    [fetchCatalog, fetchSources, t],
+    [fetchCatalog, fetchSources, t, showMessage],
   );
 
   const doAddSource = useCallback(
     async (input: AddSourceInput) => {
       if (!input.name.trim() || !input.displayName.trim() || !input.url.trim()) {
-        setMessage({ type: "err", text: t("qsActions.addSourceEmpty") });
+        showMessage({ type: "err", text: t("qsActions.addSourceEmpty") });
         return false;
       }
       try {
@@ -332,22 +330,21 @@ export function useQuickServiceActions({
             type: input.type,
           }),
         });
-        setMessage({ type: "ok", text: t("qsActions.addSourceDone") });
+        showMessage({ type: "ok", text: t("qsActions.addSourceDone") });
         await fetchSources();
         return true;
       } catch (err) {
-        setMessage({
+        showMessage({
           type: "err",
           text: getErrorMessage(err, t("qsActions.addSourceFailed")),
         });
         return false;
       }
     },
-    [fetchSources, t],
+    [fetchSources, t, showMessage],
   );
 
   return {
-    message,
     actionSlug,
     syncing,
     showMessage,

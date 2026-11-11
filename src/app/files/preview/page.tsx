@@ -1,3 +1,4 @@
+import { firstSearchParams } from "@/lib/http/first-search-param";
 import { requireSession } from "@/lib/auth/require-session";
 import { OFFICE_MIME_TYPES, ARCHIVE_MIME_TYPES, CSV_MIME_TYPES, MARKDOWN_MIME_TYPES, EXTENDED_TEXT_MIME_TYPES } from "@/lib/storage/mime-constants";
 import { PageHeader, PageShell } from "@/components/page-shell";
@@ -54,10 +55,11 @@ function isAllowedPreviewHref(href: string): boolean {
 }
 
 export default async function FilePreviewPage({ searchParams }: PreviewPageProps) {
-	await requireSession();
+	// Back to the file manager: the preview is opened from it for one file, and is nothing without its query.
+	await requireSession("/files");
 	const locale = await getServerLocale();
 
-	const params = await searchParams;
+	const params = firstSearchParams(await searchParams);
 	const requestedHref = params?.href ?? "";
 	const href = isAllowedPreviewHref(requestedHref) ? requestedHref :"";
 	const invalidHref = Boolean(requestedHref && !href);

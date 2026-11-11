@@ -1,3 +1,4 @@
+import { firstSearchParams } from "@/lib/http/first-search-param";
 import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
@@ -47,7 +48,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const canRun = sessionHasPermission(session, "deploy:run");
 	const canReadServers = sessionHasPermission(session, "server:read");
 	const canExport = sessionHasPermission(session, "deploy:export");
-	const params = await searchParams;
+	const params = firstSearchParams(await searchParams);
 	const pageParam = params?.page ?? "1";
 	const requestedPage = /^\d+$/.test(pageParam) ? Number(pageParam) : 1;
 	const page = Math.min(

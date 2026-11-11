@@ -111,6 +111,45 @@ describe("ScheduledTaskListClient", () => {
       body: JSON.stringify({ retryId: "task_1" }),
     })));
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/scheduled-tasks"));
+    // The request only starts a run: the list looked the same afterwards, and nothing said it had been taken.
+    const said = await screen.findByRole("status");
+    expect(said).toHaveTextContent("已提交运行申请，审批通过后执行");
+    expect(within(said).getByRole("link", { name: "审批中心" })).toHaveAttribute("href", "/requests");
+  });
+
+  it("says a run without approval has started", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ task: { id: "task_1" } }).mockResolvedValueOnce({ tasks: [] });
+    render(<ScheduledTaskListClient tasks={[{ ...task, approvalRequired: false }]} servers={servers} canCreate canManage />);
+    await actor.click(screen.getByRole("button", { name: "立即运行" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("已开始运行，结果稍后显示在最近日志中");
+  });
+
+  it("reports a row action that failed where it is seen, not at the top of the list", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("重试无需逐次审批的任务需要命令执行权限"));
+    const { container } = render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate canManage />);
+    await actor.click(screen.getByRole("button", { name: "立即运行" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("重试无需逐次审批的任务需要命令执行权限");
+    // A toast, which stays in view; the notice above the toolbar was off screen from the tenth task down.
+    expect(container.firstElementChild?.contains(alert)).toBe(false);
+
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error(""));
+    await actor.click(screen.getByRole("button", { name: "暂停" }));
+    expect(await screen.findByText("切换定时任务状态失败")).toBeInTheDocument();
+  });
+
+  it("asks for a target when none is ticked, instead of saying that no server is enabled", async () => {
+    const actor = userEvent.setup();
+    render(<ScheduledTaskListClient tasks={[]} servers={servers} canCreate canManage />);
+    await actor.click(screen.getByRole("button", { name: "创建定时任务" }));
+    await actor.type(screen.getByRole("textbox", { name: "任务名称" }), "清理日志");
+    await actor.type(screen.getByRole("textbox", { name: "命令内容" }), "df -h");
+    await actor.click(screen.getByRole("button", { name: "创建任务" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("请至少选择一台目标服务器");
+    expect(screen.queryByText(/当前没有已启用的 VPS/)).not.toBeInTheDocument();
+    expect(csrfFetch).not.toHaveBeenCalled();
   });
 
   it("shows an error and keeps the create form open when scheduled task creation fails", async () => {
@@ -157,8 +196,15 @@ describe("ScheduledTaskListClient", () => {
     await actor.click(within(dialog).getByRole("button", { name: "确认删除" }));
 
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/scheduled-tasks?id=task_1", { method: "DELETE" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("删除任务失败：权限不足");
-    expect(screen.getByText("清理日志")).toBeInTheDocument();
+    // In the dialog, which stays open to be tried again: it used to close first and leave the reason above the list.
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("删除任务失败：权限不足");
+    expect(screen.getByRole("dialog", { name: "确认删除定时任务" })).toBeInTheDocument();
+    expect(screen.getAllByText("清理日志").length).toBeGreaterThan(0);
+
+    // Asked again, the dialog starts without the last refusal.
+    await actor.click(within(dialog).getByRole("button", { name: "取消" }));
+    await actor.click(screen.getByRole("button", { name: "删除" }));
+    expect(within(await screen.findByRole("dialog", { name: "确认删除定时任务" })).queryByRole("alert")).not.toBeInTheDocument();
   });
 
   describe("touch targets (TR-022 R17 mobile)", () => {

@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,9 +38,15 @@ function renderPanel() {
 describe("UserPermissionPanel", () => {
 	beforeEach(() => {
 		vi.mocked(csrfFetch).mockReset();
+		// The account as the server holds it: a save changes it, and the panel reads it again afterwards.
+		let account = { teamId: payload.user.teamId, identityTemplateId: payload.user.identityTemplateId };
 		vi.mocked(csrfFetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
-			if (init?.method === "PATCH") return { success: true };
-			if (String(input).startsWith("/api/users/permissions")) return payload;
+			if (init?.method === "PATCH") {
+				const saved = JSON.parse(String(init.body)).account as { teamId?: string; identityTemplateId?: string } | undefined;
+				if (saved?.teamId && saved.identityTemplateId) account = { teamId: saved.teamId, identityTemplateId: saved.identityTemplateId };
+				return { success: true };
+			}
+			if (String(input).startsWith("/api/users/permissions")) return { ...payload, user: { ...payload.user, ...account } };
 			throw new Error(`unexpected request: ${String(input)}`);
 		});
 	});
@@ -84,6 +90,8 @@ describe("UserPermissionPanel", () => {
 		const template = await screen.findByLabelText("身份模板");
 		await actor.selectOptions(template, "identity:operator");
 		await actor.click(screen.getByRole("button", { name: "保存权限" }));
+		await screen.findByText("权限配置已保存");
+		await waitFor(() => expect(screen.getByLabelText("身份模板")).toHaveValue("identity:operator"));
 		await actor.selectOptions(screen.getByLabelText("身份模板"), "identity:viewer");
 		await actor.click(screen.getByRole("button", { name: "保存权限" }));
 
@@ -101,5 +109,36 @@ describe("UserPermissionPanel", () => {
 		const body = JSON.parse(String(vi.mocked(csrfFetch).mock.calls.find(([, init]) => init?.method === "PATCH")?.[1]?.body));
 		expect(body.account).toEqual({ type: "admin" });
 		expect(body).not.toHaveProperty("storageAccess");
+	});
+
+	it("stops saying it is loading once the permissions could not be read", async () => {
+		// The reason was shown above a spinner that never stopped.
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("缺少权限: user:manage"));
+		renderPanel();
+		expect(await screen.findByText("缺少权限: user:manage")).toBeInTheDocument();
+		expect(screen.queryByText("正在加载权限配置...")).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "保存权限" })).not.toBeInTheDocument();
+	});
+
+	it("shows the new customer's servers after the account was moved, not the old one's", async () => {
+		// Saving a move made the narrowing editable again over the list first loaded: the servers of the customer
+		// the account had just left, with their ids as the scope of the next save.
+		const actor = userEvent.setup();
+		let moved = false;
+		vi.mocked(csrfFetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			if (init?.method === "PATCH") { moved = true; return { success: true }; }
+			if (!String(input).startsWith("/api/users/permissions")) throw new Error(`unexpected request: ${String(input)}`);
+			return moved
+				? { ...payload, user: { ...payload.user, teamId: "team_b" }, servers: [{ id: "srv_9", name: "beta-db", operatingSystem: "LINUX", teamId: "team_b" }] }
+				: payload;
+		});
+		renderPanel();
+		await actor.selectOptions(await screen.findByLabelText("所属客户"), "team_b");
+		await actor.click(screen.getByRole("button", { name: "保存权限" }));
+
+		expect(await screen.findByText("beta-db")).toBeInTheDocument();
+		expect(screen.queryByText("web-1")).not.toBeInTheDocument();
+		// Said where it is seen: the dialog is long and its message was at the very top.
+		expect(await screen.findByRole("status")).toHaveTextContent("权限配置已保存");
 	});
 });

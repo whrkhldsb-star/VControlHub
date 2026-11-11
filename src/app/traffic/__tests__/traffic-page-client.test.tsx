@@ -32,7 +32,7 @@ describe("groupHistory", () => {
     expect(grouped.get("docker0")?.map((item) => item.rx)).toEqual([20]);
   });
 
-  it("splits the 7d view by interface and local calendar day", () => {
+  it("splits the 7d view by interface and calendar day", () => {
     // Exactly 24h apart, so the two samples fall on different local days in
     // every timezone the viewer might be in.
     const grouped = groupHistory(
@@ -49,5 +49,19 @@ describe("groupHistory", () => {
     // No key may mix two interfaces.
     expect(keys.filter((key) => key.startsWith("eth0 · "))).toHaveLength(2);
     expect(keys.filter((key) => key.startsWith("docker0 · "))).toHaveLength(1);
+  });
+
+  it("cuts the 7d view at midnight of the zone its axis is labelled in", () => {
+    // The days were the browser's own, the times under each curve the application's: seen from another zone a
+    // curve named for one day ran across midnight on its own axis.
+    const grouped = groupHistory(
+      [
+        // 23:30 and 00:30 in Asia/Shanghai, the default application zone: two days there, one day in UTC.
+        point({ t: "2026-08-27T15:30:00.000Z", rx: 1 }),
+        point({ t: "2026-08-27T16:30:00.000Z", rx: 2 }),
+      ],
+      "7d",
+    );
+    expect([...grouped.keys()]).toEqual(["eth0 · 2026-08-27", "eth0 · 2026-08-28"]);
   });
 });

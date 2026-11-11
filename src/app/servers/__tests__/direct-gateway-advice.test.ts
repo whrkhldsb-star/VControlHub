@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { getDirectGatewayHealthyNote, getDirectGatewayRepairAdvice } from "../direct-gateway-advice";
 
-import { zh as dict } from "@/lib/i18n/dictionaries/servers";
+import { en as enDict, zh as dict } from "@/lib/i18n/dictionaries/servers";
 
 /**
  * Mock `t(key)` that resolves keys against the zh dictionary, falling back to
@@ -14,6 +14,10 @@ import { interpolate } from "@/lib/i18n/translations";
 
 function t(key: string, vars?: Record<string, string | number>): string {
   return interpolate(dict[key] ?? key, vars);
+}
+
+function en(key: string, vars?: Record<string, string | number>): string {
+  return interpolate(enDict[key] ?? key, vars);
 }
 
 const baseInput = {
@@ -190,6 +194,9 @@ describe("TR-002 R3 risk banner", () => {
     expect(banner).toBeDefined();
     expect(banner?.tone).toBe("amber");
     expect(banner?.priority).toBe("primary");
+    // In the page's language, with the address and the port of this gateway: the sentence was the library's
+    // English one, "Listening on 0.0.0.0 but via https/Caddy reverse proxy; …; Confirm Caddy has TLS …".
+    expect(banner?.detail).toBe("直连网关监听 0.0.0.0，对外可达，但经 HTTPS 反向代理访问，传输已加密。请确认反向代理已配置证书，并把 /direct 转发到本机的 31888 端口。");
   });
 
   it("emits a rose danger banner when bind is 0.0.0.0 + http", () => {
@@ -207,7 +214,21 @@ describe("TR-002 R3 risk banner", () => {
     expect(banner).toBeDefined();
     expect(banner?.tone).toBe("rose");
     expect(banner?.priority).toBe("primary");
-    expect(banner?.detail).toMatch(/signature auth/);
+    expect(banner?.detail).not.toMatch(/[A-Za-z]{6,} [a-z]{3,} [a-z]{3,}/);
+    expect(banner?.detail).toContain("直连网关监听 0.0.0.0 并以 HTTP 明文对外提供");
+    expect(banner?.detail).toContain("只对 VPN、可信网段或防火墙白名单开放 31888 端口");
+  });
+
+  it("names the address and the port the gateway really uses", () => {
+    // The danger sentence said "0.0.0.0" and "31888" whatever was configured.
+    const advice = getDirectGatewayRepairAdvice(en, {
+      ...enabledInput,
+      directGateway: { enabled: true, publicUrl: "http://[2001:db8::10]:40022", port: 40022, bindAddress: "::", publicProtocol: "http" },
+    });
+    const banner = advice.find((a) => a.tone === "rose");
+    expect(banner?.detail).toContain("listens on :: and is served over plain HTTP");
+    expect(banner?.detail).toContain("port 40022");
+    expect(banner?.detail).not.toContain("31888");
   });
 
   it("adds an amber 'scheme unrecognized' secondary hint when protocol is unknown", () => {

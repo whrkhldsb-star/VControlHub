@@ -23,6 +23,16 @@ import SharesPage from "../page";
  * search box and status filter included: they could only be changed by going
  * back or editing the address.
  */
+describe("shares page with a parameter given twice", () => {
+	it("opens with the first value instead of the error screen", async () => {
+		// The router hands ?q=a&q=b over as a list, and the page called .trim() on it.
+		const twice = { q: ["first", "second"], status: ["revoked", "active"] } as unknown as { q: string };
+		render(await SharesPage({ searchParams: Promise.resolve(twice) }));
+		expect(screen.getByRole("searchbox")).toHaveValue("first");
+		expect(screen.getByRole("combobox")).toHaveValue("revoked");
+	});
+});
+
 describe("shares page with no matching shares", () => {
 	it("keeps the search and status filter next to the empty state", async () => {
 		render(await SharesPage({ searchParams: Promise.resolve({ q: "nothing-matches", status: "revoked" }) }));

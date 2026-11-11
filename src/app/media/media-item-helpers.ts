@@ -85,6 +85,16 @@ export function mediaTypeLabel(mediaType: string, t: MediaTFn) {
   return t("mediaItemCard.type.other");
 }
 
+/**
+ * The list a detail page returns to, from its `?from=` parameter as the router hands it over — decoded already
+ * (decoding it again turned the search "R&D" into "R" plus a parameter "D"), a list when the parameter is
+ * repeated. Only an address of the media list itself is accepted.
+ */
+export function mediaReturnHref(from: string | string[] | undefined): string {
+  const value = Array.isArray(from) ? from[0] : from;
+  return value === "/media" || value?.startsWith("/media?") ? value : "/media";
+}
+
 /** `listHref` is the list the card is shown in, so the detail page can return to it and navigate within it. */
 export function buildMediaLinks(item: MediaItem, t: MediaTFn, listHref = "/media") {
   const storageEntry = createStorageEntry(item, t);

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -44,7 +44,9 @@ describe("CancelCommandButton", () => {
     await userEvent.click(screen.getByRole("button", { name: "Confirm cancel" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Current command request has ended, cannot cancel");
-    expect(screen.getByRole("dialog", { name: "Confirm cancellation" })).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Confirm cancellation" });
+    // In the dialog that stays open: it was written under the button on the page, behind it.
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("Current command request has ended, cannot cancel");
     expect(refreshMock).not.toHaveBeenCalled();
   });
 });

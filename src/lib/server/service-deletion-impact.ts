@@ -95,8 +95,38 @@ export async function getServerDeletionImpact(serverId: string): Promise<ServerD
   };
 }
 
+type BlockingImpact = Exclude<keyof ServerDeletionImpact, "storageNodes">;
+
 export function getBlockingServerDeletionImpact(impact: ServerDeletionImpact) {
   return Object.entries(impact).filter(
     ([key, count]) => key !== "storageNodes" && count > 0,
-  ) as Array<[Exclude<keyof ServerDeletionImpact, "storageNodes">, number]>;
+  ) as Array<[BlockingImpact, number]>;
+}
+
+/** The words for each count that blocks a deletion. Typed by the count, so that a new one cannot go without. */
+const BLOCKER_COPY: Record<BlockingImpact, string> = {
+  files: "backend.server.deletionBlocker.files",
+  fileVersions: "backend.server.deletionBlocker.fileVersions",
+  shares: "backend.server.deletionBlocker.shares",
+  mediaItems: "backend.server.deletionBlocker.mediaItems",
+  scheduledTasks: "backend.server.deletionBlocker.scheduledTasks",
+  alertRules: "backend.server.deletionBlocker.alertRules",
+  playbooks: "backend.server.deletionBlocker.playbooks",
+  syncJobs: "backend.server.deletionBlocker.syncJobs",
+  quickServices: "backend.server.deletionBlocker.quickServices",
+  backupSchedules: "backend.server.deletionBlocker.backupSchedules",
+  backupRecords: "backend.server.deletionBlocker.backupRecords",
+  unfinishedCommands: "backend.server.deletionBlocker.unfinishedCommands",
+  unfinishedDownloads: "backend.server.deletionBlocker.unfinishedDownloads",
+};
+
+/**
+ * What still refers to the server, for the sentence that refuses to delete it. The refusal listed the fields of
+ * the count as they are named here ("files=120, fileVersions=3, unfinishedCommands=2").
+ */
+export function describeServerDeletionBlockers(
+  blockers: ReadonlyArray<readonly [BlockingImpact, number]>,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  return blockers.map(([name, count]) => t(BLOCKER_COPY[name], { count })).join(t("backend.server.deletionBlocker.separator"));
 }

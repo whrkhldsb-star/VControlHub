@@ -44,6 +44,7 @@ export function TemplateListClient({
 	const [deploying, setDeploying] = useState<string | null>(null);
 	const [templatePendingDelete, setTemplatePendingDelete] = useState<Template | null>(null);
 	const [deleteBusy, setDeleteBusy] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
 
 	const closeDeleteDialog = useCallback(() => setTemplatePendingDelete(null), []);
 
@@ -52,40 +53,48 @@ export function TemplateListClient({
 		? templates.filter((item) => item.tags.includes(filterTag))
 		: templates;
 
+	// Reads the list again; says so when it cannot. It used to throw into whatever had just succeeded.
 	const refresh = useCallback(async () => {
-		const data = await csrfFetch("/api/command-templates");
-		setTemplates(data.templates ?? []);
-	}, []);
+		try {
+			const data = await csrfFetch("/api/command-templates");
+			setTemplates(data.templates ?? []);
+		} catch (err) {
+			addToast("error", getErrorMessage(err, t("templatesPage.toast.refreshFailed")));
+		}
+	}, [addToast, t]);
 
 	const handleDelete = useCallback(
 		async (id: string) => {
 			setDeleteBusy(true);
+			setDeleteError(null);
 			try {
 				await csrfFetch(`/api/command-templates?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-				setTemplatePendingDelete(null);
-				await refresh();
-				addToast("success", t("templatesPage.toast.deleted"));
 			} catch (err) {
-				addToast(
-					"error",
-					getErrorMessage(err, t("templatesPage.toast.deleteFailed")),
-				);
-			} finally {
+				// In the dialog that asked, which stays open.
+				setDeleteError(getErrorMessage(err, t("templatesPage.toast.deleteFailed")));
 				setDeleteBusy(false);
+				return;
 			}
+			// Gone, whatever reading the list again says: with both in one try, an unanswered refresh reported
+			// the deletion as failed and left the card in place.
+			setTemplatePendingDelete(null);
+			setDeleteBusy(false);
+			setTemplates((current) => current.filter((item) => item.id !== id));
+			addToast("success", t("templatesPage.toast.deleted"));
+			void refresh();
 		},
 		[addToast, refresh, t],
 	);
 
 	const handleDeploy = useCallback(
-		async (template: Template, serverIds: string[], vars: Record<string, string>) => {
+		async (template: Template, serverIds: string[], vars: Record<string, string>): Promise<boolean> => {
 			const missingVariable = template.variables.find((name) => !vars[name]?.trim());
 			if (missingVariable) {
 				addToast(
 					"error",
 					t("templatesPage.toast.missingVar", { name: missingVariable }),
 				);
-				return;
+				return false;
 			}
 			setDeploying(template.id);
 			try {
@@ -103,15 +112,18 @@ export function TemplateListClient({
 				// where to go instead of leaving the user to guess.
 				addToast("success", t("templatesPage.toast.submitted"), {
 					duration: 8000,
-					action: { label: t("templatesPage.toast.viewRequests"), href: "/deployments" },
+					action: { label: t("templatesPage.toast.viewDeployments"), href: "/deployments" },
 				});
+				return true;
 			} catch (err) {
 				addToast(
 					"error",
 					getErrorMessage(err, t("templatesPage.toast.submitFailed")),
 				);
+				return false;
+			} finally {
+				setDeploying(null);
 			}
-			setDeploying(null);
 		},
 		[addToast, t],
 	);
@@ -125,6 +137,7 @@ export function TemplateListClient({
 				cancelLabel={t("templatesPage.delete.cancel")}
 				confirmLabel={t("templatesPage.delete.confirm2")}
 				busy={deleteBusy}
+				error={deleteError}
 				onCancel={closeDeleteDialog}
 				onConfirm={() => templatePendingDelete && handleDelete(templatePendingDelete.id)}
 				closeOnBackdrop={false}
@@ -164,8 +177,10 @@ export function TemplateListClient({
 				<div className="mb-1">
 					<SurfacePanel title={t("templatesPage.action.create")}>
 						<CreateTemplateForm
-							onClose={() => {
+							onClose={(created) => {
 								setShowCreate(false);
+								if (!created) return;
+								addToast("success", t("templatesPage.toast.created"));
 								void refresh();
 							}}
 						/>
@@ -173,7 +188,17 @@ export function TemplateListClient({
 				</div>
 			)}
 
-			{filtered.length === 0 ? (
+			{filtered.length === 0 && filterTag && templates.length > 0 ? (
+				// Templates exist and none carries the tag in the address (a bookmark, a tag since removed):
+				// "no templates" over an unselected row of chips did not say why.
+				<EmptyState
+					icon="📝"
+					variant="boxed"
+					action={<ActionButton size="sm" variant="outline" onClick={() => setFilterTag(null)}>{t("templatesPage.filter.clear")}</ActionButton>}
+				>
+					{t("templatesPage.emptyForTag", { tag: filterTag })}
+				</EmptyState>
+			) : filtered.length === 0 ? (
 				<EmptyState icon="📝" variant="boxed">
 					{t("templatesPage.empty")}
 				</EmptyState>
@@ -252,7 +277,7 @@ export function TemplateListClient({
 									/>
 								)}
 								{canCreate && !tmpl.isBuiltin && (
-									<ActionButton size="sm" variant="danger" onClick={() => setTemplatePendingDelete(tmpl)}>
+									<ActionButton size="sm" variant="danger" onClick={() => { setDeleteError(null); setTemplatePendingDelete(tmpl); }}>
 										{t("templatesPage.delete.action")}
 									</ActionButton>
 								)}

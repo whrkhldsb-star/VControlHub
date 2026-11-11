@@ -1,3 +1,5 @@
+import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+
 import type { ServerOverviewDetailsServer } from "./server-overview-details";
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
@@ -37,4 +39,15 @@ export function directGatewayModeLabel(enabled: boolean | undefined, t: Translat
 
 export function serverEnabledLabel(enabled: boolean, t: Translate): string {
 	return enabled ? t("serverLabels.enabled") : t("serverOverviewCard.disabled");
+}
+
+/**
+ * Where a command stands on one server. The details panel printed the two stored values as they are
+ * ("PENDING_APPROVAL · PENDING_APPROVAL"); said once when they agree, and told apart when a command that is
+ * still running elsewhere has finished here.
+ */
+export function commandStatusLine(requestStatus: string, targetStatus: string, t: Translate): string {
+	const here = getDomainStatusLabel(t, targetStatus);
+	if (requestStatus === targetStatus) return here;
+	return t("serverOverviewDetails.commandStatusBoth", { target: here, request: getDomainStatusLabel(t, requestStatus) });
 }

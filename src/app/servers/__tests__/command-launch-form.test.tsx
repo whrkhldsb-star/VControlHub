@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -145,5 +145,54 @@ describe("CommandLaunchForm", () => {
 		const firstPayload = vi.mocked(api.post).mock.calls[0]?.[1] as { idempotencyKey: string };
 		const secondPayload = vi.mocked(api.post).mock.calls[1]?.[1] as { idempotencyKey: string };
 		expect(secondPayload.idempotencyKey).toBe(firstPayload.idempotencyKey);
+	});
+
+	it("keeps the confirmation open with the refusal in it when a direct command is not accepted", async () => {
+		// The dialog closed before the request was sent; the reason then appeared near the top of a long form,
+		// with the button the user had pressed at the bottom of it.
+		const actor = userEvent.setup();
+		vi.mocked(api.post)
+			.mockRejectedValueOnce(new Error("命令包含被策略禁止的内容"))
+			.mockResolvedValueOnce({ command: { id: "cmd_2", status: "APPROVED" } });
+		renderWithI18n(
+			<ToastProvider>
+				<CommandLaunchForm servers={servers} allowDirectExecution />
+			</ToastProvider>,
+		);
+		await actor.click(screen.getByRole("button", { name: "立即执行" }));
+		await actor.type(screen.getByLabelText("任务名称"), "清理缓存");
+		await actor.type(screen.getByLabelText("命令内容"), "sync");
+		await actor.click(screen.getByText("香港生产节点"));
+		await actor.click(screen.getByRole("button", { name: "确认并立即执行" }));
+		const dialog = screen.getByRole("dialog", { name: "确认立即执行命令" });
+		await actor.click(within(dialog).getByRole("button", { name: "确认执行" }));
+
+		expect(await within(dialog).findByRole("alert")).toHaveTextContent("命令包含被策略禁止的内容");
+		expect(screen.getByRole("dialog", { name: "确认立即执行命令" })).toBeInTheDocument();
+		expect(routerMocks.push).not.toHaveBeenCalled();
+
+		// Tried again from the dialog.
+		await actor.click(within(dialog).getByRole("button", { name: "确认执行" }));
+		await waitFor(() => expect(routerMocks.push).toHaveBeenCalledWith("/requests"));
+	});
+
+	it("shows a refused approval request next to the button that sent it", async () => {
+		const actor = userEvent.setup();
+		vi.mocked(api.post).mockRejectedValueOnce(new Error("目标服务器已被停用"));
+		renderWithI18n(
+			<ToastProvider>
+				<CommandLaunchForm servers={servers} allowDirectExecution={false} />
+			</ToastProvider>,
+		);
+		await actor.type(screen.getByLabelText("任务名称"), "检查磁盘");
+		await actor.type(screen.getByLabelText("命令内容"), "df -h");
+		await actor.click(screen.getByText("香港生产节点"));
+		const submit = screen.getByRole("button", { name: "提交审批" });
+		await actor.click(submit);
+		const alert = await screen.findByRole("alert");
+		expect(alert).toHaveTextContent("目标服务器已被停用");
+		// After the fields, right above the row with the button.
+		expect(screen.getByLabelText("命令内容").compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(alert.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 });

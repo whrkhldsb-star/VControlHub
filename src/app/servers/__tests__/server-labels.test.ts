@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { directGatewayModeLabel, serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "../server-labels";
+import { browserT } from "@/lib/i18n/browser-translations";
+
+import { commandStatusLine, directGatewayModeLabel, serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "../server-labels";
 
 const t = (key: string, vars?: Record<string, string | number>) =>
 	vars ? `${key}(${Object.entries(vars).map(([k, v]) => `${k}=${v}`).join(",")})` : key;
@@ -36,5 +38,15 @@ describe("server labels", () => {
 		expect(directGatewayModeLabel(true, t)).toBe("serverLabels.directFromNode");
 		expect(directGatewayModeLabel(undefined, t)).toBe("serverOverviewCard.websiteRelay");
 		expect(serverEnabledLabel(false, t)).toBe("serverOverviewCard.disabled");
+	});
+
+	it("words the state of a command on this server", () => {
+		// The details panel printed the two enum values: "PENDING_APPROVAL · PENDING_APPROVAL", "RUNNING · COMPLETED".
+		const zh = (key: string, vars?: Record<string, string | number>) => browserT(key, "zh", vars);
+		const en = (key: string, vars?: Record<string, string | number>) => browserT(key, "en", vars);
+		expect(commandStatusLine("PENDING_APPROVAL", "PENDING_APPROVAL", zh)).toBe("等待审批");
+		expect(commandStatusLine("RUNNING", "COMPLETED", zh)).toBe("本节点：已完成 · 整体：执行中");
+		expect(commandStatusLine("CANCELLING", "CANCELLING", zh)).toBe("正在取消");
+		expect(commandStatusLine("RUNNING", "FAILED", en)).toBe("This node: Failed · Overall: Running");
 	});
 });

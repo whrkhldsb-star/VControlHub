@@ -94,7 +94,7 @@ describe("/ai-ops page permission gate", () => {
 		await AiOpsPage();
 
 		expect(requirePagePermissionMock).toHaveBeenCalledTimes(1);
-		expect(requirePagePermissionMock).toHaveBeenCalledWith("ai:ops:read");
+		expect(requirePagePermissionMock).toHaveBeenCalledWith("ai:ops:read", { redirectTo: "/ai-ops" });
 	});
 
 	it("hands the client the saved provider by name, whoever chose it, and says when it is gone", async () => {

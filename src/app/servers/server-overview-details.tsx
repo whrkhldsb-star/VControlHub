@@ -27,7 +27,7 @@ import { DirectGatewayAdviceList, DirectGatewayHealthyDetail, InfoRow, OsDialect
 import { ActionButton, ButtonLink } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, Notice } from "@/components/ui-primitives";
-import { serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "./server-labels";
+import { commandStatusLine, serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "./server-labels";
 import type { ServerBillingDto } from "@/lib/server/billing-form";
 import type { ServerSyncTargetAuth } from "@/lib/sync/target-auth";
 import { ServerBillingRows } from "./server-billing-rows";
@@ -413,7 +413,7 @@ export function ServerOverviewDetails({
 									</span>
 								</div>
 								<div className="mt-1 text-xs text-[var(--text-muted)]">
-									{command.requestStatus} · {command.targetStatus}
+									{commandStatusLine(command.requestStatus, command.targetStatus, t)}
 								</div>
 							</div>
 						))}

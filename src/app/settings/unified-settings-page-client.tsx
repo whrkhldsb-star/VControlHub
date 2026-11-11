@@ -47,22 +47,16 @@ const TAB_SECTION_IDS: Record<PlatformTab, string[]> = {
 /** The config export/import panel is rendered after the platform sections. */
 const SYSTEM_CONFIG_TAB: PlatformTab = "platform";
 
-const PERSONAL_SECTION_IDS = [
-  "preferences-default-page",
-  "preferences-dashboard-widgets",
-  "preferences-notifications",
-  "preferences-auto-refresh",
-  "preferences-auto-probe",
-];
+/**
+ * The sections of the personal tab, from the list its menu is built from. Written out by hand they were one
+ * short: the tab's badge said 5 over a menu of 6, and the address of the sixth opened the first.
+ */
+const PERSONAL_SECTION_IDS = PREFERENCES_CATEGORY_SUMMARIES.map((summary) => summary.id).filter((id) => id !== "personal-preferences");
 
 /** Map any section hash to its parent tab. */
 const SECTION_TO_TAB: Record<string, SettingsTab> = {
   "personal-preferences": "personal",
-  "preferences-default-page": "personal",
-  "preferences-dashboard-widgets": "personal",
-  "preferences-notifications": "personal",
-  "preferences-auto-refresh": "personal",
-  "preferences-auto-probe": "personal",
+  ...Object.fromEntries(PERSONAL_SECTION_IDS.map((id) => [id, "personal"] as const)),
   security: "security",
   "system-config": SYSTEM_CONFIG_TAB,
   ...Object.fromEntries(

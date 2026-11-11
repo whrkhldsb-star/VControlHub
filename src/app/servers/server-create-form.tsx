@@ -85,16 +85,7 @@ export function ServerCreateForm({
         <p className="mt-1 text-xs text-[var(--text-muted)]">
           {t(windows ? "serversPage.windows.hint" : "serversPage.create.desc")}
         </p>{" "}
-      </div>{" "}
-      {state.error && !observedHostKeySha256 && (
-        <Notice tone="danger">{state.error}</Notice>
-      )}{" "}
-      {state.success && (
-        <Notice tone="success">
-          {" "}
-          {state.success}{" "}
-        </Notice>
-      )}{" "}
+      </div>
       <div className="space-y-1.5">
         <label htmlFor="serverOperatingSystem" className="ui-label">{t("serversPage.windows.os")}</label>
         <select id="serverOperatingSystem" name="operatingSystem" className={UI_INPUT} value={operatingSystem} onChange={(event) => { setOperatingSystem(event.target.value); setObservedHostKeySha256(""); setHostKeyConfirmed(false); }}>
@@ -354,7 +345,14 @@ export function ServerCreateForm({
           placeholder={t("serversPage.create.tagsPlaceholder")}
           className={UI_INPUT}
         />{" "}
-      </div>{" "}
+      </div>
+      {/* Next to the button that sent it: under the heading it was a screen of fields away. */}
+      {state.error && !observedHostKeySha256 && (
+        <Notice tone="danger">{state.error}</Notice>
+      )}
+      {state.success && (
+        <Notice tone="success">{state.success}</Notice>
+      )}
       <SubmitButton
         pendingLabel={t(windows ? "serversPage.create.submitting" : observedHostKeySha256 ? "serversPage.create.submitting" : "serversPage.create.detecting")}
       >

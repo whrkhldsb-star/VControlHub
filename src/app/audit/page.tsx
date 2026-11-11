@@ -1,4 +1,5 @@
 
+import { firstSearchParams } from "@/lib/http/first-search-param";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { getAuditStats, HIGH_RISK_AUDIT_ACTIONS } from "@/lib/audit/service";
 import { interpolate } from "@/lib/i18n/core";
@@ -41,7 +42,7 @@ function getAuditPageCopy(locale: Locale) {
 }
 
 export default async function AuditPage({ searchParams }: AuditPageProps) {
-	const params = (await searchParams) ?? {};
+	const params = firstSearchParams(await searchParams);
 	const locale = await getServerLocale();
 	const copy = getAuditPageCopy(locale);
 

@@ -86,6 +86,14 @@ describe("MediaPage", () => {
     expect(screen.getByRole("link", { name: "下一页" })).toHaveAttribute("href", "/media?type=image&q=cat&page=4");
   });
 
+  it("opens with a parameter given twice instead of the error screen", async () => {
+    // The router hands ?q=cat&q=dog over as a list, and the page called .trim() on it.
+    listMediaItemsMock.mockResolvedValue([]);
+    const twice = { q: ["cat", "dog"], tag: ["a", "b"], type: ["image", "video"], page: ["2", "3"] } as unknown as { q: string };
+    render(await MediaPage({ searchParams: Promise.resolve(twice) }));
+    expect(listMediaItemsMock).toHaveBeenCalledWith(expect.objectContaining({ q: "cat", tag: "a", mediaType: "image" }));
+  });
+
   it("renders a first-class media workspace with visual type cards and global counts", async () => {
     render(await MediaPage({ searchParams: Promise.resolve({ type: "video", q: "demo" }) }));
 

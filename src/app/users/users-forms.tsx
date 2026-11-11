@@ -6,7 +6,7 @@ import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
 import { Dialog } from "@/components/ui/dialog";
 
-import { Chip } from "@/components/ui-primitives";
+import { Chip, Notice } from "@/components/ui-primitives";
 import { identityTemplateName } from "@/lib/auth/identity-templates";
 /** Subset of StatusBadge's StatusTone that the users page uses. */
 export type Tone = "accent" | "success" | "warning" | "danger" | "neutral";
@@ -34,6 +34,21 @@ export type CreateUserFormState = {
 };
 
 export type CustomerOption = { id: string; name: string };
+export type PasswordRules = { minLength: number; requireUppercase: boolean; requireNumber: boolean; requireSpecial: boolean };
+
+/**
+ * What a password has to have, from the policy in force. The fields said "at least 6 characters" whatever
+ * the policy was, and its shortest allowed minimum is 8.
+ */
+export function passwordRuleText(rules: PasswordRules | undefined, t: (k: string, vars?: Record<string, string | number>) => string): string {
+  if (!rules) return "";
+  return [
+    t("usersPage.passwordRule.min", { min: rules.minLength }),
+    rules.requireUppercase ? t("usersPage.passwordRule.uppercase") : "",
+    rules.requireNumber ? t("usersPage.passwordRule.digit") : "",
+    rules.requireSpecial ? t("usersPage.passwordRule.special") : "",
+  ].filter(Boolean).join(t("usersPage.passwordRule.separator"));
+}
 export type IdentityTemplateOption = { id: string; name: string; isBuiltin: boolean };
 
 export function UsersCreateForm({
@@ -44,6 +59,8 @@ export function UsersCreateForm({
   onSubmit,
   customers,
   templates,
+  optionsError,
+  passwordRules,
 }: {
   t: (k: string, vars?: Record<string, string | number>) => string;
   createForm: CreateUserFormState;
@@ -52,9 +69,14 @@ export function UsersCreateForm({
   onSubmit: () => void;
   customers: CustomerOption[];
   templates: IdentityTemplateOption[];
+  /** Why the customers and identity templates could not be read. */
+  optionsError?: string | null;
+  passwordRules?: PasswordRules;
 }) {
+  const passwordRule = passwordRuleText(passwordRules, t);
   return (
     <SurfacePanel className="mb-6" title={t("usersPage.action.create")}>
+      {optionsError ? <Notice tone="danger" compact>{optionsError}</Notice> : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="ui-label mb-1 block" htmlFor="createUserUsername">
@@ -93,8 +115,9 @@ export function UsersCreateForm({
             value={createForm.password}
             onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
             data-input className={cn(UI_INPUT)}
-            placeholder={t("usersPage.form.passwordPlaceholder")}
+            aria-describedby={passwordRule ? "createUserPasswordRule" : undefined}
           />
+          {passwordRule ? <p id="createUserPasswordRule" className="mt-1 text-xs text-[var(--text-muted)]">{passwordRule}</p> : null}
         </div>
       </div>
       <div>
@@ -139,6 +162,8 @@ export function UsersResetPasswordDialog({
   password,
   setPassword,
   resetting,
+  error,
+  passwordRules,
   onCancel,
   onConfirm,
 }: {
@@ -146,10 +171,14 @@ export function UsersResetPasswordDialog({
   username: string;
   password: string;
   setPassword: (value: string) => void;
+  /** Why the last attempt was refused; shown here, where the password is corrected. */
+  error?: string | null;
+  passwordRules?: PasswordRules;
   resetting: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const passwordRule = passwordRuleText(passwordRules, t);
   return (
     <Dialog
       open
@@ -169,14 +198,17 @@ export function UsersResetPasswordDialog({
       <input
         type="password"
         autoComplete="new-password"
-        aria-label={t("usersPage.form.passwordPlaceholder")}
+        aria-label={t("usersPage.resetPassword.label")}
+        aria-describedby={passwordRule ? "resetPasswordRule" : undefined}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter" && password && !resetting) onConfirm(); }}
         className={UI_INPUT}
-        placeholder={t("usersPage.form.passwordPlaceholder")}
+        placeholder={t("usersPage.resetPassword.label")}
         autoFocus
       />
+      {passwordRule ? <p id="resetPasswordRule" className="mt-1.5 text-xs text-[var(--text-muted)]">{passwordRule}</p> : null}
+      {error ? <Notice tone="danger" compact className="mt-3">{error}</Notice> : null}
     </Dialog>
   );
 }

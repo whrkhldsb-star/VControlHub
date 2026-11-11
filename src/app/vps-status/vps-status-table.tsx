@@ -62,6 +62,12 @@ export function VpsStatusTable({
 											<div className="truncate font-mono text-xs text-[var(--text-muted)]">
 												{server.host}
 											</div>
+											{/* Why it could not be sampled: the card says so, and the table said "offline" alone. */}
+											{server.error ? (
+												<div className="max-w-xs truncate text-xs text-[var(--danger)]" title={server.error}>
+													{server.error}
+												</div>
+											) : null}
 										</div>
 									</div>
 								</td>

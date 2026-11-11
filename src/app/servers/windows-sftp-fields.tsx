@@ -30,7 +30,7 @@ export function WindowsSftpFields({
         <input name="windowsSftpPort" type="number" min={1} max={65535} defaultValue={port} required className={UI_INPUT} />
       </label>
       <label className="ui-label space-y-1.5">{t("serversPage.windows.sftpUsername")}
-        <input name="windowsSftpUsername" type="text" defaultValue={username} required className={UI_INPUT} autoComplete="username" />
+        <input name="windowsSftpUsername" type="text" defaultValue={username} required className={UI_INPUT} autoComplete="off" />
       </label>
       <label className="ui-label space-y-1.5">{t("serversPage.windows.sftpPassword")}
         <input name="windowsSftpPassword" type="password" required={!editing || !configured} className={UI_INPUT} autoComplete="new-password" />

@@ -50,7 +50,13 @@ function errorText(error: unknown) {
 
 /* ── Site settings ─────────────────────────────────────────────── */
 
-function SiteSettings({ initial, t }: { initial: PublicSiteConfig; t: T }) {
+function SiteSettings({ initial, saved, onSaved, t }: {
+	initial: PublicSiteConfig;
+	/** What the server holds now: the link to the public page follows it, not the draft and not the first render. */
+	saved: PublicSiteConfig;
+	onSaved: (site: PublicSiteConfig) => void;
+	t: T;
+}) {
 	const { addToast } = useToast();
 	const [site, setSite] = useState(initial);
 	const [saving, setSaving] = useState(false);
@@ -77,6 +83,7 @@ function SiteSettings({ initial, t }: { initial: PublicSiteConfig; t: T }) {
 			// normalised copy only if nothing was typed since, or the newer
 			// draft would be replaced by what was just saved.
 			setSite((current) => (Object.keys(submitted) as Array<keyof typeof submitted>).every((key) => JSON.stringify(current[key]) === JSON.stringify(submitted[key])) ? result.site : current);
+			onSaved(result.site);
 			addToast("success", t("publicStatusAdmin.site.saved"));
 		} catch (err) {
 			setError(errorText(err));
@@ -94,7 +101,7 @@ function SiteSettings({ initial, t }: { initial: PublicSiteConfig; t: T }) {
 				</div>
 				<div className="flex flex-wrap gap-2">
 					<ButtonLink href="/status?preview=1" variant="outline" size="sm">{t("publicStatusAdmin.previewAsGuest")}</ButtonLink>
-					{initial.enabled ? <ButtonLink href="/status" variant="ghost" size="sm" external>{t("publicStatusAdmin.openPublic")}</ButtonLink> : null}
+					{saved.enabled ? <ButtonLink href="/status" variant="ghost" size="sm" external>{t("publicStatusAdmin.openPublic")}</ButtonLink> : null}
 				</div>
 			</div>
 			<SwitchRow checked={site.enabled} onChange={(value) => set("enabled", value)} label={t("publicStatusAdmin.site.enabled")} />
@@ -342,8 +349,9 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 	const [page, setPage] = useState(1);
 	const [data, setData] = useState<ListResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [selected, setSelected] = useState<Set<string>>(new Set());
+	// The rows, not only their ids: the selection outlives the page it was made on, and the confirmation of
+	// "publish with server names" has to name every server it will make public.
+	const [selected, setSelected] = useState<Map<string, AdminNodeRow>>(new Map());
 	const [editing, setEditing] = useState<EditState | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [nowMs, setNowMs] = useState(() => Date.now());
@@ -358,45 +366,61 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 		return () => clearTimeout(timer);
 	}, [q]);
 
+	// Loading is "what is asked for has not been answered yet": paging, filtering and searching show it like a
+	// reload does, and it cannot stay on (it was a flag only the reload set).
+	const requestKey = JSON.stringify([query, filter, page, reloadKey]);
+	const [answeredKey, setAnsweredKey] = useState<string | null>(null);
+	const loading = answeredKey !== requestKey;
+
 	useEffect(() => {
 		const controller = new AbortController();
 		const params = new URLSearchParams({ q: query, filter, page: String(page), pageSize: String(PAGE_SIZE) });
 		api
 			.get<ListResponse>(`/api/admin/public-status/nodes?${params}`, { signal: controller.signal })
 			.then((result) => {
+				if (controller.signal.aborted) return;
+				// A batch under a filter can empty the last page: go to the last one there is.
+				const lastPage = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
+				if (page > lastPage) {
+					setPage(lastPage);
+					return;
+				}
 				setData(result);
 				setError(null);
 				setNowMs(Date.now());
+				setSelected((current) => {
+					const fresh = result.rows.filter((row) => current.has(row.serverId));
+					if (fresh.length === 0) return current;
+					const next = new Map(current);
+					for (const row of fresh) next.set(row.serverId, row);
+					return next;
+				});
+				setAnsweredKey(requestKey);
 			})
 			.catch((err) => {
-				if (!controller.signal.aborted) setError(errorText(err));
-			})
-			.finally(() => {
-				if (!controller.signal.aborted) setLoading(false);
+				if (controller.signal.aborted) return;
+				setError(errorText(err));
+				setAnsweredKey(requestKey);
 			});
 		return () => controller.abort();
-	}, [query, filter, page, reloadKey]);
+	}, [query, filter, page, reloadKey, requestKey]);
 
-	const reload = useCallback(() => {
-		setLoading(true);
-		setReloadKey((key) => key + 1);
-	}, []);
+	const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 	const rows = useMemo(() => data?.rows ?? [], [data]);
 	const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
 	const allSelected = rows.length > 0 && rows.every((row) => selected.has(row.serverId));
-	const toggle = (id: string) => setSelected((prev) => {
-		const next = new Set(prev);
-		if (next.has(id)) next.delete(id);
-		else next.add(id);
+	const toggle = (row: AdminNodeRow) => setSelected((prev) => {
+		const next = new Map(prev);
+		if (!next.delete(row.serverId)) next.set(row.serverId, row);
 		return next;
 	});
 
 	const batch = async (action: "publish" | "publish_named" | "unpublish" | "maintenance_on" | "maintenance_off") => {
 		setBusy(true);
 		try {
-			const result = await api.post<{ changed: number; skipped: string[] }>("/api/admin/public-status/nodes", { action, serverIds: [...selected] });
+			const result = await api.post<{ changed: number; skipped: string[] }>("/api/admin/public-status/nodes", { action, serverIds: [...selected.keys()] });
 			addToast(result.skipped.length ? "warning" : "success", t("publicStatusAdmin.batch.result", { changed: result.changed, skipped: result.skipped.length }));
-			setSelected(new Set());
+			setSelected(new Map());
 			setConfirmNamed(false);
 			reload();
 		} catch (err) {
@@ -405,8 +429,8 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 			setBusy(false);
 		}
 	};
-	// Servers among the selection that would go public under their server name.
-	const unnamed = rows.filter((row) => selected.has(row.serverId) && !row.publication?.displayName.trim());
+	// Servers among the selection that would go public under their server name, on any page.
+	const unnamed = [...selected.values()].filter((row) => !row.publication?.displayName.trim());
 
 	return (
 		<section data-card className="flex flex-col gap-4 p-5" aria-labelledby="nodes-title">
@@ -449,10 +473,10 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 									aria-label={t("publicStatusAdmin.nodes.selectAll")}
 									checked={allSelected}
 									onChange={() => setSelected((prev) => {
-										const next = new Set(prev);
+										const next = new Map(prev);
 										for (const row of rows) {
 											if (allSelected) next.delete(row.serverId);
-											else next.add(row.serverId);
+											else next.set(row.serverId, row);
 										}
 										return next;
 									})}
@@ -469,7 +493,7 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 						{rows.map((row) => (
 							<tr key={row.serverId} className="border-t border-[var(--border-subtle)]" data-admin-node={row.serverId}>
 								<td className="px-2 py-2">
-									<input type="checkbox" aria-label={t("publicStatusAdmin.nodes.select", { name: row.serverName })} checked={selected.has(row.serverId)} onChange={() => toggle(row.serverId)} />
+									<input type="checkbox" aria-label={t("publicStatusAdmin.nodes.select", { name: row.serverName })} checked={selected.has(row.serverId)} onChange={() => toggle(row)} />
 								</td>
 								<td className="px-2 py-2">
 									<span className="block font-medium">{row.serverName}</span>
@@ -499,7 +523,7 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 								</td>
 							</tr>
 						))}
-						{!loading && rows.length === 0 ? (
+						{!loading && !error && rows.length === 0 ? (
 							<tr>
 								<td colSpan={6} className="px-2 py-6 text-center text-sm text-[var(--text-muted)]">{t("publicStatusAdmin.nodes.empty")}</td>
 							</tr>
@@ -552,11 +576,13 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 
 export function PublicStatusAdminClient({ initialSite }: { initialSite: PublicSiteConfig }) {
 	const { t } = useI18n();
+	// What is saved, for the parts that describe the board as visitors get it.
+	const [savedSite, setSavedSite] = useState(initialSite);
 	return (
 		<div className="flex flex-col gap-6">
 			<Notice tone="info">{t("publicStatusAdmin.privacy")}</Notice>
-			<SiteSettings initial={initialSite} t={t} />
-			<NodePublication metrics={initialSite.metrics} t={t} />
+			<SiteSettings initial={initialSite} saved={savedSite} onSaved={setSavedSite} t={t} />
+			<NodePublication metrics={savedSite.metrics} t={t} />
 		</div>
 	);
 }

@@ -216,8 +216,8 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 					</div>
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
 						<span>{t("quickServicesPage.sources.type") + t("common.colon") + sourceTypeLabel(t, src.type)}</span>
-						<span>{t("quickServicesPage.sources.syncCount") +":" + String(src.syncCount)}</span>
-						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") + ":" + formatDateTime(src.lastSyncAt, locale)}</span>}
+						<span>{t("quickServicesPage.sources.syncCount") + t("common.colon") + String(src.syncCount)}</span>
+						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") + t("common.colon") + formatDateTime(src.lastSyncAt, locale)}</span>}
 					</div>
 					{src.lastSyncError && (
 						<div className="rounded bg-[var(--danger-bg)] px-2 py-1 text-xs leading-5 text-[var(--danger)]">{src.lastSyncError}</div>

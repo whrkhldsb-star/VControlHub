@@ -268,8 +268,8 @@ describe("server actions", () => {
 
     const result = await deleteServerAction(null, formData);
 
-    expect(result.error).toContain("files=4");
-    expect(result.error).toContain("scheduledTasks=1");
+    // In words: the sentence listed the fields of the count ("files=4, scheduledTasks=1").
+    expect(result.error).toBe("该 VPS 仍被业务数据引用，暂不能删除：文件 4 个、定时任务 1 个。请先迁移或移除这些内容。");
     expect(deleteServerProfileMock).not.toHaveBeenCalled();
   });
 

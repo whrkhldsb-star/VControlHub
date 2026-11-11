@@ -19,6 +19,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import type { FieldType, SectionDef } from "./field-schema";
 import { FieldRiskBadge } from "./settings-field-risk";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 import { IconChevronDown } from "@/components/nav-icons";
 import { Dialog } from "@/components/ui/dialog";
@@ -91,12 +92,18 @@ export function SaveButtonWithDiff({
   expanded,
   onToggleExpand,
   saving,
+  disabled = false,
+  error,
   onClick,
 }: {
   pendingChanges: PendingChange[];
   expanded: boolean;
   onToggleExpand: () => void;
   saving: boolean;
+  /** Another section is being saved. */
+  disabled?: boolean;
+  /** Why the last save of this section was refused. */
+  error?: string | null;
   onClick: () => void;
 }) {
   const { t } = useI18n();
@@ -105,6 +112,8 @@ export function SaveButtonWithDiff({
   const mediumCount = pendingChanges.filter((c) => c.riskLevel === "medium").length;
   return (
     <div className="pt-2 space-y-2" data-component="save-button-with-diff">
+      {/* By the button that was pressed. */}
+      {error ? <Notice tone="danger" compact>{error}</Notice> : null}
       <div className="flex flex-wrap items-center gap-2">
         {count > 0 && (
           <ActionButton
@@ -137,7 +146,7 @@ export function SaveButtonWithDiff({
         <ActionButton variant={highCount > 0 ? "danger" : "primary"}
           onClick={onClick}
           onMouseDown={(event) => event.preventDefault()}
-          disabled={saving}
+          disabled={saving || disabled}
           data-component="save-button">
           {saving ? t("settingsClient.saving") : t("settingsClient.save")}
         </ActionButton>

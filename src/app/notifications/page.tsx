@@ -8,7 +8,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
 
 export default async function NotificationsPage() {
-	const session = await requireSession();
+	const session = await requireSession("/notifications");
 	const locale = await getServerLocale();
 	const [notifications, unreadCount] = await Promise.all([
 		listUserNotifications(session.userId, { limit: 50 }),

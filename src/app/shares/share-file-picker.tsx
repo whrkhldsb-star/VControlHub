@@ -105,6 +105,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 	const [loading, setLoading] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState("");
+	const [loadFailed, setLoadFailed] = useState(false);
 	const [results, setResults] = useState<CreatedShare[]>([]);
 	const [copiedKey, setCopiedKey] = useState("");
 	const requestRef = useRef<AbortController | null>(null);
@@ -149,6 +150,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 		requestRef.current = controller;
 		setLoading(true);
 		setError("");
+		setLoadFailed(false);
 		try {
 			const params = buildFileListParams(nodeId, path);
 			if (page > 1) {
@@ -160,6 +162,10 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			setData(response);
 		} catch (err) {
 			if (requestRef.current !== controller) return;
+			// Nothing is known about this folder: neither the listing of the one before it nor "no items here",
+			// which under the reason said the opposite of it.
+			setData(null);
+			setLoadFailed(true);
 			setError(getErrorMessage(err, copyText.loadError));
 		} finally {
 			if (requestRef.current === controller) setLoading(false);
@@ -360,7 +366,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 								);
 							})}
 						</div>
-					) : (
+					) : loadFailed ? null : (
 						<EmptyState text={copyText.empty} />
 					)}
 					{data?.pagination ? <Pagination page={data.pagination.page} pageSize={data.pagination.pageSize} totalItems={data.pagination.totalItems} loading={loading || creating} onPageChange={setPage} /> : null}

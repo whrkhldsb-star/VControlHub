@@ -1,5 +1,5 @@
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { VpsBackupSection } from "../vps-backup-section";
@@ -89,6 +89,53 @@ describe("VpsBackupSection", () => {
     expect(screen.getByRole("button", { name: "Save schedule" })).toBeInTheDocument();
     expect(screen.getByLabelText("Cron Expression")).toHaveValue("0 3 * * *");
     expect(screen.getAllByLabelText("Custom paths (one per line, only for custom type)")[1]).toHaveValue("/srv/app");
+  });
+
+  it("shows a refused deletion in the dialog that asked for it", async () => {
+    // The dialog stays open over the section, and the reason was written to the section's notice behind it.
+    const fetchMock = vi.fn();
+    mockInitialLoad(fetchMock, [{ id: "sch-1", name: "Nightly", cronExpression: "0 3 * * *", backupType: "nginx-config", status: "ACTIVE", retentionDays: 7, lastRunAt: null, nextRunAt: null }]);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VpsBackupSection serverId="srv-1" canManage />, { locale: "en" });
+    await screen.findByText("Nightly");
+    fireEvent.click(screen.getByRole("button", { name: "Delete Nightly" }));
+    const dialog = screen.getByRole("dialog", { name: "Delete backup schedule" });
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "A backup of this schedule is still running" }, false));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm delete" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("A backup of this schedule is still running");
+    expect(screen.getAllByText("A backup of this schedule is still running")).toHaveLength(1);
+
+    // Opened again, the dialog does not carry the last refusal.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Nightly" }));
+    expect(within(screen.getByRole("dialog", { name: "Delete backup schedule" })).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("quotes the sentence of a refused backup, not the name of its error", async () => {
+    // Read by hand, a refusal showed its `error` field: "Forbidden" for a missing permission.
+    const fetchMock = vi.fn();
+    mockInitialLoad(fetchMock);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VpsBackupSection serverId="srv-1" canManage />, { locale: "en" });
+    await screen.findByText("No backup schedules");
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ code: "FORBIDDEN", error: "Forbidden", message: "Missing permission: server:backup" }, false));
+    fireEvent.click(screen.getByRole("button", { name: /Nginx Config/ }));
+    expect(await screen.findByText("Missing permission: server:backup")).toBeInTheDocument();
+    expect(screen.queryByText("Forbidden")).not.toBeInTheDocument();
+  });
+
+  it("lets the whole reason of a failed backup be read", async () => {
+    const reason = "tar: /var/lib/docker/volumes/app_data/_data: Cannot open: Permission denied\ntar: Exiting with failure status due to previous errors";
+    const fetchMock = vi.fn();
+    mockInitialLoad(fetchMock, [], [{ id: "rec-1", backupType: "docker-volumes", status: "FAILED", fileSize: null, localPath: null, offsiteKey: null, errorMessage: reason, createdAt: "2026-01-01T00:00:00Z", durationMs: 1200 }]);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VpsBackupSection serverId="srv-1" canManage />, { locale: "en" });
+    const line = await screen.findByText(/Cannot open: Permission denied/);
+    // One cut line with no way to the rest; now it wraps, and scrolls when it is long.
+    expect(line).not.toHaveClass("truncate");
+    expect(line).toHaveClass("whitespace-pre-wrap", "break-words", "overflow-y-auto");
   });
 
   it("uses accessible icon actions for completed records", async () => {

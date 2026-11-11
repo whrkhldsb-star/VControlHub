@@ -1,3 +1,4 @@
+import { firstSearchParam } from "@/lib/http/first-search-param";
 import { getPending2faCookieName } from "@/lib/auth/session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -28,11 +29,11 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 		redirect("/login?error=expired");
 	}
 
-	const rawNext = resolvedSearchParams.next ?? "/";
+	const rawNext = firstSearchParam(resolvedSearchParams.next) ?? "/";
 	// Same guard as /api/login: only same-origin relative paths (block open
 	// redirects, including the backslash `/\host` form).
 	const nextPath = safeRelativeRedirectPath(rawNext);
-	const error = resolveErrorMessage(locale, Array.isArray(resolvedSearchParams.error) ? resolvedSearchParams.error[0] : resolvedSearchParams.error);
+	const error = resolveErrorMessage(locale, firstSearchParam(resolvedSearchParams.error));
 
 	return (
 		<div className="relative flex min-h-screen items-center justify-center overflow-hidden text-[var(--text-primary)]">

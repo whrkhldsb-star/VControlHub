@@ -23,7 +23,6 @@ export type ServerActionState = {
   error?: string;
   success?: string;
   relatedStorageCount?: number;
-  deleteBlockerSummary?: string;
   hostKeySha256?: string;
   /** Windows agent bootstrap one-liner, shown once after issuing a token. */
   installCommand?: string;
@@ -519,11 +518,10 @@ async function deleteServerActionImpl(
     const blockers = getBlockingServerDeletionImpact(deletionImpact);
 
     if (blockers.length > 0) {
-      const dependencies = blockers.map(([name, count]) => `${name}=${count}`).join(", ");
+      const { describeServerDeletionBlockers } = await import("@/lib/server/service-deletion-impact");
       return {
         relatedStorageCount,
-        deleteBlockerSummary: dependencies,
-        error: tr("serversPage.action.deleteBlocked", { dependencies }),
+        error: tr("serversPage.action.deleteBlocked", { dependencies: describeServerDeletionBlockers(blockers, tr) }),
       } as ServerActionState;
     }
 

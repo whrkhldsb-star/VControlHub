@@ -100,7 +100,8 @@ export function BatchReviewToolbar({
 		initialState,
 	);
 
-	// Clear selection on successful batch
+	// Clear the selection and the comment after each reviewed batch. Keyed on the answer itself: on its
+	// sentence, a second batch that ended with the same words ("2 approved") left both in place.
 	useEffect(() => {
 		if (!state.success || state.error) return;
 		const timer = window.setTimeout(() => {
@@ -108,7 +109,14 @@ export function BatchReviewToolbar({
 			setComment("");
 		}, 0);
 		return () => window.clearTimeout(timer);
-	}, [state.success, state.error]);
+	}, [state]);
+
+	// Why the requests that were not reviewed were refused: the action answers per request, and only the
+	// count was shown ("1 approved, 1 failed").
+	const refusals = useMemo(
+		() => Array.from(new Set(Object.values(state.results ?? {}).filter((outcome) => outcome !== "ok"))),
+		[state.results],
+	);
 
 	function toggleAll() {
 		setSelected(allSelected ? new Set() : new Set(pendingIds));
@@ -155,6 +163,11 @@ export function BatchReviewToolbar({
 					<span data-tone="rose" className="text-[var(--danger)]">
 						{state.error}
 					</span>
+				)}
+				{refusals.length > 0 && (
+					<ul className="basis-full space-y-0.5 text-xs text-[var(--danger)]" role="alert">
+						{refusals.map((reason) => <li key={reason}>{reason}</li>)}
+					</ul>
 				)}
 			</div>
 
