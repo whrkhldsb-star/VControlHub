@@ -43,7 +43,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const response = await withApiCopyLocale(requestLocale(request), () => handleUpload(request, context));
+  const response = await withApiCopyLocale(await requestLocale(request), () => handleUpload(request, context));
   return withBaseSecurityHeaders(response, {
     https: isRequestHttps(request),
   });

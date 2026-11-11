@@ -85,16 +85,16 @@ function normalizeSettingValue(key: string, value: string) {
 		case "platform.logo":
 			return normalizeOptionalHttpUrl(key, value);
 		case "session.timeout":
-					return normalizeIntegerSetting(key, value, "Session timeout", 300, 2_592_000);
+			return normalizeIntegerSetting(key, value, t("backend.settings.label.sessionTimeout"), 300, 2_592_000);
 		case "password.minLength":
-					return normalizeIntegerSetting(key, value, "Password minimum length", 8, 128);
+			return normalizeIntegerSetting(key, value, t("backend.settings.label.passwordMinLength"), 8, 128);
 		case "password.requireUppercase":
 		case "password.requireNumber":
 		case "password.requireSpecial":
 		case "smtp.enabled":
 			return normalizeBooleanSetting(key, value);
 		case "smtp.port":
-					return normalizeIntegerSetting(key, value || "587", "SMTP port", 1, 65_535);
+			return normalizeIntegerSetting(key, value || "587", t("backend.settings.label.smtpPort"), 1, 65_535);
 		case "smtp.from": {
 			const trimmed = value.trim();
 			if (trimmed && !/^.+@.+\..+$/.test(trimmed)) {

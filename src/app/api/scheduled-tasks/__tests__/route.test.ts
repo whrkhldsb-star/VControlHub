@@ -184,7 +184,8 @@ describe("/api/scheduled-tasks audit coverage", () => {
     const post = async (body: Record<string, unknown>) => {
       const res = await route.POST(new Request("http://local/api/scheduled-tasks", {
         method: "POST",
-        headers: { "content-type": "application/json", cookie: "vps-locale=en" },
+        // One cookie, as a browser sends it: the header and the cookie store cannot disagree.
+        headers: { "content-type": "application/json", cookie: `vps-locale=${localeCookie.value}` },
         body: JSON.stringify(body),
       }));
       return { status: res.status, message: ((await res.json()) as { message: string }).message };

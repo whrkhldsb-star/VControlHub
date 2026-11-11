@@ -28,6 +28,8 @@
 import { z } from "zod";
 
 import { ValidationError } from "@/lib/errors";
+import { requestParseParams } from "@/lib/http/zod-locale";
+import { apiCopy } from "@/lib/i18n/api-copy";
 
 /**
  * Materialise a `URLSearchParams` into a plain object suitable for
@@ -78,23 +80,23 @@ export function zodIssueDetails(
     ?? [];
   const issues = rawIssues.map((i) => ({
     path: Array.isArray(i.path) ? i.path.join(".") : String(i.path ?? ""),
-    message: typeof i.message === "string" ? i.message : "Invalid value",
+    message: typeof i.message === "string" ? i.message : apiCopy("apiCopy.validation.invalidValue"),
   }));
-  const emptySummary =
-    kind === "query"
-      ? "Query parameter validation failed"
-      : "Request body validation failed";
-  const multiLabel =
-    kind === "query" ? "query parameter(s) failed validation" : "field(s) failed validation";
+  // The words around the issues follow the request's language like the issues themselves (zod-locale.ts).
+  const copy = (name: "failed" | "severalFailed", vars?: Record<string, string | number>) =>
+    apiCopy(`apiCopy.validation.${kind}.${name}`, vars);
   const summary =
     issues.length === 0
-      ? emptySummary
+      ? copy("failed")
       : issues.length === 1
         ? `${issues[0]!.path ? issues[0]!.path + ": " : ""}${issues[0]!.message}`
-        : `${issues.length} ${multiLabel}: ${issues
-            .slice(0, 3)
-            .map((i) => i.path || "?")
-            .join(", ")}${issues.length > 3 ? "…" : ""}`;
+        : copy("severalFailed", {
+            v0: issues.length,
+            v1: `${issues
+              .slice(0, 3)
+              .map((i) => i.path || "?")
+              .join(apiCopy("apiCopy.validation.listSeparator"))}${issues.length > 3 ? "…" : ""}`,
+          });
   return { summary, issues };
 }
 
@@ -104,7 +106,7 @@ export function parseSearchParams<S extends z.ZodTypeAny>(
 ): z.output<S> {
   const url = request instanceof URL ? request : new URL(request.url);
   const raw = searchParamsToObject(url.searchParams);
-  const parsed = schema.safeParse(raw);
+  const parsed = schema.safeParse(raw, requestParseParams());
   if (!parsed.success) {
     // Same {summary, issues} convention as withApiRoute body/query validation.
     const { summary, issues } = zodIssueDetails(parsed.error, "query");

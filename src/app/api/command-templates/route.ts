@@ -34,7 +34,7 @@ function templateActor(session: { userId?: string | null; roles?: string[] } | n
 
 export async function GET(request: Request) {
 	return withApiRoute(request, { permission: "command:read", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
-		const locale = requestLocale(request);
+		const locale = await requestLocale(request);
 		const templates = (await listTemplates(200, session)).map((row) => localizeBuiltinTemplate(row, (key) => translate(key, locale)));
 		const serialized = templates.map((t) => ({
 			id: t.id, name: t.name, description: t.description,

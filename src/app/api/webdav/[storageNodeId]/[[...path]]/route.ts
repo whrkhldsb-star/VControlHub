@@ -159,7 +159,7 @@ async function withParams(
   const params = await context.params;
   // The language of an answer's text, chosen as for an API client: what Accept-Language asks for, English
   // otherwise. With no language set the backend copy was mixed — one module's refusals Chinese, another's English.
-  const response = await withApiCopyLocale(requestLocale(request), () => dispatch(request, params));
+  const response = await withApiCopyLocale(await requestLocale(request), () => dispatch(request, params));
   return withBaseSecurityHeaders(response, {
     https: isRequestHttps(request),
   });

@@ -54,7 +54,7 @@ vi.mock("@/lib/http/api-guard", () => ({
       // so the mock has to wrap the throw in `apiCatch` to keep test
       // assertions stable. TR-034 R2.
       const { apiCatch } = await import("@/lib/http/api-error");
-      return apiCatch(e);
+      return apiCatch(e, 500, opts.errorMessage);
     }
   },
 }));
@@ -373,6 +373,18 @@ describe("POST /api/auth/2fa/recovery-codes", () => {
 
     expect(response.status).toBe(400);
     expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  // The fallback of this route was the one of the enable route: a database failure while replacing the
+  // codes of an account that already has two-factor on said "Failed to enable two-factor authentication".
+  it("names its own failure when the codes cannot be replaced", async () => {
+    verifyTotpMock.mockReturnValueOnce({ valid: true, timeStep: 12345678 });
+    prismaMock.user.updateMany.mockRejectedValue(new Error("connection lost"));
+
+    const response = await recoveryCodesRoute.POST(jsonRequest({ code: "123456" }));
+
+    expect(response.status).toBe(500);
+    expect(((await response.json()) as { message: string }).message).toBe("重新生成恢复码失败");
   });
 
   it("also accepts one of the current recovery codes", async () => {

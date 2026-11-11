@@ -12,6 +12,7 @@ const { mocks } = vi.hoisted(() => ({
     evaluateAlerts: vi.fn(),
     ensureDefaultAlertRules: vi.fn(),
     auditUserAction: vi.fn(),
+    getPlatformDefaults: vi.fn(),
   },
 }));
 
@@ -33,8 +34,12 @@ vi.mock("@/lib/health/service", () => ({
 vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.auditUserAction,
 }));
+vi.mock("@/lib/settings/platform-defaults", () => ({
+  getPlatformDefaults: mocks.getPlatformDefaults,
+}));
 
 const route = await import("../route");
+const { currentCopyLocale } = await import("@/lib/i18n/api-copy");
 
 const session = { userId: "u1", username: "alice", roles: ["admin"], currentTeamId: null };
 const request = (method = "GET") =>
@@ -64,6 +69,27 @@ describe("/api/alert-rules", () => {
     });
     mocks.deleteAlertRule.mockResolvedValue({ id: "rule1" });
     mocks.evaluateAlerts.mockResolvedValue(undefined);
+    mocks.getPlatformDefaults.mockResolvedValue({ locale: "zh", theme: "dark" });
+  });
+
+  // An evaluation opens incidents and sends mail, Telegram and webhook notices to people who did
+  // not start it: started by hand it has to word them as the worker's own evaluation does.
+  it.each([
+    ["en", "zh"],
+    ["zh", "en"],
+  ] as const)("evaluates in the platform's language (%s page, %s platform)", async (page, platform) => {
+    mocks.getPlatformDefaults.mockResolvedValue({ locale: platform, theme: "dark" });
+    let evaluatedIn: string | undefined;
+    mocks.evaluateAlerts.mockImplementation(async () => {
+      evaluatedIn = currentCopyLocale();
+    });
+
+    const response = await route.PUT(
+      new Request("http://local/api/alert-rules", { method: "PUT", headers: { cookie: `vps-locale=${page}` } }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(evaluatedIn).toBe(platform);
   });
 
   it("uses notification:manage rather than user:manage for alert rule access", async () => {

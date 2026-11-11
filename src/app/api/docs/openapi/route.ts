@@ -144,24 +144,27 @@ function buildOpenApiSpec(t: TFunction) {
           tags: [t("openapiSpec.tags.auth.name")],
           summary: t("openapiSpec.paths./login.post.summary"),
           security: [],
+          // The sign-in page's form post: no JSON body, and every outcome is a redirect.
           requestBody: {
             required: true,
             content: {
-              "application/json": {
+              "application/x-www-form-urlencoded": {
                 schema: {
                   type: "object",
                   required: ["username", "password"],
                   properties: {
                     username: { type: "string" },
                     password: { type: "string" },
+                    next: { type: "string", description: t("openapiSpec.paths./login.post.parameters.next") },
+                    remember: { type: "string", enum: ["on", "true", "1"], description: t("openapiSpec.paths./login.post.parameters.remember") },
                   },
                 },
               },
             },
           },
           responses: {
-            "200": { description: t("openapiSpec.paths./login.post.responses.200") },
-            "401": { description: t("openapiSpec.paths./login.post.responses.401") },
+            "303": { description: t("openapiSpec.paths./login.post.responses.303") },
+            "413": { description: t("openapiSpec.paths./login.post.responses.413") },
           },
         },
       },
@@ -229,10 +232,11 @@ function buildOpenApiSpec(t: TFunction) {
           security: [{ cookieAuth: [] }, { apiTokenAuth: [] }],
           parameters: [
             {
-              name: "id",
+              name: "serverId",
               in: "query",
+              required: true,
               schema: { type: "string" },
-              description: t("openapiSpec.paths./servers/monitor.get.parameters.id"),
+              description: t("openapiSpec.paths./servers/monitor.get.parameters.serverId"),
             },
           ],
           responses: { "200": { description: t("openapiSpec.paths./servers/monitor.get.responses.200") } },

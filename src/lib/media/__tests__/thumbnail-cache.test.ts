@@ -4,7 +4,11 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { configMock } = vi.hoisted(() => ({
-  configMock: { media: { thumbCacheDir: undefined as string | undefined } },
+  configMock: {
+    media: { thumbCacheDir: undefined as string | undefined, uploadTmpDir: undefined as string | undefined },
+    // No usable data directory: the cache falls back to the temp directory (see work-dirs.test.ts for the rest).
+    fileVersion: { dir: "/dev/null/file-versions" as string | undefined },
+  },
 }));
 
 vi.mock("@/lib/config/env", () => ({ config: configMock }));

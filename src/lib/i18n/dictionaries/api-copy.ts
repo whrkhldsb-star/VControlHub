@@ -1,5 +1,12 @@
 /** Typed API/backend copy. English remains stable outside a request locale. */
 export const en = {
+  "apiCopy.request.tooManyRequests": "Too many requests; please try again later",
+  "apiCopy.validation.invalidValue": "Invalid value",
+  "apiCopy.validation.listSeparator": ", ",
+  "apiCopy.validation.body.failed": "Request body validation failed",
+  "apiCopy.validation.body.severalFailed": "{v0} field(s) failed validation: {v1}",
+  "apiCopy.validation.query.failed": "Query parameter validation failed",
+  "apiCopy.validation.query.severalFailed": "{v0} query parameter(s) failed validation: {v1}",
   "apiCopy.publicStatus.loadFailed": "Failed to load the status board",
   "apiCopy.publicStatus.notFound": "Public node not found",
   "apiCopy.publicStatus.saveFailed": "Failed to save the status board settings",
@@ -413,6 +420,13 @@ export const en = {
 } as const;
 
 export const zh: Record<keyof typeof en, string> = {
+  "apiCopy.request.tooManyRequests": "请求过于频繁，请稍后再试",
+  "apiCopy.validation.invalidValue": "值无效",
+  "apiCopy.validation.listSeparator": "、",
+  "apiCopy.validation.body.failed": "请求内容未通过校验",
+  "apiCopy.validation.body.severalFailed": "{v0} 个字段未通过校验：{v1}",
+  "apiCopy.validation.query.failed": "查询参数未通过校验",
+  "apiCopy.validation.query.severalFailed": "{v0} 个查询参数未通过校验：{v1}",
   "apiCopy.publicStatus.loadFailed": "加载状态展示页失败",
   "apiCopy.publicStatus.notFound": "未找到该公开节点",
   "apiCopy.publicStatus.saveFailed": "保存状态展示页设置失败",

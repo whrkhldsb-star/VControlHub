@@ -185,6 +185,26 @@ describe("/api/settings audit coverage", () => {
     expect(String(chinese.error)).toBe("平台名称不能为空");
   });
 
+  // The setting's name inside the sentence was an English literal: a Chinese page read
+  // "Session timeout 必须在 300–2592000 之间".
+  it("names the setting in the language of the request too", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    const save = (language: string, body: Record<string, string>) => route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      // An address of its own: this file runs against the real limiter, 30 writes a minute per address.
+      headers: { "content-type": "application/json", cookie: `vps-locale=${language}`, "x-forwarded-for": "203.0.113.50" },
+      body: JSON.stringify(body),
+    })).then(async (response) => String((await response.json()).error));
+
+    expect(await save("zh", { "session.timeout": "10" })).toBe("会话超时 必须在 300–2592000 之间");
+    expect(await save("zh", { "password.minLength": "abc" })).toBe("密码最小长度 必须是数字");
+    expect(await save("zh", { "smtp.port": "70000" })).toBe("SMTP 端口 必须在 1–65535 之间");
+    expect(await save("en", { "session.timeout": "10" })).toBe("Session timeout must be between 300 and 2592000");
+    expect(await save("en", { "password.minLength": "abc" })).toBe("Minimum password length must be a number");
+    expect(await save("en", { "smtp.port": "70000" })).toBe("SMTP port must be between 1 and 65535");
+    vi.unstubAllEnvs();
+  });
+
   it("rejects invalid system setting values before persisting", async () => {
     const response = await route.PATCH(new Request("http://local/api/settings", {
       method: "PATCH",

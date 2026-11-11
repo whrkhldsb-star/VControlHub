@@ -6,7 +6,7 @@
  *   PENDING/UPLOADING → CANCELLED (client / server TTL)
  *   FINALIZING → FAILED (pre-write failure or retained outcome requiring review)
  *
- * Chunk storage lives in /tmp under UPLOAD_TMP_DIR/<sessionId>/chunk-N.
+ * Chunk storage lives in uploadTmpDir()/<sessionId>/chunk-N (@/lib/runtime/work-dirs).
  * On COMPLETED, chunks are concatenated into the final image buffer and
  * handed off to the existing image pipeline; on CANCELLED/expired, the temp
  * dir is removed.

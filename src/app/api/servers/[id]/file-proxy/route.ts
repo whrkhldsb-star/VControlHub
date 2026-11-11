@@ -60,6 +60,33 @@ function sshExecCredentials(server: SshExecServer) {
 
 const SSH_EXEC_TIMEOUT_MS = 15_000;
 
+/**
+ * A stored pid names the proxy only while the proxy lives. Once it has exited
+ * (a reboot, a kill by hand) the number is free for any other process, and the
+ * row keeps it. So nothing trusts the number alone: every check and every
+ * signal first reads the process's command line and goes on only when it is
+ * this route's script (`python3 /tmp/.vps_file_proxy_<id>.py`; the file is
+ * removed after the start, the command line keeps its name). `tr` rather than
+ * `grep -a`: BusyBox grep has no -a.
+ */
+function isProxyProcess(pid: number) {
+  return `tr '\\0' ' ' < /proc/${pid}/cmdline 2>/dev/null | grep -q '.vps_file_proxy_'`;
+}
+
+/** Prints `proxy_running` when `pid` is the proxy, `not_running` otherwise. */
+function proxyLivenessCommand(pid: number) {
+  return `${isProxyProcess(pid)} && echo proxy_running || echo not_running`;
+}
+
+/** Ends the proxy if `pid` still is one, and removes what a start may have left. */
+function proxyStopCommand(pid: number) {
+  return `if ${isProxyProcess(pid)}; then kill ${pid} 2>/dev/null; fi; rm -f /tmp/.vps_file_proxy_*.py /tmp/.vps_file_proxy_*.out /tmp/.vps_proxy_out`;
+}
+
+function proxyIsLive(result: { stdout: string; exitCode: number }) {
+  return result.exitCode === 0 && result.stdout.trim() === "proxy_running";
+}
+
 // Execute a remote command with an independent command deadline. SSH
 // readyTimeout only covers authentication; a remote `ps`, `tail`, or shell
 // command can otherwise keep the HTTP request open indefinitely.
@@ -192,24 +219,18 @@ export async function GET(
         return NextResponse.json({ status: "stopped", proxy: null });
       }
 
-      // 检查代理进程是否还在运行
-      const checkResult = await sshExec(
-        server,
-        `ps -p ${proxy.pid} -o pid= 2>/dev/null || echo "not_running"`,
-      );
-
       const expired =
         !proxy.expiresAt || proxy.expiresAt.getTime() <= Date.now();
+      // Whether the proxy itself is still there (not merely some process with its old number).
       const isRunning =
         !expired &&
-        checkResult.stdout.trim() !== "not_running" &&
-        checkResult.exitCode === 0;
+        proxy.pid !== null &&
+        proxyIsLive(await sshExec(server, proxyLivenessCommand(proxy.pid)));
 
-      if (expired && proxy.pid) {
-        await sshExec(
-          server,
-          `kill ${proxy.pid} 2>/dev/null; rm -f /tmp/.vps_file_proxy_*.py /tmp/.vps_file_proxy_*.out /tmp/.vps_proxy_out`,
-        );
+      // Once, at expiry: the entry is marked stopped below, and a stopped
+      // entry is left alone (this ran on every status call, for good).
+      if (expired && proxy.pid && proxy.status === "running") {
+        await sshExec(server, proxyStopCommand(proxy.pid));
       }
 
       if ((!isRunning || expired) && proxy.status === "running") {
@@ -293,13 +314,9 @@ export async function POST(
           },
         });
 
-        if (existing && existing.status === "running") {
+        if (existing && existing.status === "running" && existing.pid !== null) {
           // 检查是否真的在运行
-          const check = await sshExec(
-            server,
-            `ps -p ${existing.pid} -o pid= 2>/dev/null || echo "not_running"`,
-          );
-          if (check.stdout.trim() !== "not_running" && check.exitCode === 0) {
+          if (proxyIsLive(await sshExec(server, proxyLivenessCommand(existing.pid)))) {
             return NextResponse.json({
               status: "running",
               proxy: {
@@ -493,11 +510,10 @@ export async function DELETE(
           include: { sshKey: true, storageNode: true },
         });
 
+        // Whatever the entry says: a proxy that is still alive is stopped, and
+        // a number that now belongs to another process is not signalled.
         if (server && proxy.pid) {
-          await sshExec(
-            server,
-            `kill ${proxy.pid} 2>/dev/null; rm -f /tmp/.vps_file_proxy_*.py /tmp/.vps_file_proxy_*.out /tmp/.vps_proxy_out`,
-          );
+          await sshExec(server, proxyStopCommand(proxy.pid));
         }
 
         await prisma.serverFileProxy.update({

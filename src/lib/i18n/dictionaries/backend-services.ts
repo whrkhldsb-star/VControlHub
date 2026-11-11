@@ -281,6 +281,9 @@ export const zh: Record<string, string> = {
 	"backend.audit.export.details": "详情",
 
 	"backend.settings.mustBeBetween": "{label} 必须在 {min}–{max} 之间",
+	"backend.settings.label.sessionTimeout": "会话超时",
+	"backend.settings.label.passwordMinLength": "密码最小长度",
+	"backend.settings.label.smtpPort": "SMTP 端口",
 	"backend.settings.mustBeBoolean": "{key} 必须为 true 或 false",
 	"backend.settings.logoUrlInvalid": "Logo URL 仅支持 http(s) 或站内路径",
 	"backend.settings.platformDefaultLocaleInvalid": "默认语言只能是 zh 或 en",
@@ -1104,6 +1107,9 @@ export const en: Record<string, string> = {
 	"backend.audit.export.details": "Details",
 
 	"backend.settings.mustBeBetween": "{label} must be between {min} and {max}",
+	"backend.settings.label.sessionTimeout": "Session timeout",
+	"backend.settings.label.passwordMinLength": "Minimum password length",
+	"backend.settings.label.smtpPort": "SMTP port",
 	"backend.settings.mustBeBoolean": "{key} must be true or false",
 	"backend.settings.logoUrlInvalid": "Logo URL only supports http(s) or an internal path",
 	"backend.settings.platformDefaultLocaleInvalid": "The default language must be zh or en",

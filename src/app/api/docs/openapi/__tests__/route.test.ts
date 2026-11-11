@@ -97,4 +97,23 @@ describe("GET /api/docs/openapi", () => {
       expect(body.paths[path].get.security).toContainEqual({ apiTokenAuth: [] });
     }
   });
+
+  // The two entries a client could not follow: the monitor route reads `serverId` (and refuses a request
+  // without it) where the spec said an optional `id`; sign-in takes a form post and always answers with a
+  // redirect where the spec said a JSON body and 200/401.
+  it("documents the monitor query and the sign-in form as the routes read them", async () => {
+    const body = await (await GET(new Request("http://local/api/docs/openapi"))).json();
+
+    expect(body.paths["/servers/monitor"].get.parameters).toEqual([
+      expect.objectContaining({ name: "serverId", in: "query", required: true }),
+    ]);
+
+    const login = body.paths["/login"].post;
+    expect(Object.keys(login.requestBody.content)).toEqual(["application/x-www-form-urlencoded"]);
+    const form = login.requestBody.content["application/x-www-form-urlencoded"].schema;
+    expect(form.required).toEqual(["username", "password"]);
+    expect(Object.keys(form.properties)).toEqual(["username", "password", "next", "remember"]);
+    expect(Object.keys(login.responses)).toEqual(["303", "413"]);
+    expect(login.responses["303"].description).not.toBe("openapiSpec.paths./login.post.responses.303");
+  });
 });

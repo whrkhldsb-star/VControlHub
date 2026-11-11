@@ -86,10 +86,10 @@ export async function GET(request: Request) {
     request,
     {
       permission: "command:read",
-      errorMessage: t("api.serverError", requestLocale(request)),
+      errorMessage: t("api.serverError", await requestLocale(request)),
     },
     async ({ session }) => {
-      const locale = requestLocale(request);
+      const locale = await requestLocale(request);
       const tasks = await listScheduledTasks(200, session);
       const serialized = tasks.map((task) => ({
         id: task.id,
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPostSchema,
       errorStatus: 400,
-      errorMessage: t("api.creationFailed", requestLocale(request)),
+      errorMessage: t("api.creationFailed", await requestLocale(request)),
     },
     async ({ session, body: data }) => {
       const locale = await getServerLocale();
@@ -181,7 +181,7 @@ export async function PATCH(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPatchSchema,
       errorStatus: 400,
-      errorMessage: t("api.updateFailed", requestLocale(request)),
+      errorMessage: t("api.updateFailed", await requestLocale(request)),
     },
     async ({ session, body: data }) => {
       const locale = await getServerLocale();
@@ -241,7 +241,7 @@ export async function DELETE(request: Request) {
       permission: "command:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: t("api.deleteFailed", requestLocale(request)),
+      errorMessage: t("api.deleteFailed", await requestLocale(request)),
     },
     async ({ session }) => {
       const { id } = parseSearchParams(request, idQuerySchema);

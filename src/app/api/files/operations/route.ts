@@ -116,7 +116,7 @@ export async function POST(request: Request) {
         .map((entry) => entry.id);
       const payload = {
         ...body,
-        locale: requestLocale(request),
+        locale: await requestLocale(request),
         fileEntryIds: ids,
         requestedFileEntryIds: body.fileEntryIds,
         names: Object.fromEntries(

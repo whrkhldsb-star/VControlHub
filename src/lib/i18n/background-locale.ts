@@ -10,8 +10,9 @@
  */
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
+import { getPlatformDefaults } from "@/lib/settings/platform-defaults";
 
-import { setBackgroundCopyLocale } from "./api-copy";
+import { setBackgroundCopyLocale, withApiCopyLocale } from "./api-copy";
 
 const logger = createLogger("background-locale");
 
@@ -43,4 +44,16 @@ export async function startBackgroundCopyLocaleSync(): Promise<() => void> {
 	const timer = setInterval(() => void syncBackgroundCopyLocale(), REFRESH_MS);
 	timer.unref?.();
 	return () => clearInterval(timer);
+}
+
+/**
+ * Run `action` in the platform's language instead of the request's: for work a
+ * request starts but other people read, in the web process (which has no
+ * background language of its own). An alert evaluation started by hand opens
+ * incidents and sends mail, Telegram and webhook notices exactly as the
+ * worker's does; they were worded in the language of whoever clicked.
+ */
+export async function withPlatformCopyLocale<T>(action: () => Promise<T>): Promise<T> {
+	const { locale } = await getPlatformDefaults();
+	return withApiCopyLocale(locale, action);
 }

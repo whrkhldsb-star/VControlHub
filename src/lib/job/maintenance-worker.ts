@@ -30,6 +30,7 @@ import { pruneLogTables } from "@/lib/data-retention/log-retention";
 import { reconcileStaleRunningDownloadTasks } from "@/lib/downloads/reconcile";
 import { recoverInterruptedFinalizations } from "@/lib/upload/finalization-lease";
 import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
+import { sweepOrphanedUploadStaging } from "@/lib/upload/staging";
 import { pruneThumbnailCache } from "@/lib/media/thumbnail-cache";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
@@ -342,6 +343,13 @@ async function tick(reason: string) {
       const swept = await sweepExpiredMediaUploadSessions();
       if (swept > 0) {
         logger.info("swept expired media upload sessions", { workerId: WORKER_ID, swept });
+      }
+    });
+    // Staging is on disk and shared with the web process: what no session owns any more stays until removed here.
+    await runStep("sweep-orphaned-upload-staging", async () => {
+      const swept = await sweepOrphanedUploadStaging();
+      if (swept.directories > 0 || swept.files > 0) {
+        logger.info("removed orphaned upload staging data", { workerId: WORKER_ID, ...swept });
       }
     });
 

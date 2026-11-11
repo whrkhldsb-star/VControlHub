@@ -39,7 +39,8 @@ import {
   writeStorageFileFromLocalPath,
 } from "@/lib/storage/file-content";
 import { readStorageUploadMaxBytes } from "@/lib/upload/limits";
-import { UPLOAD_TMP_DIR } from "@/lib/upload/service";
+import { uploadTmpDir } from "@/lib/runtime/work-dirs";
+import { WEBDAV_PUT_STAGING_PREFIX } from "@/lib/upload/staging";
 import {
   createFileEntry,
 } from "@/lib/storage/service-entries";
@@ -296,8 +297,8 @@ export async function handleWebDavPut(
   // and cost that much memory per concurrent upload. The limit is the storage
   // upload setting, the same as every other upload path.
   const maxBytes = await readStorageUploadMaxBytes();
-  await mkdir(UPLOAD_TMP_DIR, { recursive: true });
-  const temporaryPath = path.join(UPLOAD_TMP_DIR, `webdav-put-${randomUUID()}.tmp`);
+  await mkdir(uploadTmpDir(), { recursive: true, mode: 0o700 });
+  const temporaryPath = path.join(uploadTmpDir(), `${WEBDAV_PUT_STAGING_PREFIX}${randomUUID()}.tmp`);
   let size = 0;
   const tooLarge = () => new Response(
     t("backend.storageHardening.webdav.payloadTooLarge", { max: `${Math.round(maxBytes / (1024 * 1024))}MB` }),

@@ -27,8 +27,8 @@ const MAX_VERIFY_LOGIN_BODY_BYTES = 4 * 1024;
 
 export async function POST(request: Request) {
 	// Not behind withApiRoute, so its messages had no language and were English for everyone: they get the
-	// sign-in page's (the locale cookie, then Accept-Language, then English), as an API route's do.
-	return withApiCopyLocale(requestLocale(request), () => verifyLogin(request));
+	// sign-in page's (the locale cookie, then the platform default), as an API route's do.
+	return withApiCopyLocale(await requestLocale(request), () => verifyLogin(request));
 }
 
 async function verifyLogin(request: Request) {

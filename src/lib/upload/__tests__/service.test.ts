@@ -8,7 +8,7 @@
  *
  * Tests cover: init / get / append / complete / cancel / sweep / error
  * codes. Real filesystem is used for chunk files via a tmp dir under
- * UPLOAD_TMP_DIR.
+ * the upload staging directory.
  */
 import * as fs from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -209,8 +209,9 @@ vi.mock("../limits", async (importOriginal) => ({
 	freeBytesOn: vi.fn(async () => freeBytes.value),
 }));
 
+import { uploadTmpDir } from "@/lib/runtime/work-dirs";
+
 import {
-	UPLOAD_TMP_DIR,
 	appendMediaUploadChunk,
 	assembleMediaUploadChunks,
 	assembleMediaUploadToFile,
@@ -228,7 +229,7 @@ const TEST_USER = "user_55c";
 
 async function cleanTestDir() {
 	try {
-		await fs.rm(UPLOAD_TMP_DIR, { recursive: true, force: true });
+		await fs.rm(uploadTmpDir(), { recursive: true, force: true });
 	} catch {
 		// best-effort
 	}
@@ -460,7 +461,7 @@ describe("assembleMediaUploadChunks", () => {
 			userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10,
 		});
 		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10) });
-		await fs.writeFile(`${UPLOAD_TMP_DIR}/${view.id}/chunk-0`, Buffer.alloc(5));
+		await fs.writeFile(`${uploadTmpDir()}/${view.id}/chunk-0`, Buffer.alloc(5));
 		await expect(assembleMediaUploadChunks(view.id, TEST_USER)).rejects.toMatchObject({ code: "chunk_size_unexpected" });
 	});
 
@@ -471,7 +472,7 @@ describe("assembleMediaUploadChunks", () => {
 		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 1) });
 		store.sessions.get(view.id)!.status = "FINALIZING";
 		await expect(appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 2) })).rejects.toMatchObject({ code: "session_not_active" });
-		expect(await fs.readFile(`${UPLOAD_TMP_DIR}/${view.id}/chunk-0`)).toEqual(Buffer.alloc(10, 1));
+		expect(await fs.readFile(`${uploadTmpDir()}/${view.id}/chunk-0`)).toEqual(Buffer.alloc(10, 1));
 	});
 
 	it("does not replace an existing chunk when finalization wins after the initial state read", async () => {
@@ -490,7 +491,7 @@ describe("assembleMediaUploadChunks", () => {
 
 		const retry = appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 2) });
 		await expect(retry).rejects.toMatchObject({ code: "session_not_active" });
-		expect(await fs.readFile(`${UPLOAD_TMP_DIR}/${view.id}/chunk-0`)).toEqual(Buffer.alloc(10, 1));
+		expect(await fs.readFile(`${uploadTmpDir()}/${view.id}/chunk-0`)).toEqual(Buffer.alloc(10, 1));
 	});
 
 	it("does not resurrect cancellation that races the chunk status update", async () => {
@@ -774,7 +775,7 @@ describe("streamed upload assembly", () => {
 		const view = await initMediaUploadSession({ userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10 });
 		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10) });
 		store.sessions.get(view.id)!.status = "FINALIZING";
-		await fs.writeFile(`${UPLOAD_TMP_DIR}/${view.id}/chunk-0`, Buffer.alloc(11));
+		await fs.writeFile(`${uploadTmpDir()}/${view.id}/chunk-0`, Buffer.alloc(11));
 		await expect(assembleMediaUploadToFile(view.id, TEST_USER)).rejects.toMatchObject({ code: "chunk_size_unexpected" });
 		expect(await readSessionTempDir(view.id)).toEqual(["chunk-0"]);
 	});

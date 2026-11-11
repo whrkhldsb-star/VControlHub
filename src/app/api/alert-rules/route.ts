@@ -13,7 +13,7 @@ import {
 } from "@/lib/alert/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { evaluateAlerts } from "@/lib/health/service";
-import { withApiRoute } from "@/lib/http/api-guard";
+import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
@@ -22,6 +22,7 @@ import { ValidationError } from "@/lib/errors";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
 import { MAX_NON_FILE_FORM_BYTES } from "@/lib/http/request-body";
+import { withPlatformCopyLocale } from "@/lib/i18n/background-locale";
 import { t } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
@@ -216,7 +217,7 @@ export async function POST(request: Request) {
   // (a chunked post would otherwise buffer unbounded bytes in formData()).
   const rejected = isFormSubmission
     ? rejectOversizedFormBody(request, MAX_NON_FILE_FORM_BYTES, {
-        tooLargeMessage: t("backend.request.bodyTooLarge"),
+        tooLargeMessage: t("backend.request.bodyTooLarge", await requestLocale(request)),
       })
     : null;
   if (rejected) return rejected;
@@ -328,7 +329,8 @@ export async function PUT(request: Request) {
       // lifecycle — opening/escalating incidents, paging their on-call, and
       // running their playbooks. teamWhere({}) for a global manager keeps the
       // fleet-wide behaviour; the background worker still calls it with no arg.
-      await evaluateAlerts({ ruleWhere: teamWhere(session) });
+      // Worded for the people it notifies, not for whoever started it.
+      await withPlatformCopyLocale(() => evaluateAlerts({ ruleWhere: teamWhere(session) }));
       await auditUserAction(session.userId, "alert_rule.evaluate", {
         manual: true,
       }, undefined, session.currentTeamId);

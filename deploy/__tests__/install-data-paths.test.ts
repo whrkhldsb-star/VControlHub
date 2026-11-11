@@ -32,7 +32,9 @@ describe.skipIf(process.platform === "win32")("installer data directories and th
 
 	it("renders them into the units that write there", async () => {
 		const install = await read("deploy/install.sh");
-		expect(install).toContain('custom_data_read_write_paths "${STORAGE_ROOT:-}" "${BACKUP_DIR:-}" "${ARIA2_RPC_DIR:-}" "${FILE_VERSION_DIR:-}"');
+		// The upload staging directory and the thumbnail cache are not the installer's to choose, but a
+		// location named in the environment file has to be writable for the web process and the worker alike.
+		expect(install).toContain('custom_data_read_write_paths "${STORAGE_ROOT:-}" "${BACKUP_DIR:-}" "${ARIA2_RPC_DIR:-}" "${FILE_VERSION_DIR:-}" "$(env_file_value MEDIA_UPLOAD_TMP_DIR)" "$(env_file_value MEDIA_THUMB_CACHE_DIR)"');
 		expect(install).toContain('custom_data_read_write_paths "${ARIA2_RPC_DIR:-}"');
 		for (const unit of ["next", "worker"]) {
 			const template = await read(`deploy/systemd/vcontrolhub-${unit}.service.example`);

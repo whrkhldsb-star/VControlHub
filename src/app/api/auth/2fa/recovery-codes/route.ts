@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: t("api.auth.twoFactor.enableFailed", locale),
+      errorMessage: t("api.auth.twoFactor.recoveryCodesFailed", locale),
       bodySchema: regenerateSchema,
     },
     async ({ session, body }) => {

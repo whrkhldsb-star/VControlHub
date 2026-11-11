@@ -18,11 +18,15 @@ import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/ht
 import { createLogger } from "@/lib/logging";
 import { containsNul } from "@/lib/text/strip-nul";
 import { t } from "@/lib/i18n/service-translations";
-import { localizeApiCopy, withApiCopyLocale, type Locale } from "@/lib/i18n/api-copy";
+import { localizeApiCopy, withApiCopyLocale } from "@/lib/i18n/api-copy";
+import { requestLocale } from "@/lib/http/request-locale";
+import { requestParseParams } from "@/lib/http/zod-locale";
 import {
   readRequestBodyBuffer,
   RequestBodyTooLargeError,
 } from "@/lib/http/request-body";
+
+export { requestLocale };
 
 const apiLogger = createLogger("api");
 
@@ -143,13 +147,6 @@ function methodMayHaveBody(method: string): boolean {
   return m === "POST" || m === "PUT" || m === "PATCH" || m === "DELETE";
 }
 
-export function requestLocale(request: Request): Locale {
-  const cookie = request.headers?.get?.("cookie") ?? "";
-  if (/(?:^|;\s*)vps-locale=en(?:;|$)/.test(cookie)) return "en";
-  if (/(?:^|;\s*)vps-locale=zh(?:;|$)/.test(cookie) || /^zh(?:-|$)/i.test(request.headers?.get?.("accept-language") ?? "")) return "zh";
-  return "en";
-}
-
 export async function withApiRoute<TBody = unknown, TQuery = unknown>(
   request: Request,
   options: AuthedRouteOptions<TBody, TQuery>,
@@ -170,7 +167,7 @@ export async function withApiRoute(
   options: ApiRouteOptions<unknown, unknown>,
   handler: (context: never) => Promise<Response>,
 ): Promise<Response> {
-  const locale = requestLocale(request);
+  const locale = await requestLocale(request);
   return withApiCopyLocale(locale, () => runApiRoute(
     request,
     { ...options, errorMessage: options.errorMessage ? localizeApiCopy(options.errorMessage, locale) : options.errorMessage },
@@ -279,7 +276,7 @@ async function runApiRoute<TBody = unknown, TQuery = unknown>(
           throw new ValidationError(apiCopy("apiCopy.request.body.is.not.valid.json.a7ac0ee3"), { field: "body" });
         }
       }
-      const parsed = options.bodySchema.safeParse(raw);
+      const parsed = options.bodySchema.safeParse(raw, requestParseParams());
       if (!parsed.success) {
         const { summary, issues } = zodIssueDetails(parsed.error, "body");
         throw new ValidationError(summary, { field: "body", issues });
@@ -292,7 +289,7 @@ async function runApiRoute<TBody = unknown, TQuery = unknown>(
       const url = new URL(request.url);
       const obj = searchParamsToObject(url.searchParams);
       if (containsNul(obj)) throw new ValidationError(t("backend.http.requestContainsNul"), { field: "query" });
-      const parsed = options.querySchema.safeParse(obj);
+      const parsed = options.querySchema.safeParse(obj, requestParseParams());
       if (!parsed.success) {
         const { summary, issues } = zodIssueDetails(parsed.error, "query");
         throw new ValidationError(summary, { field: "query", issues });

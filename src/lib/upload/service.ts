@@ -1,11 +1,9 @@
-import { config } from "@/lib/config/env";
-
 /**
  * TR-009 55c: Media resumable upload — service.
  *
  * Manages MediaUploadSession lifecycle: init / get / append chunk /
- * complete / cancel / sweep expired. Chunks live under the platform temp
- * root in UPLOAD_TMP_DIR/<sessionId>/chunk-N.
+ * complete / cancel / sweep expired. Chunks live in
+ * uploadTmpDir()/<sessionId>/chunk-N (see @/lib/runtime/work-dirs).
  *
  * Image processing (sharp / thumbnail / webp / avif + ImageUpload row
  * creation) is the API route's job — this service exposes
@@ -31,7 +29,7 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
-import { tempRoot } from "@/lib/runtime/platform-paths";
+import { uploadTmpDir } from "@/lib/runtime/work-dirs";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 
@@ -43,11 +41,6 @@ import {
 	type MediaUploadSessionView,
 } from "./types";
 
-/** Where chunk files are kept between init and complete. */
-export const UPLOAD_TMP_DIR =
-	config.media.uploadTmpDir ||
-	path.join(tempRoot(), "vcontrolhub-media-uploads");
-
 class MediaUploadError extends Error {
 	readonly code: string;
 	constructor(code: string, message: string) {
@@ -58,7 +51,7 @@ class MediaUploadError extends Error {
 }
 
 function sessionDir(sessionId: string): string {
-	return path.join(UPLOAD_TMP_DIR, sessionId);
+	return path.join(uploadTmpDir(), sessionId);
 }
 
 function chunkPath(sessionId: string, index: number): string {
@@ -75,7 +68,7 @@ function ttlExpiry(ttlMs: number): Date {
  * disk that filled since, wrote on until the volume was full — the one the database and the logs usually share.
  */
 export async function assertUploadDiskReserve(bytes: number): Promise<void> {
-	const freeBytes = await freeBytesOn(UPLOAD_TMP_DIR);
+	const freeBytes = await freeBytesOn(uploadTmpDir());
 	if (freeBytes !== null && freeBytes < bytes + UPLOAD_DISK_RESERVE_BYTES) {
 		throw new MediaUploadError(
 			"insufficient_storage",
@@ -163,8 +156,8 @@ export async function initMediaUploadSession(
 	}
 	// Admission: refuse an upload the temp volume cannot hold instead of
 	// failing it hours later with ENOSPC (and filling the disk on the way).
-	await mkdir(UPLOAD_TMP_DIR, { recursive: true }).catch(() => undefined);
-	const freeBytes = await freeBytesOn(UPLOAD_TMP_DIR);
+	await mkdir(uploadTmpDir(), { recursive: true, mode: 0o700 }).catch(() => undefined);
+	const freeBytes = await freeBytesOn(uploadTmpDir());
 	if (freeBytes !== null && freeBytes < requiredUploadHeadroom(input.totalSize)) {
 		throw new MediaUploadError(
 			"insufficient_storage",

@@ -2,7 +2,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { withApiRoute } from "@/lib/http/api-guard";
+import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   createBackupRecord,
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   // up front (formData() would otherwise buffer unbounded bytes).
   const rejected = isFormSubmission
     ? rejectOversizedFormBody(request, MAX_NON_FILE_FORM_BYTES, {
-        tooLargeMessage: t("backend.request.bodyTooLarge"),
+        tooLargeMessage: t("backend.request.bodyTooLarge", await requestLocale(request)),
       })
     : null;
   if (rejected) return rejected;

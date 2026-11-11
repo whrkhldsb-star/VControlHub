@@ -147,6 +147,10 @@ export async function POST(
       if (!server) {
         return Response.json({ error: t("apiServersReload.serverNotFound", locale) }, { status: 404 });
       }
+      // systemctl and docker compose are sent as written; a Windows node has neither (detect-os refuses alike).
+      if (server.operatingSystem === "WINDOWS") {
+        return Response.json({ error: t("backend.server.linuxOnly", locale) }, { status: 400 });
+      }
 
       let composeProjectDir = "";
       if (body.kind === "compose") {

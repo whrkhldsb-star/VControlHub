@@ -1128,7 +1128,9 @@ install_systemd() {
 		quick_service_read_write_paths=" $(quick_service_host_paths | sed 's|^|-|' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
 	fi
 	local custom_data_paths aria2_data_paths
-	custom_data_paths="$(custom_data_read_write_paths "${STORAGE_ROOT:-}" "${BACKUP_DIR:-}" "${ARIA2_RPC_DIR:-}" "${FILE_VERSION_DIR:-}")"
+	# The last two are the application's to place (beside the file history by default); named in the
+	# environment file, they must be writable for the web process and the worker, which share them.
+	custom_data_paths="$(custom_data_read_write_paths "${STORAGE_ROOT:-}" "${BACKUP_DIR:-}" "${ARIA2_RPC_DIR:-}" "${FILE_VERSION_DIR:-}" "$(env_file_value MEDIA_UPLOAD_TMP_DIR)" "$(env_file_value MEDIA_THUMB_CACHE_DIR)")"
 	[ -z "${custom_data_paths}" ] || quick_service_read_write_paths="${quick_service_read_write_paths} ${custom_data_paths}"
 	aria2_data_paths="$(custom_data_read_write_paths "${ARIA2_RPC_DIR:-}")"
 	[ -z "${aria2_data_paths}" ] || aria2_data_paths=" ${aria2_data_paths}"
