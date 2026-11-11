@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 
-const { prismaMocks, txMocks, loggerMocks } = vi.hoisted(() => ({
+const { prismaMocks, txMocks, loggerMocks, announceMock } = vi.hoisted(() => ({
+	announceMock: vi.fn(),
 	prismaMocks: { findMany: vi.fn(), transaction: vi.fn() },
 	txMocks: {
 		updateMany: vi.fn(),
@@ -18,6 +19,10 @@ vi.mock("@/lib/db", () => ({
 	},
 }));
 vi.mock("@/lib/logging", () => ({ createLogger: () => loggerMocks }));
+vi.mock("@/lib/notification/service", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/lib/notification/service")>()),
+	announceStoredNotifications: announceMock,
+}));
 
 import { computeSlaDueAt, escalateBreachedTickets, isSlaBreached, getSlaStatus, SLA_DURATIONS_MS } from "../sla";
 
@@ -27,12 +32,13 @@ describe("ticket SLA service", () => {
 		txMocks.updateMany.mockResolvedValue({ count: 1 });
 		txMocks.createEscalation.mockResolvedValue({});
 		txMocks.findManagers.mockResolvedValue([]);
-		txMocks.createNotifications.mockResolvedValue({ count: 0 });
+		txMocks.createNotifications.mockResolvedValue([]);
+		announceMock.mockResolvedValue(undefined);
 		prismaMocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
 			ticket: { updateMany: txMocks.updateMany },
 			ticketEscalation: { create: txMocks.createEscalation },
 			user: { findMany: txMocks.findManagers },
-			notification: { createMany: txMocks.createNotifications },
+			notification: { createManyAndReturn: txMocks.createNotifications },
 		}));
 	});
 
@@ -163,6 +169,69 @@ describe("ticket SLA service", () => {
 			expect(txMocks.createNotifications).not.toHaveBeenCalled();
 		});
 
+		describe("telling the managers", () => {
+			const dueAt = new Date("2026-01-01T00:00:00Z");
+			const ticket = { id: "ticket-1", teamId: "team-1", status: "OPEN", priority: "NORMAL", assigneeId: null, title: "Disk", slaDueAt: dueAt, escalatedAt: null };
+			const stored = [
+				{ id: "n1", userId: "mgr-1", title: "t", message: "m", messageCode: "ticketSlaEscalated", messageParams: {}, actionUrl: "/tickets/ticket-1", teamId: "team-1", createdAt: dueAt },
+				{ id: "n2", userId: "mgr-2", title: "t", message: "m", messageCode: "ticketSlaEscalated", messageParams: {}, actionUrl: "/tickets/ticket-1", teamId: "team-1", createdAt: dueAt },
+			];
+			const tx = {
+				ticket: { updateMany: txMocks.updateMany },
+				ticketEscalation: { create: txMocks.createEscalation },
+				user: { findMany: txMocks.findManagers },
+				notification: { createManyAndReturn: txMocks.createNotifications },
+			};
+
+			beforeEach(() => {
+				prismaMocks.findMany.mockResolvedValue([ticket]);
+				txMocks.findManagers.mockResolvedValue([{ id: "mgr-1" }, { id: "mgr-2" }]);
+				txMocks.createNotifications.mockResolvedValue(stored);
+			});
+
+			it("announces their notices to the open pages, once the escalation is committed", async () => {
+				// Written with one insert inside the transaction, they reached no page:
+				// no toast, and the badge kept its old number until a reload.
+				let announcedBeforeCommit = false;
+				prismaMocks.transaction.mockImplementationOnce(async (callback: (client: unknown) => unknown) => {
+					const result = await callback(tx);
+					announcedBeforeCommit = announceMock.mock.calls.length > 0;
+					return result;
+				});
+
+				await expect(escalateBreachedTickets()).resolves.toBe(1);
+
+				expect(txMocks.createNotifications).toHaveBeenCalledWith(
+					expect.objectContaining({
+						data: [
+							expect.objectContaining({ userId: "mgr-1", type: "ticket_escalation", teamId: "team-1", actionUrl: "/tickets/ticket-1", messageCode: "ticketSlaEscalated" }),
+							expect.objectContaining({ userId: "mgr-2", type: "ticket_escalation" }),
+						],
+					}),
+				);
+				expect(announcedBeforeCommit).toBe(false);
+				expect(announceMock).toHaveBeenCalledTimes(1);
+				expect(announceMock).toHaveBeenCalledWith(stored);
+			});
+
+			it("announces nothing for an escalation that did not commit", async () => {
+				prismaMocks.transaction.mockImplementationOnce(async (callback: (client: unknown) => unknown) => {
+					await callback(tx);
+					throw new Error("could not serialize access");
+				});
+
+				await expect(escalateBreachedTickets()).rejects.toThrow("Failed to escalate 1 of 1 ticket(s): ticket-1");
+
+				expect(announceMock).not.toHaveBeenCalled();
+			});
+
+			it("counts the escalation even when the announcement cannot be delivered", async () => {
+				announceMock.mockRejectedValueOnce(new Error("bus down"));
+
+				await expect(escalateBreachedTickets()).resolves.toBe(1);
+			});
+		});
+
 		it("processes the remaining tickets but rejects the sweep when one transaction fails", async () => {
 			const dueAt = new Date("2026-01-01T00:00:00Z");
 			prismaMocks.findMany.mockResolvedValue([
@@ -175,7 +244,7 @@ describe("ticket SLA service", () => {
 					ticket: { updateMany: txMocks.updateMany },
 					ticketEscalation: { create: txMocks.createEscalation },
 					user: { findMany: txMocks.findManagers },
-					notification: { createMany: txMocks.createNotifications },
+					notification: { createManyAndReturn: txMocks.createNotifications },
 				}));
 
 			await expect(escalateBreachedTickets()).rejects.toThrow("Failed to escalate 1 of 2 ticket(s): ticket-failed");

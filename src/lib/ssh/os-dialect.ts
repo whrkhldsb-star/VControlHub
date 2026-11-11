@@ -55,6 +55,8 @@ export interface OsReleaseInfo {
   idLike: string;
   name: string;
   version: string;
+  /** VERSION_ID: the bare release number, e.g. "7", "9.4", "2023". */
+  versionId: string;
   versionCodename: string;
   prettyName: string;
 }
@@ -173,9 +175,23 @@ export function parseOsRelease(raw: string): OsReleaseInfo {
     idLike: (kv.ID_LIKE ?? "").toLowerCase(),
     name: kv.NAME ?? "",
     version: kv.VERSION ?? "",
+    versionId: kv.VERSION_ID ?? "",
     versionCodename: kv.VERSION_CODENAME ?? "",
     prettyName: kv.PRETTY_NAME ?? "",
   };
+}
+
+/**
+ * dnf arrived with release 8 of RHEL, CentOS and Oracle Linux; 7 and older
+ * have yum only. Amazon Linux 1 (2018.03) and 2 use yum, 2023 and later dnf.
+ * An unreadable release number keeps dnf, as for every current release.
+ */
+function rhelFamilyPackageManager(id: string, info: OsReleaseInfo): PackageManager {
+  const major = Number.parseInt(info.versionId || info.version, 10);
+  if (!Number.isFinite(major)) return "dnf";
+  if (id === "amzn") return major >= 2022 ? "dnf" : "yum";
+  if (id === "rhel" || id === "centos" || id === "ol") return major < 8 ? "yum" : "dnf";
+  return "dnf";
 }
 
 /**
@@ -192,9 +208,7 @@ export function dialectFromOsRelease(info: OsReleaseInfo): OsDialect {
     return { ...DEBIAN_PRESET, distroName: info.prettyName || info.name, detectedAt: null };
   }
   if (id === "rhel" || id === "centos" || id === "rocky" || id === "almalinux" || id === "fedora" || id === "ol" || id === "amzn") {
-    // Amazon Linux 2 uses yum, newer uses dnf
-    const pm: PackageManager = id === "amzn" && info.version.startsWith("2") ? "yum" : "dnf";
-    return { ...RHEL_PRESET, packageManager: pm, distroName: info.prettyName || info.name, detectedAt: null };
+    return { ...RHEL_PRESET, packageManager: rhelFamilyPackageManager(id, info), distroName: info.prettyName || info.name, detectedAt: null };
   }
   if (id === "alpine") {
     return { ...ALPINE_PRESET, distroName: info.prettyName || info.name, detectedAt: null };

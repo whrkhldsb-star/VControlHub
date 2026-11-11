@@ -401,7 +401,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.toc.ai.subtitle": "知识库召回",
 	// ── fields ──
 	"settingsClient.field.platform.defaultLocale.label": "默认语言",
-	"settingsClient.field.platform.defaultLocale.helper": "未选择过语言的访客（含登录页）看到的语言；用户自己的选择优先。",
+	"settingsClient.field.platform.defaultLocale.helper": "未选择过语言的访客（含登录页）看到的语言；用户自己的选择优先。告警邮件、Telegram 与 Webhook 通知、后台任务的错误信息等没有访客语言可循的文字也用这种语言，保存后约一分钟内生效。",
 	"settingsClient.field.platform.defaultTheme.label": "默认主题",
 	"settingsClient.field.platform.defaultTheme.helper": "未选择过主题的访客看到的主题；用户自己的选择优先。",
 	"settingsClient.option.locale.zh": "中文",

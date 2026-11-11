@@ -36,6 +36,7 @@ export const zh: Record<string, string> = {
 	"backend.sshTerminal.shellExited": "Shell 已退出（退出码 {code}）。点击“重连”开启新的会话。",
 	"backend.sshTerminal.shellKilled": "Shell 被信号 {signal} 结束。点击“重连”开启新的会话。",
 	"backend.sshTerminal.shellCreationFailed": "创建 Shell 失败：{message}",
+	"backend.sshTerminal.connectionError": "SSH 连接错误：{message}",
 	"backend.ssh.uploadStalled": "SFTP 上传停滞（{seconds} 秒无数据传输），已中止",
 	"backend.ssh.downloadStalled": "SFTP 下载停滞（{seconds} 秒无数据传输），已中止",
 
@@ -82,6 +83,7 @@ export const en: Record<string, string> = {
 	"backend.sshTerminal.shellExited": "The shell exited (code {code}). Click Reconnect to start a new session.",
 	"backend.sshTerminal.shellKilled": "The shell was ended by signal {signal}. Click Reconnect to start a new session.",
 	"backend.sshTerminal.shellCreationFailed": "Shell creation failed: {message}",
+	"backend.sshTerminal.connectionError": "SSH connection error: {message}",
 	"backend.ssh.uploadStalled": "SFTP upload stalled (no data for {seconds}s); aborted",
 	"backend.ssh.downloadStalled": "SFTP download stalled (no data for {seconds}s); aborted",
 

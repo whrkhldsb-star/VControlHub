@@ -11,6 +11,7 @@ import { createCommandRequest, cancelCommandRequest } from "@/lib/command/servic
 import { commandRequestTitle } from "@/lib/command/schema";
 import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { recordJobEvent } from "@/lib/job/events";
+import { createNotification } from "@/lib/notification/service";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
 import type { PlaybookRecord, PlaybookStep, PlaybookStepResult } from "./types";
@@ -348,14 +349,15 @@ async function dispatchStep(input: {
       // Dispatch-before-persist: mark the step as dispatched BEFORE the side
       // effect so a crash after create() is recognized on reclaim.
       await markSideEffectDispatched(input, step.id);
-      await prisma.notification.create({
-        data: {
-          userId: step.config.recipientUserId,
-          type: "playbook",
-          title: step.config.subject,
-          message: step.config.body,
-          teamId: input.teamId,
-        },
+      // Through the notification service, which also tells the recipient's
+      // open pages: a bare insert showed no toast and left the badge unchanged
+      // until the page was reloaded.
+      await createNotification({
+        userId: step.config.recipientUserId,
+        type: "playbook",
+        title: step.config.subject,
+        message: step.config.body,
+        teamId: input.teamId,
       });
       return `notification sent to ${step.config.recipientUserId}`;
     }

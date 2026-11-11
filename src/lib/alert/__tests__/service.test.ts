@@ -35,6 +35,7 @@ vi.mock("@/lib/settings/service", () => ({
 }));
 
 const { createAlertRule, updateAlertRule, testAlertRule, ensureDefaultAlertRules } = await import("../service");
+const { withApiCopyLocale } = await import("@/lib/i18n/api-copy");
 const settings = await import("@/lib/settings/service");
 
 describe("alert service", () => {
@@ -109,11 +110,21 @@ describe("alert service", () => {
 		expect(sendAlertEmailMock).toHaveBeenCalledWith(expect.objectContaining({
 			title: expect.stringMatching(/Test alert|测试告警|backend\.alert\.testTitle|rule/i),
 			message: expect.any(String),
-			contextLines: expect.arrayContaining(["Rule: Email rule", "Metric: cpu_usage"]),
+			contextLines: expect.arrayContaining(["规则：Email rule", "指标：cpu_usage"]),
 		}));
 		expect(result.deliveries).toEqual([
-			expect.objectContaining({ channel: "email", status: "sent", message: "Email test sent to 1 recipients" }),
+			expect.objectContaining({ channel: "email", status: "sent", message: "测试邮件已发送给 1 位收件人" }),
 		]);
+
+		// The result is shown on the rule's page: it is worded in the language of the request, as the in-app and
+		// webhook lines already were (these were fixed English).
+		const english = await withApiCopyLocale("en", () => testAlertRule("rule_email"));
+		expect(english.deliveries).toEqual([
+			expect.objectContaining({ channel: "email", status: "sent", message: "Test email sent to 1 recipients" }),
+		]);
+		expect(sendAlertEmailMock).toHaveBeenLastCalledWith(expect.objectContaining({
+			contextLines: expect.arrayContaining(["Rule: Email rule", "Metric: cpu_usage"]),
+		}));
 	});
 
 	it("sends alert test via Telegram channel and reports sent/failed delivery", async () => {
@@ -143,10 +154,10 @@ describe("alert service", () => {
 
 		expect(sendAlertTelegramMock).toHaveBeenCalledWith(expect.objectContaining({
 			title: expect.stringMatching(/Test alert|测试告警|backend\.alert\.testTitle|rule/i),
-			contextLines: expect.arrayContaining(["Rule: Telegram rule", "Metric: cpu_usage"]),
+			contextLines: expect.arrayContaining(["规则：Telegram rule", "指标：cpu_usage"]),
 		}));
 		expect(result.deliveries).toEqual([
-			expect.objectContaining({ channel: "telegram", status: "sent", message: "Telegram test sent to 2 targets" }),
+			expect.objectContaining({ channel: "telegram", status: "sent", message: "Telegram 测试消息已发送到 2 个会话" }),
 		]);
 	});
 
@@ -285,6 +296,10 @@ describe("alert service", () => {
 				}),
 			}),
 		);
+		// Named in the language of the request that seeds them (they were fixed English).
+		expect(prismaMock.alertRule.create.mock.calls.map(([args]) => args.data.name)).toEqual([
+			"服务器离线", "CPU 使用率过高（≥ 90%）", "内存使用率过高（≥ 90%）", "磁盘使用率过高（≥ 90%）",
+		]);
 
 		prismaMock.alertRule.count.mockResolvedValueOnce(2);
 		const skipped = await ensureDefaultAlertRules({
@@ -361,6 +376,34 @@ describe("alert service", () => {
 		);
 	});
 
+});
+
+describe("editing what a rule watches", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		prismaMock.alertRule.update.mockResolvedValue({ id: "rule1" });
+	});
+
+	it("forgets how long each server has matched when the metric changes", async () => {
+		// The stamps say since when a server breached the old metric: a server that then breached the new one fired
+		// at once, without the rule's duration.
+		prismaMock.alertRule.findUnique.mockResolvedValue({ id: "rule1", metric: "cpu_usage" });
+
+		await updateAlertRule("rule1", { metric: "mem_usage" });
+
+		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+			where: { id: "rule1" },
+			data: { metric: "mem_usage", matchState: {}, lastMatchedAt: null },
+		});
+	});
+
+	it("keeps them for an edit that leaves the metric as it is", async () => {
+		prismaMock.alertRule.findUnique.mockResolvedValue({ id: "rule1", metric: "cpu_usage" });
+
+		await updateAlertRule("rule1", { metric: "cpu_usage", threshold: 95 });
+
+		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({ where: { id: "rule1" }, data: { metric: "cpu_usage", threshold: 95 } });
+	});
 });
 
 describe("binding playbooks to a rule", () => {

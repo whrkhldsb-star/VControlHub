@@ -14,9 +14,9 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/command/service", () => ({ createCommandRequest: mocks.createCommandRequest }));
 vi.mock("@/lib/job/events", () => ({ recordJobEvent: mocks.recordJobEvent }));
+vi.mock("@/lib/notification/service", () => ({ createNotification: mocks.notificationCreate }));
 vi.mock("@/lib/db", () => ({
 	prisma: {
-		notification: { create: mocks.notificationCreate },
 		playbookRun: { updateMany: mocks.playbookRunUpdateMany },
 		commandRequest: { findUnique: mocks.commandRequestFindUnique },
 		commandTarget: { count: vi.fn(async () => 0) },
@@ -142,14 +142,14 @@ describe("executePlaybookChain", () => {
 		});
 		expect(results[0]?.status).toBe("ok");
 		expect(mocks.teamMemberFindUnique).not.toHaveBeenCalled();
+		// Through the notification service: it stores the row and tells the
+		// recipient's open pages (a bare insert showed no toast and no badge).
 		expect(mocks.notificationCreate).toHaveBeenCalledWith({
-			data: {
-				userId: "u1",
-				type: "playbook",
-				title: "hi",
-				message: "world",
-				teamId: null,
-			},
+			userId: "u1",
+			type: "playbook",
+			title: "hi",
+			message: "world",
+			teamId: null,
 		});
 	});
 
@@ -176,9 +176,7 @@ describe("executePlaybookChain", () => {
 			where: { teamId_userId: { teamId: "team1", userId: "u1" } },
 			select: { userId: true },
 		});
-		expect(mocks.notificationCreate).toHaveBeenCalledWith({
-			data: expect.objectContaining({ userId: "u1", teamId: "team1" }),
-		});
+		expect(mocks.notificationCreate).toHaveBeenCalledWith(expect.objectContaining({ userId: "u1", teamId: "team1" }));
 	});
 
 	it("fails send_notification when recipient is outside run team scope", async () => {

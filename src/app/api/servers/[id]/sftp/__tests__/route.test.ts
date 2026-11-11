@@ -441,6 +441,27 @@ describe("/api/servers/[id]/sftp/upload", () => {
     expect(mocks.uploadFile).not.toHaveBeenCalled();
   });
 
+  it("answers in the language of the page that sent the upload", async () => {
+    // The route guards itself (multipart cannot go through withApiRoute), so it
+    // ran outside the request's language: its own refusals were English and the
+    // service's Chinese, whatever language the page was in.
+    const send = (locale: string, fields: Parameters<typeof multipartRequest>[0]) =>
+      uploadRoute.POST(multipartRequest(fields, { csrf: { cookie: `${CSRF_TOKEN}; vps-locale=${locale}`, header: CSRF_TOKEN } }), { params: params() });
+
+    expect((await (await send("zh", { path: "/root" })).json()).message).toBe("表单数据缺少 file 字段");
+    expect((await (await send("en", { path: "/root" })).json()).message).toBe("Missing 'file' field in form data");
+
+    // A refusal worded by the service layer follows the page too.
+    const { ForbiddenError } = await import("@/lib/errors");
+    const { t } = await import("@/lib/i18n/service-translations");
+    mocks.assertSftpPathAccess.mockImplementation(async () => {
+      throw new ForbiddenError(t("backend.sftp.permissionDenied"));
+    });
+    const file = { name: "a.txt", content: "content" };
+    expect((await (await send("zh", { file, path: "/root" })).json()).message).toBe("远程主机拒绝访问");
+    expect((await (await send("en", { file, path: "/root" })).json()).message).toBe("Permission denied on remote host");
+  });
+
   it("keeps a path-ACL rejection as 403 instead of a 500", async () => {
     const { ForbiddenError } = await import("@/lib/errors");
     mocks.assertSftpPathAccess.mockRejectedValue(new ForbiddenError("outside home"));

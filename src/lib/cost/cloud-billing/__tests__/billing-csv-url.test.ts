@@ -37,7 +37,26 @@ describe("billingCsvUrl live path", () => {
 			currency: "USD",
 		});
 		expect(result.items.length).toBe(1);
-		expect(result.warnings[0]).toMatch(/billingCsvUrl/);
+		// Where the rows came from is not a warning: every successful import
+		// from a URL was shown as a warning toast carrying that note.
+		expect(result.warnings).toEqual([]);
+	});
+
+	it("reads a month without charges as an empty import, with nothing to warn about", async () => {
+		// The note counted as a warning, and "a warning and nothing imported"
+		// is saved as a partial sync: the account card showed the note as its error.
+		vi.spyOn(directAccessUrl, "assertPublicBaseUrlResolvesPublic").mockResolvedValue("https://example.com");
+		vi.stubGlobal("fetch", vi.fn(async () => new Response("date,amount,category\n2026-06-30,9.99,vps\n", { status: 200 })));
+
+		const result = await fetchCloudBillingItems({
+			provider: "aws",
+			credentials: { accessKeyId: "AKIA", secretAccessKey: "secret" },
+			config: { billingCsvUrl: "https://example.com/bill.csv" },
+			month: "2026-07",
+			currency: "USD",
+		});
+
+		expect(result).toMatchObject({ items: [], warnings: [], rejectedRows: 0 });
 	});
 
 	it("blocks localhost SSRF", async () => {

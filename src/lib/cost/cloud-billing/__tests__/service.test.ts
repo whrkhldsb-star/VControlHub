@@ -612,6 +612,20 @@ describe("cloud billing service", () => {
     expect(listed[0]?.lastSyncImported).toBe(2);
   });
 
+  it("notes where an entry came from in the importer's language when the file has no note", async () => {
+    const account = await createCloudBillingAccount(
+      { name: "csv-notes", provider: "generic_csv", currency: "USD", credentials: {}, config: { sampleCsv: "date,amount\n2026-07-01,10.00\n" } },
+      null,
+    );
+
+    await syncCloudBillingAccount(account.id, "2026-07");
+    expect(Array.from(entryStore.values())[0]?.notes).toBe("云账单导入：csv-notes 2026-07");
+
+    const { withApiCopyLocale } = await import("@/lib/i18n/api-copy");
+    await withApiCopyLocale("en", () => syncCloudBillingAccount(account.id, "2026-07"));
+    expect(Array.from(entryStore.values())[0]?.notes).toBe("Cloud billing import: csv-notes 2026-07");
+  });
+
   it("mock provider path imports probe item", async () => {
     const account = await createCloudBillingAccount(
       {

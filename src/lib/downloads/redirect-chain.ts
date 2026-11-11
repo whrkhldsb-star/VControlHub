@@ -14,6 +14,8 @@
 import { isIP } from "node:net";
 import { Agent, request } from "undici";
 
+import { t } from "@/lib/i18n/service-translations";
+
 import { assertDownloadSourceUrlSafe, type DownloadSourceResolution } from "./source-url";
 
 export const MAX_DOWNLOAD_REDIRECTS = 5;
@@ -32,7 +34,7 @@ export async function resolveDownloadRedirects(
 	let current = rawUrl;
 	for (let hop = 0; ; hop++) {
 		const safe = await assertDownloadSourceUrlSafe(current);
-		if (!safe.ok) return { ok: false, reason: hop === 0 ? safe.reason : `Redirect target rejected: ${safe.reason}` };
+		if (!safe.ok) return { ok: false, reason: hop === 0 ? safe.reason : t("apiDownloads.source.redirectRefused", { reason: safe.reason }) };
 		// Magnet links have no HTTP redirect chain.
 		if (!safe.resolution) return { ok: true, url: current };
 		const resolution = safe.resolution;
@@ -45,11 +47,11 @@ export async function resolveDownloadRedirects(
 			return { ok: true, url: current, resolution };
 		}
 		if (!location) return { ok: true, url: current, resolution };
-		if (hop >= maxRedirects) return { ok: false, reason: "Download URL redirects too many times" };
+		if (hop >= maxRedirects) return { ok: false, reason: t("apiDownloads.source.tooManyRedirects") };
 		try {
 			current = new URL(location, current).toString();
 		} catch {
-			return { ok: false, reason: "Download URL redirects to an invalid location" };
+			return { ok: false, reason: t("apiDownloads.source.redirectInvalid") };
 		}
 	}
 }

@@ -111,15 +111,33 @@ describe("sanitizeRemotePath", () => {
   });
 
   it("rejects empty string", () => {
-    expect(() => sanitizeRemotePath("")).toThrow("non-empty");
+    expect(() => sanitizeRemotePath("")).toThrow("路径不能为空");
   });
 
   it("rejects null bytes", () => {
-    expect(() => sanitizeRemotePath("/root\0/evil")).toThrow("null bytes");
+    expect(() => sanitizeRemotePath("/root\0/evil")).toThrow("路径包含空字节");
   });
 
   it("rejects paths exceeding 4096 chars", () => {
-    expect(() => sanitizeRemotePath("/" + "a".repeat(4097))).toThrow("maximum length");
+    expect(() => sanitizeRemotePath("/" + "a".repeat(4097))).toThrow("路径过长");
+  });
+
+  it("refuses a bad path or name as invalid input, in the caller's language", async () => {
+    // Plain Errors: the request answered 500 "operation failed" for what the
+    // caller sent (a name with a backslash, a path past the limit).
+    const { ValidationError } = await import("@/lib/errors");
+    const { withApiCopyLocale } = await import("@/lib/i18n/api-copy");
+    for (const refuse of [
+      () => sanitizeRemotePath(""),
+      () => sanitizeRemotePath("/root\0/evil"),
+      () => sanitizeRemotePath("/" + "a".repeat(4097)),
+      () => sanitizeFileName(""),
+      () => sanitizeFileName("foo\\bar"),
+      () => sanitizeFileName("a".repeat(256)),
+    ]) {
+      expect(refuse).toThrow(ValidationError);
+      expect(() => withApiCopyLocale("en", refuse)).toThrow(/^[\x20-\x7e]+$/);
+    }
   });
 
   it("accepts standard absolute paths", () => {
@@ -135,18 +153,18 @@ describe("sanitizeRemotePath", () => {
 
 describe("sanitizeFileName", () => {
   it("rejects empty string", () => {
-    expect(() => sanitizeFileName("")).toThrow("non-empty");
+    expect(() => sanitizeFileName("")).toThrow("文件名不能为空");
   });
 
   it("rejects path separators", () => {
-    expect(() => sanitizeFileName("foo/bar")).toThrow("Invalid filename");
-    expect(() => sanitizeFileName("foo\\..\\bar")).toThrow("Invalid filename");
-    expect(() => sanitizeFileName("foo\\bar")).toThrow("Invalid filename");
+    expect(() => sanitizeFileName("foo/bar")).toThrow("文件名不能包含路径分隔符或空字节");
+    expect(() => sanitizeFileName("foo\\..\\bar")).toThrow("文件名不能包含路径分隔符或空字节");
+    expect(() => sanitizeFileName("foo\\bar")).toThrow("文件名不能包含路径分隔符或空字节");
   });
 
   it("rejects . and .. as whole-segment traversal names", () => {
-    expect(() => sanitizeFileName(".")).toThrow("Invalid filename");
-    expect(() => sanitizeFileName("..")).toThrow("Invalid filename");
+    expect(() => sanitizeFileName(".")).toThrow("文件名不能包含路径分隔符或空字节");
+    expect(() => sanitizeFileName("..")).toThrow("文件名不能包含路径分隔符或空字节");
   });
 
   it("accepts legitimate filenames that merely contain '..' as a substring", () => {
@@ -158,11 +176,11 @@ describe("sanitizeFileName", () => {
   });
 
   it("rejects null bytes", () => {
-    expect(() => sanitizeFileName("file\0.txt")).toThrow("Invalid filename");
+    expect(() => sanitizeFileName("file\0.txt")).toThrow("文件名不能包含路径分隔符或空字节");
   });
 
   it("rejects names exceeding 255 chars", () => {
-    expect(() => sanitizeFileName("a".repeat(256))).toThrow("maximum length");
+    expect(() => sanitizeFileName("a".repeat(256))).toThrow("文件名过长");
   });
 
   it("accepts valid filenames", () => {

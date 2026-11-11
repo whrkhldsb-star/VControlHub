@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { withApiCopyLocale } from "../api-copy";
+import { setBackgroundCopyLocale, withApiCopyLocale } from "../api-copy";
 import { serviceTranslations, t } from "../service-translations";
 
 const KEY = "backend.webdav.destinationExistsAndOverwriteIsF";
@@ -17,5 +17,18 @@ describe("service t() locale", () => {
 
 	it("lets an explicit locale win inside a request", () => {
 		expect(withApiCopyLocale("en", () => t(KEY, "zh"))).toBe(serviceTranslations.zh[KEY]);
+	});
+
+	it("speaks the process's language outside a request once one is set", () => {
+		// The worker on an English-default platform: alert mail was Chinese.
+		setBackgroundCopyLocale("en");
+		try {
+			expect(t(KEY)).toBe(serviceTranslations.en[KEY]);
+			expect(withApiCopyLocale("zh", () => t(KEY))).toBe(serviceTranslations.zh[KEY]);
+			expect(t(KEY, "zh")).toBe(serviceTranslations.zh[KEY]);
+		} finally {
+			setBackgroundCopyLocale(undefined);
+		}
+		expect(t(KEY)).toBe(serviceTranslations.zh[KEY]);
 	});
 });

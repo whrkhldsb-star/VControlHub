@@ -11,6 +11,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { createStickyModifiers, type KeyAction, type Modifier, type ModifierStates } from "@/lib/rdp/sticky-modifiers";
 import { createTouchGestures, type GestureOutput, type TouchPoint } from "@/lib/rdp/touch-gestures";
+import { RDP_STATUS_IDLE_LIMIT, RDP_STATUS_TIME_LIMIT } from "@/lib/rdp/status";
 import { clampView, panBy as panViewBy, revealPoint, viewTransform, zoomAround, type ViewState } from "@/lib/rdp/view-transform";
 import { cn } from "@/lib/ui/cn";
 import { createRdpTunnel, rdpTicketError, rdpWebSocketUrl } from "./rdp-tunnel";
@@ -28,9 +29,14 @@ const LOGIN_REFUSED_ERRORS: Record<number, string> = { 0x0301: "rdp.error.creden
  * inside Windows (0), taken over by another connection to the same account
  * (0x0209), the idle limit (0x020a), or ended by an administrator or the
  * session time limit (0x020b). Reconnecting would sign the account back in,
- * or take the session back from whoever has it now.
+ * or take the session back from whoever has it now. The gateway's own idle
+ * and session-time limits end a desktop the same way.
  */
-const SESSION_ENDED_ERRORS: Record<number, string> = { 0x0000: "rdp.error.sessionEnded", 0x0209: "rdp.error.sessionConflict", 0x020a: "rdp.error.sessionIdle", 0x020b: "rdp.error.sessionEnded" };
+const SESSION_ENDED_ERRORS: Record<number, string> = {
+	0x0000: "rdp.error.sessionEnded", 0x0209: "rdp.error.sessionConflict", 0x020a: "rdp.error.sessionIdle", 0x020b: "rdp.error.sessionEnded",
+	// The platform's own limits (settings → runtime): reconnecting at once would undo them.
+	[RDP_STATUS_IDLE_LIMIT]: "rdp.error.idleLimit", [RDP_STATUS_TIME_LIMIT]: "rdp.error.timeLimit",
+};
 /** Guacamole keysyms for the SAS (secure attention sequence) shortcut. */
 const KEYSYM_CTRL = 0xffe3, KEYSYM_ALT = 0xffe9, KEYSYM_DELETE = 0xffff;
 /** Guacamole keysyms of the two Shift keys. */

@@ -25,7 +25,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a deleted c
     if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|_ci/.test(database.pathname)) {
       throw new Error("requires an isolated loopback audit/test database");
     }
-    await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "not-a-login-hash" } });
+    // A platform administrator: holds ticket:manage for every customer.
+    const adminRole = await prisma.role.upsert({ where: { key: "admin" }, update: {}, create: { key: "admin", name: "admin" } });
+    await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "not-a-login-hash", roles: { create: { roleId: adminRole.id } } } });
     await prisma.team.create({ data: { id: live.team, slug: live.team, name: live.team } });
     await prisma.team.create({ data: { id: gone.team, slug: gone.team, name: gone.team, deletedAt: new Date() } });
     for (const { team, server } of [live, gone]) {
@@ -70,6 +72,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a deleted c
     const tickets = await prisma.ticket.findMany({ where: { createdBy: prefix }, select: { teamId: true, escalatedAt: true } });
     expect(tickets.find((ticket) => ticket.teamId === live.team)?.escalatedAt).not.toBeNull();
     expect(tickets.find((ticket) => ticket.teamId === gone.team)?.escalatedAt).toBeNull();
+    // One stored notice per manager, for the live customer's ticket only.
+    const notices = await prisma.notification.findMany({ where: { userId: prefix }, select: { type: true, teamId: true, actionUrl: true, messageCode: true } });
+    expect(notices).toEqual([{ type: "ticket_escalation", teamId: live.team, actionUrl: `/tickets/${live.team}-ticket`, messageCode: "ticketSlaEscalated" }]);
   });
 
   it("stops serving a deleted customer's public share links", async () => {

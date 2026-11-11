@@ -2,29 +2,35 @@ import { Agent, fetch as undiciFetch, type Dispatcher } from "undici";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
+import { t } from "@/lib/i18n/service-translations";
 import { recordDelivery } from "@/lib/monitoring/runtime-metrics";
 import { isBlockedIpAddress } from "@/lib/security/ip-blocklist";
 
 const BLOCKED_HOSTS = new Set(["localhost", "localhost.localdomain"]);
 
+/**
+ * Why a webhook URL is refused, worded where it is decided: the reason is
+ * shown when an alert rule, an ITSM connection, a playbook step or a WebDAV
+ * endpoint is saved, and kept as the reason a delivery failed.
+ */
 export function validateWebhookUrlSyntax(value: string) {
 	let url: URL;
 	try {
 		url = new URL(value);
 	} catch {
-		return { ok: false as const, error: "Webhook URL format is invalid" };
+		return { ok: false as const, error: t("backend.webhookUrl.invalid") };
 	}
-	if (url.protocol !== "https:") return { ok: false as const, error: "Webhook URL must use https://" };
-	if (url.username || url.password) return { ok: false as const, error: "Webhook URL must not contain username or password" };
+	if (url.protocol !== "https:") return { ok: false as const, error: t("backend.webhookUrl.httpsRequired") };
+	if (url.username || url.password) return { ok: false as const, error: t("backend.webhookUrl.noCredentials") };
 	const hostname = url.hostname.toLowerCase().replace(/^\[(.*)\]$/, "$1");
 	if (BLOCKED_HOSTS.has(hostname) || hostname.endsWith(".localhost")) {
-		return { ok: false as const, error: "Webhook URL must not point to local or intranet addresses" };
+		return { ok: false as const, error: t("backend.webhookUrl.localAddress") };
 	}
 	if (isIP(hostname) && isBlockedIpAddress(hostname)) {
-		return { ok: false as const, error: "Webhook URL must not point to local or intranet addresses" };
+		return { ok: false as const, error: t("backend.webhookUrl.localAddress") };
 	}
 	if (hostname.endsWith(".internal") || hostname.endsWith(".local") || hostname.endsWith(".lan")) {
-		return { ok: false as const, error: "Webhook URL must not point to internal domains" };
+		return { ok: false as const, error: t("backend.webhookUrl.internalDomain") };
 	}
 	return { ok: true as const, url: url.toString() };
 }
@@ -36,10 +42,10 @@ export async function assertWebhookUrlSafeForServerFetch(value: string) {
 	try {
 		const addresses = await lookup(hostname, { all: true, verbatim: true });
 		if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
-			return { ok: false as const, error: "Webhook URL DNS resolved to a local or intranet address" };
+			return { ok: false as const, error: t("backend.webhookUrl.dnsLocal") };
 		}
 	} catch {
-		return { ok: false as const, error: "Webhook URL DNS resolution failed" };
+		return { ok: false as const, error: t("backend.webhookUrl.dnsFailed") };
 	}
 	return syntax;
 }
@@ -122,7 +128,7 @@ export async function fetchWebhookSafely(url: string, init: Omit<Dispatcher.Requ
 	const addresses = await lookup(parsed.hostname, { all: true, verbatim: true });
 	if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
 		finish(false);
-		return { ok: false as const, error: "Webhook URL DNS resolved to a local or intranet address" };
+		return { ok: false as const, error: t("backend.webhookUrl.dnsLocal") };
 	}
 	const pinned = addresses[0]!;
 	const dispatcher = new Agent({

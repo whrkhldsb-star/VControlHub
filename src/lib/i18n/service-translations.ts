@@ -20,7 +20,7 @@ import { zh as sshHardeningZh, en as sshHardeningEn } from "./dictionaries/ssh-h
 import { zh as opsHardeningZh, en as opsHardeningEn } from "./dictionaries/ops-hardening-api";
 import { zh as publicStatusApiZh, en as publicStatusApiEn } from "./dictionaries/public-status-api";
 import { type Locale } from "./core";
-import { currentApiRequestLocale } from "./api-copy";
+import { currentCopyLocale } from "./api-copy";
 import { makeT } from "./make-t";
 
 const fileActionCopy = (files: Record<string, string>, storage: Record<string, string>) => Object.fromEntries([
@@ -55,12 +55,13 @@ const translate = makeT(serviceTranslations);
 /**
  * Backend copy. Inside an API request (withApiRoute) the default locale is the
  * request's, so a ValidationError thrown deep in a service reaches an English
- * UI in English; workers and gateways have no request and keep "zh". An
- * explicit locale argument always wins.
+ * UI in English. The worker and the terminal gateway have no request: they
+ * speak the platform's default language (background-locale.ts), and "zh"
+ * until that is known. An explicit locale argument always wins.
  */
 export const t: typeof translate = (key, localeOrVars, maybeVars) =>
 	typeof localeOrVars === "string"
 		? translate(key, localeOrVars, maybeVars)
-		: translate(key, currentApiRequestLocale() ?? "zh", localeOrVars ?? maybeVars);
+		: translate(key, currentCopyLocale() ?? "zh", localeOrVars ?? maybeVars);
 
 export type { Locale } from "./core";

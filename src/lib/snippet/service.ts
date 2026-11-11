@@ -47,8 +47,8 @@ function canMutateSnippet(
 }
 
 export async function createSnippet(input: { title: string; content: string; language?: string; description?: string; tags?: string[]; isPrivate?: boolean; createdBy?: string }) {
-  requireNonBlank(input.title, "Snippet title and content cannot be empty");
-  requireNonBlank(input.content, "Snippet title and content cannot be empty");
+  requireNonBlank(input.title, t("backend.snippet.titleAndContentRequired"));
+  requireNonBlank(input.content, t("backend.snippet.titleAndContentRequired"));
   return prisma.snippet.create({ data: { title: input.title.trim(), content: input.content, language: input.language?.trim() || "text", description: input.description?.trim() || null, tags: tags(input.tags), isPrivate: input.isPrivate ?? false, createdBy: input.createdBy ?? null } });
 }
 
@@ -126,11 +126,11 @@ export async function updateSnippet(
   }
   const data: Record<string, unknown> = {};
   if (input.title !== undefined) {
-    requireNonBlank(input.title, "Snippet title cannot be empty");
+    requireNonBlank(input.title, t("backend.snippet.titleRequired"));
     data.title = input.title.trim();
   }
   if (input.content !== undefined) {
-    requireNonBlank(input.content, "Snippet content cannot be empty");
+    requireNonBlank(input.content, t("backend.snippet.contentRequired"));
     data.content = input.content;
   }
   if (input.language !== undefined) data.language = input.language.trim() || "text";

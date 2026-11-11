@@ -378,7 +378,7 @@ export const en: Record<string, string> = {
 	"settingsClient.toc.ai.subtitle": "Knowledge recall",
 	// ── fields ──
 	"settingsClient.field.platform.defaultLocale.label": "Default language",
-	"settingsClient.field.platform.defaultLocale.helper": "What a visitor who has not chosen a language sees (including the login page); a user's own choice wins.",
+	"settingsClient.field.platform.defaultLocale.helper": "What a visitor who has not chosen a language sees (including the login page); a user's own choice wins. Text written with no visitor to take a language from uses it too: alert email, Telegram and webhook notices, and the errors of background jobs. A change takes about a minute to apply there.",
 	"settingsClient.field.platform.defaultTheme.label": "Default theme",
 	"settingsClient.field.platform.defaultTheme.helper": "What a visitor who has not chosen a theme sees; a user's own choice wins.",
 	"settingsClient.option.locale.zh": "中文",

@@ -4,6 +4,7 @@ import { ensureDefaultAlertRules, listAlertRules } from "@/lib/alert/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { listPlaybooks } from "@/lib/playbook/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { withServerActionLocale } from "@/lib/i18n/server-locale";
 
 import { AlertRuleListClient } from "./alert-rule-list-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
@@ -18,7 +19,8 @@ export default async function AlertRulesPage() {
 	const locale = await getServerLocale();
 
 	if (canManage) {
-		await ensureDefaultAlertRules(session);
+		// The starter rules are named in the language of whoever opens the page first.
+		await withServerActionLocale(() => ensureDefaultAlertRules(session));
 	}
 
 	const [rules, servers, playbooks] = await Promise.all([

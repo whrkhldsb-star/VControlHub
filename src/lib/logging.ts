@@ -30,7 +30,11 @@ export function redactSensitiveValue(value: unknown, key = "", depth = 0): unkno
   if (SENSITIVE_KEY_PATTERN.test(key)) return "[REDACTED]";
   if (value == null) return value;
   if (typeof value === "string") return redactString(value);
-  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  // JSON.stringify throws on a bigint unless the process loaded the JSON
+  // patch; a log line must never fail the operation that writes it. Same
+  // form as the patch: a number while it is exact, its digits beyond that.
+  if (typeof value === "bigint") return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
   if (value instanceof Date) return value.toISOString();
   if (value instanceof Error) {
     return {

@@ -558,6 +558,8 @@ describe("syncServerMonthlyCosts", () => {
 		expect(first.synced).toBe(1);
 		const created = syncedRows()[0];
 		expect(created?.sourceRef).toBe("srv_1");
+		// Shown in the cost entries list: it was a fixed English sentence.
+		expect(created?.notes).toBe("自动采集：hk-prod（203.0.113.10）2026-06 VPS 月费");
 		expect(created?.effectiveDate.toISOString()).toBe("2026-06-01T00:00:00.000Z");
 		expect(created?.tags).toEqual([
 			"source:server_monthly",
@@ -570,10 +572,12 @@ describe("syncServerMonthlyCosts", () => {
 			...store.servers.get("srv_1")!,
 			costMonthlyAmount: { toFixed: () => "99.00" },
 		});
-		const second = await syncServerMonthlyCosts("2026-06");
+		const { withApiCopyLocale } = await import("@/lib/i18n/api-copy");
+		const second = await withApiCopyLocale("en", () => syncServerMonthlyCosts("2026-06"));
 		expect(second.synced).toBe(1);
 		const updated = syncedRows()[0];
 		expect(updated?.id).toBe(created?.id);
+		expect(updated?.notes).toBe("Auto-collected: hk-prod (203.0.113.10) 2026-06 VPS monthly fee");
 		expect(Number(String(updated?.amount))).toBe(99);
 		expect(syncedRows()).toHaveLength(1);
 		expect(store.servers.get("srv_1")?.costLastSyncedAt).toBeInstanceOf(Date);

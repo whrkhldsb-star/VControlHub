@@ -134,6 +134,12 @@ describe("updateAnnouncementSchema", () => {
     const out = updateAnnouncementSchema.parse({ id: "x", published: true });
     expect(out).toEqual({ id: "x", published: true });
   });
+
+  it("accepts a change of the start time alone", () => {
+    // The service applies it; the "at least one field" check did not count it.
+    const out = updateAnnouncementSchema.parse({ id: "x", startsAt: "2026-12-01T00:00:00Z" });
+    expect(out).toEqual({ id: "x", startsAt: "2026-12-01T00:00:00Z" });
+  });
 });
 
 describe("createUserSchema", () => {

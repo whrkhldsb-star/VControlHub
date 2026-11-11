@@ -1,4 +1,4 @@
-import { apiCopy } from "@/lib/i18n/api-copy";
+import { apiCopy, withApiCopyLocale } from "@/lib/i18n/api-copy";
 /**
  * POST /api/servers/[id]/sftp/upload — upload a file to remote server
  *
@@ -12,7 +12,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 
 import { NextResponse } from "next/server";
 import { Readable } from "node:stream";
-import { enforceApiGuard } from "@/lib/http/api-guard";
+import { enforceApiGuard, requestLocale } from "@/lib/http/api-guard";
 import { CSRF_FAILURE_MESSAGE, requestPassesCsrfCheck } from "@/lib/auth/csrf-request";
 import type { SessionPayload } from "@/lib/auth/session";
 import { GENERAL_WRITE_LIMIT, withRateLimit, rateLimitResponse } from "@/lib/http/rate-limit-presets";
@@ -34,12 +34,17 @@ const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
  * The proxy does not run on this route (see `config.matcher` in src/proxy.ts),
  * so what it does for every other state-changing request is done here: the
  * CSRF check in the handler, and the response headers on every answer.
+ *
+ * Nor does `withApiRoute` (it cannot take a multipart body), which is what
+ * gives a request its language: without it this route's own refusals were
+ * English and the service layer's Chinese, for every page.
  */
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  return withBaseSecurityHeaders(await handleUpload(request, context), {
+  const response = await withApiCopyLocale(requestLocale(request), () => handleUpload(request, context));
+  return withBaseSecurityHeaders(response, {
     https: isRequestHttps(request),
   });
 }

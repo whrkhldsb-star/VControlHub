@@ -14,6 +14,18 @@ const mocks = vi.hoisted(() => ({
   serverFindMany: vi.fn(),
   sampleRemoteServersTraffic: vi.fn(),
   readFileSync: vi.fn(),
+  isWindows: vi.fn(() => false),
+  execFile: vi.fn(),
+}));
+
+// A Windows hub has no /proc: its counters come from PowerShell (local-network.ts).
+vi.mock("@/lib/runtime/platform-paths", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/runtime/platform-paths")>()),
+  isWindows: mocks.isWindows,
+}));
+vi.mock("node:child_process", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("node:child_process")>()),
+  execFile: mocks.execFile,
 }));
 
 vi.mock("node:fs", async (importOriginal) => {
@@ -77,6 +89,7 @@ describe("traffic sampling worker", () => {
       maxAttempts: 2,
     });
     mocks.readFileSync.mockReturnValue(PROC_NET_DEV);
+    mocks.isWindows.mockReturnValue(false);
     mocks.serverFindMany.mockResolvedValue([
       {
         id: "srv1",
@@ -183,6 +196,25 @@ describe("traffic sampling worker", () => {
     expect(completedResult).not.toHaveProperty("remoteAttempted");
     expect(completedResult).not.toHaveProperty("remoteSampled");
     expect(completedResult).not.toHaveProperty("remoteFailed");
+  });
+
+  it("samples a Windows hub's interface too, where there is no /proc", async () => {
+    // The page read the hub's counters through the shared reader; this job read
+    // /proc/net/dev itself, so a Windows hub had history only while someone watched.
+    mocks.isWindows.mockReturnValue(true);
+    mocks.readFileSync.mockImplementation(() => {
+      throw Object.assign(new Error("ENOENT: no such file or directory, open '/proc/net/dev'"), { code: "ENOENT" });
+    });
+    mocks.execFile.mockImplementation((_file: string, _args: readonly string[], _options: unknown, callback: (error: Error | null, stdout: string, stderr: string) => void) => {
+      callback(null, "Ethernet\t2000000\t3000000\r\n", "");
+    });
+
+    expect(await runTrafficSamplingWorkerOnce("test")).toBe(true);
+
+    expect(mocks.trafficSnapshotCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ source: "local", serverId: null, iface: "Ethernet" }) }),
+    );
+    expect(mocks.completeJob).toHaveBeenCalledWith("job1", expect.any(String), expect.objectContaining({ localSampled: true }));
   });
 
   it("fails the durable job when local sampling hard-fails", async () => {

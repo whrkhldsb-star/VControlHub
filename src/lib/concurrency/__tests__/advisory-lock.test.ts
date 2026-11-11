@@ -6,7 +6,9 @@ vi.mock("pg", () => ({
 }));
 vi.mock("@/lib/config/env", () => ({ config: { db: { url: "postgresql://user:pass@127.0.0.1:5432/db?pool_max=10&connection_limit=10", poolSize: 10, poolIdleTimeoutMs: 30000 } } }));
 
-import { acquireAdvisoryLock, closeAdvisoryLockPoolForTests, getLockKeys, hashToInt32, tryAcquireAdvisoryLock } from "../advisory-lock";
+import { ConflictError } from "@/lib/errors";
+import { withApiCopyLocale } from "@/lib/i18n/api-copy";
+import { AdvisoryLockBusyError, acquireAdvisoryLock, closeAdvisoryLockPoolForTests, getLockKeys, hashToInt32, tryAcquireAdvisoryLock } from "../advisory-lock";
 
 describe("advisory-lock service", () => {
   beforeEach(async () => {
@@ -79,6 +81,58 @@ describe("advisory-lock service", () => {
     mocks.query.mockRejectedValueOnce(new Error("database down"));
     await expect(acquireAdvisoryLock("backup-restore", "backup-1")).rejects.toThrow("database down");
     expect(mocks.release).toHaveBeenCalledTimes(1);
+  });
+
+  describe("a lock that cannot be taken in time", () => {
+    // Both were raw database errors: the request answered 500 "operation
+    // failed" although nothing had failed, the resource was merely in use.
+    const lockTimeout = () => Object.assign(new Error("canceling statement due to lock timeout"), { code: "55P03" });
+
+    it("says the resource is busy when its holder outlasts the wait", async () => {
+      mocks.query.mockResolvedValueOnce({ rows: [] }).mockRejectedValueOnce(lockTimeout());
+
+      const failure = await acquireAdvisoryLock("docker-compose", "hub:local:site").catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(AdvisoryLockBusyError);
+      expect(failure).toMatchObject({ status: 409, code: "CONFLICT", namespace: "docker-compose", message: "该资源上的另一项操作仍在进行，请稍后重试" });
+      // Callers take a ConflictError for "this row already exists"; a busy lock is not that.
+      expect(failure).not.toBeInstanceOf(ConflictError);
+      // The connection goes back to the pool: the cancelled statement left it usable.
+      expect(mocks.release).toHaveBeenCalledTimes(1);
+      expect(mocks.release).toHaveBeenCalledWith(undefined);
+    });
+
+    it("says so in the caller's language", async () => {
+      mocks.query.mockResolvedValueOnce({ rows: [] }).mockRejectedValueOnce(lockTimeout());
+      await expect(withApiCopyLocale("en", () => acquireAdvisoryLock("docker-compose", "hub:local:site"))).rejects.toThrow(
+        "Another operation on this resource is still in progress. Try again shortly.",
+      );
+    });
+
+    it("says the system is busy when every lock connection is in use", async () => {
+      // pg-pool's own message after connectionTimeoutMillis without a free slot.
+      mocks.connect.mockRejectedValue(new Error("timeout exceeded when trying to connect"));
+
+      for (const acquire of [acquireAdvisoryLock, tryAcquireAdvisoryLock]) {
+        const failure = await acquire("storage-editable", "node-1:notes.md").catch((error: unknown) => error);
+        expect(failure).toBeInstanceOf(AdvisoryLockBusyError);
+        expect(failure).toMatchObject({ status: 409, message: "当前并发操作过多，请稍后重试" });
+      }
+    });
+
+    it("waits as long as the caller asks", async () => {
+      mocks.query.mockResolvedValue({ rows: [{ unlocked: true }] });
+      const release = await acquireAdvisoryLock("backup-restore", "backup-1", { timeoutMs: 250.9 });
+      expect(mocks.query).toHaveBeenNthCalledWith(1, "SET lock_timeout = 250");
+      await release();
+    });
+
+    it("leaves any other database failure as it is", async () => {
+      mocks.query.mockResolvedValueOnce({ rows: [] }).mockRejectedValueOnce(Object.assign(new Error("terminating connection"), { code: "57P01" }));
+      const failure = await acquireAdvisoryLock("backup-restore", "backup-1").catch((error: unknown) => error);
+      expect(failure).not.toBeInstanceOf(AdvisoryLockBusyError);
+      expect((failure as Error).message).toBe("terminating connection");
+    });
   });
 });
 

@@ -37,6 +37,26 @@ describe("logging", () => {
     });
   });
 
+  it("writes a bigint in a process that never loaded the JSON patch", () => {
+    // JSON.stringify throws on a bigint. Only the web process loads the patch
+    // at startup: in the worker, one byte count in a log context failed the
+    // operation that was logging it.
+    const proto = BigInt.prototype as { toJSON?: unknown };
+    const patched = Object.getOwnPropertyDescriptor(proto, "toJSON");
+    delete proto.toJSON;
+    try {
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+      const context = { size: BigInt(42), huge: BigInt("9007199254740993"), list: [BigInt(1)] };
+
+      expect(() => createLogger("sync").info("indexed", context)).not.toThrow();
+
+      // As the patch writes them: a number while it is exact, its digits beyond that.
+      expect(JSON.parse(logSpy.mock.calls[0]![0] as string).context).toEqual({ size: 42, huge: "9007199254740993", list: [1] });
+    } finally {
+      if (patched) Object.defineProperty(proto, "toJSON", patched);
+    }
+  });
+
   it("logs handled errors in production without leaking sensitive context", () => {
     vi.stubEnv("NODE_ENV", "production");
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);

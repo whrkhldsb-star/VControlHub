@@ -5,6 +5,7 @@ const { lookupMock } = vi.hoisted(() => ({
 }));
 
 import { assertDownloadSourceUrlSafe, sanitizeMagnetLink, validateDownloadSourceUrl } from "@/lib/downloads/source-url";
+import { withApiCopyLocale } from "@/lib/i18n/api-copy";
 
 vi.mock("node:dns/promises", () => ({
   default: { lookup: lookupMock },
@@ -64,13 +65,46 @@ describe("validateDownloadSourceUrl", () => {
   });
 });
 
+describe("why a download link is refused", () => {
+  // The page shows this sentence as it is. They were fixed English, whatever
+  // language the page was in: a link with a port is a common thing to paste.
+  it.each([
+    ["", "下载链接不能为空", "The download link is empty"],
+    [`https://example.com/${"a".repeat(4097)}`, "下载链接过长", "The download link is too long"],
+    ["not a url", "下载链接格式无效", "The download link is not a valid URL"],
+    ["ftp://example.com/file", "仅支持 HTTP、HTTPS 或磁力链接", "Only HTTP, HTTPS and magnet links are supported"],
+    ["https://user:pass@example.com/file", "下载链接不能包含用户名或密码", "The download link must not contain a username or password"],
+    ["https://example.com:8443/file", "下载链接不能指定端口", "The download link must not specify a port"],
+    ["http://localhost/admin", "不允许下载内网或本地域名的资源", "Downloading from an internal or local domain is not allowed"],
+    ["http://10.0.0.5/file", "不允许下载内网、本机或链路本地地址的资源", "Downloading from a private, loopback or link-local address is not allowed"],
+  ])("%s", (url, chinese, english) => {
+    expect(validateDownloadSourceUrl(url)).toEqual({ ok: false, reason: chinese });
+    expect(withApiCopyLocale("en", () => validateDownloadSourceUrl(url))).toEqual({ ok: false, reason: english });
+  });
+
+  it("names a DNS answer it will not follow, and a host that does not resolve", async () => {
+    lookupMock.mockResolvedValueOnce([{ address: "10.0.0.5", family: 4 }]);
+    await expect(withApiCopyLocale("en", () => assertDownloadSourceUrlSafe("https://evil.example/file.iso"))).resolves.toEqual({
+      ok: false,
+      reason: "The download link's host resolves to a private, loopback or link-local address",
+    });
+    lookupMock.mockRejectedValueOnce(new Error("ENOTFOUND"));
+    await expect(assertDownloadSourceUrlSafe("https://missing.example/file.iso")).resolves.toEqual({ ok: false, reason: "下载链接的域名解析失败" });
+    lookupMock.mockRejectedValueOnce(new Error("ENOTFOUND"));
+    await expect(withApiCopyLocale("en", () => assertDownloadSourceUrlSafe("https://missing.example/file.iso"))).resolves.toEqual({
+      ok: false,
+      reason: "The download link's host could not be resolved",
+    });
+  });
+});
+
 describe("assertDownloadSourceUrlSafe", () => {
   it("resolves hostnames and rejects DNS answers pointing at private or metadata addresses", async () => {
     lookupMock.mockResolvedValueOnce([{ address: "169.254.169.254", family: 4 }]);
 
     await expect(assertDownloadSourceUrlSafe("https://evil.example/file.iso")).resolves.toMatchObject({
       ok: false,
-      reason: "Download URL DNS resolved to an intranet, loopback, or link-local address",
+      reason: "下载链接的域名解析到了内网、本机或链路本地地址",
     });
     expect(lookupMock).toHaveBeenCalledWith("evil.example", { all: true, verbatim: true });
   });
@@ -80,7 +114,7 @@ describe("assertDownloadSourceUrlSafe", () => {
 
     await expect(assertDownloadSourceUrlSafe("https://ipv6.example/file.iso")).resolves.toMatchObject({
       ok: false,
-      reason: "Download URL DNS resolved to an intranet, loopback, or link-local address",
+      reason: "下载链接的域名解析到了内网、本机或链路本地地址",
     });
   });
 

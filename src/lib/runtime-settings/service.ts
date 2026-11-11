@@ -100,7 +100,7 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     max: 86400,
     label: "RDP idle timeout",
     unit: "seconds",
-    applies: "Takes effect for newly opened RDP sessions; 0 means never (dead browsers are still detected by the transport timeout)",
+    applies: "Takes effect for newly opened RDP sessions; counts time without keyboard or mouse input; 0 means never (dead browsers are still detected by the transport timeout)",
   },
   "runtime.rdpMaxSessionSec": {
     env: "RDP_MAX_SESSION_SEC",
@@ -109,7 +109,7 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     max: 86400,
     label: "RDP maximum session duration",
     unit: "seconds",
-    applies: "Takes effect for newly opened RDP sessions; 0 means no absolute cap",
+    applies: "Takes effect for newly opened RDP sessions; the page does not reconnect by itself afterwards; 0 means no absolute cap",
   },
   "runtime.operationTaskListLimit": {
     env: "OPERATION_TASK_LIST_LIMIT",

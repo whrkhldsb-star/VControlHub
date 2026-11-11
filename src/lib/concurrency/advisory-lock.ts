@@ -8,9 +8,46 @@
 import { Pool, type PoolClient } from "pg";
 
 import { config } from "@/lib/config/env";
+import { AppError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("advisory-lock");
+
+/**
+ * The lock could not be taken in time: its holder outlasted the wait, or
+ * every lock connection was in use. The caller's operation has not started.
+ *
+ * Product copy with 409, so a request answers "busy, try again" instead of
+ * the 500 "operation failed" a raw database error turns into. Not a
+ * ConflictError: callers test for that class to recognise a duplicate row.
+ */
+export class AdvisoryLockBusyError extends AppError {
+  readonly namespace: string;
+
+  constructor(namespace: string, reason: "held" | "pool", cause: unknown) {
+    super({
+      code: "CONFLICT",
+      status: 409,
+      message: t(reason === "held" ? "backend.concurrency.lockBusy" : "backend.concurrency.lockPoolBusy"),
+      cause,
+    });
+    this.name = "AdvisoryLockBusyError";
+    this.namespace = namespace;
+  }
+}
+
+/** SQLSTATE lock_not_available: the statement was cancelled by `lock_timeout`. */
+const PG_LOCK_NOT_AVAILABLE = "55P03";
+
+function isLockTimeout(error: unknown) {
+  return (error as { code?: unknown } | null)?.code === PG_LOCK_NOT_AVAILABLE;
+}
+
+/** pg-pool's rejection when no connection came free within `connectionTimeoutMillis`. */
+function isPoolTimeout(error: unknown) {
+  return error instanceof Error && error.message === "timeout exceeded when trying to connect";
+}
 
 type AdvisoryLockGlobal = typeof globalThis & {
   __vcontrolhubAdvisoryLockPool?: Pool;
@@ -126,7 +163,11 @@ function createLockPool() {
  * with the session, so the holder is no longer exclusive; say so.
  */
 async function connectLockClient(namespace: string, resourceId: string) {
-  const client = await getLockPool().connect();
+  const client = await getLockPool().connect().catch((error: unknown) => {
+    if (!isPoolTimeout(error)) throw error;
+    logger.warn("advisory lock pool exhausted", { namespace, resourceId });
+    throw new AdvisoryLockBusyError(namespace, "pool", error);
+  });
   const onError = (error: Error) => {
     logger.error("advisory lock connection lost; the lock is no longer held", {
       namespace,
@@ -198,24 +239,33 @@ function buildRelease(
 /** Cap blocking wait so a hung holder cannot pin the tiny advisory-lock pool forever. */
 const ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS = 30_000;
 
+/**
+ * Wait for the lock, at most `timeoutMs` (30 s by default). Throws
+ * {@link AdvisoryLockBusyError} when the holder outlasts the wait or no lock
+ * connection comes free.
+ */
 export async function acquireAdvisoryLock(
   namespace: string,
   resourceId: string,
+  options: { timeoutMs?: number } = {},
 ): Promise<() => Promise<void>> {
   const { k1, k2 } = getLockKeys(namespace, resourceId);
+  // Interpolated into SET (which takes no parameters): keep it a whole number.
+  const timeoutMs = Math.max(1, Math.floor(options.timeoutMs ?? ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS));
   const { client, giveBack } = await connectLockClient(namespace, resourceId);
   try {
     // A session setting: it stays on this pooled connection, which only
     // ever serves advisory locks, and every blocking acquire sets it.
-    await client.query(
-      `SET lock_timeout = ${ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS}`,
-    );
+    await client.query(`SET lock_timeout = ${timeoutMs}`);
     await client.query("SELECT pg_advisory_lock($1, $2)", [k1, k2]);
     logger.debug("advisory lock acquired", { namespace, resourceId, k1, k2 });
     return buildRelease(client, giveBack, k1, k2, namespace, resourceId);
   } catch (error) {
+    // A cancelled wait leaves the session usable: back to the pool as it is.
     giveBack();
-    throw error;
+    if (!isLockTimeout(error)) throw error;
+    logger.warn("advisory lock wait timed out", { namespace, resourceId, timeoutMs });
+    throw new AdvisoryLockBusyError(namespace, "held", error);
   }
 }
 

@@ -64,6 +64,7 @@ export const updateAnnouncementSchema = z
       data.type !== undefined ||
       data.pinned !== undefined ||
       data.published !== undefined ||
+      data.startsAt !== undefined ||
       data.expiresAt !== undefined,
     { message: "At least one update field must be provided", path: [] },
   );

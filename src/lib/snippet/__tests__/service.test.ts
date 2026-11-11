@@ -44,13 +44,13 @@ describe("snippet service", () => {
     it("rejects an empty title", async () => {
       await expect(
         createSnippet({ title: "  ", content: "x" }),
-      ).rejects.toThrow(/Snippet title and content cannot be empty/);
+      ).rejects.toThrow("片段标题和内容不能为空");
     });
 
     it("rejects an empty content", async () => {
       await expect(
         createSnippet({ title: "t", content: "" }),
-      ).rejects.toThrow(/Snippet title and content cannot be empty/);
+      ).rejects.toThrow("片段标题和内容不能为空");
     });
 
     it("trims title/description, defaults language to 'text'", async () => {
@@ -86,17 +86,25 @@ describe("snippet service", () => {
     });
   });
 
+  it("refuses a blank title or content in the caller's language", async () => {
+    // Whitespace passes the request schema; the refusal was a fixed English sentence.
+    const { withApiCopyLocale } = await import("@/lib/i18n/api-copy");
+    await expect(withApiCopyLocale("en", () => createSnippet({ title: "  ", content: "x" }))).rejects.toThrow("A snippet needs a title and content");
+    await expect(withApiCopyLocale("en", () => updateSnippet("snippet-1", { title: "   " }, { userId: "user-1" }))).rejects.toThrow("The snippet title cannot be empty");
+    await expect(withApiCopyLocale("en", () => updateSnippet("snippet-1", { content: " " }, { userId: "user-1" }))).rejects.toThrow("The snippet content cannot be empty");
+  });
+
   describe("updateSnippet — access control", () => {
     it("rejects an empty title when title is provided", async () => {
       await expect(
         updateSnippet("snippet-1", { title: "   " }, { userId: "user-1" }),
-      ).rejects.toThrow(/Snippet title cannot be empty/);
+      ).rejects.toThrow("片段标题不能为空");
     });
 
     it("rejects an empty content when content is provided", async () => {
       await expect(
         updateSnippet("snippet-1", { content: "" }, { userId: "user-1" }),
-      ).rejects.toThrow(/Snippet content cannot be empty/);
+      ).rejects.toThrow("片段内容不能为空");
     });
 
     it("rejects when actor is not owner and has no canManageAll", async () => {

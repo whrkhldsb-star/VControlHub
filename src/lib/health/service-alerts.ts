@@ -15,6 +15,7 @@ import { prisma } from "@/lib/db";
 import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { createLogger } from "@/lib/logging";
 import {
+  buildAlertFingerprint,
   escalateOverdueAlertIncidents,
   openOrRefreshAlertIncident,
   resolveAlertIncident,
@@ -37,6 +38,9 @@ import {
   evaluateCapacityLinkedAlerts,
   isCapacityAlertMetric,
 } from "./capacity-alert-link";
+
+/** Open incidents read per evaluation to tell which servers still have one (far above any real queue). */
+const MAX_OPEN_INCIDENTS_READ = 10_000;
 
 /** serverId → ISO match-start timestamp */
 export type AlertMatchState = Record<string, string>;
@@ -172,6 +176,17 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
   }
 
   const health = await collectAllHealth();
+  // Incidents still open for these rules. Recovery used to be read from the
+  // rule's per-server match stamp alone: a stamp lost to a concurrent
+  // evaluation (its write is a compare-and-set) or cleared by an edit of the
+  // rule left the incident open for good, with nothing to close it.
+  const openFingerprints = new Set(
+    (await prisma.alertIncident.findMany({
+      where: { status: { in: ["OPEN", "ACKNOWLEDGED"] }, serverId: { not: null }, rule: { enabled: true, ...ruleScope } },
+      select: { fingerprint: true },
+      take: MAX_OPEN_INCIDENTS_READ,
+    })).map((incident) => incident.fingerprint),
+  );
   // Cache team → server ids so empty serverIds rules only cover their team.
   const teamServerIdsCache = new Map<string, Set<string>>();
   async function serverIdsForTeam(teamId: string): Promise<Set<string>> {
@@ -287,7 +302,8 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
         // hosts that never entered the duration window.
         const hadMatch =
           Boolean(matchState[server.serverId]) ||
-          Boolean(matchState[LEGACY_MATCH_KEY]);
+          Boolean(matchState[LEGACY_MATCH_KEY]) ||
+          openFingerprints.has(buildAlertFingerprint(rule.id, server.serverId, rule.metric));
         if (hadMatch) {
           const resolvedTitle = rule.metric === "server_offline"
             ? t("backend.alert.resolvedTitle.offline", { server: server.serverName })
