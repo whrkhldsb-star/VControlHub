@@ -36,7 +36,8 @@ import { apiError } from "@/lib/http/api-error";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { rateLimitResponse, withRateLimit, type RateLimitConfig } from "@/lib/http/rate-limit-presets";
-import { getServerLocale, t } from "@/lib/i18n/translations";
+import { withApiCopyLocale } from "@/lib/i18n/api-copy";
+import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { readRequestBodyBuffer } from "@/lib/http/request-body";
 import { NextResponse } from "next/server";
@@ -101,10 +102,20 @@ async function parsePasswordAuthorization(request: Request) {
  */
 export async function POST(
 	request: Request,
+	context: { params: Promise<{ token: string }> },
+) {
+	// The share service words its refusals with the backend copy, which reads its language from here. Without it
+	// those were Chinese for every visitor ("访问密码错误" on an English installation).
+	const locale = await getServerLocale();
+	return withApiCopyLocale(locale, () => authorizeShare(request, context, locale));
+}
+
+async function authorizeShare(
+	request: Request,
 	{ params }: { params: Promise<{ token: string }> },
+	locale: Locale,
 ) {
 	const { token } = await params;
-	const locale = await getServerLocale();
 	const tokenRateLimit = await withRateLimit(request, SHARE_TOKEN_LIMIT);
 	if (!tokenRateLimit.allowed) return rateLimitResponse(tokenRateLimit.retryAfterMs);
 	if (!token || token.length < 10) {
@@ -207,11 +218,21 @@ export async function HEAD(
 
 async function serveShare(
 	request: Request,
-	{ params }: { params: Promise<{ token: string }> },
+	context: { params: Promise<{ token: string }> },
 	head: boolean,
 ) {
-	const { token } = await params;
+	// As in POST: the language of the share service's refusals.
 	const locale = await getServerLocale();
+	return withApiCopyLocale(locale, () => serveShareIn(request, context, head, locale));
+}
+
+async function serveShareIn(
+	request: Request,
+	{ params }: { params: Promise<{ token: string }> },
+	head: boolean,
+	locale: Locale,
+) {
+	const { token } = await params;
 	const tokenRateLimit = await withRateLimit(request, SHARE_TOKEN_LIMIT);
 	if (!tokenRateLimit.allowed) return rateLimitResponse(tokenRateLimit.retryAfterMs);
 	const clientIp = getClientIp(request);

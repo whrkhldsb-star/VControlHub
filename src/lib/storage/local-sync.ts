@@ -55,7 +55,9 @@ async function upsertLocalEntry(input: {
   if (existing.name === data.name && existing.entryType === data.entryType &&
       existing.mimeType === data.mimeType && existing.size === data.size) return 0;
   const updated = await prisma.fileEntry.updateMany({
-    where: { id: existing.id, isDeleted: false, updatedAt: existing.updatedAt }, data,
+    where: { id: existing.id, isDeleted: false, updatedAt: existing.updatedAt },
+    // Another size is other content: a checksum recorded for the old bytes no longer describes the file.
+    data: data.entryType === "FILE" && existing.size !== data.size ? { ...data, checksumSha256: null } : data,
   });
   return updated.count;
 }

@@ -6,7 +6,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serverT, withServerActionLocale } from "@/lib/i18n/server-locale";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
@@ -32,6 +32,13 @@ import { STORAGE_SSH_SERVER_SELECT } from "@/lib/storage/ssh-credentials";
 import { moveSharePaths } from "@/lib/share-link/follow-path";
 
 export async function createFolderAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => createFolderActionImpl(_prev, formData));
+}
+
+async function createFolderActionImpl(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
@@ -211,6 +218,13 @@ export async function createFolderAction(
 }
 
 export async function renameFileEntryAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => renameFileEntryActionImpl(_prev, formData));
+}
+
+async function renameFileEntryActionImpl(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {

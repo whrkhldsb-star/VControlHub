@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
@@ -9,11 +9,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   requireApiPermissionMock,
   assertStorageAccessMock,
+  releaseStorageQuotaGuardMock,
   prismaMock,
   createFileEntryMock,
 } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   assertStorageAccessMock: vi.fn(),
+  releaseStorageQuotaGuardMock: vi.fn(async () => undefined),
   prismaMock: {
     storageNode: { findFirst: vi.fn() },
     fileEntry: { findFirst: vi.fn(), findMany: vi.fn() },
@@ -26,7 +28,7 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 }));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
-  releaseStorageQuotaGuard: vi.fn(async () => undefined),
+  releaseStorageQuotaGuard: releaseStorageQuotaGuardMock,
 }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/storage/service", () => ({
@@ -149,6 +151,36 @@ describe("POST /api/files/compress", () => {
         resolve();
       });
     });
+  });
+
+  it("admits the finished archive against the grant's quota, as an extraction is admitted", async () => {
+    // The archive was written and indexed with no size check at all: an account with a quota could fill the node
+    // with archives of its own files.
+    await setupLocalNode();
+    const admission = { allowed: true, releaseQuotaGuard: vi.fn() };
+    assertStorageAccessMock.mockImplementation(async (input: { writeBytes?: number }) => (input.writeBytes === undefined ? { allowed: true } : admission));
+
+    const response = await request({ storageNodeId: "node_1", relativePaths: ["docs/a.txt"], targetDir: "docs", outputName: "selected" });
+
+    expect(response.status).toBe(200);
+    const { size } = await response.json();
+    expect(size).toBeGreaterThan(0);
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({ operation: "write", relativePath: "docs/selected.tar.gz", writeBytes: size }));
+    // The quota lock is held until the archive is in the index, and always let go.
+    expect(releaseStorageQuotaGuardMock).toHaveBeenCalledWith(admission);
+    expect(createFileEntryMock.mock.invocationCallOrder[0]).toBeLessThan(releaseStorageQuotaGuardMock.mock.invocationCallOrder[0]!);
+  });
+
+  it("removes the archive and says why when it does not fit the quota", async () => {
+    await setupLocalNode();
+    assertStorageAccessMock.mockImplementation(async (input: { writeBytes?: number }) => (input.writeBytes === undefined ? { allowed: true } : { allowed: false, reason: "quota_exceeded" }));
+
+    const response = await request({ storageNodeId: "node_1", relativePaths: ["docs/a.txt"], targetDir: "docs", outputName: "selected" });
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).error).toMatch(/quota/i);
+    expect(createFileEntryMock).not.toHaveBeenCalled();
+    await expect(access(path.join(tempDir, "docs", "selected.tar.gz"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("rejects when output archive already exists", async () => {

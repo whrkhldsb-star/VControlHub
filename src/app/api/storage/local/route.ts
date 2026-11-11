@@ -332,6 +332,8 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     entryType: "FILE" as const,
     mimeType,
     size: BigInt(byteSize),
+    // Not hashed here: a checksum recorded for the bytes this upload replaces must not stay on the row.
+    checksumSha256: null,
     isDeleted: false as const,
     // The row leaves the recycle bin on this overwrite — clear the batch
     // marker so a later directory restore cannot revive a stale copy of it.

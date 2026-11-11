@@ -77,6 +77,11 @@ function payloadData(payload: RemoteEntryPayload) {
   };
 }
 
+/** The update for a row whose listing changed. Another size is other content: the recorded checksum goes with it. */
+function changedPayloadData(existing: { size: bigint | null }, payload: RemoteEntryPayload) {
+  return payload.entryType === "FILE" && existing.size !== payload.size ? { ...payloadData(payload), checksumSha256: null } : payloadData(payload);
+}
+
 function isPayloadUnchanged(
   existing: {
     name: string;
@@ -150,7 +155,7 @@ async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload
         // resurrected; never write isDeleted=false here.
         const updated = await prisma.fileEntry.updateMany({
           where: { id: existing.id, isDeleted: false },
-          data: payloadData(payload),
+          data: changedPayloadData(existing, payload),
         });
         counts.updated += updated.count;
       } catch (error) {
@@ -180,7 +185,7 @@ async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload
         if (!existing || existing.isDeleted || isPayloadUnchanged(existing, payload)) continue;
         const updated = await prisma.fileEntry.updateMany({
           where: { id: existing.id, isDeleted: false },
-          data: payloadData(payload),
+          data: changedPayloadData(existing, payload),
         });
         counts.updated += updated.count;
       }

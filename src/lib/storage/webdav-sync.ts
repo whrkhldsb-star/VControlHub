@@ -59,7 +59,8 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
           return;
         }
         // Predicate guards against recycle-bin races; never write isDeleted=false here.
-        const updated = await tx.fileEntry.updateMany({ where: { id: existing.id, isDeleted: false }, data });
+        // Another size is other content: a checksum recorded for the old bytes goes with it.
+        const updated = await tx.fileEntry.updateMany({ where: { id: existing.id, isDeleted: false }, data: data.entryType === "FILE" && existing.size !== data.size ? { ...data, checksumSha256: null } : data });
         counts.updated += updated.count;
         counts.synced += updated.count;
       };

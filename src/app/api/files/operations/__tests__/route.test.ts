@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   entries: vi.fn(),
   access: vi.fn(),
   transaction: vi.fn(),
+  options: vi.fn(),
   body: {} as Record<string, unknown>,
 }));
 vi.mock("@/lib/db", () => ({
@@ -18,13 +19,15 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: (
     _request: Request,
-    _options: unknown,
+    options: unknown,
     handler: (context: unknown) => unknown,
-  ) =>
-    handler({
+  ) => {
+    mocks.options(options);
+    return handler({
       session: { userId: "user", currentTeamId: "team" },
       body: mocks.body,
-    }),
+    });
+  },
   requestLocale: () => "en",
 }));
 vi.mock("@/lib/auth/team-scope", () => ({
@@ -78,6 +81,12 @@ describe("file operation task listing", () => {
       expect(mocks.transaction).not.toHaveBeenCalled();
     },
   );
+  it("names the file operation when a request fails for a reason of its own", async () => {
+    // The fallback message of all three handlers was the preferences route's: "Failed to save preferences".
+    mocks.list.mockResolvedValue([]);
+    await GET(new Request("http://local/api/files/operations"));
+    expect(mocks.options).toHaveBeenCalledWith(expect.objectContaining({ errorMessage: "File operation failed" }));
+  });
   it("deduplicates a job that finishes between the two reads", async () => {
     mocks.list
       .mockResolvedValueOnce([{ id: "changing", status: "RUNNING", payload }])

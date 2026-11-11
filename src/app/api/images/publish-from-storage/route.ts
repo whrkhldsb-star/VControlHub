@@ -24,7 +24,7 @@ import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { statBackingObject } from "@/lib/storage/fs-backend";
 import { readStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 import { IMAGE_EXTENSIONS } from "@/lib/storage/mime-constants";
-import { extractMetadata } from "@/lib/image/service";
+import { extractMetadata, generateThumbnail } from "@/lib/image/service";
 
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -163,6 +163,17 @@ export async function POST(request: Request) {
       await mkdir(UPLOAD_DIR, { recursive: true });
       const imagePath = path.join(UPLOAD_DIR, storageKey);
       await writeFile(imagePath, buffer);
+      // The thumbnail the grid asks for with ?thumb=1, as the upload routes write it. Without one, every tile of a
+      // published image loaded its original (up to 20 MB). Best-effort: the image is published either way.
+      const thumbPath = path.join(UPLOAD_DIR, `${path.basename(storageKey, detectedExt)}_thumb.webp`);
+      let thumbWritten = false;
+      try {
+        await writeFile(thumbPath, await generateThumbnail(buffer));
+        thumbWritten = true;
+      } catch (thumbError) {
+        logError("image-bed:publish-from-storage-thumbnail", thumbError);
+        await rm(thumbPath, { force: true }).catch(() => undefined);
+      }
 
       // Create DB record
       let image;
@@ -185,9 +196,11 @@ export async function POST(request: Request) {
           },
         });
       } catch (error) {
-        await rm(imagePath, { force: true }).catch((cleanupError) => {
-          logError("image-bed:publish-from-storage-cleanup", cleanupError);
-        });
+        await Promise.all([imagePath, ...(thumbWritten ? [thumbPath] : [])].map((written) =>
+          rm(written, { force: true }).catch((cleanupError) => {
+            logError("image-bed:publish-from-storage-cleanup", cleanupError);
+          }),
+        ));
         throw error;
       }
 

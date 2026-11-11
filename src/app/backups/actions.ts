@@ -11,6 +11,7 @@ import { createBackupSchema } from "@/lib/backup/schema";
 import { createBackupRecord } from "@/lib/backup/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { withServerActionLocale } from "@/lib/i18n/server-locale";
 
 export type BackupActionState = {
   success: boolean;
@@ -18,6 +19,10 @@ export type BackupActionState = {
 };
 
 export async function createBackupAction(_prev: BackupActionState, formData: FormData): Promise<BackupActionState> {
+  return withServerActionLocale(() => createBackupActionImpl(_prev, formData));
+}
+
+async function createBackupActionImpl(_prev: BackupActionState, formData: FormData): Promise<BackupActionState> {
   const session = await requireSession("/backups");
   const locale = await getServerLocale();
   const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);

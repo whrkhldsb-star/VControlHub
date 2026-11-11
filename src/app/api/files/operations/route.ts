@@ -16,8 +16,8 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 
 export const dynamic = "force-dynamic";
-const errorMessage = () =>
-  apiCopy("apiCopy.failed.to.save.preferences.7cb9dce5");
+// Its own words: the fallback was the preferences route's "Failed to save preferences".
+const errorMessage = () => apiCopy("apiCopy.files.op.failed");
 
 export async function POST(request: Request) {
   return withApiRoute(

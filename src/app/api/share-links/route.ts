@@ -14,7 +14,12 @@ import {
 } from "@/lib/share-link/service";
 import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS } from "@/lib/share-link/policy";
 import { auditUserAction } from "@/lib/audit/service";
+import { currentApiRequestLocale } from "@/lib/i18n/api-copy";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+
+// Looked up when the body is checked, inside the request: as plain strings the two messages below were read once,
+// when the module loaded, and were Chinese for every caller.
+const inRequestLanguage = (key: string) => () => t(key, currentApiRequestLocale() ?? "zh");
 
 const shareLinkPostSchema = z.object({
   fileEntryId: z.string().min(1).optional(),
@@ -31,11 +36,11 @@ const shareLinkPostSchema = z.object({
   quick: z.boolean().optional(),
 })
   .refine((data) => Boolean(data.fileEntryId || (data.storageNodeId && data.path)), {
-    message: t("api.share.selectFileOrPath"),
+    error: inRequestLanguage("api.share.selectFileOrPath"),
   })
   .refine(
     (data) => data.permissionLevel !== "preview" || (!data.password && data.maxDownloads == null),
-    { message: t("api.share.previewPolicyConflict") },
+    { error: inRequestLanguage("api.share.previewPolicyConflict") },
   );
 
 // Without parameters the response is the newest 200 shares, as before; `total`

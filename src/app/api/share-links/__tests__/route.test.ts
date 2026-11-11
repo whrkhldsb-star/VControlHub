@@ -169,6 +169,22 @@ describe("/api/share-links", () => {
     expect(createShareLinkMock).not.toHaveBeenCalled();
   });
 
+  it("says in the caller's language why a body is refused", async () => {
+    // The two refinements took their text when the module loaded, with no language named: always Chinese.
+    const ask = async (locale: string, body: unknown) => {
+      const request = postShare(body);
+      request.headers.set("cookie", `vps-locale=${locale}`);
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+      return JSON.stringify(await response.json());
+    };
+    expect(await ask("en", {})).toContain("Select a file from the file manager");
+    expect(await ask("zh", {})).toContain("请选择文件管理器中的文件");
+    const conflicting = { storageNodeId: "node_1", path: "docs/report.pdf", permissionLevel: "preview", password: "secret" };
+    expect(await ask("en", conflicting)).toContain("View-only shares cannot use an access password");
+    expect(await ask("zh", conflicting)).toContain("仅查看模式不支持访问密码");
+  });
+
   it("revokes share links with share manage permission", async () => {
     const response = await DELETE(
       new Request("https://example.com/api/share-links?id=share_1", {

@@ -7,7 +7,7 @@ import { requirePermission, sessionHasPermission } from "@/lib/auth/authorizatio
 import { requireSession } from "@/lib/auth/require-session";
 import { ForbiddenError } from "@/lib/errors";
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serverT, withServerActionLocale } from "@/lib/i18n/server-locale";
 import {
   checkStorageNodeHealth,
   createStorageNode,
@@ -34,6 +34,10 @@ function webdavConfigFromForm(formData: FormData) {
 }
 
 export async function getStorageFormOptions() {
+  return withServerActionLocale(() => getStorageFormOptionsImpl());
+}
+
+async function getStorageFormOptionsImpl() {
   // Called from files page for users with storage:write OR storage:manage-node.
   // Scope servers by session team; do not require manage-node here.
   const session = await requireSession();
@@ -63,6 +67,10 @@ export async function getStorageFormOptions() {
 }
 
 export async function checkStorageNodeHealthAction(storageNodeId: string) {
+  return withServerActionLocale(() => checkStorageNodeHealthActionImpl(storageNodeId));
+}
+
+async function checkStorageNodeHealthActionImpl(storageNodeId: string) {
   const session = await requirePermission("storage:manage-node");
 
   const t = await serverT();
@@ -87,6 +95,13 @@ export async function checkStorageNodeHealthAction(storageNodeId: string) {
 }
 
 export async function createStorageNodeAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => createStorageNodeActionImpl(_prev, formData));
+}
+
+async function createStorageNodeActionImpl(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
@@ -150,6 +165,13 @@ export async function createStorageNodeAction(
 }
 
 export async function updateStorageNodeAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => updateStorageNodeActionImpl(_prev, formData));
+}
+
+async function updateStorageNodeActionImpl(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
@@ -238,6 +260,13 @@ export async function updateStorageNodeAction(
 }
 
 export async function deleteStorageNodeAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => deleteStorageNodeActionImpl(_prev, formData));
+}
+
+async function deleteStorageNodeActionImpl(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {

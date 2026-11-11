@@ -236,7 +236,8 @@ describe("sftp sync service", () => {
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledTimes(1);
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { id: "c", isDeleted: false },
-      data: expect.objectContaining({ name: "c.txt", size: BigInt(30) }),
+      // Another size: the checksum recorded for the old content goes with it.
+      data: expect.objectContaining({ name: "c.txt", size: BigInt(30), checksumSha256: null }),
     });
   });
 

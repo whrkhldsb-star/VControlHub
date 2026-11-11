@@ -1,7 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextRequest, NextResponse } from "next/server";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import path from "node:path";
 import {
   resolveStoragePathWithinBase,
@@ -16,11 +14,11 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { archiveListQuerySchema } from "@/lib/files/schema";
 import { ArchiveExtractError, archiveKindOf, listArchive } from "@/lib/storage/archive-extract";
+import { ExternalArchiveError, listExternalArchive } from "@/lib/storage/archive-external-list";
 
 import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { archiveErrorCopy } from "@/lib/storage/archive-error-copy";
-const execFileAsync = promisify(execFile);
+import { archiveErrorCopy, externalArchiveErrorCopy } from "@/lib/storage/archive-error-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +99,10 @@ export async function GET(request: NextRequest) {
         if (err instanceof ArchiveExtractError) {
           throw new ValidationError(archiveErrorCopy(err));
         }
+        // No 7z/unrar on the server, an encrypted file list, a damaged file: said in words, not as a server error.
+        if (err instanceof ExternalArchiveError) {
+          throw new ValidationError(externalArchiveErrorCopy(err));
+        }
         const message = getErrorMessage(err, "Failed to read archive");
         throw new AppError({ code: "INTERNAL_ERROR", message: message, status: 500 });
       }
@@ -123,10 +125,10 @@ async function listArchiveContents(
     return listGz(fullPath, name);
   }
   if (ext === ".7z") {
-    return list7z(fullPath);
+    return listExternalArchive("7z", fullPath);
   }
   if (ext === ".rar") {
-    return listRar(fullPath);
+    return listExternalArchive("rar", fullPath);
   }
   throw new Error(`Unsupported archive format: ${ext}`);
 }
@@ -138,79 +140,4 @@ async function listGz(
   // .gz (non-tar) — just a single compressed file
   const innerName = originalName.replace(/\.gz$/, "");
   return [{ name: innerName, size: 0, isDirectory: false }];
-}
-
-async function list7z(filePath: string): Promise<ArchiveEntry[]> {
-  try {
-    const { stdout } = await execFileAsync("7z", ["l", filePath], {
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: 15000,
-    });
-    return parse7zOutput(stdout);
-  } catch {
-    throw new Error("7z format requires the 7z command-line tool to be installed");
-  }
-}
-
-function parse7zOutput(output: string): ArchiveEntry[] {
-  const lines = output.split("\n");
-  const entries: ArchiveEntry[] = [];
-  let inListing = false;
-  for (const line of lines) {
-    if (line.includes("-----") && line.includes("----")) {
-      inListing = !inListing;
-      continue;
-    }
-    if (inListing) {
-      // 7z l format: date time attr size compressed name
-      const match = line.match(
-        /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+([.D]+)\s+(\d+)\s+\d+\s+(.+)$/,
-      );
-      if (match) {
-        const attr = match[1]!;
-        const size = parseInt(match[2]!, 10);
-        const name = match[3]!.trim();
-        if (!name) continue;
-        const isDirectory = attr.startsWith("D");
-        entries.push({ name, size, isDirectory });
-      }
-    }
-  }
-  return entries;
-}
-
-async function listRar(filePath: string): Promise<ArchiveEntry[]> {
-  try {
-    const { stdout } = await execFileAsync("unrar", ["l", filePath], {
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: 15000,
-    });
-    return parseRarOutput(stdout);
-  } catch {
-    throw new Error("RAR format requires the unrar command-line tool to be installed");
-  }
-}
-
-function parseRarOutput(output: string): ArchiveEntry[] {
-  const lines = output.split("\n");
-  const entries: ArchiveEntry[] = [];
-  for (const line of lines) {
-    const match = line.match(
-      /^\s*(\S+)\s+(\d+)\s+(\d+)\s+([\d%]+)\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2})\s+(.+)/,
-    );
-    if (match) {
-      const attr = match[1]!;
-      const size = parseInt(match[2]!, 10);
-      const name = match[6]!.trim();
-      if (!name) continue;
-      const isDirectory = attr.includes("D") || name.endsWith("/");
-      entries.push({
-        name: isDirectory ? name.replace(/\/$/, "") : name,
-        size,
-        isDirectory,
-        modified: match[5]!,
-      });
-    }
-  }
-  return entries;
 }

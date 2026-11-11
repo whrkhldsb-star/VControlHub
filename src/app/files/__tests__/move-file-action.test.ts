@@ -280,7 +280,7 @@ describe("moveFileAction", () => {
 
     const result = await moveFileAction(null, formData);
 
-    expect(result.error).toMatch(/Path/);
+    expect(result.error).toMatch(/路径/) // in the language of the action: these tests run as a Chinese user;
     expect(assertStorageAccess).not.toHaveBeenCalled();
     expect(moveBackingObjectMock).not.toHaveBeenCalled();
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();

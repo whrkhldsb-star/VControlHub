@@ -17,6 +17,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { isRequestHttps } from "@/lib/http/request-https";
 import { checkRateLimitAsync } from "@/lib/rate-limit";
+import { withServerActionLocale } from "@/lib/i18n/server-locale";
 
 export type AccountPasswordActionState = {
   error?: string;
@@ -24,6 +25,13 @@ export type AccountPasswordActionState = {
 };
 
 export async function changePasswordAction(
+  _prevState: AccountPasswordActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => changePasswordActionImpl(_prevState, formData));
+}
+
+async function changePasswordActionImpl(
   _prevState: AccountPasswordActionState | null,
   formData: FormData,
 ) {

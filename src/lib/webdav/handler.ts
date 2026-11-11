@@ -400,6 +400,8 @@ export async function handleWebDavPut(
       name,
       mimeType: mimeType || null,
       size: BigInt(size),
+      // Not hashed here: a checksum recorded for the bytes this PUT replaces must not stay on the row.
+      checksumSha256: null,
       entryType: "FILE" as const,
       isDeleted: false as const,
       // A revived recycle-bin row must leave its delete batch, or a later
@@ -856,7 +858,8 @@ export async function handleWebDavMove(
         await tx.fileEntry.delete({ where: { id: entry.id } });
         await tx.fileEntry.update({
           where: { id: replacedFile.id },
-          data: { mimeType: entry.mimeType, size: entry.size },
+          // The kept row describes the moved file from now on, checksum included.
+          data: { mimeType: entry.mimeType, size: entry.size, checksumSha256: entry.checksumSha256 },
         });
       } else {
         // Links to a replaced resource must not serve what moves in.
@@ -1077,6 +1080,8 @@ async function performWebDavCopy(input: {
           name: destName,
           mimeType: destMime || null,
           size: BigInt(copiedSize),
+          // As the file manager's copy: the replaced bytes' checksum goes, the copy is not hashed.
+          checksumSha256: null,
           entryType: "FILE",
           isDeleted: false,
         },

@@ -1,4 +1,4 @@
-import { apiCopy } from "@/lib/i18n/api-copy";
+import { apiCopy, withApiCopyLocale } from "@/lib/i18n/api-copy";
 /**
  * 2FA Login Verification — exchange a pending-2fa token + TOTP code for a full session.
  * POST /api/auth/2fa/verify-login { code }
@@ -15,6 +15,7 @@ import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "@/lib/auth/rbac";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, isAccountLockedAsync, recordLoginFailureAsync, clearLoginFailureAsync } from "@/lib/rate-limit";
 import { apiCatch, apiError } from "@/lib/http/api-error";
+import { requestLocale } from "@/lib/http/api-guard";
 import { isRequestHttps } from "@/lib/http/request-https";
 import { isCrossSiteFormPost } from "@/lib/http/request-origin";
 import { readRequestBodyBuffer } from "@/lib/http/request-body";
@@ -25,6 +26,12 @@ const verifyLoginSchema = z.object({ code: z.string().min(1) });
 const MAX_VERIFY_LOGIN_BODY_BYTES = 4 * 1024;
 
 export async function POST(request: Request) {
+	// Not behind withApiRoute, so its messages had no language and were English for everyone: they get the
+	// sign-in page's (the locale cookie, then Accept-Language, then English), as an API route's do.
+	return withApiCopyLocale(requestLocale(request), () => verifyLogin(request));
+}
+
+async function verifyLogin(request: Request) {
 	try {
 		// Defence in depth for the login-CSRF window this route shares with
 		// /api/login (both skip the double-submit CSRF check pre-session).

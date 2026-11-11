@@ -28,7 +28,9 @@ import {
   type WebDavContext,
 } from "@/lib/webdav/handler";
 import { createLogger } from "@/lib/logging";
+import { requestLocale } from "@/lib/http/api-guard";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { withApiCopyLocale } from "@/lib/i18n/api-copy";
 import { isRequestHttps } from "@/lib/http/request-https";
 import { withBaseSecurityHeaders } from "@/lib/http/security-headers";
 import { WEBDAV_LIMIT, withRateLimit } from "@/lib/http/rate-limit-presets";
@@ -154,7 +156,11 @@ async function withParams(
   request: Request,
   context: { params: Promise<RouteParams> },
 ) {
-  return withBaseSecurityHeaders(await dispatch(request, await context.params), {
+  const params = await context.params;
+  // The language of an answer's text, chosen as for an API client: what Accept-Language asks for, English
+  // otherwise. With no language set the backend copy was mixed — one module's refusals Chinese, another's English.
+  const response = await withApiCopyLocale(requestLocale(request), () => dispatch(request, params));
+  return withBaseSecurityHeaders(response, {
     https: isRequestHttps(request),
   });
 }

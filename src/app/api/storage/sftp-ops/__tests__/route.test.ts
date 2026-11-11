@@ -208,6 +208,8 @@ describe("/api/storage/sftp-ops", () => {
         name: "hello.txt",
         entryType: "FILE",
         size: BigInt(5),
+        // A checksum recorded for the content this write replaces must not stay.
+        checksumSha256: null,
         isDeleted: false,
       }),
       create: expect.objectContaining({

@@ -274,6 +274,18 @@ describe("useImageBedActions", () => {
 			expect(result.current.pendingDelete).toBeNull();
 		});
 
+		it("warns when a batch of deleted images left a storage copy behind", async () => {
+			// 207 with nothing failed: the images are gone, a copy in a storage folder is not.
+			mocks.csrfFetch.mockResolvedValueOnce({ deleted: 2, filesDeleted: 2, failedFileIds: [], linkedCleanupFailures: ["img_1"], cleanupPending: true });
+			const { args } = setup();
+			const { result } = renderHook(() => useImageBedActions(args as never));
+			act(() => { result.current.toggleSelect("img_1"); });
+			act(() => { result.current.toggleSelect("img_2"); });
+			await act(async () => { await result.current.runBatchAction("delete"); });
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "imageBed.toast.deletedCleanupPending");
+			expect(result.current.selectedIds.size).toBe(0);
+		});
+
 		it("clears the selection and leaves batch mode after a batch action", async () => {
 			const { args } = setup();
 			const { result } = renderHook(() => useImageBedActions(args as never));

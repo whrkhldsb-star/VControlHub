@@ -7,7 +7,7 @@ import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 import type { SessionPayload } from "@/lib/auth/session";
 const state=vi.hoisted(()=>({session:null as SessionPayload|null}));
 vi.mock("@/lib/auth/authorization",async(importOriginal)=>({...await importOriginal<typeof import("@/lib/auth/authorization")>(),requirePermission:async()=>state.session!}));
-vi.mock("@/lib/i18n/server-locale",()=>({serverT:async()=>((key:string)=>key)}));
+vi.mock("@/lib/i18n/server-locale",()=>({serverT:async()=>((key:string)=>key),withServerActionLocale:async<T,>(action:()=>Promise<T>)=>action()}));
 import { prisma } from "@/lib/db";
 import { assertStorageAccess, releaseStorageQuotaGuard, getStorageAccessUsage } from "../access-control";
 import { restoreFileEntryAction } from "@/app/storage/actions-file-entries";

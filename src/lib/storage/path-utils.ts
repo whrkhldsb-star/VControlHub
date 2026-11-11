@@ -2,6 +2,7 @@ import { lstatSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 import { config } from "@/lib/config/env";
+import { t } from "@/lib/i18n/service-translations";
 
 function getAppSlugForPathExpansion() {
   return config.app.appSlug;
@@ -34,6 +35,10 @@ export function expandStorageBasePath(basePath: string) {
     .replace(/\$APP_SLUG\b/g, appSlug);
 }
 
+/**
+ * `reason` is a sentence for the user, in the language of the request (Chinese where there is none, as the rest of
+ * the backend copy): callers show it as it is. It used to be an English literal for every caller.
+ */
 export type StoragePathResult =
   | { ok: true; path: string }
   | { ok: false; reason: string };
@@ -78,15 +83,15 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
   if (!normalizedInput || normalizedInput === ".") {
     return options.allowEmpty
       ? { ok: true, path: "" }
-      : { ok: false, reason: "Path cannot be empty" };
+      : { ok: false, reason: t("backend.storagePath.empty") };
   }
 
   if (normalizedInput.startsWith("/")) {
-    return { ok: false, reason: "Path must be a relative path" };
+    return { ok: false, reason: t("backend.storagePath.absolute") };
   }
 
   if (normalizedInput.length > MAX_PATH_LENGTH || utf8.encode(normalizedInput).length > MAX_STORAGE_PATH_BYTES) {
-    return { ok: false, reason: "Path is too long" };
+    return { ok: false, reason: t("backend.storagePath.tooLong") };
   }
 
   const segments = normalizedInput
@@ -97,22 +102,22 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
   if (segments.length === 0) {
     return options.allowEmpty
       ? { ok: true, path: "" }
-      : { ok: false, reason: "Path cannot be empty" };
+      : { ok: false, reason: t("backend.storagePath.empty") };
   }
 
   for (const segment of segments) {
     if (segment === "." || segment === "..") {
-      return { ok: false, reason: "Path must not contain . or .." };
+      return { ok: false, reason: t("backend.storagePath.dotSegments") };
     }
     if (segmentTooLong(segment)) {
-      return { ok: false, reason: "Path segment is too long" };
+      return { ok: false, reason: t("backend.storagePath.segmentTooLong") };
     }
     if (INVALID_SEGMENT_CHARS.test(segment)) {
-      return { ok: false, reason: "Path contains illegal characters" };
+      return { ok: false, reason: t("backend.storagePath.illegalChars") };
     }
     // This process's own files (LOCAL nodes) live on Windows.
     if (process.platform === "win32" && hasWindowsInvalidNameChars(segment)) {
-      return { ok: false, reason: 'Windows does not allow : * ? " < > | in names' };
+      return { ok: false, reason: t("backend.storagePath.windowsChars") };
     }
   }
 
@@ -123,7 +128,7 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
     normalized.startsWith("../") ||
     path.posix.isAbsolute(normalized)
   ) {
-    return { ok: false, reason: "Path is out of allowed bounds" };
+    return { ok: false, reason: t("backend.storagePath.outOfBounds") };
   }
 
   return { ok: true, path: normalized };
@@ -139,9 +144,9 @@ export function normalizeStorageTargetDirectory(value: string | null | undefined
 
 export function normalizeStorageEntryName(value: string | null | undefined): StoragePathResult {
   const raw = (value ?? "").trim();
-  if (!raw) return { ok: false, reason: "Name cannot be empty" };
+  if (!raw) return { ok: false, reason: t("backend.storagePath.nameEmpty") };
   if (raw.includes("/") || raw.includes("\\")) {
-    return { ok: false, reason: "Name must not contain path separators" };
+    return { ok: false, reason: t("backend.storagePath.nameHasSeparator") };
   }
   return validateSegments(raw, { allowEmpty: false });
 }
@@ -218,7 +223,7 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
   if (escapesRoot(relativeToRoot)) {
-    return { ok: false, reason: "Path is out of allowed bounds" };
+    return { ok: false, reason: t("backend.storagePath.outOfBounds") };
   }
 
   // Lexical containment alone is insufficient when an existing component is
@@ -227,11 +232,11 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
   const realRoot = resolveThroughExistingAncestor(allowedRoot);
   const realTarget = resolveThroughExistingAncestor(absolutePath);
   if (!realRoot || !realTarget) {
-    return { ok: false, reason: "Path cannot be safely resolved" };
+    return { ok: false, reason: t("backend.storagePath.unresolvable") };
   }
   const relativeToRealRoot = path.relative(realRoot, realTarget);
   if (escapesRoot(relativeToRealRoot)) {
-    return { ok: false, reason: "Path is out of allowed bounds" };
+    return { ok: false, reason: t("backend.storagePath.outOfBounds") };
   }
   // Path grants are matched on the lexical path, so a link inside the root
   // to a sibling directory (a/link -> ../b) would let a grant on `a` reach
@@ -241,7 +246,7 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
     ? relativeToRealRoot.toLowerCase() === relativeToRoot.toLowerCase()
     : relativeToRealRoot === relativeToRoot;
   if (!sameLocation) {
-    return { ok: false, reason: "Path goes through a symbolic link" };
+    return { ok: false, reason: t("backend.storagePath.symlink") };
   }
 
   return { ok: true, path: absolutePath };

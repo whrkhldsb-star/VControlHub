@@ -200,6 +200,27 @@ describe("/api/storage/direct-access", () => {
     );
   });
 
+  it("points a local or WebDAV node at the download route that serves it", async () => {
+    // The fallback was the SFTP download route for every driver, which answers "not an SFTP node" for these two.
+    for (const [driver, expected] of [
+      ["LOCAL", "/api/storage/local?nodeId=node_1&path=docs%2Freport+2026.pdf"],
+      ["WEBDAV", "/api/storage/webdav-download?nodeId=node_1&path=docs%2Freport+2026.pdf"],
+    ] as const) {
+      vi.clearAllMocks();
+      requireApiPermissionMock.mockResolvedValue({ session: { userId: "u_1", username: "admin", roles: ["admin"], currentTeamId: null } });
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      prismaMock.storageNode.findFirst.mockResolvedValue(directNode({ driver, basePath: driver === "LOCAL" ? "/srv/files" : "" }));
+
+      // GET only: the POST form shares this file's upload rate limit with the tests around it.
+      const opened = await GET(new Request("https://example.com/api/storage/direct-access?nodeId=node_1&path=docs%2Freport+2026.pdf"));
+      expect(opened.status).toBe(302);
+      expect(opened.headers.get("location")).toBe(expected);
+
+      const downloaded = await GET(new Request("https://example.com/api/storage/direct-access?nodeId=node_1&path=docs%2Freport+2026.pdf&download=1"));
+      expect(downloaded.headers.get("location")).toBe(`${expected}&download=1`);
+    }
+  });
+
   it("returns a short-lived signed storage-server URL when direct mode is enabled", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({

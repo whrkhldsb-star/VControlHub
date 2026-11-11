@@ -188,4 +188,31 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("WebDAV MOVE
     const versions = await prisma.fileVersion.findMany({ where: { fileEntryId: recycled.id } });
     expect(versions).toHaveLength(1);
   });
+
+  it("an overwrite leaves no checksum of the content it replaced", async () => {
+    // A chunked upload records the file's SHA-256 on its entry. PUT, COPY and MOVE over that entry kept the row and
+    // the checksum, which then described bytes that were gone.
+    const checksumOf = async (id: string) => (await prisma.fileEntry.findUniqueOrThrow({ where: { id } })).checksumSha256;
+    const withChecksum = async (relativePath: string, content: string, checksum: string) => {
+      const entry = await file(relativePath, content);
+      await prisma.fileEntry.update({ where: { id: entry.id }, data: { checksumSha256: checksum } });
+      return entry;
+    };
+
+    const putTarget = await withChecksum("put.txt", "old", "a".repeat(64));
+    const put = new Request(`${origin}/x`, { method: "PUT", body: "uploaded bytes", headers: { "content-type": "text/plain", "content-length": "14" } });
+    expect([201, 204]).toContain(await status(handleWebDavPut(ctx("put.txt"), put)));
+    expect(await checksumOf(putTarget.id)).toBeNull();
+
+    await file("copy-source.txt", "copied bytes");
+    const copyTarget = await withChecksum("copy-target.txt", "old", "b".repeat(64));
+    expect(await status(handleWebDavCopy(ctx("copy-source.txt"), request("COPY", "copy-target.txt")))).toBe(204);
+    expect(await checksumOf(copyTarget.id)).toBeNull();
+
+    // A move brings its own file: the kept row takes the moved file's checksum, as it takes its size.
+    await withChecksum("move-source.txt", "moved bytes", "c".repeat(64));
+    const moveTarget = await withChecksum("move-target.txt", "old", "d".repeat(64));
+    expect(await status(handleWebDavMove(ctx("move-source.txt"), request("MOVE", "move-target.txt")))).toBe(204);
+    expect(await checksumOf(moveTarget.id)).toBe("c".repeat(64));
+  });
 });

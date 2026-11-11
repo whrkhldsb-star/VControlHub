@@ -47,9 +47,14 @@ type DirectAccessPayload =
 
 const DIRECT_GATEWAY_HEALTH_TIMEOUT_MS = 1500;
 
-function fallbackUrl(nodeId: string, relativePath: string) {
+/**
+ * The download route that serves the node's driver, as buildDirectAccessStrategy picks it for the file manager.
+ * It was the SFTP route for every driver, which answers "not an SFTP node" for a local or WebDAV node.
+ */
+function fallbackUrl(nodeId: string, relativePath: string, driver: string) {
   const params = new URLSearchParams({ nodeId, path: relativePath });
-  return `/api/storage/sftp-download?${params.toString()}`;
+  const route = driver === "LOCAL" ? "local" : driver === "WEBDAV" ? "webdav-download" : "sftp-download";
+  return `/api/storage/${route}?${params.toString()}`;
 }
 
 function forceAttachmentFallbackUrl(fallback: string) {
@@ -191,7 +196,7 @@ async function resolveDirectAccessPayload(input: {
     );
   }
 
-  const fallback = fallbackUrl(nodeId, normalizedRelativePath);
+  const fallback = fallbackUrl(nodeId, normalizedRelativePath, node.driver);
   const access = await assertStorageAccess({
     session,
     storageNodeId: nodeId,

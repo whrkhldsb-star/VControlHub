@@ -61,6 +61,8 @@ async function upsertSftpFileIndex(params: {
       entryType: "FILE",
       mimeType: guessContentType(params.relativePath),
       size: BigInt(size),
+      // The content was replaced and is not hashed here: a checksum recorded for the old bytes must not stay.
+      checksumSha256: null,
       isDeleted: false,
     },
     create: {

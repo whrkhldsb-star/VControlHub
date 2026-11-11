@@ -301,12 +301,17 @@ export function useImageBedActions({
 					void fetchImages(page);
 					return true;
 				}
-				showToast(
-					t("imageBedPage.batchSuccess").replace(
-						"{count}",
-						String(data.deleted || data.updated || 0),
-					),
-				);
+				// Deleted, but a copy in a storage folder could not be removed (207): the same notice as for one image.
+				if (action === "delete" && data.cleanupPending) {
+					showToast(t("imageBed.toast.deletedCleanupPending"), "alert");
+				} else {
+					showToast(
+						t("imageBedPage.batchSuccess").replace(
+							"{count}",
+							String(data.deleted || data.updated || 0),
+						),
+					);
+				}
 				setSelectedIds(new Set());
 				setBatchMode(false);
 				void fetchImages(page);

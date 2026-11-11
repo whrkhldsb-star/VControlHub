@@ -4,10 +4,11 @@ import path from "node:path";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { requireApiPermissionMock, assertStorageAccessMock, prismaMock } =
+const { requireApiPermissionMock, assertStorageAccessMock, listExternalArchiveMock, prismaMock } =
   vi.hoisted(() => ({
     requireApiPermissionMock: vi.fn(),
     assertStorageAccessMock: vi.fn(),
+    listExternalArchiveMock: vi.fn(),
     prismaMock: { storageNode: { findFirst: vi.fn() }, fileEntry: { findMany: vi.fn() } },
   }));
 
@@ -19,8 +20,14 @@ vi.mock("@/lib/storage/access-control", () => ({
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+// The 7z / unrar listing itself is tested with the real tools in src/lib/storage/__tests__/archive-external-list.test.ts.
+vi.mock("@/lib/storage/archive-external-list", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/storage/archive-external-list")>()),
+  listExternalArchive: listExternalArchiveMock,
+}));
 
 import { zipFixture } from "@/lib/storage/__tests__/archive-fixtures";
+import { ExternalArchiveError } from "@/lib/storage/archive-external-list";
 import { GET } from "../route";
 
 let tempDir: string;
@@ -130,6 +137,44 @@ describe("GET /api/files/archive-list", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/damaged|损坏/) });
+  });
+
+  it("lists .7z and .rar archives through the server's tool and keeps unsafe members out", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-archive-list-ext-"));
+    prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
+    for (const [file, kind] of [["photos.7z", "7z"], ["photos.RAR", "rar"]] as const) {
+      await writeFile(path.join(tempDir, file), "archive bytes");
+      listExternalArchiveMock.mockResolvedValueOnce([
+        { name: "photos", size: 0, isDirectory: true },
+        { name: "photos/夏天.jpg", size: 2048, isDirectory: false },
+        { name: "../outside.txt", size: 1, isDirectory: false },
+      ]);
+
+      const response = await GET(new NextRequest(`https://app.example.test/api/files/archive-list?nodeId=node_1&relativePath=${file}&name=${file}`));
+
+      expect(response.status).toBe(200);
+      expect((await response.json()).entries.map((entry: { name: string }) => entry.name)).toEqual(["photos", "photos/夏天.jpg"]);
+      expect(listExternalArchiveMock).toHaveBeenLastCalledWith(kind, path.join(tempDir, file));
+    }
+  });
+
+  it("says in words why a .7z or .rar archive cannot be listed", async () => {
+    // Every failure — no tool, an encrypted file list, a damaged file — was a 500 that named a missing tool.
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-archive-list-ext-"));
+    await writeFile(path.join(tempDir, "a.7z"), "archive bytes");
+    await writeFile(path.join(tempDir, "a.rar"), "archive bytes");
+    prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
+    const ask = async (file: string, error: ExternalArchiveError) => {
+      listExternalArchiveMock.mockRejectedValueOnce(error);
+      const response = await GET(new NextRequest(`https://app.example.test/api/files/archive-list?nodeId=node_1&relativePath=${file}&name=${file}`));
+      expect(response.status).toBe(400);
+      return (await response.json()).error as string;
+    };
+
+    expect(await ask("a.rar", new ExternalArchiveError("toolMissing", "rar", "unrar"))).toBe("This server has no unrar command, so the contents of .rar archives cannot be shown");
+    expect(await ask("a.7z", new ExternalArchiveError("passwordProtected", "7z"))).toMatch(/protected by a password/);
+    expect(await ask("a.7z", new ExternalArchiveError("unreadable", "7z", "Is not archive"))).toMatch(/damaged/);
+    expect(await ask("a.7z", new ExternalArchiveError("listingTooLarge", "7z"))).toMatch(/too many entries/);
   });
 
   it("rejects archive listing outside the caller storage grant", async () => {
