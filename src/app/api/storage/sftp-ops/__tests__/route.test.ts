@@ -640,7 +640,8 @@ describe("/api/storage/sftp-ops", () => {
     mockSftpNode();
     assertStorageAccessMock
       .mockResolvedValueOnce({ allowed: true })
-      .mockResolvedValueOnce({ allowed: false, reason: "目标路径无授权" } as {
+      // The decision carries a code; the answer says it in words (it used to be the code itself).
+      .mockResolvedValueOnce({ allowed: false, reason: "path_not_allowed" } as {
         allowed: boolean;
         reason?: string;
       });
@@ -655,9 +656,8 @@ describe("/api/storage/sftp-ops", () => {
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toMatchObject({
-      error: "目标路径无授权",
-    });
+    const body = await response.json() as { error: string };
+    expect(["请求路径无效或超出授权范围", "The requested path is invalid or outside the granted scope"]).toContain(body.error);
     expect(renameRemoteFileMock).not.toHaveBeenCalled();
   });
 

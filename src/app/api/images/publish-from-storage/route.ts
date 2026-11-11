@@ -19,6 +19,7 @@ import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { statBackingObject } from "@/lib/storage/fs-backend";
 import { readStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
@@ -98,7 +99,8 @@ export async function POST(request: Request) {
         operation: "read",
       });
       if (!readAccess.allowed) {
-        throw new ForbiddenError(readAccess.reason);
+        // The reason is a code ("no_access"); it was sent to the client as the message.
+        throw new ForbiddenError(storageAccessDeniedCopy(readAccess.reason));
       }
       // A file in the recycle bin keeps its bytes at its path: publishing it handed a teammate's deleted image
       // a new, possibly public, life on the image bed.

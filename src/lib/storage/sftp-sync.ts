@@ -1,4 +1,3 @@
-import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -9,6 +8,7 @@ import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { MAX_STORAGE_PATH_BYTES } from "@/lib/storage/path-utils";
+import { readDirectoryIndex } from "@/lib/storage/directory-index";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { getSftpSyncDirectoryTimeoutMs } from "@/lib/runtime-settings/service";
 import { t } from "@/lib/i18n/service-translations";
@@ -45,7 +45,8 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
     };
   };
 }>;
-const DB_ENTRY_PAGE_SIZE = 2_000;
+/** Ids per soft-delete statement: one statement takes 32,767 bind parameters at most. */
+const STALE_WRITE_BATCH_SIZE = 5_000;
 
 export interface SftpSyncResult {
   synced: number;
@@ -216,6 +217,12 @@ async function loadIndexedEntries(nodeId: string, paths: string[]) {
  * scanned is missing from the listing but not gone, and was sent to the
  * recycle bin — where a later sync skips it, so it vanished from the folder.
  * Same rule as the stale-inventory sweep.
+ *
+ * Only the directory's own children are read (as the local and WebDAV syncs
+ * do): this used to page through every live row below the directory — the
+ * whole node for its root — on each folder the file manager opened, to pick
+ * the direct children out in memory (measured on a node with 200,000 entries:
+ * 101 queries and 200,000 rows for a root with 20 children).
  */
 async function pruneStaleEntries(
   nodeId: string,
@@ -229,41 +236,27 @@ async function pruneStaleEntries(
 
   const prefix = relativeDir ? `${relativeDir}/` : "";
   const staleIds: string[] = [];
-  let cursorId: string | undefined;
-  for (;;) {
-    const existing = await prisma.fileEntry.findMany({
-      where: {
-        storageNodeId: nodeId,
-        isDeleted: false,
-        updatedAt: { lt: listingStartedAt },
-        ...(relativeDir
-          ? { relativePath: { startsWith: escapeLikeLiteral(`${relativeDir}/`) } }
-          : {}),
-      },
-      select: { id: true, relativePath: true },
-      orderBy: { id: "asc" },
-      take: DB_ENTRY_PAGE_SIZE,
-      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
-    });
-    for (const entry of existing) {
+  for await (const page of readDirectoryIndex(nodeId, relativeDir)) {
+    for (const entry of page) {
+      if (entry.isDeleted || !(entry.updatedAt < listingStartedAt)) continue;
       if (!entry.relativePath.startsWith(prefix)) continue;
       const remainder = entry.relativePath.slice(prefix.length);
       const isDirectChild = remainder.length > 0 && !remainder.includes("/");
       if (isDirectChild && !remoteRelativePaths.has(entry.relativePath))
         staleIds.push(entry.id);
     }
-    if (existing.length < DB_ENTRY_PAGE_SIZE) break;
-    cursorId = existing[existing.length - 1]!.id;
   }
 
-  if (staleIds.length === 0) return 0;
-
-  const result = await prisma.fileEntry.updateMany({
-    // Rechecked here: a row rewritten since it was read is not stale either.
-    where: { id: { in: staleIds }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
-    data: { isDeleted: true },
-  });
-  return result.count;
+  let deleted = 0;
+  for (let offset = 0; offset < staleIds.length; offset += STALE_WRITE_BATCH_SIZE) {
+    const result = await prisma.fileEntry.updateMany({
+      // Rechecked here: a row rewritten since it was read is not stale either.
+      where: { id: { in: staleIds.slice(offset, offset + STALE_WRITE_BATCH_SIZE) }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
+      data: { isDeleted: true },
+    });
+    deleted += result.count;
+  }
+  return deleted;
 }
 
 export async function syncSftpDirectoryEntries(input: {

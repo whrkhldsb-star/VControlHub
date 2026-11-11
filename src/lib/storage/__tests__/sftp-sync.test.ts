@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 const { prismaMock, listRemoteDirectoryMock } = vi.hoisted(() => ({
   prismaMock: {
+    // The direct children of the synced directory (readDirectoryIndex), read when stale entries are pruned.
+    $queryRaw: vi.fn(async (): Promise<unknown[]> => []),
     fileEntry: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -225,8 +227,10 @@ describe("sftp sync service", () => {
     const result = await syncSftpDirectoryEntries({ node, recursive: false });
 
     expect(result).toEqual({ synced: 3, created: 0, updated: 1, deleted: 0, errors: [] });
-    // Index lookup + prune only: no per-entry lookups, no inserts.
-    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledTimes(2);
+    // One index lookup for the listing and one read of the directory's own children for the prune: no per-entry
+    // lookups, no inserts.
+    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
     expect(prismaMock.fileEntry.createMany).not.toHaveBeenCalled();
     // Only c.txt actually changed — a and b are left untouched.
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledTimes(1);
@@ -343,33 +347,30 @@ describe("sftp sync service", () => {
     listRemoteDirectoryMock.mockResolvedValueOnce([
       { name: "live.txt", longname: "-rw-r--r-- live.txt", type: "file", size: 11, modifyTime: 1, accessTime: 1 },
     ]);
-    // First call indexes the listing (nothing known yet), second prunes.
-    prismaMock.fileEntry
-      .findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        { id: "stale_1", relativePath: "team-a/old.txt" },
-        { id: "live_1", relativePath: "team-a/live.txt" },
-        { id: "nested_1", relativePath: "team-a/sub/keep.txt" },
-        { id: "outside_1", relativePath: "other/old.txt" },
-      ]);
+    // The listing is indexed first (nothing known yet); the prune then reads the directory's children.
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce([]);
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      { id: "stale_1", relativePath: "team-a/old.txt", isDeleted: false, updatedAt: yesterday },
+      { id: "live_1", relativePath: "team-a/live.txt", isDeleted: false, updatedAt: yesterday },
+      // Already in the recycle bin: nothing to do.
+      { id: "binned_1", relativePath: "team-a/binned.txt", isDeleted: true, updatedAt: yesterday },
+      // Not this directory's own children: never pruned from here, whatever the query returned.
+      { id: "nested_1", relativePath: "team-a/sub/keep.txt", isDeleted: false, updatedAt: yesterday },
+      { id: "outside_1", relativePath: "other/old.txt", isDeleted: false, updatedAt: yesterday },
+    ]);
     prismaMock.fileEntry.createMany.mockResolvedValue({ count: 1 });
     prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await syncSftpDirectoryEntries({ node, remotePath: "team-a", recursive: false });
 
     expect(result).toEqual({ synced: 1, created: 1, updated: 0, deleted: 1, errors: [] });
-    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledWith({
-      where: {
-        storageNodeId: "node_1",
-        isDeleted: false,
-        updatedAt: { lt: expect.any(Date) },
-        relativePath: { startsWith: "team-a/" },
-      },
-      select: { id: true, relativePath: true },
-      orderBy: { id: "asc" },
-      take: 2_000,
-    });
+    // The prune asks for the directory's own children. It used to page through every live row below the directory
+    // (the whole node for its root) with findMany on each folder the file manager opened.
+    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+    const pruneQuery = prismaMock.$queryRaw.mock.calls[0] as unknown as [{ values: unknown[] }];
+    expect(pruneQuery[0].values).toEqual(expect.arrayContaining(["node_1", "team-a/"]));
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["stale_1"] }, isDeleted: false, updatedAt: { lt: expect.any(Date) } },
       data: { isDeleted: true },
@@ -445,6 +446,8 @@ describe("sftp sync pruning", () => {
         (where.isDeleted === undefined || row.isDeleted === where.isDeleted) &&
         (where.updatedAt === undefined || row.updatedAt < where.updatedAt.lt);
       prismaMock.fileEntry.findMany.mockImplementation(async ({ where }: { where: Parameters<typeof matches>[1] }) => rows.filter((row) => matches(row, where)).map(({ id, relativePath }) => ({ id, relativePath })));
+      // The prune reads the directory's children as they are at that moment, the fresh upload included.
+      prismaMock.$queryRaw.mockImplementationOnce(async () => rows.map((row) => ({ ...row })));
       prismaMock.fileEntry.updateMany.mockImplementation(async ({ where }: { where: Parameters<typeof matches>[1] }) => {
         const hit = rows.filter((row) => matches(row, where));
         for (const row of hit) row.isDeleted = true;

@@ -6,6 +6,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { closeAdvisoryLockPoolForTests } from "@/lib/concurrency/advisory-lock";
+import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
 import { listShareDirectoryFiles } from "../service";
 
 /**
@@ -83,6 +84,24 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("directory s
 		const changed = await prisma.fileEntry.findUniqueOrThrow({ where });
 		expect(changed.size).toBe(BigInt(10));
 		expect(changed.updatedAt.getTime()).toBeGreaterThan(earlier.getTime());
+	});
+
+	it("agrees with the file manager about a file of unknown type", async () => {
+		// The file manager indexes "data.bin" without a type; the share page's own rescan gave it
+		// "application/octet-stream". Each view of one after the other rewrote the row, so its modified time (the
+		// WebDAV Last-Modified and ETag) moved although nothing had changed.
+		await mkdir(path.join(basePath, "mixed"));
+		await writeFile(path.join(basePath, "mixed", "data.bin"), "bytes");
+		const share = { entryType: "DIRECTORY", path: "mixed", storageNodeId: id, storageNode: { basePath, driver: "LOCAL" } };
+		const fileManagerView = () => syncLocalDirectoryEntries({ node: { id, name: id, driver: "LOCAL", basePath }, relativePath: "mixed" });
+		await fileManagerView();
+		const where = { storageNodeId_relativePath: { storageNodeId: id, relativePath: "mixed/data.bin" } };
+		const earlier = new Date("2026-01-01T00:00:00Z");
+		await prisma.fileEntry.update({ where, data: { updatedAt: earlier } });
+		expect((await listShareDirectoryFiles(share)).map((file) => file.relativePath)).toEqual(["mixed/data.bin"]);
+		expect((await prisma.fileEntry.findUniqueOrThrow({ where })).updatedAt).toEqual(earlier);
+		await fileManagerView();
+		expect((await prisma.fileEntry.findUniqueOrThrow({ where })).updatedAt).toEqual(earlier);
 	});
 
 	it("keeps the index when the folder cannot be read", async () => {

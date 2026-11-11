@@ -743,6 +743,28 @@ describe("streamed upload assembly", () => {
 		expect(completed.checksum).toBe(assembled.checksum);
 		expect(await readSessionTempDir(view.id)).toEqual([]);
 	});
+	it("keeps the disk reserve while chunks arrive and when the file is put together", async () => {
+		// Admission looks at one upload against the free space of that moment. Several admitted together (or a
+		// disk that filled meanwhile) wrote on until the volume the database shares was full.
+		const view = await initMediaUploadSession({ userId: TEST_USER, filename: "a.bin", mimeType: "application/octet-stream", totalSize: 20, chunkSize: 10 });
+		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10) });
+		freeBytes.value = 512 * 1024 * 1024 + 5;
+		try {
+			await expect(appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 1, size: 10, buffer: Buffer.alloc(10) })).rejects.toMatchObject({ code: "insufficient_storage" });
+			// Nothing of the refused chunk was written, and the session can go on once there is room.
+			expect(await readSessionTempDir(view.id)).toEqual(["chunk-0"]);
+			freeBytes.value = null;
+			await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 1, size: 10, buffer: Buffer.alloc(10) });
+			store.sessions.get(view.id)!.status = "FINALIZING";
+			freeBytes.value = 512 * 1024 * 1024 + 19;
+			await expect(assembleMediaUploadToFile(view.id, TEST_USER)).rejects.toMatchObject({ code: "insufficient_storage" });
+			expect(await readSessionTempDir(view.id)).toEqual(["chunk-0", "chunk-1"]);
+			freeBytes.value = 512 * 1024 * 1024 + 20;
+			await expect(assembleMediaUploadToFile(view.id, TEST_USER)).resolves.toMatchObject({ size: 20 });
+		} finally {
+			freeBytes.value = null;
+		}
+	});
 	it("requires finalization ownership before touching chunk files", async () => {
 		const view = await initMediaUploadSession({ userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10 });
 		await expect(assembleMediaUploadToFile(view.id, TEST_USER)).rejects.toMatchObject({ code: "session_not_active" });

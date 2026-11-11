@@ -115,7 +115,8 @@ export function parseConfigFromMap(settings: Record<string, string>): OffsiteCon
 		region: (settings["offsite.region"] ?? "auto").trim(),
 		bucket: (settings["offsite.bucket"] ?? "").trim(),
 		accessKeyId: (settings["offsite.accessKeyId"] ?? "").trim(),
-		secretAccessKey: settings["offsite.secretAccessKey"] ?? "",
+		// Trimmed like the fields around it: a secret pasted with its line break signed every request wrongly.
+		secretAccessKey: (settings["offsite.secretAccessKey"] ?? "").trim(),
 		pathPrefix: (settings["offsite.pathPrefix"] ?? "vcontrolhub-backups/").trim(),
 		dailyWindowHour: toInt(settings["offsite.dailyWindowHour"] ?? "3", 3),
 		retentionDays: toInt(settings["offsite.retentionDays"] ?? "30", 30),

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   assembleMock,
+  tempSpaceMock,
   completeMock,
   assertAccessMock,
   getNodeMock,
@@ -17,6 +18,7 @@ const {
   webdavStatMock,
 } = vi.hoisted(() => ({
   assembleMock: vi.fn(),
+  tempSpaceMock: vi.fn(async (_bytes: number) => undefined),
   completeMock: vi.fn(),
   assertAccessMock: vi.fn(),
   getNodeMock: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock("@/lib/storage/webdav-client", () => ({ createWebDavClient: () => ({ sta
 
 vi.mock("@/lib/upload/service", () => ({
   assembleMediaUploadToFile: assembleMock,
+  assertUploadDiskReserve: tempSpaceMock,
   completeMediaUploadSession: completeMock,
   cleanupMediaUploadTempDir: vi.fn(async () => undefined),
   MediaUploadError: class MediaUploadError extends Error {
@@ -207,6 +210,20 @@ describe("completeStorageFileUpload", () => {
     writeBufferMock.mockRejectedValue(Object.assign(new Error("ENOSPC"), { code: "ENOSPC" }));
     await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never })).rejects.toMatchObject({ code: "UPLOAD_OUTCOME_UNKNOWN" });
     expect(sessionUpdateManyMock.mock.calls.at(-1)?.[0].data).toMatchObject({ recoveryRequired: true });
+  });
+
+  it("waits for room on the temp volume before it claims the session, so what was uploaded is kept", async () => {
+    // Putting the file together needs its size again. Found out only after the session was claimed, the
+    // failure removed the chunks and the whole file had to be sent again; now the session stays resumable.
+    const { MediaUploadError } = await import("@/lib/upload/service");
+    tempSpaceMock.mockRejectedValueOnce(new MediaUploadError("insufficient_storage", "Not enough free disk space"));
+    await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "u1", username: "alice", roles: ["operator"], mustChangePassword: false, currentTeamId: null } }))
+      .rejects.toMatchObject({ status: 507 });
+    expect(tempSpaceMock).toHaveBeenCalledWith(11);
+    // Not claimed (no status change), nothing assembled, nothing written.
+    expect(sessionUpdateManyMock).not.toHaveBeenCalled();
+    expect(assembleMock).not.toHaveBeenCalled();
+    expect(writeBufferMock).not.toHaveBeenCalled();
   });
 
   it("claims the active session before writing storage side effects", async () => {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, getStorageAccessCapabilities, getStorageAccessCapabilityKey } from "@/lib/storage/access-control";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 
 export const filePreferenceSchema = z.object({
@@ -117,16 +117,14 @@ export async function listFilePreferences(
     },
   });
   const page = rows.slice(0, 50);
-  const visible = [];
-  for (const row of page) {
-    const access = await assertStorageAccess({
-      session,
-      storageNodeId: row.fileEntry.storageNodeId,
-      relativePath: row.fileEntry.relativePath,
-      operation: "read",
-    });
-    if (access.allowed) visible.push(row);
-  }
+  // One capability lookup for the page, as the file listing does: a check per row was a node query and a grant
+  // query for each of up to fifty rows on every load of the favourites or recent list.
+  const targets = page.map((row) => ({ storageNodeId: row.fileEntry.storageNodeId, relativePath: row.fileEntry.relativePath }));
+  const capabilities = targets.length ? await getStorageAccessCapabilities({ session, targets }) : new Map();
+  const visible = page.filter((_, index) => {
+    const key = getStorageAccessCapabilityKey(targets[index]!);
+    return key !== null && capabilities.get(key)?.canRead === true;
+  });
   return {
     items: visible,
     nextCursor: rows.length > 50 ? page.at(-1)!.fileEntryId : null,

@@ -73,6 +73,20 @@ describe("shared files listing",() => {
     expect(listing.nodeIdFilter).toBe(node.id);
     expect(mocks.sftpSync).toHaveBeenCalledWith(expect.objectContaining({remotePath:"docs"}));
   });
+  it("opens the overview tile of a node whose name contains a path separator",async () => {
+    // The tile's path is the node's group key. With the name used verbatim, "NAS/Media__…" was two path segments,
+    // no node matched the first one and the tile answered "directory not found".
+    const slashed = {...node,id:"node_slash_1",name:"NAS/Media"};
+    mocks.nodes.mockResolvedValue([slashed]);
+    mocks.sftpNode.mockResolvedValue(slashed);
+    const {listing:overview} = await getFilesListing(session,listFilesQuerySchema.parse({}));
+    const tile = overview.folders[0]!;
+    expect(tile.displayName).toBe("NAS/Media (SFTP)");
+    const {listing} = await getFilesListing(session,listFilesQuerySchema.parse({path:`${tile.path}/docs`}));
+    expect(listing.nodeIdFilter).toBe(slashed.id);
+    expect(listing.currentPath).toBe("docs");
+    expect(tile.path).not.toMatch(/[\\/]/);
+  });
   it("returns virtual node roots with aggregate counts and no root mutation capability",async () => {
     mocks.counts.mockResolvedValue(new Map([[`${node.id}:`,{fileCount:1200,folderCount:8}]]));
     const {listing} = await getFilesListing(session,listFilesQuerySchema.parse({}));

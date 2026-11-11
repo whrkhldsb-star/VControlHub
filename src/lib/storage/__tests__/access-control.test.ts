@@ -384,4 +384,17 @@ describe("storageAccessDeniedCopy", () => {
     expect(storageAccessDeniedCopy(undefined)).toBe(fallback);
     expect(storageAccessDeniedCopy(null)).toBe(fallback);
   });
+
+  it("answers in the request's language when the caller names none", async () => {
+    // Most callers pass no locale. The helper then asked for "zh" outright, which beats the request locale: an
+    // English interface got "没有此存储节点或路径的访问授权" for a refused upload, copy or editor save.
+    const { storageAccessDeniedCopy } = await import("../access-denied");
+    const { serviceTranslations } = await import("@/lib/i18n/service-translations");
+    const { withApiCopyLocale } = await import("@/lib/i18n/api-copy");
+    const key = "backend.storageHardening.access.quotaExceeded";
+    expect(withApiCopyLocale("en", () => storageAccessDeniedCopy("quota_exceeded"))).toBe(serviceTranslations.en[key]);
+    expect(withApiCopyLocale("zh", () => storageAccessDeniedCopy("quota_exceeded"))).toBe(serviceTranslations.zh[key]);
+    // An explicit locale still wins over the request's.
+    expect(withApiCopyLocale("en", () => storageAccessDeniedCopy("quota_exceeded", "zh"))).toBe(serviceTranslations.zh[key]);
+  });
 });

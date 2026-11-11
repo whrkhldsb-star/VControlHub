@@ -16,7 +16,7 @@ import * as crypto from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { freeBytesOn, readStorageUploadMaxBytes, requiredUploadHeadroom } from "./limits";
+import { UPLOAD_DISK_RESERVE_BYTES, freeBytesOn, readStorageUploadMaxBytes, requiredUploadHeadroom } from "./limits";
 import {
 	mkdir,
 	readdir,
@@ -67,6 +67,21 @@ function chunkPath(sessionId: string, index: number): string {
 
 function ttlExpiry(ttlMs: number): Date {
 	return new Date(Date.now() + ttlMs);
+}
+
+/**
+ * Refuse a write of `bytes` to the upload temp volume that would eat into the reserve. Admission
+ * (initMediaUploadSession) judges one upload against the free space of that moment: several admitted together, or a
+ * disk that filled since, wrote on until the volume was full — the one the database and the logs usually share.
+ */
+export async function assertUploadDiskReserve(bytes: number): Promise<void> {
+	const freeBytes = await freeBytesOn(UPLOAD_TMP_DIR);
+	if (freeBytes !== null && freeBytes < bytes + UPLOAD_DISK_RESERVE_BYTES) {
+		throw new MediaUploadError(
+			"insufficient_storage",
+			`Not enough free disk space to continue this upload (${freeBytes} bytes free)`,
+		);
+	}
 }
 
 function assertSessionAcceptsChunks(row: { status: string; expiresAt: Date }): void {
@@ -276,6 +291,7 @@ export async function appendMediaUploadChunk(params: {
 	// and metadata update run under the session row lock, which is also taken
 	// by finalization/cancellation updates on every Web process.
 	await mkdir(sessionDir(sessionId), { recursive: true, mode: 0o700 });
+	await assertUploadDiskReserve(size);
 	const temporaryPath = `${chunkPath(sessionId, index)}.${crypto.randomUUID()}.tmp`;
 	try {
 		await writeFile(temporaryPath, buffer, { flag: "wx", mode: 0o600 });
@@ -378,6 +394,8 @@ export async function assembleMediaUploadToFile(sessionId: string, userId: strin
 		throw new MediaUploadError("total_size_too_large", "Invalid assembled upload size");
 	}
 	const received = new Set(row.receivedChunks);
+	// The assembled copy is as large as the upload again.
+	await assertUploadDiskReserve(totalSize);
 	const assembledPath = path.join(sessionDir(sessionId), `assembled-${crypto.randomUUID()}.tmp`);
 	const hash = crypto.createHash("sha256");
 	async function* chunks() {

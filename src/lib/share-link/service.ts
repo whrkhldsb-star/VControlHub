@@ -4,9 +4,6 @@ import { promisify } from "node:util";
 
 /** Async scrypt: runs on the libuv pool instead of blocking the event loop (~90 ms per call). */
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
-import type { Dirent } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
-import path from "node:path";
 import { teamCreateData, shareLinkTeamWhere, storageNodeTeamWhere } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
@@ -14,9 +11,9 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
-import { guessMimeType } from "@/lib/image-bed/constants";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
+import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -155,8 +152,8 @@ export async function createShareLink(input: {
   const normalizedPath = normalizeSharePath(input.path);
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
   if (!access.allowed) {
-    const t = await serviceT();
-    throw new ForbiddenError(access.reason || t("backend.shareLink.noSharePermission"));
+    // The reason is a code for programs ("no_access"); the share dialog showed it as the message.
+    throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
 
   const token = randomBytes(36).toString("base64url").slice(0, 48);
@@ -479,156 +476,6 @@ export async function peekShareToken(
   return { ...share, hasPassword, locked: false as const };
 }
 
-async function syncLocalShareDirectory(share: { storageNodeId: string; storageNode?: { basePath: string }; path: string }) {
-  const basePath = share.storageNode?.basePath;
-  if (!basePath) return;
-  const normalizedPrefix = share.path.replace(/^\/+|\/+$/g, "");
-  const resolved = resolveStoragePathWithinBase(basePath, normalizedPrefix);
-  if (!resolved.ok) return;
-  const absoluteDir = resolved.path;
-
-  // Rows written after this point are newer than the listing below.
-  const listingStartedAt = new Date();
-  let entries: Dirent[];
-  try {
-    entries = await readdir(absoluteDir, { withFileTypes: true });
-  } catch {
-    // Directory unreadable (permission denied, missing, etc.) — nothing to
-    // list, and no evidence that anything indexed is gone.
-    return;
-  }
-
-  // Build a deterministic list of records (filter + stat) so we can
-  // resolve the existing rows in a single `findMany` instead of one
-  // `findFirst` per entry. (TR-040 R1.2)
-  const records: Array<{
-    relativePath: string;
-    name: string;
-    entryType: "FILE" | "DIRECTORY";
-    mimeType: string;
-    size: bigint | null;
-  }> = [];
-  for (const entry of entries) {
-    if (!entry.isFile() && !entry.isDirectory()) continue;
-    const relativePath = `${normalizedPrefix}/${entry.name}`.replace(/^\/+/, "");
-    const absolutePath = path.join(absoluteDir, entry.name);
-    const fileStat = await stat(absolutePath).catch(() => null);
-    if (!fileStat) continue;
-    const entryType: "FILE" | "DIRECTORY" = entry.isDirectory() ? "DIRECTORY" : "FILE";
-    records.push({
-      relativePath,
-      name: entry.name,
-      entryType,
-      mimeType: entryType === "DIRECTORY" ? "inode/directory" : (guessMimeType(entry.name) ?? "application/octet-stream"),
-      size: entryType === "FILE" ? BigInt(fileStat.size) : null,
-    });
-  }
-  await retireVanishedShareEntries(share.storageNodeId, normalizedPrefix, new Set(entries.map((entry) => entry.name)), listingStartedAt);
-  if (records.length === 0) return;
-
-  // Query and mutate in bounded chunks so a large directory cannot exceed
-  // PostgreSQL parameter limits or create an unbounded Promise.all fan-out.
-  type IndexedRow = { id: string; relativePath: string; isDeleted: boolean; name: string; entryType: string; mimeType: string | null; size: bigint | null };
-  const existingByPath = new Map<string, IndexedRow>();
-  const batchSize = 500;
-  for (let i = 0; i < records.length; i += batchSize) {
-    const batch = records.slice(i, i + batchSize);
-    const existingRows = await prisma.fileEntry.findMany({
-      where: {
-        storageNodeId: share.storageNodeId,
-        relativePath: { in: batch.map((r) => r.relativePath) },
-      },
-      select: { id: true, relativePath: true, isDeleted: true, name: true, entryType: true, mimeType: true, size: true },
-    });
-    for (const row of existingRows) existingByPath.set(row.relativePath, row);
-  }
-
-  const toCreate = records.filter((r) => !existingByPath.has(r.relativePath));
-  // Soft delete is index-only, so a recycle-bin file is still on disk: a
-  // rescan must leave it deleted (as the SFTP and WebDAV syncs do), or a new
-  // share of its folder would hand it to visitors.
-  // Only rows whose facts changed: every share-page view (anonymous visitors
-  // included) rewrote each live row, which moved its updatedAt to the visit —
-  // the file list's modified time, and the WebDAV Last-Modified and ETag that
-  // sync clients compare, so they downloaded the whole folder again.
-  const toUpdate = records.filter((r) => {
-    const row = existingByPath.get(r.relativePath);
-    return row?.isDeleted === false && (row.name !== r.name || row.entryType !== r.entryType || row.mimeType !== r.mimeType || row.size !== r.size);
-  });
-
-  for (let i = 0; i < toCreate.length; i += batchSize) {
-    const batch = toCreate.slice(i, i + batchSize);
-    await prisma.fileEntry.createMany({
-      data: batch.map((r) => ({
-        storageNodeId: share.storageNodeId,
-        relativePath: r.relativePath,
-        name: r.name,
-        entryType: r.entryType,
-        mimeType: r.mimeType,
-        size: r.size ?? undefined,
-      })),
-      skipDuplicates: true,
-    });
-  }
-  for (let i = 0; i < toUpdate.length; i += batchSize) {
-    const batch = toUpdate.slice(i, i + batchSize);
-    await Promise.all(
-      batch.map((r) => {
-        const row = existingByPath.get(r.relativePath)!;
-        // The predicate also covers a delete that lands between read and write.
-        return prisma.fileEntry.updateMany({
-          where: { id: row.id, isDeleted: false },
-          data: {
-            name: r.name,
-            entryType: r.entryType,
-            mimeType: r.mimeType,
-            size: r.size,
-          },
-        });
-      }),
-    );
-  }
-}
-
-/**
- * Mark direct children of a listed folder that are no longer on disk as
- * deleted. The rescan only added and refreshed rows, so a file removed on
- * the node itself (or by another program) stayed downloadable on the share
- * page for good; an emptied folder skipped the sync entirely. Rows written
- * after the listing began are left alone.
- */
-async function retireVanishedShareEntries(storageNodeId: string, prefix: string, namesOnDisk: Set<string>, listingStartedAt: Date) {
-  const childPrefix = prefix ? `${prefix}/` : "";
-  const vanished: string[] = [];
-  let cursor: { id: string } | undefined;
-  for (;;) {
-    const rows = await prisma.fileEntry.findMany({
-      where: {
-        storageNodeId,
-        isDeleted: false,
-        updatedAt: { lt: listingStartedAt },
-        ...(childPrefix ? { relativePath: { startsWith: escapeLikeLiteral(childPrefix) } } : {}),
-      },
-      select: { id: true, relativePath: true },
-      orderBy: { id: "asc" },
-      take: 1000,
-      ...(cursor ? { cursor, skip: 1 } : {}),
-    });
-    for (const row of rows) {
-      const name = row.relativePath.slice(childPrefix.length);
-      if (name && !name.includes("/") && !namesOnDisk.has(name)) vanished.push(row.id);
-    }
-    if (rows.length < 1000) break;
-    cursor = { id: rows[rows.length - 1]!.id };
-  }
-  for (let i = 0; i < vanished.length; i += 500) {
-    await prisma.fileEntry.updateMany({
-      where: { id: { in: vanished.slice(i, i + 500) }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
-      data: { isDeleted: true },
-    });
-  }
-}
-
 type DirectoryShareForList = {
   entryType: string;
   path: string;
@@ -654,13 +501,17 @@ async function refreshShareDirectoryIndex(share: DirectoryShareForList) {
   assertUnlockedDirectoryShare(share);
   if (share.entryType !== "DIRECTORY") return;
   if (share.storageNode?.driver === "LOCAL") {
-    await syncLocalShareDirectory({
-      storageNodeId: share.storageNodeId,
-      path: share.path,
-      storageNode: share.storageNode?.basePath
-        ? { basePath: share.storageNode.basePath }
-        : undefined,
-    });
+    // The file manager's own directory sync, so a LOCAL folder's index has one writer. The rescan kept here gave a
+    // file of unknown type "application/octet-stream" where that sync stores none: a view of the share page and
+    // one of the file manager each rewrote the row, moving its modified time (WebDAV Last-Modified and ETag)
+    // with nothing changed. It also read every row below the folder on each visit to find the folder's own
+    // children. A folder that cannot be read leaves the index as it is.
+    if (share.storageNode.basePath) {
+      await syncLocalDirectoryEntries({
+        node: { id: share.storageNodeId, driver: "LOCAL", basePath: share.storageNode.basePath },
+        relativePath: share.path,
+      });
+    }
     return;
   }
   if (share.storageNode?.driver === "WEBDAV") {

@@ -354,11 +354,9 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           writeBytes: null,
         });
         if (!destinationAccessDecision.allowed) {
+          // In words, as for the source path above: the reason is a code and was sent as it is.
           return NextResponse.json(
-            {
-              error:
-                destinationAccessDecision.reason ?? "Missing target path storage access authorization",
-            },
+            { error: storageAccessDeniedCopy(destinationAccessDecision.reason) },
             { status: 403 },
           );
         }

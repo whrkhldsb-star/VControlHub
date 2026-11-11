@@ -9,7 +9,7 @@ import { lstat } from "node:fs/promises";
 import path from "node:path";
 
 import { prisma } from "@/lib/db";
-import { UploadOutcomeUnknownError, ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
+import { BusinessError, UploadOutcomeUnknownError, ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
@@ -19,7 +19,9 @@ import {
 import { normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { createWebDavClient } from "@/lib/storage/webdav-client";
 import {
+  MediaUploadError,
   assembleMediaUploadToFile,
+  assertUploadDiskReserve,
   completeMediaUploadSession,
   cleanupMediaUploadTempDir,
 } from "@/lib/upload/service";
@@ -152,6 +154,16 @@ export async function completeStorageFileUpload(params: {
   if (!storageNode || !["LOCAL", "SFTP", "WEBDAV"].includes(storageNode.driver)) {
     throw new ValidationError(t("backend.storage.uploadNotSupported"));
   }
+
+  // Room for the assembled copy (the upload's size again), looked for while the session can still be resumed.
+  // Found out only once the finalization was claimed, the failure removed the uploaded chunks and the whole
+  // file had to be sent again.
+  await assertUploadDiskReserve(byteSize).catch((error: unknown) => {
+    if (error instanceof MediaUploadError && error.code === "insufficient_storage") {
+      throw new BusinessError(t("backend.storage.uploadTempSpaceLow"), { code: error.code }, 507);
+    }
+    throw error;
+  });
 
   releaseFinalization = acquireFinalizationSlot(session.userId, existing.storageNodeId);
   lease = await beginUploadFinalization(sessionId, session.userId);

@@ -31,5 +31,7 @@ export function storageAccessDeniedCopy(
 ): string {
 	const key =
 		(reason ? REASON_COPY_KEYS[reason] : undefined) ?? FALLBACK_COPY_KEY;
-	return t(key, locale ?? "zh");
+	// Without a locale, t() answers in the request's language (Chinese outside a request). Asking for "zh" here
+	// overrode that: most callers pass none, so an English interface got its refusals in Chinese.
+	return locale ? t(key, locale) : t(key);
 }

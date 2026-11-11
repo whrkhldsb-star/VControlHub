@@ -16,6 +16,7 @@ import { Client } from "ssh2";
 import { NextResponse } from "next/server";
 
 import { connectSsh } from "@/lib/ssh/client";
+import { createLimiter } from "@/lib/concurrency/limiter";
 import { createLogger } from "@/lib/logging";
 import { thumbnailCacheRoot } from "@/lib/media/thumbnail-cache";
 import { resolveManagedLocalPath } from "@/lib/storage/managed-path";
@@ -46,6 +47,18 @@ const thumbnailGenerationInFlight = new Map<
   string,
   Promise<Buffer | NextResponse>
 >();
+
+/**
+ * Thumbnails made at once (sharp works on four threads; the rest only waited
+ * with their source in memory). A folder view asks for every visible tile
+ * together: forty 9 MB photos held 445 MB that way and 203 MB four at a time,
+ * in the same time. On an SFTP node each tile is also its own SSH connection,
+ * and sshd starts dropping connections past ten unauthenticated ones
+ * (MaxStartups 10:30:100) — one drop opened the breaker below and the rest of
+ * the folder showed "unavailable" for two minutes.
+ */
+const THUMBNAIL_GENERATION_CONCURRENCY = 4;
+const withGenerationSlot = createLimiter(THUMBNAIL_GENERATION_CONCURRENCY);
 
 function isBreakerOpen(nodeId: string): boolean {
   const state = nodeBreaker.get(nodeId);
@@ -152,6 +165,30 @@ async function getCachedThumbnail(filePath: string): Promise<Buffer | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * The ceiling the image bed applies to what it decodes (MAX_IMAGE_PIXELS in
+ * lib/image/service; not imported, that module loads sharp eagerly).
+ */
+const MAX_THUMBNAIL_SOURCE_PIXELS = 50_000_000;
+
+/**
+ * Whether making the thumbnail would decode more than the ceiling in memory.
+ * A baseline JPEG and a non-interlaced PNG are read as a stream and shrunk on
+ * the way (72 MB and 141 MB of process memory for 256 megapixels), so a large
+ * camera photo or scan keeps its thumbnail. An interlaced PNG, a progressive
+ * JPEG and a GIF are decoded whole: files under 1.5 MB took the process to
+ * 848 MB, 804 MB and 1.15 GB for one thumbnail. Past the ceiling only the
+ * two streamed kinds are accepted. Read from the header; nothing is decoded.
+ */
+async function exceedsDecodeBudget(buffer: Buffer): Promise<boolean> {
+  const sharp = (await import("sharp")).default;
+  const meta = await sharp(buffer, { failOn: "none", limitInputPixels: false }).metadata();
+  const pixels = (meta.width ?? 0) * (meta.height ?? 0);
+  if (pixels <= MAX_THUMBNAIL_SOURCE_PIXELS) return false;
+  const streamed = (meta.format === "jpeg" || meta.format === "png") && meta.isProgressive !== true;
+  return !streamed;
 }
 
 async function generateThumbnailFromBuffer(buffer: Buffer): Promise<Buffer> {
@@ -371,8 +408,9 @@ export async function respondWithStorageThumbnail(input: {
           privateKey: credentials.privateKey,
           passphrase: credentials.passphrase,
           password: credentials.password,
-          readyTimeout: 5000,
-          timeout: 5000,
+          // The handshake limit is the shared 15 seconds. A 5-second one was written here and never applied
+          // (connectSsh rebuilds the settings from the credentials); applying it now would, with the breaker
+          // opening on a single failure, blank every tile of a node whose handshake takes longer than that.
         });
         sftpConnected = true;
         noteBreakerSuccess(node.id);
@@ -414,6 +452,13 @@ export async function respondWithStorageThumbnail(input: {
 
     let thumbnail: Buffer;
     try {
+      if (await exceedsDecodeBudget(sourceBuffer)) {
+        return apiError({
+          code: "REQUEST_ENTITY_TOO_LARGE",
+          message: apiCopy("apiCopy.original.image.is.too.large.cannot.generate.thumbnail.3728da55"),
+          status: 413,
+        });
+      }
       thumbnail = await generateThumbnailFromBuffer(sourceBuffer);
     } catch (error) {
       logger.error("thumbnail generate failed", error, { id });
@@ -438,12 +483,17 @@ export async function respondWithStorageThumbnail(input: {
     return thumbnail;
   };
 
+  // Known unreachable: answer now instead of waiting for a turn to find out.
+  if (node.driver === "SFTP" && isBreakerOpen(node.id)) {
+    return unavailable("offline");
+  }
+
   let thumbnail: Buffer;
   try {
     const result = await runSingleFlight(
       thumbnailGenerationInFlight,
       cacheFile,
-      generate,
+      () => withGenerationSlot(generate),
     );
     // Concurrent requests for one file share this result. A response body can
     // be read once: handing the same placeholder to every caller left all

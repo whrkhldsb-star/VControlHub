@@ -62,6 +62,20 @@ describe("share link service", () => {
     expect(mockPrisma.shareLink.create.mock.calls[0]![0]!.data.path).toBe("docs/report.pdf");
   });
 
+  it("says in words why a share outside the caller's path grants is refused", async () => {
+    // The decision's reason is a code for programs ("no_access"). It was thrown as the message, so the share
+    // dialog showed the code itself.
+    const { assertStorageAccess } = await import("@/lib/storage/access-control");
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: false, reason: "no_access" });
+    const attempt = createShareLink({
+      session: { userId: "u1", username: "alice", roles: ["operator"], mustChangePassword: false, currentTeamId: null },
+      storageNodeId: "node1",
+      path: "private/report.pdf",
+    });
+    await expect(attempt).rejects.toThrow("没有此存储节点或路径的访问授权");
+    expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
+  });
+
   it("treats a file as deleted when it or any folder above it is in the trash", async () => {
     mockPrisma.fileEntry.findFirst.mockResolvedValueOnce({ id: "trashed-folder" });
     await expect(assertShareTargetNotDeleted("node1", "docs/old/report.pdf")).rejects.toThrow();

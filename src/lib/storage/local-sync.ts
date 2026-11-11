@@ -78,7 +78,8 @@ async function pruneStaleEntries(
 }
 
 export async function syncLocalDirectoryEntries(input: {
-  node: LocalSyncNode;
+  /** The name is not used: callers that only know where the node's files are (a share's folder) pass none. */
+  node: Pick<LocalSyncNode, "id" | "driver" | "basePath"> & { name?: string };
   relativePath?: string;
 }): Promise<LocalSyncResult> {
   const result: LocalSyncResult = {

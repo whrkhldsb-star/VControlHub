@@ -140,7 +140,8 @@ describe("POST /api/images/publish-from-storage", () => {
   });
 
   it("rejects inaccessible source paths before reading or writing public image files", async () => {
-    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+    // The decision carries a code; the answer says it in words (it used to be the code itself, "no_access").
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "no_access" });
 
     const response = await POST(publishRequest());
 
@@ -148,9 +149,8 @@ describe("POST /api/images/publish-from-storage", () => {
     expect(await listFiles(uploadRoot)).toEqual([]);
     expect(imageFindFirstMock).not.toHaveBeenCalled();
     expect(imageCreateMock).not.toHaveBeenCalled();
-    await expect(response.json()).resolves.toMatchObject({
-      error: "没有该存储节点或路径的访问授权",
-    });
+    const body = await response.json() as { error: string };
+    expect(["没有此存储节点或路径的访问授权", "No access authorization for this storage node or path"]).toContain(body.error);
   });
 
   it("rejects SVG storage files before they can be published inline", async () => {
