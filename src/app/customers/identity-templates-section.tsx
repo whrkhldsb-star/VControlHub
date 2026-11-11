@@ -100,7 +100,8 @@ export function IdentityTemplatesSection() {
 
 	return (
 		<>
-			{error && !draft && <Notice tone="danger">{error}</Notice>}
+			{/* A dialog that is open shows its own failure; here it would sit behind it. */}
+			{error && !draft && !pendingDelete && <Notice tone="danger">{error}</Notice>}
 			<ListPanel
 				title={t("identityTemplatesPage.title")}
 				description={t("identityTemplatesPage.description")}
@@ -124,7 +125,7 @@ export function IdentityTemplatesSection() {
 								{template.isBuiltin ? t("identityTemplatesPage.view") : t("identityTemplatesPage.edit")}
 							</ActionButton>
 							{!template.isBuiltin && (
-								<ActionButton size="sm" variant="danger" disabled={busy || template._count.members > 0} onClick={() => setPendingDelete(template)}
+								<ActionButton size="sm" variant="danger" disabled={busy || template._count.members > 0} onClick={() => { setError(null); setPendingDelete(template); }}
 									title={template._count.members > 0 ? t("identityTemplatesPage.inUse") : undefined}>
 									{t("identityTemplatesPage.delete")}
 								</ActionButton>
@@ -141,8 +142,9 @@ export function IdentityTemplatesSection() {
 				cancelLabel={t("common.cancel")}
 				confirmLabel={t("identityTemplatesPage.delete")}
 				busy={busy}
+				error={pendingDelete && error ? error : undefined}
 				closeOnBackdrop={false}
-				onCancel={() => setPendingDelete(null)}
+				onCancel={() => { setError(null); setPendingDelete(null); }}
 				onConfirm={() => { if (pendingDelete) void remove(pendingDelete); }}
 			/>
 

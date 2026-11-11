@@ -64,20 +64,15 @@ export function useAiConfirmAction({
       return {
         title: t("aiPage.deleteConvTitle"),
         confirmLabel: t("aiPage.confirmDelete"),
-        description: t("aiPage.deleteConvBody").replace(
-          "{title}",
-          action.title,
-        ),
+        // Through t(): String.replace would read "$&" or "$'" in a title as instructions.
+        description: t("aiPage.deleteConvBody", { title: action.title }),
       };
     }
     if (action.type === "delete-provider") {
       return {
         title: t("aiPage.deleteProviderTitle"),
         confirmLabel: t("aiPage.confirmDelete"),
-        description: t("aiPage.deleteProviderBody").replace(
-          "{name}",
-          action.name,
-        ),
+        description: t("aiPage.deleteProviderBody", { name: action.name }),
       };
     }
     return {

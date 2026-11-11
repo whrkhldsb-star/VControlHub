@@ -10,6 +10,8 @@ import type { AlertRule } from "./alert-rule-types";
 type Props = {
 	rulePendingDelete: AlertRule | null;
 	busyAction: string | null;
+	/** Why the last attempt failed: shown in the dialog, which stays open for another try. */
+	error?: string | null;
 	setRulePendingDelete: (rule: AlertRule | null) => void;
 	deleteRule: (id: string) => Promise<void>;
 };
@@ -17,6 +19,7 @@ type Props = {
 export function DeleteRuleDialog({
 	rulePendingDelete,
 	busyAction,
+	error,
 	setRulePendingDelete,
 	deleteRule,
 }: Props) {
@@ -34,10 +37,11 @@ export function DeleteRuleDialog({
 		<ConfirmDialog
 			open
 			title={t("alertRulesPage.delete.title")}
-			description={t("alertRulesPage.delete.confirm").replace("{name}", rulePendingDelete.name)}
+			description={t("alertRulesPage.delete.confirm", { name: rulePendingDelete.name })}
 			cancelLabel={t("alertRulesPage.delete.cancel")}
 			confirmLabel={deleting ? t("alertRulesPage.delete.deleting") : t("alertRulesPage.delete.confirmBtn")}
 			busy={deleting}
+			error={error ?? undefined}
 			onCancel={closeDeleteDialog}
 			onConfirm={() => deleteRule(rulePendingDelete.id)}
 			closeOnBackdrop={false}

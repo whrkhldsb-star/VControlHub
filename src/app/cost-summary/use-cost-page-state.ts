@@ -13,7 +13,7 @@ import type {
 } from "@/lib/cost/types";
 
 import { emptyForm, formatAmount, isValidDate } from "./cost-page-shared";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { describeFailure } from "@/lib/http/error-message";
 
 type ToastFn = (type: "success" | "error" | "info" | "warning", message: string) => void;
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
@@ -75,19 +75,12 @@ export function useCostPageState(options: {
     async (m: string, c: CostCurrency) => {
       const seq = ++summaryReqSeq.current;
       try {
-        const res = await csrfFetch<Response>(`/api/cost/summary?month=${m}&currency=${c}`, {
-          raw: true,
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { summary: CostSummary };
+        const data = await csrfFetch<{ summary: CostSummary }>(`/api/cost/summary?month=${m}&currency=${c}`);
         if (seq !== summaryReqSeq.current) return;
         setSummary(data.summary);
       } catch (err) {
         if (seq !== summaryReqSeq.current) return;
-        addToast(
-          "error",
-          `${t("costPage.error.load")}: ${getErrorMessage(err, String(err))}`,
-        );
+        addToast("error", describeFailure(t("costPage.error.load"), err));
       }
     },
     [addToast, t],
@@ -99,17 +92,12 @@ export function useCostPageState(options: {
       const m = forMonth ?? month;
       const qs = new URLSearchParams({ limit: "200" });
       if (m) qs.set("month", m);
-      const res = await csrfFetch<Response>(`/api/cost/entries?${qs.toString()}`, { raw: true });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { entries: CostEntryRecord[] };
+      const data = await csrfFetch<{ entries: CostEntryRecord[] }>(`/api/cost/entries?${qs.toString()}`);
       if (seq !== entriesReqSeq.current) return;
       setEntries(data.entries);
     } catch (err) {
       if (seq !== entriesReqSeq.current) return;
-      addToast(
-        "error",
-        `${t("costPage.error.load")}: ${getErrorMessage(err, String(err))}`,
-      );
+      addToast("error", describeFailure(t("costPage.error.load"), err));
     }
   }, [addToast, t, month]);
 
@@ -119,19 +107,14 @@ export function useCostPageState(options: {
     const m = forMonth ?? month;
     try {
       const qs = new URLSearchParams({ limit: "31", currency: c, month: m });
-      const res = await csrfFetch<Response>(`/api/cost/snapshots?${qs.toString()}`, { raw: true });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { snapshots: DailySnapshot[] };
+      const data = await csrfFetch<{ snapshots: DailySnapshot[] }>(`/api/cost/snapshots?${qs.toString()}`);
       if (seq !== snapshotsReqSeq.current) return;
       setSnapshots(data.snapshots);
     } catch (err) {
       if (seq !== snapshotsReqSeq.current) return;
       // Snapshots power the trend chart only; keep the rest of the page usable
       // but surface the failure so operators are not left with a silent empty chart.
-      addToast(
-        "error",
-        `${t("costPage.error.loadSnapshots")}: ${getErrorMessage(err, String(err))}`,
-      );
+      addToast("error", describeFailure(t("costPage.error.loadSnapshots"), err));
     }
   }, [addToast, t, currency, month]);
 
@@ -145,23 +128,17 @@ export function useCostPageState(options: {
     if (!canManage) return;
     setSyncingSources(true);
     try {
-      const res = await csrfFetch<Response>("/api/cost/snapshots", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ month }),
-        raw: true,
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message ?? `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as {
+      const data = await csrfFetch<{
         result: {
           synced: number;
           skipped: number;
           skippedDetails?: { serverName: string; reason: string }[];
         };
-      };
+      }>("/api/cost/snapshots", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ month }),
+      });
       addToast(
         "success",
         t("costPage.actions.syncSourcesDone", { synced: data.result.synced, skipped: data.result.skipped }),
@@ -181,10 +158,7 @@ export function useCostPageState(options: {
       }
       await refreshAll();
     } catch (err) {
-      addToast(
-        "error",
-        `${t("costPage.actions.syncSourcesError")}: ${getErrorMessage(err, String(err))}`,
-      );
+      addToast("error", describeFailure(t("costPage.actions.syncSourcesError"), err));
     } finally {
       setSyncingSources(false);
     }
@@ -255,25 +229,17 @@ export function useCostPageState(options: {
       };
       const url = editingId ? `/api/cost/entries/${editingId}` : "/api/cost/entries";
       const method = editingId ? "PATCH" : "POST";
-      const res = await csrfFetch<Response>(url, {
+      await csrfFetch(url, {
         method,
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
-        raw: true,
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message ?? `HTTP ${res.status}`);
-      }
       setShowForm(false);
       setEditingId(null);
-      addToast("success", t("costPage.form.submit"));
+      addToast("success", t("costPage.toast.saved"));
       await refreshAll();
     } catch (err) {
-      addToast(
-        "error",
-        `${t("costPage.error.save")}: ${getErrorMessage(err, String(err))}`,
-      );
+      addToast("error", describeFailure(t("costPage.error.save"), err));
     } finally {
       setSaving(false);
     }
@@ -283,19 +249,12 @@ export function useCostPageState(options: {
     if (!confirmDelete) return;
     setDeletingId(confirmDelete.id);
     try {
-      const res = await csrfFetch<Response>(`/api/cost/entries/${confirmDelete.id}`, {
-        method: "DELETE",
-        raw: true,
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await csrfFetch(`/api/cost/entries/${confirmDelete.id}`, { method: "DELETE" });
       setConfirmDelete(null);
-      addToast("success", t("costPage.delete.confirmBtn"));
+      addToast("success", t("costPage.toast.deleted"));
       await refreshAll();
     } catch (err) {
-      addToast(
-        "error",
-        `${t("costPage.error.delete")}: ${getErrorMessage(err, String(err))}`,
-      );
+      addToast("error", describeFailure(t("costPage.error.delete"), err));
     } finally {
       setDeletingId(null);
     }

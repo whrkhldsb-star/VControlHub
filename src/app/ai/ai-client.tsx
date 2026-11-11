@@ -288,8 +288,8 @@ export function AiClient({
         });
         await refreshConversations();
         addToast("success", t("aiPage.modelSwitched", { model }));
-      } catch {
-        addToast("error", t("aiPage.saveFailed"));
+      } catch (error) {
+        addToast("error", getErrorMessage(error, t("aiPage.saveFailed")));
       }
     },
     [activeConvId, activeConv?.model, refreshConversations, addToast, t],

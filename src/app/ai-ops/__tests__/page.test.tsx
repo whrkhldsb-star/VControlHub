@@ -16,6 +16,7 @@ const listAiOpsLogsMock = vi.fn();
 const summariseAiOpsMock = vi.fn();
 const getSettingMock = vi.fn();
 const aiProviderFindManyMock = vi.fn();
+const aiProviderFindUniqueMock = vi.fn();
 
 vi.mock("@/lib/auth/page-guard", () => ({
 	requirePagePermission: requirePagePermissionMock,
@@ -34,7 +35,7 @@ vi.mock("@/lib/settings/service", () => ({
 	getSetting: getSettingMock,
 }));
 vi.mock("@/lib/db", () => ({
-	prisma: { aiProvider: { findMany: aiProviderFindManyMock } },
+	prisma: { aiProvider: { findMany: aiProviderFindManyMock, findUnique: aiProviderFindUniqueMock } },
 }));
 // The RSC reads the locale cookie via `next/headers` which is not
 // available outside a request scope (unit test env). Mock it with a
@@ -64,6 +65,8 @@ describe("/ai-ops page permission gate", () => {
 		getSettingMock.mockReset();
 		aiProviderFindManyMock.mockReset();
 		aiProviderFindManyMock.mockResolvedValue([]);
+		aiProviderFindUniqueMock.mockReset();
+		aiProviderFindUniqueMock.mockResolvedValue(null);
 	});
 
 	it("calls requirePagePermission with the read permission before rendering", async () => {
@@ -92,6 +95,26 @@ describe("/ai-ops page permission gate", () => {
 
 		expect(requirePagePermissionMock).toHaveBeenCalledTimes(1);
 		expect(requirePagePermissionMock).toHaveBeenCalledWith("ai:ops:read");
+	});
+
+	it("hands the client the saved provider by name, whoever chose it, and says when it is gone", async () => {
+		requirePagePermissionMock.mockResolvedValue({ userId: "u1", roles: ["admin"] });
+		summariseAiOpsMock.mockResolvedValue({ total: 0, byStatus: { ok: 0, error: 0, warning: 0, skipped: 0, running: 0 }, byMode: { recommendation: 0, autonomous: 0 }, lastScanAt: null, lastErrorAt: null });
+		listAiOpsLogsMock.mockResolvedValue([]);
+		getSettingMock.mockImplementation(async (key: string) => (key === "ai.ops.provider" ? "prov-other" : "recommendation"));
+		aiProviderFindUniqueMock.mockResolvedValue({ name: "Team Claude", defaultModel: "claude-y", enabled: true });
+		const { default: AiOpsPage } = await import("../page");
+
+		const client = (await AiOpsPage()).props.children[1];
+		// Looked up by id alone: the options list holds only this administrator's own providers.
+		expect(aiProviderFindUniqueMock).toHaveBeenCalledWith({ where: { id: "prov-other" }, select: { name: true, defaultModel: true, enabled: true } });
+		expect(client.props.storedProvider).toEqual({ id: "prov-other", name: "Team Claude", defaultModel: "claude-y", available: true });
+
+		aiProviderFindUniqueMock.mockResolvedValue(null);
+		expect((await AiOpsPage()).props.children[1].props.storedProvider).toEqual({ id: "prov-other", name: null, defaultModel: null, available: false });
+
+		getSettingMock.mockImplementation(async (key: string) => (key === "ai.ops.provider" ? "" : "recommendation"));
+		expect((await AiOpsPage()).props.children[1].props.storedProvider).toBeNull();
 	});
 
 	it("blocks a custom role granted ai:ops:read but lacking team:manage", async () => {

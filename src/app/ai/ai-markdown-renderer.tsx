@@ -2,6 +2,8 @@
 
 import type React from "react";
 
+import { copyText } from "@/lib/ui/clipboard";
+
 /** Only allow safe navigable schemes for markdown links (blocks javascript:/data: XSS). */
 export function safeMarkdownHref(raw: string): string | null {
   const href = raw.trim();
@@ -30,16 +32,6 @@ export function safeMarkdownHref(raw: string): string | null {
     }
   }
   return null;
-}
-
-/* ── Copy to clipboard ──────────────────────────────────────── */
-export async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /* ── Render inline markdown (bold, italic, code, links, strikethrough) ─ */
@@ -183,7 +175,7 @@ export const renderContent = (content: string, options?: { copyLabel?: string })
  <span className="text-xs text-[var(--color-action-text)]/60 font-mono">{lang || "code"}</span>
  <button
  type="button"
- onClick={() => copyToClipboard(code)}
+ onClick={() => void copyText(code)}
  className="text-xs text-[var(--text-muted)] hover:text-[var(--color-action-text)] transition opacity-100 sm:opacity-0 sm:group-hover/code:opacity-100 flex items-center gap-1"
  >
  <svg className="w-3 h-3" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">

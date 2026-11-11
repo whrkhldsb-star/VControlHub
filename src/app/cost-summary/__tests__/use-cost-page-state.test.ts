@@ -21,15 +21,21 @@ vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: mocks.csrfFetch }));
 
 import { useCostPageState } from "../use-cost-page-state";
 
-/** A raw-mode Response stand-in; this hook fetches with `raw: true`. */
-function raw(payload: unknown, { ok = true, status = 200 } = {}) {
-	return { ok, status, json: async () => payload } as unknown as Response;
+/** What the API client hands back for a good answer: the parsed body. */
+function raw<T>(payload: T): T {
+	return payload;
+}
+
+/** What it throws for a refusal: an error carrying the server's message. */
+function refusal(message: string, status = 500) {
+	return Object.assign(new Error(message), { name: "ApiError", status });
 }
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
-	const promise = new Promise<T>((r) => { resolve = r; });
-	return { promise, resolve };
+	let reject!: (reason: unknown) => void;
+	const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+	return { promise, resolve, reject };
 }
 
 function setup() {
@@ -57,7 +63,7 @@ describe("useCostPageState", () => {
 
 	describe("out-of-order responses", () => {
 		it("drops a stale summary so a slow old month cannot repaint the new one", async () => {
-			const slow = deferred<Response>();
+			const slow = deferred<unknown>();
 			mocks.csrfFetch.mockImplementation((url: string) => {
 				const u = String(url);
 				if (u.includes("/api/cost/summary?month=2026-07")) return slow.promise;
@@ -89,7 +95,7 @@ describe("useCostPageState", () => {
 		it("suppresses a stale error toast as well as a stale result", async () => {
 			// A superseded request that *fails* must not put an error on screen for a
 			// month the user already navigated away from.
-			const slow = deferred<Response>();
+			const slow = deferred<unknown>();
 			mocks.csrfFetch.mockImplementation((url: string) => {
 				const u = String(url);
 				if (u.includes("month=2026-07")) return slow.promise;
@@ -100,7 +106,7 @@ describe("useCostPageState", () => {
 			await act(async () => { result.current.onChangeMonth("2026-08"); });
 			mocks.addToast.mockClear();
 			await act(async () => {
-				slow.resolve(raw({}, { ok: false, status: 500 }));
+				slow.reject(refusal("boom"));
 				await Promise.resolve();
 			});
 			expect(mocks.addToast).not.toHaveBeenCalled();
@@ -124,15 +130,13 @@ describe("useCostPageState", () => {
 	});
 
 	describe("failures are reported", () => {
-		it("toasts a non-ok summary response", async () => {
-			mocks.csrfFetch.mockResolvedValue(raw({}, { ok: false, status: 503 }));
+		it("toasts a refused summary with the server's reason", async () => {
+			// It read "…: HTTP 503": the answer was taken raw and its message thrown away.
+			mocks.csrfFetch.mockRejectedValue(refusal("数据库暂时不可用，请稍后重试", 503));
 			const { result } = setup();
 			await act(async () => { await result.current.refreshAll(); });
 			await waitFor(() =>
-				expect(mocks.addToast).toHaveBeenCalledWith(
-					"error",
-					expect.stringContaining("costPage.error.load"),
-				),
+				expect(mocks.addToast).toHaveBeenCalledWith("error", "costPage.error.load: 数据库暂时不可用，请稍后重试"),
 			);
 		});
 
@@ -141,7 +145,7 @@ describe("useCostPageState", () => {
 			// rather than leaving a silently empty chart.
 			mocks.csrfFetch.mockImplementation((url: string) =>
 				String(url).includes("/api/cost/snapshots")
-					? Promise.resolve(raw({}, { ok: false, status: 500 }))
+					? Promise.reject(refusal("boom"))
 					: Promise.resolve(raw({ summary: null, entries: [] })),
 			);
 			const { result } = setup();
@@ -152,6 +156,35 @@ describe("useCostPageState", () => {
 					expect.stringContaining("costPage.error.loadSnapshots"),
 				),
 			);
+		});
+	});
+
+	describe("save", () => {
+		const fill = (result: { current: ReturnType<typeof useCostPageState> }) => act(() => {
+			result.current.openCreate();
+			result.current.setForm({ category: "vps", provider: "aws", amount: "10.00", currency: "CNY", effectiveDate: "2026-08-01", notes: "" } as never);
+		});
+
+		it("says the entry was saved, not the label of the button", async () => {
+			const { result } = setup();
+			fill(result);
+			await act(async () => { await result.current.submitForm(); });
+			expect(mocks.csrfFetch).toHaveBeenCalledWith("/api/cost/entries", expect.objectContaining({ method: "POST" }));
+			expect(mocks.addToast).toHaveBeenCalledWith("success", "costPage.toast.saved");
+			expect(result.current.showForm).toBe(false);
+		});
+
+		it("keeps the form open with the server's reason when the entry is refused", async () => {
+			mocks.csrfFetch.mockImplementation((_url: string, init?: { method?: string }) =>
+				init?.method === "POST"
+					? Promise.reject(refusal("金额超出允许范围", 400))
+					: Promise.resolve(raw({ summary: null, entries: [], snapshots: [] })),
+			);
+			const { result } = setup();
+			fill(result);
+			await act(async () => { await result.current.submitForm(); });
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "costPage.error.save: 金额超出允许范围");
+			expect(result.current.showForm).toBe(true);
 		});
 	});
 
@@ -175,12 +208,14 @@ describe("useCostPageState", () => {
 				expect.objectContaining({ method: "DELETE" }),
 			);
 			await waitFor(() => expect(result.current.confirmDelete).toBeNull());
+			// Says what happened; it used to show the label of the button that was pressed ("确认删除").
+			expect(mocks.addToast).toHaveBeenCalledWith("success", "costPage.toast.deleted");
 		});
 
 		it("keeps the dialog staged when the delete fails so the user can retry", async () => {
 			mocks.csrfFetch.mockImplementation((_url: string, init?: { method?: string }) =>
 				init?.method === "DELETE"
-					? Promise.resolve(raw({}, { ok: false, status: 409 }))
+					? Promise.reject(refusal("该条目已同步自云账单，不能删除", 409))
 					: Promise.resolve(raw({ summary: null, entries: [], snapshots: [] })),
 			);
 			const { result } = setup();
@@ -191,7 +226,7 @@ describe("useCostPageState", () => {
 			await act(async () => { await result.current.onConfirmDelete(); });
 			expect(result.current.confirmDelete).not.toBeNull();
 			expect(result.current.deletingId).toBeNull();
-			expect(mocks.addToast).toHaveBeenCalledWith("error", expect.stringContaining("costPage.error.delete"));
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "costPage.error.delete: 该条目已同步自云账单，不能删除");
 		});
 	});
 });

@@ -15,6 +15,15 @@ export function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 /**
+ * "<what failed>: <why>" for a toast or a banner; only what failed when the reason is unknown or is not
+ * product copy (see getErrorMessage).
+ */
+export function describeFailure(what: string, error: unknown): string {
+	const why = getErrorMessage(error, "");
+	return why ? `${what}: ${why}` : what;
+}
+
+/**
  * A schema error's own message is the JSON dump of its issues, which is what the server form showed for a host
  * typed as a URL. The issues carry the sentences a person can read. Told apart by shape: this module is shared
  * with the browser, where `instanceof` against another copy of the library would miss.

@@ -14,6 +14,7 @@
 import { type Dispatch, type SetStateAction, useCallback } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import type { FileAttachment, Message, Provider } from "../ai-types";
@@ -139,9 +140,9 @@ export function useAiSendActions({
         await refreshConversations();
         setActiveConvId(data.conversation.id);
       }
-    } catch {
-      // Conversation creation failed — notify the user via toast.
-      addToast("error", t("aiPage.createConvFailed"));
+    } catch (error) {
+      // Conversation creation failed: the server's reason, or the plain label.
+      addToast("error", getErrorMessage(error, t("aiPage.createConvFailed")));
     }
   }, [
     providers,

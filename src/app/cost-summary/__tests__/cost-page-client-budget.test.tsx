@@ -60,7 +60,7 @@ describe("CostPageClient budgets", () => {
 		const budget = { id: "budget-1", category: "vps", name: "Production VPS", limitAmount: "100.00", currency: "CNY", period: "monthly", alertThresholdPercent: 80, enabled: true, usageAmount: "0.00", usagePercent: 0, periodStart: "2026-06-01", periodEnd: "2026-06-30", otherCurrencyUsage: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 		csrfFetchMock.mockImplementation((url: string) => {
 			if (url === "/api/cost/budgets") return Promise.resolve({ budgets: [{ ...budget, usageAmount: "90.00", usagePercent: 90 }] });
-			return Promise.resolve(new Response(JSON.stringify({ summary: null, entries: [], snapshots: [] }), { status: 200 }));
+			return Promise.resolve({ summary: null, entries: [], snapshots: [] });
 		});
 		render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null} initialEntries={[]} initialSnapshots={[]}
 			initialBudgets={[budget as never]} initialBillingAccounts={[]} canRead canManage availableCurrencies={["CNY"]} />);

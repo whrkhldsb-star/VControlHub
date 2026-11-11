@@ -1,6 +1,6 @@
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiTokenManagerClient } from "../api-token-manager-client";
 
@@ -49,6 +49,67 @@ describe("ApiTokenManagerClient", () => {
 		expect(screen.getByText("mobile")).toBeInTheDocument();
 	});
 
+	// The plaintext is shown once. Its copy button said nothing either way, and did nothing where the page has no
+	// Clipboard API (plain HTTP).
+	describe("copying the new token", () => {
+		const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+		const originalExecCommand = (document as { execCommand?: unknown }).execCommand;
+		afterEach(() => {
+			if (originalClipboard) Object.defineProperty(navigator, "clipboard", originalClipboard);
+			else delete (navigator as { clipboard?: unknown }).clipboard;
+			(document as { execCommand?: unknown }).execCommand = originalExecCommand;
+		});
+
+		async function createToken() {
+			vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+				ok: true,
+				status: 201,
+				json: async () => ({ token: "whr_plain_once", apiToken: { ...token, id: "tok_2", name: "mobile" } }),
+			}));
+			render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
+			fireEvent.change(screen.getByLabelText("Token name"), { target: { value: "mobile" } });
+			fireEvent.click(screen.getByRole("button", { name: "Create Token" }));
+			await screen.findByText("whr_plain_once");
+		}
+
+		it("says that the token was copied", async () => {
+			await createToken();
+			const writeText = vi.fn(async () => undefined);
+			Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+
+			fireEvent.click(screen.getByRole("button", { name: "Copy Token" }));
+
+			expect(await screen.findByText("Copied to the clipboard")).toBeInTheDocument();
+			expect(writeText).toHaveBeenCalledWith("whr_plain_once");
+		});
+
+		it("copies without the Clipboard API", async () => {
+			await createToken();
+			Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+			const copied: string[] = [];
+			(document as { execCommand?: unknown }).execCommand = vi.fn(() => {
+				const field = document.activeElement;
+				if (field instanceof HTMLTextAreaElement) copied.push(field.value);
+				return true;
+			});
+
+			fireEvent.click(screen.getByRole("button", { name: "Copy Token" }));
+
+			expect(await screen.findByText("Copied to the clipboard")).toBeInTheDocument();
+			expect(copied).toEqual(["whr_plain_once"]);
+		});
+
+		it("says so when the token could not be copied", async () => {
+			await createToken();
+			Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+			(document as { execCommand?: unknown }).execCommand = vi.fn(() => false);
+
+			fireEvent.click(screen.getByRole("button", { name: "Copy Token" }));
+
+			expect(await screen.findByText("Could not copy. Select the Token and copy it by hand.")).toBeInTheDocument();
+		});
+	});
+
 	it("opens an in-app confirmation dialog before revoking a token", async () => {
 		const confirmSpy = vi.spyOn(window, "confirm");
 		const fetchMock = vi.fn().mockResolvedValue({
@@ -83,7 +144,8 @@ describe("ApiTokenManagerClient", () => {
 		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
 		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));
 
-		expect(await screen.findByText("Database temporarily unavailable")).toBeInTheDocument();
+		// In the dialog itself: on the page behind it the reason was covered.
+		expect(await within(dialog).findByText("Database temporarily unavailable")).toBeInTheDocument();
 		expect(screen.getByRole("dialog", { name: "Confirm revoke API Token" })).toBeInTheDocument();
 		expect(within(dialog).queryByText("Revoked")).not.toBeInTheDocument();
 	});

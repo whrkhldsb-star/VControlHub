@@ -14,7 +14,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 
 import { inputClass } from "./cost-page-shared";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { formatDateTime } from "@/lib/datetime/format";
+import { describeFailure, getErrorMessage } from "@/lib/http/error-message";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 
@@ -35,7 +36,7 @@ export function CostCloudBillingPanel({
 	month,
 	onImported,
 }: Props) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const { addToast } = useToast();
 	const [accounts, setAccounts] = useState(initialAccounts);
 	const [busy, setBusy] = useState(false);
@@ -133,10 +134,7 @@ export function CostCloudBillingPanel({
 			);
 			onImported?.();
 		} catch (error) {
-			addToast(
-				"error",
-				`${t("costPage.billing.syncError")}: ${getErrorMessage(error, String(error))}`,
-			);
+			addToast("error", describeFailure(t("costPage.billing.syncError"), error));
 			await reload();
 		} finally {
 			setSyncingId(null);
@@ -264,7 +262,11 @@ export function CostCloudBillingPanel({
 							</div>
 							<p className="mt-2 text-xs text-[var(--text-secondary)]">
 								{account.lastSyncAt
-									? t("costPage.billing.lastSync", { status: account.lastSyncStatus ?? "—", at: account.lastSyncAt.slice(0, 19).replace("T", " "), imported: account.lastSyncImported })
+									? t("costPage.billing.lastSync", {
+										status: account.lastSyncStatus ? t(`costPage.billing.status.${account.lastSyncStatus}`) : "—",
+										at: formatDateTime(account.lastSyncAt, locale),
+										imported: account.lastSyncImported,
+									})
 									: t("costPage.billing.neverSynced")}
 							</p>
 							{account.lastSyncError ? (

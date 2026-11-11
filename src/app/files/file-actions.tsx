@@ -22,6 +22,7 @@ import { CheckboxField, FormField, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { copyText } from "@/lib/ui/clipboard";
 import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS, SHARE_BATCH_MAX } from "@/lib/share-link/policy";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { deleteFileEntryAction, renameFileEntryAction } from "../storage/actions";
@@ -427,13 +428,8 @@ function ShareDialog({ targets, onClose }: { targets: FileActionTarget[]; onClos
 	const count = targets.length;
 
 	async function copy(text: string, what: string) {
-		try {
-			await navigator.clipboard.writeText(text);
-			setCopied(what);
-		} catch {
-			// No clipboard (plain HTTP, a denied permission): the links stay on screen to copy by hand.
-			setCopied("");
-		}
+		// Not copied (a browser that refuses): the links stay on screen to copy by hand.
+		setCopied((await copyText(text)) ? what : "");
 	}
 
 	/** Every link under the name of its file, as it reads when pasted into a message. */

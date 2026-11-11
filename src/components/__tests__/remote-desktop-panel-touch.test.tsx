@@ -309,3 +309,18 @@ it("repeats a held arrow key as a keyboard does", async () => {
   await wait(200);
   expect(keyRows(socket).length).toBe(before);
 });
+
+it("stops repeating when a key touched by two fingers is let go", async () => {
+  // The second touch took the place of the first one's timer, which then repeated the key with nothing left to stop it.
+  const { socket } = await connectedTouchDesktop();
+  fireEvent.click(screen.getByTestId("rdp-keyboard"));
+  const right = screen.getByTestId("rdp-key-right");
+  socket.send.mockClear();
+  fireEvent.pointerDown(right, { pointerId: 1 });
+  fireEvent.pointerDown(right, { pointerId: 2 });
+  fireEvent.pointerUp(right, { pointerId: 1 });
+  fireEvent.pointerUp(right, { pointerId: 2 });
+  const before = keyRows(socket).length;
+  await wait(700);
+  expect(keyRows(socket).length).toBe(before);
+});

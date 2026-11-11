@@ -79,6 +79,37 @@ describe("RouteError", () => {
 		expect(screen.getByText(/权限/)).toBeInTheDocument();
 	});
 
+	// A production build forwards a server render failure with a generic English sentence in place of its message
+	// (Next: file-conventions/error, "error.message") and the digest that finds it in the server log. The message
+	// was shown whenever there was one, so the localized description below was never reached.
+	it("describes a server render failure in the page language, not with the sentence a production build substitutes", () => {
+		const substituted = makeError(
+			"An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error.",
+			"3912441712",
+		);
+		renderI18n(<RouteError error={substituted} reset={vi.fn()} />, { locale: "zh" });
+
+		expect(
+			screen.getByText("当前页面遇到了异常，已保留现场信息。你可以重试，或稍后从系统自检/日志中继续排查。"),
+		).toBeInTheDocument();
+		expect(screen.queryByText(/Server Components render/)).not.toBeInTheDocument();
+		expect(screen.getByText(/错误标识:\s*3912441712/)).toBeInTheDocument();
+	});
+
+	it("keeps the message of a failure in the browser, which is the real one", () => {
+		renderI18n(<RouteError error={makeError("Cannot read properties of undefined (reading 'rows')")} reset={vi.fn()} />, { locale: "zh" });
+
+		expect(screen.getByText("Cannot read properties of undefined (reading 'rows')")).toBeInTheDocument();
+	});
+
+	// A client component may throw anything; the boundary receives it as it is.
+	it.each([["a string", "boom"], ["null", null], ["undefined", undefined]])("renders for a thrown value that is not an Error (%s)", (_label, thrown) => {
+		renderI18n(<RouteError error={thrown as never} reset={vi.fn()} />, { locale: "zh" });
+
+		expect(screen.getByRole("heading", { name: "页面加载出错" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
+	});
+
 	it("invokes reset when the retry button is clicked", () => {
 		const reset = vi.fn();
 		renderI18n(

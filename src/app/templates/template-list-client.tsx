@@ -121,7 +121,7 @@ export function TemplateListClient({
 			<ConfirmDialog
 				open={templatePendingDelete !== null}
 				title={t("templatesPage.delete.title")}
-				description={t("templatesPage.delete.confirm").replace("{name}", templatePendingDelete?.name ?? "")}
+				description={t("templatesPage.delete.confirm", { name: templatePendingDelete?.name ?? "" })}
 				cancelLabel={t("templatesPage.delete.cancel")}
 				confirmLabel={t("templatesPage.delete.confirm2")}
 				busy={deleteBusy}

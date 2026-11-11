@@ -15,12 +15,14 @@ import Image from "next/image";
 import { type DragEvent, type RefObject, useMemo } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { copyToClipboard, renderContent } from "./ai-markdown-renderer";
+import { renderContent } from "./ai-markdown-renderer";
 import type { Message, ModelCapabilities, ToolApprovalNeeded } from "./ai-types";
 import { formatAllowedTypes } from "./ai-file-helpers";
 import { approvalDetails, automationSummary } from "./ai-hosted-action-utils";
+import { isStreamErrorMessage } from "./ai-stream-error";
 import { formatDateTime } from "@/lib/datetime/format";
 import { ActionButton } from "@/components/action-button";
+import { copyText } from "@/lib/ui/clipboard";
 
 const EMPTY_TOOL_CONTENT = new Set([
   "(无响应内容)",
@@ -126,10 +128,7 @@ export function AiMessageList({
           </svg>
           <p className="text-sm">{t("aiPage.placeholder")}</p>
           <p className="text-xs mt-1 text-[var(--text-muted)]">
-            {t("aiPage.dragPasteHint").replace(
-              "{types}",
-              formatAllowedTypes(currentModelCaps, t),
-            )}
+            {t("aiPage.dragPasteHint", { types: formatAllowedTypes(currentModelCaps, t) })}
           </p>
         </div>
       )}
@@ -139,8 +138,7 @@ export function AiMessageList({
         const hasToolOnlyContent =
           hostedActions.length > 0 &&
           (!msg.content.trim() || EMPTY_TOOL_CONTENT.has(msg.content.trim()));
-        // The stream hook writes error bubbles as "⚠ <message>".
-        const isErrorBubble = msg.role === "assistant" && (msg.content.startsWith("⚠") || msg.content.startsWith("? "));
+        const isErrorBubble = isStreamErrorMessage(msg);
         const showRegenerate = Boolean(onRegenerate) && idx === lastIdx && msg.role === "assistant" && !streaming && !isErrorBubble;
         const showRetry = Boolean(onRegenerate) && idx === lastIdx && isErrorBubble && !streaming;
         return (
@@ -166,6 +164,7 @@ export function AiMessageList({
             </div>
           )}
           <div
+          data-error-reply={isErrorBubble ? "" : undefined}
           className={`max-w-[88%] sm:max-w-[80%] rounded-2xl border px-3 py-2 text-sm leading-relaxed sm:px-4 sm:py-2.5 ${
             isErrorBubble
               ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
@@ -256,10 +255,7 @@ export function AiMessageList({
                       <Image
                         key={i}
                         src={url}
-                        alt={t("aiPage.attachment").replace(
-                          "{index}",
-                          String(i + 1),
-                        )}
+                        alt={t("aiPage.attachment", { index: i + 1 })}
                         width={200}
                         height={200}
                         unoptimized
@@ -293,7 +289,7 @@ export function AiMessageList({
               type="button"
               aria-label={t("aiPage.copyAria")}
               onClick={async () => {
-                const ok = await copyToClipboard(msg.content);
+                const ok = await copyText(msg.content);
                 if (ok) {
                   setCopyFeedback(msg.id);
                   setTimeout(() => setCopyFeedback(null), 2000);
@@ -392,10 +388,7 @@ export function AiMessageList({
       {pendingApprovals.length > 0 && (
         <div className="sticky bottom-0 z-10 border-t border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_96%,var(--surface))] px-2 py-2 shadow-[0_-8px_20px_rgba(0,0,0,0.16)] backdrop-blur sm:px-4">
           <div className="text-xs text-[var(--warning)] font-medium mb-2">
-            {t("aiPage.pendingApprovalsTitle").replace(
-              "{count}",
-              String(pendingApprovals.length),
-            )}
+            {t("aiPage.pendingApprovalsTitle", { count: pendingApprovals.length })}
           </div>
           <div className="space-y-2">
             {pendingApprovals.map((approval) => (
@@ -431,10 +424,7 @@ export function AiMessageList({
                       </span>
                     ) : typeof approval.params.serverId === "string" && (
                       <span className="ml-2">
-                        {t("aiPage.serverLabel").replace(
-                          "{id}",
-                          approval.params.serverId,
-                        )}
+                        {t("aiPage.serverLabel", { id: approval.params.serverId })}
                       </span>
                     )}
                   </div>

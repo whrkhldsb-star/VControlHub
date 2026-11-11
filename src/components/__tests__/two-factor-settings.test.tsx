@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TwoFactorSettings } from "../two-factor-settings";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -146,6 +146,67 @@ describe("TwoFactorSettings", () => {
 			method: "POST",
 			body: JSON.stringify({ code: "654321" }),
 		}));
+	});
+
+	// The copy button said nothing either way, and over plain HTTP (no Clipboard API) it did nothing: someone who
+	// trusted it and pressed "saved" was left without the codes.
+	describe("copying the recovery codes", () => {
+		const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+		const originalExecCommand = (document as { execCommand?: unknown }).execCommand;
+		afterEach(() => {
+			if (originalClipboard) Object.defineProperty(navigator, "clipboard", originalClipboard);
+			else delete (navigator as { clipboard?: unknown }).clipboard;
+			(document as { execCommand?: unknown }).execCommand = originalExecCommand;
+		});
+
+		async function showCodes() {
+			const user = userEvent.setup();
+			vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true, recoveryCodes: ["ABCD-EFGH-JKLM", "MNPR-STUV-WXYZ"] });
+			render(<TwoFactorSettings enabled />);
+			await user.click(screen.getByRole("button", { name: "重新生成恢复码" }));
+			await user.type(screen.getByLabelText("验证码或恢复码"), "654321");
+			await user.click(screen.getByRole("button", { name: "重新生成恢复码" }));
+			await screen.findByText("ABCD-EFGH-JKLM");
+			return user;
+		}
+
+		it("says that the codes were copied", async () => {
+			const user = await showCodes();
+			const writeText = vi.fn(async () => undefined);
+			Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+
+			await user.click(screen.getByRole("button", { name: "复制恢复码" }));
+
+			expect(writeText).toHaveBeenCalledWith("ABCD-EFGH-JKLM\nMNPR-STUV-WXYZ");
+			expect(await screen.findByText("已复制到剪贴板")).toBeInTheDocument();
+		});
+
+		it("copies without the Clipboard API, as a page served over plain HTTP has to", async () => {
+			const user = await showCodes();
+			Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+			const copied: string[] = [];
+			(document as { execCommand?: unknown }).execCommand = vi.fn(() => {
+				const field = document.activeElement;
+				if (field instanceof HTMLTextAreaElement) copied.push(field.value);
+				return true;
+			});
+
+			await user.click(screen.getByRole("button", { name: "复制恢复码" }));
+
+			expect(copied).toEqual(["ABCD-EFGH-JKLM\nMNPR-STUV-WXYZ"]);
+			expect(await screen.findByText("已复制到剪贴板")).toBeInTheDocument();
+		});
+
+		it("says so when the codes could not be copied, so they are copied by hand before being dismissed", async () => {
+			const user = await showCodes();
+			Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+			(document as { execCommand?: unknown }).execCommand = vi.fn(() => false);
+
+			await user.click(screen.getByRole("button", { name: "复制恢复码" }));
+
+			expect(await screen.findByText("复制失败，请手动选中恢复码复制。")).toBeInTheDocument();
+			expect(screen.getByText("ABCD-EFGH-JKLM")).toBeInTheDocument();
+		});
 	});
 
 	it("surfaces disable API failures and keeps the disable panel open", async () => {

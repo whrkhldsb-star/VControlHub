@@ -28,7 +28,7 @@ export default async function AiPage({
       initialProviders={providers.map((p) => ({
         ...serializeProvider(p),
         // Provider UI expects settings as a JSON string, not Prisma JsonValue.
-        settings: String(p.settings ?? "{}"),
+        settings: JSON.stringify(p.settings ?? {}),
         // Client Provider type omits createdBy; keep wire shape aligned.
         defaultModel: p.defaultModel ?? "",
       }))}

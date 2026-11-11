@@ -10,6 +10,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { DEFAULT_PROV_FORM } from "../ai-types";
 
@@ -53,9 +54,9 @@ export function useProviderForm({
       });
       await refreshProviders();
       setProvForm({ ...DEFAULT_PROV_FORM });
-    } catch {
-      // Provider creation failed — notify the user via toast.
-      addToast("error", t("aiPage.addProviderFailed"));
+    } catch (error) {
+      // Provider creation failed: the server's reason (an address it may not call, a name in use) or the plain label.
+      addToast("error", getErrorMessage(error, t("aiPage.addProviderFailed")));
     } finally {
       creatingRef.current = false;
       setCreating(false);

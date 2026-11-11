@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ToastProvider } from "@/components/toast-provider";
 import { AlertRuleListClient } from "../alert-rule-list-client";
@@ -251,9 +251,18 @@ describe("alert rules client", () => {
 		await user.click(screen.getByRole("button", { name: "删除" }));
 		await user.click(screen.getByRole("button", { name: "确认删除" }));
 
-		expect(await screen.findByRole("alert")).toHaveTextContent("告警规则删除失败");
+		// Said in the dialog that asked, once: on the page it sat behind that dialog.
+		const dialog = screen.getByRole("dialog", { name: "删除告警规则" });
+		expect(await within(dialog).findByText("告警规则删除失败")).toBeVisible();
+		expect(screen.getAllByText("告警规则删除失败")).toHaveLength(1);
+		expect(within(dialog).getByRole("button", { name: "确认删除" })).toBeEnabled();
 		expect(screen.getAllByText("Disk full").length).toBeGreaterThan(0);
-		expect(screen.getByRole("button", { name: "删除" })).toBeEnabled();
+
+		// Cancelled: the failure of a deletion that was given up does not stay on the page or reappear in the next dialog.
+		await user.click(within(dialog).getByRole("button", { name: "取消" }));
+		expect(screen.queryByText("告警规则删除失败")).toBeNull();
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		expect(within(screen.getByRole("dialog", { name: "删除告警规则" })).queryByText("告警规则删除失败")).toBeNull();
 	});
 
 	it("surfaces immediate alert check failures", async () => {

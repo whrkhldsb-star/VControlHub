@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { getErrorMessage } from "../error-message";
+import { describeFailure, getErrorMessage } from "../error-message";
 
 describe("getErrorMessage", () => {
   it("passes an error's own message through", () => {
@@ -39,5 +39,14 @@ describe("getErrorMessage", () => {
     const repeated = z.array(z.string().min(1, "Tag cannot be empty")).safeParse(["", "", ""]).error;
     expect(getErrorMessage(repeated, "Could not save")).toBe("Tag cannot be empty");
     expect(getErrorMessage(new z.ZodError([]), "Could not save")).toBe("Could not save");
+  });
+
+  it("names what failed and why, or only what failed when the reason is not for people", () => {
+    expect(describeFailure("Failed to trigger scan", new Error("No provider is configured"))).toBe("Failed to trigger scan: No provider is configured");
+    // A thrown string, an empty message, a database error: no reason to show.
+    expect(describeFailure("Failed to trigger scan", "status=403")).toBe("Failed to trigger scan");
+    expect(describeFailure("Failed to trigger scan", new Error(""))).toBe("Failed to trigger scan");
+    const database = Object.assign(new Error("Invalid `prisma.aiOpsLog.findMany()` invocation"), { name: "PrismaClientKnownRequestError", clientVersion: "7.9.0" });
+    expect(describeFailure("Failed to load", database)).toBe("Failed to load");
   });
 });

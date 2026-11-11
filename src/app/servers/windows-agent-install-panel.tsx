@@ -13,28 +13,8 @@ import {
 
 import { ActionButton } from "@/components/action-button";
 import { Copy } from "@/components/icons";
+import { copyText } from "@/lib/ui/clipboard";
 
-/** The Clipboard API, else a selection copy: the API is missing over plain HTTP and may be refused. */
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const area = document.createElement("textarea");
-    area.value = text;
-    area.readOnly = true;
-    area.style.cssText = "position:fixed;top:0;left:0;opacity:0";
-    document.body.appendChild(area);
-    area.select();
-    try {
-      return document.execCommand("copy");
-    } catch {
-      return false;
-    } finally {
-      area.remove();
-    }
-  }
-}
 /**
  * Windows nodes cannot be pushed an agent over SSH. This panel shows the agent
  * connection state and lets an operator fetch the one-time PowerShell install

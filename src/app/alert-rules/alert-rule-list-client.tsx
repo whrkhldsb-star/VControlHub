@@ -56,6 +56,7 @@ export function AlertRuleListClient({
 			<DeleteRuleDialog
 				rulePendingDelete={rulePendingDelete}
 				busyAction={busyAction}
+				error={actionError}
 				setRulePendingDelete={setRulePendingDelete}
 				deleteRule={deleteRule}
 			/>
@@ -68,7 +69,8 @@ export function AlertRuleListClient({
 				triggerNow={triggerNow}
 			/>
 
-			{actionError && <Notice tone="danger">{actionError}</Notice>}
+			{/* While the delete question is open its failure is shown there, not behind it. */}
+			{actionError && !rulePendingDelete && <Notice tone="danger">{actionError}</Notice>}
 
 			<TestResultPanel testResult={testResult} />
 

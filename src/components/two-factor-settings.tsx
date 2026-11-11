@@ -11,6 +11,7 @@ import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { copyText } from "@/lib/ui/clipboard";
 import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
 type Step = "idle" | "setup" | "verify" | "disable" | "regenerate" | "recovery";
@@ -32,6 +33,8 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
+	// The codes are shown once: whether the copy worked has to be said, or they are dismissed uncopied.
+	const [copyOutcome, setCopyOutcome] = useState<"copied" | "failed" | null>(null);
 
 	const messageFromError = (err: unknown, fallback: string) => getErrorMessage(err, fallback);
 	// Disable / regenerate accept an authenticator code OR a recovery code — a user
@@ -89,6 +92,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			setEnrollmentToken("");
 			setCode("");
 			setRecoveryCodes(enableData.recoveryCodes);
+			setCopyOutcome(null);
 			setStep("recovery");
 			setEnabledOverride(true);
 			router.refresh();
@@ -113,6 +117,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			}
 			setCode("");
 			setRecoveryCodes(data.recoveryCodes);
+			setCopyOutcome(null);
 			setStep("recovery");
 		} catch (err) { setError(messageFromError(err, t("auth.2fa-error-request-failed"))); }
 		finally { setLoading(false); }
@@ -321,13 +326,18 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						<ActionButton size="sm"
 							type="button"
 							variant="secondary"
-							onClick={() => void navigator.clipboard?.writeText(recoveryCodes.join("\n"))}>
+							onClick={async () => setCopyOutcome((await copyText(recoveryCodes.join("\n"))) ? "copied" : "failed")}>
 							{t("auth.2fa-recovery-copy")}
 						</ActionButton>
-						<ActionButton size="sm" type="button" onClick={() => { setRecoveryCodes([]); setStep("idle"); }}>
+						<ActionButton size="sm" type="button" onClick={() => { setRecoveryCodes([]); setCopyOutcome(null); setStep("idle"); }}>
 							{t("auth.2fa-recovery-saved")}
 						</ActionButton>
 					</div>
+					{copyOutcome ? (
+						<p role="status" className={cn("text-xs", copyOutcome === "copied" ? "text-[var(--success)]" : "text-[var(--danger)]")}>
+							{t(copyOutcome === "copied" ? "auth.2fa-recovery-copied" : "auth.2fa-recovery-copy-failed")}
+						</p>
+					) : null}
 				</div>
 			)}
 		</div>

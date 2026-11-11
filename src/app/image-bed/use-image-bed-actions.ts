@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { escapeHtml } from "@/lib/sanitize/escape-html";
+import { copyText as copyToClipboard } from "@/lib/ui/clipboard";
 
 import {
 	getErrorMessage,
@@ -413,12 +414,8 @@ export function useImageBedActions({
 	}, []);
 
 	const copyText = useCallback(async (text: string, successKey: string) => {
-		try {
-			await navigator.clipboard.writeText(text);
-			showToast(t(successKey));
-		} catch {
-			showToast(t("imageBed.toast.copyFailed"), "alert");
-		}
+		if (await copyToClipboard(text)) showToast(t(successKey));
+		else showToast(t("imageBed.toast.copyFailed"), "alert");
 	}, [showToast, t]);
 
 	const copyLink = useCallback((url: string) =>

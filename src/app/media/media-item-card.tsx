@@ -12,6 +12,7 @@ import {
 } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { copyText } from "@/lib/ui/clipboard";
 
 import {
   buildMediaLinks,
@@ -25,6 +26,7 @@ import { Badge, Chip, Notice } from "@/components/ui-primitives";
 import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { isImeComposition } from "@/lib/ui/keyboard";
 export type { MediaItem } from "./media-item-helpers";
 
 export function MediaItemCard({
@@ -43,6 +45,7 @@ export function MediaItemCard({
   const [showTagInput, setShowTagInput] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [imageBedUrl, setImageBedUrl] = useState<string | null>(null);
+  const [imageBedUrlCopied, setImageBedUrlCopied] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -132,7 +135,8 @@ export function MediaItemCard({
         ? publicUrl
         : `${window.location.origin}${publicUrl}`;
       setImageBedUrl(absoluteUrl);
-      await navigator.clipboard?.writeText(absoluteUrl).catch(() => undefined);
+      // Said only when it happened: where nothing can copy, the link is on the card to copy by hand.
+      setImageBedUrlCopied(await copyText(absoluteUrl));
     } catch (error) {
       setPublishError(getErrorMessage(error, t("mediaItemCard.publishErrorFallback")));
     } finally {
@@ -243,7 +247,7 @@ export function MediaItemCard({
       </div>
       {imageBedUrl ? (
         <Notice tone="success" compact className="mt-2">
-          {t("mediaItemCard.imageBedUrlGenerated")}:
+          {t(imageBedUrlCopied ? "mediaItemCard.imageBedUrlCopied" : "mediaItemCard.imageBedUrlGenerated")}:
           <a
             href={imageBedUrl}
             target="_blank"
@@ -292,6 +296,8 @@ export function MediaItemCard({
               aria-label={t("mediaItemCard.newTagAriaLabel")}
               onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={(e) => {
+                // Enter and Escape that an input method takes for its candidates are not for the tag.
+                if (isImeComposition(e)) return;
                 if (e.key ==="Enter") void addTag();
                 if (e.key ==="Escape") setShowTagInput(false);
               }}

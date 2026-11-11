@@ -34,7 +34,7 @@ export function PasswordField({ label, name, autoComplete, placeholder, descript
 				/>
 				<button
 					type="button"
-					aria-label={`${visible ? t("changePassword.hide") : t("changePassword.show")}${label}`}
+					aria-label={t(visible ? "changePassword.hideField" : "changePassword.showField", { label })}
 					aria-pressed={visible}
 					onClick={() => setVisible((current) => !current)}
 					className="flex items-center gap-1 border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-action-ring)]"

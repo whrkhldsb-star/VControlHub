@@ -197,6 +197,46 @@ describe("FileActionsProvider", () => {
 		expect(screen.getByRole("dialog", { name: "分享链接" })).toBe(dialog);
 	});
 
+	// A console reached by its address over plain HTTP has no Clipboard API: the link was not copied there.
+	it("copies the new link on a page without the Clipboard API, and says when nothing could copy", async () => {
+		mocks.fetch.mockImplementation(async (url: string) => (url === "/api/share-links" ? { token: "tok123" } : {}));
+		const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+		const execCommand = (document as { execCommand?: unknown }).execCommand;
+		Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+		const copied: string[] = [];
+		let allowed = true;
+		(document as { execCommand?: unknown }).execCommand = vi.fn(() => {
+			const field = document.activeElement;
+			if (allowed && field instanceof HTMLTextAreaElement) copied.push(field.value);
+			return allowed;
+		});
+		try {
+			renderActions();
+			fireEvent.click(screen.getByRole("button", { name: "do-share" }));
+			const dialog = screen.getByRole("dialog", { name: /创建临时公开分享/ });
+			await act(async () => {
+				fireEvent.click(within(dialog).getByRole("button", { name: "创建临时链接" }));
+			});
+			const url = `${window.location.origin}/share/tok123`;
+			expect(copied).toEqual([url]);
+			expect(within(dialog).getByText("分享链接已生成并复制")).toBeVisible();
+			expect(within(dialog).getByRole("button", { name: "已复制" })).toBeVisible();
+
+			// The browser refuses: the button goes back to offering the copy, and the link stays to copy by hand.
+			allowed = false;
+			await act(async () => {
+				fireEvent.click(within(dialog).getByRole("button", { name: "已复制" }));
+			});
+			expect(within(dialog).getByRole("button", { name: "复制链接" })).toBeVisible();
+			expect(within(dialog).getByText("分享链接已生成")).toBeVisible();
+			expect(within(dialog).getByText(url)).toBeVisible();
+		} finally {
+			if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+			else delete (navigator as { clipboard?: unknown }).clipboard;
+			(document as { execCommand?: unknown }).execCommand = execCommand;
+		}
+	});
+
 	// Several files selected in the drive had no share action at all.
 	it("shares several selected files with one request and lists a link for each", async () => {
 		mocks.fetch.mockImplementation(async (url: string) => (url === "/api/share-links"

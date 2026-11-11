@@ -10,6 +10,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
 import { Pagination } from "@/components/pagination";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { copyText as copyToClipboard } from "@/lib/ui/clipboard";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 import { ActionButton } from "@/components/action-button";
@@ -246,7 +247,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 
 	const copy = async (item: CreatedShare) => {
 		try {
-			await navigator.clipboard.writeText(item.url);
+			if (!(await copyToClipboard(item.url))) throw new Error("copy");
 			setCopiedKey(item.key);
 			if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
 			copyTimerRef.current = setTimeout(() => setCopiedKey(""), 1600);

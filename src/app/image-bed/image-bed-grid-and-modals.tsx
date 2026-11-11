@@ -327,7 +327,7 @@ export function DeleteImageDialog({
       open
       ariaLabel={pendingDelete.type === "single" ? t("imageBedPage.delete.ariaLabel.single") : t("imageBedPage.delete.ariaLabel.batch")}
       title={pendingDelete.type === "single" ? t("imageBedPage.delete.title.single") : t("imageBedPage.delete.title.batch")}
-      description={pendingDelete.type === "single" ? t("imageBedPage.delete.desc.singleWithName").replace("{filename}", pendingDelete.filename) : t("imageBedPage.delete.desc.batchWithCount").replace("{count}", String(pendingDelete.count))}
+      description={pendingDelete.type === "single" ? t("imageBedPage.delete.desc.singleWithName", { filename: pendingDelete.filename }) : t("imageBedPage.delete.desc.batchWithCount", { count: pendingDelete.count })}
       cancelLabel={t("imageBedPage.delete.cancel")}
       confirmLabel={deleting ? t("imageBedPage.delete.deleting") : t("common.confirmDelete")}
       busy={deleting}
