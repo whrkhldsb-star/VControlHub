@@ -528,6 +528,40 @@ describe("FileListClient", () => {
 		for (const name of ["移动到…", "压缩", "删除", "下载"]) expect(within(bar).queryByRole("button", { name })).not.toBeInTheDocument();
 	});
 
+	// A selection could be moved, copied, compressed and deleted, but not shared.
+	it("offers to share a selection of files, and opens one dialog for all of them", () => {
+		renderFileList({ files: [imageFile, docFile], folders: [folder], canShare: true });
+		fireEvent.click(checkbox("cover.jpg"));
+		fireEvent.click(checkbox("report.pdf"));
+		const bar = screen.getByRole("region", { name: "文件批量操作" });
+
+		fireEvent.click(within(bar).getByRole("button", { name: "分享" }));
+
+		const dialog = screen.getByRole("dialog", { name: "为 2 个文件创建临时公开分享？" });
+		expect(within(dialog).getByText("cover.jpg")).toBeVisible();
+		expect(within(dialog).getByText("report.pdf")).toBeVisible();
+	});
+
+	it("does not offer to share a selection without the permission, with a folder in it, or with an unreadable file", () => {
+		const { unmount } = renderFileList({ files: [imageFile, docFile], folders: [folder], canShare: false });
+		fireEvent.click(checkbox("cover.jpg"));
+		expect(within(screen.getByRole("region", { name: "文件批量操作" })).queryByRole("button", { name: "分享" })).not.toBeInTheDocument();
+		unmount();
+
+		const withFolder = renderFileList({ files: [imageFile], folders: [folder], canShare: true });
+		fireEvent.click(checkbox("cover.jpg"));
+		expect(within(screen.getByRole("region", { name: "文件批量操作" })).getByRole("button", { name: "分享" })).toBeInTheDocument();
+		// A folder is shared from Shares, as the row menu has it.
+		fireEvent.click(checkbox("photos"));
+		expect(within(screen.getByRole("region", { name: "文件批量操作" })).queryByRole("button", { name: "分享" })).not.toBeInTheDocument();
+		withFolder.unmount();
+
+		renderFileList({ files: [imageFile, { ...docFile, capabilities: { canRead: false, canWrite: false, canDelete: true } }], folders: [], canShare: true, canDelete: true });
+		fireEvent.click(checkbox("cover.jpg"));
+		fireEvent.click(checkbox("report.pdf"));
+		expect(within(screen.getByRole("region", { name: "文件批量操作" })).queryByRole("button", { name: "分享" })).not.toBeInTheDocument();
+	});
+
 	it("hides batch compress for writable SFTP selections (the API is LOCAL-only)", () => {
 		renderFileList({ files: [{ ...sftpDirectFile, capabilities: { canRead: true, canWrite: true, canDelete: true } }], canDelete: true });
 		fireEvent.click(checkbox("movie.mp4"));

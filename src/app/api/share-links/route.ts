@@ -7,22 +7,25 @@ import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params
 import {
   createShareLink,
   createShareLinkFromFileEntry,
+  createShareLinksFromFileEntries,
   listShareLinkPage,
   revokeShareLink,
   SHARE_LINK_MAX_PAGE_SIZE,
   SHARE_LINK_STATUS_FILTERS,
 } from "@/lib/share-link/service";
-import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS } from "@/lib/share-link/policy";
+import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS, SHARE_BATCH_MAX } from "@/lib/share-link/policy";
 import { auditUserAction } from "@/lib/audit/service";
 import { currentApiRequestLocale } from "@/lib/i18n/api-copy";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-// Looked up when the body is checked, inside the request: as plain strings the two messages below were read once,
+// Looked up when the body is checked, inside the request: as plain strings the messages below were read once,
 // when the module loaded, and were Chinese for every caller.
-const inRequestLanguage = (key: string) => () => t(key, currentApiRequestLocale() ?? "zh");
+const inRequestLanguage = (key: string, vars?: Record<string, string | number>) => () => t(key, currentApiRequestLocale() ?? "zh", vars);
 
 const shareLinkPostSchema = z.object({
   fileEntryId: z.string().min(1).optional(),
+  // Several files selected in the drive: one link each, all or none.
+  fileEntryIds: z.array(z.string().min(1)).min(1).max(SHARE_BATCH_MAX, { error: inRequestLanguage("api.share.tooManyFiles", { max: SHARE_BATCH_MAX }) }).optional(),
   storageNodeId: z.string().min(1).optional(),
   path: z.string().min(1).optional(),
   entryType: z.enum(["FILE", "DIRECTORY"]).optional(),
@@ -35,7 +38,10 @@ const shareLinkPostSchema = z.object({
   permissionLevel: z.enum(["preview", "download"]).optional(),
   quick: z.boolean().optional(),
 })
-  .refine((data) => Boolean(data.fileEntryId || (data.storageNodeId && data.path)), {
+  // A list of files stands alone; otherwise a file entry, or a node with a path, as before.
+  .refine((data) => (data.fileEntryIds
+    ? !data.fileEntryId && !data.storageNodeId && !data.path
+    : Boolean(data.fileEntryId || (data.storageNodeId && data.path))), {
     error: inRequestLanguage("api.share.selectFileOrPath"),
   })
   .refine(
@@ -82,6 +88,20 @@ export async function POST(request: Request) {
       const expiresInHours = data.quick
         ? QUICK_SHARE_DEFAULT_EXPIRY_HOURS
         : (data.expiresInHours ?? data.expiresIn);
+      if (data.fileEntryIds) {
+        const shares = await createShareLinksFromFileEntries({
+          session,
+          fileEntryIds: data.fileEntryIds,
+          expiresInHours,
+          maxDownloads: data.maxDownloads,
+          password: data.password,
+          permissionLevel: data.permissionLevel,
+        });
+        for (const { share } of shares) {
+          await auditUserAction(session.userId, "share-link.create", { shareId: share.id }, undefined, session.currentTeamId);
+        }
+        return NextResponse.json({ shares }, { status: 201 });
+      }
       const result = data.fileEntryId
         ? await createShareLinkFromFileEntry({
             session,

@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import { ActionButton } from "@/components/action-button";
-import { Copy, Download, FolderInput, Trash2, X } from "@/components/icons";
+import { Copy, Download, FolderInput, LinkIcon, Trash2, X } from "@/components/icons";
 import { IconArchive } from "@/components/nav-icons";
 import { useToast } from "@/components/toast-provider";
 import { Dialog } from "@/components/ui/dialog";
@@ -384,7 +384,7 @@ function FileListBody({
         extractable: canWrite && file.storageNodeDriver === "LOCAL" && EXTRACTABLE_ARCHIVE.test(file.name),
       },
       downloadHref,
-      onShare: canShare && canRead ? () => actions.share(target) : undefined,
+      onShare: canShare && canRead ? () => actions.share([target]) : undefined,
     } satisfies DriveRow;
   }), [sortedFiles, entryCanRead, entryCanWrite, entryCanDelete, canDelete, canShare, searchQuery, effectiveSelectedIdSet, router, actions, locale, t]);
 
@@ -496,6 +496,12 @@ function FileListBody({
       {selectionSummary.selectedEntriesCanMove && singleNode && selectionReadable ? (
         <ActionButton size="sm" variant="ghost" icon={<Copy aria-hidden />} disabled={batchBusy} onClick={() => actions.copy(selectedTargets)}>
           {t("filesPage.drive.copyToEllipsis")}
+        </ActionButton>
+      ) : null}
+      {/* One temporary link per file, as the row's own action makes; a folder is shared from Shares. */}
+      {canShare && selectionReadable && selectedTargets.every((target) => target.entryType === "FILE") ? (
+        <ActionButton size="sm" variant="ghost" icon={<LinkIcon aria-hidden />} disabled={batchBusy} onClick={() => actions.share(selectedTargets)}>
+          {t("sharesPage.button.compact")}
         </ActionButton>
       ) : null}
       {selectionSummary.selectedEntriesCanCompress ? (

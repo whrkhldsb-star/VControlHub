@@ -6,6 +6,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     shareLink: { create: vi.fn(), count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     shareAccessLog: { create: vi.fn() },
     fileEntry: { findFirst: vi.fn() },
+    storageNode: { findUnique: vi.fn() },
   },
 }));
 
@@ -21,9 +22,6 @@ vi.mock("@/lib/auth/team-scope", () => ({
       : { id: "__unassigned_share_links_require_team_manage__" },
   isGlobalTeamManager: (session: { roles?: string[] }) =>
     Array.isArray(session.roles) && session.roles.includes("admin"),
-  teamCreateData: (session: { currentTeamId?: string | null }) => ({
-    teamId: session.currentTeamId ?? null,
-  }),
 }));
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: (session: { roles?: string[] }, perm: string) => {
@@ -44,6 +42,8 @@ describe("share link service", () => {
   beforeEach(() => {
   vi.clearAllMocks();
   mockPrisma.fileEntry.findFirst.mockResolvedValue(null);
+  // A share belongs to its storage node's customer (service-owner.test.ts).
+  mockPrisma.storageNode.findUnique.mockResolvedValue({ teamId: "team-1" });
   });
 
   it("creates a share token but stores only its hash", async () => {
@@ -96,8 +96,9 @@ describe("share link service", () => {
       permissionLevel: "preview" as const,
     };
 
-    await expect(createShareLink({ ...base, maxDownloads: 1 })).rejects.toThrow();
-    await expect(createShareLink({ ...base, password: "secret" })).rejects.toThrow();
+    // The sentence lived in the Shares page dictionary only: the service answered with the key itself.
+    await expect(createShareLink({ ...base, maxDownloads: 1 })).rejects.toThrow("仅查看模式不支持访问密码或最大下载次数");
+    await expect(createShareLink({ ...base, password: "secret" })).rejects.toThrow("仅查看模式不支持访问密码或最大下载次数");
     expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
   });
 

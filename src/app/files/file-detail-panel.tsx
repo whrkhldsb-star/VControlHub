@@ -121,7 +121,7 @@ export function FileDetailPanel({
             </a>
           ) : null}
           {canShare && canRead && detailEntry.entryType === "FILE" ? (
-            <ActionButton variant="secondary" icon={<LinkIcon aria-hidden />} onClick={run(() => actions.share(target))}>
+            <ActionButton variant="secondary" icon={<LinkIcon aria-hidden />} onClick={run(() => actions.share([target]))}>
               {t("sharesPage.button.compact")}
             </ActionButton>
           ) : null}

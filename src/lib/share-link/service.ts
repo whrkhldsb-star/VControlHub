@@ -4,11 +4,12 @@ import { promisify } from "node:util";
 
 /** Async scrypt: runs on the libuv pool instead of blocking the event loop (~90 ms per call). */
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
-import { teamCreateData, shareLinkTeamWhere, storageNodeTeamWhere } from "@/lib/auth/team-scope";
+import { shareLinkTeamWhere, storageNodeTeamWhere } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
+import { SHARE_BATCH_MAX } from "@/lib/share-link/policy";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
@@ -131,24 +132,69 @@ async function recordShareAccess(input: {
   }
 }
 
-export async function createShareLink(input: {
+type SharePolicy = {
+  expiresInHours?: number;
+  maxDownloads?: number | null;
+  password?: string;
+  permissionLevel?: "preview" | "download";
+};
+
+/** A preview-only link has no downloads to count or to protect. */
+async function assertSharePolicy(policy: SharePolicy) {
+  if (policy.permissionLevel === "preview" && (policy.password || policy.maxDownloads != null)) {
+    const translate = await serviceT();
+    throw new ValidationError(translate("api.share.previewPolicyConflict"));
+  }
+}
+
+/** The row of a new share and the token that opens it; only the token's hash is stored. */
+function newShareRow(input: {
+  createdBy: string;
+  storageNodeId: string;
+  /** The customer of the storage node (see createShareLink). */
+  teamId: string | null;
+  path: string;
+  entryType?: "FILE" | "DIRECTORY";
+  name?: string;
+  policy: SharePolicy;
+  passwordHash: string | null;
+}) {
+  const token = randomBytes(36).toString("base64url").slice(0, 48);
+  const data = {
+    tokenHash: hashShareToken(token),
+    storageNodeId: input.storageNodeId,
+    path: input.path,
+    entryType: input.entryType ?? ("FILE" as const),
+    name: input.name ?? input.path.split("/").filter(Boolean).pop() ?? input.path,
+    expiresAt: input.policy.expiresInHours ? new Date(Date.now() + input.policy.expiresInHours * 60 * 60 * 1000) : null,
+    maxDownloads: input.policy.maxDownloads ?? null,
+    passwordHash: input.passwordHash,
+    permissionLevel: input.policy.permissionLevel ?? "download",
+    createdBy: input.createdBy,
+    teamId: input.teamId,
+  };
+  return { token, data };
+}
+
+/**
+ * The row carries credential material (tokenHash locates the public token's
+ * storage; passwordHash is an offline-dictionary-attack target). Strip both
+ * from anything a caller might serialize — the plaintext token in the return
+ * value is the only credential the creator needs.
+ */
+function withoutShareSecrets<Row extends { tokenHash: string; passwordHash: string | null }>(share: Row) {
+  const { tokenHash: _tokenHash, passwordHash: _passwordHash, ...safeShare } = share;
+  return safeShare;
+}
+
+export async function createShareLink(input: SharePolicy & {
   session: SessionPayload;
   storageNodeId: string;
   path: string;
   entryType?: "FILE" | "DIRECTORY";
   name?: string;
-  expiresInHours?: number;
-  maxDownloads?: number | null;
-  password?: string;
-  permissionLevel?: "preview" | "download";
 }) {
-  if (
-    input.permissionLevel === "preview" &&
-    (input.password || input.maxDownloads != null)
-  ) {
-    const translate = await serviceT();
-    throw new ValidationError(translate("api.share.previewPolicyConflict"));
-  }
+  await assertSharePolicy(input);
   const normalizedPath = normalizeSharePath(input.path);
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
   if (!access.allowed) {
@@ -156,30 +202,74 @@ export async function createShareLink(input: {
     throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
 
-  const token = randomBytes(36).toString("base64url").slice(0, 48);
-  const expiresAt = input.expiresInHours ? new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000) : null;
-  const teamData = teamCreateData(input.session);
-  const share = await prisma.shareLink.create({
-    data: {
-      tokenHash: hashShareToken(token),
-      storageNodeId: input.storageNodeId,
-      path: normalizedPath,
-      entryType: input.entryType ?? "FILE",
-      name: input.name ?? normalizedPath.split("/").filter(Boolean).pop() ?? normalizedPath,
-      expiresAt,
-      maxDownloads: input.maxDownloads ?? null,
-      passwordHash: input.password ? await hashSharePassword(input.password) : null,
-      permissionLevel: input.permissionLevel ?? "download",
-      createdBy: input.session.userId,
-      ...teamData,
-    },
+  // A share publishes a path of a storage node, so it belongs to the customer that node belongs to. It
+  // took the customer selected in the session and refused without one: an administrator viewing all
+  // customers has none selected and could not share anything, from the files page or from Shares. That
+  // view is also the only one that can open a node of no customer, whose shares stay with no customer
+  // (visible to administrators viewing all customers, as the node is).
+  const node = await prisma.storageNode.findUnique({ where: { id: input.storageNodeId }, select: { teamId: true } });
+  if (!node) throw new NotFoundError(t("backend.shareLink.fileNotFound"));
+
+  const { token, data } = newShareRow({
+    createdBy: input.session.userId,
+    storageNodeId: input.storageNodeId,
+    teamId: node.teamId,
+    path: normalizedPath,
+    entryType: input.entryType,
+    name: input.name,
+    policy: input,
+    passwordHash: input.password ? await hashSharePassword(input.password) : null,
   });
-  // The row carries credential material (tokenHash locates the public token's
-  // storage; passwordHash is an offline-dictionary-attack target). Strip both
-  // from anything a caller might serialize — the plaintext token in the return
-  // value is the only credential the creator needs.
-  const { tokenHash: _tokenHash, passwordHash: _passwordHash, ...safeShare } = share;
-  return { share: safeShare, token };
+  const share = await prisma.shareLink.create({ data });
+  return { share: withoutShareSecrets(share), token };
+}
+
+/**
+ * One link per file, for several files selected in the drive, in the order
+ * asked. All or none: a link made before a later file was refused would be
+ * live with its token known to nobody.
+ */
+export async function createShareLinksFromFileEntries(input: SharePolicy & {
+  session: SessionPayload;
+  fileEntryIds: string[];
+}) {
+  const translate = await serviceT();
+  await assertSharePolicy(input);
+  const ids = [...new Set(input.fileEntryIds)];
+  if (ids.length === 0) throw new ValidationError(translate("api.share.selectFileOrPath"));
+  if (ids.length > SHARE_BATCH_MAX) throw new ValidationError(translate("api.share.tooManyFiles", { max: SHARE_BATCH_MAX }));
+
+  // As for a single file: the node filter keeps another customer's entry from being shared by its id.
+  const entries = await prisma.fileEntry.findMany({
+    where: { id: { in: ids }, isDeleted: false, storageNode: storageNodeTeamWhere(input.session) },
+    select: { id: true, name: true, relativePath: true, entryType: true, storageNodeId: true, storageNode: { select: { teamId: true } } },
+  });
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  if (byId.size !== ids.length) throw new NotFoundError(translate("backend.shareLink.fileNotFound"));
+
+  const targets = ids.map((id) => {
+    const entry = byId.get(id)!;
+    return { entry, path: normalizeSharePath(entry.relativePath) };
+  });
+  for (const target of targets) {
+    const access = await assertStorageAccess({ session: input.session, storageNodeId: target.entry.storageNodeId, relativePath: target.path, operation: "read" });
+    if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
+  }
+
+  // One password for the batch: one derivation (about 90 ms each).
+  const passwordHash = input.password ? await hashSharePassword(input.password) : null;
+  const rows = targets.map(({ entry, path }) => newShareRow({
+    createdBy: input.session.userId,
+    storageNodeId: entry.storageNodeId,
+    teamId: entry.storageNode.teamId,
+    path,
+    entryType: entry.entryType === "DIRECTORY" ? "DIRECTORY" : "FILE",
+    name: entry.name,
+    policy: input,
+    passwordHash,
+  }));
+  const shares = await prisma.$transaction(rows.map((row) => prisma.shareLink.create({ data: row.data })));
+  return shares.map((share, index) => ({ fileEntryId: ids[index]!, share: withoutShareSecrets(share), token: rows[index]!.token }));
 }
 
 export async function createShareLinkFromFileEntry(input: {

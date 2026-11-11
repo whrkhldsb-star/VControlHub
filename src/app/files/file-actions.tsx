@@ -22,7 +22,7 @@ import { CheckboxField, FormField, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS } from "@/lib/share-link/policy";
+import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS, SHARE_BATCH_MAX } from "@/lib/share-link/policy";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { deleteFileEntryAction, renameFileEntryAction } from "../storage/actions";
 import { containingFolderPath, parseTagInput } from "./file-entry-utils";
@@ -45,14 +45,16 @@ export type FileActionTarget = {
 type PendingAction =
 	| { kind: "rename"; target: FileActionTarget }
 	| { kind: "move" | "copy" | "delete"; targets: FileActionTarget[] }
-	| { kind: "share" | "tags"; target: FileActionTarget };
+	| { kind: "share"; targets: FileActionTarget[] }
+	| { kind: "tags"; target: FileActionTarget };
 
 type FileActionsApi = {
 	rename: (target: FileActionTarget) => void;
 	move: (targets: FileActionTarget[]) => void;
 	copy: (targets: FileActionTarget[]) => void;
 	remove: (targets: FileActionTarget[]) => void;
-	share: (target: FileActionTarget) => void;
+	/** A temporary public link for a file, or one each for several files. */
+	share: (targets: FileActionTarget[]) => void;
 	editTags: (target: FileActionTarget) => void;
 	toggleFavorite: (target: FileActionTarget) => Promise<void>;
 	/** Unpack a ZIP/tar archive on a LOCAL node into a new folder beside it. */
@@ -135,7 +137,7 @@ export function FileActionsProvider({ children, onChanged, onCleared }: {
 		move: (targets) => setPending({ kind: "move", targets }),
 		copy: (targets) => setPending({ kind: "copy", targets }),
 		remove: (targets) => setPending({ kind: "delete", targets }),
-		share: (target) => setPending({ kind: "share", target }),
+		share: (targets) => setPending({ kind: "share", targets }),
 		editTags: (target) => setPending({ kind: "tags", target }),
 		toggleFavorite,
 		extract,
@@ -149,7 +151,7 @@ export function FileActionsProvider({ children, onChanged, onCleared }: {
 				<TransferDialog key={pending.kind} mode={pending.kind} targets={pending.targets} onClose={close} onDone={changed} onQueued={cleared} />
 			) : null}
 			{pending?.kind === "delete" ? <DeleteDialog targets={pending.targets} onClose={close} onDone={changed} onQueued={cleared} /> : null}
-			{pending?.kind === "share" ? <ShareDialog target={pending.target} onClose={close} /> : null}
+			{pending?.kind === "share" ? <ShareDialog targets={pending.targets} onClose={close} /> : null}
 			{pending?.kind === "tags" ? <TagsDialog target={pending.target} onClose={close} onDone={changed} /> : null}
 		</FileActionsContext.Provider>
 	);
@@ -406,35 +408,63 @@ function DeleteDialog({ targets, onClose, onDone, onQueued }: {
 	);
 }
 
-function ShareDialog({ target, onClose }: { target: FileActionTarget; onClose: () => void }) {
+type CreatedShare = { name: string; url: string };
+
+/**
+ * A temporary public link for one file, or one each for several selected
+ * files: asked for in one request, so nothing is created when one of them
+ * cannot be shared.
+ */
+function ShareDialog({ targets, onClose }: { targets: FileActionTarget[]; onClose: () => void }) {
 	const { t } = useI18n();
 	const [busy, setBusy] = useState(false);
-	const [url, setUrl] = useState("");
-	const [copied, setCopied] = useState(false);
+	const [created, setCreated] = useState<CreatedShare[]>([]);
+	/** What the clipboard holds: "all", the URL of one link, or nothing. */
+	const [copied, setCopied] = useState("");
 	const [error, setError] = useState("");
+	const single = targets.length === 1 ? targets[0]! : null;
+	const tooMany = targets.length > SHARE_BATCH_MAX;
+	const count = targets.length;
 
-	async function copy(text: string) {
+	async function copy(text: string, what: string) {
 		try {
 			await navigator.clipboard.writeText(text);
-			setCopied(true);
+			setCopied(what);
 		} catch {
-			setCopied(false);
+			// No clipboard (plain HTTP, a denied permission): the links stay on screen to copy by hand.
+			setCopied("");
 		}
 	}
 
+	/** Every link under the name of its file, as it reads when pasted into a message. */
+	const everything = (shares: CreatedShare[]) => shares.map((share) => `${share.name}\n${share.url}`).join("\n\n");
+
 	async function create() {
-		if (busy) return;
+		if (busy || tooMany) return;
 		setBusy(true);
 		setError("");
 		try {
-			const data = await csrfFetch<{ token: string }>("/api/share-links", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ fileEntryId: target.id, quick: true }),
-			});
-			const link = `${window.location.origin}/share/${data.token}`;
-			setUrl(link);
-			await copy(link);
+			const link = (token: string) => `${window.location.origin}/share/${token}`;
+			if (single) {
+				const data = await csrfFetch<{ token: string }>("/api/share-links", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ fileEntryId: single.id, quick: true }),
+				});
+				const share = { name: single.name, url: link(data.token) };
+				setCreated([share]);
+				await copy(share.url, "all");
+			} else {
+				const data = await csrfFetch<{ shares: Array<{ fileEntryId: string; token: string }> }>("/api/share-links", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ fileEntryIds: targets.map((target) => target.id), quick: true }),
+				});
+				const names = new Map(targets.map((target) => [target.id, target.name]));
+				const shares = data.shares.map((share) => ({ name: names.get(share.fileEntryId) ?? share.fileEntryId, url: link(share.token) }));
+				setCreated(shares);
+				await copy(everything(shares), "all");
+			}
 		} catch (cause) {
 			setError(getErrorMessage(cause, t("sharesPage.button.errorFallback")));
 		} finally {
@@ -442,29 +472,55 @@ function ShareDialog({ target, onClose }: { target: FileActionTarget; onClose: (
 		}
 	}
 
+	const done = created.length > 0;
 	return (
 		<Dialog
 			open
 			onClose={onClose}
 			busy={busy}
-			title={t("sharesPage.button.quickConfirmTitle")}
-			description={<span className="break-all">{target.name}</span>}
-			footer={url ? (
-				<ActionButton onClick={onClose}>{t("filesPage.drive.done")}</ActionButton>
+			// A question while there is something to decide, then the name of what is shown.
+			title={done
+				? (created.length === 1 ? t("sharesPage.button.resultTitle") : t("sharesPage.button.resultTitleMany", { count: created.length }))
+				: (single ? t("sharesPage.button.quickConfirmTitle") : t("sharesPage.button.quickConfirmTitleMany", { count }))}
+			description={single ? <span className="break-all">{single.name}</span> : undefined}
+			footer={done ? (
+				<>
+					{created.length > 1 ? (
+						<ActionButton variant="secondary" icon={<Copy aria-hidden />} onClick={() => void copy(everything(created), "all")}>
+							{t(copied === "all" ? "sharesPage.button.copiedAll" : "sharesPage.button.copyAll")}
+						</ActionButton>
+					) : null}
+					<ActionButton onClick={onClose}>{t("filesPage.drive.done")}</ActionButton>
+				</>
 			) : <>
 				<ActionButton variant="secondary" disabled={busy} onClick={onClose}>{t("sharesPage.button.quickConfirmCancel")}</ActionButton>
-				<ActionButton loading={busy} icon={<LinkIcon aria-hidden />} onClick={() => void create()}>{t("sharesPage.button.quickConfirmAction")}</ActionButton>
+				{tooMany ? null : (
+					<ActionButton loading={busy} icon={<LinkIcon aria-hidden />} onClick={() => void create()}>
+						{single ? t("sharesPage.button.quickConfirmAction") : t("sharesPage.button.quickConfirmActionMany", { count })}
+					</ActionButton>
+				)}
 			</>}
 		>
-			{url ? (
+			{done ? (
 				<div className="flex flex-col gap-3">
-					<p className="text-sm text-[var(--success)]">{t(copied ? "sharesPage.button.generatedAndCopied" : "sharesPage.button.generated")}</p>
-					<div className="flex min-w-0 items-center gap-2">
-						<code className="min-w-0 flex-1 break-all rounded-[var(--radius-control)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)]">{url}</code>
-						<ActionButton variant="secondary" icon={<Copy aria-hidden />} onClick={() => void copy(url)}>
-							{t(copied ? "sharesPage.button.copied" : "sharesPage.button.copy")}
-						</ActionButton>
-					</div>
+					<p className="text-sm text-[var(--success)]">
+						{created.length === 1
+							? t(copied === "all" ? "sharesPage.button.generatedAndCopied" : "sharesPage.button.generated")
+							: t(copied === "all" ? "sharesPage.button.generatedManyAndCopied" : "sharesPage.button.generatedMany", { count: created.length })}
+					</p>
+					<ul className="flex max-h-[45vh] min-w-0 flex-col gap-2 overflow-y-auto">
+						{created.map((share) => (
+							<li key={share.url} className="flex min-w-0 flex-col gap-1">
+								{created.length > 1 ? <span className="truncate text-xs font-medium text-[var(--text-primary)]" title={share.name}>{share.name}</span> : null}
+								<div className="flex min-w-0 items-center gap-2">
+									<code className="min-w-0 flex-1 break-all rounded-[var(--radius-control)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)]">{share.url}</code>
+									<ActionButton variant="secondary" icon={<Copy aria-hidden />} onClick={() => void copy(share.url, created.length === 1 ? "all" : share.url)}>
+										{t((created.length === 1 ? copied === "all" : copied === share.url) ? "sharesPage.button.copied" : "sharesPage.button.copy")}
+									</ActionButton>
+								</div>
+							</li>
+						))}
+					</ul>
 					<p className="text-xs text-[var(--text-muted)]">
 						{t("filesPage.drive.shareManageHint")}{" "}
 						<Link href="/shares" className="text-[var(--accent)] hover:underline">{t("filesPage.drive.shareManageLink")}</Link>
@@ -472,7 +528,20 @@ function ShareDialog({ target, onClose }: { target: FileActionTarget; onClose: (
 				</div>
 			) : (
 				<div className="flex flex-col gap-3">
-					<p className="text-sm text-[var(--text-secondary)]">{t("sharesPage.button.quickConfirmDescription", { hours: QUICK_SHARE_DEFAULT_EXPIRY_HOURS })}</p>
+					{single ? null : (
+						<ul className="flex max-h-40 min-w-0 flex-col gap-1 overflow-y-auto rounded-[var(--radius-control)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]">
+							{targets.map((target) => <li key={target.id} className="truncate" title={target.name}>{target.name}</li>)}
+						</ul>
+					)}
+					{tooMany ? (
+						<Notice tone="warning">{t("sharesPage.button.tooMany", { max: SHARE_BATCH_MAX, count })}</Notice>
+					) : (
+						<p className="text-sm text-[var(--text-secondary)]">
+							{single
+								? t("sharesPage.button.quickConfirmDescription", { hours: QUICK_SHARE_DEFAULT_EXPIRY_HOURS })
+								: t("sharesPage.button.quickConfirmDescriptionMany", { hours: QUICK_SHARE_DEFAULT_EXPIRY_HOURS })}
+						</p>
+					)}
 					{error ? <Notice tone="danger">{error}</Notice> : null}
 				</div>
 			)}
