@@ -132,7 +132,13 @@ The E2E job runs `e2e/authenticated-flow.spec.ts` on Chromium, Firefox, and
 WebKit after public smoke:
 
 - `prisma/seed.ts` seeds roles/admin so the app can boot cleanly
-- `E2E_ISOLATED_ACCOUNT=1` creates `vcontrolhub_e2e` (ACTIVE, no password reset)
+- `E2E_ISOLATED_ACCOUNT=1` creates `vcontrolhub_e2e` (ACTIVE, no password reset).
+  It is an administrator with the password written in `package.json`, and
+  teardown deletes its rows by name pattern, so setup refuses any database
+  that is not on loopback **and** named as a test database: `test` or `audit`
+  in the name, or `…_ci` while `CI=true`. To run a `test:e2e:*` script
+  locally, point `DATABASE_URL` at such a database (for example
+  `vcontrolhub_test`), never at the one an installation uses.
 - `E2E_DIRECT_SESSION=1` mints a signed session cookie (avoids form-login +
   `mustChangePassword` redirects)
 - Path covered: `/` → `/servers` → `/files` → `/settings` → dashboard chrome

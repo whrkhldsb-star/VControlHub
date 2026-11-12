@@ -18,6 +18,17 @@ async function login(page: Page) {
 
 test.beforeEach(async ({ page }) => login(page));
 
+/**
+ * Confirm in a dialog and wait for it to go. A confirmation stays open until the server has answered (a refusal
+ * is shown in it), and it quotes the name of what it is about: an assertion on that name right after the click
+ * would find it twice.
+ */
+async function confirmInDialog(page: Page, title: RegExp, confirm: RegExp) {
+	const dialog = page.getByRole("dialog", { name: title });
+	await dialog.getByRole("button", { name: confirm }).click();
+	await expect(dialog).toBeHidden({ timeout: 15_000 });
+}
+
 test("snippet create, search, edit and delete", async ({ page }) => {
 	await page.goto("/snippets");
 	await page.getByRole("button", { name: /新建片段|New snippet/i }).click();
@@ -78,7 +89,7 @@ test("command template create and delete without deployment", async ({ page }) =
 	await expect(page.getByText(marker, { exact: true })).toBeVisible();
 	const card = page.getByText(marker, { exact: true }).locator("xpath=ancestor::*[self::article or @data-card][1]");
 	await card.getByRole("button", { name: /删除|Delete/i }).click();
-	await page.getByRole("dialog", { name: /删除命令模板|Delete command template/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await confirmInDialog(page, /删除命令模板|Delete command template/i, /确认删除|Confirm delete/i);
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
@@ -125,7 +136,7 @@ test("scheduled task create, search, pause and delete without execution", async 
 	await page.getByRole("button", { name: /暂停|Pause/i }).first().click();
 	await expect(page.getByRole("button", { name: /恢复|Resume/i }).first()).toBeVisible();
 	await page.getByRole("button", { name: /删除|Delete/i }).first().click();
-	await page.getByRole("dialog", { name: /确认删除定时任务|Delete scheduled task/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await confirmInDialog(page, /确认删除定时任务|Delete scheduled task/i, /确认删除|Confirm delete/i);
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
@@ -148,7 +159,7 @@ test("playbook create, toggle and delete before execution", async ({ page }) => 
 	const card = await createPlaybook(page, marker);
 	await card.getByRole("button", { name: /启用 \/ 停用|Enable \/ Disable/i }).click();
 	await card.getByRole("button", { name: /删除|Delete/i }).click();
-	await page.getByRole("dialog", { name: /删除 Playbook|Delete Playbook/i }).getByRole("button", { name: /确认删除|Confirm Delete/i }).click();
+	await confirmInDialog(page, /删除 Playbook|Delete Playbook/i, /确认删除|Confirm Delete/i);
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
@@ -161,7 +172,7 @@ test("playbook dry-run completes safely and can then be deleted", async ({ page 
 	// The run-history label is translated now (A6): "演练" in Chinese, "dry run" in English.
 	await expect(card.getByText(/(?:已完成 · 演练|Completed · dry[- ]?run)/i)).toBeVisible({ timeout: 15_000 });
 	await card.getByRole("button", { name: /删除|Delete/i }).click();
-	await page.getByRole("dialog", { name: /删除 Playbook|Delete Playbook/i }).getByRole("button", { name: /确认删除|Confirm Delete/i }).click();
+	await confirmInDialog(page, /删除 Playbook|Delete Playbook/i, /确认删除|Confirm Delete/i);
 	await expect(page.getByText(name, { exact: true })).toBeHidden();
 });
 
@@ -200,6 +211,8 @@ test("user create, password reset, disable and enable", async ({ page }) => {
 	await dialog.locator('input[type="password"]').fill("Qa-User-2026!reset");
 	await dialog.getByRole("button", { name: /确认重置|Confirm reset/i }).click();
 	await row.getByRole("button", { name: /禁用|Disable/i }).click();
+	// Disabling ends the account's sessions at once, so it asks first.
+	await confirmInDialog(page, /禁用账号|Disable account/i, /^(?:禁用|Disable)$/i);
 	await expect(page.getByText(`@${username}`, { exact: true }).locator("xpath=ancestor::div[contains(@class,'sm:items-center')][1]").getByRole("button", { name: /启用|Enable/i })).toBeVisible();
 	await page.getByText(`@${username}`, { exact: true }).locator("xpath=ancestor::div[contains(@class,'sm:items-center')][1]").getByRole("button", { name: /启用|Enable/i }).click();
 });
@@ -215,7 +228,9 @@ test("backup schedule create, pause and delete without running backup", async ({
 	await page.getByRole("button", { name: /创建备份计划|Create backup schedule/i }).click();
 	const item = page.getByText(marker, { exact: true }).locator("xpath=ancestor::div[contains(@class,'px-4')][1]");
 	await expect(item).toBeVisible();
-	await item.getByRole("button", { name: /暂停\/恢复|Pause\/Resume/i }).click();
+	// The button names what it will do: "Pause" on an active schedule, "Resume" on a paused one.
+	await item.getByRole("button", { name: /^(?:暂停|Pause)$/i }).click();
+	await expect(item.getByRole("button", { name: /^(?:恢复|Resume)$/i })).toBeVisible();
 	await item.getByRole("button", { name: /删除|Delete/i }).click();
 	await page.getByRole("dialog", { name: /确认删除|Confirm delete/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();

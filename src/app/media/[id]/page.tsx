@@ -7,7 +7,7 @@ import { getMediaItem, getMediaNeighbors, mediaListFiltersFromHref } from "@/lib
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { MediaPreviewClient } from "@/app/files/preview/media-preview-client";
 import { buildSearchHref, containingFolderPath } from "@/app/files/file-entry-utils";
-import { mediaReturnHref } from "@/app/media/media-item-helpers";
+import { mediaReturnHref } from "@/app/media/media-return-href";
 
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { formatBytes } from "@/lib/format/bytes";

@@ -36,8 +36,10 @@ async function login(page: Page) {
 
 test("monitoring streams release connections and preserve the active limit", async ({ page, baseURL }) => {
 	await login(page);
-	const cookie = (await page.context().cookies(baseURL!))
-		.map(({ name, value }) => `${name}=${value}`).join("; ");
+	// A request with the app's cookies is answered in the language of its pages; the sentence below is the
+	// English one, so the language is chosen as the switch in the header would.
+	const cookie = [...(await page.context().cookies(baseURL!)).filter(({ name }) => name !== "vps-locale")
+		.map(({ name, value }) => `${name}=${value}`), "vps-locale=en"].join("; ");
 	const active: Response[] = [];
 	const connect = () => fetch(new URL("/api/monitoring/stream", baseURL), {
 		headers: { cookie }, signal: AbortSignal.timeout(20_000),

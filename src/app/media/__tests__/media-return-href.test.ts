@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { mediaListFiltersFromHref } from "@/lib/media/service";
 
-import { mediaReturnHref } from "../media-item-helpers";
+import { mediaReturnHref } from "../media-return-href";
 
 /** What the router hands the detail page for `?from=…`: the value, decoded once. */
 const received = (detailHref: string) => new URL(detailHref, "http://media.local").searchParams.get("from") ?? undefined;
