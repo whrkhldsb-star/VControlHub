@@ -24,6 +24,7 @@ back into pages.
 | Content dialog layout (header / body / footer) | `src/components/ui/dialog.tsx` |
 | Menus and click-outside / Escape handling | `src/components/ui/menu.tsx` |
 | Label / value lists | `src/components/ui/key-value.tsx` |
+| Number fields bound to a number | `src/components/ui/number-input.tsx` |
 | Folded sections | `src/components/ui/disclosure.tsx` |
 | Page layout, cards, lists, metrics, empty states | `src/components/page-shell.tsx` |
 | Badges, notices, fields, tabs, switches, progress | `src/components/ui-primitives.tsx`, `status-badge.tsx` |
@@ -94,7 +95,11 @@ checks the token file; `npm run ui:check` runs axe on every component state.
   which escapes the source before adding its own tags, so it renders the
   same on the server. For line-clamped previews use `markdownExcerpt`,
   never the raw source.
-- **`EmptyState`** — `simple` inside a panel, `boxed` on its own.
+- **`EmptyState`** — `simple` inside a panel, `boxed` on its own. `title` says
+  what is empty in a few words ("No budgets"); `text` (or children) says what
+  to do about it; `action` is the way out (clear the filter, show everything).
+  Not two sentences joined by a dash, and no button that repeats the form
+  right above it.
 - **`Disclosure`** — a folded section (advanced settings, migration tools,
   raw commands): `variant="card"` for page-level blocks (its title is an
   `<h2>`), `variant="inset"` inside a card or row. Native `<details>`, so it
@@ -171,6 +176,15 @@ Field labels use `UI_LABEL` (= `ui-label`).
 - Fields use `UI_INPUT`; selects get the chevron automatically. Because the
   field look is a components-layer rule, a width or size utility next to it
   always wins: `cn(UI_INPUT, "w-40")` is 10rem wide.
+- **`NumberInput`** (`src/components/ui/number-input.tsx`) — a number field
+  bound to a number (`value`, `onValueChange`, `min`, `max`, `integer`). It
+  keeps what is being typed: an `<input type="number">` bound straight to
+  numeric state (`setValue(Number(e.target.value) || 30)`) cannot be emptied —
+  the field refills itself while the person is still typing. Forms that hold
+  the text themselves and parse it on submit do not need it.
+- Every field has a visible label (`FormField`), not a placeholder standing
+  in for one: a placeholder is gone as soon as something is typed, and a
+  field that starts with a value ("80") never showed it at all.
 - **`KeyValueList`** — label/value pairs (`columns`, `layout="inline"`,
   `mono` for hosts and ids, `wide` for long values, an em dash when empty).
 - Tables inside `PageShell` are styled globally; write plain `<table>` markup.
@@ -196,7 +210,9 @@ breadcrumb names the area, so page eyebrows are hidden.
 - **Top bar** — breadcrumb from `findNavLocation`, search, notifications,
   theme and language; it also names the browser tab and records recent pages.
 - **Command palette** (⌘K / Ctrl+K or `/`) — recent pages, actions (theme,
-  language, sidebar, shortcuts), pages and resources.
+  language, sidebar, shortcuts), pages and resources. The hint in the top bar
+  and in the shortcut list names the key this keyboard has
+  (`useModifierKey`: ⌘ on Apple systems, Ctrl elsewhere).
 - **Shortcuts** (`?` lists them) — `G` then a letter jumps to a page (D
   dashboard, S servers, F files, T tasks, M monitoring, A alerts, R requests,
   N notifications, I AI, `,` settings). Shortcuts never fire while typing in a
@@ -250,7 +266,9 @@ breadcrumb names the area, so page eyebrows are hidden.
 - draws fields, buttons, button-styled links or surfaces with pasted
   border + background + radius instead of `UI_INPUT`, the button components
   or `data-card` / `data-inset` / `data-tile` / `data-popover`;
-- uses `ModalShell` directly for a content dialog, or `window.confirm`.
+- uses `ModalShell` directly for a content dialog, or `window.confirm`;
+- binds an `<input type="number">` to numeric state by converting in
+  `onChange` instead of using `NumberInput`.
 
 `src/components/__tests__/data-tone-vocabulary.test.ts` keeps `data-tone` to
 the hue names that `globals.css` defines.

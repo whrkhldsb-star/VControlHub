@@ -78,6 +78,8 @@ export function CostPageClient({
 		showForm,
 		editingId,
 		form,
+		formError,
+		deleteError,
 		saving,
 		syncingSources,
 		deletingId,
@@ -133,7 +135,7 @@ export function CostPageClient({
 				{summary ? (
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 						<div>
-							<div className="text-xs uppercase text-[var(--text-primary)]/70">{t("costPage.summary.total")}</div>
+							<div className="ui-title-caption">{t("costPage.summary.total")}</div>
 							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">{formatAmount(summary.totalAmount, summary.currency, localeTag)}</div>
 							<div className="mt-1 text-xs text-[var(--text-primary)]/70">
 								{t("costPage.summary.range", { start: summary.rangeStart, end: summary.rangeEnd })}
@@ -149,11 +151,11 @@ export function CostPageClient({
 							) : null}
 						</div>
 						<div>
-							<div className="text-xs uppercase text-[var(--text-primary)]/70">{t("costPage.summary.entryCount")}</div>
+							<div className="ui-title-caption">{t("costPage.summary.entryCount")}</div>
 							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">{summary.entryCount}</div>
 						</div>
 						<div className="space-y-1">
-							<div className="text-xs uppercase text-[var(--text-primary)]/70">{t("costPage.summary.title")}</div>
+							<div className="ui-title-caption">{t("costPage.summary.byCategory")}</div>
 							{CATEGORIES.map((c) => (
 								<div key={c} className="flex justify-between text-sm text-[var(--text-primary)]">
 									<span>{t(`costPage.category.${c}`)}</span>
@@ -278,6 +280,7 @@ export function CostPageClient({
 				form={form}
 				availableCurrencies={availableCurrencies}
 				saving={saving}
+				error={formError}
 				setForm={setForm}
 				setShowForm={setShowForm}
 				setEditingId={setEditingId}
@@ -287,6 +290,7 @@ export function CostPageClient({
 			<CostDeleteDialog
 				confirmDelete={confirmDelete}
 				deletingId={deletingId}
+				error={deleteError}
 				setConfirmDelete={setConfirmDelete}
 				onConfirmDelete={onConfirmDelete}
 				t={t}

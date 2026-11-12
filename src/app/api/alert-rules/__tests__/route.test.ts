@@ -42,6 +42,14 @@ const route = await import("../route");
 const { currentCopyLocale } = await import("@/lib/i18n/api-copy");
 
 const session = { userId: "u1", username: "alice", roles: ["admin"], currentTeamId: null };
+/** A rule as the database holds it, address included. */
+const row = (over: Record<string, unknown> = {}) => ({
+  id: "rule1", name: "CPU", metric: "cpu_usage", operator: "gte", threshold: 90, durationSeconds: 0, serverIds: [],
+  notifyChannels: ["in_app", "webhook"], webhookUrl: "https://hooks.example.com/secret", playbookIds: [], cooldownMinutes: 30,
+  escalationMinutes: 30, onCallUserIds: [], silenceWindows: [], enabled: true, lastTriggeredAt: null,
+  createdAt: new Date("2026-01-01T00:00:00.000Z"), updatedAt: new Date("2026-01-01T00:00:00.000Z"), matchState: null, lastMatchedAt: null, teamId: null,
+  ...over,
+});
 const request = (method = "GET") =>
   new Request("http://local/api/alert-rules", { method });
 
@@ -49,20 +57,10 @@ describe("/api/alert-rules", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session });
-    mocks.listAlertRules.mockResolvedValue([
-      {
-        id: "rule1",
-        name: "CPU",
-        webhookUrl: "https://hooks.example.com/secret",
-      },
-    ]);
-    mocks.createAlertRule.mockResolvedValue({
-      id: "rule1",
-      name: "CPU",
-      webhookUrl: "https://hooks.example.com/secret",
-    });
-    mocks.updateAlertRule.mockResolvedValue({ id: "rule1" });
-    mocks.toggleAlertRule.mockResolvedValue({ id: "rule1", enabled: false });
+    mocks.listAlertRules.mockResolvedValue([row()]);
+    mocks.createAlertRule.mockResolvedValue(row());
+    mocks.updateAlertRule.mockResolvedValue(row());
+    mocks.toggleAlertRule.mockResolvedValue(row({ enabled: false }));
     mocks.testAlertRule.mockResolvedValue({
       rule: { id: "rule1", name: "CPU", webhookUrl: "https://hooks.example.com/secret" },
       deliveries: [{ channel: "webhook", status: "sent", message: "Webhook test request sent" }],
@@ -161,12 +159,7 @@ describe("/api/alert-rules", () => {
   });
 
   it("coerces server_offline rules to operator eq and threshold 1", async () => {
-    mocks.createAlertRule.mockResolvedValueOnce({
-      id: "rule-off",
-      name: "Host offline",
-      metric: "server_offline",
-      webhookUrl: null,
-    });
+    mocks.createAlertRule.mockResolvedValueOnce(row({ id: "rule-off", name: "Host offline", metric: "server_offline", webhookUrl: null }));
     const req = new Request("http://local/api/alert-rules", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -191,12 +184,7 @@ describe("/api/alert-rules", () => {
   });
 
   it("accepts capacity_* forecast metrics offered by the create-rule UI", async () => {
-    mocks.createAlertRule.mockResolvedValueOnce({
-      id: "rule-cap",
-      name: "Disk capacity risk",
-      metric: "capacity_disk_days",
-      webhookUrl: null,
-    });
+    mocks.createAlertRule.mockResolvedValueOnce(row({ id: "rule-cap", name: "Disk capacity risk", metric: "capacity_disk_days", webhookUrl: null }));
     const req = new Request("http://local/api/alert-rules", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -259,17 +247,43 @@ describe("/api/alert-rules", () => {
     expect(mocks.updateAlertRule).toHaveBeenCalledWith("rule1", { id: "rule1", threshold: 95 }, expect.anything());
   });
 
-  it("rejects updates that enable webhook notifications without a webhook URL", async () => {
+  it("leaves an update that names the webhook channel without an address to the rule it changes", async () => {
+    // The stored address is never sent to the page, so the edit form sends the channels without it. The
+    // request was refused here, before anything knew whether the rule already had an address: a rule with a
+    // webhook could not be edited at all without typing the address again. The service decides, against the rule.
     const res = await route.PATCH(
       new Request("http://local/api/alert-rules", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: "rule1", notifyChannels: ["webhook"] }),
+        body: JSON.stringify({ id: "rule1", notifyChannels: ["webhook"], threshold: 95 }),
       }),
     );
 
-    expect(res.status).toBe(400);
-    expect(mocks.updateAlertRule).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(mocks.updateAlertRule).toHaveBeenCalledWith("rule1", { id: "rule1", notifyChannels: ["webhook"], threshold: 95 }, expect.anything());
+  });
+
+  it("answers with the rule as the page shows it: whether a webhook is configured, never its address", async () => {
+    // Every answer carried the database row. The list on the page, refreshed from here, lost its "webhook
+    // configured" badge (the row has no such field) and held the address, token and all.
+    const json = (body: unknown, method = "PATCH") =>
+      new Request("http://local/api/alert-rules", { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    mocks.ensureDefaultAlertRules.mockResolvedValue({ created: 0, skipped: 3 });
+    const answers = [
+      await route.GET(request()),
+      await route.POST(json({ name: "CPU", metric: "cpu_usage", operator: "gte", threshold: 90, notifyChannels: ["in_app", "webhook"], webhookUrl: "https://hooks.example.com/secret" }, "POST")),
+      await route.PATCH(json({ id: "rule1", threshold: 95 })),
+      await route.PATCH(json({ toggleId: "rule1" })),
+      await route.PATCH(json({ ensureDefaults: true })),
+    ];
+    for (const answer of answers) {
+      const text = JSON.stringify(await answer.json());
+      expect(answer.status).toBeLessThan(300);
+      expect(text).not.toContain("hooks.example.com");
+      expect(text).not.toContain("webhookUrl");
+      expect(text).toContain('"webhookConfigured":true');
+      expect(text).toContain('"createdAt":"2026-01-01T00:00:00.000Z"');
+    }
   });
 
   it("rejects malformed silence windows before persistence", async () => {

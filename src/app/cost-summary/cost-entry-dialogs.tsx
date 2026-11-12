@@ -5,13 +5,13 @@ import type { CostCategory, CostCurrency } from "@/lib/cost/types";
 import { CATEGORIES, inputClass } from "./cost-page-shared";
 import { ActionButton } from "@/components/action-button";
 import { Dialog } from "@/components/ui/dialog";
-import { FormField } from "@/components/ui-primitives";
+import { FormField, Notice } from "@/components/ui-primitives";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 type CostForm = { category: CostCategory; provider: string; amount: string; currency: CostCurrency; effectiveDate: string; notes: string };
 
-export function CostEntryFormModal({ open, editingId, form, availableCurrencies, saving, setForm, setShowForm, setEditingId, submitForm, t }: { open: boolean; editingId: string | null; form: CostForm; availableCurrencies: CostCurrency[]; saving: boolean; setForm: Dispatch<SetStateAction<CostForm>>; setShowForm: Dispatch<SetStateAction<boolean>>; setEditingId: Dispatch<SetStateAction<string | null>>; submitForm: () => void; t: T }) {
+export function CostEntryFormModal({ open, editingId, form, availableCurrencies, saving, error, setForm, setShowForm, setEditingId, submitForm, t }: { open: boolean; editingId: string | null; error?: string | null; form: CostForm; availableCurrencies: CostCurrency[]; saving: boolean; setForm: Dispatch<SetStateAction<CostForm>>; setShowForm: Dispatch<SetStateAction<boolean>>; setEditingId: Dispatch<SetStateAction<string | null>>; submitForm: () => void; t: T }) {
 	return (
 		<Dialog
 			size="md"
@@ -103,12 +103,13 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 						onChange={(e) => setForm({ ...form, notes: e.target.value })}
 					/>
 				</FormField>
+				{error ? <Notice tone="danger">{error}</Notice> : null}
 			</div>
 		</Dialog>
 	);
 }
 
-export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, onConfirmDelete, t }: { confirmDelete: { id: string; provider: string; amount: string } | null; deletingId: string | null; setConfirmDelete: Dispatch<SetStateAction<{ id: string; provider: string; amount: string } | null>>; onConfirmDelete: () => void; t: T }) {
+export function CostDeleteDialog({ confirmDelete, deletingId, error, setConfirmDelete, onConfirmDelete, t }: { error?: string | null; confirmDelete: { id: string; provider: string; amount: string } | null; deletingId: string | null; setConfirmDelete: Dispatch<SetStateAction<{ id: string; provider: string; amount: string } | null>>; onConfirmDelete: () => void; t: T }) {
 	return (
 		<ConfirmDialog
 			open={confirmDelete !== null}
@@ -117,6 +118,7 @@ export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, 
 			cancelLabel={t("costPage.delete.cancel")}
 			confirmLabel={confirmDelete && deletingId === confirmDelete.id ? t("costPage.actions.deleting") : t("costPage.delete.confirmBtn")}
 			busy={confirmDelete ? deletingId === confirmDelete.id : false}
+			error={error ?? undefined}
 			onCancel={() => setConfirmDelete(null)}
 			onConfirm={onConfirmDelete}
 			closeOnBackdrop={false}

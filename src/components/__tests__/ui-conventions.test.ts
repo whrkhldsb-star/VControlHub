@@ -17,7 +17,9 @@ import { describe, expect, it } from "vitest";
  *     ButtonLink / Chip / SegmentedControl, surfaces use data-card /
  *     data-inset / data-tile / data-popover — never pasted border+bg+radius;
  *   - content dialogs use <Dialog> / <ConfirmDialog>, confirmations never
- *     use window.confirm.
+ *     use window.confirm;
+ *   - a number field bound to a number is a <NumberInput>, which keeps what is
+ *     being typed.
  *
  * Allowlists name the few places that genuinely need bespoke chrome.
  */
@@ -242,6 +244,19 @@ describe("UI conventions", () => {
 		const offenders = tsxFiles
 			.filter(({ file, source }) => !MODAL_SHELL_ALLOWED.has(file) && /<ModalShell\b/.test(source))
 			.map(({ file }) => file);
+		expect(offenders).toEqual([]);
+	});
+
+	it("binds number fields to numbers through NumberInput", () => {
+		// `onChange={(e) => setValue(Number(e.target.value) || 30)}` cannot be emptied: the field refills itself.
+		const offenders: string[] = [];
+		for (const { file, source } of tsxFiles) {
+			for (const tag of openingTags(source, "input")) {
+				if (!/type="number"/.test(tag)) continue;
+				const handler = /\sonChange=\{([\s\S]*)\}/.exec(tag)?.[1] ?? "";
+				if (/\bNumber\(|\bparseInt\(|\bparseFloat\(|\.valueAsNumber\b/.test(handler)) offenders.push(file);
+			}
+		}
 		expect(offenders).toEqual([]);
 	});
 

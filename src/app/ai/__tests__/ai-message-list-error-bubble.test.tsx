@@ -17,8 +17,6 @@ describe("AiMessageList and a failed reply", () => {
 		pendingApprovals: [],
 		approvalBusyById: {},
 		onApproval: vi.fn(),
-		copyFeedback: null,
-		setCopyFeedback: vi.fn(),
 		currentModelCaps: {} as never,
 		messagesEndRef: createRef<HTMLDivElement>(),
 		onDrop: vi.fn(),

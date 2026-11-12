@@ -118,26 +118,9 @@ describe("DashboardPreferenceClient", () => {
     });
   });
 
-  it("clicking a widget in view mode opens the detail dialog", async () => {
-    csrfFetchMock.mockResolvedValue({
-      defaultPage: "/",
-      dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
-      notificationsEnabled: true,
-      notificationSound: true,
-      autoRefreshInterval: 30,
-    });
-
-    renderDashboardPreferenceClient();
-    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
-
-    // In view mode, clicking the server-status widget should open the dialog.
-    fireEvent.click(screen.getByText("服务器状态"));
-    expect(screen.getByTestId("dashboard-widget-detail-dialog")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("dashboard.widget.serverStatus");
-  });
-
-  it("does not open the detail dialog over a link or a button inside a widget", async () => {
-    // Clicking a quick link navigates; the dialog used to open on top of it as well (and stayed after a new-tab click).
+  it("leaves a click on a widget to the widget", async () => {
+    // A click anywhere on a card opened a "detail" dialog holding a copy of the card: also after selecting
+    // text in it, with buttons that did nothing and every id on the page twice.
     render(
       <DashboardPreferenceClient>
         <section data-dashboard-widget="quick-links">
@@ -147,13 +130,38 @@ describe("DashboardPreferenceClient", () => {
     );
     await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
 
+    fireEvent.click(screen.getByText(/快捷入口/));
     fireEvent.click(screen.getByRole("link", { name: "服务器" }));
     fireEvent.click(screen.getByRole("button", { name: "刷新" }));
-    expect(screen.queryByTestId("dashboard-widget-detail-dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 
-    // The widget itself still opens it.
-    fireEvent.click(screen.getByText(/快捷入口/));
-    expect(screen.getByTestId("dashboard-widget-detail-dialog")).toBeInTheDocument();
+  it("reorders with the move buttons, for a keyboard or a touch screen", async () => {
+    // Dragging was the only way to reorder: it needs a mouse.
+    renderDashboardPreferenceClient();
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
+    fireEvent.click(screen.getByRole("button", { name: "dashboard.customize-edit" }));
+
+    const rows = () => screen.getAllByRole("listitem").map((row) => row.getAttribute("data-widget-row"));
+    expect(rows()).toEqual(["server-status", "quick-links", "analytics", "audit-log"]);
+    // The ends cannot move past the ends.
+    expect(screen.getByTestId("move-up-server-status")).toBeDisabled();
+    expect(screen.getByTestId("move-down-audit-log")).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId("move-up-analytics"));
+    expect(rows()).toEqual(["server-status", "analytics", "quick-links", "audit-log"]);
+    fireEvent.click(screen.getByTestId("move-down-server-status"));
+    expect(rows()).toEqual(["analytics", "server-status", "quick-links", "audit-log"]);
+    // The cards follow at once.
+    expect(document.querySelector("style")?.textContent).toContain('[data-dashboard-widget="analytics"]{order:0}');
+
+    fireEvent.click(screen.getByTestId("customize-done"));
+    await waitFor(() => {
+      const put = csrfFetchMock.mock.calls.find(([url, init]) => url === "/api/preferences" && (init as RequestInit | undefined)?.method === "PUT");
+      expect(JSON.parse(String((put?.[1] as RequestInit | undefined)?.body))).toEqual({
+        dashboardWidgets: ["analytics", "server-status", "quick-links", "audit-log"],
+      });
+    });
   });
 
   it("reset restores the default widget order in edit mode", async () => {
@@ -264,13 +272,13 @@ describe("DashboardPreferenceClient", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "dashboard.customize-edit" }));
 
-    // Enter edit: previously-hidden analytics is seeded as hidden (chip not pressed).
+    // Enter edit: previously-hidden analytics is seeded as hidden (its switch is off).
     const analyticsToggle = screen.getByTestId("toggle-widget-analytics");
-    expect(analyticsToggle).toHaveAttribute("aria-pressed", "false");
+    expect(analyticsToggle).toHaveAttribute("aria-checked", "false");
 
     // Un-hide analytics and complete edit — PUT must restore it in the visible list.
     fireEvent.click(analyticsToggle);
-    expect(analyticsToggle).toHaveAttribute("aria-pressed", "true");
+    expect(analyticsToggle).toHaveAttribute("aria-checked", "true");
     fireEvent.click(screen.getByTestId("customize-done"));
 
     await waitFor(() => {

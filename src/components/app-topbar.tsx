@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { recordRecentPage, toggleSidebarCollapsed, useSidebarCollapsed } from "@/lib/ui/shell-preferences";
 import { cn } from "@/lib/ui/cn";
+import { useModifierKey } from "@/lib/ui/use-modifier-key";
 import { OPEN_MOBILE_NAV_EVENT } from "./app-sidebar";
 import { LanguageToggle } from "./language-toggle";
 import { NotificationBell } from "./notification-bell";
@@ -64,6 +65,7 @@ export function AppTopbar({ appName }: { appName: string }) {
 	const pathname = usePathname() ?? "/";
 	const { t } = useI18n();
 	const collapsed = useSidebarCollapsed();
+	const modifierKey = useModifierKey();
 	const crumbs = useCrumbs(pathname);
 	const leaf = crumbs.at(-1)?.label;
 
@@ -146,7 +148,7 @@ export function AppTopbar({ appName }: { appName: string }) {
 			>
 				<IconSearch size={15} className="shrink-0" />
 				<span className="min-w-0 flex-1 truncate">{t("shell.search.trigger")}</span>
-				<span className="ui-kbd">⌘K</span>
+				<span className="ui-kbd">{modifierKey === "⌘" ? "⌘K" : "Ctrl K"}</span>
 			</button>
 			<button
 				type="button"

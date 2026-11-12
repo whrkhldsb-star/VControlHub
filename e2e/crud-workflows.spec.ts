@@ -157,7 +157,9 @@ async function createPlaybook(page: Page, name: string) {
 
 test("playbook create, toggle and delete before execution", async ({ page }) => {
 	const card = await createPlaybook(page, marker);
-	await card.getByRole("button", { name: /启用 \/ 停用|Enable \/ Disable/i }).click();
+	// The switch names what it will do: a new playbook is enabled, so it offers "Disable", then "Enable".
+	await card.getByRole("button", { name: /^(停用|Disable)$/ }).click();
+	await expect(card.getByRole("button", { name: /^(启用|Enable)$/ })).toBeVisible();
 	await card.getByRole("button", { name: /删除|Delete/i }).click();
 	await confirmInDialog(page, /删除 Playbook|Delete Playbook/i, /确认删除|Confirm Delete/i);
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();

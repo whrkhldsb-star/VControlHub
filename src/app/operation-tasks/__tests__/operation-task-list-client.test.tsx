@@ -110,6 +110,22 @@ describe("OperationTaskListClient", () => {
     expect(screen.getByLabelText("失败原因聚合")).toHaveTextContent("最新：告警规则评估失败");
   });
 
+  it("keeps the other task types on offer after the list is narrowed to one", async () => {
+    // The options were the types in the result on screen: after choosing one type, the list held only that
+    // type and the select offered nothing else but "all".
+    const actor = userEvent.setup();
+    const job = (id: string, taskType: string): OperationTask => ({ ...initialTasks[0]!, id: `job:${id}`, source: "job", sourceId: id, title: id, status: "completed", taskType });
+    vi.mocked(csrfFetch).mockResolvedValue({ tasks: [job("backup_1", "backup.create")], sourceSummary: [], failureSummary: [] });
+
+    render(<OperationTaskListClient initialTasks={[job("backup_1", "backup.create"), job("alert_1", "alert.evaluate")]} initialSourceSummary={[]} initialFailureSummary={[]} />);
+    const types = () => Array.from((screen.getByLabelText("任务类型") as HTMLSelectElement).options).map((option) => option.value);
+    expect(types()).toEqual(["all", "alert.evaluate", "backup.create"]);
+
+    await actor.selectOptions(screen.getByLabelText("任务类型"), "backup.create");
+    await waitFor(() => expect(screen.queryByText("alert_1")).not.toBeInTheDocument());
+    expect(types()).toEqual(["all", "alert.evaluate", "backup.create"]);
+  });
+
   it("drops a stale refresh when a newer filter request wins", async () => {
     const actor = userEvent.setup();
     let resolveStale: ((value: unknown) => void) | undefined;

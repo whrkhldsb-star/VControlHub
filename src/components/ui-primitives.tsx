@@ -202,6 +202,7 @@ export function Switch({
 	disabled,
 	id,
 	className,
+	...rest
 }: {
 	checked: boolean;
 	onCheckedChange: (next: boolean) => void;
@@ -209,9 +210,10 @@ export function Switch({
 	disabled?: boolean;
 	id?: string;
 	className?: string;
-}) {
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type" | "role" | "onClick" | "aria-checked" | "aria-label" | "children">) {
 	return (
 		<button
+			{...rest}
 			type="button"
 			role="switch"
 			id={id}

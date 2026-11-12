@@ -61,6 +61,8 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const [docContent, setDocContent] = useState("");
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
+  // The query the hits on screen answer; null before the first search.
+  const [searchedQuery, setSearchedQuery] = useState<string | null>(null);
   const [basePendingDelete, setBasePendingDelete] =
     useState<KnowledgeBase | null>(null);
   const [documentPendingDelete, setDocumentPendingDelete] = useState<DocumentRow | null>(null);
@@ -205,7 +207,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         }),
       });
       setHits(data.hits ?? []);
-      addToast("success", t("knowledgePage.searchOk", { count: data.hits?.length ?? 0 }));
+      setSearchedQuery(query.trim());
     }, { fallback: t("knowledgePage.error") });
   }
 
@@ -291,7 +293,14 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                       type="button"
                       data-tile=""
                       aria-pressed={selectedId === b.id}
-                      onClick={() => setSelectedId(b.id)}
+                      onClick={() => {
+                        if (b.id !== selectedId) {
+                          // The other base's documents are not this one's: empty the list until its own arrive.
+                          setDocuments([]);
+                          setHasMoreDocuments(false);
+                        }
+                        setSelectedId(b.id);
+                      }}
                       className="min-w-0 flex-1 px-3 py-2 text-left text-xs text-[var(--text-secondary)]"
                     >
                       <div className="font-semibold">{b.name}</div>
@@ -379,21 +388,32 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       </div>
 
       <SurfacePanel title={t("knowledgePage.searchTitle")} description={t("knowledgePage.searchDescription")}>
-        <div className="flex flex-wrap gap-2">
+        <form
+          role="search"
+          className="flex flex-wrap gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (query.trim() && busy === null) void search();
+          }}
+        >
           <input
-            aria-label={t("knowledgePage.queryPlaceholder")}
+            type="search"
+            aria-label={t("knowledgePage.queryLabel")}
             className={`${UI_INPUT} min-w-[12rem] flex-1`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("knowledgePage.queryPlaceholder")}
           />
-          <ActionButton variant="outline"
-            disabled={!query.trim() || busy !== null}
-            onClick={() => void search()}>
+          <ActionButton type="submit" variant="outline" disabled={!query.trim() || busy !== null}>
             {busy === "search" ? t("knowledgePage.working") : t("knowledgePage.search")}
           </ActionButton>
-        </div>
-        <div className="mt-4 space-y-3">
+        </form>
+        {searchedQuery !== null ? (
+          <p className="mt-3 text-xs text-[var(--text-muted)]" role="status">
+            {hits.length > 0 ? t("knowledgePage.searchOk", { count: hits.length }) : t("knowledgePage.noHits")}
+          </p>
+        ) : null}
+        <div className="mt-3 space-y-3">
           {hits.map((hit, idx) => (
             <article
               key={`${hit.documentTitle}-${hit.chunkIndex}-${idx}`}
@@ -402,7 +422,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               <div className="font-semibold text-[var(--text-primary)]">
                 [{idx + 1}] {hit.knowledgeBaseName} / {hit.documentTitle}#{hit.chunkIndex}
                 <span className="ml-2 text-xs font-normal text-[var(--text-muted)]">
-                  score {hit.score}
+                  {t("knowledgePage.hitScore", { score: hit.score })}
                 </span>
               </div>
               <pre className="mt-2 whitespace-pre-wrap font-sans text-[var(--text-secondary)]">

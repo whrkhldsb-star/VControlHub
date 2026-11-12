@@ -8,7 +8,7 @@
 export const zh: Record<string, string> = {
 	"operationTasksPage.recentLogsAria": "{title} 的最近日志",
 	"operationTasksPage.worker.label": "执行器 {id}",
-	"operationTasks.action.applyFilter": "刷新",
+	"operationTasks.action.refresh": "刷新",
 	"operationTasks.action.refreshing": "刷新中...",
 	"operationTasks.filter.all": "全部",
 	"operationTasks.filter.attention": "需处理",
@@ -95,7 +95,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"operationTasksPage.recentLogsAria": "Recent logs: {title}",
 	"operationTasksPage.worker.label": "worker {id}",
-	"operationTasks.action.applyFilter": "Refresh",
+	"operationTasks.action.refresh": "Refresh",
 	"operationTasks.action.refreshing": "Refreshing...",
 	"operationTasks.filter.all": "All",
 	"operationTasks.filter.attention": "Needs attention",

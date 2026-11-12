@@ -12,6 +12,7 @@ import {
   ensureDefaultAlertRules,
 } from "@/lib/alert/service";
 import { auditUserAction } from "@/lib/audit/service";
+import { toAlertRuleDto } from "@/lib/alert/rule-dto";
 import { evaluateAlerts } from "@/lib/health/service";
 import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -121,10 +122,12 @@ const alertRuleSchema = alertRuleSchemaBase
 // values in for absent keys even under .partial(), so an update that named
 // only a threshold reset the rule to every server, in-app delivery only, and
 // no playbooks, silence windows or on-call users.
+// The webhook address is not required here, unlike on creation: the stored one is never sent to the page, so
+// an edit names the channel without it, and only the rule knows whether an address is there
+// (updateAlertRule checks). Required here, a rule with a webhook could not be edited without retyping it.
 const updateAlertRuleSchema = z.object(alertRuleFields)
   .partial()
   .extend({ id: z.string().trim().min(1) })
-  .superRefine(requireWebhookUrlWhenEnabled)
   .transform(normalizeOfflineAlertRuleFields);
 
 /* ── TR-037 P2: PATCH union schema (toggle / test / update) ─────── */
@@ -202,7 +205,7 @@ export async function GET(request: Request) {
       // Bootstrap a small starter pack the first time the page/API is loaded.
       await ensureDefaultAlertRules(session);
       const rules = await listAlertRules(session);
-      return NextResponse.json({ rules });
+      return NextResponse.json({ rules: rules.map(toAlertRuleDto) });
     },
   );
 }
@@ -245,7 +248,7 @@ export async function POST(request: Request) {
           status: 303,
         });
       }
-      return NextResponse.json({ rule }, { status: 201 });
+      return NextResponse.json({ rule: toAlertRuleDto(rule) }, { status: 201 });
     },
   );
 }
@@ -267,7 +270,7 @@ export async function PATCH(request: Request) {
           ruleId: body.toggleId,
           enabled: Boolean(result.enabled),
         }, undefined, session.currentTeamId);
-        return NextResponse.json({ rule: result });
+        return NextResponse.json({ rule: toAlertRuleDto(result) });
       }
       if ("testId" in body) {
         const result = await testAlertRule(body.testId, session);
@@ -286,14 +289,14 @@ export async function PATCH(request: Request) {
           skipped: result.skipped,
         }, undefined, session.currentTeamId);
         const rules = await listAlertRules(session);
-        return NextResponse.json({ ...result, rules });
+        return NextResponse.json({ ...result, rules: rules.map(toAlertRuleDto) });
       }
       const result = await updateAlertRule(body.id, body, session);
       await auditUserAction(
         session.userId,
         "alert_rule.update",
         auditRuleDetail(result), undefined, session.currentTeamId);
-      return NextResponse.json({ rule: result });
+      return NextResponse.json({ rule: toAlertRuleDto(result) });
     },
   );
 }

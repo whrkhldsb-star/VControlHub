@@ -476,11 +476,14 @@ test("customer create, select, delete and restore lifecycle", async ({ page }) =
 		// Deleting the selected customer returns the administrator to all customers.
 		await expect.poll(async () => ((await (await page.context().request.get("/api/teams")).json()) as { currentTeamId: string | null }).currentTeamId).toBeNull();
 
-		await page.getByText(/已删除的客户|Deleted customers/i).click();
-		// The deleted-customers list loads on demand; wait for this customer's
-		// restore button instead of letting a slow CI runner eat the 90 s budget.
+		// Deleting the selected customer changes the session's customer, and the layout mounts the page again
+		// for the new one (its upload queue is per customer). On a slow runner that lands after the section
+		// was opened and closes it again, so open it until this customer's restore button stays in view.
 		const restoreButton = page.locator("li").filter({ hasText: marker }).getByRole("button", { name: /恢复|Restore/i });
-		await expect(restoreButton).toBeVisible({ timeout: 30_000 });
+		await expect(async () => {
+			if (!(await restoreButton.isVisible())) await page.getByText(/已删除的客户|Deleted customers/i).click();
+			await expect(restoreButton).toBeVisible({ timeout: 2_000 });
+		}).toPass({ timeout: 30_000 });
 		const restoredResponse = page.waitForResponse((response) =>
 			new URL(response.url()).pathname === `/api/teams/${createdId}/restore`,
 		{ timeout: 30_000 });

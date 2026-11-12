@@ -14,6 +14,8 @@ vi.mock("@/lib/i18n/use-locale", () => ({
 	}),
 }));
 
+const ORDER = ["server-status", "quick-links", "analytics", "audit-log"] as const;
+
 describe("DashboardCustomizeToolbar", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -26,6 +28,8 @@ describe("DashboardCustomizeToolbar", () => {
 				onEnterEdit={vi.fn()}
 				onExitEdit={vi.fn()}
 				onReset={vi.fn()}
+				order={ORDER}
+				onMove={vi.fn()}
 				hiddenIds={new Set()}
 				onToggleVisibility={vi.fn()}
 			/>,
@@ -43,6 +47,8 @@ describe("DashboardCustomizeToolbar", () => {
 				onEnterEdit={onEnterEdit}
 				onExitEdit={vi.fn()}
 				onReset={vi.fn()}
+				order={ORDER}
+				onMove={vi.fn()}
 				hiddenIds={new Set()}
 				onToggleVisibility={vi.fn()}
 			/>,
@@ -58,6 +64,8 @@ describe("DashboardCustomizeToolbar", () => {
 				onEnterEdit={vi.fn()}
 				onExitEdit={vi.fn()}
 				onReset={vi.fn()}
+				order={ORDER}
+				onMove={vi.fn()}
 				hiddenIds={new Set()}
 				onToggleVisibility={vi.fn()}
 			/>,
@@ -79,6 +87,8 @@ describe("DashboardCustomizeToolbar", () => {
 				onEnterEdit={vi.fn()}
 				onExitEdit={vi.fn()}
 				onReset={vi.fn()}
+				order={ORDER}
+				onMove={vi.fn()}
 				hiddenIds={new Set()}
 				onToggleVisibility={onToggleVisibility}
 			/>,
@@ -87,25 +97,44 @@ describe("DashboardCustomizeToolbar", () => {
 		expect(onToggleVisibility).toHaveBeenCalledWith("analytics");
 	});
 
-	it("presses the chips of visible widgets and strikes through hidden ones", () => {
+	it("turns the switch of a hidden widget off and leaves the others on", () => {
 		render(
 			<DashboardCustomizeToolbar
 				isEditing={true}
 				onEnterEdit={vi.fn()}
 				onExitEdit={vi.fn()}
 				onReset={vi.fn()}
+				order={ORDER}
+				onMove={vi.fn()}
 				hiddenIds={new Set(["analytics"])}
 				onToggleVisibility={vi.fn()}
 			/>,
 		);
-		const toggle = screen.getByTestId("toggle-widget-analytics");
-		expect(toggle).toHaveAttribute("aria-pressed", "false");
-		expect(toggle.className).toContain("line-through");
-		// A visible widget's chip is pressed.
-		expect(screen.getByTestId("toggle-widget-server-status")).toHaveAttribute(
-			"aria-pressed",
-			"true",
+		expect(screen.getByTestId("toggle-widget-analytics")).toHaveAttribute("aria-checked", "false");
+		expect(screen.getByTestId("toggle-widget-server-status")).toHaveAttribute("aria-checked", "true");
+	});
+
+	it("lists the widgets in the order given and reports a move by one place", () => {
+		const onMove = vi.fn();
+		render(
+			<DashboardCustomizeToolbar
+				isEditing={true}
+				onEnterEdit={vi.fn()}
+				onExitEdit={vi.fn()}
+				onReset={vi.fn()}
+				order={["audit-log", "server-status", "quick-links", "analytics"]}
+				onMove={onMove}
+				hiddenIds={new Set()}
+				onToggleVisibility={vi.fn()}
+			/>,
 		);
+		expect(screen.getAllByRole("listitem").map((row) => row.getAttribute("data-widget-row"))).toEqual(["audit-log", "server-status", "quick-links", "analytics"]);
+		expect(screen.getByTestId("move-up-audit-log")).toBeDisabled();
+		expect(screen.getByTestId("move-down-analytics")).toBeDisabled();
+		fireEvent.click(screen.getByTestId("move-down-audit-log"));
+		expect(onMove).toHaveBeenCalledWith("audit-log", 1);
+		fireEvent.click(screen.getByTestId("move-up-quick-links"));
+		expect(onMove).toHaveBeenCalledWith("quick-links", -1);
 	});
 
 	it("emits onReset and onExitEdit when the corresponding buttons are clicked", () => {
@@ -117,6 +146,8 @@ describe("DashboardCustomizeToolbar", () => {
 				onEnterEdit={vi.fn()}
 				onExitEdit={onExitEdit}
 				onReset={onReset}
+				order={ORDER}
+				onMove={vi.fn()}
 				hiddenIds={new Set()}
 				onToggleVisibility={vi.fn()}
 			/>,

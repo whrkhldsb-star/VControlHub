@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -60,6 +60,25 @@ describe("AuditLogClient", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("刷新审计日志失败");
     expect(screen.getAllByText("删除节点").length).toBeGreaterThan(1);
     await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
+  });
+
+  it("opens the whole record from its row", async () => {
+    // The detail column is one truncated line; a long record could not be read on the page at all.
+    const user = userEvent.setup();
+    const long = { serverId: "srv_1", name: "生产节点", reason: "x".repeat(300), change: { enabled: { from: true, to: false } } };
+    vi.mocked(csrfFetch).mockResolvedValue({ ...auditResponse, logs: [{ ...auditResponse.logs[0]!, detail: long }] });
+
+    render(<AuditLogClient />);
+    const [open] = await screen.findAllByRole("button", { name: "查看完整记录" });
+    await user.click(open!);
+
+    const dialog = screen.getByRole("dialog", { name: "删除节点" });
+    expect(within(dialog).getByText("管理员")).toBeInTheDocument();
+    expect(within(dialog).getByText("警告")).toBeInTheDocument();
+    // Every field of the detail, whole, nested values as JSON.
+    expect(within(dialog).getByText("reason")).toBeInTheDocument();
+    expect(within(dialog).getByText("x".repeat(300))).toBeInTheDocument();
+    expect(within(dialog).getByText('{"enabled":{"from":true,"to":false}}')).toBeInTheDocument();
   });
 
   it("exports what the search box shows right after it is cleared", async () => {

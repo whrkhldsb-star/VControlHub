@@ -198,10 +198,10 @@ export function PlaybookListClient({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: playbook.id, enabled: !playbook.enabled }),
         });
-        addToast("success", t("playbooksPage.toast.toggled"));
+        addToast("success", t(playbook.enabled ? "playbooksPage.toast.disabled" : "playbooksPage.toast.enabled", { name: playbook.name }));
         void refresh();
       } catch (err) {
-        addToast("error", getErrorMessage(err, t("playbooksPage.error.toggle")));
+        addToast("error", getErrorMessage(err, t(playbook.enabled ? "playbooksPage.error.disable" : "playbooksPage.error.enable", { name: playbook.name })));
       } finally {
         setBusyAction((prev) => (prev === actionKey ? null : prev));
       }

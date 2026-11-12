@@ -167,6 +167,36 @@ describe("KnowledgeClient", () => {
     expect(screen.getByText("restart nginx")).toBeInTheDocument();
   });
 
+  it("searches on Enter, and says so when nothing matches", async () => {
+    // Enter in the query box did nothing, and a search without hits left the panel as it was.
+    renderClient();
+    await waitFor(() => expect(screen.getByText("runbooks")).toBeInTheDocument());
+    mocks.csrfFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === "POST" ? { hits: [] } : { knowledgeBases: bases, knowledgeBase: { documents } });
+    const box = screen.getByRole("searchbox", { name: "knowledgePage.queryLabel" });
+    fireEvent.change(box, { target: { value: "restore postgres" } });
+    fireEvent.submit(box.closest("form")!);
+    await waitFor(() => expect(screen.getByText("knowledgePage.noHits")).toBeInTheDocument());
+    expect(mocks.csrfFetch).toHaveBeenCalledWith("/api/knowledge", expect.objectContaining({ method: "POST" }));
+
+    mocks.csrfFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === "POST"
+        ? { hits: [{ knowledgeBaseName: "runbooks", documentTitle: "restore", chunkIndex: 2, score: 7, content: "pg_restore …" }] }
+        : { knowledgeBases: bases, knowledgeBase: { documents } });
+    fireEvent.submit(box.closest("form")!);
+    await waitFor(() => expect(screen.getByText("knowledgePage.hitScore:7")).toBeInTheDocument());
+    expect(screen.queryByText("knowledgePage.noHits")).not.toBeInTheDocument();
+  });
+
+  it("empties the document list as soon as another base is chosen", async () => {
+    // The previous base's documents stayed under the new base's name until the new list arrived.
+    renderClient();
+    await waitFor(() => expect(screen.getByText("restart nginx")).toBeInTheDocument());
+    mocks.csrfFetch.mockImplementation(() => new Promise(() => undefined));
+    fireEvent.click(screen.getByText("policies"));
+    expect(screen.queryByText("restart nginx")).not.toBeInTheDocument();
+  });
+
   it("hides the delete affordance from a caller who cannot manage", async () => {
     renderClient(false);
     await waitFor(() => expect(screen.getByText("runbooks")).toBeInTheDocument());

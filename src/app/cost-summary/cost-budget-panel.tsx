@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { ProgressBar } from "@/components/ui-primitives";
+import { FormField, Notice, ProgressBar } from "@/components/ui-primitives";
+import { NumberInput } from "@/components/ui/number-input";
 import { EmptyState } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -37,8 +38,16 @@ export function CostBudgetPanel({
     alertThresholdPercent: 80,
   });
   const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
+  // Why the budget was not created, by the button; why one was not deleted, in the dialog that asked.
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<CostBudgetRecord | null>(null);
-  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const fieldId = useId();
+  const update = (change: Partial<typeof form>) => {
+    setFormError(null);
+    setForm((current) => ({ ...current, ...change }));
+  };
 
   const reload = useCallback(async () => {
     const data = (await csrfFetch("/api/cost/budgets")) as { budgets?: CostBudgetRecord[] };
@@ -56,8 +65,16 @@ export function CostBudgetPanel({
   const create = async () => {
     const name = form.name.trim();
     const limitAmount = form.limitAmount.trim();
-    if (!name || !limitAmount) return;
-    setBusy(true);
+    setFormError(null);
+    if (!name) {
+      setFormError(t("costPage.budget.error.nameRequired"));
+      return;
+    }
+    if (!limitAmount) {
+      setFormError(t("costPage.budget.error.limitRequired"));
+      return;
+    }
+    setCreating(true);
     try {
       await csrfFetch("/api/cost/budgets", {
         method: "POST",
@@ -74,22 +91,23 @@ export function CostBudgetPanel({
       await reload();
       addToast("success", t("costPage.budget.created"));
     } catch (error) {
-      addToast("error", getErrorMessage(error, t("costPage.error.save")));
+      setFormError(getErrorMessage(error, t("costPage.error.save")));
     } finally {
-      setBusy(false);
+      setCreating(false);
     }
   };
 
   const remove = async () => {
     if (!pendingDelete) return;
     setBusy(true);
+    setDeleteError(null);
     try {
       await csrfFetch(`/api/cost/budgets/${pendingDelete.id}`, { method: "DELETE" });
       setPendingDelete(null);
       await reload();
       addToast("success", t("costPage.budget.deleted"));
     } catch (error) {
-      addToast("error", getErrorMessage(error, t("costPage.error.delete")));
+      setDeleteError(getErrorMessage(error, t("costPage.error.delete")));
     } finally {
       setBusy(false);
     }
@@ -121,9 +139,10 @@ export function CostBudgetPanel({
         description={t("costPage.budget.deleteConfirm", { name: pendingDelete?.name ?? "" })}
         cancelLabel={t("costPage.budget.deleteCancel")}
         confirmLabel={t("costPage.budget.deleteConfirmBtn")}
-        onCancel={() => setPendingDelete(null)}
+        onCancel={() => { setPendingDelete(null); setDeleteError(null); }}
         onConfirm={() => void remove()}
         busy={busy}
+        error={deleteError ?? undefined}
       />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -144,105 +163,110 @@ export function CostBudgetPanel({
         )}
       </div>
       {canManage && (
-        <div className="mt-4 grid gap-2 md:grid-cols-6">
-          <input
-            ref={nameInputRef}
-            className={inputClass}
-            aria-label={t("costPage.budget.name")}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder={t("costPage.budget.name")}
-          />
-          <select
-            className={inputClass}
-            aria-label={t("costPage.budget.category")}
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value as CostCategory })}
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {t(`costPage.category.${c}`)}
-              </option>
-            ))}
-          </select>
-          <input
-            className={inputClass}
-            aria-label={t("costPage.budget.limit")}
-            value={form.limitAmount}
-            onChange={(e) => setForm({ ...form, limitAmount: e.target.value })}
-            placeholder={t("costPage.budget.limit")}
-          />
-          <select
-            className={inputClass}
-            aria-label={t("costPage.budget.currency")}
-            value={form.currency}
-            onChange={(e) => setForm({ ...form, currency: e.target.value as CostCurrency })}
-          >
-            {currencies.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-          <select
-            className={inputClass}
-            aria-label={t("costPage.budget.period")}
-            value={form.period}
-            onChange={(e) => setForm({ ...form, period: e.target.value })}
-          >
-            <option value="monthly">{t("costPage.budget.monthly")}</option>
-            <option value="quarterly">{t("costPage.budget.quarterly")}</option>
-            <option value="yearly">{t("costPage.budget.yearly")}</option>
-          </select>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            className={inputClass}
-            aria-label={t("costPage.budget.alertThreshold")}
-            title={t("costPage.budget.alertThreshold")}
-            value={form.alertThresholdPercent}
-            onChange={(e) => setForm({ ...form, alertThresholdPercent: Math.min(100, Math.max(1, Number(e.target.value) || 80)) })}
-          />
-          <ActionButton type="button" disabled={busy} onClick={create}>
-            {t("costPage.budget.create")}
-          </ActionButton>
-        </div>
+        <form
+          className="mt-4 flex flex-col gap-3"
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void create();
+          }}
+        >
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_repeat(5,minmax(0,1fr))]">
+            <FormField label={t("costPage.budget.name")} htmlFor={`${fieldId}-name`}>
+              <input
+                id={`${fieldId}-name`}
+                className={inputClass}
+                maxLength={128}
+                value={form.name}
+                onChange={(e) => update({ name: e.target.value })}
+              />
+            </FormField>
+            <FormField label={t("costPage.budget.category")} htmlFor={`${fieldId}-category`}>
+              <select
+                id={`${fieldId}-category`}
+                className={inputClass}
+                value={form.category}
+                onChange={(e) => update({ category: e.target.value as CostCategory })}
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {t(`costPage.category.${c}`)}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label={t("costPage.budget.limit")} htmlFor={`${fieldId}-limit`}>
+              <input
+                id={`${fieldId}-limit`}
+                className={`${inputClass} font-mono`}
+                inputMode="decimal"
+                value={form.limitAmount}
+                onChange={(e) => update({ limitAmount: e.target.value })}
+              />
+            </FormField>
+            <FormField label={t("costPage.budget.currency")} htmlFor={`${fieldId}-currency`}>
+              <select
+                id={`${fieldId}-currency`}
+                className={inputClass}
+                value={form.currency}
+                onChange={(e) => update({ currency: e.target.value as CostCurrency })}
+              >
+                {currencies.map((c) => (
+                  <option key={c} value={c}>{t(`costPage.currency.${c}`)}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label={t("costPage.budget.period")} htmlFor={`${fieldId}-period`}>
+              <select
+                id={`${fieldId}-period`}
+                className={inputClass}
+                value={form.period}
+                onChange={(e) => update({ period: e.target.value })}
+              >
+                <option value="monthly">{t("costPage.budget.monthly")}</option>
+                <option value="quarterly">{t("costPage.budget.quarterly")}</option>
+                <option value="yearly">{t("costPage.budget.yearly")}</option>
+              </select>
+            </FormField>
+            <FormField label={t("costPage.budget.alertThreshold")} htmlFor={`${fieldId}-threshold`}>
+              <NumberInput
+                id={`${fieldId}-threshold`}
+                min={1}
+                max={100}
+                integer
+                className="font-mono"
+                value={form.alertThresholdPercent}
+                onValueChange={(alertThresholdPercent) => update({ alertThresholdPercent })}
+              />
+            </FormField>
+          </div>
+          {formError ? <Notice tone="danger">{formError}</Notice> : null}
+          <div>
+            <ActionButton type="submit" variant="outline" loading={creating}>
+              {t("costPage.budget.create")}
+            </ActionButton>
+          </div>
+        </form>
       )}
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {budgets.length === 0 ? (
           <div className="md:col-span-2">
-            <EmptyState
-              text={`${t("costPage.budget.empty")} — ${t("costPage.budget.emptyHint")}`}
-              action={
-                canManage ? (
-                  <ActionButton
-                    type="button"
-                    variant="primary"
-                    onClick={() => nameInputRef.current?.focus()}>
-                    {t("costPage.budget.create")}
-                  </ActionButton>
-                ) : undefined
-              }
-            />
+            <EmptyState title={t("costPage.budget.empty")} text={t("costPage.budget.emptyHint")} />
           </div>
         ) : (
           budgets.map((budget) => (
-            <article key={budget.id} className="rounded-2xl border border-[var(--border)] p-4">
+            <article key={budget.id} data-inset className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="ui-title-group">{budget.name}</h3>
                   <p className="text-xs text-[var(--text-muted)]">
-                    {t(`costPage.category.${budget.category}`)} ·{" "}
-                    {t(`costPage.budget.${budget.period}`)}
+                    {t("costPage.budget.scope", { category: t(`costPage.category.${budget.category}`), period: t(`costPage.budget.${budget.period}`) })}
                   </p>
                 </div>
                 {canManage && (
-                  <button
-                    type="button"
-                    onClick={() => setPendingDelete(budget)}
-                    className="text-xs text-[var(--danger)]"
-                  >
+                  <ActionButton size="xs" variant="danger" onClick={() => { setDeleteError(null); setPendingDelete(budget); }}>
                     {t("costPage.budget.delete")}
-                  </button>
+                  </ActionButton>
                 )}
               </div>
               <ProgressBar
@@ -251,12 +275,11 @@ export function CostBudgetPanel({
                 tone={budget.usagePercent >= 100 ? "danger" : budget.usagePercent >= budget.alertThresholdPercent ? "warning" : "success"}
                 className="mt-3"
               />
-              <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                <span>
+              <p className="mt-2 flex flex-wrap justify-between gap-x-3 text-xs text-[var(--text-secondary)]">
+                <span className="font-mono">
                   {budget.usageAmount} / {budget.limitAmount} {budget.currency}
                 </span>
-                <span className="ml-1">·</span>
-                <span className="ml-1">{`${budget.usagePercent.toFixed(1)}%`}</span>
+                <span className="font-mono">{`${budget.usagePercent.toFixed(1)}%`}</span>
               </p>
               {budget.otherCurrencyUsage.length > 0 ? (
                 <p className={`mt-2 rounded-lg border px-2 py-1.5 text-xs ${UI_TONE.warning}`}>

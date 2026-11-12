@@ -22,7 +22,8 @@ import { approvalDetails, automationSummary } from "./ai-hosted-action-utils";
 import { isStreamErrorMessage } from "./ai-stream-error";
 import { formatDateTime } from "@/lib/datetime/format";
 import { ActionButton } from "@/components/action-button";
-import { copyText } from "@/lib/ui/clipboard";
+import { Notice } from "@/components/ui-primitives";
+import { AiCopyButton, type AiCopyLabels } from "./ai-copy-button";
 
 const EMPTY_TOOL_CONTENT = new Set([
   "(无响应内容)",
@@ -59,8 +60,6 @@ type Props = {
     approval: ToolApprovalNeeded,
     action: "confirm" | "reject",
   ) => void;
-  copyFeedback: string | null;
-  setCopyFeedback: (id: string | null) => void;
   currentModelCaps: ModelCapabilities;
   messagesEndRef: RefObject<HTMLDivElement | null>;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
@@ -68,6 +67,9 @@ type Props = {
   /** Re-send the latest user turn — shown on the last assistant bubble and
    *  labeled "重试" when that bubble is an error. */
   onRegenerate?: () => void;
+  /** Why the conversation's history could not be loaded; shown instead of "nothing said yet". */
+  loadError?: string | null;
+  onRetryLoad?: () => void;
 };
 
 export function AiMessageList({
@@ -78,13 +80,13 @@ export function AiMessageList({
   pendingApprovals,
   approvalBusyById,
   onApproval,
-  copyFeedback,
-  setCopyFeedback,
   currentModelCaps,
   messagesEndRef,
   onDrop,
   onDragOver,
   onRegenerate,
+  loadError,
+  onRetryLoad,
 }: Props) {
   const { t, locale } = useI18n();
   const actionDisplayName = (actionType: string, fallback: string) => {
@@ -105,13 +107,23 @@ export function AiMessageList({
     [messages],
   );
   const lastIdx = visibleMsgs.length - 1;
+  const copyLabels: AiCopyLabels = {
+    label: t("aiPage.copyCode"),
+    copiedLabel: t("aiPage.copyOrCopied"),
+    failedLabel: t("aiPage.copyFailed"),
+  };
   return (
     <div
       className="flex-1 min-h-0 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 space-y-4"
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
-      {messages.length === 0 && !streaming && (
+      {loadError && messages.length === 0 && !streaming ? (
+        <Notice tone="danger" action={onRetryLoad ? { label: t("common.retry"), onClick: onRetryLoad } : undefined}>
+          {loadError}
+        </Notice>
+      ) : null}
+      {messages.length === 0 && !streaming && !loadError && (
         <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)]">
           <svg
             className="w-12 h-12 mb-3 opacity-30"
@@ -184,7 +196,7 @@ export function AiMessageList({
               </details>
             )}
             {!hasToolOnlyContent && (
-              <div className="break-words">{renderContent(msg.content, { copyLabel: t("aiPage.copyCode") })}</div>
+              <div className="break-words">{renderContent(msg.content, { copy: copyLabels })}</div>
             )}
             {hostedActions.length > 0 && (
               <div className="mt-2 space-y-2 border-t border-[var(--border-subtle)] pt-2">
@@ -285,35 +297,7 @@ export function AiMessageList({
               )}
             {!hasToolOnlyContent && (
               <div className="mt-1.5 flex items-center gap-3">
-              <button
-              type="button"
-              aria-label={t("aiPage.copyAria")}
-              onClick={async () => {
-                const ok = await copyText(msg.content);
-                if (ok) {
-                  setCopyFeedback(msg.id);
-                  setTimeout(() => setCopyFeedback(null), 2000);
-                }
-              }}
-              className="flex items-center gap-1 text-xs text-[var(--text-muted)] transition hover:text-[var(--accent)]"
-            >
-              <svg
-                className="w-3 h-3"
-                fill="none"
-                stroke="currentColor"
-                width="24" height="24" viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-              {copyFeedback === msg.id
-                ? t("aiPage.copyOrCopied")
-                : t("aiPage.copy")}
-            </button>
+              <AiCopyButton text={msg.content} ariaLabel={t("aiPage.copyAria")} {...copyLabels} label={t("aiPage.copy")} />
               {(showRegenerate || showRetry) && (
                 <button
                   type="button"
@@ -367,7 +351,7 @@ export function AiMessageList({
                 </div>
               </details>
             )}
-            {streamContent ? <div className="break-words">{renderContent(streamContent)}</div> : null}
+            {streamContent ? <div className="break-words">{renderContent(streamContent, { copy: copyLabels })}</div> : null}
           </div>
         </div>
       )}

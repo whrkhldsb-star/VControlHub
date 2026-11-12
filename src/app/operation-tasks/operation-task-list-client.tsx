@@ -47,6 +47,10 @@ const statusTone: Record<string, StatusTone> = {
   paused: "neutral",
 };
 
+function taskTypesOf(tasks: readonly OperationTask[]): string[] {
+  return Array.from(new Set(tasks.map((task) => task.taskType).filter((value): value is string => Boolean(value))));
+}
+
 function getRefreshPath(statusFilter: string, taskTypeFilter: string, sort: string) {
   const params = new URLSearchParams();
   if (statusFilter === "attention") params.set("status", "failed,running,pending");
@@ -147,7 +151,13 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   // and the page snaps back to 1, matching the pre-PaginatedList behavior.
   const [refreshTick, setRefreshTick] = useState(0);
   const handleViewEvents = useCallback((sourceId: string) => setEventsJobId(sourceId), []);
-  const taskTypeOptions = useMemo(() => Array.from(new Set(tasks.map((task) => task.taskType).filter((value): value is string => Boolean(value)))).sort(), [tasks]);
+  // Every type seen since the page opened, and the one in the address: the list on screen holds only the
+  // chosen type once a type is chosen, and the select then offered nothing else to switch to.
+  const [seenTaskTypes, setSeenTaskTypes] = useState<string[]>(() => taskTypesOf(initialTasks));
+  const taskTypeOptions = useMemo(
+    () => Array.from(new Set([...seenTaskTypes, ...(taskTypeFilter !== "all" ? [taskTypeFilter] : [])])).sort(),
+    [seenTaskTypes, taskTypeFilter],
+  );
   const needleNorm = needle.trim().toLowerCase();
   const visibleTasks = useMemo(
     () =>
@@ -182,6 +192,10 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         return;
       }
       setTasks(data.tasks ?? []);
+      setSeenTaskTypes((seen) => {
+        const added = taskTypesOf(data.tasks ?? []).filter((taskType) => !seen.includes(taskType));
+        return added.length > 0 ? [...seen, ...added] : seen;
+      });
       setSourceSummary(data.sourceSummary ?? []);
       setFailureSummary(data.failureSummary ?? []);
       setRefreshTick((tick) => tick + 1);
@@ -283,7 +297,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
             </select>
           </label>
           <div className="flex flex-wrap items-center gap-2">
-            <ActionButton variant="secondary" onClick={refresh} disabled={refreshing}>{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</ActionButton>
+            <ActionButton variant="secondary" onClick={refresh} disabled={refreshing}>{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.refresh")}</ActionButton>
             <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-size="sm" data-variant="ghost">{t("operationTasksPage.export.csv")}</a>
           </div>
         </Toolbar>

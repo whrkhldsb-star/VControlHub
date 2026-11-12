@@ -52,6 +52,33 @@ describe("NotificationListClient", () => {
     expect(screen.queryByText("暂无通知")).not.toBeInTheDocument();
   });
 
+  it("says so when the unread view has nothing to show, with the way back to everything", async () => {
+    // "Unread only" with everything read was a blank area under the filter.
+    const user = userEvent.setup();
+    render(<NotificationListClient initialNotifications={[{ ...unreadNotification, isRead: true }]} initialUnreadCount={0} initialNow={INITIAL_NOW} />);
+
+    await user.click(screen.getByRole("button", { name: "只看未读" }));
+    expect(screen.queryByText("需要处理的通知")).not.toBeInTheDocument();
+    expect(screen.getByText("所有通知已读")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "查看全部通知" }));
+    expect(screen.getByText("需要处理的通知")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "只看未读" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("does not call everything read while unread notifications are further down the list", async () => {
+    const user = userEvent.setup();
+    // A full first page (50) means there is more on the server.
+    const firstPage = Array.from({ length: 50 }, (_, index) => ({ ...unreadNotification, id: `n_${index}`, isRead: true }));
+    vi.mocked(csrfFetch).mockResolvedValue({ notifications: [], hasMore: false });
+    render(<NotificationListClient initialNotifications={firstPage} initialUnreadCount={3} initialNow={INITIAL_NOW} />);
+
+    await user.click(screen.getByRole("button", { name: /只看未读/ }));
+    expect(screen.queryByText("所有通知已读")).not.toBeInTheDocument();
+    expect(screen.getByText("还有 3 条未读通知在更早的记录里")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "加载更多" })).toBeInTheDocument();
+  });
+
   it("falls back to the notification center for unsafe action URLs", () => {
     render(
       <NotificationListClient

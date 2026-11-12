@@ -183,8 +183,24 @@ describe("useCostPageState", () => {
 			const { result } = setup();
 			fill(result);
 			await act(async () => { await result.current.submitForm(); });
-			expect(mocks.addToast).toHaveBeenCalledWith("error", "costPage.error.save: 金额超出允许范围");
+			// In the dialog that is still open, not in a toast that leaves while it is being read.
+			expect(result.current.formError).toBe("costPage.error.save: 金额超出允许范围");
+			expect(mocks.addToast).not.toHaveBeenCalledWith("error", expect.anything());
 			expect(result.current.showForm).toBe(true);
+			// Editing the form takes the reason away; so does opening it again.
+			act(() => { result.current.setForm({ category: "vps", provider: "aws", amount: "9.00", currency: "CNY", effectiveDate: "2026-08-01", notes: "" } as never); });
+			expect(result.current.formError).toBeNull();
+		});
+
+		it("says in the dialog which required field is missing, before anything is sent", async () => {
+			const { result } = setup();
+			act(() => { result.current.openCreate(); });
+			mocks.csrfFetch.mockClear();
+			await act(async () => { await result.current.submitForm(); });
+			expect(result.current.formError).toBe("costPage.form.error.required");
+			expect(mocks.csrfFetch.mock.calls.filter((c) => c[1]?.method === "POST")).toHaveLength(0);
+			act(() => { result.current.openCreate(); });
+			expect(result.current.formError).toBeNull();
 		});
 	});
 
@@ -226,7 +242,11 @@ describe("useCostPageState", () => {
 			await act(async () => { await result.current.onConfirmDelete(); });
 			expect(result.current.confirmDelete).not.toBeNull();
 			expect(result.current.deletingId).toBeNull();
-			expect(mocks.addToast).toHaveBeenCalledWith("error", "costPage.error.delete: 该条目已同步自云账单，不能删除");
+			// The reason is the dialog's to show (ConfirmDialog `error`).
+			expect(result.current.deleteError).toBe("costPage.error.delete: 该条目已同步自云账单，不能删除");
+			expect(mocks.addToast).not.toHaveBeenCalledWith("error", expect.anything());
+			act(() => { result.current.setConfirmDelete(null); });
+			expect(result.current.deleteError).toBeNull();
 		});
 	});
 });

@@ -384,6 +384,32 @@ describe("editing what a rule watches", () => {
 		prismaMock.alertRule.update.mockResolvedValue({ id: "rule1" });
 	});
 
+	it("keeps the stored webhook address when an edit names the channel without one", async () => {
+		// The edit form cannot send the address back (the page never gets it): it sends the channels only.
+		prismaMock.alertRule.findUnique.mockResolvedValue({ id: "rule1", metric: "cpu_usage", notifyChannels: ["webhook"], webhookUrl: "https://hooks.example.com/secret" });
+
+		await updateAlertRule("rule1", { notifyChannels: ["in_app", "webhook"], threshold: 95 });
+
+		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+			where: { id: "rule1" },
+			data: { notifyChannels: ["in_app", "webhook"], threshold: 95 },
+		});
+	});
+
+	it("refuses to turn the webhook channel on for a rule that has no address", async () => {
+		prismaMock.alertRule.findUnique.mockResolvedValue({ id: "rule1", metric: "cpu_usage", notifyChannels: ["in_app"], webhookUrl: null });
+
+		await expect(updateAlertRule("rule1", { notifyChannels: ["in_app", "webhook"] })).rejects.toThrow(/Webhook/);
+		expect(prismaMock.alertRule.update).not.toHaveBeenCalled();
+
+		// With an address in the same request it is accepted.
+		await updateAlertRule("rule1", { notifyChannels: ["in_app", "webhook"], webhookUrl: "https://hooks.example.com/new" });
+		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+			where: { id: "rule1" },
+			data: { notifyChannels: ["in_app", "webhook"], webhookUrl: "https://hooks.example.com/new" },
+		});
+	});
+
 	it("forgets how long each server has matched when the metric changes", async () => {
 		// The stamps say since when a server breached the old metric: a server that then breached the new one fired
 		// at once, without the rule's duration.

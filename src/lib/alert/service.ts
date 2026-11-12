@@ -126,13 +126,19 @@ export async function updateAlertRule(
 	session?: TeamSession | null,
 ) {
 	assertChannelsAllowed(input.notifyChannels, session);
-	let previousMetric: string | undefined;
+	const select = { id: true, metric: true, notifyChannels: true, webhookUrl: true } as const;
+	let existing: { metric: string; notifyChannels: string[]; webhookUrl: string | null } | null = null;
 	if (session) {
-		const existing = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select: { id: true, metric: true } });
+		existing = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select });
 		if (!existing) throw new NotFoundError(t("backend.alert.ruleNotFound"));
-		previousMetric = existing.metric;
-	} else if (input.metric !== undefined) {
-		previousMetric = (await prisma.alertRule.findUnique({ where: { id }, select: { id: true, metric: true } }))?.metric;
+	} else if (input.metric !== undefined || input.notifyChannels !== undefined || input.webhookUrl !== undefined) {
+		existing = await prisma.alertRule.findUnique({ where: { id }, select });
+	}
+	const previousMetric = existing?.metric;
+	// The webhook channel needs an address: the one in this change, or the one the rule already holds (which
+	// the edit form cannot send back — the page is never given it).
+	if (input.notifyChannels?.includes("webhook") && !(input.webhookUrl ?? existing?.webhookUrl)) {
+		throw new ValidationError(t("backend.alert.webhookUrlRequired"));
 	}
 	if (input.serverIds !== undefined) await assertServerIdsInTeam(input.serverIds, session);
 	if (input.playbookIds !== undefined) await assertPlaybookIdsInTeam(input.playbookIds, session);

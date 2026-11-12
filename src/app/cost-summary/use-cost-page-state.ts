@@ -54,18 +54,30 @@ export function useCostPageState(options: {
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>(initialSnapshots);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm());
+  const [form, setFormState] = useState(emptyForm());
+  // Why the entry was not saved, and why it was not deleted: each is shown in the dialog that is open, where
+  // a toast would be gone before the dialog is.
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const setForm: typeof setFormState = (next) => {
+    setFormError(null);
+    setFormState(next);
+  };
   const [saving, setSaving] = useState(false);
   const [syncingSources, setSyncingSources] = useState(false);
   // Bumped on every page refresh, so panels with their own data (budgets)
   // reload too: a new entry changes their usage.
   const [refreshCount, setRefreshCount] = useState(0);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<{
+  const [confirmDelete, setConfirmDeleteState] = useState<{
     id: string;
     provider: string;
     amount: string;
   } | null>(null);
+  const setConfirmDelete: typeof setConfirmDeleteState = (next) => {
+    setDeleteError(null);
+    setConfirmDeleteState(next);
+  };
 
   const localeTag = toDateLocale(locale);
   const summaryReqSeq = useRef(0);
@@ -206,16 +218,14 @@ export function useCostPageState(options: {
 
   const submitForm = async () => {
     if (!canManage) return;
+    setFormError(null);
     if (!form.provider.trim() || !form.amount.trim() || !isValidDate(form.effectiveDate)) {
-      addToast("error", t("costPage.form.error.required"));
+      setFormError(t("costPage.form.error.required"));
       return;
     }
     const amountCheck = costAmountSchema.safeParse(form.amount.trim());
     if (!amountCheck.success) {
-      addToast(
-        "error",
-        firstSchemaSentence(amountCheck.error) ?? t("costPage.form.error.required"),
-      );
+      setFormError(firstSchemaSentence(amountCheck.error) ?? t("costPage.form.error.required"));
       return;
     }
     setSaving(true);
@@ -240,7 +250,7 @@ export function useCostPageState(options: {
       addToast("success", t("costPage.toast.saved"));
       await refreshAll();
     } catch (err) {
-      addToast("error", describeFailure(t("costPage.error.save"), err));
+      setFormError(describeFailure(t("costPage.error.save"), err));
     } finally {
       setSaving(false);
     }
@@ -255,7 +265,7 @@ export function useCostPageState(options: {
       addToast("success", t("costPage.toast.deleted"));
       await refreshAll();
     } catch (err) {
-      addToast("error", describeFailure(t("costPage.error.delete"), err));
+      setDeleteError(describeFailure(t("costPage.error.delete"), err));
     } finally {
       setDeletingId(null);
     }
@@ -287,6 +297,8 @@ export function useCostPageState(options: {
     showForm,
     editingId,
     form,
+    formError,
+    deleteError,
     saving,
     syncingSources,
     deletingId,

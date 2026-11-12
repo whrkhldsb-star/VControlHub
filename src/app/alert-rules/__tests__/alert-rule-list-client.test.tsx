@@ -133,7 +133,7 @@ describe("alert rules client", () => {
 				serverIds: [],
 				notifyChannels: ["webhook"],
 				webhookConfigured: true,
-				cooldownMinutes: 10,
+				cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 				enabled: true,
 				lastTriggeredAt: null,
 				createdAt: "2026-01-01T00:00:00.000Z",
@@ -145,6 +145,32 @@ describe("alert rules client", () => {
 		expect(screen.getByText("Webhook rule")).toBeInTheDocument();
 		expect(screen.getByText("Webhook 已配置")).toBeInTheDocument();
 		expect(screen.queryByText(/secret-token/)).not.toBeInTheDocument();
+	});
+
+	it("edits a rule that has a webhook without asking for its address again, and names the button for what it does", async () => {
+		// The address is not on the page, so the form cannot send it back: every edit of such a rule was refused
+		// for a missing address, and the form — whose button read "创建规则" — did not say why.
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValue({ rules: [] });
+		render(wrap(<AlertRuleListClient
+			rules={[{
+				id: "rule1", name: "Webhook rule", metric: "cpu_usage", operator: "gte", threshold: 90, durationSeconds: 0, serverIds: [],
+				notifyChannels: ["webhook"], webhookConfigured: true, cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30,
+				onCallUserIds: [], silenceWindows: [], enabled: true, lastTriggeredAt: null, createdAt: "2026-01-01T00:00:00.000Z",
+			}]}
+			servers={[]}
+			canManage={true}
+		/>));
+
+		await user.click(screen.getByRole("button", { name: "编辑" }));
+		expect(screen.getByText(/留空则继续使用它/)).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "创建规则" })).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "保存修改" }));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/alert-rules", expect.objectContaining({ method: "PATCH" })));
+		const sent = JSON.parse(String(vi.mocked(csrfFetch).mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")?.[1]?.body));
+		expect(sent).toMatchObject({ id: "rule1", notifyChannels: ["webhook"] });
+		expect(sent.webhookUrl).toBeUndefined();
 	});
 
 	it("redacts webhook URLs before passing server-rendered rules to the client", async () => {
@@ -169,7 +195,7 @@ describe("alert rules client", () => {
 			serverIds: [],
 			notifyChannels: ["in_app"],
 			webhookConfigured: false,
-			cooldownMinutes: 10,
+			cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 			enabled: true,
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
@@ -202,7 +228,7 @@ describe("alert rules client", () => {
 			serverIds: [],
 			notifyChannels: ["in_app"],
 			webhookConfigured: false,
-			cooldownMinutes: 10,
+			cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 			enabled: true,
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
@@ -237,7 +263,7 @@ describe("alert rules client", () => {
 			serverIds: [],
 			notifyChannels: ["in_app"],
 			webhookConfigured: false,
-			cooldownMinutes: 10,
+			cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 			enabled: true,
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
@@ -294,7 +320,7 @@ describe("alert rules client", () => {
 			serverIds: [],
 			notifyChannels: ["webhook"],
 			webhookConfigured: true,
-			cooldownMinutes: 10,
+			cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 			enabled: true,
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
@@ -331,7 +357,7 @@ describe("alert rules client", () => {
 			serverIds: [],
 			notifyChannels: ["webhook"],
 			webhookConfigured: true,
-			cooldownMinutes: 10,
+			cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 			enabled: true,
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",

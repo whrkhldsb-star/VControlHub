@@ -147,11 +147,33 @@ describe("DownloadsClient", () => {
     await actor.type(screen.getByRole("textbox", { name: "下载链接" }), "https://example.com/a.iso");
     await actor.click(screen.getByRole("button", { name: "开始下载" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("目标路径不可写");
+    // The reason is in the form, next to the button that was pressed — a toast would be gone while the person
+    // is still looking at the form — and it goes when the form is edited.
+    const form = screen.getByRole("heading", { name: "新建下载任务" }).closest("[data-card]") as HTMLElement;
+    expect(await within(form).findByRole("alert")).toHaveTextContent("目标路径不可写");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "新建下载任务" })).toBeInTheDocument();
     expect(screen.getByText("完成后的「下载文件」按钮和文件管理使用同一套访问策略。")).toBeInTheDocument();
     expect(screen.getByText("当前：中转")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://example.com/a.iso")).toBeInTheDocument();
+    await actor.type(screen.getByRole("textbox", { name: "下载链接" }), "x");
+    expect(within(form).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("says in the form what is wrong with a file name before anything is sent", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ tasks: [], globalStat: null });
+
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
+
+    await actor.click(await screen.findByRole("button", { name: "新建下载" }));
+    await actor.type(screen.getByRole("textbox", { name: "下载链接" }), "https://example.com/a.iso");
+    const form = screen.getByRole("heading", { name: "新建下载任务" }).closest("[data-card]") as HTMLElement;
+    await actor.type(within(form).getByLabelText(/文件名/), "../a.iso");
+    await actor.click(screen.getByRole("button", { name: "开始下载" }));
+
+    expect(within(form).getByRole("alert")).toBeInTheDocument();
+    expect(csrfFetch).toHaveBeenCalledTimes(1);
   });
 
   it("prevents creating tasks when no eligible VPS target is available", async () => {

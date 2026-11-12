@@ -75,6 +75,8 @@ export function AiClient({
     activeConv,
     messages,
     setMessages,
+    messagesError,
+    retryMessages,
     refreshConversations,
     autoTitle,
   } = useConversations({ initialConversations });
@@ -88,7 +90,6 @@ export function AiClient({
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
-  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -442,13 +443,13 @@ export function AiClient({
               pendingApprovals={pendingApprovals}
               approvalBusyById={approvalBusyById}
               onApproval={decideApproval}
-              copyFeedback={copyFeedback}
-              setCopyFeedback={setCopyFeedback}
               currentModelCaps={currentModelCaps}
               messagesEndRef={messagesEndRef}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onRegenerate={handleRegenerate}
+              loadError={messagesError ? getErrorMessage(messagesError, t("aiPage.historyLoadFailed")) : null}
+              onRetryLoad={retryMessages}
             />
             <AiAttachmentsPreview
               enableVision={activeConv.enableVision}

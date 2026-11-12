@@ -62,11 +62,18 @@ export function StorageUploadStatus() {
   const percent = counted.length
     ? Math.round(counted.reduce((sum, item) => sum + (item.state === "success" ? 100 : item.percent), 0) / counted.length)
     : 100;
-  const title = active.length
-    ? t("storageUpload.activeCount", { count: active.length })
-    : failed
-      ? t("storageUpload.failedCount", { count: failed })
-      : t("storageUpload.doneCount", { count: done });
+  // Paused files are waiting for the person, not uploading: one paused file read "uploading 1 file".
+  const paused = active.filter((item) => item.state === "paused").length;
+  const running = active.length - paused;
+  const title = running
+    ? paused
+      ? t("storageUpload.activeAndPausedCount", { count: running, paused })
+      : t("storageUpload.activeCount", { count: running })
+    : paused
+      ? t("storageUpload.pausedCount", { count: paused })
+      : failed
+        ? t("storageUpload.failedCount", { count: failed })
+        : t("storageUpload.doneCount", { count: done });
   return (
     <section
       role="region"

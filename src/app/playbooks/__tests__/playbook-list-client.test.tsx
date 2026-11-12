@@ -150,6 +150,18 @@ describe("Playbook actions that fail", () => {
 		expect(within(screen.getByRole("dialog")).queryByText("Playbook 正在运行，无法删除")).not.toBeInTheDocument();
 	});
 
+	it("names the switch by what it will do, and the result by what it did", async () => {
+		// One button read "启用 / 停用" in both states, and the toast "启用状态已切换".
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValue({ playbooks: [{ ...playbook, enabled: false }], runsByPlaybook: {} });
+		renderOne();
+		expect(screen.queryByRole("button", { name: "启用" })).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "停用" }));
+		expect(vi.mocked(csrfFetch).mock.calls[0]?.[1]).toMatchObject({ method: "PATCH", body: JSON.stringify({ id: "pb_1", enabled: false }) });
+		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("success", "已停用「夜间维护」"));
+		vi.mocked(csrfFetch).mockReset();
+	});
+
 	it("names the run that could not start, where the click was", async () => {
 		// The fallback read "加载 Playbook 列表失败", in a notice at the top of a list that can be pages long.
 		const user = userEvent.setup();

@@ -42,7 +42,7 @@ describe("CostPageClient budgets", () => {
 		const limit = screen.getByRole("textbox", { name: "costPage.budget.limit" });
 		await user.type(name, "First budget");
 		await user.type(limit, "100");
-		await user.click(within(name.parentElement!).getByRole("button", { name: "costPage.budget.create" }));
+		await user.click(within(name.closest("form")!).getByRole("button", { name: "costPage.budget.create" }));
 		await user.clear(name);
 		await user.type(name, "Next draft");
 		await user.clear(limit);
@@ -51,6 +51,49 @@ describe("CostPageClient budgets", () => {
 		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("success", "costPage.budget.created"));
 		expect(name).toHaveValue("Next draft");
 		expect(limit).toHaveValue("200");
+	});
+
+	it("labels every budget field, and says in the form what is missing or refused", async () => {
+		// The fields had placeholders for labels (the threshold showed a bare "80"), an empty name or limit made
+		// the button do nothing, and a refusal went to a toast.
+		const user = userEvent.setup();
+		csrfFetchMock.mockImplementation((url: string, init?: RequestInit) =>
+			url === "/api/cost/budgets" && init?.method === "POST" ? Promise.reject(new Error("Budget limit must be greater than zero")) : Promise.resolve({ budgets: [] }));
+		render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null} initialEntries={[]} initialSnapshots={[]}
+			initialBudgets={[]} initialBillingAccounts={[]} canRead canManage availableCurrencies={["CNY"]} />);
+		for (const field of ["name", "category", "limit", "currency", "period", "alertThreshold"]) {
+			expect(screen.getByText(`costPage.budget.${field}`, { selector: "label" })).toBeInTheDocument();
+		}
+		const name = screen.getByLabelText("costPage.budget.name");
+		const form = name.closest("form")!;
+		// The currency reads as on the rest of the page, not as a bare code.
+		expect(within(form).getByRole("option", { name: "costPage.currency.CNY" })).toBeInTheDocument();
+
+		await user.click(within(form).getByRole("button", { name: "costPage.budget.create" }));
+		expect(within(form).getByRole("alert")).toHaveTextContent("costPage.budget.error.nameRequired");
+		expect(csrfFetchMock).not.toHaveBeenCalledWith("/api/cost/budgets", expect.objectContaining({ method: "POST" }));
+
+		await user.type(name, "Production");
+		expect(within(form).queryByRole("alert")).not.toBeInTheDocument();
+		await user.type(screen.getByLabelText("costPage.budget.limit"), "0");
+		await user.click(within(form).getByRole("button", { name: "costPage.budget.create" }));
+		expect(await within(form).findByRole("alert")).toHaveTextContent("Budget limit must be greater than zero");
+		expect(addToastMock).not.toHaveBeenCalledWith("error", expect.anything());
+		expect(name).toHaveValue("Production");
+	});
+
+	it("shows a refused budget deletion in the dialog that asked", async () => {
+		const user = userEvent.setup();
+		csrfFetchMock.mockImplementation((_url: string, init?: RequestInit) =>
+			init?.method === "DELETE" ? Promise.reject(new Error("Budget is locked")) : Promise.resolve({ budgets: [] }));
+		render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null} initialEntries={[]} initialSnapshots={[]}
+			initialBudgets={[{ id: "budget-1", category: "vps", name: "Production VPS", limitAmount: "100.00", currency: "CNY", period: "monthly", alertThresholdPercent: 80, enabled: true, usageAmount: "0.00", usagePercent: 0, otherCurrencyUsage: [] } as never]}
+			initialBillingAccounts={[]} canRead canManage availableCurrencies={["CNY"]} />);
+		await user.click(screen.getByRole("button", { name: "costPage.budget.delete" }));
+		const dialog = screen.getByRole("dialog");
+		await user.click(within(dialog).getByRole("button", { name: "costPage.budget.deleteConfirmBtn" }));
+		expect(await within(dialog).findByText("Budget is locked")).toBeInTheDocument();
+		expect(addToastMock).not.toHaveBeenCalledWith("error", expect.anything());
 	});
 
 	it("reloads the budgets when the page refreshes its costs", async () => {
