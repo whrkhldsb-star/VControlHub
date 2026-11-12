@@ -131,7 +131,8 @@ export async function listExternalArchive(
 ): Promise<ArchiveListEntry[]> {
 	const binary = options.binary ?? EXTERNAL_ARCHIVE_TOOL[kind];
 	const args = kind === "7z"
-		? ["l", "-slt", `-p${NO_PASSWORD}`, "--", filePath]
+		// -sccUTF-8: piped output otherwise uses the console codepage on Windows, mangling every non-ASCII name.
+		? ["l", "-slt", "-sccUTF-8", `-p${NO_PASSWORD}`, "--", filePath]
 		// -p- never asks for a password, -c- leaves the archive comment out.
 		: ["lt", "-p-", "-c-", "--", filePath];
 	const result = await run(binary, args);
@@ -146,5 +147,7 @@ export async function listExternalArchive(
 		const detail = output.split(/\r?\n/).map((line) => line.trim()).find((line) => /error|cannot|not .*archive/i.test(line)) ?? "";
 		throw new ExternalArchiveError("unreadable", kind, detail.slice(0, 200));
 	}
-	return kind === "7z" ? parse7zTechnicalListing(result.stdout) : parseUnrarTechnicalListing(result.stdout);
+	const entries = kind === "7z" ? parse7zTechnicalListing(result.stdout) : parseUnrarTechnicalListing(result.stdout);
+	// The Windows tools print the host's path separator; an archive name is written one way everywhere.
+	return process.platform === "win32" ? entries.map((entry) => ({ ...entry, name: entry.name.replace(/\\/g, "/") })) : entries;
 }
