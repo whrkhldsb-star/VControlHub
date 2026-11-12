@@ -79,9 +79,9 @@ export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: 
 			title={t("aiOpsPage.summary.title")}
 			description={provider ? (
 				<span className="flex flex-wrap gap-x-4 gap-y-1">
-					<span>{t("aiOpsPage.summary.providerSuccessRate")}: {provider.successRate === null ? never : `${Math.round(provider.successRate * 100)}% (${provider.successes}/${provider.attempts})`}</span>
-					<span>{t("aiOpsPage.summary.providerLastSuccess")}: {formatAiOpsTime(provider.lastSuccessAt, never, locale)}</span>
-					{provider.retryAt ? <span>{t("aiOpsPage.summary.providerRetryAt")}: {formatAiOpsTime(provider.retryAt, never, locale)}</span> : null}
+					<span>{t("aiOpsPage.summary.providerSuccessRate")}{t("common.colon")}{provider.successRate === null ? never : `${Math.round(provider.successRate * 100)}% (${provider.successes}/${provider.attempts})`}</span>
+					<span>{t("aiOpsPage.summary.providerLastSuccess")}{t("common.colon")}{formatAiOpsTime(provider.lastSuccessAt, never, locale)}</span>
+					{provider.retryAt ? <span>{t("aiOpsPage.summary.providerRetryAt")}{t("common.colon")}{formatAiOpsTime(provider.retryAt, never, locale)}</span> : null}
 				</span>
 			) : undefined}
 			columns={6}

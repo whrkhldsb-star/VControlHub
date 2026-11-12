@@ -196,7 +196,7 @@ export function ServerOverviewCard({
         {server.pendingCommandCount > 0 ? (
           <CompactField
             label={t("serverOverviewCard.pendingApproval")}
-            value={`${server.pendingCommandCount} ${t("serverOverviewCard.itemsCount")}`}
+            value={t("serverOverviewCard.pendingCount", { count: server.pendingCommandCount })}
           />
         ) : null}
         </>}

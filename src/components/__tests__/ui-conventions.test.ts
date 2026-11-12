@@ -104,7 +104,6 @@ const CHROME_EXEMPT = new Set([
 	"components/app-sidebar.tsx",
 	"components/user-menu.tsx",
 	"components/skip-link.tsx",
-	"components/password-field.tsx",
 	"components/pwa-register.tsx",
 	"app/ai/ai-message-list.tsx",
 	"app/ai/ai-sidebar.tsx",
@@ -155,6 +154,24 @@ describe("UI conventions", () => {
 				.filter((tag) => tag.includes("data-action-button"))
 				.map(() => file),
 		);
+		expect(offenders).toEqual([]);
+	});
+
+	it("goes from page to page with Link, not a plain anchor", () => {
+		// A plain <a href="/files?…"> loads the whole application again: the upload queue asks whether to leave,
+		// and the sidebar, the terminal tabs and every open panel start over. Files, exports and streams under
+		// /api are not pages, nor is a link that opens elsewhere; the offline page reloads on purpose.
+		const allowed = new Set(["app/offline/page.tsx"]);
+		const offenders: string[] = [];
+		for (const { file, source } of tsxFiles) {
+			if (allowed.has(file)) continue;
+			for (const tag of openingTags(source, "a")) {
+				const literal = /\shref=(?:"|\{`|\{")(\/[^"`}]*)/.exec(tag)?.[1];
+				if (literal === undefined) continue;
+				if (literal.startsWith("/api/") || /\s(?:download|target)[=\s>]/.test(tag)) continue;
+				offenders.push(`${file}: ${literal}`);
+			}
+		}
 		expect(offenders).toEqual([]);
 	});
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -21,7 +22,7 @@ export function BackupDrillButton({ backupId, disabled }: { backupId: string; di
   }
   return <div>
     <ActionButton size="sm" variant="secondary" disabled={disabled} loading={pending} onClick={run}>{pending ? t("backupsPage.drill.pending") : t("backupsPage.drill.submit")}</ActionButton>
-    {message ? <p className="mt-1 text-xs text-[var(--success)]">{message} <a href="/operation-tasks" className="underline">{t("backupsPage.drill.openTasks")}</a></p> : null}
+    {message ? <p className="mt-1 text-xs text-[var(--success)]">{message} <Link href="/operation-tasks" className="underline">{t("backupsPage.drill.openTasks")}</Link></p> : null}
     {error ? <p className="mt-1 text-xs text-[var(--danger)]">{error}</p> : null}
   </div>;
 }

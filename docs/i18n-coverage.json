@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T00:25:22.181Z",
+  "generatedAt": "2026-11-12T05:19:51.770Z",
   "summary": {
     "files": 464,
     "filesWithStrings": 0,
@@ -130,8 +130,8 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-confirm-dialog.tsx": {
-      "path": "src/app/ai/ai-confirm-dialog.tsx",
+    "src/app/ai/ai-copy-button.tsx": {
+      "path": "src/app/ai/ai-copy-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -636,13 +636,6 @@
     },
     "src/app/dashboard-setup-checklist.tsx": {
       "path": "src/app/dashboard-setup-checklist.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/dashboard-widget-detail-dialog.tsx": {
-      "path": "src/app/dashboard-widget-detail-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -3240,6 +3233,13 @@
     },
     "src/components/ui/menu.tsx": {
       "path": "src/components/ui/menu.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/ui/number-input.tsx": {
+      "path": "src/components/ui/number-input.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

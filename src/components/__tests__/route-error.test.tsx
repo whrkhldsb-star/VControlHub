@@ -36,7 +36,7 @@ describe("RouteError", () => {
 		expect(
 			screen.getByText("当前页面遇到了异常，已保留现场信息。你可以重试，或稍后从系统自检/日志中继续排查。"),
 		).toBeInTheDocument();
-		expect(screen.getByText(/错误标识:\s*abc123/)).toBeInTheDocument();
+		expect(screen.getByText(/错误标识：\s*abc123/)).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "硬刷新" })).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "系统自检" })).toHaveAttribute("href", "/health");
@@ -68,7 +68,7 @@ describe("RouteError", () => {
 		);
 
 		expect(screen.getByText("数据库连接失败")).toBeInTheDocument();
-		expect(screen.queryByText(/错误标识:/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/错误标识：/)).not.toBeInTheDocument();
 	});
 
 	it("shows the permission-denied surface for a redacted production error that kept the FORBIDDEN digest", () => {
@@ -78,7 +78,7 @@ describe("RouteError", () => {
 		renderI18n(<RouteError error={redacted} reset={vi.fn()} />, { locale: "zh" });
 
 		expect(screen.queryByRole("heading", { name: "页面加载出错" })).not.toBeInTheDocument();
-		expect(screen.queryByText(/错误标识:/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/错误标识：/)).not.toBeInTheDocument();
 		expect(screen.getByText(/权限/)).toBeInTheDocument();
 	});
 
@@ -96,7 +96,7 @@ describe("RouteError", () => {
 			screen.getByText("当前页面遇到了异常，已保留现场信息。你可以重试，或稍后从系统自检/日志中继续排查。"),
 		).toBeInTheDocument();
 		expect(screen.queryByText(/Server Components render/)).not.toBeInTheDocument();
-		expect(screen.getByText(/错误标识:\s*3912441712/)).toBeInTheDocument();
+		expect(screen.getByText(/错误标识：\s*3912441712/)).toBeInTheDocument();
 	});
 
 	it("keeps the message of a failure in the browser, which is the real one", () => {

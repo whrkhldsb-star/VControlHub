@@ -780,7 +780,7 @@ describe("storage service", () => {
         mimeType: "inode/directory",
         relativePath: "docs",
       }),
-    ).rejects.toThrow(/Path already exists: docs|路径已存在: docs/);
+    ).rejects.toThrow(/Path already exists: docs|路径已存在：docs/);
     expect(prisma.fileEntry.create).not.toHaveBeenCalled();
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });

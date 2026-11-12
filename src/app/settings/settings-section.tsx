@@ -38,6 +38,7 @@ import {
 } from "./settings-save-confirm";
 import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
 import { Notice } from "@/components/ui-primitives";
+import { IconChevronRight } from "@/components/nav-icons";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 export function formatMetadataDate(
@@ -106,15 +107,15 @@ export function CollapsibleSection({
       <details open={open} onToggle={onToggle} className="group">
         <summary
           className="cursor-pointer list-none rounded-md py-4 transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
-          aria-label={`${open ? t("settingsClient.collapse") : t("settingsClient.expand")} ${title} ${t("settingsClient.sectionSuffix")}`}
+          aria-label={t(open ? "settingsClient.sectionAria.collapse" : "settingsClient.sectionAria.expand", { title })}
         >
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 flex-1 items-start gap-3">
               <span
                 aria-hidden
-                className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-xs text-[var(--text-muted)] transition group-open:rotate-90"
+                className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-[var(--text-muted)] transition group-open:rotate-90"
               >
-                ▶
+                <IconChevronRight size={14} />
               </span>
               <div className="min-w-0 flex-1">
                 <h2 className="ui-title-section flex flex-wrap items-center gap-2">
@@ -263,7 +264,7 @@ export function SchemaDrivenSection({
       badge={
         badge ??
         (hasSaveButton
-          ? `${saveKeys.length}${section.id === "runtime" ? t("settingsClient.sectionItemsSuffixAdvanced") : t("settingsClient.sectionItemsSuffix")}`
+          ? t(section.id === "runtime" ? "settingsClient.sectionItemsAdvanced" : "settingsClient.sectionItems", { count: saveKeys.length })
           : section.id === "2fa"
             ? "2FA"
             : undefined)

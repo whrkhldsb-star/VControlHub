@@ -6,7 +6,7 @@ import { getCategories, getStatusLabel, formatSpeed } from "./downloads-shared";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { formatBytes } from "@/lib/format/bytes";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
@@ -162,11 +162,9 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 					}
 					const href = `/files?nodeId=${encodeURIComponent(node.id)}${rel ? `&path=${encodeURIComponent(rel)}` : ""}`;
 					return (
-						<a href={href}
-							data-action-button data-size="sm" data-variant="success" 
-							title={t("downloadsPage.action.openFolderTitle")}>
+						<ButtonLink href={href} size="sm" variant="success" title={t("downloadsPage.action.openFolderTitle")}>
 							{t("downloadsPage.action.openFolder")}
-						</a>
+						</ButtonLink>
 					);
 				})()}
 				{(task.status === "FAILED" || task.status === "CANCELLED") && canManage && (

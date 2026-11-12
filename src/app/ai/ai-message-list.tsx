@@ -416,7 +416,7 @@ export function AiMessageList({
                     <dl className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
                       {approvalDetails(approval.actionType, approval.params).map((row) => (
                         <div key={row.labelKey}>
-                          <dt className="inline text-[var(--text-muted)]">{t(row.labelKey)}: </dt>
+                          <dt className="inline text-[var(--text-muted)]">{t(row.labelKey)}{t("common.colon")}</dt>
                           {row.block ? (
                             <dd>
                               <pre data-inset="" className="max-h-40 overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-xs text-[var(--text-primary)]">{row.value}</pre>
@@ -433,14 +433,14 @@ export function AiMessageList({
                     return (
                     <div className="mt-2 space-y-2 text-xs text-[var(--text-secondary)]">
                       <dl className="space-y-1">
-                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationExecution")}: </dt><dd className="inline text-[var(--text-primary)]">{summary.execution}</dd></div>
-                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationTargets")}: </dt><dd className="inline break-words text-[var(--text-primary)]">{summary.targets}</dd></div>
-                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationApproval")}: </dt><dd className="inline text-[var(--text-primary)]">{summary.approval}</dd></div>
-                        {typeof approval.params.templateName === "string" && <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationTemplate")}: </dt><dd className="inline text-[var(--text-primary)]">{approval.params.templateName}</dd></div>}
+                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationExecution")}{t("common.colon")}</dt><dd className="inline text-[var(--text-primary)]">{summary.execution}</dd></div>
+                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationTargets")}{t("common.colon")}</dt><dd className="inline break-words text-[var(--text-primary)]">{summary.targets}</dd></div>
+                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationApproval")}{t("common.colon")}</dt><dd className="inline text-[var(--text-primary)]">{summary.approval}</dd></div>
+                        {typeof approval.params.templateName === "string" && <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationTemplate")}{t("common.colon")}</dt><dd className="inline text-[var(--text-primary)]">{approval.params.templateName}</dd></div>}
                       </dl>
                       {typeof approval.params.plan === "string" && <p className="whitespace-pre-wrap break-words leading-5">{approval.params.plan}</p>}
                       {typeof approval.params.command === "string" && <pre data-inset="" className="max-h-40 overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-xs text-[var(--text-primary)]">{approval.params.command}</pre>}
-                      {(typeof approval.params.verificationCommand === "string" || typeof approval.params.rollbackCommand === "string") && <div className="space-y-1 font-mono text-xs">{typeof approval.params.verificationCommand === "string" && <p>{t("aiPage.automationVerify")}: {approval.params.verificationCommand}</p>}{typeof approval.params.rollbackCommand === "string" && <p>{t("aiPage.automationRollback")}: {approval.params.rollbackCommand}</p>}</div>}
+                      {(typeof approval.params.verificationCommand === "string" || typeof approval.params.rollbackCommand === "string") && <div className="space-y-1 font-mono text-xs">{typeof approval.params.verificationCommand === "string" && <p>{t("aiPage.automationVerify")}{t("common.colon")}{approval.params.verificationCommand}</p>}{typeof approval.params.rollbackCommand === "string" && <p>{t("aiPage.automationRollback")}{t("common.colon")}{approval.params.rollbackCommand}</p>}</div>}
                     </div>
                     );
                   })()}

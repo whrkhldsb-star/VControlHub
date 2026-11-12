@@ -126,7 +126,7 @@ export function ServerCardEditForm({
     >
       <input type="hidden" name="serverId" value={serverId} />
       <input type="hidden" name="operatingSystem" value={operatingSystem} />
-      <p className="text-xs text-[var(--text-muted)]">{t("serversPage.windows.os")}: {windows ? "Windows" : "Linux"}</p>
+      <p className="text-xs text-[var(--text-muted)]">{t("serversPage.windows.os")}{t("common.colon")}{windows ? "Windows" : "Linux"}</p>
       <input type="hidden" name="connectionType" value={windows ? connectionType : selectedConnectionType} />
       <ServerManagementModeFields
         defaultValue={managementMode}

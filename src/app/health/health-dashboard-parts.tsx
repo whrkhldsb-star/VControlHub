@@ -103,11 +103,11 @@ export function FleetResourceSummary({
 			</div>
 			<div className="flex flex-wrap gap-4 text-xs text-[var(--text-secondary)]">
 				<span>
-					{t("healthPage.fleet.netIn")}:{" "}
+					{t("healthPage.fleet.netIn")}{t("common.colon")}
 					<strong className="text-[var(--text-primary)]">{formatKibPerSecond(netInTotal)}</strong>
 				</span>
 				<span>
-					{t("healthPage.fleet.netOut")}:{" "}
+					{t("healthPage.fleet.netOut")}{t("common.colon")}
 					<strong className="text-[var(--text-primary)]">{formatKibPerSecond(netOutTotal)}</strong>
 				</span>
 			</div>

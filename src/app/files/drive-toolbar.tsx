@@ -294,11 +294,11 @@ export function SortMenu({ sortKey, sortDir, onChange, showSource }: {
 			panelClassName="w-44"
 		>
 			{SORT_KEYS.filter((key) => key !== "source" || showSource).map((key) => (
-				<MenuItem key={key} onSelect={() => onChange(key, sortDir)} hint={key === sortKey ? "✓" : undefined}>{label(key)}</MenuItem>
+				<MenuItem key={key} onSelect={() => onChange(key, sortDir)} checked={key === sortKey}>{label(key)}</MenuItem>
 			))}
 			<MenuSeparator />
-			<MenuItem onSelect={() => onChange(sortKey, "asc")} hint={sortDir === "asc" ? "✓" : undefined}>{t("filesPage.drive.ascending")}</MenuItem>
-			<MenuItem onSelect={() => onChange(sortKey, "desc")} hint={sortDir === "desc" ? "✓" : undefined}>{t("filesPage.drive.descending")}</MenuItem>
+			<MenuItem onSelect={() => onChange(sortKey, "asc")} checked={sortDir === "asc"}>{t("filesPage.drive.ascending")}</MenuItem>
+			<MenuItem onSelect={() => onChange(sortKey, "desc")} checked={sortDir === "desc"}>{t("filesPage.drive.descending")}</MenuItem>
 		</Menu>
 	);
 }

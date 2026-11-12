@@ -244,7 +244,7 @@ export function SshTerminalSidePanel({
 						<button
 							type="button"
 							onClick={onResetQuickKeys}
-							className="underline underline-offset-2 hover:text-[var(--text-muted)]"
+							className="ml-1 underline underline-offset-2 hover:text-[var(--text-muted)]"
 						>
 							{t("sshTerminalModal.quickKeysReset")}
 						</button>

@@ -7,7 +7,7 @@
 
 export const zh: Record<string, string> = {
 	"error.back-home": "返回首页",
-	"error.digest-label": "错误标识:",
+	"error.digest-label": "错误标识：",
 	"error.hard-refresh": "硬刷新",
 	"error.health-check": "系统自检",
 	"error.routeDescription": "当前页面遇到了异常，已保留现场信息。你可以重试，或稍后从系统自检/日志中继续排查。",

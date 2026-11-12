@@ -63,7 +63,7 @@ export function WindowsAgentInstallPanel({
 
       {agentVersion || agentLastSeenAt ? (
         <p className="text-xs text-[var(--text-muted)]">
-          {t("serversPage.agent.version")}: {agentVersion ?? "—"} · {t("serversPage.agent.lastSeen")}: {agentLastSeenAt ? formatDateTime(agentLastSeenAt, locale) : t("serversPage.agent.never")}
+          {t("serversPage.agent.version")}{t("common.colon")}{agentVersion ?? "—"} · {t("serversPage.agent.lastSeen")}{t("common.colon")}{agentLastSeenAt ? formatDateTime(agentLastSeenAt, locale) : t("serversPage.agent.never")}
         </p>
       ) : null}
 
@@ -75,7 +75,7 @@ export function WindowsAgentInstallPanel({
 
       {agentLastError ? (
         <p className="break-words text-xs text-[var(--text-muted)]">
-          {t("serversPage.windows.agentLastError")}: {agentLastError}
+          {t("serversPage.windows.agentLastError")}{t("common.colon")}{agentLastError}
         </p>
       ) : null}
 

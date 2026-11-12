@@ -72,6 +72,13 @@ describe("MediaItemCard", () => {
     );
   });
 
+  it("draws its kind, folder and storage with icons, not emoji", () => {
+    const { container } = render(<MediaItemCard item={{ ...item, favorite: true }} canManage={false} />);
+    expect(container.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}\u2B50]/u);
+    expect(screen.getByText("movies/2026/movie.mp4")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "已收藏" })).toBeInTheDocument();
+  });
+
   it("returns to and navigates within the list it was opened from", () => {
     render(<MediaItemCard item={item} canManage listHref="/media?type=video&q=demo&page=3" />);
     expect(screen.getByRole("link", { name: /预览\/播放/ })).toHaveAttribute("href", "/media/m_1?from=%2Fmedia%3Ftype%3Dvideo%26q%3Ddemo%26page%3D3");

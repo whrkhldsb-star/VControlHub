@@ -54,6 +54,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { IconShield } from "@/components/nav-icons";
 
 // Re-export so test files importing from `settings-client` keep working.
 export { FieldRiskBadge, FieldRollbackButton } from "./settings-field-risk";
@@ -86,13 +87,12 @@ export function SettingsClient({
   const schema = SETTINGS_SCHEMA;
   const tocItems = useMemo(() =>
     SETTINGS_SCHEMA.map((s) => {
-      const subtitleKey = TOC_SUBTITLE_KEYS[s.id] ?? `settingsClient.toc.fieldsCount.suffix`;
-      const count = `${s.fields.length}${t("settingsClient.toc.fieldsCount.suffix")}`;
+      const subtitleKey = TOC_SUBTITLE_KEYS[s.id];
       return {
         id: s.id,
         icon: s.icon,
         title: s.id === "smtp" ? t("settingsClient.toc.smtp.titleShort") : t(s.titleKey),
-        subtitle: TOC_SUBTITLE_KEYS[s.id] ? t(subtitleKey) : count,
+        subtitle: subtitleKey ? t(subtitleKey) : t("settingsClient.toc.fieldsCount", { count: s.fields.length }),
       };
     }),
   [t]);
@@ -390,7 +390,7 @@ export function SettingsClient({
   if (!canManage) {
     return (
       <div data-tile className="border-dashed p-12 text-center">
-        <div className="text-4xl mb-3">🔒</div>
+        <IconShield size={28} className="mx-auto mb-3 text-[var(--text-muted)]" />
         <p className="text-sm text-[var(--text-muted)]">
           {t("settingsClient.noPermission")}
         </p>

@@ -121,7 +121,7 @@ export function SaveButtonWithDiff({
             variant={highCount > 0 ? "danger" : mediumCount > 0 ? "warning" : "secondary"}
             onClick={onToggleExpand}
             aria-expanded={expanded}
-            aria-label={t("settingsClient.expandAria", { count, expanded: expanded ? t("settingsClient.collapsed") : t("settingsClient.expanded") })}
+            aria-label={t(expanded ? "settingsClient.changesAria.collapse" : "settingsClient.changesAria.expand", { count })}
             data-pending-count={count}
             iconRight={<IconChevronDown aria-hidden className={expanded ? "rotate-180" : undefined} />}
           >
@@ -251,13 +251,13 @@ export function HighRiskConfirmModal({
             </div>
             <div className="mt-1.5 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
               <div>
-                <span className="text-[var(--text-muted)]">{t("settingsClient.confirmOriginal")}</span>
+                <span className="mr-1.5 text-[var(--text-muted)]">{t("settingsClient.confirmOriginal")}</span>
                 <span className="text-[var(--text-secondary)] line-through">
                   {renderDiffValue(change.oldValue, t, 40, change.fieldType)}
                 </span>
               </div>
               <div>
-                <span className="text-[var(--text-muted)]">{t("settingsClient.confirmNew")}</span>
+                <span className="mr-1.5 text-[var(--text-muted)]">{t("settingsClient.confirmNew")}</span>
                 <span className="text-[var(--danger)]">
                   {renderDiffValue(change.newValue, t, 40, change.fieldType)}
                 </span>

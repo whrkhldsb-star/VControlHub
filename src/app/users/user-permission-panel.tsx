@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { EmptyState } from "@/components/page-shell";
-import { Badge, Chip, InlineLoading, Notice } from "@/components/ui-primitives";
+import { Badge, InlineLoading, Notice, SegmentedControl } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { Dialog } from "@/components/ui/dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -261,11 +261,13 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
             <section data-inset className="p-4">
               <h4 className="ui-title-group">{t("usersPerm.account.title")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.account.desc")}</p>
-              <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label={t("usersPerm.account.title")}>
-                {(["customer", "admin"] as const).map((type) => (
-                  <Chip key={type} selected={accountType === type} onClick={() => setAccountType(type)}>{t(`usersPerm.account.type.${type}`)}</Chip>
-                ))}
-              </div>
+              <SegmentedControl
+                className="mt-3"
+                ariaLabel={t("usersPerm.account.title")}
+                value={accountType}
+                onChange={setAccountType}
+                options={(["customer", "admin"] as const).map((type) => ({ value: type, label: t(`usersPerm.account.type.${type}`) }))}
+              />
               {accountType === "customer" && (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="text-sm text-[var(--text-secondary)]">

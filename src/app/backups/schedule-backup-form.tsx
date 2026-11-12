@@ -273,7 +273,7 @@ export function ScheduleBackupForm() {
 											<span className="font-mono">{s.cronExpression}</span>
 											<span>{getTypeLabel(t, s.backupType as BackupType)}</span>
 											<span>{t("backupsPage.schedule.runCount", { count: s.runCount })}</span>
-											{s.retentionDays && <span>{t("backupsPage.schedule.retentionLabel")}: {s.retentionDays}</span>}
+											{s.retentionDays && <span>{t("backupsPage.schedule.retentionLabel")}{t("common.colon")}{s.retentionDays}</span>}
 										</div>
 										<div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 											{s.lastRunAt

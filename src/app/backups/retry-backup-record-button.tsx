@@ -54,11 +54,10 @@ export function RetryBackupRecordButton({ backupId, status }: Props) {
 			</ActionButton>
 			{taskId && (
 				<Notice tone="success" compact>
-					{t("backupsPage.retry.successPrefix")}{" "}
+					{t("backupsPage.retry.success", { taskId })}{" "}
 					<Link href="/operation-tasks" className="underline">
 						{t("backupsPage.retry.taskCenter")}
-					</Link>{" "}
-					{t("backupsPage.retry.successSuffix", { taskId })}
+					</Link>
 				</Notice>
 			)}
 			{error && <Notice tone="danger" compact>{error}</Notice>}

@@ -18,7 +18,7 @@ vi.mock("@/lib/i18n/use-locale", async (importOriginal) => {
 	const mod = await importOriginal<typeof import("@/lib/i18n/use-locale")>();
 	const translations = await import("@/lib/i18n/translations");
 	let currentLocale: "zh" | "en" = "zh";
-	const buildT = () => (key: string) => translations.t(key, currentLocale);
+	const buildT = () => (key: string, vars?: Record<string, string | number>) => translations.t(key, currentLocale, vars);
 	const useI18nMock = vi.fn(() => ({
 		locale: currentLocale,
 		t: buildT(),
@@ -124,7 +124,7 @@ describe("ShareFilePicker", () => {
 		expect(await screen.findByRole("heading", { name: "Choose files in Shares" })).toBeInTheDocument();
 		expect(screen.getByText("本机默认存储 · Local storage")).toBeInTheDocument();
 		expect(await screen.findByText("No shareable items in this folder")).toBeInTheDocument();
-		expect(screen.getByText("Selected 0 items")).toBeInTheDocument();
+		expect(screen.getByText("0 selected")).toBeInTheDocument();
 		expect(screen.getByText("Select files or folders on the left")).toBeInTheDocument();
 	});
 

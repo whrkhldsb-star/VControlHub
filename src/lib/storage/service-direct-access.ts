@@ -102,8 +102,9 @@ export function buildStorageConnectionSummary(input: {
 
   if (input.driver === "WEBDAV") return t("backend.storage.connection.webdav", { basePath: input.basePath });
   const remote = `${input.username ?? "root"}@${input.host ?? "unknown"}:${input.port ?? 22}`;
-  const serverHint = input.serverName ? t("backend.storage.connection.boundNode", { name: input.serverName }) : "";
-  return t("backend.storage.connection.sftp", { remote, serverHint, basePath: input.basePath });
+  return input.serverName
+    ? t("backend.storage.connection.sftpBound", { remote, name: input.serverName, basePath: input.basePath })
+    : t("backend.storage.connection.sftp", { remote, basePath: input.basePath });
 }
 
 export type StorageNodeListRow = Prisma.StorageNodeGetPayload<{

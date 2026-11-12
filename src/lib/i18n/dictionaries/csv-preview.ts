@@ -13,7 +13,7 @@ export const zh: Record<string, string> = {
 	"csvPreview.largeWarning": "数据量较大，仅显示前 {max} 行（共 {total} 行）。建议下载后使用专业工具查看。",
 	"csvPreview.parseFailed": "CSV 解析失败",
 	"csvPreview.loadFailed": "加载失败",
-	"csvPreview.loadFailedWithStatus": "加载失败: {status}",
+	"csvPreview.loadFailedWithStatus": "加载失败：{status}",
 };
 
 export const en: Record<string, string> = {

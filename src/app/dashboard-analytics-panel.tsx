@@ -119,7 +119,7 @@ export function DashboardAnalyticsPanel() {
       </div>
 
       {error ? (
-        <Notice tone="warning">{t("dashboard.analytics.unavailable")}: {error}</Notice>
+        <Notice tone="warning">{t("dashboard.analytics.unavailable")}{t("common.colon")}{error}</Notice>
       ) : null}
 
       {!loading && !error && data ? (
@@ -181,7 +181,10 @@ export function DashboardAnalyticsPanel() {
               <div className="mt-4">
                 <SparkBars points={data.imageBed.map((point) => ({ label: formatShortDate(point.date), value: point.count }))} color="pink" />
                 <p className="mt-3 text-xs text-[var(--text-muted)]">
-                  {t("dashboard.analytics.image-total-prefix")} {data.imageBed.reduce((sum, point) => sum + point.count, 0)} {t("dashboard.analytics.image-total-count-suffix")} / {formatBytes(data.imageBed.reduce((sum, point) => sum + point.size, 0))}
+                  {t("dashboard.analytics.image-total", {
+                    count: data.imageBed.reduce((sum, point) => sum + point.count, 0),
+                    size: formatBytes(data.imageBed.reduce((sum, point) => sum + point.size, 0)),
+                  })}
                 </p>
               </div>
             ) : (

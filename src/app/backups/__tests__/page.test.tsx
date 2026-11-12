@@ -136,8 +136,8 @@ describe("BackupsPage", () => {
     expect(screen.getByText("已用备份空间")).toBeInTheDocument();
     expect(screen.getByText("6.0 MB")).toBeInTheDocument();
     expect(screen.getByText("最大：完整备份 · 3.0 MB")).toBeInTheDocument();
-    expect(screen.getByText("保留策略提示")).toBeInTheDocument();
-    expect(screen.getByText("条完成备份超过 30 天，建议复核清理")).toBeInTheDocument();
+    expect(screen.getByText("超过 30 天的备份")).toBeInTheDocument();
+    expect(screen.getByText("完成已超过 30 天的备份，建议复核后清理")).toBeInTheDocument();
     expect(screen.getAllByText("数据库备份").find((element) => element.tagName === "P")?.closest("div")).toHaveTextContent("1 个 · 1.0 MB");
     expect(screen.getAllByText("文件备份").find((element) => element.tagName === "P")?.closest("div")).toHaveTextContent("1 个 · 2.0 MB");
     expect(screen.getAllByText("完整备份").find((element) => element.tagName === "P")?.closest("div")).toHaveTextContent("1 个 · 3.0 MB");

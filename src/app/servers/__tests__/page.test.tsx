@@ -331,7 +331,7 @@ describe("ServersPage", () => {
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
     await user.click(screen.getByRole("button", { name: "运行实时探测" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("失败: 连接失败: timeout");
+    expect(await screen.findByRole("alert")).toHaveTextContent("失败：连接失败: timeout");
     expect(screen.getByText("诊断下一步")).toBeInTheDocument();
     vi.unstubAllGlobals();
   });

@@ -33,6 +33,30 @@ function Harness({ anchor: initial, onSelect = vi.fn() }: { anchor: MenuAnchor |
 describe("AnchoredMenu", () => {
 	afterEach(() => vi.restoreAllMocks());
 
+	it("announces one of several choices as checked or not, and still reaches it with the arrow keys", () => {
+		// The drive's sort menu marked the current choice with a "✓" character at the end of its label.
+		setViewport(1000, 800);
+		mockPanelSize(180, 120);
+		function Sort() {
+			const [anchor, setAnchor] = useState<MenuAnchor | null>({ x: 10, y: 10 });
+			return (
+				<AnchoredMenu anchor={anchor} label="Sort" onClose={() => setAnchor(null)}>
+					<MenuItem onSelect={() => undefined} checked>Name</MenuItem>
+					<MenuItem onSelect={() => undefined} checked={false}>Size</MenuItem>
+					<MenuItem onSelect={() => undefined}>Refresh</MenuItem>
+				</AnchoredMenu>
+			);
+		}
+		render(<Sort />);
+		expect(screen.getByRole("menuitemradio", { name: "Name" })).toHaveAttribute("aria-checked", "true");
+		expect(screen.getByRole("menuitemradio", { name: "Size" })).toHaveAttribute("aria-checked", "false");
+		expect(screen.getByRole("menuitem", { name: "Refresh" })).not.toHaveAttribute("aria-checked");
+		expect(screen.getByRole("menuitemradio", { name: "Name" }).textContent).toBe("Name");
+		expect(document.activeElement).toBe(screen.getByRole("menuitemradio", { name: "Name" }));
+		fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+		expect(document.activeElement).toBe(screen.getByRole("menuitemradio", { name: "Size" }));
+	});
+
 	it("opens at the pointer, in a body portal, with the first item focused", () => {
 		setViewport(1000, 800);
 		mockPanelSize(180, 120);

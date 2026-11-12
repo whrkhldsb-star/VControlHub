@@ -73,7 +73,8 @@ describe("StorageNodeList health UI", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "立即检测" }));
     expect(await screen.findByText("无法连接到服务器，请检查网络后重试")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "立即检测" })).toBeEnabled();
+    // The message is set inside the transition; the button gets its name back when the transition ends.
+    await waitFor(() => expect(screen.getByRole("button", { name: "立即检测" })).toBeEnabled());
 
     checkStorageNodeHealthActionMock.mockRejectedValueOnce(Object.assign(new Error("Minified React error #441"), { digest: "FORBIDDEN" }));
     fireEvent.click(screen.getByRole("button", { name: "立即检测" }));

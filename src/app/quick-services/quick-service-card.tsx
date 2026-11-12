@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { Star } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
 /**
  * `ServiceCard` — single Quick Service tile used in both the
@@ -118,7 +119,7 @@ export function ServiceCard({
 				<span>{t("qsPage.portLabel", { port: displayPort })}</span>
 				{item.path && <span>{t("qsPage.pathLabel", { path: item.path })}</span>}
 				{item.monthlyPulls != null && <span>{t("qsPage.monthlyPulls", { pulls: compactCount(item.monthlyPulls, locale) })}</span>}
-				{item.stars != null && <span>⭐ {item.stars}</span>}
+				{item.stars != null && <span className="inline-flex items-center gap-1"><Star size={12} aria-hidden />{t("qsPage.stars", { stars: compactCount(item.stars, locale) })}</span>}
 			</div>
 
 			{/* Error message */}

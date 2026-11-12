@@ -390,7 +390,7 @@ export async function applyServerDirectGatewayState(input: {
         const diagnostic = (result.stderr || result.stdout).trim().slice(0, 500);
         throw new BusinessError(
           diagnostic
-            ? `${t("backend.server.directGatewayOperationFailed")}: ${diagnostic}`
+            ? t("backend.server.directGatewayOperationFailedReason", { reason: diagnostic })
             : t("backend.server.directGatewayOperationFailed"),
         );
       }

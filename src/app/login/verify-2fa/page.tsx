@@ -1,6 +1,7 @@
 import { firstSearchParam } from "@/lib/http/first-search-param";
 import { getPending2faCookieName } from "@/lib/auth/session";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
@@ -57,13 +58,13 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 					<Verify2faForm nextPath={nextPath} error={error} />
 
 					<div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-						<a
+						<Link
 							href="/login"
 							className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
 						>
 							<ArrowLeft size={14} aria-hidden />
 							{t("login.verify2faBackToLogin", locale)}
-						</a>
+						</Link>
 					</div>
 				</div>
 			</div>

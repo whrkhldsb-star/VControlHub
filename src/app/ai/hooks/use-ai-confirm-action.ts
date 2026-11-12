@@ -9,7 +9,7 @@
  *
  * Extracted from ai-client.tsx in R31. The parent passes side-effect
  * callbacks (e.g. clear-active, refresh-list); this hook owns busy/
- * error/queued action and exposes the copy used by AiConfirmDialog.
+ * error/queued action and exposes the copy used by the page's ConfirmDialog.
  */
 import { type ReactNode, useCallback, useState } from "react";
 

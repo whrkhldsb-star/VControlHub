@@ -22,7 +22,7 @@ import { CATEGORY_ORDER, buildCategoryLabels, buildQuickServiceViewModel, getEnv
 import { useQuickServiceCatalog } from "./use-quick-service-catalog";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { IconBadgeCheck, IconBlocks, IconShield } from "@/components/nav-icons";
+import { IconBadgeCheck, IconBlocks, IconGlobe, IconShield } from "@/components/nav-icons";
 
 /* ── Main Component ─────────────────────────────────────────────── */
 
@@ -412,7 +412,7 @@ export function QuickServicesClient({
 				</EmptyState>
 			)}
 			{tab ==="community" && remoteAvailable.length === 0 && (
-				<EmptyState icon="🌐" variant="boxed">
+				<EmptyState icon={<IconGlobe size={20} />} variant="boxed">
 					{sources.some((s) => s.enabled) ? t("qsPage.emptyCommunityAllInstalled") : t("qsPage.emptyCommunityHint")}
 				</EmptyState>
 			)}

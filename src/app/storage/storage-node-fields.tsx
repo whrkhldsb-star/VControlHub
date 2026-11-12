@@ -128,7 +128,7 @@ export function StorageNodeFields({
             name="serverId"
             ref={serverRef}
             defaultValue={values.serverId ?? ""}
-            className={`${UI_INPUT} border-[var(--danger-border)]`}
+            className={UI_INPUT}
           >
             <option value="">{t("storagePage.form.optionNotBound")}</option>
             {servers.map((server) => <option key={server.id} value={server.id}>{server.name} · {server.host}</option>)}
@@ -140,7 +140,7 @@ export function StorageNodeFields({
             name="host"
             ref={hostRef}
             defaultValue={values.host ?? ""}
-            className={`${UI_INPUT} border-[var(--danger-border)]`}
+            className={UI_INPUT}
             placeholder={t("storagePage.form.hostPlaceholder")}
           />
         </FormField>

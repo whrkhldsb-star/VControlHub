@@ -11,7 +11,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
-import { Badge } from "@/components/ui-primitives";
+import { Badge, SegmentedControl } from "@/components/ui-primitives";
 import { Pagination } from "@/components/pagination";
 import { EmptyState } from "@/components/page-shell";
 
@@ -235,13 +235,15 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
               {canManage ? t("ticketsPage.workspace.manageHint") : t("ticketsPage.workspace.personalHint")}
             </p>
           </div>
-          <div data-tile className="inline-flex w-fit p-1">
-            {(["list", "board"] as const).map((mode) => (
-              <button type="button" data-action-button={view === mode ? "" : undefined} data-variant={view === mode ? "primary" : undefined} key={mode} onClick={() => setView(mode)} aria-pressed={view === mode} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === mode ? "" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
-                {t(mode === "list" ? "ticketsPage.kanban.list" : "ticketsPage.kanban.toggle")}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            ariaLabel={t("ticketsPage.kanban.viewLabel")}
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "list", label: t("ticketsPage.kanban.list") },
+              { value: "board", label: t("ticketsPage.kanban.toggle") },
+            ]}
+          />
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <label className="ui-label grid gap-1">

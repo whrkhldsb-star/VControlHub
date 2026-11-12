@@ -60,7 +60,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
     <div className="mt-3 space-y-2">
       <ActionButton size="sm" variant="danger"
         onClick={() => setOpen(true)} 
-        aria-label={`${t("requestsPage.cancel.ariaLabel")}: ${commandTitle}`}>
+        aria-label={`${t("requestsPage.cancel.ariaLabel")}${t("common.colon")}${commandTitle}`}>
         {t("requestsPage.cancel.title")}
       </ActionButton>
       {message && <Notice tone="success" compact>{message}</Notice>}

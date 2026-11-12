@@ -47,6 +47,41 @@ describe("what the dictionaries say", () => {
 		expect(different).toEqual([]);
 	});
 
+	// "上次触发:{date}", "冷却时间(分钟)", "执行: {name}...": half-width marks after Chinese text sit too close
+	// to it and read as a different hand from the sentences around them.
+	it("punctuates Chinese with Chinese marks", () => {
+		const allowed = new Set([
+			// Stored in a message and recognised later by its exact text (EMPTY_TOOL_CONTENT).
+			"aiPage.noResponse",
+			"apiAiChat.emptyContent",
+			// Examples of what is typed: tags are separated by a half-width comma.
+			"snippetsPage.modal.field.tagsHint",
+			"filePreferences.tagsPlaceholder",
+		]);
+		const halfWidth = Object.entries(all.zh)
+			.filter(([key, value]) => !allowed.has(key) && (/[一-鿿][:,;!?](?:\s|$|\{)/.test(value) || /[一-鿿]\.(?:\s|$)/.test(value) || /\((?=[^)]*[一-鿿])/.test(value)))
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(halfWidth).toEqual([]);
+	});
+
+	// A sentence put together from "共", a number and "台纳管节点" keeps one language's word order and
+	// punctuation in the code. What is shown is one entry with placeholders; an entry that starts or ends
+	// with a space is a piece of such a sentence.
+	it("holds whole sentences, not pieces to be joined", () => {
+		const allowed = (key: string, value: string) =>
+			// A label in front of a value ("Risk: "), and the separator of a list.
+			/: $/.test(value) || /separator$/i.test(key) || key === "common.colon"
+			// "（任务 id）" where there is a task: placed inside six sentences by {task}.
+			|| key === "qsActions.taskSuffix";
+		const pieces = (["zh", "en"] as const).flatMap((locale) =>
+			Object.entries(all[locale])
+				// Text that is appended to a file or a prompt starts or ends with a line break of its own.
+				.filter(([key, value]) => /^\s|\s$/.test(value) && !/^\n|\n$/.test(value) && !allowed(key, value))
+				.map(([key, value]) => `${locale} ${key}: "${value}"`),
+		);
+		expect(pieces).toEqual([]);
+	});
+
 	it("has no empty sentence and no Chinese left in the English ones", () => {
 		expect(Object.entries(all.zh).filter(([, value]) => value === "").map(([key]) => key)).toEqual([]);
 		expect(Object.entries(all.en).filter(([, value]) => value === "").map(([key]) => key)).toEqual([]);

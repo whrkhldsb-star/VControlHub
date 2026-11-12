@@ -341,7 +341,7 @@ export function SshTerminalManager({
 				>
 					<span className="flex h-2 w-2 rounded-full bg-[var(--success)]" aria-hidden />
 					<span className="font-medium">
-						{tabs.length} {t("sshTerminalManager.tabsSuffix")}
+						{t("sshTerminalManager.tabCount", { count: tabs.length })}
 					</span>
 					{connectedCount > 0 && (
 						<span className="text-[var(--success)]">
@@ -401,7 +401,7 @@ export function SshTerminalManager({
 								{t("sshTerminalManager.title")}
 							</h3>
 							<span className="rounded-full bg-[var(--surface-subtle)] light:bg-[var(--surface-hover)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
-								{tabs.length} {t("sshTerminalManager.tabsSuffix")}
+								{t("sshTerminalManager.tabCount", { count: tabs.length })}
 							</span>
 						</div>
 						<div className="flex items-center gap-1">

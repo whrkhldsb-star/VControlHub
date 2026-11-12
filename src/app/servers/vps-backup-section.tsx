@@ -1,5 +1,5 @@
 "use client";
-import { Loader2, Pencil, Play, Plus, Trash2, X } from "@/components/icons";
+import { Download, Loader2, Pencil, Play, Plus, RefreshCw, Trash2, X } from "@/components/icons";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -554,7 +554,7 @@ export function VpsBackupSection({
 											<div className="min-w-0 flex-1">
 												<div className="truncate text-sm text-[var(--text-primary)]">{s.name}</div>
 												<div className="text-xs text-[var(--text-muted)]">
-													{presetLabel(s.backupType)} · {s.cronExpression} · {scheduleStatusLabel(s.status)} · {t("vpsBackup.retention")}: {s.retentionDays ? `${s.retentionDays}d` : t("vpsBackup.retentionNone")}
+													{presetLabel(s.backupType)} · {s.cronExpression} · {scheduleStatusLabel(s.status)} · {t("vpsBackup.retention")}{t("common.colon")}{s.retentionDays ? `${s.retentionDays}d` : t("vpsBackup.retentionNone")}
 												</div>
 												<div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[var(--text-muted)]">
 													<span>{t("vpsBackup.lastRun", { time: formatDateTime(s.lastRunAt, locale) })}</span>
@@ -651,9 +651,10 @@ export function VpsBackupSection({
 										<a
 											href={`/api/servers/${serverId}/vps-backup/records/${r.id}/download`}
 											aria-label={t("vpsBackup.downloadRecord")}
-											className="rounded text-xs text-[var(--color-action-text)]/80 transition-colors hover:text-[var(--color-action-text)]"
+											title={t("vpsBackup.downloadRecord")}
+											className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
 										>
-											⬇
+											<Download size={16} aria-hidden />
 										</a>
 									) : null}
 									{canManage && r.status === "FAILED" ? (
@@ -663,7 +664,7 @@ export function VpsBackupSection({
 											disabled={retrying === r.id}
 											className="h-8 w-8 text-xs"
 										>
-											↻
+											<RefreshCw size={16} aria-hidden />
 										</IconButton>
 									) : null}
 									{canManage ? (

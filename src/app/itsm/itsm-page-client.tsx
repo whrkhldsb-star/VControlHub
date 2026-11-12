@@ -338,12 +338,12 @@ export function ItsmPageClient({
 								</div>
 								{(row.direction === "inbound" || row.direction === "bidirectional") && (
 									<div className="rounded-md bg-[var(--surface-subtle)] p-2 text-xs font-mono break-all">
-										{t("itsmPage.inboundUrl")}: {baseUrlForInbound}/api/itsm/inbound/{row.id}
+										{t("itsmPage.inboundUrl")}{t("common.colon")}{baseUrlForInbound}/api/itsm/inbound/{row.id}
 									</div>
 								)}
 								{row.config.webhookUrl && (
 									<div className="text-xs text-[var(--text-muted)] break-all">
-										{t("itsmPage.field.webhookUrl")}: {row.config.webhookUrl}
+										{t("itsmPage.field.webhookUrl")}{t("common.colon")}{row.config.webhookUrl}
 									</div>
 								)}
 							</li>
@@ -369,7 +369,7 @@ export function ItsmPageClient({
 									</span>
 								</div>
 								{ev.ticketId && (
-									<div className="text-xs text-[var(--text-muted)]">{t("itsmPage.events.ticket")}: {ev.ticketId}</div>
+									<div className="text-xs text-[var(--text-muted)]">{t("itsmPage.events.ticket")}{t("common.colon")}{ev.ticketId}</div>
 								)}
 								{ev.errorMessage && (
 									<div className="text-xs text-[var(--danger)]">{ev.errorMessage}</div>

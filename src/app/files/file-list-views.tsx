@@ -12,7 +12,7 @@
 import Link from "next/link";
 import { useState, type MouseEvent, type ReactNode } from "react";
 
-import { Download, Globe, HardDrive, LinkIcon, Server, Star } from "@/components/icons";
+import { ArrowDown, ArrowUp, Download, Globe, HardDrive, LinkIcon, Server, Star } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { cn } from "@/lib/ui/cn";
 import { FileTypeIcon } from "./file-entry-icons";
@@ -193,7 +193,7 @@ function SortHeader({ column, label, sortKey, sortDir, onSort, className }: {
 			className={cn("inline-flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-left hover:text-[var(--text-primary)]", active && "text-[var(--text-primary)]", className)}
 		>
 			<span className="truncate">{label}</span>
-			<span aria-hidden="true" className={cn("text-[10px]", !active && "opacity-0")}>{sortDir === "asc" || !active ? "▲" : "▼"}</span>
+			<span aria-hidden="true" className={cn("shrink-0", !active && "opacity-0")}>{sortDir === "asc" || !active ? <ArrowUp size={12} /> : <ArrowDown size={12} />}</span>
 		</button>
 	);
 }

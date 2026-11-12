@@ -9,6 +9,7 @@
 import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Toolbar, ToggleChip } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
+import { SegmentedControl } from "@/components/ui-primitives";
 
 import type { VpsStatusFilter, VpsStatusViewMode } from "./use-vps-status-view";
 import { ArrowLeft } from "@/components/icons";
@@ -59,32 +60,20 @@ export function VpsStatusToolbar({
 				<span className="ml-1 text-xs text-[var(--text-muted)]">
 					{tt("vpsStatusPage.showing", { count: filteredCount })}
 				</span>
-				<div data-tile className="ml-2 inline-flex p-0.5">
-					{(
-						[
-							["cards", t("vpsStatusPage.view.cards")],
-							["table", t("vpsStatusPage.view.table")],
-						] as const
-					).map(([key, label]) => (
-						<button
-							key={key}
-							type="button"
-							onClick={() => setViewModePersist(key)}
-							aria-pressed={viewMode === key}
-							className={`min-h-10 rounded-lg px-3 py-2 text-sm font-medium transition ${
-								viewMode === key
-									? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm"
-									: "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-							}`}
-						>
-							{label}
-						</button>
-					))}
-				</div>
+				<SegmentedControl
+					className="ml-2"
+					ariaLabel={t("vpsStatusPage.view.label")}
+					value={viewMode}
+					onChange={setViewModePersist}
+					options={[
+						{ value: "cards", label: t("vpsStatusPage.view.cards") },
+						{ value: "table", label: t("vpsStatusPage.view.table") },
+					]}
+				/>
 			</div>
 			<div className="flex flex-wrap items-center gap-3">
 				<span className="text-xs text-[var(--text-muted)]">
-					{t("healthPage.ui.lastRefresh")}: {lastRefresh || "—"}
+					{t("healthPage.ui.lastRefresh")}{t("common.colon")}{lastRefresh || "—"}
 				</span>
 				<StatusBadge tone="neutral">
 					{refreshIntervalSeconds <= 0

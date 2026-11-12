@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { Folder } from "@/components/icons";
+import { File, Folder } from "@/components/icons";
 
 import { nodeKey, type TreeNode } from "./deployment-export-helpers";
 
@@ -90,7 +90,7 @@ function TreeRow({
         }`}
         style={{ paddingLeft: depth * 12 }}
       >
-        <span aria-hidden>📄</span>
+        <File size={14} className="shrink-0" aria-hidden />
         <span className="truncate">{node.name}</span>
         {isActive ? (
           <span className="ml-auto text-xs text-[var(--text-secondary)]">

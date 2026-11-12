@@ -51,13 +51,13 @@ export function AlertRuleCard({
 						</StatusBadge>
 					</div>
 
-					<p className="mt-1.5 text-[13px] leading-6 text-[var(--text-secondary)]">
-						{t("alertRulesPage.condition.when")}{" "}
+					{/* The parts of the condition are words of their own, set apart by the gap: no part carries a space. */}
+					<p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[13px] leading-6 text-[var(--text-secondary)]">
+						<span>{t("alertRulesPage.condition.when")}</span>
 						<span className="font-medium text-[var(--text-primary)]">{metricLabel(t, rule.metric)}</span>
 						{rule.metric !== "server_offline" ? (
 							<>
-								{" "}
-								{operatorLabel(t, rule.operator)}{" "}
+								<span>{operatorLabel(t, rule.operator)}</span>
 								<code className="rounded bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[12.5px] font-medium text-[var(--text-primary)]">
 									{rule.threshold}
 									{PERCENT_METRICS.has(rule.metric) ? "%" : ""}
@@ -65,7 +65,7 @@ export function AlertRuleCard({
 							</>
 						) : null}
 						{rule.durationSeconds > 0
-							? t("alertRulesPage.condition.duration", { seconds: rule.durationSeconds })
+							? <span>{t("alertRulesPage.condition.duration", { seconds: rule.durationSeconds })}</span>
 							: null}
 						<span className="text-[var(--text-muted)]">
 							{rule.serverIds.length === 0

@@ -6,7 +6,7 @@ import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
 import { Dialog } from "@/components/ui/dialog";
 
-import { Chip, Notice } from "@/components/ui-primitives";
+import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { identityTemplateName } from "@/lib/auth/identity-templates";
 /** Subset of StatusBadge's StatusTone that the users page uses. */
 export type Tone = "accent" | "success" | "warning" | "danger" | "neutral";
@@ -122,13 +122,12 @@ export function UsersCreateForm({
       </div>
       <div>
         <span className="ui-label mb-2 block">{t("usersPage.form.accountType")}</span>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("usersPage.form.accountType")}>
-          {(["customer", "admin"] as const).map((type) => (
-            <Chip key={type} selected={createForm.accountType === type} onClick={() => setCreateForm((p) => ({ ...p, accountType: type }))}>
-              {t(`usersPerm.account.type.${type}`)}
-            </Chip>
-          ))}
-        </div>
+        <SegmentedControl
+          ariaLabel={t("usersPage.form.accountType")}
+          value={createForm.accountType}
+          onChange={(type) => setCreateForm((p) => ({ ...p, accountType: type }))}
+          options={(["customer", "admin"] as const).map((type) => ({ value: type, label: t(`usersPerm.account.type.${type}`) }))}
+        />
       </div>
       {createForm.accountType === "customer" && (
         <div className="grid gap-4 sm:grid-cols-2">

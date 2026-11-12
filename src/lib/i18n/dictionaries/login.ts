@@ -27,7 +27,7 @@ export const zh: Record<string, string> = {
 	"login.feature.vps.title": "VPS 管理",
 	"login.form.password": "密码",
 	"login.form.passwordPlaceholder": "输入密码",
-	"login.form.remember": "保持登录状态 (30天)",
+	"login.form.remember": "保持登录状态（30 天）",
 	"login.form.submit": "登录",
 	"login.form.username": "用户名",
 	"login.form.usernamePlaceholder": "输入用户名",

@@ -21,7 +21,7 @@ export const zh: Record<string, string> = {
 	"trafficPage.eyebrow": "流量",
 	"trafficPage.iface.auto": "自动选择主网卡",
 	"trafficPage.iface.label": "网卡",
-	"trafficPage.lastUpdated": "最后更新:{date}",
+	"trafficPage.lastUpdated": "最后更新：{date}",
 	"trafficPage.loading": "加载中...",
 	"trafficPage.noIface": "暂无网卡数据",
 	"trafficPage.noPrimaryIface": "未识别到主网卡",
@@ -31,7 +31,7 @@ export const zh: Record<string, string> = {
 	"trafficPage.remoteSampling": "正在通过 SSH 采样远程 VPS 节点流量，可能需要几秒...",
 	"trafficPage.rxRate": "下载速度 · {iface}",
 	"trafficPage.rxShort": "↓ 下载",
-	"trafficPage.rxTotal": "累计下载:{value}",
+	"trafficPage.rxTotal": "累计下载：{value}",
 	"trafficPage.chart.empty": "采集中…多个数据点后将显示走势",
 	"trafficPage.chart.emptyHistory": "暂无持久化流量历史",
 	"trafficPage.chart.aria": "网络速率走势：最新下载 {rx}，上传 {tx}，共 {count} 个样本",
@@ -51,7 +51,7 @@ export const zh: Record<string, string> = {
 	"trafficPage.title": "流量中心",
 	"trafficPage.txRate": "上传速度 · {iface}",
 	"trafficPage.txShort": "↑ 上传",
-	"trafficPage.txTotal": "累计上传:{value}",
+	"trafficPage.txTotal": "累计上传：{value}",
 };
 
 export const en: Record<string, string> = {

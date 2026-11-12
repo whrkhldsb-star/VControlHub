@@ -119,7 +119,9 @@ Field labels use `UI_LABEL` (= `ui-label`).
 - **`Chip`** — filter pills, multi-select toggles, suggestions (`selected`,
   `tone`, `size`, `dashed`); `ToggleChip` is a control-height chip.
 - **`SegmentedControl`** — one value out of a few (toggle-button group with
-  the pills look; `block`, `compactLabels`, per-option `tone`).
+  the pills look; `block`, `compactLabels`, per-option `tone`): a view switch,
+  an account type, a method. Chips are for filters and multi-select; do not
+  wrap them in a `radiogroup`.
 - **Selectable tiles** — `data-tile` (or `data-inset`) with `aria-pressed`,
   `aria-checked` or `data-selected`; `CheckboxField variant="tile"`.
 - **Drop zones** — `data-dropzone` (+ `data-drag-over`).
@@ -159,9 +161,11 @@ Field labels use `UI_LABEL` (= `ui-label`).
 ### Menus
 
 - **`Menu`** + **`MenuItem`** (`href` or `onSelect`, `icon`, `description`,
-  `hint`, `danger`, `disabled`), **`MenuSeparator`**, **`MenuLabel`** — closes
+  `hint`, `checked`, `danger`, `disabled`), **`MenuSeparator`**, **`MenuLabel`** — closes
   on outside click, Escape (focus returns to the trigger) and selection;
-  arrow keys, Home and End move between items.
+  arrow keys, Home and End move between items. An item that is one of several
+  choices (a sort key, a direction) takes `checked`: it is announced as a
+  radio item and shows a tick — never a "✓" in its label.
 - **`useDismiss`** — the same outside-click / Escape behaviour for custom
   popovers (account menu, notifications, model switcher). Style their panel
   with `data-popover` and rows with `data-menu-item`.
@@ -250,6 +254,20 @@ breadcrumb names the area, so page eyebrows are hidden.
   as a status code, a JSON body or a framework placeholder.
 - One primary button per view; destructive actions confirm in-app
   (`ConfirmDialog`), never with `window.confirm`.
+- A sentence is one dictionary entry with placeholders (`{count}`, `{name}`),
+  never pieces joined in code: word order and punctuation belong to the
+  language. Where a link follows a sentence, end the sentence and put the
+  link after it. After a translated label, write the language's colon
+  (`t("common.colon")`), not `": "`. Chinese entries use Chinese punctuation.
+- Icons come from `src/components/icons.tsx` and `nav-icons.tsx`. Emoji and
+  symbol characters (⚠ ▶ ✓ ⬇ ⭐) are not icons: they are drawn differently
+  on each system and do not follow the theme.
+- A link to a page of the application is a `Link` or a `ButtonLink`. A plain
+  `<a>` is for files, exports and streams under `/api`, for another site
+  (`external`), and for a jump within the page.
+- Text the server stores in English for its own records (a version's note, a
+  sync job's result line) is said in the page's language where it is shown
+  (`versionNoteLabel`, `syncResultLabel`); what is stored stays as it is.
 
 ## Rules enforced by tests
 
@@ -268,7 +286,15 @@ breadcrumb names the area, so page eyebrows are hidden.
   or `data-card` / `data-inset` / `data-tile` / `data-popover`;
 - uses `ModalShell` directly for a content dialog, or `window.confirm`;
 - binds an `<input type="number">` to numeric state by converting in
-  `onChange` instead of using `NumberInput`.
+  `onChange` instead of using `NumberInput`;
+- links to a page of the application with a plain `<a href="/…">`.
+
+`src/lib/i18n/__tests__/dictionary-text.test.ts` fails when a Chinese entry
+puts half-width punctuation after Chinese text, or when an entry starts or
+ends with a space (a piece of a sentence joined in code; a label's `": "` and
+list separators are allowed).
+`src/app/manifest.test.ts` keeps the manifest's two colours equal to the
+tokens'.
 
 `src/components/__tests__/data-tone-vocabulary.test.ts` keeps `data-tone` to
 the hue names that `globals.css` defines.

@@ -200,7 +200,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
       initialFocusRef={closeButtonRef}
       footer={<>
         <span className="text-xs text-[var(--text-muted)] sm:mr-auto sm:self-center">
-          {t("jobEventsDialog.totalCount", { count: events.length, more: hasMore ? t("jobEventsDialog.moreSuffix") : "" })}
+          {t(hasMore ? "jobEventsDialog.totalCountMore" : "jobEventsDialog.totalCount", { count: events.length })}
         </span>
         <ActionButton variant="secondary" icon={<RefreshCw aria-hidden />} onClick={() => void load(false)} disabled={loading}>
           {t("jobEventsDialog.refresh")}

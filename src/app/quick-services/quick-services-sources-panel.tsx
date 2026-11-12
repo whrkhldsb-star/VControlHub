@@ -23,7 +23,7 @@ import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import type { AppSource } from "./quick-services-shared";
-import { IconLink } from "@/components/nav-icons";
+import { IconBlocks, IconGlobe, IconLink } from "@/components/nav-icons";
 import { Badge, Chip } from "@/components/ui-primitives";
 import { clearIfUnchanged } from "@/lib/ui/form-draft";
 
@@ -197,7 +197,9 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 				<div key={src.id} data-card className="p-4 space-y-3">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-3">
-							<span className="text-lg">{src.type ==="linuxserver" ?"🐧" : src.type ==="github" ?"🐙" :"📡"}</span>
+							<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--surface-subtle)] text-[var(--text-secondary)]" aria-hidden>
+								{src.type === "linuxserver" ? <IconBlocks size={18} /> : src.type === "github" ? <IconLink size={18} /> : <IconGlobe size={18} />}
+							</span>
 							<div>
 								<h3 className="ui-title-group">{src.displayName}</h3>
 								<p className="text-xs text-[var(--text-muted)] mt-0.5">{src.url}</p>

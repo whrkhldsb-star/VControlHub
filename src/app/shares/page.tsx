@@ -124,8 +124,8 @@ export default async function SharesPage({ searchParams }: { searchParams?: Prom
 							</div>
 						</div>
 						<p className="mt-2 text-xs text-[var(--text-muted)]">
-							{t("shares.createdAt")}: {formatDateTime(s.createdAt, locale)} ·{" "}
-							{t("shares.expiresAt")}:{" "}
+							{t("shares.createdAt")}{t("common.colon")}{formatDateTime(s.createdAt, locale)} ·{" "}
+							{t("shares.expiresAt")}{t("common.colon")}
 							{s.expiresAt ? formatDateTime(s.expiresAt, locale) : t("shares.neverExpires")}
 						</p>
 					</ListRow>

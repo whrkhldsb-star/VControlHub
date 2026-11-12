@@ -37,7 +37,7 @@ export const zh: Record<string, string> = {
 	"apiDownloads.fetchTasksFailed": "获取下载任务失败",
 	"apiDownloads.completed": "下载完成",
 	"apiDownloads.transferPending": "下载完成，正在传输到目标 VPS…",
-	"apiDownloads.aria2ErrorWithStatus": "aria2 下载失败: {status}",
+	"apiDownloads.aria2ErrorWithStatus": "aria2 下载失败：{status}",
 	"apiDownloads.operationFailed": "操作失败",
 	"apiDownloads.missingGlobalSpeedPermission": "缺少全局下载限速管理权限",
 	"apiDownloads.setGlobalSpeedFailed": "设置全局限速失败",

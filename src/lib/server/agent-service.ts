@@ -453,6 +453,8 @@ metrics_error=None
 update_error=None
 update_failed={}
 stopping=False
+# Above zero while a command is being started or its result is put together.
+defer_stop=0
 parts=urllib.parse.urlsplit(ENDPOINT)
 conn=None
 class HubStatus(Exception):
@@ -466,6 +468,10 @@ def on_stop(signum, frame):
     global stopping
     if stopping: return
     stopping=True
+    # Raised between starting a command and watching it, the stop left run()
+    # with the command still running and no result: nobody ended it and the
+    # hub waited out its lease. There it is only noted; run() acts on it.
+    if defer_stop: return
     raise AgentStop()
 def connect(timeout=35):
     cls=http.client.HTTPSConnection if parts.scheme == "https" else http.client.HTTPConnection
@@ -556,12 +562,15 @@ def job_heartbeat(job):
         if raw is not None: payload["metricsRaw"]=raw
     return payload
 def run(job):
+    global defer_stop
     timeout_seconds=max(1,min(int(job.get("timeoutMs",60000))/1000,3600))
+    defer_stop+=1
     try:
         proc=subprocess.Popen([SHELL,"-c",job["command"]],env=JOB_ENV,cwd=JOB_DIR,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
     except OSError as exc:
         # A command that cannot start (one argument over 128 KiB: E2BIG) is
         # reported as failed. Unreported, the hub waited out the job's timeout.
+        defer_stop-=1
         return {"jobId":job["id"],"stdout":"","stderr":fit("Agent could not start the command: %s" % exc,ERROR_LIMIT),"exitCode":126}
     out=Capture(proc.stdout,OUTPUT_LIMIT)
     err=Capture(proc.stderr,ERROR_LIMIT)
@@ -570,6 +579,9 @@ def run(job):
     outcome=None
     held=False
     try:
+        defer_stop-=1
+        # A stop that arrived while the command was being started.
+        if stopping: raise AgentStop()
         while True:
             remaining=deadline-time.monotonic()
             if remaining <= 0:
@@ -596,8 +608,12 @@ def run(job):
             # waited for it, until the job's timeout killed it.
             grace_end=time.monotonic()+min(OUTPUT_GRACE_SECONDS,max(0,deadline-time.monotonic()))
             held=not (out.wait(grace_end-time.monotonic()) and err.wait(grace_end-time.monotonic()))
+        # From here the result is put together: a stop now is noted, and the
+        # caller hands the result in before it leaves.
+        defer_stop+=1
     except AgentStop:
         outcome="stopped"
+        defer_stop+=1
     if outcome is not None: terminate(proc,(out,err))
     code=proc.poll()
     # A signal shows as a negative code; the hub takes 0-255, as a shell reports it.
@@ -610,6 +626,7 @@ def run(job):
     elif held: result["stderr"]=fit(result["stderr"]+("\\n" if result["stderr"] else "")+"[agent] output written after the command ended was not collected: a process it left in the background kept the output open",ERROR_LIMIT)
     out.release()
     err.release()
+    defer_stop-=1
     return result
 def apply_update(update):
     # The hub's build with this agent's own token, swapped in place: the

@@ -22,9 +22,8 @@ export const zh: Record<string, string> = {
 	"settingsClient.fixFieldsFirst": "有 {count} 项填写有误，请修正后再保存",
 	"settingsClient.categoryNav": "设置分类导航",
 	"settingsClient.tabsAria": "设置标签页",
-	"settingsClient.collapse": "折叠",
-	"settingsClient.expand": "展开",
-	"settingsClient.sectionSuffix": "设置区",
+	"settingsClient.sectionAria.expand": "展开「{title}」设置区",
+	"settingsClient.sectionAria.collapse": "折叠「{title}」设置区",
 	"settingsClient.saving": "保存中…",
 	"settingsClient.save": "保存",
 
@@ -40,8 +39,8 @@ export const zh: Record<string, string> = {
 	"settingsClient.categoryDescription": "点击下方分类快速跳转，或一键展开/折叠所有分组。常用项默认展开，运行参数等高级项默认折叠。",
 	"settingsClient.expandAll": "全部展开",
 	"settingsClient.collapseAll": "全部折叠",
-	"settingsClient.sectionItemsSuffixAdvanced": " 项 · 高级",
-	"settingsClient.sectionItemsSuffix": " 项",
+	"settingsClient.sectionItemsAdvanced": "{count} 项 · 高级",
+	"settingsClient.sectionItems": "{count} 项",
 
 	"settingsClient.recentlyUpdated": "最近修改",
 	"settingsClient.metadataTime": "时间：",
@@ -81,14 +80,13 @@ export const zh: Record<string, string> = {
 
 	"settingsClient.confirmHighRiskTitle": "确认高风险修改",
 	"settingsClient.confirmHighRiskDescription": "以下 {count} 项修改会立即影响已运行服务或安全策略，请二次确认。",
-	"settingsClient.confirmOriginal": "原值 ",
-	"settingsClient.confirmNew": "新值 ",
+	"settingsClient.confirmOriginal": "原值",
+	"settingsClient.confirmNew": "新值",
 	"settingsClient.confirmCancel": "取消",
 	"settingsClient.confirmSaveAction": "确认保存",
 
-	"settingsClient.expandAria": "{count} 项已修改, {expanded} 改动列表",
-	"settingsClient.expanded": "展开",
-	"settingsClient.collapsed": "收起",
+	"settingsClient.changesAria.expand": "{count} 项已修改，展开改动列表",
+	"settingsClient.changesAria.collapse": "{count} 项已修改，收起改动列表",
 	// ── Schema section titles (zh default mirrors SETTINGS_SCHEMA const) ──
 	"settingsClient.schema.section.twoFactor.title": "账户安全",
 	"settingsClient.schema.section.platform.title": "平台信息",
@@ -148,7 +146,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.toc.offsite.subtitle": "S3 / 推送窗口 / 保留",
 	"settingsClient.toc.aiOps.subtitle": "运行模式 / AI 提供商",
 	"settingsClient.toc.smtp.titleShort": "邮件通知",
-	"settingsClient.toc.fieldsCount.suffix": " 项",
+	"settingsClient.toc.fieldsCount": "{count} 项",
 
 	// ── Field labels (44 unique) ──
 	"settingsClient.field.platform.name.label": "平台名称",
@@ -178,7 +176,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.field.offsite.accessKeyId.label": "Access Key ID",
 	"settingsClient.field.offsite.secretAccessKey.label": "Secret Access Key",
 	"settingsClient.field.offsite.pathPrefix.label": "路径前缀",
-	"settingsClient.field.offsite.dailyWindowHour.label": "每日推送窗口 (小时)",
+	"settingsClient.field.offsite.dailyWindowHour.label": "每日推送窗口（小时）",
 	"settingsClient.field.offsite.retentionDays.label": "保留天数",
 	"settingsClient.field.offsite.failureAlertRecipient.label": "失败告警收件人",
 	"settingsClient.field.ai.ops.mode.label": "运行模式",
@@ -204,7 +202,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.option.offsite.provider.s3": "AWS S3",
 	"settingsClient.option.offsite.provider.r2": "Cloudflare R2",
 	"settingsClient.option.offsite.provider.b2": "Backblaze B2",
-	"settingsClient.option.offsite.provider.minio": "MinIO (自建)",
+	"settingsClient.option.offsite.provider.minio": "MinIO（自建）",
 	"settingsClient.option.aiOps.mode.recommendation": "建议模式（需人工审批）",
 	"settingsClient.option.aiOps.mode.autonomous": "自主模式（白名单内自动执行）",
 
@@ -269,7 +267,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.validate.smtp.from.invalid": "发件人地址格式不正确",
 	"settingsClient.validate.smtp.recipients.invalidPrefix": "告警收件人地址格式不正确：{invalid}",
 	"settingsClient.validate.sshIdle.notNumber": "SSH 空闲超时 必须是数字秒数",
-	"settingsClient.validate.sshIdle.outOfRange": "SSH 空闲超时 必须在 60 到 7200 秒之间 (0 表示永不)",
+	"settingsClient.validate.sshIdle.outOfRange": "SSH 空闲超时必须在 60 到 7200 秒之间（0 表示永不）",
 	"settingsClient.validate.telegram.chatId.required": "Telegram Chat ID 至少配置 1 个目标",
 	"settingsClient.validate.telegram.chatId.invalidPrefix": "Telegram Chat ID 格式不正确：{invalid}（应为数字或 @channelusername）",
 	"settingsClient.validate.offsite.pathPrefix.noSlash": "路径前缀必须以 / 结尾",

@@ -95,8 +95,8 @@ export const zh: Record<string, string> = {
 	"healthPage.ui.memory": "内存",
 	"healthPage.ui.disk": "磁盘",
 	"healthPage.ui.uptime": "运行时间",
-	"healthPage.ui.collapse": "收起 ▲",
-	"healthPage.ui.trend": "趋势 ▼",
+	"healthPage.ui.collapse": "收起",
+	"healthPage.ui.trend": "趋势",
 	"healthPage.sparkline.noHistoryData": "暂无历史数据",
 
 	// Repair: db
@@ -267,8 +267,8 @@ export const en: Record<string, string> = {
 	"healthPage.ui.memory": "Memory",
 	"healthPage.ui.disk": "Disk",
 	"healthPage.ui.uptime": "Uptime",
-	"healthPage.ui.collapse": "Collapse ▲",
-	"healthPage.ui.trend": "Trend ▼",
+	"healthPage.ui.collapse": "Collapse",
+	"healthPage.ui.trend": "Trend",
 	"healthPage.sparkline.noHistoryData": "No history data yet",
 
 	// Repair: db

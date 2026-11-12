@@ -151,7 +151,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
           await uploadViaXhr(serverId, formData, (update) => {
             setUploads((prev) => prev.map((item) => item.id === uploadId ? { ...item, ...update } : item));
           }, {
-            uploadFailed: (status) => t("sshFileManager.uploadFailed", { status }),
+            uploadFailed: (status, reason) => (reason ? t("sshFileManager.uploadFailedReason", { status, reason }) : t("sshFileManager.uploadFailed", { status })),
             networkError: t("sshFileManager.networkError"),
           });
         } catch (error) {
@@ -274,7 +274,7 @@ function uploadViaXhr(
   serverId: string,
   formData: FormData,
   onUpdate: (update: Partial<UploadProgress>) => void,
-  errorMsgs: { uploadFailed: (status: number) => string; networkError: string },
+  errorMsgs: { uploadFailed: (status: number, reason?: string | null) => string; networkError: string },
 ) {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -295,8 +295,7 @@ function uploadViaXhr(
       }
       // The status alone ("Upload failed (403)") does not say whether the
       // folder is read-only, gone, or the file too large; the server does.
-      const reason = uploadFailureReason(xhr);
-      const msg = reason ? `${errorMsgs.uploadFailed(xhr.status)}: ${reason}` : errorMsgs.uploadFailed(xhr.status);
+      const msg = errorMsgs.uploadFailed(xhr.status, uploadFailureReason(xhr));
       onUpdate({ status: "error", error: msg });
       reject(new Error(msg));
     };

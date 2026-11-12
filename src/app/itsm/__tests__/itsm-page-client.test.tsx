@@ -201,6 +201,6 @@ describe("ItsmPageClient destructive UX", () => {
 		render(wrap(<ItsmPageClient initialConnections={[connection]} initialEvents={[event]} canManage publicBaseUrl="https://example.test" />));
 
 		expect(screen.getByText("仅出站 · 工单已创建 · 成功")).toBeInTheDocument();
-		expect(screen.getByText("关联工单: ticket-1")).toBeInTheDocument();
+		expect(screen.getByText("关联工单：ticket-1")).toBeInTheDocument();
 	});
 });

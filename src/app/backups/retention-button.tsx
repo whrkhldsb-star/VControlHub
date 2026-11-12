@@ -116,11 +116,11 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
       </p>
       {taskId && (
         <p role="status" className="text-xs text-[var(--success)]">
-          {t("backupsPage.retention.queuedPrefix")} <Link href="/operation-tasks" className="underline">{t("backupsPage.retry.taskCenter")}</Link> {t("backupsPage.retention.queuedSuffix", { taskId })}
+          {t("backupsPage.retention.queued", { taskId })} <Link href="/operation-tasks" className="underline">{t("backupsPage.retry.taskCenter")}</Link>
         </p>
       )}
       {error && (
-        <p role="alert" className="text-xs text-[var(--danger)]">{t("backupsPage.retention.error")}: {error}</p>
+        <p role="alert" className="text-xs text-[var(--danger)]">{t("backupsPage.retention.error")}{t("common.colon")}{error}</p>
       )}
     </form>
   );

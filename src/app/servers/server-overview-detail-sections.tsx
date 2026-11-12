@@ -85,12 +85,12 @@ export function OsDialectSection({
 				<div className="mt-1.5 flex flex-wrap gap-1.5">
 					{pm ? (
 						<Badge>
-							{t("serverOverviewDetails.packageManager")}: {pm}
+							{t("serverOverviewDetails.packageManager")}{t("common.colon")}{pm}
 						</Badge>
 					) : null}
 					{sm ? (
 						<Badge>
-							{t("serverOverviewDetails.serviceManager")}: {sm}
+							{t("serverOverviewDetails.serviceManager")}{t("common.colon")}{sm}
 						</Badge>
 					) : null}
 				</div>

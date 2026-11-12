@@ -606,7 +606,7 @@ export function BoardSummary({ summary, metrics, nowMs, refreshedAt, generatedAt
 			) : null}
 			<div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-[var(--text-muted)]">
 				<p className="flex flex-wrap gap-x-3 gap-y-0.5">
-					<span>{t("publicStatus.summary.lastSample")}: {summary.lastSampleAt ? formatAge(summary.lastSampleAt, nowMs, locale) : "—"}</span>
+					<span>{t("publicStatus.summary.lastSample")}{t("common.colon")}{summary.lastSampleAt ? formatAge(summary.lastSampleAt, nowMs, locale) : "—"}</span>
 					<span>{t("publicStatus.summary.pageRefreshed", { age: formatAge(new Date(refreshedAt).toISOString(), nowMs, locale) })}</span>
 				</p>
 				<TileSettings available={tiles.map((tile) => tile.key)} hidden={hidden} onChange={onHiddenChange} t={t} />

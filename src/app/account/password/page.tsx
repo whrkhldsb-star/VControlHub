@@ -19,7 +19,7 @@ export default async function AccountPasswordPage() {
 
         <aside data-card className="self-start">
           <h2 className="ui-title-section">{t("accountPasswordPage.securityTips", locale)}</h2>
-          <ul className="mt-4 space-y-3 text-sm leading-7 text-[var(--text-secondary)]">
+          <ul className="mt-4 list-disc space-y-3 pl-5 text-sm leading-7 text-[var(--text-secondary)] marker:text-[var(--text-muted)]">
             <li>{t("accountPasswordPage.tip1", locale)}</li>
             <li>{t("accountPasswordPage.tip2", locale)}</li>
             <li>{t("accountPasswordPage.tip3", locale)}</li>

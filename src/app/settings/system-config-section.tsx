@@ -303,7 +303,7 @@ export function SystemConfigSection({
 
         {exportMode === "full" && (
           <Notice tone="warning" compact>
-            ⚠ {t("systemConfig.export.fullWarning")}
+            {t("systemConfig.export.fullWarning")}
           </Notice>
         )}
 
@@ -394,7 +394,7 @@ export function SystemConfigSection({
                 <div key={table} className="flex justify-between text-xs text-[var(--text-primary)]">
                   <span>{t(table)}</span>
                   <span className="text-[var(--text-secondary)]">
-                    +{counts.create} ↻{counts.update} ⊘{counts.skip}
+                    {t("systemConfig.import.preview.counts", { create: counts.create, update: counts.update, skip: counts.skip })}
                   </span>
                 </div>
               ))}
@@ -407,7 +407,7 @@ export function SystemConfigSection({
                   {t("systemConfig.import.preview.warnings")}
                 </span>
                 {preview.warnings.map((w, i) => (
-                  <p key={i} className="text-xs text-[var(--warning)] light:text-[var(--warning)]">⚠ {t(w)}</p>
+                  <p key={i} className="text-xs text-[var(--warning)]">{t(w)}</p>
                 ))}
               </div>
             )}

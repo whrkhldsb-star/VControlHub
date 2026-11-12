@@ -594,7 +594,7 @@ describe("TextPreviewClient editable mode", () => {
   });
 
   it("says why the server refused a read-only preview, and falls back to the status when it said nothing", async () => {
-    // The download is read as it comes, so its refusal was shown as "加载失败: 403" whatever the server answered.
+    // The download is read as it comes, so its refusal was shown as "加载失败：403" whatever the server answered.
     vi.mocked(csrfFetch).mockResolvedValueOnce(new Response(JSON.stringify({ code: "FORBIDDEN", error: "Forbidden", message: "没有此存储节点或路径的访问授权" }), { status: 403 }));
     const first = render(<TextPreviewClient href="/download/notes.txt" name="notes.txt" />);
     expect(await screen.findByText("没有此存储节点或路径的访问授权")).toBeInTheDocument();
@@ -602,7 +602,7 @@ describe("TextPreviewClient editable mode", () => {
 
     vi.mocked(csrfFetch).mockResolvedValueOnce(new Response("<html>502 Bad Gateway</html>", { status: 502 }));
     render(<TextPreviewClient href="/download/notes.txt" name="notes.txt" />);
-    expect(await screen.findByText("加载失败: 502")).toBeInTheDocument();
+    expect(await screen.findByText("加载失败：502")).toBeInTheDocument();
     expect(screen.queryByText(/Bad Gateway/)).not.toBeInTheDocument();
   });
 

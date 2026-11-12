@@ -99,8 +99,7 @@ export function ContentSearchResults({ state, onOpen }: {
 	return (
 		<div className="space-y-2">
 			<p className="text-xs text-[var(--text-secondary)]">
-				{t("filesBrowserSpa.contentSearchResults", { query: state.lastQuery, count: state.results.length })}
-				{state.truncated ? t("filesBrowserSpa.contentSearchTruncated") : ""}
+				{t(state.truncated ? "filesBrowserSpa.contentSearchResultsTruncated" : "filesBrowserSpa.contentSearchResults", { query: state.lastQuery, count: state.results.length })}
 			</p>
 			{state.results.map((hit, idx) => (
 				<div key={`${hit.nodeId}-${hit.relativePath}-${idx}`} data-inset className="p-3">

@@ -88,8 +88,7 @@ export const zh: Record<string, string> = {
 	"scheduledTasks.source.manual": "来源：手动创建",
 	"scheduledTasks.selectAll": "选择全部服务器",
 	"scheduledTasks.clearSelection": "清空选择",
-	"scheduledTasksPage.delete.descPrefix": "即将删除定时任务 ",
-	"scheduledTasksPage.delete.descSuffix": "。删除后该任务将停止调度，历史结果不会再通过此任务入口追踪。",
+	"scheduledTasksPage.delete.desc": "即将删除定时任务「{name}」。删除后它不再执行，历史结果也不能再从这里查看。",
 };
 
 export const en: Record<string, string> = {
@@ -175,6 +174,5 @@ export const en: Record<string, string> = {
 	"scheduledTasks.source.manual": "Source: manual",
 	"scheduledTasks.selectAll": "Select all servers",
 	"scheduledTasks.clearSelection": "Clear selection",
-	"scheduledTasksPage.delete.descPrefix": "About to delete scheduled task ",
-	"scheduledTasksPage.delete.descSuffix": ". After deletion it will stop being scheduled and historical results will no longer be available through this entry.",
+	"scheduledTasksPage.delete.desc": "About to delete the scheduled task “{name}”. It will no longer run, and its past results can no longer be opened from here.",
 };

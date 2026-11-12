@@ -17,6 +17,8 @@ import { clearIfUnchanged } from "@/lib/ui/form-draft";
 import { EmptyState } from "@/components/page-shell";
 import { RefreshCw } from "@/components/icons";
 
+import { syncResultLabel } from "./sync-result-label";
+
 type ServerOption = { id: string; name: string; host: string | null };
 
 type SyncJobRow = {
@@ -371,7 +373,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                 {job.sourceServer.name}:{job.sourcePath} {job.syncType === "BIDIRECTIONAL" ? "↔" : "→"} {job.targetServer.name}:{job.targetPath}
               </p>
               {job.lastSyncResult ? (
-                <p className="mt-1 text-[var(--text-secondary)]">{job.lastSyncResult}</p>
+                <p className="mt-1 text-[var(--text-secondary)]">{syncResultLabel(job.lastSyncResult, t)}</p>
               ) : null}
               {reportJobId === job.id && report ? (
                 <div className="mt-2 rounded border border-[var(--border)] bg-[var(--surface-elevated)] p-2">

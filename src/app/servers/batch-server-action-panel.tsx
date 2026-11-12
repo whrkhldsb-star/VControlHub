@@ -98,8 +98,8 @@ export function BatchServerActionPanel({
           {allSelected ? t("serversPage.batchPanel.clear") : t("serversPage.batchPanel.selectAll")}
         </ActionButton>
         {someSelected ? <span aria-hidden="true">·</span> : null}
-        <span>{t("serversPage.batchPanel.enabled")}: {enabledSelectedCount}</span>
-        <span>{t("serversPage.batchPanel.disabled")}: {disabledSelectedCount}</span>
+        <span>{t("serversPage.batchPanel.enabled")}{t("common.colon")}{enabledSelectedCount}</span>
+        <span>{t("serversPage.batchPanel.disabled")}{t("common.colon")}{disabledSelectedCount}</span>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

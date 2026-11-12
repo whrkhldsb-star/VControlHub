@@ -144,6 +144,26 @@ describe("UserManagementClient", () => {
     expect(screen.getByText("只读")).toBeInTheDocument();
   });
 
+  it("offers the account type as one choice of two, and shows the customer fields for a customer account only", async () => {
+    // The two types were filter chips inside a "radiogroup": announced as radio buttons, which they were not.
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockImplementation(((url: string) => {
+      if (url.startsWith("/api/teams")) return Promise.resolve({ teams: [{ id: "team_a", name: "Acme" }] });
+      if (url.startsWith("/api/identity-templates")) return Promise.resolve({ templates: [{ id: "identity:viewer", name: "客户只读", isBuiltin: true }] });
+      return Promise.resolve({ users: [] });
+    }) as never);
+    render(<UserManagementClient canManage />);
+    await actor.click(await screen.findByRole("button", { name: "创建用户" }));
+
+    const types = screen.getByRole("group", { name: "账号类型" });
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(within(types).getByRole("button", { name: "客户账号" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("所属客户")).toBeInTheDocument();
+    await actor.click(within(types).getByRole("button", { name: "平台管理员" }));
+    expect(within(types).getByRole("button", { name: "平台管理员" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByLabelText("所属客户")).not.toBeInTheDocument();
+  });
+
   it("keeps a next user typed while the previous one was being created", async () => {
     // The first create's success reset the form and closed it, losing B.
     const actor = userEvent.setup();

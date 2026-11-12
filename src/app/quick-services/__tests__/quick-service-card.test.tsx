@@ -19,7 +19,7 @@ describe("ServiceCard popularity", () => {
 		// It divided by a thousand and wrote "k" after it: "3400k 次拉取", and "0k" for anything under five hundred.
 		const zh = renderWithI18n(card());
 		expect(screen.getByText("每月 340万 次拉取")).toBeInTheDocument();
-		expect(screen.getByText("⭐ 512")).toBeInTheDocument();
+		expect(screen.getByText("512 个星标")).toBeInTheDocument();
 		zh.unmount();
 		const small = renderWithI18n(card({ monthlyPulls: 320 }));
 		expect(screen.getByText("每月 320 次拉取")).toBeInTheDocument();

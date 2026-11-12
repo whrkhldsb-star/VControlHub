@@ -18,6 +18,7 @@ import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, Chip } from "@/components/ui-primitives";
 import { Plus } from "@/components/icons";
+import { IconFileCode } from "@/components/nav-icons";
 
 type Props = {
 	templates: Template[];
@@ -192,14 +193,14 @@ export function TemplateListClient({
 				// Templates exist and none carries the tag in the address (a bookmark, a tag since removed):
 				// "no templates" over an unselected row of chips did not say why.
 				<EmptyState
-					icon="📝"
+					icon={<IconFileCode size={20} />}
 					variant="boxed"
 					action={<ActionButton size="sm" variant="outline" onClick={() => setFilterTag(null)}>{t("templatesPage.filter.clear")}</ActionButton>}
 				>
 					{t("templatesPage.emptyForTag", { tag: filterTag })}
 				</EmptyState>
 			) : filtered.length === 0 ? (
-				<EmptyState icon="📝" variant="boxed">
+				<EmptyState icon={<IconFileCode size={20} />} variant="boxed">
 					{t("templatesPage.empty")}
 				</EmptyState>
 			) : (

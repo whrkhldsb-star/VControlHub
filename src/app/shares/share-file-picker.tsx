@@ -129,8 +129,6 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 		file: t("sharesPage.picker.file"),
 		selectFolder: t("sharesPage.picker.selectFolder"),
 		selectFile: t("sharesPage.picker.selectFile"),
-		selectedPrefix: t("sharesPage.picker.selectedPrefix"),
-		selectedSuffix: t("sharesPage.picker.selectedSuffix"),
 		selectedHint: t("sharesPage.picker.selectedHint"),
 		clear: t("sharesPage.picker.clear"),
 		selectedEmpty: t("sharesPage.picker.selectedEmpty"),
@@ -375,7 +373,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				<aside className="min-w-0 border-t border-[var(--border)] pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<h3 className="ui-title-group">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
+							<h3 className="ui-title-group">{t("sharesPage.picker.selectedCount", { count: selectedItems.length })}</h3>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{copyText.selectedHint}</p>
 						</div>
 						<ActionButton variant="ghost" disabled={creating} onClick={() => setSelected({})} className="shrink-0 whitespace-nowrap">{copyText.clear}</ActionButton>

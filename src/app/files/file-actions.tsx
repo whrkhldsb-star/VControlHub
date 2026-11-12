@@ -361,10 +361,7 @@ function DeleteDialog({ targets, onClose, onDone, onQueued }: {
 	const attempt = useRef<string | null>(null);
 	const first = targets[0]!;
 	const description = targets.length === 1
-		? t("filesPage.actions.confirmDelete", {
-			name: first.name,
-			contents: first.entryType === "DIRECTORY" ? t("filesPage.actions.directoryContents") : "",
-		})
+		? t(first.entryType === "DIRECTORY" ? "filesPage.actions.confirmDeleteFolder" : "filesPage.actions.confirmDelete", { name: first.name })
 		: t("filesPage.drive.confirmDeleteMany", { count: targets.length });
 
 	async function confirm() {

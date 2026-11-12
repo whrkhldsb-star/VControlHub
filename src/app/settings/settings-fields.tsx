@@ -161,9 +161,6 @@ function HighRiskBlurWarning({ id }: { id: string }) {
     <Notice tone="danger" compact
       id={id}
       data-testid="high-risk-blur-warning">
-      <span aria-hidden className="mr-1">
-        ⚠
-      </span>
       {t("settingsClient.highRiskWarning")}
     </Notice>
   );

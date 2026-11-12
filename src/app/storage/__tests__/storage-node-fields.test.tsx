@@ -53,6 +53,13 @@ describe("StorageNodeFields", () => {
     );
   });
 
+  it("does not draw an untouched field as if it were wrong", () => {
+    // "Bind VPS" and "Remote host" carried the danger border at all times.
+    renderFields("SFTP");
+    expect(screen.getByLabelText(/Bind VPS/).className).not.toMatch(/danger/);
+    expect(screen.getByLabelText(/Remote host/).className).not.toMatch(/danger/);
+  });
+
   it("locks the driver and default checkbox for the active default node", () => {
     renderFields("LOCAL", { isDefault: true }, true);
 

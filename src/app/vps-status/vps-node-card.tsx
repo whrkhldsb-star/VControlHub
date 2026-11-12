@@ -20,6 +20,7 @@ import type { ServerHealth } from "@/app/health/health-types";
 import { SparklineChartLazy } from "@/app/health/sparkline-chart-lazy";
 import { Notice, ProgressBar } from "@/components/ui-primitives";
 import { StatusBadge } from "@/components/status-badge";
+import { IconChevronDown } from "@/components/nav-icons";
 
 /**
  * A transfer rate the health sweep measured in KiB per second (`networkInKbps` is a historical name: the value is
@@ -208,7 +209,7 @@ export function VpsNodeCard({
 
 			<div className="flex items-center justify-between border-t border-[var(--border-subtle)] px-4 py-2.5">
 				<span className="text-xs text-[var(--text-muted)]">
-					{t("healthPage.ui.lastRefresh")}:{" "}
+					{t("healthPage.ui.lastRefresh")}{t("common.colon")}
 					{server.lastCheck
 						? `${formatShortDate(server.lastCheck, locale)} ${formatShortTime(server.lastCheck, locale)}`
 						: "—"}
@@ -216,9 +217,11 @@ export function VpsNodeCard({
 				<button
 					type="button"
 					onClick={onToggle}
-					className="rounded-full px-2 py-1 text-xs font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
+					aria-expanded={expanded}
+					className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
 				>
 					{expanded ? t("healthPage.ui.collapse") : t("healthPage.ui.trend")}
+					<IconChevronDown size={12} className={expanded ? "rotate-180 transition-transform" : "transition-transform"} />
 				</button>
 			</div>
 
