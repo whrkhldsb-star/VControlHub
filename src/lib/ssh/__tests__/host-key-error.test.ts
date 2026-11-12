@@ -8,7 +8,16 @@ describe("isHostKeyRejection", () => {
   it("recognises what ssh2 actually reports when the host key verifier refuses the server", async () => {
     // Real handshake against a real ssh2 server: the wording is ssh2's, not ours, and has to be matched as is.
     // The client walks away mid key exchange; the server side reports that as an error of its own.
-    const server = new Server({ hostKeys: [utils.generateKeyPairSync("ed25519").private] }, (connection) => {
+    // In ssh2 v1.17, utils.generateKeyPairSync("ed25519") occasionally emits a key with stripped leading zeros;
+    // retry until a key is validly parsed.
+    let hostKey = "";
+    while (!hostKey) {
+      const candidate = utils.generateKeyPairSync("ed25519").private;
+      if (!(utils.parseKey(candidate) instanceof Error)) {
+        hostKey = candidate;
+      }
+    }
+    const server = new Server({ hostKeys: [hostKey] }, (connection) => {
       connection.on("error", () => undefined);
     });
     server.listen(0, "127.0.0.1");
