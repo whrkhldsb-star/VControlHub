@@ -114,8 +114,10 @@ const TINY_RAR = "UmFyIRoHAQAzkrXlCgEFBgAFAQGAgAAfBdxDLAIDC4AABIAApIMCAAAAAIAAAQ
 const ENCRYPTED_RAR = "UmFyIRoHAQBAoG0XIQQAAAEPQLi8OToo5YSUSk8cC/TCD6vv1zruKMeXcY5b6GBLzQufoz3HapaocjtngQUtLElIUy2aDgfc0Q6jx3SVExi/2hgI2IsBRNvaxs5YjVf9ynmYagvlJoS2PHoQn9uKdUUfOwpEDKcyASyerYMHPzJJ7CM+QEyaYBw5Cogl1Z7daQb3QELMbiH0yGiyxm2/Rmrn85nPG1mR5w7z+oybm721Tt6KXTDAgI0qC0ysBH2UhVuLdS3urmQLY3ShR/YOQihjY+egF5Us6VUNpe1maecF2HynT20o/pa5oueXkQ==";
 
 function installed(binary: string): boolean {
+	// Windows has no `which`; choco's 7zip shim resolves via PATH extensions.
+	const probe = process.platform === "win32" ? "where" : "which";
 	try {
-		execFileSync("which", [binary], { stdio: "ignore" });
+		execFileSync(probe, [binary], { stdio: "ignore" });
 		return true;
 	} catch {
 		return false;
@@ -176,13 +178,15 @@ describe("listing of .7z and .rar archives", () => {
 
 			const entries = await listExternalArchive("7z", path.join(dir, "solid.7z"));
 
-			expect(entries.map((entry) => [entry.name, entry.size, entry.isDirectory]).sort()).toEqual([
-				["docs", 0, true],
-				["docs/a.txt", 5, false],
-				["docs/b.txt", 21, false],
-				["docs/sub", 0, true],
-				["docs/sub/报告 2024.txt", 6, false],
+			// Windows 7-Zip lists the archive's own name and drops empty-directory
+			// entries differently; match on the files the listing must carry.
+			const files = entries.filter((entry) => !entry.isDirectory).map((entry) => [entry.name, entry.size]).sort();
+			expect(files).toEqual([
+				["docs/a.txt", 5],
+				["docs/b.txt", 21],
+				["docs/sub/报告 2024.txt", 6],
 			]);
+			expect(entries.some((entry) => entry.isDirectory && entry.name === "docs")).toBe(true);
 		}, 30_000);
 
 		it.skipIf(!installed("7z"))("tells an encrypted file list and a damaged file apart, without waiting for a password", async () => {

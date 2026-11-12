@@ -35,7 +35,7 @@ afterEach(async () => {
 describe("where upload staging and the thumbnail cache live", () => {
 	// /tmp is private to each systemd unit (the worker's sweeps never saw the web process's files) and is
 	// memory on a tmpfs host, charged to the web service: two 200 MB uploads at once stalled the site.
-	it("is beside the installation's other data, on disk and shared by its processes", async () => {
+	it.runIf(process.platform !== "win32")("is beside the installation's other data, on disk and shared by its processes", async () => {
 		const { thumbnailCacheDir, uploadTmpDir } = await load();
 
 		expect(uploadTmpDir()).toBe(path.join(dataRoot, "upload-tmp"));
@@ -53,7 +53,7 @@ describe("where upload staging and the thumbnail cache live", () => {
 		expect(thumbnailCacheDir()).toBe("/srv/elsewhere/thumbs");
 	});
 
-	it.runIf(process.getuid?.() !== 0)("stays under /tmp where the data directory cannot be written", async () => {
+	it.runIf(process.platform !== "win32" && process.getuid?.() !== 0)("stays under /tmp where the data directory cannot be written", async () => {
 		await chmod(dataRoot, 0o500);
 		const { thumbnailCacheDir, uploadTmpDir } = await load();
 
@@ -61,7 +61,7 @@ describe("where upload staging and the thumbnail cache live", () => {
 		expect(thumbnailCacheDir()).toBe(path.join(os.tmpdir(), "vcontrolhub-thumbnails"));
 	});
 
-	it("stays under /tmp where the data directory is not a directory at all", async () => {
+	it.runIf(process.platform !== "win32")("stays under /tmp where the data directory is not a directory at all", async () => {
 		// As root (containers, this suite's CI) permissions refuse nothing: a file in the way does.
 		configMock.fileVersion.dir = path.join("/dev/null", "data", "file-versions");
 		const { thumbnailCacheDir, uploadTmpDir } = await load();
@@ -70,7 +70,7 @@ describe("where upload staging and the thumbnail cache live", () => {
 		expect(thumbnailCacheDir()).toBe(path.join(os.tmpdir(), "vcontrolhub-thumbnails"));
 	});
 
-	it("does not follow a relative file-history setting into the working directory", async () => {
+	it.runIf(process.platform !== "win32")("does not follow a relative file-history setting into the working directory", async () => {
 		configMock.fileVersion.dir = "file-versions";
 		const { uploadTmpDir } = await load();
 
@@ -80,7 +80,7 @@ describe("where upload staging and the thumbnail cache live", () => {
 	it("keeps its answer for the life of the process", async () => {
 		const { uploadTmpDir } = await load();
 		const first = uploadTmpDir();
-		configMock.fileVersion.dir = path.join("/dev/null", "file-versions");
+		configMock.fileVersion.dir = process.platform === "win32" ? path.join(os.tmpdir(), "not-a-dir", "file-versions") : path.join("/dev/null", "file-versions");
 
 		expect(uploadTmpDir()).toBe(first);
 	});

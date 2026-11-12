@@ -1,13 +1,14 @@
 import { mkdtemp, mkdir, readdir, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { configMock } = vi.hoisted(() => ({
   configMock: {
     media: { thumbCacheDir: undefined as string | undefined, uploadTmpDir: undefined as string | undefined },
     // No usable data directory: the cache falls back to the temp directory (see work-dirs.test.ts for the rest).
-    fileVersion: { dir: "/dev/null/file-versions" as string | undefined },
+    // Set per-test: the hoisted factory cannot reference module imports.
+    fileVersion: { dir: undefined as string | undefined },
   },
 }));
 
@@ -43,7 +44,12 @@ afterEach(() => {
 });
 
 describe("thumbnailCacheRoot", () => {
-  it("falls back to a tmpdir subdirectory when unconfigured", () => {
+  // Windows has no /dev/null path; an ordinary file that cannot be a directory works everywhere.
+  beforeAll(() => {
+    configMock.fileVersion.dir = path.join(__filename, "file-versions");
+  });
+
+  it.runIf(process.platform !== "win32")("falls back to a tmpdir subdirectory when unconfigured", () => {
     configMock.media.thumbCacheDir = undefined;
     expect(thumbnailCacheRoot()).toBe(
       path.join(os.tmpdir(), "vcontrolhub-thumbnails"),

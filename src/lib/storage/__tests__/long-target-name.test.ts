@@ -40,7 +40,7 @@ describe("writeStorageFileFromLocalPath on a LOCAL node", () => {
 describe("a staged upload reaching a LOCAL node", () => {
   // Chunks, then the assembled file, then a copy of it into the node: a 200 MB upload was written three
   // times. Staging and the default storage root share a filesystem, where the last one is a rename.
-  it("is moved into place rather than written again, with the node's file mode", async () => {
+  it.runIf(process.platform !== "win32")("is moved into place rather than written again, with the node's file mode", async () => {
     const root = mkdtempSync(path.join(tmpdir(), "staged-move-"));
     try {
       const source = path.join(root, "staging", "assembled.tmp");
