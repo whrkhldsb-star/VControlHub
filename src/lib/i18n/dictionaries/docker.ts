@@ -38,7 +38,7 @@ export const zh: Record<string, string> = {
 	"dockerPage.project.modeCli": "docker compose",
 	"dockerPage.project.modeFallback": "Engine 回退",
 	"dockerPage.project.runningOf": "{running}/{total} 运行中",
-	"dockerPage.label.service": "service: {name}",
+	"dockerPage.label.service": "服务：{name}",
 	"dockerPage.label.version": "v{version}",
 	"dockerPage.loading": "加载中...",
 	"dockerPage.logsDialog.closeAria": "关闭容器日志",

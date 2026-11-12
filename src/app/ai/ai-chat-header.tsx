@@ -114,10 +114,12 @@ export function AiChatHeader({
           )}
         </div>
         <p className="mt-0.5 break-words text-xs text-[var(--text-muted)]">
-          {activeConv.enableVision && t("aiPage.vision")}
-          {currentModelCaps.video && t("aiPage.videoCap")}
-          {currentModelCaps.audio && t("aiPage.audioCap")}
-          {currentModelCaps.document && t("aiPage.documentCap")}
+          {[
+            activeConv.enableVision && t("aiPage.vision"),
+            currentModelCaps.video && t("aiPage.videoCap"),
+            currentModelCaps.audio && t("aiPage.audioCap"),
+            currentModelCaps.document && t("aiPage.documentCap"),
+          ].filter(Boolean).join(" · ")}
         </p>
       </div>
       <div className="flex max-w-full flex-wrap items-center gap-2">

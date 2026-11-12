@@ -1,3 +1,4 @@
+import { firstSearchParam } from "@/lib/http/first-search-param";
 import { getPublicLabel, getSiteName } from "@/lib/branding";
 import { BrandTile } from "@/components/nav-icons";
 import { LoginForm } from "./login-form";
@@ -11,11 +12,6 @@ export const dynamic = "force-dynamic";
 type LoginPageProps = {
 	searchParams?: Promise<{ next?: string | string[]; error?: string | string[]; minutes?: string | string[] }>;
 };
-
-/** Query parameters repeat into arrays; only the first value is meaningful. */
-function firstParam(value: string | string[] | undefined): string | undefined {
-	return Array.isArray(value) ? value[0] : value;
-}
 
 function resolveErrorMessage(locale: Locale, error?: string, rawMinutes?: string) {
 	// Shown inside the message: a number or nothing. Any other text in the URL would be printed as
@@ -44,7 +40,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 	const resolvedSearchParams = (await searchParams) ?? {};
 	const nextPath = safeRelativeRedirectPath(resolvedSearchParams.next);
 	const locale = await getServerLocale();
-	const error = resolveErrorMessage(locale, firstParam(resolvedSearchParams.error), firstParam(resolvedSearchParams.minutes));
+	const error = resolveErrorMessage(locale, firstSearchParam(resolvedSearchParams.error), firstSearchParam(resolvedSearchParams.minutes));
 	// Server component: read the live environment so tests and runtime config
 	// changes are reflected. Client components use the inlined public value.
 	const publicLabel = getPublicLabel(process.env);

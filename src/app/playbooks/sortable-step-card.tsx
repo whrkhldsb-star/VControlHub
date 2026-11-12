@@ -7,6 +7,7 @@ import { fieldInputClass, stepTypeLabel, defaultConfigFor } from "./playbook-typ
 import type { SerializedStep, StepType, ServerOption } from "./playbook-types";
 import { StepConfigEditor } from "./step-config-editor";
 import { ActionButton } from "@/components/action-button";
+import { NumberInput } from "@/components/ui/number-input";
 
 export function SortableStepCard({
 	step,
@@ -84,26 +85,24 @@ export function SortableStepCard({
 			<div className="grid gap-2 md:grid-cols-2">
 				<div className="space-y-1">
 					<label className="ui-label">{t("playbooksPage.createForm.retry")}</label>
-					<input
-						type="number"
+					<NumberInput
 						min={0}
 						max={5}
+						integer
 						value={step.retry}
 						aria-label={t("playbooksPage.createForm.retry")}
-						onChange={(e) => onUpdate(step.id, { retry: Number(e.target.value) })}
-						className={fieldInputClass}
+						onValueChange={(retry) => onUpdate(step.id, { retry })}
 					/>
 				</div>
 				<div className="space-y-1">
 					<label className="ui-label">{t("playbooksPage.createForm.timeoutSec")}</label>
-					<input
-						type="number"
+					<NumberInput
 						min={1}
 						max={3600}
+						integer
 						value={step.timeoutSec}
 						aria-label={t("playbooksPage.createForm.timeoutSec")}
-						onChange={(e) => onUpdate(step.id, { timeoutSec: Number(e.target.value) })}
-						className={fieldInputClass}
+						onValueChange={(timeoutSec) => onUpdate(step.id, { timeoutSec })}
 					/>
 				</div>
 			</div>

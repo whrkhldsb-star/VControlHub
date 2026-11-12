@@ -4,6 +4,7 @@ import { ActionButton } from "@/components/action-button";
 import { Dialog } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 /**
  * Modal dialog for renaming an AI conversation.
  *
@@ -56,6 +57,8 @@ export function AiRenameDialog({
           value={title}
           onChange={(event) => onChangeTitle(event.target.value)}
           onKeyDown={(event) => {
+            // The Enter that picks a candidate of an input method belongs to the title, not to the dialog.
+            if (isImeComposition(event)) return;
             if (event.key === "Enter" && title.trim() && !busy) onConfirm();
           }}
           autoFocus

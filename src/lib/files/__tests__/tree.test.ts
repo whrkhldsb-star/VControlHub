@@ -51,12 +51,12 @@ describe("file tree helpers", () => {
 
   it("resolves internal grouped paths back to their storage node and remote path", () => {
     const nodes = [
-      { id: "cmps1rmyz00018qv26pty0w74", name: "45.207.216.45 存储", driver: "SFTP" },
+      { id: "cmps1rmyz00018qv26pty0w74", name: "198.51.100.45 存储", driver: "SFTP" },
       { id: "node_local_default", name: "本机默认存储", driver: "LOCAL" },
     ];
     const groupKey = getStorageNodeGroupKey(nodes[0]!);
 
-    expect(groupKey).toBe("45.207.216.45 存储__cmps1rmy");
+    expect(groupKey).toBe("198.51.100.45 存储__cmps1rmy");
     expect(resolveStorageNodeGroupedPath(`${groupKey}/probe/new-folder`, nodes)).toEqual({
       node: nodes[0],
       groupPath: groupKey,

@@ -18,7 +18,7 @@ vi.mock("@/lib/i18n/use-locale", async (importOriginal) => {
 	const mod = await importOriginal<typeof import("@/lib/i18n/use-locale")>();
 	const translations = await import("@/lib/i18n/translations");
 	let currentLocale: "zh" | "en" = "zh";
-	const buildT = () => (key: string) => translations.t(key, currentLocale);
+	const buildT = () => (key: string, vars?: Record<string, string | number>) => translations.t(key, currentLocale, vars);
 	const useI18nMock = vi.fn(() => ({
 		locale: currentLocale,
 		t: buildT(),
@@ -38,6 +38,8 @@ const setI18nLocale = (locale: "zh" | "en") => {
 	(globalThis as { __setI18nLocale?: (l: "zh" | "en") => void }).__setI18nLocale?.(locale);
 };
 
+const EMPTY = "当前目录没有可分享条目";
+
 describe("ShareFilePicker", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
@@ -45,6 +47,20 @@ describe("ShareFilePicker", () => {
 		refresh.mockReset();
 		// Reset i18n to default Chinese after a test that flipped to English
 		setI18nLocale("zh");
+	});
+	it("does not call a folder empty when its listing could not be loaded", async () => {
+		const user = userEvent.setup();
+		mockedFetch.mockRejectedValueOnce(new Error("存储节点不可达"));
+		render(<ShareFilePicker nodes={[{id:"node_1",name:"Storage",driver:"LOCAL"}]} />);
+		expect(await screen.findByText("存储节点不可达")).toBeInTheDocument();
+		// "No files or folders here" under the reason said the opposite of it.
+		expect(screen.queryByText(EMPTY)).not.toBeInTheDocument();
+
+		// Loaded again and really empty: now it says so.
+		mockedFetch.mockResolvedValueOnce({currentPath:"",nodeIdFilter:"node_1",folders:[],nodes:[],files:[]});
+		await user.click(screen.getByRole("button",{name:/刷新当前目录/}));
+		expect(await screen.findByText(EMPTY)).toBeInTheDocument();
+		expect(screen.queryByText("存储节点不可达")).not.toBeInTheDocument();
 	});
 	it("keeps selections while browsing later file pages",async () => {
 		const user = userEvent.setup();
@@ -108,7 +124,7 @@ describe("ShareFilePicker", () => {
 		expect(await screen.findByRole("heading", { name: "Choose files in Shares" })).toBeInTheDocument();
 		expect(screen.getByText("本机默认存储 · Local storage")).toBeInTheDocument();
 		expect(await screen.findByText("No shareable items in this folder")).toBeInTheDocument();
-		expect(screen.getByText("Selected 0 items")).toBeInTheDocument();
+		expect(screen.getByText("0 selected")).toBeInTheDocument();
 		expect(screen.getByText("Select files or folders on the left")).toBeInTheDocument();
 	});
 

@@ -96,6 +96,20 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		clearLoginFailureMock.mockResolvedValue(undefined);
 	});
 
+	it("answers a wrong code in the language of the sign-in page", async () => {
+		// The route is not behind withApiRoute: its messages had no request to read a language from and were English
+		// for everyone, on the one screen every user with two-factor authentication sees.
+		verifyTotpMock.mockResolvedValue({ valid: false });
+		recordLoginFailureMock.mockResolvedValue({ locked: false, failCount: 1 });
+		const ask = async (headers: Record<string, string>) => {
+			const response = await POST(new Request("https://hub.example/api/auth/2fa/verify-login", { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify({ code: "123456" }) }));
+			return (await response.json()).message as string;
+		};
+		expect(await ask({ cookie: "vps-locale=zh" })).toBe("验证码错误");
+		expect(await ask({ "accept-language": "zh-CN,zh;q=0.9" })).toBe("验证码错误");
+		expect(await ask({ cookie: "vps-locale=en" })).toBe("Verification code is incorrect");
+	});
+
 	it("counts second-factor attempts in their own rate-limit bucket", async () => {
 		// Keyed by the bare IP it shared one window with the AI chat (20 a
 		// minute): five chat messages locked every 2FA check from that address out.

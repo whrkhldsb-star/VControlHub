@@ -17,7 +17,8 @@ export function DeployButton({
 }: {
 	template: Template;
 	servers: ServerOption[];
-	onDeploy: (t: Template, s: string[], v: Record<string, string>) => void;
+	/** Resolves to whether the deployment was accepted. */
+	onDeploy: (t: Template, s: string[], v: Record<string, string>) => Promise<boolean>;
 	loading: boolean;
 }) {
 	const { t } = useI18n();
@@ -59,6 +60,10 @@ export function DeployButton({
 					</div>
 				);
 			})}
+			{enabledServers.length === 0 ? (
+				// A disabled button over an empty row of targets said nothing.
+				<p className="text-xs text-[var(--text-muted)]">{t("templatesPage.deploy.noServers")}</p>
+			) : null}
 			<div className="flex flex-wrap gap-1">
 				{enabledServers.map((s) => (
 					<label
@@ -87,7 +92,8 @@ export function DeployButton({
 			<div className="flex gap-2">
 				<ActionButton size="sm"
 					type="button"
-					onClick={() => onDeploy(template, [...selectedIds], vars)}
+					// Sent: the panel folds away, so that a second press does not send it again.
+					onClick={() => { void onDeploy(template, [...selectedIds], vars).then((accepted) => { if (accepted) setOpen(false); }); }}
 					disabled={loading || selectedIds.size === 0}>
 					{loading ? t("templatesPage.action.submitting") : t("templatesPage.action.submit")}
 				</ActionButton>

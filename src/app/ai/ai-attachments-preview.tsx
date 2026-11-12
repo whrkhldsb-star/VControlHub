@@ -15,6 +15,7 @@ import { Video, Music2, File } from "@/components/icons";
 import type { FileAttachment } from "./ai-types";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { isImeComposition } from "@/lib/ui/keyboard";
 
 type Props = {
   enableVision: boolean;
@@ -159,7 +160,7 @@ export function AiAttachmentsPreview({
               placeholder={t("aiPage.imageUrlPlaceholder")}
               className={cn(UI_INPUT, "flex-1 text-xs")}
               onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
+                if (isImeComposition(e) || e.key !== "Enter") return;
                 const raw = imageUrlInput.trim();
                 if (!raw) return;
                 let ok = false;

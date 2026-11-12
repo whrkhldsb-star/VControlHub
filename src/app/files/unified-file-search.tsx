@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { buildSearchHref } from "./file-entry-utils";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { describeFailure } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Notice, SegmentedControl } from "@/components/ui-primitives";
@@ -74,7 +75,8 @@ export function useContentSearch({ nodeId, searchPath }: { nodeId?: string; sear
 			} catch (error) {
 				if (error instanceof Error && error.name === "AbortError") return;
 				if (requestId !== requestRef.current) return;
-				setState({ results: [], loading: false, error: t("filesBrowserSpa.contentSearchError"), truncated: false, lastQuery: query });
+				// With the server's reason: too many searches, a query it does not take, a node it cannot read.
+				setState({ results: [], loading: false, error: describeFailure(t("filesBrowserSpa.contentSearchError"), error), truncated: false, lastQuery: query });
 			}
 		})();
 	}, [nodeId, searchPath, t]);
@@ -97,8 +99,7 @@ export function ContentSearchResults({ state, onOpen }: {
 	return (
 		<div className="space-y-2">
 			<p className="text-xs text-[var(--text-secondary)]">
-				{t("filesBrowserSpa.contentSearchResults", { query: state.lastQuery, count: state.results.length })}
-				{state.truncated ? t("filesBrowserSpa.contentSearchTruncated") : ""}
+				{t(state.truncated ? "filesBrowserSpa.contentSearchResultsTruncated" : "filesBrowserSpa.contentSearchResults", { query: state.lastQuery, count: state.results.length })}
 			</p>
 			{state.results.map((hit, idx) => (
 				<div key={`${hit.nodeId}-${hit.relativePath}-${idx}`} data-inset className="p-3">

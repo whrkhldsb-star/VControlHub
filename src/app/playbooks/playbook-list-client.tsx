@@ -14,7 +14,6 @@ import { PlaybookDeleteDialog } from "./playbook-delete-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { PaginatedList } from "@/components/paginated-list";
-import { Notice } from "@/components/ui-primitives";
 
 const RUN_POLL_DELAYS_MS = [2_000, 5_000, 10_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 240_000, 300_000] as const;
 
@@ -42,7 +41,8 @@ export function PlaybookListClient({
   const [runsByPlaybook, setRunsByPlaybook] = useState(initialRuns);
   const [showCreate, setShowCreate] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<SerializedPlaybook | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  // A refused deletion is said in its dialog; every other action answers with a toast, where the click was.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   const refreshRuns = useCallback(async (playbookId: string) => {
@@ -52,9 +52,14 @@ export function PlaybookListClient({
   }, []);
 
   const refresh = useCallback(async () => {
-    const data = await csrfFetch<{ playbooks: SerializedPlaybook[] }>("/api/playbooks");
-    setPlaybooks(data.playbooks ?? []);
-  }, []);
+    try {
+      const data = await csrfFetch<{ playbooks: SerializedPlaybook[] }>("/api/playbooks");
+      setPlaybooks(data.playbooks ?? []);
+    } catch (err) {
+      // The action itself went through; only the list could not be read again.
+      addToast("error", getErrorMessage(err, t("playbooksPage.error.load")));
+    }
+  }, [addToast, t]);
 
 
   const runPollTimersRef = useRef<Map<string, number>>(new Map());
@@ -113,7 +118,6 @@ export function PlaybookListClient({
 
   const handleTrigger = useCallback(
     async (id: string, kind: "run" | "dry-run") => {
-      setActionError(null);
       const actionKey = `${kind}:${id}`;
       setBusyAction(actionKey);
       try {
@@ -155,7 +159,7 @@ export function PlaybookListClient({
           );
         }
       } catch (err) {
-        setActionError(getErrorMessage(err, t("playbooksPage.error.load")));
+        addToast("error", getErrorMessage(err, t(kind === "dry-run" ? "playbooksPage.error.dryRun" : "playbooksPage.error.run")));
       } finally {
         setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
@@ -165,7 +169,6 @@ export function PlaybookListClient({
 
   const handleClaim = useCallback(
     async (playbook: SerializedPlaybook) => {
-      setActionError(null);
       const actionKey = `claim:${playbook.id}`;
       setBusyAction(actionKey);
       try {
@@ -177,7 +180,7 @@ export function PlaybookListClient({
         addToast("success", t("playbooksPage.toast.claimed"));
         void refresh();
       } catch (err) {
-        setActionError(getErrorMessage(err, t("playbooksPage.error.claim")));
+        addToast("error", getErrorMessage(err, t("playbooksPage.error.claim")));
       } finally {
         setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
@@ -187,7 +190,6 @@ export function PlaybookListClient({
 
   const handleToggle = useCallback(
     async (playbook: SerializedPlaybook) => {
-      setActionError(null);
       const actionKey = `toggle:${playbook.id}`;
       setBusyAction(actionKey);
       try {
@@ -196,10 +198,10 @@ export function PlaybookListClient({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: playbook.id, enabled: !playbook.enabled }),
         });
-        addToast("success", t("playbooksPage.toast.toggled"));
+        addToast("success", t(playbook.enabled ? "playbooksPage.toast.disabled" : "playbooksPage.toast.enabled", { name: playbook.name }));
         void refresh();
       } catch (err) {
-        setActionError(getErrorMessage(err, t("playbooksPage.error.toggle")));
+        addToast("error", getErrorMessage(err, t(playbook.enabled ? "playbooksPage.error.disable" : "playbooksPage.error.enable", { name: playbook.name })));
       } finally {
         setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
@@ -209,7 +211,7 @@ export function PlaybookListClient({
 
   const handleDelete = useCallback(
     async (playbook: SerializedPlaybook) => {
-      setActionError(null);
+      setDeleteError(null);
       const actionKey = `delete:${playbook.id}`;
       setBusyAction(actionKey);
       try {
@@ -218,7 +220,7 @@ export function PlaybookListClient({
         addToast("success", t("playbooksPage.toast.deleted"));
         void refresh();
       } catch (err) {
-        setActionError(getErrorMessage(err, t("playbooksPage.error.delete")));
+        setDeleteError(getErrorMessage(err, t("playbooksPage.error.delete")));
       } finally {
         setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
@@ -228,9 +230,6 @@ export function PlaybookListClient({
 
   return (
     <div className="space-y-6">
-      {actionError && (
-        <Notice tone="danger">{actionError}</Notice>
-      )}
       {header ? (
         <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
           {canManage && !showCreate ? (
@@ -283,7 +282,7 @@ export function PlaybookListClient({
                 onTrigger={handleTrigger}
                 onToggle={handleToggle}
                 onClaim={handleClaim}
-                onDelete={setPendingDelete}
+                onDelete={(target) => { setDeleteError(null); setPendingDelete(target); }}
               />
             </div>
           ))}
@@ -293,7 +292,8 @@ export function PlaybookListClient({
       <PlaybookDeleteDialog
         playbook={pendingDelete}
         busy={pendingDelete ? busyAction === `delete:${pendingDelete.id}` : false}
-        onCancel={() => setPendingDelete(null)}
+        error={deleteError}
+        onCancel={() => { setPendingDelete(null); setDeleteError(null); }}
         onConfirm={() => pendingDelete && handleDelete(pendingDelete)}
       />
     </div>

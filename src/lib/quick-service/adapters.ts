@@ -283,6 +283,9 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
 					project_logo: img.project_logo,
 					category: img.category,
 					tags: img.tags,
+					// The table has no column for these two; the catalogue reads them back from here.
+					stars: img.stars,
+					monthly_pulls: img.monthly_pulls,
 				}),
 			};
 		})

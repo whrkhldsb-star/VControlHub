@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-30T04:41:40.253Z",
+  "generatedAt": "2026-11-12T05:19:51.770Z",
   "summary": {
-    "files": 441,
+    "files": 464,
     "filesWithStrings": 0,
     "totalStrings": 0,
     "coveredStrings": 0,
@@ -130,8 +130,8 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-confirm-dialog.tsx": {
-      "path": "src/app/ai/ai-confirm-dialog.tsx",
+    "src/app/ai/ai-copy-button.tsx": {
+      "path": "src/app/ai/ai-copy-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -571,6 +571,34 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/customers/customer-members-dialog.tsx": {
+      "path": "src/app/customers/customer-members-dialog.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/customers/customers-client.tsx": {
+      "path": "src/app/customers/customers-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/customers/identity-templates-section.tsx": {
+      "path": "src/app/customers/identity-templates-section.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/customers/page.tsx": {
+      "path": "src/app/customers/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/dashboard-analytics-panel.tsx": {
       "path": "src/app/dashboard-analytics-panel.tsx",
       "total": 0,
@@ -608,13 +636,6 @@
     },
     "src/app/dashboard-setup-checklist.tsx": {
       "path": "src/app/dashboard-setup-checklist.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/dashboard-widget-detail-dialog.tsx": {
-      "path": "src/app/dashboard-widget-detail-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -816,22 +837,15 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/breadcrumbs-client.tsx": {
-      "path": "src/app/files/breadcrumbs-client.tsx",
+    "src/app/files/drive-sidebar.tsx": {
+      "path": "src/app/files/drive-sidebar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/create-folder-form.tsx": {
-      "path": "src/app/files/create-folder-form.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/delete-confirm-button.tsx": {
-      "path": "src/app/files/delete-confirm-button.tsx",
+    "src/app/files/drive-toolbar.tsx": {
+      "path": "src/app/files/drive-toolbar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -844,15 +858,8 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-batch-toolbar-lazy.tsx": {
-      "path": "src/app/files/file-batch-toolbar-lazy.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/file-batch-toolbar.tsx": {
-      "path": "src/app/files/file-batch-toolbar.tsx",
+    "src/app/files/file-actions.tsx": {
+      "path": "src/app/files/file-actions.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -879,8 +886,8 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-list-actions.tsx": {
-      "path": "src/app/files/file-list-actions.tsx",
+    "src/app/files/file-entry-menu.tsx": {
+      "path": "src/app/files/file-entry-menu.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -893,13 +900,6 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-list-details-view.tsx": {
-      "path": "src/app/files/file-list-details-view.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
     "src/app/files/file-list-empty-state.tsx": {
       "path": "src/app/files/file-list-empty-state.tsx",
       "total": 0,
@@ -907,43 +907,8 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-list-grid-view.tsx": {
-      "path": "src/app/files/file-list-grid-view.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/file-list-list-view-mobile.tsx": {
-      "path": "src/app/files/file-list-list-view-mobile.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/file-list-list-view.tsx": {
-      "path": "src/app/files/file-list-list-view.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/file-list-toolbar.tsx": {
-      "path": "src/app/files/file-list-toolbar.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/file-more-actions-lazy.tsx": {
-      "path": "src/app/files/file-more-actions-lazy.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/file-more-actions.tsx": {
-      "path": "src/app/files/file-more-actions.tsx",
+    "src/app/files/file-list-views.tsx": {
+      "path": "src/app/files/file-list-views.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -963,13 +928,6 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-row-actions.tsx": {
-      "path": "src/app/files/file-row-actions.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
     "src/app/files/file-upload-dropzone-lazy.tsx": {
       "path": "src/app/files/file-upload-dropzone-lazy.tsx",
       "total": 0,
@@ -984,22 +942,8 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/files-browser-sidebar.tsx": {
-      "path": "src/app/files/files-browser-sidebar.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
     "src/app/files/files-browser-spa.tsx": {
       "path": "src/app/files/files-browser-spa.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/files-more-nav.tsx": {
-      "path": "src/app/files/files-more-nav.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1019,8 +963,8 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/folder-tree-client.tsx": {
-      "path": "src/app/files/folder-tree-client.tsx",
+    "src/app/files/image-lightbox.tsx": {
+      "path": "src/app/files/image-lightbox.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1028,20 +972,6 @@
     },
     "src/app/files/loading.tsx": {
       "path": "src/app/files/loading.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/move-inline-form.tsx": {
-      "path": "src/app/files/move-inline-form.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/node-filter-select.tsx": {
-      "path": "src/app/files/node-filter-select.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1194,6 +1124,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/files/recent-downloads/recent-downloads-client.tsx": {
+      "path": "src/app/files/recent-downloads/recent-downloads-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/files/recycle-bin-section-client.tsx": {
       "path": "src/app/files/recycle-bin-section-client.tsx",
       "total": 0,
@@ -1217,13 +1154,6 @@
     },
     "src/app/files/recycle-bin/page.tsx": {
       "path": "src/app/files/recycle-bin/page.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/rename-inline-form.tsx": {
-      "path": "src/app/files/rename-inline-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1259,13 +1189,6 @@
     },
     "src/app/files/search/page.tsx": {
       "path": "src/app/files/search/page.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/files/share-file-button.tsx": {
-      "path": "src/app/files/share-file-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1880,6 +1803,34 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/public-status/error.tsx": {
+      "path": "src/app/public-status/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/public-status/loading.tsx": {
+      "path": "src/app/public-status/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/public-status/page.tsx": {
+      "path": "src/app/public-status/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/public-status/public-status-admin-client.tsx": {
+      "path": "src/app/public-status/public-status-admin-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/quick-services/config-preview-dialog.tsx": {
       "path": "src/app/quick-services/config-preview-dialog.tsx",
       "total": 0,
@@ -2027,6 +1978,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/servers/[id]/remote-desktop/open-remote-desktop.tsx": {
+      "path": "src/app/servers/[id]/remote-desktop/open-remote-desktop.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/servers/[id]/remote-desktop/page.tsx": {
       "path": "src/app/servers/[id]/remote-desktop/page.tsx",
       "total": 0,
@@ -2083,6 +2041,27 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/servers/server-agent-reinstall.tsx": {
+      "path": "src/app/servers/server-agent-reinstall.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/server-billing-fields.tsx": {
+      "path": "src/app/servers/server-billing-fields.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/server-billing-rows.tsx": {
+      "path": "src/app/servers/server-billing-rows.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/servers/server-card-actions-direct-gateway.tsx": {
       "path": "src/app/servers/server-card-actions-direct-gateway.tsx",
       "total": 0,
@@ -2106,6 +2085,20 @@
     },
     "src/app/servers/server-card-edit-form.tsx": {
       "path": "src/app/servers/server-card-edit-form.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/server-card-transfer-form.tsx": {
+      "path": "src/app/servers/server-card-transfer-form.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/server-connection-action.tsx": {
+      "path": "src/app/servers/server-connection-action.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2174,6 +2167,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/servers/server-sync-target-auth-field.tsx": {
+      "path": "src/app/servers/server-sync-target-auth-field.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/servers/server-tab-layout.tsx": {
       "path": "src/app/servers/server-tab-layout.tsx",
       "total": 0,
@@ -2190,6 +2190,13 @@
     },
     "src/app/servers/ssh-key-create-form.tsx": {
       "path": "src/app/servers/ssh-key-create-form.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/ssh-key-options.tsx": {
+      "path": "src/app/servers/ssh-key-options.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2251,8 +2258,8 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/permission-groups-section.tsx": {
-      "path": "src/app/settings/permission-groups-section.tsx",
+    "src/app/settings/public-status-settings-link.tsx": {
+      "path": "src/app/settings/public-status-settings-link.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2295,13 +2302,6 @@
     },
     "src/app/settings/system-config-section.tsx": {
       "path": "src/app/settings/system-config-section.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/settings/team-workspace-section.tsx": {
-      "path": "src/app/settings/team-workspace-section.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2468,8 +2468,29 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/status/board-nodes.tsx": {
+      "path": "src/app/status/board-nodes.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/status/board-visuals.tsx": {
+      "path": "src/app/status/board-visuals.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/status/error.tsx": {
       "path": "src/app/status/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/status/internal-status-section.tsx": {
+      "path": "src/app/status/internal-status-section.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2482,8 +2503,36 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/status/nodes/[publicId]/page.tsx": {
+      "path": "src/app/status/nodes/[publicId]/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/status/nodes/[publicId]/public-node-client.tsx": {
+      "path": "src/app/status/nodes/[publicId]/public-node-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/status/page.tsx": {
       "path": "src/app/status/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/status/public-board-client.tsx": {
+      "path": "src/app/status/public-board-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/status/public-board-parts.tsx": {
+      "path": "src/app/status/public-board-parts.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2671,15 +2720,15 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/traffic/traffic-page-client.tsx": {
-      "path": "src/app/traffic/traffic-page-client.tsx",
+    "src/app/traffic/traffic-chart.tsx": {
+      "path": "src/app/traffic/traffic-chart.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/traffic/traffic-sparkline.tsx": {
-      "path": "src/app/traffic/traffic-sparkline.tsx",
+    "src/app/traffic/traffic-page-client.tsx": {
+      "path": "src/app/traffic/traffic-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2790,6 +2839,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/components/app-topbar.tsx": {
+      "path": "src/components/app-topbar.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/components/change-password-modal.tsx": {
       "path": "src/components/change-password-modal.tsx",
       "total": 0,
@@ -2797,8 +2853,22 @@
       "missing": 0,
       "candidates": []
     },
+    "src/components/charts/time-series-chart.tsx": {
+      "path": "src/components/charts/time-series-chart.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/components/confirm-dialog.tsx": {
       "path": "src/components/confirm-dialog.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/customer-switcher.tsx": {
+      "path": "src/components/customer-switcher.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2818,6 +2888,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/components/keyboard-shortcuts.tsx": {
+      "path": "src/components/keyboard-shortcuts.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/components/known-error-notice.tsx": {
       "path": "src/components/known-error-notice.tsx",
       "total": 0,
@@ -2832,8 +2909,22 @@
       "missing": 0,
       "candidates": []
     },
+    "src/components/link-pagination.tsx": {
+      "path": "src/components/link-pagination.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/components/localized-text.tsx": {
       "path": "src/components/localized-text.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/markdown-text.tsx": {
+      "path": "src/components/markdown-text.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2860,6 +2951,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/components/nav-icons.tsx": {
+      "path": "src/components/nav-icons.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/components/nav-items.tsx": {
       "path": "src/components/nav-items.tsx",
       "total": 0,
@@ -2869,6 +2967,13 @@
     },
     "src/components/notification-bell.tsx": {
       "path": "src/components/notification-bell.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/page-header-icon.tsx": {
+      "path": "src/components/page-header-icon.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2909,8 +3014,22 @@
       "missing": 0,
       "candidates": []
     },
-    "src/components/remote-desktop.tsx": {
-      "path": "src/components/remote-desktop.tsx",
+    "src/components/rdp-extra-keys.tsx": {
+      "path": "src/components/rdp-extra-keys.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/rdp-pan-control.tsx": {
+      "path": "src/components/rdp-pan-control.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/remote-desktop-panel.tsx": {
+      "path": "src/components/remote-desktop-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2946,6 +3065,13 @@
     },
     "src/components/skeleton.tsx": {
       "path": "src/components/skeleton.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/skip-link.tsx": {
+      "path": "src/components/skip-link.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -3056,13 +3182,6 @@
       "missing": 0,
       "candidates": []
     },
-    "src/components/team-switcher.tsx": {
-      "path": "src/components/team-switcher.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
     "src/components/theme-toggle.tsx": {
       "path": "src/components/theme-toggle.tsx",
       "total": 0,
@@ -3086,6 +3205,48 @@
     },
     "src/components/ui-primitives.tsx": {
       "path": "src/components/ui-primitives.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/ui/dialog.tsx": {
+      "path": "src/components/ui/dialog.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/ui/disclosure.tsx": {
+      "path": "src/components/ui/disclosure.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/ui/key-value.tsx": {
+      "path": "src/components/ui/key-value.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/ui/menu.tsx": {
+      "path": "src/components/ui/menu.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/ui/number-input.tsx": {
+      "path": "src/components/ui/number-input.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/user-menu.tsx": {
+      "path": "src/components/user-menu.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

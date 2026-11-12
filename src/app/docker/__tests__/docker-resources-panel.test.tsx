@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DockerResourcesPanel } from "../docker-resources-panel";
@@ -80,6 +80,30 @@ describe("DockerResourcesPanel", () => {
     expect(screen.getByText("network-b")).toBeInTheDocument();
     expect(screen.queryByText("network-a")).not.toBeInTheDocument();
     expect(oldServerNetworkLoads).toBe(1);
+  });
+
+  it("shows a failed deletion in the confirmation dialog, where the person is looking", async () => {
+    // The reason was written into the card behind the dialog, which stayed open as if nothing had happened.
+    const user = userEvent.setup();
+    const { ApiError } = await import("@/lib/http/api-client-error");
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      if ((init as RequestInit | undefined)?.method === "POST") {
+        throw new ApiError(409, { code: "CONFLICT", error: "Conflict", message: "数据卷 cache 正在被容器使用" });
+      }
+      return String(input).includes("type=volumes") ? { data: { Volumes: [{ Name: "cache", Driver: "local" }] } } : { data: [] };
+    });
+    render(wrap("srv_1"));
+
+    await user.click(await screen.findByRole("button", { name: "删除 数据卷 cache" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "确认删除" }));
+    expect(await within(dialog).findByText("数据卷 cache 正在被容器使用")).toBeInTheDocument();
+
+    // Asking again starts clean.
+    await user.click(within(dialog).getByRole("button", { name: "取消" }));
+    await user.click(screen.getByRole("button", { name: "删除 数据卷 cache" }));
+    expect(within(screen.getByRole("dialog")).queryByText("数据卷 cache 正在被容器使用")).not.toBeInTheDocument();
+    expect(screen.queryByText("数据卷 cache 正在被容器使用")).not.toBeInTheDocument();
   });
 
   it("does not open the previous server's inspect result over a newly selected server", async () => {

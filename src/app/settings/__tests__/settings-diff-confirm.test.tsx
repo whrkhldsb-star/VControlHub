@@ -17,6 +17,7 @@ import React from "react";
 import { SettingsClient } from "@/app/settings/settings-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { I18nProvider } from "@/lib/i18n/provider";
+import { ToastProvider } from "@/components/toast-provider";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
@@ -26,7 +27,7 @@ vi.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: vi.fn() }),
 }));
 
-const wrap = (ui: React.ReactNode) => render(<I18nProvider initialLocale="zh">{ui}</I18nProvider>);
+const wrap = (ui: React.ReactNode) => render(<I18nProvider initialLocale="zh"><ToastProvider>{ui}</ToastProvider></I18nProvider>);
 
 const baseRuntimeSettings = {
 	"platform.name": "VPS 统一管控平台",

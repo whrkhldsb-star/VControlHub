@@ -1,4 +1,9 @@
+// First: the service code this process shares with the web server hands rows
+// with BigInt columns to JSON.stringify, which throws without this patch.
+import "@/lib/bigint-patch";
+
 import { prisma } from "@/lib/db";
+import { startBackgroundCopyLocaleSync } from "@/lib/i18n/background-locale";
 import { createLogger } from "@/lib/logging";
 import { primeSettingCaches } from "@/lib/settings/prime";
 import { closeSshPool } from "@/lib/ssh/client";
@@ -23,6 +28,9 @@ const SHUTDOWN_HARD_DEADLINE_MS = 10_000;
 async function main() {
   // Sync callers (SSH host-key pin, queue limits) must not start on env defaults.
   await primeSettingCaches();
+  // What this process writes is read by people who are not looking at a page
+  // (alert mail, stored job errors): word it in the platform's language.
+  const stopLocaleSync = await startBackgroundCopyLocaleSync();
   const result = await startWorkerLifecycle();
   if (result.skipped) {
     throw new Error(`Worker process startup was skipped: ${result.reason ?? "unknown"}`);
@@ -48,6 +56,7 @@ async function main() {
     logger.info("standalone worker process shutting down", { signal });
   } finally {
     clearInterval(keepAlive);
+    stopLocaleSync();
     // Never let a stuck teardown step turn a routine restart into SIGKILL.
     const forceExit = setTimeout(() => {
       logger.warn("worker shutdown exceeded hard deadline; exiting", {

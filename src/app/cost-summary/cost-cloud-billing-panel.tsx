@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { EmptyState } from "@/components/page-shell";
+import { Badge, FormField, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import type {
 	CloudBillingAccountRecord,
@@ -14,9 +16,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 
 import { inputClass } from "./cost-page-shared";
-import { getErrorMessage } from "@/lib/http/error-message";
-import { UI_INPUT } from "@/lib/ui/classes";
-import { cn } from "@/lib/ui/cn";
+import { formatDateTime } from "@/lib/datetime/format";
+import { describeFailure, getErrorMessage } from "@/lib/http/error-message";
 
 const PROVIDERS: CloudBillingProvider[] = ["aws", "aliyun", "tencent", "generic_csv"];
 
@@ -35,12 +36,17 @@ export function CostCloudBillingPanel({
 	month,
 	onImported,
 }: Props) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const { addToast } = useToast();
 	const [accounts, setAccounts] = useState(initialAccounts);
 	const [busy, setBusy] = useState(false);
 	const [syncingId, setSyncingId] = useState<string | null>(null);
 	const [pendingDelete, setPendingDelete] = useState<CloudBillingAccountRecord | null>(null);
+	const [creating, setCreating] = useState(false);
+	// Why the account was not added, by the button; why one was not deleted, in the dialog that asked.
+	const [formError, setFormError] = useState<string | null>(null);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+	const fieldId = useId();
 	const [form, setForm] = useState({
 		name: "",
 		provider: "generic_csv" as CloudBillingProvider,
@@ -57,10 +63,19 @@ export function CostCloudBillingPanel({
 		if (Array.isArray(data.accounts)) setAccounts(data.accounts);
 	}, []);
 
+	const update = (change: Partial<typeof form>) => {
+		setFormError(null);
+		setForm((current) => ({ ...current, ...change }));
+	};
+
 	const create = async () => {
-		if (!form.name.trim()) return;
+		setFormError(null);
+		if (!form.name.trim()) {
+			setFormError(t("costPage.billing.error.nameRequired"));
+			return;
+		}
 		const submitted = form;
-		setBusy(true);
+		setCreating(true);
 		try {
 			const body: Record<string, unknown> = {
 				name: form.name.trim(),
@@ -93,22 +108,23 @@ export function CostCloudBillingPanel({
 			await reload();
 			addToast("success", t("costPage.billing.created"));
 		} catch (error) {
-			addToast("error", getErrorMessage(error, t("costPage.billing.error")));
+			setFormError(getErrorMessage(error, t("costPage.billing.error")));
 		} finally {
-			setBusy(false);
+			setCreating(false);
 		}
 	};
 
 	const remove = async () => {
 		if (!pendingDelete) return;
 		setBusy(true);
+		setDeleteError(null);
 		try {
 			await csrfFetch(`/api/cost/billing-accounts/${pendingDelete.id}`, { method: "DELETE" });
 			setPendingDelete(null);
 			await reload();
 			addToast("success", t("costPage.billing.deleted"));
 		} catch (error) {
-			addToast("error", getErrorMessage(error, t("costPage.billing.error")));
+			setDeleteError(getErrorMessage(error, t("costPage.billing.error")));
 		} finally {
 			setBusy(false);
 		}
@@ -133,10 +149,7 @@ export function CostCloudBillingPanel({
 			);
 			onImported?.();
 		} catch (error) {
-			addToast(
-				"error",
-				`${t("costPage.billing.syncError")}: ${getErrorMessage(error, String(error))}`,
-			);
+			addToast("error", describeFailure(t("costPage.billing.syncError"), error));
 			await reload();
 		} finally {
 			setSyncingId(null);
@@ -148,15 +161,13 @@ export function CostCloudBillingPanel({
 			<ConfirmDialog
 				open={pendingDelete !== null}
 				title={t("costPage.billing.deleteTitle")}
-				description={t("costPage.billing.deleteConfirm").replace(
-					"{name}",
-					pendingDelete?.name ?? "",
-				)}
+				description={t("costPage.billing.deleteConfirm", { name: pendingDelete?.name ?? "" })}
 				cancelLabel={t("costPage.billing.deleteCancel")}
 				confirmLabel={t("costPage.billing.deleteConfirmBtn")}
-				onCancel={() => setPendingDelete(null)}
+				onCancel={() => { setPendingDelete(null); setDeleteError(null); }}
 				onConfirm={() => void remove()}
 				busy={busy}
+				error={deleteError ?? undefined}
 			/>
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div>
@@ -168,94 +179,110 @@ export function CostCloudBillingPanel({
 			</div>
 
 			{canManage ? (
-				<div className="mt-4 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-					<input
-						className={inputClass}
-						value={form.name}
-						onChange={(e) => setForm({ ...form, name: e.target.value })}
-						placeholder={t("costPage.billing.name")}
-						aria-label={t("costPage.billing.name")}
-					/>
-					<select
-						className={inputClass}
-						value={form.provider}
-						onChange={(e) =>
-							setForm({ ...form, provider: e.target.value as CloudBillingProvider })
-						}
-						aria-label={t("costPage.billing.provider")}
-					>
-						{PROVIDERS.map((p) => (
-							<option key={p} value={p}>
-								{t(`costPage.billing.provider.${p}`)}
-							</option>
-						))}
-					</select>
-					<select
-						className={inputClass}
-						value={form.currency}
-						onChange={(e) => setForm({ ...form, currency: e.target.value as CostCurrency })}
-						aria-label={t("costPage.billing.currency")}
-					>
-						{currencies.map((c) => (
-							<option key={c} value={c}>
-								{c}
-							</option>
-						))}
-					</select>
-					{form.provider !== "generic_csv" ? (
-						<>
+				<form
+					className="mt-4 flex flex-col gap-3"
+					noValidate
+					onSubmit={(event) => {
+						event.preventDefault();
+						void create();
+					}}
+				>
+					<div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+						<FormField label={t("costPage.billing.name")} htmlFor={`${fieldId}-name`}>
 							<input
+								id={`${fieldId}-name`}
 								className={inputClass}
-								aria-label={t("costPage.billing.region")}
-								value={form.region}
-								onChange={(e) => setForm({ ...form, region: e.target.value })}
-								placeholder={t("costPage.billing.region")}
+								maxLength={128}
+								value={form.name}
+								onChange={(e) => update({ name: e.target.value })}
 							/>
-						</>
-					) : null}
-					<input
-						className={cn(UI_INPUT, "w-full text-sm")}
-						value={form.billingCsvUrl}
-						onChange={(e) => setForm({ ...form, billingCsvUrl: e.target.value })}
-						placeholder={t("costPage.billing.billingCsvUrl")}
-						aria-label={t("costPage.billing.billingCsvUrl")}
-					/>
-					<textarea
-						className={`${inputClass} min-h-[88px] font-mono text-xs md:col-span-2 lg:col-span-3`}
-						value={form.sampleCsv}
-						onChange={(e) => setForm({ ...form, sampleCsv: e.target.value })}
-						placeholder={t("costPage.billing.sampleCsv")}
-						aria-label={t("costPage.billing.sampleCsv")}
-					/>
-					<div className="md:col-span-2 lg:col-span-3">
-						<ActionButton type="button" disabled={busy} onClick={() => void create()}>
+						</FormField>
+						<FormField label={t("costPage.billing.provider")} htmlFor={`${fieldId}-provider`}>
+							<select
+								id={`${fieldId}-provider`}
+								className={inputClass}
+								value={form.provider}
+								onChange={(e) => update({ provider: e.target.value as CloudBillingProvider })}
+							>
+								{PROVIDERS.map((p) => (
+									<option key={p} value={p}>
+										{t(`costPage.billing.provider.${p}`)}
+									</option>
+								))}
+							</select>
+						</FormField>
+						<FormField label={t("costPage.billing.currency")} htmlFor={`${fieldId}-currency`}>
+							<select
+								id={`${fieldId}-currency`}
+								className={inputClass}
+								value={form.currency}
+								onChange={(e) => update({ currency: e.target.value as CostCurrency })}
+							>
+								{currencies.map((c) => (
+									<option key={c} value={c}>
+										{t(`costPage.currency.${c}`)}
+									</option>
+								))}
+							</select>
+						</FormField>
+						{form.provider !== "generic_csv" ? (
+							<FormField label={t("costPage.billing.region")} htmlFor={`${fieldId}-region`}>
+								<input
+									id={`${fieldId}-region`}
+									className={inputClass}
+									value={form.region}
+									onChange={(e) => update({ region: e.target.value })}
+								/>
+							</FormField>
+						) : null}
+					</div>
+					<FormField label={t("costPage.billing.billingCsvUrl")} htmlFor={`${fieldId}-url`} hint={t("costPage.billing.billingCsvUrlHint")}>
+						<input
+							id={`${fieldId}-url`}
+							type="url"
+							inputMode="url"
+							className={inputClass}
+							value={form.billingCsvUrl}
+							onChange={(e) => update({ billingCsvUrl: e.target.value })}
+							placeholder="https://"
+						/>
+					</FormField>
+					<FormField label={t("costPage.billing.sampleCsv")} htmlFor={`${fieldId}-csv`} hint={t("costPage.billing.sampleCsvHint")}>
+						<textarea
+							id={`${fieldId}-csv`}
+							className={`${inputClass} min-h-[88px] font-mono text-xs`}
+							value={form.sampleCsv}
+							onChange={(e) => update({ sampleCsv: e.target.value })}
+						/>
+					</FormField>
+					{formError ? <Notice tone="danger">{formError}</Notice> : null}
+					<div>
+						<ActionButton type="submit" variant="outline" loading={creating}>
 							{t("costPage.billing.create")}
 						</ActionButton>
 					</div>
-				</div>
+				</form>
 			) : null}
 
 			<div className="mt-4 grid gap-3 md:grid-cols-2">
 				{accounts.length === 0 ? (
-					<div className="space-y-1 md:col-span-2">
-						<p className="text-sm text-[var(--text-muted)]">{t("costPage.billing.empty")}</p>
-						<p className="text-xs text-[var(--text-muted)]">{t("costPage.billing.emptyHint")}</p>
+					<div className="md:col-span-2">
+						<EmptyState title={t("costPage.billing.empty")} text={t("costPage.billing.emptyHint")} />
 					</div>
 				) : (
 					accounts.map((account) => (
-						<article key={account.id} className="rounded-lg border border-[var(--border)] p-4">
+						<article key={account.id} data-inset className="p-4">
 							<div className="flex items-start justify-between gap-3">
 								<div>
 									<h3 className="ui-title-group">{account.name}</h3>
-									<p className="text-xs text-[var(--text-muted)]">
-										{t(`costPage.billing.provider.${account.provider}`)} · {account.currency}
-										{account.enabled ? "" : ` · ${t("costPage.billing.disabled")}`}
+									<p className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+										{t("costPage.billing.meta", { provider: t(`costPage.billing.provider.${account.provider}`), currency: t(`costPage.currency.${account.currency}`) })}
+										{account.enabled ? null : <Badge>{t("costPage.billing.disabled")}</Badge>}
 									</p>
 								</div>
 								{canManage ? (
-									<ActionButton variant="ghost"
-										onClick={() => setPendingDelete(account)}
-										className="text-[var(--danger)]"
+									<ActionButton size="xs" variant="danger"
+										onClick={() => { setDeleteError(null); setPendingDelete(account); }}
 										disabled={busy}
 									>
 										{t("costPage.billing.delete")}
@@ -264,21 +291,27 @@ export function CostCloudBillingPanel({
 							</div>
 							<p className="mt-2 text-xs text-[var(--text-secondary)]">
 								{account.lastSyncAt
-									? t("costPage.billing.lastSync", { status: account.lastSyncStatus ?? "—", at: account.lastSyncAt.slice(0, 19).replace("T", " "), imported: account.lastSyncImported })
+									? t("costPage.billing.lastSync", {
+										status: account.lastSyncStatus ? t(`costPage.billing.status.${account.lastSyncStatus}`) : "—",
+										at: formatDateTime(account.lastSyncAt, locale),
+										imported: account.lastSyncImported,
+									})
 									: t("costPage.billing.neverSynced")}
 							</p>
 							{account.lastSyncError ? (
 								<p className="mt-1 text-xs text-[var(--danger)]">{account.lastSyncError}</p>
 							) : null}
 							{canManage ? (
-								<ActionButton size="sm" variant="secondary" className="!mt-3"
-									disabled={syncingId === account.id || !account.enabled}
-									onClick={() => void sync(account.id)}
-								>
-									{syncingId === account.id
-										? t("costPage.billing.syncing")
-										: t("costPage.billing.sync", { month })}
-								</ActionButton>
+								<div className="mt-3">
+									<ActionButton size="sm" variant="secondary"
+										disabled={syncingId === account.id || !account.enabled}
+										onClick={() => void sync(account.id)}
+									>
+										{syncingId === account.id
+											? t("costPage.billing.syncing")
+											: t("costPage.billing.sync", { month })}
+									</ActionButton>
+								</div>
 							) : null}
 						</article>
 					))

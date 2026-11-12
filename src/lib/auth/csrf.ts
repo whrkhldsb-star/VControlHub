@@ -1,7 +1,8 @@
 /**
  * CSRF token helpers (Double Submit Cookie pattern).
  *
- * Enforcement lives in `src/proxy.ts` (cookie `csrf_token` vs `x-csrf-token` header).
+ * Enforcement lives in `src/proxy.ts` (cookie `csrf_token` vs `x-csrf-token` header). The few routes left out of the
+ * proxy's matcher make the same comparison themselves through `./csrf-request`.
  * Login / 2FA verify-login issue the cookie via `response.cookies.set(getCsrfCookieName(), ...)`.
  */
 

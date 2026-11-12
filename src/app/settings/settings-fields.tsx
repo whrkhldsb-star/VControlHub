@@ -34,7 +34,14 @@ type CommonProps = {
   onHighRiskBlur: (currentValue: string) => void;
   /** Last saved value (the section's baseline); "***" means a secret is stored. */
   savedValue?: string;
+  /** Why the last save refused this field. */
+  error?: string;
 };
+
+/** Under the control it is about; the control points at it. */
+function FieldError({ id, children }: { id: string; children: string }) {
+  return <p id={id} role="alert" className="text-xs leading-5 text-[var(--danger)]">{children}</p>;
+}
 
 export type FieldRendererProps = CommonProps;
 
@@ -48,6 +55,7 @@ export function FieldRenderer({
   showHighRiskWarning,
   onHighRiskBlur,
   savedValue,
+  error,
 }: FieldRendererProps) {
   const { t } = useI18n();
   if (field.type === "switch") {
@@ -74,6 +82,7 @@ export function FieldRenderer({
         runtimeSummary={runtimeSummary}
         showHighRiskWarning={showHighRiskWarning}
         onHighRiskBlur={onHighRiskBlur}
+        error={error}
       />
     );
   }
@@ -88,6 +97,7 @@ export function FieldRenderer({
         runtimeSummary={runtimeSummary}
         showHighRiskWarning={showHighRiskWarning}
         onHighRiskBlur={onHighRiskBlur}
+        error={error}
       />
     );
   }
@@ -102,6 +112,7 @@ export function FieldRenderer({
       showHighRiskWarning={showHighRiskWarning}
       onHighRiskBlur={onHighRiskBlur}
       savedValue={savedValue}
+      error={error}
     />
   );
 }
@@ -150,9 +161,6 @@ function HighRiskBlurWarning({ id }: { id: string }) {
     <Notice tone="danger" compact
       id={id}
       data-testid="high-risk-blur-warning">
-      <span aria-hidden className="mr-1">
-        ⚠
-      </span>
       {t("settingsClient.highRiskWarning")}
     </Notice>
   );
@@ -167,17 +175,20 @@ export function SelectField({
   runtimeSummary,
   showHighRiskWarning,
   onHighRiskBlur,
+  error,
 }: CommonProps) {
   const { t } = useI18n();
   const inputId = useId();
   const helperId = useId();
   const runtimeId = useId();
   const warningId = useId();
+  const errorId = useId();
   const describedBy =
     [
       helperText ? helperId : null,
       runtimeSummary ? runtimeId : null,
       showHighRiskWarning ? warningId : null,
+      error ? errorId : null,
     ]
       .filter(Boolean)
       .join(" ") || undefined;
@@ -234,6 +245,7 @@ export function SelectField({
         onBlur={() => onHighRiskBlur(normalizedValue)}
         disabled={disabled}
         aria-describedby={describedBy}
+        aria-invalid={error ? true : undefined}
         className={CONTROL_CLASS}
       >
         {options.map((opt) => (
@@ -242,6 +254,7 @@ export function SelectField({
           </option>
         ))}
       </select>
+      {error && <FieldError id={errorId}>{error}</FieldError>}
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
         <p id={helperId} className="text-xs text-[var(--text-primary)]">
@@ -265,12 +278,14 @@ export function InputField({
   showHighRiskWarning,
   onHighRiskBlur,
   savedValue,
+  error,
 }: CommonProps) {
   const { t } = useI18n();
   const inputId = useId();
   const helperId = useId();
   const runtimeId = useId();
   const warningId = useId();
+  const errorId = useId();
   // A stored secret arrives as the "***" sentinel, which the settings API
   // skips on save. The field shows it empty, so whatever is typed or pasted
   // is the new secret verbatim; emptying the field again keeps the stored
@@ -288,6 +303,7 @@ export function InputField({
       helperText ? helperId : null,
       runtimeSummary ? runtimeId : null,
       showHighRiskWarning ? warningId : null,
+      error ? errorId : null,
     ]
       .filter(Boolean)
       .join(" ") || undefined;
@@ -331,7 +347,7 @@ export function InputField({
               onChange("");
             }}
             disabled={disabled}
-            aria-label={t("settingsClient.secretClearAria").replace("{label}", t(field.labelKey))}
+            aria-label={t("settingsClient.secretClearAria", { label: t(field.labelKey) })}
           >
             {t("settingsClient.secretClear")}
           </ActionButton>
@@ -356,8 +372,10 @@ export function InputField({
         autoComplete={field.autoComplete}
         disabled={disabled}
         aria-describedby={describedBy}
+        aria-invalid={error ? true : undefined}
         className={CONTROL_CLASS}
       />
+      {error && <FieldError id={errorId}>{error}</FieldError>}
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
         <p id={helperId} className="text-xs leading-5 text-[var(--text-muted)]">
@@ -379,11 +397,13 @@ export function TextAreaField({
   onChange,
   showHighRiskWarning,
   onHighRiskBlur,
+  error,
 }: CommonProps) {
   const { t } = useI18n();
   const inputId = useId();
   const helperId = useId();
   const warningId = useId();
+  const errorId = useId();
   return (
     <div data-inset=""
       data-form-field
@@ -417,13 +437,15 @@ export function TextAreaField({
         placeholder={field.placeholderKey ? t(field.placeholderKey) : field.defaultValue ?? ""}
         disabled={disabled}
         aria-describedby={
-          [helperText ? helperId : null, showHighRiskWarning ? warningId : null]
+          [helperText ? helperId : null, showHighRiskWarning ? warningId : null, error ? errorId : null]
             .filter(Boolean)
             .join(" ") || undefined
         }
+        aria-invalid={error ? true : undefined}
         rows={4}
         className={`${CONTROL_CLASS} min-h-[6rem] resize-y`}
       />
+      {error && <FieldError id={errorId}>{error}</FieldError>}
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
         <p id={helperId} className="text-xs leading-5 text-[var(--text-muted)]">

@@ -9,7 +9,7 @@
  *
  * Extracted from ai-client.tsx in R31. The parent passes side-effect
  * callbacks (e.g. clear-active, refresh-list); this hook owns busy/
- * error/queued action and exposes the copy used by AiConfirmDialog.
+ * error/queued action and exposes the copy used by the page's ConfirmDialog.
  */
 import { type ReactNode, useCallback, useState } from "react";
 
@@ -64,20 +64,15 @@ export function useAiConfirmAction({
       return {
         title: t("aiPage.deleteConvTitle"),
         confirmLabel: t("aiPage.confirmDelete"),
-        description: t("aiPage.deleteConvBody").replace(
-          "{title}",
-          action.title,
-        ),
+        // Through t(): String.replace would read "$&" or "$'" in a title as instructions.
+        description: t("aiPage.deleteConvBody", { title: action.title }),
       };
     }
     if (action.type === "delete-provider") {
       return {
         title: t("aiPage.deleteProviderTitle"),
         confirmLabel: t("aiPage.confirmDelete"),
-        description: t("aiPage.deleteProviderBody").replace(
-          "{name}",
-          action.name,
-        ),
+        description: t("aiPage.deleteProviderBody", { name: action.name }),
       };
     }
     return {

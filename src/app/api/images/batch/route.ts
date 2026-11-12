@@ -14,6 +14,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { deleteImageVariants } from "@/lib/image/service";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
+import { isOwnedLinkedCopy, removeOwnedLinkedCopies } from "@/lib/image-bed/linked-copy";
 
 const batchSchema = z.object({
   action: z.enum(["delete", "moveAlbum", "togglePublic"]),
@@ -77,8 +78,11 @@ export async function POST(request: Request) {
                   where: { AND: [whereClause, { id: { in: okIds } }] },
                 })
               : { count: 0 };
-          // Linked LOCAL/SFTP copies are intentionally retained (publish-from-storage
-          // is a share of storage content); operators can delete via Files if needed.
+          // The copy an upload wrote into a storage folder goes with its image, as deleting one image does it:
+          // left behind, a selection of deleted images stayed in the folder, the file index and the media library
+          // as "<uuid>.png". A file published from storage is the user's own and stays.
+          const deletedImages = images.filter((img) => okIds.includes(img.id));
+          const linked = await removeOwnedLinkedCopies(deletedImages, session);
           await auditUserAction(
             session.userId,
             "image.batch.delete",
@@ -87,12 +91,14 @@ export async function POST(request: Request) {
               deleted: result.count,
               ids: okIds,
               failedFileIds,
-              retainedLinkedStorage: images
+              removedLinkedStorage: linked.removed,
+              linkedCleanupFailures: linked.failed,
+              retainedLinkedStorage: deletedImages
                 .filter(
                   (img) =>
-                    okIds.includes(img.id) &&
                     img.storageNodeId &&
-                    img.relativePath,
+                    img.relativePath &&
+                    !isOwnedLinkedCopy(img),
                 )
                 .map((img) => ({
                   id: img.id,
@@ -110,7 +116,19 @@ export async function POST(request: Request) {
           };
           if (failedFileIds.length > 0) {
             return NextResponse.json(
-              { ...payload, success: false, partial: true },
+              {
+                ...payload,
+                success: false,
+                partial: true,
+                ...(linked.failed.length > 0 ? { linkedCleanupFailures: linked.failed, cleanupPending: true } : {}),
+              },
+              { status: 207 },
+            );
+          }
+          if (linked.failed.length > 0) {
+            // Deleted, with a storage copy still to clean up: the shape the single delete answers with.
+            return NextResponse.json(
+              { ...payload, linkedCleanupFailures: linked.failed, cleanupPending: true },
               { status: 207 },
             );
           }

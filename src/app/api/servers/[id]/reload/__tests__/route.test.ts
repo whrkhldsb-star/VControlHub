@@ -74,6 +74,7 @@ function mockServer(overrides: Partial<{
   password: string | null;
   sshKey: { privateKey: string } | null;
   osDialect: string | null;
+  operatingSystem: string;
 }> = {}) {
   serverFindUniqueMock.mockResolvedValue({
     id: "srv_1",
@@ -139,6 +140,22 @@ describe("POST /api/servers/[id]/reload", () => {
       "INFO",
       undefined,
     );
+  });
+
+  // systemctl and docker compose are run as written: on a Windows node the shell answered that it does
+  // not know them, reported as a failed reload of a unit that node never had.
+  it.each([
+    { kind: "systemd", unit: "nginx" },
+    { kind: "compose", projectDir: "/srv/app" },
+  ])("refuses a Windows node before running anything ($kind)", async (body) => {
+    mockServer({ operatingSystem: "WINDOWS" });
+
+    const response = await POST(request(body), params);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "此操作仅支持 Linux 节点" });
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+    expect(buildSshParamsFromServerMock).not.toHaveBeenCalled();
   });
 
   it("returns success=false when remote exit code is non-zero without 5xx", async () => {

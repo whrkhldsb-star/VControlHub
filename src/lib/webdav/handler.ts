@@ -39,7 +39,8 @@ import {
   writeStorageFileFromLocalPath,
 } from "@/lib/storage/file-content";
 import { readStorageUploadMaxBytes } from "@/lib/upload/limits";
-import { UPLOAD_TMP_DIR } from "@/lib/upload/service";
+import { uploadTmpDir } from "@/lib/runtime/work-dirs";
+import { WEBDAV_PUT_STAGING_PREFIX } from "@/lib/upload/staging";
 import {
   createFileEntry,
 } from "@/lib/storage/service-entries";
@@ -72,6 +73,8 @@ import { moveSharePaths } from "@/lib/share-link/follow-path";
 export { normalizeWebDavRelativePath, type WebDavContext } from "./handler-internals";
 
 export const WEBDAV_ALLOW_HEADER = "OPTIONS, PROPFIND, PROPPATCH, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK";
+/** What a resource that already exists allows: everything but MKCOL. */
+const WEBDAV_ALLOW_HEADER_FOR_MAPPED_URL = WEBDAV_ALLOW_HEADER.replace("MKCOL, ", "");
 
 export async function handleWebDavOptions(): Promise<Response> {
   return new Response(null, {
@@ -101,7 +104,10 @@ function lockToken() {
  * writing, exactly as before class 2 was advertised.
  */
 export async function handleWebDavLock(ctx: WebDavContext, request: Request): Promise<Response> {
-  const token = request.headers.get("if")?.match(/<(opaquelocktoken:[^>]+)>/)?.[1] ?? lockToken();
+  // Echoed into the XML body and a header below: only the characters a token
+  // this server hands out is made of (a client-chosen `<`, `&` or quote would
+  // otherwise be written into the document as markup).
+  const token = request.headers.get("if")?.match(/<(opaquelocktoken:[A-Za-z0-9-]{1,128})>/)?.[1] ?? lockToken();
   const requestedTimeout = request.headers.get("timeout")?.match(/Second-(\d+)/i)?.[1];
   const timeout = Math.min(LOCK_TIMEOUT_SECONDS, Number(requestedTimeout) || LOCK_TIMEOUT_SECONDS);
   const href = buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false);
@@ -291,16 +297,18 @@ export async function handleWebDavPut(
   // and cost that much memory per concurrent upload. The limit is the storage
   // upload setting, the same as every other upload path.
   const maxBytes = await readStorageUploadMaxBytes();
-  await mkdir(UPLOAD_TMP_DIR, { recursive: true });
-  const temporaryPath = path.join(UPLOAD_TMP_DIR, `webdav-put-${randomUUID()}.tmp`);
+  await mkdir(uploadTmpDir(), { recursive: true, mode: 0o700 });
+  const temporaryPath = path.join(uploadTmpDir(), `${WEBDAV_PUT_STAGING_PREFIX}${randomUUID()}.tmp`);
   let size = 0;
   const tooLarge = () => new Response(
     t("backend.storageHardening.webdav.payloadTooLarge", { max: `${Math.round(maxBytes / (1024 * 1024))}MB` }),
     { status: 413 },
   );
+  const declaredHeader = request.headers.get("content-length")?.trim() ?? "";
+  // Absent for a chunked upload (Finder), which has no length to compare with.
+  const declared = /^\d+$/.test(declaredHeader) ? Number(declaredHeader) : null;
   try {
-    const declared = Number(request.headers.get("content-length") ?? "");
-    if (Number.isFinite(declared) && declared > maxBytes) throw new RequestBodyTooLargeError(maxBytes);
+    if (declared !== null && declared > maxBytes) throw new RequestBodyTooLargeError(maxBytes);
     const guard = new Transform({
       transform(chunk: Buffer, _encoding, callback) {
         size += chunk.length;
@@ -312,6 +320,14 @@ export async function handleWebDavPut(
       ? Readable.fromWeb(request.body as import("node:stream/web").ReadableStream<Uint8Array>)
       : Readable.from([]);
     await pipeline(source, guard, createWriteStream(temporaryPath, { flags: "wx", mode: 0o600 }));
+    // A body that ended early is not the file: storing it and answering 201
+    // told the client its upload was complete. This happened to every PUT over
+    // 10 MB while the proxy ran on this route (Next passed on only the first
+    // megabytes of the body, and ended the stream cleanly), and anything else
+    // that shortens a body on the way here must fail the same way.
+    if (declared !== null && size !== declared) {
+      throw new ValidationError(t("backend.webdav.incompleteRequestBody", { received: String(size), declared: String(declared) }));
+    }
   } catch (error) {
     await rm(temporaryPath, { force: true }).catch(() => undefined);
     if (error instanceof RequestBodyTooLargeError) return tooLarge();
@@ -385,6 +401,8 @@ export async function handleWebDavPut(
       name,
       mimeType: mimeType || null,
       size: BigInt(size),
+      // Not hashed here: a checksum recorded for the bytes this PUT replaces must not stay on the row.
+      checksumSha256: null,
       entryType: "FILE" as const,
       isDeleted: false as const,
       // A revived recycle-bin row must leave its delete batch, or a later
@@ -471,8 +489,16 @@ export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
     "write",
   );
   const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
-  if (existing)
-    throw new ConflictError(t("backend.webdav.resourceAlreadyExists"));
+  if (existing) {
+    // RFC 4918 §9.3.1: MKCOL on a mapped URL is 405. A 409 means "an
+    // intermediate collection is missing", and clients act on the difference:
+    // a sync client that creates its folders on every run (Joplin, rclone
+    // mkdir) takes 405 as "already there" and 409 as a failure.
+    return new Response(t("backend.webdav.resourceAlreadyExists"), {
+      status: 405,
+      headers: { Allow: WEBDAV_ALLOW_HEADER_FOR_MAPPED_URL, "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   const parentPath = parentRelativePath(ctx.relativePath);
@@ -833,7 +859,8 @@ export async function handleWebDavMove(
         await tx.fileEntry.delete({ where: { id: entry.id } });
         await tx.fileEntry.update({
           where: { id: replacedFile.id },
-          data: { mimeType: entry.mimeType, size: entry.size },
+          // The kept row describes the moved file from now on, checksum included.
+          data: { mimeType: entry.mimeType, size: entry.size, checksumSha256: entry.checksumSha256 },
         });
       } else {
         // Links to a replaced resource must not serve what moves in.
@@ -1054,6 +1081,8 @@ async function performWebDavCopy(input: {
           name: destName,
           mimeType: destMime || null,
           size: BigInt(copiedSize),
+          // As the file manager's copy: the replaced bytes' checksum goes, the copy is not hashed.
+          checksumSha256: null,
           entryType: "FILE",
           isDeleted: false,
         },

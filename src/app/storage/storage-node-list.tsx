@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { thrownActionMessage } from "@/lib/http/error-message";
 
 import { checkStorageNodeHealthAction } from "./actions";
 import { EmptyState } from "@/components/page-shell";
@@ -100,11 +101,18 @@ function StorageNodeCard({
 	function handleHealthCheck() {
 		setMessage(null);
 		startTransition(async () => {
-			const result = await checkStorageNodeHealthAction(node.id);
-			if (result.success) {
-				setMessage({ text: result.success, ok: true });
-			} else if (result.error) {
-				setMessage({ text: result.error, ok: false });
+			try {
+				const result = await checkStorageNodeHealthAction(node.id);
+				if (result.success) {
+					setMessage({ text: result.success, ok: true });
+				} else if (result.error) {
+					setMessage({ text: result.error, ok: false });
+				}
+			} catch (error) {
+				// What an action throws inside a transition goes to the page's error screen: a permission taken
+				// away while the page was open, or no answer at all, replaced the whole file manager with it.
+				const text = thrownActionMessage(error, t, t("storagePage.list.checkFailed"));
+				if (text) setMessage({ text, ok: false });
 			}
 		});
 	}

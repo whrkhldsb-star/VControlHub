@@ -79,6 +79,14 @@ describe("parseConfigFromMap", () => {
 		expect(config.dailyWindowHour).toBe(3);
 	});
 
+	it("drops whitespace pasted around the secret key", () => {
+		// Every other field was trimmed. A secret copied with its line break signed every request wrongly, and the
+		// provider's answer (SignatureDoesNotMatch) does not say why.
+		const config = parseConfigFromMap({ "offsite.accessKeyId": " AKIA-XXX ", "offsite.secretAccessKey": "  wJalrXUtnFEMI/K7MDENG\n" });
+		expect(config.accessKeyId).toBe("AKIA-XXX");
+		expect(config.secretAccessKey).toBe("wJalrXUtnFEMI/K7MDENG");
+	});
+
 	it("enables offsite when enabled=true and credentials provided", () => {
 		const config = parseConfigFromMap({
 			"offsite.enabled": "true",

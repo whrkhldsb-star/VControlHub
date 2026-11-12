@@ -26,6 +26,7 @@ import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 import { Plus } from "@/components/icons";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 export function CreatePlaybookForm({
 	onClose,
@@ -141,9 +142,6 @@ export function CreatePlaybookForm({
 		<form onSubmit={handleSubmit}
 			onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
 			<h3 className="ui-title-section">{t("playbooksPage.createForm.title")}</h3>
-			{error && (
-				<Notice tone="danger">{error}</Notice>
-			)}
 
 			<div className="grid gap-4 md:grid-cols-2">
 				<div className="space-y-1.5">
@@ -227,7 +225,7 @@ export function CreatePlaybookForm({
 						placeholder={t("playbooksPage.triggerConfig.cronPlaceholder")}
 						className={monoFieldInputClass}
 					/>
-					<p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.createForm.cronHint")}</p>
+					<p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.createForm.cronHint", { zone: APP_TIME_ZONE })}</p>
 				</div>
 			) : (
 				<div className="space-y-1.5">
@@ -320,6 +318,11 @@ export function CreatePlaybookForm({
 				/>
 				{t("playbooksPage.createForm.enabled")}
 			</label>
+
+			{/* By the button that was pressed: the form is several screens long. */}
+			{error && (
+				<Notice tone="danger">{error}</Notice>
+			)}
 
 			<div className="flex gap-3 pt-2">
 				<ActionButton variant="primary"

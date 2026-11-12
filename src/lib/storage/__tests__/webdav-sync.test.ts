@@ -51,6 +51,19 @@ describe("WebDAV inventory sync", () => {
     expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "raced", isDeleted: false } }));
   });
 
+  it("drops the recorded checksum when the remote size changed, and only then", async () => {
+    mocks.list.mockResolvedValue([remote("grown.txt"), remote("renamed-type.bin")]);
+    mocks.queryRaw.mockResolvedValueOnce([
+      { ...unchanged("grown", "grown.txt"), size: BigInt(1) },
+      // Same size, another recorded type: nothing says the content changed.
+      { ...unchanged("retyped", "renamed-type.bin"), mimeType: "text/plain" },
+    ]);
+    await syncWebDavDirectoryEntries({ node });
+    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith({ where: { id: "grown", isDeleted: false }, data: expect.objectContaining({ size: BigInt(3), checksumSha256: null }) });
+    const retyped = mocks.fileEntry.updateMany.mock.calls.find(([call]) => call.where.id === "retyped")?.[0];
+    expect(retyped.data).not.toHaveProperty("checksumSha256");
+  });
+
   it("reports retained missing indexes instead of silently claiming a clean inventory", async () => {
     mocks.queryRaw.mockResolvedValueOnce([row("protected", "private-secret.txt")]);
     mocks.fileEntry.deleteMany.mockResolvedValueOnce({ count: 0 });

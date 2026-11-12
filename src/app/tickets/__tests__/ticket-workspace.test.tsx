@@ -92,6 +92,35 @@ describe("TicketWorkspace", () => {
     expect(await screen.findByText("Add staging VPS")).toBeInTheDocument();
   });
 
+  it("says why the list could not be read, or only that it could not, and shows no empty list under it", async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider initialLocale="en">
+        <TicketWorkspace initialPage={{ tickets: [], total: 0, page: 1 }} initialBoard={null} canManage now="2026-01-02T00:00:00.000Z" />
+      </I18nProvider>,
+    );
+    // Nothing filtered and nothing there: not "no tickets match the current filters".
+    expect(screen.getByText("No tickets yet")).toBeInTheDocument();
+
+    // Without a reason the sentence ended in the literal "HTTP error".
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error(""));
+    await user.selectOptions(screen.getByLabelText("Status"), "OPEN");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Could not load tickets");
+    expect(alert).not.toHaveTextContent("HTTP error");
+    // Nothing is known about this view: neither "no match" nor "none yet".
+    expect(screen.queryByText("No tickets match the current filters")).not.toBeInTheDocument();
+    expect(screen.queryByText("No tickets yet")).not.toBeInTheDocument();
+
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("Too many requests"));
+    await user.click(within(alert).getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Could not load tickets: Too many requests")).toBeInTheDocument();
+
+    serve([]);
+    await user.click(within(screen.getByRole("alert")).getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("No tickets match the current filters")).toBeInTheDocument();
+  });
+
   it("shows a ticket created meanwhile once the page renders again (router.refresh)", async () => {
     // The first page lives in state: a new server render used to leave it as
     // it was, so a ticket just created did not appear until a filter changed.

@@ -71,10 +71,6 @@ export function ConfigPreviewDialog({
 	const fieldExtraPort = t("qsPage.configFieldExtraPort");
 	const fieldEnv = t("qsPage.configFieldEnv");
 	const fieldVolume = t("qsPage.configFieldVolume");
-	const portMapping = t("qsPage.configPortMapping");
-	const envCountTpl = t("qsPage.configEnvCount");
-	const volumeEntryTpl = t("qsPage.configVolumeEntry");
-	const portEntryTpl = t("qsPage.configPortEntry");
 	const portSep = t("qsPage.configPortListSeparator");
 	const volumeSep = t("qsPage.configVolumeListSeparator");
 	const volumeList = getVolumeMounts(item);
@@ -112,22 +108,22 @@ export function ConfigPreviewDialog({
 				</div>
 				<div>
 					<span className="text-[var(--text-muted)]">{fieldPort}</span>
-					{portMapping.replace("{container}", String(getPrimaryContainerPort(item))).replace("{host}", String(port))}
+					{t("qsPage.configPortMapping", { container: getPrimaryContainerPort(item), host: port })}
 				</div>
 				<div>
 					<span className="text-[var(--text-muted)]">{fieldExtraPort}</span>
 					{(item.extraPorts ?? []).length > 0
-						? item.extraPorts!.map((p) => portEntryTpl.replace("{container}", String(p.container)).replace("{host}", String(p.host))).join(portSep)
+						? item.extraPorts!.map((p) => t("qsPage.configPortEntry", { container: p.container, host: p.host })).join(portSep)
 						: noneLabel}
 				</div>
 				<div>
 					<span className="text-[var(--text-muted)]">{fieldEnv}</span>
-					{envCountTpl.replace("{count}", String(envCount))}
+					{t("qsPage.configEnvCount", { count: envCount })}
 				</div>
 				<div>
 					<span className="text-[var(--text-muted)]">{fieldVolume}</span>
 					{volumeList.length > 0
-						? volumeList.map((v) => volumeEntryTpl.replace("{host}", v.host).replace("{container}", v.container)).join(volumeSep)
+						? volumeList.map((v) => t("qsPage.configVolumeEntry", { host: v.host, container: v.container })).join(volumeSep)
 						: noneLabel}
 				</div>
 			</div>

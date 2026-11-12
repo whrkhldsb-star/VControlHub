@@ -5,7 +5,6 @@ import { Folder as FolderUp, Upload } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
   DEFAULT_NODE,
-  formatUploadMessage,
   getBrowserRelativePath,
   normalizeRelativePath,
   type StorageUploadNode,
@@ -123,7 +122,8 @@ export function FileUploadDropzone({
               : "failed";
       setMessage({
         type: failure ? "error" : "success",
-        text: formatUploadMessage(t(`fileUploadDropzone.summary.${key}`), {
+        // The translator fills the sentence in literally: a file named "cost$$.xlsx" used to be shown as "cost$.xlsx".
+        text: t(`fileUploadDropzone.summary.${key}`, {
           path: batch[0]!.path,
           size: batch[0]!.size,
           success,

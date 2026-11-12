@@ -48,6 +48,47 @@ describe("consumeProviderChatStream", () => {
     ]);
   });
 
+  it("keeps every tool call of an OpenAI-compatible provider that numbers or names them differently", async () => {
+    const calls = async (lines: string[]) => (await consumeProviderChatStream({
+      providerType: "OPENAI_COMPATIBLE",
+      body: streamChunks([...lines.map((line) => `data: ${line}\n`), "data: [DONE]\n\n"]),
+      onEvent: vi.fn(),
+    })).toolCalls.map((call) => `${call.id}:${call.function.name}(${call.function.arguments})`);
+    const delta = (toolCalls: unknown[]) => JSON.stringify({ choices: [{ delta: { tool_calls: toolCalls } }] });
+
+    // Gemini's compatible endpoint sends whole calls with no index at all.
+    expect(await calls([
+      delta([{ id: "a", function: { name: "list_servers", arguments: "{}" } }]),
+      delta([{ id: "b", function: { name: "get_server_status", arguments: '{"serverId":"s1"}' } }]),
+    ])).toEqual(["a:list_servers({})", 'b:get_server_status({"serverId":"s1"})']);
+
+    // Every call numbered 0: the second replaced the first.
+    expect(await calls([
+      delta([{ index: 0, id: "a", function: { name: "list_servers", arguments: "{}" } }]),
+      delta([{ index: 0, id: "b", function: { name: "list_backups", arguments: "" } }]),
+      delta([{ index: 0, function: { arguments: '{"type":"FULL"}' } }]),
+    ])).toEqual(["a:list_servers({})", 'b:list_backups({"type":"FULL"})']);
+
+    // The id repeated on every fragment: each fragment replaced what had been collected.
+    expect(await calls([
+      delta([{ index: 0, id: "a", function: { name: "read_file", arguments: '{"filePath":' } }]),
+      delta([{ index: 0, id: "a", function: { name: "read_file", arguments: '"/etc/hosts"}' } }]),
+    ])).toEqual(['a:read_file({"filePath":"/etc/hosts"})']);
+
+    // No index and the id only on the first fragment: the later fragments were dropped.
+    expect(await calls([
+      delta([{ id: "a", function: { name: "read_file", arguments: '{"filePath":' } }]),
+      delta([{ function: { arguments: '"/etc/hosts"}' } }]),
+    ])).toEqual(['a:read_file({"filePath":"/etc/hosts"})']);
+
+    // The official shape is read as before: parallel calls, each on its own index.
+    expect(await calls([
+      delta([{ index: 0, id: "a", function: { name: "list_servers", arguments: "" } }, { index: 1, id: "b", function: { name: "list_backups", arguments: "" } }]),
+      delta([{ index: 1, function: { arguments: '{"type":"FULL"}' } }]),
+      delta([{ index: 0, function: { arguments: "{}" } }]),
+    ])).toEqual(["a:list_servers({})", 'b:list_backups({"type":"FULL"})']);
+  });
+
   it("parses official Anthropic text, thinking, tool, and usage events across chunks", async () => {
     const onEvent = vi.fn();
     const result = await consumeProviderChatStream({

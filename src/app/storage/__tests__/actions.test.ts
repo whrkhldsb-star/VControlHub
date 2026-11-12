@@ -2,6 +2,9 @@ import path from "node:path";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ tryAcquireAdvisoryLock: vi.fn().mockResolvedValue(async () => undefined) }));
+// The user's language as the cookie says it; "zh" is what the real lookup answers outside a request.
+const getServerLocaleMock = vi.hoisted(() => vi.fn(async (): Promise<"zh" | "en"> => "zh"));
+vi.mock("@/lib/i18n/server-locale-cookie", () => ({ getServerLocale: getServerLocaleMock }));
 
 /** LOCAL driver paths resolve through node:path — build expectations natively. */
 const localPath = (...segments: string[]) => path.resolve("/srv/storage", ...segments);
@@ -186,7 +189,7 @@ describe("createFolderAction", () => {
       }),
     );
 
-    expect(result.error).toMatch(/Path/);
+    expect(result.error).toMatch(/路径/) // in the language of the action: these tests run as a Chinese user;
     expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
     expect(prismaMock.storageNode.findFirst).not.toHaveBeenCalled();
     expect(mkdirMock).not.toHaveBeenCalled();
@@ -791,6 +794,32 @@ describe("SFTP file entry actions", () => {
     );
   });
 
+  it("names a failed index write without the query when the rollback fails too", async () => {
+    // The file is renamed on disk, the index write fails and so does renaming it back: the one path that showed
+    // "PrismaClientKnownRequestError: Invalid `prisma.fileEntry.update()` invocation…" in the rename dialog.
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
+      id: "local-file",
+      name: "old.txt",
+      entryType: "FILE",
+      relativePath: "docs/old.txt",
+      storageNodeId: "node-local",
+      storageNode: { driver: "LOCAL", basePath: "/srv/storage", host: null, port: null, username: null, server: null },
+    });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    renameFsMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("EACCES: permission denied, rename"));
+    prismaMock.fileEntry.update.mockRejectedValueOnce(
+      Object.assign(new Error("\nInvalid `prisma.fileEntry.update()` invocation:\n\n\nUnique constraint failed on the fields: (`storageNodeId`,`relativePath`)"), {
+        name: "PrismaClientKnownRequestError",
+        code: "P2002",
+        clientVersion: "7.9.0",
+      }),
+    );
+
+    const result = await renameFileEntryAction(null, entryForm("local-file", { newName: "new.txt" }));
+
+    expect(result.error).toBe("索引重命名失败，且磁盘回滚也失败：文件索引写入失败；回滚：EACCES: permission denied, rename。请人工核对该目录。");
+  });
+
   it("rejects rename names that normalizeStorageEntryName would block (.. / . / controls)", async () => {
     const result = await renameFileEntryAction(
       null,
@@ -801,5 +830,47 @@ describe("SFTP file entry actions", () => {
     expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
     expect(renameRemoteFileMock).not.toHaveBeenCalled();
     expect(renameFsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("the language of a server action's messages", () => {
+  // A server action runs outside withApiRoute, where the backend copy had no request to read a language from:
+  // apiCopy() answered in English and the service-layer t() in Chinese, whatever the page's language was.
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requirePermissionMock.mockResolvedValue({ userId: "user-1", username: "alice", roles: ["operator"], mustChangePassword: false });
+    vi.mocked(assertStorageAccess).mockResolvedValue({ allowed: true });
+    prismaMock.fileEntry.findFirst.mockResolvedValue(sftpEntry());
+  });
+
+  it("tells a Chinese user in Chinese that the node is busy", async () => {
+    const { tryAcquireAdvisoryLock } = await import("@/lib/concurrency/advisory-lock");
+    vi.mocked(tryAcquireAdvisoryLock).mockResolvedValueOnce(null);
+    getServerLocaleMock.mockResolvedValue("zh");
+
+    expect(await restoreFileEntryAction(null, entryForm("entry-1"))).toEqual({ error: "该存储节点正在执行其他文件操作" });
+  });
+
+  it("tells an English user in English why access is refused, and that a name is not allowed", async () => {
+    getServerLocaleMock.mockResolvedValue("en");
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: false, reason: "no_access" });
+
+    expect(await restoreFileEntryAction(null, entryForm("entry-1"))).toEqual({ error: "No access authorization for this storage node or path" });
+    expect(await renameFileEntryAction(null, entryForm("entry-1", { newName: "a/b" }))).toEqual({ error: "Name must not contain path separators" });
+  });
+
+  it("keeps the two languages apart between concurrent actions", async () => {
+    const { tryAcquireAdvisoryLock } = await import("@/lib/concurrency/advisory-lock");
+    vi.mocked(tryAcquireAdvisoryLock).mockResolvedValue(null);
+    getServerLocaleMock.mockResolvedValueOnce("en").mockResolvedValueOnce("zh");
+
+    const [english, chinese] = await Promise.all([
+      restoreFileEntryAction(null, entryForm("entry-1")),
+      restoreFileEntryAction(null, entryForm("entry-1")),
+    ]);
+
+    expect(english).toEqual({ error: "Another operation is active on this storage node" });
+    expect(chinese).toEqual({ error: "该存储节点正在执行其他文件操作" });
+    vi.mocked(tryAcquireAdvisoryLock).mockResolvedValue(async () => undefined);
   });
 });

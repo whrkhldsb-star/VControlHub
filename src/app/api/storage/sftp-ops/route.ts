@@ -61,6 +61,8 @@ async function upsertSftpFileIndex(params: {
       entryType: "FILE",
       mimeType: guessContentType(params.relativePath),
       size: BigInt(size),
+      // The content was replaced and is not hashed here: a checksum recorded for the old bytes must not stay.
+      checksumSha256: null,
       isDeleted: false,
     },
     create: {
@@ -354,11 +356,9 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           writeBytes: null,
         });
         if (!destinationAccessDecision.allowed) {
+          // In words, as for the source path above: the reason is a code and was sent as it is.
           return NextResponse.json(
-            {
-              error:
-                destinationAccessDecision.reason ?? "Missing target path storage access authorization",
-            },
+            { error: storageAccessDeniedCopy(destinationAccessDecision.reason) },
             { status: 403 },
           );
         }

@@ -7,6 +7,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { reviewCommandRequest } from "@/lib/command/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { withServerActionLocale } from "@/lib/i18n/server-locale";
 
 export type ReviewActionState = {
   error?: string;
@@ -21,6 +22,10 @@ export type BatchReviewActionState = {
 };
 
 export async function reviewCommandAction(_prevState: ReviewActionState | null, formData: FormData) {
+  return withServerActionLocale(() => reviewCommandActionImpl(_prevState, formData));
+}
+
+async function reviewCommandActionImpl(_prevState: ReviewActionState | null, formData: FormData) {
   const session = await requirePermission("command:approve");
   const locale = await getServerLocale();
   const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
@@ -82,6 +87,13 @@ export async function reviewCommandAction(_prevState: ReviewActionState | null, 
  * yet. Batch size is bounded by the UI selection (one page of pending).
  */
 export async function batchReviewCommandAction(
+  _prevState: BatchReviewActionState | null,
+  formData: FormData,
+): Promise<BatchReviewActionState> {
+  return withServerActionLocale(() => batchReviewCommandActionImpl(_prevState, formData));
+}
+
+async function batchReviewCommandActionImpl(
   _prevState: BatchReviewActionState | null,
   formData: FormData,
 ): Promise<BatchReviewActionState> {

@@ -27,7 +27,7 @@ describe("RetryBackupRecordButton", () => {
 
     await waitFor(() => expect(mocks.csrfFetch).toHaveBeenCalledWith("/api/backups/bak1/retry", { method: "POST" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/已重新排队/));
-    expect(screen.getByRole("link", { name: "任务中心" })).toHaveAttribute("href", "/operation-tasks");
+    expect(screen.getByRole("link", { name: "在任务中心查看" })).toHaveAttribute("href", "/operation-tasks");
     expect(screen.getByText(/job:job1/)).toBeInTheDocument();
     expect(mocks.refresh).toHaveBeenCalled();
   });

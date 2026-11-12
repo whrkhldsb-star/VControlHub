@@ -31,11 +31,12 @@ export function BatchServerActionPanel({
 
   // After a successful batch toggle, clear multi-select and danger confirm so a
   // revalidate does not leave a one-click re-disable / stale summary.
+  // Keyed on the answer, not on its sentence: a second batch that ended with the same words kept its selection.
   useEffect(() => {
     if (!state.success) return;
     setSelectedIds([]);
     setDisableConfirming(false);
-  }, [state.success]);
+  }, [state]);
 
   const selectedServers = useMemo(
     () => (remoteTargets ? remoteSelection : servers).filter((server) => selectedIds.includes(server.id)),
@@ -97,8 +98,8 @@ export function BatchServerActionPanel({
           {allSelected ? t("serversPage.batchPanel.clear") : t("serversPage.batchPanel.selectAll")}
         </ActionButton>
         {someSelected ? <span aria-hidden="true">·</span> : null}
-        <span>{t("serversPage.batchPanel.enabled")}: {enabledSelectedCount}</span>
-        <span>{t("serversPage.batchPanel.disabled")}: {disabledSelectedCount}</span>
+        <span>{t("serversPage.batchPanel.enabled")}{t("common.colon")}{enabledSelectedCount}</span>
+        <span>{t("serversPage.batchPanel.disabled")}{t("common.colon")}{disabledSelectedCount}</span>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -143,12 +144,19 @@ export function BatchServerActionPanel({
             {t("serverCardActions.toggle.disable")}
           </ActionButton>
         ) : (
-          <SubmitButton
-            pendingLabel={t("serversPage.batchPanel.processing")}
-            variant="danger"
-          >
-            {t("serverCardActions.toggle.disable")}
-          </SubmitButton>
+          // The way back comes first, where the first press was: with the same words on a button in the same
+          // place, a double click went through both steps.
+          <>
+            <ActionButton variant="secondary" onClick={() => setDisableConfirming(false)}>
+              {t("common.cancel")}
+            </ActionButton>
+            <SubmitButton
+              pendingLabel={t("serversPage.batchPanel.processing")}
+              variant="danger"
+            >
+              {t("serversPage.batchPanel.confirmDisable", { count: selectedIds.length })}
+            </SubmitButton>
+          </>
         )}
       </form>
     </section>

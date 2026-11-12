@@ -7,6 +7,7 @@ const { mocks } = vi.hoisted(() => ({
     createBackupRecord: vi.fn(),
     enqueueJob: vi.fn(),
     listBackupRecords: vi.fn(),
+    auditUserAction: vi.fn(),
   },
 }));
 
@@ -17,6 +18,7 @@ vi.mock("@/lib/backup/service", () => ({
   listBackupRecords: mocks.listBackupRecords,
 }));
 vi.mock("@/lib/job/service", () => ({ enqueueJob: mocks.enqueueJob }));
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
 vi.mock("@/lib/backup/job-worker", () => ({ BACKUP_CREATE_JOB_TYPE: "backup.create" }));
 
 const route = await import("../route");
@@ -94,6 +96,20 @@ describe("/api/backups", () => {
     expect(res.headers.get("location")).toBe("http://local/backups");
     expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "DATABASE", createdBy: "u1", note: "pre upgrade", teamId: null });
     expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1", teamId: null } }));
+    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "backup.create", expect.objectContaining({ backupId: "bak1", jobId: "job1" }), undefined, undefined);
+  });
+
+  it("audits a synchronous backup made from a browser form before redirecting", async () => {
+    // The redirect returned first: wait=1 from a form made a backup with no audit entry.
+    const req = new Request("http://local/api/backups?wait=1", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "content-length": "1024", accept: "text/html" },
+      body: new URLSearchParams({ type: "DATABASE" }),
+    });
+    const res = await route.POST(req);
+    expect(res.status).toBe(303);
+    expect(mocks.runBackupRecord).toHaveBeenCalledTimes(1);
+    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "backup.create", { backupId: "bak1" }, undefined, undefined);
   });
 
 });

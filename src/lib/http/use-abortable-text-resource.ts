@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { apiRequest } from "./api-client";
+import { readRefusal } from "./error-message";
 import { readTextPrefix } from "./read-text-prefix";
 
 type TextResourceState = {
@@ -23,12 +25,14 @@ type Options = {
 };
 
 const defaultStatusError = (status: number) => `Request failed (${status})`;
+/** The app's own request helper, with the response as it comes: a request without an answer is worded there. */
+const appFetcher = ((input: RequestInfo | URL, init?: RequestInit) => apiRequest<Response>(input, { ...init, raw: true })) as typeof fetch;
 const defaultResourceError = (error: unknown) => error instanceof Error ? error.message : "Request failed";
 
 /** Fetch a text resource while cancelling obsolete URL loads and unmount work. */
 export function useAbortableTextResource({
   href,
-  fetcher = fetch,
+  fetcher = appFetcher,
   errorMessage = defaultStatusError,
   getErrorMessage = defaultResourceError,
   maxBytes,
@@ -65,7 +69,8 @@ export function useAbortableTextResource({
     try {
       const currentFetcher = fetcherRef.current;
       const response = await currentFetcher(href, { signal: controller.signal });
-      if (!response.ok) throw new Error(errorMessageRef.current(response.status));
+      // The server says why it refused (no grant on this folder, file gone); the status alone does not.
+      if (!response.ok) throw new Error((await readRefusal(response)) || errorMessageRef.current(response.status));
       const next = maxBytes === undefined
         ? { text: await response.text(), truncated: false }
         : await readTextPrefix(response, maxBytes);

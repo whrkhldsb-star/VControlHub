@@ -48,6 +48,19 @@ function listInstallTargets(session: Parameters<typeof serverTeamWhere>[0]) {
 	});
 }
 
+/**
+ * How many variables a stored environment holds. The column is JSON text:
+ * counted with Object.keys it gave the length of that text ("{}" was 2).
+ */
+function countEnvKeys(envJson: unknown): number {
+	try {
+		const parsed: unknown = typeof envJson === "string" ? JSON.parse(envJson) : envJson;
+		return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? Object.keys(parsed).length : 0;
+	} catch {
+		return 0;
+	}
+}
+
 /** GET /api/quick-services — list catalog + installed + remote services */
 const USED_PORTS_TTL_MS = 15_000;
 const DOCKER_STATUS_TTL_MS = 45_000;
@@ -88,7 +101,7 @@ export async function GET(request: Request) {
 		const installedRows = await listQuickServices(instanceKey);
 		// The page never read envJson, and it holds the generated administrator passwords of every installed service
 		// (MinIO, n8n, Pi-hole ...): only how many variables there are leaves the server.
-		const installed = installedRows.map(({ envJson, ...row }) => ({ ...row, envKeyCount: Object.keys(envJson ?? {}).length }));
+		const installed = installedRows.map(({ envJson, ...row }) => ({ ...row, envKeyCount: countEnvKeys(envJson) }));
 		const installedMap = new Map(installed.map((s) => [s.slug, s]));
 
 		// Local catalog

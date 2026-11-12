@@ -8,13 +8,13 @@
  *
  * Design:
  * - Durable job type `traffic.sample`, every 5 minutes.
- * - Always sample the local primary interface from /proc/net/dev.
+ * - Always sample the local primary interface (the reader the traffic page
+ *   uses: /proc/net/dev, or PowerShell on a Windows hub).
  * - Remote counters are persisted by the health collector from the same
  *   metrics payload, avoiding a second SSH session per interval.
  * - Persist one row per primary interface sample into traffic_snapshots.
  * - Prune completed traffic.sample jobs after each successful tick.
  */
-import { readFileSync } from "node:fs";
 import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
 import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 import { JobStatus } from "@prisma/client";
@@ -34,9 +34,9 @@ import {
 import { createLogger } from "@/lib/logging";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
+import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
 import {
   calculateTrafficRate,
-  parseNetworkDeviceStats,
   persistTrafficSample,
   selectPrimaryInterface,
   type NetworkDeviceStats,
@@ -85,14 +85,6 @@ function getWorkerState() {
   return trafficSamplingWorker.getState();
 }
 
-function readProcNetDev() {
-  try {
-    return readFileSync("/proc/net/dev", "utf-8");
-  } catch {
-    return "";
-  }
-}
-
 function summarizeLocalInterface(iface: string, sample: NetworkDeviceStats) {
   const key = `local:${iface}`;
   const current: TrafficCounterSample = {
@@ -116,7 +108,9 @@ async function sampleLocalPrimary(): Promise<{
   sampled: boolean;
   iface: string | null;
 }> {
-  const interfaces = parseNetworkDeviceStats(readProcNetDev());
+  // The shared reader, not /proc/net/dev read here: a Windows hub has none,
+  // and its history was then written only while someone had the page open.
+  const interfaces = await readLocalNetworkDeviceStats();
   const primary = selectPrimaryInterface(interfaces);
   if (!primary) return { sampled: false, iface: null };
   const summary = summarizeLocalInterface(primary.iface, primary);

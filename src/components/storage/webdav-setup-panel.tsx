@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -47,12 +48,12 @@ export function WebDavSetupPanel({ nodes, origin }: { nodes: NodeOption[]; origi
         <li>{t("filesPage.webdav.scopes")}</li>
         <li>{t("filesPage.webdav.methods")}</li>
       </ul>
-      <a
+      <Link
         href="/api-tokens"
         className="inline-flex min-h-11 items-center text-[var(--accent)] underline-offset-2 hover:underline"
       >
         {t("filesPage.webdav.manageTokens")}
-      </a>
+      </Link>
     </div>
   );
 }

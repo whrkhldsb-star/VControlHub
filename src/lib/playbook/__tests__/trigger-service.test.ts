@@ -144,6 +144,34 @@ describe("Playbook automatic trigger dispatch", () => {
     expect(mocks.queuePlaybookRunWithClient).toHaveBeenCalledTimes(2);
   });
 
+  it("pages a sweep of more than one page by id, so the playbook after a handled one is not passed over", async () => {
+    // A handled playbook leaves both filters (it gets a next run / a later next run). The sweeps paged with a
+    // cursor on the last handled row plus skip 1: Prisma then starts after the first row that still matches and
+    // skips the one after it, so one playbook per 500 waited for the following tick.
+    const firstPage = Array.from({ length: 500 }, (_, index) => ({ id: `pb-${String(index).padStart(4, "0")}`, nextRunAt: dueAt }));
+    mocks.playbookFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) => cronPlaybook({ id: where.id }));
+
+    mocks.playbookFindMany.mockResolvedValueOnce(firstPage).mockResolvedValueOnce([{ id: "pb-0500", nextRunAt: dueAt }]);
+    await expect(dispatchDueCronPlaybooks(now)).resolves.toEqual({ dispatched: 501, advanced: 501 });
+    const dispatchQueries = mocks.playbookFindMany.mock.calls.map((call) => call[0] as { where: { id?: unknown }; cursor?: unknown; skip?: unknown });
+    expect(dispatchQueries).toHaveLength(2);
+    expect(dispatchQueries[0]!.where.id).toBeUndefined();
+    expect(dispatchQueries[1]!.where.id).toEqual({ gt: "pb-0499" });
+    for (const query of dispatchQueries) {
+      expect(query.cursor).toBeUndefined();
+      expect(query.skip).toBeUndefined();
+    }
+
+    mocks.playbookFindMany.mockReset();
+    mocks.playbookFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) => cronPlaybook({ id: where.id, nextRunAt: null }));
+    mocks.playbookFindMany.mockResolvedValueOnce(firstPage.map(({ id }) => ({ id }))).mockResolvedValueOnce([{ id: "pb-0500" }]);
+    await expect(initializeUnscheduledCronPlaybooks(now)).resolves.toBe(501);
+    const initializeQueries = mocks.playbookFindMany.mock.calls.map((call) => call[0] as { where: { id?: unknown }; cursor?: unknown; skip?: unknown });
+    expect(initializeQueries).toHaveLength(2);
+    expect(initializeQueries[1]!.where.id).toEqual({ gt: "pb-0499" });
+    expect(initializeQueries[1]!.cursor).toBeUndefined();
+  });
+
   it("moves a deleted customer's due playbook to its next occurrence without running it", async () => {
     // Its webhook and notification steps kept running for the hidden customer.
     mocks.playbookFindUnique.mockResolvedValue(cronPlaybook());

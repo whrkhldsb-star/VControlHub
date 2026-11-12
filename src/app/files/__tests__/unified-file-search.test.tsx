@@ -45,6 +45,15 @@ describe("UnifiedFileSearch request lifecycle", () => {
     expect(screen.queryByText("stale content")).not.toBeInTheDocument();
   });
 
+  it("says why a content search was refused", async () => {
+    // "Content search failed", whatever the server answered: too many searches, a query it does not take.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: "RATE_LIMITED", error: "Too many requests", message: "Too many content searches; try again in a minute" }), { status: 429, headers: { "content-type": "application/json" } })));
+    renderWithI18n(<UnifiedFileSearch searchInput="report" onSearchInputChange={vi.fn()} onFilenameSearch={vi.fn()} />, { locale: "en" });
+    fireEvent.click(screen.getByRole("button", { name: "Content" }));
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    expect(await screen.findByText("Content search failed: Too many content searches; try again in a minute")).toBeInTheDocument();
+  });
+
   it("aborts a pending request on unmount", () => {
     const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}));
     vi.stubGlobal("fetch", fetchMock);

@@ -59,6 +59,21 @@ describe("FileUploadDropzone", () => {
     expect(screen.getByText(/上传完成：docs\/report\.txt/)).toBeInTheDocument();
   });
 
+  it("names the uploaded file in the summary as it is written", async () => {
+    // The sentence was filled in with String.replaceAll, which reads "$$", "$&" and "$'" in the inserted name as
+    // instructions: "cost$$ $&.txt" was reported as "cost$ {path}.txt".
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ relativePath: "docs/cost$$ $&.txt", size: 12 }),
+    } as Response);
+    render(
+      <FileUploadDropzone nodes={[localNode]} initialNodeId="node_local" initialRelativeDir="docs" title="上传" description="上传文件" submitLabel="选择文件" pathLabel="上传目录路径" />,
+    );
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["hello world!"], "cost$$ $&.txt", { type: "text/plain" })] } });
+    expect(await screen.findByText("上传完成：docs/cost$$ $&.txt（12 B）")).toBeInTheDocument();
+  });
+
   it("uploads files dropped before a target was chosen once the user confirms", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,

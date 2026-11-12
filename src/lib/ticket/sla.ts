@@ -4,7 +4,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { liveCustomerRowsWhere, teamWhere } from "@/lib/auth/team-scope";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { createLogger } from "@/lib/logging";
-import { notificationContentData } from "@/lib/notification/service";
+import { announceStoredNotifications, notificationContentData, STORED_NOTIFICATION_SELECT, type StoredNotification } from "@/lib/notification/service";
 import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
 import { SLA_WARNING_MS, ticketQueryClauses } from "./query";
 
@@ -85,6 +85,8 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
     // hourly re-sweep does not re-notify managers, but do not write a no-op escalation row.
     const priorityChanges = newPriority !== ticket.priority;
     try {
+      // Announced to the managers' open pages once the transaction has committed.
+      let notices: StoredNotification[] = [];
       const didEscalate = await prisma.$transaction(async (tx) => {
         const claimed = await tx.ticket.updateMany({
           where: {
@@ -122,7 +124,8 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
             take: 1000,
           });
           if (managers.length > 0) {
-            await tx.notification.createMany({
+            notices = await tx.notification.createManyAndReturn({
+              select: STORED_NOTIFICATION_SELECT,
               data: managers.map((manager) => ({
                 userId: manager.id,
                 teamId: ticket.teamId,
@@ -146,6 +149,9 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
       });
 
       if (didEscalate) {
+        // One insert for all managers reaches no page by itself: without this
+        // there was no toast, and the badge kept its number until a reload.
+        if (notices.length > 0) await announceStoredNotifications(notices).catch(() => undefined);
         if (priorityChanges) {
           escalated += 1;
           logger.info("Ticket SLA escalated", { ticketId: ticket.id, fromPriority: ticket.priority, toPriority: newPriority });

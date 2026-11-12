@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { ApiError, api, apiRequest } from "@/lib/http/api-client";
+import { ApiError, NetworkError, api, apiRequest } from "@/lib/http/api-client";
 
 /** Minimal `fetch` mock that returns a Response-like object with `ok` + `status`. */
 function mockFetchOnce(status: number, body: unknown): typeof fetch {
@@ -152,8 +152,74 @@ describe("lib/http/api-client — ApiError envelope (TR-034 R3)", () => {
 		globalThis.fetch = fn as unknown as typeof fetch;
 		const err = (await api.get("/api/x").catch((e) => e)) as ApiError;
 		expect(err.status).toBe(500);
-		// statusText flows into the message
-		expect(err.message).toBe("Internal Server Error");
+		// The status is named in the page's language; the status text is English and absent over HTTP/2.
+		expect(err.message).toBe("请求失败（HTTP 500）");
+	});
+
+	describe("a request that got no answer", () => {
+		afterEach(() => {
+			delete document.documentElement.dataset.locale;
+			document.documentElement.lang = "";
+		});
+
+		it("says so in the page's language instead of the browser's own English", async () => {
+			// What fetch rejects with while the server restarts or the network is down: "Failed to fetch" in Chrome,
+			// "Load failed" in Safari, "NetworkError when attempting to fetch resource." in Firefox. Every toast showed it.
+			globalThis.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch")) as unknown as typeof fetch;
+			const zh = (await api.get("/api/x").catch((e) => e)) as Error;
+			expect(zh).toBeInstanceOf(NetworkError);
+			expect(zh).not.toBeInstanceOf(ApiError);
+			expect(zh.name).toBe("NetworkError");
+			expect(zh.message).toBe("无法连接到服务器，请检查网络后重试");
+			expect((zh.cause as Error).message).toBe("Failed to fetch");
+
+			document.documentElement.dataset.locale = "en";
+			const en = (await apiRequest("/api/x", { method: "POST", body: "{}" }).catch((e) => e)) as Error;
+			expect(en.message).toBe("Could not reach the server. Check your connection and try again.");
+
+			// Raw mode gets the same: the failure comes before there is a response to hand over.
+			const raw = (await apiRequest<Response>("/api/x", { raw: true }).catch((e) => e)) as Error;
+			expect(raw).toBeInstanceOf(NetworkError);
+		});
+
+		it("lets an abort through as it is: that is the caller's own doing", async () => {
+			const aborted = new DOMException("The operation was aborted.", "AbortError");
+			globalThis.fetch = vi.fn().mockRejectedValue(aborted) as unknown as typeof fetch;
+			const controller = new AbortController();
+			controller.abort();
+			await expect(apiRequest("/api/x", { signal: controller.signal })).rejects.toBe(aborted);
+			// Some engines reject an aborted request with a TypeError; the signal decides.
+			const odd = new TypeError("cancelled");
+			globalThis.fetch = vi.fn().mockRejectedValue(odd) as unknown as typeof fetch;
+			await expect(apiRequest("/api/x", { signal: controller.signal })).rejects.toBe(odd);
+		});
+
+		it("leaves anything else alone", async () => {
+			const other = new Error("stream reset by test");
+			globalThis.fetch = vi.fn().mockRejectedValue(other) as unknown as typeof fetch;
+			await expect(api.get("/api/x")).rejects.toBe(other);
+		});
+
+		it("names the status in the page's language when a refusal is not the app's answer", async () => {
+			// A proxy in front of the app while it restarts: an HTML page, and over HTTP/2 no status text either.
+			const proxyPage = () => ({
+				ok: false,
+				status: 502,
+				statusText: "",
+				headers: new Headers({ "content-type": "text/html" }),
+				json: async () => {
+					throw new Error("not json");
+				},
+			}) as unknown as Response;
+			globalThis.fetch = vi.fn().mockResolvedValue(proxyPage()) as unknown as typeof fetch;
+			const zh = (await api.get("/api/x").catch((e) => e)) as ApiError;
+			expect(zh).toBeInstanceOf(ApiError);
+			expect(zh.status).toBe(502);
+			expect(zh.message).toBe("请求失败（HTTP 502）");
+			document.documentElement.lang = "en";
+			const en = (await api.get("/api/x").catch((e) => e)) as ApiError;
+			expect(en.message).toBe("Request failed (HTTP 502)");
+		});
 	});
 
 	it("attaches CSRF header on POST but not on GET", async () => {

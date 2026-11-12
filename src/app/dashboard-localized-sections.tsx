@@ -111,11 +111,6 @@ export function DashboardLocalizedHeader({ username }: { username: string }) {
 export function DashboardServerHero({ summary }: { summary: DashboardServerSummary }) {
   const { t } = useI18n();
   const eyebrow = t("dashboard.server-overview");
-  const onlineSuffix = t("dashboard.enabled-nodes");
-  const managedPrefix = t("dashboard.managed-nodes-prefix");
-  const managedSuffix = t("dashboard.managed-nodes-suffix");
-  const sshSuffix = t("dashboard.ssh-bound-suffix");
-  const gatewaySuffix = t("dashboard.direct-gateway");
   const onlineLabel = t("dashboard.enabled-nodes");
   const disabledLabel = t("dashboard.disabled-nodes");
   const sshLabel = t("dashboard.ssh-key-bound");
@@ -125,8 +120,8 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
     <MetricPanel
       data-dashboard-widget="server-status"
       eyebrow={eyebrow}
-      title={`${summary.enabled} ${onlineSuffix}`}
-      description={`${managedPrefix} ${summary.total} ${managedSuffix}, ${summary.sshKey} ${sshSuffix}, ${summary.directGateway} ${gatewaySuffix}.`}
+      title={t("dashboard.server-hero.title", { count: summary.enabled })}
+      description={t("dashboard.server-hero.description", { total: summary.total, sshKey: summary.sshKey, gateway: summary.directGateway })}
       metrics={[
         { label: onlineLabel, value: String(summary.enabled), tone: summary.enabled > 0 ? "emerald" : undefined },
         { label: disabledLabel, value: String(summary.disabled), tone: summary.disabled > 0 ? "amber" : undefined },
@@ -259,8 +254,6 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
   const noAudit = t("dashboard.no-audit-logs");
   const assistant = t("dashboard.actor-assistant");
   const user = t("dashboard.actor-user");
-  const targetPrefix = t("dashboard.target-prefix");
-  const targetSuffix = t("dashboard.target-suffix");
   const viewAll = t("dashboard.view-all");
 
   return (
@@ -284,7 +277,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
                 <Badge color={request.status === "PENDING_APPROVAL" ? "amber" : request.status === "APPROVED" || request.status === "COMPLETED" ? "emerald" : request.status === "FAILED" || request.status === "REJECTED" ? "rose" : "slate"}>
                   {getDomainStatusLabel(t, request.status)}
                 </Badge>
-                <Badge color="slate">{targetPrefix} {request.targetCount} {targetSuffix}</Badge>
+                <Badge color="slate">{t("dashboard.targets", { count: request.targetCount })}</Badge>
               </div>
             </div>
             <p className="mt-2 truncate rounded-md bg-[var(--surface-subtle)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-secondary)]">{request.command}</p>

@@ -38,6 +38,8 @@ export interface CreateDownloadFormProps {
 	form: DownloadFormState;
 	submitting: boolean;
 	batchModeError: string | null;
+	/** Why the last submit was not accepted (a local check or the server's refusal). */
+	error?: string | null;
 	servers: Array<{
 		id: string;
 		name: string;
@@ -68,6 +70,7 @@ export function CreateDownloadForm({
 	form,
 	submitting,
 	batchModeError,
+	error,
 	servers,
 	selectedServerId,
 	onFormChange,
@@ -186,7 +189,7 @@ export function CreateDownloadForm({
 						id="downloadFileName"
 						value={form.fileName}
 						onChange={(e) => onFormChange({ ...form, fileName: e.target.value })}
-						placeholder={t("downloadsPage.form.savePathPlaceholder")}
+						placeholder={t("downloadsPage.form.fileNamePlaceholder")}
 						className={UI_INPUT}
 					/>
 				</div>
@@ -237,6 +240,8 @@ export function CreateDownloadForm({
 					{t("downloadsPage.form.transportInfo")}
 				</p>
 			</div>
+
+			{error ? <Notice tone="danger">{error}</Notice> : null}
 
 			<div className="flex gap-3 pt-2">
 				<ActionButton variant="primary"

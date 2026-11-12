@@ -1,7 +1,5 @@
 "use client";
 
-import { RouteError } from "@/components/route-error";
-
 /**
  * Root-level error boundary for route segments.
  * Catches errors thrown in Server Components and Client Components
@@ -16,14 +14,4 @@ import { RouteError } from "@/components/route-error";
  * guard — even if a client surface forgets to hide its UI, the page entry
  * still bounces unauthorised users to a consistent denial state.
  */
-export default function RootError({
-	error,
-	reset,
-}: {
-	error: Error & { digest?: string };
-	reset: () => void;
-}) {
-	// RouteError logs the failure (warn for ForbiddenError, error otherwise)
-	// and renders <PermissionDenied /> for permission failures.
-	return <RouteError error={error} reset={reset} />;
-}
+export { RouteError as default } from "@/components/route-error";

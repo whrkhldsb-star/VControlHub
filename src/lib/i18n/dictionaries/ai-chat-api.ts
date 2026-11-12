@@ -8,7 +8,7 @@ export const zh: Record<string, string> = {
 	"apiAiChat.toolUnavailableInPlanMode": "方案模式下不能调用 {name}：这里只能查看状态和制定方案，要执行变更请把会话切到协作模式",
 	"apiAiChat.missingParams": "缺少必要参数",
 	"apiAiChat.conversationNotFound": "对话不存在",
-	"apiAiChat.attachmentPrefix": "\n\n📎 附件内容:\n\n",
+	"apiAiChat.attachmentPrefix": "\n\n📎 附件内容：\n\n",
 	"apiAiChat.requestFailedFallback": "AI 请求失败",
 	"apiAiChat.cannotReadStream": "无法读取响应流",
 	"apiAiChat.streamErrorFallback": "流式传输错误",

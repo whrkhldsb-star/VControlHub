@@ -165,6 +165,41 @@ describe("VpsStatusClient (split fleet surface)", () => {
 		expect(screen.getByRole("columnheader", { name: "CPU" })).toBeInTheDocument();
 		expect(window.localStorage.getItem("vch.vpsStatus.viewMode")).toBe("table");
 	});
+
+	it("says in the table too why a node could not be sampled", async () => {
+		// The card shows the reason under the figures; the table said "离线" and nothing else.
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockImplementation(async (input) => {
+			if (String(input).includes("history")) return { history: [] };
+			return { ...overview, offline: 1, servers: [overview.servers[0], { ...overview.servers[1], status: "offline" as const, cpu: undefined, error: "SSH 认证失败：密钥被拒绝" }] };
+		});
+		renderVps();
+		expect((await screen.findAllByText("US Edge")).length).toBeGreaterThan(0);
+		await user.click(screen.getByRole("button", { name: "表格" }));
+		const row = screen.getByRole("row", { name: /US Edge/ });
+		expect(row).toHaveTextContent("SSH 认证失败：密钥被拒绝");
+	});
+
+	it("tells an empty fleet from a filter without matches", async () => {
+		const user = userEvent.setup();
+		window.history.replaceState({}, "", "/vps-status");
+		vi.mocked(csrfFetch).mockImplementation(async (input) => {
+			if (String(input).includes("history")) return { history: [] };
+			return { total: 0, online: 0, warning: 0, critical: 0, offline: 0, servers: [] };
+		});
+		render(
+			<I18nProvider initialLocale="zh">
+				<VpsStatusClient serverCount={0} />
+			</I18nProvider>,
+		);
+		// No filter is set and nothing is managed yet: not "no node under the current filter".
+		expect(await screen.findByText("还没有纳管的 VPS 节点")).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "前往 VPS 管理" })).toHaveAttribute("href", "/servers");
+		expect(screen.queryByText("当前筛选下没有节点")).not.toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "异常" }));
+		expect(await screen.findByText("当前筛选下没有节点")).toBeInTheDocument();
+	});
 });
 
 describe("transfer rate units", () => {

@@ -103,9 +103,10 @@ sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" 
 
 ```bash
 # 在旧服务器或本地机器执行；按实际新服务器地址替换 root@new-server。
+# 排除项都以 / 开头，只匹配安装目录顶层的运行数据；不带 / 会连同 src/lib/storage、src/lib/downloads 等同名源码目录一起排除。
 rsync -a --delete \
-  --exclude .git --exclude node_modules --exclude .next --exclude .env.local \
-  --exclude storage --exclude tmp --exclude uploads --exclude downloads --exclude backups --exclude logs \
+  --exclude /.git --exclude /node_modules --exclude /.next --exclude /.env.local --exclude /.env.runtime \
+  --exclude /storage --exclude /tmp --exclude /uploads --exclude /downloads --exclude /backups --exclude /logs \
   /opt/VControlHub/ root@new-server:/root/vcontrolhub-src/
 
 # 在新服务器执行。
@@ -201,7 +202,7 @@ sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your
 
 `deploy/upgrade.sh` 默认会：
 
-1. 在 `$BACKUP_DIR`（默认 `$APP_DIR/backups`）创建 `pre-upgrade-*.dump` 数据库备份；
+1. 在 `$BACKUP_DIR`（取环境文件里的值，未设置时为 `$APP_DIR/backups`）创建 `pre-upgrade-*.sql.gz` 数据库备份；
 2. 以 `SKIP_PACKAGES=1` 调用 `deploy/install.sh`，重新同步源码、执行 `npm ci`、`prisma generate`、`prisma migrate deploy`、`npm run build` 与 `npm run build:runtime`（缺一会导致后台 worker 仍跑旧代码）并重启服务；
 3. 调用 `deploy/check.sh` 做本地 `/login`、systemd、运行目录和危险开关检查。
 
@@ -277,6 +278,21 @@ SMOKE_PUBLIC_URL=https://your.example.com make smoke-http SERVICE_PREFIX=my-cons
 - `backups/`、`logs/`：备份和日志
 
 仓库只保留上述目录的 `.gitkeep` 占位文件；`.gitignore` 会忽略目录内真实文件。部署脚本同步源码时也会排除这些目录，避免把当前服务器的数据带到新服务器，或在升级时误删线上数据。新机器应通过 `.env.local` 中的 `STORAGE_ROOT`、`BACKUP_DIR` 配置自己的实际数据路径。
+
+### 上传暂存目录与缩略图缓存
+
+分片上传的分片、合并出的完整文件，以及 WebDAV 上传的请求体，在写入云盘之前先放在**上传暂存目录**；生成的缩略图放在**缩略图缓存目录**。两者默认位于数据目录下（文件历史目录的上一级）：
+
+| 用途 | 默认位置 | 环境变量 |
+| --- | --- | --- |
+| 上传暂存 | `/var/lib/<slug>/upload-tmp` | `MEDIA_UPLOAD_TMP_DIR` |
+| 缩略图缓存 | `/var/lib/<slug>/thumbnails` | `MEDIA_THUMB_CACHE_DIR` |
+
+- 这两个目录不放在 `/tmp`：各 systemd 服务的 `/tmp` 互相隔离（`PrivateTmp=true`），Worker 的清理任务看不到 Web 服务写下的文件；而且在 `/tmp` 为内存盘（tmpfs）的系统上，暂存的每个字节都计入 Web 服务的内存上限（`MemoryMax`），同时上传几个大文件就会让整个站点卡住。
+- 数据目录不可写时（开发环境、没有挂载数据卷的容器）回退到 `/tmp/vcontrolhub-media-uploads` 与系统临时目录下的 `vcontrolhub-thumbnails`。
+- 暂存目录需要的空间：每个进行中的上传约为文件大小的 2 倍（分片 + 合并文件），另外保留 512 MB；空间不足时上传在开始前就被拒绝。暂存目录与本地云盘在同一文件系统时，合并出的文件直接移动到位，不再复制一遍。
+- 自定义位置时，Web 与 Worker 两个服务必须都能读写该目录（`ProtectSystem=strict` 下需要写进各自单元的 `ReadWritePaths`），并且应位于磁盘而不是内存盘上。
+- 无人认领的暂存数据由维护任务清理：过期的上传会话、会话记录已不存在或已结束的暂存目录、超过 24 小时未写入的 WebDAV 上传临时文件。结果待人工确认的上传会保留其数据，直到管理员处理。
 
 ## 数据库备份
 

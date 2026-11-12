@@ -19,6 +19,8 @@ import { buildInstallWindowsDirectGatewayCommand, buildPrepareWindowsDirectGatew
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 import { t } from "@/lib/i18n/service-translations";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import { fetchWithPinnedDns } from "@/lib/security/pinned-fetch";
+import { assertPublicBaseUrlResolvesPublic } from "@/lib/storage/direct-access-url";
 
 const PUBLIC_HEALTH_TIMEOUT_MS = config.test.isVitest ? 400 : 8_000;
 const PUBLIC_HEALTH_ATTEMPTS = config.test.isVitest ? 1 : 4;
@@ -100,23 +102,15 @@ export async function probePublicDirectGatewayHealth(
         "/__vch_health",
         publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`,
       );
-      const init: RequestInit & { dispatcher?: unknown } = {
-        method: "GET",
-        redirect: "manual",
-        signal: controller.signal,
-      };
-      if (healthUrl.protocol === "https:") {
-        try {
-          // Dynamic import keeps edge/browser bundles clean; Node control-plane only.
-          const { Agent } = await import("undici");
-          init.dispatcher = new Agent({
-            connect: { rejectUnauthorized: false },
-          });
-        } catch {
-          // If undici Agent is unavailable, still attempt the fetch (may fail on self-signed).
-        }
-      }
-      const response = await fetch(healthUrl, init as RequestInit);
+      // The address comes from the node's host or a domain the operator typed: it is resolved, refused unless
+      // public, and the connection is pinned to what was checked, as for the health check behind every direct link.
+      // A gateway on a bare IP answers with a self-signed certificate; nothing secret is sent and only the status
+      // and the two-letter body are read.
+      const response = await fetchWithPinnedDns(
+        healthUrl,
+        { method: "GET", redirect: "manual", signal: controller.signal },
+        { allowUntrustedCertificate: healthUrl.protocol === "https:", connectTimeoutMs: timeoutMs },
+      );
       lastStatus = response.status;
       if (response.status === 200) {
         const body = (await response.text()).trim();
@@ -125,6 +119,7 @@ export async function probePublicDirectGatewayHealth(
         }
         lastError = `unexpected body ${JSON.stringify(body.slice(0, 80))}`;
       } else {
+        await response.body?.cancel().catch(() => undefined);
         lastError = `HTTP ${response.status}`;
       }
     } catch (error) {
@@ -299,6 +294,25 @@ export async function applyServerDirectGatewayState(input: {
     autoReverseProxy,
     publicPort: autoReverseProxy ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT : undefined,
   });
+  if (input.enabled) {
+    // Direct links are only issued for a public address (the link route checks the same thing) and the health probe
+    // below fetches this address from the hub. A gateway on a private address was installed, shown as enabled and
+    // never used; it is refused before anything is installed.
+    try {
+      await assertPublicBaseUrlResolvesPublic(publicBaseUrl);
+    } catch {
+      const errorMessage = t("backend.server.directGatewayAddressNotPublic", { url: publicBaseUrl });
+      if (input.bestEffort) {
+        return {
+          enabled: false,
+          publicBaseUrl: null,
+          cleanupSkipped: true,
+          errorMessage,
+        };
+      }
+      throw new BusinessError(errorMessage);
+    }
+  }
   // Default: public listen for HTTP direct. HTTPS auto-proxy keeps gateway on loopback.
   const bindAddress = autoReverseProxy
     ? "127.0.0.1"
@@ -308,6 +322,8 @@ export async function applyServerDirectGatewayState(input: {
       });
   let cleanupSkipped = false;
   let errorMessage: string | null = null;
+  /** The install script ran on a Linux node and stopped part-way. */
+  let linuxInstallLeftovers = false;
   let ssh: Awaited<ReturnType<typeof buildSshParamsFromServer>>;
   let command: string;
   try {
@@ -370,16 +386,24 @@ export async function applyServerDirectGatewayState(input: {
         timeout: 180_000,
       });
       if (result.exitCode && result.exitCode !== 0) {
+        linuxInstallLeftovers = input.enabled && !windows;
         const diagnostic = (result.stderr || result.stdout).trim().slice(0, 500);
         throw new BusinessError(
           diagnostic
-            ? `${t("backend.server.directGatewayOperationFailed")}: ${diagnostic}`
+            ? t("backend.server.directGatewayOperationFailedReason", { reason: diagnostic })
             : t("backend.server.directGatewayOperationFailed"),
         );
       }
     } catch (error) {
       if (windows && input.enabled) {
         try { await execRemoteCommand({ ...ssh, command: buildUninstallWindowsDirectGatewayCommand(), timeout: 30_000 }); } catch { /* best effort */ }
+      }
+      if (linuxInstallLeftovers) {
+        // The script starts the gateway unit before the reverse proxy. Stopped part-way (no Caddy package, port 443
+        // taken) it left the gateway running and a Caddy unit restarting every three seconds; and a gateway that
+        // had been on before is no longer what the database describes.
+        try { await execRemoteCommand({ ...ssh, command: buildUninstallDirectGatewayCommand(), timeout: 60_000 }); } catch { /* best effort */ }
+        try { await clearDirectGatewayDbState(input.serverId); } catch { /* ignore */ }
       }
       if (!input.bestEffort) throw error;
       errorMessage = getErrorMessage(error);

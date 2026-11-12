@@ -39,7 +39,7 @@ async function loadInitialSettings() {
 }
 
 export default async function AiOpsPage() {
-	const session = await requirePagePermission("ai:ops:read");
+	const session = await requirePagePermission("ai:ops:read", { redirectTo: "/ai-ops" });
 	// The API routes gate on platform-admin because AI-ops aggregates are
 	// cross-tenant; the SSR page renders the same data, so it must gate too.
 	// Without this a custom role granted `ai:ops:read` reads other teams'
@@ -63,6 +63,18 @@ export default async function AiOpsPage() {
 			: [],
 	]);
 
+	// The saved provider by its name. It is not always one of this administrator's own (a colleague may have
+	// chosen it), and a disabled or deleted one is skipped by the scan.
+	const storedRow = settings.providerId
+		? await prisma.aiProvider.findUnique({
+				where: { id: settings.providerId },
+				select: { name: true, defaultModel: true, enabled: true },
+			})
+		: null;
+	const storedProvider = settings.providerId
+		? { id: settings.providerId, name: storedRow?.name ?? null, defaultModel: storedRow?.defaultModel ?? null, available: storedRow?.enabled === true }
+		: null;
+
 	return (
 		<PageShell>
 			<PageHeader
@@ -77,6 +89,7 @@ export default async function AiOpsPage() {
 				initialHasMore={summary.total > 20}
 				initialSettings={settings}
 				providerOptions={providerOptions}
+				storedProvider={storedProvider}
 				canManage={canManage}
 				canAutonomous={canAutonomous}
 			/>

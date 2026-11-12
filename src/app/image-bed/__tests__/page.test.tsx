@@ -63,6 +63,30 @@ describe("ImageBedPage", () => {
     });
   });
 
+  it("says why the list could not be loaded, keeps saying it, and offers to try again", async () => {
+    // One toast, "获取图片列表失败", the first time only: a second failure showed nothing at all.
+    const user = userEvent.setup();
+    let answer: "refuse" | "list" = "refuse";
+    vi.mocked(csrfFetch).mockImplementation(async (input) => {
+      if (!String(input).startsWith("/api/images/list")) throw new Error(`unexpected request: ${String(input)}`);
+      if (answer === "refuse") throw new Error("请求过于频繁，请稍后再试");
+      return { images: [], total: 0, totalPages: 1 };
+    });
+    render(<ImageBedPageClient canWrite canDelete />);
+
+    const notice = await screen.findByText("获取图片列表失败: 请求过于频繁，请稍后再试");
+    expect(notice).toBeInTheDocument();
+    // Not "no images yet": nobody could read them.
+    expect(screen.queryByTestId("empty-state")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "重试" }));
+    await waitFor(() => expect(vi.mocked(csrfFetch).mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(screen.getByText("获取图片列表失败: 请求过于频繁，请稍后再试")).toBeInTheDocument();
+
+    answer = "list";
+    await user.click(screen.getByRole("button", { name: "重试" }));
+    await waitFor(() => expect(screen.queryByText(/获取图片列表失败/)).not.toBeInTheDocument());
+  });
+
   it("only exposes the cross-user scope control to authorized viewers", async () => {
     const { rerender } = render(<ImageBedPageClient canWrite canDelete canListAll={false} />);
     await screen.findByTestId("empty-state");

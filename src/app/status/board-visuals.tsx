@@ -8,6 +8,7 @@
  */
 import { useEffect, useState, type ReactNode } from "react";
 
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import { daysUntil, expiryTone, usageTone, type ExpiryTone } from "@/lib/public-status/billing";
 import { formatPercent } from "@/lib/public-status/format";
 import { countryFlag, countryName } from "@/lib/public-status/region-flag";
@@ -51,6 +52,9 @@ export function UsageMeter({ label, value, detail, compact = false, overflow = f
 	const tone = usageTone(known ? value : null);
 	const width = known ? Math.min(100, Math.max(0, value)) : 0;
 	const shown = known ? (overflow ? Math.max(0, value) : width) : null;
+	// Without a label the number is written next to the bar by the caller (table cells, detail tiles): the bar
+	// is then decoration, not a second meter without a name.
+	const named = known && Boolean(label);
 	return (
 		<div className="min-w-0" data-usage-meter>
 			{label || detail ? (
@@ -62,11 +66,12 @@ export function UsageMeter({ label, value, detail, compact = false, overflow = f
 			) : null}
 			<div
 				className={cn("overflow-hidden rounded-full bg-[var(--surface-elevated)]", label || detail ? "mt-1" : "", compact ? "h-1" : "h-1.5")}
-				role={known ? "meter" : undefined}
+				role={named ? "meter" : undefined}
+				aria-hidden={label ? undefined : true}
 				aria-label={label || undefined}
-				aria-valuemin={known ? 0 : undefined}
-				aria-valuemax={known ? 100 : undefined}
-				aria-valuenow={known ? Math.round(width) : undefined}
+				aria-valuemin={named ? 0 : undefined}
+				aria-valuemax={named ? 100 : undefined}
+				aria-valuenow={named ? Math.round(width) : undefined}
 			>
 				<div
 					className="h-full origin-left rounded-full transition-transform duration-500 ease-out motion-reduce:transition-none"
@@ -107,7 +112,8 @@ const OS_MARKS: Array<{ match: RegExp; mark: string; color: string }> = [
 	{ match: /alma/i, mark: "A", color: "#0F4266" },
 	{ match: /fedora/i, mark: "F", color: "#51A2DA" },
 	{ match: /red ?hat|rhel/i, mark: "R", color: "#EE0000" },
-	{ match: /arch/i, mark: "A", color: "#1793D1" },
+	// At the start of a word: "aarch64" is an architecture, not Arch Linux.
+	{ match: /\barch/i, mark: "A", color: "#1793D1" },
 	{ match: /alpine/i, mark: "A", color: "#0D597F" },
 	{ match: /suse/i, mark: "S", color: "#73BA25" },
 	{ match: /windows/i, mark: "W", color: "#0078D4" },
@@ -142,12 +148,24 @@ export function tagColor(tag: string): string {
 	return TAG_COLORS[hash % TAG_COLORS.length]!;
 }
 
+/**
+ * How a tag is coloured: written in its hue, deepened towards the text colour, on a tint of the hue. The hue
+ * alone was below 4.5:1 as text for five of the six in the light theme (amber 2.7:1); the test of the design
+ * tokens holds these two numbers against every hue in both themes.
+ */
+export const TAG_TEXT_HUE_PERCENT = 70;
+export const TAG_FILL_PERCENT = 10;
+
 export function TagChip({ tag }: { tag: string }) {
 	const color = tagColor(tag);
 	return (
 		<span
 			className="inline-flex max-w-full items-center truncate rounded-full border px-2 py-px text-[11px] font-medium"
-			style={{ color, borderColor: `color-mix(in srgb, ${color} 40%, transparent)`, background: `color-mix(in srgb, ${color} 10%, transparent)` }}
+			style={{
+				color: `color-mix(in srgb, ${color} ${TAG_TEXT_HUE_PERCENT}%, var(--text-primary))`,
+				borderColor: `color-mix(in srgb, ${color} 40%, transparent)`,
+				background: `color-mix(in srgb, ${color} ${TAG_FILL_PERCENT}%, transparent)`,
+			}}
 		>
 			{tag}
 		</span>
@@ -195,7 +213,21 @@ export function ExpiryBadge({ expiresAt, nowMs, t }: { expiresAt: string; nowMs:
 	);
 }
 
-/** Wall clock for the summary, ticking every second. */
+/** The short name of the application's zone at that moment ("GMT+8"). */
+function zoneName(date: Date, tag: string): string {
+	try {
+		return new Intl.DateTimeFormat(tag, { timeZone: APP_TIME_ZONE, timeZoneName: "shortOffset" }).formatToParts(date).find((part) => part.type === "timeZoneName")?.value ?? "";
+	} catch {
+		// An engine without "shortOffset": the time is still right, only unnamed.
+		return "";
+	}
+}
+
+/**
+ * Clock for the summary, ticking every second, in the zone every chart and date of the board is in, and
+ * naming it. It ran in the visitor's own zone: seen from elsewhere, "current time" and the end of the
+ * 24-hour chart were hours apart, with nothing to say why.
+ */
 export function LiveClock({ locale, initialMs }: { locale: Locale; initialMs: number }) {
 	const [now, setNow] = useState(initialMs);
 	useEffect(() => {
@@ -204,13 +236,15 @@ export function LiveClock({ locale, initialMs }: { locale: Locale; initialMs: nu
 	}, []);
 	const date = new Date(now);
 	const tag = locale === "zh" ? "zh-CN" : "en-US";
+	const zone = zoneName(date, tag);
 	return (
 		<span className="inline-flex flex-col">
 			<span className="font-mono tabular-nums" suppressHydrationWarning>
-				{date.toLocaleTimeString(tag, { hour12: false })}
+				{date.toLocaleTimeString(tag, { hour12: false, timeZone: APP_TIME_ZONE })}
 			</span>
 			<span className="text-[11px] font-normal text-[var(--text-muted)]" suppressHydrationWarning>
-				{date.toLocaleDateString(tag, { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" })}
+				{date.toLocaleDateString(tag, { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short", timeZone: APP_TIME_ZONE })}
+				{zone ? ` · ${zone}` : ""}
 			</span>
 		</span>
 	);

@@ -202,12 +202,15 @@ export function Card({
  * page-level blocks that have no panel of their own.
  */
 export function EmptyState({
+	title,
 	text,
 	children,
 	variant = "simple",
 	icon,
 	action,
 }: {
+	/** What is empty, in a few words ("No budgets"); `text` or `children` then says what to do about it. */
+	title?: string;
 	/** Convenience string text. Ignored when `children` is provided. */
 	text?: string;
 	/** Rich content (e.g. JSX expression). Takes precedence over `text`. */
@@ -226,7 +229,8 @@ export function EmptyState({
 			>
 				{icon ?? <FileIcon size={20} />}
 			</div>
-			<div className="max-w-md text-sm leading-6 text-[var(--text-muted)]">{body}</div>
+			{title ? <p className="mb-1 text-sm font-medium text-[var(--text-secondary)]">{title}</p> : null}
+			{body ? <div className="max-w-md text-sm leading-6 text-[var(--text-muted)]">{body}</div> : null}
 			{action ? <div className="mt-4">{action}</div> : null}
 		</>
 	);

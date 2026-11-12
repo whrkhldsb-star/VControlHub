@@ -5,18 +5,18 @@
  * updatedAt, path) tuple. Nothing ever removed those files: the key is a
  * one-way hash, so a deleted media item cannot be mapped back to its
  * thumbnail, and re-uploading an item mints a new key while orphaning the old
- * one. Left alone the directory grows forever — and its default location is
- * `os.tmpdir()`, which on many hosts is a tmpfs, so the leak lands in RAM.
+ * one. Left alone the directory grows forever. Where it lives, and why not in
+ * `/tmp` by default, is in `@/lib/runtime/work-dirs`: this prune runs in the
+ * worker and has to see the directory the web process writes.
  *
  * The cache is disposable by construction (a miss just regenerates), so the
  * prune is a plain age + count sweep driven by the maintenance worker.
  */
 import { readdir, stat, unlink } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 
-import { config } from "@/lib/config/env";
 import { createLogger } from "@/lib/logging";
+import { thumbnailCacheDir } from "@/lib/runtime/work-dirs";
 
 const logger = createLogger("media-thumbnail-cache");
 
@@ -26,10 +26,7 @@ export const THUMBNAIL_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 export const THUMBNAIL_CACHE_MAX_ENTRIES = 20_000;
 
 export function thumbnailCacheRoot(): string {
-  return (
-    config.media.thumbCacheDir ??
-    path.join(os.tmpdir(), "vcontrolhub-thumbnails")
-  );
+  return thumbnailCacheDir();
 }
 
 async function safeUnlink(filePath: string): Promise<boolean> {

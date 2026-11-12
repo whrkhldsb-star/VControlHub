@@ -219,6 +219,30 @@ export async function heartbeatServerAgentJob(input: {
   return current?.serverId === input.serverId && current.status === "CANCELLED";
 }
 
+/**
+ * The oldest PENDING job of a server that an Agent may still run: created less
+ * than its own timeout and the grace ago.
+ *
+ * The columns hold UTC wall time, so the clock they are compared with is UTC
+ * wall time too. A bare `now()` is a timestamptz, and PostgreSQL then reads
+ * "createdAt" in the session's zone — hours off on a database not set to UTC:
+ * in Asia/Shanghai every job with less than eight hours to live counted as
+ * expired, so behind a backlog of expired jobs a fresh one waited until the
+ * whole backlog was swept; west of UTC an expired job counted as live.
+ */
+export async function findLivePendingAgentJobId(
+  tx: { $queryRaw: typeof prisma.$queryRaw },
+  serverId: string,
+): Promise<string | undefined> {
+  const live = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM "server_agent_jobs"
+    WHERE "serverId" = ${serverId} AND status = 'PENDING'
+      AND "createdAt" + ("timeoutMs" + ${AGENT_PENDING_GRACE_MS}) * interval '1 millisecond' > (now() AT TIME ZONE 'UTC')
+    ORDER BY "createdAt" ASC
+    LIMIT 1`;
+  return live[0]?.id;
+}
+
 export async function claimNextServerAgentJob(serverId: string) {
   return prisma.$transaction(async (tx) => {
     const now = new Date();
@@ -269,13 +293,7 @@ export async function claimNextServerAgentJob(serverId: string) {
     // wait one poll per stale row either: skip past the backlog to the first
     // job that can still run; the next polls keep sweeping the rest.
     if (next && Date.now() - next.createdAt.getTime() > next.timeoutMs + AGENT_PENDING_GRACE_MS) {
-      const live = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM "server_agent_jobs"
-        WHERE "serverId" = ${serverId} AND status = 'PENDING'
-          AND "createdAt" + ("timeoutMs" + ${AGENT_PENDING_GRACE_MS}) * interval '1 millisecond' > now()
-        ORDER BY "createdAt" ASC
-        LIMIT 1`;
-      const liveId = live[0]?.id;
+      const liveId = await findLivePendingAgentJobId(tx, serverId);
       next = liveId ? await tx.serverAgentJob.findFirst({ where: { id: liveId, status: "PENDING" } }) : null;
     }
     if (!next || Date.now() - next.createdAt.getTime() > next.timeoutMs + AGENT_PENDING_GRACE_MS) return null;
@@ -435,6 +453,8 @@ metrics_error=None
 update_error=None
 update_failed={}
 stopping=False
+# Above zero while a command is being started or its result is put together.
+defer_stop=0
 parts=urllib.parse.urlsplit(ENDPOINT)
 conn=None
 class HubStatus(Exception):
@@ -448,6 +468,10 @@ def on_stop(signum, frame):
     global stopping
     if stopping: return
     stopping=True
+    # Raised between starting a command and watching it, the stop left run()
+    # with the command still running and no result: nobody ended it and the
+    # hub waited out its lease. There it is only noted; run() acts on it.
+    if defer_stop: return
     raise AgentStop()
 def connect(timeout=35):
     cls=http.client.HTTPSConnection if parts.scheme == "https" else http.client.HTTPConnection
@@ -538,12 +562,15 @@ def job_heartbeat(job):
         if raw is not None: payload["metricsRaw"]=raw
     return payload
 def run(job):
+    global defer_stop
     timeout_seconds=max(1,min(int(job.get("timeoutMs",60000))/1000,3600))
+    defer_stop+=1
     try:
         proc=subprocess.Popen([SHELL,"-c",job["command"]],env=JOB_ENV,cwd=JOB_DIR,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
     except OSError as exc:
         # A command that cannot start (one argument over 128 KiB: E2BIG) is
         # reported as failed. Unreported, the hub waited out the job's timeout.
+        defer_stop-=1
         return {"jobId":job["id"],"stdout":"","stderr":fit("Agent could not start the command: %s" % exc,ERROR_LIMIT),"exitCode":126}
     out=Capture(proc.stdout,OUTPUT_LIMIT)
     err=Capture(proc.stderr,ERROR_LIMIT)
@@ -552,6 +579,9 @@ def run(job):
     outcome=None
     held=False
     try:
+        defer_stop-=1
+        # A stop that arrived while the command was being started.
+        if stopping: raise AgentStop()
         while True:
             remaining=deadline-time.monotonic()
             if remaining <= 0:
@@ -578,8 +608,12 @@ def run(job):
             # waited for it, until the job's timeout killed it.
             grace_end=time.monotonic()+min(OUTPUT_GRACE_SECONDS,max(0,deadline-time.monotonic()))
             held=not (out.wait(grace_end-time.monotonic()) and err.wait(grace_end-time.monotonic()))
+        # From here the result is put together: a stop now is noted, and the
+        # caller hands the result in before it leaves.
+        defer_stop+=1
     except AgentStop:
         outcome="stopped"
+        defer_stop+=1
     if outcome is not None: terminate(proc,(out,err))
     code=proc.poll()
     # A signal shows as a negative code; the hub takes 0-255, as a shell reports it.
@@ -592,6 +626,7 @@ def run(job):
     elif held: result["stderr"]=fit(result["stderr"]+("\\n" if result["stderr"] else "")+"[agent] output written after the command ended was not collected: a process it left in the background kept the output open",ERROR_LIMIT)
     out.release()
     err.release()
+    defer_stop-=1
     return result
 def apply_update(update):
     # The hub's build with this agent's own token, swapped in place: the
@@ -1005,9 +1040,18 @@ export async function installServerAgent(serverId: string) {
   if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") {
     throw new Error("Agent hub URL must use HTTPS");
   }
+  // The script travels over SSH. Without a credential it would be handed to the Agent that is running, whose token
+  // the issue below revokes: that Agent could not fetch the job, and the node stayed locked out until someone
+  // reinstalled it by hand.
+  const hasSshCredential = server.connectionType === "SSH_KEY"
+    ? Boolean(server.sshKeyId && server.sshKey?.privateKey)
+    : Boolean(server.password);
+  if (!hasSshCredential) throw new BusinessError(t("backend.server.agentInstallNeedsSsh"));
   // The new token is issued before the install (the script carries it); if the install fails, the Agent already
   // running keeps the token it has, which was revoked by the issue and is put back below.
   const previousTokenHash = server.agentTokenHash ?? null;
+  const restorePreviousToken = (reason: string) =>
+    prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: previousTokenHash, agentLastError: reason.slice(0, 1000) } });
   const token = await issueServerAgentToken(serverId);
   const python = Buffer.from(buildAgentPython(hubUrl, token)).toString("base64");
   const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=always\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
@@ -1025,10 +1069,17 @@ export async function installServerAgent(serverId: string) {
     // An installed Agent keeps its previous token in memory: restart, not just start.
     "systemctl restart vcontrolhub-agent.service",
   ].join("\n");
-  const ssh = await buildSshParamsFromServer(server, server.sshKey);
-  const result = await execRemoteCommand({ ...ssh, command: asRoot(script), timeout: 60_000 });
+  let result: Awaited<ReturnType<typeof execRemoteCommand>>;
+  try {
+    const ssh = await buildSshParamsFromServer(server, server.sshKey);
+    result = await execRemoteCommand({ ...ssh, command: asRoot(script), timeout: 60_000 });
+  } catch (error) {
+    // A server SSH does not reach (often why it is in Agent mode) throws here instead of returning a status.
+    await restorePreviousToken(error instanceof Error ? error.message : String(error)).catch(() => undefined);
+    throw error;
+  }
   if (result.exitCode !== 0) {
-    await prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: previousTokenHash, agentLastError: (result.stderr || result.stdout || "Agent installation failed").slice(0, 1000) } });
+    await restorePreviousToken(result.stderr || result.stdout || "Agent installation failed");
     throw new Error(result.stderr || result.stdout || "Agent installation failed");
   }
   return { installed: true };

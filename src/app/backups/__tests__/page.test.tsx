@@ -4,9 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { backupRunnerSpec, restoreRunnerSpec } from "@/lib/backup/platform-runner";
 
-const { loadOffsiteConfigMock } = vi.hoisted(() => ({
+const { loadOffsiteConfigMock, coverageMock } = vi.hoisted(() => ({
   loadOffsiteConfigMock: vi.fn(),
+  coverageMock: vi.fn(),
 }));
+
+vi.mock("@/lib/backup/coverage", () => ({ getLocalStorageBackupCoverage: coverageMock }));
 
 vi.mock("@/lib/storage/offsite/service", () => ({
   loadOffsiteConfig: loadOffsiteConfigMock,
@@ -110,6 +113,8 @@ describe("BackupsPage", () => {
   beforeEach(() => {
     loadOffsiteConfigMock.mockReset();
     loadOffsiteConfigMock.mockResolvedValue(null);
+    coverageMock.mockReset();
+    coverageMock.mockResolvedValue({ uncovered: [], fullOnly: [] });
   });
 
   it("shows backup commands that match each recorded backup type", async () => {
@@ -131,8 +136,8 @@ describe("BackupsPage", () => {
     expect(screen.getByText("已用备份空间")).toBeInTheDocument();
     expect(screen.getByText("6.0 MB")).toBeInTheDocument();
     expect(screen.getByText("最大：完整备份 · 3.0 MB")).toBeInTheDocument();
-    expect(screen.getByText("保留策略提示")).toBeInTheDocument();
-    expect(screen.getByText("条完成备份超过 30 天，建议复核清理")).toBeInTheDocument();
+    expect(screen.getByText("超过 30 天的备份")).toBeInTheDocument();
+    expect(screen.getByText("完成已超过 30 天的备份，建议复核后清理")).toBeInTheDocument();
     expect(screen.getAllByText("数据库备份").find((element) => element.tagName === "P")?.closest("div")).toHaveTextContent("1 个 · 1.0 MB");
     expect(screen.getAllByText("文件备份").find((element) => element.tagName === "P")?.closest("div")).toHaveTextContent("1 个 · 2.0 MB");
     expect(screen.getAllByText("完整备份").find((element) => element.tagName === "P")?.closest("div")).toHaveTextContent("1 个 · 3.0 MB");
@@ -166,6 +171,36 @@ describe("BackupsPage", () => {
     expect(screen.getAllByRole("button", { name: "标记作废" })).toHaveLength(2);
     expect(screen.getByRole("button", { name: "重试备份" })).toBeInTheDocument();
     expect(screen.getAllByText("将历史等待中或失败记录标记为已作废，不删除备份审计记录。")).toHaveLength(2);
+  });
+
+  it("says which local storage directories its backups do not hold", async () => {
+    // The installer keeps file storage outside the application directory: a
+    // files or full backup completed without one stored file, and nothing said so.
+    await act(async () => { render(await BackupsPage()); });
+    expect(document.querySelector("[data-backup-coverage]")).toBeNull();
+
+    coverageMock.mockResolvedValue({ uncovered: ["/var/lib/vcontrolhub/storage"], fullOnly: [] });
+    document.body.innerHTML = "";
+    await act(async () => { render(await BackupsPage()); });
+    const uncovered = document.querySelector('[data-backup-coverage="uncovered"]');
+    expect(uncovered).toHaveTextContent("平台备份不包含本地存储中的文件");
+    expect(uncovered).toHaveTextContent("/var/lib/vcontrolhub/storage");
+    expect(uncovered).toHaveTextContent("BACKUP_EXTRA_PATHS_JSON");
+
+    coverageMock.mockResolvedValue({ uncovered: [], fullOnly: ["/data/a", "/data/b", "/data/c", "/data/d"] });
+    document.body.innerHTML = "";
+    await act(async () => { render(await BackupsPage()); });
+    expect(document.querySelector('[data-backup-coverage="uncovered"]')).toBeNull();
+    const fullOnly = document.querySelector('[data-backup-coverage="full-only"]');
+    expect(fullOnly).toHaveTextContent("/data/a, /data/b, /data/c 等 4 个目录");
+    expect(fullOnly).not.toHaveTextContent("/data/d");
+  });
+
+  it("still renders when the storage directories cannot be read", async () => {
+    coverageMock.mockRejectedValue(new Error("database unavailable"));
+    await act(async () => { render(await BackupsPage()); });
+    expect(screen.getByText("创建并执行备份")).toBeInTheDocument();
+    expect(document.querySelector("[data-backup-coverage]")).toBeNull();
   });
 
   it("shows an explicit error when the offsite configuration cannot be loaded", async () => {

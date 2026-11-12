@@ -472,3 +472,31 @@ export async function previewUserServerAccess(t: ExportFile["tables"], options: 
   }
   return out;
 }
+
+/**
+ * Whether some record names a row of `target` that the import will not find:
+ * neither in the package nor on this instance. The import then leaves the
+ * reference out (a server without its key, a storage node without its server).
+ */
+async function hasUnresolvedReference(
+  referenced: Array<string | null | undefined>,
+  bundleIds: string[],
+  findIds: (chunk: string[]) => Promise<{ id: string }[]>,
+): Promise<boolean> {
+  const wanted = referenced.filter((id): id is string => Boolean(id));
+  if (wanted.length === 0) return false;
+  const available = await availableIds(wanted, bundleIds, findIds);
+  return wanted.some((id) => !available.has(id));
+}
+
+/** A server whose SSH key is neither in the package nor here (another customer's key). */
+export function previewServerKeysMissing(t: ExportFile["tables"]): Promise<boolean> {
+  return hasUnresolvedReference(t.servers.map((r) => r.sshKeyId), t.sshKeys.map((r) => r.id),
+    (ids) => prisma.sshKey.findMany({ where: { id: { in: ids } }, select: { id: true } }));
+}
+
+/** A storage node whose server is neither in the package nor here. */
+export function previewStorageServersMissing(t: ExportFile["tables"]): Promise<boolean> {
+  return hasUnresolvedReference(t.storageNodes.map((r) => r.serverId), t.servers.map((r) => r.id),
+    (ids) => prisma.server.findMany({ where: { id: { in: ids } }, select: { id: true } }));
+}

@@ -3,6 +3,7 @@ import { pushNotification, pushUnreadCount } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
 import { NotFoundError } from "@/lib/errors";
 import { timeDelivery } from "@/lib/monitoring/runtime-metrics";
+import { backgroundCopyLocale } from "@/lib/i18n/api-copy";
 import { t } from "@/lib/i18n/service-translations";
 import { renderNotificationFallback, type NotificationMessage } from "./message";
 import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
@@ -27,7 +28,11 @@ export type NotificationType =
 	| "backup_failed"
 	| "login_alert"
 	| "cron_failed"
-	| "playbook_failed";
+	| "playbook_failed"
+	/** Free text sent by a playbook's "send notification" step. */
+	| "playbook"
+	/** A ticket past its SLA was raised one priority (written by the SLA sweep). */
+	| "ticket_escalation";
 
 /**
  * Either an event `notice` (rendered per viewer locale; explicit title/message
@@ -45,9 +50,15 @@ export type CreateNotificationInput = NotificationContent & {
 	teamId?: string | null;
 };
 
-/** Columns for a notification row: fallback text plus the optional event code. */
+/**
+ * Columns for a notification row: fallback text plus the optional event code.
+ * The fallback is what a reader gets who cannot render the code (an API
+ * client, an older page): in the process's language where it has one (the
+ * worker: the platform default), never in the language of whoever happened to
+ * trigger the notice.
+ */
 export function notificationContentData(content: NotificationContent) {
-	const fallback = content.notice ? renderNotificationFallback(content.notice) : null;
+	const fallback = content.notice ? renderNotificationFallback(content.notice, backgroundCopyLocale() ?? "zh") : null;
 	return {
 		title: content.title ?? fallback?.title ?? "",
 		message: content.message ?? fallback?.message ?? "",
@@ -55,6 +66,32 @@ export function notificationContentData(content: NotificationContent) {
 		messageParams: content.notice?.params ?? undefined,
 	};
 }
+
+/** A stored notification row: as much of it as the recipient's open pages are told. */
+export type StoredNotification = {
+	id: string;
+	userId: string;
+	title: string;
+	message: string;
+	messageCode: string | null;
+	messageParams: unknown;
+	actionUrl: string | null;
+	teamId: string | null;
+	createdAt: Date;
+};
+
+/** The columns of a `StoredNotification`, for a `select`. */
+export const STORED_NOTIFICATION_SELECT = {
+	id: true,
+	userId: true,
+	title: true,
+	message: true,
+	messageCode: true,
+	messageParams: true,
+	actionUrl: true,
+	teamId: true,
+	createdAt: true,
+} as const;
 
 /* ── CRUD ─────────────────────────────────────────────────── */
 
@@ -68,29 +105,49 @@ export async function createNotification(input: CreateNotificationInput) {
 			teamId: input.teamId ?? null,
 		},
 	});
-
-	// Push real-time WebSocket notification to the user
-	try {
-		await timeDelivery("in_app_ws", async () => {
-			pushNotification(input.userId, {
-				id: record.id,
-				title: record.title,
-				message: record.message,
-				messageCode: record.messageCode,
-				messageParams: record.messageParams,
-				actionUrl: record.actionUrl,
-				teamId: record.teamId,
-				createdAt: record.createdAt.toISOString(),
-			});
-
-			// Also push updated unread count
-			await pushCurrentUnreadCount(input.userId);
-		});
-	} catch (err) {
-		logger.warn("WS push failed (user may be offline)", err);
-	}
-
+	await announceStoredNotifications([record]);
 	return record;
+}
+
+/**
+ * Tell the recipients' open pages about rows that are already stored: each
+ * row, then the recipient's unread count. While its socket is connected the
+ * bell takes both the toast and the badge from these pushes, so a row written
+ * without them stays invisible until the page is reloaded. Rows written
+ * several at once or inside a transaction are announced here, after the
+ * transaction has committed.
+ *
+ * Best effort and never throws: the rows are stored, and a recipient who
+ * cannot be reached sees them on the next load.
+ */
+export async function announceStoredNotifications(records: readonly StoredNotification[]): Promise<void> {
+	const byRecipient = new Map<string, StoredNotification[]>();
+	for (const record of records) {
+		const rows = byRecipient.get(record.userId);
+		if (rows) rows.push(record);
+		else byRecipient.set(record.userId, [record]);
+	}
+	for (const [userId, rows] of byRecipient) {
+		try {
+			await timeDelivery("in_app_ws", async () => {
+				for (const row of rows) {
+					pushNotification(userId, {
+						id: row.id,
+						title: row.title,
+						message: row.message,
+						messageCode: row.messageCode,
+						messageParams: row.messageParams,
+						actionUrl: row.actionUrl,
+						teamId: row.teamId,
+						createdAt: row.createdAt.toISOString(),
+					});
+				}
+				await pushCurrentUnreadCount(userId);
+			});
+		} catch (err) {
+			logger.warn("WS push failed (user may be offline)", err);
+		}
+	}
 }
 
 export async function listUserNotifications(userId: string, opts?: { unreadOnly?: boolean; limit?: number; skip?: number }) {

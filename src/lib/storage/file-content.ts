@@ -356,6 +356,10 @@ function sftpAtomicRename(sftp: import("ssh2").SFTPWrapper, from: string, to: st
   });
 }
 
+/**
+ * Stores a staged upload (`sourcePath`) as `relativePath` on the node. The source is its caller's to discard:
+ * on a local node it is moved into place when it is on the same filesystem, so it may be gone afterwards.
+ */
 export async function writeStorageFileFromLocalPath(node: StorageFileNode, relativePath: string, sourcePath: string) {
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
@@ -364,8 +368,11 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
     const temporaryPath = path.join(path.dirname(resolved.path), `.vch-upload-${randomUUID()}.tmp`);
     try {
       await mkdir(path.dirname(resolved.path), { recursive: true });
-      await copyFile(sourcePath, temporaryPath);
-      // The assembled upload is 0600 in the temp dir; copyFile keeps that, and a
+      // Moved, not copied, where staging and the node share a filesystem (the default layout): the copy
+      // wrote an upload a third time, after its chunks and its assembled file. Any refusal to move
+      // (another filesystem, a directory the source cannot be taken out of) falls back to the copy.
+      await rename(sourcePath, temporaryPath).catch(() => copyFile(sourcePath, temporaryPath));
+      // The assembled upload is 0600 in the temp dir; a move or copyFile keeps that, and a
       // web root served by another account then answered 403 (A4-01).
       await matchDirectoryMode(temporaryPath, path.dirname(resolved.path));
       await rename(temporaryPath, resolved.path);
@@ -505,7 +512,9 @@ export async function copyStorageFile(
       destinationRelativePath,
     );
     if (!dest.ok) throw new ValidationError(dest.reason);
-    const tempPath = `${dest.path}.vch-copy-${randomUUID()}.tmp`;
+    // Beside the destination but not named after it (see writeStorageFileFromLocalPath): the destination's name plus
+    // a 50-character suffix does not fit the 255-byte limit once the name itself is longer than 205 bytes.
+    const tempPath = path.join(path.dirname(dest.path), `.vch-copy-${randomUUID()}.tmp`);
     try {
       await mkdir(path.dirname(dest.path), { recursive: true });
       await copyFile(source.path, tempPath);
@@ -522,7 +531,7 @@ export async function copyStorageFile(
     const credentials = resolveStorageSshCredentials(node);
     const sourceRemote = (await resolveStorageRemotePath(node, sourceRelativePath, { credentials })).remotePath;
     const destRemote = (await resolveStorageRemotePath(node, destinationRelativePath, { credentials })).remotePath;
-    const tempRemote = `${destRemote}.vch-copy-${randomUUID()}.tmp`;
+    const tempRemote = path.posix.join(path.posix.dirname(destRemote), `.vch-copy-${randomUUID()}.tmp`);
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       const buffer = await readRemoteFile({ ...credentials, remotePath: sourceRemote });
       await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(destRemote), recursive: true });

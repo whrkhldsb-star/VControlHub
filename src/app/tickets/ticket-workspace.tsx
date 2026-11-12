@@ -11,7 +11,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
-import { Badge } from "@/components/ui-primitives";
+import { Badge, SegmentedControl } from "@/components/ui-primitives";
 import { Pagination } from "@/components/pagination";
 import { EmptyState } from "@/components/page-shell";
 
@@ -156,6 +156,7 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
   const [board, setBoard] = useState<TicketWorkspaceBoard | null>(initialBoard);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const loadFailed = loadError !== null;
   const [reloadKey, setReloadKey] = useState(0);
   // router.refresh() (after a ticket is created) renders the page again with
   // new first-page data. The lists are state, so the new ticket stayed out of
@@ -202,7 +203,8 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
           }
           setLoadError(null);
         } catch (error) {
-          if (id === latestRequest.current) setLoadError(getErrorMessage(error, "HTTP error"));
+          // "" when there is no reason for people: the sentence then says only that it failed.
+          if (id === latestRequest.current) setLoadError(getErrorMessage(error, ""));
         } finally {
           if (id === latestRequest.current) setLoading(false);
         }
@@ -215,6 +217,7 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
     patchUrl({ status: "", priority: "", category: "", sla: "", q: "", page: "1" });
   };
 
+  const filtersActive = Boolean(status || priority || category || slaStatus || search.trim());
   const listTickets = listPage?.tickets ?? [];
   const total = view === "board"
     ? STATUSES.reduce((sum, columnStatus) => sum + (board?.[columnStatus]?.total ?? 0), 0)
@@ -232,13 +235,15 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
               {canManage ? t("ticketsPage.workspace.manageHint") : t("ticketsPage.workspace.personalHint")}
             </p>
           </div>
-          <div data-tile className="inline-flex w-fit p-1">
-            {(["list", "board"] as const).map((mode) => (
-              <button type="button" data-action-button={view === mode ? "" : undefined} data-variant={view === mode ? "primary" : undefined} key={mode} onClick={() => setView(mode)} aria-pressed={view === mode} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === mode ? "" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
-                {t(mode === "list" ? "ticketsPage.kanban.list" : "ticketsPage.kanban.toggle")}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            ariaLabel={t("ticketsPage.kanban.viewLabel")}
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "list", label: t("ticketsPage.kanban.list") },
+              { value: "board", label: t("ticketsPage.kanban.toggle") },
+            ]}
+          />
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <label className="ui-label grid gap-1">
@@ -257,9 +262,9 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
         </div>
       </div>
 
-      {loadError ? (
+      {loadFailed ? (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-5 py-3 text-xs text-[var(--danger)]">
-          <span>{t("ticketsPage.loadFailed", { error: loadError })}</span>
+          <span>{loadError ? t("ticketsPage.loadFailed", { error: loadError }) : t("ticketsPage.loadFailedPlain")}</span>
           <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="rounded-lg px-3 py-1.5 font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
             {t("common.retry")}
           </button>
@@ -267,8 +272,9 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
       ) : null}
       <div aria-busy={loading || undefined}>
       {view === "list" ? (
+        // Nothing under a failed load: what this view holds is not known.
         listTickets.length === 0 ? (
-          <EmptyState text={loading ? t("common.loading") : t("ticketsPage.emptyFiltered")} />
+          loadFailed && !loading ? null : <EmptyState text={loading ? t("common.loading") : t(filtersActive ? "ticketsPage.emptyFiltered" : "ticketsPage.emptyNone")} />
         ) : (
           <>
             <div className="divide-y divide-[var(--border-subtle)]">{listTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} nowMs={nowMs} />)}</div>
@@ -278,7 +284,7 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
           </>
         )
       ) : !board || total === 0 ? (
-        <EmptyState text={loading || !board ? t("common.loading") : t("ticketsPage.emptyFiltered")} />
+        loadFailed && !loading ? null : <EmptyState text={loading || !board ? t("common.loading") : t(filtersActive ? "ticketsPage.emptyFiltered" : "ticketsPage.emptyNone")} />
       ) : (
         <div className="grid gap-4 overflow-x-auto p-4 lg:grid-cols-4">
           {STATUSES.map((columnStatus) => {

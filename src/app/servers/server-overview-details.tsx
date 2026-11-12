@@ -27,7 +27,7 @@ import { DirectGatewayAdviceList, DirectGatewayHealthyDetail, InfoRow, OsDialect
 import { ActionButton, ButtonLink } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, Notice } from "@/components/ui-primitives";
-import { serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "./server-labels";
+import { commandStatusLine, serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "./server-labels";
 import type { ServerBillingDto } from "@/lib/server/billing-form";
 import type { ServerSyncTargetAuth } from "@/lib/sync/target-auth";
 import { ServerBillingRows } from "./server-billing-rows";
@@ -154,7 +154,7 @@ export function ServerOverviewDetails({
 			status: server.storageNode ? t("serverOverviewDetails.bound") : t("serverOverviewDetails.unbound"),
 			tone: server.storageNode ? "success" : "warning",
 			detail: server.storageNode
-				? t("serverOverviewDetails.sftpDetailPrefix") + server.storageNode.name + " · " + server.storageNode.basePath + t("serverOverviewDetails.sftpDetailSuffix")
+				? t("serverOverviewDetails.sftpDetail", { name: server.storageNode.name, path: server.storageNode.basePath })
 				: t("serverOverviewDetails.sftpUnboundDetail"),
 			href: server.storageNode
 				? `/files?nodeId=${encodeURIComponent(server.storageNode.id)}`
@@ -179,7 +179,7 @@ export function ServerOverviewDetails({
 			label: t("serverOverviewDetails.commandApprovalQueue"),
 			status:
 				server.pendingCommandCount > 0
-					? server.pendingCommandCount + t("serverOverviewDetails.pendingCountSuffix")
+					? t("serverOverviewDetails.pendingCount", { count: server.pendingCommandCount })
 					: t("serverOverviewDetails.noPending"),
 			tone: server.pendingCommandCount > 0 ? "warning" : "success",
 			detail:
@@ -217,7 +217,7 @@ export function ServerOverviewDetails({
 				</p>
 				{server.sshKey?.fingerprint ? (
 					<p className="mt-2 truncate text-xs text-[var(--text-muted)]" title={server.sshKey.fingerprint}>
-						{t("serverOverviewDetails.fingerprintPrefix")}{server.sshKey.fingerprint}
+						{t("serverOverviewDetails.fingerprint", { fingerprint: server.sshKey.fingerprint })}
 					</p>
 				) : null}
 				{(server.tags ?? []).length > 0 ? (
@@ -413,7 +413,7 @@ export function ServerOverviewDetails({
 									</span>
 								</div>
 								<div className="mt-1 text-xs text-[var(--text-muted)]">
-									{command.requestStatus} · {command.targetStatus}
+									{commandStatusLine(command.requestStatus, command.targetStatus, t)}
 								</div>
 							</div>
 						))}

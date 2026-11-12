@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Badge, CheckboxField, FormField, FormGrid, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { copyText } from "@/lib/ui/clipboard";
 import { clearIfUnchanged } from "@/lib/ui/form-draft";
 
 export type SafeApiToken = {
@@ -56,6 +57,10 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createdPlaintext, setCreatedPlaintext] = useState<string | null>(null);
+  // The plaintext is shown once: whether the copy worked has to be said.
+  const [copyOutcome, setCopyOutcome] = useState<"copied" | "failed" | null>(null);
+  // A refused revoke is explained in its dialog: on the page it was covered by the dialog.
+  const [revokeError, setRevokeError] = useState<string | null>(null);
   const [tokenPendingRevoke, setTokenPendingRevoke] = useState<SafeApiToken | null>(null);
 
   const activeCount = useMemo(() => tokens.filter((token) => !token.revokedAt).length, [tokens]);
@@ -72,6 +77,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
     setSubmitting(true);
     setError(null);
     setCreatedPlaintext(null);
+    setCopyOutcome(null);
     try {
       // datetime-local is browser-local without offset; send absolute ISO so the
       // server does not reinterpret the string under a different TZ.
@@ -103,13 +109,13 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
 
   const revokeToken = async (token: SafeApiToken) => {
     setRevokingId(token.id);
-    setError(null);
+    setRevokeError(null);
     try {
       const data = await csrfFetch(`/api/api-tokens?id=${encodeURIComponent(token.id)}`, { method: "DELETE" });
       setTokens((current) => current.map((item) => (item.id === token.id ? { ...item, revokedAt: data.token?.revokedAt ?? new Date().toISOString() } : item)));
       setTokenPendingRevoke(null);
     } catch (err) {
-      setError(getErrorMessage(err, t("apiTokensPage.revoke.failed")));
+      setRevokeError(getErrorMessage(err, t("apiTokensPage.revoke.failed")));
     } finally {
       setRevokingId(null);
     }
@@ -131,7 +137,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
               <p className="mt-1 text-sm text-[var(--warning)]/75">{t("apiTokensPage.plaintext.copyHint")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <ActionButton variant="outline" onClick={() => navigator.clipboard?.writeText(createdPlaintext)}>
+              <ActionButton variant="outline" onClick={async () => setCopyOutcome((await copyText(createdPlaintext)) ? "copied" : "failed")}>
                 {t("apiTokensPage.plaintext.copy")}
               </ActionButton>
               <ActionButton variant="secondary" onClick={() => setCreatedPlaintext(null)}>
@@ -140,6 +146,11 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
             </div>
           </div>
           <code data-inset="" className="mt-4 block overflow-x-auto border-[var(--warning-border)] p-3 font-mono text-xs text-[var(--warning)] dark:text-[var(--warning)]">{createdPlaintext}</code>
+          {copyOutcome ? (
+            <p role="status" className={`mt-2 text-xs ${copyOutcome === "copied" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+              {t(copyOutcome === "copied" ? "apiTokensPage.plaintext.copied" : "apiTokensPage.plaintext.copyFailed")}
+            </p>
+          ) : null}
         </section>
       )}
 
@@ -209,7 +220,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
                       </dl>
                     </div>
                     {!token.revokedAt && (
-                      <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria", { name: token.name })} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)}>
+                      <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria", { name: token.name })} disabled={revokingId === token.id} onClick={() => { setRevokeError(null); setTokenPendingRevoke(token); }}>
                         {revokingId === token.id ? t("apiTokensPage.revoke.revoking") : t("apiTokensPage.revoke.button")}
                       </ActionButton>
                     )}
@@ -226,7 +237,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
         description={tokenPendingRevoke ? t("apiTokensPage.revoke.confirmBody", { name: tokenPendingRevoke.name }) : ""}
         cancelLabel={t("apiTokensPage.revoke.cancel")}
         confirmLabel={t("apiTokensPage.revoke.confirm")}
-        onCancel={() => setTokenPendingRevoke(null)}
+        busy={tokenPendingRevoke !== null && revokingId === tokenPendingRevoke.id}
+        error={revokeError}
+        onCancel={() => { setTokenPendingRevoke(null); setRevokeError(null); }}
         onConfirm={() => tokenPendingRevoke && revokeToken(tokenPendingRevoke)}
       />
     </div>

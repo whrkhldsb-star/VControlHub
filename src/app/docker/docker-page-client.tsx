@@ -171,9 +171,13 @@ export default function DockerPage({
 				requestRemoval={requestRemoval}
 			/>
 
-			<div className="mt-6">
-				<DockerResourcesPanel serverId={selectedServerId} />
-			</div>
+			{/* Without a target (an account with no server to manage) there is nothing to list: the panel would ask
+			    for the hub host's networks and volumes, which such an account is refused. */}
+			{selectedServerId || canManageHubHost ? (
+				<div className="mt-6">
+					<DockerResourcesPanel serverId={selectedServerId} />
+				</div>
+			) : null}
 
 			<DockerRemovalDialog
 				pendingRemoval={pendingRemoval}

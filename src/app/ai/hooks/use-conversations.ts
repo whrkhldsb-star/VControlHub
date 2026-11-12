@@ -15,6 +15,10 @@ export type UseConversationsResult = {
   activeConv: ConvItem | null;
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  /** What went wrong loading the active conversation's history; null while it is fine. */
+  messagesError: unknown;
+  /** Load the active conversation's history again. */
+  retryMessages: () => void;
   refreshConversations: () => Promise<void>;
   autoTitle: (convId: string, firstMsg: string) => Promise<void>;
 };
@@ -40,6 +44,8 @@ export function useConversations({
   );
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesError, setMessagesError] = useState<unknown>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
   const activeConv =
     conversations.find((c) => c.id === activeConvId) ?? null;
@@ -49,6 +55,7 @@ export function useConversations({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- activeConvId 切换时同步清空消息列表,避免旧会话残留闪烁
     setMessages([]);
+    setMessagesError(null);
     if (!activeConvId) {
       return;
     }
@@ -60,13 +67,17 @@ export function useConversations({
         if (cancelled) return;
         if (data.conversation?.messages) setMessages(data.conversation.messages);
       })
-      .catch(() => {
-        // Keep the cleared list on failure; next successful switch/refresh retries.
+      .catch((error: unknown) => {
+        // The list stays empty, and the page says why: swallowed, the failure looked like a conversation in
+        // which nothing had been said yet.
+        if (!cancelled) setMessagesError(error ?? new Error("load failed"));
       });
     return () => {
       cancelled = true;
     };
-  }, [activeConvId]);
+  }, [activeConvId, reloadTick]);
+
+  const retryMessages = useCallback(() => setReloadTick((tick) => tick + 1), []);
 
   const refreshConversations = useCallback(async () => {
     const data = await csrfFetch<{ conversations?: ConvItem[] }>(
@@ -103,6 +114,8 @@ export function useConversations({
     activeConv,
     messages,
     setMessages,
+    messagesError,
+    retryMessages,
     refreshConversations,
     autoTitle,
   };

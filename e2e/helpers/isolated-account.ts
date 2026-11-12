@@ -19,13 +19,32 @@ function loadOptionalEnvLocal() {
 	}
 }
 
+/** The accounts crud-workflows creates (`qa_<timestamp>`); teardown removes these and no other `qa_…` name. */
+export const QA_USERNAME_PATTERN = "^qa_[0-9]+$";
+
+/**
+ * Whether the suite's account may be created in this database. The account is an administrator whose password
+ * is written in package.json, and teardown deletes rows by name pattern, so the database has to be one made for
+ * tests. Loopback alone does not say that: an installation keeps its own database on loopback, with its
+ * `.env.local` in the directory the suite is started from. The name must say it — "test" or "audit" in it, or
+ * the CI database (`…_ci` while CI=true) — which is what the specs that write fixtures already ask for.
+ */
+export function isDedicatedE2eDatabase(connectionString: string, ci = process.env.CI === "true"): boolean {
+	const url = new URL(connectionString);
+	const loopback = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname.toLowerCase());
+	const name = decodeURIComponent(url.pathname.replace(/^\//, ""));
+	return loopback && (/audit|test/i.test(name) || (ci && /_ci$/.test(name)));
+}
+
 function localConnectionString() {
 	loadOptionalEnvLocal();
 	const connectionString = process.env.DATABASE_URL;
 	if (!connectionString) throw new Error("DATABASE_URL is required for isolated E2E accounts");
-	const hostname = new URL(connectionString).hostname.toLowerCase();
-	if (!["localhost", "127.0.0.1", "::1"].includes(hostname)) {
-		throw new Error("Isolated E2E accounts may only use a loopback DATABASE_URL");
+	if (!isDedicatedE2eDatabase(connectionString)) {
+		const name = decodeURIComponent(new URL(connectionString).pathname.replace(/^\//, ""));
+		throw new Error(
+			`Isolated E2E accounts need a loopback database made for tests: its name must contain "test" or "audit" (or end with _ci in CI). DATABASE_URL points at "${name}".`,
+		);
 	}
 	return connectionString;
 }
@@ -163,7 +182,7 @@ export async function removeIsolatedE2eAccount() {
 		await client.query(
 			`DELETE FROM file_entries WHERE "relativePath" LIKE 'qa-media/%' OR "relativePath" LIKE 'qa-files-%'`,
 		);
-		await client.query(`DELETE FROM "User" WHERE username LIKE 'qa\\_%' ESCAPE '\\'`);
+		await client.query(`DELETE FROM "User" WHERE username ~ $1`, [QA_USERNAME_PATTERN]);
 		await client.query(`DELETE FROM "User" WHERE username = $1`, [ISOLATED_E2E_USERNAME]);
 		await client.query(`DELETE FROM "StorageNode" WHERE id = $1`, [ISOLATED_E2E_STORAGE_ID]);
 		await client.query(`DELETE FROM servers WHERE id = $1`, [ISOLATED_E2E_SERVER_ID]);

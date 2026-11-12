@@ -361,9 +361,12 @@ describeOrSkip("deploy/preflight.sh", () => {
       path.join(binDir, "a2enmod"),
       "#!/usr/bin/env bash\nexit 0\n",
     );
+    // The line install.sh reads the address from (`ip -4 addr show scope
+    // global`). A bare address matched nothing there, and the script went on
+    // to ask ifconfig.me: the test passed only where that host was reachable.
     await writeFile(
       path.join(binDir, "ip"),
-      '#!/usr/bin/env bash\nprintf "31.59.111.31\\n"\n',
+      '#!/usr/bin/env bash\nprintf "    inet 203.0.113.31/24 brd 203.0.113.255 scope global eth0\\n"\n',
     );
     await writeFile(
       path.join(binDir, "apache2"),
@@ -416,6 +419,10 @@ describeOrSkip("deploy/preflight.sh", () => {
       expect(result.stdout + result.stderr).not.toContain(
         "portable_initial_value",
       );
+      // The address of the local interface, not one learned from the network.
+      await expect(
+        readFile(path.join(appDir, "fake-root/etc/apache2/sites-available/next-proxy.conf"), "utf8"),
+      ).resolves.toContain("ServerName 203.0.113.31\n");
     } finally {
       await rm(appDir, { force: true, recursive: true });
     }

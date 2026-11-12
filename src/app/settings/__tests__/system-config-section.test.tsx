@@ -74,3 +74,28 @@ describe("config import preview identity", () => {
     expect(csrfFetch).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("config export", () => {
+  beforeEach(() => vi.mocked(csrfFetch).mockReset());
+
+  it("says why the export was refused", async () => {
+    // The file is asked for as it comes, so a refusal is not thrown: its sentence was dropped for "Export failed".
+    vi.mocked(csrfFetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: "FORBIDDEN", error: "Forbidden", message: "Missing permission: system:export" }), { status: 403 }) as never,
+    );
+    renderWithI18n(<SystemConfigSection isPlatformAdmin />, { locale: "en" });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Download Config Snapshot" }));
+    });
+    expect(await screen.findByText("Missing permission: system:export")).toBeInTheDocument();
+  });
+
+  it("names what failed when the answer is not the application's", async () => {
+    vi.mocked(csrfFetch).mockResolvedValueOnce(new Response("<html>502 Bad Gateway</html>", { status: 502 }) as never);
+    renderWithI18n(<SystemConfigSection isPlatformAdmin />, { locale: "en" });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Download Config Snapshot" }));
+    });
+    expect(await screen.findByText("Export failed")).toBeInTheDocument();
+  });
+});

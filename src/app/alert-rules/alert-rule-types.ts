@@ -1,22 +1,7 @@
-export type AlertRule = {
-	id: string;
-	name: string;
-	metric: string;
-	operator: string;
-	threshold: number;
-	durationSeconds: number;
-	serverIds: string[];
-	notifyChannels: string[];
-	webhookConfigured: boolean;
-	playbookIds?: string[];
-	cooldownMinutes: number;
-	escalationMinutes?: number;
-	onCallUserIds?: string[];
-	enabled: boolean;
-	silenceWindows?: string[];
-	lastTriggeredAt: string | null;
-	createdAt: string;
-};
+import type { AlertRuleDto } from "@/lib/alert/rule-dto";
+
+/** A rule as the page and the API hand it out (one shape for both: lib/alert/rule-dto.ts). */
+export type AlertRule = AlertRuleDto;
 
 export type AlertIncident = {
 	id: string;

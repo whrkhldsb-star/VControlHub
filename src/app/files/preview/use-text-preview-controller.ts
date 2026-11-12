@@ -24,7 +24,8 @@ import type {
 } from "./text-preview-types";
 import { INITIAL_EDITOR_FIND, INITIAL_PREVIEW_META } from "./text-preview-types";
 import { countMatches, TAB_INDENT } from "./text-preview-helpers";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { getErrorMessage, readRefusal } from "@/lib/http/error-message";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { ApiError } from "@/lib/http/api-client-error";
 import { readTextPrefix, TEXT_PREVIEW_MAX_BYTES } from "@/lib/http/read-text-prefix";
 
@@ -172,8 +173,9 @@ export function useTextPreviewController(options: {
     const readPrefix = async () => {
       const res = await csrfFetch<Response>(href, { raw: true, signal: controller.signal });
       if (!res.ok) {
+        // The server says why it refused (no grant on this folder, file gone); the status alone does not.
         throw new Error(
-          t("textPreview.error.loadFailedStatus", { status: res.status }),
+          (await readRefusal(res)) || t("textPreview.error.loadFailedStatus", { status: res.status }),
         );
       }
       return readTextPrefix(res, TEXT_PREVIEW_MAX_BYTES);
@@ -343,6 +345,9 @@ export function useTextPreviewController(options: {
 
   const handleEditorKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      // While a candidate is being composed the keys belong to the input method: Tab moves between candidates and
+      // Escape drops them.
+      if (isImeComposition(event)) return;
       if (event.key === "Tab") {
         applyTabIndent(event);
         return;

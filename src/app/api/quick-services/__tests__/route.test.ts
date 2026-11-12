@@ -333,7 +333,12 @@ describe("/api/quick-services routes", () => {
   });
 
   it("does not send the installed services' environment (generated admin passwords) to the page", async () => {
-    mocks.listQuickServices.mockResolvedValueOnce([{ id: "svc1", slug: "alist", status: "running", containerId: "c1", port: 5244, error: null, envJson: { ADMIN_PASSWORD: "s3cret-generated", TZ: "UTC" } }]);
+    // As the row stores it: JSON text. Counted as an object it gave the length of the text.
+    mocks.listQuickServices.mockResolvedValueOnce([
+      { id: "svc1", slug: "alist", status: "running", containerId: "c1", port: 5244, error: null, envJson: JSON.stringify({ ADMIN_PASSWORD: "s3cret-generated", TZ: "UTC" }) },
+      { id: "svc2", slug: "it-tools", status: "running", containerId: "c2", port: 8112, error: null, envJson: "{}" },
+      { id: "svc3", slug: "memos", status: "running", containerId: "c3", port: 5230, error: null, envJson: "not json" },
+    ]);
 
     const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
     const json = await body(response);
@@ -343,6 +348,8 @@ describe("/api/quick-services routes", () => {
     const installed = (json as { installed: Array<Record<string, unknown>> }).installed;
     expect(installed[0]).toMatchObject({ slug: "alist", envKeyCount: 2 });
     expect(installed[0]).not.toHaveProperty("envJson");
+    expect(installed[1]).toMatchObject({ slug: "it-tools", envKeyCount: 0 });
+    expect(installed[2]).toMatchObject({ slug: "memos", envKeyCount: 0 });
   });
 
   it("still lists the services when the selected VPS cannot be probed for its listening ports", async () => {

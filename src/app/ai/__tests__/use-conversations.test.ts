@@ -74,6 +74,29 @@ describe("useConversations", () => {
     expect(result.current.activeConv?.id).toBe("c1");
   });
 
+  it("reports a history that could not be loaded, and loads it on retry", async () => {
+    // The failure was swallowed: the conversation opened empty, as if nothing had ever been said in it.
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("数据库暂时不可用"));
+    const { result } = renderHook(() => useConversations({ initialConversations: [fixture("c1")] }));
+    act(() => { result.current.setActiveConvId("c1"); });
+    await waitFor(() => expect(result.current.messagesError).toBeInstanceOf(Error));
+    expect(result.current.messages).toEqual([]);
+
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ conversation: { messages: [messageFixture("m1", "user", "hi")] } });
+    act(() => { result.current.retryMessages(); });
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+    expect(result.current.messagesError).toBeNull();
+  });
+
+  it("forgets one conversation's failure when another is opened", async () => {
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce({ conversation: { messages: [] } });
+    const { result } = renderHook(() => useConversations({ initialConversations: [fixture("c1"), fixture("c2")] }));
+    act(() => { result.current.setActiveConvId("c1"); });
+    await waitFor(() => expect(result.current.messagesError).not.toBeNull());
+    act(() => { result.current.setActiveConvId("c2"); });
+    await waitFor(() => expect(result.current.messagesError).toBeNull());
+  });
+
   it("setting activeConvId to null clears the messages", async () => {
     vi.mocked(csrfFetch).mockResolvedValueOnce({
       conversation: { messages: [messageFixture("m1", "user", "hi")] },

@@ -22,11 +22,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/components/toast-provider";
 
 import { AiAttachmentsPreview } from "./ai-attachments-preview";
 import { AiChatHeader } from "./ai-chat-header";
-import { AiConfirmDialog } from "./ai-confirm-dialog";
 import { AiEmptyState } from "./ai-empty-state";
 import { exportConversationToMarkdown } from "./ai-export";
 import { AiInputAreaLazy } from "./ai-input-area-lazy";
@@ -75,6 +75,8 @@ export function AiClient({
     activeConv,
     messages,
     setMessages,
+    messagesError,
+    retryMessages,
     refreshConversations,
     autoTitle,
   } = useConversations({ initialConversations });
@@ -88,7 +90,6 @@ export function AiClient({
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
-  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -288,8 +289,8 @@ export function AiClient({
         });
         await refreshConversations();
         addToast("success", t("aiPage.modelSwitched", { model }));
-      } catch {
-        addToast("error", t("aiPage.saveFailed"));
+      } catch (error) {
+        addToast("error", getErrorMessage(error, t("aiPage.saveFailed")));
       }
     },
     [activeConvId, activeConv?.model, refreshConversations, addToast, t],
@@ -347,11 +348,12 @@ export function AiClient({
       className="flex h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom))] min-h-80 overflow-hidden bg-[var(--page-bg)] pt-16 lg:h-[calc(100dvh-var(--topbar-height))] lg:pt-0"
     >
       {confirm.copy && (
-        <AiConfirmDialog
+        <ConfirmDialog
           open
           title={confirm.copy.title}
           description={confirm.copy.description}
-          confirmLabel={confirm.copy.confirmLabel}
+          cancelLabel={t("aiPage.cancel")}
+          confirmLabel={confirm.busy ? t("aiPage.processing") : confirm.copy.confirmLabel}
           error={confirm.error}
           busy={confirm.busy}
           onCancel={confirm.close}
@@ -442,13 +444,13 @@ export function AiClient({
               pendingApprovals={pendingApprovals}
               approvalBusyById={approvalBusyById}
               onApproval={decideApproval}
-              copyFeedback={copyFeedback}
-              setCopyFeedback={setCopyFeedback}
               currentModelCaps={currentModelCaps}
               messagesEndRef={messagesEndRef}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onRegenerate={handleRegenerate}
+              loadError={messagesError ? getErrorMessage(messagesError, t("aiPage.historyLoadFailed")) : null}
+              onRetryLoad={retryMessages}
             />
             <AiAttachmentsPreview
               enableVision={activeConv.enableVision}

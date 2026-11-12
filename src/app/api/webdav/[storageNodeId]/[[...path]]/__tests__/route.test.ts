@@ -74,6 +74,12 @@ describe("webdav route dispatch", () => {
     mocks.authenticateWebDavRequest.mockResolvedValue({ session: SESSION });
     mocks.getHead.mockResolvedValue(new Response("ok", { status: 200 }));
     mocks.propFind.mockResolvedValue(new Response("<multistatus/>", { status: 207 }));
+    // Every handler answers with a Response; the route adds headers to it.
+    mocks.put.mockResolvedValue(new Response(null, { status: 201 }));
+    mocks.del.mockResolvedValue(new Response(null, { status: 204 }));
+    mocks.mkcol.mockResolvedValue(new Response(null, { status: 201 }));
+    mocks.move.mockResolvedValue(new Response(null, { status: 201 }));
+    mocks.copy.mockResolvedValue(new Response(null, { status: 201 }));
   });
 
   it("rate limits before authenticating", async () => {
@@ -241,5 +247,57 @@ describe("webdav route dispatch", () => {
     expect(response.status).toBe(401);
     expect(response.headers.get("WWW-Authenticate")).toContain("Basic");
     expect(await response.text()).not.toContain("session expired");
+  });
+
+  // The proxy does not run on this route (see `config.matcher` in src/proxy.ts),
+  // so what it adds to every other response is added by the route.
+  describe("response headers the proxy would have added", () => {
+    it("adds the baseline to every answer, refusals included", async () => {
+      mocks.propFind.mockResolvedValue(new Response("<multistatus/>", { status: 207, headers: { DAV: "1" } }));
+      const listing = await POST(req("POST", { "x-http-method-override": "PROPFIND" }), params(["a.txt"]));
+      const { AuthError } = await import("@/lib/errors");
+      mocks.authenticateWebDavRequest.mockRejectedValueOnce(new AuthError("nope"));
+      const challenge = await GET(req("GET"), params(["a.txt"]));
+      const options = await OPTIONS(req("OPTIONS"), params());
+
+      for (const response of [listing, challenge, options]) {
+        expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+        expect(response.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
+        expect(response.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
+        expect(response.headers.get("Permissions-Policy")).toContain("camera=()");
+        expect(response.headers.get("Strict-Transport-Security")).toContain("max-age=");
+      }
+      // The handler's own headers and body are kept.
+      expect(listing.status).toBe(207);
+      expect(listing.headers.get("DAV")).toBe("1");
+      expect(await listing.text()).toBe("<multistatus/>");
+      expect(challenge.headers.get("WWW-Authenticate")).toContain("Basic");
+      expect(options.status).toBe(204);
+    });
+
+    it("keeps a file's own sandbox policy", async () => {
+      mocks.getHead.mockResolvedValue(
+        new Response("<script>alert(1)</script>", {
+          status: 200,
+          headers: { "Content-Type": "text/html", "Content-Security-Policy": "sandbox", "X-Content-Type-Options": "nosniff" },
+        }),
+      );
+
+      const response = await GET(req("GET"), params(["a.html"]));
+
+      expect(response.headers.get("Content-Security-Policy")).toBe("sandbox");
+      expect(response.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
+    });
+
+    it("promises HTTPS only on an HTTPS request", async () => {
+      const plain = await GET(new Request("http://hub.example/api/webdav/n1/a.txt"), params(["a.txt"]));
+      expect(plain.headers.get("Strict-Transport-Security")).toBeNull();
+
+      const forwarded = await GET(
+        new Request("http://hub.example/api/webdav/n1/a.txt", { headers: { "x-forwarded-proto": "https" } }),
+        params(["a.txt"]),
+      );
+      expect(forwarded.headers.get("Strict-Transport-Security")).toContain("max-age=");
+    });
   });
 });

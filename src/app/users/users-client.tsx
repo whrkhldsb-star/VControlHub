@@ -18,10 +18,12 @@ import {
   type CreateUserFormState,
   type CustomerOption,
   type IdentityTemplateOption,
+  type PasswordRules,
 } from "./users-forms";
 import { identityTemplateName } from "@/lib/auth/identity-templates";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Plus } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui-primitives";
@@ -43,11 +45,13 @@ const EMPTY_CREATE_FORM: CreateUserFormState = { username: "", displayName: "", 
 /** Fixed page size for the users list (matches the API request below). */
 const USER_PAGE_SIZE = 50;
 
-export function UserManagementClient({ header, canManage = false, currentUserId = "" }: {
+export function UserManagementClient({ header, canManage = false, currentUserId = "", passwordRules }: {
   /** Page header; rendered here so the create command sits in its actions. */
   header?: { eyebrow?: string; title: string; description?: string };
   canManage?: boolean;
   currentUserId?: string;
+  /** The password policy in force, so that the fields can say what a password has to have. */
+  passwordRules?: PasswordRules;
 }) {
   const { t, locale } = useI18n();
   const { addToast } = useToast();
@@ -64,7 +68,12 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
   const [creating, setCreating] = useState(false);
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserInfo | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  // Why the customers and identity templates of the create form could not be read.
+  const [optionsError, setOptionsError] = useState<string | null>(null);
   const fetchGenRef = useRef(0);
+  // The translator for effects that must not run again when the language changes.
+  const tRef = useRef(t);
+  useEffect(() => { tRef.current = t; }, [t]);
 
   const messageFromError = (err: unknown, fallback: string) => (getErrorMessage(err, fallback));
 
@@ -112,7 +121,11 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
       setCustomers(teamData.teams);
       setTemplates(templateData.templates);
       setCreateForm((form) => form.teamId ? form : { ...form, teamId: teamData.teams[0]?.id ?? "" });
-    }).catch(() => undefined);
+      setOptionsError(null);
+    }).catch((err: unknown) => {
+      // Said in the form. In silence it left an empty list of customers and a button that stayed disabled.
+      setOptionsError(getErrorMessage(err, tRef.current("usersPage.error.optionsFailed")));
+    });
   }, [canManage]);
 
   // The form stays editable while a create is in flight; its success must
@@ -149,11 +162,15 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
   };
 
   const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
+  // Disabling signs the account out everywhere: it is asked first, and a refusal is shown in that dialog.
+  const [disableTarget, setDisableTarget] = useState<UserInfo | null>(null);
+  const [disableError, setDisableError] = useState<string | null>(null);
 
   const handleToggleStatus = async (userId: string, currentStatus: string, username: string) => {
     if (togglingUserId) return;
     const action = currentStatus === "DISABLED" ? "enable" : "disable";
     setTogglingUserId(userId);
+    setDisableError(null);
     try {
       await csrfFetch("/api/users", {
         method: "PATCH",
@@ -162,10 +179,13 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
       });
       const successKey = action === "enable" ? "usersPage.success.enabled" : "usersPage.success.disabled";
       addToast("success", t(successKey, { name: username }));
+      setDisableTarget(null);
       await fetchUsers();
     } catch (err) {
       const errKey = action === "enable" ? "usersPage.error.enableFailed" : "usersPage.error.disableFailed";
-      addToast("error", messageFromError(err, t(errKey, { name: username })));
+      const message = messageFromError(err, t(errKey, { name: username }));
+      if (action === "disable") setDisableError(message);
+      else addToast("error", message);
     } finally {
       setTogglingUserId(null);
     }
@@ -174,10 +194,12 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
   const [resetPasswordUser, setResetPasswordUser] = useState<UserInfo | null>(null);
   const [resetPasswordValue, setResetPasswordValue] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const handleResetPassword = async () => {
     if (!resetPasswordUser || !resetPasswordValue) return;
     setResetting(true);
+    setResetError(null);
     try {
       await csrfFetch("/api/users", {
         method: "PATCH",
@@ -191,7 +213,8 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
       // showing the stale badge until the page is reloaded.
       await fetchUsers();
     } catch (err) {
-      addToast("error", messageFromError(err, t("usersPage.error.resetFailed", { name: resetPasswordUser.username })));
+      // In the dialog the password was typed in, which stays open to correct it.
+      setResetError(messageFromError(err, t("usersPage.error.resetFailed", { name: resetPasswordUser.username })));
     } finally {
       setResetting(false);
     }
@@ -221,6 +244,8 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
           onSubmit={handleCreate}
           customers={customers}
           templates={templates}
+          optionsError={optionsError}
+          passwordRules={passwordRules}
         />
       )}
 
@@ -234,7 +259,9 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
               <SkeletonList count={4} />
             </div>
           ) : loadFailed ? (
-            <EmptyState>{t("usersPage.loadFailedHint")}</EmptyState>
+            <EmptyState action={<ActionButton size="sm" variant="outline" onClick={() => { setLoading(true); void fetchUsers(); }}>{t("common.retry")}</ActionButton>}>
+              {t("usersPage.loadFailedHint")}
+            </EmptyState>
           ) : users.length === 0 ? (
             <EmptyState>{t("usersPage.empty")}</EmptyState>
           ) : undefined
@@ -278,14 +305,14 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
                     <>
                       <ActionButton size="sm"
                         variant="warning"
-                        onClick={() => { setResetPasswordUser(user); setResetPasswordValue(""); }}>
+                        onClick={() => { setResetPasswordUser(user); setResetPasswordValue(""); setResetError(null); }}>
                         {t("usersPage.action.resetPassword")}
                       </ActionButton>
                       {user.status !== "DISABLED" ? (
                         user.id !== currentUserId && (
                           <ActionButton size="sm"
                             variant="danger"
-                            onClick={() => handleToggleStatus(user.id, user.status, user.username)}
+                            onClick={() => { setDisableError(null); setDisableTarget(user); }}
                             disabled={togglingUserId !== null}>
                             {t("usersPage.action.disable")}
                           </ActionButton>
@@ -327,12 +354,26 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
           t={t}
           username={resetPasswordUser.username}
           password={resetPasswordValue}
-          setPassword={setResetPasswordValue}
+          setPassword={(value) => { setResetPasswordValue(value); setResetError(null); }}
+          error={resetError}
+          passwordRules={passwordRules}
           resetting={resetting}
           onCancel={() => setResetPasswordUser(null)}
           onConfirm={handleResetPassword}
         />
       )}
+      <ConfirmDialog
+        open={disableTarget !== null}
+        title={t("usersPage.disable.title")}
+        description={t("usersPage.disable.confirm", { name: disableTarget?.username ?? "" })}
+        cancelLabel={t("usersPage.action.cancel")}
+        confirmLabel={t("usersPage.action.disable")}
+        busy={togglingUserId !== null}
+        error={disableError}
+        onCancel={() => { if (!togglingUserId) setDisableTarget(null); }}
+        onConfirm={() => { if (disableTarget) void handleToggleStatus(disableTarget.id, disableTarget.status, disableTarget.username); }}
+        closeOnBackdrop={false}
+      />
     </div>
   );
 }

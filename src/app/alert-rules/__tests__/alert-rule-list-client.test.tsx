@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ToastProvider } from "@/components/toast-provider";
 import { AlertRuleListClient } from "../alert-rule-list-client";
@@ -133,7 +133,7 @@ describe("alert rules client", () => {
 				serverIds: [],
 				notifyChannels: ["webhook"],
 				webhookConfigured: true,
-				cooldownMinutes: 10,
+				cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 				enabled: true,
 				lastTriggeredAt: null,
 				createdAt: "2026-01-01T00:00:00.000Z",
@@ -145,6 +145,50 @@ describe("alert rules client", () => {
 		expect(screen.getByText("Webhook rule")).toBeInTheDocument();
 		expect(screen.getByText("Webhook 已配置")).toBeInTheDocument();
 		expect(screen.queryByText(/secret-token/)).not.toBeInTheDocument();
+	});
+
+	it("states the condition in words set apart by the layout, with Chinese punctuation", () => {
+		// The parts were joined by spaces kept inside the entries: "当 CPU 使用率 大于等于 90% 持续 300s (全部节点)".
+		render(wrap(<AlertRuleListClient
+			rules={[{
+				id: "rule1", name: "Sustained load", metric: "cpu_usage", operator: "gte", threshold: 90, durationSeconds: 300,
+				serverIds: ["s1", "s2"], notifyChannels: ["in_app"], webhookConfigured: false,
+				cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
+				enabled: true, lastTriggeredAt: null, createdAt: "2026-01-01T00:00:00.000Z",
+			}]}
+			servers={[]}
+			canManage={true}
+		/>));
+		const condition = screen.getByText("持续 300 秒").closest("p")!;
+		expect([...condition.children].map((part) => part.textContent)).toEqual(["当", "CPU 使用率", "大于等于", "90%", "持续 300 秒", "（2 个节点）"]);
+		// No part begins or ends with a space of its own.
+		expect([...condition.children].every((part) => part.textContent === part.textContent!.trim())).toBe(true);
+	});
+
+	it("edits a rule that has a webhook without asking for its address again, and names the button for what it does", async () => {
+		// The address is not on the page, so the form cannot send it back: every edit of such a rule was refused
+		// for a missing address, and the form — whose button read "创建规则" — did not say why.
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValue({ rules: [] });
+		render(wrap(<AlertRuleListClient
+			rules={[{
+				id: "rule1", name: "Webhook rule", metric: "cpu_usage", operator: "gte", threshold: 90, durationSeconds: 0, serverIds: [],
+				notifyChannels: ["webhook"], webhookConfigured: true, cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30,
+				onCallUserIds: [], silenceWindows: [], enabled: true, lastTriggeredAt: null, createdAt: "2026-01-01T00:00:00.000Z",
+			}]}
+			servers={[]}
+			canManage={true}
+		/>));
+
+		await user.click(screen.getByRole("button", { name: "编辑" }));
+		expect(screen.getByText(/留空则继续使用它/)).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "创建规则" })).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "保存修改" }));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/alert-rules", expect.objectContaining({ method: "PATCH" })));
+		const sent = JSON.parse(String(vi.mocked(csrfFetch).mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")?.[1]?.body));
+		expect(sent).toMatchObject({ id: "rule1", notifyChannels: ["webhook"] });
+		expect(sent.webhookUrl).toBeUndefined();
 	});
 
 	it("redacts webhook URLs before passing server-rendered rules to the client", async () => {
@@ -169,7 +213,7 @@ describe("alert rules client", () => {
 			serverIds: [],
 			notifyChannels: ["in_app"],
 			webhookConfigured: false,
-			cooldownMinutes: 10,
+			cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 			enabled: true,
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
@@ -202,7 +246,7 @@ describe("alert rules client", () => {
 			serverIds: [],
 			notifyChannels: ["in_app"],
 			webhookConfigured: false,
-			cooldownMinutes: 10,
+			cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 			enabled: true,
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
@@ -237,7 +281,7 @@ describe("alert rules client", () => {
 			serverIds: [],
 			notifyChannels: ["in_app"],
 			webhookConfigured: false,
-			cooldownMinutes: 10,
+			cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 			enabled: true,
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
@@ -251,9 +295,18 @@ describe("alert rules client", () => {
 		await user.click(screen.getByRole("button", { name: "删除" }));
 		await user.click(screen.getByRole("button", { name: "确认删除" }));
 
-		expect(await screen.findByRole("alert")).toHaveTextContent("告警规则删除失败");
+		// Said in the dialog that asked, once: on the page it sat behind that dialog.
+		const dialog = screen.getByRole("dialog", { name: "删除告警规则" });
+		expect(await within(dialog).findByText("告警规则删除失败")).toBeVisible();
+		expect(screen.getAllByText("告警规则删除失败")).toHaveLength(1);
+		expect(within(dialog).getByRole("button", { name: "确认删除" })).toBeEnabled();
 		expect(screen.getAllByText("Disk full").length).toBeGreaterThan(0);
-		expect(screen.getByRole("button", { name: "删除" })).toBeEnabled();
+
+		// Cancelled: the failure of a deletion that was given up does not stay on the page or reappear in the next dialog.
+		await user.click(within(dialog).getByRole("button", { name: "取消" }));
+		expect(screen.queryByText("告警规则删除失败")).toBeNull();
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		expect(within(screen.getByRole("dialog", { name: "删除告警规则" })).queryByText("告警规则删除失败")).toBeNull();
 	});
 
 	it("surfaces immediate alert check failures", async () => {
@@ -285,7 +338,7 @@ describe("alert rules client", () => {
 			serverIds: [],
 			notifyChannels: ["webhook"],
 			webhookConfigured: true,
-			cooldownMinutes: 10,
+			cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 			enabled: true,
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
@@ -322,7 +375,7 @@ describe("alert rules client", () => {
 			serverIds: [],
 			notifyChannels: ["webhook"],
 			webhookConfigured: true,
-			cooldownMinutes: 10,
+			cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30, onCallUserIds: [], silenceWindows: [],
 			enabled: true,
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",

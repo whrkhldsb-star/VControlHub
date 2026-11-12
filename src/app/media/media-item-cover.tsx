@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { ImageIcon, Music2, Video } from "@/components/icons";
 
 import {
@@ -60,6 +61,7 @@ export function MediaCover({
     ) : (
       fallback
     );
+  // The detail page when there is one; otherwise the file itself, which is not a page.
   const previewHref = sourceHref ?? fileHref;
   const content = (
     <>
@@ -83,6 +85,13 @@ export function MediaCover({
     );
   }
 
+  if (sourceHref) {
+    return (
+      <Link href={sourceHref} className={className} aria-label={ariaLabel}>
+        {content}
+      </Link>
+    );
+  }
   return (
     <a href={previewHref} className={className} aria-label={ariaLabel}>
       {content}

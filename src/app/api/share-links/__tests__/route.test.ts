@@ -4,12 +4,16 @@ const {
   requireApiPermissionMock,
   createShareLinkMock,
   createShareLinkFromFileEntryMock,
+  createShareLinksFromFileEntriesMock,
+  auditUserActionMock,
   listShareLinkPageMock,
   revokeShareLinkMock,
 } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   createShareLinkMock: vi.fn(),
   createShareLinkFromFileEntryMock: vi.fn(),
+  createShareLinksFromFileEntriesMock: vi.fn(),
+  auditUserActionMock: vi.fn(),
   listShareLinkPageMock: vi.fn(),
   revokeShareLinkMock: vi.fn(),
 }));
@@ -20,11 +24,14 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 vi.mock("@/lib/share-link/service", () => ({
   createShareLink: createShareLinkMock,
   createShareLinkFromFileEntry: createShareLinkFromFileEntryMock,
+  createShareLinksFromFileEntries: createShareLinksFromFileEntriesMock,
   listShareLinkPage: listShareLinkPageMock,
   SHARE_LINK_MAX_PAGE_SIZE: 200,
   SHARE_LINK_STATUS_FILTERS: ["active", "expired", "revoked"],
   revokeShareLink: revokeShareLinkMock,
 }));
+
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: auditUserActionMock }));
 
 import { DELETE, GET, POST } from "../route";
 
@@ -130,6 +137,52 @@ describe("/api/share-links", () => {
     expect(createShareLinkMock).not.toHaveBeenCalled();
   });
 
+  // Several files selected in the drive: one request, one link each (the selection bar had no share action,
+  // and one request per file runs into the write limit of 30 a minute).
+  it("shares several file-manager entries in one request, with the quick expiry, and audits each link", async () => {
+    createShareLinksFromFileEntriesMock.mockResolvedValue([
+      { fileEntryId: "file_1", share: { id: "share_a", name: "a.pdf" }, token: "token-a" },
+      { fileEntryId: "file_2", share: { id: "share_b", name: "b.pdf" }, token: "token-b" },
+    ]);
+
+    const response = await POST(postShare({ fileEntryIds: ["file_1", "file_2"], quick: true }));
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      shares: [
+        { fileEntryId: "file_1", share: { id: "share_a", name: "a.pdf" }, token: "token-a" },
+        { fileEntryId: "file_2", share: { id: "share_b", name: "b.pdf" }, token: "token-b" },
+      ],
+    });
+    expect(createShareLinksFromFileEntriesMock).toHaveBeenCalledWith({ session, fileEntryIds: ["file_1", "file_2"], expiresInHours: 24 });
+    expect(createShareLinkFromFileEntryMock).not.toHaveBeenCalled();
+    expect(auditUserActionMock.mock.calls.map((call) => [call[1], call[2]])).toEqual([
+      ["share-link.create", { shareId: "share_a" }],
+      ["share-link.create", { shareId: "share_b" }],
+    ]);
+  });
+
+  it("refuses more files than one request may share, and a file list beside a single target", async () => {
+    const tooMany = await POST(postShare({ fileEntryIds: Array.from({ length: 51 }, (_, index) => `file_${index}`), quick: true }));
+    expect(tooMany.status).toBe(400);
+
+    for (const other of [{ fileEntryId: "file_2" }, { storageNodeId: "node_1", path: "docs/a.pdf" }]) {
+      const both = await POST(postShare({ fileEntryIds: ["file_1"], ...other }));
+      expect(both.status).toBe(400);
+    }
+    expect(createShareLinksFromFileEntriesMock).not.toHaveBeenCalled();
+    expect(createShareLinkFromFileEntryMock).not.toHaveBeenCalled();
+    expect(createShareLinkMock).not.toHaveBeenCalled();
+  });
+
+  it("still takes a file entry when a node and path are sent along with it", async () => {
+    const response = await POST(postShare({ fileEntryId: "file_1", storageNodeId: "node_1", path: "docs/report.pdf" }));
+
+    expect(response.status).toBe(201);
+    expect(createShareLinkFromFileEntryMock).toHaveBeenCalledWith(expect.objectContaining({ fileEntryId: "file_1" }));
+    expect(createShareLinkMock).not.toHaveBeenCalled();
+  });
+
   it("gives file-manager quick shares a bounded default expiry", async () => {
     const response = await POST(postShare({ fileEntryId: "file_1", quick: true, expiresInHours: 720 }));
 
@@ -167,6 +220,22 @@ describe("/api/share-links", () => {
       expect(response.status).toBe(400);
     }
     expect(createShareLinkMock).not.toHaveBeenCalled();
+  });
+
+  it("says in the caller's language why a body is refused", async () => {
+    // The two refinements took their text when the module loaded, with no language named: always Chinese.
+    const ask = async (locale: string, body: unknown) => {
+      const request = postShare(body);
+      request.headers.set("cookie", `vps-locale=${locale}`);
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+      return JSON.stringify(await response.json());
+    };
+    expect(await ask("en", {})).toContain("Select a file from the file manager");
+    expect(await ask("zh", {})).toContain("请选择文件管理器中的文件");
+    const conflicting = { storageNodeId: "node_1", path: "docs/report.pdf", permissionLevel: "preview", password: "secret" };
+    expect(await ask("en", conflicting)).toContain("View-only shares cannot use an access password");
+    expect(await ask("zh", conflicting)).toContain("仅查看模式不支持访问密码");
   });
 
   it("revokes share links with share manage permission", async () => {

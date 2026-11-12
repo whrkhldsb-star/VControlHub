@@ -13,7 +13,7 @@ import { NotFoundError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { compressFilesBodySchema } from "@/lib/files/schema";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
 import { normalizeIndexedPath, recycledAround } from "@/lib/storage/archive-access";
@@ -122,6 +122,23 @@ export async function POST(request: NextRequest) {
       }
 
       const outputStat = await fs.stat(outputResolved.path);
+      // The archive is a new file in the grant's space: it is held to the grant's quota and per-file limit, as an
+      // extraction is. Its size is only known now, so one that does not fit is removed again. (It was indexed with
+      // no size check: an account with a quota could fill the node with archives of its own files.)
+      const admission = await assertStorageAccess({
+        session,
+        storageNodeId: node.id,
+        relativePath: outputRelativePath,
+        operation: "write",
+        writeBytes: outputStat.size,
+      }).catch(async (error: unknown) => {
+        await fs.rm(outputResolved.path, { force: true });
+        throw error;
+      });
+      if (!admission.allowed) {
+        await fs.rm(outputResolved.path, { force: true });
+        return NextResponse.json({ error: storageAccessDeniedCopy(admission.reason) }, { status: 403 });
+      }
       try {
         await createFileEntry({
           storageNodeId: node.id,
@@ -134,6 +151,9 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         await fs.rm(outputResolved.path, { force: true });
         throw error;
+      } finally {
+        // Held until the archive is in the index, so a concurrent writer counts it.
+        await releaseStorageQuotaGuard(admission);
       }
 
       return NextResponse.json({

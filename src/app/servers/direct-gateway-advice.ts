@@ -103,7 +103,7 @@ export function getDirectGatewayRepairAdvice(
         } else if (risk.level === "warning") {
           result.push({
             title: t("directGatewayAdvice.transportWarning.title"),
-            detail: t("directGatewayAdvice.transportWarning.detail", { reason: risk.reasons[0] ?? "", recommendation: risk.recommendations[0] ?? "" }),
+            detail: t("directGatewayAdvice.transportWarning.detail", { bind: bindAddress, port }),
             priority: "primary",
             href: input.canManageServers ? "/servers" : null,
             hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
@@ -113,7 +113,7 @@ export function getDirectGatewayRepairAdvice(
 
           result.push({
             title: t("directGatewayAdvice.transportDanger.title"),
-            detail: t("directGatewayAdvice.transportDanger.detail", { reasons: risk.reasons.join("; "), recommendation: risk.recommendations[0] ?? t("directGatewayAdvice.transportDanger.fallbackRecommendation") }),
+            detail: t("directGatewayAdvice.transportDanger.detail", { bind: bindAddress, port }),
             priority: "primary",
             href: input.canManageServers ? "/servers" : null,
             hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),

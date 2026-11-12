@@ -5,7 +5,7 @@ import { ValidationError } from "@/lib/errors";
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 import type { Counts, Tx } from "../import-executors-helpers";
 import { importPermissions } from "../import-executors-rbac";
-import { importUserStorageAccess } from "../import-executors-infrastructure";
+import { importServers, importStorageNodes, importUserStorageAccess } from "../import-executors-infrastructure";
 
 /**
  * Per-table import behaviour that the orchestration test cannot see: which rows
@@ -304,5 +304,68 @@ describe("importUserStorageAccess", () => {
     expect(update).not.toHaveBeenCalled();
     expect(createMany).not.toHaveBeenCalled();
     expect(c).toEqual({ created: 0, updated: 0, skipped: 1 });
+  });
+});
+
+// ── importServers / importStorageNodes: optional references ──────────
+
+describe("references to rows that are neither in the package nor here", () => {
+  // A customer's package leaves out another customer's SSH key; inserting the
+  // server with that id failed on its foreign key and rolled everything back.
+  const server = (id: string, sshKeyId: string | null) => ({
+    id, name: id, host: `${id}.test`, port: 22, username: "root", sshKeyId, password: null, description: null, tags: [], enabled: true,
+    connectionType: "SSH_KEY", publicUrl: null, fileProxyPort: 0, osDialect: null, osInfo: null, createdAt: "2026-01-01T00:00:00.000Z", teamId: "team-b",
+  });
+  const node = (id: string, serverId: string | null) => ({
+    id, name: id, driver: "SFTP", isDefault: false, basePath: "/srv", directAccessMode: "PROXY", publicBaseUrl: null, directAccessExpiresSeconds: 300,
+    host: null, port: null, username: null, serverId, healthStatus: "UNKNOWN", createdAt: "2026-01-01T00:00:00.000Z", teamId: "team-b",
+  });
+
+  it("creates a server without a key it cannot link, and with one it can", async () => {
+    const createMany = vi.fn().mockResolvedValue({ count: 3 });
+    const tx = {
+      sshKey: { findMany: vi.fn().mockResolvedValue([{ id: "key-here" }]) },
+      server: { findMany: vi.fn().mockResolvedValue([]), createMany, update: vi.fn() },
+    } as unknown as Tx;
+
+    await importServers(tx, tables({ servers: [server("s-gone", "key-gone"), server("s-here", "key-here"), server("s-none", null)] }), OVERWRITE, counts());
+
+    expect(tx.sshKey.findMany).toHaveBeenCalledWith({ where: { id: { in: ["key-gone", "key-here"] } }, select: { id: true } });
+    const rows = createMany.mock.calls[0]![0].data as Array<{ id: string; sshKeyId: string | null }>;
+    expect(rows.map((row) => [row.id, row.sshKeyId])).toEqual([["s-gone", null], ["s-here", "key-here"], ["s-none", null]]);
+  });
+
+  it("leaves an existing server on its key when the package's key cannot be linked", async () => {
+    const update = vi.fn().mockResolvedValue({});
+    const tx = {
+      sshKey: { findMany: vi.fn().mockResolvedValue([{ id: "key-here" }]) },
+      server: { findMany: vi.fn().mockResolvedValue([{ id: "s-gone" }, { id: "s-here" }, { id: "s-none" }]), createMany: vi.fn(), update },
+    } as unknown as Tx;
+
+    await importServers(tx, tables({ servers: [server("s-gone", "key-gone"), server("s-here", "key-here"), server("s-none", null)] }), OVERWRITE, counts());
+
+    const data = (id: string) => update.mock.calls.find(([call]) => call.where.id === id)![0].data as Record<string, unknown>;
+    expect("sshKeyId" in data("s-gone")).toBe(false);
+    expect(data("s-here")).toMatchObject({ sshKeyId: "key-here" });
+    // The package says "no key": that is restored as such.
+    expect(data("s-none")).toMatchObject({ sshKeyId: null });
+  });
+
+  it("creates a storage node without a server it cannot link and keeps an existing node's server", async () => {
+    const createMany = vi.fn().mockResolvedValue({ count: 2 });
+    const update = vi.fn().mockResolvedValue({});
+    const storageFindMany = vi.fn()
+      .mockResolvedValueOnce([{ id: "n-existing" }]) // which node ids exist
+      .mockResolvedValue([]); // default-node normalisation
+    const tx = {
+      server: { findMany: vi.fn().mockResolvedValue([{ id: "s-here" }]) },
+      storageNode: { findMany: storageFindMany, createMany, update, updateMany: vi.fn() },
+    } as unknown as Tx;
+
+    await importStorageNodes(tx, tables({ storageNodes: [node("n-gone", "s-gone"), node("n-here", "s-here"), node("n-existing", "s-gone")] }), OVERWRITE, counts());
+
+    const rows = createMany.mock.calls[0]![0].data as Array<{ id: string; serverId?: string | null }>;
+    expect(rows.map((row) => [row.id, row.serverId])).toEqual([["n-gone", undefined], ["n-here", "s-here"]]);
+    expect("serverId" in update.mock.calls[0]![0].data).toBe(false);
   });
 });

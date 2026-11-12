@@ -5,6 +5,7 @@ import { EmptyState, Toolbar, SurfacePanel } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { useToast } from "@/components/toast-provider";
 import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
@@ -86,8 +87,9 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
-	const [actionError, setActionError] = useState<string | null>(null);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const [busyId, setBusyId] = useState<string | null>(null);
+	const { addToast } = useToast();
 	const { state: filters, setField: setFilter } = useUrlQueryState({ q: "" });
 	const searchQuery = filters.q;
 
@@ -96,16 +98,15 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 			const data = await csrfFetch("/api/scheduled-tasks");
 			setTasks(data.tasks ?? []);
 		} catch (err) {
-			setActionError(getErrorMessage(err, t("scheduledTasks.refreshFailed")));
+			addToast("error", getErrorMessage(err, t("scheduledTasks.refreshFailed")));
 		}
-	}, [t]);
+	}, [addToast, t]);
 
 	const filteredTasks = useMemo(() => tasks.filter((task) => matchesTask(task, searchQuery)), [tasks, searchQuery]);
 
 	const toggleTask = useCallback(async (id: string) => {
 		if (busyId) return;
 		setBusyId(id);
-		setActionError(null);
 		try {
 			await csrfFetch("/api/scheduled-tasks", {
 				method: "PATCH",
@@ -114,40 +115,46 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 			});
 			void refresh();
 		} catch (err) {
-			setActionError(getErrorMessage(err, t("scheduledTasks.toggleFailed")));
+			// A toast: the notice these used to fill sat above the toolbar, off screen from a few tasks down.
+			addToast("error", getErrorMessage(err, t("scheduledTasks.toggleFailed")));
 		} finally {
 			setBusyId(null);
 		}
-	}, [busyId, refresh, t]);
+	}, [addToast, busyId, refresh, t]);
 
-	const retryTask = useCallback(async (id: string) => {
+	const retryTask = useCallback(async (task: Task) => {
 		if (busyId) return;
-		setBusyId(id);
-		setActionError(null);
+		setBusyId(task.id);
 		try {
 			await csrfFetch("/api/scheduled-tasks", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ retryId: id }),
+				body: JSON.stringify({ retryId: task.id }),
+			});
+			// The request files a command request and returns: the card looked the same, with nothing to say the
+			// click had been taken. Where it goes next depends on whether each run of this task is approved.
+			addToast("success", t(task.approvalRequired === false ? "scheduledTasksPage.runNow.started" : "scheduledTasksPage.runNow.submitted"), {
+				action: { label: t("nav.requests"), href: "/requests" },
 			});
 			void refresh();
 		} catch (err) {
-			setActionError(getErrorMessage(err, t("scheduledTasks.retryFailed")));
+			addToast("error", getErrorMessage(err, t("scheduledTasks.retryFailed")));
 		} finally {
 			setBusyId(null);
 		}
-	}, [busyId, refresh, t]);
+	}, [addToast, busyId, refresh, t]);
 
 	const deleteTask = useCallback(async (task: Task) => {
 		if (busyId) return;
 		setBusyId(task.id);
-		setTaskPendingDelete(null);
-		setActionError(null);
+		setDeleteError(null);
 		try {
 			await csrfFetch(`/api/scheduled-tasks?id=${encodeURIComponent(task.id)}`, { method: "DELETE" });
+			setTaskPendingDelete(null);
 			void refresh();
 		} catch (err) {
-			setActionError(getErrorMessage(err, t("scheduledTasks.deleteFailed")));
+			// The dialog stays open with the reason in it; it used to close first and leave the reason above the list.
+			setDeleteError(getErrorMessage(err, t("scheduledTasks.deleteFailed")));
 		} finally {
 			setBusyId(null);
 		}
@@ -155,7 +162,6 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 
 	return (
 		<div className="space-y-6">
-			{actionError && <Notice tone="danger">{actionError}</Notice>}
 			<Toolbar className="justify-between">
 				<label htmlFor="scheduled-task-log-search" className="sr-only">{t("scheduledTasksPage.search.label")}</label>
 				<input
@@ -213,7 +219,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 										{task.command}
 									</div>
 									{task.reason && <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("scheduledTasksPage.reason", { reason: task.reason })}</p>}
-									{task.plan && <details data-inset className="mt-2 px-3 py-2 text-xs"><summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{t("scheduledTasks.plan")}</summary><p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-muted)]">{task.plan}</p>{task.verificationCommand && <p className="mt-2 font-mono text-[var(--text-muted)]">{t("scheduledTasks.verify")}: {task.verificationCommand}</p>}{task.rollbackCommand && <p className="mt-1 font-mono text-[var(--text-muted)]">{t("scheduledTasks.rollback")}: {task.rollbackCommand}</p>}</details>}
+									{task.plan && <details data-inset className="mt-2 px-3 py-2 text-xs"><summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{t("scheduledTasks.plan")}</summary><p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-muted)]">{task.plan}</p>{task.verificationCommand && <p className="mt-2 font-mono text-[var(--text-muted)]">{t("scheduledTasks.verify")}{t("common.colon")}{task.verificationCommand}</p>}{task.rollbackCommand && <p className="mt-1 font-mono text-[var(--text-muted)]">{t("scheduledTasks.rollback")}{t("common.colon")}{task.rollbackCommand}</p>}</details>}
 									<div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--text-muted)]">
 										<div>{t("scheduledTasksPage.targetNodes", { count: task.serverIds.length })}</div>
 										<div>{t("scheduledTasksPage.runCount", { count: task.runCount })}</div>
@@ -228,7 +234,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 								<div className="flex flex-col gap-2 shrink-0">
 									{canOperate(task) && (
 										<ActionButton size="sm" variant="secondary"
-											onClick={() => retryTask(task.id)} disabled={busyId !== null}>
+											onClick={() => retryTask(task)} disabled={busyId !== null}>
 											{t("scheduledTasksPage.retry")}
 										</ActionButton>
 									)}
@@ -240,7 +246,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 									)}
 									{canOperate(task) && (
 										<ActionButton size="sm" variant="danger"
-											onClick={() => setTaskPendingDelete(task)} disabled={busyId !== null}>
+											onClick={() => { setDeleteError(null); setTaskPendingDelete(task); }} disabled={busyId !== null}>
 											{t("scheduledTasksPage.delete")}
 										</ActionButton>
 									)}
@@ -250,7 +256,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 					))}
 				</PaginatedList>
 			)}
-			<ConfirmDialog open={taskPendingDelete !== null} title={t("scheduledTasksPage.delete.title")} description={<>{t("scheduledTasksPage.delete.descPrefix")}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete?.name}</strong>{t("scheduledTasksPage.delete.descSuffix")}</>} cancelLabel={t("scheduledTasksPage.cancel")} confirmLabel={t("scheduledTasksPage.delete.confirm")} busy={busyId !== null} onCancel={() => { if (!busyId) setTaskPendingDelete(null); }} onConfirm={() => taskPendingDelete && deleteTask(taskPendingDelete)} closeOnBackdrop={false} />
+			<ConfirmDialog open={taskPendingDelete !== null} title={t("scheduledTasksPage.delete.title")} description={t("scheduledTasksPage.delete.desc", { name: taskPendingDelete?.name ?? "" })} cancelLabel={t("scheduledTasksPage.cancel")} confirmLabel={t("scheduledTasksPage.delete.confirm")} busy={busyId !== null} error={deleteError} onCancel={() => { if (!busyId) setTaskPendingDelete(null); }} onConfirm={() => taskPendingDelete && deleteTask(taskPendingDelete)} closeOnBackdrop={false} />
 		</div>
 	);
 }
@@ -298,7 +304,8 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (selectedServerIds.size === 0) {
-			setError(t("scheduledTasks.noEnabledServers"));
+			// With servers listed and none ticked: the sentence used here said that no server was enabled.
+			setError(t(enabledServers.length > 0 ? "scheduledTasks.selectTarget" : "scheduledTasks.noEnabledServers"));
 			return;
 		}
 		setSubmitting(true);

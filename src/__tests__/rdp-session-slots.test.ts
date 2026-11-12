@@ -4,7 +4,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { instruction } from "@/lib/rdp/protocol";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), audit: vi.fn(async () => undefined), images: vi.fn(async () => ["image/png", "image/jpeg"]) }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), audit: vi.fn(async () => undefined), images: vi.fn(async () => ["image/png", "image/jpeg"]), policy: vi.fn(async () => ({ idleTimeoutMs: 0, maxSessionMs: 0 })) }));
 vi.mock("ws", () => ({
   WebSocket: { OPEN: 1 },
   WebSocketServer: class { constructor() { return mocks.webSocketServer(); } },
@@ -19,7 +19,7 @@ vi.mock("@/lib/rdp/tickets", () => ({
   checkGuacd: async () => undefined, consumeRdpTicket: () => mocks.getServer(), getRdpServer: mocks.getServer,
   guacdPort: () => 4822, rdpEndpointHash: () => "endpoint", rdpOriginAllowed: () => true,
 }));
-vi.mock("@/lib/runtime-settings/service", () => ({ getRdpSessionRuntimeConfig: async () => ({ idleTimeoutMs: 0, maxSessionMs: 0 }) }));
+vi.mock("@/lib/runtime-settings/service", () => ({ getRdpSessionRuntimeConfig: () => mocks.policy() }));
 vi.mock("@/lib/rdp/features", () => ({ rdpAudioEnabled: () => false, rdpClipboardEnabled: () => false, rdpImageMimetypes: mocks.images, RDP_AUDIO_MIMETYPES: [] }));
 
 import { initialDesktopSize, setupRdpWebSocket } from "@/lib/rdp/ws";
@@ -33,6 +33,7 @@ describe("RDP session slots", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     mocks.verify.mockResolvedValue({ userId: "u", roles: ["admin"], currentTeamId: "t", mustChangePassword: false });
+    mocks.policy.mockResolvedValue({ idleTimeoutMs: 0, maxSessionMs: 0 });
     wss = Object.assign(new EventEmitter(), { clients: new Set<unknown>(), close: vi.fn() });
     mocks.webSocketServer.mockReturnValue(wss);
     stop = setupRdpWebSocket(new EventEmitter() as Server);
@@ -87,6 +88,50 @@ describe("RDP session slots", () => {
     expect(initialDesktopSize("/rdp?width=1e3&height=1.5")).toEqual({ width: 1280, height: 800 });
     expect(initialDesktopSize("/rdp?width=800&height=600")).toEqual({ width: 800, height: 600 });
     expect(initialDesktopSize("/rdp?width=1366&height=768")).toEqual({ width: 1364, height: 768 });
+  });
+
+  /** The page as it behaves with nobody at it: its tunnel pings every 5 seconds and the gateway's own pings are echoed. */
+  async function idleFor(ws: FakeWs, ms: number, alsoSend: () => string | null = () => null) {
+    const receive = ws.listeners("message")[0] as (raw: Buffer, binary: boolean) => Promise<void>;
+    for (let elapsed = 0; elapsed < ms && ws.readyState === 1; elapsed += 5_000) {
+      await vi.advanceTimersByTimeAsync(5_000);
+      await receive(Buffer.from(instruction("", "ping", String(Date.now())) + instruction("nop") + (alsoSend() ?? "")), false);
+    }
+  }
+
+  it("ends a desktop nobody has touched for the idle limit, though its page keeps answering", async () => {
+    // Every instruction counted as activity, the page's 5-second keep-alive included: with the page open the limit
+    // never ran out, whatever it was set to.
+    mocks.policy.mockResolvedValue({ idleTimeoutMs: 60_000, maxSessionMs: 0 });
+    const idle = await open("a");
+    await idleFor(idle.ws, 120_000);
+    expect(errorStatus(idle.ws)).toContain(instruction("error", "RDP idle limit reached", "2561"));
+    expect(idle.ws.close).toHaveBeenCalledWith(1000);
+    expect(idle.tunnel.end).toHaveBeenCalledWith(instruction("disconnect"));
+    expect(mocks.audit).toHaveBeenCalledWith("u", "server.rdp.closed", expect.objectContaining({ serverId: "a", reason: "gateway: RDP idle limit reached" }), undefined, "t");
+  });
+
+  it("keeps a desktop in use past the idle limit", async () => {
+    mocks.policy.mockResolvedValue({ idleTimeoutMs: 60_000, maxSessionMs: 0 });
+    const used = await open("a");
+    let x = 0;
+    await idleFor(used.ws, 120_000, () => instruction("mouse", String(++x), "10", "0"));
+    expect(errorStatus(used.ws)).toBeUndefined();
+    expect(used.ws.close).not.toHaveBeenCalled();
+    // Typing counts as much as the mouse.
+    await idleFor(used.ws, 120_000, () => instruction("key", "97", "1"));
+    expect(used.ws.close).not.toHaveBeenCalled();
+  });
+
+  it("ends a desktop at the longest session time with a status the page does not reconnect on", async () => {
+    // The limit was sent as a plain error (512), which the page takes for a dropped connection: it reconnected
+    // three seconds later and the desktop went on.
+    mocks.policy.mockResolvedValue({ idleTimeoutMs: 0, maxSessionMs: 60_000 });
+    const capped = await open("a");
+    let x = 0;
+    await idleFor(capped.ws, 120_000, () => instruction("mouse", String(++x), "10", "0"));
+    expect(errorStatus(capped.ws)).toContain(instruction("error", "RDP session time limit reached", "2562"));
+    expect(capped.ws.close).toHaveBeenCalledWith(1000);
   });
 
   it("replaces the old session when the same user reconnects to the same server", async () => {

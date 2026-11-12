@@ -165,6 +165,17 @@ describe("SMTP dynamic schema", () => {
 	});
 });
 
+describe("Credentials of other systems", () => {
+	it("are not offered the console's own login by a password manager", () => {
+		// "username" told the browser that the SMTP account is the one this site is signed in with, and its
+		// password manager filled the administrator's console name into it.
+		const hints = SETTINGS_SCHEMA.flatMap((section) => section.fields).map((field) => field.autoComplete).filter(Boolean);
+		expect(hints.length).toBeGreaterThan(0);
+		expect(hints).not.toContain("username");
+		expect(hints).not.toContain("current-password");
+	});
+});
+
 describe("Runtime schema", () => {
 	const runtime = SETTINGS_SCHEMA.find((s) => s.id === "runtime")!;
 

@@ -54,8 +54,6 @@ export const zh: Record<string, string> = {
 	"mediaPage.itemCount": "{count} 项",
 
 	"mediaPage.player.sizeUnknown": "未知",
-	"mediaPage.player.directAccess": "目标服务器直连",
-	"mediaPage.player.relayed": "网站中转",
 	"mediaPage.player.backToLibrary": "返回媒体库",
 	"mediaPage.player.eyebrow": "媒体播放器",
 	"mediaPage.player.download": "下载",
@@ -123,8 +121,6 @@ export const en: Record<string, string> = {
 	"mediaPage.itemCount": "{count} items",
 
 	"mediaPage.player.sizeUnknown": "Unknown",
-	"mediaPage.player.directAccess": "Direct from target server",
-	"mediaPage.player.relayed": "Via the web server",
 	"mediaPage.player.backToLibrary": "Back to media library",
 	"mediaPage.player.eyebrow": "Media Player",
 	"mediaPage.player.download": "Download",

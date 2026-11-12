@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { type ConvItem, DEFAULT_SETTINGS_FORM } from "../ai-types";
 
@@ -110,9 +111,9 @@ export function useConvSettingsForm({
       if (current()) setBaseline(settingsForm);
       await refreshConversations();
       if (current()) onSaved();
-    } catch {
-      // Failed to persist conversation settings — notify the user via toast.
-      addToast("error", t("aiPage.saveFailed"));
+    } catch (error) {
+      // Failed to persist conversation settings: the server's reason, or the plain label.
+      addToast("error", getErrorMessage(error, t("aiPage.saveFailed")));
     }
   }, [
     activeConvId,

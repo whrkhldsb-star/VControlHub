@@ -87,6 +87,8 @@ export const MEDIA_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Web GUI for YouTube-dl, supports downloading videos from YouTube/Bilibili and more",
 		image: "ghcr.io/alexta69/metube:latest",
 		defaultPort: 8088,
+		// The image listens on 8081; 8088 is only the host port.
+		internalPort: 8081,
 		path: "/metube/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/metube/downloads", container: "/downloads" }],
@@ -99,6 +101,8 @@ export const MEDIA_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Comics/e-book media server, supports CBZ/CBR/EPUB/PDF",
 		image: "gotson/komga:latest",
 		defaultPort: 8083,
+		// The image listens on 25600; 8083 is only the host port.
+		internalPort: 25600,
 		path: "/komga/",
 		envJson: {},
 		volumesJson: [

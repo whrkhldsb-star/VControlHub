@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createAiChatResponse } from "@/lib/ai/chat-orchestrator";
-import { chatRequestSchema } from "@/lib/ai/schema";
+import { CHAT_REQUEST_MAX_BODY_BYTES, chatRequestSchema } from "@/lib/ai/schema";
 import { ValidationError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       bodySchema: chatRequestSchema,
       // Images and PDFs travel in the request as base64 (up to 8,000,000 characters each by the schema). The default
       // 1 MiB refused every real screenshot with "request body too large" and the composer had already cleared itself.
-      maxBodyBytes: 32 * 1024 * 1024,
+      maxBodyBytes: CHAT_REQUEST_MAX_BODY_BYTES,
     },
     async ({ session, body }) => {
       const userLimit = await checkRateLimitAsync(`ai-chat-user:${session.userId}`, AI_CHAT_LIMIT);

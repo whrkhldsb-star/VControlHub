@@ -10,7 +10,7 @@ import { formatImageSize, type ImageBedT } from "./image-bed-sections";
 
 import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
-import { LinkIcon, Trash2 } from "@/components/icons";
+import { Check, LinkIcon, Trash2 } from "@/components/icons";
 
 type PublishForm = {
   storageNodeId: string;
@@ -76,7 +76,7 @@ export function ImageGrid({
                 }}
                 className={`absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg border-2 transition focus:outline-none focus:ring-2 focus:ring-[var(--color-action)] ${selectedIds.has(img.id) ? "border-[var(--color-action-border)] bg-[var(--accent)] text-[var(--on-accent)]" : "border-[var(--border)] bg-[var(--overlay)] hover:border-[var(--border)]"}`}
               >
-                {selectedIds.has(img.id) && "✓"}
+                {selectedIds.has(img.id) && <Check size={14} aria-hidden />}
               </div>
             )}
             <div
@@ -327,7 +327,7 @@ export function DeleteImageDialog({
       open
       ariaLabel={pendingDelete.type === "single" ? t("imageBedPage.delete.ariaLabel.single") : t("imageBedPage.delete.ariaLabel.batch")}
       title={pendingDelete.type === "single" ? t("imageBedPage.delete.title.single") : t("imageBedPage.delete.title.batch")}
-      description={pendingDelete.type === "single" ? t("imageBedPage.delete.desc.singleWithName").replace("{filename}", pendingDelete.filename) : t("imageBedPage.delete.desc.batchWithCount").replace("{count}", String(pendingDelete.count))}
+      description={pendingDelete.type === "single" ? t("imageBedPage.delete.desc.singleWithName", { filename: pendingDelete.filename }) : t("imageBedPage.delete.desc.batchWithCount", { count: pendingDelete.count })}
       cancelLabel={t("imageBedPage.delete.cancel")}
       confirmLabel={deleting ? t("imageBedPage.delete.deleting") : t("common.confirmDelete")}
       busy={deleting}

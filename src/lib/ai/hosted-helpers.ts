@@ -10,8 +10,10 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { playbookTeamWhere, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
+import { BusinessError } from "@/lib/errors";
 import { t, type Locale } from "@/lib/i18n/service-translations";
 import { deserializeDialect } from "@/lib/ssh/os-dialect";
+import { COMMAND_REASON_MAX_LENGTH } from "@/lib/command/schema";
 
 import type { HostedActionType, HostedTool } from "./hosted-tools";
 
@@ -77,6 +79,9 @@ export function isHostedActionType(actionType: string): actionType is HostedActi
   return HOSTED_ACTION_TYPES.has(actionType as HostedActionType);
 }
 
+/** Servers named back to the model when a name or address fits several. */
+const SERVER_QUERY_CANDIDATES = 6;
+
 export async function resolveServerId(args: Record<string, unknown>, session?: HostedActionSession | null): Promise<string | null> {
   const explicitId = typeof args.serverId === "string" ? args.serverId.trim() : "";
   const scope = sessionForTeamScope(session);
@@ -87,11 +92,31 @@ export async function resolveServerId(args: Record<string, unknown>, session?: H
   }
   const query = typeof args.serverQuery === "string" ? args.serverQuery.trim() : "";
   if (!query) return null;
-  const server = await prisma.server.findFirst({
-    where: { AND: [teamFilter, { OR: [{ id: query }, { name: { contains: query } }, { host: { contains: query } }] }] },
-    select: { id: true, name: true, host: true },
+  // A name or address picks one server or none, as a playbook name does below. It used to take whichever
+  // server the database returned first among all that contained the text ("web" with web-1 and web-2, and "%"
+  // matched every server), so a status was read from, or a change proposed for, a server nobody had named.
+  const select = { id: true, name: true, host: true } as const;
+  const exact = await prisma.server.findMany({
+    where: { AND: [teamFilter, { OR: [{ id: query }, { name: query }, { host: query }] }] },
+    select,
+    orderBy: { name: "asc" },
+    take: SERVER_QUERY_CANDIDATES,
   });
-  return server?.id ?? null;
+  if (exact.length === 1) return exact[0]!.id;
+  const literal = escapeLikeLiteral(query);
+  const candidates = exact.length > 1 ? exact : await prisma.server.findMany({
+    where: { AND: [teamFilter, { OR: [{ name: { contains: literal, mode: "insensitive" } }, { host: { contains: literal, mode: "insensitive" } }] }] },
+    select,
+    orderBy: { name: "asc" },
+    take: SERVER_QUERY_CANDIDATES,
+  });
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0]!.id;
+  // Told to the model, which can then ask the user or pass the id of the one that is meant.
+  throw new BusinessError(t("backend.ai.serverQueryAmbiguous", {
+    query,
+    servers: candidates.map((server) => `${server.name} (${server.host}, id ${server.id})`).join("; "),
+  }));
 }
 
 export async function resolvePlaybookId(args: Record<string, unknown>, session?: HostedActionSession | null): Promise<{ id: string; name: string } | null> {
@@ -135,9 +160,11 @@ export async function buildAssistantCommandRequestPayload(input: {
   const { buildCommand } = await import("./hosted-command-builder");
   const command = buildCommand(input.tool.actionType, input.args, dialect);
   if (!command) throw new Error(t("backend.ai.invalidActionParameters"));
-  const reason = typeof input.args.reason === "string" && input.args.reason.trim()
+  // The model's own words, cut to what a command request takes: a longer reason failed the request after the
+  // person had confirmed the action.
+  const reason = (typeof input.args.reason === "string" && input.args.reason.trim()
     ? input.args.reason.trim()
-    : t("backend.ai.assistantRequestReason");
+    : t("backend.ai.assistantRequestReason")).slice(0, COMMAND_REASON_MAX_LENGTH);
   const teamId = input.teamId ?? server.teamId;
   return {
     title: t("backend.ai.assistantRequestTitle", {

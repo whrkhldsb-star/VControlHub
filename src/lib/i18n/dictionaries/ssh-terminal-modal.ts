@@ -68,7 +68,7 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.quickKeysClose": "关闭自定义组合键",
 	"sshTerminalModal.quickKeysPickKey": "选择按键",
 	"sshTerminalModal.quickKeysAdd": "添加",
-	"sshTerminalModal.quickKeysResetHint": "已添加自定义按键，",
+	"sshTerminalModal.quickKeysResetHint": "已添加自定义按键。",
 	"sshTerminalModal.quickKeysReset": "恢复默认",
 
 	// Side panel — display (终端字号，保存在当前浏览器)
@@ -93,7 +93,7 @@ export const zh: Record<string, string> = {
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "远程会话",
-	"sshTerminalManager.tabsSuffix": "个标签",
+	"sshTerminalManager.tabCount": "{count} 个标签",
 	"sshTerminalManager.closeTab": "关闭 {serverName} 标签",
 	"sshTerminalManager.minimize": "最小化",
 	"sshTerminalManager.expand": "展开",
@@ -119,6 +119,7 @@ export const zh: Record<string, string> = {
 	"sshFileManager.upLevelAria": "返回上一层目录",
 	"sshFileManager.confirmDelete": "确定删除 {name}？",
 	"sshFileManager.uploadFailed": "上传失败（{status}）",
+	"sshFileManager.uploadFailedReason": "上传失败（{status}）：{reason}",
 	"sshFileManager.networkError": "上传时网络错误",
 	"sshFileManager.listFailed": "无法列出目录",
 	"sshFileManager.deleteFailed": "删除失败",
@@ -182,8 +183,8 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.quickKeysClose": "Close custom key builder",
 	"sshTerminalModal.quickKeysPickKey": "Pick a key",
 	"sshTerminalModal.quickKeysAdd": "Add",
-	"sshTerminalModal.quickKeysResetHint": "Custom keys added, ",
-	"sshTerminalModal.quickKeysReset": "reset to defaults",
+	"sshTerminalModal.quickKeysResetHint": "Custom keys added.",
+	"sshTerminalModal.quickKeysReset": "Reset to defaults",
 
 	// Side panel — display (terminal font size, kept in this browser)
 	"sshTerminalModal.fontSizeTitle": "Terminal font size",
@@ -207,7 +208,7 @@ export const en: Record<string, string> = {
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "Remote sessions",
-	"sshTerminalManager.tabsSuffix": "tabs",
+	"sshTerminalManager.tabCount": "{count} tabs",
 	"sshTerminalManager.closeTab": "Close {serverName} tab",
 	"sshTerminalManager.minimize": "Minimize",
 	"sshTerminalManager.expand": "Expand",
@@ -233,6 +234,7 @@ export const en: Record<string, string> = {
 	"sshFileManager.upLevelAria": "Go to parent directory",
 	"sshFileManager.confirmDelete": "Delete {name}?",
 	"sshFileManager.uploadFailed": "Upload failed ({status})",
+	"sshFileManager.uploadFailedReason": "Upload failed ({status}): {reason}",
 	"sshFileManager.networkError": "Network error during upload",
 	"sshFileManager.listFailed": "Failed to list directory",
 	"sshFileManager.deleteFailed": "Delete failed",

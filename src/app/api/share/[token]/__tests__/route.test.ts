@@ -32,6 +32,7 @@ describe("share token file route", () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     if (previousSlug === undefined) {
       delete process.env.APP_SLUG;
     } else {
@@ -164,6 +165,9 @@ describe("share token file route", () => {
   });
 
   it("throttles password guesses per client address, not per share for everyone", async () => {
+    // One proxy in front, as deployed: the address is the last X-Forwarded-For entry. An environment
+    // file that trusts no proxy makes every client "unknown", and the two addresses below one client.
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
     vi.mocked(resolveShareToken).mockRejectedValue(new Error("密码错误"));
     const token = "share-token-per-client-bucket-0123456789abcdef";
     const attempt = (ip: string, n: number) => route.GET(new Request("http://local/api/share/token", {

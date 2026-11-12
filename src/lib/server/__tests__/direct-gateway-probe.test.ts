@@ -49,17 +49,17 @@ describe("checkDirectGatewayPublicExposure", () => {
   it("returns exposed=true when the gateway returns HTTP 200 over the public host", async () => {
     const fetchMock = mockFetch(async () => new Response("ok", { status: 200 }));
     const result = await checkDirectGatewayPublicExposure({
-      publicHost: "82.158.91.159",
+      publicHost: "203.0.113.59",
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
     expect(result.exposed).toBe(true);
-    expect(result.host).toBe("82.158.91.159");
+    expect(result.host).toBe("203.0.113.59");
     expect(result.port).toBe(DIRECT_GATEWAY_DEFAULT_PORT);
-    expect(result.url).toBe(`http://82.158.91.159:${DIRECT_GATEWAY_DEFAULT_PORT}${DIRECT_GATEWAY_DEFAULT_HEALTH_PATH}`);
+    expect(result.url).toBe(`http://203.0.113.59:${DIRECT_GATEWAY_DEFAULT_PORT}${DIRECT_GATEWAY_DEFAULT_HEALTH_PATH}`);
     expect(result.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      `http://82.158.91.159:${DIRECT_GATEWAY_DEFAULT_PORT}${DIRECT_GATEWAY_DEFAULT_HEALTH_PATH}`,
+      `http://203.0.113.59:${DIRECT_GATEWAY_DEFAULT_PORT}${DIRECT_GATEWAY_DEFAULT_HEALTH_PATH}`,
       expect.objectContaining({ method: "GET", signal: expect.any(AbortSignal) }),
     );
   });
@@ -67,7 +67,7 @@ describe("checkDirectGatewayPublicExposure", () => {
   it("returns exposed=false when the gateway responds with non-200 status (e.g. 403 invalid signature)", async () => {
     const fetchMock = mockFetch(async () => new Response("forbidden", { status: 403 }));
     const result = await checkDirectGatewayPublicExposure({
-      publicHost: "82.158.91.159",
+      publicHost: "203.0.113.59",
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
     expect(result.exposed).toBe(false);
@@ -80,7 +80,7 @@ describe("checkDirectGatewayPublicExposure", () => {
       throw new Error("ECONNREFUSED");
     });
     const result = await checkDirectGatewayPublicExposure({
-      publicHost: "82.158.91.159",
+      publicHost: "203.0.113.59",
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
     expect(result.exposed).toBe(false);
@@ -114,13 +114,13 @@ describe("checkDirectGatewayPublicExposure", () => {
 
   it("parses DIRECT_PORT from process.env when input.port is omitted", async () => {
     process.env.DIRECT_PORT = "39090";
-    process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST = "82.158.91.159";
+    process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST = "203.0.113.59";
     const fetchMock = mockFetch(async () => new Response("ok", { status: 200 }));
     const result = await checkDirectGatewayPublicExposure({
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
     expect(result.port).toBe(39090);
-    expect(result.url).toBe("http://82.158.91.159:39090/__vch_health");
+    expect(result.url).toBe("http://203.0.113.59:39090/__vch_health");
   });
 
   it("aborts the request after the configured timeout when the fetch never settles", async () => {
@@ -132,7 +132,7 @@ describe("checkDirectGatewayPublicExposure", () => {
       });
     });
     const probePromise = checkDirectGatewayPublicExposure({
-      publicHost: "82.158.91.159",
+      publicHost: "203.0.113.59",
       timeoutMs: 50,
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
@@ -160,16 +160,16 @@ describe("logDirectGatewayExposureResult", () => {
   it("emits a warning when the gateway is publicly reachable", () => {
     logDirectGatewayExposureResult({
       exposed: true,
-      host: "82.158.91.159",
+      host: "203.0.113.59",
       port: 31888,
-      url: "http://82.158.91.159:31888/__vch_health",
-      reason: "HTTP 200 from http://82.158.91.159:31888/__vch_health",
+      url: "http://203.0.113.59:31888/__vch_health",
+      reason: "HTTP 200 from http://203.0.113.59:31888/__vch_health",
       status: 200,
     });
     expect(warnSpy).toHaveBeenCalledTimes(1);
     const line = warnSpy.mock.calls[0]?.[0] as string | undefined;
     expect(line).toContain("Direct Gateway is publicly reachable");
-    expect(line).toContain("82.158.91.159");
+    expect(line).toContain("203.0.113.59");
     expect(infoSpy).not.toHaveBeenCalled();
   });
 
@@ -188,9 +188,9 @@ describe("logDirectGatewayExposureResult", () => {
   it("emits info (not warn) when the gateway is not publicly exposed", () => {
     logDirectGatewayExposureResult({
       exposed: false,
-      host: "82.158.91.159",
+      host: "203.0.113.59",
       port: 31888,
-      url: "http://82.158.91.159:31888/__vch_health",
+      url: "http://203.0.113.59:31888/__vch_health",
       reason: "connection failed: ECONNREFUSED",
     });
     expect(infoSpy).toHaveBeenCalledTimes(1);
@@ -200,7 +200,7 @@ describe("logDirectGatewayExposureResult", () => {
 
 describe("scheduleDirectGatewayExposureProbe", () => {
   it("is fire-and-forget: returns undefined without throwing", () => {
-    expect(() => scheduleDirectGatewayExposureProbe({ publicHost: "82.158.91.159" })).not.toThrow();
+    expect(() => scheduleDirectGatewayExposureProbe({ publicHost: "203.0.113.59" })).not.toThrow();
   });
 
   it("schedules the probe asynchronously and never rejects the caller", async () => {

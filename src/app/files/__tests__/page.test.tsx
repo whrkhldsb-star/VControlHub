@@ -33,6 +33,13 @@ describe("FilesPage",() => {
     // Node management sits in the page header now, outside the drive.
     expect(mocks.manager).toHaveBeenCalledWith(expect.objectContaining({canManageNodes:false}),undefined);
   });
+  it("opens the drive for an address with parameters that do not parse",async () => {
+    // /files?page=0, ?sort=x, an empty ?path= — a hand-edited or outdated link — were answered with the error screen.
+    render(await FilesPage({searchParams:Promise.resolve({nodeId:"one",path:"",page:"0",sort:"newest",pageSize:["100","5"]})}));
+    expect(mocks.listing).toHaveBeenCalledWith(session,expect.objectContaining({nodeId:"one",page:1,pageSize:100,sort:"name",direction:"asc"}));
+    expect(mocks.listing.mock.calls[0]![1].path).toBeUndefined();
+    expect(mocks.browser).toHaveBeenCalled();
+  });
   it("does not fetch privileged form options for a read-only viewer",async () => {
     await FilesPage({});expect(mocks.formOptions).not.toHaveBeenCalled();
   });

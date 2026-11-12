@@ -28,6 +28,9 @@
 import { z } from "zod";
 
 import { ValidationError } from "@/lib/errors";
+import { requestParseParams } from "@/lib/http/zod-locale";
+import { apiCopy, currentCopyLocale } from "@/lib/i18n/api-copy";
+import { isSchemaSentence, localizeSchemaMessage } from "@/lib/i18n/schema-copy";
 
 /**
  * Materialise a `URLSearchParams` into a plain object suitable for
@@ -76,25 +79,37 @@ export function zodIssueDetails(
     (err as unknown as { issues?: ReadonlyArray<{ path?: unknown; message?: unknown }> }).issues
     ?? (err as unknown as { errors?: ReadonlyArray<{ path?: unknown; message?: unknown }> }).errors
     ?? [];
+  const locale = currentCopyLocale() ?? "en";
+  // A sentence the schema's author wrote names its own subject ("New password must be at least 8 characters");
+  // what the validation library says by itself ("Too small: expected string to have >=8 characters") does not.
+  const authored = rawIssues.map((i) => typeof i.message === "string" && isSchemaSentence(i.message));
   const issues = rawIssues.map((i) => ({
     path: Array.isArray(i.path) ? i.path.join(".") : String(i.path ?? ""),
-    message: typeof i.message === "string" ? i.message : "Invalid value",
+    // The library's messages are in the request's language already (zod-locale.ts); an author's sentence is a
+    // literal in the schema and is put into it here.
+    message: typeof i.message === "string" ? localizeSchemaMessage(i.message, locale) : apiCopy("apiCopy.validation.invalidValue"),
   }));
-  const emptySummary =
-    kind === "query"
-      ? "Query parameter validation failed"
-      : "Request body validation failed";
-  const multiLabel =
-    kind === "query" ? "query parameter(s) failed validation" : "field(s) failed validation";
+  // The words around the issues follow the request's language like the issues themselves (zod-locale.ts).
+  const copy = (name: "failed" | "severalFailed", vars?: Record<string, string | number>) =>
+    apiCopy(`apiCopy.validation.${kind}.${name}`, vars);
+  // Sentences that name their subject are the summary themselves (up to three): the reset-password dialog
+  // showed "newPassword: New password must be at least 8 characters", and several refused fields were listed
+  // by their internal names. A refusal of the library's own keeps the field in front of it.
+  const sentences = [...new Set(issues.map((issue) => issue.message))];
   const summary =
     issues.length === 0
-      ? emptySummary
+      ? copy("failed")
+      : authored.every(Boolean)
+        ? `${sentences.slice(0, 3).join(apiCopy("apiCopy.validation.sentenceSeparator"))}${sentences.length > 3 ? "…" : ""}`
       : issues.length === 1
         ? `${issues[0]!.path ? issues[0]!.path + ": " : ""}${issues[0]!.message}`
-        : `${issues.length} ${multiLabel}: ${issues
-            .slice(0, 3)
-            .map((i) => i.path || "?")
-            .join(", ")}${issues.length > 3 ? "…" : ""}`;
+        : copy("severalFailed", {
+            v0: issues.length,
+            v1: `${issues
+              .slice(0, 3)
+              .map((i) => i.path || "?")
+              .join(apiCopy("apiCopy.validation.listSeparator"))}${issues.length > 3 ? "…" : ""}`,
+          });
   return { summary, issues };
 }
 
@@ -104,7 +119,7 @@ export function parseSearchParams<S extends z.ZodTypeAny>(
 ): z.output<S> {
   const url = request instanceof URL ? request : new URL(request.url);
   const raw = searchParamsToObject(url.searchParams);
-  const parsed = schema.safeParse(raw);
+  const parsed = schema.safeParse(raw, requestParseParams());
   if (!parsed.success) {
     // Same {summary, issues} convention as withApiRoute body/query validation.
     const { summary, issues } = zodIssueDetails(parsed.error, "query");

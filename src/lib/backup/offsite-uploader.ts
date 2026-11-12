@@ -293,15 +293,14 @@ export async function retryPendingOffsiteUploads(input: {
 	let skipped = 0;
 	let observed = 0;
 	const errors: string[] = [];
-	let cursorId: string | undefined;
+	let after: PendingOffsiteKey | null = null;
 	while (observed < maxRecords) {
 		const take = Math.min(100, maxRecords - observed);
-		const records = await prisma.backupRecord.findMany({
-			where: { status: "COMPLETED", offsiteKey: null },
+		const records: PendingOffsiteKey[] = await prisma.backupRecord.findMany({
+			where: { status: "COMPLETED", offsiteKey: null, ...pendingOffsiteAfter(after) },
 			orderBy: [{ createdAt: "asc" }, { id: "asc" }],
 			take,
-			...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
-			select: { id: true },
+			select: { id: true, createdAt: true },
 		});
 		if (records.length === 0) break;
 		for (const record of records) {
@@ -318,11 +317,25 @@ export async function retryPendingOffsiteUploads(input: {
 			}
 		}
 		observed += records.length;
-		const nextCursor = records.at(-1)?.id;
-		if (!nextCursor || nextCursor === cursorId || records.length < take) break;
-		cursorId = nextCursor;
+		if (records.length < take) break;
+		after = records.at(-1)!;
 	}
 	return { observed, uploaded, failed, skipped, errors };
+}
+
+export type PendingOffsiteKey = { id: string; createdAt: Date };
+
+/**
+ * The rows after `after` in (createdAt, id) order, for the catch-up sweeps.
+ *
+ * A keyset, not Prisma's `cursor` with `skip: 1`: a backup that was just
+ * uploaded no longer matches "offsiteKey is null", and with the cursor row
+ * gone from the result the skip fell on the first row that still matched. Each
+ * page after a successful one left one backup out of the run.
+ */
+export function pendingOffsiteAfter(after: PendingOffsiteKey | null) {
+	if (!after) return {};
+	return { OR: [{ createdAt: { gt: after.createdAt } }, { createdAt: after.createdAt, id: { gt: after.id } }] };
 }
 
 async function recordOffsiteFailure(input: {

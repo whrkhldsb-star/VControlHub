@@ -10,6 +10,7 @@
 
 import { CapacityForecastPanel } from "@/app/health/capacity-forecast-panel";
 import { FleetResourceSummary, SummaryCard } from "@/app/health/health-dashboard-parts";
+import { ButtonLink } from "@/components/action-button";
 import { EmptyState } from "@/components/page-shell";
 import { Notice } from "@/components/ui-primitives";
 
@@ -120,6 +121,13 @@ export function VpsStatusClient({ serverCount }: Props) {
 						))}
 					</div>
 				</div>
+			) : filteredServers.length === 0 && filter === "all" ? (
+				// No filter is set: there is no node at all, which is not "no node under the current filter".
+				<EmptyState
+					variant="boxed"
+					text={t("vpsStatusPage.emptyNone")}
+					action={<ButtonLink href="/servers" size="sm" variant="outline">{t("vpsStatusPage.gotoServers")}</ButtonLink>}
+				/>
 			) : filteredServers.length === 0 ? (
 				<EmptyState variant="boxed" text={t("vpsStatusPage.empty")} />
 			) : viewMode === "table" ? (

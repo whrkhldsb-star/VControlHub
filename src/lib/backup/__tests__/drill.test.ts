@@ -50,6 +50,12 @@ describe("non-destructive backup drill", () => {
     expect(mocks.runBackupCommand).not.toHaveBeenCalled();
   });
 
+  it("reports a backup file that is no longer on disk as such", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "backup-drill-missing-"));
+    mocks.getBackupRecord.mockResolvedValue({ id: "b4", type: "DATABASE", status: "COMPLETED", filePath: "gone.sql.gz", checksumSha256: "0".repeat(64) });
+    await expect(drillBackupRecord({ id: "b4", projectRoot: root })).rejects.toThrow("磁盘上找不到备份产物文件");
+  });
+
   it("uses tar -tzf archive argv without -- as filename for FILES drills", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "backup-drill-files-"));
     const backupDir = path.join(root, "backups");

@@ -1,9 +1,11 @@
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { ensureDefaultAlertRules, listAlertRules } from "@/lib/alert/service";
+import { toAlertRuleDto } from "@/lib/alert/rule-dto";
 import { listServerProfiles } from "@/lib/server/service";
 import { listPlaybooks } from "@/lib/playbook/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { withServerActionLocale } from "@/lib/i18n/server-locale";
 
 import { AlertRuleListClient } from "./alert-rule-list-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
@@ -18,7 +20,8 @@ export default async function AlertRulesPage() {
 	const locale = await getServerLocale();
 
 	if (canManage) {
-		await ensureDefaultAlertRules(session);
+		// The starter rules are named in the language of whoever opens the page first.
+		await withServerActionLocale(() => ensureDefaultAlertRules(session));
 	}
 
 	const [rules, servers, playbooks] = await Promise.all([
@@ -28,18 +31,8 @@ export default async function AlertRulesPage() {
 		canReadPlaybooks ? listPlaybooks(session) : Promise.resolve([]),
 	]);
 
-	const serialized = rules.map((r) => ({
-		id: r.id, name: r.name, metric: r.metric, operator: r.operator,
-		threshold: r.threshold, durationSeconds: r.durationSeconds,
-		serverIds: r.serverIds, notifyChannels: r.notifyChannels,
-		playbookIds: r.playbookIds ?? [],
-		webhookConfigured: Boolean(r.webhookUrl), cooldownMinutes: r.cooldownMinutes,
-		escalationMinutes: r.escalationMinutes ?? 30,
-		onCallUserIds: r.onCallUserIds ?? [],
-		silenceWindows: r.silenceWindows ?? [],
-		enabled: r.enabled, lastTriggeredAt: r.lastTriggeredAt?.toISOString() ?? null,
-		createdAt: r.createdAt.toISOString(),
-	}));
+	// The same shape the API answers with, so that a list refreshed from the API is the list rendered here.
+	const serialized = rules.map(toAlertRuleDto);
 
 	const serverOptions = servers.map((s) => ({ id: s.id, name: s.name }));
 	const playbookOptions = playbooks.map((p) => ({ id: p.id, name: p.name, enabled: p.enabled }));

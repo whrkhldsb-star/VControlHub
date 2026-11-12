@@ -8,7 +8,7 @@ import {
   listDeploymentRuns,
   listDeploymentTemplates,
 } from "@/lib/deployment/service";
-import { withApiRoute } from "@/lib/http/api-guard";
+import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AppError, isAppError, ValidationError } from "@/lib/errors";
@@ -16,6 +16,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
 import { MAX_NON_FILE_FORM_BYTES } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 export const dynamic = "force-dynamic";
 
 const createDeploymentSchema = z.object({
@@ -24,7 +25,7 @@ const createDeploymentSchema = z.object({
     .array(z.string().trim().min(1, "Target VPS is required"))
     .min(1, "At least 1 target VPS must be selected"),
   variables: z.record(z.string(), z.string()).default({}),
-  reason: z.string().trim().max(500, "ReasonAt most 500 characters").optional(),
+  reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional(),
   idempotencyKey: z.string().trim().min(1).max(300).optional(),
 });
 
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
   // up front (formData() would otherwise buffer unbounded bytes).
   const rejected = isFormSubmission
     ? rejectOversizedFormBody(request, MAX_NON_FILE_FORM_BYTES, {
-        tooLargeMessage: t("backend.request.bodyTooLarge"),
+        tooLargeMessage: t("backend.request.bodyTooLarge", await requestLocale(request)),
       })
     : null;
   if (rejected) return rejected;
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
       try {
         const parsed = isFormSubmission ? createDeploymentSchema.safeParse(await readRequestBody(request)) : { success: true as const, data: body };
         if (!parsed.success) {
-          const message = parsed.error.issues[0]?.message ?? "Invalid deployment parameters";
+          const message = firstSchemaSentence(parsed.error) ?? "Invalid deployment parameters";
           if (wantsHtmlResponse(request))
             return redirectToDeployments(request, { error: message });
           throw new ValidationError(message);

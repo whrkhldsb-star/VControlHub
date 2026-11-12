@@ -29,7 +29,15 @@ export function useAlertRuleActions({
 	} | null>(null);
 	const [busyAction, setBusyAction] = useState<string | null>(null);
 	const busyActionRef = useRef<string | null>(null);
-	const [rulePendingDelete, setRulePendingDelete] = useState<AlertRule | null>(null);
+	const [rulePendingDelete, setPendingDelete] = useState<AlertRule | null>(null);
+	/**
+	 * Opens the delete question for a rule, or closes it. A failure of the last attempt goes with it: it is
+	 * shown in that dialog, and is not news for the next rule or for a deletion that was given up.
+	 */
+	const setRulePendingDelete = useCallback((rule: AlertRule | null) => {
+		setActionError(null);
+		setPendingDelete(rule);
+	}, []);
 
 	const beginBusy = useCallback((key: string) => {
 		if (busyActionRef.current) return false;
@@ -137,7 +145,7 @@ export function useAlertRuleActions({
 			setTestResult(null);
 			try {
 				await csrfFetch(`/api/alert-rules?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-				setRulePendingDelete(null);
+				setPendingDelete(null);
 				await refresh();
 			} catch (error) {
 				setActionError(errorText(error, "alertRulesPage.error.delete"));

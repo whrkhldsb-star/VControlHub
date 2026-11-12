@@ -19,6 +19,13 @@ make ci-local-full
 # or: npm run ci:local:full
 ```
 
+On Linux outside CI, `npm run build` first asks systemd about
+`vcontrolhub-next.service` and refuses when it cannot tell that no live
+installation is being overwritten — which includes a checkout on a machine
+that has no such service. In a checkout that is not an installation, run the
+full gate as `VCONTROLHUB_ALLOW_BUILD=1 npm run ci:local:full`. Never set it in
+the directory an installation serves; use `deploy.sh` there.
+
 Optional pre-push hook (repo-local, not forced):
 
 ```bash
@@ -77,6 +84,9 @@ must match the Actions job names exactly.
 | Bare `npm run build` on the live host | Blocked by `guard-live-next-build.mjs`; use `deploy.sh` |
 | Counting pure re-export barrels in coverage | Drags global thresholds — already excluded in `vitest.config.ts` |
 | Dual health UIs | Deleted; use `/health` + `/vps-status` only |
+| Loading the bcrypt addon only inside test worker threads | Once the last worker holding it has exited, every later worker fails with `Module did not self-register`, so which files fail depends on the order they run in (a warm Vitest cache reorders them). `src/test/global-setup.ts` holds the addon in the main process for the whole run — keep it |
+| A route that reads a large body behind `src/proxy.ts` | Next passes the route only the first `proxyClientMaxBodySize` bytes (34 MiB, `next.config.ts`) and does not fail the request. Keep the route's limit under it (`src/__tests__/next-config.test.ts` compares them), or leave the route out of the proxy's matcher and have it make the CSRF check and add the response headers itself |
+| A response header set in `src/proxy.ts` | Next keeps the proxy's value and drops the route's own for the same name, so a policy set there replaces what the route chose (this is how the `sandbox` policy on user files was lost) |
 
 ## E2E / DAST build strategy
 
@@ -129,7 +139,13 @@ The E2E job runs `e2e/authenticated-flow.spec.ts` on Chromium, Firefox, and
 WebKit after public smoke:
 
 - `prisma/seed.ts` seeds roles/admin so the app can boot cleanly
-- `E2E_ISOLATED_ACCOUNT=1` creates `vcontrolhub_e2e` (ACTIVE, no password reset)
+- `E2E_ISOLATED_ACCOUNT=1` creates `vcontrolhub_e2e` (ACTIVE, no password reset).
+  It is an administrator with the password written in `package.json`, and
+  teardown deletes its rows by name pattern, so setup refuses any database
+  that is not on loopback **and** named as a test database: `test` or `audit`
+  in the name, or `…_ci` while `CI=true`. To run a `test:e2e:*` script
+  locally, point `DATABASE_URL` at such a database (for example
+  `vcontrolhub_test`), never at the one an installation uses.
 - `E2E_DIRECT_SESSION=1` mints a signed session cookie (avoids form-login +
   `mustChangePassword` redirects)
 - Path covered: `/` → `/servers` → `/files` → `/settings` → dashboard chrome
@@ -163,6 +179,24 @@ across hard navigations.
 Hook tests must preserve stable context function identities and await observable
 initial loading completion before testing actions. An empty `act` callback does
 not guarantee a zero-delay mount timer has completed.
+
+### Specs no workflow runs
+
+`npm run test:e2e:nightly` runs every spec, but no workflow calls it: the
+scheduled run only adds the full matrix of `ui-site`. These specs therefore run
+only when someone starts them, and two of them had stopped matching the product
+(fixed 2026-11-12: server fixtures without a customer were invisible to the
+signed-in account, and the files spec drove the drive as it was before its
+redesign). Run them after changing the pages they cover:
+
+| Spec | Needs |
+| --- | --- |
+| `ui-upgrade` (servers, files, settings, monitoring × language × theme × width, with axe) | the isolated account, as for the workflow suite |
+| `file-enhancements` (paused upload across pages, favourites and tags, copy / move / delete jobs) | the same |
+| `windows-rdp` | `E2E_RDP_CANARY=1` for the fixture test; the ticket test sends `E2E_RDP_ORIGIN` (by default the base URL) as its origin, which must be in the server's `SSH_WS_ALLOWED_ORIGINS` |
+| `ssh-terminal-layout`, `ssh-terminal-modes`, `ssh-terminal-resilience` | the app **and** `dist/ssh-ws-proxy.js` on a test database, `E2E_SSH_LAYOUT_LAB=1` / `E2E_SSH_LAB=1`, and `SSH_WS_ALLOWED_ORIGINS` listing the app origin and the relay origins `http://127.0.0.1:3495`–`3497` |
+| `audit-remediation-isolated` | a one-off environment (fixed port and database name); kept as a record |
+| `live-production-acceptance` | a real installation and an explicitly authorised VPS; see the header of the spec |
 
 
 

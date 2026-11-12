@@ -76,13 +76,13 @@ describe("quick service install notices", () => {
 	});
 
 	it("formats success notices with access URL and credentials", () => {
-		process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST = "82.158.91.159";
+		process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST = "203.0.113.59";
 		const notice = buildInstallNotice({ ...baseTemplate, defaultPort: 5244 }, 5244, [{ label: "Initial password", value: "secret" }], ["Please change the password after first login."]);
 		const message = formatInstallNoticeMessage("AList 云盘", notice);
 
-		expect(notice.accessUrl).toBe("http://82.158.91.159:5244/");
+		expect(notice.accessUrl).toBe("http://203.0.113.59:5244/");
 		expect(message).toContain("AList 云盘 has been installed and started successfully");
-		expect(message).toContain("Access URL: http://82.158.91.159:5244/");
+		expect(message).toContain("Access URL: http://203.0.113.59:5244/");
 		expect(message).toContain("Initial password: secret");
 		expect(message).toContain("Please change the password after first login.");
 	});

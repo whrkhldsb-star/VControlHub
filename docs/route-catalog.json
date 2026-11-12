@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T19:51:29.214Z",
+  "generatedAt": "2026-11-11T16:41:45.460Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -598,10 +598,7 @@
         "server:read"
       ],
       "navigationPermissions": [
-        "playbook:manage",
-        "playbook:read",
-        "playbook:run",
-        "server:read"
+        "playbook:read"
       ]
     },
     {
@@ -640,7 +637,9 @@
       "declaredPermissions": [
         "ai:chat",
         "command:approve",
-        "command:read"
+        "command:execute",
+        "command:read",
+        "team:manage"
       ],
       "navigationPermissions": [
         "command:read"

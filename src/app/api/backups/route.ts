@@ -2,7 +2,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { withApiRoute } from "@/lib/http/api-guard";
+import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   createBackupRecord,
@@ -20,6 +20,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
 import { MAX_NON_FILE_FORM_BYTES } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
   // up front (formData() would otherwise buffer unbounded bytes).
   const rejected = isFormSubmission
     ? rejectOversizedFormBody(request, MAX_NON_FILE_FORM_BYTES, {
-        tooLargeMessage: t("backend.request.bodyTooLarge"),
+        tooLargeMessage: t("backend.request.bodyTooLarge", await requestLocale(request)),
       })
     : null;
   if (rejected) return rejected;
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
   };
   return withApiRoute(request, options, async ({ session, body }) => {
     const parsed = isFormSubmission ? createBackupSchema.safeParse(await readRequestBody(request)) : { success: true as const, data: body };
-    if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? "Invalid backup parameters");
+    if (!parsed.success) throw new ValidationError(firstSchemaSentence(parsed.error) ?? "Invalid backup parameters");
     const { wait } = parseSearchParams(
       request,
       z.object({
@@ -73,10 +74,12 @@ export async function POST(request: Request) {
       if (backup.status !== "COMPLETED") {
         throw new BusinessError(backup.errorMessage?.slice(0, 500) || `Backup finished with status ${backup.status}`);
       }
+      // Before the redirect: a form submission (Accept: text/html) used to
+      // return here first and left no audit entry for the backup it made.
+      await auditUserAction(session.userId, "backup.create", { backupId: backup.id }, undefined, session.currentTeamId);
       if ((request.headers.get("accept") || "").includes("text/html")) {
         return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
       }
-      await auditUserAction(session.userId, "backup.create", { backupId: backup.id }, undefined, session.currentTeamId);
       return NextResponse.json({ backup }, { status: 201 });
     }
 

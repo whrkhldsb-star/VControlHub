@@ -86,7 +86,7 @@ describe("snapshotHealthOverview", () => {
       {
         serverId: "s11",
         serverName: "11",
-        host: "154.196.139.44",
+        host: "198.51.100.44",
         enabled: true,
         status: "warning",
         probeStatus: "ok",

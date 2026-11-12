@@ -1,9 +1,18 @@
 import { randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { installDirectSession } from "./helpers/direct-session";
 
 // The throttling fixture must intercept requests before the PWA service worker.
 test.use({ serviceWorkers: "block" });
+
+/** A row's actions live in its "more" menu. */
+async function openMore(page: Page, name: string) {
+  const pattern = name.replace(/[.()]/g, "\\$&");
+  await page.getByRole("button", { name: new RegExp(`^(?:更多操作|More actions) ${pattern}$`) }).first().click();
+  const menu = page.getByRole("menu", { name: new RegExp(`(?:更多操作|More actions) ${pattern}`) });
+  await expect(menu).toBeVisible();
+  return menu;
+}
 
 test("upload queue pauses, survives route navigation, resumes and preserves uploaded bytes", async ({
   page,
@@ -26,29 +35,27 @@ test("upload queue pauses, survives route navigation, resumes and preserves uplo
       });
     } else await route.continue();
   });
+  // Upload is a menu of the drive's toolbar; the queue is a region above the page, on every page.
   await page
     .locator("[data-file-browser]")
-    .getByRole("button", { name: /上传文件|Upload files/i })
+    .getByRole("button", { name: /^(?:上传|Upload)$/i })
     .click();
-  const uploadDialog = page.getByRole("dialog", { name: /上传到|Upload to/i });
-  await uploadDialog
-    .locator('input[type="file"]')
-    .first()
-    .setInputFiles({
-      name,
-      mimeType: "application/octet-stream",
-      buffer: bytes,
-    });
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: /^(?:上传文件|Upload files)$/i }).click();
+  await (await chooser).setFiles({
+    name,
+    mimeType: "application/octet-stream",
+    buffer: bytes,
+  });
   await expect.poll(() => limited).toBeGreaterThan(0);
-  await uploadDialog.getByRole("button", { name: /暂停|Pause/i }).click();
-  await expect(uploadDialog).toContainText(/已暂停|Paused/i);
-  await uploadDialog.getByRole("button", { name: /关闭|Close/i }).click();
+  const queue = page.getByRole("region", { name: /上传任务|Uploads/i });
+  await queue.getByRole("button", { name: /^(?:暂停|Pause)$/i }).click();
+  await expect(queue).toContainText(/已暂停|Paused/i);
   const dashboardLink = page.locator('a[href="/dashboard"]:visible').first();
   if (await dashboardLink.count() === 0) await page.getByRole("button", { name: /^(总览|Overview)$/i }).click();
   await page.locator('a[href="/dashboard"]:visible').first().click({ timeout: 10000 });
   await expect(page).toHaveURL(/\/dashboard/);
-  await page.getByRole("button", { name: /上传任务|Uploads/i }).click();
-  const queue = page.getByRole("dialog", { name: /上传任务|Uploads/i });
+  // The paused upload came along to the other page.
   await expect(queue).toContainText(name);
   await expect(queue).toContainText(/已暂停|Paused/i);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -59,14 +66,13 @@ test("upload queue pauses, survives route navigation, resumes and preserves uplo
     path: testInfo.outputPath("upload-queue-mobile.png"),
   });
   allowChunks = true;
-  await queue.getByRole("button", { name: /继续|恢复|Resume/i }).click();
-  await expect(queue).toContainText(/完成|Done/i, { timeout: 90000 });
+  await queue.getByRole("button", { name: /继续上传|Resume upload/i }).click();
+  await expect(queue).toContainText(/已上传 1 个文件|Uploaded 1 files/i, { timeout: 90000 });
   const downloaded = await context.request.get(
     `/api/storage/local?nodeId=node_local_default&path=${name}`,
   );
   expect(downloaded.status()).toBe(200);
   expect(await downloaded.body()).toEqual(bytes);
-  await queue.getByRole("button", { name: /关闭|Close/i }).click();
   await page.screenshot({
     path: testInfo.outputPath("upload-status-mobile.png"),
   });
@@ -108,9 +114,7 @@ test("file preferences and durable copy/move/delete preserve bytes and survive n
   await expect(sourceRow).toBeVisible();
   const sourceId = await sourceRow.getAttribute("data-file-entry-id");
   expect(sourceId).toBeTruthy();
-  await sourceRow
-    .getByRole("button", { name: /收藏与标签|Favorite and tags/i })
-    .click();
+  await (await openMore(page, "source.txt")).getByRole("menuitem", { name: /编辑标签…|Edit tags…/i }).click();
   const preferences = page.getByRole("dialog", {
     name: /收藏与标签|Favorite and tags/i,
   });
@@ -118,7 +122,9 @@ test("file preferences and durable copy/move/delete preserve bytes and survive n
   await preferences.getByRole("textbox").fill("qa, durable");
   await preferences.getByRole("button", { name: /保存|Save/i }).click();
   await expect(preferences).toBeHidden();
-  await page.getByRole("button", { name: /我的文件|My files/i }).click();
+  // "My files" opens from quick access; a favourite is listed with its tags.
+  const quickAccess = page.getByRole("navigation", { name: /快速访问|Quick access/i });
+  await quickAccess.getByRole("button", { name: /^(?:收藏|Favorites)$/i }).click();
   const collection = page.getByRole("dialog", { name: /我的文件|My files/i });
   await expect(collection).toContainText("source.txt");
   await expect(collection).toContainText("durable");
@@ -146,23 +152,21 @@ test("file preferences and durable copy/move/delete preserve bytes and survive n
       .toBe(true);
     expect(result?.status, result?.errorMessage).toBe("COMPLETED");
   };
-  await sourceRow.getByRole("button", { name: /^复制$|^Copy$/i }).click();
-  const copyDialog = page.getByRole("dialog", { name: /^复制$|^Copy$/i });
-  await copyDialog.getByRole("button", { name: /选择目标文件夹|Choose destination folder/i }).click();
-  const picker = page.getByRole("dialog", { name: /选择目标文件夹|Choose destination folder/i });
-  await expect(picker.getByRole("button", { name: /选择此文件夹|Use this folder/i })).toBeEnabled();
-  await picker.getByRole("button", { name: /取消|Cancel/i }).click();
-  await expect(copyDialog).toBeVisible();
-  await copyDialog.getByRole("textbox").fill(directory);
+  // "Copy to…" opens a folder browser on the folder the file is in; a copy next to its source is renamed.
+  await (await openMore(page, "source.txt")).getByRole("menuitem", { name: /复制到…|Copy to…/i }).click();
+  const copyDialog = page.getByRole("dialog", { name: /^(?:复制到|Copy to)$/i });
+  const copyHere = copyDialog.getByRole("button", { name: /复制到此处|Copy here/i });
+  await expect(copyHere).toBeEnabled({ timeout: 20000 });
+  await expect(copyDialog.getByRole("navigation", { name: /面包屑|Breadcrumb/i })).toContainText(directory);
   await copyDialog.getByRole("combobox").selectOption("overwrite");
-  await expect(copyDialog).toContainText(/覆盖|Overwrite/i);
+  await expect(copyDialog).toContainText(/同名文件将被替换|replaced/i);
   await copyDialog.getByRole("combobox").selectOption("rename");
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await copyDialog.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("copy-mobile.png") });
   await page.setViewportSize({ width: 1280, height: 720 });
   const queuedResponse = page.waitForResponse((response) => response.url().endsWith("/api/files/operations") && response.request().method() === "POST");
-  await copyDialog.getByRole("button", { name: /^确认$|^Confirm$/i }).click();
+  await copyHere.click();
   const queued = await queuedResponse;
   const copyInput = queued.request().postDataJSON();
   expect(queued.status(), await queued.text()).toBe(202);
@@ -181,16 +185,18 @@ test("file preferences and durable copy/move/delete preserve bytes and survive n
   expect(copied.status()).toBe(200);
   expect(await copied.text()).toBe("durable copy proof");
   await page.goto(`/files?nodeId=node_local_default&path=${directory}`);
-  await page.getByRole("button", { name: /文件任务|File tasks/i }).click();
+  await page.getByRole("navigation", { name: /快速访问|Quick access/i }).getByRole("button", { name: /文件任务|File tasks/i }).click();
   const tasks = page.getByRole("dialog", { name: /文件任务|File tasks/i });
   await expect(tasks).toContainText(/已完成|Completed/);
   await page.screenshot({
     path: testInfo.outputPath("file-tasks-desktop.png"),
   });
   await tasks.getByRole("button", { name: /关闭|Close/i }).click();
-  await page.getByRole("button", { name: /新建文件夹|New folder/i }).click();
-  await page.getByLabel(/文件夹名称|Folder name/i).fill("moved");
-  await page.getByRole("button", { name: /^创建$|^Create$/i }).click();
+  await page.locator("[data-file-browser]").getByRole("button", { name: /新建文件夹|New folder/i }).click();
+  const newFolder = page.getByRole("dialog", { name: /新建文件夹|New folder/i });
+  await newFolder.getByLabel(/文件夹名称|Folder name/i).fill("moved");
+  await newFolder.getByRole("button", { name: /^创建$|^Create$/i }).click();
+  await expect(newFolder).toBeHidden({ timeout: 15000 });
   const destination = page.locator(`[data-file-drop-path="${directory}/moved"]:visible`).first();
   await expect(destination).toBeVisible();
   await sourceRow.getByRole("link", { name: "source.txt", exact: true }).dragTo(destination);

@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listPlaybooks, listRecentPlaybookRunsForPlaybooks } from "@/lib/playbook/service";
 import { listServerProfiles } from "@/lib/server/service";
@@ -10,14 +10,15 @@ import { PlaybookListClient } from "./playbook-list-client";
 export const dynamic = "force-dynamic";
 
 export default async function PlaybooksPage() {
-	const session = await requireSession("/playbooks");
+	// Reading playbooks admits to the page (and decides whether the sidebar offers it); managing and running
+	// are controls inside it. With a bare session check, an account without it saw "no playbooks yet".
+	const session = await requirePagePermission("playbook:read", { redirectTo: "/playbooks" });
 	const canManage = sessionHasPermission(session, "playbook:manage");
 	const canRun = sessionHasPermission(session, "playbook:run");
-	const canRead = sessionHasPermission(session, "playbook:read");
 	const canReadServers = sessionHasPermission(session, "server:read");
 	const locale = await getServerLocale();
 
-	const playbooks = canRead ? await listPlaybooks(session) : [];
+	const playbooks = await listPlaybooks(session);
 	// Team-scoped VPS options for run_command step target picker (create form).
 	const serverOptions = canManage && canReadServers
 		? (await listServerProfiles(session)).map((s) => ({
@@ -39,7 +40,7 @@ export default async function PlaybooksPage() {
 		errorMessage: string | null;
 		stepResults: Array<{ stepId: string; status: string; summary?: string; error?: string }>;
 	}>> = {};
-	if (canRead && playbooks.length > 0) {
+	if (playbooks.length > 0) {
 		const batch = await listRecentPlaybookRunsForPlaybooks(
 			playbooks.map((p) => p.id),
 			session,

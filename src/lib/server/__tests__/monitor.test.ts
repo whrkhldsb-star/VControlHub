@@ -114,6 +114,39 @@ describe("parseMonitorScriptOutput", () => {
 		expect(result.cpu.cores).toBeGreaterThan(0);
 		expect(result.system?.processes).toBeGreaterThan(0);
 	});
+
+	it.skipIf(process.platform === "win32")("still reports disks where df has no --output (BusyBox)", async () => {
+		// The fallback sat behind `df --output … | tail || df -h | tail`: the pipeline's status is tail's, so it never
+		// ran, and an Alpine host reported no disk at all (and so never raised a disk alert).
+		const { execFileSync } = await import("node:child_process");
+		const { chmodSync, mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+		const { tmpdir } = await import("node:os");
+		const { join } = await import("node:path");
+		const { MONITOR_SCRIPT } = await import("../monitor");
+		const bin = mkdtempSync(join(tmpdir(), "vch-busybox-df-"));
+		try {
+			writeFileSync(join(bin, "df"), [
+				"#!/bin/sh",
+				'for arg in "$@"; do case "$arg" in --output*|-x) echo "df: unrecognized option: $arg" >&2; exit 1;; esac; done',
+				"cat <<'ROWS'",
+				"Filesystem                Size      Used Available Capacity Mounted on",
+				"devtmpfs                 10.0M         0     10.0M   0% /dev",
+				"/dev/vda2                24.5G      6.1G     17.1G  26% /",
+				"tmpfs                   196.9M    252.0K    196.6M   0% /run",
+				"/dev/vdb1               100.0G     91.0G      9.0G  91% /data",
+				"ROWS",
+				"",
+			].join("\n"));
+			chmodSync(join(bin, "df"), 0o755);
+			const stdout = execFileSync("/bin/sh", ["-c", MONITOR_SCRIPT], { encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
+			expect(parseMonitorScriptOutput(stdout).disk).toEqual([
+				{ mount: "/", totalGb: "24.5G", usedGb: "6.1G", usagePercent: 26 },
+				{ mount: "/data", totalGb: "100.0G", usedGb: "91.0G", usagePercent: 91 },
+			]);
+		} finally {
+			rmSync(bin, { recursive: true, force: true });
+		}
+	});
 });
 
 describe("parseMonitorScriptOutput with hostile uptime text", () => {

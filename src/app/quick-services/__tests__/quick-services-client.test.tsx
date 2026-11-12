@@ -39,7 +39,7 @@ const catalogResponse = {
 	],
 	remoteCatalog: [],
 	usedPorts: [5244],
-	publicHost: "82.158.91.159",
+	publicHost: "203.0.113.59",
 };
 
 const availableCatalogResponse = {
@@ -70,7 +70,7 @@ const availableCatalogResponse = {
 		servers: [],
 		selectedServerId: "",
 		setSelectedServerId: vi.fn(),
-	publicHost: "82.158.91.159",
+	publicHost: "203.0.113.59",
 };
 
 const sourcesResponse = {
@@ -392,7 +392,7 @@ describe("QuickServicesClient", () => {
 		await userEvent.click(await screen.findByRole("tab", { name: /已安装/ }));
 
 		const accessLink = await screen.findByRole("link", { name: "访问 AList 网盘（公网端口直连）" });
-		expect(accessLink).toHaveAttribute("href", "http://82.158.91.159:5244/");
+		expect(accessLink).toHaveAttribute("href", "http://203.0.113.59:5244/");
 		expect(accessLink).toHaveAttribute("title", expect.stringContaining("不经过 VControlHub 登录验证"));
 		expect(await screen.findByText("公网端口直连")).toBeInTheDocument();
 	});

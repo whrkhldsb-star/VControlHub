@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-08-04T08:49:22.418Z",
+  "generatedAt": "2026-11-12T00:25:19.608Z",
   "summary": {
     "modulesAudited": 5,
-    "totalRoutes": 46,
-    "inlineZodRoutes": 0,
-    "boundaryConsumerRoutes": 29,
-    "overallCoveragePercent": 100
+    "totalRoutes": 50,
+    "inlineZodRoutes": 2,
+    "boundaryConsumerRoutes": 30,
+    "overallCoveragePercent": 93.8
   },
   "modules": [
     {
@@ -13,14 +13,23 @@
       "boundaryFile": "src/lib/files/dto.ts",
       "boundaryKind": "dto",
       "boundaryExists": true,
-      "totalRoutes": 9,
-      "inlineZodRoutes": 0,
+      "totalRoutes": 12,
+      "inlineZodRoutes": 2,
       "boundaryConsumerRoutes": 6,
-      "cleanRoutes": 3,
-      "coveragePercent": 100,
+      "cleanRoutes": 4,
+      "coveragePercent": 75,
       "routes": [
         {
-          "path": "/opt/VControlHub/src/app/api/files/[id]/versions/[versionId]/download/route.ts",
+          "path": "src/app/api/files/[id]/thumbnail/route.ts",
+          "relPath": "src/app/api/files/[id]/thumbnail/route.ts",
+          "verdict": "no-schema",
+          "hasInlineZod": false,
+          "importsBoundary": false,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": null
+        },
+        {
+          "path": "src/app/api/files/[id]/versions/[versionId]/download/route.ts",
           "relPath": "src/app/api/files/[id]/versions/[versionId]/download/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -29,7 +38,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/files/[id]/versions/[versionId]/restore/route.ts",
+          "path": "src/app/api/files/[id]/versions/[versionId]/restore/route.ts",
           "relPath": "src/app/api/files/[id]/versions/[versionId]/restore/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -38,7 +47,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/files/[id]/versions/route.ts",
+          "path": "src/app/api/files/[id]/versions/route.ts",
           "relPath": "src/app/api/files/[id]/versions/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -47,25 +56,25 @@
           "firstBoundaryImportLine": 15
         },
         {
-          "path": "/opt/VControlHub/src/app/api/files/archive-list/route.ts",
+          "path": "src/app/api/files/archive-list/route.ts",
           "relPath": "src/app/api/files/archive-list/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 14
+          "firstBoundaryImportLine": 15
         },
         {
-          "path": "/opt/VControlHub/src/app/api/files/compress/route.ts",
+          "path": "src/app/api/files/compress/route.ts",
           "relPath": "src/app/api/files/compress/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 13
+          "firstBoundaryImportLine": 15
         },
         {
-          "path": "/opt/VControlHub/src/app/api/files/editable/[id]/route.ts",
+          "path": "src/app/api/files/editable/[id]/route.ts",
           "relPath": "src/app/api/files/editable/[id]/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -74,7 +83,7 @@
           "firstBoundaryImportLine": 6
         },
         {
-          "path": "/opt/VControlHub/src/app/api/files/extract/route.ts",
+          "path": "src/app/api/files/extract/route.ts",
           "relPath": "src/app/api/files/extract/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -83,16 +92,48 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/files/list/route.ts",
+          "path": "src/app/api/files/list/route.ts",
           "relPath": "src/app/api/files/list/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 12
+          "firstBoundaryImportLine": 5
         },
         {
-          "path": "/opt/VControlHub/src/app/api/files/search-content/route.ts",
+          "path": "src/app/api/files/operations/route.ts",
+          "relPath": "src/app/api/files/operations/route.ts",
+          "verdict": "inline-zod",
+          "hasInlineZod": true,
+          "importsBoundary": false,
+          "inlineZodSites": [
+            {
+              "line": 248,
+              "text": "bodySchema: z.object({ id: z.string().uuid() }),"
+            }
+          ],
+          "firstBoundaryImportLine": null
+        },
+        {
+          "path": "src/app/api/files/preferences/route.ts",
+          "relPath": "src/app/api/files/preferences/route.ts",
+          "verdict": "inline-zod",
+          "hasInlineZod": true,
+          "importsBoundary": false,
+          "inlineZodSites": [
+            {
+              "line": 13,
+              "text": "const querySchema = z.object({"
+            },
+            {
+              "line": 14,
+              "text": "mode: z.enum([\"favorites\", \"recent\", \"tags\", \"entry\"]).default(\"favorites\"),"
+            }
+          ],
+          "firstBoundaryImportLine": null
+        },
+        {
+          "path": "src/app/api/files/search-content/route.ts",
           "relPath": "src/app/api/files/search-content/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -107,23 +148,23 @@
       "boundaryFile": "src/lib/storage/schema.ts",
       "boundaryKind": "schema",
       "boundaryExists": true,
-      "totalRoutes": 11,
+      "totalRoutes": 12,
       "inlineZodRoutes": 0,
-      "boundaryConsumerRoutes": 7,
+      "boundaryConsumerRoutes": 8,
       "cleanRoutes": 4,
       "coveragePercent": 100,
       "routes": [
         {
-          "path": "/opt/VControlHub/src/app/api/storage/archive-download/route.ts",
+          "path": "src/app/api/storage/archive-download/route.ts",
           "relPath": "src/app/api/storage/archive-download/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 25
+          "firstBoundaryImportLine": 30
         },
         {
-          "path": "/opt/VControlHub/src/app/api/storage/direct-access/route.ts",
+          "path": "src/app/api/storage/direct-access/route.ts",
           "relPath": "src/app/api/storage/direct-access/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -132,7 +173,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/storage/local/route.ts",
+          "path": "src/app/api/storage/local/route.ts",
           "relPath": "src/app/api/storage/local/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -141,7 +182,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/storage/nodes/route.ts",
+          "path": "src/app/api/storage/nodes/route.ts",
           "relPath": "src/app/api/storage/nodes/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -150,17 +191,8 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/storage/sftp/route.ts",
+          "path": "src/app/api/storage/sftp/route.ts",
           "relPath": "src/app/api/storage/sftp/route.ts",
-          "verdict": "boundary-imported",
-          "hasInlineZod": false,
-          "importsBoundary": true,
-          "inlineZodSites": [],
-          "firstBoundaryImportLine": 15
-        },
-        {
-          "path": "/opt/VControlHub/src/app/api/storage/sftp-download/route.ts",
-          "relPath": "src/app/api/storage/sftp-download/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
@@ -168,7 +200,16 @@
           "firstBoundaryImportLine": 18
         },
         {
-          "path": "/opt/VControlHub/src/app/api/storage/sftp-ops/route.ts",
+          "path": "src/app/api/storage/sftp-download/route.ts",
+          "relPath": "src/app/api/storage/sftp-download/route.ts",
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 22
+        },
+        {
+          "path": "src/app/api/storage/sftp-ops/route.ts",
           "relPath": "src/app/api/storage/sftp-ops/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -177,7 +218,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/storage/sftp-stale-inventory/route.ts",
+          "path": "src/app/api/storage/sftp-stale-inventory/route.ts",
           "relPath": "src/app/api/storage/sftp-stale-inventory/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -186,7 +227,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/storage/sftp-sync/route.ts",
+          "path": "src/app/api/storage/sftp-sync/route.ts",
           "relPath": "src/app/api/storage/sftp-sync/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -195,7 +236,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/storage/upload/[id]/complete/route.ts",
+          "path": "src/app/api/storage/upload/[id]/complete/route.ts",
           "relPath": "src/app/api/storage/upload/[id]/complete/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -204,13 +245,22 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/storage/upload/init/route.ts",
+          "path": "src/app/api/storage/upload/init/route.ts",
           "relPath": "src/app/api/storage/upload/init/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
           "importsBoundary": false,
           "inlineZodSites": [],
           "firstBoundaryImportLine": null
+        },
+        {
+          "path": "src/app/api/storage/webdav-download/route.ts",
+          "relPath": "src/app/api/storage/webdav-download/route.ts",
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 10
         }
       ]
     },
@@ -226,13 +276,13 @@
       "coveragePercent": 100,
       "routes": [
         {
-          "path": "/opt/VControlHub/src/app/api/command-templates/route.ts",
+          "path": "src/app/api/command-templates/route.ts",
           "relPath": "src/app/api/command-templates/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 8
+          "firstBoundaryImportLine": 9
         }
       ]
     },
@@ -248,7 +298,7 @@
       "coveragePercent": 100,
       "routes": [
         {
-          "path": "/opt/VControlHub/src/app/api/ai/chat/route.ts",
+          "path": "src/app/api/ai/chat/route.ts",
           "relPath": "src/app/api/ai/chat/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -257,34 +307,34 @@
           "firstBoundaryImportLine": 4
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/conversations/[id]/route.ts",
+          "path": "src/app/api/ai/conversations/[id]/route.ts",
           "relPath": "src/app/api/ai/conversations/[id]/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 10
+          "firstBoundaryImportLine": 11
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/conversations/route.ts",
+          "path": "src/app/api/ai/conversations/route.ts",
           "relPath": "src/app/api/ai/conversations/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 8
+          "firstBoundaryImportLine": 9
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/hosted-actions/[id]/route.ts",
+          "path": "src/app/api/ai/hosted-actions/[id]/route.ts",
           "relPath": "src/app/api/ai/hosted-actions/[id]/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 16
+          "firstBoundaryImportLine": 17
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/hosted-actions/route.ts",
+          "path": "src/app/api/ai/hosted-actions/route.ts",
           "relPath": "src/app/api/ai/hosted-actions/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -293,17 +343,8 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/models/probe/route.ts",
+          "path": "src/app/api/ai/models/probe/route.ts",
           "relPath": "src/app/api/ai/models/probe/route.ts",
-          "verdict": "boundary-imported",
-          "hasInlineZod": false,
-          "importsBoundary": true,
-          "inlineZodSites": [],
-          "firstBoundaryImportLine": 4
-        },
-        {
-          "path": "/opt/VControlHub/src/app/api/ai/models/route.ts",
-          "relPath": "src/app/api/ai/models/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
@@ -311,7 +352,16 @@
           "firstBoundaryImportLine": 5
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/ops/logs/[id]/approve/route.ts",
+          "path": "src/app/api/ai/models/route.ts",
+          "relPath": "src/app/api/ai/models/route.ts",
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 6
+        },
+        {
+          "path": "src/app/api/ai/ops/logs/[id]/approve/route.ts",
           "relPath": "src/app/api/ai/ops/logs/[id]/approve/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -320,7 +370,7 @@
           "firstBoundaryImportLine": 17
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/ops/logs/[id]/execute/route.ts",
+          "path": "src/app/api/ai/ops/logs/[id]/execute/route.ts",
           "relPath": "src/app/api/ai/ops/logs/[id]/execute/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -329,7 +379,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/ops/logs/[id]/route.ts",
+          "path": "src/app/api/ai/ops/logs/[id]/route.ts",
           "relPath": "src/app/api/ai/ops/logs/[id]/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -338,16 +388,16 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/ops/logs/route.ts",
+          "path": "src/app/api/ai/ops/logs/route.ts",
           "relPath": "src/app/api/ai/ops/logs/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 15
+          "firstBoundaryImportLine": 17
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/ops/scan/route.ts",
+          "path": "src/app/api/ai/ops/scan/route.ts",
           "relPath": "src/app/api/ai/ops/scan/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -356,7 +406,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/ops/settings/route.ts",
+          "path": "src/app/api/ai/ops/settings/route.ts",
           "relPath": "src/app/api/ai/ops/settings/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -365,7 +415,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/ops/summary/route.ts",
+          "path": "src/app/api/ai/ops/summary/route.ts",
           "relPath": "src/app/api/ai/ops/summary/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -374,7 +424,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/providers/[id]/route.ts",
+          "path": "src/app/api/ai/providers/[id]/route.ts",
           "relPath": "src/app/api/ai/providers/[id]/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -383,7 +433,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/ai/providers/route.ts",
+          "path": "src/app/api/ai/providers/route.ts",
           "relPath": "src/app/api/ai/providers/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
@@ -405,7 +455,7 @@
       "coveragePercent": 100,
       "routes": [
         {
-          "path": "/opt/VControlHub/src/app/api/backups/[id]/drill/route.ts",
+          "path": "src/app/api/backups/[id]/drill/route.ts",
           "relPath": "src/app/api/backups/[id]/drill/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -414,21 +464,16 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/backups/[id]/restore/route.ts",
+          "path": "src/app/api/backups/[id]/restore/route.ts",
           "relPath": "src/app/api/backups/[id]/restore/route.ts",
           "verdict": "boundary-imported",
-          "hasInlineZod": true,
+          "hasInlineZod": false,
           "importsBoundary": true,
-          "inlineZodSites": [
-            {
-              "line": 33,
-              "text": "z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": 8
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 6
         },
         {
-          "path": "/opt/VControlHub/src/app/api/backups/[id]/retry/route.ts",
+          "path": "src/app/api/backups/[id]/retry/route.ts",
           "relPath": "src/app/api/backups/[id]/retry/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -437,25 +482,25 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/backups/[id]/void/route.ts",
+          "path": "src/app/api/backups/[id]/void/route.ts",
           "relPath": "src/app/api/backups/[id]/void/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 4
+          "firstBoundaryImportLine": 5
         },
         {
-          "path": "/opt/VControlHub/src/app/api/backups/migration/route.ts",
+          "path": "src/app/api/backups/migration/route.ts",
           "relPath": "src/app/api/backups/migration/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 21
+          "firstBoundaryImportLine": 22
         },
         {
-          "path": "/opt/VControlHub/src/app/api/backups/offsite/dry-run/route.ts",
+          "path": "src/app/api/backups/offsite/dry-run/route.ts",
           "relPath": "src/app/api/backups/offsite/dry-run/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -464,7 +509,7 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/backups/offsite/route.ts",
+          "path": "src/app/api/backups/offsite/route.ts",
           "relPath": "src/app/api/backups/offsite/route.ts",
           "verdict": "no-schema",
           "hasInlineZod": false,
@@ -473,27 +518,27 @@
           "firstBoundaryImportLine": null
         },
         {
-          "path": "/opt/VControlHub/src/app/api/backups/retention/route.ts",
+          "path": "src/app/api/backups/retention/route.ts",
           "relPath": "src/app/api/backups/retention/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": false,
           "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": 6
+          "firstBoundaryImportLine": 7
         },
         {
-          "path": "/opt/VControlHub/src/app/api/backups/route.ts",
+          "path": "src/app/api/backups/route.ts",
           "relPath": "src/app/api/backups/route.ts",
           "verdict": "boundary-imported",
           "hasInlineZod": true,
           "importsBoundary": true,
           "inlineZodSites": [
             {
-              "line": 49,
+              "line": 63,
               "text": "z.object({"
             }
           ],
-          "firstBoundaryImportLine": 12
+          "firstBoundaryImportLine": 14
         }
       ]
     }

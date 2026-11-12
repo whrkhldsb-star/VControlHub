@@ -25,6 +25,7 @@ render_unit() {
     -e 's|{{APP_SLUG}}|vcontrolhub|g' \
     -e 's|{{SERVICE_PREFIX}}|vcontrolhub|g' \
     -e 's|{{QUICK_SERVICE_READ_WRITE_PATHS}}||g' \
+    -e 's|{{ARIA2_DATA_READ_WRITE_PATHS}}||g' \
     "$src" > "$dst"
 }
 

@@ -21,20 +21,43 @@ function isStaleDeploymentError(error: unknown): boolean {
 }
 
 type RouteErrorProps = {
-	error: Error & { digest?: string };
+	/** What was thrown: an Error for a failure on the server, anything at all for one in a client component. */
+	error: unknown;
+	/** Clears the boundary and renders what it already has. */
 	reset: () => void;
+	/**
+	 * Fetches the page again, then clears the boundary. This is what "retry" has to mean: after a failure on the
+	 * server, what the boundary already has is that failed answer, and `reset` alone brought this screen straight
+	 * back. Handed over by the framework to an `error.tsx` that exports this component as it is.
+	 */
+	retry?: () => void;
 	title?: string;
 	description?: string;
 };
 
+/** The parts of a thrown value this screen reads. A value that is not an object has none of them. */
+function describeThrown(error: unknown): { name?: string; message: string; digest?: string } {
+	if (typeof error === "string") return { message: error };
+	if (typeof error !== "object" || error === null) return { message: "" };
+	const { name, message, digest } = error as { name?: unknown; message?: unknown; digest?: unknown };
+	return {
+		name: typeof name === "string" ? name : undefined,
+		message: typeof message === "string" ? message : "",
+		digest: typeof digest === "string" ? digest : undefined,
+	};
+}
+
 export function RouteError({
 	error,
 	reset,
+	retry,
 	title,
 	description,
 }: RouteErrorProps) {
 	const { t } = useI18n();
 	const staleDeployment = isStaleDeploymentError(error);
+	const thrown = describeThrown(error);
+	const forbidden = isForbiddenErrorLike(thrown);
 
 	useEffect(() => {
 		if (staleDeployment) {
@@ -44,23 +67,24 @@ export function RouteError({
 		// TR-030 / 56 multi-tenant (Tick 3): ForbiddenError is an expected,
 		// permission-driven signal, not a defect. Log at warn for audit so
 		// cron / smoke pipelines can correlate page hits with denial.
-		if (isForbiddenErrorLike(error)) {
+		if (forbidden) {
 			logger.warn("route error boundary captured forbidden", {
-				name: error.name,
-				message: error.message,
-				digest: error.digest,
+				name: thrown.name,
+				message: thrown.message,
+				digest: thrown.digest,
 			});
 			return;
 		}
 		logger.error("route error boundary captured error", error);
-	}, [error, staleDeployment]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- `thrown` is read off `error`, which is the dependency
+	}, [error, staleDeployment, forbidden]);
 
 	// Second-line guard for `requirePagePermission()`: render the shared
 	// <PermissionDenied /> surface so the user sees a consistent denial
 	// state across every route, instead of a generic rose error card. In a
 	// production build only the digest survives the server render, so the
 	// name alone would never match there.
-	if (isForbiddenErrorLike(error)) {
+	if (forbidden) {
 		return <PermissionDenied />;
 	}
 	if (staleDeployment) {
@@ -80,22 +104,26 @@ export function RouteError({
 
 	const resolvedTitle = title ?? t("error.title");
 	const resolvedDescription = description ?? t("error.routeDescription");
+	// A failure on the server arrives with a digest and, in a production build, with a generic English sentence in
+	// place of its message (the real one stays in the server log, under that digest). Only a failure in the browser
+	// carries a message of its own.
+	const shownDescription = thrown.digest ? resolvedDescription : thrown.message || resolvedDescription;
 	return (
 		<StatusScreen
 			tone="danger"
 			icon={<AlertTriangle />}
 			title={resolvedTitle}
-			description={error.message || resolvedDescription}
+			description={shownDescription}
 			details={
-				error.digest ? (
+				thrown.digest ? (
 					<p className="ui-mono inline-flex rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1 text-xs text-[var(--text-muted)]">
-						{t("error.digest-label")} {error.digest}
+						{t("error.digest-label")} {thrown.digest}
 					</p>
 				) : null
 			}
 			actions={
 				<>
-					<ActionButton icon={<RefreshCw />} onClick={reset}>
+					<ActionButton icon={<RefreshCw />} onClick={retry ?? reset}>
 						{t("common.retry")}
 					</ActionButton>
 					<ActionButton variant="secondary" onClick={() => window.location.reload()}>

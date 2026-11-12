@@ -9,6 +9,7 @@ const STATUS_KEYS: Record<string, string> = {
   SUCCESS: "common.status.completed",
   SUCCEEDED: "common.status.completed",
   FAILED: "common.status.failed",
+  CANCELLING: "common.status.cancelling",
   CANCELLED: "common.status.cancelled",
   REJECTED: "common.status.rejected",
   VOIDED: "common.status.voided",

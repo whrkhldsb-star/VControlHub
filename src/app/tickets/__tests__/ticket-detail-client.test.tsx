@@ -86,6 +86,44 @@ describe("TicketDetailClient", () => {
     expect(screen.getByRole("link", { name: "Database latency · 处理中" })).toBeInTheDocument();
   });
 
+  it("links the related command and server to pages that show them", async () => {
+    // "Open command" went to /commands, a page that does not exist; "open server" to a parameter the server
+    // list never read.
+    vi.mocked(csrfFetch).mockResolvedValue({
+      events: [],
+      related: {
+        server: { id: "srv_9", name: "web 01 (prod)", host: "203.0.113.9" },
+        command: { id: "command-1", title: "Restart database", command: "systemctl restart db", status: "COMPLETED", createdAt: initial.createdAt },
+        reverseTickets: [],
+      },
+    });
+    render(<TicketDetailClient initial={initial} canManage={false} />, { locale: "en" });
+    expect(await screen.findByRole("link", { name: "Open command request" })).toHaveAttribute("href", "/requests#command-command-1");
+    expect(screen.getByRole("link", { name: "Open server" })).toHaveAttribute("href", "/servers?query=web%2001%20(prod)");
+  });
+
+  it("does not say there is nothing when the timeline could not be read", async () => {
+    // "No timeline events yet" and "Not linked" twice, with the reason three cards further down.
+    let fail = true;
+    vi.mocked(csrfFetch).mockImplementation(async (input) => {
+      if (!String(input).endsWith("/timeline")) throw new Error(`Unexpected request: ${String(input)}`);
+      if (fail) throw new Error("Timeline service unavailable");
+      return { events: [{ id: "e1", at: initial.createdAt, type: "ticket.closed", title: "Closed" }], related: { server: null, command: null, reverseTickets: [] } };
+    });
+    render(<TicketDetailClient initial={initial} canManage />, { locale: "en" });
+
+    expect(await screen.findByText("Timeline service unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("No timeline events yet")).not.toBeInTheDocument();
+    expect(screen.queryByText("Not linked")).not.toBeInTheDocument();
+
+    fail = false;
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    // Once: the event's headline was the same words as the chip beside it.
+    expect(await screen.findAllByText("Ticket closed")).toHaveLength(1);
+    expect(screen.queryByText("Timeline service unavailable")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Not linked")).toHaveLength(2);
+  });
+
   it("a slow initial timeline does not put back the link saved after it", async () => {
     const server = (id: string, name: string) => ({ events: [], related: { server: { id, name, host: `${id}.test` }, command: null, reverseTickets: [] } });
     let answerInitial!: (value: unknown) => void;

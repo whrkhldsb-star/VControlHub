@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="description" content="VControlHub 项目全景、各模块功能与使用指南：24 章、55 个页面、设计架构、权限、后台任务和操作流程。"><title>VControlHub · 项目全景与使用指南</title><style>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="description" content="VControlHub 项目全景、各模块功能与使用指南：24 章、58 个页面、设计架构、权限、后台任务和操作流程。"><title>VControlHub · 项目全景与使用指南</title><style>
 :root{--ink:#192b3e;--muted:#5c7083;--line:#dfe7ef;--brand:#146858;--tint:#edf6f2;--paper:#fff;--bg:#f3f6fa;--nav-width:296px}
 *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:88px}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.85 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif}a{color:#176494;text-decoration:none;overflow-wrap:anywhere}a:hover{text-decoration:underline}a:focus-visible,button:focus-visible,input:focus-visible,.table-scroll:focus-visible{outline:3px solid #1d856f;outline-offset:3px}button,input{font:inherit}button{cursor:pointer}
 .topbar{position:sticky;top:0;z-index:5;background:#153b37;color:white;display:flex;justify-content:space-between;align-items:center;gap:18px;padding:13px 28px;box-shadow:0 3px 16px #1b394c14}.brand{font-size:17px;letter-spacing:.3px;font-weight:750}.brand small{font-size:12px;font-weight:400;opacity:.75;margin-left:12px}.toolbar{display:flex;align-items:center;gap:18px;font-size:13px}.toolbar a{color:#e1f3ef}.toolbar button{border:1px solid #7daba2;background:transparent;color:white;padding:4px 12px;border-radius:6px}.search-tip{color:#bdd7d0;font-size:12px}
@@ -825,7 +825,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <li>最近审批活动与最近审计记录。</li>
 <li>跳转服务器、文件、远程下载、审批中心、通知中心和定时任务的快捷入口。</li>
 <li>VPS 资源 24 小时趋势（当前 CPU、内存、磁盘占用，以及各节点每小时平均 CPU 的柱状图，刻度固定为 0–100%）、下载任务 7 天趋势、审计活动 30 天趋势及图片上传趋势。</li>
-<li>仪表盘组件显示／隐藏、拖动调整顺序、恢复默认布局。</li>
+<li>仪表盘组件显示／隐藏、调整顺序（“编辑布局”里的上移／下移，或用鼠标拖动卡片）、恢复默认布局。</li>
 </ul>
 <p>仪表盘按当前账号权限读取各类数据：VPS 需要 <code>server:read</code>，文件和下载需要 <code>storage:read</code>，命令与定时任务需要 <code>command:read</code>，审计需要 <code>audit:read</code>。没有相应权限的内容不会作为页面数据传给浏览器；客户范围与各业务页面一致。</p>
 <p>布局编辑能否使用还受平台“允许拖拽重排”设置控制。图表没有数据时会显示空状态；新增节点需要等待采样或实际产生业务记录后才有趋势。</p>
@@ -1253,7 +1253,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <ul>
 <li>左栏是快速访问（全部文件、收藏、最近访问、标签、回收站、文件任务）、存储位置（各节点及健康状态，管理员可看到所属客户）和当前节点的目录树；窄屏下左栏收起，从页头按钮展开。</li>
 <li>顶部是面包屑（路径过长时折叠中间层级）、搜索框（当前目录、全部文件或文件内容）、上传、新建文件夹，以及列表／图标视图切换；图标视图另有排序菜单，列表视图点列头排序。</li>
-<li>列表视图显示名称、修改时间、大小，在“全部文件”或跨节点搜索时再显示来源；图标视图为图片显示服务端生成的缩略图（本机与 SFTP 节点），其余文件显示带扩展名的类型图标。</li>
+<li>列表视图显示名称、修改时间、大小，在“全部文件”或跨节点搜索时再显示来源；图标视图为图片显示服务端生成的缩略图（本机与 SFTP 节点），其余文件显示带扩展名的类型图标。超过 5000 万像素、又不能边读边解码的图片（隔行 PNG、渐进式 JPEG、GIF 等）不生成缩略图，同样显示类型图标；一个文件夹的缩略图最多 4 张同时生成。</li>
 <li>点名称打开：文件夹进入目录；图片在查看器中打开，可用 ← → 浏览同目录图片；可预览的文件进入预览页；其余文件打开详情。双击行也会打开。</li>
 <li>每行的“⋯”和右键菜单提供同一组操作：预览、下载、分享、详情、收藏、编辑标签、重命名、移动到、复制到、删除。重命名、新建文件夹、移动和复制都在对话框中完成，名称允许空格。</li>
 <li>单击行选中，Ctrl／⌘ 单击加选，Shift 单击连选，Ctrl／⌘+A 全选当前页，Esc 取消；选中后列头换成操作栏（下载、移动到、复制到、压缩、删除），Delete 删除所选，F2 重命名单个所选。</li>
@@ -1265,7 +1265,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>批量复制、移动和删除可成为持久化文件操作任务，提供进度、逐项结果及取消请求。提交后左栏“文件任务”显示进行中的数量，完成时弹出提示，未全部成功时可到任务列表查看逐项结果并重试。取消主要阻止后续处理，不会自动撤回已经完成的文件变更；需要查看取消前已处理的条目。</p>
 <h3 id="section-6-3">6.3 上传与上传队列</h3>
 <p>上传支持选择多个文件、拖放文件、文件夹模式及保留浏览器提供的相对目录结构。打开某个节点时，“上传”直接传到当前目录；在“全部文件”下则先选择目标节点和目录。上传进度显示在页面角落的浮动面板中，跨页面保留，可折叠；可查看每个任务的状态、进度、失败原因，按可用操作暂停、继续、重试或取消，结束后可清除。</p>
-<p>分片上传流程会先建立会话，记录已收到的分片，再合并并写入目标存储，最后更新文件索引。普通存储文件的分片接口默认总大小上限为 2 GiB，可用 <code>STORAGE_UPLOAD_MAX_BYTES</code> 调整，建立会话前还会确认暂存目录剩余空间足够；默认分片为 5 MiB；图片处理接口上限更低，为 20 MiB。旧单次上传入口、直连入口和不同后端还各有请求限制，不能把某一个上限套用到所有入口。</p>
+<p>分片上传流程会先建立会话，记录已收到的分片，再合并并写入目标存储，最后更新文件索引。普通存储文件的分片接口默认总大小上限为 2 GiB，可用 <code>STORAGE_UPLOAD_MAX_BYTES</code> 调整，建立会话前还会确认暂存目录剩余空间足够（暂存目录默认在数据目录下，与 Worker 共用，可用 <code>MEDIA_UPLOAD_TMP_DIR</code> 指定；每个进行中的上传约占文件大小的 2 倍）；默认分片为 5 MiB；图片处理接口上限更低，为 20 MiB。旧单次上传入口、直连入口和不同后端还各有请求限制，不能把某一个上限套用到所有入口。</p>
 <p>恢复上传依赖尚未过期的上传会话和可重新访问的源文件。浏览器刷新后不保证仍持有本地文件句柄；“可继续上传”不等于关闭浏览器后无需重新选择文件。配额、单文件大小限制、临时磁盘和目标容量也会影响上传。</p>
 <p>最终提交使用执行者标识和可续租的 120 秒租约，后台检查进程失联后的会话。正常慢上传持续续租，不按最初会话到期时间直接清理。租约失效的上传转为失败并标记“结果待核对”，保留分片和恢复信息；不会自动重放远端写入，也不会删除可能已经写入的文件。管理员确认旧写入已停止、核对目标后，才允许用户明确重传。历史版本产生的无租约 <code>FINALIZING</code> 会话不会自动回收，需同样人工核对。管理命令和步骤见<a href="upload-recovery.md">上传恢复说明</a>。</p>
 <p>暂停和取消还受任务阶段约束：单次上传请求提交后、分片上传合并写入阶段不会继续提供普通暂停／取消操作。单次写入后若连接中断而无法判断服务端是否成功，队列可显示“结果未知”；应先检查目标文件，再决定是否重新提交，避免重复覆盖。</p>
@@ -1354,7 +1354,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <h3 id="section-6-10">6.10 压缩与解压</h3>
 <ul>
 <li>支持对同一个 LOCAL 节点下的选择项创建 <code>tar.gz</code>；不支持跨节点批量压缩。</li>
-<li>LOCAL 压缩包目录查看支持 ZIP／JAR、TAR、TAR.GZ／TGZ、单文件 GZ；7z、RAR 依赖对应工具。</li>
+<li>LOCAL 压缩包目录查看支持 ZIP／JAR、TAR、TAR.GZ／TGZ、单文件 GZ；7z、RAR 需要服务器上装有 <code>7z</code>、<code>unrar</code> 命令，没有安装、文件列表被密码保护或文件损坏时页面会分别说明原因。</li>
 <li>LOCAL 节点上的 ZIP／JAR、TAR、TAR.GZ／TGZ 可以在线解压：打开压缩包后点“解压到文件夹”，或在列表的右键菜单中选择。内容会解压到压缩包旁边的新文件夹：如果所有内容在同一个顶层文件夹里就用它，否则用压缩包名；重名时依次用“名称 (2)”等，不会写入已有文件夹。</li>
 <li>解压由程序自己读取压缩包，只写普通文件和文件夹。符号链接、硬链接和设备文件会被跳过并在结果里计数；含 <code>..</code>、盘符等不安全路径的压缩包会整包拒绝。展开后最多 20,000 个条目、2 GiB，并按展开大小检查授权上限和配额。</li>
 <li>单文件 <code>.gz</code> 解压到同目录，生成去掉 <code>.gz</code> 后缀的文件，最大 1 GiB；已有同名目标会阻止覆盖。7z、RAR 只能查看目录，不能在线解压。</li>
@@ -1365,10 +1365,11 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>入口：<code>/shares</code>，以及文件条目的分享操作。页面依次为已有分享列表、选择文件创建分享、外发访问报表。</p>
 <p>支持两种常见创建方式：</p>
 <ol>
-<li>文件页快速分享：确认后生成临时公开链接，当前默认 24 小时失效。</li>
+<li>文件页快速分享：确认后生成临时公开链接，当前默认 24 小时失效。单个文件从行菜单或详情面板分享；选中多个文件后，工具栏上的“分享”为每个文件各生成一个链接（一次最多 50 个文件），可以逐个复制或一次复制全部。文件夹不在这里分享。</li>
 <li>分享中心：浏览节点目录并批量选择文件／文件夹，或按节点及路径高级创建，分别设置允许的访问策略。</li>
 </ol>
 <p>高级策略包括有效期、访问密码、最大下载次数和权限级别。每个选择项生成独立链接。链接明文在创建时返回，数据库保存哈希；创建后应及时复制保存。</p>
+<p>分享记录属于被分享路径所在存储节点的客户，与创建时侧栏选中的客户无关：管理员在“全部客户”视图下也可以分享，链接出现在该节点所属客户的分享列表里；不属于任何客户的节点上的分享只有“全部客户”视图能看到。</p>
 <p>“仅查看”模式只展示允许的目录和文件元信息，不提供下载；当前也不是允许浏览器完整获取文件内容的在线预览授权。密码与下载次数约束应按页面允许的组合配置。</p>
 <p>列表显示有效、过期、已撤销、下载次数等状态。撤销后原链接失效；撤销不能收回访问者已经下载的副本。</p>
 <h3 id="section-7-2">7.2 接收者怎样访问</h3>
@@ -1462,7 +1463,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>部署记录关联命令请求、目标节点、渲染后的配置快照和回滚信息。用户可以查看最近部署、状态和执行记录，在允许时重新提交部署或发起真实回滚。</p>
 <p>“重新部署”再次执行部署模板；“真实回滚”执行原部署快照中保存的回滚命令并进入审批执行链路。模板没有有效回滚命令时，不能宣称平台可自动恢复任意旧环境。数据库业务变更和应用数据是否可回退由具体脚本负责。</p>
 <h3 id="section-9-3">9.3 部署模板导出</h3>
-<p>部署页可以生成便携的部署说明／模板包，包含环境变量示例、systemd 单元、Caddy 示例、部署及回滚脚本等。此类导出使用占位符，不把生产密钥和连接串写入普通部署模板。</p>
+<p>部署页可以生成便携的部署说明／模板包，包含环境变量示例、systemd 单元、Caddy 示例和部署脚本。此类导出使用占位符，不把生产密钥和连接串写入普通部署模板。部署脚本从 <code>/opt/&lt;应用标识&gt;/.env.production</code> 读取配置（先由 <code>env.production.example</code> 复制并填写，缺少时脚本会直接提示并退出），然后安装依赖、执行数据库迁移并构建；重新执行前需先停止 <code>&lt;应用标识&gt;-next</code> 服务，否则构建会被拒绝，以免覆盖正在提供服务的构建产物。</p>
 <p>它与“完整平台备份”和“含密钥配置导出”是不同产物。拿到模板包后仍需填入目标环境配置、准备依赖、迁移所需数据并执行验收。</p>
 <h3 id="section-9-4">9.4 Docker 容器管理</h3>
 <p>入口：<code>/docker</code>。也可从相关应用或配置入口进入。</p>
@@ -1544,7 +1545,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <h3 id="section-11-1">11.1 手工与批量命令</h3>
 <p>服务器页的命令下发区可填写任务名称、命令、原因，选择一台或多台已启用节点，按权限选择需要审批或立即执行。直接执行前有目标与命令确认；需要审批的请求在批准前不会开始远端执行。</p>
 <p>一条请求包含多个目标时，各目标分别记录状态、输出、错误和退出码。部分节点成功不代表全部成功；失败目标应结合日志定位。后台执行有超时、输出上限和心跳维护，结果在审批记录和任务中心可追踪。</p>
-<p>对于允许取消的命令，请求取消会写入持久化状态并通知执行通道停止。Agent 等通道需要返回处理结果；远端未确认时，应核对目标进程再决定是否重试，不能把“已请求取消”理解为任意远端副作用均已撤销。</p>
+<p>对于允许取消的命令，请求取消会写入持久化状态并通知执行通道停止。取消需要“执行命令”权限：自己提交的请求可以自行取消，同时具备审批权限的成员可以取消他人的请求，审批页只对这些成员显示取消按钮。Agent 等通道需要返回处理结果；远端未确认时，应核对目标进程再决定是否重试，不能把“已请求取消”理解为任意远端副作用均已撤销。</p>
 <h3 id="section-11-2">11.2 审批中心的两条流程</h3>
 <p>入口：<code>/requests</code>。</p>
 <div class="table-scroll" tabindex="0"><table>
@@ -1578,7 +1579,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>入口：<code>/scheduled-tasks</code>。</p>
 <p>支持周期 Cron 与一次性执行两种计划模型，可保存名称、命令、目标节点、原因，以及方案、验证命令、回滚命令等信息。页面提供创建、修改允许字段、暂停／恢复、删除、立即运行一次、搜索与运行记录查看。启用中的计划显示为“已启用”，Cron 表达式旁附中文或英文的通俗说明（每 N 分钟、每 N 小时、每天、每周）；无法用一句话说明的表达式只显示原文。</p>
 <ul>
-<li>Cron 为五字段表达式，周期计划按项目应用时区 <code>Asia/Shanghai</code> 计算。</li>
+<li>Cron 为五字段表达式，周期计划按平台时区计算（环境变量 <code>APP_TIME_ZONE</code>，默认 <code>Asia/Shanghai</code>）。</li>
 <li>一次性计划使用明确的执行时间，完成后不应继续当作循环计划调度。</li>
 <li>默认每次调度产生需要审批的命令请求；关闭逐次审批需要 <code>command:approve</code>。</li>
 <li>可区分手工创建与 AI 方案来源。</li>
@@ -1799,7 +1800,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <tr>
 <td>PostgreSQL</td>
 <td><code>pg_dumpall</code> 并压缩</td>
-<td>客户端可用，具备数据库访问权限</td>
+<td>客户端可用；登录账号具备数据库访问权限，或以 root 登录且目标机存在 <code>postgres</code> 系统用户（此时改由该用户导出）</td>
 </tr>
 <tr>
 <td>Docker Volumes</td>
@@ -1818,7 +1819,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 </tbody>
 </table></div>
-<p>任务在目标机生成产物，再回传到平台侧并清理临时文件。这不是所有服务的一致性快照系统；运行中的数据库、Docker 数据和业务文件应采用适合应用的一致性方案。自定义 Docker 数据根目录、rootless Docker 与默认卷路径不同，不能直接套用预设假设。</p>
+<p>任务在目标机生成产物，再回传到平台侧并清理临时文件。MySQL 与 PostgreSQL 预设的产物是压缩的 SQL 导出，下载时文件名为 <code>.sql.gz</code>；其余预设为 <code>.tar.gz</code>。这不是所有服务的一致性快照系统；运行中的数据库、Docker 数据和业务文件应采用适合应用的一致性方案。自定义 Docker 数据根目录、rootless Docker 与默认卷路径不同，不能直接套用预设假设。</p>
 <p>依据：<a href="../src/lib/backup/service.ts">备份服务</a>、<a href="../src/lib/backup/service-runtime.ts">恢复及演练实现</a>、<a href="../src/lib/backup/vps-backup-presets.ts">VPS 备份预设</a>、<a href="../src/lib/backup/recovery-offsite.ts">系统恢复归档异地上传</a>。</p>
 <h2 id="ai">14. AI 助手、知识库与 AI 运维</h2>
 <h3 id="section-14-1">14.1 AI 提供商管理</h3>
@@ -1926,7 +1927,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <tr>
 <td>流量</td>
 <td><code>query_traffic</code></td>
-<td>查询流量情况</td>
+<td>查询可见服务器在所选时段内的平均入站／出站速率、样本数和最新样本</td>
 </tr>
 <tr>
 <td>备份</td>
@@ -1981,6 +1982,8 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tbody>
 </table></div>
 <p>待确认操作列表按当前客户和发起人筛选；确认与执行沿用当前账号的身份模板权限，切换客户不会显示其他客户的待确认操作。命令请求或 Playbook 无法创建时，操作记录会显示失败原因。</p>
+<p>确认卡片显示动作绑定的服务器名称和地址。按名称或地址指定服务器时，只有恰好对应一台才会绑定；对应多台时模型会收到候选列表，需要向用户确认或改用服务器 ID。无法生成命令请求的变更（参数不合规、配置内容超过单条命令的长度上限）在提出时即被拒绝，不会进入待确认列表。</p>
+<p>自动化方案的确认卡片写明执行时间（立即、一次性的具体时间、每天的时刻，均注明应用时区）、目标服务器名称和审批方式。一次性执行的时间若未带时区偏移，按应用时区的墙上时间解释。</p>
 <p>只读工具也不是任意访问：日志、文件、服务器、备份均检查相应资源范围。工具执行失败后显示错误结果，模型生成的文字本身不能作为命令已经成功执行的证据。</p>
 <h3 id="section-14-5">14.5 知识库</h3>
 <p>入口：<code>/knowledge</code>。</p>
@@ -1989,7 +1992,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>当前是数据库中的文本分块与词法检索，不依赖外部向量数据库，也不能描述为已实现任意 PDF OCR、网站爬取或通用向量语义搜索。只有当前客户可见的知识内容进入检索范围。</p>
 <h3 id="section-14-6">14.6 AI 智能运维</h3>
 <p>入口：<code>/ai-ops</code>。这是平台管理员功能：读取日志、配置、触发扫描、批准和执行建议均要求平台管理员身份，同时检查对应的 <code>ai:ops:*</code> 权限。普通客户身份模板不能将跨客户的智能运维权限授予客户账号。</p>
-<p>后台按应用时区默认每日 02:00 扫描，也可手动触发。输入来自平台已有事实，例如告警、命令失败、工作流失败等；输出包括发现、严重程度、资源关联、建议、动作和扫描日志。</p>
+<p>后台按应用时区默认每日 02:00 扫描，也可手动触发。手动触发的扫描进入队列，由后台进程在约 15 秒内取走执行，页面会持续刷新直到这次扫描的记录完成。输入来自平台已有事实，例如告警、命令失败、工作流失败等；输出包括发现、严重程度、资源关联、建议、动作和扫描日志。</p>
 <p>页面提供扫描汇总、按模式／状态／触发来源筛选、详情查看、批准建议、执行建议，以及提供商和模式配置。</p>
 <p>建议模式需要人工批准；自主模式还需要 <code>ai:ops:autonomous</code>，仅执行代码白名单。当前可实际自主执行的动作只有：</p>
 <ol>
@@ -2085,6 +2088,14 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>用户在账户安全中发起设置，使用自己的认证器扫描二维码或手工录入密钥，输入当前验证码完成启用。</p>
 <p>启用后提供恢复码，用于无法使用认证器时登录；恢复码应由本人保存，重新生成需要再次验证当前 TOTP 或有效恢复码，并使旧恢复码失效。启用、关闭 MFA 或重新生成恢复码会原子撤销旧会话，正常情况下刷新当前浏览器会话，其他设备需重新登录。密码变更、全端退出等凭据撤销也会使旧的待二次验证登录失效；发生并发凭据变更时，当前浏览器可能需要重新登录。关闭 MFA 需要按界面要求完成身份验证。</p>
 <p>“部署支持 MFA”与“每个账号已绑定 MFA”是两个状态；管理员不能仅通过安装平台替每位用户完成认证器绑定。</p>
+<p>平台管理员自己无法登录时（忘记密码，或认证器与恢复码都已丢失），界面里没有别的入口，需要在控制面所在主机的安装目录下用命令行恢复：</p>
+<pre><code class="language-bash">cd /opt/VControlHub
+# 重置 admin 账号的密码（8–128 个字符）。该账号的已有会话全部失效，下次登录后必须先改密。
+sudo ADMIN_NEW_PASSWORD='新的临时密码' npm run admin:reset-password
+# 关闭某个账号的双因素认证。该账号的已有会话全部失效，并写入一条审计记录（auth.2fa_reset_cli）。
+sudo npm run admin:reset-2fa -- 账号名
+</code></pre>
+<p>两条命令直接读写数据库，使用安装目录中的环境文件。密码建议按上面的方式通过环境变量传入，写成命令行参数会留在进程列表和 shell 历史里。容器镜像不包含这两个脚本，容器部署需要在带有源码和开发依赖的环境中、用同一个 <code>DATABASE_URL</code> 执行。</p>
 <h3 id="section-17-3">17.3 账号类型与用户管理</h3>
 <p>入口：<code>/users</code>。</p>
 <p>账号只有两类：</p>
@@ -2465,7 +2476,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 <tr>
 <td><code>offsite.dailyWindowHour</code></td>
-<td>每日上传窗口小时，按应用时区 <code>Asia/Shanghai</code> 解释</td>
+<td>每日上传窗口小时，按平台时区解释（<code>APP_TIME_ZONE</code>，默认 <code>Asia/Shanghai</code>）</td>
 </tr>
 <tr>
 <td><code>offsite.retentionDays</code></td>
@@ -3450,6 +3461,10 @@ npm run docs:check
 <td>点击命令会附带回车，需要先确认当前 shell 输入状态和目标节点</td>
 </tr>
 <tr>
+<td>平台管理员忘记密码，或认证器和恢复码都丢了</td>
+<td>界面内没有入口；在控制面主机的安装目录执行 <code>npm run admin:reset-password</code> 或 <code>npm run admin:reset-2fa -- 账号名</code>，见 <a href="#permissions">17.2 双因素认证</a> 末尾</td>
+</tr>
+<tr>
 <td><code>.key</code> 文件提示无法导入</td>
 <td>核对文件实际容器、是否包含私钥及是否需要解密密码；改扩展名不会改变格式</td>
 </tr>
@@ -3545,7 +3560,7 @@ npm run docs:check
 </table></div>
 <h3 id="section-23-4">23.4 时间、状态和能力说明的阅读规则</h3>
 <ul>
-<li>Cron 计划、Playbook、AI 日常扫描、S3 每日上传窗口、运行时间热力图和成本预算周期都使用项目应用时区 <code>Asia/Shanghai</code>；系统级 timer 以其部署配置为准。</li>
+<li>Cron 计划、Playbook、AI 日常扫描、S3 每日上传窗口、运行时间热力图和成本预算周期都使用平台时区：由环境变量 <code>APP_TIME_ZONE</code> 决定（浏览器端对应 <code>NEXT_PUBLIC_APP_TIME_ZONE</code>，需在构建前设置），默认 <code>Asia/Shanghai</code>；系统级 timer 以其部署配置为准。</li>
 <li>表单“启用”表示允许使用，健康探测“可达”表示某条链路通过，任务“完成”表示该任务定义的步骤结束，应分别阅读。</li>
 <li>可配置字段、代码中存在的适配、实际部署启用及第三方实机验收是不同层次。</li>
 <li>本文与所在仓库版本的源代码配套使用。较早专项文档可能保留历史方案或待办；遇到冲突应核对本文引用的当前服务与接口。</li>

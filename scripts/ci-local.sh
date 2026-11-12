@@ -57,6 +57,12 @@ npm run lint
 step "RBAC drift gate"
 npm run rbac:audit -- --no-write
 
+step "translation keys present in both languages"
+npm run i18n:key-check
+
+step "API copy audit"
+npm run api-copy:audit
+
 if [ "$FULL" = "1" ]; then
   step "test:coverage (CI gate #3 — same as GitHub Actions)"
   npm run test:coverage

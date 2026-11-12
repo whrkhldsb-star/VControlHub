@@ -7,6 +7,7 @@ import { serviceT } from "@/lib/i18n/service-locale";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
 import { uninstallServerAgent } from "./agent-service";
 import {
+  describeServerDeletionBlockers,
   getBlockingServerDeletionImpact,
   getServerDeletionImpact,
 } from "./service-deletion-impact";
@@ -35,7 +36,7 @@ export async function deleteServerProfile(
     const blockers = getBlockingServerDeletionImpact(deletionImpact);
     if (blockers.length > 0) {
       throw new BusinessError(t("backend.server.deleteBlockedByDependencies", {
-        dependencies: blockers.map(([name, count]) => `${name}=${count}`).join(", "),
+        dependencies: describeServerDeletionBlockers(blockers, t),
       }));
     }
 

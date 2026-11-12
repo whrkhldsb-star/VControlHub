@@ -66,6 +66,11 @@ export function useLocale(initialLocale: Locale = "zh") {
 		}
 		setLocaleState(nextLocale);
 		applyLocale(nextLocale);
+		// The server rendered `initialLocale` from the cookie (or from its default when the cookie is gone: it
+		// lasts a year, and cookies get cleared while localStorage stays). The page then followed the stored
+		// language while the server went on rendering, and wording its API answers, in the other one. Writing
+		// the cookie again brings the server back to the language the person chose from the next request on.
+		if (nextLocale !== initialLocale) persistLocale(nextLocale);
 	}, [initialLocale]);
 
 	useEffect(() => {

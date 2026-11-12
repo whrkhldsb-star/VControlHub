@@ -149,6 +149,29 @@ describe("NotificationBell", () => {
     expect(lists).toHaveLength(3);
   });
 
+  it("shows a notification once when the list already holds what the live connection then delivers", async () => {
+    // The row is in the database before it is pushed: a list loaded in between has it, and the push added it again.
+    const user = userEvent.setup();
+    wsState.connected = true;
+    const row = { id: "n_live", type: "system", title: "Backup finished", message: "m", isRead: false, actionUrl: null, createdAt: "2026-11-11T00:00:00.000Z" };
+    vi.mocked(csrfFetch).mockResolvedValue({ unreadCount: 1, notifications: [row, { ...row, id: "n_old", title: "Older one" }] });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const view = render(<NotificationBell />, { locale: "en" });
+    await user.click(screen.getByRole("button", { name: "Notifications" }));
+    expect(await screen.findByText("Backup finished")).toBeInTheDocument();
+
+    (wsState as { lastNotification: unknown }).lastNotification = { ...row };
+    view.rerender(<NotificationBell />);
+
+    expect(screen.getAllByText("Backup finished")).toHaveLength(1);
+    // The list's own copy stays where it was.
+    const titles = screen.getAllByText(/Backup finished|Older one/).map((node) => node.textContent);
+    expect(titles).toEqual(["Backup finished", "Older one"]);
+    expect(errors.mock.calls.filter((call) => String(call[0]).includes("same key"))).toEqual([]);
+    errors.mockRestore();
+  });
+
   it("renders the dropdown as an accessible popover and closes it with Escape", async () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch)

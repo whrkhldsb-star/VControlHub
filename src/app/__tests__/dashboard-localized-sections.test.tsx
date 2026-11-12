@@ -96,7 +96,7 @@ describe("localized dashboard sections", () => {
 
     expect(screen.getByRole("heading", { name: "Recent Approvals" })).toBeInTheDocument();
     expect(screen.getByText("alice · assistant")).toBeInTheDocument();
-    expect(screen.getByText("Targets 2 servers")).toBeInTheDocument();
+    expect(screen.getByText("2 targets")).toBeInTheDocument();
     expect(screen.getByText("systemctl restart demo")).toBeInTheDocument();
 
     const auditLink = screen.getByRole("link", { name: "View all" });

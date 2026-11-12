@@ -5,7 +5,7 @@ import ImageBedPageClient from "./image-bed-page-client";
 export const dynamic = "force-dynamic";
 
 export default async function ImageBedPage() {
-	const session = await requirePagePermission("image:read");
+	const session = await requirePagePermission("image:read", { redirectTo: "/image-bed" });
 	const canWrite = sessionHasPermission(session, "image:write");
 	// The DELETE route lets an uploader remove their own image with image:write (A5-12); the button follows.
 	const canDelete = canWrite || sessionHasPermission(session, "storage:delete") || sessionHasPermission(session, "media:manage");

@@ -83,6 +83,7 @@ export function ScheduleBackupForm() {
 	const [loadingList, setLoadingList] = useState(true);
 	const [listError, setListError] = useState<string | null>(null);
 	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const [rowActionId, setRowActionId] = useState<string | null>(null);
 
 	const cronPreview = useMemo(() => describeCronPreview(cronExpression, t), [cronExpression, t]);
@@ -150,7 +151,7 @@ export function ScheduleBackupForm() {
 			});
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.failFallback")) });
+			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.updateFailed")) });
 		} finally {
 			setRowActionId(null);
 		}
@@ -168,7 +169,7 @@ export function ScheduleBackupForm() {
 			});
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.failFallback")) });
+			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.updateFailed")) });
 		} finally {
 			setRowActionId(null);
 		}
@@ -178,12 +179,14 @@ export function ScheduleBackupForm() {
 		if (rowActionId) return;
 		setRowActionId(id);
 		setMessage(null);
+		setDeleteError(null);
 		try {
 			await csrfFetch(`/api/backup-schedules/${id}`, { method:"DELETE" });
 			setPendingDeleteId(null);
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.failFallback")) });
+			// Shown in the dialog that asked: under the form it sat behind that dialog.
+			setDeleteError(getErrorMessage(error, t("backupsPage.schedule.deleteFailed")));
 		} finally {
 			setRowActionId(null);
 		}
@@ -195,7 +198,7 @@ export function ScheduleBackupForm() {
 			<form onSubmit={createSchedule} data-tone="cyan" data-inset className="space-y-4 p-4">
 				<div className="grid gap-3 md:grid-cols-[180px_1fr]">
 					<div className="space-y-1.5">
-						<label htmlFor="schedule-backup-name" className="ui-label block">{t("backupsPage.records.title")}</label>
+						<label htmlFor="schedule-backup-name" className="ui-label block">{t("backupsPage.schedule.nameLabel")}</label>
 						<input id="schedule-backup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("backupsPage.schedule.nameTemplate", { type: getTypeLabel(t, type) })} className={UI_INPUT} />
 					</div>
 					<div className="space-y-1.5">
@@ -270,7 +273,7 @@ export function ScheduleBackupForm() {
 											<span className="font-mono">{s.cronExpression}</span>
 											<span>{getTypeLabel(t, s.backupType as BackupType)}</span>
 											<span>{t("backupsPage.schedule.runCount", { count: s.runCount })}</span>
-											{s.retentionDays && <span>{t("backupsPage.schedule.retentionLabel")}: {s.retentionDays}</span>}
+											{s.retentionDays && <span>{t("backupsPage.schedule.retentionLabel")}{t("common.colon")}{s.retentionDays}</span>}
 										</div>
 										<div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 											{s.lastRunAt
@@ -302,13 +305,13 @@ export function ScheduleBackupForm() {
 											disabled={rowActionId !== null}
 											onClick={() => void toggleSchedule(s.id)}
 										>
-											{t("backupsPage.schedule.toggle")}
+											{t(s.status === "ACTIVE" ? "backupsPage.schedule.pause" : "backupsPage.schedule.resume")}
 										</ActionButton>
 										<ActionButton
 											size="xs"
 											variant="danger"
 											disabled={rowActionId !== null}
-											onClick={() => setPendingDeleteId(s.id)}
+											onClick={() => { setDeleteError(null); setPendingDeleteId(s.id); }}
 										>
 											{t("backupsPage.schedule.delete")}
 										</ActionButton>
@@ -319,7 +322,7 @@ export function ScheduleBackupForm() {
 					</div>
 				)}
 			</div>
-			<ConfirmDialog open={pendingDeleteId !== null} title={t("common.confirmDelete")} description={t("backupsPage.schedule.deleteConfirm", { name: schedules.find((s) => s.id === pendingDeleteId)?.name ?? "" })} cancelLabel={t("common.cancel")} confirmLabel={t("common.confirmDelete")} onCancel={() => setPendingDeleteId(null)} onConfirm={() => pendingDeleteId && void deleteSchedule(pendingDeleteId)} />
+			<ConfirmDialog open={pendingDeleteId !== null} title={t("common.confirmDelete")} description={t("backupsPage.schedule.deleteConfirm", { name: schedules.find((s) => s.id === pendingDeleteId)?.name ?? "" })} cancelLabel={t("common.cancel")} confirmLabel={t("common.confirmDelete")} onCancel={() => setPendingDeleteId(null)} onConfirm={() => pendingDeleteId && void deleteSchedule(pendingDeleteId)} busy={pendingDeleteId !== null && rowActionId === pendingDeleteId} error={deleteError ?? undefined} />
 		</div>
 	);
 }

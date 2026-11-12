@@ -29,6 +29,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ApiError } from "@/lib/http/api-client-error";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { streamErrorMessage, withoutErrorMark } from "../ai-stream-error";
 import type {
   ConvItem,
   Message,
@@ -278,19 +279,13 @@ export function useAiChatStream({
                   setStreamContent(
                     (prev) =>
                       prev +
-                      t("aiPage.toolCallStart").replace(
-                        "{name}",
-                        tc.actionName,
-                      ),
+                      t("aiPage.toolCallStart", { name: tc.actionName }),
                   );
                 } else {
                   setStreamContent(
                     (prev) =>
                       prev +
-                      t("aiPage.toolCallApproval").replace(
-                        "{name}",
-                        tc.actionName,
-                      ),
+                      t("aiPage.toolCallApproval", { name: tc.actionName }),
                   );
                 }
               } else if (parsed.type === "tool_result") {
@@ -303,10 +298,8 @@ export function useAiChatStream({
                   setStreamContent(
                     (prev) =>
                       prev +
-                      t("aiPage.toolCallFailed").replace(
-                        "{detail}",
-                        JSON.stringify(parsed.data).slice(0, 200),
-                      ),
+                      // Through t(): command output is full of "$" sequences that String.replace acts on.
+                      t("aiPage.toolCallFailed", { detail: JSON.stringify(parsed.data).slice(0, 200) }),
                   );
                 }
               } else if (parsed.type === "tool_approval_needed") {
@@ -360,25 +353,10 @@ export function useAiChatStream({
             setMessages((prev) => [...prev, partial]);
           }
           if (stillOnSameConv) {
-            const errorText = terminalError.startsWith("❌")
-              ? terminalError
-              : `❌ ${terminalError}`;
-            const errorMsg: Message = {
-              id: `stream-error-${crypto.randomUUID()}`,
-              conversationId: convIdAtSend,
-              role: "assistant",
-              content: errorText,
-              reasoningContent: null,
-              imageUrls: "[]",
-              model: activeConv?.model || null,
-              inputTokens: null,
-              outputTokens: null,
-              latencyMs: null,
-              createdAt: new Date().toISOString(),
-            };
+            const errorMsg = streamErrorMessage({ conversationId: convIdAtSend, text: terminalError, model: activeConv?.model || null });
             setMessages((prev) => [...prev, errorMsg]);
           }
-          addToast("error", terminalError.replace(/^❌\s*/, ""));
+          addToast("error", withoutErrorMark(terminalError));
         } else if (stillOnSameConv && (completedSuccessfully || aborted)) {
           try {
             const data = await csrfFetch(

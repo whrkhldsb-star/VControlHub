@@ -77,17 +77,23 @@ describe("useImageBedList", () => {
 		expect(url).toContain("all=true");
 	});
 
-	it("throws on fetch failure so the parent can show a toast", async () => {
-		csrfFetchMock.mockRejectedValueOnce(new Error("network"));
+	it("keeps what a failed fetch was refused with, and rejects so that a caller can react", async () => {
+		// The reason was replaced by a marker ("list-fetch-failed"), so the page could only say "failed".
+		const refused = new Error("缺少权限: image:read");
+		csrfFetchMock.mockRejectedValueOnce(refused);
 		const { result } = renderHook(() => useImageBedList({ canWrite: true }));
 		await waitFor(() => expect(result.current.loading).toBe(false));
-		await waitFor(() => expect(result.current.error).toBe("list-fetch-failed"));
-		// Subsequent manual fetchImages call should reject with a typed marker
-		// so the parent can distinguish "list fetch failed" from a generic error.
+		await waitFor(() => expect(result.current.error).toBe(refused));
+		const again = new Error("请求过于频繁");
+		csrfFetchMock.mockRejectedValueOnce(again);
 		await act(async () => {
-			await expect(result.current.fetchImages(2)).rejects.toThrow("list-fetch-failed");
+			await expect(result.current.fetchImages(2)).rejects.toBe(again);
 		});
-		expect(result.current.error).toBe("list-fetch-failed");
+		expect(result.current.error).toBe(again);
+		// The next answer clears it.
+		csrfFetchMock.mockResolvedValueOnce(sampleListResponse);
+		await act(async () => { await result.current.fetchImages(1); });
+		expect(result.current.error).toBeNull();
 	});
 
 	it("captures total + totalPages and the requested page number", async () => {

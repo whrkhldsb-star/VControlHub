@@ -15,11 +15,15 @@ import Image from "next/image";
 import { type DragEvent, type RefObject, useMemo } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { copyToClipboard, renderContent } from "./ai-markdown-renderer";
+import { renderContent } from "./ai-markdown-renderer";
 import type { Message, ModelCapabilities, ToolApprovalNeeded } from "./ai-types";
 import { formatAllowedTypes } from "./ai-file-helpers";
-import { approvalDetails } from "./ai-hosted-action-utils";
+import { approvalDetails, automationSummary } from "./ai-hosted-action-utils";
+import { isStreamErrorMessage } from "./ai-stream-error";
+import { formatDateTime } from "@/lib/datetime/format";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
+import { AiCopyButton, type AiCopyLabels } from "./ai-copy-button";
 
 const EMPTY_TOOL_CONTENT = new Set([
   "(无响应内容)",
@@ -56,8 +60,6 @@ type Props = {
     approval: ToolApprovalNeeded,
     action: "confirm" | "reject",
   ) => void;
-  copyFeedback: string | null;
-  setCopyFeedback: (id: string | null) => void;
   currentModelCaps: ModelCapabilities;
   messagesEndRef: RefObject<HTMLDivElement | null>;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
@@ -65,6 +67,9 @@ type Props = {
   /** Re-send the latest user turn — shown on the last assistant bubble and
    *  labeled "重试" when that bubble is an error. */
   onRegenerate?: () => void;
+  /** Why the conversation's history could not be loaded; shown instead of "nothing said yet". */
+  loadError?: string | null;
+  onRetryLoad?: () => void;
 };
 
 export function AiMessageList({
@@ -75,15 +80,15 @@ export function AiMessageList({
   pendingApprovals,
   approvalBusyById,
   onApproval,
-  copyFeedback,
-  setCopyFeedback,
   currentModelCaps,
   messagesEndRef,
   onDrop,
   onDragOver,
   onRegenerate,
+  loadError,
+  onRetryLoad,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const actionDisplayName = (actionType: string, fallback: string) => {
     const key = `aiPage.actionType.${actionType}`;
     const translated = t(key);
@@ -102,13 +107,23 @@ export function AiMessageList({
     [messages],
   );
   const lastIdx = visibleMsgs.length - 1;
+  const copyLabels: AiCopyLabels = {
+    label: t("aiPage.copyCode"),
+    copiedLabel: t("aiPage.copyOrCopied"),
+    failedLabel: t("aiPage.copyFailed"),
+  };
   return (
     <div
       className="flex-1 min-h-0 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 space-y-4"
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
-      {messages.length === 0 && !streaming && (
+      {loadError && messages.length === 0 && !streaming ? (
+        <Notice tone="danger" action={onRetryLoad ? { label: t("common.retry"), onClick: onRetryLoad } : undefined}>
+          {loadError}
+        </Notice>
+      ) : null}
+      {messages.length === 0 && !streaming && !loadError && (
         <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)]">
           <svg
             className="w-12 h-12 mb-3 opacity-30"
@@ -125,10 +140,7 @@ export function AiMessageList({
           </svg>
           <p className="text-sm">{t("aiPage.placeholder")}</p>
           <p className="text-xs mt-1 text-[var(--text-muted)]">
-            {t("aiPage.dragPasteHint").replace(
-              "{types}",
-              formatAllowedTypes(currentModelCaps, t),
-            )}
+            {t("aiPage.dragPasteHint", { types: formatAllowedTypes(currentModelCaps, t) })}
           </p>
         </div>
       )}
@@ -138,8 +150,7 @@ export function AiMessageList({
         const hasToolOnlyContent =
           hostedActions.length > 0 &&
           (!msg.content.trim() || EMPTY_TOOL_CONTENT.has(msg.content.trim()));
-        // The stream hook writes error bubbles as "⚠ <message>".
-        const isErrorBubble = msg.role === "assistant" && (msg.content.startsWith("⚠") || msg.content.startsWith("? "));
+        const isErrorBubble = isStreamErrorMessage(msg);
         const showRegenerate = Boolean(onRegenerate) && idx === lastIdx && msg.role === "assistant" && !streaming && !isErrorBubble;
         const showRetry = Boolean(onRegenerate) && idx === lastIdx && isErrorBubble && !streaming;
         return (
@@ -165,6 +176,7 @@ export function AiMessageList({
             </div>
           )}
           <div
+          data-error-reply={isErrorBubble ? "" : undefined}
           className={`max-w-[88%] sm:max-w-[80%] rounded-2xl border px-3 py-2 text-sm leading-relaxed sm:px-4 sm:py-2.5 ${
             isErrorBubble
               ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
@@ -184,7 +196,7 @@ export function AiMessageList({
               </details>
             )}
             {!hasToolOnlyContent && (
-              <div className="break-words">{renderContent(msg.content, { copyLabel: t("aiPage.copyCode") })}</div>
+              <div className="break-words">{renderContent(msg.content, { copy: copyLabels })}</div>
             )}
             {hostedActions.length > 0 && (
               <div className="mt-2 space-y-2 border-t border-[var(--border-subtle)] pt-2">
@@ -255,10 +267,7 @@ export function AiMessageList({
                       <Image
                         key={i}
                         src={url}
-                        alt={t("aiPage.attachment").replace(
-                          "{index}",
-                          String(i + 1),
-                        )}
+                        alt={t("aiPage.attachment", { index: i + 1 })}
                         width={200}
                         height={200}
                         unoptimized
@@ -288,35 +297,7 @@ export function AiMessageList({
               )}
             {!hasToolOnlyContent && (
               <div className="mt-1.5 flex items-center gap-3">
-              <button
-              type="button"
-              aria-label={t("aiPage.copyAria")}
-              onClick={async () => {
-                const ok = await copyToClipboard(msg.content);
-                if (ok) {
-                  setCopyFeedback(msg.id);
-                  setTimeout(() => setCopyFeedback(null), 2000);
-                }
-              }}
-              className="flex items-center gap-1 text-xs text-[var(--text-muted)] transition hover:text-[var(--accent)]"
-            >
-              <svg
-                className="w-3 h-3"
-                fill="none"
-                stroke="currentColor"
-                width="24" height="24" viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-              {copyFeedback === msg.id
-                ? t("aiPage.copyOrCopied")
-                : t("aiPage.copy")}
-            </button>
+              <AiCopyButton text={msg.content} ariaLabel={t("aiPage.copyAria")} {...copyLabels} label={t("aiPage.copy")} />
               {(showRegenerate || showRetry) && (
                 <button
                   type="button"
@@ -370,7 +351,7 @@ export function AiMessageList({
                 </div>
               </details>
             )}
-            {streamContent ? <div className="break-words">{renderContent(streamContent)}</div> : null}
+            {streamContent ? <div className="break-words">{renderContent(streamContent, { copy: copyLabels })}</div> : null}
           </div>
         </div>
       )}
@@ -391,10 +372,7 @@ export function AiMessageList({
       {pendingApprovals.length > 0 && (
         <div className="sticky bottom-0 z-10 border-t border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_96%,var(--surface))] px-2 py-2 shadow-[0_-8px_20px_rgba(0,0,0,0.16)] backdrop-blur sm:px-4">
           <div className="text-xs text-[var(--warning)] font-medium mb-2">
-            {t("aiPage.pendingApprovalsTitle").replace(
-              "{count}",
-              String(pendingApprovals.length),
-            )}
+            {t("aiPage.pendingApprovalsTitle", { count: pendingApprovals.length })}
           </div>
           <div className="space-y-2">
             {pendingApprovals.map((approval) => (
@@ -424,12 +402,13 @@ export function AiMessageList({
                     >
                       {riskDisplayName(approval.riskLevel)}
                     </span>
-                    {typeof approval.params.serverId === "string" && (
+                    {approval.server ? (
                       <span className="ml-2">
-                        {t("aiPage.serverLabel").replace(
-                          "{id}",
-                          approval.params.serverId,
-                        )}
+                        {t("aiPage.serverNamed", { name: approval.server.name, host: approval.server.host })}
+                      </span>
+                    ) : typeof approval.params.serverId === "string" && (
+                      <span className="ml-2">
+                        {t("aiPage.serverLabel", { id: approval.params.serverId })}
                       </span>
                     )}
                   </div>
@@ -437,7 +416,7 @@ export function AiMessageList({
                     <dl className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
                       {approvalDetails(approval.actionType, approval.params).map((row) => (
                         <div key={row.labelKey}>
-                          <dt className="inline text-[var(--text-muted)]">{t(row.labelKey)}: </dt>
+                          <dt className="inline text-[var(--text-muted)]">{t(row.labelKey)}{t("common.colon")}</dt>
                           {row.block ? (
                             <dd>
                               <pre data-inset="" className="max-h-40 overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-xs text-[var(--text-primary)]">{row.value}</pre>
@@ -449,19 +428,22 @@ export function AiMessageList({
                       ))}
                     </dl>
                   )}
-                  {approval.actionType === "create_automation_task" && (
+                  {approval.actionType === "create_automation_task" && (() => {
+                    const summary = automationSummary(approval.params, t, (value) => formatDateTime(value, locale));
+                    return (
                     <div className="mt-2 space-y-2 text-xs text-[var(--text-secondary)]">
-                      <div className="flex flex-wrap gap-x-4 gap-y-1">
-                        <span>{t("aiPage.automationExecution")}: {String(approval.params.executionMode ?? "-")}</span>
-                        <span>{t("aiPage.automationTargets")}: {Array.isArray(approval.params.serverIds) ? approval.params.serverIds.length : 0}</span>
-                        <span>{t("aiPage.automationApproval")}: {String(approval.params.approvalMode ?? "-")}</span>
-                        {typeof approval.params.templateName === "string" && <span>{t("aiPage.automationTemplate")}: {approval.params.templateName}</span>}
-                      </div>
+                      <dl className="space-y-1">
+                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationExecution")}{t("common.colon")}</dt><dd className="inline text-[var(--text-primary)]">{summary.execution}</dd></div>
+                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationTargets")}{t("common.colon")}</dt><dd className="inline break-words text-[var(--text-primary)]">{summary.targets}</dd></div>
+                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationApproval")}{t("common.colon")}</dt><dd className="inline text-[var(--text-primary)]">{summary.approval}</dd></div>
+                        {typeof approval.params.templateName === "string" && <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationTemplate")}{t("common.colon")}</dt><dd className="inline text-[var(--text-primary)]">{approval.params.templateName}</dd></div>}
+                      </dl>
                       {typeof approval.params.plan === "string" && <p className="whitespace-pre-wrap break-words leading-5">{approval.params.plan}</p>}
                       {typeof approval.params.command === "string" && <pre data-inset="" className="max-h-40 overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-xs text-[var(--text-primary)]">{approval.params.command}</pre>}
-                      {(typeof approval.params.verificationCommand === "string" || typeof approval.params.rollbackCommand === "string") && <div className="space-y-1 font-mono text-xs">{typeof approval.params.verificationCommand === "string" && <p>{t("aiPage.automationVerify")}: {approval.params.verificationCommand}</p>}{typeof approval.params.rollbackCommand === "string" && <p>{t("aiPage.automationRollback")}: {approval.params.rollbackCommand}</p>}</div>}
+                      {(typeof approval.params.verificationCommand === "string" || typeof approval.params.rollbackCommand === "string") && <div className="space-y-1 font-mono text-xs">{typeof approval.params.verificationCommand === "string" && <p>{t("aiPage.automationVerify")}{t("common.colon")}{approval.params.verificationCommand}</p>}{typeof approval.params.rollbackCommand === "string" && <p>{t("aiPage.automationRollback")}{t("common.colon")}{approval.params.rollbackCommand}</p>}</div>}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
                 <div className="flex w-full gap-2 sm:ml-3 sm:w-auto">
                   <ActionButton size="sm" variant="danger-solid" className="flex-1 sm:flex-none"

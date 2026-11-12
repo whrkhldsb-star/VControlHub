@@ -8,7 +8,7 @@
 import { Prisma } from "@prisma/client";
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
-import { parseBigInt, parseDate, upsertById, upsertByIdWithSecondaryUnique, type Tx, type Counts } from "./import-executors-helpers";
+import { idsPresent, parseBigInt, parseDate, upsertById, upsertByIdWithSecondaryUnique, type Tx, type Counts } from "./import-executors-helpers";
 
 // 6. SshKeys (fingerprint is a secondary unique key)
 export async function importSshKeys(
@@ -109,6 +109,9 @@ export async function importServers(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
+  // SSH keys were imported before: a key that is neither in the package nor
+  // here (it belongs to another customer) cannot be linked.
+  const keys = await idsPresent(t.servers.map((r) => r.sshKeyId), (ids) => tx.sshKey.findMany({ where: { id: { in: ids } }, select: { id: true } }));
   // Create carries the exported password verbatim (null in Standard mode);
   // update only replaces it when the export actually carries one.
   const toCreateData = (r: ExportFile["tables"]["servers"][number]) => ({
@@ -117,7 +120,8 @@ export async function importServers(
     host: r.host,
     port: r.port,
     username: r.username,
-    sshKeyId: r.sshKeyId,
+    // Without its key the server is imported as one that still needs a key.
+    sshKeyId: r.sshKeyId && keys.has(r.sshKeyId) ? r.sshKeyId : null,
     // Full mode: restore actual password; Standard: null
     password: r.password,
     description: r.description,
@@ -139,7 +143,8 @@ export async function importServers(
     username: r.username,
     // Full mode: restore password; Standard: keep existing
     ...(r.password ? { password: r.password } : {}),
-    sshKeyId: r.sshKeyId,
+    // A key that cannot be linked leaves the server on the key it has here.
+    ...(r.sshKeyId && !keys.has(r.sshKeyId) ? {} : { sshKeyId: r.sshKeyId }),
     description: r.description,
     tags: r.tags,
     enabled: r.enabled,
@@ -211,6 +216,9 @@ export async function importStorageNodes(
   const records = t.storageNodes;
   if (records.length === 0) return;
 
+  // Servers were imported before: a node on a server that is neither in the
+  // package nor here arrives unbound (create) or stays on its server (update).
+  const servers = await idsPresent(records.map((r) => r.serverId), (ids) => tx.server.findMany({ where: { id: { in: ids } }, select: { id: true } }));
   const toData = (r: ExportFile["tables"]["storageNodes"][number]) => ({
     name: r.name,
     driver: r.driver as never,
@@ -222,7 +230,7 @@ export async function importStorageNodes(
     host: r.host,
     port: r.port,
     username: r.username,
-    serverId: r.serverId,
+    ...(r.serverId && !servers.has(r.serverId) ? {} : { serverId: r.serverId }),
     healthStatus: r.healthStatus,
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
     teamId: r.teamId ?? null,

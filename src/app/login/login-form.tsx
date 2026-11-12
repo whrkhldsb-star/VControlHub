@@ -48,7 +48,7 @@ export function LoginForm({ nextPath, error, locale, turnstileSiteKey, nonce }: 
 				<input
 					type="checkbox"
 					name="remember"
-					className="h-4 w-4 shrink-0 rounded border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-ring)] disabled:opacity-50"
+					className="h-4 w-4 shrink-0 rounded border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--accent)] focus:ring-2 focus:ring-[var(--color-action-ring)] disabled:opacity-50"
 				/>
 				<span>{t("login.form.remember", locale)}</span>
 			</label>

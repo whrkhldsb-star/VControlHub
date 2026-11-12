@@ -238,6 +238,8 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		);
 	}
 
+	const visible = unreadOnly ? notifications.filter((n) => !n.isRead) : notifications;
+
 	return (
 		<div className="space-y-3">
 			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
@@ -251,7 +253,20 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					</ActionButton>
 				)}
 			</div>
-			{(unreadOnly ? notifications.filter((n) => !n.isRead) : notifications).map((n) => (
+			{unreadOnly && visible.length === 0 ? (
+				// Nothing unread among the loaded ones: say so (it was a blank area), and whether more may be further down.
+				<EmptyState
+					variant="boxed"
+					icon={<Bell size={24} aria-hidden="true" />}
+					title={unreadCount > 0 ? t("notificationsPage.unreadFurther", { count: unreadCount }) : t("notificationsPage.allRead")}
+					action={
+						<ActionButton size="sm" variant="secondary" onClick={() => setUnreadOnly(false)}>
+							{t("notificationsPage.action.showAll")}
+						</ActionButton>
+					}
+				/>
+			) : null}
+			{visible.map((n) => (
 				<NotificationRow
 					key={n.id}
 					notification={n}

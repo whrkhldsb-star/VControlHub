@@ -5,9 +5,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { withApiRoute } from "@/lib/http/api-guard";
+import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { serverTeamWhere, teamWhere, seesAllCustomers } from "@/lib/auth/team-scope";
+import { dailyAuditActivity, hourlyServerUsage } from "@/lib/dashboard/analytics-queries";
 import { prisma } from "@/lib/db";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 
@@ -28,6 +29,11 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 const ANALYTICS_PAGE_SIZE = 5000;
 
+/**
+ * Pages through the week's download tasks and image uploads: small tables.
+ * Metric snapshots and audit rows are grouped in PostgreSQL instead
+ * (`@/lib/dashboard/analytics-queries`).
+ */
 async function forEachAnalyticsPage<T extends { id: string }>(
   fetchPage: (cursor?: string) => Promise<T[]>,
   consume: (row: T) => void,
@@ -43,13 +49,6 @@ async function forEachAnalyticsPage<T extends { id: string }>(
     }
     cursor = nextCursor;
   }
-}
-
-/** The UTC hour (setMinutes worked in the host's zone: off on a :30/:45 offset). */
-function startOfUtcHour(value: Date) {
-  const hour = new Date(value);
-  hour.setUTCMinutes(0, 0, 0);
-  return hour.toISOString();
 }
 
 /** The application-time-zone day an event belongs to (UTC filed 00:00-08:00 Beijing under the day before). */
@@ -73,6 +72,18 @@ function shouldIncludeAnalytics(session: SessionPayload, requested: string, type
   return (requested === "all" || requested === type) && canReadAnalyticsDomain(session, type);
 }
 
+/**
+ * `teamWhere()` as the grouped audit statement takes it: one customer, or null
+ * for all of them. A scope it cannot express must not widen into "all".
+ */
+function auditCustomer(session: SessionPayload): string | null {
+  const scope = teamWhere(session);
+  const keys = Object.keys(scope);
+  if (keys.length === 0) return null;
+  if (keys.length === 1 && typeof scope.teamId === "string") return scope.teamId;
+  throw new Error("Audit analytics cannot express this customer scope");
+}
+
 function requestedDomainForbidden(session: SessionPayload, requested: string) {
   if (requested === "all") return false;
   if (!isAnalyticsDomain(requested)) return false;
@@ -85,7 +96,7 @@ export async function GET(request: Request) {
     rateLimit: GENERAL_READ_LIMIT,
     // Guard's default catch path (apiCatch + logging) covers this; the
     // errorMessage keeps the route-specific fallback copy for 5xx bodies.
-    errorMessage: t("backend.dashboard.analyticsFetchFailed"),
+    errorMessage: t("backend.dashboard.analyticsFetchFailed", await requestLocale(request)),
   }, async ({ session }) => {
     const { type } = parseSearchParams(
       request,
@@ -99,67 +110,19 @@ export async function GET(request: Request) {
     }
 
     const results: Record<string, unknown> = {};
-    // Metric snapshots derive from Servers (a security root). Scope them with the
-    // strict server-quarantine filter — a null-team snapshot belongs to a
-    // quarantined legacy server that non-admins must not see, so it must NOT
-    // fall under the loose "null is shared" teamWhere used for genuinely
-    // team-owned resources below.
-    const metricTeamFilter = seesAllCustomers(session)
-      ? {}
-      : { server: serverTeamWhere(session) };
     const resourceTeamFilter = teamWhere(session);
 
-    // Server metrics trend (last 24h). Filter through the Server security root
-    // so per-server grants also apply to its snapshots.
+    // Server metrics trend (last 24h). Metric snapshots derive from Servers (a
+    // security root): the servers are chosen with the strict server filter, so
+    // per-server grants apply to their snapshots, and a null-team snapshot (a
+    // quarantined legacy server non-admins must not see) never falls under the
+    // loose "null is shared" teamWhere used for team-owned resources below.
     if (shouldIncludeAnalytics(session, type, "servers")) {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * HOUR_MS);
-      const buckets = new Map<
-        string,
-        { cpu: number; memory: number; disk: number; count: number }
-      >();
-      await forEachAnalyticsPage(
-        (cursor) =>
-          prisma.metricSnapshot.findMany({
-            where: {
-              createdAt: { gte: twentyFourHoursAgo },
-              ...metricTeamFilter,
-            },
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-            take: ANALYTICS_PAGE_SIZE,
-            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-            select: {
-              id: true,
-              cpuUsage: true,
-              memUsage: true,
-              diskUsage: true,
-              isOnline: true,
-              createdAt: true,
-            },
-          }),
-        (metric) => {
-          // Only measured samples: an offline sample's zeros (and a server
-          // with no metrics channel) pulled the fleet's usage averages down.
-          if (!metric.isOnline || metric.cpuUsage === null || metric.memUsage === null || metric.diskUsage === null) return;
-          const key = startOfUtcHour(metric.createdAt);
-          const bucket = buckets.get(key) ?? {
-            cpu: 0,
-            memory: 0,
-            disk: 0,
-            count: 0,
-          };
-          bucket.cpu += metric.cpuUsage;
-          bucket.memory += metric.memUsage;
-          bucket.disk += metric.diskUsage;
-          bucket.count++;
-          buckets.set(key, bucket);
-        },
-      );
-      results.servers = Array.from(buckets.entries()).map(([time, data]) => ({
-        time,
-        cpu: data.count ? Math.round(data.cpu / data.count) : 0,
-        memory: data.count ? Math.round(data.memory / data.count) : 0,
-        disk: data.count ? Math.round(data.disk / data.count) : 0,
-      }));
+      const serverIds = seesAllCustomers(session)
+        ? null
+        : (await prisma.server.findMany({ where: serverTeamWhere(session), select: { id: true } })).map((server) => server.id);
+      results.servers = await hourlyServerUsage(twentyFourHoursAgo, serverIds);
     }
 
     // Download task trend (last 7 days)
@@ -209,36 +172,7 @@ export async function GET(request: Request) {
     // Audit log activity (last 30 days, grouped by day)
     if (shouldIncludeAnalytics(session, type, "audit")) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS);
-      const dayBuckets = new Map<
-        string,
-        { total: number; actions: Record<string, number> }
-      >();
-      await forEachAnalyticsPage(
-        (cursor) =>
-          prisma.auditLog.findMany({
-            where: {
-              createdAt: { gte: thirtyDaysAgo },
-              ...resourceTeamFilter,
-            },
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-            take: ANALYTICS_PAGE_SIZE,
-            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-            select: { id: true, action: true, createdAt: true },
-          }),
-        (audit) => {
-          const day = appDayKey(audit.createdAt);
-          if (!dayBuckets.has(day)) {
-            dayBuckets.set(day, { total: 0, actions: {} });
-          }
-          const bucket = dayBuckets.get(day)!;
-          bucket.total++;
-          bucket.actions[audit.action] = (bucket.actions[audit.action] || 0) + 1;
-        },
-      );
-      results.audit = Array.from(dayBuckets.entries()).map(([date, data]) => ({
-        date,
-        ...data,
-      }));
+      results.audit = await dailyAuditActivity(thirtyDaysAgo, auditCustomer(session));
     }
 
     // Image bed storage trend (last 7 days)

@@ -217,4 +217,21 @@ describe("UnifiedSettingsPageClient", () => {
     await userEvent.click(advancedTab);
     expect(advancedTab).toHaveAttribute("aria-selected", "true");
   });
+
+  it("counts every personal section and opens each one from its address", async () => {
+    // The ids were listed by hand, one short: the badge said 5 over a menu of 6, and
+    // /settings#preferences-rdp-probe opened the default section.
+    window.history.replaceState({}, "", "/settings#preferences-rdp-probe");
+    try {
+      render(<UnifiedSettingsPageClient settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }} canManage />);
+      const personalTab = screen.getByRole("tab", { name: /个人偏好/ });
+      await waitFor(() => expect(personalTab).toHaveAttribute("aria-selected", "true"));
+      const menu = screen.getByRole("combobox", { name: "设置分类导航" }) as HTMLSelectElement;
+      expect(menu.options).toHaveLength(6);
+      expect(personalTab).toHaveTextContent("6");
+      await waitFor(() => expect(menu).toHaveValue("preferences-rdp-probe"));
+    } finally {
+      window.history.replaceState({}, "", "/settings");
+    }
+  });
 });

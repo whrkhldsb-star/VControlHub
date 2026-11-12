@@ -1,3 +1,4 @@
+import { firstSearchParam } from "@/lib/http/first-search-param";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { countTickets } from "@/lib/ticket/service";
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 const SLA_FILTERS = new Set(["ok", "warning", "breached", "none"]);
 
 function param(value: string | string[] | undefined): string {
-  return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+  return firstSearchParam(value)?.trim() ?? "";
 }
 
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

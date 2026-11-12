@@ -47,6 +47,30 @@ describe("useAbortableTextResource", () => {
     expect(result.current.content).toBe("recovered");
   });
 
+  it("says why the server refused the file, and only names the status when it said nothing", async () => {
+    // The Markdown preview showed "加载失败: 403" whatever the server answered.
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: "FORBIDDEN", error: "Forbidden", message: "没有此存储节点或路径的访问授权" }), { status: 403 }))
+      .mockResolvedValueOnce(new Response("<html>502 Bad Gateway</html>", { status: 502 }));
+    const { result } = renderHook(() => useAbortableTextResource({ href: "/file", fetcher, errorMessage: (status) => `加载失败: ${status}` }));
+
+    await waitFor(() => expect(result.current.error).toBe("没有此存储节点或路径的访问授权"));
+    await act(() => result.current.reload());
+    expect(result.current.error).toBe("加载失败: 502");
+  });
+
+  it("asks through the app's own request helper unless told otherwise", async () => {
+    // So that a request without an answer is worded like everywhere else, not as the browser's "Failed to fetch".
+    const original = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch")) as unknown as typeof fetch;
+    try {
+      const { result } = renderHook(() => useAbortableTextResource({ href: "/file" }));
+      await waitFor(() => expect(result.current.error).toBe("无法连接到服务器，请检查网络后重试"));
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
   it("does not reload when callback identities change during a render", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response("stable", { status: 200 }));
     const { result, rerender } = renderHook(

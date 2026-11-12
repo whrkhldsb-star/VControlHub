@@ -9,6 +9,7 @@ import type { Permission } from "@/lib/auth/rbac";
 import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toggleSidebarCollapsed } from "@/lib/ui/shell-preferences";
+import { useModifierKey } from "@/lib/ui/use-modifier-key";
 import { Dialog } from "./ui/dialog";
 import { mainNavItems, systemNavItems } from "./nav-items";
 import { OPEN_SHORTCUTS_EVENT } from "./user-menu";
@@ -116,8 +117,9 @@ export function KeyboardShortcuts({
 		}));
 	}, [t]);
 
+	const modifierKey = useModifierKey();
 	const general: Array<{ keys: string[]; label: string }> = [
-		{ keys: ["⌘", "K"], label: t("shell.shortcuts.palette") },
+		{ keys: [modifierKey, "K"], label: t("shell.shortcuts.palette") },
 		{ keys: ["/"], label: t("shell.shortcuts.search") },
 		{ keys: ["["], label: t("shell.shortcuts.sidebar") },
 		{ keys: ["?"], label: t("shell.shortcuts.help") },

@@ -54,8 +54,9 @@ export async function GET(request: Request) {
 				id: `server:${server.id}`,
 				label: server.name,
 				description: server.description ?? server.host,
-				// Deep-link so the servers page can highlight the matched host (same pattern as tickets).
-				href: `/servers?highlight=${encodeURIComponent(server.id)}`,
+				// The server list filtered to this server. It was /servers?highlight=<id>, which that page never read:
+				// the hit opened the first page of all servers.
+				href: `/servers?query=${encodeURIComponent(server.name)}`,
 				icon: "🖥️",
 				category: "server" as const,
 			})));

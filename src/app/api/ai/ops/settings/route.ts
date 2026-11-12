@@ -87,7 +87,10 @@ export async function PATCH(request: Request) {
 				);
 			}
 			const normalizedProviderId = body.providerId?.trim() ?? "";
-			if (normalizedProviderId) {
+			// Only a provider that is being chosen now has to be the caller's own. The one already saved may be
+			// a colleague's, and the page sends it back unchanged: refusing it there meant that only the
+			// administrator who had picked the provider could change the mode.
+			if (normalizedProviderId && providerChanged) {
 				const provider = await prisma.aiProvider.findFirst({
 					where: {
 						id: normalizedProviderId,
@@ -104,7 +107,7 @@ export async function PATCH(request: Request) {
 			}
 
 			await setSetting("ai.ops.mode", body.mode, session.userId);
-			if (body.providerId !== undefined) {
+			if (providerChanged) {
 				await setSetting("ai.ops.provider", normalizedProviderId, session.userId);
 			}
 

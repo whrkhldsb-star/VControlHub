@@ -115,16 +115,19 @@ type ResolvedConnection = {
  * Normalise a remote path and reject obvious traversal attempts.
  * We allow absolute paths (common for root-SSH sessions) but block
  * null bytes and excessively long paths.
+ *
+ * A refusal is the caller's input, so it is a ValidationError: as a plain
+ * Error it reached the route's catch-all and answered 500 "operation failed".
  */
 export function sanitizeRemotePath(raw: string): string {
   if (!raw || typeof raw !== "string") {
-    throw new Error("Path must be a non-empty string");
+    throw new ValidationError(t("backend.sftp.pathRequired"));
   }
   if (raw.includes("\0")) {
-    throw new Error("Path contains null bytes");
+    throw new ValidationError(t("backend.sftp.pathHasNullByte"));
   }
   if (raw.length > 4096) {
-    throw new Error("Path exceeds maximum length");
+    throw new ValidationError(t("backend.sftp.pathTooLong", { max: 4096 }));
   }
   // Normalise consecutive slashes
   return raw.replace(/\/{2,}/g, "/");
@@ -133,7 +136,7 @@ export function sanitizeRemotePath(raw: string): string {
 /** Reject filenames that contain path separators, traversal, or null bytes. */
 export function sanitizeFileName(raw: string): string {
   if (!raw || typeof raw !== "string") {
-    throw new Error("Filename must be a non-empty string");
+    throw new ValidationError(t("backend.sftp.fileNameRequired"));
   }
   // Path separators and null bytes are the real traversal vectors and are
   // rejected outright. `.` / `..` are only dangerous as whole path segments,
@@ -147,10 +150,10 @@ export function sanitizeFileName(raw: string): string {
     raw === "." ||
     raw === ".."
   ) {
-    throw new Error("Invalid filename");
+    throw new ValidationError(t("backend.sftp.fileNameInvalid"));
   }
   if (raw.length > 255) {
-    throw new Error("Filename exceeds maximum length");
+    throw new ValidationError(t("backend.sftp.fileNameTooLong", { max: 255 }));
   }
   return raw;
 }
@@ -393,7 +396,14 @@ export async function uploadFile(
       });
 
       writeStream.on("error", (err: Error) => {
-        fail(new Error(`Upload write error: ${err.message}`));
+        // Typed like every other SFTP operation here: a missing directory, a
+        // refused write or a full disk used to reach the route as a plain
+        // Error, which it can only answer with a blank "Upload failed" 500.
+        try {
+          mapSftpError(err);
+        } catch (mapped) {
+          fail(mapped instanceof Error ? mapped : new Error(`Upload write error: ${err.message}`));
+        }
       });
 
       // ssh2 WriteStream emits "close" after autoClose; Node Writable also

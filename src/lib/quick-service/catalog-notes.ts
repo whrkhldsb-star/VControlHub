@@ -22,6 +22,8 @@ export const NOTES_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Beautiful team knowledge base/Wiki, an open-source alternative to Notion",
 		image: "outlinewiki/outline:latest",
 		defaultPort: 3010,
+		// The image listens on 3000; 3010 is only the host port.
+		internalPort: 3000,
 		path: "/outline/",
 		envJson: { PGSSLMODE: "disable" },
 		volumesJson: [{ host: "/opt/outline/data", container: "/var/lib/outline/data" }],
@@ -34,6 +36,8 @@ export const NOTES_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Real-time collaborative Markdown editor, multi-user simultaneous editing",
 		image: "quay.io/hedgedoc/hedgedoc:latest",
 		defaultPort: 3011,
+		// The image listens on 3000; 3011 is only the host port.
+		internalPort: 3000,
 		path: "/hedgedoc/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/hedgedoc/uploads", container: "/hedgedoc/public/uploads" }],
@@ -46,6 +50,8 @@ export const NOTES_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "All-in-one workspace: docs/whiteboard/database, an alternative to Notion+Miro",
 		image: "ghcr.io/toeverything/affine-self-hosted:latest",
 		defaultPort: 3012,
+		// The image listens on 3010; 3012 is only the host port.
+		internalPort: 3010,
 		path: "/affine/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/affine/data", container: "/root/.affine" }],
@@ -58,6 +64,8 @@ export const NOTES_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Self-hosted bookmark manager, auto-captures webpage snapshots/screenshots",
 		image: "ghcr.io/linkwarden/linkwarden:latest",
 		defaultPort: 3013,
+		// The image listens on 3000; 3013 is only the host port.
+		internalPort: 3000,
 		path: "/linkwarden/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/linkwarden/data", container: "/data/data" }],
@@ -70,6 +78,8 @@ export const NOTES_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Self-hosted read-later service, saves web articles for offline reading",
 		image: "wallabag/wallabag:latest",
 		defaultPort: 3014,
+		// The image listens on 80; 3014 is only the host port.
+		internalPort: 80,
 		path: "/wallabag/",
 		envJson: {},
 		volumesJson: [

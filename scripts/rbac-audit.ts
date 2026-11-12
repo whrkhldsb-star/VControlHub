@@ -27,8 +27,11 @@
  *   - `api-decl-perm-unused`    — `declaredPermissions` lists X but the route
  *                                 handler never enforces it (via `requirePermission(X)`
  *                                 or `withApiRoute(..., { permission: X }, ...)`).
- *   - `api-route-missing`       — `requirePermission` is called from a
- *                                 path not represented in route-catalog.
+ *   - `api-route-missing`       — reserved: a `requirePermission` call in a
+ *                                 path the route catalog does not list. No
+ *                                 check produces it yet (the count in the
+ *                                 report is always 0); a route file missing
+ *                                 from the catalog is caught by `route:verify`.
  *   - `page-button-perm-unused` — a `sessionHasPermission("X")` call in
  *                                 a page never gates a visible button
  *                                 (`X` is only "set" but never read). The

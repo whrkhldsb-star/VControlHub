@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from "react";
+import { ActionButton } from "@/components/action-button";
 import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ApiError } from "@/lib/http/api-client-error";
@@ -16,28 +17,37 @@ type Verify2faFormProps = {
 
 export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 	const { t } = useI18n();
-	const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
+	const [digits, setDigits] = useState<string[]>(() => Array<string>(6).fill(""));
 	const [mode, setMode] = useState<"totp" | "recovery">("totp");
 	const [recoveryCode, setRecoveryCode] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [errorMsg, setErrorMsg] = useState(error);
 	const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-	function setDigit(index: number, value: string) {
-		const newDigits = [...digits];
-		newDigits[index] = value.slice(-1); // Only keep the last digit
-		setDigits(newDigits);
+	const EMPTY_CODE = Array<string>(6).fill("");
+
+	/** Put `typed` digits into the boxes from `index` on, move the focus after them and send a complete code. */
+	function fill(index: number, typed: string) {
+		const next = [...digits];
+		for (let offset = 0; offset < typed.length && index + offset < 6; offset++) next[index + offset] = typed[offset]!;
+		setDigits(next);
 		setErrorMsg(undefined);
+		inputRefs.current[Math.min(index + typed.length, 5)]?.focus();
+		if (next.every((digit) => digit !== "")) void submitCode(next.join(""));
+	}
 
-		// Auto-focus next input
-		if (value && index < 5) {
-			inputRefs.current[index + 1]?.focus();
+	function setDigit(index: number, value: string) {
+		const typed = value.replace(/\D/g, "");
+		if (!typed) {
+			// Emptied, or something that is not a digit: the box is empty.
+			if (digits[index]) setDigits(digits.map((digit, at) => (at === index ? "" : digit)));
+			setErrorMsg(undefined);
+			return;
 		}
-
-		// Auto-submit when all 6 digits are filled
-		if (value && index === 5 && newDigits.every((d) => d !== "")) {
-			submitCode(newDigits.join(""));
-		}
+		// One more key in a filled box replaces its digit. Anything longer is a whole code put into one box (a
+		// password manager, the system's one-time-code suggestion): it goes into the boxes from the first.
+		if (typed.length <= 2) fill(index, typed.slice(-1));
+		else fill(typed.length >= 6 ? 0 : index, typed.slice(0, 6));
 	}
 
 	function handleKeyDown(index: number, e: KeyboardEvent<HTMLInputElement>) {
@@ -46,21 +56,12 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 		}
 	}
 
-	function handlePaste(e: ClipboardEvent<HTMLInputElement>) {
+	/** In any box: a whole code fills all of them, a shorter run of digits goes in from the box it was pasted into. */
+	function handlePaste(index: number, e: ClipboardEvent<HTMLInputElement>) {
 		e.preventDefault();
 		const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
 		if (!pasted) return;
-		const newDigits = [...digits];
-		for (let i = 0; i < pasted.length; i++) {
-			newDigits[i] = pasted[i]!;
-		}
-		setDigits(newDigits);
-		setErrorMsg(undefined);
-
-		// Auto-submit if all filled
-		if (newDigits.every((d) => d !== "")) {
-			submitCode(newDigits.join(""));
-		}
+		fill(pasted.length === 6 ? 0 : index, pasted);
 	}
 
 	async function submitCode(code: string) {
@@ -83,15 +84,21 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 			}
 
 			setErrorMsg(data.error || t("login.verify2faFailed"));
-			if (mode === "totp") {
-				setDigits(Array(6).fill(""));
-				inputRefs.current[0]?.focus();
-			}
+			startOver();
 		} catch (error) {
 			setErrorMsg(error instanceof ApiError ? error.message : t("login.verify2faNetworkError"));
+			// A refused code is typed again from the first box. One that never reached the server stays: it may
+			// still be good, and the button sends it again.
+			if (error instanceof ApiError) startOver();
 		} finally {
 			setSubmitting(false);
 		}
+	}
+
+	function startOver() {
+		if (mode !== "totp") return;
+		setDigits(EMPTY_CODE);
+		inputRefs.current[0]?.focus();
 	}
 
 	function handleResubmit(e: React.FormEvent) {
@@ -125,13 +132,17 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 						ref={(el) => { inputRefs.current[i] = el; }}
 						type="text"
 						inputMode="numeric"
-						pattern="[0-9]"
-						maxLength={1}
+						pattern="[0-9]*"
+						// No length limit: a whole code may arrive in one box (see setDigit).
+						autoComplete={i === 0 ? "one-time-code" : "off"}
 						value={digit}
 						onChange={(e) => setDigit(i, e.target.value)}
 						onKeyDown={(e) => handleKeyDown(i, e)}
-						onPaste={i === 0 ? handlePaste : undefined}
-						disabled={submitting}
+						onPaste={(e) => handlePaste(i, e)}
+						// Read-only, not switched off, while the code is checked: a disabled box drops the focus, and
+						// after a refused code nothing was focused to type the next one into.
+						readOnly={submitting}
+						aria-busy={submitting}
 						autoFocus={i === 0}
 						className={cn(UI_INPUT, "h-14 w-12 text-center text-xl font-semibold")}
 					/>
@@ -145,7 +156,8 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 					<input
 						id="two-factor-recovery-code"
 						type="text"
-						autoComplete="one-time-code"
+						// Not a one-time code: a password manager would put the authenticator's digits here.
+						autoComplete="off"
 						value={recoveryCode}
 						onChange={(event) => setRecoveryCode(event.target.value.toUpperCase())}
 						placeholder="ABCD-EFGH-JKLM"
@@ -160,13 +172,14 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 				<Notice tone="danger">{errorMsg}</Notice>
 			) : null}
 
-			<button
+			<ActionButton
 				type="submit"
+				block
 				disabled={submitting || (mode === "totp" ? digits.some((d) => !d) : recoveryCode.trim().length === 0)}
-				data-variant="primary" className="w-full py-2.5 text-sm font-semibold"
+				className="py-2.5 text-sm font-semibold"
 			>
 				{submitting ? t("login.verify2faSubmitting") : t("login.verify2faSubmit")}
-			</button>
+			</ActionButton>
 		</form>
 	);
 }

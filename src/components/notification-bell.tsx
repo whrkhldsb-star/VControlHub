@@ -97,9 +97,9 @@ export function NotificationBell() {
 	// Toast effect when new notification arrives via WS
 	useEffect(() => {
 		if (lastNotification) {
-			// Prepend to local list
-
-			setNotifications((prev) => [{
+			// Prepend to the local list. The row is in the database before it is pushed, so a list loaded in
+			// between already has it — with its customer and whether it was read, which the push does not carry.
+			setNotifications((prev) => prev.some((notification) => notification.id === lastNotification.id) ? prev : [{
 				id: lastNotification.id,
 				type: "system",
 				title: lastNotification.title,

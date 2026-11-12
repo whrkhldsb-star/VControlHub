@@ -31,7 +31,7 @@ function metrics(): Metric[] {
   // counts do not silently collapse to 0 on a Windows checkout.
   const pages = walk(srcApp, (p) => /[/\\]page\.tsx$/.test(p)).length;
   const apiRoutes = walk(srcApp, (p) => /[/\\]api[/\\].*[/\\]route\.ts$/.test(p)).length;
-  const components = walk(join(ROOT, "src/components"), (p) => /\.[tj]sx?$/.test(p) && !p.includes("/__tests__/")).length;
+  const components = walk(join(ROOT, "src/components"), (p) => /\.[tj]sx?$/.test(p) && !/[/\\]__tests__[/\\]/.test(p)).length;
   const dictionaries = walk(join(ROOT, "src/lib/i18n/dictionaries"), (p) => p.endsWith(".ts")).length;
   const catalogFiles = walk(join(ROOT, "src/lib/quick-service"), (p) => /catalog.*\.ts$/.test(p));
   const templates = catalogFiles.reduce((sum, file) => {

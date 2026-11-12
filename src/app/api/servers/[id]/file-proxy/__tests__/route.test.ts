@@ -10,6 +10,7 @@ const {
   acquireLockMock,
   releaseLockMock,
   sshCommands,
+  sshReplies,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
@@ -20,6 +21,8 @@ const {
   acquireLockMock: vi.fn(),
   releaseLockMock: vi.fn(),
   sshCommands: [] as string[],
+  /** What the remote shell prints for a command containing the key. */
+  sshReplies: [] as Array<[string, string]>,
 }));
 
 vi.mock("ssh2", () => ({
@@ -57,7 +60,10 @@ vi.mock("ssh2", () => ({
       };
       callback(null, stream);
       queueMicrotask(() => {
-        const stdout = command.includes("nohup python3")
+        const scripted = sshReplies.find(([key]) => command.includes(key))?.[1];
+        const stdout = scripted !== undefined
+          ? scripted
+          : command.includes("nohup python3")
           ? "4242\n"
           : command.includes("tail -n 20")
             ? "bind failed\n__PROXY_EXITED__\n"
@@ -131,6 +137,81 @@ describe("/api/servers/[id]/file-proxy", () => {
     releaseLockMock.mockResolvedValue(undefined);
     acquireLockMock.mockResolvedValue(releaseLockMock);
     sshCommands.length = 0;
+    sshReplies.length = 0;
+  });
+
+  describe("a pid stored when the proxy started", () => {
+    // The number names the proxy only while the proxy lives. After a reboot or
+    // a kill by hand it is free for any other process, and the row keeps it:
+    // an expired entry sent SIGTERM to that number on every status call, and
+    // "ps -p" reported whatever process had it as the running proxy.
+    const IDENTITY = "tr '\\0' ' ' < /proc/4242/cmdline 2>/dev/null | grep -q '.vps_file_proxy_'";
+    const proxyRow = (overrides: Record<string, unknown> = {}) => ({
+      id: "proxy_1",
+      serverId: "srv_1",
+      proxyType: "python_http",
+      port: 8765,
+      status: "running",
+      pid: 4242,
+      accessToken: "token-123",
+      expiresAt: new Date(Date.now() + 3_600_000),
+      ...overrides,
+    });
+    const status = () => GET(new Request("http://local/api/servers/srv_1/file-proxy"), params);
+    const signals = () => sshCommands.filter((command) => /\bkill\b/.test(command));
+
+    it("reports the proxy running only when that process is the proxy", async () => {
+      proxyFindUniqueMock.mockResolvedValue(proxyRow());
+
+      sshReplies.push(["/proc/4242/cmdline", "proxy_running\n"]);
+      await expect((await status()).json()).resolves.toMatchObject({ status: "running", proxy: { port: 8765, accessToken: "token-123" } });
+      expect(sshCommands[0]).toContain(IDENTITY);
+
+      // Another process has the number now.
+      sshReplies.length = 0;
+      sshReplies.push(["/proc/4242/cmdline", "not_running\n"]);
+      await expect((await status()).json()).resolves.toEqual({ status: "stopped", proxy: null });
+      expect(proxyUpdateMock).toHaveBeenCalledWith({ where: { id: "proxy_1" }, data: { status: "stopped" } });
+      expect(signals()).toEqual([]);
+    });
+
+    it("signals it at expiry only after checking that it is the proxy", async () => {
+      proxyFindUniqueMock.mockResolvedValue(proxyRow({ expiresAt: new Date(Date.now() - 1000) }));
+
+      await expect((await status()).json()).resolves.toEqual({ status: "stopped", proxy: null });
+
+      expect(signals()).toHaveLength(1);
+      expect(signals()[0]).toContain(`if ${IDENTITY}; then kill 4242 2>/dev/null; fi`);
+    });
+
+    it("sends nothing for an expired entry that was already stopped", async () => {
+      proxyFindUniqueMock.mockResolvedValue(proxyRow({ status: "stopped", expiresAt: new Date(Date.now() - 86_400_000) }));
+
+      await status();
+      await status();
+
+      expect(signals()).toEqual([]);
+    });
+
+    it("stops a proxy on request behind the same check", async () => {
+      proxyFindUniqueMock.mockResolvedValue(proxyRow());
+
+      const response = await DELETE(new Request("http://local/api/servers/srv_1/file-proxy", { method: "DELETE" }), params);
+
+      await expect(response.json()).resolves.toEqual({ status: "stopped" });
+      expect(signals()).toHaveLength(1);
+      expect(signals()[0]).toContain(`if ${IDENTITY}; then kill 4242 2>/dev/null; fi`);
+    });
+
+    it("recognises a live proxy before starting another", async () => {
+      proxyFindUniqueMock.mockResolvedValue(proxyRow());
+      sshReplies.push(["/proc/4242/cmdline", "proxy_running\n"]);
+
+      const response = await POST(new Request("http://local/api/servers/srv_1/file-proxy", { method: "POST" }), params);
+
+      await expect(response.json()).resolves.toMatchObject({ status: "running", proxy: { accessToken: "token-123" } });
+      expect(sshCommands.some((command) => command.includes("nohup python3"))).toBe(false);
+    });
   });
 
   it("uses shared auth guard and server:ssh permission for status", async () => {

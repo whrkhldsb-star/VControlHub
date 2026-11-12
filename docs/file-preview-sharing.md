@@ -155,8 +155,8 @@ IP/UA 白名单与过期前提醒不属于当前分享链接合约；需要更�
 | `.zip` / `.jar` | 进程内读取中央目录（`src/lib/storage/zip-reader.ts`），支持 ZIP64，无 UTF-8 标志的文件名按 GBK 解码 | 不需要 |
 | `.tar.gz` / `.tgz` / `.tar` | 进程内流式读取（`src/lib/storage/tar-reader.ts`），支持 ustar、GNU 长文件名和 PAX 头 | 不需要 |
 | `.gz`（非 tar.gz） | 不调外部命令，返回单文件占位 | — |
-| `.7z` | `7z l` | **需要 7z CLI** |
-| `.rar` | `unrar l` | **需要 unrar CLI** |
+| `.7z` | `7z l -slt`（技术列表，逐项 `键 = 值`，`src/lib/storage/archive-external-list.ts`） | **需要 7z CLI** |
+| `.rar` | `unrar lt`（技术列表，同上） | **需要 unrar CLI（5.0 及以后）** |
 
 ZIP 和 tar 不再解析 `unzip -l` / `tar -tv` 的输出。原因有三：
 - Ubuntu 的 unzip 6.0 输出 `2026-10-21 03:08` 格式的日期，旧解析器只认识 `10-21-2026`，导致所有 ZIP 都显示为空。
@@ -167,7 +167,8 @@ ZIP 和 tar 不再解析 `unzip -l` / `tar -tv` 的输出。原因有三：
 
 - **仅 LOCAL 节点**：SFTP 节点不在线查看压缩包。
 - **损坏的压缩包**返回 400，提示“文件可能已损坏或与扩展名不符”，不再报 500。
-- **7z / rar 失败** 抛带命令名提示的错误（"7z 格式需要安装 7z 命令行工具"）。
+- **7z / rar**：服务器上没有对应命令、文件列表被加密、文件损坏三种情况分别返回 400 和各自的说明，不再一律报“需要安装命令行工具”的 500。命令以 `LC_ALL=C.UTF-8` 运行（服务本身是 C locale，unrar 会把非 ASCII 文件名输出成 `?`），不读取标准输入，所以加密的压缩包立即失败，不会等到 15 秒超时。
+- 7z / rar 不解析 `7z l`、`unrar l` 的表格输出：7-Zip 把普通文件标成 `....A`、固实压缩包里多数文件的“压缩后大小”一栏为空，unrar 5 以后的日期是 `2026-11-11 10:41` 且没有压缩率一栏，旧的表格解析器对前者只能列出文件夹，对后者什么都列不出来。
 - **安全沙箱**：`sanitizeArchiveEntries` 过滤掉含 NUL、控制字符、可疑路径穿越的条目名。
 
 ### 5.3 客户端
@@ -281,7 +282,6 @@ ZIP / tar 解压**不调用任何外部解压工具**，由 `src/lib/storage/arc
 | 项 | 当前 | 建议改进 |
 |---|---|---|
 | Range 多区间 | 不支持，回 416 | 加 `bytes=0-99,200-299` 解析，multipart/byteranges 响应 |
-| 公开分享限流 | 无 | 加 per-token 速率限制 + IP 维度 |
 | 公开分享白名单 | 无 | 支持 IP / UA 维度白名单 |
 | 公开分享预览目录 | 全量列（take 200） | 加分页 + 搜索 |
 | 压缩包 7z/rar 在线解压 | 拒绝 | 进程内读取器（同 ZIP/tar），或容器内沙箱化外部工具 |
@@ -305,7 +305,7 @@ ZIP / tar 解压**不调用任何外部解压工具**，由 `src/lib/storage/arc
 
 ### 10.2 压缩包列表为空 / 报错
 
-- 检查 7z / unrar 是否安装（`which 7z` / `which unrar`）。
+- `.7z` / `.rar` 提示“服务器上没有安装 … 命令”：安装 `7z`（Debian/Ubuntu 的 `7zip` 或 `p7zip-full`）或 `unrar`。
 - 检查 tar 文件是否被破坏：`tar -tzvf <file> 2>&1` 手动跑。
 - 检查 `nodeId` / `relativePath` 是否在用户 storage 访问范围内（403 vs 200）。
 

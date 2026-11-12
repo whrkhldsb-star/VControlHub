@@ -315,7 +315,10 @@ export function templateFromStoredService(svc: {
 		description: svc.description,
 		image: svc.image,
 		defaultPort: builtIn?.defaultPort ?? svc.port,
-		internalPort: svc.internalPort ?? builtIn?.internalPort ?? builtIn?.defaultPort ?? undefined,
+		// A built-in entry that names the image's port wins over the row: installs made before the entry named it
+		// stored the host port's default there (8110 for File Browser, which listens on 80) and stayed unreachable
+		// through every update.
+		internalPort: builtIn?.internalPort ?? svc.internalPort ?? builtIn?.defaultPort ?? undefined,
 		path: svc.path,
 		envJson: JSON.parse(svc.envJson),
 		volumesJson: JSON.parse(svc.volumesJson),

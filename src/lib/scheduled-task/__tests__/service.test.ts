@@ -479,6 +479,26 @@ describe("scheduled task service", () => {
       await service.retryScheduledTask("task1", createOnly);
       expect(mockCreateCommandRequest).toHaveBeenCalledTimes(1);
     });
+
+    it("writes nothing about a task it refuses to retry, and only the outcome when the task has no creator", async () => {
+      // The missing-creator check came first and closed an occurrence (recordTaskRun): a member without the
+      // execute permission changed the task's next run, and a one-time task still to come was disabled.
+      const orphan = { ...unattended, createdById: null, scheduleType: "ONCE", status: "ACTIVE" };
+      mockPrisma.scheduledTask.findFirst.mockResolvedValue(orphan);
+      mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.retryScheduledTask("task1", createOnly)).rejects.toMatchObject({ name: "ForbiddenError" });
+      expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
+      expect(mockPrisma.scheduledTask.updateMany).not.toHaveBeenCalled();
+
+      await expect(service.retryScheduledTask("task1", { ...createOnly, permissions: ["command:create", "command:execute"] })).rejects.toMatchObject({ name: "BusinessError" });
+      expect(mockCreateCommandRequest).not.toHaveBeenCalled();
+      expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
+      expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledTimes(1);
+      const written = mockPrisma.scheduledTask.updateMany.mock.calls[0]![0] as { where: unknown; data: Record<string, unknown> };
+      expect(written.where).toEqual({ id: "task1" });
+      expect(Object.keys(written.data).sort()).toEqual(["lastResult", "lastRunAt"]);
+    });
   });
 
   describe("recordTaskRun structured failure detection", () => {

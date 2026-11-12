@@ -23,7 +23,7 @@ import type { UseFileAttachmentsReturn } from "./hooks/use-file-attachments";
 import { buildAcceptString, formatAllowedTypes } from "./ai-file-helpers";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
-import { IconButton, Notice } from "@/components/ui-primitives";
+import { Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { isImeComposition } from "@/lib/ui/keyboard";
 
@@ -106,12 +106,8 @@ export function AiInputArea({
       )}
       {/* File rejection toast */}
       {fileRejectionMsg && (
-        <Notice tone="danger" compact className="mb-2 animate-notice-in">
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>{fileRejectionMsg}</span>
-          <IconButton label={t("aiPage.fileRejectionDismissAria")} onClick={clearRejection} className="ml-auto h-7 w-7 flex-shrink-0">×</IconButton>
+        <Notice tone="danger" compact className="mb-2 animate-notice-in" onDismiss={clearRejection} dismissLabel={t("aiPage.fileRejectionDismissAria")}>
+          {fileRejectionMsg}
         </Notice>
       )}
       <div className="flex gap-2 items-end">

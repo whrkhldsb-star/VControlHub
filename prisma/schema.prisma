@@ -2223,7 +2223,7 @@ enum MediaUploadSessionStatus {
 model ServerUptimeSnapshot {
   id             String   @id @default(cuid())
   serverId       String
-  date           DateTime // 当天开始时间 (UTC 00:00:00)
+  date           DateTime // 当天开始时间：平台时区（APP_TIME_ZONE，默认 Asia/Shanghai）的 00:00，不是 UTC 的 00:00
   uptimePercent  Float // 当天可用率 (0-100)
   onlineMinutes  Int // 当天在线分钟数 (0-1440)
   offlineMinutes Int // 当天离线分钟数 (0-1440)

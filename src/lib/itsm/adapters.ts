@@ -26,35 +26,60 @@ export type ItsmFetch = typeof fetch;
 const ITSM_RESPONSE_MAX_BYTES = 64 * 1024;
 const fetchImpl: ItsmFetch = (...args) => fetch(...args);
 
+/**
+ * The longest text sent to a chat. Telegram refuses a message past 4096
+ * characters; DingTalk and Feishu refuse a request past 20 KB, and 3500
+ * characters are at most 10.5 KB as UTF-8. A refusal for size is the same on
+ * every retry, so a long reply would never reach the channel: it is cut.
+ */
+const CHAT_TEXT_MAX_CHARS = 3_500;
+/** What DingTalk and Feishu still get of a long field next to the text, to stay under their 20 KB. */
+const CHAT_FIELD_MAX_CHARS = 1_000;
+
+/** Cut to `max` UTF-16 units, ending in an ellipsis and never in half a character. */
+function clip(value: string, max: number): string {
+	if (value.length <= max) return value;
+	let end = max - 1;
+	const last = value.charCodeAt(end - 1);
+	if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+	return `${value.slice(0, end)}…`;
+}
+
 export function buildOutboundBody(
 	provider: ItsmProvider,
 	payload: ItsmOutboundTicketPayload,
 	config: ItsmConnectionConfig,
 ): { contentType: string; body: string } {
+	// A robot with a request size limit gets the long fields shortened; the text carries the excerpt anyway.
+	const fieldMax = provider === "dingtalk" || provider === "feishu" ? CHAT_FIELD_MAX_CHARS : Number.POSITIVE_INFINITY;
+	const field = (value: string) => (Number.isFinite(fieldMax) ? clip(value, fieldMax) : value);
 	const base = {
 		source: "vcontrolhub",
 		eventType: payload.eventType,
 		ticket: {
 			id: payload.ticketId,
-			title: payload.title,
-			description: payload.description,
+			title: field(payload.title),
+			description: field(payload.description),
 			status: payload.status,
 			priority: payload.priority,
 			category: payload.category ?? null,
 		},
-		comment: payload.commentBody ? { body: payload.commentBody } : undefined,
+		comment: payload.commentBody ? { body: field(payload.commentBody) } : undefined,
 		workspace: config.workspace ?? null,
 		timestamp: new Date().toISOString(),
 	};
 
-	const text = [
-		`[VControlHub] ${payload.eventType}`,
-		`#${payload.ticketId.slice(0, 8)} ${payload.title}`,
-		`status=${payload.status} priority=${payload.priority}`,
-		payload.commentBody ? `comment: ${payload.commentBody}` : payload.description.slice(0, 280),
-	]
-		.filter(Boolean)
-		.join("\n");
+	const text = clip(
+		[
+			`[VControlHub] ${payload.eventType}`,
+			`#${payload.ticketId.slice(0, 8)} ${payload.title}`,
+			`status=${payload.status} priority=${payload.priority}`,
+			payload.commentBody ? `comment: ${payload.commentBody}` : payload.description.slice(0, 280),
+		]
+			.filter(Boolean)
+			.join("\n"),
+		CHAT_TEXT_MAX_CHARS,
+	);
 
 	if (provider === "slack") {
 		return {

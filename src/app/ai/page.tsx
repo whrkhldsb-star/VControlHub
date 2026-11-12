@@ -1,3 +1,4 @@
+import { firstSearchParams } from "@/lib/http/first-search-param";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import {
   listProviders,
@@ -20,7 +21,7 @@ export default async function AiPage({
   const conversations = await listConversations(session.userId);
   // "Ask AI" deep links (server cards, alert pages…) prefill the composer via
   // ?q=. Bounded like any user-supplied string rendered back into the page.
-  const draft = (await searchParams).q?.slice(0, 2000) ?? "";
+  const draft = firstSearchParams(await searchParams).q?.slice(0, 2000) ?? "";
 
   return (
     <AiClient
@@ -28,7 +29,7 @@ export default async function AiPage({
       initialProviders={providers.map((p) => ({
         ...serializeProvider(p),
         // Provider UI expects settings as a JSON string, not Prisma JsonValue.
-        settings: String(p.settings ?? "{}"),
+        settings: JSON.stringify(p.settings ?? {}),
         // Client Provider type omits createdBy; keep wire shape aligned.
         defaultModel: p.defaultModel ?? "",
       }))}

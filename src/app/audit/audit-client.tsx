@@ -9,13 +9,15 @@ import { SkeletonList } from "@/components/skeleton";
 import { Pagination } from "@/components/pagination";
 import { formatDateTime, formatShortDate, formatShortTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { formatAuditDetail } from "@/lib/audit/detail-format";
+import { formatAuditDetail, formatAuditDetailValue } from "@/lib/audit/detail-format";
+import { Dialog } from "@/components/ui/dialog";
+import { KeyValueList } from "@/components/ui/key-value";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 
-import { Download } from "@/components/icons";
+import { ArrowDown, ArrowUp, Download } from "@/components/icons";
 type AuditLog = {
   id: string;
   actorType: string;
@@ -48,6 +50,25 @@ const SEARCH_DEBOUNCE_MS = 350;
 /** The actions the type filter lists; any other value in the URL gets an option of its own. */
 // Values are the action names the system writes (A8-01): "auth.login" was never written, so that filter was always empty.
 const KNOWN_ACTION_OPTIONS = ["auth.login_password_ok", "auth.login_failed", "auth.password_change", "storage.file_delete", "server.create", "command.execute", "download.create"];
+
+function SortArrow({ dir }: { dir: string }) {
+  return dir === "asc" ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />;
+}
+
+/** The detail on one line, which opens the whole record: the line is cut off at the column's width. */
+function DetailCell({ log, label, onOpen }: { log: AuditLog; label: string; onOpen: (log: AuditLog) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(log)}
+      aria-label={label}
+      title={label}
+      className="block min-w-0 max-w-full truncate rounded-sm text-left font-mono text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+    >
+      {formatAuditDetail(log.detail) || label}
+    </button>
+  );
+}
 
 function severityTone(severity: string):"accent" |"warning" |"danger" {
   const tones: Record<string,"accent" |"warning" |"danger"> = {
@@ -115,6 +136,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
   };
   // The input stays fully controlled; only the query the fetcher reads lags.
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+  // The record whose whole content is open in the dialog.
+  const [openLog, setOpenLog] = useState<AuditLog | null>(null);
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
@@ -257,7 +280,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "time" ? "text-[var(--text-secondary)]" : ""}`}
             >
               {t("audit.header.time")}
-              {sortColumn === "time" ? <span aria-hidden>{sortDir === "asc" ? "↑" : "↓"}</span> : null}
+              {sortColumn === "time" ? <SortArrow dir={sortDir} /> : null}
             </button>
             <div>{t("audit.header.level")}</div>
             <button
@@ -267,7 +290,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "action" ? "text-[var(--text-secondary)]" : ""}`}
             >
               {t("audit.header.type")}
-              {sortColumn === "action" ? <span aria-hidden>{sortDir === "asc" ? "↑" : "↓"}</span> : null}
+              {sortColumn === "action" ? <SortArrow dir={sortDir} /> : null}
             </button>
             <button
               type="button"
@@ -276,7 +299,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "actor" ? "text-[var(--text-secondary)]" : ""}`}
             >
               {t("audit.header.actor")}
-              {sortColumn === "actor" ? <span aria-hidden>{sortDir === "asc" ? "↑" : "↓"}</span> : null}
+              {sortColumn === "actor" ? <SortArrow dir={sortDir} /> : null}
             </button>
             <div>{t("audit.details")}</div>
             <div>{t("audit.source")}</div>
@@ -306,9 +329,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                   <div className="text-[var(--text-secondary)] truncate">
                     {log.actor ? (log.actor.displayName ?? log.actor.username) : enumLabel(t, "audit.actorType", log.actorType)}
                   </div>
-                  <div className="text-xs text-[var(--text-muted)] truncate font-mono">
-                    {formatAuditDetail(log.detail)}
-                  </div>
+                  <DetailCell log={log} label={t("audit.viewRecord")} onOpen={setOpenLog} />
                   <div className="text-xs text-[var(--text-muted)]">{enumLabel(t, "audit.actorType", log.actorType)}</div>
                 </div>
               ))
@@ -339,14 +360,46 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                 <div className="text-xs text-[var(--text-muted)]">
                   {log.actor ? (log.actor.displayName ?? log.actor.username) : enumLabel(t, "audit.actorType", log.actorType)} · {formatDateTime(log.createdAt, locale)}
                 </div>
-                <div className="text-xs text-[var(--text-muted)] font-mono truncate">
-                  {formatAuditDetail(log.detail)}
-                </div>
+                <DetailCell log={log} label={t("audit.viewRecord")} onOpen={setOpenLog} />
               </div>
             ))
           )}
         </div>
       </ListPanel>
+
+      <Dialog
+        size="lg"
+        open={openLog !== null}
+        onClose={() => setOpenLog(null)}
+        title={openLog ? formatAction(openLog.action, t) : ""}
+        description={openLog ? formatDateTime(openLog.createdAt, locale) : undefined}
+      >
+        {openLog ? (
+          <div className="flex flex-col gap-4">
+            <KeyValueList
+              columns={2}
+              items={[
+                { label: t("audit.header.level"), value: <StatusBadge tone={severityTone(openLog.severity)} size="sm">{enumLabel(t, "audit.severity", openLog.severity)}</StatusBadge> },
+                { label: t("audit.source"), value: enumLabel(t, "audit.actorType", openLog.actorType) },
+                { label: t("audit.header.actor"), value: openLog.actor ? (openLog.actor.displayName ?? openLog.actor.username) : null },
+                { label: t("audit.record.action"), value: openLog.action, mono: true },
+              ]}
+            />
+            <section aria-label={t("audit.details")}>
+              <h3 className="ui-title-caption mb-2">{t("audit.details")}</h3>
+              {Object.keys(openLog.detail ?? {}).length === 0 ? (
+                <p className="text-sm text-[var(--text-muted)]">{t("audit.record.noDetail")}</p>
+              ) : (
+                <div data-inset className="p-3">
+                  <KeyValueList
+                    items={Object.entries(openLog.detail).map(([key, value]) => ({ key, label: key, value: formatAuditDetailValue(value), mono: true, wide: true }))}
+                  />
+                </div>
+              )}
+            </section>
+          </div>
+        ) : null}
+      </Dialog>
 
       {/* Pagination — server-side; keep hidden on single pages as before */}
       {data && data.totalPages > 1 ? (

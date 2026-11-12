@@ -92,8 +92,13 @@ describe("SSH terminal channel host-key enforcement", () => {
   });
 
   it("keeps the raw ssh2 detail for unrelated transport errors", () => {
-    expect(describeTerminalSshError(new Error("ECONNREFUSED"))).toBe(
-      "SSH connection error: ECONNREFUSED",
-    );
+    expect(describeTerminalSshError(new Error("ECONNREFUSED"))).toBe("SSH 连接错误：ECONNREFUSED");
+  });
+
+  it("words a failure in the language it is asked for", () => {
+    expect(describeTerminalSshError(new Error("ECONNREFUSED"), undefined, "en")).toBe("SSH connection error: ECONNREFUSED");
+    const refusal = describeTerminalSshError(new Error("Host denied (verification failed)"), { pinned: "SHA256:a", presented: "SHA256:b" }, "en");
+    expect(refusal).toContain("SHA256:a");
+    expect(refusal).not.toMatch(/[\u4e00-\u9fff]/);
   });
 });

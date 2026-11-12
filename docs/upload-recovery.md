@@ -30,4 +30,6 @@ npm run upload:recovery -- acknowledge SESSION_ID ALL_WRITERS_STOPPED_AND_TARGET
 
 这只清除待核对标记并保留失败记录及恢复材料，不直接启动上传、不覆盖文件。用户可以再次选择源文件启动新上传。仍在持有租约的 FINALIZING 和 COMPLETED 记录不能用该命令处理。旧版本的无租约记录不会自动判死，只有经过相同人工确认才允许处理。
 
+保留的分片位于上传暂存目录下以 session ID 命名的子目录中。暂存目录默认在数据目录下（安装脚本的布局里是 `/var/lib/<slug>/upload-tmp`，可用 `MEDIA_UPLOAD_TMP_DIR` 指定，见[部署说明](../deploy/README.md)），Web 服务与 Worker 共用，服务重启不会清空它。早先的版本把它放在各服务私有的 `/tmp` 里，Web 服务一重启这些分片就没有了。
+
 确认恢复完成后由管理员按 session ID 清理保留的临时目录；不要对所有 FINALIZING 或 FAILED 记录实施统一 TTL 删除。部署此版本新增四个可空／有默认值字段及索引，不改动已有文件；旧程序不应与新程序同时执行同一个会话的最终提交。

@@ -10,6 +10,9 @@ const { mocks } = vi.hoisted(() => ({
     listTickets: vi.fn(),
     addTicketComment: vi.fn(),
     updateTicketStatus: vi.fn(),
+    listTicketPage: vi.fn(),
+    listTicketBoard: vi.fn(),
+    listTicketsAdvanced: vi.fn(),
   },
 }));
 
@@ -25,6 +28,9 @@ vi.mock("@/lib/ticket/service", () => ({
   addTicketComment: mocks.addTicketComment,
   updateTicketStatus: mocks.updateTicketStatus,
 }));
+
+vi.mock("@/lib/ticket/query", () => ({ listTicketPage: mocks.listTicketPage, listTicketBoard: mocks.listTicketBoard }));
+vi.mock("@/lib/ticket/sla", () => ({ listTicketsAdvanced: mocks.listTicketsAdvanced, getTicketKanban: vi.fn() }));
 
 const route = await import("../route");
 
@@ -44,6 +50,9 @@ describe("/api/tickets", () => {
     mocks.listTickets.mockResolvedValue([]);
     mocks.addTicketComment.mockResolvedValue({ id: "comment1" });
     mocks.updateTicketStatus.mockResolvedValue({ id: "tk1", status: "IN_PROGRESS" });
+    mocks.listTicketPage.mockResolvedValue({ tickets: [], total: 0, page: 1, pageSize: 20 });
+    mocks.listTicketBoard.mockResolvedValue([]);
+    mocks.listTicketsAdvanced.mockResolvedValue([]);
   });
 
   it("creates tickets with normalized uppercase priority values without requiring ticket management", async () => {
@@ -116,6 +125,42 @@ describe("/api/tickets", () => {
       status: "IN_PROGRESS",
       session: managerSession,
     }));
+  });
+
+  // The list's own update had a priority list of its own, without the product's highest level: raising a
+  // ticket to urgent from the list was refused (400) while the ticket's page accepted it.
+  it.each([
+    ["urgent", "URGENT"],
+    ["URGENT", "URGENT"],
+    ["critical", "URGENT"],
+    ["medium", "NORMAL"],
+  ])("accepts priority %s on the collection update, as the ticket's own route does", async (priority, stored) => {
+    mocks.requireApiPermission.mockResolvedValue({ session: managerSession });
+    const response = await route.PATCH(new Request("http://local/api/tickets", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: "tk1", status: "open", priority }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateTicketStatus).toHaveBeenCalledWith(expect.objectContaining({ id: "tk1", priority: stored }));
+  });
+
+  // A filter was only upper-cased: "medium" and "critical", which the API takes when a ticket is filed,
+  // matched nothing because they are stored as NORMAL and URGENT.
+  it.each([
+    ["medium", "NORMAL"],
+    ["critical", "URGENT"],
+    ["high", "HIGH"],
+  ])("filters by priority %s as it is stored", async (priority, stored) => {
+    await route.GET(new Request(`http://local/api/tickets?page=1&priority=${priority}`));
+    expect(mocks.listTicketPage).toHaveBeenCalledWith(expect.objectContaining({ query: expect.objectContaining({ priority: stored }) }));
+
+    await route.GET(new Request(`http://local/api/tickets?view=board&priority=${priority}`));
+    expect(mocks.listTicketBoard).toHaveBeenCalledWith(expect.objectContaining({ query: expect.objectContaining({ priority: stored }) }));
+
+    await route.GET(new Request(`http://local/api/tickets?priority=${priority}`));
+    expect(mocks.listTicketsAdvanced).toHaveBeenCalledWith(expect.objectContaining({ priority: stored }));
   });
 
   it("rejects collection-route comment payloads (comments live on /api/tickets/[id])", async () => {

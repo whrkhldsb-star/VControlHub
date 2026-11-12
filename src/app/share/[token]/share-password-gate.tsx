@@ -11,8 +11,10 @@ interface SharePasswordGateProps {
   label: string;
   placeholder: string;
   submitLabel: string;
-  /** Translated generic failure fallback for network errors (from the server page). */
+  /** Translated fallback for a failure without a reason (from the server page). */
   failedLabel: string;
+  /** Translated sentence for a request that got no answer; `failedLabel` when the page gives none. */
+  networkLabel?: string;
   /** Translated "…({status})" template — "{status}" is replaced client-side. */
   failedStatusTemplate: string;
   /** DIRECTORY shares need archive=1 (or a child path) after password auth. */
@@ -30,7 +32,7 @@ interface SharePasswordGateProps {
  * user-visible fallback string arrives translated from the server page (which
  * owns t() + locale) — no English fallbacks live here.
  */
-export function SharePasswordGate({ token, label, placeholder, submitLabel, failedLabel, failedStatusTemplate, entryType }: SharePasswordGateProps) {
+export function SharePasswordGate({ token, label, placeholder, submitLabel, failedLabel, networkLabel, failedStatusTemplate, entryType }: SharePasswordGateProps) {
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,9 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel, fail
       }
       window.location.assign(entryType === "DIRECTORY" ? `/share/${encodeURIComponent(token)}` : url);
     } catch (err) {
-      setError(getErrorMessage(err, failedLabel));
+      // No answer at all: fetch throws a TypeError whose message is the browser's own English ("Failed to
+      // fetch", "Load failed"), which is not for a visitor to read.
+      setError(err instanceof TypeError ? networkLabel ?? failedLabel : getErrorMessage(err, failedLabel));
     } finally {
       setBusy(false);
     }

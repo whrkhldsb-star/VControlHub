@@ -66,6 +66,30 @@ describe("app source catalog bounds", () => {
 		}));
 	});
 
+	it("reads an app's popularity back from what was stored of its source", async () => {
+		const row = (slug: string, rawJson: string | null) => ({
+			slug, name: slug, category: "media", icon: "tv", description: "", image: `${slug}:latest`, defaultPort: 8096, internalPort: null,
+			path: "/", envJson: "{}", volumesJson: "[]", command: null, extraPortsJson: "[]", sourceVersion: null, rawJson, source: { name: "LinuxServer" },
+		});
+		prismaMock.appSourceApp.findMany.mockResolvedValueOnce([
+			row("linuxserver-jellyfin", JSON.stringify({ name: "jellyfin", stars: 512, monthly_pulls: 3_400_000 })),
+			row("feed-own", JSON.stringify({ stars: 7, monthlyPulls: 1200 })),
+			row("old-sync", JSON.stringify({ name: "sonarr" })),
+			row("cut-off", '{"name":"x","stars":3,"descr'),
+			row("odd", JSON.stringify({ stars: "many", monthly_pulls: -5 })),
+			row("none", null),
+		]);
+		const apps = await getRemoteApps();
+		expect(apps.map(({ slug, stars, monthlyPulls }) => ({ slug, stars, monthlyPulls }))).toEqual([
+			{ slug: "linuxserver-jellyfin", stars: 512, monthlyPulls: 3_400_000 },
+			{ slug: "feed-own", stars: 7, monthlyPulls: 1200 },
+			{ slug: "old-sync", stars: undefined, monthlyPulls: undefined },
+			{ slug: "cut-off", stars: undefined, monthlyPulls: undefined },
+			{ slug: "odd", stars: undefined, monthlyPulls: undefined },
+			{ slug: "none", stars: undefined, monthlyPulls: undefined },
+		]);
+	});
+
 	it("skips catalog rows with corrupt env/volumes/extraPorts JSON instead of throwing", async () => {
 		prismaMock.appSourceApp.findMany.mockResolvedValueOnce([
 			{

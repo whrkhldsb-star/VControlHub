@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -125,6 +125,55 @@ describe("PlaybookListClient run feedback", () => {
 		expect(addToastMock).not.toHaveBeenCalledWith("success", expect.anything());
 	});
 
+});
+
+describe("Playbook actions that fail", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	const renderOne = () =>
+		renderWithI18n(<PlaybookListClient playbooks={[playbook]} runsByPlaybook={{ pb_1: [] }} servers={testServers} canManage canRun />, { locale: "zh" });
+
+	it("shows a refused deletion in the confirmation dialog, which stays open", async () => {
+		// It went to the notice at the top of the page, behind the dialog.
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("Playbook 正在运行，无法删除"));
+		renderOne();
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		const dialog = screen.getByRole("dialog");
+		await user.click(within(dialog).getByRole("button", { name: "确认删除" }));
+		expect(await within(dialog).findByText("Playbook 正在运行，无法删除")).toBeInTheDocument();
+		// Opened again, it starts clean.
+		await user.click(within(dialog).getByRole("button", { name: "取消" }));
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		expect(within(screen.getByRole("dialog")).queryByText("Playbook 正在运行，无法删除")).not.toBeInTheDocument();
+	});
+
+	it("names the switch by what it will do, and the result by what it did", async () => {
+		// One button read "启用 / 停用" in both states, and the toast "启用状态已切换".
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValue({ playbooks: [{ ...playbook, enabled: false }], runsByPlaybook: {} });
+		renderOne();
+		expect(screen.queryByRole("button", { name: "启用" })).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "停用" }));
+		expect(vi.mocked(csrfFetch).mock.calls[0]?.[1]).toMatchObject({ method: "PATCH", body: JSON.stringify({ id: "pb_1", enabled: false }) });
+		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("success", "已停用「夜间维护」"));
+		vi.mocked(csrfFetch).mockReset();
+	});
+
+	it("names the run that could not start, where the click was", async () => {
+		// The fallback read "加载 Playbook 列表失败", in a notice at the top of a list that can be pages long.
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockRejectedValueOnce({ status: 500 });
+		renderOne();
+		await user.click(screen.getByRole("button", { name: "立即运行" }));
+		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("error", "运行 Playbook 失败"));
+
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("目标服务器已停用"));
+		await user.click(screen.getByRole("button", { name: /Dry-run 演练/ }));
+		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("error", "目标服务器已停用"));
+	});
 });
 
 describe("PlaybookListClient sortable steps", () => {

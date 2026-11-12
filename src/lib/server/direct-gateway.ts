@@ -11,10 +11,13 @@ export const DIRECT_GATEWAY_BIND_DEFAULT = "127.0.0.1";
 
 export type DirectGatewayRiskLevel = "safe" | "warning" | "danger";
 
+/**
+ * Only the level. It used to come with English sentences ("Listening on 0.0.0.0 + http plaintext …") that the
+ * server page showed as they were, in Chinese too, and that named 0.0.0.0 and port 31888 whatever was
+ * configured; what to say about a level is the page's (`directGatewayAdvice.*`).
+ */
 export type DirectGatewayRiskAssessment = {
   level: DirectGatewayRiskLevel;
-  reasons: string[];
-  recommendations: string[];
 };
 
 /**
@@ -27,28 +30,10 @@ export function getDirectGatewayRiskAssessment(input: {
   bindAddress: string;
   publicProtocol: "http" | "https";
 }): DirectGatewayRiskAssessment {
-  const reasons: string[] = [];
-  const recommendations: string[] = [];
   const bind = input.bindAddress.trim();
   const isPublic = bind === "0.0.0.0" || bind === "::" || bind === "[::]";
-
-  if (!isPublic) {
-    return { level: "safe", reasons: [`Only listening on ${bind}; will not be exposed to the public internet`], recommendations: [] };
-  }
-
-  if (input.publicProtocol === "https") {
-    reasons.push(`Listening on ${bind} but via https/Caddy reverse proxy; transport is encrypted`);
-    recommendations.push("Confirm Caddy has TLS certificate configured + reverse proxy `/direct` to 127.0.0.1:31888");
-    return { level: "warning", reasons, recommendations };
-  }
-
-  reasons.push("Listening on 0.0.0.0 + http plaintext direct connection = signature auth ≠ transport encryption");
-  reasons.push("HMAC signature prevents tampering, but any man-in-the-middle can read file contents");
-  recommendations.push("Option A: Deploy Caddy reverse proxy `/direct` → 127.0.0.1:31888 + automatic TLS on the remote server");
-  recommendations.push("Option B: Use VPN / WireGuard / Tailscale to expose 31888 only to trusted network segments");
-  recommendations.push("Option C: Firewall whitelist, allow only known IP ranges to access 31888");
-  recommendations.push("Short-term fallback: change bindAddress back to 127.0.0.1 + use VControlHub main site relay");
-  return { level: "danger", reasons, recommendations };
+  if (!isPublic) return { level: "safe" };
+  return { level: input.publicProtocol === "https" ? "warning" : "danger" };
 }
 
 /**
@@ -328,6 +313,11 @@ caddy validate --config ${shellQuote(caddyfile)} --adapter caddyfile
  * Caddy systemd unit heredoc + enable/restart (shared by both auto-HTTPS
  * branches; only ReadWritePaths differs — ACME needs caddy's data dirs for
  * certificate storage, local TLS only the gateway root).
+ *
+ * Two things systemd.exec(5) says and the unit has to follow. A path in ReadWritePaths that does not exist stops
+ * the unit from starting (226/NAMESPACE) unless it is prefixed with "-"; a fresh VPS has no
+ * /root/.local/share/caddy. And a system service without User= is given no HOME, so Caddy kept its data under the
+ * working directory ("/.local/share/caddy") instead of the directory listed here.
  */
 function caddyUnitAndStartBlock(readWritePaths: string): string {
   const caddyfile = DIRECT_GATEWAY_CADDY_CONFIG;
@@ -341,6 +331,7 @@ Requires=${DIRECT_GATEWAY_SERVICE_NAME}
 
 [Service]
 Type=simple
+Environment=HOME=/root
 ExecStart=/usr/bin/env caddy run --config ${caddyfile} --adapter caddyfile
 Restart=always
 RestartSec=3
@@ -383,7 +374,7 @@ ${caddyInstallBlock()}${writeAndValidateCaddyfile(`{
 ${hostLiteral} {
   reverse_proxy 127.0.0.1:${backendPort}
   encode zstd gzip
-}`)}${caddyUnitAndStartBlock("/opt/vcontrolhub-direct /var/lib/caddy /root/.local/share/caddy")}python3 - <<'VCH_DIRECT_PROXY_HEALTH'
+}`)}${caddyUnitAndStartBlock("/opt/vcontrolhub-direct -/var/lib/caddy -/root/.local/share/caddy")}python3 - <<'VCH_DIRECT_PROXY_HEALTH'
 import ssl, time
 from urllib.request import urlopen
 last_error = None

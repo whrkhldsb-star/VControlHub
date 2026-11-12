@@ -12,7 +12,7 @@ import {
 	type DockerScope,
 	type ServerOption,
 } from "./docker-helpers";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { describeFailure, getErrorMessage } from "@/lib/http/error-message";
 
 export type ContainerAction = "start" | "stop" | "restart" | "remove";
 export type ProjectAction = "up" | "down" | "start" | "stop" | "restart" | "ps";
@@ -100,6 +100,8 @@ export function useDockerPage(
 		if (!selectedServerId && !canManageHubHost) {
 			setContainers([]);
 			setError(t("dockerPage.error.noTargets"));
+			// Nothing is on its way: the list said "loading" under this notice for good.
+			setLoading(false);
 			return;
 		}
 		try {
@@ -131,9 +133,11 @@ export function useDockerPage(
 			if (nextContainers) {
 				setContainers(nextContainers);
 			}
-		} catch (_err) {
+		} catch (err) {
 			if (controller.signal.aborted || gen !== fetchGenRef.current) return;
-			setError(t("dockerPage.error.fetch"));
+			// The server says why (no access to this server, too many requests, the SSH failure); "cannot reach the
+			// Docker API" is only for an answer that says nothing.
+			setError(getErrorMessage(err, t("dockerPage.error.fetch")));
 		} finally {
 			if (gen === fetchGenRef.current) setLoading(false);
 		}
@@ -259,10 +263,10 @@ export function useDockerPage(
 			const active = logsReqRef.current;
 			if (!active || active.id !== id || active.serverId !== serverAtFetch) return;
 			setLogs(typeof data.data === "string" ? data.data : JSON.stringify(data.data, null, 2));
-		} catch {
+		} catch (err) {
 			const active = logsReqRef.current;
 			if (!active || active.id !== id || active.serverId !== serverAtFetch) return;
-			setLogs(t("dockerPage.error.logs"));
+			setLogs(describeFailure(t("dockerPage.error.logs"), err));
 		}
 	};
 

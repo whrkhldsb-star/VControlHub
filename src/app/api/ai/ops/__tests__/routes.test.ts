@@ -572,6 +572,29 @@ describe("/api/ai/ops/* routes", () => {
 			expect(mocks.setSetting).not.toHaveBeenCalled();
 		});
 
+		it("lets another administrator change the mode while the provider stays the one already saved", async () => {
+			// The page sends the provider it shows. Saved by a colleague, it is not this administrator's own: the
+			// ownership check refused the whole save, so only the administrator who chose the provider could change the mode.
+			mocks.getSetting.mockImplementation(async (key: string) => {
+				if (key === "ai.ops.mode") return "recommendation";
+				if (key === "ai.ops.provider") return "provider-of-a-colleague";
+				return "";
+			});
+			mocks.aiProviderFindFirst.mockResolvedValue(null);
+			const res = await settingsRoute.PATCH(
+				new Request("http://local/api/ai/ops/settings", {
+					method: "PATCH",
+					body: JSON.stringify({ mode: "autonomous", providerId: "provider-of-a-colleague" }),
+				}),
+			);
+
+			expect(res.status).toBe(200);
+			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "autonomous", "u-admin");
+			expect(mocks.setSetting).not.toHaveBeenCalledWith("ai.ops.provider", expect.anything(), expect.anything());
+			expect(await res.json()).toMatchObject({ mode: "autonomous", providerId: "provider-of-a-colleague" });
+			expect(mocks.auditUserAction).toHaveBeenCalledWith("u-admin", "ai.ops.settings.update", expect.objectContaining({ providerId: null }), undefined, null);
+		});
+
 		it("rejects an invalid providerId pattern with 400", async () => {
 			const res = await settingsRoute.PATCH(
 				new Request("http://local/api/ai/ops/settings", {

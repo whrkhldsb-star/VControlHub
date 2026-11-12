@@ -1,6 +1,8 @@
 
+import { firstSearchParams } from "@/lib/http/first-search-param";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { getAuditStats, HIGH_RISK_AUDIT_ACTIONS } from "@/lib/audit/service";
+import { interpolate } from "@/lib/i18n/core";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { AuditLogClient } from "./audit-client";
 import { Card, PageShell, PageHeader, StatCard, StatGrid } from "@/components/page-shell";
@@ -17,10 +19,6 @@ const logger = createLogger("audit:page");
 type AuditPageProps = {
 	searchParams?: Promise<{ action?: string }>;
 };
-
-function formatCopy(template: string, replacements: Record<string, string | number>) {
-	return Object.entries(replacements).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, String(value)), template);
-}
 
 function formatAuditAction(action: string, locale: Locale): string {
 	const key = `audit.action.${action}`;
@@ -44,7 +42,7 @@ function getAuditPageCopy(locale: Locale) {
 }
 
 export default async function AuditPage({ searchParams }: AuditPageProps) {
-	const params = (await searchParams) ?? {};
+	const params = firstSearchParams(await searchParams);
 	const locale = await getServerLocale();
 	const copy = getAuditPageCopy(locale);
 
@@ -86,7 +84,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 							<div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
 								<Card
 									title={copy.highRiskTitle}
-									description={formatCopy(copy.highRiskDescription, { warningRatio, criticalRatio })}
+									description={interpolate(copy.highRiskDescription, { warningRatio, criticalRatio })}
 								>
 									<div className="flex flex-wrap gap-2">
 										{HIGH_RISK_ACTIONS.slice(0, 4).map((action) => (

@@ -2,6 +2,7 @@ import { JobStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
+import { commandRequestTitle } from "@/lib/command/schema";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { config } from "@/lib/config/env";
 import { AppError } from "@/lib/errors";
@@ -173,7 +174,7 @@ async function dispatchDueTask(task: {
     // System worker has no session: stamp teamId from the parent task so
     // listCommandRequests(teamWhere) does not treat the request as shared null-team.
     const result = await createCommandRequest({
-      title: `Scheduled task: ${task.name}`,
+      title: commandRequestTitle("Scheduled task: ", task.name),
       command: task.command,
       reason: task.reason ?? `Triggered by scheduled task ${task.name}`,
       submissionMode: "user",

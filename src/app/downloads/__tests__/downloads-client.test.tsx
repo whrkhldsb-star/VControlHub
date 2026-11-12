@@ -147,11 +147,33 @@ describe("DownloadsClient", () => {
     await actor.type(screen.getByRole("textbox", { name: "下载链接" }), "https://example.com/a.iso");
     await actor.click(screen.getByRole("button", { name: "开始下载" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("目标路径不可写");
+    // The reason is in the form, next to the button that was pressed — a toast would be gone while the person
+    // is still looking at the form — and it goes when the form is edited.
+    const form = screen.getByRole("heading", { name: "新建下载任务" }).closest("[data-card]") as HTMLElement;
+    expect(await within(form).findByRole("alert")).toHaveTextContent("目标路径不可写");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "新建下载任务" })).toBeInTheDocument();
     expect(screen.getByText("完成后的「下载文件」按钮和文件管理使用同一套访问策略。")).toBeInTheDocument();
     expect(screen.getByText("当前：中转")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://example.com/a.iso")).toBeInTheDocument();
+    await actor.type(screen.getByRole("textbox", { name: "下载链接" }), "x");
+    expect(within(form).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("says in the form what is wrong with a file name before anything is sent", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ tasks: [], globalStat: null });
+
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
+
+    await actor.click(await screen.findByRole("button", { name: "新建下载" }));
+    await actor.type(screen.getByRole("textbox", { name: "下载链接" }), "https://example.com/a.iso");
+    const form = screen.getByRole("heading", { name: "新建下载任务" }).closest("[data-card]") as HTMLElement;
+    await actor.type(within(form).getByLabelText(/文件名/), "../a.iso");
+    await actor.click(screen.getByRole("button", { name: "开始下载" }));
+
+    expect(within(form).getByRole("alert")).toBeInTheDocument();
+    expect(csrfFetch).toHaveBeenCalledTimes(1);
   });
 
   it("prevents creating tasks when no eligible VPS target is available", async () => {
@@ -243,6 +265,36 @@ describe("DownloadsClient", () => {
     await actor.click(screen.getByRole("button", { name: "重试中…" }));
     expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(2);
     await act(async () => { resolveRetry({ success: true }); });
+  });
+
+  it("reloads the list under the filter on screen after an action on a row that was there before the filter changed", async () => {
+    // The rows are memoized without regard to their callbacks. With a network answer they are unmounted while the
+    // new filter loads and come back with the current handlers; with an answer in the same tick (as here) they
+    // stay, and their buttons reloaded the list under the filter they were first shown with.
+    const actor = userEvent.setup();
+    const failedTask = { ...runningTask, id: "dl_f", url: "https://example.com/failed.iso", status: "FAILED", aria2Gid: null };
+    const getCalls = () => vi.mocked(csrfFetch).mock.calls.filter((call) => !(call[1] as RequestInit | undefined)?.method).map((call) => String(call[0]));
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      if ((init as RequestInit | undefined)?.method === "POST") return { task: { id: "dl_new" } };
+      return String(input).includes("status=FAILED")
+        ? { tasks: [failedTask], globalStat: null, nextCursor: null }
+        : { tasks: [runningTask, failedTask], globalStat: null, nextCursor: null };
+    });
+
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
+    await screen.findByText("https://example.com/failed.iso");
+    await actor.click(screen.getByRole("button", { name: "失败" }));
+    await vi.waitFor(() => expect(getCalls()).toContain("/api/downloads?status=FAILED"));
+    await screen.findByText("https://example.com/failed.iso");
+    expect(screen.queryByText("https://example.com/a.iso")).not.toBeInTheDocument();
+
+    const before = getCalls().length;
+    await actor.click(screen.getByRole("button", { name: "重试" }));
+    await vi.waitFor(() => expect(getCalls().length).toBeGreaterThan(before));
+    // The reload asks for what the filter shows, and the list comes back.
+    expect(getCalls().at(-1)).toBe("/api/downloads?status=FAILED");
+    expect(await screen.findByText("https://example.com/failed.iso")).toBeInTheDocument();
+    expect(screen.queryByText("加载中...")).not.toBeInTheDocument();
   });
 
   it("shows immediate download feedback and suppresses duplicate download clicks", async () => {

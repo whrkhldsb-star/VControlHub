@@ -3,13 +3,13 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * TR-032 E02: /api/ai/ops/scan — manually trigger an AI ops scan.
  *
  * POST { notes?: string }
- *   → { triggered: boolean, latestLog: AiOpsLogRecord | null }
+ *   → { triggered: boolean, queued: boolean, jobId: string | null, latestLog: AiOpsLogRecord | null }
  *   Permission: ai:ops:manage
  *
- * The scan runs synchronously through the durable-job worker so the
- * caller gets the resulting log row in the response. If a previous
- * tick is still running the worker skips the work and returns
- * `triggered: false`.
+ * The scan is queued for the worker process, which looks at the queue every
+ * few seconds; `latestLog` is the newest log so far, not this scan's. When a
+ * scan is already queued or running, nothing is added and `triggered` is
+ * false.
  */
 import { NextResponse } from "next/server";
 

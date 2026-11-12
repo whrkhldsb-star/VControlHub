@@ -6,7 +6,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serverT, withServerActionLocale } from "@/lib/i18n/server-locale";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
@@ -32,6 +32,13 @@ import { STORAGE_SSH_SERVER_SELECT } from "@/lib/storage/ssh-credentials";
 import { moveSharePaths } from "@/lib/share-link/follow-path";
 
 export async function createFolderAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => createFolderActionImpl(_prev, formData));
+}
+
+async function createFolderActionImpl(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
@@ -214,6 +221,13 @@ export async function renameFileEntryAction(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
+  return withServerActionLocale(() => renameFileEntryActionImpl(_prev, formData));
+}
+
+async function renameFileEntryActionImpl(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
   const session = await requirePermission("storage:write");
 
   const t = await serverT();
@@ -373,10 +387,7 @@ export async function renameFileEntryAction(
       });
       if (directoryChildren.length > DIRECTORY_CHILD_REWRITE_LIMIT) {
         return {
-          error: t("storagePage.action.directoryTooLargeToRename").replace(
-            "{limit}",
-            String(DIRECTORY_CHILD_REWRITE_LIMIT),
-          ),
+          error: t("storagePage.action.directoryTooLargeToRename", { limit: DIRECTORY_CHILD_REWRITE_LIMIT }),
         } satisfies StorageActionState;
       }
     }
@@ -437,7 +448,11 @@ export async function renameFileEntryAction(
         });
       } catch (compensationError) {
         return {
-          error: t("storagePage.action.renameRollbackFailed", { error: getErrorMessage(databaseError, String(databaseError)), rollback: getErrorMessage(compensationError, String(compensationError)) }),
+          // A database error has no message for people (its own is the query): it is named instead.
+          error: t("storagePage.action.renameRollbackFailed", {
+            error: getErrorMessage(databaseError, t("storagePage.action.indexWriteFailed")),
+            rollback: getErrorMessage(compensationError, String(compensationError)),
+          }),
         } satisfies StorageActionState;
       }
       return {

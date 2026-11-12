@@ -43,7 +43,7 @@ describe("DashboardAnalyticsPanel", () => {
     expect(screen.getByTestId("server-analytics-chart")).toHaveTextContent("56%");
     expect(screen.getByTestId("download-analytics-chart")).toHaveTextContent("完成");
     expect(screen.getByTestId("download-analytics-chart")).toHaveTextContent("失败");
-    expect(screen.getAllByText((_content, element) => element?.textContent?.includes("最近累计 4 张 / 4.0 KB") ?? false).length).toBeGreaterThan(0);
+    expect(screen.getAllByText((_content, element) => element?.textContent?.includes("最近累计 4 张，4.0 KB") ?? false).length).toBeGreaterThan(0);
   });
 
   it("shows an actionable inline error when the analytics API fails", async () => {
@@ -51,7 +51,7 @@ describe("DashboardAnalyticsPanel", () => {
 
     renderPanel();
 
-    expect(await screen.findByText(/趋势数据暂不可用/)).toHaveTextContent("趋势数据暂不可用: analytics unavailable");
+    expect(await screen.findByText(/趋势数据暂不可用/)).toHaveTextContent("趋势数据暂不可用：analytics unavailable");
   });
 
   it("uses the active locale for dashboard analytics labels", async () => {

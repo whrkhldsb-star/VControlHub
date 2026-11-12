@@ -15,6 +15,8 @@ import { RefreshCw } from "@/components/icons";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { clearIfUnchanged } from "@/lib/ui/form-draft";
+
+import { versionNoteLabel } from "./version-note";
 type VersionItem = {
   id: string;
   versionNumber: number;
@@ -160,10 +162,7 @@ export function FileVersionHistoryPanel({
       <ConfirmDialog
         open={pendingRestore !== null}
         title={t("fileVersionHistory.restoreTitle")}
-        description={t("fileVersionHistory.restoreConfirm").replace(
-          "{n}",
-          String(pendingRestore?.versionNumber ?? ""),
-        )}
+        description={t("fileVersionHistory.restoreConfirm", { n: pendingRestore?.versionNumber ?? "" })}
         cancelLabel={t("common.cancel")}
         confirmLabel={t("fileVersionHistory.restoreConfirmBtn")}
         onCancel={() => setPendingRestore(null)}
@@ -242,7 +241,7 @@ export function FileVersionHistoryPanel({
                   </p>
                   {v.note ? (
                     <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                      {v.note}
+                      {versionNoteLabel(v.note, t)}
                     </p>
                   ) : null}
                   <p className="mt-1 truncate font-mono text-xs text-[var(--text-muted)]">

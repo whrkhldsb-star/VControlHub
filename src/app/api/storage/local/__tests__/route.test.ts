@@ -103,6 +103,7 @@ vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-cr
   decryptSshPrivateKey: (value: string) => value,
 }));
 
+import { PROXY_CLIENT_MAX_BODY_BYTES } from "@/lib/http/proxy-body-limit";
 import { GET, POST } from "../route";
 
 const session = {
@@ -390,6 +391,39 @@ describe("/api/storage/local", () => {
     expect(assertStorageAccessMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
     expect(writeRemoteFileMock).not.toHaveBeenCalled();
+  });
+
+  // The route reads its whole body into memory behind the proxy, which passes
+  // on no more than PROXY_CLIENT_MAX_BODY_BYTES: a larger body arrived cut
+  // short and failed as "Failed to parse body as FormData".
+  it("points a single request too large for the proxy at the chunked upload, without parsing it", async () => {
+    const formData = vi.fn();
+    const response = await POST({
+      url: "https://example.com/api/storage/local",
+      headers: new Headers({ "content-length": String(PROXY_CLIENT_MAX_BODY_BYTES + 1) }),
+      formData,
+    } as unknown as Request);
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("/api/storage/upload/init"),
+      maxUploadBytes: PROXY_CLIENT_MAX_BODY_BYTES - 1024 * 1024,
+    });
+    expect(formData).not.toHaveBeenCalled();
+    expect(assertStorageAccessMock).not.toHaveBeenCalled();
+  });
+
+  it("still takes a single request as large as the proxy passes on", async () => {
+    const formData = vi.fn(async () => ({ get: () => null }));
+    const response = await POST({
+      url: "https://example.com/api/storage/local",
+      headers: new Headers({ "content-length": String(PROXY_CLIENT_MAX_BODY_BYTES) }),
+      formData,
+    } as unknown as Request);
+
+    // Parsed, then refused for what it lacks: not for its size.
+    expect(formData).toHaveBeenCalled();
+    expect(response.status).toBe(400);
   });
 
   it("cleans up SFTP uploads when DB indexing fails after the remote write", async () => {

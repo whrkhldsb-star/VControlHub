@@ -112,6 +112,8 @@ const {
   handleWebDavCopy,
   handleWebDavDelete,
   handleWebDavGetHead,
+  handleWebDavLock,
+  handleWebDavMkcol,
   handleWebDavMove,
   handleWebDavOptions,
   handleWebDavPropFind,
@@ -924,6 +926,115 @@ describe("webdav handlers", () => {
       expect(response.status).toBe(413);
       expect(mocks.writeStorageFileBuffer).not.toHaveBeenCalled();
       expect(mocks.assertStorageAccess).not.toHaveBeenCalled();
+    });
+
+    // What the proxy did to every PUT over 10 MB: the route received the first
+    // megabytes, the stream ended cleanly, and the cut file was stored and
+    // answered 201. A body shorter than it was declared is not the file.
+    it("refuses a body that ended short of its declared length, and stores nothing", async () => {
+      await expect(
+        handleWebDavPut(
+          context("film.mkv"),
+          new Request("https://hub.example/api/webdav/n1/film.mkv", {
+            method: "PUT",
+            body: Buffer.alloc(1000),
+            headers: { "content-length": "2000" },
+          }),
+        ),
+      ).rejects.toMatchObject({ status: 400, message: "backend.webdav.incompleteRequestBody" });
+
+      expect(mocks.assertStorageAccess).not.toHaveBeenCalled();
+      expect(mocks.writeStorageFileBuffer).not.toHaveBeenCalled();
+      expect(mocks.createFileEntry).not.toHaveBeenCalled();
+      expect(mocks.fileEntryUpdate).not.toHaveBeenCalled();
+    });
+
+    it("stores a body that is as long as it was declared", async () => {
+      mocks.fileEntryFindFirst.mockResolvedValue(null);
+      mocks.createFileEntry.mockResolvedValue({ id: "f_new" });
+      mocks.writeStorageFileBuffer.mockResolvedValue(undefined);
+
+      const response = await handleWebDavPut(
+        context("film.mkv"),
+        new Request("https://hub.example/api/webdav/n1/film.mkv", {
+          method: "PUT",
+          body: Buffer.alloc(2000),
+          headers: { "content-length": "2000" },
+        }),
+      );
+
+      expect(response.status).toBe(201);
+      expect(accessCalls()[0]).toMatchObject({ relativePath: "film.mkv", operation: "write", writeBytes: 2000 });
+    });
+
+    it("takes a chunked upload, which declares no length, as it arrives", async () => {
+      mocks.fileEntryFindFirst.mockResolvedValue(null);
+      mocks.createFileEntry.mockResolvedValue({ id: "f_new" });
+      mocks.writeStorageFileBuffer.mockResolvedValue(undefined);
+
+      const response = await handleWebDavPut(
+        context("notes.txt"),
+        new Request("https://hub.example/api/webdav/n1/notes.txt", { method: "PUT", body: Buffer.alloc(321) }),
+      );
+
+      expect(response.status).toBe(201);
+      expect(accessCalls()[0]).toMatchObject({ writeBytes: 321 });
+    });
+  });
+
+  describe("MKCOL", () => {
+    // RFC 4918 §9.3.1. Clients tell the two apart: 405 is "already there"
+    // (a sync client that creates its folders on every run goes on), 409 is
+    // "an intermediate collection is missing".
+    it.each(["DIRECTORY", "FILE"])("answers 405, not 409, when a %s is already at the path", async (entryType) => {
+      mocks.fileEntryFindFirst.mockResolvedValue({ id: "e1", entryType, relativePath: "photos" });
+
+      const response = await handleWebDavMkcol(context("photos"));
+
+      expect(response.status).toBe(405);
+      expect(response.headers.get("Allow")).toContain("PROPFIND");
+      expect(response.headers.get("Allow")).not.toContain("MKCOL");
+      expect(mocks.createManagedFolder).not.toHaveBeenCalled();
+      expect(mocks.createFileEntry).not.toHaveBeenCalled();
+    });
+
+    it("creates a collection that is not there yet", async () => {
+      mocks.fileEntryFindFirst.mockResolvedValue(null);
+      mocks.createManagedFolder.mockResolvedValue(undefined);
+      mocks.createFileEntry.mockResolvedValue({ id: "d_new" });
+
+      const response = await handleWebDavMkcol(context("photos"));
+
+      expect(response.status).toBe(201);
+      expect(response.headers.get("Location")).toBe("/api/webdav/n1/photos/");
+      expect(mocks.createFileEntry).toHaveBeenCalledWith(expect.objectContaining({ entryType: "DIRECTORY", relativePath: "photos" }));
+    });
+  });
+
+  describe("LOCK", () => {
+    const lock = (ifHeader?: string) =>
+      handleWebDavLock(
+        context("a.docx"),
+        new Request("https://hub.example/api/webdav/n1/a.docx", { method: "POST", headers: ifHeader ? { if: ifHeader } : {} }),
+      );
+
+    it("refreshes a token this server handed out", async () => {
+      const first = await lock();
+      const token = first.headers.get("Lock-Token")!.slice(1, -1);
+      expect(token).toMatch(/^opaquelocktoken:[0-9a-f-]{36}$/);
+
+      const refreshed = await lock(`(<${token}>)`);
+      expect(refreshed.headers.get("Lock-Token")).toBe(`<${token}>`);
+      expect(await refreshed.text()).toContain(`<D:href>${token}</D:href>`);
+    });
+
+    it("does not write a client-chosen token into the XML as markup", async () => {
+      const response = await lock('(<opaquelocktoken:x</D:href><D:owner>&evil;"</D:owner>)');
+      const body = await response.text();
+
+      expect(body).not.toContain("evil");
+      expect(body).not.toContain("<D:owner>");
+      expect(response.headers.get("Lock-Token")).toMatch(/^<opaquelocktoken:[0-9a-f-]{36}>$/);
     });
   });
 

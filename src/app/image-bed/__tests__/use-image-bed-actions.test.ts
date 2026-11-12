@@ -182,6 +182,44 @@ describe("useImageBedActions", () => {
 		});
 	});
 
+	describe("what a failure says", () => {
+		// `t` here returns the key and ignores the values, so the queue message is checked with a real template.
+		const fill = (key: string, vars?: Record<string, string | number>) =>
+			key === "imageBedPage.queue.failedPrefix" ? `失败：${String(vars?.message)}` : key;
+
+		it("puts the server's reason for a failed upload into the queue as it is written", async () => {
+			// String.replace reads "$&" and "$'" in the inserted text as instructions: a reason that quotes a file
+			// name like "a$&b.png" came out as "a{message}b.png".
+			mocks.csrfFetch.mockRejectedValueOnce(new Error("文件 a$&b$'.png 已存在"));
+			const { args } = setup({ t: fill });
+			const { result } = renderHook(() => useImageBedActions(args as never));
+			await act(async () => {
+				await result.current.handleUpload(fileList([imageFile("a.png")]));
+			});
+			expect(result.current.uploadProgress?.queue[0]?.message).toBe("失败：文件 a$&b$'.png 已存在");
+		});
+
+		it("says why a delete, a batch action or the statistics failed", async () => {
+			// "删除出错" / "批量操作出错" / "获取统计信息失败" alone, whatever the server answered.
+			const { args } = setup();
+			const { result } = renderHook(() => useImageBedActions(args as never));
+
+			mocks.csrfFetch.mockRejectedValueOnce(new Error("只能删除自己上传的图片"));
+			act(() => { result.current.requestDelete(args.images[0] as never); });
+			await act(async () => { await result.current.confirmDelete(); });
+			expect(mocks.addToast).toHaveBeenLastCalledWith("error", "imageBed.toast.deleteError: 只能删除自己上传的图片");
+
+			mocks.csrfFetch.mockRejectedValueOnce(new Error("请求过于频繁"));
+			act(() => { result.current.toggleSelect("img_1"); });
+			await act(async () => { await result.current.runBatchAction("togglePublic"); });
+			expect(mocks.addToast).toHaveBeenLastCalledWith("error", "imageBed.toast.batchError: 请求过于频繁");
+
+			mocks.csrfFetch.mockRejectedValueOnce(new Error("缺少权限: image:read"));
+			await act(async () => { await result.current.fetchStats(); });
+			expect(mocks.addToast).toHaveBeenLastCalledWith("error", "imageBed.toast.fetchStatsFailed: 缺少权限: image:read");
+		});
+	});
+
 	describe("destructive paths", () => {
 		it("refuses a batch delete with nothing selected", async () => {
 			const { args } = setup();
@@ -242,7 +280,7 @@ describe("useImageBedActions", () => {
 			expect(result.current.pendingDelete).toMatchObject({ type: "batch", count: 1 });
 			expect(result.current.selectedIds.has("img_1")).toBe(true);
 			expect(result.current.deleting).toBe(false);
-			expect(mocks.addToast).toHaveBeenCalledWith("error", "imageBed.toast.batchError");
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "imageBed.toast.batchError: unavailable");
 			await act(async () => { await result.current.confirmDelete(); });
 			expect(result.current.pendingDelete).toBeNull();
 			expect(result.current.selectedIds.size).toBe(0);
@@ -272,6 +310,18 @@ describe("useImageBedActions", () => {
 			await act(async () => { await result.current.confirmDelete(); });
 			expect(mocks.addToast).toHaveBeenCalledWith("error", "imageBed.toast.deletedCleanupPending");
 			expect(result.current.pendingDelete).toBeNull();
+		});
+
+		it("warns when a batch of deleted images left a storage copy behind", async () => {
+			// 207 with nothing failed: the images are gone, a copy in a storage folder is not.
+			mocks.csrfFetch.mockResolvedValueOnce({ deleted: 2, filesDeleted: 2, failedFileIds: [], linkedCleanupFailures: ["img_1"], cleanupPending: true });
+			const { args } = setup();
+			const { result } = renderHook(() => useImageBedActions(args as never));
+			act(() => { result.current.toggleSelect("img_1"); });
+			act(() => { result.current.toggleSelect("img_2"); });
+			await act(async () => { await result.current.runBatchAction("delete"); });
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "imageBed.toast.deletedCleanupPending");
+			expect(result.current.selectedIds.size).toBe(0);
 		});
 
 		it("clears the selection and leaves batch mode after a batch action", async () => {

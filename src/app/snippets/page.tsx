@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
 	const locale = await getServerLocale();
-	const session = await requirePagePermission("snippet:manage");
+	const session = await requirePagePermission("snippet:manage", { redirectTo: "/snippets" });
 	const snippets = await listSnippets({ viewer: snippetViewer(session) });
 
 	const serialized = snippets.map((s) => ({

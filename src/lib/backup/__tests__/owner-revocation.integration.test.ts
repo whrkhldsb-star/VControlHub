@@ -35,7 +35,15 @@ it.each([
  await prisma.user.update({where:{id},data:{status:disabled?"DISABLED":"ACTIVE"}});
  await prisma.team.update({where:{id},data:{deletedAt:deleted?new Date():null}});
  const record=await prisma.vpsBackupRecord.create({data:{serverId:id,createdBy:id,backupType:"nginx-config",status:"PENDING"}});
- const job=await prisma.job.create({data:{type:"vps-backup.create",title:id,teamId:id,createdBy:id,maxAttempts:1,payload:{recordId:record.id,serverId:id,teamId:id}}});
+ // Not claimable until this test makes it so: the integration suites share one
+ // database and another file's runVpsBackupJobWorkerOnce() must not pick this
+ // job up (a global LIMIT-1 claim) before the assertions below run.
+ const job=await prisma.job.create({data:{type:"vps-backup.create",title:id,teamId:id,createdBy:id,maxAttempts:1,payload:{recordId:record.id,serverId:id,teamId:id},availableAt:new Date(Date.now()+60_000)}});
+ // Park every other claimable job of this type first, then make only ours due:
+ // the claim orders by availableAt, so another suite's older pending job would
+ // otherwise be taken instead of this one.
+ await prisma.job.updateMany({where:{type:"vps-backup.create",id:{not:job.id},status:"PENDING",availableAt:{lte:new Date()}},data:{availableAt:new Date(Date.now()+120_000)}});
+ await prisma.job.update({where:{id:job.id},data:{availableAt:new Date()}});
  await runVpsBackupJobWorkerOnce();
  expect(remote.exec).not.toHaveBeenCalled();
  expect((await prisma.job.findUniqueOrThrow({where:{id:job.id}})).status).toBe("FAILED");
@@ -46,7 +54,9 @@ it("permits an active owner in a live customer to reach dispatch",async()=>{
  await prisma.user.update({where:{id},data:{status:"ACTIVE"}});
  await prisma.team.update({where:{id},data:{deletedAt:null}});
  const record=await prisma.vpsBackupRecord.create({data:{serverId:id,createdBy:id,backupType:"nginx-config",status:"PENDING"}});
- const job=await prisma.job.create({data:{type:"vps-backup.create",title:id,teamId:id,createdBy:id,maxAttempts:1,payload:{recordId:record.id,serverId:id,teamId:id}}});
+ const job=await prisma.job.create({data:{type:"vps-backup.create",title:id,teamId:id,createdBy:id,maxAttempts:1,payload:{recordId:record.id,serverId:id,teamId:id},availableAt:new Date(Date.now()+60_000)}});
+ await prisma.job.updateMany({where:{type:"vps-backup.create",id:{not:job.id},status:"PENDING",availableAt:{lte:new Date()}},data:{availableAt:new Date(Date.now()+120_000)}});
+ await prisma.job.update({where:{id:job.id},data:{availableAt:new Date()}});
  await runVpsBackupJobWorkerOnce();
  expect(remote.exec).toHaveBeenCalled();
  expect((await prisma.vpsBackupRecord.findUniqueOrThrow({where:{id:record.id}})).errorMessage).toContain("audit intentionally stopped");
@@ -54,11 +64,21 @@ it("permits an active owner in a live customer to reach dispatch",async()=>{
 });
 it("scheduled VPS backup preserves its creator in both job and record",async()=>{
  await prisma.team.update({where:{id},data:{deletedAt:null}});
- const schedule=await prisma.vpsBackupSchedule.create({data:{serverId:id,createdById:id,name:id,cronExpression:"0 3 * * *",backupType:"nginx-config",paths:[],nextRunAt:new Date(0)}});
- expect(await dispatchDueVpsBackupSchedules()).toBe(1);
- const record=await prisma.vpsBackupRecord.findFirstOrThrow({where:{scheduleId:schedule.id}});
- const job=await prisma.job.findFirstOrThrow({where:{teamId:id,payload:{path:["recordId"],equals:record.id}}});
- expect(record.createdBy).toBe(id);expect(job.createdBy).toBe(id);
+ // The integration suites share this database and dispatchDueVpsBackupSchedules()
+ // sweeps every due schedule, not only this file's: park any other ACTIVE
+ // schedule that is due right now so the dispatch below is this file's alone.
+ await prisma.vpsBackupSchedule.updateMany({where:{status:"ACTIVE",nextRunAt:{lte:new Date()},serverId:{not:id}},data:{status:"PAUSED"}});
+ try{
+  const schedule=await prisma.vpsBackupSchedule.create({data:{serverId:id,createdById:id,name:id,cronExpression:"0 3 * * *",backupType:"nginx-config",paths:[],nextRunAt:new Date(0)}});
+  // One dispatch of the whole due set: this file's schedule must be among what it created.
+  await dispatchDueVpsBackupSchedules();
+  const record=await prisma.vpsBackupRecord.findFirstOrThrow({where:{scheduleId:schedule.id}});
+  const job=await prisma.job.findFirstOrThrow({where:{teamId:id,payload:{path:["recordId"],equals:record.id}}});
+  expect(record.createdBy).toBe(id);expect(job.createdBy).toBe(id);
+ }finally{
+  const paused=await prisma.vpsBackupSchedule.findMany({where:{status:"PAUSED",serverId:{not:id}},select:{id:true}});
+  for(const p of paused){const live=await prisma.vpsBackupSchedule.findUnique({where:{id:p.id}});if(live){await prisma.vpsBackupSchedule.update({where:{id:p.id},data:{status:"ACTIVE"}});}}
+ }
 });
 
 });

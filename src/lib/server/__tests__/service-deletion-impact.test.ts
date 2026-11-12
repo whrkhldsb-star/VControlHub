@@ -13,10 +13,32 @@ vi.mock("@/lib/db", () => ({
 	}),
 }));
 
-import { getBlockingServerDeletionImpact, getServerDeletionImpact } from "../service-deletion-impact";
+import { t as translate } from "@/lib/i18n/service-translations";
+
+import { describeServerDeletionBlockers, getBlockingServerDeletionImpact, getServerDeletionImpact, type ServerDeletionImpact } from "../service-deletion-impact";
 
 describe("server deletion impact", () => {
 	beforeEach(() => count.mockReset().mockResolvedValue(0));
+
+	it("names what still refers to the server in words, not by field name", () => {
+		// The refusal read "…暂不能删除：files=120, fileVersions=3, unfinishedCommands=2。".
+		const zh = (key: string, vars?: Record<string, string | number>) => translate(key, "zh", vars);
+		const en = (key: string, vars?: Record<string, string | number>) => translate(key, "en", vars);
+		expect(describeServerDeletionBlockers([["files", 120], ["fileVersions", 3], ["unfinishedCommands", 2]], zh)).toBe("文件 120 个、文件历史版本 3 个、未完成的命令 2 条");
+		expect(describeServerDeletionBlockers([["files", 120], ["fileVersions", 3], ["unfinishedCommands", 2]], en)).toBe("files: 120, file versions: 3, unfinished commands: 2");
+
+		// Every count that can block has its words in both languages.
+		const all: ServerDeletionImpact = {
+			storageNodes: 1, files: 1, fileVersions: 1, shares: 1, mediaItems: 1, scheduledTasks: 1, alertRules: 1, playbooks: 1,
+			syncJobs: 1, quickServices: 1, backupSchedules: 1, backupRecords: 1, unfinishedCommands: 1, unfinishedDownloads: 1,
+		};
+		const everything = getBlockingServerDeletionImpact(all);
+		expect(everything).toHaveLength(13);
+		for (const say of [zh, en]) {
+			const sentence = describeServerDeletionBlockers(everything, say);
+			expect(sentence).not.toMatch(/backend\.|[a-z][A-Z]|=/);
+		}
+	});
 
 	it("blocks deleting a server while a command or download still runs against it", async () => {
 		// Their rows went with the server by cascade: a running command lost its

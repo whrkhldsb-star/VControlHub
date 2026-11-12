@@ -177,7 +177,7 @@ function States({ onRetry, retried }: { onRetry: () => void; retried: boolean })
 					<KeyValueList
 						columns={2}
 						items={[
-							{ label: "Host", value: "103.152.220.31", mono: true },
+							{ label: "Host", value: "203.0.113.31", mono: true },
 							{ label: "OS", value: "Ubuntu 24.04 LTS" },
 							{ label: "Region", value: "Hong Kong" },
 							{ label: "Tags", value: null },

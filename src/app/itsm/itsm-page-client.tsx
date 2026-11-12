@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import type { ItsmConnectionRecord, ItsmDirection, ItsmEventRecord, ItsmProvider } from "@/lib/itsm/types";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useBrowserOrigin } from "@/lib/hooks/use-browser-origin";
 import { formatDateTime } from "@/lib/datetime/format";
 import { useToast } from "@/components/toast-provider";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -37,7 +38,9 @@ export function ItsmPageClient({
 	canManage,
 	publicBaseUrl,
 }: Props) {
-	const baseUrlForInbound = publicBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
+	// Without a configured address the browser's own origin is shown; it is read after hydration, not during render.
+	const browserOrigin = useBrowserOrigin();
+	const baseUrlForInbound = publicBaseUrl || browserOrigin;
 	const { t, locale } = useI18n();
 	const { addToast } = useToast();
 	const [connections, setConnections] = useState(initialConnections);
@@ -75,17 +78,21 @@ export function ItsmPageClient({
 		const submitted = form;
 		setBusy(true);
 		try {
+			// Only what the chosen channel uses. A field hidden by a change of channel keeps what was typed into it:
+			// sent along, it gave a Telegram connection the webhook address typed for Slack (and listed it), and a
+			// Slack connection a bot token to store.
+			const telegram = form.provider === "telegram";
 			const body: Record<string, unknown> = {
 				name: form.name.trim(),
 				provider: form.provider,
 				direction: form.direction,
 				credentials: {
 					...(form.webhookSecret.trim() ? { webhookSecret: form.webhookSecret.trim() } : {}),
-					...(form.botToken.trim() ? { botToken: form.botToken.trim() } : {}),
+					...(telegram && form.botToken.trim() ? { botToken: form.botToken.trim() } : {}),
 				},
 				config: {
-					...(form.webhookUrl.trim() ? { webhookUrl: form.webhookUrl.trim() } : {}),
-					...(form.chatId.trim() ? { chatId: form.chatId.trim() } : {}),
+					...(!telegram && form.webhookUrl.trim() ? { webhookUrl: form.webhookUrl.trim() } : {}),
+					...(telegram && form.chatId.trim() ? { chatId: form.chatId.trim() } : {}),
 					...(form.workspace.trim() ? { workspace: form.workspace.trim() } : {}),
 					createOnInbound: form.createOnInbound,
 				},
@@ -234,7 +241,10 @@ export function ItsmPageClient({
 							<>
 								<label className="ui-label space-y-1">
 									<span>{t("itsmPage.field.botToken")}</span>
+									{/* A secret: hidden while typed, and not kept by the browser's form history. */}
 									<input
+										type="password"
+										autoComplete="new-password"
 										className={UI_INPUT}
 										value={form.botToken}
 										onChange={(e) => setForm((c) => ({ ...c, botToken: e.target.value }))}
@@ -253,6 +263,8 @@ export function ItsmPageClient({
 						<label className="ui-label space-y-1 md:col-span-2">
 							<span>{t("itsmPage.field.webhookSecret")}</span>
 							<input
+								type="password"
+								autoComplete="new-password"
 								className={UI_INPUT}
 								value={form.webhookSecret}
 								onChange={(e) => setForm((c) => ({ ...c, webhookSecret: e.target.value }))}
@@ -326,12 +338,12 @@ export function ItsmPageClient({
 								</div>
 								{(row.direction === "inbound" || row.direction === "bidirectional") && (
 									<div className="rounded-md bg-[var(--surface-subtle)] p-2 text-xs font-mono break-all">
-										{t("itsmPage.inboundUrl")}: {baseUrlForInbound}/api/itsm/inbound/{row.id}
+										{t("itsmPage.inboundUrl")}{t("common.colon")}{baseUrlForInbound}/api/itsm/inbound/{row.id}
 									</div>
 								)}
 								{row.config.webhookUrl && (
 									<div className="text-xs text-[var(--text-muted)] break-all">
-										{t("itsmPage.field.webhookUrl")}: {row.config.webhookUrl}
+										{t("itsmPage.field.webhookUrl")}{t("common.colon")}{row.config.webhookUrl}
 									</div>
 								)}
 							</li>
@@ -357,7 +369,7 @@ export function ItsmPageClient({
 									</span>
 								</div>
 								{ev.ticketId && (
-									<div className="text-xs text-[var(--text-muted)]">{t("itsmPage.events.ticket")}: {ev.ticketId}</div>
+									<div className="text-xs text-[var(--text-muted)]">{t("itsmPage.events.ticket")}{t("common.colon")}{ev.ticketId}</div>
 								)}
 								{ev.errorMessage && (
 									<div className="text-xs text-[var(--danger)]">{ev.errorMessage}</div>

@@ -6,7 +6,7 @@ import { createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/serv
 import { listTicketsAdvanced, getTicketKanban } from "@/lib/ticket/sla";
 import { listTicketBoard, listTicketPage, type TicketQuery, type TicketSlaFilter } from "@/lib/ticket/query";
 import { toWorkspaceBoard, toWorkspaceTicket } from "@/lib/ticket/workspace-dto";
-import { normalizeTicketPriority } from "@/lib/ticket/priority";
+import { normalizeTicketPriority, ticketPriorityInputSchema } from "@/lib/ticket/priority";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -14,7 +14,7 @@ const ticketCreateSchema = z.object({
   subject: z.string().min(1).optional(),
   title: z.string().min(1).optional(),
   description: z.string().min(1),
-  priority: z.enum(["low", "medium", "high", "critical", "normal", "urgent", "LOW", "MEDIUM", "HIGH", "CRITICAL", "NORMAL", "URGENT"]).optional(),
+  priority: ticketPriorityInputSchema.optional(),
   category: z.string().optional(),
   // serverId is accepted as an alias of relatedServerId (OpenAPI / older clients).
   serverId: z.string().optional(),
@@ -33,10 +33,9 @@ const ticketPatchSchema = z.object({
   status: z.enum(["open", "in_progress", "resolved", "closed", "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]),
   // null clears assignee — align with detail route PatchBodySchema.
   assigneeId: z.string().nullable().optional(),
-  priority: z.enum(["low", "medium", "high", "critical", "normal", "LOW", "MEDIUM", "HIGH", "CRITICAL", "NORMAL"]).optional(),
+  // One list of spellings for every ticket route: this one had its own, without "urgent".
+  priority: ticketPriorityInputSchema.optional(),
 });
-
-const normalizePriority = normalizeTicketPriority;
 
 function normalizeStatus(status: string) {
   return status.toUpperCase();
@@ -50,7 +49,8 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const view = url.searchParams.get("view");
     const status = url.searchParams.get("status") ?? undefined;
-    const priority = url.searchParams.get("priority") ?? undefined;
+    // As it is stored: "medium" and "critical" are accepted when a ticket is filed and kept as NORMAL and URGENT.
+    const priority = normalizeTicketPriority(url.searchParams.get("priority") ?? undefined);
     const category = url.searchParams.get("category") ?? undefined;
     const assigneeId = url.searchParams.get("assigneeId") ?? undefined;
     const slaStatus = url.searchParams.get("slaStatus") ?? undefined;
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     };
     const workspaceQuery: TicketQuery = {
       status: status?.toUpperCase(),
-      priority: priority?.toUpperCase(),
+      priority,
       category,
       assigneeId,
       slaStatus: SLA_FILTERS.has(slaStatus ?? "") ? (slaStatus as TicketSlaFilter) : undefined,
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
       const tickets = await listTicketsAdvanced({
         session,
         status: status?.toUpperCase(),
-        priority: priority?.toUpperCase(),
+        priority,
         category,
         assigneeId,
         slaStatus: slaStatus as "ok" | "warning" | "breached" | "none" | undefined,
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
     const ticket = await createTicket({
       title: body.subject ?? body.title ?? "",
       description: body.description,
-      priority: normalizePriority(body.priority),
+      priority: normalizeTicketPriority(body.priority),
       category: body.category,
       createdBy: session.userId,
       // Prefer explicit relatedServerId; fall back to serverId alias so clients are not silently dropped.
@@ -142,7 +142,7 @@ export async function PATCH(request: Request) {
       id: body.id,
       status: normalizeStatus(body.status),
       assigneeId: body.assigneeId,
-      priority: normalizePriority(body.priority),
+      priority: normalizeTicketPriority(body.priority),
       session,
     });
     await auditUserAction(session.userId, "ticket.update", { ticketId: body.id, status: body.status }, undefined, session.currentTeamId);

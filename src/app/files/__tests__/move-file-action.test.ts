@@ -116,6 +116,28 @@ describe("moveFileAction", () => {
     expect(failure).toBeInstanceOf(FileOperationUncertainError);
   });
 
+  it("names a failed index write without the query when the rollback fails too", async () => {
+    // A database error's own message is the query; this path put it into the move dialog.
+    mockEntryLookup(baseEntry);
+    moveBackingObjectMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("rollback connection lost"));
+    fileEntryMock.update.mockRejectedValueOnce(
+      Object.assign(new Error("\nInvalid `prisma.fileEntry.update()` invocation:\n\n\nUnique constraint failed on the fields: (`storageNodeId`,`relativePath`)"), {
+        name: "PrismaClientKnownRequestError",
+        code: "P2002",
+        clientVersion: "7.9.0",
+      }),
+    );
+    const form = new FormData();
+    form.set("fileEntryId", "file-1");
+    form.set("targetDir", "team-b");
+    const { executeMoveFile } = await import("@/lib/files/move-operation");
+    let failure: unknown;
+    try { await executeMoveFile({userId: "user-1", currentTeamId: "team-1", roles: ["operator"]} as never, form, "zh"); } catch (error) { failure = error; }
+    const message = failure instanceof Error ? failure.message : "";
+    expect(message).toContain("文件索引写入失败; rollback connection lost");
+    expect(message).not.toContain("prisma");
+  });
+
   it("validates destination ACL before updating DB", async () => {
     mockEntryLookup({
       ...baseEntry,
@@ -280,7 +302,7 @@ describe("moveFileAction", () => {
 
     const result = await moveFileAction(null, formData);
 
-    expect(result.error).toMatch(/Path/);
+    expect(result.error).toMatch(/路径/) // in the language of the action: these tests run as a Chinese user;
     expect(assertStorageAccess).not.toHaveBeenCalled();
     expect(moveBackingObjectMock).not.toHaveBeenCalled();
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();

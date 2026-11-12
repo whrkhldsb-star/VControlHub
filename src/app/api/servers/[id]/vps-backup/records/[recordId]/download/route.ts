@@ -3,7 +3,8 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * GET /api/servers/[id]/vps-backup/records/[recordId]/download — download a VPS backup archive
  *
  * TR-043: VPS remote backup file download.
- * Streams the local .tar.gz file to the client.
+ * Streams the local artifact to the client: a .tar.gz, or an .sql.gz for the
+ * database presets.
  */
 
 import { prisma } from "@/lib/db";
@@ -13,6 +14,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import { vpsBackupArtifactExtension } from "@/lib/backup/vps-backup-presets";
 import { resolveVpsBackupFilePath } from "@/lib/backup/vps-backup-service";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 
@@ -89,7 +91,8 @@ export async function GET(
 				throw new ValidationError(t("vpsBackupApi.errorNotCompleted", locale));
 			}
 
-			const filename = `${record.backupType}-${recordId}.tar.gz`;
+			// Named for what it is: a database preset's artifact is an .sql.gz.
+			const filename = `${record.backupType}-${recordId}.${vpsBackupArtifactExtension(record.backupType)}`;
 			const absPath = resolveVpsBackupFilePath(record.localPath);
 
 			// Primary: stream the local copy.

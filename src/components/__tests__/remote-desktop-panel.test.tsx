@@ -92,6 +92,24 @@ it.each([[769, "rdp.error.credentials"], [771, "rdp.error.accountRefused"]])("st
   expect(Socket.instances).toHaveLength(1);
 });
 
+it.each([[0x0a01, "rdp.error.idleLimit"], [0x0a02, "rdp.error.timeLimit"]])("stops and explains when the platform's own session limit ends the desktop (status %i)", async (status, message) => {
+  // The limits arrived as a plain error, a dropped connection to the page: it reconnected after three seconds,
+  // so neither the idle limit nor the longest session time ended anything.
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ token: "test-ticket", path: "/rdp" }), { status: 200 }))));
+  renderPanel();
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const socket = Socket.instances[0]!;
+  act(() => { socket.onopen?.(); });
+  act(() => { socket.onmessage?.({ data: instruction("", "uuid") + instruction("sync", "1") }); });
+  act(() => { socket.onmessage?.({ data: instruction("error", "RDP session limit", String(status)) }); });
+  act(() => { socket.onclose?.(); });
+  expect(overlay()).toHaveTextContent(message);
+  expect(overlay()).toHaveAttribute("role", "alert");
+  await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+  expect(Socket.instances).toHaveLength(1);
+});
+
 it.each([[0x0209, "rdp.error.sessionConflict"], [0x020b, "rdp.error.sessionEnded"], [0, "rdp.error.sessionEnded"]])("stops and explains when Windows ends the session itself (status %i)", async (status, message) => {
   // Taken over by another connection, ended by an administrator, or signed
   // out inside Windows: reconnecting took the session back from whoever had

@@ -25,7 +25,8 @@ vi.mock("@/lib/ws/notification-ws", () => ({
   pushUnreadCount: pushUnreadCountMock,
 }));
 
-const { markAsRead, markAllAsRead, deleteNotification, notifyCommandPending } = await import("../service");
+const { announceStoredNotifications, markAsRead, markAllAsRead, deleteNotification, notificationContentData, notifyCommandPending } = await import("../service");
+const { setBackgroundCopyLocale } = await import("@/lib/i18n/api-copy");
 
 describe("notification service state synchronization", () => {
   beforeEach(() => {
@@ -152,6 +153,89 @@ describe("notification service state synchronization", () => {
     // No broadcast to any customer's approvers; only platform administrators.
     expect(where.OR).toBeUndefined();
     expect(where.roles).toEqual({ some: { role: { key: "admin" } } });
+  });
+
+  it("stores the fallback text in the process's language", () => {
+    // The text a reader sees when it cannot be rendered from the code (an API
+    // client, an older page). The worker wrote it in Chinese on any platform.
+    const notice = { code: "ticketSlaEscalated" as const, params: { title: "Disk", fromKey: "ticketsDetail.priority.NORMAL", toKey: "ticketsDetail.priority.HIGH" } };
+    const chinese = notificationContentData({ notice });
+    setBackgroundCopyLocale("en");
+    try {
+      const english = notificationContentData({ notice });
+      expect(english.messageCode).toBe("ticketSlaEscalated");
+      expect(english.title).not.toBe(chinese.title);
+      expect(english.title).toMatch(/[A-Za-z]{4}/);
+      expect(english.title).not.toMatch(/[\u4e00-\u9fff]/);
+    } finally {
+      setBackgroundCopyLocale(undefined);
+    }
+    expect(chinese.title).toMatch(/[\u4e00-\u9fff]/);
+  });
+
+  describe("rows stored without createNotification", () => {
+    // The bell shows the toast and the badge from pushes while its socket is
+    // connected: a row nobody announced stayed invisible until the next reload.
+    const at = new Date("2026-11-11T00:00:00Z");
+    const row = (id: string, userId: string) => ({
+      id,
+      userId,
+      title: `title ${id}`,
+      message: `message ${id}`,
+      messageCode: "ticketSlaEscalated",
+      messageParams: { title: id },
+      actionUrl: `/tickets/${id}`,
+      teamId: "team_a",
+      createdAt: at,
+    });
+
+    it("announces every row, and each recipient's unread count once", async () => {
+      prismaMock.notification.count.mockResolvedValue(2);
+
+      await announceStoredNotifications([row("n1", "u1"), row("n2", "u2"), row("n3", "u1")]);
+
+      expect(pushNotificationMock).toHaveBeenCalledTimes(3);
+      expect(pushNotificationMock).toHaveBeenCalledWith("u1", {
+        id: "n1",
+        title: "title n1",
+        message: "message n1",
+        messageCode: "ticketSlaEscalated",
+        messageParams: { title: "n1" },
+        actionUrl: "/tickets/n1",
+        teamId: "team_a",
+        createdAt: at.toISOString(),
+      });
+      expect(pushNotificationMock).toHaveBeenCalledWith("u2", expect.objectContaining({ id: "n2" }));
+      expect(pushNotificationMock).toHaveBeenCalledWith("u1", expect.objectContaining({ id: "n3" }));
+      expect(pushUnreadCountMock).toHaveBeenCalledTimes(2);
+      expect(pushUnreadCountMock).toHaveBeenCalledWith("u1", 2, expect.any(Number));
+      expect(pushUnreadCountMock).toHaveBeenCalledWith("u2", 2, expect.any(Number));
+    });
+
+    it("reads nothing when there is nothing to announce", async () => {
+      await announceStoredNotifications([]);
+      expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
+      expect(pushNotificationMock).not.toHaveBeenCalled();
+    });
+
+    it("keeps announcing the others when one recipient cannot be reached", async () => {
+      pushNotificationMock.mockImplementationOnce(() => {
+        throw new Error("bus down");
+      });
+
+      await announceStoredNotifications([row("n1", "u1"), row("n2", "u2")]);
+
+      expect(pushNotificationMock).toHaveBeenCalledWith("u2", expect.objectContaining({ id: "n2" }));
+      expect(pushUnreadCountMock).toHaveBeenCalledWith("u2", 0, expect.any(Number));
+    });
+
+    it("never fails the caller: the rows are stored whatever happens to the push", async () => {
+      prismaMock.$queryRaw.mockRejectedValueOnce(new Error("database unavailable"));
+
+      await expect(announceStoredNotifications([row("n1", "u1")])).resolves.toBeUndefined();
+
+      expect(pushUnreadCountMock).not.toHaveBeenCalled();
+    });
   });
 
 });

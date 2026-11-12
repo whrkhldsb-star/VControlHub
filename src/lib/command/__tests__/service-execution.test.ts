@@ -38,7 +38,10 @@ vi.mock("../service-ssh", () => ({
 }));
 vi.mock("@/lib/server/agent-service", () => ({ executeCommandWithAgent: mocks.executeCommandWithAgent }));
 vi.mock("@/lib/auth/command-execution-authz", () => ({ assertRequesterMayExecuteCommand: mocks.assertRequesterMayExecuteCommand }));
-vi.mock("../cancellation", () => ({ monitorCommandCancellation: vi.fn(async () => () => {}) }));
+vi.mock("../cancellation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../cancellation")>()),
+  monitorCommandCancellation: vi.fn(async () => () => {}),
+}));
 vi.mock("../execution-queue", () => ({ enqueueCommandExecutionJob: mocks.enqueueCommandExecutionJob }));
 vi.mock("../ssh-executor", () => ({
   cancelRunningCommandChild: mocks.cancelRunningCommandChild,
@@ -291,6 +294,26 @@ describe("executeTarget", () => {
     }));
   });
 
+  it("says the Agent is offline, not that an SSH key is incomplete, for a node that has no SSH login at all", async () => {
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue({
+      id: "target-1",
+      status: "RUNNING",
+      commandRequest: { status: "RUNNING", approvals: [] },
+    });
+    mocks.executeCommandWithAgent.mockResolvedValue(null); // Agent not seen recently.
+    mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    mocks.prisma.executionLog.create.mockResolvedValue({});
+
+    const result = await executeTarget("req-1", buildTarget({ server: { managementMode: "AGENT", sshKey: null, password: null } }));
+
+    expect(result).toBe(false);
+    expect(mocks.executeCommandOverSsh).not.toHaveBeenCalled();
+    const written = mocks.prisma.commandTarget.updateMany.mock.calls.at(-1)![0] as { data: { status: string; stderr: string } };
+    expect(written.data.status).toBe("FAILED");
+    expect(written.data.stderr).toContain("Agent");
+    expect(written.data.stderr).not.toContain("私钥");
+  });
+
   it("fails SSH_KEY targets whose key has no private key material", async () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
@@ -403,6 +426,45 @@ describe("executeTarget", () => {
     expect(result).toBe(false);
     expect(mocks.prisma.commandTarget.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: "CANCELLED", exitCode: 130 }),
+    }));
+  });
+
+  it("does not call a command the platform stopped itself cancelled by the operator", async () => {
+    // The monitor stops a command whose cancellation state it cannot read. That was recorded as CANCELLED /
+    // exit 130 / "cancelled by the operator", and the request ended CANCELLED with nobody having cancelled it.
+    const { CommandCancellationStateUnknownError, monitorCommandCancellation } = await import("../cancellation");
+    vi.mocked(monitorCommandCancellation).mockImplementationOnce(async (_targetId, controller) => {
+      controller.abort(new CommandCancellationStateUnknownError());
+      return () => {};
+    });
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue({
+      id: "target-1",
+      status: "RUNNING",
+      commandRequest: { status: "RUNNING", approvals: [] },
+    });
+    mocks.executeCommandOverSsh.mockResolvedValue({ stdout: "half", stderr: "Command has been cancelled; SSH subprocess terminated.", exitCode: 130, cancelled: true, outcomeUnknown: true });
+    mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    mocks.prisma.executionLog.create.mockResolvedValue({});
+
+    expect(await executeTarget("req-1", buildTarget())).toBe(false);
+
+    const written = mocks.prisma.commandTarget.updateMany.mock.calls.at(-1)![0] as { data: { status: string; exitCode: number; stderr: string; outcomeUnknown: boolean } };
+    expect(written.data).toMatchObject({ status: "FAILED", exitCode: 255, outcomeUnknown: true });
+    expect(written.data.stderr).toContain("Stopped by the platform, not by an operator");
+    expect(written.data.stderr).toContain("SSH subprocess terminated");
+    const summary = (mocks.prisma.executionLog.create.mock.calls.at(-1)![0] as { data: { summary: string } }).data.summary;
+    expect(summary).toContain("stopped by the platform");
+    expect(summary).not.toContain("cancelled by the operator");
+
+    // A command that had already finished when the monitor gave up keeps its own result.
+    vi.mocked(monitorCommandCancellation).mockImplementationOnce(async (_targetId, controller) => {
+      controller.abort(new CommandCancellationStateUnknownError());
+      return () => {};
+    });
+    mocks.executeCommandOverSsh.mockResolvedValue({ stdout: "done", stderr: "", exitCode: 0, cancelled: false });
+    expect(await executeTarget("req-1", buildTarget())).toBe(true);
+    expect(mocks.prisma.commandTarget.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "COMPLETED", exitCode: 0, stderr: null }),
     }));
   });
 

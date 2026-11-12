@@ -99,7 +99,7 @@ export function EntryMenuItems({ model }: { model: EntryMenuModel }) {
 	}
 	if (target && model.kind === "file" && canRead && model.canShare) {
 		groups[0]!.push(
-			<MenuItem key="share" icon={<LinkIcon aria-hidden />} onSelect={() => actions.share(target)}>
+			<MenuItem key="share" icon={<LinkIcon aria-hidden />} onSelect={() => actions.share([target])}>
 				{t("sharesPage.button.compact")}
 			</MenuItem>,
 		);

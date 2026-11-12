@@ -122,11 +122,13 @@ export default async function SharePage({
               <SharePasswordGate
                 token={token}
                 entryType={share.entryType}
-                label={t("sharePage.passwordRequired", locale)}
+                // For a folder the password opens the list of its files, and nothing is downloaded yet.
+                label={t(share.entryType === "DIRECTORY" ? "sharePage.passwordRequiredFolder" : "sharePage.passwordRequired", locale)}
                 placeholder="••••••"
-                submitLabel={t("sharePage.downloadFile", locale)}
-                failedLabel={t("sharePage.downloadFailed", locale)}
-                failedStatusTemplate={t("sharePage.downloadFailedStatus", locale)}
+                submitLabel={t(share.entryType === "DIRECTORY" ? "sharePage.unlock" : "sharePage.downloadFile", locale)}
+                failedLabel={t(share.entryType === "DIRECTORY" ? "sharePage.unlockFailed" : "sharePage.downloadFailed", locale)}
+                failedStatusTemplate={t(share.entryType === "DIRECTORY" ? "sharePage.unlockFailedStatus" : "sharePage.downloadFailedStatus", locale)}
+                networkLabel={t("common.networkError", locale)}
               />
             )}
 

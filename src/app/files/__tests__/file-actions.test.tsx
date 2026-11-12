@@ -38,7 +38,9 @@ function Buttons() {
 			<button type="button" onClick={() => actions.copy([photo, report])}>do-copy</button>
 			<button type="button" onClick={() => actions.remove([photo])}>do-delete-one</button>
 			<button type="button" onClick={() => actions.remove([photo, report])}>do-delete-two</button>
-			<button type="button" onClick={() => actions.share(photo)}>do-share</button>
+			<button type="button" onClick={() => actions.share([photo])}>do-share</button>
+			<button type="button" onClick={() => actions.share([photo, report])}>do-share-two</button>
+			<button type="button" onClick={() => actions.share(Array.from({ length: 51 }, (_, index) => ({ ...report, id: `many-${index}`, name: `file-${index}.pdf` })))}>do-share-too-many</button>
 			<button type="button" onClick={() => actions.editTags(photo)}>do-tags</button>
 			<button type="button" onClick={() => void actions.toggleFavorite({ ...photo, favorite: true })}>do-unstar</button>
 			<button type="button" onClick={() => void actions.extract(bundle)}>do-extract</button>
@@ -177,6 +179,70 @@ describe("FileActionsProvider", () => {
 		expect(onCleared).toHaveBeenCalledOnce();
 	});
 
+	it("says what failed when a server action throws instead of answering", async () => {
+		// What a production build hands the browser for anything thrown on the server: a sentence of React's and a digest.
+		const redacted = (digest: string) =>
+			Object.assign(new Error("Minified React error #441; visit https://react.dev/errors/441 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."), { digest });
+		// The second one is the refusal of a permission taken away while the page was open.
+		mocks.rename.mockRejectedValueOnce(redacted("2574922165")).mockRejectedValueOnce(redacted("FORBIDDEN"));
+		renderActions();
+		fireEvent.click(screen.getByRole("button", { name: "do-rename" }));
+		let dialog = screen.getByRole("dialog", { name: "重命名" });
+		fireEvent.change(within(dialog).getByLabelText("新名称"), { target: { value: "新的.png" } });
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+		});
+		expect(within(dialog).getByRole("alert")).toHaveTextContent("重命名文件条目失败");
+		expect(dialog).not.toHaveTextContent("Minified React error");
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+		});
+		expect(within(dialog).getByRole("alert")).toHaveTextContent("缺少权限");
+		expect(dialog).not.toHaveTextContent("Minified React error");
+		fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+
+		mocks.remove.mockRejectedValueOnce(redacted("2574922165"));
+		fireEvent.click(screen.getByRole("button", { name: "do-delete-one" }));
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "确认" }));
+		});
+		dialog = screen.getByRole("dialog");
+		expect(dialog).toHaveTextContent("删除文件条目失败");
+		expect(dialog).not.toHaveTextContent("Minified React error");
+		fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+
+		mocks.move.mockRejectedValueOnce(redacted("FORBIDDEN")).mockRejectedValueOnce(redacted("2574922165"));
+		fireEvent.click(screen.getByRole("button", { name: "do-move-one" }));
+		dialog = screen.getByRole("dialog", { name: "移动到" });
+		fireEvent.click(within(dialog).getByRole("button", { name: /本机/ }));
+		fireEvent.click(await within(dialog).findByRole("button", { name: "docs" }));
+		const confirm = within(dialog).getByRole("button", { name: "移动到此处" });
+		await waitFor(() => expect(confirm).toBeEnabled());
+		await act(async () => {
+			fireEvent.click(confirm);
+		});
+		expect(dialog).toHaveTextContent("缺少权限");
+		await act(async () => {
+			fireEvent.click(confirm);
+		});
+		expect(dialog).toHaveTextContent("移动文件失败");
+		expect(dialog).not.toHaveTextContent("Minified React error");
+	});
+
+	it("shows nothing of the router's signal when the session ran out under a dialog", async () => {
+		// The action redirected to the sign-in page; the router is already going there.
+		mocks.rename.mockRejectedValueOnce(Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;push;/login?next=%2F;307;" }));
+		renderActions();
+		fireEvent.click(screen.getByRole("button", { name: "do-rename" }));
+		const dialog = screen.getByRole("dialog", { name: "重命名" });
+		fireEvent.change(within(dialog).getByLabelText("新名称"), { target: { value: "新的.png" } });
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+		});
+		expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+		expect(dialog).not.toHaveTextContent("NEXT_REDIRECT");
+	});
+
 	it("creates a quick share only after confirmation and shows the link", async () => {
 		mocks.fetch.mockImplementation(async (url: string) => (url === "/api/share-links" ? { token: "tok123" } : {}));
 		const writeText = vi.fn(async () => undefined);
@@ -191,6 +257,115 @@ describe("FileActionsProvider", () => {
 		expect(mocks.fetch).toHaveBeenCalledWith("/api/share-links", expect.objectContaining({ method: "POST", body: JSON.stringify({ fileEntryId: "f1", quick: true }) }));
 		expect(within(dialog).getByText(`${window.location.origin}/share/tok123`)).toBeVisible();
 		expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/share/tok123`);
+		// The question has been answered: the dialog is named for what it now shows.
+		expect(screen.getByRole("dialog", { name: "分享链接" })).toBe(dialog);
+	});
+
+	// A console reached by its address over plain HTTP has no Clipboard API: the link was not copied there.
+	it("copies the new link on a page without the Clipboard API, and says when nothing could copy", async () => {
+		mocks.fetch.mockImplementation(async (url: string) => (url === "/api/share-links" ? { token: "tok123" } : {}));
+		const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+		const execCommand = (document as { execCommand?: unknown }).execCommand;
+		Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+		const copied: string[] = [];
+		let allowed = true;
+		(document as { execCommand?: unknown }).execCommand = vi.fn(() => {
+			const field = document.activeElement;
+			if (allowed && field instanceof HTMLTextAreaElement) copied.push(field.value);
+			return allowed;
+		});
+		try {
+			renderActions();
+			fireEvent.click(screen.getByRole("button", { name: "do-share" }));
+			const dialog = screen.getByRole("dialog", { name: /创建临时公开分享/ });
+			await act(async () => {
+				fireEvent.click(within(dialog).getByRole("button", { name: "创建临时链接" }));
+			});
+			const url = `${window.location.origin}/share/tok123`;
+			expect(copied).toEqual([url]);
+			expect(within(dialog).getByText("分享链接已生成并复制")).toBeVisible();
+			expect(within(dialog).getByRole("button", { name: "已复制" })).toBeVisible();
+
+			// The browser refuses: the button goes back to offering the copy, and the link stays to copy by hand.
+			allowed = false;
+			await act(async () => {
+				fireEvent.click(within(dialog).getByRole("button", { name: "已复制" }));
+			});
+			expect(within(dialog).getByRole("button", { name: "复制链接" })).toBeVisible();
+			expect(within(dialog).getByText("分享链接已生成")).toBeVisible();
+			expect(within(dialog).getByText(url)).toBeVisible();
+		} finally {
+			if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+			else delete (navigator as { clipboard?: unknown }).clipboard;
+			(document as { execCommand?: unknown }).execCommand = execCommand;
+		}
+	});
+
+	// Several files selected in the drive had no share action at all.
+	it("shares several selected files with one request and lists a link for each", async () => {
+		mocks.fetch.mockImplementation(async (url: string) => (url === "/api/share-links"
+			? { shares: [{ fileEntryId: "f1", share: { name: photo.name }, token: "tokA" }, { fileEntryId: "f2", share: { name: "report.pdf" }, token: "tokB" }] }
+			: {}));
+		const writeText = vi.fn(async () => undefined);
+		Object.assign(navigator, { clipboard: { writeText } });
+		renderActions();
+		fireEvent.click(screen.getByRole("button", { name: "do-share-two" }));
+		const dialog = screen.getByRole("dialog", { name: "为 2 个文件创建临时公开分享？" });
+		expect(within(dialog).getByText(photo.name)).toBeVisible();
+		expect(within(dialog).getByText("report.pdf")).toBeVisible();
+		expect(mocks.fetch).not.toHaveBeenCalled();
+
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "创建 2 个临时链接" }));
+		});
+
+		expect(mocks.fetch).toHaveBeenCalledTimes(1);
+		expect(mocks.fetch).toHaveBeenCalledWith("/api/share-links", expect.objectContaining({ method: "POST", body: JSON.stringify({ fileEntryIds: ["f1", "f2"], quick: true }) }));
+		const origin = window.location.origin;
+		expect(within(dialog).getByText(`${origin}/share/tokA`)).toBeVisible();
+		expect(within(dialog).getByText(`${origin}/share/tokB`)).toBeVisible();
+		// All of them at once, each under the name of its file.
+		const everything = `${photo.name}\n${origin}/share/tokA\n\nreport.pdf\n${origin}/share/tokB`;
+		expect(writeText).toHaveBeenLastCalledWith(everything);
+		expect(within(dialog).getByText("已生成 2 个分享链接并全部复制")).toBeVisible();
+		expect(screen.getByRole("dialog", { name: "2 个分享链接" })).toBe(dialog);
+
+		// One link by itself, then all again.
+		await act(async () => {
+			fireEvent.click(within(dialog).getAllByRole("button", { name: "复制链接" })[1]!);
+		});
+		expect(writeText).toHaveBeenLastCalledWith(`${origin}/share/tokB`);
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: /复制全部|已全部复制/ }));
+		});
+		expect(writeText).toHaveBeenLastCalledWith(everything);
+	});
+
+	it("keeps the dialog open with the server's reason when sharing several files is refused", async () => {
+		mocks.fetch.mockImplementation(async (url: string) => {
+			if (url === "/api/share-links") throw new Error("没有此存储节点或路径的访问授权");
+			return {};
+		});
+		renderActions();
+		fireEvent.click(screen.getByRole("button", { name: "do-share-two" }));
+		const dialog = screen.getByRole("dialog", { name: "为 2 个文件创建临时公开分享？" });
+
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "创建 2 个临时链接" }));
+		});
+
+		expect(within(dialog).getByText("没有此存储节点或路径的访问授权")).toBeVisible();
+		expect(within(dialog).getByRole("button", { name: "创建 2 个临时链接" })).toBeEnabled();
+	});
+
+	it("says how many files one share may hold instead of offering to create more", async () => {
+		renderActions();
+		fireEvent.click(screen.getByRole("button", { name: "do-share-too-many" }));
+		const dialog = screen.getByRole("dialog", { name: "为 51 个文件创建临时公开分享？" });
+
+		expect(within(dialog).getByText(/一次最多分享 50 个文件，当前选中了 51 个/)).toBeVisible();
+		expect(within(dialog).queryByRole("button", { name: /创建 51 个临时链接/ })).toBeNull();
+		expect(mocks.fetch).not.toHaveBeenCalled();
 	});
 
 	it("extracts an archive into a new folder and refreshes, or says why it could not", async () => {

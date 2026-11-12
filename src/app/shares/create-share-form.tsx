@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Plus } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { copyText } from "@/lib/ui/clipboard";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
@@ -51,7 +52,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   const handleCopy = async () => {
     if (!shareUrl) return;
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      if (!(await copyText(shareUrl))) return;
       setCopied(true);
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
       copiedTimerRef.current = setTimeout(() => {
@@ -59,7 +60,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
         setCopied(false);
       }, 2000);
     } catch {
-      /* Clipboard may be unavailable; the URL remains visible for manual copy. */
+      /* Not copied; the URL remains visible for manual copy. */
     }
   };
 

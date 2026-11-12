@@ -126,16 +126,35 @@ export async function updateAlertRule(
 	session?: TeamSession | null,
 ) {
 	assertChannelsAllowed(input.notifyChannels, session);
+	const select = { id: true, metric: true, notifyChannels: true, webhookUrl: true } as const;
+	let existing: { metric: string; notifyChannels: string[]; webhookUrl: string | null } | null = null;
 	if (session) {
-		const existing = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select: { id: true } });
+		existing = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select });
 		if (!existing) throw new NotFoundError(t("backend.alert.ruleNotFound"));
+	} else if (input.metric !== undefined || input.notifyChannels !== undefined || input.webhookUrl !== undefined) {
+		existing = await prisma.alertRule.findUnique({ where: { id }, select });
+	}
+	const previousMetric = existing?.metric;
+	// The webhook channel needs an address: the one in this change, or the one the rule already holds (which
+	// the edit form cannot send back — the page is never given it).
+	if (input.notifyChannels?.includes("webhook") && !(input.webhookUrl ?? existing?.webhookUrl)) {
+		throw new ValidationError(t("backend.alert.webhookUrlRequired"));
 	}
 	if (input.serverIds !== undefined) await assertServerIdsInTeam(input.serverIds, session);
 	if (input.playbookIds !== undefined) await assertPlaybookIdsInTeam(input.playbookIds, session);
 	if (input.onCallUserIds !== undefined) await assertOnCallUserIdsInTeam(input.onCallUserIds, session);
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
-	if (input.metric !== undefined) data.metric = input.metric;
+	if (input.metric !== undefined) {
+		data.metric = input.metric;
+		// The per-server stamps say since when a server has breached the metric the rule watched. Carried over to
+		// another metric they let a server fire at once, without the rule's duration. (An incident of the old metric
+		// is closed by the orphan sweep; recovery does not depend on the stamps.)
+		if (previousMetric !== undefined && previousMetric !== input.metric) {
+			data.matchState = {};
+			data.lastMatchedAt = null;
+		}
+	}
 	if (input.operator !== undefined) data.operator = input.operator;
 	if (input.threshold !== undefined) data.threshold = input.threshold;
 	if (input.durationSeconds !== undefined) data.durationSeconds = input.durationSeconds;
@@ -256,6 +275,12 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 		}
 	}
 
+	const contextLines = [
+		t("backend.alert.testContext.rule", { value: rule.name }),
+		t("backend.alert.testContext.metric", { value: rule.metric }),
+		t("backend.alert.testContext.threshold", { value: rule.threshold }),
+	];
+
 	// A customer's test never reaches the platform's own mailbox or bot (see PLATFORM_ONLY_CHANNELS); rules saved
 	// before that rule may still list them.
 	const platformChannelsAllowed = mayUsePlatformChannels(session);
@@ -270,24 +295,20 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 			const result = await sendAlertEmail({
 				title,
 				message,
-				contextLines: [
-					`Rule: ${rule.name}`,
-					`Metric: ${rule.metric}`,
-					`Threshold: ${rule.threshold}`,
-				],
+				contextLines,
 			});
 			deliveries.push({
 				channel: "email",
 				status: result.accepted.length > 0 && result.rejected.length === 0 ? "sent" : "failed",
 				message: result.rejected.length === 0
-					? `Email test sent to ${result.accepted.length} recipients`
-					: `Email test partially failed: ${result.rejected.length} recipients rejected`,
+					? t("backend.alert.testEmailSent", { count: result.accepted.length })
+					: t("backend.alert.testEmailPartialFail", { rejected: result.rejected.length }),
 			});
 		} catch (error) {
 			deliveries.push({
 				channel: "email",
 				status: "failed",
-				message: error instanceof Error ? error.message : "Email test send failed",
+				message: error instanceof Error ? error.message : t("backend.alert.testEmailFailed"),
 			});
 		}
 	}
@@ -297,42 +318,38 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 			const result = await sendAlertTelegram({
 				title,
 				message,
-				contextLines: [
-					`Rule: ${rule.name}`,
-					`Metric: ${rule.metric}`,
-					`Threshold: ${rule.threshold}`,
-				],
+				contextLines,
 			});
 			if (result.accepted.length === 0) {
 				deliveries.push({
 					channel: "telegram",
 					status: "failed",
-					message: result.rejected[0]?.reason ?? "Telegram send failed",
+					message: result.rejected[0]?.reason ?? t("backend.alert.testTelegramFailed"),
 				});
 			} else if (result.rejected.length > 0) {
 				deliveries.push({
 					channel: "telegram",
 					status: "failed",
-					message: `Telegram partially failed: ${result.rejected.length}/${result.accepted.length + result.rejected.length} targets failed to send`,
+					message: t("backend.alert.testTelegramPartialFail", { failed: result.rejected.length, total: result.accepted.length + result.rejected.length }),
 				});
 			} else {
 				deliveries.push({
 					channel: "telegram",
 					status: "sent",
-					message: `Telegram test sent to ${result.accepted.length} targets`,
+					message: t("backend.alert.testTelegramSent", { count: result.accepted.length }),
 				});
 			}
 		} catch (error) {
 			deliveries.push({
 				channel: "telegram",
 				status: "failed",
-				message: error instanceof Error ? error.message : "Telegram test send failed",
+				message: error instanceof Error ? error.message : t("backend.alert.testTelegramFailed"),
 			});
 		}
 	}
 
 	if (deliveries.length === 0) {
-		deliveries.push({ channel: "none", status: "skipped", message: "No notification channel selected" });
+		deliveries.push({ channel: "none", status: "skipped", message: t("backend.alert.testNoChannel") });
 	}
 
 	return {
@@ -376,7 +393,7 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 
 	const defaults: CreateAlertRuleInput[] = [
 		{
-			name: "Server offline",
+			name: t("backend.alert.starter.offline"),
 			metric: "server_offline",
 			operator: "eq",
 			threshold: 1,
@@ -386,7 +403,7 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 			escalationMinutes: 30,
 		},
 		{
-			name: "CPU high (≥ 90%)",
+			name: t("backend.alert.starter.cpu"),
 			metric: "cpu_usage",
 			operator: "gte",
 			threshold: 90,
@@ -396,7 +413,7 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 			escalationMinutes: 45,
 		},
 		{
-			name: "Memory high (≥ 90%)",
+			name: t("backend.alert.starter.memory"),
 			metric: "mem_usage",
 			operator: "gte",
 			threshold: 90,
@@ -406,7 +423,7 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 			escalationMinutes: 45,
 		},
 		{
-			name: "Disk high (≥ 90%)",
+			name: t("backend.alert.starter.disk"),
 			metric: "disk_usage",
 			operator: "gte",
 			threshold: 90,

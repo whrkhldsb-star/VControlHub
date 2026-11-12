@@ -22,6 +22,7 @@ import {
   type ProfileSession,
 } from "./service-internals";
 import type { UpdateServerInput } from "./service-profiles";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 
 /**
  * Windows nodes: an RDP profile plus an optional SFTP storage node. AGENT mode
@@ -167,7 +168,7 @@ export async function updateWindowsServerProfile(
       windowsSftpPort: nextSftp.port, windowsSftpUsername: nextSftp.username,
       windowsSftpPassword: nextSftp.password, windowsSftpPath: nextSftp.basePath,
     });
-    if (!valid.success) throw new ValidationError(valid.error.issues[0]?.message ?? "Invalid SFTP configuration");
+    if (!valid.success) throw new ValidationError(firstSchemaSentence(valid.error) ?? "Invalid SFTP configuration");
   }
   let nextSftpHostKey = current.hostKeySha256;
   if (nextSftp) {
@@ -181,8 +182,10 @@ export async function updateWindowsServerProfile(
     await listRemoteDirectory({ ...ssh, hostKeySha256: nextSftpHostKey, remotePath: nextSftp.basePath });
   }
   const nextManagementMode = input.managementMode ?? current.managementMode;
-  const release = await acquireAdvisoryLock("server-host", payload.host);
+  // Before the lock, not between taking it and the block that releases it: thrown there, each refusal kept the
+  // host lock and one of the lock pool's few connections until the process restarted.
   if (payload.certificateSha256 && !rdpCertificatePinSupported()) throw new ValidationError(t("backend.server.rdpPinUnsupported"));
+  const release = await acquireAdvisoryLock("server-host", payload.host);
   try {
     await assertNoDuplicateServerHost(payload, { excludeId: serverId, session: sessionForTeamWhere(session) });
     const updated = await prisma.$transaction(async (tx) => {

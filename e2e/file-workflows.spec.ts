@@ -143,7 +143,9 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	expect(shareResponse.status()).toBe(201);
 	const { token } = await shareResponse.json() as { token: string };
 	const shareUrl = new URL(`/share/${token}`, page.url()).toString();
-	await expect(shareDialog.locator("code")).toContainText(shareUrl);
+	// The same dialog, now showing the link: its title names what is shown instead of asking.
+	const shareResult = page.getByRole("dialog", { name: /^(?:分享链接|Share link)$/i });
+	await expect(shareResult.locator("code")).toContainText(shareUrl);
 	const publicPage = await context.newPage();
 	await publicPage.goto(shareUrl);
 	await expect(publicPage.locator("body")).toContainText(fileName);
@@ -156,8 +158,8 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	expect(download.suggestedFilename()).toBe(fileName);
 	expect(await publicPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 	await publicPage.close();
-	await shareDialog.getByRole("button", { name: /^完成$|^Done$/i }).click();
-	await expect(shareDialog).toBeHidden();
+	await shareResult.getByRole("button", { name: /^完成$|^Done$/i }).click();
+	await expect(shareResult).toBeHidden();
 
 	await (await openMore(page, fileName)).getByRole("menuitem", { name: /^删除$|^Delete$/i }).click();
 	const deleteDialog = page.getByRole("dialog", { name: /删除|Delete/i });

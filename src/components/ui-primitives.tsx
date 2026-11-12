@@ -2,12 +2,7 @@ import Link from "next/link";
 
 import { cn } from "@/lib/ui/cn";
 import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
-import { browserT, type Locale } from "@/lib/i18n/browser-translations";
-
-/** The page language the root layout set from the locale cookie; the default label was Chinese on English pages (A11-04). */
-function documentLocale(): Locale {
-	return typeof document !== "undefined" && document.documentElement.lang.toLowerCase().startsWith("en") ? "en" : "zh";
-}
+import { browserT, pageLocale } from "@/lib/i18n/browser-translations";
 import { Children, cloneElement, isValidElement, Fragment } from "react";
 import type {
 	ButtonHTMLAttributes,
@@ -207,6 +202,7 @@ export function Switch({
 	disabled,
 	id,
 	className,
+	...rest
 }: {
 	checked: boolean;
 	onCheckedChange: (next: boolean) => void;
@@ -214,9 +210,10 @@ export function Switch({
 	disabled?: boolean;
 	id?: string;
 	className?: string;
-}) {
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type" | "role" | "onClick" | "aria-checked" | "aria-label" | "children">) {
 	return (
 		<button
+			{...rest}
 			type="button"
 			role="switch"
 			id={id}
@@ -614,7 +611,7 @@ export function Notice({
 			</div>
 			{action || onDismiss ? <div className="flex shrink-0 items-center gap-2">
 				{action ? <button type="button" onClick={action.onClick} disabled={action.disabled} className="font-semibold underline underline-offset-2 disabled:opacity-50">{action.label}</button> : null}
-				{onDismiss ? <IconButton label={dismissLabel ?? browserT("common.close", documentLocale())} onClick={onDismiss} className="h-7 w-7">×</IconButton> : null}
+				{onDismiss ? <IconButton label={dismissLabel ?? browserT("common.close", pageLocale())} onClick={onDismiss} className="h-7 w-7">×</IconButton> : null}
 			</div> : null}
 		</div>
 	);

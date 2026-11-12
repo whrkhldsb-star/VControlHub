@@ -1,8 +1,11 @@
 /**
  * scripts/i18n-key-completeness.ts
  *
- * Static analyzer that checks every `t("...")` / `trTpl("...")` /
- * `tplT("...")` call site in `src/` resolves to a key present in
+ * Static analyzer that checks every call of a translator with a literal
+ * key in `src/` — `t("...")`, a Server Action's `tr("...")`, `apiCopy("...")`,
+ * `browserT("...")`, `serviceT("...")`, `translate("...")`, `tt("...")`,
+ * `tplT("...")`, `trTpl("...")` and a translator kept in a ref
+ * (`tRef.current("...")`) — resolves to a key present in
  * `src/lib/i18n/dictionaries/*.ts` (both zh and en sections).
  *
  * Why this exists: previous i18n sweep rounds replaced hardcoded
@@ -22,7 +25,8 @@ import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
 
-const ROOT = join(__dirname, "..");
+// The repository this file is in; the gate's own test points it at a fixture.
+const ROOT = process.env.I18N_KEY_CHECK_ROOT || join(__dirname, "..");
 const SRC = join(ROOT, "src");
 const DICT_DIR = join(SRC, "lib", "i18n", "dictionaries");
 const SKIP_DIRS = new Set(["node_modules", ".next", ".git"]);
@@ -49,8 +53,9 @@ const DICT_FILES = readdirSync(DICT_DIR)
 const used = new Set<string>();
 const referencedLiterals = new Set<string>();
 const dynamicKeyPatterns: RegExp[] = [];
-// Match the simple dominant patterns: t("..."), tplT("..."), trTpl("...") — and the rare t("k", ...)
-const tSimple = /\b(?:t|tplT|trTpl)\(\s*['"]([a-zA-Z][a-zA-Z0-9_.]+)['"]/g;
+// Every translator called with a literal key. `apiCopy()` answers with the key itself when no dictionary has
+// it, and it was not read here: a 404 of the remote-desktop probe said "apiCopy.server.not.found.b3aa1f7c".
+const tSimple = /(?<![\w$.])(?:t|tr|tt|tplT|trTpl|apiCopy|browserT|serviceT|translate|tRef\.current)\(\s*['"]([a-zA-Z][a-zA-Z0-9_.]+)['"]/g;
 
 // Strip block comments (/* ... */) and line comments (// ...) before
 // scanning, so docstrings with example `t("...")` calls don't trigger

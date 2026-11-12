@@ -13,10 +13,10 @@ Sources:
 
 ## Observed TOFU baseline
 
-A credential-free X.224 negotiation followed by TLS 1.3 to `2.26.201.79:3389` returned this **whole-certificate DER SHA-256** (NOT SPKI/public-key hash):
+A credential-free X.224 negotiation followed by TLS 1.3 to the Windows node used for this check (address withheld) returned this **whole-certificate DER SHA-256** (NOT SPKI/public-key hash):
 
 ```
-72f2c7dd3716fb4aee2c1418706200562bd78c553d565f48f5591b87af88d480
+<64 hexadecimal characters; the observed value is kept out of the repository>
 ```
 
 This is only an observed TOFU baseline, not independent proof of identity. No password was used or changed. The application/server record and running gateway configuration were not changed. The parent's transparent relay independently observed the same certificate; that does not turn TOFU into independently verified trust.

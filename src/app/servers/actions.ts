@@ -17,12 +17,12 @@ import { billingInputFromForm, normalizeServerBilling, saveNewServerBilling, upd
 import { SshHostKeyApprovalRequiredError } from "@/lib/ssh/host-key";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { SERVER_SYNC_TARGET_AUTH_VALUES, type ServerSyncTargetAuth } from "@/lib/sync/target-auth";
+import { withServerActionLocale } from "@/lib/i18n/server-locale";
 
 export type ServerActionState = {
   error?: string;
   success?: string;
   relatedStorageCount?: number;
-  deleteBlockerSummary?: string;
   hostKeySha256?: string;
   /** Windows agent bootstrap one-liner, shown once after issuing a token. */
   installCommand?: string;
@@ -49,6 +49,13 @@ async function serverActionTranslator() {
 }
 
 export async function createServerAction(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => createServerActionImpl(_prevState, formData));
+}
+
+async function createServerActionImpl(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
@@ -162,6 +169,13 @@ export async function updateServerAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
+  return withServerActionLocale(() => updateServerActionImpl(_prevState, formData));
+}
+
+async function updateServerActionImpl(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
   const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
@@ -262,6 +276,13 @@ export async function createSshKeyAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
+  return withServerActionLocale(() => createSshKeyActionImpl(_prevState, formData));
+}
+
+async function createSshKeyActionImpl(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
   const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
@@ -305,6 +326,13 @@ export async function toggleServerAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
+  return withServerActionLocale(() => toggleServerActionImpl(_prevState, formData));
+}
+
+async function toggleServerActionImpl(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
   const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
@@ -342,6 +370,13 @@ export async function toggleServerAction(
 }
 
 export async function toggleDirectGatewayAction(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => toggleDirectGatewayActionImpl(_prevState, formData));
+}
+
+async function toggleDirectGatewayActionImpl(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
@@ -389,6 +424,13 @@ export async function toggleDirectGatewayAction(
 }
 
 export async function batchToggleServerAction(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => batchToggleServerActionImpl(_prevState, formData));
+}
+
+async function batchToggleServerActionImpl(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
@@ -443,6 +485,13 @@ export async function deleteServerAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
+  return withServerActionLocale(() => deleteServerActionImpl(_prevState, formData));
+}
+
+async function deleteServerActionImpl(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
   const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
@@ -469,11 +518,10 @@ export async function deleteServerAction(
     const blockers = getBlockingServerDeletionImpact(deletionImpact);
 
     if (blockers.length > 0) {
-      const dependencies = blockers.map(([name, count]) => `${name}=${count}`).join(", ");
+      const { describeServerDeletionBlockers } = await import("@/lib/server/service-deletion-impact");
       return {
         relatedStorageCount,
-        deleteBlockerSummary: dependencies,
-        error: tr("serversPage.action.deleteBlocked", { dependencies }),
+        error: tr("serversPage.action.deleteBlocked", { dependencies: describeServerDeletionBlockers(blockers, tr) }),
       } as ServerActionState;
     }
 
@@ -523,6 +571,13 @@ export async function reinstallServerAgentAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
+  return withServerActionLocale(() => reinstallServerAgentActionImpl(_prevState, formData));
+}
+
+async function reinstallServerAgentActionImpl(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
   const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
@@ -561,6 +616,13 @@ export async function reinstallServerAgentAction(
 }
 
 export async function getWindowsAgentInstallCommandAction(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => getWindowsAgentInstallCommandActionImpl(_prevState, formData));
+}
+
+async function getWindowsAgentInstallCommandActionImpl(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
@@ -603,6 +665,10 @@ export async function getWindowsAgentInstallCommandAction(
 }
 
 export async function getServerFormOptions() {
+  return withServerActionLocale(() => getServerFormOptionsImpl());
+}
+
+async function getServerFormOptionsImpl() {
   const session = await requirePermission("server:write");
   const sshKeys = await import("@/lib/server/service").then((mod) =>
     mod.listSshKeys(session),

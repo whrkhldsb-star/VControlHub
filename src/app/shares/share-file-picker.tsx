@@ -10,6 +10,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
 import { Pagination } from "@/components/pagination";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { copyText as copyToClipboard } from "@/lib/ui/clipboard";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 import { ActionButton } from "@/components/action-button";
@@ -104,6 +105,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 	const [loading, setLoading] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState("");
+	const [loadFailed, setLoadFailed] = useState(false);
 	const [results, setResults] = useState<CreatedShare[]>([]);
 	const [copiedKey, setCopiedKey] = useState("");
 	const requestRef = useRef<AbortController | null>(null);
@@ -127,8 +129,6 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 		file: t("sharesPage.picker.file"),
 		selectFolder: t("sharesPage.picker.selectFolder"),
 		selectFile: t("sharesPage.picker.selectFile"),
-		selectedPrefix: t("sharesPage.picker.selectedPrefix"),
-		selectedSuffix: t("sharesPage.picker.selectedSuffix"),
 		selectedHint: t("sharesPage.picker.selectedHint"),
 		clear: t("sharesPage.picker.clear"),
 		selectedEmpty: t("sharesPage.picker.selectedEmpty"),
@@ -148,6 +148,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 		requestRef.current = controller;
 		setLoading(true);
 		setError("");
+		setLoadFailed(false);
 		try {
 			const params = buildFileListParams(nodeId, path);
 			if (page > 1) {
@@ -159,6 +160,10 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			setData(response);
 		} catch (err) {
 			if (requestRef.current !== controller) return;
+			// Nothing is known about this folder: neither the listing of the one before it nor "no items here",
+			// which under the reason said the opposite of it.
+			setData(null);
+			setLoadFailed(true);
 			setError(getErrorMessage(err, copyText.loadError));
 		} finally {
 			if (requestRef.current === controller) setLoading(false);
@@ -246,7 +251,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 
 	const copy = async (item: CreatedShare) => {
 		try {
-			await navigator.clipboard.writeText(item.url);
+			if (!(await copyToClipboard(item.url))) throw new Error("copy");
 			setCopiedKey(item.key);
 			if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
 			copyTimerRef.current = setTimeout(() => setCopiedKey(""), 1600);
@@ -359,7 +364,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 								);
 							})}
 						</div>
-					) : (
+					) : loadFailed ? null : (
 						<EmptyState text={copyText.empty} />
 					)}
 					{data?.pagination ? <Pagination page={data.pagination.page} pageSize={data.pagination.pageSize} totalItems={data.pagination.totalItems} loading={loading || creating} onPageChange={setPage} /> : null}
@@ -368,7 +373,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				<aside className="min-w-0 border-t border-[var(--border)] pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<h3 className="ui-title-group">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
+							<h3 className="ui-title-group">{t("sharesPage.picker.selectedCount", { count: selectedItems.length })}</h3>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{copyText.selectedHint}</p>
 						</div>
 						<ActionButton variant="ghost" disabled={creating} onClick={() => setSelected({})} className="shrink-0 whitespace-nowrap">{copyText.clear}</ActionButton>

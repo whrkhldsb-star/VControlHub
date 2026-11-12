@@ -33,6 +33,7 @@ import {
 
 import { cn } from "@/lib/ui/cn";
 import { ActionButton, type ActionButtonVariant, type ButtonSize } from "../action-button";
+import { Check } from "../icons";
 import { IconChevronDown } from "../nav-icons";
 
 /**
@@ -81,7 +82,7 @@ const MenuContext = createContext<{ close: () => void } | null>(null);
 
 function menuItems(panel: HTMLElement | null) {
 	return panel
-		? Array.from(panel.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])'))
+		? Array.from(panel.querySelectorAll<HTMLElement>('[data-menu-item]:not([aria-disabled="true"])'))
 		: [];
 }
 
@@ -309,12 +310,14 @@ type MenuItemProps = {
 	description?: ReactNode;
 	/** Right-aligned hint such as a keyboard shortcut. */
 	hint?: ReactNode;
+	/** One of several choices (a sort key, a direction): announced as checked or not, and marked when it is. */
+	checked?: boolean;
 	danger?: boolean;
 	disabled?: boolean;
 	className?: string;
 } & ({ href: string; onSelect?: () => void } | { href?: undefined; onSelect: () => void });
 
-export function MenuItem({ children, icon, description, hint, danger, disabled, className, href, onSelect }: MenuItemProps) {
+export function MenuItem({ children, icon, description, hint, checked, danger, disabled, className, href, onSelect }: MenuItemProps) {
 	const menu = useContext(MenuContext);
 	const content = (
 		<>
@@ -324,10 +327,12 @@ export function MenuItem({ children, icon, description, hint, danger, disabled, 
 				{description ? <span data-menu-description className="block">{description}</span> : null}
 			</span>
 			{hint ? <span className="ml-auto shrink-0 text-xs text-[var(--text-muted)]">{hint}</span> : null}
+			{checked ? <Check size={14} className="ml-auto shrink-0 text-[var(--accent)]" aria-hidden /> : null}
 		</>
 	);
 	const shared = {
-		role: "menuitem" as const,
+		role: checked === undefined ? ("menuitem" as const) : ("menuitemradio" as const),
+		"aria-checked": checked,
 		"data-menu-item": "",
 		"data-danger": danger ? "" : undefined,
 		"aria-disabled": disabled || undefined,

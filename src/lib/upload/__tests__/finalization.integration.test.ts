@@ -4,7 +4,8 @@ import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import sharp from "sharp";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { appendMediaUploadChunk, assembleMediaUploadChunks, cleanupMediaUploadTempDir, initMediaUploadSession, readSessionTempDir, UPLOAD_TMP_DIR } from "../service";
+import { uploadTmpDir } from "@/lib/runtime/work-dirs";
+import { appendMediaUploadChunk, assembleMediaUploadChunks, cleanupMediaUploadTempDir, initMediaUploadSession, readSessionTempDir } from "../service";
 import { POST } from "@/app/api/images/upload/[id]/complete/route";
 
 const fixture = vi.hoisted(() => ({
@@ -78,7 +79,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("image final
 
   it("keeps chunks immutable when a database finalizer wins against an in-flight duplicate", async () => {
     const sessionId = await upload();
-    const chunkPath = `${UPLOAD_TMP_DIR}/${sessionId}/chunk-0`;
+    const chunkPath = `${uploadTmpDir()}/${sessionId}/chunk-0`;
     const original = await readFile(chunkPath);
     let locked!: () => void;
     let release!: () => void;

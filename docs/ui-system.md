@@ -24,6 +24,7 @@ back into pages.
 | Content dialog layout (header / body / footer) | `src/components/ui/dialog.tsx` |
 | Menus and click-outside / Escape handling | `src/components/ui/menu.tsx` |
 | Label / value lists | `src/components/ui/key-value.tsx` |
+| Number fields bound to a number | `src/components/ui/number-input.tsx` |
 | Folded sections | `src/components/ui/disclosure.tsx` |
 | Page layout, cards, lists, metrics, empty states | `src/components/page-shell.tsx` |
 | Badges, notices, fields, tabs, switches, progress | `src/components/ui-primitives.tsx`, `status-badge.tsx` |
@@ -94,7 +95,11 @@ checks the token file; `npm run ui:check` runs axe on every component state.
   which escapes the source before adding its own tags, so it renders the
   same on the server. For line-clamped previews use `markdownExcerpt`,
   never the raw source.
-- **`EmptyState`** — `simple` inside a panel, `boxed` on its own.
+- **`EmptyState`** — `simple` inside a panel, `boxed` on its own. `title` says
+  what is empty in a few words ("No budgets"); `text` (or children) says what
+  to do about it; `action` is the way out (clear the filter, show everything).
+  Not two sentences joined by a dash, and no button that repeats the form
+  right above it.
 - **`Disclosure`** — a folded section (advanced settings, migration tools,
   raw commands): `variant="card"` for page-level blocks (its title is an
   `<h2>`), `variant="inset"` inside a card or row. Native `<details>`, so it
@@ -114,7 +119,9 @@ Field labels use `UI_LABEL` (= `ui-label`).
 - **`Chip`** — filter pills, multi-select toggles, suggestions (`selected`,
   `tone`, `size`, `dashed`); `ToggleChip` is a control-height chip.
 - **`SegmentedControl`** — one value out of a few (toggle-button group with
-  the pills look; `block`, `compactLabels`, per-option `tone`).
+  the pills look; `block`, `compactLabels`, per-option `tone`): a view switch,
+  an account type, a method. Chips are for filters and multi-select; do not
+  wrap them in a `radiogroup`.
 - **Selectable tiles** — `data-tile` (or `data-inset`) with `aria-pressed`,
   `aria-checked` or `data-selected`; `CheckboxField variant="tile"`.
 - **Drop zones** — `data-dropzone` (+ `data-drag-over`).
@@ -139,7 +146,9 @@ Field labels use `UI_LABEL` (= `ui-label`).
   `footer` for actions (submit a form in the body with `form={id}`),
   `eyebrow`, `headerActions`, `closeLabel`/`closeButtonRef`, `size`, `busy` (locks Escape/backdrop while a request
   runs), `placement="sheet"` for a bottom sheet on phones.
-- **`ConfirmDialog`** — destructive or important confirmations.
+- **`ConfirmDialog`** — destructive or important confirmations. Pass `busy`
+  while the request runs and `error` when it is refused: the dialog stays
+  open and shows the reason inside; close it only on success.
 - **`ModalShell`** — the primitive underneath, for custom layouts:
   `size` `sm` (24rem) · `md` (28rem, default) · `lg` (32rem) · `xl` (42rem) ·
   `2xl` (48rem) · `full` (64rem); `placement` `center` · `top` (tall,
@@ -152,9 +161,11 @@ Field labels use `UI_LABEL` (= `ui-label`).
 ### Menus
 
 - **`Menu`** + **`MenuItem`** (`href` or `onSelect`, `icon`, `description`,
-  `hint`, `danger`, `disabled`), **`MenuSeparator`**, **`MenuLabel`** — closes
+  `hint`, `checked`, `danger`, `disabled`), **`MenuSeparator`**, **`MenuLabel`** — closes
   on outside click, Escape (focus returns to the trigger) and selection;
-  arrow keys, Home and End move between items.
+  arrow keys, Home and End move between items. An item that is one of several
+  choices (a sort key, a direction) takes `checked`: it is announced as a
+  radio item and shows a tick — never a "✓" in its label.
 - **`useDismiss`** — the same outside-click / Escape behaviour for custom
   popovers (account menu, notifications, model switcher). Style their panel
   with `data-popover` and rows with `data-menu-item`.
@@ -169,6 +180,15 @@ Field labels use `UI_LABEL` (= `ui-label`).
 - Fields use `UI_INPUT`; selects get the chevron automatically. Because the
   field look is a components-layer rule, a width or size utility next to it
   always wins: `cn(UI_INPUT, "w-40")` is 10rem wide.
+- **`NumberInput`** (`src/components/ui/number-input.tsx`) — a number field
+  bound to a number (`value`, `onValueChange`, `min`, `max`, `integer`). It
+  keeps what is being typed: an `<input type="number">` bound straight to
+  numeric state (`setValue(Number(e.target.value) || 30)`) cannot be emptied —
+  the field refills itself while the person is still typing. Forms that hold
+  the text themselves and parse it on submit do not need it.
+- Every field has a visible label (`FormField`), not a placeholder standing
+  in for one: a placeholder is gone as soon as something is typed, and a
+  field that starts with a value ("80") never showed it at all.
 - **`KeyValueList`** — label/value pairs (`columns`, `layout="inline"`,
   `mono` for hosts and ids, `wide` for long values, an em dash when empty).
 - Tables inside `PageShell` are styled globally; write plain `<table>` markup.
@@ -194,7 +214,9 @@ breadcrumb names the area, so page eyebrows are hidden.
 - **Top bar** — breadcrumb from `findNavLocation`, search, notifications,
   theme and language; it also names the browser tab and records recent pages.
 - **Command palette** (⌘K / Ctrl+K or `/`) — recent pages, actions (theme,
-  language, sidebar, shortcuts), pages and resources.
+  language, sidebar, shortcuts), pages and resources. The hint in the top bar
+  and in the shortcut list names the key this keyboard has
+  (`useModifierKey`: ⌘ on Apple systems, Ctrl elsewhere).
 - **Shortcuts** (`?` lists them) — `G` then a letter jumps to a page (D
   dashboard, S servers, F files, T tasks, M monitoring, A alerts, R requests,
   N notifications, I AI, `,` settings). Shortcuts never fire while typing in a
@@ -213,8 +235,39 @@ breadcrumb names the area, so page eyebrows are hidden.
   Validate probe response bodies before showing a successful state.
 - Show actionable errors next to the affected operation. Distinguish a failed
   list refresh from partially synchronised remote files.
+- Where a result is shown:
+  - a form's result (refusal or success that needs reading) is a `Notice`
+    next to its submit button, in view, not at the top of a long page;
+  - a confirmation's failure is shown in the dialog that asked (`error`),
+    which stays open;
+  - a row action without a dialog (toggle, run now, copy) reports by toast,
+    and so does a plain "saved";
+  - a failed load is a `Notice` with a retry, with no "nothing here" under
+    it — an empty state means the load succeeded and found nothing.
+- A form submitted to a Server Action keeps what was typed when the action
+  answers with an error: React resets uncontrolled fields after any answer,
+  so wire `usePreservedActionForm` (`src/lib/forms/use-preserved-action-form.ts`)
+  into the form. File inputs cannot be restored; say so near them.
+- Sentences come from the dictionaries, in the language of the page. What
+  the server refuses with is shown as its sentence (`getErrorMessage`,
+  `describeFailure`, `readRefusal` in `src/lib/http/error-message.ts`), never
+  as a status code, a JSON body or a framework placeholder.
 - One primary button per view; destructive actions confirm in-app
   (`ConfirmDialog`), never with `window.confirm`.
+- A sentence is one dictionary entry with placeholders (`{count}`, `{name}`),
+  never pieces joined in code: word order and punctuation belong to the
+  language. Where a link follows a sentence, end the sentence and put the
+  link after it. After a translated label, write the language's colon
+  (`t("common.colon")`), not `": "`. Chinese entries use Chinese punctuation.
+- Icons come from `src/components/icons.tsx` and `nav-icons.tsx`. Emoji and
+  symbol characters (⚠ ▶ ✓ ⬇ ⭐) are not icons: they are drawn differently
+  on each system and do not follow the theme.
+- A link to a page of the application is a `Link` or a `ButtonLink`. A plain
+  `<a>` is for files, exports and streams under `/api`, for another site
+  (`external`), and for a jump within the page.
+- Text the server stores in English for its own records (a version's note, a
+  sync job's result line) is said in the page's language where it is shown
+  (`versionNoteLabel`, `syncResultLabel`); what is stored stays as it is.
 
 ## Rules enforced by tests
 
@@ -231,7 +284,17 @@ breadcrumb names the area, so page eyebrows are hidden.
 - draws fields, buttons, button-styled links or surfaces with pasted
   border + background + radius instead of `UI_INPUT`, the button components
   or `data-card` / `data-inset` / `data-tile` / `data-popover`;
-- uses `ModalShell` directly for a content dialog, or `window.confirm`.
+- uses `ModalShell` directly for a content dialog, or `window.confirm`;
+- binds an `<input type="number">` to numeric state by converting in
+  `onChange` instead of using `NumberInput`;
+- links to a page of the application with a plain `<a href="/…">`.
+
+`src/lib/i18n/__tests__/dictionary-text.test.ts` fails when a Chinese entry
+puts half-width punctuation after Chinese text, or when an entry starts or
+ends with a space (a piece of a sentence joined in code; a label's `": "` and
+list separators are allowed).
+`src/app/manifest.test.ts` keeps the manifest's two colours equal to the
+tokens'.
 
 `src/components/__tests__/data-tone-vocabulary.test.ts` keeps `data-tone` to
 the hue names that `globals.css` defines.

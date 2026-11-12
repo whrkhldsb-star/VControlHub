@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { Star } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
 /**
  * `ServiceCard` — single Quick Service tile used in both the
@@ -27,6 +28,11 @@ const statusLabelKeys: Record<string, string> = {
 	stopped: "qsPage.statusStopped",
 	error: "qsPage.statusError",
 };
+
+/** 3400000 → "340万" / "3.4M": a count for reading, in the page's language. */
+function compactCount(value: number, locale: "zh" | "en"): string {
+	return new Intl.NumberFormat(locale === "zh" ? "zh-CN" : "en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
 
 type CatalogItemLike = {
 	slug: string;
@@ -70,7 +76,7 @@ export function ServiceCard({
 	accessHost: string;
 	accessProtocol?: string;
 }) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const displayPort = item.port ?? item.defaultPort;
 	const access = buildQuickServiceAccessDescriptor({
 		port: item.port,
@@ -112,8 +118,8 @@ export function ServiceCard({
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
 				<span>{t("qsPage.portLabel", { port: displayPort })}</span>
 				{item.path && <span>{t("qsPage.pathLabel", { path: item.path })}</span>}
-				{item.monthlyPulls != null && <span>{t("qsPage.monthlyPulls", { pulls: (item.monthlyPulls / 1000).toFixed(0) })}</span>}
-				{item.stars != null && <span>⭐ {item.stars}</span>}
+				{item.monthlyPulls != null && <span>{t("qsPage.monthlyPulls", { pulls: compactCount(item.monthlyPulls, locale) })}</span>}
+				{item.stars != null && <span className="inline-flex items-center gap-1"><Star size={12} aria-hidden />{t("qsPage.stars", { stars: compactCount(item.stars, locale) })}</span>}
 			</div>
 
 			{/* Error message */}

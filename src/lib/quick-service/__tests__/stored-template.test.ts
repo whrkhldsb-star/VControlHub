@@ -30,6 +30,15 @@ describe("templateFromStoredService (start after the container was removed, upda
 		expect(custom.defaultPort).toBe(23456);
 	});
 
+	it("rebuilds a built-in service on the port its image listens on, whatever an earlier install stored", () => {
+		// File Browser listens on 80. Installed while its entry named no container port, the row holds 8110
+		// (`-p 8110:8110`, unreachable); an update must not carry that over.
+		const filebrowser = SERVICE_CATALOG.find((entry) => entry.slug === "filebrowser")!;
+		expect(filebrowser.internalPort).toBe(80);
+		expect(templateFromStoredService(row({ slug: "filebrowser", port: 8110, internalPort: 8110 })).internalPort).toBe(80);
+		expect(templateFromStoredService(row({ slug: "filebrowser", port: 23456, internalPort: null })).internalPort).toBe(80);
+	});
+
 	it("lets Portainer and Gladys be rebuilt with the Docker socket their catalog entry declares, and nobody else", () => {
 		const withSocket = SERVICE_CATALOG.filter((entry) => entry.allowDockerSocket).map((entry) => entry.slug);
 		expect(withSocket.length).toBeGreaterThan(0);

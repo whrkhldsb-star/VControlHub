@@ -97,6 +97,32 @@ describe("DockerPage", () => {
 		);
 	});
 
+	it("stops waiting and asks for nothing when the account has no server to manage", async () => {
+		// The list said "加载中…" forever under the notice, and the resources panel asked for the hub host's networks
+		// and volumes, which this account is refused (shown as a second error).
+		render(wrap(<DockerPageClient initialServers={[]} canManageHubHost={false} />));
+
+		expect(await screen.findByText("当前账号没有可管理 Docker 的服务器；请先让管理员授予服务器权限。")).toBeInTheDocument();
+		await waitFor(() => expect(screen.queryByText("加载中...")).not.toBeInTheDocument());
+		expect(screen.queryByText("网络与数据卷")).not.toBeInTheDocument();
+		expect(csrfFetch).not.toHaveBeenCalled();
+	});
+
+	it("says why the container list could not be loaded", async () => {
+		// Whatever the server answered (no access to this server, too many requests), the page said it could not
+		// reach the Docker API.
+		const { ApiError } = await import("@/lib/http/api-client-error");
+		vi.mocked(csrfFetch).mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes("/api/docker/resources")) return { data: [] };
+			throw new ApiError(403, { code: "FORBIDDEN", error: "Forbidden", message: "无权访问该服务器" });
+		});
+		render(wrap(<DockerPageClient initialServers={[{ id: "srv_1", name: "web-01", host: "10.0.0.1" }]} canManageHubHost={false} />));
+
+		expect(await screen.findByText("无权访问该服务器")).toBeInTheDocument();
+		expect(screen.queryByText("无法连接 Docker API")).not.toBeInTheDocument();
+	});
+
 	it("manages Docker networks and volumes from the resources panel", async () => {
 		const user = userEvent.setup();
 		const confirmSpy = vi.spyOn(window, "confirm");

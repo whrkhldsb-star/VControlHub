@@ -31,8 +31,10 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "any",
-    background_color: "#0d1117",
-    theme_color: "#6366f1",
+    // The dark theme's page background and the action colour of src/app/styles/tokens.css: a manifest
+    // cannot read CSS variables, so manifest.test.ts compares these two with the tokens.
+    background_color: "#0e1014",
+    theme_color: "#5260e8",
     categories: ["productivity", "utilities", "developer"],
     icons: [
       {

@@ -1,7 +1,7 @@
 import { Client } from "pg";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { acquireAdvisoryLock, closeAdvisoryLockPoolForTests, getLockKeys, tryAcquireAdvisoryLock } from "../advisory-lock";
+import { AdvisoryLockBusyError, acquireAdvisoryLock, closeAdvisoryLockPoolForTests, getLockKeys, tryAcquireAdvisoryLock } from "../advisory-lock";
 
 const hasDatabase =
   process.env.RUN_DATABASE_INTEGRATION_TESTS === "1" &&
@@ -31,6 +31,24 @@ if (hasDatabase) {
       const afterRelease = await tryAcquireAdvisoryLock("backup-restore", resource);
       expect(afterRelease).not.toBeNull();
       await afterRelease!();
+    });
+
+    it("reports a held lock as busy once the wait is over, and keeps its connection usable", async () => {
+      const resource = `busy-${Date.now()}-${Math.random()}`;
+      const held = await acquireAdvisoryLock("backup-restore", resource);
+      try {
+        const started = Date.now();
+        await expect(acquireAdvisoryLock("backup-restore", resource, { timeoutMs: 300 })).rejects.toBeInstanceOf(AdvisoryLockBusyError);
+        expect(Date.now() - started).toBeGreaterThanOrEqual(250);
+        // The waiter's connection went back to the pool and takes other locks.
+        const other = await acquireAdvisoryLock("backup-restore", `${resource}-other`);
+        await other();
+      } finally {
+        await held();
+      }
+      // Released: the same lock is free again, with the default wait.
+      const again = await acquireAdvisoryLock("backup-restore", resource);
+      await again();
     });
 
     it("survives PostgreSQL ending its sessions, idle or holding a lock (restart, 57P01)", async () => {

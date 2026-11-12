@@ -41,4 +41,19 @@ describe("traffic page refresh", () => {
 		expect(calls("/api/traffic/summary?include=remote")).toBe(before.remote + 1);
 		expect(calls("/api/traffic/history")).toBe(before.history + 1);
 	});
+
+	it("says why the readings could not be taken, and does not report servers it could not ask as absent", async () => {
+		mocks.fetch.mockImplementation(async (url: string) => {
+			if (url.startsWith("/api/traffic/summary?include=remote")) throw new Error("远程采样超时");
+			throw new Error("缺少权限: server:read");
+		});
+		renderWithI18n(<TrafficPage />);
+		await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+
+		// The reason, which used to be replaced by "无法获取流量数据" whatever it was.
+		expect(screen.getByText("缺少权限: server:read")).toBeInTheDocument();
+		// A read that failed left the list empty, and the card said there were no enabled servers.
+		expect(screen.getByText("远程采样超时")).toBeInTheDocument();
+		expect(screen.queryByText(/暂无已启用的 VPS 节点/)).not.toBeInTheDocument();
+	});
 });

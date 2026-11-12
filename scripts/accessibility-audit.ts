@@ -25,10 +25,11 @@
  *             NO `aria-label`, NO `aria-labelledby`, and NO `title`. These
  *             buttons are accessible only by visual icon recognition.
  *
- *             The audit is conservative: variable references like `{label}`
- *             are NOT evaluated (treated as icon-only), and ternaries with
- *             literal text (e.g. `cond ? "yes" : "no"`) DO count. True
- *             positives need a manual review pass to confirm.
+ *             Expressions are not evaluated: a button whose content is an
+ *             identifier or a call (`{label}`, `{t("…")}`) counts as labeled at
+ *             run time, and so does a ternary with literal text
+ *             (`cond ? "yes" : "no"`); an expression that can only render an
+ *             icon component does not. What is flagged needs a manual look.
  *
  * Output:
  *   - JSON report to docs/accessibility-audit.json (machine-readable, both

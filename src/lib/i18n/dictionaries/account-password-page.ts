@@ -22,9 +22,9 @@ export const zh: Record<string, string> = {
 	"accountPasswordPage.eyebrow": "账户",
 	"accountPasswordPage.description": "修改当前账号的后台登录密码",
 	"accountPasswordPage.securityTips": "安全建议",
-	"accountPasswordPage.tip1": "• 新密码建议使用 12 位以上，并混合大小写字母、数字与符号。",
-	"accountPasswordPage.tip2": "• 修改成功后，现有会话不会立即失效；下次登录会使用新密码。",
-	"accountPasswordPage.tip3": "• 若多人共用管理员账号，建议后续补独立用户与角色分配，而不是长期共用默认管理员。",
+	"accountPasswordPage.tip1": "新密码建议使用 12 位以上，并混合大小写字母、数字与符号。",
+	"accountPasswordPage.tip2": "修改成功后，现有会话不会立即失效；下次登录会使用新密码。",
+	"accountPasswordPage.tip3": "若多人共用管理员账号，建议后续补独立用户与角色分配，而不是长期共用默认管理员。",
 
 	// change-password-form.tsx (client)
 	"accountPasswordPage.formDescription":
@@ -47,11 +47,11 @@ export const en: Record<string, string> = {
 	"accountPasswordPage.description": "Change the backend sign-in password for this account",
 	"accountPasswordPage.securityTips": "Security recommendations",
 	"accountPasswordPage.tip1":
-		"• Use a password of at least 12 characters and mix upper/lower-case letters, digits, and symbols.",
+		"Use a password of at least 12 characters and mix upper/lower-case letters, digits, and symbols.",
 	"accountPasswordPage.tip2":
-		"• Existing sessions will not be terminated immediately; the new password is required at next sign-in.",
+		"Existing sessions will not be terminated immediately; the new password is required at next sign-in.",
 	"accountPasswordPage.tip3":
-		"• If multiple people share the admin account, add per-user accounts with role assignments instead of long-term shared default admin access.",
+		"If multiple people share the admin account, add per-user accounts with role assignments instead of long-term shared default admin access.",
 
 	// change-password-form.tsx (client)
 	"accountPasswordPage.formDescription":

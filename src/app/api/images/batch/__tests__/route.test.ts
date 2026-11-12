@@ -10,7 +10,15 @@ const {
   imageUpdateManyMock,
   imageUpdateMock,
   unlinkMock,
+  nodeFindManyMock,
+  mediaDeleteManyMock,
+  fileEntryDeleteManyMock,
+  deleteBackingObjectMock,
 } = vi.hoisted(() => ({
+  nodeFindManyMock: vi.fn(),
+  mediaDeleteManyMock: vi.fn(),
+  fileEntryDeleteManyMock: vi.fn(),
+  deleteBackingObjectMock: vi.fn(),
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
   imageFindManyMock: vi.fn(),
@@ -33,7 +41,12 @@ vi.mock("@/lib/auth/team-scope", () => ({
   imageTeamWhere: (session: { currentTeamId?: string | null }) => ({
     teamId: session.currentTeamId,
   }),
+  teamWhere: (session: { currentTeamId?: string | null }) => ({
+    teamId: session.currentTeamId,
+  }),
 }));
+vi.mock("@/lib/storage/file-content", () => ({ storageFileNodeSelect: { id: true, driver: true, basePath: true } }));
+vi.mock("@/lib/storage/fs-backend", () => ({ deleteBackingObject: deleteBackingObjectMock }));
 vi.mock("node:fs/promises", () => ({
   default: { mkdir: vi.fn(), writeFile: vi.fn(), unlink: unlinkMock },
   mkdir: vi.fn(),
@@ -48,6 +61,10 @@ vi.mock("@/lib/db", () => ({
       updateMany: imageUpdateManyMock,
       update: imageUpdateMock,
     },
+    storageNode: { findMany: nodeFindManyMock },
+    mediaItem: { deleteMany: mediaDeleteManyMock },
+    fileEntry: { deleteMany: fileEntryDeleteManyMock },
+    $transaction: vi.fn(async (operations: unknown[]) => Promise.all(operations)),
   },
 }));
 vi.mock("@/lib/image-bed/constants", () => ({
@@ -223,6 +240,52 @@ describe("/api/images/batch", () => {
       filesDeleted: 1,
       failedFileIds: [],
     });
+  });
+
+  it("removes the storage copy an upload wrote, as deleting one image does, and leaves a file published from storage", async () => {
+    // Deleting one image took its storage copy along; the same images deleted as a selection left a
+    // "<uuid>.png" behind in the folder, in the file index and in the media library.
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(managerSession);
+    sessionHasPermissionMock.mockImplementation((_session, permission) => permission === "image:write" || permission === "media:manage");
+    imageFindManyMock.mockResolvedValueOnce([
+      { id: "uploaded", storageKey: "1111.png", storageNodeId: "node_1", relativePath: "photos/1111.png" },
+      { id: "published", storageKey: "2222.png", storageNodeId: "node_1", relativePath: "photos/holiday.png" },
+      { id: "elsewhere", storageKey: "3333.png", storageNodeId: "node_other_team", relativePath: "x/3333.png" },
+      { id: "plain", storageKey: "4444.png", storageNodeId: null, relativePath: null },
+    ]);
+    imageDeleteManyMock.mockResolvedValueOnce({ count: 4 });
+    unlinkMock.mockResolvedValue(undefined);
+    const node = { id: "node_1", driver: "LOCAL", basePath: "/srv/files" };
+    nodeFindManyMock.mockResolvedValueOnce([node]);
+
+    const response = await postBatch({ action: "delete", ids: ["uploaded", "published", "elsewhere", "plain"] });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ deleted: 4, filesDeleted: 4, failedFileIds: [] });
+    // Only nodes the caller's team can reach are looked at.
+    expect(nodeFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: ["node_1", "node_other_team"] }, teamId: "team_1" } }));
+    expect(deleteBackingObjectMock).toHaveBeenCalledTimes(1);
+    expect(deleteBackingObjectMock).toHaveBeenCalledWith({ storageNode: node, relativePath: "photos/1111.png", isDirectory: false, tolerateMissing: true });
+    expect(fileEntryDeleteManyMock).toHaveBeenCalledWith({ where: { storageNodeId: "node_1", relativePath: "photos/1111.png" } });
+    expect(mediaDeleteManyMock).toHaveBeenCalledWith({ where: { storageNodeId: "node_1", relativePath: "photos/1111.png" } });
+  });
+
+  it("says so when a storage copy could not be removed", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(managerSession);
+    sessionHasPermissionMock.mockImplementation((_session, permission) => permission === "image:write" || permission === "media:manage");
+    imageFindManyMock.mockResolvedValueOnce([{ id: "uploaded", storageKey: "1111.png", storageNodeId: "node_1", relativePath: "photos/1111.png" }]);
+    imageDeleteManyMock.mockResolvedValueOnce({ count: 1 });
+    unlinkMock.mockResolvedValue(undefined);
+    nodeFindManyMock.mockResolvedValueOnce([{ id: "node_1", driver: "SFTP", basePath: "/srv/files" }]);
+    deleteBackingObjectMock.mockRejectedValueOnce(new Error("connection refused"));
+
+    const response = await postBatch({ action: "delete", ids: ["uploaded"] });
+
+    // The image is deleted; what is left is a file to clean up.
+    expect(response.status).toBe(207);
+    await expect(response.json()).resolves.toEqual({ deleted: 1, filesDeleted: 1, failedFileIds: [], linkedCleanupFailures: ["uploaded"], cleanupPending: true });
   });
 
   it("returns 207 and keeps DB row when image files fail to unlink", async () => {

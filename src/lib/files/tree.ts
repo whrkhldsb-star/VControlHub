@@ -44,7 +44,9 @@ export function splitFilePath(path: string) {
 }
 
 export function getStorageNodeGroupKey(node: { id: string; name: string }) {
-	return `${node.name}__${node.id.slice(0, 8)}`;
+	// The key is one segment of a virtual path. A separator in the node's name ("NAS/Media") made it two, no node
+	// matched the first one, and the node's tile on the overview answered "directory not found".
+	return `${node.name.replace(/[\\/]/g, "_")}__${node.id.slice(0, 8)}`;
 }
 
 export function resolveStorageNodeGroupedPath(

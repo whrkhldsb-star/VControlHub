@@ -11,14 +11,15 @@ import { userDirectoryWhere } from "@/lib/auth/team-scope";
 export const dynamic = "force-dynamic";
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await requireSession("/tickets");
   const { id } = await params;
+  // Back to this ticket after signing in again, not to the list.
+  const session = await requireSession(`/tickets/${encodeURIComponent(id)}`);
   const canManage = sessionHasPermission(session, "ticket:manage");
   const locale = await getServerLocale();
 
   // Assignee dropdown: always team-scoped for ticket:manage unless the actor
   // also has team:manage (platform admin). Never fall through to an unscoped
-  // findMany when currentTeamId is missing 鈥?that enumerated every user.
+  // findMany when currentTeamId is missing: that enumerated every user.
 
   // One ticket load + the (independent) assignee list, fetched concurrently.
   // The participant check is derived from the loaded row instead of a second

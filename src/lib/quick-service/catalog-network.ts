@@ -56,6 +56,8 @@ export const NETWORK_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Automatic scheduled network speed testing and recording, generates historical trend charts",
 		image: "ghcr.io/alexjustesen/speedtest-tracker:latest",
 		defaultPort: 3005,
+		// The image listens on 80; 3005 is only the host port.
+		internalPort: 80,
 		path: "/speedtest/",
 		envJson: { PUID: "0", PGID: "0" },
 		volumesJson: [{ host: "/opt/speedtest/config", container: "/config" }],
@@ -68,6 +70,8 @@ export const NETWORK_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Lightweight server monitoring panel, real-time CPU/memory/disk/network charts",
 		image: "henrygd/beszel:latest",
 		defaultPort: 3006,
+		// The image listens on 8090; 3006 is only the host port.
+		internalPort: 8090,
 		path: "/beszel/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/beszel/data", container: "/data" }],

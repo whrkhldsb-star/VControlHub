@@ -18,7 +18,6 @@ import {
 } from "@/lib/preferences/browser-cache";
 
 import { DashboardCustomizeToolbar } from "./dashboard-customize-toolbar";
-import { DashboardWidgetDetailDialog } from "./dashboard-widget-detail-dialog";
 import { Notice } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
 
@@ -36,9 +35,12 @@ const defaultDashboardPreferences: DashboardPreferences = {
  *   - Inject a CSS rule per hidden widget (`display:none` on its `data-dashboard-widget`)
  *   - Inject a CSS rule per visible widget setting `order: N` so the grid reflects
  *     the user's chosen sequence without re-mounting React subtrees
- *   - Render a Customize toolbar (edit / reset / done / per-widget hide toggle)
+ *   - Render the layout editor (edit / reset / done; per widget: move up, move down, show or hide)
  *   - Wire native HTML5 drag-and-drop on widget containers in edit mode so the
- *     user can reorder cards by dragging them
+ *     cards can also be reordered by dragging them with a mouse
+ *
+ * A click on a card belongs to the card. It used to open a "detail" dialog holding a DOM copy of the card —
+ * also after selecting text in it — in which buttons did nothing and every id existed twice.
  *
  * State is local — no Redux / Zustand. The toolbar is "stateless" and only
  * emits intent (see DashboardCustomizeToolbar).
@@ -58,7 +60,6 @@ export function DashboardPreferenceClient({
 	const [draftOrder, setDraftOrder] = useState<DashboardWidgetId[] | null>(null);
 	const [draftHidden, setDraftHidden] = useState<Set<DashboardWidgetId> | null>(null);
 	const [dragId, setDragId] = useState<DashboardWidgetId | null>(null);
-	const [openDetailId, setOpenDetailId] = useState<DashboardWidgetId | null>(null);
 	const [preferenceError, setPreferenceError] = useState<string | null>(null);
 	const gridRef = useRef<HTMLDivElement | null>(null);
 	// Set once a layout is saved here: the initial read, if it answers later,
@@ -200,6 +201,18 @@ export function DashboardPreferenceClient({
 		setDraftHidden(new Set());
 	}, []);
 
+	const handleMove = useCallback((id: DashboardWidgetId, by: -1 | 1) => {
+		setDraftOrder((prev) => {
+			const order = prev ?? [...DASHBOARD_WIDGET_IDS];
+			const from = order.indexOf(id);
+			const to = from + by;
+			if (from < 0 || to < 0 || to >= order.length) return order;
+			const next = [...order];
+			[next[from], next[to]] = [next[to]!, next[from]!];
+			return next;
+		});
+	}, []);
+
 	const handleToggleVisibility = useCallback((id: DashboardWidgetId) => {
 		// Keep draft order complete so un-hiding never drops a widget permanently.
 		setDraftOrder((prev) => {
@@ -310,7 +323,9 @@ export function DashboardPreferenceClient({
 						void handleExitEdit();
 					}}
 					onReset={handleReset}
+					order={draftOrder ?? DASHBOARD_WIDGET_IDS}
 					hiddenIds={effectiveHidden}
+					onMove={handleMove}
 					onToggleVisibility={handleToggleVisibility}
 				/>
 			) : null}
@@ -318,21 +333,6 @@ export function DashboardPreferenceClient({
 				ref={gridRef}
 				className="grid grid-cols-1 gap-4"
 				data-dashboard-edit={isEditing ? "true" : "false"}
-				onClick={(e) => {
-					// Only when NOT editing, and only when the click landed on
-					// (or inside) a known widget. We use closest() to capture
-					// child clicks too.
-					if (isEditing) return;
-					const target = e.target as HTMLElement | null;
-					// A link or control inside a widget does its own job (open a page, press a button); the detail
-					// dialog used to open over it as well, and stayed behind after a new-tab click.
-					if (e.defaultPrevented || target?.closest("a, button, input, select, textarea, summary, [role='button'], [role='link']")) return;
-					const widgetEl = target?.closest<HTMLElement>("[data-dashboard-widget]");
-					if (!widgetEl) return;
-					const id = widgetEl.getAttribute("data-dashboard-widget") as DashboardWidgetId | null;
-					if (!id || !DASHBOARD_WIDGET_IDS.includes(id)) return;
-					setOpenDetailId(id);
-				}}
 				{...(isEditing
 					? {
 							onDragOver: handleDragOver,
@@ -342,19 +342,6 @@ export function DashboardPreferenceClient({
 			>
 				{children}
 			</div>
-
-			{/* Drag-and-drop wired via React useEffect using gridRef querySelectorAll. */}
-
-			{isEditing ? (
-				<p className="mt-2 text-center text-xs text-[var(--text-muted)]">
-					{t("dashboard.customize-drag-tip")}
-				</p>
-			) : null}
-			<DashboardWidgetDetailDialog
-				openId={openDetailId}
-				onClose={() => setOpenDetailId(null)}
-				widgetRef={gridRef}
-			/>
 		</>
 	);
 }

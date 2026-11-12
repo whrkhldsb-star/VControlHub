@@ -454,7 +454,7 @@ describe("/api/downloads", () => {
     }));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({ error: "Download URL DNS resolved to an intranet, loopback, or link-local address" });
+    await expect(response.json()).resolves.toMatchObject({ error: "The download link's host resolves to a private, loopback or link-local address" });
     expect(lookupMock).toHaveBeenCalledWith("evil.example", { all: true, verbatim: true });
     expect(prismaMock.server.findUnique).not.toHaveBeenCalled();
     expect(assertStorageAccessMock).not.toHaveBeenCalled();

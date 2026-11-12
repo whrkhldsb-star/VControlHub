@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
 import { CheckboxField, Chip, FormField, Notice } from "@/components/ui-primitives";
+import { NumberInput } from "@/components/ui/number-input";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/ui/cn";
 import type { PlaybookOption, ServerOption, AlertRule } from "./alert-rule-types";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 const selectClass = UI_INPUT;
 
@@ -153,7 +155,6 @@ export function CreateRuleForm({
 			<h3 className="ui-title-section">
 				{t(initialRule ? "alertRulesPage.editForm.title" : "alertRulesPage.createForm.title")}
 			</h3>
-			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
 
 			<FormField label={t("alertRulesPage.createForm.name")} htmlFor="alertRuleName">
 				<input
@@ -209,14 +210,13 @@ export function CreateRuleForm({
 				)}
 				{metric !== "server_offline" && (
 					<FormField label={t("alertRulesPage.createForm.threshold")} htmlFor="alertThreshold">
-						<input
+						<NumberInput
 							id="alertThreshold"
-							type="number"
 							value={threshold}
-							onChange={(e) => setThreshold(Number(e.target.value))}
+							onValueChange={setThreshold}
 							min={0}
 							max={thresholdMax}
-							className={cn(UI_INPUT, "font-mono")}
+							className="font-mono"
 						/>
 					</FormField>
 				)}
@@ -228,13 +228,13 @@ export function CreateRuleForm({
 					htmlFor="alertDurationSeconds"
 					hint={t("alertRulesPage.createForm.durationHint")}
 				>
-					<input
+					<NumberInput
 						id="alertDurationSeconds"
-						type="number"
 						value={durationSeconds}
-						onChange={(e) => setDurationSeconds(Number(e.target.value))}
+						onValueChange={setDurationSeconds}
 						min={0}
-						className={cn(UI_INPUT, "font-mono")}
+						integer
+						className="font-mono"
 					/>
 				</FormField>
 				<div className="space-y-1.5">
@@ -325,38 +325,42 @@ export function CreateRuleForm({
 				<FormField
 					label={t("alertRulesPage.createForm.webhookUrl")}
 					htmlFor="alertRuleWebhookUrl"
+					// The stored address is not sent to the page (it usually carries a token): an empty field on
+					// a rule that has one means "keep it", and the form says so.
+					hint={initialRule?.webhookConfigured ? t("alertRulesPage.createForm.webhookUrlKeepHint") : undefined}
 				>
 					<input
 						id="alertRuleWebhookUrl"
+						type="url"
+						inputMode="url"
 						value={webhookUrl}
 						onChange={(e) => setWebhookUrl(e.target.value)}
-						placeholder="https://hooks.example.com/..."
+						placeholder={initialRule?.webhookConfigured ? t("alertRulesPage.createForm.webhookUrlKeepPlaceholder") : "https://"}
 						className={cn(UI_INPUT, "font-mono")}
 					/>
 				</FormField>
 			)}
 
 			<FormField label={t("alertRulesPage.createForm.cooldown")} htmlFor="alertRuleCooldown">
-				<input
+				<NumberInput
 					id="alertRuleCooldown"
-					type="number"
 					value={cooldown}
-					onChange={(e) => setCooldown(Number(e.target.value))}
+					onValueChange={setCooldown}
 					min={1}
-					className={cn(UI_INPUT, "w-32 font-mono")}
+					integer
+					className="w-32 font-mono"
 				/>
 			</FormField>
-			<FormField label={t("alertRulesPage.createForm.escalation")} htmlFor="alertRuleEscalation">
-				<input
+			<FormField label={t("alertRulesPage.createForm.escalation")} htmlFor="alertRuleEscalation" hint={t("alertRulesPage.createForm.escalationHint")}>
+				<NumberInput
 					id="alertRuleEscalation"
-					type="number"
+					value={escalationMinutes}
+					onValueChange={setEscalationMinutes}
 					min={1}
 					max={10080}
-					value={escalationMinutes}
-					onChange={(e) => setEscalationMinutes(Number(e.target.value) || 30)}
-					className={UI_INPUT}
+					integer
+					className="w-32 font-mono"
 				/>
-				<p className="mt-1 text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.escalationHint")}</p>
 			</FormField>
 
 			<FormField label={t("alertRulesPage.createForm.onCall")} htmlFor="alertRuleOnCall">
@@ -388,7 +392,7 @@ export function CreateRuleForm({
 			<FormField
 				label={t("alertRulesPage.createForm.silenceWindows")}
 				htmlFor="alertSilenceWindows"
-				hint={t("alertRulesPage.createForm.silenceWindowsHint")}
+				hint={t("alertRulesPage.createForm.silenceWindowsHint", { zone: APP_TIME_ZONE })}
 			>
 				<textarea
 					id="alertSilenceWindows"
@@ -400,13 +404,16 @@ export function CreateRuleForm({
 				/>
 			</FormField>
 
+			{/* By the button that was pressed: the form is several screens long. */}
+			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
+
 			<div className="flex gap-3 pt-2">
 				<ActionButton variant="primary"
 					type="submit"
 					disabled={submitting}>
-					{submitting
-						? t("alertRulesPage.createForm.submitting")
-						: t("alertRulesPage.createForm.submit")}
+					{initialRule
+						? t(submitting ? "alertRulesPage.editForm.submitting" : "alertRulesPage.editForm.submit")
+						: t(submitting ? "alertRulesPage.createForm.submitting" : "alertRulesPage.createForm.submit")}
 				</ActionButton>
 				<ActionButton type="button" variant="secondary" onClick={requestDiscard}>
 					{t("alertRulesPage.createForm.cancel")}

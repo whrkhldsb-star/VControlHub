@@ -1,21 +1,18 @@
 /**
  * Convenience rate-limit presets for API routes.
  *
- * Usage in a route handler:
- *   import { withRateLimit, AI_CHAT_LIMIT, UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
+ * Routes normally name a preset in `withApiRoute({ rateLimit: UPLOAD_LIMIT, … })`.
+ * A handler that cannot use the wrapper checks it directly:
+ *   import { rateLimitResponse, withRateLimit, UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
  *
  *   export async function POST(request: Request) {
- *     const rateLimitResult = await withRateLimit(request, AI_CHAT_LIMIT);
- *     if (!rateLimitResult.allowed) {
- *       return NextResponse.json({ error: "请求过于频繁，请稍后再试" }, {
- *         status: 429,
- *         headers: { "Retry-After": String(Math.ceil(rateLimitResult.retryAfterMs / 1000)) },
- *       });
- *     }
+ *     const limit = await withRateLimit(request, UPLOAD_LIMIT);
+ *     if (!limit.allowed) return rateLimitResponse(limit.retryAfterMs);
  *     // ... normal handler logic
  *   }
  */
 
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 export type RateLimitConfig = {
@@ -82,6 +79,13 @@ export const WEBDAV_LIMIT: RateLimitConfig = { maxRequests: 1_200, windowMs: 60_
 /**
  * Check rate limit for a request. Returns the result with allowed/retryAfterMs.
  * Uses client IP as the identifier.
+ *
+ * Each limit of a path keeps its own count. One count per path and address made
+ * a path's reads (120/min) use up its writes (30, 10 or 5/min): a list fetched
+ * thirty times a minute from one address answered 429 to every change. It also
+ * let the limits undo each other, because a check keeps only what its own limit
+ * needs — a write cut the shared count down to 31 entries, a short window forgot
+ * what a longer one was counting.
  */
 export async function withRateLimit(
 	request: Request,
@@ -94,14 +98,17 @@ export async function withRateLimit(
 	} catch {
 		// Request.url is expected to be absolute, but keep a stable fallback for tests/adapters.
 	}
+	// The bucket name stays first: the store caps its keys per namespace, taken from how a key starts.
 	const bucket = config.bucketKey?.trim() || pathname;
-	return checkRateLimitAsync(`${bucket}:${ip}`, config);
+	return checkRateLimitAsync(`${bucket}:${config.maxRequests}/${config.windowMs}:${ip}`, config);
 }
 
 /**
- * Create a 429 response with proper headers and TR-034 error envelope.
+ * Create a 429 response with proper headers and TR-034 error envelope. The
+ * message follows the request's language (English outside one): it was an
+ * English sentence on every page, and a page shows it as it comes.
  */
-export function rateLimitResponse(retryAfterMs: number, message = "Too many requests; please try again later"): Response {
+export function rateLimitResponse(retryAfterMs: number, message = apiCopy("apiCopy.request.tooManyRequests")): Response {
 	return new Response(
 		JSON.stringify({
 			code: "RATE_LIMITED",

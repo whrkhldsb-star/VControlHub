@@ -76,8 +76,51 @@ describe("TemplateListClient", () => {
 		await user.click(screen.getByRole("button", { name: "确认删除" }));
 
 		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/command-templates?id=tmpl_1", { method: "DELETE" }));
-		expect(await screen.findByText("无权删除模板")).toBeInTheDocument();
+		// In the dialog that asked, which stays open.
+		const dialog = screen.getByRole("dialog", { name: "删除命令模板" });
+		expect(await within(dialog).findByRole("alert")).toHaveTextContent("无权删除模板");
+		expect(screen.getAllByText("无权删除模板")).toHaveLength(1);
 		expect(screen.getAllByText("Docker Compose 更新").length).toBeGreaterThan(0);
+	});
+
+	it("does not call a deletion failed because the list could not be read again afterwards", async () => {
+		// The list was read again inside the same try: with the template gone and that request unanswered, the
+		// toast said "删除失败" and the card stayed.
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true }).mockRejectedValueOnce(new Error("连接已断开"));
+		renderClient();
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		await user.click(screen.getByRole("button", { name: "确认删除" }));
+
+		expect(await screen.findByText("模板已删除")).toBeInTheDocument();
+		expect(screen.queryByText("删除失败")).not.toBeInTheDocument();
+		await waitFor(() => expect(screen.queryByRole("heading", { name: "Docker Compose 更新" })).not.toBeInTheDocument());
+		expect(await screen.findByText("连接已断开")).toBeInTheDocument();
+	});
+
+	it("says that no template carries the tag, with the way out, instead of that there are none", async () => {
+		// A bookmark or a link with a tag that no template has any more: "暂无命令模板" above nothing, with the
+		// templates one click away and no chip selected to say why.
+		const user = userEvent.setup();
+		window.history.replaceState({}, "", "/templates?tag=retired");
+		renderClient();
+		expect(await screen.findByText("没有带 #retired 标签的模板")).toBeInTheDocument();
+		expect(screen.queryByText("暂无命令模板")).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "清除筛选" }));
+		expect(await screen.findByRole("heading", { name: "Docker Compose 更新" })).toBeInTheDocument();
+	});
+
+	it("says why a deployment cannot be sent when there is no server to send it to", async () => {
+		const user = userEvent.setup();
+		render(
+			<ToastProvider>
+				<TemplateListClient templates={[baseTemplate]} servers={[{ id: "srv_1", name: "生产 VPS", enabled: false }]} canCreate={false} canDeploy />
+			</ToastProvider>,
+		);
+		await user.click(screen.getByRole("button", { name: "一键下发" }));
+		// A disabled button over an empty row of targets said nothing.
+		expect(screen.getByText("没有可下发的已启用服务器")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "提交部署" })).toBeDisabled();
 	});
 
 	it("requires all template variables before submitting a deployment", async () => {
@@ -140,6 +183,9 @@ describe("TemplateListClient", () => {
 				}),
 			),
 		);
+		// Said, and the form folds away: it used to close without a word.
+		expect(await screen.findByText("模板已创建")).toBeInTheDocument();
+		await waitFor(() => expect(screen.queryByLabelText("模板名称")).not.toBeInTheDocument());
 	});
 
 	it("submits template launches through deployment runs", async () => {
@@ -167,7 +213,12 @@ describe("TemplateListClient", () => {
 				}),
 			),
 		);
-		expect(await screen.findByText("部署已提交，可在部署记录中查看进度")).toBeInTheDocument();
+		const said = (await screen.findByText("部署已提交，可在部署记录中查看进度")).closest('[role="status"]') as HTMLElement;
+		// The link goes to the deployment records, and says so: it was labelled "前往审批中心".
+		expect(within(said).getByRole("link", { name: "查看部署记录" })).toHaveAttribute("href", "/deployments");
+		// Sent: the panel folds away, so that a second press does not send it again.
+		await waitFor(() => expect(screen.queryByRole("button", { name: "提交部署" })).not.toBeInTheDocument());
+		expect(screen.getByRole("button", { name: "一键下发" })).toBeInTheDocument();
 	});
 
 	describe("touch targets (TR-022 R19 mobile)", () => {

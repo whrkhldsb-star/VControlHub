@@ -101,6 +101,19 @@ describe("FilesBrowserSpa", () => {
 		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?path=photos&q=raw&scope=all&nodeId=node_1", expect.any(Object)));
 	});
 
+	it("sums up a search without doubling the word before its scope", () => {
+		// The sentence supplied "在 … 找到" / "in …" and so did the scope: "在在当前目录找到 0 个结果", "results in in all files".
+		const found = { ...baseData, searchQuery: "report", files: [], stats: { ...baseData.stats, totalItems: 0 } };
+		const zh = renderWithI18n(<FilesBrowserSpa initialData={found} />);
+		expect(screen.getByText('搜索 "report" - 在当前目录找到 0 个结果')).toBeInTheDocument();
+		zh.unmount();
+		const everywhere = renderWithI18n(<FilesBrowserSpa initialData={{ ...found, searchScope: "all" }} />);
+		expect(screen.getByText('搜索 "report" - 在全部文件中找到 0 个结果')).toBeInTheDocument();
+		everywhere.unmount();
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...found, searchScope: "all" }} />, { locale: "en" });
+		expect(screen.getByText('Searched "report" - found 0 results in all files')).toBeInTheDocument();
+	});
+
 	it("searches file contents in the folder on screen and opens a hit's folder", async () => {
 		const fetchMock = vi.mocked(globalThis.fetch);
 		fetchMock.mockResolvedValueOnce(respondWith({ results: [{ filePath: "/srv/photos/notes.txt", relativePath: "photos/notes/notes.txt", nodeId: "node_1", nodeName: "本机存储", nodeDriver: "LOCAL", snippets: ["hello world"] }], totalMatches: 1, truncated: false }));
@@ -148,6 +161,27 @@ describe("FilesBrowserSpa", () => {
 		expect([form.get("currentPath"), form.get("storageNodeId"), form.get("folderName")]).toEqual(["photos", "node_1", "2026 旅行"]);
 		await waitFor(() => expect(screen.getByText("after.jpg")).toBeInTheDocument());
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	});
+
+	it("says what failed when creating a folder throws instead of answering", async () => {
+		// What a production build hands the browser for anything thrown on the server.
+		const redacted = (digest: string) =>
+			Object.assign(new Error("Minified React error #441; visit https://react.dev/errors/441 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."), { digest });
+		mocks.createFolder.mockRejectedValueOnce(redacted("2574922165")).mockRejectedValueOnce(redacted("FORBIDDEN"));
+		renderWithI18n(<FilesBrowserSpa initialData={baseData} />);
+		fireEvent.click(screen.getByRole("button", { name: "新建文件夹" }));
+		const dialog = screen.getByRole("dialog", { name: "新建文件夹" });
+		fireEvent.change(within(dialog).getByLabelText("文件夹名称"), { target: { value: "2026 旅行" } });
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "创建" }));
+		});
+		expect(dialog).toHaveTextContent("创建文件夹失败");
+		expect(dialog).not.toHaveTextContent("Minified React error");
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "创建" }));
+		});
+		expect(dialog).toHaveTextContent("缺少权限");
+		expect(dialog).not.toHaveTextContent("Minified React error");
 	});
 
 	it("asks where to create a folder when no node is open", async () => {
@@ -292,11 +326,25 @@ describe("FilesBrowserSpa", () => {
 	});
 
 	it("shows node names instead of internal grouped path keys in the breadcrumbs", () => {
-		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "", currentPath: "存储__cmps1rmy/docs", nodes: [{ id: "cmps1rmyabcdef", name: "45.88.1.2", driver: "SFTP" }] }} />);
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "", currentPath: "存储__cmps1rmy/docs", nodes: [{ id: "cmps1rmyabcdef", name: "198.51.100.2", driver: "SFTP" }] }} />);
 		const breadcrumbs = screen.getByRole("navigation", { name: "面包屑" });
-		expect(within(breadcrumbs).getByText("45.88.1.2")).toBeInTheDocument();
+		expect(within(breadcrumbs).getByText("198.51.100.2")).toBeInTheDocument();
 		expect(within(breadcrumbs).getByText("docs")).toHaveAttribute("aria-current", "page");
 		expect(screen.queryByText(/存储__cmps1rmy/)).not.toBeInTheDocument();
+	});
+
+	it("shows a folder whose name holds a double underscore by its whole name", () => {
+		// Every segment was split at "__" as if it named a node: __pycache__ became an empty crumb, my__notes "my".
+		const first = renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, currentPath: "app/my__notes/__pycache__" }} />);
+		let breadcrumbs = screen.getByRole("navigation", { name: "面包屑" });
+		expect(within(breadcrumbs).getByRole("button", { name: "my__notes" })).toBeInTheDocument();
+		expect(within(breadcrumbs).getByText("__pycache__")).toHaveAttribute("aria-current", "page");
+		first.unmount();
+
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "", currentPath: "本机__备用__node_1/__tests__", nodes: [{ id: "node_1", name: "本机__备用", driver: "LOCAL" }] }} />);
+		breadcrumbs = screen.getByRole("navigation", { name: "面包屑" });
+		expect(within(breadcrumbs).getByRole("button", { name: "本机__备用" })).toBeInTheDocument();
+		expect(within(breadcrumbs).getByText("__tests__")).toHaveAttribute("aria-current", "page");
 	});
 
 	it("folds long breadcrumbs and leads back up one level from the fold", async () => {

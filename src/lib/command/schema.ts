@@ -14,10 +14,27 @@ const normalizedServerIdsSchema = z.array(z.string()).transform((serverIds) => {
   return normalized;
 }).pipe(z.array(z.string().min(1)).min(1, "At least 1 target VPS must be selected"));
 
+/** The longest title a command request takes. */
+export const COMMAND_TITLE_MAX_LENGTH = 120;
+/** The longest reason a command request takes. */
+export const COMMAND_REASON_MAX_LENGTH = 500;
+
+/**
+ * The title of a request filed on someone's behalf: a label and a name they chose ("Scheduled task: <name>").
+ * The name may be as long as a title itself, so the result is cut to fit. Over the limit the request was
+ * refused, and the deployment, scheduled run or retry it stood for failed every time it was tried.
+ */
+export function commandRequestTitle(label: string, name: string): string {
+  const title = `${label}${name}`.trim();
+  if (title.length <= COMMAND_TITLE_MAX_LENGTH) return title;
+  // Not half of a surrogate pair at the cut.
+  return `${title.slice(0, COMMAND_TITLE_MAX_LENGTH - 1).replace(/[\uD800-\uDBFF]$/, "")}…`;
+}
+
 export const createCommandSchema = z.object({
-  title: z.string().trim().min(1, "Title is required").max(120, "Title must be at most 120 characters"),
+  title: z.string().trim().min(1, "Title is required").max(COMMAND_TITLE_MAX_LENGTH, "Title must be at most 120 characters"),
   command: z.string().trim().min(1, "Command is required").max(10_000, "Command content is too long"),
-  reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional(),
+  reason: z.string().trim().max(COMMAND_REASON_MAX_LENGTH, "Reason must be at most 500 characters").optional(),
   submissionMode: z.enum(["user", "assistant"]),
   approvalRequired: z.boolean().optional(),
   requesterId: z.string().trim().min(1, "Requester is required"),

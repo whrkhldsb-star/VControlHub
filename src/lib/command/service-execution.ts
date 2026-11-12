@@ -14,7 +14,7 @@ import { enqueueCommandExecutionJob } from "./execution-queue";
 import { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-ssh";
 import { executeCommandWithAgent } from "@/lib/server/agent-service";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
-import { monitorCommandCancellation } from "./cancellation";
+import { CommandCancellationStateUnknownError, monitorCommandCancellation } from "./cancellation";
 import { CommandCancellationUnconfirmedError } from "./cancellation-error";
 
 export { executeCommandOverSsh, getCommandRuntimeConfigValues, setPasswordExecutorMode } from "./service-ssh";
@@ -211,6 +211,12 @@ export async function executeTarget(
     return failTarget(commandRequestId, target, summary);
   }
 
+  if (!result && target.server.managementMode === "AGENT" && !privateKey && !password) {
+    // A node managed only through its Agent has no SSH login to fall back on. It was told that its SSH key
+    // lacked a private key (or that its password was missing), which sends the reader to the wrong setting.
+    return failTarget(commandRequestId, target, t("backend.command.agentOfflineNoSshFallback", { name: target.server.name }));
+  }
+
   if (!result && connectionType === "SSH_KEY" && !privateKey) {
     // Surfaced to the requesting client as target stderr (and mirrored into
     // the execution log) — translate like the other client-facing copy.
@@ -250,12 +256,17 @@ export async function executeTarget(
     cancelled: controller.signal.aborted,
   }));
 
+  // The cancellation monitor stops a command it can no longer govern (its lookup failed or took over five
+  // seconds). Nobody cancelled that command: recorded as CANCELLED it read "cancelled by the operator", the
+  // request ended CANCELLED and its requester was notified of a cancellation that no one had asked for.
+  const stoppedUnverified = Boolean(result.cancelled) && controller.signal.reason instanceof CommandCancellationStateUnknownError;
   // Operator cancel races with SSH close: cancelCommandRequest may already
   // have stamped CANCELLED. Never overwrite that terminal status with
   // COMPLETED/FAILED from a late process exit (false "failed after cancel").
-  const cancelled = Boolean(result.cancelled);
-  const succeeded = !cancelled && result.exitCode === 0;
+  const cancelled = Boolean(result.cancelled) && !stoppedUnverified;
+  const succeeded = !result.cancelled && result.exitCode === 0;
   const nextTargetStatus = cancelled ? "CANCELLED" : succeeded ? "COMPLETED" : "FAILED";
+  const unverifiedNotice = "Stopped by the platform, not by an operator: the cancellation state of this command could not be read from the database (the lookup failed or took over 5 seconds), and a command that cannot be cancelled is not left running.";
   const targetUpdate = await prisma.commandTarget.updateMany({
     where: {
       id: target.id,
@@ -266,8 +277,8 @@ export async function executeTarget(
     data: {
       status: nextTargetStatus,
       stdout: result.stdout || null,
-      stderr: result.stderr || null,
-      exitCode: cancelled ? 130 : result.exitCode,
+      stderr: stoppedUnverified ? [result.stderr.trim(), unverifiedNotice].filter(Boolean).join("\n") : result.stderr || null,
+      exitCode: cancelled ? 130 : stoppedUnverified ? 255 : result.exitCode,
       finishedAt: new Date(),
       outcomeUnknown: result.outcomeUnknown === true,
     },
@@ -284,7 +295,9 @@ export async function executeTarget(
     return false;
   }
 
-  const summary = cancelled
+  const summary = stoppedUnverified
+    ? `Command on ${target.server.name} (${target.server.host}:${target.server.port}) was stopped by the platform: its cancellation state could not be read from the database. The remote process may still be running.`
+    : cancelled
     ? `Command on ${target.server.name} (${target.server.host}:${target.server.port}) was cancelled by the operator.`
     : succeeded
       ? `Command completed on ${target.server.name} (${target.server.host}:${target.server.port}) with exit code 0.`

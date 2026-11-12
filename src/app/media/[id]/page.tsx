@@ -6,12 +6,8 @@ import { requirePagePermission } from "@/lib/auth/page-guard";
 import { getMediaItem, getMediaNeighbors, mediaListFiltersFromHref } from "@/lib/media/service";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { MediaPreviewClient } from "@/app/files/preview/media-preview-client";
-import {
-  buildSearchHref,
-  containingFolderPath,
-  toStorageEntry,
-  type FileProp,
-} from "@/app/files/file-entry-utils";
+import { buildSearchHref, containingFolderPath } from "@/app/files/file-entry-utils";
+import { mediaReturnHref } from "@/app/media/media-return-href";
 
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { formatBytes } from "@/lib/format/bytes";
@@ -22,57 +18,11 @@ export const dynamic ="force-dynamic";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ from?: string }>;
+  searchParams?: Promise<{ from?: string | string[] }>;
 };
-
-type MediaPlayerItem = NonNullable<Awaited<ReturnType<typeof getMediaItem>>>;
 
 function formatSize(locale:"zh" |"en", bytes: bigint | number | null) {
   return formatBytes(bytes, { fallback: t("mediaPage.player.sizeUnknown", locale) });
-}
-
-function safeMediaReturnHref(from?: string) {
-  if (!from) return"/media";
-  try {
-    const decoded = decodeURIComponent(from);
-    if (decoded ==="/media" || decoded.startsWith("/media?")) return decoded;
-  } catch {
-    // Fall through to default route when the return URL is malformed.
-  }
-  return"/media";
-}
-
-function createStorageEntry(item: MediaPlayerItem, locale:"zh" |"en") {
-  const node = item.storageNode;
-  if (!node) return null;
-
-  const directAccessMode = String(node.directAccessMode ?? "PROXY");
-  const isDirectAccess =
-    directAccessMode ==="DIRECT" || directAccessMode ==="direct-url";
-  const file: FileProp = {
-    id: item.id,
-    name: item.name,
-    entryType:"FILE",
-    mimeType: item.mimeType,
-    relativePath: item.relativePath,
-    sizeBytes: item.size == null ? null : Number(item.size),
-    sizeLabel: formatSize(locale, item.size),
-    previewable: true,
-    directAccessMode: isDirectAccess ?"direct-url" :"managed-download",
-    directAccessHref:
-      isDirectAccess && node.publicBaseUrl
-        ? `${node.publicBaseUrl.replace(/\/$/,"")}/${item.relativePath
-            .split("/")
-            .map(encodeURIComponent)
-            .join("/")}`
-        : null,
-    directAccessDescription: isDirectAccess ? t("mediaPage.player.directAccess", locale) : t("mediaPage.player.relayed", locale),
-    storageNodeId: node.id,
-    storageNodeName: node.name,
-    storageNodeDriver: node.driver,
-    updatedAt: null,
-  };
-  return toStorageEntry(file);
 }
 
 export default async function MediaPlayerPage({
@@ -86,7 +36,7 @@ export default async function MediaPlayerPage({
   const item = await getMediaItem(id, session);
   if (!item) notFound();
 
-  const returnHref = safeMediaReturnHref(query?.from);
+  const returnHref = mediaReturnHref(query?.from);
   // Previous/next follow the list the item was opened from (its filters), at
   // any position; a direct link without a list falls back to the item's type.
   const listFilters = query?.from
@@ -94,8 +44,7 @@ export default async function MediaPlayerPage({
     : { mediaType: item.mediaType as "image" | "video" | "audio" };
   const { previous: previousItem, next: nextItem } = await getMediaNeighbors(item, { ...listFilters, session });
 
-  const storageEntry = createStorageEntry(item, locale);
-  if (!storageEntry) notFound();
+  if (!item.storageNode) notFound();
 
   const mediaHref = `/api/media/${encodeURIComponent(item.id)}/stream`;
   const downloadHref = `${mediaHref}?download=1`;

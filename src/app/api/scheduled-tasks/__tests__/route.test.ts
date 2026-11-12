@@ -27,6 +27,11 @@ vi.mock("@/lib/scheduled-task/service", () => ({
 vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.auditUserAction,
 }));
+// The handlers read the caller's language from the locale cookie (getServerLocale).
+const localeCookie = vi.hoisted(() => ({ value: "zh" }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => (name === "vps-locale" ? { value: localeCookie.value } : undefined) }),
+}));
 
 const route = await import("../route");
 const session = { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null };
@@ -34,6 +39,7 @@ const session = { userId: "u1", username: "alice", user: { id: "u1" }, currentTe
 describe("/api/scheduled-tasks audit coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localeCookie.value = "zh";
     mocks.requireApiPermission.mockResolvedValue({ session });
     mocks.listScheduledTasks.mockResolvedValue([]);
     mocks.createScheduledTask.mockResolvedValue({
@@ -169,6 +175,33 @@ describe("/api/scheduled-tasks audit coverage", () => {
       expect((await patch(bad)).status).toBe(400);
     }
     expect(mocks.updateScheduledTask).not.toHaveBeenCalled();
+  });
+
+  it("says what a create request is missing in the caller's language, and names the right field", async () => {
+    // These were refinements of the schema with fixed Chinese text: an English session read
+    // "cronExpression: 请填写 Cron 表达式", and so did a one-time task that lacked its run time.
+    localeCookie.value = "en";
+    const post = async (body: Record<string, unknown>) => {
+      const res = await route.POST(new Request("http://local/api/scheduled-tasks", {
+        method: "POST",
+        // One cookie, as a browser sends it: the header and the cookie store cannot disagree.
+        headers: { "content-type": "application/json", cookie: `vps-locale=${localeCookie.value}` },
+        body: JSON.stringify(body),
+      }));
+      return { status: res.status, message: ((await res.json()) as { message: string }).message };
+    };
+    const base = { name: "Clean logs", command: "uptime" };
+    expect(await post({ ...base, serverIds: ["srv1"] })).toEqual({ status: 400, message: "Cron expression is required" });
+    expect(await post({ ...base, scheduleType: "ONCE", serverIds: ["srv1"] })).toEqual({ status: 400, message: "One-time execution must use a future date and time" });
+    expect(await post({ ...base, cronExpression: "0 2 * * *", serverIds: [] })).toEqual({ status: 400, message: "At least one target server is required" });
+    expect(mocks.createScheduledTask).not.toHaveBeenCalled();
+
+    localeCookie.value = "zh";
+    expect((await post({ ...base, serverIds: ["srv1"] })).message).toBe("请填写 Cron 表达式");
+
+    // The older single-server field still names the target when the list is empty.
+    expect((await post({ ...base, cronExpression: "0 2 * * *", serverIds: [], serverId: "srv9" })).status).toBe(200);
+    expect(mocks.createScheduledTask).toHaveBeenCalledWith(expect.objectContaining({ serverIds: ["srv9"] }), session);
   });
 
   it("maps update aliases to scheduled task service fields", async () => {

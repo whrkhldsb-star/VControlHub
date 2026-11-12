@@ -401,7 +401,10 @@ async function fetchBillingCsvFromUrl(
       text,
       { currency, providerLabel: provider.toUpperCase(), categoryMap },
       month,
-      [`Imported from billingCsvUrl (${provider})`],
+      // Nothing to warn about: where the rows came from is the account's own
+      // configuration. A note here made every import a "warning", and a
+      // month without charges a partial sync with the note as its error.
+      [],
     );
   } catch (error) {
     if (error instanceof ValidationError) throw error;

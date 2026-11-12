@@ -1,5 +1,5 @@
 "use client";
-import { Loader2, Pencil, Play, Plus, Trash2, X } from "@/components/icons";
+import { Download, Loader2, Pencil, Play, Plus, RefreshCw, Trash2, X } from "@/components/icons";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -203,6 +203,7 @@ export function VpsBackupSection({
 	const [manualPaths, setManualPaths] = useState("");
 	const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 	const [deleting, setDeleting] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
 	const [editForm, setEditForm] = useState<ScheduleForm>(emptyScheduleForm);
 	const [savingScheduleId, setSavingScheduleId] = useState<string | null>(null);
@@ -253,7 +254,9 @@ export function VpsBackupSection({
 		setTriggering(backupType);
 		setError(null);
 		try {
-			const res = await csrfFetch<Response>(`/api/servers/${serverId}/vps-backup/records`, {
+			// Plain requests from here on: a refusal is thrown with its sentence. Read by hand in raw mode, these
+			// four showed the `error` field of the answer, which for a missing permission is the word "Forbidden".
+			await csrfFetch(`/api/servers/${serverId}/vps-backup/records`, {
 				method: "POST",
 				body: JSON.stringify({
 					backupType,
@@ -261,14 +264,8 @@ export function VpsBackupSection({
 						? { paths: splitPaths(manualPaths) }
 						: {}),
 				}),
-				raw: true,
 			});
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				setError(data.error ?? t("vpsBackup.error.trigger"));
-			} else {
-				await fetchAll();
-			}
+			await fetchAll();
 		} catch (err) {
 			setError(getErrorMessage(err, t("vpsBackup.error.trigger")));
 		} finally {
@@ -281,16 +278,8 @@ export function VpsBackupSection({
 		setRetrying(recordId);
 		setError(null);
 		try {
-			const res = await csrfFetch<Response>(
-				`/api/servers/${serverId}/vps-backup/records/${recordId}/retry`,
-				{ method: "POST", raw: true },
-			);
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				setError(data.error ?? t("vpsBackup.error.trigger"));
-			} else {
-				await fetchAll();
-			}
+			await csrfFetch(`/api/servers/${serverId}/vps-backup/records/${recordId}/retry`, { method: "POST" });
+			await fetchAll();
 		} catch (err) {
 			setError(getErrorMessage(err, t("vpsBackup.error.trigger")));
 		} finally {
@@ -303,7 +292,7 @@ export function VpsBackupSection({
 		setCreating(true);
 		setError(null);
 		try {
-			const res = await csrfFetch<Response>(`/api/servers/${serverId}/vps-backup/schedules`, {
+			await csrfFetch(`/api/servers/${serverId}/vps-backup/schedules`, {
 				method: "POST",
 				body: JSON.stringify({
 					name: createForm.name,
@@ -314,16 +303,10 @@ export function VpsBackupSection({
 						? parseInt(createForm.retentionDays)
 						: undefined,
 				}),
-				raw: true,
 			});
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				setError(data.error ?? t("vpsBackup.error.create"));
-			} else {
-				setShowCreate(false);
-				setCreateForm(emptyScheduleForm());
-				await fetchAll();
-			}
+			setShowCreate(false);
+			setCreateForm(emptyScheduleForm());
+			await fetchAll();
 		} catch (err) {
 			setError(getErrorMessage(err, t("vpsBackup.error.create")));
 		} finally {
@@ -340,16 +323,10 @@ export function VpsBackupSection({
 		setSavingScheduleId(scheduleId);
 		setError(null);
 		try {
-			const res = await csrfFetch<Response>(`/api/servers/${serverId}/vps-backup/schedules/${scheduleId}`, {
+			await csrfFetch(`/api/servers/${serverId}/vps-backup/schedules/${scheduleId}`, {
 				method: "PATCH",
 				body: JSON.stringify(payload),
-				raw: true,
 			});
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				setError(data.error ?? fallback);
-				return false;
-			}
 			await fetchAll();
 			return true;
 		} catch (err) {
@@ -385,8 +362,10 @@ export function VpsBackupSection({
 		);
 	};
 
+	// A refused deletion is shown in the dialog that asked for it, which stays open: the section's notice is
+	// behind it.
 	const handleDeleteSchedule = async (scheduleId: string) => {
-		setError(null);
+		setDeleteError(null);
 		try {
 			await csrfFetch(`/api/servers/${serverId}/vps-backup/schedules/${scheduleId}`, {
 				method: "DELETE",
@@ -394,13 +373,13 @@ export function VpsBackupSection({
 			await fetchAll();
 			return true;
 		} catch (err) {
-			setError(getErrorMessage(err, t("vpsBackup.error.delete")));
+			setDeleteError(getErrorMessage(err, t("vpsBackup.error.delete")));
 			return false;
 		}
 	};
 
 	const handleDeleteRecord = async (recordId: string) => {
-		setError(null);
+		setDeleteError(null);
 		try {
 			await csrfFetch(`/api/servers/${serverId}/vps-backup/records/${recordId}`, {
 				method: "DELETE",
@@ -408,7 +387,7 @@ export function VpsBackupSection({
 			await fetchAll();
 			return true;
 		} catch (err) {
-			setError(getErrorMessage(err, t("vpsBackup.error.delete")));
+			setDeleteError(getErrorMessage(err, t("vpsBackup.error.delete")));
 			return false;
 		}
 	};
@@ -575,7 +554,7 @@ export function VpsBackupSection({
 											<div className="min-w-0 flex-1">
 												<div className="truncate text-sm text-[var(--text-primary)]">{s.name}</div>
 												<div className="text-xs text-[var(--text-muted)]">
-													{presetLabel(s.backupType)} · {s.cronExpression} · {scheduleStatusLabel(s.status)} · {t("vpsBackup.retention")}: {s.retentionDays ? `${s.retentionDays}d` : t("vpsBackup.retentionNone")}
+													{presetLabel(s.backupType)} · {s.cronExpression} · {scheduleStatusLabel(s.status)} · {t("vpsBackup.retention")}{t("common.colon")}{s.retentionDays ? `${s.retentionDays}d` : t("vpsBackup.retentionNone")}
 												</div>
 												<div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[var(--text-muted)]">
 													<span>{t("vpsBackup.lastRun", { time: formatDateTime(s.lastRunAt, locale) })}</span>
@@ -606,7 +585,7 @@ export function VpsBackupSection({
 														disabled={isSaving}>
 														{s.status === "ACTIVE" ? t("vpsBackup.pause") : t("vpsBackup.resume")}
 													</ActionButton>
-													<IconButton label={t("vpsBackup.deleteSchedule", { name: s.name })} tone="danger" onClick={() => setDeleteTarget({ kind: "schedule", id: s.id, name: s.name })} className="h-8 w-8 text-xs"><Trash2 size={16} aria-hidden /></IconButton>
+													<IconButton label={t("vpsBackup.deleteSchedule", { name: s.name })} tone="danger" onClick={() => { setDeleteError(null); setDeleteTarget({ kind: "schedule", id: s.id, name: s.name }); }} className="h-8 w-8 text-xs"><Trash2 size={16} aria-hidden /></IconButton>
 												</div>
 											) : null}
 										</div>
@@ -661,7 +640,8 @@ export function VpsBackupSection({
 										{r.offsiteKey ? ` · ${t("vpsBackup.offsiteShort")}` : ""}
 									</div>
 									{r.errorMessage ? (
-										<div className="mt-1 truncate text-xs text-[var(--danger)]/80">
+										// The whole reason: it was one cut line. It wraps, and scrolls in place when it is long.
+										<div className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap break-words text-xs text-[var(--danger)]/80">
 											{r.errorMessage}
 										</div>
 									) : null}
@@ -671,9 +651,10 @@ export function VpsBackupSection({
 										<a
 											href={`/api/servers/${serverId}/vps-backup/records/${r.id}/download`}
 											aria-label={t("vpsBackup.downloadRecord")}
-											className="rounded text-xs text-[var(--color-action-text)]/80 transition-colors hover:text-[var(--color-action-text)]"
+											title={t("vpsBackup.downloadRecord")}
+											className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
 										>
-											⬇
+											<Download size={16} aria-hidden />
 										</a>
 									) : null}
 									{canManage && r.status === "FAILED" ? (
@@ -683,11 +664,11 @@ export function VpsBackupSection({
 											disabled={retrying === r.id}
 											className="h-8 w-8 text-xs"
 										>
-											↻
+											<RefreshCw size={16} aria-hidden />
 										</IconButton>
 									) : null}
 									{canManage ? (
-										<IconButton label={t("vpsBackup.deleteRecord")} tone="danger" onClick={() => setDeleteTarget({ kind: "record", id: r.id })} className="h-8 w-8 text-xs"><Trash2 size={16} aria-hidden /></IconButton>
+										<IconButton label={t("vpsBackup.deleteRecord")} tone="danger" onClick={() => { setDeleteError(null); setDeleteTarget({ kind: "record", id: r.id }); }} className="h-8 w-8 text-xs"><Trash2 size={16} aria-hidden /></IconButton>
 									) : null}
 								</div>
 							</div>
@@ -702,7 +683,8 @@ export function VpsBackupSection({
 				cancelLabel={t("common.cancel")}
 				confirmLabel={t("vpsBackup.confirmDelete")}
 				busy={deleting}
-				onCancel={() => setDeleteTarget(null)}
+				error={deleteError}
+				onCancel={() => { if (!deleting) setDeleteTarget(null); }}
 				onConfirm={() => void confirmDelete()}
 				closeOnBackdrop={false}
 			/>

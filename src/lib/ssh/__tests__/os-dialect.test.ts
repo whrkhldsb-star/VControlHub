@@ -107,6 +107,23 @@ describe("dialectFromOsRelease", () => {
     expect(dialect.packageManager).toBe("dnf");
   });
 
+  it.each([
+    // Releases before 8 have no dnf: the overview named a tool the server does not have.
+    ['ID="centos"\nVERSION="7 (Core)"\nVERSION_ID="7"', "yum"],
+    ['ID="rhel"\nVERSION="7.9 (Maipo)"\nVERSION_ID="7.9"', "yum"],
+    ['ID="ol"\nVERSION="7.9"\nVERSION_ID="7.9"', "yum"],
+    ['ID="centos"\nVERSION="8"\nVERSION_ID="8"', "dnf"],
+    ['ID="rhel"\nVERSION="9.4 (Plow)"\nVERSION_ID="9.4"', "dnf"],
+    ['ID="rocky"\nVERSION="9.3 (Blue Onyx)"\nVERSION_ID="9.3"', "dnf"],
+    ["ID=fedora\nVERSION_ID=41", "dnf"],
+    // Amazon Linux 1 and 2 use yum; 2023 uses dnf (its version also starts with "2").
+    ['ID="amzn"\nVERSION="2"\nVERSION_ID="2"', "yum"],
+    ['ID="amzn"\nVERSION="2018.03"\nVERSION_ID="2018.03"', "yum"],
+    ['ID="amzn"\nVERSION="2023"\nVERSION_ID="2023"', "dnf"],
+  ])("names the package manager the release really has: %s -> %s", (release, expected) => {
+    expect(dialectFromOsRelease(parseOsRelease(release)).packageManager).toBe(expected);
+  });
+
   it("matches Alpine", () => {
     const info = parseOsRelease(`ID=alpine\nNAME="Alpine Linux"`);
     const dialect = dialectFromOsRelease(info);

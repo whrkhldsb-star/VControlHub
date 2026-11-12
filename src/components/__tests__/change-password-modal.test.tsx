@@ -92,11 +92,11 @@ describe("ChangePasswordModal", () => {
 
       const field = input.closest("div.grid");
       expect(field).not.toBeNull();
-      const showButton = within(field as HTMLElement).getByRole("button", { name: `Show${label}` });
+      const showButton = within(field as HTMLElement).getByRole("button", { name: `Show ${label}` });
       expect(showButton).toHaveAttribute("aria-pressed", "false");
       await user.click(showButton);
       expect(input).toHaveAttribute("type", "text");
-      expect(within(field as HTMLElement).getByRole("button", { name: `Hide${label}` })).toHaveAttribute("aria-pressed", "true");
+      expect(within(field as HTMLElement).getByRole("button", { name: `Hide ${label}` })).toHaveAttribute("aria-pressed", "true");
     }
 
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();

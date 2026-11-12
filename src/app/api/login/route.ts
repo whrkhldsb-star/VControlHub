@@ -15,6 +15,7 @@ import {
 	readRequestBodyBuffer,
 	RequestBodyTooLargeError,
 } from "@/lib/http/request-body";
+import { requestLocale } from "@/lib/http/request-locale";
 import { t } from "@/lib/i18n/service-translations";
 import { normalizeUserPreferencesForSession } from "@/lib/preferences/user-preferences";
 import { getTurnstileConfig, TURNSTILE_RESPONSE_FIELD, verifyTurnstileToken } from "@/lib/auth/turnstile";
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
 			boundedBody = await readRequestBodyBuffer(request, MAX_NON_FILE_FORM_BYTES);
 		} catch (error) {
 			if (error instanceof RequestBodyTooLargeError) {
-				return new Response(t("backend.request.bodyTooLarge"), { status: 413 });
+				return new Response(t("backend.request.bodyTooLarge", await requestLocale(request)), { status: 413 });
 			}
 			throw error;
 		}

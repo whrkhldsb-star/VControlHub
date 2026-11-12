@@ -24,7 +24,8 @@ export const zh: Record<string, string> = {
 	"qsPage.statusError": "异常",
 	"qsPage.portLabel": "端口 {port}",
 	"qsPage.pathLabel": "路径 {path}",
-	"qsPage.monthlyPulls": "{pulls}k 次拉取",
+	"qsPage.monthlyPulls": "每月 {pulls} 次拉取",
+	"qsPage.stars": "{stars} 个星标",
 	"qsPage.installingLabel": "安装中…",
 	"qsPage.installNow": "一键安装",
 	"qsPage.accessAria": "访问 {name}（{label}）",
@@ -39,6 +40,8 @@ export const zh: Record<string, string> = {
 
 	// install-dialog
 	"qsPage.checkFailed": "检查失败",
+	"qsPage.portCheckFailedDetail": "无法检查端口：{reason}",
+	"qsPage.recheckPort": "重新检查",
 	"qsPage.installTitle": "安装 {name}",
 	"qsPage.installSubtitle": "选择服务监听的端口，安装后可通过该端口访问服务。",
 	"qsPage.portNumberLabel": "端口号",
@@ -52,7 +55,7 @@ export const zh: Record<string, string> = {
 	"qsPage.containerPortDash": "-",
 	"qsPage.envVarsLabel": "环境变量：{count} 个键（不展示密钥值）",
 	"qsPage.volumesLabel": "宿主机挂载：{count} 条",
-	"qsPage.recommendedPort": "推荐端口: {port}",
+	"qsPage.recommendedPort": "推荐端口：{port}",
 	"qsPage.autoAssign": "自动分配",
 	"qsPage.cancel": "取消",
 	"qsPage.confirmInstall": "确认安装",
@@ -99,7 +102,7 @@ export const zh: Record<string, string> = {
 	"quickServicesPage.sources.enable": "启用",
 	"quickServicesPage.sources.linuxserverDesc": "LinuxServer 团队精选，覆盖文件、媒体、自动化等场景。",
 	"quickServicesPage.sources.customLabel": "自定义 JSON",
-	"quickServicesPage.sources.customDesc": "填写你自己托管的 JSON catalog 地址。",
+	"quickServicesPage.sources.customDesc": "填写你自己托管的 JSON 目录文件地址。",
 
 	// quick-services-client (R14)
 	"qsPage.loading": "加载中…",
@@ -331,7 +334,8 @@ export const en: Record<string, string> = {
 	"qsPage.statusError": "Error",
 	"qsPage.portLabel": "Port {port}",
 	"qsPage.pathLabel": "Path {path}",
-	"qsPage.monthlyPulls": "{pulls}k pulls",
+	"qsPage.monthlyPulls": "{pulls} pulls a month",
+	"qsPage.stars": "{stars} stars",
 	"qsPage.installingLabel": "Installing…",
 	"qsPage.installNow": "Install",
 	"qsPage.accessAria": "Open {name} ({label})",
@@ -346,6 +350,8 @@ export const en: Record<string, string> = {
 
 	// install-dialog
 	"qsPage.checkFailed": "Check failed",
+	"qsPage.portCheckFailedDetail": "The port could not be checked: {reason}",
+	"qsPage.recheckPort": "Check again",
 	"qsPage.installTitle": "Install {name}",
 	"qsPage.installSubtitle": "Choose a host port for the service. After install, the service is reachable on that port.",
 	"qsPage.portNumberLabel": "Port",

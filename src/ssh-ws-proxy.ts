@@ -5,6 +5,9 @@
  * Session auth uses the HttpOnly cookie; only the short-lived handshake is in the URL.
  */
 
+// First: shared service code hands BigInt columns to JSON.stringify, which throws without this patch.
+import "@/lib/bigint-patch";
+
 import { setupRdpWebSocket } from "@/lib/rdp/ws";
 import { createServer } from "http";
 import { existsSync, readFileSync } from "node:fs";
@@ -27,6 +30,9 @@ import { serverTeamWhere } from "./lib/auth/team-scope";
 import { getSessionCookieName, verifySessionToken } from "./lib/auth/session";
 import { AuthError } from "./lib/errors";
 import { createLogger } from "./lib/logging";
+import { backgroundCopyLocale } from "./lib/i18n/api-copy";
+import { startBackgroundCopyLocaleSync } from "./lib/i18n/background-locale";
+import type { Locale } from "./lib/i18n/core";
 import { t } from "./lib/i18n/service-translations";
 import { parseTcpPort } from "./lib/runtime/listen-port";
 import { verifySshWsHandshakeToken } from "./lib/auth/ssh-ws-token";
@@ -222,16 +228,17 @@ export function buildTerminalSshConfig(
  * enforced pin) get an actionable message that tells the operator to pin the
  * fingerprint first; anything else keeps the raw ssh2 detail.
  */
-export function describeTerminalSshError(err: Error, hostKey?: { pinned?: string | null; presented?: string | null }): string {
+export function describeTerminalSshError(err: Error, hostKey?: { pinned?: string | null; presented?: string | null }, locale?: Locale): string {
+	const say = (key: string, vars?: Record<string, string | number>) => (locale ? t(key, locale, vars) : t(key, vars));
 	if (isHostKeyRejection(err)) {
 		// A pinned key that differs is something else than one never pinned: the host was reinstalled, or
 		// someone is in the middle.
 		if (hostKey?.pinned && hostKey.presented) {
-			return t("backend.ssh.hostKeyChanged", { expected: hostKey.pinned, actual: hostKey.presented });
+			return say("backend.ssh.hostKeyChanged", { expected: hostKey.pinned, actual: hostKey.presented });
 		}
-		return t("backend.ssh.hostKeyNotPinned");
+		return say("backend.ssh.hostKeyNotPinned");
 	}
-	return `SSH connection error: ${err.message}`;
+	return say("backend.sshTerminal.connectionError", { message: err.message });
 }
 
 /**
@@ -452,6 +459,18 @@ function resolveSshSessionToken(req: import("http").IncomingMessage): string | n
 	return fromCookie && fromCookie.trim() ? fromCookie.trim() : null;
 }
 
+/**
+ * The language of the page that opened this socket, chosen as the page
+ * chooses it: its language cookie, else the platform default (which this
+ * process keeps in step, see startBackgroundCopyLocaleSync). The terminal
+ * shows the gateway's notices as they arrive, and they were Chinese for
+ * every page.
+ */
+function terminalPageLocale(req: import("http").IncomingMessage): Locale {
+	const chosen = extractCookie(req.headers.cookie, "vps-locale");
+	return chosen === "en" || chosen === "zh" ? chosen : backgroundCopyLocale() ?? "zh";
+}
+
 // ── Detachable shell sessions ──────────────────────────────────────
 //
 // A browser connection drops far more often than the shell behind it has any
@@ -485,6 +504,8 @@ const SSH_OUTPUT_ACK_STALL_MS = 30_000;
 
 type ShellAttachment = {
 	ws: WebSocket;
+	/** The language of the page behind this socket. */
+	locale: Locale;
 	sendOutput: (data: Buffer) => void;
 	/** Tell the browser the shell is gone (`closed`, with why) and close the socket. */
 	notifyClosed: (message: string, reason: ShellEndReason) => void;
@@ -500,6 +521,13 @@ type ShellAttachment = {
  * browser waits for the user; `lost` (the SSH connection dropped) is retried.
  */
 type ShellEndReason = "exit" | "idle" | "lost";
+
+/**
+ * Why a shell ended, before it is put into words: a shell outlives the socket
+ * that opened it, so the notice is worded for whichever page is attached when
+ * it ends, and once more, in the platform's language, for the audit log.
+ */
+type ShellNotice = { key: string; vars?: Record<string, string | number> };
 
 type ShellSession = {
 	id: string;
@@ -575,10 +603,10 @@ function auditTerminalFailure(session: ShellSession, message: string) {
 }
 
 /** Close the shell and its SSH connection; the attached browser, if any, learns why. */
-function endShellSession(session: ShellSession, notice?: string, reason: ShellEndReason = "lost") {
+function endShellSession(session: ShellSession, notice?: ShellNotice, reason: ShellEndReason = "lost") {
 	if (session.ended) return;
 	if (session.stream) void auditTerminal(session, "server.ssh.closed").catch(() => undefined);
-	else if (!session.failureAudited) void auditTerminal(session, "server.ssh.failed", notice ? { message: notice } : {}).catch(() => undefined);
+	else if (!session.failureAudited) void auditTerminal(session, "server.ssh.failed", notice ? { message: t(notice.key, notice.vars) } : {}).catch(() => undefined);
 	session.ended = true;
 	if (session.detachTimer) clearTimeout(session.detachTimer);
 	if (session.idleTimer) clearTimeout(session.idleTimer);
@@ -588,7 +616,7 @@ function endShellSession(session: ShellSession, notice?: string, reason: ShellEn
 	if (detachedSessions.delete(session.id)) adjustDetachedCount(session.userId, -1);
 	session.history = [];
 	session.historyBytes = 0;
-	if (notice && session.attachment) session.attachment.notifyClosed(notice, reason);
+	if (notice && session.attachment) session.attachment.notifyClosed(t(notice.key, session.attachment.locale, notice.vars), reason);
 	session.attachment = null;
 	try { session.stream?.close(); } catch { /* already closed */ }
 	try { session.sshClient.end(); } catch { /* already closed */ }
@@ -726,7 +754,7 @@ function resetShellIdle(session: ShellSession) {
 	if (session.idleTimeoutMs <= 0 || session.ended) return;
 	if (session.idleTimer) clearTimeout(session.idleTimer);
 	session.idleTimer = setTimeout(() => {
-		endShellSession(session, t("backend.sshTerminal.idleClosed", { minutes: session.idleTimeoutMs / 60_000 }), "idle");
+		endShellSession(session, { key: "backend.sshTerminal.idleClosed", vars: { minutes: session.idleTimeoutMs / 60_000 } }, "idle");
 	}, session.idleTimeoutMs);
 	session.idleTimer.unref?.();
 }
@@ -751,6 +779,9 @@ wss.on("connection", async (ws, req) => {
 	// What the browser sends as soon as its socket opens (its first resize) arrives while the session is still being
 	// verified below; with no listener yet it was lost, and the shell opened at 80×24. Held until the listener is in
 	// place; a few messages are all a client has reason to send before the shell is announced.
+	const locale = terminalPageLocale(req);
+	/** A notice for this socket, in its page's language. */
+	const say = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const earlyMessages: Array<[Buffer | ArrayBuffer | Buffer[], boolean]> = [];
 	const bufferEarlyMessage = (raw: Buffer | ArrayBuffer | Buffer[], binary: boolean) => {
 		if (earlyMessages.length < EARLY_MESSAGE_BUFFER) earlyMessages.push([raw, binary]);
@@ -770,7 +801,7 @@ wss.on("connection", async (ws, req) => {
 
 	if (!isOriginAllowed(req)) {
 		recordWsEvent("ssh", "reject");
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.originNotAllowed"), fatal: true }));
+		ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.originNotAllowed"), fatal: true }));
 		closeSocket(ws);
 		return;
 	}
@@ -783,7 +814,7 @@ wss.on("connection", async (ws, req) => {
 	const token = resolveSshSessionToken(req);
 
 	if (!serverId || !token || !handshake) {
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.missingParams"), fatal: true }));
+		ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.missingParams"), fatal: true }));
 		closeSocket(ws);
 		return;
 	}
@@ -792,13 +823,13 @@ wss.on("connection", async (ws, req) => {
 	try {
 		session = await withAuthorizationDeadline(verifySessionToken(token));
 	} catch {
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.authFailed"), fatal: true }));
+		ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.authFailed"), fatal: true }));
 		closeSocket(ws);
 		return;
 	}
 
 	if (!canUseSshTerminal(session)) {
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.permissionDenied"), fatal: true }));
+		ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.permissionDenied"), fatal: true }));
 		closeSocket(ws);
 		return;
 	}
@@ -829,7 +860,7 @@ wss.on("connection", async (ws, req) => {
 			secret: SSH_WS_SECRET,
 		});
 		if (!handshakePayload || handshakePayload.userId !== session.userId) {
-			ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.handshakeTokenInvalid") }));
+			ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.handshakeTokenInvalid") }));
 			closeSocket(ws);
 			return;
 		}
@@ -840,12 +871,12 @@ wss.on("connection", async (ws, req) => {
 		connParams = await withAuthorizationDeadline(resolveServerConnection(serverId, session));
 	} catch (error) {
 		logger.error("failed to resolve SSH connection", error, { serverId, userId: session.userId });
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoDecryptFailed"), fatal: true }));
+		ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.connectionInfoDecryptFailed"), fatal: true }));
 		closeSocket(ws);
 		return;
 	}
 	if (!connParams) {
-		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoMissing"), fatal: true }));
+		ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.connectionInfoMissing"), fatal: true }));
 		closeSocket(ws);
 		return;
 	}
@@ -950,7 +981,7 @@ wss.on("connection", async (ws, req) => {
 			} catch (error) {
 				if (error instanceof TerminalAccessRefused) {
 					// Access was revoked or the endpoint changed: a retry is refused too.
-					stopTerminal(t("backend.sshTerminal.authFailed"), 1008, true);
+					stopTerminal(say("backend.sshTerminal.authFailed"), 1008, true);
 				} else {
 					// The check itself failed (database slow or down). Still fail
 					// closed — this socket stops — but keep a kept shell: the
@@ -998,6 +1029,7 @@ wss.on("connection", async (ws, req) => {
 	};
 	const attachment: ShellAttachment = {
 		ws,
+		locale,
 		sendOutput,
 		notifyClosed: (message, reason) => {
 			releaseAttachment();
@@ -1017,7 +1049,7 @@ wss.on("connection", async (ws, req) => {
 		replace: () => {
 			releaseAttachment();
 			if (ws.readyState === WebSocket.OPEN) {
-				ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.sessionReplaced"), reason: "replaced" }));
+				ws.send(JSON.stringify({ type: "closed", data: say("backend.sshTerminal.sessionReplaced"), reason: "replaced" }));
 				closeSocket(ws, SSH_CLOSE_REPLACED, "SSH shell continued by another connection");
 			}
 			// A half-open socket never answers the close: cut it so it stops counting.
@@ -1044,7 +1076,7 @@ wss.on("connection", async (ws, req) => {
 		shell.sshClient.on("ready", () => {
 			shell.sshClient.shell({ term: "xterm-256color", ...(shell.window ?? {}) }, (err, stream) => {
 				if (err) {
-					shell.attachment?.fail(t("backend.sshTerminal.shellCreationFailed", { message: err.message }));
+					shell.attachment?.fail(t("backend.sshTerminal.shellCreationFailed", shell.attachment.locale, { message: err.message }));
 					auditTerminalFailure(shell, err.message);
 					endShellSession(shell);
 					return;
@@ -1071,22 +1103,23 @@ wss.on("connection", async (ws, req) => {
 				});
 				stream.on("close", () => {
 					const exit = shell.exit;
-					if (!exit) endShellSession(shell, t("backend.sshTerminal.connectionClosed"), "lost");
-					else if (exit.code !== null) endShellSession(shell, t("backend.sshTerminal.shellExited", { code: exit.code }), "exit");
-					else endShellSession(shell, t("backend.sshTerminal.shellKilled", { signal: exit.signal ?? "?" }), "exit");
+					if (!exit) endShellSession(shell, { key: "backend.sshTerminal.connectionClosed" }, "lost");
+					else if (exit.code !== null) endShellSession(shell, { key: "backend.sshTerminal.shellExited", vars: { code: exit.code } }, "exit");
+					else endShellSession(shell, { key: "backend.sshTerminal.shellKilled", vars: { signal: exit.signal ?? "?" } }, "exit");
 				});
 			});
 		});
 		shell.sshClient.on("error", (err) => {
-			const message = describeTerminalSshError(err, { pinned: connParams.hostKeySha256, presented: presentedHostKey });
-			shell.attachment?.fail(message, { fatal: isPermanentTerminalSshError(err) });
-			auditTerminalFailure(shell, message);
+			const hostKey = { pinned: connParams.hostKeySha256, presented: presentedHostKey };
+			shell.attachment?.fail(describeTerminalSshError(err, hostKey, shell.attachment.locale), { fatal: isPermanentTerminalSshError(err) });
+			// The audit log is read by everyone: in the platform's language.
+			auditTerminalFailure(shell, describeTerminalSshError(err, hostKey));
 			endShellSession(shell);
 		});
 		// The SSH connection itself went away (server restart, network): the
 		// browser retries, which opens a new shell once the server is back.
-		shell.sshClient.on("end", () => endShellSession(shell, t("backend.sshTerminal.connectionLost"), "lost"));
-		shell.sshClient.on("close", () => endShellSession(shell, t("backend.sshTerminal.connectionLost"), "lost"));
+		shell.sshClient.on("end", () => endShellSession(shell, { key: "backend.sshTerminal.connectionLost" }, "lost"));
+		shell.sshClient.on("close", () => endShellSession(shell, { key: "backend.sshTerminal.connectionLost" }, "lost"));
 	}
 
 	let pingWindowStart = 0;
@@ -1141,7 +1174,7 @@ wss.on("connection", async (ws, req) => {
 				if (!sshStream) return;
 				resetShellIdle(shell);
 				if (msg.type === "input") {
-					if (sshStream.writableLength > 1024 * 1024) { stopTerminal(t("backend.sshTerminal.connectionClosed"), 1013); return; }
+					if (sshStream.writableLength > 1024 * 1024) { stopTerminal(say("backend.sshTerminal.connectionClosed"), 1013); return; }
 					if (msg.id === undefined) {
 						// Existing clients retain their original wire protocol.
 						sshStream.write(Buffer.from(msg.data, "base64"));
@@ -1152,13 +1185,13 @@ wss.on("connection", async (ws, req) => {
 						reply({ type: "input-ack", id: msg.id });
 					}
 				} else sshStream.setWindow(msg.rows, msg.cols, 0, 0);
-			}).catch(() => stopTerminal(t("backend.sshTerminal.connectionClosed"))).finally(() => {
+			}).catch(() => stopTerminal(say("backend.sshTerminal.connectionClosed"))).finally(() => {
 				pendingInputBytes -= messageBytes;
 				pendingSshInputBytes -= messageBytes;
 				pendingInputMessages--;
 			});
 		} catch {
-			stopTerminal(t("backend.sshTerminal.connectionClosed"));
+			stopTerminal(say("backend.sshTerminal.connectionClosed"));
 		}
 	});
 
@@ -1183,7 +1216,7 @@ wss.on("connection", async (ws, req) => {
 	if (!await ensureAuthorized(true)) return;
 	if (shell.ended) {
 		// The shell ended while this connection was being authorized.
-		ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.connectionLost"), reason: "lost" }));
+		ws.send(JSON.stringify({ type: "closed", data: say("backend.sshTerminal.connectionLost"), reason: "lost" }));
 		closeSocket(ws);
 		return;
 	}
@@ -1224,9 +1257,8 @@ wss.on("connection", async (ws, req) => {
 		// ssh2 throws, rather than emitting 'error', for a private key it cannot parse. Uncaught, this left the
 		// browser on "connecting" for ever with nothing logged or audited.
 		const failure = error instanceof Error ? error : new Error(String(error));
-		const message = describeTerminalSshError(failure);
-		shell.attachment?.fail(message, { fatal: true });
-		auditTerminalFailure(shell, message);
+		shell.attachment?.fail(describeTerminalSshError(failure, undefined, locale), { fatal: true });
+		auditTerminalFailure(shell, describeTerminalSshError(failure));
 		endShellSession(shell);
 	}
 });
@@ -1234,6 +1266,9 @@ wss.on("connection", async (ws, req) => {
 const shouldStartServer = process.env.NODE_ENV !== "test";
 
 if (shouldStartServer) {
+	// A page that has not chosen a language is shown the platform default;
+	// the gateway words its notices for such a page in the same one.
+	void startBackgroundCopyLocaleSync();
 	server.listen(PORT, HOST, () => {
 		// Server start is visible via process lifecycle; no console needed
 	});

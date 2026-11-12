@@ -22,6 +22,21 @@ describe("describeKnownError", () => {
 	});
 });
 
+describe("describeKnownError without a rule", () => {
+	it("leaves a sentence as the message instead of putting 'an unexpected error occurred' above it", () => {
+		// The drive showed "操作未能完成：发生意外错误。" over "未登录或会话已过期" and over "无法连接到服务器，请检查网络后重试".
+		for (const sentence of ["未登录或会话已过期", "无法连接到服务器，请检查网络后重试", "没有此存储节点或路径的访问授权"]) {
+			expect(describeKnownError(sentence, t)).toEqual({ summary: null, detail: sentence });
+		}
+		// A raw message nothing is known about is shown too, with the host's directories still collapsed.
+		expect(describeKnownError("Scanning /srv/vcontrolhub/storage/x failed: EIO: i/o error", t)).toEqual({ summary: null, detail: "Scanning …/x failed: EIO: i/o error" });
+	});
+
+	it("says something when there is nothing to show", () => {
+		expect(describeKnownError("  ", t)).toEqual({ summary: "commonError.generic", detail: "" });
+	});
+});
+
 describe("collapseAbsolutePaths", () => {
 	it("leaves relative paths, URLs and bare words alone", () => {
 		expect(collapseAbsolutePaths("open backups/x.tar.gz failed")).toBe("open backups/x.tar.gz failed");

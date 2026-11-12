@@ -94,6 +94,76 @@ describe("PublicStatusAdminClient", () => {
 		await waitFor(() => expect(api.post).toHaveBeenCalledWith("/api/admin/public-status/nodes", { action: "unpublish", serverIds: ["srv_1"] }));
 	});
 
+	it("names every selected server that would go public under its own name, whatever page it is on", async () => {
+		// The selection survives paging, but the confirmation listed the servers of the page on screen only.
+		const user = userEvent.setup();
+		const page = (number: number, rows: Array<typeof ROW>) => ({ total: 26, rows, page: number, pageSize: 25 });
+		const second = { ...ROW, serverId: "srv_26", serverName: "internal-cache-26" };
+		api.get.mockImplementation(async (url: string) => (url.includes("page=2") ? page(2, [second]) : page(1, [ROW])));
+		renderAdmin();
+		await user.click(await screen.findByRole("checkbox", { name: "Select internal-db-01" }));
+		await user.click(screen.getByRole("button", { name: "Next" }));
+		await user.click(await screen.findByRole("checkbox", { name: "Select internal-cache-26" }));
+		await user.click(screen.getByRole("button", { name: "Publish with server names" }));
+		const dialog = await screen.findByRole("dialog");
+		expect(within(dialog).getByText(/internal-db-01/)).toHaveTextContent("internal-db-01、internal-cache-26");
+	});
+
+	it("says the list could not be loaded without also saying that no server matches", async () => {
+		api.get.mockRejectedValue(new Error("Could not reach the server."));
+		renderAdmin();
+		expect(await screen.findByText("Could not reach the server.")).toBeInTheDocument();
+		expect(screen.queryByText("No server matches.")).not.toBeInTheDocument();
+	});
+
+	it("goes to the last page that exists when the one on screen was emptied", async () => {
+		// After a batch under a filter the last page can be gone: the list showed "Page 2 of 1" and nothing.
+		const user = userEvent.setup();
+		let total = 26;
+		api.get.mockImplementation(async (url: string) => {
+			const number = url.includes("page=2") ? 2 : 1;
+			const rows = number === 2 ? (total > 25 ? [{ ...ROW, serverId: "srv_26", serverName: "internal-cache-26" }] : []) : [ROW];
+			return { total, rows, page: number, pageSize: 25 };
+		});
+		renderAdmin();
+		await screen.findByText("internal-db-01");
+		await user.click(screen.getByRole("button", { name: "Next" }));
+		await user.click(await screen.findByRole("checkbox", { name: "Select internal-cache-26" }));
+		total = 25;
+		await user.click(screen.getByRole("button", { name: "Unpublish" }));
+		expect(await screen.findByText("internal-db-01")).toBeInTheDocument();
+		expect(screen.getByText("Page 1 of 1, 25 servers")).toBeInTheDocument();
+	});
+
+	it("shows that it is loading while another page is fetched", async () => {
+		const user = userEvent.setup();
+		let answer: (value: unknown) => void = () => undefined;
+		api.get.mockResolvedValueOnce({ total: 26, rows: [ROW], page: 1, pageSize: 25 });
+		renderAdmin();
+		await screen.findByText("internal-db-01");
+		expect(screen.queryByText("Refreshing…")).not.toBeInTheDocument();
+		api.get.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+		await user.click(screen.getByRole("button", { name: "Next" }));
+		expect(await screen.findByText("Refreshing…")).toBeInTheDocument();
+		await act(async () => { answer({ total: 26, rows: [], page: 2, pageSize: 25 }); });
+		await waitFor(() => expect(screen.queryByText("Refreshing…")).not.toBeInTheDocument());
+	});
+
+	it("offers the public page as soon as the board is saved as open, and previews the saved categories", async () => {
+		// Both read what the page was rendered with: the link appeared, and the node preview changed, only after a reload.
+		const user = userEvent.setup();
+		renderAdmin();
+		expect(screen.queryByRole("link", { name: "Open the public page" })).not.toBeInTheDocument();
+		api.put.mockResolvedValueOnce({ site: { ...DEFAULT_PUBLIC_SITE, enabled: true, metrics: ["cpu"] } });
+		await user.click(screen.getAllByRole("button", { name: "Save" })[0]!);
+		expect(await screen.findByRole("link", { name: "Open the public page" })).toBeInTheDocument();
+		const row = await screen.findByText("internal-db-01");
+		await user.click(within(row.closest("tr")!).getByRole("button", { name: "Public settings" }));
+		const preview = within(await screen.findByRole("dialog")).getByRole("complementary");
+		expect(within(preview).getByText("CPU")).toBeInTheDocument();
+		expect(within(preview).queryByText(/Memory/)).not.toBeInTheDocument();
+	});
+
 	it("keeps a site draft typed while the previous save was pending", async () => {
 		// The answer used to replace the form with what was saved, wiping the newer draft.
 		const user = userEvent.setup();

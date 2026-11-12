@@ -179,7 +179,7 @@ export async function syncServerMonthlyCosts(month = appTimeZoneDateKey().slice(
 				continue;
 			}
 		const provider = server.costProvider?.trim() || server.name; const tags = automaticTags("server_monthly", "vps", provider, server.id);
-		const notes = `Auto-collected: ${server.name} (${server.host}) ${month} VPS monthly fee`;
+		const notes = t("backend.cost.serverMonthlyNote", { server: server.name, host: server.host, month });
 		await prisma.costEntry.upsert({ where: { sourceType_sourceRef_effectiveDate: { sourceType: "server_monthly", sourceRef: server.id, effectiveDate } }, create: { category: "vps", provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, effectiveDate, notes, sourceType: "server_monthly", sourceRef: server.id, createdById: null, teamId: server.teamId ?? null, tags }, update: { provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, notes, tags } });
 		await prisma.server.update({ where: { id: server.id }, data: { costLastSyncedAt: new Date() } }); synced += 1;
 		}

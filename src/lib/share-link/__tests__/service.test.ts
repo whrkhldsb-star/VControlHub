@@ -6,6 +6,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     shareLink: { create: vi.fn(), count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     shareAccessLog: { create: vi.fn() },
     fileEntry: { findFirst: vi.fn() },
+    storageNode: { findUnique: vi.fn() },
   },
 }));
 
@@ -21,9 +22,6 @@ vi.mock("@/lib/auth/team-scope", () => ({
       : { id: "__unassigned_share_links_require_team_manage__" },
   isGlobalTeamManager: (session: { roles?: string[] }) =>
     Array.isArray(session.roles) && session.roles.includes("admin"),
-  teamCreateData: (session: { currentTeamId?: string | null }) => ({
-    teamId: session.currentTeamId ?? null,
-  }),
 }));
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: (session: { roles?: string[] }, perm: string) => {
@@ -44,6 +42,8 @@ describe("share link service", () => {
   beforeEach(() => {
   vi.clearAllMocks();
   mockPrisma.fileEntry.findFirst.mockResolvedValue(null);
+  // A share belongs to its storage node's customer (service-owner.test.ts).
+  mockPrisma.storageNode.findUnique.mockResolvedValue({ teamId: "team-1" });
   });
 
   it("creates a share token but stores only its hash", async () => {
@@ -60,6 +60,20 @@ describe("share link service", () => {
     expect(result.token).toHaveLength(48);
     expect(mockPrisma.shareLink.create.mock.calls[0]![0]!.data.tokenHash).not.toBe(result.token);
     expect(mockPrisma.shareLink.create.mock.calls[0]![0]!.data.path).toBe("docs/report.pdf");
+  });
+
+  it("says in words why a share outside the caller's path grants is refused", async () => {
+    // The decision's reason is a code for programs ("no_access"). It was thrown as the message, so the share
+    // dialog showed the code itself.
+    const { assertStorageAccess } = await import("@/lib/storage/access-control");
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: false, reason: "no_access" });
+    const attempt = createShareLink({
+      session: { userId: "u1", username: "alice", roles: ["operator"], mustChangePassword: false, currentTeamId: null },
+      storageNodeId: "node1",
+      path: "private/report.pdf",
+    });
+    await expect(attempt).rejects.toThrow("没有此存储节点或路径的访问授权");
+    expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
   });
 
   it("treats a file as deleted when it or any folder above it is in the trash", async () => {
@@ -82,8 +96,9 @@ describe("share link service", () => {
       permissionLevel: "preview" as const,
     };
 
-    await expect(createShareLink({ ...base, maxDownloads: 1 })).rejects.toThrow();
-    await expect(createShareLink({ ...base, password: "secret" })).rejects.toThrow();
+    // The sentence lived in the Shares page dictionary only: the service answered with the key itself.
+    await expect(createShareLink({ ...base, maxDownloads: 1 })).rejects.toThrow("仅查看模式不支持访问密码或最大下载次数");
+    await expect(createShareLink({ ...base, password: "secret" })).rejects.toThrow("仅查看模式不支持访问密码或最大下载次数");
     expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
   });
 

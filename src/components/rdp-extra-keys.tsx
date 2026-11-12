@@ -81,11 +81,18 @@ export function RdpExtraKeys({ t, modifiers, onModifier, onKeyDown, onKeyRepeat,
     winHold.current = null;
   };
 
+  const stopRepeat = (id: string) => {
+    const entry = timers.current.get(id);
+    if (entry) { clearTimeout(entry.delay); clearInterval(entry.interval); timers.current.delete(id); }
+  };
   const pressKey = (key: PlainKey) => (event: ReactPointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     onKeyDown(key.keysym);
     if (!key.repeat) return;
+    // A second finger on the same key: its timer takes the place of the first one's, which is stopped here —
+    // left running it had nothing to stop it, and the key repeated on the remote desktop from then on.
+    stopRepeat(key.id);
     const entry: { delay?: ReturnType<typeof setTimeout>; interval?: ReturnType<typeof setInterval> } = {};
     entry.delay = setTimeout(() => {
       entry.interval = setInterval(() => onKeyRepeat(key.keysym), REPEAT_INTERVAL_MS);
@@ -93,8 +100,7 @@ export function RdpExtraKeys({ t, modifiers, onModifier, onKeyDown, onKeyRepeat,
     timers.current.set(key.id, entry);
   };
   const releaseKey = (key: PlainKey) => () => {
-    const entry = timers.current.get(key.id);
-    if (entry) { clearTimeout(entry.delay); clearInterval(entry.interval); timers.current.delete(key.id); }
+    stopRepeat(key.id);
     onKeyUp(key.keysym);
   };
 

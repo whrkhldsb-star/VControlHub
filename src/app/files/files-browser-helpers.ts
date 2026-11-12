@@ -1,3 +1,5 @@
+import { getStorageNodeGroupKey } from "@/lib/files/tree";
+
 import type { FileProp } from "./file-entry-utils";
 import type { FolderProp } from "./file-list-model";
 
@@ -109,51 +111,38 @@ export function getInitialExpandedTreePaths(tree: TreeRootNode, currentPath: str
 
 export type NodeOption = { id: string; name: string; driver: string; basePath?: string };
 
-export function parseNodeGroupSegment(segment: string) {
-  const [label, idPrefix] = segment.split("__");
-  return idPrefix ? { label, idPrefix } : null;
-}
-
-export function isNodeGroupSegment(segment: string) {
-  return parseNodeGroupSegment(segment) !== null;
-}
-
 export function getNodeById(nodes: NodeOption[], nodeId: string) {
   return nodes.find((node) => node.id === nodeId);
 }
 
-export function getNodeFromGroupSegment(nodes: NodeOption[], segment: string) {
-  const group = parseNodeGroupSegment(segment);
-  if (!group) return null;
-  return nodes.find((node) => node.id.startsWith(group.idPrefix)) ?? null;
-}
-
-export function getDisplaySegment(segment: string, nodes: NodeOption[] = []) {
-  const group = parseNodeGroupSegment(segment);
-  if (!group) return segment;
-  const node = getNodeFromGroupSegment(nodes, segment);
-  return node ? node.name : group.label;
+/**
+ * The node a path of the "all locations" view starts in. Only there, and only in its first segment, does a path
+ * name a node — by the node's group key, `<name>__<start of its id>` (getStorageNodeGroupKey). Everything after
+ * it is folders, whose names may hold "__" themselves (`__pycache__`, `my__notes`), and so may the node's name:
+ * splitting every segment at "__" emptied such folders' names and lost such nodes.
+ */
+export function getPathGroupNode<N extends { id: string; name: string }>(nodes: N[], path: string, nodeIdFilter: string): N | null {
+  if (nodeIdFilter) return null;
+  const first = splitPath(path)[0];
+  if (!first) return null;
+  const exact = nodes.find((node) => getStorageNodeGroupKey(node) === first);
+  if (exact) return exact;
+  // A key written before the node was renamed still ends with the start of its id. Two nodes created in the same
+  // instant share that start, and then nothing but the whole key tells them apart.
+  const at = first.lastIndexOf("__");
+  const idStart = at > 0 ? first.slice(at + 2) : "";
+  const sameStart = idStart ? nodes.filter((node) => node.id.slice(0, 8) === idStart) : [];
+  return sameStart.length === 1 ? sameStart[0]! : null;
 }
 
 export function getCurrentPathDisplay(t: (k: string, vars?: Record<string, string | number>) => string, path: string, nodes: NodeOption[], nodeIdFilter: string) {
-  const selectedNode = getNodeById(nodes, nodeIdFilter);
   const segments = splitPath(path);
-  const groupSegment = segments.find(isNodeGroupSegment);
-  const groupNode = groupSegment ? getNodeFromGroupSegment(nodes, groupSegment) : null;
-  const remotePathSegments = selectedNode
-    ? segments
-    : segments.filter((segment) => !isNodeGroupSegment(segment));
-  const remotePath = remotePathSegments.map((segment) => getDisplaySegment(segment, nodes)).join("/");
-  const nodeLabel = selectedNode
-    ? `${selectedNode.name} (${selectedNode.driver})`
-    : groupNode
-      ? `${groupNode.name} (${groupNode.driver})`
-      : groupSegment
-        ? getDisplaySegment(groupSegment, nodes)
-        : t("filesBrowserSpa.allNodes");
+  const groupNode = getPathGroupNode(nodes, path, nodeIdFilter);
+  const node = getNodeById(nodes, nodeIdFilter) ?? groupNode;
+  const remotePath = (groupNode ? segments.slice(1) : segments).join("/");
   return {
-    title: selectedNode?.name ?? groupNode?.name ?? (remotePath || t("filesBrowserSpa.allFiles")),
-    label: `${nodeLabel}: /${remotePath}`,
+    title: node?.name ?? (remotePath || t("filesBrowserSpa.allFiles")),
+    label: `${getNodeLabel(t, node ?? undefined)}: /${remotePath}`,
     uploadPathLabel: `/${remotePath}`,
   };
 }
@@ -172,10 +161,7 @@ export function getNodeLabel(t: (k: string, vars?: Record<string, string | numbe
  */
 export function resolveBrowserLocation(nodes: NodeOption[], path: string, nodeIdFilter: string): { nodeId: string; relativePath: string } {
   if (nodeIdFilter) return { nodeId: nodeIdFilter, relativePath: path };
-  const segments = splitPath(path);
-  const groupIndex = segments.findIndex(isNodeGroupSegment);
-  if (groupIndex < 0) return { nodeId: "", relativePath: "" };
-  const node = getNodeFromGroupSegment(nodes, segments[groupIndex]!);
+  const node = getPathGroupNode(nodes, path, nodeIdFilter);
   if (!node) return { nodeId: "", relativePath: "" };
-  return { nodeId: node.id, relativePath: segments.slice(groupIndex + 1).join("/") };
+  return { nodeId: node.id, relativePath: splitPath(path).slice(1).join("/") };
 }

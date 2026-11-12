@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { I18nProvider } from "@/lib/i18n/provider";
+import { ToastProvider } from "@/components/toast-provider";
 
 const { refreshMock, csrfFetchMock } = vi.hoisted(() => ({
 	refreshMock: vi.fn(),
@@ -80,13 +81,13 @@ afterEach(() => {
 
 describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 	it("does not show a high-risk warning initially for an untouched high-risk field", () => {
-		render(<I18nProvider initialLocale="zh"><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></I18nProvider>);
+		render(<I18nProvider initialLocale="zh"><ToastProvider><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></ToastProvider></I18nProvider>);
 		expect(screen.queryAllByTestId("high-risk-blur-warning")).toHaveLength(0);
 	});
 
 	it("shows a high-risk warning after the user blurs a changed high-risk runtime field", async () => {
 		const user = userEvent.setup();
-		render(<I18nProvider initialLocale="zh"><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></I18nProvider>);
+		render(<I18nProvider initialLocale="zh"><ToastProvider><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></ToastProvider></I18nProvider>);
 		const input = screen.getByLabelText("命令执行超时（毫秒）");
 		await user.clear(input);
 		await user.type(input, "120000");
@@ -96,7 +97,7 @@ describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 
 	it("does NOT show a high-risk warning when the value matches the initial value on blur", async () => {
 		const user = userEvent.setup();
-		render(<I18nProvider initialLocale="zh"><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></I18nProvider>);
+		render(<I18nProvider initialLocale="zh"><ToastProvider><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></ToastProvider></I18nProvider>);
 		const input = screen.getByLabelText("命令执行超时（毫秒）");
 		// Clear and re-type the same value to trigger change events, then blur
 		await user.clear(input);
@@ -110,7 +111,7 @@ describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 
 	it("clears the high-risk warning once the user continues editing the field", async () => {
 		const user = userEvent.setup();
-		render(<I18nProvider initialLocale="zh"><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></I18nProvider>);
+		render(<I18nProvider initialLocale="zh"><ToastProvider><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></ToastProvider></I18nProvider>);
 		const input = screen.getByLabelText("命令执行超时（毫秒）");
 		await user.clear(input);
 		await user.type(input, "120000");
@@ -125,7 +126,7 @@ describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 
 	it("opens the high-risk confirm when Save is pressed straight after editing, without the blur banner shifting the button", async () => {
 		const user = userEvent.setup();
-		render(<I18nProvider initialLocale="zh"><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></I18nProvider>);
+		render(<I18nProvider initialLocale="zh"><ToastProvider><SettingsClient settings={{ ...HIGH_RISK_RUNTIME }} canManage /></ToastProvider></I18nProvider>);
 		const input = screen.getByLabelText("命令执行超时（毫秒）");
 		await user.clear(input);
 		await user.type(input, "120000");
@@ -144,12 +145,12 @@ describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 		// (i.e. low risk per FieldDef.riskLevel default).
 		const user = userEvent.setup();
 		render(
-			<I18nProvider initialLocale="zh">
+			<I18nProvider initialLocale="zh"><ToastProvider>
 				<SettingsClient
 					settings={{ ...PLATFORM_HIGH_RISK, "platform.name": "VControlHub" }}
 					canManage
 				/>
-			</I18nProvider>,
+			</ToastProvider></I18nProvider>,
 		);
 		const nameInput = screen.getByLabelText("平台名称");
 		await user.clear(nameInput);

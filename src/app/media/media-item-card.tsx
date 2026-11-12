@@ -6,12 +6,17 @@ import {
   Download,
   Eye,
   FolderOpen,
+  HardDrive,
+  ImageIcon,
   LinkIcon,
+  Music2,
   Star,
   Tag,
+  Video,
 } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { copyText } from "@/lib/ui/clipboard";
 
 import {
   buildMediaLinks,
@@ -22,9 +27,10 @@ import {
 import { MediaCover } from "./media-item-cover";
 import { Badge, Chip, Notice } from "@/components/ui-primitives";
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { isImeComposition } from "@/lib/ui/keyboard";
 export type { MediaItem } from "./media-item-helpers";
 
 export function MediaItemCard({
@@ -43,6 +49,7 @@ export function MediaItemCard({
   const [showTagInput, setShowTagInput] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [imageBedUrl, setImageBedUrl] = useState<string | null>(null);
+  const [imageBedUrlCopied, setImageBedUrlCopied] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -132,7 +139,8 @@ export function MediaItemCard({
         ? publicUrl
         : `${window.location.origin}${publicUrl}`;
       setImageBedUrl(absoluteUrl);
-      await navigator.clipboard?.writeText(absoluteUrl).catch(() => undefined);
+      // Said only when it happened: where nothing can copy, the link is on the card to copy by hand.
+      setImageBedUrlCopied(await copyText(absoluteUrl));
     } catch (error) {
       setPublishError(getErrorMessage(error, t("mediaItemCard.publishErrorFallback")));
     } finally {
@@ -148,12 +156,8 @@ export function MediaItemCard({
       <div className="mt-3 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span>
-              {item.mediaType ==="image"
-                ?"🖼"
-                : item.mediaType ==="audio"
-                  ?"🎵"
-                  :"🎬"}
+            <span className="shrink-0 text-[var(--text-muted)]" aria-hidden>
+              {item.mediaType === "image" ? <ImageIcon size={14} /> : item.mediaType === "audio" ? <Music2 size={14} /> : <Video size={14} />}
             </span>
             <span
               className="truncate text-sm font-medium text-[var(--text-primary)]"
@@ -163,13 +167,15 @@ export function MediaItemCard({
             </span>
           </div>
           <p
-            className="mt-1 truncate text-xs text-[var(--text-muted)]"
+            className="mt-1 flex items-center gap-1 text-xs text-[var(--text-muted)]"
             title={item.relativePath}
           >
-            📂 {item.relativePath}
+            <FolderOpen size={12} className="shrink-0" aria-hidden />
+            <span className="truncate">{item.relativePath}</span>
           </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-[var(--text-muted)]">
-            <span>💾 {storageLabel(item, t)}</span>
+          <div className="mt-1.5 flex items-center gap-1 text-xs text-[var(--text-muted)]">
+            <HardDrive size={12} className="shrink-0" aria-hidden />
+            <span className="truncate">{storageLabel(item, t)}</span>
           </div>
         </div>
         {canManage && (
@@ -192,19 +198,16 @@ export function MediaItemCard({
           </button>
         )}
         {!canManage && fav && (
-          <span className="text-[var(--warning)] text-sm">⭐</span>
+          <span className="shrink-0 p-1 text-[var(--warning)]" role="img" aria-label={t("mediaItemCard.favorite")}>
+            <Star size={16} fill="currentColor" aria-hidden />
+          </span>
         )}
       </div>
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
         {previewHref ? (
-          <a
-            href={previewHref}
-            data-action-button=""
-            data-variant="outline"
-            data-size="xs"
-          >
-            <Eye aria-hidden /> {t("mediaItemCard.previewButton")}
-          </a>
+          <ButtonLink href={previewHref} size="xs" variant="outline" icon={<Eye aria-hidden />}>
+            {t("mediaItemCard.previewButton")}
+          </ButtonLink>
         ) : null}
         {downloadHref ? (
           <a
@@ -217,14 +220,9 @@ export function MediaItemCard({
           </a>
         ) : null}
         {sourceHref ? (
-          <a
-            href={sourceHref}
-            data-action-button=""
-            data-variant="secondary"
-            data-size="xs"
-          >
-            <FolderOpen aria-hidden /> {t("mediaItemCard.sourceFileButton")}
-          </a>
+          <ButtonLink href={sourceHref} size="xs" variant="secondary" icon={<FolderOpen aria-hidden />}>
+            {t("mediaItemCard.sourceFileButton")}
+          </ButtonLink>
         ) : null}
         {canManage && item.mediaType ==="image" && item.storageNode ? (
           <ActionButton
@@ -243,7 +241,7 @@ export function MediaItemCard({
       </div>
       {imageBedUrl ? (
         <Notice tone="success" compact className="mt-2">
-          {t("mediaItemCard.imageBedUrlGenerated")}:
+          {t(imageBedUrlCopied ? "mediaItemCard.imageBedUrlCopied" : "mediaItemCard.imageBedUrlGenerated")}:
           <a
             href={imageBedUrl}
             target="_blank"
@@ -292,6 +290,8 @@ export function MediaItemCard({
               aria-label={t("mediaItemCard.newTagAriaLabel")}
               onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={(e) => {
+                // Enter and Escape that an input method takes for its candidates are not for the tag.
+                if (isImeComposition(e)) return;
                 if (e.key ==="Enter") void addTag();
                 if (e.key ==="Escape") setShowTagInput(false);
               }}

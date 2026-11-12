@@ -2,6 +2,7 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
 import { isMagnetLink } from "@/lib/downloads/helpers";
+import { t } from "@/lib/i18n/service-translations";
 import { isBlockedIpAddress } from "@/lib/security/ip-blocklist";
 
 const DEFAULT_BLOCKED_HOSTNAME_SUFFIXES = [
@@ -97,31 +98,31 @@ function validateDownloadSourceUrlSyntax(
   options: ValidateDownloadSourceUrlOptions = {},
 ): DownloadSourceUrlSyntaxResult {
   const value = (rawUrl ?? "").trim();
-  if (!value) return { ok: false, reason: "Download URL cannot be empty" };
-  if (value.length > 4096) return { ok: false, reason: "Download URL is too long" };
+  if (!value) return { ok: false, reason: t("apiDownloads.source.empty") };
+  if (value.length > 4096) return { ok: false, reason: t("apiDownloads.source.tooLong") };
   if (isMagnetLink(value)) return { ok: true, url: new URL("http://magnet.invalid"), magnet: true };
 
   let parsed: URL;
   try {
     parsed = new URL(value);
   } catch {
-    return { ok: false, reason: "Download URL format is invalid" };
+    return { ok: false, reason: t("apiDownloads.source.invalid") };
   }
 
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return { ok: false, reason: "Only HTTP, HTTPS, or magnet links are supported" };
+    return { ok: false, reason: t("apiDownloads.source.unsupportedScheme") };
   }
 
   if (parsed.username || parsed.password) {
-    return { ok: false, reason: "Download URL must not contain username or password" };
+    return { ok: false, reason: t("apiDownloads.source.noCredentials") };
   }
 
   if (parsed.port) {
-    return { ok: false, reason: "Download URL must not specify a port" };
+    return { ok: false, reason: t("apiDownloads.source.noPort") };
   }
 
   const hostname = parsed.hostname.toLowerCase();
-  if (!hostname) return { ok: false, reason: "Download URL is missing a hostname" };
+  if (!hostname) return { ok: false, reason: t("apiDownloads.source.noHost") };
   // URL.hostname keeps the brackets on an IPv6 literal ("[::1]"), and isIP()
   // returns 0 for a bracketed form — strip them so every IP literal (incl.
   // IPv4-mapped/compatible forms) is vetted by the shared isBlockedIpAddress.
@@ -129,11 +130,11 @@ function validateDownloadSourceUrlSyntax(
 
   const blockedSuffixes = options.blockedHostnameSuffixes ?? DEFAULT_BLOCKED_HOSTNAME_SUFFIXES;
   if (hostnameMatchesBlockedSuffix(hostname, blockedSuffixes)) {
-    return { ok: false, reason: "Downloading intranet or local domain resources is not allowed" };
+    return { ok: false, reason: t("apiDownloads.source.internalDomain") };
   }
 
   if (isIP(ipLiteral) && isBlockedIpAddress(ipLiteral)) {
-    return { ok: false, reason: "Downloading intranet, loopback, or link-local address resources is not allowed" };
+    return { ok: false, reason: t("apiDownloads.source.privateAddress") };
   }
 
   return { ok: true, url: parsed, magnet: false };
@@ -151,7 +152,7 @@ export async function assertDownloadSourceUrlSafe(
   try {
     const addresses = await lookup(hostname, { all: true, verbatim: true });
     if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
-      return { ok: false, reason: "Download URL DNS resolved to an intranet, loopback, or link-local address" };
+      return { ok: false, reason: t("apiDownloads.source.dnsPrivate") };
     }
     const selected = addresses[0]!;
     return {
@@ -163,6 +164,6 @@ export async function assertDownloadSourceUrlSafe(
       },
     };
   } catch {
-    return { ok: false, reason: "Download URL DNS resolution failed" };
+    return { ok: false, reason: t("apiDownloads.source.dnsFailed") };
   }
 }

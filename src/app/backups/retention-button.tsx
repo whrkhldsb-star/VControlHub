@@ -8,8 +8,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { UI_INPUT } from "@/lib/ui/classes";
-import { cn } from "@/lib/ui/cn";
+import { NumberInput } from "@/components/ui/number-input";
 
 type Props = {
   /** 当前已超过 30 天的记录数。0 时按钮 disabled。 */
@@ -74,25 +73,25 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
       <div className="flex flex-wrap items-end gap-2">
         <label className="ui-label grid gap-1">
           <span>{t("backupsPage.retention.daysLabel")}</span>
-          <input
-            type="number"
+          <NumberInput
             min={1}
             max={3650}
+            integer
             value={olderThanDays}
-            onChange={(event) => { setConfirming(false); setOlderThanDays(Math.max(1, Math.min(3650, Number(event.target.value) || MIN_OLDER_THAN_DAYS))); }}
-            className={cn(UI_INPUT, "w-24 text-sm")}
+            onValueChange={(next) => { setConfirming(false); setOlderThanDays(next); }}
+            className="w-24 text-sm"
             disabled={pending}
           />
         </label>
         <label className="ui-label grid gap-1">
           <span>{t("backupsPage.retention.keepLatestLabel")}</span>
-          <input
-            type="number"
+          <NumberInput
             min={0}
             max={1000}
+            integer
             value={keepLatestPerType}
-            onChange={(event) => { setConfirming(false); setKeepLatestPerType(Math.max(0, Math.min(1000, Number(event.target.value) || 0))); }}
-            className={cn(UI_INPUT, "w-24 text-sm")}
+            onValueChange={(next) => { setConfirming(false); setKeepLatestPerType(next); }}
+            className="w-24 text-sm"
             disabled={pending}
           />
         </label>
@@ -117,11 +116,11 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
       </p>
       {taskId && (
         <p role="status" className="text-xs text-[var(--success)]">
-          {t("backupsPage.retention.queuedPrefix")} <Link href="/operation-tasks" className="underline">{t("backupsPage.retry.taskCenter")}</Link> {t("backupsPage.retention.queuedSuffix", { taskId })}
+          {t("backupsPage.retention.queued", { taskId })} <Link href="/operation-tasks" className="underline">{t("backupsPage.retry.taskCenter")}</Link>
         </p>
       )}
       {error && (
-        <p role="alert" className="text-xs text-[var(--danger)]">{t("backupsPage.retention.error")}: {error}</p>
+        <p role="alert" className="text-xs text-[var(--danger)]">{t("backupsPage.retention.error")}{t("common.colon")}{error}</p>
       )}
     </form>
   );

@@ -41,6 +41,11 @@ vi.mock("ppk-to-openssh", () => ({
   parseFromString: parseFromStringMock,
 }));
 
+// The gateway's public probe goes through the pinned fetch; these tests stub the global fetch.
+vi.mock("@/lib/security/pinned-fetch", () => ({
+  fetchWithPinnedDns: (url: string | URL, init: RequestInit) => globalThis.fetch(url, init),
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
@@ -219,6 +224,23 @@ describe("server service", () => {
     expect(result.password).not.toBe("sftp-secret");
   });
 
+  it("does not keep the host lock when a certificate pin is refused", async () => {
+    // The refusal was thrown after the lock was taken and before the block that releases it. Each attempt pinned one
+    // of the lock pool's few connections for good: after a handful, every operation that takes a lock timed out.
+    const { acquireAdvisoryLock } = await import("@/lib/concurrency/advisory-lock");
+    const release = vi.fn(async () => undefined);
+    vi.mocked(acquireAdvisoryLock).mockClear();
+    vi.mocked(acquireAdvisoryLock).mockResolvedValueOnce(release);
+    const current = { id:"win", operatingSystem:"WINDOWS", host:"8.8.8.8", port:3389, name:"Windows", username:"Admin", rdpPassword:"ciphertext", rdpDomain:null, rdpIgnoreCertificate:false, rdpCertificateSha256:"ab".repeat(32), tags:[], teamId:null, commandTargets:[], createdAt:new Date(), updatedAt:new Date(), enabled:true };
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current as any);
+
+    await expect(updateServerProfile("win", { operatingSystem:"WINDOWS", name:"Renamed node" })).rejects.toThrow(t("backend.server.rdpPinUnsupported"));
+
+    const taken = vi.mocked(acquireAdvisoryLock).mock.calls.length;
+    expect(release).toHaveBeenCalledTimes(taken);
+    vi.mocked(acquireAdvisoryLock).mockImplementation(async () => async () => undefined);
+  });
+
   it("keeps the encrypted RDP password while the Windows account stays the same", async () => {
     const current = { id:"win", operatingSystem:"WINDOWS", host:"8.8.8.8", port:3389, name:"Windows", username:"Admin", rdpPassword:"ciphertext", rdpDomain:"OLD", rdpIgnoreCertificate:false, tags:[], teamId:null, commandTargets:[], createdAt:new Date(), updatedAt:new Date(), enabled:true };
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current as any);
@@ -365,7 +387,7 @@ describe("server service", () => {
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
       id: "srv_existing",
       name: "existing-node",
-      host: "45.207.216.45",
+      host: "198.51.100.45",
       port: 22,
       username: "root",
       enabled: true,
@@ -374,7 +396,7 @@ describe("server service", () => {
     await expect(
       createServerProfile({
         name: "existing-node",
-        host: "45.207.216.45",
+        host: "198.51.100.45",
         port: 61834,
         username: "root",
         connectionType: "PASSWORD",
@@ -382,7 +404,7 @@ describe("server service", () => {
         approvedHostKeySha256: "hk-prod-1 storage",
       }),
     ).rejects.toThrow(
-      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@45.207.216.45:22" }),
+      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@198.51.100.45:22" }),
     );
 
     expect(prisma.server.create).not.toHaveBeenCalled();
@@ -455,7 +477,7 @@ describe("server service", () => {
     const created = {
       id: "srv_draft",
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 22,
       username: "root",
       description: null,
@@ -492,12 +514,12 @@ describe("server service", () => {
       },
     });
     execRemoteCommandMock.mockRejectedValueOnce(
-      new Error("connect ECONNREFUSED 107.148.254.104:22"),
+      new Error("connect ECONNREFUSED 203.0.113.104:22"),
     );
 
     const result = await createServerProfile({
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 22,
       username: "root",
       connectionType: "PASSWORD",
@@ -535,7 +557,7 @@ describe("server service", () => {
     const current = {
       id: "srv_draft",
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 22,
       username: "root",
       description: null,
@@ -574,7 +596,7 @@ describe("server service", () => {
     const current = {
       id: "srv_draft",
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 22,
       username: "root",
       description: null,
@@ -634,7 +656,7 @@ describe("server service", () => {
     );
     expect(createRemoteDirectory).toHaveBeenCalledWith(
       expect.objectContaining({
-        host: "107.148.254.104",
+        host: "203.0.113.104",
         hostKeySha256: "SHA256:verified",
         remotePath: "/root/drive",
       }),
@@ -654,7 +676,7 @@ describe("server service", () => {
     const current = {
       id: "srv_draft",
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 48163,
       username: "root",
       description: null,
@@ -696,7 +718,7 @@ describe("server service", () => {
     const current = {
       id: "srv_draft_gateway",
       name: "pending-gateway",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 48163,
       username: "root",
       description: null,
@@ -770,7 +792,7 @@ describe("server service", () => {
     const current = {
       id: "srv_draft",
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 22,
       username: "root",
       description: null,
@@ -796,11 +818,11 @@ describe("server service", () => {
     } as any;
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current);
     execRemoteCommandMock.mockRejectedValueOnce(
-      new Error("connect ECONNREFUSED 107.148.254.104:22"),
+      new Error("connect ECONNREFUSED 203.0.113.104:22"),
     );
 
     await expect(toggleServerEnabled("srv_draft")).rejects.toThrow(
-      /107\.148\.254\.104:22.*保持停用/,
+      /203\.0\.113\.104:22.*保持停用/,
     );
 
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -829,7 +851,7 @@ describe("server service", () => {
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
       id: "srv_other",
       name: "existing-node",
-      host: "45.207.216.45",
+      host: "198.51.100.45",
       port: 22,
       username: "root",
       enabled: true,
@@ -837,13 +859,13 @@ describe("server service", () => {
 
     await expect(
       updateServerProfile("srv_edit", {
-        host: "45.207.216.45",
+        host: "198.51.100.45",
         port: 61834,
         username: "root",
         connectionType: "PASSWORD",
       }),
     ).rejects.toThrow(
-      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@45.207.216.45:22" }),
+      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@198.51.100.45:22" }),
     );
 
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -1817,6 +1839,134 @@ describe("server service", () => {
     vi.unstubAllGlobals();
   });
 
+  it("refuses a gateway address that is not public before anything is installed", async () => {
+    // Direct links are only issued for public addresses (the link route checks), so a gateway on a private address
+    // was installed, reported as enabled and then never used; and the probe fetched whatever address was named.
+    execRemoteCommandMock.mockReset();
+    vi.mocked(prisma.server.findUnique).mockReset();
+    vi.mocked(prisma.server.findUnique).mockResolvedValue({
+      id: "srv_1",
+      host: "10.0.0.8",
+      port: 22,
+      username: "root",
+      password: null,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_1",
+      fileProxyPort: 0,
+      publicUrl: null,
+      sshKey: { privateKey: "plain-key" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root/drive",
+        driver: "SFTP",
+        fileEntries: [],
+        mediaItems: [],
+      },
+    } as any);
+    vi.mocked(prisma.server.update).mockReset();
+    vi.mocked(prisma.server.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.storageNode.updateMany).mockReset();
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({
+      count: 1,
+    } as any);
+    const fetchMock = vi.fn(async () => new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      setServerDirectGatewayEnabled("srv_1", true, { publicListen: true }),
+    ).rejects.toThrow(/公网/);
+
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(prisma.server.update).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("removes what a failed install left on the node", async () => {
+    // The script installs and starts the gateway unit before the reverse proxy: stopped half-way (no Caddy package,
+    // port 443 taken) it left the gateway running and a Caddy unit restarting every three seconds.
+    execRemoteCommandMock.mockReset();
+    execRemoteCommandMock
+      .mockResolvedValueOnce({ stdout: "", stderr: "caddy is not installed and apt package install failed", exitCode: 1 })
+      .mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+    vi.mocked(prisma.server.findUnique).mockReset();
+    vi.mocked(prisma.server.findUnique).mockResolvedValue({
+      id: "srv_1",
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      password: null,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_1",
+      fileProxyPort: 0,
+      publicUrl: null,
+      sshKey: { privateKey: "plain-key" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root/drive",
+        driver: "SFTP",
+        fileEntries: [],
+        mediaItems: [],
+      },
+    } as any);
+    vi.mocked(prisma.server.update).mockReset();
+    vi.mocked(prisma.server.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.storageNode.updateMany).mockReset();
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({
+      count: 1,
+    } as any);
+
+    await expect(
+      setServerDirectGatewayEnabled("srv_1", true, { publicProtocol: "https" }),
+    ).rejects.toThrow(/caddy is not installed/);
+
+    expect(execRemoteCommandMock).toHaveBeenCalledTimes(2);
+    expect(execRemoteCommandMock.mock.calls[1]?.[0]?.command).toContain("rm -rf /opt/vcontrolhub-direct");
+    expect(prisma.server.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { fileProxyPort: 0, publicUrl: null },
+      }),
+    );
+  });
+
+  it("leaves the node alone when the install could not even connect", async () => {
+    execRemoteCommandMock.mockReset();
+    execRemoteCommandMock.mockRejectedValue(new Error("connect ETIMEDOUT 203.0.113.10:22"));
+    vi.mocked(prisma.server.findUnique).mockReset();
+    vi.mocked(prisma.server.findUnique).mockResolvedValue({
+      id: "srv_1",
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      password: null,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_1",
+      fileProxyPort: 0,
+      publicUrl: null,
+      sshKey: { privateKey: "plain-key" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root/drive",
+        driver: "SFTP",
+        fileEntries: [],
+        mediaItems: [],
+      },
+    } as any);
+    vi.mocked(prisma.server.update).mockReset();
+    vi.mocked(prisma.server.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.storageNode.updateMany).mockReset();
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({
+      count: 1,
+    } as any);
+
+    await expect(
+      setServerDirectGatewayEnabled("srv_1", true, { publicListen: true }),
+    ).rejects.toThrow(/ETIMEDOUT/);
+
+    expect(execRemoteCommandMock).toHaveBeenCalledTimes(1);
+    expect(prisma.server.update).not.toHaveBeenCalled();
+  });
+
   it("switches global direct gateway off by uninstalling the service and returning storage to proxy", async () => {
     execRemoteCommandMock.mockResolvedValueOnce({
       stdout: "removed",
@@ -1968,7 +2118,7 @@ describe("server service", () => {
     vi.mocked(prisma.scheduledTask.count).mockResolvedValueOnce(2);
 
     await expect(deleteServerProfile("srv_1")).rejects.toThrow(
-      "scheduledTasks=2",
+      "定时任务 2 个",
     );
 
     expect(prisma.storageNode.delete).not.toHaveBeenCalled();

@@ -24,7 +24,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   type SyntheticEvent,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -53,8 +52,9 @@ import {
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { Notice } from "@/components/ui-primitives";
+import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { IconShield } from "@/components/nav-icons";
 
 // Re-export so test files importing from `settings-client` keep working.
 export { FieldRiskBadge, FieldRollbackButton } from "./settings-field-risk";
@@ -82,23 +82,17 @@ export function SettingsClient({
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
-  // Schema now holds i18n keys directly — rendering components call t()/tt()
+  // Schema now holds i18n keys directly — rendering components call t()
   // to resolve them. No bridge layer needed.
   const schema = SETTINGS_SCHEMA;
-  const tt = useCallback((key: string, vars?: Record<string, string | number>) => {
-    let s = t(key);
-    if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
-    return s;
-  }, [t]);
   const tocItems = useMemo(() =>
     SETTINGS_SCHEMA.map((s) => {
-      const subtitleKey = TOC_SUBTITLE_KEYS[s.id] ?? `settingsClient.toc.fieldsCount.suffix`;
-      const count = `${s.fields.length}${t("settingsClient.toc.fieldsCount.suffix")}`;
+      const subtitleKey = TOC_SUBTITLE_KEYS[s.id];
       return {
         id: s.id,
         icon: s.icon,
         title: s.id === "smtp" ? t("settingsClient.toc.smtp.titleShort") : t(s.titleKey),
-        subtitle: TOC_SUBTITLE_KEYS[s.id] ? t(subtitleKey) : count,
+        subtitle: subtitleKey ? t(subtitleKey) : t("settingsClient.toc.fieldsCount", { count: s.fields.length }),
       };
     }),
   [t]);
@@ -140,20 +134,18 @@ export function SettingsClient({
     return () => document.removeEventListener("click", interceptInternalNavigation, true);
   }, [pendingChanges]);
 
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [savedMessage, setSavedMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const saveBannerTimerRef = useRef<number | null>(null);
-  useEffect(
-    () => () => {
-      if (saveBannerTimerRef.current != null) {
-        window.clearTimeout(saveBannerTimerRef.current);
-        saveBannerTimerRef.current = null;
-      }
-    },
-    [],
-  );
+  const { addToast } = useToast();
+  // Which section is being saved: its button says so, and the others wait.
+  const [savingSectionId, setSavingSectionId] = useState<string | null>(null);
+  // What the last save of a section was refused for. It is shown in that section, by its Save button and
+  // under the fields that are wrong: one notice above the whole list was off screen for every section but
+  // the first, and pressing Save there changed nothing the user could see.
+  const [failure, setFailure] = useState<{
+    sectionId: string;
+    /** The server's sentence; absent when the fields were refused before anything was sent. */
+    message?: string;
+    fields: Record<string, string>;
+  } | null>(null);
   // TR-014 M01b: second-confirm modal state for saving high-risk fields
   const [highRiskConfirm, setHighRiskConfirm] = useState<{
     changes: PendingChange[];
@@ -289,8 +281,12 @@ export function SettingsClient({
 
   const updateField = (key: string, value: string) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
-    setSaved(false);
-    setSavedMessage(null);
+    // An edited field is no longer marked; the section's notice goes with its last mark.
+    setFailure((prev) => {
+      if (!prev || !(key in prev.fields)) return prev;
+      const { [key]: _corrected, ...fields } = prev.fields;
+      return Object.keys(fields).length > 0 || prev.message ? { ...prev, fields } : null;
+    });
   };
   const runtimeSummaryByKey = useMemo(
     () => new Map(runtimeSettings.map((item) => [item.key, item])),
@@ -301,20 +297,14 @@ export function SettingsClient({
     async (section: SectionDef) => {
       const keys = getSectionSaveKeys(section);
       if (keys.length === 0) return;
-      const validationErrors = keys
-        .map((key) => {
-          const field = section.fields.find((f) => f.key === key);
-          if (!field?.validate) return null;
-          const error = field.validate(settings[key] ?? "", settings);
-          if (!error) return null;
-          const label = t(field.labelKey);
-          return tt(error.key, { ...error.params, label });
-        })
-        .filter((message): message is string => Boolean(message));
-      if (validationErrors.length > 0) {
-        setError(validationErrors.join("; "));
-        setSaved(false);
-        setSavedMessage(null);
+      const invalid: Record<string, string> = {};
+      for (const key of keys) {
+        const field = section.fields.find((f) => f.key === key);
+        const refused = field?.validate?.(settings[key] ?? "", settings);
+        if (field && refused) invalid[key] = t(refused.key, { ...refused.params, label: t(field.labelKey) });
+      }
+      if (Object.keys(invalid).length > 0) {
+        setFailure({ sectionId: section.id, fields: invalid });
         return;
       }
       // TR-014 M01b: if any pending change in this section is high-risk,
@@ -328,8 +318,8 @@ export function SettingsClient({
         (c) => c.riskLevel === "high",
       );
       const performSave = async () => {
-        setSaving(true);
-        setError(null);
+        setSavingSectionId(section.id);
+        setFailure(null);
         try {
           const payload: Record<string, string> = {};
           for (const k of keys) {
@@ -372,24 +362,17 @@ export function SettingsClient({
             for (const k of keys) next.delete(k);
             return next;
           });
-          setSaved(true);
-          setSavedMessage(
-            section.saveMessageKey ? t(section.saveMessageKey) : t("settingsClient.saveSuccess"),
+          // A toast stays in view wherever the section is; some of these say when the change takes effect,
+          // so they are given time to be read.
+          addToast(
+            "success",
+            `${t("settingsClient.savedWithMessage")} — ${section.saveMessageKey ? t(section.saveMessageKey) : t("settingsClient.saveSuccess")}`,
+            { duration: 8000 },
           );
-          if (saveBannerTimerRef.current != null) {
-            window.clearTimeout(saveBannerTimerRef.current);
-          }
-          saveBannerTimerRef.current = window.setTimeout(() => {
-            setSaved(false);
-            setSavedMessage(null);
-            saveBannerTimerRef.current = null;
-          }, 5000);
         } catch (err) {
-          setError(
-            getErrorMessage(err, t("settingsClient.saveFailed")),
-          );
+          setFailure({ sectionId: section.id, message: getErrorMessage(err, t("settingsClient.saveFailed")), fields: {} });
         } finally {
-          setSaving(false);
+          setSavingSectionId(null);
         }
       };
       if (highChanges.length > 0) {
@@ -401,13 +384,13 @@ export function SettingsClient({
       }
       await performSave();
     },
-    [settings, baselineSettings, runtimeSummaryByKey, router, t, tt],
+    [settings, baselineSettings, runtimeSummaryByKey, router, t, addToast],
   );
 
   if (!canManage) {
     return (
       <div data-tile className="border-dashed p-12 text-center">
-        <div className="text-4xl mb-3">🔒</div>
+        <IconShield size={28} className="mx-auto mb-3 text-[var(--text-muted)]" />
         <p className="text-sm text-[var(--text-muted)]">
           {t("settingsClient.noPermission")}
         </p>
@@ -421,9 +404,6 @@ export function SettingsClient({
 
   return (
     <div className="space-y-6">
-      {error && <Notice tone="danger" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
-      {saved && <Notice tone="success">{t("settingsClient.savedWithMessage")}{savedMessage ? ` — ${savedMessage}` : ""}</Notice>}
-
       {/* Quick-jump TOC + expand/collapse all */}
       {showCategoryNav && (
         <nav
@@ -499,7 +479,12 @@ export function SettingsClient({
             getSectionSaveKeys(section),
             settingUpdateMetadata,
           )}
-          saving={saving}
+          saving={savingSectionId === section.id}
+          saveDisabled={savingSectionId !== null}
+          saveError={failure?.sectionId === section.id
+            ? failure.message ?? t("settingsClient.fixFieldsFirst", { count: Object.keys(failure.fields).length })
+            : null}
+          fieldErrors={failure?.sectionId === section.id ? failure.fields : undefined}
           onSave={() => handleSave(section)}
           twoFactorEnabled={twoFactorEnabled}
           diffExpanded={expandedDiffs[section.id] ?? false}

@@ -34,7 +34,8 @@ describe("checkRateLimitAsync", () => {
 
     const result = await checkRateLimitAsync("198.51.100.10", { maxRequests: 3, windowMs: 1_000 });
 
-    expect(addAndGetWindowMock).toHaveBeenCalledWith("198.51.100.10", 10_000, 1_000);
+    // maxRequests + 1 timestamps are all a verdict needs; the store keeps no more than that.
+    expect(addAndGetWindowMock).toHaveBeenCalledWith("198.51.100.10", 10_000, 1_000, 4);
     expect(result).toEqual({ allowed: true, retryAfterMs: 0, remaining: 1 });
   });
 

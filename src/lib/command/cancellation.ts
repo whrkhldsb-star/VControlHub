@@ -1,5 +1,17 @@
 import { prisma } from "@/lib/db";
 
+/**
+ * The reason a command is stopped when its cancellation state could not be
+ * read. Nobody asked for that stop, and the executor reports it as such: with
+ * a plain Error it was recorded as "cancelled by the operator".
+ */
+export class CommandCancellationStateUnknownError extends Error {
+  constructor() {
+    super("Cannot verify command cancellation state");
+    this.name = "CommandCancellationStateUnknownError";
+  }
+}
+
 /** A durable cancellation request is visible to every worker process. */
 export async function monitorCommandCancellation(targetId: string, controller: AbortController) {
   let stopped = false;
@@ -19,7 +31,7 @@ export async function monitorCommandCancellation(targetId: string, controller: A
       }
     } catch {
       // Losing the control plane must not leave an ungoverned execution alive.
-      if (!stopped) controller.abort(new Error("Cannot verify command cancellation state"));
+      if (!stopped) controller.abort(new CommandCancellationStateUnknownError());
     } finally {
       clearTimeout(deadlineTimer);
       checking = false;

@@ -33,12 +33,21 @@ export type SystemHealthReport = {
 };
 
 const RUNTIME_DIRS = ["storage", "uploads", "downloads", "backups", "logs", "tmp"];
-const SERVICE_CHECKS = [
-  { id: "next-service", label: "Next.js service", unit: "vcontrolhub-next.service" },
-  { id: "worker-service", label: "Background worker service", unit: "vcontrolhub-worker.service" },
-  { id: "ssh-ws-service", label: "SSH WebSocket service", unit: "vcontrolhub-ssh-ws.service" },
-  { id: "caddy-service", label: "Caddy reverse proxy service", unit: "caddy.service" },
-];
+/**
+ * The installer names the units after APP_SLUG (deploy/install.sh
+ * SERVICE_PREFIX), as the restore steps and scripts/restore.mjs already
+ * assume. Fixed "vcontrolhub-" names made every install under another slug
+ * report its three services as stopped (critical) while they were running.
+ */
+function serviceChecks() {
+  const prefix = config.app.appSlug || "vcontrolhub";
+  return [
+    { id: "next-service", label: "Next.js service", unit: `${prefix}-next.service` },
+    { id: "worker-service", label: "Background worker service", unit: `${prefix}-worker.service` },
+    { id: "ssh-ws-service", label: "SSH WebSocket service", unit: `${prefix}-ssh-ws.service` },
+    { id: "caddy-service", label: "Caddy reverse proxy service", unit: "caddy.service" },
+  ];
+}
 const SECRET_PATTERNS = [/postgres:\/\/[^\s]+:[^\s]+@/gi, /(password|token|secret|private_key)=([^\s]+)/gi];
 
 function sanitizeDetail(value: string) {
@@ -126,7 +135,7 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
   // trusted and gets the full report.
   const canSeePlatformInternals = options.session ? isGlobalTeamManager(options.session) : true;
   if (canSeePlatformInternals) {
-    const serviceChecks = await Promise.all(SERVICE_CHECKS.map(async (service): Promise<SystemHealthCheck> => {
+    const serviceResults = await Promise.all(serviceChecks().map(async (service): Promise<SystemHealthCheck> => {
     const state = await safeExecFile("systemctl", ["is-active", service.unit]);
     if (state === "active") {
       return { id: service.id, label: service.label, status: "healthy" as const, message: `${service.unit} is running`, params: { unit: service.unit }, messageCode: "running" };
@@ -136,7 +145,7 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
     }
     return { id: service.id, label: service.label, status: "warning" as const, message: `${service.unit} status temporarily unreadable`, params: { unit: service.unit }, messageCode: "unreadable" };
   }));
-  checks.push(...serviceChecks);
+  checks.push(...serviceResults);
 
   const envState = (() => {
     try {

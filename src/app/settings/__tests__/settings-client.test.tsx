@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsClient } from "../settings-client";
 import { renderWithI18n as renderWithLocale } from "@/lib/i18n/__tests__/test-helpers";
+import { formatDateTime } from "@/lib/datetime/format";
 
 // Wrap with I18nProvider (zh default) so `t(key)` resolves to the original
 // Chinese strings these assertions still expect — without it, t(key) returns
@@ -249,6 +250,17 @@ describe("SettingsClient", () => {
     expect(screen.getAllByText("修改人：暂无审计记录").length).toBeGreaterThanOrEqual(1);
   });
 
+  it("writes the time of the last change the way the page's language does", () => {
+    // The date went through the formatter without the language, which then wrote it the Chinese way on the
+    // English page as well.
+    const updatedAt = new Date("2026-06-02T03:04:05Z");
+    renderWithLocale(<SettingsClient settings={{}} canManage settingUpdateMetadata={{
+      "smtp.enabled": { updatedAt, actorId: "u2", actorName: "Ops User" },
+    }} />, { locale: "en" });
+    expect(formatDateTime(updatedAt, "en")).not.toBe(formatDateTime(updatedAt, "zh"));
+    expect(document.getElementById("smtp")).toHaveTextContent(formatDateTime(updatedAt, "en"));
+  });
+
   it("keeps Settings light-theme form label overrides in the CSS compatibility layer", () => {
     const css = fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
 
@@ -285,6 +297,62 @@ describe("SettingsClient", () => {
     expect(screen.getByText("命令执行超时（毫秒） 必须在 5000 到 3600000 之间")).toBeInTheDocument();
     expect(csrfFetch).not.toHaveBeenCalled();
   });
+  describe("what a save says, and where", () => {
+    const section = (id: string) => within(document.getElementById(id)!);
+
+    it("marks the field that is wrong and says so next to the Save button that was pressed", async () => {
+      // Every refusal went to one notice above the whole list: with a section further down open, pressing
+      // Save changed nothing on screen.
+      const user = userEvent.setup();
+      render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "ftp://example.com/logo.png" }} canManage />);
+      await user.click(section("platform").getByRole("button", { name: "保存" }));
+
+      const logo = screen.getByLabelText("Logo URL");
+      expect(logo).toHaveAttribute("aria-invalid", "true");
+      expect(logo).toHaveAccessibleDescription(expect.stringContaining("Logo URL 只支持 http(s) 或站内路径"));
+      expect(section("platform").getByText("有 1 项填写有误，请修正后再保存")).toBeInTheDocument();
+      expect(screen.getAllByRole("alert").every((alert) => document.getElementById("platform")!.contains(alert))).toBe(true);
+      expect(csrfFetch).not.toHaveBeenCalled();
+
+      // Corrected: the mark goes as the field is edited.
+      await user.clear(logo);
+      expect(logo).not.toHaveAttribute("aria-invalid");
+      expect(screen.queryByText("Logo URL 只支持 http(s) 或站内路径")).not.toBeInTheDocument();
+      expect(screen.queryByText("有 1 项填写有误，请修正后再保存")).not.toBeInTheDocument();
+    });
+
+    it("shows the server's refusal in the section that was saved", async () => {
+      const user = userEvent.setup();
+      vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("权限不足"));
+      render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "", "session.timeout": "3600", "password.minLength": "12" }} canManage />);
+      await user.click(section("password").getByRole("button", { name: "保存" }));
+
+      const refusal = await section("password").findByText("权限不足");
+      expect(refusal.closest('[role="alert"]')).not.toBeNull();
+      expect(refusal.closest('[data-component="save-button-with-diff"]')).not.toBeNull();
+      expect(screen.getAllByText("权限不足")).toHaveLength(1);
+    });
+
+    it("confirms a save with a toast and shows which section is being saved", async () => {
+      const user = userEvent.setup();
+      let finish: (value: unknown) => void = () => {};
+      vi.mocked(csrfFetch).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+      render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "", "runtime.commandExecutionTimeoutMs": "60000" }} canManage />);
+      await user.click(section("platform").getByRole("button", { name: "保存" }));
+
+      // Only the pressed button says so; the others wait.
+      expect(await section("platform").findByRole("button", { name: "保存中…" })).toBeDisabled();
+      expect(section("runtime").getByRole("button", { name: "保存" })).toBeDisabled();
+
+      finish({ success: true });
+      const said = await screen.findByText(/设置已保存 — 平台信息已保存/);
+      // A toast, outside the list: it is in view wherever the section is.
+      expect(said.closest('[role="status"]')).not.toBeNull();
+      expect(document.getElementById("platform")!.contains(said)).toBe(false);
+      expect(section("runtime").getByRole("button", { name: "保存" })).toBeEnabled();
+    });
+  });
+
   it("hosts account two-factor controls in system settings", () => {
     render(<SettingsClient settings={{}} canManage twoFactorEnabled={false} />);
 

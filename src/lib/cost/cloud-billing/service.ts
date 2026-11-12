@@ -300,6 +300,8 @@ async function runCloudBillingSync(
 		warnings = fetched.warnings;
 		skipped += fetched.rejectedRows ?? 0;
 		let invalidDates = 0;
+		// For a line the file gives no note: where the entry came from.
+		const importNote = t("backend.cost.cloudBillingImportNote", { account: account.name, month });
 
 		for (const item of fetched.items) {
 			// An impossible day would roll into the next month once stored.
@@ -342,7 +344,7 @@ async function runCloudBillingSync(
 					amount: new Prisma.Decimal(amountNum.toFixed(2)),
 					currency: item.currency,
 					effectiveDate,
-					notes: item.notes ?? `Cloud billing import ${account.name} ${month}`,
+					notes: item.notes ?? importNote,
 					sourceType: SOURCE_TYPE,
 					sourceRef,
 					createdById: account.createdById,
@@ -354,7 +356,7 @@ async function runCloudBillingSync(
 					provider: item.providerLabel.slice(0, 128),
 					amount: new Prisma.Decimal(amountNum.toFixed(2)),
 					currency: item.currency,
-					notes: item.notes ?? `Cloud billing import ${account.name} ${month}`,
+					notes: item.notes ?? importNote,
 					teamId: account.teamId ?? null,
 					tags,
 				},

@@ -65,33 +65,6 @@ export function buildFileTree(files: DeploymentExportFileMap): TreeNode[] {
   return root.children;
 }
 
-export async function copyTextToClipboard(value: string): Promise<boolean> {
-  if (typeof navigator !== "undefined" && navigator.clipboard) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch {
-      // fall through
-    }
-  }
-  if (typeof document === "undefined") return false;
-  const textarea = document.createElement("textarea");
-  textarea.value = value;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "absolute";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  let ok = false;
-  try {
-    ok = document.execCommand("copy");
-  } catch {
-    ok = false;
-  }
-  textarea.remove();
-  return ok;
-}
-
 export function downloadTextFile(filename: string, content: string) {
   if (typeof window === "undefined") return;
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });

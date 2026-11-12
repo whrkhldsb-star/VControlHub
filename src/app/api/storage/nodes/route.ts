@@ -18,7 +18,7 @@ const driverFilterSchema = z
       .string()
       .trim()
       .transform((value) => value.toUpperCase())
-      .refine((value) => value === "" || SUPPORTED_DRIVER_FILTERS.has(value), "Unsupported'sstorage nodetype")
+      .refine((value) => value === "" || SUPPORTED_DRIVER_FILTERS.has(value), "Unsupported storage node type")
       .optional(),
   })
   .transform((value) => value.driver ?? "");

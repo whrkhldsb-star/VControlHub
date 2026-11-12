@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { withApiCopyLocale } from "@/lib/i18n/api-copy";
 import {
   getPathName,
   isSafeArchiveEntryPath,
@@ -68,8 +69,27 @@ describe("storage path utils", () => {
     // 900 Chinese characters are 2700 bytes: far under the 4096-character limit, but the index write failed.
     const folder = "长".repeat(80);
     const long = [folder, folder, folder, folder, folder, folder, folder, folder, folder, folder].join("/");
-    expect(normalizeStorageRelativePath(long)).toEqual({ ok: false, reason: "Path is too long" });
+    expect(withApiCopyLocale("en", () => normalizeStorageRelativePath(long))).toEqual({ ok: false, reason: "Path is too long" });
     expect(normalizeStorageRelativePath([folder, folder, folder].join("/")).ok).toBe(true);
+  });
+
+  it("words a refusal in the language of the request", () => {
+    // The reasons were English literals, and about forty callers show them to the user as they are.
+    const refusals: Array<[() => { ok: boolean; reason?: string }, string, string]> = [
+      [() => normalizeStorageRelativePath(""), "Path cannot be empty", "路径不能为空"],
+      [() => normalizeStorageRelativePath("/etc/passwd"), "Path must be a relative path", "路径必须是相对路径"],
+      [() => normalizeStorageRelativePath("a/../b"), "Path must not contain . or ..", "路径不能包含 . 或 .."],
+      [() => normalizeStorageRelativePath(`a/${"n".repeat(256)}`), "Path segment is too long", "路径中有名称超过 255 字节"],
+      [() => normalizeStorageRelativePath("a/b\u0001c"), "Path contains illegal characters", "路径包含不允许的字符"],
+      [() => joinStoragePath("docs", ""), "Name cannot be empty", "名称不能为空"],
+      [() => joinStoragePath("docs", "a/b"), "Name must not contain path separators", "名称不能包含路径分隔符"],
+    ];
+    for (const [refuse, english, chinese] of refusals) {
+      expect(withApiCopyLocale("en", refuse)).toEqual({ ok: false, reason: english });
+      expect(withApiCopyLocale("zh", refuse)).toEqual({ ok: false, reason: chinese });
+      // No request (a worker): Chinese, as the rest of the backend copy.
+      expect(refuse()).toEqual({ ok: false, reason: chinese });
+    }
   });
 
   it("rejects empty target file path but allows empty target directory", () => {

@@ -2,6 +2,8 @@
 
 import type React from "react";
 
+import { AiCopyButton, type AiCopyLabels } from "./ai-copy-button";
+
 /** Only allow safe navigable schemes for markdown links (blocks javascript:/data: XSS). */
 export function safeMarkdownHref(raw: string): string | null {
   const href = raw.trim();
@@ -30,16 +32,6 @@ export function safeMarkdownHref(raw: string): string | null {
     }
   }
   return null;
-}
-
-/* ── Copy to clipboard ──────────────────────────────────────── */
-export async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /* ── Render inline markdown (bold, italic, code, links, strikethrough) ─ */
@@ -91,8 +83,10 @@ export const renderInline = (text: string): React.ReactNode[] => {
 };
 
 /* ── Render Message Content (full markdown: headings, lists, links, code, tables) ─ */
-export const renderContent = (content: string, options?: { copyLabel?: string }) => {
- const copyLabel = options?.copyLabel ?? "Copy";
+const COPY_LABELS: AiCopyLabels = { label: "Copy", copiedLabel: "Copied", failedLabel: "Could not copy" };
+
+export const renderContent = (content: string, options?: { copy?: AiCopyLabels }) => {
+ const copy = options?.copy ?? COPY_LABELS;
  // 1. Extract fenced code blocks first (they must not be processed). A placeholder is only recognised alone on a
  // line, so it is put on one: a fence indented under a list item ("1. Install:\n   ```bash ... ```") or following
  // text on its line used to leave "CODE0" in the page and the code out of it. The indent the fence has is taken off
@@ -181,16 +175,8 @@ export const renderContent = (content: string, options?: { copyLabel?: string })
  <div key={`cb-${elements.length}`} className="relative group/code bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] rounded-lg my-2 overflow-hidden">
  <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border)]/10">
  <span className="text-xs text-[var(--color-action-text)]/60 font-mono">{lang || "code"}</span>
- <button
- type="button"
- onClick={() => copyToClipboard(code)}
- className="text-xs text-[var(--text-muted)] hover:text-[var(--color-action-text)] transition opacity-100 sm:opacity-0 sm:group-hover/code:opacity-100 flex items-center gap-1"
- >
- <svg className="w-3 h-3" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
- <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
- </svg>
- {copyLabel}
- </button>
+ {/* Shown on hover from the sm width up; a keyboard's focus and an outcome to report show it too. */}
+ <AiCopyButton text={code} {...copy} className="opacity-100 sm:opacity-0 sm:group-hover/code:opacity-100 sm:focus-visible:opacity-100 sm:data-[copy-outcome]:opacity-100" />
  </div>
  <pre className="p-3 overflow-x-auto text-xs leading-relaxed">
  <code>{code}</code>

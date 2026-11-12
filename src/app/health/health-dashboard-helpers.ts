@@ -49,7 +49,8 @@ export const repairSuggestions = (
 			id: advice.id,
 			label: t(`healthPage.repair.${advice.id}.label`),
 			description: t(`healthPage.repair.${advice.id}.${advice.issueKey}`),
-			action: t(`healthPage.repair.${advice.id}.action`),
+			// The units as this install names them (they follow APP_SLUG).
+			action: t(`healthPage.repair.${advice.id}.action`, { units: failing.map((check) => check.params?.unit).filter(Boolean).join(" / ") }),
 			status: failing.some((check) => check.status === "critical") ? "critical" : "warning",
 			href: advice.href,
 		}];

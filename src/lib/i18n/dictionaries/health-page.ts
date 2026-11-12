@@ -44,7 +44,7 @@ export const zh: Record<string, string> = {
 	// Capacity prediction
 	"healthPage.capacity.eyebrow": "容量预测",
 	"healthPage.capacity.title": "跨节点统一容量预测",
-	"healthPage.capacity.description": "基于 health.sample 历史做 CPU/内存/磁盘线性趋势投影，估算逼近 85%/95% 的天数。",
+	"healthPage.capacity.description": "基于健康采样的历史数据，对 CPU、内存、磁盘做线性趋势推算，估算还有多少天到达 85% 和 95%。",
 	"healthPage.capacity.horizon": "预测窗口",
 	"healthPage.capacity.refresh": "刷新预测",
 	"healthPage.capacity.refreshing": "计算中…",
@@ -95,8 +95,8 @@ export const zh: Record<string, string> = {
 	"healthPage.ui.memory": "内存",
 	"healthPage.ui.disk": "磁盘",
 	"healthPage.ui.uptime": "运行时间",
-	"healthPage.ui.collapse": "收起 ▲",
-	"healthPage.ui.trend": "趋势 ▼",
+	"healthPage.ui.collapse": "收起",
+	"healthPage.ui.trend": "趋势",
 	"healthPage.sparkline.noHistoryData": "暂无历史数据",
 
 	// Repair: db
@@ -112,7 +112,7 @@ export const zh: Record<string, string> = {
 	// Repair: services
 	"healthPage.repair.services.label": "核对核心服务",
 	"healthPage.repair.services.descriptionCritical": "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。",
-	"healthPage.repair.services.action": "验证 vcontrolhub-next.service / vcontrolhub-worker.service / vcontrolhub-ssh-ws.service / caddy.service",
+	"healthPage.repair.services.action": "验证 {units}",
 
 	// Repair: git
 	"healthPage.repair.inventory.label": "纳管资源",
@@ -216,7 +216,7 @@ export const en: Record<string, string> = {
 	// Capacity prediction
 	"healthPage.capacity.eyebrow": "Capacity",
 	"healthPage.capacity.title": "Cross-node capacity forecast",
-	"healthPage.capacity.description": "Linear trend projection of CPU/memory/disk from health.sample history, estimating days until 85%/95%.",
+	"healthPage.capacity.description": "A linear trend over the health sample history for CPU, memory and disk, estimating the days left until 85% and 95%.",
 	"healthPage.capacity.horizon": "Horizon",
 	"healthPage.capacity.refresh": "Refresh forecast",
 	"healthPage.capacity.refreshing": "Computing…",
@@ -267,8 +267,8 @@ export const en: Record<string, string> = {
 	"healthPage.ui.memory": "Memory",
 	"healthPage.ui.disk": "Disk",
 	"healthPage.ui.uptime": "Uptime",
-	"healthPage.ui.collapse": "Collapse ▲",
-	"healthPage.ui.trend": "Trend ▼",
+	"healthPage.ui.collapse": "Collapse",
+	"healthPage.ui.trend": "Trend",
 	"healthPage.sparkline.noHistoryData": "No history data yet",
 
 	// Repair: db
@@ -284,7 +284,7 @@ export const en: Record<string, string> = {
 	// Repair: services
 	"healthPage.repair.services.label": "Verify core services",
 	"healthPage.repair.services.descriptionCritical": "First confirm Next.js, SSH WS, and Caddy are all running.",
-	"healthPage.repair.services.action": "Verify vcontrolhub-next.service / vcontrolhub-worker.service / vcontrolhub-ssh-ws.service / caddy.service",
+	"healthPage.repair.services.action": "Verify {units}",
 
 	// Repair: git
 	"healthPage.repair.inventory.label": "Add resources",

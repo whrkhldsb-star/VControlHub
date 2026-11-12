@@ -167,6 +167,33 @@ describe("system health service", () => {
     });
   });
 
+  it("checks the units of an install under another slug, as the installer names them", async () => {
+    // SERVICE_PREFIX follows APP_SLUG: with fixed "vcontrolhub-" names such
+    // an install showed its three running services as stopped (critical).
+    vi.stubEnv("APP_SLUG", "my-console");
+    try {
+      mockExecFile.mockImplementation((file: string, args: string[], _options: unknown, cb: ExecFileCallback) => {
+        if (file === "systemctl" && /^is-active my-console-(next|worker|ssh-ws)\.service$/.test(args.join(" "))) { cb(null, "active\n", ""); return; }
+        if (file === "systemctl" && args.join(" ") === "is-active caddy.service") { cb(null, "active\n", ""); return; }
+        // A unit systemd does not know: "inactive", exit 4.
+        if (file === "systemctl") { cb(Object.assign(new Error("exit 4"), { code: 4 }), "inactive\n", ""); return; }
+        if (file === "git" && args.includes("rev-parse")) { cb(null, "abc123\n", ""); return; }
+        if (file === "git" && args.includes("ls-remote")) { cb(null, "abc123456789\trefs/heads/main\n", ""); return; }
+        cb(null, "", "");
+      });
+
+      const result = await collectSystemHealthChecks({ projectRoot: process.cwd() });
+
+      for (const id of ["next-service", "worker-service", "ssh-ws-service", "caddy-service"]) {
+        expect(result.checks.find((check) => check.id === id)).toMatchObject({ status: "healthy" });
+      }
+      expect(result.checks.find((check) => check.id === "worker-service")?.params).toEqual({ unit: "my-console-worker.service" });
+      expect(mockExecFile).not.toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-next.service"], expect.any(Object), expect.any(Function));
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("marks git sync as warning when origin/main differs from local head", async () => {
     mockExecFile.mockImplementation((file: string, args: string[], _options: unknown, cb: ExecFileCallback) => {
       if (file === "git" && args.includes("rev-parse")) { cb(null, "abc123\n", ""); return; }

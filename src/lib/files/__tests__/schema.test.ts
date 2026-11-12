@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   archiveListQuerySchema,
   listFilesQuerySchema,
+  readListFilesAddress,
   saveEditableFileBodySchema,
 } from "@/lib/files/schema";
 
@@ -90,6 +91,27 @@ describe("files schema", () => {
     it("rejects an unknown scope", () => {
       const result = listFilesQuerySchema.safeParse({ scope: "recursive" });
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("readListFilesAddress", () => {
+    it("reads a well-formed address as the API schema does", () => {
+      const address = { path: "docs/2026", q: "report", scope: "all", nodeId: "node_1", page: "3", pageSize: "50", sort: "updated", direction: "desc", sync: "0" };
+      expect(readListFilesAddress(address)).toEqual(listFilesQuerySchema.parse(address));
+      expect(readListFilesAddress({})).toEqual(listFilesQuerySchema.parse({}));
+    });
+
+    it("drops what does not parse and keeps the rest", () => {
+      // A hand-edited or outdated link: the page answered with its error screen instead of the drive.
+      expect(readListFilesAddress({ nodeId: "node_1", path: "", page: "0", sort: "newest", direction: "up", scope: "recursive", sync: "yes", pageSize: "5000" }))
+        .toEqual({ nodeId: "node_1", scope: "current", page: 1, pageSize: 100, sort: "name", direction: "asc", sync: "1" });
+      expect(readListFilesAddress({ path: "docs", page: "abc" })).toMatchObject({ path: "docs", page: 1 });
+      expect(readListFilesAddress({ q: "x".repeat(201), path: "docs" })).toMatchObject({ path: "docs" });
+      expect(readListFilesAddress({ q: "x".repeat(201) }).q).toBeUndefined();
+    });
+
+    it("takes the first of a parameter given twice", () => {
+      expect(readListFilesAddress({ path: ["docs", "other"], page: ["2", "9"] })).toMatchObject({ path: "docs", page: 2 });
     });
   });
 

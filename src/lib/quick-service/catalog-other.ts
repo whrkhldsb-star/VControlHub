@@ -34,6 +34,8 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Minimal WebDAV/HTTP file sharing server, written in Rust",
 		image: "sigoden/dufs:latest",
 		defaultPort: 5001,
+		// The image listens on 5000; 5001 is only the host port.
+		internalPort: 5000,
 		path: "/dufs/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/dufs/data", container: "/data" }],
@@ -46,6 +48,8 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Cross-device file transfer, a web open-source alternative to AirDrop",
 		image: "lscr.io/linuxserver/pairdrop:latest",
 		defaultPort: 3007,
+		// The image listens on 3000; 3007 is only the host port.
+		internalPort: 3000,
 		path: "/pairdrop/",
 		envJson: { PUID: "0", PGID: "0" },
 		volumesJson: [],
@@ -56,8 +60,11 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		category: "other",
 		icon: "🔭",
 		description: "All-in-one ops monitoring: website monitoring + server status + alert notifications",
-		image: "moonrailway/tianji:latest",
+		// Published as moonrailgun/tianji (the project's own compose file); "moonrailway" does not exist.
+		image: "moonrailgun/tianji:latest",
 		defaultPort: 3015,
+		// The image listens on 12345; 3015 is only the host port.
+		internalPort: 12345,
 		path: "/tianji/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/tianji/data", container: "/data" }],
@@ -70,6 +77,8 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Beautiful open-source ChatGPT/LLM chat interface, supports multiple models",
 		image: "lobehub/lobe-chat:latest",
 		defaultPort: 3016,
+		// The image listens on 3210; 3016 is only the host port.
+		internalPort: 3210,
 		path: "/lobe-chat/",
 		envJson: {},
 		volumesJson: [],
@@ -94,6 +103,8 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "LLM-based knowledge base Q&A system, an open-source RAG solution",
 		image: "1panel/maxkb:latest",
 		defaultPort: 3017,
+		// The image listens on 8080; 3017 is only the host port.
+		internalPort: 8080,
 		path: "/maxkb/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/maxkb/data", container: "/var/lib/maxkb" }],

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { SubmitButton } from "@/components/submit-button";
+import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { toggleDirectGatewayAction, type ServerActionState } from "./actions";
@@ -39,6 +40,8 @@ export function ServerCardDirectGatewayForm({
     initialState,
   );
   const [protocol, setProtocol] = useState<"http" | "https">("http");
+  // React clears the fields of a form whose action has answered: a refused installation emptied the domain.
+  const { formRef, captureBeforeSubmit } = usePreservedActionForm(directState, Boolean(directState.error));
 
   useEffect(() => {
     if (directState.success) router.refresh();
@@ -46,7 +49,9 @@ export function ServerCardDirectGatewayForm({
 
   return (
     <form
+      ref={formRef}
       action={directAction}
+      onSubmit={captureBeforeSubmit}
       aria-label={t("serverCardActions.directGateway.formAria")}
       data-tone="cyan"
       data-inset className="space-y-3 p-3"
@@ -145,15 +150,9 @@ export function ServerCardDirectGatewayForm({
               {t("serverCardActions.directGateway.enabledTitle")}
             </p>
             <p>
-              {t("serverCardActions.directGateway.enabledDetail").replace(
-                "{port}",
-                String(
-                  directGateway.port ||
-                    t(
-                      "serverCardActions.directGateway.enabledDetailPortFallback",
-                    ),
-                ),
-              )}
+              {t("serverCardActions.directGateway.enabledDetail", {
+                port: directGateway.port || t("serverCardActions.directGateway.enabledDetailPortFallback"),
+              })}
             </p>
           </>
         ) : (

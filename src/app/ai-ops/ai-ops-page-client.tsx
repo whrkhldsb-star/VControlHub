@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { describeFailure } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 
@@ -33,7 +34,12 @@ import {
 	AiOpsSettingsSection,
 	AiOpsSummarySection,
 	type AiOpsSettings,
+	type AiOpsStoredProvider,
 } from "./ai-ops-sections";
+
+/** How often, and for how long, the list is read again after a scan was queued. */
+const SCAN_RESULT_POLL_MS = 5_000;
+const SCAN_RESULT_WATCH_MS = 3 * 60_000;
 
 type Props = {
 	initialSummary: AiOpsSummary;
@@ -42,6 +48,8 @@ type Props = {
 	initialHasMore: boolean;
 	initialSettings: AiOpsSettings;
 	providerOptions?: Array<{ id: string; name: string; defaultModel: string }>;
+	/** What the saved provider setting points at; it may belong to another administrator, or be gone. */
+	storedProvider?: AiOpsStoredProvider | null;
 	canManage: boolean;
 	canAutonomous: boolean;
 };
@@ -53,6 +61,7 @@ export function AiOpsPageClient({
 	initialHasMore,
 	initialSettings,
 	providerOptions = [],
+	storedProvider = null,
 	canManage,
 	canAutonomous,
 }: Props) {
@@ -83,7 +92,7 @@ export function AiOpsPageClient({
 	// Only the latest load may write the list: an earlier filter's answer
 	// arriving late replaced the list under the newer filter.
 	const latestLoad = useRef(0);
-	const loadLogsPage = useCallback(async (targetPage: number) => {
+	const loadLogsPage = useCallback(async (targetPage: number): Promise<AiOpsLogRecord[] | null> => {
 		const load = ++latestLoad.current;
 		setLoadingLogs(true);
 		try {
@@ -93,20 +102,11 @@ export function AiOpsPageClient({
 			if (triggerFilter !== "all") params.set("triggerType", triggerFilter);
 			params.set("limit", "20");
 			params.set("offset", String(targetPage * 20));
-			const [logsRes, summaryRes] = await Promise.all([
-				csrfFetch<Response>(`/api/ai/ops/logs?${params.toString()}`, {
-					raw: true,
-				}),
-				csrfFetch<Response>("/api/ai/ops/summary", { raw: true }),
+			const [logsBody, summaryBody] = await Promise.all([
+				csrfFetch<{ logs: AiOpsLogRecord[]; total: number; hasMore: boolean }>(`/api/ai/ops/logs?${params.toString()}`),
+				csrfFetch<{ summary: AiOpsSummary }>("/api/ai/ops/summary"),
 			]);
-			if (!logsRes.ok || !summaryRes.ok) throw new Error("reload failed");
-			const logsBody = (await logsRes.json()) as {
-				logs: AiOpsLogRecord[];
-				total: number;
-				hasMore: boolean;
-			};
-			const summaryBody = (await summaryRes.json()) as { summary: AiOpsSummary };
-			if (load !== latestLoad.current) return;
+			if (load !== latestLoad.current) return null;
 			setLogs(logsBody.logs);
 			setLogsPage(targetPage);
 			setTotalLogs(logsBody.total);
@@ -117,12 +117,11 @@ export function AiOpsPageClient({
 					? prev
 					: (logsBody.logs[0]?.id ?? null),
 			);
+			return logsBody.logs;
 		} catch (error) {
-			if (load !== latestLoad.current) return;
-			addToast(
-				"error",
-				`${t("aiOpsPage.actions.loadFailed")}: ${String(error)}`,
-			);
+			if (load !== latestLoad.current) return null;
+			addToast("error", describeFailure(t("aiOpsPage.actions.loadFailed"), error));
+			return null;
 		} finally {
 			if (load === latestLoad.current) setLoadingLogs(false);
 		}
@@ -145,22 +144,41 @@ export function AiOpsPageClient({
 		void loadLogsPage(0);
 	}, [loadLogsPage]);
 
+	// A queued scan is picked up by the worker within seconds and, with a provider's analysis, takes up to a
+	// couple of minutes. One reload after 15 seconds usually came before its log existed: the list is read
+	// again until a log newer than the one before the request has finished.
+	const scanWatch = useRef<number | null>(null);
+	// The list as it is filtered and paged now, not as it was when the scan was requested.
+	const reloadNow = useRef(reload);
+	useEffect(() => {
+		reloadNow.current = reload;
+	}, [reload]);
+	useEffect(() => () => {
+		if (scanWatch.current !== null) window.clearTimeout(scanWatch.current);
+	}, []);
+	const watchForScanResult = useCallback((newestBefore: string | null) => {
+		const startedAt = Date.now();
+		if (scanWatch.current !== null) window.clearTimeout(scanWatch.current);
+		const look = async () => {
+			scanWatch.current = null;
+			const newest = (await reloadNow.current())?.[0];
+			const finished = Boolean(newest && newest.id !== newestBefore && newest.status !== "running");
+			if (!finished && Date.now() - startedAt < SCAN_RESULT_WATCH_MS) {
+				scanWatch.current = window.setTimeout(() => { void look(); }, SCAN_RESULT_POLL_MS);
+			}
+		};
+		scanWatch.current = window.setTimeout(() => { void look(); }, SCAN_RESULT_POLL_MS);
+	}, []);
+
 	const triggerScan = useCallback(async () => {
 		if (!canManage) return;
 		setScanning(true);
 		try {
-			const res = await csrfFetch<Response>("/api/ai/ops/scan", {
+			const body = await csrfFetch<{ triggered: boolean; queued?: boolean; latestLog: AiOpsLogRecord | null }>("/api/ai/ops/scan", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({}),
-				raw: true,
 			});
-			if (!res.ok) throw new Error(`status=${res.status}`);
-			const body = (await res.json()) as {
-				triggered: boolean;
-				queued?: boolean;
-				latestLog: AiOpsLogRecord | null;
-			};
 			// The scan is queued for the worker (A7-04); the log row appears once it has run.
 			addToast(
 				"success",
@@ -169,40 +187,32 @@ export function AiOpsPageClient({
 					: t("aiOpsPage.actions.scanning"),
 			);
 			await reload();
-			if (body.triggered) window.setTimeout(() => { void reload(); }, 15_000);
+			if (body.triggered) watchForScanResult(body.latestLog?.id ?? null);
 		} catch (error) {
-			addToast(
-				"error",
-				`${t("aiOpsPage.actions.triggerFailed")}: ${String(error)}`,
-			);
+			addToast("error", describeFailure(t("aiOpsPage.actions.triggerFailed"), error));
 		} finally {
 			setScanning(false);
 		}
-	}, [canManage, addToast, t, reload]);
+	}, [canManage, addToast, t, reload, watchForScanResult]);
 
 	const saveSettings = useCallback(async () => {
 		if (!canManage) return;
 		setSavingSettings(true);
 		try {
-			const res = await csrfFetch<Response>("/api/ai/ops/settings", {
+			const body = await csrfFetch<AiOpsSettings>("/api/ai/ops/settings", {
 				method: "PATCH",
 				headers: { "content-type": "application/json" },
+				// The provider goes along only when it was changed here: the saved one may be a colleague's.
 				body: JSON.stringify({
 					mode: settings.mode,
-					providerId: editingProvider,
+					...(editingProvider !== (settings.providerId ?? "") ? { providerId: editingProvider } : {}),
 				}),
-				raw: true,
 			});
-			if (!res.ok) throw new Error(`status=${res.status}`);
-			const body = (await res.json()) as AiOpsSettings;
 			setSettings(body);
 			setEditingProvider(body.providerId ?? "");
 			addToast("success", t("aiOpsPage.settings.saved"));
 		} catch (error) {
-			addToast(
-				"error",
-				`${t("aiOpsPage.settings.saveFailed")}: ${String(error)}`,
-			);
+			addToast("error", describeFailure(t("aiOpsPage.settings.saveFailed"), error));
 		} finally {
 			setSavingSettings(false);
 		}
@@ -217,23 +227,14 @@ export function AiOpsPageClient({
 			}
 			setExecuting(actionId);
 			try {
-				const res = await csrfFetch<Response>(
+				const body = await csrfFetch<{ result: { ok: boolean; executed: boolean; errorMessage?: string } }>(
 					`/api/ai/ops/logs/${encodeURIComponent(logId)}/execute`,
 					{
 						method: "POST",
 						headers: { "content-type": "application/json" },
 						body: JSON.stringify({ actionId, forceAutonomous }),
-						raw: true,
 					},
 				);
-				if (!res.ok) throw new Error(`status=${res.status}`);
-				const body = (await res.json()) as {
-					result: {
-						ok: boolean;
-						executed: boolean;
-						errorMessage?: string;
-					};
-				};
 				addToast(
 					body.result.executed ? "success" : "info",
 					body.result.executed
@@ -243,10 +244,7 @@ export function AiOpsPageClient({
 				);
 				await reload();
 			} catch (error) {
-				addToast(
-					"error",
-					`${t("aiOpsPage.actions.executeFailed")}: ${String(error)}`,
-				);
+				addToast("error", describeFailure(t("aiOpsPage.actions.executeFailed"), error));
 			} finally {
 				setExecuting(null);
 			}
@@ -259,19 +257,14 @@ export function AiOpsPageClient({
 			if (!canManage) return;
 			setExecuting(actionId);
 			try {
-				const res = await csrfFetch<Response>(
+				const body = await csrfFetch<{ result: { ok: boolean; errorMessage?: string } }>(
 					`/api/ai/ops/logs/${encodeURIComponent(logId)}/approve`,
 					{
 						method: "POST",
 						headers: { "content-type": "application/json" },
 						body: JSON.stringify({ actionId }),
-						raw: true,
 					},
 				);
-				if (!res.ok) throw new Error(`status=${res.status}`);
-				const body = (await res.json()) as {
-					result: { ok: boolean; errorMessage?: string };
-				};
 				addToast(
 					body.result.ok ? "success" : "error",
 					body.result.ok
@@ -280,7 +273,7 @@ export function AiOpsPageClient({
 				);
 				await reload();
 			} catch (error) {
-				addToast("error", `${t("aiOpsPage.actions.approvalFailed")}: ${String(error)}`);
+				addToast("error", describeFailure(t("aiOpsPage.actions.approvalFailed"), error));
 			} finally {
 				setExecuting(null);
 			}
@@ -312,6 +305,7 @@ export function AiOpsPageClient({
 			<AiOpsSettingsSection
 				settings={settings}
 				providerOptions={providerOptions}
+				storedProvider={storedProvider}
 				editingProvider={editingProvider}
 				canManage={canManage}
 				savingSettings={savingSettings}

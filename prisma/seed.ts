@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import {
   ALL_PERMISSIONS,
   DEFAULT_ROLE_PERMISSIONS,
+  type Permission,
   type RoleKey,
 } from "../src/lib/auth/rbac";
 import { hashPassword } from "../src/lib/auth/password";
@@ -17,7 +18,9 @@ function seedLog(message: string) {
   }
 }
 
-const PERMISSION_LABELS: Record<string, { name: string; description: string }> = {
+// Keyed by Permission, so that a permission added without a label fails the type check instead of the seed
+// (which runs during install and upgrade and stopped there with "Cannot read properties of undefined").
+const PERMISSION_LABELS: Record<Permission, { name: string; description: string }> = {
   "announcement:manage": { name: "管理公告", description: "允许发布、置顶和下线站内公告" },
  "api-token:manage": { name: "管理 API Token", description: "允许创建和撤销个人 API Token" },
  "ai:chat": { name: "使用 AI 助手", description: "允许与 AI 助手进行对话交互" },
@@ -81,7 +84,7 @@ async function seedPermissions() {
   seedLog("seedPermissions:start");
   await prisma.$transaction(
     ALL_PERMISSIONS.map((permission) => {
-      const label = PERMISSION_LABELS[permission]!;
+      const label = PERMISSION_LABELS[permission];
       return prisma.permission.upsert({
         where: { key: permission },
         update: {

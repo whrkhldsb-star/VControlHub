@@ -1,4 +1,5 @@
 import { getServerLocale } from "@/lib/i18n/translations";
+import { firstSearchParams } from "@/lib/http/first-search-param";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { listShareLinkPage, SHARE_LINK_STATUS_FILTERS, type ShareLinkStatusFilter } from "@/lib/share-link/service";
@@ -34,7 +35,7 @@ export default async function SharesPage({ searchParams }: { searchParams?: Prom
 	const locale = await getServerLocale();
 	const t: TFn = (key, vars) => translate(key, locale, vars);
 	const session = await requirePagePermission("share:read", { redirectTo: "/shares" });
-	const params = (await searchParams) ?? {};
+	const params = firstSearchParams(await searchParams);
 	const status = SHARE_LINK_STATUS_FILTERS.includes(params.status as ShareLinkStatusFilter) ? (params.status as ShareLinkStatusFilter) : undefined;
 	const q = params.q?.trim().slice(0, 200) || undefined;
 	const requestedPage = /^\d+$/.test(params.page ?? "") ? Number(params.page) : 1;
@@ -123,8 +124,8 @@ export default async function SharesPage({ searchParams }: { searchParams?: Prom
 							</div>
 						</div>
 						<p className="mt-2 text-xs text-[var(--text-muted)]">
-							{t("shares.createdAt")}: {formatDateTime(s.createdAt, locale)} ·{" "}
-							{t("shares.expiresAt")}:{" "}
+							{t("shares.createdAt")}{t("common.colon")}{formatDateTime(s.createdAt, locale)} ·{" "}
+							{t("shares.expiresAt")}{t("common.colon")}
 							{s.expiresAt ? formatDateTime(s.expiresAt, locale) : t("shares.neverExpires")}
 						</p>
 					</ListRow>

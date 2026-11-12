@@ -44,7 +44,25 @@ describe("resolveDownloadRedirects", () => {
 
 	it("caps the number of redirects", async () => {
 		const loop = vi.fn(async () => "https://downloads.example.com/again");
-		await expect(resolveDownloadRedirects("https://downloads.example.com/start", { probe: loop, maxRedirects: 3 })).resolves.toEqual({ ok: false, reason: "Download URL redirects too many times" });
+		await expect(resolveDownloadRedirects("https://downloads.example.com/start", { probe: loop, maxRedirects: 3 })).resolves.toEqual({ ok: false, reason: "下载链接重定向次数过多" });
+		const { withApiCopyLocale } = await import("@/lib/i18n/api-copy");
+		await expect(withApiCopyLocale("en", () => resolveDownloadRedirects("https://downloads.example.com/start", { probe: loop, maxRedirects: 3 }))).resolves.toEqual({ ok: false, reason: "The download link redirects too many times" });
+	});
+
+	it("says which hop was refused, in the caller's language", async () => {
+		// Kept as the task's failure reason: it was English on every platform.
+		const toLoopback = vi.fn(async () => "http://127.0.0.1/api/admin");
+		await expect(resolveDownloadRedirects("https://evil.example.org/x", { probe: toLoopback })).resolves.toEqual({
+			ok: false,
+			reason: "重定向目标被拒绝：不允许下载内网、本机或链路本地地址的资源",
+		});
+		const { withApiCopyLocale } = await import("@/lib/i18n/api-copy");
+		await expect(withApiCopyLocale("en", () => resolveDownloadRedirects("https://evil.example.org/x", { probe: toLoopback }))).resolves.toEqual({
+			ok: false,
+			reason: "Redirect target refused: Downloading from a private, loopback or link-local address is not allowed",
+		});
+		const nowhere = vi.fn(async () => "http://[bad");
+		await expect(resolveDownloadRedirects("https://evil.example.org/x", { probe: nowhere })).resolves.toEqual({ ok: false, reason: "下载链接重定向到了无效的地址" });
 	});
 
 	it("hands the URL over unchanged when the probe cannot reach it (aria2 then refuses redirects)", async () => {

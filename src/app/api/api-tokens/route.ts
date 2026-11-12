@@ -10,7 +10,7 @@ import {
 } from "@/lib/api-token/service";
 import { apiTokenScopeAllowedForSession } from "@/lib/api-token/authorization";
 import { auditUserAction } from "@/lib/audit/service";
-import { withApiRoute } from "@/lib/http/api-guard";
+import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
@@ -21,7 +21,6 @@ import {
   MAX_NON_FILE_FORM_BYTES,
   requestContentLengthExceeds,
 } from "@/lib/http/request-body";
-import { t as serviceT } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
 const createTokenSchema = z.object({
@@ -80,7 +79,7 @@ export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
   const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
   if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
-    return NextResponse.json({ error: serviceT("backend.request.bodyTooLarge") }, { status: 413 });
+    return NextResponse.json({ error: t("backend.request.bodyTooLarge", await requestLocale(request)) }, { status: 413 });
   }
   const options = {
     permission: "api-token:manage" as const,

@@ -6,7 +6,7 @@ export const zh: Record<string, string> = {
 	"markdownPreview.loading": "正在加载…",
 	"markdownPreview.loadFailed": "加载失败",
 	"markdownPreview.rendererLoadFailed": "预览组件加载失败，页面可能已更新，请刷新后重试",
-	"markdownPreview.loadFailedWithStatus": "加载失败: {status}",
+	"markdownPreview.loadFailedWithStatus": "加载失败：{status}",
 	"markdownPreview.prefixOnly": "文件较大，只渲染了前 {size} MB；完整内容请下载查看。",
 };
 

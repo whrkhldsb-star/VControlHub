@@ -209,6 +209,26 @@ export async function syncAllSources(): Promise<Array<{ name: string; synced: nu
 /**
  * Get all remote apps from the database, grouped by category.
  */
+/**
+ * Stars and monthly pulls of a catalogue app, from what was stored of its source row. An adapter knows them, but
+ * the table has no column for them and they were dropped on the way in: the card's "⭐" and "monthly pulls" and
+ * the ordering by popularity never had anything to show. Absent for rows synced before they were kept, and for a
+ * custom feed's row that was cut off at the storage limit.
+ */
+function storedPopularity(rawJson: string | null | undefined): Pick<NormalizedApp, "stars" | "monthlyPulls"> {
+	if (!rawJson) return {};
+	let stored: unknown;
+	try {
+		stored = JSON.parse(rawJson);
+	} catch {
+		return {};
+	}
+	if (!stored || typeof stored !== "object") return {};
+	const row = stored as Record<string, unknown>;
+	const count = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined);
+	return { stars: count(row.stars), monthlyPulls: count(row.monthly_pulls ?? row.monthlyPulls) };
+}
+
 export async function getRemoteApps(): Promise<NormalizedApp[]> {
 	const apps: RemoteAppRow[] = [];
 	let cursor: string | undefined;
@@ -244,6 +264,7 @@ export async function getRemoteApps(): Promise<NormalizedApp[]> {
 					extraPorts: JSON.parse(app.extraPortsJson || "[]") as NormalizedApp["extraPorts"],
 					sourceVersion: app.sourceVersion ?? undefined,
 					sourceName: app.source.name,
+					...storedPopularity(app.rawJson),
 				},
 			];
 		} catch {

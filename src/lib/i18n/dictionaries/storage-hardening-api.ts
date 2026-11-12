@@ -6,6 +6,19 @@
  * which keeps parallel edits off the shared service-translations.ts barrel.
  */
 export const zh: Record<string, string> = {
+	// Refusals of a storage path or name (src/lib/storage/path-utils.ts), shown to the user as they are.
+	"backend.storagePath.empty": "路径不能为空",
+	"backend.storagePath.absolute": "路径必须是相对路径",
+	"backend.storagePath.tooLong": "路径过长",
+	"backend.storagePath.dotSegments": "路径不能包含 . 或 ..",
+	"backend.storagePath.segmentTooLong": "路径中有名称超过 255 字节",
+	"backend.storagePath.illegalChars": "路径包含不允许的字符",
+	"backend.storagePath.windowsChars": "Windows 不允许名称中出现 : * ? \" < > |",
+	"backend.storagePath.outOfBounds": "路径超出允许的范围",
+	"backend.storagePath.nameEmpty": "名称不能为空",
+	"backend.storagePath.nameHasSeparator": "名称不能包含路径分隔符",
+	"backend.storagePath.unresolvable": "无法安全地解析该路径",
+	"backend.storagePath.symlink": "路径经过了符号链接",
 	"backend.storage.uploadOutcomeUnknown": "上传结果未确认，请由管理员核对目标及保留的上传数据后再重传。",
 	// Access-denial copy for assertStorageAccess decision codes (see
 	// src/lib/storage/access-denied.ts for the code → key mapping).
@@ -43,6 +56,19 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	// Refusals of a storage path or name (src/lib/storage/path-utils.ts), shown to the user as they are.
+	"backend.storagePath.empty": "Path cannot be empty",
+	"backend.storagePath.absolute": "Path must be a relative path",
+	"backend.storagePath.tooLong": "Path is too long",
+	"backend.storagePath.dotSegments": "Path must not contain . or ..",
+	"backend.storagePath.segmentTooLong": "Path segment is too long",
+	"backend.storagePath.illegalChars": "Path contains illegal characters",
+	"backend.storagePath.windowsChars": "Windows does not allow : * ? \" < > | in names",
+	"backend.storagePath.outOfBounds": "Path is out of allowed bounds",
+	"backend.storagePath.nameEmpty": "Name cannot be empty",
+	"backend.storagePath.nameHasSeparator": "Name must not contain path separators",
+	"backend.storagePath.unresolvable": "Path cannot be safely resolved",
+	"backend.storagePath.symlink": "Path goes through a symbolic link",
 	"backend.storage.uploadOutcomeUnknown": "Upload result is unconfirmed. Ask an administrator to inspect the target and retained upload data before retrying.",
 	"backend.storageHardening.access.noPermission":
 		"Missing the storage permission required for this operation",

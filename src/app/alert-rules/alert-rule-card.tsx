@@ -51,13 +51,13 @@ export function AlertRuleCard({
 						</StatusBadge>
 					</div>
 
-					<p className="mt-1.5 text-[13px] leading-6 text-[var(--text-secondary)]">
-						{t("alertRulesPage.condition.when")}{" "}
+					{/* The parts of the condition are words of their own, set apart by the gap: no part carries a space. */}
+					<p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[13px] leading-6 text-[var(--text-secondary)]">
+						<span>{t("alertRulesPage.condition.when")}</span>
 						<span className="font-medium text-[var(--text-primary)]">{metricLabel(t, rule.metric)}</span>
 						{rule.metric !== "server_offline" ? (
 							<>
-								{" "}
-								{operatorLabel(t, rule.operator)}{" "}
+								<span>{operatorLabel(t, rule.operator)}</span>
 								<code className="rounded bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[12.5px] font-medium text-[var(--text-primary)]">
 									{rule.threshold}
 									{PERCENT_METRICS.has(rule.metric) ? "%" : ""}
@@ -65,12 +65,12 @@ export function AlertRuleCard({
 							</>
 						) : null}
 						{rule.durationSeconds > 0
-							? t("alertRulesPage.condition.duration").replace("{seconds}", String(rule.durationSeconds))
+							? <span>{t("alertRulesPage.condition.duration", { seconds: rule.durationSeconds })}</span>
 							: null}
 						<span className="text-[var(--text-muted)]">
 							{rule.serverIds.length === 0
 								? t("alertRulesPage.condition.allNodes")
-								: t("alertRulesPage.condition.nodeCount").replace("{count}", String(rule.serverIds.length))}
+								: t("alertRulesPage.condition.nodeCount", { count: rule.serverIds.length })}
 						</span>
 					</p>
 
@@ -80,28 +80,22 @@ export function AlertRuleCard({
 						))}
 						{rule.webhookConfigured ? <Badge tone="success">{t("alertRulesPage.badge.webhookConfigured")}</Badge> : null}
 						{rule.cooldownMinutes > 0 ? (
-							<Badge>{t("alertRulesPage.badge.cooldown").replace("{minutes}", String(rule.cooldownMinutes))}</Badge>
+							<Badge>{t("alertRulesPage.badge.cooldown", { minutes: rule.cooldownMinutes })}</Badge>
 						) : null}
-						<Badge>{t("alertRulesPage.badge.escalation").replace("{minutes}", String(rule.escalationMinutes ?? 30))}</Badge>
+						<Badge>{t("alertRulesPage.badge.escalation", { minutes: rule.escalationMinutes ?? 30 })}</Badge>
 						{silenceWindows.length > 0 ? (
 							<Badge tone="accent">
-								{t("alertRulesPage.badge.silence").replace(
-									"{windows}",
-									silenceWindows.join(t("alertRulesPage.badge.silenceSeparator")),
-								)}
+								{t("alertRulesPage.badge.silence", { windows: silenceWindows.join(t("alertRulesPage.badge.silenceSeparator")) })}
 							</Badge>
 						) : null}
 						{playbookCount > 0 ? (
-							<Badge tone="accent">{t("alertRulesPage.badge.playbooks").replace("{count}", String(playbookCount))}</Badge>
+							<Badge tone="accent">{t("alertRulesPage.badge.playbooks", { count: playbookCount })}</Badge>
 						) : null}
 					</div>
 
 					{rule.lastTriggeredAt ? (
 						<p className="mt-2 text-xs text-[var(--text-muted)]">
-							{t("alertRulesPage.lastTriggered").replace(
-								"{date}",
-								formatDateTime(rule.lastTriggeredAt, locale),
-							)}
+							{t("alertRulesPage.lastTriggered", { date: formatDateTime(rule.lastTriggeredAt, locale) })}
 						</p>
 					) : null}
 				</div>

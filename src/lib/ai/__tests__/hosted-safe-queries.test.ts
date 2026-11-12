@@ -26,7 +26,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	serverFindMany: vi.fn(),
 	backupFindMany: vi.fn(),
-	trafficFindMany: vi.fn(),
+	trafficAggregate: vi.fn(),
+	trafficFindFirst: vi.fn(),
 	searchKnowledge: vi.fn(),
 	listScheduledTasks: vi.fn(),
 	getScheduledTask: vi.fn(),
@@ -38,7 +39,7 @@ vi.mock("@/lib/db", () => ({
 	prisma: {
 		server: { findMany: mocks.serverFindMany },
 		backupRecord: { findMany: mocks.backupFindMany },
-		trafficSnapshot: { findMany: mocks.trafficFindMany },
+		trafficSnapshot: { aggregate: mocks.trafficAggregate, findFirst: mocks.trafficFindFirst },
 	},
 }));
 vi.mock("../knowledge", () => ({ searchKnowledge: mocks.searchKnowledge }));
@@ -66,7 +67,8 @@ describe("executeServerlessQuery", () => {
 		for (const m of Object.values(mocks)) m.mockReset();
 		mocks.serverFindMany.mockResolvedValue([]);
 		mocks.backupFindMany.mockResolvedValue([]);
-		mocks.trafficFindMany.mockResolvedValue([]);
+		mocks.trafficAggregate.mockResolvedValue({ _avg: { rxRateBps: null, txRateBps: null }, _count: { _all: 0 } });
+		mocks.trafficFindFirst.mockResolvedValue(null);
 		mocks.searchKnowledge.mockResolvedValue([]);
 		mocks.listScheduledTasks.mockResolvedValue([]);
 		mocks.listTemplates.mockResolvedValue([]);
@@ -213,8 +215,10 @@ describe("executeServerlessQuery", () => {
 			expect(mocks.serverFindMany).toHaveBeenCalledWith(
 				expect.objectContaining({ where: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_1" }]) }) }),
 			);
-			const where = mocks.trafficFindMany.mock.calls[0]![0].where as { OR: unknown[] };
-			expect(where).toMatchObject({ serverId: { in: ["srv_1", "srv_2"] } });
+			// The same filter for the average and for the latest sample.
+			for (const query of [mocks.trafficAggregate, mocks.trafficFindFirst]) {
+				expect(query.mock.calls[0]![0].where).toMatchObject({ serverId: { in: ["srv_1", "srv_2"] } });
+			}
 		});
 
 		it("returns no Hub rows when a customer has no visible servers", async () => {
@@ -223,30 +227,33 @@ describe("executeServerlessQuery", () => {
 			// kind of thing a later edit turns into an unfiltered OR.
 			mocks.serverFindMany.mockResolvedValue([]);
 			await call("query_traffic");
-			const where = mocks.trafficFindMany.mock.calls[0]![0].where as { OR: unknown[] };
-			expect(where).toMatchObject({ serverId: { in: [] } });
+			for (const query of [mocks.trafficAggregate, mocks.trafficFindFirst]) {
+				expect(query.mock.calls[0]![0].where).toMatchObject({ serverId: { in: [] } });
+			}
 		});
 
-		it("averages the samples and reports the latest one", async () => {
+		it("averages every sample of the period, not the newest two thousand, and reports the latest one", async () => {
+			// The newest 2,000 rows were read and averaged in memory: a fleet that writes that many in an hour
+			// answered "30d" with the last hour. The database averages the period.
 			mocks.serverFindMany.mockResolvedValue([{ id: "srv_1" }]);
-			mocks.trafficFindMany.mockResolvedValue([
-				{ source: "agent", serverId: "srv_1", iface: "eth0", rxRateBps: 300, txRateBps: 100, sampledAt: new Date("2026-08-31T12:00:00.000Z") },
-				{ source: "agent", serverId: "srv_1", iface: "eth0", rxRateBps: 100, txRateBps: 300, sampledAt: new Date("2026-08-31T11:00:00.000Z") },
-			]);
-			const res = (await call("query_traffic")) as { data: { averageRxBps: number; averageTxBps: number; sampleCount: number; latest: { sampledAt: string } } };
-			expect(res.data.sampleCount).toBe(2);
+			mocks.trafficAggregate.mockResolvedValue({ _avg: { rxRateBps: 200.4, txRateBps: 199.6 }, _count: { _all: 86_400 } });
+			mocks.trafficFindFirst.mockResolvedValue({ source: "agent", serverId: "srv_1", iface: "eth0", rxRateBps: 300, txRateBps: 100, sampledAt: new Date("2026-08-31T12:00:00.000Z") });
+			const res = (await call("query_traffic", { period: "30d" })) as { data: { averageRxBps: number; averageTxBps: number; sampleCount: number; latest: { sampledAt: string } } };
+			expect(res.data.sampleCount).toBe(86_400);
 			expect(res.data.averageRxBps).toBe(200);
 			expect(res.data.averageTxBps).toBe(200);
 			expect(res.data.latest.sampledAt).toBe("2026-08-31T12:00:00.000Z");
+			const aggregate = mocks.trafficAggregate.mock.calls[0]![0] as { where: { sampledAt: { gte: Date } }; take?: number };
+			expect(aggregate.take).toBeUndefined();
+			expect(Date.now() - aggregate.where.sampledAt.gte.getTime()).toBeGreaterThan(29 * 24 * 3600_000);
+			expect(mocks.trafficFindFirst.mock.calls[0]![0].orderBy).toEqual({ sampledAt: "desc" });
 		});
 
-		it("treats a null rate as zero rather than NaN-ing the average", async () => {
+		it("reports zero rather than NaN when the period has no rate to average", async () => {
 			mocks.serverFindMany.mockResolvedValue([{ id: "srv_1" }]);
-			mocks.trafficFindMany.mockResolvedValue([
-				{ source: "agent", serverId: null, iface: null, rxRateBps: null, txRateBps: null, sampledAt: new Date("2026-08-31T12:00:00.000Z") },
-			]);
-			const res = (await call("query_traffic")) as { data: { averageRxBps: number } };
+			const res = (await call("query_traffic")) as { data: { averageRxBps: number; averageTxBps: number } };
 			expect(res.data.averageRxBps).toBe(0);
+			expect(res.data.averageTxBps).toBe(0);
 		});
 
 		it.each([

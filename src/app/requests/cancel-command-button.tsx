@@ -60,11 +60,10 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
     <div className="mt-3 space-y-2">
       <ActionButton size="sm" variant="danger"
         onClick={() => setOpen(true)} 
-        aria-label={`${t("requestsPage.cancel.ariaLabel")}: ${commandTitle}`}>
+        aria-label={`${t("requestsPage.cancel.ariaLabel")}${t("common.colon")}${commandTitle}`}>
         {t("requestsPage.cancel.title")}
       </ActionButton>
       {message && <Notice tone="success" compact>{message}</Notice>}
-      {error && <Notice tone="danger" compact>{error}</Notice>}
 
       <Dialog
         open={open}
@@ -96,6 +95,8 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
             placeholder={t("requestsPage.cancel.reasonPlaceholder")}
           />
         </FormField>
+        {/* In the dialog, which stays open after a refusal: under the button on the page it was behind it. */}
+        {error && <Notice tone="danger" compact className="mt-3">{error}</Notice>}
       </Dialog>
     </div>
   );

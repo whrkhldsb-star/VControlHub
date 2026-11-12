@@ -24,6 +24,8 @@ vi.mock("@/lib/db", () => ({
       update: mocks.shareUpdate,
     },
     shareAccessLog: { create: mocks.accessLog },
+    // A share belongs to the customer of the node its file is on.
+    storageNode: { findUnique: async () => ({ teamId: "team" }) },
     // The share's customer is live.
     team: { count: async () => 0 },
   },

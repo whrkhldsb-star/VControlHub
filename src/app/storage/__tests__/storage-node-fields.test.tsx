@@ -53,11 +53,36 @@ describe("StorageNodeFields", () => {
     );
   });
 
+  it("does not draw an untouched field as if it were wrong", () => {
+    // "Bind VPS" and "Remote host" carried the danger border at all times.
+    renderFields("SFTP");
+    expect(screen.getByLabelText(/Bind VPS/).className).not.toMatch(/danger/);
+    expect(screen.getByLabelText(/Remote host/).className).not.toMatch(/danger/);
+  });
+
   it("locks the driver and default checkbox for the active default node", () => {
     renderFields("LOCAL", { isDefault: true }, true);
 
     expect(screen.getByLabelText("Driver")).toBeDisabled();
     expect(screen.getByLabelText("Set as default storage node")).toBeDisabled();
     expect(screen.getByText(/Set another node as default/)).toBeVisible();
+  });
+
+  it("gives each form its own fields: a label opens the field of its own form", () => {
+    // The create form and every open edit form are on one page and shared fixed ids, so a label pointed at
+    // the first field with that id, which is in another form.
+    const { container } = render(
+      <I18nProvider initialLocale="en">
+        <form data-testid="edit"><StorageNodeFields driver="SFTP" onDriverChange={() => undefined} servers={servers} values={{ name: "old" }} /></form>
+        <form data-testid="create"><StorageNodeFields driver="SFTP" onDriverChange={() => undefined} servers={servers} /></form>
+      </I18nProvider>,
+    );
+    const ids = Array.from(container.querySelectorAll("[id]"), (element) => element.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const label of ["Node name", "Base path", "Port", "Username"]) {
+      const [inEdit, inCreate] = screen.getAllByLabelText(label);
+      expect(screen.getByTestId("edit")).toContainElement(inEdit!);
+      expect(screen.getByTestId("create")).toContainElement(inCreate!);
+    }
   });
 });

@@ -254,7 +254,9 @@ export async function POST(req: NextRequest) {
       // holds. A 304 cannot carry a body (NextResponse.json threw a TypeError, shown as a 500 "Docker operation
       // failed"), so it is reported as the success it is.
       if (result.status === 304) return NextResponse.json({ ...result, ok: true, unchanged: true }, { status: 200 });
-      return NextResponse.json(result, { status: result.ok ? 200 : result.status });
+      // A failed result whose status is not an error status (an answer the remote curl output could not be read
+      // from gives NaN) is an upstream fault, not a response this route can pass on: NaN made NextResponse.json throw.
+      return NextResponse.json(result, { status: result.ok ? 200 : result.status >= 400 ? result.status : 502 });
     },
   );
 }

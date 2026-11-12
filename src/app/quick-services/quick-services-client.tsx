@@ -2,7 +2,6 @@
 
 import { X } from "@/components/icons";
 
-import Link from "next/link";
 import { useState, useMemo } from "react";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { EmptyState, Toolbar, StatCard, StatGrid } from "@/components/page-shell";
@@ -23,7 +22,7 @@ import { CATEGORY_ORDER, buildCategoryLabels, buildQuickServiceViewModel, getEnv
 import { useQuickServiceCatalog } from "./use-quick-service-catalog";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { IconBadgeCheck, IconBlocks, IconShield } from "@/components/nav-icons";
+import { IconBadgeCheck, IconBlocks, IconGlobe, IconShield } from "@/components/nav-icons";
 
 /* ── Main Component ─────────────────────────────────────────────── */
 
@@ -232,18 +231,6 @@ export function QuickServicesClient({
 				</Notice>
 			) : null}
 
-			{/* Message */}
-			{actions.message && (
-				<Notice tone={actions.message.type === "ok" ? "success" : "danger"}>
-					<span>{actions.message.text}</span>
-					{actions.message.taskId ? (
-						<Link href="/operation-tasks" className="ml-3 font-semibold underline underline-offset-2">
-							{t("qsPage.viewTaskCenter")}
-						</Link>
-					) : null}
-				</Notice>
-			)}
-
 			<StatGrid cols={4}>
 				<StatCard label={t("qsPage.summaryRunning")} value={String(summary.running)} accent={summary.running > 0} accentColor="emerald" />
 				<StatCard label={t("qsPage.summaryStopped")} value={String(summary.stopped)} accent={summary.stopped > 0} accentColor="amber" />
@@ -425,7 +412,7 @@ export function QuickServicesClient({
 				</EmptyState>
 			)}
 			{tab ==="community" && remoteAvailable.length === 0 && (
-				<EmptyState icon="🌐" variant="boxed">
+				<EmptyState icon={<IconGlobe size={20} />} variant="boxed">
 					{sources.some((s) => s.enabled) ? t("qsPage.emptyCommunityAllInstalled") : t("qsPage.emptyCommunityHint")}
 				</EmptyState>
 			)}

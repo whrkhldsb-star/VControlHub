@@ -73,6 +73,7 @@ import { zh as storagePageZh, en as storagePageEn } from "./dictionaries/storage
 import { zh as systemConfigZh, en as systemConfigEn } from "./dictionaries/system-config";
 import { zh as shellZh, en as shellEn } from "./dictionaries/shell";
 import { interpolate, type Locale } from "./core";
+import { documentLocale } from "./ambient-locale";
 
 const zh: Record<string, string> = {
 	...accountPasswordPageZh, ...aiZh, ...aiOpsPageZh, ...alertRulesPageZh,
@@ -124,6 +125,14 @@ export function browserT(
 	const locale: Locale = typeof localeOrVars === "string" ? localeOrVars : "zh";
 	const vars = typeof localeOrVars === "object" ? localeOrVars : maybeVars;
 	return interpolate(browserTranslations[locale]?.[key] || key, vars);
+}
+
+/**
+ * The language of the page for code that runs outside React (a request helper, a default label): what the
+ * language switch last applied, else what the root layout rendered from the locale cookie.
+ */
+export function pageLocale(): Locale {
+	return documentLocale() ?? "zh";
 }
 
 export type { Locale } from "./core";

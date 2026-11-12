@@ -172,7 +172,8 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
     client.on("ready", () => {
       client.exec(command, (error, stream) => {
         if (error) {
-          finish({ stdout: "", stderr: "", exitCode: 255, timedOut, cancelled: false });
+          // The reason is the only thing a person gets to read about a command that never started.
+          finish({ stdout: "", stderr: error.message, exitCode: 255, timedOut, cancelled: false });
           return;
         }
         stream.on("data", (chunk: Buffer) => {

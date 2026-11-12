@@ -3,13 +3,14 @@ import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { createCommandRequest } from "@/lib/command/service";
+import { commandRequestTitle } from "@/lib/command/schema";
 import {
   commandTemplateScopeWhere,
   extractTemplateVariables,
   renderCommand,
 } from "@/lib/command-template/service";
 import { prisma } from "@/lib/db";
-import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
+import { APP_TIME_ZONE, zonedDateTimeToDate } from "@/lib/datetime/time-zone";
 import { BusinessError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
 import { createScheduledTask } from "@/lib/scheduled-task/service";
@@ -22,7 +23,9 @@ function createAutomationSchema(
   return z.object({
   name: z.string().trim().min(1).max(200),
   plan: z.string().trim().min(1).max(10_000),
-  reason: z.string().trim().min(1).max(2_000),
+  // The limit of the command request each run files (createCommandSchema). Up to 2,000 characters were accepted
+  // here, and a plan with a longer reason failed when it was confirmed, or at every run of the task it created.
+  reason: z.string().trim().min(1).max(500),
   executionMode: z.enum(["now", "once", "daily"]),
   targetScope: z.enum(["all", "selected"]),
   serverIds: z.array(z.string().trim().min(1)).max(500).optional(),
@@ -53,6 +56,25 @@ function createAutomationSchema(
 
 function unique(values: string[]) {
   return [...new Set(values)];
+}
+
+/** A run time written without a UTC offset ("2026-12-01T03:00", or with a space). */
+const WALL_CLOCK_RUN_AT = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/;
+
+/**
+ * The instant a one-time run is meant for. A time without an offset is a
+ * wall-clock time in the application time zone, as dailyTime is: `new Date()`
+ * read it in the zone of the process, so on a UTC host a run planned for
+ * 03:00 Shanghai time was scheduled for 11:00.
+ */
+export function resolveAutomationRunAt(value: string): Date | null {
+  const text = value.trim();
+  try {
+    const at = WALL_CLOCK_RUN_AT.test(text) ? zonedDateTimeToDate(text.replace(" ", "T")) : new Date(text);
+    return Number.isNaN(at.getTime()) ? null : at;
+  } catch {
+    return null;
+  }
 }
 
 function validateBuiltinVariables(
@@ -95,6 +117,14 @@ export async function materializeAutomationProposal(
   }
   if (input.approvalMode === "approve_once" && !sessionHasPermission(actor, "command:approve")) {
     throw new ForbiddenError(t("backend.ai.automationUnattendedRequiresApprove"));
+  }
+
+  // Fixed here, as an absolute instant, so the plan that is confirmed and the task that is created agree.
+  let runAt: string | undefined;
+  if (input.executionMode === "once") {
+    const at = resolveAutomationRunAt(input.runAt ?? "");
+    if (!at || at.getTime() <= Date.now()) throw new ValidationError(t("backend.scheduled-task.futureOnce"));
+    runAt = at.toISOString();
   }
 
   const templateId = input.templateId ?? undefined;
@@ -162,6 +192,7 @@ export async function materializeAutomationProposal(
 
   return {
     ...input,
+    runAt,
     command,
     rollbackCommand: rollbackCommand ?? null,
     verificationCommand: input.verificationCommand ?? null,
@@ -196,7 +227,7 @@ export async function executeAutomationProposal(
   const session = { ...actor, currentTeamId: actor.currentTeamId ?? null };
   if (proposal.executionMode === "now") {
     const request = await createCommandRequest({
-      title: `AI automation: ${proposal.name}`,
+      title: commandRequestTitle("AI automation: ", proposal.name),
       command: proposal.command,
       reason: proposal.reason,
       requesterId: actor.userId,

@@ -32,6 +32,21 @@ describe("StorageUploadStatus", () => {
 		expect(screen.queryByRole("region")).not.toBeInTheDocument();
 	});
 
+	it("does not say it is uploading while everything left is paused", () => {
+		// One paused file read "正在上传 1 个文件".
+		state.items = [item("a", "paused", 40), item("b", "success", 100)];
+		renderWithI18n(<StorageUploadStatus />);
+		const panel = screen.getByRole("region", { name: "上传任务" });
+		expect(panel).toHaveTextContent("已暂停 1 个文件");
+		expect(panel).not.toHaveTextContent("正在上传");
+	});
+
+	it("counts paused files apart from the ones still going", () => {
+		state.items = [item("a", "uploading", 50), item("b", "paused", 10), item("c", "pending")];
+		renderWithI18n(<StorageUploadStatus />);
+		expect(screen.getByRole("region", { name: "上传任务" })).toHaveTextContent("正在上传 2 个文件，已暂停 1 个");
+	});
+
 	it("summarises running uploads with overall progress and folds to its header", () => {
 		state.items = [item("a", "uploading", 50), item("b", "success", 100), item("c", "pending")];
 		renderWithI18n(<StorageUploadStatus />);

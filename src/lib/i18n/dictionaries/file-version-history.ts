@@ -28,6 +28,9 @@ export const zh: Record<string, string> = {
 	"fileVersionHistory.reason.EDIT": "在线编辑",
 	"fileVersionHistory.reason.MANUAL": "手动快照",
 	"fileVersionHistory.reason.RESTORE_POINT": "恢复前快照",
+	"fileVersionHistory.note.beforeRestore": "恢复到 v{n} 之前的内容",
+	"fileVersionHistory.note.beforeEdit": "在线编辑保存之前的内容",
+	"fileVersionHistory.note.beforeUpload": "上传覆盖之前的内容",
 };
 
 export const en: Record<string, string> = {
@@ -56,4 +59,7 @@ export const en: Record<string, string> = {
 	"fileVersionHistory.reason.EDIT": "Online edit",
 	"fileVersionHistory.reason.MANUAL": "Manual snapshot",
 	"fileVersionHistory.reason.RESTORE_POINT": "Pre-restore snapshot",
+	"fileVersionHistory.note.beforeRestore": "Content before the restore to v{n}",
+	"fileVersionHistory.note.beforeEdit": "Content before the editor saved",
+	"fileVersionHistory.note.beforeUpload": "Content before the upload replaced it",
 };

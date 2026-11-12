@@ -67,3 +67,22 @@ describe("useConvSettingsForm when a save returns after a conversation switch", 
 		expect(onSaved).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe("useConvSettingsForm when a save is refused", () => {
+	it("says why in the server's words and keeps the changes to save again", async () => {
+		// The toast read "保存失败" whatever the server had answered (an unknown model, a value out of range).
+		fetchMock.mockReset();
+		fetchMock.mockRejectedValueOnce(new Error("温度必须在 0 到 2 之间"));
+		const addToast = vi.fn();
+		const onSaved = vi.fn();
+		const props = { activeConvId: "conv-1", refreshConversations: vi.fn(), onSaved, addToast };
+		const { result } = renderHook(() => useConvSettingsForm({ ...props, activeConv: conversation("model-a") }));
+		await waitFor(() => expect(result.current.settingsForm.model).toBe("model-a"));
+		act(() => result.current.setSettingsForm((form) => ({ ...form, temperature: 9 })));
+		await act(async () => { await result.current.handleSaveSettings(); });
+
+		expect(addToast).toHaveBeenCalledWith("error", "温度必须在 0 到 2 之间");
+		expect(onSaved).not.toHaveBeenCalled();
+		expect(result.current.dirty).toBe(true);
+	});
+});

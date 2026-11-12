@@ -52,7 +52,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 
 			<Toolbar className="justify-between">
 				<div className="text-xs text-[var(--text-muted)]">
-					{t("healthPage.ui.lastRefresh")}: {lastRefresh || "—"}
+					{t("healthPage.ui.lastRefresh")}{t("common.colon")}{lastRefresh || "—"}
 					{systemHealth
 						? systemHealth.summary.critical > 0
 							? ` · ${t("healthPage.ui.overallCritical")}`

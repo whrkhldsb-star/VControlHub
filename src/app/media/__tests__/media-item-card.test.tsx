@@ -72,6 +72,13 @@ describe("MediaItemCard", () => {
     );
   });
 
+  it("draws its kind, folder and storage with icons, not emoji", () => {
+    const { container } = render(<MediaItemCard item={{ ...item, favorite: true }} canManage={false} />);
+    expect(container.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}\u2B50]/u);
+    expect(screen.getByText("movies/2026/movie.mp4")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "已收藏" })).toBeInTheDocument();
+  });
+
   it("returns to and navigates within the list it was opened from", () => {
     render(<MediaItemCard item={item} canManage listHref="/media?type=video&q=demo&page=3" />);
     expect(screen.getByRole("link", { name: /预览\/播放/ })).toHaveAttribute("href", "/media/m_1?from=%2Fmedia%3Ftype%3Dvideo%26q%3Ddemo%26page%3D3");
@@ -83,6 +90,34 @@ describe("MediaItemCard", () => {
     expect(screen.getByRole("button", { name: /图床外链/ })).toBeInTheDocument();
   });
 
+  it("says the published link is copied only when it was", async () => {
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    const execCommand = (document as { execCommand?: unknown }).execCommand;
+    const image = { ...item, mediaType: "image" as const, mimeType: "image/png", name: "photo.png", relativePath: "images/photo.png" };
+    vi.mocked(csrfFetch).mockReset();
+    vi.mocked(csrfFetch).mockResolvedValue({ publicUrl: "/i/abc.png" } as never);
+    try {
+      // A page with no way to copy (plain HTTP in a browser that refuses the old command as well).
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+      (document as { execCommand?: unknown }).execCommand = () => false;
+      const first = render(<MediaItemCard item={image} canManage />);
+      await userEvent.click(screen.getByRole("button", { name: /图床外链/ }));
+      expect(await screen.findByText(/外链已生成/)).toHaveTextContent(`外链已生成:${window.location.origin}/i/abc.png`);
+      first.unmount();
+
+      const writeText = vi.fn(async () => undefined);
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+      render(<MediaItemCard item={image} canManage />);
+      await userEvent.click(screen.getByRole("button", { name: /图床外链/ }));
+      expect(await screen.findByText(/外链已生成并复制/)).toBeInTheDocument();
+      expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/i/abc.png`);
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+      else delete (navigator as { clipboard?: unknown }).clipboard;
+      (document as { execCommand?: unknown }).execCommand = execCommand;
+    }
+  });
+
   it("shows a visible error when favorite updates fail", async () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("保存收藏失败"));
@@ -92,6 +127,25 @@ describe("MediaItemCard", () => {
     await user.click(screen.getByRole("button", { name: "收藏" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("保存收藏失败");
+  });
+
+  // The Enter that picks a candidate of an input method is text, not a command: it saved the tag half typed.
+  it("does not add a tag while an input method is still composing it", async () => {
+    vi.mocked(csrfFetch).mockReset();
+    vi.mocked(csrfFetch).mockResolvedValue({} as never);
+    render(<MediaItemCard item={{ ...item, tags: [] }} canManage />);
+    await userEvent.click(screen.getByText("添加标签"));
+    const input = screen.getByRole("textbox", { name: "新标签名" });
+    await userEvent.type(input, "gong");
+
+    const composing = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    Object.defineProperty(composing, "isComposing", { value: true });
+    act(() => { input.dispatchEvent(composing); });
+    expect(csrfFetch).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "新标签名" })).toHaveValue("gong");
+
+    await userEvent.type(input, "{Enter}");
+    expect(csrfFetch).toHaveBeenCalledWith("/api/media/m_1", expect.objectContaining({ body: JSON.stringify({ tags: ["gong"] }) }));
   });
 
   it("sends one card's saves in click order and a stale failure does not undo a newer change", async () => {

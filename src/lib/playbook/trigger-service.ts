@@ -251,22 +251,21 @@ export async function dispatchDueCronPlaybook(input: {
 
 export async function initializeUnscheduledCronPlaybooks(now: Date = new Date()): Promise<number> {
   let initialized = 0;
-  let cursor: { id: string } | undefined;
+  // Paged by id, not by cursor: an initialized playbook leaves this filter,
+  // and a cursor on a row that no longer matches skips the row after it.
+  let afterId: string | undefined;
   do {
-    const rows = await prisma.playbook.findMany({
-      where: { enabled: true, triggerType: "cron", nextRunAt: null },
+    const rows: Array<{ id: string }> = await prisma.playbook.findMany({
+      where: { enabled: true, triggerType: "cron", nextRunAt: null, ...(afterId ? { id: { gt: afterId } } : {}) },
       select: { id: true },
       orderBy: { id: "asc" },
       take: MAX_TRIGGER_PLAYBOOKS_PER_TICK,
-      ...(cursor ? { cursor, skip: 1 } : {}),
     });
     for (const row of rows) {
       if (await forEachPlaybook(row.id, "cron-initialize", () => initializeCronPlaybookSchedule(row.id, now))) initialized += 1;
     }
-    cursor = rows.length === MAX_TRIGGER_PLAYBOOKS_PER_TICK
-      ? { id: rows[rows.length - 1]!.id }
-      : undefined;
-  } while (cursor);
+    afterId = rows.length === MAX_TRIGGER_PLAYBOOKS_PER_TICK ? rows[rows.length - 1]!.id : undefined;
+  } while (afterId);
   return initialized;
 }
 
@@ -276,18 +275,20 @@ export async function dispatchDueCronPlaybooks(now: Date = new Date()): Promise<
 }> {
   let dispatched = 0;
   let advanced = 0;
-  let cursor: { id: string } | undefined;
+  // Paged by id (see above): a dispatched playbook's next run is in the future
+  // and it leaves this filter.
+  let afterId: string | undefined;
   do {
-    const rows = await prisma.playbook.findMany({
+    const rows: Array<{ id: string; nextRunAt: Date | null }> = await prisma.playbook.findMany({
       where: {
         enabled: true,
         triggerType: "cron",
         nextRunAt: { not: null, lte: now },
+        ...(afterId ? { id: { gt: afterId } } : {}),
       },
       select: { id: true, nextRunAt: true },
       orderBy: { id: "asc" },
       take: MAX_TRIGGER_PLAYBOOKS_PER_TICK,
-      ...(cursor ? { cursor, skip: 1 } : {}),
     });
     for (const row of rows) {
       const dueAt = row.nextRunAt;
@@ -300,10 +301,8 @@ export async function dispatchDueCronPlaybooks(now: Date = new Date()): Promise<
       if (outcome?.dispatched) dispatched += 1;
       if (outcome?.advanced) advanced += 1;
     }
-    cursor = rows.length === MAX_TRIGGER_PLAYBOOKS_PER_TICK
-      ? { id: rows[rows.length - 1]!.id }
-      : undefined;
-  } while (cursor);
+    afterId = rows.length === MAX_TRIGGER_PLAYBOOKS_PER_TICK ? rows[rows.length - 1]!.id : undefined;
+  } while (afterId);
   return { dispatched, advanced };
 }
 

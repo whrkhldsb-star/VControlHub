@@ -11,6 +11,7 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { ActionButton } from "@/components/action-button";
 
 export interface FindBarProps {
@@ -61,7 +62,9 @@ export function FindBar({
 						inputMode="numeric"
 						value={jumpLine}
 						onChange={(e) => onJumpLineChange(e.target.value)}
-						onKeyDown={(e) => e.key === "Enter" && onJumpToLine()}
+						onKeyDown={(e) => {
+							if (!isImeComposition(e) && e.key === "Enter") onJumpToLine();
+						}}
 						placeholder={t("textPreview.find.jumpPlaceholder")}
 						className={cn(UI_INPUT, "px-2 py-1 text-sm text-[var(--text-secondary)]")}
 					/>

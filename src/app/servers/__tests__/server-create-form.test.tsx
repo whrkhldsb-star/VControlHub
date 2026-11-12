@@ -80,6 +80,24 @@ describe("ServerCreateForm", () => {
     expect(screen.getByText("云盘与高级设置（可选）").closest("details")).not.toHaveAttribute("open");
   });
 
+  it("shows what came of the submit next to the button, not above a screen of fields", () => {
+    // The button is at the end of the form and the answer takes seconds (an SSH connection): with the notice
+    // under the heading, nothing changed where the user was looking.
+    actionStateMock.current = { error: "SSH 连接失败：认证被拒绝" };
+    const { unmount } = render(<ServerCreateForm sshKeys={[]} />);
+    const refusal = screen.getByRole("alert");
+    const submit = screen.getByRole("button", { name: "检测连接并获取指纹" });
+    expect(refusal).toHaveTextContent("SSH 连接失败：认证被拒绝");
+    expect(screen.getByLabelText("标签").compareDocumentPosition(refusal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(refusal.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    unmount();
+
+    actionStateMock.current = { success: "节点已纳管" };
+    render(<ServerCreateForm sshKeys={[]} />);
+    const done = screen.getByText("节点已纳管");
+    expect(screen.getByLabelText("标签").compareDocumentPosition(done) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("shows the first observed host fingerprint without a copy-paste field", () => {
     actionStateMock.current = {
       error: "First connection requires confirming the SSH host fingerprint",
@@ -111,7 +129,7 @@ describe("ServerCreateForm", () => {
     const form = document.querySelector('form:has(input[name="host"])') as HTMLFormElement;
 
     await user.type(screen.getByLabelText("节点名称"), "production-vps");
-    await user.type(screen.getByLabelText("IP / 主机名"), "107.148.254.104");
+    await user.type(screen.getByLabelText("IP / 主机名"), "203.0.113.104");
     await user.clear(screen.getByLabelText("端口"));
     await user.type(screen.getByLabelText("端口"), "48163");
     await user.selectOptions(screen.getByLabelText("SSH 密钥"), "key-1");
@@ -129,7 +147,7 @@ describe("ServerCreateForm", () => {
     );
 
     expect(screen.getByLabelText("节点名称")).toHaveValue("production-vps");
-    expect(screen.getByLabelText("IP / 主机名")).toHaveValue("107.148.254.104");
+    expect(screen.getByLabelText("IP / 主机名")).toHaveValue("203.0.113.104");
     expect(screen.getByLabelText("端口")).toHaveValue(48163);
     expect(screen.getByLabelText("SSH 密钥")).toHaveValue("key-1");
   });

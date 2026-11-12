@@ -28,8 +28,8 @@ export interface UseImageBedListReturn {
 	page: number;
 	totalPages: number;
 	loading: boolean;
-	/** Last list-fetch error message marker, or null when the latest fetch succeeded. */
-	error: string | null;
+	/** What the latest list fetch failed with (the page words it), or null when it succeeded. */
+	error: unknown;
 	search: string;
 	showAll: boolean;
 	fetchImages: (p?: number, query?: string) => Promise<void>;
@@ -46,7 +46,7 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 	const search = filters.q;
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<unknown>(null);
 	const showAll = filters.all === "true";
 	const setSearch = (value: string) => setFilter("q", value);
 	const setShowAll = (value: boolean) => setFilter("all", value ? "true" : "false");
@@ -83,12 +83,12 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 			setTotalPages(Math.max(1, data.totalPages ?? 1));
 			setPage(data.page ?? p);
 			setError(null);
-		} catch {
+		} catch (failure) {
 			if (gen !== fetchGenRef.current) return;
-			// Marker error so callers (and auto-fetch) can distinguish list failures.
-			// Hook also exposes `error` so auto-fetch no longer needs a silent catch.
-			setError("list-fetch-failed");
-			throw new Error("list-fetch-failed");
+			// Kept as it was thrown: it carries the server's reason, which a marker ("list-fetch-failed") threw away.
+			const thrown = failure ?? new Error("list-fetch-failed");
+			setError(thrown);
+			throw thrown;
 		} finally {
 			if (gen === fetchGenRef.current) setLoading(false);
 		}

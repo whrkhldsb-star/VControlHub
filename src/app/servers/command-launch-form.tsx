@@ -63,7 +63,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 
 	async function performSubmit() {
 		if (!canSubmit) return;
-		setConfirmingDirect(false);
+		// The confirmation stays open while the request runs and after a refusal, which is shown in it.
 		setSubmitting(true);
 		setError(null);
 		try {
@@ -84,6 +84,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 				idempotencyKey: submissionRef.current.idempotencyKey,
 			});
 			addToast("success", t(approvalRequired ? "serversPage.command.approvalSuccess" : "serversPage.command.success"));
+			setConfirmingDirect(false);
 			router.push("/requests");
 			router.refresh();
 		} catch (cause) {
@@ -97,6 +98,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 		event.preventDefault();
 		if (!canSubmit) return;
 		if (!approvalRequired) {
+			setError(null);
 			setConfirmingDirect(true);
 			return;
 		}
@@ -125,7 +127,6 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 			<Notice tone={approvalRequired ? "info" : "warning"}>
 				{t(approvalRequired ? "serversPage.command.approvalNotice" : "serversPage.command.executionNotice")}
 			</Notice>
-			{error ? <Notice tone="danger">{error}</Notice> : null}
 
 			<div className="grid gap-4 lg:grid-cols-2">
 				<label className="ui-label grid gap-1.5">
@@ -195,6 +196,8 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 				</div>
 			</fieldset>}
 
+			{/* Above the row with the button that sent it: under the heading it was a screen away. */}
+			{error && !confirmingDirect ? <Notice tone="danger">{error}</Notice> : null}
 			<div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
 				<p className="text-xs text-[var(--text-muted)]">
 					{selectedIds.size > 0
@@ -219,9 +222,10 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 			)}
 			cancelLabel={t("common.cancel")}
 			confirmLabel={t("serversPage.command.directConfirmAction")}
-			onCancel={() => setConfirmingDirect(false)}
+			onCancel={() => { if (!submitting) setConfirmingDirect(false); }}
 			onConfirm={() => void performSubmit()}
 			busy={submitting}
+			error={error}
 			closeOnBackdrop={false}
 		/>
 		</>

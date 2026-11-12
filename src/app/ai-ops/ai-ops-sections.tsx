@@ -23,6 +23,25 @@ export type AiOpsSettings = {
 	scanScheduleHour: number;
 };
 
+/**
+ * The provider the saved setting points at, as the page found it. It need not be one of the reader's own
+ * providers (another administrator may have chosen it), and it may be gone: disabled or deleted providers are
+ * skipped by the scan, which then runs its built-in checks only.
+ */
+export type AiOpsStoredProvider = {
+	id: string;
+	name: string | null;
+	defaultModel: string | null;
+	available: boolean;
+};
+
+/** How the saved provider reads when it is not among the reader's own: by name, never as a bare id if it exists. */
+function storedProviderLabel(id: string, stored: AiOpsStoredProvider | null | undefined, t: T): string {
+	if (!stored || stored.id !== id) return id;
+	if (!stored.available || !stored.name) return t("aiOpsPage.settings.providerUnavailable", { id });
+	return stored.defaultModel ? `${stored.name} · ${stored.defaultModel}` : stored.name;
+}
+
 const labelClass = UI_LABEL;
 const selectClass = UI_INPUT;
 
@@ -60,9 +79,9 @@ export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: 
 			title={t("aiOpsPage.summary.title")}
 			description={provider ? (
 				<span className="flex flex-wrap gap-x-4 gap-y-1">
-					<span>{t("aiOpsPage.summary.providerSuccessRate")}: {provider.successRate === null ? never : `${Math.round(provider.successRate * 100)}% (${provider.successes}/${provider.attempts})`}</span>
-					<span>{t("aiOpsPage.summary.providerLastSuccess")}: {formatAiOpsTime(provider.lastSuccessAt, never, locale)}</span>
-					{provider.retryAt ? <span>{t("aiOpsPage.summary.providerRetryAt")}: {formatAiOpsTime(provider.retryAt, never, locale)}</span> : null}
+					<span>{t("aiOpsPage.summary.providerSuccessRate")}{t("common.colon")}{provider.successRate === null ? never : `${Math.round(provider.successRate * 100)}% (${provider.successes}/${provider.attempts})`}</span>
+					<span>{t("aiOpsPage.summary.providerLastSuccess")}{t("common.colon")}{formatAiOpsTime(provider.lastSuccessAt, never, locale)}</span>
+					{provider.retryAt ? <span>{t("aiOpsPage.summary.providerRetryAt")}{t("common.colon")}{formatAiOpsTime(provider.retryAt, never, locale)}</span> : null}
 				</span>
 			) : undefined}
 			columns={6}
@@ -146,6 +165,7 @@ export function AiOpsActionsToolbar({
 export function AiOpsSettingsSection({
 	settings,
 	providerOptions,
+	storedProvider,
 	editingProvider,
 	canManage,
 	savingSettings,
@@ -156,6 +176,7 @@ export function AiOpsSettingsSection({
 }: {
 	settings: AiOpsSettings;
 	providerOptions: Array<{ id: string; name: string; defaultModel: string }>;
+	storedProvider?: AiOpsStoredProvider | null;
 	editingProvider: string;
 	canManage: boolean;
 	savingSettings: boolean;
@@ -185,7 +206,11 @@ export function AiOpsSettingsSection({
 						<select className={selectClass} value={editingProvider} onChange={(e) => setEditingProvider(e.target.value)}>
 							<option value="">{t("aiOpsPage.settings.notConfigured")}</option>
 							{editingProvider && !providerOptions.some((provider) => provider.id === editingProvider) && (
-								<option value={editingProvider} disabled>{editingProvider}</option>
+								<option value={editingProvider} disabled>
+									{storedProvider?.id === editingProvider && storedProvider.available && storedProvider.name
+										? t("aiOpsPage.settings.providerOfOther", { name: storedProviderLabel(editingProvider, storedProvider, t) })
+										: storedProviderLabel(editingProvider, storedProvider, t)}
+								</option>
 							)}
 							{providerOptions.map((provider) => (
 								<option key={provider.id} value={provider.id}>
@@ -194,7 +219,7 @@ export function AiOpsSettingsSection({
 							))}
 						</select>
 					) : (
-						<span className="text-sm text-[var(--text-primary)]">{editingProvider.trim() || t("aiOpsPage.settings.notConfigured")}</span>
+						<span className="text-sm text-[var(--text-primary)]">{editingProvider.trim() ? storedProviderLabel(editingProvider.trim(), storedProvider, t) : t("aiOpsPage.settings.notConfigured")}</span>
 					)}
 				</label>
 			</div>

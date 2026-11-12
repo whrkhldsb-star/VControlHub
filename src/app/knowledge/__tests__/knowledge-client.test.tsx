@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -122,6 +122,34 @@ describe("KnowledgeClient", () => {
     });
   });
 
+  it("shows a failed deletion in the confirmation dialog, where the person is looking", async () => {
+    // The reason was written into a notice at the foot of the page, behind the dialog, which stayed open as if
+    // nothing had happened.
+    renderClient();
+    await waitFor(() => expect(screen.getByText("runbooks")).toBeInTheDocument());
+    mocks.csrfFetch.mockImplementation(async (url: string, init?: { method?: string }) => {
+      if (init?.method === "DELETE") throw new Error("知识库正在被 AI 会话使用");
+      if (String(url).startsWith("/api/knowledge/")) return { knowledgeBase: { documents } };
+      return { knowledgeBases: bases };
+    });
+    fireEvent.click(screen.getByLabelText("knowledgePage.deleteBaseAria:runbooks"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "common.confirmDelete" }));
+    expect(await within(dialog).findByText("知识库正在被 AI 会话使用")).toBeInTheDocument();
+
+    // Cancelling leaves nothing of it behind, on the page or in the next dialog.
+    fireEvent.click(within(dialog).getByRole("button", { name: "common.cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.queryByText("知识库正在被 AI 会话使用")).not.toBeInTheDocument();
+
+    // The same for a document.
+    fireEvent.click(screen.getByRole("button", { name: "knowledgePage.delete" }));
+    const documentDialog = await screen.findByRole("dialog");
+    expect(within(documentDialog).queryByText("知识库正在被 AI 会话使用")).not.toBeInTheDocument();
+    fireEvent.click(within(documentDialog).getByRole("button", { name: "common.confirmDelete" }));
+    expect(await within(documentDialog).findByText("知识库正在被 AI 会话使用")).toBeInTheDocument();
+  });
+
   it("keeps the open base's documents when another base is deleted", async () => {
     // They were cleared and never loaded again (the selection did not change).
     renderClient();
@@ -137,6 +165,36 @@ describe("KnowledgeClient", () => {
     await waitFor(() => expect(mocks.csrfFetch).toHaveBeenCalledWith("/api/knowledge?id=kb_2", { method: "DELETE" }));
     await waitFor(() => expect(mocks.addToast).toHaveBeenCalledWith("success", "knowledgePage.baseDeleted"));
     expect(screen.getByText("restart nginx")).toBeInTheDocument();
+  });
+
+  it("searches on Enter, and says so when nothing matches", async () => {
+    // Enter in the query box did nothing, and a search without hits left the panel as it was.
+    renderClient();
+    await waitFor(() => expect(screen.getByText("runbooks")).toBeInTheDocument());
+    mocks.csrfFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === "POST" ? { hits: [] } : { knowledgeBases: bases, knowledgeBase: { documents } });
+    const box = screen.getByRole("searchbox", { name: "knowledgePage.queryLabel" });
+    fireEvent.change(box, { target: { value: "restore postgres" } });
+    fireEvent.submit(box.closest("form")!);
+    await waitFor(() => expect(screen.getByText("knowledgePage.noHits")).toBeInTheDocument());
+    expect(mocks.csrfFetch).toHaveBeenCalledWith("/api/knowledge", expect.objectContaining({ method: "POST" }));
+
+    mocks.csrfFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === "POST"
+        ? { hits: [{ knowledgeBaseName: "runbooks", documentTitle: "restore", chunkIndex: 2, score: 7, content: "pg_restore …" }] }
+        : { knowledgeBases: bases, knowledgeBase: { documents } });
+    fireEvent.submit(box.closest("form")!);
+    await waitFor(() => expect(screen.getByText("knowledgePage.hitScore:7")).toBeInTheDocument());
+    expect(screen.queryByText("knowledgePage.noHits")).not.toBeInTheDocument();
+  });
+
+  it("empties the document list as soon as another base is chosen", async () => {
+    // The previous base's documents stayed under the new base's name until the new list arrived.
+    renderClient();
+    await waitFor(() => expect(screen.getByText("restart nginx")).toBeInTheDocument());
+    mocks.csrfFetch.mockImplementation(() => new Promise(() => undefined));
+    fireEvent.click(screen.getByText("policies"));
+    expect(screen.queryByText("restart nginx")).not.toBeInTheDocument();
   });
 
   it("hides the delete affordance from a caller who cannot manage", async () => {

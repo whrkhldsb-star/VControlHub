@@ -38,6 +38,8 @@ export const STORAGE_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Minimal web file manager, supports upload/download/edit/share",
 		image: "filebrowser/filebrowser:latest",
 		defaultPort: 8110,
+		// The image listens on 80; 8110 is only the host port.
+		internalPort: 80,
 		path: "/fb/",
 		envJson: {},
 		volumesJson: [
@@ -70,6 +72,8 @@ export const STORAGE_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "WebDAV/FTP/SFTP automatic sync download manager",
 		image: "linuxserver/davos:latest",
 		defaultPort: 8111,
+		// The image listens on 8080; 8111 is only the host port.
+		internalPort: 8080,
 		path: "/davos/",
 		envJson: { PUID: "0", PGID: "0" },
 		volumesJson: [

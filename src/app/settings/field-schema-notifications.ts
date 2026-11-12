@@ -41,7 +41,7 @@ export const NOTIFICATION_SETTINGS_SECTIONS: SectionDef[] = [
 				labelKey: "settingsClient.field.smtp.user.label",
 				type: "text",
 				placeholderKey: "settingsClient.field.smtp.user.placeholder",
-				autoComplete: "username",
+				autoComplete: "off",
 				disabled: isSmtpDisabled,
 				helperTextKey: (s) => (isSmtpDisabled(s) ? "settingsClient.helper.smtp.disabledHint" : undefined),
 			},

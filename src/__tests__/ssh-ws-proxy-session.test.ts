@@ -80,13 +80,13 @@ afterEach(() => {
   }
 });
 
-async function connect(expectConnected = true, query = "") {
+async function connect(expectConnected = true, query = "", cookies = "") {
   await import("../ssh-ws-proxy");
   const socket = Object.assign(new EventEmitter(), { readyState: 1, bufferedAmount: 0, send: vi.fn(), close: vi.fn(), ping: vi.fn(), terminate: vi.fn() });
   socket.close.mockImplementation(() => { socket.readyState = 3; state.clients.delete(socket); socket.emit("close"); });
   socket.ping.mockImplementation(() => socket.emit("pong"));
   state.clients.add(socket);
-  await state.connection(socket, { url: `/ssh?serverId=audit-server&handshake=fixture${query}`, headers: { origin: "http://127.0.0.1:15430", cookie: "audit_session=fixture-cookie" } });
+  await state.connection(socket, { url: `/ssh?serverId=audit-server&handshake=fixture${query}`, headers: { origin: "http://127.0.0.1:15430", cookie: `audit_session=fixture-cookie${cookies}` } });
   if (expectConnected) expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "connected", inputAck: true, heartbeat: true }));
   return socket;
 }
@@ -608,6 +608,64 @@ it("recognises ssh2's real host key refusal: fatal, naming the pin to set or the
   expect(refusal).toMatchObject({ fatal: true });
   expect(String(refusal?.data)).toContain("SHA256:pinned-before");
   expect(String(refusal?.data)).toContain("SHA256:presented-now");
+});
+
+// The terminal shows the gateway's words as they arrive. The gateway has no
+// request to take a language from, so every notice was Chinese, whatever
+// language the page that opened the terminal was in.
+const ENGLISH_PAGE = "; vps-locale=en";
+
+it("refuses a connection in the language of the page that opened it", async () => {
+  state.verify.mockResolvedValue({ userId: "audit-user", username: "audit", roles: ["viewer"], permissions: [], currentTeamId: "audit-team", mustChangePassword: false });
+  const english = await connect(false, "", ENGLISH_PAGE);
+  expect(frames(english).find((frame) => frame.type === "error")).toMatchObject({ data: "Missing SSH terminal permission" });
+  const chinese = await connect(false, "", "; vps-locale=zh");
+  expect(frames(chinese).find((frame) => frame.type === "error")).toMatchObject({ data: "缺少 SSH 终端使用权限" });
+});
+
+it("says why a shell ended in the page's language", async () => {
+  const socket = await connect(true, "", ENGLISH_PAGE);
+  state.stream.emit("exit", 0);
+  state.stream.emit("close");
+  expect(frames(socket).find((frame) => frame.type === "closed")).toMatchObject({ reason: "exit", data: "The shell exited (code 0). Click Reconnect to start a new session." });
+});
+
+it("reports an SSH failure to the page in its language, and to the audit log in the platform's", async () => {
+  state.deferReady = () => undefined;
+  const socket = await connect(false, "", ENGLISH_PAGE);
+  state.client.emit("error", new Error("ECONNREFUSED"));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(frames(socket).find((frame) => frame.type === "error")).toMatchObject({ data: "SSH connection error: ECONNREFUSED" });
+  // One log, read by everyone: not in the language of whoever opened the terminal.
+  expect(state.audit).toHaveBeenCalledWith("audit-user", "server.ssh.failed", { serverId: "audit-server", message: "SSH 连接错误：ECONNREFUSED" }, undefined, "audit-team");
+});
+
+it("speaks the platform's default language to a page that has not chosen one", async () => {
+  const { setBackgroundCopyLocale } = await import("@/lib/i18n/api-copy");
+  setBackgroundCopyLocale("en");
+  try {
+    const socket = await connect();
+    state.client.emit("end");
+    expect(frames(socket).find((frame) => frame.type === "closed")).toMatchObject({ reason: "lost", data: "The SSH connection to the server was lost" });
+  } finally {
+    setBackgroundCopyLocale(undefined);
+  }
+});
+
+it("speaks to a page that took a shell over in that page's language", async () => {
+  const first = await connect(true, "&keepAlive=1", "; vps-locale=zh");
+  const { resumeId } = sessionMessage(first)!;
+  first.close();
+  const second = await connect(true, `&keepAlive=1&resume=${resumeId}&offset=0`, ENGLISH_PAGE);
+  expect(sessionMessage(second)?.resumed).toBe(true);
+  state.stream.emit("exit", 0);
+  state.stream.emit("close");
+  expect(frames(second).find((frame) => frame.type === "closed")).toMatchObject({ data: "The shell exited (code 0). Click Reconnect to start a new session." });
+  // The socket it was taken from, had it still been open, is told in its own.
+  const third = await connect(true, "&keepAlive=1", "; vps-locale=zh");
+  const { resumeId: again } = sessionMessage(third)!;
+  await connect(true, `&keepAlive=1&resume=${again}&offset=0`, ENGLISH_PAGE);
+  expect(frames(third).find((frame) => frame.type === "closed")).toMatchObject({ reason: "replaced", data: "该会话已在另一个连接中继续" });
 });
 
 it("reports a private key ssh2 cannot parse instead of leaving the browser connecting for ever", async () => {

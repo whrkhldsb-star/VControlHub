@@ -2,11 +2,11 @@
 
 import { memo, type MouseEvent } from "react";
 import type { DownloadTask } from "./downloads-shared";
-import { getStatusLabel, formatSpeed } from "./downloads-shared";
+import { getCategories, getStatusLabel, formatSpeed } from "./downloads-shared";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { formatBytes } from "@/lib/format/bytes";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
@@ -63,6 +63,8 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 }) {
 	const pct = computePct(task.completedBytes, task.totalBytes);
 	const CategoryIcon = categoryIcon[task.category as keyof typeof categoryIcon] ?? File;
+	// By its name, as the filter chips and the form show it; a value from before the list was fixed, as it is.
+	const categoryLabel = task.category ? getCategories(t).find((category) => category.value === task.category)?.label ?? task.category : "";
 	return (
 		<article data-card className="p-4 hover:bg-[var(--surface-elevated)]">
 			{/* Header row */}
@@ -73,7 +75,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 				<span className="text-xs text-[var(--text-muted)]">{urlTypeLabel(task.url, t)}</span>
 				{task.relayMode && <Badge tone="warning">{t("downloadsPage.badge.relay")}</Badge>}
 				{task.status === "PENDING" && task.aria2Gid && <Badge tone="neutral">{t("downloadsPage.badge.paused")}</Badge>}
-				{task.category && <span className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)]"><CategoryIcon size={14} aria-hidden />{task.category}</span>}
+				{categoryLabel && <span className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)]"><CategoryIcon size={14} aria-hidden />{categoryLabel}</span>}
 				{task.isBatch && <Badge tone="accent">{t("downloadsPage.badge.batch")}</Badge>}
 			</div>
 
@@ -160,11 +162,9 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 					}
 					const href = `/files?nodeId=${encodeURIComponent(node.id)}${rel ? `&path=${encodeURIComponent(rel)}` : ""}`;
 					return (
-						<a href={href}
-							data-action-button data-size="sm" data-variant="success" 
-							title={t("downloadsPage.action.openFolderTitle")}>
+						<ButtonLink href={href} size="sm" variant="success" title={t("downloadsPage.action.openFolderTitle")}>
 							{t("downloadsPage.action.openFolder")}
-						</a>
+						</ButtonLink>
 					);
 				})()}
 				{(task.status === "FAILED" || task.status === "CANCELLED") && canManage && (

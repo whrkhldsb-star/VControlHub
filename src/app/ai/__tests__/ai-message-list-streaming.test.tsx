@@ -1,5 +1,5 @@
 import { createRef } from "react";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
@@ -16,8 +16,6 @@ describe("AiMessageList while streaming", () => {
 		pendingApprovals: [],
 		approvalBusyById: {},
 		onApproval: vi.fn(),
-		copyFeedback: null,
-		setCopyFeedback: vi.fn(),
 		currentModelCaps: {} as never,
 		messagesEndRef: createRef<HTMLDivElement>(),
 		onDrop: vi.fn(),
@@ -69,5 +67,16 @@ describe("AiMessageList while streaming", () => {
 		// Variable names are shown for a container, their values are not.
 		expect(screen.getByText("REDIS_PASSWORD")).toBeInTheDocument();
 		expect(screen.queryByText(/s3cret/)).not.toBeInTheDocument();
+	});
+
+	it("says that the history could not be loaded instead of inviting a first message", () => {
+		// A failed load left the list empty, and an empty list drew "start the conversation": a conversation
+		// with weeks of messages looked as if nothing had been said in it.
+		const onRetryLoad = vi.fn();
+		render(<AiMessageList {...base} streaming={false} streamContent="" streamReasoning="" loadError="这段对话的记录没有加载出来" onRetryLoad={onRetryLoad} />);
+		expect(screen.getByRole("alert")).toHaveTextContent("这段对话的记录没有加载出来");
+		expect(screen.queryByText(/拖拽|粘贴/)).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "重试" }));
+		expect(onRetryLoad).toHaveBeenCalledOnce();
 	});
 });

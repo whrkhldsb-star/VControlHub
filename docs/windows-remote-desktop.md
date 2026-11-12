@@ -37,9 +37,10 @@ guacd disconnects clients that stay silent for roughly 20 seconds, so keep-alive
 
 Session lifetime is managed by the same runtime settings surface as the SSH timeouts (settings page → runtime):
 
-- `runtime.rdpIdleTimeoutSec` (`RDP_IDLE_TIMEOUT_SEC`): close after this long without any browser traffic. `0` — the default — never idles a session out, matching the SSH idle default, because the transport itself already detects dead browsers.
-- `runtime.rdpMaxSessionSec` (`RDP_MAX_SESSION_SEC`): absolute per-session cap, `0` = no cap. Set this if sessions must be re-authenticated periodically.
-- Independent of both settings, a session with no browser traffic for 10 minutes is always treated as a dead transport (crashed browser on a half-open connection) and closed.
+- `runtime.rdpIdleTimeoutSec` (`RDP_IDLE_TIMEOUT_SEC`): close after this long without keyboard or mouse input (touch gestures count as the mouse). The page's own keep-alive traffic does not count: an open but untouched desktop reaches the limit. `0` — the default — never idles a session out, matching the SSH idle default.
+- `runtime.rdpMaxSessionSec` (`RDP_MAX_SESSION_SEC`): absolute per-session cap, `0` = no cap. Set this if a desktop must not stay connected indefinitely.
+- When either limit ends a desktop, the page says which one and does **not** reconnect by itself; the user selects Reconnect to open a new session (programs in Windows keep running meanwhile). The gateway sends these as its own statuses (`0x0A01` idle limit, `0x0A02` session time limit), outside the codes Guacamole assigns.
+- Independent of both settings, a session with no browser traffic at all for 10 minutes is always treated as a dead transport (crashed browser on a half-open connection) and closed. A page that is still there reconnects after that, as after any dropped connection.
 
 Clipboard sync is text-only (`text/plain`) in both directions; the bridge validates the clipboard stream instructions, bounds each blob, and caps a session at ~1.5 MB of clipboard traffic. File/drive transfer, printing and piping remain blocked.
 

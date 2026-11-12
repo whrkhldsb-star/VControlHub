@@ -206,6 +206,7 @@ async function processHostedTools(input: {
           actionType: tool.actionType,
           riskLevel: tool.riskLevel,
           params,
+          server: action.server ? { name: action.server.name, host: action.server.host } : null,
         });
         results.push({
           toolCallId,

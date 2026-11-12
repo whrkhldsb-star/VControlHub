@@ -48,6 +48,19 @@ describe("fetchWithPinnedDns", () => {
 		agentInstances.length = 0;
 	});
 
+	it("verifies certificates unless a status-only probe asks otherwise, and stays pinned either way", async () => {
+		lookupMock.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
+		undiciFetchMock.mockImplementation(async () => new Response("ok"));
+
+		await fetchWithPinnedDns("https://203.0.113.10/__vch_health", { method: "GET" });
+		expect((agentInstances.at(-1)?.options as { connect: Record<string, unknown> }).connect).not.toHaveProperty("rejectUnauthorized");
+
+		// The direct gateway on a bare IP serves a self-signed certificate by design.
+		await fetchWithPinnedDns("https://203.0.113.10/__vch_health", { method: "GET" }, { allowUntrustedCertificate: true });
+		expect((agentInstances.at(-1)?.options as { connect: Record<string, unknown> }).connect.rejectUnauthorized).toBe(false);
+		expect(agentConnectLookup()).toBeTypeOf("function");
+	});
+
 	it("pins the verified address in the connect lookup", async () => {
 		lookupMock.mockResolvedValue([
 			{ address: "203.0.113.10", family: 4 },

@@ -61,10 +61,14 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const [docContent, setDocContent] = useState("");
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
+  // The query the hits on screen answer; null before the first search.
+  const [searchedQuery, setSearchedQuery] = useState<string | null>(null);
   const [basePendingDelete, setBasePendingDelete] =
     useState<KnowledgeBase | null>(null);
   const [documentPendingDelete, setDocumentPendingDelete] = useState<DocumentRow | null>(null);
   const { run, busyKey: busy, error, setError } = useAsyncAction();
+  /** A failed deletion, shown in its confirmation dialog: the page's own notice is behind it. */
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadBases = useCallback(async () => {
     const data = await csrfFetch<{ knowledgeBases: KnowledgeBase[] }>("/api/knowledge");
@@ -203,12 +207,13 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         }),
       });
       setHits(data.hits ?? []);
-      addToast("success", t("knowledgePage.searchOk", { count: data.hits?.length ?? 0 }));
+      setSearchedQuery(query.trim());
     }, { fallback: t("knowledgePage.error") });
   }
 
   async function removeDoc(documentId: string) {
     if (!canManage) return;
+    setDeleteError(null);
     await run(`del-${documentId}`, async () => {
       await csrfFetch(`/api/knowledge?documentId=${encodeURIComponent(documentId)}`, {
         method: "DELETE",
@@ -217,12 +222,13 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       await loadBases();
       setDocumentPendingDelete(null);
       addToast("success", t("knowledgePage.documentDeleted"));
-    }, { fallback: t("knowledgePage.error") });
+    }, { fallback: t("knowledgePage.error"), onError: setDeleteError });
   }
 
   async function removeBase() {
     if (!canManage || !basePendingDelete) return;
     const target = basePendingDelete;
+    setDeleteError(null);
     await run(`del-base-${target.id}`, async () => {
       await csrfFetch(`/api/knowledge?id=${encodeURIComponent(target.id)}`, {
         method: "DELETE",
@@ -236,7 +242,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       );
       await loadBases();
       addToast("success", t("knowledgePage.baseDeleted"));
-    }, { fallback: t("knowledgePage.error") });
+    }, { fallback: t("knowledgePage.error"), onError: setDeleteError });
   }
 
   return (
@@ -287,7 +293,14 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                       type="button"
                       data-tile=""
                       aria-pressed={selectedId === b.id}
-                      onClick={() => setSelectedId(b.id)}
+                      onClick={() => {
+                        if (b.id !== selectedId) {
+                          // The other base's documents are not this one's: empty the list until its own arrive.
+                          setDocuments([]);
+                          setHasMoreDocuments(false);
+                        }
+                        setSelectedId(b.id);
+                      }}
                       className="min-w-0 flex-1 px-3 py-2 text-left text-xs text-[var(--text-secondary)]"
                     >
                       <div className="font-semibold">{b.name}</div>
@@ -300,7 +313,10 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                         variant="danger"
                         aria-label={t("knowledgePage.deleteBaseAria", { name: b.name })}
                         disabled={busy !== null}
-                        onClick={() => setBasePendingDelete(b)}>
+                        onClick={() => {
+                          setDeleteError(null);
+                          setBasePendingDelete(b);
+                        }}>
                         {t("knowledgePage.delete")}
                       </ActionButton>
                     )}
@@ -352,7 +368,10 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                   {canManage && (
                     <ActionButton size="sm" variant="danger" 
                       disabled={busy !== null}
-                      onClick={() => setDocumentPendingDelete(d)}>
+                      onClick={() => {
+                        setDeleteError(null);
+                        setDocumentPendingDelete(d);
+                      }}>
                       {t("knowledgePage.delete")}
                     </ActionButton>
                   )}
@@ -369,21 +388,32 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       </div>
 
       <SurfacePanel title={t("knowledgePage.searchTitle")} description={t("knowledgePage.searchDescription")}>
-        <div className="flex flex-wrap gap-2">
+        <form
+          role="search"
+          className="flex flex-wrap gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (query.trim() && busy === null) void search();
+          }}
+        >
           <input
-            aria-label={t("knowledgePage.queryPlaceholder")}
+            type="search"
+            aria-label={t("knowledgePage.queryLabel")}
             className={`${UI_INPUT} min-w-[12rem] flex-1`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("knowledgePage.queryPlaceholder")}
           />
-          <ActionButton variant="outline"
-            disabled={!query.trim() || busy !== null}
-            onClick={() => void search()}>
+          <ActionButton type="submit" variant="outline" disabled={!query.trim() || busy !== null}>
             {busy === "search" ? t("knowledgePage.working") : t("knowledgePage.search")}
           </ActionButton>
-        </div>
-        <div className="mt-4 space-y-3">
+        </form>
+        {searchedQuery !== null ? (
+          <p className="mt-3 text-xs text-[var(--text-muted)]" role="status">
+            {hits.length > 0 ? t("knowledgePage.searchOk", { count: hits.length }) : t("knowledgePage.noHits")}
+          </p>
+        ) : null}
+        <div className="mt-3 space-y-3">
           {hits.map((hit, idx) => (
             <article
               key={`${hit.documentTitle}-${hit.chunkIndex}-${idx}`}
@@ -392,7 +422,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               <div className="font-semibold text-[var(--text-primary)]">
                 [{idx + 1}] {hit.knowledgeBaseName} / {hit.documentTitle}#{hit.chunkIndex}
                 <span className="ml-2 text-xs font-normal text-[var(--text-muted)]">
-                  score {hit.score}
+                  {t("knowledgePage.hitScore", { score: hit.score })}
                 </span>
               </div>
               <pre className="mt-2 whitespace-pre-wrap font-sans text-[var(--text-secondary)]">
@@ -410,6 +440,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         description={t("knowledgePage.deleteDocumentConfirm", { name: documentPendingDelete?.title ?? "" })}
         cancelLabel={t("common.cancel")}
         confirmLabel={t("common.confirmDelete")}
+        error={deleteError ?? undefined}
         onCancel={() => setDocumentPendingDelete(null)}
         onConfirm={() => documentPendingDelete && void removeDoc(documentPendingDelete.id)}
         busy={Boolean(documentPendingDelete && busy === `del-${documentPendingDelete.id}`)}
@@ -423,6 +454,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         })}
         cancelLabel={t("common.cancel")}
         confirmLabel={t("common.confirmDelete")}
+        error={deleteError ?? undefined}
         onCancel={() => setBasePendingDelete(null)}
         onConfirm={() => void removeBase()}
         busy={Boolean(basePendingDelete && busy === `del-base-${basePendingDelete.id}`)}

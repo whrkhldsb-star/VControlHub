@@ -793,15 +793,23 @@ export async function acknowledgeAlertIncident(input: {
 }
 
 /**
- * Resolve incidents whose bound server no longer participates in evaluation —
- * the server row was deleted, or the server was disabled. `evaluateAlerts` only
- * ever inspects existing, enabled hosts, so such an incident can never recover
- * on its own: it would keep escalating to L3 and paging on-call forever, and
- * once the server row is gone it cannot even be acknowledged by team operators
- * (the server-team ownership check in {@link acknowledgeAlertIncident} throws
- * NotFoundError). Silently marking them RESOLVED lets the queue self-heal; if
- * the server is later re-enabled and still breaching, evaluateAlerts opens a
- * fresh incident.
+ * Resolve incidents that no evaluation can reach any more. `evaluateAlerts`
+ * looks at enabled rules and, for each, at the existing, enabled servers the
+ * rule covers, under the rule's current metric. An incident outside that can
+ * never recover on its own:
+ *
+ * - its server was deleted or disabled: it kept escalating to L3 and paging
+ *   on-call, and once the server row is gone team operators cannot even
+ *   acknowledge it (the ownership check in {@link acknowledgeAlertIncident});
+ * - its rule was disabled: it stayed open, with no escalation and no way to
+ *   close it;
+ * - its rule watches another metric now (the fingerprint holds the metric), or
+ *   the server was taken off the rule's list or moved to another customer: it
+ *   stayed open and escalated to L3.
+ *
+ * Marking them RESOLVED without a notice lets the queue heal itself; when the
+ * rule or server comes back and still breaches, evaluateAlerts opens the
+ * incident again.
  *
  * A server that merely went *offline* is untouched — its row still exists and is
  * enabled (`enabled` is the monitoring intent, not liveness), which is exactly
@@ -817,33 +825,55 @@ export async function resolveOrphanedAlertIncidents(options?: {
       ? { rule: options.ruleTeamWhere }
       : {};
   let resolved = 0;
-  let cursorId: string | undefined;
-  // Cursor by id (stable under the RESOLVED mutation — resolved rows drop out of
-  // the status filter but never reorder, so offset-skip cannot starve rows).
+  let afterId: string | undefined;
+  // Keyset by id. Resuming from a cursor row skipped the row after it whenever
+  // that cursor row had just been resolved: it no longer matched the status
+  // filter, so the "skip the cursor row" step dropped a real one instead.
   for (let page = 0; page < 50; page += 1) {
     const active = await prisma.alertIncident.findMany({
-      where: { status: { in: ["OPEN", "ACKNOWLEDGED"] }, serverId: { not: null }, ...ruleFilter },
-      select: { id: true, serverId: true },
+      where: {
+        status: { in: ["OPEN", "ACKNOWLEDGED"] },
+        serverId: { not: null },
+        ...ruleFilter,
+        ...(afterId ? { id: { gt: afterId } } : {}),
+      },
+      select: {
+        id: true,
+        serverId: true,
+        metric: true,
+        rule: { select: { enabled: true, metric: true, serverIds: true, teamId: true } },
+      },
       take: 500,
       orderBy: { id: "asc" },
-      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
     });
     if (active.length === 0) break;
-    cursorId = active[active.length - 1]!.id;
+    afterId = active[active.length - 1]!.id;
 
     const serverIds = Array.from(new Set(active.map((i) => i.serverId).filter((v): v is string => Boolean(v))));
     const live = serverIds.length
       ? await prisma.server.findMany({
           where: { id: { in: serverIds }, enabled: true },
-          select: { id: true },
+          select: { id: true, teamId: true },
         })
       : [];
-    const liveSet = new Set(live.map((s) => s.id));
-    const orphanIds = active.filter((i) => i.serverId && !liveSet.has(i.serverId)).map((i) => i.id);
+    const liveServers = new Map(live.map((s) => [s.id, s]));
+    const orphanIds = active
+      .filter((incident) => {
+        if (!incident.serverId) return false;
+        const server = liveServers.get(incident.serverId);
+        if (!server) return true;
+        const rule = incident.rule;
+        if (!rule) return false;
+        if (!rule.enabled || rule.metric !== incident.metric) return true;
+        if (rule.serverIds.length > 0) return !rule.serverIds.includes(incident.serverId);
+        // A customer's rule without a server list covers that customer's servers only.
+        return Boolean(rule.teamId) && server.teamId !== rule.teamId;
+      })
+      .map((incident) => incident.id);
     if (orphanIds.length > 0) {
       const res = await prisma.alertIncident.updateMany({
         where: { id: { in: orphanIds }, status: { in: ["OPEN", "ACKNOWLEDGED"] } },
-        data: { status: "RESOLVED", resolvedAt: new Date() },
+        data: { status: "RESOLVED", resolvedAt: new Date(), pendingNotifyChannels: [], nextNotifyAt: null },
       });
       resolved += res.count;
     }
@@ -858,8 +888,9 @@ export async function resolveOrphanedAlertIncidents(options?: {
  * Level increases by 1 (capped at 3) and re-notifies on-call + admins.
  * Uses conditional updateMany so overlapping workers cannot double-notify the same level.
  *
- * First self-heals orphaned incidents (deleted/disabled target servers) so they
- * stop escalating forever — see {@link resolveOrphanedAlertIncidents}.
+ * First self-heals orphaned incidents (a deleted or disabled server, a disabled
+ * or changed rule) so they stop escalating forever — see
+ * {@link resolveOrphanedAlertIncidents}.
  * `ruleTeamWhere` (from a manual, team-scoped trigger) restricts both the orphan
  * sweep and escalation to incidents whose rule is visible to that tenant, so one
  * team's "evaluate now" never drives another team's incident lifecycle.

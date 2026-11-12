@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { ActionButton, ButtonLink } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { isImeComposition } from "@/lib/ui/keyboard";
@@ -15,10 +14,10 @@ import { ImagePreviewModalLazy } from "./image-preview-modal-lazy";
 import { ImageBedStatsPanel, UploadProgressPanel } from "./image-bed-sections";
 import { formatImageDate, formatImageSize, formatPublishSource } from "./image-bed-format";
 import { DeleteImageDialog, ImageGrid, PublishFromStorageModal } from "./image-bed-grid-and-modals";
-import { useToast } from "@/components/toast-provider";
 import { Check, ClipboardList, Folder, HardDrive, ImageIcon, LayoutDashboard, Plus, RefreshCw, Search, Share2, Trash2, User } from "@/components/icons";
 import { Pagination } from "@/components/pagination";
-import { InlineLoading } from "@/components/ui-primitives";
+import { InlineLoading, Notice } from "@/components/ui-primitives";
+import { describeFailure } from "@/lib/http/error-message";
 
 export default function ImageBedPage({ canWrite, canDelete, canListAll = false }: { canWrite: boolean; canDelete: boolean; canListAll?: boolean }) {
 	const {
@@ -34,9 +33,8 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 		setShowAll,
 	} = useImageBedList({ canWrite });
 	const { t, locale } = useI18n();
-	const { addToast } = useToast();
 	const refreshImages = (nextPage = 1, query = search) => fetchImages(nextPage, query).catch(() => {
-		// The list hook exposes this failure through the page's visible toast.
+		// The list hook keeps what it failed with (`listError`); the notice above the grid shows it.
 	});
 	const {
 		uploading,
@@ -81,11 +79,6 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 		copyHTML,
 		openPublishModal,
 	} = useImageBedActions({ t, search, page, showAll, images, fetchImages: refreshImages });
-
-	// Surface list failures through the same global toast the actions use.
-	useEffect(() => {
-		if (listError != null) addToast("error", t("imageBed.toast.fetchListFailed"));
-	}, [listError, addToast, t]);
 
 	const formatSize = formatImageSize;
 	const formatDate = (iso: string) => formatImageDate(iso, locale);
@@ -217,13 +210,24 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 				<ActionButton type="button" variant="ghost" icon={<RefreshCw aria-hidden />} onClick={() => { setSearch(""); void refreshImages(1, ""); }}>{t("imageBedPage.search.reset")}</ActionButton>
 			</div>
 
+			{/* A failed load stays on the page with its reason and a way to try again; one passing toast said neither,
+			    and a second failure in a row said nothing. */}
+			{listError != null ? (
+				<Notice tone="danger" className="mt-4" action={{ label: t("common.retry"), onClick: () => void refreshImages(page), disabled: loading }}>
+					{describeFailure(t("imageBed.toast.fetchListFailed"), listError)}
+				</Notice>
+			) : null}
+
 			{/* Image Grid */}
 			{loading ? (
 				<InlineLoading label={t("imageBedPage.loading")} />
 			) : images.length === 0 ? (
-				<EmptyState icon={<ImageIcon size={24} aria-hidden />}>
-					{t("imageBedPage.empty")}
-				</EmptyState>
+				// "No images yet" under a failed load would be a statement about images nobody could read.
+				listError != null ? null : (
+					<EmptyState icon={<ImageIcon size={24} aria-hidden />}>
+						{t("imageBedPage.empty")}
+					</EmptyState>
+				)
 			) : (
 				<ImageGrid
 					images={images}

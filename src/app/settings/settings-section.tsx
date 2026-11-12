@@ -38,6 +38,8 @@ import {
 } from "./settings-save-confirm";
 import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
 import { Notice } from "@/components/ui-primitives";
+import { IconChevronRight } from "@/components/nav-icons";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 export function formatMetadataDate(
   value: Date | string | null,
@@ -105,15 +107,15 @@ export function CollapsibleSection({
       <details open={open} onToggle={onToggle} className="group">
         <summary
           className="cursor-pointer list-none rounded-md py-4 transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
-          aria-label={`${open ? t("settingsClient.collapse") : t("settingsClient.expand")} ${title} ${t("settingsClient.sectionSuffix")}`}
+          aria-label={t(open ? "settingsClient.sectionAria.collapse" : "settingsClient.sectionAria.expand", { title })}
         >
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 flex-1 items-start gap-3">
               <span
                 aria-hidden
-                className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-xs text-[var(--text-muted)] transition group-open:rotate-90"
+                className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-[var(--text-muted)] transition group-open:rotate-90"
               >
-                ▶
+                <IconChevronRight size={14} />
               </span>
               <div className="min-w-0 flex-1">
                 <h2 className="ui-title-section flex flex-wrap items-center gap-2">
@@ -153,13 +155,13 @@ export function AuditSummary({
 }: {
   metadata: SettingUpdateMetadata | null;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (
     <div data-inset className="px-3 py-2 text-xs text-[var(--text-muted)]">
       <p className="font-medium text-[var(--text-secondary)]">{t("settingsClient.recentlyUpdated")}</p>
       <p>
         {t("settingsClient.metadataTime")}
-        {formatMetadataDate(metadata?.updatedAt ?? null, t)}
+        {formatMetadataDate(metadata?.updatedAt ?? null, t, locale)}
       </p>
       <p>
         {t("settingsClient.metadataActor")}
@@ -179,6 +181,12 @@ type SchemaDrivenSectionProps = {
   runtimeSummaryByKey: Map<string, RuntimeSettingSummary>;
   auditMetadata: SettingUpdateMetadata | null;
   saving: boolean;
+  /** Another section is being saved: this one's button waits without saying "saving". */
+  saveDisabled?: boolean;
+  /** Why this section's last save was refused; shown by its Save button. */
+  saveError?: string | null;
+  /** The same, for each field that was refused. */
+  fieldErrors?: Record<string, string>;
   onSave: () => void;
   twoFactorEnabled: boolean;
   diffExpanded: boolean;
@@ -199,6 +207,9 @@ export function SchemaDrivenSection({
   runtimeSummaryByKey,
   auditMetadata,
   saving,
+  saveDisabled = false,
+  saveError,
+  fieldErrors,
   onSave,
   twoFactorEnabled,
   diffExpanded,
@@ -253,7 +264,7 @@ export function SchemaDrivenSection({
       badge={
         badge ??
         (hasSaveButton
-          ? `${saveKeys.length}${section.id === "runtime" ? t("settingsClient.sectionItemsSuffixAdvanced") : t("settingsClient.sectionItemsSuffix")}`
+          ? t(section.id === "runtime" ? "settingsClient.sectionItemsAdvanced" : "settingsClient.sectionItems", { count: saveKeys.length })
           : section.id === "2fa"
             ? "2FA"
             : undefined)
@@ -292,7 +303,8 @@ export function SchemaDrivenSection({
                     typeof field.helperTextKey === "function"
                       ? field.helperTextKey(settings)
                       : field.helperTextKey;
-                  const helperText = helperKey ? t(helperKey) : undefined;
+                  // A helper that speaks of the time of day names the platform's zone.
+                  const helperText = helperKey ? t(helperKey, { zone: APP_TIME_ZONE }) : undefined;
                   const disabled = field.disabled
                     ? field.disabled(settings)
                     : false;
@@ -304,6 +316,7 @@ export function SchemaDrivenSection({
                       value={value}
                       disabled={disabled}
                       helperText={helperText}
+                      error={fieldErrors?.[field.key]}
                       onChange={(v) => {
                         updateField(field.key, v);
                         onHighRiskChange(field);
@@ -330,6 +343,8 @@ export function SchemaDrivenSection({
               expanded={diffExpanded}
               onToggleExpand={onToggleDiff}
               saving={saving}
+              disabled={saveDisabled}
+              error={saveError}
               onClick={onSave}
             />
           )}

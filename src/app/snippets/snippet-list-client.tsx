@@ -10,6 +10,7 @@ import { CreateSnippetModal } from "./create-snippet-modal";
 import { Pencil, Trash2, Copy, Check, Search, Plus } from "@/components/icons";
 import { EmptyState, Toolbar, ListPanel } from "@/components/page-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { copyText } from "@/lib/ui/clipboard";
 import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
@@ -168,7 +169,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
   const handleCopy = useCallback(async (snippet: Snippet) => {
     try {
       const full = await fetchFullSnippet(snippet);
-      await navigator.clipboard.writeText(full.content ?? "");
+      if (!(await copyText(full.content ?? ""))) throw new Error("copy");
       setCopiedId(full.id);
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
       copiedTimerRef.current = setTimeout(() => {
@@ -176,7 +177,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         setCopiedId(null);
       }, 2000);
     } catch {
-      // Clipboard write failed (permissions, non-secure context) — notify the user.
+      // The snippet could not be read or copied: say so.
       addToast("error", t("snippetsPage.toast.copyFailed"));
     }
   }, [fetchFullSnippet, t, addToast]);

@@ -11,6 +11,7 @@ import { checkGuacd, consumeRdpTicket, getRdpServer, guacdPort, rdpEndpointHash,
 import { GuacParser, instruction, validateClientInstruction } from "./protocol";
 import { getRdpSessionRuntimeConfig } from "@/lib/runtime-settings/service";
 import { rdpAudioEnabled, rdpClipboardEnabled, rdpImageMimetypes, RDP_AUDIO_MIMETYPES } from "./features";
+import { RDP_STATUS_IDLE_LIMIT, RDP_STATUS_TIME_LIMIT } from "./status";
 import { createLogger } from "@/lib/logging";
 import { closeSocket } from "@/lib/ws/close-socket";
 import { PreAuthLimiter, upgradeClientAddress } from "@/lib/ws/pre-auth-limiter";
@@ -251,6 +252,10 @@ export function setupRdpWebSocket(server: HttpServer) {
    }
   };
   let lastInput = Date.now();
+  // The last key or mouse instruction: what the idle limit counts from. Every
+  // instruction used to count, the page's 5-second keep-alive included, so a
+  // desktop whose page stayed open never reached the limit.
+  let lastUserInput = Date.now();
   let echoWindowStart = 0;
   let echoes = 0;
   const openedAt = Date.now();
@@ -332,9 +337,12 @@ export function setupRdpWebSocket(server: HttpServer) {
    }
    // The dead-transport floor always applies; the idle/absolute caps are the
    // admin-configured session policy and default to "as long as the browser".
-   if (Date.now() - lastInput > DEAD_TRANSPORT_MS ||
-    (idleTimeoutMs > 0 && Date.now() - lastInput > idleTimeoutMs) ||
-    (maxSessionMs > 0 && Date.now() - openedAt > maxSessionMs)) { close("RDP session limit reached", 1000); return; }
+   // A limit of the policy ends the desktop with its own status: sent as a
+   // plain error it read as a dropped connection, and the page reconnected
+   // three seconds later.
+   if (Date.now() - lastInput > DEAD_TRANSPORT_MS) { close("RDP browser stopped responding", 1000); return; }
+   if (started && idleTimeoutMs > 0 && Date.now() - lastUserInput > idleTimeoutMs) { close("RDP idle limit reached", 1000, String(RDP_STATUS_IDLE_LIMIT)); return; }
+   if (maxSessionMs > 0 && Date.now() - openedAt > maxSessionMs) { close("RDP session time limit reached", 1000, String(RDP_STATUS_TIME_LIMIT)); return; }
    if (Date.now() - lastPingAt >= PING_INTERVAL_MS && ws.readyState === WebSocket.OPEN) { lastPingAt = Date.now(); ws.ping(); }
    if (started) {
     // guacd drops clients that stay silent for ~20s, and background tabs get
@@ -375,8 +383,10 @@ export function setupRdpWebSocket(server: HttpServer) {
     }
    }
    // Any validated traffic — keep-alive nops and ping echoes included — proves
-   // the browser is still there and resets the idle limit.
+   // the browser is still there. Only the keyboard and the mouse say that
+   // somebody is using the desktop.
    lastInput = Date.now();
+   if (row[0] === "key" || row[0] === "mouse") lastUserInput = lastInput;
    if (row[0] === "sync") {
     const timestamp = Number(row[1]);
     if (timestamp > drawnUpTo) drawnUpTo = timestamp;
@@ -513,7 +523,7 @@ export function setupRdpWebSocket(server: HttpServer) {
      }
      if (phase === "ready") {
       if (row[0] !== "ready") throw new Error("Expected ready");
-      phase = "stream"; started = true; clearTimeout(handshakeTimeout);
+      phase = "stream"; started = true; lastUserInput = Date.now(); clearTimeout(handshakeTimeout);
       audit("server.rdp.connected");
       // Internal Guacamole tunnel UUID handshake.
       ws.send(instruction("", row[1] ?? "")); return;

@@ -9,11 +9,40 @@ import { chmod, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { deleteRemoteFile, listRemoteDirectory, readRemoteFile, statRemoteEntry, writeRemoteFile } from "../client";
+import { deleteRemoteFile, execRemoteCommand, listRemoteDirectory, readRemoteFile, statRemoteEntry, writeRemoteFile } from "../client";
 
 describe("Agent-only file fallback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe("a command run through the Agent", () => {
+    const target = { host: "203.0.113.10", port: 22, username: "root", agentServerId: "srv_agent" };
+
+    it("returns a non-zero exit status to the caller, as a command over SSH does", async () => {
+      // `grep` exits 1 for "no match" and a probe may answer with its status:
+      // thrown, these answers were failures on Agent-only servers.
+      mocks.executeCommandWithAgent.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 1 });
+      await expect(execRemoteCommand({ ...target, command: "grep -r needle /data" })).resolves.toEqual({ stdout: "", stderr: "", exitCode: 1 });
+      mocks.executeCommandWithAgent.mockResolvedValueOnce({ stdout: "partial", stderr: "docker: 'compose' is not a docker command.", exitCode: 125 });
+      await expect(execRemoteCommand({ ...target, command: "docker compose ps" })).resolves.toEqual({ stdout: "partial", stderr: "docker: 'compose' is not a docker command.", exitCode: 125 });
+    });
+
+    it("still fails when the Agent is offline, and aborts when the caller cancelled", async () => {
+      mocks.executeCommandWithAgent.mockResolvedValueOnce(null);
+      await expect(execRemoteCommand({ ...target, command: "true" })).rejects.toThrow();
+      const controller = new AbortController();
+      mocks.executeCommandWithAgent.mockImplementationOnce(async () => {
+        controller.abort();
+        return { stdout: "", stderr: "Agent job cancelled", exitCode: 130, cancelled: true };
+      });
+      await expect(execRemoteCommand({ ...target, command: "sleep 60", signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
+    });
+
+    it("keeps a failed file operation an error", async () => {
+      mocks.executeCommandWithAgent.mockResolvedValueOnce({ stdout: "", stderr: "FileNotFoundError: /data/missing", exitCode: 1 });
+      await expect(statRemoteEntry({ ...target, remotePath: "/data/missing" })).rejects.toThrow(/FileNotFoundError/);
+    });
   });
 
   it("lists files through an Agent job without SSH credentials", async () => {

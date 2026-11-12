@@ -1,6 +1,6 @@
 import { parseConfigFromMap } from "@/lib/storage/offsite/schema";
 import { checkTurnstileSecret } from "@/lib/auth/turnstile";
-import { apiCopy } from "@/lib/i18n/api-copy";
+import { apiCopy, currentCopyLocale } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -19,6 +19,7 @@ import { auditUserAction } from "@/lib/audit/service";
 // is given vars or no locale, so an English settings page got Chinese errors.
 import { t } from "@/lib/i18n/service-translations";
 import { ValidationError } from "@/lib/errors";
+import { localizeSchemaMessage } from "@/lib/i18n/schema-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -85,16 +86,16 @@ function normalizeSettingValue(key: string, value: string) {
 		case "platform.logo":
 			return normalizeOptionalHttpUrl(key, value);
 		case "session.timeout":
-					return normalizeIntegerSetting(key, value, "Session timeout", 300, 2_592_000);
+			return normalizeIntegerSetting(key, value, t("backend.settings.label.sessionTimeout"), 300, 2_592_000);
 		case "password.minLength":
-					return normalizeIntegerSetting(key, value, "Password minimum length", 8, 128);
+			return normalizeIntegerSetting(key, value, t("backend.settings.label.passwordMinLength"), 8, 128);
 		case "password.requireUppercase":
 		case "password.requireNumber":
 		case "password.requireSpecial":
 		case "smtp.enabled":
 			return normalizeBooleanSetting(key, value);
 		case "smtp.port":
-					return normalizeIntegerSetting(key, value || "587", "SMTP port", 1, 65_535);
+			return normalizeIntegerSetting(key, value || "587", t("backend.settings.label.smtpPort"), 1, 65_535);
 		case "smtp.from": {
 			const trimmed = value.trim();
 			if (trimmed && !/^.+@.+\..+$/.test(trimmed)) {
@@ -232,7 +233,7 @@ export async function PATCH(request: Request) {
 			} catch (error) {
 				validationErrors.push(
 					error instanceof z.ZodError
-						? error.issues.map((issue) => `offsite.${issue.path.join(".")}: ${issue.message}`).join("; ")
+						? error.issues.map((issue) => `offsite.${issue.path.join(".")}: ${localizeSchemaMessage(issue.message, currentCopyLocale() ?? "en")}`).join("; ")
 						: error instanceof Error ? error.message : String(error),
 				);
 			}

@@ -15,6 +15,12 @@ describe("table preview", () => {
     expect(await screen.findByText("csvPreview.loadFailedWithStatus")).toBeInTheDocument();
     expect(screen.queryByText("private data")).not.toBeInTheDocument();
   });
+  it("says why the server refused the file", async () => {
+    // The status alone ("加载失败: 403") told nobody that the folder is outside their grant.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: "FORBIDDEN", error: "Forbidden", message: "没有此存储节点或路径的访问授权" }), { status: 403 })));
+    render(<CsvPreviewClient href="/api/files/test" />);
+    expect(await screen.findByText("没有此存储节点或路径的访问授权")).toBeInTheDocument();
+  });
   it("cancels obsolete streams when changing files", async () => {
     const cancel = vi.fn();
     const fetcher = vi.fn().mockResolvedValueOnce(new Response(new ReadableStream({ cancel })))

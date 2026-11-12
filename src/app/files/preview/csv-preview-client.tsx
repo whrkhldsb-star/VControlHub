@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { getErrorMessage, readRefusal } from "@/lib/http/error-message";
 import { apiRequest } from "@/lib/http/api-client";
 import { useEffect, useState } from "react";
 import { readDelimitedPreview, tableDelimiter } from "@/lib/storage/delimited-preview";
@@ -21,7 +21,8 @@ export function CsvPreviewClient({ href, name = "", mimeType = "" }: { href: str
 			void (async () => {
 				try {
 					const response = await apiRequest<Response>(href, { signal: controller.signal, raw: true });
-					if (!response.ok) { await response.body?.cancel(); throw new Error(t("csvPreview.loadFailedWithStatus", { status: response.status })); }
+					// The server says why it refused (no grant on this folder, file gone, too many requests); the status alone does not.
+					if (!response.ok) throw new Error((await readRefusal(response)) || t("csvPreview.loadFailedWithStatus", { status: response.status }));
 					const preview = await readDelimitedPreview(response, delimiter, controller.signal);
 					if (!controller.signal.aborted) setState({ loading: false, ...preview, error: null });
 				} catch (error) {

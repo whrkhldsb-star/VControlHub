@@ -50,7 +50,20 @@ type PortCheckState = {
 	available: boolean;
 	usedBy: string | null;
 	checking: boolean;
+	/**
+	 * Why the port could not be checked at all (no answer, a refusal, an unreachable node). Kept apart from
+	 * `usedBy`: the reason used to go there, and the dialog said "in use — used by: could not reach the server"
+	 * about a port nobody had looked at.
+	 */
+	failed?: string;
 };
+
+/** A port as typed: a whole number in range, or null. `Number("80.5")` and `Number("1e3")` are numbers too. */
+function parsePort(value: string): number | null {
+	if (!/^\d{1,5}$/.test(value.trim())) return null;
+	const port = Number(value);
+	return port >= 1 && port <= 65535 ? port : null;
+}
 
 export function InstallDialog({
 	open,
@@ -81,8 +94,9 @@ export function InstallDialog({
 			if (gen !== portCheckGenRef.current) return;
 			setPortCheck({
 				available: false,
-				usedBy: getErrorMessage(err, t("qsPage.checkFailed")),
+				usedBy: null,
 				checking: false,
+				failed: getErrorMessage(err, t("qsPage.checkFailed")),
 			});
 		}
 	}, [serverId, t]);
@@ -108,8 +122,8 @@ export function InstallDialog({
 		(value: string) => {
 			setCustomPort(value);
 			if (portCheckTimer.current) clearTimeout(portCheckTimer.current);
-			const port = Number(value);
-			if (!value || isNaN(port) || port < 1 || port > 65535) {
+			const port = parsePort(value);
+			if (port === null) {
 				setPortCheck(null);
 				return;
 			}
@@ -122,8 +136,8 @@ export function InstallDialog({
 
 	if (!open) return null;
 
-	const port = Number(customPort);
-	const portValid = !isNaN(port) && port >= 1 && port <= 65535;
+	const port = parsePort(customPort);
+	const portValid = port !== null;
 	const containerPort = getPrimaryContainerPort(open);
 	const envCount = getEnvCount(open);
 	const volumeCount = getVolumeMounts(open).length;
@@ -132,7 +146,7 @@ export function InstallDialog({
 		!portValid || !portCheck || portCheck.checking || !portCheck.available;
 
 	const handleAdvance = () => {
-		if (!open || !portValid) return;
+		if (!open || port === null) return;
 		if (!portCheck || portCheck.checking || !portCheck.available) return;
 		onAdvance({ slug: open.slug, name: open.name, port });
 	};
@@ -145,8 +159,9 @@ export function InstallDialog({
 			if (data.port) {
 				handlePortInput(String(data.port));
 			}
-		} catch {
-			/* ignore — user can still type manually */
+		} catch (err) {
+			// The port can still be typed, but the button must not look dead.
+			setPortCheck({ available: false, usedBy: null, checking: false, failed: getErrorMessage(err, t("qsPage.checkFailed")) });
 		}
 	};
 
@@ -189,7 +204,7 @@ export function InstallDialog({
 							value={customPort}
 							onChange={(e) => handlePortInput(e.target.value)}
 							data-input
-							data-error={portCheck && !portCheck.checking && !portCheck.available ? "true" : undefined}
+							data-error={portCheck && !portCheck.checking && !portCheck.available && !portCheck.failed ? "true" : undefined}
 							className={cn(UI_INPUT, "pr-20 font-mono")}
 							placeholder="1-65535"
 						/>
@@ -202,10 +217,10 @@ export function InstallDialog({
 							<div
 								className={cn(
 									"absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium",
-									portCheck.available ? "text-[var(--success)]" : "text-[var(--danger)]",
+									portCheck.available ? "text-[var(--success)]" : portCheck.failed ? "text-[var(--warning)]" : "text-[var(--danger)]",
 								)}
 							>
-								{portCheck.available ? t("qsPage.portAvailable") : t("qsPage.portInUse")}
+								{portCheck.available ? t("qsPage.portAvailable") : portCheck.failed ? t("qsPage.checkFailed") : t("qsPage.portInUse")}
 							</div>
 						)}
 					</div>
@@ -214,6 +229,11 @@ export function InstallDialog({
 				{portCheck && !portCheck.available && portCheck.usedBy && (
 					<Notice tone="danger" compact>{t("qsPage.portInUseDetail", { usedBy: portCheck.usedBy })}</Notice>
 				)}
+				{portCheck?.failed && port !== null ? (
+					<Notice tone="warning" compact action={{ label: t("qsPage.recheckPort"), onClick: () => void checkPortAvailability(port) }}>
+						{t("qsPage.portCheckFailedDetail", { reason: portCheck.failed })}
+					</Notice>
+				) : null}
 
 				<div data-inset className="p-3 text-xs text-[var(--text-secondary)]">
 					<div className="ui-title-caption">{t("qsPage.configPreviewTitle")}</div>

@@ -7,7 +7,7 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { prisma } from "@/lib/db";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serverT, withServerActionLocale } from "@/lib/i18n/server-locale";
 import { restoreFileEntry } from "@/lib/storage/service";
 import { deleteBackingObject } from "@/lib/storage/fs-backend";
 import { purgeAllFileVersionBlobs, purgeDirectoryFileVersionBlobs } from "@/lib/storage/file-versions";
@@ -20,10 +20,21 @@ import { executeDeleteFile, findAffectedShareIds } from "@/lib/files/delete-oper
 import { STORAGE_SSH_SERVER_SELECT } from "@/lib/storage/ssh-credentials";
 
 export async function deleteFileEntryAction(_prev: StorageDeleteActionState | null, formData: FormData): Promise<StorageDeleteActionState> {
+  return withServerActionLocale(() => deleteFileEntryActionImpl(_prev, formData));
+}
+
+async function deleteFileEntryActionImpl(_prev: StorageDeleteActionState | null, formData: FormData): Promise<StorageDeleteActionState> {
   return executeDeleteFile(await requirePermission("storage:delete"), formData);
 }
 
 export async function restoreFileEntryAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => restoreFileEntryActionImpl(_prev, formData));
+}
+
+async function restoreFileEntryActionImpl(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
@@ -100,6 +111,13 @@ export async function restoreFileEntryAction(
 }
 
 export async function permanentDeleteFileEntryAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  return withServerActionLocale(() => permanentDeleteFileEntryActionImpl(_prev, formData));
+}
+
+async function permanentDeleteFileEntryActionImpl(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {

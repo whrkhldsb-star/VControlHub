@@ -14,7 +14,10 @@ test("Windows/Linux create controls and isolated inventory filters", async ({ pa
   await db.connect();
   try {
     for (const os of ["LINUX", "WINDOWS"]) {
-      await db.query(`INSERT INTO servers (id,name,host,port,username,tags,enabled,"connectionType","operatingSystem","createdAt","updatedAt") VALUES ($1,$1,'192.0.2.1',$2,'fixture',ARRAY[$3],false,'PASSWORD',$4,NOW(),NOW())`, [prefix + os, os === "WINDOWS" ? 3389 : 22, prefix, os]);
+      // In the customer the signed-in account works in: a selected customer shows only its own servers.
+      await db.query(`INSERT INTO servers (id,name,host,port,username,tags,enabled,"connectionType","operatingSystem","teamId","createdAt","updatedAt")
+        VALUES ($1,$1,'192.0.2.1',$2,'fixture',ARRAY[$3],false,'PASSWORD',$4,(SELECT "currentTeamId" FROM "User" WHERE username = $5),NOW(),NOW())`,
+        [prefix + os, os === "WINDOWS" ? 3389 : 22, prefix, os, process.env.E2E_DIRECT_USER ?? process.env.E2E_USER ?? "admin"]);
     }
     await page.goto(`/servers?query=${prefix}`);
     await expect(page.locator("[data-server-card]")).toHaveCount(2);

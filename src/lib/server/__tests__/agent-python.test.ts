@@ -231,6 +231,58 @@ describe.skipIf(!hasPython)("Linux Agent (agent.py) against a fake hub", () => {
     }
   }, 30_000);
 
+  it("never leaves a command running when the stop arrives while it is being started", async () => {
+    // Found by the test above failing under load: a stop raised between starting the command and watching
+    // it left run() with the command running and no result, so the Agent exited without a word and nobody
+    // ended the command. The stop is sent at a growing delay after the hub hands the job out, so that some
+    // rounds land before the command starts, some while it is being started and some after.
+    for (let step = 0; step < 12; step++) {
+      const delayMs = step * 0.25;
+      const dir = mkdtempSync(join(tmpdir(), "vch-agent-"));
+      const pidFile = join(dir, "pid");
+      const polls: Poll[] = [];
+      const stop: { agent?: ReturnType<typeof spawn> } = {};
+      const hub = createServer((request, response) => {
+        const chunks: Buffer[] = [];
+        request.on("data", (chunk: Buffer) => chunks.push(chunk));
+        request.on("end", () => {
+          polls.push({ headers: request.headers, body: JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown> });
+          const first = polls.length === 1;
+          response.writeHead(200, { "Content-Type": "application/json" });
+          response.end(JSON.stringify(first ? { pollAfterMs: 0, job: { id: "early", command: `echo $$ > ${pidFile}; sleep 30`, timeoutMs: 60_000 } } : { pollAfterMs: 5000, job: null }), () => {
+            if (!first) return;
+            // Timers are too coarse for a quarter of a millisecond.
+            const until = performance.now() + delayMs;
+            while (performance.now() < until) { /* wait */ }
+            stop.agent?.kill("SIGTERM");
+          });
+        });
+      });
+      await new Promise<void>((resolve) => hub.listen(0, "127.0.0.1", resolve));
+      const script = join(dir, "agent.py");
+      writeFileSync(script, buildAgentPython(`http://127.0.0.1:${(hub.address() as AddressInfo).port}`, TOKEN));
+      const agent = spawn("python3", [script], { stdio: "ignore" });
+      stop.agent = agent;
+      const exited = new Promise<number | null>((resolve) => agent.on("exit", (code) => resolve(code)));
+      let pid = 0;
+      try {
+        expect(await exited).toBe(0);
+        // A command that was started may still be on its way to writing its pid.
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        if (existsSync(pidFile)) pid = Number(readFileSync(pidFile, "utf8").trim());
+        if (pid) {
+          expect(() => process.kill(pid, 0), `a stop ${delayMs} ms after the job was handed out left the command running`).toThrow();
+          expect(polls.at(-1)!.body).toMatchObject({ stopping: true, result: { jobId: "early", exitCode: 143 } });
+        }
+      } finally {
+        agent.kill("SIGKILL");
+        if (pid) { try { process.kill(pid, "SIGKILL"); } catch { /* gone, as it should be */ } }
+        await new Promise<void>((resolve) => hub.close(() => resolve()));
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  }, 90_000);
+
   it("reports a job when its shell ends, not when a process it left running does", async () => {
     // A background process holds the output pipes; reading to their end waited
     // for it until the job's timeout killed it (and forever if it had left the

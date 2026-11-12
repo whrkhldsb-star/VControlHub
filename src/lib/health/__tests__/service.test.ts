@@ -256,6 +256,42 @@ describe("evaluateAlerts", () => {
 		});
 	});
 
+	it("closes a recovered server's incident even when the rule's match stamp for it is gone", async () => {
+		// Recovery was read from the per-server stamp alone. A stamp lost to a concurrent evaluation (the write is a
+		// compare-and-set) or cleared by an edit of the rule left the incident open for good.
+		prismaMock.alertIncident.findMany.mockImplementation(async (args: { select?: { fingerprint?: boolean } }) =>
+			args?.select?.fingerprint ? [{ fingerprint: "rule1::srv1::cpu_usage" }] : []);
+		prismaMock.alertIncident.findUnique.mockResolvedValue({ id: "inc1", status: "OPEN", level: 1, serverName: "Prod", metric: "cpu_usage" });
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule1",
+				name: "CPU high",
+				metric: "cpu_usage",
+				threshold: 80,
+				operator: "gte",
+				durationSeconds: 0,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: null,
+				matchState: {},
+				cooldownMinutes: 0,
+				silenceWindows: [],
+				serverIds: [],
+				notifyChannels: ["in_app"],
+				webhookUrl: null,
+			},
+		]);
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(20));
+
+		await evaluateAlerts();
+
+		expect(prismaMock.alertIncident.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+			where: expect.objectContaining({ id: "inc1" }),
+			data: expect.objectContaining({ status: "RESOLVED" }),
+		}));
+		expect(createNotificationMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "admin1", type: "alert_resolved" }));
+	});
+
 	it("does not fire a server_offline alert for an administratively disabled host", async () => {
 		// A disabled host is reported as status "offline" for the dashboard chip,
 		// but disabling is not a network outage. An explicit-target server_offline

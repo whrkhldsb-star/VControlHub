@@ -10,7 +10,9 @@ const {
   imageFindFirstMock,
   storageFindUniqueMock,
   fileEntryFindManyMock,
+  generateThumbnailMock,
 } = vi.hoisted(() => ({
+  generateThumbnailMock: vi.fn(),
   requireApiPermissionMock: vi.fn(),
   assertStorageAccessMock: vi.fn(),
   imageCreateMock: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock("@/lib/image-bed/constants", () => ({
 vi.mock("@/lib/image/service", () => ({
   canonicalImageMime: (format: string) => `image/${format === "jpg" ? "jpeg" : format}`,
   extractMetadata: vi.fn(async () => ({ width: 2, height: 2, format: "png", sizeBytes: 3 })),
+  generateThumbnail: generateThumbnailMock,
 }));
 
 import { POST } from "../route";
@@ -101,6 +104,7 @@ describe("POST /api/images/publish-from-storage", () => {
     imageFindFirstMock.mockResolvedValue(null);
     imageCreateMock.mockResolvedValue({ id: "img_1", filename: "source.png" });
     fileEntryFindManyMock.mockResolvedValue([]);
+    generateThumbnailMock.mockResolvedValue(Buffer.from("thumb"));
   });
 
   it("refuses an image that is in the recycle bin, whose bytes are still at its path", async () => {
@@ -134,13 +138,35 @@ describe("POST /api/images/publish-from-storage", () => {
         userId: "u_1",
       }),
     }));
-    const publishedFile = (await listFiles(uploadRoot))[0];
+    const publishedFile = (await listFiles(uploadRoot)).find((name) => name.endsWith(".png"));
     expect(publishedFile).toMatch(/\.png$/);
     await expect(readFile(path.join(uploadRoot, publishedFile!))).resolves.toEqual(Buffer.from("png"));
   });
 
+  it("writes the thumbnail the image grid asks for, as an upload does", async () => {
+    // Without it every tile of a published image loaded the original, up to 20 MB each.
+    const response = await POST(publishRequest());
+
+    expect(response.status).toBe(201);
+    const files = (await listFiles(uploadRoot)).sort();
+    expect(files).toHaveLength(2);
+    const original = files.find((name) => name.endsWith(".png"))!;
+    expect(files).toContain(original.replace(/\.png$/, "_thumb.webp"));
+    await expect(readFile(path.join(uploadRoot, original.replace(/\.png$/, "_thumb.webp")))).resolves.toEqual(Buffer.from("thumb"));
+  });
+
+  it("publishes the image even when no thumbnail can be made", async () => {
+    generateThumbnailMock.mockRejectedValueOnce(new Error("unsupported image"));
+
+    const response = await POST(publishRequest());
+
+    expect(response.status).toBe(201);
+    expect(await listFiles(uploadRoot)).toHaveLength(1);
+  });
+
   it("rejects inaccessible source paths before reading or writing public image files", async () => {
-    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+    // The decision carries a code; the answer says it in words (it used to be the code itself, "no_access").
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "no_access" });
 
     const response = await POST(publishRequest());
 
@@ -148,9 +174,8 @@ describe("POST /api/images/publish-from-storage", () => {
     expect(await listFiles(uploadRoot)).toEqual([]);
     expect(imageFindFirstMock).not.toHaveBeenCalled();
     expect(imageCreateMock).not.toHaveBeenCalled();
-    await expect(response.json()).resolves.toMatchObject({
-      error: "没有该存储节点或路径的访问授权",
-    });
+    const body = await response.json() as { error: string };
+    expect(["没有此存储节点或路径的访问授权", "No access authorization for this storage node or path"]).toContain(body.error);
   });
 
   it("rejects SVG storage files before they can be published inline", async () => {
