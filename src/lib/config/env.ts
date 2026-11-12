@@ -152,11 +152,10 @@ export const config = {
 
 	/** Command execution worker / runtime. */
 	command: {
-		get heartbeatMs(): number { return readInt("COMMAND_EXECUTION_HEARTBEAT_MS", 5_000); },
-		get timeoutMs(): number { return readInt("COMMAND_EXECUTION_TIMEOUT_MS", 60_000); },
-		get outputLimitBytes(): number { return readInt("COMMAND_OUTPUT_LIMIT_BYTES", 1_048_576); },
-		get reconcileIntervalMs(): number { return readInt("COMMAND_RECONCILE_INTERVAL_MS", 30_000); },
-		get staleRunningAfterMs(): number { return readInt("COMMAND_STALE_RUNNING_AFTER_MS", 5 * 60_000); },
+		// Timeout, output limit, heartbeat, reconcile interval and stale-after are runtime settings: their
+		// environment names and the defaults in effect are in RUNTIME_SETTING_DEFINITIONS (runtime-settings/service).
+		// Five getters here read the same names with other defaults (60 s, 1 MiB, 5 s, 30 s, 5 min) and were
+		// read by nothing.
 		get demoFallback(): boolean { return readBool("COMMAND_DEMO_FALLBACK", false); },
 		get startWorkerInNext(): boolean { return readBool("VCONTROLHUB_START_COMMAND_WORKER_IN_NEXT", false); },
 	},

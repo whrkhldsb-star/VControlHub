@@ -242,7 +242,8 @@ export function analyzeRoute(
   }
 
   return {
-    path: absPath,
+    // Relative like relPath: the committed report carried the absolute paths of the machine that wrote it.
+    path: relative(ROOT, absPath).split(sep).join("/"),
     relPath: relative(ROOT, absPath).split(sep).join("/"),
     verdict,
     hasInlineZod: inlineZodSites.length > 0,

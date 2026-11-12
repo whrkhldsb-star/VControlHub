@@ -1,6 +1,6 @@
 import { parseConfigFromMap } from "@/lib/storage/offsite/schema";
 import { checkTurnstileSecret } from "@/lib/auth/turnstile";
-import { apiCopy } from "@/lib/i18n/api-copy";
+import { apiCopy, currentCopyLocale } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -19,6 +19,7 @@ import { auditUserAction } from "@/lib/audit/service";
 // is given vars or no locale, so an English settings page got Chinese errors.
 import { t } from "@/lib/i18n/service-translations";
 import { ValidationError } from "@/lib/errors";
+import { localizeSchemaMessage } from "@/lib/i18n/schema-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -232,7 +233,7 @@ export async function PATCH(request: Request) {
 			} catch (error) {
 				validationErrors.push(
 					error instanceof z.ZodError
-						? error.issues.map((issue) => `offsite.${issue.path.join(".")}: ${issue.message}`).join("; ")
+						? error.issues.map((issue) => `offsite.${issue.path.join(".")}: ${localizeSchemaMessage(issue.message, currentCopyLocale() ?? "en")}`).join("; ")
 						: error instanceof Error ? error.message : String(error),
 				);
 			}

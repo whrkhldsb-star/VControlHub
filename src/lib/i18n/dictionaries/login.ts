@@ -6,7 +6,7 @@
  */
 
 export const zh: Record<string, string> = {
-	"login.branding.signInTag": "Secure Sign In",
+	"login.branding.signInTag": "安全登录",
 	"login.branding.subtitle": "使用管理员账号进入控制台。",
 	"login.branding.tagline": "，一站式资源管理",
 	"login.branding.welcome": "欢迎回来",

@@ -6,6 +6,7 @@ import { statusLabelFor, formatTime } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary } from "./playbook-types";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 function stepStatusLabel(t: (k: string) => string, status: string): string {
   const key = `playbooksPage.stepStatus.${status}`;
@@ -112,7 +113,7 @@ export const PlaybookCard = memo(function PlaybookCard({
           </div>
       {playbook.triggerType === "cron" ? (
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("playbooksPage.schedule.nextRun", { time: formatTime(playbook.nextRunAt, locale) })}
+          {t("playbooksPage.schedule.nextRun", { time: formatTime(playbook.nextRunAt, locale), zone: APP_TIME_ZONE })}
         </p>
       ) : (
         <p className="mt-1 text-xs text-[var(--text-muted)]">

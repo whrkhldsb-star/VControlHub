@@ -101,7 +101,7 @@ export const zh: Record<string, string> = {
 	"quickServicesPage.sources.enable": "启用",
 	"quickServicesPage.sources.linuxserverDesc": "LinuxServer 团队精选，覆盖文件、媒体、自动化等场景。",
 	"quickServicesPage.sources.customLabel": "自定义 JSON",
-	"quickServicesPage.sources.customDesc": "填写你自己托管的 JSON catalog 地址。",
+	"quickServicesPage.sources.customDesc": "填写你自己托管的 JSON 目录文件地址。",
 
 	// quick-services-client (R14)
 	"qsPage.loading": "加载中…",

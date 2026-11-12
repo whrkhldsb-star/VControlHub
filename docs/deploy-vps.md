@@ -71,10 +71,12 @@ npm run prisma:seed
 ## 6. 构建与启动
 
 ```bash
-npm run build
+VCONTROLHUB_ALLOW_BUILD=1 npm run build
 npm run build:runtime
 NODE_ENV=production NEXT_HOST=127.0.0.1 PORT=3000 npm run start
 ```
+
+`npm run build` 默认会拒绝执行：它先检查本机的 `vcontrolhub-next.service`，避免在正在提供服务的目录上直接覆盖 `.next`。首次手动安装时这个服务还不存在，所以用 `VCONTROLHUB_ALLOW_BUILD=1` 明确放行。服务运行起来之后不要再这样构建，更新请用 `sudo bash deploy.sh`（它在独立目录里构建，再切换）。
 
 SSH WebSocket 代理另启一个进程：
 
@@ -103,10 +105,10 @@ SSH_WS_HOST=127.0.0.1 SSH_WS_PORT=3001 npm run start:ssh-ws
 npm run typecheck
 npm run lint
 npm test
-npm run build
-npm run build:runtime
 curl -I http://127.0.0.1:3000/login
 ```
+
+服务已经在运行时，不要为了验证再执行 `npm run build`：构建会覆盖正在使用的 `.next`。
 
 浏览器访问你的域名，登录后先进入“修改密码”更换初始密码，再添加 SSH 密钥、VPS 节点和存储节点。
 

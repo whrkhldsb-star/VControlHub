@@ -1,4 +1,5 @@
 import { isForbiddenErrorLike } from "@/lib/errors";
+import { ambientCopyLocale, ambientSchemaSentence } from "@/lib/i18n/ambient-locale";
 
 /**
  * Shared client/server helper for turning unknown catch values into a
@@ -93,18 +94,21 @@ function isServerRedaction(error: unknown): boolean {
 
 /**
  * A schema error's own message is the JSON dump of its issues, which is what the server form showed for a host
- * typed as a URL. The issues carry the sentences a person can read. Told apart by shape: this module is shared
- * with the browser, where `instanceof` against another copy of the library would miss.
+ * typed as a URL. The issues carry the sentences a person can read — written in English in the schema, and put
+ * into the language in use here (i18n/schema-copy.ts). Told apart by shape: this module is shared with the
+ * browser, where `instanceof` against another copy of the library would miss.
  */
 function schemaIssueMessages(error: unknown): string | null {
 	if (!(error instanceof Error) || error.name !== "ZodError") return null;
 	const issues: unknown = (error as { issues?: unknown }).issues;
 	if (!Array.isArray(issues)) return null;
+	// The language of the request (a Server Action) or of the page; English where neither is known.
+	const locale = ambientCopyLocale() ?? "en";
 	const messages = issues
 		.map((issue: unknown) => (issue && typeof issue === "object" ? (issue as { message?: unknown }).message : undefined))
 		.filter((message): message is string => typeof message === "string" && message.trim() !== "")
-		.map((message) => message.trim());
-	return [...new Set(messages)].slice(0, 3).join("; ");
+		.map((message) => ambientSchemaSentence(message.trim(), locale));
+	return [...new Set(messages)].slice(0, 3).join(locale === "zh" ? "；" : "; ");
 }
 
 function isDatabaseError(error: unknown): boolean {

@@ -86,7 +86,7 @@ Windows Server 2019/2022/2025 或受支持的 Windows 10/11 可启用 Microsoft 
 | 本地存储节点（LOCAL） | ✅ 可用 | 路径使用本机文件系统 |
 | 本机监控（CPU/内存/进程/TCP 连接/网卡流量） | ✅ 可用 | CPU 用 `os.cpus()` 差分；进程列表与 TCP 连接走 PowerShell / `netstat`；网卡计数走 `Get-NetAdapterStatistics`（带 2 秒缓存） |
 | 流量页面（本机 + 远端 VPS） | ✅ 可用 | 本机走上述采样器，远端仍通过 SSH 读取 `/proc/net/dev` |
-| 压缩包在线列表（tar/tgz/zip） | ✅ 可用 | bsdtar 原生读取 zip（无需 unzip）；`-tv` 输出同时兼容 GNU tar 与 bsdtar 两种列格式 |
+| 压缩包在线列表与解压（tar/tgz/zip） | ✅ 可用 | 在进程内读取（`src/lib/storage/zip-reader.ts`、`tar-reader.ts`），不调用 tar 或 unzip；7z／rar 的列表仍需要本机安装对应命令 |
 | `.gz` 单文件解压 | ✅ 可用 | 使用 Node 内置 zlib，不依赖 gunzip 二进制 |
 | 磁力/直链中转下载（aria2） | ⚠️ 需安装 aria2 | 需自行安装 [aria2](https://github.com/aria2/aria2/releases) 并保证 `aria2c.exe` 在 `PATH`；未安装时接口返回缺二进制的友好错误 |
 | hub-host Docker 管理 | ⚠️ 需 Docker Desktop | 走命名管或 `DOCKER_HOST`；quick-service 应用模板按 Linux 容器编写（挂载 `/var/run/docker.sock` 等），在 Windows 上仅对远端 VPS 目标有意义 |

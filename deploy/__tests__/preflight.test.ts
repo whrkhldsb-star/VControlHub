@@ -366,7 +366,7 @@ describeOrSkip("deploy/preflight.sh", () => {
     // to ask ifconfig.me: the test passed only where that host was reachable.
     await writeFile(
       path.join(binDir, "ip"),
-      '#!/usr/bin/env bash\nprintf "    inet 31.59.111.31/24 brd 31.59.111.255 scope global eth0\\n"\n',
+      '#!/usr/bin/env bash\nprintf "    inet 203.0.113.31/24 brd 203.0.113.255 scope global eth0\\n"\n',
     );
     await writeFile(
       path.join(binDir, "apache2"),
@@ -422,7 +422,7 @@ describeOrSkip("deploy/preflight.sh", () => {
       // The address of the local interface, not one learned from the network.
       await expect(
         readFile(path.join(appDir, "fake-root/etc/apache2/sites-available/next-proxy.conf"), "utf8"),
-      ).resolves.toContain("ServerName 31.59.111.31\n");
+      ).resolves.toContain("ServerName 203.0.113.31\n");
     } finally {
       await rm(appDir, { force: true, recursive: true });
     }

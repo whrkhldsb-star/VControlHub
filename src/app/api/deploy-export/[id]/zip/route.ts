@@ -11,6 +11,7 @@ import { buildZip } from "@/lib/deploy-export/zip";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 
 import type { DeploymentExport } from "@prisma/client";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export async function GET(
       const { id } = await params;
       const parsedId = idSchema.safeParse(id);
       if (!parsedId.success) {
-        throw new ValidationError(parsedId.error.issues[0]?.message ?? "Invalid export id");
+        throw new ValidationError(firstSchemaSentence(parsedId.error) ?? "Invalid export id");
       }
       const record = await prisma.deploymentExport.findUnique({ where: { id: parsedId.data } });
       if (!record) {

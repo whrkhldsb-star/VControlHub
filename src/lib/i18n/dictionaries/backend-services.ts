@@ -482,7 +482,7 @@ export const zh: Record<string, string> = {
 	"backend.traffic.remote.samplingFailed": "采样失败",
 
 	"backend.user.usernameAlreadyExists": "用户名已存在",
-	"backend.password.minLength": "密码长度至少 {min} 个字符",
+	"backend.password.minLength": "密码至少 {min} 位",
 	"backend.password.uppercase": "密码至少包含一个大写字母",
 	"backend.password.digit": "密码至少包含一个数字",
 	"backend.password.special": "密码至少包含一个特殊字符",

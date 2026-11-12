@@ -61,7 +61,11 @@ for (const phrase of [`${pages} 个 \`page.tsx\``, `${routes} 个 API 路由文�
 // The reader already has a mobile and desktop TOC.
 const body = text.replace(/## 目录\n[\s\S]*?(?=<a id="project")/, "");
 const rendered = md.render(body).replace(/(?:<p>)?<a id="([^"]+)"><\/a>(?:<\/p>)?\s*<h2>/g, '<h2 id="$1">');
-const html = readFileSync(resolve(root, "scripts/project-guide/template.html"), "utf8").replace("{{CONTENT}}", rendered);
+// The page count in the description is the counted one (it said 55 while the guide said 58). Replacer
+// functions: a replacement string would read `$&` or "$`" in the guide's code samples as patterns.
+const html = readFileSync(resolve(root, "scripts/project-guide/template.html"), "utf8")
+  .replace("{{PAGES}}", () => String(pages))
+  .replace("{{CONTENT}}", () => rendered);
 const markup = html.replace(/<script>[\s\S]*?<\/script>/g, "");
 const ids = [...markup.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
 if (ids.length !== new Set(ids).size) throw new Error("Duplicate guide HTML anchors");

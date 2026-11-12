@@ -20,6 +20,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
 import { MAX_NON_FILE_FORM_BYTES } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
   };
   return withApiRoute(request, options, async ({ session, body }) => {
     const parsed = isFormSubmission ? createBackupSchema.safeParse(await readRequestBody(request)) : { success: true as const, data: body };
-    if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? "Invalid backup parameters");
+    if (!parsed.success) throw new ValidationError(firstSchemaSentence(parsed.error) ?? "Invalid backup parameters");
     const { wait } = parseSearchParams(
       request,
       z.object({

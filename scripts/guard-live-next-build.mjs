@@ -9,6 +9,12 @@ if (process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true") process.
 if (process.env.VCONTROLHUB_ALLOW_BUILD === "1") process.exit(0);
 
 const service = process.env.NEXT_SYSTEMD_SERVICE || "vcontrolhub-next.service";
+// A checkout that is not an installation (development, a first manual install) has no such service, and the
+// refusals below used to end at "use deploy.sh", which does not apply there. The way through is explicit, so
+// that an installation whose service has another name is never built over by accident.
+const NOT_AN_INSTALLATION =
+	"If this directory is not a running installation (a development checkout, a first manual install),\n" +
+	"authorize the build explicitly: VCONTROLHUB_ALLOW_BUILD=1 npm run build";
 try {
 	const state = execFileSync("systemctl", ["is-active", service], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 	if (process.env.VCONTROLHUB_DEPLOY_BUILD === "1") {
@@ -21,7 +27,8 @@ try {
 	if (state !== "active") {
 		console.error(
 			`Refusing an uncoordinated production build in ${process.cwd()}.\n` +
-			"Use sudo bash deploy.sh; it owns the deployment lock and authorizes the build only after stopping the service.",
+			"Use sudo bash deploy.sh; it owns the deployment lock and authorizes the build only after stopping the service.\n" +
+			NOT_AN_INSTALLATION,
 		);
 		process.exit(2);
 	}
@@ -38,6 +45,6 @@ try {
 	process.exit(2);
 } catch {
 	if (process.env.VCONTROLHUB_DEPLOY_BUILD === "1") process.exit(0);
-	console.error(`Unable to verify ${service}; refusing an uncoordinated production build.`);
+	console.error(`Unable to verify ${service}; refusing an uncoordinated production build.\n${NOT_AN_INSTALLATION}`);
 	process.exit(2);
 }

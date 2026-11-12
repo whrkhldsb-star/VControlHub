@@ -23,6 +23,7 @@ import { getToolByName, type HostedTool } from "./hosted-tools";
 import { executeServerlessQuery } from "./hosted-safe-queries";
 import { t } from "@/lib/i18n/service-translations";
 import { executeAutomationProposal, materializeAutomationProposal } from "./automation-service";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 
 import {
   buildAssistantCommandRequestPayload,
@@ -125,7 +126,7 @@ export async function createHostedAction(input: {
     const payload = await buildAssistantCommandRequestPayload({ tool, args: params, userId, serverId, teamId: resolvedServer?.teamId ?? null });
     const parsed = createCommandSchema.safeParse(payload);
     if (!parsed.success) {
-      throw new BusinessError(parsed.error.issues[0]?.message ?? t("backend.ai.invalidActionParameters"));
+      throw new BusinessError(firstSchemaSentence(parsed.error) ?? t("backend.ai.invalidActionParameters"));
     }
   }
   return prisma.aiHostedAction.create({

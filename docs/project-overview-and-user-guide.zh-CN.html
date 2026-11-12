@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="description" content="VControlHub 项目全景、各模块功能与使用指南：24 章、55 个页面、设计架构、权限、后台任务和操作流程。"><title>VControlHub · 项目全景与使用指南</title><style>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="description" content="VControlHub 项目全景、各模块功能与使用指南：24 章、58 个页面、设计架构、权限、后台任务和操作流程。"><title>VControlHub · 项目全景与使用指南</title><style>
 :root{--ink:#192b3e;--muted:#5c7083;--line:#dfe7ef;--brand:#146858;--tint:#edf6f2;--paper:#fff;--bg:#f3f6fa;--nav-width:296px}
 *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:88px}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.85 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif}a{color:#176494;text-decoration:none;overflow-wrap:anywhere}a:hover{text-decoration:underline}a:focus-visible,button:focus-visible,input:focus-visible,.table-scroll:focus-visible{outline:3px solid #1d856f;outline-offset:3px}button,input{font:inherit}button{cursor:pointer}
 .topbar{position:sticky;top:0;z-index:5;background:#153b37;color:white;display:flex;justify-content:space-between;align-items:center;gap:18px;padding:13px 28px;box-shadow:0 3px 16px #1b394c14}.brand{font-size:17px;letter-spacing:.3px;font-weight:750}.brand small{font-size:12px;font-weight:400;opacity:.75;margin-left:12px}.toolbar{display:flex;align-items:center;gap:18px;font-size:13px}.toolbar a{color:#e1f3ef}.toolbar button{border:1px solid #7daba2;background:transparent;color:white;padding:4px 12px;border-radius:6px}.search-tip{color:#bdd7d0;font-size:12px}
@@ -1579,7 +1579,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>入口：<code>/scheduled-tasks</code>。</p>
 <p>支持周期 Cron 与一次性执行两种计划模型，可保存名称、命令、目标节点、原因，以及方案、验证命令、回滚命令等信息。页面提供创建、修改允许字段、暂停／恢复、删除、立即运行一次、搜索与运行记录查看。启用中的计划显示为“已启用”，Cron 表达式旁附中文或英文的通俗说明（每 N 分钟、每 N 小时、每天、每周）；无法用一句话说明的表达式只显示原文。</p>
 <ul>
-<li>Cron 为五字段表达式，周期计划按项目应用时区 <code>Asia/Shanghai</code> 计算。</li>
+<li>Cron 为五字段表达式，周期计划按平台时区计算（环境变量 <code>APP_TIME_ZONE</code>，默认 <code>Asia/Shanghai</code>）。</li>
 <li>一次性计划使用明确的执行时间，完成后不应继续当作循环计划调度。</li>
 <li>默认每次调度产生需要审批的命令请求；关闭逐次审批需要 <code>command:approve</code>。</li>
 <li>可区分手工创建与 AI 方案来源。</li>
@@ -2476,7 +2476,7 @@ sudo npm run admin:reset-2fa -- 账号名
 </tr>
 <tr>
 <td><code>offsite.dailyWindowHour</code></td>
-<td>每日上传窗口小时，按应用时区 <code>Asia/Shanghai</code> 解释</td>
+<td>每日上传窗口小时，按平台时区解释（<code>APP_TIME_ZONE</code>，默认 <code>Asia/Shanghai</code>）</td>
 </tr>
 <tr>
 <td><code>offsite.retentionDays</code></td>
@@ -3560,7 +3560,7 @@ npm run docs:check
 </table></div>
 <h3 id="section-23-4">23.4 时间、状态和能力说明的阅读规则</h3>
 <ul>
-<li>Cron 计划、Playbook、AI 日常扫描、S3 每日上传窗口、运行时间热力图和成本预算周期都使用项目应用时区 <code>Asia/Shanghai</code>；系统级 timer 以其部署配置为准。</li>
+<li>Cron 计划、Playbook、AI 日常扫描、S3 每日上传窗口、运行时间热力图和成本预算周期都使用平台时区：由环境变量 <code>APP_TIME_ZONE</code> 决定（浏览器端对应 <code>NEXT_PUBLIC_APP_TIME_ZONE</code>，需在构建前设置），默认 <code>Asia/Shanghai</code>；系统级 timer 以其部署配置为准。</li>
 <li>表单“启用”表示允许使用，健康探测“可达”表示某条链路通过，任务“完成”表示该任务定义的步骤结束，应分别阅读。</li>
 <li>可配置字段、代码中存在的适配、实际部署启用及第三方实机验收是不同层次。</li>
 <li>本文与所在仓库版本的源代码配套使用。较早专项文档可能保留历史方案或待办；遇到冲突应核对本文引用的当前服务与接口。</li>

@@ -387,7 +387,7 @@ describe("server service", () => {
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
       id: "srv_existing",
       name: "existing-node",
-      host: "45.207.216.45",
+      host: "198.51.100.45",
       port: 22,
       username: "root",
       enabled: true,
@@ -396,7 +396,7 @@ describe("server service", () => {
     await expect(
       createServerProfile({
         name: "existing-node",
-        host: "45.207.216.45",
+        host: "198.51.100.45",
         port: 61834,
         username: "root",
         connectionType: "PASSWORD",
@@ -404,7 +404,7 @@ describe("server service", () => {
         approvedHostKeySha256: "hk-prod-1 storage",
       }),
     ).rejects.toThrow(
-      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@45.207.216.45:22" }),
+      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@198.51.100.45:22" }),
     );
 
     expect(prisma.server.create).not.toHaveBeenCalled();
@@ -477,7 +477,7 @@ describe("server service", () => {
     const created = {
       id: "srv_draft",
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 22,
       username: "root",
       description: null,
@@ -514,12 +514,12 @@ describe("server service", () => {
       },
     });
     execRemoteCommandMock.mockRejectedValueOnce(
-      new Error("connect ECONNREFUSED 107.148.254.104:22"),
+      new Error("connect ECONNREFUSED 203.0.113.104:22"),
     );
 
     const result = await createServerProfile({
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 22,
       username: "root",
       connectionType: "PASSWORD",
@@ -557,7 +557,7 @@ describe("server service", () => {
     const current = {
       id: "srv_draft",
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 22,
       username: "root",
       description: null,
@@ -596,7 +596,7 @@ describe("server service", () => {
     const current = {
       id: "srv_draft",
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 22,
       username: "root",
       description: null,
@@ -656,7 +656,7 @@ describe("server service", () => {
     );
     expect(createRemoteDirectory).toHaveBeenCalledWith(
       expect.objectContaining({
-        host: "107.148.254.104",
+        host: "203.0.113.104",
         hostKeySha256: "SHA256:verified",
         remotePath: "/root/drive",
       }),
@@ -676,7 +676,7 @@ describe("server service", () => {
     const current = {
       id: "srv_draft",
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 48163,
       username: "root",
       description: null,
@@ -718,7 +718,7 @@ describe("server service", () => {
     const current = {
       id: "srv_draft_gateway",
       name: "pending-gateway",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 48163,
       username: "root",
       description: null,
@@ -792,7 +792,7 @@ describe("server service", () => {
     const current = {
       id: "srv_draft",
       name: "pending-node",
-      host: "107.148.254.104",
+      host: "203.0.113.104",
       port: 22,
       username: "root",
       description: null,
@@ -818,11 +818,11 @@ describe("server service", () => {
     } as any;
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current);
     execRemoteCommandMock.mockRejectedValueOnce(
-      new Error("connect ECONNREFUSED 107.148.254.104:22"),
+      new Error("connect ECONNREFUSED 203.0.113.104:22"),
     );
 
     await expect(toggleServerEnabled("srv_draft")).rejects.toThrow(
-      /107\.148\.254\.104:22.*保持停用/,
+      /203\.0\.113\.104:22.*保持停用/,
     );
 
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -851,7 +851,7 @@ describe("server service", () => {
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
       id: "srv_other",
       name: "existing-node",
-      host: "45.207.216.45",
+      host: "198.51.100.45",
       port: 22,
       username: "root",
       enabled: true,
@@ -859,13 +859,13 @@ describe("server service", () => {
 
     await expect(
       updateServerProfile("srv_edit", {
-        host: "45.207.216.45",
+        host: "198.51.100.45",
         port: 61834,
         username: "root",
         connectionType: "PASSWORD",
       }),
     ).rejects.toThrow(
-      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@45.207.216.45:22" }),
+      t("backend.server.duplicateHost", { name: "existing-node", endpoint: "root@198.51.100.45:22" }),
     );
 
     expect(prisma.server.update).not.toHaveBeenCalled();

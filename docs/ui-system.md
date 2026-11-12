@@ -139,7 +139,9 @@ Field labels use `UI_LABEL` (= `ui-label`).
   `footer` for actions (submit a form in the body with `form={id}`),
   `eyebrow`, `headerActions`, `closeLabel`/`closeButtonRef`, `size`, `busy` (locks Escape/backdrop while a request
   runs), `placement="sheet"` for a bottom sheet on phones.
-- **`ConfirmDialog`** — destructive or important confirmations.
+- **`ConfirmDialog`** — destructive or important confirmations. Pass `busy`
+  while the request runs and `error` when it is refused: the dialog stays
+  open and shows the reason inside; close it only on success.
 - **`ModalShell`** — the primitive underneath, for custom layouts:
   `size` `sm` (24rem) · `md` (28rem, default) · `lg` (32rem) · `xl` (42rem) ·
   `2xl` (48rem) · `full` (64rem); `placement` `center` · `top` (tall,
@@ -213,6 +215,23 @@ breadcrumb names the area, so page eyebrows are hidden.
   Validate probe response bodies before showing a successful state.
 - Show actionable errors next to the affected operation. Distinguish a failed
   list refresh from partially synchronised remote files.
+- Where a result is shown:
+  - a form's result (refusal or success that needs reading) is a `Notice`
+    next to its submit button, in view, not at the top of a long page;
+  - a confirmation's failure is shown in the dialog that asked (`error`),
+    which stays open;
+  - a row action without a dialog (toggle, run now, copy) reports by toast,
+    and so does a plain "saved";
+  - a failed load is a `Notice` with a retry, with no "nothing here" under
+    it — an empty state means the load succeeded and found nothing.
+- A form submitted to a Server Action keeps what was typed when the action
+  answers with an error: React resets uncontrolled fields after any answer,
+  so wire `usePreservedActionForm` (`src/lib/forms/use-preserved-action-form.ts`)
+  into the form. File inputs cannot be restored; say so near them.
+- Sentences come from the dictionaries, in the language of the page. What
+  the server refuses with is shown as its sentence (`getErrorMessage`,
+  `describeFailure`, `readRefusal` in `src/lib/http/error-message.ts`), never
+  as a status code, a JSON body or a framework placeholder.
 - One primary button per view; destructive actions confirm in-app
   (`ConfirmDialog`), never with `window.confirm`.
 

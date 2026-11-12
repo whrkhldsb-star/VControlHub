@@ -32,7 +32,7 @@ export async function GET(
       select: { id: true, host: true, port: true, operatingSystem: true },
     });
     if (!server || server.operatingSystem !== "WINDOWS") {
-      throw new NotFoundError(apiCopy("apiCopy.server.not.found.b3aa1f7c"));
+      throw new NotFoundError(apiCopy("apiCopy.server.not.found.d7783f94"));
     }
 
     const { ok: reachable, latencyMs } = await tcpProbe(

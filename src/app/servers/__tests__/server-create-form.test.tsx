@@ -129,7 +129,7 @@ describe("ServerCreateForm", () => {
     const form = document.querySelector('form:has(input[name="host"])') as HTMLFormElement;
 
     await user.type(screen.getByLabelText("节点名称"), "production-vps");
-    await user.type(screen.getByLabelText("IP / 主机名"), "107.148.254.104");
+    await user.type(screen.getByLabelText("IP / 主机名"), "203.0.113.104");
     await user.clear(screen.getByLabelText("端口"));
     await user.type(screen.getByLabelText("端口"), "48163");
     await user.selectOptions(screen.getByLabelText("SSH 密钥"), "key-1");
@@ -147,7 +147,7 @@ describe("ServerCreateForm", () => {
     );
 
     expect(screen.getByLabelText("节点名称")).toHaveValue("production-vps");
-    expect(screen.getByLabelText("IP / 主机名")).toHaveValue("107.148.254.104");
+    expect(screen.getByLabelText("IP / 主机名")).toHaveValue("203.0.113.104");
     expect(screen.getByLabelText("端口")).toHaveValue(48163);
     expect(screen.getByLabelText("SSH 密钥")).toHaveValue("key-1");
   });

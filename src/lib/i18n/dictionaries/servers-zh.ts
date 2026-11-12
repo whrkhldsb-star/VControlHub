@@ -416,7 +416,7 @@ export const zh: Record<string, string> = {
 	"directGatewayAdvice.canEnable.title": "可启用目标直连",
 	"directGatewayAdvice.canEnable.detail": "当前会回退到网站服务器中转；若 VPS 与本机之间网络可用，启用直连可绕开中转提升大文件下载/媒体播放性能。",
 	"directGatewayAdvice.needSftpFirst.title": "先绑定 SFTP 存储节点",
-	"directGatewayAdvice.needSftpFirst.detail": "Direct Gateway 需要 SFTP 节点作为 file proxy 边界；先在节点卡片绑定 SFTP 节点，再考虑启用直连。",
+	"directGatewayAdvice.needSftpFirst.detail": "Direct Gateway 需要一个 SFTP 节点作为文件代理的边界；先在节点卡片绑定 SFTP 节点，再考虑启用直连。",
 	"directGatewayAdvice.pending.title": "审批中心有 {count} 条待处理",
 	"directGatewayAdvice.pending.detail": "先处理待审批命令，避免修复建议被排队任务遮蔽。",
 	"directGatewayAdvice.boundaryDoc.title": "Direct Gateway 边界文档",

@@ -14,7 +14,7 @@ export const zh: Record<string, string> = {
 	"pwa.offline.retrying": "重连中…",
 	"pwa.offline.securityNotice": "为保护服务器、文件和账户信息，登录后的页面不会存储到离线缓存。",
 	"pwa.offline.title": "当前离线",
-	"pwa.register.failed": "Service Worker 注册失败,部分离线功能不可用。",
+	"pwa.register.failed": "Service Worker 注册失败，部分离线功能不可用。",
 	"pwa.status.offline": "网络已断开。",
 	"pwa.status.offlineDescription": "登录后的数据不会离线存储；联网后可恢复访问。",
 	"pwa.status.offlineTitle": "当前处于离线模式",

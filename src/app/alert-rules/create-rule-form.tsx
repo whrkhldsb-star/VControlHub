@@ -12,6 +12,7 @@ import { cn } from "@/lib/ui/cn";
 import type { PlaybookOption, ServerOption, AlertRule } from "./alert-rule-types";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 const selectClass = UI_INPUT;
 
@@ -388,7 +389,7 @@ export function CreateRuleForm({
 			<FormField
 				label={t("alertRulesPage.createForm.silenceWindows")}
 				htmlFor="alertSilenceWindows"
-				hint={t("alertRulesPage.createForm.silenceWindowsHint")}
+				hint={t("alertRulesPage.createForm.silenceWindowsHint", { zone: APP_TIME_ZONE })}
 			>
 				<textarea
 					id="alertSilenceWindows"

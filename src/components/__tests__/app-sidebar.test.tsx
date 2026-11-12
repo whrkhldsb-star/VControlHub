@@ -73,12 +73,12 @@ describe("AppSidebar", () => {
 	});
 
 	it("renders quick service links as external URLs without squeezing labels", () => {
-		renderSidebar({ username: "admin", quickServices: [{ slug: "alist", name: "AList 文件服务", icon: "☁️", path: "http://82.158.91.159:5244/" }] });
+		renderSidebar({ username: "admin", quickServices: [{ slug: "alist", name: "AList 文件服务", icon: "☁️", path: "http://203.0.113.59:5244/" }] });
 
 		const links = screen.getAllByRole("link", { name: /AList 文件服务/ });
 		expect(links).toHaveLength(2);
 		for (const link of links) {
-			expect(link).toHaveAttribute("href", "http://82.158.91.159:5244/");
+			expect(link).toHaveAttribute("href", "http://203.0.113.59:5244/");
 			expect(link).toHaveAttribute("target", "_blank");
 		}
 		expect(screen.getAllByText("AList 文件服务")[0]).toHaveClass("truncate");

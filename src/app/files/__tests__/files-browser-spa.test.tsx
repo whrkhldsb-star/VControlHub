@@ -326,9 +326,9 @@ describe("FilesBrowserSpa", () => {
 	});
 
 	it("shows node names instead of internal grouped path keys in the breadcrumbs", () => {
-		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "", currentPath: "存储__cmps1rmy/docs", nodes: [{ id: "cmps1rmyabcdef", name: "45.88.1.2", driver: "SFTP" }] }} />);
+		renderWithI18n(<FilesBrowserSpa initialData={{ ...baseData, nodeIdFilter: "", currentPath: "存储__cmps1rmy/docs", nodes: [{ id: "cmps1rmyabcdef", name: "198.51.100.2", driver: "SFTP" }] }} />);
 		const breadcrumbs = screen.getByRole("navigation", { name: "面包屑" });
-		expect(within(breadcrumbs).getByText("45.88.1.2")).toBeInTheDocument();
+		expect(within(breadcrumbs).getByText("198.51.100.2")).toBeInTheDocument();
 		expect(within(breadcrumbs).getByText("docs")).toHaveAttribute("aria-current", "page");
 		expect(screen.queryByText(/存储__cmps1rmy/)).not.toBeInTheDocument();
 	});

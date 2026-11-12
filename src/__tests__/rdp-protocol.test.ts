@@ -30,10 +30,10 @@ describe("RDP protocol security", () => {
   expect(validateClientInstruction(["file", "2", "text/plain", "x"], { clipboard: true })).toBe(false);
  });
  it("preserves passwords and accepts domain accounts", () => {
-  expect(rdpProfileSchema.parse({name:"Win",host:"2.26.201.79",port:3389,username:"Administrator",password:" secret ",domain:"CORP"}).password).toBe(" secret ");
+  expect(rdpProfileSchema.parse({name:"Win",host:"203.0.113.79",port:3389,username:"Administrator",password:" secret ",domain:"CORP"}).password).toBe(" secret ");
  });
  it("blocks loopback, private, metadata and noncanonical endpoints", () => {
   for(const host of ["127.0.0.1","169.254.169.254","10.1.2.3","::1","2130706433","localhost","192.168.1.1","100.64.0.1","0.0.0.0","224.0.0.1"]) expect(() => assertPublicRdpHost(host)).toThrow();
-  expect(() => assertPublicRdpHost("2.26.201.79")).not.toThrow();
+  expect(() => assertPublicRdpHost("203.0.113.79")).not.toThrow();
  });
 });

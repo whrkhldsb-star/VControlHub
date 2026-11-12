@@ -355,7 +355,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 				canAutonomous={false}
 			/>,
 		);
-		const provider = screen.getByRole("combobox", { name: "AI 提供方" });
+		const provider = screen.getByRole("combobox", { name: "AI 提供商" });
 		expect(within(provider).getByRole("option", { name: "Team Claude · claude-y（由其他管理员配置）" })).toBeDisabled();
 		expect(provider).toHaveValue("prov-other");
 

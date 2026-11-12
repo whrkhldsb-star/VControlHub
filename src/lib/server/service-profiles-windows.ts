@@ -22,6 +22,7 @@ import {
   type ProfileSession,
 } from "./service-internals";
 import type { UpdateServerInput } from "./service-profiles";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 
 /**
  * Windows nodes: an RDP profile plus an optional SFTP storage node. AGENT mode
@@ -167,7 +168,7 @@ export async function updateWindowsServerProfile(
       windowsSftpPort: nextSftp.port, windowsSftpUsername: nextSftp.username,
       windowsSftpPassword: nextSftp.password, windowsSftpPath: nextSftp.basePath,
     });
-    if (!valid.success) throw new ValidationError(valid.error.issues[0]?.message ?? "Invalid SFTP configuration");
+    if (!valid.success) throw new ValidationError(firstSchemaSentence(valid.error) ?? "Invalid SFTP configuration");
   }
   let nextSftpHostKey = current.hostKeySha256;
   if (nextSftp) {

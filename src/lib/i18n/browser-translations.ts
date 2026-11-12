@@ -73,6 +73,7 @@ import { zh as storagePageZh, en as storagePageEn } from "./dictionaries/storage
 import { zh as systemConfigZh, en as systemConfigEn } from "./dictionaries/system-config";
 import { zh as shellZh, en as shellEn } from "./dictionaries/shell";
 import { interpolate, type Locale } from "./core";
+import { documentLocale } from "./ambient-locale";
 
 const zh: Record<string, string> = {
 	...accountPasswordPageZh, ...aiZh, ...aiOpsPageZh, ...alertRulesPageZh,
@@ -131,11 +132,7 @@ export function browserT(
  * language switch last applied, else what the root layout rendered from the locale cookie.
  */
 export function pageLocale(): Locale {
-	if (typeof document === "undefined") return "zh";
-	const root = document.documentElement;
-	const applied = root.dataset.locale;
-	if (applied === "zh" || applied === "en") return applied;
-	return root.lang.toLowerCase().startsWith("en") ? "en" : "zh";
+	return documentLocale() ?? "zh";
 }
 
 export type { Locale } from "./core";

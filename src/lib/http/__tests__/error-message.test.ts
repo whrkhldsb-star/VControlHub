@@ -4,6 +4,7 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 
 import { ForbiddenError } from "@/lib/errors";
+import { withApiCopyLocale } from "@/lib/i18n/api-copy";
 import { browserT } from "@/lib/i18n/browser-translations";
 
 import { describeFailure, getErrorMessage, readRefusal, refusalSentence, thrownActionMessage } from "../error-message";
@@ -48,6 +49,10 @@ describe("getErrorMessage", () => {
       thrown = error;
     }
     expect(getErrorMessage(thrown, "Could not save")).toBe("Node name must be at least 2 characters; Host contains invalid characters");
+
+    // In a Server Action the language is the request's: the sentences come out in it, joined as that language does.
+    expect(withApiCopyLocale("zh", () => getErrorMessage(thrown, "保存失败"))).toBe("节点名称至少 2 个字符；主机地址包含无效字符");
+    expect(withApiCopyLocale("en", () => getErrorMessage(thrown, "Could not save"))).toBe("Node name must be at least 2 characters; Host contains invalid characters");
 
     const repeated = z.array(z.string().min(1, "Tag cannot be empty")).safeParse(["", "", ""]).error;
     expect(getErrorMessage(repeated, "Could not save")).toBe("Tag cannot be empty");

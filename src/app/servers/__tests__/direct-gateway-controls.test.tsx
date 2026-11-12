@@ -299,7 +299,7 @@ describe("server direct gateway controls", () => {
       <ServerCardActions
         serverId="srv_1"
         serverName="hk-node-01"
-        host="45.207.216.45"
+        host="198.51.100.45"
         port={22}
         enabled={true}
         canManageServers
@@ -316,7 +316,7 @@ describe("server direct gateway controls", () => {
       screen.getByRole("form", { name: "编辑 VPS 节点" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("节点名称")).toHaveValue("hk-node-01");
-    expect(screen.getByLabelText("IP / 域名")).toHaveValue("45.207.216.45");
+    expect(screen.getByLabelText("IP / 域名")).toHaveValue("198.51.100.45");
     expect(screen.getByLabelText("SSH 端口")).toHaveValue(22);
     expect(screen.getByLabelText("用户名")).toHaveValue("root");
     expect(screen.getByLabelText("新密码（留空保持不变）")).toHaveValue("");
@@ -332,7 +332,7 @@ describe("server direct gateway controls", () => {
       <ServerCardEditForm
         serverId="srv_1"
         serverName="hk-node-01"
-        host="45.207.216.45"
+        host="198.51.100.45"
         port={22}
         username="root"
         connectionType="PASSWORD"
@@ -381,7 +381,7 @@ describe("server direct gateway controls", () => {
       <ServerCardActions
         serverId="srv_draft"
         serverName="pending-node"
-        host="107.148.254.104"
+        host="203.0.113.104"
         port={22}
         enabled={false}
         canManageServers

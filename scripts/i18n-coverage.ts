@@ -36,8 +36,8 @@
  *   - Markdown report to docs/i18n-coverage.md (human-readable).
  *   - Stdout summary: file count, string count, coverage %, top
  *     uncovered strings, per-module coverage.
- *   - Exit code 0 if no strings found (i.e. nothing to audit),
- *     1 if any uncovered strings, 2 if scan errored.
+ *   - Exit code 0 whatever the coverage (the report is information, not a
+ *     gate), 2 if the scan itself failed.
  *
  * Run: npx tsx scripts/i18n-coverage.ts
  */
@@ -1012,12 +1012,8 @@ function main() {
     }
   }
 
-  // Exit code:
-  //   0 = nothing to audit
-  //   0 = all strings covered (informational only, not a CI gate)
-  //   1 = missing strings found (caller can decide if this is a gate)
-  // The script is informational — it doesn't fail CI on missing strings
-  // because coverage is a known backlog, not a regression signal.
+  // Always 0: the script is informational and does not fail CI on uncovered
+  // strings (2 above means the scan itself failed).
   process.exit(0);
 }
 

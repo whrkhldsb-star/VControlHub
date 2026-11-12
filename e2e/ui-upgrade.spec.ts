@@ -20,9 +20,11 @@ async function fixtures(create: boolean) {
   await client.connect();
   try {
     await client.query('DELETE FROM servers WHERE id LIKE $1', [`${fixturePrefix}%`]);
-    if (create) await client.query(`INSERT INTO servers (id, name, host, port, username, password, tags, enabled, "connectionType", "managementMode", "createdAt", "updatedAt")
+    // In the customer the signed-in account works in: a selected customer shows only its own servers.
+    if (create) await client.query(`INSERT INTO servers (id, name, host, port, username, password, tags, enabled, "connectionType", "managementMode", "teamId", "createdAt", "updatedAt")
       SELECT $1 || n, 'UI sample ' || lpad(n::text, 2, '0'), '192.0.2.' || n, 22, 'root', 'e2e-unused', ARRAY['ui-sample', CASE WHEN n = 25 THEN 'unique-tag' ELSE 'standard' END],
-      n % 2 = 0, 'PASSWORD', 'DIRECT', NOW(), NOW() FROM generate_series(1,25) n`, [fixturePrefix]);
+      n % 2 = 0, 'PASSWORD', 'DIRECT', (SELECT "currentTeamId" FROM "User" WHERE username = $2), NOW(), NOW() FROM generate_series(1,25) n`,
+      [fixturePrefix, process.env.E2E_DIRECT_USER ?? process.env.E2E_USER ?? "vcontrolhub_e2e"]);
   } finally { await client.end(); }
 }
 
@@ -68,11 +70,13 @@ test("settings bookmarks, drafts and mobile category navigation remain consisten
   const name = page.getByLabel(/平台名称|Platform name/);
   await expect(name).toBeVisible();
   await name.fill("UI unsaved draft");
+  // The draft survives a visit to another tab; the platform name lives under "Platform & appearance".
   await page.getByRole("tab", { name: /个人偏好|Personal/ }).click();
-  await page.getByRole("tab", { name: /安全与账户|Security/ }).click();
+  await expect(name).toBeHidden();
+  await page.getByRole("tab", { name: /平台与外观|Platform & appearance/ }).click();
   await expect(name).toHaveValue("UI unsaved draft");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("tab", { name: /高级配置|Advanced/ }).click();
+  // On a phone the section list of the tab is a select; config export/import is the tab's last section.
   await page.getByRole("combobox", { name: /分类|categor/i }).selectOption("system-config");
   await expect(page).toHaveURL(/#system-config$/);
   await expect(page.locator("#system-config")).toBeInViewport();
@@ -112,7 +116,9 @@ for (const locale of ["zh", "en"]) for (const theme of ["dark", "light"]) for (c
         await expect(page).toHaveURL(/query=ui-sample/);
         await expect(page.locator("[data-server-card]")).toHaveCount(12);
       } else if (route === "settings") {
-        await page.getByRole("tab", { name: /高级配置|Advanced/ }).click();
+        // The densest of the system tabs: runtime parameters with their risk marks.
+        await page.getByRole("tab", { name: /运维与执行|Operations/ }).click();
+        await expect(page.getByRole("tab", { name: /运维与执行|Operations/ })).toHaveAttribute("aria-selected", "true");
       } else if (route === "monitoring") {
         await expect(page.getByRole("button", { name: /^刷新$|^Refresh$/ })).toBeEnabled();
       } else {

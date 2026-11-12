@@ -42,9 +42,8 @@ vi.mock("@/lib/auth/team-scope", () => ({
   serverTeamWhere: vi.fn(() => teamWhereMarker),
 }));
 
-vi.mock("@/lib/i18n/api-copy", () => ({
-  apiCopy: (key: string) => key,
-}));
+// The dictionary is the real one: a key it does not have comes back as the key, and that is what this route
+// answered with.
 
 vi.mock("@/lib/server/connectivity", () => ({
   tcpProbe: probeMock,
@@ -108,6 +107,8 @@ describe("GET /api/servers/[id]/rdp-probe", () => {
     const res = await GET(req, ctx);
 
     expect(res.status).toBe(404);
+    // A sentence, not the dictionary key the route asked for: the key did not exist and came back as the answer.
+    expect((await res.json()).error).toBe("Server not found");
     expect(probeMock).not.toHaveBeenCalled();
   });
 

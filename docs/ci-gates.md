@@ -19,6 +19,13 @@ make ci-local-full
 # or: npm run ci:local:full
 ```
 
+On Linux outside CI, `npm run build` first asks systemd about
+`vcontrolhub-next.service` and refuses when it cannot tell that no live
+installation is being overwritten — which includes a checkout on a machine
+that has no such service. In a checkout that is not an installation, run the
+full gate as `VCONTROLHUB_ALLOW_BUILD=1 npm run ci:local:full`. Never set it in
+the directory an installation serves; use `deploy.sh` there.
+
 Optional pre-push hook (repo-local, not forced):
 
 ```bash
@@ -172,6 +179,24 @@ across hard navigations.
 Hook tests must preserve stable context function identities and await observable
 initial loading completion before testing actions. An empty `act` callback does
 not guarantee a zero-delay mount timer has completed.
+
+### Specs no workflow runs
+
+`npm run test:e2e:nightly` runs every spec, but no workflow calls it: the
+scheduled run only adds the full matrix of `ui-site`. These specs therefore run
+only when someone starts them, and two of them had stopped matching the product
+(fixed 2026-11-12: server fixtures without a customer were invisible to the
+signed-in account, and the files spec drove the drive as it was before its
+redesign). Run them after changing the pages they cover:
+
+| Spec | Needs |
+| --- | --- |
+| `ui-upgrade` (servers, files, settings, monitoring × language × theme × width, with axe) | the isolated account, as for the workflow suite |
+| `file-enhancements` (paused upload across pages, favourites and tags, copy / move / delete jobs) | the same |
+| `windows-rdp` | `E2E_RDP_CANARY=1` for the fixture test; the ticket test sends `E2E_RDP_ORIGIN` (by default the base URL) as its origin, which must be in the server's `SSH_WS_ALLOWED_ORIGINS` |
+| `ssh-terminal-layout`, `ssh-terminal-modes`, `ssh-terminal-resilience` | the app **and** `dist/ssh-ws-proxy.js` on a test database, `E2E_SSH_LAYOUT_LAB=1` / `E2E_SSH_LAB=1`, and `SSH_WS_ALLOWED_ORIGINS` listing the app origin and the relay origins `http://127.0.0.1:3495`–`3497` |
+| `audit-remediation-isolated` | a one-off environment (fixed port and database name); kept as a record |
+| `live-production-acceptance` | a real installation and an explicitly authorised VPS; see the header of the spec |
 
 
 

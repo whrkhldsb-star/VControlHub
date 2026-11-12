@@ -38,6 +38,7 @@ import {
 } from "./settings-save-confirm";
 import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
 import { Notice } from "@/components/ui-primitives";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 export function formatMetadataDate(
   value: Date | string | null,
@@ -301,7 +302,8 @@ export function SchemaDrivenSection({
                     typeof field.helperTextKey === "function"
                       ? field.helperTextKey(settings)
                       : field.helperTextKey;
-                  const helperText = helperKey ? t(helperKey) : undefined;
+                  // A helper that speaks of the time of day names the platform's zone.
+                  const helperText = helperKey ? t(helperKey, { zone: APP_TIME_ZONE }) : undefined;
                   const disabled = field.disabled
                     ? field.disabled(settings)
                     : false;

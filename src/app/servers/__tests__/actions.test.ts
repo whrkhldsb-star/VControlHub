@@ -140,13 +140,13 @@ describe("server actions", () => {
     createServerProfileMock.mockResolvedValueOnce({
       id: "srv_draft",
       enabled: false,
-      draftReason: "connect ECONNREFUSED 107.148.254.104:22",
+      draftReason: "connect ECONNREFUSED 203.0.113.104:22",
       onboardingWarnings: [],
     });
     const { createServerAction } = await import("../actions");
     const formData = new FormData();
     formData.set("name", "pending-node");
-    formData.set("host", "107.148.254.104");
+    formData.set("host", "203.0.113.104");
     formData.set("port", "22");
     formData.set("username", "root");
     formData.set("connectionType", "PASSWORD");
@@ -157,7 +157,7 @@ describe("server actions", () => {
 
     expect(result.error).toBeUndefined();
     expect(result.success).toContain("节点配置已保存为停用状态");
-    expect(result.success).toContain("connect ECONNREFUSED 107.148.254.104:22");
+    expect(result.success).toContain("connect ECONNREFUSED 203.0.113.104:22");
     expect(createServerProfileMock).toHaveBeenCalledWith(
       expect.objectContaining({ saveAsDraftOnConnectionFailure: true }),
       expect.objectContaining({ userId: "user_1" }),
@@ -186,7 +186,7 @@ describe("server actions", () => {
     const formData = new FormData();
     formData.set("serverId", "srv_1");
     formData.set("name", "hk-node-01");
-    formData.set("host", "45.207.216.45");
+    formData.set("host", "198.51.100.45");
     formData.set("port", "22");
     formData.set("username", "root");
     formData.set("connectionType", "PASSWORD");
@@ -201,7 +201,7 @@ describe("server actions", () => {
     expect(updateServerProfileMock).toHaveBeenCalledWith(
       "srv_1",
       expect.objectContaining({
-        host: "45.207.216.45",
+        host: "198.51.100.45",
         port: 22,
         username: "root",
         connectionType: "PASSWORD",

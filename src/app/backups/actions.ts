@@ -12,6 +12,7 @@ import { createBackupRecord } from "@/lib/backup/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { withServerActionLocale } from "@/lib/i18n/server-locale";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 
 export type BackupActionState = {
   success: boolean;
@@ -35,7 +36,7 @@ async function createBackupActionImpl(_prev: BackupActionState, formData: FormDa
     note: String(formData.get("note") || ""),
   });
   if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0]?.message ?? tr("backupsPage.action.invalidInput") };
+    return { success: false, error: firstSchemaSentence(parsed.error) ?? tr("backupsPage.action.invalidInput") };
   }
 
   const backup = await createBackupRecord({

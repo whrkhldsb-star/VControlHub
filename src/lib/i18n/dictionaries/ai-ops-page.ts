@@ -16,7 +16,7 @@ export const zh: Record<string, string> = {
 	"aiOpsPage.title": "AI 智能运维",
 	"aiOpsPage.eyebrow": "AI 运维",
 	"aiOpsPage.desc":
-		"AI 每日 02:00 自动扫描系统健康信号（告警规则 / 命令失败 / 工作流失败），给出诊断与处理建议。recommendation 模式需要人工审批，autonomous 模式只对白名单内的安全动作自动执行。",
+		"AI 每日 02:00 自动扫描系统健康信号（告警规则 / 命令失败 / 工作流失败），给出诊断与处理建议。建议模式下每个动作都需要人工审批；自主模式只对白名单内的安全动作自动执行。",
 	"aiOpsPage.summary.title": "扫描汇总",
 	"aiOpsPage.summary.total": "总扫描次数",
 	"aiOpsPage.summary.byStatus": "按状态分布",
@@ -92,7 +92,7 @@ export const zh: Record<string, string> = {
 	// Settings (placeholder — full settings UI is Tick 3)
 	"aiOpsPage.settings.title": "AI 运维设置",
 	"aiOpsPage.settings.mode": "运行模式",
-	"aiOpsPage.settings.provider": "AI 提供方",
+	"aiOpsPage.settings.provider": "AI 提供商",
 	"aiOpsPage.settings.notConfigured": "未配置（扫描只用内置检查）",
 	"aiOpsPage.settings.providerOfOther": "{name}（由其他管理员配置）",
 	"aiOpsPage.settings.providerUnavailable": "{id}（已停用或已删除，扫描只用内置检查）",

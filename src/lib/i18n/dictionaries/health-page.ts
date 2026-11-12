@@ -44,7 +44,7 @@ export const zh: Record<string, string> = {
 	// Capacity prediction
 	"healthPage.capacity.eyebrow": "容量预测",
 	"healthPage.capacity.title": "跨节点统一容量预测",
-	"healthPage.capacity.description": "基于 health.sample 历史做 CPU/内存/磁盘线性趋势投影，估算逼近 85%/95% 的天数。",
+	"healthPage.capacity.description": "基于健康采样的历史数据，对 CPU、内存、磁盘做线性趋势推算，估算还有多少天到达 85% 和 95%。",
 	"healthPage.capacity.horizon": "预测窗口",
 	"healthPage.capacity.refresh": "刷新预测",
 	"healthPage.capacity.refreshing": "计算中…",
@@ -216,7 +216,7 @@ export const en: Record<string, string> = {
 	// Capacity prediction
 	"healthPage.capacity.eyebrow": "Capacity",
 	"healthPage.capacity.title": "Cross-node capacity forecast",
-	"healthPage.capacity.description": "Linear trend projection of CPU/memory/disk from health.sample history, estimating days until 85%/95%.",
+	"healthPage.capacity.description": "A linear trend over the health sample history for CPU, memory and disk, estimating the days left until 85% and 95%.",
 	"healthPage.capacity.horizon": "Horizon",
 	"healthPage.capacity.refresh": "Refresh forecast",
 	"healthPage.capacity.refreshing": "Computing…",

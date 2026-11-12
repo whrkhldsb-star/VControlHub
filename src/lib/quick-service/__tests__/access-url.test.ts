@@ -4,11 +4,11 @@ import { buildQuickServiceAccessDescriptor, buildQuickServiceAccessUrl, normaliz
 describe("quick service access URLs", () => {
 	it("strips protocol and existing ports from configured public host before appending service port", () => {
 		expect(normalizeQuickServicePublicHost("https://example.com/")).toBe("example.com");
-		expect(buildQuickServiceAccessUrl({ defaultPort: 5244, port: 31000, configuredHost: "https://82.158.91.159:443", browserHost: "whrkhldsb.qzz.io", protocol: "https:" })).toBe("https://82.158.91.159:31000/");
+		expect(buildQuickServiceAccessUrl({ defaultPort: 5244, port: 31000, configuredHost: "https://203.0.113.59:443", browserHost: "whrkhldsb.qzz.io", protocol: "https:" })).toBe("https://203.0.113.59:31000/");
 	});
 
 	it("uses the configured public host instead of a proxied dashboard hostname", () => {
-		expect(buildQuickServiceAccessUrl({ defaultPort: 5244, port: 5244, configuredHost: "82.158.91.159", browserHost: "whrkhldsb.qzz.io", protocol: "https:" })).toBe("http://82.158.91.159:5244/");
+		expect(buildQuickServiceAccessUrl({ defaultPort: 5244, port: 5244, configuredHost: "203.0.113.59", browserHost: "whrkhldsb.qzz.io", protocol: "https:" })).toBe("http://203.0.113.59:5244/");
 	});
 
 	it("falls back to the browser host when no production host is configured", () => {
@@ -20,8 +20,8 @@ describe("quick service access URLs", () => {
 	});
 
 	it("marks generated host-port links as direct public port access", () => {
-		expect(buildQuickServiceAccessDescriptor({ defaultPort: 5244, port: 5244, configuredHost: "82.158.91.159" })).toMatchObject({
-			url: "http://82.158.91.159:5244/",
+		expect(buildQuickServiceAccessDescriptor({ defaultPort: 5244, port: 5244, configuredHost: "203.0.113.59" })).toMatchObject({
+			url: "http://203.0.113.59:5244/",
 			mode: "direct-port",
 		});
 	});

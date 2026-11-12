@@ -26,6 +26,7 @@ import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 import { Plus } from "@/components/icons";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 export function CreatePlaybookForm({
 	onClose,
@@ -227,7 +228,7 @@ export function CreatePlaybookForm({
 						placeholder={t("playbooksPage.triggerConfig.cronPlaceholder")}
 						className={monoFieldInputClass}
 					/>
-					<p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.createForm.cronHint")}</p>
+					<p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.createForm.cronHint", { zone: APP_TIME_ZONE })}</p>
 				</div>
 			) : (
 				<div className="space-y-1.5">

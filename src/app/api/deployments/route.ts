@@ -16,6 +16,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
 import { MAX_NON_FILE_FORM_BYTES } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 export const dynamic = "force-dynamic";
 
 const createDeploymentSchema = z.object({
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
       try {
         const parsed = isFormSubmission ? createDeploymentSchema.safeParse(await readRequestBody(request)) : { success: true as const, data: body };
         if (!parsed.success) {
-          const message = parsed.error.issues[0]?.message ?? "Invalid deployment parameters";
+          const message = firstSchemaSentence(parsed.error) ?? "Invalid deployment parameters";
           if (wantsHtmlResponse(request))
             return redirectToDeployments(request, { error: message });
           throw new ValidationError(message);

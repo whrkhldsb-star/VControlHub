@@ -1,4 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { registerServerCopyLocale } from "./ambient-locale";
+// Loaded for its registration: wherever a request has a language, schema refusals can be put into it.
+import "./schema-copy";
 import { en, zh } from "./dictionaries/api-copy";
 import { interpolate, type Locale } from "./core";
 export type { Locale } from "./core";
@@ -39,6 +42,9 @@ export function backgroundCopyLocale(): Locale | undefined {
 export function currentCopyLocale(): Locale | undefined {
   return localeStore.getStore() ?? backgroundLocale;
 }
+
+// Code shared with the browser asks through ambient-locale.ts (it cannot import this module).
+registerServerCopyLocale(currentCopyLocale);
 
 export function apiCopy(key: keyof typeof en | string, vars?: Record<string, string | number>): string {
   const locale = currentCopyLocale() ?? "en";
