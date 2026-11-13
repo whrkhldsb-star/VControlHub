@@ -76,15 +76,13 @@ export function ServerCreateForm({
         }
       }}
     >
-      {" "}
       <div>
-        {" "}
         <h2 className="ui-title-section">
           {t("serversPage.create.title")}
-        </h2>{" "}
+        </h2>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
           {t(windows ? "serversPage.windows.hint" : "serversPage.create.desc")}
-        </p>{" "}
+        </p>
       </div>
       <div className="space-y-1.5">
         <label htmlFor="serverOperatingSystem" className="ui-label">{t("serversPage.windows.os")}</label>
@@ -93,15 +91,13 @@ export function ServerCreateForm({
         </select>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        {" "}
         <div className="space-y-1.5">
-          {" "}
           <label
             className="ui-label"
             htmlFor="serverName"
           >
             {t("serversPage.create.name")}
-          </label>{" "}
+          </label>
           <input
             id="serverName"
             name="name"
@@ -109,35 +105,32 @@ export function ServerCreateForm({
             required
             placeholder={t("serversPage.create.namePlaceholder")}
             className={UI_INPUT}
-          />{" "}
-        </div>{" "}
+          />
+        </div>
         <div className="space-y-1.5">
-          {" "}
           <label
             className="ui-label"
             htmlFor="serverDesc"
           >
             {t("serversPage.create.description")}
-          </label>{" "}
+          </label>
           <input
             id="serverDesc"
             name="description"
             type="text"
             placeholder={t("serversPage.create.descriptionPlaceholder")}
             className={UI_INPUT}
-          />{" "}
-        </div>{" "}
-      </div>{" "}
+          />
+        </div>
+      </div>
       <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
-        {" "}
         <div className="space-y-1.5">
-          {" "}
           <label
             className="ui-label"
             htmlFor="serverHost"
           >
             {t("serversPage.create.host")}
-          </label>{" "}
+          </label>
           <input
             id="serverHost"
             name="host"
@@ -145,16 +138,15 @@ export function ServerCreateForm({
             required
             placeholder="1.2.3.4"
             className={UI_INPUT}
-          />{" "}
-        </div>{" "}
+          />
+        </div>
         <div className="space-y-1.5">
-          {" "}
           <label
             className="ui-label"
             htmlFor="serverPort"
           >
             {t(windows ? "serversPage.windows.port" : "serversPage.create.port")}
-          </label>{" "}
+          </label>
           <input
             id="serverPort"
             name="port"
@@ -164,9 +156,9 @@ export function ServerCreateForm({
             min={1}
             max={65535}
             className={UI_INPUT}
-          />{" "}
-        </div>{" "}
-      </div>{" "}
+          />
+        </div>
+      </div>
       <ServerCostFields />
       {windows ? <>
       <ServerManagementModeFields platform="WINDOWS" />
@@ -180,7 +172,7 @@ export function ServerCreateForm({
       </Notice> : null}
       </> : <>
       <ServerManagementModeFields />
-      <ConnectionTypeFields sshKeys={sshKeys} />{" "}
+      <ConnectionTypeFields sshKeys={sshKeys} />
       <Notice tone="warning" role="group">
         <div className="space-y-2">
           <span className="block font-medium text-[var(--text-primary)]">
@@ -214,76 +206,70 @@ export function ServerCreateForm({
             {t("serversPage.create.hostKeyTrustHint")}
           </span>
         </div>
-      </Notice>{" "}
+      </Notice>
       <details data-tile className="p-4">
         <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">
           {t("serversPage.create.advancedTitle")}
         </summary>
         <div className="mt-4 space-y-4">
       <div className="space-y-1.5">
-        {" "}
         <label
           className="ui-label"
           htmlFor="serverStoragePath"
         >
           {t("serversPage.create.storagePath")}
-        </label>{" "}
+        </label>
         <input
           id="serverStoragePath"
           name="storagePath"
           type="text"
           placeholder={t("serversPage.create.storagePathPlaceholder")}
           className={UI_INPUT}
-        />{" "}
+        />
         <p className="mt-1 text-xs text-[var(--text-muted)]">
           {t("serversPage.create.storagePathDesc")}
-        </p>{" "}
-      </div>{" "}
+        </p>
+      </div>
       <ServerSyncTargetAuthField id="serverSyncTargetAuth" />
-      <label
-        data-tone="cyan"
-        data-inset className="ui-label p-4"
-      >
-        {" "}
+      {/* The switch has a label of its own. As one <label> around the whole block, a click on a hint or on
+          the names of the two fields below ticked the box, and those fields' labels sat inside another label. */}
+      <div data-tone="cyan" data-inset className="p-4">
         <div className="flex items-start gap-3">
-          {" "}
           <input
+            id="enableDirectGateway"
             name="enableDirectGateway"
             type="checkbox"
-            className="mt-1 h-4 w-4 rounded-lg border-[var(--color-action-border)]/40 bg-[var(--input-bg)]"
-          />{" "}
-          <div>
-            {" "}
-            <div className="font-medium text-[var(--text-primary)]">
+            aria-describedby="enableDirectGatewayHelp"
+            className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
+          />
+          <div className="min-w-0">
+            <label htmlFor="enableDirectGateway" className="ui-label cursor-pointer">
               {t("serversPage.create.directGateway.title")}
-            </div>{" "}
-            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+            </label>
+            <p id="enableDirectGatewayHelp" className="mt-1 text-xs text-[var(--text-secondary)]">
               {t("serversPage.create.directGateway.desc")}
-            </p>{" "}
+            </p>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {" "}
-              {t("serversPage.create.directGateway.note")}{" "}
-            </p>{" "}
+              {t("serversPage.create.directGateway.note")}
+            </p>
             <label
               className="ui-label mt-3 block"
               htmlFor="directGatewayProtocol"
             >
-              {" "}
-              {t("serversPage.create.directGateway.protocol")}{" "}
-            </label>{" "}
+              {t("serversPage.create.directGateway.protocol")}
+            </label>
             <select
               id="directGatewayProtocol"
               name="directGatewayProtocol"
               defaultValue="http"
               className={cn(UI_INPUT, "mt-1 w-full text-xs")}
             >
-              {" "}
               <option value="http">
                 {t("serversPage.create.directGateway.protocolHttp")}
-              </option>{" "}
+              </option>
               <option value="https">
                 {t("serversPage.create.directGateway.protocolHttps")}
-              </option>{" "}
+              </option>
             </select>
             <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">
               {t("serversPage.create.directGateway.listenNote")}
@@ -308,12 +294,12 @@ export function ServerCreateForm({
             />
             <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">
               {t("serversPage.create.directGateway.publicDomainHint")}
-            </p>{" "}
-          </div>{" "}
-        </div>{" "}
-      </label>{" "}
+            </p>
+          </div>
         </div>
-      </details>{" "}
+      </div>
+        </div>
+      </details>
       <label className="flex items-start gap-3 border-y border-[var(--border)] py-3 text-sm text-[var(--text-secondary)]">
         <input
           name="saveAsDraftOnConnectionFailure"
@@ -331,20 +317,19 @@ export function ServerCreateForm({
       </label>
       </>}
       <div className="space-y-1.5">
-        {" "}
         <label
           className="ui-label"
           htmlFor="serverTags"
         >
           {t("serversPage.create.tags")}
-        </label>{" "}
+        </label>
         <input
           id="serverTags"
           name="tags"
           type="text"
           placeholder={t("serversPage.create.tagsPlaceholder")}
           className={UI_INPUT}
-        />{" "}
+        />
       </div>
       {/* Next to the button that sent it: under the heading it was a screen of fields away. */}
       {state.error && !observedHostKeySha256 && (
@@ -357,7 +342,7 @@ export function ServerCreateForm({
         pendingLabel={t(windows ? "serversPage.create.submitting" : observedHostKeySha256 ? "serversPage.create.submitting" : "serversPage.create.detecting")}
       >
         {t(windows ? "serversPage.windows.save" : observedHostKeySha256 ? "serversPage.create.submitConfirmed" : "serversPage.create.submit")}
-      </SubmitButton>{" "}
+      </SubmitButton>
       {discardDialog}
     </form>
   );

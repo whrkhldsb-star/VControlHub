@@ -10,7 +10,7 @@ import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
-import { Chip, Notice } from "@/components/ui-primitives";
+import { Chip, Notice, SegmentedControl } from "@/components/ui-primitives";
 import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
@@ -209,7 +209,14 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 											{statusLabelFor(task.status, t)}
 										</StatusBadge>
 									</div>
-									<p className="mt-1 text-xs text-[var(--text-muted)]">{task.scheduleType === "ONCE" ? t("scheduledTasks.schedule.once") : <>Cron: <code className="font-mono text-[var(--accent)]">{task.cronExpression}</code>{describeCron(task.cronExpression, t) ? <> — {describeCron(task.cronExpression, t)}</> : null}</>}</p>
+									<p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-xs text-[var(--text-muted)]">
+										{task.scheduleType === "ONCE" ? t("scheduledTasks.schedule.once") : (
+											<>
+												<span>Cron{t("common.colon")}<code className="font-mono text-[var(--accent)]">{task.cronExpression}</code></span>
+												{describeCron(task.cronExpression, t) ? <span>{describeCron(task.cronExpression, t)}</span> : null}
+											</>
+										)}
+									</p>
 									<div className="mt-1 flex flex-wrap gap-2 text-xs text-[var(--text-muted)]">
 										<span>{task.source === "AI" ? t("scheduledTasks.source.ai") : t("scheduledTasks.source.manual")}</span>
 										<span>{task.approvalRequired ? t("scheduledTasks.approval.everyRun") : t("scheduledTasks.approval.once")}</span>
@@ -219,7 +226,18 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 										{task.command}
 									</div>
 									{task.reason && <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("scheduledTasksPage.reason", { reason: task.reason })}</p>}
-									{task.plan && <details data-inset className="mt-2 px-3 py-2 text-xs"><summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{t("scheduledTasks.plan")}</summary><p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-muted)]">{task.plan}</p>{task.verificationCommand && <p className="mt-2 font-mono text-[var(--text-muted)]">{t("scheduledTasks.verify")}{t("common.colon")}{task.verificationCommand}</p>}{task.rollbackCommand && <p className="mt-1 font-mono text-[var(--text-muted)]">{t("scheduledTasks.rollback")}{t("common.colon")}{task.rollbackCommand}</p>}</details>}
+									{task.plan && (
+										<details data-inset className="mt-2 px-3 py-2 text-xs">
+											<summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{t("scheduledTasks.plan")}</summary>
+											<p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-muted)]">{task.plan}</p>
+											{task.verificationCommand && (
+												<p className="mt-2 font-mono text-[var(--text-muted)]">{t("scheduledTasks.verify")}{t("common.colon")}{task.verificationCommand}</p>
+											)}
+											{task.rollbackCommand && (
+												<p className="mt-1 font-mono text-[var(--text-muted)]">{t("scheduledTasks.rollback")}{t("common.colon")}{task.rollbackCommand}</p>
+											)}
+										</details>
+									)}
 									<div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--text-muted)]">
 										<div>{t("scheduledTasksPage.targetNodes", { count: task.serverIds.length })}</div>
 										<div>{t("scheduledTasksPage.runCount", { count: task.runCount })}</div>
@@ -256,7 +274,18 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 					))}
 				</PaginatedList>
 			)}
-			<ConfirmDialog open={taskPendingDelete !== null} title={t("scheduledTasksPage.delete.title")} description={t("scheduledTasksPage.delete.desc", { name: taskPendingDelete?.name ?? "" })} cancelLabel={t("scheduledTasksPage.cancel")} confirmLabel={t("scheduledTasksPage.delete.confirm")} busy={busyId !== null} error={deleteError} onCancel={() => { if (!busyId) setTaskPendingDelete(null); }} onConfirm={() => taskPendingDelete && deleteTask(taskPendingDelete)} closeOnBackdrop={false} />
+			<ConfirmDialog
+				open={taskPendingDelete !== null}
+				title={t("scheduledTasksPage.delete.title")}
+				description={t("scheduledTasksPage.delete.desc", { name: taskPendingDelete?.name ?? "" })}
+				cancelLabel={t("scheduledTasksPage.cancel")}
+				confirmLabel={t("scheduledTasksPage.delete.confirm")}
+				busy={busyId !== null}
+				error={deleteError}
+				onCancel={() => { if (!busyId) setTaskPendingDelete(null); }}
+				onConfirm={() => taskPendingDelete && deleteTask(taskPendingDelete)}
+				closeOnBackdrop={false}
+			/>
 		</div>
 	);
 }
@@ -353,40 +382,121 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 			<h3 className="ui-title-section">{t("scheduledTasksPage.createTitle")}</h3>
 			{error && <Notice tone="danger">{error}</Notice>}
 
-			<div data-inset className="grid grid-cols-2 gap-1 p-1">
-				{(["CRON", "ONCE"] as const).map((mode) => <button key={mode} type="button" aria-pressed={scheduleType === mode} onClick={() => setScheduleType(mode)} className={`min-h-10 rounded-md px-3 text-xs font-medium ${scheduleType === mode ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-muted)]"}`}>{mode === "CRON" ? t("scheduledTasks.schedule.recurring") : t("scheduledTasks.schedule.once")}</button>)}
-			</div>
+			<SegmentedControl
+				block
+				ariaLabel={t("scheduledTasks.schedule.typeLabel")}
+				value={scheduleType}
+				onChange={setScheduleType}
+				options={[
+					{ value: "CRON", label: t("scheduledTasks.schedule.recurring") },
+					{ value: "ONCE", label: t("scheduledTasks.schedule.once") },
+				]}
+			/>
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-name" className={fieldLabelClass}>{t("scheduledTasksPage.name")}</label>
 				<input id="scheduled-task-name" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("scheduledTasks.namePlaceholder")} className={fieldInputClass} />
 			</div>
-			{scheduleType === "CRON" ? <div className="space-y-1.5">
-				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>{t("scheduledTasksPage.cron")}</label>
-				<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
-				<Notice tone="info" compact>{t("scheduledTasksPage.preview.label", { value: cronPreview })}</Notice>
-				<p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p>
-				<div className="flex flex-wrap gap-1.5">
-					{presetCrons.map((p) => (
-						<Chip key={p.expr} selected={cronExpression === p.expr} onClick={() => setCron(p.expr)}>
-							{p.label}
-						</Chip>
-					))}
+			{scheduleType === "CRON" ? (
+				<div className="space-y-1.5">
+					<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>{t("scheduledTasksPage.cron")}</label>
+					<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
+					<Notice tone="info" compact>{t("scheduledTasksPage.preview.label", { value: cronPreview })}</Notice>
+					<p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p>
+					<div className="flex flex-wrap gap-1.5">
+						{presetCrons.map((p) => (
+							<Chip key={p.expr} selected={cronExpression === p.expr} onClick={() => setCron(p.expr)}>
+								{p.label}
+							</Chip>
+						))}
+					</div>
 				</div>
-			</div> : <div className="space-y-1.5"><label htmlFor="scheduled-task-run-at" className={fieldLabelClass}>{t("scheduledTasks.runAtLabel")}</label><input id="scheduled-task-run-at" type="datetime-local" value={runAt} onChange={(e) => setRunAt(e.target.value)} required className={fieldInputClass} /><p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p></div>}
+			) : (
+				<div className="space-y-1.5">
+					<label htmlFor="scheduled-task-run-at" className={fieldLabelClass}>{t("scheduledTasks.runAtLabel")}</label>
+					<input id="scheduled-task-run-at" type="datetime-local" value={runAt} onChange={(e) => setRunAt(e.target.value)} required className={fieldInputClass} />
+					<p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p>
+				</div>
+			)}
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-template" className={fieldLabelClass}>{t("scheduledTasks.template")}</label>
-				<select id="scheduled-task-template" value={templateId} onChange={(e) => { const id = e.target.value; setTemplateId(id); const next = templates.find((item) => item.id === id); if (next) { setCommand(next.command); setRollbackCommand(next.rollbackCommand ?? ""); } }} className={fieldInputClass}><option value="">{t("scheduledTasks.customCommand")}</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select>
+				<select
+					id="scheduled-task-template"
+					value={templateId}
+					onChange={(e) => {
+						const id = e.target.value;
+						setTemplateId(id);
+						const next = templates.find((item) => item.id === id);
+						if (next) {
+							setCommand(next.command);
+							setRollbackCommand(next.rollbackCommand ?? "");
+						}
+					}}
+					className={fieldInputClass}
+				>
+					<option value="">{t("scheduledTasks.customCommand")}</option>
+					{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+				</select>
 			</div>
-			{selectedTemplate?.variables.map((variable) => <div key={variable} className="space-y-1.5"><label htmlFor={`scheduled-template-${variable}`} className={fieldLabelClass}>{`{{${variable}}}`}</label><input id={`scheduled-template-${variable}`} value={variables[variable] ?? ""} onChange={(e) => setVariables((prev) => ({ ...prev, [variable]: e.target.value }))} required className={fieldInputClass} /></div>)}
+			{selectedTemplate?.variables.map((variable) => (
+				<div key={variable} className="space-y-1.5">
+					<label htmlFor={`scheduled-template-${variable}`} className={fieldLabelClass}>{`{{${variable}}}`}</label>
+					<input
+						id={`scheduled-template-${variable}`}
+						value={variables[variable] ?? ""}
+						onChange={(e) => setVariables((prev) => ({ ...prev, [variable]: e.target.value }))}
+						required
+						className={fieldInputClass}
+					/>
+				</div>
+			))}
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-command" className={fieldLabelClass}>{t("scheduledTasksPage.command")}</label>
-				<textarea id="scheduled-task-command" value={selectedTemplate ? renderedCommand : command} onChange={(e) => { if (!selectedTemplate) setCommand(e.target.value); }} readOnly={Boolean(selectedTemplate)} required rows={3} placeholder="df -h" className={`${monoFieldInputClass} resize-y`} />
+				<textarea
+					id="scheduled-task-command"
+					value={selectedTemplate ? renderedCommand : command}
+					onChange={(e) => { if (!selectedTemplate) setCommand(e.target.value); }}
+					readOnly={Boolean(selectedTemplate)}
+					required
+					rows={3}
+					placeholder="df -h"
+					className={`${monoFieldInputClass} resize-y`}
+				/>
 			</div>
-			<div className="grid gap-3 md:grid-cols-3"><div className="space-y-1.5"><label htmlFor="scheduled-task-plan" className={fieldLabelClass}>{t("scheduledTasks.plan")}</label><textarea id="scheduled-task-plan" value={plan} onChange={(e) => setPlan(e.target.value)} rows={2} className={`${fieldInputClass} resize-y`} /></div><div className="space-y-1.5"><label htmlFor="scheduled-task-verify" className={fieldLabelClass}>{t("scheduledTasks.verify")}</label><input id="scheduled-task-verify" value={verificationCommand} onChange={(e) => setVerificationCommand(e.target.value)} className={monoFieldInputClass} /></div><div className="space-y-1.5"><label htmlFor="scheduled-task-rollback" className={fieldLabelClass}>{t("scheduledTasks.rollback")}</label><input id="scheduled-task-rollback" value={renderedRollback} onChange={(e) => setRollbackCommand(e.target.value)} readOnly={Boolean(selectedTemplate?.rollbackCommand)} className={monoFieldInputClass} /></div></div>
-			<div className="flex flex-wrap items-center gap-2"><input id="scheduled-task-approval" type="checkbox" checked={approvalRequired} disabled={!canApprove} onChange={(e) => setApprovalRequired(e.target.checked)} className="accent-[var(--color-action)]" /><label htmlFor="scheduled-task-approval" className="ui-label">{t("scheduledTasks.approval.everyRun")}</label>{!canApprove && <span className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.approval.permissionHint")}</span>}</div>
+			<div className="grid gap-3 md:grid-cols-3">
+				<div className="space-y-1.5">
+					<label htmlFor="scheduled-task-plan" className={fieldLabelClass}>{t("scheduledTasks.plan")}</label>
+					<textarea id="scheduled-task-plan" value={plan} onChange={(e) => setPlan(e.target.value)} rows={2} className={`${fieldInputClass} resize-y`} />
+				</div>
+				<div className="space-y-1.5">
+					<label htmlFor="scheduled-task-verify" className={fieldLabelClass}>{t("scheduledTasks.verify")}</label>
+					<input id="scheduled-task-verify" value={verificationCommand} onChange={(e) => setVerificationCommand(e.target.value)} className={monoFieldInputClass} />
+				</div>
+				<div className="space-y-1.5">
+					<label htmlFor="scheduled-task-rollback" className={fieldLabelClass}>{t("scheduledTasks.rollback")}</label>
+					<input
+						id="scheduled-task-rollback"
+						value={renderedRollback}
+						onChange={(e) => setRollbackCommand(e.target.value)}
+						readOnly={Boolean(selectedTemplate?.rollbackCommand)}
+						className={monoFieldInputClass}
+					/>
+				</div>
+			</div>
+			<div className="flex flex-wrap items-center gap-2">
+				<input
+					id="scheduled-task-approval"
+					type="checkbox"
+					checked={approvalRequired}
+					disabled={!canApprove}
+					onChange={(e) => setApprovalRequired(e.target.checked)}
+					className="accent-[var(--color-action)]"
+				/>
+				<label htmlFor="scheduled-task-approval" className="ui-label">{t("scheduledTasks.approval.everyRun")}</label>
+				{!canApprove && <span className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.approval.permissionHint")}</span>}
+			</div>
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-reason" className={fieldLabelClass}>{t("scheduledTasksPage.reason")}</label>
@@ -395,7 +505,16 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 
 			{enabledServers.length > 0 ? (
 				<div className="space-y-1.5">
-					<div className="flex flex-wrap items-center justify-between gap-2"><div id="scheduled-task-target-nodes-label" className={fieldLabelClass}>{t("scheduledTasksPage.servers")}</div><button type="button" onClick={() => setSelectedServerIds(selectedServerIds.size === enabledServers.length ? new Set() : new Set(enabledServers.map((server) => server.id)))} className="text-xs font-medium text-[var(--accent)] hover:underline">{selectedServerIds.size === enabledServers.length ? t("scheduledTasks.clearSelection") : t("scheduledTasks.selectAll")}</button></div>
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<div id="scheduled-task-target-nodes-label" className={fieldLabelClass}>{t("scheduledTasksPage.servers")}</div>
+						<button
+							type="button"
+							onClick={() => setSelectedServerIds(selectedServerIds.size === enabledServers.length ? new Set() : new Set(enabledServers.map((server) => server.id)))}
+							className="text-xs font-medium text-[var(--accent)] hover:underline"
+						>
+							{selectedServerIds.size === enabledServers.length ? t("scheduledTasks.clearSelection") : t("scheduledTasks.selectAll")}
+						</button>
+					</div>
 					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
 						{enabledServers.map((s) => (
 							<label key={s.id} data-tile="" data-selected={selectedServerIds.has(s.id) ? "" : undefined} className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] transition">

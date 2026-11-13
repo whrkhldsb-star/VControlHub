@@ -1,38 +1,51 @@
-"use client"; /** * Field-level risk chrome — chip + rollback button used by every input * variant in the settings page (R31 split from settings-client.tsx). * * `FieldRiskBadge` — small ⚠ badge shown next to the field label * when riskLevel is "medium" or "high". * `FieldRollbackButton`— per-field ↺ button that resets the field to * its `defaultValue`. Hidden for password fields * unless explicitly `rollbackable: true`. * * Both helpers are re-exported from `settings-client.tsx` so existing * test imports (`@/app/settings/settings-client`) keep working. */
-import type { FieldDef } from "./field-schema";
-import { useI18n } from "@/lib/i18n/use-locale"; /** * Risk-level badge (medium / high only). Renders nothing for "low" or * undefined — most fields shouldn't distract the user. * * The visible-text label is sr-only because testing-library * `getByLabelText` defaults to exact=true, and sibling text would make * it fail; the chip color + ⚠ icon carry the visual signal. */
+"use client";
+
+/**
+ * Field-level risk chrome of the settings page: the risk badge next to a field's label and the
+ * "restore default" button.
+ *
+ * Both are re-exported from `settings-client.tsx`, where the tests import them from.
+ */
 import { ActionButton } from "@/components/action-button";
-export function FieldRiskBadge({
-  level,
-}: {
-  level: "low" | "medium" | "high" | undefined;
-}) {
+import { AlertTriangle, RotateCcw } from "@/components/icons";
+import { useI18n } from "@/lib/i18n/use-locale";
+import { cn } from "@/lib/ui/cn";
+
+import type { FieldDef } from "./field-schema";
+
+/**
+ * Risk badge for "medium" and "high"; nothing for "low" or no level, so most fields stay quiet.
+ *
+ * The label is read by screen readers only (the badge is an icon in the level's colour): as visible text
+ * next to the field's label it would become part of that label's text.
+ */
+export function FieldRiskBadge({ level }: { level: "low" | "medium" | "high" | undefined }) {
   const { t } = useI18n();
   if (!level || level === "low") return null;
-  const className =
-    level === "high"
-      ? "inline-flex items-center gap-0.5 rounded border border-[var(--danger-border)] bg-[var(--danger-bg)] px-1.5 py-0.5 text-xs font-medium uppercase text-[var(--danger)]"
-      : "inline-flex items-center gap-0.5 rounded border border-[var(--warning-border)] bg-[var(--warning-bg)] px-1.5 py-0.5 text-xs font-medium uppercase text-[var(--warning)]";
-  const label =
-    level === "high"
-      ? t("settingsClient.riskHigh")
-      : t("settingsClient.riskMedium");
-  const description =
-    level === "high"
-      ? t("settingsClient.riskHighDescription")
-      : t("settingsClient.riskMediumDescription");
+  const high = level === "high";
+  const label = t(high ? "settingsClient.riskHigh" : "settingsClient.riskMedium");
   return (
     <span
       data-risk={level}
-      title={description}
+      title={t(high ? "settingsClient.riskHighDescription" : "settingsClient.riskMediumDescription")}
       aria-label={label}
-      className={className}
+      className={cn(
+        "inline-flex items-center rounded border px-1 py-0.5",
+        high
+          ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
+          : "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
+      )}
     >
-      {" "}
-      <span aria-hidden>⚠</span> <span className="sr-only">{label}</span>{" "}
+      <AlertTriangle size={12} aria-hidden />
+      <span className="sr-only">{label}</span>
     </span>
   );
-} /** * Per-field "restore default" button. * - Rendered only when `field.defaultValue` is set and field is not a * password (unless the field opts in with `rollbackable: true`). * - Disabled when current value equals defaultValue or is empty. */
+}
+
+/**
+ * Puts a field back to its default. Shown when the field has a default and is not a password (a field can
+ * opt out with `rollbackable: false`); disabled while the value is the default or empty.
+ */
 export function FieldRollbackButton({
   field,
   value,
@@ -45,10 +58,7 @@ export function FieldRollbackButton({
   disabled: boolean;
 }) {
   const { t } = useI18n();
-  const supportsRollback =
-    field.rollbackable !== false &&
-    field.defaultValue !== undefined &&
-    field.type !== "password";
+  const supportsRollback = field.rollbackable !== false && field.defaultValue !== undefined && field.type !== "password";
   if (!supportsRollback) return null;
   const isAtDefault = value === field.defaultValue || value === "";
   return (
@@ -58,14 +68,10 @@ export function FieldRollbackButton({
       square
       onClick={() => onChange(field.defaultValue ?? "")}
       disabled={disabled || isAtDefault}
-      title={
-        isAtDefault
-          ? t("settingsClient.fieldIsDefault")
-          : t("settingsClient.fieldRestoreDefault", { value: field.defaultValue ?? "" })
-      }
+      title={isAtDefault ? t("settingsClient.fieldIsDefault") : t("settingsClient.fieldRestoreDefault", { value: field.defaultValue ?? "" })}
       aria-label={t("settingsClient.fieldRestoreAria", { label: t(field.labelKey) })}
     >
-      <span aria-hidden>↺</span>
+      <RotateCcw size={14} aria-hidden />
       <span className="sr-only">{t("settingsClient.fieldDefaultSr")}</span>
     </ActionButton>
   );

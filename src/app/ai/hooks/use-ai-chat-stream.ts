@@ -36,8 +36,8 @@ import type {
   ToolApprovalNeeded,
   ToolCallEvent,
 } from "../ai-types";
+import type { ToastFn } from "@/components/toast-provider";
 
-type ToastFn = (kind: "success" | "error" | "info", message: string) => void;
 
 type Args = {
   activeConv: ConvItem | null;

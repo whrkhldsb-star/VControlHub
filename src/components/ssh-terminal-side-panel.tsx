@@ -8,7 +8,7 @@ import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
 import { QuickKeyBuilder } from "@/components/ssh-quick-key-builder";
-import type { QuickKeyPreset } from "@/components/ssh-quick-keys";
+import { DEFAULT_QUICK_KEY_PRESETS, type QuickKeyPreset } from "@/components/ssh-quick-keys";
 import { MAX_SSH_TERMINAL_FONT_SIZE, MIN_SSH_TERMINAL_FONT_SIZE } from "@/components/ssh-terminal-font-size";
 import type { SshTerminalOperatingSystem } from "@/components/ssh-terminal-types";
 
@@ -18,24 +18,6 @@ const QUICK_COMMANDS_BY_OS: Record<SshTerminalOperatingSystem, readonly string[]
 	// for its built-in version command.
 	WINDOWS: ["dir", "systeminfo", "tasklist", "ipconfig", "whoami", "hostname", "cmd /c ver", "netstat -ano"],
 };
-
-/** Raw key sequences sent as-is (no Enter appended) — the on-screen stand-ins
- *  for keys mobile keyboards cannot type, e.g. interrupt, line editing, arrows.
- *  Used only when the user has no customized presets stored. */
-const QUICK_KEYS: ReadonlyArray<{ label: string; data: string }> = [
-	{ label: "Ctrl+C", data: "\u0003" },
-	{ label: "Ctrl+D", data: "\u0004" },
-	{ label: "Ctrl+Z", data: "\u001a" },
-	{ label: "Tab", data: "	" },
-	{ label: "Ctrl+L", data: "\u000c" },
-	{ label: "Ctrl+U", data: "\u0015" },
-	{ label: "Ctrl+W", data: "\u0017" },
-	{ label: "Esc", data: "\u001b" },
-	{ label: "↑", data: "\u001b[A" },
-	{ label: "↓", data: "\u001b[B" },
-	{ label: "←", data: "\u001b[D" },
-	{ label: "→", data: "\u001b[C" },
-];
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -228,7 +210,8 @@ export function SshTerminalSidePanel({
 				    wraps to the next row instead of spilling over its neighbours the way
 				    a fixed four-column grid made it. */}
 				<div className="flex flex-wrap gap-1">
-					{(customQuickKeys ?? QUICK_KEYS).map((key) => (
+					{/* The baseline (interrupt, line editing, arrows: what a phone keyboard cannot type) until the user customizes it. */}
+					{(customQuickKeys ?? DEFAULT_QUICK_KEY_PRESETS).map((key) => (
 						<ActionButton variant="ghost"
 							key={key.label}
 							onClick={() => sendKeys(key.data)} className="!min-h-11 min-w-0 flex-[1_0_calc(33.333%-0.1875rem)] !whitespace-normal break-words !rounded-lg !px-1 !py-1 !text-center !text-[12px] !leading-tight !font-mono text-[var(--text-muted)]"

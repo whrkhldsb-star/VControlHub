@@ -13,8 +13,8 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { DEFAULT_PROV_FORM } from "../ai-types";
+import type { ToastFn } from "@/components/toast-provider";
 
-type ToastFn = (kind: "success" | "error" | "info", message: string) => void;
 
 export function useProviderForm({
   refreshProviders,

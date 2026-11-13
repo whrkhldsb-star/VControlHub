@@ -5,7 +5,7 @@
 
 import { useEffect, useState, useCallback, createContext, useContext } from "react";
 import { toHtmlLang } from "./locale-format";
-import type { Locale } from "./core";
+import { interpolate, type Locale } from "./core";
 
 const STORAGE_KEY = "vps-locale";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -19,7 +19,8 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue>({
 	locale: "zh",
 	setLocale: () => {},
-	t: (key, vars) => (vars ? Object.entries(vars).reduce((s, [k, v]) => s.split(`{${k}}`).join(String(v)), key) : key),
+	// Without a provider (a component rendered on its own): the key itself, placeholders filled in.
+	t: (key, vars) => interpolate(key, vars),
 });
 
 export function useI18n() {

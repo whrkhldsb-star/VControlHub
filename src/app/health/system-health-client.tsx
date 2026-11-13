@@ -9,7 +9,6 @@ import {
 	healthStatusBadgeTone,
 	repairSuggestions,
 	statusLabelKey,
-	tt as applyTemplate,
 } from "./health-dashboard-helpers";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import type { SystemHealthReport } from "./health-types";
@@ -41,7 +40,6 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 	});
 	const advice = repairSuggestions(systemHealth, t);
 
-	const tt = (key: string, vars?: Record<string, string | number>) => applyTemplate(t, key, vars);
 	const loading = systemHealth === null && !loadError;
 
 	return (
@@ -110,7 +108,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 								{t("healthPage.ui.repairSuggestions")}
 							</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">
-								{tt("healthPage.ui.checksSummary", systemHealth.summary)}
+								{t("healthPage.ui.checksSummary", systemHealth.summary)}
 							</p>
 						</div>
 						<ButtonLink variant="ghost" size="sm" href="/audit">
@@ -158,7 +156,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 								<div key={check.id} data-inset className="p-3">
 									<div className="flex items-center justify-between gap-3">
 										<div className="text-sm font-medium text-[var(--text-primary)]">
-											{tt(
+											{t(
 												`healthPage.check.${check.id.startsWith("dir-") ? "dir" : check.id}.label`,
 												check.params,
 											)}
@@ -168,7 +166,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 										</Badge>
 									</div>
 									<p className="mt-1 text-xs text-[var(--text-secondary)]">
-										{tt(
+										{t(
 											`healthPage.check.${check.id.startsWith("dir-") ? "dir" : check.id}.message.${check.messageCode ?? check.status}`,
 											check.params,
 										)}

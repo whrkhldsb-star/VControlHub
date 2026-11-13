@@ -4,7 +4,7 @@
  * All user-facing strings (titles, descriptions, labels, helpers,
  * placeholders, badges, save messages, notice banners, select option
  * labels, validate error keys) are stored as i18n dictionary keys.
- * The rendering layer resolves them via t(key) / tt(key, params).
+ * The rendering layer resolves them via t(key) / t(key, params).
  *
  * Adding a new setting:
  *   1. Backend: add setting key (service / dto / runtime-settings)

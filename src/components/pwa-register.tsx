@@ -121,28 +121,23 @@ export function PwaRegister() {
       className="fixed bottom-24 left-1/2 z-[90] w-[min(calc(100vw-2rem),34rem)] -translate-x-1/2 space-y-2 md:bottom-5"
       aria-live="polite"
     >
-      {" "}
       {isOffline && (
         <div className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-sm text-[var(--warning)] shadow-[var(--shadow-lg)] backdrop-blur">
-          {" "}
-          <div className="font-medium">{t("pwa.status.offlineTitle")}</div>{" "}
+          <div className="font-medium">{t("pwa.status.offlineTitle")}</div>
           <div className="mt-1 text-xs opacity-80">
             {t("pwa.status.offlineDescription")}
-          </div>{" "}
+          </div>
         </div>
-      )}{" "}
+      )}
       {updateState.visible && (
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--accent-border)] bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--text-primary)] shadow-[var(--shadow-lg)] backdrop-blur">
-          {" "}
           <div>
-            {" "}
-            <div className="font-medium">{t("pwa.update.available")}</div>{" "}
+            <div className="font-medium">{t("pwa.update.available")}</div>
             <div className="mt-1 text-xs text-[var(--text-muted)]">
               {t("pwa.update.description")}
-            </div>{" "}
-          </div>{" "}
+            </div>
+          </div>
           <div className="flex shrink-0 items-center gap-2">
-            {" "}
             <button
               type="button"
               className="rounded-lg px-2 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
@@ -150,17 +145,15 @@ export function PwaRegister() {
                 setUpdateState((state) => ({ ...state, visible: false }))
               }
             >
-              {" "}
-              {t("pwa.update.dismiss")}{" "}
-            </button>{" "}
+              {t("pwa.update.dismiss")}
+            </button>
             <ActionButton size="sm" variant="primary" 
               onClick={refreshToUpdate}>
-              {" "}
-              {t("pwa.update.refresh")}{" "}
-            </ActionButton>{" "}
-          </div>{" "}
+              {t("pwa.update.refresh")}
+            </ActionButton>
+          </div>
         </div>
-      )}{" "}
+      )}
     </div>
   );
 }

@@ -20,7 +20,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { ActionButton } from "@/components/action-button";
 import { Chip, Notice } from "@/components/ui-primitives";
-import { getCategories } from "./downloads-shared";
+import { getCategories, urlTypeLabel } from "./downloads-shared";
 
 export interface DownloadFormState {
 	url: string;
@@ -56,13 +56,6 @@ export interface CreateDownloadFormProps {
 	onFormChange: (next: DownloadFormState) => void;
 	onServerChange: (serverId: string) => void;
 	onSubmit: () => void;
-}
-
-function urlTypeLabel(url: string, t: (k: string, vars?: Record<string, string | number>) => string) {
-	if (url.startsWith("magnet:?")) return t("downloadsPage.form.linkType.magnet");
-	if (url.startsWith("https://")) return "HTTPS";
-	if (url.startsWith("http://")) return "HTTP";
-	return t("downloadsPage.form.linkType.unknown");
 }
 
 export function CreateDownloadForm({

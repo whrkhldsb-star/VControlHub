@@ -9,7 +9,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { tt as applyTemplate } from "./health-dashboard-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
@@ -78,7 +77,7 @@ function formatDays(value: number | null, t: (k: string, vars?: Record<string, s
   if (value === 0) return t("healthPage.capacity.now");
   if (value < 1) return t("healthPage.capacity.ltOneDay");
   if (value >= 3650) return t("healthPage.capacity.far");
-  return applyTemplate(t, "healthPage.capacity.days", { n: Math.round(value * 10) / 10 });
+  return t("healthPage.capacity.days", { n: Math.round(value * 10) / 10 });
 }
 
 function metricLabel(metric: MetricForecast["metric"], t: (k: string, vars?: Record<string, string | number>) => string): string {
@@ -233,7 +232,7 @@ export function CapacityForecastPanel() {
           </div>
 
           <p className="text-xs text-[var(--text-muted)]">
-            {applyTemplate(t, "healthPage.capacity.meta", {
+            {t("healthPage.capacity.meta", {
               windowHours: data.summary.windowHours,
               horizonDays: data.summary.horizonDays,
               insufficient: data.summary.insufficientData,

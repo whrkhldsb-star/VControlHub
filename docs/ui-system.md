@@ -268,6 +268,9 @@ breadcrumb names the area, so page eyebrows are hidden.
 - Text the server stores in English for its own records (a version's note, a
   sync job's result line) is said in the page's language where it is shown
   (`versionNoteLabel`, `syncResultLabel`); what is stored stays as it is.
+- `t(key, vars)` fills every placeholder; do not wrap it. A hook or component
+  that shows toasts takes a `ToastFn` (exported by `toast-provider.tsx`), not a
+  type of its own. Sizes and rates go through `src/lib/format/bytes.ts`.
 
 ## Rules enforced by tests
 

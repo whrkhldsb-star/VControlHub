@@ -25,7 +25,6 @@ export function VpsStatusClient({ serverCount }: Props) {
 	const {
 		locale,
 		t,
-		tt,
 		overview,
 		history,
 		historyErrors,
@@ -79,12 +78,11 @@ export function VpsStatusClient({ serverCount }: Props) {
 			</section>
 
 			{overview && overview.servers.length > 0 ? (
-				<FleetResourceSummary overview={overview} t={t} tt={tt} />
+				<FleetResourceSummary overview={overview} t={t} />
 			) : null}
 
 			<VpsStatusToolbar
 				t={t}
-				tt={tt}
 				filter={filter}
 				setFilter={setFilter}
 				filteredCount={filteredServers.length}

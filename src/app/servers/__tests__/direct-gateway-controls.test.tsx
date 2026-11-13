@@ -74,6 +74,11 @@ describe("server direct gateway controls", () => {
     });
     expect(checkbox).not.toBeChecked();
     expect(checkbox).toHaveAttribute("name", "enableDirectGateway");
+    // The switch is named by its title alone, and no label holds another: one <label> around the whole
+    // block made a click on a hint tick the box and nested the labels of the two fields below.
+    expect(checkbox).toHaveAccessibleName("启用目标直连（Agent 文件能力）");
+    expect(document.querySelector("label label")).toBeNull();
+    expect(checkbox.closest("label")).toBeNull();
     expect(screen.getByText(/默认由网站中转文件流量/)).toBeInTheDocument();
     expect(screen.getByLabelText("用户名")).toHaveValue("root");
   });

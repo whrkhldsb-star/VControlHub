@@ -1,6 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ToastFn } from "@/components/toast-provider";
+
 /**
  * Tests for `useAiChatStream` — the SSE loop behind the AI chat surface.
  *
@@ -59,7 +61,7 @@ function setup(activeConvId: string | null = "conv_a") {
 				: (next as Array<Record<string, unknown>>);
 		}) as never,
 		refreshConversations: () => { state.refreshed += 1; },
-		addToast: (kind: "success" | "error" | "info", message: string) => { state.toasts.push({ kind, message }); },
+		addToast: ((kind, message) => { state.toasts.push({ kind, message }); }) satisfies ToastFn,
 	};
 	return { state, args };
 }

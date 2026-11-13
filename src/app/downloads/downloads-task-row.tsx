@@ -2,7 +2,7 @@
 
 import { memo, type MouseEvent } from "react";
 import type { DownloadTask } from "./downloads-shared";
-import { getCategories, getStatusLabel, formatSpeed } from "./downloads-shared";
+import { getCategories, getStatusLabel, formatSpeed, urlTypeLabel } from "./downloads-shared";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { formatBytes } from "@/lib/format/bytes";
@@ -24,13 +24,6 @@ const statusBadge: Record<string, StatusTone> = {
 const categoryIcon = {
 	video: Video, music: Music2, software: HardDrive, document: File, image: ImageIcon, other: File,
 };
-
-function urlTypeLabel(url: string, t: (k: string, vars?: Record<string, string | number>) => string) {
-	if (url.startsWith("magnet:?")) return t("downloadsPage.linkType.magnet");
-	if (url.startsWith("https://")) return "HTTPS";
-	if (url.startsWith("http://")) return "HTTP";
-	return t("downloadsPage.linkType.unknown");
-}
 
 /** Percent (0-100, one decimal), as the progress bar and the "%" label read it. */
 export function computePct(completed: string | null, total: string | null): number {

@@ -14,7 +14,6 @@ import { writeLocalStorageValue } from "@/lib/browser-storage";
 import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
-import { tt as applyTemplate } from "@/app/health/health-dashboard-helpers";
 import { useHealthData } from "@/app/health/use-health-data";
 
 export type VpsStatusFilter = "all" | "online" | "issue";
@@ -57,8 +56,6 @@ export function useVpsStatusView() {
 		writeLocalStorageValue(VPS_STATUS_VIEW_MODE_KEY, mode);
 	};
 
-	const tt = (key: string, vars?: Record<string, string | number>) => applyTemplate(t, key, vars);
-
 	const filteredServers = useMemo(() => {
 		const list = overview?.servers ?? [];
 		if (filter === "online") {
@@ -97,7 +94,6 @@ export function useVpsStatusView() {
 	return {
 		locale,
 		t,
-		tt,
 		overview,
 		history,
 		historyErrors,

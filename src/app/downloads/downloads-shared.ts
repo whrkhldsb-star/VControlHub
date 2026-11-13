@@ -1,3 +1,5 @@
+import { formatBytesPerSecond } from "@/lib/format/bytes";
+
 /* ── Types ────────────────────────────────────────────────── */
 
 export type ServerOption = {
@@ -50,13 +52,17 @@ export function getCategories(t: (k: string, vars?: Record<string, string | numb
 	];
 }
 
-export function formatSpeed(b: string | number | null): string {
-	if (!b) return "—";
-	const n = typeof b === "string" ? parseInt(b, 10) : b;
-	if (isNaN(n) || n === 0) return "0 B/s";
-	const units = ["B/s", "KB/s", "MB/s", "GB/s"];
-	const i = Math.floor(Math.log(n) / Math.log(1024));
-	return `${(n / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+/** A transfer rate as the rest of the application writes one; "—" while there is none. */
+export function formatSpeed(rate: string | number | null): string {
+	return rate ? formatBytesPerSecond(rate) : "—";
+}
+
+/** What kind of link a download was started from. */
+export function urlTypeLabel(url: string, t: (k: string, vars?: Record<string, string | number>) => string) {
+	if (url.startsWith("magnet:?")) return t("downloadsPage.linkType.magnet");
+	if (url.startsWith("https://")) return "HTTPS";
+	if (url.startsWith("http://")) return "HTTP";
+	return t("downloadsPage.linkType.unknown");
 }
 
 export { getErrorMessage } from "@/lib/http/error-message";

@@ -165,7 +165,18 @@ function StorageNodeCard({
 			<div data-inset className="mt-4 p-4 text-sm text-[var(--text-secondary)]">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex flex-wrap items-center gap-2">
-						<StatusBadge tone={health.tone} size="sm">{health.label}</StatusBadge> <span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span> {node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs", { latency: node.lastHealthLatencyMs })}</span> : null} </div> {canManageNodes ? ( <ActionButton size="sm" variant="secondary" onClick={handleHealthCheck} loading={isPending}> {isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")} </ActionButton> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ?"text-[var(--success)]" :"text-[var(--danger)]"}`}>{message.text}</p> : null}
+						<StatusBadge tone={health.tone} size="sm">{health.label}</StatusBadge>
+						<span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span>
+						{node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs", { latency: node.lastHealthLatencyMs })}</span> : null}
+					</div>
+					{canManageNodes ? (
+						<ActionButton size="sm" variant="secondary" onClick={handleHealthCheck} loading={isPending}>
+							{isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")}
+						</ActionButton>
+					) : null}
+				</div>
+				{node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null}
+				{message ? <p className={`mt-2 text-xs ${message.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{message.text}</p> : null}
 			</div>
 			<p className="mt-2 text-xs text-[var(--text-muted)]">{t("storagePage.list.registeredFiles", { count: node.fileCount })}</p>
 

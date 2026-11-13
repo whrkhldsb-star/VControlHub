@@ -22,7 +22,6 @@ export function ConnectionTypeFields({
   );
   return (
     <section data-tile className="space-y-4 p-4">
-      {" "}
       <div className="space-y-1.5">
         <span className={UI_LABEL}>{t("serversPage.create.connectionType")}</span>
         <SegmentedControl
@@ -43,39 +42,34 @@ export function ConnectionTypeFields({
       </div>
       {connectionType === "SSH_KEY" ? (
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">
-          {" "}
           <div className="space-y-1.5">
-            {" "}
             <label
               className="ui-label"
               htmlFor="sshKeyId"
             >
               {t("serversPage.create.sshKey")}
-            </label>{" "}
+            </label>
             <select
               id="sshKeyId"
               name="sshKeyId"
               required
               className={UI_INPUT}
             >
-              {" "}
-              <option value="">{t("serversPage.create.selectKey")}</option>{" "}
+              <option value="">{t("serversPage.create.selectKey")}</option>
               {sshKeys.map((key) => (
                 <option key={key.id} value={key.id}>
-                  {" "}
-                  {key.name}{" "}
+                  {key.name}
                 </option>
-              ))}{" "}
-            </select>{" "}
-          </div>{" "}
+              ))}
+            </select>
+          </div>
           <div className="space-y-1.5">
-            {" "}
             <label
               className="ui-label"
               htmlFor="serverUsername"
             >
               {t("serversPage.create.username")}
-            </label>{" "}
+            </label>
             <input
               key="ssh-key-username"
               id="serverUsername"
@@ -84,20 +78,18 @@ export function ConnectionTypeFields({
               defaultValue="root"
               placeholder="root"
               className={UI_INPUT}
-            />{" "}
-          </div>{" "}
+            />
+          </div>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {" "}
           <div className="space-y-1.5">
-            {" "}
             <label
               className="ui-label"
               htmlFor="serverUsername"
             >
               {t("serversPage.create.username")}
-            </label>{" "}
+            </label>
             <input
               key="password-username"
               id="serverUsername"
@@ -106,16 +98,15 @@ export function ConnectionTypeFields({
               defaultValue="root"
               placeholder="root"
               className={UI_INPUT}
-            />{" "}
-          </div>{" "}
+            />
+          </div>
           <div className="space-y-1.5">
-            {" "}
             <label
               className="ui-label"
               htmlFor="serverPassword"
             >
               {t("serversPage.create.password")}
-            </label>{" "}
+            </label>
             <input
               key="password-secret"
               id="serverPassword"
@@ -125,13 +116,13 @@ export function ConnectionTypeFields({
               autoComplete="new-password"
               placeholder={t("serversPage.create.passwordPlaceholder")}
               className={UI_INPUT}
-            />{" "}
+            />
             <p className="text-xs text-[var(--text-muted)]">
               {t("serversPage.create.passwordHint")}
-            </p>{" "}
-          </div>{" "}
+            </p>
+          </div>
         </div>
-      )}{" "}
+      )}
     </section>
   );
 }

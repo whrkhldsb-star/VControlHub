@@ -15,8 +15,8 @@ import type {
 import { emptyForm, formatAmount, isValidDate } from "./cost-page-shared";
 import { describeFailure } from "@/lib/http/error-message";
 import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
+import type { ToastFn } from "@/components/toast-provider";
 
-type ToastFn = (type: "success" | "error" | "info" | "warning", message: string) => void;
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 export function useCostPageState(options: {

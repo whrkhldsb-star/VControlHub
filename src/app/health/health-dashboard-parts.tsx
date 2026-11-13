@@ -35,11 +35,9 @@ function FleetMetricBar({ label, value, unit }: { label: string; value: number; 
 export function FleetResourceSummary({
 	overview,
 	t,
-	tt,
 }: {
 	overview: HealthOverview;
 	t: TFunc;
-	tt: (key: string, vars?: Record<string, string | number>) => string;
 }) {
 	const onlineServers = overview.servers.filter(
 		(s) => s.status !== "offline" && s.cpu !== undefined,
@@ -87,7 +85,7 @@ export function FleetResourceSummary({
 					</h2>
 				</div>
 				<span className="text-xs text-[var(--text-muted)]">
-					{tt("healthPage.fleet.basedOn", { count: onlineServers.length })}
+					{t("healthPage.fleet.basedOn", { count: onlineServers.length })}
 				</span>
 			</div>
 			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
