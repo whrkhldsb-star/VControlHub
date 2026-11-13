@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CapacityForecastPanel — fleet capacity prediction surface on /health.
+ * CapacityForecastPanel — fleet capacity prediction surface on /vps-status (under the node board).
  * Loads GET /api/health/capacity and renders risk summary + per-node table.
  */
 
@@ -156,9 +156,9 @@ export function CapacityForecastPanel() {
               onChange={(e) => setHorizonDays(Number(e.target.value))}
               aria-label={t("healthPage.capacity.horizon")}
             >
-              <option value={7}>7d</option>
-              <option value={14}>14d</option>
-              <option value={30}>30d</option>
+              {[7, 14, 30].map((days) => (
+                <option key={days} value={days}>{t("healthPage.capacity.days", { n: days })}</option>
+              ))}
             </select>
           </label>
           <ActionButton size="sm" variant="secondary"
@@ -233,7 +233,7 @@ export function CapacityForecastPanel() {
 
           <p className="text-xs text-[var(--text-muted)]">
             {t("healthPage.capacity.meta", {
-              windowHours: data.summary.windowHours,
+              windowDays: Math.round(data.summary.windowHours / 24),
               horizonDays: data.summary.horizonDays,
               insufficient: data.summary.insufficientData,
             })}
@@ -253,7 +253,7 @@ export function CapacityForecastPanel() {
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.metric")}</th>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.latest")}</th>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.slope")}</th>
-                    <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.projected")}</th>
+                    <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.projected", { days: data.summary.horizonDays })}</th>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.until85")}</th>
                   </tr>
                 </thead>
@@ -294,7 +294,7 @@ export function CapacityForecastPanel() {
                         <td className="px-3 py-2 font-mono tabular-nums text-[var(--text-secondary)]">
                           {metric.slopePerDay === null
                             ? "—"
-                            : `${metric.slopePerDay > 0 ? "+" : ""}${metric.slopePerDay.toFixed(2)}%/d`}
+                            : `${metric.slopePerDay > 0 ? "+" : ""}${metric.slopePerDay.toFixed(2)}%`}
                         </td>
                         <td className="px-3 py-2 font-mono tabular-nums text-[var(--text-primary)]">
                           {metric.projected === null ? "—" : formatProjectedPercent(metric.projected)}

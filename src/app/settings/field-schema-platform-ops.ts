@@ -1,4 +1,5 @@
 import { runtimeNumber, type FieldDef, type SectionDef } from "./field-schema-core";
+import { IconFolder, IconGauge, IconHistory, IconListChecks, IconLock, IconSiren, IconSparkles } from "@/components/nav-icons";
 
 /**
  * Sections added in the 2026-10 settings expansion: security policy, jobs,
@@ -17,7 +18,7 @@ function knob(key: string, defaultValue: string, min: number, max: number, riskL
 export const SECURITY_POLICY_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "securityPolicy",
-		icon: "🚫",
+		icon: IconLock,
 		titleKey: "settingsClient.schema.section.securityPolicy.title",
 		descriptionKey: "settingsClient.schema.section.securityPolicy.description",
 		defaultOpen: true,
@@ -71,7 +72,7 @@ export const SECURITY_POLICY_SETTINGS_SECTIONS: SectionDef[] = [
 export const OPERATIONS_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "jobs",
-		icon: "🧰",
+		icon: IconListChecks,
 		titleKey: "settingsClient.schema.section.jobs.title",
 		descriptionKey: "settingsClient.schema.section.jobs.description",
 		defaultOpen: true,
@@ -87,7 +88,7 @@ export const OPERATIONS_SETTINGS_SECTIONS: SectionDef[] = [
 export const ALERT_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "alerts",
-		icon: "🚨",
+		icon: IconSiren,
 		titleKey: "settingsClient.schema.section.alerts.title",
 		descriptionKey: "settingsClient.schema.section.alerts.description",
 		defaultOpen: true,
@@ -103,7 +104,7 @@ export const ALERT_SETTINGS_SECTIONS: SectionDef[] = [
 export const STORAGE_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "storage",
-		icon: "🗂️",
+		icon: IconFolder,
 		titleKey: "settingsClient.schema.section.storage.title",
 		descriptionKey: "settingsClient.schema.section.storage.description",
 		defaultOpen: true,
@@ -121,7 +122,7 @@ export const STORAGE_SETTINGS_SECTIONS: SectionDef[] = [
 export const MONITORING_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "monitoring",
-		icon: "📈",
+		icon: IconGauge,
 		titleKey: "settingsClient.schema.section.monitoring.title",
 		descriptionKey: "settingsClient.schema.section.monitoring.description",
 		defaultOpen: true,
@@ -136,7 +137,7 @@ export const MONITORING_SETTINGS_SECTIONS: SectionDef[] = [
 	},
 	{
 		id: "retention",
-		icon: "🗑️",
+		icon: IconHistory,
 		titleKey: "settingsClient.schema.section.retention.title",
 		descriptionKey: "settingsClient.schema.section.retention.description",
 		defaultOpen: true,
@@ -154,7 +155,7 @@ export const MONITORING_SETTINGS_SECTIONS: SectionDef[] = [
 export const AI_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "ai",
-		icon: "🧠",
+		icon: IconSparkles,
 		titleKey: "settingsClient.schema.section.ai.title",
 		descriptionKey: "settingsClient.schema.section.ai.description",
 		defaultOpen: true,

@@ -21,7 +21,8 @@ import { describe, expect, it } from "vitest";
  *   - a number field bound to a number is a <NumberInput>, which keeps what is
  *     being typed;
  *   - labels, eyebrows and table headers keep the case they are written in:
- *     no `uppercase`.
+ *     no `uppercase`;
+ *   - icons come from the icon set: no "×", "✓" or arrow characters standing in for one.
  *
  * Allowlists name the few places that genuinely need bespoke chrome.
  */
@@ -297,7 +298,20 @@ describe("UI conventions", () => {
 	it("keeps symbols out of translated labels", () => {
 		const dictionaries = collectFiles(join(SRC_ROOT, "lib/i18n/dictionaries"), ".ts");
 		const offenders = dictionaries.flatMap((file) =>
-			[...readFileSync(file, "utf8").matchAll(/"([\w.-]+)": "(?:\+ |[←→] |[^"]* [←→]")/g)].map((match) => `${relative(SRC_ROOT, file)}: ${match[1]}`),
+			[...readFileSync(file, "utf8").matchAll(/"([\w.-]+)": "(?:\+ |[←→↑↓]+ |[^"]* [←→↑↓]")/g)].map((match) => `${relative(SRC_ROOT, file)}: ${match[1]}`),
+		);
+		expect(offenders).toEqual([]);
+	});
+
+	// Symbol characters are drawn by each system's fonts and ignore the theme: a close button was "×" in one place
+	// and "✕" in the next, "up one level" an arrow character beside an icon button that had an icon. Keys shown as
+	// keys (<kbd>) and the SSH key pads, which name keyboard keys, are the exceptions.
+	it("draws icons with the icon set, not symbol characters", () => {
+		const SYMBOL_GLYPH = />\s*([×✕✖✓✔✗✘↑↓↕⇅▲▼▶◀⬆⬇★☆⚠])\s*(?:<|\{)/g;
+		const offenders = tsxFiles.flatMap(({ file, source }) =>
+			[...source.matchAll(SYMBOL_GLYPH)]
+				.filter((match) => !/className="ui-kbd"$/.test(source.slice(Math.max(0, match.index - 40), match.index)))
+				.map((match) => `${file}: ${match[1]}`),
 		);
 		expect(offenders).toEqual([]);
 	});

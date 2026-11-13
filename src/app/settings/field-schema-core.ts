@@ -1,3 +1,5 @@
+import type { NavGlyph } from "@/components/nav-icons";
+
 /**
  * Settings schema — declarative, i18n-keyed.
  *
@@ -54,7 +56,8 @@ export type SectionLayout = "stack" | "grid-2";
 
 export type SectionDef = {
 	id: string;
-	icon: string;
+	/** An outline glyph from nav-icons (it was an emoji, drawn differently on every system and deaf to the theme). */
+	icon: NavGlyph;
 	titleKey: string;
 	descriptionKey: string | ((settings: Record<string, string>) => string);
 	badgeKey?: string | ((settings: Record<string, string>) => string);

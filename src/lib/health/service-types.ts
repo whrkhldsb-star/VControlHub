@@ -57,6 +57,9 @@ export type ServerHealth = {
 	 *  probe is its whole check. */
 	metricsUnavailable?: boolean;
 	error?: string;
+	/** What failed, for the page to say in its language; `errorDetail` is the reason as the system gave it. */
+	errorKind?: "network" | "ssh" | "collection";
+	errorDetail?: string;
 };
 
 export type HealthOverview = {

@@ -11,7 +11,7 @@ import Image from "next/image";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { Video, Music2, File } from "@/components/icons";
+import { Video, Music2, File, X } from "@/components/icons";
 import type { FileAttachment } from "./ai-types";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
@@ -50,7 +50,7 @@ function AttachmentThumb({
         onClick={onRemove}
         className="absolute -top-1 -right-1 w-7 h-7 rounded-full border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] text-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition"
       >
-        ×
+        <X size={14} aria-hidden />
       </button>
     </div>
   );

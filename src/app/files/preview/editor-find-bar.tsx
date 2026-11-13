@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "@/components/icons";
+import { ArrowDown, ArrowUp, X } from "@/components/icons";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { EditorFindState } from "./text-preview-types";
@@ -65,14 +65,14 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findPrev")}
 				title={t("textPreview.editor.findPrev")}>
-				↑
+				<ArrowUp size={14} aria-hidden />
 			</ActionButton>
 			<ActionButton size="sm" variant="secondary"
 				onClick={() => onMove(1)}
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findNext")}
 				title={t("textPreview.editor.findNext")}>
-				↓
+				<ArrowDown size={14} aria-hidden />
 			</ActionButton>
 			<ActionButton size="sm" variant="secondary"
 				onClick={onClose}

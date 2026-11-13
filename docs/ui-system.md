@@ -267,8 +267,11 @@ breadcrumb names the area, so page eyebrows are hidden.
   link after it. After a translated label, write the language's colon
   (`t("common.colon")`), not `": "`. Chinese entries use Chinese punctuation.
 - Icons come from `src/components/icons.tsx` and `nav-icons.tsx`. Emoji and
-  symbol characters (⚠ ▶ ✓ ⬇ ⭐) are not icons: they are drawn differently
-  on each system and do not follow the theme.
+  symbol characters (⚠ ▶ ✓ ⬇ ⭐ × ↑) are not icons: they are drawn differently
+  on each system and do not follow the theme. A direction beside a number
+  (received / sent, input / output) is an `ArrowDown` / `ArrowUp` icon with
+  the word for screen readers (`sr-only`) and as the title. A settings
+  section names its icon with a `nav-icons` glyph.
 - A link to a page of the application is a `Link` or a `ButtonLink`. A plain
   `<a>` is for files, exports and streams under `/api`, for another site
   (`external`), and for a jump within the page.
@@ -289,7 +292,10 @@ breadcrumb names the area, so page eyebrows are hidden.
 - passes `overlayClassName` / `panelClassName` to `ModalShell` outside the
   allowlist, or hand-rolls a `fixed inset-0` overlay;
 - uses the legacy `data-primary` attribute;
-- starts a translated label with `+ ` or an arrow (`→`, `←`);
+- starts or ends a translated label with `+ ` or an arrow (`→`, `←`, `↑`,
+  `↓`);
+- draws an icon with a symbol character (`×`, `✕`, `✓`, `↑`, `↓`, `▶`, `⚠`…)
+  instead of the icon set; keys shown as keys (`ui-kbd`) are the exception;
 - sizes a heading without a `ui-title-*` class;
 - draws fields, buttons, button-styled links or surfaces with pasted
   border + background + radius instead of `UI_INPUT`, the button components

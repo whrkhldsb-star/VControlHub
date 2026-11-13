@@ -3,6 +3,8 @@
  */
 
 import { formatBytes } from "@/lib/format/bytes";
+import { ArrowDown, ArrowUp } from "@/components/icons";
+import { nodeErrorText } from "./node-error";
 
 import {
 	healthStatusBadgeTone,
@@ -64,8 +66,8 @@ export function VpsStatusTable({
 											</div>
 											{/* Why it could not be sampled: the card says so, and the table said "offline" alone. */}
 											{server.error ? (
-												<div className="max-w-xs truncate text-xs text-[var(--danger)]" title={server.error}>
-													{server.error}
+												<div className="max-w-xs truncate text-xs text-[var(--danger)]" title={nodeErrorText(server, t) ?? undefined}>
+													{nodeErrorText(server, t)}
 												</div>
 											) : null}
 										</div>
@@ -102,7 +104,10 @@ export function VpsStatusTable({
 									{formatKibPerSecond(server.networkInKbps)} / {formatKibPerSecond(server.networkOutKbps)}
 								</td>
 								<td className="px-3 py-2.5 font-mono tabular-nums text-[var(--text-secondary)]">
-									↓{formatBytes(server.monthlyRxBytes)} / ↑{formatBytes(server.monthlyTxBytes)}
+									<span className="inline-flex items-center gap-2">
+										<span className="inline-flex items-center gap-0.5" title={t("vpsStatusPage.metric.netIn")}><ArrowDown size={12} aria-hidden /><span className="sr-only">{t("vpsStatusPage.metric.netIn")}</span>{formatBytes(server.monthlyRxBytes)}</span>
+										<span className="inline-flex items-center gap-0.5" title={t("vpsStatusPage.metric.netOut")}><ArrowUp size={12} aria-hidden /><span className="sr-only">{t("vpsStatusPage.metric.netOut")}</span>{formatBytes(server.monthlyTxBytes)}</span>
+									</span>
 									{server.monthlyTrafficSince ? (
 										<span className="block text-xs text-[var(--text-muted)]">
 											{t("vpsStatusPage.metric.monthTrafficSince", { time: `${formatShortDate(server.monthlyTrafficSince, locale)} ${formatShortTime(server.monthlyTrafficSince, locale)}` })}

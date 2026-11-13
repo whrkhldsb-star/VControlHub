@@ -44,7 +44,6 @@ export const zh: Record<string, string> = {
 	"playbooksPage.createForm.submit": "保存 Playbook",
 	"playbooksPage.createForm.submitting": "保存中…",
 	"playbooksPage.createForm.timeoutSec": "单步超时（秒）",
-	"playbooksPage.createForm.title": "新建 Playbook",
 	"playbooksPage.createForm.triggerMetric": "指标触发器",
 	"playbooksPage.createForm.triggerCron": "Cron 触发器",
 	"playbooksPage.createForm.triggerType": "触发方式",
@@ -108,6 +107,7 @@ export const zh: Record<string, string> = {
 	"playbooksPage.stepsAndCreatedAt": "{count} 步 · 创建于 {time}",
 
 	"playbooksPage.step.typeAria": "步骤类型",
+	"playbooksPage.step.removeAria": "删除第 {index} 个步骤",
 	"playbooksPage.step.recipientAria": "收件人用户ID",
 	"playbooksPage.step.subjectAria": "主题",
 	"playbooksPage.step.urlAria": "URL",
@@ -167,7 +167,6 @@ export const en: Record<string, string> = {
 	"playbooksPage.createForm.submit": "Save Playbook",
 	"playbooksPage.createForm.submitting": "Saving…",
 	"playbooksPage.createForm.timeoutSec": "Step Timeout (seconds)",
-	"playbooksPage.createForm.title": "New Playbook",
 	"playbooksPage.createForm.triggerMetric": "Metric trigger",
 	"playbooksPage.createForm.triggerCron": "Cron trigger",
 	"playbooksPage.createForm.triggerType": "Trigger Type",
@@ -231,6 +230,7 @@ export const en: Record<string, string> = {
 	"playbooksPage.stepsAndCreatedAt": "{count} {count|step|steps} · Created at {time}",
 
 	"playbooksPage.step.typeAria": "Step type",
+	"playbooksPage.step.removeAria": "Remove step {index}",
 	"playbooksPage.step.recipientAria": "Recipient user ID",
 	"playbooksPage.step.subjectAria": "Subject",
 	"playbooksPage.step.urlAria": "URL",

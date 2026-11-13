@@ -140,9 +140,7 @@ export function CreatePlaybookForm({
 
 	return (
 		<form onSubmit={handleSubmit}
-			onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
-			<h3 className="ui-title-section">{t("playbooksPage.createForm.title")}</h3>
-
+			onChangeCapture={() => setDirty(true)} className="space-y-4">
 			<div className="grid gap-4 md:grid-cols-2">
 				<div className="space-y-1.5">
 					<label htmlFor="playbook-name" className={fieldLabelClass}>

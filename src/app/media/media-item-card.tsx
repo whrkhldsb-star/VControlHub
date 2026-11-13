@@ -13,6 +13,7 @@ import {
   Star,
   Tag,
   Video,
+  X,
 } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -276,10 +277,11 @@ export function MediaItemCard({
               <button
                 type="button"
                 onClick={() => void removeTag(tag)}
-                aria-label={t("common.delete")}
+                aria-label={t("mediaItemCard.removeTag", { tag })}
+                title={t("mediaItemCard.removeTag", { tag })}
                 className="text-[var(--text-muted)] hover:text-[var(--accent)]"
               >
-                ×
+                <X size={12} aria-hidden />
               </button>
             </Badge>
           ))}

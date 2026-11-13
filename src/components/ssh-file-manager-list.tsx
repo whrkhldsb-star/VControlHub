@@ -7,7 +7,7 @@ import { isImeComposition } from "@/lib/ui/keyboard";
 import type { DirEntry, UploadProgress } from "./ssh-file-manager-parts";
 import { formatSshFileDate, formatSshFileSize } from "./ssh-file-manager-parts";
 import { ActionButton } from "@/components/action-button";
-import { Check, Download, File, Folder, LinkIcon, Pencil, Trash2, X } from "@/components/icons";
+import { ArrowUp, Check, Download, File, Folder, LinkIcon, Pencil, Trash2, X } from "@/components/icons";
 
 type UploadsProps = {
   uploads: UploadProgress[];
@@ -99,8 +99,8 @@ export function SshFileList({
             <ActionButton size="sm" variant="secondary"
               onClick={onGoUp}
               data-testid="ssh-files-up-level"
-              aria-label={t("sshFileManager.upLevelAria")} className="inline-flex items-center gap-1">
-              <span aria-hidden="true">↑</span>
+              aria-label={t("sshFileManager.upLevelAria")}
+              icon={<ArrowUp size={14} aria-hidden />}>
               {t("sshFileManager.upLevel")}
             </ActionButton>
           ) : null}

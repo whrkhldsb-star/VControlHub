@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { ActionButton, ButtonLink } from "@/components/action-button";
-import { Search } from "@/components/icons";
+import { ArrowDown, ArrowUp, Search } from "@/components/icons";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ToggleChip } from "@/components/page-shell";
 import { SegmentedControl } from "@/components/ui-primitives";
@@ -237,8 +237,9 @@ export function PublicBoardClient({ initial, preview, signedIn }: { initial: Pub
 								size="sm"
 								aria-label={t(query.dir === "asc" ? "publicStatus.dir.asc" : "publicStatus.dir.desc")}
 								onClick={() => patch({ dir: query.dir === "asc" ? "desc" : "asc", page: "1" })}
+								icon={query.dir === "asc" ? <ArrowUp size={14} aria-hidden /> : <ArrowDown size={14} aria-hidden />}
 							>
-								{query.dir === "asc" ? "↑" : "↓"} {t(query.dir === "asc" ? "publicStatus.dir.asc" : "publicStatus.dir.desc")}
+								{t(query.dir === "asc" ? "publicStatus.dir.asc" : "publicStatus.dir.desc")}
 							</ActionButton>
 							<SegmentedControl
 								ariaLabel={t("publicStatus.view")}

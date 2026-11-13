@@ -55,7 +55,7 @@ export const zh: Record<string, string> = {
 	"healthPage.capacity.ltOneDay": "<1 天",
 	"healthPage.capacity.far": ">10 年",
 	"healthPage.capacity.days": "{n} 天",
-	"healthPage.capacity.meta": "回看 {windowHours}h · 投影 {horizonDays} 天 · 样本不足 {insufficient} 台",
+	"healthPage.capacity.meta": "回看 {windowDays} 天 · 预测 {horizonDays} 天 · 样本不足的节点 {insufficient} 台",
 	"healthPage.capacity.summary.nodes": "节点数",
 	"healthPage.capacity.summary.forecastable": "可预测",
 	"healthPage.capacity.summary.worst": "最差风险",
@@ -72,7 +72,7 @@ export const zh: Record<string, string> = {
 	"healthPage.capacity.col.metric": "指标",
 	"healthPage.capacity.col.latest": "当前",
 	"healthPage.capacity.col.slope": "日增速",
-	"healthPage.capacity.col.projected": "投影",
+	"healthPage.capacity.col.projected": "{days} 天后",
 	"healthPage.capacity.col.until85": "距 85%",
 
 	// UI strings
@@ -227,7 +227,7 @@ export const en: Record<string, string> = {
 	"healthPage.capacity.ltOneDay": "<1 day",
 	"healthPage.capacity.far": ">10 years",
 	"healthPage.capacity.days": "{n} {n|day|days}",
-	"healthPage.capacity.meta": "Lookback {windowHours}h · project {horizonDays}d · insufficient samples {insufficient}",
+	"healthPage.capacity.meta": "Looking back {windowDays} {windowDays|day|days} · projecting {horizonDays} {horizonDays|day|days} · without enough samples: {insufficient}",
 	"healthPage.capacity.summary.nodes": "Nodes",
 	"healthPage.capacity.summary.forecastable": "Forecastable",
 	"healthPage.capacity.summary.worst": "Worst risk",
@@ -243,8 +243,8 @@ export const en: Record<string, string> = {
 	"healthPage.capacity.col.risk": "Risk",
 	"healthPage.capacity.col.metric": "Metric",
 	"healthPage.capacity.col.latest": "Latest",
-	"healthPage.capacity.col.slope": "Slope/day",
-	"healthPage.capacity.col.projected": "Projected",
+	"healthPage.capacity.col.slope": "Change per day",
+	"healthPage.capacity.col.projected": "In {days} {days|day|days}",
 	"healthPage.capacity.col.until85": "Until 85%",
 
 	// UI strings

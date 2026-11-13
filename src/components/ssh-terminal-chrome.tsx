@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { ActionButton } from "@/components/action-button";
-import { ClipboardList, Folder, Hand, Keyboard, Languages, Maximize2, Minimize2, Monitor, MousePointer, Server, X } from "@/components/icons";
+import { ArrowDown, ArrowUp, ClipboardList, Folder, Hand, Keyboard, Languages, Maximize2, Minimize2, Monitor, MousePointer, Server, X } from "@/components/icons";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
@@ -423,7 +423,7 @@ export function SshTerminalSearchBar({
 				data-tone="cyan"
 				className="shrink-0 max-sm:!min-w-11 max-sm:!px-0"
 			>
-				<span aria-hidden="true" className="sm:hidden">↑</span>
+				<ArrowUp size={16} aria-hidden className="sm:hidden" />
 				<span className="max-sm:hidden">{t("sshTerminalModal.searchPrevious")}</span>
 			</ActionButton>
 			<ActionButton variant="outline"
@@ -431,14 +431,14 @@ export function SshTerminalSearchBar({
 				aria-label={t("sshTerminalModal.searchNext")}
 				data-tone="cyan"
 				className="shrink-0 max-sm:!min-w-11 max-sm:!px-0">
-				<span aria-hidden="true" className="sm:hidden">↓</span>
+				<ArrowDown size={16} aria-hidden className="sm:hidden" />
 				<span className="max-sm:hidden">{t("sshTerminalModal.searchNext")}</span>
 			</ActionButton>
 			<ActionButton variant="secondary"
 				onClick={onClear}
 				aria-label={t("sshTerminalModal.searchClear")}
 				className="shrink-0 max-sm:!min-w-11 max-sm:!px-0">
-				<span aria-hidden="true" className="sm:hidden">✕</span>
+				<X size={16} aria-hidden className="sm:hidden" />
 				<span className="max-sm:hidden">{t("sshTerminalModal.searchClear")}</span>
 			</ActionButton>
 		</div>

@@ -1,7 +1,8 @@
-import { act, render, renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
+import { StrictMode } from "react";
 import { describe, expect, it } from "vitest";
 
-import { SortIcon, useFileListSort } from "../use-file-list-sort";
+import { useFileListSort } from "../use-file-list-sort";
 
 describe("useFileListSort", () => {
 	it("starts at name/asc by default", () => {
@@ -32,49 +33,20 @@ describe("useFileListSort", () => {
 		expect(result.current.sortDir).toBe("asc");
 	});
 
+	// React runs state updaters twice in development: an updater that set the direction as a side effect
+	// flipped it twice, so clicking the sorted column again did nothing there.
+	it("flips the direction once under StrictMode", () => {
+		const { result } = renderHook(() => useFileListSort(), { wrapper: StrictMode });
+		act(() => result.current.toggleSort("name"));
+		expect(result.current.sortDir).toBe("desc");
+		act(() => result.current.toggleSort("size"));
+		expect(result.current).toMatchObject({ sortKey: "size", sortDir: "asc" });
+	});
+
 	it("toggleSort is stable across renders", () => {
 		const { result, rerender } = renderHook(() => useFileListSort());
 		const first = result.current.toggleSort;
 		rerender();
 		expect(result.current.toggleSort).toBe(first);
-	});
-});
-
-describe("SortIcon", () => {
-	const onToggle = () => {};
-
-	it("renders neutral ↕ when inactive", () => {
-		const { container } = render(
-			<SortIcon col="name" label="名称" sortKey="size" sortDir="asc" onToggle={onToggle} />,
-		);
-		expect(container.textContent).toBe("↕");
-	});
-
-	it("renders ↑ for active asc", () => {
-		const { container } = render(
-			<SortIcon col="name" label="名称" sortKey="name" sortDir="asc" onToggle={onToggle} />,
-		);
-		expect(container.textContent).toBe("↑");
-	});
-
-	it("renders ↓ for active desc", () => {
-		const { container } = render(
-			<SortIcon col="name" label="名称" sortKey="name" sortDir="desc" onToggle={onToggle} />,
-		);
-		expect(container.textContent).toBe("↓");
-	});
-
-	it("exposes a translated aria-label that names the column", () => {
-		const { getByRole } = render(
-			<SortIcon col="size" label="大小" ariaLabel="按 大小 排序" sortKey="name" sortDir="asc" onToggle={onToggle} />,
-		);
-		expect(getByRole("button", { name: "按 大小 排序" })).toBeInTheDocument();
-	});
-
-	it("falls back to label when ariaLabel is omitted", () => {
-		const { getByRole } = render(
-			<SortIcon col="size" label="大小" sortKey="name" sortDir="asc" onToggle={onToggle} />,
-		);
-		expect(getByRole("button", { name: "大小" })).toBeInTheDocument();
 	});
 });

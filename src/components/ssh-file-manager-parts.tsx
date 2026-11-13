@@ -8,7 +8,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
-import { Folder, FolderOpen, X } from "@/components/icons";
+import { ArrowUp, Check, Folder, FolderOpen, X } from "@/components/icons";
 
 type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -99,8 +99,9 @@ export function SshFileManagerHeader({
             onClick={onGoUp}
             data-testid="ssh-files-header-up"
             aria-label={t("sshFileManager.upLevelAria")}
-            title={t("sshFileManager.upLevel")} className="mr-1">
-            ↑ {t("sshFileManager.upLevel")}
+            title={t("sshFileManager.upLevel")} className="mr-1"
+            icon={<ArrowUp size={12} aria-hidden />}>
+            {t("sshFileManager.upLevel")}
           </ActionButton>
         ) : null}
         <button type="button" onClick={() => onNavigateToBreadcrumb(-1)} className="rounded px-1.5 py-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--color-action-text)]">/</button>
@@ -124,7 +125,7 @@ export function SshFileManagerHeader({
             }}
             autoCapitalize="none" autoCorrect="off" spellCheck={false}
             placeholder={t("sshFileManager.folderName")} className={cn(UI_INPUT,"min-h-9 min-w-0 flex-1 py-1 text-xs")} autoFocus />
-          <ActionButton type="button" variant="outline" onClick={onMkdir} aria-label={t("common.confirm")} data-tone="cyan" size="sm" square className="shrink-0">✓</ActionButton>
+          <ActionButton type="button" variant="outline" onClick={onMkdir} aria-label={t("common.confirm")} data-tone="cyan" size="sm" square className="shrink-0"><Check size={16} aria-hidden /></ActionButton>
           <ActionButton size="sm" square variant="secondary" onClick={() => { setShowMkdir(false); setMkdirName(""); }} aria-label={t("common.cancel")} className="shrink-0"><X size={16} aria-hidden /></ActionButton>
         </div>
       )}

@@ -14,7 +14,7 @@ import {
   PageHeader,
   EmptyState,
 } from "@/components/page-shell";
-import { ImageIcon, Search as SearchIcon, Server, Star } from "@/components/icons";
+import { ImageIcon, Search as SearchIcon, Server, Star, X } from "@/components/icons";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { MediaScanButton } from "./media-scan-button";
 import { MediaImageUploadPanel } from "./media-image-upload-panel";
@@ -287,7 +287,7 @@ export default async function Page({
             >
               #{entry.tag} <span className="opacity-60">{entry.count}</span>
               {tag === entry.tag ? (
-                <span className="ml-1 opacity-70">×</span>
+                <X size={12} aria-hidden className="ml-1 inline opacity-70" />
               ) : null}
             </FilterLink>
           ))}

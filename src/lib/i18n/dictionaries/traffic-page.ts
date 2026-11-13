@@ -30,7 +30,7 @@ export const zh: Record<string, string> = {
 	"trafficPage.refresh": "刷新",
 	"trafficPage.remoteSampling": "正在通过 SSH 采样远程 VPS 节点流量，可能需要几秒…",
 	"trafficPage.rxRate": "下载速度 · {iface}",
-	"trafficPage.rxShort": "↓ 下载",
+	"trafficPage.rxShort": "下载",
 	"trafficPage.rxTotal": "累计下载：{value}",
 	"trafficPage.chart.empty": "采集中…多个数据点后将显示走势",
 	"trafficPage.chart.emptyHistory": "暂无持久化流量历史",
@@ -50,7 +50,7 @@ export const zh: Record<string, string> = {
 	"trafficPage.th.txTotal": "累计上传",
 	"trafficPage.title": "流量中心",
 	"trafficPage.txRate": "上传速度 · {iface}",
-	"trafficPage.txShort": "↑ 上传",
+	"trafficPage.txShort": "上传",
 	"trafficPage.txTotal": "累计上传：{value}",
 };
 
@@ -79,7 +79,7 @@ export const en: Record<string, string> = {
 	"trafficPage.refresh": "Refresh",
 	"trafficPage.remoteSampling": "Sampling remote VPS traffic over SSH, may take a few seconds…",
 	"trafficPage.rxRate": "Download rate · {iface}",
-	"trafficPage.rxShort": "↓ Download",
+	"trafficPage.rxShort": "Download",
 	"trafficPage.rxTotal": "Total download: {value}",
 	"trafficPage.chart.empty": "Collecting… chart will appear after a few samples",
 	"trafficPage.chart.emptyHistory": "No persisted traffic history yet",
@@ -99,6 +99,6 @@ export const en: Record<string, string> = {
 	"trafficPage.th.txTotal": "Total upload",
 	"trafficPage.title": "Traffic Center",
 	"trafficPage.txRate": "Upload rate · {iface}",
-	"trafficPage.txShort": "↑ Upload",
+	"trafficPage.txShort": "Upload",
 	"trafficPage.txTotal": "Total upload: {value}",
 };

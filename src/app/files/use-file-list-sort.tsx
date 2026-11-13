@@ -1,10 +1,9 @@
 /**
- * Sort state for the file list, plus the small SortIcon UI affordance.
- * Kept separate from the giant FileListClient so the click/sort logic
- * can be unit-tested in isolation.
+ * Sort state for the file list. Kept separate from the giant FileListClient so the click/sort logic can be
+ * unit-tested in isolation; the column headers draw their own indicator (file-list-views.tsx).
  */
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState } from "react";
 import type { FileListSortDir, FileListSortKey } from "./file-list-model";
 
 export type SortState = {
@@ -16,49 +15,16 @@ export type SortState = {
  * Holds sort state and provides a `toggleSort` that:
  *  - same column → flips direction
  *  - different column → resets to ascending
+ *
+ * One state and one pure updater: the toggle used to call the direction's setter from inside the column's
+ * updater, which React runs twice in development, so the direction flipped twice and stayed put there.
  */
 export function useFileListSort(initial: SortState = { key: "name", dir: "asc" }) {
-	const [sortKey, setSortKey] = useState<FileListSortKey>(initial.key);
-	const [sortDir, setSortDir] = useState<FileListSortDir>(initial.dir);
+	const [sort, setSort] = useState<SortState>(initial);
 
 	const toggleSort = useCallback((key: FileListSortKey) => {
-		setSortKey((prev) => {
-			if (prev === key) {
-				setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-				return key;
-			}
-			setSortDir("asc");
-			return key;
-		});
+		setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
 	}, []);
 
-	return { sortKey, sortDir, toggleSort } as const;
-}
-
-export function SortIcon({
-	col,
-	label,
-	ariaLabel,
-	sortKey,
-	sortDir,
-	onToggle,
-}: {
-	col: FileListSortKey;
-	label: string;
-	ariaLabel?: string;
-	sortKey: FileListSortKey;
-	sortDir: FileListSortDir;
-	onToggle: (key: FileListSortKey) => void;
-}): ReactNode {
-	const active = sortKey === col;
-	return (
-		<button
-			type="button"
-			onClick={() => onToggle(col)}
-			aria-label={ariaLabel ?? label}
-			className="inline-flex items-center gap-1 hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] transition"
-		>
-			{active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
-		</button>
-	);
+	return { sortKey: sort.key, sortDir: sort.dir, toggleSort } as const;
 }

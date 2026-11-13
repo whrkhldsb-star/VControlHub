@@ -20,7 +20,7 @@ import { formatAge, formatDuration, formatIecBytes, formatIecRate, formatLatency
 import { HISTORY_RANGES, parseHistoryRange } from "@/lib/public-status/query";
 import type { PublicAvailabilityWindow, PublicHistoryRange, PublicHistoryResponse, PublicNode, PublicNodeDetailResponse, PublicUptimeDay } from "@/lib/public-status/types";
 import { CountryFlag, ExpiryBadge, OsMark, PriceBadge, TagChip, UsageMeter } from "../../board-visuals";
-import { nodeQuotaPercent, quotaModeLabel, systemLine } from "../../board-nodes";
+import { Direction, nodeQuotaPercent, quotaModeLabel, systemLine } from "../../board-nodes";
 import { getUptimeColorClass, MIN_SAMPLE_COVERAGE } from "../../uptime-presentation";
 import { NodeFreshness, StatusPill, accentStyle } from "../../public-board-parts";
 import { TimeSeriesChart, type ChartSeries } from "@/components/charts/time-series-chart";
@@ -40,7 +40,7 @@ async function getJson<R>(url: string, signal: AbortSignal): Promise<R> {
 	}
 }
 
-function Tile({ label, value, detail, children }: { label: string; value?: string; detail?: string; children?: ReactNode }) {
+function Tile({ label, value, detail, children }: { label: string; value?: ReactNode; detail?: ReactNode; children?: ReactNode }) {
 	return (
 		<div data-tile className="flex min-w-0 flex-col p-3">
 			<p className="text-xs text-[var(--text-muted)]">{label}</p>
@@ -51,7 +51,7 @@ function Tile({ label, value, detail, children }: { label: string; value?: strin
 	);
 }
 
-function MeterTile({ label, value, detail }: { label: string; value: number | null; detail?: string }) {
+function MeterTile({ label, value, detail }: { label: string; value: number | null; detail?: ReactNode }) {
 	return (
 		<div data-tile className="flex min-w-0 flex-col gap-2 p-3">
 			<div className="flex items-baseline justify-between gap-2">
@@ -323,7 +323,11 @@ export function PublicNodeClient({ initial, initialRange, preview, signedIn }: {
 						// The true share, as the card and table show it (150 % over the
 						// quota); the bar clamps its own width.
 						value={quotaPercent}
-						detail={`↓ ${formatIecBytes(m.traffic.periodRxBytes)} ↑ ${formatIecBytes(m.traffic.periodTxBytes)} / ${formatIecBytes(quota.limitBytes)}`}
+						detail={<>
+							<Direction dir="down" label={t("publicStatus.metric.download")}>{formatIecBytes(m.traffic.periodRxBytes)}</Direction>{" "}
+							<Direction dir="up" label={t("publicStatus.metric.upload")}>{formatIecBytes(m.traffic.periodTxBytes)}</Direction>
+							{` / ${formatIecBytes(quota.limitBytes)}`}
+						</>}
 					/>
 				) : null}
 				{m.load ? (
@@ -332,15 +336,21 @@ export function PublicNodeClient({ initial, initialRange, preview, signedIn }: {
 				{m.network ? (
 					<Tile
 						label={t("publicStatus.metric.rate")}
-						value={`↓ ${formatIecRate(m.network.rxBytesPerSecond)}`}
-						detail={`↑ ${formatIecRate(m.network.txBytesPerSecond)}${m.network.rateWindowSeconds ? ` · ${t("publicStatus.metric.rateWindow", { seconds: m.network.rateWindowSeconds })}` : ""}`}
+						value={<Direction dir="down" size={16} label={t("publicStatus.metric.download")}>{formatIecRate(m.network.rxBytesPerSecond)}</Direction>}
+						detail={<>
+							<Direction dir="up" label={t("publicStatus.metric.upload")}>{formatIecRate(m.network.txBytesPerSecond)}</Direction>
+							{m.network.rateWindowSeconds ? ` · ${t("publicStatus.metric.rateWindow", { seconds: m.network.rateWindowSeconds })}` : ""}
+						</>}
 					/>
 				) : null}
 				{m.traffic && !quota ? (
 					<Tile
 						label={t("publicStatus.metric.monthTraffic")}
-						value={`↓ ${formatIecBytes(m.traffic.periodRxBytes)}`}
-						detail={`↑ ${formatIecBytes(m.traffic.periodTxBytes)}${m.traffic.countedSince ? ` · ${t("publicStatus.metric.countedSince", { date: new Date(m.traffic.countedSince).toLocaleDateString(locale === "zh" ? "zh-CN" : "en-GB", { timeZone: APP_TIME_ZONE }) })}` : ""}`}
+						value={<Direction dir="down" size={16} label={t("publicStatus.metric.download")}>{formatIecBytes(m.traffic.periodRxBytes)}</Direction>}
+						detail={<>
+							<Direction dir="up" label={t("publicStatus.metric.upload")}>{formatIecBytes(m.traffic.periodTxBytes)}</Direction>
+							{m.traffic.countedSince ? ` · ${t("publicStatus.metric.countedSince", { date: new Date(m.traffic.countedSince).toLocaleDateString(locale === "zh" ? "zh-CN" : "en-GB", { timeZone: APP_TIME_ZONE }) })}` : ""}
+						</>}
 					/>
 				) : null}
 				{m.uptime ? <Tile label={t("publicStatus.metric.uptime")} value={node.status === "offline" ? "—" : formatDuration(m.uptime.seconds, locale)} /> : null}

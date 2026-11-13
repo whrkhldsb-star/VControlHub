@@ -157,7 +157,8 @@ describe("MediaItemCard", () => {
     }) as never);
     render(<MediaItemCard item={{ ...item, tags: ["alpha"] }} canManage />);
 
-    await userEvent.click(screen.getByRole("button", { name: "删除" }));
+    // The control names the tag it removes (it was "删除" for every tag).
+    await userEvent.click(screen.getByRole("button", { name: "移除标签 #alpha" }));
     await userEvent.click(screen.getByText("添加标签"));
     await userEvent.type(screen.getByRole("textbox"), "beta{Enter}");
     // The second save waits for the first.

@@ -22,6 +22,7 @@ import { approvalDetails, automationSummary } from "./ai-hosted-action-utils";
 import { isStreamErrorMessage } from "./ai-stream-error";
 import { formatDateTime } from "@/lib/datetime/format";
 import { ActionButton } from "@/components/action-button";
+import { ArrowDown, ArrowUp } from "@/components/icons";
 import { Notice } from "@/components/ui-primitives";
 import { AiCopyButton, type AiCopyLabels } from "./ai-copy-button";
 
@@ -288,8 +289,21 @@ export function AiMessageList({
               (msg.inputTokens || msg.outputTokens || msg.latencyMs) && (
                 <div className="mt-2 flex gap-3 text-xs text-[var(--text-muted)]">
                   {msg.model && <span>{msg.model}</span>}
-                  {msg.inputTokens != null && <span>↑{msg.inputTokens}</span>}
-                  {msg.outputTokens != null && <span>↓{msg.outputTokens}</span>}
+                  {/* Sent and received tokens: the arrows were characters, and nothing said what they counted. */}
+                  {msg.inputTokens != null && (
+                    <span className="inline-flex items-center gap-0.5" title={t("aiPage.tokens.input")}>
+                      <ArrowUp size={12} aria-hidden />
+                      <span className="sr-only">{t("aiPage.tokens.input")}</span>
+                      {msg.inputTokens}
+                    </span>
+                  )}
+                  {msg.outputTokens != null && (
+                    <span className="inline-flex items-center gap-0.5" title={t("aiPage.tokens.output")}>
+                      <ArrowDown size={12} aria-hidden />
+                      <span className="sr-only">{t("aiPage.tokens.output")}</span>
+                      {msg.outputTokens}
+                    </span>
+                  )}
                   {msg.latencyMs != null && (
                     <span>{(msg.latencyMs / 1000).toFixed(1)}s</span>
                   )}

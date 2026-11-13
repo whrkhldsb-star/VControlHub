@@ -38,7 +38,7 @@ import {
 } from "./settings-save-confirm";
 import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
 import { Notice } from "@/components/ui-primitives";
-import { IconChevronRight } from "@/components/nav-icons";
+import { IconChevronRight, type NavGlyph } from "@/components/nav-icons";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 export function formatMetadataDate(
@@ -75,7 +75,7 @@ const BADGE_TONE_TO_STATUS: Record<BadgeTone, StatusTone> = {
 
 type CollapsibleSectionProps = {
   id: string;
-  icon: string;
+  icon: NavGlyph;
   title: string;
   description: string;
   badge?: string;
@@ -101,6 +101,7 @@ export function CollapsibleSection({
   children,
 }: CollapsibleSectionProps) {
   const { t } = useI18n();
+  const Icon = icon;
   const Inner = asForm ? "form" : "div";
   return (
     <section id={id} className="scroll-mt-28 border-b border-[var(--border)]">
@@ -119,7 +120,7 @@ export function CollapsibleSection({
               </span>
               <div className="min-w-0 flex-1">
                 <h2 className="ui-title-section flex flex-wrap items-center gap-2">
-                  <span aria-hidden>{icon}</span>
+                  <Icon size={16} className="shrink-0 text-[var(--text-muted)]" />
                   <span>{title}</span>
                   {badge && (
                     <StatusBadge size="sm" tone={BADGE_TONE_TO_STATUS[badgeTone] ?? "accent"}>

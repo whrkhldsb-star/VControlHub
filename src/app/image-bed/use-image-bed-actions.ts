@@ -397,13 +397,11 @@ export function useImageBedActions({
 		);
 	}, [images]);
 
+	// Entering or leaving batch mode starts from an empty selection. (Both branches of the updater cleared it,
+	// from inside the updater: one plain update says the same.)
 	const toggleBatchMode = useCallback(() => {
-		setBatchMode((prev) => {
-			const next = !prev;
-			if (!next) setSelectedIds(new Set());
-			else setSelectedIds(new Set());
-			return next;
-		});
+		setBatchMode((prev) => !prev);
+		setSelectedIds(new Set());
 	}, []);
 
 	const copyText = useCallback(async (text: string, successKey: string) => {

@@ -158,6 +158,8 @@ export async function collectAllHealth(
         lastCheck: new Date().toISOString(),
         probeStatus,
         error: `Network unreachable: ${probe.error ?? "unknown reason"}`,
+        errorKind: "network" as const,
+        errorDetail: probe.error ?? undefined,
       };
     }
 
@@ -197,6 +199,8 @@ export async function collectAllHealth(
           latencyMs: rtt,
           probeStatus,
           error: `SSH unreachable (host online, RTT ${rtt ?? "?"}ms): ${result.error}`,
+          errorKind: "ssh" as const,
+          errorDetail: result.error,
         };
       }
       const metrics = result as ServerMetrics;
@@ -262,6 +266,8 @@ export async function collectAllHealth(
         latencyMs: rtt,
         probeStatus,
         error: `Collection failed (host online, RTT ${rtt ?? "?"}ms): ${err instanceof Error ? err.message : String(err)}`,
+        errorKind: "collection" as const,
+        errorDetail: err instanceof Error ? err.message : String(err),
       };
     }
   }));

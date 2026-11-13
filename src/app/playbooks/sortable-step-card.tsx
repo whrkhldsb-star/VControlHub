@@ -7,6 +7,7 @@ import { fieldInputClass, stepTypeLabel, defaultConfigFor } from "./playbook-typ
 import type { SerializedStep, StepType, ServerOption } from "./playbook-types";
 import { StepConfigEditor } from "./step-config-editor";
 import { ActionButton } from "@/components/action-button";
+import { X } from "@/components/icons";
 import { NumberInput } from "@/components/ui/number-input";
 
 export function SortableStepCard({
@@ -41,7 +42,7 @@ export function SortableStepCard({
 			data-testid={`playbook-step-${step.id}`}
 			className={`p-3 space-y-2 ${isDragging ? "relative z-10 opacity-80 ring-2 ring-[var(--color-action-ring)]" : ""}`}
 		>
-			<div className="flex items-center gap-2">
+			<div className="flex flex-wrap items-center gap-2">
 				<ActionButton size="sm" variant="secondary"
 					aria-label={t("playbooksPage.createForm.dragHandleAria", { index: index + 1 })}
 					{...attributes}
@@ -54,7 +55,7 @@ export function SortableStepCard({
 					value={step.name}
 					onChange={(e) => onUpdate(step.id, { name: e.target.value })}
 					placeholder={t("playbooksPage.createForm.stepNamePlaceholder")}
-					className={`${fieldInputClass} flex-1`}
+					className={`${fieldInputClass} min-w-[10rem] flex-1`}
 					required
 				/>
 				<select
@@ -64,7 +65,7 @@ export function SortableStepCard({
 						const newType = e.target.value as StepType;
 						onUpdate(step.id, { type: newType, config: defaultConfigFor(newType) });
 					}}
-					className={fieldInputClass}
+					className={`${fieldInputClass} w-auto`}
 				>
 					{(["run_command", "send_notification", "call_webhook"] as StepType[]).map((tp) => (
 						<option key={tp} value={tp}>
@@ -73,11 +74,12 @@ export function SortableStepCard({
 					))}
 				</select>
 				{stepCount > 1 && (
-					<ActionButton size="sm"
+					<ActionButton size="sm" square
 						variant="danger"
 						onClick={() => onRemove(step.id)}
-						aria-label={t("playbooksPage.action.delete")}>
-						×
+						aria-label={t("playbooksPage.step.removeAria", { index: index + 1 })}
+						title={t("playbooksPage.step.removeAria", { index: index + 1 })}>
+						<X size={14} aria-hidden />
 					</ActionButton>
 				)}
 			</div>
