@@ -265,7 +265,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 		<section data-i18n-skip className="min-w-0 border-t border-[var(--border)] py-5">
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
-					<p className="text-xs font-semibold uppercase text-[var(--color-action-text)]">{copyText.eyebrow}</p>
+					<p className="text-xs font-semibold text-[var(--color-action-text)]">{copyText.eyebrow}</p>
 					<h2 className="ui-title-section mt-1">{copyText.title}</h2>
 					<p className="mt-1 max-w-2xl text-sm text-[var(--text-muted)]">
 						{copyText.description}
@@ -315,7 +315,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 
 			<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 				<div className="min-w-0 border-y border-[var(--border)]">
-					<div className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium uppercase text-[var(--text-muted)] sm:grid-cols-[2rem_minmax(0,1fr)_5rem_6rem]">
+					<div className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-muted)] sm:grid-cols-[2rem_minmax(0,1fr)_5rem_6rem]">
 						<span />
 						<span>{copyText.name}</span>
 						<span className="hidden sm:block">{copyText.type}</span>
@@ -334,7 +334,9 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									entryType: "DIRECTORY",
 								};
 								return (
-									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)] light:hover:bg-[var(--surface)] sm:grid-cols-[2rem_minmax(0,1fr)_5rem_6rem]">
+									// Folder and file rows are the same height: the folder's name is a 44px button, so the
+									// file's name takes that height too (the list alternated tall and short rows).
+									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] items-center gap-2 px-3 py-1 text-sm hover:bg-[var(--surface)] light:hover:bg-[var(--surface)] sm:grid-cols-[2rem_minmax(0,1fr)_5rem_6rem]">
 										<input type="checkbox" disabled={creating} checked={Boolean(selected[item.key])} aria-label={`${copyText.selectFolder} ${folder.name}`} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-[var(--color-action)]" />
 										<ActionButton variant="ghost" disabled={creating} onClick={() => openFolder(folder)} className="!min-h-11 !flex !min-w-0 !items-center !gap-2 !justify-start !px-2 !text-left !text-sm">
 											<Folder size={17} className="shrink-0 text-[var(--color-action-text)]" />
@@ -355,9 +357,9 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									sizeLabel: file.sizeLabel,
 								};
 								return (
-									<label key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)] light:hover:bg-[var(--surface)] sm:grid-cols-[2rem_minmax(0,1fr)_5rem_6rem]">
+									<label key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] items-center gap-2 px-3 py-1 text-sm hover:bg-[var(--surface)] light:hover:bg-[var(--surface)] sm:grid-cols-[2rem_minmax(0,1fr)_5rem_6rem]">
 										<input type="checkbox" disabled={creating} checked={Boolean(selected[item.key])} aria-label={`${copyText.selectFile} ${file.name}`} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-[var(--color-action)]" />
-										<span className="flex min-w-0 items-center gap-2 text-[var(--text-primary)]"><File size={16} className="shrink-0 text-[var(--text-secondary)]" /><span className="truncate">{file.name}</span></span>
+										<span className="flex min-h-11 min-w-0 items-center gap-2 px-2 text-[var(--text-primary)]"><File size={16} className="shrink-0 text-[var(--text-secondary)]" /><span className="truncate">{file.name}</span></span>
 										<span className="hidden text-xs text-[var(--text-muted)] sm:block">{copyText.file}</span>
 										<span className="truncate text-xs text-[var(--text-muted)]">{file.sizeLabel ?? "—"}</span>
 									</label>

@@ -52,6 +52,31 @@ describe("OperationTaskListClient", () => {
     expect(screen.getByLabelText("重启服务 的最近日志")).toHaveTextContent("service restarted");
   });
 
+  it("does not repeat the progress as a log, and writes the meta line once", () => {
+    // A finished job's log preview is its progress: the row read "… · 100%" and then "最近日志 100%".
+    const job: OperationTask = {
+      id: "job:j1",
+      source: "job",
+      sourceId: "j1",
+      title: "ITSM ticket.created",
+      status: "completed",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      actor: "system",
+      progress: "100%",
+      logPreview: ["100%"],
+      taskType: "itsm.outbound",
+    };
+    const failed: OperationTask = { ...job, id: "job:j2", sourceId: "j2", title: "同步镜像", status: "failed", progress: "2/3", logPreview: ["2/3", "rsync exited with 23"] };
+    render(<OperationTaskListClient initialTasks={[job, failed]} initialSourceSummary={[]} initialFailureSummary={[]} />);
+
+    expect(screen.queryByLabelText("ITSM ticket.created 的最近日志")).not.toBeInTheDocument();
+    const log = screen.getByLabelText("同步镜像 的最近日志");
+    expect(log).toHaveTextContent("rsync exited with 23");
+    expect(log).not.toHaveTextContent("2/3");
+    expect(screen.getAllByText(/ · system · 100%$/)).toHaveLength(1);
+  });
+
   it("surfaces refresh failures and keeps the existing task list visible", async () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("任务中心刷新失败"));

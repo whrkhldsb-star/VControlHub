@@ -64,8 +64,8 @@ describe("DashboardAttention", () => {
 		expect(block).toHaveAttribute("data-attention", "warning");
 		expect(within(block).getByRole("link", { name: "Review" })).toHaveAttribute("href", "/requests");
 		// The account cannot see alerts or tasks: those rows are not claimed clear.
-		expect(within(block).queryByText("No alert is waiting for acknowledgement")).not.toBeInTheDocument();
-		expect(within(block).queryByText(/failed in the last 24 hours/)).not.toBeInTheDocument();
+		expect(within(block).queryByText("No unacknowledged alerts")).not.toBeInTheDocument();
+		expect(within(block).queryByText(/24 h/)).not.toBeInTheDocument();
 	});
 
 	it("is not drawn for an account that can see none of the checks", () => {

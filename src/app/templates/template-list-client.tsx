@@ -239,7 +239,7 @@ export function TemplateListClient({
 									title={tmpl.rollbackCommand}
 								>
 									<span className="line-clamp-2 break-all">
-										<span className="mr-2 font-sans text-xs uppercase text-[var(--success)]">
+										<span className="mr-2 font-sans text-xs text-[var(--success)]">
 											{t("templatesPage.badge.rollback")}
 										</span>
 										{tmpl.rollbackCommand}
@@ -268,20 +268,23 @@ export function TemplateListClient({
 									))}
 								</div>
 							)}
-							<div className="mt-3 flex items-center gap-2 border-t border-[var(--border)] pt-2">
-								{canDeploy && (
-									<DeployButton
-										template={tmpl}
-										servers={servers}
-										onDeploy={handleDeploy}
-										loading={deploying === tmpl.id}
-									/>
-								)}
-								{canCreate && !tmpl.isBuiltin && (
-									<ActionButton size="sm" variant="danger" onClick={() => { setDeleteError(null); setTemplatePendingDelete(tmpl); }}>
-										{t("templatesPage.delete.action")}
-									</ActionButton>
-								)}
+							{/* At the card's foot, so the buttons of a row of cards line up whatever the command's length. */}
+							<div className="mt-auto pt-3">
+								<div className="flex items-center gap-2 border-t border-[var(--border)] pt-2">
+									{canDeploy && (
+										<DeployButton
+											template={tmpl}
+											servers={servers}
+											onDeploy={handleDeploy}
+											loading={deploying === tmpl.id}
+										/>
+									)}
+									{canCreate && !tmpl.isBuiltin && (
+										<ActionButton size="sm" variant="danger" onClick={() => { setDeleteError(null); setTemplatePendingDelete(tmpl); }}>
+											{t("templatesPage.delete.action")}
+										</ActionButton>
+									)}
+								</div>
 							</div>
 						</article>
 					))}

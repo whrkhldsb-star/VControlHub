@@ -30,7 +30,7 @@ export function VpsStatusTable({
 	return (
 		<div data-card className="p-0 overflow-x-auto">
 			<table className="min-w-full border-collapse text-left text-xs">
-				<thead className="bg-[var(--surface-elevated)] text-xs uppercase text-[var(--text-muted)]">
+				<thead className="bg-[var(--surface-elevated)] text-xs text-[var(--text-muted)]">
 					<tr>
 						<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.name")}</th>
 						<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.status")}</th>

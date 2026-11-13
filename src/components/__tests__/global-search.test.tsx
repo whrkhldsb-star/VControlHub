@@ -56,7 +56,7 @@ describe("GlobalSearch", () => {
 		act(() => {
 			window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
 		});
-		await user.type(await screen.findByPlaceholderText("搜索页面、操作..."), "快捷服务");
+		await user.type(await screen.findByPlaceholderText("搜索页面、操作…"), "快捷服务");
 		await user.click(await screen.findByRole("option", { name: /快捷服务/ }));
 
 		expect(pushMock).toHaveBeenCalledWith("/quick-services");
@@ -192,7 +192,7 @@ describe("GlobalSearch", () => {
 		act(() => {
 			window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
 		});
-		await user.type(await screen.findByPlaceholderText("搜索页面、操作..."), "两步验证");
+		await user.type(await screen.findByPlaceholderText("搜索页面、操作…"), "两步验证");
 		await user.click(await screen.findByRole("option", { name: /两步验证/ }));
 
 		expect(pushMock).toHaveBeenCalledWith("/account/security");
@@ -213,7 +213,7 @@ describe("GlobalSearch", () => {
 
 		expect(await screen.findByRole("dialog", { name: "Global search" })).toBeInTheDocument();
 		const input = screen.getByRole("combobox", { name: "Search pages and actions" });
-		expect(input).toHaveAttribute("placeholder", "Search pages, actions...");
+		expect(input).toHaveAttribute("placeholder", "Search pages, actions…");
 		expect(screen.getByRole("option", { name: /Dashboard.*Page/ })).toBeInTheDocument();
 		expect(screen.queryByText("仪表盘")).not.toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();

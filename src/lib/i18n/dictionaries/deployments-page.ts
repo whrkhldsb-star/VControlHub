@@ -74,10 +74,10 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.export.desc": "生成可审计的便携部署模板：环境变量示例、systemd 单元、Caddy 示例和部署脚本。导出内容只包含占位符，不会写入生产密钥或连接串。",
 	"deploymentsPage.export.targetDomain": "目标域名",
 	"deploymentsPage.export.appName": "应用标识",
-	"deploymentsPage.export.generating": "生成中...",
+	"deploymentsPage.export.generating": "生成中…",
 	"deploymentsPage.export.generate": "生成导出包",
 	"deploymentsPage.export.summary": "{domain} · {count} 个文件 · {size} KB · 危险演示开关默认关闭",
-	"deploymentsPage.export.packaging": "打包中...",
+	"deploymentsPage.export.packaging": "打包中…",
 	"deploymentsPage.export.downloadZip": "一键导出 ZIP",
 	"deploymentsPage.export.fileTree": "目录树",
 	"deploymentsPage.export.noFiles": "暂无文件",
@@ -92,7 +92,7 @@ export const zh: Record<string, string> = {
 	// Rollback button (TR-026 unified feedback)
 	"deploymentsPage.rollback.triggerBtn": "执行真实回滚",
 	"deploymentsPage.rollback.confirmBtn": "确认回滚",
-	"deploymentsPage.rollback.submitting": "提交中...",
+	"deploymentsPage.rollback.submitting": "提交中…",
 	"deploymentsPage.rollback.confirmWarning": "确认执行部署「{name}」的回滚命令？该操作会进入审批流程，并在目标 VPS 上执行快照里保存的回滚命令。",
 	"deploymentsPage.rollback.reason": "真实回滚：{name}",
 	"deploymentsPage.rollback.toast.success": "回滚命令已提交审批",
@@ -104,7 +104,7 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.resend.confirmWarning": "确认按此记录重新发起部署？将创建新的部署任务并进入审批链路。",
 	"deploymentsPage.resend.reasonLatest": "重新提交部署：{name}",
 	"deploymentsPage.resend.reasonFromRecord": "回退重发：{name}",
-	"deploymentsPage.resend.submitting": "提交中...",
+	"deploymentsPage.resend.submitting": "提交中…",
 	"deploymentsPage.resend.toast.success": "部署重发已提交",
 	"deploymentsPage.resend.toast.failed": "重发失败",
 };
@@ -199,7 +199,7 @@ export const en: Record<string, string> = {
 	// Rollback button (TR-026 unified feedback)
 	"deploymentsPage.rollback.triggerBtn": "Execute real rollback",
 	"deploymentsPage.rollback.confirmBtn": "Confirm rollback",
-	"deploymentsPage.rollback.submitting": "Submitting...",
+	"deploymentsPage.rollback.submitting": "Submitting…",
 	"deploymentsPage.rollback.confirmWarning": "Confirm rollback for deployment \"{name}\"? This will go through the approval flow and execute the rollback command from the snapshot on the target VPS.",
 	"deploymentsPage.rollback.reason": "Real rollback: {name}",
 	"deploymentsPage.rollback.toast.success": "Rollback submitted for approval",
@@ -211,7 +211,7 @@ export const en: Record<string, string> = {
 	"deploymentsPage.resend.confirmWarning": "Resend this deployment from the selected record? A new run will be created and may enter the approval flow.",
 	"deploymentsPage.resend.reasonLatest": "Resubmit deployment: {name}",
 	"deploymentsPage.resend.reasonFromRecord": "Rollback resend: {name}",
-	"deploymentsPage.resend.submitting": "Submitting...",
+	"deploymentsPage.resend.submitting": "Submitting…",
 	"deploymentsPage.resend.toast.success": "Deployment resend submitted",
 	"deploymentsPage.resend.toast.failed": "Resend failed",
 };

@@ -74,13 +74,19 @@ export function DashboardAttention({ checks, checkedAt }: { checks: AttentionChe
 			</div>
 			<ul className="divide-y divide-[var(--border-subtle)] border-t border-[var(--border-subtle)]">
 				{checks.map((check) => (
-					<li key={check.kind} data-attention-check={check.kind} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3 sm:flex-nowrap">
+					// Icon, sentence and, when something was found, the way to it. On a phone the button goes under the
+					// sentence: beside it, a long English row squeezed the count onto a line of its own.
+					<li
+						key={check.kind}
+						data-attention-check={check.kind}
+						className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-5 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+					>
 						{check.count > 0 ? (
 							<>
-								<span aria-hidden className={cn("shrink-0", TONE_TEXT[check.tone])}>
+								<span aria-hidden className={TONE_TEXT[check.tone]}>
 									{check.tone === "danger" ? <AlertTriangle size={16} /> : <Clock size={16} />}
 								</span>
-								<div className="min-w-0 flex-1">
+								<div className="min-w-0">
 									<p className="text-sm font-medium text-[var(--text-primary)]">{t(COPY[check.kind].found, { count: check.count })}</p>
 									{check.latest ? (
 										<p className="mt-0.5 truncate text-xs text-[var(--text-muted)]" title={check.latest}>
@@ -88,16 +94,21 @@ export function DashboardAttention({ checks, checkedAt }: { checks: AttentionChe
 										</p>
 									) : null}
 								</div>
-								<ButtonLink href={check.href} size="sm" variant="secondary" className="shrink-0">
+								<ButtonLink
+									href={check.href}
+									size="sm"
+									variant="secondary"
+									className="col-start-2 justify-self-start sm:col-start-auto sm:justify-self-end"
+								>
 									{t(COPY[check.kind].action)}
 								</ButtonLink>
 							</>
 						) : (
 							<>
-								<span aria-hidden className="shrink-0 text-[var(--success)]">
+								<span aria-hidden className="text-[var(--success)]">
 									<Check size={16} strokeWidth={2.5} />
 								</span>
-								<p className="min-w-0 flex-1 text-sm text-[var(--text-secondary)]">{t(COPY[check.kind].clear)}</p>
+								<p className="min-w-0 text-sm text-[var(--text-secondary)]">{t(COPY[check.kind].clear)}</p>
 							</>
 						)}
 					</li>

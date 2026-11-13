@@ -21,11 +21,11 @@ export function MediaScanButton() {
       const result = await csrfFetch<ScanResult>("/api/media", {
         method: "POST",
       });
-      const removedText = result.removed
-        ? t("mediaScanButton.removed", { removed: result.removed })
-        : "";
+      // One sentence each: the removed count used to be a piece glued onto the end.
       setMessage(
-        t("mediaScanButton.summary", { scanned: result.scanned, upserted: result.upserted, removedText }),
+        result.removed
+          ? t("mediaScanButton.summaryRemoved", { scanned: result.scanned, upserted: result.upserted, removed: result.removed })
+          : t("mediaScanButton.summary", { scanned: result.scanned, upserted: result.upserted }),
       );
       startTransition(() => router.refresh());
     } catch (scanError) {

@@ -104,7 +104,7 @@ export default async function SharePage({
               <File aria-hidden="true" className="h-5 w-5" />
             )}
           </div>
-          <p className="text-xs font-semibold uppercase text-[var(--accent)]">
+          <p className="text-xs font-semibold text-[var(--accent)]">
             {t("sharePage.brand", locale)}
           </p>
           <h1 className="ui-title-page mt-2">

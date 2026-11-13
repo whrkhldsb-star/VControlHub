@@ -140,8 +140,9 @@ export function automationSummary(
   const shown = names.slice(0, AUTOMATION_TARGET_NAMES);
   const targets = shown.length === 0
     ? String(count)
-    : t("aiPage.automationTargetNames", { count, names: shown.join(", ") })
-      + (count > shown.length ? t("aiPage.automationTargetMore", { more: count - shown.length }) : "");
+    : count > shown.length
+      ? t("aiPage.automationTargetNamesMore", { count, names: shown.join(", "), more: count - shown.length })
+      : t("aiPage.automationTargetNames", { count, names: shown.join(", ") });
 
   const approvalMode = text(params, "approvalMode");
   const approval = approvalMode === "approve_once"

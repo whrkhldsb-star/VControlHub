@@ -19,7 +19,9 @@ import { describe, expect, it } from "vitest";
  *   - content dialogs use <Dialog> / <ConfirmDialog>, confirmations never
  *     use window.confirm;
  *   - a number field bound to a number is a <NumberInput>, which keeps what is
- *     being typed.
+ *     being typed;
+ *   - labels, eyebrows and table headers keep the case they are written in:
+ *     no `uppercase`.
  *
  * Allowlists name the few places that genuinely need bespoke chrome.
  */
@@ -210,6 +212,16 @@ describe("UI conventions", () => {
 				}
 			}
 		}
+		expect(offenders).toEqual([]);
+	});
+
+	// In English the style turned "Recent logs", "Action type" and every table header into capitals, a look
+	// the rest of the console does not have (Chinese is unaffected, so it went unnoticed). Text that is
+	// capitals by nature (an initial, an HTTP method) is written that way by the code.
+	it("keeps labels in the case they are written in", () => {
+		const offenders = tsxFiles
+			.filter(({ source }) => /(?<![\w-])uppercase(?![\w-])/.test(source.replaceAll(/requireUppercase|passwordRule\.uppercase/g, "")))
+			.map(({ file }) => file);
 		expect(offenders).toEqual([]);
 	});
 

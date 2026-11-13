@@ -53,7 +53,7 @@ export function AiSidebar({
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
-              <p className="text-xs font-semibold uppercase text-[var(--accent)]">AI</p>
+              <p className="text-xs font-semibold text-[var(--accent)]">AI</p>
               <h2 className="ui-title-section">{t("aiPage.sidebarTitle")}</h2>
             </div>
             <ActionButton icon={<Plus size={16} aria-hidden />} size="sm" variant="primary"

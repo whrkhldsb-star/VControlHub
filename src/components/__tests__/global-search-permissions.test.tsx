@@ -70,7 +70,7 @@ describe("GlobalSearch permission-gated filter", () => {
 		renderWithGate(READ_ONLY_GATE, SAMPLE_DECLARED);
 
 		openSearchOverlay();
-		const input = await screen.findByPlaceholderText("搜索页面、操作...");
+		const input = await screen.findByPlaceholderText("搜索页面、操作…");
 		await user.type(input, "用户管理");
 
 		// "/users" declared as ["user:manage"]; READ_ONLY has server:read only.
@@ -83,7 +83,7 @@ describe("GlobalSearch permission-gated filter", () => {
 		renderWithGate(READ_ONLY_GATE, SAMPLE_DECLARED);
 
 		openSearchOverlay();
-		const input = await screen.findByPlaceholderText("搜索页面、操作...");
+		const input = await screen.findByPlaceholderText("搜索页面、操作…");
 		await user.type(input, "仪表盘");
 
 		expect(await screen.findByRole("option", { name: /仪表盘/ })).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe("GlobalSearch permission-gated filter", () => {
 		renderWithGate(STORAGE_GATE, SAMPLE_DECLARED);
 
 		openSearchOverlay();
-		const input = await screen.findByPlaceholderText("搜索页面、操作...");
+		const input = await screen.findByPlaceholderText("搜索页面、操作…");
 		await user.type(input, "文件");
 
 		expect(await screen.findByRole("option", { name: /文件管理/ })).toBeInTheDocument();
@@ -106,7 +106,7 @@ describe("GlobalSearch permission-gated filter", () => {
 		renderWithGate(READ_ONLY_GATE, SAMPLE_DECLARED);
 
 		openSearchOverlay();
-		const input = await screen.findByPlaceholderText("搜索页面、操作...");
+		const input = await screen.findByPlaceholderText("搜索页面、操作…");
 		await user.type(input, "SSH");
 
 		expect(screen.queryByRole("option", { name: /SSH 终端/ })).not.toBeInTheDocument();
@@ -121,7 +121,7 @@ describe("GlobalSearch permission-gated filter", () => {
 		render(<GlobalSearch declaredPermissionsByHref={SAMPLE_DECLARED} />, { wrapper: Wrapper });
 
 		openSearchOverlay();
-		const input = await screen.findByPlaceholderText("搜索页面、操作...");
+		const input = await screen.findByPlaceholderText("搜索页面、操作…");
 		await user.type(input, "用户管理");
 
 		expect(screen.queryByRole("option", { name: /用户管理/ })).not.toBeInTheDocument();

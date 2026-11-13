@@ -61,7 +61,8 @@ export default async function BackupsPage() {
 				<StatCard label={t("backupsPage.summary.completed")} value={String(summary.completedRecords)} detail={t("backupsPage.summary.totalRecords", { count: summary.totalRecords })} accent={summary.completedRecords > 0} accentColor="emerald" />
 				<StatCard label={t("backupsPage.summary.usedSpace")} value={formatBackupSize(summary.totalCompletedSizeBytes)} detail={summary.largestCompleted ? t("backupsPage.summary.largestRecord", { type: getBackupTypeLabel(t, summary.largestCompleted.type), size: formatBackupSize(summary.largestCompleted.sizeBytes) }) : t("backupsPage.summary.largestNone")} />
 				<StatCard label={t("backupsPage.summary.retentionNote")} value={String(summary.recordsOlderThan30Days)} detail={t("backupsPage.summary.retentionHint")} accent={summary.recordsOlderThan30Days > 0} accentColor="amber" />
-				<StatCard label={t("backupsPage.summary.exceptions")} value={`${summary.failedRecords} / ${summary.runningRecords}`} detail={t("backupsPage.summary.exceptionsHint")} accent={summary.failedRecords > 0} accentColor="rose" />
+				{/* One number per card: "异常/执行中 0 / 0" made the reader work out which figure was which. */}
+				<StatCard label={t("backupsPage.summary.failed")} value={String(summary.failedRecords)} detail={t("backupsPage.summary.inProgress", { count: summary.runningRecords })} accent={summary.failedRecords > 0} accentColor="rose" />
 			</StatGrid>
 
 			{coverage.uncovered.length > 0 && (
@@ -107,7 +108,8 @@ export default async function BackupsPage() {
 				actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.failures.count", { count: summary.failedRecords })}</span>}
 			>
 				{summary.failureSummary.length === 0 ? (
-					<Notice tone="success" compact>{t("backupsPage.failures.empty")}</Notice>
+					// No failure is not news: said plainly, without a success box.
+					<p className="text-sm text-[var(--text-muted)]">{t("backupsPage.failures.empty")}</p>
 				) : (
 					<div className="grid gap-3 md:grid-cols-2">
 						{summary.failureSummary.map((item) => (

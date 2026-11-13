@@ -8,15 +8,15 @@
 export const zh: Record<string, string> = {
 	"mediaScanButton.error": "扫描媒体索引失败",
 	"mediaScanButton.idle": "扫描媒体索引",
-	"mediaScanButton.removed": "，清理 {removed} 条失效索引",
-	"mediaScanButton.scanning": "正在扫描...",
-	"mediaScanButton.summary": "扫描完成：发现 {scanned} 个媒体文件，更新 {upserted} 条索引{removedText}",
+	"mediaScanButton.summaryRemoved": "扫描完成：发现 {scanned} 个媒体文件，更新 {upserted} 条索引，清理 {removed} 条失效索引",
+	"mediaScanButton.scanning": "正在扫描…",
+	"mediaScanButton.summary": "扫描完成：发现 {scanned} 个媒体文件，更新 {upserted} 条索引",
 };
 
 export const en: Record<string, string> = {
 	"mediaScanButton.error": "Failed to scan media index",
 	"mediaScanButton.idle": "Scan media index",
-	"mediaScanButton.removed": ", cleaned {removed} stale index entries",
-	"mediaScanButton.scanning": "Scanning...",
-	"mediaScanButton.summary": "Scan complete: found {scanned} media files, updated {upserted} index entries{removedText}",
+	"mediaScanButton.summaryRemoved": "Scan complete: found {scanned} media files, updated {upserted} index entries, cleaned {removed} stale index entries",
+	"mediaScanButton.scanning": "Scanning…",
+	"mediaScanButton.summary": "Scan complete: found {scanned} media files, updated {upserted} index entries",
 };

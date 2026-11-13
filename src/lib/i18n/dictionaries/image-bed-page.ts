@@ -6,7 +6,7 @@
  */
 
 export const zh: Record<string, string> = {
-	"imageBedPage.legacy.uploading": "上传中...",
+	"imageBedPage.legacy.uploading": "上传中…",
 	"imageBedPage.legacy.dropHint": "上传图片",
 	"imageBedPage.legacy.fileTypes": "图片文件",
 	"imageBedPage.batch.albumLabel": "批量移动目标相册",
@@ -28,7 +28,7 @@ export const zh: Record<string, string> = {
 	"imageBedPage.delete.cancel": "取消",
 	"imageBedPage.delete.desc.singleWithName": "将删除 {filename}，图片外链将失效。",
 	"imageBedPage.delete.desc.batchWithCount": "将删除 {count} 张图片，对应外链将失效。",
-	"imageBedPage.delete.deleting": "删除中...",
+	"imageBedPage.delete.deleting": "删除中…",
 	"imageBedPage.image.delete.aria": "删除图片",
 	"imageBedPage.image.select": "选择图片 {name}",
 	"imageBedPage.image.public": "公开",
@@ -105,7 +105,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"imageBedPage.legacy.uploading": "Uploading...",
+	"imageBedPage.legacy.uploading": "Uploading…",
 	"imageBedPage.legacy.dropHint": "Upload images",
 	"imageBedPage.legacy.fileTypes": "Image files",
 	"imageBedPage.batch.albumLabel": "Batch move target album",
@@ -182,7 +182,7 @@ export const en: Record<string, string> = {
 	"imageBedPage.delete.cancel": "Cancel",
 	"imageBedPage.delete.desc.singleWithName": "Deleting {filename}; the image link will stop working.",
 	"imageBedPage.delete.desc.batchWithCount": "Deleting {count} image(s); their links will stop working.",
-	"imageBedPage.delete.deleting": "Deleting...",
+	"imageBedPage.delete.deleting": "Deleting…",
 	"imageBedPage.delete.ariaLabel.single": "Delete image",
 	"imageBedPage.delete.ariaLabel.batch": "Batch delete images",
 	"imageBedPage.image.public": "Public",

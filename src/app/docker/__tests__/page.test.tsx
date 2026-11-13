@@ -103,7 +103,7 @@ describe("DockerPage", () => {
 		render(wrap(<DockerPageClient initialServers={[]} canManageHubHost={false} />));
 
 		expect(await screen.findByText("当前账号没有可管理 Docker 的服务器；请先让管理员授予服务器权限。")).toBeInTheDocument();
-		await waitFor(() => expect(screen.queryByText("加载中...")).not.toBeInTheDocument());
+		await waitFor(() => expect(screen.queryByText("加载中…")).not.toBeInTheDocument());
 		expect(screen.queryByText("网络与数据卷")).not.toBeInTheDocument();
 		expect(csrfFetch).not.toHaveBeenCalled();
 	});

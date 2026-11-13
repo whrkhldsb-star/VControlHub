@@ -200,7 +200,7 @@ export function AiMessageList({
             )}
             {hostedActions.length > 0 && (
               <div className="mt-2 space-y-2 border-t border-[var(--border-subtle)] pt-2">
-                <div className="text-xs font-medium uppercase text-[var(--text-muted)]">
+                <div className="text-xs font-medium text-[var(--text-muted)]">
                   {t("aiPage.toolActivity")}
                 </div>
                 {hostedActions.map((action) => (
@@ -314,7 +314,7 @@ export function AiMessageList({
             )}
           </div>
           {msg.role === "user" && (
-            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-xs font-semibold uppercase text-[var(--accent)]">
+            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-xs font-semibold text-[var(--accent)]">
               U
             </div>
           )}

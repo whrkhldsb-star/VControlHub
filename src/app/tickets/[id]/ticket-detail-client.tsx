@@ -286,7 +286,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
               <StatusBadge tone={STATUS_TONE[ticket.status] ?? "neutral"} size="md">
                 {statusLabel(t, ticket.status)}
               </StatusBadge>
-              <span className={`text-xs font-semibold uppercase  ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
+              <span className={`text-xs font-semibold ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
                 {priorityLabel(t, ticket.priority)}
               </span>
             </div>

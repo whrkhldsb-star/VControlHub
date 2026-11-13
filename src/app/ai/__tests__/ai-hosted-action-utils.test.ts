@@ -119,7 +119,7 @@ describe("automationSummary", () => {
     const once = automationSummary({ executionMode: "once", runAt: "2030-01-14T19:00:00.000Z", timeZone: "Asia/Shanghai", approvalMode: "every_run", serverIds: servers.map((s) => s.id), servers }, t, formatTime);
     expect(once.execution).toBe('aiPage.automationSchedule.once{"time":"fmt(2030-01-14T19:00:00.000Z)","zone":"Asia/Shanghai"}');
     expect(once.approval).toBe("aiPage.automationApproval.everyRun");
-    expect(once.targets).toBe('aiPage.automationTargetNames{"count":10,"names":"node-0, node-1, node-2, node-3, node-4, node-5, node-6, node-7"}aiPage.automationTargetMore{"more":2}');
+    expect(once.targets).toBe('aiPage.automationTargetNamesMore{"count":10,"names":"node-0, node-1, node-2, node-3, node-4, node-5, node-6, node-7","more":2}');
 
     const daily = automationSummary({ executionMode: "daily", dailyTime: "03:30", timeZone: "Asia/Shanghai", approvalMode: "approve_once", serverIds: ["s0"], servers: servers.slice(0, 1) }, t, formatTime);
     expect(daily.execution).toBe('aiPage.automationSchedule.daily{"time":"03:30","zone":"Asia/Shanghai"}');

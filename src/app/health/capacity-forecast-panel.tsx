@@ -246,7 +246,7 @@ export function CapacityForecastPanel() {
           ) : (
             <div role="region" aria-label={t("healthPage.capacity.summary.nodes")} tabIndex={0} className="overflow-x-auto rounded-lg border border-[var(--border)]">
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-[var(--surface-elevated)] text-xs uppercase text-[var(--text-muted)]">
+                <thead className="bg-[var(--surface-elevated)] text-xs text-[var(--text-muted)]">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.node")}</th>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.risk")}</th>

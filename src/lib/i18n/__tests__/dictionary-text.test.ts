@@ -58,10 +58,30 @@ describe("what the dictionaries say", () => {
 			"snippetsPage.modal.field.tagsHint",
 			"filePreferences.tagsPlaceholder",
 		]);
+		// A mark between two Chinese words counts too: "暂无节点,默认匹配全部节点" and "08:00,可用换行" were not caught
+		// while the rule only looked at what followed a mark.
 		const halfWidth = Object.entries(all.zh)
-			.filter(([key, value]) => !allowed.has(key) && (/[一-鿿][:,;!?](?:\s|$|\{)/.test(value) || /[一-鿿]\.(?:\s|$)/.test(value) || /\((?=[^)]*[一-鿿])/.test(value)))
+			.filter(([key, value]) => !allowed.has(key) && (/[一-鿿][:,;!?]/.test(value) || /[:,;!?][一-鿿]/.test(value) || /[一-鿿]\.(?:\s|$)/.test(value) || /\((?=[^)]*[一-鿿])/.test(value)))
 			.map(([key, value]) => `${key}: ${value}`);
 		expect(halfWidth).toEqual([]);
+	});
+
+	// "加载中..." beside "搜索页面、服务器或操作…": three full stops and the ellipsis character were used about
+	// equally, in both languages. An ellipsis is one character; three stops stay only where they are part of
+	// something typed (a path, a link, an example key) or of text added to a file.
+	it("writes an ellipsis as one character", () => {
+		const allowed = new Set([
+			"downloadsPage.form.linkPlaceholder",
+			"settingsClient.schema.section.platform.description",
+			"settingsClient.field.offsite.accessKeyId.placeholder",
+			"aiPage.fileTruncatedSuffix",
+		]);
+		const stops = (["zh", "en"] as const).flatMap((locale) =>
+			Object.entries(all[locale])
+				.filter(([key, value]) => !allowed.has(key) && value.includes("..."))
+				.map(([key, value]) => `${locale} ${key}: ${value}`),
+		);
+		expect(stops).toEqual([]);
 	});
 
 	// A sentence put together from "共", a number and "台纳管节点" keeps one language's word order and
@@ -75,8 +95,9 @@ describe("what the dictionaries say", () => {
 			|| key === "qsActions.taskSuffix";
 		const pieces = (["zh", "en"] as const).flatMap((locale) =>
 			Object.entries(all[locale])
-				// Text that is appended to a file or a prompt starts or ends with a line break of its own.
-				.filter(([key, value]) => /^\s|\s$/.test(value) && !/^\n|\n$/.test(value) && !allowed(key, value))
+				// Text that is appended to a file or a prompt starts or ends with a line break of its own. An entry
+				// that starts with a joining mark ("，清理 {removed} 条失效索引") is the tail of another sentence.
+				.filter(([key, value]) => ((/^\s|\s$/.test(value) && !/^\n|\n$/.test(value)) || /^[，、；,;]/.test(value)) && !allowed(key, value))
 				.map(([key, value]) => `${locale} ${key}: "${value}"`),
 		);
 		expect(pieces).toEqual([]);

@@ -80,7 +80,7 @@ function TicketCard({ ticket, nowMs, compact = false }: { ticket: TicketWorkspac
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="ui-title-group truncate">{ticket.title}</h3>
-            <span className={`text-xs font-semibold uppercase ${priorityTone[ticket.priority] ?? "text-[var(--text-muted)]"}`}>
+            <span className={`text-xs font-semibold ${priorityTone[ticket.priority] ?? "text-[var(--text-muted)]"}`}>
               {label(t, "ticketsPage.priority", ticket.priority)}
             </span>
             {ticket.category && (

@@ -30,7 +30,7 @@ export const zh: Record<string, string> = {
 	"snippetsPage.deleteDialog.body": "确认删除代码片段 ？此操作不可恢复。",
 	"snippetsPage.deleteDialog.confirm": "确认删除",
 	"snippetsPage.deleteDialog.cancel": "取消",
-	"snippetsPage.deleteDialog.deleting": "正在删除...",
+	"snippetsPage.deleteDialog.deleting": "正在删除…",
 	// Toasts
 	"snippetsPage.toast.saved": "代码片段已保存",
 	"snippetsPage.toast.created": "代码片段已创建",
@@ -82,7 +82,7 @@ export const en: Record<string, string> = {
 	"snippetsPage.deleteDialog.body": "Delete this snippet? This cannot be undone.",
 	"snippetsPage.deleteDialog.confirm": "Confirm",
 	"snippetsPage.deleteDialog.cancel": "Cancel",
-	"snippetsPage.deleteDialog.deleting": "Deleting...",
+	"snippetsPage.deleteDialog.deleting": "Deleting…",
 	"snippetsPage.toast.saved": "Snippet saved",
 	"snippetsPage.toast.created": "Snippet created",
 	"snippetsPage.toast.deleted": "Snippet deleted",

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { I18nProvider } from "@/lib/i18n/provider";
-import { SystemHealthClient } from "../system-health-client";
+import { checksByUrgency, SystemHealthClient } from "../system-health-client";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
@@ -152,5 +152,17 @@ describe("SystemHealthClient (split health surface)", () => {
 		expect(await screen.findByText("GitHub 同步状态")).toBeInTheDocument();
 		expect(screen.queryByText("HK Prod")).not.toBeInTheDocument();
 		expect(screen.queryByText("节点总数")).not.toBeInTheDocument();
+	});
+
+	it("lists the checks that found a problem first, worst first, each group in its own order", () => {
+		const checks = [
+			{ id: "db", status: "healthy" },
+			{ id: "github", status: "warning" },
+			{ id: "dirs", status: "healthy" },
+			{ id: "disk", status: "critical" },
+			{ id: "next", status: "warning" },
+		];
+		expect(checksByUrgency(checks).map((check) => check.id)).toEqual(["disk", "github", "next", "db", "dirs"]);
+		expect(checks.map((check) => check.id)).toEqual(["db", "github", "dirs", "disk", "next"]);
 	});
 });

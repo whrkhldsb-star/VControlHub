@@ -34,7 +34,7 @@ export const zh: Record<string, string> = {
 	"storagePage.list.latencyMs": "{latency} 毫秒",
 
 	"storagePage.list.registeredFiles": "已注册 {count} 个文件",
-	"storagePage.list.checking": "检测中...",
+	"storagePage.list.checking": "检测中…",
 	"storagePage.list.checkNow": "立即检测",
 	"storagePage.list.checkFailed": "健康检测失败",
 
@@ -105,7 +105,7 @@ export const zh: Record<string, string> = {
 	"storagePage.form.optionNotBound": "不绑定",
 	"storagePage.form.submitCreate": "创建节点",
 	"storagePage.form.submitEdit": "保存修改",
-	"storagePage.form.submitPending": "提交中...",
+	"storagePage.form.submitPending": "提交中…",
 	"storagePage.form.basePathPlaceholder": "/srv/storage 或 /data/media",
 	"storagePage.form.hostPlaceholder": "203.0.113.20",
 	"storagePage.form.publicBaseUrlPlaceholder": "https://cdn.example.com/media",
@@ -144,7 +144,7 @@ export const en: Record<string, string> = {
 	"storagePage.list.latencyMs": "{latency} ms",
 
 	"storagePage.list.registeredFiles": "{count} registered files",
-	"storagePage.list.checking": "Checking...",
+	"storagePage.list.checking": "Checking…",
 	"storagePage.list.checkNow": "Check now",
 	"storagePage.list.checkFailed": "Health check failed",
 
@@ -215,7 +215,7 @@ export const en: Record<string, string> = {
 	"storagePage.form.optionNotBound": "Not bound",
 	"storagePage.form.submitCreate": "Create node",
 	"storagePage.form.submitEdit": "Save changes",
-	"storagePage.form.submitPending": "Submitting...",
+	"storagePage.form.submitPending": "Submitting…",
 	"storagePage.form.basePathPlaceholder": "/srv/storage or /data/media",
 	"storagePage.form.hostPlaceholder": "203.0.113.20",
 	"storagePage.form.publicBaseUrlPlaceholder": "https://cdn.example.com/media",

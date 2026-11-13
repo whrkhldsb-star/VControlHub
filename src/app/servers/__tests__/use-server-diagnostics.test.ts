@@ -30,6 +30,18 @@ describe("server diagnostic lifecycle", () => {
     expect(result.current.diagnosticRun.status).toBe("success");
   });
 
+  it("says what it measured in one sentence, with the disk's mount point in parentheses", async () => {
+    // The disk part was a piece glued onto the sentence and read "…, disk / 32%".
+    vi.mocked(api.get)
+      .mockResolvedValueOnce(Response.json({ ...metrics, disk: [{ mount: "/", usagePercent: 32 }] }))
+      .mockResolvedValueOnce(Response.json(metrics));
+    const { result } = renderHookWithI18n(() => useServerDiagnostics("a", true));
+    await act(async () => { await result.current.runRealtimeDiagnostics(); });
+    expect(result.current.diagnosticRun).toMatchObject({ status: "success", summary: "CPU 12% · 内存 40% · 磁盘（/）32%" });
+    await act(async () => { await result.current.runRealtimeDiagnostics(); });
+    expect(result.current.diagnosticRun).toMatchObject({ status: "success", summary: "CPU 12% · 内存 40%" });
+  });
+
   it("aborts on node changes and ignores late results without unlocking the next request", async () => {
     const old = deferred();
     const current = deferred();

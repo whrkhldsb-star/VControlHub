@@ -128,7 +128,7 @@ export function PublicBoardClient({ initial, preview, signedIn }: { initial: Pub
 		<div style={accentStyle(site.accent)} className="flex flex-col gap-5" data-public-board>
 			<header className="flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0">
-					<p className="text-xs font-medium uppercase tracking-wide text-[var(--board-accent)]">{t("publicStatus.eyebrow")}</p>
+					<p className="text-xs font-medium text-[var(--board-accent)]">{t("publicStatus.eyebrow")}</p>
 					<h1 className="ui-title-page mt-1">{title}</h1>
 					{site.description ? <p className="mt-1 max-w-3xl whitespace-pre-line text-sm text-[var(--text-secondary)]">{site.description}</p> : null}
 				</div>

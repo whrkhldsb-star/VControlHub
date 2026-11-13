@@ -78,6 +78,10 @@ const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEve
   // Backup rows carry their type and are named by it, so the type is not repeated as a badge.
   const isBackup = task.source === "backup" && Boolean(task.taskType);
   const title = getOperationTaskTitle(t, task);
+  // The progress is on the line under the title already: a log that only repeated it ("最近日志 100%") is left out.
+  const progress = task.progress?.trim();
+  const logLines = (task.logPreview ?? []).filter((line) => line !== progress);
+  const meta = [formatDateTime(task.createdAt, locale), task.actor, progress].filter(Boolean).join(" · ");
   return (
     <ListRow className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
@@ -89,12 +93,12 @@ const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEve
           {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: formatDateTime(task.workerHeartbeatAt, locale) }) : t("operationTasksPage.worker.noHeartbeat")} className="!rounded-lg">{t("operationTasksPage.worker.label", { id: task.workerId })}</StatusBadge>}
         </div>
         <h3 className="ui-title-group mt-2 truncate">{title}</h3>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDateTime(task.createdAt, locale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
-        {task.logPreview && task.logPreview.length > 0 && (
+        <p className="mt-1 text-xs text-[var(--text-muted)]">{meta}</p>
+        {logLines.length > 0 && (
           <div aria-label={t("operationTasksPage.recentLogsAria", { title })} data-inset className="mt-3 px-3 py-2">
-            <div className="text-xs font-medium uppercase text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
+            <div className="text-xs font-medium text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
             <ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
-              {task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}
+              {logLines.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}
             </ul>
           </div>
         )}

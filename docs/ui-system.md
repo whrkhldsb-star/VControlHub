@@ -297,12 +297,17 @@ breadcrumb names the area, so page eyebrows are hidden.
 - uses `ModalShell` directly for a content dialog, or `window.confirm`;
 - binds an `<input type="number">` to numeric state by converting in
   `onChange` instead of using `NumberInput`;
-- links to a page of the application with a plain `<a href="/…">`.
+- links to a page of the application with a plain `<a href="/…">`;
+- sets text in capitals with `uppercase` (labels, eyebrows and table headers
+  keep the case they are written in; an initial or an HTTP method is written
+  in capitals by the code).
 
 `src/lib/i18n/__tests__/dictionary-text.test.ts` fails when a Chinese entry
-puts half-width punctuation after Chinese text, or when an entry starts or
-ends with a space (a piece of a sentence joined in code; a label's `": "` and
-list separators are allowed).
+puts half-width punctuation next to Chinese text, when an entry starts or
+ends with a space or starts with a joining mark such as "，" (a piece of a
+sentence joined in code; a label's `": "` and list separators are allowed),
+or when an entry writes an ellipsis as three full stops (paths, links and
+example values excepted).
 `src/app/manifest.test.ts` keeps the manifest's two colours equal to the
 tokens'.
 

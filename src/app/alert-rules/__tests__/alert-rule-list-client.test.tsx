@@ -346,7 +346,10 @@ describe("alert rules client", () => {
 
 		await waitFor(() => expect(csrfFetch).toHaveBeenCalled());
 		vi.mocked(csrfFetch).mockImplementationOnce(async () => ({
-			deliveries: [{ channel: "webhook", status: "sent", message: "Webhook 测试请求已发送" }],
+			deliveries: [
+				{ channel: "webhook", status: "sent", message: "Webhook 测试请求已发送" },
+				{ channel: "in_app", status: "sent", message: "已写入通知中心" },
+			],
 		}));
 
 		await user.click(screen.getByRole("button", { name: "测试发送" }));
@@ -360,6 +363,8 @@ describe("alert rules client", () => {
 		));
 		expect(await screen.findByText("测试发送结果：Webhook rule")).toBeInTheDocument();
 		expect(screen.getByText("Webhook 测试请求已发送")).toBeInTheDocument();
+		// Each delivery is named by its channel's name, not its code ("IN_APP" in capitals).
+		expect(screen.getByText("已写入通知中心").closest("li")).toHaveTextContent(/^站内通知/);
 	});
 
 	it("surfaces alert test-send failures", async () => {

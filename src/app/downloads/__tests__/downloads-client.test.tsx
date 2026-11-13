@@ -294,7 +294,7 @@ describe("DownloadsClient", () => {
     // The reload asks for what the filter shows, and the list comes back.
     expect(getCalls().at(-1)).toBe("/api/downloads?status=FAILED");
     expect(await screen.findByText("https://example.com/failed.iso")).toBeInTheDocument();
-    expect(screen.queryByText("加载中...")).not.toBeInTheDocument();
+    expect(screen.queryByText("加载中…")).not.toBeInTheDocument();
   });
 
   it("shows immediate download feedback and suppresses duplicate download clicks", async () => {

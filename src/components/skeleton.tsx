@@ -7,7 +7,7 @@ import { LocalizedText } from "./localized-text";
 export function RouteLoading({ children }: { children?: ReactNode }) {
 	return <PageShell>
 		<div role="status" className="mb-4 text-sm text-[var(--text-muted)]">
-			<LocalizedText textKey="common.loading" fallback="Loading..." />
+			<LocalizedText textKey="common.loading" fallback="Loading…" />
 		</div>
 		<div aria-hidden="true" className="min-w-0 overflow-hidden">{children ?? <PageSkeleton />}</div>
 	</PageShell>;

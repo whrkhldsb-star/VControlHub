@@ -159,7 +159,7 @@ export function SaveButtonWithDiff({
           className="overflow-hidden"
         >
           <table className="w-full text-xs">
-            <thead className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs uppercase text-[var(--text-muted)] light:bg-[var(--surface)]/70">
+            <thead className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs text-[var(--text-muted)] light:bg-[var(--surface)]/70">
               <tr>
                 <th className="px-3 py-2 font-medium">{t("settingsClient.diffTableField")}</th>
                 <th className="px-3 py-2 font-medium">{t("settingsClient.diffTableOriginal")}</th>

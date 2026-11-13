@@ -20,6 +20,13 @@ import { ChevronRight, RefreshCw } from "@/components/icons";
 
 type Props = { initialSystemHealth?: SystemHealthReport | null };
 
+const SEVERITY: Record<string, number> = { critical: 0, warning: 1 };
+
+/** The checks that found a problem first, worst first; each group keeps the server's order. */
+export function checksByUrgency<T extends { status: string }>(checks: readonly T[]): T[] {
+	return [...checks].sort((a, b) => (SEVERITY[a.status] ?? 2) - (SEVERITY[b.status] ?? 2));
+}
+
 /**
  * System-only half of the former health dashboard:
  * active incidents + platform self-check / repair suggestions.
@@ -83,7 +90,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 					aria-busy="true"
 					aria-label={t("healthPage.ui.selfCheck")}
 				>
-					<p className="text-xs uppercase text-[var(--text-muted)]">
+					<p className="text-xs text-[var(--text-muted)]">
 						{t("healthPage.ui.selfCheck")}
 					</p>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -151,9 +158,10 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 						})}
 					</div>
 					<div className="grid gap-2 md:grid-cols-2">
-						{systemHealth.checks.map((check) => {
+						{/* A warning used to sit wherever its check comes in the list, often under ten passing ones. */}
+						{checksByUrgency(systemHealth.checks).map((check) => {
 							return (
-								<div key={check.id} data-inset className="p-3">
+								<div key={check.id} data-inset data-health-check={check.id} data-status={check.status} className="p-3">
 									<div className="flex items-center justify-between gap-3">
 										<div className="text-sm font-medium text-[var(--text-primary)]">
 											{t(

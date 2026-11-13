@@ -23,7 +23,7 @@ export const zh: Record<string, string> = {
 	"mediaItemCard.publishErrorFallback": "发布图床外链失败",
 	"mediaItemCard.updateErrorFallback": "更新媒体信息失败",
 	"mediaItemCard.publishToImageBed": "图床外链",
-	"mediaItemCard.publishTooltip": "把这张已存储图片发布为图床外链,并复制外链",
+	"mediaItemCard.publishTooltip": "把这张已存储图片发布为图床外链，并复制外链",
 	"mediaItemCard.publishing": "发布中",
 	"mediaItemCard.sourceFileButton": "源文件",
 	"mediaItemCard.thumbnailAlt": "{name} 缩略图",
