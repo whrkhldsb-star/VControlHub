@@ -6,7 +6,6 @@ import {
 	DEFAULT_AUTO_PROBE_INTERVAL_SEC,
 	MAX_AUTO_PROBE_INTERVAL_SEC,
 	MIN_AUTO_PROBE_INTERVAL_SEC,
-	getAutoProbeIntervalLabel,
 	normalizeAutoProbeIntervalSec,
 } from "../auto-probe";
 
@@ -57,15 +56,3 @@ describe("normalizeAutoProbeIntervalSec", () => {
 	});
 });
 
-describe("getAutoProbeIntervalLabel", () => {
-	it("returns the matching preset label", () => {
-		expect(getAutoProbeIntervalLabel(10)).toBe("10 seconds");
-		expect(getAutoProbeIntervalLabel(60)).toBe("1 minute");
-		expect(getAutoProbeIntervalLabel(300)).toBe("5 minutes");
-	});
-
-	it("falls back to the default label for unknown values", () => {
-		expect(getAutoProbeIntervalLabel(0)).toBe("1 minute");
-		expect(getAutoProbeIntervalLabel(9999)).toBe("1 minute");
-	});
-});

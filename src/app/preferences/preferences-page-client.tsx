@@ -5,7 +5,7 @@ import { PageShell, PageHeader } from "@/components/page-shell";
 import { Chip, InlineLoading, Notice, Switch } from "@/components/ui-primitives";
 import { Bell, Home, LayoutDashboard, Radio, RefreshCw, User } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
+import { getRefreshIntervalLabel, REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
 import { AUTO_PROBE_INTERVAL_OPTIONS } from "@/lib/preferences/auto-probe";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
@@ -50,9 +50,6 @@ function widgetLabel(t: (key: string, vars?: Record<string, string | number>) =>
 	return t(WIDGET_KEYS[value] ?? "preferencesPage.widget.serverStatus");
 }
 
-function intervalLabel(t: (key: string) => string, seconds: number): string {
-	return t(`preferencesPage.interval.${seconds}`);
-}
 
 /** Section card — extracted to module top to avoid re-creation on every render */
 function Section({
@@ -367,7 +364,7 @@ export function PreferencesSettingsContent({
 								selected={prefs.autoRefreshInterval === opt.value}
 								onClick={() => save({ ...prefs, autoRefreshInterval: opt.value })}
 							>
-								{intervalLabel(t, opt.value)}
+								{getRefreshIntervalLabel(opt.value, t)}
 							</Chip>
 						))}
 					</div>
@@ -391,7 +388,7 @@ export function PreferencesSettingsContent({
 								}}
 								disabled={!prefs.autoProbeEnabled}
 							>
-								{intervalLabel(t, opt.value)}
+								{getRefreshIntervalLabel(opt.value, t)}
 							</Chip>
 						))}
 					</div>

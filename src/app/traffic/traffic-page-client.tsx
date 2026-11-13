@@ -330,7 +330,7 @@ export default function TrafficPage() {
   };
 
   const primary = summary?.currentServer.primaryInterface ?? null;
-  const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
+  const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds, t);
   const persistedTrend = useMemo(() => {
     if (historyScope === "live") return null;
     return groupHistory(persistedHistory, historyScope);

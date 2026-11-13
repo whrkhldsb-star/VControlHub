@@ -44,7 +44,7 @@ export function MobileNav({
 			className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border)] bg-[var(--topbar-bg)] px-2 pb-[calc(0.25rem+env(safe-area-inset-bottom))] pt-1 backdrop-blur-md lg:hidden"
 		>
 			<div
-				className="grid w-full items-center gap-1"
+				className="grid w-full items-stretch gap-1"
 				style={{ gridTemplateColumns: `repeat(${visibleTabs.length + 1}, minmax(0, 1fr))` }}
 			>
 				{visibleTabs.map((tab) => {

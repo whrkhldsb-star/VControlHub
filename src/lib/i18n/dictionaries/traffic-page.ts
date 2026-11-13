@@ -7,7 +7,7 @@
 
 export const zh: Record<string, string> = {
 	"trafficPage.autoRefreshOff": "自动刷新已关闭",
-	"trafficPage.autoRefreshOn": "{label} 自动刷新中",
+	"trafficPage.autoRefreshOn": "自动刷新中（{label}）",
 	"trafficPage.autoRefreshPaused": "自动刷新（{label}）",
 	"trafficPage.badge.noIface": "无网卡",
 	"trafficPage.badge.onlineIface": "在线 · {iface}",
@@ -56,7 +56,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"trafficPage.autoRefreshOff": "Auto refresh off",
-	"trafficPage.autoRefreshOn": "Auto-refreshing every {label}",
+	"trafficPage.autoRefreshOn": "Auto-refreshing ({label})",
 	"trafficPage.autoRefreshPaused": "Auto refresh ({label})",
 	"trafficPage.badge.noIface": "No NIC",
 	"trafficPage.badge.onlineIface": "Online · {iface}",

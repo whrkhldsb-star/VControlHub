@@ -102,8 +102,11 @@ describe("DockerPage", () => {
 		// and volumes, which this account is refused (shown as a second error).
 		render(wrap(<DockerPageClient initialServers={[]} canManageHubHost={false} />));
 
-		expect(await screen.findByText("当前账号没有可管理 Docker 的服务器；请先让管理员授予服务器权限。")).toBeInTheDocument();
+		// The notice, and the list itself: it says it did not load, never that the target has no containers.
+		expect(await screen.findAllByText("当前账号没有可管理 Docker 的服务器；请先让管理员授予服务器权限。")).toHaveLength(2);
 		await waitFor(() => expect(screen.queryByText("加载中…")).not.toBeInTheDocument());
+		expect(screen.getByText("容器列表没有加载出来")).toBeInTheDocument();
+		expect(screen.queryByText("这个目标上没有 Docker 容器")).not.toBeInTheDocument();
 		expect(screen.queryByText("网络与数据卷")).not.toBeInTheDocument();
 		expect(csrfFetch).not.toHaveBeenCalled();
 	});
@@ -119,8 +122,9 @@ describe("DockerPage", () => {
 		});
 		render(wrap(<DockerPageClient initialServers={[{ id: "srv_1", name: "web-01", host: "10.0.0.1" }]} canManageHubHost={false} />));
 
-		expect(await screen.findByText("无权访问该服务器")).toBeInTheDocument();
+		expect(await screen.findAllByText("无权访问该服务器")).toHaveLength(2);
 		expect(screen.queryByText("无法连接 Docker API")).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "重新加载" })).toBeInTheDocument();
 	});
 
 	it("manages Docker networks and volumes from the resources panel", async () => {

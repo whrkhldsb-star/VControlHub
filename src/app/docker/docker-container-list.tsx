@@ -9,6 +9,9 @@ import type { ProjectAction } from "./use-docker-page";
 
 export function DockerContainerList({
 	loading,
+	listFailed = false,
+	failureReason,
+	onRetry,
 	containers,
 	grouped,
 	ungrouped,
@@ -22,6 +25,11 @@ export function DockerContainerList({
 	requestRemoval,
 }: {
 	loading: boolean;
+	/** The list could not be loaded; the reason is in the notice above it. */
+	listFailed?: boolean;
+	/** Why, when known: the notice above can be dismissed, this stays. */
+	failureReason?: string;
+	onRetry?: () => void;
 	containers: Container[];
 	grouped: { project: string; containers: Container[] }[];
 	ungrouped: Container[];
@@ -51,6 +59,17 @@ export function DockerContainerList({
 	if (loading) {
 		return <InlineLoading label={t("dockerPage.loading")} />;
 	}
+	if (containers.length === 0 && listFailed) {
+		// Not "no containers": nothing could be read.
+		return (
+			<EmptyState
+				title={t("dockerPage.listFailed.title")}
+				text={failureReason || t("dockerPage.listFailed.text")}
+				variant="boxed"
+				action={onRetry ? <ActionButton size="sm" variant="secondary" onClick={onRetry}>{t("dockerPage.listFailed.retry")}</ActionButton> : undefined}
+			/>
+		);
+	}
 	if (containers.length === 0) {
 		return <EmptyState text={t("dockerPage.empty")} variant="boxed" />;
 	}
@@ -62,9 +81,8 @@ export function DockerContainerList({
 						<div>
 							<h2 className="ui-title-section">{group.project}</h2>
 							<p className="text-xs text-[var(--text-muted)]">
-								{t("dockerPage.group.subtitle", { count: group.containers.length })}
-								{" ·"}
-							{t("dockerPage.project.runningOf", { running: group.containers.filter((c) => c.State ==="running").length, total: group.containers.length })}
+								{/* One sentence: the two halves were glued with " ·" and read "3 个容器 ·2/3 运行中". */}
+								{t("dockerPage.group.subtitle", { count: group.containers.length, running: group.containers.filter((c) => c.State === "running").length })}
 							</p>
 						</div>
 						<div className="flex flex-wrap items-center gap-2" aria-label={t("dockerPage.project.actions")}>

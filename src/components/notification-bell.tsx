@@ -227,7 +227,7 @@ export function NotificationBell() {
 							) : refreshIntervalSeconds <= 0 ? (
 								<span className="text-xs text-[var(--text-muted)]">{manualLabel}</span>
 							) : (
-								<span className="text-xs text-[var(--text-muted)]">{pollingPrefix} {getRefreshIntervalLabel(refreshIntervalSeconds)}</span>
+								<span className="text-xs text-[var(--text-muted)]">{pollingPrefix} {getRefreshIntervalLabel(refreshIntervalSeconds, t)}</span>
 							)}
 							{effectiveUnread > 0 && (
 								<button type="button" onClick={markAllRead} className="text-xs font-medium text-[var(--accent)] transition hover:text-[var(--accent-hover)]">

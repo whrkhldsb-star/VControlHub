@@ -230,7 +230,7 @@ export default function MonitoringPage() {
     );
   }
 
-  const intervalLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
+  const intervalLabel = getRefreshIntervalLabel(refreshIntervalSeconds, t);
   const autoRefreshLabel = autoRefreshActive
     ? t("monitoringPage.autoRefreshActive", { interval: intervalLabel })
     : refreshIntervalSeconds <= 0

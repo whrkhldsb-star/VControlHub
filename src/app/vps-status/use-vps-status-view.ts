@@ -89,7 +89,7 @@ export function useVpsStatusView() {
 	const intervalLabel =
 		refreshIntervalSeconds <= 0
 			? t("healthPage.ui.autoRefreshOff")
-			: getRefreshIntervalLabel(refreshIntervalSeconds);
+			: getRefreshIntervalLabel(refreshIntervalSeconds, t);
 
 	return {
 		locale,

@@ -37,6 +37,7 @@ export default function DockerPage({
 		loading,
 		setLoading,
 		error,
+		listFailed,
 		clearError,
 		logsId,
 		logs,
@@ -73,7 +74,7 @@ export default function DockerPage({
 		projectCount,
 	} = useDockerPage(initialServers, canManageHubHost);
 
-	const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
+	const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds, t);
 	const defaultSocket = t("dockerPage.scope.defaultSocket");
 	const socketPath = dockerScope?.socketPath ?? defaultSocket;
 	// The server's scope descriptor carries English-only copy; localize on the
@@ -112,9 +113,12 @@ export default function DockerPage({
 						</FormField>
 					)}
 					{selectedServerId && <StatusBadge tone="accent">{t("dockerPage.scope.remoteActive")}</StatusBadge>}
-					<p className="pb-2 text-xs text-[var(--text-muted)]">
-						{t("dockerPage.toolbar.groupCount", { count: projectCount })} · {t("dockerPage.toolbar.ungroupedCount", { count: ungrouped.length })}
-					</p>
+					{/* Counts of a list that did not load would read "0 groups · 0 containers". */}
+					{listFailed ? null : (
+						<p className="pb-2 text-xs text-[var(--text-muted)]">
+							{t("dockerPage.toolbar.groupCount", { count: projectCount })} · {t("dockerPage.toolbar.ungroupedCount", { count: ungrouped.length })}
+						</p>
+					)}
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					<ActionButton
@@ -158,6 +162,12 @@ export default function DockerPage({
 
 			<DockerContainerList
 				loading={loading}
+				listFailed={listFailed}
+				failureReason={error}
+				onRetry={() => {
+					setLoading(true);
+					void fetchContainers();
+				}}
 				containers={containers}
 				grouped={grouped}
 				ungrouped={ungrouped}
@@ -172,8 +182,9 @@ export default function DockerPage({
 			/>
 
 			{/* Without a target (an account with no server to manage) there is nothing to list: the panel would ask
-			    for the hub host's networks and volumes, which such an account is refused. */}
-			{selectedServerId || canManageHubHost ? (
+			    for the hub host's networks and volumes, which such an account is refused. A target whose containers
+			    could not be read has no networks or volumes to show either: the panel said "no networks". */}
+			{(selectedServerId || canManageHubHost) && !listFailed ? (
 				<div className="mt-6">
 					<DockerResourcesPanel serverId={selectedServerId} />
 				</div>

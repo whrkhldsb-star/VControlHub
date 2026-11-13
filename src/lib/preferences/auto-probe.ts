@@ -9,17 +9,13 @@
  * 跨浏览器同步且 /preferences 页面统一管理。
  */
 
-export type AutoProbeIntervalOption = {
-	label: string;
-	value: number;
-};
-
-export const AUTO_PROBE_INTERVAL_OPTIONS: AutoProbeIntervalOption[] = [
-	{ label: "10 seconds", value: 10 },
-	{ label: "30 seconds", value: 30 },
-	{ label: "1 minute", value: 60 },
-	{ label: "2 minutes", value: 120 },
-	{ label: "5 minutes", value: 300 },
+/** The intervals the preferences offer; each is named by `preferencesPage.interval.<seconds>`. */
+export const AUTO_PROBE_INTERVAL_OPTIONS: ReadonlyArray<{ value: number }> = [
+	{ value: 10 },
+	{ value: 30 },
+	{ value: 60 },
+	{ value: 120 },
+	{ value: 300 },
 ];
 
 export const DEFAULT_AUTO_PROBE_INTERVAL_SEC = 60;
@@ -35,10 +31,4 @@ export function normalizeAutoProbeIntervalSec(value: unknown, fallback = DEFAULT
 	if (seconds <= 0) return fallback;
 	const allowed = AUTO_PROBE_ALLOWED_INTERVALS as readonly number[];
 	return allowed.includes(seconds) ? seconds : fallback;
-}
-
-export function getAutoProbeIntervalLabel(seconds: number): string {
-	const allowed = AUTO_PROBE_ALLOWED_INTERVALS as readonly number[];
-	const normalized = allowed.includes(seconds) ? seconds : DEFAULT_AUTO_PROBE_INTERVAL_SEC;
-	return AUTO_PROBE_INTERVAL_OPTIONS.find((opt) => opt.value === normalized)?.label ?? `${normalized}s`;
 }
