@@ -16,13 +16,13 @@ import { type DragEvent, type RefObject, useMemo } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { renderContent } from "./ai-markdown-renderer";
-import type { Message, ModelCapabilities, ToolApprovalNeeded } from "./ai-types";
+import type { Message, ModelCapabilities, StreamStep, ToolApprovalNeeded } from "./ai-types";
 import { formatAllowedTypes } from "./ai-file-helpers";
 import { approvalDetails, automationSummary } from "./ai-hosted-action-utils";
 import { isStreamErrorMessage } from "./ai-stream-error";
 import { formatDateTime } from "@/lib/datetime/format";
 import { ActionButton } from "@/components/action-button";
-import { ArrowDown, ArrowUp } from "@/components/icons";
+import { AlertTriangle, ArrowDown, ArrowUp, Check, Clock, Loader2, X } from "@/components/icons";
 import { Notice } from "@/components/ui-primitives";
 import { AiCopyButton, type AiCopyLabels } from "./ai-copy-button";
 
@@ -55,6 +55,8 @@ type Props = {
   streaming: boolean;
   streamContent: string;
   streamReasoning: string;
+  /** The answer's tool calls so far, shown under its text. */
+  streamSteps?: StreamStep[];
   pendingApprovals: ToolApprovalNeeded[];
   approvalBusyById: Record<string, boolean>;
   onApproval: (
@@ -78,6 +80,7 @@ export function AiMessageList({
   streaming,
   streamContent,
   streamReasoning,
+  streamSteps = [],
   pendingApprovals,
   approvalBusyById,
   onApproval,
@@ -99,6 +102,13 @@ export function AiMessageList({
     const key = `aiPage.risk.${riskLevel}`;
     const translated = t(key);
     return translated === key ? riskLevel : translated;
+  };
+  /** A tool call's line while the answer streams, with the action named as the approval cards name it. */
+  const streamStepText = (step: StreamStep) => {
+    const name = step.actionType ? actionDisplayName(step.actionType, step.name ?? step.actionType) : step.name;
+    if (!name) return t("aiPage.step.failedUnnamed");
+    if (step.state === "awaiting") return t("aiPage.step.awaiting", { name, risk: riskDisplayName(step.riskLevel ?? "") });
+    return t(`aiPage.step.${step.state}`, { name });
   };
   // Tool-role rows are never rendered; filter once per messages change —
   // re-running this on every stream chunk was pure waste, and the index math
@@ -196,9 +206,15 @@ export function AiMessageList({
                 </div>
               </details>
             )}
-            {!hasToolOnlyContent && (
+            {!hasToolOnlyContent && (isErrorBubble ? (
+              // The colours say "failed" only to those who see them: the icon says it too.
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={14} aria-hidden className="mt-1 shrink-0" />
+                <div className="min-w-0 break-words">{renderContent(msg.content, { copy: copyLabels })}</div>
+              </div>
+            ) : (
               <div className="break-words">{renderContent(msg.content, { copy: copyLabels })}</div>
-            )}
+            ))}
             {hostedActions.length > 0 && (
               <div className="mt-2 space-y-2 border-t border-[var(--border-subtle)] pt-2">
                 <div className="text-xs font-medium text-[var(--text-muted)]">
@@ -337,7 +353,7 @@ export function AiMessageList({
       })}
 
       {/* Reasoning can stream before any answer text: it is shown on its own. */}
-      {streaming && (streamContent || streamReasoning) && (
+      {streaming && (streamContent || streamReasoning || streamSteps.length > 0) && (
         <div className="flex gap-3">
           <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)]">
             <svg
@@ -366,10 +382,20 @@ export function AiMessageList({
               </details>
             )}
             {streamContent ? <div className="break-words">{renderContent(streamContent, { copy: copyLabels })}</div> : null}
+            {streamSteps.length > 0 ? (
+              <ul aria-label={t("aiPage.step.listAria")} className={`space-y-1 text-xs text-[var(--text-muted)] ${streamContent ? "mt-2 border-t border-[var(--border-subtle)] pt-2" : ""}`}>
+                {streamSteps.map((step) => (
+                  <li key={step.toolCallId} data-stream-step={step.state} className="flex items-start gap-1.5">
+                    <StreamStepIcon state={step.state} />
+                    <span className="min-w-0">{streamStepText(step)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         </div>
       )}
-      {streaming && !streamContent && !streamReasoning && (
+      {streaming && !streamContent && !streamReasoning && streamSteps.length === 0 && (
         <div className="flex gap-3">
           <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)]">
             <div className="flex gap-0.5">
@@ -493,4 +519,12 @@ export function AiMessageList({
       <div ref={messagesEndRef} />
     </div>
   );
+}
+
+/** The state of one tool call while the answer streams. */
+function StreamStepIcon({ state }: { state: StreamStep["state"] }) {
+  if (state === "running") return <Loader2 size={12} aria-hidden className="mt-0.5 shrink-0 animate-spin" />;
+  if (state === "awaiting") return <Clock size={12} aria-hidden className="mt-0.5 shrink-0 text-[var(--warning)]" />;
+  if (state === "succeeded") return <Check size={12} aria-hidden className="mt-0.5 shrink-0 text-[var(--success)]" />;
+  return <X size={12} aria-hidden className="mt-0.5 shrink-0 text-[var(--danger)]" />;
 }

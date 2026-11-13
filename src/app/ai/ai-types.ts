@@ -224,6 +224,20 @@ export interface ToolCallEvent {
  riskLevel: string;
  autoApproved: boolean;
  actionName: string;
+ /** Absent from servers before 2026-11: the step then shows `actionName` as it is. */
+ actionType?: string;
+}
+
+/**
+ * One tool call while an answer streams, as the stream reports it: called (running, or waiting for approval),
+ * then answered. A call the server answers without naming it first (an unknown tool) has no name.
+ */
+export interface StreamStep {
+ toolCallId: string;
+ actionType?: string;
+ name: string | null;
+ state: "running" | "awaiting" | "succeeded" | "failed";
+ riskLevel?: string;
 }
 
 export interface ToolApprovalNeeded {

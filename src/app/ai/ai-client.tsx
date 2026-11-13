@@ -126,6 +126,7 @@ export function AiClient({
     streaming,
     streamContent,
     streamReasoning,
+    streamSteps,
     pendingApprovals: streamedPendingApprovals,
     approvalBusyById,
     sendMessage,
@@ -176,7 +177,7 @@ export function AiClient({
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamContent, streamReasoning]);
+  }, [messages, streamContent, streamReasoning, streamSteps]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -441,6 +442,7 @@ export function AiClient({
               streaming={streaming}
               streamContent={streamContent}
               streamReasoning={streamReasoning}
+              streamSteps={streamSteps}
               pendingApprovals={pendingApprovals}
               approvalBusyById={approvalBusyById}
               onApproval={decideApproval}

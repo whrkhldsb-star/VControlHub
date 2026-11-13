@@ -30,14 +30,15 @@ export const zh: Record<string, string> = {
 
 	// client — stream / tool call
 	"aiPage.requestFailed": "请求失败",
-	"aiPage.networkError": "❌ 网络错误",
+	"aiPage.networkError": "网络连接中断，没有收到回答",
+	"aiPage.step.running": "正在执行：{name}…",
+	"aiPage.step.awaiting": "等待审批：{name}（风险：{risk}）",
+	"aiPage.step.succeeded": "已执行：{name}",
+	"aiPage.step.failed": "执行失败：{name}",
+	"aiPage.step.failedUnnamed": "有一个操作没有执行",
+	"aiPage.step.listAria": "这次回答执行的操作",
 	"aiPage.streamIncomplete": "回答没有完整返回，连接提前结束了。上面是已经收到的部分，可以重新发送。",
 	"aiPage.noResponse": "(无响应)",
-	"aiPage.toolCallStart": "⚡ 执行：{name}…",
-	"aiPage.toolCallApproval": "🔒 需要审批：{name}",
-	"aiPage.toolCallSuccess": "✅ 操作执行成功",
-	"aiPage.toolCallFailed": "❌ 操作执行失败：{detail}",
-	"aiPage.waitingApproval": "⏳ 等待审批：{name}（风险：{risk}）",
 
 	// client — toasts
 	"aiPage.noProviderToast": "请先添加一个 AI 提供商",
@@ -319,14 +320,15 @@ export const en: Record<string, string> = {
 
 	// client — stream / tool call
 	"aiPage.requestFailed": "Request failed",
-	"aiPage.networkError": "❌ Network error",
+	"aiPage.networkError": "The connection dropped before the answer arrived",
+	"aiPage.step.running": "Running: {name}…",
+	"aiPage.step.awaiting": "Waiting for approval: {name} (risk: {risk})",
+	"aiPage.step.succeeded": "Done: {name}",
+	"aiPage.step.failed": "Failed: {name}",
+	"aiPage.step.failedUnnamed": "An action did not run",
+	"aiPage.step.listAria": "Actions taken for this answer",
 	"aiPage.streamIncomplete": "The answer did not arrive in full: the connection ended early. What arrived is above; you can send again.",
 	"aiPage.noResponse": "(no response)",
-	"aiPage.toolCallStart": "⚡ Executing: {name}…",
-	"aiPage.toolCallApproval": "🔒 Approval required: {name}",
-	"aiPage.toolCallSuccess": "✅ Operation succeeded",
-	"aiPage.toolCallFailed": "❌ Operation failed: {detail}",
-	"aiPage.waitingApproval": "⏳ Waiting for approval: {name} (risk: {risk})",
 
 	// client — toasts
 	"aiPage.noProviderToast": "Please add an AI provider first",

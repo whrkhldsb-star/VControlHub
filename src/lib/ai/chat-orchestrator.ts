@@ -131,6 +131,7 @@ async function processHostedTools(input: {
         riskLevel: parsed.tool.riskLevel,
         autoApproved: parsed.tool.autoApproved,
         actionName: parsed.tool.actionName,
+        actionType: parsed.tool.actionType,
       },
     });
   }

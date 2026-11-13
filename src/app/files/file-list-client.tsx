@@ -62,6 +62,7 @@ import { FileListEmptyState } from "./file-list-empty-state";
 import { ImageLightbox } from "./image-lightbox";
 import { recordFileOpen } from "./file-preferences-client";
 import { submitFileOperation } from "./file-operation-controls";
+import { randomId } from "@/lib/ui/random-id";
 
 export type { FileProp } from "./file-entry-utils";
 export type { FolderProp } from "./file-list-model";
@@ -551,7 +552,7 @@ function FileListBody({
             const payload = JSON.parse(event.dataTransfer.getData("application/x-vcontrolhub-files")) as { ids: string[]; nodeIds: string[] };
             if (!Array.isArray(payload.ids) || !payload.ids.length || payload.ids.length > 1000 || payload.ids.some((id) => typeof id !== "string") || payload.nodeIds.length !== 1 || payload.nodeIds[0] !== folder.dataset.fileNodeId) throw new Error(t("fileOperations.sameNode"));
             if (payload.ids.includes(folder.dataset.fileEntryId ?? "")) return;
-            setDropMove({ ids: payload.ids, path: folder.dataset.fileDropPath!, requestId: crypto.randomUUID() });
+            setDropMove({ ids: payload.ids, path: folder.dataset.fileDropPath!, requestId: randomId() });
           } catch (error) {
             showToast("error", error instanceof Error ? error.message : t("filePreferences.failed"));
           }

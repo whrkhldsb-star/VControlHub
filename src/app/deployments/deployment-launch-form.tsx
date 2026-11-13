@@ -10,6 +10,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { Disclosure } from "@/components/ui/disclosure";
+import { randomId } from "@/lib/ui/random-id";
 
 type DeploymentTemplateOption = {
 	id: string;
@@ -73,7 +74,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 		setError(null);
 		setPending(true);
 		try {
-			idempotencyKeyRef.current ??= crypto.randomUUID();
+			idempotencyKeyRef.current ??= randomId();
 			const form = e.currentTarget;
 			const fd = new FormData(form);
 			const vars: Record<string, string> = {};

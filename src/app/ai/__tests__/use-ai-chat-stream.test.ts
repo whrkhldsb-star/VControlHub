@@ -160,7 +160,7 @@ describe("useAiChatStream", () => {
 			const { result } = renderHook(() => useAiChatStream(args));
 			await act(async () => { await result.current.sendMessage(sendArgs); });
 			expect(state.messages).toHaveLength(1);
-			expect(state.messages[0]!.content).toBe("❌ provider quota exceeded");
+			expect(state.messages[0]!.content).toBe("provider quota exceeded");
 			expect(state.toasts).toEqual([{ kind: "error", message: "provider quota exceeded" }]);
 		});
 
@@ -172,7 +172,7 @@ describe("useAiChatStream", () => {
 			const { state, args } = setup();
 			const { result } = renderHook(() => useAiChatStream(args));
 			await act(async () => { await result.current.sendMessage(sendArgs); });
-			expect(state.messages[0]!.content).toBe("❌ aiPage.requestFailed");
+			expect(state.messages[0]!.content).toBe("aiPage.requestFailed");
 		});
 
 		it("surfaces an in-band error frame", async () => {
@@ -182,18 +182,48 @@ describe("useAiChatStream", () => {
 			const { state, args } = setup();
 			const { result } = renderHook(() => useAiChatStream(args));
 			await act(async () => { await result.current.sendMessage(sendArgs); });
-			expect(state.messages[0]!.content).toBe("❌ upstream 502");
+			expect(state.messages[0]!.content).toBe("upstream 502");
 			expect(state.toasts).toEqual([{ kind: "error", message: "upstream 502" }]);
 		});
 
-		it("does not double-prefix an error that already carries the marker", async () => {
-			mocks.csrfFetch.mockResolvedValue(sseResponse([{ type: "error", error: "❌ already marked" }]));
+		it("shows an error frame's text as it is, in the reply and the toast", async () => {
+			// The reply used to gain a "❌" (the bubble draws its own icon now), which the toast then had to strip.
+			mocks.csrfFetch.mockResolvedValue(sseResponse([{ type: "error", error: "provider overloaded" }]));
 			const { state, args } = setup();
 			const { result } = renderHook(() => useAiChatStream(args));
 			await act(async () => { await result.current.sendMessage(sendArgs); });
-			expect(state.messages[0]!.content).toBe("❌ already marked");
-			// The toast strips the marker so it is not shown twice to the user.
-			expect(state.toasts).toEqual([{ kind: "error", message: "already marked" }]);
+			expect(state.messages[0]!.content).toBe("provider overloaded");
+			expect(state.toasts).toEqual([{ kind: "error", message: "provider overloaded" }]);
+		});
+
+		it("keeps the answer's tool steps apart from its text while it streams", async () => {
+			let controller!: ReadableStreamDefaultController<Uint8Array>;
+			const body = new ReadableStream<Uint8Array>({ start(c) { controller = c; } });
+			const encoder = new TextEncoder();
+			const frame = (value: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));
+			mocks.csrfFetch.mockImplementation(async (url: string) =>
+				url === "/api/ai/chat" ? ({ ok: true, body } as unknown as Response) : { conversation: { messages: [] } },
+			);
+			const { args } = setup();
+			const { result } = renderHook(() => useAiChatStream(args));
+			let sending: Promise<void> = Promise.resolve();
+			await act(async () => {
+				sending = result.current.sendMessage(sendArgs);
+				frame({ type: "content", content: "先看磁盘。" });
+				frame({ type: "tool_call", toolCall: { id: "c1", name: "get_server_status", args: {}, riskLevel: "low", autoApproved: true, actionName: "View server status", actionType: "get_status" } });
+				frame({ type: "tool_result", toolCallId: "c1", success: true, data: {} });
+				frame({ type: "content", content: "还剩 12 GB。" });
+				await new Promise((resolve) => setTimeout(resolve, 20));
+			});
+			// The next chunk set the text again and wiped the "⚡ 执行：…✅ 操作执行成功" appended to it.
+			expect(result.current.streamContent).toBe("先看磁盘。还剩 12 GB。");
+			expect(result.current.streamSteps).toEqual([{ toolCallId: "c1", actionType: "get_status", name: "View server status", state: "succeeded", riskLevel: "low" }]);
+			await act(async () => {
+				frame({ type: "done" });
+				controller.close();
+				await sending;
+			});
+			expect(result.current.streamSteps).toEqual([]);
 		});
 
 		it("keeps the partial answer and says it is incomplete when the stream ends without done", async () => {
@@ -203,7 +233,7 @@ describe("useAiChatStream", () => {
 			const { state, args } = setup();
 			const { result } = renderHook(() => useAiChatStream(args));
 			await act(async () => { await result.current.sendMessage(sendArgs); });
-			expect(state.messages.map((message) => message.content)).toEqual(["first half", "❌ aiPage.streamIncomplete"]);
+			expect(state.messages.map((message) => message.content)).toEqual(["first half", "aiPage.streamIncomplete"]);
 			expect(state.messages[0]!.reasoningContent).toBe("thinking");
 			expect(state.toasts).toEqual([{ kind: "error", message: "aiPage.streamIncomplete" }]);
 		});
@@ -213,7 +243,7 @@ describe("useAiChatStream", () => {
 			const { state, args } = setup();
 			const { result } = renderHook(() => useAiChatStream(args));
 			await act(async () => { await result.current.sendMessage(sendArgs); });
-			expect(state.messages[0]!.content).toBe("❌ aiPage.networkError");
+			expect(state.messages[0]!.content).toBe("aiPage.networkError");
 		});
 
 		it("treats a body-less response as a failure rather than a silent success", async () => {
@@ -221,7 +251,7 @@ describe("useAiChatStream", () => {
 			const { state, args } = setup();
 			const { result } = renderHook(() => useAiChatStream(args));
 			await act(async () => { await result.current.sendMessage(sendArgs); });
-			expect(state.messages[0]!.content).toBe("❌ aiPage.requestFailed");
+			expect(state.messages[0]!.content).toBe("aiPage.requestFailed");
 		});
 
 		it("skips a malformed SSE frame instead of aborting the stream", async () => {

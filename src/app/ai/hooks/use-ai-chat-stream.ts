@@ -9,7 +9,7 @@
  * thin orchestrator.
  *
  * Public surface:
- *   - state: `streaming`, `streamContent`, `streamReasoning`,
+ *   - state: `streaming`, `streamContent`, `streamReasoning`, `streamSteps`,
  *            `pendingApprovals`, `approvalBusyById`
  *   - actions: `sendMessage(params)`, `stopGeneration()`,
  *              `decideApproval(approval, action)`
@@ -29,14 +29,16 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ApiError } from "@/lib/http/api-client-error";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { streamErrorMessage, withoutErrorMark } from "../ai-stream-error";
+import { streamErrorMessage } from "../ai-stream-error";
 import type {
   ConvItem,
   Message,
+  StreamStep,
   ToolApprovalNeeded,
   ToolCallEvent,
 } from "../ai-types";
 import type { ToastFn } from "@/components/toast-provider";
+import { randomId } from "@/lib/ui/random-id";
 
 
 type Args = {
@@ -54,6 +56,16 @@ export type SendArgs = {
   fileAttachments: { name: string; content: string }[];
 };
 
+/**
+ * Adds a step, or updates the one with the same call id: a call is reported, then answered. A pure function for
+ * state updaters (React runs those twice in development).
+ */
+export function upsertStreamStep(steps: StreamStep[], next: Partial<StreamStep> & { toolCallId: string }): StreamStep[] {
+  const index = steps.findIndex((step) => step.toolCallId === next.toolCallId);
+  if (index === -1) return [...steps, { name: null, state: "running", ...next }];
+  return steps.map((step, i) => (i === index ? { ...step, ...next, name: next.name ?? step.name } : step));
+}
+
 export function useAiChatStream({
   activeConv,
   activeConvId,
@@ -66,6 +78,9 @@ export function useAiChatStream({
   const [streaming, setStreaming] = useState(false);
   const [streamContent, setStreamContent] = useState("");
   const [streamReasoning, setStreamReasoning] = useState("");
+  // The answer's tool calls, apart from its text: appended to the text, they were glued to it ("…⚡ 执行：x…✅ 操作执行成功")
+  // and wiped by the next chunk, which set the text again.
+  const [streamSteps, setStreamSteps] = useState<StreamStep[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<
     ToolApprovalNeeded[]
   >([]);
@@ -90,6 +105,7 @@ export function useAiChatStream({
     setStreaming(false);
     setStreamContent("");
     setStreamReasoning("");
+    setStreamSteps([]);
     setPendingApprovals([]);
     setApprovalBusyById({});
     approvalBusyRef.current.clear();
@@ -191,6 +207,7 @@ export function useAiChatStream({
       setStreaming(true);
       setStreamContent("");
       setStreamReasoning("");
+      setStreamSteps([]);
       // Track terminal outcome. `finally` used to wipe `streamContent` while
       // `AiMessageList` only renders stream bubbles while `streaming===true`,
       // so HTTP/SSE/network errors were invisible and the optimistic user
@@ -253,7 +270,7 @@ export function useAiChatStream({
               } else if (parsed.type === "done") {
                 completedSuccessfully = true;
                 const assistantMsg: Message = {
-                  id: `stream-${crypto.randomUUID()}`,
+                  id: `stream-${randomId()}`,
                   conversationId: convIdAtSend,
                   role: "assistant",
                   content: finalContent || t("aiPage.noResponse"),
@@ -275,41 +292,26 @@ export function useAiChatStream({
                     : t("aiPage.requestFailed");
               } else if (parsed.type === "tool_call") {
                 const tc = parsed.toolCall as ToolCallEvent;
-                if (tc.autoApproved) {
-                  setStreamContent(
-                    (prev) =>
-                      prev +
-                      t("aiPage.toolCallStart", { name: tc.actionName }),
-                  );
-                } else {
-                  setStreamContent(
-                    (prev) =>
-                      prev +
-                      t("aiPage.toolCallApproval", { name: tc.actionName }),
-                  );
-                }
+                setStreamSteps((prev) => upsertStreamStep(prev, {
+                  toolCallId: tc.id,
+                  actionType: tc.actionType,
+                  name: tc.actionName,
+                  state: tc.autoApproved ? "running" : "awaiting",
+                  riskLevel: tc.riskLevel,
+                }));
               } else if (parsed.type === "tool_result") {
-                const success = parsed.success as boolean;
-                if (success) {
-                  setStreamContent(
-                    (prev) => prev + t("aiPage.toolCallSuccess"),
-                  );
-                } else {
-                  setStreamContent(
-                    (prev) =>
-                      prev +
-                      // Through t(): command output is full of "$" sequences that String.replace acts on.
-                      t("aiPage.toolCallFailed", { detail: JSON.stringify(parsed.data).slice(0, 200) }),
-                  );
-                }
+                const toolCallId = typeof parsed.toolCallId === "string" ? parsed.toolCallId : "";
+                setStreamSteps((prev) => upsertStreamStep(prev, { toolCallId, state: parsed.success === true ? "succeeded" : "failed" }));
               } else if (parsed.type === "tool_approval_needed") {
                 const approval = parsed as ToolApprovalNeeded;
                 setPendingApprovals((prev) => [...prev, approval]);
-                setStreamContent(
-                  (prev) =>
-                    prev +
-                    t("aiPage.waitingApproval", { name: approval.actionName, risk: approval.riskLevel }),
-                );
+                setStreamSteps((prev) => upsertStreamStep(prev, {
+                  toolCallId: approval.toolCallId,
+                  actionType: approval.actionType,
+                  name: approval.actionName,
+                  state: "awaiting",
+                  riskLevel: approval.riskLevel,
+                }));
               }
             } catch {
               // Skip malformed SSE chunk
@@ -332,13 +334,14 @@ export function useAiChatStream({
         setStreaming(false);
         setStreamContent("");
         setStreamReasoning("");
+        setStreamSteps([]);
         abortControllerRef.current = null;
         // Drop all transcript writes if the user switched conversations mid-stream.
         const stillOnSameConv = convIdAtSend === activeConvIdRef.current;
         if (terminalError) {
           if (stillOnSameConv && incomplete && (incomplete.content || incomplete.reasoning)) {
             const partial: Message = {
-              id: `stream-partial-${crypto.randomUUID()}`,
+              id: `stream-partial-${randomId()}`,
               conversationId: convIdAtSend,
               role: "assistant",
               content: incomplete.content,
@@ -356,7 +359,7 @@ export function useAiChatStream({
             const errorMsg = streamErrorMessage({ conversationId: convIdAtSend, text: terminalError, model: activeConv?.model || null });
             setMessages((prev) => [...prev, errorMsg]);
           }
-          addToast("error", withoutErrorMark(terminalError));
+          addToast("error", terminalError);
         } else if (stillOnSameConv && (completedSuccessfully || aborted)) {
           try {
             const data = await csrfFetch(
@@ -389,6 +392,7 @@ export function useAiChatStream({
     streaming,
     streamContent,
     streamReasoning,
+    streamSteps,
     pendingApprovals,
     setPendingApprovals,
     approvalBusyById,

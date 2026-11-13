@@ -30,6 +30,7 @@ import { containingFolderPath, parseTagInput } from "./file-entry-utils";
 import { FolderBrowser } from "./folder-destination-picker";
 import { moveFileAction } from "./move-file-action";
 import { submitFileOperation } from "./file-operation-controls";
+import { randomId } from "@/lib/ui/random-id";
 
 /** An indexed entry an action can work on. */
 export type FileActionTarget = {
@@ -291,7 +292,7 @@ function TransferDialog({ mode, targets, onClose, onDone, onQueued }: {
 			}
 			const ids = targets.map((target) => target.id);
 			const key = JSON.stringify([mode, ids, targetDir, policy]);
-			if (attempt.current?.key !== key) attempt.current = { key, id: crypto.randomUUID() };
+			if (attempt.current?.key !== key) attempt.current = { key, id: randomId() };
 			await submitFileOperation({ action: mode, fileEntryIds: ids, targetDir, policy: mode === "move" ? "skip" : policy }, attempt.current.id);
 			attempt.current = null;
 			addToast("info", t("fileOperations.queued"));
@@ -382,7 +383,7 @@ function DeleteDialog({ targets, onClose, onDone, onQueued }: {
 				onDone();
 				return;
 			}
-			attempt.current ??= crypto.randomUUID();
+			attempt.current ??= randomId();
 			await submitFileOperation({ action: "delete", fileEntryIds: targets.map((target) => target.id), targetDir: ".", policy: "skip" }, attempt.current);
 			addToast("info", t("fileOperations.queued"));
 			onClose();

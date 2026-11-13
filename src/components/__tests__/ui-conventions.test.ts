@@ -303,6 +303,20 @@ describe("UI conventions", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	// crypto.randomUUID exists only in a secure context; at http://<IP> (a supported install) it is undefined, and
+	// uploads, file moves and the AI chat failed with "crypto.randomUUID is not a function". randomId() falls back.
+	it("makes ids in the browser with randomId, which works outside a secure context", () => {
+		const browserFiles = [
+			...collectFiles(join(SRC_ROOT, "app"), ".ts").filter((file) => !file.includes(`${join("app", "api")}`)),
+			...collectFiles(join(SRC_ROOT, "components"), ".ts"),
+			...collectFiles(join(SRC_ROOT, "lib", "ui"), ".ts"),
+		].map((file) => ({ file: relative(SRC_ROOT, file).split(/[\\/]/).join("/"), source: stripComments(readFileSync(file, "utf8")) }));
+		const offenders = [...tsxFiles, ...browserFiles]
+			.filter(({ file, source }) => file !== "lib/ui/random-id.ts" && !file.startsWith("app/api/") && /crypto\.randomUUID\(/.test(source))
+			.map(({ file }) => file);
+		expect(offenders).toEqual([]);
+	});
+
 	// Symbol characters are drawn by each system's fonts and ignore the theme: a close button was "×" in one place
 	// and "✕" in the next, "up one level" an arrow character beside an icon button that had an icon. Keys shown as
 	// keys (<kbd>) and the SSH key pads, which name keyboard keys, are the exceptions.

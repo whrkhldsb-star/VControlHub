@@ -296,6 +296,9 @@ breadcrumb names the area, so page eyebrows are hidden.
   `↓`);
 - draws an icon with a symbol character (`×`, `✕`, `✓`, `↑`, `↓`, `▶`, `⚠`…)
   instead of the icon set; keys shown as keys (`ui-kbd`) are the exception;
+- calls `crypto.randomUUID` in browser code instead of `randomId()`
+  (`src/lib/ui/random-id.ts`): the former exists only in a secure context, and
+  an installation reached at `http://<IP>` is not one;
 - sizes a heading without a `ui-title-*` class;
 - draws fields, buttons, button-styled links or surfaces with pasted
   border + background + radius instead of `UI_INPUT`, the button components
