@@ -72,7 +72,7 @@ export const zh: Record<string, string> = {
 	"publicStatus.metric.swap": "交换 {value}",
 	"publicStatus.metric.disk": "磁盘",
 	"publicStatus.metric.approx": "约值",
-	"publicStatus.metric.load": "负载 (1m)",
+	"publicStatus.metric.load": "负载（1 分钟）",
 	"publicStatus.metric.rate": "当前速率",
 	"publicStatus.metric.rateWindow": "{seconds} 秒均值",
 	"publicStatus.metric.download": "下行",

@@ -33,7 +33,7 @@ export const zh: Record<string, string> = {
 	"auth.2fa-generating": "生成中…",
 	"auth.2fa-scan-qr-instruction": "1. 使用验证器 App（如 Google Authenticator、Microsoft Authenticator）扫描下方二维码",
 	"auth.2fa-secret-label": "密钥（手动输入）：",
-	"auth.2fa-section-title": "两步验证 (2FA)",
+	"auth.2fa-section-title": "两步验证（2FA）",
 	"auth.2fa-setup-description": "启用两步验证后，登录时需要输入验证器 App 生成的6位动态验证码，增强账户安全性。",
 	"auth.2fa-regenerate-recovery-codes": "重新生成恢复码",
 	"auth.2fa-regenerate-recovery-description": "输入验证器中的当前 6 位验证码，或一个尚未使用的恢复码。生成后，旧恢复码会立即全部失效。",

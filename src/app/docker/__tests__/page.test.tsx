@@ -87,7 +87,7 @@ describe("DockerPage", () => {
 		);
 
 		const select = await screen.findByLabelText("Docker 目标");
-		expect(within(select).queryByRole("option", { name: "本机 (Hub Host)" })).toBeNull();
+		expect(within(select).queryByRole("option", { name: "本机（Hub Host）" })).toBeNull();
 		expect((select as HTMLSelectElement).value).toBe("srv_1");
 		await waitFor(() =>
 			expect(csrfFetch).toHaveBeenCalledWith(

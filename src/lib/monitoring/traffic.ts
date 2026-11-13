@@ -48,7 +48,12 @@ export async function persistTrafficSample(input: PersistTrafficSampleInput): Pr
 	});
 }
 
-const VIRTUAL_INTERFACE_PREFIXES = ["docker", "br-", "veth", "virbr", "tun", "tap", "vEthernet", "Loopback"];
+// Devices that are not the host's network card: bridges, container and VM links, tunnels, traffic-shaping
+// (ifb) and dummy devices. An ifb0 listed before eth0 made the traffic page show 0 B/s for the hub.
+const VIRTUAL_INTERFACE_PREFIXES = [
+	"docker", "br-", "veth", "virbr", "tun", "tap", "vEthernet", "Loopback",
+	"ifb", "dummy", "wg", "tailscale", "zt", "lxc", "lxdbr", "vboxnet", "vmnet", "cni", "flannel", "cali", "kube-",
+];
 
 export function parseNetworkDeviceStats(content: string, options: { includeLoopback?: boolean } = {}): NetworkDeviceStats[] {
 	return content

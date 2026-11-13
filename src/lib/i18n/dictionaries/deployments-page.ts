@@ -67,7 +67,7 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.page.runsSection.rollbackMeta": "最近回滚：{status} · 审批 {request} · {date}",
 
 	"deploymentsPage.export.generateError": "生成部署导出包失败",
-	"deploymentsPage.export.downloadHttpError": "下载失败 (HTTP {status})",
+	"deploymentsPage.export.downloadHttpError": "下载失败（HTTP {status}）",
 	"deploymentsPage.export.downloadZipError": "下载 ZIP 失败",
 	"deploymentsPage.export.eyebrow": "便携导出",
 	"deploymentsPage.export.title": "迁移部署导出包",

@@ -7,7 +7,7 @@ export const zh: Record<string, string> = {
   "ticketsPage.emptyFiltered": "没有符合当前筛选条件的工单",
   "ticketsPage.eyebrow": "支持中心",
   "ticketsPage.title": "工单与请求",
-  "ticketsPage.listHeader": "工单 ({count})",
+  "ticketsPage.listHeader": "工单（{count}）",
   "ticketsPage.workspace.manageHint": "显示当前客户内可管理的工单",
   "ticketsPage.workspace.personalHint": "仅显示你提交或负责的工单",
   "ticketsPage.form.title": "新建工单",

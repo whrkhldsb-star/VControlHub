@@ -61,7 +61,9 @@ describe("what the dictionaries say", () => {
 		// A mark between two Chinese words counts too: "暂无节点,默认匹配全部节点" and "08:00,可用换行" were not caught
 		// while the rule only looked at what followed a mark.
 		const halfWidth = Object.entries(all.zh)
-			.filter(([key, value]) => !allowed.has(key) && (/[一-鿿][:,;!?]/.test(value) || /[:,;!?][一-鿿]/.test(value) || /[一-鿿]\.(?:\s|$)/.test(value) || /\((?=[^)]*[一-鿿])/.test(value)))
+			// Parentheses beside Chinese text are full-width too ("工单 ({count})" → "工单（{count}）"); "http(s)"
+			// is a term, not a remark in parentheses.
+			.filter(([key, value]) => !allowed.has(key) && (/[一-鿿][:,;!?]/.test(value) || /[:,;!?][一-鿿]/.test(value) || /[一-鿿]\.(?:\s|$)/.test(value) || /\((?=[^)]*[一-鿿])/.test(value) || /[一-鿿]\s?\(|\)\s?[一-鿿]/.test(value.replaceAll("http(s)", ""))))
 			.map(([key, value]) => `${key}: ${value}`);
 		expect(halfWidth).toEqual([]);
 	});

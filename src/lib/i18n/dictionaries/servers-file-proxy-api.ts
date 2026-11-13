@@ -6,7 +6,7 @@ export const zh: Record<string, string> = {
 	"apiServersFileProxy.startErrorMessage": "启动文件代理失败",
 	"apiServersFileProxy.stopErrorMessage": "停止文件代理失败",
 	"apiServersFileProxy.serverNotFound": "服务器不存在",
-	"apiServersFileProxy.missingPublicUrl": "服务器未配置公网访问地址(publicUrl)，无法启用直连模式",
+	"apiServersFileProxy.missingPublicUrl": "服务器未配置公网访问地址（publicUrl），无法启用直连模式",
 	"apiServersFileProxy.missingStorageNode": "服务器未绑定 SFTP 存储节点，无法确定文件代理根目录",
 	"apiServersFileProxy.startFailed": "启动文件代理失败",
 	"apiServersFileProxy.startTimeout": "文件代理启动超时（未就绪）",

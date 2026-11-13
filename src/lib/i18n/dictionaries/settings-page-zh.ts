@@ -57,7 +57,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.unsavedLeaveDescription": "当前有 {count} 项更改尚未保存，离开后这些更改会丢失。",
 	"settingsClient.stayOnPage": "留在本页",
 	"settingsClient.discardAndLeave": "放弃更改并离开",
-	"settingsClient.fieldRestoreDefault": "恢复默认 ({value})",
+	"settingsClient.fieldRestoreDefault": "恢复默认（{value}）",
 	"settingsClient.fieldRestoreAria": "恢复 {label} 到默认值",
 	"settingsClient.fieldDefaultSr": "默认",
 
@@ -95,7 +95,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.schema.section.smtp.title": "邮件通知（SMTP）",
 	"settingsClient.schema.section.telegram.title": "Telegram 告警",
 	"settingsClient.schema.section.dashboard.title": "仪表盘布局",
-	"settingsClient.schema.section.offsite.title": "异地备份 (S3-compatible)",
+	"settingsClient.schema.section.offsite.title": "异地备份（S3 兼容）",
 	"settingsClient.schema.section.aiOps.title": "AI 智能运维",
 
 	// ── Schema section descriptions (5 static + dynamic for smtp/telegram/offsite/aiOps) ──

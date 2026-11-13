@@ -31,6 +31,13 @@ describe("traffic helpers", () => {
 		expect(selectPrimaryInterface(interfaces)?.iface).toBe("eth0");
 	});
 
+	it("passes over traffic-shaping, tunnel and dummy devices listed before the network card", () => {
+		// The hub listed ifb0 and ifb1 first, and its traffic page showed 0 B/s.
+		const interfaces = ["ifb0", "ifb1", "dummy0", "wg0", "tailscale0", "eth0"].map((iface) => ({ iface, rxBytes: 1, txBytes: 1 }));
+		expect(selectPrimaryInterface(interfaces)?.iface).toBe("eth0");
+		expect(selectPrimaryInterface([{ iface: "ifb0", rxBytes: 0, txBytes: 0 }])?.iface).toBe("ifb0");
+	});
+
 	it("computes rates from two samples without allowing counter resets to go negative", () => {
 		const rate = calculateTrafficRate(
 			{ rxBytes: 1_000, txBytes: 2_000, sampledAt: "2026-01-01T00:00:00.000Z" },

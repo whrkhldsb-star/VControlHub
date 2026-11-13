@@ -36,7 +36,7 @@ export const zh: Record<string, string> = {
 	"healthPage.fleet.avgCpu": "平均 CPU",
 	"healthPage.fleet.avgMem": "平均内存",
 	"healthPage.fleet.avgDisk": "平均磁盘",
-	"healthPage.fleet.avgLoad": "平均负载(1m)",
+	"healthPage.fleet.avgLoad": "平均负载（1 分钟）",
 	"healthPage.fleet.netIn": "总入站流量",
 	"healthPage.fleet.netOut": "总出站流量",
 	"healthPage.fleet.top5": "资源占用 Top 5",

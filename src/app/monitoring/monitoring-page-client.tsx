@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Card as SurfaceCard, PageShell, PageHeader, Toolbar } from "@/components/page-shell";
 import { z } from "zod";
-import { RefreshCw } from "@/components/icons";
+import { ArrowDown, ArrowUp, RefreshCw } from "@/components/icons";
 import { ActionButton } from "@/components/action-button";
 import { Badge, InlineLoading, Notice, ProgressBar } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -11,10 +11,11 @@ import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
+import { formatDuration } from "@/lib/public-status/format";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 
 const statsSchema = z.object({
-  hostname: z.string(), platform: z.string(), arch: z.string(), uptime: z.string(),
+  hostname: z.string(), platform: z.string(), arch: z.string(), uptime: z.string(), uptimeSeconds: z.number().optional(),
   cpu: z.object({ model: z.string(), cores: z.number(), usage: z.string(), loadAvg: z.array(z.string()) }),
   memory: z.object({ total: z.string(), used: z.string(), free: z.string(), usagePercent: z.string() }),
   disk: z.string(), network: z.array(z.object({ iface: z.string(), rx: z.string(), tx: z.string() })),
@@ -278,7 +279,7 @@ export default function MonitoringPage() {
         <Card title={t("monitoringPage.card.system")}>
           <Row label={t("monitoringPage.field.hostname")} value={stats.hostname} />
           <Row label={t("monitoringPage.field.platform")} value={`${stats.platform} ${stats.arch}`} />
-          <Row label={t("monitoringPage.field.uptime")} value={stats.uptime} />
+          <Row label={t("monitoringPage.field.uptime")} value={stats.uptimeSeconds === undefined ? stats.uptime : formatDuration(stats.uptimeSeconds, locale)} />
         </Card>
 
         <Card title={t("monitoringPage.card.cpu")}>
@@ -309,7 +310,10 @@ export default function MonitoringPage() {
           {stats.network.length > 0 ? stats.network.map((n) => (
             <div key={n.iface} className="py-1.5">
               <div className="font-mono text-xs text-[var(--text-primary)]">{n.iface}</div>
-              <div className="text-xs text-[var(--text-muted)]">↓ {t("monitoringPage.field.rx")} {n.rx} ↑ {t("monitoringPage.field.tx")} {n.tx}</div>
+              <div className="flex flex-wrap items-center gap-x-3 text-xs text-[var(--text-muted)]">
+                <span className="inline-flex items-center gap-1"><ArrowDown size={12} aria-hidden />{t("monitoringPage.field.rx")} {n.rx}</span>
+                <span className="inline-flex items-center gap-1"><ArrowUp size={12} aria-hidden />{t("monitoringPage.field.tx")} {n.tx}</span>
+              </div>
             </div>
           )) : <Row label={t("monitoringPage.field.noData")} value="-" />}
         </Card>
@@ -335,8 +339,9 @@ export default function MonitoringPage() {
               {stats.topProcesses.map((p) => (
                 <tr key={p.pid} className="border-b border-[var(--border)]">
                   <td className="py-1.5 font-mono text-[var(--text-muted)]">{p.pid}</td>
-                  <td className="py-1.5 text-right text-[var(--warning)]">{p.cpu}</td>
-                  <td className="py-1.5 text-right text-[var(--accent)]">{p.mem}</td>
+                  {/* Plain figures: amber CPU and indigo memory read as a warning and a link. */}
+                  <td className="py-1.5 text-right tabular-nums text-[var(--text-secondary)]">{p.cpu}</td>
+                  <td className="py-1.5 text-right tabular-nums text-[var(--text-secondary)]">{p.mem}</td>
                   <td className="max-w-[200px] truncate py-1.5 pl-4 text-[var(--text-primary)]">{p.cmd}</td>
                 </tr>
               ))}

@@ -53,7 +53,7 @@ export const zh: Record<string, string> = {
 	"ticketsDetail.commentSubmit": "发送评论",
 	"ticketsDetail.commentSubmitting": "发送中…",
 	"ticketsDetail.commentsEmpty": "暂无评论",
-	"ticketsDetail.commentsTitle": "评论 ({count})",
+	"ticketsDetail.commentsTitle": "评论（{count}）",
 	"ticketsDetail.createdAt": "创建于 {time}",
 	"ticketsDetail.creator": "提交人：{name}",
 	"ticketsDetail.desc": "查看工单详情、跟进进度、添加评论或调整处理人",

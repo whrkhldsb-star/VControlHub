@@ -71,7 +71,7 @@ export const zh: Record<string, string> = {
 	"backupsPage.section.schedule": "定时备份",
 	"backupsPage.migration.title": "跨环境迁移向导",
 	"backupsPage.migration.description": "把已完成备份导出为带清单的可移植包，在目标环境校验并登记后再走标准恢复流程。",
-	"backupsPage.migration.help": "步骤：1) 选择一份已完成的备份导出迁移包（含清单 manifest.json 与数据）；2) 把目录或 .tar.gz 复制到目标机的备份目录；3) 校验 SHA-256；4) 导入并登记为本地备份；5) 按需演练或恢复（恢复时仍需输入 RESTORE 确认）。",
+	"backupsPage.migration.help": "步骤：1）选择一份已完成的备份导出迁移包（含清单 manifest.json 与数据）；2）把目录或 .tar.gz 复制到目标机的备份目录；3）校验 SHA-256；4）导入并登记为本地备份；5）按需演练或恢复（恢复时仍需输入 RESTORE 确认）。",
 	"backupsPage.migration.exportTitle": "导出迁移包",
 	"backupsPage.migration.importTitle": "导入 / 校验",
 	"backupsPage.migration.selectBackup": "选择已完成备份",

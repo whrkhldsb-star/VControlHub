@@ -85,7 +85,7 @@ export const zh: Record<string, string> = {
 	"openapiSpec.paths./docker/containers.get.parameters.id": '容器 ID（查单个）',
 	"openapiSpec.paths./docker/containers.get.parameters.logs": '获取日志的容器ID',
 	"openapiSpec.paths./docker/containers.get.responses.200": '容器列表',
-	"openapiSpec.paths./docker/containers.post.summary": '容器操作(start/stop/restart/remove)',
+	"openapiSpec.paths./docker/containers.post.summary": "容器操作（start/stop/restart/remove）",
 	"openapiSpec.paths./docker/containers.post.responses.200": '操作完成',
 	"openapiSpec.paths./monitoring/stats.get.summary": '获取系统监控数据（CPU、内存、磁盘、网络）',
 	"openapiSpec.paths./monitoring/stats.get.responses.200": '系统监控数据（CPU、内存、磁盘、网络）',
