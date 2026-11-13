@@ -155,6 +155,20 @@ describe("RequestsPage", () => {
     vi.mocked(sessionHasPermission).mockReturnValue(true);
   });
 
+  it("offers a review only where the server accepts the reviewer's decision", async () => {
+    // cmd_1 was filed by u_1. A reviewer does not decide on their own request unless they manage the team.
+    vi.mocked(requirePagePermission).mockResolvedValueOnce({ userId: "u_1", username: "u_1", roles: ["operator"], mustChangePassword: false } as never);
+    vi.mocked(sessionHasPermission).mockImplementation(((_session: unknown, permission: string) => ["command:read", "command:approve"].includes(permission)) as never);
+    const { container } = render(await RequestsPage());
+    expect(screen.getAllByTestId("review-command-form").map((node) => node.textContent)).toEqual(["审批表单：cmd_2"]);
+    expect(container.querySelector("#command-cmd_1")).toHaveTextContent("这是你提交的命令，由另一位审批人处理。");
+    expect(container.querySelector("#command-cmd_2")).not.toHaveTextContent("另一位审批人");
+    // The batch tools take only what this reviewer may decide on.
+    expect(container.querySelector('#command-cmd_1 input[type="checkbox"]')).toBeNull();
+    expect(container.querySelector('#command-cmd_2 input[type="checkbox"]')).not.toBeNull();
+    vi.mocked(sessionHasPermission).mockReturnValue(true);
+  });
+
   it("keeps finished requests out of the queue, in a folded history", async () => {
     const [pending] = await (listCommandRequests as unknown as () => Promise<Array<Record<string, unknown>>>)();
     vi.mocked(listCommandRequests).mockResolvedValueOnce([

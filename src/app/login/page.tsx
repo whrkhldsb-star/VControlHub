@@ -1,6 +1,8 @@
 import { firstSearchParam } from "@/lib/http/first-search-param";
 import { getPublicLabel, getSiteName } from "@/lib/branding";
 import { BrandTile } from "@/components/nav-icons";
+import { LanguageToggle } from "@/components/language-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { LoginForm } from "./login-form";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { headers } from "next/headers";
@@ -51,7 +53,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 	return (
 		<div className="relative min-h-screen overflow-hidden text-[var(--text-primary)]">
 			{/* Background effects */}
-			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--accent-bg),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.06),transparent_35%),var(--page-bg)]" />
+			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--accent-bg),transparent_50%),radial-gradient(circle_at_bottom_left,color-mix(in_srgb,var(--accent)_6%,transparent),transparent_35%),var(--page-bg)]" />
 			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--border-strong)] to-transparent" />
 
 			{/* Grid pattern overlay */}
@@ -64,19 +66,25 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 				}}
 			/>
 
+			{/* The language and the theme can be chosen before signing in, as everywhere else. */}
+			<div className="absolute right-4 top-4 z-10 flex items-center gap-1 sm:right-6 sm:top-6">
+				<ThemeToggle compact />
+				<LanguageToggle compact />
+			</div>
+
 			<div className="relative mx-auto flex min-h-screen w-full max-w-6xl items-center px-6 py-10 lg:px-10">
 				<div className="grid w-full gap-12 lg:grid-cols-[1fr_400px] lg:items-center">
 					{/* Left: Branding */}
 					<section className="max-w-xl">
 						<div className="flex items-center gap-3">
 							<BrandTile size={36} />
-							<span className="text-[13px] font-medium uppercase tracking-wide text-[var(--text-muted)]">{publicLabel}</span>
+							<span className="text-[13px] font-medium text-[var(--text-muted)]">{publicLabel}</span>
 						</div>
 						<h1 className="mt-6 text-balance text-5xl font-semibold text-[var(--text-primary)] sm:text-6xl">
 							{siteName}<span className="text-[var(--accent)]">.</span>
 						</h1>
 						<p className="mt-4 max-w-md text-pretty text-base leading-7 text-[var(--text-secondary)]">
-							{publicLabel}{t("login.branding.tagline", locale)}
+							{t("login.branding.tagline", locale, { label: publicLabel })}
 						</p>
 
 						<div className="mt-10 grid gap-3 sm:grid-cols-3">
@@ -107,7 +115,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 					{/* Right: Login Form */}
 					<section data-card="" className="p-6 sm:p-8 light:bg-white">
 						<div className="mb-7">
-							<p className="text-xs font-bold uppercase text-[var(--accent)]">{t("login.branding.signInTag", locale)}</p>
+							<p className="text-xs font-medium text-[var(--accent)]">{t("login.branding.signInTag", locale)}</p>
 							<h2 className="ui-title-page mt-2.5">{t("login.branding.welcome", locale)}</h2>
 							<p className="mt-2 text-sm text-[var(--text-secondary)]">{t("login.branding.subtitle", locale)}</p>
 						</div>

@@ -95,6 +95,7 @@ export const zh: Record<string, string> = {
 	"requestsPage.review.approve": "批准执行",
 	"requestsPage.review.reject": "拒绝请求",
 	"requestsPage.review.pending": "处理中...",
+	"requestsPage.review.ownRequest": "这是你提交的命令，由另一位审批人处理。",
 
 	"aiHostedApproval.badge": "AI 助手授权",
 	"aiHostedApproval.riskCritical": "极高风险",
@@ -202,6 +203,7 @@ export const en: Record<string, string> = {
 	"requestsPage.review.approve": "Approve & execute",
 	"requestsPage.review.reject": "Reject request",
 	"requestsPage.review.pending": "Processing...",
+	"requestsPage.review.ownRequest": "You submitted this command, so another approver reviews it.",
 
 	"aiHostedApproval.badge": "AI assistant authorization",
 	"aiHostedApproval.riskCritical": "Critical risk",

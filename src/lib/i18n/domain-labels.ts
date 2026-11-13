@@ -35,6 +35,11 @@ export function getBackupTypeLabel(t: Translator, type: string): string {
   return key ? t(key) : type;
 }
 
+/** How the task centre names a task: a backup by its type (its stored title reads "DATABASE backup"), any other by its title. */
+export function getOperationTaskTitle(t: Translator, task: { source: string; taskType?: string | null; title: string }): string {
+  return task.source === "backup" && task.taskType ? getBackupTypeLabel(t, task.taskType) : task.title;
+}
+
 export function getStorageDriverLabel(t: Translator, driver: string): string {
   const key = {
     LOCAL: "common.storageDriver.local",

@@ -16,6 +16,7 @@ import {
   type ReviewCommandInput,
 } from "./schema";
 import { cancelActiveCommandChild, enqueueApprovedCommandExecution } from "./service-execution";
+import { maySelfReviewCommands } from "./review-scope";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
 import { getServerTargetAvailability } from "@/lib/server/availability";
@@ -483,11 +484,8 @@ export async function reviewCommandRequest(
 
   // Separation of duties: requester cannot approve/reject their own request
   // (even if they also hold command:approve). Admins with team:manage may
-  // still self-review in single-operator deployments.
-  if (
-    request.requesterId === payload.approverId &&
-    !(session && sessionHasPermission(session, "team:manage"))
-  ) {
+  // still self-review in single-operator deployments. The pages offer a review by the same rule (review-scope.ts).
+  if (request.requesterId === payload.approverId && !maySelfReviewCommands(session)) {
     throw new BusinessError(t("backend.command.cannotSelfReview"));
   }
 

@@ -21,11 +21,13 @@ export function getErrorMessage(error: unknown, fallback: string): string {
 
 /**
  * "<what failed>: <why>" for a toast or a banner; only what failed when the reason is unknown or is not
- * product copy (see getErrorMessage).
+ * product copy (see getErrorMessage). The colon is the one of the sentence's own script: "保存失败：权限不足",
+ * "Save failed: permission denied" — a half-width colon after Chinese reads as another hand's.
  */
 export function describeFailure(what: string, error: unknown): string {
 	const why = getErrorMessage(error, "");
-	return why ? `${what}: ${why}` : what;
+	if (!why) return what;
+	return `${what}${/[\u3000-\u303f\u3400-\u9fff\uff00-\uffef]$/.test(what) ? "：" : ": "}${why}`;
 }
 
 /** The sentence in the body of an API refusal: its `message`, else its `error`; "" when it has neither. */

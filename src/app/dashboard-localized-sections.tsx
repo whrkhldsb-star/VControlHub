@@ -92,12 +92,12 @@ export function DashboardAnnouncements({ items, total }: { items: DashboardAnnou
   );
 }
 
-export function DashboardLocalizedHeader({ username }: { username: string }) {
+/** The page's title and its two ways onward. The account is named by the user menu, not here. */
+export function DashboardLocalizedHeader() {
   const { t } = useI18n();
   const title = t("dashboard.title");
-  const currentUser = t("dashboard.current-user");
   return (
-    <PageHeader eyebrow={t("nav.dashboard")} title={title} description={`${currentUser}: ${username}`}>
+    <PageHeader eyebrow={t("nav.dashboard")} title={title}>
           <ButtonLink variant="primary" href="/servers" iconRight={<IconChevronRight aria-hidden />}>
             {t("nav.servers")}
           </ButtonLink>

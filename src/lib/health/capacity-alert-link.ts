@@ -17,6 +17,7 @@ import {
   resolveAlertIncident,
 } from "@/lib/alert/incidents";
 import { createLogger } from "@/lib/logging";
+import { alertOperatorSign } from "@/lib/alert/operator";
 import { runPlaybook } from "@/lib/playbook/service";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -233,7 +234,7 @@ export async function evaluateCapacityLinkedAlerts(
           serverId: server.serverId,
           metric: rule.metric,
           title: t("backend.alert.capacity.clearTitle", { server: server.serverName, key }),
-          message: t("backend.alert.capacity.clearMessageOutside", { rule: rule.name, value, operator: rule.operator, threshold: rule.threshold }),
+          message: t("backend.alert.capacity.clearMessageOutside", { rule: rule.name, value, operator: alertOperatorSign(rule.operator), threshold: rule.threshold }),
           notifyChannels: rule.notifyChannels,
           webhookUrl: rule.webhookUrl,
           onCallUserIds: rule.onCallUserIds ?? [],
@@ -244,7 +245,7 @@ export async function evaluateCapacityLinkedAlerts(
       }
 
       const title = t("backend.alert.capacity.riskTitle", { server: server.serverName, key });
-      const message = t("backend.alert.capacity.riskMessage", { rule: rule.name, value: value.toFixed(1), key, operator: rule.operator, threshold: rule.threshold });
+      const message = t("backend.alert.capacity.riskMessage", { rule: rule.name, value: value.toFixed(1), key, operator: alertOperatorSign(rule.operator), threshold: rule.threshold });
 
       const fire = await openOrRefreshAlertIncident({
         ruleId: rule.id,

@@ -15,7 +15,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { JobEventsDialog } from "./job-events-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { getBackupTypeLabel, getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { getDomainStatusLabel, getOperationTaskTitle } from "@/lib/i18n/domain-labels";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 const TASKS_PER_PAGE = 20;
@@ -75,9 +75,9 @@ type TaskRowProps = {
 };
 
 const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEvents }: TaskRowProps) {
-  // Backup rows carry their type; name it instead of the stored "DATABASE backup".
+  // Backup rows carry their type and are named by it, so the type is not repeated as a badge.
   const isBackup = task.source === "backup" && Boolean(task.taskType);
-  const title = isBackup ? getBackupTypeLabel(t, task.taskType!) : task.title;
+  const title = getOperationTaskTitle(t, task);
   return (
     <ListRow className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-13T15:45:11.567Z",
+  "generatedAt": "2026-11-13T16:16:39.897Z",
   "summary": {
-    "files": 464,
+    "files": 465,
     "filesWithStrings": 0,
     "totalStrings": 0,
     "coveredStrings": 0,
@@ -601,6 +601,13 @@
     },
     "src/app/dashboard-analytics-panel.tsx": {
       "path": "src/app/dashboard-analytics-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/dashboard-attention.tsx": {
+      "path": "src/app/dashboard-attention.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

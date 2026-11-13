@@ -138,6 +138,13 @@ Field labels use `UI_LABEL` (= `ui-label`).
   of tinted boxes; whole cards are never coloured by state — put a
   `StatusBadge` on a neutral card.
 - **`useToast`** — transient confirmation after an action.
+- **The dashboard's attention block** (`src/app/dashboard-attention.tsx`) is
+  the one card that carries its state: a bar on its leading edge and an icon
+  beside the headline, in the worst tone found. Its headline answers whether
+  anything needs the account ("一切正常", "2 件事需要处理") at the page
+  title's size. It always shows the same rows, one per check the account can
+  make; a check it cannot make (no permission) is left out, never shown as
+  clear.
 - **`Spinner`**, **`InlineLoading`**, **`ProgressBar`**, skeletons in `skeleton.tsx`.
 
 ### Dialogs

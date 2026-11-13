@@ -20,6 +20,7 @@ import {
   openOrRefreshAlertIncident,
   resolveAlertIncident,
 } from "@/lib/alert/incidents";
+import { alertOperatorSign } from "@/lib/alert/operator";
 import { runPlaybook } from "@/lib/playbook/service";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -311,7 +312,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
           const resolvedMessage =
             rule.metric === "server_offline"
               ? t("backend.alert.resolvedMessage.offline", { rule: rule.name, server: server.serverName })
-              : t("backend.alert.resolvedMessage.metric", { rule: rule.name, metric: alertMetricLabel(rule.metric), operator: rule.operator, threshold: rule.threshold });
+              : t("backend.alert.resolvedMessage.metric", { rule: rule.name, metric: alertMetricLabel(rule.metric), operator: alertOperatorSign(rule.operator), threshold: rule.threshold });
           await resolveAlertIncident({
             ruleId: rule.id,
             ruleName: rule.name,
@@ -358,7 +359,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
       const title = rule.metric === "server_offline"
         ? t("backend.alert.title.offline", { server: server.serverName })
         : t("backend.alert.title.metric", { server: server.serverName, metric: alertMetricLabel(rule.metric) });
-      const message = t("backend.alert.message.metric", { rule: rule.name, metric: alertMetricLabel(rule.metric), operator: rule.operator, threshold: rule.threshold, value });
+      const message = t("backend.alert.message.metric", { rule: rule.name, metric: alertMetricLabel(rule.metric), operator: alertOperatorSign(rule.operator), threshold: rule.threshold, value });
 
       const fire = await openOrRefreshAlertIncident({
         ruleId: rule.id,

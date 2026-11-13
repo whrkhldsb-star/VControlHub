@@ -74,13 +74,13 @@ describe("ImageBedPage", () => {
     });
     render(<ImageBedPageClient canWrite canDelete />);
 
-    const notice = await screen.findByText("获取图片列表失败: 请求过于频繁，请稍后再试");
+    const notice = await screen.findByText("获取图片列表失败：请求过于频繁，请稍后再试");
     expect(notice).toBeInTheDocument();
     // Not "no images yet": nobody could read them.
     expect(screen.queryByTestId("empty-state")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "重试" }));
     await waitFor(() => expect(vi.mocked(csrfFetch).mock.calls.length).toBeGreaterThanOrEqual(2));
-    expect(screen.getByText("获取图片列表失败: 请求过于频繁，请稍后再试")).toBeInTheDocument();
+    expect(screen.getByText("获取图片列表失败：请求过于频繁，请稍后再试")).toBeInTheDocument();
 
     answer = "list";
     await user.click(screen.getByRole("button", { name: "重试" }));

@@ -325,17 +325,17 @@ describe("AiOpsPageClient conditional render audit", () => {
 		);
 
 		await user.click(screen.getByRole("button", { name: /立即扫描|触发扫描/i }));
-		await waitFor(() => expect(addToast).toHaveBeenLastCalledWith("error", "扫描触发失败: AI 运维尚未配置模型提供方"));
+		await waitFor(() => expect(addToast).toHaveBeenLastCalledWith("error", "扫描触发失败：AI 运维尚未配置模型提供方"));
 
 		await user.click(screen.getByRole("button", { name: "保存" }));
-		await waitFor(() => expect(addToast).toHaveBeenLastCalledWith("error", "保存设置失败: 自主模式需要管理员权限"));
+		await waitFor(() => expect(addToast).toHaveBeenLastCalledWith("error", "保存设置失败：自主模式需要管理员权限"));
 
 		const detail = await screen.findByLabelText("ai-ops-detail");
 		await user.click(await within(detail).findByRole("button", { name: /^执行$/i }));
-		await waitFor(() => expect(addToast).toHaveBeenLastCalledWith("error", "执行推荐项失败: 该推荐项已执行过"));
+		await waitFor(() => expect(addToast).toHaveBeenLastCalledWith("error", "执行推荐项失败：该推荐项已执行过"));
 
 		await user.click(screen.getByRole("button", { name: "下一页" }));
-		await waitFor(() => expect(addToast).toHaveBeenLastCalledWith("error", "加载 AI 运维记录失败: 缺少权限：ai:use"));
+		await waitFor(() => expect(addToast).toHaveBeenLastCalledWith("error", "加载 AI 运维记录失败：缺少权限：ai:use"));
 	});
 
 	it("names a provider chosen by another administrator and sends it only when it is changed", async () => {

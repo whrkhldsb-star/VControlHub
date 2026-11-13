@@ -818,6 +818,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>入口：<code>/</code>、<code>/dashboard</code>。</p>
 <p>仪表盘提供：</p>
 <ul>
+<li>最上面一块回答“有没有事需要处理”：没人确认的告警、24 小时内失败的任务、等待你审批的命令（自己提交的命令由另一位审批人处理，平台管理员除外）。每项写数量和最近一条，并链接到处理它的页面；没有对应权限的检查不显示，不会被说成“正常”。</li>
 <li>当前有效的平台公告（置顶优先，最多显示 3 条，可进入公告页查看全部）。</li>
 <li>首次设置清单只列出当前账号有权限完成的项目；客户只读账号不会看到它。</li>
 <li>VPS 总数、启用与停用情况、在线概况、SSH 密钥绑定及直连网关概况。</li>
@@ -827,7 +828,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <li>VPS 资源 24 小时趋势（当前 CPU、内存、磁盘占用，以及各节点每小时平均 CPU 的柱状图，刻度固定为 0–100%）、下载任务 7 天趋势、审计活动 30 天趋势及图片上传趋势。</li>
 <li>仪表盘组件显示／隐藏、调整顺序（“编辑布局”里的上移／下移，或用鼠标拖动卡片）、恢复默认布局。</li>
 </ul>
-<p>仪表盘按当前账号权限读取各类数据：VPS 需要 <code>server:read</code>，文件和下载需要 <code>storage:read</code>，命令与定时任务需要 <code>command:read</code>，审计需要 <code>audit:read</code>。没有相应权限的内容不会作为页面数据传给浏览器；客户范围与各业务页面一致。</p>
+<p>仪表盘按当前账号权限读取各类数据：VPS 需要 <code>server:read</code>，文件和下载需要 <code>storage:read</code>，命令与定时任务需要 <code>command:read</code>，审计需要 <code>audit:read</code>；最上面的检查中，告警需要 <code>notification:manage</code>，失败任务需要 <code>task:read</code>，待审批命令需要 <code>command:approve</code>。没有相应权限的内容不会作为页面数据传给浏览器；客户范围与各业务页面一致。</p>
 <p>布局编辑能否使用还受平台“允许拖拽重排”设置控制。图表没有数据时会显示空状态；新增节点需要等待采样或实际产生业务记录后才有趋势。</p>
 <h3 id="section-3-3">3.3 个人偏好与账户入口</h3>
 <p>统一入口：<code>/settings</code>；旧 <code>/preferences</code> 跳转到设置页的个人偏好区域。</p>
@@ -1574,6 +1575,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </table></div>
 <p>AI 页面中的用户确认与命令审批可能是同一操作链的不同阶段；看到“已确认”应继续查看命令或任务是否完成。审批能力不能越过客户和资源范围，权限也会在后续执行阶段重新校验。</p>
 <p>审批卡片展示发起者、时间、状态、最新审批、目标节点以及执行日志，并可与工单关联，便于将“提出问题”和“实际处理命令”连成时间线。命令审批队列只列出仍需处理或正在执行的请求（待审批、已批准、执行中、取消中），计数也只统计这些；已完成、失败、拒绝和取消的请求收在默认折叠的“已处理记录”中。</p>
+<p>提交者不能审批自己的命令（平台管理员除外，便于单人运维）：这类命令的卡片上不显示审批表单和批量勾选框，而是写明由另一位审批人处理。</p>
 <p>审批中心还支持选择多条待处理命令，统一批准或拒绝并填写共同意见。批量审核逐请求检查和反馈，一条已被其他人处理或无权审批的记录失败，不会把其余记录的结果一并隐藏。</p>
 <h3 id="section-11-3">11.3 定时任务</h3>
 <p>入口：<code>/scheduled-tasks</code>。</p>
@@ -2080,7 +2082,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <h2 id="permissions">17. 账号、客户与资源授权</h2>
 <h3 id="section-17-1">17.1 登录、密码与会话</h3>
 <p>入口：<code>/login</code>、<code>/login/verify-2fa</code>、<code>/account/password</code>、<code>/account/security</code>。</p>
-<p>用户使用账号和密码登录，可按界面选择记住登录。需要改初始密码的账号会先进入改密流程；启用了 MFA 的账号还需要 TOTP 验证码或有效恢复码。</p>
+<p>用户使用账号和密码登录，可按界面选择记住登录。登录页右上角可以切换界面语言和深浅色主题。需要改初始密码的账号会先进入改密流程；启用了 MFA 的账号还需要 TOTP 验证码或有效恢复码。</p>
 <p>用户可以修改密码、退出当前登录或退出所有设备。服务端结合会话签名、账号状态、密码相关校验及会话撤销状态验证登录；禁用账号、调整身份模板和移出客户会影响后续请求，不是只在登录时检查一次。</p>
 <p>密码最小长度、是否要求大写／数字／特殊字符由平台设置约束，作用于新建、重置和改密。登录限流与账号锁定状态用于限制持续错误尝试，配置 Redis 后可在多实例间共享相关状态。</p>
 <p>登录页可启用 Cloudflare Turnstile 人机验证：在 Cloudflare 控制台 → Turnstile 为本站主机名添加小组件，把 Site Key 和 Secret Key 填入设置页“安全策略”。两项都填写时登录表单显示验证组件，验证通过后才校验密码，未通过的尝试不计入账号锁定，并以 <code>auth.login_captcha_failed</code> 记入审计；任一项留空即关闭。Secret Key 加密保存，保存前先向 Cloudflare 核对，Cloudflare 不认识的密钥不予保存。控制中心暂时连不上 Cloudflare 时登录照常进行（仍有密码校验与失败锁定），记为 <code>auth.login_captcha_unverified</code>。若密钥填错导致无法登录，在服务器 <code>.env.runtime</code> 中加入 <code>TURNSTILE_DISABLED=true</code> 并重启服务即可临时关闭。</p>

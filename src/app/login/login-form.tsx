@@ -24,12 +24,17 @@ export function LoginForm({ nextPath, error, locale, turnstileSiteKey, nonce }: 
 				<label className="ui-label" htmlFor="username">
 					{t("login.form.username", locale)}
 				</label>
+				{/* The first thing to type on this page: the cursor starts here. */}
 				<Input id="username"
 					name="username"
 					type="text"
+					required
+					autoFocus
+					autoCapitalize="none"
+					spellCheck={false}
 					placeholder={t("login.form.usernamePlaceholder", locale)}
 					autoComplete="username"
-					 />
+				/>
 			</div>
 
 			<div className="space-y-1.5">
@@ -39,9 +44,10 @@ export function LoginForm({ nextPath, error, locale, turnstileSiteKey, nonce }: 
 				<Input id="password"
 					name="password"
 					type="password"
+					required
 					placeholder={t("login.form.passwordPlaceholder", locale)}
 					autoComplete="current-password"
-					 />
+				/>
 			</div>
 
 			<label data-tile className="flex items-center gap-3 px-4 py-3 text-xs font-medium text-[var(--text-primary)] light:bg-[var(--surface)]">
@@ -67,8 +73,8 @@ export function LoginForm({ nextPath, error, locale, turnstileSiteKey, nonce }: 
 			) : null}
 
 			<SubmitButton pendingLabel={t("login.form.submitting", locale)} className="w-full py-2.5 text-sm font-semibold">
-					{t("login.form.submit", locale)}
-				</SubmitButton>
+				{t("login.form.submit", locale)}
+			</SubmitButton>
 		</form>
 	);
 }

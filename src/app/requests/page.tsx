@@ -3,6 +3,7 @@ import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getPendingActions } from "@/lib/ai/hosted-service";
 import { listCommandRequests } from "@/lib/command/service";
+import { mayReviewCommandRequest } from "@/lib/command/review-scope";
 import { ReviewCommandForm } from "./review-command-form";
 import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
@@ -24,6 +25,10 @@ const ACTIVE_REQUEST_STATUSES = new Set(["PENDING_APPROVAL", "APPROVED", "RUNNIN
 export default async function RequestsPage() {
 	const session = await requirePagePermission("command:read", { redirectTo: "/requests" });
 	const canApprove = sessionHasPermission(session, "command:approve");
+	// A reviewer's own request goes to another reviewer unless the account manages the team: the server refuses the
+	// decision otherwise, and the form, the batch checkbox and the dashboard's count all followed "may approve" alone.
+	const awaitsThisReviewer = (request: { status: string; requester: { id: string } }) =>
+		request.status === "PENDING_APPROVAL" && mayReviewCommandRequest(session, request.requester.id);
 	// Who a cancel request is accepted from (PATCH /api/commands, cancelCommandRequest): a member who may execute
 	// commands, for a request of their own, and for anyone's when they may also approve. The button followed
 	// "may approve" alone: an operator could not stop the command they had just started, and a reviewer without
@@ -135,7 +140,11 @@ export default async function RequestsPage() {
 									</InfoSection>
 								</div>
 
-								{canApprove && request.status === "PENDING_APPROVAL" && <ReviewCommandForm commandRequestId={request.id} />}
+								{awaitsThisReviewer(request) ? (
+									<ReviewCommandForm commandRequestId={request.id} />
+								) : canApprove && request.status === "PENDING_APPROVAL" ? (
+									<p className="mt-4 text-xs text-[var(--text-muted)]">{t("requestsPage.review.ownRequest", locale)}</p>
+								) : null}
 								{(canCancelOthers || (canExecute && request.requester.id === session.userId)) && ["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status) && (
 									<CancelCommandButton commandRequestId={request.id} commandTitle={request.title} />
 								)}
@@ -199,13 +208,7 @@ export default async function RequestsPage() {
 						>
 						{activeRequests.length > 0 ? (
 						<BatchReviewToolbar
-							pendingIds={
-								canApprove
-									? activeRequests
-											.filter((r) => r.status === "PENDING_APPROVAL")
-											.map((r) => r.id)
-									: []
-							}
+							pendingIds={activeRequests.filter(awaitsThisReviewer).map((r) => r.id)}
 						>
 							<PaginatedList pageSize={20}>{activeRequests.map(renderRequest)}</PaginatedList>
 						</BatchReviewToolbar>

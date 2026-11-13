@@ -8,7 +8,7 @@
 export const zh: Record<string, string> = {
 	"login.branding.signInTag": "安全登录",
 	"login.branding.subtitle": "使用管理员账号进入控制台。",
-	"login.branding.tagline": "，一站式资源管理",
+	"login.branding.tagline": "{label}，一站式资源管理",
 	"login.branding.welcome": "欢迎回来",
 	"login.error.invalid": "用户名或密码错误",
 	"login.error.captcha": "人机验证未通过，请完成验证后重新登录",
@@ -51,7 +51,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"login.branding.signInTag": "Secure Sign In",
 	"login.branding.subtitle": "Sign in with your admin account to enter the console.",
-	"login.branding.tagline": ", one console to rule them all.",
+	"login.branding.tagline": "{label}, one console to rule them all.",
 	"login.branding.welcome": "Welcome back",
 	"login.error.invalid": "Invalid username or password",
 	"login.error.captcha": "The human verification did not pass. Complete it and sign in again.",

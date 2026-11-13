@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { zh } from "@/lib/i18n/dictionaries/alert-rules-page";
-import { incidentDetail, incidentTitle } from "../alert-incidents-section";
+import { incidentDetail, incidentTitle } from "../incident-labels";
 import type { AlertIncident } from "../alert-rule-types";
 
 const t = (key: string, vars?: Record<string, string | number>) =>
@@ -18,6 +18,12 @@ describe("alert incident labels", () => {
 		expect(incidentTitle(incident, t)).toBe("hk-db-01 · CPU 使用率");
 		expect(incidentDetail(incident, t)).toBe("CPU 过高：当前 91.3，触发条件 > 80");
 		expect(incidentDetail({ ...incident, metric: "server_offline" }, t)).toBe("CPU 过高：节点离线");
+	});
+
+	it("writes the rule's comparison as a sign, not the code the rule stores", () => {
+		// Incidents carry the rule's operator code; the detail read "触发条件 gte 80".
+		expect(incidentDetail({ ...incident, operator: "gte" }, t)).toBe("CPU 过高：当前 91.3，触发条件 ≥ 80");
+		expect(incidentDetail({ ...incident, operator: "lt" }, t)).toBe("CPU 过高：当前 91.3，触发条件 < 80");
 	});
 
 	it("keeps the stored text for metrics it cannot name", () => {

@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import type { AlertIncident } from "./alert-rule-types";
+import { incidentDetail, incidentTitle } from "./incident-labels";
 
 type Props = {
 	incidents: AlertIncident[];
@@ -17,31 +18,6 @@ type Props = {
 	loadIncidents: () => Promise<void>;
 	ackIncident: (incidentId: string) => Promise<void>;
 };
-
-type Translate = (key: string, vars?: Record<string, string | number>) => string;
-
-/**
- * Incidents store an English title and message for outbound channels; the
- * page rebuilds both from the incident's structured fields in the viewer's
- * language and keeps the stored text for metrics it cannot name.
- */
-export function incidentTitle(incident: AlertIncident, t: Translate): string {
-	const metricKey = `alertRulesPage.createForm.metric.${incident.metric}`;
-	const metric = t(metricKey);
-	return metric === metricKey ? incident.title : t("alertRulesPage.incidents.itemTitle", { server: incident.serverName, metric });
-}
-
-export function incidentDetail(incident: AlertIncident, t: Translate): string {
-	if (incident.metric === "server_offline") return t("alertRulesPage.incidents.detailOffline", { rule: incident.ruleName ?? "" });
-	const metricKey = `alertRulesPage.createForm.metric.${incident.metric}`;
-	if (t(metricKey) === metricKey) return incident.message;
-	return t("alertRulesPage.incidents.detail", {
-		rule: incident.ruleName ?? "",
-		operator: incident.operator,
-		threshold: incident.threshold,
-		value: Number.isInteger(incident.value) ? incident.value : incident.value.toFixed(1),
-	});
-}
 
 export function AlertIncidentsSection({
 	incidents,
@@ -61,7 +37,7 @@ export function AlertIncidentsSection({
 	const resolvedCount = incidents.length - unresolved.length;
 
 	return (
-		<section aria-label={t("alertRulesPage.incidents.title")}>
+		<section id="incidents" aria-label={t("alertRulesPage.incidents.title")} className="scroll-mt-20">
 			<ListPanel
 				title={t("alertRulesPage.incidents.title")}
 				count={unresolved.length > 0 ? unresolved.length : undefined}

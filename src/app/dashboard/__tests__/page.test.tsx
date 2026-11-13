@@ -84,6 +84,18 @@ vi.mock("@/lib/notification/service", () => ({
   getUnreadCount: vi.fn().mockResolvedValue(0),
 }));
 
+vi.mock("@/lib/alert/incidents", () => ({
+  // Worst level first, as the service orders them; the dashboard names the newest. Titles are stored in English.
+  listAlertIncidents: vi.fn().mockResolvedValue([
+    { title: "Alert: hk-prod-1 disk usage", serverName: "hk-prod-1", metric: "disk_usage", level: 2, createdAt: new Date("2026-05-27T07:00:00.000Z") },
+    { title: "Alert: hk-prod-1 cpu usage", serverName: "hk-prod-1", metric: "cpu_usage", level: 1, createdAt: new Date("2026-05-27T08:00:00.000Z") },
+  ]),
+}));
+
+vi.mock("@/lib/operation-task/service", () => ({
+  listOperationTaskResult: vi.fn().mockResolvedValue({ tasks: [], sourceSummary: [], failureSummary: [] }),
+}));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     auditLog: {
@@ -130,6 +142,8 @@ import { listServerProfiles } from "@/lib/server/service";
 import { getStorageOverview } from "@/lib/storage/service";
 import { listCommandRequests } from "@/lib/command/service";
 import { prisma } from "@/lib/db";
+import { listAlertIncidents } from "@/lib/alert/incidents";
+import { listOperationTaskResult } from "@/lib/operation-task/service";
 
 const csrfFetchMock = vi.mocked(csrfFetch);
 
@@ -157,7 +171,8 @@ describe("Dashboard", () => {
     await Dashboard();
     for (const query of [listServerProfiles, getStorageOverview, listCommandRequests,
       prisma.auditLog.findMany, prisma.downloadTask.groupBy, prisma.scheduledTask.count,
-      prisma.alertRule.count, prisma.backupSchedule.count, prisma.vpsBackupSchedule.count, prisma.server.count]) {
+      prisma.alertRule.count, prisma.backupSchedule.count, prisma.vpsBackupSchedule.count, prisma.server.count,
+      listAlertIncidents, listOperationTaskResult]) {
       expect(query).not.toHaveBeenCalled();
     }
   });
@@ -171,6 +186,51 @@ describe("Dashboard", () => {
     expect(prisma.scheduledTask.count).toHaveBeenCalledWith({ where: { status: "ACTIVE", teamId: "team_1" } });
     expect(listCommandRequests).toHaveBeenCalled();
     expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
+  });
+
+  it("opens with what needs the account, asked of the pages that deal with it", async () => {
+    render(<I18nProvider initialLocale="zh">{await Dashboard()}</I18nProvider>);
+
+    const block = screen.getByRole("region", { name: "1 件事需要处理" });
+    expect(block).toHaveTextContent("2 条告警等待确认");
+    expect(block).toHaveTextContent("最近一条：hk-prod-1 · CPU 使用率");
+    expect(block).toHaveTextContent("24 小时内没有失败的任务");
+    expect(block).toHaveTextContent("没有等待你审批的命令");
+    expect(listAlertIncidents).toHaveBeenCalledWith(expect.objectContaining({ status: "OPEN" }));
+    expect(listOperationTaskResult).toHaveBeenCalledWith({ status: "failed", limit: 50 }, expect.objectContaining({ userId: "u_1" }));
+  });
+
+  it("counts only what this account can act on, named as the task centre names it", async () => {
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      userId: "u_2", username: "reviewer", roles: [], permissions: ["command:read", "command:approve", "task:read"],
+      currentTeamId: "team_1", mustChangePassword: false,
+    });
+    const request = (id: string, requesterId: string, title: string) => ({
+      id, title, command: "uptime", status: "PENDING_APPROVAL", isAssistantInitiated: false, targets: [],
+      requesterId, requester: { id: requesterId, username: requesterId, displayName: null },
+    });
+    // The reviewer's own request goes to another reviewer: the server refuses their decision on it.
+    vi.mocked(listCommandRequests).mockResolvedValueOnce([request("cmd_own", "u_2", "Own restart"), request("cmd_other", "u_3", "Rotate logs")] as never);
+    vi.mocked(listOperationTaskResult).mockResolvedValueOnce({
+      tasks: [
+        { id: "t_old", source: "job", title: "Sync mirrors", status: "failed", updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+        { id: "t_backup", source: "backup", taskType: "DATABASE", title: "DATABASE backup", status: "failed", updatedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
+      ],
+      sourceSummary: [],
+      failureSummary: [],
+    } as never);
+
+    render(<I18nProvider initialLocale="zh">{await Dashboard()}</I18nProvider>);
+
+    const block = screen.getByRole("region", { name: "2 件事需要处理" });
+    expect(block).toHaveTextContent("24 小时内有 1 个任务失败");
+    expect(block).toHaveTextContent("最近一条：数据库备份");
+    expect(block).toHaveTextContent("1 条命令等待你审批");
+    expect(block).toHaveTextContent("最近一条：Rotate logs");
+    expect(block).not.toHaveTextContent("Own restart");
+    // No alert row: this account does not manage alerts, so it cannot know.
+    expect(block).not.toHaveTextContent("告警");
+    expect(listAlertIncidents).not.toHaveBeenCalled();
   });
 
   it("renders dashboard sections for servers and storage overview", async () => {

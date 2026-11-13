@@ -24,7 +24,7 @@ describe("localized dashboard sections", () => {
   it("renders dashboard summary sections in English when the active locale is English", () => {
     renderWithLocale(
       <>
-        <DashboardLocalizedHeader username="alice" />
+        <DashboardLocalizedHeader />
         <DashboardServerHero summary={{ total: 3, enabled: 2, disabled: 1, sshKey: 2, directGateway: 1 }} />
         <DashboardStatsSection
           storage={{ serverTotal: 3, serverEnabled: 2, totalNodes: 4, totalEntries: 99 }}
@@ -46,7 +46,8 @@ describe("localized dashboard sections", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
-    expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === "Current user: alice")).toBeInTheDocument();
+    // The account is named by the user menu; the header said "Current user: alice" again.
+    expect(screen.queryByText(/Current user/)).not.toBeInTheDocument();
     expect(screen.getByText("VPS Status Overview")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Servers" })[0]).toHaveAttribute("href", "/servers");
     expect(screen.getByText("Operations Queue")).toBeInTheDocument();
@@ -113,7 +114,7 @@ describe("localized dashboard sections", () => {
   it("exposes exactly one customizable widget per id from the dashboard sections", () => {
     const { container } = renderWithLocale(
       <>
-        <DashboardLocalizedHeader username="alice" />
+        <DashboardLocalizedHeader />
         <DashboardServerHero summary={{ total: 3, enabled: 2, disabled: 1, sshKey: 2, directGateway: 1 }} />
         <DashboardStatsSection
           storage={{ serverTotal: 3, serverEnabled: 2, totalNodes: 4, totalEntries: 99 }}

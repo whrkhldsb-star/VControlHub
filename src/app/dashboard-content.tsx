@@ -1,19 +1,26 @@
 import { PageShell } from "@/components/page-shell";
+import { listAlertIncidents } from "@/lib/alert/incidents";
 import { listActiveAnnouncements } from "@/lib/announcement/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 import { teamWhere } from "@/lib/auth/team-scope";
+import { mayReviewCommandRequest } from "@/lib/command/review-scope";
 import { listCommandRequests } from "@/lib/command/service";
-import { formatDateTime } from "@/lib/datetime/format";
+import { formatDateTime, formatShortTime } from "@/lib/datetime/format";
+import { buildAttentionChecks } from "@/lib/dashboard/attention";
 import { buildSetupChecklist, filterSetupChecklist } from "@/lib/dashboard/setup-checklist";
 import { prisma } from "@/lib/db";
-import { getServerLocale } from "@/lib/i18n/translations";
+import { getOperationTaskTitle } from "@/lib/i18n/domain-labels";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getUnreadCount } from "@/lib/notification/service";
+import { listOperationTaskResult } from "@/lib/operation-task/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { getSetting } from "@/lib/settings/service";
 import { getStorageOverview } from "@/lib/storage/service";
 
+import { incidentTitle } from "./alert-rules/incident-labels";
 import { DashboardAnalyticsPanel } from "./dashboard-analytics-panel";
+import { DashboardAttention } from "./dashboard-attention";
 import {
 	DashboardAnnouncements,
 	DashboardLocalizedHeader,
@@ -41,6 +48,9 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 	const canReadBackups = sessionHasPermission(session, "backup:read");
 	const canReadCosts = sessionHasPermission(session, "cost:read");
 	const canManageSettings = sessionHasPermission(session, "user:manage");
+	// The checks at the top follow the pages that deal with what they find.
+	const canReadTasks = sessionHasPermission(session, "task:read");
+	const canApproveCommands = canReadCommands && sessionHasPermission(session, "command:approve");
 	const [
 		servers,
 		storage,
@@ -56,6 +66,8 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		vpsBackupScheduleCount,
 		serversWithMonthlyCost,
 		announcements,
+		openIncidents,
+		failedTasks,
 	] = await Promise.all([
 		canReadServers ? listServerProfiles(session) : Promise.resolve([]),
 		canReadStorage
@@ -97,6 +109,16 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 			})
 			.catch(() => 0) : Promise.resolve(0),
 		listActiveAnnouncements().catch(() => []),
+		// A check that cannot be made is left out of the block rather than reported as clear. OPEN incidents are the
+		// ones nobody has acknowledged yet; the list comes worst level first.
+		canManageNotifications
+			? listAlertIncidents({ status: "OPEN", take: 500, session }).catch(() => null)
+			: Promise.resolve(null),
+		canReadTasks
+			? listOperationTaskResult({ status: "failed", limit: 50 }, session)
+				.then((result) => result.tasks)
+				.catch(() => null)
+			: Promise.resolve(null),
 	]);
 
 	const enabledServers = servers.filter((server) => server.enabled);
@@ -140,6 +162,25 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		}),
 		(permission) => sessionHasPermission(session, permission),
 	);
+	const checkedAt = new Date();
+	// Named the way their own pages name them, in the viewer's language: incidents store English text for the
+	// outbound channels, and a backup task's stored title reads "DATABASE backup".
+	const translate = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
+	const attentionChecks = buildAttentionChecks({
+		openIncidents: openIncidents
+			? [...openIncidents]
+				.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+				.map((incident) => ({ title: incidentTitle(incident, translate) }))
+			: null,
+		failedTasks: failedTasks
+			? failedTasks.map((task) => ({ title: getOperationTaskTitle(translate, task), updatedAt: task.updatedAt }))
+			: null,
+		// Waiting for this account: its own requests go to another reviewer (unless it manages the team).
+		pendingApprovals: canApproveCommands
+			? requests.filter((request) => request.status === "PENDING_APPROVAL" && mayReviewCommandRequest(session, request.requester.id))
+			: null,
+		now: checkedAt,
+	});
 	const dashboardAnnouncements = announcements.slice(0, 3).map((item) => ({
 		id: item.id,
 		title: item.title,
@@ -152,7 +193,8 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 
 	return (
 		<PageShell>
-			<DashboardLocalizedHeader username={session.username} />
+			<DashboardLocalizedHeader />
+			<DashboardAttention checks={attentionChecks} checkedAt={formatShortTime(checkedAt, locale)} />
 			<DashboardAnnouncements items={dashboardAnnouncements} total={announcements.length} />
 			<DashboardSetupChecklist items={setupItems} />
 			<DashboardStatsSection
