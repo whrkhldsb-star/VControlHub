@@ -29,8 +29,8 @@ export const en: Record<string, string> = {
 	"settingsClient.categoryDescription": "Click a category to jump, or expand/collapse all groups. Common items are open by default; advanced runtime parameters are collapsed.",
 	"settingsClient.expandAll": "Expand all",
 	"settingsClient.collapseAll": "Collapse all",
-	"settingsClient.sectionItemsAdvanced": "{count} items · Advanced",
-	"settingsClient.sectionItems": "{count} items",
+	"settingsClient.sectionItemsAdvanced": "{count} {count|item|items} · Advanced",
+	"settingsClient.sectionItems": "{count} {count|item|items}",
 
 	"settingsClient.recentlyUpdated": "Recently updated",
 	"settingsClient.metadataTime": "Time: ",
@@ -75,8 +75,8 @@ export const en: Record<string, string> = {
 	"settingsClient.confirmCancel": "Cancel",
 	"settingsClient.confirmSaveAction": "Confirm save",
 
-	"settingsClient.changesAria.expand": "{count} changes pending, expand the change list",
-	"settingsClient.changesAria.collapse": "{count} changes pending, collapse the change list",
+	"settingsClient.changesAria.expand": "{count} {count|change|changes} pending, expand the change list",
+	"settingsClient.changesAria.collapse": "{count} {count|change|changes} pending, collapse the change list",
 	"settingsClient.schema.section.twoFactor.title": "Account security",
 	"settingsClient.schema.section.platform.title": "Platform info",
 	"settingsClient.schema.section.password.title": "Session & password policy",
@@ -130,7 +130,7 @@ export const en: Record<string, string> = {
 	"settingsClient.toc.offsite.subtitle": "S3 / push window / retention",
 	"settingsClient.toc.aiOps.subtitle": "Run mode / provider",
 	"settingsClient.toc.smtp.titleShort": "Email notifications",
-	"settingsClient.toc.fieldsCount": "{count} items",
+	"settingsClient.toc.fieldsCount": "{count} {count|item|items}",
 
 	"settingsClient.field.platform.name.label": "Platform name",
 	"settingsClient.field.platform.logo.label": "Logo URL",

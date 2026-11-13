@@ -53,7 +53,7 @@ export const en: Record<string, string> = {
 	"knowledgePage.create": "Create base",
 	"knowledgePage.created": "Knowledge base created",
 	"knowledgePage.emptyBases": "No knowledge bases yet — create one first.",
-	"knowledgePage.baseMeta": "{docs} docs · {chunks} chunks",
+	"knowledgePage.baseMeta": "{docs} {docs|doc|docs} · {chunks} {chunks|chunk|chunks}",
 	"knowledgePage.chunkCount": "{count} chunk(s)",
 	"knowledgePage.loadMoreDocuments": "Load more documents",
 	"knowledgePage.ingestTitle": "Ingest document",

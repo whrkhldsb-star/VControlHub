@@ -141,7 +141,7 @@ describe("SystemHealthClient (split health surface)", () => {
 			</I18nProvider>,
 		);
 		expect(await screen.findByText("System Self-check")).toBeInTheDocument();
-		expect(screen.getByText("2 checks · 1 healthy · 1 warnings · 0 critical")).toBeInTheDocument();
+		expect(screen.getByText("2 checks · 1 healthy · 1 warning · 0 critical")).toBeInTheDocument();
 		expect(screen.getByText("Database Connection")).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "Refresh health status" })).not.toBeInTheDocument();
 		expect(screen.queryByText("系统自检")).not.toBeInTheDocument();

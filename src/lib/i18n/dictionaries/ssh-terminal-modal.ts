@@ -194,7 +194,7 @@ export const en: Record<string, string> = {
 	// Side panel — connection (keep the shell on the proxy across a dropped socket)
 	"sshTerminalModal.keepAliveTitle": "Connection",
 	"sshTerminalModal.keepAliveLabel": "Keep the session after a disconnect",
-	"sshTerminalModal.keepAliveHint": "After a network drop, a locked phone screen or a page reload, reconnecting within {minutes} minutes picks the same session up: the remote program keeps running and nothing it printed is lost. Close ends the session.",
+	"sshTerminalModal.keepAliveHint": "After a network drop, a locked phone screen or a page reload, reconnecting within {minutes} {minutes|minute|minutes} picks the same session up: the remote program keeps running and nothing it printed is lost. Close ends the session.",
 	"sshTerminalModal.sessionResumed": "Resumed the session from before the disconnect.",
 	"sshTerminalModal.sessionFresh": "Started a new session; the previous shell has ended.",
 	"sshTerminalModal.sessionFreshLine": "—— new session ——",
@@ -208,7 +208,7 @@ export const en: Record<string, string> = {
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "Remote sessions",
-	"sshTerminalManager.tabCount": "{count} tabs",
+	"sshTerminalManager.tabCount": "{count} {count|tab|tabs}",
 	"sshTerminalManager.closeTab": "Close {serverName} tab",
 	"sshTerminalManager.minimize": "Minimize",
 	"sshTerminalManager.expand": "Expand",

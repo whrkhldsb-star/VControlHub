@@ -26,4 +26,11 @@ describe("API copy locale boundary", () => {
     }
     expect(apiCopy(key)).toBe("Operation failed");
   });
+
+  it("says a count in English with the noun's form for it, and still maps it back for a Chinese viewer", () => {
+    expect(apiCopy("apiCopy.archive.extracted", { v0: 1, v1: "docs" })).toBe('Extracted 1 file into the folder "docs"');
+    expect(apiCopy("apiCopy.archive.extracted", { v0: 3, v1: "docs" })).toBe('Extracted 3 files into the folder "docs"');
+    expect(localizeApiCopy('Extracted 1 file into the folder "docs"', "zh")).toBe("已解压 1 个文件到文件夹“docs”");
+    expect(localizeApiCopy('Extracted 3 files into the folder "docs"', "zh")).toBe("已解压 3 个文件到文件夹“docs”");
+  });
 });

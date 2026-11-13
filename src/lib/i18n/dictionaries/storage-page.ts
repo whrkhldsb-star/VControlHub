@@ -143,7 +143,7 @@ export const en: Record<string, string> = {
 	"storagePage.list.lastChecked": "Last checked",
 	"storagePage.list.latencyMs": "{latency} ms",
 
-	"storagePage.list.registeredFiles": "{count} registered files",
+	"storagePage.list.registeredFiles": "{count} registered {count|file|files}",
 	"storagePage.list.checking": "Checking…",
 	"storagePage.list.checkNow": "Check now",
 	"storagePage.list.checkFailed": "Health check failed",
@@ -178,7 +178,7 @@ export const en: Record<string, string> = {
 	"storagePage.action.fileRenamed": "Renamed to {name}",
 	"storagePage.action.fileRenameFailed": "Failed to rename file entry",
 	"storagePage.action.renameFailed": "Rename failed",
-	"storagePage.action.liveEntriesUnderRecycledDirectory": "{count} live files or folders still sit under this directory; deleting it for good would remove them from disk too. Move or delete them first, or restore the directory.",
+	"storagePage.action.liveEntriesUnderRecycledDirectory": "{count} live {count|file or folder still sits|files or folders still sit} under this directory; deleting it for good would remove {count|it|them} from disk too. Move or delete {count|it|them} first, or restore the directory.",
 	"storagePage.action.renameRollbackFailed": "The index rename failed and the disk rollback failed too: {error}; rollback: {rollback}. Check the directory by hand.",
 	"storagePage.action.indexWriteFailed": "the file index could not be written",
 	"storagePage.action.pathAlreadyExists": "Path /{path} already exists. Please use a different name",

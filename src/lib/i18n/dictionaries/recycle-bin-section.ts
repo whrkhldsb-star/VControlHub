@@ -31,7 +31,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"recycleBinSection.title": "Recycle Bin",
 	"recycleBinSection.empty": "The recycle bin is empty — no deleted files.",
-	"recycleBinSection.summary": "{count} deleted entries. Restoring returns the file to its original path.",
+	"recycleBinSection.summary": "{count} deleted {count|entry|entries}. Restoring returns the file to its original path.",
 	"recycleBinSection.table.name": "Name",
 	"recycleBinSection.table.size": "Size",
 	"recycleBinSection.table.actions": "Actions",
@@ -44,8 +44,8 @@ export const en: Record<string, string> = {
 	"recycleBinSection.bulk.restore": "Restore selected",
 	"recycleBinSection.bulk.delete": "Delete selected forever",
 	"recycleBinSection.bulk.progress": "Working {done}/{total}",
-	"recycleBinSection.bulk.confirmDelete": "Permanently delete the {count} selected items? This cannot be undone.",
-	"recycleBinSection.bulk.restored": "Restored {count} items",
-	"recycleBinSection.bulk.deleted": "Permanently deleted {count} items",
-	"recycleBinSection.bulk.failures": "{count} items could not be processed",
+	"recycleBinSection.bulk.confirmDelete": "Permanently delete the {count} selected {count|item|items}? This cannot be undone.",
+	"recycleBinSection.bulk.restored": "Restored {count} {count|item|items}",
+	"recycleBinSection.bulk.deleted": "Permanently deleted {count} {count|item|items}",
+	"recycleBinSection.bulk.failures": "{count} {count|item|items} could not be processed",
 };

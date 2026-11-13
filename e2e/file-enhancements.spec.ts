@@ -67,7 +67,7 @@ test("upload queue pauses, survives route navigation, resumes and preserves uplo
   });
   allowChunks = true;
   await queue.getByRole("button", { name: /继续上传|Resume upload/i }).click();
-  await expect(queue).toContainText(/已上传 1 个文件|Uploaded 1 files/i, { timeout: 90000 });
+  await expect(queue).toContainText(/已上传 1 个文件|Uploaded 1 file\b/i, { timeout: 90000 });
   const downloaded = await context.request.get(
     `/api/storage/local?nodeId=node_local_default&path=${name}`,
   );

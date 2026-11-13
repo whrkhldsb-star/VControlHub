@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { interpolate } from "@/lib/i18n/core";
 import { en } from "@/lib/i18n/dictionaries/scheduled-tasks";
 import { describeCron, isFiveFieldCron } from "../describe-cron";
 
-const t = (key: string, vars?: Record<string, string | number>) =>
-	(en[key] ?? key).replace(/\{(\w+)\}/g, (_, name: string) => String(vars?.[name] ?? ""));
+// The application's own filling, plural forms included ("Every {minutes} {minutes|minute|minutes}").
+const t = (key: string, vars?: Record<string, string | number>) => interpolate(en[key] ?? key, vars);
 
 describe("describeCron", () => {
 	it("reads the common shapes", () => {

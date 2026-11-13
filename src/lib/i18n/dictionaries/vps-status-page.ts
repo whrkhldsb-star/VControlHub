@@ -42,7 +42,7 @@ export const en: Record<string, string> = {
 	"vpsStatusPage.title": "Node Status",
 	"vpsStatusPage.description": "Availability, resource usage and capacity forecasts for managed nodes. Metrics come over SSH or the node Agent; the refresh interval follows system settings.",
 	"vpsStatusPage.eyebrow": "Probe board",
-	"vpsStatusPage.serverCount": "{count} managed nodes",
+	"vpsStatusPage.serverCount": "{count} managed {count|node|nodes}",
 	"vpsStatusPage.filter.all": "All",
 	"vpsStatusPage.filter.online": "Online",
 	"vpsStatusPage.filter.issue": "Issues",

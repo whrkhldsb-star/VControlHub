@@ -113,7 +113,7 @@ export const en: Record<string, string> = {
   "systemConfig.import.executeButton": "Confirm Import",
   "systemConfig.import.executing": "Importing…",
   "systemConfig.import.preview.title": "Preview Results",
-  "systemConfig.import.preview.totalRecords": "{count} records will be imported",
+  "systemConfig.import.preview.totalRecords": "{count} {count|record|records} will be imported",
   "systemConfig.import.preview.warnings": "Warnings",
   "systemConfig.import.preview.counts": "{create} new, {update} updated, {skip} skipped",
   "systemConfig.import.preview.table.permissions": "Permissions",

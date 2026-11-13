@@ -103,6 +103,22 @@ describe("what the dictionaries say", () => {
 		expect(pieces).toEqual([]);
 	});
 
+	// "1 items", "1 days ago", "1 nodes enabled": an English count takes its noun's form from the number,
+	// "{count} {count|item|items}" (interpolate). Limits ("at most {max} files") are never 1.
+	it("gives an English count the noun form for its number", () => {
+		const nouns = "items|files|nodes|servers|records|entries|endpoints|administrators|recipients|chats|accounts|links|models|rules|directories|days|times|changes|minutes|hours|targets|notifications|images|containers|groups|uploads|results|checks|warnings|settings|chunks|failures|events|runs|steps|keys|ports|tabs|cores|processes|lines|samples|things|downloads|permissions|docs";
+		const bare = new RegExp(`\\{(\\w+)\\}((?: [a-zA-Z-]+){0,3}? )(${nouns})\\b`);
+		const limits = new Set(["apiCopy.archive.tooManyEntries", "api.share.tooManyFiles", "backend.webdav.directoryTooLarge", "backend.sftp.directoryListingTruncated", "sharePage.listTruncated", "sharesPage.button.tooMany"]);
+		const offenders = Object.entries(all.en)
+			.filter(([key, value]) => {
+				// A plural form never matches: its noun follows "|", not a space.
+				const match = bare.exec(value);
+				return match !== null && !limits.has(key) && !/^(?:max|min|limit)$/.test(match[1] ?? "");
+			})
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(offenders).toEqual([]);
+	});
+
 	it("has no empty sentence and no Chinese left in the English ones", () => {
 		expect(Object.entries(all.zh).filter(([, value]) => value === "").map(([key]) => key)).toEqual([]);
 		expect(Object.entries(all.en).filter(([, value]) => value === "").map(([key]) => key)).toEqual([]);

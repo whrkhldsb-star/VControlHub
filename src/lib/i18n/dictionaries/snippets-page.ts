@@ -66,7 +66,7 @@ export const en: Record<string, string> = {
 	"snippetsPage.filter.allLanguages": "All languages",
 	"snippetsPage.filter.placeholder": "Filter by language",
 	"snippetsPage.titlePlaceholder": "Title, content, tags…",
-	"snippetsPage.count": "{count} items",
+	"snippetsPage.count": "{count} {count|item|items}",
 	"snippetsPage.pageTitle": "Snippet Library",
 	"snippetsPage.pageDescription": "Curate reusable scripts, commands, and config snippets, with language, tag, and private support.",
 	"snippetsPage.eyebrow": "Snippets",

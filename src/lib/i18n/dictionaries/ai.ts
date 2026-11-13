@@ -501,7 +501,7 @@ export const en: Record<string, string> = {
 	"aiPage.systemPromptLabel": "System prompt",
 	"aiPage.systemPromptPlaceholder": "Set the AI's role and behavior…",
 	"aiPage.apiKeyRequiredHint": "Please fill in the API Key first; leave Base URL empty to use the service default.",
-	"aiPage.modelsFetched": "Fetched {count} models",
+	"aiPage.modelsFetched": "Fetched {count} {count|model|models}",
 	"aiPage.modelsFetchedEmpty": "No models returned; keeping the default model",
 	"aiPage.modelsFetchFailed": "Failed to fetch the model list",
 	"aiPage.providerUpdated": "Provider updated",

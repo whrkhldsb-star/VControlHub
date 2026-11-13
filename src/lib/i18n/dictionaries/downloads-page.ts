@@ -137,7 +137,7 @@ export const en: Record<string, string> = {
 	"downloadsPage.error.emptyUrl": "Enter a download URL.",
 	"downloadsPage.error.emptyBatch": "Enter at least one download URL.",
 	"downloadsPage.error.invalidFilename": "Filename must be a single filename, no path separators or ..",
-	"downloadsPage.success.batchCreated": "Batch download created ({count} links)",
+	"downloadsPage.success.batchCreated": "Batch download created ({count} {count|link|links})",
 	"downloadsPage.success.taskCreated": "Download task created",
 	"downloadsPage.success.cancelled": "Task cancelled",
 	"downloadsPage.success.deleted": "Task record deleted",

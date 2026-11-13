@@ -59,7 +59,7 @@ describe("DashboardAttention", () => {
 
 	it("takes the waiting tone when only a person's decision is outstanding", () => {
 		renderBlock(buildAttentionChecks({ openIncidents: null, failedTasks: null, pendingApprovals: [{ title: "重启 nginx" }], now }), "en");
-		const block = screen.getByRole("region", { name: "One thing needs you" });
+		const block = screen.getByRole("region", { name: "1 thing needs you" });
 		expect(within(block).getByText("Commands waiting for your approval: 1")).toBeInTheDocument();
 		expect(block).toHaveAttribute("data-attention", "warning");
 		expect(within(block).getByRole("link", { name: "Review" })).toHaveAttribute("href", "/requests");

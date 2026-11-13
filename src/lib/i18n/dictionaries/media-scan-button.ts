@@ -16,7 +16,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"mediaScanButton.error": "Failed to scan media index",
 	"mediaScanButton.idle": "Scan media index",
-	"mediaScanButton.summaryRemoved": "Scan complete: found {scanned} media files, updated {upserted} index entries, cleaned {removed} stale index entries",
+	"mediaScanButton.summaryRemoved": "Scan complete: found {scanned} media {scanned|file|files}, updated {upserted} index {upserted|entry|entries}, cleaned {removed} stale index {removed|entry|entries}",
 	"mediaScanButton.scanning": "Scanning…",
-	"mediaScanButton.summary": "Scan complete: found {scanned} media files, updated {upserted} index entries",
+	"mediaScanButton.summary": "Scan complete: found {scanned} media {scanned|file|files}, updated {upserted} index {upserted|entry|entries}",
 };

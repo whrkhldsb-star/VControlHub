@@ -307,7 +307,11 @@ puts half-width punctuation next to Chinese text, when an entry starts or
 ends with a space or starts with a joining mark such as "，" (a piece of a
 sentence joined in code; a label's `": "` and list separators are allowed),
 or when an entry writes an ellipsis as three full stops (paths, links and
-example values excepted).
+example values excepted), or when an English count is followed by a bare
+plural noun. A count's noun takes its form from the number:
+`"{count} {count|item|items}"` reads "1 item" and "3 items" (`interpolate`
+picks the first word for 1, the second otherwise; a verb can go with it,
+`{count|file is|files are}`). Chinese entries do not need it.
 `src/app/manifest.test.ts` keeps the manifest's two colours equal to the
 tokens'.
 

@@ -462,9 +462,13 @@ test("customer create, select, delete and restore lifecycle", async ({ page }) =
 		await selector.selectOption(createdId);
 		await expect.poll(async () => ((await (await page.context().request.get("/api/teams")).json()) as { currentTeamId: string | null }).currentTeamId).toBe(createdId);
 
-		await row.getByRole("button", { name: /删除客户|Delete customer/i }).click();
+		// Selecting the customer also mounts the page again for it; on a slow runner the click can land on the
+		// row that is being replaced and open nothing. Click until the dialog for this customer is open.
 		const dialog = page.getByRole("dialog");
-		await expect(dialog).toContainText(marker);
+		await expect(async () => {
+			if (!(await dialog.isVisible())) await row.getByRole("button", { name: /删除客户|Delete customer/i }).click();
+			await expect(dialog).toContainText(marker, { timeout: 2_000 });
+		}).toPass({ timeout: 30_000 });
 		const confirm = dialog.getByRole("button", { name: /删除客户|Delete customer/i });
 		await expect(confirm).toBeDisabled();
 		await dialog.getByRole("textbox").fill(marker);

@@ -70,7 +70,7 @@ export const en: Record<string, string> = {
 	"notification.reason.downloadTimedOut": "Download timed out (2 hour limit)",
 	"notification.reason.downloadFileMissing": "Download completed but the file was not found",
 	"notification.taskConsecutiveFailed.title": "Task failing repeatedly: {task}",
-	"notification.taskConsecutiveFailed.message": "Task \"{task}\" has failed {count} times in a row. Last error: {error}",
+	"notification.taskConsecutiveFailed.message": "Task \"{task}\" has failed {count} {count|time|times} in a row. Last error: {error}",
 	"notification.quickServiceInstalled.title": "Quick service installed: {name}",
 	"notification.quickServiceInstallFailed.title": "Quick service installation failed: {name}",
 	"notification.quickServiceInstallFailed.message": "{name} installation failed: {error}",

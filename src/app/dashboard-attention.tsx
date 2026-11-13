@@ -64,11 +64,7 @@ export function DashboardAttention({ checks, checkedAt }: { checks: AttentionChe
 					>
 						{tone === "danger" ? <AlertTriangle size={16} /> : tone === "warning" ? <Clock size={16} /> : <Check size={16} strokeWidth={2.5} />}
 					</span>
-					{found === 0
-						? t("dashboard.attention.clear")
-						: found === 1
-							? t("dashboard.attention.foundOne")
-							: t("dashboard.attention.found", { count: found })}
+					{found === 0 ? t("dashboard.attention.clear") : t("dashboard.attention.found", { count: found })}
 				</h2>
 				<p className="text-xs tabular-nums text-[var(--text-muted)]">{t("dashboard.attention.checkedAt", { time: checkedAt })}</p>
 			</div>

@@ -92,9 +92,9 @@ export const en: Record<string, string> = {
 
 	"mediaPage.linkHub.label": "Link Hub",
 	"mediaPage.linkHub.open": "Open Link Hub",
-	"mediaPage.viewCount": "Current view: {count} items",
+	"mediaPage.viewCount": "Current view: {count} {count|item|items}",
 	"mediaPage.filter.allTab": "All",
-	"mediaPage.filter.allCount": "{count} media items",
+	"mediaPage.filter.allCount": "{count} media {count|item|items}",
 	"mediaPage.filter.imageTab": "Images",
 	"mediaPage.filter.imageDesc": "Upload / Publish links",
 	"mediaPage.filter.videoTab": "Videos",
@@ -118,7 +118,7 @@ export const en: Record<string, string> = {
 	"mediaPage.upload.title": "Image publish workflow",
 	"mediaPage.upload.desc": "Pick a storage node and batch upload here. Already indexed images can publish links directly; published links live in the Link Hub for copy and audit.",
 	"mediaPage.empty": "No media yet. Browse VPS storage in File Manager first, then click “Scan media index” to build the list.",
-	"mediaPage.itemCount": "{count} items",
+	"mediaPage.itemCount": "{count} {count|item|items}",
 
 	"mediaPage.player.sizeUnknown": "Unknown",
 	"mediaPage.player.backToLibrary": "Back to media library",

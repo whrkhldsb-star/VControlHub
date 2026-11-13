@@ -32,7 +32,7 @@ export const en: Record<string, string> = {
 	"apiDocsPage.label.responses": "Responses",
 	"apiDocsPage.label.requestBody": "Request body",
 	"apiDocsPage.loadingInline": "Loading endpoint definitions…",
-	"apiDocsPage.summaryCount": "{count}/{total} endpoints",
-	"apiDocsPage.tagCount": "{count} endpoints",
+	"apiDocsPage.summaryCount": "{count}/{total} {total|endpoint|endpoints}",
+	"apiDocsPage.tagCount": "{count} {count|endpoint|endpoints}",
 	"apiDocsPage.paramCount": "Parameters: {count}",
 };

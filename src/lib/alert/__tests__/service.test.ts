@@ -120,7 +120,7 @@ describe("alert service", () => {
 		// webhook lines already were (these were fixed English).
 		const english = await withApiCopyLocale("en", () => testAlertRule("rule_email"));
 		expect(english.deliveries).toEqual([
-			expect.objectContaining({ channel: "email", status: "sent", message: "Test email sent to 1 recipients" }),
+			expect.objectContaining({ channel: "email", status: "sent", message: "Test email sent to 1 recipient" }),
 		]);
 		expect(sendAlertEmailMock).toHaveBeenLastCalledWith(expect.objectContaining({
 			contextLines: expect.arrayContaining(["Rule: Email rule", "Metric: cpu_usage"]),

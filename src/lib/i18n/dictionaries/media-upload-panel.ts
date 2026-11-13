@@ -76,7 +76,7 @@ export const en: Record<string, string> = {
 	"mediaUploadPanel.uploading": "Uploading…",
 	"mediaUploadPanel.chunkedBadge": "Chunked",
 	"mediaUploadPanel.chunkedProgress": "Chunk {current}/{total} ({pct}%)",
-	"mediaUploadPanel.chunkedResumeNotice": "Found an unfinished upload session; skipped {skipped} already-uploaded chunks",
+	"mediaUploadPanel.chunkedResumeNotice": "Found an unfinished upload session; skipped {skipped} already-uploaded {skipped|chunk|chunks}",
 	"mediaUploadPanel.chunkedSizeHint": "Files ≥ 5 MB automatically use chunked upload with resume",
 	"mediaUploadPanel.chunkedError": "Chunked upload failed: {message}",
 };
