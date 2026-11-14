@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T06:00:47.765Z",
+  "generatedAt": "2026-11-14T14:17:20.315Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -637,6 +637,7 @@
       "declaredPermissions": [
         "ai:chat",
         "command:approve",
+        "command:create",
         "command:execute",
         "command:read",
         "team:manage"
@@ -1438,6 +1439,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "command:approve",
         "command:create",
         "command:execute",
         "command:read"
