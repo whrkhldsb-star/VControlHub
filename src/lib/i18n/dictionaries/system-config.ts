@@ -110,7 +110,7 @@ export const en: Record<string, string> = {
   "systemConfig.import.importSettingsHint": "If disabled, skips the settings table",
   "systemConfig.import.previewButton": "Preview import",
   "systemConfig.import.previewing": "Previewing…",
-  "systemConfig.import.executeButton": "Confirm import",
+  "systemConfig.import.executeButton": "Import",
   "systemConfig.import.executing": "Importing…",
   "systemConfig.import.preview.title": "Preview results",
   "systemConfig.import.preview.totalRecords": "{count} {count|record|records} will be imported",

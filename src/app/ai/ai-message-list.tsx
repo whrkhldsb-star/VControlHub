@@ -24,6 +24,7 @@ import { formatDateTime } from "@/lib/datetime/format";
 import { ActionButton } from "@/components/action-button";
 import { AlertTriangle, ArrowDown, ArrowUp, Check, Clock, Loader2, X } from "@/components/icons";
 import { Notice } from "@/components/ui-primitives";
+import { CountBadge } from "@/components/page-shell";
 import { AiCopyButton, type AiCopyLabels } from "./ai-copy-button";
 
 const EMPTY_TOOL_CONTENT = new Set([
@@ -411,8 +412,9 @@ export function AiMessageList({
       )}
       {pendingApprovals.length > 0 && (
         <div className="sticky bottom-0 z-10 border-t border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_96%,var(--surface))] px-2 py-2 shadow-[0_-8px_20px_rgba(0,0,0,0.16)] backdrop-blur sm:px-4">
-          <div className="text-xs text-[var(--warning)] font-medium mb-2">
-            {t("aiPage.pendingApprovalsTitle", { count: pendingApprovals.length })}
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium text-[var(--warning)]">
+            <span>{t("aiPage.pendingApprovalsTitle")}</span>
+            <CountBadge>{pendingApprovals.length}</CountBadge>
           </div>
           <div className="space-y-2">
             {pendingApprovals.map((approval) => (

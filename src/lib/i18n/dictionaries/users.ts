@@ -74,7 +74,7 @@ export const en: Record<string, string> = {
 	"usersPage.action.permissions": "Permissions",
 	"usersPage.action.readonly": "Read-only",
 	"usersPage.action.resetPassword": "Reset password",
-	"usersPage.action.confirmReset": "Confirm reset",
+	"usersPage.action.confirmReset": "Reset password",
 	"usersPage.action.resetting": "Resetting…",
 	"usersPage.resetPassword.title": "Reset {name}'s password",
 	"usersPage.resetPassword.desc": "The user will need to use the new password on next login.",

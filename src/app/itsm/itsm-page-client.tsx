@@ -237,7 +237,7 @@ export function ItsmPageClient({
 
 			<ConfirmDialog
 				open={pendingDelete !== null}
-				title={t("common.confirmDelete")}
+				title={t("itsmPage.confirm.deleteTitle")}
 				description={
 					pendingDelete
 						? t("itsmPage.confirm.delete", { name: pendingDelete.name })

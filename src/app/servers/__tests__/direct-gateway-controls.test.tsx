@@ -295,7 +295,7 @@ describe("server direct gateway controls", () => {
     expect(
       screen.getByLabelText("Type VPS name “prod” to confirm delete"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
   });
 
   it("offers an edit form for managed VPS nodes", async () => {

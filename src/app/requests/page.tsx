@@ -214,7 +214,7 @@ export default async function RequestsPage() {
 						</BatchReviewToolbar>
 						) : sortedRequests.length > 0 ? <EmptyState text={t("requestsPage.cmd.noActive", locale)} /> : null}
 						{handledRequests.length > 0 ? (
-							<Disclosure variant="inset" title={t("requestsPage.cmd.history", locale, { count: handledRequests.length })}>
+							<Disclosure variant="inset" title={t("requestsPage.cmd.history", locale)} count={handledRequests.length}>
 								<PaginatedList pageSize={20}>{handledRequests.map(renderRequest)}</PaginatedList>
 							</Disclosure>
 						) : null}

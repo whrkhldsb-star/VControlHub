@@ -89,7 +89,7 @@ export const en: Record<string, string> = {
 	"apiTokensPage.revoke.aria": "Revoke {name}",
 	"apiTokensPage.revoke.button": "Revoke",
 	"apiTokensPage.revoke.cancel": "Cancel",
-	"apiTokensPage.revoke.confirm": "Confirm revoke",
+	"apiTokensPage.revoke.confirm": "Revoke",
 	"apiTokensPage.revoke.confirmBody": "About to revoke token {name}. Scripts, CLIs, or external integrations will lose access immediately, and the token cannot be recovered.",
 	"apiTokensPage.revoke.confirmTitle": "Revoke this API token?",
 	"apiTokensPage.revoke.failed": "Failed to revoke the token",

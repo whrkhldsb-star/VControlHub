@@ -466,7 +466,7 @@ export const en: Record<string, string> = {
 	"vpsBackup.deleteRecordConfirm": "This removes the record and the archive stored on the hub; an offsite copy is not touched. This cannot be undone.",
 	"vpsBackup.retryRecord": "Retry backup",
 	"vpsBackup.downloadRecord": "Download backup record",
-	"vpsBackup.confirmDelete": "Confirm delete",
+	"vpsBackup.confirmDelete": "Delete",
 	"serversPage.batchPanel.title": "Batch node operations",
 	"serversPage.batchPanel.desc": "Batch disable is available for maintenance and post-audit cleanup. First-time enablement is verified per node.",
 	"serversPage.batchPanel.enableIndividual": "For SSH safety, enable nodes individually so each host fingerprint and connection is verified. Batch actions never bypass this step.",

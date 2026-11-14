@@ -56,6 +56,7 @@ export const zh: Record<string, string> = {
 	"itsmPage.toast.testOk": "出站测试成功",
 	"itsmPage.toast.testFail": "出站测试失败",
 	"itsmPage.confirm.delete": "确认删除连接“{name}”？此操作不可撤销。",
+	"itsmPage.confirm.deleteTitle": "删除连接",
 };
 
 export const en: Record<string, string> = {
@@ -115,4 +116,5 @@ export const en: Record<string, string> = {
 	"itsmPage.toast.testOk": "Outbound test succeeded",
 	"itsmPage.toast.testFail": "Outbound test failed",
 	"itsmPage.confirm.delete": "Delete connection “{name}”? This cannot be undone.",
+	"itsmPage.confirm.deleteTitle": "Delete connection",
 };

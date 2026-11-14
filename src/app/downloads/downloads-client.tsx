@@ -502,7 +502,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			</ListPanel>
 			<ConfirmDialog
 				open={pendingPurgeTaskId !== null}
-				title={t("common.confirmDelete")}
+				title={t("downloadsPage.confirm.purgeTitle")}
 				description={t("downloadsPage.confirm.purge", { name: pendingPurgeName })}
 				cancelLabel={t("common.cancel")}
 				confirmLabel={t("common.confirmDelete")}

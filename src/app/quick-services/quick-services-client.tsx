@@ -367,10 +367,10 @@ export function QuickServicesClient({
 				value={tab}
 				onChange={(value) => selectTab(value as Tab)}
 				items={[
-					{ id:"store", label: t("qsPage.tabStore", { count: localAvailable.length }) },
-					{ id:"community", label: t("qsPage.tabCommunity", { count: remoteAvailable.length }) },
-					{ id: "installed", label: t("qsPage.tabInstalled", { count: installed.length }) },
-					...(canManageHubHost ? [{ id: "sources", label: t("qsPage.tabSources", { count: sources.length }) }] : []),
+					{ id: "store", label: t("qsPage.tabStore"), badge: localAvailable.length },
+					{ id: "community", label: t("qsPage.tabCommunity"), badge: remoteAvailable.length },
+					{ id: "installed", label: t("qsPage.tabInstalled"), badge: installed.length },
+					...(canManageHubHost ? [{ id: "sources", label: t("qsPage.tabSources"), badge: sources.length }] : []),
 				]}
 			/>
 			{/* Sources management tab (extracted to <SourcesPanel /> in TR-036 T37) */}

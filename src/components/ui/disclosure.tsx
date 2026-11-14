@@ -12,9 +12,11 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/ui/cn";
 import { IconChevronDown } from "../nav-icons";
+import { CountBadge } from "../page-shell";
 
 export function Disclosure({
 	title,
+	count,
 	description,
 	children,
 	defaultOpen = false,
@@ -22,6 +24,8 @@ export function Disclosure({
 	className,
 }: {
 	title: ReactNode;
+	/** How many things the section holds, beside its title. */
+	count?: ReactNode;
 	description?: ReactNode;
 	children: ReactNode;
 	defaultOpen?: boolean;
@@ -46,9 +50,9 @@ export function Disclosure({
 				)}
 			>
 				{compact ? (
-					<span className="col-start-1 text-xs font-medium text-[var(--text-primary)]">{title}</span>
+					<span className="col-start-1 flex min-w-0 items-center gap-2 text-xs font-medium text-[var(--text-primary)]">{title}{count != null ? <>{" "}<CountBadge>{count}</CountBadge></> : null}</span>
 				) : (
-					<h2 className="ui-title-section col-start-1">{title}</h2>
+					<h2 className="ui-title-section col-start-1 flex min-w-0 items-center gap-2">{title}{count != null ? <>{" "}<CountBadge>{count}</CountBadge></> : null}</h2>
 				)}
 				{description ? <span className="col-start-1 mt-0.5 text-xs leading-5 text-[var(--text-muted)]">{description}</span> : null}
 				<IconChevronDown

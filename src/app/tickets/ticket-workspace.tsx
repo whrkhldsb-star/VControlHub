@@ -13,7 +13,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Badge, SegmentedControl } from "@/components/ui-primitives";
 import { Pagination } from "@/components/pagination";
-import { EmptyState } from "@/components/page-shell";
+import { CountBadge, EmptyState } from "@/components/page-shell";
 import { ActionButton } from "@/components/action-button";
 import { Plus } from "@/components/icons";
 
@@ -248,8 +248,9 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onC
       <div className="border-b border-[var(--border)] p-4 sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="text-sm font-semibold text-[var(--text-primary)]">
-              {t("ticketsPage.listHeader", { count: total })}
+            <div className="flex items-center gap-2">
+              <h2 className="ui-title-section">{t("ticketsPage.listHeader")}</h2>
+              <CountBadge>{total}</CountBadge>
             </div>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">
               {canManage ? t("ticketsPage.workspace.manageHint") : t("ticketsPage.workspace.personalHint")}

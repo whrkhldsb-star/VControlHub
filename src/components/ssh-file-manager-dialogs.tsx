@@ -11,5 +11,5 @@ type DeleteDialogProps = {
 };
 
 export function SshDeleteDialog({ entry, onCancel, onConfirm, t }: DeleteDialogProps) {
-  return <ConfirmDialog open={entry !== null} title={t("common.confirmDelete")} description={entry ? t("sshFileManager.confirmDelete", { name: entry.name }) : ""} cancelLabel={t("common.cancel")} confirmLabel={t("common.confirmDelete")} onCancel={onCancel} onConfirm={() => entry && onConfirm(entry)} closeOnBackdrop={false} />;
+  return <ConfirmDialog open={entry !== null} title={t(entry?.isDirectory ? "sshFileManager.deleteFolderTitle" : "sshFileManager.deleteFileTitle")} description={entry ? t("sshFileManager.confirmDelete", { name: entry.name }) : ""} cancelLabel={t("common.cancel")} confirmLabel={t("common.confirmDelete")} onCancel={onCancel} onConfirm={() => entry && onConfirm(entry)} closeOnBackdrop={false} />;
 }

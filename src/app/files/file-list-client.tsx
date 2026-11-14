@@ -609,7 +609,7 @@ function FileListBody({
                 showToast("error", error instanceof Error ? error.message : t("filePreferences.failed"));
               }
             });
-          }}>{t("common.confirm")}</ActionButton>
+          }}>{t("filesPage.drive.moveHere")}</ActionButton>
         </>}
       >
         <p className="break-all text-sm text-[var(--text-secondary)]">{t("fileOperations.confirmDrop", { count: dropMove?.ids.length ?? 0, path: dropMove?.path ?? "" })}</p>

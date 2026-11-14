@@ -82,7 +82,7 @@ describe("FileActionsProvider", () => {
 		const input = within(dialog).getByLabelText("新名称") as HTMLInputElement;
 		expect(input.value).toBe(photo.name);
 		expect([input.selectionStart, input.selectionEnd]).toEqual([0, photo.name.lastIndexOf(".")]);
-		const confirm = within(dialog).getByRole("button", { name: "确认" });
+		const confirm = within(dialog).getByRole("button", { name: "重命名" });
 		expect(confirm).toBeDisabled();
 		fireEvent.change(input, { target: { value: "a/b.png" } });
 		expect(within(dialog).getByRole("alert")).toHaveTextContent("名称不能包含");
@@ -166,14 +166,14 @@ describe("FileActionsProvider", () => {
 		renderActions();
 		fireEvent.click(screen.getByRole("button", { name: "do-delete-one" }));
 		await act(async () => {
-			fireEvent.click(screen.getByRole("button", { name: "确认" }));
+			fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 		});
 		expect(mocks.remove.mock.calls[0]![1].get("fileEntryId")).toBe("f1");
 		expect(onChanged).toHaveBeenCalledOnce();
 		fireEvent.click(screen.getByRole("button", { name: "do-delete-two" }));
 		expect(screen.getByText("确认删除选中的 2 个项目？它们会进入回收站。")).toBeVisible();
 		await act(async () => {
-			fireEvent.click(screen.getByRole("button", { name: "确认" }));
+			fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 		});
 		expect(mocks.submit).toHaveBeenCalledWith({ action: "delete", fileEntryIds: ["f1", "f2"], targetDir: ".", policy: "skip" }, expect.any(String));
 		expect(onCleared).toHaveBeenCalledOnce();
@@ -190,12 +190,12 @@ describe("FileActionsProvider", () => {
 		let dialog = screen.getByRole("dialog", { name: "重命名" });
 		fireEvent.change(within(dialog).getByLabelText("新名称"), { target: { value: "新的.png" } });
 		await act(async () => {
-			fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+			fireEvent.click(within(dialog).getByRole("button", { name: "重命名" }));
 		});
 		expect(within(dialog).getByRole("alert")).toHaveTextContent("重命名文件条目失败");
 		expect(dialog).not.toHaveTextContent("Minified React error");
 		await act(async () => {
-			fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+			fireEvent.click(within(dialog).getByRole("button", { name: "重命名" }));
 		});
 		expect(within(dialog).getByRole("alert")).toHaveTextContent("缺少权限");
 		expect(dialog).not.toHaveTextContent("Minified React error");
@@ -204,7 +204,7 @@ describe("FileActionsProvider", () => {
 		mocks.remove.mockRejectedValueOnce(redacted("2574922165"));
 		fireEvent.click(screen.getByRole("button", { name: "do-delete-one" }));
 		await act(async () => {
-			fireEvent.click(screen.getByRole("button", { name: "确认" }));
+			fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 		});
 		dialog = screen.getByRole("dialog");
 		expect(dialog).toHaveTextContent("删除文件条目失败");
@@ -237,7 +237,7 @@ describe("FileActionsProvider", () => {
 		const dialog = screen.getByRole("dialog", { name: "重命名" });
 		fireEvent.change(within(dialog).getByLabelText("新名称"), { target: { value: "新的.png" } });
 		await act(async () => {
-			fireEvent.click(within(dialog).getByRole("button", { name: "确认" }));
+			fireEvent.click(within(dialog).getByRole("button", { name: "重命名" }));
 		});
 		expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
 		expect(dialog).not.toHaveTextContent("NEXT_REDIRECT");

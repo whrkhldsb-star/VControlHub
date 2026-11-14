@@ -612,7 +612,7 @@ describe("FileListClient", () => {
 		if (action === "delete") {
 			fireEvent.click(within(bar).getByRole("button", { name: "删除" }));
 			await act(async () => {
-				fireEvent.click(screen.getByRole("button", { name: "确认" }));
+				fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 			});
 		} else {
 			fireEvent.click(within(bar).getByRole("button", { name: "移动到…" }));

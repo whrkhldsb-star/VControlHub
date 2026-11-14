@@ -294,6 +294,21 @@
 
 验证：<!--VERIFY-FE19-->
 
+## 第 20 部分：确认按钮说清做什么，数量不写进标题
+
+| 问题 | 影响 | 处理 |
+| --- | --- | --- |
+| 英文确认按钮是中文的直译 | 删除确认框的按钮在英文界面写 “Confirm delete”（13 处），其他确认框写 “Confirm revoke”“Confirm rollback”“Confirm resend”“Confirm cleanup”“Confirm void”“Confirm uninstall”“Confirm execution”“Confirm cancel” 等；英文的确认按钮通常就是动作本身 | 改为动作：“Delete”“Revoke”“Roll back”“Resend”“Clean up”“Void”“Uninstall”“Cancel command”；AI 待审批的两种按钮改为 “Create request”（生成待审批请求）和 “Approve and run”（直接执行）；双重验证的按钮改为 “Verify and enable”“Disable 2FA”；重置密码、导入配置、保存设置和保存文本的按钮改为 “Reset password”“Import”“Save changes”“Save”。行内两步确认（分享链接的“撤销”第二下）仍写 “Confirm revoke”，那里按钮本身就是问题。中文的“确认删除”“确认撤销”等不变 |
+| 只写“确认”的按钮 | 文件的删除确认框、拖放移动的确认框、回收站的永久删除、存储节点的删除和重命名对话框，按钮只写“确认”/“Confirm”，要读上面的说明才知道点了会怎样；SSH 文件管理器里新建文件夹和重命名的勾选按钮，读屏软件读到的也只是“确认” | 删除的写“确认删除”/“Delete”，拖放移动写“移动到此处”，重命名写“重命名”，新建文件夹的勾选按钮写“创建文件夹” |
+| 按钮写“确认安装”却还没有安装 | 快捷服务的安装对话框选好端口后点“确认安装”，弹出的是“确认安装配置”，里面又有一个“确认安装”；第一个按钮其实只是进入配置确认 | 第一个按钮改为“下一步”/“Next”；配置确认框的英文标题改为 “Review install settings”（更新时 “Review update settings”），按钮为 “Install”/“Update” |
+| 确认框的标题没有说删什么 | SSH 文件管理器删除文件和文件夹、备份计划、远程下载的彻底删除、ITSM 连接的确认框，标题和按钮一样是通用的“确认删除”；英文的图片、容器、应用源、定时任务和 Docker 网络、数据卷的标题是 “Confirm delete image”“Confirm container removal”“Confirm batch delete images”“Confirm delete scheduled task” 这样的直译 | 标题写出删除的对象：“删除文件”“删除文件夹”“删除备份计划”“彻底删除下载任务”“删除连接”，英文 “Delete image”“Delete selected images”“Delete container”“Delete source”“Delete scheduled task”“Delete {kind} {name}?”“Uninstall quick service” |
+| 数量写在标题的括号里 | 工单列表、已删除的客户、已处理的命令记录、工单评论、Docker 的网络和数据卷、AI 待审批操作、快捷服务的四个标签页把数量写进标题：“工单（75）”“Deleted customers (1)”“本地精选（12）”；服务器详情里 VPS 备份的“备份计划 (2)”“备份记录 (5)”在中文界面里也是半角括号。同一个界面里，列表面板的数量是标题旁的圆角数字，两种写法并存；而这个圆角数字在暗色主题下和卡片底色几乎一样，看起来是标题旁一个孤零零的数字 | 数量都用标题旁的圆角数字：新增共用的 `CountBadge`（列表面板原来的样式，加一道细边框，在卡片上也看得出是一个标记），折叠区 `Disclosure` 增加 `count`，标签页用已有的 `badge`。工单列表的标题改为二级标题“工单”。客户卡片上的 “1 storage” 改为 “1 storage node”（中文“1 个存储节点”） |
+| 健康页的几处说法 | 修复项“确认运行目录”旁边是“检查数据库连接”“核对核心服务”；“资源占用 Top 5”每行写 “CPU 40% MEM 60% DISK 87% (187)”，中文界面里也是 MEM、DISK，末尾的数字是三个百分比之和，没有说明 | 修复项改为“检查运行目录”；每行写“CPU 40% 内存 60% 磁盘 87%”，去掉没有说明的和（排序仍按它） |
+
+设计说明补上两条：确认框的标题写删除或操作的对象，确认按钮写动作本身，不写单独的“确认”，英文不写 “Confirm delete”，只是进入下一步的按钮写“下一步”；标题旁的数量用 `CountBadge`，不写进标题的括号里，命令可以写它作用于几项（“批量批准（3）”）。词条约定测试增加一条：标题词条不以带括号的 `{count}` 结尾。
+
+验证：<!--VERIFY-FE20-->
+
 ## 前端阶段小结
 
 改动都在分支 `feat/frontend-20261112` 上，每部分一个提交；第 1、2 部分已由所有者合并到 main（#87），之后的部分没有合并。界面的整体风格没有变，按 `docs/ui-system.md` 的设计系统整理，新的约定写进了 `docs/ui-system.md` 和约定测试。

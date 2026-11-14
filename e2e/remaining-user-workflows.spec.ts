@@ -135,7 +135,7 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	const enableResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/enable" && response.request().method() === "POST",
 	);
-	await section.getByRole("button", { name: /确认启用|Confirm enable/i }).click();
+	await section.getByRole("button", { name: /确认启用|Verify and enable/i }).click();
 	const enabled = await enableResponse;
 	await expectOk(enabled, "2FA enable");
 	await expect(section.locator("code")).toHaveCount(10);
@@ -170,7 +170,7 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	const disableResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/disable" && response.request().method() === "POST",
 	);
-	await section.getByRole("button", { name: /确认关闭|Confirm disable/i }).click();
+	await section.getByRole("button", { name: /确认关闭|^Disable 2FA$/i }).click();
 	const disabled = await disableResponse;
 	await expectOk(disabled, "2FA disable");
 	await expect(section.getByRole("button", { name: /开启两步验证|Enable 2FA/i })).toBeVisible();

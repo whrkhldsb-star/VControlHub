@@ -250,7 +250,7 @@ export const zh: Record<string, string> = {
 	"aiPage.confirmAction": "确认执行",
 	"aiPage.rejected": "已拒绝操作",
 	"aiPage.userDenied": "用户拒绝",
-	"aiPage.pendingApprovalsTitle": "待审批操作（{count}）",
+	"aiPage.pendingApprovalsTitle": "待审批操作",
 	"aiPage.riskLabel": "风险：",
 	"aiPage.serverLabel": "服务器：{id}",
 	"aiPage.serverNamed": "服务器：{name}（{host}）",
@@ -342,8 +342,8 @@ export const en: Record<string, string> = {
 	// client — confirm dialogs
 	"aiPage.deleteConvTitle": "Delete conversation",
 	"aiPage.deleteProviderTitle": "Delete provider",
-	"aiPage.confirmDelete": "Confirm delete",
-	"aiPage.confirmClear": "Confirm clear",
+	"aiPage.confirmDelete": "Delete",
+	"aiPage.confirmClear": "Clear",
 	"aiPage.deleteConvBody": "Delete conversation {title}? This cannot be undone.",
 	"aiPage.deleteProviderBody": "Delete provider {name}? Linked conversations will also be removed.",
 	"aiPage.clearMessagesBody": "Clear all messages in this conversation? This cannot be undone.",
@@ -353,7 +353,7 @@ export const en: Record<string, string> = {
 	"aiPage.deleteFailedFallback": "Failed to delete",
 	"aiPage.opFailed": "Operation failed",
 	"aiPage.reject": "Reject",
-	"aiPage.approve": "Confirm request",
+	"aiPage.approve": "Create request",
 
 	// client — empty state
 	"aiPage.emptySelectConv": "Select a conversation or create a new one",
@@ -536,10 +536,10 @@ export const en: Record<string, string> = {
 	// client — approval
 	"aiPage.approved": "Confirmed. A command request has been created and is waiting for approval",
 	"aiPage.confirmed": "The action was confirmed and processed",
-	"aiPage.confirmAction": "Confirm action",
+	"aiPage.confirmAction": "Approve and run",
 	"aiPage.rejected": "Operation rejected",
 	"aiPage.userDenied": "User denied",
-	"aiPage.pendingApprovalsTitle": "Pending approvals ({count})",
+	"aiPage.pendingApprovalsTitle": "Pending approvals",
 	"aiPage.riskLabel": "Risk: ",
 	"aiPage.serverLabel": "Server: {id}",
 	"aiPage.serverNamed": "Server: {name} ({host})",

@@ -161,7 +161,7 @@ export const en: Record<string, string> = {
 	"scheduledTasksPage.runNow.started": "Run started. The result will appear under recent logs.",
 	"scheduledTasks.selectTarget": "Select at least one target server",
 	"scheduledTasksPage.delete": "Delete",
-	"scheduledTasksPage.delete.title": "Confirm delete scheduled task",
+	"scheduledTasksPage.delete.title": "Delete scheduled task",
 	"scheduledTasksPage.cancel": "Cancel",
 	"scheduledTasksPage.delete.confirm": "Delete",
 	"scheduledTasksPage.create": "Create scheduled task",

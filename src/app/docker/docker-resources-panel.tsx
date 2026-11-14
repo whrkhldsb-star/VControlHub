@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ActionButton } from "@/components/action-button";
 import { Plus, RefreshCw, X } from "@/components/icons";
-import { Card } from "@/components/page-shell";
+import { Card, CountBadge } from "@/components/page-shell";
 import { FormField, IconButton, Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -301,15 +301,17 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="min-w-0">
-          <h3 className="ui-title-caption mb-2">
-            {t("dockerResources.group.networks", { count: networks.length })}
-          </h3>
+          <div className="mb-2 flex items-center gap-2">
+            <h3 className="ui-title-caption">{t("dockerResources.group.networks")}</h3>
+            <CountBadge>{networks.length}</CountBadge>
+          </div>
           {renderList("networks", networks)}
         </div>
         <div className="min-w-0">
-          <h3 className="ui-title-caption mb-2">
-            {t("dockerResources.group.volumes", { count: volumes.length })}
-          </h3>
+          <div className="mb-2 flex items-center gap-2">
+            <h3 className="ui-title-caption">{t("dockerResources.group.volumes")}</h3>
+            <CountBadge>{volumes.length}</CountBadge>
+          </div>
           {renderList("volumes", volumes)}
         </div>
       </div>

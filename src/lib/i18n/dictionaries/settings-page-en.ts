@@ -73,7 +73,7 @@ export const en: Record<string, string> = {
 	"settingsClient.confirmOriginal": "Original",
 	"settingsClient.confirmNew": "New",
 	"settingsClient.confirmCancel": "Cancel",
-	"settingsClient.confirmSaveAction": "Confirm save",
+	"settingsClient.confirmSaveAction": "Save changes",
 
 	"settingsClient.changesAria.expand": "{count} {count|change|changes} pending, expand the change list",
 	"settingsClient.changesAria.collapse": "{count} {count|change|changes} pending, collapse the change list",

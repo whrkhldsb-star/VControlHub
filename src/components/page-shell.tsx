@@ -437,6 +437,19 @@ export function StatGrid({
 /* ── ListPanel ──────────────────────────────────────────────────────── */
 
 /**
+ * How many things a list, section or group holds, beside its title: one look for every count shown that way
+ * (a list panel's, a folded section's, a group's), instead of "(8)" written into the title. The hairline keeps it
+ * a visible pill on a card, whose surface the elevated fill is barely darker than in the dark theme.
+ */
+export function CountBadge({ children }: { children: ReactNode }) {
+	return (
+		<span data-count-badge className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-px text-xs font-medium tabular-nums text-[var(--text-secondary)]">
+			{children}
+		</span>
+	);
+}
+
+/**
  * Unified list/table chrome: header + divided body.
  * Use for shares, users, audit, tokens, tickets, etc.
  */
@@ -477,11 +490,7 @@ export function ListPanel({
 									<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
 								)
 							) : null}
-							{count != null ? (
-								<span className="inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 text-xs font-medium tabular-nums text-[var(--text-secondary)]">
-									{count}
-								</span>
-							) : null}
+							{count != null ? <CountBadge>{count}</CountBadge> : null}
 						</div>
 						{description != null ? (
 							typeof description === "string" || typeof description === "number" ? (

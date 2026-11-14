@@ -52,7 +52,7 @@ describe("VpsBackupSection", () => {
       .mockResolvedValueOnce(jsonResponse(undefined))
       .mockResolvedValueOnce(jsonResponse({ schedules: [] }))
       .mockResolvedValueOnce(jsonResponse({ records: [] }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/servers/srv-1/vps-backup/schedules/sch-1", expect.objectContaining({ method: "DELETE" })));
   });
 
@@ -102,7 +102,7 @@ describe("VpsBackupSection", () => {
     const dialog = screen.getByRole("dialog", { name: "Delete backup schedule" });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "A backup of this schedule is still running" }, false));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm delete" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("A backup of this schedule is still running");
     expect(screen.getAllByText("A backup of this schedule is still running")).toHaveLength(1);
 

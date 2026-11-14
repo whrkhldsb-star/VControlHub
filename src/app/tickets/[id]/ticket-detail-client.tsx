@@ -14,6 +14,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { ArrowLeft } from "@/components/icons";
+import { CountBadge } from "@/components/page-shell";
 
 export interface TicketUser { id: string; username: string; displayName: string | null; }
 export interface TicketComment { id: string; body: string; createdAt: string; author: TicketUser; }
@@ -480,7 +481,10 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       )}
 
       <div data-card className="p-5">
-        <h3 className="ui-title-group mb-4">{t("ticketsDetail.commentsTitle", { count: ticket.comments.length })}</h3>
+        <div className="mb-4 flex items-center gap-2">
+          <h3 className="ui-title-group">{t("ticketsDetail.commentsTitle")}</h3>
+          <CountBadge>{ticket.comments.length}</CountBadge>
+        </div>
         {ticket.comments.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.commentsEmpty")}</p>
         ) : (

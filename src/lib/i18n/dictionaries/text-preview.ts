@@ -75,7 +75,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"textPreview.button.backToEdit": "Back to edit",
 	"textPreview.button.cancel": "Cancel",
-	"textPreview.button.confirmSave": "Confirm save",
+	"textPreview.button.confirmSave": "Save",
 	"textPreview.button.edit": "Edit",
 	"textPreview.button.previewSave": "Preview & save",
 	"textPreview.button.reloading": "Reloading…",

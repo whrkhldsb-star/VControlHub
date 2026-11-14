@@ -77,7 +77,7 @@ export const en: Record<string, string> = {
 	"announcementsPage.create.typeLabel": "Type",
 	"announcementsPage.delete.cancel": "Cancel",
 	"announcementsPage.delete.confirm": "Delete announcement {title}? This cannot be undone.",
-	"announcementsPage.delete.confirmBtn": "Confirm delete",
+	"announcementsPage.delete.confirmBtn": "Delete",
 	"announcementsPage.delete.deleting": "Deleting…",
 	"announcementsPage.delete.title": "Delete announcement",
 	"announcementsPage.desc": "Currently active site messages, with pinned items shown first.",

@@ -233,7 +233,7 @@ export const en: Record<string, string> = {
 	"alertRulesPage.createForm.webhookUrlKeepPlaceholder": "Configured — leave empty to keep",
 	"alertRulesPage.delete.cancel": "Cancel",
 	"alertRulesPage.delete.confirm": "Delete rule {name}? This cannot be undone.",
-	"alertRulesPage.delete.confirmBtn": "Confirm delete",
+	"alertRulesPage.delete.confirmBtn": "Delete",
 	"alertRulesPage.delete.deleting": "Deleting…",
 	"alertRulesPage.delete.title": "Delete alert rule",
 	"alertRulesPage.delivery.failed": "Failed",

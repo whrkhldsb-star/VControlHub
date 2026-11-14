@@ -181,7 +181,7 @@ describe("RequestsPage", () => {
     const history = container.querySelector("details");
     expect(history).not.toBeNull();
     expect(history).not.toHaveAttribute("open");
-    expect(history).toHaveTextContent("已处理记录（1）");
+    expect(history?.querySelector("summary")).toHaveTextContent("已处理记录 1");
     expect(history).toHaveTextContent("Rotate logs");
     expect(history).not.toHaveTextContent("Restart nginx");
     expect(screen.getAllByTestId("review-command-form")).toHaveLength(1);

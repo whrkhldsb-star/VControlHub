@@ -162,7 +162,7 @@ export const en: Record<string, string> = {
 	"templatesPage.edit.submitting": "Saving…",
 	"templatesPage.delete.cancel": "Cancel",
 	"templatesPage.delete.confirm": "Delete template {name}? This cannot be undone.",
-	"templatesPage.delete.confirm2": "Confirm delete",
+	"templatesPage.delete.confirm2": "Delete",
 	"templatesPage.delete.title": "Delete command template",
 	"templatesPage.desc": "Built-in and custom ops command templates with variable placeholders for one-click dispatch.",
 	"templatesPage.empty": "No command templates yet",

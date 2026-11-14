@@ -174,7 +174,7 @@ describe("ApiTokenManagerClient", () => {
 		render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
-		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));
+		fireEvent.click(within(dialog).getByRole("button", { name: "Revoke" }));
 
 		// In the dialog itself: on the page behind it the reason was covered.
 		expect(await within(dialog).findByText("Database temporarily unavailable")).toBeInTheDocument();
@@ -192,7 +192,7 @@ describe("ApiTokenManagerClient", () => {
 		render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
-		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));
+		fireEvent.click(within(dialog).getByRole("button", { name: "Revoke" }));
 
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/api-tokens?id=tok_1", expect.objectContaining({
 			method: "DELETE",

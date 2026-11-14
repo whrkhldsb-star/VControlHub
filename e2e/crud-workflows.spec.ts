@@ -122,7 +122,7 @@ test("API token create, plaintext display and revoke", async ({ page }) => {
 	await expect(page.getByText(marker, { exact: true })).toBeVisible();
 	await page.getByRole("button", { name: new RegExp(`撤销.*${marker}|Revoke.*${marker}`, "i") }).click();
 	const dialog = page.getByRole("dialog", { name: /确认撤销|Revoke this API token/i });
-	await dialog.getByRole("button", { name: /确认撤销|Confirm revoke/i }).click();
+	await dialog.getByRole("button", { name: /^(确认撤销|Revoke)$/i }).click();
 	await expect(page.getByText(/已撤销|Revoked/i).last()).toBeVisible();
 });
 
@@ -218,7 +218,7 @@ test("user create, password reset, disable and enable", async ({ page }) => {
 	await row.getByRole("button", { name: /重置密码|Reset password/i }).click();
 	const dialog = page.getByRole("dialog");
 	await dialog.locator('input[type="password"]').fill("Qa-User-2026!reset");
-	await dialog.getByRole("button", { name: /确认重置|Confirm reset/i }).click();
+	await dialog.getByRole("button", { name: /确认重置|^Reset password$/i }).click();
 	await row.getByRole("button", { name: /禁用|Disable/i }).click();
 	// Disabling ends the account's sessions at once, so it asks first.
 	await confirmInDialog(page, /禁用账号|Disable account/i, /^(?:禁用|Disable)$/i);
@@ -241,6 +241,6 @@ test("backup schedule create, pause and delete without running backup", async ({
 	await item.getByRole("button", { name: /^(?:暂停|Pause)$/i }).click();
 	await expect(item.getByRole("button", { name: /^(?:恢复|Resume)$/i })).toBeVisible();
 	await item.getByRole("button", { name: /删除|Delete/i }).click();
-	await page.getByRole("dialog", { name: /确认删除|Confirm delete/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await page.getByRole("dialog", { name: /删除备份计划|Delete backup schedule/i }).getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });

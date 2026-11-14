@@ -401,7 +401,7 @@ function DeleteDialog({ targets, onClose, onDone, onQueued }: {
 			title={t("common.delete")}
 			description={description}
 			cancelLabel={t("common.cancel")}
-			confirmLabel={t("common.confirm")}
+			confirmLabel={t("common.confirmDelete")}
 			onCancel={onClose}
 			onConfirm={() => void confirm()}
 			busy={busy}

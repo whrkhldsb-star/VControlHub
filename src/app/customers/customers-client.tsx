@@ -179,7 +179,7 @@ export function CustomersClient() {
 			</ListPanel>
 
 			{deletedCustomers.length > 0 && (
-				<Disclosure title={t("customersPage.deletedTitle", { count: deletedCustomers.length })} description={t("customersPage.deletedHint")}>
+				<Disclosure title={t("customersPage.deletedTitle")} count={deletedCustomers.length} description={t("customersPage.deletedHint")}>
 					<ul className="divide-y divide-[var(--border-subtle)]">
 						{deletedCustomers.map((customer) => (
 							<li key={customer.id} className="flex flex-wrap items-center justify-between gap-3 py-3">

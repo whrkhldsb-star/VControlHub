@@ -189,7 +189,7 @@ export const en: Record<string, string> = {
 	"playbooksPage.createForm.triggerType": "Trigger type",
 	"playbooksPage.delete.cancel": "Cancel",
 	"playbooksPage.delete.confirm": "Delete playbook {name}? Existing runs are preserved but the playbook will no longer be triggered.",
-	"playbooksPage.delete.confirmBtn": "Confirm delete",
+	"playbooksPage.delete.confirmBtn": "Delete",
 	"playbooksPage.delete.title": "Delete playbook",
 	"playbooksPage.desc": "Chain multiple steps (run command, send notification, call webhook) into a reusable automation playbook triggered on a schedule or metric threshold.",
 	"playbooksPage.empty": "No playbooks yet",

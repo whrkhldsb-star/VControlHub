@@ -78,17 +78,17 @@ describe("ScheduleBackupForm", () => {
 
     await screen.findByText("每日数据库备份");
     await user.click(screen.getAllByRole("button", { name: "删除" }).at(-1)! as HTMLElement);
-    const dialog = await screen.findByRole("dialog", { name: "确认删除" });
+    const dialog = await screen.findByRole("dialog", { name: "删除备份计划" });
     await user.click(within(dialog).getByRole("button", { name: "确认删除" }));
 
     // In the dialog that asked, not under the form behind it.
     expect(await within(dialog).findByText("删除失败：仍有运行中的任务")).toBeVisible();
-    expect(screen.getByRole("dialog", { name: "确认删除" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "删除备份计划" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "确认删除" })).toBeEnabled();
 
     // Cancelled and asked again: the earlier failure is not shown for the new question.
     await user.click(within(dialog).getByRole("button", { name: "取消" }));
     await user.click(screen.getAllByRole("button", { name: "删除" }).at(-1)! as HTMLElement);
-    expect(within(await screen.findByRole("dialog", { name: "确认删除" })).queryByText("删除失败：仍有运行中的任务")).toBeNull();
+    expect(within(await screen.findByRole("dialog", { name: "删除备份计划" })).queryByText("删除失败：仍有运行中的任务")).toBeNull();
   });
 });

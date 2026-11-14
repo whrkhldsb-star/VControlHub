@@ -198,7 +198,7 @@ export const en: Record<string, string> = {
 
 	// Rollback button (TR-026 unified feedback)
 	"deploymentsPage.rollback.triggerBtn": "Execute real rollback",
-	"deploymentsPage.rollback.confirmBtn": "Confirm rollback",
+	"deploymentsPage.rollback.confirmBtn": "Roll back",
 	"deploymentsPage.rollback.submitting": "Submitting…",
 	"deploymentsPage.rollback.confirmWarning": "Confirm rollback for deployment “{name}”? This will go through the approval flow and execute the rollback command from the snapshot on the target VPS.",
 	"deploymentsPage.rollback.reason": "Real rollback: {name}",
@@ -207,7 +207,7 @@ export const en: Record<string, string> = {
 
 	// Resend button (TR-026 unified feedback)
 	"deploymentsPage.resend.triggerBtn": "Resend from this record",
-	"deploymentsPage.resend.confirmBtn": "Confirm resend",
+	"deploymentsPage.resend.confirmBtn": "Resend",
 	"deploymentsPage.resend.confirmWarning": "Resend this deployment from the selected record? A new run will be created and may enter the approval flow.",
 	"deploymentsPage.resend.reasonLatest": "Resubmit deployment: {name}",
 	"deploymentsPage.resend.reasonFromRecord": "Rollback resend: {name}",

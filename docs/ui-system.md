@@ -85,6 +85,12 @@ checks the token file; `npm run ui:check` runs axe on every component state.
   at the call site.
 - **`ListPanel` / `ListRow`** — titled list with count, actions and hairline
   rows; pass `empty` for the empty state.
+- **`CountBadge`** — how many things a list, section or group holds, beside
+  its title. `ListPanel` (`count`) and `Disclosure` (`count`) draw it
+  themselves; a tab's count is its `badge`. Never "工单（75）" or
+  "Tickets (75)" written into the title (a convention test fails on a
+  title entry ending in a bracketed `{count}`); a command may say how many
+  things it acts on ("批量批准（3）").
 - **`SurfacePanel`** — titled card for create forms and secondary blocks.
 - **`MetricPanel`** — a group of related figures in one card;
   **`StatGrid` / `StatCard`** — headline numbers under a page header. A
@@ -159,7 +165,13 @@ Field labels use `UI_LABEL` (= `ui-label`).
   runs), `placement="sheet"` for a bottom sheet on phones.
 - **`ConfirmDialog`** — destructive or important confirmations. Pass `busy`
   while the request runs and `error` when it is refused: the dialog stays
-  open and shows the reason inside; close it only on success.
+  open and shows the reason inside; close it only on success. Its title
+  names what goes ("删除备份计划", "Delete backup schedule"); its confirm
+  button says the act: "确认删除" / "Delete", "确认撤销" / "Revoke", "重命名" /
+  "Rename" — not a bare "确认" / "Confirm", and in English not "Confirm
+  delete". A step that only leads to the next dialog says so ("下一步" /
+  "Next"). An inline two-step button may say "Confirm revoke" in its second
+  state, where the question is the button itself.
 - **`ModalShell`** — the primitive underneath, for custom layouts:
   `size` `sm` (24rem) · `md` (28rem, default) · `lg` (32rem) · `xl` (42rem) ·
   `2xl` (48rem) · `full` (64rem); `placement` `center` · `top` (tall,

@@ -183,6 +183,21 @@ describe("what the dictionaries say", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	// "工单（75）", "Deleted customers (1)": a count beside a title is a count badge (ListPanel's count, Disclosure's
+	// count, a tab's badge, CountBadge), not part of the title's words. A command may say how many things it acts on.
+	it("keeps counts out of titles", () => {
+		const commands = new Set([
+			"requestsPage.batch.selectAll",
+			"requestsPage.batch.approve",
+			"requestsPage.batch.reject",
+			"operationTasksPage.task.viewEvents",
+		]);
+		const offenders = [...Object.entries(all.zh), ...Object.entries(all.en)]
+			.filter(([key, value]) => !commands.has(key) && /[（(]\{count\}[）)]$/.test(value))
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(offenders).toEqual([]);
+	});
+
 	it("has no empty sentence and no Chinese left in the English ones", () => {
 		expect(Object.entries(all.zh).filter(([, value]) => value === "").map(([key]) => key)).toEqual([]);
 		expect(Object.entries(all.en).filter(([, value]) => value === "").map(([key]) => key)).toEqual([]);

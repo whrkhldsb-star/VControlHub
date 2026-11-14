@@ -38,7 +38,7 @@ describe("config import preview identity", () => {
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Preview import" })); });
     expect(JSON.parse(String(vi.mocked(csrfFetch).mock.calls[0]![1]?.body)).file.marker).toBe("new");
     upload("third.json");
-    expect(screen.queryByRole("button", { name: "Confirm import" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview import" })).not.toBeInTheDocument();
   });
 
@@ -53,7 +53,7 @@ describe("config import preview identity", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /Overwrite existing/ }));
     expect(signal?.aborted).toBe(true);
     await act(async () => { resolve({ preview }); });
-    expect(screen.queryByRole("button", { name: "Confirm import" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Preview import" })).toBeEnabled();
   });
 
@@ -64,12 +64,12 @@ describe("config import preview identity", () => {
     upload("config.json");
     act(() => readers[0]!.complete("current"));
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Preview import" })); });
-    fireEvent.click(screen.getByRole("button", { name: "Confirm import" }));
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
     expect(screen.getByLabelText("Select .vch.json file")).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: /Overwrite existing/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Preview import" })).toBeDisabled();
     await act(async () => { resolve({ result: { created: 1, updated: 0, skipped: 0 } }); });
-    expect(screen.queryByRole("button", { name: "Confirm import" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Import complete");
     expect(csrfFetch).toHaveBeenCalledTimes(2);
   });

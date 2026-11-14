@@ -204,10 +204,10 @@ describe("DownloadsClient", () => {
     await actor.click(screen.getByRole("button", { name: "删除记录" }));
 
     expect(confirmSpy).not.toHaveBeenCalled();
-    const dialog = await screen.findByRole("dialog", { name: "确认删除" });
+    const dialog = await screen.findByRole("dialog", { name: "彻底删除下载任务" });
     expect(dialog).toHaveTextContent("确认彻底删除下载任务“a.iso”的记录？此操作不可撤销。");
     await actor.click(within(dialog).getByRole("button", { name: "取消" }));
-    expect(screen.queryByRole("dialog", { name: "确认删除" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "彻底删除下载任务" })).not.toBeInTheDocument();
     expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(csrfFetch)).not.toHaveBeenCalledWith(
       "/api/downloads?taskId=dl_1&purge=1",
@@ -236,7 +236,7 @@ describe("DownloadsClient", () => {
     expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
     await actor.click(screen.getByRole("button", { name: "删除记录" }));
     expect(confirmSpy).not.toHaveBeenCalled();
-    await actor.click(within(await screen.findByRole("dialog", { name: "确认删除" })).getByRole("button", { name: "确认删除" }));
+    await actor.click(within(await screen.findByRole("dialog", { name: "彻底删除下载任务" })).getByRole("button", { name: "确认删除" }));
 
     expect(vi.mocked(csrfFetch)).toHaveBeenCalledWith(
       "/api/downloads?taskId=dl_1&purge=1",

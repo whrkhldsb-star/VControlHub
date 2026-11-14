@@ -80,7 +80,7 @@ export const en: Record<string, string> = {
 	"snippetsPage.action.delete": "Delete",
 	"snippetsPage.deleteDialog.title": "Delete snippet",
 	"snippetsPage.deleteDialog.body": "Delete this snippet? This cannot be undone.",
-	"snippetsPage.deleteDialog.confirm": "Confirm",
+	"snippetsPage.deleteDialog.confirm": "Delete",
 	"snippetsPage.deleteDialog.cancel": "Cancel",
 	"snippetsPage.deleteDialog.deleting": "Deleting…",
 	"snippetsPage.toast.saved": "Snippet saved",

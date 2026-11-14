@@ -115,7 +115,6 @@ export function FleetResourceSummary({
 						{t("healthPage.fleet.top5")}
 					</p>
 					{top5.map((s, i) => {
-						const score = (s.cpu ?? 0) + (s.mem ?? 0) + (s.diskMax ?? 0);
 						return (
 							<div key={s.serverId} className="flex items-center gap-2 text-xs">
 								<span className="w-4 text-[var(--text-muted)]">{i + 1}.</span>
@@ -123,9 +122,8 @@ export function FleetResourceSummary({
 									{s.serverName}
 								</span>
 								<span className={usageColor(s.cpu)}>CPU {s.cpu ?? "-"}%</span>
-								<span className={usageColor(s.mem)}>MEM {s.mem ?? "-"}%</span>
-								<span className={usageColor(s.diskMax)}>DISK {s.diskMax ?? "-"}%</span>
-								<span className="text-[var(--text-muted)]">({score})</span>
+								<span className={usageColor(s.mem)}>{t("healthPage.ui.memory")} {s.mem ?? "-"}%</span>
+								<span className={usageColor(s.diskMax)}>{t("healthPage.ui.disk")} {s.diskMax ?? "-"}%</span>
 							</div>
 						);
 					})}

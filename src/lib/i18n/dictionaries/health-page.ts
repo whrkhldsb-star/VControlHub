@@ -105,7 +105,7 @@ export const zh: Record<string, string> = {
 	"healthPage.repair.db.action": "验证 DATABASE_URL、数据库进程和 Prisma 连接",
 
 	// Repair: runtime
-	"healthPage.repair.runtime.label": "确认运行目录",
+	"healthPage.repair.runtime.label": "检查运行目录",
 	"healthPage.repair.runtime.descriptionWarning": "部署目录或缓存目录可能缺失，建议补齐并复查权限。",
 	"healthPage.repair.runtime.action": "检查 storage / uploads / downloads / backups / logs / tmp",
 
@@ -277,7 +277,7 @@ export const en: Record<string, string> = {
 	"healthPage.repair.db.action": "Verify DATABASE_URL, database process, and Prisma connectivity",
 
 	// Repair: runtime
-	"healthPage.repair.runtime.label": "Confirm runtime directories",
+	"healthPage.repair.runtime.label": "Check runtime directories",
 	"healthPage.repair.runtime.descriptionWarning": "Deployment or cache directories may be missing; create them and recheck ownership.",
 	"healthPage.repair.runtime.action": "Check storage / uploads / downloads / backups / logs / tmp",
 

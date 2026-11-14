@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-14T07:01:53.434Z",
+  "generatedAt": "2026-11-14T09:33:57.795Z",
   "summary": {
-    "files": 465,
+    "files": 468,
     "filesWithStrings": 0,
     "totalStrings": 0,
     "coveredStrings": 0,
@@ -321,6 +321,13 @@
     },
     "src/app/announcements/announcement-list-client.tsx": {
       "path": "src/app/announcements/announcement-list-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/announcements/announcements-page-client.tsx": {
+      "path": "src/app/announcements/announcements-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1392,6 +1399,13 @@
     },
     "src/app/itsm/error.tsx": {
       "path": "src/app/itsm/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/itsm/itsm-connection-form.tsx": {
+      "path": "src/app/itsm/itsm-connection-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2701,6 +2715,13 @@
     },
     "src/app/tickets/ticket-workspace.tsx": {
       "path": "src/app/tickets/ticket-workspace.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/tickets/tickets-page-client.tsx": {
+      "path": "src/app/tickets/tickets-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

@@ -322,7 +322,7 @@ export function ScheduleBackupForm() {
 					</div>
 				)}
 			</div>
-			<ConfirmDialog open={pendingDeleteId !== null} title={t("common.confirmDelete")} description={t("backupsPage.schedule.deleteConfirm", { name: schedules.find((s) => s.id === pendingDeleteId)?.name ?? "" })} cancelLabel={t("common.cancel")} confirmLabel={t("common.confirmDelete")} onCancel={() => setPendingDeleteId(null)} onConfirm={() => pendingDeleteId && void deleteSchedule(pendingDeleteId)} busy={pendingDeleteId !== null && rowActionId === pendingDeleteId} error={deleteError ?? undefined} />
+			<ConfirmDialog open={pendingDeleteId !== null} title={t("backupsPage.schedule.deleteTitle")} description={t("backupsPage.schedule.deleteConfirm", { name: schedules.find((s) => s.id === pendingDeleteId)?.name ?? "" })} cancelLabel={t("common.cancel")} confirmLabel={t("common.confirmDelete")} onCancel={() => setPendingDeleteId(null)} onConfirm={() => pendingDeleteId && void deleteSchedule(pendingDeleteId)} busy={pendingDeleteId !== null && rowActionId === pendingDeleteId} error={deleteError ?? undefined} />
 		</div>
 	);
 }
