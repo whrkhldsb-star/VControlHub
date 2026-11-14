@@ -14,6 +14,8 @@ interface SidebarProps {
   showSidebar: boolean;
   conversations: ConvItem[];
   activeConvId: string | null;
+  /** No conversation is open: the sidebar's title is the page's heading. An open conversation is headed by its own title. */
+  namesPage: boolean;
   onNewConv: () => void;
   onSelectConv: (id: string) => void;
   onDeleteConv: (id: string) => void;
@@ -25,6 +27,7 @@ export function AiSidebar({
   showSidebar,
   conversations,
   activeConvId,
+  namesPage,
   onNewConv,
   onSelectConv,
   onDeleteConv,
@@ -32,6 +35,7 @@ export function AiSidebar({
   onToggleProviders,
 }: SidebarProps) {
   const { t } = useI18n();
+  const Title = namesPage ? "h1" : "h2";
   // Client-side title filter — conversation counts here are personal-scale,
   // no server round-trip needed.
   const [filter, setFilter] = useState("");
@@ -54,7 +58,7 @@ export function AiSidebar({
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
               <p className="text-xs font-semibold text-[var(--accent)]">AI</p>
-              <h2 className="ui-title-section">{t("aiPage.sidebarTitle")}</h2>
+              <Title className="ui-title-section">{t("aiPage.sidebarTitle")}</Title>
             </div>
             <ActionButton icon={<Plus size={16} aria-hidden />} size="sm" variant="primary"
               onClick={onNewConv}

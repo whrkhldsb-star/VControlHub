@@ -50,8 +50,6 @@ export const zh: Record<string, string> = {
 	"filesPage.syncJobs.deleteOrphansOn": "删除多余文件",
 	"filesPage.syncJobs.deleteOrphansHint": "镜像模式下把源端没有的文件从目标端删除；系统目录会被拒绝。",
 	"filesPage.syncJobs.refresh": "刷新",
-	"filesPage.webdav.title": "WebDAV 接入",
-	"filesPage.webdav.description": "用 API Token 把存储节点挂到 Finder / Cyberduck / rclone 等客户端。",
 	"filesPage.webdav.help": "选择 LOCAL/SFTP 节点后复制 URL。认证使用 Bearer API Token，或 Basic（密码填 Token）。权限仍走用户角色与路径授权。",
 	"filesPage.webdav.selectNode": "存储节点",
 	"filesPage.webdav.pickNode": "请选择节点",
@@ -237,8 +235,6 @@ export const en: Record<string, string> = {
 	"filesPage.syncJobs.deleteOrphansHint": "In mirror mode, files the source no longer has are removed from the target; system directories are refused.",
 	"filesPage.syncJobs.refresh": "Refresh",
 
-	"filesPage.webdav.title": "WebDAV access",
-	"filesPage.webdav.description": "Mount a storage node in Finder / Cyberduck / rclone with an API token.",
 	"filesPage.webdav.help": "Pick a LOCAL/SFTP node and copy the URL. Authenticate with Bearer API token, or Basic (password = token). RBAC and path grants still apply.",
 	"filesPage.webdav.selectNode": "Storage node",
 	"filesPage.webdav.pickNode": "Select a node",

@@ -374,6 +374,7 @@ export function AiClient({
         showSidebar={showSidebar}
         conversations={conversations}
         activeConvId={activeConvId}
+        namesPage={!activeConv}
         onNewConv={() =>
           requestSettingsAction(() => {
             setShowSettings(false);
@@ -490,6 +491,7 @@ export function AiClient({
         ) : (
           <AiEmptyState
             hasProviders={providers.length > 0}
+            sidebarShown={showSidebar}
             onOpenProviders={() => setShowProviders(true)}
             onNewConv={handleNewConv}
             onOpenSidebar={() => setShowSidebar(true)}

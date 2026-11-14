@@ -456,7 +456,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			/>
 
 			<ListPanel
-				title={t("downloadsPage.header.title")}
+				title={t("downloadsPage.list.title")}
 				count={loading ? "…" : filteredTasks.length}
 				empty={
 					loading ? (

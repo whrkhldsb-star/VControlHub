@@ -72,7 +72,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"customersPage.eyebrow": "Platform",
-	"customersPage.title": "Customers",
+	"customersPage.title": "Customer management",
 	"customersPage.description": "Each customer's servers, storage and data are isolated. Create customers and manage their accounts and identity templates here.",
 	"customersPage.create": "New customer",
 	"customersPage.createHint": "A new customer gets its own local storage; create its accounts under Users afterwards.",

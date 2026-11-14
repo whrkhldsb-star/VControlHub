@@ -144,7 +144,7 @@ export const en: Record<string, string> = {
 	"serversPage.stat.storage": "Storage bound",
 	"serversPage.stat.total": "Total nodes",
 	"serversPage.autoProbe.saveFailed": "Failed to save auto-probe preference",
-	"serversPage.title": "VPS management",
+	"serversPage.title": "Servers",
 	"serversPage.tabs.overview": "VPS overview",
 	"serversPage.tabs.command": "Run command",
 	"serversPage.tabs.addVps": "Add VPS",

@@ -824,7 +824,7 @@ LOCAL 和满足远端工具条件的 SFTP 目录可下载动态生成的 `tar.gz
 
 媒体记录通常与源文件关联。外部移动／删除源文件、节点离线或撤销路径授权都可能影响播放。当前没有宣称通用实时转码或所有视频编码兼容，播放能力以浏览器支持为准。
 
-### 8.3 图片外链中心
+### 8.3 图片外链
 
 入口：`/image-bed`。
 
@@ -2181,7 +2181,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/files/sync`](../src/app/files/sync/page.tsx) | 文件同步 | [双向／镜像任务、调度和报告](#sharing-sync) |
 | [`/files/webdav`](../src/app/files/webdav/page.tsx) | WebDAV 接入 | [节点挂载地址和 Token 认证说明](#sharing-sync) |
 | [`/health`](../src/app/health/page.tsx) | 平台健康 | [平台自检、修复建议与相关健康视图](#observability) |
-| [`/image-bed`](../src/app/image-bed/page.tsx) | 图片外链中心 | [外链复制、公开状态、相册和批量管理](#media-downloads) |
+| [`/image-bed`](../src/app/image-bed/page.tsx) | 图片外链 | [外链复制、公开状态、相册和批量管理](#media-downloads) |
 | [`/itsm`](../src/app/itsm/page.tsx) | ITSM／IM 集成 | [连接、双向事件、签名及出站测试](#collaboration) |
 | [`/knowledge`](../src/app/knowledge/page.tsx) | 知识库 | [知识库、文档入库、切块与检索试跑](#ai) |
 | [`/login`](../src/app/login/page.tsx) | 登录 | [密码登录与会话建立](#permissions) |

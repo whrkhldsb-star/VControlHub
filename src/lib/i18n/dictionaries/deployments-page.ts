@@ -135,7 +135,7 @@ export const en: Record<string, string> = {
 	"deploymentsPage.launch.variablesTitle": "Template variables",
 
 	"deploymentsPage.page.eyebrow": "Deploy",
-	"deploymentsPage.page.title": "Application deployment",
+	"deploymentsPage.page.title": "App deployment",
 	"deploymentsPage.page.description": "Pick a template → fill variables → pick target VPS → submit for approval → run automatically.",
 	"deploymentsPage.page.howItWorks.title": "How it works",
 	"deploymentsPage.page.howItWorks.step1.title": "1. Create a template",

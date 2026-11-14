@@ -253,7 +253,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         </Notice>
       ) : null}
       <ListPanel
-        title={t("snippetsPage.pageTitle")}
+        title={t("snippetsPage.list.title")}
         count={filtered.length}
         empty={
           filtered.length === 0 ? (

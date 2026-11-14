@@ -15,6 +15,8 @@ import { Chip } from "@/components/ui-primitives";
 import type { SlashCommandId } from "./ai-types";
 type Props = {
   hasProviders: boolean;
+  /** The conversation sidebar is open, and its title is the page's heading. */
+  sidebarShown: boolean;
   onOpenProviders: () => void;
   onNewConv: () => void;
   onOpenSidebar: () => void;
@@ -29,6 +31,7 @@ const EXAMPLE_IDS: readonly SlashCommandId[] = ["status", "logs", "disk", "traff
 
 export function AiEmptyState({
   hasProviders,
+  sidebarShown,
   onOpenProviders,
   onNewConv,
   onOpenSidebar,
@@ -59,11 +62,14 @@ export function AiEmptyState({
             />
           </svg>
         </div>
+        {/* The page is the AI assistant, and what it lacks is said under that heading: the sidebar's title
+            names the page, and while the sidebar is closed (phones) this one does. */}
+        {!sidebarShown && <h1 className="sr-only">{t("aiPage.sidebarTitle")}</h1>}
         {!hasProviders ? (
           <>
-            <h1 className="ui-title-page">
+            <h2 className="ui-title-page">
               {t("aiPage.emptyNoProvider")}
-            </h1>
+            </h2>
             <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
               {t("aiPage.emptyNoProviderHint")}
             </p>
@@ -76,7 +82,7 @@ export function AiEmptyState({
           </>
         ) : (
           <>
-            <h1 className="ui-title-page mb-4">{t("aiPage.emptySelectConv")}</h1>
+            <h2 className="ui-title-page mb-4">{t("aiPage.emptySelectConv")}</h2>
             <p className="mb-4 text-xs leading-5 text-[var(--text-muted)]">{t("aiPage.capabilityHint")}</p>
             {onExample && (
               <div className="mb-4 flex flex-wrap justify-center gap-2">

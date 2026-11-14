@@ -269,7 +269,7 @@ export function PlaybookListClient({
       )}
 
       <ListPanel
-        title={t("playbooksPage.title")}
+        title={t("playbooksPage.list.title")}
         count={playbooks.length}
         empty={
           playbooks.length === 0 ? (

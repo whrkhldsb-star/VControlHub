@@ -11,7 +11,7 @@ const conversation = {
   title: "生产排障助手",
 } as ConvItem;
 
-function renderSidebar(matchesMobile: boolean) {
+function renderSidebar(matchesMobile: boolean, activeConvId: string | null = null) {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn().mockReturnValue({ matches: matchesMobile }),
@@ -22,7 +22,8 @@ function renderSidebar(matchesMobile: boolean) {
     <AiSidebar
       showSidebar
       conversations={[conversation]}
-      activeConvId={null}
+      activeConvId={activeConvId}
+      namesPage={activeConvId === null}
       onNewConv={vi.fn()}
       onSelectConv={onSelectConv}
       onDeleteConv={vi.fn()}
@@ -54,5 +55,16 @@ describe("AiSidebar", () => {
 
     expect(onSelectConv).toHaveBeenCalledWith("conv-1");
     expect(onToggleSidebar).not.toHaveBeenCalled();
+  });
+
+  it("names the page while no conversation is open", () => {
+    renderSidebar(false);
+    expect(screen.getByRole("heading", { level: 1, name: "AI 助手" })).toBeInTheDocument();
+  });
+
+  it("gives the page's heading to an open conversation's title", () => {
+    renderSidebar(false, "conv-1");
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "AI 助手" })).toBeInTheDocument();
   });
 });

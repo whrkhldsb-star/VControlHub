@@ -332,7 +332,7 @@ export const zh: Record<string, string> = {
 	"permission.user.manage": "管理用户",
 	"permission.user.read": "查看用户",
 	"permissionDomain.announcement": "公告",
-	"permissionDomain.api-token": "API 令牌",
+	"permissionDomain.api-token": "API Token",
 	"permissionDomain.audit": "审计",
 	"permissionDomain.ai": "AI",
 	"permissionDomain.backup": "备份",
