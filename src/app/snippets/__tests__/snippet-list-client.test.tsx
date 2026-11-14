@@ -27,7 +27,7 @@ const snippets = [
 function renderList() {
   return render(
     <ToastProvider>
-      <SnippetList snippets={snippets} />
+      <SnippetList snippets={snippets} header={{ title: "代码片段库" }} />
     </ToastProvider>,
   );
 }
@@ -76,13 +76,12 @@ describe("SnippetList", () => {
     expect(screen.queryByText("部署脚本")).not.toBeInTheDocument();
   });
 
-  it("renders the filtered snippet count using the i18n template", () => {
+  it("says how many snippets it shows once, beside the list's title", () => {
     renderList();
-    // The snippetsPage.count template is "{count} 条" — assert the rendered
-    // span contains the count number followed by the Chinese counter, so a
-    // hardcoded fallback ("1 条") would still pass but a missing t() key would
-    // surface as the raw key string "{count} 条" in production.
-    expect(screen.getByText("1 条")).toBeInTheDocument();
+    // The toolbar repeated it as "1 条" next to the list's own count.
+    expect(screen.getByRole("heading", { name: "代码片段" }).parentElement).toHaveTextContent("1");
+    expect(screen.queryByText("1 条")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("按语言过滤")).toHaveValue("ALL");
   });
 
   it("uses an accessible confirmation dialog instead of native confirm before deleting", async () => {

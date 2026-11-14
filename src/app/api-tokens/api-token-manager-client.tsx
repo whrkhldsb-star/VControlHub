@@ -1,7 +1,7 @@
 "use client";
-import { EmptyState, StatCard } from "@/components/page-shell";
+import { EmptyState, ListPanel, ListRow, PageHeader, StatCard, StatGrid, SurfacePanel } from "@/components/page-shell";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
@@ -10,9 +10,10 @@ import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Badge, CheckboxField, FormField, FormGrid, Notice } from "@/components/ui-primitives";
+import { Plus } from "@/components/icons";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { copyText } from "@/lib/ui/clipboard";
-import { clearIfUnchanged } from "@/lib/ui/form-draft";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 export type SafeApiToken = {
   id: string;
@@ -29,12 +30,16 @@ export type SafeApiToken = {
 };
 
 type Props = {
+  /** Page header; rendered here so the create command sits in its actions. */
+  header?: { eyebrow?: string; title: string; description?: string };
   initialTokens: SafeApiToken[];
   allowedScopes: readonly string[];
   currentCustomerName: string | null;
 };
 
-function tokenStatus(t: (k: string, vars?: Record<string, string | number>) => string, token: SafeApiToken) {
+type Translate = (k: string, vars?: Record<string, string | number>) => string;
+
+function tokenStatus(t: Translate, token: SafeApiToken) {
   if (token.revokedAt) return { label: t("apiTokensPage.status.revoked"), tone: "danger" as StatusTone };
   if (token.expiresAt && new Date(token.expiresAt).getTime() <= Date.now()) {
     return { label: t("apiTokensPage.status.expired"), tone: "warning" as StatusTone };
@@ -42,28 +47,35 @@ function tokenStatus(t: (k: string, vars?: Record<string, string | number>) => s
   return { label: t("apiTokensPage.status.active"), tone: "success" as StatusTone };
 }
 
-function scopeLabel(t: (k: string, vars?: Record<string, string | number>) => string, scope: string): string {
+function scopeLabel(t: Translate, scope: string): string {
   const translated = t(`apiTokensPage.scope.${scope}`);
   return translated === `apiTokensPage.scope.${scope}` ? scope : translated;
 }
 
-export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCustomerName }: Props) {
-  const { t, locale } = useI18n();
-  const [tokens, setTokens] = useState(initialTokens);
+/**
+ * The fields of a new token; its panel (title, card) is the page's. A refusal is said here; a created token closes
+ * the form and its plaintext is shown once, above it.
+ */
+function ApiTokenCreateForm({ allowedScopes, currentCustomerName, onCreated, onClose }: {
+  allowedScopes: readonly string[];
+  currentCustomerName: string | null;
+  /** `close` is false when the fields were changed while the token was being created: a next one is being written. */
+  onCreated: (apiToken: SafeApiToken, plaintext: string, close: boolean) => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<string[]>(["read"]);
   const [expiresAt, setExpiresAt] = useState("");
+  // What the fields hold now, read when the request answers (they stay editable while it runs).
+  const latest = useRef({ name, expiresAt, scopes: selectedScopes });
+  useEffect(() => {
+    latest.current = { name, expiresAt, scopes: selectedScopes };
+  }, [name, expiresAt, selectedScopes]);
   const [submitting, setSubmitting] = useState(false);
-  const [revokingId, setRevokingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [createdPlaintext, setCreatedPlaintext] = useState<string | null>(null);
-  // The plaintext is shown once: whether the copy worked has to be said.
-  const [copyOutcome, setCopyOutcome] = useState<"copied" | "failed" | null>(null);
-  // A refused revoke is explained in its dialog: on the page it was covered by the dialog.
-  const [revokeError, setRevokeError] = useState<string | null>(null);
-  const [tokenPendingRevoke, setTokenPendingRevoke] = useState<SafeApiToken | null>(null);
-
-  const activeCount = useMemo(() => tokens.filter((token) => !token.revokedAt).length, [tokens]);
+  const dirty = name !== "" || expiresAt !== "" || selectedScopes.join() !== "read";
+  const { requestDiscard, discardDialog } = useUnsavedChangesGuard({ dirty, onDiscard: onClose });
 
   const toggleScope = (scope: string) => {
     setSelectedScopes((prev) => {
@@ -74,10 +86,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
 
   const createToken = async (event: React.FormEvent) => {
     event.preventDefault();
+    const submitted = { name, expiresAt, scopes: selectedScopes.join() };
     setSubmitting(true);
     setError(null);
-    setCreatedPlaintext(null);
-    setCopyOutcome(null);
     try {
       // datetime-local is browser-local without offset; send absolute ISO so the
       // server does not reinterpret the string under a different TZ.
@@ -94,18 +105,88 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, scopes: selectedScopes, expiresAt: expiresAtIso }),
-    });
-    setTokens((current) => [data.apiToken, ...current]);
-      setCreatedPlaintext(data.token);
-      clearIfUnchanged(setName, name, "");
-      setSelectedScopes(["read"]);
-      clearIfUnchanged(setExpiresAt, expiresAt, "");
+      });
+      const now = latest.current;
+      onCreated(data.apiToken, data.token, now.name === submitted.name && now.expiresAt === submitted.expiresAt && now.scopes.join() === submitted.scopes);
     } catch (err) {
       setError(getErrorMessage(err, t("apiTokensPage.create.failed")));
     } finally {
       setSubmitting(false);
     }
   };
+
+  return (
+    <form onSubmit={createToken} className="grid gap-4">
+      {error ? <Notice tone="danger" compact>{error}</Notice> : null}
+      <div className="space-y-1 text-sm">
+        <p className="text-[var(--text-muted)]">{t("apiTokensPage.hint")}</p>
+        <p className="text-[var(--text-secondary)]">
+          {currentCustomerName ? t("apiTokensPage.customer.active", { name: currentCustomerName }) : t("apiTokensPage.customer.none")}
+        </p>
+      </div>
+      <FormGrid>
+        <FormField label={t("apiTokensPage.create.nameLabel")} htmlFor="api-token-name">
+          <input id="api-token-name" value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} className={UI_INPUT} />
+        </FormField>
+        <FormField label={t("apiTokensPage.create.expiresLabel")} htmlFor="api-token-expires">
+          <input id="api-token-expires" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className={UI_INPUT} />
+        </FormField>
+      </FormGrid>
+
+      <div className="space-y-2">
+        <div className="text-xs font-medium text-[var(--text-primary)]/70">{t("apiTokensPage.create.scopesLabel")}</div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {allowedScopes.map((scope) => (
+            <CheckboxField key={scope} aria-label={scope} checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} label={<span className="font-mono text-xs">{scope}</span>} hint={scopeLabel(t, scope)} className={`rounded-xl border px-3 py-2 transition ${selectedScopes.includes(scope) ? "border-[var(--accent-border)] bg-[var(--accent-bg)]" : "border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)]"}`} />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <ActionButton variant="primary" type="submit" disabled={submitting || !currentCustomerName}>
+          {submitting ? t("apiTokensPage.create.submitting") : t("apiTokensPage.create.submit")}
+        </ActionButton>
+        <ActionButton variant="secondary" type="button" disabled={submitting} onClick={requestDiscard}>
+          {t("common.cancel")}
+        </ActionButton>
+      </div>
+      {discardDialog}
+    </form>
+  );
+}
+
+export function ApiTokenManagerClient({ header, initialTokens, allowedScopes, currentCustomerName }: Props) {
+  const { t, locale } = useI18n();
+  const [tokens, setTokens] = useState(initialTokens);
+  const [creating, setCreating] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [createdPlaintext, setCreatedPlaintext] = useState<string | null>(null);
+  // The plaintext is shown once: whether the copy worked has to be said.
+  const [copyOutcome, setCopyOutcome] = useState<"copied" | "failed" | null>(null);
+  // A refused revoke is explained in its dialog: on the page it was covered by the dialog.
+  const [revokeError, setRevokeError] = useState<string | null>(null);
+  const [tokenPendingRevoke, setTokenPendingRevoke] = useState<SafeApiToken | null>(null);
+
+  const activeCount = useMemo(() => tokens.filter((token) => !token.revokedAt).length, [tokens]);
+  const closeForm = useCallback(() => setCreating(false), []);
+  const openForm = !creating ? () => {
+    setCreating(true);
+    // A new token replaces the plaintext of the previous one.
+    setCreatedPlaintext(null);
+    setCopyOutcome(null);
+  } : undefined;
+
+  useEffect(() => {
+    if (creating) panelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [creating]);
+
+  const handleCreated = useCallback((apiToken: SafeApiToken, plaintext: string, close: boolean) => {
+    setTokens((current) => [apiToken, ...current]);
+    setCreatedPlaintext(plaintext);
+    setCopyOutcome(null);
+    if (close) setCreating(false);
+  }, []);
 
   const revokeToken = async (token: SafeApiToken) => {
     setRevokingId(token.id);
@@ -123,11 +204,15 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label={t("apiTokensPage.stat.total")} value={tokens.length} />
-        <StatCard label={t("apiTokensPage.stat.active")} value={activeCount} accentColor="emerald" />
-        <StatCard label={t("apiTokensPage.stat.scopes")} value={allowedScopes.length} accentColor="cyan" />
-      </div>
+      {header ? (
+        <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+          {openForm ? (
+            <ActionButton icon={<Plus size={16} aria-hidden />} onClick={openForm}>
+              {t("apiTokensPage.create.heading")}
+            </ActionButton>
+          ) : null}
+        </PageHeader>
+      ) : null}
 
       {createdPlaintext && (
         <section className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning)]/[0.10] p-5 shadow-[0_20px_80px_rgba(251,191,36,0.08)]">
@@ -154,83 +239,70 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentCus
         </section>
       )}
 
-      {error && <Notice tone="danger" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
-
-      <section data-card className="p-5">
-        <h2 className="ui-title-section">{t("apiTokensPage.create.heading")}</h2>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">{t("apiTokensPage.create.note")}</p>
-    <p className="mt-2 text-sm text-[var(--text-secondary)]">{currentCustomerName
-      ? t("apiTokensPage.customer.active", { name: currentCustomerName })
-      : t("apiTokensPage.customer.none")}</p>
-        <form onSubmit={createToken} className="mt-5 grid gap-4">
-          <FormGrid>
-            <FormField label={t("apiTokensPage.create.nameLabel")} htmlFor="api-token-name">
-              <input id="api-token-name" value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} className={UI_INPUT} />
-            </FormField>
-            <FormField label={t("apiTokensPage.create.expiresLabel")} htmlFor="api-token-expires">
-              <input id="api-token-expires" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className={UI_INPUT} />
-            </FormField>
-          </FormGrid>
-
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-[var(--text-primary)]/70">{t("apiTokensPage.create.scopesLabel")}</div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {allowedScopes.map((scope) => (
-                <CheckboxField key={scope} aria-label={scope} checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} label={<span className="font-mono text-xs">{scope}</span>} hint={scopeLabel(t, scope)} className={`rounded-xl border px-3 py-2 transition ${selectedScopes.includes(scope) ? "border-[var(--accent-border)] bg-[var(--accent-bg)]" : "border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)]"}`} />
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <ActionButton variant="primary" type="submit" disabled={submitting || !currentCustomerName}>
-              {submitting ? t("apiTokensPage.create.submitting") : t("apiTokensPage.create.submit")}
-            </ActionButton>
-          </div>
-        </form>
-      </section>
-
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <h2 className="ui-title-section shrink-0">{t("apiTokensPage.list.heading")}</h2>
-          <p className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.list.note")}</p>
+      {creating ? (
+        <div ref={panelRef} className="scroll-mt-24">
+          <SurfacePanel title={t("apiTokensPage.create.heading")} description={t("apiTokensPage.create.note")}>
+            <ApiTokenCreateForm
+              allowedScopes={allowedScopes}
+              currentCustomerName={currentCustomerName}
+              onCreated={handleCreated}
+              onClose={closeForm}
+            />
+          </SurfacePanel>
         </div>
-        {tokens.length === 0 ? (
-          <EmptyState text={t("apiTokensPage.list.empty")} variant="boxed" />
-        ) : (
-          <div className="grid gap-3">
-            {tokens.map((token) => {
-              const status = tokenStatus(t, token);
-              return (
- <article key={token.id} data-card className="p-5 transition hover:bg-[var(--surface-elevated)]">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="ui-title-section">{token.name}</h3>
-                        <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-            <span className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.customer.bound", { name: token.team?.name ?? "—" })}</span>
-                      </div>
-                      <p className="mt-2 font-mono text-xs text-[var(--text-secondary)]">{token.tokenPrefix}…{token.tokenSuffix}</p>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {token.scopes.map((scope) => <Badge className="font-mono" key={scope}>{scope}</Badge>)}
-                      </div>
-                      <dl className="mt-3 grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-3">
-                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDateTime(token.createdAt, locale)}</dd></div>
-                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.expiresAt")}</dt><dd>{formatDateTime(token.expiresAt, locale)}</dd></div>
-                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.lastUsedAt")}</dt><dd>{formatDateTime(token.lastUsedAt, locale)}</dd></div>
-                      </dl>
-                    </div>
-                    {!token.revokedAt && (
-                      <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria", { name: token.name })} disabled={revokingId === token.id} onClick={() => { setRevokeError(null); setTokenPendingRevoke(token); }}>
-                        {revokingId === token.id ? t("apiTokensPage.revoke.revoking") : t("apiTokensPage.revoke.button")}
-                      </ActionButton>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      ) : null}
+
+      <StatGrid cols={3}>
+        <StatCard label={t("apiTokensPage.stat.total")} value={tokens.length} />
+        <StatCard label={t("apiTokensPage.stat.active")} value={activeCount} accentColor="emerald" />
+        <StatCard label={t("apiTokensPage.stat.scopes")} value={allowedScopes.length} accentColor="cyan" />
+      </StatGrid>
+
+      <ListPanel
+        title={t("apiTokensPage.list.heading")}
+        count={tokens.length}
+        description={t("apiTokensPage.list.note")}
+        empty={tokens.length === 0 ? (
+          <EmptyState
+            title={t("apiTokensPage.list.emptyTitle")}
+            text={t("apiTokensPage.list.emptyHint")}
+            action={openForm ? (
+              <ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={openForm}>
+                {t("apiTokensPage.create.heading")}
+              </ActionButton>
+            ) : undefined}
+          />
+        ) : undefined}
+      >
+        {tokens.map((token) => {
+          const status = tokenStatus(t, token);
+          return (
+            <ListRow key={token.id} className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="ui-title-group">{token.name}</h3>
+                  <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                  <span className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.customer.bound", { name: token.team?.name ?? "—" })}</span>
+                </div>
+                <p className="mt-2 font-mono text-xs text-[var(--text-secondary)]">{token.tokenPrefix}…{token.tokenSuffix}</p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {token.scopes.map((scope) => <Badge className="font-mono" key={scope}>{scope}</Badge>)}
+                </div>
+                <dl className="mt-3 grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-3">
+                  <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDateTime(token.createdAt, locale)}</dd></div>
+                  <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.expiresAt")}</dt><dd>{formatDateTime(token.expiresAt, locale)}</dd></div>
+                  <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.lastUsedAt")}</dt><dd>{formatDateTime(token.lastUsedAt, locale)}</dd></div>
+                </dl>
+              </div>
+              {!token.revokedAt && (
+                <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria", { name: token.name })} disabled={revokingId === token.id} onClick={() => { setRevokeError(null); setTokenPendingRevoke(token); }}>
+                  {revokingId === token.id ? t("apiTokensPage.revoke.revoking") : t("apiTokensPage.revoke.button")}
+                </ActionButton>
+              )}
+            </ListRow>
+          );
+        })}
+      </ListPanel>
       <ConfirmDialog
         open={tokenPendingRevoke !== null}
         title={t("apiTokensPage.revoke.confirmTitle")}

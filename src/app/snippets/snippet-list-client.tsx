@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SnippetEditModal } from "./snippet-edit-modal";
 import { CreateSnippetModal } from "./create-snippet-modal";
 import { Pencil, Trash2, Copy, Check, Search, Plus } from "@/components/icons";
-import { EmptyState, Toolbar, ListPanel } from "@/components/page-shell";
+import { EmptyState, ListPanel, PageHeader, Toolbar } from "@/components/page-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { copyText } from "@/lib/ui/clipboard";
 import { ActionButton } from "@/components/action-button";
@@ -74,7 +74,11 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
   );
 }, (prev, next) => prev.snippet === next.snippet && prev.t === next.t && prev.copied === next.copied && prev.onCopy === next.onCopy && prev.onEdit === next.onEdit && prev.onDelete === next.onDelete);
 
-export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
+export function SnippetList({ snippets: initial, header }: {
+  snippets: Snippet[];
+  /** Page header; rendered here so the create command sits in its actions. */
+  header?: { eyebrow?: string; title: string; description?: string };
+}) {
   const { t } = useI18n();
 
   const { addToast } = useToast();
@@ -207,45 +211,52 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
   return (
     <>
-      <Toolbar className="mb-4 flex-col items-stretch gap-3 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1">
-          <label
-            htmlFor="snippets-search"
-            className="ui-label mb-1 block"
-          >
-            {t("snippetsPage.search")}
-          </label>
-          <div className="relative">
-            <Search size={14} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
-              id="snippets-search"
-              type="search"
-              value={search}
-              onChange={(e) => setFilter("q", e.target.value)}
-              placeholder={t("snippetsPage.titlePlaceholder")}
-              className={`${UI_INPUT} pl-9 pr-4`}
-            />
+      {header ? (
+        <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description}>
+          <ActionButton variant="primary" icon={<Plus size={16} aria-hidden />} onClick={() => setCreating(true)}>
+            {t("snippetsPage.new")}
+          </ActionButton>
+        </PageHeader>
+      ) : null}
+      {/* Nothing to search or filter until there is a snippet; the list says how many it shows. */}
+      {items.length > 0 ? (
+        <Toolbar className="mb-4 flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1">
+            <label
+              htmlFor="snippets-search"
+              className="ui-label mb-1 block"
+            >
+              {t("snippetsPage.search")}
+            </label>
+            <div className="relative">
+              <Search size={14} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                id="snippets-search"
+                type="search"
+                value={search}
+                onChange={(e) => setFilter("q", e.target.value)}
+                placeholder={t("snippetsPage.titlePlaceholder")}
+                className={`${UI_INPUT} pl-9 pr-4`}
+              />
+            </div>
           </div>
-        </div>
-        <select
-
-          value={langFilter}
-          onChange={(e) => setFilter("lang", e.target.value)}
-          aria-label={t("snippetsPage.filter.placeholder")}
-          className={`${UI_INPUT} sm:w-44`}
-        >
-          {languages.map((l) => (
-            <option key={l} value={l}>{l ==="ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>
-          ))}
-        </select>
-        <span className="px-1 text-xs text-[var(--text-muted)]">{t("snippetsPage.count", { count: filtered.length })}</span>
-        <ActionButton variant="primary"
-          onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-1.5"
-        >
-          <Plus size={14} /> {t("snippetsPage.new")}
-        </ActionButton>
-      </Toolbar>
+          <div className="sm:w-44">
+            <label htmlFor="snippets-language" className="ui-label mb-1 block">
+              {t("snippetsPage.filter.placeholder")}
+            </label>
+            <select
+              id="snippets-language"
+              value={langFilter}
+              onChange={(e) => setFilter("lang", e.target.value)}
+              className={UI_INPUT}
+            >
+              {languages.map((l) => (
+                <option key={l} value={l}>{l ==="ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>
+              ))}
+            </select>
+          </div>
+        </Toolbar>
+      ) : null}
 
       {fullTextFailed ? (
         <Notice tone="danger" className="mb-3" action={{ label: t("snippetsPage.searchRetry"), onClick: () => setSearchAttempt((n) => n + 1) }}>
@@ -256,10 +267,17 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         title={t("snippetsPage.list.title")}
         count={filtered.length}
         empty={
-          filtered.length === 0 ? (
-            <EmptyState>
-              {items.length === 0 ? t("snippetsPage.empty") : fullTextFailed ? t("snippetsPage.searchFailedEmpty") : t("snippetsPage.noMatch")}
-            </EmptyState>
+          items.length === 0 ? (
+            <EmptyState
+              title={t("snippetsPage.empty")}
+              action={
+                <ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={() => setCreating(true)}>
+                  {t("snippetsPage.new")}
+                </ActionButton>
+              }
+            />
+          ) : filtered.length === 0 ? (
+            <EmptyState title={fullTextFailed ? t("snippetsPage.searchFailedEmpty") : t("snippetsPage.noMatch")} />
           ) : undefined
         }
         bodyClassName="!divide-y-0 space-y-0 bg-transparent p-2.5"

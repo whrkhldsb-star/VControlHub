@@ -6,7 +6,8 @@ import { useToast } from "@/components/toast-provider";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDate, formatDateTime } from "@/lib/datetime/format";
 import { AnnouncementEditModal } from "./announcement-edit-modal";
-import { Pencil, Trash2, Search } from "@/components/icons";
+import { Pencil, Plus, Trash2, Search } from "@/components/icons";
+import { ActionButton } from "@/components/action-button";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge, IconButton } from "@/components/ui-primitives";
@@ -87,11 +88,14 @@ export function AnnouncementList({
   items: initial,
   canManage,
   now: initialNow,
+  onCreate,
 }: {
   items: Announcement[];
   canManage: boolean;
   /** Server clock at render; the visibility badges are computed against it and it moves on each edit. */
   now?: number;
+  /** Opens the form for a new announcement; offered when there is none yet. */
+  onCreate?: () => void;
 }) {
   const { t, locale } = useI18n();
   const { addToast } = useToast();
@@ -149,47 +153,61 @@ export function AnnouncementList({
 
   return (
     <>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="flex-1">
-          <label
-            htmlFor="announcements-search"
-            className="ui-label mb-1 block"
-          >
-            {t("announcementsPage.search.label")}
-          </label>
-          <div className="relative">
-            <Search size={14} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
-              id="announcements-search"
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("announcementsPage.search.placeholder")}
-              className={cn(UI_INPUT, "pl-9 pr-4")}
-            />
+      {/* Nothing to search or filter until there is an announcement. */}
+      {items.length > 0 ? (
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label
+              htmlFor="announcements-search"
+              className="ui-label mb-1 block"
+            >
+              {t("announcementsPage.search.label")}
+            </label>
+            <div className="relative">
+              <Search size={14} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                id="announcements-search"
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t("announcementsPage.search.placeholder")}
+                className={cn(UI_INPUT, "pl-9 pr-4")}
+              />
+            </div>
           </div>
+          <div className="sm:w-44">
+            <label htmlFor="announcements-level" className="ui-label mb-1 block">
+              {t("announcementsPage.filter.label")}
+            </label>
+            <select
+              id="announcements-level"
+              value={levelFilter}
+              onChange={(e) => setLevelFilter(e.target.value)}
+              className={UI_INPUT}
+            >
+              {levels.map((l) => (
+                <option key={l} value={l}>{l ==="ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
+              ))}
+            </select>
+          </div>
+          <span className="shrink-0 whitespace-nowrap text-xs text-[var(--text-muted)] sm:pb-2.5">{t("announcementsPage.count", { count: filtered.length })}</span>
         </div>
-        <div className="sm:w-44 sm:self-end">
-          <select
-            value={levelFilter}
-            onChange={(e) => setLevelFilter(e.target.value)}
-            aria-label={t("announcementsPage.filter.label")}
-            className={UI_INPUT}
-          >
-            {levels.map((l) => (
-              <option key={l} value={l}>{l ==="ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
-            ))}
-          </select>
-        </div>
-        <span className="shrink-0 whitespace-nowrap text-xs text-[var(--text-muted)] sm:self-end sm:pb-2.5">{t("announcementsPage.count", { count: filtered.length })}</span>
-      </div>
+      ) : null}
 
       <div>
-        {filtered.length === 0 ? (
+        {items.length === 0 ? (
           <EmptyState
             variant="boxed"
-            text={items.length === 0 ? t("announcementsPage.empty") : t("announcementsPage.emptyFiltered")}
+            title={t("announcementsPage.empty")}
+            text={t(canManage ? "announcementsPage.emptyHintManage" : "announcementsPage.emptyHint")}
+            action={onCreate ? (
+              <ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={onCreate}>
+                {t("announcementsPage.create.title")}
+              </ActionButton>
+            ) : undefined}
           />
+        ) : filtered.length === 0 ? (
+          <EmptyState variant="boxed" title={t("announcementsPage.emptyFiltered")} />
         ) : (
           <PaginatedList pageSize={20} resetKey={`${search}\u0000${levelFilter}`} className="grid gap-4">
             {filtered.map((a) => (

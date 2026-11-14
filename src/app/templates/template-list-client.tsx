@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
-import { EmptyState, SurfacePanel, Toolbar } from "@/components/page-shell";
+import { EmptyState, PageHeader, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -26,9 +26,12 @@ type Props = {
 	canCreate: boolean;
 	canDeploy?: boolean;
 	locale?: Locale;
+	/** Page header; rendered here so the create command sits in its actions. */
+	header?: { eyebrow?: string; title: string; description?: string };
 };
 
 export function TemplateListClient({
+	header,
 	templates: initialTemplates,
 	servers,
 	canCreate,
@@ -138,6 +141,15 @@ export function TemplateListClient({
 
 	return (
 		<div className="space-y-6">
+			{header ? (
+				<PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+					{canCreate && !showCreate ? (
+						<ActionButton icon={<Plus size={16} aria-hidden />} type="button" onClick={() => setShowCreate(true)}>
+							{t("templatesPage.action.create")}
+						</ActionButton>
+					) : null}
+				</PageHeader>
+			) : null}
 			<ConfirmDialog
 				open={templatePendingDelete !== null}
 				title={t("templatesPage.delete.title")}
@@ -151,8 +163,8 @@ export function TemplateListClient({
 				closeOnBackdrop={false}
 			/>
 
-			<Toolbar className="justify-between">
-				{allTags.length > 0 && (
+			{allTags.length > 0 && (
+				<Toolbar>
 					<div className="flex flex-wrap items-center gap-1.5">
 						<span className="text-xs text-[var(--text-muted)]">
 							{t("templatesPage.filter.label")}
@@ -173,13 +185,8 @@ export function TemplateListClient({
 							</Chip>
 						))}
 					</div>
-				)}
-				{canCreate && !showCreate && (
-					<ActionButton icon={<Plus size={16} aria-hidden />} type="button" className="ml-auto" onClick={() => setShowCreate(true)}>
-						{t("templatesPage.action.create")}
-					</ActionButton>
-				)}
-			</Toolbar>
+				</Toolbar>
+			)}
 
 			{showCreate && (
 				<div ref={formPanelRef} className="mb-1 scroll-mt-24">
@@ -212,9 +219,18 @@ export function TemplateListClient({
 					{t("templatesPage.emptyForTag", { tag: filterTag })}
 				</EmptyState>
 			) : filtered.length === 0 ? (
-				<EmptyState icon={<IconFileCode size={20} />} variant="boxed">
-					{t("templatesPage.empty")}
-				</EmptyState>
+				showCreate ? null : (
+					<EmptyState
+						icon={<IconFileCode size={20} />}
+						variant="boxed"
+						title={t("templatesPage.empty")}
+						action={canCreate ? (
+							<ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={() => setShowCreate(true)}>
+								{t("templatesPage.action.create")}
+							</ActionButton>
+						) : undefined}
+					/>
+				)
 			) : (
 				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{filtered.map((tmpl) => (

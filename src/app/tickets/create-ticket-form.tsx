@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
-import type { Locale } from "@/lib/i18n/translations";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -14,14 +13,19 @@ import { Notice } from "@/components/ui-primitives";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
-type Props = { locale?: Locale; servers?: { id: string; name: string; host: string }[] };
+type Props = {
+	servers?: { id: string; name: string; host: string }[];
+	/** Closes the form: after the ticket is created, or on Cancel (which asks first when something was typed). */
+	onClose: () => void;
+};
 
-export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) {
+/** The fields of a new ticket; its panel (title, card) is the page's. */
+export function CreateTicketForm({ servers = [], onClose }: Props) {
 	const router = useRouter();
 	const { t } = useI18n();
 	const { addToast } = useToast();
 	const [dirty, setDirty] = useState(false);
-	const { discardDialog } = useUnsavedChangesGuard({ dirty });
+	const { requestDiscard, discardDialog } = useUnsavedChangesGuard({ dirty, onDiscard: onClose });
 	const [state, formAction, pending] = useActionState(async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
 		const title = String(formData.get("subject") ?? "").trim();
 		const description = String(formData.get("description") ?? "").trim();
@@ -42,10 +46,12 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 		}
 	}, null);
 
-	// A refusal is shown in the form (below); it was also sent as a toast with the same words.
+	// A refusal is shown in the form (below). A created ticket closes the form: the list it joins is the page.
 	useEffect(() => {
-		if (state?.success) addToast("success", t("ticketsPage.form.success.created"));
-	}, [state, addToast, t]);
+		if (!state?.success) return;
+		addToast("success", t("ticketsPage.form.success.created"));
+		onClose();
+	}, [state, addToast, t, onClose]);
 
 	// React clears the fields of a form whose action has answered, a refusal included: the ticket as written
 	// was gone with it.
@@ -53,10 +59,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 
 	return (
 		<form ref={formRef} action={formAction} onSubmit={captureBeforeSubmit}
-			onChange={() => setDirty(true)} data-card className="space-y-4 p-5">
-			<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-				<h2 className="ui-title-section">{t("ticketsPage.form.title")}</h2>
-			</div>
+			onChange={() => setDirty(true)} className="space-y-4">
 			{state?.error && <Notice tone="danger" compact>{state.error}</Notice>}
 			<div className="grid gap-3 md:grid-cols-3">
 				<label className="ui-label grid gap-1.5">
@@ -120,12 +123,14 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 					className={cn(UI_INPUT,"min-h-[6rem] resize-y")}
 				/>
 			</label>
-			<ActionButton type="submit" variant="primary"
-				disabled={pending}
-			 className="w-fit"
-			>
-				{pending ? t("ticketsPage.form.submitting") : t("ticketsPage.form.submit")}
-			</ActionButton>
+			<div className="flex flex-wrap gap-3">
+				<ActionButton type="submit" variant="primary" disabled={pending}>
+					{pending ? t("ticketsPage.form.submitting") : t("ticketsPage.form.submit")}
+				</ActionButton>
+				<ActionButton type="button" variant="secondary" disabled={pending} onClick={requestDiscard}>
+					{t("common.cancel")}
+				</ActionButton>
+			</div>
 			{discardDialog}
 		</form>
 	);

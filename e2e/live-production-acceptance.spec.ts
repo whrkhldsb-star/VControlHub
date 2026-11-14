@@ -806,6 +806,7 @@ test.describe("live production acceptance", () => {
       await page.goto("/scheduled-tasks");
       await page
         .getByRole("button", { name: /创建定时任务|Create scheduled task/i })
+        .first()
         .click();
       await page
         .getByRole("button", { name: /单次执行|Run once/i })

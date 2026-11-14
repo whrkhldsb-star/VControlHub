@@ -32,6 +32,7 @@ function renderClient() {
 	return render(
 		<ToastProvider>
 			<TemplateListClient
+				header={{ title: "命令模板" }}
 				templates={[baseTemplate]}
 				servers={[{ id: "srv_1", name: "生产 VPS", enabled: true }]}
 				canCreate={true}

@@ -31,7 +31,8 @@ async function confirmInDialog(page: Page, title: RegExp, confirm: RegExp) {
 
 test("snippet create, search, edit and delete", async ({ page }) => {
 	await page.goto("/snippets");
-	await page.getByRole("button", { name: /新建片段|New snippet/i }).click();
+	// The header's command (an empty list offers the same one).
+	await page.getByRole("button", { name: /新建片段|New snippet/i }).first().click();
 	const create = page.getByRole("dialog", { name: /新建代码片段|New code snippet/i });
 	await create.getByLabel(/标题|Title/i).fill(marker);
 	await create.getByLabel(/内容|Content/i).fill("echo e2e");
@@ -51,6 +52,8 @@ test("snippet create, search, edit and delete", async ({ page }) => {
 
 test("announcement create, search, edit and delete", async ({ page }) => {
 	await page.goto("/announcements");
+	// The form opens from the header (an empty list offers the same command).
+	await page.getByRole("button", { name: /^(发布公告|Post announcement)$/i }).first().click();
 	await page.getByLabel(/标题|Title/i).fill(marker);
 	await page.getByLabel(/内容|Content/i).fill("E2E announcement body");
 	await page.getByRole("button", { name: /发布公告|Publish announcement/i }).click();
@@ -96,6 +99,8 @@ test("command template create and delete without deployment", async ({ page }) =
 test("ticket create and dynamic detail page", async ({ page }, testInfo) => {
 	test.setTimeout(180_000);
 	await page.goto("/tickets");
+	// The form opens from the header (an empty list offers the same command).
+	await page.getByRole("button", { name: /^(新建工单|New ticket)$/i }).first().click();
 	await page.getByRole("textbox", { name: /^(标题|Title)$/i }).fill(marker);
 	await page.getByRole("textbox", { name: /^(描述|Description)$/i }).fill("E2E ticket body");
 	await page.getByRole("button", { name: /提交工单|Submit ticket/i }).click();
@@ -109,6 +114,8 @@ test("ticket create and dynamic detail page", async ({ page }, testInfo) => {
 
 test("API token create, plaintext display and revoke", async ({ page }) => {
 	await page.goto("/api-tokens");
+	// The form opens from the header (an empty list offers the same command).
+	await page.getByRole("button", { name: /^(创建 API Token|Create API token)$/i }).first().click();
 	await page.getByLabel(/Token 名称|Token name/i).fill(marker);
 	await page.getByRole("button", { name: /创建 Token|Create Token/i }).click();
 	await expect(page.locator("code").filter({ hasText: /\S+/ }).first()).toBeVisible();
@@ -121,7 +128,7 @@ test("API token create, plaintext display and revoke", async ({ page }) => {
 
 test("scheduled task create, search, pause and delete without execution", async ({ page }) => {
 	await page.goto("/scheduled-tasks");
-	await page.getByRole("button", { name: /创建定时任务|Create scheduled task/i }).click();
+	await page.getByRole("button", { name: /创建定时任务|Create scheduled task/i }).first().click();
 	const targetNodes = page.getByRole("group", { name: /目标节点|Target nodes/i });
 	await expect(targetNodes).toBeVisible();
 	await page.getByRole("textbox", { name: /任务名称|Task name/i }).fill(marker);

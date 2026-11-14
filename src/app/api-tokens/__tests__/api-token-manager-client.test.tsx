@@ -4,6 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiTokenManagerClient } from "../api-token-manager-client";
 
+// The create form's unsaved-changes guard navigates with the router.
+vi.mock("next/navigation", () => ({
+	useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+	usePathname: () => "/api-tokens",
+	useSearchParams: () => new URLSearchParams(),
+}));
+
+const header = { title: "Personal API token" };
+
 const token = {
 	id: "tok_1",
 	name: "CLI",
@@ -34,8 +43,11 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read", "status:read"]} currentCustomerName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read", "health:read", "status:read"]} currentCustomerName="Ops" />, { locale: "en" });
 
+		// The form opens from the header; the tokens come first.
+		expect(screen.queryByLabelText("Token name")).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Create API token" }));
 		fireEvent.change(screen.getByLabelText("Token name"), { target: { value: "mobile" } });
 		fireEvent.click(screen.getByLabelText("status:read"));
 		fireEvent.click(screen.getByRole("button", { name: "Create token" }));
@@ -47,6 +59,25 @@ describe("ApiTokenManagerClient", () => {
 			body: JSON.stringify({ name: "mobile", scopes: ["read", "status:read"], expiresAt: null }),
 		}));
 		expect(screen.getByText("mobile")).toBeInTheDocument();
+		// Created: the form closed under the plaintext, and the next token starts from the header again.
+		expect(screen.queryByLabelText("Token name")).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Create API token" })).toBeInTheDocument();
+	});
+
+	it("closes the form on Cancel and says a refusal inside it", async () => {
+		vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: "A token with this name exists" }) }));
+		render(<ApiTokenManagerClient header={header} initialTokens={[]} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
+		// The empty list offers the same command as the header.
+		expect(screen.getAllByRole("button", { name: "Create API token" })).toHaveLength(2);
+		fireEvent.click(screen.getAllByRole("button", { name: "Create API token" })[0]!);
+		fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+		expect(screen.queryByLabelText("Token name")).not.toBeInTheDocument();
+
+		fireEvent.click(screen.getAllByRole("button", { name: "Create API token" })[0]!);
+		fireEvent.change(screen.getByLabelText("Token name"), { target: { value: "mobile" } });
+		fireEvent.click(screen.getByRole("button", { name: "Create token" }));
+		expect(await screen.findByRole("alert")).toHaveTextContent("A token with this name exists");
+		expect(screen.getByLabelText("Token name")).toHaveValue("mobile");
 	});
 
 	// The plaintext is shown once. Its copy button said nothing either way, and did nothing where the page has no
@@ -66,7 +97,8 @@ describe("ApiTokenManagerClient", () => {
 				status: 201,
 				json: async () => ({ token: "whr_plain_once", apiToken: { ...token, id: "tok_2", name: "mobile" } }),
 			}));
-			render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
+			render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
+			fireEvent.click(screen.getByRole("button", { name: "Create API token" }));
 			fireEvent.change(screen.getByLabelText("Token name"), { target: { value: "mobile" } });
 			fireEvent.click(screen.getByRole("button", { name: "Create token" }));
 			await screen.findByText("whr_plain_once");
@@ -118,7 +150,7 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 
 		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
@@ -139,7 +171,7 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
 		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));
@@ -157,7 +189,7 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
 		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));

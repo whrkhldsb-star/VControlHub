@@ -10,6 +10,12 @@ import type { ItsmConnectionRecord, ItsmEventRecord } from "@/lib/itsm/types";
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
 }));
+// The form's unsaved-changes guard navigates with the router.
+vi.mock("next/navigation", () => ({
+	useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+	usePathname: () => "/itsm",
+	useSearchParams: () => new URLSearchParams(),
+}));
 
 const toastSpy = vi.fn();
 vi.mock("@/components/toast-provider", () => ({
@@ -38,6 +44,12 @@ const connection: ItsmConnectionRecord = {
 };
 
 const emptyEvents: ItsmEventRecord[] = [];
+const header = { title: "ITSM / IM 双向集成" };
+
+/** The form opens from the header; with no connection yet the empty list offers it too. */
+async function openForm(user: ReturnType<typeof userEvent.setup>) {
+	await user.click(screen.getAllByRole("button", { name: "新建连接" })[0]!);
+}
 
 describe("ItsmPageClient destructive UX", () => {
 	beforeEach(() => {
@@ -53,6 +65,7 @@ describe("ItsmPageClient destructive UX", () => {
 		render(
 			wrap(
 				<ItsmPageClient
+					header={header}
 					initialConnections={[connection]}
 					initialEvents={emptyEvents}
 					canManage
@@ -73,7 +86,8 @@ describe("ItsmPageClient destructive UX", () => {
 		let finish: (value: unknown) => void = () => undefined;
 		vi.mocked(csrfFetch).mockImplementation(((_url: string, init?: { method?: string }) =>
 			init?.method === "POST" ? new Promise((resolve) => { finish = resolve; }) : Promise.resolve({ connections: [], events: [] })) as never);
-		render(wrap(<ItsmPageClient initialConnections={[]} initialEvents={emptyEvents} canManage publicBaseUrl="https://example.test" />));
+		render(wrap(<ItsmPageClient header={header} initialConnections={[]} initialEvents={emptyEvents} canManage publicBaseUrl="https://example.test" />));
+		await openForm(user);
 
 		const name = screen.getByPlaceholderText("例如：值班 Slack");
 		await user.type(name, "A");
@@ -84,6 +98,8 @@ describe("ItsmPageClient destructive UX", () => {
 
 		await waitFor(() => expect(toastSpy).toHaveBeenCalledWith("success", expect.any(String)));
 		expect(name).toHaveValue("B");
+		// A next connection is being written: the form stays open.
+		expect(screen.getByRole("heading", { name: "新建连接" })).toBeInTheDocument();
 	});
 
 	it("sends only the fields of the chosen channel", async () => {
@@ -92,7 +108,8 @@ describe("ItsmPageClient destructive UX", () => {
 		// connection stored a bot token it has no use for.
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValue({ connections: [], events: [] } as never);
-		render(wrap(<ItsmPageClient initialConnections={[]} initialEvents={emptyEvents} canManage publicBaseUrl="https://example.test" />));
+		render(wrap(<ItsmPageClient header={header} initialConnections={[]} initialEvents={emptyEvents} canManage publicBaseUrl="https://example.test" />));
+		await openForm(user);
 
 		await user.type(screen.getByPlaceholderText("例如：值班 Slack"), "值班群");
 		await user.type(screen.getByLabelText("Webhook URL"), "https://hooks.slack.com/services/T/B/x");
@@ -110,7 +127,10 @@ describe("ItsmPageClient destructive UX", () => {
 		expect(sent().config).toEqual({ chatId: "-100123", createOnInbound: true });
 		expect(sent().credentials).toEqual({ botToken: "123:abc" });
 
-		// And the other way round.
+		// Created, the form closed. And the other way round, in a new one.
+		await waitFor(() => expect(screen.queryByRole("heading", { name: "新建连接" })).not.toBeInTheDocument());
+		await openForm(user);
+		await user.selectOptions(screen.getByLabelText("提供商"), "telegram");
 		await user.type(screen.getByPlaceholderText("例如：值班 Slack"), "运维群");
 		await user.type(screen.getByLabelText("Bot Token"), "456:def");
 		await user.type(screen.getByLabelText("Chat ID"), "-100456");
@@ -124,7 +144,8 @@ describe("ItsmPageClient destructive UX", () => {
 
 	it("takes the secrets in fields that hide them and that the browser does not remember", async () => {
 		const user = userEvent.setup();
-		render(wrap(<ItsmPageClient initialConnections={[]} initialEvents={emptyEvents} canManage publicBaseUrl="https://example.test" />));
+		render(wrap(<ItsmPageClient header={header} initialConnections={[]} initialEvents={emptyEvents} canManage publicBaseUrl="https://example.test" />));
+		await openForm(user);
 		const secret = screen.getByLabelText("入站签名密钥");
 		expect(secret).toHaveAttribute("type", "password");
 		expect(secret).toHaveAttribute("autocomplete", "new-password");
@@ -153,6 +174,7 @@ describe("ItsmPageClient destructive UX", () => {
 		render(
 			wrap(
 				<ItsmPageClient
+					header={header}
 					initialConnections={[connection]}
 					initialEvents={emptyEvents}
 					canManage
@@ -198,9 +220,36 @@ describe("ItsmPageClient destructive UX", () => {
 			createdAt: "2026-07-01T00:00:00.000Z",
 		};
 
-		render(wrap(<ItsmPageClient initialConnections={[connection]} initialEvents={[event]} canManage publicBaseUrl="https://example.test" />));
+		render(wrap(<ItsmPageClient header={header} initialConnections={[connection]} initialEvents={[event]} canManage publicBaseUrl="https://example.test" />));
 
 		expect(screen.getByText("仅出站 · 工单已创建 · 成功")).toBeInTheDocument();
 		expect(screen.getByText("关联工单：ticket-1")).toBeInTheDocument();
+	});
+
+	it("opens the connection form from the header, not above the list, and closes it on Cancel", async () => {
+		const user = userEvent.setup();
+		render(wrap(<ItsmPageClient header={header} initialConnections={[connection]} initialEvents={emptyEvents} canManage publicBaseUrl="https://example.test" />));
+		expect(screen.queryByPlaceholderText("例如：值班 Slack")).not.toBeInTheDocument();
+		// The list says how many connections there are beside its title, as other lists do.
+		expect(screen.getByRole("heading", { name: "连接列表" }).parentElement).toHaveTextContent("1");
+
+		await openForm(user);
+		expect(screen.getByRole("heading", { name: "新建连接" })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "新建连接" })).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "取消" }));
+		expect(screen.queryByPlaceholderText("例如：值班 Slack")).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "新建连接" })).toBeInTheDocument();
+	});
+
+	it("says a refusal in the form, where the connection was described", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockRejectedValue(new Error("Webhook 地址必须使用 HTTPS"));
+		render(wrap(<ItsmPageClient header={header} initialConnections={[]} initialEvents={emptyEvents} canManage publicBaseUrl="https://example.test" />));
+		await openForm(user);
+		await user.type(screen.getByPlaceholderText("例如：值班 Slack"), "值班群");
+		await user.click(screen.getByRole("button", { name: "创建连接" }));
+		expect(await screen.findByRole("alert")).toHaveTextContent("Webhook 地址必须使用 HTTPS");
+		expect(toastSpy).not.toHaveBeenCalledWith("error", expect.anything());
+		expect(screen.getByPlaceholderText("例如：值班 Slack")).toHaveValue("值班群");
 	});
 });

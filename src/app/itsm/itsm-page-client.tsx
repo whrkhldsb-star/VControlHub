@@ -1,23 +1,21 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import type { ItsmConnectionRecord, ItsmDirection, ItsmEventRecord, ItsmProvider } from "@/lib/itsm/types";
+import type { ItsmConnectionRecord, ItsmEventRecord } from "@/lib/itsm/types";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useBrowserOrigin } from "@/lib/hooks/use-browser-origin";
 import { formatDateTime } from "@/lib/datetime/format";
 import { useToast } from "@/components/toast-provider";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { CheckboxField } from "@/components/ui-primitives";
-import { UI_INPUT } from "@/lib/ui/classes";
-import { EmptyState } from "@/components/page-shell";
-import { Activity, LinkIcon } from "@/components/icons";
+import { EmptyState, ListPanel, ListRow, PageHeader, SurfacePanel } from "@/components/page-shell";
+import { StatusBadge } from "@/components/status-badge";
+import { Activity, LinkIcon, Plus } from "@/components/icons";
 
-const PROVIDERS: ItsmProvider[] = ["generic_webhook", "slack", "telegram", "dingtalk", "feishu"];
-const DIRECTIONS: ItsmDirection[] = ["bidirectional", "outbound", "inbound"];
+import { ItsmConnectionForm } from "./itsm-connection-form";
 
 function eventLabel(t: (key: string) => string, prefix: string, value: string): string {
 	const key = `${prefix}.${value}`;
@@ -26,6 +24,8 @@ function eventLabel(t: (key: string) => string, prefix: string, value: string): 
 }
 
 type Props = {
+	/** Page header; rendered here so the create command sits in its actions. */
+	header: { eyebrow?: string; title: string; description?: string };
 	initialConnections: ItsmConnectionRecord[];
 	initialEvents: ItsmEventRecord[];
 	canManage: boolean;
@@ -33,6 +33,7 @@ type Props = {
 };
 
 export function ItsmPageClient({
+	header,
 	initialConnections,
 	initialEvents,
 	canManage,
@@ -48,17 +49,15 @@ export function ItsmPageClient({
 	const [busy, setBusy] = useState(false);
 	const [testingId, setTestingId] = useState<string | null>(null);
 	const [pendingDelete, setPendingDelete] = useState<ItsmConnectionRecord | null>(null);
-	const [form, setForm] = useState({
-		name: "",
-		provider: "generic_webhook" as ItsmProvider,
-		direction: "bidirectional" as ItsmDirection,
-		webhookUrl: "",
-		chatId: "",
-		webhookSecret: "",
-		botToken: "",
-		workspace: "",
-		createOnInbound: true,
-	});
+	// The form opens from the header (or the empty list) right under it; the connections come first otherwise.
+	const [creating, setCreating] = useState(false);
+	const panelRef = useRef<HTMLDivElement>(null);
+	const closeForm = useCallback(() => setCreating(false), []);
+	const openForm = canManage && !creating ? () => setCreating(true) : undefined;
+
+	useEffect(() => {
+		if (creating) panelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+	}, [creating]);
 
 	const reload = useCallback(async () => {
 		try {
@@ -72,55 +71,6 @@ export function ItsmPageClient({
 			addToast("error", getErrorMessage(error, t("itsmPage.toast.error")));
 		}
 	}, [addToast, t]);
-
-	const create = async () => {
-		if (!form.name.trim()) return;
-		const submitted = form;
-		setBusy(true);
-		try {
-			// Only what the chosen channel uses. A field hidden by a change of channel keeps what was typed into it:
-			// sent along, it gave a Telegram connection the webhook address typed for Slack (and listed it), and a
-			// Slack connection a bot token to store.
-			const telegram = form.provider === "telegram";
-			const body: Record<string, unknown> = {
-				name: form.name.trim(),
-				provider: form.provider,
-				direction: form.direction,
-				credentials: {
-					...(form.webhookSecret.trim() ? { webhookSecret: form.webhookSecret.trim() } : {}),
-					...(telegram && form.botToken.trim() ? { botToken: form.botToken.trim() } : {}),
-				},
-				config: {
-					...(!telegram && form.webhookUrl.trim() ? { webhookUrl: form.webhookUrl.trim() } : {}),
-					...(telegram && form.chatId.trim() ? { chatId: form.chatId.trim() } : {}),
-					...(form.workspace.trim() ? { workspace: form.workspace.trim() } : {}),
-					createOnInbound: form.createOnInbound,
-				},
-			};
-			await csrfFetch("/api/itsm/connections", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(body),
-			});
-			// Clear only what was sent: the fields stay editable while saving,
-			// and a next connection typed meanwhile used to be wiped here.
-			const sentOrKept = (current: string, sent: string) => (current === sent ? "" : current);
-			setForm((c) => ({
-				...c,
-				name: sentOrKept(c.name, submitted.name),
-				webhookUrl: sentOrKept(c.webhookUrl, submitted.webhookUrl),
-				chatId: sentOrKept(c.chatId, submitted.chatId),
-				webhookSecret: sentOrKept(c.webhookSecret, submitted.webhookSecret),
-				botToken: sentOrKept(c.botToken, submitted.botToken),
-			}));
-			await reload();
-			addToast("success", t("itsmPage.toast.created"));
-		} catch (error) {
-			addToast("error", getErrorMessage(error, t("itsmPage.toast.error")));
-		} finally {
-			setBusy(false);
-		}
-	};
 
 	const remove = async (row: ItsmConnectionRecord) => {
 		setBusy(true);
@@ -172,213 +122,118 @@ export function ItsmPageClient({
 
 	return (
 		<div className="space-y-6">
-			{canManage && (
-				<section data-card className="space-y-3">
-					<h2 className="ui-title-section">{t("itsmPage.form.title")}</h2>
-					<p className="text-sm text-[var(--text-muted)]">{t("itsmPage.form.desc")}</p>
-					<div className="grid gap-3 md:grid-cols-2">
-						<label className="ui-label space-y-1">
-							<span>{t("itsmPage.field.name")}</span>
-							<input
-								className={UI_INPUT}
-								value={form.name}
-								onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))}
-								placeholder={t("itsmPage.field.namePlaceholder")}
-							/>
-						</label>
-						<label className="ui-label space-y-1">
-							<span>{t("itsmPage.field.provider")}</span>
-							<select
-								className={UI_INPUT}
-								value={form.provider}
-								onChange={(e) =>
-									setForm((c) => ({ ...c, provider: e.target.value as ItsmProvider }))
-								}
-							>
-								{PROVIDERS.map((p) => (
-									<option key={p} value={p}>
-										{t(`itsmPage.provider.${p}`)}
-									</option>
-								))}
-							</select>
-						</label>
-						<label className="ui-label space-y-1">
-							<span>{t("itsmPage.field.direction")}</span>
-							<select
-								className={UI_INPUT}
-								value={form.direction}
-								onChange={(e) =>
-									setForm((c) => ({ ...c, direction: e.target.value as ItsmDirection }))
-								}
-							>
-								{DIRECTIONS.map((d) => (
-									<option key={d} value={d}>
-										{t(`itsmPage.direction.${d}`)}
-									</option>
-								))}
-							</select>
-						</label>
-						<label className="ui-label space-y-1">
-							<span>{t("itsmPage.field.workspace")}</span>
-							<input
-								className={UI_INPUT}
-								value={form.workspace}
-								onChange={(e) => setForm((c) => ({ ...c, workspace: e.target.value }))}
-							/>
-						</label>
-						{form.provider !== "telegram" && (
-							<label className="ui-label space-y-1 md:col-span-2">
-								<span>{t("itsmPage.field.webhookUrl")}</span>
-								<input
-									className={UI_INPUT}
-									value={form.webhookUrl}
-									onChange={(e) => setForm((c) => ({ ...c, webhookUrl: e.target.value }))}
-									placeholder="https://hooks.example.com/..."
-								/>
-							</label>
-						)}
-						{form.provider === "telegram" && (
-							<>
-								<label className="ui-label space-y-1">
-									<span>{t("itsmPage.field.botToken")}</span>
-									{/* A secret: hidden while typed, and not kept by the browser's form history. */}
-									<input
-										type="password"
-										autoComplete="new-password"
-										className={UI_INPUT}
-										value={form.botToken}
-										onChange={(e) => setForm((c) => ({ ...c, botToken: e.target.value }))}
-									/>
-								</label>
-								<label className="ui-label space-y-1">
-									<span>{t("itsmPage.field.chatId")}</span>
-									<input
-										className={UI_INPUT}
-										value={form.chatId}
-										onChange={(e) => setForm((c) => ({ ...c, chatId: e.target.value }))}
-									/>
-								</label>
-							</>
-						)}
-						<label className="ui-label space-y-1 md:col-span-2">
-							<span>{t("itsmPage.field.webhookSecret")}</span>
-							<input
-								type="password"
-								autoComplete="new-password"
-								className={UI_INPUT}
-								value={form.webhookSecret}
-								onChange={(e) => setForm((c) => ({ ...c, webhookSecret: e.target.value }))}
-								placeholder={t("itsmPage.field.webhookSecretPlaceholder")}
-							/>
-						</label>
-						<CheckboxField checked={form.createOnInbound} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((c: typeof form) => ({ ...c, createOnInbound: e.target.checked }))} label={t("itsmPage.field.createOnInbound")} className="md:col-span-2" />
-					</div>
-					<div className="flex justify-end">
-						<ActionButton disabled={busy || !form.name.trim()} onClick={() => void create()}>
-							{t("itsmPage.form.submit")}
-						</ActionButton>
-					</div>
-				</section>
-			)}
+			<PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+				{openForm ? (
+					<ActionButton icon={<Plus size={16} aria-hidden />} onClick={openForm}>
+						{t("itsmPage.form.title")}
+					</ActionButton>
+				) : null}
+			</PageHeader>
 
-			<section data-card className="space-y-3">
-				<div className="flex items-center justify-between gap-2">
-					<h2 className="ui-title-section">
-						{t("itsmPage.list.title")} ({connections.length})
-					</h2>
-					<ActionButton size="sm" variant="ghost"
-						onClick={() => void reload()}>
+			{creating ? (
+				<div ref={panelRef} className="scroll-mt-24">
+					<SurfacePanel title={t("itsmPage.form.title")} description={t("itsmPage.form.desc")}>
+						<ItsmConnectionForm onCreated={reload} onClose={closeForm} />
+					</SurfacePanel>
+				</div>
+			) : null}
+
+			<ListPanel
+				title={t("itsmPage.list.title")}
+				count={connections.length}
+				actions={
+					<ActionButton size="sm" variant="ghost" onClick={() => void reload()}>
 						{t("itsmPage.list.refresh")}
 					</ActionButton>
-				</div>
-				{connections.length === 0 ? (
-					<EmptyState icon={<LinkIcon size={20} />} text={t("itsmPage.list.empty")} />
-				) : (
-					<ul className="space-y-3">
-						{connections.map((row) => (
-							<li
-								key={row.id}
-								className="rounded-lg border border-[var(--border)] bg-background/40 p-3 space-y-2"
-							>
-								<div className="flex flex-wrap items-center justify-between gap-2">
-									<div>
-										<div className="font-medium">
-											{row.name}{" "}
-											<span className="text-xs text-[var(--text-muted)]">
-												{t(`itsmPage.provider.${row.provider}`)} ·{" "}
-												{t(`itsmPage.direction.${row.direction}`)}
-											</span>
-										</div>
-										<div className="text-xs text-[var(--text-muted)]">
-											{row.enabled ? t("itsmPage.status.enabled") : t("itsmPage.status.disabled")}
-											{row.lastError ? ` · ${row.lastError}` : ""}
-										</div>
-									</div>
-									{canManage && (
-										<div className="flex flex-wrap gap-2">
-											<ActionButton size="sm" variant="secondary" 
-												disabled={busy}
-												onClick={() => void toggleEnabled(row)}>
-												{row.enabled ? t("itsmPage.action.disable") : t("itsmPage.action.enable")}
-											</ActionButton>
-											<ActionButton size="sm" variant="secondary" 
-												disabled={testingId === row.id}
-												onClick={() => void test(row.id)}>
-												{testingId === row.id
-													? t("itsmPage.action.testing")
-													: t("itsmPage.action.test")}
-											</ActionButton>
-											<ActionButton size="sm" variant="danger"
-												disabled={busy}
-												onClick={() => setPendingDelete(row)}>
-												{t("itsmPage.action.delete")}
-											</ActionButton>
-										</div>
-									)}
+				}
+				empty={connections.length === 0 ? (
+					<EmptyState
+						icon={<LinkIcon size={20} />}
+						title={t("itsmPage.list.empty")}
+						action={openForm ? (
+							<ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={openForm}>
+								{t("itsmPage.form.title")}
+							</ActionButton>
+						) : undefined}
+					/>
+				) : undefined}
+			>
+				{connections.map((row) => (
+					<ListRow key={row.id} className="space-y-2">
+						<div className="flex flex-wrap items-start justify-between gap-3">
+							<div className="min-w-0 space-y-1">
+								<div className="flex flex-wrap items-center gap-2">
+									<span className="font-medium text-[var(--text-primary)]">{row.name}</span>
+									<StatusBadge tone={row.enabled ? "success" : "neutral"} size="sm">
+										{row.enabled ? t("itsmPage.status.enabled") : t("itsmPage.status.disabled")}
+									</StatusBadge>
 								</div>
-								{(row.direction === "inbound" || row.direction === "bidirectional") && (
-									<div className="rounded-md bg-[var(--surface-subtle)] p-2 text-xs font-mono break-all">
-										{t("itsmPage.inboundUrl")}{t("common.colon")}{baseUrlForInbound}/api/itsm/inbound/{row.id}
-									</div>
-								)}
-								{row.config.webhookUrl && (
-									<div className="text-xs text-[var(--text-muted)] break-all">
-										{t("itsmPage.field.webhookUrl")}{t("common.colon")}{row.config.webhookUrl}
-									</div>
-								)}
-							</li>
-						))}
-					</ul>
-				)}
-			</section>
+								<p className="text-xs text-[var(--text-muted)]">
+									{t(`itsmPage.provider.${row.provider}`)} · {t(`itsmPage.direction.${row.direction}`)}
+								</p>
+								{/* The last delivery's failure, in its own line: it is what needs attention. */}
+								{row.lastError ? <p className="break-words text-xs text-[var(--danger)]">{row.lastError}</p> : null}
+							</div>
+							{canManage && (
+								<div className="flex flex-wrap gap-2">
+									<ActionButton size="sm" variant="secondary"
+										disabled={busy}
+										onClick={() => void toggleEnabled(row)}>
+										{row.enabled ? t("itsmPage.action.disable") : t("itsmPage.action.enable")}
+									</ActionButton>
+									<ActionButton size="sm" variant="secondary"
+										disabled={testingId === row.id}
+										onClick={() => void test(row.id)}>
+										{testingId === row.id
+											? t("itsmPage.action.testing")
+											: t("itsmPage.action.test")}
+									</ActionButton>
+									<ActionButton size="sm" variant="danger"
+										disabled={busy}
+										onClick={() => setPendingDelete(row)}>
+										{t("itsmPage.action.delete")}
+									</ActionButton>
+								</div>
+							)}
+						</div>
+						{(row.direction === "inbound" || row.direction === "bidirectional") && (
+							<div data-inset className="break-all p-2 font-mono text-xs">
+								{t("itsmPage.inboundUrl")}{t("common.colon")}{baseUrlForInbound}/api/itsm/inbound/{row.id}
+							</div>
+						)}
+						{row.config.webhookUrl && (
+							<div className="break-all text-xs text-[var(--text-muted)]">
+								{t("itsmPage.field.webhookUrl")}{t("common.colon")}{row.config.webhookUrl}
+							</div>
+						)}
+					</ListRow>
+				))}
+			</ListPanel>
 
-			<section data-card className="space-y-3">
-				<h2 className="ui-title-section">{t("itsmPage.events.title")}</h2>
-				{events.length === 0 ? (
-					<EmptyState icon={<Activity size={20} />} text={t("itsmPage.events.empty")} />
-				) : (
-					<ul className="space-y-2 max-h-96 overflow-auto text-sm">
-						{events.map((ev) => (
-							<li key={ev.id} className="border-b border-[var(--border)] py-2 last:border-0">
-								<div className="flex flex-wrap justify-between gap-2">
-									<span>
-										{t(`itsmPage.direction.${ev.direction}`)} · {eventLabel(t, "itsmPage.eventType", ev.eventType)} · {eventLabel(t, "itsmPage.eventStatus", ev.status)}
-									</span>
-									<span className="text-xs text-[var(--text-muted)]">
-										{formatDateTime(ev.createdAt, locale)}
-									</span>
-								</div>
-								{ev.ticketId && (
-									<div className="text-xs text-[var(--text-muted)]">{t("itsmPage.events.ticket")}{t("common.colon")}{ev.ticketId}</div>
-								)}
-								{ev.errorMessage && (
-									<div className="text-xs text-[var(--danger)]">{ev.errorMessage}</div>
-								)}
-							</li>
-						))}
-					</ul>
-				)}
-			</section>
+			<ListPanel
+				title={t("itsmPage.events.title")}
+				empty={events.length === 0 ? <EmptyState icon={<Activity size={20} />} title={t("itsmPage.events.empty")} /> : undefined}
+				bodyClassName={events.length === 0 ? undefined : "max-h-96 overflow-auto"}
+			>
+				{events.map((ev) => (
+					<ListRow key={ev.id} className="text-sm">
+						<div className="flex flex-wrap justify-between gap-2">
+							<span>
+								{t(`itsmPage.direction.${ev.direction}`)} · {eventLabel(t, "itsmPage.eventType", ev.eventType)} · {eventLabel(t, "itsmPage.eventStatus", ev.status)}
+							</span>
+							<span className="text-xs text-[var(--text-muted)]">
+								{formatDateTime(ev.createdAt, locale)}
+							</span>
+						</div>
+						{ev.ticketId && (
+							<div className="text-xs text-[var(--text-muted)]">{t("itsmPage.events.ticket")}{t("common.colon")}{ev.ticketId}</div>
+						)}
+						{ev.errorMessage && (
+							<div className="text-xs text-[var(--danger)]">{ev.errorMessage}</div>
+						)}
+					</ListRow>
+				))}
+			</ListPanel>
 
 			<ConfirmDialog
 				open={pendingDelete !== null}

@@ -14,6 +14,8 @@ import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Badge, SegmentedControl } from "@/components/ui-primitives";
 import { Pagination } from "@/components/pagination";
 import { EmptyState } from "@/components/page-shell";
+import { ActionButton } from "@/components/action-button";
+import { Plus } from "@/components/icons";
 
 export type { TicketWorkspaceTicket } from "@/lib/ticket/workspace-dto";
 
@@ -24,6 +26,8 @@ type Props = {
   initialBoard: TicketWorkspaceBoard | null;
   canManage: boolean;
   now: string;
+  /** Opens the new-ticket form; offered by the empty list when the account may create tickets. */
+  onCreate?: () => void;
 };
 
 type SlaStatus = "ok" | "warning" | "breached" | "none";
@@ -118,7 +122,7 @@ const PAGE_SIZE = 30;
 /** Typing in the search box waits this long before asking the server. */
 const FETCH_DELAY_MS = 250;
 
-export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: Props) {
+export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onCreate }: Props) {
   const { t } = useI18n();
   const { state: urlState, setField: setUrlField, patch: patchUrl } = useUrlQueryState({
     view: "list",
@@ -222,6 +226,22 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
   const total = view === "board"
     ? STATUSES.reduce((sum, columnStatus) => sum + (board?.[columnStatus]?.total ?? 0), 0)
     : (listPage?.total ?? 0);
+  // No ticket at all (rather than none that match): the empty list offers to write the first one.
+  const emptyState = (busy: boolean) =>
+    busy ? (
+      <EmptyState text={t("common.loading")} />
+    ) : filtersActive ? (
+      <EmptyState title={t("ticketsPage.emptyFiltered")} />
+    ) : (
+      <EmptyState
+        title={t("ticketsPage.emptyNone")}
+        action={onCreate ? (
+          <ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={onCreate}>
+            {t("ticketsPage.form.title")}
+          </ActionButton>
+        ) : undefined}
+      />
+    );
 
   return (
     <section data-card className="overflow-hidden !p-0">
@@ -274,7 +294,7 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
       {view === "list" ? (
         // Nothing under a failed load: what this view holds is not known.
         listTickets.length === 0 ? (
-          loadFailed && !loading ? null : <EmptyState text={loading ? t("common.loading") : t(filtersActive ? "ticketsPage.emptyFiltered" : "ticketsPage.emptyNone")} />
+          loadFailed && !loading ? null : emptyState(loading)
         ) : (
           <>
             <div className="divide-y divide-[var(--border-subtle)]">{listTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} nowMs={nowMs} />)}</div>
@@ -284,7 +304,7 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now }: P
           </>
         )
       ) : !board || total === 0 ? (
-        loadFailed && !loading ? null : <EmptyState text={loading || !board ? t("common.loading") : t(filtersActive ? "ticketsPage.emptyFiltered" : "ticketsPage.emptyNone")} />
+        loadFailed && !loading ? null : emptyState(loading || !board)
       ) : (
         <div className="grid gap-4 overflow-x-auto p-4 lg:grid-cols-4">
           {STATUSES.map((columnStatus) => {

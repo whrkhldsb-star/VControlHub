@@ -1,8 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { canManageAnnouncements, listActiveAnnouncements, listAnnouncements } from "@/lib/announcement/service";
-import { PageShell, PageHeader } from "@/components/page-shell";
-import { CreateAnnouncementForm } from "./create-announcement-form";
-import { AnnouncementList } from "./announcement-list-client";
+import { PageShell } from "@/components/page-shell";
+import { AnnouncementsPageClient } from "./announcements-page-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 // Management mutations call router.refresh(); this page must not serve a
@@ -35,18 +34,10 @@ export default async function AnnouncementsPage() {
 
 	return (
 		<PageShell>
-			<PageHeader eyebrow={t("announcementsPage.eyebrow", locale)} title={t("announcementsPage.title", locale)} description={t("announcementsPage.desc", locale)} className="mb-6" />
-
-			{canManage && (
-				<div className="mb-5">
-					<CreateAnnouncementForm />
-				</div>
-			)}
-
-			<AnnouncementList
-				key={serialized.map((item) => item.id).join("|")}
-				items={serialized}
+			<AnnouncementsPageClient
+				header={{ eyebrow: t("announcementsPage.eyebrow", locale), title: t("announcementsPage.title", locale), description: t("announcementsPage.desc", locale) }}
 				canManage={canManage}
+				items={serialized}
 				now={now}
 			/>
 		</PageShell>

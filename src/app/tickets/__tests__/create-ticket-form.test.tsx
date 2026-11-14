@@ -7,6 +7,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 
 const refresh = vi.fn();
 const addToast = vi.fn();
+const onClose = vi.fn();
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: vi.fn() }));
@@ -24,7 +25,7 @@ describe("CreateTicketForm", () => {
 
   it("submits the selected category to the ticket API", async () => {
     const user = userEvent.setup();
-    render(<CreateTicketForm locale="en" />);
+    render(<CreateTicketForm onClose={onClose} />);
 
     await user.type(screen.getByLabelText("Title"), "API latency");
     await user.selectOptions(screen.getByLabelText("Category"), "incident");
@@ -44,7 +45,7 @@ describe("CreateTicketForm", () => {
     // category and the priority were gone, with only "Failed to create" left to read.
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("Too many tickets were opened in the last hour"));
-    render(<CreateTicketForm locale="en" />);
+    render(<CreateTicketForm onClose={onClose} />);
 
     await user.type(screen.getByLabelText("Title"), "API latency");
     await user.selectOptions(screen.getByLabelText("Category"), "incident");
@@ -61,14 +62,32 @@ describe("CreateTicketForm", () => {
     expect(addToast).not.toHaveBeenCalledWith("error", expect.anything());
   });
 
-  it("starts a new ticket empty after one was filed", async () => {
+  it("closes once the ticket is filed: the list it joins is the page", async () => {
     const user = userEvent.setup();
-    render(<CreateTicketForm locale="en" />);
+    render(<CreateTicketForm onClose={onClose} />);
     await user.type(screen.getByLabelText("Title"), "API latency");
     await user.type(screen.getByLabelText("Description"), "Latency exceeds the SLO");
     await user.click(screen.getByRole("button", { name: "Submit ticket" }));
     await waitFor(() => expect(addToast).toHaveBeenCalledWith("success", "Ticket created"));
-    expect(screen.getByLabelText("Title")).toHaveValue("");
-    expect(screen.getByLabelText("Description")).toHaveValue("");
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("is cancelled at once while nothing is typed", async () => {
+    const user = userEvent.setup();
+    render(<CreateTicketForm onClose={onClose} />);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("asks before dropping a ticket that was being written", async () => {
+    const user = userEvent.setup();
+    render(<CreateTicketForm onClose={onClose} />);
+    await user.type(screen.getByLabelText("Title"), "API latency");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByRole("dialog", { name: "Discard unsaved changes?" })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Discard and leave" }));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });

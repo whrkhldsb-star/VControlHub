@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { EmptyState, Toolbar, SurfacePanel } from "@/components/page-shell";
+import { EmptyState, PageHeader, Toolbar, SurfacePanel } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -38,6 +38,8 @@ type ServerOption = { id: string; name: string; enabled: boolean };
 type TemplateOption = { id: string; name: string; description: string | null; command: string; rollbackCommand: string | null; variables: string[]; tags: string[] };
 
 type Props = {
+	/** Page header; rendered here so the create command sits in its actions. */
+	header?: { eyebrow?: string; title: string; description?: string };
 	tasks: Task[];
 	servers: ServerOption[];
 	templates?: TemplateOption[];
@@ -82,7 +84,7 @@ function describeCronPreview(expr: string, t: (key: string, vars?: Record<string
 	return describeCron(expr, t) ?? t("scheduledTasks.cron.custom");
 }
 
-export function ScheduledTaskListClient({ tasks: initialTasks, servers, templates = [], canCreate, canManage, canApprove = false }: Props) {
+export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, templates = [], canCreate, canManage, canApprove = false }: Props) {
 	// Retry/pause/delete: executors always; a creator only for tasks whose every run is approved (matches the API, A6-09).
 	const canOperate = (task: { approvalRequired?: boolean }) => canManage || (canCreate && task.approvalRequired !== false);
 	const { t, locale } = useI18n();
@@ -171,23 +173,28 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 
 	return (
 		<div className="space-y-6">
-			<Toolbar className="justify-between">
-				<label htmlFor="scheduled-task-log-search" className="sr-only">{t("scheduledTasksPage.search.label")}</label>
-				<input
-					id="scheduled-task-log-search"
-					type="search"
-					value={searchQuery}
-					onChange={(e) => setFilter("q", e.target.value)}
-					placeholder={t("scheduledTasks.searchPlaceholder")} className={cn(UI_INPUT, "w-full sm:w-96")}
-				/>
-				{canCreate && !showCreate && (
-					<ActionButton icon={<Plus size={16} aria-hidden />} variant="primary"
-						onClick={() => setShowCreate(true)}
-					>
-						{t("scheduledTasksPage.create")}
+			{header ? (
+				<PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+					{canCreate && !showCreate ? (
+						<ActionButton icon={<Plus size={16} aria-hidden />} variant="primary" onClick={() => setShowCreate(true)}>
+							{t("scheduledTasksPage.create")}
 						</ActionButton>
-				)}
-			</Toolbar>
+					) : null}
+				</PageHeader>
+			) : null}
+			{/* Nothing to search until there is a task. */}
+			{tasks.length > 0 ? (
+				<Toolbar>
+					<label htmlFor="scheduled-task-log-search" className="sr-only">{t("scheduledTasksPage.search.label")}</label>
+					<input
+						id="scheduled-task-log-search"
+						type="search"
+						value={searchQuery}
+						onChange={(e) => setFilter("q", e.target.value)}
+						placeholder={t("scheduledTasks.searchPlaceholder")} className={cn(UI_INPUT, "w-full sm:w-96")}
+					/>
+				</Toolbar>
+			) : null}
 
 			{showCreate && (
 				<div ref={formPanelRef} className="mb-1 scroll-mt-24">
@@ -205,8 +212,19 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 				</div>
 			)}
 
-			{tasks.length === 0 && !showCreate ? (
-				<EmptyState icon={<IconCalendarClock />} variant="boxed" title={t("scheduledTasks.empty.title")} text={t("scheduledTasks.empty.hint")} />
+			{/* While the first task is being written the form is the page: no "nothing matches" under it. */}
+			{tasks.length === 0 && showCreate ? null : tasks.length === 0 ? (
+				<EmptyState
+					icon={<IconCalendarClock />}
+					variant="boxed"
+					title={t("scheduledTasks.empty.title")}
+					text={t("scheduledTasks.empty.hint")}
+					action={canCreate ? (
+						<ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={() => setShowCreate(true)}>
+							{t("scheduledTasksPage.create")}
+						</ActionButton>
+					) : undefined}
+				/>
 			) : filteredTasks.length === 0 ? (
 				<EmptyState text={`${t("scheduledTasksPage.search.empty", { query: searchQuery })}`} variant="boxed" />
 			) : (

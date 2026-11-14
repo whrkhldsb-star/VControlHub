@@ -287,6 +287,16 @@ breadcrumb names the area, so page eyebrows are hidden.
   names its own contents ("Download tasks"), not the page again.
 - An empty state says what is empty as its `title` ("No playbooks yet"), what
   to do about it as `text` or children, and offers its button as `action`.
+- A list page's create command ("New ticket", "Create template") is a
+  button in its `PageHeader`, not in a toolbar or a form left open above
+  the list. It opens the form in a `SurfacePanel` right under the header
+  and hides while the form is open; the empty list offers the same command.
+  The form has Cancel (asking first when something was typed), says a
+  refusal inside itself, and closes once the thing exists. A page whose one
+  job is the form (a deployment launcher) or whose command is one row
+  (a backup type and a note) keeps it open. A list's count is the
+  `ListPanel` count beside its title, once; search and filters show when
+  there is something to search.
 - A sentence is one dictionary entry with placeholders (`{count}`, `{name}`),
   never pieces joined in code: word order and punctuation belong to the
   language. Where a link follows a sentence, end the sentence and put the

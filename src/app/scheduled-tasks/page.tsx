@@ -5,7 +5,7 @@ import { listServerProfiles } from "@/lib/server/service";
 import { listTemplates } from "@/lib/command-template/service";
 
 import { ScheduledTaskListClient } from "./scheduled-task-list-client";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
 
@@ -63,12 +63,9 @@ export default async function ScheduledTasksPage() {
 
 	return (
 		<PageShell>
-			<PageHeader
-				eyebrow={t("scheduledTasksPage.eyebrow", locale)}
-				title={tr("scheduledTasksPage.header.title")}
-				description={tr("scheduledTasksPage.header.description")}
-			/>
-			<ScheduledTaskListClient tasks={serialized} servers={serverOptions} templates={templateOptions} canCreate={canCreate} canManage={canManage} canApprove={canApprove} />
+			<ScheduledTaskListClient
+				header={{ eyebrow: t("scheduledTasksPage.eyebrow", locale), title: tr("scheduledTasksPage.header.title"), description: tr("scheduledTasksPage.header.description") }}
+				tasks={serialized} servers={serverOptions} templates={templateOptions} canCreate={canCreate} canManage={canManage} canApprove={canApprove} />
 		</PageShell>
 	);
 }

@@ -1,5 +1,5 @@
 import { requirePagePermission } from "@/lib/auth/page-guard";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { listItsmConnections, listItsmEvents } from "@/lib/itsm/service";
 import { ItsmPageClient } from "./itsm-page-client";
@@ -22,13 +22,8 @@ export default async function ItsmPage() {
 
 	return (
 		<PageShell>
-			<PageHeader
-				eyebrow={t("itsmPage.eyebrow", locale)}
-				title={t("itsmPage.title", locale)}
-				description={t("itsmPage.desc", locale)}
-				className="mb-6"
-			/>
 			<ItsmPageClient
+				header={{ eyebrow: t("itsmPage.eyebrow", locale), title: t("itsmPage.title", locale), description: t("itsmPage.desc", locale) }}
 				initialConnections={connections}
 				initialEvents={events}
 				canManage

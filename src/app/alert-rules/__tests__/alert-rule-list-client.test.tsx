@@ -54,6 +54,8 @@ import AlertRulesPage from "../page";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { I18nProvider } from "@/lib/i18n/provider";
 
+const header = { title: "告警规则" };
+
 function wrap(ui: React.ReactElement) {
 	return (
 		<I18nProvider initialLocale="zh">
@@ -87,7 +89,7 @@ describe("alert rules client", () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ rules: [] });
 
-		render(wrap(<AlertRuleListClient rules={[]} servers={[]} canManage={true} />));
+		render(wrap(<AlertRuleListClient header={header} rules={[]} servers={[]} canManage={true} />));
 
 		// Prefer toolbar create button when empty-state also has a CTA.
 		const createButtons = screen.getAllByRole("button", { name: "创建告警规则" });
@@ -122,7 +124,7 @@ describe("alert rules client", () => {
 	});
 
 	it("does not render full webhook URLs from serialized rule metadata", () => {
-		render(wrap(<AlertRuleListClient
+		render(wrap(<AlertRuleListClient header={header}
 			rules={[{
 				id: "rule1",
 				name: "Webhook rule",
@@ -149,7 +151,7 @@ describe("alert rules client", () => {
 
 	it("states the condition in words set apart by the layout, with Chinese punctuation", () => {
 		// The parts were joined by spaces kept inside the entries: "当 CPU 使用率 大于等于 90% 持续 300s (全部节点)".
-		render(wrap(<AlertRuleListClient
+		render(wrap(<AlertRuleListClient header={header}
 			rules={[{
 				id: "rule1", name: "Sustained load", metric: "cpu_usage", operator: "gte", threshold: 90, durationSeconds: 300,
 				serverIds: ["s1", "s2"], notifyChannels: ["in_app"], webhookConfigured: false,
@@ -170,7 +172,7 @@ describe("alert rules client", () => {
 		// for a missing address, and the form — whose button read "创建规则" — did not say why.
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValue({ rules: [] });
-		render(wrap(<AlertRuleListClient
+		render(wrap(<AlertRuleListClient header={header}
 			rules={[{
 				id: "rule1", name: "Webhook rule", metric: "cpu_usage", operator: "gte", threshold: 90, durationSeconds: 0, serverIds: [],
 				notifyChannels: ["webhook"], webhookConfigured: true, cooldownMinutes: 10, playbookIds: [], escalationMinutes: 30,
@@ -203,7 +205,7 @@ describe("alert rules client", () => {
 	it("surfaces alert rule toggle failures and keeps the rule unchanged", async () => {
 		const user = userEvent.setup();
 
-		render(wrap(<AlertRuleListClient rules={[{
+		render(wrap(<AlertRuleListClient header={header} rules={[{
 			id: "rule1",
 			name: "CPU overload",
 			metric: "cpu_usage",
@@ -236,7 +238,7 @@ describe("alert rules client", () => {
 		const nativeConfirm = vi.spyOn(window, "confirm");
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ rules: [] });
 
-		render(wrap(<AlertRuleListClient rules={[{
+		render(wrap(<AlertRuleListClient header={header} rules={[{
 			id: "rule1",
 			name: "Disk full",
 			metric: "disk_usage",
@@ -271,7 +273,7 @@ describe("alert rules client", () => {
 	it("surfaces alert rule delete failures and keeps the rule visible", async () => {
 		const user = userEvent.setup();
 
-		render(wrap(<AlertRuleListClient rules={[{
+		render(wrap(<AlertRuleListClient header={header} rules={[{
 			id: "rule1",
 			name: "Disk full",
 			metric: "disk_usage",
@@ -312,7 +314,7 @@ describe("alert rules client", () => {
 	it("surfaces immediate alert check failures", async () => {
 		const user = userEvent.setup();
 
-		render(wrap(<AlertRuleListClient rules={[]} servers={[]} canManage={true} />));
+		render(wrap(<AlertRuleListClient header={header} rules={[]} servers={[]} canManage={true} />));
 
 		await waitFor(() => expect(csrfFetch).toHaveBeenCalled());
 		vi.mocked(csrfFetch).mockImplementationOnce(async () => {
@@ -328,7 +330,7 @@ describe("alert rules client", () => {
 	it("can send a test alert for a configured rule and display delivery results", async () => {
 		const user = userEvent.setup();
 
-		render(wrap(<AlertRuleListClient rules={[{
+		render(wrap(<AlertRuleListClient header={header} rules={[{
 			id: "rule1",
 			name: "Webhook rule",
 			metric: "cpu_usage",
@@ -370,7 +372,7 @@ describe("alert rules client", () => {
 	it("surfaces alert test-send failures", async () => {
 		const user = userEvent.setup();
 
-		render(wrap(<AlertRuleListClient rules={[{
+		render(wrap(<AlertRuleListClient header={header} rules={[{
 			id: "rule1",
 			name: "Webhook rule",
 			metric: "cpu_usage",

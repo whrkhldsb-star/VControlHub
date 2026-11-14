@@ -96,4 +96,34 @@ describe("AnnouncementList", () => {
     expect(screen.getByRole("dialog", { name: "删除公告" })).toBeInTheDocument();
     expect(screen.getAllByText("维护公告").length).toBeGreaterThanOrEqual(1);
   });
+
+  it("offers an administrator the first announcement, with nothing to search before it", async () => {
+    const onCreate = vi.fn();
+    render(
+      <ToastProvider>
+        <AnnouncementList items={[]} canManage onCreate={onCreate} />
+      </ToastProvider>,
+    );
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.getByText("暂无公告")).toBeInTheDocument();
+    expect(screen.getByText("发布后，所有登录的账号都会在这里和通知区域看到。")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "发布公告" }));
+    expect(onCreate).toHaveBeenCalledOnce();
+  });
+
+  it("tells a reader where announcements come from", () => {
+    render(
+      <ToastProvider>
+        <AnnouncementList items={[]} canManage={false} />
+      </ToastProvider>,
+    );
+    expect(screen.getByText("管理员发布的公告会显示在这里。")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("labels the level filter and says how many are shown", () => {
+    renderList();
+    expect(screen.getByLabelText("按级别过滤")).toHaveValue("ALL");
+    expect(screen.getByText("2 条")).toBeInTheDocument();
+  });
 });
