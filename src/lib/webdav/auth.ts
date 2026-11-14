@@ -43,12 +43,19 @@ export function webDavScopeForMethod(method: string): "read" | "write" | "delete
   return "read";
 }
 
+/**
+ * A presented token that does not exist (or has expired or been revoked). Told apart from a real token that
+ * may not do what was asked: only this one counts towards refusing the client (src/lib/rate-limit.ts).
+ */
+export class UnknownWebDavTokenError extends AuthError {}
+
 async function authFromToken(
   token: string,
   needed: "read" | "write" | "delete",
+  refusal: string,
 ): Promise<WebDavAuth | null> {
   const result = await verifyApiToken(token);
-  if (!result) return null;
+  if (!result) throw new UnknownWebDavTokenError(refusal);
   if (!webDavTokenAllows(result.scopes, needed)) return null;
   const session = await loadApiTokenOwnerSession(result.userId, result.teamId);
   if (!session) return null;
@@ -81,8 +88,9 @@ export async function authenticateWebDavRequest(
 
   if (header.startsWith("Bearer ")) {
     const token = header.slice(7).trim();
-    const auth = token ? await authFromToken(token, needed) : null;
-    if (!auth) throw new AuthError(apiCopy("apiCopy.invalid.or.insufficient.webdav.token.2632f324"));
+    const refusal = apiCopy("apiCopy.invalid.or.insufficient.webdav.token.2632f324");
+    const auth = token ? await authFromToken(token, needed, refusal) : null;
+    if (!auth) throw new AuthError(refusal);
     return auth;
   }
 
@@ -92,8 +100,9 @@ export async function authenticateWebDavRequest(
       const decoded = Buffer.from(encoded, "base64").toString("utf8");
       const colon = decoded.indexOf(":");
       const password = colon >= 0 ? decoded.slice(colon + 1) : decoded;
-      const auth = password ? await authFromToken(password.trim(), needed) : null;
-      if (!auth) throw new AuthError(apiCopy("apiCopy.invalid.or.insufficient.webdav.credentials.fda12ceb"));
+      const refusal = apiCopy("apiCopy.invalid.or.insufficient.webdav.credentials.fda12ceb");
+      const auth = password ? await authFromToken(password.trim(), needed, refusal) : null;
+      if (!auth) throw new AuthError(refusal);
       return auth;
     } catch (error) {
       if (error instanceof AuthError) throw error;

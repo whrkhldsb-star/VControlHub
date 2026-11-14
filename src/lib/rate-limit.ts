@@ -298,6 +298,36 @@ async function recordFailure(key: string, maxFailures: number, lockoutMs: number
 }
 
 /**
+ * Credentials presented outside a sign-in, such as WebDAV's API tokens. Each request costs a token lookup,
+ * and the request limit is kept per path so a mounted drive is not throttled while it crawls; a caller that
+ * keeps presenting tokens that do not exist could rotate paths for a fresh budget of lookups. Such a client
+ * is refused for a while, counted per client address across every path. Without a trusted address
+ * ("unknown") nothing is counted: one shared counter would let anyone lock everyone out.
+ */
+const UNKNOWN_CREDENTIAL_MAX_FAILURES = 60;
+const UNKNOWN_CREDENTIAL_LOCK_MS = 5 * 60 * 1000;
+
+function credentialClientKey(scope: string, clientIp: string): string | null {
+	const address = clientIp.trim().toLowerCase();
+	// ":" keeps these apart from login counters: a username cannot contain one.
+	return address && address !== "unknown" ? `credential:${scope}@${address}` : null;
+}
+
+/** Whether a client is refused for having presented too many unknown credentials. */
+export async function isCredentialClientBlockedAsync(scope: string, clientIp: string): Promise<{ blocked: boolean; retryAfterMs: number }> {
+	const key = credentialClientKey(scope, clientIp);
+	if (!key) return { blocked: false, retryAfterMs: 0 };
+	const lock = await readLock(key);
+	return { blocked: lock.locked, retryAfterMs: lock.lockedUntil ? Math.max(0, lock.lockedUntil - Date.now()) : 0 };
+}
+
+/** Count a credential that does not exist (not one that exists but may not do what was asked). */
+export async function recordUnknownCredentialAsync(scope: string, clientIp: string): Promise<void> {
+	const key = credentialClientKey(scope, clientIp);
+	if (key) await recordFailure(key, UNKNOWN_CREDENTIAL_MAX_FAILURES, UNKNOWN_CREDENTIAL_LOCK_MS);
+}
+
+/**
  * Record a failed login against the shared store: the client counter and the
  * account-wide counter both advance. `failCount` is the client's count (what
  * the user sees), `accountFailCount` the total across addresses.

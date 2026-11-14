@@ -25,6 +25,7 @@ vi.mock("@/lib/auth/authorization", () => ({
 
 const {
   authenticateWebDavRequest,
+  UnknownWebDavTokenError,
   webDavScopeForMethod,
   webDavTokenAllows,
   webDavUnauthorizedResponse,
@@ -126,6 +127,20 @@ describe("authenticateWebDavRequest", () => {
     await authenticateWebDavRequest(request({ authorization: `Basic ${encoded}` }), "GET");
 
     expect(mocks.verifyApiToken).toHaveBeenCalledWith("vch:with:colons");
+  });
+
+  // Only a token that does not exist counts towards refusing the client; a real token that may not do what
+  // was asked (a read-only drive that Finder writes .DS_Store to) must never lock its owner out.
+  it("tells a token that does not exist apart from one that may not do what was asked", async () => {
+    mocks.verifyApiToken.mockResolvedValueOnce(null);
+    await expect(authenticateWebDavRequest(request({ authorization: "Bearer vch_unknown" }), "GET")).rejects.toBeInstanceOf(UnknownWebDavTokenError);
+    mocks.verifyApiToken.mockResolvedValueOnce(null);
+    await expect(authenticateWebDavRequest(request({ authorization: `Basic ${Buffer.from("alice:vch_unknown").toString("base64")}` }), "GET")).rejects.toBeInstanceOf(UnknownWebDavTokenError);
+
+    mocks.verifyApiToken.mockResolvedValueOnce({ userId: "u1", teamId: "team_a", tokenId: "tok_1", scopes: ["storage:read"] });
+    const insufficient = authenticateWebDavRequest(request({ authorization: "Bearer vch_read_only" }), "PUT");
+    await expect(insufficient).rejects.toThrow(/Invalid or insufficient/);
+    await expect(insufficient).rejects.not.toBeInstanceOf(UnknownWebDavTokenError);
   });
 
   it("rejects a token whose scopes do not cover the verb, before loading any session", async () => {
