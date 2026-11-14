@@ -45,6 +45,18 @@ after review. Without `--no-write` the command also refreshes
 `docs/rbac-audit.{json,md}`; `--report-only` keeps the old informational
 exit 0.
 
+## Dictionary and deployment-asset gates
+
+The jobs run their steps one by one and none of them called `npm run verify`, so
+two of its checks never ran in CI: a translation key missing from the
+dictionaries (or present in one language only), and the deployment assets
+(`deploy/verify-assets.sh`: the shell entrypoints parse, the systemd units render
+and pass `systemd-analyze verify`, the Compose file is valid). Both run as unit
+tests now, so the `test` job covers them without a workflow change:
+`scripts/__tests__/i18n-key-completeness.test.ts` runs the key check on the code
+base, and `deploy/__tests__/verify-assets.test.ts` runs the asset check wherever
+`systemd-analyze` exists (Linux; it skips on Windows).
+
 ## GitHub Branch protection (one-time, repo admin)
 
 In **Settings → Branches → Branch protection rules → main**:
@@ -183,16 +195,19 @@ not guarantee a zero-delay mount timer has completed.
 ### Specs no workflow runs
 
 `npm run test:e2e:nightly` runs every spec, but no workflow calls it: the
-scheduled run only adds the full matrix of `ui-site`. These specs therefore run
-only when someone starts them, and two of them had stopped matching the product
-(fixed 2026-11-12: server fixtures without a customer were invisible to the
-signed-in account, and the files spec drove the drive as it was before its
-redesign). Run them after changing the pages they cover:
+scheduled run only adds the full matrix of `ui-site`. Two specs that need
+nothing beyond the isolated account had stopped matching the product while no
+workflow ran them (fixed 2026-11-12: server fixtures without a customer were
+invisible to the signed-in account, and the files spec drove the drive as it was
+before its redesign): `ui-upgrade` (servers, files, settings, monitoring ×
+language × theme × width, with axe) and `file-enhancements` (paused upload across
+pages, favourites and tags, copy / move / delete jobs) are now part of
+`npm run test:e2e:workflows`, which the E2E job already runs, so no workflow
+changed. The specs below still run only when someone starts them; run them after
+changing the pages they cover:
 
 | Spec | Needs |
 | --- | --- |
-| `ui-upgrade` (servers, files, settings, monitoring × language × theme × width, with axe) | the isolated account, as for the workflow suite |
-| `file-enhancements` (paused upload across pages, favourites and tags, copy / move / delete jobs) | the same |
 | `windows-rdp` | `E2E_RDP_CANARY=1` for the fixture test; the ticket test sends `E2E_RDP_ORIGIN` (by default the base URL) as its origin, which must be in the server's `SSH_WS_ALLOWED_ORIGINS` |
 | `ssh-terminal-layout`, `ssh-terminal-modes`, `ssh-terminal-resilience` | the app **and** `dist/ssh-ws-proxy.js` on a test database, `E2E_SSH_LAYOUT_LAB=1` / `E2E_SSH_LAB=1`, and `SSH_WS_ALLOWED_ORIGINS` listing the app origin and the relay origins `http://127.0.0.1:3495`–`3497` |
 | `audit-remediation-isolated` | a one-off environment (fixed port and database name); kept as a record |
