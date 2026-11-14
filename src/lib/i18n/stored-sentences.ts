@@ -51,7 +51,8 @@ const ENGLISH_FORMS: Array<[RegExp, Render]> = [
 	[/^Missing recordId in job payload$/, say("backend.stored.vpsBackupRecordMissing")],
 	[/^Download task (\S+) does not exist$/, say("backend.stored.downloadMissing", (m) => ({ id: m[1]! }))],
 	[/^Download task (\S+) is missing a VPS node$/, say("backend.stored.downloadWithoutServer", (m) => ({ id: m[1]! }))],
-	// What a running job is doing (the `progress` of heartbeatJob).
+	// What a running job is doing (the `progress` of heartbeatJob). A node's name has no colon: "Syncing failed:
+	// …" is someone else's sentence and stays as it is.
 	[/^Collecting system health signals$/, say("backend.stored.progress.healthSignals")],
 	[/^Running AI operations scan$/, say("backend.stored.progress.aiOpsScan")],
 	[/^Cleaning up old backups$/, say("backend.stored.progress.backupCleanup")],
@@ -73,10 +74,10 @@ const ENGLISH_FORMS: Array<[RegExp, Render]> = [
 	[/^Pruning historical records across sources$/, say("backend.stored.progress.taskRetention")],
 	[/^Dispatching due Playbook Cron triggers$/, say("backend.stored.progress.playbookTriggers")],
 	[/^Dispatching due scheduled tasks$/, say("backend.stored.progress.scheduledTasks")],
-	[/^Scanning (.+) \((\d+)\/(\d+)\)$/, say("backend.stored.progress.scanNodeOf", (m) => ({ node: m[1]!, index: m[2]!, total: m[3]! }))],
-	[/^Scanning (.+)$/, say("backend.stored.progress.scanNode", (m) => ({ node: m[1]! }))],
+	[/^Scanning ([^:\n]+) \((\d+)\/(\d+)\)$/, say("backend.stored.progress.scanNodeOf", (m) => ({ node: m[1]!, index: m[2]!, total: m[3]! }))],
+	[/^Scanning ([^:\n]+)$/, say("backend.stored.progress.scanNode", (m) => ({ node: m[1]! }))],
 	[/^Loading SFTP nodes$/, say("backend.stored.progress.sftpNodes")],
-	[/^Syncing (.+)$/, say("backend.stored.progress.syncNode", (m) => ({ node: m[1]! }))],
+	[/^Syncing ([^:\n]+)$/, say("backend.stored.progress.syncNode", (m) => ({ node: m[1]! }))],
 	[/^Checking ticket SLA deadlines$/, say("backend.stored.progress.ticketSla")],
 	// Written before downloads said it in the platform's language.
 	[/^Starting download\.\.\.$/, say("backend.downloads.progress.directStarting")],

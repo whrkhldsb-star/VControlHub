@@ -42,6 +42,8 @@ describe("stored sentences", () => {
 			expect(localizeStoredSentence(text, "en")).toBe(text);
 		}
 		expect(localizeStoredSentence("Execution failed: disk full", "zh")).toBe("执行失败：disk full");
+		expect(localizeStoredSentence("Syncing failed: connection reset", "zh")).toBe("Syncing failed: connection reset");
+		expect(localizeStoredSentence("Syncing nas-1", "zh")).toBe("正在同步 nas-1");
 		expect(localizeStoredText(null, "zh")).toBeNull();
 		expect(localizeStoredText("", "zh")).toBe("");
 	});
