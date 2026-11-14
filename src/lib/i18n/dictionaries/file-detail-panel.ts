@@ -27,7 +27,7 @@ export const en: Record<string, string> = {
 	"fileDetailPanel.storageNode": "Storage node",
 	"fileDetailPanel.driver": "Driver",
 	"fileDetailPanel.accessMode": "Access mode",
-	"fileDetailPanel.preview": "Preview / Edit online",
+	"fileDetailPanel.preview": "Preview / edit online",
 	"fileDetailPanel.download": "Download file",
 	"fileDetailPanel.findInMedia": "Find in media library",
 	"fileDetailPanel.managementActions": "Management actions",

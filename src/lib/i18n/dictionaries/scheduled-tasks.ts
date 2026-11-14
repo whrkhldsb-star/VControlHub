@@ -99,7 +99,7 @@ export const zh: Record<string, string> = {
 	"scheduledTasks.source.manual": "来源：手动创建",
 	"scheduledTasks.selectAll": "选择全部服务器",
 	"scheduledTasks.clearSelection": "清空选择",
-	"scheduledTasksPage.delete.desc": "即将删除定时任务「{name}」。删除后它不再执行，历史结果也不能再从这里查看。",
+	"scheduledTasksPage.delete.desc": "即将删除定时任务“{name}”。删除后它不再执行，历史结果也不能再从这里查看。",
 };
 
 export const en: Record<string, string> = {
@@ -174,7 +174,7 @@ export const en: Record<string, string> = {
 	"scheduledTasksPage.reason": "Reason: {reason}",
 	"scheduledTasksPage.lastRun": "Last run: {time}",
 	"scheduledTasksPage.nextRun": "Next run: {time}",
-	"scheduledTasksPage.search.empty": "No scheduled tasks or execution logs matching \"{query}\"",
+	"scheduledTasksPage.search.empty": "No scheduled tasks or execution logs matching “{query}”",
 	"scheduledTasksPage.preview.label": "Preview: {value}",
 	"scheduledTasks.schedule.recurring": "Daily / recurring",
 	"scheduledTasks.schedule.once": "Run once",

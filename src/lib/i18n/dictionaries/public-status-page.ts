@@ -385,7 +385,7 @@ export const en: Record<string, string> = {
 	"publicStatus.latency.failed": "Probe failed",
 	"publicStatus.latency.hint": "Hub-to-node TCP connect time (not an ICMP ping)",
 	"publicStatus.latency.avg": "Average latency",
-	"publicStatus.latency.failedCount": "{count} failed probe(s)",
+	"publicStatus.latency.failedCount": "{count} failed {count|probe|probes}",
 	"publicStatus.latency.failedMarker": "Failed probe",
 	"publicStatus.summary.label": "Overview",
 	"publicStatus.summary.online": "Online nodes",

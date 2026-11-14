@@ -163,7 +163,7 @@ describe("ItsmPageClient destructive UX", () => {
 
 		await user.click(screen.getByRole("button", { name: "删除" }));
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
-		expect(screen.getByText(/确认删除连接「值班 Slack」/)).toBeInTheDocument();
+		expect(screen.getByText(/确认删除连接“值班 Slack”/)).toBeInTheDocument();
 		expect(csrfFetch).not.toHaveBeenCalledWith(
 			"/api/itsm/connections/conn-1",
 			expect.objectContaining({ method: "DELETE" }),

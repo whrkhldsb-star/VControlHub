@@ -153,7 +153,7 @@ describe("DownloadsClient", () => {
     expect(await within(form).findByRole("alert")).toHaveTextContent("目标路径不可写");
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "新建下载任务" })).toBeInTheDocument();
-    expect(screen.getByText("完成后的「下载文件」按钮和文件管理使用同一套访问策略。")).toBeInTheDocument();
+    expect(screen.getByText("完成后的“下载文件”按钮和文件管理使用同一套访问策略。")).toBeInTheDocument();
     expect(screen.getByText("当前：中转")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://example.com/a.iso")).toBeInTheDocument();
     await actor.type(screen.getByRole("textbox", { name: "下载链接" }), "x");
@@ -205,7 +205,7 @@ describe("DownloadsClient", () => {
 
     expect(confirmSpy).not.toHaveBeenCalled();
     const dialog = await screen.findByRole("dialog", { name: "确认删除" });
-    expect(dialog).toHaveTextContent("确认彻底删除下载任务「a.iso」的记录？此操作不可撤销。");
+    expect(dialog).toHaveTextContent("确认彻底删除下载任务“a.iso”的记录？此操作不可撤销。");
     await actor.click(within(dialog).getByRole("button", { name: "取消" }));
     expect(screen.queryByRole("dialog", { name: "确认删除" })).not.toBeInTheDocument();
     expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(1);

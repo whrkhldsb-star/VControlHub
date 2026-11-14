@@ -114,7 +114,7 @@ test("API token create, plaintext display and revoke", async ({ page }) => {
 	await expect(page.locator("code").filter({ hasText: /\S+/ }).first()).toBeVisible();
 	await expect(page.getByText(marker, { exact: true })).toBeVisible();
 	await page.getByRole("button", { name: new RegExp(`撤销.*${marker}|Revoke.*${marker}`, "i") }).click();
-	const dialog = page.getByRole("dialog", { name: /确认撤销|Confirm revoke/i });
+	const dialog = page.getByRole("dialog", { name: /确认撤销|Revoke this API token/i });
 	await dialog.getByRole("button", { name: /确认撤销|Confirm revoke/i }).click();
 	await expect(page.getByText(/已撤销|Revoked/i).last()).toBeVisible();
 });

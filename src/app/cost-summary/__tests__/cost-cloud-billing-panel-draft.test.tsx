@@ -63,6 +63,6 @@ describe("CostCloudBillingPanel delete confirmation", () => {
 		};
 		render(<CostCloudBillingPanel initialAccounts={[account as never]} canManage currencies={["USD"]} month="2026-11" />);
 		await user.click(screen.getByRole("button", { name: "删除" }));
-		expect(screen.getByText("确认删除账单账户「AWS $& 主账户 $'」？凭证与导入配置将一并移除。")).toBeInTheDocument();
+		expect(screen.getByText("确认删除账单账户“AWS $& 主账户 $'”？凭证与导入配置将一并移除。")).toBeInTheDocument();
 	});
 });

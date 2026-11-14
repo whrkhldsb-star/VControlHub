@@ -140,6 +140,49 @@ describe("what the dictionaries say", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	// The rule above catches a label only when every word is capitalised: "Step Timeout (seconds)", "Container Logs —
+	// {id}" and "Reset {name}'s Password" passed it. Inside a short label a capital is a name, an acronym, a key or a
+	// page of the application; after a colon, a dot, a bar or a dash a new phrase starts.
+	it("capitalises nothing inside an English label but names", () => {
+		const small = new Set(["a", "an", "the", "of", "to", "in", "on", "for", "and", "or", "by", "with", "at", "per", "vs", "via", "as", "from", "into", "is"]);
+		const acronym = /^[A-Z0-9][A-Z0-9/&.+-]*s?$/;
+		const names = /\b(?:Docker(?: Compose| Hub)?|Compose|Nginx|Telegram|Cloudflare|Turnstile|Komari|Linux|Windows|macOS|MySQL|PostgreSQL|Redis|GitHub|Git|Caddy|WebSocket|WebDAV|Markdown|Chinese|English|Tencent Cloud|Agent|Direct Gateway|VControlHub|Bot Token|Webhook|OpenAPI|OpenSSH|LinuxServer|WebP|Office|Prisma|Next\\.js|GiB|MiB|Shift|Enter|Tab|Ctrl|Settings|Shares|Servers|Files|Users|Slack|Aliyun|Linode)\b/g;
+		const isName = (key: string) => /^(?:builtinTemplate|qsCatalog|openapiSpec|apiCopy|backend)\.|^costPage\.billing\.provider\.|^languageToggle\.switchLabel$|^itsmPage\.field\.webhookSecretPlaceholder$/.test(key);
+		const offenders = Object.entries(all.en)
+			.filter(([key, value]) => {
+				if (isName(key) || value.length > 70 || /[.?!:]$/.test(value)) return false;
+				const text = value.replace(/\{[^}]*\}/g, " ").replace(/“[^”]*”/g, " ").replace(names, " ");
+				return text.split(/[:·|—–\]]|\s-\s|[.!?]\s/).some((phrase) => {
+					const words = phrase.match(/[A-Za-z][A-Za-z0-9'’.-]*/g) ?? [];
+					return words.slice(1).some((word) => /^[A-Z][a-z]/.test(word) && !small.has(word.toLowerCase()) && !acronym.test(word));
+				});
+			})
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(offenders).toEqual([]);
+	});
+
+	// Chinese quoted names with 「」 in half the entries and “” in the other half, and both languages had ASCII
+	// quotes in some: one way, the typographic quotation marks. Quotes that are characters of their own (those
+	// Windows forbids in names, the ".." of a path) stay.
+	it("quotes with curly quotation marks", () => {
+		const literal = new Set(["backend.storage.windowsNameCharacters", "backend.storagePath.windowsChars", "backupsPage.failure.path.remediation"]);
+		const corner = Object.entries(all.zh).filter(([, value]) => /[「」]/.test(value)).map(([key]) => key);
+		const ascii = (lang: "zh" | "en") => Object.entries(all[lang])
+			.filter(([key, value]) => !literal.has(key) && /"[^"]+"/.test(value))
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(corner).toEqual([]);
+		expect(ascii("zh")).toEqual([]);
+		expect(ascii("en")).toEqual([]);
+	});
+
+	// "Deleted 1 file(s)": a count's noun has its plural form ({count|file|files}), as in part 6.
+	it("writes an English plural as its form, not as “(s)”", () => {
+		const offenders = Object.entries(all.en)
+			.filter(([, value]) => /[a-z]\(s\)/.test(value.replace(/https?\(s\)|http\(s\)/g, "")))
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(offenders).toEqual([]);
+	});
+
 	it("has no empty sentence and no Chinese left in the English ones", () => {
 		expect(Object.entries(all.zh).filter(([, value]) => value === "").map(([key]) => key)).toEqual([]);
 		expect(Object.entries(all.en).filter(([, value]) => value === "").map(([key]) => key)).toEqual([]);

@@ -263,9 +263,9 @@ describe("server direct gateway controls", () => {
 
     // The inline confirm is a labelled group, not a false modal (a11y fix:
     // it has no focus trap/overlay, so role="alertdialog"+aria-modal was wrong).
-    expect(screen.getByRole("group", { name: "确认删除「prod」？" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "确认删除“prod”？" })).toBeInTheDocument();
     expect(
-      screen.getByLabelText("输入 VPS 名称「prod」确认删除"),
+      screen.getByLabelText("输入 VPS 名称“prod”确认删除"),
     ).toBeInTheDocument();
     expect(screen.getByText(/删除成功后节点会从 VPS 列表移除/)).toBeInTheDocument();
   });
@@ -290,10 +290,10 @@ describe("server direct gateway controls", () => {
     );
 
     expect(
-      screen.getByRole("group", { name: 'Delete "prod"?' }),
+      screen.getByRole("group", { name: "Delete “prod”?" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByLabelText('Type VPS name "prod" to confirm delete'),
+      screen.getByLabelText("Type VPS name “prod” to confirm delete"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
   });

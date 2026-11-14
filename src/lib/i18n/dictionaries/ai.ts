@@ -179,7 +179,7 @@ export const zh: Record<string, string> = {
 	"aiPage.searchModel": "搜索模型，或输入模型 ID",
 	"aiPage.noModels": "无可用模型",
 	"aiPage.noModelMatch": "没有匹配的模型",
-	"aiPage.useModelId": "使用「{id}」",
+	"aiPage.useModelId": "使用“{id}”",
 	"aiPage.refresh": "刷新",
 	"aiPage.visionCap": "支持图片",
 	"aiPage.videoCapSetting": "支持视频",
@@ -333,7 +333,7 @@ export const en: Record<string, string> = {
 	// client — toasts
 	"aiPage.noProviderToast": "Please add an AI provider first",
 	"aiPage.createConvFailed": "Failed to create conversation",
-	"aiPage.nameAndKeyRequired": "Name and API Key are required",
+	"aiPage.nameAndKeyRequired": "Name and API key are required",
 	"aiPage.addProviderFailed": "Failed to add",
 	"aiPage.saveTitlePrompt": "Please enter a new conversation title.",
 	"aiPage.titleUpdated": "Conversation title updated",

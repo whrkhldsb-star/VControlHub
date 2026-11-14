@@ -24,7 +24,7 @@ export const zh: Record<string, string> = {
 	"preferencesPage.error.load": "偏好设置加载失败",
 	"preferencesPage.error.save": "偏好设置保存失败",
 	"preferencesPage.eyebrow": "偏好设置",
-	"preferencesPage.hint.autoProbe": "周期性 SSH 只读采样，仅在节点启用且「自动探测」打开时生效。调短间隔可以更快发现异常，调长则减轻 VPS 负载。",
+	"preferencesPage.hint.autoProbe": "周期性 SSH 只读采样，仅在节点启用且“自动探测”打开时生效。调短间隔可以更快发现异常，调长则减轻 VPS 负载。",
 	"preferencesPage.hint.rdpProbe": "对 Windows 节点周期性检测 RDP 端口（默认 3389）的连通性，卡片状态芯片据此显示在线/离线。仅做 TCP 连接测试，不验证登录凭据；手动探测按钮不受此开关影响。",
 	"preferencesPage.toggle.rdpProbe": "Windows RDP 连通性自动探测",
 	"preferencesPage.hint.autoRefresh": "控制服务器卡片、系统监控、流量中心和 Docker 统计的查询频率；调大间隔或关闭自动刷新可以明显减少请求和远程采样流量。",

@@ -245,7 +245,7 @@ describe("ScheduledTaskListClient", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "确认删除定时任务" });
     expect(confirmSpy).not.toHaveBeenCalled();
-    expect(within(dialog).getByText(/即将删除定时任务「清理日志」/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/即将删除定时任务“清理日志”/)).toBeInTheDocument();
     expect(csrfFetch).not.toHaveBeenCalled();
 
     await actor.click(within(dialog).getByRole("button", { name: "取消" }));

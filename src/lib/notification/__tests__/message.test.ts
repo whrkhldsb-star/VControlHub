@@ -8,11 +8,11 @@ describe("notification messages", () => {
 	it("renders the stored fallback in Chinese and the viewer's language on display", () => {
 		const notice = { code: "commandApproved", params: { title: "Restart nginx" } } as const;
 		const fallback = renderNotificationFallback(notice);
-		expect(fallback).toEqual({ title: "命令已批准", message: "命令「Restart nginx」已批准，即将执行。" });
+		expect(fallback).toEqual({ title: "命令已批准", message: "命令“Restart nginx”已批准，即将执行。" });
 		const row = { ...fallback, messageCode: notice.code, messageParams: notice.params };
 		expect(localizeNotification(row, en)).toEqual({
 			title: "Command approved",
-			message: "Command \"Restart nginx\" has been approved and will execute shortly.",
+			message: "Command “Restart nginx” has been approved and will execute shortly.",
 		});
 	});
 

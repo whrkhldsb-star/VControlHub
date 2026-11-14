@@ -71,7 +71,7 @@ describe("AiSettingsModelSelector", () => {
 		openList();
 		fireEvent.change(field(), { target: { value: " my-local-model " } });
 		expect(screen.getByText("没有匹配的模型")).toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "使用「my-local-model」" }));
+		fireEvent.click(screen.getByRole("button", { name: "使用“my-local-model”" }));
 		expect(model()).toBe("my-local-model");
 		expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
 	});
@@ -80,7 +80,7 @@ describe("AiSettingsModelSelector", () => {
 		render(<Harness />);
 		openList();
 		fireEvent.change(field(), { target: { value: "gpt-4o" } });
-		expect(screen.queryByRole("button", { name: /^使用「/ })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /^使用“/ })).not.toBeInTheDocument();
 	});
 
 	it("takes the only match on Enter, and its image support with it", () => {

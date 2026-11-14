@@ -121,7 +121,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 
 // 自动探测默认开启，进入 /servers 后会立即调用 /api/servers/monitor。
 // 这里默认 mock /api/preferences 返回 autoProbeEnabled=false，让既有测试
-// 聚焦在「手动探测 + 状态徽章」语义；单独的自动探测测试会显式打开。
+// 聚焦在“手动探测 + 状态徽章”语义；单独的自动探测测试会显式打开。
 beforeEach(() => {
   vi.mocked(csrfFetch).mockReset();
   vi.mocked(csrfFetch).mockImplementation(async (input) => {
@@ -400,7 +400,7 @@ describe("ServersPage", () => {
       );
     });
 
-    // 状态徽章应当从「启用 · 待探测」过渡到「在线 · …」（成功路径）
+    // 状态徽章应当从“启用 · 待探测”过渡到“在线 · …”（成功路径）
     await waitFor(() => {
       expect(
         screen.getByRole("status", { name: /节点实时状态：在线/ }),

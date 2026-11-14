@@ -339,7 +339,13 @@ its word are one entry (`"{count} 个待审批"`, `"{count} pending"`), never
 `` `${count} ${t("…")}` `` in code. English labels are written in sentence case
 ("New playbook", "Alert rules"); names keep their capitals (products,
 providers, acronyms, the built-in templates and the catalog's apps), and the
-test fails on a label that capitalises every word.
+test fails on a label that capitalises every word, or any word inside a short
+label that is not a name, an acronym, a key or a page of the application
+(after a colon, a middle dot, a dash or a full stop a new phrase starts). A
+count's plural is its form, never "file(s)". Both languages quote with curly
+quotation marks (“名称”, “name”); Chinese does not use 「」, and an ASCII quote
+stays only where it is a character of its own (the ones Windows forbids in
+names). The test fails on either.
 `src/app/manifest.test.ts` keeps the manifest's two colours equal to the
 tokens'.
 

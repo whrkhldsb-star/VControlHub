@@ -10,7 +10,7 @@
  */
 export const zh: Record<string, string> = {
 	"healthPage.systemTitle": "平台健康",
-	"healthPage.systemDescription": "VControlHub 自身的运行自检、修复建议与活动告警；纳管节点的状态请前往「节点状态」。",
+	"healthPage.systemDescription": "VControlHub 自身的运行自检、修复建议与活动告警；纳管节点的状态请前往“节点状态”。",
 	"healthPage.ui.gotoVpsStatus": "查看节点状态",
 
 	"healthPage.eyebrow": "健康中心",
@@ -208,7 +208,7 @@ export const en: Record<string, string> = {
 	"healthPage.fleet.avgCpu": "Avg CPU",
 	"healthPage.fleet.avgMem": "Avg memory",
 	"healthPage.fleet.avgDisk": "Avg disk",
-	"healthPage.fleet.avgLoad": "Avg Load (1m)",
+	"healthPage.fleet.avgLoad": "Avg load (1m)",
 	"healthPage.fleet.netIn": "Total inbound",
 	"healthPage.fleet.netOut": "Total outbound",
 	"healthPage.fleet.top5": "Top 5 resource usage",
@@ -306,7 +306,7 @@ export const en: Record<string, string> = {
 	"healthPage.check.storage-inventory.label": "Cloud storage nodes",
 	"healthPage.check.runtime-directories.label": "Runtime directory baseline",
 	"healthPage.check.dir.label": "Runtime directory {name}",
-	"healthPage.check.next-service.label": "Next.js Service",
+	"healthPage.check.next-service.label": "Next.js service",
 	"healthPage.check.worker-service.label": "Background worker service",
 	"healthPage.check.ssh-ws-service.label": "SSH WebSocket service",
 	"healthPage.check.caddy-service.label": "Caddy reverse proxy service",

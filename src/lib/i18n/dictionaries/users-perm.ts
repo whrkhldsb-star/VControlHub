@@ -77,7 +77,7 @@ export const en: Record<string, string> = {
 	"usersPerm.grants.delete": "Delete",
 	"usersPerm.grants.empty": "No storage path grants: the account reaches all of its customer's storage nodes as its identity template allows.",
 	"usersPerm.grants.hint": "Nodes without grants follow the identity template. Once a node has grants, the account reaches only the listed paths on it; a grant with read, write and delete all cleared blocks the node. Accounts that can manage storage nodes are not narrowed.",
-	"usersPerm.grants.bypassedByTemplate": "The identity template \"{template}\" includes \"manage storage nodes\": this account is exempt from path grants and quotas, so grants set here would not apply. Pick a template without that permission to narrow paths.",
+	"usersPerm.grants.bypassedByTemplate": "The identity template “{template}” includes “manage storage nodes”: this account is exempt from path grants and quotas, so grants set here would not apply. Pick a template without that permission to narrow paths.",
 	"usersPerm.grants.maxFile": "Max file size",
 	"usersPerm.grants.maxFilePlaceholder": "Max file size, e.g. 1GB",
 	"usersPerm.grants.node": "Storage node",

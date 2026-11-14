@@ -40,7 +40,7 @@ describe("ApiTokenManagerClient", () => {
 		fireEvent.click(screen.getByLabelText("status:read"));
 		fireEvent.click(screen.getByRole("button", { name: "Create token" }));
 
-		await screen.findByText("Copy it now. The plaintext Token cannot be retrieved after you leave this page.");
+		await screen.findByText("Copy it now. The plaintext token cannot be retrieved after you leave this page.");
 		expect(screen.getByText("whr_plain_once")).toBeInTheDocument();
 		expect(fetchMock).toHaveBeenCalledWith("/api/api-tokens", expect.objectContaining({
 			method: "POST",
@@ -106,7 +106,7 @@ describe("ApiTokenManagerClient", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Copy token" }));
 
-			expect(await screen.findByText("Could not copy. Select the Token and copy it by hand.")).toBeInTheDocument();
+			expect(await screen.findByText("Could not copy. Select the token and copy it by hand.")).toBeInTheDocument();
 		});
 	});
 
@@ -121,13 +121,13 @@ describe("ApiTokenManagerClient", () => {
 		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 
-		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
+		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
 		expect(confirmSpy).not.toHaveBeenCalled();
 		expect(dialog).toHaveTextContent("CLI");
 		expect(fetchMock).not.toHaveBeenCalled();
 
 		fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-		expect(screen.queryByRole("dialog", { name: "Confirm revoke API Token" })).not.toBeInTheDocument();
+		expect(screen.queryByRole("dialog", { name: "Revoke this API token?" })).not.toBeInTheDocument();
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
@@ -141,12 +141,12 @@ describe("ApiTokenManagerClient", () => {
 
 		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
-		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
+		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
 		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));
 
 		// In the dialog itself: on the page behind it the reason was covered.
 		expect(await within(dialog).findByText("Database temporarily unavailable")).toBeInTheDocument();
-		expect(screen.getByRole("dialog", { name: "Confirm revoke API Token" })).toBeInTheDocument();
+		expect(screen.getByRole("dialog", { name: "Revoke this API token?" })).toBeInTheDocument();
 		expect(within(dialog).queryByText("Revoked")).not.toBeInTheDocument();
 	});
 
@@ -159,7 +159,7 @@ describe("ApiTokenManagerClient", () => {
 
 		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
-		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
+		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
 		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));
 
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/api-tokens?id=tok_1", expect.objectContaining({

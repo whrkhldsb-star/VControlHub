@@ -79,7 +79,7 @@ export const zh: Record<string, string> = {
 	"storagePage.action.updateNodeFailed": "更新存储节点失败",
 	"storagePage.action.deleteNodeSuccess": "存储节点已删除。",
 	"storagePage.action.deleteNodeFailed": "删除存储节点失败",
-	"storagePage.delete.confirmNode": "确认删除「{name}」？",
+	"storagePage.delete.confirmNode": "确认删除“{name}”？",
 
 
 	"storagePage.form.createTitle": "新增存储节点",
@@ -123,7 +123,7 @@ export const en: Record<string, string> = {
 	"storagePage.form.webdavSecretHint": "Leave secrets blank to keep them when editing. Changing endpoint, account or authentication requires a new secret.",
 	"storagePage.list.empty": "No storage nodes yet.",
 	"storagePage.nodes.title": "Storage nodes",
-	"storagePage.nodes.summary": "{total} node(s) · Local {local} · SFTP {sftp}",
+	"storagePage.nodes.summary": "{total} {total|node|nodes} · Local {local} · SFTP {sftp}",
 
 	"storagePage.list.health": "Healthy",
 

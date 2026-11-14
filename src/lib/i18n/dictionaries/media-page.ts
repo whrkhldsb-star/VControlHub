@@ -50,7 +50,7 @@ export const zh: Record<string, string> = {
 	"mediaPage.tagFilter.titleApply": "筛选 #{tag}",
 	"mediaPage.upload.title": "图片发布工作流",
 	"mediaPage.upload.desc": "在这里选择存储节点批量上传；已入库图片卡片可直接发布外链，外链历史进入“外链中心”统一复制和审计。",
-	"mediaPage.empty": "暂无媒体条目。请先在文件管理中浏览 VPS 存储，然后点击「扫描媒体索引」生成媒体列表。",
+	"mediaPage.empty": "暂无媒体条目。请先在文件管理中浏览 VPS 存储，然后点击“扫描媒体索引”生成媒体列表。",
 	"mediaPage.itemCount": "{count} 项",
 
 	"mediaPage.player.sizeUnknown": "未知",
@@ -96,7 +96,7 @@ export const en: Record<string, string> = {
 	"mediaPage.filter.allTab": "All",
 	"mediaPage.filter.allCount": "{count} media {count|item|items}",
 	"mediaPage.filter.imageTab": "Images",
-	"mediaPage.filter.imageDesc": "Upload / Publish links",
+	"mediaPage.filter.imageDesc": "Upload / publish links",
 	"mediaPage.filter.videoTab": "Videos",
 	"mediaPage.filter.videoDesc": "Play / download",
 	"mediaPage.filter.audioTab": "Audio",
@@ -117,7 +117,7 @@ export const en: Record<string, string> = {
 	"mediaPage.tagFilter.titleApply": "Filter by #{tag}",
 	"mediaPage.upload.title": "Image publish workflow",
 	"mediaPage.upload.desc": "Pick a storage node and batch upload here. Already indexed images can publish links directly; published links live in the link hub for copy and audit.",
-	"mediaPage.empty": "No media yet. Browse VPS storage in File Manager first, then click “Scan media index” to build the list.",
+	"mediaPage.empty": "No media yet. Browse VPS storage in Files first, then click “Scan media index” to build the list.",
 	"mediaPage.itemCount": "{count} {count|item|items}",
 
 	"mediaPage.player.sizeUnknown": "Unknown",

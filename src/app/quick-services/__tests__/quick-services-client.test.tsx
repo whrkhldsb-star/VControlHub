@@ -129,7 +129,7 @@ describe("QuickServicesClient", () => {
 
 		expect(await screen.findByRole("tab", { name: /本地精选/ })).toHaveAttribute("aria-selected", "true");
 		expect(screen.getAllByRole("button", { name: "一键安装" }).length).toBeGreaterThan(0);
-		expect(screen.queryByText(/请先在「应用源」中同步数据/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/请先在“应用源”中同步数据/)).not.toBeInTheDocument();
 	});
 
 	it("surfaces app-source load failures without hiding the built-in catalog", async () => {

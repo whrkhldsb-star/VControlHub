@@ -158,7 +158,7 @@ describe("Playbook actions that fail", () => {
 		expect(screen.queryByRole("button", { name: "启用" })).not.toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "停用" }));
 		expect(vi.mocked(csrfFetch).mock.calls[0]?.[1]).toMatchObject({ method: "PATCH", body: JSON.stringify({ id: "pb_1", enabled: false }) });
-		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("success", "已停用「夜间维护」"));
+		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("success", "已停用“夜间维护”"));
 		vi.mocked(csrfFetch).mockReset();
 	});
 

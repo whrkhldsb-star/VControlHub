@@ -175,7 +175,7 @@ export const en: Record<string, string> = {
 	"shares.title": "File share links",
 	"sharesPage.eyebrow": "Sharing",
 	"sharesPage.picker.title": "Choose files in Shares",
-	"sharesPage.picker.description": "Browse directories like in File Manager, tick files or folders to create share links in bulk, no need to jump to the File Manager page.",
+	"sharesPage.picker.description": "Browse directories as in Files and tick files or folders to create share links in bulk, without leaving this page.",
 	"sharesPage.picker.refresh": "Refresh current directory",
 	"sharesPage.picker.root": "Root directory",
 	"sharesPage.picker.name": "Name",

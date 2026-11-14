@@ -148,7 +148,7 @@ export const en: Record<string, string> = {
 	"requestsPage.card.approvalOnly": "Only approvers can view the command content",
 	"requestsPage.card.reason": "Reason: ",
 	"requestsPage.card.requester": "Requester: ",
-	"requestsPage.card.targetCount": "{count} target server(s)",
+	"requestsPage.card.targetCount": "{count} target {count|server|servers}",
 	"requestsPage.card.latestApprovalTitle": "Latest approval",
 	"requestsPage.card.latestApprovalEmpty": "No approval record yet.",
 	"requestsPage.card.executionLogsTitle": "Execution log",
@@ -180,8 +180,8 @@ export const en: Record<string, string> = {
 	"requestsPage.batch.errorReviewFailed": "Review failed",
 	"requestsPage.batch.verbApprove": "approved",
 	"requestsPage.batch.verbReject": "rejected",
-	"requestsPage.batch.successAll": "Successfully {verb} {count} command request(s).",
-	"requestsPage.batch.errorAllFailed": "Batch {verb} failed: all {count} item(s) failed.",
+	"requestsPage.batch.successAll": "Successfully {verb} {count} command {count|request|requests}.",
+	"requestsPage.batch.errorAllFailed": "Batch {verb} failed: {count} of {count} {count|item|items} failed.",
 	"requestsPage.batch.successPartial": "Partial success: {okCount} {verb}, {failCount} failed.",
 
 	// cancel-command-button.tsx

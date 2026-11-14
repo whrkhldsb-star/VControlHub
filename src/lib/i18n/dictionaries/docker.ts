@@ -56,9 +56,9 @@ export const zh: Record<string, string> = {
 	"dockerPage.scope.title": "操作范围",
 	"dockerPage.scope.warning": "当前操作 VControlHub 所在主机的 Docker。拥有 Docker 管理权限的用户，等同拥有这台主机上全部容器的管理能力。",
 	"dockerPage.scope.serverSelect": "Docker 目标",
-	"dockerPage.scope.hubHost": "本机（Hub Host）",
+	"dockerPage.scope.hubHost": "本机（Hub 主机）",
 	"dockerPage.scope.remoteActive": "远程 VPS",
-	"dockerPage.scope.remoteWarning": "正在通过 SSH 管理远程 VPS「{name}」上的 Docker；容器操作在远端主机执行。",
+	"dockerPage.scope.remoteWarning": "正在通过 SSH 管理远程 VPS“{name}”上的 Docker；容器操作在远端主机执行。",
 	"dockerPage.stat.cpu": "CPU {percent}%",
 	"dockerPage.stat.memory": "内存 {used}（{percent}%）",
 	"dockerPage.stat.netRx": "接收 {bytes}",
@@ -103,7 +103,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"dockerPage.desc": "Manage Docker containers on the Hub host or a selected remote VPS",
+	"dockerPage.desc": "Manage Docker containers on the hub host or a selected remote VPS",
 	"dockerPage.action.logs": "Logs",
 	"dockerPage.action.remove": "Delete",
 	"dockerPage.action.restart": "Restart",
@@ -115,7 +115,7 @@ export const en: Record<string, string> = {
 	"dockerPage.scope.serverSelect": "Docker target",
 	"dockerPage.scope.hubHost": "Hub host (local)",
 	"dockerPage.scope.remoteActive": "Remote VPS",
-	"dockerPage.scope.remoteWarning": "Managing Docker on remote VPS \"{name}\" via SSH; container operations execute on the remote host.",
+	"dockerPage.scope.remoteWarning": "Managing Docker on remote VPS “{name}” via SSH; container operations execute on the remote host.",
 	"dockerPage.empty": "There are no Docker containers on this target",
 	"dockerPage.listFailed.title": "The container list did not load",
 	"dockerPage.listFailed.text": "Nothing could be read from this target.",
@@ -145,7 +145,7 @@ export const en: Record<string, string> = {
 	"dockerPage.label.version": "v{version}",
 	"dockerPage.loading": "Loading…",
 	"dockerPage.logsDialog.closeAria": "Close container logs",
-	"dockerPage.logsDialog.title": "Container Logs — {id}",
+	"dockerPage.logsDialog.title": "Container logs — {id}",
 	"dockerPage.refresh.list": "Refresh list",
 	"dockerPage.refresh.stats": "Refresh stats",
 	"dockerPage.removeDialog.cancel": "Cancel",
