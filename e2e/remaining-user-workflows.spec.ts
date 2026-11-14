@@ -484,20 +484,27 @@ test("customer create, select, delete and restore lifecycle", async ({ page }) =
 		// Deleting the selected customer changes the session's customer, and the layout mounts the page again
 		// for the new one (its upload queue is per customer). On a slow runner that lands after the section
 		// was opened and closes it again, so open it until this customer's restore button stays in view.
+		// The section can close again between seeing the button and clicking it: a click then waited for the
+		// button until the test timed out. Open it and click within the same retry.
 		const restoreButton = page.locator("li").filter({ hasText: marker }).getByRole("button", { name: /恢复|Restore/i });
-		await expect(async () => {
-			if (!(await restoreButton.isVisible())) await page.getByText(/已删除的客户|Deleted customers/i).click();
-			await expect(restoreButton).toBeVisible({ timeout: 2_000 });
-		}).toPass({ timeout: 30_000 });
 		const restoredResponse = page.waitForResponse((response) =>
 			new URL(response.url()).pathname === `/api/teams/${createdId}/restore`,
-		{ timeout: 30_000 });
-		await restoreButton.click();
+		{ timeout: 45_000 });
+		await expect(async () => {
+			if (!(await restoreButton.isVisible())) await page.getByText(/已删除的客户|Deleted customers/i).click();
+			await restoreButton.click({ timeout: 2_000 });
+		}).toPass({ timeout: 40_000 });
 		expect((await restoredResponse).status()).toBe(200);
 		await expect(row).toBeVisible();
 	} finally {
 		if (createdId) {
-			await page.context().request.delete(`/api/teams/${encodeURIComponent(createdId)}`, { headers: await csrfHeaders() }).catch(() => undefined);
+			// After a timeout the context is closed and reading its cookies throws: that must not skip the
+			// restore below (the next spec then ran in "all customers" and its WebDAV tokens were refused).
+			try {
+				await page.context().request.delete(`/api/teams/${encodeURIComponent(createdId)}`, { headers: await csrfHeaders() });
+			} catch {
+				// The customer stays deleted or restored; the database restore below is what matters.
+			}
 		}
 		// Deleting the selected customer left this shared administrator in "all customers".
 		// Later specs mint sessions for it and create customer-bound records (API tokens,
