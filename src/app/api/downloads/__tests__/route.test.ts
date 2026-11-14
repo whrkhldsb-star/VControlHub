@@ -715,6 +715,29 @@ describe("/api/downloads", () => {
     }));
   });
 
+  // A download lands on one server: in the all-customers view it is recorded under that server's customer,
+  // where it used to be refused until a customer was chosen in the sidebar.
+  it("records a download made in the all-customers view under the target server's customer", async () => {
+    session.currentTeamId = null;
+    try {
+      prismaMock.server.findUnique.mockResolvedValue({ ...serverFixture(), teamId: "team_7" });
+      prismaMock.downloadTask.create.mockResolvedValueOnce({ id: "task_follow" });
+      const response = await POST(request({ url: "https://example.com/file.iso", serverId: "srv_1", targetPath: "downloads" }));
+      expect(response.status).toBe(200);
+      expect(prismaMock.downloadTask.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ teamId: "team_7" }) }));
+      expect(enqueueDownloadExecutionJobMock).toHaveBeenCalledWith(expect.objectContaining({ teamId: "team_7" }));
+
+      // A server that belongs to no customer still needs one chosen.
+      prismaMock.downloadTask.create.mockClear();
+      prismaMock.server.findUnique.mockResolvedValue({ ...serverFixture(), teamId: null });
+      const refused = await POST(request({ url: "https://example.com/file.iso", serverId: "srv_1", targetPath: "downloads" }));
+      expect(refused.status).toBe(403);
+      expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
+    } finally {
+      session.currentTeamId = "team_1";
+    }
+  });
+
   it("returns 404 for cross-team task control (teamAccessFilter)", async () => {
     session.roles = ["viewer"];
     sessionHasPermissionMock.mockImplementation((_sess, permission) => permission !== "team:manage");
