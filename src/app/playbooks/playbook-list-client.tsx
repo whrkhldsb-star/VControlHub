@@ -8,7 +8,7 @@ import { EmptyState, ListPanel, PageHeader, SurfacePanel } from "@/components/pa
 import { File as FileIcon, Plus } from "@/components/icons";
 import { statusLabelFor, dryRunStepCounts } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary, ServerOption } from "./playbook-types";
-import { CreatePlaybookForm } from "./create-playbook-form";
+import { PlaybookForm } from "./playbook-form";
 import { PlaybookCard } from "./playbook-card";
 import { PlaybookDeleteDialog } from "./playbook-delete-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -40,6 +40,9 @@ export function PlaybookListClient({
   const [playbooks, setPlaybooks] = useState(initial);
   const [runsByPlaybook, setRunsByPlaybook] = useState(initialRuns);
   const [showCreate, setShowCreate] = useState(false);
+  // The playbook whose changes the form holds; null while it makes a new one.
+  const [editing, setEditing] = useState<SerializedPlaybook | null>(null);
+  const formPanelRef = useRef<HTMLDivElement>(null);
   const [pendingDelete, setPendingDelete] = useState<SerializedPlaybook | null>(null);
   // A refused deletion is said in its dialog; every other action answers with a toast, where the click was.
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -167,6 +170,16 @@ export function PlaybookListClient({
     [addToast, startRunPolling, t],
   );
 
+  const handleEdit = useCallback((target: SerializedPlaybook) => {
+    setEditing(target);
+    setShowCreate(true);
+  }, []);
+
+  // The form opens above the list: bring it into view (the edit button may be far down the page).
+  useEffect(() => {
+    if (showCreate) formPanelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [showCreate, editing]);
+
   const handleClaim = useCallback(
     async (playbook: SerializedPlaybook) => {
       const actionKey = `claim:${playbook.id}`;
@@ -241,9 +254,18 @@ export function PlaybookListClient({
       ) : null}
 
       {showCreate && (
-        <SurfacePanel title={t("playbooksPage.action.create")}>
-          <CreatePlaybookForm servers={servers} onClose={() => { setShowCreate(false); void refresh(); }} />
-        </SurfacePanel>
+        <div ref={formPanelRef} className="scroll-mt-24">
+          <SurfacePanel title={editing ? t("playbooksPage.editForm.title", { name: editing.name }) : t("playbooksPage.action.create")}>
+            {/* Keyed by what is edited: opening another playbook starts from its own values. */}
+            <PlaybookForm
+              key={editing?.id ?? "new"}
+              playbook={editing ?? undefined}
+              servers={servers}
+              canRun={canRun}
+              onClose={() => { setShowCreate(false); setEditing(null); void refresh(); }}
+            />
+          </SurfacePanel>
+        </div>
       )}
 
       <ListPanel
@@ -282,6 +304,8 @@ export function PlaybookListClient({
                 onTrigger={handleTrigger}
                 onToggle={handleToggle}
                 onClaim={handleClaim}
+                onEdit={handleEdit}
+                editDisabled={showCreate}
                 onDelete={(target) => { setDeleteError(null); setPendingDelete(target); }}
               />
             </div>

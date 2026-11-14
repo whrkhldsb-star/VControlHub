@@ -18,8 +18,8 @@ import {
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
-import { fieldLabelClass, fieldInputClass, monoFieldInputClass, makeNewStep, reorderSteps } from "./playbook-types";
-import type { TriggerType, SerializedStep, ServerOption } from "./playbook-types";
+import { changedPlaybookFields, fieldLabelClass, fieldInputClass, monoFieldInputClass, makeNewStep, reorderSteps, stepPayload } from "./playbook-types";
+import type { PlaybookFields, TriggerType, SerializedPlaybook, SerializedStep, ServerOption } from "./playbook-types";
 import { SortableStepCard } from "./sortable-step-card";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
@@ -28,25 +28,46 @@ import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 import { Plus } from "@/components/icons";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
-export function CreatePlaybookForm({
+/** The value of a trigger setting, as the form keeps it (a string), or the default for a new playbook. */
+function triggerValue(playbook: SerializedPlaybook | undefined, key: string, fallback: string): string {
+	const value = playbook?.triggerConfig[key];
+	return typeof value === "string" || typeof value === "number" ? String(value) : fallback;
+}
+
+/**
+ * A new playbook, or the changes to one (`playbook`): the same fields either way, sent as a POST or as a PATCH of
+ * that playbook. Editing used to mean deleting the playbook and building it again.
+ */
+export function PlaybookForm({
+	playbook,
 	onClose,
 	servers,
+	canRun = true,
 }: {
+	playbook?: SerializedPlaybook;
 	onClose: () => void;
 	servers: ServerOption[];
+	/** playbook:run, which changing when a saved playbook runs takes. */
+	canRun?: boolean;
 }) {
 	const { t } = useI18n();
 	const { addToast } = useToast();
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
-	const [triggerType, setTriggerType] = useState<TriggerType>("cron");
-	const [cronExpression, setCronExpression] = useState("0 3 * * *");
-	const [metricName, setMetricName] = useState("cpu_usage");
-	const [metricOperator, setMetricOperator] = useState("gt");
-	const [metricThreshold, setMetricThreshold] = useState("80");
-	const [chainRetry, setChainRetry] = useState("0");
-	const [enabled, setEnabled] = useState(true);
-	const [steps, setSteps] = useState<SerializedStep[]>([makeNewStep()]);
+	const editing = playbook !== undefined;
+	// A saved playbook's trigger, switch and retries decide when it runs as its owner: changing them takes
+	// playbook:run. The server refused it after the fact; the fields say so before.
+	const scheduleLocked = editing && !canRun;
+	const [name, setName] = useState(playbook?.name ?? "");
+	const [description, setDescription] = useState(playbook?.description ?? "");
+	const [triggerType, setTriggerType] = useState<TriggerType>(playbook?.triggerType ?? "cron");
+	const [cronExpression, setCronExpression] = useState(triggerValue(playbook, "expression", "0 3 * * *"));
+	const [metricName, setMetricName] = useState(triggerValue(playbook, "metric", "cpu_usage"));
+	const [metricOperator, setMetricOperator] = useState(triggerValue(playbook, "operator", "gt"));
+	const [metricThreshold, setMetricThreshold] = useState(triggerValue(playbook, "threshold", "80"));
+	const [chainRetry, setChainRetry] = useState(String(playbook?.chainRetry ?? 0));
+	const [enabled, setEnabled] = useState(playbook?.enabled ?? true);
+	const [steps, setSteps] = useState<SerializedStep[]>(() =>
+		playbook ? playbook.steps.map((step) => ({ ...step, config: { ...step.config } })) : [makeNewStep()],
+	);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -108,31 +129,33 @@ export function CreatePlaybookForm({
 				triggerType === "cron"
 					? { expression: cronExpression }
 					: { metric: metricName, operator: metricOperator, threshold: Number(metricThreshold) };
-			await csrfFetch("/api/playbooks", {
-				method: "POST",
+			const fields: PlaybookFields = {
+				name,
+				description: description || null,
+				triggerType,
+				triggerConfig,
+				steps: steps.map(stepPayload),
+				chainRetry: Number(chainRetry),
+				enabled,
+			};
+			// An edit sends what changed, and nothing when nothing did.
+			const changes = editing ? changedPlaybookFields(playbook, fields) : fields;
+			if (editing && Object.keys(changes).length === 0) {
+				addToast("info", t("playbooksPage.toast.unchanged"));
+				setDirty(false);
+				onClose();
+				return;
+			}
+			await csrfFetch(editing ? `/api/playbooks/${playbook.id}` : "/api/playbooks", {
+				method: editing ? "PATCH" : "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name,
-					description: description || null,
-					triggerType,
-					triggerConfig,
-					steps: steps.map((s) => ({
-						id: s.id,
-						name: s.name,
-						type: s.type,
-						config: s.config,
-						retry: s.retry,
-						timeoutSec: s.timeoutSec,
-					})),
-					chainRetry: Number(chainRetry),
-					enabled,
-				}),
+				body: JSON.stringify(editing ? { id: playbook.id, ...changes } : changes),
 			});
-			addToast("success", t("playbooksPage.toast.created"));
+			addToast("success", editing ? t("playbooksPage.toast.updated", { name }) : t("playbooksPage.toast.created"));
 			setDirty(false);
 			onClose();
 		} catch (err) {
-			setError(getErrorMessage(err, t("playbooksPage.createForm.error")));
+			setError(getErrorMessage(err, t(editing ? "playbooksPage.editForm.error" : "playbooksPage.createForm.error")));
 		} finally {
 			setSubmitting(false);
 		}
@@ -166,6 +189,7 @@ export function CreatePlaybookForm({
 						max={5}
 						value={chainRetry}
 						onChange={(e) => setChainRetry(e.target.value)}
+						disabled={scheduleLocked}
 						className={fieldInputClass}
 					/>
 				</div>
@@ -194,7 +218,7 @@ export function CreatePlaybookForm({
 							key={opt}
 							data-tile=""
 							data-selected={triggerType === opt ? "" : undefined}
-							className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] transition"
+							className={`flex min-h-11 items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] transition ${scheduleLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
 						>
 							<input
 								type="radio"
@@ -202,12 +226,14 @@ export function CreatePlaybookForm({
 								value={opt}
 								checked={triggerType === opt}
 								onChange={() => setTriggerType(opt)}
+								disabled={scheduleLocked}
 								className="accent-[var(--color-action)]"
 							/>
 							<span>{opt === "cron" ? t("playbooksPage.createForm.triggerCron") : t("playbooksPage.createForm.triggerMetric")}</span>
 						</label>
 					))}
 				</div>
+				{scheduleLocked && <p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.editForm.scheduleLocked")}</p>}
 			</div>
 
 			{triggerType === "cron" ? (
@@ -220,6 +246,7 @@ export function CreatePlaybookForm({
 						value={cronExpression}
 						onChange={(e) => setCronExpression(e.target.value)}
 						required
+						disabled={scheduleLocked}
 						placeholder={t("playbooksPage.triggerConfig.cronPlaceholder")}
 						className={monoFieldInputClass}
 					/>
@@ -236,6 +263,7 @@ export function CreatePlaybookForm({
 							id="playbook-metric"
 							value={metricName}
 							onChange={(e) => setMetricName(e.target.value)}
+							disabled={scheduleLocked}
 							className={fieldInputClass}
 						>
 							<option value="cpu_usage">{t("playbooksPage.metric.cpu_usage")}</option>
@@ -251,6 +279,7 @@ export function CreatePlaybookForm({
 							id="playbook-operator"
 							value={metricOperator}
 							onChange={(e) => setMetricOperator(e.target.value)}
+							disabled={scheduleLocked}
 							className={fieldInputClass}
 						>
 							{["gt", "gte", "lt", "lte", "eq"].map((op) => (
@@ -270,6 +299,7 @@ export function CreatePlaybookForm({
 							step="any"
 							value={metricThreshold}
 							onChange={(e) => setMetricThreshold(e.target.value)}
+							disabled={scheduleLocked}
 							className={fieldInputClass}
 						/>
 					</div>
@@ -312,9 +342,11 @@ export function CreatePlaybookForm({
 					type="checkbox"
 					checked={enabled}
 					onChange={(e) => setEnabled(e.target.checked)}
+					disabled={scheduleLocked}
 					className="accent-[var(--color-action)]"
 				/>
-				{t("playbooksPage.createForm.enabled")}
+				{/* "Enable on save" is a new playbook's default; a saved one is on or off. */}
+				{t(editing ? "playbooksPage.editForm.enabled" : "playbooksPage.createForm.enabled")}
 			</label>
 
 			{/* By the button that was pressed: the form is several screens long. */}
@@ -326,7 +358,7 @@ export function CreatePlaybookForm({
 				<ActionButton variant="primary"
 					type="submit"
 					disabled={submitting}>
-					{submitting ? t("playbooksPage.createForm.submitting") : t("playbooksPage.createForm.submit")}
+					{submitting ? t("playbooksPage.createForm.submitting") : t(editing ? "playbooksPage.editForm.submit" : "playbooksPage.createForm.submit")}
 				</ActionButton>
 				<ActionButton
 					type="button" variant="secondary"

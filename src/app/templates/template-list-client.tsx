@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
 import { EmptyState, SurfacePanel, Toolbar } from "@/components/page-shell";
@@ -10,7 +10,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { Locale } from "@/lib/i18n/translations";
 
-import { CreateTemplateForm } from "./create-template-form";
+import { TemplateForm } from "./template-form";
 import { DeployButton } from "./template-deploy-button";
 import type { ServerOption, Template } from "./template-types";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -39,6 +39,13 @@ export function TemplateListClient({
 	const { addToast } = useToast();
 	const [templates, setTemplates] = useState(initialTemplates);
 	const [showCreate, setShowCreate] = useState(false);
+	// The template whose changes the form holds; null while it makes a new one.
+	const [editing, setEditing] = useState<Template | null>(null);
+	const formPanelRef = useRef<HTMLDivElement>(null);
+	// The form opens above the cards: bring it into view (the edit button may be far down the page).
+	useEffect(() => {
+		if (showCreate) formPanelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+	}, [showCreate, editing]);
 	const { state: filters, setField: setFilter } = useUrlQueryState({ tag: "" });
 	const filterTag = filters.tag || null;
 	const setFilterTag = (tag: string | null) => setFilter("tag", tag ?? "");
@@ -175,13 +182,18 @@ export function TemplateListClient({
 			</Toolbar>
 
 			{showCreate && (
-				<div className="mb-1">
-					<SurfacePanel title={t("templatesPage.action.create")}>
-						<CreateTemplateForm
-							onClose={(created) => {
+				<div ref={formPanelRef} className="mb-1 scroll-mt-24">
+					<SurfacePanel title={editing ? t("templatesPage.edit.title", { name: editing.name }) : t("templatesPage.action.create")}>
+						{/* Keyed by what is edited: opening another template starts from its own values. */}
+						<TemplateForm
+							key={editing?.id ?? "new"}
+							template={editing ?? undefined}
+							onClose={(saved) => {
+								const edited = editing;
 								setShowCreate(false);
-								if (!created) return;
-								addToast("success", t("templatesPage.toast.created"));
+								setEditing(null);
+								if (!saved) return;
+								addToast("success", edited ? t("templatesPage.toast.updated", { name: edited.name }) : t("templatesPage.toast.created"));
 								void refresh();
 							}}
 						/>
@@ -278,6 +290,14 @@ export function TemplateListClient({
 											onDeploy={handleDeploy}
 											loading={deploying === tmpl.id}
 										/>
+									)}
+									{canCreate && !tmpl.isBuiltin && (
+										<ActionButton size="sm" variant="outline"
+											onClick={() => { setEditing(tmpl); setShowCreate(true); }}
+											disabled={showCreate}
+											title={showCreate ? t("templatesPage.edit.busy") : undefined}>
+											{t("templatesPage.edit.action")}
+										</ActionButton>
 									)}
 									{canCreate && !tmpl.isBuiltin && (
 										<ActionButton size="sm" variant="danger" onClick={() => { setDeleteError(null); setTemplatePendingDelete(tmpl); }}>

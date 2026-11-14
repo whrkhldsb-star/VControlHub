@@ -57,7 +57,9 @@ describe("/api/playbooks/[id]", () => {
 	});
 
 	it("PATCH requires playbook:manage and updates the playbook using the path id", async () => {
-		const updated = { id: "pb1", name: "Cleanup v2", enabled: false, chainRetry: 0 };
+		// What the body names, and nothing more: the schema used to add "chainRetry: 0" (a creation default), which
+		// reset the chain retries of every playbook switched on or off.
+		const updated = { id: "pb1", name: "Cleanup v2", enabled: false };
 		mocks.updatePlaybook.mockResolvedValueOnce({ ...playbookFixture, ...updated });
 		const res = await route.PATCH(
 			new Request("http://local/api/playbooks/pb1", {

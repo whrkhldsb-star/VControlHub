@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T01:51:09.987Z",
+  "generatedAt": "2026-11-14T02:59:09.685Z",
   "summary": {
     "files": 465,
     "filesWithStrings": 0,
@@ -1719,13 +1719,6 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/playbooks/create-playbook-form.tsx": {
-      "path": "src/app/playbooks/create-playbook-form.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
     "src/app/playbooks/error.tsx": {
       "path": "src/app/playbooks/error.tsx",
       "total": 0,
@@ -1756,6 +1749,13 @@
     },
     "src/app/playbooks/playbook-delete-dialog.tsx": {
       "path": "src/app/playbooks/playbook-delete-dialog.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/playbooks/playbook-form.tsx": {
+      "path": "src/app/playbooks/playbook-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2601,13 +2601,6 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/templates/create-template-form.tsx": {
-      "path": "src/app/templates/create-template-form.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
     "src/app/templates/error.tsx": {
       "path": "src/app/templates/error.tsx",
       "total": 0,
@@ -2631,6 +2624,13 @@
     },
     "src/app/templates/template-deploy-button.tsx": {
       "path": "src/app/templates/template-deploy-button.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/templates/template-form.tsx": {
+      "path": "src/app/templates/template-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

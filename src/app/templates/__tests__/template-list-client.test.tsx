@@ -10,6 +10,11 @@ import { isTouchTarget } from "@/test/ui-assertions";
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
 }));
+// The form's unsaved-changes guard intercepts navigation through the router (the page's filters keep the rest).
+vi.mock("next/navigation", async (importOriginal) => ({
+	...(await importOriginal<typeof import("next/navigation")>()),
+	useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}));
 
 const baseTemplate = {
 	id: "tmpl_1",
@@ -185,6 +190,38 @@ describe("TemplateListClient", () => {
 		);
 		// Said, and the form folds away: it used to close without a word.
 		expect(await screen.findByText("模板已创建")).toBeInTheDocument();
+		await waitFor(() => expect(screen.queryByLabelText("模板名称")).not.toBeInTheDocument());
+	});
+
+	// A template could not be changed once created: fixing its command meant deleting it and writing it again.
+	it("opens a template in the form with its values and saves the changes to it", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ template: { id: "tmpl_1" } }).mockResolvedValueOnce({ templates: [] });
+
+		renderClient();
+
+		await user.click(screen.getByRole("button", { name: "编辑" }));
+		expect(screen.getByRole("heading", { name: "编辑命令模板：Docker Compose 更新" })).toBeInTheDocument();
+		expect(screen.getByLabelText("模板名称")).toHaveValue("Docker Compose 更新");
+		expect(screen.getByLabelText("命令内容")).toHaveValue("cd {{project_dir}} && docker compose up -d");
+		expect(screen.getByLabelText("标签（逗号分隔）")).toHaveValue("deploy");
+		expect(screen.getByRole("button", { name: "编辑" })).toBeDisabled();
+
+		await user.clear(screen.getByLabelText("描述"));
+		await user.type(screen.getByLabelText("标签（逗号分隔）"), ", docker");
+		await user.click(screen.getByRole("button", { name: "保存修改" }));
+
+		await waitFor(() =>
+			expect(csrfFetch).toHaveBeenCalledWith("/api/command-templates", expect.objectContaining({ method: "PATCH" })),
+		);
+		const [, options] = vi.mocked(csrfFetch).mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")!;
+		// What changed: the emptied description (sent as "", which clears it) and the tags.
+		expect(JSON.parse(String((options as RequestInit).body))).toEqual({
+			id: "tmpl_1",
+			description: "",
+			tags: ["deploy", "docker"],
+		});
+		expect(await screen.findByText("已保存对“Docker Compose 更新”的修改")).toBeInTheDocument();
 		await waitFor(() => expect(screen.queryByLabelText("模板名称")).not.toBeInTheDocument());
 	});
 

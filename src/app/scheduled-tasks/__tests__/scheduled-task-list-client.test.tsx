@@ -11,6 +11,11 @@ import { isTouchTarget } from "@/test/ui-assertions";
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
 }));
+// The form's unsaved-changes guard intercepts navigation through the router (the page's filters keep the rest).
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}));
 
 const servers = [{ id: "srv_1", name: "主节点", enabled: true }];
 const task = {
@@ -68,6 +73,68 @@ describe("ScheduledTaskListClient", () => {
         serverIds: ["srv_1"],
       }),
     })));
+  });
+
+  // A task could not be changed once created: fixing a command meant deleting it and making it again.
+  it("opens a task in the form with its values and saves the changes to it", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({ task: { id: "task_1" } })
+      .mockResolvedValueOnce({ tasks: [] });
+
+    render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate canManage />);
+
+    await actor.click(screen.getByRole("button", { name: "编辑" }));
+    expect(screen.getByRole("heading", { name: "编辑定时任务：清理日志" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "任务名称" })).toHaveValue("清理日志");
+    expect(screen.getByRole("textbox", { name: "Cron 表达式" })).toHaveValue("0 2 * * *");
+    expect(screen.getByRole("textbox", { name: "命令内容" })).toHaveValue("journalctl --vacuum-time=7d");
+    expect(screen.getByRole("checkbox", { name: "主节点" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "编辑" })).toBeDisabled();
+
+    await actor.clear(screen.getByRole("textbox", { name: "命令内容" }));
+    await actor.type(screen.getByRole("textbox", { name: "命令内容" }), "journalctl --vacuum-time=3d");
+    await actor.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/scheduled-tasks", expect.objectContaining({ method: "PATCH" })));
+    const [, options] = vi.mocked(csrfFetch).mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")!;
+    // Only the command changed, so only the command is sent.
+    expect(JSON.parse(String((options as RequestInit).body))).toEqual({
+      id: "task_1",
+      command: "journalctl --vacuum-time=3d",
+    });
+    expect(await screen.findByText("已保存对“清理日志”的修改")).toBeInTheDocument();
+  });
+
+  // The server refused it after the fact: only an approver may change what an unattended task runs, or where.
+  it("keeps an unattended task's command and servers fixed for someone who is not an approver", async () => {
+    const actor = userEvent.setup();
+    const unattended = { ...task, approvalRequired: false, serverIds: ["srv_1", "srv_off"] };
+    render(
+      <ScheduledTaskListClient tasks={[unattended]} servers={[...servers, { id: "srv_off", name: "旧节点", enabled: false }]} canCreate canManage />,
+    );
+
+    await actor.click(screen.getByRole("button", { name: "编辑" }));
+    expect(screen.getByRole("textbox", { name: "命令内容" })).toHaveAttribute("readonly");
+    expect(screen.getByRole("checkbox", { name: "主节点" })).toBeDisabled();
+    expect(screen.getByText("这个任务无需逐次审批：只有命令审批人可以修改它的命令和目标服务器")).toBeInTheDocument();
+    // A server disabled since is still a target: listed, marked.
+    expect(screen.getByRole("checkbox", { name: "旧节点 已停用" })).toBeChecked();
+    // Approval may be switched back on by anyone.
+    expect(screen.getByRole("checkbox", { name: "每次运行前需要审批" })).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: "任务名称" })).toBeEnabled();
+  });
+
+  it("closes an edit that changed nothing without sending it", async () => {
+    const actor = userEvent.setup();
+    render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate canManage />);
+
+    await actor.click(screen.getByRole("button", { name: "编辑" }));
+    await actor.click(screen.getByRole("button", { name: "保存修改" }));
+
+    expect(await screen.findByText("没有需要保存的修改")).toBeInTheDocument();
+    expect(vi.mocked(csrfFetch).mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")).toBe(false);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "保存修改" })).not.toBeInTheDocument());
   });
 
   it("explains why creation is unavailable when no VPS is enabled", async () => {

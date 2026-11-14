@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { EmptyState, Toolbar, SurfacePanel } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -15,7 +15,9 @@ import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { formatDateTime } from "@/lib/datetime/format";
-import { APP_TIME_ZONE, zonedDateTimeToIso } from "@/lib/datetime/time-zone";
+import { APP_TIME_ZONE, appTimeZoneDateTimeLocal, zonedDateTimeToIso } from "@/lib/datetime/time-zone";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
+import { changedTaskFields, type TaskFormValues } from "./task-changes";
 import { IconCalendarClock } from "@/components/nav-icons";
 import { Plus } from "@/components/icons";
 import { cn } from "@/lib/ui/cn";
@@ -86,6 +88,13 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 	const { t, locale } = useI18n();
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
+	// The task whose changes the form holds; null while it makes a new one.
+	const [editing, setEditing] = useState<Task | null>(null);
+	const formPanelRef = useRef<HTMLDivElement>(null);
+	// The form opens above the list: bring it into view (the edit button may be far down the page).
+	useEffect(() => {
+		if (showCreate) formPanelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+	}, [showCreate, editing]);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const [busyId, setBusyId] = useState<string | null>(null);
@@ -181,9 +190,17 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 			</Toolbar>
 
 			{showCreate && (
-				<div className="mb-1">
-					<SurfacePanel title={t("scheduledTasksPage.create")}>
-						<CreateTaskForm servers={servers} templates={templates} canApprove={canApprove} onClose={() => { setShowCreate(false); void refresh(); }} />
+				<div ref={formPanelRef} className="mb-1 scroll-mt-24">
+					<SurfacePanel title={editing ? t("scheduledTasksPage.editTitle", { name: editing.name }) : t("scheduledTasksPage.create")}>
+						{/* Keyed by what is edited: opening another task starts from its own values. */}
+						<TaskForm
+							key={editing?.id ?? "new"}
+							task={editing ?? undefined}
+							servers={servers}
+							templates={templates}
+							canApprove={canApprove}
+							onClose={() => { setShowCreate(false); setEditing(null); void refresh(); }}
+						/>
 					</SurfacePanel>
 				</div>
 			)}
@@ -256,6 +273,15 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 											{t("scheduledTasksPage.retry")}
 										</ActionButton>
 									)}
+									{/* Run, then change, then pause, then delete: the order of the playbook cards. */}
+									{canOperate(task) && (
+										<ActionButton size="sm" variant="secondary"
+											onClick={() => { setEditing(task); setShowCreate(true); }}
+											disabled={showCreate}
+											title={showCreate ? t("scheduledTasksPage.editBusy") : undefined}>
+											{t("scheduledTasksPage.edit")}
+										</ActionButton>
+									)}
 									{canOperate(task) && (
 										<ActionButton size="sm" variant={task.status === "ACTIVE" ? "secondary" : "success"}
 											onClick={() => toggleTask(task.id)} disabled={busyId !== null}>
@@ -290,25 +316,38 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 	);
 }
 
-/* ── Create form ──────────────────────────────────────────── */
+/* ── Task form ────────────────────────────────────────────── */
 
-function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: ServerOption[]; templates: TemplateOption[]; canApprove: boolean; onClose: () => void }) {
-		const { t } = useI18n();
-	const [name, setName] = useState("");
-	const [scheduleType, setScheduleType] = useState<"CRON" | "ONCE">("CRON");
-	const [cronExpression, setCron] = useState("0 3 * * *");
-	const [runAt, setRunAt] = useState("");
+/**
+ * A new task, or the changes to one (`task`): the same fields either way, sent as a POST or as a PATCH. A task
+ * could not be changed once created: fixing a command meant deleting the task and making it again.
+ */
+function TaskForm({ task, servers, templates, canApprove, onClose }: { task?: Task; servers: ServerOption[]; templates: TemplateOption[]; canApprove: boolean; onClose: () => void }) {
+	const { t } = useI18n();
+	const { addToast } = useToast();
+	const editing = task !== undefined;
+	const [name, setName] = useState(task?.name ?? "");
+	const [scheduleType, setScheduleType] = useState<"CRON" | "ONCE">(task?.scheduleType ?? "CRON");
+	// A one-off task keeps a placeholder expression: switching it to recurring starts from the usual default.
+	const [cronExpression, setCron] = useState(task && (task.scheduleType ?? "CRON") === "CRON" ? task.cronExpression : "0 3 * * *");
+	const [runAt, setRunAt] = useState(task?.runAt ? appTimeZoneDateTimeLocal(new Date(task.runAt)) : "");
 	const [templateId, setTemplateId] = useState("");
 	const [variables, setVariables] = useState<Record<string, string>>({});
-	const [command, setCommand] = useState("");
-	const [reason, setReason] = useState("");
-	const [plan, setPlan] = useState("");
-	const [verificationCommand, setVerificationCommand] = useState("");
-	const [rollbackCommand, setRollbackCommand] = useState("");
-	const [approvalRequired, setApprovalRequired] = useState(true);
-	const [selectedServerIds, setSelectedServerIds] = useState<Set<string>>(new Set());
+	const [command, setCommand] = useState(task?.command ?? "");
+	const [reason, setReason] = useState(task?.reason ?? "");
+	const [plan, setPlan] = useState(task?.plan ?? "");
+	const [verificationCommand, setVerificationCommand] = useState(task?.verificationCommand ?? "");
+	const [rollbackCommand, setRollbackCommand] = useState(task?.rollbackCommand ?? "");
+	const [approvalRequired, setApprovalRequired] = useState(task?.approvalRequired ?? true);
+	const [selectedServerIds, setSelectedServerIds] = useState<Set<string>>(() => new Set(task?.serverIds ?? []));
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	// Cancel asked nothing and dropped what was typed (the playbook form asks).
+	const [dirty, setDirty] = useState(false);
+	const { requestDiscard, discardDialog } = useUnsavedChangesGuard({ dirty, onDiscard: onClose });
+	// A task that runs without per-run approval runs what an approver signed off on: only an approver may change
+	// its command or its servers. The server refused it after the fact; the fields say so before.
+	const whatRunsLocked = editing && task.approvalRequired === false && !canApprove;
 	const cronPreview = useMemo(() => describeCronPreview(cronExpression, t), [cronExpression, t]);
 	const selectedTemplate = templates.find((template) => template.id === templateId) ?? null;
 	const renderedCommand = useMemo(() => {
@@ -340,27 +379,45 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 		setSubmitting(true);
 		setError(null);
 		try {
-			await csrfFetch("/api/scheduled-tasks", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name,
-					scheduleType,
-					cronExpression,
+			const values: TaskFormValues = {
+				name,
+				scheduleType,
+				cronExpression,
 				runAt: scheduleType === "ONCE" ? zonedDateTimeToIso(runAt) : undefined,
-					command: renderedCommand,
-					reason,
-					plan: plan || undefined,
-					verificationCommand: verificationCommand || undefined,
-					rollbackCommand: renderedRollback || undefined,
-					approvalRequired,
-					templateId: templateId || undefined,
-					serverIds: Array.from(selectedServerIds),
-				}),
+				command: renderedCommand,
+				reason,
+				plan,
+				verificationCommand,
+				rollbackCommand: renderedRollback,
+				approvalRequired,
+				templateId: templateId || undefined,
+				serverIds: Array.from(selectedServerIds),
+			};
+			// An edit sends what changed, and nothing when nothing did.
+			const changes = editing ? changedTaskFields(task, values) : null;
+			if (changes && Object.keys(changes).length === 0) {
+				addToast("info", t("scheduledTasksPage.unchanged"));
+				setDirty(false);
+				onClose();
+				return;
+			}
+			await csrfFetch("/api/scheduled-tasks", {
+				method: editing ? "PATCH" : "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(editing
+					? { id: task.id, ...changes }
+					: {
+						...values,
+						plan: plan || undefined,
+						verificationCommand: verificationCommand || undefined,
+						rollbackCommand: renderedRollback || undefined,
+					}),
 			});
+			addToast("success", editing ? t("scheduledTasksPage.updated", { name }) : t("scheduledTasksPage.created", { name }));
+			setDirty(false);
 			onClose();
 		} catch (err) {
-			setError(getErrorMessage(err, t("scheduledTasks.createFailed")));
+			setError(getErrorMessage(err, t(editing ? "scheduledTasks.updateFailed" : "scheduledTasks.createFailed")));
 		} finally {
 			setSubmitting(false);
 		}
@@ -376,17 +433,20 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 	];
 
 	const enabledServers = servers.filter((s) => s.enabled);
+	// A server disabled since the task was saved is still one of its targets: listed, so it can be taken off.
+	const listedServers = servers.filter((s) => s.enabled || selectedServerIds.has(s.id));
+	const allEnabledSelected = enabledServers.length > 0 && enabledServers.every((s) => selectedServerIds.has(s.id));
 
 	return (
-		<form onSubmit={handleSubmit} data-card className="space-y-4 p-5">
-			<h3 className="ui-title-section">{t("scheduledTasksPage.createTitle")}</h3>
+		// The panel around it has the title: the form was a second card under a second "创建定时任务".
+		<form onSubmit={handleSubmit} onChangeCapture={() => setDirty(true)} className="space-y-4">
 			{error && <Notice tone="danger">{error}</Notice>}
 
 			<SegmentedControl
 				block
 				ariaLabel={t("scheduledTasks.schedule.typeLabel")}
 				value={scheduleType}
-				onChange={setScheduleType}
+				onChange={(next) => { setDirty(true); setScheduleType(next); }}
 				options={[
 					{ value: "CRON", label: t("scheduledTasks.schedule.recurring") },
 					{ value: "ONCE", label: t("scheduledTasks.schedule.once") },
@@ -405,7 +465,7 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 					<p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p>
 					<div className="flex flex-wrap gap-1.5">
 						{presetCrons.map((p) => (
-							<Chip key={p.expr} selected={cronExpression === p.expr} onClick={() => setCron(p.expr)}>
+							<Chip key={p.expr} selected={cronExpression === p.expr} onClick={() => { setDirty(true); setCron(p.expr); }}>
 								{p.label}
 							</Chip>
 						))}
@@ -433,6 +493,7 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 							setRollbackCommand(next.rollbackCommand ?? "");
 						}
 					}}
+					disabled={whatRunsLocked}
 					className={fieldInputClass}
 				>
 					<option value="">{t("scheduledTasks.customCommand")}</option>
@@ -458,12 +519,13 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 					id="scheduled-task-command"
 					value={selectedTemplate ? renderedCommand : command}
 					onChange={(e) => { if (!selectedTemplate) setCommand(e.target.value); }}
-					readOnly={Boolean(selectedTemplate)}
+					readOnly={Boolean(selectedTemplate) || whatRunsLocked}
 					required
 					rows={3}
 					placeholder="df -h"
 					className={`${monoFieldInputClass} resize-y`}
 				/>
+				{whatRunsLocked && <p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.unattendedLocked")}</p>}
 			</div>
 			<div className="grid gap-3 md:grid-cols-3">
 				<div className="space-y-1.5">
@@ -490,7 +552,8 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 					id="scheduled-task-approval"
 					type="checkbox"
 					checked={approvalRequired}
-					disabled={!canApprove}
+					// Anyone may switch approval on; only an approver may switch it off.
+					disabled={!canApprove && approvalRequired}
 					onChange={(e) => setApprovalRequired(e.target.checked)}
 					className="accent-[var(--color-action)]"
 				/>
@@ -509,19 +572,27 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 						<div id="scheduled-task-target-nodes-label" className={fieldLabelClass}>{t("scheduledTasksPage.servers")}</div>
 						<button
 							type="button"
-							onClick={() => setSelectedServerIds(selectedServerIds.size === enabledServers.length ? new Set() : new Set(enabledServers.map((server) => server.id)))}
-							className="text-xs font-medium text-[var(--accent)] hover:underline"
+							onClick={() => { setDirty(true); setSelectedServerIds(allEnabledSelected ? new Set() : new Set(enabledServers.map((server) => server.id))); }}
+							disabled={whatRunsLocked}
+							className="text-xs font-medium text-[var(--accent)] hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-60"
 						>
-							{selectedServerIds.size === enabledServers.length ? t("scheduledTasks.clearSelection") : t("scheduledTasks.selectAll")}
+							{allEnabledSelected ? t("scheduledTasks.clearSelection") : t("scheduledTasks.selectAll")}
 						</button>
 					</div>
 					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
-						{enabledServers.map((s) => (
-							<label key={s.id} data-tile="" data-selected={selectedServerIds.has(s.id) ? "" : undefined} className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] transition">
-								<input type="checkbox" checked={selectedServerIds.has(s.id)} onChange={() => toggleServer(s.id)} className="accent-[var(--color-action)]" />
-								<span>{s.name}</span>
-							</label>
-						))}
+						{listedServers.map((s) => {
+							const checked = selectedServerIds.has(s.id);
+							// A disabled server can only be taken off.
+							const locked = whatRunsLocked || (!s.enabled && !checked);
+							return (
+								<label key={s.id} data-tile="" data-selected={checked ? "" : undefined} className={`flex min-h-11 items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] transition ${locked ? "cursor-not-allowed" : "cursor-pointer"} ${s.enabled ? "" : "opacity-60"}`}>
+									<input type="checkbox" checked={checked} disabled={locked} onChange={() => toggleServer(s.id)} className="accent-[var(--color-action)]" />
+									<span className="min-w-0 flex-1">{s.name}</span>
+									{/* The space keeps the name and the mark two words when read out ("web-1 Disabled"). */}
+									{!s.enabled && <>{" "}<span className="shrink-0 text-xs text-[var(--text-muted)]">{t("scheduledTasks.serverDisabled")}</span></>}
+								</label>
+							);
+						})}
 					</div>
 				</div>
 			) : (
@@ -530,12 +601,15 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 
 			<div className="flex gap-3 pt-2">
 				<ActionButton variant="primary" type="submit" disabled={submitting || enabledServers.length === 0}>
-					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
+					{editing
+						? (submitting ? t("scheduledTasks.submit.saving") : t("scheduledTasks.submit.save"))
+						: (submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create"))}
 				</ActionButton>
-				<ActionButton variant="secondary" onClick={onClose}>
+				<ActionButton variant="secondary" onClick={requestDiscard}>
 					{t("scheduledTasksPage.cancel")}
 				</ActionButton>
 			</div>
+			{discardDialog}
 		</form>
 	);
 }

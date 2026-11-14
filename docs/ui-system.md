@@ -259,6 +259,16 @@ breadcrumb names the area, so page eyebrows are hidden.
   answers with an error: React resets uncontrolled fields after any answer,
   so wire `usePreservedActionForm` (`src/lib/forms/use-preserved-action-form.ts`)
   into the form. File inputs cannot be restored; say so near them.
+- What people make, they can change: an edit opens the form it was made
+  with, filled in, titled with what is edited ("编辑定时任务：名称") and
+  submitted with "保存修改". It sends only the fields that changed — re-sent
+  fields trip checks the change itself does not need (a schedule computed
+  again from a time already past, a setting that takes a permission to
+  change) — and closes without a request when nothing did. A field the
+  person may not change is disabled with the reason beside it, not refused
+  after the submit. While a form is open, the list's edit buttons wait for
+  it; cancelling a form with unsaved input asks first
+  (`useUnsavedChangesGuard`).
 - Sentences come from the dictionaries, in the language of the page. What
   the server refuses with is shown as its sentence (`getErrorMessage`,
   `describeFailure`, `readRefusal` in `src/lib/http/error-message.ts`), never

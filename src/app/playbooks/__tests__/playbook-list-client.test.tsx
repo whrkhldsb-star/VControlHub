@@ -226,3 +226,57 @@ describe("PlaybookListClient sortable steps", () => {
 		expect(addToastMock).toHaveBeenCalledWith("success", "Playbook 已创建");
 	});
 });
+
+describe("PlaybookListClient editing", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.mocked(csrfFetch).mockResolvedValue({ playbook: { id: "pb_1", steps: [] }, playbooks: [] });
+	});
+
+	// The page offered run, switch, claim and delete: changing one command meant deleting the playbook and
+	// building it again. The form opens with the playbook's own values and saves them as a PATCH.
+	it("opens a playbook in the form with its values and saves the changes to it", async () => {
+		const user = userEvent.setup();
+		renderWithI18n(
+			<PlaybookListClient playbooks={[playbook]} runsByPlaybook={{}} servers={testServers} canManage canRun />,
+			{ locale: "zh" },
+		);
+
+		await user.click(screen.getByRole("button", { name: "编辑" }));
+		expect(screen.getByRole("heading", { name: "编辑 Playbook：夜间维护" })).toBeInTheDocument();
+		expect(screen.getByLabelText("Playbook 名称")).toHaveValue("夜间维护");
+		expect(screen.getAllByLabelText("步骤名称").map((input) => (input as HTMLInputElement).value)).toEqual(["第一步", "第二步"]);
+		expect(screen.getByLabelText("Cron 表达式（5 字段）")).toHaveValue("0 3 * * *");
+		// One form at a time: the list's edit buttons wait for it.
+		expect(screen.getByRole("button", { name: "编辑" })).toBeDisabled();
+
+		const name = screen.getByLabelText("Playbook 名称");
+		await user.clear(name);
+		await user.type(name, "夜间维护（新）");
+		await user.click(screen.getByRole("button", { name: "保存修改" }));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/playbooks/pb_1", expect.objectContaining({ method: "PATCH" })));
+		const [, options] = vi.mocked(csrfFetch).mock.calls.find(([url]) => url === "/api/playbooks/pb_1")!;
+		// Only the name changed, so only the name is sent: a re-sent trigger takes playbook:run.
+		expect(JSON.parse(String(options?.body))).toEqual({ id: "pb_1", name: "夜间维护（新）" });
+		expect(addToastMock).toHaveBeenCalledWith("success", "已保存对“夜间维护（新）”的修改");
+		await waitFor(() => expect(screen.queryByRole("button", { name: "保存修改" })).not.toBeInTheDocument());
+	});
+
+	// Changing when a saved playbook runs takes playbook:run: the server refused it after the fact.
+	it("keeps the trigger, switch and retries of a saved playbook fixed without the run permission", async () => {
+		const user = userEvent.setup();
+		renderWithI18n(
+			<PlaybookListClient playbooks={[playbook]} runsByPlaybook={{}} servers={testServers} canManage canRun={false} />,
+			{ locale: "zh" },
+		);
+
+		await user.click(screen.getByRole("button", { name: "编辑" }));
+		expect(screen.getByLabelText("Cron 表达式（5 字段）")).toBeDisabled();
+		expect(screen.getByRole("radio", { name: "指标触发器" })).toBeDisabled();
+		expect(screen.getByLabelText("启用")).toBeDisabled();
+		expect(screen.getByText("触发方式、启用状态和重试次数需要 Playbook 运行权限才能修改")).toBeInTheDocument();
+		// What it may change stays open.
+		expect(screen.getByLabelText("Playbook 名称")).toBeEnabled();
+	});
+});

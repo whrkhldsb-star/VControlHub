@@ -9,50 +9,85 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
+import { useToast } from "@/components/toast-provider";
+import { changedTemplateFields, type Template, type TemplateFields } from "./template-types";
 
-export function CreateTemplateForm({ onClose }: { /** `created`: the template was saved, as opposed to the form being cancelled. */ onClose: (created: boolean) => void }) {
+/**
+ * A new template, or the changes to one (`template`): sent as a POST or as a PATCH. A template could not be changed
+ * once created — fixing its command meant deleting it and writing it again.
+ */
+export function TemplateForm({
+	template,
+	onClose,
+}: {
+	template?: Template;
+	/** `saved`: the template was saved, as opposed to the form being cancelled. */
+	onClose: (saved: boolean) => void;
+}) {
 	const { t } = useI18n();
+	const { addToast } = useToast();
 	const createFormId = useId();
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
-	const [command, setCommand] = useState("");
-	const [rollbackCommand, setRollbackCommand] = useState("");
-	const [tags, setTags] = useState("");
+	const editing = template !== undefined;
+	const [name, setName] = useState(template?.name ?? "");
+	const [description, setDescription] = useState(template?.description ?? "");
+	const [command, setCommand] = useState(template?.command ?? "");
+	const [rollbackCommand, setRollbackCommand] = useState(template?.rollbackCommand ?? "");
+	const [tags, setTags] = useState(template?.tags.join(", ") ?? "");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	// Cancel asked nothing and dropped what was typed (the playbook form asks).
+	const [dirty, setDirty] = useState(false);
+	const { requestDiscard, discardDialog } = useUnsavedChangesGuard({ dirty, onDiscard: () => onClose(false) });
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setSubmitting(true);
 		setError(null);
 		try {
+			const fields: TemplateFields = {
+				name,
+				description: description.trim(),
+				command,
+				rollbackCommand: rollbackCommand.trim() || null,
+				tags: tags
+					.split(",")
+					.map((tag) => tag.trim())
+					.filter(Boolean),
+			};
+			// An edit sends what changed, and nothing when nothing did.
+			const changes = editing ? changedTemplateFields(template, fields) : null;
+			if (changes && Object.keys(changes).length === 0) {
+				addToast("info", t("templatesPage.toast.unchanged"));
+				setDirty(false);
+				onClose(false);
+				return;
+			}
 			await csrfFetch("/api/command-templates", {
-				method: "POST",
+				method: editing ? "PATCH" : "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name,
-					...(description.trim() ? { description: description.trim() } : {}),
-					command,
-					rollbackCommand: rollbackCommand.trim() || null,
-					tags: tags
-						.split(",")
-						.map((tag) => tag.trim())
-						.filter(Boolean),
-				}),
+				body: JSON.stringify(editing
+					? { id: template.id, ...changes }
+					: {
+						name: fields.name,
+						...(fields.description ? { description: fields.description } : {}),
+						command: fields.command,
+						rollbackCommand: fields.rollbackCommand,
+						tags: fields.tags,
+					}),
 			});
+			setDirty(false);
 			onClose(true);
 		} catch (err) {
-			setError(getErrorMessage(err, t("templatesPage.error.createFailed")));
+			setError(getErrorMessage(err, t(editing ? "templatesPage.error.updateFailed" : "templatesPage.error.createFailed")));
 		} finally {
 			setSubmitting(false);
 		}
 	};
 
 	return (
-		<form onSubmit={handleSubmit} data-card className="space-y-4 p-5">
-			<h3 className="ui-title-section">
-				{t("templatesPage.create.title")}
-			</h3>
+		// The panel around it has the title: the form was a second card under a second "创建命令模板".
+		<form onSubmit={handleSubmit} onChangeCapture={() => setDirty(true)} className="space-y-4">
 			{error && (
 				<Notice tone="danger">{error}</Notice>
 			)}
@@ -124,12 +159,15 @@ export function CreateTemplateForm({ onClose }: { /** `created`: the template wa
 				<ActionButton variant="primary"
 					type="submit"
 					disabled={submitting}>
-					{submitting ? t("templatesPage.create.submitting") : t("templatesPage.create.submit")}
+					{editing
+						? (submitting ? t("templatesPage.edit.submitting") : t("templatesPage.edit.submit"))
+						: (submitting ? t("templatesPage.create.submitting") : t("templatesPage.create.submit"))}
 				</ActionButton>
-				<ActionButton type="button" variant="secondary" onClick={() => onClose(false)}>
+				<ActionButton type="button" variant="secondary" onClick={requestDiscard}>
 					{t("templatesPage.action.cancel")}
 				</ActionButton>
 			</div>
+			{discardDialog}
 		</form>
 	);
 }
