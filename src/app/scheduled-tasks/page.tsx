@@ -8,6 +8,7 @@ import { ScheduledTaskListClient } from "./scheduled-task-list-client";
 import { PageShell } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
+import { localizeStoredText } from "@/lib/i18n/stored-sentences";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export default async function ScheduledTasksPage() {
 		serverIds: t.serverIds,
 		lastRunAt: t.lastRunAt?.toISOString() ?? null,
 		nextRunAt: t.nextRunAt?.toISOString() ?? null,
-		lastResult: t.lastResult,
+		lastResult: localizeStoredText(t.lastResult, locale),
 		runCount: t.runCount,
 		createdAt: t.createdAt.toISOString(),
 		creator: t.creator ? { username: t.creator.username, displayName: t.creator.displayName } : null,

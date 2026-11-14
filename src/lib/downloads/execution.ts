@@ -454,7 +454,7 @@ maxSpeedKb?: number | null,
   // exclusive to the winner.
   const claimed = await prisma.downloadTask.updateMany({
    where: { id: taskId, status: "PENDING" },
-   data: { status: "RUNNING", progress: "Starting download..." },
+   data: { status: "RUNNING", progress: t("backend.downloads.progress.directStarting") },
   });
   if (claimed.count === 0) {
    logError(`[DownloadAPI] Direct task ${taskId} was not PENDING; skipping duplicate remote spawn`);

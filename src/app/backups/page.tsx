@@ -4,6 +4,7 @@ import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize
 import { getLocalStorageBackupCoverage, type LocalStorageBackupCoverage } from "@/lib/backup/coverage";
 import { config } from "@/lib/config/env";
 import { getServerLocale, t as translate, type TFn } from "@/lib/i18n/translations";
+import { localizeStoredSentence } from "@/lib/i18n/stored-sentences";
 import { PageShell, EmptyState, PageHeader, StatCard, StatGrid, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, Notice } from "@/components/ui-primitives";
@@ -205,7 +206,7 @@ export default async function BackupsPage() {
 							<div className="mt-2 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 								<span>{t("backupsPage.records.size", { size: formatBackupSize(b.fileSize) })}</span>
 								<span>{b.completedAt ? t("backupsPage.records.completedAt", { time: formatDateTime(b.completedAt, locale) }) : t("backupsPage.records.notCompleted")}</span>
-								{b.errorMessage && <span className="text-[var(--danger)]">{t("backupsPage.records.error", { message: b.errorMessage })}</span>}
+								{b.errorMessage && <span className="text-[var(--danger)]">{t("backupsPage.records.error", { message: localizeStoredSentence(b.errorMessage, locale) })}</span>}
 							</div>
 							{b.note && <p className="mt-2 text-xs text-[var(--text-muted)]">{b.note}</p>}
 							{canRestore || canCreate ? (

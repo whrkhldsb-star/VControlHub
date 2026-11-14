@@ -77,6 +77,13 @@ const TRANSITIONS: Record<string, string[]> = {
   CLOSED: ["OPEN"],
 };
 
+/** A comment an ITSM system sent is stored with this English mark in front; the page shows a badge instead. */
+const ITSM_INBOUND_PREFIX = "[ITSM inbound] ";
+
+function splitItsmInbound(body: string): { fromItsm: boolean; body: string } {
+  return body.startsWith(ITSM_INBOUND_PREFIX) ? { fromItsm: true, body: body.slice(ITSM_INBOUND_PREFIX.length) } : { fromItsm: false, body };
+}
+
 export function TicketDetailClient({ initial, canManage, users = [] }: TicketDetailClientProps) {
   const { t, locale } = useI18n();
   const [ticket, setTicket] = useState(initial);
@@ -489,15 +496,21 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.commentsEmpty")}</p>
         ) : (
           <div className="space-y-3">
-            {ticket.comments.map((c) => (
-              <div key={c.id} data-inset className="p-4">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium text-[var(--text-primary)]">{c.author.displayName || c.author.username}</span>
-                  <span className="text-xs text-[var(--text-muted)]">{formatDateTime(c.createdAt, locale)}</span>
+            {ticket.comments.map((c) => {
+              const inbound = splitItsmInbound(c.body);
+              return (
+                <div key={c.id} data-inset className="p-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+                      {c.author.displayName || c.author.username}
+                      {inbound.fromItsm ? <StatusBadge tone="info">{t("ticketsDetail.comment.fromItsm")}</StatusBadge> : null}
+                    </span>
+                    <span className="text-xs text-[var(--text-muted)]">{formatDateTime(c.createdAt, locale)}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">{inbound.body}</p>
                 </div>
-                <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">{c.body}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

@@ -267,6 +267,29 @@ describe("operation task service", () => {
     expect(tasks[0]).toMatchObject({ id: "job:alert_failed", status: "failed", taskType: "alert.evaluate", progress: "SMTP failed" });
   });
 
+  // A job's progress and failure are sentences its worker stored, mostly in English. The page says them in
+  // its own language; the failure groups are still read from what was stored.
+  it("says a job's stored progress and failure in the reader's language", async () => {
+    const job = (id: string, status: string, progress: string | null, errorMessage: string | null) => ({
+      id, type: "download.execute", title: `Direct download ${id}`, status,
+      createdAt: new Date("2026-01-02T00:00:00Z"), updatedAt: new Date("2026-01-02T00:00:00Z"),
+      progress, errorMessage, workerId: null, workerHeartbeatAt: null, creator: null,
+    });
+    mockPrisma.job.findMany.mockResolvedValue([
+      job("dl_running", "RUNNING", "Running DATABASE backup", null),
+      job("dl_failed", "FAILED", null, "Download task dl_1 is missing a VPS node"),
+    ]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+
+    const result = await listOperationTaskResult({ limit: 10 }, { ...MANAGER, roles: [...MANAGER.roles] });
+
+    expect(result.tasks.find((task) => task.id === "job:dl_running")).toMatchObject({ progress: "正在执行数据库备份", logPreview: ["正在执行数据库备份"] });
+    expect(result.tasks.find((task) => task.id === "job:dl_failed")).toMatchObject({ progress: "下载任务 dl_1 没有目标服务器" });
+    // "missing" in the stored text: the group of missing resources, as before.
+    expect(result.failureSummary.map((item) => item.reason)).toEqual(["文件或资源不存在"]);
+  });
+
   it("summarizes filtered operation tasks by source for triage", async () => {
     mockPrisma.job.findMany.mockResolvedValue([
       {
@@ -418,7 +441,8 @@ describe("operation task service", () => {
 
     expect(tasks[0]).toMatchObject({
       id: "command:cmd_logs",
-      logPreview: ["line 2", "fatal: service unavailable", expect.stringMatching(/backend executor worker-command/)],
+      // Said in the reader's language (the default here: Chinese).
+      logPreview: ["line 2", "fatal: service unavailable", expect.stringMatching(/^后台执行器 worker-command · 心跳 /)],
     });
     // The preview must not drag the full output columns out of Postgres.
     const commandQuery = mockPrisma.commandRequest.findMany.mock.calls.at(-1)?.[0] as {
@@ -458,7 +482,7 @@ describe("operation task service", () => {
         title: "Deploy app",
         status: "running",
         actor: "ops",
-        progress: expect.stringMatching(/backend executor worker-1/),
+        progress: "后台执行器 worker-1 · 心跳 2026-01-03T00:01:00.000Z",
         workerId: "worker-1",
         workerHeartbeatAt: "2026-01-03T00:01:00.000Z",
         href: "/deployments",

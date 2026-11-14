@@ -11,12 +11,15 @@ import {
 } from "@/lib/backup/schedule-service";
 import { createBackupScheduleSchema, patchBackupScheduleSchema } from "@/lib/backup/schedule-schema";
 import { auditUserAction } from "@/lib/audit/service";
+import { localizeStoredText } from "@/lib/i18n/stored-sentences";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "backup:read" }, async ({ session }) => {
-    return NextResponse.json({ schedules: await listBackupSchedules(200, session) });
+    // The last result is a sentence the scheduler stored; it is said in the reader's language.
+    const schedules = await listBackupSchedules(200, session);
+    return NextResponse.json({ schedules: schedules.map((schedule) => ({ ...schedule, lastResult: localizeStoredText(schedule.lastResult) })) });
   });
 }
 

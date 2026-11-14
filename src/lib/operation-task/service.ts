@@ -6,6 +6,8 @@ import { actorName } from "@/lib/ticket/timeline";
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
 import { serviceT } from "@/lib/i18n/service-locale";
+import { getServerLocale } from "@/lib/i18n/server-locale-cookie";
+import { localizeStoredSentence, localizeStoredText } from "@/lib/i18n/stored-sentences";
 import { getJobTypeLabel } from "@/lib/i18n/domain-labels";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
@@ -129,11 +131,16 @@ function resolveDeploymentOperationStatus(item: DeploymentTaskRow): OperationTas
   return mapOperationStatus(commandStatus);
 }
 
-function formatWorkerProgress(input: { workerId?: string | null; workerHeartbeatAt?: Date | string | null; updatedAt?: Date | string | null }) {
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
+/** Which executor holds a command and when it last reported, in the reader's language. */
+function formatWorkerProgress(input: { workerId?: string | null; workerHeartbeatAt?: Date | string | null; updatedAt?: Date | string | null }, t: Translate) {
   if (!input.workerId && !input.workerHeartbeatAt) return null;
   const heartbeat = input.workerHeartbeatAt ?? input.updatedAt;
-  const heartbeatText = heartbeat ? `heartbeat ${new Date(heartbeat).toISOString()}` : "heartbeat unknown";
-  return `backend executor ${input.workerId ?? "unknown"} · ${heartbeatText}`;
+  const worker = input.workerId ?? t("backend.operationTask.worker.unknown");
+  return heartbeat
+    ? t("backend.operationTask.worker.progress", { worker, heartbeat: new Date(heartbeat).toISOString() })
+    : t("backend.operationTask.worker.progressNoHeartbeat", { worker });
 }
 
 /**
@@ -325,6 +332,8 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
   const limit = Math.trunc(
     Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : configuredLimit, 1), configuredLimit),
   );
+  const locale = await getServerLocale();
+  const t = await serviceT(locale);
   const teamScope = teamWhere(session);
   const canReadTeamTasks = sessionHasPermission(session, "team:manage");
   const scopedWhere = (ownerField: string): Record<string, unknown> => {
@@ -410,7 +419,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       createdAt: toIso(item.createdAt),
       updatedAt: toIso(item.updatedAt),
       actor: actorName(item.requester),
-      progress: formatWorkerProgress(item),
+      progress: formatWorkerProgress(item, t),
       logPreview: compactLogPreview([
         (item.executionLogs ?? []).map((log) => log.summary).join("\n"),
         (item.targets ?? [])
@@ -419,7 +428,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
             return [tail?.stdout, tail?.stderr].filter(Boolean).join("\n");
           })
           .join("\n"),
-        formatWorkerProgress(item),
+        formatWorkerProgress(item, t),
       ]),
       workerId: item.workerId,
       workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null,
@@ -473,8 +482,8 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       createdAt: toIso(item.createdAt),
       updatedAt: toIso(item.updatedAt),
       actor: actorName(item.creator),
-      progress: item.commandRequest ? formatWorkerProgress(item.commandRequest) : null,
-      logPreview: compactLogPreview([item.commandRequest ? formatWorkerProgress(item.commandRequest) : null]),
+      progress: item.commandRequest ? formatWorkerProgress(item.commandRequest, t) : null,
+      logPreview: compactLogPreview([item.commandRequest ? formatWorkerProgress(item.commandRequest, t) : null]),
       workerId: item.commandRequest?.workerId ?? null,
       workerHeartbeatAt: item.commandRequest?.workerHeartbeatAt ? toIso(item.commandRequest.workerHeartbeatAt) : null,
       href: "/deployments",
@@ -484,9 +493,12 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
   const foldedTasks = foldCompletedPeriodicJobs(tasks);
   const filteredTasks = sortOperationTasks(filterOperationTasks(foldedTasks, options), options.sort)
     .slice(0, limit);
-  const t = await serviceT();
   return {
-    tasks: filteredTasks,
+    // A job's progress and failure are sentences its worker stored: said in the reader's language. The
+    // failure groups are read from the stored text, so they do not depend on the reader.
+    tasks: filteredTasks.map((task) => task.source === "job"
+      ? { ...task, progress: localizeStoredText(task.progress, locale), logPreview: task.logPreview?.map((line) => localizeStoredSentence(line, locale)) }
+      : task),
     sourceSummary: summarizeOperationTaskSources(filteredTasks),
     failureSummary: summarizeOperationTaskFailures(filteredTasks, t),
   };

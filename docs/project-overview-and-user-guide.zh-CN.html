@@ -1625,6 +1625,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>入口：<code>/operation-tasks</code>。</p>
 <p>聚合命令、定时运行、下载、同步扫描、备份、部署与通用后台 Job。定时任务在这里显示的是每一次实际运行（以计划名称为标题、状态取自本次运行），计划本身的启停在定时任务页管理；从未运行过的同步任务显示为等待中。用户可按状态、任务类型和关键词筛选，调整排序，优先查看失败、运行或等待任务。</p>
 <p>页面提供任务来源汇总、失败原因分类、重复失败模式、最近任务及源模块跳转。具体任务可打开事件流，查看入队、认领、心跳、进度、重试、恢复、成功和失败等记录。</p>
+<p>后台进程写下的进度和失败原因、定时任务和备份计划的上次结果、备份记录的失败原因，凡是平台自己的固定说法，都按当前界面语言显示（存储的内容不变）；命令输出、远端系统返回的错误等其他文字按原文显示。</p>
 <p>后台任务不依赖用户持续打开页面。浏览器关闭后，已入队且权限、依赖正常的任务仍由 Worker 执行；若长期等待，需检查 Worker 心跳、队列并发及执行资源。</p>
 <p>依据：<a href="../src/lib/command/">命令业务层</a>、<a href="../src/lib/scheduled-task/service.ts">定时任务服务</a>、<a href="../src/lib/playbook/schema.ts">Playbook 输入及步骤</a>、<a href="../src/lib/job/service.ts">后台任务服务</a>、<a href="../src/lib/operation-task/">统一任务业务层</a>。</p>
 <h2 id="observability">12. 监控、健康检查、流量与告警</h2>

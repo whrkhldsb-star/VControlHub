@@ -23,6 +23,7 @@ import {
 } from "@/lib/backup/vps-backup-service";
 import { VALID_PRESET_TYPES } from "@/lib/backup/vps-backup-presets";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { localizeStoredText } from "@/lib/i18n/stored-sentences";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,10 @@ export async function GET(
 			}
 
 			const records = await listVpsBackupRecords(serverId);
-			return Response.json({ records });
+			// Why a run failed is often a sentence the worker stored; it is said in the reader's language.
+			return Response.json({
+				records: (records as Array<{ errorMessage?: string | null }>).map((record) => ({ ...record, errorMessage: localizeStoredText(record.errorMessage) })),
+			});
 		},
 	);
 }
