@@ -260,7 +260,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       {failureSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {failureSummary.map((item) => <div data-inset="" key={item.reason} className="border-[var(--danger-border)] px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><StatusBadge tone="danger">{t("operationTasksPage.failures.itemCount", { count: item.total })}</StatusBadge></div>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join("、"), title: item.latestTitle })}</p>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join(t("common.listSeparator")), title: item.latestTitle })}</p>
         </div>)}
       </div>}
     </section>

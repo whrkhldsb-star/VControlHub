@@ -108,7 +108,7 @@ describe("settledActionIds", () => {
 });
 
 describe("automationSummary", () => {
-  const t = (key: string, vars?: Record<string, string | number>) => `${key}${vars ? JSON.stringify(vars) : ""}`;
+  const t = (key: string, vars?: Record<string, string | number>) => key === "common.listSeparator" ? ", " : `${key}${vars ? JSON.stringify(vars) : ""}`;
   const formatTime = (value: string) => `fmt(${value})`;
 
   it("says when a plan runs, on which servers and under which approval", async () => {

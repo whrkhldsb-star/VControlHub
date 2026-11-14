@@ -26,7 +26,7 @@ import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Plus } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
-import { Badge } from "@/components/ui-primitives";
+import { Badge, Notice } from "@/components/ui-primitives";
 
 type UserInfo = {
   id: string;
@@ -259,9 +259,11 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
               <SkeletonList count={4} />
             </div>
           ) : loadFailed ? (
-            <EmptyState action={<ActionButton size="sm" variant="outline" onClick={() => { setLoading(true); void fetchUsers(); }}>{t("common.retry")}</ActionButton>}>
-              {t("usersPage.loadFailedHint")}
-            </EmptyState>
+            <div className="p-4">
+              <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => { setLoading(true); void fetchUsers(); } }}>
+                {t("usersPage.loadFailedHint")}
+              </Notice>
+            </div>
           ) : users.length === 0 ? (
             <EmptyState>{t("usersPage.empty")}</EmptyState>
           ) : undefined

@@ -273,21 +273,16 @@ export function PlaybookListClient({
         count={playbooks.length}
         empty={
           playbooks.length === 0 ? (
-            <EmptyState icon={<FileIcon size={24} className="text-[var(--text-muted)]" />}>
-              <div className="space-y-2">
-                <p>{t("playbooksPage.empty")}</p>
-                <p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.emptyHint")}</p>
-                {canManage && !showCreate && (
-                  <ActionButton size="sm" variant="primary"
-                    onClick={() => setShowCreate(true)}
-
-                    className="!mt-2"
-                  >
-                    {t("playbooksPage.action.create")}
-                  </ActionButton>
-                )}
-              </div>
-            </EmptyState>
+            <EmptyState
+              icon={<FileIcon size={24} />}
+              title={t("playbooksPage.empty")}
+              text={t("playbooksPage.emptyHint")}
+              action={canManage && !showCreate ? (
+                <ActionButton size="sm" variant="primary" onClick={() => setShowCreate(true)}>
+                  {t("playbooksPage.action.create")}
+                </ActionButton>
+              ) : undefined}
+            />
           ) : undefined
         }
         bodyClassName={playbooks.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}

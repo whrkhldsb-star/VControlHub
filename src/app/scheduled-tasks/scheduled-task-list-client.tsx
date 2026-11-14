@@ -206,12 +206,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 			)}
 
 			{tasks.length === 0 && !showCreate ? (
-				<EmptyState icon={<IconCalendarClock />} variant="boxed">
-					<div className="space-y-2">
-						<p>{t("scheduledTasks.empty.title")}</p>
-						<p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.empty.hint")}</p>
-					</div>
-				</EmptyState>
+				<EmptyState icon={<IconCalendarClock />} variant="boxed" title={t("scheduledTasks.empty.title")} text={t("scheduledTasks.empty.hint")} />
 			) : filteredTasks.length === 0 ? (
 				<EmptyState text={`${t("scheduledTasksPage.search.empty", { query: searchQuery })}`} variant="boxed" />
 			) : (

@@ -78,7 +78,7 @@ export function AlertIncidentsSection({
 							{incident.pendingNotifyChannels?.length ? (
 								<p className="mt-1 text-xs text-[var(--warning)]" title={incident.lastNotifyError ?? undefined}>
 									{t(incident.nextNotifyAt ? "alertRulesPage.incidents.notifyRetrying" : "alertRulesPage.incidents.notifyFailed", {
-										channels: incident.pendingNotifyChannels.join(", "),
+										channels: incident.pendingNotifyChannels.join(t("common.listSeparator")),
 									})}
 								</p>
 							) : null}

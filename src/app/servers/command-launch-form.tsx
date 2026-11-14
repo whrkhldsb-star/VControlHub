@@ -201,7 +201,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 			<div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
 				<p className="text-xs text-[var(--text-muted)]">
 					{selectedIds.size > 0
-						? t("serversPage.command.selectedSummary", { count: selectedIds.size, names: selectedNames.join(", ") })
+						? t("serversPage.command.selectedSummary", { count: selectedIds.size, names: selectedNames.join(t("common.listSeparator")) })
 						: t("serversPage.command.selectRequired")}
 				</p>
 				<ActionButton type="submit" disabled={!canSubmit} className="sm:min-w-36 disabled:opacity-50">
@@ -215,7 +215,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 			description={(
 				<div className="space-y-3">
 					<p>{t("serversPage.command.directConfirmDesc", { count: selectedIds.size })}</p>
-					<div><span className="font-medium text-[var(--text-primary)]">{t("serversPage.command.targetNodes")}</span><p className="mt-1">{selectedNames.join(", ")}</p></div>
+					<div><span className="font-medium text-[var(--text-primary)]">{t("serversPage.command.targetNodes")}</span><p className="mt-1">{selectedNames.join(t("common.listSeparator"))}</p></div>
 					<div><span className="font-medium text-[var(--text-primary)]">{t("serversPage.command.reasonLabel")}</span><p className="mt-1">{reason.trim() || t("serversPage.command.noReason")}</p></div>
 					<code data-inset="" className="block max-h-48 overflow-auto whitespace-pre-wrap break-all p-3 font-mono text-xs text-[var(--text-primary)]">{command.trim()}</code>
 				</div>

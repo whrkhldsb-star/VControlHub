@@ -275,6 +275,14 @@ breadcrumb names the area, so page eyebrows are hidden.
   as a status code, a JSON body or a framework placeholder.
 - One primary button per view; destructive actions confirm in-app
   (`ConfirmDialog`), never with `window.confirm`.
+- A list joined in code takes the page language's separator:
+  `t("common.listSeparator")` ("、" / ", ") between names,
+  `t("common.sentenceSeparator")` ("；" / "; ") between sentences; a list cut
+  short ends with "…" as its last item. The convention test fails on "、",
+  "；", "; " or ", " joined in page code (the comma-separated text of a tags
+  field is an input format, not a sentence).
+- An empty state says what is empty as its `title` ("No playbooks yet"), what
+  to do about it as `text` or children, and offers its button as `action`.
 - A sentence is one dictionary entry with placeholders (`{count}`, `{name}`),
   never pieces joined in code: word order and punctuation belong to the
   language. Where a link follows a sentence, end the sentence and put the

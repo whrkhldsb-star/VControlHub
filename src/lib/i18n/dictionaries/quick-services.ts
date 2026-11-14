@@ -220,8 +220,6 @@ export const zh: Record<string, string> = {
 	"qsPage.configEnvCount": "{count} 个键（不展示密钥值）",
 	"qsPage.configVolumeEntry": "{host} → {container}",
 	"qsPage.configPortEntry": "{container}→{host}",
-	"qsPage.configPortListSeparator": "、",
-	"qsPage.configVolumeListSeparator": "；",
 	// Local catalog templates, by slug (third-party sources keep their own text).
 	"qsCatalog.halo.name": "Halo 博客",
 	"qsCatalog.halo.description": "强大的 Java 开源博客与内容管理系统，主题和插件生态丰富",
@@ -530,8 +528,6 @@ export const en: Record<string, string> = {
 	"qsPage.configEnvCount": "{count} {count|key|keys} (secret values hidden)",
 	"qsPage.configVolumeEntry": "{host} → {container}",
 	"qsPage.configPortEntry": "{container}→{host}",
-	"qsPage.configPortListSeparator": ", ",
-	"qsPage.configVolumeListSeparator": "; ",
 	// Local catalog templates, by slug (third-party sources keep their own text).
 	"qsCatalog.uptime-kuma.name": "Uptime Kuma",
 	"qsCatalog.uptime-kuma.description": "Beautiful website/service monitoring tool, supports HTTP/TCP/DNS/Ping and more probes",

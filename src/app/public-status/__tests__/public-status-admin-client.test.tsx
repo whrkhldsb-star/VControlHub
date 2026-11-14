@@ -106,7 +106,8 @@ describe("PublicStatusAdminClient", () => {
 		await user.click(await screen.findByRole("checkbox", { name: "Select internal-cache-26" }));
 		await user.click(screen.getByRole("button", { name: "Publish with server names" }));
 		const dialog = await screen.findByRole("dialog");
-		expect(within(dialog).getByText(/internal-db-01/)).toHaveTextContent("internal-db-01、internal-cache-26");
+		// In the page's language: the names were joined with "、" in English too.
+		expect(within(dialog).getByText(/internal-db-01/)).toHaveTextContent("internal-db-01, internal-cache-26");
 	});
 
 	it("says the list could not be loaded without also saying that no server matches", async () => {

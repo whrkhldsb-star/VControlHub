@@ -219,9 +219,9 @@ export function CostPageClient({
 				}
 				empty={
 				entries.length === 0 ? (
-					<EmptyState>
-						<p>{t("costPage.list.empty")}</p>
-						<p className="mt-1 text-xs text-[var(--text-muted)]">{t("costPage.list.emptyHint")}</p>
+					<EmptyState title={t("costPage.list.emptyTitle")}>
+						<p>{t("costPage.list.emptySteps")}</p>
+						<p className="mt-1">{t("costPage.list.emptyHint")}</p>
 					</EmptyState>
 				) : undefined
 			}

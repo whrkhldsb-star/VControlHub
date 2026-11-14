@@ -164,8 +164,9 @@ export function useCostPageState(options: {
           "info",
           t("costPage.actions.syncSkippedDetail", {
             detail: details
-              .map((row) => `${row.serverName}（${t(`costPage.actions.syncSkipReason.${row.reason}`)}）`)
-              .join("、"),
+              // "web-1（…）" kept its Chinese brackets in English.
+              .map((row) => t("costPage.actions.syncSkipItem", { name: row.serverName, reason: t(`costPage.actions.syncSkipReason.${row.reason}`) }))
+              .join(t("common.listSeparator")),
           }),
         );
       }

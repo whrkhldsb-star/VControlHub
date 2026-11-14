@@ -176,7 +176,7 @@ export function useQuickServiceActions({
             : null,
         ]
           .filter(Boolean)
-          .join("; ");
+          .join(t("common.sentenceSeparator"));
         const queuedSuffix = data.taskId ? t("qsActions.taskSuffix", { id: data.taskId }) : "";
         const actionMessages: Record<string, string> = data.queued
           ? {

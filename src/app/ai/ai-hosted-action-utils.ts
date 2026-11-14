@@ -57,7 +57,12 @@ function text(params: Record<string, unknown>, key: string): string | null {
  * id, so a command, a file's new content or a playbook was approved unseen (the chat text is whatever the model said,
  * not what will run).
  */
-export function approvalDetails(actionType: string, params: Record<string, unknown>): ApprovalDetail[] {
+export function approvalDetails(
+  actionType: string,
+  params: Record<string, unknown>,
+  /** Between the names of a list, in the page's language (`common.listSeparator`). */
+  listSeparator = ", ",
+): ApprovalDetail[] {
   const rows: ApprovalDetail[] = [];
   const add = (labelKey: string, value: string | null, block = false) => {
     if (value === null) return;
@@ -84,7 +89,7 @@ export function approvalDetails(actionType: string, params: Record<string, unkno
         try {
           const parsed: unknown = JSON.parse(envVars);
           const names = Array.isArray(parsed) ? [] : parsed && typeof parsed === "object" ? Object.keys(parsed) : [];
-          add("aiPage.approvalEnvNames", names.length > 0 ? names.join(", ") : null);
+          add("aiPage.approvalEnvNames", names.length > 0 ? names.join(listSeparator) : null);
         } catch {
           add("aiPage.approvalEnvNames", null);
         }
@@ -141,8 +146,8 @@ export function automationSummary(
   const targets = shown.length === 0
     ? String(count)
     : count > shown.length
-      ? t("aiPage.automationTargetNamesMore", { count, names: shown.join(", "), more: count - shown.length })
-      : t("aiPage.automationTargetNames", { count, names: shown.join(", ") });
+      ? t("aiPage.automationTargetNamesMore", { count, names: shown.join(t("common.listSeparator")), more: count - shown.length })
+      : t("aiPage.automationTargetNames", { count, names: shown.join(t("common.listSeparator")) });
 
   const approvalMode = text(params, "approvalMode");
   const approval = approvalMode === "approve_once"

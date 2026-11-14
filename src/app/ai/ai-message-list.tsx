@@ -454,7 +454,7 @@ export function AiMessageList({
                   </div>
                   {approval.actionType !== "create_automation_task" && (
                     <dl className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
-                      {approvalDetails(approval.actionType, approval.params).map((row) => (
+                      {approvalDetails(approval.actionType, approval.params, t("common.listSeparator")).map((row) => (
                         <div key={row.labelKey}>
                           <dt className="inline text-[var(--text-muted)]">{t(row.labelKey)}{t("common.colon")}</dt>
                           {row.block ? (

@@ -317,6 +317,22 @@ describe("UI conventions", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	// A list shown on a page was joined in code with "、", which reads as a stray mark in English, or with ", " and
+	// "; ", half-width punctuation in Chinese. It takes the page language's separator, t("common.listSeparator") or
+	// t("common.sentenceSeparator"). The comma-separated text of a tags field is an input format, not a sentence.
+	it("joins a list shown on a page with the page language's separator", () => {
+		const pageFiles = [
+			...collectFiles(join(SRC_ROOT, "app"), ".ts"),
+			...collectFiles(join(SRC_ROOT, "components"), ".ts"),
+		].map((file) => ({ file: relative(SRC_ROOT, file).split(/[\\/]/).join("/"), source: stripComments(readFileSync(file, "utf8")) }));
+		const offenders = [...tsxFiles, ...pageFiles]
+			.filter(({ file }) => !file.startsWith("app/api/") && !/(?:^|\/)__tests__\//.test(file) && !/\.test\.tsx?$/.test(file))
+			.flatMap(({ file, source }) => source.split("\n")
+				.filter((line) => /\.join\((["'])(?:、|；|，|; |, )\1\)/.test(line) && !/tags/i.test(line))
+				.map((line) => `${file}: ${line.trim().slice(0, 100)}`));
+		expect(offenders).toEqual([]);
+	});
+
 	// Symbol characters are drawn by each system's fonts and ignore the theme: a close button was "×" in one place
 	// and "✕" in the next, "up one level" an arrow character beside an icon button that had an icon. Keys shown as
 	// keys (<kbd>) and the SSH key pads, which name keyboard keys, are the exceptions.

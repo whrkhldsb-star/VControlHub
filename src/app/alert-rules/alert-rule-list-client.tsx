@@ -111,25 +111,23 @@ export function AlertRuleListClient({
 			/>
 
 			{rules.length === 0 ? (
-				<EmptyState icon={<IconSiren />} variant="boxed">
-					<div className="space-y-3">
-						<p>{t("alertRulesPage.empty")}</p>
-						<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.emptyHint")}</p>
-						{canManage ? (
-							<div className="flex flex-wrap justify-center gap-2">
-								<ActionButton
-									variant="primary"
-									onClick={() => void ensureDefaults()}
-									loading={busyAction === "defaults"}
-								>
-									{busyAction === "defaults"
-										? t("alertRulesPage.action.processing")
-										: t("alertRulesPage.ensureDefaults")}
-								</ActionButton>
-							</div>
-						) : null}
-					</div>
-				</EmptyState>
+				<EmptyState
+					icon={<IconSiren />}
+					variant="boxed"
+					title={t("alertRulesPage.empty")}
+					text={t("alertRulesPage.emptyHint")}
+					action={canManage ? (
+						<ActionButton
+							variant="primary"
+							onClick={() => void ensureDefaults()}
+							loading={busyAction === "defaults"}
+						>
+							{busyAction === "defaults"
+								? t("alertRulesPage.action.processing")
+								: t("alertRulesPage.ensureDefaults")}
+						</ActionButton>
+					) : undefined}
+				/>
 			) : (
 				<Section title={<>{t("alertRulesPage.rules.title")} <span className="ml-1 text-[13px] font-normal text-[var(--text-muted)] tabular-nums">{rules.length}</span></>}>
 					{rules.map((rule) => (

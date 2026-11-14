@@ -45,7 +45,10 @@ describe("UserManagementClient", () => {
 
     render(<UserManagementClient />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("用户列表加载失败");
+    // The list says so in a notice with a retry (it was an empty state that said the load failed).
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts.some((node) => node.textContent?.includes("用户列表加载失败"))).toBe(true);
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
     expect(screen.queryByText("暂无用户。")).not.toBeInTheDocument();
   });
 

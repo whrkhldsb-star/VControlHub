@@ -50,7 +50,9 @@ export default async function BackupsPage() {
 	]);
 	// At most three paths are spelled out; the count says how many there are.
 	const listDirectories = (directories: string[]) =>
-		directories.length > 3 ? t("backupsPage.coverage.more", { paths: directories.slice(0, 3).join(", "), count: directories.length }) : directories.join(", ");
+		directories.length > 3
+			? t("backupsPage.coverage.more", { paths: directories.slice(0, 3).join(t("common.listSeparator")), count: directories.length })
+			: directories.join(t("common.listSeparator"));
 	const offsite = offsiteState.value;
 	const summary = summarizeBackupPolicy(backups);
 	return (

@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-11-14T04:57:12.028Z | Files: 465 | Strings: 0 | Coverage: **100%** (0/0)
+> Generated: 2026-11-14T05:51:58.564Z | Files: 465 | Strings: 0 | Coverage: **100%** (0/0)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys.
 

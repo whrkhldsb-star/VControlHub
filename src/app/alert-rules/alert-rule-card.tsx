@@ -85,7 +85,7 @@ export function AlertRuleCard({
 						<Badge>{t("alertRulesPage.badge.escalation", { minutes: rule.escalationMinutes ?? 30 })}</Badge>
 						{silenceWindows.length > 0 ? (
 							<Badge tone="accent">
-								{t("alertRulesPage.badge.silence", { windows: silenceWindows.join(t("alertRulesPage.badge.silenceSeparator")) })}
+								{t("alertRulesPage.badge.silence", { windows: silenceWindows.join(t("common.listSeparator")) })}
 							</Badge>
 						) : null}
 						{playbookCount > 0 ? (
