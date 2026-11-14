@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -8,18 +8,76 @@ import { EmptyState } from "@/components/page-shell";
 import { Badge, FormField, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import type {
+	CloudBillingAccountConfig,
 	CloudBillingAccountRecord,
 	CloudBillingProvider,
 } from "@/lib/cost/cloud-billing/types";
 import type { CostCurrency } from "@/lib/cost/types";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 import { inputClass } from "./cost-page-shared";
 import { formatDateTime } from "@/lib/datetime/format";
 import { describeFailure, getErrorMessage } from "@/lib/http/error-message";
 
 const PROVIDERS: CloudBillingProvider[] = ["aws", "aliyun", "tencent", "generic_csv"];
+
+/** An account as its form holds it. */
+export type BillingFormValues = {
+	name: string;
+	provider: CloudBillingProvider;
+	currency: CostCurrency;
+	region: string;
+	sampleCsv: string;
+	billingCsvUrl: string;
+};
+
+const BLANK_FORM: BillingFormValues = {
+	name: "",
+	provider: "generic_csv",
+	currency: "USD",
+	region: "",
+	sampleCsv: "",
+	billingCsvUrl: "",
+};
+
+function formOf(account: CloudBillingAccountRecord): BillingFormValues {
+	return {
+		name: account.name,
+		provider: account.provider,
+		currency: account.currency,
+		region: account.config.region ?? "",
+		sampleCsv: account.config.sampleCsv ?? "",
+		billingCsvUrl: account.config.billingCsvUrl ?? "",
+	};
+}
+
+/** The settings the form edits, merged into what else the account keeps (its account id, its category map). */
+function configOf(form: BillingFormValues, base: CloudBillingAccountConfig = {}): CloudBillingAccountConfig {
+	const { region: _region, sampleCsv: _sampleCsv, billingCsvUrl: _billingCsvUrl, ...kept } = base;
+	return {
+		...kept,
+		...(form.region.trim() ? { region: form.region.trim() } : {}),
+		...(form.sampleCsv.trim() ? { sampleCsv: form.sampleCsv } : {}),
+		...(form.billingCsvUrl.trim() ? { billingCsvUrl: form.billingCsvUrl.trim() } : {}),
+	};
+}
+
+/**
+ * The fields of an edited account that differ from the saved one: what the edit sends. The settings go as a whole
+ * (the server replaces them), with what the form does not show kept; the provider is fixed once the account exists.
+ */
+export function changedBillingFields(saved: CloudBillingAccountRecord, next: BillingFormValues): { name?: string; currency?: CostCurrency; config?: CloudBillingAccountConfig } {
+	const changes: { name?: string; currency?: CostCurrency; config?: CloudBillingAccountConfig } = {};
+	if (next.name.trim() !== saved.name) changes.name = next.name.trim();
+	if (next.currency !== saved.currency) changes.currency = next.currency;
+	const was = formOf(saved);
+	if (next.region.trim() !== was.region.trim() || next.billingCsvUrl.trim() !== was.billingCsvUrl.trim() || next.sampleCsv.trim() !== was.sampleCsv.trim()) {
+		changes.config = configOf(next, saved.config);
+	}
+	return changes;
+}
 
 type Props = {
 	initialAccounts: CloudBillingAccountRecord[];
@@ -41,20 +99,18 @@ export function CostCloudBillingPanel({
 	const [accounts, setAccounts] = useState(initialAccounts);
 	const [busy, setBusy] = useState(false);
 	const [syncingId, setSyncingId] = useState<string | null>(null);
+	const [togglingId, setTogglingId] = useState<string | null>(null);
 	const [pendingDelete, setPendingDelete] = useState<CloudBillingAccountRecord | null>(null);
-	const [creating, setCreating] = useState(false);
-	// Why the account was not added, by the button; why one was not deleted, in the dialog that asked.
+	const [submitting, setSubmitting] = useState(false);
+	// Why the account was not saved, by the button; why one was not deleted, in the dialog that asked.
 	const [formError, setFormError] = useState<string | null>(null);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const fieldId = useId();
-	const [form, setForm] = useState({
-		name: "",
-		provider: "generic_csv" as CloudBillingProvider,
-		currency: "USD" as CostCurrency,
-		region: "",
-		sampleCsv: "",
-		billingCsvUrl: "",
-	});
+	const [form, setForm] = useState<BillingFormValues>(BLANK_FORM);
+	// The account whose changes the form holds; null while it adds a new one. An account could not be changed once
+	// added: a new CSV address meant deleting it, with its import settings, and adding it again.
+	const [editing, setEditing] = useState<CloudBillingAccountRecord | null>(null);
+	const formRef = useRef<HTMLFormElement>(null);
 
 	const reload = useCallback(async () => {
 		const data = (await csrfFetch("/api/cost/billing-accounts")) as {
@@ -63,34 +119,72 @@ export function CostCloudBillingPanel({
 		if (Array.isArray(data.accounts)) setAccounts(data.accounts);
 	}, []);
 
-	const update = (change: Partial<typeof form>) => {
+	const update = (change: Partial<BillingFormValues>) => {
 		setFormError(null);
 		setForm((current) => ({ ...current, ...change }));
 	};
 
-	const create = async () => {
+	const closeEdit = () => {
+		setEditing(null);
+		setForm(BLANK_FORM);
+		setFormError(null);
+	};
+	const dirty = editing !== null && Object.keys(changedBillingFields(editing, form)).length > 0;
+	const { requestDiscard, discardDialog } = useUnsavedChangesGuard({ dirty, onDiscard: closeEdit });
+
+	const startEdit = (account: CloudBillingAccountRecord) => {
+		setEditing(account);
+		setForm(formOf(account));
+		setFormError(null);
+		formRef.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+	};
+
+	const submit = async () => {
 		setFormError(null);
 		if (!form.name.trim()) {
 			setFormError(t("costPage.billing.error.nameRequired"));
 			return;
 		}
+		// A generic CSV account reads its bill from one of the two; the server checks it only when one is added.
+		if (form.provider === "generic_csv" && !form.sampleCsv.trim() && !form.billingCsvUrl.trim()) {
+			setFormError(t("costPage.billing.error.csvRequired"));
+			return;
+		}
+		if (editing) {
+			// An edit sends what changed, and nothing when nothing did.
+			const changes = changedBillingFields(editing, form);
+			if (Object.keys(changes).length === 0) {
+				addToast("info", t("costPage.unchanged"));
+				closeEdit();
+				return;
+			}
+			setSubmitting(true);
+			try {
+				await csrfFetch(`/api/cost/billing-accounts/${editing.id}`, {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(changes),
+				});
+				const name = form.name.trim();
+				closeEdit();
+				await reload();
+				addToast("success", t("costPage.billing.updated", { name }));
+			} catch (error) {
+				setFormError(getErrorMessage(error, t("costPage.billing.error")));
+			} finally {
+				setSubmitting(false);
+			}
+			return;
+		}
 		const submitted = form;
-		setCreating(true);
+		setSubmitting(true);
 		try {
 			const body: Record<string, unknown> = {
 				name: form.name.trim(),
 				provider: form.provider,
 				currency: form.currency,
 				credentials: {},
-				config: {
-					...(form.region.trim() ? { region: form.region.trim() } : {}),
-					...(form.sampleCsv.trim()
-						? { sampleCsv: form.sampleCsv }
-						: {}),
-					...(form.billingCsvUrl.trim()
-						? { billingCsvUrl: form.billingCsvUrl.trim() }
-						: {}),
-				},
+				config: configOf(form),
 			};
 			await csrfFetch("/api/cost/billing-accounts", {
 				method: "POST",
@@ -110,7 +204,25 @@ export function CostCloudBillingPanel({
 		} catch (error) {
 			setFormError(getErrorMessage(error, t("costPage.billing.error")));
 		} finally {
-			setCreating(false);
+			setSubmitting(false);
+		}
+	};
+
+	// The card said "disabled" and greyed out its sync, but nothing on the page switched an account on or off.
+	const toggle = async (account: CloudBillingAccountRecord) => {
+		setTogglingId(account.id);
+		try {
+			await csrfFetch(`/api/cost/billing-accounts/${account.id}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ enabled: !account.enabled }),
+			});
+			await reload();
+			addToast("success", t(account.enabled ? "costPage.billing.disabledToast" : "costPage.billing.enabledToast", { name: account.name }));
+		} catch (error) {
+			addToast("error", getErrorMessage(error, t("costPage.billing.error")));
+		} finally {
+			setTogglingId(null);
 		}
 	};
 
@@ -120,6 +232,7 @@ export function CostCloudBillingPanel({
 		setDeleteError(null);
 		try {
 			await csrfFetch(`/api/cost/billing-accounts/${pendingDelete.id}`, { method: "DELETE" });
+			if (editing?.id === pendingDelete.id) closeEdit();
 			setPendingDelete(null);
 			await reload();
 			addToast("success", t("costPage.billing.deleted"));
@@ -145,7 +258,7 @@ export function CostCloudBillingPanel({
 			const warnings = data.result.warnings ?? [];
 			addToast(
 				warnings.length > 0 ? "warning" : "success",
-				warnings.length > 0 ? `${summary} ${warnings.join("; ")}` : summary,
+				warnings.length > 0 ? `${summary}${t("common.sentenceSeparator")}${warnings.join(t("common.sentenceSeparator"))}` : summary,
 			);
 			onImported?.();
 		} catch (error) {
@@ -180,13 +293,15 @@ export function CostCloudBillingPanel({
 
 			{canManage ? (
 				<form
-					className="mt-4 flex flex-col gap-3"
+					ref={formRef}
+					className="mt-4 flex scroll-mt-24 flex-col gap-3"
 					noValidate
 					onSubmit={(event) => {
 						event.preventDefault();
-						void create();
+						void submit();
 					}}
 				>
+					{editing ? <h3 className="ui-title-group">{t("costPage.billing.editTitle", { name: editing.name })}</h3> : null}
 					<div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
 						<FormField label={t("costPage.billing.name")} htmlFor={`${fieldId}-name`}>
 							<input
@@ -197,11 +312,16 @@ export function CostCloudBillingPanel({
 								onChange={(e) => update({ name: e.target.value })}
 							/>
 						</FormField>
-						<FormField label={t("costPage.billing.provider")} htmlFor={`${fieldId}-provider`}>
+						<FormField
+							label={t("costPage.billing.provider")}
+							htmlFor={`${fieldId}-provider`}
+							hint={editing ? t("costPage.billing.providerFixed") : undefined}
+						>
 							<select
 								id={`${fieldId}-provider`}
 								className={inputClass}
 								value={form.provider}
+								disabled={editing !== null}
 								onChange={(e) => update({ provider: e.target.value as CloudBillingProvider })}
 							>
 								{PROVIDERS.map((p) => (
@@ -256,11 +376,17 @@ export function CostCloudBillingPanel({
 						/>
 					</FormField>
 					{formError ? <Notice tone="danger">{formError}</Notice> : null}
-					<div>
-						<ActionButton type="submit" variant="outline" loading={creating}>
-							{t("costPage.billing.create")}
+					<div className="flex flex-wrap gap-2">
+						<ActionButton type="submit" variant={editing ? "primary" : "outline"} loading={submitting}>
+							{editing ? t("costPage.saveChanges") : t("costPage.billing.create")}
 						</ActionButton>
+						{editing ? (
+							<ActionButton type="button" variant="secondary" onClick={requestDiscard}>
+								{t("costPage.cancelEdit")}
+							</ActionButton>
+						) : null}
 					</div>
+					{discardDialog}
 				</form>
 			) : null}
 
@@ -272,8 +398,8 @@ export function CostCloudBillingPanel({
 				) : (
 					accounts.map((account) => (
 						<article key={account.id} data-inset className="p-4">
-							<div className="flex items-start justify-between gap-3">
-								<div>
+							<div className="flex flex-wrap items-start justify-between gap-3">
+								<div className="min-w-0">
 									<h3 className="ui-title-group">{account.name}</h3>
 									<p className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
 										{t("costPage.billing.meta", { provider: t(`costPage.billing.provider.${account.provider}`), currency: t(`costPage.currency.${account.currency}`) })}
@@ -281,12 +407,26 @@ export function CostCloudBillingPanel({
 									</p>
 								</div>
 								{canManage ? (
-									<ActionButton size="xs" variant="danger"
-										onClick={() => { setDeleteError(null); setPendingDelete(account); }}
-										disabled={busy}
-									>
-										{t("costPage.billing.delete")}
-									</ActionButton>
+									<div className="flex flex-wrap gap-2">
+										<ActionButton size="xs" variant="outline"
+											onClick={() => startEdit(account)}
+											disabled={editing !== null}
+											title={editing !== null ? t("costPage.editBusy") : undefined}>
+											{t("costPage.edit")}
+										</ActionButton>
+										<ActionButton size="xs" variant="secondary"
+											onClick={() => void toggle(account)}
+											loading={togglingId === account.id}
+											disabled={togglingId !== null}>
+											{account.enabled ? t("costPage.billing.disable") : t("costPage.billing.enable")}
+										</ActionButton>
+										<ActionButton size="xs" variant="danger"
+											onClick={() => { setDeleteError(null); setPendingDelete(account); }}
+											disabled={busy}
+										>
+											{t("costPage.billing.delete")}
+										</ActionButton>
+									</div>
 								) : null}
 							</div>
 							<p className="mt-2 text-xs text-[var(--text-secondary)]">
@@ -305,6 +445,7 @@ export function CostCloudBillingPanel({
 								<div className="mt-3">
 									<ActionButton size="sm" variant="secondary"
 										disabled={syncingId === account.id || !account.enabled}
+										title={account.enabled ? undefined : t("costPage.billing.syncDisabledHint")}
 										onClick={() => void sync(account.id)}
 									>
 										{syncingId === account.id

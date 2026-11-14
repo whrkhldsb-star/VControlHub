@@ -109,6 +109,8 @@ export const zh: Record<string, string> = {
 	"common.unsaved.description": "当前内容尚未保存，离开后这些更改将丢失。",
 	"common.unsaved.stay": "继续编辑",
 	"common.unsaved.discard": "放弃并离开",
+	"common.listSeparator": "、",
+	"common.sentenceSeparator": "；",
 
 	"changePassword.currentPassword": "当前密码",
 	"changePassword.currentPasswordDesc": "请输入当前正在使用的登录密码。",
@@ -232,6 +234,8 @@ export const en: Record<string, string> = {
 		"Your changes have not been saved and will be lost if you leave.",
 	"common.unsaved.stay": "Keep editing",
 	"common.unsaved.discard": "Discard and leave",
+	"common.listSeparator": ", ",
+	"common.sentenceSeparator": "; ",
 
 	"changePassword.currentPassword": "Current password",
 	"changePassword.currentPasswordDesc": "Enter your current login password.",

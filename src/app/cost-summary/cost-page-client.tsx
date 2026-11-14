@@ -143,9 +143,10 @@ export function CostPageClient({
 							{summary.otherCurrencies.length > 0 ? (
 								<div className={`mt-2 rounded-lg border px-2 py-1.5 text-xs ${UI_TONE.warning}`}>
 									{t("costPage.summary.otherCurrencies", {
+										// Each amount says what its number in brackets counts; "、" read as a stray mark in English.
 										detail: summary.otherCurrencies
-											.map((bucket) => `${formatAmount(bucket.totalAmount, bucket.currency, localeTag)} (${bucket.entryCount})`)
-											.join("、"),
+											.map((bucket) => t("costPage.summary.otherCurrencyBucket", { amount: formatAmount(bucket.totalAmount, bucket.currency, localeTag), count: bucket.entryCount }))
+											.join(t("common.listSeparator")),
 									})}
 								</div>
 							) : null}
