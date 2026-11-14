@@ -51,6 +51,21 @@ describe("FilesPage",() => {
     await expect(FilesPage({})).rejects.toThrow("Forbidden");expect(mocks.listing).not.toHaveBeenCalled();
     expect(probe).not.toHaveBeenCalled();
   });
+  it("keeps node connection details from readers who do not manage nodes",async () => {
+    // Everyone who could read files got each node's host, port, account, root path and health error.
+    const node = {id:"sftp",name:"Backup box",driver:"SFTP",isDefault:false,basePath:"/srv/backup",host:"10.0.0.5",port:22,username:"ops",
+      connectionSummary:"ops@10.0.0.5:22 /srv/backup",lastHealthError:"connect ECONNREFUSED 10.0.0.5:22",fileCount:3,healthStatus:"UNHEALTHY",
+      directAccess:{mode:"proxy",description:"",href:"https://files.example/raw"}};
+    mocks.listing.mockResolvedValue({listing,nodes:[node]});
+    render(await FilesPage({}));
+    const reader = mocks.manager.mock.calls[0]![0].nodes[0];
+    expect(reader).toMatchObject({id:"sftp",name:"Backup box",driver:"SFTP",fileCount:3,healthStatus:"UNHEALTHY",connectionHidden:true});
+    expect(JSON.stringify(reader)).not.toMatch(/10\.0\.0\.5|ops|\/srv\/backup|files\.example/);
+    // Whoever manages nodes still gets all of it.
+    mocks.permission.mockReturnValue(true);mocks.manager.mockClear();
+    render(await FilesPage({}));
+    expect(mocks.manager.mock.calls[0]![0].nodes[0]).toMatchObject({host:"10.0.0.5",connectionSummary:"ops@10.0.0.5:22 /srv/backup"});
+  });
   it("refreshes stale storage node health in the background (M-1)",async () => {
     // Its only trigger was the signed-in /status page: nodes read "checked 10-04" for weeks.
     await FilesPage({});

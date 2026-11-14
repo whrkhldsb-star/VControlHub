@@ -191,6 +191,7 @@ export async function importAlertRules(
   t: ExportFile["tables"],
   options: ImportOptions,
   counts: Counts,
+  exportMode?: ExportFile["exportMode"],
 ): Promise<void> {
   const toData = (r: ExportFile["tables"]["alertRules"][number]) => ({
     name: r.name,
@@ -223,7 +224,9 @@ export async function importAlertRules(
         })
       ).count,
     updateById: async (r) => {
-      await tx.alertRule.update({ where: { id: r.id }, data: toData(r) });
+      // A standard export leaves webhook addresses out: overwriting a rule from it keeps the address it has.
+      const { webhookUrl, ...rest } = toData(r);
+      await tx.alertRule.update({ where: { id: r.id }, data: exportMode === "full" || webhookUrl ? { ...rest, webhookUrl } : rest });
     },
   });
 }

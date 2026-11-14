@@ -27,6 +27,8 @@ type StorageNodeItem = {
 	username?: string | null;
 	serverId?: string | null;
 	connectionSummary: string;
+	/** Set for a reader who does not manage nodes: the connection details were left out. */
+	connectionHidden?: boolean;
 	/** Owning customer, shown to administrators. */
 	teamName?: string | null;
 	directAccess: { mode: string; description: string; href: string | null };
@@ -125,7 +127,7 @@ function StorageNodeCard({
 						<h3 className="ui-title-section">{node.name}</h3>
 						{node.teamName ? <Badge tone="neutral">{node.teamName}</Badge> : null}
 					</div>
-					<p className="mt-2 break-all text-sm leading-7 text-[var(--text-secondary)]">{getStorageConnectionLabel(t, node)}</p>
+					{node.connectionHidden ? null : <p className="mt-2 break-all text-sm leading-7 text-[var(--text-secondary)]">{getStorageConnectionLabel(t, node)}</p>}
 				</div>
 					<div className="flex items-center gap-2">
 						<StatusBadge tone="neutral" className="!rounded-lg px-3 py-1 !text-sm">

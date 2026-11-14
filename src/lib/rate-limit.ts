@@ -10,6 +10,7 @@
  */
 
 import { config } from "@/lib/config/env";
+import { PEER_ADDRESS_HEADER, peerAddressIsStamped } from "@/lib/http/peer-address";
 import { getRateLimitStore } from "@/lib/rate-limit-store";
 
 type RateLimitConfig = {
@@ -56,12 +57,21 @@ export async function checkRateLimitAsync(
  * IP-scoped limit (share-link password throttling, login throttling) while
  * poisoning audit IPs. Walk `hops` entries from the right instead.
  *
- * Returns "unknown" when no trusted header is present — callers already treat
+ * With no trusted proxy (`TRUSTED_PROXY_HOPS=0`, the app exposed directly) the
+ * key is the connection's own address, which the custom server stamps on every
+ * request (`src/lib/http/peer-address.ts`). It used to be "unknown" for every
+ * request there: one bucket for the whole site, so anyone who spent the login
+ * attempts locked everyone else out for the window.
+ *
+ * Returns "unknown" when no trusted address is present — callers already treat
  * that as a shared bucket, which is safe (conservative), unlike a spoofed one.
  */
 export function getClientIp(request: Request): string {
 	const hops = config.http.trustedProxyHops;
-	if (hops <= 0) return "unknown";
+	if (hops <= 0) {
+		if (!peerAddressIsStamped()) return "unknown";
+		return normalizeClientIp(request.headers.get(PEER_ADDRESS_HEADER) ?? "") ?? "unknown";
+	}
 
 	if (config.http.trustCloudflareHeader) {
 		const cfIp = normalizeClientIp(request.headers.get("cf-connecting-ip") ?? "");

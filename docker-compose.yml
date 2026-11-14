@@ -43,8 +43,9 @@ services:
       # in-process upgrade forwarder. Because the app is exposed directly,
       # client-supplied X-Forwarded-For must NOT be trusted for rate-limit
       # identity — the default of 1 hop would let any caller rotate a fresh
-      # rate-limit bucket per request. Put an explicit reverse proxy in front
-      # and raise this to its hop count instead.
+      # rate-limit bucket per request. With 0, limits key on each connection's
+      # own address (stamped by the app server). Put an explicit reverse proxy
+      # in front and raise this to its hop count instead.
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
       # DOCKER_SOCKET_PATH may point to a rootless daemon on the host.
       DOCKER_HOST: unix:///var/run/docker.sock

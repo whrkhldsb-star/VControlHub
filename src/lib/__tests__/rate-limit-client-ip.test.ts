@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { IncomingMessage } from "node:http";
+
+import { PEER_ADDRESS_HEADER, stampPeerAddress } from "../http/peer-address";
 import { getClientIp } from "../rate-limit";
 
 /**
@@ -47,6 +50,35 @@ describe("getClientIp", () => {
     vi.stubEnv("TRUSTED_PROXY_HOPS", "0");
 
     expect(getClientIp(requestWith({ "x-forwarded-for": "203.0.113.5" }))).toBe("unknown");
+  });
+
+  // Directly exposed, every request used to share the "unknown" bucket: one person spending the login attempts
+  // locked the whole site out. The custom server stamps the connection's address instead.
+  it("keys on the connection address the custom server stamps when no proxy is trusted", () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "0");
+    vi.stubEnv("VCH_PEER_ADDRESS_STAMPED", "1");
+
+    expect(getClientIp(requestWith({ [PEER_ADDRESS_HEADER]: "198.51.100.23", "x-forwarded-for": "203.0.113.5" }))).toBe("198.51.100.23");
+    expect(getClientIp(requestWith({ [PEER_ADDRESS_HEADER]: "::ffff:198.51.100.23" }))).toBe("::ffff:198.51.100.23");
+    expect(getClientIp(requestWith({}))).toBe("unknown");
+  });
+
+  it("never trusts the address header in a process that does not stamp it", () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "0");
+    vi.stubEnv("VCH_PEER_ADDRESS_STAMPED", "");
+
+    expect(getClientIp(requestWith({ [PEER_ADDRESS_HEADER]: "198.51.100.23" }))).toBe("unknown");
+  });
+
+  it("stamps the socket's address over whatever the client sent", () => {
+    const message = Object.assign(Object.create(IncomingMessage.prototype) as IncomingMessage, {
+      headers: { [PEER_ADDRESS_HEADER]: "203.0.113.99", host: "hub.example" } as IncomingMessage["headers"],
+      rawHeaders: ["Host", "hub.example", "X-VCH-Peer-Address", "203.0.113.99"],
+      socket: { remoteAddress: "198.51.100.23" },
+    });
+    stampPeerAddress(message);
+    expect(message.headers[PEER_ADDRESS_HEADER]).toBe("198.51.100.23");
+    expect(message.rawHeaders).toEqual(["Host", "hub.example", PEER_ADDRESS_HEADER, "198.51.100.23"]);
   });
 
   it("falls back to the shared bucket when the chain is shorter than the hop count", () => {

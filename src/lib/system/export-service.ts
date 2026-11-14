@@ -140,7 +140,7 @@ export async function buildExportFile(options: ExportOptions): Promise<ExportFil
     exportCommandTemplates(scope, teamId),
     exportQuickServices(mode, scope, teamId),
     exportPlaybooks(scope, teamId),
-    exportAlertRules(scope, teamId),
+    exportAlertRules(mode, scope, teamId),
     exportSettings(mode, scope),
     exportAiProviders(mode, scope),
     exportAnnouncements(scope),
