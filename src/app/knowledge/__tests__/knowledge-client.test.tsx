@@ -202,4 +202,39 @@ describe("KnowledgeClient", () => {
     await waitFor(() => expect(screen.getByText("runbooks")).toBeInTheDocument());
     expect(screen.queryByLabelText("knowledgePage.deleteBaseAria:runbooks")).toBeNull();
   });
+
+  it("labels every field it asks for, and says which base a document goes into", async () => {
+    renderClient();
+    await waitFor(() => expect(screen.getByText("knowledgePage.ingestTarget:runbooks")).toBeInTheDocument());
+    // Each had only a placeholder: gone once something was typed.
+    for (const label of ["knowledgePage.namePlaceholder", "knowledgePage.descPlaceholder", "knowledgePage.docTitlePlaceholder", "knowledgePage.docContentLabel", "knowledgePage.queryLabel"]) {
+      expect(screen.getByLabelText(label)).toBeInTheDocument();
+    }
+    // The dry run's scope is said: the chosen base.
+    expect(screen.getByText("knowledgePage.searchScope:runbooks")).toBeInTheDocument();
+  });
+
+  it("asks for a base before a document, and searches every base while none exists", async () => {
+    seed({ bases: [] });
+    renderClient();
+    await waitFor(() => expect(screen.getByText("knowledgePage.ingestNeedsBase")).toBeInTheDocument());
+    expect(screen.getByLabelText("knowledgePage.docTitlePlaceholder")).toBeDisabled();
+    expect(screen.getByText("knowledgePage.searchScopeAll")).toBeInTheDocument();
+  });
+
+  it("says a refused create in the panel it was asked from", async () => {
+    renderClient();
+    await waitFor(() => expect(screen.getByText("runbooks")).toBeInTheDocument());
+    mocks.csrfFetch.mockImplementation(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "POST") throw new Error("A knowledge base with this name exists");
+      return { knowledgeBases: bases, knowledgeBase: { documents } };
+    });
+    fireEvent.change(screen.getByLabelText("knowledgePage.namePlaceholder"), { target: { value: "runbooks" } });
+    fireEvent.click(screen.getByRole("button", { name: "knowledgePage.create" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("A knowledge base with this name exists");
+    // In the bases panel, above its fields, not at the foot of the page.
+    expect(alert.compareDocumentPosition(screen.getByLabelText("knowledgePage.namePlaceholder")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(alert.compareDocumentPosition(screen.getByLabelText("knowledgePage.queryLabel")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

@@ -93,6 +93,9 @@ vi.mock("@/components/toast-provider", () => ({
 	ToastProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+
+const header = { title: "AI 运维" };
+
 describe("AiOpsPageClient conditional render audit", () => {
 	beforeEach(() => {
 		csrfFetch.mockReset();
@@ -104,6 +107,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 	it("hides the trigger scan button when canManage is false", async () => {
 		render(
 			<AiOpsPageClient
+				header={header}
 				initialSummary={initialSummary}
 				initialLogs={initialLogs}
 				initialHasMore={false}
@@ -140,6 +144,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 			});
 			render(
 				<AiOpsPageClient
+					header={header}
 					initialSummary={initialSummary}
 					initialLogs={initialLogs}
 					initialHasMore={false}
@@ -150,7 +155,8 @@ describe("AiOpsPageClient conditional render audit", () => {
 				/>,
 			);
 
-			fireEvent.click(screen.getByRole("button", { name: /立即扫描|触发扫描/i }));
+			// The header's command (the empty history offers the same one).
+			fireEvent.click(screen.getAllByRole("button", { name: /立即扫描|触发扫描/i })[0]!);
 			await vi.advanceTimersByTimeAsync(0);
 			expect(listReads).toBe(1); // right after the request: nothing yet
 			await vi.advanceTimersByTimeAsync(5_000);
@@ -167,6 +173,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 	it("renders the trigger scan button when canManage is true", async () => {
 		render(
 			<AiOpsPageClient
+				header={header}
 				initialSummary={initialSummary}
 				initialLogs={initialLogs}
 				initialHasMore={false}
@@ -177,9 +184,10 @@ describe("AiOpsPageClient conditional render audit", () => {
 			/>,
 		);
 
-		expect(
-			await screen.findByRole("button", { name: /立即扫描|触发扫描/i }),
-		).toBeInTheDocument();
+		// In the page header, and offered again by the empty history.
+		const scans = await screen.findAllByRole("button", { name: /立即扫描|触发扫描/i });
+		expect(scans).toHaveLength(2);
+		expect(scans[0]!.closest("[data-page-header]")).not.toBeNull();
 	});
 
 	it("shows the settings mode select only when canManage is true", async () => {
@@ -189,6 +197,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 		// text (which is localized) so the assertion stays locale-agnostic.
 		const { rerender } = render(
 			<AiOpsPageClient
+				header={header}
 				initialSummary={initialSummary}
 				initialLogs={initialLogs}
 				initialHasMore={false}
@@ -206,6 +215,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 
 		rerender(
 			<AiOpsPageClient
+				header={header}
 				initialSummary={initialSummary}
 				initialLogs={initialLogs}
 				initialHasMore={false}
@@ -227,6 +237,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 
 		render(
 			<AiOpsPageClient
+				header={header}
 				initialSummary={initialSummary}
 				initialLogs={logsWithAction}
 				initialHasMore={false}
@@ -254,6 +265,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 
 		render(
 			<AiOpsPageClient
+				header={header}
 				initialSummary={initialSummary}
 				initialLogs={logsWithAction}
 				initialHasMore={false}
@@ -284,6 +296,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 
 		render(
 			<AiOpsPageClient
+				header={header}
 				initialSummary={{ ...initialSummary, total: 21 }}
 				initialLogs={[makeLogWithAction()]}
 				initialHasMore
@@ -314,6 +327,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 		});
 		render(
 			<AiOpsPageClient
+				header={header}
 				initialSummary={{ ...initialSummary, total: 21 }}
 				initialLogs={[makeLogWithAction()]}
 				initialHasMore
@@ -344,6 +358,7 @@ describe("AiOpsPageClient conditional render audit", () => {
 		csrfFetch.mockImplementation(async (_url: string, init?: { body?: string }) => ({ mode: "autonomous", providerId: "prov-other", scanScheduleHour: 3, ...(init?.body ? JSON.parse(init.body) : {}) }));
 		render(
 			<AiOpsPageClient
+				header={header}
 				initialSummary={initialSummary}
 				initialLogs={initialLogs}
 				initialHasMore={false}

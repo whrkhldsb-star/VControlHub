@@ -105,16 +105,16 @@ describe("/ai-ops page permission gate", () => {
 		aiProviderFindUniqueMock.mockResolvedValue({ name: "Team Claude", defaultModel: "claude-y", enabled: true });
 		const { default: AiOpsPage } = await import("../page");
 
-		const client = (await AiOpsPage()).props.children[1];
+		const client = (await AiOpsPage()).props.children;
 		// Looked up by id alone: the options list holds only this administrator's own providers.
 		expect(aiProviderFindUniqueMock).toHaveBeenCalledWith({ where: { id: "prov-other" }, select: { name: true, defaultModel: true, enabled: true } });
 		expect(client.props.storedProvider).toEqual({ id: "prov-other", name: "Team Claude", defaultModel: "claude-y", available: true });
 
 		aiProviderFindUniqueMock.mockResolvedValue(null);
-		expect((await AiOpsPage()).props.children[1].props.storedProvider).toEqual({ id: "prov-other", name: null, defaultModel: null, available: false });
+		expect((await AiOpsPage()).props.children.props.storedProvider).toEqual({ id: "prov-other", name: null, defaultModel: null, available: false });
 
 		getSettingMock.mockImplementation(async (key: string) => (key === "ai.ops.provider" ? "" : "recommendation"));
-		expect((await AiOpsPage()).props.children[1].props.storedProvider).toBeNull();
+		expect((await AiOpsPage()).props.children.props.storedProvider).toBeNull();
 	});
 
 	it("blocks a custom role granted ai:ops:read but lacking team:manage", async () => {

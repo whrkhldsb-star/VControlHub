@@ -378,7 +378,8 @@ test("audit filters and AI/AI Ops unavailable-provider experience stay usable", 
 
 	await page.goto("/ai-ops");
 	await page.getByRole("button", { name: /刷新|Refresh/i }).click();
-	const filters = page.locator('section[aria-label="ai-ops-actions"] select');
+	// The filters sit in the scan history they filter.
+	const filters = page.locator('section[aria-label="ai-ops-logs"] select');
 	for (let index = 0; index < await filters.count(); index++) {
 		await filters.nth(index).selectOption({ index: 0 });
 	}

@@ -67,6 +67,15 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
     useState<KnowledgeBase | null>(null);
   const [documentPendingDelete, setDocumentPendingDelete] = useState<DocumentRow | null>(null);
   const { run, busyKey: busy, error, setError } = useAsyncAction();
+  // A refused create, ingest or search is said in its own panel, where it was asked for (it was at the foot of the
+  // page). Loading failures stay in the page's notice under the header.
+  const [panelError, setPanelError] = useState<{ at: "bases" | "ingest" | "search"; message: string } | null>(null);
+  const failIn = (at: "bases" | "ingest" | "search") => (message: string) => setPanelError({ at, message });
+  const panelNotice = (at: "bases" | "ingest" | "search") =>
+    panelError?.at === at ? (
+      <Notice tone="danger" compact onDismiss={() => setPanelError(null)} dismissLabel={t("common.close")}>{panelError.message}</Notice>
+    ) : null;
+  const selectedBase = bases.find((base) => base.id === selectedId) ?? null;
   /** A failed deletion, shown in its confirmation dialog: the page's own notice is behind it. */
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -152,6 +161,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   }, [selectedId, setError, t]);
 
   async function createBase() {
+    setPanelError(null);
     await run("create", async () => {
       await csrfFetch("/api/knowledge", {
         method: "POST",
@@ -166,11 +176,12 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       clearIfUnchanged(setDescription, description, "");
       addToast("success", t("knowledgePage.created"));
       await loadBases();
-    }, { fallback: t("knowledgePage.error") });
+    }, { fallback: t("knowledgePage.error"), onError: failIn("bases") });
   }
 
   async function ingest() {
     if (!selectedId) return;
+    setPanelError(null);
     await run("ingest", async () => {
       const data = await csrfFetch<{ chunkCount: number }>("/api/knowledge", {
         method: "POST",
@@ -191,10 +202,11 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       );
       await loadBases();
       await loadDetail(selectedId);
-    }, { fallback: t("knowledgePage.error") });
+    }, { fallback: t("knowledgePage.error"), onError: failIn("ingest") });
   }
 
   async function search() {
+    setPanelError(null);
     await run("search", async () => {
       const data = await csrfFetch<{ hits: Hit[] }>("/api/knowledge", {
         method: "POST",
@@ -208,7 +220,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       });
       setHits(data.hits ?? []);
       setSearchedQuery(query.trim());
-    }, { fallback: t("knowledgePage.error") });
+    }, { fallback: t("knowledgePage.error"), onError: failIn("search") });
   }
 
   async function removeDoc(documentId: string) {
@@ -252,6 +264,8 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         title={t("knowledgePage.title")}
         description={t("knowledgePage.description")}
       />
+      {/* Loading the bases or a base's documents failed: said at the top, above what could not be shown. */}
+      {error && <Notice tone="danger" compact className="mb-5" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
 
       <div className="mb-5 grid gap-5 lg:grid-cols-2">
         <SurfacePanel
@@ -259,30 +273,32 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           description={t("knowledgePage.basesDescription")}
         >
           <div className="space-y-3">
-            {canManage && <div className="flex flex-wrap items-end gap-2">
-              <FormField label={t("knowledgePage.namePlaceholder")} htmlFor="knowledge-base-name" className="min-w-[10rem] flex-1">
-              <input
-                id="knowledge-base-name"
-                aria-label={t("knowledgePage.namePlaceholder")}
-                className={UI_INPUT}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t("knowledgePage.namePlaceholder")}
-              />
-              </FormField>
-              <ActionButton variant="outline"
-                disabled={!name.trim() || busy !== null}
-                onClick={() => void createBase()}>
-                {busy === "create" ? t("knowledgePage.working") : t("knowledgePage.create")}
-              </ActionButton>
-            </div>}
-            {canManage && <input
-              aria-label={t("knowledgePage.descPlaceholder")}
-              className={UI_INPUT}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t("knowledgePage.descPlaceholder")}
-            />}
+            {panelNotice("bases")}
+            {canManage && (
+              <div className="grid gap-3">
+                <FormField label={t("knowledgePage.namePlaceholder")} htmlFor="knowledge-base-name">
+                  <input
+                    id="knowledge-base-name"
+                    className={UI_INPUT}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </FormField>
+                <FormField label={t("knowledgePage.descPlaceholder")} htmlFor="knowledge-base-description">
+                  <input
+                    id="knowledge-base-description"
+                    className={UI_INPUT}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </FormField>
+                <ActionButton variant="outline" className="w-fit"
+                  disabled={!name.trim() || busy !== null}
+                  onClick={() => void createBase()}>
+                  {busy === "create" ? t("knowledgePage.working") : t("knowledgePage.create")}
+                </ActionButton>
+              </div>
+            )}
             {bases.length === 0 ? (
               <EmptyState text={t("knowledgePage.emptyBases")} />
             ) : (
@@ -332,32 +348,47 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           description={t("knowledgePage.ingestDescription")}
         >
           <div className="space-y-3">
-            {canManage && <input
-              aria-label={t("knowledgePage.docTitlePlaceholder")}
-              className={UI_INPUT}
-              value={docTitle}
-              onChange={(e) => setDocTitle(e.target.value)}
-              placeholder={t("knowledgePage.docTitlePlaceholder")}
-              disabled={!selectedId}
-            />}
-            {canManage && <textarea
-              aria-label={t("knowledgePage.docContentPlaceholder")}
-              className={`${UI_INPUT} min-h-40 font-mono text-xs`}
-              value={docContent}
-              onChange={(e) => setDocContent(e.target.value)}
-              placeholder={t("knowledgePage.docContentPlaceholder")}
-              disabled={!selectedId}
-            />}
-            {canManage && <ActionButton variant="success"
-              disabled={!selectedId || !docTitle.trim() || !docContent.trim() || busy !== null}
-              onClick={() => void ingest()}>
-              {busy === "ingest" ? t("knowledgePage.working") : t("knowledgePage.ingest")}
-            </ActionButton>}
+            {panelNotice("ingest")}
+            {/* Which base the document goes into: the one chosen in the list beside this panel. */}
+            {selectedBase ? (
+              <p className="text-xs text-[var(--text-secondary)]">{t("knowledgePage.ingestTarget", { name: selectedBase.name })}</p>
+            ) : canManage ? (
+              <Notice tone="info" compact>{t("knowledgePage.ingestNeedsBase")}</Notice>
+            ) : null}
+            {canManage && (
+              <>
+                <FormField label={t("knowledgePage.docTitlePlaceholder")} htmlFor="knowledge-doc-title">
+                  <input
+                    id="knowledge-doc-title"
+                    className={UI_INPUT}
+                    value={docTitle}
+                    onChange={(e) => setDocTitle(e.target.value)}
+                    disabled={!selectedId}
+                  />
+                </FormField>
+                <FormField label={t("knowledgePage.docContentLabel")} htmlFor="knowledge-doc-content">
+                  <textarea
+                    id="knowledge-doc-content"
+                    className={`${UI_INPUT} min-h-40 font-mono text-xs`}
+                    value={docContent}
+                    onChange={(e) => setDocContent(e.target.value)}
+                    placeholder={t("knowledgePage.docContentPlaceholder")}
+                    disabled={!selectedId}
+                  />
+                </FormField>
+                <ActionButton variant="success" className="w-fit"
+                  disabled={!selectedId || !docTitle.trim() || !docContent.trim() || busy !== null}
+                  onClick={() => void ingest()}>
+                  {busy === "ingest" ? t("knowledgePage.working") : t("knowledgePage.ingest")}
+                </ActionButton>
+              </>
+            )}
             <div className="max-h-48 space-y-2 overflow-auto">
               {documents.map((d) => (
                 <div
                   key={d.id}
-                  className="flex items-start justify-between gap-2 rounded-lg border border-[var(--border-subtle)] px-2 py-1.5 text-xs"
+                  data-inset
+                  className="flex items-start justify-between gap-2 px-2 py-1.5 text-xs"
                 >
                   <div>
                     <div className="font-medium text-[var(--text-primary)]">{d.title}</div>
@@ -388,26 +419,33 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       </div>
 
       <SurfacePanel title={t("knowledgePage.searchTitle")} description={t("knowledgePage.searchDescription")}>
+        {panelNotice("search")}
         <form
           role="search"
-          className="flex flex-wrap gap-2"
+          className="flex flex-wrap items-end gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             if (query.trim() && busy === null) void search();
           }}
         >
-          <input
-            type="search"
-            aria-label={t("knowledgePage.queryLabel")}
-            className={`${UI_INPUT} min-w-[12rem] flex-1`}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("knowledgePage.queryPlaceholder")}
-          />
+          <FormField label={t("knowledgePage.queryLabel")} htmlFor="knowledge-query" className="min-w-[12rem] flex-1">
+            <input
+              id="knowledge-query"
+              type="search"
+              className={UI_INPUT}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("knowledgePage.queryPlaceholder")}
+            />
+          </FormField>
           <ActionButton type="submit" variant="outline" disabled={!query.trim() || busy !== null}>
             {busy === "search" ? t("knowledgePage.working") : t("knowledgePage.search")}
           </ActionButton>
         </form>
+        {/* The dry run searches the base chosen above, or every base the account can see when none is. */}
+        <p className="mt-2 text-xs text-[var(--text-muted)]">
+          {selectedBase ? t("knowledgePage.searchScope", { name: selectedBase.name }) : t("knowledgePage.searchScopeAll")}
+        </p>
         {searchedQuery !== null ? (
           <p className="mt-3 text-xs text-[var(--text-muted)]" role="status">
             {hits.length > 0 ? t("knowledgePage.searchOk", { count: hits.length }) : t("knowledgePage.noHits")}
@@ -432,7 +470,6 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           ))}
         </div>
       </SurfacePanel>
-      {error && <Notice tone="danger" compact className="mt-3" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
       <p className="mt-4 text-xs text-[var(--text-muted)]">{t("knowledgePage.aiHint")}</p>
       <ConfirmDialog
         open={documentPendingDelete !== null}

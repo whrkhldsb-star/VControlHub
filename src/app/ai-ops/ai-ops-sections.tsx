@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
@@ -79,7 +79,7 @@ export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: 
 			title={t("aiOpsPage.summary.title")}
 			description={provider ? (
 				<span className="flex flex-wrap gap-x-4 gap-y-1">
-					<span>{t("aiOpsPage.summary.providerSuccessRate")}{t("common.colon")}{provider.successRate === null ? never : `${Math.round(provider.successRate * 100)}% (${provider.successes}/${provider.attempts})`}</span>
+					<span>{t("aiOpsPage.summary.providerSuccessRate")}{t("common.colon")}{provider.successRate === null ? t("aiOpsPage.summary.noRate") : `${Math.round(provider.successRate * 100)}% (${provider.successes}/${provider.attempts})`}</span>
 					<span>{t("aiOpsPage.summary.providerLastSuccess")}{t("common.colon")}{formatAiOpsTime(provider.lastSuccessAt, never, locale)}</span>
 					{provider.retryAt ? <span>{t("aiOpsPage.summary.providerRetryAt")}{t("common.colon")}{formatAiOpsTime(provider.retryAt, never, locale)}</span> : null}
 				</span>
@@ -97,50 +97,57 @@ export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: 
 	);
 }
 
-export function AiOpsActionsToolbar({
+/** The page's commands, in its header: run a scan now, and read the page again. */
+export function AiOpsHeaderActions({
 	canManage,
 	scanning,
-	modeFilter,
-	statusFilter,
-	triggerFilter,
 	onTriggerScan,
 	onReload,
-	setModeFilter,
-	setStatusFilter,
-	setTriggerFilter,
 	t,
 }: {
 	canManage: boolean;
 	scanning: boolean;
-	modeFilter: "all" | AiOpsMode;
-	statusFilter: "all" | AiOpsStatus;
-	triggerFilter: "all" | AiOpsTriggerType;
 	onTriggerScan: () => void;
 	onReload: () => void;
-	setModeFilter: Dispatch<SetStateAction<"all" | AiOpsMode>>;
-	setStatusFilter: Dispatch<SetStateAction<"all" | AiOpsStatus>>;
-	setTriggerFilter: Dispatch<SetStateAction<"all" | AiOpsTriggerType>>;
 	t: T;
 }) {
 	return (
-		<section aria-label="ai-ops-actions" data-toolbar className="flex flex-wrap items-center gap-2">
+		<>
+			<ActionButton variant="secondary" onClick={onReload}>{t("aiOpsPage.actions.refresh")}</ActionButton>
 			{canManage && (
 				<ActionButton variant="primary" disabled={scanning} onClick={onTriggerScan}>
 					{scanning ? t("aiOpsPage.actions.scanning") : t("aiOpsPage.actions.triggerScan")}
 				</ActionButton>
 			)}
-			<ActionButton variant="secondary" onClick={onReload}>{t("aiOpsPage.actions.refresh")}</ActionButton>
-			<label className="flex min-w-0 items-center gap-2 text-xs text-[var(--text-muted)]">
+		</>
+	);
+}
+
+export type AiOpsLogFilters = {
+	modeFilter: "all" | AiOpsMode;
+	statusFilter: "all" | AiOpsStatus;
+	triggerFilter: "all" | AiOpsTriggerType;
+	setModeFilter: Dispatch<SetStateAction<"all" | AiOpsMode>>;
+	setStatusFilter: Dispatch<SetStateAction<"all" | AiOpsStatus>>;
+	setTriggerFilter: Dispatch<SetStateAction<"all" | AiOpsTriggerType>>;
+};
+
+/** What the scan history shows; it sits in the history's own panel, the list it filters. */
+function AiOpsLogFilterRow({ filters, t }: { filters: AiOpsLogFilters; t: T }) {
+	const { modeFilter, statusFilter, triggerFilter, setModeFilter, setStatusFilter, setTriggerFilter } = filters;
+	return (
+		<div className="mb-4 grid gap-3 sm:grid-cols-3">
+			<label className={`${labelClass} grid gap-1`}>
 				<span>{t("aiOpsPage.filter.mode")}</span>
-				<select className={`${selectClass} w-auto`} value={modeFilter} onChange={(e) => setModeFilter(e.target.value as "all" | AiOpsMode)}>
+				<select className={selectClass} value={modeFilter} onChange={(e) => setModeFilter(e.target.value as "all" | AiOpsMode)}>
 					<option value="all">{t("aiOpsPage.filter.all")}</option>
 					<option value="recommendation">{t("aiOpsPage.mode.recommendation")}</option>
 					<option value="autonomous">{t("aiOpsPage.mode.autonomous")}</option>
 				</select>
 			</label>
-			<label className="flex min-w-0 items-center gap-2 text-xs text-[var(--text-muted)]">
+			<label className={`${labelClass} grid gap-1`}>
 				<span>{t("aiOpsPage.filter.status")}</span>
-				<select className={`${selectClass} w-auto`} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | AiOpsStatus)}>
+				<select className={selectClass} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | AiOpsStatus)}>
 					<option value="all">{t("aiOpsPage.filter.all")}</option>
 					<option value="ok">{t("aiOpsPage.status.ok")}</option>
 					<option value="warning">{t("aiOpsPage.status.warning")}</option>
@@ -149,16 +156,16 @@ export function AiOpsActionsToolbar({
 					<option value="running">{t("aiOpsPage.status.running")}</option>
 				</select>
 			</label>
-			<label className="flex min-w-0 items-center gap-2 text-xs text-[var(--text-muted)]">
+			<label className={`${labelClass} grid gap-1`}>
 				<span>{t("aiOpsPage.filter.triggerType")}</span>
-				<select className={`${selectClass} w-auto`} value={triggerFilter} onChange={(e) => setTriggerFilter(e.target.value as "all" | AiOpsTriggerType)}>
+				<select className={selectClass} value={triggerFilter} onChange={(e) => setTriggerFilter(e.target.value as "all" | AiOpsTriggerType)}>
 					<option value="all">{t("aiOpsPage.filter.all")}</option>
 					<option value="scheduled">{t("aiOpsPage.trigger.scheduled")}</option>
 					<option value="manual">{t("aiOpsPage.trigger.manual")}</option>
 					<option value="recommendation_followup">{t("aiOpsPage.trigger.recommendation_followup")}</option>
 				</select>
 			</label>
-		</section>
+		</div>
 	);
 }
 
@@ -240,6 +247,8 @@ export function AiOpsLogsSection({
 	total,
 	hasMore,
 	loading,
+	filters,
+	emptyAction,
 	selectedLogId,
 	setSelectedLogId,
 	onPrevious,
@@ -247,6 +256,9 @@ export function AiOpsLogsSection({
 	t,
 }: {
 	logs: AiOpsLogRecord[];
+	filters: AiOpsLogFilters;
+	/** Offered by the empty history (no filter set): run the first scan. */
+	emptyAction?: ReactNode;
 	page: number;
 	total: number;
 	hasMore: boolean;
@@ -272,8 +284,13 @@ export function AiOpsLogsSection({
 					</span>
 				) : null}
 			</div>
+			<AiOpsLogFilterRow filters={filters} t={t} />
 			{logs.length === 0 ? (
-				<EmptyState icon={<Sparkles size={20} />} text={t("aiOpsPage.actions.empty")} />
+				filters.modeFilter !== "all" || filters.statusFilter !== "all" || filters.triggerFilter !== "all" ? (
+					<EmptyState icon={<Sparkles size={20} />} title={t("aiOpsPage.actions.emptyFiltered")} />
+				) : (
+					<EmptyState icon={<Sparkles size={20} />} title={t("aiOpsPage.actions.empty")} text={t("aiOpsPage.actions.emptyHint")} action={emptyAction} />
+				)
 			) : (
 				<div className="overflow-x-auto overscroll-x-contain" tabIndex={0}>
 					<table className="w-full min-w-[860px] table-fixed text-left text-sm text-[var(--text-primary)]">

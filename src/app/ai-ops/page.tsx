@@ -21,7 +21,7 @@ import { listAiOpsLogs, summariseAiOps } from "@/lib/ai/ops/service";
 import { AI_OPS_DEFAULT_SCHEDULE_HOUR } from "@/lib/ai/ops/types";
 import { getSetting } from "@/lib/settings/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { PageHeader, PageShell } from "@/components/page-shell";
+import { PageShell } from "@/components/page-shell";
 import { prisma } from "@/lib/db";
 
 import { AiOpsPageClient } from "./ai-ops-page-client";
@@ -77,12 +77,8 @@ export default async function AiOpsPage() {
 
 	return (
 		<PageShell>
-			<PageHeader
-				eyebrow={t("aiOpsPage.eyebrow", locale)}
-				title={t("aiOpsPage.title", locale)}
-				description={t("aiOpsPage.desc", locale)}
-			/>
 			<AiOpsPageClient
+				header={{ eyebrow: t("aiOpsPage.eyebrow", locale), title: t("aiOpsPage.title", locale), description: t("aiOpsPage.desc", locale) }}
 				initialSummary={summary}
 				initialLogs={logs}
 				initialTotal={summary.total}

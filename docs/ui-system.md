@@ -199,7 +199,14 @@ Field labels use `UI_LABEL` (= `ui-label`).
   the text themselves and parse it on submit do not need it.
 - Every field has a visible label (`FormField`), not a placeholder standing
   in for one: a placeholder is gone as soon as something is typed, and a
-  field that starts with a value ("80") never showed it at all.
+  field that starts with a value ("80") never showed it at all. A
+  toolbar's own search box (icon and placeholder) and a filter whose
+  first option names it ("All statuses") may keep their label for screen
+  readers only; a filter inside a panel, beside other labelled fields, is
+  labelled like them.
+- A panel's commands and filters sit in the panel they act on (the scan
+  history's filters in the history), and a refusal is said in the panel
+  where it was asked for, not at the foot of the page.
 - **`KeyValueList`** — label/value pairs (`columns`, `layout="inline"`,
   `mono` for hosts and ids, `wide` for long values, an em dash when empty).
 - Tables inside `PageShell` are styled globally; write plain `<table>` markup.

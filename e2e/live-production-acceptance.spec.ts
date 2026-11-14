@@ -1549,7 +1549,7 @@ test.describe("live production acceptance", () => {
         response.request().method() === "POST",
     );
     await page
-      .locator('section[aria-label="ai-ops-actions"]')
+      .locator("[data-page-header]")
       .getByRole("button", { name: /立即扫描|Scan now|Trigger scan/i })
       .click({ timeout: 10_000 });
     expect((await scanResponse).status()).toBeLessThan(300);
@@ -1558,7 +1558,7 @@ test.describe("live production acceptance", () => {
       .poll(
         async () => {
           await page
-            .locator('section[aria-label="ai-ops-actions"]')
+            .locator("[data-page-header]")
             .getByRole("button", { name: /刷新|Refresh/i })
             .click();
           return page
