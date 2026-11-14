@@ -61,8 +61,6 @@ const DEFAULT_CREDENTIAL_NOTES: Record<string, string[]> = {
 	ghost: ["After Ghost first launch, please visit /ghost/ to complete admin account creation."],
 	wordpress: ["WordPress requires an available database before entering the installation wizard; the current template does not generate a WordPress admin password."],
 	typecho: ["Typecho first launch enters the installation wizard; please create an admin account in the page."],
-	"itdog-tcping": ["ITDog TCPing requires no login by default."],
-	qrcode: ["QR Code service requires no login by default."],
 	dufs: ["Dufs current template requires no login by default; please use it only on trusted networks or add access control yourself."],
 	pairdrop: ["PairDrop requires no login by default."],
 	tianji: ["Tianji first launch enters the account/site initialization flow; please follow the page prompts to complete it."],

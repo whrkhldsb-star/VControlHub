@@ -1821,7 +1821,7 @@ model QuickService {
   description    String   @default("")
   image          String // docker image e.g. "xhofe/alist:latest"
   port           Int // host port to expose
-  path           String   @default("") // reverse proxy path e.g. "/files-proxy/"
+  path           String   @default("") // the app's page after host:port in its link, e.g. "/" or "/web/index.html"
   internalPort   Int? // container port for the primary host port mapping
   extraPortsJson String   @default("[]") // JSON: [{host:9001, container:9001}]
   command        String? // optional command appended to docker run image

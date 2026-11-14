@@ -3,30 +3,6 @@ import type { ServiceTemplate } from "./types";
 export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 	/* ── 🗂️ 其他服务 ─────────────────────────────────────────────── */
 	{
-		slug: "itdog-tcping",
-		name: "ITDog TCPing",
-		category: "other",
-		icon: "🏓",
-		description: "Multi-node TCPing monitoring tool to detect global network connectivity",
-		image: "johnserfdev/itdog-tcping:latest",
-		defaultPort: 8087,
-		path: "/itdog/",
-		envJson: {},
-		volumesJson: [],
-	},
-	{
-		slug: "qrcode",
-		name: "QR Code Generator",
-		category: "other",
-		icon: "📱",
-		description: "Self-hosted QR code generation service, no third-party API needed",
-		image: "alexzorin/qrcode-server:latest",
-		defaultPort: 8089,
-		path: "/qrcode/",
-		envJson: {},
-		volumesJson: [],
-	},
-	{
 		slug: "dufs",
 		name: "Dufs File Sharing",
 		category: "other",
@@ -36,7 +12,7 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 5001,
 		// The image listens on 5000; 5001 is only the host port.
 		internalPort: 5000,
-		path: "/dufs/",
+		path: "/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/dufs/data", container: "/data" }],
 	},
@@ -50,7 +26,7 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 3007,
 		// The image listens on 3000; 3007 is only the host port.
 		internalPort: 3000,
-		path: "/pairdrop/",
+		path: "/",
 		envJson: { PUID: "0", PGID: "0" },
 		volumesJson: [],
 	},
@@ -65,7 +41,7 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 3015,
 		// The image listens on 12345; 3015 is only the host port.
 		internalPort: 12345,
-		path: "/tianji/",
+		path: "/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/tianji/data", container: "/data" }],
 	},
@@ -79,7 +55,7 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 3016,
 		// The image listens on 3210; 3016 is only the host port.
 		internalPort: 3210,
-		path: "/lobe-chat/",
+		path: "/",
 		envJson: {},
 		volumesJson: [],
 	},
@@ -91,7 +67,7 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "High-performance intranet penetration server, exposes intranet services to the public network",
 		image: "snowdreamtech/frps:latest",
 		defaultPort: 7500,
-		path: "/frps/",
+		path: "/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/frps/config", container: "/etc/frp" }],
 	},
@@ -105,7 +81,7 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 3017,
 		// The image listens on 8080; 3017 is only the host port.
 		internalPort: 8080,
-		path: "/maxkb/",
+		path: "/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/maxkb/data", container: "/var/lib/maxkb" }],
 	},

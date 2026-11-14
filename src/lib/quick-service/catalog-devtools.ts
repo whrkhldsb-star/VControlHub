@@ -12,7 +12,7 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 3002,
 		// The image listens on 3000; 3002 is only the host port.
 		internalPort: 3000,
-		path: "/gitea/",
+		path: "/",
 		envJson: { USER_UID: "0", USER_GID: "0" },
 		volumesJson: [
 			{ host: "/opt/gitea/data", container: "/data" },
@@ -28,7 +28,7 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Run VS Code in the browser, remote development anywhere, anytime",
 		image: "linuxserver/code-server:latest",
 		defaultPort: 8443,
-		path: "/code-server/",
+		path: "/",
 		envJson: { PUID: "0", PGID: "0", PASSWORD: "", SUDO_PASSWORD: "" },
 		volumesJson: [{ host: "/opt/code-server/config", container: "/config" }],
 	},
@@ -42,7 +42,7 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 8081,
 		// The image listens on 80; 8081 is only the host port.
 		internalPort: 80,
-		path: "/vaultwarden/",
+		path: "/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/vaultwarden/data", container: "/data" }],
 	},
@@ -57,7 +57,7 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		// The access link is plain HTTP, which Portainer serves on 9000 (--http-enabled
 		// below); 9443 inside the container is its HTTPS port and refuses plain HTTP.
 		internalPort: 9000,
-		path: "/portainer/",
+		path: "/",
 		envJson: {},
 		volumesJson: [
 			{ host: "/opt/portainer/data", container: "/data" },
@@ -76,7 +76,7 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 8082,
 		// The image listens on 8080; 8082 is only the host port.
 		internalPort: 8080,
-		path: "/stirling-pdf/",
+		path: "/",
 		envJson: { DOCKER_ENABLE_SECURITY: "false" },
 		volumesJson: [{ host: "/opt/stirling-pdf/data", container: "/usr/share/tessdata" }],
 	},
@@ -90,7 +90,7 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 8112,
 		// The image listens on 80; 8112 is only the host port.
 		internalPort: 80,
-		path: "/it-tools/",
+		path: "/",
 		envJson: {},
 		volumesJson: [],
 	},
@@ -102,7 +102,7 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Open-source workflow automation, connects 400+ apps, a Zapier alternative",
 		image: "n8nio/n8n:latest",
 		defaultPort: 5678,
-		path: "/n8n/",
+		path: "/",
 		envJson: { N8N_BASIC_AUTH_ACTIVE: "true", N8N_BASIC_AUTH_USER: "admin", N8N_BASIC_AUTH_PASSWORD: "admin" },
 		volumesJson: [{ host: "/opt/n8n/data", container: "/home/node/.n8n" }],
 	},
@@ -116,7 +116,7 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 8113,
 		// The documented install runs it on port 80 (SERVER_PORT); 8113 is only the host port.
 		internalPort: 80,
-		path: "/gladys/",
+		path: "/",
 		envJson: { SERVER_PORT: "80" },
 		volumesJson: [
 			{ host: "/opt/gladys/data", container: "/var/lib/gladysassistant" },

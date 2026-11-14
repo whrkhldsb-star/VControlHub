@@ -73,9 +73,9 @@ VControlHub 是面向个人运维及多客户服务场景的自托管服务器�
 
 ### 1.3 当前代码规模与口径
 
-项目包含：58 个 `page.tsx` 页面文件、196 个 API 路由文件、82 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 44 个本地快捷服务模板。
+项目包含：58 个 `page.tsx` 页面文件、196 个 API 路由文件、82 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。
 
-配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、42 个系统设置表单字段、8 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。
+配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、70 个系统设置表单字段、9 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。
 
 这里的“页面”包含详情页、登录页和兼容跳转入口；“API 路由文件”可能同时处理多个 HTTP 方法；“应用模板”表示存在安装定义，不代表所有第三方应用在所有硬件和网络环境中都已逐项验收。
 
@@ -313,12 +313,13 @@ ITSM、AI 运维、知识库、云账单与预算、媒体库与图片外链、�
 
 用户可调整登录后的默认页面、仪表盘组件、通知和声音偏好、页面自动刷新频率、VPS 自动探测及 Windows RDP 端口探测相关偏好。刷新频率影响请求及采样负载，关闭页面刷新并不等于暂停已经提交的后台任务。
 
-当前持久化的 8 项个人偏好如下：
+当前持久化的 9 项个人偏好如下：
 
 | 偏好 | 用户可控制的行为 |
 | --- | --- |
 | `defaultPage` | 登录后默认进入仪表盘、服务器、文件、Docker、主机监控、下载或 AI；选项按权限筛选 |
 | `dashboardWidgets` | 服务器状态、快捷入口、分析图表、审计日志四类组件的显示及排列 |
+| `dashboardWidgetsKnown` | 保存布局时已有的组件；其中没有显示的是本人隐藏的，之后新增的组件显示在末尾 |
 | `notificationsEnabled` | 个人通知提示偏好；与平台通知渠道配置、后台业务记录分别处理 |
 | `notificationSound` | 通知声音提示偏好 |
 | `autoRefreshInterval` | 手动刷新，或 5／15／30／60／300 秒；默认 30 秒 |
@@ -925,7 +926,7 @@ Docker 环境不可用时，安装入口会提示依赖未就绪。应用的数�
 
 当前支持的源类型包括 LinuxServer 官方目录、GitHub JSON 和通用 JSON，可选择预设后修改源地址。同步结果进入社区应用区域，并保留来源信息。来源可达及元数据有效后才会有可用目录，不会在刚添加空源时自动产生应用。
 
-### 10.4 全部 44 个本地模板
+### 10.4 全部 42 个本地模板
 
 | 分类 | 当前模板 |
 | --- | --- |
@@ -935,9 +936,9 @@ Docker 环境不可用时，安装入口会提示依赖未就绪。应用的数�
 | 开发与工具，共 8 个 | Gitea Git、Code Server、Vaultwarden Password Manager、Portainer、Stirling PDF、IT-Tools、n8n Automation、Gladys Assistant |
 | 网络与监测，共 6 个 | Uptime Kuma、AdGuard Home、Pi-hole、SpeedTest Tracker、Beszel Monitoring、ChangeDetection |
 | 笔记与知识，共 6 个 | Memos Notes、Outline Knowledge Base、HedgeDoc Collaboration、AFFiNE Workspace、Linkwarden Bookmarks、Wallabag Read Later |
-| 其他，共 8 个 | ITDog TCPing、QR Code Generator、Dufs File Sharing、PairDrop File Transfer、Tianji、LobeChat AI、FRP Tunnel、MaxKB Knowledge Base |
+| 其他，共 6 个 | Dufs File Sharing、PairDrop File Transfer、Tianji、LobeChat AI、FRP Tunnel、MaxKB Knowledge Base |
 
-以上按代码中的显示名称列举；社区源应用数量动态变化。MinIO 的快捷服务模板代表可安装一个对象存储应用，不代表云盘驱动自动新增为 S3；当前云盘驱动仍为 LOCAL／SFTP／WEBDAV，S3 另用于异地备份。
+以上按代码中的显示名称列举；社区源应用数量动态变化。卡片上的“打开”链接是“主机:端口”加上应用自己的页面路径：Emby 为 `/web/index.html`，Pi-hole 为 `/admin/`，Ghost 为后台 `/ghost/`，其余为 `/`。MinIO 的快捷服务模板代表可安装一个对象存储应用，不代表云盘驱动自动新增为 S3；当前云盘驱动仍为 LOCAL／SFTP／WEBDAV，S3 另用于异地备份。
 
 依据：[本地模板入口](../src/lib/quick-service/catalog.ts)、[应用源同步](../src/lib/quick-service/app-source-sync.ts)、[服务生命周期](../src/lib/quick-service/service-lifecycle.ts)、[安装前预览](../src/app/quick-services/config-preview-dialog.tsx)。
 
@@ -1598,14 +1599,16 @@ Token 创建时绑定一个客户，后续不跟随浏览器切换客户。使�
 
 依据：[设置结构](../src/app/settings/field-schema.ts)、[配置迁移业务](../src/lib/system/)、[Token 服务](../src/lib/api-token/service.ts)、[Token 授权](../src/lib/api-token/authorization.ts)、[API 页面](../src/app/api-docs/page.tsx)。
 
-### 18.5 系统设置表单的全部 42 个配置项
+### 18.5 系统设置表单的全部 70 个配置项
 
-下列清单按当前声明式设置表单核对，便于查找每个开关或输入项的用途。个人偏好的 8 个字段见第 3.3 节；MFA、客户、身份模板及配置迁移使用独立交互，不能因为没有列入这 42 个字段就认为没有这些功能。
+下列清单按当前声明式设置表单核对，便于查找每个开关或输入项的用途。个人偏好的 9 个字段见第 3.3 节；MFA、客户、身份模板及配置迁移使用独立交互，不能因为没有列入这 70 个字段就认为没有这些功能。
 
 | 配置项 | 含义与用户用途 |
 | --- | --- |
 | `platform.name` | 控制台显示名称 |
 | `platform.logo` | 控制台 Logo 地址 |
+| `platform.defaultLocale` | 未选择过语言的访客（含登录页）看到的语言；告警邮件、Telegram 与 Webhook 通知、后台任务的说明等没有访客语言可循的文字也用它 |
+| `platform.defaultTheme` | 未选择过主题的访客看到的深浅色主题 |
 | `session.timeout` | 新签发会话使用的有效时间策略，单位为秒 |
 | `password.minLength` | 密码最小长度要求 |
 | `password.requireUppercase` | 是否要求大写字母 |
@@ -1648,6 +1651,30 @@ Token 创建时绑定一个客户，后续不跟随浏览器切换客户。使�
 | `offsite.failureAlertRecipient` | 异地任务失败的通知收件人 |
 | `ai.ops.mode` | AI 运维采用建议模式或受白名单约束的自主模式 |
 | `ai.ops.provider` | AI 运维使用的提供商选择配置 |
+| `security.loginLockoutClientFailures` | 同一账号来自同一地址连续失败多少次后锁定该地址（3–50） |
+| `security.loginLockoutAccountFailures` | 所有地址的失败累计多少次后锁定整个账号（5–500），抵御分布式猜测 |
+| `security.loginLockoutMinutes` | 锁定与失败计数窗口的时长（1–1440 分钟） |
+| `security.rememberSessionTtlSeconds` | 勾选“保持登录”后会话的有效期（1 小时–365 天）；环境变量 `AUTH_REMEMBER_SESSION_TTL_SECONDS` 存在时优先 |
+| `security.sshEnforceHostKeyPin` | 没有记录主机密钥指纹的服务器拒绝连接，须先在服务器详情里确认指纹；关闭时首次连接自动记录 |
+| `sync.targetAuthDefault` | 同步登录目标服务器的默认方式：把目标自己的凭据交给源服务器，或每次运行生成只用于本次传输的临时密钥；只对选了“跟随全局设置”的服务器生效 |
+| `security.turnstileSiteKey` | 登录页 Cloudflare Turnstile 人机验证的 Site Key；与 Secret Key 都填写时启用 |
+| `security.turnstileSecretKey` | 同一 Turnstile 小组件的 Secret Key，加密保存，保存前向 Cloudflare 核对 |
+| `jobs.defaultMaxAttempts` | 入队时未指定次数的后台作业最多执行几次（1–10） |
+| `quickService.healthGateTimeoutMs` | 快捷服务安装或更新后等待容器保持运行且健康检查通过的最长时间（10 秒–10 分钟） |
+| `alerts.defaultEscalationMinutes` | 告警规则没有自己的升级时间时，无人确认多久后升级并通知值班与管理员（1–1440 分钟） |
+| `alerts.notifyMaxAttempts` | 同一条告警通知对失败渠道最多投递几次（1–20），间隔递增，最长 1 小时 |
+| `storage.uploadMaxBytes` | 单次上传上限（1 MiB–1 TiB）；环境变量 `STORAGE_UPLOAD_MAX_BYTES` 为未设置时的回退值 |
+| `storage.fileVersionKeep` | 每个文件保留的历史版本数（1–200） |
+| `storage.fileVersionMaxBytes` | 覆盖前保留历史版本的最大文件（1 MiB–1 GiB） |
+| `storage.contentSearchMaxFileBytes` | 参与全文内容搜索的最大文件（64 KiB–64 MiB） |
+| `monitoring.healthSampleIntervalMinutes` | 采集节点指标并评估告警的间隔（1–60 分钟），修改后需重启 Worker |
+| `monitoring.capacityWindowHours` | 容量趋势预测回看的历史长度（24–720 小时） |
+| `monitoring.capacityHorizonDays` | 向前预测多少天内会达到阈值（1–90 天） |
+| `retention.auditLogDays` | 审计日志保留天数，0 表示永久保留 |
+| `retention.healthSamplesDays` | 节点指标历史保留天数（1–365），决定图表可回看的范围 |
+| `retention.trafficSnapshotsDays` | 流量快照保留天数（1–365），当月快照总会保留 |
+| `retention.terminalJobsDays` | 已失败或已取消的后台作业记录保留天数（1–365） |
+| `ai.knowledgeMaxResults` | AI 助手每次回答最多附带的知识库片段数（1–20） |
 
 运行参数会展示当前值、配置来源及需要重启的提示；默认值与有效值还受部署环境和配置读取规则影响。更改超时、输出上限或刷新策略时，应结合任务耗时及机器容量理解其效果，不能仅靠调大数值推断吞吐量提高。
 
@@ -2363,7 +2390,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | 同步与下载 | [src/lib/sync](../src/lib/sync) | 跨主机文件同步 |
 | 远程下载执行 | [src/lib/downloads](../src/lib/downloads) | 任务执行与传输 |
 | Docker 适配 | [src/lib/docker](../src/lib/docker) | 本机／远程引擎、Compose 和权限 |
-| 快捷服务 | [src/lib/quick-service](../src/lib/quick-service) | 44 模板、社区源及生命周期 |
+| 快捷服务 | [src/lib/quick-service](../src/lib/quick-service) | 42 模板、社区源及生命周期 |
 | 命令与审批 | [src/lib/command](../src/lib/command) | 请求、审批、逐目标执行和模板 |
 | 计划与编排 | [src/lib/playbook](../src/lib/playbook) | 触发、步骤、Dry-run 和恢复处理 |
 | 定时命令 | [src/lib/scheduled-task](../src/lib/scheduled-task) | 周期／一次性计划 |
@@ -2398,12 +2425,12 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | 实现对象 | 数量 | 文档位置 |
 | --- | ---: | --- |
 | 页面文件 | 58 | 第 24.1 节及对应功能章节 |
-| API 路由文件 | 195 | 第 24.3 节分组及第 24.7 节逐项索引 |
+| API 路由文件 | 196 | 第 24.3 节分组及第 24.7 节逐项索引 |
 | Server Action 运行时导出 | 25，分布在 9 个模块 | 第 24.8 节，包含表单选项／目标查询入口 |
-| 系统设置表单字段 | 42 | 第 18.5 节 |
-| 持久化个人偏好字段 | 8 | 第 3.3 节 |
+| 系统设置表单字段 | 70 | 第 18.5 节 |
+| 持久化个人偏好字段 | 9 | 第 3.3 节 |
 | 内置身份模板／业务权限 | 4／52 | 第 17 章及第 24.2 节 |
-| 本地快捷服务模板 | 44 | 第 10.4 节 |
+| 本地快捷服务模板 | 42 | 第 10.4 节 |
 | AI 托管工具 | 21 | 第 14.4 节 |
 | Worker 类型 | 24 | 第 20.4 节 |
 | Prisma 数据模型 | 82 | 第 20.1 节 |

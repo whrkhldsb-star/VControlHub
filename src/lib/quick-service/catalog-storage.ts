@@ -10,7 +10,7 @@ export const STORAGE_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "File listing program supporting multiple storage backends, can mount Alibaba Cloud Drive, OneDrive, S3, etc.",
 		image: "xhofe/alist:latest",
 		defaultPort: 5244,
-		path: "/files-proxy/",
+		path: "/",
 		envJson: { PUID: "0", PGID: "0", UMASK: "022" },
 		volumesJson: [{ host: "/opt/alist/data", container: "/opt/alist/data" }],
 	},
@@ -23,7 +23,7 @@ export const STORAGE_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		image: "nextcloud:latest",
 		defaultPort: 8080,
 		internalPort: 80,
-		path: "/nextcloud/",
+		path: "/",
 		envJson: {},
 		volumesJson: [
 			{ host: "/opt/nextcloud/html", container: "/var/www/html" },
@@ -40,7 +40,7 @@ export const STORAGE_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 8110,
 		// The image listens on 80; 8110 is only the host port.
 		internalPort: 80,
-		path: "/fb/",
+		path: "/",
 		envJson: {},
 		volumesJson: [
 			{ host: "/opt/filebrowser/db", container: "/database" },
@@ -58,7 +58,7 @@ export const STORAGE_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		// Primary published port is the web console (9001); S3 API is extraPorts → 9000.
 		defaultPort: 9001,
 		internalPort: 9001,
-		path: "/minio/",
+		path: "/",
 		envJson: { MINIO_ROOT_USER: "minioadmin", MINIO_ROOT_PASSWORD: "minioadmin" },
 		volumesJson: [{ host: "/opt/minio/data", container: "/data" }],
 		command: "server /data --console-address ':9001'",
@@ -74,7 +74,7 @@ export const STORAGE_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 8111,
 		// The image listens on 8080; 8111 is only the host port.
 		internalPort: 8080,
-		path: "/davos/",
+		path: "/",
 		envJson: { PUID: "0", PGID: "0" },
 		volumesJson: [
 			{ host: "/opt/davos/config", container: "/config" },
