@@ -47,3 +47,8 @@ FROM (VALUES
     ('davos', '/davos/')
 ) AS legacy (slug, path)
 WHERE service."slug" = legacy.slug AND service."path" = legacy.path;
+
+-- Dufs serves its working directory when given none: the container's root, with the mounted data one folder
+-- among the container's own files. The template now names the data directory; installed instances that never
+-- had a command get it too, from their next container re-creation (update or start).
+UPDATE "quick_services" SET "command" = '/data' WHERE "slug" = 'dufs' AND "command" IS NULL;

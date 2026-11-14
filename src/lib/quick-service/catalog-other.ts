@@ -13,6 +13,9 @@ export const OTHER_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		// The image listens on 5000; 5001 is only the host port.
 		internalPort: 5000,
 		path: "/",
+		// Without a directory dufs serves its working directory, the container's root: the mounted data
+		// was one folder among the container's own files. Read-only, as before.
+		command: "/data",
 		envJson: {},
 		volumesJson: [{ host: "/opt/dufs/data", container: "/data" }],
 	},

@@ -99,3 +99,17 @@ describe("quick service install notices", () => {
 		expect(notice.accessUrl).toBe("http://203.0.113.20:8080/");
 	});
 });
+
+// Only names ending in PASSWORD, TOKEN, SECRET or KEY counted: MYSQL_PASS or DB_PWD stayed readable in the
+// stored job and were left out of the install notice.
+describe("which environment variables hold secrets", () => {
+	it("knows the usual spellings of a password and a credential", async () => {
+		const { isSecretEnvKey } = await import("../install-notice");
+		for (const key of ["ADMIN_PASSWORD", "WEBPASSWORD", "MYSQL_PASS", "ADMIN_PASSWD", "DB_PWD", "API_TOKEN", "JWT_SECRET", "ACCESS_KEY", "SMTP_CREDENTIALS"]) {
+			expect(isSecretEnvKey(key), key).toBe(true);
+		}
+		for (const key of ["PUID", "PGID", "UMASK", "DB_HOSTNAME", "PGSSLMODE", "NO_PROXY_BYPASS", "TZ", "PORT", "DOCKER_ENABLE_SECURITY"]) {
+			expect(isSecretEnvKey(key), key).toBe(false);
+		}
+	});
+});

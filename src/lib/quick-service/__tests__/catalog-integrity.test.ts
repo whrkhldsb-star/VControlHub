@@ -161,4 +161,11 @@ describe("quick-service links", () => {
 			expect(template.path, template.slug).toBe(OWN_PAGES[template.slug] ?? "/");
 		}
 	});
+
+	// Given no directory, dufs serves its working directory: the container's root.
+	it("let dufs serve its data volume, not the container's root", () => {
+		const dufs = SERVICE_CATALOG.find((template) => template.slug === "dufs")!;
+		expect(dufs.command).toBe("/data");
+		expect(dufs.volumesJson).toContainEqual({ host: "/opt/dufs/data", container: "/data" });
+	});
 });

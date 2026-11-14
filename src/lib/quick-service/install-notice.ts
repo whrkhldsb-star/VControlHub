@@ -122,13 +122,22 @@ function secretLabelFromEnvKey(key: string) {
 	return key;
 }
 
+/**
+ * Whether an environment variable holds a secret, by its name. Names ending in PASSWORD, TOKEN, SECRET or KEY
+ * were the only ones: MYSQL_PASS, ADMIN_PASSWD, DB_PWD or SMTP_CREDENTIALS were kept in job payloads and left
+ * out of the install notice. BYPASS (a proxy's exclusions) is not a password.
+ */
+export function isSecretEnvKey(key: string): boolean {
+	if (/^(PUID|PGID|UMASK|DB_HOSTNAME|PGSSLMODE|DOCKER_ENABLE_SECURITY)$/i.test(key)) return false;
+	return /(PASSWORD|PASSWD|(?<!BY)PASS|PWD|TOKEN|SECRET|KEY|CREDENTIALS?)$/i.test(key);
+}
+
 function collectStaticEnvCredentials(envJson: Record<string, string>, alreadyReportedKeys: Set<string>) {
 	const credentials: QuickServiceCredential[] = [];
 	for (const [key, value] of Object.entries(envJson)) {
 		if (alreadyReportedKeys.has(key)) continue;
 		if (!value) continue;
-		if (!/(PASSWORD|TOKEN|SECRET|KEY)$/i.test(key)) continue;
-		if (/^(PUID|PGID|UMASK|DB_HOSTNAME|PGSSLMODE|DOCKER_ENABLE_SECURITY)$/i.test(key)) continue;
+		if (!isSecretEnvKey(key)) continue;
 		credentials.push({ label: secretLabelFromEnvKey(key), value });
 		alreadyReportedKeys.add(key);
 	}
