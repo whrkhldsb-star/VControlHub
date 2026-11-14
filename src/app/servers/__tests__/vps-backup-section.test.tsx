@@ -32,9 +32,9 @@ describe("VpsBackupSection", () => {
     expect(await screen.findByText("No backup schedules")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Quick: Nginx daily 03:00" }));
 
-    expect(screen.getByLabelText("Schedule Name")).toHaveValue("Daily Nginx config backup");
-    expect(screen.getByLabelText("Backup Type")).toHaveValue("nginx-config");
-    expect(screen.getByLabelText("Cron Expression")).toHaveValue("0 3 * * *");
+    expect(screen.getByLabelText("Schedule name")).toHaveValue("Daily Nginx config backup");
+    expect(screen.getByLabelText("Backup type")).toHaveValue("nginx-config");
+    expect(screen.getByLabelText("Cron expression")).toHaveValue("0 3 * * *");
   });
 
   it("deletes schedules only after an in-app confirmation", async () => {
@@ -87,7 +87,7 @@ describe("VpsBackupSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit backup schedule Nightly" }));
 
     expect(screen.getByRole("button", { name: "Save schedule" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Cron Expression")).toHaveValue("0 3 * * *");
+    expect(screen.getByLabelText("Cron expression")).toHaveValue("0 3 * * *");
     expect(screen.getAllByLabelText("Custom paths (one per line, only for custom type)")[1]).toHaveValue("/srv/app");
   });
 
@@ -121,7 +121,7 @@ describe("VpsBackupSection", () => {
     await screen.findByText("No backup schedules");
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ code: "FORBIDDEN", error: "Forbidden", message: "Missing permission: server:backup" }, false));
-    fireEvent.click(screen.getByRole("button", { name: /Nginx Config/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Nginx config/ }));
     expect(await screen.findByText("Missing permission: server:backup")).toBeInTheDocument();
     expect(screen.queryByText("Forbidden")).not.toBeInTheDocument();
   });
@@ -156,7 +156,7 @@ describe("VpsBackupSection", () => {
     render(<VpsBackupSection serverId="srv-1" canManage={false} />, { locale: "en" });
 
     await screen.findByText("No backup schedules");
-    expect(screen.queryByText("Manual Backup Trigger")).not.toBeInTheDocument();
+    expect(screen.queryByText("Manual backup trigger")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Nginx configuration/ })).not.toBeInTheDocument();
   });
 });

@@ -103,7 +103,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	// Page header
-	"aiOpsPage.title": "AI Smart Ops",
+	"aiOpsPage.title": "AI ops",
 	"aiOpsPage.eyebrow": "AI operations",
 	"aiOpsPage.desc":
 		"AI scans system-health signals (alert rules / command failures / playbook failures) every day at 02:00 and surfaces diagnostics and recommended actions. In recommendation mode every action needs admin approval; in autonomous mode only the safe-set whitelist is auto-executed.",

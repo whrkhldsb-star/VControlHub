@@ -270,7 +270,7 @@ export const zh: Record<string, string> = {
 	"serverOverviewDetails.user": "用户",
 	"serverOverviewDetails.recommendation": "建议",
 	"serverOverviewDetails.reference": "参考",
-	"serverOverviewDetails.vpsDetails": "VPS 详情",
+	"serverOverviewDetails.detailsOf": "{name} 的详情",
 	"serverOverviewDetails.section.connectionStatus": "连接状态",
 	"serverOverviewDetails.section.operationsResources": "操作资源",
 	"serverOverviewDetails.sshKey": "SSH 密钥",

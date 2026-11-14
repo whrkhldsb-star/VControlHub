@@ -65,7 +65,7 @@ export const en: Record<string, string> = {
   "ticketsPage.desc": "Submit resource, support, and operations requests with filters, board view, and SLA tracking.",
   "ticketsPage.emptyFiltered": "No tickets match the current filters",
   "ticketsPage.eyebrow": "Support",
-  "ticketsPage.title": "Tickets & Requests",
+  "ticketsPage.title": "Tickets & requests",
   "ticketsPage.listHeader": "Tickets ({count})",
   "ticketsPage.workspace.manageHint": "Showing manageable tickets in the current customer",
   "ticketsPage.workspace.personalHint": "Showing tickets you created or are assigned to",

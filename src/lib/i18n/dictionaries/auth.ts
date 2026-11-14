@@ -101,7 +101,7 @@ export const en: Record<string, string> = {
 	"accountSecurity.signOutAllConfirmDescription": "Every session of this account becomes invalid immediately and must sign in again. This browser will be signed out too.",
 	"accountSecurity.signOutAllFailed": "Failed to sign out of all devices",
 	"auth.2fa-verifying": "Verifying…",
-	"auth.change-password": "Change Password",
-	"auth.logout": "Sign Out",
-	"auth.two-factor": "Two-Factor Auth",
+	"auth.change-password": "Change password",
+	"auth.logout": "Sign out",
+	"auth.two-factor": "Two-factor authentication",
 };

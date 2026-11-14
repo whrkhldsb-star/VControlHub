@@ -49,7 +49,7 @@ export const en: Record<string, string> = {
 	"mediaUploadPanel.errorLoadNodes": "Failed to load storage nodes",
 	"mediaUploadPanel.errorNoNodes": "No storage nodes available; you can still upload to the default image bed storage.",
 	"mediaUploadPanel.errorUpload": "Upload failed",
-	"mediaUploadPanel.heading": "Image Bed Workspace",
+	"mediaUploadPanel.heading": "Image bed workspace",
 	"mediaUploadPanel.itemError": "Failed: {message}",
 	"mediaUploadPanel.itemPending": "Waiting to upload",
 	"mediaUploadPanel.itemSkipped": "Failed: not an image file",

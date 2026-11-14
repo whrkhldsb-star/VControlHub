@@ -322,7 +322,7 @@ export const en: Record<string, string> = {
 	"publicStatus.truncated": "Too many published nodes; the board loaded the first {count}. Publish fewer nodes.",
 	"publicStatus.empty.title": "No public nodes yet",
 	"publicStatus.empty.desc": "The administrator has not published any node.",
-	"publicStatus.empty.adminHint": "Nothing is published yet. Give nodes a public name and publish them under Status Board Settings.",
+	"publicStatus.empty.adminHint": "Nothing is published yet. Give nodes a public name and publish them under Status board settings.",
 	"publicStatus.filters": "Filter and sort",
 	"publicStatus.search": "Search",
 	"publicStatus.searchPlaceholder": "Name, region, group or tag",
@@ -439,7 +439,7 @@ export const en: Record<string, string> = {
 	"publicStatus.uptime90.noSample": "{date}: no sample",
 
 	"publicStatusAdmin.eyebrow": "System",
-	"publicStatusAdmin.title": "Status Board Settings",
+	"publicStatusAdmin.title": "Status board settings",
 	"publicStatusAdmin.description": "Configure the sign-in-free node status board: whether it is public, what it shows, and which nodes appear under which names.",
 	"publicStatusAdmin.privacy": "Every node is private by default. The board shows only the public name, group, region, tags, note and the metric categories you choose here. Host addresses, ports, accounts, credentials, internal notes, customer details and error text never appear.",
 	"publicStatusAdmin.previewAsGuest": "Preview as a guest",

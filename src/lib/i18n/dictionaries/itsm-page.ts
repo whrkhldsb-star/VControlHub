@@ -59,7 +59,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"itsmPage.eyebrow": "Integrations",
-	"itsmPage.title": "ITSM / IM Bidirectional",
+	"itsmPage.title": "ITSM / IM bidirectional",
 	"itsmPage.desc": "Connect tickets to external ITSM/IM systems (Webhook, Slack, Telegram, DingTalk, Feishu) with signed inbound and audited outbound events.",
 	"itsmPage.form.title": "New connection",
 	"itsmPage.form.desc": "Outbound uses SSRF-safe HTTPS webhooks; inbound requires HMAC signatures — open unauthenticated callbacks are rejected.",
@@ -70,12 +70,12 @@ export const en: Record<string, string> = {
 	"itsmPage.field.direction": "Direction",
 	"itsmPage.field.workspace": "Workspace label",
 	"itsmPage.field.webhookUrl": "Webhook URL",
-	"itsmPage.field.botToken": "Bot Token",
+	"itsmPage.field.botToken": "Bot token",
 	"itsmPage.field.chatId": "Chat ID",
 	"itsmPage.field.webhookSecret": "Inbound signing secret",
 	"itsmPage.field.webhookSecretPlaceholder": "Verified via X-VControlHub-Signature",
 	"itsmPage.field.createOnInbound": "Allow inbound to create local tickets",
-	"itsmPage.provider.generic_webhook": "Generic Webhook",
+	"itsmPage.provider.generic_webhook": "Generic webhook",
 	"itsmPage.provider.slack": "Slack",
 	"itsmPage.provider.telegram": "Telegram",
 	"itsmPage.provider.dingtalk": "DingTalk",

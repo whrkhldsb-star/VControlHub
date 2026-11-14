@@ -112,7 +112,7 @@ export const en: Record<string, string> = {
 	"operationTasks.summary.sourceGroup": "Source aggregation",
 	"operationTasks.summary.sourceGroupDesc": "Aggregated by source. Shows failed / running / pending counts first.",
 	"operationTasks.tasks.empty": "No matching tasks",
-	"operationTasksPage.header.title": "Task Center",
+	"operationTasksPage.header.title": "Task center",
 	"operationTasksPage.header.description": "Review command approvals, scheduled tasks, remote downloads, sync scans, backups, and deployment run status in one place.",
 	"operationTasksPage.eyebrow": "Operations",
 	"operationTasksPage.source.job": "Job",

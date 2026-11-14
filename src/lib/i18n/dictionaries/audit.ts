@@ -407,7 +407,7 @@ export const en: Record<string, string> = {
 	"audit.search": "Search",
 	"audit.search-placeholder": "Search action, user or display name",
 	"audit.source": "Source",
-	"audit.page.title": "Audit Log",
+	"audit.page.title": "Audit log",
 	"audit.page.description": "Platform operation tracking and security audit trail",
 	"audit.page.stats.total": "Total records",
 	"audit.page.stats.recent24h": "New in 24h",

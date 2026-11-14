@@ -64,7 +64,7 @@ describe("DashboardAnalyticsPanel", () => {
 
     renderPanel("en");
 
-    expect(await screen.findByText("Data Trends")).toBeInTheDocument();
+    expect(await screen.findByText("Data trends")).toBeInTheDocument();
     expect(screen.getByText("VPS resource trend (24h)")).toBeInTheDocument();
     expect(screen.getByText("No node metric snapshots yet.")).toBeInTheDocument();
     expect(screen.getByText("Download task trend (7d)")).toBeInTheDocument();

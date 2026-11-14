@@ -176,7 +176,7 @@ export const en: Record<string, string> = {
 	"deploymentsPage.export.generateError": "Failed to generate deployment export bundle",
 	"deploymentsPage.export.downloadHttpError": "Download failed (HTTP {status})",
 	"deploymentsPage.export.downloadZipError": "Failed to download ZIP",
-	"deploymentsPage.export.eyebrow": "Portable Export",
+	"deploymentsPage.export.eyebrow": "Portable export",
 	"deploymentsPage.export.title": "Migration deployment export bundle",
 	"deploymentsPage.export.desc": "Generate an auditable portable deployment template: env samples, systemd units, Caddy examples, and deployment scripts. The export contains placeholders only and never writes production secrets or connection strings.",
 	"deploymentsPage.export.targetDomain": "Target domain",

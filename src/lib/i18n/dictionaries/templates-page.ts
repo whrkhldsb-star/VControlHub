@@ -158,7 +158,7 @@ export const en: Record<string, string> = {
 	"templatesPage.error.createFailed": "Create failed",
 	"templatesPage.filter.all": "All",
 	"templatesPage.filter.label": "Filter",
-	"templatesPage.title": "Command Templates",
+	"templatesPage.title": "Command templates",
 	"templatesPage.eyebrow": "Operations",
 	"templatesPage.toast.deleteFailed": "Delete failed",
 	"templatesPage.toast.deleted": "Template deleted",

@@ -100,7 +100,7 @@ describe("/status page exposure", () => {
     expect(getPublicStatusMock).not.toHaveBeenCalled();
     expect(getAllUptimeDataInternalMock).not.toHaveBeenCalled();
     expect(html).not.toMatch(/Database|VPS management|edge-1|Historical uptime/);
-    expect(html).toMatch(/Service Status/);
+    expect(html).toMatch(/Service status/);
     expect(html).toContain("/login?next=%2F");
   });
 

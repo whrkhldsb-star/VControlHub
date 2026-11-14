@@ -219,12 +219,12 @@ export const en: Record<string, string> = {
 
 	// File manager (SFTP)
 	"sshFileManager.toggle": "Files",
-	"sshFileManager.title": "Remote Files",
+	"sshFileManager.title": "Remote files",
 	"sshFileManager.upload": "Upload",
 	"sshFileManager.download": "Download",
 	"sshFileManager.delete": "Delete",
 	"sshFileManager.rename": "Rename",
-	"sshFileManager.newFolder": "New Folder",
+	"sshFileManager.newFolder": "New folder",
 	"sshFileManager.folderName": "Folder name…",
 	"sshFileManager.dropHere": "Drop files here to upload",
 	"sshFileManager.dragHint": "Drop files here to upload",

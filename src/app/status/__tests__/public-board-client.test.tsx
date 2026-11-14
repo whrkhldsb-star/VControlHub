@@ -130,7 +130,7 @@ describe("PublicBoardClient", () => {
 		unmount();
 		renderBoard(board([]), { preview: true, signedIn: true });
 		expect(screen.getByRole("note")).toHaveTextContent(/Guest preview/);
-		expect(screen.getByText(/Status Board Settings/)).toBeInTheDocument();
+		expect(screen.getByText(/Status board settings/)).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
 	});
 

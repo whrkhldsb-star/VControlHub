@@ -294,7 +294,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	// sidebar
-	"aiPage.sidebarTitle": "AI Assistant",
+	"aiPage.sidebarTitle": "AI assistant",
 	"aiPage.newConversation": "New chat",
 	"aiPage.emptyConversations": "No conversations yet — click to start a new one",
 	"aiPage.providerManagement": "Provider management",
@@ -380,7 +380,7 @@ export const en: Record<string, string> = {
 	"aiPage.slash.traffic": "Traffic anomaly review",
 	"aiPage.slash.disk": "Disk usage cleanup",
 	"aiPage.slash.cmd": "Run a command",
-	"aiPage.slash.playbook": "Suggest a Playbook",
+	"aiPage.slash.playbook": "Suggest a playbook",
 	// Text the slash commands and the empty-state examples put into the composer.
 	"aiPage.slashPrompt.status": "Show the current status of every server, with a summary of CPU, memory and disk usage and any alerts.",
 	"aiPage.slashPrompt.logs": "Read the recent logs of server  and tell me whether anything looks wrong.",

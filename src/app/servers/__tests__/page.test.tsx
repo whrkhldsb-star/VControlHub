@@ -179,7 +179,7 @@ describe("ServersPage", () => {
     expect(screen.queryByRole("button", { name: "编辑配置" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
     const dialog = await screen.findByRole("dialog", { name: "win-node" });
-    expect(await screen.findByRole("region", { name: "win-node VPS 详情" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "win-node 的详情" })).toBeInTheDocument();
     expect(dialog).toHaveTextContent("连接状态");
     expect(dialog).toHaveTextContent("RDP 直连");
     expect(dialog).not.toHaveTextContent("SSH 直连");
@@ -219,7 +219,7 @@ describe("ServersPage", () => {
     );
     expect(screen.getByRole("status", { name: "节点实时状态：启用 · 待探测" })).toHaveTextContent("启用 · 待探测");
     expect(screen.getByText(/列表状态未代表 SSH\/SFTP\/直连实时在线/)).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "hk-prod-1 VPS 详情" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "hk-prod-1 的详情" })).not.toBeInTheDocument();
     expect(screen.queryByText("连接与状态")).not.toBeInTheDocument();
     expect(screen.queryByText("最近命令投递")).not.toBeInTheDocument();
     expect(screen.queryByText("操作与资源")).not.toBeInTheDocument();
@@ -250,7 +250,7 @@ describe("ServersPage", () => {
       await screen.findByRole("dialog", { name: "hk-prod-1" }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByRole("region", { name: "hk-prod-1 VPS 详情" }),
+      await screen.findByRole("region", { name: "hk-prod-1 的详情" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("连接状态")).toBeInTheDocument();
     expect(screen.getByText(/状态徽章表示 VControlHub 是否允许该 VPS 接收操作/)).toBeInTheDocument();

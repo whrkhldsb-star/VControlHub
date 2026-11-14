@@ -196,7 +196,7 @@ export const en: Record<string, string> = {
   "filePreferences.favorites": "Favorites",
   "filePreferences.recent": "Recent",
   "filePreferences.tags": "Tags",
-  "filePreferences.tagsPlaceholder": "Work, Documents",
+  "filePreferences.tagsPlaceholder": "work, documents",
   "filePreferences.collections": "My files",
   "filePreferences.empty": "No files",
   "filePreferences.failed": "Save failed",

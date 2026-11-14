@@ -29,7 +29,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"recycleBinSection.title": "Recycle Bin",
+	"recycleBinSection.title": "Recycle bin",
 	"recycleBinSection.empty": "The recycle bin is empty — no deleted files.",
 	"recycleBinSection.summary": "{count} deleted {count|entry|entries}. Restoring returns the file to its original path.",
 	"recycleBinSection.table.name": "Name",

@@ -38,7 +38,7 @@ describe("ApiTokenManagerClient", () => {
 
 		fireEvent.change(screen.getByLabelText("Token name"), { target: { value: "mobile" } });
 		fireEvent.click(screen.getByLabelText("status:read"));
-		fireEvent.click(screen.getByRole("button", { name: "Create Token" }));
+		fireEvent.click(screen.getByRole("button", { name: "Create token" }));
 
 		await screen.findByText("Copy it now. The plaintext Token cannot be retrieved after you leave this page.");
 		expect(screen.getByText("whr_plain_once")).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe("ApiTokenManagerClient", () => {
 			}));
 			render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
 			fireEvent.change(screen.getByLabelText("Token name"), { target: { value: "mobile" } });
-			fireEvent.click(screen.getByRole("button", { name: "Create Token" }));
+			fireEvent.click(screen.getByRole("button", { name: "Create token" }));
 			await screen.findByText("whr_plain_once");
 		}
 
@@ -77,7 +77,7 @@ describe("ApiTokenManagerClient", () => {
 			const writeText = vi.fn(async () => undefined);
 			Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
 
-			fireEvent.click(screen.getByRole("button", { name: "Copy Token" }));
+			fireEvent.click(screen.getByRole("button", { name: "Copy token" }));
 
 			expect(await screen.findByText("Copied to the clipboard")).toBeInTheDocument();
 			expect(writeText).toHaveBeenCalledWith("whr_plain_once");
@@ -93,7 +93,7 @@ describe("ApiTokenManagerClient", () => {
 				return true;
 			});
 
-			fireEvent.click(screen.getByRole("button", { name: "Copy Token" }));
+			fireEvent.click(screen.getByRole("button", { name: "Copy token" }));
 
 			expect(await screen.findByText("Copied to the clipboard")).toBeInTheDocument();
 			expect(copied).toEqual(["whr_plain_once"]);
@@ -104,7 +104,7 @@ describe("ApiTokenManagerClient", () => {
 			Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
 			(document as { execCommand?: unknown }).execCommand = vi.fn(() => false);
 
-			fireEvent.click(screen.getByRole("button", { name: "Copy Token" }));
+			fireEvent.click(screen.getByRole("button", { name: "Copy token" }));
 
 			expect(await screen.findByText("Could not copy. Select the Token and copy it by hand.")).toBeInTheDocument();
 		});

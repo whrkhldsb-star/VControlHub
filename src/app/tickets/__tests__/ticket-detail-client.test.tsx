@@ -65,7 +65,7 @@ describe("TicketDetailClient", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send comment" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Sending…" })).toBeDisabled());
-    expect(screen.getByRole("button", { name: "Move to In Progress" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move to In progress" })).toBeDisabled();
     resolveComment({ comment: { id: "comment-1", body: "Investigating", createdAt: "2026-01-01T01:00:00Z", author: initial.creator } });
     await waitFor(() => expect(screen.getByLabelText("Add a comment")).toHaveValue(""));
   });

@@ -194,7 +194,7 @@ export function ServerOverviewDetails({
 		<div
 			id={detailsId}
 			role="region"
-			aria-label={`${server.name} ${t("serverOverviewDetails.vpsDetails")}`}
+			aria-label={t("serverOverviewDetails.detailsOf", { name: server.name })}
 			className="space-y-3"
 		>
 			<section data-inset className="p-3">

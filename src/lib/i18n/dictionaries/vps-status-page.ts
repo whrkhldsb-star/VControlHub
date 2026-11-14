@@ -43,7 +43,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"vpsStatusPage.title": "Node Status",
+	"vpsStatusPage.title": "Node status",
 	"vpsStatusPage.description": "Availability, resource usage and capacity forecasts for managed nodes. Metrics come over SSH or the node Agent; the refresh interval follows system settings.",
 	"vpsStatusPage.eyebrow": "Probe board",
 	"vpsStatusPage.serverCount": "{count} managed {count|node|nodes}",
@@ -60,7 +60,7 @@ export const en: Record<string, string> = {
 	"vpsStatusPage.gotoServers": "Go to VPS management",
 	"vpsStatusPage.loading.title": "Collecting remote node metrics",
 	"vpsStatusPage.loading.description": "The first refresh reads resource data over SSH and may take a moment.",
-	"vpsStatusPage.gotoSystemHealth": "Platform Health",
+	"vpsStatusPage.gotoSystemHealth": "Platform health",
 	"vpsStatusPage.metric.load": "Load",
 	"vpsStatusPage.metric.netIn": "In",
 	"vpsStatusPage.metric.netOut": "Out",

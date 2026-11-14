@@ -93,7 +93,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"scheduledTasksPage.header.title": "Scheduled Tasks",
+	"scheduledTasksPage.header.title": "Scheduled tasks",
 	"scheduledTasksPage.header.description": "Configure Cron expressions to automatically dispatch approval-gated commands to VPS nodes.",
 	"scheduledTasksPage.eyebrow": "Automation",
 	"scheduledTasks.createFailed": "Create failed",
@@ -138,7 +138,7 @@ export const en: Record<string, string> = {
 	"scheduledTasksPage.cron": "Cron expression",
 	"scheduledTasksPage.command": "Command",
 	"scheduledTasksPage.servers": "Target servers",
-	"scheduledTasks.noEnabledServers": "No enabled VPS is available, so a scheduled command cannot be created. Verify and enable a node in VPS Management first.",
+	"scheduledTasks.noEnabledServers": "No enabled VPS is available, so a scheduled command cannot be created. Verify and enable a node under Servers first.",
 	"scheduledTasksPage.search.label": "Search scheduled tasks / execution logs",
 	"scheduledTasksPage.targetNodes": "Target nodes: {count}",
 	"scheduledTasksPage.runCount": "Run count: {count}",

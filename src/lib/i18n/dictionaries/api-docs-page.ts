@@ -20,7 +20,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"apiDocsPage.title": "API Documentation",
+	"apiDocsPage.title": "API documentation",
 	"apiDocsPage.eyebrow": "API",
 	"apiDocsPage.openApiJsonLink": "OpenAPI JSON",
 	"apiDocsPage.description": "VControlHub RESTful API reference.",

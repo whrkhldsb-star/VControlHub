@@ -141,24 +141,22 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
   const fileEntries = t("dashboard.file-entries");
   const pending = t("dashboard.pending-approvals");
   const downloads = t("dashboard.download-tasks");
-  const running = t("dashboard.running");
-  const completed = t("dashboard.completed");
-  const failed = t("dashboard.failed");
 
   const queued = queue.downloads.pending ?? 0;
   const active = queue.downloads.running > 0 || queued > 0;
+  // A count and its word are one entry each ("1 running", "3 个运行中"): glued in code they could not agree.
   const downloadValue = queue.downloads.running > 0
-    ? `${queue.downloads.running} ${running}`
+    ? t("dashboard.count.running", { count: queue.downloads.running })
     : queued > 0
-      ? `${queued} ${t("dashboard.queued")}`
+      ? t("dashboard.count.queued", { count: queued })
       : String(queue.downloads.completed + queue.downloads.failed);
   const downloadDetail = active
     ? [
-        queue.downloads.running > 0 ? `${queue.downloads.running} ${running}` : null,
-        queued > 0 ? `${queued} ${t("dashboard.queued")}` : null,
-        `${queue.downloads.completed} ${completed}`,
-        `${queue.downloads.failed} ${failed}`,
-      ].filter(Boolean).join(" / ")
+        queue.downloads.running > 0 ? t("dashboard.count.running", { count: queue.downloads.running }) : null,
+        queued > 0 ? t("dashboard.count.queued", { count: queued }) : null,
+        t("dashboard.count.completed", { count: queue.downloads.completed }),
+        t("dashboard.count.failed", { count: queue.downloads.failed }),
+      ].filter(Boolean).join(" · ")
     : undefined;
 
   return (
@@ -201,20 +199,16 @@ export function DashboardQuickLinks({ pendingApprovals, downloads, unreadNotific
     scheduledDesc: t("dashboard.quick.scheduled-desc"),
     notifications: t("dashboard.quick.notifications"),
     notificationsDesc: t("dashboard.quick.notifications-desc"),
-    running: t("dashboard.running"),
-    pending: t("dashboard.pending-approvals"),
-    active: t("dashboard.active"),
-    unread: t("dashboard.unread"),
   };
 
   return (
     <section data-dashboard-widget="quick-links" className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <QuickLink href="/servers" title={labels.servers} desc={labels.serversDesc} icon={<IconServer />} />
       <QuickLink href="/files" title={labels.files} desc={labels.filesDesc} icon={<IconFolder />} />
-      <QuickLink href="/downloads" title={labels.downloads} desc={labels.downloadsDesc} icon={<IconDownload />} badge={downloads.running > 0 ? `${downloads.running} ${labels.running}` : undefined} badgeColor="cyan" />
-      <QuickLink href="/requests" title={labels.approvals} desc={labels.approvalsDesc} icon={<IconBadgeCheck />} badge={pendingApprovals > 0 ? `${pendingApprovals} ${labels.pending}` : undefined} badgeColor="amber" />
-      <QuickLink href="/scheduled-tasks" title={labels.scheduled} desc={labels.scheduledDesc} icon={<IconCalendarClock />} badge={activeScheduledTasks > 0 ? `${activeScheduledTasks} ${labels.active}` : undefined} badgeColor="cyan" />
-      <QuickLink href="/notifications" title={labels.notifications} desc={labels.notificationsDesc} icon={<IconBell />} badge={unreadNotifications > 0 ? `${unreadNotifications} ${labels.unread}` : undefined} badgeColor="amber" />
+      <QuickLink href="/downloads" title={labels.downloads} desc={labels.downloadsDesc} icon={<IconDownload />} badge={downloads.running > 0 ? t("dashboard.count.running", { count: downloads.running }) : undefined} badgeColor="cyan" />
+      <QuickLink href="/requests" title={labels.approvals} desc={labels.approvalsDesc} icon={<IconBadgeCheck />} badge={pendingApprovals > 0 ? t("dashboard.count.pending", { count: pendingApprovals }) : undefined} badgeColor="amber" />
+      <QuickLink href="/scheduled-tasks" title={labels.scheduled} desc={labels.scheduledDesc} icon={<IconCalendarClock />} badge={activeScheduledTasks > 0 ? t("dashboard.count.active", { count: activeScheduledTasks }) : undefined} badgeColor="cyan" />
+      <QuickLink href="/notifications" title={labels.notifications} desc={labels.notificationsDesc} icon={<IconBell />} badge={unreadNotifications > 0 ? t("dashboard.count.unread", { count: unreadNotifications }) : undefined} badgeColor="amber" />
     </section>
   );
 }

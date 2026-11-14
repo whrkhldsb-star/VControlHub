@@ -48,12 +48,12 @@ describe("localized dashboard sections", () => {
     expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     // The account is named by the user menu; the header said "Current user: alice" again.
     expect(screen.queryByText(/Current user/)).not.toBeInTheDocument();
-    expect(screen.getByText("VPS Status Overview")).toBeInTheDocument();
+    expect(screen.getByText("VPS status overview")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Servers" })[0]).toHaveAttribute("href", "/servers");
-    expect(screen.getByText("Operations Queue")).toBeInTheDocument();
-    expect(screen.getByText("1 running / 7 completed / 2 failed")).toBeInTheDocument();
+    expect(screen.getByText("Operations queue")).toBeInTheDocument();
+    expect(screen.getByText("1 running · 7 completed · 2 failed")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Downloads/ })).toHaveAttribute("href", "/downloads");
-    expect(screen.getByText("5 Pending Approvals")).toBeInTheDocument();
+    expect(screen.getByText("5 pending")).toBeInTheDocument();
     expect(screen.queryByText("仪表盘")).not.toBeInTheDocument();
   });
 
@@ -95,7 +95,7 @@ describe("localized dashboard sections", () => {
       "en",
     );
 
-    expect(screen.getByRole("heading", { name: "Recent Approvals" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recent approvals" })).toBeInTheDocument();
     expect(screen.getByText("alice · assistant")).toBeInTheDocument();
     expect(screen.getByText("2 targets")).toBeInTheDocument();
     expect(screen.getByText("systemctl restart demo")).toBeInTheDocument();

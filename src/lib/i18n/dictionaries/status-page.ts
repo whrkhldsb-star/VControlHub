@@ -53,7 +53,7 @@ export const en: Record<string, string> = {
 	"statusPage.desc": "Public safety summary. Hostnames, ports, connection strings, and internal credentials are not exposed.",
 	"statusPage.overallLabel": "Overall: ",
 	"statusPage.eyebrow": "Status",
-	"statusPage.title": "Service Status",
+	"statusPage.title": "Service status",
 	"statusPage.updatedAt": "Updated at: ",
 	"statusPage.health.healthy": "Healthy",
 	"statusPage.health.warning": "Warning",

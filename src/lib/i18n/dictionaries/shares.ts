@@ -229,7 +229,7 @@ export const en: Record<string, string> = {
 	"sharesPage.accessLogs.action.view": "View",
 	"sharesPage.accessLogs.action.download": "Download",
 	"sharesPage.accessLogs.action.password_attempt": "Password attempt",
-	"sharesPage.picker.eyebrow": "Share Center",
+	"sharesPage.picker.eyebrow": "Share center",
 	"sharesPage.picker.noItems": "No shareable items in this folder",
 	"sharesPage.picker.selectedHint": "Files and folders create separate share links.",
 	"sharesPage.picker.clear": "Clear",

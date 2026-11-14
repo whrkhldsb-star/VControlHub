@@ -52,7 +52,7 @@ export const en: Record<string, string> = {
 	"mediaItemCard.newTagPlaceholder": "Tag name",
 	"mediaItemCard.removeTag": "Remove tag #{tag}",
 	"mediaItemCard.previewAriaLabel": "{name} {type} preview",
-	"mediaItemCard.previewButton": "Preview / Play",
+	"mediaItemCard.previewButton": "Preview / play",
 	"mediaItemCard.publishErrorFallback": "Failed to publish image bed link",
 	"mediaItemCard.updateErrorFallback": "Failed to update media item",
 	"mediaItemCard.publishToImageBed": "Image bed link",

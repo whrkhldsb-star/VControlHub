@@ -21,7 +21,7 @@ describe("notification messages", () => {
 			title: "", message: "", messageCode: "alertFired",
 			messageParams: { server: "web-1", rule: "CPU", metricKey: "alertRulesPage.createForm.metric.cpu_usage", operatorKey: "alertRulesPage.createForm.operator.gt", threshold: 80, value: "91.5" },
 		};
-		expect(localizeNotification(row, en)).toEqual({ title: "Alert: web-1 · CPU Usage", message: "CPU: now 91.5, fires when Greater than 80" });
+		expect(localizeNotification(row, en)).toEqual({ title: "Alert: web-1 · CPU usage", message: "CPU: now 91.5, fires when Greater than 80" });
 	});
 
 	it("keeps the stored text for free-text rows, unknown codes and unknown param keys", () => {

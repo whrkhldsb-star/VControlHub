@@ -320,7 +320,12 @@ example values excepted), or when an English count is followed by a bare
 plural noun. A count's noun takes its form from the number:
 `"{count} {count|item|items}"` reads "1 item" and "3 items" (`interpolate`
 picks the first word for 1, the second otherwise; a verb can go with it,
-`{count|file is|files are}`). Chinese entries do not need it.
+`{count|file is|files are}`). Chinese entries do not need it. A number and
+its word are one entry (`"{count} 个待审批"`, `"{count} pending"`), never
+`` `${count} ${t("…")}` `` in code. English labels are written in sentence case
+("New playbook", "Alert rules"); names keep their capitals (products,
+providers, acronyms, the built-in templates and the catalog's apps), and the
+test fails on a label that capitalises every word.
 `src/app/manifest.test.ts` keeps the manifest's two colours equal to the
 tokens'.
 

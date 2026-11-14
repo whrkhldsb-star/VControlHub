@@ -55,7 +55,7 @@ export function AlertIncidentsSection({
 				empty={
 					unresolved.length === 0 ? (
 						<EmptyState>
-							{t("alertRulesPage.incidents.empty")} ({resolvedCount} {t("alertRulesPage.incidents.resolved")})
+							{t("alertRulesPage.incidents.emptyWithResolved", { count: resolvedCount })}
 						</EmptyState>
 					) : undefined
 				}

@@ -219,7 +219,7 @@ describe("GlobalSearch", () => {
 		expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
 
 		await user.type(input, "Quick Services");
-		await user.click(await screen.findByRole("option", { name: /Quick Apps/ }));
+		await user.click(await screen.findByRole("option", { name: /Quick apps/ }));
 		expect(pushMock).toHaveBeenCalledWith("/quick-services");
 	});
 });

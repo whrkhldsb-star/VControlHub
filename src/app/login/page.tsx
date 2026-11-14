@@ -32,8 +32,8 @@ function resolveErrorMessage(locale: Locale, error?: string, rawMinutes?: string
 		return t("login.error.rateLimited", locale);
 	}
 	if (error === "locked") {
-		const min = minutes ? `${minutes} ${t("login.error.minutesUnit", locale)}` : t("login.error.lockedDefault", locale);
-		return t("login.error.locked", locale, { min });
+		// The lock lasts 15 minutes unless the URL says how many are left.
+		return t("login.error.locked", locale, { count: minutes ?? 15 });
 	}
 	return undefined;
 }

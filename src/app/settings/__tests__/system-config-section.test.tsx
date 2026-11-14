@@ -32,14 +32,14 @@ describe("config import preview identity", () => {
     upload("new.json");
     expect(readers[0]!.abort).toHaveBeenCalled();
     act(() => readers[0]!.complete("old"));
-    expect(screen.queryByRole("button", { name: "Preview Import" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Preview import" })).not.toBeInTheDocument();
     act(() => readers[1]!.complete("new"));
     vi.mocked(csrfFetch).mockResolvedValue({ preview });
-    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Preview Import" })); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Preview import" })); });
     expect(JSON.parse(String(vi.mocked(csrfFetch).mock.calls[0]![1]?.body)).file.marker).toBe("new");
     upload("third.json");
-    expect(screen.queryByRole("button", { name: "Confirm Import" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Preview Import" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm import" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Preview import" })).not.toBeInTheDocument();
   });
 
   it("rejects preview responses from old import options", async () => {
@@ -48,13 +48,13 @@ describe("config import preview identity", () => {
     renderWithI18n(<SystemConfigSection isPlatformAdmin />, { locale: "en" });
     upload("config.json");
     act(() => readers[0]!.complete("current"));
-    fireEvent.click(screen.getByRole("button", { name: "Preview Import" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview import" }));
     const signal = vi.mocked(csrfFetch).mock.calls[0]![1]?.signal;
     fireEvent.click(screen.getByRole("checkbox", { name: /Overwrite existing/ }));
     expect(signal?.aborted).toBe(true);
     await act(async () => { resolve({ preview }); });
-    expect(screen.queryByRole("button", { name: "Confirm Import" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Preview Import" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Confirm import" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview import" })).toBeEnabled();
   });
 
   it("locks file and option changes during execution and consumes the preview", async () => {
@@ -63,13 +63,13 @@ describe("config import preview identity", () => {
     renderWithI18n(<SystemConfigSection isPlatformAdmin />, { locale: "en" });
     upload("config.json");
     act(() => readers[0]!.complete("current"));
-    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Preview Import" })); });
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Import" }));
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Preview import" })); });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm import" }));
     expect(screen.getByLabelText("Select .vch.json file")).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: /Overwrite existing/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Preview Import" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Preview import" })).toBeDisabled();
     await act(async () => { resolve({ result: { created: 1, updated: 0, skipped: 0 } }); });
-    expect(screen.queryByRole("button", { name: "Confirm Import" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm import" })).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Import complete");
     expect(csrfFetch).toHaveBeenCalledTimes(2);
   });
@@ -85,7 +85,7 @@ describe("config export", () => {
     );
     renderWithI18n(<SystemConfigSection isPlatformAdmin />, { locale: "en" });
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Download Config Snapshot" }));
+      fireEvent.click(screen.getByRole("button", { name: "Download config snapshot" }));
     });
     expect(await screen.findByText("Missing permission: system:export")).toBeInTheDocument();
   });
@@ -94,7 +94,7 @@ describe("config export", () => {
     vi.mocked(csrfFetch).mockResolvedValueOnce(new Response("<html>502 Bad Gateway</html>", { status: 502 }) as never);
     renderWithI18n(<SystemConfigSection isPlatformAdmin />, { locale: "en" });
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Download Config Snapshot" }));
+      fireEvent.click(screen.getByRole("button", { name: "Download config snapshot" }));
     });
     expect(await screen.findByText("Export failed")).toBeInTheDocument();
   });

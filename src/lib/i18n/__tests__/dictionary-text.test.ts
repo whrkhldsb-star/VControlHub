@@ -121,6 +121,25 @@ describe("what the dictionaries say", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	// English labels were half "New Playbook", "Add Step", "Alert Rules" and half "Refresh forecast", "Add tag".
+	// They are sentence case; names keep their capitals (the built-in templates, the catalog's apps, products,
+	// providers, acronyms).
+	it("writes English labels in sentence case", () => {
+		const small = new Set(["a", "an", "the", "of", "to", "in", "on", "for", "and", "or", "by", "with", "at", "per", "vs", "via", "as", "from", "into", "is"]);
+		const acronym = /^[A-Z0-9][A-Z0-9/&.+-]*s?$/;
+		const names = /\b(?:Docker(?: Compose)?|Nginx|Telegram|Cloudflare|Turnstile|Komari|Linux|Windows|macOS|MySQL|PostgreSQL|Redis|GitHub|Git|Caddy|WebSocket|WebDAV|Markdown|Chinese|English|Tencent Cloud|Agent|Direct Gateway|VControlHub|Bot Token|Webhook)\b/g;
+		const isName = (key: string) => /^(?:builtinTemplate|qsCatalog|openapiSpec|apiCopy)\.|^costPage\.billing\.provider\.|^languageToggle\.switchLabel$|^itsmPage\.field\.webhookSecretPlaceholder$|^backend\./.test(key);
+		const offenders = Object.entries(all.en)
+			.filter(([key, value]) => {
+				if (isName(key) || value.includes("{") || value.length > 60 || /[.?!:]$/.test(value)) return false;
+				const words = value.replace(names, "").match(/[A-Za-z][A-Za-z0-9'’-]*/g) ?? [];
+				const content = words.slice(1).filter((word) => !small.has(word.toLowerCase()) && !acronym.test(word));
+				return content.length > 0 && content.every((word) => /^[A-Z]/.test(word)) && words.length >= 2;
+			})
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(offenders).toEqual([]);
+	});
+
 	it("has no empty sentence and no Chinese left in the English ones", () => {
 		expect(Object.entries(all.zh).filter(([, value]) => value === "").map(([key]) => key)).toEqual([]);
 		expect(Object.entries(all.en).filter(([, value]) => value === "").map(([key]) => key)).toEqual([]);

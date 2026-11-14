@@ -248,7 +248,7 @@ export const en: Record<string, string> = {
 	"filesPage.webdav.scopes": "Token needs storage:read; add storage:write for uploads; storage:delete for deletes",
 	"filesPage.webdav.methods": "Supports OPTIONS / PROPFIND / GET / PUT / DELETE / MKCOL / MOVE / COPY",
 	"filesPage.webdav.manageTokens": "Manage API tokens",
-	"filesPage.title": "Files & Storage",
+	"filesPage.title": "Files & storage",
 	"filesPage.description": "Browse files, upload and download, and manage storage nodes in one place.",
 	"filesPage.eyebrow": "Storage",
 	"filesPage.subNav.aria": "Files section navigation",

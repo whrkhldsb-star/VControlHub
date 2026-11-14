@@ -181,11 +181,11 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"healthPage.systemTitle": "Platform Health",
-	"healthPage.systemDescription": "Self-checks, repair tips and active incidents for VControlHub itself. Managed nodes are on Node Status.",
-	"healthPage.ui.gotoVpsStatus": "Open Node Status",
+	"healthPage.systemTitle": "Platform health",
+	"healthPage.systemDescription": "Self-checks, repair tips and active incidents for VControlHub itself. Managed nodes are on Node status.",
+	"healthPage.ui.gotoVpsStatus": "Open node status",
 
-	"healthPage.eyebrow": "Health Center",
+	"healthPage.eyebrow": "Health center",
 	"healthPage.error.loadStatus": "Failed to load health status",
 	"healthPage.error.loadHistory": "Failed to load metric history",
 
@@ -197,21 +197,21 @@ export const en: Record<string, string> = {
 	"healthPage.status.unknown": "Unknown",
 
 	// Summary cards
-	"healthPage.summary.total": "Total Nodes",
-	"healthPage.summary.online": "Online Healthy",
-	"healthPage.summary.warning": "Performance Warnings",
-	"healthPage.summary.critical": "Critical Alerts",
-	"healthPage.summary.offline": "Offline/Disabled",
-	"healthPage.fleet.eyebrow": "Fleet Resource Overview",
-	"healthPage.fleet.title": "Cross-Node Resource Summary",
+	"healthPage.summary.total": "Total nodes",
+	"healthPage.summary.online": "Online and healthy",
+	"healthPage.summary.warning": "Performance warnings",
+	"healthPage.summary.critical": "Critical alerts",
+	"healthPage.summary.offline": "Offline/disabled",
+	"healthPage.fleet.eyebrow": "Fleet resource overview",
+	"healthPage.fleet.title": "Cross-node resource summary",
 	"healthPage.fleet.basedOn": "Based on {count} online {count|node|nodes}",
 	"healthPage.fleet.avgCpu": "Avg CPU",
-	"healthPage.fleet.avgMem": "Avg Memory",
-	"healthPage.fleet.avgDisk": "Avg Disk",
+	"healthPage.fleet.avgMem": "Avg memory",
+	"healthPage.fleet.avgDisk": "Avg disk",
 	"healthPage.fleet.avgLoad": "Avg Load (1m)",
-	"healthPage.fleet.netIn": "Total Inbound",
-	"healthPage.fleet.netOut": "Total Outbound",
-	"healthPage.fleet.top5": "Top 5 Resource Usage",
+	"healthPage.fleet.netIn": "Total inbound",
+	"healthPage.fleet.netOut": "Total outbound",
+	"healthPage.fleet.top5": "Top 5 resource usage",
 
 	// Capacity prediction
 	"healthPage.capacity.eyebrow": "Capacity",
@@ -248,10 +248,10 @@ export const en: Record<string, string> = {
 	"healthPage.capacity.col.until85": "Until 85%",
 
 	// UI strings
-	"healthPage.ui.selfCheck": "System Self-check",
-	"healthPage.ui.repairSuggestions": "Repair Suggestions",
+	"healthPage.ui.selfCheck": "System self-check",
+	"healthPage.ui.repairSuggestions": "Repair suggestions",
 	"healthPage.ui.checksSummary": "{total} {total|check|checks} · {healthy} healthy · {warning} {warning|warning|warnings} · {critical} critical",
-	"healthPage.ui.auditLog": "View Audit Log",
+	"healthPage.ui.auditLog": "View audit log",
 	"healthPage.ui.suggestedAction": "Suggested action: ",
 	"healthPage.ui.lastRefresh": "Last refresh",
 	"healthPage.ui.overallCritical": "critical alerts present",
@@ -301,18 +301,18 @@ export const en: Record<string, string> = {
 	// Repair: audit
 
 	// System health check labels
-	"healthPage.check.database.label": "Database Connection",
-	"healthPage.check.server-inventory.label": "VPS Node Inventory",
-	"healthPage.check.storage-inventory.label": "Cloud Storage Nodes",
-	"healthPage.check.runtime-directories.label": "Runtime Directory Baseline",
+	"healthPage.check.database.label": "Database connection",
+	"healthPage.check.server-inventory.label": "VPS node inventory",
+	"healthPage.check.storage-inventory.label": "Cloud storage nodes",
+	"healthPage.check.runtime-directories.label": "Runtime directory baseline",
 	"healthPage.check.dir.label": "Runtime directory {name}",
 	"healthPage.check.next-service.label": "Next.js Service",
-	"healthPage.check.worker-service.label": "Background Worker Service",
-	"healthPage.check.ssh-ws-service.label": "SSH WebSocket Service",
-	"healthPage.check.caddy-service.label": "Caddy Reverse Proxy Service",
-	"healthPage.check.env-database-url.label": "Database Environment Variable",
-	"healthPage.check.notification-settings.label": "Notification Channel Configuration",
-	"healthPage.check.git-sync.label": "GitHub Sync Status",
+	"healthPage.check.worker-service.label": "Background worker service",
+	"healthPage.check.ssh-ws-service.label": "SSH WebSocket service",
+	"healthPage.check.caddy-service.label": "Caddy reverse proxy service",
+	"healthPage.check.env-database-url.label": "Database environment variable",
+	"healthPage.check.notification-settings.label": "Notification channel configuration",
+	"healthPage.check.git-sync.label": "GitHub sync status",
 
 	// System health check messages
 	"healthPage.check.database.message.healthy": "Database is queryable",
