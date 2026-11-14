@@ -5,9 +5,12 @@ const remote = vi.hoisted(() => ({ exec: vi.fn(async (_input: {command:string}) 
 vi.mock("@/lib/ssh/client", () => ({buildSshParamsFromServer: async () => ({host:"fixture.invalid",port:22,username:"fixture"}),execRemoteCommand:remote.exec}));
 vi.mock("@/lib/ssh/sftp-service", () => ({downloadFile:vi.fn(() => {throw new Error("must not reach SFTP");})}));
 import { prisma } from "@/lib/db";
+import { oneFileAtATime } from "@/test/helpers/one-file-at-a-time";
 import { runVpsBackupJobWorkerOnce } from "../vps-backup-job-worker";
 import { dispatchDueVpsBackupSchedules } from "../vps-backup-schedule-service";
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("audit remediation integration", () => {
+// Other files dispatch every due VPS backup schedule too: not while this one parks theirs.
+oneFileAtATime("vps-backup-schedules");
 const id=`audit-r2-backup-${randomUUID()}`;
 beforeAll(async()=>{
  const db=new URL(process.env.DATABASE_URL!);
