@@ -1501,7 +1501,6 @@ model DeploymentRun {
   capturedSnapshot DeploymentSnapshot? @relation("deploymentSnapshotCapturedFrom")
 
   @@index([status, createdAt])
-  @@index([snapshotId])
   @@index([rollbackOfRunId])
   @@index([teamId])
   // FK indexes for the template / command-request cascade paths.
@@ -1637,7 +1636,6 @@ model MediaItem {
   @@index([storageNodeId, mediaType])
   @@index([favorite, updatedAt])
   @@index([mediaType, createdAt])
-  @@index([storageNodeId])
   @@map("media_items")
 }
 
@@ -1966,7 +1964,6 @@ model CostEntry {
   @@index([category, effectiveDate])
   @@index([effectiveDate])
   @@index([createdById, effectiveDate])
-  @@index([sourceType, sourceRef, effectiveDate])
   @@index([teamId])
   @@map("cost_entries")
 }
@@ -1979,7 +1976,6 @@ model CostSnapshot {
   entryCount   Int
   createdAt    DateTime @default(now())
 
-  @@index([snapshotDate])
   @@map("cost_snapshots")
 }
 
@@ -2233,7 +2229,6 @@ model ServerUptimeSnapshot {
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
   @@unique([serverId, date])
-  @@index([serverId, date])
   @@map("server_uptime_snapshots")
 }
 
