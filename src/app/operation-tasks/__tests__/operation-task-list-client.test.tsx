@@ -225,7 +225,9 @@ describe("OperationTaskListClient", () => {
     }]} />);
 
     expect(screen.getByText("后台")).toBeInTheDocument();
-    expect(screen.getAllByText("alert.evaluate").length).toBeGreaterThanOrEqual(1);
+    // The job type is said in the page's language, not as its code.
+    expect(screen.getAllByText("告警评估").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("alert.evaluate")).not.toBeInTheDocument();
     expect(screen.getByText("已折叠 18 次周期完成记录")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "查看来源" })).not.toBeInTheDocument();
   });

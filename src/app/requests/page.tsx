@@ -178,8 +178,8 @@ export default async function RequestsPage() {
 			</StatGrid>
 
 			<div className="space-y-6">
-				<section aria-labelledby="ai-approval-heading">
-					<h2 id="ai-approval-heading" className="sr-only">{t("requestsPage.ai.title", locale)}</h2>
+				{/* The list panel's own title is the section's heading; a hidden copy of it read every name twice. */}
+				<section aria-label={t("requestsPage.ai.title", locale)}>
 					<ListPanel
 						title={t("requestsPage.ai.title", locale)}
 						description={t("requestsPage.ai.desc", locale)}
@@ -196,8 +196,7 @@ export default async function RequestsPage() {
 					</ListPanel>
 				</section>
 
-				<section aria-labelledby="command-approval-heading">
-					<h2 id="command-approval-heading" className="sr-only">{t("requestsPage.cmd.title", locale)}</h2>
+				<section aria-label={t("requestsPage.cmd.title", locale)}>
 					<ListPanel
 						title={t("requestsPage.cmd.title", locale)}
 						description={t("requestsPage.cmd.desc", locale)}

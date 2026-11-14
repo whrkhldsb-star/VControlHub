@@ -6,6 +6,7 @@ import { actorName } from "@/lib/ticket/timeline";
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
 import { serviceT } from "@/lib/i18n/service-locale";
+import { getJobTypeLabel } from "@/lib/i18n/domain-labels";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
 // without pulling the whole server-only service module. We import them
@@ -276,7 +277,8 @@ function normalizeFailureReason(task: OperationTask, t: (key: string, vars?: Rec
   if (/connect|network|econn|dns|socket|网络|连接/.test(text)) return t("backend.operationTask.failure.networkOrConnection");
   if (/smtp|email|mail|webhook|telegram|通知/.test(text)) return t("backend.operationTask.failure.notification");
   if (/backup|restore|备份|恢复/.test(text)) return t("backend.operationTask.failure.backupOrRestore");
-  return task.taskType ? t("backend.operationTask.failure.taskTypeFailed", { taskType: task.taskType }) : t("backend.operationTask.failure.sourceFailed", { source: t(`backend.operationTask.source.${task.source}`) });
+  // The job type in the page's language ("ITSM 推送失败", not "itsm.outbound 失败").
+  return task.taskType ? t("backend.operationTask.failure.taskTypeFailed", { taskType: getJobTypeLabel(t, task.taskType) }) : t("backend.operationTask.failure.sourceFailed", { source: t(`backend.operationTask.source.${task.source}`) });
 }
 
 function summarizeOperationTaskFailures(tasks: OperationTask[], t: (key: string, vars?: Record<string, string | number>) => string): OperationTaskFailureSummary[] {

@@ -125,6 +125,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
   const sortColumn: SortColumn =
     urlState.sort === "actor" || urlState.sort === "action" ? urlState.sort : "time";
   const sortDir = urlState.dir === "asc" ? "asc" : "desc";
+  const ariaSort = (column: SortColumn) => (column === sortColumn ? (sortDir === "asc" ? "ascending" : "descending") : "none");
   const toggleSort = (column: SortColumn) => {
     patchUrl({
       sort: column,
@@ -270,41 +271,47 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       )}
 
       <ListPanel title={t("audit.details")} count={data?.total ?? (loading ?"…" : 0)}>
-        {/* Desktop */}
-        <div className="hidden xl:block">
-          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] gap-4 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-3 text-xs text-[var(--text-muted)]">
-            <button
-              type="button"
-              onClick={() => toggleSort("time")}
-              aria-label={t("audit.sort.time")}
-              className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "time" ? "text-[var(--text-secondary)]" : ""}`}
-            >
-              {t("audit.header.time")}
-              {sortColumn === "time" ? <SortArrow dir={sortDir} /> : null}
-            </button>
-            <div>{t("audit.header.level")}</div>
-            <button
-              type="button"
-              onClick={() => toggleSort("action")}
-              aria-label={t("audit.sort.action")}
-              className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "action" ? "text-[var(--text-secondary)]" : ""}`}
-            >
-              {t("audit.header.type")}
-              {sortColumn === "action" ? <SortArrow dir={sortDir} /> : null}
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleSort("actor")}
-              aria-label={t("audit.sort.actor")}
-              className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "actor" ? "text-[var(--text-secondary)]" : ""}`}
-            >
-              {t("audit.header.actor")}
-              {sortColumn === "actor" ? <SortArrow dir={sortDir} /> : null}
-            </button>
-            <div>{t("audit.details")}</div>
-            <div>{t("audit.source")}</div>
+        {/* Desktop: a grid of divs, given table roles so a screen reader can move by row and column. */}
+        <div className="hidden xl:block" role="table" aria-label={t("audit.details")}>
+          <div role="row" className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] gap-4 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-3 text-xs text-[var(--text-muted)]">
+            <div role="columnheader" aria-sort={ariaSort("time")}>
+              <button
+                type="button"
+                onClick={() => toggleSort("time")}
+                aria-label={t("audit.sort.time")}
+                className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "time" ? "text-[var(--text-secondary)]" : ""}`}
+              >
+                {t("audit.header.time")}
+                {sortColumn === "time" ? <SortArrow dir={sortDir} /> : null}
+              </button>
+            </div>
+            <div role="columnheader">{t("audit.header.level")}</div>
+            <div role="columnheader" aria-sort={ariaSort("action")}>
+              <button
+                type="button"
+                onClick={() => toggleSort("action")}
+                aria-label={t("audit.sort.action")}
+                className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "action" ? "text-[var(--text-secondary)]" : ""}`}
+              >
+                {t("audit.header.type")}
+                {sortColumn === "action" ? <SortArrow dir={sortDir} /> : null}
+              </button>
+            </div>
+            <div role="columnheader" aria-sort={ariaSort("actor")}>
+              <button
+                type="button"
+                onClick={() => toggleSort("actor")}
+                aria-label={t("audit.sort.actor")}
+                className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "actor" ? "text-[var(--text-secondary)]" : ""}`}
+              >
+                {t("audit.header.actor")}
+                {sortColumn === "actor" ? <SortArrow dir={sortDir} /> : null}
+              </button>
+            </div>
+            <div role="columnheader">{t("audit.details")}</div>
+            <div role="columnheader">{t("audit.source")}</div>
           </div>
-          <div className="divide-y divide-[var(--border-subtle)]">
+          <div className="divide-y divide-[var(--border-subtle)]" role={data && data.logs.length > 0 && !loading ? "rowgroup" : undefined}>
             {loading ? (
               <div className="p-4" aria-busy="true" aria-live="polite">
                 <span className="sr-only">{t("audit.loading")}</span>
@@ -316,21 +323,23 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               <EmptyState>{t("audit.empty")}</EmptyState>
             ) : (
               data.logs.map((log) => (
-                <div key={log.id} className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] items-center gap-4 px-4 py-3 text-sm">
-                  <div className="text-xs text-[var(--text-muted)]">
+                <div key={log.id} role="row" className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] items-center gap-4 px-4 py-3 text-sm">
+                  <div role="cell" className="text-xs text-[var(--text-muted)]">
                     {`${formatShortDate(log.createdAt, locale)} ${formatShortTime(log.createdAt, locale)}`}
                   </div>
-                  <div>
+                  <div role="cell">
                     <StatusBadge tone={severityTone(log.severity)} size="sm">
                       {enumLabel(t, "audit.severity", log.severity)}
                     </StatusBadge>
                   </div>
-                  <div className="text-[var(--text-primary)]">{formatAction(log.action, t)}</div>
-                  <div className="text-[var(--text-secondary)] truncate">
+                  <div role="cell" className="text-[var(--text-primary)]">{formatAction(log.action, t)}</div>
+                  <div role="cell" className="text-[var(--text-secondary)] truncate">
                     {log.actor ? (log.actor.displayName ?? log.actor.username) : enumLabel(t, "audit.actorType", log.actorType)}
                   </div>
-                  <DetailCell log={log} label={t("audit.viewRecord")} onOpen={setOpenLog} />
-                  <div className="text-xs text-[var(--text-muted)]">{enumLabel(t, "audit.actorType", log.actorType)}</div>
+                  <div role="cell" className="min-w-0">
+                    <DetailCell log={log} label={t("audit.viewRecord")} onOpen={setOpenLog} />
+                  </div>
+                  <div role="cell" className="text-xs text-[var(--text-muted)]">{enumLabel(t, "audit.actorType", log.actorType)}</div>
                 </div>
               ))
             )}

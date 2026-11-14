@@ -15,7 +15,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { JobEventsDialog } from "./job-events-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { getDomainStatusLabel, getOperationTaskTitle } from "@/lib/i18n/domain-labels";
+import { getDomainStatusLabel, getJobTypeLabel, getOperationTaskTitle } from "@/lib/i18n/domain-labels";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 const TASKS_PER_PAGE = 20;
@@ -88,7 +88,7 @@ const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEve
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{sourceLabels[task.source] ?? task.source}</Badge>
           <StatusBadge tone={statusTone[task.status] ?? "neutral"}>{getDomainStatusLabel(t, task.status)}</StatusBadge>
-          {task.taskType && !isBackup && <Badge>{task.taskType}</Badge>}
+          {task.taskType && !isBackup && <Badge>{getJobTypeLabel(t, task.taskType)}</Badge>}
           {task.foldedCount && task.foldedCount > 1 && <Badge tone="accent">{t("operationTasksPage.folded", { count: task.foldedCount })}</Badge>}
           {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: formatDateTime(task.workerHeartbeatAt, locale) }) : t("operationTasksPage.worker.noHeartbeat")} className="!rounded-lg">{t("operationTasksPage.worker.label", { id: task.workerId })}</StatusBadge>}
         </div>
@@ -260,7 +260,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       {failureSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {failureSummary.map((item) => <div data-inset="" key={item.reason} className="border-[var(--danger-border)] px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><StatusBadge tone="danger">{t("operationTasksPage.failures.itemCount", { count: item.total })}</StatusBadge></div>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join(t("common.listSeparator")), title: item.latestTitle })}</p>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join(t("common.listSeparator")), title: getOperationTaskTitle(t, { source: item.latestTaskId.split(":")[0] ?? "", title: item.latestTitle }) })}</p>
         </div>)}
       </div>}
     </section>
@@ -291,7 +291,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
             <span className="mb-1 block">{t("operationTasksPage.filter.taskType")}</span>
             <select data-input value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className={`${CONTROL_CLASS} w-full sm:!w-auto sm:min-w-44`}>
               <option value="all">{t("operationTasksPage.filter.allTypes")}</option>
-              {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{taskType}</option>)}
+              {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{getJobTypeLabel(t, taskType)}</option>)}
             </select>
           </label>
           <label className="ui-label">

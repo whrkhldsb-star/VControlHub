@@ -166,7 +166,7 @@ export const zh: Record<string, string> = {
 	"backend.operationTask.failure.networkOrConnection": "网络或连接失败",
 	"backend.operationTask.failure.notification": "通知发送失败",
 	"backend.operationTask.failure.backupOrRestore": "备份或恢复失败",
-	"backend.operationTask.failure.taskTypeFailed": "{taskType} 失败",
+	"backend.operationTask.failure.taskTypeFailed": "{taskType}失败",
 	"backend.operationTask.failure.sourceFailed": "{source}失败",
 	"backend.operationTask.source.job": "后台作业",
 	"backend.operationTask.source.command": "命令",

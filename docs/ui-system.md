@@ -292,6 +292,12 @@ breadcrumb names the area, so page eyebrows are hidden.
   the server refuses with is shown as its sentence (`getErrorMessage`,
   `describeFailure`, `readRefusal` in `src/lib/http/error-message.ts`), never
   as a status code, a JSON body or a framework placeholder.
+- A code the platform writes is shown through its label, never as the code:
+  an audit action through `audit.action.<action>` (a test lists every action
+  written without one), a background job's type through `getJobTypeLabel`
+  and its stored English title through `getJobTitleLabel` /
+  `getOperationTaskTitle` (`src/lib/i18n/domain-labels.ts`; a test fails on a
+  job title in a form it does not know).
 - One primary button per view; destructive actions confirm in-app
   (`ConfirmDialog`), never with `window.confirm`.
 - A list joined in code takes the page language's separator:
