@@ -283,11 +283,12 @@ export function StatCard({
 			data-card
 			data-stat-card
 			data-stat-tone={c ? accentColor : undefined}
-			className={`relative flex flex-col justify-between overflow-hidden ${className ?? ""}`}
+			className={`relative overflow-hidden ${className ?? ""}`}
 		>
-			<div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--text-muted)]">
-				{c ? <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`} /> : null}
-				<span className="min-w-0 truncate">{label}</span>
+			{/* The label wraps: cut to one line it read "Backups older than 3…" on a phone. */}
+			<div className="flex items-start gap-1.5 text-[12.5px] font-medium leading-4 text-[var(--text-muted)]">
+				{c ? <span aria-hidden="true" className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`} /> : null}
+				<span className="min-w-0 break-words">{label}</span>
 			</div>
 			<div className={`mt-2.5 break-words text-[1.625rem] font-semibold leading-none tracking-tight tabular-nums ${c ? c.value : "text-[var(--text-primary)]"}`}>
 				{value}
@@ -348,22 +349,25 @@ export function MetricPanel({
 				{metrics.map((metric, index) => {
 					const fill = index === metrics.length - 1 && metrics.length % 2 === 1 ? " max-sm:col-span-2" : "";
 					const c = metric.tone ? ACCENT_COLORS[metric.tone] : null;
+					// Three rows shared with the other cells (subgrid): a label that wraps to two lines moves the whole row's
+					// values down together. Cut to one line, English labels read "Pending appr…", "Unread notific…".
 					const body = (
 						<>
-							<div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--text-muted)]">
-								{c ? <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`} /> : null}
-								<span className="min-w-0 truncate">{metric.label}</span>
+							<div className="flex items-start gap-1.5 text-[12.5px] font-medium leading-4 text-[var(--text-muted)]">
+								{c ? <span aria-hidden="true" className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`} /> : null}
+								<span className="min-w-0 break-words">{metric.label}</span>
 							</div>
 							<div className={`mt-1.5 break-words text-[22px] font-semibold leading-tight tracking-tight tabular-nums ${c ? c.value : "text-[var(--text-primary)]"}`}>
 								{metric.value}
 							</div>
-							{metric.detail ? <div className="mt-0.5 text-xs text-[var(--text-muted)]">{metric.detail}</div> : null}
+							<div className="mt-0.5 text-xs text-[var(--text-muted)] empty:hidden">{metric.detail}</div>
 						</>
 					);
+					const cell = `row-span-3 grid grid-rows-subgrid content-start gap-0 bg-[var(--surface)] px-4 py-3.5 sm:px-5${fill}`;
 					return metric.href ? (
-						<Link key={metric.label} href={metric.href} className={`block bg-[var(--surface)] px-4 py-3.5 transition hover:bg-[var(--surface-hover)] sm:px-5${fill}`}>{body}</Link>
+						<Link key={metric.label} href={metric.href} className={`${cell} transition hover:bg-[var(--surface-hover)]`}>{body}</Link>
 					) : (
-						<div key={metric.label} className={`bg-[var(--surface)] px-4 py-3.5 sm:px-5${fill}`}>{body}</div>
+						<div key={metric.label} className={cell}>{body}</div>
 					);
 				})}
 			</div>

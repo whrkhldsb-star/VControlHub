@@ -90,6 +90,10 @@ checks the token file; `npm run ui:check` runs axe on every component state.
   **`StatGrid` / `StatCard`** — headline numbers under a page header. A
   `StatCard` with `accent` + `accentColor` colours its figure and carries
   the tone as a corner glow (`data-stat-tone`, strength `--stat-glow`).
+  Their labels wrap rather than end in "…" (English labels are long), and
+  the cells of a `MetricPanel` and the cards of a `StatGrid` share their
+  rows (CSS subgrid: label, value, detail), so a label on two lines moves
+  its whole row's values down together.
 - **`MarkdownText`** — Markdown written in the console (announcements):
   rendered by `renderMarkdown` (`src/lib/markdown/render-markdown.ts`),
   which escapes the source before adding its own tags, so it renders the

@@ -131,7 +131,11 @@
 	:where(a, button):where([data-inset], [data-tile]):hover { border-color: var(--border-strong); }
 	[data-server-card] { transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
 	[data-server-card]:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
-	[data-stat-card] { min-height: 5.25rem; }
+	[data-stat-card] { min-height: 5.25rem; display: flex; flex-direction: column; justify-content: space-between; }
+	/* In a stat grid the cards share three rows (label, value, detail): a label that wraps to two lines moves the
+	   whole row's values down together. The subgrid takes no gap of its own; the grid's gap stays between rows of
+	   cards. */
+	[data-stat-grid] > [data-stat-card] { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
 	/* A toned figure (running, failed, …) carries its colour as a corner glow. */
 	[data-stat-card][data-stat-tone] {
 		background-image: radial-gradient(16rem 8rem at 100% 0%, color-mix(in srgb, var(--stat-tone) var(--stat-glow), transparent), transparent 70%), var(--surface-sheen);
