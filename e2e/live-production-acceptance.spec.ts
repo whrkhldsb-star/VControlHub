@@ -242,10 +242,10 @@ test.describe("live production acceptance", () => {
       await staleRow.hover();
       await staleRow.getByRole("button", { name: /删除|Delete/i }).click();
       const staleDeleteDialog = page.getByRole("dialog", {
-        name: /确认删除|Confirm delete/i,
+        name: /^(删除文件|删除文件夹|Delete file|Delete folder)$/i,
       });
       await staleDeleteDialog
-        .getByRole("button", { name: /确认删除|Confirm delete/i })
+        .getByRole("button", { name: /^(确认删除|Delete)$/i })
         .click();
       await expect(fileEntry(staleName)).toBeHidden({ timeout: 30_000 });
     }
@@ -279,10 +279,10 @@ test.describe("live production acceptance", () => {
       .getByRole("button", { name: /删除|Delete/i })
       .click({ timeout: 10_000 });
     const deleteDialog = page.getByRole("dialog", {
-      name: /确认删除|Confirm delete/i,
+      name: /^(删除文件|删除文件夹|Delete file|Delete folder)$/i,
     });
     await deleteDialog
-      .getByRole("button", { name: /确认删除|Confirm delete/i })
+      .getByRole("button", { name: /^(确认删除|Delete)$/i })
       .click();
     await expect(fileEntry(renamed)).toBeHidden({ timeout: 30_000 });
   });
@@ -598,7 +598,7 @@ test.describe("live production acceptance", () => {
       await browserArticle().getByLabel(new RegExp(`(?:选择|Select) ${name}`)).first().check();
     }
     await page.getByRole("button", { name: /批量删除|Batch delete/i }).click();
-    await page.getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+    await page.getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
     for (const name of [markdownName, csvName, imageName]) {
       await expect(browserArticle().getByText(name, { exact: true })).toHaveCount(0, {
         timeout: 45_000,
@@ -861,7 +861,7 @@ test.describe("live production acceptance", () => {
         .getByRole("dialog", {
           name: /确认删除定时任务|Delete scheduled task/i,
         })
-        .getByRole("button", { name: /确认删除|Confirm delete/i })
+        .getByRole("button", { name: /^(确认删除|Delete)$/i })
         .click();
       await expect(page.getByText(scheduledName, { exact: true })).toHaveCount(0, {
         timeout: 30_000,
@@ -876,7 +876,7 @@ test.describe("live production acceptance", () => {
         .click();
       await page
         .getByRole("dialog", { name: /删除命令模板|Delete command template/i })
-        .getByRole("button", { name: /确认删除|Confirm delete/i })
+        .getByRole("button", { name: /^(确认删除|Delete)$/i })
         .click();
       await expect(page.getByText(templateName, { exact: true })).toHaveCount(0, {
         timeout: 30_000,
@@ -1277,7 +1277,7 @@ test.describe("live production acceptance", () => {
         .click();
       await page
         .getByRole("dialog", { name: /删除对话|Delete conversation/i })
-        .getByRole("button", { name: /确认删除|Confirm delete/i })
+        .getByRole("button", { name: /^(确认删除|Delete)$/i })
         .click();
     }
   });

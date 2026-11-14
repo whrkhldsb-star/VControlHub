@@ -46,7 +46,7 @@ test("snippet create, search, edit and delete", async ({ page }) => {
 	await edit.getByRole("button", { name: /保存|Save/i }).click();
 	await expect(page.getByText(`${marker}-edited`, { exact: true })).toBeVisible();
 	await page.getByRole("button", { name: /删除代码片段|Delete code snippet/i }).click();
-	await page.getByRole("dialog", { name: /删除代码片段|Delete code snippet/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await page.getByRole("dialog", { name: /删除代码片段|Delete code snippet/i }).getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.getByText(`${marker}-edited`, { exact: true })).toBeHidden();
 });
 
@@ -65,7 +65,7 @@ test("announcement create, search, edit and delete", async ({ page }) => {
 	await edit.getByRole("button", { name: /保存|Save/i }).click();
 	await expect(page.getByText(`${marker}-edited`, { exact: true })).toBeVisible();
 	await page.getByRole("button", { name: /删除公告|Delete announcement/i }).click();
-	await page.getByRole("dialog", { name: /删除公告|Delete announcement/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await page.getByRole("dialog", { name: /删除公告|Delete announcement/i }).getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.getByText(`${marker}-edited`, { exact: true })).toBeHidden();
 });
 
@@ -79,7 +79,7 @@ test("alert rule create, toggle and delete", async ({ page }) => {
 	await page.getByRole("button", { name: /暂停|Pause/i }).first().click();
 	await expect(page.getByRole("button", { name: /启用|Enable/i }).first()).toBeVisible();
 	await page.getByRole("button", { name: /删除|Delete/i }).first().click();
-	await page.getByRole("dialog", { name: /删除告警规则|Delete alert rule/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await page.getByRole("dialog", { name: /删除告警规则|Delete alert rule/i }).getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
@@ -92,7 +92,7 @@ test("command template create and delete without deployment", async ({ page }) =
 	await expect(page.getByText(marker, { exact: true })).toBeVisible();
 	const card = page.getByText(marker, { exact: true }).locator("xpath=ancestor::*[self::article or @data-card][1]");
 	await card.getByRole("button", { name: /删除|Delete/i }).click();
-	await confirmInDialog(page, /删除命令模板|Delete command template/i, /确认删除|Confirm delete/i);
+	await confirmInDialog(page, /删除命令模板|Delete command template/i, /^(确认删除|Delete)$/i);
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
@@ -143,7 +143,7 @@ test("scheduled task create, search, pause and delete without execution", async 
 	await page.getByRole("button", { name: /暂停|Pause/i }).first().click();
 	await expect(page.getByRole("button", { name: /恢复|Resume/i }).first()).toBeVisible();
 	await page.getByRole("button", { name: /删除|Delete/i }).first().click();
-	await confirmInDialog(page, /确认删除定时任务|Delete scheduled task/i, /确认删除|Confirm delete/i);
+	await confirmInDialog(page, /确认删除定时任务|Delete scheduled task/i, /^(确认删除|Delete)$/i);
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 

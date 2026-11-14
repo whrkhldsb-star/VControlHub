@@ -203,7 +203,7 @@ test("file preferences and durable copy/move/delete preserve bytes and survive n
   const moveDialog = page.getByRole("dialog", { name: /^移动$|^Move$/i });
   await expect(moveDialog).toContainText(`${directory}/moved`);
   const moveResponse = page.waitForResponse((response) => response.url().endsWith("/api/files/operations") && response.request().method() === "POST");
-  await moveDialog.getByRole("button", { name: /^确认$|^Confirm$/i }).click();
+  await moveDialog.getByRole("button", { name: /^(移动到此处|Move here)$/i }).click();
   const moved = await moveResponse;
   expect(moved.status(), await moved.text()).toBe(202);
   await waitJob((await moved.json()).id);

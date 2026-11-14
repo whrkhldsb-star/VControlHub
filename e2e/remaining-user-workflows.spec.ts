@@ -409,7 +409,7 @@ test("download task create, cancel and purge lifecycle", async ({ page }) => {
 	await task.getByRole("button", { name: /删除|Delete/i }).click();
 	const dialog = page.getByRole("dialog");
 	await expect(dialog).toContainText(marker);
-	await dialog.getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await dialog.getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.locator("article").filter({ hasText: marker })).toBeHidden();
 });
 

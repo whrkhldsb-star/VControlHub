@@ -164,6 +164,6 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	await (await openMore(page, fileName)).getByRole("menuitem", { name: /^删除$|^Delete$/i }).click();
 	const deleteDialog = page.getByRole("dialog", { name: /删除|Delete/i });
 	await expect(deleteDialog).toBeVisible();
-	await deleteDialog.getByRole("button", { name: /^确认$|^Confirm$/i }).click();
+	await deleteDialog.getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(drive.getByRole("link", { name: fileName, exact: true })).toBeHidden({ timeout: 15_000 });
 });

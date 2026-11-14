@@ -70,7 +70,7 @@ test("image-bed search, preview, copy controls and delete isolated image", async
 	await dialog.getByRole("button", { name: /复制外链|Copy URL|Copy link/i }).click();
 	await dialog.getByRole("button", { name: /关闭|Close/i }).click();
 	await page.getByRole("button", { name: /删除(?:图片)?|Delete image/i }).click();
-	await page.getByRole("dialog", { name: /确认删除图片|Delete image/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await page.getByRole("dialog", { name: /确认删除图片|Delete image/i }).getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.getByText(filename, { exact: true })).toBeHidden();
 });
 
