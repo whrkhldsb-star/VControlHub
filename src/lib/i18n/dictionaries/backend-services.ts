@@ -316,6 +316,7 @@ export const zh: Record<string, string> = {
 
 	"backend.command.cannotSelfReview": "不能审批自己提交的命令请求",
 	"backend.command.cannotCancelOthers": "只能取消自己提交的命令，或由审批人取消",
+	"backend.command.withdrawOnlyPending": "没有执行权限时，只能撤回自己提交、尚未审批的请求",
 	"backend.command.targetsOutOfScope": "一个或多个目标服务器不存在，或不在你的客户范围内",
 	"backend.command.targetsDisabled": "一个或多个目标 VPS 已禁用；请先重新启用节点，或从任务中移除这些目标",
 	"backend.command.targetsUnavailable": "一个或多个目标 VPS 尚未完成初始化或最近监控为离线；请先恢复节点可用性",
@@ -597,7 +598,7 @@ export const zh: Record<string, string> = {
 	"backend.ai.invalidAiProviderUrl": "无效的 AI 提供商 URL",
 	"backend.ai.aiProviderUrlMustUseHttpS": "AI 提供商 URL 必须使用 HTTP(S)",
 	"backend.ai.aiProviderUrlMustNotContainCredentials": "AI 提供商 URL 不得包含凭据",
-	"backend.ai.aiProviderUrlMustNotPointToA": "AI 提供商 URL 不得指向私有/回环/元数据主机",
+	"backend.ai.aiProviderUrlMustNotPointToA": "AI 提供商 URL 不得指向私有/回环/元数据主机；本机或内网的模型服务，需要管理员在 AI_PROVIDER_PRIVATE_HOSTS 中登记它的主机名",
 	"backend.ai.missingPermissionAiActionApprove": "缺少权限：ai:action:approve",
 	"backend.ai.actionNotFoundOrNotAuthorizedToApprove": "动作不存在或无权审批",
 	"backend.ai.actionIsNotPendingApproval": "动作不处于待审批状态",
@@ -1159,6 +1160,7 @@ export const en: Record<string, string> = {
 
 	"backend.command.cannotSelfReview": "You cannot approve or reject your own command request",
 	"backend.command.cannotCancelOthers": "You can only cancel your own requests, or cancel as an approver",
+	"backend.command.withdrawOnlyPending": "Without the execute permission you can only withdraw your own requests that have not been approved yet",
 	"backend.command.targetsOutOfScope": "One or more target servers were not found or are outside your customer scope",
 	"backend.command.targetsDisabled": "One or more target VPS nodes are disabled; enable them first or remove them from this operation",
 	"backend.command.targetsUnavailable": "One or more target VPS nodes have incomplete setup or were recently reported offline; restore node availability first",
@@ -1445,7 +1447,7 @@ export const en: Record<string, string> = {
 	"backend.ai.invalidAiProviderUrl": "Invalid AI provider URL",
 	"backend.ai.aiProviderUrlMustUseHttpS": "AI provider URL must use HTTP(S)",
 	"backend.ai.aiProviderUrlMustNotContainCredentials": "AI provider URL must not contain credentials",
-	"backend.ai.aiProviderUrlMustNotPointToA": "AI provider URL must not point to a private/loopback/metadata host",
+	"backend.ai.aiProviderUrlMustNotPointToA": "AI provider URL must not point to a private/loopback/metadata host; for a model service on this machine or the private network, an administrator lists its host name in AI_PROVIDER_PRIVATE_HOSTS",
 	"backend.ai.missingPermissionAiActionApprove": "Missing permission: ai:action:approve",
 	"backend.ai.actionNotFoundOrNotAuthorizedToApprove": "Action not found or not authorized to approve",
 	"backend.ai.actionIsNotPendingApproval": "Action is not pending approval",

@@ -93,6 +93,7 @@ function normalizeSettingValue(key: string, value: string) {
 		case "password.requireNumber":
 		case "password.requireSpecial":
 		case "smtp.enabled":
+		case "smtp.requireTls":
 			return normalizeBooleanSetting(key, value);
 		case "smtp.port":
 			return normalizeIntegerSetting(key, value || "587", t("backend.settings.label.smtpPort"), 1, 65_535);

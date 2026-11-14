@@ -143,6 +143,8 @@ export const en: Record<string, string> = {
 	"settingsClient.field.smtp.enabled.label": "Enable SMTP",
 	"settingsClient.field.smtp.host.label": "SMTP server",
 	"settingsClient.field.smtp.port.label": "Port",
+	"settingsClient.field.smtp.requireTls.label": "Require an encrypted connection",
+	"settingsClient.field.smtp.requireTls.helper": "When on, mail is not sent if the server does not offer STARTTLS, instead of going out in the clear; port 465 is always encrypted. Leave it off for an internal relay without encryption.",
 	"settingsClient.field.smtp.user.label": "Username",
 	"settingsClient.field.smtp.pass.label": "Password",
 	"settingsClient.field.smtp.from.label": "From address",

@@ -160,6 +160,8 @@ export const zh: Record<string, string> = {
 	"settingsClient.field.smtp.enabled.label": "启用 SMTP",
 	"settingsClient.field.smtp.host.label": "SMTP 服务器",
 	"settingsClient.field.smtp.port.label": "端口",
+	"settingsClient.field.smtp.requireTls.label": "必须加密连接",
+	"settingsClient.field.smtp.requireTls.helper": "开启后，服务器不支持 STARTTLS 时不发送邮件，而不是改用明文；465 端口始终加密。内网中继不支持加密时请保持关闭。",
 	"settingsClient.field.smtp.user.label": "用户名",
 	"settingsClient.field.smtp.pass.label": "密码",
 	"settingsClient.field.smtp.from.label": "发件人地址",

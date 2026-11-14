@@ -35,6 +35,13 @@ export default async function RequestsPage() {
 	// the execute permission was shown a button the server refuses.
 	const canExecute = sessionHasPermission(session, "command:execute");
 	const canCancelOthers = canExecute && (canApprove || sessionHasPermission(session, "team:manage"));
+	// A member who may only submit withdraws their own request while it waits for approval.
+	const canSubmit = sessionHasPermission(session, "command:create");
+	const mayCancel = (request: { status: string; requester: { id: string } }) => {
+		const own = request.requester.id === session.userId;
+		if (!["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status)) return false;
+		return canCancelOthers || (canExecute && own) || (canSubmit && own && request.status === "PENDING_APPROVAL");
+	};
 	const locale = await getServerLocale();
 	const [requests, aiActions] = await Promise.all([
 		listCommandRequests(session),
@@ -80,7 +87,8 @@ export default async function RequestsPage() {
 											<ApprovalBadge status={request.status} label={getRequestStatusLabel(request.status, locale)} />
 											<InitiatorBadge assistant={request.isAssistantInitiated} label={t(request.isAssistantInitiated ? "requestsPage.initiator.assistant" : "requestsPage.initiator.user", locale)} />
 										</div>
-										{canApprove ? (
+										{/* Reviewers read every command; a submitter reads their own, which they could not see before. */}
+										{canApprove || request.requester.id === session.userId ? (
 											<p data-inset="" className="mt-2.5 px-3 py-2 font-mono text-xs text-[var(--text-primary)]">{request.command}</p>
 										) : (
 											<p data-inset="" className="mt-2.5 px-3 py-2 font-mono text-xs text-[var(--text-muted)]">{t("requestsPage.card.approvalOnly", locale)}</p>
@@ -145,7 +153,7 @@ export default async function RequestsPage() {
 								) : canApprove && request.status === "PENDING_APPROVAL" ? (
 									<p className="mt-4 text-xs text-[var(--text-muted)]">{t("requestsPage.review.ownRequest", locale)}</p>
 								) : null}
-								{(canCancelOthers || (canExecute && request.requester.id === session.userId)) && ["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status) && (
+								{mayCancel(request) && (
 									<CancelCommandButton commandRequestId={request.id} commandTitle={request.title} />
 								)}
 								</article>

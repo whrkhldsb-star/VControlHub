@@ -298,6 +298,12 @@ export async function cancelCommandRequest(input: {
     if (request.requesterId !== input.actorId && !canCancelOthers) {
       throw new BusinessError(t("backend.command.cannotCancelOthers"));
     }
+    // A member who may submit but not execute commands could not take back a request nobody had approved yet:
+    // they may withdraw their own while it waits; stopping one that runs stays with those who execute.
+    if (!sessionHasPermission(input.session, "command:execute")
+      && !(request.requesterId === input.actorId && request.status === "PENDING_APPROVAL")) {
+      throw new BusinessError(t("backend.command.withdrawOnlyPending"));
+    }
   }
 
   if (request.status === "CANCELLING") return request;

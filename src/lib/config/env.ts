@@ -276,6 +276,19 @@ export const config = {
 		get trustCloudflareHeader(): boolean { return readBool("TRUST_CLOUDFLARE_IP_HEADER", false); },
 	},
 
+	/** AI providers. */
+	ai: {
+		/**
+		 * Hosts an AI provider may use although they are on a private network or this machine (a local Ollama or
+		 * LM Studio), as a comma-separated list of host names or addresses, matched exactly. Provider addresses
+		 * must otherwise resolve to public addresses (SSRF protection); link-local and cloud metadata addresses
+		 * stay refused even when listed.
+		 */
+		get privateProviderHosts(): string[] {
+			return readList("AI_PROVIDER_PRIVATE_HOSTS").map((host) => host.toLowerCase().replace(/^\[|\]$/g, ""));
+		},
+	},
+
 	/**
 	 * Health overview collection. One collection = one TCP probe + one SSH
 	 * session per managed server, so it is the single most expensive read in

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
+    requireApiSession: vi.fn(),
     sessionHasPermission: vi.fn(),
     createCommandRequest: vi.fn(),
     listCommandRequests: vi.fn(),
@@ -14,6 +15,12 @@ const { mocks } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
+// Cancelling takes either of two permissions: the guard reads the session itself for an any-of rule.
+vi.mock("@/lib/auth/api-session", () => ({
+  requireApiSession: mocks.requireApiSession,
+  getApiSession: vi.fn(),
+  isSessionPayload: (value: unknown) => !(value instanceof Response),
+}));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
 vi.mock("@/lib/command/service", () => ({
   createCommandRequest: mocks.createCommandRequest,
@@ -39,6 +46,7 @@ describe("/api/commands audit coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null } });
+    mocks.requireApiSession.mockResolvedValue({ userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null });
     mocks.sessionHasPermission.mockReturnValue(true);
     mocks.listCommandRequests.mockResolvedValue([]);
     mocks.recoverStaleRunningCommandRequests.mockResolvedValue({ recovered: 0 });
@@ -234,7 +242,6 @@ describe("/api/commands audit coverage", () => {
     }));
 
     expect(response.status).toBe(200);
-    expect(mocks.requireApiPermission).toHaveBeenCalledWith("command:execute");
     expect(mocks.cancelCommandRequest).toHaveBeenCalledWith({
       commandRequestId: "cmd1",
       actorId: "u1",
@@ -247,8 +254,8 @@ describe("/api/commands audit coverage", () => {
     }, undefined, null);
   });
 
-  it("rejects command cancellation without execute permission", async () => {
-    mocks.requireApiPermission.mockResolvedValueOnce(NextResponse.json({ error: "缺少权限" }, { status: 403 }));
+  it("rejects command cancellation with neither the execute nor the submit permission", async () => {
+    mocks.sessionHasPermission.mockImplementation((_session: unknown, permission: string) => permission === "command:read");
 
     const response = await route.PATCH(new Request("http://local/api/commands", {
       method: "PATCH",
@@ -259,5 +266,32 @@ describe("/api/commands audit coverage", () => {
     expect(response.status).toBe(403);
     expect(mocks.cancelCommandRequest).not.toHaveBeenCalled();
     expect(mocks.auditUserAction).not.toHaveBeenCalled();
+  });
+
+  // A member who may submit but not execute takes back their own pending request; the service decides which.
+  it("lets a member who may only submit ask to withdraw a request", async () => {
+    mocks.sessionHasPermission.mockImplementation((_session: unknown, permission: string) => permission === "command:create");
+    const response = await route.PATCH(new Request("http://local/api/commands", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "cancel", commandRequestId: "cmd1" }),
+    }));
+    expect(response.status).toBe(200);
+    expect(mocks.cancelCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ commandRequestId: "cmd1", actorId: "u1" }));
+  });
+
+  // The approvals page showed command text to reviewers and the submitter only; the list gave it to every reader.
+  it("leaves other people's command text out of the list for a member who cannot approve", async () => {
+    mocks.sessionHasPermission.mockImplementation((_session: unknown, permission: string) => permission === "command:read");
+    mocks.listCommandRequests.mockResolvedValue([
+      { id: "mine", requesterId: "u1", command: "systemctl restart nginx" },
+      { id: "theirs", requesterId: "u2", command: "rm -rf /srv/cache" },
+    ]);
+    const response = await route.GET(new Request("http://local/api/commands"));
+    const { requests } = await response.json();
+    expect(requests).toEqual([
+      { id: "mine", requesterId: "u1", command: "systemctl restart nginx" },
+      { id: "theirs", requesterId: "u2", command: "", commandHidden: true },
+    ]);
   });
 });

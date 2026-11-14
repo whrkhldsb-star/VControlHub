@@ -38,6 +38,15 @@ export const NOTIFICATION_SETTINGS_SECTIONS: SectionDef[] = [
 				validate: (value) => parseInteger(value || "587", 1, 65_535),
 			},
 			{
+				key: "smtp.requireTls",
+				labelKey: "settingsClient.field.smtp.requireTls.label",
+				type: "switch",
+				defaultValue: "",
+				disabled: isSmtpDisabled,
+				helperTextKey: (s) => (isSmtpDisabled(s) ? "settingsClient.helper.smtp.disabledHint" : "settingsClient.field.smtp.requireTls.helper"),
+				riskLevel: "medium",
+			},
+			{
 				key: "smtp.user",
 				labelKey: "settingsClient.field.smtp.user.label",
 				type: "text",

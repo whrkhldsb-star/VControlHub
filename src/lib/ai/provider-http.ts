@@ -17,7 +17,8 @@ import {
 	assertPublicBaseUrlResolvesPublic,
 	isUnsafePublicHttpHost,
 } from "@/lib/storage/direct-access-url";
-import { fetchWithPinnedDns } from "@/lib/security/pinned-fetch";
+import { fetchWithPinnedDns, isLinkLocalAddress } from "@/lib/security/pinned-fetch";
+import { config } from "@/lib/config/env";
 import { t } from "@/lib/i18n/service-translations";
 import { readResponseTextLimited } from "@/lib/http/response-body";
 import { AiProviderHttpError } from "./provider-errors";
@@ -69,6 +70,20 @@ export function trimProviderBaseUrl(value: string | undefined, fallback: string)
 	return trimTrailingSlash((value?.trim() || fallback));
 }
 
+/**
+ * Whether the operator listed this provider host as allowed on a private network (AI_PROVIDER_PRIVATE_HOSTS): a
+ * local Ollama or LM Studio could not be added at all, every provider address had to resolve to a public one.
+ */
+export function isListedPrivateProviderHost(rawUrl: string): boolean {
+	let hostname: string;
+	try {
+		hostname = new URL(rawUrl).hostname.toLowerCase().replace(/^\[|\]$/g, "");
+	} catch {
+		return false;
+	}
+	return config.ai.privateProviderHosts.includes(hostname);
+}
+
 /** Re-validate a stored/derived provider URL at fetch time to prevent SSRF via stale DB rows. */
 async function assertProviderUrlSafe(rawUrl: string): Promise<void> {
 	let url: URL;
@@ -82,6 +97,11 @@ async function assertProviderUrlSafe(rawUrl: string): Promise<void> {
 	}
 	if (url.username || url.password) {
 		throw new ValidationError(t("backend.ai.aiProviderUrlMustNotContainCredentials"));
+	}
+	if (isListedPrivateProviderHost(rawUrl)) {
+		// Listed by the operator: a private or loopback address is fine, link-local (cloud metadata) never is.
+		if (isLinkLocalAddress(url.hostname)) throw new ValidationError(t("backend.ai.aiProviderUrlMustNotPointToA"));
+		return;
 	}
 	if (isUnsafePublicHttpHost(url.hostname)) {
 		throw new ValidationError(t("backend.ai.aiProviderUrlMustNotPointToA"));
@@ -126,7 +146,7 @@ async function fetchProviderResponse(
 		// Pinned dispatch: assertProviderUrlSafe validated this URL a moment
 		// ago; the fetch itself must connect to the address that validation
 		// saw, not whatever DNS answers on a second resolution (rebinding).
-		return await fetchWithPinnedDns(url, init);
+		return await fetchWithPinnedDns(url, init, { allowPrivateAddress: isListedPrivateProviderHost(url) });
 	} catch (error) {
 		if (callerSignal?.aborted) throw callerSignal.reason;
 		const name =

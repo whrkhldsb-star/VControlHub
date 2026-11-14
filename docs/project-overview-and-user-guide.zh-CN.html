@@ -1828,6 +1828,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <h3 id="section-14-1">14.1 AI 提供商管理</h3>
 <p>入口：<code>/ai</code> 中的提供商管理，需要 <code>ai:manage</code> 权限。提供商配置按创建账号保存和读取；一个账号添加的 API Key、默认提供商及模型配置不会自动成为所有客户账号共用的平台配置。需要使用 AI 的账号应配置自己的提供商，并验证相应模型与工具能力。</p>
 <p>当前提供商类型包括 OpenAI、OpenAI 兼容、Anthropic、Google、自定义。可配置名称、API Key、Base URL、默认模型、可选模型列表、默认提供商和启用状态，读取模型清单、手动填写模型 ID、编辑或删除提供商。</p>
+<p>Base URL 必须解析到公网地址（防止借提供商访问内网）。本机或内网的模型服务（如 Ollama、LM Studio）需要管理员在环境变量 <code>AI_PROVIDER_PRIVATE_HOSTS</code> 里登记它的主机名或地址（逗号分隔、精确匹配）；云平台元数据所在的链路本地地址即使登记也不会放行。</p>
 <p>添加或编辑时可用当前填写的提供商配置探测模型列表，无需先把错误配置保存为正式提供商。探测主要验证该地址和凭据能否取得模型信息，不等于每个模型的对话、多模态和工具能力都已验证。</p>
 <p>这些是平台支持的适配类型，不保证任意兼容地址实现了完全相同的模型发现、流式、多模态或工具调用协议。配置后应使用实际账号和模型验证所需能力。</p>
 <h3 id="section-14-2">14.2 对话功能</h3>
@@ -2412,6 +2413,10 @@ sudo npm run admin:reset-2fa -- 账号名
 <tr>
 <td><code>smtp.port</code></td>
 <td>SMTP 服务端口</td>
+</tr>
+<tr>
+<td><code>smtp.requireTls</code></td>
+<td>必须加密连接：开启后服务器不支持 STARTTLS 时不发送，而不是改用明文（465 端口始终加密）；默认关闭，以免不支持加密的内网中继收不到告警</td>
 </tr>
 <tr>
 <td><code>smtp.user</code></td>

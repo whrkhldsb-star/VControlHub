@@ -150,8 +150,24 @@ describe("RequestsPage", () => {
 
     // Execute and approve: anyone's request.
     as("u_9", ["command:read", "command:approve", "command:execute"]);
-    render(await RequestsPage());
+    const manager = render(await RequestsPage());
     expect(cancelButtons()).toHaveLength(2);
+    manager.unmount();
+
+    // May only submit: withdraws their own request while it waits (both are pending here), nobody else's.
+    as("u_2", ["command:read", "command:create"]);
+    render(await RequestsPage());
+    expect(cancelButtons()).toEqual(["取消按钮：cmd_2"]);
+    vi.mocked(sessionHasPermission).mockReturnValue(true);
+  });
+
+  it("shows a submitter the text of their own command, and only reviewers anyone else's", async () => {
+    // The text was for reviewers only, the submitter's own included.
+    vi.mocked(requirePagePermission).mockResolvedValueOnce({ userId: "u_2", username: "u_2", roles: ["operator"], mustChangePassword: false } as never);
+    vi.mocked(sessionHasPermission).mockImplementation(((_session: unknown, permission: string) => ["command:read", "command:create"].includes(permission)) as never);
+    const { container } = render(await RequestsPage());
+    expect(container.querySelector("#command-cmd_2")).toHaveTextContent("deploy --prod");
+    expect(container.querySelector("#command-cmd_1")).not.toHaveTextContent("systemctl restart nginx");
     vi.mocked(sessionHasPermission).mockReturnValue(true);
   });
 
