@@ -13,10 +13,12 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
 	assertPortableBackupPath,
+	BACKUP_CREATE_JOB_TYPE,
 	buildBackupFilePath,
 	isBackupType,
 } from "./service-types";
 import { t } from "@/lib/i18n/service-translations";
+import { config } from "@/lib/config/env";
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 
@@ -184,7 +186,7 @@ export async function abandonStaleRunningBackupRecords(input?: {
 	reason?: string;
 	limit?: number;
 }) {
-	const olderThanMs = input?.olderThanMs ?? 45 * 60 * 1000;
+	const olderThanMs = input?.olderThanMs ?? config.backup.staleRunningAfterMs;
 	const reason = (input?.reason ?? "Stale RUNNING backup abandoned after worker timeout").slice(0, 500);
 	const limit = Math.min(Math.max(input?.limit ?? 50, 1), 200);
 	const cutoff = new Date(Date.now() - olderThanMs);
@@ -198,6 +200,17 @@ export async function abandonStaleRunningBackupRecords(input?: {
 
 	const ids: string[] = [];
 	for (const row of stale) {
+		// The record is touched when the backup starts and ends; a long backup keeps its job's lease alive instead.
+		// While that lease holds the backup is in progress, not stale (the VPS sweep checks the same).
+		const alive = await prisma.job.count({
+			where: {
+				type: BACKUP_CREATE_JOB_TYPE,
+				status: "RUNNING",
+				leaseExpiresAt: { gt: new Date() },
+				payload: { path: ["backupId"], equals: row.id },
+			},
+		});
+		if (alive > 0) continue;
 		// CAS: only fail rows STILL running. A row that just completed or was
 		// force-failed by its own worker between the findMany above and here must
 		// never be clobbered back to FAILED.

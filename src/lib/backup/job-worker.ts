@@ -21,6 +21,7 @@ import {
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
+import { BACKUP_CREATE_JOB_TYPE } from "./service-types";
 
 /** The offsite prune is platform-wide; keep it to one run per day across retention tasks. */
 const OFFSITE_PRUNE_INTERVAL_MS = 24 * 60 * 60_000;
@@ -41,7 +42,8 @@ class PermanentBackupJobError extends Error {
   }
 }
 
-export const BACKUP_CREATE_JOB_TYPE = "backup.create";
+// Defined beside the record helpers: the stale-record sweep there checks this job's lease.
+export { BACKUP_CREATE_JOB_TYPE };
 export const BACKUP_RESTORE_JOB_TYPE = "backup.restore";
 export const BACKUP_RETENTION_JOB_TYPE = "backup.retention";
 export const BACKUP_DRILL_JOB_TYPE = "backup.drill";

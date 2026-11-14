@@ -1734,6 +1734,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </table></div>
 <p>实际包含目录由备份配置和脚本决定，外部存储路径需明确纳入；平台完整备份不会自动备份所有远端 VPS、外部 WebDAV 或所有 Docker 卷。</p>
 <p>手动创建后进入后台队列，记录创建者、类型、路径、大小、校验值、开始／完成时间和错误。页面提供按类型汇总、空间统计、最近成功时间、失败原因聚合，以及失败重试和历史等待／失败记录作废。</p>
+<p>备份和恢复命令默认最长运行 120 分钟，数据量大的实例可用环境变量 <code>BACKUP_COMMAND_TIMEOUT_MINUTES</code> 调整（10–1440）。任务仍在续约时，运行中的记录不会被当作中断而标记失败。</p>
 <h3 id="section-13-2">13.2 平台备份计划与保留</h3>
 <p>备份计划保存名称、类型、Cron、备注和保留天数。调度器每分钟检查到期计划，在 Hub 本地创建并执行备份任务，无需选择远程 VPS。</p>
 <p>计划可暂停／恢复、删除，查看上次／下次运行、次数及结果。删除计划不删除已生成备份。</p>
@@ -1822,7 +1823,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 </tbody>
 </table></div>
-<p>任务在目标机生成产物，再回传到平台侧并清理临时文件。MySQL 与 PostgreSQL 预设的产物是压缩的 SQL 导出，下载时文件名为 <code>.sql.gz</code>；其余预设为 <code>.tar.gz</code>。这不是所有服务的一致性快照系统；运行中的数据库、Docker 数据和业务文件应采用适合应用的一致性方案。自定义 Docker 数据根目录、rootless Docker 与默认卷路径不同，不能直接套用预设假设。</p>
+<p>任务在目标机生成产物，再回传到平台侧并清理临时文件。目标机上的归档命令默认最长运行 60 分钟，可用 <code>VPS_BACKUP_COMMAND_TIMEOUT_MINUTES</code> 调整（5–1440）。MySQL 与 PostgreSQL 预设的产物是压缩的 SQL 导出，下载时文件名为 <code>.sql.gz</code>；其余预设为 <code>.tar.gz</code>。这不是所有服务的一致性快照系统；运行中的数据库、Docker 数据和业务文件应采用适合应用的一致性方案。自定义 Docker 数据根目录、rootless Docker 与默认卷路径不同，不能直接套用预设假设。</p>
 <p>依据：<a href="../src/lib/backup/service.ts">备份服务</a>、<a href="../src/lib/backup/service-runtime.ts">恢复及演练实现</a>、<a href="../src/lib/backup/vps-backup-presets.ts">VPS 备份预设</a>、<a href="../src/lib/backup/recovery-offsite.ts">系统恢复归档异地上传</a>。</p>
 <h2 id="ai">14. AI 助手、知识库与 AI 运维</h2>
 <h3 id="section-14-1">14.1 AI 提供商管理</h3>

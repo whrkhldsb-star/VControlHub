@@ -285,6 +285,41 @@ describe("backup service", () => {
     });
   });
 
+  // The command may now run for two hours and the record is only touched when it starts and ends: a backup
+  // whose job still renews its lease is running, not abandoned.
+  it("leaves a RUNNING backup alone while its job still holds a live lease", async () => {
+    mockPrisma.backupRecord.findMany.mockResolvedValueOnce([{ id: "run-live" }, { id: "run-dead" }]);
+    mockPrisma.job.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+    mockPrisma.backupRecord.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    const result = await abandonStaleRunningBackupRecords({ olderThanMs: 60_000, reason: "worker died" });
+
+    expect(result).toEqual({ abandoned: 1, ids: ["run-dead"] });
+    expect(mockPrisma.job.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        type: "backup.create",
+        status: "RUNNING",
+        leaseExpiresAt: { gt: expect.any(Date) },
+        payload: { path: ["backupId"], equals: "run-live" },
+      }),
+    });
+    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "run-dead", status: "RUNNING" } }));
+  });
+
+  it("uses a stale threshold past the command limit (120 + 15 minutes by default)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-14T12:00:00Z"));
+    try {
+      mockPrisma.backupRecord.findMany.mockResolvedValueOnce([]);
+      await abandonStaleRunningBackupRecords();
+      const where = mockPrisma.backupRecord.findMany.mock.calls.at(-1)![0].where;
+      expect(where.updatedAt.lt).toEqual(new Date(Date.parse("2026-11-14T12:00:00Z") - 135 * 60_000));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("refuses to void completed or running backup records", async () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-completed", type: "DATABASE", status: "COMPLETED", filePath: "backups/db.sql.gz" });
     await expect(voidBackupRecord({ id: "bak-completed", reason: "cleanup" })).rejects.toThrow("已完成的备份不能作废");

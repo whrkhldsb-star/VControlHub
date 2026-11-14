@@ -14,6 +14,9 @@ import { t } from "@/lib/i18n/service-translations";
 
 export type BackupType = "DATABASE" | "FILES" | "FULL";
 
+/** The durable job that runs a backup record; its payload carries `backupId`. */
+export const BACKUP_CREATE_JOB_TYPE = "backup.create";
+
 export type BackupRecordForSummary = {
 	id: string;
 	type: string;

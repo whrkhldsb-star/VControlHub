@@ -62,11 +62,12 @@ describe("backup command-runner adapter", () => {
       expect(args).toEqual(["deploy/backup.sh", "--full", "/var/backups/x/backups/full.tar.gz"]);
       expect(opts.cwd).toBe("/opt/app");
       expect(opts.env).toMatchObject({ APP_DIR: "/opt/app" });
-      expect(opts.timeout).toBe(30 * 60 * 1000);
+      expect(opts.timeout).toBe(120 * 60 * 1000);
       expect(opts.maxBuffer).toBe(1024 * 1024);
     });
 
-    it("applies the documented default 30-minute timeout and 1MB maxBuffer", async () => {
+    // 30 minutes failed every backup of a large instance: 120 by default, BACKUP_COMMAND_TIMEOUT_MINUTES to change it.
+    it("applies the configurable default timeout (120 minutes) and 1MB maxBuffer", async () => {
       execFileMock.mockImplementation((_file: unknown, _args: unknown, _opts: unknown, cb: (err: Error | null, result: { stdout: string; stderr: string }) => void) => {
         cb(null, { stdout: "", stderr: "" });
       });
@@ -74,8 +75,13 @@ describe("backup command-runner adapter", () => {
       await runBackupCommand({ file: "tar", args: ["-xzf", "x", "-C", "y"] });
 
       const opts = execFileMock.mock.calls[0]![2] as Record<string, unknown>;
-      expect(opts.timeout).toBe(30 * 60 * 1000);
+      expect(opts.timeout).toBe(120 * 60 * 1000);
       expect(opts.maxBuffer).toBe(1024 * 1024);
+
+      vi.stubEnv("BACKUP_COMMAND_TIMEOUT_MINUTES", "300");
+      await runBackupCommand({ file: "tar", args: ["-xzf", "x", "-C", "y"] });
+      expect((execFileMock.mock.calls[1]![2] as Record<string, unknown>).timeout).toBe(300 * 60 * 1000);
+      vi.unstubAllEnvs();
     });
 
     it("lets callers override the default timeout when restore or sync needs a shorter window", async () => {
