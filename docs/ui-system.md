@@ -85,11 +85,21 @@ checks the token file; `npm run ui:check` runs axe on every component state.
   at the call site.
 - **`ListPanel` / `ListRow`** — titled list with count, actions and hairline
   rows; pass `empty` for the empty state.
+- **`CountBadge`** — how many things a list, section or group holds, beside
+  its title. `ListPanel` (`count`) and `Disclosure` (`count`) draw it
+  themselves; a tab's count is its `badge`. Never "工单（75）" or
+  "Tickets (75)" written into the title (a convention test fails on a
+  title entry ending in a bracketed `{count}`); a command may say how many
+  things it acts on ("批量批准（3）").
 - **`SurfacePanel`** — titled card for create forms and secondary blocks.
 - **`MetricPanel`** — a group of related figures in one card;
   **`StatGrid` / `StatCard`** — headline numbers under a page header. A
   `StatCard` with `accent` + `accentColor` colours its figure and carries
   the tone as a corner glow (`data-stat-tone`, strength `--stat-glow`).
+  Their labels wrap rather than end in "…" (English labels are long), and
+  the cells of a `MetricPanel` and the cards of a `StatGrid` share their
+  rows (CSS subgrid: label, value, detail), so a label on two lines moves
+  its whole row's values down together.
 - **`MarkdownText`** — Markdown written in the console (announcements):
   rendered by `renderMarkdown` (`src/lib/markdown/render-markdown.ts`),
   which escapes the source before adding its own tags, so it renders the
@@ -138,6 +148,13 @@ Field labels use `UI_LABEL` (= `ui-label`).
   of tinted boxes; whole cards are never coloured by state — put a
   `StatusBadge` on a neutral card.
 - **`useToast`** — transient confirmation after an action.
+- **The dashboard's attention block** (`src/app/dashboard-attention.tsx`) is
+  the one card that carries its state: a bar on its leading edge and an icon
+  beside the headline, in the worst tone found. Its headline answers whether
+  anything needs the account ("一切正常", "2 件事需要处理") at the page
+  title's size. It always shows the same rows, one per check the account can
+  make; a check it cannot make (no permission) is left out, never shown as
+  clear.
 - **`Spinner`**, **`InlineLoading`**, **`ProgressBar`**, skeletons in `skeleton.tsx`.
 
 ### Dialogs
@@ -148,7 +165,13 @@ Field labels use `UI_LABEL` (= `ui-label`).
   runs), `placement="sheet"` for a bottom sheet on phones.
 - **`ConfirmDialog`** — destructive or important confirmations. Pass `busy`
   while the request runs and `error` when it is refused: the dialog stays
-  open and shows the reason inside; close it only on success.
+  open and shows the reason inside; close it only on success. Its title
+  names what goes ("删除备份计划", "Delete backup schedule"); its confirm
+  button says the act: "确认删除" / "Delete", "确认撤销" / "Revoke", "重命名" /
+  "Rename" — not a bare "确认" / "Confirm", and in English not "Confirm
+  delete". A step that only leads to the next dialog says so ("下一步" /
+  "Next"). An inline two-step button may say "Confirm revoke" in its second
+  state, where the question is the button itself.
 - **`ModalShell`** — the primitive underneath, for custom layouts:
   `size` `sm` (24rem) · `md` (28rem, default) · `lg` (32rem) · `xl` (42rem) ·
   `2xl` (48rem) · `full` (64rem); `placement` `center` · `top` (tall,
@@ -188,7 +211,14 @@ Field labels use `UI_LABEL` (= `ui-label`).
   the text themselves and parse it on submit do not need it.
 - Every field has a visible label (`FormField`), not a placeholder standing
   in for one: a placeholder is gone as soon as something is typed, and a
-  field that starts with a value ("80") never showed it at all.
+  field that starts with a value ("80") never showed it at all. A
+  toolbar's own search box (icon and placeholder) and a filter whose
+  first option names it ("All statuses") may keep their label for screen
+  readers only; a filter inside a panel, beside other labelled fields, is
+  labelled like them.
+- A panel's commands and filters sit in the panel they act on (the scan
+  history's filters in the history), and a refusal is said in the panel
+  where it was asked for, not at the foot of the page.
 - **`KeyValueList`** — label/value pairs (`columns`, `layout="inline"`,
   `mono` for hosts and ids, `wide` for long values, an em dash when empty).
 - Tables inside `PageShell` are styled globally; write plain `<table>` markup.
@@ -248,26 +278,70 @@ breadcrumb names the area, so page eyebrows are hidden.
   answers with an error: React resets uncontrolled fields after any answer,
   so wire `usePreservedActionForm` (`src/lib/forms/use-preserved-action-form.ts`)
   into the form. File inputs cannot be restored; say so near them.
+- What people make, they can change: an edit opens the form it was made
+  with, filled in, titled with what is edited ("编辑定时任务：名称") and
+  submitted with "保存修改". It sends only the fields that changed — re-sent
+  fields trip checks the change itself does not need (a schedule computed
+  again from a time already past, a setting that takes a permission to
+  change) — and closes without a request when nothing did. A field the
+  person may not change is disabled with the reason beside it, not refused
+  after the submit. While a form is open, the list's edit buttons wait for
+  it; cancelling a form with unsaved input asks first
+  (`useUnsavedChangesGuard`).
 - Sentences come from the dictionaries, in the language of the page. What
   the server refuses with is shown as its sentence (`getErrorMessage`,
   `describeFailure`, `readRefusal` in `src/lib/http/error-message.ts`), never
   as a status code, a JSON body or a framework placeholder.
+- A code the platform writes is shown through its label, never as the code:
+  an audit action through `audit.action.<action>` (a test lists every action
+  written without one), a background job's type through `getJobTypeLabel`
+  and its stored English title through `getJobTitleLabel` /
+  `getOperationTaskTitle` (`src/lib/i18n/domain-labels.ts`; a test fails on a
+  job title in a form it does not know).
 - One primary button per view; destructive actions confirm in-app
   (`ConfirmDialog`), never with `window.confirm`.
+- A list joined in code takes the page language's separator:
+  `t("common.listSeparator")` ("、" / ", ") between names,
+  `t("common.sentenceSeparator")` ("；" / "; ") between sentences; a list cut
+  short ends with "…" as its last item. The convention test fails on "、",
+  "；", "; " or ", " joined in page code (the comma-separated text of a tags
+  field is an input format, not a sentence).
+- A page is called what its sidebar entry says: the title may add words to
+  the entry ("Costs" opens "Cost tracking") but not use others ("Commands"
+  opened "Command templates", "API 令牌" opened "个人 API Token"). A panel
+  names its own contents ("Download tasks"), not the page again.
+- An empty state says what is empty as its `title` ("No playbooks yet"), what
+  to do about it as `text` or children, and offers its button as `action`.
+- A list page's create command ("New ticket", "Create template") is a
+  button in its `PageHeader`, not in a toolbar or a form left open above
+  the list. It opens the form in a `SurfacePanel` right under the header
+  and hides while the form is open; the empty list offers the same command.
+  The form has Cancel (asking first when something was typed), says a
+  refusal inside itself, and closes once the thing exists. A page whose one
+  job is the form (a deployment launcher) or whose command is one row
+  (a backup type and a note) keeps it open. A list's count is the
+  `ListPanel` count beside its title, once; search and filters show when
+  there is something to search.
 - A sentence is one dictionary entry with placeholders (`{count}`, `{name}`),
   never pieces joined in code: word order and punctuation belong to the
   language. Where a link follows a sentence, end the sentence and put the
   link after it. After a translated label, write the language's colon
   (`t("common.colon")`), not `": "`. Chinese entries use Chinese punctuation.
 - Icons come from `src/components/icons.tsx` and `nav-icons.tsx`. Emoji and
-  symbol characters (⚠ ▶ ✓ ⬇ ⭐) are not icons: they are drawn differently
-  on each system and do not follow the theme.
+  symbol characters (⚠ ▶ ✓ ⬇ ⭐ × ↑) are not icons: they are drawn differently
+  on each system and do not follow the theme. A direction beside a number
+  (received / sent, input / output) is an `ArrowDown` / `ArrowUp` icon with
+  the word for screen readers (`sr-only`) and as the title. A settings
+  section names its icon with a `nav-icons` glyph.
 - A link to a page of the application is a `Link` or a `ButtonLink`. A plain
   `<a>` is for files, exports and streams under `/api`, for another site
   (`external`), and for a jump within the page.
 - Text the server stores in English for its own records (a version's note, a
   sync job's result line) is said in the page's language where it is shown
   (`versionNoteLabel`, `syncResultLabel`); what is stored stays as it is.
+- `t(key, vars)` fills every placeholder; do not wrap it. A hook or component
+  that shows toasts takes a `ToastFn` (exported by `toast-provider.tsx`), not a
+  type of its own. Sizes and rates go through `src/lib/format/bytes.ts`.
 
 ## Rules enforced by tests
 
@@ -279,7 +353,13 @@ breadcrumb names the area, so page eyebrows are hidden.
 - passes `overlayClassName` / `panelClassName` to `ModalShell` outside the
   allowlist, or hand-rolls a `fixed inset-0` overlay;
 - uses the legacy `data-primary` attribute;
-- starts a translated label with `+ ` or an arrow (`→`, `←`);
+- starts or ends a translated label with `+ ` or an arrow (`→`, `←`, `↑`,
+  `↓`);
+- draws an icon with a symbol character (`×`, `✕`, `✓`, `↑`, `↓`, `▶`, `⚠`…)
+  instead of the icon set; keys shown as keys (`ui-kbd`) are the exception;
+- calls `crypto.randomUUID` in browser code instead of `randomId()`
+  (`src/lib/ui/random-id.ts`): the former exists only in a secure context, and
+  an installation reached at `http://<IP>` is not one;
 - sizes a heading without a `ui-title-*` class;
 - draws fields, buttons, button-styled links or surfaces with pasted
   border + background + radius instead of `UI_INPUT`, the button components
@@ -287,12 +367,32 @@ breadcrumb names the area, so page eyebrows are hidden.
 - uses `ModalShell` directly for a content dialog, or `window.confirm`;
 - binds an `<input type="number">` to numeric state by converting in
   `onChange` instead of using `NumberInput`;
-- links to a page of the application with a plain `<a href="/…">`.
+- links to a page of the application with a plain `<a href="/…">`;
+- sets text in capitals with `uppercase` (labels, eyebrows and table headers
+  keep the case they are written in; an initial or an HTTP method is written
+  in capitals by the code).
 
 `src/lib/i18n/__tests__/dictionary-text.test.ts` fails when a Chinese entry
-puts half-width punctuation after Chinese text, or when an entry starts or
-ends with a space (a piece of a sentence joined in code; a label's `": "` and
-list separators are allowed).
+puts half-width punctuation next to Chinese text, when an entry starts or
+ends with a space or starts with a joining mark such as "，" (a piece of a
+sentence joined in code; a label's `": "` and list separators are allowed),
+or when an entry writes an ellipsis as three full stops (paths, links and
+example values excepted), or when an English count is followed by a bare
+plural noun. A count's noun takes its form from the number:
+`"{count} {count|item|items}"` reads "1 item" and "3 items" (`interpolate`
+picks the first word for 1, the second otherwise; a verb can go with it,
+`{count|file is|files are}`). Chinese entries do not need it. A number and
+its word are one entry (`"{count} 个待审批"`, `"{count} pending"`), never
+`` `${count} ${t("…")}` `` in code. English labels are written in sentence case
+("New playbook", "Alert rules"); names keep their capitals (products,
+providers, acronyms, the built-in templates and the catalog's apps), and the
+test fails on a label that capitalises every word, or any word inside a short
+label that is not a name, an acronym, a key or a page of the application
+(after a colon, a middle dot, a dash or a full stop a new phrase starts). A
+count's plural is its form, never "file(s)". Both languages quote with curly
+quotation marks (“名称”, “name”); Chinese does not use 「」, and an ASCII quote
+stays only where it is a character of its own (the ones Windows forbids in
+names). The test fails on either.
 `src/app/manifest.test.ts` keeps the manifest's two colours equal to the
 tokens'.
 

@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { abandonStaleRunningVpsBackupRecords, VPS_BACKUP_CREATE_JOB_TYPE } from "../vps-backup-service";
 
@@ -25,10 +26,11 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("stale RUNNI
 				{ id: `${prefix}-dead`, serverId: prefix, backupType: "full", status: "RUNNING" },
 			],
 		});
-		// Both last touched 46 minutes ago, past the 45-minute window. Columns
-		// hold UTC wall time: a bare NOW() is the session zone's, hours off on a
-		// PostgreSQL not set to UTC.
-		await prisma.$executeRaw`UPDATE vps_backup_records SET "updatedAt" = (NOW() AT TIME ZONE 'UTC') - INTERVAL '46 minutes' WHERE "serverId" = ${prefix}`;
+		// Both last touched a minute past the reaper's window (the remote command's limit plus download and
+		// upload; 95 minutes by default). Columns hold UTC wall time: a bare NOW() is the session zone's, hours
+		// off on a PostgreSQL not set to UTC.
+		const minutes = Math.ceil(config.backup.vpsStaleRunningAfterMs / 60_000) + 1;
+		await prisma.$executeRaw`UPDATE vps_backup_records SET "updatedAt" = (NOW() AT TIME ZONE 'UTC') - make_interval(mins => ${minutes}::int) WHERE "serverId" = ${prefix}`;
 		await prisma.job.create({
 			data: { id: `${prefix}-job`, type: VPS_BACKUP_CREATE_JOB_TYPE, title: "backup", payload: { recordId: `${prefix}-busy` }, status: "RUNNING", leaseExpiresAt: new Date(Date.now() + 5 * 60_000) },
 		});

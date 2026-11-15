@@ -19,8 +19,9 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import type { FileAttachment, Message, Provider } from "../ai-types";
 import type { SendArgs } from "./use-ai-chat-stream";
+import type { ToastFn } from "@/components/toast-provider";
+import { randomId } from "@/lib/ui/random-id";
 
-type ToastFn = (kind: "success" | "error" | "info", message: string) => void;
 
 export function useAiSendActions({
   activeConvId,
@@ -81,7 +82,7 @@ export function useAiSendActions({
     setFileAttachments([]);
 
     const optimisticUser: Message = {
-      id: `temp-${crypto.randomUUID()}`,
+      id: `temp-${randomId()}`,
       conversationId: activeConvId,
       role: "user",
       content: userMsg,

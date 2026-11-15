@@ -30,13 +30,13 @@ describe("InstallDialog port check", () => {
 		expect(await screen.findByText("无法检查端口：无法连接到服务器，请检查网络后重试")).toBeInTheDocument();
 		expect(screen.queryByText("已占用")).not.toBeInTheDocument();
 		expect(screen.queryByText(/端口被占用/)).not.toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "确认安装" })).toBeDisabled();
+		expect(screen.getByRole("button", { name: "下一步" })).toBeDisabled();
 
 		// Asking again is one click.
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ available: true });
 		fireEvent.click(screen.getByRole("button", { name: "重新检查" }));
 		expect(await screen.findByText("可用")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "确认安装" })).toBeEnabled();
+		expect(screen.getByRole("button", { name: "下一步" })).toBeEnabled();
 	});
 
 	it("still says who uses a port that is taken", async () => {
@@ -54,7 +54,7 @@ describe("InstallDialog port check", () => {
 		fireEvent.change(screen.getByLabelText("端口号"), { target: { value: "80.5" } });
 		await new Promise((resolve) => setTimeout(resolve, 500));
 		expect(vi.mocked(csrfFetch).mock.calls.length).toBe(calls);
-		expect(screen.getByRole("button", { name: "确认安装" })).toBeDisabled();
+		expect(screen.getByRole("button", { name: "下一步" })).toBeDisabled();
 	});
 
 	it("says so when no free port could be assigned", async () => {

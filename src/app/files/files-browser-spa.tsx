@@ -189,7 +189,7 @@ export function FilesBrowserSpa({
         else errors.push(`${name}: ${t(`fileUploadDropzone.pathError.${path.reason}`)}`);
       }
       if (entries.length) uploads.enqueue(entries, nodeId);
-      setDropError(errors.join("; "));
+      setDropError(errors.join(t("common.sentenceSeparator")));
     } catch (error) {
       const message = error instanceof Error ? error.message : t("fileUploadDropzone.errorUpload");
       setDropError(message.startsWith("storageUpload.") ? t(message) : message);

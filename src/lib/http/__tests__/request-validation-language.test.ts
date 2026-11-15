@@ -75,13 +75,13 @@ describe("a request refused by its schema", () => {
 		expect(chinese.message).toBe("3 个字段未通过校验：name、port、email");
 		expect(chinese.issues.map((issue) => issue.message)).toEqual(["数值过小：期望 string >=1 字符", "数值过大：期望 number <=65535", "Enter a valid email address"]);
 
-		expect((await refusal("en", { body })).message).toBe("3 field(s) failed validation: name, port, email");
+		expect((await refusal("en", { body })).message).toBe("3 fields failed validation: name, port, email");
 	});
 
 	it("does the same for the query string", async () => {
 		expect((await refusal("zh", { search: "?page=0&size=10" })).message).toBe("page: 数值过小：期望 number >=1");
 		expect((await refusal("zh", { search: "?page=0&size=500" })).message).toBe("2 个查询参数未通过校验：page、size");
-		expect((await refusal("en", { search: "?page=0&size=500" })).message).toBe("2 query parameter(s) failed validation: page, size");
+		expect((await refusal("en", { search: "?page=0&size=500" })).message).toBe("2 query parameters failed validation: page, size");
 	});
 
 	it("words a query read inside a handler the same way", () => {

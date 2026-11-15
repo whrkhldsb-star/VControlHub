@@ -883,17 +883,17 @@ export async function handleWebDavMove(
       // holding the transaction — a directory with thousands of entries kept
       // the index locked for the whole walk. The root row is updated first so
       // the unique constraint reserves the target prefix before descendants.
-      // Backslashes are escape metacharacters in regexp_replace's replacement.
       // The prefix length is counted by PostgreSQL (code points): JavaScript's
       // UTF-16 length counts an emoji twice and cut a character off every
       // descendant. The ::text cast keeps substring's integer form (an
       // untyped parameter picked the regex form, which returned NULL).
-      const replacementPrefix = newPrefix.replace(/\\/g, "\\\\");
+      // The new prefix is concatenated as it is; regexp_replace only strips the directories off the result, so
+      // nothing in the prefix is read as a pattern or a replacement (and storage paths refuse "\" anyway).
       await tx.$executeRaw`
         UPDATE file_entries
-        SET "relativePath" = ${replacementPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
+        SET "relativePath" = ${newPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
             "name" = regexp_replace(
-              ${replacementPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
+              ${newPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
               '^.*/', ''
             ),
             "updatedAt" = (now() AT TIME ZONE 'UTC')

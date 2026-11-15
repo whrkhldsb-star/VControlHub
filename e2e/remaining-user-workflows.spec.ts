@@ -135,7 +135,7 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	const enableResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/enable" && response.request().method() === "POST",
 	);
-	await section.getByRole("button", { name: /确认启用|Confirm enable/i }).click();
+	await section.getByRole("button", { name: /确认启用|Verify and enable/i }).click();
 	const enabled = await enableResponse;
 	await expectOk(enabled, "2FA enable");
 	await expect(section.locator("code")).toHaveCount(10);
@@ -170,7 +170,7 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	const disableResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/disable" && response.request().method() === "POST",
 	);
-	await section.getByRole("button", { name: /确认关闭|Confirm disable/i }).click();
+	await section.getByRole("button", { name: /确认关闭|^Disable 2FA$/i }).click();
 	const disabled = await disableResponse;
 	await expectOk(disabled, "2FA disable");
 	await expect(section.getByRole("button", { name: /开启两步验证|Enable 2FA/i })).toBeVisible();
@@ -378,7 +378,8 @@ test("audit filters and AI/AI Ops unavailable-provider experience stay usable", 
 
 	await page.goto("/ai-ops");
 	await page.getByRole("button", { name: /刷新|Refresh/i }).click();
-	const filters = page.locator('section[aria-label="ai-ops-actions"] select');
+	// The filters sit in the scan history they filter.
+	const filters = page.locator('section[aria-label="ai-ops-logs"] select');
 	for (let index = 0; index < await filters.count(); index++) {
 		await filters.nth(index).selectOption({ index: 0 });
 	}
@@ -408,7 +409,7 @@ test("download task create, cancel and purge lifecycle", async ({ page }) => {
 	await task.getByRole("button", { name: /删除|Delete/i }).click();
 	const dialog = page.getByRole("dialog");
 	await expect(dialog).toContainText(marker);
-	await dialog.getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await dialog.getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.locator("article").filter({ hasText: marker })).toBeHidden();
 });
 
@@ -462,9 +463,13 @@ test("customer create, select, delete and restore lifecycle", async ({ page }) =
 		await selector.selectOption(createdId);
 		await expect.poll(async () => ((await (await page.context().request.get("/api/teams")).json()) as { currentTeamId: string | null }).currentTeamId).toBe(createdId);
 
-		await row.getByRole("button", { name: /删除客户|Delete customer/i }).click();
+		// Selecting the customer also mounts the page again for it; on a slow runner the click can land on the
+		// row that is being replaced and open nothing. Click until the dialog for this customer is open.
 		const dialog = page.getByRole("dialog");
-		await expect(dialog).toContainText(marker);
+		await expect(async () => {
+			if (!(await dialog.isVisible())) await row.getByRole("button", { name: /删除客户|Delete customer/i }).click();
+			await expect(dialog).toContainText(marker, { timeout: 2_000 });
+		}).toPass({ timeout: 30_000 });
 		const confirm = dialog.getByRole("button", { name: /删除客户|Delete customer/i });
 		await expect(confirm).toBeDisabled();
 		await dialog.getByRole("textbox").fill(marker);
@@ -479,20 +484,27 @@ test("customer create, select, delete and restore lifecycle", async ({ page }) =
 		// Deleting the selected customer changes the session's customer, and the layout mounts the page again
 		// for the new one (its upload queue is per customer). On a slow runner that lands after the section
 		// was opened and closes it again, so open it until this customer's restore button stays in view.
+		// The section can close again between seeing the button and clicking it: a click then waited for the
+		// button until the test timed out. Open it and click within the same retry.
 		const restoreButton = page.locator("li").filter({ hasText: marker }).getByRole("button", { name: /恢复|Restore/i });
-		await expect(async () => {
-			if (!(await restoreButton.isVisible())) await page.getByText(/已删除的客户|Deleted customers/i).click();
-			await expect(restoreButton).toBeVisible({ timeout: 2_000 });
-		}).toPass({ timeout: 30_000 });
 		const restoredResponse = page.waitForResponse((response) =>
 			new URL(response.url()).pathname === `/api/teams/${createdId}/restore`,
-		{ timeout: 30_000 });
-		await restoreButton.click();
+		{ timeout: 45_000 });
+		await expect(async () => {
+			if (!(await restoreButton.isVisible())) await page.getByText(/已删除的客户|Deleted customers/i).click();
+			await restoreButton.click({ timeout: 2_000 });
+		}).toPass({ timeout: 40_000 });
 		expect((await restoredResponse).status()).toBe(200);
 		await expect(row).toBeVisible();
 	} finally {
 		if (createdId) {
-			await page.context().request.delete(`/api/teams/${encodeURIComponent(createdId)}`, { headers: await csrfHeaders() }).catch(() => undefined);
+			// After a timeout the context is closed and reading its cookies throws: that must not skip the
+			// restore below (the next spec then ran in "all customers" and its WebDAV tokens were refused).
+			try {
+				await page.context().request.delete(`/api/teams/${encodeURIComponent(createdId)}`, { headers: await csrfHeaders() });
+			} catch {
+				// The customer stays deleted or restored; the database restore below is what matters.
+			}
 		}
 		// Deleting the selected customer left this shared administrator in "all customers".
 		// Later specs mint sessions for it and create customer-bound records (API tokens,

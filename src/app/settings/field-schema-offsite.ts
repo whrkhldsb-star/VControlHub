@@ -1,9 +1,10 @@
 import { isValidEmail, parseInteger, type SectionDef } from "./field-schema-core";
+import { IconArchive, IconBot, IconDashboard } from "@/components/nav-icons";
 
 export const DASHBOARD_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "dashboard",
-		icon: "🧩",
+		icon: IconDashboard,
 		titleKey: "settingsClient.schema.section.dashboard.title",
 		descriptionKey: "settingsClient.schema.section.dashboard.description",
 		defaultOpen: false,
@@ -23,7 +24,7 @@ export const DASHBOARD_SETTINGS_SECTIONS: SectionDef[] = [
 export const OFFSITE_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "offsite",
-		icon: "☁️",
+		icon: IconArchive,
 		titleKey: "settingsClient.schema.section.offsite.title",
 		descriptionKey: (s) => (s["offsite.enabled"] === "true"
 			? "settingsClient.schema.section.offsite.description.enabled"
@@ -140,7 +141,7 @@ export const OFFSITE_SETTINGS_SECTIONS: SectionDef[] = [
 export const AI_OPS_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "aiOps",
-		icon: "🤖",
+		icon: IconBot,
 		titleKey: "settingsClient.schema.section.aiOps.title",
 		descriptionKey: (s) => (s["ai.ops.mode"] === "autonomous"
 			? "settingsClient.schema.section.aiOps.description.autonomous"

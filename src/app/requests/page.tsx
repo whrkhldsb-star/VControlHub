@@ -3,6 +3,7 @@ import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getPendingActions } from "@/lib/ai/hosted-service";
 import { listCommandRequests } from "@/lib/command/service";
+import { mayReviewCommandRequest } from "@/lib/command/review-scope";
 import { ReviewCommandForm } from "./review-command-form";
 import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
@@ -24,12 +25,23 @@ const ACTIVE_REQUEST_STATUSES = new Set(["PENDING_APPROVAL", "APPROVED", "RUNNIN
 export default async function RequestsPage() {
 	const session = await requirePagePermission("command:read", { redirectTo: "/requests" });
 	const canApprove = sessionHasPermission(session, "command:approve");
+	// A reviewer's own request goes to another reviewer unless the account manages the team: the server refuses the
+	// decision otherwise, and the form, the batch checkbox and the dashboard's count all followed "may approve" alone.
+	const awaitsThisReviewer = (request: { status: string; requester: { id: string } }) =>
+		request.status === "PENDING_APPROVAL" && mayReviewCommandRequest(session, request.requester.id);
 	// Who a cancel request is accepted from (PATCH /api/commands, cancelCommandRequest): a member who may execute
 	// commands, for a request of their own, and for anyone's when they may also approve. The button followed
 	// "may approve" alone: an operator could not stop the command they had just started, and a reviewer without
 	// the execute permission was shown a button the server refuses.
 	const canExecute = sessionHasPermission(session, "command:execute");
 	const canCancelOthers = canExecute && (canApprove || sessionHasPermission(session, "team:manage"));
+	// A member who may only submit withdraws their own request while it waits for approval.
+	const canSubmit = sessionHasPermission(session, "command:create");
+	const mayCancel = (request: { status: string; requester: { id: string } }) => {
+		const own = request.requester.id === session.userId;
+		if (!["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status)) return false;
+		return canCancelOthers || (canExecute && own) || (canSubmit && own && request.status === "PENDING_APPROVAL");
+	};
 	const locale = await getServerLocale();
 	const [requests, aiActions] = await Promise.all([
 		listCommandRequests(session),
@@ -75,7 +87,8 @@ export default async function RequestsPage() {
 											<ApprovalBadge status={request.status} label={getRequestStatusLabel(request.status, locale)} />
 											<InitiatorBadge assistant={request.isAssistantInitiated} label={t(request.isAssistantInitiated ? "requestsPage.initiator.assistant" : "requestsPage.initiator.user", locale)} />
 										</div>
-										{canApprove ? (
+										{/* Reviewers read every command; a submitter reads their own, which they could not see before. */}
+										{canApprove || request.requester.id === session.userId ? (
 											<p data-inset="" className="mt-2.5 px-3 py-2 font-mono text-xs text-[var(--text-primary)]">{request.command}</p>
 										) : (
 											<p data-inset="" className="mt-2.5 px-3 py-2 font-mono text-xs text-[var(--text-muted)]">{t("requestsPage.card.approvalOnly", locale)}</p>
@@ -135,8 +148,12 @@ export default async function RequestsPage() {
 									</InfoSection>
 								</div>
 
-								{canApprove && request.status === "PENDING_APPROVAL" && <ReviewCommandForm commandRequestId={request.id} />}
-								{(canCancelOthers || (canExecute && request.requester.id === session.userId)) && ["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status) && (
+								{awaitsThisReviewer(request) ? (
+									<ReviewCommandForm commandRequestId={request.id} />
+								) : canApprove && request.status === "PENDING_APPROVAL" ? (
+									<p className="mt-4 text-xs text-[var(--text-muted)]">{t("requestsPage.review.ownRequest", locale)}</p>
+								) : null}
+								{mayCancel(request) && (
 									<CancelCommandButton commandRequestId={request.id} commandTitle={request.title} />
 								)}
 								</article>
@@ -169,8 +186,8 @@ export default async function RequestsPage() {
 			</StatGrid>
 
 			<div className="space-y-6">
-				<section aria-labelledby="ai-approval-heading">
-					<h2 id="ai-approval-heading" className="sr-only">{t("requestsPage.ai.title", locale)}</h2>
+				{/* The list panel's own title is the section's heading; a hidden copy of it read every name twice. */}
+				<section aria-label={t("requestsPage.ai.title", locale)}>
 					<ListPanel
 						title={t("requestsPage.ai.title", locale)}
 						description={t("requestsPage.ai.desc", locale)}
@@ -187,8 +204,7 @@ export default async function RequestsPage() {
 					</ListPanel>
 				</section>
 
-				<section aria-labelledby="command-approval-heading">
-					<h2 id="command-approval-heading" className="sr-only">{t("requestsPage.cmd.title", locale)}</h2>
+				<section aria-label={t("requestsPage.cmd.title", locale)}>
 					<ListPanel
 						title={t("requestsPage.cmd.title", locale)}
 						description={t("requestsPage.cmd.desc", locale)}
@@ -199,19 +215,13 @@ export default async function RequestsPage() {
 						>
 						{activeRequests.length > 0 ? (
 						<BatchReviewToolbar
-							pendingIds={
-								canApprove
-									? activeRequests
-											.filter((r) => r.status === "PENDING_APPROVAL")
-											.map((r) => r.id)
-									: []
-							}
+							pendingIds={activeRequests.filter(awaitsThisReviewer).map((r) => r.id)}
 						>
 							<PaginatedList pageSize={20}>{activeRequests.map(renderRequest)}</PaginatedList>
 						</BatchReviewToolbar>
 						) : sortedRequests.length > 0 ? <EmptyState text={t("requestsPage.cmd.noActive", locale)} /> : null}
 						{handledRequests.length > 0 ? (
-							<Disclosure variant="inset" title={t("requestsPage.cmd.history", locale, { count: handledRequests.length })}>
+							<Disclosure variant="inset" title={t("requestsPage.cmd.history", locale)} count={handledRequests.length}>
 								<PaginatedList pageSize={20}>{handledRequests.map(renderRequest)}</PaginatedList>
 							</Disclosure>
 						) : null}

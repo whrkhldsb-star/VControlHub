@@ -17,7 +17,7 @@ export const zh: Record<string, string> = {
 	"fileMoreActions.more": "更多操作",
 	"renameInlineForm.rename": "重命名",
 	"renameInlineForm.newName": "新名称",
-	"renameInlineForm.confirm": "确认",
+	"renameInlineForm.confirm": "重命名",
 };
 
 export const en: Record<string, string> = {
@@ -27,7 +27,7 @@ export const en: Record<string, string> = {
 	"fileDetailPanel.storageNode": "Storage node",
 	"fileDetailPanel.driver": "Driver",
 	"fileDetailPanel.accessMode": "Access mode",
-	"fileDetailPanel.preview": "Preview / Edit online",
+	"fileDetailPanel.preview": "Preview / edit online",
 	"fileDetailPanel.download": "Download file",
 	"fileDetailPanel.findInMedia": "Find in media library",
 	"fileDetailPanel.managementActions": "Management actions",
@@ -35,5 +35,5 @@ export const en: Record<string, string> = {
 	"fileMoreActions.more": "More actions",
 	"renameInlineForm.rename": "Rename",
 	"renameInlineForm.newName": "New name",
-	"renameInlineForm.confirm": "Confirm",
+	"renameInlineForm.confirm": "Rename",
 };

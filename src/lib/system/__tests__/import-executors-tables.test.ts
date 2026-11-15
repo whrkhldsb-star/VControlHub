@@ -6,6 +6,7 @@ import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 import type { Counts, Tx } from "../import-executors-helpers";
 import { importPermissions } from "../import-executors-rbac";
 import { importServers, importStorageNodes, importUserStorageAccess } from "../import-executors-infrastructure";
+import { importAlertRules } from "../import-executors-automation";
 
 /**
  * Per-table import behaviour that the orchestration test cannot see: which rows
@@ -367,5 +368,31 @@ describe("references to rows that are neither in the package nor here", () => {
     const rows = createMany.mock.calls[0]![0].data as Array<{ id: string; serverId?: string | null }>;
     expect(rows.map((row) => [row.id, row.serverId])).toEqual([["n-gone", undefined], ["n-here", "s-here"]]);
     expect("serverId" in update.mock.calls[0]![0].data).toBe(false);
+  });
+});
+
+// ── importAlertRules ────────────────────────────────────
+
+describe("importAlertRules", () => {
+  const rule = (webhookUrl: string | null) => ({ id: "r1", name: "CPU", metric: "cpu", operator: "gt", threshold: 90, durationSeconds: 60, serverIds: [], notifyChannels: ["webhook"], playbookIds: [], webhookUrl, cooldownMinutes: 5, silenceWindows: [], escalationMinutes: 30, onCallUserIds: [], enabled: true, teamId: null, createdAt: "2026-01-01T00:00:00.000Z" });
+  const ruleTx = () => {
+    const update = vi.fn().mockResolvedValue({});
+    return { update, tx: { alertRule: { findMany: vi.fn().mockResolvedValue([{ id: "r1" }]), createMany: vi.fn().mockResolvedValue({ count: 0 }), update } } as unknown as Tx };
+  };
+
+  // The standard export leaves webhook addresses out; overwriting from it must not wipe the one the rule has.
+  it("keeps a rule's webhook address when a standard export overwrites it", async () => {
+    const { tx, update } = ruleTx();
+    await importAlertRules(tx, tables({ alertRules: [rule(null)] }), OVERWRITE, counts(), "standard");
+    expect(update.mock.calls[0]![0].data).not.toHaveProperty("webhookUrl");
+  });
+
+  it("writes the address a full export carries, including none", async () => {
+    const { tx, update } = ruleTx();
+    await importAlertRules(tx, tables({ alertRules: [rule(null)] }), OVERWRITE, counts(), "full");
+    expect(update.mock.calls[0]![0].data).toMatchObject({ webhookUrl: null });
+    const second = ruleTx();
+    await importAlertRules(second.tx, tables({ alertRules: [rule("https://hooks.example/T0K3N")] }), OVERWRITE, counts(), "standard");
+    expect(second.update.mock.calls[0]![0].data).toMatchObject({ webhookUrl: "https://hooks.example/T0K3N" });
   });
 });

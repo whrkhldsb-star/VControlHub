@@ -116,7 +116,7 @@ describe("durable file operation worker", () => {
     expect(mocks.fail).toHaveBeenCalledWith(
       "job",
       expect.any(String),
-      "1 item(s) failed",
+      "1 item failed",
     );
     expect(mocks.complete).not.toHaveBeenCalled();
   });

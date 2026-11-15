@@ -119,7 +119,7 @@ export function UserMenu({
 			>
 				<span
 					aria-hidden="true"
-					className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] text-xs font-semibold uppercase text-[var(--accent)] ring-1 ring-inset ring-[var(--accent-border)]"
+					className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] text-xs font-semibold text-[var(--accent)] ring-1 ring-inset ring-[var(--accent-border)]"
 				>
 					{initial}
 				</span>

@@ -85,6 +85,22 @@ describe.skipIf(!hasGrep)("content search roots and symlinks (real files)", () =
     expect((await search("SFTP", "", join(base, "root-alias"))).map((result) => result.path)).toEqual(["docs/inside.txt"]);
   });
 
+  it("looks into the same kinds of files on a remote node as on a local one", async () => {
+    // The remote command had a list of its own, without the names that have no extension and without four
+    // of the extensions: a Dockerfile, a README or build.gradle was found on a local node only.
+    const kinds = join(base, "kinds");
+    mkdirSync(kinds);
+    for (const name of ["notes.txt", "build.gradle", "app.dockerfile", "Dockerfile", "README", "Makefile", ".env", ".gitignore", "settings.properties"]) {
+      writeFileSync(join(kinds, name), "needle\n");
+    }
+    // Not text: neither side opens it.
+    writeFileSync(join(kinds, "photo.png"), "needle\n");
+    const found = async (driver: "LOCAL" | "SFTP") => (await search(driver, undefined, kinds)).map((result) => result.path).sort();
+    const local = await found("LOCAL");
+    expect(local).toEqual([".env", ".gitignore", "Dockerfile", "Makefile", "README", "app.dockerfile", "build.gradle", "notes.txt", "settings.properties"]);
+    expect(await found("SFTP")).toEqual(local);
+  });
+
   it("says the results are incomplete when a node has more matches than the cap", async () => {
     // 101 matching files: 100 were returned with truncated=false.
     const many = join(base, "many");

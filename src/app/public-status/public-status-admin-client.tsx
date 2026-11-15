@@ -329,7 +329,7 @@ function EditDialog({ state, onClose, onSaved, metrics, t }: { state: EditState;
 						<dt className="text-[var(--text-muted)]">{t("publicStatusAdmin.edit.note")}</dt>
 						<dd className="whitespace-pre-line break-words">{form.note.trim() || "—"}</dd>
 						<dt className="text-[var(--text-muted)]">{t("publicStatusAdmin.preview.metrics")}</dt>
-						<dd>{metrics.length ? metrics.map((m) => t(`publicStatusAdmin.metric.${m}`)).join("、") : "—"}</dd>
+						<dd>{metrics.length ? metrics.map((m) => t(`publicStatusAdmin.metric.${m}`)).join(t("common.listSeparator")) : "—"}</dd>
 					</dl>
 					<p className="mt-3 text-xs text-[var(--text-muted)]">{t("publicStatusAdmin.preview.never")}</p>
 				</aside>
@@ -545,7 +545,7 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 						<span className="block">{t("publicStatusAdmin.batch.publishNamedDesc")}</span>
 						{unnamed.length ? (
 							<span className="mt-2 block text-xs">
-								{t("publicStatusAdmin.batch.publishNamedList", { names: unnamed.slice(0, 8).map((row) => row.serverName).join("、") + (unnamed.length > 8 ? " …" : "") })}
+								{t("publicStatusAdmin.batch.publishNamedList", { names: [...unnamed.slice(0, 8).map((row) => row.serverName), ...(unnamed.length > 8 ? ["…"] : [])].join(t("common.listSeparator")) })}
 							</span>
 						) : null}
 					</>

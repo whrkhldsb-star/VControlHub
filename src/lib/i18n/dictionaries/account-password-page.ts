@@ -58,7 +58,7 @@ export const en: Record<string, string> = {
 		"Enter your current password to set a new one. Existing sessions will not be terminated, but the new password will be required at next sign-in.",
 
 	// post-success redirect (countdown template + immediate button)
-	"accountPasswordPage.redirectCountdown": "({seconds}s until redirect to dashboard...)",
+	"accountPasswordPage.redirectCountdown": "({seconds}s until redirect to dashboard…)",
 	"accountPasswordPage.redirectNow": "Go to dashboard now",
 	"accountPasswordPage.action.success": "Password updated. Use the new password next time you sign in.",
 	"accountPasswordPage.action.errorFallback": "Failed to change password",

@@ -3,19 +3,21 @@
 import { useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
-import { Card, EmptyState, Section } from "@/components/page-shell";
+import { Card, EmptyState, PageHeader, Section } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { AlertIncidentsSection } from "./alert-incidents-section";
 import { AlertRuleCard } from "./alert-rule-card";
 import type { AlertRule, PlaybookOption, ServerOption } from "./alert-rule-types";
-import { AlertRulesToolbar, TestResultPanel } from "./alert-rules-sections";
+import { AlertRulesHeaderActions, TestResultPanel } from "./alert-rules-sections";
 import { CreateRuleForm } from "./create-rule-form";
 import { DeleteRuleDialog } from "./delete-rule-dialog";
 import { useAlertRuleActions } from "./use-alert-rule-actions";
 import { IconSiren } from "@/components/nav-icons";
 
 type Props = {
+	/** Page header; rendered here so the page's commands sit in its actions. */
+	header?: { eyebrow?: string; title: string; description?: string };
 	rules: AlertRule[];
 	servers: ServerOption[];
 	playbooks?: PlaybookOption[];
@@ -23,6 +25,7 @@ type Props = {
 };
 
 export function AlertRuleListClient({
+	header,
 	rules: initialRules,
 	servers,
 	playbooks = [],
@@ -61,13 +64,17 @@ export function AlertRuleListClient({
 				deleteRule={deleteRule}
 			/>
 
-			<AlertRulesToolbar
-				canManage={canManage}
-				showCreate={showCreate}
-				setShowCreate={setShowCreate}
-				busyAction={busyAction}
-				triggerNow={triggerNow}
-			/>
+			{header ? (
+				<PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+					<AlertRulesHeaderActions
+						canManage={canManage}
+						showCreate={showCreate}
+						setShowCreate={setShowCreate}
+						busyAction={busyAction}
+						triggerNow={triggerNow}
+					/>
+				</PageHeader>
+			) : null}
 
 			{/* While the delete question is open its failure is shown there, not behind it. */}
 			{actionError && !rulePendingDelete && <Notice tone="danger">{actionError}</Notice>}
@@ -111,25 +118,23 @@ export function AlertRuleListClient({
 			/>
 
 			{rules.length === 0 ? (
-				<EmptyState icon={<IconSiren />} variant="boxed">
-					<div className="space-y-3">
-						<p>{t("alertRulesPage.empty")}</p>
-						<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.emptyHint")}</p>
-						{canManage ? (
-							<div className="flex flex-wrap justify-center gap-2">
-								<ActionButton
-									variant="primary"
-									onClick={() => void ensureDefaults()}
-									loading={busyAction === "defaults"}
-								>
-									{busyAction === "defaults"
-										? t("alertRulesPage.action.processing")
-										: t("alertRulesPage.ensureDefaults")}
-								</ActionButton>
-							</div>
-						) : null}
-					</div>
-				</EmptyState>
+				<EmptyState
+					icon={<IconSiren />}
+					variant="boxed"
+					title={t("alertRulesPage.empty")}
+					text={t("alertRulesPage.emptyHint")}
+					action={canManage ? (
+						<ActionButton
+							variant="primary"
+							onClick={() => void ensureDefaults()}
+							loading={busyAction === "defaults"}
+						>
+							{busyAction === "defaults"
+								? t("alertRulesPage.action.processing")
+								: t("alertRulesPage.ensureDefaults")}
+						</ActionButton>
+					) : undefined}
+				/>
 			) : (
 				<Section title={<>{t("alertRulesPage.rules.title")} <span className="ml-1 text-[13px] font-normal text-[var(--text-muted)] tabular-nums">{rules.length}</span></>}>
 					{rules.map((rule) => (

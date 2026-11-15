@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CapacityForecastPanel — fleet capacity prediction surface on /health.
+ * CapacityForecastPanel — fleet capacity prediction surface on /vps-status (under the node board).
  * Loads GET /api/health/capacity and renders risk summary + per-node table.
  */
 
@@ -9,7 +9,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { tt as applyTemplate } from "./health-dashboard-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
@@ -78,7 +77,7 @@ function formatDays(value: number | null, t: (k: string, vars?: Record<string, s
   if (value === 0) return t("healthPage.capacity.now");
   if (value < 1) return t("healthPage.capacity.ltOneDay");
   if (value >= 3650) return t("healthPage.capacity.far");
-  return applyTemplate(t, "healthPage.capacity.days", { n: Math.round(value * 10) / 10 });
+  return t("healthPage.capacity.days", { n: Math.round(value * 10) / 10 });
 }
 
 function metricLabel(metric: MetricForecast["metric"], t: (k: string, vars?: Record<string, string | number>) => string): string {
@@ -157,9 +156,9 @@ export function CapacityForecastPanel() {
               onChange={(e) => setHorizonDays(Number(e.target.value))}
               aria-label={t("healthPage.capacity.horizon")}
             >
-              <option value={7}>7d</option>
-              <option value={14}>14d</option>
-              <option value={30}>30d</option>
+              {[7, 14, 30].map((days) => (
+                <option key={days} value={days}>{t("healthPage.capacity.days", { n: days })}</option>
+              ))}
             </select>
           </label>
           <ActionButton size="sm" variant="secondary"
@@ -233,8 +232,8 @@ export function CapacityForecastPanel() {
           </div>
 
           <p className="text-xs text-[var(--text-muted)]">
-            {applyTemplate(t, "healthPage.capacity.meta", {
-              windowHours: data.summary.windowHours,
+            {t("healthPage.capacity.meta", {
+              windowDays: Math.round(data.summary.windowHours / 24),
               horizonDays: data.summary.horizonDays,
               insufficient: data.summary.insufficientData,
             })}
@@ -247,14 +246,14 @@ export function CapacityForecastPanel() {
           ) : (
             <div role="region" aria-label={t("healthPage.capacity.summary.nodes")} tabIndex={0} className="overflow-x-auto rounded-lg border border-[var(--border)]">
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-[var(--surface-elevated)] text-xs uppercase text-[var(--text-muted)]">
+                <thead className="bg-[var(--surface-elevated)] text-xs text-[var(--text-muted)]">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.node")}</th>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.risk")}</th>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.metric")}</th>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.latest")}</th>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.slope")}</th>
-                    <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.projected")}</th>
+                    <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.projected", { days: data.summary.horizonDays })}</th>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.until85")}</th>
                   </tr>
                 </thead>
@@ -295,7 +294,7 @@ export function CapacityForecastPanel() {
                         <td className="px-3 py-2 font-mono tabular-nums text-[var(--text-secondary)]">
                           {metric.slopePerDay === null
                             ? "—"
-                            : `${metric.slopePerDay > 0 ? "+" : ""}${metric.slopePerDay.toFixed(2)}%/d`}
+                            : `${metric.slopePerDay > 0 ? "+" : ""}${metric.slopePerDay.toFixed(2)}%`}
                         </td>
                         <td className="px-3 py-2 font-mono tabular-nums text-[var(--text-primary)]">
                           {metric.projected === null ? "—" : formatProjectedPercent(metric.projected)}

@@ -13,6 +13,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import {
   defaultUserPreferences,
+  normalizeUserPreferences,
   normalizeUserPreferencesForSession,
 } from "@/lib/preferences/user-preferences";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
@@ -40,11 +41,10 @@ export async function GET(request: Request) {
         select: { preferences: true },
       });
 
+      // Normalized as stored: a field that is missing takes its default there, and a layout saved before
+      // layouts recorded their widgets is read as such (filling the defaults in first would hide that).
       const prefs = user?.preferences
-        ? normalizeUserPreferencesForSession({
-            ...defaultPreferences,
-            ...(typeof user.preferences === "object" ? user.preferences : {}),
-          }, session)
+        ? normalizeUserPreferencesForSession(typeof user.preferences === "object" ? user.preferences : {}, session)
         : defaultPreferences;
 
       // Preferences mutate via PUT and are read immediately after save (multi-tab /
@@ -81,9 +81,10 @@ export async function PUT(request: Request) {
           existingRow?.preferences && typeof existingRow.preferences === "object"
             ? (existingRow.preferences as Record<string, unknown>)
             : {};
+        // The stored preferences are read as stored first (see GET); a new widget selection then replaces
+        // the visible list, and every widget not in it counts as hidden.
         const merged = normalizeUserPreferencesForSession({
-          ...defaultPreferences,
-          ...existing,
+          ...normalizeUserPreferences(existing),
           ...body,
         }, session);
         await tx.user.update({

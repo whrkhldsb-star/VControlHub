@@ -197,6 +197,10 @@ export async function POST(request: Request) {
       //  - Single HTTP or magnet relay: a single task (magnet relay may carry
       //    multiple magnet URLs into one aria2 task, handled below).
       const taskUrls = isHttpBatch ? allUrls : [allUrls[0]!];
+      // A download lands on exactly one server, so in the all-customers view it is recorded under that
+      // server's customer instead of asking for one to be chosen first. A server without a customer still
+      // needs the choice (teamCreateData refuses).
+      const downloadTeamId = session.currentTeamId ?? server.teamId ?? teamCreateData(session).teamId ?? null;
 
       const createdTaskIds: string[] = [];
       // New-A (2026-06-15): we used to dispatch `download.execute` jobs via
@@ -232,7 +236,7 @@ export async function POST(request: Request) {
               isBatch && batchUrls?.length
                 ? JSON.stringify(batchUrls)
                 : JSON.stringify([]),
-            ...teamCreateData(session),
+            teamId: downloadTeamId,
           },
         });
         createdTaskIds.push(task.id);
@@ -248,7 +252,7 @@ export async function POST(request: Request) {
             mode: relayMode ? "aria2_relay" : "direct",
             taskId: task.id,
             userId: session.userId,
-            teamId: session.currentTeamId ?? null,
+            teamId: downloadTeamId,
             // TR-001 T13b: propagate the target storage node so the
             // per-node concurrency cap inside `claimNextJob` can count
             // in-flight jobs targeting the same node. The route already
@@ -283,7 +287,7 @@ export async function POST(request: Request) {
           relayMode: relayMode ?? false,
           category: category ?? "",
           isBatch: isBatch ?? false,
-        }, undefined, session.currentTeamId);
+        }, undefined, downloadTeamId);
       }
 
       if (dispatchError) {
@@ -311,7 +315,7 @@ export async function POST(request: Request) {
           errorMessage: dispatchError.message,
           relayMode: relayMode ?? false,
           isBatch: isBatch ?? false,
-        }, undefined, session.currentTeamId);
+        }, undefined, downloadTeamId);
         return NextResponse.json(
           {
             error: t("apiDownloads.createFailedWithMessage", locale, { message: dispatchError.message }),

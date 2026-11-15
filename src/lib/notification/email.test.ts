@@ -55,6 +55,7 @@ describe("email notification delivery", () => {
 			host: "smtp.example.com",
 			port: 587,
 			secure: false,
+			requireTLS: false,
 			auth: { user: "mailer@example.com", pass: "secret" },
 			connectionTimeout: 10_000,
 			greetingTimeout: 10_000,
@@ -67,6 +68,20 @@ describe("email notification delivery", () => {
 			text: "Body",
 		}));
 		expect(result).toEqual({ accepted: ["ops@example.com", "admin@example.com"], rejected: [], messageId: "msg-1" });
+	});
+
+	// STARTTLS was used only when offered; "require encryption" refuses to send in the clear (465 is implicit TLS).
+	it("requires STARTTLS when the setting asks for it, and only off port 465", async () => {
+		getAllSettingsMock.mockResolvedValueOnce({
+			"smtp.enabled": "true", "smtp.host": "smtp.example.com", "smtp.port": "587", "smtp.from": "noreply@example.com", "smtp.requireTls": "true",
+		});
+		await sendEmail({ to: ["ops@example.com"], subject: "Alert", text: "Body" });
+		expect(createTransportMock).toHaveBeenLastCalledWith(expect.objectContaining({ port: 587, secure: false, requireTLS: true }));
+		getAllSettingsMock.mockResolvedValueOnce({
+			"smtp.enabled": "true", "smtp.host": "smtp.example.com", "smtp.port": "465", "smtp.from": "noreply@example.com", "smtp.requireTls": "true",
+		});
+		await sendEmail({ to: ["ops@example.com"], subject: "Alert", text: "Body" });
+		expect(createTransportMock).toHaveBeenLastCalledWith(expect.objectContaining({ port: 465, secure: true, requireTLS: false }));
 	});
 
 	it("sends alert emails to the configured alert recipients", async () => {

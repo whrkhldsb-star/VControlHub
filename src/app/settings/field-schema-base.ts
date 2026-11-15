@@ -1,9 +1,10 @@
 import { parseInteger, runtimeNumber, validateLogoUrl, type SectionDef } from "./field-schema-core";
+import { IconGlobe, IconKey, IconShield, IconSliders } from "@/components/nav-icons";
 
 export const BASE_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "2fa",
-		icon: "🛡️",
+		icon: IconShield,
 		titleKey: "settingsClient.schema.section.twoFactor.title",
 		descriptionKey: "settingsClient.schema.section.twoFactor.description",
 		badgeKey: "settingsClient.schema.section.twoFactor.badge",
@@ -14,7 +15,7 @@ export const BASE_SETTINGS_SECTIONS: SectionDef[] = [
 	},
 	{
 		id: "platform",
-		icon: "🌐",
+		icon: IconGlobe,
 		titleKey: "settingsClient.schema.section.platform.title",
 		descriptionKey: "settingsClient.schema.section.platform.description",
 		defaultOpen: true,
@@ -62,7 +63,7 @@ export const BASE_SETTINGS_SECTIONS: SectionDef[] = [
 	},
 	{
 		id: "password",
-		icon: "🔐",
+		icon: IconKey,
 		titleKey: "settingsClient.schema.section.password.title",
 		descriptionKey: "settingsClient.schema.section.password.description",
 		defaultOpen: true,
@@ -97,7 +98,7 @@ export const BASE_SETTINGS_SECTIONS: SectionDef[] = [
 	},
 	{
 		id: "runtime",
-		icon: "⚙️",
+		icon: IconSliders,
 		titleKey: "settingsClient.schema.section.runtime.title",
 		descriptionKey: "settingsClient.schema.section.runtime.description",
 		badgeKey: "settingsClient.schema.section.runtime.badge",

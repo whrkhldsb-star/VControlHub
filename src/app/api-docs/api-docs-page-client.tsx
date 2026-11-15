@@ -171,12 +171,12 @@ export default function ApiDocsPage() {
 											<div className="min-w-0 flex-1">
 												<div className="flex flex-wrap items-center gap-2">
 													<span
-														className={`rounded-lg border px-2 py-1 font-mono text-xs font-semibold uppercase ${
+														className={`rounded-lg border px-2 py-1 font-mono text-xs font-semibold ${
 															methodStyles[entry.method] ??
 															"border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
 														}`}
 													>
-														{entry.method}
+														{entry.method.toUpperCase()}
 													</span>
 													<code className="break-all rounded-lg bg-[var(--surface-subtle)] px-2 py-1 font-mono text-sm text-[var(--color-action-text)]">
 														/api{entry.path}

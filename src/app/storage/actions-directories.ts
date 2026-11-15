@@ -413,10 +413,10 @@ async function renameFileEntryActionImpl(
           // directories and the rename rolled back every time.
           // Recycle-bin rows move too (see the preload above): their bytes moved with the rename. Leaving them at
           // the old prefix resurrected trashed files under the new name and made "delete permanently" a no-op.
-          const replacementPrefix = newPrefix.replace(/\\/g, "\\\\");
+          // A plain concatenation: the new prefix is taken as it is (it holds no "\": storage paths refuse it).
           await tx.$executeRaw`
             UPDATE file_entries
-            SET "relativePath" = ${replacementPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
+            SET "relativePath" = ${newPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
                 "updatedAt" = (now() AT TIME ZONE 'UTC')
             WHERE "storageNodeId" = ${entry.storageNodeId}
               AND "relativePath" LIKE ${`${escapeLikeLiteral(oldPrefix)}%`} ESCAPE '\\'

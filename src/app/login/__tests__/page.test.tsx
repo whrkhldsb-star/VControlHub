@@ -8,19 +8,26 @@ vi.mock("next/headers", () => ({
 	})),
 	headers: vi.fn(async () => new Headers({ "x-nonce": "page-nonce" })),
 }));
+// The language switch refreshes the page's server-rendered text through the router.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/auth/turnstile", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@/lib/auth/turnstile")>()),
 	getTurnstileConfig: turnstileConfig,
 }));
 
 import LoginPage from "@/app/login/page";
+import { I18nProvider } from "@/lib/i18n/provider";
+import { ThemeProvider } from "@/lib/theme/provider";
+
+// The root layout's providers: the page's language and theme switches read them.
+const renderPage = (ui: React.ReactNode) => render(<ThemeProvider><I18nProvider initialLocale="zh">{ui}</I18nProvider></ThemeProvider>);
 
 describe("LoginPage", () => {
 	it("renders sign-in page for the private console", async () => {
 		vi.stubEnv("NEXT_PUBLIC_APP_PUBLIC_LABEL", "VPS 管理与分布式云盘");
 		vi.stubEnv("SITE_NAME", "VPS 统一管控平台");
 
-		render(await LoginPage({ searchParams: Promise.resolve({}) }));
+		renderPage(await LoginPage({ searchParams: Promise.resolve({}) }));
 
 		expect(screen.getByText("VPS 统一管控平台")).toBeInTheDocument();
 		expect(screen.getByText("VPS 管理与分布式云盘，一站式资源管理")).toBeInTheDocument();
@@ -32,8 +39,21 @@ describe("LoginPage", () => {
 		vi.unstubAllEnvs();
 	});
 
+	it("lets the language and the theme be chosen before signing in, and starts in the username", async () => {
+		// Neither could be changed on this page: a person who reads English met a Chinese form, and the
+		// switches appeared only after signing in.
+		renderPage(await LoginPage({ searchParams: Promise.resolve({}) }));
+		expect(screen.getByRole("button", { name: "切换到英文" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /切换到(浅色|深色)模式/ })).toBeInTheDocument();
+		const username = screen.getByLabelText("用户名");
+		expect(username).toHaveFocus();
+		// An empty field is refused by the browser, not by a round trip that says "wrong username or password".
+		expect(username).toBeRequired();
+		expect(screen.getByLabelText("密码")).toBeRequired();
+	});
+
 	it("prints only a number as the lockout minutes, never text taken from the URL", async () => {
-		render(await LoginPage({ searchParams: Promise.resolve({ error: "locked", minutes: "5 — call +1-555-0100 to unlock" }) }));
+		renderPage(await LoginPage({ searchParams: Promise.resolve({ error: "locked", minutes: "5 — call +1-555-0100 to unlock" }) }));
 		expect(screen.queryByText(/555/)).not.toBeInTheDocument();
 	});
 
@@ -42,7 +62,7 @@ describe("LoginPage", () => {
 	});
 
 	it("uses light-theme readable surfaces while preserving the dark default", async () => {
-		const { container } = render(await LoginPage({ searchParams: Promise.resolve({}) }));
+		const { container } = renderPage(await LoginPage({ searchParams: Promise.resolve({}) }));
 
 		const main = container.firstElementChild;
 		expect(main).toHaveClass("relative");
@@ -59,14 +79,14 @@ describe("LoginPage", () => {
 		});
 
 	it("renders a visible alert for login errors", async () => {
-		render(await LoginPage({ searchParams: Promise.resolve({ error: "invalid" }) }));
+		renderPage(await LoginPage({ searchParams: Promise.resolve({ error: "invalid" }) }));
 
 		expect(screen.getByRole("alert")).toHaveTextContent("用户名或密码错误");
 	});
 
 	it("shows Cloudflare's human verification in the form when Turnstile is on, and why a login it refused failed", async () => {
 		turnstileConfig.mockResolvedValueOnce({ siteKey: "0xSITE", secretKey: "0xSECRET" });
-		const { container } = render(await LoginPage({ searchParams: Promise.resolve({ error: "captcha" }) }));
+		const { container } = renderPage(await LoginPage({ searchParams: Promise.resolve({ error: "captcha" }) }));
 		const widget = screen.getByTestId("login-turnstile");
 		expect(widget).toHaveAttribute("data-sitekey", "0xSITE");
 		expect(widget.closest("form")).toHaveAttribute("action", "/api/login");
@@ -78,7 +98,7 @@ describe("LoginPage", () => {
 	});
 
 	it("shows no verification while Turnstile is off", async () => {
-		render(await LoginPage({ searchParams: Promise.resolve({}) }));
+		renderPage(await LoginPage({ searchParams: Promise.resolve({}) }));
 		expect(screen.queryByTestId("login-turnstile")).not.toBeInTheDocument();
 	});
 })

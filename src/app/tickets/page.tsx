@@ -3,9 +3,8 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { countTickets } from "@/lib/ticket/service";
 import { listTicketBoard, listTicketPage, type TicketSlaFilter } from "@/lib/ticket/query";
-import { PageShell, PageHeader, StatCard, StatGrid } from "@/components/page-shell";
-import { CreateTicketForm } from "./create-ticket-form";
-import { TicketWorkspace } from "./ticket-workspace";
+import { PageShell, StatCard, StatGrid } from "@/components/page-shell";
+import { TicketsPageClient } from "./tickets-page-client";
 import { toWorkspaceBoard, toWorkspaceTicket } from "@/lib/ticket/workspace-dto";
 import { listServerProfiles } from "@/lib/server/service-profiles";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -48,26 +47,24 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
 
   return (
     <PageShell>
-      <PageHeader eyebrow={t("ticketsPage.eyebrow", locale)} title={t("ticketsPage.title", locale)} description={t("ticketsPage.desc", locale)} className="mb-6" />
-
-      <StatGrid cols={4}>
-        <StatCard label={t("ticketsPage.status.OPEN", locale)} value={String(openCount)} accent={openCount > 0} accentColor="cyan" />
-        <StatCard label={t("ticketsPage.status.IN_PROGRESS", locale)} value={String(progressCount)} accent={progressCount > 0} accentColor="amber" />
-        <StatCard label={t("ticketsPage.status.RESOLVED", locale)} value={String(resolvedCount)} accent={resolvedCount > 0} accentColor="emerald" />
-        <StatCard label={t("ticketsPage.stats.highOrUrgent", locale)} value={String(urgentCount)} accent={urgentCount > 0} accentColor="rose" />
-      </StatGrid>
-
-      {canCreate && (
-        <div className="mb-6">
-          <CreateTicketForm locale={locale} servers={servers.map((server: { id: string; name: string; host: string }) => ({ id: server.id, name: server.name, host: server.host }))} />
-        </div>
-      )}
-
-      <TicketWorkspace
-        initialPage={firstPage ? { tickets: firstPage.tickets.map(toWorkspaceTicket), total: firstPage.total, page: firstPage.page } : null}
-        initialBoard={firstBoard ? toWorkspaceBoard(firstBoard) : null}
-        canManage={canManage}
-        now={now.toISOString()}
+      <TicketsPageClient
+        header={{ eyebrow: t("ticketsPage.eyebrow", locale), title: t("ticketsPage.title", locale), description: t("ticketsPage.desc", locale) }}
+        canCreate={canCreate}
+        servers={servers.map((server: { id: string; name: string; host: string }) => ({ id: server.id, name: server.name, host: server.host }))}
+        stats={
+          <StatGrid cols={4}>
+            <StatCard label={t("ticketsPage.status.OPEN", locale)} value={String(openCount)} accent={openCount > 0} accentColor="cyan" />
+            <StatCard label={t("ticketsPage.status.IN_PROGRESS", locale)} value={String(progressCount)} accent={progressCount > 0} accentColor="amber" />
+            <StatCard label={t("ticketsPage.status.RESOLVED", locale)} value={String(resolvedCount)} accent={resolvedCount > 0} accentColor="emerald" />
+            <StatCard label={t("ticketsPage.stats.highOrUrgent", locale)} value={String(urgentCount)} accent={urgentCount > 0} accentColor="rose" />
+          </StatGrid>
+        }
+        workspace={{
+          initialPage: firstPage ? { tickets: firstPage.tickets.map(toWorkspaceTicket), total: firstPage.total, page: firstPage.page } : null,
+          initialBoard: firstBoard ? toWorkspaceBoard(firstBoard) : null,
+          canManage,
+          now: now.toISOString(),
+        }}
       />
     </PageShell>
   );

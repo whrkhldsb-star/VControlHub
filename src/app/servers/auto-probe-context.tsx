@@ -173,7 +173,7 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * 在 Provider 之外调用时返回一份「禁用」的快照，让卡片在没有 Provider 的
+ * 在 Provider 之外调用时返回一份“禁用”的快照，让卡片在没有 Provider 的
  * 测试或老页面里静默退化为旧行为。
  */
 export function useAutoProbeSettings(): AutoProbeContextValue {

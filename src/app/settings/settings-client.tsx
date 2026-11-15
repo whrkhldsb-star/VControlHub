@@ -54,7 +54,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { IconShield } from "@/components/nav-icons";
+import { IconChevronRight, IconShield } from "@/components/nav-icons";
 
 // Re-export so test files importing from `settings-client` keep working.
 export { FieldRiskBadge, FieldRollbackButton } from "./settings-field-risk";
@@ -442,9 +442,7 @@ export function SettingsClient({
                 }
                 className="group flex items-center gap-2 px-3 py-2 text-xs transition"
               >
-                <span className="text-base" aria-hidden>
-                  {item.icon}
-                </span>
+                <item.icon size={16} className="shrink-0 text-[var(--text-muted)]" />
                 <span className="flex-1 min-w-0">
                   <span className="block font-semibold text-[var(--text-primary)] truncate">
                     {item.title}
@@ -453,12 +451,10 @@ export function SettingsClient({
                     {item.subtitle}
                   </span>
                 </span>
-                <span
-                  className="text-[var(--accent)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition"
-                  aria-hidden
-                >
-                  →
-                </span>
+                <IconChevronRight
+                  size={14}
+                  className="shrink-0 text-[var(--accent)] opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100"
+                />
               </a>
             ))}
           </div>

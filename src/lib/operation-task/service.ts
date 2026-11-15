@@ -6,6 +6,9 @@ import { actorName } from "@/lib/ticket/timeline";
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
 import { serviceT } from "@/lib/i18n/service-locale";
+import { getServerLocale } from "@/lib/i18n/server-locale-cookie";
+import { localizeStoredSentence, localizeStoredText } from "@/lib/i18n/stored-sentences";
+import { getJobTypeLabel } from "@/lib/i18n/domain-labels";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
 // without pulling the whole server-only service module. We import them
@@ -128,11 +131,16 @@ function resolveDeploymentOperationStatus(item: DeploymentTaskRow): OperationTas
   return mapOperationStatus(commandStatus);
 }
 
-function formatWorkerProgress(input: { workerId?: string | null; workerHeartbeatAt?: Date | string | null; updatedAt?: Date | string | null }) {
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
+/** Which executor holds a command and when it last reported, in the reader's language. */
+function formatWorkerProgress(input: { workerId?: string | null; workerHeartbeatAt?: Date | string | null; updatedAt?: Date | string | null }, t: Translate) {
   if (!input.workerId && !input.workerHeartbeatAt) return null;
   const heartbeat = input.workerHeartbeatAt ?? input.updatedAt;
-  const heartbeatText = heartbeat ? `heartbeat ${new Date(heartbeat).toISOString()}` : "heartbeat unknown";
-  return `backend executor ${input.workerId ?? "unknown"} · ${heartbeatText}`;
+  const worker = input.workerId ?? t("backend.operationTask.worker.unknown");
+  return heartbeat
+    ? t("backend.operationTask.worker.progress", { worker, heartbeat: new Date(heartbeat).toISOString() })
+    : t("backend.operationTask.worker.progressNoHeartbeat", { worker });
 }
 
 /**
@@ -276,7 +284,8 @@ function normalizeFailureReason(task: OperationTask, t: (key: string, vars?: Rec
   if (/connect|network|econn|dns|socket|网络|连接/.test(text)) return t("backend.operationTask.failure.networkOrConnection");
   if (/smtp|email|mail|webhook|telegram|通知/.test(text)) return t("backend.operationTask.failure.notification");
   if (/backup|restore|备份|恢复/.test(text)) return t("backend.operationTask.failure.backupOrRestore");
-  return task.taskType ? t("backend.operationTask.failure.taskTypeFailed", { taskType: task.taskType }) : t("backend.operationTask.failure.sourceFailed", { source: t(`backend.operationTask.source.${task.source}`) });
+  // The job type in the page's language ("ITSM 推送失败", not "itsm.outbound 失败").
+  return task.taskType ? t("backend.operationTask.failure.taskTypeFailed", { taskType: getJobTypeLabel(t, task.taskType) }) : t("backend.operationTask.failure.sourceFailed", { source: t(`backend.operationTask.source.${task.source}`) });
 }
 
 function summarizeOperationTaskFailures(tasks: OperationTask[], t: (key: string, vars?: Record<string, string | number>) => string): OperationTaskFailureSummary[] {
@@ -323,6 +332,8 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
   const limit = Math.trunc(
     Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : configuredLimit, 1), configuredLimit),
   );
+  const locale = await getServerLocale();
+  const t = await serviceT(locale);
   const teamScope = teamWhere(session);
   const canReadTeamTasks = sessionHasPermission(session, "team:manage");
   const scopedWhere = (ownerField: string): Record<string, unknown> => {
@@ -385,20 +396,109 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
   );
 
   const tasks: OperationTask[] = [
-    ...jobs.map((item: JobTaskRow) => ({ id: `job:${item.id}`, source: "job" as const, sourceId: item.id, title: item.title, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress ?? item.errorMessage, logPreview: compactLogPreview([item.progress, item.errorMessage]), workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null, taskType: item.type, eventCount: item._count?.events ?? 0 })),
-    ...commands.map((item: CommandTaskRow) => ({ ...commandTaskOrigin(item), sourceId: item.id, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.requester), progress: formatWorkerProgress(item), logPreview: compactLogPreview([(item.executionLogs ?? []).map((log) => log.summary).join("\n"), (item.targets ?? []).map((target) => { const tail = targetOutputTails.get(target.id); return [tail?.stdout, tail?.stderr].filter(Boolean).join("\n"); }).join("\n"), formatWorkerProgress(item)]), workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null })),
-    ...downloads.map((item: DownloadTaskRow) => ({ id: `download:${item.id}`, source: "download" as const, sourceId: item.id, title: item.fileName || item.url, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress, logPreview: compactLogPreview([item.progress, item.targetPath]), href: "/downloads" })),
-    ...syncJobs.map((item: SyncJobTaskRow) => ({ id: `sync:${item.id}`, source: "sync" as const, sourceId: item.id, title: item.name, status: syncJobOperationStatus(item), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.lastSyncResult, logPreview: compactLogPreview([item.lastSyncResult]), href: "/files" })),
-    ...backups.map((item: BackupTaskRow) => ({ id: `backup:${item.id}`, source: "backup" as const, sourceId: item.id, title: `${item.type} backup`, taskType: item.type, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.filePath, logPreview: compactLogPreview([item.filePath]), href: "/backups" })),
-    ...deployments.map((item: DeploymentTaskRow) => ({ id: `deployment:${item.id}`, source: "deployment" as const, sourceId: item.id, title: item.template.name, status: resolveDeploymentOperationStatus(item), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.commandRequest ? formatWorkerProgress(item.commandRequest) : null, logPreview: compactLogPreview([item.commandRequest ? formatWorkerProgress(item.commandRequest) : null]), workerId: item.commandRequest?.workerId ?? null, workerHeartbeatAt: item.commandRequest?.workerHeartbeatAt ? toIso(item.commandRequest.workerHeartbeatAt) : null, href: "/deployments" })),
+    ...jobs.map((item: JobTaskRow) => ({
+      id: `job:${item.id}`,
+      source: "job" as const,
+      sourceId: item.id,
+      title: item.title,
+      status: mapOperationStatus(item.status),
+      createdAt: toIso(item.createdAt),
+      updatedAt: toIso(item.updatedAt),
+      actor: actorName(item.creator),
+      progress: item.progress ?? item.errorMessage,
+      logPreview: compactLogPreview([item.progress, item.errorMessage]),
+      workerId: item.workerId,
+      workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null,
+      taskType: item.type,
+      eventCount: item._count?.events ?? 0,
+    })),
+    ...commands.map((item: CommandTaskRow) => ({
+      ...commandTaskOrigin(item),
+      sourceId: item.id,
+      status: mapOperationStatus(item.status),
+      createdAt: toIso(item.createdAt),
+      updatedAt: toIso(item.updatedAt),
+      actor: actorName(item.requester),
+      progress: formatWorkerProgress(item, t),
+      logPreview: compactLogPreview([
+        (item.executionLogs ?? []).map((log) => log.summary).join("\n"),
+        (item.targets ?? [])
+          .map((target) => {
+            const tail = targetOutputTails.get(target.id);
+            return [tail?.stdout, tail?.stderr].filter(Boolean).join("\n");
+          })
+          .join("\n"),
+        formatWorkerProgress(item, t),
+      ]),
+      workerId: item.workerId,
+      workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null,
+    })),
+    ...downloads.map((item: DownloadTaskRow) => ({
+      id: `download:${item.id}`,
+      source: "download" as const,
+      sourceId: item.id,
+      title: item.fileName || item.url,
+      status: mapOperationStatus(item.status),
+      createdAt: toIso(item.createdAt),
+      updatedAt: toIso(item.updatedAt),
+      actor: actorName(item.creator),
+      progress: item.progress,
+      logPreview: compactLogPreview([item.progress, item.targetPath]),
+      href: "/downloads",
+    })),
+    ...syncJobs.map((item: SyncJobTaskRow) => ({
+      id: `sync:${item.id}`,
+      source: "sync" as const,
+      sourceId: item.id,
+      title: item.name,
+      status: syncJobOperationStatus(item),
+      createdAt: toIso(item.createdAt),
+      updatedAt: toIso(item.updatedAt),
+      actor: actorName(item.creator),
+      progress: item.lastSyncResult,
+      logPreview: compactLogPreview([item.lastSyncResult]),
+      href: "/files",
+    })),
+    ...backups.map((item: BackupTaskRow) => ({
+      id: `backup:${item.id}`,
+      source: "backup" as const,
+      sourceId: item.id,
+      title: `${item.type} backup`,
+      taskType: item.type,
+      status: mapOperationStatus(item.status),
+      createdAt: toIso(item.createdAt),
+      updatedAt: toIso(item.updatedAt),
+      actor: actorName(item.creator),
+      progress: item.filePath,
+      logPreview: compactLogPreview([item.filePath]),
+      href: "/backups",
+    })),
+    ...deployments.map((item: DeploymentTaskRow) => ({
+      id: `deployment:${item.id}`,
+      source: "deployment" as const,
+      sourceId: item.id,
+      title: item.template.name,
+      status: resolveDeploymentOperationStatus(item),
+      createdAt: toIso(item.createdAt),
+      updatedAt: toIso(item.updatedAt),
+      actor: actorName(item.creator),
+      progress: item.commandRequest ? formatWorkerProgress(item.commandRequest, t) : null,
+      logPreview: compactLogPreview([item.commandRequest ? formatWorkerProgress(item.commandRequest, t) : null]),
+      workerId: item.commandRequest?.workerId ?? null,
+      workerHeartbeatAt: item.commandRequest?.workerHeartbeatAt ? toIso(item.commandRequest.workerHeartbeatAt) : null,
+      href: "/deployments",
+    })),
   ];
 
   const foldedTasks = foldCompletedPeriodicJobs(tasks);
   const filteredTasks = sortOperationTasks(filterOperationTasks(foldedTasks, options), options.sort)
     .slice(0, limit);
-  const t = await serviceT();
   return {
-    tasks: filteredTasks,
+    // A job's progress and failure are sentences its worker stored: said in the reader's language. The
+    // failure groups are read from the stored text, so they do not depend on the reader.
+    tasks: filteredTasks.map((task) => task.source === "job"
+      ? { ...task, progress: localizeStoredText(task.progress, locale), logPreview: task.logPreview?.map((line) => localizeStoredSentence(line, locale)) }
+      : task),
     sourceSummary: summarizeOperationTaskSources(filteredTasks),
     failureSummary: summarizeOperationTaskFailures(filteredTasks, t),
   };

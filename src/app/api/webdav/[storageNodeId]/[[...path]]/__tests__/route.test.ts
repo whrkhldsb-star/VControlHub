@@ -29,6 +29,7 @@ vi.mock("@/lib/webdav/auth", async () => {
   const actual = await import("@/lib/webdav/auth");
   return {
     authenticateWebDavRequest: mocks.authenticateWebDavRequest,
+    UnknownWebDavTokenError: actual.UnknownWebDavTokenError,
     webDavUnauthorizedResponse: actual.webDavUnauthorizedResponse,
   };
 });
@@ -118,6 +119,41 @@ describe("webdav route dispatch", () => {
 
     expect(response.status).toBe(401);
     expect(response.headers.get("WWW-Authenticate")).toContain("Basic");
+  });
+
+  // The request limit is per path, so a caller presenting tokens that do not exist could rotate paths for a
+  // fresh budget of token lookups. After 60 such tokens the client is refused for a while, on every path.
+  it("refuses a client that keeps presenting tokens that do not exist, whatever the path", async () => {
+    const { UnknownWebDavTokenError } = await import("@/lib/webdav/auth");
+    mocks.authenticateWebDavRequest.mockRejectedValue(new UnknownWebDavTokenError("unknown"));
+    const guess = (ip: string, path: string) => GET(req("GET", { authorization: "Bearer vch_guess", "x-forwarded-for": ip }, path), params([path]));
+    for (let i = 0; i < 60; i++) expect((await guess("198.51.100.7", `p${i}.txt`)).status).toBe(401);
+
+    const refused = await guess("198.51.100.7", "other.txt");
+    expect(refused.status).toBe(429);
+    expect(Number(refused.headers.get("Retry-After"))).toBeGreaterThan(0);
+    expect(mocks.authenticateWebDavRequest).toHaveBeenCalledTimes(60);
+    // Another client, and a request that only asks how to sign in, are answered as before.
+    expect((await guess("198.51.100.8", "a.txt")).status).toBe(401);
+    expect((await GET(req("GET", { "x-forwarded-for": "198.51.100.7" }), params(["a.txt"]))).status).toBe(401);
+  });
+
+  it("counts nothing for a client without a trusted address: one shared counter would lock everyone out", async () => {
+    const { UnknownWebDavTokenError } = await import("@/lib/webdav/auth");
+    mocks.authenticateWebDavRequest.mockRejectedValue(new UnknownWebDavTokenError("unknown"));
+    let status = 0;
+    for (let i = 0; i < 70; i++) status = (await GET(req("GET", { authorization: "Bearer vch_guess" }, `u${i}.txt`), params([`u${i}.txt`]))).status;
+    expect(status).toBe(401);
+  });
+
+  it("does not count a real token that may not do what was asked", async () => {
+    const { AuthError } = await import("@/lib/errors");
+    mocks.authenticateWebDavRequest.mockRejectedValue(new AuthError("insufficient"));
+    let status = 0;
+    for (let i = 0; i < 70; i++) {
+      status = (await PUT(req("PUT", { authorization: "Bearer vch_read_only", "x-forwarded-for": "198.51.100.9" }, `w${i}.txt`), params([`w${i}.txt`]))).status;
+    }
+    expect(status).toBe(401);
   });
 
   it("propagates a non-AuthError from authentication", async () => {

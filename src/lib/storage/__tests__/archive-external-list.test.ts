@@ -187,6 +187,10 @@ describe("listing of .7z and .rar archives", () => {
 				["docs/sub/报告 2024.txt", 6],
 			]);
 			expect(entries.some((entry) => entry.isDirectory && entry.name === "docs")).toBe(true);
+			// Elsewhere the listing has every directory too, as before the Windows runs were added.
+			if (process.platform !== "win32") {
+				expect(entries.filter((entry) => entry.isDirectory).map((entry) => entry.name).sort()).toEqual(["docs", "docs/sub"]);
+			}
 		}, 30_000);
 
 		it.skipIf(!installed("7z"))("tells an encrypted file list and a damaged file apart, without waiting for a password", async () => {

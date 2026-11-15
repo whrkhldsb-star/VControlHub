@@ -7,6 +7,7 @@ import { dispatchDueVpsBackupSchedules } from "@/lib/backup/vps-backup-schedule-
 import { collectAllHealth } from "@/lib/health/service-collect";
 import { escalateBreachedTickets } from "@/lib/ticket/sla";
 import { hashShareToken, peekShareToken } from "@/lib/share-link/service";
+import { oneFileAtATime } from "@/test/helpers/one-file-at-a-time";
 
 /**
  * Deleting a customer hides it and keeps its rows for its history; the
@@ -15,6 +16,8 @@ import { hashShareToken, peekShareToken } from "@/lib/share-link/service";
  * sweep kept probing them. Real PostgreSQL only (relation filters).
  */
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a deleted customer's servers leave background work", () => {
+  // Its schedules are due from the start; another file's dispatch or parking would act on them first.
+  oneFileAtATime("vps-backup-schedules");
   const prefix = `deleted-cust-${randomUUID().slice(0, 8)}`;
   const live = { team: `${prefix}-live`, server: `${prefix}-live-srv` };
   const gone = { team: `${prefix}-gone`, server: `${prefix}-gone-srv` };

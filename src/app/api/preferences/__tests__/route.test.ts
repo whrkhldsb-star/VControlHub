@@ -118,6 +118,26 @@ describe("/api/preferences", () => {
     }));
   });
 
+  // A layout used to store only its visible widgets: a widget added to the dashboard later was hidden for
+  // everyone who had saved one. It now records the widgets it knew.
+  it("shows a widget a stored layout did not know, and records the widgets a new selection knew", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      preferences: { dashboardWidgets: ["audit-log"], dashboardWidgetsKnown: ["server-status", "quick-links", "audit-log"] },
+    });
+    const read = await (await GET(new Request("http://local/api/preferences"))).json();
+    expect(read.dashboardWidgets).toEqual(["audit-log", "analytics"]);
+
+    prismaMock.user.findUnique.mockResolvedValueOnce({ preferences: { dashboardWidgets: ["analytics"] } });
+    const saved = await (await PUT(new Request("http://local/api/preferences", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ dashboardWidgets: ["server-status"] }),
+    }))).json();
+    expect(saved.dashboardWidgets).toEqual(["server-status"]);
+    expect(saved.dashboardWidgetsKnown).toEqual(["server-status", "quick-links", "analytics", "audit-log"]);
+    expect(prismaMock.user.update).toHaveBeenCalledWith({ where: { id: "u_1" }, data: { preferences: saved } });
+  });
+
   it("merges partial PUT into existing preferences without wiping siblings", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       preferences: {

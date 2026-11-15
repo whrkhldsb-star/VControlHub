@@ -21,11 +21,11 @@ export function MediaScanButton() {
       const result = await csrfFetch<ScanResult>("/api/media", {
         method: "POST",
       });
-      const removedText = result.removed
-        ? t("mediaScanButton.removed", { removed: result.removed })
-        : "";
+      // One sentence each: the removed count used to be a piece glued onto the end.
       setMessage(
-        t("mediaScanButton.summary", { scanned: result.scanned, upserted: result.upserted, removedText }),
+        result.removed
+          ? t("mediaScanButton.summaryRemoved", { scanned: result.scanned, upserted: result.upserted, removed: result.removed })
+          : t("mediaScanButton.summary", { scanned: result.scanned, upserted: result.upserted }),
       );
       startTransition(() => router.refresh());
     } catch (scanError) {
@@ -40,27 +40,23 @@ export function MediaScanButton() {
   }
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      {" "}
       <ActionButton variant="outline"
         onClick={handleScan}
         disabled={disabled}>
-        {" "}
         {isScanning
           ? t("mediaScanButton.scanning")
-          : t("mediaScanButton.idle")}{" "}
-      </ActionButton>{" "}
+          : t("mediaScanButton.idle")}
+      </ActionButton>
       {message && (
         <p role="status" className="text-sm text-[var(--success)]">
-          {" "}
-          {message}{" "}
+          {message}
         </p>
-      )}{" "}
+      )}
       {error && (
         <p role="alert" className="text-sm text-[var(--danger)]">
-          {" "}
-          {error}{" "}
+          {error}
         </p>
-      )}{" "}
+      )}
     </div>
   );
 }

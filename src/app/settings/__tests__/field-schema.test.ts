@@ -75,6 +75,7 @@ describe("getSectionSaveKeys", () => {
 			"smtp.enabled",
 			"smtp.host",
 			"smtp.port",
+			"smtp.requireTls",
 			"smtp.user",
 			"smtp.pass",
 			"smtp.from",

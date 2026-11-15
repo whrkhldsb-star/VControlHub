@@ -6,7 +6,7 @@
  */
 
 export const zh: Record<string, string> = {
-	"common.loading": "加载中...",
+	"common.loading": "加载中…",
 	"common.refresh": "刷新",
 	"common.colon": "：",
 	"common.requestFailed": "请求失败",
@@ -22,7 +22,6 @@ export const zh: Record<string, string> = {
 	"common.close": "关闭",
 	"common.collapse": "收起",
 	"common.closeChangePasswordModal": "关闭修改密码弹窗",
-	"common.confirm": "确认",
 	"common.confirmDelete": "确认删除",
 	"common.create": "创建",
 	"common.cronExpression": "Cron 表达式",
@@ -109,6 +108,8 @@ export const zh: Record<string, string> = {
 	"common.unsaved.description": "当前内容尚未保存，离开后这些更改将丢失。",
 	"common.unsaved.stay": "继续编辑",
 	"common.unsaved.discard": "放弃并离开",
+	"common.listSeparator": "、",
+	"common.sentenceSeparator": "；",
 
 	"changePassword.currentPassword": "当前密码",
 	"changePassword.currentPasswordDesc": "请输入当前正在使用的登录密码。",
@@ -128,7 +129,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"common.loading": "Loading...",
+	"common.loading": "Loading…",
 	"common.refresh": "Refresh",
 	"common.colon": ": ",
 	"common.requestFailed": "Request failed",
@@ -144,8 +145,7 @@ export const en: Record<string, string> = {
 	"common.close": "Close",
 	"common.collapse": "Collapse",
 	"common.closeChangePasswordModal": "Close change password modal",
-	"common.confirm": "Confirm",
-	"common.confirmDelete": "Confirm delete",
+	"common.confirmDelete": "Delete",
 	"common.create": "Create",
 	"common.cronExpression": "Cron expression",
 	"common.databaseBackup": "Database backup",
@@ -232,6 +232,8 @@ export const en: Record<string, string> = {
 		"Your changes have not been saved and will be lost if you leave.",
 	"common.unsaved.stay": "Keep editing",
 	"common.unsaved.discard": "Discard and leave",
+	"common.listSeparator": ", ",
+	"common.sentenceSeparator": "; ",
 
 	"changePassword.currentPassword": "Current password",
 	"changePassword.currentPasswordDesc": "Enter your current login password.",
@@ -239,7 +241,7 @@ export const en: Record<string, string> = {
 	"changePassword.newPasswordDesc": "At least 8 characters. Use a mix of upper/lower case, digits and symbols.",
 	"changePassword.confirmPassword": "Confirm new password",
 	"changePassword.confirmPasswordDesc": "Re-enter the new password to avoid typos.",
-	"changePassword.saving": "Saving...",
+	"changePassword.saving": "Saving…",
 	"changePassword.hide": "Hide",
 	"changePassword.hideField": "Hide {label}",
 	"changePassword.show": "Show",

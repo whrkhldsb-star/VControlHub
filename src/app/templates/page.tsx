@@ -4,7 +4,7 @@ import { listTemplates } from "@/lib/command-template/service";
 import { listServerProfiles } from "@/lib/server/service";
 
 import { TemplateListClient } from "./template-list-client";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
 
@@ -34,12 +34,9 @@ export default async function CommandTemplatesPage() {
 
 	return (
 		<PageShell>
-			<PageHeader
-				eyebrow={t("templatesPage.eyebrow", locale)}
-				title={t("templatesPage.title", locale)}
-				description={t("templatesPage.desc", locale)}
-			/>
-			<TemplateListClient templates={serialized} servers={serverOptions} canCreate={canCreate} canDeploy={canDeploy} locale={locale} />
+			<TemplateListClient
+				header={{ eyebrow: t("templatesPage.eyebrow", locale), title: t("templatesPage.title", locale), description: t("templatesPage.desc", locale) }}
+				templates={serialized} servers={serverOptions} canCreate={canCreate} canDeploy={canDeploy} locale={locale} />
 		</PageShell>
 	);
 }

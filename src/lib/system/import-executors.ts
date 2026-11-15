@@ -125,7 +125,7 @@ export async function executeImport(
     // 12. Playbooks
     await importPlaybooks(tx, t, options, counts);
     // 13. AlertRules
-    await importAlertRules(tx, t, options, counts);
+    await importAlertRules(tx, t, options, counts, file.exportMode);
     // 14. Settings (可选)
     await importSettings(tx, t, options, counts);
     // 15. AiProviders

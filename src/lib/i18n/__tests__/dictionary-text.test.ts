@@ -58,10 +58,32 @@ describe("what the dictionaries say", () => {
 			"snippetsPage.modal.field.tagsHint",
 			"filePreferences.tagsPlaceholder",
 		]);
+		// A mark between two Chinese words counts too: "暂无节点,默认匹配全部节点" and "08:00,可用换行" were not caught
+		// while the rule only looked at what followed a mark.
 		const halfWidth = Object.entries(all.zh)
-			.filter(([key, value]) => !allowed.has(key) && (/[一-鿿][:,;!?](?:\s|$|\{)/.test(value) || /[一-鿿]\.(?:\s|$)/.test(value) || /\((?=[^)]*[一-鿿])/.test(value)))
+			// Parentheses beside Chinese text are full-width too ("工单 ({count})" → "工单（{count}）"); "http(s)"
+			// is a term, not a remark in parentheses.
+			.filter(([key, value]) => !allowed.has(key) && (/[一-鿿][:,;!?]/.test(value) || /[:,;!?][一-鿿]/.test(value) || /[一-鿿]\.(?:\s|$)/.test(value) || /\((?=[^)]*[一-鿿])/.test(value) || /[一-鿿]\s?\(|\)\s?[一-鿿]/.test(value.replaceAll("http(s)", ""))))
 			.map(([key, value]) => `${key}: ${value}`);
 		expect(halfWidth).toEqual([]);
+	});
+
+	// "加载中..." beside "搜索页面、服务器或操作…": three full stops and the ellipsis character were used about
+	// equally, in both languages. An ellipsis is one character; three stops stay only where they are part of
+	// something typed (a path, a link, an example key) or of text added to a file.
+	it("writes an ellipsis as one character", () => {
+		const allowed = new Set([
+			"downloadsPage.form.linkPlaceholder",
+			"settingsClient.schema.section.platform.description",
+			"settingsClient.field.offsite.accessKeyId.placeholder",
+			"aiPage.fileTruncatedSuffix",
+		]);
+		const stops = (["zh", "en"] as const).flatMap((locale) =>
+			Object.entries(all[locale])
+				.filter(([key, value]) => !allowed.has(key) && value.includes("..."))
+				.map(([key, value]) => `${locale} ${key}: ${value}`),
+		);
+		expect(stops).toEqual([]);
 	});
 
 	// A sentence put together from "共", a number and "台纳管节点" keeps one language's word order and
@@ -75,11 +97,105 @@ describe("what the dictionaries say", () => {
 			|| key === "qsActions.taskSuffix";
 		const pieces = (["zh", "en"] as const).flatMap((locale) =>
 			Object.entries(all[locale])
-				// Text that is appended to a file or a prompt starts or ends with a line break of its own.
-				.filter(([key, value]) => /^\s|\s$/.test(value) && !/^\n|\n$/.test(value) && !allowed(key, value))
+				// Text that is appended to a file or a prompt starts or ends with a line break of its own. An entry
+				// that starts with a joining mark ("，清理 {removed} 条失效索引") is the tail of another sentence.
+				.filter(([key, value]) => ((/^\s|\s$/.test(value) && !/^\n|\n$/.test(value)) || /^[，、；,;]/.test(value)) && !allowed(key, value))
 				.map(([key, value]) => `${locale} ${key}: "${value}"`),
 		);
 		expect(pieces).toEqual([]);
+	});
+
+	// "1 items", "1 days ago", "1 nodes enabled": an English count takes its noun's form from the number,
+	// "{count} {count|item|items}" (interpolate). Limits ("at most {max} files") are never 1.
+	it("gives an English count the noun form for its number", () => {
+		const nouns = "items|files|nodes|servers|records|entries|endpoints|administrators|recipients|chats|accounts|links|models|rules|directories|days|times|changes|minutes|hours|targets|notifications|images|containers|groups|uploads|results|checks|warnings|settings|chunks|failures|events|runs|steps|keys|ports|tabs|cores|processes|lines|samples|things|downloads|permissions|docs";
+		const bare = new RegExp(`\\{(\\w+)\\}((?: [a-zA-Z-]+){0,3}? )(${nouns})\\b`);
+		const limits = new Set(["apiCopy.archive.tooManyEntries", "api.share.tooManyFiles", "backend.webdav.directoryTooLarge", "backend.sftp.directoryListingTruncated", "sharePage.listTruncated", "sharesPage.button.tooMany"]);
+		const offenders = Object.entries(all.en)
+			.filter(([key, value]) => {
+				// A plural form never matches: its noun follows "|", not a space.
+				const match = bare.exec(value);
+				return match !== null && !limits.has(key) && !/^(?:max|min|limit)$/.test(match[1] ?? "");
+			})
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(offenders).toEqual([]);
+	});
+
+	// English labels were half "New Playbook", "Add Step", "Alert Rules" and half "Refresh forecast", "Add tag".
+	// They are sentence case; names keep their capitals (the built-in templates, the catalog's apps, products,
+	// providers, acronyms).
+	it("writes English labels in sentence case", () => {
+		const small = new Set(["a", "an", "the", "of", "to", "in", "on", "for", "and", "or", "by", "with", "at", "per", "vs", "via", "as", "from", "into", "is"]);
+		const acronym = /^[A-Z0-9][A-Z0-9/&.+-]*s?$/;
+		const names = /\b(?:Docker(?: Compose)?|Nginx|Telegram|Cloudflare|Turnstile|Komari|Linux|Windows|macOS|MySQL|PostgreSQL|Redis|GitHub|Git|Caddy|WebSocket|WebDAV|Markdown|Chinese|English|Tencent Cloud|Agent|Direct Gateway|VControlHub|Bot Token|Webhook)\b/g;
+		const isName = (key: string) => /^(?:builtinTemplate|qsCatalog|openapiSpec|apiCopy)\.|^costPage\.billing\.provider\.|^languageToggle\.switchLabel$|^itsmPage\.field\.webhookSecretPlaceholder$|^backend\./.test(key);
+		const offenders = Object.entries(all.en)
+			.filter(([key, value]) => {
+				if (isName(key) || value.includes("{") || value.length > 60 || /[.?!:]$/.test(value)) return false;
+				const words = value.replace(names, "").match(/[A-Za-z][A-Za-z0-9'’-]*/g) ?? [];
+				const content = words.slice(1).filter((word) => !small.has(word.toLowerCase()) && !acronym.test(word));
+				return content.length > 0 && content.every((word) => /^[A-Z]/.test(word)) && words.length >= 2;
+			})
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(offenders).toEqual([]);
+	});
+
+	// The rule above catches a label only when every word is capitalised: "Step Timeout (seconds)", "Container Logs —
+	// {id}" and "Reset {name}'s Password" passed it. Inside a short label a capital is a name, an acronym, a key or a
+	// page of the application; after a colon, a dot, a bar or a dash a new phrase starts.
+	it("capitalises nothing inside an English label but names", () => {
+		const small = new Set(["a", "an", "the", "of", "to", "in", "on", "for", "and", "or", "by", "with", "at", "per", "vs", "via", "as", "from", "into", "is"]);
+		const acronym = /^[A-Z0-9][A-Z0-9/&.+-]*s?$/;
+		const names = /\b(?:Docker(?: Compose| Hub)?|Compose|Nginx|Telegram|Cloudflare|Turnstile|Komari|Linux|Windows|macOS|MySQL|PostgreSQL|Redis|GitHub|Git|Caddy|WebSocket|WebDAV|Markdown|Chinese|English|Tencent Cloud|Agent|Direct Gateway|VControlHub|Bot Token|Webhook|OpenAPI|OpenSSH|LinuxServer|WebP|Office|Prisma|Next\\.js|GiB|MiB|Shift|Enter|Tab|Ctrl|Settings|Shares|Servers|Files|Users|Slack|Aliyun|Linode)\b/g;
+		const isName = (key: string) => /^(?:builtinTemplate|qsCatalog|openapiSpec|apiCopy|backend)\.|^costPage\.billing\.provider\.|^languageToggle\.switchLabel$|^itsmPage\.field\.webhookSecretPlaceholder$/.test(key);
+		const offenders = Object.entries(all.en)
+			.filter(([key, value]) => {
+				if (isName(key) || value.length > 70 || /[.?!:]$/.test(value)) return false;
+				const text = value.replace(/\{[^}]*\}/g, " ").replace(/“[^”]*”/g, " ").replace(names, " ");
+				return text.split(/[:·|—–\]]|\s-\s|[.!?]\s/).some((phrase) => {
+					const words = phrase.match(/[A-Za-z][A-Za-z0-9'’.-]*/g) ?? [];
+					return words.slice(1).some((word) => /^[A-Z][a-z]/.test(word) && !small.has(word.toLowerCase()) && !acronym.test(word));
+				});
+			})
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(offenders).toEqual([]);
+	});
+
+	// Chinese quoted names with 「」 in half the entries and “” in the other half, and both languages had ASCII
+	// quotes in some: one way, the typographic quotation marks. Quotes that are characters of their own (those
+	// Windows forbids in names, the ".." of a path) stay.
+	it("quotes with curly quotation marks", () => {
+		const literal = new Set(["backend.storage.windowsNameCharacters", "backend.storagePath.windowsChars", "backupsPage.failure.path.remediation"]);
+		const corner = Object.entries(all.zh).filter(([, value]) => /[「」]/.test(value)).map(([key]) => key);
+		const ascii = (lang: "zh" | "en") => Object.entries(all[lang])
+			.filter(([key, value]) => !literal.has(key) && /"[^"]+"/.test(value))
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(corner).toEqual([]);
+		expect(ascii("zh")).toEqual([]);
+		expect(ascii("en")).toEqual([]);
+	});
+
+	// "Deleted 1 file(s)": a count's noun has its plural form ({count|file|files}), as in part 6.
+	it("writes an English plural as its form, not as “(s)”", () => {
+		const offenders = Object.entries(all.en)
+			.filter(([, value]) => /[a-z]\(s\)/.test(value.replace(/https?\(s\)|http\(s\)/g, "")))
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(offenders).toEqual([]);
+	});
+
+	// "工单（75）", "Deleted customers (1)": a count beside a title is a count badge (ListPanel's count, Disclosure's
+	// count, a tab's badge, CountBadge), not part of the title's words. A command may say how many things it acts on.
+	it("keeps counts out of titles", () => {
+		const commands = new Set([
+			"requestsPage.batch.selectAll",
+			"requestsPage.batch.approve",
+			"requestsPage.batch.reject",
+			"operationTasksPage.task.viewEvents",
+		]);
+		const offenders = [...Object.entries(all.zh), ...Object.entries(all.en)]
+			.filter(([key, value]) => !commands.has(key) && /[（(]\{count\}[）)]$/.test(value))
+			.map(([key, value]) => `${key}: ${value}`);
+		expect(offenders).toEqual([]);
 	});
 
 	it("has no empty sentence and no Chinese left in the English ones", () => {

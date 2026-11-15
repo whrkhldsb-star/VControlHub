@@ -15,7 +15,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { JobEventsDialog } from "./job-events-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { getBackupTypeLabel, getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { getDomainStatusLabel, getJobTypeLabel, getOperationTaskTitle } from "@/lib/i18n/domain-labels";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 const TASKS_PER_PAGE = 20;
@@ -75,26 +75,30 @@ type TaskRowProps = {
 };
 
 const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEvents }: TaskRowProps) {
-  // Backup rows carry their type; name it instead of the stored "DATABASE backup".
+  // Backup rows carry their type and are named by it, so the type is not repeated as a badge.
   const isBackup = task.source === "backup" && Boolean(task.taskType);
-  const title = isBackup ? getBackupTypeLabel(t, task.taskType!) : task.title;
+  const title = getOperationTaskTitle(t, task);
+  // The progress is on the line under the title already: a log that only repeated it ("最近日志 100%") is left out.
+  const progress = task.progress?.trim();
+  const logLines = (task.logPreview ?? []).filter((line) => line !== progress);
+  const meta = [formatDateTime(task.createdAt, locale), task.actor, progress].filter(Boolean).join(" · ");
   return (
     <ListRow className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{sourceLabels[task.source] ?? task.source}</Badge>
           <StatusBadge tone={statusTone[task.status] ?? "neutral"}>{getDomainStatusLabel(t, task.status)}</StatusBadge>
-          {task.taskType && !isBackup && <Badge>{task.taskType}</Badge>}
+          {task.taskType && !isBackup && <Badge>{getJobTypeLabel(t, task.taskType)}</Badge>}
           {task.foldedCount && task.foldedCount > 1 && <Badge tone="accent">{t("operationTasksPage.folded", { count: task.foldedCount })}</Badge>}
           {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: formatDateTime(task.workerHeartbeatAt, locale) }) : t("operationTasksPage.worker.noHeartbeat")} className="!rounded-lg">{t("operationTasksPage.worker.label", { id: task.workerId })}</StatusBadge>}
         </div>
         <h3 className="ui-title-group mt-2 truncate">{title}</h3>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDateTime(task.createdAt, locale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
-        {task.logPreview && task.logPreview.length > 0 && (
+        <p className="mt-1 text-xs text-[var(--text-muted)]">{meta}</p>
+        {logLines.length > 0 && (
           <div aria-label={t("operationTasksPage.recentLogsAria", { title })} data-inset className="mt-3 px-3 py-2">
-            <div className="text-xs font-medium uppercase text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
+            <div className="text-xs font-medium text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
             <ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
-              {task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}
+              {logLines.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}
             </ul>
           </div>
         )}
@@ -256,7 +260,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       {failureSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {failureSummary.map((item) => <div data-inset="" key={item.reason} className="border-[var(--danger-border)] px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><StatusBadge tone="danger">{t("operationTasksPage.failures.itemCount", { count: item.total })}</StatusBadge></div>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join("、"), title: item.latestTitle })}</p>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join(t("common.listSeparator")), title: getOperationTaskTitle(t, { source: item.latestTaskId.split(":")[0] ?? "", title: item.latestTitle }) })}</p>
         </div>)}
       </div>}
     </section>
@@ -287,7 +291,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
             <span className="mb-1 block">{t("operationTasksPage.filter.taskType")}</span>
             <select data-input value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className={`${CONTROL_CLASS} w-full sm:!w-auto sm:min-w-44`}>
               <option value="all">{t("operationTasksPage.filter.allTypes")}</option>
-              {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{taskType}</option>)}
+              {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{getJobTypeLabel(t, taskType)}</option>)}
             </select>
           </label>
           <label className="ui-label">

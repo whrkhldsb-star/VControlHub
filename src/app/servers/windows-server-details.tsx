@@ -39,7 +39,7 @@ export function WindowsServerDetails({
 			: t("serversPage.windows.certificateDefault");
 
 	return (
-		<div id={detailsId} role="region" aria-label={`${server.name} ${t("serverOverviewDetails.vpsDetails")}`} className="space-y-3">
+		<div id={detailsId} role="region" aria-label={t("serverOverviewDetails.detailsOf", { name: server.name })} className="space-y-3">
 			<section data-inset className="p-3">
 				<h3 className="ui-title-group mb-3">{t("serverOverviewDetails.section.connectionStatus")}</h3>
 				<dl className="grid gap-3 text-sm sm:grid-cols-2">

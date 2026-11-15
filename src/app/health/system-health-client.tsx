@@ -9,7 +9,6 @@ import {
 	healthStatusBadgeTone,
 	repairSuggestions,
 	statusLabelKey,
-	tt as applyTemplate,
 } from "./health-dashboard-helpers";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import type { SystemHealthReport } from "./health-types";
@@ -20,6 +19,13 @@ import { ActionButton, ButtonLink } from "@/components/action-button";
 import { ChevronRight, RefreshCw } from "@/components/icons";
 
 type Props = { initialSystemHealth?: SystemHealthReport | null };
+
+const SEVERITY: Record<string, number> = { critical: 0, warning: 1 };
+
+/** The checks that found a problem first, worst first; each group keeps the server's order. */
+export function checksByUrgency<T extends { status: string }>(checks: readonly T[]): T[] {
+	return [...checks].sort((a, b) => (SEVERITY[a.status] ?? 2) - (SEVERITY[b.status] ?? 2));
+}
 
 /**
  * System-only half of the former health dashboard:
@@ -41,7 +47,6 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 	});
 	const advice = repairSuggestions(systemHealth, t);
 
-	const tt = (key: string, vars?: Record<string, string | number>) => applyTemplate(t, key, vars);
 	const loading = systemHealth === null && !loadError;
 
 	return (
@@ -85,7 +90,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 					aria-busy="true"
 					aria-label={t("healthPage.ui.selfCheck")}
 				>
-					<p className="text-xs uppercase text-[var(--text-muted)]">
+					<p className="text-xs text-[var(--text-muted)]">
 						{t("healthPage.ui.selfCheck")}
 					</p>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -110,7 +115,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 								{t("healthPage.ui.repairSuggestions")}
 							</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">
-								{tt("healthPage.ui.checksSummary", systemHealth.summary)}
+								{t("healthPage.ui.checksSummary", systemHealth.summary)}
 							</p>
 						</div>
 						<ButtonLink variant="ghost" size="sm" href="/audit">
@@ -153,12 +158,13 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 						})}
 					</div>
 					<div className="grid gap-2 md:grid-cols-2">
-						{systemHealth.checks.map((check) => {
+						{/* A warning used to sit wherever its check comes in the list, often under ten passing ones. */}
+						{checksByUrgency(systemHealth.checks).map((check) => {
 							return (
-								<div key={check.id} data-inset className="p-3">
+								<div key={check.id} data-inset data-health-check={check.id} data-status={check.status} className="p-3">
 									<div className="flex items-center justify-between gap-3">
 										<div className="text-sm font-medium text-[var(--text-primary)]">
-											{tt(
+											{t(
 												`healthPage.check.${check.id.startsWith("dir-") ? "dir" : check.id}.label`,
 												check.params,
 											)}
@@ -168,7 +174,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 										</Badge>
 									</div>
 									<p className="mt-1 text-xs text-[var(--text-secondary)]">
-										{tt(
+										{t(
 											`healthPage.check.${check.id.startsWith("dir-") ? "dir" : check.id}.message.${check.messageCode ?? check.status}`,
 											check.params,
 										)}

@@ -24,7 +24,7 @@ import type {
   BatchProgress,
 } from "./use-file-selection";
 import { getErrorMessage } from "@/lib/http/error-message";
-import type { ToastFn } from "./file-list-view-props";
+import type { ToastFn } from "@/components/toast-provider";
 
 type Setter<T> = (value: T) => void;
 

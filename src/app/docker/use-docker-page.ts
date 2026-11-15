@@ -31,6 +31,9 @@ export function useDockerPage(
 	const [containers, setContainers] = useState<Container[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
+	// The container list could not be loaded (no target, an error, Docker unreachable): the list then says so
+	// instead of "no containers", which contradicted the error above it.
+	const [listFailed, setListFailed] = useState(false);
 	const [logsId, setLogsId] = useState<string | null>(null);
 	const [logs, setLogs] = useState("");
 	const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -99,6 +102,7 @@ export function useDockerPage(
 		// got 403 and saw "cannot connect to Docker" (A6-14): say what is missing.
 		if (!selectedServerId && !canManageHubHost) {
 			setContainers([]);
+			setListFailed(true);
 			setError(t("dockerPage.error.noTargets"));
 			// Nothing is on its way: the list said "loading" under this notice for good.
 			setLoading(false);
@@ -111,6 +115,7 @@ export function useDockerPage(
 			const data = await csrfFetch(url, { signal: controller.signal } as RequestInit);
 			if (gen !== fetchGenRef.current) return;
 			if (data.error) {
+				setListFailed(true);
 				setError(data.error);
 				return;
 			}
@@ -120,6 +125,7 @@ export function useDockerPage(
 			}
 			if (data.dockerAvailable === false) {
 				setContainers([]);
+				setListFailed(true);
 				// The API's unavailable message is English-only server copy; the
 				// localized "cannot connect" key covers exactly this state.
 				setError(t("dockerPage.error.fetch"));
@@ -132,9 +138,11 @@ export function useDockerPage(
 					: null;
 			if (nextContainers) {
 				setContainers(nextContainers);
+				setListFailed(false);
 			}
 		} catch (err) {
 			if (controller.signal.aborted || gen !== fetchGenRef.current) return;
+			setListFailed(true);
 			// The server says why (no access to this server, too many requests, the SSH failure); "cannot reach the
 			// Docker API" is only for an answer that says nothing.
 			setError(getErrorMessage(err, t("dockerPage.error.fetch")));
@@ -327,6 +335,7 @@ export function useDockerPage(
 		loading,
 		setLoading,
 		error,
+		listFailed,
 		clearError: () => setError(""),
 		logsId,
 		logs,

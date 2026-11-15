@@ -109,7 +109,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 			<div data-tile className="p-4 space-y-4">
 				<div className="flex items-center justify-between gap-3">
 					<div>
-						<p className="text-xs uppercase text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
+						<p className="text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
 						<p className="mt-1 text-sm text-[var(--text-muted)]">{t("quickServicesPage.sources.headerDesc")}</p>
 					</div>
 					<Badge>{t("quickServicesPage.sources.tapToFill")}</Badge>

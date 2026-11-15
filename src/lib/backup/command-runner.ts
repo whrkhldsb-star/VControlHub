@@ -2,13 +2,14 @@ import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
+import { config } from "@/lib/config/env";
 
 /**
  * Async wrapper around `execFile` used by the backup module to run
  * `deploy/backup.sh` (database / files / full) and `scripts/restore-db.sh`
  * plus the dedicated files/full restore scripts.
  *
- * Centralises the default 30-minute timeout and 1MB maxBuffer so the caller
+ * Centralises the default timeout (BACKUP_COMMAND_TIMEOUT_MINUTES, 120 by default) and 1MB maxBuffer so the caller
  * (service.ts) does not have to re-derive the execution envelope, and keeps
  * the missing-binary detection (`bash` not installed) inside the adapter
  * rather than leaking that knowledge into every call site.
@@ -16,7 +17,6 @@ import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 
 const runFile = promisify(execFile);
 
-const BACKUP_DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 const BACKUP_DEFAULT_MAX_BUFFER_BYTES = 1024 * 1024;
 
 export type RunBackupCommandOptions = {
@@ -49,7 +49,7 @@ function runDiscardingStdout(file: string, args: string[], options: RunBackupCom
   return new Promise((resolve, reject) => {
     const child = spawn(file, args, {
       stdio: ["ignore", "ignore", "pipe"],
-      timeout: options.timeout ?? BACKUP_DEFAULT_TIMEOUT_MS,
+      timeout: options.timeout ?? config.backup.commandTimeoutMs,
       ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
       ...(options.env !== undefined ? { env: options.env } : {}),
     });
@@ -69,7 +69,7 @@ export async function runBackupCommand(input: RunBackupCommandInput): Promise<Ru
   const { file, args, options = {} } = input;
   if (options.discardStdout) return runDiscardingStdout(file, args, options);
   return runFile(file, args, {
-    timeout: options.timeout ?? BACKUP_DEFAULT_TIMEOUT_MS,
+    timeout: options.timeout ?? config.backup.commandTimeoutMs,
     maxBuffer: options.maxBuffer ?? BACKUP_DEFAULT_MAX_BUFFER_BYTES,
     ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
     ...(options.env !== undefined ? { env: options.env } : {}),

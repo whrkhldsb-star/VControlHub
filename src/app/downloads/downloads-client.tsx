@@ -456,7 +456,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			/>
 
 			<ListPanel
-				title={t("downloadsPage.header.title")}
+				title={t("downloadsPage.list.title")}
 				count={loading ? "…" : filteredTasks.length}
 				empty={
 					loading ? (
@@ -502,7 +502,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			</ListPanel>
 			<ConfirmDialog
 				open={pendingPurgeTaskId !== null}
-				title={t("common.confirmDelete")}
+				title={t("downloadsPage.confirm.purgeTitle")}
 				description={t("downloadsPage.confirm.purge", { name: pendingPurgeName })}
 				cancelLabel={t("common.cancel")}
 				confirmLabel={t("common.confirmDelete")}

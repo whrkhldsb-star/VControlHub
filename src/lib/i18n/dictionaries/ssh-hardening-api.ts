@@ -58,7 +58,7 @@ export const en: Record<string, string> = {
 	"backend.ssh.hostKeyNotPinned":
 		"This server has no pinned SSH host key fingerprint; connection refused. Verify and pin the host fingerprint in the server settings first.",
 	"backend.ssh.hostKeyApprovalRequired":
-		"First connection requires confirming the SSH host fingerprint: {fingerprint}. Please check \"I have verified and trust this SSH host fingerprint\" and resubmit.",
+		"First connection requires confirming the SSH host fingerprint: {fingerprint}. Please check “I have verified and trust this SSH host fingerprint” and resubmit.",
 	"backend.ssh.hostKeyChanged":
 		"The SSH host fingerprint does not match the saved record; connection blocked. Saved: {expected}; current: {actual}. This may indicate a server reinstall or man-in-the-middle attack; please verify before updating the fingerprint.",
 

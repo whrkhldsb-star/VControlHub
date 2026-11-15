@@ -44,10 +44,9 @@ export function FilesSearchClient({
         description={t("filesPage.subPage.searchDesc")}
       />
       <FilesSubpageNav />
-      <SurfacePanel
-        title={t("filesPage.subPage.search")}
-        description={t("filesPage.subPage.searchPanelDesc")}
-      >
+      {/* The page's header names it; the panel only says how the two searches answer. */}
+      <SurfacePanel>
+        <p className="text-[13px] leading-5 text-[var(--text-muted)]">{t("filesPage.subPage.searchPanelDesc")}</p>
         <div className="mb-4 grid gap-2 sm:max-w-sm">
           <label htmlFor="files-search-node" className="ui-label">
             {t("filesPage.subPage.searchNodeFilter")}

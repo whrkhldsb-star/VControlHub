@@ -1,9 +1,10 @@
 import { isSmtpDisabled, isTelegramDisabled, isValidEmail, parseInteger, type SectionDef } from "./field-schema-core";
+import { IconMail, IconMessage } from "@/components/nav-icons";
 
 export const NOTIFICATION_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "smtp",
-		icon: "📧",
+		icon: IconMail,
 		titleKey: "settingsClient.schema.section.smtp.title",
 		descriptionKey: (s) => (s["smtp.enabled"] === "true"
 			? "settingsClient.schema.section.smtp.description.enabled"
@@ -35,6 +36,15 @@ export const NOTIFICATION_SETTINGS_SECTIONS: SectionDef[] = [
 				disabled: isSmtpDisabled,
 				helperTextKey: (s) => (isSmtpDisabled(s) ? "settingsClient.helper.smtp.disabledHint" : "settingsClient.field.smtp.port.helper.enabled"),
 				validate: (value) => parseInteger(value || "587", 1, 65_535),
+			},
+			{
+				key: "smtp.requireTls",
+				labelKey: "settingsClient.field.smtp.requireTls.label",
+				type: "switch",
+				defaultValue: "",
+				disabled: isSmtpDisabled,
+				helperTextKey: (s) => (isSmtpDisabled(s) ? "settingsClient.helper.smtp.disabledHint" : "settingsClient.field.smtp.requireTls.helper"),
+				riskLevel: "medium",
 			},
 			{
 				key: "smtp.user",
@@ -83,7 +93,7 @@ export const NOTIFICATION_SETTINGS_SECTIONS: SectionDef[] = [
 	},
 	{
 		id: "telegram",
-		icon: "💬",
+		icon: IconMessage,
 		titleKey: "settingsClient.schema.section.telegram.title",
 		descriptionKey: (s) => (s["telegram.enabled"] === "true"
 			? "settingsClient.schema.section.telegram.description.enabled"

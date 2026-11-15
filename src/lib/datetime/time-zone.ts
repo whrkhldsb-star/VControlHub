@@ -195,6 +195,15 @@ function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
 
+/**
+ * `date` as a `datetime-local` field shows it (`YYYY-MM-DDTHH:mm`) on a clock in the application time zone: what
+ * `zonedDateTimeToIso` reads back.
+ */
+export function appTimeZoneDateTimeLocal(date: Date, timeZone = APP_TIME_ZONE): string {
+  const wall = wallClockInAppTimeZone(date, timeZone);
+  return `${wall.year}-${pad2(wall.month)}-${pad2(wall.day)}T${pad2(wall.hour)}:${pad2(wall.minute)}`;
+}
+
 /** `YYYY-MM-DD` of `date` in the application time zone: the key a day bucket is filed under. */
 export function appTimeZoneDateKey(date = new Date(), timeZone = APP_TIME_ZONE): string {
   const wall = wallClockInAppTimeZone(date, timeZone);

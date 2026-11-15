@@ -39,7 +39,20 @@ export type PinnedFetchOptions = {
 	 * design. The address is validated and pinned as for every other call.
 	 */
 	allowUntrustedCertificate?: boolean;
+	/**
+	 * Connect although the host resolves to a private or loopback address: only for a host the operator listed
+	 * (AI_PROVIDER_PRIVATE_HOSTS). Link-local and cloud metadata addresses are refused regardless.
+	 */
+	allowPrivateAddress?: boolean;
 };
+
+/** 169.254/16 and fe80::/10, which hold the cloud metadata services: never reachable through an opt-in. */
+export function isLinkLocalAddress(address: string): boolean {
+	const normalized = address.trim().toLowerCase().replace(/^\[|\]$/g, "");
+	if (/^169\.254\./.test(normalized)) return true;
+	if (/^::ffff:169\.254\./.test(normalized)) return true;
+	return /^fe[89ab][0-9a-f]:/.test(normalized) || normalized === "fd00:ec2::254";
+}
 
 /**
  * Resolve `rawUrl` and fetch it over a dispatcher pinned to the verified
@@ -63,7 +76,9 @@ export async function fetchWithPinnedDns(
 		: await lookup(hostname, { all: true, verbatim: true });
 	if (
 		addresses.length === 0 ||
-		addresses.some(({ address }) => isBlockedIpAddress(address) || isUnsafePublicHttpHost(address))
+		addresses.some(({ address }) => options.allowPrivateAddress
+			? isLinkLocalAddress(address)
+			: isBlockedIpAddress(address) || isUnsafePublicHttpHost(address))
 	) {
 		throw new Error("URL resolved to a non-public address");
 	}

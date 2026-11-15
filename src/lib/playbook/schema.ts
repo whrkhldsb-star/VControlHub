@@ -109,6 +109,8 @@ const triggerConfigSchema = z.union([
   metricTriggerConfigSchema,
 ]);
 
+const chainRetrySchema = z.number().int().min(0).max(5);
+
 const baseCreatePlaybookObject = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   description: z.string().trim().max(500).optional().nullable(),
@@ -129,7 +131,7 @@ const baseCreatePlaybookObject = z.object({
         seen.add(step.id);
       });
     }),
-  chainRetry: z.number().int().min(0).max(5).default(0),
+  chainRetry: chainRetrySchema.default(0),
   enabled: z.boolean().default(true),
 });
 
@@ -167,8 +169,12 @@ export const updatePlaybookSchema = z
     triggerType: baseCreatePlaybookObject.shape.triggerType.optional(),
     triggerConfig: baseCreatePlaybookObject.shape.triggerConfig.optional(),
     steps: baseCreatePlaybookObject.shape.steps.optional(),
-    chainRetry: baseCreatePlaybookObject.shape.chainRetry.optional(),
-    enabled: baseCreatePlaybookObject.shape.enabled.optional(),
+    // Not the creation fields: zod 4 fills a `.default()` in for an absent key even under `.optional()`, so every
+    // update said "enabled, no chain retries". Switching a playbook on or off reset its chain retries to 0, claiming
+    // one (`{ id, claimOwnership }`) or renaming it switched a disabled playbook back on, and every update needed
+    // playbook:run (the switch and the retries take it).
+    chainRetry: chainRetrySchema.optional(),
+    enabled: z.boolean().optional(),
     /** Make the caller the owner whose permissions scheduled runs use. */
     claimOwnership: z.literal(true).optional(),
   })

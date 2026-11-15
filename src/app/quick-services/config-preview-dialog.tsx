@@ -71,8 +71,8 @@ export function ConfigPreviewDialog({
 	const fieldExtraPort = t("qsPage.configFieldExtraPort");
 	const fieldEnv = t("qsPage.configFieldEnv");
 	const fieldVolume = t("qsPage.configFieldVolume");
-	const portSep = t("qsPage.configPortListSeparator");
-	const volumeSep = t("qsPage.configVolumeListSeparator");
+	const portSep = t("common.listSeparator");
+	const volumeSep = t("common.sentenceSeparator");
 	const volumeList = getVolumeMounts(item);
 	const envCount = getEnvCount(item);
 

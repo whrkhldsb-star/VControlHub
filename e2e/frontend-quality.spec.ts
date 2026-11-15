@@ -41,7 +41,7 @@ test("core pages have no browser crashes, HTTP 5xx, or horizontal overflow", asy
 
 test("login form is fully operable with the keyboard", async ({ page }) => {
 	await page.goto("/login");
-	await page.keyboard.press("Tab");
+	// The cursor starts in the user name field: nothing to press before typing.
 	await expect(page.getByLabel(/用户名|Username/i)).toBeFocused();
 	await page.keyboard.type(TEST_USER);
 	await page.keyboard.press("Tab");

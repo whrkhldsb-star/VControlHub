@@ -150,8 +150,38 @@ describe("RequestsPage", () => {
 
     // Execute and approve: anyone's request.
     as("u_9", ["command:read", "command:approve", "command:execute"]);
-    render(await RequestsPage());
+    const manager = render(await RequestsPage());
     expect(cancelButtons()).toHaveLength(2);
+    manager.unmount();
+
+    // May only submit: withdraws their own request while it waits (both are pending here), nobody else's.
+    as("u_2", ["command:read", "command:create"]);
+    render(await RequestsPage());
+    expect(cancelButtons()).toEqual(["取消按钮：cmd_2"]);
+    vi.mocked(sessionHasPermission).mockReturnValue(true);
+  });
+
+  it("shows a submitter the text of their own command, and only reviewers anyone else's", async () => {
+    // The text was for reviewers only, the submitter's own included.
+    vi.mocked(requirePagePermission).mockResolvedValueOnce({ userId: "u_2", username: "u_2", roles: ["operator"], mustChangePassword: false } as never);
+    vi.mocked(sessionHasPermission).mockImplementation(((_session: unknown, permission: string) => ["command:read", "command:create"].includes(permission)) as never);
+    const { container } = render(await RequestsPage());
+    expect(container.querySelector("#command-cmd_2")).toHaveTextContent("deploy --prod");
+    expect(container.querySelector("#command-cmd_1")).not.toHaveTextContent("systemctl restart nginx");
+    vi.mocked(sessionHasPermission).mockReturnValue(true);
+  });
+
+  it("offers a review only where the server accepts the reviewer's decision", async () => {
+    // cmd_1 was filed by u_1. A reviewer does not decide on their own request unless they manage the team.
+    vi.mocked(requirePagePermission).mockResolvedValueOnce({ userId: "u_1", username: "u_1", roles: ["operator"], mustChangePassword: false } as never);
+    vi.mocked(sessionHasPermission).mockImplementation(((_session: unknown, permission: string) => ["command:read", "command:approve"].includes(permission)) as never);
+    const { container } = render(await RequestsPage());
+    expect(screen.getAllByTestId("review-command-form").map((node) => node.textContent)).toEqual(["审批表单：cmd_2"]);
+    expect(container.querySelector("#command-cmd_1")).toHaveTextContent("这是你提交的命令，由另一位审批人处理。");
+    expect(container.querySelector("#command-cmd_2")).not.toHaveTextContent("另一位审批人");
+    // The batch tools take only what this reviewer may decide on.
+    expect(container.querySelector('#command-cmd_1 input[type="checkbox"]')).toBeNull();
+    expect(container.querySelector('#command-cmd_2 input[type="checkbox"]')).not.toBeNull();
     vi.mocked(sessionHasPermission).mockReturnValue(true);
   });
 
@@ -167,7 +197,7 @@ describe("RequestsPage", () => {
     const history = container.querySelector("details");
     expect(history).not.toBeNull();
     expect(history).not.toHaveAttribute("open");
-    expect(history).toHaveTextContent("已处理记录（1）");
+    expect(history?.querySelector("summary")).toHaveTextContent("已处理记录 1");
     expect(history).toHaveTextContent("Rotate logs");
     expect(history).not.toHaveTextContent("Restart nginx");
     expect(screen.getAllByTestId("review-command-form")).toHaveLength(1);

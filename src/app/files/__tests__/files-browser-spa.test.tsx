@@ -105,13 +105,13 @@ describe("FilesBrowserSpa", () => {
 		// The sentence supplied "在 … 找到" / "in …" and so did the scope: "在在当前目录找到 0 个结果", "results in in all files".
 		const found = { ...baseData, searchQuery: "report", files: [], stats: { ...baseData.stats, totalItems: 0 } };
 		const zh = renderWithI18n(<FilesBrowserSpa initialData={found} />);
-		expect(screen.getByText('搜索 "report" - 在当前目录找到 0 个结果')).toBeInTheDocument();
+		expect(screen.getByText("搜索“report”：在当前目录找到 0 个结果")).toBeInTheDocument();
 		zh.unmount();
 		const everywhere = renderWithI18n(<FilesBrowserSpa initialData={{ ...found, searchScope: "all" }} />);
-		expect(screen.getByText('搜索 "report" - 在全部文件中找到 0 个结果')).toBeInTheDocument();
+		expect(screen.getByText("搜索“report”：在全部文件中找到 0 个结果")).toBeInTheDocument();
 		everywhere.unmount();
 		renderWithI18n(<FilesBrowserSpa initialData={{ ...found, searchScope: "all" }} />, { locale: "en" });
-		expect(screen.getByText('Searched "report" - found 0 results in all files')).toBeInTheDocument();
+		expect(screen.getByText("Searched “report”: 0 results in all files")).toBeInTheDocument();
 	});
 
 	it("searches file contents in the folder on screen and opens a hit's folder", async () => {

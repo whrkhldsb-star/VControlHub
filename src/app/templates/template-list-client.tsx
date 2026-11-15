@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
-import { EmptyState, SurfacePanel, Toolbar } from "@/components/page-shell";
+import { EmptyState, PageHeader, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { Locale } from "@/lib/i18n/translations";
 
-import { CreateTemplateForm } from "./create-template-form";
+import { TemplateForm } from "./template-form";
 import { DeployButton } from "./template-deploy-button";
 import type { ServerOption, Template } from "./template-types";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -26,9 +26,12 @@ type Props = {
 	canCreate: boolean;
 	canDeploy?: boolean;
 	locale?: Locale;
+	/** Page header; rendered here so the create command sits in its actions. */
+	header?: { eyebrow?: string; title: string; description?: string };
 };
 
 export function TemplateListClient({
+	header,
 	templates: initialTemplates,
 	servers,
 	canCreate,
@@ -39,6 +42,13 @@ export function TemplateListClient({
 	const { addToast } = useToast();
 	const [templates, setTemplates] = useState(initialTemplates);
 	const [showCreate, setShowCreate] = useState(false);
+	// The template whose changes the form holds; null while it makes a new one.
+	const [editing, setEditing] = useState<Template | null>(null);
+	const formPanelRef = useRef<HTMLDivElement>(null);
+	// The form opens above the cards: bring it into view (the edit button may be far down the page).
+	useEffect(() => {
+		if (showCreate) formPanelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+	}, [showCreate, editing]);
 	const { state: filters, setField: setFilter } = useUrlQueryState({ tag: "" });
 	const filterTag = filters.tag || null;
 	const setFilterTag = (tag: string | null) => setFilter("tag", tag ?? "");
@@ -131,6 +141,15 @@ export function TemplateListClient({
 
 	return (
 		<div className="space-y-6">
+			{header ? (
+				<PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+					{canCreate && !showCreate ? (
+						<ActionButton icon={<Plus size={16} aria-hidden />} type="button" onClick={() => setShowCreate(true)}>
+							{t("templatesPage.action.create")}
+						</ActionButton>
+					) : null}
+				</PageHeader>
+			) : null}
 			<ConfirmDialog
 				open={templatePendingDelete !== null}
 				title={t("templatesPage.delete.title")}
@@ -144,8 +163,8 @@ export function TemplateListClient({
 				closeOnBackdrop={false}
 			/>
 
-			<Toolbar className="justify-between">
-				{allTags.length > 0 && (
+			{allTags.length > 0 && (
+				<Toolbar>
 					<div className="flex flex-wrap items-center gap-1.5">
 						<span className="text-xs text-[var(--text-muted)]">
 							{t("templatesPage.filter.label")}
@@ -166,22 +185,22 @@ export function TemplateListClient({
 							</Chip>
 						))}
 					</div>
-				)}
-				{canCreate && !showCreate && (
-					<ActionButton icon={<Plus size={16} aria-hidden />} type="button" className="ml-auto" onClick={() => setShowCreate(true)}>
-						{t("templatesPage.action.create")}
-					</ActionButton>
-				)}
-			</Toolbar>
+				</Toolbar>
+			)}
 
 			{showCreate && (
-				<div className="mb-1">
-					<SurfacePanel title={t("templatesPage.action.create")}>
-						<CreateTemplateForm
-							onClose={(created) => {
+				<div ref={formPanelRef} className="mb-1 scroll-mt-24">
+					<SurfacePanel title={editing ? t("templatesPage.edit.title", { name: editing.name }) : t("templatesPage.action.create")}>
+						{/* Keyed by what is edited: opening another template starts from its own values. */}
+						<TemplateForm
+							key={editing?.id ?? "new"}
+							template={editing ?? undefined}
+							onClose={(saved) => {
+								const edited = editing;
 								setShowCreate(false);
-								if (!created) return;
-								addToast("success", t("templatesPage.toast.created"));
+								setEditing(null);
+								if (!saved) return;
+								addToast("success", edited ? t("templatesPage.toast.updated", { name: edited.name }) : t("templatesPage.toast.created"));
 								void refresh();
 							}}
 						/>
@@ -200,9 +219,18 @@ export function TemplateListClient({
 					{t("templatesPage.emptyForTag", { tag: filterTag })}
 				</EmptyState>
 			) : filtered.length === 0 ? (
-				<EmptyState icon={<IconFileCode size={20} />} variant="boxed">
-					{t("templatesPage.empty")}
-				</EmptyState>
+				showCreate ? null : (
+					<EmptyState
+						icon={<IconFileCode size={20} />}
+						variant="boxed"
+						title={t("templatesPage.empty")}
+						action={canCreate ? (
+							<ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={() => setShowCreate(true)}>
+								{t("templatesPage.action.create")}
+							</ActionButton>
+						) : undefined}
+					/>
+				)
 			) : (
 				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{filtered.map((tmpl) => (
@@ -239,7 +267,7 @@ export function TemplateListClient({
 									title={tmpl.rollbackCommand}
 								>
 									<span className="line-clamp-2 break-all">
-										<span className="mr-2 font-sans text-xs uppercase text-[var(--success)]">
+										<span className="mr-2 font-sans text-xs text-[var(--success)]">
 											{t("templatesPage.badge.rollback")}
 										</span>
 										{tmpl.rollbackCommand}
@@ -268,20 +296,31 @@ export function TemplateListClient({
 									))}
 								</div>
 							)}
-							<div className="mt-3 flex items-center gap-2 border-t border-[var(--border)] pt-2">
-								{canDeploy && (
-									<DeployButton
-										template={tmpl}
-										servers={servers}
-										onDeploy={handleDeploy}
-										loading={deploying === tmpl.id}
-									/>
-								)}
-								{canCreate && !tmpl.isBuiltin && (
-									<ActionButton size="sm" variant="danger" onClick={() => { setDeleteError(null); setTemplatePendingDelete(tmpl); }}>
-										{t("templatesPage.delete.action")}
-									</ActionButton>
-								)}
+							{/* At the card's foot, so the buttons of a row of cards line up whatever the command's length. */}
+							<div className="mt-auto pt-3">
+								<div className="flex items-center gap-2 border-t border-[var(--border)] pt-2">
+									{canDeploy && (
+										<DeployButton
+											template={tmpl}
+											servers={servers}
+											onDeploy={handleDeploy}
+											loading={deploying === tmpl.id}
+										/>
+									)}
+									{canCreate && !tmpl.isBuiltin && (
+										<ActionButton size="sm" variant="outline"
+											onClick={() => { setEditing(tmpl); setShowCreate(true); }}
+											disabled={showCreate}
+											title={showCreate ? t("templatesPage.edit.busy") : undefined}>
+											{t("templatesPage.edit.action")}
+										</ActionButton>
+									)}
+									{canCreate && !tmpl.isBuiltin && (
+										<ActionButton size="sm" variant="danger" onClick={() => { setDeleteError(null); setTemplatePendingDelete(tmpl); }}>
+											{t("templatesPage.delete.action")}
+										</ActionButton>
+									)}
+								</div>
 							</div>
 						</article>
 					))}

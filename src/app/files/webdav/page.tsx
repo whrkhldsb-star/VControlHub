@@ -28,10 +28,8 @@ export default async function FilesWebDavPage() {
         description={t("filesPage.subPage.webdavDesc", locale)}
       />
       <FilesSubpageNav />
-      <SurfacePanel
-        title={t("filesPage.webdav.title", locale)}
-        description={t("filesPage.webdav.description", locale)}
-      >
+      {/* The page's header names it and says what it is for; the panel repeated both. */}
+      <SurfacePanel>
         <WebDavSetupPanel
           origin={origin}
           nodes={nodes

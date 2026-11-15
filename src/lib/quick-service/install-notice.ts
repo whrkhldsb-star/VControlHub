@@ -61,8 +61,6 @@ const DEFAULT_CREDENTIAL_NOTES: Record<string, string[]> = {
 	ghost: ["After Ghost first launch, please visit /ghost/ to complete admin account creation."],
 	wordpress: ["WordPress requires an available database before entering the installation wizard; the current template does not generate a WordPress admin password."],
 	typecho: ["Typecho first launch enters the installation wizard; please create an admin account in the page."],
-	"itdog-tcping": ["ITDog TCPing requires no login by default."],
-	qrcode: ["QR Code service requires no login by default."],
 	dufs: ["Dufs current template requires no login by default; please use it only on trusted networks or add access control yourself."],
 	pairdrop: ["PairDrop requires no login by default."],
 	tianji: ["Tianji first launch enters the account/site initialization flow; please follow the page prompts to complete it."],
@@ -124,13 +122,22 @@ function secretLabelFromEnvKey(key: string) {
 	return key;
 }
 
+/**
+ * Whether an environment variable holds a secret, by its name. Names ending in PASSWORD, TOKEN, SECRET or KEY
+ * were the only ones: MYSQL_PASS, ADMIN_PASSWD, DB_PWD or SMTP_CREDENTIALS were kept in job payloads and left
+ * out of the install notice. BYPASS (a proxy's exclusions) is not a password.
+ */
+export function isSecretEnvKey(key: string): boolean {
+	if (/^(PUID|PGID|UMASK|DB_HOSTNAME|PGSSLMODE|DOCKER_ENABLE_SECURITY)$/i.test(key)) return false;
+	return /(PASSWORD|PASSWD|(?<!BY)PASS|PWD|TOKEN|SECRET|KEY|CREDENTIALS?)$/i.test(key);
+}
+
 function collectStaticEnvCredentials(envJson: Record<string, string>, alreadyReportedKeys: Set<string>) {
 	const credentials: QuickServiceCredential[] = [];
 	for (const [key, value] of Object.entries(envJson)) {
 		if (alreadyReportedKeys.has(key)) continue;
 		if (!value) continue;
-		if (!/(PASSWORD|TOKEN|SECRET|KEY)$/i.test(key)) continue;
-		if (/^(PUID|PGID|UMASK|DB_HOSTNAME|PGSSLMODE|DOCKER_ENABLE_SECURITY)$/i.test(key)) continue;
+		if (!isSecretEnvKey(key)) continue;
 		credentials.push({ label: secretLabelFromEnvKey(key), value });
 		alreadyReportedKeys.add(key);
 	}

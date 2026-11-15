@@ -20,7 +20,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"error.back-home": "Back to home",
-	"error.digest-label": "Error ID:",
+	"error.digest-label": "Error ID: ",
 	"error.hard-refresh": "Hard refresh",
 	"error.health-check": "System health check",
 	"error.routeDescription": "The current page hit an error and the trace has been preserved. You can retry, or check the system health and logs.",

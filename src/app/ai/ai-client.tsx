@@ -126,6 +126,7 @@ export function AiClient({
     streaming,
     streamContent,
     streamReasoning,
+    streamSteps,
     pendingApprovals: streamedPendingApprovals,
     approvalBusyById,
     sendMessage,
@@ -176,7 +177,7 @@ export function AiClient({
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamContent, streamReasoning]);
+  }, [messages, streamContent, streamReasoning, streamSteps]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -373,6 +374,7 @@ export function AiClient({
         showSidebar={showSidebar}
         conversations={conversations}
         activeConvId={activeConvId}
+        namesPage={!activeConv}
         onNewConv={() =>
           requestSettingsAction(() => {
             setShowSettings(false);
@@ -441,6 +443,7 @@ export function AiClient({
               streaming={streaming}
               streamContent={streamContent}
               streamReasoning={streamReasoning}
+              streamSteps={streamSteps}
               pendingApprovals={pendingApprovals}
               approvalBusyById={approvalBusyById}
               onApproval={decideApproval}
@@ -488,6 +491,7 @@ export function AiClient({
         ) : (
           <AiEmptyState
             hasProviders={providers.length > 0}
+            sidebarShown={showSidebar}
             onOpenProviders={() => setShowProviders(true)}
             onNewConv={handleNewConv}
             onOpenSidebar={() => setShowSidebar(true)}

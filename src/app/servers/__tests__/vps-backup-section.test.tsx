@@ -32,9 +32,9 @@ describe("VpsBackupSection", () => {
     expect(await screen.findByText("No backup schedules")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Quick: Nginx daily 03:00" }));
 
-    expect(screen.getByLabelText("Schedule Name")).toHaveValue("Daily Nginx config backup");
-    expect(screen.getByLabelText("Backup Type")).toHaveValue("nginx-config");
-    expect(screen.getByLabelText("Cron Expression")).toHaveValue("0 3 * * *");
+    expect(screen.getByLabelText("Schedule name")).toHaveValue("Daily Nginx config backup");
+    expect(screen.getByLabelText("Backup type")).toHaveValue("nginx-config");
+    expect(screen.getByLabelText("Cron expression")).toHaveValue("0 3 * * *");
   });
 
   it("deletes schedules only after an in-app confirmation", async () => {
@@ -52,7 +52,7 @@ describe("VpsBackupSection", () => {
       .mockResolvedValueOnce(jsonResponse(undefined))
       .mockResolvedValueOnce(jsonResponse({ schedules: [] }))
       .mockResolvedValueOnce(jsonResponse({ records: [] }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/servers/srv-1/vps-backup/schedules/sch-1", expect.objectContaining({ method: "DELETE" })));
   });
 
@@ -87,7 +87,7 @@ describe("VpsBackupSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit backup schedule Nightly" }));
 
     expect(screen.getByRole("button", { name: "Save schedule" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Cron Expression")).toHaveValue("0 3 * * *");
+    expect(screen.getByLabelText("Cron expression")).toHaveValue("0 3 * * *");
     expect(screen.getAllByLabelText("Custom paths (one per line, only for custom type)")[1]).toHaveValue("/srv/app");
   });
 
@@ -102,7 +102,7 @@ describe("VpsBackupSection", () => {
     const dialog = screen.getByRole("dialog", { name: "Delete backup schedule" });
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "A backup of this schedule is still running" }, false));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm delete" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("A backup of this schedule is still running");
     expect(screen.getAllByText("A backup of this schedule is still running")).toHaveLength(1);
 
@@ -121,7 +121,7 @@ describe("VpsBackupSection", () => {
     await screen.findByText("No backup schedules");
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ code: "FORBIDDEN", error: "Forbidden", message: "Missing permission: server:backup" }, false));
-    fireEvent.click(screen.getByRole("button", { name: /Nginx Config/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Nginx config/ }));
     expect(await screen.findByText("Missing permission: server:backup")).toBeInTheDocument();
     expect(screen.queryByText("Forbidden")).not.toBeInTheDocument();
   });
@@ -156,7 +156,7 @@ describe("VpsBackupSection", () => {
     render(<VpsBackupSection serverId="srv-1" canManage={false} />, { locale: "en" });
 
     await screen.findByText("No backup schedules");
-    expect(screen.queryByText("Manual Backup Trigger")).not.toBeInTheDocument();
+    expect(screen.queryByText("Manual backup trigger")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Nginx configuration/ })).not.toBeInTheDocument();
   });
 });

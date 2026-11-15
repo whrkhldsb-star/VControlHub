@@ -27,9 +27,11 @@ import type {
 	AiOpsTriggerType,
 } from "@/lib/ai/ops/types";
 import type { AiOpsSummary } from "@/lib/ai/ops/service";
+import { ActionButton } from "@/components/action-button";
+import { PageHeader } from "@/components/page-shell";
 import {
-	AiOpsActionsToolbar,
 	AiOpsDetailSection,
+	AiOpsHeaderActions,
 	AiOpsLogsSection,
 	AiOpsSettingsSection,
 	AiOpsSummarySection,
@@ -42,6 +44,8 @@ const SCAN_RESULT_POLL_MS = 5_000;
 const SCAN_RESULT_WATCH_MS = 3 * 60_000;
 
 type Props = {
+	/** Page header; rendered here so the page's commands sit in its actions. */
+	header?: { eyebrow?: string; title: string; description?: string };
 	initialSummary: AiOpsSummary;
 	initialLogs: AiOpsLogRecord[];
 	initialTotal: number;
@@ -55,6 +59,7 @@ type Props = {
 };
 
 export function AiOpsPageClient({
+	header,
 	initialSummary,
 	initialLogs,
 	initialTotal,
@@ -288,38 +293,31 @@ export function AiOpsPageClient({
 
 	return (
 		<div className="space-y-6">
+			{header ? (
+				<PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+					<AiOpsHeaderActions
+						canManage={canManage}
+						scanning={scanning}
+						onTriggerScan={() => void triggerScan()}
+						onReload={() => void reload()}
+						t={t}
+					/>
+				</PageHeader>
+			) : null}
 			<AiOpsSummarySection summary={summary} t={t} />
-			<AiOpsActionsToolbar
-				canManage={canManage}
-				scanning={scanning}
-				modeFilter={modeFilter}
-				statusFilter={statusFilter}
-				triggerFilter={triggerFilter}
-				onTriggerScan={() => void triggerScan()}
-				onReload={() => void reload()}
-				setModeFilter={setModeFilter}
-				setStatusFilter={setStatusFilter}
-				setTriggerFilter={setTriggerFilter}
-				t={t}
-			/>
-			<AiOpsSettingsSection
-				settings={settings}
-				providerOptions={providerOptions}
-				storedProvider={storedProvider}
-				editingProvider={editingProvider}
-				canManage={canManage}
-				savingSettings={savingSettings}
-				setSettings={setSettings}
-				setEditingProvider={setEditingProvider}
-				onSaveSettings={() => void saveSettings()}
-				t={t}
-			/>
+			{/* What the scans found first; the settings that change how they run come last. */}
 			<AiOpsLogsSection
 				logs={logs}
 				page={logsPage}
 				total={totalLogs}
 				hasMore={hasMoreLogs}
 				loading={loadingLogs}
+				filters={{ modeFilter, statusFilter, triggerFilter, setModeFilter, setStatusFilter, setTriggerFilter }}
+				emptyAction={canManage ? (
+					<ActionButton size="sm" variant="primary" disabled={scanning} onClick={() => void triggerScan()}>
+						{scanning ? t("aiOpsPage.actions.scanning") : t("aiOpsPage.actions.triggerScan")}
+					</ActionButton>
+				) : undefined}
 				selectedLogId={selectedLogId}
 				setSelectedLogId={setSelectedLogId}
 				onPrevious={() => void loadLogsPage(logsPage - 1)}
@@ -337,6 +335,18 @@ export function AiOpsPageClient({
 					t={t}
 				/>
 			)}
+			<AiOpsSettingsSection
+				settings={settings}
+				providerOptions={providerOptions}
+				storedProvider={storedProvider}
+				editingProvider={editingProvider}
+				canManage={canManage}
+				savingSettings={savingSettings}
+				setSettings={setSettings}
+				setEditingProvider={setEditingProvider}
+				onSaveSettings={() => void saveSettings()}
+				t={t}
+			/>
 		</div>
 	);
 }

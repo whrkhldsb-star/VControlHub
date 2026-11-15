@@ -11,7 +11,7 @@ import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
-import { Activity, ArrowDownUp, Clock, MapPin, Settings, TrendingUp, Zap } from "@/components/icons";
+import { Activity, ArrowDown, ArrowDownUp, ArrowUp, Clock, MapPin, Settings, TrendingUp, Zap } from "@/components/icons";
 import { useDismiss } from "@/components/ui/menu";
 import { Dialog } from "@/components/ui/dialog";
 import { CheckboxField, IconButton } from "@/components/ui-primitives";
@@ -73,20 +73,38 @@ function Row({ label, children, title }: { label: string; children: ReactNode; t
 	);
 }
 
+/**
+ * A rate or byte count with its direction: an arrow icon, and the word for screen readers (the arrow characters
+ * this replaced were read out as "downwards arrow").
+ */
+export function Direction({ dir, label, size = 12, children }: { dir: "down" | "up"; label: string; size?: number; children: ReactNode }) {
+	const Icon = dir === "down" ? ArrowDown : ArrowUp;
+	return (
+		<span className="inline-flex items-center gap-0.5" title={label}>
+			<Icon size={size} aria-hidden className="shrink-0" />
+			<span className="sr-only">{label}</span>
+			{children}
+		</span>
+	);
+}
+
 /** Down and up side by side, or one above the other where width is short. */
 function Pair({ down, up, t, stacked = false }: { down: string; up: string; t: T; stacked?: boolean }) {
+	const downPart = <Direction dir="down" label={t("publicStatus.metric.download")}>{down}</Direction>;
+	const upPart = <Direction dir="up" label={t("publicStatus.metric.upload")}>{up}</Direction>;
 	if (stacked) {
+		// Each line follows the alignment of where it sits (right in the table, left in a summary tile).
 		return (
 			<span className="flex flex-col">
-				<span title={t("publicStatus.metric.download")}>↓ {down}</span>
-				<span title={t("publicStatus.metric.upload")}>↑ {up}</span>
+				<span>{downPart}</span>
+				<span>{upPart}</span>
 			</span>
 		);
 	}
 	return (
 		<>
-			<span title={t("publicStatus.metric.download")}>↓ {down}</span>{" "}
-			<span title={t("publicStatus.metric.upload")}>↑ {up}</span>
+			{downPart}{" "}
+			{upPart}
 		</>
 	);
 }

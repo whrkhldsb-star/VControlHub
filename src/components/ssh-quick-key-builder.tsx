@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 
 import { UI_INPUT } from "@/lib/ui/classes";
 import { ActionButton } from "@/components/action-button";
+import { X } from "@/components/icons";
+import { IconButton } from "@/components/ui-primitives";
 import {
 	BUILDER_KEYS,
 	buildQuickKeyPreset,
@@ -68,14 +70,9 @@ export function QuickKeyBuilder({
 				<span className="text-[11px] font-medium text-[var(--text-muted)]/70 light:text-[var(--text-primary)]/70">
 					{t("sshTerminalModal.quickKeysCustomize")}
 				</span>
-				<button
-					type="button"
-					onClick={() => setOpen(false)}
-					className="rounded px-1 text-[11px] text-[var(--text-muted)]/60 hover:text-[var(--text-muted)]"
-					aria-label={t("sshTerminalModal.quickKeysClose")}
-				>
-					✕
-				</button>
+				<IconButton label={t("sshTerminalModal.quickKeysClose")} onClick={() => setOpen(false)} className="-my-1 h-7 w-7">
+					<X size={14} aria-hidden />
+				</IconButton>
 			</div>
 			<div className="mb-1 grid grid-cols-3 gap-1">
 				{MODIFIERS.map((mod) => {

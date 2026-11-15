@@ -16,7 +16,6 @@ import { ArrowLeft } from "@/components/icons";
 
 export function VpsStatusToolbar({
 	t,
-	tt,
 	filter,
 	setFilter,
 	filteredCount,
@@ -30,7 +29,6 @@ export function VpsStatusToolbar({
 	loading,
 }: {
 	t: (key: string, vars?: Record<string, string | number>) => string;
-	tt: (key: string, vars?: Record<string, string | number>) => string;
 	filter: VpsStatusFilter;
 	setFilter: (filter: VpsStatusFilter) => void;
 	filteredCount: number;
@@ -58,7 +56,7 @@ export function VpsStatusToolbar({
 										</ToggleChip>
 				))}
 				<span className="ml-1 text-xs text-[var(--text-muted)]">
-					{tt("vpsStatusPage.showing", { count: filteredCount })}
+					{t("vpsStatusPage.showing", { count: filteredCount })}
 				</span>
 				<SegmentedControl
 					className="ml-2"
@@ -78,7 +76,7 @@ export function VpsStatusToolbar({
 				<StatusBadge tone="neutral">
 					{refreshIntervalSeconds <= 0
 						? t("vpsStatusPage.refresh.off")
-						: tt("vpsStatusPage.refresh.every", { label: intervalLabel })}
+						: t("vpsStatusPage.refresh.every", { label: intervalLabel })}
 				</StatusBadge>
 				<ButtonLink variant="outline" icon={<ArrowLeft aria-hidden />}
 					href="/health">

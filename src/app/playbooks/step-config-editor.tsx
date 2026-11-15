@@ -117,9 +117,11 @@ export function StepConfigEditor({
 											className="accent-[var(--color-action)]"
 										/>
 										<span className="min-w-0 flex-1 truncate text-[var(--text-primary)]">
-											{server.name}
-											<span className="ml-1 text-[var(--text-muted)]">({server.host})</span>
+											{server.name}{" "}
+											<span className="text-[var(--text-muted)]">({server.host})</span>
 										</span>
+										{/* The space keeps the mark a word of its own when read out ("web-1 (10.0.0.1) Disabled"). */}
+										{!server.enabled && " "}
 										{!server.enabled && (
 											<span className="shrink-0 text-xs text-[var(--text-muted)]">
 												{t("playbooksPage.step.serverDisabled")}

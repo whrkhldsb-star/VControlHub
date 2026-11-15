@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ActionButton } from "@/components/action-button";
 import { Plus, RefreshCw, X } from "@/components/icons";
-import { Card } from "@/components/page-shell";
+import { Card, CountBadge } from "@/components/page-shell";
 import { FormField, IconButton, Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -217,7 +217,6 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
     const kind = resourceKind(type);
     return (
       <div className="space-y-2">
-        {" "}
         {items.length === 0 ? (
           <p className="text-xs text-[var(--text-muted)]">
             {t(
@@ -226,7 +225,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                 : "dockerResources.empty.volumes",
             )}
           </p>
-        ) : null}{" "}
+        ) : null}
         {items.map((item) => {
           const itemName = resourceName(item);
           const key = `${type}:${itemName}`;
@@ -235,20 +234,16 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
               key={key}
               className="p-3"
             >
-              {" "}
               <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-                {" "}
                 <div className="min-w-0 flex-1 basis-40">
-                  {" "}
                   <p className="truncate text-sm font-medium text-[var(--text-primary)]">
                     {itemName}
-                  </p>{" "}
+                  </p>
                   <p className="mt-1 truncate text-xs text-[var(--text-muted)]">
                     {resourceMeta(item)}
-                  </p>{" "}
-                </div>{" "}
+                  </p>
+                </div>
                 <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
-                  {" "}
                   <ActionButton size="sm"
                     type="button"
                     variant="ghost"
@@ -256,7 +251,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                     onClick={() => inspectResource(type, itemName)}
                     disabled={busyKey === `inspect:${key}`}>
                     {t("dockerResources.inspect")}
-                  </ActionButton>{" "}
+                  </ActionButton>
                   {type === "networks" && PREDEFINED_NETWORKS.has(itemName) ? null : (
                   <ActionButton size="sm"
                     type="button"
@@ -269,12 +264,12 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                     disabled={busyKey === `delete:${key}`}>
                     {t("dockerResources.delete")}
                   </ActionButton>
-                  )}{" "}
-                </div>{" "}
-              </div>{" "}
+                  )}
+                </div>
+              </div>
             </div>
           );
-        })}{" "}
+        })}
       </div>
     );
   }
@@ -306,15 +301,17 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="min-w-0">
-          <h3 className="ui-title-caption mb-2">
-            {t("dockerResources.group.networks", { count: networks.length })}
-          </h3>
+          <div className="mb-2 flex items-center gap-2">
+            <h3 className="ui-title-caption">{t("dockerResources.group.networks")}</h3>
+            <CountBadge>{networks.length}</CountBadge>
+          </div>
           {renderList("networks", networks)}
         </div>
         <div className="min-w-0">
-          <h3 className="ui-title-caption mb-2">
-            {t("dockerResources.group.volumes", { count: volumes.length })}
-          </h3>
+          <div className="mb-2 flex items-center gap-2">
+            <h3 className="ui-title-caption">{t("dockerResources.group.volumes")}</h3>
+            <CountBadge>{volumes.length}</CountBadge>
+          </div>
           {renderList("volumes", volumes)}
         </div>
       </div>

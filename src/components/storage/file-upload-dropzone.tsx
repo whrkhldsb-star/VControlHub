@@ -165,7 +165,7 @@ export function FileUploadDropzone({
         setIds((prev) => [...prev, ...nextIds]);
       }
       setMessage(
-        errors.length ? { type: "error", text: errors.join("; ") } : null,
+        errors.length ? { type: "error", text: errors.join(t("common.sentenceSeparator")) } : null,
       );
     } catch (error) {
       const text =
@@ -298,8 +298,7 @@ export function FileUploadDropzone({
         <Notice tone="info" className="mt-4" data-testid="pending-upload-files">
           <p>{t("fileUploadDropzone.pendingFiles", { count: String(pendingFiles.length) })}</p>
           <p className="mt-1 truncate text-xs text-[var(--text-muted)]">
-            {pendingFiles.slice(0, 5).map((file) => getBrowserRelativePath(file)).join(", ")}
-            {pendingFiles.length > 5 ? " …" : ""}
+            {[...pendingFiles.slice(0, 5).map((file) => getBrowserRelativePath(file)), ...(pendingFiles.length > 5 ? ["…"] : [])].join(t("common.listSeparator"))}
           </p>
           <ActionButton
             className="mt-3"

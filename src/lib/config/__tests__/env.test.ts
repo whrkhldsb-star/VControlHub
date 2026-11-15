@@ -199,4 +199,35 @@ describe("lib/config/env", () => {
 			expect(config.redis.url).toBe("redis://localhost:6379");
 		});
 	});
+
+	// Platform backups were cut off after 30 minutes and a VPS backup's remote command after 10; the sweeps that
+	// abandon a RUNNING record waited 45 minutes. Both limits are settings now, and the sweeps follow them.
+	describe("backup", () => {
+		it("defaults to 120 and 60 minutes, and abandons a record only after the limit and the steps after it", () => {
+			delete process.env.BACKUP_COMMAND_TIMEOUT_MINUTES;
+			delete process.env.VPS_BACKUP_COMMAND_TIMEOUT_MINUTES;
+			expect(config.backup.commandTimeoutMs).toBe(120 * 60_000);
+			expect(config.backup.vpsCommandTimeoutMs).toBe(60 * 60_000);
+			expect(config.backup.staleRunningAfterMs).toBe(135 * 60_000);
+			expect(config.backup.vpsStaleRunningAfterMs).toBe(95 * 60_000);
+		});
+
+		it("reads both limits in minutes, within bounds", () => {
+			process.env.BACKUP_COMMAND_TIMEOUT_MINUTES = "300";
+			process.env.VPS_BACKUP_COMMAND_TIMEOUT_MINUTES = "2";
+			expect(config.backup.commandTimeoutMs).toBe(300 * 60_000);
+			expect(config.backup.vpsCommandTimeoutMs).toBe(5 * 60_000);
+			process.env.BACKUP_COMMAND_TIMEOUT_MINUTES = "99999";
+			expect(config.backup.commandTimeoutMs).toBe(1440 * 60_000);
+		});
+	});
+
+	describe("ai.privateProviderHosts", () => {
+		it("lists hosts lower-cased, without IPv6 brackets", () => {
+			process.env.AI_PROVIDER_PRIVATE_HOSTS = " Ollama.LAN, [fd12::5] ,";
+			expect(config.ai.privateProviderHosts).toEqual(["ollama.lan", "fd12::5"]);
+			delete process.env.AI_PROVIDER_PRIVATE_HOSTS;
+			expect(config.ai.privateProviderHosts).toEqual([]);
+		});
+	});
 });

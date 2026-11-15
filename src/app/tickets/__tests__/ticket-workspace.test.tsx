@@ -148,7 +148,7 @@ describe("TicketWorkspace", () => {
         <TicketWorkspace initialPage={firstPage(many)} initialBoard={null} canManage now="2026-01-02T00:00:00.000Z" />
       </I18nProvider>,
     );
-    expect(screen.getByText("Tickets (75)")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Tickets" }).nextElementSibling).toHaveTextContent("75");
     const next = () => screen.getByRole("button", { name: "Next" });
     await user.click(next());
     expect(await screen.findByText("Open ticket 59")).toBeInTheDocument();
@@ -174,7 +174,7 @@ describe("TicketWorkspace", () => {
     await act(async () => answers[1]!({ tickets: [], total: 0, page: 1 }));
     await act(async () => answers[0]!({ tickets: [tickets[1]], total: 1, page: 1 }));
     expect(screen.queryByText("Add staging VPS")).not.toBeInTheDocument();
-    expect(screen.getByText("Tickets (0)")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Tickets" }).nextElementSibling).toHaveTextContent("0");
   });
 
   it("switches between list and board and renders SLA due information", async () => {

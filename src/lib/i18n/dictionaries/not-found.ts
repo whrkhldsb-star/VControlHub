@@ -13,6 +13,6 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"notFound.description": "Page not found or has been removed",
-	"notFound.returnHome": "Return Home",
+	"notFound.returnHome": "Return home",
 	"notFound.title": "404",
 };

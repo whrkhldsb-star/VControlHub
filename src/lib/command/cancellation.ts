@@ -12,10 +12,18 @@ export class CommandCancellationStateUnknownError extends Error {
   }
 }
 
+/**
+ * Lookups that fail in a row before an execution is stopped. One failed or slow lookup (a lock wait, a failover)
+ * used to stop every running command at once while the remote processes kept going; a control plane that stays
+ * unreachable for three checks still stops them.
+ */
+export const CANCELLATION_LOOKUP_FAILURE_LIMIT = 3;
+
 /** A durable cancellation request is visible to every worker process. */
 export async function monitorCommandCancellation(targetId: string, controller: AbortController) {
   let stopped = false;
   let checking = false;
+  let failures = 0;
   const check = async () => {
     if (stopped || checking || controller.signal.aborted) return;
     checking = true;
@@ -25,13 +33,15 @@ export async function monitorCommandCancellation(targetId: string, controller: A
         where: { id: targetId },
         select: { status: true, commandRequest: { select: { status: true } } },
       }), new Promise<never>((_resolve, reject) => { deadlineTimer = setTimeout(() => reject(new Error("Cancellation lookup deadline exceeded")), 5_000); })]);
+      failures = 0;
       if (!stopped && (!target || ["CANCELLING", "CANCELLED", "FAILED", "REJECTED"].includes(target.status)
         || ["CANCELLING", "CANCELLED", "FAILED", "REJECTED"].includes(target.commandRequest.status))) {
         controller.abort(new Error("Command execution was cancelled or revoked"));
       }
     } catch {
       // Losing the control plane must not leave an ungoverned execution alive.
-      if (!stopped) controller.abort(new CommandCancellationStateUnknownError());
+      failures += 1;
+      if (!stopped && failures >= CANCELLATION_LOOKUP_FAILURE_LIMIT) controller.abort(new CommandCancellationStateUnknownError());
     } finally {
       clearTimeout(deadlineTimer);
       checking = false;

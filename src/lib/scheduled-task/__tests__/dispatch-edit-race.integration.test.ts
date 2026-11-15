@@ -15,9 +15,12 @@ vi.mock("@/lib/auth/command-execution-authz", () => ({
 }));
 
 import { prisma } from "@/lib/db";
+import { oneFileAtATime } from "@/test/helpers/one-file-at-a-time";
 import { dispatchDueScheduledTasks } from "../worker";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-task edit during dispatch (PostgreSQL)", () => {
+  // Another file's dispatch would run this file's due task before the edit it checks.
+  oneFileAtATime("scheduled-tasks");
   const prefix = `sched-edit-${randomUUID()}`;
 
   beforeAll(async () => {

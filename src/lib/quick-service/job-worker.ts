@@ -11,7 +11,7 @@ import { enqueueJob, claimNextJob, completeJob, failJob, heartbeatJob } from "@/
 import { createLogger } from "@/lib/logging";
 import { ConflictError } from "@/lib/errors";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
-import type { QuickServiceCredential } from "@/lib/quick-service/install-notice";
+import { isSecretEnvKey, type QuickServiceCredential } from "@/lib/quick-service/install-notice";
 import type { ServiceTemplate } from "@/lib/quick-service/types";
 import {
 	installService,
@@ -253,7 +253,7 @@ async function scrubQuickServiceJobPayloadSecrets(jobId: string) {
 			if (isRecord(template.envJson)) {
 				const envJson = { ...(template.envJson as Record<string, unknown>) };
 				for (const key of Object.keys(envJson)) {
-					if (/(PASSWORD|TOKEN|SECRET|KEY)$/i.test(key) && !/^(PUID|PGID|UMASK|DB_HOSTNAME|PGSSLMODE|DOCKER_ENABLE_SECURITY)$/i.test(key)) {
+					if (isSecretEnvKey(key)) {
 						envJson[key] = "[redacted]";
 						changed = true;
 					}

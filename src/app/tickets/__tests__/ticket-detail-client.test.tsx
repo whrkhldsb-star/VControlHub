@@ -65,9 +65,23 @@ describe("TicketDetailClient", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send comment" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Sending…" })).toBeDisabled());
-    expect(screen.getByRole("button", { name: "Move to In Progress" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move to In progress" })).toBeDisabled();
     resolveComment({ comment: { id: "comment-1", body: "Investigating", createdAt: "2026-01-01T01:00:00Z", author: initial.creator } });
     await waitFor(() => expect(screen.getByLabelText("Add a comment")).toHaveValue(""));
+  });
+
+  // An ITSM system's comment is stored as "[ITSM inbound] <text>": English in front of every such comment.
+  it("marks a comment an ITSM system sent with a badge instead of the stored English prefix", async () => {
+    const comments = [
+      { id: "c1", body: "[ITSM inbound] Disk replaced by the vendor", createdAt: "2026-01-01T01:00:00Z", author: { id: "system", username: "system", displayName: null } },
+      { id: "c2", body: "Looking into it", createdAt: "2026-01-01T02:00:00Z", author: initial.creator },
+    ] as Ticket["comments"];
+    render(<TicketDetailClient initial={{ ...initial, comments }} canManage={false} users={[]} />, { locale: "zh" });
+
+    expect(await screen.findByText("Disk replaced by the vendor")).toBeInTheDocument();
+    expect(screen.queryByText(/ITSM inbound/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("来自 ITSM")).toHaveLength(1);
+    expect(screen.getByText("Looking into it")).toBeInTheDocument();
   });
 
   it("localizes statuses for linked commands and tickets", async () => {

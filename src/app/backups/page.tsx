@@ -4,6 +4,7 @@ import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize
 import { getLocalStorageBackupCoverage, type LocalStorageBackupCoverage } from "@/lib/backup/coverage";
 import { config } from "@/lib/config/env";
 import { getServerLocale, t as translate, type TFn } from "@/lib/i18n/translations";
+import { localizeStoredSentence } from "@/lib/i18n/stored-sentences";
 import { PageShell, EmptyState, PageHeader, StatCard, StatGrid, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, Notice } from "@/components/ui-primitives";
@@ -50,7 +51,9 @@ export default async function BackupsPage() {
 	]);
 	// At most three paths are spelled out; the count says how many there are.
 	const listDirectories = (directories: string[]) =>
-		directories.length > 3 ? t("backupsPage.coverage.more", { paths: directories.slice(0, 3).join(", "), count: directories.length }) : directories.join(", ");
+		directories.length > 3
+			? t("backupsPage.coverage.more", { paths: directories.slice(0, 3).join(t("common.listSeparator")), count: directories.length })
+			: directories.join(t("common.listSeparator"));
 	const offsite = offsiteState.value;
 	const summary = summarizeBackupPolicy(backups);
 	return (
@@ -61,7 +64,8 @@ export default async function BackupsPage() {
 				<StatCard label={t("backupsPage.summary.completed")} value={String(summary.completedRecords)} detail={t("backupsPage.summary.totalRecords", { count: summary.totalRecords })} accent={summary.completedRecords > 0} accentColor="emerald" />
 				<StatCard label={t("backupsPage.summary.usedSpace")} value={formatBackupSize(summary.totalCompletedSizeBytes)} detail={summary.largestCompleted ? t("backupsPage.summary.largestRecord", { type: getBackupTypeLabel(t, summary.largestCompleted.type), size: formatBackupSize(summary.largestCompleted.sizeBytes) }) : t("backupsPage.summary.largestNone")} />
 				<StatCard label={t("backupsPage.summary.retentionNote")} value={String(summary.recordsOlderThan30Days)} detail={t("backupsPage.summary.retentionHint")} accent={summary.recordsOlderThan30Days > 0} accentColor="amber" />
-				<StatCard label={t("backupsPage.summary.exceptions")} value={`${summary.failedRecords} / ${summary.runningRecords}`} detail={t("backupsPage.summary.exceptionsHint")} accent={summary.failedRecords > 0} accentColor="rose" />
+				{/* One number per card: "异常/执行中 0 / 0" made the reader work out which figure was which. */}
+				<StatCard label={t("backupsPage.summary.failed")} value={String(summary.failedRecords)} detail={t("backupsPage.summary.inProgress", { count: summary.runningRecords })} accent={summary.failedRecords > 0} accentColor="rose" />
 			</StatGrid>
 
 			{coverage.uncovered.length > 0 && (
@@ -107,7 +111,8 @@ export default async function BackupsPage() {
 				actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.failures.count", { count: summary.failedRecords })}</span>}
 			>
 				{summary.failureSummary.length === 0 ? (
-					<Notice tone="success" compact>{t("backupsPage.failures.empty")}</Notice>
+					// No failure is not news: said plainly, without a success box.
+					<p className="text-sm text-[var(--text-muted)]">{t("backupsPage.failures.empty")}</p>
 				) : (
 					<div className="grid gap-3 md:grid-cols-2">
 						{summary.failureSummary.map((item) => (
@@ -201,7 +206,7 @@ export default async function BackupsPage() {
 							<div className="mt-2 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 								<span>{t("backupsPage.records.size", { size: formatBackupSize(b.fileSize) })}</span>
 								<span>{b.completedAt ? t("backupsPage.records.completedAt", { time: formatDateTime(b.completedAt, locale) }) : t("backupsPage.records.notCompleted")}</span>
-								{b.errorMessage && <span className="text-[var(--danger)]">{t("backupsPage.records.error", { message: b.errorMessage })}</span>}
+								{b.errorMessage && <span className="text-[var(--danger)]">{t("backupsPage.records.error", { message: localizeStoredSentence(b.errorMessage, locale) })}</span>}
 							</div>
 							{b.note && <p className="mt-2 text-xs text-[var(--text-muted)]">{b.note}</p>}
 							{canRestore || canCreate ? (

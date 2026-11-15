@@ -85,6 +85,17 @@ const SEARCHABLE_NO_EXT_NAMES = new Set([
 	"gitignore", "npmrc", "editorconfig", "env",
 ]);
 
+/**
+ * The same files for a remote node's grep, which matches names by glob and by case: "*.ext" for each
+ * extension (it also matches ".ext", so ".env" and ".gitignore"), and each whole name as it is usually
+ * written. The remote command once carried its own list of 43 extensions, which had drifted from the one
+ * above: a search found a Dockerfile, a README or build.gradle on a local node and not on a remote one.
+ */
+const REMOTE_SEARCH_INCLUDES = [
+	...[...SEARCHABLE_EXTENSIONS].map((ext) => `*${ext}`),
+	...[...SEARCHABLE_NO_EXT_NAMES].flatMap((name) => [name, name[0]!.toUpperCase() + name.slice(1), name.toUpperCase()]),
+].map((glob) => `--include='${glob}'`).join(" ");
+
 function isSearchableFile(filename: string): boolean {
 	const lower = filename.toLowerCase();
 	const ext = path.extname(lower);
@@ -323,7 +334,7 @@ async function searchSftpNode(
 		`expected="\${root%/}"${relativeSearchPath === "." ? "" : shellQuote(`/${relativeSearchPath}`)}`,
 		'[ "$target" = "${expected:-/}" ] || exit 3',
 	].join("\n");
-	const grepCmd = `${containment}\ngrep -rFIl --include='*.txt' --include='*.log' --include='*.md' --include='*.json' --include='*.yaml' --include='*.yml' --include='*.toml' --include='*.ini' --include='*.cfg' --include='*.conf' --include='*.env' --include='*.sh' --include='*.bash' --include='*.py' --include='*.js' --include='*.ts' --include='*.jsx' --include='*.tsx' --include='*.html' --include='*.css' --include='*.scss' --include='*.xml' --include='*.sql' --include='*.csv' --include='*.tsv' --include='*.go' --include='*.rs' --include='*.java' --include='*.c' --include='*.cpp' --include='*.h' --include='*.hpp' --include='*.rb' --include='*.php' --include='*.pl' --include='*.swift' --include='*.kt' --include='*.scala' --include='*.lua' --include='*.r' --include='*.vue' --include='*.svelte' --include='*.properties' --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -${MAX_RESULTS + 1}`;
+	const grepCmd = `${containment}\ngrep -rFIl ${REMOTE_SEARCH_INCLUDES} --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -${MAX_RESULTS + 1}`;
 
 	logger.debug("Remote content search", { nodeId, remoteSearchPath, query: sanitizedQuery });
 

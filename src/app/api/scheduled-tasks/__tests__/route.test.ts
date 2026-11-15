@@ -119,6 +119,20 @@ describe("/api/scheduled-tasks audit coverage", () => {
     });
   });
 
+  // The scheduler stores its result in English ("Completed command request …") or in the language of the
+  // moment; the list says it in the reader's language.
+  it("says a stored last result in the reader's language", async () => {
+    mocks.listScheduledTasks.mockResolvedValue([
+      { id: "task1", name: "Clean logs", cronExpression: "0 2 * * *", command: "true", reason: "", serverIds: ["srv1"], status: "ACTIVE", lastRunAt: null, nextRunAt: null, lastResult: "Completed command request cmd_9", runCount: 1, createdAt: new Date("2026-01-01T00:00:00Z"), creator: null },
+      { id: "task2", name: "Rotate", cronExpression: "0 3 * * *", command: "true", reason: "", serverIds: ["srv1"], status: "ACTIVE", lastRunAt: null, nextRunAt: null, lastResult: "已派发命令请求 cmd_8，等待最终结果", runCount: 1, createdAt: new Date("2026-01-01T00:00:00Z"), creator: null },
+    ]);
+
+    const zh = await (await route.GET(new Request("http://local/api/scheduled-tasks", { headers: { cookie: "vps-locale=zh" } }))).json();
+    expect(zh.tasks.map((task: { lastResult: string }) => task.lastResult)).toEqual(["命令请求 cmd_9 已完成", "已派发命令请求 cmd_8，等待最终结果"]);
+    const en = await (await route.GET(new Request("http://local/api/scheduled-tasks", { headers: { cookie: "vps-locale=en" } }))).json();
+    expect(en.tasks.map((task: { lastResult: string }) => task.lastResult)).toEqual(["Command request cmd_9 completed", "Dispatched command request cmd_8; awaiting the final result"]);
+  });
+
   it("allows read-only command users to refresh scheduled task lists", async () => {
     await route.GET(new Request("http://local/api/scheduled-tasks"));
 

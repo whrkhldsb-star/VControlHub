@@ -259,7 +259,7 @@ export function AiProviderPanel({
                     {modelsLoading ? t("aiPage.fetchingModels") : t("aiPage.fetchModels")}
                   </ActionButton>
                 </div>
-                {modelOptions.length > 0 && <p className="max-h-24 overflow-y-auto break-words text-xs leading-5 text-[var(--text-secondary)]">{modelOptions.length > 20 ? t("aiPage.modelsMore", { models: modelOptions.slice(0, 20).join(", "), more: modelOptions.length - 20 }) : modelOptions.join(", ")}</p>}
+                {modelOptions.length > 0 && <p className="max-h-24 overflow-y-auto break-words text-xs leading-5 text-[var(--text-secondary)]">{modelOptions.length > 20 ? t("aiPage.modelsMore", { models: modelOptions.slice(0, 20).join(t("common.listSeparator")), more: modelOptions.length - 20 }) : modelOptions.join(t("common.listSeparator"))}</p>}
               </div>
               <ActionButton type="submit" disabled={busy} className="w-full">
                 {creatingProvider ? t("aiPage.processing") : t("aiPage.addProviderButton")}

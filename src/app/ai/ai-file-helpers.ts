@@ -74,7 +74,7 @@ export function formatAllowedTypes(caps: ModelCapabilities, t: (key: string, var
   if (caps.video) parts.push(t("aiPage.allowedType.video"));
   if (caps.audio) parts.push(t("aiPage.allowedType.audio"));
   if (caps.document) parts.push(t("aiPage.allowedType.document"));
-  return parts.join(t("aiPage.allowedType.separator"));
+  return parts.join(t("common.listSeparator"));
 }
 
 /** Build the accept string for the file input based on capabilities */

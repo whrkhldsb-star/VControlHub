@@ -15,8 +15,8 @@ import type {
 import { emptyForm, formatAmount, isValidDate } from "./cost-page-shared";
 import { describeFailure } from "@/lib/http/error-message";
 import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
+import type { ToastFn } from "@/components/toast-provider";
 
-type ToastFn = (type: "success" | "error" | "info" | "warning", message: string) => void;
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 export function useCostPageState(options: {
@@ -164,8 +164,9 @@ export function useCostPageState(options: {
           "info",
           t("costPage.actions.syncSkippedDetail", {
             detail: details
-              .map((row) => `${row.serverName}（${t(`costPage.actions.syncSkipReason.${row.reason}`)}）`)
-              .join("、"),
+              // "web-1（…）" kept its Chinese brackets in English.
+              .map((row) => t("costPage.actions.syncSkipItem", { name: row.serverName, reason: t(`costPage.actions.syncSkipReason.${row.reason}`) }))
+              .join(t("common.listSeparator")),
           }),
         );
       }

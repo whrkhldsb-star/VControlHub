@@ -7,6 +7,7 @@ import {
   STORAGE_CHUNKED_THRESHOLD_BYTES,
   uploadStorageFileChunked,
 } from "./storage-chunked-upload";
+import { randomId } from "@/lib/ui/random-id";
 
 export type UploadState =
   | "pending"
@@ -84,7 +85,7 @@ export class StorageUploadQueue {
     }
     const ids: string[] = [];
     for (const { file, path } of files) {
-      const id = crypto.randomUUID();
+      const id = randomId();
       this.records.set(id, { file });
       this.snapshot = [
         ...this.snapshot,

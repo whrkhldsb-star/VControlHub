@@ -7,9 +7,14 @@ vi.mock("node:dns/promises", () => ({
 }));
 // These tests drive a mocked global fetch; the pinned dispatcher underneath
 // the real helper is covered by pinned-fetch.test.ts.
-vi.mock("@/lib/security/pinned-fetch", () => ({
-  fetchWithPinnedDns: (url: string | URL, init?: RequestInit) => globalThis.fetch(url, init),
+vi.mock("@/lib/security/pinned-fetch", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/security/pinned-fetch")>()),
+  fetchWithPinnedDns: (url: string | URL, init?: RequestInit, options?: { allowPrivateAddress?: boolean }) => {
+    pinnedOptions.push(options ?? {});
+    return globalThis.fetch(url, init);
+  },
 }));
+const pinnedOptions: Array<{ allowPrivateAddress?: boolean }> = [];
 
 import {
   fetchProviderModels,
@@ -208,6 +213,29 @@ describe("ai provider-http adapter", () => {
       await expect(
         fetchProviderModels({ apiKey: "   ", baseUrl: "https://api.example.com/v1" }),
       ).rejects.toThrow("必须填写 API Key");
+    });
+
+    // A local Ollama or LM Studio could not be added at all: the operator lists such hosts explicitly.
+    it("reaches a private-network host the operator listed, and only that one", async () => {
+      vi.stubEnv("AI_PROVIDER_PRIVATE_HOSTS", "ollama.lan, 10.0.0.8");
+      lookupMock.mockResolvedValue([{ address: "192.168.1.20", family: 4 }]);
+      globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ data: [{ id: "llama3" }] }), { status: 200 })) as unknown as typeof fetch;
+      pinnedOptions.length = 0;
+
+      await expect(fetchProviderModels({ apiKey: "sk-x", baseUrl: "http://ollama.lan:11434/v1" })).resolves.toEqual([expect.objectContaining({ id: "llama3" })]);
+      expect(pinnedOptions.at(-1)).toEqual({ allowPrivateAddress: true });
+      await expect(fetchProviderModels({ apiKey: "sk-x", baseUrl: "http://10.0.0.8:1234/v1" })).resolves.toHaveLength(1);
+      // Not listed: refused as before.
+      await expect(fetchProviderModels({ apiKey: "sk-x", baseUrl: "http://other.lan/v1" })).rejects.toThrow(/public HTTP\(S\) address/);
+      vi.unstubAllEnvs();
+    });
+
+    it("never reaches a metadata address, listed or not", async () => {
+      vi.stubEnv("AI_PROVIDER_PRIVATE_HOSTS", "169.254.169.254");
+      globalThis.fetch = vi.fn() as unknown as typeof fetch;
+      await expect(fetchProviderModels({ apiKey: "sk-x", baseUrl: "http://169.254.169.254/v1" })).rejects.toThrow();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      vi.unstubAllEnvs();
     });
 
     it("rejects provider hostnames that resolve to metadata or private networks", async () => {

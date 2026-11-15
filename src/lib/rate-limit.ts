@@ -10,6 +10,7 @@
  */
 
 import { config } from "@/lib/config/env";
+import { PEER_ADDRESS_HEADER, peerAddressIsStamped } from "@/lib/http/peer-address";
 import { getRateLimitStore } from "@/lib/rate-limit-store";
 
 type RateLimitConfig = {
@@ -56,12 +57,21 @@ export async function checkRateLimitAsync(
  * IP-scoped limit (share-link password throttling, login throttling) while
  * poisoning audit IPs. Walk `hops` entries from the right instead.
  *
- * Returns "unknown" when no trusted header is present — callers already treat
+ * With no trusted proxy (`TRUSTED_PROXY_HOPS=0`, the app exposed directly) the
+ * key is the connection's own address, which the custom server stamps on every
+ * request (`src/lib/http/peer-address.ts`). It used to be "unknown" for every
+ * request there: one bucket for the whole site, so anyone who spent the login
+ * attempts locked everyone else out for the window.
+ *
+ * Returns "unknown" when no trusted address is present — callers already treat
  * that as a shared bucket, which is safe (conservative), unlike a spoofed one.
  */
 export function getClientIp(request: Request): string {
 	const hops = config.http.trustedProxyHops;
-	if (hops <= 0) return "unknown";
+	if (hops <= 0) {
+		if (!peerAddressIsStamped()) return "unknown";
+		return normalizeClientIp(request.headers.get(PEER_ADDRESS_HEADER) ?? "") ?? "unknown";
+	}
 
 	if (config.http.trustCloudflareHeader) {
 		const cfIp = normalizeClientIp(request.headers.get("cf-connecting-ip") ?? "");
@@ -285,6 +295,36 @@ async function recordFailure(key: string, maxFailures: number, lockoutMs: number
 		await store.setLockout(key, entry, lockoutTtlMs(entry, now));
 		return entry;
 	});
+}
+
+/**
+ * Credentials presented outside a sign-in, such as WebDAV's API tokens. Each request costs a token lookup,
+ * and the request limit is kept per path so a mounted drive is not throttled while it crawls; a caller that
+ * keeps presenting tokens that do not exist could rotate paths for a fresh budget of lookups. Such a client
+ * is refused for a while, counted per client address across every path. Without a trusted address
+ * ("unknown") nothing is counted: one shared counter would let anyone lock everyone out.
+ */
+const UNKNOWN_CREDENTIAL_MAX_FAILURES = 60;
+const UNKNOWN_CREDENTIAL_LOCK_MS = 5 * 60 * 1000;
+
+function credentialClientKey(scope: string, clientIp: string): string | null {
+	const address = clientIp.trim().toLowerCase();
+	// ":" keeps these apart from login counters: a username cannot contain one.
+	return address && address !== "unknown" ? `credential:${scope}@${address}` : null;
+}
+
+/** Whether a client is refused for having presented too many unknown credentials. */
+export async function isCredentialClientBlockedAsync(scope: string, clientIp: string): Promise<{ blocked: boolean; retryAfterMs: number }> {
+	const key = credentialClientKey(scope, clientIp);
+	if (!key) return { blocked: false, retryAfterMs: 0 };
+	const lock = await readLock(key);
+	return { blocked: lock.locked, retryAfterMs: lock.lockedUntil ? Math.max(0, lock.lockedUntil - Date.now()) : 0 };
+}
+
+/** Count a credential that does not exist (not one that exists but may not do what was asked). */
+export async function recordUnknownCredentialAsync(scope: string, clientIp: string): Promise<void> {
+	const key = credentialClientKey(scope, clientIp);
+	if (key) await recordFailure(key, UNKNOWN_CREDENTIAL_MAX_FAILURES, UNKNOWN_CREDENTIAL_LOCK_MS);
 }
 
 /**

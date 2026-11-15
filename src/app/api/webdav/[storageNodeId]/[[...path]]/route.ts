@@ -9,8 +9,10 @@
 import { AppError, AuthError } from "@/lib/errors";
 import {
   authenticateWebDavRequest,
+  UnknownWebDavTokenError,
   webDavUnauthorizedResponse,
 } from "@/lib/webdav/auth";
+import { getClientIp, isCredentialClientBlockedAsync, recordUnknownCredentialAsync } from "@/lib/rate-limit";
 import {
   handleWebDavCopy,
   handleWebDavDelete,
@@ -72,10 +74,28 @@ async function dispatch(
     });
   }
 
+  // A client that kept presenting tokens that do not exist is refused for a while, across every path (the
+  // request limit above is per path). A request without credentials is the client asking how to sign in.
+  const clientIp = getClientIp(request);
+  const presentsCredentials = /^(?:Bearer|Basic) /.test(request.headers.get("authorization") ?? "");
+  if (presentsCredentials) {
+    const refused = await isCredentialClientBlockedAsync("webdav", clientIp);
+    if (refused.blocked) {
+      return new Response("Too Many Requests", {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.max(1, Math.ceil(refused.retryAfterMs / 1000))),
+          "Content-Type": "text/plain; charset=utf-8",
+        },
+      });
+    }
+  }
+
   let auth;
   try {
     auth = await authenticateWebDavRequest(request, method);
   } catch (error) {
+    if (error instanceof UnknownWebDavTokenError) await recordUnknownCredentialAsync("webdav", clientIp);
     if (error instanceof AuthError) {
       return webDavUnauthorizedResponse();
     }

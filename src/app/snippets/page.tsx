@@ -1,6 +1,6 @@
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { listSnippets, snippetViewer } from "@/lib/snippet/service";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell } from "@/components/page-shell";
 import { SnippetList } from "./snippet-list-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
@@ -17,12 +17,10 @@ export default async function Page() {
 
 	return (
 		<PageShell>
-			<PageHeader
-				eyebrow={t("snippetsPage.eyebrow", locale)}
-				title={t("snippetsPage.pageTitle", locale)}
-				description={t("snippetsPage.pageDescription", locale)}
+			<SnippetList
+				header={{ eyebrow: t("snippetsPage.eyebrow", locale), title: t("snippetsPage.pageTitle", locale), description: t("snippetsPage.pageDescription", locale) }}
+				snippets={serialized}
 			/>
-			<SnippetList snippets={serialized} />
 		</PageShell>
 	);
 }

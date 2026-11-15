@@ -8,7 +8,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { withServerActionLocale } from "@/lib/i18n/server-locale";
 
 import { AlertRuleListClient } from "./alert-rule-list-client";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +39,9 @@ export default async function AlertRulesPage() {
 
 	return (
 		<PageShell>
-			<PageHeader
-				eyebrow={t("alertRulesPage.eyebrow", locale)}
-				title={t("alertRulesPage.title", locale)}
-				description={t("alertRulesPage.desc", locale)}
-			/>
-			<AlertRuleListClient rules={serialized} servers={serverOptions} playbooks={playbookOptions} canManage={canManage} />
+			<AlertRuleListClient
+				header={{ eyebrow: t("alertRulesPage.eyebrow", locale), title: t("alertRulesPage.title", locale), description: t("alertRulesPage.desc", locale) }}
+				rules={serialized} servers={serverOptions} playbooks={playbookOptions} canManage={canManage} />
 		</PageShell>
 	);
 }

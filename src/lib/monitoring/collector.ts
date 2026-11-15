@@ -336,7 +336,9 @@ export async function collectMonitoringStats() {
 		hostname: os.hostname(),
 		platform: os.platform(),
 		arch: os.arch(),
-		uptime: `${Math.floor(uptime / 86400)}d  ${Math.floor((uptime % 86400) / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
+		uptime: `${Math.floor(uptime / 86400)}d ${Math.floor((uptime % 86400) / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
+		// The page says it in its own language ("1 小时 50 分"); `uptime` stays for API readers.
+		uptimeSeconds: Math.floor(uptime),
 		cpu: { model: cpus[0]?.model || "Unknown", cores: cpus.length, usage: formatCpuUsage(cpuUsagePercent()), loadAvg: os.loadavg().map((value) => value.toFixed(2)) },
 		memory: {
 			total: formatBytes(totalMem),

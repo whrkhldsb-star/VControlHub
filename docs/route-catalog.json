@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-11T16:41:45.460Z",
+  "generatedAt": "2026-11-14T14:17:20.315Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -24,7 +24,7 @@
       },
       {
         "href": "/vps-status",
-        "fallbackLabel": "Node Status"
+        "fallbackLabel": "Node status"
       },
       {
         "href": "/traffic",
@@ -32,7 +32,7 @@
       },
       {
         "href": "/alert-rules",
-        "fallbackLabel": "Alert Rules"
+        "fallbackLabel": "Alert rules"
       },
       {
         "href": "/cost-summary",
@@ -48,7 +48,7 @@
       },
       {
         "href": "/shares",
-        "fallbackLabel": "Share Links"
+        "fallbackLabel": "Share links"
       },
       {
         "href": "/media",
@@ -56,11 +56,11 @@
       },
       {
         "href": "/image-bed",
-        "fallbackLabel": "Image Links"
+        "fallbackLabel": "Image links"
       },
       {
         "href": "/quick-services",
-        "fallbackLabel": "Quick Apps"
+        "fallbackLabel": "Quick services"
       },
       {
         "href": "/docker",
@@ -68,7 +68,7 @@
       },
       {
         "href": "/deployments",
-        "fallbackLabel": "Deployments"
+        "fallbackLabel": "App deployment"
       },
       {
         "href": "/operation-tasks",
@@ -80,7 +80,7 @@
       },
       {
         "href": "/templates",
-        "fallbackLabel": "Command Templates"
+        "fallbackLabel": "Command templates"
       },
       {
         "href": "/snippets",
@@ -88,19 +88,19 @@
       },
       {
         "href": "/scheduled-tasks",
-        "fallbackLabel": "Scheduled Tasks"
+        "fallbackLabel": "Scheduled tasks"
       },
       {
         "href": "/playbooks",
-        "fallbackLabel": "Playbook Automation"
+        "fallbackLabel": "Playbook automation"
       },
       {
         "href": "/ai",
-        "fallbackLabel": "AI Assistant"
+        "fallbackLabel": "AI assistant"
       },
       {
         "href": "/ai-ops",
-        "fallbackLabel": "AI Ops"
+        "fallbackLabel": "AI ops"
       },
       {
         "href": "/knowledge",
@@ -108,7 +108,7 @@
       },
       {
         "href": "/tickets",
-        "fallbackLabel": "Tickets"
+        "fallbackLabel": "Tickets & requests"
       },
       {
         "href": "/announcements",
@@ -130,27 +130,27 @@
       },
       {
         "href": "/health",
-        "fallbackLabel": "Platform Health"
+        "fallbackLabel": "Platform health"
       },
       {
         "href": "/monitoring",
-        "fallbackLabel": "Hub Host"
+        "fallbackLabel": "Hub host"
       },
       {
         "href": "/backups",
-        "fallbackLabel": "Backups"
+        "fallbackLabel": "Backups & migration"
       },
       {
         "href": "/audit",
-        "fallbackLabel": "Audit Log"
+        "fallbackLabel": "Audit log"
       },
       {
         "href": "/api-tokens",
-        "fallbackLabel": "API Token"
+        "fallbackLabel": "API tokens"
       },
       {
         "href": "/api-docs",
-        "fallbackLabel": "API Docs"
+        "fallbackLabel": "API docs"
       },
       {
         "href": "/itsm",
@@ -158,11 +158,11 @@
       },
       {
         "href": "/status",
-        "fallbackLabel": "Public Status"
+        "fallbackLabel": "Public status"
       },
       {
         "href": "/public-status",
-        "fallbackLabel": "Status Board Settings"
+        "fallbackLabel": "Status board settings"
       }
     ],
     "mobileHrefs": [
@@ -637,6 +637,7 @@
       "declaredPermissions": [
         "ai:chat",
         "command:approve",
+        "command:create",
         "command:execute",
         "command:read",
         "team:manage"
@@ -1438,6 +1439,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "command:approve",
         "command:create",
         "command:execute",
         "command:read"

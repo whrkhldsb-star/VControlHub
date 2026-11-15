@@ -8,11 +8,11 @@ describe("notification messages", () => {
 	it("renders the stored fallback in Chinese and the viewer's language on display", () => {
 		const notice = { code: "commandApproved", params: { title: "Restart nginx" } } as const;
 		const fallback = renderNotificationFallback(notice);
-		expect(fallback).toEqual({ title: "命令已批准", message: "命令「Restart nginx」已批准，即将执行。" });
+		expect(fallback).toEqual({ title: "命令已批准", message: "命令“Restart nginx”已批准，即将执行。" });
 		const row = { ...fallback, messageCode: notice.code, messageParams: notice.params };
 		expect(localizeNotification(row, en)).toEqual({
 			title: "Command approved",
-			message: "Command \"Restart nginx\" has been approved and will execute shortly.",
+			message: "Command “Restart nginx” has been approved and will execute shortly.",
 		});
 	});
 
@@ -21,7 +21,7 @@ describe("notification messages", () => {
 			title: "", message: "", messageCode: "alertFired",
 			messageParams: { server: "web-1", rule: "CPU", metricKey: "alertRulesPage.createForm.metric.cpu_usage", operatorKey: "alertRulesPage.createForm.operator.gt", threshold: 80, value: "91.5" },
 		};
-		expect(localizeNotification(row, en)).toEqual({ title: "Alert: web-1 · CPU Usage", message: "CPU: now 91.5, fires when Greater than 80" });
+		expect(localizeNotification(row, en)).toEqual({ title: "Alert: web-1 · CPU usage", message: "CPU: now 91.5, fires when Greater than 80" });
 	});
 
 	it("keeps the stored text for free-text rows, unknown codes and unknown param keys", () => {

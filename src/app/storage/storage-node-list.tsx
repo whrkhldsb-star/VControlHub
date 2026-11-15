@@ -27,6 +27,8 @@ type StorageNodeItem = {
 	username?: string | null;
 	serverId?: string | null;
 	connectionSummary: string;
+	/** Set for a reader who does not manage nodes: the connection details were left out. */
+	connectionHidden?: boolean;
 	/** Owning customer, shown to administrators. */
 	teamName?: string | null;
 	directAccess: { mode: string; description: string; href: string | null };
@@ -125,7 +127,7 @@ function StorageNodeCard({
 						<h3 className="ui-title-section">{node.name}</h3>
 						{node.teamName ? <Badge tone="neutral">{node.teamName}</Badge> : null}
 					</div>
-					<p className="mt-2 break-all text-sm leading-7 text-[var(--text-secondary)]">{getStorageConnectionLabel(t, node)}</p>
+					{node.connectionHidden ? null : <p className="mt-2 break-all text-sm leading-7 text-[var(--text-secondary)]">{getStorageConnectionLabel(t, node)}</p>}
 				</div>
 					<div className="flex items-center gap-2">
 						<StatusBadge tone="neutral" className="!rounded-lg px-3 py-1 !text-sm">
@@ -165,7 +167,18 @@ function StorageNodeCard({
 			<div data-inset className="mt-4 p-4 text-sm text-[var(--text-secondary)]">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex flex-wrap items-center gap-2">
-						<StatusBadge tone={health.tone} size="sm">{health.label}</StatusBadge> <span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span> {node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs", { latency: node.lastHealthLatencyMs })}</span> : null} </div> {canManageNodes ? ( <ActionButton size="sm" variant="secondary" onClick={handleHealthCheck} loading={isPending}> {isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")} </ActionButton> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ?"text-[var(--success)]" :"text-[var(--danger)]"}`}>{message.text}</p> : null}
+						<StatusBadge tone={health.tone} size="sm">{health.label}</StatusBadge>
+						<span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span>
+						{node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs", { latency: node.lastHealthLatencyMs })}</span> : null}
+					</div>
+					{canManageNodes ? (
+						<ActionButton size="sm" variant="secondary" onClick={handleHealthCheck} loading={isPending}>
+							{isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")}
+						</ActionButton>
+					) : null}
+				</div>
+				{node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null}
+				{message ? <p className={`mt-2 text-xs ${message.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{message.text}</p> : null}
 			</div>
 			<p className="mt-2 text-xs text-[var(--text-muted)]">{t("storagePage.list.registeredFiles", { count: node.fileCount })}</p>
 

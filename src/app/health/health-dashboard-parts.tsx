@@ -21,7 +21,7 @@ function FleetMetricBar({ label, value, unit }: { label: string; value: number; 
 	return (
 		<div data-tile className="p-3">
 			<div className="flex items-baseline justify-between">
-				<p className="text-xs uppercase text-[var(--text-muted)]">{label}</p>
+				<p className="text-xs text-[var(--text-muted)]">{label}</p>
 				<p className={`text-xl font-bold ${usageColor(value)}`}>
 					{value}
 					{unit}
@@ -35,11 +35,9 @@ function FleetMetricBar({ label, value, unit }: { label: string; value: number; 
 export function FleetResourceSummary({
 	overview,
 	t,
-	tt,
 }: {
 	overview: HealthOverview;
 	t: TFunc;
-	tt: (key: string, vars?: Record<string, string | number>) => string;
 }) {
 	const onlineServers = overview.servers.filter(
 		(s) => s.status !== "offline" && s.cpu !== undefined,
@@ -79,7 +77,7 @@ export function FleetResourceSummary({
 		<section data-card className="space-y-3 p-4">
 			<div className="flex items-center justify-between">
 				<div>
-					<p className="text-xs uppercase text-[var(--text-muted)]">
+					<p className="text-xs text-[var(--text-muted)]">
 						{t("healthPage.fleet.eyebrow")}
 					</p>
 					<h2 className="ui-title-section mt-1">
@@ -87,7 +85,7 @@ export function FleetResourceSummary({
 					</h2>
 				</div>
 				<span className="text-xs text-[var(--text-muted)]">
-					{tt("healthPage.fleet.basedOn", { count: onlineServers.length })}
+					{t("healthPage.fleet.basedOn", { count: onlineServers.length })}
 				</span>
 			</div>
 			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -95,7 +93,7 @@ export function FleetResourceSummary({
 				<FleetMetricBar label={t("healthPage.fleet.avgMem")} value={avgMem} unit="%" />
 				<FleetMetricBar label={t("healthPage.fleet.avgDisk")} value={avgDisk} unit="%" />
 				<div data-tile className="p-3">
-					<p className="text-xs uppercase text-[var(--text-muted)]">
+					<p className="text-xs text-[var(--text-muted)]">
 						{t("healthPage.fleet.avgLoad")}
 					</p>
 					<p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{avgLoad}</p>
@@ -113,11 +111,10 @@ export function FleetResourceSummary({
 			</div>
 			{top5.length > 0 && (
 				<div className="space-y-1.5">
-					<p className="text-xs uppercase text-[var(--text-muted)]">
+					<p className="text-xs text-[var(--text-muted)]">
 						{t("healthPage.fleet.top5")}
 					</p>
 					{top5.map((s, i) => {
-						const score = (s.cpu ?? 0) + (s.mem ?? 0) + (s.diskMax ?? 0);
 						return (
 							<div key={s.serverId} className="flex items-center gap-2 text-xs">
 								<span className="w-4 text-[var(--text-muted)]">{i + 1}.</span>
@@ -125,9 +122,8 @@ export function FleetResourceSummary({
 									{s.serverName}
 								</span>
 								<span className={usageColor(s.cpu)}>CPU {s.cpu ?? "-"}%</span>
-								<span className={usageColor(s.mem)}>MEM {s.mem ?? "-"}%</span>
-								<span className={usageColor(s.diskMax)}>DISK {s.diskMax ?? "-"}%</span>
-								<span className="text-[var(--text-muted)]">({score})</span>
+								<span className={usageColor(s.mem)}>{t("healthPage.ui.memory")} {s.mem ?? "-"}%</span>
+								<span className={usageColor(s.diskMax)}>{t("healthPage.ui.disk")} {s.diskMax ?? "-"}%</span>
 							</div>
 						);
 					})}

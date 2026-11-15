@@ -13,12 +13,14 @@ import { zh as vpsBackupApiZh, en as vpsBackupApiEn } from "./dictionaries/vps-b
 import { zh as apiCopyZh, en as apiCopyEn } from "./dictionaries/api-copy";
 import { zh as filesZh, en as filesEn } from "./dictionaries/files-page";
 import { zh as storageZh, en as storageEn } from "./dictionaries/storage-page";
+import { zh as operationTasksZh, en as operationTasksEn } from "./dictionaries/operation-tasks";
 // Hardening-copy dictionaries — one per backend area so parallel work on
 // separate domains never edits the same file.
 import { zh as storageHardeningZh, en as storageHardeningEn } from "./dictionaries/storage-hardening-api";
 import { zh as sshHardeningZh, en as sshHardeningEn } from "./dictionaries/ssh-hardening-api";
 import { zh as opsHardeningZh, en as opsHardeningEn } from "./dictionaries/ops-hardening-api";
 import { zh as publicStatusApiZh, en as publicStatusApiEn } from "./dictionaries/public-status-api";
+import { zh as storedSentencesZh, en as storedSentencesEn } from "./dictionaries/stored-sentences";
 import { type Locale } from "./core";
 import { currentCopyLocale } from "./api-copy";
 import { makeT } from "./make-t";
@@ -27,24 +29,30 @@ const fileActionCopy = (files: Record<string, string>, storage: Record<string, s
 	...Object.entries(files).filter(([key]) => key.startsWith("filesPage.move.")),
 	...Object.entries(storage).filter(([key]) => key.startsWith("storagePage.action.")),
 ]);
+// The task centre's failure summary names a job by its type, as the page's badges do.
+const jobTypeCopy = (operationTasks: Record<string, string>) => Object.fromEntries(
+	Object.entries(operationTasks).filter(([key]) => key.startsWith("operationTasks.jobType.")),
+);
 
 const zh: Record<string, string> = {
 	...fileActionCopy(filesZh, storageZh),
+	...jobTypeCopy(operationTasksZh),
 	...aiChatApiZh, ...apiCommonZh, ...backendServicesZh, ...downloadsApiZh,
 	...downloadsPageZh, ...openApiSpecZh, ...serversDetectOsApiZh,
 	...serversFileProxyApiZh, ...serversReloadApiZh, ...shareTokenApiZh,
 	...vpsBackupApiZh,
-	...storageHardeningZh, ...sshHardeningZh, ...opsHardeningZh, ...publicStatusApiZh,
+	...storageHardeningZh, ...sshHardeningZh, ...opsHardeningZh, ...publicStatusApiZh, ...storedSentencesZh,
 	...apiCopyZh,
 };
 
 const en: Record<string, string> = {
 	...fileActionCopy(filesEn, storageEn),
+	...jobTypeCopy(operationTasksEn),
 	...aiChatApiEn, ...apiCommonEn, ...backendServicesEn, ...downloadsApiEn,
 	...downloadsPageEn, ...openApiSpecEn, ...serversDetectOsApiEn,
 	...serversFileProxyApiEn, ...serversReloadApiEn, ...shareTokenApiEn,
 	...vpsBackupApiEn,
-	...storageHardeningEn, ...sshHardeningEn, ...opsHardeningEn, ...publicStatusApiEn,
+	...storageHardeningEn, ...sshHardeningEn, ...opsHardeningEn, ...publicStatusApiEn, ...storedSentencesEn,
 	...apiCopyEn,
 };
 

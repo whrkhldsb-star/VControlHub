@@ -52,7 +52,7 @@ describe("CustomersClient", () => {
 	it("restores a deleted customer", async () => {
 		const user = userEvent.setup();
 		render(<CustomersClient />);
-		await user.click(await screen.findByText("已删除的客户（1）"));
+		await user.click(await screen.findByText("已删除的客户"));
 		await user.click(await screen.findByRole("button", { name: "恢复" }));
 		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/teams/team_old/restore", { method: "POST" }));
 	});

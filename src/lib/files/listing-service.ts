@@ -341,7 +341,8 @@ export async function getFilesListing(
         id: node.id,
         name: node.name,
         driver: node.driver,
-        basePath: node.driver === "LOCAL" ? node.basePath : undefined,
+        // A server path: only for whoever manages nodes (nothing in the browser reads it otherwise).
+        basePath: node.driver === "LOCAL" && sessionHasPermission(session, "storage:manage-node") ? node.basePath : undefined,
         isDefault: node.isDefault,
         healthStatus: node.healthStatus,
         teamName: node.teamName ?? null,

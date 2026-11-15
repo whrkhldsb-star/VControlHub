@@ -16,6 +16,7 @@ import {
   type ReviewCommandInput,
 } from "./schema";
 import { cancelActiveCommandChild, enqueueApprovedCommandExecution } from "./service-execution";
+import { maySelfReviewCommands } from "./review-scope";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
 import { getServerTargetAvailability } from "@/lib/server/availability";
@@ -297,6 +298,12 @@ export async function cancelCommandRequest(input: {
     if (request.requesterId !== input.actorId && !canCancelOthers) {
       throw new BusinessError(t("backend.command.cannotCancelOthers"));
     }
+    // A member who may submit but not execute commands could not take back a request nobody had approved yet:
+    // they may withdraw their own while it waits; stopping one that runs stays with those who execute.
+    if (!sessionHasPermission(input.session, "command:execute")
+      && !(request.requesterId === input.actorId && request.status === "PENDING_APPROVAL")) {
+      throw new BusinessError(t("backend.command.withdrawOnlyPending"));
+    }
   }
 
   if (request.status === "CANCELLING") return request;
@@ -483,11 +490,8 @@ export async function reviewCommandRequest(
 
   // Separation of duties: requester cannot approve/reject their own request
   // (even if they also hold command:approve). Admins with team:manage may
-  // still self-review in single-operator deployments.
-  if (
-    request.requesterId === payload.approverId &&
-    !(session && sessionHasPermission(session, "team:manage"))
-  ) {
+  // still self-review in single-operator deployments. The pages offer a review by the same rule (review-scope.ts).
+  if (request.requesterId === payload.approverId && !maySelfReviewCommands(session)) {
     throw new BusinessError(t("backend.command.cannotSelfReview"));
   }
 

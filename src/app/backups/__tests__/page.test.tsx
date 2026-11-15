@@ -192,7 +192,7 @@ describe("BackupsPage", () => {
     await act(async () => { render(await BackupsPage()); });
     expect(document.querySelector('[data-backup-coverage="uncovered"]')).toBeNull();
     const fullOnly = document.querySelector('[data-backup-coverage="full-only"]');
-    expect(fullOnly).toHaveTextContent("/data/a, /data/b, /data/c 等 4 个目录");
+    expect(fullOnly).toHaveTextContent("/data/a、/data/b、/data/c 等 4 个目录");
     expect(fullOnly).not.toHaveTextContent("/data/d");
   });
 

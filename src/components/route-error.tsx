@@ -117,7 +117,7 @@ export function RouteError({
 			details={
 				thrown.digest ? (
 					<p className="ui-mono inline-flex rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1 text-xs text-[var(--text-muted)]">
-						{t("error.digest-label")} {thrown.digest}
+						{t("error.digest-label")}{thrown.digest}
 					</p>
 				) : null
 			}

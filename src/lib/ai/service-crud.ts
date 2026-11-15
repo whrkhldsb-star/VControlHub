@@ -13,8 +13,9 @@ import { t } from "@/lib/i18n/service-translations";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
+import { isLinkLocalAddress } from "@/lib/security/pinned-fetch";
 import { aiProviderTypeSchema, type AiProviderType } from "./schema";
-import { defaultAiBaseUrl } from "./provider-http";
+import { defaultAiBaseUrl, isListedPrivateProviderHost } from "./provider-http";
 
 const DEFAULT_AI_BASE_URL = defaultAiBaseUrl();
 
@@ -40,7 +41,18 @@ function normalizeProviderModels(models?: string[]) {
 }
 
 export function normalizeProviderBaseUrl(value: string | undefined) {
-	return normalizePublicHttpUrl(value?.trim() || DEFAULT_AI_BASE_URL);
+	const raw = value?.trim() || DEFAULT_AI_BASE_URL;
+	// A host the operator listed in AI_PROVIDER_PRIVATE_HOSTS may be a private or loopback address
+	// ("http://192.168.1.20:11434/v1"); the scheme and credential rules still apply, link-local never passes.
+	if (isListedPrivateProviderHost(raw)) {
+		const url = new URL(raw);
+		if (url.protocol !== "https:" && url.protocol !== "http:") throw new ValidationError(t("backend.ai.aiProviderUrlMustUseHttpS"));
+		if (url.username || url.password) throw new ValidationError(t("backend.ai.aiProviderUrlMustNotContainCredentials"));
+		if (isLinkLocalAddress(url.hostname)) throw new ValidationError(t("backend.ai.aiProviderUrlMustNotPointToA"));
+		url.hash = "";
+		return url.toString();
+	}
+	return normalizePublicHttpUrl(raw);
 }
 
 /* ── Types ───────────────────────────────────────────────────── */

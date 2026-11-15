@@ -24,10 +24,10 @@ describe("CancelCommandButton", () => {
     render(<CancelCommandButton commandRequestId="cmd1" commandTitle="Restart nginx" />, { locale: "en" });
 
     await userEvent.click(screen.getByRole("button", { name: "Cancel command: Restart nginx" }));
-    expect(screen.getByRole("dialog", { name: "Confirm cancellation" })).toHaveTextContent("Restart nginx");
+    expect(screen.getByRole("dialog", { name: "Cancel command" })).toHaveTextContent("Restart nginx");
 
     await userEvent.type(screen.getByLabelText("Cancel reason (optional)"), "wrong maintenance window");
-    await userEvent.click(screen.getByRole("button", { name: "Confirm cancel" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel command" }));
 
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/commands", expect.objectContaining({
       method: "PATCH",
@@ -41,10 +41,10 @@ describe("CancelCommandButton", () => {
     render(<CancelCommandButton commandRequestId="cmd1" commandTitle="Restart nginx" />, { locale: "en" });
 
     await userEvent.click(screen.getByRole("button", { name: "Cancel command: Restart nginx" }));
-    await userEvent.click(screen.getByRole("button", { name: "Confirm cancel" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel command" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Current command request has ended, cannot cancel");
-    const dialog = screen.getByRole("dialog", { name: "Confirm cancellation" });
+    const dialog = screen.getByRole("dialog", { name: "Cancel command" });
     // In the dialog that stays open: it was written under the button on the page, behind it.
     expect(within(dialog).getByRole("alert")).toHaveTextContent("Current command request has ended, cannot cancel");
     expect(refreshMock).not.toHaveBeenCalled();

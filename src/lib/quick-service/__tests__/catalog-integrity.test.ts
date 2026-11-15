@@ -142,3 +142,30 @@ describe("quick-service catalogue", () => {
 		}
 	});
 });
+
+/**
+ * The "Open" link is the host and the service's port followed by its path. Most paths were reverse-proxy
+ * aliases ("/nextcloud/", "/fb/", "/jellyfin/") that the apps do not serve on their own port, so the link led
+ * to a "Not found" page. A path is the app's own page; "/" unless the app's start page lives elsewhere.
+ */
+describe("quick-service links", () => {
+	const OWN_PAGES: Record<string, string> = {
+		emby: "/web/index.html",
+		pihole: "/admin/",
+		// The blog is at "/"; the link opens the admin, where the first account is created.
+		ghost: "/ghost/",
+	};
+
+	it("open a page the app serves on its own port", () => {
+		for (const template of SERVICE_CATALOG) {
+			expect(template.path, template.slug).toBe(OWN_PAGES[template.slug] ?? "/");
+		}
+	});
+
+	// Given no directory, dufs serves its working directory: the container's root.
+	it("let dufs serve its data volume, not the container's root", () => {
+		const dufs = SERVICE_CATALOG.find((template) => template.slug === "dufs")!;
+		expect(dufs.command).toBe("/data");
+		expect(dufs.volumesJson).toContainEqual({ host: "/opt/dufs/data", container: "/data" });
+	});
+});

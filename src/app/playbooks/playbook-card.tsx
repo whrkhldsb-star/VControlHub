@@ -65,6 +65,9 @@ type PlaybookCardProps = {
   onTrigger: (id: string, kind: "run" | "dry-run") => void;
   onToggle: (playbook: SerializedPlaybook) => void;
   onClaim: (playbook: SerializedPlaybook) => void;
+  onEdit: (playbook: SerializedPlaybook) => void;
+  /** A form is open: finish or cancel it before editing another playbook. */
+  editDisabled?: boolean;
   onDelete: (playbook: SerializedPlaybook) => void;
 };
 
@@ -77,6 +80,8 @@ export const PlaybookCard = memo(function PlaybookCard({
   onTrigger,
   onToggle,
   onClaim,
+  onEdit,
+  editDisabled = false,
   onDelete,
 }: PlaybookCardProps) {
   const { t, locale } = useI18n();
@@ -138,6 +143,12 @@ export const PlaybookCard = memo(function PlaybookCard({
             </>
           )}
           {canManage && (
+            <ActionButton variant="outline" onClick={() => onEdit(playbook)} disabled={editDisabled}
+              title={editDisabled ? t("playbooksPage.action.editBusy") : undefined}>
+              {t("playbooksPage.action.edit")}
+            </ActionButton>
+          )}
+          {canManage && (
             <ActionButton variant="outline"
               onClick={() => onToggle(playbook)}
               disabled={isToggling}>
@@ -171,5 +182,7 @@ export const PlaybookCard = memo(function PlaybookCard({
   && prev.onTrigger === next.onTrigger
   && prev.onToggle === next.onToggle
   && prev.onClaim === next.onClaim
+  && prev.onEdit === next.onEdit
+  && prev.editDisabled === next.editDisabled
   && prev.onDelete === next.onDelete
 );

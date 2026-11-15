@@ -247,7 +247,7 @@ describe("server actions", () => {
 
     expect(result).toEqual({
       relatedStorageCount: 0,
-      error: "请输入 VPS 名称「prod」以确认删除。",
+      error: "请输入 VPS 名称“prod”以确认删除。",
     });
     expect(deleteServerProfileMock).not.toHaveBeenCalled();
   });

@@ -18,6 +18,7 @@ import { SshDeleteDialog } from "./ssh-file-manager-dialogs";
 import { SshFileList, SshUploadProgressList } from "./ssh-file-manager-list";
 import { DirEntry, getCsrfToken, SshFileManagerHeader, UploadProgress } from "./ssh-file-manager-parts";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { randomId } from "@/lib/ui/random-id";
 
 export type SshFileManagerProps = {
   serverId: string;
@@ -136,7 +137,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       if (loading || !currentPath) return;
       const dir = currentPath;
       const batch = Array.from(files);
-      const newUploads = batch.map((file) => ({ id: crypto.randomUUID(), fileName: file.name, percent: 0, status: "uploading" as const }));
+      const newUploads = batch.map((file) => ({ id: randomId(), fileName: file.name, percent: 0, status: "uploading" as const }));
       const batchIds = new Set(newUploads.map((item) => item.id));
       setUploads((prev) => [...prev, ...newUploads]);
 

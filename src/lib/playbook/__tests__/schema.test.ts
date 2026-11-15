@@ -188,6 +188,14 @@ describe("playbook createPlaybookSchema", () => {
 		}
 	});
 
+	// zod 4 fills a default in for an absent key even under .optional(): every update said "enabled, no chain
+	// retries", so a toggle reset the retries and claiming or renaming a disabled playbook switched it back on.
+	it("updatePlaybookSchema leaves out what an update does not name", () => {
+		expect(updatePlaybookSchema.parse({ id: "pb1", name: "New name" })).toEqual({ id: "pb1", name: "New name" });
+		expect(updatePlaybookSchema.parse({ id: "pb1", claimOwnership: true })).toEqual({ id: "pb1", claimOwnership: true });
+		expect(updatePlaybookSchema.parse({ id: "pb1", enabled: false })).toEqual({ id: "pb1", enabled: false });
+	});
+
 	it("idQuerySchema requires non-empty id", () => {
 		expect(idQuerySchema.safeParse({ id: "" }).success).toBe(false);
 		expect(idQuerySchema.safeParse({ id: "pb1" }).success).toBe(true);

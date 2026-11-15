@@ -194,7 +194,7 @@ export function ServerOverviewDetails({
 		<div
 			id={detailsId}
 			role="region"
-			aria-label={`${server.name} ${t("serverOverviewDetails.vpsDetails")}`}
+			aria-label={t("serverOverviewDetails.detailsOf", { name: server.name })}
 			className="space-y-3"
 		>
 			<section data-inset className="p-3">
@@ -276,7 +276,7 @@ export function ServerOverviewDetails({
 					{/* TR-043: VPS Remote Backup — POSIX shell presets, Linux nodes only */}
 					{canManageServers && server.operatingSystem !== "WINDOWS" ? (
 					<div className="mt-4">
-						<div className="mb-2 text-xs font-semibold uppercase text-[var(--text-muted)]">
+						<div className="mb-2 text-xs font-semibold text-[var(--text-muted)]">
 							{t("vpsBackup.sectionTitle")}
 						</div>
 						<VpsBackupSection

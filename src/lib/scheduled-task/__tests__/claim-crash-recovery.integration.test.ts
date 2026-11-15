@@ -24,9 +24,12 @@ vi.mock("../service", async (importOriginal) => ({
 }));
 
 import { prisma } from "@/lib/db";
+import { oneFileAtATime } from "@/test/helpers/one-file-at-a-time";
 import { dispatchDueScheduledTasks } from "../worker";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-task claim survives a worker crash", () => {
+  // Another file's dispatch, without this file's mocks or clock, would run the task this one left claimed.
+  oneFileAtATime("scheduled-tasks");
   const prefix = `sched-crash-${randomUUID()}`;
 
   beforeAll(async () => {

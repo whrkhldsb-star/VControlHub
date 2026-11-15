@@ -8,10 +8,18 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
+import { useToast } from "@/components/toast-provider";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
-export function CreateAnnouncementForm() {
+/** The fields of a new announcement; its panel (title, card) is the page's. */
+export function CreateAnnouncementForm({ onClose }: {
+	/** Closes the form: once the announcement is posted, or on Cancel (which asks first when something was typed). */
+	onClose: () => void;
+}) {
 	const { t } = useI18n();
 	const router = useRouter();
+	const { addToast } = useToast();
 	const titleId = useId();
 	const typeId = useId();
 	const contentId = useId();
@@ -19,6 +27,8 @@ export function CreateAnnouncementForm() {
 	const expiresAtId = useId();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [dirty, setDirty] = useState(false);
+	const { requestDiscard, discardDialog } = useUnsavedChangesGuard({ dirty, onDiscard: onClose });
 
 	/** datetime-local is "YYYY-MM-DDTHH:mm" without timezone; API requires ISO with offset. */
 	const toIsoOrUndefined = (value: FormDataEntryValue | undefined) => {
@@ -47,11 +57,15 @@ export function CreateAnnouncementForm() {
 					expiresAt: toIsoOrUndefined(data.expiresAt),
 				}),
 			});
-			// The fields stay editable while saving. Reset only if they still
-			// hold what was sent: a next announcement typed meanwhile was wiped.
-			const current = Object.fromEntries(new FormData(form));
-			if (Object.keys(data).every((key) => current[key] === data[key])) form.reset();
+			addToast("success", t("announcementsPage.toast.created"));
 			router.refresh();
+			// The fields stay editable while posting. The form closes only if they still hold what was sent: a next
+			// announcement typed meanwhile stays, as it is.
+			const current = Object.fromEntries(new FormData(form));
+			if (Object.keys(data).every((key) => current[key] === data[key])) {
+				setDirty(false);
+				onClose();
+			}
 		} catch (err) {
 			setError(getErrorMessage(err, t("announcementsPage.create.error")));
 		} finally {
@@ -60,9 +74,8 @@ export function CreateAnnouncementForm() {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} data-card className="space-y-4">
-			<h2 className="ui-title-section">{t("announcementsPage.create.title")}</h2>
-			{error && <p className="text-xs text-[var(--danger)] dark:text-[var(--danger)]">{error}</p>}
+		<form onSubmit={handleSubmit} onChange={() => setDirty(true)} className="space-y-4">
+			{error && <Notice tone="danger" compact>{error}</Notice>}
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
 					<label htmlFor={titleId} className="ui-label">{t("announcementsPage.create.titleLabel")}</label>
@@ -71,12 +84,12 @@ export function CreateAnnouncementForm() {
 				</div>
 				<div className="grid gap-1.5">
 					<label htmlFor={typeId} className="ui-label">{t("announcementsPage.create.typeLabel")}</label>
-					<select id={typeId} name="type" defaultValue="info" className={UI_INPUT}>
+					<select id={typeId} name="type" defaultValue="info" aria-describedby={`${typeId}-hint`} className={UI_INPUT}>
 						<option value="info">{t("announcementsPage.level.info")}</option>
 						<option value="warning">{t("announcementsPage.level.warning")}</option>
 						<option value="urgent">{t("announcementsPage.level.urgent")}</option>
 					</select>
-					<p className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.typeHint")}</p>
+					<p id={`${typeId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.typeHint")}</p>
 				</div>
 			</div>
 			<div className="grid gap-1.5">
@@ -96,9 +109,15 @@ export function CreateAnnouncementForm() {
 					<p id={`${expiresAtId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.expiresAtHint")}</p>
 				</div>
 			</div>
-			<ActionButton type="submit" variant="primary" disabled={loading} className="w-fit">
-				{loading ? t("announcementsPage.create.submitting") : t("announcementsPage.create.submit")}
-			</ActionButton>
+			<div className="flex flex-wrap gap-3">
+				<ActionButton type="submit" variant="primary" disabled={loading}>
+					{loading ? t("announcementsPage.create.submitting") : t("announcementsPage.create.submit")}
+				</ActionButton>
+				<ActionButton type="button" variant="secondary" disabled={loading} onClick={requestDiscard}>
+					{t("common.cancel")}
+				</ActionButton>
+			</div>
+			{discardDialog}
 		</form>
 	);
 }

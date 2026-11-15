@@ -277,6 +277,39 @@ export const config = {
 	},
 
 	/**
+	 * Backup command limits. A platform backup (database dump plus files) was cut off after 30 minutes and a VPS
+	 * backup's remote command after 10, so large instances failed every time. The sweeps that mark a RUNNING
+	 * backup record as abandoned wait for the limit plus the steps that follow it.
+	 */
+	backup: {
+		/** Platform backup and restore commands (deploy scripts), in minutes: 10–1440, default 120. */
+		get commandTimeoutMs(): number {
+			return Math.max(10, Math.min(readInt("BACKUP_COMMAND_TIMEOUT_MINUTES", 120), 1440)) * 60_000;
+		},
+		/** The remote archive command of a VPS backup, in minutes: 5–1440, default 60. */
+		get vpsCommandTimeoutMs(): number {
+			return Math.max(5, Math.min(readInt("VPS_BACKUP_COMMAND_TIMEOUT_MINUTES", 60), 1440)) * 60_000;
+		},
+		/** A RUNNING platform backup record untouched this long is abandoned: the command limit plus verification. */
+		get staleRunningAfterMs(): number { return this.commandTimeoutMs + 15 * 60_000; },
+		/** A RUNNING VPS backup record untouched this long is abandoned: the command limit plus download and upload. */
+		get vpsStaleRunningAfterMs(): number { return this.vpsCommandTimeoutMs + 35 * 60_000; },
+	},
+
+	/** AI providers. */
+	ai: {
+		/**
+		 * Hosts an AI provider may use although they are on a private network or this machine (a local Ollama or
+		 * LM Studio), as a comma-separated list of host names or addresses, matched exactly. Provider addresses
+		 * must otherwise resolve to public addresses (SSRF protection); link-local and cloud metadata addresses
+		 * stay refused even when listed.
+		 */
+		get privateProviderHosts(): string[] {
+			return readList("AI_PROVIDER_PRIVATE_HOSTS").map((host) => host.toLowerCase().replace(/^\[|\]$/g, ""));
+		},
+	},
+
+	/**
 	 * Health overview collection. One collection = one TCP probe + one SSH
 	 * session per managed server, so it is the single most expensive read in
 	 * the app and must not run per dashboard poll / per open tab.

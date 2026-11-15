@@ -53,7 +53,7 @@ export function PermanentDeleteButton({
         type="submit"
         disabled={pending}
         data-tone="rose">
-        {pending ? t("common.executing") : t("common.confirm")}
+        {pending ? t("common.executing") : t("common.confirmDelete")}
       </ActionButton>
       <ActionButton variant="secondary"
         onClick={handleCancel}

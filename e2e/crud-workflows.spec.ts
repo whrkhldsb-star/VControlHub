@@ -31,7 +31,8 @@ async function confirmInDialog(page: Page, title: RegExp, confirm: RegExp) {
 
 test("snippet create, search, edit and delete", async ({ page }) => {
 	await page.goto("/snippets");
-	await page.getByRole("button", { name: /新建片段|New snippet/i }).click();
+	// The header's command (an empty list offers the same one).
+	await page.getByRole("button", { name: /新建片段|New snippet/i }).first().click();
 	const create = page.getByRole("dialog", { name: /新建代码片段|New code snippet/i });
 	await create.getByLabel(/标题|Title/i).fill(marker);
 	await create.getByLabel(/内容|Content/i).fill("echo e2e");
@@ -45,12 +46,14 @@ test("snippet create, search, edit and delete", async ({ page }) => {
 	await edit.getByRole("button", { name: /保存|Save/i }).click();
 	await expect(page.getByText(`${marker}-edited`, { exact: true })).toBeVisible();
 	await page.getByRole("button", { name: /删除代码片段|Delete code snippet/i }).click();
-	await page.getByRole("dialog", { name: /删除代码片段|Delete code snippet/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await page.getByRole("dialog", { name: /删除代码片段|Delete code snippet/i }).getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.getByText(`${marker}-edited`, { exact: true })).toBeHidden();
 });
 
 test("announcement create, search, edit and delete", async ({ page }) => {
 	await page.goto("/announcements");
+	// The form opens from the header (an empty list offers the same command).
+	await page.getByRole("button", { name: /^(发布公告|Post announcement)$/i }).first().click();
 	await page.getByLabel(/标题|Title/i).fill(marker);
 	await page.getByLabel(/内容|Content/i).fill("E2E announcement body");
 	await page.getByRole("button", { name: /发布公告|Publish announcement/i }).click();
@@ -62,7 +65,7 @@ test("announcement create, search, edit and delete", async ({ page }) => {
 	await edit.getByRole("button", { name: /保存|Save/i }).click();
 	await expect(page.getByText(`${marker}-edited`, { exact: true })).toBeVisible();
 	await page.getByRole("button", { name: /删除公告|Delete announcement/i }).click();
-	await page.getByRole("dialog", { name: /删除公告|Delete announcement/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await page.getByRole("dialog", { name: /删除公告|Delete announcement/i }).getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.getByText(`${marker}-edited`, { exact: true })).toBeHidden();
 });
 
@@ -76,7 +79,7 @@ test("alert rule create, toggle and delete", async ({ page }) => {
 	await page.getByRole("button", { name: /暂停|Pause/i }).first().click();
 	await expect(page.getByRole("button", { name: /启用|Enable/i }).first()).toBeVisible();
 	await page.getByRole("button", { name: /删除|Delete/i }).first().click();
-	await page.getByRole("dialog", { name: /删除告警规则|Delete alert rule/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await page.getByRole("dialog", { name: /删除告警规则|Delete alert rule/i }).getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
@@ -89,13 +92,15 @@ test("command template create and delete without deployment", async ({ page }) =
 	await expect(page.getByText(marker, { exact: true })).toBeVisible();
 	const card = page.getByText(marker, { exact: true }).locator("xpath=ancestor::*[self::article or @data-card][1]");
 	await card.getByRole("button", { name: /删除|Delete/i }).click();
-	await confirmInDialog(page, /删除命令模板|Delete command template/i, /确认删除|Confirm delete/i);
+	await confirmInDialog(page, /删除命令模板|Delete command template/i, /^(确认删除|Delete)$/i);
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
 test("ticket create and dynamic detail page", async ({ page }, testInfo) => {
 	test.setTimeout(180_000);
 	await page.goto("/tickets");
+	// The form opens from the header (an empty list offers the same command).
+	await page.getByRole("button", { name: /^(新建工单|New ticket)$/i }).first().click();
 	await page.getByRole("textbox", { name: /^(标题|Title)$/i }).fill(marker);
 	await page.getByRole("textbox", { name: /^(描述|Description)$/i }).fill("E2E ticket body");
 	await page.getByRole("button", { name: /提交工单|Submit ticket/i }).click();
@@ -109,19 +114,21 @@ test("ticket create and dynamic detail page", async ({ page }, testInfo) => {
 
 test("API token create, plaintext display and revoke", async ({ page }) => {
 	await page.goto("/api-tokens");
+	// The form opens from the header (an empty list offers the same command).
+	await page.getByRole("button", { name: /^(创建 API Token|Create API token)$/i }).first().click();
 	await page.getByLabel(/Token 名称|Token name/i).fill(marker);
 	await page.getByRole("button", { name: /创建 Token|Create Token/i }).click();
 	await expect(page.locator("code").filter({ hasText: /\S+/ }).first()).toBeVisible();
 	await expect(page.getByText(marker, { exact: true })).toBeVisible();
 	await page.getByRole("button", { name: new RegExp(`撤销.*${marker}|Revoke.*${marker}`, "i") }).click();
-	const dialog = page.getByRole("dialog", { name: /确认撤销|Confirm revoke/i });
-	await dialog.getByRole("button", { name: /确认撤销|Confirm revoke/i }).click();
+	const dialog = page.getByRole("dialog", { name: /确认撤销|Revoke this API token/i });
+	await dialog.getByRole("button", { name: /^(确认撤销|Revoke)$/i }).click();
 	await expect(page.getByText(/已撤销|Revoked/i).last()).toBeVisible();
 });
 
 test("scheduled task create, search, pause and delete without execution", async ({ page }) => {
 	await page.goto("/scheduled-tasks");
-	await page.getByRole("button", { name: /创建定时任务|Create scheduled task/i }).click();
+	await page.getByRole("button", { name: /创建定时任务|Create scheduled task/i }).first().click();
 	const targetNodes = page.getByRole("group", { name: /目标节点|Target nodes/i });
 	await expect(targetNodes).toBeVisible();
 	await page.getByRole("textbox", { name: /任务名称|Task name/i }).fill(marker);
@@ -136,7 +143,7 @@ test("scheduled task create, search, pause and delete without execution", async 
 	await page.getByRole("button", { name: /暂停|Pause/i }).first().click();
 	await expect(page.getByRole("button", { name: /恢复|Resume/i }).first()).toBeVisible();
 	await page.getByRole("button", { name: /删除|Delete/i }).first().click();
-	await confirmInDialog(page, /确认删除定时任务|Delete scheduled task/i, /确认删除|Confirm delete/i);
+	await confirmInDialog(page, /确认删除定时任务|Delete scheduled task/i, /^(确认删除|Delete)$/i);
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
@@ -211,7 +218,7 @@ test("user create, password reset, disable and enable", async ({ page }) => {
 	await row.getByRole("button", { name: /重置密码|Reset password/i }).click();
 	const dialog = page.getByRole("dialog");
 	await dialog.locator('input[type="password"]').fill("Qa-User-2026!reset");
-	await dialog.getByRole("button", { name: /确认重置|Confirm reset/i }).click();
+	await dialog.getByRole("button", { name: /确认重置|^Reset password$/i }).click();
 	await row.getByRole("button", { name: /禁用|Disable/i }).click();
 	// Disabling ends the account's sessions at once, so it asks first.
 	await confirmInDialog(page, /禁用账号|Disable account/i, /^(?:禁用|Disable)$/i);
@@ -234,6 +241,6 @@ test("backup schedule create, pause and delete without running backup", async ({
 	await item.getByRole("button", { name: /^(?:暂停|Pause)$/i }).click();
 	await expect(item.getByRole("button", { name: /^(?:恢复|Resume)$/i })).toBeVisible();
 	await item.getByRole("button", { name: /删除|Delete/i }).click();
-	await page.getByRole("dialog", { name: /确认删除|Confirm delete/i }).getByRole("button", { name: /确认删除|Confirm delete/i }).click();
+	await page.getByRole("dialog", { name: /删除备份计划|Delete backup schedule/i }).getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });

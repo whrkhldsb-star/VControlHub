@@ -10,6 +10,7 @@ import { APP_TIME_ZONE, formatDateTime } from "@/lib/datetime/format";
 
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { CountBadge } from "@/components/page-shell";
 import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -455,9 +456,9 @@ export function VpsBackupSection({
 			{/* Schedules */}
 			<div data-tile className="p-3">
 				<div className="mb-2 flex items-center justify-between">
-					<div className="text-sm font-medium text-[var(--text-secondary)]">
-						{t("vpsBackup.schedules")}
-						<span className="ml-1.5 text-xs text-[var(--text-muted)]">({schedules.length})</span>
+					<div className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
+						<span>{t("vpsBackup.schedules")}</span>
+						<CountBadge>{schedules.length}</CountBadge>
 					</div>
 					{canManage ? (
 						<ActionButton size="sm" variant="outline"
@@ -599,9 +600,9 @@ export function VpsBackupSection({
 
 			{/* Records */}
 			<div data-tile className="p-3">
-				<div className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
-					{t("vpsBackup.records")}
-					<span className="ml-1.5 text-xs text-[var(--text-muted)]">({records.length})</span>
+				<div className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
+					<span>{t("vpsBackup.records")}</span>
+					<CountBadge>{records.length}</CountBadge>
 				</div>
 				{records.length === 0 ? (
 					<div className="py-2 text-xs text-[var(--text-muted)]">

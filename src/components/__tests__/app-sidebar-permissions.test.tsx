@@ -138,7 +138,7 @@ describe("AppSidebar permission-gated render", () => {
 		// Read permissions are enough to discover and open the read-only pages.
 		expect(screen.getAllByRole("link", { name: /VPS 管理/ }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("link", { name: /文件管理/ }).length).toBeGreaterThan(0);
-		expect(screen.queryByRole("link", { name: /备份迁移/ })).not.toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: /备份与迁移/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /用户管理/ })).not.toBeInTheDocument();
 	});
 
@@ -170,9 +170,9 @@ describe("AppSidebar permission-gated render", () => {
 		expect(screen.getAllByRole("link", { name: /仪表盘/ }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("link", { name: /VPS 管理/ }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("link", { name: /文件管理/ }).length).toBeGreaterThan(0);
-		expect(screen.getAllByRole("link", { name: /备份迁移/ }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("link", { name: /备份与迁移/ }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("link", { name: /用户管理/ }).length).toBeGreaterThan(0);
-		expect(screen.getAllByRole("link", { name: /API 令牌/ }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("link", { name: /API Token/ }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("link", { name: /审计日志/ }).length).toBeGreaterThan(0);
 	});
 
@@ -189,6 +189,6 @@ describe("AppSidebar permission-gated render", () => {
 		expect(screen.getAllByRole("link", { name: /仪表盘/ }).length).toBeGreaterThan(0);
 		// Every permission-gated item is hidden.
 		expect(screen.queryByRole("link", { name: /VPS 管理/ })).not.toBeInTheDocument();
-		expect(screen.queryByRole("link", { name: /备份迁移/ })).not.toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: /备份与迁移/ })).not.toBeInTheDocument();
 	});
 });

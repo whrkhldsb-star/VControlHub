@@ -111,6 +111,52 @@ export function makeNewStep(): SerializedStep {
 	};
 }
 
+/** A playbook's fields as its form sends them. */
+export type PlaybookFields = {
+	name: string;
+	description: string | null;
+	triggerType: TriggerType;
+	triggerConfig: Record<string, unknown>;
+	steps: SerializedStep[];
+	chainRetry: number;
+	enabled: boolean;
+};
+
+/** A step as the API takes it (the form's copy carries nothing else, but a saved one may). */
+export function stepPayload(step: SerializedStep): SerializedStep {
+	return { id: step.id, name: step.name, type: step.type, config: step.config, retry: step.retry, timeoutSec: step.timeoutSec };
+}
+
+/** A trigger's settings in the shape the form sends, so a saved playbook's compare with the form's. */
+function triggerConfigOf(triggerType: TriggerType, config: Record<string, unknown>): Record<string, unknown> {
+	return triggerType === "cron"
+		? { expression: String(config.expression ?? "") }
+		: { metric: config.metric, operator: config.operator, threshold: Number(config.threshold) };
+}
+
+/**
+ * The fields of an edited playbook that differ from the saved one: what the edit sends. Sending every field asked
+ * for more than the change did: the trigger, the switch and the retries take playbook:run to change, so a member
+ * who may only manage playbooks could not fix a step's name, and a re-sent trigger dropped a metric trigger's state.
+ */
+export function changedPlaybookFields(saved: SerializedPlaybook, next: PlaybookFields): Partial<PlaybookFields> {
+	const changes: Partial<PlaybookFields> = {};
+	if (next.name !== saved.name) changes.name = next.name;
+	if ((next.description || null) !== (saved.description || null)) changes.description = next.description || null;
+	if (
+		next.triggerType !== saved.triggerType
+		|| JSON.stringify(triggerConfigOf(next.triggerType, next.triggerConfig)) !== JSON.stringify(triggerConfigOf(saved.triggerType, saved.triggerConfig))
+	) {
+		changes.triggerType = next.triggerType;
+		changes.triggerConfig = next.triggerConfig;
+	}
+	const steps = next.steps.map(stepPayload);
+	if (JSON.stringify(steps) !== JSON.stringify(saved.steps.map(stepPayload))) changes.steps = steps;
+	if (next.chainRetry !== saved.chainRetry) changes.chainRetry = next.chainRetry;
+	if (next.enabled !== saved.enabled) changes.enabled = next.enabled;
+	return changes;
+}
+
 export function reorderSteps(steps: SerializedStep[], activeId: string, overId: string) {
 	const oldIndex = steps.findIndex((step) => step.id === activeId);
 	const newIndex = steps.findIndex((step) => step.id === overId);

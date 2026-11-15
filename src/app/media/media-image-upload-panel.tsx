@@ -230,8 +230,7 @@ export function MediaImageUploadPanel() {
 		setUploading(false);
 		if (fileInputRef.current) fileInputRef.current.value = "";
 		if (success > 0) {
-			const failurePart = failure > 0 ? t("mediaUploadPanel.summaryFailedPart", { failure }) : "";
-			setMessage(t("mediaUploadPanel.summarySuccess", { success, failureMsg: failurePart }));
+			setMessage(failure > 0 ? t("mediaUploadPanel.summarySuccessWithFailures", { success, failure }) : t("mediaUploadPanel.summarySuccess", { success }));
 			// Media page is RSC-fed; refresh so newly uploaded images appear without a full reload.
 			router.refresh();
 		} else {

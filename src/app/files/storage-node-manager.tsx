@@ -20,6 +20,7 @@ type StorageNodeItem = {
 	username?: string | null;
 	serverId?: string | null;
 	connectionSummary: string;
+	connectionHidden?: boolean;
 	teamName?: string | null;
 	directAccess: { mode: string; description: string; href: string | null };
 	fileCount: number;

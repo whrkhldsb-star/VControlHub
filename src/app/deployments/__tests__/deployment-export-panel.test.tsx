@@ -47,7 +47,7 @@ describe("DeploymentExportPanel", () => {
 		mockedFetch.mockResolvedValueOnce(new Response("<html><body>502 Bad Gateway</body></html>", { status: 502 }) as never);
 		fireEvent.click(zip);
 		const alert = await screen.findByRole("alert");
-		expect(alert).toHaveTextContent("下载失败 (HTTP 502)");
+		expect(alert).toHaveTextContent("下载失败（HTTP 502）");
 		expect(alert).not.toHaveTextContent("Bad Gateway");
 	});
 });

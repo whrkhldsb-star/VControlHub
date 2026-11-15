@@ -1,23 +1,18 @@
 // @vitest-environment node
 import { once } from "node:events";
-import { Client, Server, utils } from "ssh2";
+import { Client, Server } from "ssh2";
 import { describe, expect, it } from "vitest";
+
+import { generateEd25519KeyPair } from "@/test/helpers/ssh-keygen";
+
 import { isHostKeyRejection } from "../host-key-error";
 
 describe("isHostKeyRejection", () => {
   it("recognises what ssh2 actually reports when the host key verifier refuses the server", async () => {
     // Real handshake against a real ssh2 server: the wording is ssh2's, not ours, and has to be matched as is.
     // The client walks away mid key exchange; the server side reports that as an error of its own.
-    // In ssh2 v1.17, utils.generateKeyPairSync("ed25519") occasionally emits a key with stripped leading zeros;
-    // retry until a key is validly parsed.
-    let hostKey = "";
-    while (!hostKey) {
-      const candidate = utils.generateKeyPairSync("ed25519").private;
-      if (!(utils.parseKey(candidate) instanceof Error)) {
-        hostKey = candidate;
-      }
-    }
-    const server = new Server({ hostKeys: [hostKey] }, (connection) => {
+    // ssh2's own generator spoils about one ed25519 pair in 256; the helper keeps only pairs that parse back.
+    const server = new Server({ hostKeys: [generateEd25519KeyPair().private] }, (connection) => {
       connection.on("error", () => undefined);
     });
     server.listen(0, "127.0.0.1");

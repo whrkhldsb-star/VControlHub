@@ -129,7 +129,7 @@ describe("QuickServicesClient", () => {
 
 		expect(await screen.findByRole("tab", { name: /本地精选/ })).toHaveAttribute("aria-selected", "true");
 		expect(screen.getAllByRole("button", { name: "一键安装" }).length).toBeGreaterThan(0);
-		expect(screen.queryByText(/请先在「应用源」中同步数据/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/请先在“应用源”中同步数据/)).not.toBeInTheDocument();
 	});
 
 	it("surfaces app-source load failures without hiding the built-in catalog", async () => {
@@ -292,7 +292,7 @@ describe("QuickServicesClient", () => {
 		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
 		await waitFor(() => expect(screen.getByText("可用")).toBeInTheDocument());
 		expect(screen.getByText("安装前配置预览")).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "确认安装" }));
+		await user.click(screen.getByRole("button", { name: "下一步" }));
 
 		const dialog = screen.getByRole("dialog", { name: "确认安装配置" });
 		expect(dialog).toHaveTextContent("环境变量：2 个键");
@@ -315,7 +315,7 @@ describe("QuickServicesClient", () => {
 		await user.click(await screen.findByRole("tab", { name: /本地精选/ }));
 		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
 		await waitFor(() => expect(screen.getByText("可用")).toBeInTheDocument());
-		await user.click(screen.getByRole("button", { name: "确认安装" }));
+		await user.click(screen.getByRole("button", { name: "下一步" }));
 
 		const dialog = screen.getByRole("dialog", { name: "确认安装配置" });
 		expect(dialog).toHaveTextContent("公开端口不会经过 VControlHub 登录鉴权");

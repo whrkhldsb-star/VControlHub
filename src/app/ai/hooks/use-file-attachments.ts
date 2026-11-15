@@ -11,6 +11,9 @@
  * TR-017 (ai-client 拆分)
  */
 import { useCallback, useMemo, useRef, useState } from "react";
+
+import { interpolate } from "@/lib/i18n/core";
+
 import type { FileAttachment, ModelCapabilities } from "../ai-types";
 import {
   categorizeFile,
@@ -64,9 +67,7 @@ export function useFileAttachments({
 }: UseFileAttachmentsOptions): UseFileAttachmentsReturn {
   const tr = useMemo(
     () =>
-      t ??
-      ((key: string, vars?: Record<string, string | number>) =>
-        vars ? Object.entries(vars).reduce((s, [k, v]) => s.split(`{${k}}`).join(String(v)), key) : key),
+      t ?? ((key: string, vars?: Record<string, string | number>) => interpolate(key, vars)),
     [t],
   );
   const [fileAttachments, setFileAttachments] = useState<FileAttachment[]>([]);

@@ -27,7 +27,7 @@ describe("GlobalError", () => {
 		unmount = mount(<GlobalError error={error} reset={reset} retry={retry} />);
 
 		expect(document.body.textContent).toContain("出错了");
-		expect(document.body.textContent).toContain("错误标识: 2574922165");
+		expect(document.body.textContent).toContain("错误标识：2574922165");
 		// The framework's sentence is not shown.
 		expect(document.body.textContent).not.toContain("Server Components");
 		act(() => document.querySelector("button")!.click());

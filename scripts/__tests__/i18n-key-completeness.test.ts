@@ -63,3 +63,20 @@ describe.skipIf(!existsSync(tsxCli))("i18n:key-check gate", () => {
 		expect(result.status, result.stderr).toBe(0);
 	});
 });
+
+/**
+ * CI runs the test job, not `npm run verify`, so the gate never looked at the code base there: a key missing
+ * from the dictionaries, or present in one language only, could reach main with every required check green.
+ */
+describe.skipIf(!existsSync(tsxCli))("the code base's own keys", () => {
+	it("all resolve in both languages", () => {
+		const env = { ...process.env };
+		delete env.I18N_KEY_CHECK_ROOT;
+		const result = spawnSync(process.execPath, [tsxCli, path.join(repo, "scripts", "i18n-key-completeness.ts")], {
+			cwd: repo,
+			encoding: "utf8",
+			env,
+		});
+		expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+	});
+});

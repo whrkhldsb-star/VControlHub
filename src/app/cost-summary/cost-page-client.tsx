@@ -143,9 +143,10 @@ export function CostPageClient({
 							{summary.otherCurrencies.length > 0 ? (
 								<div className={`mt-2 rounded-lg border px-2 py-1.5 text-xs ${UI_TONE.warning}`}>
 									{t("costPage.summary.otherCurrencies", {
+										// Each amount says what its number in brackets counts; "、" read as a stray mark in English.
 										detail: summary.otherCurrencies
-											.map((bucket) => `${formatAmount(bucket.totalAmount, bucket.currency, localeTag)} (${bucket.entryCount})`)
-											.join("、"),
+											.map((bucket) => t("costPage.summary.otherCurrencyBucket", { amount: formatAmount(bucket.totalAmount, bucket.currency, localeTag), count: bucket.entryCount }))
+											.join(t("common.listSeparator")),
 									})}
 								</div>
 							) : null}
@@ -218,9 +219,9 @@ export function CostPageClient({
 				}
 				empty={
 				entries.length === 0 ? (
-					<EmptyState>
-						<p>{t("costPage.list.empty")}</p>
-						<p className="mt-1 text-xs text-[var(--text-muted)]">{t("costPage.list.emptyHint")}</p>
+					<EmptyState title={t("costPage.list.emptyTitle")}>
+						<p>{t("costPage.list.emptySteps")}</p>
+						<p className="mt-1">{t("costPage.list.emptyHint")}</p>
 					</EmptyState>
 				) : undefined
 			}
@@ -230,7 +231,7 @@ export function CostPageClient({
 					<div className="overflow-x-auto">
 						<table className="w-full min-w-[40rem] text-sm text-[var(--text-primary)]">
 							<thead>
-								<tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs uppercase text-[var(--text-muted)]">
+								<tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs text-[var(--text-muted)]">
 									<th className="px-3 py-2">{t("costPage.list.column.date")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.category")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.provider")}</th>

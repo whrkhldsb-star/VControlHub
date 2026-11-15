@@ -259,10 +259,10 @@ export async function executeMoveFile(
           // descendant inside the interactive transaction hit Prisma's 5 s
           // transaction timeout from a few thousand entries (A4-02). The prefix
           // length is counted by PostgreSQL (code points, not UTF-16 units).
-          const replacementPrefix = newPrefix.replace(/\\/g, "\\\\");
+          // A plain concatenation: the new prefix is taken as it is (it holds no "\": storage paths refuse it).
           await tx.$executeRaw`
             UPDATE file_entries
-            SET "relativePath" = ${replacementPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
+            SET "relativePath" = ${newPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
                 "updatedAt" = (now() AT TIME ZONE 'UTC')
             WHERE "storageNodeId" = ${entry.storageNodeId}
               AND "relativePath" LIKE ${`${escapeLikeLiteral(oldPrefix)}%`} ESCAPE '\\'

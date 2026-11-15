@@ -31,7 +31,7 @@ export const en: Record<string, string> = {
 	"archivePreview.table.name": "Name",
 	"archivePreview.table.size": "Size",
 	"archivePreview.entryType.directory": "Directory",
-	"archivePreview.totalItems": "{count} items total",
+	"archivePreview.totalItems": "{count} {count|item|items} total",
 	"archivePreview.openFolder": "Open folder",
 	"archivePreview.extractHint": "Extracts into a new folder next to the archive; nothing existing is overwritten",
 

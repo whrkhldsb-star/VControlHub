@@ -3,6 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, vi } from "vitest";
 
+import { clearDeploymentEnv } from "./deployment-env";
+
+// The shell's deployment variables (a secret, the proxy hops, a time zone) changed what the code under test
+// did, so a run from a shell with them exported failed where CI passed. Cleared before the test file loads.
+clearDeploymentEnv();
+
 // File-version blobs default to the host's real data root
 // (/var/lib/vcontrolhub/file-versions). Any integration test that overwrites
 // a file through the storage layer would otherwise drop test blobs next to a

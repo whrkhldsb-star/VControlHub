@@ -27,7 +27,7 @@ export const MEDIA_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 8097,
 		// The image listens on 8096; 8097 is only the host port.
 		internalPort: 8096,
-		path: "/jellyfin/",
+		path: "/",
 		envJson: {},
 		volumesJson: [
 			{ host: "/opt/jellyfin/config", container: "/config" },
@@ -43,7 +43,7 @@ export const MEDIA_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Lightweight self-hosted music streaming server, Subsonic compatible",
 		image: "deluan/navidrome:latest",
 		defaultPort: 4533,
-		path: "/navidrome/",
+		path: "/",
 		envJson: { ND_SCANSCHEDULE: "1h", ND_LOGLEVEL: "info", ND_SESSIONTIMEOUT: "24h" },
 		volumesJson: [
 			{ host: "/opt/navidrome/data", container: "/data" },
@@ -58,7 +58,7 @@ export const MEDIA_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "AI-powered self-hosted photo management with auto-classification and face recognition",
 		image: "photoprism/photoprism:latest",
 		defaultPort: 2342,
-		path: "/photoprism/",
+		path: "/",
 		envJson: { PHOTOPRISM_ADMIN_PASSWORD: "pleasechange", PHOTOPRISM_AUTH_MODE: "password" },
 		volumesJson: [
 			{ host: "/opt/photoprism/originals", container: "/photoprism/originals" },
@@ -73,7 +73,7 @@ export const MEDIA_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "High-performance self-hosted photo/video backup, an open-source alternative to Google Photos",
 		image: "ghcr.io/immich-app/immich-server:release",
 		defaultPort: 2283,
-		path: "/immich/",
+		path: "/",
 		envJson: { DB_HOSTNAME: "127.0.0.1" },
 		volumesJson: [
 			{ host: "/opt/immich/upload", container: "/usr/src/app/upload" },
@@ -89,7 +89,7 @@ export const MEDIA_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 8088,
 		// The image listens on 8081; 8088 is only the host port.
 		internalPort: 8081,
-		path: "/metube/",
+		path: "/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/metube/downloads", container: "/downloads" }],
 	},
@@ -103,7 +103,7 @@ export const MEDIA_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 8083,
 		// The image listens on 25600; 8083 is only the host port.
 		internalPort: 25600,
-		path: "/komga/",
+		path: "/",
 		envJson: {},
 		volumesJson: [
 			{ host: "/opt/komga/config", container: "/config" },

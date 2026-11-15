@@ -132,6 +132,19 @@ describe("fetchWithPinnedDns", () => {
 		expect(undiciFetchMock).not.toHaveBeenCalled();
 	});
 
+	// A host the operator listed (AI_PROVIDER_PRIVATE_HOSTS) may be on a private network; metadata never.
+	it("connects to a private address only when asked, and never to a link-local one", async () => {
+		undiciFetchMock.mockResolvedValue({ status: 200, statusText: "OK", headers: new Map(), body: null });
+		lookupMock.mockResolvedValue([{ address: "192.168.1.20", family: 4 }]);
+		await expect(fetchWithPinnedDns("http://ollama.lan:11434/v1", { method: "GET" })).rejects.toThrow(/non-public/);
+		await expect(fetchWithPinnedDns("http://ollama.lan:11434/v1", { method: "GET" }, { allowPrivateAddress: true })).resolves.toMatchObject({ status: 200 });
+
+		lookupMock.mockResolvedValue([{ address: "169.254.169.254", family: 4 }]);
+		await expect(fetchWithPinnedDns("http://ollama.lan/v1", { method: "GET" }, { allowPrivateAddress: true })).rejects.toThrow(/non-public/);
+		lookupMock.mockResolvedValue([{ address: "fe80::1", family: 6 }]);
+		await expect(fetchWithPinnedDns("http://ollama.lan/v1", { method: "GET" }, { allowPrivateAddress: true })).rejects.toThrow(/non-public/);
+	});
+
 	it("rejects empty DNS answers", async () => {
 		lookupMock.mockResolvedValue([]);
 		await expect(

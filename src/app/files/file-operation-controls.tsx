@@ -14,10 +14,11 @@ import type {
   FileOperationInput,
   FileOperationResult,
 } from "@/lib/files/operation-schema";
+import { randomId } from "@/lib/ui/random-id";
 
 export async function submitFileOperation(
   input: Omit<FileOperationInput, "requestId">,
-  requestId = crypto.randomUUID(),
+  requestId = randomId(),
 ) {
   const result = await csrfFetch<{ id: string }>("/api/files/operations", {
     method: "POST",
@@ -177,7 +178,7 @@ export function FileOperationTasks({ trigger }: {
                     disabled={busy === job.id}
                     onClick={async () => {
                       setBusy(job.id);
-                      const requestId = retries.current.get(job.id) ?? crypto.randomUUID();
+                      const requestId = retries.current.get(job.id) ?? randomId();
                       retries.current.set(job.id, requestId);
                       try {
                         await submitFileOperation(job.retry!, requestId);

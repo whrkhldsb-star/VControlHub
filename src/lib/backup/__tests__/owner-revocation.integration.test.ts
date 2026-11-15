@@ -5,9 +5,12 @@ const remote = vi.hoisted(() => ({ exec: vi.fn(async (_input: {command:string}) 
 vi.mock("@/lib/ssh/client", () => ({buildSshParamsFromServer: async () => ({host:"fixture.invalid",port:22,username:"fixture"}),execRemoteCommand:remote.exec}));
 vi.mock("@/lib/ssh/sftp-service", () => ({downloadFile:vi.fn(() => {throw new Error("must not reach SFTP");})}));
 import { prisma } from "@/lib/db";
+import { oneFileAtATime } from "@/test/helpers/one-file-at-a-time";
 import { runVpsBackupJobWorkerOnce } from "../vps-backup-job-worker";
 import { dispatchDueVpsBackupSchedules } from "../vps-backup-schedule-service";
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("audit remediation integration", () => {
+// Other files dispatch every due VPS backup schedule too: not while this one parks theirs.
+oneFileAtATime("vps-backup-schedules");
 const id=`audit-r2-backup-${randomUUID()}`;
 beforeAll(async()=>{
  const db=new URL(process.env.DATABASE_URL!);
@@ -67,7 +70,9 @@ it("scheduled VPS backup preserves its creator in both job and record",async()=>
  // The integration suites share this database and dispatchDueVpsBackupSchedules()
  // sweeps every due schedule, not only this file's: park any other ACTIVE
  // schedule that is due right now so the dispatch below is this file's alone.
- await prisma.vpsBackupSchedule.updateMany({where:{status:"ACTIVE",nextRunAt:{lte:new Date()},serverId:{not:id}},data:{status:"PAUSED"}});
+ // Only those are made ACTIVE again afterwards: a schedule another file paused on purpose stays paused.
+ const parked=(await prisma.vpsBackupSchedule.findMany({where:{status:"ACTIVE",nextRunAt:{lte:new Date()},serverId:{not:id}},select:{id:true}})).map((s)=>s.id);
+ await prisma.vpsBackupSchedule.updateMany({where:{id:{in:parked},status:"ACTIVE"},data:{status:"PAUSED"}});
  try{
   const schedule=await prisma.vpsBackupSchedule.create({data:{serverId:id,createdById:id,name:id,cronExpression:"0 3 * * *",backupType:"nginx-config",paths:[],nextRunAt:new Date(0)}});
   // One dispatch of the whole due set: this file's schedule must be among what it created.
@@ -76,8 +81,7 @@ it("scheduled VPS backup preserves its creator in both job and record",async()=>
   const job=await prisma.job.findFirstOrThrow({where:{teamId:id,payload:{path:["recordId"],equals:record.id}}});
   expect(record.createdBy).toBe(id);expect(job.createdBy).toBe(id);
  }finally{
-  const paused=await prisma.vpsBackupSchedule.findMany({where:{status:"PAUSED",serverId:{not:id}},select:{id:true}});
-  for(const p of paused){const live=await prisma.vpsBackupSchedule.findUnique({where:{id:p.id}});if(live){await prisma.vpsBackupSchedule.update({where:{id:p.id},data:{status:"ACTIVE"}});}}
+  await prisma.vpsBackupSchedule.updateMany({where:{id:{in:parked},status:"PAUSED"},data:{status:"ACTIVE"}});
  }
 });
 

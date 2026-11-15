@@ -14,6 +14,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { ArrowLeft } from "@/components/icons";
+import { CountBadge } from "@/components/page-shell";
 
 export interface TicketUser { id: string; username: string; displayName: string | null; }
 export interface TicketComment { id: string; body: string; createdAt: string; author: TicketUser; }
@@ -75,6 +76,13 @@ const TRANSITIONS: Record<string, string[]> = {
   RESOLVED: ["CLOSED", "IN_PROGRESS"],
   CLOSED: ["OPEN"],
 };
+
+/** A comment an ITSM system sent is stored with this English mark in front; the page shows a badge instead. */
+const ITSM_INBOUND_PREFIX = "[ITSM inbound] ";
+
+function splitItsmInbound(body: string): { fromItsm: boolean; body: string } {
+  return body.startsWith(ITSM_INBOUND_PREFIX) ? { fromItsm: true, body: body.slice(ITSM_INBOUND_PREFIX.length) } : { fromItsm: false, body };
+}
 
 export function TicketDetailClient({ initial, canManage, users = [] }: TicketDetailClientProps) {
   const { t, locale } = useI18n();
@@ -286,7 +294,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
               <StatusBadge tone={STATUS_TONE[ticket.status] ?? "neutral"} size="md">
                 {statusLabel(t, ticket.status)}
               </StatusBadge>
-              <span className={`text-xs font-semibold uppercase  ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
+              <span className={`text-xs font-semibold ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
                 {priorityLabel(t, ticket.priority)}
               </span>
             </div>
@@ -480,20 +488,29 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       )}
 
       <div data-card className="p-5">
-        <h3 className="ui-title-group mb-4">{t("ticketsDetail.commentsTitle", { count: ticket.comments.length })}</h3>
+        <div className="mb-4 flex items-center gap-2">
+          <h3 className="ui-title-group">{t("ticketsDetail.commentsTitle")}</h3>
+          <CountBadge>{ticket.comments.length}</CountBadge>
+        </div>
         {ticket.comments.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.commentsEmpty")}</p>
         ) : (
           <div className="space-y-3">
-            {ticket.comments.map((c) => (
-              <div key={c.id} data-inset className="p-4">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium text-[var(--text-primary)]">{c.author.displayName || c.author.username}</span>
-                  <span className="text-xs text-[var(--text-muted)]">{formatDateTime(c.createdAt, locale)}</span>
+            {ticket.comments.map((c) => {
+              const inbound = splitItsmInbound(c.body);
+              return (
+                <div key={c.id} data-inset className="p-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+                      {c.author.displayName || c.author.username}
+                      {inbound.fromItsm ? <StatusBadge tone="info">{t("ticketsDetail.comment.fromItsm")}</StatusBadge> : null}
+                    </span>
+                    <span className="text-xs text-[var(--text-muted)]">{formatDateTime(c.createdAt, locale)}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">{inbound.body}</p>
                 </div>
-                <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">{c.body}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

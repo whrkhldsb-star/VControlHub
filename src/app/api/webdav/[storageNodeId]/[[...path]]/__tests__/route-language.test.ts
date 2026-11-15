@@ -14,7 +14,7 @@ vi.mock("@/lib/http/rate-limit-presets", async () => {
 });
 vi.mock("@/lib/webdav/auth", async () => {
   const actual = await import("@/lib/webdav/auth");
-  return { authenticateWebDavRequest: mocks.authenticateWebDavRequest, webDavUnauthorizedResponse: actual.webDavUnauthorizedResponse };
+  return { authenticateWebDavRequest: mocks.authenticateWebDavRequest, UnknownWebDavTokenError: actual.UnknownWebDavTokenError, webDavUnauthorizedResponse: actual.webDavUnauthorizedResponse };
 });
 vi.mock("@/lib/logging", () => ({ createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) }));
 

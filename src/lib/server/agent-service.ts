@@ -11,7 +11,7 @@ import { normalizeServerMetrics } from "@/lib/public-status/normalize";
 import { writeLatestMetrics } from "@/lib/public-status/latest-writer";
 import { createLogger } from "@/lib/logging";
 import { CommandCancellationUnconfirmedError } from "@/lib/command/cancellation-error";
-import { AGENT_VERSION } from "./agent-version";
+import { AGENT_VERSION, WINDOWS_AGENT_VERSION } from "./agent-version";
 import { stripNul } from "@/lib/text/strip-nul";
 
 export const AGENT_FRESH_MS = 90_000;
@@ -766,7 +766,7 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "Add-Type -AssemblyName System.Net.Http | Out-Null",
     `$ENDPOINT = ${JSON.stringify(endpoint)}`,
     `$TOKEN = ${JSON.stringify(token)}`,
-    `$VERSION = ${JSON.stringify(AGENT_VERSION)}`,
+    `$VERSION = ${JSON.stringify(WINDOWS_AGENT_VERSION)}`,
     "$HEARTBEAT_SECONDS = 20",
     "$OUTPUT_LIMIT = 8388608",
     "$ERROR_LIMIT = 1048576",

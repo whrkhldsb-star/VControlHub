@@ -21,6 +21,7 @@ import next from "next";
 import { isWebDavRequestTarget, stripWebDavTrailingSlash, WEBDAV_OVERRIDE_METHODS } from "@/lib/webdav/request-rewrite";
 import { closeWebSocketServer, setupWebSocketServer } from "@/lib/ws/notification-ws";
 import { forwardSshUpgrade } from "@/lib/ws/ssh-upgrade-forwarder";
+import { markPeerAddressStamping, stampPeerAddress } from "@/lib/http/peer-address";
 import { createLogger } from "@/lib/logging";
 import { parseTcpPort } from "@/lib/runtime/listen-port";
 
@@ -71,7 +72,10 @@ async function main() {
 	// which made the production server exit(1) before it ever bound a port.
 	const nextUpgrade = app.getUpgradeHandler();
 
+	// Rate limits key on the connection's address when no proxy is trusted: stamp it on every request.
+	markPeerAddressStamping();
 	const server = createServer(async (req, res) => {
+		stampPeerAddress(req);
 		const method = (req.method ?? "GET").toUpperCase();
 		if (isWebDavRequestTarget(req.url)) {
 			// Collections are addressed with a trailing slash, which Next would
@@ -94,6 +98,9 @@ async function main() {
 			if (!res.destroyed) res.destroy();
 		});
 	});
+
+	// Upgrade requests skip the request handler above; stamp them first too.
+	server.prependListener("upgrade", (req) => stampPeerAddress(req));
 
 	// Attach WebSocket notification server (handles /ws upgrade, forwards the
 	// rest — e.g. the dev HMR websocket — to Next's upgrade handler).

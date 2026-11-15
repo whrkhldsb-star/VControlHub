@@ -6,7 +6,10 @@ import { AlertTriangle, Bell, Check, X } from "./icons";
 import { IconButton } from "./ui-primitives";
 
 import { ButtonLink } from "@/components/action-button";
-type ToastType = "success" | "error" | "info" | "warning";
+export type ToastType = "success" | "error" | "info" | "warning";
+
+/** What a hook or component is handed to show a toast: `useToast().addToast` or a narrower stand-in. */
+export type ToastFn = (type: ToastType, message: string) => void;
 
 type ToastAction = { label: string; href: string };
 

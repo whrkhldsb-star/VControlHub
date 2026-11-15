@@ -1,16 +1,11 @@
-export type RefreshIntervalOption = {
-	label: string;
-	value: number;
-	description: string;
-};
-
-export const REFRESH_INTERVAL_OPTIONS: RefreshIntervalOption[] = [
-	{ label: "Off", value: 0, description: "Manual refresh only; lowest traffic" },
-	{ label: "5s", value: 5, description: "Near real-time; suitable for temporary observation" },
-	{ label: "15s", value: 15, description: "Balances real-time and overhead" },
-	{ label: "30s", value: 30, description: "Recommended; significantly reduces request volume" },
-	{ label: "60s", value: 60, description: "Low-traffic inspection" },
-	{ label: "5 minutes", value: 300, description: "Lowest background overhead" },
+/** The intervals the preferences offer; each is named by `preferencesPage.interval.<seconds>`. */
+export const REFRESH_INTERVAL_OPTIONS: ReadonlyArray<{ value: number }> = [
+	{ value: 0 },
+	{ value: 5 },
+	{ value: 15 },
+	{ value: 30 },
+	{ value: 60 },
+	{ value: 300 },
 ];
 
 export const DEFAULT_REFRESH_INTERVAL_SECONDS = 30;
@@ -30,12 +25,15 @@ export function normalizeRefreshIntervalSeconds(value: unknown, fallback = DEFAU
 	return Math.min(MAX_REFRESH_INTERVAL_SECONDS, Math.max(MIN_REFRESH_INTERVAL_SECONDS, seconds));
 }
 
-export function getRefreshIntervalLabel(seconds: number): string {
+/**
+ * An interval in the page's language, as the preferences name it ("30 秒", "5 minutes", "关闭"). It was English
+ * whatever the language ("自动刷新中（5 minutes）"); an interval the preferences do not offer reads "{n} 秒".
+ */
+export function getRefreshIntervalLabel(seconds: number, t: (key: string, vars?: Record<string, string | number>) => string): string {
 	const normalized = normalizeRefreshIntervalSeconds(seconds, seconds);
-	if (normalized === 0) return "Manual refresh";
-	if (normalized < 60) return `${normalized}s`;
-	if (normalized % 60 === 0) return `${normalized / 60} minutes`;
-	return `${normalized}s`;
+	const key = `preferencesPage.interval.${normalized}`;
+	const label = t(key);
+	return label === key ? t("preferencesPage.interval.seconds", { count: normalized }) : label;
 }
 
 export function getRefreshIntervalFromStorage(storage: Pick<Storage, "getItem"> | null | undefined, fallback = DEFAULT_REFRESH_INTERVAL_SECONDS): number {

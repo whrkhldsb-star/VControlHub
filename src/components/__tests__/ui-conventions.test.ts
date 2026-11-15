@@ -19,7 +19,10 @@ import { describe, expect, it } from "vitest";
  *   - content dialogs use <Dialog> / <ConfirmDialog>, confirmations never
  *     use window.confirm;
  *   - a number field bound to a number is a <NumberInput>, which keeps what is
- *     being typed.
+ *     being typed;
+ *   - labels, eyebrows and table headers keep the case they are written in:
+ *     no `uppercase`;
+ *   - icons come from the icon set: no "×", "✓" or arrow characters standing in for one.
  *
  * Allowlists name the few places that genuinely need bespoke chrome.
  */
@@ -213,6 +216,16 @@ describe("UI conventions", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	// In English the style turned "Recent logs", "Action type" and every table header into capitals, a look
+	// the rest of the console does not have (Chinese is unaffected, so it went unnoticed). Text that is
+	// capitals by nature (an initial, an HTTP method) is written that way by the code.
+	it("keeps labels in the case they are written in", () => {
+		const offenders = tsxFiles
+			.filter(({ source }) => /(?<![\w-])uppercase(?![\w-])/.test(source.replaceAll(/requireUppercase|passwordRule\.uppercase/g, "")))
+			.map(({ file }) => file);
+		expect(offenders).toEqual([]);
+	});
+
 	it("styles fields with UI_INPUT", () => {
 		const offenders: string[] = [];
 		for (const { file, source } of tsxFiles) {
@@ -285,7 +298,50 @@ describe("UI conventions", () => {
 	it("keeps symbols out of translated labels", () => {
 		const dictionaries = collectFiles(join(SRC_ROOT, "lib/i18n/dictionaries"), ".ts");
 		const offenders = dictionaries.flatMap((file) =>
-			[...readFileSync(file, "utf8").matchAll(/"([\w.-]+)": "(?:\+ |[←→] |[^"]* [←→]")/g)].map((match) => `${relative(SRC_ROOT, file)}: ${match[1]}`),
+			[...readFileSync(file, "utf8").matchAll(/"([\w.-]+)": "(?:\+ |[←→↑↓]+ |[^"]* [←→↑↓]")/g)].map((match) => `${relative(SRC_ROOT, file)}: ${match[1]}`),
+		);
+		expect(offenders).toEqual([]);
+	});
+
+	// crypto.randomUUID exists only in a secure context; at http://<IP> (a supported install) it is undefined, and
+	// uploads, file moves and the AI chat failed with "crypto.randomUUID is not a function". randomId() falls back.
+	it("makes ids in the browser with randomId, which works outside a secure context", () => {
+		const browserFiles = [
+			...collectFiles(join(SRC_ROOT, "app"), ".ts").filter((file) => !file.includes(`${join("app", "api")}`)),
+			...collectFiles(join(SRC_ROOT, "components"), ".ts"),
+			...collectFiles(join(SRC_ROOT, "lib", "ui"), ".ts"),
+		].map((file) => ({ file: relative(SRC_ROOT, file).split(/[\\/]/).join("/"), source: stripComments(readFileSync(file, "utf8")) }));
+		const offenders = [...tsxFiles, ...browserFiles]
+			.filter(({ file, source }) => file !== "lib/ui/random-id.ts" && !file.startsWith("app/api/") && /crypto\.randomUUID\(/.test(source))
+			.map(({ file }) => file);
+		expect(offenders).toEqual([]);
+	});
+
+	// A list shown on a page was joined in code with "、", which reads as a stray mark in English, or with ", " and
+	// "; ", half-width punctuation in Chinese. It takes the page language's separator, t("common.listSeparator") or
+	// t("common.sentenceSeparator"). The comma-separated text of a tags field is an input format, not a sentence.
+	it("joins a list shown on a page with the page language's separator", () => {
+		const pageFiles = [
+			...collectFiles(join(SRC_ROOT, "app"), ".ts"),
+			...collectFiles(join(SRC_ROOT, "components"), ".ts"),
+		].map((file) => ({ file: relative(SRC_ROOT, file).split(/[\\/]/).join("/"), source: stripComments(readFileSync(file, "utf8")) }));
+		const offenders = [...tsxFiles, ...pageFiles]
+			.filter(({ file }) => !file.startsWith("app/api/") && !/(?:^|\/)__tests__\//.test(file) && !/\.test\.tsx?$/.test(file))
+			.flatMap(({ file, source }) => source.split("\n")
+				.filter((line) => /\.join\((["'])(?:、|；|，|; |, )\1\)/.test(line) && !/tags/i.test(line))
+				.map((line) => `${file}: ${line.trim().slice(0, 100)}`));
+		expect(offenders).toEqual([]);
+	});
+
+	// Symbol characters are drawn by each system's fonts and ignore the theme: a close button was "×" in one place
+	// and "✕" in the next, "up one level" an arrow character beside an icon button that had an icon. Keys shown as
+	// keys (<kbd>) and the SSH key pads, which name keyboard keys, are the exceptions.
+	it("draws icons with the icon set, not symbol characters", () => {
+		const SYMBOL_GLYPH = />\s*([×✕✖✓✔✗✘↑↓↕⇅▲▼▶◀⬆⬇★☆⚠])\s*(?:<|\{)/g;
+		const offenders = tsxFiles.flatMap(({ file, source }) =>
+			[...source.matchAll(SYMBOL_GLYPH)]
+				.filter((match) => !/className="ui-kbd"$/.test(source.slice(Math.max(0, match.index - 40), match.index)))
+				.map((match) => `${file}: ${match[1]}`),
 		);
 		expect(offenders).toEqual([]);
 	});

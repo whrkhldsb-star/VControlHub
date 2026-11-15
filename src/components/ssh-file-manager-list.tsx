@@ -7,7 +7,7 @@ import { isImeComposition } from "@/lib/ui/keyboard";
 import type { DirEntry, UploadProgress } from "./ssh-file-manager-parts";
 import { formatSshFileDate, formatSshFileSize } from "./ssh-file-manager-parts";
 import { ActionButton } from "@/components/action-button";
-import { Check, Download, File, Folder, LinkIcon, Pencil, Trash2, X } from "@/components/icons";
+import { ArrowUp, Check, Download, File, Folder, LinkIcon, Pencil, Trash2, X } from "@/components/icons";
 
 type UploadsProps = {
   uploads: UploadProgress[];
@@ -99,8 +99,8 @@ export function SshFileList({
             <ActionButton size="sm" variant="secondary"
               onClick={onGoUp}
               data-testid="ssh-files-up-level"
-              aria-label={t("sshFileManager.upLevelAria")} className="inline-flex items-center gap-1">
-              <span aria-hidden="true">↑</span>
+              aria-label={t("sshFileManager.upLevelAria")}
+              icon={<ArrowUp size={14} aria-hidden />}>
               {t("sshFileManager.upLevel")}
             </ActionButton>
           ) : null}
@@ -191,7 +191,7 @@ function RenameInlineEditor({ onRename, renameValue, setRenameTarget, setRenameV
         }}
         autoCapitalize="none" autoCorrect="off" spellCheck={false}
         className="min-h-7 min-w-0 flex-1 rounded border border-[var(--color-action-border)]/30 bg-[var(--surface-hover)] px-2 text-xs text-[var(--text-primary)] outline-none" autoFocus onClick={(e) => e.stopPropagation()} />
-      <ActionButton size="sm" square variant="outline" onClick={(e) => { e.stopPropagation(); onRename(); }} aria-label={t("common.confirm")} className="shrink-0"><Check size={14} aria-hidden /></ActionButton>
+      <ActionButton size="sm" square variant="outline" onClick={(e) => { e.stopPropagation(); onRename(); }} aria-label={t("sshFileManager.rename")} className="shrink-0"><Check size={14} aria-hidden /></ActionButton>
       <ActionButton size="sm" square variant="secondary" onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }} aria-label={t("common.cancel")} className="shrink-0"><X size={16} aria-hidden /></ActionButton>
     </div>
   );

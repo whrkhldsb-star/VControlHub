@@ -136,6 +136,8 @@ describe("getErrorMessage", () => {
   });
 
   it("names what failed and why, or only what failed when the reason is not for people", () => {
+    // The colon follows the sentence's script: a half-width one after Chinese read as another hand's.
+    expect(describeFailure("扫描触发失败", new Error("AI 运维尚未配置模型提供方"))).toBe("扫描触发失败：AI 运维尚未配置模型提供方");
     expect(describeFailure("Failed to trigger scan", new Error("No provider is configured"))).toBe("Failed to trigger scan: No provider is configured");
     // A thrown string, an empty message, a database error: no reason to show.
     expect(describeFailure("Failed to trigger scan", "status=403")).toBe("Failed to trigger scan");

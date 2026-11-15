@@ -74,13 +74,13 @@ describe("ImageBedPage", () => {
     });
     render(<ImageBedPageClient canWrite canDelete />);
 
-    const notice = await screen.findByText("获取图片列表失败: 请求过于频繁，请稍后再试");
+    const notice = await screen.findByText("获取图片列表失败：请求过于频繁，请稍后再试");
     expect(notice).toBeInTheDocument();
     // Not "no images yet": nobody could read them.
     expect(screen.queryByTestId("empty-state")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "重试" }));
     await waitFor(() => expect(vi.mocked(csrfFetch).mock.calls.length).toBeGreaterThanOrEqual(2));
-    expect(screen.getByText("获取图片列表失败: 请求过于频繁，请稍后再试")).toBeInTheDocument();
+    expect(screen.getByText("获取图片列表失败：请求过于频繁，请稍后再试")).toBeInTheDocument();
 
     answer = "list";
     await user.click(screen.getByRole("button", { name: "重试" }));
@@ -105,7 +105,7 @@ describe("ImageBedPage", () => {
 
     await screen.findByTestId("empty-state");
     expect(screen.getByText("暂无图片，上传第一张吧")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "图片外链中心" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "图片外链" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "图片搜索" })).toHaveAttribute("placeholder", "搜索文件名 / 路径 / 相册");
     expect(screen.getAllByRole("link", { name: /图片工作区/ })[0]).toHaveAttribute("href", "/media?type=image");
     await user.click(screen.getByRole("button", { name: "从云盘发布" }));

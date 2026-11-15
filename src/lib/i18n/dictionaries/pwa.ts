@@ -20,7 +20,7 @@ export const zh: Record<string, string> = {
 	"pwa.status.offlineTitle": "当前处于离线模式",
 	"pwa.status.online": "网络已恢复。",
 	"pwa.update.available": "新版本可用",
-	"pwa.update.description": "页面已更新,点击刷新以加载最新内容。",
+	"pwa.update.description": "页面已更新，点击刷新以加载最新内容。",
 	"pwa.update.dismiss": "稍后",
 	"pwa.update.refresh": "立即刷新",
 };

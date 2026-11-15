@@ -53,7 +53,7 @@ export function StorageNodeDeleteButton({
 				loading={pending}
 				disabled={pending}
 			>
-				{t("common.confirm")}
+				{t("common.confirmDelete")}
 			</ActionButton>
 			<ActionButton variant="secondary"
 				disabled={pending}

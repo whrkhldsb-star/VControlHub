@@ -17,6 +17,7 @@ import {
   updateScheduledTask,
 } from "@/lib/scheduled-task/service";
 import { describeCron } from "@/lib/scheduled-task/describe-cron";
+import { localizeStoredText } from "@/lib/i18n/stored-sentences";
 
 // The limits of the command request each run creates (createCommandSchema): a reason over 500 or a command over
 // 10,000 characters was accepted here and failed at every run. The title ("Scheduled task retry: <name>") is cut
@@ -112,7 +113,7 @@ export async function GET(request: Request) {
         serverIds: task.serverIds,
         lastRunAt: task.lastRunAt?.toISOString() ?? null,
         nextRunAt: task.nextRunAt?.toISOString() ?? null,
-        lastResult: task.lastResult,
+        lastResult: localizeStoredText(task.lastResult, locale),
         runCount: task.runCount,
         createdAt: task.createdAt.toISOString(),
         creator: task.creator,

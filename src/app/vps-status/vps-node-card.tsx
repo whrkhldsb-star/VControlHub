@@ -6,6 +6,8 @@
  */
 
 import { formatBytes } from "@/lib/format/bytes";
+import { ArrowDown, ArrowUp } from "@/components/icons";
+import { nodeErrorText } from "./node-error";
 import { formatShortDate, formatShortTime } from "@/lib/datetime/format";
 
 import {
@@ -191,7 +193,10 @@ export function VpsNodeCard({
 				<div className="col-span-2 flex justify-between gap-2 border-t border-[var(--border-subtle)] pt-2">
 					<span className="text-[var(--text-muted)]">{t("vpsStatusPage.metric.monthTraffic")}</span>
 					<span className="text-right font-mono tabular-nums text-[var(--text-secondary)]">
-						↓{formatBytes(server.monthlyRxBytes)} · ↑{formatBytes(server.monthlyTxBytes)}
+						<span className="inline-flex items-center gap-2">
+							<span className="inline-flex items-center gap-0.5" title={t("vpsStatusPage.metric.netIn")}><ArrowDown size={12} aria-hidden /><span className="sr-only">{t("vpsStatusPage.metric.netIn")}</span>{formatBytes(server.monthlyRxBytes)}</span>
+							<span className="inline-flex items-center gap-0.5" title={t("vpsStatusPage.metric.netOut")}><ArrowUp size={12} aria-hidden /><span className="sr-only">{t("vpsStatusPage.metric.netOut")}</span>{formatBytes(server.monthlyTxBytes)}</span>
+						</span>
 						{server.monthlyTrafficSince ? (
 							<span className="block text-xs text-[var(--text-muted)]">
 								{t("vpsStatusPage.metric.monthTrafficSince", { time: `${formatShortDate(server.monthlyTrafficSince, locale)} ${formatShortTime(server.monthlyTrafficSince, locale)}` })}
@@ -203,7 +208,7 @@ export function VpsNodeCard({
 
 			{server.error ? (
 				<p className="border-t border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-2 text-xs text-[var(--danger)]">
-					{server.error}
+					{nodeErrorText(server, t)}
 				</p>
 			) : null}
 

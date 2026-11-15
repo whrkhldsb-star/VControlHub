@@ -93,7 +93,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
           if (!data.ok) {
             throw new Error(
               (data.issues && data.issues.length > 0
-                ? data.issues.join("; ")
+                ? data.issues.join(t("common.sentenceSeparator"))
                 : t("backupsPage.migration.validateFail")) as string,
             );
           }

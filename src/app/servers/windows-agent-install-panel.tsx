@@ -6,7 +6,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { AGENT_VERSION, isAgentOutdated } from "@/lib/server/agent-version";
+import { WINDOWS_AGENT_VERSION, isAgentOutdated } from "@/lib/server/agent-version";
 import {
   getWindowsAgentInstallCommandAction,
 } from "./actions";
@@ -43,7 +43,7 @@ export function WindowsAgentInstallPanel({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const confirmedRef = useRef(false);
-  const outdated = isAgentOutdated(agentVersion);
+  const outdated = isAgentOutdated(agentVersion, "windows");
 
   return (
     <div data-inset className="mt-4 space-y-2 p-3">
@@ -69,7 +69,7 @@ export function WindowsAgentInstallPanel({
 
       {outdated ? (
         <p className="text-xs text-[var(--warning)]">
-          {t("serversPage.agent.outdated", { version: agentVersion ?? "", latest: AGENT_VERSION })} {t("serversPage.windows.agentUpgradeHint", { latest: AGENT_VERSION })}
+          {t("serversPage.agent.outdated", { version: agentVersion ?? "", latest: WINDOWS_AGENT_VERSION })} {t("serversPage.windows.agentUpgradeHint", { latest: WINDOWS_AGENT_VERSION })}
         </p>
       ) : null}
 

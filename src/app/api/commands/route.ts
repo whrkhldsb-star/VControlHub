@@ -29,7 +29,12 @@ export async function GET(request: Request) {
   // The stale-RUNNING sweep belongs to the maintenance worker (A6-08): running
   // it on every list load made each refresh of the approval page a write path.
   return withApiRoute(request, { permission: "command:read" }, async (ctx) => {
-    return NextResponse.json({ requests: await listCommandRequests(ctx.session) });
+    // The approvals page shows a command's text to reviewers and to whoever submitted it; this list gave every
+    // reader all of them. Someone else's text is left out here too.
+    const canApprove = sessionHasPermission(ctx.session, "command:approve");
+    const requests = (await listCommandRequests(ctx.session)).map((item) =>
+      canApprove || item.requesterId === ctx.session.userId ? item : { ...item, command: "", commandHidden: true });
+    return NextResponse.json({ requests });
   });
 }
 
@@ -68,7 +73,8 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   return withApiRoute(
     request,
-    { permission: "command:execute", rateLimit: COMMAND_LIMIT, bodySchema: cancelCommandRequestBodySchema },
+    // A submitter withdraws their own pending request; cancelCommandRequest decides what each may stop.
+    { permissions: ["command:execute", "command:create"], rateLimit: COMMAND_LIMIT, bodySchema: cancelCommandRequestBodySchema },
     async ({ session, body }) => {
       const commandRequestId = body.commandRequestId ?? body.id!;
       const command = await cancelCommandRequest({

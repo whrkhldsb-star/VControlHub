@@ -26,10 +26,13 @@ vi.mock("@/lib/job/service", async (importOriginal) => {
 });
 
 import { prisma } from "@/lib/db";
+import { oneFileAtATime } from "@/test/helpers/one-file-at-a-time";
 import { dispatchDueSchedule } from "../schedule-service";
 import { dispatchDueVpsBackupSchedules } from "../vps-backup-schedule-service";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("backup schedules survive a crash between claim and dispatch", () => {
+  // Another file's dispatch would take this file's due schedule while its crash is being checked.
+  oneFileAtATime("vps-backup-schedules");
   const prefix = `sched-crash-${randomUUID()}`;
   const due = new Date(Date.now() - 60_000);
 
@@ -49,9 +52,11 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("backup sche
     await prisma.job.deleteMany({ where: { title: { startsWith: `VPS backup: ${prefix}` } } });
     await prisma.backupRecord.deleteMany({ where: { createdBy: prefix } });
     await prisma.backupSchedule.deleteMany({ where: { createdById: prefix } });
-    await prisma.vpsBackupRecord.deleteMany({ where: { serverId: prefix } });
-    await prisma.vpsBackupSchedule.deleteMany({ where: { serverId: prefix } });
-    await prisma.server.deleteMany({ where: { id: prefix } });
+    // The retry case's server too: when that case fails before its own clean-up, its schedule stays due
+    // and the next file's dispatch takes it.
+    await prisma.vpsBackupRecord.deleteMany({ where: { serverId: { in: [prefix, `${prefix}-retry`] } } });
+    await prisma.vpsBackupSchedule.deleteMany({ where: { serverId: { in: [prefix, `${prefix}-retry`] } } });
+    await prisma.server.deleteMany({ where: { id: { in: [prefix, `${prefix}-retry`] } } });
     await prisma.user.deleteMany({ where: { id: prefix } });
     await prisma.$disconnect();
   });

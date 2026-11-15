@@ -2,6 +2,7 @@ import { generateKeyPairSync } from "node:crypto";
 import { utils } from "ssh2";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { generateEd25519KeyPair } from "@/test/helpers/ssh-keygen";
 import {
   clearUnlockedSshKeyCacheForTests,
   decryptServerPassword,
@@ -41,7 +42,8 @@ describe("SSH credential crypto helpers", () => {
 describe("decryptStoredSshKey", () => {
   const passphrase = " legacy pass ";
   const rsa = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const openssh = utils.generateKeyPairSync("ed25519", { passphrase, cipher: "aes256-cbc", rounds: 4 });
+  // ssh2's generator spoils about one ed25519 pair in 256 (see the helper); this suite failed at that rate.
+  const openssh = generateEd25519KeyPair({ passphrase, cipher: "aes256-cbc", rounds: 4 });
   const legacyKeys = [
     ["OpenSSH (bcrypt KDF)", openssh.private],
     ["encrypted PKCS#8 PEM", rsa.privateKey.export({ format: "pem", type: "pkcs8", cipher: "aes-256-cbc", passphrase }).toString()],

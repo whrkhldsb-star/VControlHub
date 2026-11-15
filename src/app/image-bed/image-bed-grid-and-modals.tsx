@@ -259,7 +259,7 @@ export function PublishFromStorageModal({
               onChange={(e) =>
                 setPublishForm({ ...publishForm, relativePath: e.target.value })
               }
-              placeholder="e.g. images/photo.png"
+              placeholder="images/photo.png"
               className={UI_INPUT}
             />
           </div>

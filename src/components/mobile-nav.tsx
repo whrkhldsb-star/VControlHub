@@ -32,7 +32,8 @@ export function MobileNav({
 
 	const tabClass = (active: boolean) =>
 		cn(
-			"flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 transition",
+			// Icons in one row even when a label takes two lines.
+			"flex min-h-12 min-w-0 flex-col items-center justify-start gap-0.5 rounded-lg px-0.5 pb-1 pt-1.5 transition",
 			active ? "text-[var(--accent)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
 		);
 
@@ -43,7 +44,7 @@ export function MobileNav({
 			className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border)] bg-[var(--topbar-bg)] px-2 pb-[calc(0.25rem+env(safe-area-inset-bottom))] pt-1 backdrop-blur-md lg:hidden"
 		>
 			<div
-				className="grid w-full items-center gap-1"
+				className="grid w-full items-stretch gap-1"
 				style={{ gridTemplateColumns: `repeat(${visibleTabs.length + 1}, minmax(0, 1fr))` }}
 			>
 				{visibleTabs.map((tab) => {
@@ -54,7 +55,8 @@ export function MobileNav({
 					return (
 						<Link key={tab.href} href={tab.href} aria-current={active ? "page" : undefined} className={tabClass(active)}>
 							<span className="[&>svg]:h-5 [&>svg]:w-5">{tab.icon}</span>
-							<span className="max-w-full truncate text-[11px] leading-tight">{label}</span>
+							{/* Two lines at most, broken at a space ("Task / Center"); smaller on the narrowest phones. */}
+							<span className="line-clamp-2 max-w-full text-center text-[11px] leading-tight max-[340px]:text-[10px]">{label}</span>
 						</Link>
 					);
 				})}

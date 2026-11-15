@@ -532,6 +532,7 @@ export async function exportPlaybooks(
 }
 
 export async function exportAlertRules(
+  mode: ExportMode,
   scope: ExportScope,
   teamId: string | null,
 ) {
@@ -551,7 +552,8 @@ export async function exportAlertRules(
     serverIds: r.serverIds,
     notifyChannels: r.notifyChannels,
     playbookIds: r.playbookIds,
-    webhookUrl: r.webhookUrl,
+    // A webhook address usually carries its token: like passwords and keys, only the full export holds it.
+    webhookUrl: mode === "full" ? r.webhookUrl : null,
     cooldownMinutes: r.cooldownMinutes,
     silenceWindows: r.silenceWindows,
     escalationMinutes: r.escalationMinutes,

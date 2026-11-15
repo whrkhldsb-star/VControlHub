@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { cn } from "@/lib/ui/cn";
+import { X } from "@/components/icons";
 import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { browserT, pageLocale } from "@/lib/i18n/browser-translations";
 import { Children, cloneElement, isValidElement, Fragment } from "react";
@@ -611,7 +612,7 @@ export function Notice({
 			</div>
 			{action || onDismiss ? <div className="flex shrink-0 items-center gap-2">
 				{action ? <button type="button" onClick={action.onClick} disabled={action.disabled} className="font-semibold underline underline-offset-2 disabled:opacity-50">{action.label}</button> : null}
-				{onDismiss ? <IconButton label={dismissLabel ?? browserT("common.close", pageLocale())} onClick={onDismiss} className="h-7 w-7">×</IconButton> : null}
+				{onDismiss ? <IconButton label={dismissLabel ?? browserT("common.close", pageLocale())} onClick={onDismiss} className="h-7 w-7"><X size={14} aria-hidden /></IconButton> : null}
 			</div> : null}
 		</div>
 	);

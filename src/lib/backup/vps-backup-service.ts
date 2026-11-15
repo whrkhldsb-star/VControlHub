@@ -366,7 +366,7 @@ export async function runVpsBackupRecord(
     const execResult = await execRemoteCommand({
       ...sshParams,
       command: backupCommand,
-      timeout: 600_000, // 10 min for large backups
+      timeout: config.backup.vpsCommandTimeoutMs, // VPS_BACKUP_COMMAND_TIMEOUT_MINUTES, 60 by default (was 10)
     });
 
     // exitCode null = SSH connection / transport failure (client resolves null on error).
@@ -615,7 +615,7 @@ export async function abandonStaleRunningVpsBackupRecords(input?: {
   reason?: string;
   limit?: number;
 }) {
-  const olderThanMs = input?.olderThanMs ?? 45 * 60 * 1000;
+  const olderThanMs = input?.olderThanMs ?? config.backup.vpsStaleRunningAfterMs;
   const reason = (
     input?.reason ?? "Stale RUNNING VPS backup abandoned after worker timeout"
   ).slice(0, 500);

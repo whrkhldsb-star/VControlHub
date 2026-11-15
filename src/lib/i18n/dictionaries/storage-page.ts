@@ -34,7 +34,7 @@ export const zh: Record<string, string> = {
 	"storagePage.list.latencyMs": "{latency} 毫秒",
 
 	"storagePage.list.registeredFiles": "已注册 {count} 个文件",
-	"storagePage.list.checking": "检测中...",
+	"storagePage.list.checking": "检测中…",
 	"storagePage.list.checkNow": "立即检测",
 	"storagePage.list.checkFailed": "健康检测失败",
 
@@ -79,7 +79,7 @@ export const zh: Record<string, string> = {
 	"storagePage.action.updateNodeFailed": "更新存储节点失败",
 	"storagePage.action.deleteNodeSuccess": "存储节点已删除。",
 	"storagePage.action.deleteNodeFailed": "删除存储节点失败",
-	"storagePage.delete.confirmNode": "确认删除「{name}」？",
+	"storagePage.delete.confirmNode": "确认删除“{name}”？",
 
 
 	"storagePage.form.createTitle": "新增存储节点",
@@ -105,7 +105,7 @@ export const zh: Record<string, string> = {
 	"storagePage.form.optionNotBound": "不绑定",
 	"storagePage.form.submitCreate": "创建节点",
 	"storagePage.form.submitEdit": "保存修改",
-	"storagePage.form.submitPending": "提交中...",
+	"storagePage.form.submitPending": "提交中…",
 	"storagePage.form.basePathPlaceholder": "/srv/storage 或 /data/media",
 	"storagePage.form.hostPlaceholder": "203.0.113.20",
 	"storagePage.form.publicBaseUrlPlaceholder": "https://cdn.example.com/media",
@@ -123,7 +123,7 @@ export const en: Record<string, string> = {
 	"storagePage.form.webdavSecretHint": "Leave secrets blank to keep them when editing. Changing endpoint, account or authentication requires a new secret.",
 	"storagePage.list.empty": "No storage nodes yet.",
 	"storagePage.nodes.title": "Storage nodes",
-	"storagePage.nodes.summary": "{total} node(s) · Local {local} · SFTP {sftp}",
+	"storagePage.nodes.summary": "{total} {total|node|nodes} · Local {local} · SFTP {sftp}",
 
 	"storagePage.list.health": "Healthy",
 
@@ -143,8 +143,8 @@ export const en: Record<string, string> = {
 	"storagePage.list.lastChecked": "Last checked",
 	"storagePage.list.latencyMs": "{latency} ms",
 
-	"storagePage.list.registeredFiles": "{count} registered files",
-	"storagePage.list.checking": "Checking...",
+	"storagePage.list.registeredFiles": "{count} registered {count|file|files}",
+	"storagePage.list.checking": "Checking…",
 	"storagePage.list.checkNow": "Check now",
 	"storagePage.list.checkFailed": "Health check failed",
 
@@ -178,7 +178,7 @@ export const en: Record<string, string> = {
 	"storagePage.action.fileRenamed": "Renamed to {name}",
 	"storagePage.action.fileRenameFailed": "Failed to rename file entry",
 	"storagePage.action.renameFailed": "Rename failed",
-	"storagePage.action.liveEntriesUnderRecycledDirectory": "{count} live files or folders still sit under this directory; deleting it for good would remove them from disk too. Move or delete them first, or restore the directory.",
+	"storagePage.action.liveEntriesUnderRecycledDirectory": "{count} live {count|file or folder still sits|files or folders still sit} under this directory; deleting it for good would remove {count|it|them} from disk too. Move or delete {count|it|them} first, or restore the directory.",
 	"storagePage.action.renameRollbackFailed": "The index rename failed and the disk rollback failed too: {error}; rollback: {rollback}. Check the directory by hand.",
 	"storagePage.action.indexWriteFailed": "the file index could not be written",
 	"storagePage.action.pathAlreadyExists": "Path /{path} already exists. Please use a different name",
@@ -215,7 +215,7 @@ export const en: Record<string, string> = {
 	"storagePage.form.optionNotBound": "Not bound",
 	"storagePage.form.submitCreate": "Create node",
 	"storagePage.form.submitEdit": "Save changes",
-	"storagePage.form.submitPending": "Submitting...",
+	"storagePage.form.submitPending": "Submitting…",
 	"storagePage.form.basePathPlaceholder": "/srv/storage or /data/media",
 	"storagePage.form.hostPlaceholder": "203.0.113.20",
 	"storagePage.form.publicBaseUrlPlaceholder": "https://cdn.example.com/media",

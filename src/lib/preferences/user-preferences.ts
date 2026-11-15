@@ -7,7 +7,13 @@ export type DefaultPageOption = (typeof DEFAULT_PAGE_OPTIONS)[number];
 
 export type UserPreferences = {
   defaultPage: DefaultPageOption;
+  /** The visible dashboard widgets, in order. */
   dashboardWidgets: DashboardWidgetId[];
+  /**
+   * The widgets that existed when the layout was saved: those of them not in `dashboardWidgets` are the ones
+   * the person hid. A widget added later is in neither list and is shown, at the end.
+   */
+  dashboardWidgetsKnown: DashboardWidgetId[];
   notificationsEnabled: boolean;
   notificationSound: boolean;
   autoRefreshInterval: number;
@@ -18,6 +24,12 @@ export type UserPreferences = {
 };
 
 export const DASHBOARD_WIDGET_IDS = ["server-status", "quick-links", "analytics", "audit-log"] as const;
+/**
+ * The widgets that existed before layouts recorded which widgets they knew. A layout saved then is the list
+ * of the visible ones only, so a widget added later counted as hidden for everyone who had saved a layout.
+ * Such a layout is read as knowing these. Do not extend this list when adding a widget.
+ */
+const DASHBOARD_WIDGETS_BEFORE_TRACKING: readonly DashboardWidgetId[] = ["server-status", "quick-links", "analytics", "audit-log"];
 export const DEFAULT_PAGE_OPTIONS = ["/", "/servers", "/files", "/docker", "/monitoring", "/downloads", "/ai"] as const;
 
 /**
@@ -51,6 +63,7 @@ export const DASHBOARD_WIDGET_LABELS: Record<DashboardWidgetId, string> = {
 export const defaultUserPreferences: UserPreferences = {
   defaultPage: "/",
   dashboardWidgets: [...DASHBOARD_WIDGET_IDS],
+  dashboardWidgetsKnown: [...DASHBOARD_WIDGET_IDS],
   notificationsEnabled: true,
   notificationSound: true,
   autoRefreshInterval: DEFAULT_REFRESH_INTERVAL_SECONDS,
@@ -69,18 +82,28 @@ export function normalizeDefaultPage(value: unknown): DefaultPageOption {
   return (DEFAULT_PAGE_OPTIONS as readonly string[]).includes(trimmed) ? (trimmed as DefaultPageOption) : defaultUserPreferences.defaultPage;
 }
 
-export function normalizeDashboardWidgets(value: unknown): DashboardWidgetId[] {
-  if (!Array.isArray(value)) return defaultUserPreferences.dashboardWidgets;
+function widgetIds(value: unknown[]): DashboardWidgetId[] {
   const allowed = new Set<string>(DASHBOARD_WIDGET_IDS);
-  const normalized = value.filter((item): item is DashboardWidgetId => typeof item === "string" && allowed.has(item));
-  return Array.from(new Set(normalized));
+  return Array.from(new Set(value.filter((item): item is DashboardWidgetId => typeof item === "string" && allowed.has(item))));
+}
+
+/**
+ * The visible widgets of a stored layout, with every widget added since it was saved shown at the end. After
+ * this every widget is known: what is not visible was hidden by the person.
+ */
+function normalizeDashboardLayout(visibleValue: unknown, knownValue: unknown): Pick<UserPreferences, "dashboardWidgets" | "dashboardWidgetsKnown"> {
+  if (!Array.isArray(visibleValue)) return { dashboardWidgets: [...DASHBOARD_WIDGET_IDS], dashboardWidgetsKnown: [...DASHBOARD_WIDGET_IDS] };
+  const visible = widgetIds(visibleValue);
+  const known = new Set<DashboardWidgetId>([...(Array.isArray(knownValue) ? widgetIds(knownValue) : DASHBOARD_WIDGETS_BEFORE_TRACKING), ...visible]);
+  const added = DASHBOARD_WIDGET_IDS.filter((id) => !known.has(id));
+  return { dashboardWidgets: [...visible, ...added], dashboardWidgetsKnown: [...DASHBOARD_WIDGET_IDS] };
 }
 
 export function normalizeUserPreferences(value: unknown): UserPreferences {
   const source = isRecord(value) ? value : {};
   return {
     defaultPage: normalizeDefaultPage(source.defaultPage),
-    dashboardWidgets: normalizeDashboardWidgets(source.dashboardWidgets),
+    ...normalizeDashboardLayout(source.dashboardWidgets, source.dashboardWidgetsKnown),
     notificationsEnabled: typeof source.notificationsEnabled === "boolean" ? source.notificationsEnabled : defaultUserPreferences.notificationsEnabled,
     notificationSound: typeof source.notificationSound === "boolean" ? source.notificationSound : defaultUserPreferences.notificationSound,
     autoRefreshInterval: normalizeRefreshIntervalSeconds(source.autoRefreshInterval, defaultUserPreferences.autoRefreshInterval),

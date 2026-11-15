@@ -482,7 +482,7 @@ describe("evaluateAlerts", () => {
 
 		expect(sendAlertEmailMock).toHaveBeenCalledWith(expect.objectContaining({
 			title: "告警：Prod CPU 使用率",
-			message: "CPU email：CPU 使用率 gte 80（当前 95）",
+			message: "CPU email：CPU 使用率 ≥ 80（当前 95）",
 			contextLines: expect.arrayContaining([
 				"Server: Prod",
 				"Metric: cpu_usage",
@@ -525,7 +525,7 @@ describe("evaluateAlerts", () => {
 
 		expect(sendAlertTelegramMock).toHaveBeenCalledWith(expect.objectContaining({
 			title: "告警：Prod CPU 使用率",
-			message: "CPU telegram：CPU 使用率 gte 80（当前 95）",
+			message: "CPU telegram：CPU 使用率 ≥ 80（当前 95）",
 			contextLines: expect.arrayContaining(["Server: Prod", "Current: 95", "Metric: cpu_usage"]),
 		}));
 		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({

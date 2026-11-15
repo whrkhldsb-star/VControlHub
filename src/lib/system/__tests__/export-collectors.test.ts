@@ -45,6 +45,7 @@ const {
   exportAnnouncements,
   exportQuickServices,
   exportStorageNodes,
+  exportAlertRules,
 } = await import("../export-collectors");
 
 function model(name: (typeof models)[number]) {
@@ -207,5 +208,16 @@ describe("team scope leaves platform-wide tables out entirely", () => {
     expect(model("storageNode").findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { teamId: "team_a" } }),
     );
+  });
+});
+
+describe("alert rule webhooks", () => {
+  // A webhook address usually carries its token; the standard export leaves it out like passwords and keys.
+  it("keeps the address only in the full export", async () => {
+    const rule = { id: "r1", name: "CPU", metric: "cpu", operator: "gt", threshold: 90, durationSeconds: 60, serverIds: [], notifyChannels: ["webhook"], playbookIds: [], webhookUrl: "https://hooks.example/T0K3N", cooldownMinutes: 5, silenceWindows: [], escalationMinutes: 30, onCallUserIds: [], enabled: true, teamId: null, createdAt: new Date("2026-01-01T00:00:00Z") };
+    model("alertRule").findMany.mockResolvedValue([rule]);
+    expect((await exportAlertRules("standard", "global", null))[0]).toMatchObject({ id: "r1", webhookUrl: null });
+    model("alertRule").findMany.mockResolvedValue([rule]);
+    expect((await exportAlertRules("full", "global", null))[0]).toMatchObject({ webhookUrl: "https://hooks.example/T0K3N" });
   });
 });

@@ -12,7 +12,7 @@ export const NETWORK_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 3003,
 		// The image listens on 3001; 3003 is only the host port.
 		internalPort: 3001,
-		path: "/uptime-kuma/",
+		path: "/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/uptime-kuma/data", container: "/app/data" }],
 	},
@@ -25,7 +25,7 @@ export const NETWORK_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		image: "adguard/adguardhome:latest",
 		defaultPort: 3004,
 		internalPort: 3000,
-		path: "/adguard/",
+		path: "/",
 		envJson: {},
 		volumesJson: [
 			{ host: "/opt/adguardhome/work", container: "/opt/adguardhome/work" },
@@ -58,7 +58,7 @@ export const NETWORK_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 3005,
 		// The image listens on 80; 3005 is only the host port.
 		internalPort: 80,
-		path: "/speedtest/",
+		path: "/",
 		envJson: { PUID: "0", PGID: "0" },
 		volumesJson: [{ host: "/opt/speedtest/config", container: "/config" }],
 	},
@@ -72,7 +72,7 @@ export const NETWORK_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 3006,
 		// The image listens on 8090; 3006 is only the host port.
 		internalPort: 8090,
-		path: "/beszel/",
+		path: "/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/beszel/data", container: "/data" }],
 	},
@@ -84,7 +84,7 @@ export const NETWORK_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		description: "Webpage change monitoring, auto-detects page content changes and notifies",
 		image: "dgtlmoon/changedetection.io:latest",
 		defaultPort: 5000,
-		path: "/changedetection/",
+		path: "/",
 		envJson: {},
 		volumesJson: [{ host: "/opt/changedetection/data", container: "/datastore" }],
 	},

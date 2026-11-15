@@ -19,6 +19,8 @@ export type SmtpConfig = {
 	user: string;
 	pass: string;
 	from: string;
+	/** Refuse to send without STARTTLS on ports other than 465 (setting "smtp.requireTls"). */
+	requireTls?: boolean;
 };
 
 export type EmailDeliveryResult = {
@@ -58,6 +60,7 @@ export async function getSmtpConfig(preloaded?: Awaited<ReturnType<typeof getAll
 		user: settings["smtp.user"]?.trim() ?? "",
 		pass: settings["smtp.pass"] ?? "",
 		from: settings["smtp.from"]?.trim() ?? "",
+		requireTls: isTruthySetting(settings["smtp.requireTls"]),
 	};
 }
 
@@ -79,6 +82,9 @@ export async function sendEmail(input: EmailDeliveryInput, preset?: SmtpConfig):
 			host: config.host,
 			port: config.port,
 			secure: config.port === 465,
+			// Other ports use STARTTLS when the server offers it. "Require encryption" refuses to send in the clear;
+			// off by default, since an internal relay without STARTTLS would otherwise stop delivering alerts.
+			requireTLS: config.port !== 465 && Boolean(config.requireTls),
 			auth: config.user || config.pass ? { user: config.user, pass: config.pass } : undefined,
 			connectionTimeout: 10_000,
 			greetingTimeout: 10_000,

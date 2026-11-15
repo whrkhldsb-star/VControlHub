@@ -13,6 +13,29 @@ import { FilesSubpageNav } from "./files-subpage-nav";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * What a reader may see of a storage node. The node dialog sent everyone who can read files the node's host,
+ * port, account, root path and WebDAV address, while `/api/storage/nodes` already gave them a trimmed list:
+ * they get the name, type, health and file count; the connection stays with whoever manages nodes.
+ */
+function withoutConnectionDetails<Node extends { basePath: string; directAccess: { mode: string; description: string; href: string | null } }>(node: Node) {
+  return {
+    ...node,
+    basePath: "",
+    host: null,
+    port: null,
+    username: null,
+    webdavConfig: undefined,
+    publicBaseUrl: null,
+    server: undefined,
+    connectionSummary: "",
+    // Health errors quote the address that failed ("connect ECONNREFUSED 10.0.0.5:22").
+    lastHealthError: null,
+    directAccess: { ...node.directAccess, href: null },
+    connectionHidden: true,
+  };
+}
+
 type FilesPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
@@ -64,7 +87,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         description={t("filesPage.description", locale)}
       >
         <StorageNodeManager
-          nodes={nodes}
+          nodes={canManageNodes ? nodes : nodes.map(withoutConnectionDetails)}
           servers={formOptions.servers}
           canManageNodes={canManageNodes}
         />

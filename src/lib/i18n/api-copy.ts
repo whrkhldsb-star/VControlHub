@@ -57,7 +57,13 @@ export function localizeApiCopy(text: string, locale: Locale = localeStore.getSt
   const exact = reverse.get(text) as keyof typeof en | undefined;
   if (exact) return locale === "zh" ? interpolate((zh as Record<string, string>)[exact] ?? text) : text;
   for (const [key, template] of templateEntries) {
-    const parts = template.split(/(\{v\d+\})/g).map((part) => part.startsWith("{v") ? "(.+?)" : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    // A placeholder captures its value; a plural form ("{v0|file|files}") accepts either of its words.
+    const escape = (part: string) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = template.split(/(\{v\d+\}|\{v\d+\|[^{}|]*\|[^{}|]*\})/g).map((part) => {
+      if (/^\{v\d+\}$/.test(part)) return "(.+?)";
+      const form = /^\{v\d+\|([^{}|]*)\|([^{}|]*)\}$/.exec(part);
+      return form ? `(?:${escape(form[1]!)}|${escape(form[2]!)})` : escape(part);
+    });
     const match = text.match(new RegExp(`^${parts.join("")}$`));
     if (!match) continue;
     if (locale !== "zh") return text;
